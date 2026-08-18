@@ -1,0 +1,10 @@
+[project]
+name = "weft-cli"
+version = "0.0.0"
+description = "The Weft command line: the only driving adapter, and the only asyncio.run."
+requires-python = ">=3.12"
+dependencies = ["weft-kernel"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

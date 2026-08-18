@@ -1,0 +1,22 @@
+# The reference checkout, reachable for reading and lifting only.
+# Never a build input: see CLAUDE.md and docs/README.md.
+/reference
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+dist/
+build/
+*.egg-info/
+
+# Tooling
+.pytest_cache/
+.ruff_cache/
+.pyright/
+uv.lock
+
+# Claude Code local state
+.claude/settings.local.json
+
+.DS_Store

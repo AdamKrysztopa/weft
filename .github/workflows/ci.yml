@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The canonical gate, invoked as one task rather than as a list of steps.
+  #
+  # This is deliberate, and fitness function 0 depends on it: the checks that run
+  # in CI must be exactly the checks `poe ci-checks` runs locally. A workflow that
+  # enumerates its own steps can drift from the composite, which is how the reference
+  # ended up with an architecture checker that was in the repository and in nobody's
+  # gate.
+  gate:
+    name: ci-checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Sync
+        run: uv sync --frozen
+
+      - name: Run the canonical gate
+        run: uv run poe ci-checks
+
+  # Fitness function 1, primary half. Separate because it needs a clean environment
+  # this repository's own virtualenv cannot provide: the kernel is installed alone,
+  # and if anything it does not ship is reachable, the import fails.
+  kernel-isolation:
+    name: kernel imports standalone
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Install weft-kernel alone and import it
+        run: uv run --no-project python scripts/check_kernel_isolated.py

@@ -1,0 +1,10 @@
+[project]
+name = "weft-extract"
+version = "0.0.0"
+description = "First-party extraction pack. Publishes the Extractor contract."
+requires-python = ">=3.12"
+dependencies = ["weft-kernel"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

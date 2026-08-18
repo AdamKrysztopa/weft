@@ -1,0 +1,10 @@
+[project]
+name = "weft-canary"
+version = "0.0.0"
+description = "Test-only distribution for fitness function 8. Never published."
+requires-python = ">=3.12"
+dependencies = ["weft-kernel"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

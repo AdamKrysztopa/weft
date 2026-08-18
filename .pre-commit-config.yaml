@@ -1,0 +1,22 @@
+# Fast, local hygiene only. The architecture checks deliberately do NOT live here:
+# fitness function 0 requires them to run inside `poe ci-checks`, and a check that
+# also runs in pre-commit invites the belief that a `--no-verify` push was checked.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+      - id: trailing-whitespace
+        exclude: \.md$
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.3
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format

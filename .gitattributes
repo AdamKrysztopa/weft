@@ -1,0 +1,11 @@
+* text=auto eol=lf
+
+*.py     text diff=python
+*.md     text diff=markdown
+*.toml   text
+*.yml    text
+*.yaml   text
+
+# Keep the reference audit out of language statistics: it is documentation, not this
+# project's source, and it is large enough to dominate the numbers.
+docs/reference/** linguist-documentation

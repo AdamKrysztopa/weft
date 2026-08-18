@@ -1,0 +1,66 @@
+[tool.uv.workspace]
+members = ["packages/*", "testing/*"]
+
+[dependency-groups]
+dev = [
+    "poethepoet>=0.30",
+    "pyright>=1.1.390",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.8",
+]
+
+[tool.uv.sources]
+weft-kernel = { workspace = true }
+weft-cli = { workspace = true }
+weft-extract = { workspace = true }
+weft-chunk = { workspace = true }
+weft-store = { workspace = true }
+
+# ---------------------------------------------------------------------------
+# Tasks
+#
+# Fitness function 0 — "the gate must be in the gate" — asserts that every
+# architecture check below is reachable from `ci-checks`. The composite is
+# therefore load-bearing, not a convenience: see docs/01-high-level-plan.md.
+# ---------------------------------------------------------------------------
+[tool.poe.tasks]
+fmt = "ruff format ."
+lint = "ruff check ."
+types = "pyright"
+arch = "pytest tests/architecture -q"
+test = "pytest tests -q"
+
+[tool.poe.tasks.ci-no-tests]
+sequence = ["fmt", "lint", "types", "arch"]
+help = "Fast baseline: format, lint, types, architecture. No unit tests."
+
+[tool.poe.tasks.ci-checks]
+sequence = ["fmt", "lint", "types", "arch", "test"]
+help = "The canonical full gate. Every architecture check must be reachable from here."
+
+[tool.poe.tasks.kernel-isolated]
+help = "Fitness function 1, primary half: install weft-kernel alone and import it."
+cmd = "python scripts/check_kernel_isolated.py"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["packages/*/src", "testing/*/src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "C90", "S", "PTH", "RET", "SIM", "TID"]
+ignore = ["S101"]  # assert is the point in tests
+
+[tool.ruff.lint.mccabe]
+max-complexity = 12
+
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "strict"
+include = ["packages", "testing", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "--strict-markers"

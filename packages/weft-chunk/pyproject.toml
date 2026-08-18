@@ -1,0 +1,10 @@
+[project]
+name = "weft-chunk"
+version = "0.0.0"
+description = "First-party chunking pack. Publishes the Chunker contract."
+requires-python = ">=3.12"
+dependencies = ["weft-kernel"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

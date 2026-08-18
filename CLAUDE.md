@@ -1,0 +1,126 @@
+# Weft
+
+**Read `docs/README.md` first. It is the single source of truth and it routes everything else** —
+project status, which phase is live, which decisions are settled, and which document owns what.
+Do not reconstruct project state from this file or from the code; that file holds it.
+
+Weft is a RAG engine built as a **microkernel**: a small kernel that knows nothing about PDFs,
+chunking, embeddings or graphs, where every capability is a plugin discovered through Python entry
+points, pipelines are data derivable from other pipelines, and built-ins are held to the same public
+contract as anything a third party writes.
+
+`a prior project` is a **parts reference, not a baseline**. It is a sibling checkout reached through the
+untracked `reference` symlink, and it is used for one thing: lifting code, per `docs/04-reference-inventory.md`.
+Nothing in the build, tests or packaging may read through that symlink. The finished audit of the
+reference lives here, in `docs/reference/`, and is frozen.
+
+---
+
+## Where things are
+
+```text
+weft/
+├── docs/                  # the plan. README.md routes it; reference/ is the frozen audit
+├── packages/              # the shipped distributions
+│   ├── weft-kernel/       # registry, discovery, pipeline model, payload types
+│   ├── weft-cli/          # the only driving adapter, and the only asyncio.run
+│   ├── weft-extract/      # first-party pack: publishes the Extractor contract
+│   ├── weft-chunk/        # first-party pack: publishes the Chunker contract
+│   └── weft-store/        # first-party pack: publishes the Store contract family
+├── testing/weft-canary/   # test-only distribution for fitness function 8
+├── tests/architecture/    # the fitness functions
+└── scripts/
+```
+
+**One repository, several distributions.** This is not bookkeeping: a kernel that is its own wheel is
+checked by installing it alone and importing it, which is what makes fitness function 1 a fact rather
+than a script.
+
+---
+
+## The rules that are already settled
+
+These came out of grilling sessions G1 and G3–G6. They are not preferences; each is recorded in
+`docs/` with the argument that produced it, and changing one means reopening its gate.
+
+- **The kernel names no capability.** No `Extractor`, `Chunker`, `Store`, `Retriever` or `LLM` in
+  `weft-kernel` — those contracts ship from the packs that own them. *If you cannot describe the
+  kernel without naming a capability, it is too big.*
+- **The kernel depends on `pydantic` and `opentelemetry-api`. Nothing else.**
+- **Async only, no exceptions.** Every contract method is `async def`. No sync protocol, no sync
+  facade, no declared colour. `asyncio.run` appears exactly **once** in the whole tree, at
+  `weft-cli`'s entry point. `CancelledError` propagates and is never swallowed.
+- **Built-ins get no shortcut.** A first-party pack registers through the same public entry point a
+  third party uses, and receives nothing extra.
+- **Cross-cutting concerns live at the registration seam**, never in a rule authors must remember.
+  Spans, error attribution, blocking-call detection, transient stripping and `flush` all attach
+  there. The reference measured this precisely: every concern its machinery applied automatically held;
+  every concern an author had to remember decayed.
+- **Return Pydantic models, never `dict[str, Any]`.** Frozen where the value is a domain object.
+- **`Enum` for string constants**, never `Literal[...]`. Native 3.12 type hints (`list[str]`,
+  `int | None`).
+- **Catch specific exceptions.** A silent fallback is worse than a failure — the reference shipped one
+  whose success and failure paths were indistinguishable, and it is in the inventory as a thing not
+  to lift.
+
+---
+
+## Quality gates
+
+```bash
+uv run poe ci-no-tests     # format, lint, types, architecture
+uv run poe ci-checks       # the canonical full gate — everything, plus tests
+uv run poe kernel-isolated # install weft-kernel alone in a clean env and import it
+```
+
+**`ci-checks` is load-bearing.** Fitness function 0 asserts that every architecture check is
+reachable from it, because the reference shipped a boundary checker that was not in its canonical task
+and therefore never ran. If you add a check, add it to the composite in the same commit.
+
+The fitness functions are specified in `docs/01-high-level-plan.md` → *Fitness functions*, and each
+test file states which one it implements and why it exists. Several have a **ratchet**: a named
+waiver constant pinned empty, so a waiver is a visible act in a diff rather than a silent edit.
+
+---
+
+## Skills in this repository
+
+Four live in `.claude/skills/`:
+
+- **`phase-step`** — build one step of the current phase from `docs/06-phase-0-build.md`. Start here
+  when writing code.
+- **`weft-qualities`** — review a change, design or phase exit against the six requirements in `01`.
+  The properties this project exists for are lost silently, one reasonable commit at a time.
+- **`reference-audit`** — what does the reference have that Weft does not yet? Separates *missed* from *not
+  due*, runs the check in reverse to catch anything that arrived from the leave-behind list, and
+  verifies the licensing ledger. Use before declaring a phase complete.
+- **`reference-lift`** — port one catalogued item correctly: verify at source, decide verbatim versus
+  rewrite-from-design, place it in the right distribution, apply the recorded corrections, and satisfy
+  the Apache-2.0 obligations if source text was copied.
+
+## Automation
+
+`.claude/settings.json` is checked in, so hooks and permissions travel with the repository.
+
+- **Python files are formatted and auto-fixed the moment they are written** (`PostToolUse`). This
+  changes nothing about what is enforced, only when you find out — a ruff nit surfacing at
+  `poe ci-checks` costs a full gate run and arrives after the reasoning is gone. Type checking and the
+  architecture checks stay in the gate, where whole-tree properties belong.
+- **Writes are refused to `docs/reference/` and to anything resolving through the `reference` symlink**
+  (`PreToolUse`). The first is a frozen snapshot the plan cites ~90 times; editing it destroys the
+  evidence rather than correcting it. The second is a *different repository*, not under version
+  control, so a write there would leave no trace.
+
+## Working here
+
+- **Decisions have gates.** Ten of them, in `docs/05-grilling-sessions.md`, each with its question,
+  the positions to attack, what to bring and what done looks like. Six are settled. If a task runs
+  into an open one, stop and say so rather than defaulting it — that is what they exist to prevent.
+- **When a session closes**, follow the Protocol section at the foot of `docs/README.md`: update the
+  decision-log row, tick the checklist, and edit the reference document that owns the content. The
+  log records *that* it was decided and *what*, never the reasoning.
+- **`docs/README.md` holds state and pointers only, never definitions.** If you find yourself
+  explaining *why* there, it belongs in `01` through `05`.
+- **Claims about the reference need evidence.** Every factual assertion in `docs/` about `a prior project`
+  carries a `path:line`, because the assessment that started this project got several of them wrong
+  and the corrections are logged. Measure before asserting.
