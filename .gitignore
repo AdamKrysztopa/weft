@@ -16,6 +16,13 @@ build/
 .pyright/
 uv.lock
 
+# Secrets. `.env` holds live provider keys; only the documented, valueless
+# example is tracked. Listed before any tooling rule so a stray `git add -A`
+# cannot reach it.
+.env
+.env.*
+!.env.example
+
 # Claude Code local state
 .claude/settings.local.json
 

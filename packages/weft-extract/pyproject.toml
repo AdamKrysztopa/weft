@@ -5,6 +5,10 @@ description = "First-party extraction pack. Publishes the Extractor contract."
 requires-python = ">=3.12"
 dependencies = ["weft-kernel"]
 
+# The one entry point a pack declares (`docs/02-extension-model.md` section 2).
+[project.entry-points."weft.packs"]
+extract = "weft_extract:register"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

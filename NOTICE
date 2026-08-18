@@ -5,43 +5,20 @@ This product is licensed under the MIT License. See the LICENSE file at the root
 of this repository.
 
 --------------------------------------------------------------------------------
-Material derived from a prior project
+Original work
 --------------------------------------------------------------------------------
 
-Weft is being built with `a prior project` as a parts reference. That project is licensed
-under the Apache License, Version 2.0, and is copyright STX Next sp. z o.o.
+**Weft contains no source text from any other codebase.** Every line here is
+written for this project, against this project's contracts.
 
-Apache-2.0 permits this reuse. It also imposes conditions that MIT does not, and
-those conditions travel with the code — they are not waived by this repository's
-licence. **A file containing code copied or adapted from `a prior project` is
-Apache-2.0 licensed material, and MIT does not apply to it.** Concretely, any
-such file must:
+This is a rule, not a description of the current state: no file may be copied or
+adapted from another project's source, and no third-party source text may be
+pasted into this repository. Where a prior system informed a design, what was
+carried across is understanding — an approach, an ordering, a measurement, a
+reason a guard exists — restated in this project's own words and implemented
+fresh. Copyright does not reach any of that, and nothing in this repository
+depends on a licence granted by anyone else.
 
-  1. Carry the Apache-2.0 header and the original copyright attribution.
-  2. Be listed in the table below, with what it derives from.
-  3. Carry a prominent notice stating that it was changed, per Apache-2.0 §4(b).
-
-A copy of the Apache License, Version 2.0 is required in this repository once the
-first such file lands, and is not present yet because no code has been lifted.
-
-Ideas, designs, architectural approaches and measurements taken from the reference
-are **not** covered by this: copyright does not protect them, and the reference study
-in `docs/reference/` is original analysis. The obligation attaches to copied
-expression — source text — and nothing else.
-
-  Derived file                          Derived from                    Status
-  ------------------------------------  ------------------------------  ------
-  (none yet)
-
-`docs/04-reference-inventory.md` records what is intended to be lifted, what is to be
-rewritten from the design, and what is to be left behind. It is a planning
-document and confers no licence; this file is the record that matters.
-
---------------------------------------------------------------------------------
-Unresolved
---------------------------------------------------------------------------------
-
-The reference is the copyright of a company. Whether the author of this repository
-may reuse that material personally, and on what terms, is a question of
-employment and contract rather than of open-source licensing, and it is not
-answered here. It should be settled before the first lifted file is committed.
+`docs/04-reference-inventory.md` records what was learned from prior work and what
+was deliberately not taken. It is a design record. Nothing in it authorises a
+copy, because copying is not permitted here at all.

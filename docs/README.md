@@ -26,20 +26,13 @@ public contract as anything a third party writes. `a prior project` is a parts r
 
 | | |
 |---|---|
-| **Phase** | Phase 0 — cleared to start |
-| **Blocked by** | Nothing. Every gate Phase 0 depends on is settled |
-| **Next action** | Build Phase 0 — the walking skeleton |
-| **Open decisions** | 4 of 10 — G0, G1, G3, G4, G5 and G6 settled, G2 and G7-G9 open, one session each in `05` |
-| **Code written** | None, deliberately |
-| **Updated** | 2026-08-15 |
+| **Phase** | Phase 1 — Pipelines as data |
+| **Blocked by** | **G2** — pipeline derivation semantics, open. Every Phase 1 task is ⚠ until it closes |
+| **Next action** | Close **G2** (`05` → G2) |
+| **Open decisions** | 5 of 11 — G0, G1, G3, G4, G5 and G6 settled; G2, G7, G8, G9 and G10 open. G0 is logged only; every other row has a session in `05` |
+| **Updated** | 2026-08-16 |
 
-**Next action in full.** G3 closed the last gate and the next action is code. **The build order is
-`06-phase-0-build.md`** — ten steps, each naming what it makes true and which fitness function it
-turns on, starting at the payload types and reaching the registration seam before anything is
-registered. Read `01` → *The kernel boundary* first, because it decides what this phase is allowed to
-write; then `02` §1 and §2, and `01` → *Runtime shape* for the store.
-
-`06` also names the **three places Phase 0 could accidentally settle G2** — where embedding happens,
+`06` names the **three places Phase 0 could accidentally settle G2** — where embedding happens,
 what a pipeline is before Phase 1, and what two packs claiming one name does — and fixes the minimal
 reversible choice for each. Those choices are not answers, and G2 is still open. The next gate after
 the build is **G2**, at the head of Phase 1.
@@ -58,14 +51,8 @@ project's position.
 - [x] **G6** Sync or async core
 - [x] **G4** Store contract and capabilities *(before store work)*
 - [x] **G3** Plugin trust model *(before discovery ships)*
-- [ ] Phase 0 build — ten steps in `06-phase-0-build.md`
-  - [x] 0. Repository, distributions, and fitness functions 0, 1, 3 wired into the canonical gate
-  - [ ] 1. Payload types · 2. Errors and registry · 3. **Registration seam** · 4. Passport
-  - [ ] 5. Discovery and the trust model *(turns on FF8(a))*
-  - [ ] 6. Linear runner · 7. The three contracts, published by packs · 8. Built-ins, embedder, pgvector
-  - [ ] 9. Minimal CLI *(turns on FF7(a), FF8(b))*
-  - [ ] 10. The independence proof, as an automated test
-- [ ] **Exit:** a plugin in a separate installed package works with zero edits to core
+- [x] Phase 0 build — eleven steps in `06-phase-0-build.md`, tracked task by task in `build-ledger.md`
+- [x] **Exit:** a plugin in a separate installed package works with zero edits to core
 
 **Phase 1 — Pipelines as data**
 
@@ -75,6 +62,7 @@ project's position.
 
 **Phase 2 — Retrieval and generation**
 
+- [ ] **Prerequisite V1–V3** — corpus, question set with ground truth, repeated baseline (`09` §4)
 - [ ] Phase 2 build *(no gate)*
 - [ ] **Exit:** the router discovers strategies from the registry, not an enum
 
@@ -95,6 +83,13 @@ project's position.
 - [ ] **G9** Contract versioning and deprecation
 - [ ] Phase 5 build
 - [ ] **Exit:** the graph pack is built by someone who never touches core
+
+**Phase 6 — Release**
+
+- [ ] **G10** Release and support policy *(after G9)*
+- [ ] Prerequisite V4–V6 complete — metric semantics, providers and cost, a persisted baseline run
+- [ ] Phase 6 build *(turns on FF10)*
+- [ ] **Exit:** a stranger installs the release from the index and reproduces the published baseline
 
 Each phase's gates, required reading, reference lifts and exit criterion are specified in
 `01-high-level-plan.md` → **Phases**. That section is the execution script; this is its state.
@@ -118,6 +113,7 @@ positions to attack, what to bring, what done looks like — lives in `05-grilli
 | **G7** | Event bus or explicit extension points | Open | — | — |
 | **G8** | Is the REPL agentic | Open | — | — |
 | **G9** | Contract versioning and deprecation | Open | — | — |
+| **G10** | Release and support policy | Open | — | — |
 
 Statuses: **Open** · **Settled** · **Reopened** — a settled decision found wrong is set back to
 Reopened with the date and reason, never quietly edited.
@@ -133,8 +129,14 @@ Reopened with the date and reason, never quietly edited.
 | `02-extension-model.md` | Contracts, who publishes them, what a plugin receives, the payload model, the store contract family, packs and discovery, **the trust model**, pack settings, pipelines as data, both driving use cases | Reference |
 | `03-cli.md` | The CLI as driving adapter, command surface, permissions **including the class every plugin command must declare**, output | Reference |
 | `04-reference-inventory.md` | What to lift from `a prior project`, what to rewrite, what to leave, where each item lands — kernel or pack — the reference's node metadata surface, **and its storage layer after G4** | Reference |
-| `05-grilling-sessions.md` | The content of all nine open decisions | Reference |
+| `05-grilling-sessions.md` | The substance of every gate session — G1 through G10 | Reference |
 | `06-phase-0-build.md` | The order of work inside Phase 0, what each step makes true, where it must not settle G2, and the scope fence | Reference — retire when Phase 0 exits |
+| `07-extension-cost.md` | The per-kind file cost of adding a capability, and fitness function 9 | Reference |
+| `08-manuals.md` | The documents Weft ships to its users, which phase writes each, and the tests that keep them honest | Reference |
+| `09-release.md` | Distribution and publishing, the user-facing version policy, the support and deprecation surface, the validation prerequisite, the production-readiness checklist, and the protocol for adjusting this plan | Reference |
+| `10-technique-catalogue.md` | Every shipped technique's origin in the literature, whether its common name is earned or borrowed, the plugin name that follows, and whether the reference's implementation is faithful to what it is named after | Reference |
+| `11-multimodal.md` | What the reference knows about PDFs, tables, figures and vision, what Weft ships as packs, and the decisions and gate questions multimodal raises | Reference |
+| `build-ledger.md` | Task-level state for every phase: what is next, what each task makes true, and the commit that closed it | **Living** — changes every task |
 | `reference/study/` | The exhaustive reference study, moved into this repository 2026-08-15 | Reference — **frozen**, never edited |
 | `reference/architecture-review-2026-08-10.md` | The assessment that motivated the rebuild | Historical — **frozen** |
 
@@ -202,9 +204,8 @@ which belongs in the document the decision changed.
 **When a phase completes.** Tick its build and exit items, and move the Status block to the next
 phase and its first open gate.
 
-**When a decision reopens.** Set the row to Reopened with the reason, un-tick every downstream
-checklist item it invalidates, and re-check the phases after it — these decisions cascade, which is
-why `05` is ordered by what each blocks rather than by number.
+How a decision is reopened, how a phase or a fitness function is added, and what a scope change
+obliges: `09-release.md` §6.
 
 **When a document is added.** Register it in the manifest with one line stating what it *owns*, and
 make sure nothing it owns is also stated here or in another document. More documents are expected;

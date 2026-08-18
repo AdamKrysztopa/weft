@@ -161,6 +161,21 @@ plugin from a pack an allow-list refused (G3). `4` stays with genuine resolution
 pack provides, or one lost to a `failed` or `partial` registration. The split is what lets a CI job
 tell *"fix the environment"* from *"fix the pipeline"*.
 
+**Score display.** A retrieval result carries `Scored.score` — a similarity, never guaranteed to fall
+in `[0, 1]` (`02` §1: "the score lives on `Scored[Node]`, not on `Node`"; nothing in that contract
+bounds the float). `weft-store`'s own pgvector implementation computes it as `1 - cosine distance`,
+which is correctly negative whenever two vectors point more away from each other than towards —
+routine with Phase 0's deterministic hash embedder, which carries no semantic meaning to make nearby
+questions land in the same half of the vector space. Ranking by it is still exactly right: higher is
+closer, first is best. Printing that raw float to a human reader with no bound and no baseline reads
+as an error rather than a working feature — `1. (score=-0.0913) …` looks broken even when it is not.
+Human-rendered `ask` output therefore prints **rank order only** (`1.`, `2.`, …), never the raw score;
+a programmatic caller still gets the exact value through the library return type, `Scored[Node].score`,
+completely unrendered — the CLI summarizes for a person, it does not redefine what the store returned.
+This is a CLI rendering choice, not a store or contract change: a future `--json` output (not built in
+Phase 0) carries the raw score in its event, because a script consuming structured output is exactly
+the reader who can use an unbounded float correctly.
+
 ## Project context
 
 `weft.toml` at the project root holds the default pipeline, collection, model profile and
@@ -179,9 +194,9 @@ from, which is the question people actually have.
 > `ConfigMerger` compares against sentinels in a way that makes an explicit
 > `--embedding-provider local` indistinguishable from the default, so it cannot override a config
 > file saying `openai` (`merger.py:42-46`). The reference's precedence was genuinely unknowable and it
-> caused silent misconfiguration. One thing there is worth lifting verbatim:
-> `ConfigMerger.merge_into_base` returns `base.model_copy(update=…, deep=True)` (`merger.py:177`) —
-> a clean immutable merge. (`reference/study/10-doc-corrections.md` E10.)
+> caused silent misconfiguration. One idea there is worth keeping: `ConfigMerger.merge_into_base`
+> returns `base.model_copy(update=…, deep=True)` (`merger.py:177`) — merge immutably rather than in
+> place. Write our own; it is one line and the value is knowing to make it that line. (`reference/study/10-doc-corrections.md` E10.)
 
 ## Is the REPL an agent?
 

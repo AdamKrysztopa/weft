@@ -3,7 +3,11 @@ name = "weft-store"
 version = "0.0.0"
 description = "First-party storage pack. Publishes the Store contract family."
 requires-python = ">=3.12"
-dependencies = ["weft-kernel"]
+dependencies = ["weft-kernel", "psycopg[binary]>=3.2", "pgvector>=0.3"]
+
+# The one entry point a pack declares (`docs/02-extension-model.md` section 2).
+[project.entry-points."weft.packs"]
+store = "weft_store:register"
 
 [build-system]
 requires = ["hatchling"]

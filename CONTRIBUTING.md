@@ -110,21 +110,21 @@ already says what.
 
 ---
 
-## Lifting from the reference
+## Learning from the reference, without copying it
 
-`a prior project` is Apache-2.0 and copyright STX Next sp. z o.o.; Weft is MIT. That combination is legal
-and has conditions, and they are conditions on *copied source text* only — designs, approaches and
-measurements are not covered.
+**No source text from any other codebase enters this repository.** Not a file, not a function, not a
+docstring, not a comment, not a prompt string, not a word list. There is no attribution procedure
+here because there is nothing to attribute: see [`NOTICE`](NOTICE).
 
-If you copy or adapt reference source into this repository:
+What the reference is for is *understanding*. Read it, work out why something is the way it is, then
+close it and write ours. [`docs/04-reference-inventory.md`](docs/04-reference-inventory.md) is a record of
+what was worth understanding — an ordering that was learned from broken output, a taxonomy that
+turned out to be the only usable retry axis, a guard that records a paid-for bug. Carry the
+*knowledge* across in your own words and implement it against Weft's contracts, which are not the
+reference's contracts anyway.
 
-1. Keep the Apache-2.0 header and the original copyright attribution in the file.
-2. Add a prominent notice that the file was changed (Apache-2.0 §4(b)).
-3. Add the file to the table in [`NOTICE`](NOTICE).
-
-If you are instead reimplementing an idea from the reference study — which is what most of
-[`docs/04-reference-inventory.md`](docs/04-reference-inventory.md) calls for — none of that applies. Write it
-fresh and say in the commit message what it is based on.
+The practical test, and it is not a formality: **if you could not have written this line without the
+reference's file open, it is a copy.** Reviewers check for this.
 
 ---
 

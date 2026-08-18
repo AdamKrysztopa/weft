@@ -428,11 +428,15 @@ chunker, one store. `weft index` and `weft ask` work end to end on a directory o
 - **Build order:** `06-phase-0-build.md`, which sequences this phase into ten steps and names the
   three places it could accidentally settle **G2**.
 - **Exit:** a plugin living in a *separate installed package* is discovered and used, with no edit
-  to the core package. This is the thesis of the whole project; if it is not true here, the design
-  is wrong and everything after is wasted. **Also: fitness functions 8(a), 8(b), 7(a) and 2 are wired
-  and green** — the canary is refused and never imported, no pack code runs for a registry-free
-  command, there is exactly one `asyncio.run`, and the registry's contents equal what the installed
-  distributions declared.
+  to the core package — this is fitness function 9(a). This is the thesis of the whole project; if
+  it is not true here, the design is wrong and everything after is wasted. **Also: fitness functions
+  8(a), 8(b), 7(a), 2 and 9(b) are wired and green** — the canary is refused and never imported, no
+  pack code runs for a registry-free command, there is exactly one `asyncio.run`, the registry's
+  contents equal what the installed distributions declared, and no file under `packages/` or
+  `testing/` names the example pack. **Also: the quickstart and the pack author guide's
+  single-contract section are written, and their checks (`08-manuals.md` §3, clauses a and c) are
+  green** — a fenced shell block that fails to run, or a code sample that has drifted from
+  `examples/weft-example-chunker/`, fails the build the same way an untyped payload would.
 
 ### Phase 1 — Pipelines as data
 
@@ -457,11 +461,13 @@ Retrieval strategies, fusion, reranking, the router, citations. The router keeps
 design: an LLM scores dimensions, a deterministic ladder decides.
 
 - **Gate:** none. Re-open **G5** only if a strategy cannot express what it needs to pass along.
-- **Read:** `02` §1 for the `Strategy` and `Retriever` contracts.
+- **Read:** `02` §1 for the `Strategy` and `Retriever` contracts, and `09-release.md` §4 —
+  prerequisite V1–V3 must exist before this phase's work can be judged.
 - **Lift:** `04` category B — the router design, the ten strategies, the intent classifier, the
   citation manager split into its four responsibilities, language-aware reranker selection.
 - **Exit:** strategies are plugins, and the router discovers them from the registry rather than
-  from an enum or an if-chain.
+  from an enum or an if-chain. **Also: fitness function 9(c) is wired and green** — every contract
+  Phase 2 publishes has an out-of-tree example pack implementing it.
 
 ### Phase 3 — The CLI
 
@@ -521,6 +527,65 @@ The graph add-on, per driving use case B, built as an external package.
   file an issue asking for a core change to make their pack work, that is a Phase 5 failure and a
   design finding, not a feature request.
 
+### Phase 6 — Release
+
+The product stops being a repository and becomes something a stranger can install. Several
+distributions, one repository, published to an index under a stated version policy, with a support and
+deprecation surface a pack author can plan against — and a published baseline measurement, so *"it
+works"* is a number someone else can reproduce rather than an opinion held by the people who wrote it.
+
+- **Gate:** `05` → **G10** the release and support policy. G10 cannot be run until **G9** has settled,
+  which Phase 5 already requires: a user-facing release promise is built on top of the contract
+  compatibility rule, and stating the promise first would settle G9 by implication rather than by
+  argument.
+- **Read:** `09-release.md` in full — it owns the distribution model, the version policy, the support
+  surface, the validation prerequisite and the release checklist. Then this section's *Fitness
+  functions* 0–10 and every phase exit above, because the release claim is their conjunction and nothing
+  more; and `02` §2 → *The trust model*, because *"installing is trusting"* is a statement made to
+  operators and a release is where it is either published or quietly dropped.
+- **Lift:** nothing, and one scar recorded as a rule. The reference was never installable: it cannot be
+  installed standalone at all — `core/config/provider_catalog.py:16` reaches a `system/` path through
+  `Path(__file__).parents[4]`, which breaks the moment the package is a wheel, and two evaluation
+  modules carry unguarded top-level runtime imports of `adapters.*` so
+  `import a_prior_project.evaluation.datasets.open_rag_fast_track` hard-fails unless `system/` is on
+  `sys.path` (`evaluation/datasets/open_rag_fast_track.py:13`, `open_rag_ultimate_track.py:14`;
+  `reference/study/05-boundaries.md` §4, `reference/study/09-open-questions.md` §C-11). **The rule: a
+  distribution is proven installable by installing it, never by reading it** — which is fitness
+  function 1's primary half applied to every distribution rather than only to the kernel.
+- **Exit:** on a machine that has never seen this repository, installing **the release unit G10 names**
+  from the package index reproduces the published baseline — one `uvx` invocation of that unit indexes
+  the validation corpus, answers its question set, and `weft eval compare` against the published
+  baseline run reports every metric **inside the interval that baseline recorded across its own
+  repetitions** (`09` §4, V3 and V4; no tolerance is chosen anywhere, and a baseline that recorded no
+  interval fails V3). **Also: fitness function 10 is wired and green**, so the publish set and the
+  workspace agree and `weft-canary` is absent from the index; the installed state is that **every
+  first-party pack is `active` at the version that release names**, with nothing flagged `ambient` —
+  what `doctor` *says* about a pack that is not is G9's, not this criterion's; and each of Phases 0–5's
+  exit criteria is re-demonstrated **against installed wheels rather than the working tree**, with
+  Phase 5's graph pack installed from the index by name.
+
+**Why the exit is phrased against the index and not the repository.** Every prior exit criterion is
+demonstrated in the tree by the tree's own gate. That is the right standard for a design property and
+the wrong one for a release, because the failure this phase exists to catch lives exactly in the gap
+between them: a package that imports in the workspace and not from a wheel, a data file that is present
+in the checkout and not in the sdist, an entry point that resolves because `uv sync` linked the source
+directory. The reference is the proof that this gap is real and not pedantic — its library resolved its own
+imports only because `pyproject.toml` put `system/` on the pytest path (*The kernel boundary* above),
+and the same mechanism hid an uninstallable package for the life of the project.
+
+**Why the baseline is in the exit criterion at all.** Phases 2 and 4 build retrieval, generation and
+evaluation. Every design decision inside them — a fusion weight, a rerank order, a chunk size — is a
+quality claim, and nothing in Phases 0–5 measures a quality claim. Making the baseline an exit criterion
+of Phase 6 rather than a hoped-for follow-up is what stops the release from being the first time anyone
+asks. The prerequisite is specified in `09-release.md` §4, and the tolerance the exit criterion is
+judged against is derived there rather than chosen here (`09` §4.3, V3 and V4).
+
+**What the exit installs is not decided here.** The criterion says a stranger installs *the release
+unit* and reproduces the baseline. Which unit that is — a lockstep version, a single distribution, or a
+named set — is **G10**'s, and `09` §1 recommends an answer rather than fixing one. The criterion is written
+so that only the noun changes when G10 returns: what it demonstrates is that an installation from an
+index, not a checkout, reproduces a published number.
+
 ---
 
 **If a gate reopens mid-phase.** Discovering that a closed decision was wrong is information, not
@@ -545,7 +610,7 @@ All checks run in CI, before tests.
    reference: `hex-boundary` is **not** in `poe ci-checks` — the composite the root `CLAUDE.md` calls the
    canonical full gate resolves to `quality`, which omits it, and `.pre-commit-config.yaml` omits it
    too. **A fitness function that is not wired into the canonical CI task is not a fitness
-   function.** The template to copy verbatim is the reference's genuinely good one:
+   function.** The pattern to reimplement is the reference's genuinely good one:
    `tests/unit/architecture/test_allowlist_empty.py:8`, an 18-line test that pins a named waiver
    constant to empty, fails with a message stating the waiver policy, and is itself unit-tested.
    That is a ratchet rather than a snapshot, which is the property that makes it work.
@@ -651,6 +716,101 @@ All checks run in CI, before tests.
    Their activation is therefore an **exit criterion of the phase that makes them runnable**, in the
    phase script below, so switching one on is a visible act and leaving it off fails a phase exit
    instead of passing silently.
+9. **Extension is proven from outside.** Every published contract has an implementation that lives
+   outside the workspace, is installed rather than linked, and is nowhere named by core. Three
+   clauses, all categorical, and **no tuning constants in any of them** — no threshold, no file
+   count, no percentage — for the same reason fitness functions 7 and 8 carry none: a number like
+   *"fewer than five files"* is one nobody can defend, and it gets re-baselined until it means
+   nothing. The *cost* of extending is argued in `07-extension-cost.md` §1 and judged per change by
+   the `weft-qualities` lens; this function asserts the tree property that makes that argument
+   checkable, and claims nothing about a diff.
+
+   (a) **The stranger runs.** Each example pack lives outside `packages/`, outside `testing/`, and
+   outside the uv workspace, with its own `pyproject.toml`. The test builds the first-party
+   distributions as wheels, installs them plus the example pack into a throwaway environment, and
+   runs a pipeline that names the example's plugin — with the source tree not on the path, so no
+   path a workspace member has can be the reason it works. **How it fails:** put the example back on
+   the path as a workspace member and the wheel build stops covering it; break the entry point and
+   resolution fails naming the plugin. It is `06` step 10 generalised from one chunker to every
+   published contract. *Active from Phase 0*, where step 10 already builds
+   `examples/weft-example-chunker/`.
+
+   (b) **Core does not know the stranger exists.** No file under `packages/` or `testing/` names any
+   example pack — not as an import, not as an entry point, not as a string literal of its
+   distribution name or of any plugin name it registers. The two sides are computed from different
+   places and never from each other: the names come from the example packs' own metadata and their
+   observed registrations, the text comes from the first-party source tree. **How it fails:** a
+   conftest that special-cases the example, a workspace member listing it, a test asserting on its
+   plugin name. Like item 0's model, the check is **itself unit-tested** against a planted
+   literal, so a clause that stopped being able to fail would fail its own test. Clause (a) proves
+   the pack works; (b) proves it works without having been anticipated, which is the half a demo
+   always quietly fails. *Active from Phase 0.*
+
+   (c) **Every published contract has a stranger.** The set of contracts published by the installed
+   first-party distributions equals the set of contracts implemented by out-of-tree example packs.
+   Both sides are observed at runtime and **neither is derived from the other**: the left from the
+   first-party packs' own registrations, the right from each example pack installed on its own. A
+   clause whose two sides came from one computation would be the reference's `test_keys_parity` defect,
+   which cannot fail at all (`reference/study/08-salvage.md:777-782`). **How it fails:** publish a
+   contract and ship no example for it — which is the everyday case this clause exists to catch. It
+   carries a **ratchet** in the style of item 0: a named constant
+   `CONTRACTS_WITHOUT_AN_EXAMPLE_PACK`, pinned empty, so an exemption is a visible entry in a diff
+   rather than a silent edit, changeable only by a dated decision-log entry. *Active from Phase 2*,
+   the first phase that publishes a contract Phase 0 did not, and its activation is an exit
+   criterion of that phase.
+
+   **Why it exists.** Requirement 1 is the thesis of the project and it is the only one of the six
+   that has never been enforced by anything. The reference is why that matters: adding one storage
+   backend meant editing **11 files inside the library** plus at least 3 in `system/`
+   (`reference/study/01-extension-axes.md:3260-3263`), against **"None at all — 0 registered names"**
+   and 17 dispatch sites of which 0 are registry lookups (`:25`). Nothing in the reference's CI measured
+   that, and nothing could have — its own boundary checker was not in its canonical gate and exited
+   0 on a tree with 11 violations (fitness function 0). Weft's gap today is narrower and the same
+   shape: the requirement is applied by a human running the `weft-qualities` lens, and a lens is not
+   a ratchet.
+
+   **What it deliberately does not catch, and why there is no fourth clause.**
+
+   - **Reachability.** A plugin can register from outside, cost zero core edits, and still never
+     execute — the reference's sharpest finding, where a third-party strategy registers, is listed, is
+     described to the LLM in the routing prompt, and hits three walls
+     (`reference/study/02-discovery-and-config.md:226-234`). That is **fitness function 4(b)**'s job.
+     Function 9 asserts that extension happens from outside; 4(b) asserts the extension can *run*.
+     Reading 9 as covering both is how the reference's seam would pass a green build.
+   - **Cost, per change.** A pack needing 400 lines of boilerplate passes clause (a) exactly as a
+     four-file one does, and a core edit made in the same commit for an unrelated reason is
+     invisible to all three clauses. This is a property of the tree, not of a pull request. The file
+     cost is argued in `07-extension-cost.md` §1 and judged per change by review — a line budget on
+     a pack would be a tuning constant, which is the thing this function refuses.
+   - **Wrong-shaped extension points.** A pack may need a core change to be *useful* rather than to
+     *load*: an extension point that exists but in the wrong shape. That is Phase 5's human test —
+     *if they file an issue asking for a core change, that is a design finding* — and **G7**'s
+     question.
+10. **Ship-set integrity.** Two clauses, both categorical and carrying no tuning constants — not a
+    threshold, not a file count, not a percentage. **Neither depends on how G9 or G10 settles**: each
+    holds under lockstep, under independent semver, and under a named release set. *Active from Phase 6*,
+    which is the phase that makes them runnable; per the note under 8, switching them on is an exit
+    criterion of that phase rather than an intention.
+
+    (a) **The publish set and the workspace agree.** Two sets are computed from **different sources** and
+    compared: on one side, the distributions the release job actually passes to the index; on the other,
+    the workspace members (`[tool.uv.workspace] members`) that do not carry an opt-out marker in their
+    own `pyproject.toml`. The check fails if either side holds a distribution the other does not. It is
+    stated this way so that it can fail *independently of the implementation* — a check that asked the
+    derivation function what it derives would compare a function to itself and could never fail, which is
+    the reference's `test_keys_parity` shape (`reference/study/08-salvage.md:777-782`). Here a hand-maintained
+    publish list, a new package nobody added to it, or a distribution that opts out and is published
+    anyway each break it. `testing/weft-canary` — whose entire purpose is to be *refused* by discovery
+    (fitness function 8) — is the standing test case: it must always be on the opt-out side and never in
+    the publish job's arguments.
+
+    (b) **No distribution depends on a sibling without a version bound.** Every intra-repository
+    dependency declares one, asserted as a property over the workspace rather than as a lint of one file.
+    This exists because the tree today declares `dependencies = ["weft-kernel"]` in every pack, which
+    permits any pack against any kernel, and **any** compatibility policy is unenforceable on top of an
+    unbounded requirement. What a bound *means* — a floor, a compatible range, or an exact pin — is
+    **G9**'s and this clause does not choose: a floor is the weakest of the three and is implied by all
+    of them, so if G9 settles on lockstep or on negotiation this clause tightens rather than changes.
 
 > **Corrected from the reference study (2026-08-10) — fitness function 1, and the preamble.** This
 > section previously opened *"the predecessor's AST boundary checker is the single best thing in

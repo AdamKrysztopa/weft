@@ -139,6 +139,12 @@ not depend on a model download or an API key. So Phase 0 ships a deterministic l
 (hashing to a fixed-dimension vector) whose only job is to be a real vector produced by a real stage.
 It is not a quality component and its docstring should say so.
 
+**Reading a node back needs something step 1 deliberately did not build.** `Node.model_dump()`
+serialises `ext` correctly, but the reverse does not exist: a dumped namespace is a plain dict, and
+turning it back into the pack's own `ExtModel` subclass needs a namespace-to-class registry. Step 1
+left that out on purpose — the registry it would need arrives at steps 2–3 — so the store is where
+the rehydration path is designed, against the registry rather than against a hand-rolled map.
+
 **Makes true:** indexing produces stored nodes. **Runnable:** an ingest pipeline, in a test.
 **Infrastructure:** this is where the one container arrives — a `compose.yaml` with Postgres and
 pgvector, because G4 retired the zero-container target and made pgvector the floor.
@@ -163,9 +169,28 @@ missing distribution.
 
 *This is the exit criterion, and it must be an artifact rather than a demo.* Keep it in the repository
 as `examples/weft-example-chunker/` with a test that installs it into a temporary environment. A
-criterion that is only ever satisfied by hand is satisfied once.
+criterion that is only ever satisfied by hand is satisfied once. *(The message names the plugin, not
+the distribution — see the second correction at the foot of this document.)*
 
 **Makes true:** Phase 0 is over.
+
+### 11. The shipped documentation set and its checks
+
+The two manuals whose content is exactly what Phase 0's exit criterion makes true: the quickstart
+(`weft index` / `weft ask`, end to end, on the reader's own files) and the pack author guide's
+single-contract section (the independence proof from step 10, turned into prose a stranger can
+follow). Both get the CI infrastructure that keeps them from drifting silently, per `08-manuals.md`
+§3: a harness that extracts the quickstart's fenced shell blocks and runs them against a throwaway
+project, and a test that diffs the guide's tagged code blocks against `examples/weft-example-chunker/`,
+the same artifact step 10 already keeps.
+
+*This is the last step for a reason.* Both checks need something to check against — the CLI (step 9)
+and the independence proof (step 10) — so writing them earlier would mean documenting commands that
+do not exist yet, the exact reference failure `08-manuals.md` §0 opens with.
+
+**Makes true:** Phase 0's thesis is not demonstrated once by a human and then left to age; it is
+asserted by a reader-facing document whose assertion keeps getting checked. **Runnable:** `uv run
+pytest tests/docs -q`, and the quickstart itself, against a fresh `uv add` in a throwaway directory.
 
 ---
 
@@ -190,7 +215,7 @@ belongs to a later phase with its own gate or its own exit criterion.
 
 ## Done when
 
-All five, not four:
+All six, not five:
 
 1. `weft index <dir>` ingests a directory of text files into pgvector, and `weft ask <q>` returns the
    matching passages.
@@ -200,6 +225,9 @@ All five, not four:
    distributions declared, and no built-in took a path a third party could not.
 5. **The independence test passes as an automated test**: a chunker in a separately installed package
    is discovered and used, with no edit to any package under `packages/`.
+6. **The quickstart and the pack author guide's single-contract section are written, and their checks
+   are green** (`08-manuals.md` §3, clauses a and c): a fenced shell block that fails to run, or a
+   code sample that has drifted from `examples/weft-example-chunker/`, fails the build.
 
 The kernel is expected to be well under its 3,500-line budget at this point. If it is not, that is
 information about the boundary rather than about the budget, and it goes to the decision log before
@@ -214,3 +242,15 @@ anything is written to fit.
 > is about. 8(b) activates at **step 9 of this plan**, in Phase 0. Clause 8(c) — the recorded
 > distribution set — stays later, because it depends on persisted runs, which are Phase 4's. `01` and
 > the phase exit criteria have been updated accordingly.
+
+> **A correction step 10 produced (2026-08-16).** Step 10 originally ended *"watch the pipeline fail
+> to resolve with a message that names the missing distribution."* No message can: once the pack is
+> uninstalled, its distribution name is exactly the thing nothing in the process still knows —
+> `Registry.entry` is looking up a name that no entry point offered, and naming a distribution there
+> would mean keeping a list of packs that once existed, which is the second list this project
+> refuses. What the message does name is the **plugin**, the contract it was wanted for, and every
+> name that *is* registered for that contract — which is the shape `02` §2 → *The trust model*
+> already requires ("A name provided by no pack at all stays 4 … with its reason attached") and the
+> form `01`/`07` state for fitness function 9(a) ("break the entry point and resolution fails naming
+> the plugin"). Step 10's sentence was the outlier and has been corrected; `build-ledger.md` 0.10
+> ("fails resolution by name") was already right.

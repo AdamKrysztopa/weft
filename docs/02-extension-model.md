@@ -119,6 +119,11 @@ plugins never got.
 
 ```python
 class Stage[In, Out](Protocol):
+    async def run(self, payload: In, ctx: Context) -> Outcome[Out]: ...
+
+
+# A plugin may set these on itself — read defensively, never required:
+class MyStage:
     lifetime: ClassVar[Lifetime] = Lifetime.RUN
     requires: ClassVar[tuple[type[ExtModel], ...]] = ()
     provides: ClassVar[tuple[type[ExtModel], ...]] = ()
@@ -142,6 +147,20 @@ class Stage[In, Out](Protocol):
   reference's service locator is real: that one resolved **literal module paths** at import time,
   untyped and unregistered, reaching outward past its own boundary; this resolves exactly what
   discovery registered, keyed by a published contract.
+
+  > **Narrowed in Phase 0 step 4 (2026-08-16), re-dated at step 5 (2026-08-16).**
+  > *"raises naming the pack that provides it"* is not yet reachable: which pack provides a contract
+  > is known only once discovery reads entry points, and step 4 builds the passport before that
+  > exists. So `UnresolvedServiceError` names the contract that was wanted and every contract that
+  > *is* resolvable on the run — the same standard `UnknownPluginError` sets, minus the provenance
+  > nothing can supply yet. This is a narrowing of the message, not of the promise. This note
+  > originally said step 5 would make it true; **it did not, and the reason is structural rather
+  > than an omission.** Discovery attributes *plugin* registrations to a distribution
+  > (`Registry.add(..., distribution=…)`), but a **service** is not registered through discovery at
+  > all: `ServiceRegistry` is per-run, keyed by contract alone, populated by whatever assembles the
+  > run, and `PackRegistrar` — the whole surface a pack's `register()` receives — has no service
+  > seam. Naming the providing pack therefore waits on a step that lets a pack contribute a service,
+  > which no Phase 0 step does.
 - **Every contract returns an `Outcome`**, never a bare value: `Produced` / `NothingToProduce` /
   `Failed`. This is what lets the kernel own a fallback combinator without knowing what any stage
   does — it matches on the outcome and never inspects payload content. It also kills the reference's
@@ -157,6 +176,34 @@ class Stage[In, Out](Protocol):
   broken on day one. The reference's equivalent is the one piece of real tenancy machinery it has
   (`RegistryFactory._llm_cache`, keyed `f'{tenant_id}:{config.model}'`, one of only four locks in
   52,021 lines) — and what not to copy is that it is cleared only by a manual `clear_cache()`.
+
+  > **Narrowed in Phase 0 step 6 (2026-08-16).** `config_hash` is a content hash — `sha256` over a
+  > Pydantic model's `model_dump_json()`, or `repr()` for anything else — computed by
+  > `weft_kernel.runner._config_hash`, not the config object used as a key directly: a config
+  > carrying an unhashable field (a plain `dict`, say) would otherwise make caching impossible even
+  > though `frozen=True` alone does not fix that. And `lifetime`, along with `requires` and
+  > `provides` below, is read off a stage's *constructed instance* via `getattr(..., default)`,
+  > tolerant of a plugin that satisfies its contract only structurally and never literally inherits
+  > `Stage`, rather than assumed present. Neither is a reversal — both are exactly what "declares its
+  > own lifetime" and "the kernel's cache is keyed…" already say, made concrete by the runner that
+  > actually owns the cache.
+
+  > **Narrowed in Phase 0 step 7 (2026-08-16).** `Stage`'s own body carries `run` and nothing
+  > else — `lifetime`, `requires` and `provides` are not `ClassVar`s on it, contrary to the code
+  > block above, which shows the shape a plugin *may* choose to give itself, not `Stage`'s actual
+  > declaration. The reason is `typing.Protocol` internals: `__protocol_attrs__` — the set
+  > `isinstance` checks on a `@runtime_checkable` Protocol — is computed once, at class-creation
+  > time, by walking every base class's own body. `Extractor`, `Chunker` and the store family all
+  > inherit `Stage[In, Out]` so the runner can read `In`/`Out` off `__orig_bases__`; had `Stage`
+  > declared those three `ClassVar`s, every one of those contracts would have inherited them as
+  > *required* `isinstance` members, silently reopening the `hasattr`-with-better-manners defect
+  > `01` §1 condemns — a third-party plugin implementing only `run` would fail a capability check
+  > for attributes capability never needed. `getattr(instance, name, default)` already supplies the
+  > documented defaults whether or not a plugin inherits `Stage` at all, so nothing about
+  > correctness depended on the declaration — only the docstring's account of it did, and that
+  > account is now corrected in `weft_kernel.runner`. The same reasoning is why each contract's
+  > `version` (below) is declared under `if TYPE_CHECKING:` and assigned after its class body,
+  > rather than as a plain `ClassVar` in the body.
 - **Errors have a root and an origin.** Packs raise subclasses of `WeftError`, which carries a
   `transient` marker so a pack can say what is worth retrying. Anything escaping a plugin seam is
   wrapped with pack, contract, plugin and stage, `__cause__` preserved so no traceback is hidden.
@@ -167,8 +214,37 @@ class Stage[In, Out](Protocol):
   seam from contract and plugin name. The reference's hand-written spans decayed to 38 of 54 names
   off-convention and 5 with no kind, because both were an author's job; here there is nothing to
   forget and nothing to get wrong.
+
+  > **Narrowed in Phase 0 step 3 (2026-08-15).** `stage` is the fourth field on `WeftError`, and
+  > this section did not say where it comes from. A pipeline *position* — which slot in an ordered
+  > list a plugin fills — is not knowable at registration; it is knowable only once a runner (step
+  > 6) resolves a pipeline, and nothing that early exists at step 3, where the wrapper itself is
+  > built. So `wrap` — `weft_kernel.seam` — takes the same kind of minimal, reversible choice `06`
+  > takes for G2's open questions elsewhere: `stage` is `f"{contract}:{plugin}"`, the one
+  > identifying label already available at registration time, and every span is `SpanKind.INTERNAL`
+  > — the seam cannot know whether a contract is a store, a client, or neither, so a per-capability
+  > kind would mean the kernel naming a capability. This is a narrowing of what "derived from
+  > contract and plugin name" means in practice, not a reversal: whatever calls `wrap` once a
+  > pipeline exists (the runner, step 6) is free to pass a richer `stage` label, and this is not
+  > that decision.
 - **Messages are looked up, never formatted in place.** `ctx.t('graph.node_dropped', n=3)` resolves
   against the merged catalogue, namespaced by pack.
+
+  > **Narrowed in Phase 0 step 4 (2026-08-16), corrected at step 5 (2026-08-16).** The catalogue
+  > built at step 4 owns the *merge* and not the *namespace*: it is a flat `{locale: {key: template}}`
+  > map, and a `(locale, key)` already registered is refused naming both templates rather than
+  > overwritten — the same fixed reversible choice `06` takes for duplicate plugin names. Where a
+  > key's `graph.` prefix would come from — a pack's own `register()` contributing locale resources
+  > through something like `registrar.add_messages(ns=…, resources=…)` — **is not built in any Phase
+  > 0 step.** This section originally said step 5 would make it true; it does not. `06`'s own scope
+  > line for step 5 (*Discovery and the trust model*) lists entry-point enumeration, `allow`, the
+  > status vocabulary, `DISCLOSURE` and pack settings — no catalogue contribution — and `PackRegistrar`
+  > exposes only `add`. No later Phase 0 step names it either, and whether a pack's message keys are
+  > even in scope at all is still open: `09-release.md` flags "message-catalogue keys emitted by
+  > first-party packs" as **not on G9's Bring list**. *"Namespaced by pack"* therefore stays this
+  > section's description of the eventual design, not a guarantee any Phase 0 code makes true; until a
+  > pack can contribute at all, the refusal above is what stops two contributors deciding the same key
+  > differently, and it is strictly weaker than the guarantee above rather than a substitute for it.
 - **Every contract method is `async def`** (G6). There is no sync protocol and no declared colour: a
   CPU-bound stage is still `async def` and offloads its own blocking work. Fitness function 7 fails
   the build on any blocking *call* made while a stage runs — file IO, sockets, `time.sleep`, a
@@ -195,8 +271,8 @@ class Stage[In, Out](Protocol):
 ```python
 class Node(frozen):
     id: NodeId  # digest — see Identity below
-    lineage: Lineage  # parents: tuple[NodeId, ...] (never empty)
-    # sources: frozenset[SourceId] — derived, never authored
+    lineage: Lineage  # parents: tuple[NodeId, ...] (never empty except at a root)
+    # sources: frozenset[SourceId] — derived, never authored except at a root (Node.synthetic)
     content: str
     media_type: MediaType
     embedding: Vector | None
@@ -227,6 +303,22 @@ data = node.ext_as(GraphData)                               # typed, or None if 
 Namespace strings never appear in plugin code, so `metadata['entites']` — silently `None` forever —
 has no equivalent. RAPTOR's seven loose keys become one `RaptorTree` model no other pack can read
 or corrupt by accident.
+
+> **Narrowed in Phase 0 step 8 (2026-08-16).** The block above is the *write* side. Reading a node
+> back off a store needs the inverse and the kernel does not have it: `ExtMap`'s declared value type
+> is the base `ExtModel`, so a dumped namespace — a plain dict in a JSONB column — cannot be
+> re-validated into the subclass that owns it without a namespace-to-class map. Per `06` step 8
+> that map is **`weft_store.rehydrate.ext_models`, an ordinary `weft_kernel.registry.Registry`**
+> rather than a hand-rolled dict, so an unregistered namespace raises `UnknownPluginError` naming
+> every namespace that *is* known, and a namespace claimed twice raises naming both claimants —
+> rule 5 applied to storage rather than to plugin lookup.
+>
+> **A pack's `register()` does not contribute one automatically.** A pack shipping its own
+> `ExtModel` calls `weft_store.register_ext_model` itself — re-exported from
+> `weft_store.rehydrate` — or nodes carrying it will not survive a
+> round trip through this store. That is the same gap step 5's narrowing note records for
+> `add_messages` below, and it is recorded rather than solved: closing it means deciding what a pack
+> contributes at registration beyond plugins, which is not Phase 0's to settle.
 
 **Transience is a property of the declaration.** `__transient__ = True` on an ext model means the
 kernel strips that namespace before any `Store` sees the node. The reference needed a pipeline stage for
@@ -259,6 +351,29 @@ was *"global summary: no single source document"*, which conflates *no single so
 parents*: RAPTOR had just clustered the twelve nodes it was summarising. Under `combine` that
 information cannot be discarded, and under derived `sources` it cannot be forgotten.
 
+**The one exception is a root.** `sources` may be authored directly — not derived — only where
+`parents` is empty, because a document's very first node has no parents to derive a `SourceId` from:
+extraction has no upstream `Node`, only a source document. `Node.synthetic` is the constructor for
+that case: it states the document's id as `sources` explicitly and stamps a kernel-owned
+`SyntheticOrigin` onto `ext` carrying why. Everywhere `parents` is non-empty, authoring `sources`
+directly is refused: a node claiming a source unrelated to what it actually descends from would make
+cascade delete either miss it or delete it under the wrong document, the same defect class as the
+unreachable-summary bug above, one field over.
+
+**Two invariants carry that, and neither is a rule an author must remember.** `Lineage` refuses
+`sources` supplied alongside non-empty `parents`, and `Node` refuses a parentless node that does not
+carry `SyntheticOrigin` — so an unexplained rootless node is unconstructable by *any* path, not only
+by the three factories being well-behaved. The second is what makes "explicit, greppable,
+doctor-reportable" a fact about the type rather than a convention.
+
+> **Widened in Phase 0 step 1 (2026-08-15).** `Node.synthetic` was specified above with only
+> `reason=`. Implementation surfaced the gap this note closes: a document's first, parentless node
+> must still get a `sources`, and nothing upstream of it can derive one, so `synthetic` also accepts
+> `sources` — the sole remaining place `Lineage.sources` is authored rather than computed. This is a
+> widening of a settled decision (G5), not a reversal: derivation still owns every non-root node, and
+> `Lineage` itself now refuses `sources` supplied alongside non-empty `parents`, so the exception is
+> enforced, not merely documented.
+
 **Deleting a source cascades.** Every node whose derived `sources` contain the deleted document is
 deleted with it, and the store reports the removed set so a rebuild knows what to re-derive. This is
 deliberately the aggressive reading: a node kept but hidden from retrieval looks like deletion to a
@@ -283,6 +398,16 @@ checks that consecutive stages compose and fails naming both types. **The score 
 fail the admission rule above. A stage takes and returns a *sequence*; the kernel runner owns
 batching, so memory is bounded by batch size rather than corpus size while each stage invocation
 stays eager and `Outcome` stays decidable at return.
+
+> **Narrowed in Phase 0 step 6 (2026-08-16).** `Stage[In, Out]` is written once per *contract*
+> above — "the ingest path is `Stage[Seq[Node], Seq[Node]]` throughout... `Retriever` is
+> `Stage[Query, ...]`" — not once per plugin, and `weft_kernel.runner`'s composition check takes
+> that reading literally: it reads `In`/`Out` off the *contract* type passed in each pipeline
+> stage's spec, via `__orig_bases__` (Python's own record of a class's declared generic
+> parameterisation), never off the plugin implementing it. A plugin satisfying a contract only
+> structurally, with no explicit inheritance, is unaffected — the type pair the check compares
+> belongs to the contract, which every published contract is expected to state once, at its own
+> declaration (`class Extractor(Stage[Seq[SourceDoc], Seq[Node]], Protocol)`), per `06` step 6.
 
 ### The store contract family
 
@@ -313,6 +438,23 @@ class TextSearch(Protocol):
 
 class MetadataFilter(Protocol): ...                # marker: supports the whole operator set
 ```
+
+> **Narrowed in Phase 0 step 7 (2026-08-16).** The block above lists `NodeStore`'s capability
+> methods but not `run` — and the pipeline example above it (§3) selects `store` as an ordinary
+> stage, `- id: store\n    use: pgvector`, through the same `StageSpec` mechanism as `extract` or
+> `chunk`. `weft_kernel.runner` resolves every pipeline stage's contract via `Stage[In, Out]`, read
+> off the contract's own `__orig_bases__` (`06` step 6), so a contract usable in that stage
+> position must declare it. `NodeStore` therefore also declares `Stage[Sequence[Node],
+> Sequence[Node]]` as one of its own bases and carries `run(self, payload, ctx) -> Outcome[...]`,
+> additive to the eight capability methods above, not a replacement for `add`: a `NodeStore`
+> plugin's `run` calls its own `add` and passes its input through, so the runner's batch counting
+> and `flush()` ownership keep meaning what this section says they mean for every other stage.
+> This is a narrowing, not a reversal: every method above is unchanged, and `VectorSearch` carries
+> no `run` of its own — nothing in an ingest pipeline calls `search_vector`, so it stays a pure
+> capability Protocol, checked by `isinstance` against whatever instance `NodeStore` resolved.
+> Phase 0 also publishes only `NodeStore` and `VectorSearch` — `06` step 7 scopes the family to the
+> two capabilities Phase 0 has a built-in for; `TextSearch` and `MetadataFilter` remain this
+> section's design for when a store implementing them exists.
 
 **Capability is derived, never declared.** At registration the kernel computes which protocols a
 store class satisfies, and that set *is* its capability. Nobody writes a flag, so nobody writes a
@@ -347,6 +489,17 @@ the reference's, which had no transactional semantics across 9 call sites and im
 lifecycle on backends with no such concept. `add()` may buffer; **the kernel runner calls `flush`**
 at the end of a run and on cancellation, so no plugin can forget it: a completed run is durable, a
 cancelled one durable to its last finished batch.
+
+> **Narrowed in Phase 0 step 6 (2026-08-16).** The kernel names no capability, so `weft_kernel.runner`
+> cannot single out "the store" to flush. Instead every resolved stage instance that happens to
+> expose an async `flush()` is flushed, once, after the last batch or on the way out when an
+> exception cuts the run short — whether or not it is a `NodeStore`. That is safe only because
+> `flush` is documented as idempotent: calling it on something that has nothing to flush is a
+> legitimate no-op, not a hazard, so the runner does not need to know which stages are stores to
+> keep this guarantee. **A flush that itself fails on that second path never replaces the
+> exception already propagating** — `CancelledError` above all, which `01` → *Colour* requires to
+> reach the caller untouched; the flush failure is attached to it as a note instead, so a cancelled
+> task is still a cancelled task.
 
 **Deletion is idempotent and resumable rather than atomic**, because atomicity would disqualify
 every backend without transactions and `05` requires two backends satisfying this without stubs.
@@ -525,6 +678,24 @@ registration, addressed through its own distribution (`importlib.resources`), na
 No component ever computes a path to another package's files — which is what made the reference's
 `PromptLoader` resolve locales as `Path(__file__).parent.parent / 'locales'` and made shipping
 prompts or translations from a pack impossible. The bug is not fixed here; it is unreachable.
+
+> **Narrowed in Phase 0 step 5 (2026-08-16).** Two things about the example above are not what the
+> code does, and both are narrowings rather than reversals.
+>
+> **`register` receives a `PackRegistrar`, not the `Registry`.** `weft_kernel.discovery.PackRegistrar`
+> is `Registry.add` minus its keyword-only `distribution` argument, so the real signature is
+> `register(registrar: PackRegistrar, settings: Settings) -> None` and the body is
+> `registrar.add(Retriever, "graph", …)`. Attribution is filled in from the distribution discovery is
+> currently importing, because attribution is not a pack author's to supply and therefore not theirs
+> to get wrong. The registrar also **buffers**: nothing reaches the shared registry until `register`
+> returns, so a pack that raises halfway contributes nothing rather than half of itself.
+>
+> **`add_messages` does not exist, and no Phase 0 step builds it.** The *"Catalogues are contributed
+> the same way"* paragraph above therefore describes the eventual design, not a guarantee any Phase 0
+> code makes true — the same correction §1's *Messages are looked up* note carries, and for the same
+> reason: `09-release.md` still lists a pack's message-catalogue keys as **not on G9's Bring list**,
+> so whether they are API at all is undecided. Until a pack can contribute a catalogue,
+> `MessageCatalogue`'s duplicate refusal is what stops two contributors deciding one key differently.
 
 ### The trust model
 

@@ -1,0 +1,39 @@
+# The one container Weft's runtime shape allows — `docs/01-high-level-plan.md`
+# → *Runtime shape*: "the only thing that gets a container is the database."
+# G4 retired the zero-container target and made pgvector the floor
+# (`docs/06-phase-0-build.md` step 8), so this is where it arrives.
+#
+# `docker compose up -d` brings it up, and the store creates its own schema on
+# first use — there is no separate migration step to run first.
+#
+# **Bringing the container up is not enough to make the store usable.** `weft-store`
+# requires a `dsn` in its pack settings, and there are two ways to supply it. With no
+# `weft.toml` at all, an exported `WEFT_DATABASE_URL` is offered as `dsn` and the store
+# comes up `active` — the no-file path `manual/quickstart.md` walks. A `weft.toml`
+# carrying `[packs.weft-store] dsn` — see `weft.toml.example` — wins over the
+# environment, key by key. `weft plugins doctor` reports `weft-store: failed`, naming
+# the missing field, only when NEITHER supplies a `dsn` — the loud failure working: the
+# pack refuses rather than defaulting to some database it guessed.
+#
+# Port 5433, not 5432: `.env.example` explains why — a bare default port on a
+# developer's machine belongs to whichever Postgres happened to claim it
+# first, and this project's store is namespaced everywhere else too.
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: weft
+      POSTGRES_PASSWORD: weft
+      POSTGRES_DB: weft
+    ports:
+      - "5433:5432"
+    volumes:
+      - weft-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U weft -d weft"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  weft-postgres-data:

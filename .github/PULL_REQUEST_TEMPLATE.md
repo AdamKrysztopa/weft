@@ -21,5 +21,6 @@
 - [ ] No waiver constant was loosened. If one was, the reason is in the body above.
 - [ ] Documents that own the changed content are updated in this PR.
 - [ ] Claims about the reference carry `path:line` evidence.
-- [ ] Any code copied or adapted from `a prior project` keeps its Apache-2.0 header, states that it was
-      changed, and is listed in `NOTICE`.
+- [ ] **Nothing was copied.** No source text from `a prior project` or any other codebase — no function
+      body, docstring, comment, prompt string, word list, regex or test fixture. Anything the reference
+      informed was read, understood, and written fresh for Weft.

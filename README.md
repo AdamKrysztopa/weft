@@ -73,7 +73,7 @@ and installing one is trusting it.**
 
 MIT — see [`LICENSE`](LICENSE).
 
-The reference is Apache-2.0 and copyright STX Next sp. z o.o. That licence travels with any source text
-lifted from it, so a file containing copied or adapted reference code is Apache-2.0 material and is
-listed in [`NOTICE`](NOTICE). Ideas, designs and measurements taken from the reference study are not
-covered by that — copyright does not protect them.
+Weft is original work and contains no source text from any other codebase — see [`NOTICE`](NOTICE).
+Where a prior system informed a design, what was carried across is understanding: an approach, an
+ordering, a measurement, the reason a guard exists. That is restated in this project's own words and
+implemented fresh, which is why no third-party licence attaches to anything here.

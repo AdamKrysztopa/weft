@@ -20,6 +20,26 @@ jobs:
   gate:
     name: ci-checks
     runs-on: ubuntu-latest
+    # Same image, credentials, port and health check as `compose.yaml` — the container a
+    # developer brings up by hand and the one this job provisions are the same container,
+    # not two descriptions of it that could drift apart. This is provisioning the
+    # environment `ci-checks` runs in, not enumerating the gate's steps: the gate step
+    # below is still the single `uv run poe ci-checks` invocation fitness function 0
+    # requires.
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: weft
+          POSTGRES_PASSWORD: weft
+          POSTGRES_DB: weft
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U weft -d weft"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
     steps:
       - uses: actions/checkout@v4
 
@@ -36,6 +56,8 @@ jobs:
 
       - name: Run the canonical gate
         run: uv run poe ci-checks
+        env:
+          WEFT_DATABASE_URL: postgresql://weft:weft@localhost:5433/weft
 
   # Fitness function 1, primary half. Separate because it needs a clean environment
   # this repository's own virtualenv cannot provide: the kernel is installed alone,

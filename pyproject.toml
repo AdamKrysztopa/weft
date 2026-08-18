@@ -7,7 +7,14 @@ dev = [
     "pyright>=1.1.390",
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
-    "ruff>=0.8",
+    "pytest-timeout>=2.3",
+    # >=0.16.0: the first release that formats Python code blocks fenced in Markdown by
+    # default (changelog: "Ruff can now format Python code blocks in Markdown files and
+    # will do this by default"). `weft_cli.contract_reference` pipes its generated
+    # Markdown through `ruff format` and relies on exactly that behaviour to match what
+    # `poe ci-checks`' own `fmt` step does to the checked-in file — an in-range resolution
+    # below 0.16 would leave a long signature unwrapped instead.
+    "ruff>=0.16.0",
 ]
 
 [tool.uv.sources]
@@ -16,6 +23,7 @@ weft-cli = { workspace = true }
 weft-extract = { workspace = true }
 weft-chunk = { workspace = true }
 weft-store = { workspace = true }
+weft-embed = { workspace = true }
 
 # ---------------------------------------------------------------------------
 # Tasks
@@ -64,3 +72,10 @@ include = ["packages", "testing", "tests"]
 testpaths = ["tests"]
 asyncio_mode = "auto"
 addopts = "--strict-markers"
+
+# A hang must fail, not stall. The registration seam guards blocking calls by
+# overriding socket and SSL operations, so a regression there does not raise —
+# the test simply never returns, and a stalled gate reads as "CI is stuck"
+# rather than "the seam is broken". Generous on purpose: this is a deadlock
+# detector, not a performance budget, and Phase 0 step 8 brings a container.
+timeout = 60

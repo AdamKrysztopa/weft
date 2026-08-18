@@ -3,7 +3,16 @@ name = "weft-canary"
 version = "0.0.0"
 description = "Test-only distribution for fitness function 8. Never published."
 requires-python = ">=3.12"
-dependencies = ["weft-kernel"]
+dependencies = ["weft-kernel", "pydantic>=2"]
+
+# The one entry point a pack declares (`docs/02-extension-model.md` section 2).
+# Fitness function 8(a) needs a *real* installed pack to refuse, so this
+# distribution carries the same shape any other pack would — a single
+# `weft.packs` entry point resolving to a `register` function. `register`
+# must never actually run: every test that touches this distribution refuses
+# it by an allow-list, and if `register` runs, that is 8(a) failing.
+[project.entry-points."weft.packs"]
+canary = "weft_canary:register"
 
 [build-system]
 requires = ["hatchling"]

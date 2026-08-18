@@ -21,6 +21,10 @@ to be current.
 import os
 from pathlib import Path
 
+from pydantic import BaseModel
+
+from weft_kernel.discovery import PackRegistrar
+
 MARKER_ENV_VAR = "WEFT_CANARY_MARKER"
 
 
@@ -34,3 +38,19 @@ def _leave_marker() -> None:
 
 
 _leave_marker()
+
+
+class Settings(BaseModel):
+    """The canary has nothing to configure — an empty model is still the required shape."""
+
+
+def register(registrar: PackRegistrar, settings: Settings) -> None:
+    """The entry point `weft.packs` resolves to. Must never run — see the module docstring.
+
+    Every test exercising this distribution refuses it by an allow-list, so
+    `register` never executes; it exists only so this distribution has the
+    same shape — one entry point resolving to `register(registrar, settings)`
+    — any other pack does. If this function ever runs, fitness function 8(a)
+    has already failed by the time it does.
+    """
+    del registrar, settings

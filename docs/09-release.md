@@ -1,0 +1,523 @@
+# 09 — Release
+
+**What this document owns:** the distribution and publishing model, the user-facing version policy,
+the support and deprecation surface, the validation prerequisite, the production-readiness checklist,
+and the protocol for adjusting the plan. It restates nothing that `01`, `02`, `03` or `05` already
+owns; where it needs one of their statements it links to it.
+
+**Why a new document rather than more of `01`.** `01` owns *the phase script and the fitness
+functions*; it does not own policy about published artefacts, and adding a version policy, a support
+window and a release checklist to it would make the largest document in the plan the owner of a sixth
+unrelated subject. Phase 6's **Read** line points at this document, exactly as Phase 0's build order
+points at `06`.
+
+---
+
+## 0. What this document deliberately does not decide
+
+**G9 is open, and this document depends on it in five places.** Not one — five. Each is stated below as a
+question in §2.3 and nowhere else; no section of this document answers any of them:
+
+| # | The dependency | Where `05` → G9 already claims it |
+|---|---|---|
+| 1 | Whether version skew is **reported or refused** by `weft plugins doctor` | G9 *Done when*: *"a decision on whether `weft plugins doctor` reports version skew"* |
+| 2 | What **0.x promises about published contracts** — whether a contract may move without a deprecation period | G9 *The question*: *"what is owed to a pack when one changes"* |
+| 3 | The **deprecation clock and its unit** — releases or months, and how many | G9 *Positions to attack*: semver per contract *"with a stated support window"* is one of three positions, not the default |
+| 4 | **Which published surfaces carry a compatibility promise at all** — the payload model, the store capability protocols, the filter AST, `Disclosure`, the `Command` permission `ClassVar`, `[packs] allow` | G9 *Bring* enumerates exactly these, which is the proof they are G9's and not this document's |
+| 5 | What a **version bound** on an intra-repository dependency means — floor, compatible range, or exact pin | G9 *Positions to attack*: semver / single library version / capability negotiation |
+
+That the dependency is structurally safe is a separate point and still true: G9 is already Phase 5's
+gate, so it is settled before Phase 6 can begin. Safety is not licence — a section that assumed an
+answer would settle G9 by implication rather than by argument, which is what §2.3 exists to prevent.
+
+Fitness function 10 clause (b) is the only place where this document states anything adjacent to G9, and
+it states the weakest claim available: that a bound **exists**. `01` → *Fitness functions* item 10 argues why that is implied by all three of G9's positions and
+chooses none of them.
+
+**G2, G7 and G8 are open and this document assumes nothing about them**, with one visible dependency: if
+G8 settles as anything other than "shell", the REPL's surface changes and §3's table of candidate
+public surfaces gains rows. Recorded here so it is not discovered at release time.
+
+**A new gate is proposed, and this document does not settle that one either: G10.** `05` → G10 is
+the session, and the decision log records it **Open**. The rule §2.3 applies to G9 holds for G10 as well, and it has
+to: a document that guards someone else's gate scrupulously and settles its own by implication has
+only moved the defect one gate over. `01` → *Phases* is explicit that *"a gate is not advice"*: a
+session whose positions are already marked kept and rejected in the document it is told to **Bring** is
+a formality, not a session.
+
+So **§1 and §2.2 are written as the position this document recommends and the argument for it, never as
+a verdict.** Every judgement they make is carried into `05` → G10 → *Positions to attack* as the case
+to beat.
+A session that opens from a strong recommendation is still a session; one that opens from a decision is
+not.
+
+| # | What G10 decides, and this document does not | Where this document recommends rather than decides |
+|---|---|---|
+| 1 | **The unit of release** — lockstep, independent semver alone, or independent versions plus a named release set | §1 argues for the third and states the case against the other two. `05` → G10 carries all three |
+| 2 | **What 1.0 rests on** — a checklist of demonstrations, or a date | §2.2 recommends demonstrations and enumerates them. `05` → G10 carries both |
+| 3 | **What the release checklist is stated against**, and therefore what the Phase 6 exit criterion installs | `01` → Phase 6's **Exit** installs *whichever unit G10 names*; §5.2 says the same for its checklist |
+
+Two things G10 does **not** decide, recorded here so they are not read into it. Where a deprecation
+notice is emitted follows from the settled rule that cross-cutting concerns live at the registration
+seam (§3) — its *clock* is G9's, its *home* is neither gate's. And fitness function 10's two clauses
+hold under every position either gate can take, which is why they are stated as weakly as they are.
+
+---
+
+## 1. What a release is when there are several distributions — the position this document recommends
+
+*(**A recommendation, not a verdict.** The unit of release is **G10**'s and G10 is Open. What follows
+is the case this document makes and the case against each alternative; `05` → G10 carries all three
+positions into the session, with this recommendation as the one to beat. This section states
+whichever answer G10 returns.)*
+
+`01` → *The architecture stack*, Topology row, already records the cost this section pays: several
+distributions to version and release together, and skew between the kernel and a first-party pack. It
+lands that obligation on G9. This section makes the argument about the half G9 does not own: what the
+unit of *shipping* is.
+
+**The problem in one sentence.** `weft-kernel` and each pack version independently — which is not an
+accident but the point, because a third-party pack versions independently too, and requirement 4 says
+built-ins get no privileged path. If first-party packs must move together while third-party packs
+cannot, then "release" is a privilege built-ins have and outsiders do not, and rule 4 has rotted at the
+packaging layer instead of the registration layer. Same failure, one floor down.
+
+| Model | What it means | The argument this document makes about it |
+|---|---|---|
+| **Lockstep** — one version, all distributions bumped together | Simple, coarse, familiar | **Argued against.** It is exactly the privileged path above, and it forces a kernel release for a pack's typo fix, which makes the kernel's version meaningless as a compatibility signal |
+| **Independent semver per distribution, and nothing else** | Honest about what actually changes | **Argued insufficient on its own.** A user installing five distributions has to discover a working combination themselves, and *"which versions were tested together"* has no answer |
+| **Independent versions plus a named release set** | Each distribution versions on its own; a thin meta-distribution `weft` depends on an exactly-tested combination and is what a newcomer installs | **Recommended.** It is the only one of the three that gives a third-party pack the same standing as a first-party one — `weft-graph` would *not* be in the release set and would install beside it, exactly as `weft-store-qdrant` does |
+
+**The release set would not be a new mechanism, and that is the strongest part of the argument.**
+Fitness function 8(c) already requires that every persisted run names the active distribution set,
+because `weft eval compare` across two runs is meaningless if the pack set differed between them
+(`02` §2 → *The trust model*). A release set is that same record with a name and a version attached,
+so the recommendation adds a name rather than a mechanism. Anything else would be a second
+description of "which packs, at which versions", which is the drift shape this plan refuses everywhere
+else.
+
+**What the recommendation would oblige, if G10 adopts it.** These are consequences of the third model
+rather than four further decisions; under lockstep the first three do not arise at all. They are set
+out because a recommendation whose consequences are unstated is not one anybody can argue with.
+
+- The meta-distribution ships **no code**. If it ships code it is a pack, and it will accumulate the
+  convenience shims that a kernel budget exists to prevent.
+- **`weft` declares no module and no entry point of its own; the `weft` command a user runs comes from
+  `weft-cli`, which the release set depends on** — which is also why the release set would be what a
+  newcomer installs, and why the Phase 6 exit criterion can install the whole product with a single
+  `uvx` invocation: a consequence of this bullet rather than a contradiction of the one above it.
+- A distribution may be released **without** a release set (a pack fixing a bug), but the release set is
+  what the documentation, the baseline and the support window are stated against — so "the current
+  release" is always a set, never a single wheel.
+- `weft plugins doctor` gains one column, not a new command: the version of each active distribution.
+  **Whether `doctor` also flags a mismatch, and what a mismatch does, are G9's** (§2.3, dependency 1)
+  — the column exists under either answer, because `doctor` has to be able to *say* what is installed
+  before any policy can act on it.
+
+---
+
+## 2. The version policy, and its boundary with G9
+
+### 2.1 What each version number means
+
+| Surface | Versioned by | Owned by |
+|---|---|---|
+| A **contract** — `Extractor`, the store protocol family, `ExtModel` schemas, the filter AST, `Disclosure`, the `Command` permission class | Its own contract version, enforced by fitness function 6 | **G9** |
+| A **distribution** — `weft-kernel`, `weft-store`, `weft-graph` | Its own release version, what a user pins | **G10** |
+| The **release set** — `weft`, *if* G10 adopts §1's recommendation | Its own version, naming an exactly-tested combination | **G10** |
+
+They are different numbers because they answer different questions. A contract version answers *"can
+this pack still be loaded"*; a distribution version answers *"what do I install"*. The reference never had
+either, so it never had to keep them apart; the plan will have both from Phase 5 onward, and conflating
+them is how a patch release to fix a log message would appear to break a published contract. **Whether
+the third row exists at all is G10's**, and the first two rows are unaffected by how it answers: every
+position in §1 keeps a distribution version distinct from a contract version.
+
+### 2.2 The 0.x line, and what 1.0 means
+
+**Every distribution in this repository is 0.x until Phase 6.** That is not a policy choice so much as
+an observation: nothing is published to an index before Phase 6, so nothing can have made a 1.0 promise
+to anyone. **What 0.x promises about the published contracts is G9's** (§2.3, dependency 2) and is not
+written here — including whether a contract may move inside 0.x without a deprecation period at all.
+
+What can be said without G9, because it is an observation about Phase 5 rather than a policy: Phase 5
+exists precisely to discover holes in the contracts, and its finding is not available until it has run.
+Whatever G9 decides, it decides it with that evidence in hand, which is why G9 gates Phase 5's successor
+and not Phase 0.
+
+**Recommended: 1.0 rests on evidence rather than on a date — and that is G10's to judge** (`05` → G10, and §0's
+table, row 2). The recommendation is that each precondition names its demonstration, so the question
+*"are we 1.0?"* is answered by running something rather than by arriving at a date. The list below is
+the concrete form of the recommendation, which is what makes it attackable — a session can strike a row,
+add one, or reject the shape:
+
+| Precondition | Demonstrated by |
+|---|---|
+| The extension model works for someone who is not us | Phase 5's exit, with the graph pack installed from the index |
+| The store contract is not over-fitted to one backend | `01` → *Runtime shape*: pgvector **and** Qdrant, neither stubbed |
+| The kernel names no capability and stayed inside its budget | Fitness functions 1 and 3, green on installed wheels |
+| Quality is a number someone else can reproduce | §4, the validation prerequisite, and the published baseline run |
+| A break is survivable by a pack author | G9's policy exists and is implemented — the policy's *content* is G9's, its *existence* is this precondition |
+| Nothing ships that was not meant to ship | Fitness function 10 |
+
+**Under either position, 1.0 is the point at which G9's policy stops being advisory.** Before it, a
+published surface may move under whatever rule G9 states for 0.x; after it, the rule binds and a breach
+is a defect rather than an inconvenience. That much is true whether the number is reached by
+demonstration or by date, which is why it is stated here rather than left to G10 — it is not a maturity
+feeling and not a marketing event, and it says nothing about *what* the rule is or about *when* the
+number is claimed.
+
+### 2.3 What Phase 6 needs from G9, stated as questions
+
+G9 is **open**. These are the five dependencies from §0, written as the questions the release checklist
+cannot be run without. Phase 6 needs each to have *an* answer; it needs none of them to have a
+*particular* answer, and no section of `09` supplies one.
+
+| # | Phase 6 needs to know | Because |
+|---|---|---|
+| 1 | **Whether version skew is reported or refused** | §1's last bullet gives `doctor` the column either way; what happens on a mismatch — a report, a refusal, or a `refused`-class status — changes the release notes, the checklist item in §5.2 and `doctor`'s exit code |
+| 2 | **What 0.x promises about published contracts** | Whether a contract may move without a deprecation period inside 0.x decides whether the pre-1.0 releases owe pack authors anything at all, and therefore whether §5.2's compatibility block has items before 1.0 |
+| 3 | **The deprecation clock and its unit** — releases or months, and how many | §5.2's checklist consumes whichever G9 picks. The two units are not interchangeable: a calendar window requires a release-cadence promise, a release-counted window requires a definition of which distribution's releases count |
+| 4 | **Which surfaces carry a promise** — every row of §3's table | G9's *Bring* already enumerates the payload model, the store capability protocols, the filter AST, `Disclosure`, the `Command` permission `ClassVar` and `[packs] allow`. The release cannot state a support surface before that list has a policy |
+| 5 | **What a version bound means** — floor, compatible range, or exact pin | Fitness function 10(b) asserts only that a bound exists. Which kind is required is what makes the bound enforceable as a *policy* rather than as a lint |
+| — | *Two more that fall out of the above* | What happens when a pack requires a contract version the kernel does not offer — an existing status in `02` §2's vocabulary or a new one; and whether an `ExtModel` schema change is a contract change, which is the only kind of break a user cannot undo by pinning (G9 *Bring* raises both) |
+
+---
+
+## 3. The support and deprecation surface
+
+**What might be public.** The surfaces below are the candidates. Each is defined by the document that
+owns it; this table adds the *consequence* of a change to it — which is the material G9 needs — and
+nothing about whether a promise applies, because that is dependency 4.
+
+| Surface | Defined in | G9 decides |
+|---|---|---|
+| The published capability contracts and the contract mechanism | `02` §1, `02` §1 → *Who publishes a contract* | Whether these are the promise, and what a contract-version move obliges |
+| The payload model — `Node`, `Lineage`, `ExtModel` declarations and their persisted shape | `02` §1 → *The payload model* | The only surface where a break also damages **stored data**; G9 *Bring* raises it as its sharpest case |
+| The store contract family and its capability protocols | `02` §1 → *The store contract family* | G9 *Bring*: adding a method to `VectorSearch` breaks every backend at once, first- and third-party alike |
+| The filter AST as a serialised format | `02` §1 → *The store contract family* | G9 *Bring*: it is versioned data, not only an API, because filters live inside stored pipelines |
+| The pipeline format and its four derivation operators | `02` §3 | Whether stored pipelines are a promised format; note `02` §3 closes the operator set until something real needs a fifth |
+| The `weft.packs` entry-point group name, and what `register` receives | `02` §2, `02` §2 → *Pack settings* | Renaming the group unregisters every pack in the world — a fact, whatever the policy |
+| `Disclosure`, and the mandatory permission `ClassVar` on `Command` | `02` §2 → *The trust model*, `03` | G9 *Bring* names both: adding a required `Disclosure` field breaks every pack that ships one |
+| Configuration keys: `packs:`, `[packs] allow`, `${env:}` | `02` §2, `02` §2 → *Pack settings* | G9 *Bring*: `[packs] allow` is operator configuration, the format whose promise is owed to people who never read a changelog |
+| CLI command surface, output shape and **exit codes** | `03` | A CI job branches on exit 3 versus 4 (`02` §2), so a change is breaking in practice; G9 says whether it is breaking in policy |
+| Message-catalogue keys emitted by first-party packs | `02` §2 → *Pack settings* | **Not on G9's *Bring* list.** Phase 6 needs G9 to say whether a pack's message keys are in scope at all — a translation is arguably not an API, and that argument is G9's to accept or reject |
+| Anything named `_private`, and everything in `weft-canary` | — | Same: not on the *Bring* list. If G9 does not rule, the release has no basis to call them excluded |
+
+**Where a deprecation notice is emitted, whatever G9 decides is owed.** The seam is already settled and
+is neither gate's to choose — not G9's, and not G10's, whose *Done when* in `05` → G10 says so explicitly: a
+deprecated plugin, contract or config key is marked **at registration**, and
+the warning is emitted by the registration wrapper — the same wrapper that applies spans, error
+attribution and blocking-call detection. This follows the rule in `CLAUDE.md` and the measurement behind
+it: every concern the reference's machinery applied automatically held; every concern an author had to
+remember decayed. A deprecation notice an author has to remember to print is a deprecation notice that
+will not be printed.
+
+**How `doctor` shows it, if G9's answer requires `doctor` to show anything.** As a **flag on an existing
+status**, exactly as `ambient` is a flag on `active` (`02` §2). No new status: `02` §2's vocabulary is
+settled, and adding a member would make one word answer two questions.
+
+**The clock's unit — releases or months — is G9's** (§2.3, dependency 3). §5.2's checklist consumes
+whichever it picks; nothing in `09` states a number, a unit, or a default.
+
+**Removal is a changelog entry with a migration line or it does not happen.** `CHANGELOG.md` already
+exists and already states Keep a Changelog and SemVer; from Phase 6 it stops being a courtesy and
+becomes the artefact whatever promise G9 states is made in.
+
+**One thing the release must not soften.** `02` §2 → *The trust model* states the posture plainly: a
+pack runs with your full privileges, and installing is trusting; signature verification, sandboxing and
+per-pack privilege separation are out of reach without a process boundary. That paragraph must appear in
+the published README of the release, not only in the plan. A design that refused to simulate a control
+it cannot enforce would be undone by a package page that lets a reader assume one exists.
+
+---
+
+## 4. The validation prerequisite — the gap, stated honestly
+
+### 4.1 The gap
+
+**Weft has no data, and nothing in the plan currently says when that stops being true.** The falsifiable
+form: Weft tracks no corpus, no question set, no ground truth and no provider configuration —
+`git ls-files` matches zero `.jsonl`, `.csv`, `.parquet` or `.txt` files anywhere, and the only tracked
+`.json` is `.claude/settings.json`, the harness configuration. Phases 2 and 4 build retrieval,
+generation and evaluation on top of that.
+
+*(No file census here. A count of the working tree is state, it belongs in `README.md` if anywhere, and
+it is stale the moment Phase 0's remaining steps land. If a dated snapshot is wanted for the argument,
+it belongs in the G10 session's **Bring** line in `05`, where a session-time measurement belongs.)*
+
+### 4.2 Why "we will evaluate later" is the specific failure to avoid
+
+The reference is not an example of a project that skipped evaluation. It is the opposite, and that is what
+makes it evidence: it shipped a 6,632-line evaluation package, 21 metrics, two benchmark tracks and a
+real dataset loader against a public benchmark — and its numbers were still not trustworthy. Every
+finding below is verified in `docs/reference/study/`:
+
+| What was wrong | Evidence |
+|---|---|
+| **No run was ever persisted.** Every evaluation path returns a `dict` and prints | `open_rag_evaluator.py:117-142`, `open_rag_fast_track.py:371-372`, `open_rag_ultimate_track.py:526-534`, `helpers.py:118-170`, `:172-220` (`reference/study/09-open-questions.md` §A.6 A32, §C-10) |
+| **The comparison function is dead and computes no deltas.** All four public functions of `evaluation/helpers.py` have zero references in `src/` and in `tests/` | `helpers.py:15`, `:59`, `:118`, `:172` (`reference/study/10-doc-corrections.md` C5) |
+| **The track documented as benchmarking against gold never reads gold.** `gold_node_id_map` is built, passed, declared in the signature and documented — and never referenced in the method body | `open_rag_ultimate_track.py:175`, `:194`, `:417`, `:426`; metrics computed against `parsed_node_id_map` at `:486`, `:491`, `:496`, `:501` (`reference/study/03-algorithms.md` §4.4.1) |
+| **Ground truth is inflated by a paper-level fallback**, so retrieving any chunk of the right paper counts as a hit — precision pushed toward 1.0, recall toward 0, and the two tracks' numbers not comparable to each other | `open_rag_ultimate_track.py:466-472` (`reference/study/03-algorithms.md` §4.4.2) |
+| **`ndcg_at_10` is computed over 4 candidates.** `NDCG(k=10)` evaluated on a list already sliced to `similarity_top_k = 4`, reported under the key `ndcg_at_10` | `open_rag_fast_track.py:302`, `:327`, `:368`; `open_rag_ultimate_track.py:443`, `:480` (`reference/study/03-algorithms.md` §4.4.3) |
+| **Failure is indistinguishable from a zero score.** Metrics return `score=0.0` with an `error` string; two of the three aggregators never check `error`, so benchmark means silently include failures | `open_rag_fast_track.py:351-354`, `open_rag_ultimate_track.py:504-507`; only `open_rag_evaluator.py:263`, `:272` checks (`reference/study/03-algorithms.md` §4, aggregator table) |
+| **Missing ground-truth files are tolerated**, producing queries with `None` ground truth that score 0.0 everywhere; a corrupt corpus file is caught and skipped, silently shrinking the corpus | `open_rag_loader.py:191`, `:197`; `:78-81` (`reference/study/03-algorithms.md` §4) |
+| **Only means, no dispersion**, so two runs cannot be compared for significance even in memory | `reference/study/09-open-questions.md` §C-10 |
+| **6 of 21 metrics never register in the default import graph, and 2 test dummies ship registered into the production registry** | `evaluation/base.py:122`, `:142` (`reference/study/03-algorithms.md`; `reference/study/06-dead-and-broken.md` §7) |
+| **Zero retries in the whole evaluation package**, so a judge that fails scores 0.0 on first failure | `grep -rn 'retry\|retries\|attempt\|backoff' src/a_prior_project/evaluation/` → 0 matches (`reference/study/09-open-questions.md` §0 Q-C3, §A) |
+
+**The generalisation, and it is not "measure things".** An unmeasured engine and a mismeasured one fail
+identically from the outside: both produce confident numbers nobody can act on. The reference built the
+harness and never validated the harness. So the prerequisite below is not *"run an evaluation"* — it is
+*"produce a measurement whose failure modes are known, whose failures are distinguishable from bad
+scores, and which a second person can reproduce."*
+
+### 4.3 Prerequisite V — what "validated" must mean
+
+Six artefacts. Each must **exist as a file or a persisted run**, not as an intention, and each can be
+failed.
+
+| # | Artefact | What it must contain | Fails if |
+|---|---|---|---|
+| **V1** | **A corpus** | Bounded and named; either redistributable or fetched by a pinned, checksummed script; covering every format an installed extractor claims; at least one non-English body, because Polish retrieval technique is shipped product under requirement 6 and untested language handling is the reference's `language == 'pl'` branch with the branch removed | Any declared format has no document in the corpus, or a fetch is not reproducible byte-for-byte |
+| **V2** | **A question set with ground truth** | Questions with relevance judgements for retrieval and reference answers for generation; the provenance of each answer recorded (who wrote it, from which passage); **and unanswerable questions included**, because a RAG engine that cannot say *"not in this corpus"* is untested for its most damaging failure | Ground truth is missing for any question and the harness scores it anyway — the reference's `open_rag_loader.py:191,197` defect exactly |
+| **V3** | **A baseline, run more than once** | The numbers produced *before* any technique: single-vector top-k, no fusion, no rerank, no enhancement. Every later claim is a delta against this and nothing else. **The baseline is repeated, the repeat count is recorded in the run, and each metric carries the interval its own repetitions produced** — see the tolerance rule below | A shipped technique's improvement is reported against no baseline, or against a baseline from a different corpus, pipeline or model version; **or the baseline was run once**, in which case it records no interval and no later run can be judged against it |
+| **V4** | **Metric semantics, fixed at the door** | A failed metric is an **error**, never a zero; aggregates exclude errored metrics and report how many were excluded; every reported number carries the dispersion it was measured with, not only a mean; and the `k` in a metric's name equals the `k` it computed | Any aggregate averages a failure into a score, a metric name misdescribes its computation, or a reported number carries no dispersion |
+| **V5** | **Providers, cost and an offline subset** | Which providers and which model versions, pinned; the money and wall-clock cost of one full run; and a deterministic subset that runs in CI with no credentials and no network, so a regression is caught by the gate rather than by a quarterly ritual | A full run cannot be priced, or the whole suite requires credentials, in which case it will be run once |
+| **V6** | **A persisted, reproducible run** | The baseline is one of Phase 4's persisted runs, carrying the resolved pipeline, the corpus identity, the model versions and the active distribution set (fitness function 8(c)) | The baseline exists only as terminal output — the reference's condition exactly |
+
+**The reproduction tolerance is derived, never declared.** No number in this plan says how close a
+re-run must be. Instead: V3 requires the baseline to be repeated and to record, per metric, the interval
+its own repetitions spanned. **A later run reproduces the baseline when every metric falls inside that
+recorded interval, and fails when any metric falls outside it.** The tolerance is therefore a
+measurement of the system's own variability at the moment the baseline was taken, carried inside the
+baseline run — not a constant chosen by anyone, which is what §4.4 forbids and what fitness function
+7's rejected threshold was rejected for.
+
+Three properties follow, and they are why this is a real check rather than a soft one. A system that is
+deterministic records a zero-width interval and admits no drift at all, which is correct and strict. A
+system that is noisy records a wide interval and honestly says so, rather than being compared against a
+number someone liked. And a baseline that skipped the repetition **fails V3** rather than silently
+producing an unfalsifiable exit criterion.
+
+**Where these land in the plan.** V1–V3 are needed **before Phase 2 is judged**, because retrieval and
+fusion decisions made without them are unmeasured by construction; V4 is a design constraint on Phase 4;
+V5 and V6 are Phase 4 deliverables. Phase 6's exit consumes all six. The minimal plan edit this implies
+is one line in Phase 2's **Read**, and nothing else, because the artefacts belong to `09` and only their
+timing belongs to `01`.
+
+### 4.4 What V is not: it does not set a quality target
+
+**The plan must not invent a threshold** — no *"nDCG@10 ≥ 0.7 before release"*. That number would be
+picked before any measurement existed, and the plan already has this argument, in `01` → *Fitness
+functions* 7, where a slow-callback duration threshold was rejected because *"a number nobody can defend
+gets re-baselined until it means nothing."* A quality threshold invented in advance has the same
+property with worse consequences, because re-baselining it looks like progress.
+
+**What V requires instead is that the numbers exist, are reproducible on the rule above, are published
+with the release, and that a regression against them is visible.** The first real baseline sets the
+value; from then on it is a **ratchet in the same shape as the kernel budget** — the recorded number may
+be lowered only by a dated entry in the decision log, never in the pull request that lowered it.
+
+---
+
+## 5. Production ready — a checklist that can be failed
+
+### 5.1 What the six phases already prove — and what that proof is worth
+
+Phases 0–5 and fitness functions 0–9 are specified in `01`; they are not restated here. What matters for
+this section is their **shared limitation**: every one of them is demonstrated *in the working tree, by
+this repository's own gate, on inputs we chose, by the people who wrote the code*. That is the correct
+standard for an architectural property and it establishes nothing about three other axes:
+
+| Axis | Proven by the phases? | Why |
+|---|---|---|
+| **Architecture** — extensibility, boundaries, colour, trust posture, no privileged built-ins | **Yes**, and this is the strongest part of the project | Fitness functions 0–9, each phase exit |
+| **Operational maturity** — failure under load, resource ceilings, restart behaviour, upgrade path, cost | **No** | Nothing in Phases 0–5 runs long, runs concurrently, or runs twice against the same store with different versions |
+| **Real-data quality** — does it retrieve and answer well | **No** | §4. Nothing has been measured |
+| **A stranger's install path** — installs, resolves, runs, and is understood without reading `docs/` | **No** | Every exit is demonstrated in the checkout; Phase 6's exit is the first that is not |
+
+### 5.2 The checklist
+
+Each item states the condition that **fails** it. An item with no failure condition is not on this list.
+Items that restate a fitness function say so and link, rather than describing the check again.
+
+**Where an item says *the release set*, read *whichever unit G10 names*.** The checklist is written
+against §1's recommendation because a checklist has to name something, and every item survives all
+three of G10's positions with only that noun changed — under lockstep it is a version, under
+independent semver it is the combination the release notes state. No item is true only under one
+answer.
+
+**Install path**
+
+- [ ] Fitness function 1 holds for **every** published distribution, not only the kernel — each installs
+      alone into a clean environment and imports. *Fails if any distribution needs the workspace, a path
+      dependency, or an environment variable to import.*
+- [ ] The release set installs by name on a machine that has never seen the repository, on the minimum
+      supported Python, and `weft --version` runs — which is fitness function 8(b) observed from an
+      index rather than from the tree.
+- [ ] A third-party pack installs beside the release set and is discovered — Phase 5's pack, from the
+      index, not from a path. *Fails if it needs anything the release set did not publish.*
+- [ ] The sdist builds and its tests pass from the sdist. *Fails if a data file, locale catalogue or
+      entry-point declaration is present in the checkout and absent from the artefact.*
+
+**Operability**
+
+- [ ] `weft plugins doctor` answers, on a broken installation, *why* — using the status vocabulary in
+      `02` §2, with no status reported that is not in it.
+- [ ] A cancelled run leaves the store durable to its last finished batch, per `02` §1's `flush`
+      guarantee, and a resumable delete finishes on the next command. *Fails if a crash mid-delete leaves
+      a store that no later command repairs.*
+- [ ] The cost and wall-clock of indexing the validation corpus are recorded, and re-indexing an
+      unchanged corpus is measurably cheaper (`SourceRecord` change detection, `02` §1).
+- [ ] An upgrade path exists and was executed once: a store written by release *n* is read by release
+      *n+1*. *Fails if this has never been run.*
+
+**Quality**
+
+- [ ] V1–V6 exist (§4.3), and the baseline run is published with the release.
+- [ ] Every shipped technique's claimed improvement is a delta against V3 on the same corpus, pipeline
+      and model versions. *Fails if any claim in the documentation has no run behind it.*
+- [ ] The offline evaluation subset runs in `ci-checks`. *Fails if quality is checked only manually.*
+
+**Compatibility**
+
+- [ ] G9's policy is implemented, not only written, and `doctor` behaves as G9 specified on skew —
+      report or refusal (§2.3, dependency 1). *Fails if the policy exists only as prose.*
+- [ ] Whatever deprecation clock G9 states is running and observable: every currently deprecated surface
+      names the release or date at which it is removed, in the unit G9 chose (§2.3, dependency 3).
+- [ ] Fitness function 10 is green; `weft-canary` is not on the index.
+- [ ] `CHANGELOG.md` covers every published distribution, and every removal carries a migration line.
+
+**Security, licensing, documentation**
+
+- [ ] `SECURITY.md` states a reporting path and the trust posture appears in the published README, in
+      the words `02` §2 uses. *Fails if the package page implies isolation the design refused to claim.*
+- [ ] `LICENSE` and `NOTICE` are in every built artefact, and the originality rule in `CLAUDE.md` is
+      re-checked for the release with the `reference-audit` skill. *Fails if any file in the release cannot
+      be accounted for as original work.*
+- [ ] A newcomer can install, index and ask from the README alone, without opening `docs/`.
+
+**Explicitly not on this list, and why.** Uptime, SLAs, a support rota, multi-tenant isolation testing
+and a service tier. The first three require an operator this project does not have; multi-tenancy is
+deferred until the second tenant, and a service tier until someone outside the process needs to call it
+— both under `01` → *The least-architecture check*, with their reopen triggers already named. Putting
+them on a release checklist would mean either failing every release or ticking them dishonestly.
+
+---
+
+## 6. How the plan is adjusted — and what leaves `README.md` when this lands
+
+**This is a move, not a copy, and the move is explicit.** The reopen procedure currently lives in
+`README.md` → *Protocol*. If it also lived here, there would be two descriptions of it that can
+disagree — the two-lists bug at the level of the plan, which is exactly what `README.md`'s opening
+blockquote forbids. So in the same commit that adds this section:
+
+**Deleted from `README.md` → *Protocol*:** the paragraph **"When a decision reopens."** in full — the
+three sentences beginning *"Set the row to Reopened with the reason…"*. It is replaced by one line:
+*"How a decision is reopened, how a phase or a fitness function is added, and what a scope change
+obliges: `09-release.md` §6."*
+
+**Kept in `README.md` → *Protocol*, unchanged:** *"When a grilling session closes"*, *"When a phase
+completes"*, *"When a document is added"*, and *"What never goes in this file"*. Those four are
+instructions for maintaining **this file's own state** — which row to update, which box to tick, which
+manifest line to add — and state is what `README.md` owns. The reopen paragraph is the odd one out: it
+describes a *procedure with consequences across documents*, which is definition.
+
+The machinery already exists and is mostly unstated as a machine: gates in `05`, the Open / Settled /
+Reopened statuses in the decision log, and the rule that a reopened decision un-ticks everything
+downstream. What follows names the four adjustments people actually make, and what each obliges.
+
+### 6.1 Add a phase
+
+1. Write it in `01` → *Phases* in the four-line format that section defines, with an exit that can be
+   **demonstrated rather than argued about**. If the exit cannot be demonstrated, the phase is a wish
+   and does not go in.
+2. Decide whether it has a gate. A phase whose shape depends on an undecided question needs one; add it
+   to `05` and log it **Open**.
+3. Add its rows to README's *Execution path*, and its gate row to the decision log.
+4. **Re-check:** every fitness function the new phase would activate — clauses are assigned to phases,
+   and `01`'s note under item 8 records that sequencing `06` found 8(b) in the wrong one — and whether
+   any later phase's exit is now provable earlier or no longer provable at all.
+
+*Phase 6 is the worked example: its block is in `01` → *Phases*, its gate is `05` → G10, and the
+re-check is what the commit that landed this document recorded in `01`, `05` and `README.md`.*
+
+### 6.2 Change a settled decision
+
+1. Follow `README.md` → *Protocol* for the mechanics of the log row and the checklist. This section adds
+   only what that paragraph does not say, which is what to re-check and in what order.
+2. Re-run the session in `05`. It exists; it does not need rewriting to be re-run.
+3. Edit the reference document that owns the content, in the same commit as the log row.
+4. **Re-check, in this order:** the phases after it, because `05`'s ordering table exists precisely
+   because these cascade; then the change against the six requirements in `01` — the `weft-qualities`
+   skill is that review, and it exists because these properties are lost one reasonable commit at a
+   time.
+5. After Phase 6, add one step: **state the compatibility consequence.** A settled decision that has
+   been published is also a promise, and reopening it is a changelog entry and possibly a deprecation
+   clock, not only a document edit.
+
+**A widening is not a reversal, and the distinction is already in use.** `02` §1 records `Node.synthetic`
+being widened during Phase 0 step 1 with the argument for why it strengthens rather than reverses G5.
+That is the pattern: a widening is a marked note under the settled content, citing the session; a
+reversal is a Reopened row. Getting this wrong in the cheap direction — logging every widening as a
+reopen — makes the log unreadable; in the expensive direction it hides a reversal as an edit.
+
+### 6.3 Add a fitness function
+
+1. Write it in `01` → *Fitness functions*, numbered, stated as a **property** rather than as a command
+   list or an API shape, in the wording item 8 uses.
+2. **Wire it into `ci-checks` in the same commit** — fitness function 0 asserts that membership, and it
+   exists for a reason `01` states.
+3. Name the phase it activates in, and put the activation in **that phase's exit criterion**, per the
+   note under item 8.
+4. Prefer a **ratchet** — a named waiver constant pinned empty — over a snapshot, so a waiver is a
+   visible act in a diff.
+5. **Re-check:** that it carries no tuning constant whose correct value changes with the runner. If it
+   needs one, it is a trace or a report, not a gate — `01` → *Fitness functions* item 7 rejected exactly
+   that and says why.
+
+### 6.4 Change scope
+
+Cutting and adding scope are the same operation and both are **decisions**, so both get a decision-log
+row — the log currently records only gate outcomes, and a scope cut recorded nowhere is how a phase
+quietly loses its point.
+
+1. Say which of the six requirements in `01` the change touches. If it touches none, it is a
+   phase-content change (cheap, §6.5) and needs no ceremony.
+2. If it removes work, name the **forcing function** that reopens it, in the shape of `01` → *The
+   least-architecture check*: *"deferred until X happens."* A cut with no reopen trigger is a silent
+   scope reduction, and the deferral table's whole discipline is that nothing is deferred on vibes.
+3. If it adds work, say which phase owns it and what its exit demonstration is.
+4. **Re-check:** every exit criterion that referenced the cut work, and whether any fitness function is
+   now unactivated because the phase that switched it on no longer exists.
+
+### 6.5 Which levers are cheap, and which are expensive
+
+The single most useful thing to know about this plan: **cost is a function of what has already been
+published or persisted, not of how much code a change touches.**
+
+| Lever | Cost | Why — the settled outcome it follows from |
+|---|---|---|
+| Phase contents, and ordering within the gate order | **Cheap** | Nothing outside the repository depends on it; `06` re-sequenced Phase 0 without touching a decision |
+| Which pack ships which technique | **Cheap** | Requirement 6, `01` → *What "modern and elastic" has to mean concretely* |
+| The set of shipped techniques | **Cheap** | Requirement 1. If adding a technique is ever expensive, the extension model has failed, not the plan |
+| The kernel budget number | **Cheap, but visible** | `01` → *Fitness functions*, the budget's ratchet rule |
+| Documentation structure | **Cheap** | `README.md` → *Protocol*, *When a document is added* |
+| CLI command surface | **Cheap before Phase 6, expensive after** | `03`, and §3 above once exit codes are published |
+| The derivation operator set | **Medium** | `02` §3 — closed until something real needs a fifth; pipelines are stored data |
+| The trust posture and the `allow` pin | **Medium** | G3, `02` §2 → *The trust model* |
+| Discovery eagerness | **Medium-high** | G3 — lazy import and bare plugin names are mutually exclusive |
+| The store contract family | **High** | G4, and G9 *Bring*: one added method breaks every backend at once |
+| **The kernel boundary** (G1) | **Expensive** | `01` → *The kernel boundary*. Every contract, distribution split and fitness functions 1, 2 and 3 are downstream |
+| **Async-only** (G6) | **Expensive** | `01` → *Colour*. There is no partial adoption; a sync facade is the bridge the decision refuses |
+| **The payload model** (G5) | **Expensive, and uniquely so** | G9 *Bring* — an `ExtModel` is a schema in a database, and pinning an old version does not un-write a node |
+| One repository, several distributions | **Expensive after the first publish** | `01` → *The architecture stack*, Topology row; §1 above |
+
+**Read the table twice — before Phase 6 and after.** Almost every "expensive" entry is expensive for the
+same reason: something outside this repository has already been compiled or written against it. That is
+the real character change Phase 6 makes to the plan. Before the release, the expensive levers are
+expensive because of *design coupling*, and the mitigation is argument. After it, they are expensive
+because of *promises*, and the mitigation is a deprecation clock. The plan should stay adjustable in
+both regimes, and the way it does is by being explicit about which regime it is in — which is exactly
+what a version number is for.

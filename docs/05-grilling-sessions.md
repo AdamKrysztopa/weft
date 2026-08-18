@@ -1,7 +1,7 @@
 # 05 — Open decisions and grilling sessions
 
-This plan settles the architecture and deliberately leaves nine decisions open. Each is here
-because **defaulting it would be a mistake** — either it has no obviously right answer, or getting
+This plan settles the architecture and leaves ten decisions to grilling sessions, G1 through G10.
+Each is here because **defaulting it would be a mistake** — either it has no obviously right answer, or getting
 it wrong is expensive to reverse, or it depends on how you actually intend to work.
 
 Each gets a grilling session: a focused adversarial conversation whose job is to attack the
@@ -33,6 +33,7 @@ question, so that a decision's status has exactly one home.
 | 7 | **G7** Event bus or explicit extension points | Phase 5 | Medium |
 | 8 | **G8** Is the REPL agentic | Phase 3 | Medium, but expensive if retrofitted |
 | 9 | **G9** Contract versioning policy | First external pack | High — a policy, changeable |
+| 10 | **G10** Release and support policy | Phase 6 | Medium — a policy, but published |
 
 ---
 
@@ -500,3 +501,63 @@ first-party case first, because that is the one that will happen by accident.
 **Done when.** There is a stated policy, a defined behaviour when a pack requires a contract version
 the kernel does not offer, and a decision on whether `weft plugins doctor` reports version skew — it
 should.
+
+---
+
+## G10 — The release and support policy
+
+*(`09` recommends a position on two of this session's questions — the unit of release (`09` §1) and
+what 1.0 rests on (`09` §2.2). Each recommendation is carried below as the **case to beat**, with the
+argument against it stated beside it. That is what makes this a session rather than a ratification: a
+gate is not advice, and a gate whose positions arrive pre-judged is not a gate.)*
+
+**The question.** What is the unit of release when one repository ships several independently versioned
+distributions, what does 1.0 promise, and what is owed to a user or a pack author when a published
+surface changes?
+
+**Why it cannot be defaulted.** G9 decides what a *contract* version means; this decides what an
+*installation* means, and the two are different numbers answering different questions. Defaulting it
+produces the answer that is easy at the moment of release — bump everything together — which `09` §1
+argues is exactly the answer that gives first-party packs a release path a third-party pack cannot have,
+against rule 4. That argument is the session's first position, to be tested rather than assumed. This is
+the one gate whose subject is a promise to people outside the repository, so it is the one where "we can
+change it later" is least true.
+
+**Positions to attack.** Three on the unit of release. `09` §1 recommends the third; the recommendation
+is the case to beat and it is stated here with the counter-argument beside it, not with a verdict.
+
+- **Lockstep versioning** — one number for all distributions, simple and coarse. `09` §1 argues against
+  it: it is a release path a third-party pack cannot have, which is rule 4 rotting at the packaging
+  layer, and it makes the kernel's version meaningless as a compatibility signal. *Attack that:* one
+  number a user can hold in their head may be worth more than a precise one they have to look up, and
+  the privilege objection is about who *may* release, not about who *does*.
+- **Independent semver per distribution, and nothing else** — honest about what actually changes. `09`
+  §1 argues it is insufficient on its own, because *"which versions were tested together"* has no
+  answer. *Attack that:* the answer could be a documented, tested combination in the release notes
+  rather than a distribution, which costs nothing to publish and nothing to keep exact.
+- **Independent versions plus a named release set** — a code-free meta-distribution pinning an
+  exactly-tested combination. `09` §1 recommends it, on the ground that it is the only one of the three
+  under which a third-party pack has the same standing as a first-party one. *Attack that:* it adds a
+  distribution whose entire content is a dependency list, someone has to keep that list exact, and the
+  name `weft` then means two things — the product and one wheel among several.
+
+And on the promise itself: **1.0 by evidence** — a checklist of demonstrations, which `09` §2
+recommends and enumerates — against **1.0 by date**. *Attack the recommendation:* a checklist whose
+items are all ticked already is a date with extra steps, and one whose items never all tick is a
+release that never happens; a date at least forces the argument about what is good enough to be had out
+loud.
+
+**Bring.** `09-release.md` §1 and §2, and G9's settled outcome, which must exist first — G10 states what
+an installation promises and cannot do so before G9 has stated what a contract promises. `01` → *The
+architecture stack*, Topology row, which is where the skew obligation was recorded and deferred. **A
+count, taken on the day of the session, of how many distributions the workspace ships and how many of
+them declare a bound on a sibling** — today every pack declares `dependencies = ["weft-kernel"]` with no
+bound, so any pack installs against any kernel, and that measurement is the argument's concrete form.
+And `02` §2 → *The trust model*, because the release is where its posture is either published to
+operators or quietly lost.
+
+**Done when.** There is a stated unit of release, a stated definition of 1.0 and the basis it rests on,
+and a release checklist that can be failed. **Not** a home for the deprecation notice: that follows from
+the settled rule that cross-cutting concerns attach at the registration seam (`09` §3), and its *clock*
+is G9's — so neither is an output of this session, and a session that produces one has answered
+something it was not asked.

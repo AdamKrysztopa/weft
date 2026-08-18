@@ -9,10 +9,11 @@ chunking, embeddings or graphs, where every capability is a plugin discovered th
 points, pipelines are data derivable from other pipelines, and built-ins are held to the same public
 contract as anything a third party writes.
 
-`a prior project` is a **parts reference, not a baseline**. It is a sibling checkout reached through the
-untracked `reference` symlink, and it is used for one thing: lifting code, per `docs/04-reference-inventory.md`.
-Nothing in the build, tests or packaging may read through that symlink. The finished audit of the
-reference lives here, in `docs/reference/`, and is frozen.
+`a prior project` is a **parts reference, not a baseline** — and what it donates is **knowledge, never text**.
+It is a sibling checkout reached through the untracked `reference` symlink, and it is used for one thing:
+understanding why something is shaped the way it is, per `docs/04-reference-inventory.md`. Nothing in the
+build, tests or packaging may read through that symlink. The finished audit of the reference lives here,
+in `docs/reference/`, and is frozen.
 
 ---
 
@@ -26,11 +27,19 @@ weft/
 │   ├── weft-cli/          # the only driving adapter, and the only asyncio.run
 │   ├── weft-extract/      # first-party pack: publishes the Extractor contract
 │   ├── weft-chunk/        # first-party pack: publishes the Chunker contract
-│   └── weft-store/        # first-party pack: publishes the Store contract family
+│   ├── weft-store/        # first-party pack: publishes the Store contract family
+│   └── weft-embed/        # first-party pack: publishes the Embedder contract
 ├── testing/weft-canary/   # test-only distribution for fitness function 8
 ├── tests/architecture/    # the fitness functions
+├── tests/integration/     # what needs the one container
+├── compose.yaml           # the one container: Postgres + pgvector
 └── scripts/
 ```
+
+`weft-embed` is a fifth distribution the original plan did not anticipate, and the reasoning is
+forced rather than aesthetic: G4 forbids a store from embedding, G2 has not placed the embed step,
+and a walking skeleton must not depend on a model download or an API key. See `docs/06-phase-0-build.md`
+step 8.
 
 **One repository, several distributions.** This is not bookkeeping: a kernel that is its own wheel is
 checked by installing it alone and importing it, which is what makes fitness function 1 a fact rather
@@ -43,6 +52,11 @@ than a script.
 These came out of grilling sessions G1 and G3–G6. They are not preferences; each is recorded in
 `docs/` with the argument that produced it, and changing one means reopening its gate.
 
+- **Weft is original work. No source text from any other codebase enters this repository** — not a
+  file, a function body, a docstring, a comment, a prompt string, a word list, a regex or a test
+  fixture. The reference is read to *understand*, then closed; every line here is written for Weft. The
+  test: *if you could not have written this line without the reference's file open, it is a copy.* There
+  is no attribution procedure because there is nothing to attribute — see `NOTICE`.
 - **The kernel names no capability.** No `Extractor`, `Chunker`, `Store`, `Retriever` or `LLM` in
   `weft-kernel` — those contracts ship from the packs that own them. *If you cannot describe the
   kernel without naming a capability, it is too big.*
@@ -93,10 +107,10 @@ Four live in `.claude/skills/`:
   The properties this project exists for are lost silently, one reasonable commit at a time.
 - **`reference-audit`** — what does the reference have that Weft does not yet? Separates *missed* from *not
   due*, runs the check in reverse to catch anything that arrived from the leave-behind list, and
-  verifies the licensing ledger. Use before declaring a phase complete.
-- **`reference-lift`** — port one catalogued item correctly: verify at source, decide verbatim versus
-  rewrite-from-design, place it in the right distribution, apply the recorded corrections, and satisfy
-  the Apache-2.0 obligations if source text was copied.
+  checks that nothing was copied. Use before declaring a phase complete.
+- **`reference-lift`** — port one catalogued idea correctly: verify at source, work out what the asset
+  actually is (an ordering, a distinction, a taxonomy, a measurement, a scar), close the file, and
+  write it fresh in the right distribution with the recorded corrections applied.
 
 ## Automation
 
@@ -113,8 +127,9 @@ Four live in `.claude/skills/`:
 
 ## Working here
 
-- **Decisions have gates.** Ten of them, in `docs/05-grilling-sessions.md`, each with its question,
-  the positions to attack, what to bring and what done looks like. Six are settled. If a task runs
+- **Decisions have gates.** Ten sessions in `docs/05-grilling-sessions.md`, eleven rows in the log —
+  G0 was settled without a session and is logged only. Each session carries its question, the
+  positions to attack, what to bring and what done looks like. Six are settled. If a task runs
   into an open one, stop and say so rather than defaulting it — that is what they exist to prevent.
 - **When a session closes**, follow the Protocol section at the foot of `docs/README.md`: update the
   decision-log row, tick the checklist, and edit the reference document that owns the content. The

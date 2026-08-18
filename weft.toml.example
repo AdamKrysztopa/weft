@@ -1,0 +1,42 @@
+# Weft — project configuration. Copy to `weft.toml` in the directory you run
+# `weft` from; it is read relative to the working directory, not to the package.
+#
+# Optional as a file, but not optional in practice once a pack needs settings:
+# `weft plugins doctor` will tell you which pack is `failed` and name the field
+# it is missing.
+
+# --- Pack settings -----------------------------------------------------------
+# One block per distribution, under its distribution name. Each block is
+# validated against that pack's own Pydantic model *before* the pack's
+# `register()` is called, so a settings mistake is a refusal at start-up rather
+# than a stack trace somewhere inside a pipeline.
+
+[packs.weft-store]
+# Required — the pack itself has no default, so a store never guesses at a
+# database. `${env:...}` is interpolated by the settings loader, which keeps the
+# secret in the environment and out of this file.
+#
+# **What is set here wins over the environment**, key by key. The CLI offers
+# `${env:WEFT_DATABASE_URL}` as `dsn` only when this file does not say — a
+# convenience for the no-file case the quickstart walks, not a second
+# configuration system. An ambient value that overrode an explicit one would let
+# a stale shell export send a project at the wrong database, and a store pointed
+# at the wrong database does not crash: it answers plausibly.
+dsn = "${env:WEFT_DATABASE_URL}"
+
+# --- The trust model ---------------------------------------------------------
+# `allow` is an exhaustive opt-in pin of distribution names. Absent means open,
+# which is the default posture: the threat this addresses is installed-and-
+# ambient rather than malicious — an entry point turns *installed* into
+# *executed with your privileges*.
+#
+# Uncomment to pin. Anything not listed is refused and, importantly, never
+# imported. `weft plugins doctor` can flag a running pack `ambient` — meaning it is
+# not a direct dependency of the project, arrived transitively rather than by a
+# deliberate `uv add` — but that is unrelated to this pin: it depends on the CLI
+# telling `weft` which distributions are direct dependencies, which Phase 0's CLI
+# does not yet do, so no pack carries the flag yet. Read the `status` column, not
+# `ambient`, until that lands.
+#
+# [packs]
+# allow = ["weft-extract", "weft-chunk", "weft-embed", "weft-store"]
