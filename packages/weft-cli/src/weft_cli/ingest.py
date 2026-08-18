@@ -14,7 +14,7 @@ One batch: every `SourceDoc` `discover_source_docs` finds is handed to
 8 integration test does — `docs/01-high-level-plan.md` → *Colour*: "the
 runner keeps one batch in flight per pipeline run."
 
-**Cleanup, defensively.** `weft_kernel.runner.ResolvedPipeline.stages` is
+**Cleanup, defensively.** `weft_kernel.runner.RunnablePipeline.stages` is
 public, and `PgVectorStore.aclose` is not part of any contract `NodeStore`
 publishes — a store may or may not have a connection worth closing. This
 module treats `aclose` exactly the way `weft_kernel.runner`'s own
@@ -36,7 +36,7 @@ from weft_embed import Embedder
 from weft_extract import Extractor, discover_source_docs
 from weft_kernel.context import Context
 from weft_kernel.registry import Registry
-from weft_kernel.runner import ResolvedPipeline, Runner, RunSummary, StageSpec
+from weft_kernel.runner import RunnablePipeline, Runner, RunSummary, StageSpec
 from weft_store import NodeStore
 
 #: The fixed, explicit pipeline `docs/06-phase-0-build.md` step 9 ships — see the module
@@ -94,7 +94,7 @@ async def run_index(directory: Path, *, registry: Registry, ctx: Context) -> Ind
                 await aclose()
 
 
-async def _stored_count(pipeline: ResolvedPipeline) -> int | None:
+async def _stored_count(pipeline: RunnablePipeline) -> int | None:
     for stage in pipeline.stages:
         if stage.id != "store":
             continue

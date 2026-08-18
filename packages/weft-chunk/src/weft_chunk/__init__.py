@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict
 
 from weft_chunk.contract import CHUNKER_CONTRACT_VERSION, Chunker
 from weft_chunk.fixed_size import FixedSizeChunker, FixedSizeChunkerConfig
+from weft_chunk.property import WordBoundaries
 from weft_kernel.discovery import PackRegistrar
 
 
@@ -33,5 +34,6 @@ __all__ = [
     "FixedSizeChunker",
     "FixedSizeChunkerConfig",
     "Settings",
+    "WordBoundaries",
     "register",
 ]

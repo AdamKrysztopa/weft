@@ -19,8 +19,10 @@ install while still participating in indexing, retrieval and the CLI.
 
 ## 1. Contracts
 
-A contract is narrow by construction. The predecessor's `BaseExtractor` is the model to copy: one
-method, domain types on both sides. Its interface was never the problem — only its dispatch.
+A contract is narrow by construction. The predecessor's `BaseExtractor` is the interface shape to
+follow: one method, domain types on both sides. Its interface was never the problem — only its
+dispatch. What is reused is the shape, reimplemented against Weft's own contracts; no line of the
+reference's source enters this repository (`NOTICE`).
 
 > **Confirmed and extended by the reference study (2026-08-10).** `indexing/parsing/extractors/base.py`
 > is 51 lines, one `@abstractmethod extract(file, mode) -> ExtractionResult` (`:18-38`) plus one
@@ -127,6 +129,7 @@ class MyStage:
     lifetime: ClassVar[Lifetime] = Lifetime.RUN
     requires: ClassVar[tuple[type[ExtModel], ...]] = ()
     provides: ClassVar[tuple[type[ExtModel], ...]] = ()
+    config_model: ClassVar[type[MyConfig]] = MyConfig
 
     def __init__(self, config: MyConfig) -> None: ...
     async def run(self, payload: In, ctx: Context) -> Outcome[Out]: ...
@@ -745,6 +748,14 @@ allow = ["weft-extract", "weft-chunk", "weft-store", "weft-graph"]
   under this threat model is unchosen code executing, not credentials exfiltrated. A posture that
   demanded a manual step on every install would be disabled wholesale with `allow = ["*"]`, which is
   open with extra ceremony and a false sense of safety.
+- **Malformed is refused, never absorbed into absent.** `packs = ["weft-store"]` — the plausible typo
+  for `[packs]` / `allow = [...]` — parses as a list, not a table; a `weft.toml` that writes it is not
+  the same document as one with no `[packs]` key at all, and reading the two identically is the
+  open-by-default posture reached silently, by typo, with the operator's allow-list never consulted.
+  Loud instead: naming `weft.toml`, the `[packs]` key, the shape found and the shape expected. Task
+  **1.16** — a reference audit found both call sites (`weft_kernel.discovery.allow_list_from_config`,
+  `weft_cli.registry_bootstrap.pack_settings_from_config`) collapsing this case into absence, which
+  is the bug fixed there, not a second posture.
 
 Two things run **always**, opted in or not, and they carry most of the practical weight:
 
@@ -839,8 +850,21 @@ A pipeline is an ordered list of stages. Each stage names a contract, selects a 
 carries that plugin's configuration. Because it is data, it can be diffed, versioned, generated,
 compared in evaluation, and — the point — derived.
 
+**Settled in G2, 2026-08-16.** Everything from *One model, two directions* onward is that session's
+outcome. The rule that shapes all of it: **the written order is the pipeline.** Resolution checks an
+order and refuses a bad one; it never reorders behind the author's back, because a resolver that
+silently finds a working arrangement is the same species as a silent fallback, and `01` rules those
+out everywhere else.
+
+**One model covers both paths.** A query pipeline is a pipeline — same operators, same slots, same
+constraint checks, same frozen resolved form — typed by its endpoints through `Stage[In, Out]`. This
+is what makes a retrieval configuration derivable and therefore comparable, which Phase 4's exit
+criterion requires. It obliges Phase 2 to express the router as a stage rather than as an engine.
+
+The example below is **an example, not a canonical order** — see *No canonical ingest order*.
+
 ```yaml
-# base.yaml
+# base.yaml — one pipeline, not the pipeline
 name: base
 stages:
   - id: extract
@@ -857,6 +881,17 @@ stages:
     use: pgvector
 ```
 
+> **`fallback: [pdfplumber, ocr]` above is recorded, not executed — yet.** `StageDeclaration.fallback`
+> holds the per-stage list a document writes, "tried in order until one produces" per `11` §4, but
+> nothing in the kernel walks it: the field is data, same as every other field on this model, and
+> resolution passes it through unread. The combinator that would read it is `04`'s kernel row for
+> `_try_extractors`, the fallback-chain executor (`reference/study/08-salvage.md` §T1.15) — a combinator
+> over *any* contract, per `01` → *The kernel boundary*, never specific to extraction. `01` → *Phases*
+> assigns it to Phase 2, the first phase where a second backend for one media type exists for it to
+> try. Until then, a `fallback:` block is honoured as syntax and ignored as behaviour — worth saying
+> here, at the page a reader meets `fallback:` on, rather than leaving it to be discovered only in
+> `pipeline.py`'s module docstring.
+
 > **Corrected from the reference study (2026-08-10) — this example asserts a stage order the reference did
 > not use, and it is load-bearing.** The reference **chunks first and cleans second**, and it has two
 > stages this example omits. `IndexingPipeline.process` (`indexing/pipeline.py:82-150`), by the
@@ -865,13 +900,14 @@ stages:
 > metadata (`:127`); **4** enhance (`:130`); **4.5** scrub transient metadata (`:135-136`); **5**
 > store (`:142`). There is **no separate embed stage** — embedding happens inside storage.
 >
-> The example above is left as written because it may well be what Weft *wants*; but it is now a
-> **decision for G2**, not an inherited fact, and G2 must state which order Weft adopts and why.
-> Whichever way it goes, stage 0 and stage 4.5 belong in the model: stage 0 exists so atomic nodes
-> are never re-chunked, and 4.5 exists because *"if the enhancer is absent or fails, this guard
-> prevents multi-MB base64 blobs from being serialised into PGVector JSONB"*
-> (`indexing/pipeline.py:429-438`). If Weft has no embed stage either, `bge-m3` above belongs inside
-> the store's configuration rather than beside it.
+> **Settled in G2, 2026-08-16 — Weft adopts no canonical ingest order, and neither does this
+> document.** See *No canonical ingest order* below. The reference's stage 0 and stage 4.5 are both
+> answered without being stages: stage 0 becomes *applicability* (a chunker declares it does not
+> operate on atomic nodes, and the runner routes them past it), and stage 4.5 is already a seam
+> concern — transient stripping attaches at registration alongside spans and error attribution, per
+> `01` → *Fitness functions*. The embed question is closed the other way: **G4 forbids a store to
+> embed**, so `bge-m3` stays a stage beside the store and never inside it, which is also what keeps
+> `11`'s pixel-embedding path buildable.
 > (`reference/study/10-doc-corrections.md` A12; `reference/study/08-salvage.md` §T1.1.)
 
 > **Extended by the reference study (2026-08-10) — an ordered list is not enough. Three findings, all
@@ -886,6 +922,7 @@ stages:
 > operators below let a third party insert a stage between `HyphenationFixer` and
 > `WhitespaceNormalizer` and **silently corrupt text**. Pipeline-as-data therefore needs an
 > **ordering-constraint concept**, not just an ordered list — a fifth position for G2 to attack.
+> **G2 settled it as `intact` / `destroys`** — see *Ordering constraints* below.
 >
 > **A stage list the executor does not read is worse than no stage list.** `CleaningConfig.processors:
 > list[str] = ['unicode','whitespace','artifacts','table']` (`core/config/models.py:51-54`) is the
@@ -895,6 +932,11 @@ stages:
 > **Language-conditional stages are a real requirement this YAML cannot express.** Two of those six
 > booleans are additionally gated on `config.language == 'pl'` (`pipeline.py:81`, `:97`) — a
 > hardcoded language check inside a supposedly generic pipeline. Weft's model needs an answer for it.
+> **G2's answer sharpens the diagnosis:** the defect is not the absence of a conditional, it is what
+> the condition reads. `config.language` is a *run-wide setting*, so on a corpus holding Polish and
+> English documents it is uniformly wrong for one of them with no signal, and the 243-word Polish
+> fused-word exception set (`processors/dictionary_spacing.py:31`) fires on English text. Language is
+> a fact about a **node**. See *Language, and what a var is for*.
 >
 > (`reference/study/10-doc-corrections.md` E7, E8; `reference/study/08-salvage.md` §T2.10.)
 
@@ -927,7 +969,9 @@ That is the whole change. The parent is referenced, never copied, so improvement
 > both depend on this being solved, which is why §1 now states it as a contract rule.
 > (`reference/study/10-doc-corrections.md` E4.)
 
-Four operators, and the set stays closed until something real needs a fifth:
+Four operators, and the set stays closed until something real needs a fifth — **enforced, not merely
+stated**: the set is pinned by a ratchet with an empty waiver constant, so a fifth operator fails the
+build until someone changes a constant in a diff and records why.
 
 | Operator | Effect |
 |---|---|
@@ -935,6 +979,47 @@ Four operators, and the set stays closed until something real needs a fifth:
 | `replace` | Swap the plugin at a stage id, keeping its position |
 | `remove` | Drop a stage by id |
 | `set` | Override configuration of an existing stage without changing the plugin |
+
+> **Settled in task 1.4 — the serialisation question 1.1 raised and left open.** `docs/build-ledger.md`
+> flagged that four independent model *fields* cannot honour both "operators apply in written order"
+> and the `specific.yaml` shape above: a field's position in a `BaseModel` is fixed once, for every
+> document, so whichever order the four fields were *declared* in would make one of *remove-then-insert*
+> and *insert-then-remove* on the same id permanently unwritable. The operators stay **four keyed
+> blocks** — `insert`, `replace`, `remove`, `set` — exactly as printed above and in `specific.yaml`; they
+> are not flattened into one tagged sequence, because a YAML mapping cannot repeat a key, and a document
+> already says `remove:` above `insert:` or the reverse without any wrapper syntax to invent. What
+> changes is where *application order* comes from: it is read off the **document's own key order** (a
+> parsed mapping preserves it) rather than assumed from the model's field declarations, and a Python
+> call gets the identical treatment — `Pipeline(remove=..., insert=...)`'s keyword arguments preserve
+> call order into the same mapping shape `model_validate` receives, so there is one mechanism computing
+> "the order", not one per direction. `Pipeline.operator_order` is that mechanism's public face; the
+> resolved form's stage list is folded by walking it literally, one block at a time. Round-tripping a
+> document — `model_dump(mode="json", by_alias=True, exclude_defaults=True)` — reproduces the exact key
+> order it was read from, operator blocks included, because pydantic's own serialisation walks fields in
+> declaration order and would otherwise silently undo the ordering choice on the way back out.
+
+**`extends` takes one parent, at any depth.** Resolution is *resolve the parent completely, then apply
+this pipeline's operators to that result*, which is the same operation at depth one and depth five —
+depth adds no new case. A cycle is a resolution error naming the whole chain. Multiple parents are
+refused: merging two stage lists needs interleaving rules no driving use case asks for.
+
+**Every operator is strict.** A target id absent from the resolved parent fails resolution, naming the
+id, the pipeline that wrote the operator, the parent it resolved against and the ids that do exist.
+`insert` fails equally when its *new* id collides with an existing one, or a child would silently
+shadow a parent's stage. `remove` gets no exemption: G4's idempotent deletion is about network
+retries against a store, whereas a pipeline is authored text resolved at load, and a `remove` line
+matching nothing is evidence the parent moved under you.
+
+**Operators apply in written order**, each validated against the running result, because `02`'s
+governing rule is that the written thing is authoritative. Several operators may touch one id.
+`remove` followed by `insert` expresses a move, which is why there is no fifth operator for it — and
+because application order is read from the document rather than assumed, writing `insert` above
+`remove` on that same id is a different pipeline: the insert runs first, while the old stage still
+occupies the id, and collides.
+
+**A parent's improvement reaches its children.** Resolution reads live parents, so a parent's edit
+flows through and the child's overrides land on top of it. Every stage in the resolved form records
+which pipeline or pack put it there, so depth stays forensically readable.
 
 Resolution produces a frozen, fully-explicit pipeline: every stage, plugin, version and
 configuration value named, with no inheritance left to interpret. That resolved form is what runs,
@@ -955,12 +1040,287 @@ document. Never a silent fallback.
 produced by some upstream stage; and consecutive stages **compose by type** — `Stage[In, Out]`, so a
 pipeline that reranks before it retrieves fails at load naming both types rather than on the first
 query. Everything a resolved pipeline can be wrong about is therefore wrong *before* it runs, which
-is the whole reason resolution produces a frozen, fully-explicit form.
+is the whole reason resolution produces a frozen, fully-explicit form. G2 adds three more checks:
+ordering constraints, slot placement, and var definition.
 
-**Open decisions:** the exact overlay semantics, conflict rules for multi-level inheritance, and
-whether pipelines are authored in YAML, Python, or both, are grilling session **G2**. The stage
-payload's type model is **G5** — it is the hardest question in the design and defaulting it would
-be a mistake.
+### Ordering constraints — `intact` and `destroys`
+
+G5 solved ordering by **data dependency**. It cannot solve the cleaning chain, because
+`WhitespaceNormalizer` must run last for being *destructive*, not because anyone reads its output. No
+dependency graph can see that.
+
+The representation is the **mirror of `requires` / `provides`**, declared on the plugin class and read
+at the seam beside them, so it travels with the plugin into every pipeline including derived ones:
+
+| Declares | Means |
+|---|---|
+| `requires` | some **earlier** stage must have produced this ext model |
+| `provides` | this stage produces it |
+| `intact` | no earlier stage may have **destroyed** this property |
+| `destroys` | this stage annihilates it |
+
+The properties are published by whichever pack publishes the contract — namespaced marker classes
+exactly as G5 gives ext models their namespaces. **No plugin ever names another plugin**, which is the
+whole point: a hyphenation fixer from one pack is protected from *any* whitespace normalizer from
+*any* pack, and "must run last" stops being a special case — it falls out of destroying everything
+downstream needs.
+
+**`destroys` is mandatory** wherever a contract publishes a property vocabulary, an explicit empty
+tuple included; registration is refused otherwise, naming the missing declaration. `intact` stays an
+optional convention. The asymmetry is deliberate: forgetting `intact` harms only your own stage and
+you find out, while forgetting `destroys` silently corrupts a stranger's, and the pack that caused it
+never sees a failure.
+
+### Applicability — what a stage operates on
+
+A stage declares what it operates on; the runner routes everything else past it, untouched. This is
+the reference's stage 0 as a mechanism instead of a rule an author must remember — a third-party chunker
+that has never heard of tables still leaves an atomic table unsplit, because the seam does it.
+
+It also disposes of branching. A pipeline stays one straight line, and "the table path" is simply the
+stages whose applicability includes tables. There is no `when:`, no branch, no rejoin, and the
+resolved form still prints one order.
+
+**Settled in task 1.6 — the predicate is data, never a callable.** A callable can be *run*; it cannot
+be *printed*, checked at registration, or diffed between two resolutions of the same pipeline — the
+same complaint *One model, two directions* makes about a second construction path, one level down. So
+`Applies` is a frozen model **the kernel publishes** (`weft_kernel.payload.applicability`), on the
+same footing `Property` already gives `intact`/`destroys`: data a plugin's class carries, evaluated by
+whoever runs the pipeline, never executed by the plugin itself.
+
+A stage declares `applies_to` as a tuple of `Applies` values — a class attribute, read at the seam
+exactly as `requires`/`provides`/`intact`/`destroys` already are. `Applies` wraps an **ext model**:
+`Applies(Language)` matches any node carrying that fact at all; `Applies(Language, code="pl")` narrows
+to nodes whose `Language` additionally has `code == "pl"`. The keyword names are checked against the
+fact's own fields **the moment `Applies(...)` is constructed** — which, for a class-level `applies_to
+= (Applies(Language, code="pl"),)` tuple, is the moment the plugin's module is imported for
+registration — so a typo'd field name fails on the pack's own import, naming every field the model
+actually has, rather than shipping a stage that silently never applies to anything. That is the exact
+silent-failure class rule 5 rules out everywhere else: a typo and a stage correctly declining every
+node it sees are indistinguishable from the outside, and there is no `doctor` command that can tell
+them apart after the fact.
+
+Evaluation happens at the seam, in `weft_kernel.runner`, never in the plugin. The fact **absent**
+means the stage does not apply — failing to the safe side, exactly as *Language, and what a var is
+for* already says unknown language flows past a language-specific stage. The fact **present** means
+every constrained field must be equal; there is no third spelling and no negation. This is what makes
+"the chunker does not have to know that tables exist" literal rather than aspirational: a chunker
+declares the one fact its own splitting logic actually needs — the prose it knows how to find sentence
+boundaries in, say — never "not a table". A table simply never carries what the chunker asked for, and
+routing it past is a consequence of that requirement going unmet, not a rule about tables the
+chunker's author had to think to add. **Vars never participate in applicability** — nothing about
+`applies_to` is document-authored at all, so there is no `${var:NAME}` token for `vars:` substitution
+to ever reach; a var can say *translate into English*, and applicability can still only ever read what
+a node actually *is*.
+
+**A stage that declares no `applies_to` applies to everything.** That is the default, and it stays
+silent: every stage written before this task — none of which declares one — keeps running exactly as
+it did, and an empty tuple costs nothing to check because there is nothing in it to fail.
+
+Routing is what makes the declaration true. The runner splits a batch into its **maximal contiguous
+runs** of "every `Applies` matches" and "at least one does not" — a single filtered call over every
+matching node is not enough, because a chunker's `Sequence[Node] -> Sequence[Node]` does not preserve
+shape, and once matching nodes have been pooled into one call there is no record of where an untouched
+node originally separated two of them. The stage runs once per matching run; every non-matching run
+passes through unchanged, in the position it already held; the results are concatenated back in
+original order. A pack shipping a chunker that has genuinely never heard of tables can still be handed
+this mechanism and prove it: a stage with no conditional on node content anywhere in its own `run` —
+one that would happily split anything it is handed — still leaves an atomic node it was never routed
+to completely alone.
+
+The resolved form prints each stage's `applies_to`, since a predicate is data: `weft_kernel.
+resolution.ResolvedStage` carries it, read off the registered plugin the same defensive way
+`requires`/`provides`/`intact`/`destroys` already are.
+
+### Slots — how a pack contributes
+
+A pack may ship complete named pipelines, and it may **contribute into a slot a pipeline opted into**.
+It may never rewrite a pipeline that did not ask: installing a package — possibly a transitive
+dependency — must not silently change what an existing pipeline does, which is G3's *installed and
+ambient* threat applied to your data.
+
+- A contribution targets a **named slot**, never a stage id. Stage ids are internal detail that
+  `replace` and `remove` exist to change; a slot is a stable, deliberate promise.
+- **Two contributions in one slot** are ordered by the declared relations above. Genuine ties break by
+  **distribution name**, so two machines with the same installs resolve identically. An author may pin
+  an order, which must still satisfy every constraint.
+- **A contribution with no matching slot is a recorded no-op** — listed in the resolved form as
+  unplaced, and `weft plugins doctor` flags a pack whose contributions land in *no* pipeline at all,
+  so "installed and doing nothing" is visible without breaking every pipeline lacking that slot.
+- **Slots fill after the extends chain resolves.** Operators address the author's own stages and
+  slots; `remove: enrich` drops the slot itself, which is how a pipeline refuses contributions without
+  naming any pack. A contributed stage may be **`set` but never `replaced` or `removed`**, and its
+  configuration otherwise comes from the pack's own `packs:` settings namespace (§2).
+- Contributed stage ids are qualified by distribution (`weft-graph:entities`) so they cannot collide
+  with the author's — which holds because the qualified spelling is **reserved**: an authored
+  document naming a stage `weft-graph:entities` is refused where it is read, with no registry
+  consulted, rather than colliding later when that pack happens to be installed. That is a *stage
+  id*, not a plugin name, so G3's ruling that pipelines keep bare names in `use:` is untouched.
+- **Installation-dependent targets are recorded, never fatal.** `set: weft-graph:entities` where that
+  pack is absent is an unapplied operator in the resolved form, not a resolution failure — the same
+  reasoning as an unplaced contribution, and it keeps a tuned pipeline portable. Strictness governs
+  targets the pipeline's own extends chain defines.
+
+### Language, and what a var is for
+
+Two different things wear the word *language*, and separating them is what fixes the reference's defect.
+
+**A fact about a node.** The source language is provided per node by the extractor or by an ordinary
+`detect` stage, and language-specific stages declare applicability over it. A Polish fixer applies to
+Polish nodes; English nodes flow past; unknown language flows past, which fails to the safe side. A
+mixed corpus becomes correct in one pass instead of uniformly wrong.
+
+**A decision about the pipeline.** A `vars:` block carries values several stages must agree on — a
+translation target, a reply language. Vars are inherited, and **a child's override re-resolves every
+inherited stage that references it**, so retargeting a whole pipeline is two lines:
+
+```yaml
+# base-de.yaml — the entire file
+extends: base
+vars: {target_lang: de}
+```
+
+Scalars only; no var may reference another; referenced only inside `with:` values, never in `use:` or
+a stage id, so plugin selection stays a literal name the registry can check. An undefined var is a
+resolution error naming the var and the pipeline. The frozen form records every final value.
+
+**Vars never participate in applicability.** Applicability reads the node's facts, always. A var can
+say *translate into English*; it can never say *pretend this document is English*. That is what keeps
+the two mechanisms from ever disagreeing.
+
+Translation itself needs no new concept: a stage that `requires` the language, rewrites the text and
+provides the new one. Everything after it sees a single language, so downstream stages need no
+configuration at all.
+
+### No canonical ingest order
+
+**Weft asserts no ingest order, and neither does this document.** A pipeline is data; whether it
+cleans at all, and where, is the author's choice. What replaces the blessed list is stronger than it:
+any particular order is **proved** by `requires`/`provides` and `intact`/`destroys` rather than
+asserted by a plan. Where a plugin has an ordering opinion it declares it, and a violation fails at
+load naming the positions that would be legal.
+
+This is also why the "chunk then clean or clean then chunk" question dissolves. Cleaning is not one
+thing: hyphenation repair wants to precede chunking, since a word broken at a page break and chunked
+is embedded as two fragments and no later stage can rejoin it, while whitespace normalization must
+follow a structure-aware chunker whose section and column detection it would destroy. Those are
+opposite sides of the same stage, and both are now declarations rather than doctrine.
+
+### One model, two directions
+
+The pipeline **is** a frozen Pydantic model published by the kernel. YAML is a serialisation of it;
+Python code constructs the same model directly. That is "both" with one implementation — one
+validator, one error set, one resolved form, no builder DSL and therefore no second grammar to keep
+in step. Pipelines are YAML; operator policy stays TOML in `weft.toml`, split by shape rather than by
+taste: one is a nested document of stage lists, the other is flat policy edited rarely.
+
+**The kernel publishes the model and opens no file.** G1 fixes its dependencies at `pydantic` and
+`opentelemetry-api`, so a YAML loader is not among them: the model validates the *mapping* a loader
+hands back, and whoever opened the file brought the parser — the same division §2 already makes for
+`weft.toml`, where `weft-cli` is the only thing that reads a file. It is also what keeps *one
+validator* true rather than aspirational: both directions reach the same validator because neither
+passes through a parser the other does not.
+
+**The authored form is not the resolved one, and its error set is `ValidationError`.** A document is
+refused where it is read for the invariants that hold with no registry present — it is named, its
+keys are keys the model has, **its stage ids are unique**, and its vars are scalars — while
+everything needing a parent, a plugin or a distribution belongs to resolution. So a malformed
+document is not one of *When resolution fails*' subclasses: it has no resolved parent and no
+distributions to name, and filing it there would hand the failure-mode ratchet one
+already-documented name to hide behind. Unknown keys are still answered by name, the keys that exist
+printed beside the key that does not, per `01`'s loud-failure rule.
+
+That leaves one thing open rather than settled, and it is named here so it is not settled by
+accident: **how the CLI reports a malformed document.** `03` reserves exit 4 for *fix the pipeline*
+and 1 for *fix the environment*, and a mistyped key is as fix-the-pipeline as a failure gets — but a
+`ValidationError` is not a `WeftError`, so today it would reach the CLI's last-resort handler and
+exit 1, and the failure-mode ratchet, which derives its required set from `WeftError` subclass
+names, cannot see it either. Nothing reaches that path yet, because nothing opens a pipeline file
+until the driving use case does. The translation and the manual entry belong to whichever of those
+tasks first hands a document to the CLI.
+
+### When resolution fails
+
+Each failure is **its own `WeftError` subclass** under a `PipelineResolutionError` family base, all
+carrying the same required fields — the pipeline, the stage ids, the distributions in conflict, and
+the remedy. One class per kind rather than one class with a `kind` field, because the failure-mode
+ratchet derives its documented set from subclass *names*: a fat class would present one
+already-documented name and let a dozen new failure modes ship undocumented, which is the hole that
+ratchet exists to close. The CLI maps the whole family to exit code 4 (`03`).
+
+A `(contract, name)` collision is refused at **registration**, naming both distributions and printing
+the pin that resolves it. G3 settled that pipelines keep bare names, so the data cannot break the tie
+and the operator does, in the file where operator policy already lives:
+
+```toml
+# weft.toml
+[plugins]
+"Enhancer:keybert" = "weft-kw"
+```
+
+The displaced registration is recorded and reported by `weft plugins doctor`. This relaxes Phase 0's
+blanket refusal rather than tightening a silence, which is the direction `06` required of G2.
+
+> **Narrowed in Phase 1 task 1.12 (2026-08-17), repaired the same day.** A pin's story does not end
+> once one real collision is resolved. Two more shapes surface once discovery is otherwise finished,
+> and both are refused the same way the registration-time collision above already is — loudly,
+> naming what is wrong, never silently honoured and never silently dropped:
+>
+> - **A pin naming a distribution that did not claim the name.** `[plugins]` names a `(contract,
+>   name)` pair and a winning distribution; if neither distribution actually contending for that
+>   name is the one the pin names, resolving it anyway would silently start honouring a pin for a
+>   pack that never contended. In short: a pin naming a distribution that did not claim the name
+>   must fail loudly rather than being ignored, because an inert pin is a lie about what is running.
+>   `weft_kernel.registry.UnresolvedPluginPinError`.
+> - **A pin for a pair that has no collision at all** — the name was never claimed twice, or never
+>   claimed at all, so nothing ever needed arbitrating. In short: a pin for a pair that has no
+>   collision must fail loudly too, rather than being read as a harmless no-op — an inert pin is a
+>   lie about what is running whether or not it ever had a fight to arbitrate. Checked once
+>   discovery finishes enumerating every pack, rather than folded into any one pack's own report,
+>   since it is not one pack's failure: `weft_kernel.discovery.InertPluginPinError`.
+>
+> Both read `[plugins]` from the same `weft.toml` that already carries `[packs] allow`, and neither
+> is read by the kernel. In short: the pin is read by the operator-policy loader in weft-cli, never
+> by the kernel — `weft_cli.registry_bootstrap` is that loader, on the identical split *One model,
+> two directions* below already states for the pipeline document itself, extended here to the file
+> the pin lives in.
+>
+> **Repaired the same day, after review.** `InertPluginPinError` shipped unconditionally fatal to
+> every registry-needing command, `weft plugins doctor` and `weft plugins list` included — the two
+> commands whose whole job is explaining what discovery found, one of which
+> `manual/troubleshooting.md`'s own remedy for this error named as the next thing to run. Fixed by
+> `weft_kernel.discovery.discover`'s `strict_pins` parameter: `weft_cli.cli.dispatch` passes
+> `strict_pins=False` only for those two commands, so an inert pin no longer stops either from
+> reporting what it found — `Registry.unconsulted_pins()` is unaffected either way, and
+> `weft plugins doctor` now prints it as its own loud block when it is not raised.
+
+> **Narrowed in Phase 1 task 1.13 (2026-08-17) — the audit this section's own rule asks for.**
+> Two gaps, neither a reversal of anything settled above. First, `weft_kernel.runner.Runner.
+> resolve` — the explicit `StageSpec`-list mechanism `06` step 6 built, before this section's
+> `extends`/operators/slots existed to resolve a *document* against — raised the bare
+> `PipelineResolutionError` family base directly for three of its four checks, told apart only
+> by reading the message: exactly the fat-class shape this section's own rule rules out, one
+> module over from where `weft_kernel.resolution.resolve` had already solved it correctly.
+> Fixed by moving `UnmetRequiresError`, `StageCompositionError` and `IntactViolationError` to
+> `weft_kernel.runner` (`weft_kernel.resolution` now imports rather than re-declares them) and
+> raising the specific class at both of `Runner.resolve`'s and `resolve()`'s call sites — one
+> class per kind, shared correctly across the two mechanisms that both need it, rather than two
+> classes coincidentally sharing three names or one class covering four kinds under one name.
+>
+> Second, "all carrying the same required fields" was true only of each subclass's *message* —
+> the four facts were readable by a person, not by a caller without parsing English. Every
+> `PipelineResolutionError` subclass now carries `pipeline`, `stages`, `distributions` and
+> `remedy` as real, structured attributes on the family base itself, populated at every raise
+> site; `pipeline` is `None` and `stages`/`distributions` are `()` wherever a failure genuinely
+> has none to name (an anonymous `StageSpec` list has no pipeline name at all; a cycle has no
+> distribution in conflict), the identical honest-absence reasoning this section already gives
+> `UnknownParentPipelineError`'s "no stage ids and no distribution to name" — never a fabricated
+> placeholder. The CLI mapping this section states — "the whole family maps to CLI exit code 4" —
+> is now one function, `weft_cli.exit_codes.exit_code_for`, rather than duplicated by hand inside
+> two command handlers; see `03`'s own narrowing note for what that closes.
+
+**The stage payload's type model is `G5`**, settled separately; it is the hardest question in the
+design and defaulting it would have been a mistake.
 
 ## 4. Add-ons — driving use case B
 
@@ -974,7 +1334,7 @@ The graph pack, complete:
 | Graph store | `Store` | Sits beside the vector store |
 | Graph-walk retriever | `Retriever` | Selectable by any retrieval strategy |
 | `weft graph build`, `weft graph show` | `Command` | Appear in `--help` and REPL completion |
-| A pipeline fragment | — | Ships a ready-made derived pipeline users can extend further |
+| A named pipeline, and a slot contribution | — | Ships a ready-made derived pipeline users can extend further, and contributes into any pipeline that declares the slot it targets. Never rewrites a pipeline that did not opt in — §3, *Slots* |
 
 Install:
 

@@ -58,6 +58,17 @@ def test_kernel_imports_nothing_it_does_not_ship() -> None:
     )
 
 
+def test_at_least_one_kernel_file_is_walked() -> None:
+    # Floor — `08` §3's shape, applied to a source walk instead of a document walk: a
+    # walk that finds nothing would let the assertion above pass on an empty tree,
+    # exactly the vacuous shape `reference/study/08-salvage.md:777-782`'s parity test takes.
+    walked = sorted((KERNEL_ROOT / "src").rglob("*.py"))
+    assert walked, (
+        f"no `.py` file found under {KERNEL_ROOT / 'src'} — the walk itself is broken; "
+        f"fix it before trusting the boundary check above."
+    )
+
+
 def _distribution_name(requirement: str) -> str:
     """`opentelemetry-api>=1.28` -> `opentelemetry-api`."""
     for separator in (">=", "==", "<=", "~=", ">", "<", "[", ";", " "):

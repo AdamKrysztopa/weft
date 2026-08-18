@@ -164,6 +164,36 @@ class EnvInterpolationError(WeftError):
     """
 
 
+class InertPluginPinError(WeftError):
+    """A `[plugins]` pin never got the chance to arbitrate anything, once discovery finished.
+
+    `docs/02-extension-model.md` §3: "a pin for a pair that has no collision"
+    must fail loudly rather than being read as a harmless no-op — "an inert
+    pin is a lie about what is running." Raised here, after every entry
+    point has been enumerated and every permitted pack activated, off
+    `weft_kernel.registry.Registry.unconsulted_pins()` — the same shape as
+    `UnknownPackSettingsError` just above: not folded into any one pack's
+    report, because this is not one pack's failure, it is the configuration
+    naming a fight that never happened. Distinct from
+    `weft_kernel.registry.UnresolvedPluginPinError`, which fires *during* a
+    real collision when the pin names neither side of it; this one fires
+    when no collision for the pinned key ever occurred at all.
+
+    Repair for a reviewer finding: this used to be unconditionally fatal to
+    every registry-needing command, `weft plugins doctor` and `weft plugins
+    list` included — the two commands whose whole job is explaining what is
+    installed, one of which `manual/troubleshooting.md`'s own remedy for this
+    exact error names as the next thing to run. `discover`'s `strict_pins`
+    parameter is what a diagnostic caller sets `False` to see every
+    `PackReport` anyway; `weft_cli.cli.dispatch` does this for `plugins
+    list`/`plugins doctor` and no other command, on the same reasoning
+    `weft_cli.registry_bootstrap`'s own module docstring already gives for
+    `WEFT_DATABASE_URL`: "a bare crash on every registry-needing command —
+    including `plugins doctor`, the one command meant to diagnose exactly
+    this — would be worse than" a report.
+    """
+
+
 class UnknownPackSettingsError(WeftError):
     """A `packs:` settings key names a distribution no installed `weft.packs` entry point claims.
 
@@ -317,10 +347,29 @@ def allow_list_from_config(document: Mapping[str, object]) -> tuple[str, ...] | 
     (`allow = []`) is a real, if severe, policy — refuse every pack — and is
     returned as `()`, never coerced to `None`: the two mean different things
     and this function does not collapse them.
+
+    **A `packs` key that is present but not a table is refused, not absorbed
+    into absence.** Reference audit finding, `docs/02` §2's *The trust model*:
+    `packs = ["weft-store"]` is the plausible typo for `[packs]\\nallow =
+    [...]` — TOML parses it to a `list`, and a bare `isinstance(packs,
+    Mapping)` guard used to fail that check the same way a genuinely absent
+    `packs` does, silently landing on open-by-default with the operator's
+    allow-list never read. `None` only for a key that is not in `document`
+    at all; anything present that is not a `Mapping` raises `WeftError`
+    naming the shape found and the shape expected, so the typo is loud
+    instead of a policy that quietly never applied. `allow = []` inside a
+    *valid* `[packs]` table is unaffected — that case reaches the check
+    below unchanged, and stays "refuse every pack", not this one.
     """
-    packs = document.get("packs")
-    if not isinstance(packs, Mapping):
+    if "packs" not in document:
         return None
+    packs = document["packs"]
+    if not isinstance(packs, Mapping):
+        raise WeftError(
+            f"weft.toml's [packs] must be a table, not {type(packs).__name__} — found "
+            f"`packs = {packs!r}`. Did you mean `[packs]\\nallow = [...]`? See "
+            f"docs/02-extension-model.md section 2, The trust model."
+        )
     packs_table = cast("Mapping[str, object]", packs)
     allow = packs_table.get("allow")
     if allow is None:
@@ -336,6 +385,31 @@ def allow_list_from_config(document: Mapping[str, object]) -> tuple[str, ...] | 
     return tuple(cast("list[str]", entries))
 
 
+def plugin_pins_from_config(document: Mapping[str, object]) -> dict[str, str]:
+    """The exhaustive `[plugins]` table from a parsed `weft.toml`-shaped mapping.
+
+    `docs/02-extension-model.md` §3's exact shape — `"Enhancer:keybert" =
+    "weft-kw"` — a `{"Contract:name": "distribution"}` mapping handed
+    straight to `weft_kernel.registry.Registry(plugin_pins=...)`, never
+    interpreted here: this function's whole job is the same one
+    `allow_list_from_config` already does for `[packs] allow`, turning a
+    piece of an already-parsed mapping into the shape the kernel accepts,
+    with no file ever opened by this module. Absent `[plugins]` returns
+    `{}` — "absent means open" is `[packs] allow`'s reading; here it means
+    no pin exists, so every collision still refuses exactly as it always
+    has. A key naming no real `(contract, name)` collision is not caught
+    here — that is `weft_kernel.discovery.discover`'s `InertPluginPinError`,
+    raised only once discovery knows what actually collided.
+    """
+    plugins = document.get("plugins")
+    if not isinstance(plugins, Mapping):
+        return {}
+    table = cast("Mapping[str, object]", plugins)
+    if not all(isinstance(value, str) for value in table.values()):
+        raise WeftError('[plugins] must map "Contract:name" strings to distribution-name strings.')
+    return {str(key): cast("str", value) for key, value in table.items()}
+
+
 def discover(
     registry: Registry,
     *,
@@ -343,6 +417,7 @@ def discover(
     pack_settings: Mapping[str, Mapping[str, object]] | None = None,
     direct_dependencies: Collection[str] | None = None,
     entry_points: Iterable[EntryPointLike] | None = None,
+    strict_pins: bool = True,
 ) -> tuple[PackReport, ...]:
     """Discover every installed `weft.packs` pack, importing and registering what is permitted.
 
@@ -372,6 +447,17 @@ def discover(
     `entry_points` defaults to every real, installed `weft.packs` entry
     point; a caller passes its own only to test discovery without installing
     a distribution.
+
+    `strict_pins=False` — repair for a reviewer finding against the task 1.12
+    commit — skips the `InertPluginPinError` check below rather than raising
+    it, so a caller whose whole job is *explaining* the environment (`weft
+    plugins list`/`doctor`) can still get every `PackReport` back even when a
+    `[plugins]` pin never arbitrated anything. Every other caller keeps the
+    default `True`: `registry.unconsulted_pins()` is unaffected either way —
+    a `plugins doctor` caller passing `strict_pins=False` can still read it
+    off the registry it was handed back and report it, rather than losing
+    the information the way a raised exception discarding every built
+    `PackReport` would.
     """
     candidates: list[EntryPointLike] = (
         list(entry_points)
@@ -440,6 +526,25 @@ def discover(
             f"not installed. Install the distribution, or remove its settings block. "
             f"Distributions that declare a '{ENTRY_POINT_GROUP}' entry point: {available}."
         )
+
+    # Every pack that was going to collide with anyone already has, since every candidate
+    # above has been activated (or refused, or reported missing) by this point — so a pin
+    # `registry` was given that `Registry.unconsulted_pins()` still lists never arbitrated a
+    # real collision at all. `docs/02-extension-model.md` §3: "an inert pin is a lie about
+    # what is running." Raised here, not folded into any one pack's report — see
+    # `InertPluginPinError`'s own docstring for why. Skipped, not silenced, when
+    # `strict_pins` is `False`: the state is still sitting on `registry.unconsulted_pins()`
+    # for a caller that asked not to have it be fatal to read.
+    if strict_pins:
+        unconsulted = sorted(registry.unconsulted_pins())
+        if unconsulted:
+            named = ", ".join(f"'{pin}'" for pin in unconsulted)
+            raise InertPluginPinError(
+                f"[plugins] pins {named}, but weft never saw two distributions contend for "
+                f"what {'it names' if len(unconsulted) == 1 else 'they name'} — nothing to "
+                f"arbitrate. Remove the pin, or check that both distributions it should choose "
+                f"between are installed and actually registering that name."
+            )
 
     return tuple(reports)
 

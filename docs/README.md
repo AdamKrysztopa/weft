@@ -26,16 +26,19 @@ public contract as anything a third party writes. `a prior project` is a parts r
 
 | | |
 |---|---|
-| **Phase** | Phase 1 — Pipelines as data |
-| **Blocked by** | **G2** — pipeline derivation semantics, open. Every Phase 1 task is ⚠ until it closes |
-| **Next action** | Close **G2** (`05` → G2) |
-| **Open decisions** | 5 of 11 — G0, G1, G3, G4, G5 and G6 settled; G2, G7, G8, G9 and G10 open. G0 is logged only; every other row has a session in `05` |
-| **Updated** | 2026-08-16 |
+| **Phase** | Phase 2 — Retrieval and generation |
+| **Blocked by** | Nothing has to be argued before starting — Phase 2's gate is **none** — but `09` §4 requires **V1–V3** (a named corpus, ground-truthed questions, a repeated baseline) *before this phase can be judged*, and they are not yet done. Tasks 2.1–2.3 are V1–V3 themselves, so Phase 2 starts by producing its own prerequisite, not by skipping past it |
+| **Next action** | Phase 2 task **2.1**, which is V1 (`build-ledger.md` → Phase 2) |
+| **Open decisions** | 5 of 12 — G0, G1, G2, G3, G4, G5 and G6 settled; G7, G8, G9, G10 and G11 open. G0 is logged only; every other row has a session in `05` |
+| **Updated** | 2026-08-17 |
 
-`06` names the **three places Phase 0 could accidentally settle G2** — where embedding happens,
-what a pipeline is before Phase 1, and what two packs claiming one name does — and fixes the minimal
-reversible choice for each. Those choices are not answers, and G2 is still open. The next gate after
-the build is **G2**, at the head of Phase 1.
+G2's close resolved the **three places Phase 0 could accidentally settle it**, each of which `06`
+had fixed to a minimal reversible choice: embedding **stays a stage** (G4 forbids a store to embed,
+so it was never G2's to choose); a pipeline **stays an ordered list**, now with derivation, slots and
+declared constraints on top of it; and two packs claiming one name **stays a refusal**, relaxed only
+by an operator's pin in `weft.toml`. All three moved in the direction `06` required — relaxing a
+refusal rather than tightening a silence. It also cleared `11`'s three filed questions and one of
+`11`'s deferred-gate blockers. The next gate is **G7**, at Phase 5.
 
 ---
 
@@ -56,15 +59,16 @@ project's position.
 
 **Phase 1 — Pipelines as data**
 
-- [ ] **G2** Pipeline derivation semantics
-- [ ] Phase 1 build
-- [ ] **Exit:** the KeyBERT case works from configuration, no copy of the parent
+- [x] **G2** Pipeline derivation semantics
+- [x] Phase 1 build — eighteen tasks in `build-ledger.md` → Phase 1
+- [x] **Exit:** the KeyBERT case works from configuration, no copy of the parent *(and FF11 green)*
 
 **Phase 2 — Retrieval and generation**
 
 - [ ] **Prerequisite V1–V3** — corpus, question set with ground truth, repeated baseline (`09` §4)
 - [ ] Phase 2 build *(no gate)*
 - [ ] **Exit:** the router discovers strategies from the registry, not an enum
+- [ ] **G11** Kernel error text — catalogue or literal *(before Phase 3, where user-facing text multiplies — deciding after that is deciding too late)*
 
 **Phase 3 — The CLI**
 
@@ -105,7 +109,7 @@ positions to attack, what to bring, what done looks like — lives in `05-grilli
 |---|---|---|---|---|
 | **G0** | Project name | **Settled** | **Weft.** The warp is the fixed frame on a loom, the weft is every thread through it. Polish *wątek* also means thread and narrative topic | 2026-08-10 |
 | **G1** | Kernel boundary — what is kernel vs first-party pack | **Settled** | The kernel expresses, loads and runs contracts it knows nothing about and performs no RAG work — no capability contract, no capability name, two dependencies, a stated budget; a plugin gets one passport carrying `tenant_id` and `require()`, config at construction; packs get a `packs:` settings namespace. Specified in `01` → *The kernel boundary* | 2026-08-10 |
-| **G2** | Pipeline derivation semantics | Open | — | — |
+| **G2** | Pipeline derivation semantics | **Settled** | A pipeline is an **ordered list** and resolution *checks* the order rather than solving it, refusing with the positions that would be legal. Ordering constraints are the mirror of `requires`/`provides` — a plugin declares what it needs `intact` and what it `destroys`, published as namespaced properties, `destroys` mandatory at registration — so no plugin ever names another. Stage 0 becomes **applicability** routed at the seam, which also means a per-node path needs no branch. `extends` takes one parent at any depth; all four operators are strict; they apply in written order. Packs contribute only into **declared slots**, ordered by declaration then by distribution name, with unplaced contributions recorded, not silent. Name collisions are refused at registration and resolved by an operator pin. Language is a fact on the node; `vars` carry the decision half and never touch applicability. **Weft adopts no canonical ingest order.** One Pydantic model, YAML as its serialisation, covering ingest and query alike; a subclass per resolution failure. Fitness function 11. Specified in `02` §3 | 2026-08-16 |
 | **G3** | Plugin trust model | **Settled** | The threat is **installed-and-ambient**, not malicious — entry points turn *installed* into *executed with your privileges*. Discovery is **eager** (lazy import cannot coexist with bare plugin names, and both alternatives die on G4's conditional registration); posture is **open by default with an exhaustive opt-in pin** of distribution names. Two protections run always: the executed pack set is recorded on every run, and doctor flags ambient packs. Refusals share G4's status vocabulary and never import; policy refusal exits 3, resolution failure 4. Two-tier enforcement is **struck as unimplementable** and survives only as unenforced disclosure; command permission classes are mandatory at registration. Fitness function 8. Specified in `02` §2 → *The trust model* | 2026-08-15 |
 | **G4** | Store contract and capability declaration | **Settled** | Tiered protocols with capability **derived** at registration, never declared; text search is a store capability so retrievers never build an index; stores take vectors, never embed; filters are a validated serialisable AST; deletion is idempotent and resumable via a source tombstone; the kernel runner owns `flush`. **pgvector is the floor** — the zero-container target is retired, proof moves to pgvector + Qdrant. Specified in `02` §1 → *The store contract family* | 2026-08-10 |
 | **G5** | What flows between stages | **Settled** | A frozen `Node` of six core fields admitted by rule, plus typed extension models that declare their namespace and their transience; lineage required and its sources derived, so deletion reaches every descendant; ids are content digests; stages declare what they read and write, and `Stage[In, Out]` composition is checked at resolution. Specified in `02` §1 → *The payload model* | 2026-08-10 |
@@ -114,6 +118,7 @@ positions to attack, what to bring, what done looks like — lives in `05-grilli
 | **G8** | Is the REPL agentic | Open | — | — |
 | **G9** | Contract versioning and deprecation | Open | — | — |
 | **G10** | Release and support policy | Open | — | — |
+| **G11** | Kernel error text — catalogue or literal | Open | — | — |
 
 Statuses: **Open** · **Settled** · **Reopened** — a settled decision found wrong is set back to
 Reopened with the date and reason, never quietly edited.
@@ -129,7 +134,7 @@ Reopened with the date and reason, never quietly edited.
 | `02-extension-model.md` | Contracts, who publishes them, what a plugin receives, the payload model, the store contract family, packs and discovery, **the trust model**, pack settings, pipelines as data, both driving use cases | Reference |
 | `03-cli.md` | The CLI as driving adapter, command surface, permissions **including the class every plugin command must declare**, output | Reference |
 | `04-reference-inventory.md` | What to lift from `a prior project`, what to rewrite, what to leave, where each item lands — kernel or pack — the reference's node metadata surface, **and its storage layer after G4** | Reference |
-| `05-grilling-sessions.md` | The substance of every gate session — G1 through G10 | Reference |
+| `05-grilling-sessions.md` | The substance of every gate session — G1 through G11 | Reference |
 | `06-phase-0-build.md` | The order of work inside Phase 0, what each step makes true, where it must not settle G2, and the scope fence | Reference — retire when Phase 0 exits |
 | `07-extension-cost.md` | The per-kind file cost of adding a capability, and fitness function 9 | Reference |
 | `08-manuals.md` | The documents Weft ships to its users, which phase writes each, and the tests that keep them honest | Reference |

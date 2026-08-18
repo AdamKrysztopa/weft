@@ -40,3 +40,19 @@ dsn = "${env:WEFT_DATABASE_URL}"
 #
 # [packs]
 # allow = ["weft-extract", "weft-chunk", "weft-embed", "weft-store"]
+
+# --- Plugin collisions --------------------------------------------------------
+# Two packs registering the same name under the same contract is refused at
+# registration by default — `weft plugins doctor` will name both distributions
+# and print the exact block below. `[plugins]` is how you resolve it instead of
+# renaming one: keyed "Contract:name", valued the distribution that should win.
+# The other pack stays installed and active; it is simply reported as having
+# lost that one name (`weft plugins doctor`'s `displaced:` line).
+#
+# A pin naming a distribution that never actually claimed the name, or one for
+# a pair that never collided at all, is refused just as loudly as an unpinned
+# collision — an unused pin is not a harmless no-op, it is a claim about what
+# is running that turned out to be false.
+#
+# [plugins]
+# "Enhancer:keybert" = "weft-kw"

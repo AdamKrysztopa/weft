@@ -1,6 +1,6 @@
 # 05 — Open decisions and grilling sessions
 
-This plan settles the architecture and leaves ten decisions to grilling sessions, G1 through G10.
+This plan settles the architecture and leaves eleven decisions to grilling sessions, G1 through G11.
 Each is here because **defaulting it would be a mistake** — either it has no obviously right answer, or getting
 it wrong is expensive to reverse, or it depends on how you actually intend to work.
 
@@ -167,6 +167,52 @@ see Bring.
 **Done when.** Every operator has stated conflict behaviour, ordering constraints have a
 representation, name collisions have a defined arbitration rule, and a resolution failure has a
 defined error shape naming the conflicting sources.
+
+**Settled 2026-08-16.** All four conditions met. The load-bearing move was refusing the fifth
+position rather than adopting it: a pipeline stays an **ordered list**, resolution *checks* the order
+and never solves it, because a resolver that quietly finds a working arrangement is the same species
+as the silent fallback `01` rules out everywhere else — and the refusal names the positions that
+would be legal, which is rule 5's shape.
+
+Three answers are worth recording as *arguments* rather than outcomes, because each is what stopped a
+worse design:
+
+- **Ordering constraints are the mirror of `requires`/`provides`, not references between plugins.**
+  `Before(WhitespaceNormalizer)` fails on inspection: it makes one pack import and name another, and
+  it protects against that one class, so a third party's normalizer corrupts text again. Read what
+  the reference's own docstring says the dependency *is* — *"while newlines still exist"*, *"whitespace
+  gaps"*, *"destructive"* — and nobody depends on a plugin; they depend on a **property of the text a
+  later stage annihilates**. Hence `intact` / `destroys`, with `destroys` mandatory because
+  forgetting it harms strangers while forgetting `intact` harms only yourself.
+- **The language requirement was misdiagnosed as needing conditionals.** The condition is real; what
+  is wrong is what it reads. `config.language` is run-wide, so a mixed corpus is uniformly wrong for
+  half its documents with no signal. Language is a fact about a **node**, and the answer needs no new
+  construct — applicability over that fact, plus vars for the *decision* half (a translation target),
+  with the rule that **vars never participate in applicability** so the two can never disagree.
+- **A subclass per failure kind, not one class with a `kind` field.** Decided on evidence: task
+  0.14's ratchet derives its documented set from `WeftError` subclass *names*
+  (`tests/docs/test_troubleshooting_coverage.py:87-119`), so a fat class would present one
+  already-documented name and let a dozen new failure modes ship undocumented — the exact hole that
+  ratchet was built to close.
+
+The session also answered `11`'s three filed questions. **G2-a** answers itself: G4 forbids a store
+to embed, so embed stays a stage and the pixel path stays buildable. **G2-b** is yes, and the
+property mechanism is how. **G2-c** dissolves: applicability at the seam means a per-node path needs
+no branch construct, so a pipeline remains one straight line.
+
+**Two things it deliberately did not settle.** The exact predicate form for applicability over a
+*value* (`Language('pl')`) rather than over an ext model's presence is a Phase 1 ledger item, not a
+gate outcome. And the kernel budget: G1 allowed 600–900 lines for discovery, pipeline and derivation
+machinery, and this outcome adds property markers, applicability routing, slots and vars on top of
+that. It stands at 1,240 of 3,500 — not a breach, but Phase 1 is where the 2,800 review trigger
+becomes plausible, and it is better said here than discovered at task 1.9.
+
+**Where the answers live.** The whole outcome is `02` §3 — the model, `intact`/`destroys`,
+applicability, slots, derivation and its operator edges, vars, the absence of a canonical ingest
+order, the authoring surface, and the failure family. The two checks it turns on are `01` →
+*Fitness functions* 11. The name-collision pin is `02` §3, *When resolution fails*, and the operator
+policy file it lives in is `02` §2. The doctor surfaces it adds are `03`. Its consequences for
+multimodal are `11` → *Gate questions*. This session's status is in `README.md`, as with every other.
 
 ---
 
@@ -561,3 +607,66 @@ and a release checklist that can be failed. **Not** a home for the deprecation n
 the settled rule that cross-cutting concerns attach at the registration seam (`09` §3), and its *clock*
 is G9's — so neither is an output of this session, and a session that produces one has answered
 something it was not asked.
+
+---
+
+## G11 — Does kernel error text go through the catalogue?
+
+**The question.** `weft_kernel.context.MessageCatalogue` exists and every published pack error can
+resolve through it. Does a kernel `WeftError` resolve through the same mechanism, or does the
+catalogue serve packs only, leaving kernel error text as literals?
+
+**Why it cannot be defaulted.** Two documents already point in different directions and neither one
+noticed. `04` → *Kernel or pack* assigns the reference's 195-key en/pl catalogue split by owner:
+*"Intent markers to the router pack, error text to the kernel, CLI strings to `weft-cli`"*
+(`04-reference-inventory.md:51`) — which reads as the kernel being one of the catalogue's addressees. But
+`MessageCatalogue` shipped in Phase 0 step 4 as a **mechanism with zero messages registered**
+(`02` §1 → *What a plugin receives*, the Phase 0 step 4/5 note), and every `WeftError` subclass in
+`weft-kernel` today — `UnresolvedServiceError`, `DuplicateRegistrationError`,
+`PipelineResolutionError` and its family, and the rest across `context.py`, `discovery.py`,
+`registry.py`, `resolution.py` and `runner.py` — carries its message as an f-string literal in
+English. Nothing has resolved the disagreement; the mechanism was simply never pointed at the kernel.
+It cannot be defaulted because both silences look like decisions from a distance: an empty catalogue
+reads as "not needed here," and an English literal reads as "already decided," and neither is true.
+
+**Positions to attack.**
+
+- **Catalogue-only, kernel included.** Every error string, kernel and pack alike, resolves through
+  `MessageCatalogue`, on the ground that a mixed surface — translated pack errors beside untranslated
+  kernel ones — is a worse reader experience than an English-only one a user could at least predict
+  end to end.
+- **Pack-only; the kernel stays literal.** Kernel errors are contract violations read by pack authors
+  and operators debugging a plugin at development time, not by an end user, so translating them
+  serves no one G1's kernel-boundary rule anticipated. The kernel *publishes* the `MessageCatalogue`
+  type — the way it publishes `Node` — without being a client of it. *Attack that:* `weft ask`
+  surfaces kernel errors (a `PipelineResolutionError`, a `DuplicateRegistrationError`) directly to the
+  same end user a pack error reaches, through the same CLI renderer, so the "who reads it" line is not
+  as clean as it sounds.
+- **Two mechanisms, deliberately.** The catalogue serves packs; the kernel keeps a second, English-only
+  surface, but *names* it rather than leaving it implicit — and asks whether 0.14's coverage ratchet
+  (every `WeftError` subclass needs a `manual/troubleshooting.md` entry) already **is** that surface,
+  making a catalogue entry for kernel errors a duplicate obligation rather than a missing one.
+
+**Bring.**
+
+- `04-reference-inventory.md:51`'s exact assignment, re-read against what "error text to the kernel" was
+  actually arguing when it was written — was it arguing kernel errors should translate, or only that
+  the reference's *content* which happened to be error strings should be owned by whoever raises it?
+- A current count of kernel `WeftError` subclasses and their message sites, taken on the day of the
+  session — 31 subclasses across seven files (`blocking.py`, `context.py`, `discovery.py`,
+  `registry.py`, `resolution.py`, `runner.py`, plus `WeftError` itself in `errors.py`) at the time
+  this gate was opened, every one raised with an English f-string literal.
+- `02` §1's Phase 0 step 4/5 note on `MessageCatalogue`'s narrowing: the catalogue owns *merge*, not
+  *namespace*, and whether a pack's contribution is even in scope is itself flagged open there,
+  pointing at `09-release.md`'s question of whether message-catalogue keys are API at all under G9.
+- The 0.14 ratchet itself (`08` §1, §3 clause (d); `tests/docs/test_troubleshooting_coverage.py`),
+  since whichever position wins has to say whether it satisfies that obligation, replaces it, or sits
+  beside it.
+- G1's rule that the kernel names no capability, tested against each position: does routing kernel
+  errors through a catalogue make the kernel a *client* of a presentation capability, and is that the
+  same thing G1 already ruled out, or a different question the rule never reached?
+
+**Done when.** There is a stated position, and either the catalogue gains its first registered kernel
+message or a stated, deliberate reason kernel errors stay English literals — plus a decision on
+whether the 0.14 troubleshooting-ratchet entry and a catalogue message key are the same obligation or
+two separate ones a kernel error must satisfy.

@@ -17,6 +17,12 @@ Every pack under test is a hand-built double satisfying `EntryPointLike`
 structurally, not a real installed distribution — real, installed-pack
 discovery is exactly what the architecture test exercises against the
 canary, so this file stays fast and does not need `uv pip install` anywhere.
+
+**Task 1.12** adds two packs colliding over one `(contract, name)` that a
+`[plugins]` pin (already present on the `Registry` passed in) resolves
+without failing either pack, and the loud `InertPluginPinError` `discover()`
+raises once enumeration finishes if a pin never got to arbitrate anything —
+see `weft_kernel.registry`'s own module docstring for the full reasoning.
 """
 
 import sys
@@ -29,13 +35,16 @@ from pydantic import BaseModel
 from weft_kernel.discovery import (
     Disclosure,
     EnvInterpolationError,
+    InertPluginPinError,
     PackRegistrar,
     PackStatus,
     UnknownPackSettingsError,
     allow_list_from_config,
     discover,
     interpolate_env,
+    plugin_pins_from_config,
 )
+from weft_kernel.errors import WeftError
 from weft_kernel.registry import Registry, UnknownPluginError
 
 
@@ -369,3 +378,108 @@ def test_allow_list_from_config_reads_packs_allow_and_treats_absence_as_open() -
     # Act / Assert
     assert allow_list_from_config(present) == ("weft-extract", "weft-chunk")
     assert allow_list_from_config(absent) is None
+
+
+def test_allow_list_from_config_refuses_a_packs_value_that_is_not_a_table() -> None:
+    # Arrange — the plausible typo for `[packs]\nallow = [...]`: `packs = ["weft-store"]`
+    # parses to a *list*, which used to fail the `isinstance(packs, Mapping)` check and be
+    # read as absent — the open-by-default posture, silently, with an operator's allow-list
+    # ignored. `docs/02-extension-model.md` §2 → *The trust model* names this refused, not
+    # absent, because absent is a choice a `weft.toml` with no `[packs]` table makes and this
+    # is not that document.
+    document = {"packs": ["weft-store"]}
+
+    # Act / Assert
+    with pytest.raises(WeftError, match=r"\[packs\].*table"):
+        allow_list_from_config(document)
+
+
+def test_plugin_pins_from_config_reads_the_plugins_table_and_treats_absence_as_empty() -> None:
+    # Arrange
+    present = {"plugins": {"Chunker:keybert": "weft-kw"}}
+    absent: dict[str, object] = {}
+
+    # Act / Assert
+    assert plugin_pins_from_config(present) == {"Chunker:keybert": "weft-kw"}
+    assert plugin_pins_from_config(absent) == {}
+
+
+def test_discover_resolves_a_pinned_collision_and_leaves_both_packs_active() -> None:
+    # Arrange — the registry already carries the pin, the way `weft_cli.registry_bootstrap`
+    # constructs it from `weft.toml` before calling `discover()`.
+    registry = Registry(plugin_pins={"_Chunker:shared": "weft-winner"})
+
+    def loser_register(registrar: PackRegistrar, settings: _Settings) -> None:
+        registrar.add(_Chunker, "shared", lambda: "loser")
+
+    def winner_register(registrar: PackRegistrar, settings: _Settings) -> None:
+        registrar.add(_Chunker, "shared", lambda: "winner")
+        registrar.add(_Chunker, "extra", lambda: "extra")
+
+    _install_fake_module("_weft_test_loser_pack")
+    _install_fake_module("_weft_test_winner_pack")
+    loser = _FakeEntryPoint(
+        distribution="weft-loser", module="_weft_test_loser_pack", target=loser_register
+    )
+    winner = _FakeEntryPoint(
+        distribution="weft-winner", module="_weft_test_winner_pack", target=winner_register
+    )
+
+    # Act
+    reports = discover(registry, entry_points=[loser, winner])
+
+    # Assert — neither pack failed; the loser is `active` and merely lost one name.
+    by_distribution = {report.distribution: report for report in reports}
+    assert by_distribution["weft-loser"].status == PackStatus.ACTIVE
+    assert by_distribution["weft-winner"].status == PackStatus.ACTIVE
+    assert registry.lookup(_Chunker, "shared")() == "winner"
+    assert registry.lookup(_Chunker, "extra")() == "extra"
+    [displaced] = registry.displaced()
+    assert displaced.distribution == "weft-loser"
+    assert displaced.winner == "weft-winner"
+
+
+def test_discover_raises_when_a_pin_never_sees_a_collision() -> None:
+    # Arrange — error case: only one distribution ever registers this name, so the pin
+    # never had anything to arbitrate — `docs/02-extension-model.md` §3 calls this a lie
+    # about what is running rather than a harmless no-op.
+    registry = Registry(plugin_pins={"_Chunker:shared": "weft-only"})
+
+    def register(registrar: PackRegistrar, settings: _Settings) -> None:
+        registrar.add(_Chunker, "shared", lambda: "only")
+
+    _install_fake_module("_weft_test_only_pack")
+    entry_point = _FakeEntryPoint(
+        distribution="weft-only", module="_weft_test_only_pack", target=register
+    )
+
+    # Act / Assert
+    with pytest.raises(InertPluginPinError) as excinfo:
+        discover(registry, entry_points=[entry_point])
+
+    assert "_Chunker:shared" in str(excinfo.value)
+
+
+def test_strict_pins_false_returns_every_report_instead_of_raising() -> None:
+    # Arrange — repair for a reviewer finding: `weft plugins list`/`weft plugins doctor`
+    # must be able to explain an inert pin, not die before a single `PackReport` exists.
+    # Same fixture as the error case above; `strict_pins=False` is the only difference.
+    registry = Registry(plugin_pins={"_Chunker:shared": "weft-only"})
+
+    def register(registrar: PackRegistrar, settings: _Settings) -> None:
+        registrar.add(_Chunker, "shared", lambda: "only")
+
+    _install_fake_module("_weft_test_strict_pins_pack")
+    entry_point = _FakeEntryPoint(
+        distribution="weft-only", module="_weft_test_strict_pins_pack", target=register
+    )
+
+    # Act
+    reports = discover(registry, entry_points=[entry_point], strict_pins=False)
+
+    # Assert — the report is real and the pin's own state is still readable off the
+    # registry, just no longer fatal to getting either.
+    assert len(reports) == 1
+    assert reports[0].distribution == "weft-only"
+    assert reports[0].status == PackStatus.ACTIVE
+    assert registry.unconsulted_pins() == frozenset({"_Chunker:shared"})

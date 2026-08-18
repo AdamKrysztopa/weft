@@ -10,14 +10,32 @@ authored here.
 §1's rule that "a contract's registration API carries a typed configuration
 model, or the extension point is decorative" — this is the model, validated
 before `FixedSizeChunker` is ever constructed.
+
+`destroys = (WordBoundaries,)` is task 1.2's — `docs/02-extension-model.md`
+§3 → *Ordering constraints*. `Chunker` publishes a property vocabulary, so
+`weft_kernel.registry` refuses to register any implementation that omits
+`destroys` entirely; this one states the truth rather than an empty tuple,
+because a fixed window really can and does split a word in half. See
+`weft_chunk.property` for why.
+
+**`config_model = FixedSizeChunkerConfig` — a repair, not part of the
+original lift.** Without this class attribute, `weft_kernel.resolution.
+resolve` reads `getattr(declared, "config_model", None)` as `None` and
+refuses *any* `with:` block naming `size`/`overlap` with `StageNotConfigurableError`,
+falsely claiming this stage "cannot be parameterised at all" — even though
+`FixedSizeChunkerConfig`, immediately above, is exactly the model task 1.5's
+mechanism was built to validate against. `02` §3's own canonical pipeline
+example (`with: {size: 512, overlap: 50}`) could not resolve until this line
+existed.
 """
 
 from collections.abc import Sequence
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
+from weft_chunk.property import WordBoundaries
 from weft_kernel.context import Context
-from weft_kernel.payload import Node, NothingToProduce, Outcome, Produced
+from weft_kernel.payload import Node, NothingToProduce, Outcome, Produced, Property
 
 #: `docs/02-extension-model.md` §3's own pipeline example: `{size: 512, overlap: 50}`.
 _DEFAULT_SIZE = 512
@@ -54,6 +72,9 @@ class FixedSizeChunker:
     with empty content contributes no chunks; a batch that contributes none
     at all answers `NothingToProduce`, never an empty `Produced([])`.
     """
+
+    destroys: tuple[type[Property], ...] = (WordBoundaries,)
+    config_model: type[FixedSizeChunkerConfig] = FixedSizeChunkerConfig
 
     def __init__(self, config: FixedSizeChunkerConfig | None = None) -> None:
         self._config = config if config is not None else FixedSizeChunkerConfig()

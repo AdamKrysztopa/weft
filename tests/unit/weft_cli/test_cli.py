@@ -135,7 +135,11 @@ async def test_dispatch_builds_a_registry_for_a_command_that_needs_one(
         calls.append(deps)
         return ExitCode.SUCCESS
 
-    monkeypatch.setattr(cli, "build_dependencies", lambda: fake_deps)
+    def _fake_build_dependencies(*, strict_pins: bool = True) -> Dependencies:
+        del strict_pins
+        return fake_deps
+
+    monkeypatch.setattr(cli, "build_dependencies", _fake_build_dependencies)
     command = CliCommand(
         name="ask",
         help="retrieve and print matching passages",
@@ -150,6 +154,43 @@ async def test_dispatch_builds_a_registry_for_a_command_that_needs_one(
     # Assert
     assert exit_code is ExitCode.SUCCESS
     assert calls == [fake_deps]
+
+
+async def test_dispatch_passes_strict_pins_false_only_for_the_two_plugins_commands() -> None:
+    # Arrange — repair for a reviewer finding: `plugins list`/`plugins doctor` must ask
+    # `build_dependencies` not to die on an inert `[plugins]` pin; every other
+    # registry-needing command keeps the strict default. Table-driven over one
+    # representative of each group rather than every entry in `COMMANDS`, since the
+    # property under test is the boolean `dispatch` computes from `command.name`, not
+    # anything specific to any one handler.
+    seen: dict[str, bool] = {}
+
+    async def _fake_handler(args: argparse.Namespace, deps: Dependencies) -> ExitCode:
+        del args, deps
+        return ExitCode.SUCCESS
+
+    for name in ("plugins list", "plugins doctor", "ask", "index"):
+
+        def _fake_build_dependencies(*, strict_pins: bool, _name: str = name) -> Dependencies:
+            seen[_name] = strict_pins
+            return Dependencies(registry=Registry(), reports=())
+
+        with pytest.MonkeyPatch.context() as monkeypatch:
+            monkeypatch.setattr(cli, "build_dependencies", _fake_build_dependencies)
+            command = CliCommand(
+                name=name,
+                help="test command",
+                permission=PermissionClass.READ,
+                needs_registry=True,
+                handler=_fake_handler,
+            )
+            await cli.dispatch(command, argparse.Namespace())
+
+    # Assert
+    assert seen["plugins list"] is False
+    assert seen["plugins doctor"] is False
+    assert seen["ask"] is True
+    assert seen["index"] is True
 
 
 async def test_handle_index_refuses_before_running_when_a_required_pack_is_refused(
@@ -217,6 +258,33 @@ async def test_handle_ask_reports_resolution_failure_for_an_unregistered_embedde
 
     # Assert
     assert exit_code is ExitCode.RESOLUTION_FAILED
+
+
+async def test_handle_plugins_doctor_prints_a_displaced_registration_from_the_registry(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Arrange — task 1.12: the registry, not `deps.reports`, is where a displaced
+    # registration lives; `handle_plugins_doctor` must read it off `deps.registry`.
+    class _Chunker:
+        """A stand-in contract — only its `__name__` is ever read by rendering."""
+
+    registry = Registry(plugin_pins={"_Chunker:shared": "weft-winner"})
+    registry.add(_Chunker, "shared", lambda: "loser", distribution="weft-loser")
+    registry.add(_Chunker, "shared", lambda: "winner", distribution="weft-winner")
+    reports = (
+        PackReport(distribution="weft-loser", status=PackStatus.ACTIVE, contributed=1),
+        PackReport(distribution="weft-winner", status=PackStatus.ACTIVE, contributed=1),
+    )
+    deps = Dependencies(registry=registry, reports=reports)
+
+    # Act
+    exit_code = await cli.handle_plugins_doctor(argparse.Namespace(), deps)
+    output = capsys.readouterr().out
+
+    # Assert
+    assert exit_code is ExitCode.SUCCESS
+    assert "weft-winner" in output
+    assert "displaced" in output
 
 
 def test_main_renders_an_untranslated_exception_without_a_traceback(

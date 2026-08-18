@@ -159,12 +159,20 @@ usable, not only the shape the built-in happens to take. Every child is
 built through `Node.derive`, so lineage is carried automatically — the same
 guarantee `docs/02-extension-model.md` gives every chunker, first-party or
 not.
+
+`destroys: tuple[type[Property], ...] = ()` is not decoration. `Chunker`
+publishes a property vocabulary (`docs/02-extension-model.md` §3 →
+*Ordering constraints*), so `weft_kernel.registry` refuses to register any
+`Chunker` implementation — a stranger's own no less than a built-in — that
+never states `destroys` at all. This one states the truth: splitting
+strictly on whitespace never breaks a word the way a fixed-size window can,
+so the tuple is empty rather than borrowed from `FixedSizeChunker`.
 """
 
 from collections.abc import Sequence
 
 from weft_kernel.context import Context
-from weft_kernel.payload import Node, NothingToProduce, Outcome, Produced
+from weft_kernel.payload import Node, NothingToProduce, Outcome, Produced, Property
 
 
 class WordChunker:
@@ -176,6 +184,8 @@ class WordChunker:
     batch that contributes none at all answers `NothingToProduce`, never an
     empty `Produced([])`, the same convention `FixedSizeChunker` follows.
     """
+
+    destroys: tuple[type[Property], ...] = ()
 
     def __init__(self, config: object = None) -> None:
         # No `with:` configuration this chunker takes — the runner's factory
@@ -211,6 +221,7 @@ The rules this obeys, and what enforces each:
 | **Build children with `Node.derive`, and pass an ordinal** | `02` §1 → *The payload model*. `derive` carries lineage automatically, so cascade delete reaches every child; a node's identity is a digest over its content, media type, sorted parent ids **and this ordinal** |
 | **Nothing here writes a span, attributes an error, or checks for a blocking call** | The registration seam (`weft_kernel.seam.wrap`) does all three automatically for every stage a `Runner` actually resolves and runs — see §5. There is nothing to remember and nothing to get wrong by omission |
 | **No import of `Chunker` in this file at all** | `02` §1: capability is structural. `WordChunker` satisfies `weft_chunk.contract.Chunker` because it has the one method the Protocol asks for, not because it says so |
+| **`destroys` is stated, not omitted — an empty tuple counts** | `02` §3 → *Ordering constraints*. `Chunker` publishes a property vocabulary, so `weft_kernel.registry` refuses to register a `Chunker` implementation that never mentions `destroys` at all, naming the missing declaration. `intact` stays optional — nothing here needs one |
 
 > **The ordinal is not optional, and it is the one line above you must not simplify away.** A
 > node's id is a digest over its media type, its content, its sorted parent ids — **and this

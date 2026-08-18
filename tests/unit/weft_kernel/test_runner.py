@@ -19,12 +19,22 @@ their own base, exactly as `runner.py`'s module docstring says a real
 contract must — the plugin classes under them satisfy the contract
 structurally, with no inheritance of their own, to prove that path works
 too.
+
+**Task 1.6, `02` §3 → *Applicability*.** `_NodeStage` and `_NaiveSplitter`
+below are this file's own worked example of `docs/11-multimodal.md` §2's
+claim: "a third-party chunker that has never heard of tables still leaves
+an atomic table unsplit, because the seam does it." `_NaiveSplitter.run`
+carries no conditional on a node's content at all — it splits whatever it
+is handed, unconditionally — so if the atomic node in
+`test_run_routes_only_nodes_matching_applies_to_through_a_stage` came out
+split, the only place that could have happened is the runner routing it
+there, which is exactly what the test's own assertions rule out.
 """
 
 import asyncio
 import gc
 import weakref
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable, Sequence
 from typing import Protocol
 
 import pytest
@@ -32,7 +42,16 @@ import pytest
 from weft_kernel import runner
 from weft_kernel.context import Context
 from weft_kernel.errors import WeftError
-from weft_kernel.payload import ExtModel, NothingToProduce, Outcome, Produced
+from weft_kernel.payload import (
+    Applies,
+    ExtModel,
+    MediaType,
+    Node,
+    NothingToProduce,
+    Outcome,
+    Produced,
+    Property,
+)
 from weft_kernel.registry import Registry, UnknownPluginError
 
 
@@ -44,10 +63,20 @@ class _CountStage(runner.Stage[list[str], int], Protocol):
     async def run(self, payload: list[str], ctx: Context) -> Outcome[int]: ...
 
 
+class _NodeStage(runner.Stage[Sequence[Node], Sequence[Node]], Protocol):
+    async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]: ...
+
+
 class _Uppercased(ExtModel):
     __namespace__ = "weft-test-pack"
 
     note: str = "uppercased"
+
+
+class _WordBoundaries(Property):
+    """`02` §3's own example: a fact hyphenation repair needs intact, chunking can destroy."""
+
+    __namespace__ = "weft-test-pack"
 
 
 def _ctx() -> Context:
@@ -175,14 +204,107 @@ def test_resolve_fails_on_an_unmet_requires_naming_the_stage_namespace_and_pack(
     engine = runner.Runner(registry)
     specs = (runner.StageSpec(id="s1", contract=_TextStage, name="needs-upper"),)
 
-    # Act / Assert
-    with pytest.raises(runner.PipelineResolutionError) as excinfo:
+    # Act / Assert — the specific subclass, not the family base: task 1.13 moved
+    # `UnmetRequiresError` here precisely so `Runner.resolve` stops raising the bare
+    # `PipelineResolutionError` for this check; a test that only asserts the base would
+    # never notice a regression back to that fat-class shape (reviewer finding).
+    with pytest.raises(runner.UnmetRequiresError) as excinfo:
         engine.resolve(specs, tenant_id="tenant-a")
 
     message = str(excinfo.value)
     assert "s1" in message
     assert "_Uppercased" in message
     assert "weft-test-pack" in message
+    assert excinfo.value.stages == ("s1",)
+    assert excinfo.value.distributions == ("weft-test-pack",)
+
+
+class _DestroysWordBoundaries:
+    """A stand-in for `weft_chunk.fixed_size.FixedSizeChunker` — task 1.2's own example."""
+
+    lifetime = runner.Lifetime.RUN
+    requires: tuple[type[ExtModel], ...] = ()
+    provides: tuple[type[ExtModel], ...] = ()
+    destroys: tuple[type[Property], ...] = (_WordBoundaries,)
+
+    def __init__(self, config: object) -> None: ...
+
+    async def run(self, payload: list[str], ctx: Context) -> Outcome[list[str]]:
+        return Produced(value=payload)
+
+
+class _NeedsWordBoundariesIntact:
+    """A stand-in for a hyphenation-repair stage — `02` §3's own worked example."""
+
+    lifetime = runner.Lifetime.RUN
+    requires: tuple[type[ExtModel], ...] = ()
+    provides: tuple[type[ExtModel], ...] = ()
+    intact: tuple[type[Property], ...] = (_WordBoundaries,)
+    destroys: tuple[type[Property], ...] = ()
+
+    def __init__(self, config: object) -> None: ...
+
+    async def run(self, payload: list[str], ctx: Context) -> Outcome[list[str]]:
+        return Produced(value=payload)
+
+
+def test_resolve_fails_when_an_earlier_stage_destroyed_a_property_this_stage_needs_intact() -> None:
+    # Arrange
+    registry = Registry()
+    registry.add(_TextStage, "chunk", _DestroysWordBoundaries, distribution="weft-chunk")
+    registry.add(_TextStage, "hyphenation", _NeedsWordBoundariesIntact, distribution="acme-clean")
+    engine = runner.Runner(registry)
+    specs = (
+        runner.StageSpec(id="chunk", contract=_TextStage, name="chunk"),
+        runner.StageSpec(id="hyphenation", contract=_TextStage, name="hyphenation"),
+    )
+
+    # Act / Assert — the specific subclass (reviewer finding; see the identical note on
+    # `test_resolve_fails_on_an_unmet_requires_naming_the_stage_namespace_and_pack` above).
+    with pytest.raises(runner.IntactViolationError) as excinfo:
+        engine.resolve(specs, tenant_id="tenant-a")
+
+    message = str(excinfo.value)
+    assert "hyphenation" in message
+    assert "chunk" in message
+    assert "_WordBoundaries" in message
+    assert excinfo.value.stages == ("hyphenation", "chunk")
+
+
+def test_resolve_succeeds_when_the_stage_needing_intact_runs_before_the_one_that_destroys_it() -> (
+    None
+):
+    # Arrange — reordered: the position `02` §3 says would be legal.
+    registry = Registry()
+    registry.add(_TextStage, "hyphenation", _NeedsWordBoundariesIntact, distribution="acme-clean")
+    registry.add(_TextStage, "chunk", _DestroysWordBoundaries, distribution="weft-chunk")
+    engine = runner.Runner(registry)
+    specs = (
+        runner.StageSpec(id="hyphenation", contract=_TextStage, name="hyphenation"),
+        runner.StageSpec(id="chunk", contract=_TextStage, name="chunk"),
+    )
+
+    # Act
+    pipeline = engine.resolve(specs, tenant_id="tenant-a")
+
+    # Assert
+    assert [stage.id for stage in pipeline.stages] == ["hyphenation", "chunk"]
+
+
+def test_resolve_does_not_require_intact_when_nothing_destroyed_the_property() -> None:
+    # Arrange — `destroys` on one stage that no later stage ever needs `intact` is a harmless
+    # no-op, not a resolution failure: `02` §3 makes `destroys` mandatory to *declare*, never
+    # mandatory to be *needed* by anything else in this particular pipeline.
+    registry = Registry()
+    registry.add(_TextStage, "chunk", _DestroysWordBoundaries, distribution="weft-chunk")
+    engine = runner.Runner(registry)
+    specs = (runner.StageSpec(id="chunk", contract=_TextStage, name="chunk"),)
+
+    # Act
+    pipeline = engine.resolve(specs, tenant_id="tenant-a")
+
+    # Assert
+    assert [stage.id for stage in pipeline.stages] == ["chunk"]
 
 
 def _never_built(config: object) -> None:
@@ -201,13 +323,15 @@ def test_resolve_fails_at_load_when_consecutive_stages_do_not_compose() -> None:
         runner.StageSpec(id="upper", contract=_TextStage, name="upper"),
     )
 
-    # Act / Assert
-    with pytest.raises(runner.PipelineResolutionError) as excinfo:
+    # Act / Assert — the specific subclass (reviewer finding; see the identical note on
+    # `test_resolve_fails_on_an_unmet_requires_naming_the_stage_namespace_and_pack` above).
+    with pytest.raises(runner.StageCompositionError) as excinfo:
         engine.resolve(specs, tenant_id="tenant-a")
 
     message = str(excinfo.value)
     assert "count" in message
     assert "upper" in message
+    assert excinfo.value.stages == ("count", "upper")
 
 
 async def test_run_stops_the_chain_for_a_batch_that_produces_nothing() -> None:
@@ -436,11 +560,14 @@ async def test_resolve_checks_requires_by_model_type_not_merely_by_namespace_str
         runner.StageSpec(id="s2", contract=_TextStage, name="needs-upper"),
     )
 
-    # Act / Assert
-    with pytest.raises(runner.PipelineResolutionError) as excinfo:
+    # Act / Assert — the specific subclass (reviewer finding; see the identical note on
+    # `test_resolve_fails_on_an_unmet_requires_naming_the_stage_namespace_and_pack` above).
+    with pytest.raises(runner.UnmetRequiresError) as excinfo:
         engine.resolve(specs, tenant_id="tenant-a")
 
     assert "_Uppercased" in str(excinfo.value)
+    assert excinfo.value.stages == ("s2",)
+    assert excinfo.value.distributions == ("weft-test-pack",)
 
 
 async def test_run_refuses_a_context_for_a_tenant_the_pipeline_was_not_resolved_for() -> None:
@@ -591,3 +718,405 @@ async def test_run_does_not_retain_a_produced_payload_past_the_batch_it_belongs_
     # Assert
     assert summary == runner.RunSummary(produced=2)
     assert all(ref() is None for ref in weak_refs)
+
+
+class _Prose(ExtModel):
+    """A fact `_NaiveSplitter` genuinely needs — nothing about tables anywhere in it."""
+
+    __namespace__ = "weft-test-pack"
+
+
+def _prose_node(text: str) -> Node:
+    return Node.synthetic(
+        content=text, media_type=MediaType.TEXT, reason="applicability test fixture"
+    ).with_ext(_Prose())
+
+
+def _atomic_node(text: str) -> Node:
+    """A node carrying no `_Prose` fact — `docs/11-multimodal.md` §2's atomic table."""
+    return Node.synthetic(
+        content=text, media_type=MediaType.TABLE, reason="applicability test fixture"
+    )
+
+
+class _NaiveSplitter:
+    """Splits every node it is handed in half — no conditional on content anywhere.
+
+    `applies_to` names the one fact this splitter's own logic actually needs
+    to do its job (`_Prose`), for reasons that have nothing to do with what
+    it thereby excludes — see the module docstring, and `docs/02-extension-
+    model.md` §3 → *Applicability*.
+    """
+
+    lifetime = runner.Lifetime.RUN
+    requires: tuple[type[ExtModel], ...] = ()
+    provides: tuple[type[ExtModel], ...] = ()
+    applies_to = (Applies(_Prose),)
+
+    def __init__(self, config: object) -> None: ...
+
+    async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        produced: list[Node] = []
+        for node in payload:
+            midpoint = len(node.content) // 2
+            produced.append(node.derive(content=node.content[:midpoint], ordinal=0))
+            produced.append(node.derive(content=node.content[midpoint:], ordinal=1))
+        return Produced(value=produced)
+
+
+class _NaiveSplitterNoFilter:
+    """`_NaiveSplitter`'s identical splitting logic, with no `applies_to` declared at all —
+    the default this task pins down: it "applies to everything, silently"."""
+
+    lifetime = runner.Lifetime.RUN
+    requires: tuple[type[ExtModel], ...] = ()
+    provides: tuple[type[ExtModel], ...] = ()
+
+    def __init__(self, config: object) -> None: ...
+
+    async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        produced: list[Node] = []
+        for node in payload:
+            midpoint = len(node.content) // 2
+            produced.append(node.derive(content=node.content[:midpoint], ordinal=0))
+            produced.append(node.derive(content=node.content[midpoint:], ordinal=1))
+        return Produced(value=produced)
+
+
+class _CapturesWhatItReceives:
+    """An identity stage that records the payload it was handed, so a test downstream of
+    the stage under test can inspect the recombined batch — `Runner.run` itself returns
+    only counts, never a batch's payload."""
+
+    lifetime = runner.Lifetime.RUN
+    requires: tuple[type[ExtModel], ...] = ()
+    provides: tuple[type[ExtModel], ...] = ()
+
+    def __init__(self, captured: list[Sequence[Node]]) -> None:
+        self._captured = captured
+
+    async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        self._captured.append(payload)
+        return Produced(value=payload)
+
+
+def _capture_factory(
+    captured: list[Sequence[Node]],
+) -> Callable[[object], _CapturesWhatItReceives]:
+    """A typed factory binding `captured` ahead of the `config` argument `Runner.resolve`
+    calls every factory with — `functools.partial` cannot do this directly, since
+    `_CapturesWhatItReceives.__init__` has no `config` parameter for it to also carry."""
+
+    def factory(config: object) -> _CapturesWhatItReceives:
+        return _CapturesWhatItReceives(captured)
+
+    return factory
+
+
+async def test_run_routes_only_nodes_matching_applies_to_through_a_stage() -> None:
+    # Arrange — an atomic table sandwiched between two prose nodes, so a correct recombine
+    # has to preserve *position*, not merely membership. `docs/11-multimodal.md` §2: "An
+    # atomic node passes the chunker unsplit, and the chunker does not have to know that."
+    first = _prose_node("ab")
+    table = _atomic_node("TABLE")
+    second = _prose_node("cd")
+    captured: list[Sequence[Node]] = []
+
+    registry = Registry()
+    registry.add(_NodeStage, "naive-split", _NaiveSplitter, distribution="weft-test-pack")
+    registry.add(
+        _NodeStage,
+        "capture",
+        _capture_factory(captured),
+        distribution="weft-test-pack",
+    )
+    engine = runner.Runner(registry)
+    pipeline = engine.resolve(
+        (
+            runner.StageSpec(id="chunk", contract=_NodeStage, name="naive-split"),
+            runner.StageSpec(id="capture", contract=_NodeStage, name="capture"),
+        ),
+        tenant_id="tenant-a",
+    )
+
+    async def batches() -> AsyncIterator[Sequence[Node]]:
+        yield [first, table, second]
+
+    # Act
+    summary = await engine.run(pipeline, batches(), _ctx())
+
+    # Assert
+    assert summary == runner.RunSummary(produced=1)
+    assert len(captured) == 1
+    result = list(captured[0])
+    assert [node.content for node in result] == ["a", "b", "TABLE", "c", "d"]
+    assert result[2] is table  # the exact object — the seam never called `run` on it
+
+
+async def test_run_applies_a_stage_with_no_applies_to_declared_to_the_whole_batch() -> None:
+    # Arrange — the contrast case task 1.6 requires: with nothing declared, even a table
+    # is split, which is what makes the routed test above a property of `applies_to`
+    # rather than of something `_NaiveSplitter.run` itself decided.
+    table = _atomic_node("TB")
+    captured: list[Sequence[Node]] = []
+
+    registry = Registry()
+    registry.add(_NodeStage, "split-all", _NaiveSplitterNoFilter, distribution="weft-test-pack")
+    registry.add(
+        _NodeStage,
+        "capture",
+        _capture_factory(captured),
+        distribution="weft-test-pack",
+    )
+    engine = runner.Runner(registry)
+    pipeline = engine.resolve(
+        (
+            runner.StageSpec(id="chunk", contract=_NodeStage, name="split-all"),
+            runner.StageSpec(id="capture", contract=_NodeStage, name="capture"),
+        ),
+        tenant_id="tenant-a",
+    )
+
+    async def batches() -> AsyncIterator[Sequence[Node]]:
+        yield [table]
+
+    # Act
+    await engine.run(pipeline, batches(), _ctx())
+
+    # Assert
+    assert [node.content for node in captured[0]] == ["T", "B"]
+
+
+async def test_run_preserves_order_across_two_separated_non_matching_runs() -> None:
+    # Arrange — two atomic nodes, not adjacent, with a prose node between them: the
+    # stronger order-preservation proof task 1.6 asks for, over the maximal-contiguous-run
+    # segmentation a single sandwiched atomic node alone would not exercise.
+    table_one = _atomic_node("X")
+    prose = _prose_node("ab")
+    table_two = _atomic_node("Y")
+    captured: list[Sequence[Node]] = []
+
+    registry = Registry()
+    registry.add(_NodeStage, "naive-split", _NaiveSplitter, distribution="weft-test-pack")
+    registry.add(
+        _NodeStage,
+        "capture",
+        _capture_factory(captured),
+        distribution="weft-test-pack",
+    )
+    engine = runner.Runner(registry)
+    pipeline = engine.resolve(
+        (
+            runner.StageSpec(id="chunk", contract=_NodeStage, name="naive-split"),
+            runner.StageSpec(id="capture", contract=_NodeStage, name="capture"),
+        ),
+        tenant_id="tenant-a",
+    )
+
+    async def batches() -> AsyncIterator[Sequence[Node]]:
+        yield [table_one, prose, table_two]
+
+    # Act
+    await engine.run(pipeline, batches(), _ctx())
+
+    # Assert
+    result = list(captured[0])
+    assert [node.content for node in result] == ["X", "a", "b", "Y"]
+    assert result[0] is table_one
+    assert result[3] is table_two
+
+
+class _UppercaseChecksApplicability:
+    """`_Uppercase`'s identical transform, but with `applies_to` declared over a fact that
+    has nothing to do with `list[str]` — a repair test: before it, `_is_routable` checked
+    only that the payload was *some* `Sequence`, so a stage declaring `applies_to` over a
+    payload whose elements are not `Node` fell into `_segment_by_applicability` instead of
+    the unfiltered call the module docstring promises, and every element failed
+    `isinstance(item, Node)` — `run` was never invoked at all, silently. `_TextStage`'s
+    `list[str]` payload is exactly that shape: a `Sequence` that is not `Sequence[Node]`.
+    """
+
+    lifetime = runner.Lifetime.RUN
+    requires: tuple[type[ExtModel], ...] = ()
+    provides: tuple[type[ExtModel], ...] = ()
+    applies_to = (Applies(_Uppercased),)
+
+    def __init__(self, config: object) -> None: ...
+
+    async def run(self, payload: list[str], ctx: Context) -> Outcome[list[str]]:
+        return Produced(value=[item.upper() for item in payload])
+
+
+class _CapturesText:
+    """`_CapturesWhatItReceives`'s identical job, over `_TextStage`'s `list[str]` shape."""
+
+    lifetime = runner.Lifetime.RUN
+    requires: tuple[type[ExtModel], ...] = ()
+    provides: tuple[type[ExtModel], ...] = ()
+
+    def __init__(self, captured: list[list[str]]) -> None:
+        self._captured = captured
+
+    async def run(self, payload: list[str], ctx: Context) -> Outcome[list[str]]:
+        self._captured.append(list(payload))
+        return Produced(value=payload)
+
+
+def _text_capture_factory(captured: list[list[str]]) -> Callable[[object], _CapturesText]:
+    def factory(config: object) -> _CapturesText:
+        return _CapturesText(captured)
+
+    return factory
+
+
+async def test_run_calls_a_stage_with_applies_to_unfiltered_over_a_non_node_payload() -> None:
+    # Arrange — `applies_to` over a non-`Node` payload must fall back to the single
+    # unfiltered call, exactly as an empty `applies_to` already does; if `run` were never
+    # invoked (the pre-repair bug), the captured batch would arrive un-uppercased.
+    captured: list[list[str]] = []
+
+    registry = Registry()
+    registry.add(_TextStage, "upper", _UppercaseChecksApplicability, distribution="weft-test-pack")
+    registry.add(
+        _TextStage, "capture", _text_capture_factory(captured), distribution="weft-test-pack"
+    )
+    engine = runner.Runner(registry)
+    pipeline = engine.resolve(
+        (
+            runner.StageSpec(id="upper", contract=_TextStage, name="upper"),
+            runner.StageSpec(id="capture", contract=_TextStage, name="capture"),
+        ),
+        tenant_id="tenant-a",
+    )
+
+    async def batches() -> AsyncIterator[list[str]]:
+        yield ["a", "b"]
+
+    # Act
+    await engine.run(pipeline, batches(), _ctx())
+
+    # Assert
+    assert captured[0] == ["A", "B"]
+
+
+class _MarksItWasCalled:
+    """A `_NodeStage`-shaped stage whose only job is to record every payload it is handed,
+    including an empty one — the repair test for `_is_routable` excluding empty batches:
+    a non-empty `applies_to` over zero items must let the stage answer for itself, never
+    have the runner synthesize a `Produced(value=())` on its behalf without ever calling
+    it, the exact silently-empty `Produced` every contract docstring in this tree forbids.
+    """
+
+    lifetime = runner.Lifetime.RUN
+    requires: tuple[type[ExtModel], ...] = ()
+    provides: tuple[type[ExtModel], ...] = ()
+    applies_to = (Applies(_Prose),)
+
+    def __init__(self, calls: list[Sequence[Node]]) -> None:
+        self._calls = calls
+
+    async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        self._calls.append(payload)
+        if not payload:
+            return NothingToProduce(reason="nothing in an empty batch")
+        return Produced(value=payload)
+
+
+def _marks_factory(calls: list[Sequence[Node]]) -> Callable[[object], _MarksItWasCalled]:
+    def factory(config: object) -> _MarksItWasCalled:
+        return _MarksItWasCalled(calls)
+
+    return factory
+
+
+async def test_run_calls_a_stage_with_applies_to_even_on_an_empty_batch() -> None:
+    # Arrange
+    calls: list[Sequence[Node]] = []
+
+    registry = Registry()
+    registry.add(_NodeStage, "marks", _marks_factory(calls), distribution="weft-test-pack")
+    engine = runner.Runner(registry)
+    pipeline = engine.resolve(
+        (runner.StageSpec(id="marks", contract=_NodeStage, name="marks"),),
+        tenant_id="tenant-a",
+    )
+
+    async def batches() -> AsyncIterator[Sequence[Node]]:
+        yield []
+
+    # Act
+    summary = await engine.run(pipeline, batches(), _ctx())
+
+    # Assert — `run` actually executed, once, with the empty payload, and got the chance
+    # to answer `NothingToProduce` for itself.
+    assert len(calls) == 1
+    assert summary == runner.RunSummary(
+        nothing_to_produce=1, nothing_to_produce_reasons=("nothing in an empty batch",)
+    )
+
+
+class _TableFact(ExtModel):
+    __namespace__ = "weft-test-pack-table"
+
+
+class _WideColumns(ExtModel):
+    __namespace__ = "weft-test-pack-columns"
+
+
+def _fact_node(text: str, *, wide_columns: bool) -> Node:
+    node = Node.synthetic(
+        content=text, media_type=MediaType.TABLE, reason="conjunction test fixture"
+    ).with_ext(_TableFact())
+    return node.with_ext(_WideColumns()) if wide_columns else node
+
+
+class _MarksNodesMatchingBothFacts:
+    """Appends `!` to whatever it is handed — proof that a stage's `applies_to` tuple is
+    a conjunction, never a disjunction. `docs/02-extension-model.md` §3 →
+    *Applicability*: a node "not matching *every* `Applies` in the tuple... starts (or
+    extends) a non-matching run instead" — the same reading `requires` already gives its
+    own tuple of models. Every fixture elsewhere in the tree declares `applies_to` with at
+    most one `Applies`, so a regression from `all(...)` to `any(...)` in
+    `weft_kernel.runner._segment_by_applicability` would not fail any of them; this one
+    names two distinct facts specifically to catch that.
+    """
+
+    lifetime = runner.Lifetime.RUN
+    requires: tuple[type[ExtModel], ...] = ()
+    provides: tuple[type[ExtModel], ...] = ()
+    applies_to = (Applies(_TableFact), Applies(_WideColumns))
+
+    def __init__(self, config: object) -> None: ...
+
+    async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        return Produced(value=[node.derive(content=f"{node.content}!") for node in payload])
+
+
+async def test_run_treats_a_multi_fact_applies_to_tuple_as_a_conjunction() -> None:
+    # Arrange — one node carries both facts the stage names; the other carries only one.
+    # AND requires both to route it in; OR would route the second one in too.
+    both = _fact_node("both", wide_columns=True)
+    table_only = _fact_node("table-only", wide_columns=False)
+    captured: list[Sequence[Node]] = []
+
+    registry = Registry()
+    registry.add(_NodeStage, "marks", _MarksNodesMatchingBothFacts, distribution="weft-test-pack")
+    registry.add(_NodeStage, "capture", _capture_factory(captured), distribution="weft-test-pack")
+    engine = runner.Runner(registry)
+    pipeline = engine.resolve(
+        (
+            runner.StageSpec(id="marks", contract=_NodeStage, name="marks"),
+            runner.StageSpec(id="capture", contract=_NodeStage, name="capture"),
+        ),
+        tenant_id="tenant-a",
+    )
+
+    async def batches() -> AsyncIterator[Sequence[Node]]:
+        yield [both, table_only]
+
+    # Act
+    await engine.run(pipeline, batches(), _ctx())
+
+    # Assert — only the node carrying both facts was marked.
+    result = list(captured[0])
+    assert [node.content for node in result] == ["both!", "table-only"]

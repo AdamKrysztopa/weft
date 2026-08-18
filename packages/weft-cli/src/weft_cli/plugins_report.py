@@ -18,11 +18,38 @@ describes timing and a `sys.modules` diff as the eventual measurement, but
 this module papers over — the honest, doctor-shaped answer to "how much did
 this pack cost" until the kernel measures it is `not measured`, not a number
 this module makes up.
+
+**Task 1.12** adds `render_doctor`'s `displaced` parameter — `docs/03-cli.md`:
+"A displaced registration: the pack lost a `(contract, name)` collision to
+an operator's pin, so it is installed, active, and one of its plugins is
+unreachable." A `weft_kernel.registry.DisplacedRegistration` is grouped
+under the *losing* distribution's own block, because that is the report an
+operator staring at `weft-loser: active (1 contributed)` needs sitting right
+next to it, not a separate section to cross-reference by name. The winner's
+block prints nothing about it — a pin resolving in a pack's favour is not a
+fact about *that* pack; it is the pin's own record, already visible on the
+loser's line. `displaced=()`, the default, leaves every existing caller's
+output unchanged.
+
+**Repair for a reviewer finding — `render_doctor`'s `unconsulted_pins` parameter.**
+`weft_kernel.discovery.discover`'s `strict_pins=False` (see its own docstring) lets
+`weft plugins doctor` build a registry even when a `[plugins]` pin never arbitrated
+anything, rather than dying before a single report exists — but a diagnostic command
+that swallowed the very thing it exists to diagnose would trade one silent failure for
+another. `weft_cli.cli.handle_plugins_doctor` reads the same
+`weft_kernel.registry.Registry.unconsulted_pins()` `InertPluginPinError` would have
+raised off and hands it here instead, printed as its own loud block rather than folded
+into any one distribution's — the same reasoning `InertPluginPinError`'s own docstring
+already gives for not folding it into a pack's report: this is not one pack's failure.
+`unconsulted_pins=()`, the default, leaves every existing caller's output unchanged.
 """
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 from weft_kernel.discovery import PackReport, PackStatus
+from weft_kernel.registry import DisplacedRegistration
 
 
 def render_list(reports: tuple[PackReport, ...]) -> str:
@@ -33,16 +60,52 @@ def render_list(reports: tuple[PackReport, ...]) -> str:
     return "\n".join(lines)
 
 
-def render_doctor(reports: tuple[PackReport, ...]) -> str:
-    """A fuller block per distribution: status, reason (if any), disclosure."""
+def render_doctor(
+    reports: tuple[PackReport, ...],
+    displaced: tuple[DisplacedRegistration, ...] = (),
+    unconsulted_pins: tuple[str, ...] = (),
+) -> str:
+    """A fuller block per distribution: status, reason (if any), disclosure, and what it lost.
+
+    `displaced` — task 1.12, `docs/03-cli.md`'s own words — is every
+    `weft_kernel.registry.DisplacedRegistration` the registry recorded; each
+    one is grouped under the *losing* distribution's block. The default `()`
+    reproduces exactly the output this function gave before that field
+    existed, for every caller that has not started passing it.
+
+    `unconsulted_pins` — see the module docstring's *repair for a reviewer
+    finding* — is every `[plugins]` pin `weft_kernel.registry.Registry.
+    unconsulted_pins()` reports, printed as its own trailing block rather
+    than folded into any one distribution's, since it is not one
+    distribution's fact. The default `()` again reproduces prior output
+    unchanged.
+    """
     if not reports:
         return "no packs discovered."
-    blocks = [_doctor_block(report) for report in _sorted(reports)]
+    by_loser = _group_by_loser(displaced)
+    blocks = [
+        _doctor_block(report, by_loser.get(report.distribution, ())) for report in _sorted(reports)
+    ]
+    if unconsulted_pins:
+        blocks.append(_unconsulted_pins_block(unconsulted_pins))
     return "\n\n".join(blocks)
 
 
 def _sorted(reports: tuple[PackReport, ...]) -> list[PackReport]:
     return sorted(reports, key=lambda report: report.distribution)
+
+
+def _group_by_loser(
+    displaced: tuple[DisplacedRegistration, ...],
+) -> Mapping[str, tuple[DisplacedRegistration, ...]]:
+    """Every `DisplacedRegistration`, keyed by the distribution that lost it."""
+    by_loser: dict[str, list[DisplacedRegistration]] = {}
+    for item in displaced:
+        by_loser.setdefault(item.distribution, []).append(item)
+    return {
+        distribution: tuple(sorted(items, key=lambda item: (item.contract.__name__, item.name)))
+        for distribution, items in by_loser.items()
+    }
 
 
 def _summary_line(report: PackReport) -> str:
@@ -52,13 +115,25 @@ def _summary_line(report: PackReport) -> str:
     )
 
 
-def _doctor_block(report: PackReport) -> str:
+def _doctor_block(report: PackReport, displaced: tuple[DisplacedRegistration, ...]) -> str:
     lines = [_summary_line(report)]
     if report.status is PackStatus.REFUSED:
         lines.append(f"  never imported — {report.reason}")
     elif report.reason is not None:
         lines.append(f"  reason: {report.reason}")
     lines.append(f"  disclosure: {_disclosure_line(report)}")
+    for item in displaced:
+        lines.append(
+            f"  displaced: '{item.pin}' lost to '{item.winner}' — pinned by "
+            f'[plugins] "{item.pin}" = "{item.winner}" in weft.toml'
+        )
+    return "\n".join(lines)
+
+
+def _unconsulted_pins_block(unconsulted_pins: tuple[str, ...]) -> str:
+    lines = ["[plugins] pins that never arbitrated anything:"]
+    for pin in sorted(unconsulted_pins):
+        lines.append(f"  '{pin}' — weft never saw two distributions contend for what it names.")
     return "\n".join(lines)
 
 

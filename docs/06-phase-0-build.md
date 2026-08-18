@@ -16,6 +16,14 @@ disagree, they are wrong and this one is out of date.
 
 ## The three places this phase can accidentally settle an open decision
 
+> **G2 settled 2026-08-16, and all three choices below held.** Embedding stays a stage — it was never
+> G2's to choose, because G4 forbids a store to embed. A pipeline stays an ordered list, with
+> derivation, slots and declared constraints added on top rather than replacing it. Duplicate
+> registration stays a refusal, relaxed only by an operator's pin, which is the direction item 3
+> required. Nothing below needs undoing; the section is kept because it records *why* each choice was
+> made reversible, and that reasoning is what made the gate cheap to close. The outcome lives in
+> `02` §3.
+
 Read this before the work list. Phase 0 has to do things that G2 owns and G2 is open, so the rule for
 each is the same: **make the minimal choice that is reversible, and record that it is not an answer.**
 

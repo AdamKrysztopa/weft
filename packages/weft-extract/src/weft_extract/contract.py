@@ -97,8 +97,9 @@ class Extractor(Stage[Sequence[SourceDoc], Sequence[Node]], Protocol):
 
     One method, domain types on both sides — `docs/02-extension-model.md`
     section 1 names the predecessor's `BaseExtractor` as the interface shape
-    to copy, one `@abstractmethod extract(...)`, and the failure to fix was
-    only ever its dispatch, never its narrowness. `run` is that method,
+    this contract follows, one `@abstractmethod extract(...)`, and the
+    failure to fix was only ever its dispatch, never its narrowness. The
+    shape is reused; no line of the reference's own text is. `run` is that method,
     async per G6, returning `Outcome` rather than a bare value or an
     envelope with an ambiguous empty case: a source that legitimately yields
     no text answers `NothingToProduce`, distinct from `Failed`, which is the

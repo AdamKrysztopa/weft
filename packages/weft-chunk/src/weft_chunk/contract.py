@@ -26,6 +26,22 @@ docstring for the full reasoning behind the `if TYPE_CHECKING:` /
 assign-after-the-class-body split, which applies here unchanged: fitness
 function 6 gains a second subject without capability gaining a fourth member
 it never asked for.
+
+**`publishes_property_vocabulary` is task 1.2's, on the identical footing.**
+`docs/02-extension-model.md` §3 → *Ordering constraints*: "`destroys` is
+mandatory wherever a contract publishes a property vocabulary." `Chunker`
+opts in — `weft_chunk.property.WordBoundaries` is the real property
+`weft_chunk.fixed_size.FixedSizeChunker` destroys — and
+`weft_kernel.registry` reads this attribute generically off *any* contract
+via `getattr(contract, "publishes_property_vocabulary", False)`, never off a
+hardcoded list of contract names, so opting in here is the whole mechanism:
+every `Chunker` implementation, first-party or not, must now state
+`destroys` explicitly or registration refuses it, naming the missing
+declaration. Declared the same `if TYPE_CHECKING:` / assign-after-the-body
+way `version` is, for the same reason: it must never join
+`__protocol_attrs__`, or a structurally-conforming plugin that never
+restates it would fail an `isinstance` check that has nothing to do with
+capability.
 """
 
 from collections.abc import Sequence
@@ -55,8 +71,10 @@ class Chunker(Stage[Sequence[Node], Sequence[Node]], Protocol):
         #: See the module docstring — declared only for a type checker, assigned for real
         #: after the class body, so it never joins `__protocol_attrs__`.
         version: ClassVar[str]
+        publishes_property_vocabulary: ClassVar[bool]
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]: ...
 
 
 Chunker.version = CHUNKER_CONTRACT_VERSION
+Chunker.publishes_property_vocabulary = True

@@ -54,3 +54,10 @@ async def test_word_chunker_satisfies_the_chunker_contract_structurally() -> Non
 
     # Act / Assert — no import of Chunker in word_chunker.py itself; this is the caller's check.
     assert isinstance(WordChunker(), Chunker)
+
+
+def test_word_chunker_destroys_nothing_truthfully() -> None:
+    # Act / Assert — `Chunker` publishes a property vocabulary
+    # (docs/02-extension-model.md §3), so `destroys` must be stated, not omitted; splitting
+    # strictly on whitespace never breaks a word, so the truthful answer is the empty tuple.
+    assert WordChunker.destroys == ()

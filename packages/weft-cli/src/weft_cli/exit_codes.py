@@ -20,6 +20,16 @@ check having passed.
 """
 
 from enum import IntEnum
+from typing import Final
+
+from weft_cli.pipeline_catalogue import (
+    DuplicatePipelineNameError,
+    MalformedPipelineError,
+    PipelineDocumentError,
+)
+from weft_kernel.errors import WeftError
+from weft_kernel.registry import UnknownPluginError
+from weft_kernel.runner import PipelineResolutionError
 
 
 class ExitCode(IntEnum):
@@ -34,3 +44,42 @@ class ExitCode(IntEnum):
     BAD_USAGE = 2
     POLICY_REFUSED = 3
     RESOLUTION_FAILED = 4
+
+
+#: Every `WeftError` type that maps to exit 4 despite carrying no `PipelineResolutionError`
+#: in its own inheritance — task 1.13. Both are deliberately *not* `PipelineResolutionError`
+#: subclasses (see `weft_kernel.resolution`'s own module docstring for `UnknownPluginError`,
+#: and `weft_cli.pipeline_catalogue`'s for the other three — a document that will not even
+#: validate "has no resolved parent and no distributions to name", so filing it under the
+#: family "would hand the failure-mode ratchet one already-documented name to hide behind"),
+#: yet `docs/03-cli.md` -> *Output* puts every one of them on the exit-4 side of the split:
+#: "a name no pack provides" for the first, "fix the pipeline" for the other three. Named
+#: explicitly rather than derived, unlike the family walk `exit_code_for` performs below —
+#: there is no shared base to walk for a group this small and this deliberately disjoint.
+_ALSO_RESOLUTION_FAILED: Final[tuple[type[WeftError], ...]] = (
+    UnknownPluginError,
+    PipelineDocumentError,
+    MalformedPipelineError,
+    DuplicatePipelineNameError,
+)
+
+
+def exit_code_for(exc: WeftError) -> ExitCode:
+    """The one place `docs/03-cli.md`'s exit-code split is decided from a caught exception.
+
+    Task 1.13, `docs/02-extension-model.md` §3 → *When resolution fails*: "The CLI maps the
+    whole family to exit code 4." Before this function existed that mapping was written out
+    by hand, twice, inside `handle_index` and `handle_ask` (`except (UnknownPluginError,
+    PipelineResolutionError): ... except WeftError: ...`) — and a third caller reaching for
+    the same pattern was exactly how `weft_cli.pipeline_catalogue`'s family (task 1.9, never
+    reachable through the CLI as shipped, so never actually reached this bug) would have
+    fallen through the generic branch to exit `1` the moment a real handler called it, rather
+    than the `4` `docs/03-cli.md` reserves for "fix the pipeline". One function, one truth:
+    every `PipelineResolutionError` subclass (walked by `isinstance`, so a class defined
+    after this function is written still matches — no list to fall out of step with) and
+    every name in `_ALSO_RESOLUTION_FAILED` map to `RESOLUTION_FAILED`; every other
+    `WeftError` maps to `OPERATION_FAILED`, "something failed" rather than "fix the pipeline".
+    """
+    if isinstance(exc, (PipelineResolutionError, *_ALSO_RESOLUTION_FAILED)):
+        return ExitCode.RESOLUTION_FAILED
+    return ExitCode.OPERATION_FAILED

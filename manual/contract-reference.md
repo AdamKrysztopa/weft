@@ -64,6 +64,35 @@ async def run(
 ]: ...
 ```
 
+## `Cleaner`
+
+**Module:** `weft_clean.contract`  
+**Published by:** `weft-clean`  
+**Version:** `1.0.0`
+
+Repairs or normalises a `Node`'s text, one node in, one repaired node out.
+
+A cleaning stage's job is narrower than a chunker's: it never splits or
+merges nodes, so every implementation returns exactly as many nodes as it
+was handed, each built through `Node.derive` so lineage records the
+repair as its own step. A batch with nothing to clean still answers
+`NothingToProduce`, never a silently empty `Produced([])` — the same
+reference-trap fix `weft_extract.contract.Extractor` and `weft_chunk.contract.
+Chunker` already document, applied here because the same ambiguity is
+possible at every stage returning a sequence.
+
+### Methods
+
+```python
+async def run(
+    self,
+    payload: collections.abc.Sequence[weft_kernel.payload.node.Node],
+    ctx: weft_kernel.context.Context,
+) -> weft_kernel.payload.outcome.Outcome[
+    collections.abc.Sequence[weft_kernel.payload.node.Node]
+]: ...
+```
+
 ## `Embedder`
 
 **Module:** `weft_embed.contract`  
@@ -89,6 +118,33 @@ async def run(
 ]: ...
 ```
 
+## `Enhancer`
+
+**Module:** `weft_enhance.contract`  
+**Published by:** `weft-enhance`  
+**Version:** `1.0.0`
+
+Attaches a new, namespaced fact to each `Node` it is handed — never rewrites `content`.
+
+One method, domain types on both sides, exactly `Cleaner`'s shape with a different
+job: where a `Cleaner` returns a *repaired* node built through `Node.derive`, an
+`Enhancer` returns the *same* node with an added `Node.with_ext` fact — identity
+(`node.id`) is unaffected, because nothing about the text changed. A batch with
+nothing to enhance still answers `NothingToProduce`, never a silently empty
+`Produced([])` — the same reference-trap fix every other contract in this tree documents.
+
+### Methods
+
+```python
+async def run(
+    self,
+    payload: collections.abc.Sequence[weft_kernel.payload.node.Node],
+    ctx: weft_kernel.context.Context,
+) -> weft_kernel.payload.outcome.Outcome[
+    collections.abc.Sequence[weft_kernel.payload.node.Node]
+]: ...
+```
+
 ## `Extractor`
 
 **Module:** `weft_extract.contract`  
@@ -99,8 +155,9 @@ Turns source documents into the first `Node`s of an ingest pipeline.
 
 One method, domain types on both sides — `docs/02-extension-model.md`
 section 1 names the predecessor's `BaseExtractor` as the interface shape
-to copy, one `@abstractmethod extract(...)`, and the failure to fix was
-only ever its dispatch, never its narrowness. `run` is that method,
+this contract follows, one `@abstractmethod extract(...)`, and the
+failure to fix was only ever its dispatch, never its narrowness. The
+shape is reused; no line of the reference's own text is. `run` is that method,
 async per G6, returning `Outcome` rather than a bare value or an
 envelope with an ambiguous empty case: a source that legitimately yields
 no text answers `NothingToProduce`, distinct from `Failed`, which is the

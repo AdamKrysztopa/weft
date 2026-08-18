@@ -25,7 +25,16 @@ from weft_store import NodeStore
 
 
 class _PassThroughStage:
-    """Satisfies `Extractor`/`Chunker`/`Embedder`'s `run` by passing its input straight through."""
+    """Satisfies `Extractor`/`Chunker`/`Embedder`'s `run` by passing its input straight through.
+
+    `destroys: tuple[type, ...] = ()` is here for `Chunker` alone —
+    `weft_chunk.contract.Chunker.publishes_property_vocabulary` makes it
+    mandatory (`02` §3 → *Ordering constraints*, task 1.2) — but declaring it
+    on the one class shared across all three registrations costs the other
+    two nothing; `Extractor` and `Embedder` never read it.
+    """
+
+    destroys: tuple[type, ...] = ()
 
     def __init__(self, config: object) -> None:
         del config

@@ -3,15 +3,37 @@
 Mirrors `packages/weft-kernel/src/weft_kernel/registry.py`. Covers a
 successful registration and lookup, the fixed-and-not-arbitrated duplicate
 refusal `docs/06-phase-0-build.md` takes for G2's open question, the loud
-unknown-name error `docs/02-extension-model.md` specifies, and `add_many`'s
+unknown-name error `docs/02-extension-model.md` specifies, `add_many`'s
 all-or-nothing commit — a collision against an existing entry and a
 collision within the batch itself both leave the registry exactly as they
-found it.
+found it — and task 1.2's mandatory-`destroys` check: a contract that
+publishes a property vocabulary (`02` §3 → *Ordering constraints*) refuses a
+factory that never mentions `destroys` at all, detected generically off
+`_GovernedContract.publishes_property_vocabulary`, never off a hardcoded
+contract name.
+
+**Task 1.12 — G2's relaxation.** `docs/02-extension-model.md` §3 → *When
+resolution fails*: a `(contract, name)` collision is still refused with no
+`[plugins]` pin present, but the refusal now prints the exact pin that would
+resolve it. With a pin present, the named distribution's registration wins,
+the other is recorded as `displaced` rather than dropped, and a pin naming
+neither contender — or one that never sees a collision at all — fails loudly
+instead of being read as a no-op.
 """
+
+import functools
+from typing import TYPE_CHECKING, ClassVar
 
 import pytest
 
-from weft_kernel.registry import DuplicateRegistrationError, Registry, UnknownPluginError
+from weft_kernel.registry import (
+    DuplicateRegistrationError,
+    MissingDestroysDeclarationError,
+    Registry,
+    UnknownPluginError,
+    UnresolvedPluginPinError,
+    unwrap_factory,
+)
 
 
 class _Chunker:
@@ -20,6 +42,23 @@ class _Chunker:
 
 class _Extractor:
     """A second, unrelated contract, used to show the key includes the contract."""
+
+
+class _GovernedContract:
+    """A stand-in contract that publishes a property vocabulary — `02` §3's mandatory case.
+
+    `publishes_property_vocabulary` is assigned after the class body, the
+    same way a real contract's `version` is (`weft_extract.contract`,
+    `weft_chunk.contract`) — not that this matters for `isinstance`, since
+    this stand-in is not a `Protocol`, but it keeps the shape identical to
+    what `Registry.add` actually reads off a real contract.
+    """
+
+    if TYPE_CHECKING:
+        publishes_property_vocabulary: ClassVar[bool]
+
+
+_GovernedContract.publishes_property_vocabulary = True
 
 
 def test_add_then_lookup_returns_the_registered_factory() -> None:
@@ -195,3 +234,237 @@ def test_add_many_rejects_a_duplicate_name_within_its_own_batch_and_writes_nothi
     assert "twice" in str(excinfo.value)
     with pytest.raises(UnknownPluginError):
         registry.lookup(_Chunker, "twice")
+
+
+def test_add_refuses_a_governed_contract_s_factory_with_no_destroys_declared() -> None:
+    # Arrange
+    registry = Registry()
+
+    class _NoDestroys:
+        """Never mentions `destroys` at all — not even an inherited default."""
+
+    # Act / Assert
+    with pytest.raises(MissingDestroysDeclarationError) as excinfo:
+        registry.add(_GovernedContract, "widget", _NoDestroys, distribution="acme-widgets")
+
+    message = str(excinfo.value)
+    assert "widget" in message
+    assert "_GovernedContract" in message
+    assert registry.contracts() == frozenset()
+
+
+def test_add_accepts_a_governed_contract_s_factory_that_destroys_something_real() -> None:
+    # Arrange — the edge case: `destroys` need not be empty, only present.
+    registry = Registry()
+
+    class _Marker:
+        pass
+
+    class _DestroysSomething:
+        destroys: tuple[type, ...] = (_Marker,)
+
+    # Act
+    registry.add(_GovernedContract, "widget", _DestroysSomething, distribution="acme-widgets")
+
+    # Assert
+    assert registry.lookup(_GovernedContract, "widget") is _DestroysSomething
+
+
+def test_add_many_refuses_a_governed_contract_s_factory_with_no_destroys_and_writes_nothing() -> (
+    None
+):
+    # Arrange
+    registry = Registry()
+
+    class _NoDestroys:
+        pass
+
+    # Act / Assert
+    with pytest.raises(MissingDestroysDeclarationError):
+        registry.add_many([(_GovernedContract, "widget", _NoDestroys)], distribution="acme-widgets")
+
+    with pytest.raises(UnknownPluginError):
+        registry.lookup(_GovernedContract, "widget")
+
+
+def test_add_accepts_a_partial_wrapped_factory_that_declares_destroys_on_its_class() -> None:
+    # Arrange — the shape a plugin needing pack settings must take
+    # (`functools.partial(PluginClass, settings)`, exactly what `weft_store`
+    # registers `PgVectorStore` as). `hasattr` on a bare `partial` never reaches
+    # `.func`, so `Registry.add` must unwrap it before reading `destroys` off the
+    # class the partial actually constructs.
+    registry = Registry()
+
+    class _Marker:
+        pass
+
+    class _DestroysSomething:
+        destroys: tuple[type, ...] = (_Marker,)
+
+        def __init__(self, settings: object) -> None:
+            self.settings = settings
+
+    factory = functools.partial(_DestroysSomething, "pack-settings")
+
+    # Act
+    registry.add(_GovernedContract, "widget", factory, distribution="acme-widgets")
+
+    # Assert
+    assert registry.lookup(_GovernedContract, "widget") is factory
+
+
+def test_add_refuses_a_partial_wrapped_factory_whose_class_never_declares_destroys() -> None:
+    # Arrange — edge case: the unwrap must not paper over a genuine omission.
+    registry = Registry()
+
+    class _NoDestroys:
+        def __init__(self, settings: object) -> None:
+            self.settings = settings
+
+    factory = functools.partial(_NoDestroys, "pack-settings")
+
+    # Act / Assert
+    with pytest.raises(MissingDestroysDeclarationError):
+        registry.add(_GovernedContract, "widget", factory, distribution="acme-widgets")
+
+    assert registry.contracts() == frozenset()
+
+
+def test_unwrap_factory_returns_a_bare_factory_unchanged() -> None:
+    # Arrange
+    def factory() -> str:
+        return "a chunker instance"
+
+    # Act / Assert
+    assert unwrap_factory(factory) is factory
+
+
+def test_unwrap_factory_peels_a_partial_down_to_the_class_it_constructs() -> None:
+    # Arrange
+    class _Plugin:
+        destroys: tuple[type, ...] = ()
+
+        def __init__(self, settings: object) -> None:
+            self.settings = settings
+
+    factory = functools.partial(_Plugin, "settings")
+
+    # Act / Assert
+    assert unwrap_factory(factory) is _Plugin
+
+
+# --- task 1.12: pinned collisions --------------------------------------------------------
+
+
+def test_duplicate_registration_with_no_pin_prints_the_toml_shape_that_would_resolve_it() -> None:
+    # Arrange
+    registry = Registry()
+    registry.add(_Chunker, "semantic", lambda: "first", distribution="weft-chunk")
+
+    # Act / Assert
+    with pytest.raises(DuplicateRegistrationError) as excinfo:
+        registry.add(_Chunker, "semantic", lambda: "second", distribution="weft-graph")
+
+    message = str(excinfo.value)
+    assert "[plugins]" in message
+    assert '"_Chunker:semantic"' in message
+
+
+def test_add_resolves_a_pinned_collision_by_letting_the_pinned_distribution_replace_it() -> None:
+    # Arrange
+    registry = Registry(plugin_pins={"_Chunker:shared": "weft-winner"})
+    first_factory = lambda: "first"  # noqa: E731 - stand-in, not production code
+    second_factory = lambda: "second"  # noqa: E731 - stand-in, not production code
+    registry.add(_Chunker, "shared", first_factory, distribution="weft-loser")
+
+    # Act
+    registry.add(_Chunker, "shared", second_factory, distribution="weft-winner")
+
+    # Assert — the pinned winner is what a lookup returns; the loser is recorded, not dropped.
+    assert registry.lookup(_Chunker, "shared") is second_factory
+    [displaced] = registry.displaced()
+    assert displaced.contract is _Chunker
+    assert displaced.name == "shared"
+    assert displaced.distribution == "weft-loser"
+    assert displaced.winner == "weft-winner"
+    assert displaced.pin == "_Chunker:shared"
+
+
+def test_add_resolves_a_pinned_collision_by_keeping_the_already_registered_entry() -> None:
+    # Arrange — edge case: the pin names the distribution that registered *first*, so the
+    # entry never changes and it is the *second* attempt that is displaced.
+    registry = Registry(plugin_pins={"_Chunker:shared": "weft-first"})
+    first_factory = lambda: "first"  # noqa: E731 - stand-in, not production code
+    registry.add(_Chunker, "shared", first_factory, distribution="weft-first")
+
+    # Act
+    registry.add(_Chunker, "shared", lambda: "second", distribution="weft-second")
+
+    # Assert
+    assert registry.lookup(_Chunker, "shared") is first_factory
+    [displaced] = registry.displaced()
+    assert displaced.distribution == "weft-second"
+    assert displaced.winner == "weft-first"
+
+
+def test_add_raises_when_the_pin_names_neither_contending_distribution() -> None:
+    # Arrange — error case: a pin naming a distribution that never claimed the name is a lie
+    # about what is running, not a tie-breaker to apply anyway.
+    registry = Registry(plugin_pins={"_Chunker:shared": "weft-nobody"})
+    registry.add(_Chunker, "shared", lambda: "first", distribution="weft-a")
+
+    # Act / Assert
+    with pytest.raises(UnresolvedPluginPinError) as excinfo:
+        registry.add(_Chunker, "shared", lambda: "second", distribution="weft-b")
+
+    message = str(excinfo.value)
+    assert "weft-nobody" in message
+    assert "weft-a" in message
+    assert "weft-b" in message
+    # And the registry is untouched — a rejected pin resolves nothing.
+    assert registry.lookup(_Chunker, "shared")() == "first"
+
+
+def test_unconsulted_pins_reports_a_pin_that_never_saw_a_collision() -> None:
+    # Arrange — no second distribution ever contends for this name, so the pin is inert.
+    registry = Registry(plugin_pins={"_Chunker:never-fought-over": "weft-a"})
+
+    # Act
+    registry.add(_Chunker, "some-other-name", lambda: None, distribution="weft-a")
+
+    # Assert
+    assert registry.unconsulted_pins() == frozenset({"_Chunker:never-fought-over"})
+
+
+def test_unconsulted_pins_is_empty_once_a_pin_actually_resolves_a_collision() -> None:
+    # Arrange
+    registry = Registry(plugin_pins={"_Chunker:shared": "weft-winner"})
+    registry.add(_Chunker, "shared", lambda: "first", distribution="weft-loser")
+
+    # Act
+    registry.add(_Chunker, "shared", lambda: "second", distribution="weft-winner")
+
+    # Assert
+    assert registry.unconsulted_pins() == frozenset()
+
+
+def test_add_many_commits_the_rest_of_a_batch_around_a_pinned_collision() -> None:
+    # Arrange — a pinned collision must not fail the whole batch the way an unpinned one
+    # does: `docs/03-cli.md` describes the losing pack as "installed, active", not failed.
+    registry = Registry(plugin_pins={"_Chunker:shared": "weft-graph"})
+    registry.add(_Chunker, "shared", lambda: "first", distribution="weft-chunk")
+
+    # Act
+    registry.add_many(
+        [
+            (_Chunker, "shared", lambda: "second"),
+            (_Chunker, "extra", lambda: "extra"),
+        ],
+        distribution="weft-graph",
+    )
+
+    # Assert
+    assert registry.lookup(_Chunker, "shared")() == "second"
+    assert registry.lookup(_Chunker, "extra")() == "extra"
+    [displaced] = registry.displaced()
+    assert displaced.distribution == "weft-chunk"

@@ -52,7 +52,7 @@ CONTRACTS_WAIVED_FROM_REFERENCE: Final[frozenset[str]] = frozenset()
 #: describe. See `test_generated_reference_matches_the_checked_in_file` below for why this
 #: distinction is asserted before the text diff, not folded into its failure message.
 KNOWN_WORKSPACE_DISTRIBUTIONS: Final[frozenset[str]] = frozenset(
-    {"weft-extract", "weft-chunk", "weft-store", "weft-embed"}
+    {"weft-extract", "weft-chunk", "weft-clean", "weft-store", "weft-embed", "weft-enhance"}
 )
 
 

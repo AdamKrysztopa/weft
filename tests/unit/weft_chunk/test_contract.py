@@ -3,17 +3,23 @@
 Mirrors `packages/weft-chunk/src/weft_chunk/contract.py`. Covers a full
 resolve-then-run of `Chunker` through `weft_kernel.runner`, `Outcome`
 discipline at this contract's boundary — `NothingToProduce` halting the
-chain and a `Failed` reason reaching the returned `RunSummary` — and
-capability being derived by `isinstance` rather than declared, the same
-property `weft_extract.contract`'s tests assert for `Extractor`.
+chain and a `Failed` reason reaching the returned `RunSummary` — capability
+being derived by `isinstance` rather than declared, the same property
+`weft_extract.contract`'s tests assert for `Extractor`, and task 1.2's own
+mandatory-`destroys` check exercised against a real, published contract
+rather than only a kernel-level test double: `Chunker.publishes_property_vocabulary`
+is `True`, and `weft_kernel.registry` refuses to register a plugin under it
+that never mentions `destroys` at all.
 """
 
 from collections.abc import AsyncIterator, Sequence
 
+import pytest
+
 from weft_chunk.contract import CHUNKER_CONTRACT_VERSION, Chunker
 from weft_kernel.context import Context
 from weft_kernel.payload import Failed, MediaType, Node, NothingToProduce, Outcome, Produced
-from weft_kernel.registry import Registry
+from weft_kernel.registry import MissingDestroysDeclarationError, Registry
 from weft_kernel.runner import Lifetime, Runner, StageSpec
 
 
@@ -32,6 +38,7 @@ class _SplitInHalf:
     lifetime = Lifetime.RUN
     requires: tuple[type, ...] = ()
     provides: tuple[type, ...] = ()
+    destroys: tuple[type, ...] = ()
 
     def __init__(self, config: object) -> None:
         self.config = config
@@ -71,6 +78,7 @@ async def test_chunker_nothing_to_produce_halts_the_chain() -> None:
         lifetime = Lifetime.RUN
         requires: tuple[type, ...] = ()
         provides: tuple[type, ...] = ()
+        destroys: tuple[type, ...] = ()
 
         def __init__(self, config: object) -> None: ...
 
@@ -101,6 +109,7 @@ async def test_chunker_failed_reason_reaches_the_run_summary() -> None:
         lifetime = Lifetime.RUN
         requires: tuple[type, ...] = ()
         provides: tuple[type, ...] = ()
+        destroys: tuple[type, ...] = ()
 
         def __init__(self, config: object) -> None: ...
 
@@ -145,3 +154,36 @@ def test_chunker_capability_is_derived_by_isinstance_not_declared() -> None:
     assert isinstance(_SplitInHalf(config=None), Chunker)
     assert not isinstance(_MissingRun(), Chunker)
     assert isinstance(_OnlyRun(), Chunker)
+
+
+def test_chunker_publishes_a_property_vocabulary() -> None:
+    # Act / Assert — `02` §3 → *Ordering constraints*: readable off the contract itself, the
+    # same way `version` is, and for the same reason it must never join `__protocol_attrs__`.
+    assert Chunker.publishes_property_vocabulary is True
+    protocol_attrs = getattr(Chunker, "__protocol_attrs__", frozenset[str]())
+    assert "publishes_property_vocabulary" not in protocol_attrs
+
+
+def test_registering_a_chunker_with_no_destroys_is_refused() -> None:
+    # Arrange — a real contract, not a kernel-level stand-in: `Chunker` really publishes a
+    # property vocabulary, so this is task 1.2's mandatory check proven end to end.
+    class _NoDestroysDeclared:
+        version = CHUNKER_CONTRACT_VERSION
+        lifetime = Lifetime.RUN
+        requires: tuple[type, ...] = ()
+        provides: tuple[type, ...] = ()
+
+        def __init__(self, config: object) -> None: ...
+
+        async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+            return Produced(value=payload)
+
+    registry = Registry()
+
+    # Act / Assert
+    with pytest.raises(MissingDestroysDeclarationError) as excinfo:
+        registry.add(Chunker, "no-destroys", _NoDestroysDeclared, distribution="acme-chunk")
+
+    message = str(excinfo.value)
+    assert "no-destroys" in message
+    assert "Chunker" in message

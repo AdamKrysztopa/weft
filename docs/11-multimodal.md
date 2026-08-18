@@ -207,7 +207,7 @@ them has zero readers.
 | **`weft-blob`** | publishes **`BlobStore`** | **New pack, new contract — and the contract is a decision, not an implementation detail** | Weft's first non-`Stage` service contract, reached through the passport's `require()` like `TokenSink`. It becomes a **hard prerequisite for the whole design** under D1's recommendation, which is why it gets the same "argue it, do not commit it" treatment `RowStore` gets below. See §4, G1-a |
 | **`weft-vision`** | publishes **`Describer`** | **New pack, new contract** | One async method: bytes + media type + instruction → text. Named for the medium, not the model class — the same contract covers audio transcription later. Two stages consume it at opposite ends of the pipeline, which is the argument for one service contract rather than an indexing-only enhancer. `02` §1 already endorses the split from the text LLM port (`:60`), for a contract nobody is scheduled to publish. **Depends on an LLM pack existing** — ledger **2.10** places the prompt layer, the cascade, model strings and the `LLMError` taxonomy in Phase 2; it names **no distributions**, so this document invents none |
 | **`weft-embed`** | publishes `Embedder` | **Contract exists, shipped** | A page-image or figure embedder is a **plugin under the shipped contract**, not a new contract. `Embedder` is `Stage[Sequence[Node], Sequence[Node]]` (`packages/weft-embed/src/weft_embed/contract.py:49`) and says nothing about text. Publishing a `MultimodalEmbedder` would be a second way to do what one contract already does — `01` requirement 1 failing on its own terms |
-| **`weft-tables`** | publishes `SchemaResolver`; consumes `RowStore` / `StructuredSearch` | **Deferred behind a new gate** | D9. Two of its four blockers are open gates |
+| **`weft-tables`** | publishes `SchemaResolver`; consumes `RowStore` / `StructuredSearch` | **Deferred behind a new gate** | D9. One of its four blockers is still an open gate (G7); the G2 one cleared 2026-08-16 |
 
 **Contracts deliberately not published**, each with its reason: no `MultimodalEmbedder` (above); no
 `PageRenderer` (rendering a page to pixels is something a PDF extractor does, not a capability anyone
@@ -305,10 +305,11 @@ Three of those are decisions, not descriptions:
   `ext`.** The bytes never enter the payload, so the seam behaviour D1 identifies is not merely
   tolerated — it is unexercised.
 
-**2 · `chunk`.** The chunker — in a *different distribution* — reads the `Atomic` ext model and passes
-those nodes through unsplit. This is the ordering constraint across two packs' stages that the
-reference's stage 0 existed to enforce, and ledger **1.2** already requires this class of constraint to be
-declarable rather than a docstring.
+**2 · `chunk`.** An atomic node passes the chunker unsplit, and **the chunker does not have to know
+that**. G2 settled this as *applicability*: a stage declares what it operates on, the runner routes
+everything else past it untouched, so a chunker in a *different distribution* that has never heard of
+tables still leaves them whole. This is the cross-pack constraint the reference's stage 0 existed to
+enforce, moved off the author's memory and onto the seam.
 
 **3 · `clean`.** Text processors in the reference's learned order. **Tables leave this pipeline** — the
 reference's `TableLinearizer` (`indexing/cleaning/processors/table_linearizer.py:10-57`) is text-layout
@@ -637,14 +638,17 @@ project may read.
 **Recommendation: neither, yet — and the reason is gates, not size.** Defer behind a new gate; when it
 opens, ship **the node/row split without SQL**.
 
-Four blockers, two of them open gates:
+Four blockers, **one of them still an open gate** — blocker 2 cleared when G2 settled 2026-08-16:
 
 1. It needs two capability protocols — `RowStore` (the data the node does not carry) and
    `StructuredSearch` (guarded query) — added to a family **G4** closed. Both are additive rather than
    in tension with the derived-capability rule, but **adding a tier to a settled family is a decision,
    not an implementation detail**, and settling it inside a commit is exactly what `README.md` →
    *Protocol* exists to prevent.
-2. Its ingest half is a branch inside an ingest pipeline — derivation semantics, **G2, open**.
+2. ~~Its ingest half is a branch inside an ingest pipeline — derivation semantics, **G2, open**.~~
+   **Cleared 2026-08-16.** G2 settled that there is no branch: a stage declares what it operates on
+   and the runner routes the rest past it, so the table path is stages whose applicability includes
+   tables. This blocker no longer holds.
 3. Its retrieval half is post-retrieval augmentation — close to the canonical case **G7, open**,
    exists to decide.
 4. Its execution half is unreadable (§1.6). A security boundary carried on trust is worse than no
@@ -759,23 +763,26 @@ cannot filter on it falls back to fetching parents by id, which is correct but N
 now, expensive once a second store exists and the tier has to be retrofitted twice. An amendment to
 G4's owned document, flagged as such rather than assumed.
 
-### G2 — open. **This design may not settle it, and states its dependency instead.**
+### G2 — **settled 2026-08-16.** All three questions answered; none of them cost this design anything.
 
-**G2-a.** *"Does `embed` run as a stage before `store`, or inside the store?"* Pixel embedding requires
-the former, and requires the stage to be able to reach a `BlobStore`. `06` already fixed the minimal
-reversible choice (embedding is its own stage) explicitly as *not* an answer to G2. **The dependency
-runs in this direction: a multimodal decision constrains an open gate, not the reverse.** If G2 lands
-on "embedding happens inside the store" — which is what the reference does — the pixel-embedding path is
-unbuildable as designed and caption-and-embed is the only surviving architecture. That is a
-consequence the owner should know while arguing G2, not afterwards.
+**G2-a.** *"Does `embed` run as a stage before `store`, or inside the store?"* **A stage** — and it
+never became G2's choice to make, because G4 already forbids a store to embed. `06`'s minimal
+reversible choice becomes permanent. **The pixel-embedding path stays buildable as designed**, and
+the stage reaching a `BlobStore` is an ordinary `ctx.require`.
 
 **G2-b.** *"Can one pack's stage declare a property that another pack's stage in a different
-distribution must honour?"* The atomic-element rule is exactly that. Ledger **1.2** already carries ⚠
-for this class.
+distribution must honour?"* **Yes**, and the mechanism is `intact` / `destroys` — namespaced property
+markers published by whichever pack publishes the contract, declared on the plugin class and read at
+the seam, with `destroys` mandatory. See `02` §3, *Ordering constraints*.
 
 **G2-c.** *"Is a branch inside an ingest pipeline — a rung selected conditionally, or a table path
-taken only for `TABLE` nodes — derivation semantics or something else?"* The three-rung extractor
-chain and the tables ingest half both need the answer. ⚠ on anything that depends on it.
+taken only for `TABLE` nodes — derivation semantics or something else?"* **Neither: there is no
+branch.** A stage declares what it operates on and the runner routes everything else past it
+untouched, so "the table path" is simply the stages whose applicability includes tables, and the
+pipeline stays one straight line with one resolved order. This is also how the atomic rule is
+enforced — a third-party chunker that has never heard of tables still leaves an atomic table unsplit,
+because the seam does it rather than the author remembering to. The three-rung extractor chain is a
+separate mechanism and unaffected: `fallback:` on a stage, tried in order until one produces.
 
 ### G7 — open
 

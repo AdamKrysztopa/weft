@@ -33,30 +33,59 @@ from __future__ import annotations
 import importlib
 import pkgutil
 import re
+import tomllib
 from pathlib import Path
-from typing import Final
+from typing import Final, cast
 
 from weft_kernel.discovery import PackStatus
 from weft_kernel.errors import WeftError
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 GUIDE: Final[Path] = REPO_ROOT / "manual" / "troubleshooting.md"
+PACKAGES_ROOT: Final[Path] = REPO_ROOT / "packages"
+
+
+def _first_party_top_level_packages() -> tuple[str, ...]:
+    """Every first-party distribution's top-level import name, off `packages/*/pyproject.toml`.
+
+    Repair for a reviewer finding: this used to be a hand-written tuple, and it had
+    already drifted twice — task 1.7 shipped `weft-clean` and task 1.9 shipped
+    `weft-enhance`, and neither name was added here, which left any `WeftError` subclass
+    either pack might define invisible to the coverage check below. Derived the same way
+    `tests/architecture/test_ff2_no_privileged_builtins.py`'s own `_first_party_pack_
+    distributions` reads `packages/*/pyproject.toml` for `project.name` — not that
+    function itself, since it filters to distributions declaring a `weft.packs` entry
+    point, which `weft-kernel` and `weft-cli` do not (neither is a pack), and both must
+    still be walked here: they define `WeftError` subclasses of their own. `weft-canary`
+    (`testing/weft-canary`) is deliberately outside `packages/`, so this walk excludes it
+    without a second, hand-maintained exclusion list — it is test-only infrastructure and
+    never reaches a user as a failure mode. `project.name` uses a hyphen
+    (`weft-clean`); the import name underneath every `packages/<name>/src/` directory
+    uses an underscore — every distribution in this tree follows that one substitution,
+    so no second file has to be read to confirm it.
+    """
+    names: list[str] = []
+    for package_dir in sorted(p for p in PACKAGES_ROOT.iterdir() if p.is_dir()):
+        pyproject = package_dir / "pyproject.toml"
+        if not pyproject.is_file():
+            continue
+        with pyproject.open("rb") as handle:
+            document = tomllib.load(handle)
+        project = cast("dict[str, object]", document.get("project", {}))
+        name = project.get("name")
+        if isinstance(name, str):
+            names.append(name.replace("-", "_"))
+    return tuple(names)
+
 
 #: Every first-party distribution's top-level import name — the whole shipped tree
 #: `docs/README.md` → *Where things are* lists as packages, minus `weft-canary`
 #: (`testing/weft-canary`), which is test-only infrastructure and never reaches a user as a
-#: failure mode. Walking these, rather than importing a hand-picked list of modules known
-#: today to define a `WeftError` subclass, is what keeps this a code-derived set: a new
-#: module under any of these packages is found automatically, with nothing to remember to
-#: add here.
-_FIRST_PARTY_TOP_LEVEL_PACKAGES: Final[tuple[str, ...]] = (
-    "weft_kernel",
-    "weft_cli",
-    "weft_extract",
-    "weft_chunk",
-    "weft_store",
-    "weft_embed",
-)
+#: failure mode. Derived from `packages/*/pyproject.toml` (see
+#: `_first_party_top_level_packages`) rather than a hand-picked list of modules known today
+#: to define a `WeftError` subclass, so a new distribution under `packages/` is found
+#: automatically, with nothing to remember to add here.
+_FIRST_PARTY_TOP_LEVEL_PACKAGES: Final[tuple[str, ...]] = _first_party_top_level_packages()
 
 #: `08` §3's ratchet for clause (d) — pinned empty. A `WeftError` subclass or `PackStatus`
 #: member named here is deliberately excluded from the coverage requirement; nothing is
@@ -165,6 +194,23 @@ def test_the_derived_set_names_classes_actually_defined_in_the_tree() -> None:
         assert name in failures, f"the code walk did not find {name} — is it still exported?"
     for value in ("active", "refused", "failed", "partial", "allowed, not installed"):
         assert value in failures, f"PackStatus no longer has a member valued {value!r}"
+
+
+def test_the_derived_package_list_names_every_distribution_including_the_two_that_drifted() -> None:
+    # Repair for a reviewer finding: the hand-written tuple this replaced had already
+    # drifted twice — `weft_clean` (task 1.7) and `weft_enhance` (task 1.9) both shipped
+    # without landing here, which would have let either pack's first `WeftError`
+    # subclass ship with no troubleshooting entry and no failure from this file to catch
+    # it. `_first_party_top_level_packages` must find both, plus the eight-distribution
+    # floor `packages/` holds today.
+    packages = _first_party_top_level_packages()
+    assert "weft_clean" in packages
+    assert "weft_enhance" in packages
+    assert len(packages) == 8, (
+        f"expected 8 first-party distributions under packages/, found {sorted(packages)} — "
+        f"either a new one shipped (nothing to do here, this walk found it automatically) "
+        f"or the walk itself broke."
+    )
 
 
 # --- the coverage check itself -------------------------------------------------------------

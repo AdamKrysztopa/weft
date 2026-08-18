@@ -22,8 +22,10 @@ weft-kernel = { workspace = true }
 weft-cli = { workspace = true }
 weft-extract = { workspace = true }
 weft-chunk = { workspace = true }
+weft-clean = { workspace = true }
 weft-store = { workspace = true }
 weft-embed = { workspace = true }
+weft-enhance = { workspace = true }
 
 # ---------------------------------------------------------------------------
 # Tasks

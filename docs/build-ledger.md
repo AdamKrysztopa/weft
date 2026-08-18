@@ -171,32 +171,79 @@ three files now say.
 
 ## Phase 1 — Pipelines as data
 
-**⛔ Blocked by G2** — pipeline derivation semantics, Open. `05` → G2 owns the overlay semantics, the
-multi-level conflict rules, the ordering-constraint question, and **whether pipelines are authored in
-YAML, Python or both**. Every task below is **⚠**: a Phase 1 task list written before G2 is a
-hypothesis, and saying so is the point.
+**Unblocked — G2 settled 2026-08-16.** Every task below has been **re-derived from `02` §3 as it now
+reads**, per *When a gate closes* above, and the ⚠ dropped. Four lines changed shape rather than
+wording: **1.6** no longer says "stage 0 and 4.5 as stages" (neither is a stage — one became
+applicability, the other was already a seam concern), **1.8** no longer asks for a conditional in
+pipeline data (the condition moved onto the node), and **1.1** and **1.2** now name the mechanisms G2
+chose instead of deferring to it. Five tasks are new: 1.11–1.15.
 
-- [ ] **1.1 ⚠** a pipeline is a value that can be diffed, versioned and generated — in whatever form G2 settles on · owner `02` §3 · turns on — · sha —
-- [ ] **1.2 ⚠** an inserted stage cannot silently corrupt text, because ordering is a declared constraint rather than a docstring · owner `02` §3 → the ordering-constraint finding · turns on — · sha —
-- [ ] **1.3 ⚠** a derived pipeline resolves to a frozen, fully-explicit form with no inheritance left to interpret, and everything it can be wrong about is wrong before it runs · owner `02` §3 → *Derivation* · turns on — · sha —
-- [ ] **1.4 ⚠** a derived pipeline changes its parent by operator and never by copy, so improvements to the parent reach it · owner `02` §3 → the operator table · turns on — · sha —
-- [ ] **1.5 ⚠** a stage's `with:` block is validated against the plugin's own typed model at resolution, so the same plugin can run twice with different configuration · owner `02` §1 (contract rules), §3 → the `with:` note · turns on — · sha —
-- [ ] **1.6 ⚠** the shipped ingest pipeline carries stage 0 and stage 4.5 as stages, in whichever order G2 adopts · owner `01` → *The architecture stack*, Data-row note; `04` category B · turns on — · sha —
-- [ ] **1.7 ⚠** the cleaning chain's learned order survives the lift as a machine-checked constraint, not as prose — including the Polish fused-word exception set · owner `04` category B; `01` → Phase 1 **Lift** · turns on — · sha —
-- [ ] **1.8 ⚠** a language-conditional stage is expressible in pipeline data instead of hardcoded inside a generic stage · owner `02` §3 → the language-conditional finding · turns on — · sha —
-- [ ] **1.9 ⚠** driving use case A works from configuration — `specific` extends `base` with KeyBERT after `chunk`, no change to core, no copy of the parent — as an automated test · owner `01` → Phase 1 **Exit**; `02` §3 · turns on — · sha —
-- [ ] **1.10 ⚠** someone using Weft day to day can derive a pipeline from the manual alone · owner `08` §1–§2, *User manual* · turns on — · sha —
+The model is deliberately built once for both paths — a query pipeline is a pipeline, typed by its
+endpoints — which is why Phase 2's ⚠ on 2.7 and 2.15–2.19 clears without Phase 2 inventing anything.
 
-**Exit** (`01` → Phase 1): task 1.9.
+- [x] **1.1** a pipeline is a frozen Pydantic model the kernel publishes, which YAML deserialises into and Python constructs directly — one validator, one error set, no builder DSL · owner `02` §3 → *One model, two directions* · turns on — · sha `776e78e`
+- [x] **1.2** an inserted stage cannot silently corrupt text, because a stage declares the properties it needs `intact` and the ones it `destroys`, and a contract that publishes a property vocabulary gets its implementations' `destroys` refused at registration when omitted · owner `02` §3 → *Ordering constraints* · turns on — · sha `273e49b`
+- [x] **1.3** a derived pipeline resolves to a frozen, fully-explicit form with no inheritance left to interpret — carrying each stage's provenance, every var's final value, unplaced contributions and unapplied operators — and everything it can be wrong about is wrong before it runs · owner `02` §3 → *Derivation*, *When resolution fails* · turns on — · sha `2c42cbe`
+- [x] **1.4** a derived pipeline changes its parent by operator and never by copy, at any depth through one parent, with a cycle and every stale operator target refused by name · owner `02` §3 → the operator table and its edge rules · turns on — · sha `0cd6e39`
+- [x] **1.5** a stage's `with:` block is validated against the plugin's own typed model at resolution, so the same plugin can run twice with different configuration · owner `02` §1 (contract rules), §3 → the `with:` note · turns on — · sha `b9a4598`
+- [x] **1.6** an atomic node passes the chunker unsplit **without the chunker knowing what atomic means**, because applicability is declared and routed at the seam · owner `02` §3 → *Applicability*; `11` §2 · turns on — · sha `22b2183`
+- [x] **1.7** the cleaning chain's learned order survives the lift as a machine-checked constraint, not as prose — including the Polish fused-word exception set · owner `04` category B; `01` → Phase 1 **Lift** · turns on — · sha `d9f1684`
+- [x] **1.8** a language-specific stage applies per **node** rather than per run, so one pass over a mixed corpus is correct for every document, and the decision half — a translation target — is a var · owner `02` §3 → *Language, and what a var is for* · turns on — · sha `da202d1`
+- [x] **1.9** driving use case A works from configuration — `specific` extends `base` with KeyBERT after `chunk`, no change to core, no copy of the parent — as an automated test · owner `01` → Phase 1 **Exit**; `02` §3 · turns on — · sha `3f35845`
+- [x] **1.10** someone using Weft day to day can derive a pipeline from the manual alone · owner `08` §1–§2, *User manual* · turns on — · sha `97c843c`
+- [x] **1.11** an installed pack changes an existing pipeline only where that pipeline declared a slot, two contributions in one slot are ordered by declaration and then by distribution name, and a contribution that lands nowhere is recorded rather than silent · owner `02` §3 → *Slots* · turns on — · sha `a7d0767`
+- [x] **1.12** two packs claiming one `(contract, name)` is refused at registration with the pin that resolves it printed, and the displaced registration is recorded and reported by doctor · owner `02` §3 → *When resolution fails*; `02` §2 · turns on — · sha `9635710`
+- [x] **1.13** every way resolution can fail is its own `WeftError` subclass carrying the pipeline, the stages, the distributions in conflict and the remedy — so each one enters the 0.14 ratchet and cannot ship undocumented · owner `02` §3 → *When resolution fails*; `08` §3 · turns on — · sha `527be06`
+- [x] **1.14** a var overridden by a child re-resolves every inherited stage that references it, and no var can reach applicability · owner `02` §3 → *Language, and what a var is for* · turns on — · sha `e8317f2`
+- [x] **1.15** a fifth operator cannot land silently, and a pipeline shipped by any pack or quoted as runnable in a manual cannot rot unnoticed · owner `01` → *Fitness functions* 11 · turns on **FF11(a), FF11(b)** · sha `04c1333`
+- [x] **1.16** a `weft.toml` whose `packs` value is not a table is refused by name, saying the file, the key and the shape expected, rather than being treated as absent · owner `02` §2 → *The trust model* · turns on — · sha `3bdcd12`
+- [x] **1.17** no document assigns work to a phase that has exited · owner `01` → *Phases*; `04` → *Kernel or pack* · turns on — · sha `1321992`
+- [x] **1.18** no file in the tree says Weft copied anything, and no fitness function can pass because its walk found nothing · owner `01` → *Fitness functions*; `NOTICE` · turns on — · sha `6a37822`
+
+**1.16–1.18 are carried-debt tasks, not new scope.** A reference audit run against HEAD `0068595` found
+three gaps that predate this ledger line and that nothing in Phase 0 or Phase 1 so far was asked to
+close. They sit here, at the tail of Phase 1's list, rather than in a reopened Phase 0, for the same
+reason 0.12–0.14 sat at Phase 0's own tail: Phase 0's exit criterion — a plugin in a separate
+installed package works with zero edits to core — still holds, and none of the three falsify it: a
+malformed `packs` table, a document naming a phase that has exited, and an unstated originality claim
+are all things Phase 0 was never asked to check, not things it got wrong. They are **not** part of
+Phase 1's exit, which remains task 1.9 plus fitness function 11 — exactly as it was before this note
+was added.
+
+**Exit** (`01` → Phase 1): task 1.9, **and 1.15** — fitness function 11 wired and green.
+
+**Settled by 1.4 — the operators' serialisation, raised by 1.1 and left open.** `02` §3 says operators
+"apply in written order", and that a `remove` followed by an `insert` is how a move is expressed;
+the same section's `specific.yaml` shows them as top-level keyed blocks. Four independent model
+fields cannot honour both, because a model's field order is fixed once for every document: whichever
+order the fields are declared in is the order every author gets, so one of *remove-then-insert* and
+*insert-then-remove* on the same id would become unwritable if application order were assumed from
+field position. 1.1 therefore carried **no operator field at all** — `extra="forbid"` refused one by
+name rather than half-reading it — leaving the shape to 1.4. It stays **four keyed blocks**, exactly
+as `specific.yaml` prints them, never flattened into one tagged sequence; what 1.4 added is that
+application order is *read off the document's own key order* (and, identically, a Python call's
+keyword-argument order) rather than assumed from the model — `weft_kernel.pipeline.Pipeline.
+operator_order`, consumed by `weft_kernel.resolution._apply_operators`. See `02` §3, the paragraph
+immediately after the operator table.
+
+**Also raised by 1.1 — a malformed pipeline document has no exit code and no manual entry yet.** The
+authored form's error set is pydantic's `ValidationError` (`02` §3 → *One model, two directions*,
+which now carries the reasoning), and that is neither a `WeftError` nor a member of the
+`PipelineResolutionError` family — so `03`'s exit 4 for *fix the pipeline* does not reach it and
+0.14's coverage ratchet, which derives its required set from `WeftError` subclass names, cannot see
+it. No path reaches it today: nothing opens a pipeline file until **1.9**. Whichever task first
+hands a document to the CLI owns the translation and the `manual/troubleshooting.md` entry — a note
+here rather than a fix at 1.1, because the kernel decides no exit codes.
 
 ---
 
 ## Phase 2 — Retrieval and generation
 
 **Gate: none.** `01` says reopen **G5** only if a strategy cannot express what it needs to pass along
-— if that happens, stop and reopen it rather than widening the payload in a commit. **G2 still shapes
-how a query path is expressed as data**, which is why 2.7 and 2.15–2.19 carry **⚠** — `10` §3.3 owns
-the reason those five and no others.
+— if that happens, stop and reopen it rather than widening the payload in a commit. **G2 settled how
+a query path is expressed as data (2026-08-16): it is a pipeline, in the same model as ingest**, so
+the ⚠ on 2.7 and 2.15–2.19 is cleared — those five stay written as they are, and what changes is that
+they are no longer hypotheses. `10` §3.3 owns the reason those five and no others carried it.
 
 > **The technique block (2.13–2.26) is worked between 2.4 and 2.8, and it is `01` → requirement 6's
 > only representation in this phase.** 2.4 is the mechanism; without 2.13–2.26 the mechanism is empty
@@ -213,7 +260,7 @@ does not merge them.
 - [ ] **2.4** a retrieval strategy is a plugin published by a pack, with domain types on both sides · owner `02` §1; `01` → Phase 2 **Read** · turns on — · sha —
 - [ ] **2.5** a retriever never builds its own index, because text search is something a store advertises · owner `02` §1 → *The store contract family*; `01` → *Runtime shape* · turns on — · sha —
 - [ ] **2.6** the store contract is satisfied by a second backend of a genuinely different shape, so it is no longer a guess · owner `01` → *Runtime shape*; `06` → *What Phase 0 must not build* · turns on — · sha —
-- [ ] **2.7 ⚠** fusion and reranking are composable plugins a third party can retune, not a fixed ladder · owner `04` category B; `01` → requirement 6 · turns on — · sha —
+- [ ] **2.7** fusion and reranking are composable plugins a third party can retune, not a fixed ladder · owner `04` category B; `01` → requirement 6 · turns on — · sha —
 - [ ] **2.8** the router picks a strategy it was never told about — discovered from the registry, with no enum, no if-chain and no closed key space anywhere a name is decided · owner `01` → Phase 2 **Exit**; `01` → *Fitness functions* 4 · turns on FF4(a), FF4(b) *(`01` states no activation phase for 4; placed here because this is its first real selection surface — if that is wrong, it is `01`'s to correct)* · sha —
 - [ ] **2.9** an answer carries citations a reader can follow back to a passage · owner `04` category B, the citation manager's four responsibilities · turns on — · sha —
 - [ ] **2.10** generation is a pack — the prompt layer, the cascade, model strings and the `LLMError` taxonomy ship outside the kernel · owner `04` → *Kernel or pack*; `01` → Phase 0 **Lift** · turns on — · sha —
@@ -221,11 +268,11 @@ does not merge them.
 - [ ] **2.12** the contract reference and the operations guide describe what this phase published, without a human retyping a signature or a status name · owner `08` §1–§2 · turns on — · sha —
 - [ ] **2.13** the null case is a plugin like any other, and an empty source list is a stated property of it rather than a retrieval failure a consumer has to guess at · owner `10` §1.1; `02` §1 · turns on — · sha —
 - [ ] **2.14** the single-pass baseline is a plugin whose name states its cost, so an operator choosing what to run in a loop is not misled by the registry · owner `10` §1.1, §2.1 rule 4 · turns on — · sha —
-- [ ] **2.15 ⚠** a query transform is a composable stage a caller can omit, so no strategy pays for a rewrite it did not ask for · owner `10` §1.1; `02` §1; `02` §3 · turns on — · sha —
-- [ ] **2.16 ⚠** `hyde` runs in front of any retrieval rather than inside one strategy, and its sample count, query inclusion and failure behaviour are configuration · owner `10` §1.1; `01` → requirement 6, second clause · turns on — · sha —
-- [ ] **2.17 ⚠** `step-back` is the same technique whether tokens arrive at once or one at a time · owner `10` §1.1; `01` → *Colour*, the streaming consequence · turns on — · sha —
-- [ ] **2.18 ⚠** query fan-out and rank fusion are two plugins, so the fuser serves hybrid retrieval and fan-out from one implementation · owner `10` §1.1; task 2.7 · turns on — · sha —
-- [ ] **2.19 ⚠** context ordering is a named, parameterised stage whose method does what the method is named after · owner `10` §1.1, the `repack` row · turns on — · sha —
+- [ ] **2.15** a query transform is a composable stage a caller can omit, so no strategy pays for a rewrite it did not ask for · owner `10` §1.1; `02` §1; `02` §3 · turns on — · sha —
+- [ ] **2.16** `hyde` runs in front of any retrieval rather than inside one strategy, and its sample count, query inclusion and failure behaviour are configuration · owner `10` §1.1; `01` → requirement 6, second clause · turns on — · sha —
+- [ ] **2.17** `step-back` is the same technique whether tokens arrive at once or one at a time · owner `10` §1.1; `01` → *Colour*, the streaming consequence · turns on — · sha —
+- [ ] **2.18** query fan-out and rank fusion are two plugins, so the fuser serves hybrid retrieval and fan-out from one implementation · owner `10` §1.1; task 2.7 · turns on — · sha —
+- [ ] **2.19** context ordering is a named, parameterised stage whose method does what the method is named after · owner `10` §1.1, the `repack` row · turns on — · sha —
 - [ ] **2.20** an evidence-sufficiency loop is expressible, and its stopping rule is one named, testable thing rather than four scattered breaks · owner `10` §1.1, the `iterative-retrieval` row · turns on — · sha —
 - [ ] **2.21** per-document relevance grading is a reusable post-retrieval filter, and a knowledge action that reaches a second retriever is what earns the name `corrective` · owner `10` §1.1, the `corrective` row and its condition; `02` §1 · turns on — · sha —
 - [ ] **2.22** a query about whether the sources agree is answerable, and a critic that could not look says so instead of reporting agreement · owner `10` §1.1, the `contradiction-check` row · turns on — · sha —
@@ -347,5 +394,5 @@ it through `pytest.warns(...)` called as a bare statement, so it does nothing an
 (`reference/study/08-salvage.md:777-782`). A ledger whose ticks cite nothing is that test with a
 different subject.
 
-**As of the last edit to this file, the tree was at `aeded62`.** Tasks are ticked by the commit that
+**As of the last edit to this file, the tree was at `04c1333`.** Tasks are ticked by the commit that
 closes them, so this line is the only place a date-shaped claim appears — everything else is a sha.

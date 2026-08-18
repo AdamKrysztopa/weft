@@ -39,14 +39,13 @@ import uuid
 from importlib import metadata
 from pathlib import Path
 
-from weft_cli.exit_codes import ExitCode
+from weft_cli.exit_codes import ExitCode, exit_code_for
 from weft_cli.permissions import CliCommand, PermissionClass
 from weft_cli.plugins_report import render_doctor, render_list
 from weft_cli.registry_bootstrap import Dependencies, build_dependencies, require_active
 from weft_kernel.context import Context
 from weft_kernel.errors import WeftError
-from weft_kernel.registry import Registry, UnknownPluginError
-from weft_kernel.runner import PipelineResolutionError
+from weft_kernel.registry import Registry
 
 _DISTRIBUTION = "weft-cli"
 
@@ -57,6 +56,11 @@ _ASK_HELP = (
     "retrieve and print the passages nearest a question. Generation is Phase 2 — "
     "this command prints matching passages, it composes no answer."
 )
+
+#: The two commands `dispatch` builds a registry with `strict_pins=False` for — see its own
+#: comment. Both are read-only reports on discovery's own state; neither is diagnosable at
+#: all if an inert `[plugins]` pin stops the registry from ever being built.
+_PIN_DIAGNOSTIC_COMMANDS = frozenset({"plugins list", "plugins doctor"})
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -103,12 +107,9 @@ async def handle_index(args: argparse.Namespace, deps: Dependencies) -> ExitCode
 
     try:
         result = await run_index(Path(args.path), registry=deps.registry, ctx=_context())
-    except (UnknownPluginError, PipelineResolutionError) as exc:
-        print(str(exc), file=sys.stderr)
-        return ExitCode.RESOLUTION_FAILED
     except WeftError as exc:
         print(str(exc), file=sys.stderr)
-        return ExitCode.OPERATION_FAILED
+        return exit_code_for(exc)
 
     summary = result.summary
     stored = "unknown" if result.stored_count is None else str(result.stored_count)
@@ -136,21 +137,18 @@ async def handle_ask(args: argparse.Namespace, deps: Dependencies) -> ExitCode:
         results = await run_ask(
             args.question, registry=deps.registry, ctx=_context(), top_k=args.top_k
         )
-    except (UnknownPluginError, PipelineResolutionError) as exc:
+    except WeftError as exc:
         # `run_ask` resolves `Embedder` and `NodeStore` directly against `deps.registry`
         # rather than through `Runner.resolve` — but `require_active` above only rules out a
         # distribution being entirely absent, refused, or failed; it does not know whether the
         # specific plugin name `run_ask` asks for ("hash", "pgvector") is the one a PARTIAL or
         # otherwise-active distribution actually registered. That is exactly what
-        # `UnknownPluginError` reports, so it is resolution failure (4) here for the same reason
-        # `handle_index` treats it that way — `docs/03-cli.md` -> Output: "4 stays with genuine
-        # resolution failure: a name no pack provides, or one lost to a failed or partial
-        # registration."
+        # `UnknownPluginError` reports, so `exit_code_for` gives it resolution failure (4) here
+        # for the same reason `handle_index` treats it that way — `docs/03-cli.md` -> Output:
+        # "4 stays with genuine resolution failure: a name no pack provides, or one lost to a
+        # failed or partial registration."
         print(str(exc), file=sys.stderr)
-        return ExitCode.RESOLUTION_FAILED
-    except WeftError as exc:
-        print(str(exc), file=sys.stderr)
-        return ExitCode.OPERATION_FAILED
+        return exit_code_for(exc)
 
     if not results:
         print("no matching passages found.")
@@ -169,7 +167,17 @@ async def handle_plugins_list(args: argparse.Namespace, deps: Dependencies) -> E
 
 async def handle_plugins_doctor(args: argparse.Namespace, deps: Dependencies) -> ExitCode:
     del args
-    print(render_doctor(deps.reports))
+    # Task 1.12: `deps.registry.displaced()` is every registration a `[plugins]` pin
+    # resolved away from — see `weft_cli.plugins_report`'s own module docstring.
+    # Repair for a reviewer finding: `deps.registry.unconsulted_pins()` is every
+    # `[plugins]` pin `discover(strict_pins=False)` did not raise `InertPluginPinError`
+    # for — reported here instead, loudly, rather than swallowed now that this command
+    # can survive one.
+    print(
+        render_doctor(
+            deps.reports, deps.registry.displaced(), tuple(sorted(deps.registry.unconsulted_pins()))
+        )
+    )
     return ExitCode.SUCCESS
 
 
@@ -230,8 +238,15 @@ async def dispatch(command: CliCommand, args: argparse.Namespace) -> ExitCode:
     if not command.needs_registry:
         return await command.handler(args, Dependencies(registry=Registry(), reports=()))
 
+    # Repair for a reviewer finding: `weft plugins list`/`weft plugins doctor` are the two
+    # commands whose whole job is explaining what discovery found, so an inert `[plugins]`
+    # pin — a configuration mistake, not a broken pack — must not stop either of them from
+    # reporting. Every other registry-needing command keeps the strict default: `index`/
+    # `ask` still refuse to run against a `weft.toml` naming a pin that never arbitrated
+    # anything, the same as before this repair.
+    strict_pins = command.name not in _PIN_DIAGNOSTIC_COMMANDS
     try:
-        deps = build_dependencies()
+        deps = build_dependencies(strict_pins=strict_pins)
     except WeftError as exc:
         # Discovery itself failed to build a registry at all, before a single PackReport
         # exists to blame — either weft.toml is not valid TOML at all

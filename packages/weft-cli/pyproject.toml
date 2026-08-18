@@ -3,10 +3,13 @@ name = "weft-cli"
 version = "0.0.0"
 description = "The Weft command line: the only driving adapter, and the only asyncio.run."
 requires-python = ">=3.12"
-dependencies = ["weft-kernel", "weft-extract", "weft-chunk", "weft-embed", "weft-store"]
+dependencies = ["weft-kernel", "weft-extract", "weft-chunk", "weft-embed", "weft-store", "pyyaml"]
 
 # The CLI is the one place `weft index`/`weft ask` are wired to a fixed, hardcoded
 # built-in pipeline (`06` step 9) — Phase 1 replaces this with pipelines as data.
+# `pyyaml` is here, and nowhere else in the tree, because `weft_cli.pipeline_catalogue`
+# is the one module that opens a pipeline document — G1 fixes weft-kernel's dependencies
+# at `pydantic` and `opentelemetry-api`, so a YAML parser can never live there.
 [project.scripts]
 weft = "weft_cli.cli:main"
 

@@ -8,12 +8,20 @@ usable, not only the shape the built-in happens to take. Every child is
 built through `Node.derive`, so lineage is carried automatically — the same
 guarantee `docs/02-extension-model.md` gives every chunker, first-party or
 not.
+
+`destroys: tuple[type[Property], ...] = ()` is not decoration. `Chunker`
+publishes a property vocabulary (`docs/02-extension-model.md` §3 →
+*Ordering constraints*), so `weft_kernel.registry` refuses to register any
+`Chunker` implementation — a stranger's own no less than a built-in — that
+never states `destroys` at all. This one states the truth: splitting
+strictly on whitespace never breaks a word the way a fixed-size window can,
+so the tuple is empty rather than borrowed from `FixedSizeChunker`.
 """
 
 from collections.abc import Sequence
 
 from weft_kernel.context import Context
-from weft_kernel.payload import Node, NothingToProduce, Outcome, Produced
+from weft_kernel.payload import Node, NothingToProduce, Outcome, Produced, Property
 
 
 class WordChunker:
@@ -25,6 +33,8 @@ class WordChunker:
     batch that contributes none at all answers `NothingToProduce`, never an
     empty `Produced([])`, the same convention `FixedSizeChunker` follows.
     """
+
+    destroys: tuple[type[Property], ...] = ()
 
     def __init__(self, config: object = None) -> None:
         # No `with:` configuration this chunker takes — the runner's factory

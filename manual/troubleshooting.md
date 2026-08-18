@@ -59,21 +59,124 @@ re-run with `WEFT_TRACEBACK=1` and read the traceback for which library raised i
 ### `DuplicateRegistrationError`
 
 **What it looks like.** Two installed packs' `register()` calls both claim the same name under the
-same contract — reproduced directly against a `Registry`, the same check every pack's `register()`
-goes through:
+same contract, and no `[plugins]` pin resolves it — reproduced directly against a `Registry`, the same
+check every pack's `register()` goes through:
 
 ```text
 DuplicateRegistrationError: 'fixed' is already registered for Chunker by distribution 'weft-chunk';
-distribution 'acme-chunk' cannot register it too. Weft refuses on duplicate registration rather than
-arbitrating between them — rename one, or see the duplicate-name trap in docs/06-phase-0-build.md.
+distribution 'acme-chunk' cannot register it too. Weft refuses to arbitrate between them — pin the
+winner in weft.toml:
+
+[plugins]
+"Chunker:fixed" = "weft-chunk"  # or "acme-chunk"
+
+to keep the other distribution's claim instead. See the duplicate-name trap in
+docs/06-phase-0-build.md and docs/02-extension-model.md §3, 'When resolution fails'.
 ```
 
 You will not see this raised as a bare traceback from `weft`: it is caught inside pack activation and
 folded into the *second* pack's `weft plugins doctor` report as `failed`, naming the collision in its
-`reason` line — the first-registered pack stays `active`. **What to do:** rename the losing plugin
-under a distinct name, or refuse one of the two packs via `[packs] allow` in `weft.toml`. Weft never
-arbitrates between them silently, and never will inside Phase 0 — see the duplicate-name trap in
-`docs/06-phase-0-build.md`.
+`reason` line — the first-registered pack stays `active`. **What to do:** paste the `[plugins]` block
+the message already prints into `weft.toml`, picking whichever distribution should win, or rename the
+losing plugin instead, or refuse one of the two packs via `[packs] allow`. Weft never arbitrates
+silently — it either refuses, as here, or resolves against a pin an operator wrote on purpose (see
+`UnresolvedPluginPinError` and `InertPluginPinError`, next).
+
+**Once a pin is added**, this collision no longer raises at all: `weft plugins doctor` instead reports
+the losing pack as `active` with a `displaced:` line naming what it lost and to whom —
+
+```text
+$ weft plugins doctor
+...
+weft-chunk: active (1 contributed)
+  disclosure: not disclosed
+  displaced: 'Chunker:fixed' lost to 'acme-chunk' — pinned by [plugins] "Chunker:fixed" = "acme-chunk" in weft.toml
+```
+
+— because the pack itself did nothing wrong; it is installed, active, and simply lost one name to the
+operator's own choice (`docs/03-cli.md`).
+
+### `UnresolvedPluginPinError`
+
+**What it looks like** — a `[plugins]` pin exists for the colliding name, but names neither of the two
+distributions actually contending for it (a typo, or a pin left over from a pack that was renamed):
+
+```text
+UnresolvedPluginPinError: [plugins] pins 'Chunker:fixed' to 'acme-old-name', but 'acme-old-name'
+registered neither claim on 'fixed' for Chunker — 'weft-chunk' and 'acme-chunk' are the two
+distributions actually contending for it. Point the pin at one of them, or remove it if it was meant
+for a different collision.
+```
+
+Like `DuplicateRegistrationError`, this is caught inside pack activation and folded into the *second*
+colliding pack's `weft plugins doctor` report as `failed` — never a bare traceback. **What to do:** the
+message names the two distributions genuinely contending — fix the pin to name one of them, or delete
+it if it was meant for a different `(contract, name)` pair. `docs/02-extension-model.md` §3: a pin
+naming a distribution that never claimed the name is refused rather than silently ignored, because an
+inert pin is a lie about what is running.
+
+### `InertPluginPinError`
+
+**What it looks like** — a `[plugins]` pin names a `(contract, name)` that no two distributions ever
+actually collided over. **`weft index` and `weft ask` still refuse loudly**, reproduced against a
+real checkout:
+
+```text
+$ cat weft.toml
+[plugins]
+"Chunker:no-such-collision" = "weft-chunk"
+$ weft index ./docs
+[plugins] pins 'Chunker:no-such-collision', but weft never saw two distributions contend for what it
+names — nothing to arbitrate. Remove the pin, or check that both distributions it should choose
+between are installed and actually registering that name.
+$ echo $?
+4
+```
+
+Unlike `DuplicateRegistrationError` and `UnresolvedPluginPinError`, this is **not** folded into any
+one pack's report — it is raised once discovery finishes enumerating every pack, the same way an
+unclaimed `packs:` settings key already raises (`UnknownPackSettingsError`, below).
+
+**`weft plugins list` and `weft plugins doctor` are the one exception, and do not raise this at
+all** — repaired after review: a command whose whole job is explaining what is installed must not
+die before it can, so both build their registry with discovery's `strict_pins=False` and report the
+pin instead, as its own block in `doctor`'s output:
+
+```text
+$ weft plugins doctor
+...
+[plugins] pins that never arbitrated anything:
+  'Chunker:no-such-collision' — weft never saw two distributions contend for what it names.
+```
+
+**What to do:** either the name was never really going to collide — delete the pin — or one of the
+two distributions that should be fighting over it is not installed or is not actually registering
+that name; `weft plugins list` shows what each installed pack contributed.
+
+### `MissingDestroysDeclarationError`
+
+**What it looks like** — a plugin registers for a contract that publishes a property vocabulary
+(`docs/02-extension-model.md` §3 → *Ordering constraints* — `Chunker` is one) without stating
+`destroys` at all, reproduced directly against a `Registry`, the same check every pack's `register()`
+goes through:
+
+```text
+MissingDestroysDeclarationError: 'acme-tokenizer' registers for Chunker (distribution
+'acme-chunk') without declaring `destroys`. Chunker publishes a property vocabulary
+(docs/02-extension-model.md §3 → Ordering constraints), so every implementation states what it
+destroys — an explicit empty tuple if it destroys nothing. Add `destroys: tuple[type[Property],
+...] = (...)` to the plugin class.
+```
+
+Folded into that pack's `weft plugins doctor` report as `failed`, the same way `DuplicateRegistrationError`
+is — never a bare traceback from `weft` itself. **What to do, as a pack author:** add `destroys` to
+the plugin class the message names — an explicit empty tuple (`destroys: tuple[type[Property], ...]
+= ()`) if your stage genuinely destroys nothing, or the `weft_kernel.payload.Property` marker(s) it
+actually does destroy. `intact` stays optional; only `destroys` is refused for being missing, because
+forgetting it corrupts a *stranger's* stage silently, while forgetting `intact` only ever costs your
+own — see `docs/02-extension-model.md` §3 for the asymmetry. **As a user:** this is a bug in the pack
+named in the message, not your configuration; report it, or pin the pack out of `[packs] allow` until
+it is fixed.
 
 ### `UnknownPluginError`
 
@@ -208,36 +311,53 @@ reference from `weft.toml` if you meant to configure the value directly instead.
 
 ---
 
-## Pipeline resolution and running — `weft_kernel.runner`
+## Pipeline resolution — the shared family base, `weft_kernel.runner`
 
 ### `PipelineResolutionError`
 
-**What it looks like** — two checks share this class, both happening *before* any batch runs, never as
-a runtime `KeyError`. A stage's `requires` names an `ExtModel` no earlier stage provides:
+**Never raised directly — task 1.13.** It is the family base every specific resolution failure on
+this page extends (`docs/02-extension-model.md` §3 → *When resolution fails*: "each failure is its
+own `WeftError` subclass under a `PipelineResolutionError` family base"), and it carries the four
+fields that section requires on every member — `pipeline`, `stages`, `distributions`, `remedy` —
+as real attributes rather than facts you would otherwise have to parse out of the message.
+Reproduced directly against the kernel's Python API, constructing the base the way every concrete
+subclass below does through it:
 
 ```text
-PipelineResolutionError: stage 'chunk' (Chunker:fixed) requires 'Cleaned' — namespace 'acme-clean',
-published by the pack of that name — but no earlier stage in this pipeline provides it.
+>>> from weft_kernel.runner import UnmetRequiresError
+>>> exc = UnmetRequiresError(
+...     "stage 'chunk' (Chunker:fixed) requires 'Cleaned' but no earlier stage in pipeline "
+...     "'base' provides it. Provided so far: (none).",
+...     pipeline="base", stages=("chunk",), distributions=("acme-clean",),
+...     remedy="add an earlier stage that provides 'Cleaned', or reorder 'base' so one already does.",
+... )
+>>> exc.pipeline, exc.stages, exc.distributions, exc.remedy
+('base', ('chunk',), ('acme-clean',), "add an earlier stage that provides 'Cleaned', or reorder 'base' so one already does.")
 ```
 
-Or two consecutive stages do not compose by type:
+Whichever concrete subclass actually raises populates all four honestly: `pipeline` is `None`
+where a failure genuinely has none to name (`weft_kernel.runner.Runner.resolve` builds no *named*
+pipeline at all — see `RunnablePipeline`'s own docstring), `stages` and `distributions` default to
+`()` wherever there is nothing real to put there, never a placeholder that reads as data. **What to
+do:** never construct or catch this base on purpose — catch the specific subclass the message
+names (below), or catch `PipelineResolutionError` only when you merely need to know *that*
+resolution failed, and read `.pipeline`/`.stages`/`.distributions`/`.remedy` off whatever you
+actually caught instead of parsing the message string.
 
-```text
-PipelineResolutionError: stage 'chunk' (Chunker:fixed) expects <class 'dict'>, but the previous stage
-'extract' produces <class 'list'>. Consecutive stages must compose by type.
-```
-
-Phase 0's built-in `index` pipeline is fixed and always resolves against a correctly installed
-workspace, so an ordinary `weft index`/`weft ask` run does not hit this — it is what you get while
-assembling your own `StageSpec` list against `weft_kernel.runner.Runner.resolve` directly, whether
-that is a pack's own test suite or a future custom pipeline. **`weft index` and `weft ask` already
-catch it at exit `4`**, the same as `UnknownPluginError`, should a custom pipeline reach either
-command. **What to do:** the message names the exact stage and what would have made it pass — add the
-missing upstream stage, or reorder so types line up.
+`UnmetRequiresError`, `StageCompositionError` and `IntactViolationError` are the three checks
+`weft_kernel.runner.Runner.resolve` performs against an explicit `StageSpec` list — **the identical
+classes** `weft_kernel.resolution.resolve` raises for a pipeline *document*, under *Deriving a
+pipeline document* below, not three parallel names that happen to mean the same thing (`is`, not
+`==` — one class per kind, `02` §3's own rule). Their reproductions live there, since a document is
+the easier way to reach all three; `Runner.resolve` raises the exact same class for the exact same
+reason, only with no `pipeline` name to attach. Phase 0's built-in `index` pipeline is fixed and
+always resolves against a correctly installed workspace, so an ordinary `weft index`/`weft ask` run
+does not hit any of the three — **`weft index` and `weft ask` already catch the whole family at
+exit `4`**, the same as `UnknownPluginError`, should a custom pipeline reach either command.
 
 ### `TenantMismatchError`
 
-**What it looks like** — a `ResolvedPipeline` built for one tenant is run with a `Context` for
+**What it looks like** — a `RunnablePipeline` built for one tenant is run with a `Context` for
 another:
 
 ```text
@@ -248,7 +368,7 @@ for tenant 'tenant-b'. An instance cached for one tenant must never run for anot
 Phase 0's CLI builds exactly one `Context`, with a fixed `tenant_id="default"`, per invocation — this
 is unreachable through `weft index`/`weft ask` as shipped. It exists for whoever drives
 `weft_kernel.runner.Runner` directly across more than one tenant. **What to do:** resolve a separate
-`ResolvedPipeline` per tenant — the instance cache is keyed by tenant precisely so a resolved pipeline
+`RunnablePipeline` per tenant — the instance cache is keyed by tenant precisely so a resolved pipeline
 must never be reused across one.
 
 ### `FlushError`
@@ -276,6 +396,345 @@ and `FlushError` is always translated. This surfaces through `weft index` at exi
 dropped database connection; check the container is still up and reachable, and re-run `weft index`.
 The run's already-written data is not lost (every stage got its chance to flush, one failing does
 not stop the others), only the final flush.
+
+---
+
+## Deriving a pipeline document — `weft_kernel.resolution`
+
+Task 1.3: `weft_kernel.resolution.resolve` turns a `weft_kernel.pipeline.Pipeline` document —
+`extends` unfollowed, `vars` unsubstituted, no plugin looked up — into a frozen `ResolvedPipeline`:
+every stage's plugin, provenance and final configuration named, with no inheritance left to
+interpret. Task 1.4 adds what a non-root pipeline in the `extends` chain is *for*: not another
+`stages:` list, but `insert`/`replace`/`remove`/`set` operators, applied against the running result
+in the order the document wrote them. Task 1.5 adds one more thing every resolved stage carries:
+`config` is the plugin's own `config_model`, validated against the stage's `with:` block — never
+the raw mapping the document wrote. Every failure below shares one base, `PipelineResolutionError`
+(the same family `weft_kernel.runner` uses — see that class, above, for the four fields — `pipeline`,
+`stages`, `distributions`, `remedy` — task 1.13 makes real attributes on every one of the twelve
+classes below, not only on the three this page reproduces `.pipeline`/`.stages` for explicitly), and
+every one of them happens *before* any stage runs — none of these is reachable through `weft
+index`/`weft ask` yet, because nothing in Phase 0's CLI calls `resolve()` here; a future
+pipeline-derivation command is what will surface these at exit `4`. Reproduced directly against the
+kernel's Python API, which is also how you will meet them if you drive `resolve()` yourself —
+writing a pack's own test suite, or exploring `weft pipeline derive` once it
+exists.
+
+### `UnknownParentPipelineError`
+
+**What it looks like** — `extends` names a pipeline the `parents` mapping handed to `resolve()`
+does not contain:
+
+```text
+UnknownParentPipelineError: pipeline 'specific' extends 'base', but the parent lookup this
+resolve() call was given has no pipeline named that. Supply it in 'parents', or fix the name if
+it was mistyped. Pipelines available in 'parents': 'base-de', 'base-en'.
+```
+
+**What to do:** the kernel opens no file — whatever calls `resolve()` is responsible for loading
+every ancestor a pipeline might `extends` and passing them all in `parents`. Check that the parent's
+own document was loaded and its `name:` matches the child's `extends:` exactly — the names the
+message lists as available are the ones a typo is probably one character away from.
+
+### `PipelineCycleError`
+
+**What it looks like** — an `extends` chain loops back on a pipeline already in it, named as the
+whole chain rather than only the repeated name:
+
+```text
+PipelineCycleError: pipeline 'a' has a cycle in its 'extends' chain: a -> b -> a. A pipeline cannot
+extend itself, directly or through any number of intermediate parents.
+```
+
+**What to do:** the chain printed is the exact edit to undo — one of the pipelines it names has an
+`extends:` line that should point somewhere else, or should not `extends` at all.
+
+### `UnmetRequiresError`
+
+**What it looks like** — a stage's `requires` names an `ExtModel` no earlier stage in the resolved
+chain provides:
+
+```text
+UnmetRequiresError: stage 'chunk' (Chunker:fixed) requires 'Cleaned' but no earlier stage in
+pipeline 'base' provides it. Provided so far: (none).
+```
+
+This is the identical class `weft_kernel.runner.Runner.resolve` raises for an explicit `StageSpec`
+list (task 1.13 — see `PipelineResolutionError`, above) — run here instead against a pipeline
+*document* before any plugin is instantiated. `exc.pipeline`, `exc.stages` and `exc.distributions`
+carry `'base'`, `('chunk',)` and `('acme-clean',)` for the reproduction above — real attributes, not
+only the message shown. **What to do:** add the missing upstream stage, or reorder so the stage
+that provides it runs first — "Provided so far" names everything earlier stages already do provide,
+so a stage that is merely in the wrong position (not missing) is visible from the message alone.
+
+### `StageCompositionError`
+
+**What it looks like** — two consecutive stages do not compose by type, checked purely against the
+`contracts` mapping `resolve()` was given, before any registry lookup runs:
+
+```text
+StageCompositionError: stage 'extract' (Extractor:docling) expects <class 'str'>, but the previous
+stage 'chunk' produces <class 'list'>. Consecutive stages must compose by type.
+```
+
+Task 1.13: the identical class `weft_kernel.runner.Runner.resolve` raises for this check against an
+explicit `StageSpec` list — see `PipelineResolutionError`, above. `exc.pipeline == 'base'` and
+`exc.stages == ('chunk', 'extract')` for the reproduction above; `Runner.resolve` populates `stages`
+the same way but leaves `pipeline` `None`, since an explicit `StageSpec` list has no name to give it.
+**What to do:** reorder the stages so each one's output type matches the next one's input type — the
+message names both.
+
+### `IntactViolationError`
+
+**What it looks like** — task 1.2's ordering constraint: a stage needs a `Property` `intact` that an
+earlier stage's `destroys` already named:
+
+```text
+IntactViolationError: stage 'hyphenation' (Chunker:hyphenation-fix) needs 'WordBoundaries' intact,
+but stage 'chunk' earlier in pipeline 'cleaning' already destroys it. The only legal positions for
+'hyphenation' are before 'chunk', never after.
+```
+
+Task 1.13: the identical class `weft_kernel.runner.Runner.resolve` raises for this check against an
+explicit `StageSpec` list — see `PipelineResolutionError`, above. `exc.pipeline == 'cleaning'` and
+`exc.stages == ('hyphenation', 'chunk')` for the reproduction above. **What to do:** move the stage
+the message names as needing the property `intact` to before the stage it names as destroying it —
+the message states both positions explicitly.
+
+### `InvalidStageConfigError`
+
+**What it looks like** — task 1.5: a stage's `with:` block does not validate against the
+`config_model` its plugin declares:
+
+```text
+InvalidStageConfigError: stage 'keywords' (Chunker:keybert) in pipeline 'specific' has an invalid
+'with:' block for KeybertConfig: field 'top_n': Input should be a valid integer, unable to parse
+string as an integer. KeybertConfig accepts: top_n.
+```
+
+`02` §1: "a contract's registration API carries a typed configuration model, or the extension point
+is decorative" — this is that model actually being checked, before the plugin is ever constructed,
+never at the first document it happens to run against. **What to do:** the message names the field
+pydantic rejected and why, and lists every field the model accepts (`KeybertConfig accepts: ...`) —
+fix the `with:` value the field names, or check the field name itself for a typo against the
+accepted list.
+
+### `StageNotConfigurableError`
+
+**What it looks like** — a stage writes a non-empty `with:` block for a plugin that declares no
+`config_model` at all:
+
+```text
+StageNotConfigurableError: stage 'keywords' (Chunker:keybert) in pipeline 'specific' sets a
+'with:' block ({'top_n': 8}), but Chunker:keybert publishes no configuration model — it cannot be
+parameterised at all. Drop 'with:', or have the plugin declare `config_model`.
+```
+
+`02` §3's own extended note names the reference defect this refuses rather than repeats: a `with:`-
+shaped block with nowhere typed to land was silently dropped in one reference subsystem and simply
+unavailable in another, and no metric or enhancer in it could ever be parameterised as a result. An
+absent `config_model` is never read as "accept anything and ignore it" here. **What to do:** either
+drop the `with:` block this pipeline wrote for the stage the message names, or — if you own the
+plugin — give it a `config_model` so the block has somewhere checked to land.
+
+### `UndefinedVarError`
+
+**What it looks like** — a stage's `with:` block references `${var:NAME}` and no pipeline in the
+`extends` chain defines a var by that name:
+
+```text
+UndefinedVarError: '${var:target_language}' references var 'target_language' in stage 'extract',
+but pipeline 'base' defines no such var — not directly, and none of its ancestors do either. Add it
+to a 'vars:' block somewhere in the chain, or fix the reference. Vars defined in this chain:
+'target_lang'.
+```
+
+A reference must be the **entire** string — `${var:target_lang}`, not `"target is ${var:target_lang}
+today"` — the same restriction `${env:VAR}` interpolation already applies to `weft.toml`, per
+`docs/02-extension-model.md` §3: partial substitution inside a longer string is a template engine
+this project does not have and does not need. **What to do:** add `vars: {target_lang: ...}` to the
+pipeline that should own the decision, or fix the var name if it was mistyped — "Vars defined in
+this chain" names the whole chain's merged answer, so a one-character typo like `target_language`
+for `target_lang` above is readable as a typo directly from the message; the stage the message names
+is where that typo lives when a pipeline has more than one `with:` block referencing vars.
+
+### `StaleOperatorTargetError`
+
+Task 1.4: one of the four derivation operators (`insert`, `replace`, `remove`, `set`) names a stage
+id that does not exist at the point in the `extends` chain it applies against — including a `remove`
+matching nothing, which gets no exemption from this check:
+
+```text
+StaleOperatorTargetError: pipeline 'specific' extends 'base' and its 'insert' operator targets stage
+id 'clean', but no stage with that id exists in the parent it resolved against at this point in the
+chain. The ids that do exist: 'extract', 'chunk'.
+```
+
+**What to do:** the message names the ids that actually exist — check the target for a typo, or
+whether an ancestor's own `remove`/`replace` already changed what this pipeline is operating against.
+Operators apply in **written order** (`02` §3, settled by task 1.4): if this operator's target was
+supposed to exist because an earlier operator in the *same* document creates or renames it, check
+that the block creating it is written *above* the block that targets it — a document writing `insert`
+above `remove` sees the old stage still present (and may instead hit `OperatorIdCollisionError`
+below); writing `remove` above `insert` is what expresses a move.
+
+Task 1.11 widens `remove`'s own half two ways, without a new class: `remove: <slot-id>` reaches
+this same check if the slot named does not exist either (the message then names both the stage ids
+and the slot ids that do exist), and a slot's own `after:`/`before:` position going missing —
+because a descendant's `remove` took the stage it was pointed at — raises this too, naming the slot
+rather than an operator:
+
+```text
+StaleOperatorTargetError: pipeline 'specific' declares slot 'enrich' positioned against stage id
+'chunk', but no stage with that id exists in the fully resolved chain — an ancestor's own operator
+likely removed or renamed it. The ids that do exist: 'extract'.
+```
+
+**What to do, for the slot case:** an ancestor's own `remove` of the stage the slot is positioned
+against is almost always the cause — either restore that stage, or move the slot's `after:`/`before:`
+to a stage id that survives the whole chain.
+
+### `OperatorIdCollisionError`
+
+Task 1.4: an `insert` operator's new stage id already exists in the parent it resolved against —
+inserting it would silently shadow the existing stage rather than adding a new one:
+
+```text
+OperatorIdCollisionError: pipeline 'specific' extends 'base' and its 'insert' operator adds stage id
+'chunk', but a stage with that id already exists in the parent it resolved against — inserting it
+would silently shadow the existing stage. Pick a different id, or use 'replace'/'set' if the intent
+is to change the existing stage.
+```
+
+**What to do:** pick a stage id that is not already taken, or — if the goal was to change what runs
+at that id — use `replace` (swap the plugin) or `set` (override configuration) instead of `insert`.
+To reuse an id genuinely intentionally (a move), write `remove` for that id **above** `insert` in the
+same document — application order is written order, so the id is free again by the time `insert` runs.
+
+### `SlotOrderConflictError`
+
+Task 1.11, `docs/02-extension-model.md` §3 → *Slots*: two (or more) packs' contributions to one slot
+each need a property `intact` that another one destroys, so no order satisfies every declared
+constraint — the slot's own version of a cycle, not a single stage checked against an order that
+already exists. Reproduced directly against `weft_kernel.resolution.resolve`, which is also how you
+will meet it today, since nothing in Phase 0's CLI fills a slot yet:
+
+```text
+SlotOrderConflictError: contributions to slot 'enrich' cannot be ordered: 'acme-a:a', 'acme-b:b' each
+need a property intact that another destroys, with no legal order between them. Fix the ordering
+declarations on the plugins involved.
+```
+
+**What to do:** this is a bug in one (or both) of the packs the message names, not something a
+pipeline document can work around — their `intact`/`destroys` declarations contradict each other.
+File it against the packs, or pin one of them out of `[packs] allow` until the conflict is fixed.
+
+### `DuplicateContributionError`
+
+Task 1.11, repaired after a review of that task's own commit found the gap: two contributions —
+whether to the same slot or two different ones — offer the same local stage id from the same
+distribution, so both would try to wear the identical qualified id (`distribution:id`) once placed
+into the resolved stage list. Reproduced directly against `weft_kernel.resolution.resolve`, the same
+way `SlotOrderConflictError` above is:
+
+```text
+DuplicateContributionError: pipeline 'base': distribution 'aaa-pack' offers stage id 'e' more than
+once — once for slot 'enrich' and again for slot 'enrich' — and both would resolve to the identical
+qualified id 'aaa-pack:e'. Give each contribution its own local stage id.
+```
+
+Before this check existed, the second contribution built silently replaced the first in
+`_order_contributions`'s own bookkeeping — not placed, not refused, and never counted among
+`ResolvedPipeline.unplaced_contributions` either, since it never survived long enough to be checked
+against a declared slot. **What to do:** this is a bug in the pack the message names, not something a
+pipeline document can work around — give the two contributions distinct local stage ids in the
+pack's own `register()`. File it against the pack, or pin it out of `[packs] allow` until it is fixed.
+
+---
+
+## Opening a pipeline document — `weft_cli.pipeline_catalogue`
+
+Task 1.9: `weft-cli` is the one distribution allowed to open a pipeline document — G1 keeps
+`weft-kernel` at `pydantic` and `opentelemetry-api` only, so the YAML parser lives here, on the
+identical footing `weft_cli.registry_bootstrap` already established for `weft.toml`'s TOML. None of
+these three is reachable through `weft index`/`weft ask` yet — nothing in Phase 0's CLI opens a
+pipeline document; a future `weft pipeline` command (`docs/build-ledger.md` 3.7) is what will surface
+these at exit `4`, the same exit `03` reserves for "fix the pipeline". Reproduced directly against
+`weft_cli.pipeline_catalogue`'s own Python API, which is also how you will meet them today, writing or
+testing a pipeline catalogue of your own.
+
+### `PipelineDocumentError`
+
+**What it looks like** — a file exists but is not valid YAML at all, reproduced against a real,
+deliberately broken file (an unterminated flow mapping):
+
+```text
+$ printf 'name: base\nstages: [{id: chunk, use: fixed-size\n' > broken.yaml
+$ python -c "
+from pathlib import Path
+from weft_cli.pipeline_catalogue import load_pipeline_document
+load_pipeline_document(Path('broken.yaml'))
+"
+PipelineDocumentError: broken.yaml is not valid YAML: while parsing a flow mapping
+  in "<unicode string>", line 2, column 10:
+    stages: [{id: chunk, use: fixed-size
+             ^
+expected ',' or '}', but got '<stream end>'
+```
+
+An absent file is not this — `load_pipeline_catalogue` simply finds nothing to glob, and there is no
+document to fail parsing. This is specifically a file that exists but is unreadable (a permissions
+problem) or not well-formed YAML at all — the same split `ConfigFileError` already draws for
+`weft.toml`, one section below. **What to do:** fix the YAML syntax the message names, or check the
+file's permissions if the message says it could not be read.
+
+### `MalformedPipelineError`
+
+**What it looks like** — the file parses as YAML, but the mapping it produced fails
+`weft_kernel.pipeline.Pipeline`'s own validation — here, a document naming both `extends` and its own
+`stages:`, which `02` §3 rules out (a child changes its parent by operator, never by a second stage
+list):
+
+```text
+$ printf 'name: confused\nextends: base\nstages: [{id: chunk, use: fixed-size}]\n' > confused.yaml
+$ python -c "
+from pathlib import Path
+from weft_cli.pipeline_catalogue import load_pipeline_document
+load_pipeline_document(Path('confused.yaml'))
+"
+MalformedPipelineError: confused.yaml is not a valid pipeline document: 1 validation error for
+Pipeline
+  Value error, pipeline 'confused' sets 'extends: base' and also lists its own 'stages:'. A pipeline
+that extends a parent expresses what changes with an operator (insert, replace, remove, set), never
+with its own 'stages:' list — drop 'stages:', or drop 'extends' and author this as a standalone
+pipeline. [type=value_error, ...]
+```
+
+This is the exact `pydantic.ValidationError` `Pipeline.model_validate` raises, wrapped rather than
+improved on — `weft_kernel.pipeline`'s own module docstring is explicit that this error set is
+deliberately *not* one of `weft_kernel.resolution`'s `PipelineResolutionError` subclasses, because a
+document that will not validate has no resolved parent and no distributions to name. **What to do:**
+the wrapped message names the exact rule the document broke — an unknown key, a duplicate stage id, or
+(as above) `extends` alongside `stages:` — fix the document accordingly.
+
+### `DuplicatePipelineNameError`
+
+**What it looks like** — two files in one catalogue directory both declare the same `name:`:
+
+```text
+$ printf 'name: base\nstages: [{id: chunk, use: fixed-size}]\n' > a.yaml
+$ printf 'name: base\nstages: [{id: chunk, use: fixed-size}]\n' > b.yaml
+$ python -c "
+from pathlib import Path
+from weft_cli.pipeline_catalogue import load_pipeline_catalogue
+load_pipeline_catalogue(Path('.'))
+"
+DuplicatePipelineNameError: both a.yaml and b.yaml declare name 'base' — a catalogue key must be
+unique. Rename one pipeline, or one of the two files.
+```
+
+**What to do:** rename one pipeline's `name:` field, or delete one of the two files — a catalogue is
+keyed by the name a document declares, never by the filename it happens to be saved under, so two
+files claiming the same name is a genuine ambiguity, not a coincidence for the loader to arbitrate.
 
 ---
 

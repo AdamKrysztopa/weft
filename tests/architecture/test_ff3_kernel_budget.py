@@ -51,6 +51,18 @@ def test_review_trigger_is_reported(capsys: object) -> None:
     assert counted <= BUDGET
 
 
+def test_at_least_one_kernel_file_is_walked() -> None:
+    # Floor — `08` §3's shape, applied to a source walk instead of a document walk: a
+    # walk that finds nothing counts 0 lines, and 0 is `<= BUDGET` — the test above
+    # would pass on an empty tree, exactly the shape `reference/study/08-salvage.md:777-782`'s
+    # parity test takes.
+    walked = sorted((KERNEL_ROOT / "src").rglob("*.py"))
+    assert walked, (
+        f"no `.py` file found under {KERNEL_ROOT / 'src'} — the walk itself is broken; "
+        f"fix it before trusting the budget check above."
+    )
+
+
 def _count_kernel_lines() -> int:
     """Count real code lines in the kernel distribution, tests excluded."""
     return sum(_count_file(path) for path in sorted((KERNEL_ROOT / "src").rglob("*.py")))

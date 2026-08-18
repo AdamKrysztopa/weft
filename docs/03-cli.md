@@ -73,6 +73,19 @@ Two of these carry weight beyond their size:
   disclosure and what its `register()` cost. The vocabulary is defined once in `02` §2, *The trust
   model*; refusals and half-registered packs share it rather than getting a second surface.
 
+  **G2 adds two reports to it, both about a pack that loaded fine and still does nothing** — the
+  failure a status vocabulary alone cannot express. A **displaced** registration: the pack lost a
+  `(contract, name)` collision to an operator's pin, so it is installed, active, and one of its
+  plugins is unreachable. And a pack whose **contributions land in no pipeline at all**, because no
+  available pipeline declares the slot it targets. Both are silent successes otherwise, and both are
+  the shape of the reference's registered-but-unreachable strategy.
+
+`weft pipeline show` prints the **resolved** form, which after G2 carries more than stages: each
+stage's provenance (which pipeline or pack put it there), every var's final value, contributions that
+found no slot, and operators that went unapplied because the pack they name is not installed. Those
+last two are recorded rather than fatal — see `02` §3, *Slots* — so printing them is the only way
+they are visible.
+
 ## In-session commands
 
 Slash commands inside the REPL, matching the mental model of the CLI:
@@ -160,6 +173,24 @@ Exit codes are meaningful, because a CLI that always exits 0 cannot be used in C
 plugin from a pack an allow-list refused (G3). `4` stays with genuine resolution failure: a name no
 pack provides, or one lost to a `failed` or `partial` registration. The split is what lets a CI job
 tell *"fix the environment"* from *"fix the pipeline"*.
+
+> **Narrowed in Phase 1 task 1.13 (2026-08-17).** The mapping from a caught exception to one of
+> these five codes is one function, `weft_cli.exit_codes.exit_code_for`, not two hand-written
+> `except` chains inside `handle_index` and `handle_ask` as it was before this task — `02` §3 →
+> *When resolution fails*: "The CLI maps the whole family to exit code 4." `4` is every
+> `weft_kernel.runner.PipelineResolutionError` subclass (checked by `isinstance`, so a subclass
+> added after this function was written still matches with nothing to update here), plus three
+> names that are deliberately *not* in that family and would otherwise fall to `1`:
+> `weft_kernel.registry.UnknownPluginError` (a name no pack provides — already stated above) and
+> `weft_cli.pipeline_catalogue`'s own `PipelineDocumentError` / `MalformedPipelineError` /
+> `DuplicatePipelineNameError` — a pipeline *document* that will not even parse or validate is
+> exactly "fix the pipeline", task 1.9's own reasoning for keeping that family out of
+> `PipelineResolutionError` in the first place. Every other `WeftError` still maps to `1`. This is
+> a narrowing of where the mapping is decided, not of what it decides: `weft index`/`weft ask`
+> exit exactly as they did before this task: nothing in Phase 0's CLI opens a pipeline document
+> yet, so the three `pipeline_catalogue` names are proven correct without being reachable —
+> `tests/unit/weft_cli/test_exit_codes.py` is where that proof lives until a real command reaches
+> them.
 
 **Score display.** A retrieval result carries `Scored.score` — a similarity, never guaranteed to fall
 in `[0, 1]` (`02` §1: "the score lives on `Scored[Node]`, not on `Node`"; nothing in that contract

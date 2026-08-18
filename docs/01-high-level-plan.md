@@ -77,7 +77,8 @@ package at all.
 The failure is structural, not sloppy. Every one of those seams started as a small dispatch and
 grew. The predecessor also proves the counter-case: where a real string-keyed registry exists —
 enhancers, prompts, evaluation metrics — extension is *nearly* clean, and `indexing/enhancers/registry.py`
-(120 lines) is the model to copy in full. But the reference's problem was never a shortage of
+(120 lines) is the design to reimplement in full — its shape, not its text; `NOTICE` rules out the
+latter. But the reference's problem was never a shortage of
 registries. It has **9 distinct name→thing registries and 17 registry-shaped containers across 13
 files, using 6 different registration idioms with 4 different failure behaviours on an unknown
 name** — and only 6 of the 17 expose any registration API. The other 11 are frozen literals,
@@ -154,7 +155,7 @@ a privileged internal path.
 | **Structure** | **Microkernel / Plugin**, with the kernel itself organised as hexagonal rings | Third parties extend the product against a published contract — that is the definition of this pattern, and requirement 1 makes it the primary quality attribute rather than a nice-to-have | The contract becomes public API. Versioning, deprecation policy and plugin isolation become real, ongoing work rather than a one-off |
 | **Domain overlay** | **None.** A maintained glossary, no DDD ceremony | The domain is real but thin: document, chunk, node, embedding, retrieval, citation. There are no bounded contexts fighting each other and no business rules worth aggregates | The vocabulary drifts unless the glossary is maintained deliberately. Cheap to pay, easy to forget |
 | **Topology** | **Modular monolith, several distributions** — one repository shipping a kernel distribution plus first-party packs, and exactly one container: the database | A library with the CLI as its adapter. There is no service tier and none is planned. The only thing that cannot live in the process is durable storage. Splitting the wheel is what makes fitness function 1 a fact rather than a script — see *The kernel boundary* | Several distributions to version and release together, and skew between the kernel and a first-party pack becomes possible. That obligation lands on **G9**. The store obligation is unchanged: keep it behind a contract so the one container is swappable |
-| **Data** | **Pipe-and-filter** | Both RAG paths genuinely are staged transforms: ingest is separate-atomic-nodes → chunk → clean → enhance → scrub-transient-metadata → store (the reference's order — see the note below), and query is transform to retrieve to fuse to rerank to generate. This is also what makes requirement 3 natural — you can only derive a pipeline if stages are addressable data | Stage boundary contracts must be stable and typed. Getting the payload model right is real design work, and it is grilling session G5 |
+| **Data** | **Pipe-and-filter** | Both RAG paths genuinely are staged transforms, and **G2 settled that neither has a canonical order** — see the note below. A pipeline is whatever its author writes, and any particular order is *proved* by each stage's declarations rather than prescribed here. This is also what makes requirement 3 natural — you can only derive a pipeline if stages are addressable data | Stage boundary contracts must be stable and typed. Getting the payload model right is real design work, and it is grilling session G5 |
 | **Overlay** | **Stability / resilience** at the model seam only | Remote model calls fail, rate-limit and time out. The predecessor learned this the hard way in RAPTOR summarisation | A retry, timeout and backoff surface that has to be configurable without leaking into every call site. **This is new work, not a lift** — see the note below |
 
 > **Corrected from the reference study (2026-08-10) — the ingest order.** The Data row previously read
@@ -169,10 +170,18 @@ a privileged internal path.
 > This matters here because goals G2 and G5 will both be argued from this list and from the
 > `base.yaml` example in `02` §3, and because the cleaning chain's *internal* stage order is the
 > single highest-value salvage item in the reference (`indexing/cleaning/pipeline.py:30-51`, whose
-> docstring ends *"IMPORTANT: Changing this order will break functionality."*). Weft may well decide
-> clean-before-chunk is right — but that is now a **decision to make in G2**, not an inherited fact.
-> Stages 0 and 4.5 belong in the canonical list either way: stage 0 exists so atomic nodes are never
-> re-chunked, and 4.5 exists because *"if the enhancer is absent or fails, this guard prevents
+> docstring ends *"IMPORTANT: Changing this order will break functionality."*).
+>
+> **Settled in G2, 2026-08-16: Weft adopts neither order, because it adopts no canonical order at
+> all.** Cleaning is a stage like any other, present or absent at the author's discretion, and an
+> order is *proved* by `requires`/`provides` and `intact`/`destroys` rather than blessed by this
+> document — see `02` §3, *No canonical ingest order*. The chunk-versus-clean question dissolves once
+> cleaning stops being treated as one stage: hyphenation repair wants to precede chunking, whitespace
+> normalization must follow a structure-aware chunker, and both are declarations now. Stage 0 becomes
+> **applicability** rather than a stage (a chunker declares it does not operate on atomic nodes and
+> the runner routes them past), and stage 4.5 was already a seam concern — transient stripping
+> attaches at registration. Stage 4.5's reason stands as written: *"if the enhancer is absent or
+> fails, this guard prevents
 > multi-MB base64 blobs from being serialised into PGVector JSONB"* (`indexing/pipeline.py:429-438`,
 > `_TRANSIENT_METADATA_KEYS = ('_image_data_b64',)` at `:427`).
 > (`reference/study/10-doc-corrections.md` A12; `reference/study/08-salvage.md` §T1.1.)
@@ -420,11 +429,11 @@ chunker, one store. `weft index` and `weft ask` work end to end on a directory o
   honestly until they are closed.
 - **Read:** `01` *The kernel boundary* first — it decides what this phase is allowed to write. Then
   `02` §1 contracts, §2 packs and discovery, and `01` *Runtime shape* for the store.
-- **Lift:** `04` category A — the prompt layer, the three-tier cascade, model strings, the
-  `LLMError` taxonomy, span helpers, and `tests/unit/architecture/test_allowlist_empty.py` as the
-  template for fitness functions 0 and 1. **Only the span helpers land in the kernel**; the rest ship
-  as first-party packs, per `04` → *Kernel or pack*. **Not** `scripts/check_hex_boundary.py`, which
-  the study showed does not fire; see *Fitness functions* below and `04` category A.
+- **Lift:** `04` category A — model strings, span helpers, and
+  `tests/unit/architecture/test_allowlist_empty.py` as the template for fitness functions 0 and 1.
+  **Only the span helpers land in the kernel**; model strings ship as a first-party pack, per `04` →
+  *Kernel or pack*. **Not** `scripts/check_hex_boundary.py`, which the study showed does not fire; see
+  *Fitness functions* below and `04` category A.
 - **Build order:** `06-phase-0-build.md`, which sequences this phase into ten steps and names the
   three places it could accidentally settle **G2**.
 - **Exit:** a plugin living in a *separate installed package* is discovered and used, with no edit
@@ -438,22 +447,34 @@ chunker, one store. `weft index` and `weft ask` work end to end on a directory o
   green** — a fenced shell block that fails to run, or a code sample that has drifted from
   `examples/weft-example-chunker/`, fails the build the same way an untyped payload would.
 
+> *(Corrected 2026-08-17: this Lift line used to also name the prompt layer, the three-tier cascade
+> and the `LLMError` taxonomy. They were never built here. `06-phase-0-build.md`'s scope fence — *What
+> Phase 0 must not build* — puts "Generation, prompts, the LLM adapter, `weft-llm`" in Phase 2, the
+> build followed `06`, and Phase 0 exited without them, which left this line assigning work to a
+> phase that had already closed. They are not dropped from the plan: they now appear in Phase 2's
+> Lift line, below, as the prompt registry, the three-tier cascade — the union of `PromptExecutor`'s
+> structure and `LLMJudge`'s `LLMBadRequestError` short-circuit — the JSON-rescue extractor nested
+> inside that cascade, and the `LLMError` taxonomy. `reference/study/08-salvage.md` §T1.4, §T1.5, §T1.7,
+> §T2.8.)*
+
 ### Phase 1 — Pipelines as data
 
 The pipeline model, the resolver, and the derivation operators.
 
-- **Gate:** `05` → **G2** derivation semantics.
-- **Read:** `02` §3, including the derivation operator table and the KeyBERT case.
-- **Lift:** `04` category B — the ingestion stage order (**chunk before clean**, plus stage 0
-  separating atomic nodes and stage 4.5 scrubbing transient metadata; see the Data-row note above),
-  and specifically the reason stage 4.5 exists. Category A cleaning processors, *with* their
+- **Gate:** `05` → **G2** derivation semantics — **settled 2026-08-16.**
+- **Read:** `02` §3 in full — the operator table and its edge rules, `intact`/`destroys`,
+  applicability, slots, vars, and the KeyBERT case.
+- **Lift:** `04` category B — **not the reference's stage order, which G2 declined to adopt in either
+  direction**, but the two things underneath it: the reason stage 4.5 exists (transient scrubbing,
+  which lands at the seam rather than as a stage) and the reason stage 0 exists (atomic nodes must
+  never be re-chunked, which lands as applicability). Category A cleaning processors, *with* their
   ordering rationale from `indexing/cleaning/pipeline.py:30-51` — and with the 243-word Polish
   fused-word exception set (`indexing/cleaning/processors/dictionary_spacing.py:31`), which
   `reference/study/08-salvage.md` ranks the second most valuable thing in the reference and which `04` does not
   currently name.
 - **Exit:** driving use case A works — a `specific` pipeline derived from `base` with KeyBERT
   inserted after chunking, expressed as configuration, with no change to core and no copy of the
-  parent.
+  parent. **Also: fitness function 11 is wired and green**, both clauses.
 
 ### Phase 2 — Retrieval and generation
 
@@ -463,8 +484,15 @@ design: an LLM scores dimensions, a deterministic ladder decides.
 - **Gate:** none. Re-open **G5** only if a strategy cannot express what it needs to pass along.
 - **Read:** `02` §1 for the `Strategy` and `Retriever` contracts, and `09-release.md` §4 —
   prerequisite V1–V3 must exist before this phase's work can be judged.
-- **Lift:** `04` category B — the router design, the ten strategies, the intent classifier, the
-  citation manager split into its four responsibilities, language-aware reranker selection.
+- **Lift:** `04` category A — the prompt registry, the three-tier cascade (`PromptExecutor`'s
+  structure unioned with `LLMJudge`'s `LLMBadRequestError` short-circuit), the JSON-rescue extractor
+  nested inside that cascade, and the `LLMError` taxonomy. These four moved here from Phase 0's Lift
+  line; see the dated note under Phase 0 for why. Also category B — the router design, the ten
+  strategies, the intent classifier, the citation manager split into its four responsibilities,
+  language-aware reranker selection — nine items in total. And `04`'s kernel row for
+  `_try_extractors`, the fallback-chain combinator (`T1.15`): no phase before this one claimed it,
+  and this is the first phase a second backend for one media type exists for it to compose over, so
+  it is built here too, in the kernel, alongside the pack work this phase already does.
 - **Exit:** strategies are plugins, and the router discovers them from the registry rather than
   from an enum or an if-chain. **Also: fitness function 9(c) is wired and green** — every contract
   Phase 2 publishes has an out-of-tree example pack implementing it.
@@ -811,6 +839,24 @@ All checks run in CI, before tests.
     unbounded requirement. What a bound *means* — a floor, a compatible range, or an exact pin — is
     **G9**'s and this clause does not choose: a floor is the weakest of the three and is implied by all
     of them, so if G9 settles on lockstep or on negotiation this clause tightens rather than changes.
+11. **Pipeline integrity.** Two clauses, from G2, both categorical and carrying no tuning constants.
+    *Active from Phase 1*, the phase that makes them runnable; per the note under 8, switching them on
+    is an exit criterion of that phase.
+
+    (a) **The operator set stays closed.** `02` §3 states *"the set stays closed until something real
+    needs a fifth"*, and a rule with no mechanism is the thing this section exists to prevent. The
+    four operator names are pinned in a named constant with a waiver constant pinned empty, in the
+    style of item 0, so a fifth operator fails the build until someone changes a constant in a diff
+    and records why in the decision log. **How it fails:** add a `move` operator because a case looked
+    awkward, and the build says so before review does.
+
+    (b) **Every shipped pipeline resolves.** Every pipeline shipped by a first-party pack, by an
+    example pack, or quoted as runnable in the manuals resolves against the installed registry in
+    `ci-checks`. This is "registration is not reachability" in its data costume: a pipeline file is
+    text that rots silently while every unit test passes, which is exactly how the reference arrived at a
+    strategy that registers, is listed, is described to the LLM, and can never run
+    (`reference/study/02-discovery-and-config.md:226-234`). **How it fails:** rename a plugin and leave
+    `base.yaml` naming the old one — caught in the gate rather than on a user's first index run.
 
 > **Corrected from the reference study (2026-08-10) — fitness function 1, and the preamble.** This
 > section previously opened *"the predecessor's AST boundary checker is the single best thing in

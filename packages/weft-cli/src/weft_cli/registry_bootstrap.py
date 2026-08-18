@@ -8,6 +8,15 @@ exactly one: `weft.toml`'s `[packs] allow` — `docs/02-extension-model.md` →
 which already exists for precisely this caller. Absence is not an error:
 "`weft.toml` — optional. Absent means open."
 
+**Task 1.12 adds `[plugins]` to the same one file.** `docs/02-extension-model.md`
+§3 → *When resolution fails*: "the pin is read by the operator-policy loader
+in weft-cli... never by the kernel." This is that loader's other half —
+`plugin_pins_from_config` parses the table the same way `allow_list_from_config`
+already parses `[packs] allow`, and `build_dependencies` hands the result to
+`Registry(plugin_pins=...)` before `discover()` ever runs, so every pack's
+`register()` call sees a registry that already knows how to arbitrate a
+collision it is about to cause.
+
 **Where pack settings come from, and the narrowing that decides it.**
 `docs/02-extension-model.md` §2's `packs:` settings block (keyed by
 distribution, validated against a pack's own Pydantic model) is real, but
@@ -65,7 +74,13 @@ from pathlib import Path
 from typing import cast
 
 from weft_cli.exit_codes import ExitCode
-from weft_kernel.discovery import PackReport, PackStatus, allow_list_from_config, discover
+from weft_kernel.discovery import (
+    PackReport,
+    PackStatus,
+    allow_list_from_config,
+    discover,
+    plugin_pins_from_config,
+)
 from weft_kernel.errors import WeftError
 from weft_kernel.registry import Registry
 
@@ -98,18 +113,27 @@ class Dependencies:
     reports: tuple[PackReport, ...]
 
 
-def build_dependencies(config_path: Path = DEFAULT_CONFIG_PATH) -> Dependencies:
+def build_dependencies(
+    config_path: Path = DEFAULT_CONFIG_PATH, *, strict_pins: bool = True
+) -> Dependencies:
     """Discover every installed pack, honouring `[packs] allow` from `config_path` if present.
 
     Only ever called by a command whose `weft_cli.permissions.CliCommand.needs_registry`
     is `True` — see `weft_cli.cli` — which is what keeps `weft --version` from
     running a single line of pack code (fitness function 8(b)).
+
+    `strict_pins` is threaded straight through to `discover()` — see its own
+    docstring's *repair for a reviewer finding* note. `weft_cli.cli.dispatch`
+    passes `False` only for `plugins list`/`plugins doctor`; every other
+    caller keeps the default, so an inert `[plugins]` pin still refuses
+    `index`/`ask` exactly as it always has.
     """
     document = _document_at(config_path)
     allow = None if document is None else allow_list_from_config(document)
     settings = merged_pack_settings(document)
-    registry = Registry()
-    reports = discover(registry, allow=allow, pack_settings=settings)
+    pins = {} if document is None else plugin_pins_from_config(document)
+    registry = Registry(plugin_pins=pins)
+    reports = discover(registry, allow=allow, pack_settings=settings, strict_pins=strict_pins)
     return Dependencies(registry=registry, reports=reports)
 
 
@@ -145,12 +169,27 @@ def pack_settings_from_config(document: dict[str, object] | None) -> dict[str, d
     sub-tables are exactly its dict-valued entries — `allow` is a list and is skipped by that
     same rule rather than by being named here, which means a future scalar key under `[packs]`
     does not have to be added to a second list to be ignored correctly.
+
+    **A `packs` key that is present but not a table is refused, the same way
+    `weft_kernel.discovery.allow_list_from_config` refuses it** — `docs/02-extension-model.md`
+    §2 → *The trust model*. This module reads `[packs]` a second time, independently of that
+    function, so it carried the identical `isinstance(packs, dict)` bug: `packs =
+    ["weft-store"]` used to fail the check and return `{}`, silently indistinguishable from a
+    `weft.toml` with no `[packs]` table at all. Two distributions reading one file must not
+    disagree about what a malformed shape means, so this raises the same way, naming the same
+    shapes. `None` only for a key genuinely absent from `document`.
     """
     if document is None:
         return {}
-    packs = document.get("packs")
-    if not isinstance(packs, dict):
+    if "packs" not in document:
         return {}
+    packs = document["packs"]
+    if not isinstance(packs, dict):
+        raise WeftError(
+            f"weft.toml's [packs] must be a table, not {type(packs).__name__} — found "
+            f"`packs = {packs!r}`. Did you mean `[packs]\\nallow = [...]`? See "
+            f"docs/02-extension-model.md section 2, The trust model."
+        )
     return {
         str(key): dict(cast("dict[str, object]", value))
         for key, value in cast("dict[str, object]", packs).items()

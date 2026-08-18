@@ -9,10 +9,11 @@ called the canonical full gate resolved to `quality`, which omitted it, and
 `.pre-commit-config.yaml` omitted it too. A fitness function that is not wired
 into the canonical task is not a fitness function.
 
-The waiver constant below is the ratchet, copied from the one genuinely good
-check in the reference (`tests/unit/architecture/test_allowlist_empty.py`). It is
-pinned empty. Adding a name to it is a deliberate, visible act in a diff rather
-than a silent edit to a script nobody reads.
+The waiver constant below reimplements the *technique* of the one genuinely good check
+in the reference (`tests/unit/architecture/test_allowlist_empty.py`) — a named escape hatch
+pinned empty, so a waiver is a visible act in a diff rather than a silent edit to a
+script nobody reads. The constant, its shape and the gate it guards are Weft's own; no
+source text crosses from that file to this one. It is pinned empty.
 """
 
 from typing import Final

@@ -70,6 +70,8 @@ silent edit the ratchet in `test_ff0_gate_in_the_gate.py` exists to prevent.
 
 import ast
 import tomllib
+from collections import Counter
+from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Final, cast
 
@@ -186,6 +188,61 @@ def test_kernel_imports_no_first_party_pack_module() -> None:
     )
 
 
+def test_at_least_one_kernel_file_is_walked() -> None:
+    # Floor — `08` §3's shape, applied to a source walk instead of a document walk: a
+    # walk that finds nothing would let clause one above pass vacuously on an empty
+    # tree, exactly the shape `reference/study/08-salvage.md:777-782`'s parity test takes.
+    walked = sorted((KERNEL_ROOT / "src").rglob("*.py"))
+    assert walked, (
+        f"no `.py` file found under {KERNEL_ROOT / 'src'} — the walk itself is broken; "
+        f"fix it before trusting clause one above."
+    )
+
+
+class _RecordingRegistry(Registry):
+    """A `Registry` that remembers every write, so the check can compare *registrations*
+    rather than the set of distribution names that made them.
+
+    **Comparing name sets is not enough, and this is the whole point of the function.**
+    `01` item 2 names the defect it exists to catch: the reference re-wraps and re-assigns its
+    three indexing builders *after* the decorator already registered them
+    (`retrieval/registry.py:649-668`), so a third party using the public decorator silently
+    does not get the span wrapping the built-ins get. A name-set comparison cannot see that —
+    the distribution is in both sets before and after. Neither can it see a second
+    registration attributed to a distribution that legitimately registered something else.
+
+    Nothing is added to `weft-kernel` for this. `discover()` takes a `Registry` *instance*
+    and `add`/`add_many`/`entry` are already public, so the recording lives here, in the
+    test, where a check's own machinery belongs.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.written: list[tuple[type[object], str, Callable[..., object], str]] = []
+
+    def add(
+        self,
+        contract: type[object],
+        name: str,
+        factory: Callable[..., object],
+        *,
+        distribution: str,
+    ) -> None:
+        super().add(contract, name, factory, distribution=distribution)
+        self.written.append((contract, name, factory, distribution))
+
+    def add_many(
+        self,
+        entries: Iterable[tuple[type[object], str, Callable[..., object]]],
+        *,
+        distribution: str,
+    ) -> None:
+        batch = list(entries)
+        super().add_many(batch, distribution=distribution)
+        for contract, name, factory in batch:
+            self.written.append((contract, name, factory, distribution))
+
+
 def _declared_and_present(
     registry: Registry, reports: tuple[PackReport, ...]
 ) -> tuple[frozenset[str], frozenset[str]]:
@@ -194,6 +251,10 @@ def _declared_and_present(
     *Declared*: every distribution `discover()` reported as having contributed at least
     one registration. *Present*: every distribution the registry actually holds a
     registration for, read through `contracts()`/`distributions_for()` alone.
+
+    This is the coarse half — it catches a distribution appearing from nowhere. The two
+    assertions in `test_registry_contents_equal_what_discovery_declared` are what make the
+    clause non-vacuous; see `_RecordingRegistry`.
     """
     declared = frozenset(report.distribution for report in reports if report.contributed > 0)
     present = frozenset(
@@ -212,7 +273,7 @@ def test_registry_contents_equal_what_discovery_declared() -> None:
     # unimported in *this* pytest session, and importing it here first would make that
     # check pass for the wrong reason regardless of what discovery actually does.
     expected_builtins = _first_party_pack_distributions()
-    registry = Registry()
+    registry = _RecordingRegistry()
     reports = discover(registry, allow=expected_builtins, pack_settings=_PLACEHOLDER_STORE_SETTINGS)
 
     # Assert
@@ -230,6 +291,32 @@ def test_registry_contents_equal_what_discovery_declared() -> None:
         f"`uv sync` so every built-in pack in this workspace is actually installed — this "
         f"test proves nothing about built-ins specifically unless they are."
     )
+
+    # Every registration is accounted for, one for one. A distribution that registered twice
+    # while reporting one contribution has taken a path a pack author cannot take.
+    written_per_distribution = Counter(distribution for _, _, _, distribution in registry.written)
+    reported_per_distribution = Counter(
+        {report.distribution: report.contributed for report in reports if report.contributed > 0}
+    )
+    assert written_per_distribution == reported_per_distribution, (
+        f"registrations actually written = {dict(sorted(written_per_distribution.items()))}; "
+        f"contributions discovery reported = {dict(sorted(reported_per_distribution.items()))}. "
+        f"Fitness function 2 requires these to agree per distribution, not merely to name the "
+        f"same distributions — an extra registration attributed to a pack that legitimately "
+        f"registered something else is exactly the privileged path this catches."
+    )
+
+    # And what a pack handed in is what the registry still holds. This is the clause that
+    # catches `01` item 2's own example: the reference re-wraps its built-in factories *after*
+    # registration to give them span wrapping a third party would not get. The name is
+    # unchanged, the distribution is unchanged, and only the identity of the factory moves.
+    for contract, name, factory, distribution in registry.written:
+        assert registry.entry(contract, name).factory is factory, (
+            f"{distribution}:{name} factory was replaced after registration. The object the "
+            f"pack handed to `register()` is not the object the registry holds, so a built-in "
+            f"is running through machinery a third party's plugin would not — `01` -> "
+            f"*Fitness functions* item 2, and the reference defect it cites."
+        )
 
 
 def test_a_registration_outside_discovery_is_caught() -> None:
