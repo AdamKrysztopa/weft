@@ -43,16 +43,39 @@ REFERENCE: Final[Path] = REPO_ROOT / "manual" / "contract-reference.md"
 #: `__qualname__`. **Pinned empty** — every contract Phase 0 registers is walked.
 CONTRACTS_WAIVED_FROM_REFERENCE: Final[frozenset[str]] = frozenset()
 
-#: The distributions this workspace's own `pyproject.toml` publishes a capability contract
-#: from — `weft-kernel` names none (rule: "the kernel names no capability") and `weft-cli`
-#: is the driving adapter, so neither appears here. Anything registered under a Phase 0
-#: contract that is *not* one of these is a distribution installed into the shared
-#: environment for some other reason — an editable example pack while working on the
+#: The distributions in this workspace that register under a capability contract, whether
+#: or not they publish one — `weft-kernel` names none (rule: "the kernel names no
+#: capability") and `weft-cli` is the driving adapter, so neither appears here, while
+#: `weft-pdf` (task 2.27) registers two backends under a contract `weft-extract` publishes
+#: and belongs here without publishing anything itself, as does `weft-openai` (task 2.29)
+#: under `weft-embed`'s and `weft-qdrant` (task 2.6) under `weft-store`'s. `weft-llm`
+#: (task 2.30) both publishes `LLMProvider` *and* registers `scripted` under it — the
+#: `weft-store`/`weft-embed` shape, not the `weft-pdf` one — and `weft-openai` grows a
+#: second registration here, under `weft-llm`'s contract this time, for `openai`.
+#: `weft-retrieve` (task 2.13) joins the `weft-llm` shape: it publishes the eight query-path
+#: contracts *and* registers `no-retrieval` under `Retriever`, the first of them. Anything
+#: registered under a contract that is *not* one of these is a distribution installed into
+#: the shared environment for some other reason — an editable example pack while working on the
 #: pack-author guide, say — not something this workspace's own checked-in file should ever
 #: describe. See `test_generated_reference_matches_the_checked_in_file` below for why this
 #: distinction is asserted before the text diff, not folded into its failure message.
 KNOWN_WORKSPACE_DISTRIBUTIONS: Final[frozenset[str]] = frozenset(
-    {"weft-extract", "weft-chunk", "weft-clean", "weft-store", "weft-embed", "weft-enhance"}
+    {
+        "weft-extract",
+        "weft-chunk",
+        "weft-clean",
+        "weft-store",
+        "weft-embed",
+        "weft-enhance",
+        "weft-pdf",
+        "weft-openai",
+        "weft-qdrant",
+        "weft-llm",
+        "weft-retrieve",
+        "weft-prompts",
+        "weft-generate",
+        "weft-index",
+    }
 )
 
 

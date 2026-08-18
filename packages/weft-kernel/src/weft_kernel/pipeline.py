@@ -83,7 +83,10 @@ open in `docs/build-ledger.md`.
 
 **`fallback` is data here too.** `02` §1 gives the kernel a fallback combinator
 over any contract, and `11` §4 keeps `fallback:` a per-stage list "tried in
-order until one produces". This module records the list; nothing in it runs.
+order until one produces". This module records the list; nothing in it runs —
+`weft_kernel.fallback.try_in_order` is what walks it, reached through
+`Runner._invoke_stage` at task 2.28, which is two steps further on than any
+document model has business knowing about.
 
 **Two stage-shaped models now live in the kernel, and 1.3 reconciles them.**
 `StageDeclaration` here is a stage as *written* — a bare `use:` name and an

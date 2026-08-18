@@ -46,6 +46,15 @@ weft ask "what changed in Q3?"    # one shot, same code path
 Both go through the same command objects. The REPL is not a second implementation with its own
 parsing; it is the same commands with a different renderer and a persistent context.
 
+**Which forces the shape of what a command returns: a typed result, never printed text.** A command
+that prints has already chosen its renderer, so "the same commands with a different renderer" cannot
+be true of it — the sentence above is only buildable if rendering happens strictly after the command
+returns. State it as the rule it is: **a `Command` returns a typed result and never writes to a
+stream**; `weft_cli` renders that result for a human, `--json` renders the same result for a script,
+and the REPL renders it again with the session's context around it. G8 (2026-08-18) noted the
+consequence rather than adding to it — the same property is what lets a Phase 7 agentic pack call
+this surface instead of re-parsing its output. See *Is the REPL an agent?* below.
+
 ## Command surface
 
 Verb-first and small. Depth lives in subcommands, not in flags.
@@ -207,12 +216,42 @@ This is a CLI rendering choice, not a store or contract change: a future `--json
 Phase 0) carries the raw score in its event, because a script consuming structured output is exactly
 the reader who can use an unbounded float correctly.
 
+> **`weft ask --format json` landed in Phase 2 task 2.3 (2026-08-17).** The paragraph above
+> anticipated it; what it did not settle is the spelling, and the two are deliberately different
+> things. `--json` above is a **global** flag that swaps the token *sink* for one writing
+> newline-delimited events while a pipeline runs — Phase 3's shape, unchanged. `--format` is one
+> command choosing what its finished result looks like: `text` ranks the passages for a person,
+> `json` emits a single line carrying each passage's node id, its `lineage.sources` and the raw
+> score this section withholds from a human. It exists because prerequisite V3 (`09` §4.3) is
+> measured **through the shipped command** — fitness function 7(a) permits no second `asyncio.run`,
+> so `eval/run_baseline.py` drives `weft` as a subprocess and has to read what it printed. The
+> enum lives in `weft_cli.output`, away from `weft_cli.ask`, because `build_parser` runs for
+> `weft --version` too and that command may execute no pack code (fitness function 8(b)).
+
 ## Project context
 
 `weft.toml` at the project root holds the default pipeline, collection, model profile and
 permission defaults, so day-to-day commands take no flags. Explicit flags beat the file, and the
 file beats built-in defaults. `weft config get --origin` prints where each effective value came
 from, which is the question people actually have.
+
+**`[services]` is where the model profile starts** (Phase 2 task 2.29). It maps a role a command
+needs to the name of a registered plugin — `embed = "openai"` today, `store` and an `llm` as the
+tasks that build them land — and it is the whole operation for changing which embedder a corpus is
+indexed with: no package edited, nothing reinstalled, and a plugin from a pack nobody here wrote is
+selectable the moment it is installed. A key the CLI does not yet read is **refused**, naming the
+keys it does, rather than accepted and ignored: a service Weft did not actually select is one an
+operator would have to notice by the answers being wrong. The defaults are the offline ones, so a
+checkout with no `weft.toml` at all needs no credential and no network.
+
+**A name from this block is gated before the command runs, and the gate cannot be a list of
+distributions** — `weft_cli.registry_bootstrap.require_plugin`, a repair for a reviewer finding
+against 2.29. Once the plugin name comes from an operator's file, the pack behind it may be
+`weft-openai` or a stranger's, so the check is on the *name*: unresolvable with some pack
+`refused` exits **3** naming `[packs] allow`; unresolvable with a pack `failed` or `partial`
+exits **4** with that pack's reason attached; unresolvable with nothing amiss exits **4** listing
+every name the contract does have. `02` → *The trust model* requires all three, and a hard-coded
+tuple of first-party distribution names could satisfy none of them for a third-party pack.
 
 > **Extended by the reference study (2026-08-10) — `--origin` is a first-class feature, not a nicety.**
 > In the reference, chunk size can be set in **five** places under **two different** precedence rules,
@@ -231,11 +270,35 @@ from, which is the question people actually have.
 
 ## Is the REPL an agent?
 
-Not in Phase 3. It is a command shell with streaming and session state — closer to `psql` than to
-Claude Code's inner loop.
+**No, and it never becomes one — but Weft does. Settled in G8, 2026-08-18.**
 
-Whether it should become genuinely agentic — a model that plans, calls tools and acts on the
-corpus, rather than a user typing commands — is a real fork with real cost, and it is **grilling
-session G8**. It is flagged here rather than assumed because if the answer is yes, the design
-belongs to a different decision tree (agent autonomy, tool contracts, human approval), and building
-the shell first and retrofitting a loop later is the expensive order to do it in.
+The REPL is a command shell with streaming and session state, closer to `psql` than to Claude Code's
+inner loop. Weft's finished form **is** agentic: a model that plans, calls Weft's commands as tools
+and acts on the corpus. Those two sentences are not in tension, and the reason is the governing rule
+at the top of this document.
+
+**An agent loop cannot live in the REPL, whatever the end state.** *Every operation the CLI performs
+is a library call a FastAPI route could make identically* — and a planning loop is not that. It is
+logic, it is the largest piece of logic in an agentic product, and putting it behind the prompt would
+make the REPL the one adapter that can do something no other caller can. That is the exact shape this
+document's first rule exists to refuse, and the reference's 1,080-line `indexer.py` is what it looks like
+when the rule is not enforced.
+
+**So the agent is a pack.** It registers against the same contracts a retriever does, it is driven by
+the REPL, by a script and by an HTTP caller alike, and it is scheduled: **Phase 7**, after release,
+because it is the largest consumer of contract surface Weft will ever have and should be built
+against *published, versioned* contracts rather than moving ones. `01` → *Phases* carries it, and
+**G12** — what a permission class means when the caller is never a TTY — is its gate.
+
+**What this phase owes it is one property, and this phase needs that property anyway.** A `Command`
+returns a **typed result that a renderer formats**, never pre-printed text. That is not a seam added
+for a future consumer; it is what *Two modes, one implementation* above already requires, since "the
+same commands with a different renderer" is unbuildable if a command prints. Getting it right here
+means a Phase 7 loop calls the same surface a human does. Getting it wrong means retrofitting a loop
+over text you have to re-parse — the expensive order this gate was opened to avoid, arrived at by
+accident rather than by choice.
+
+**Until G12, one rule holds without exception:** *Permissions* below is unchanged, so an `ask`-class
+operation still fails without a TTY. An agent is never a TTY. A Phase 7 pack therefore cannot
+`overwrite` or `destroy` on its own, and must either accept that ceiling or argue past it in G12 —
+with something real to test the argument against, which is precisely what deciding it now would lack.

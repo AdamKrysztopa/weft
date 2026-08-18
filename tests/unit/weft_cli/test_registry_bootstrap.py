@@ -25,9 +25,11 @@ from weft_cli.registry_bootstrap import (
     allow_list_from_file,
     pack_settings_from_environment,
     require_active,
+    require_plugin,
 )
 from weft_kernel.discovery import InertPluginPinError, PackReport, PackStatus
 from weft_kernel.errors import WeftError
+from weft_kernel.registry import Registry
 
 
 def _report(distribution: str, status: PackStatus, *, reason: str | None = None) -> PackReport:
@@ -97,6 +99,101 @@ def test_require_active_failed_pack_is_a_resolution_exit() -> None:
         ExitCode.RESOLUTION_FAILED,
         "'weft-store' failed to register: settings failed validation",
     )
+
+
+class _Contract:
+    """A contract nothing in this repository publishes.
+
+    `require_plugin` takes the contract as an argument precisely so it is not
+    about embedders — the same gate covers `--extract` and every later
+    `[services]` role — so the test states it that way rather than importing a
+    real one.
+    """
+
+
+def _plugin(config: object) -> object:
+    del config
+    return object()
+
+
+def test_require_plugin_passes_when_the_name_resolves() -> None:
+    # Arrange
+    registry = Registry()
+    registry.add(_Contract, "openai", _plugin, distribution="acme-openai")
+    reports = (_report("acme-openai", PackStatus.ACTIVE),)
+
+    # Act
+    outcome = require_plugin(
+        reports, registry=registry, contract=_Contract, name="openai", setting="[services] embed"
+    )
+
+    # Assert
+    assert outcome is None
+
+
+def test_require_plugin_blames_policy_when_a_pack_was_refused_before_it_could_register() -> None:
+    # Arrange — the reproduction `weft.toml.example` used to ship adjacently: an operator
+    # selects a plugin by name and leaves its distribution off `[packs] allow`. A refused pack
+    # is *never imported*, so nothing can prove it is the one that would have provided the
+    # name — but the exit code and the remedy are policy's, not resolution's.
+    registry = Registry()
+    registry.add(_Contract, "hash", _plugin, distribution="weft-embed")
+    reports = (
+        _report("weft-embed", PackStatus.ACTIVE),
+        _report("acme-openai", PackStatus.REFUSED, reason="not in [packs] allow"),
+    )
+
+    # Act
+    outcome = require_plugin(
+        reports, registry=registry, contract=_Contract, name="openai", setting="[services] embed"
+    )
+
+    # Assert
+    assert outcome is not None
+    code, message = outcome
+    assert code is ExitCode.POLICY_REFUSED
+    assert "[services] embed" in message
+    assert "acme-openai" in message
+    assert "[packs] allow" in message
+    assert "'hash'" in message
+
+
+def test_require_plugin_attaches_the_reason_when_a_pack_failed_to_register() -> None:
+    # Arrange — `failed` and `partial` are resolution, not policy (`docs/02-extension-model.md`
+    # → *The trust model*), and the reason is what turns a bare "unknown plugin" into a repair.
+    registry = Registry()
+    reports = (_report("acme-openai", PackStatus.FAILED, reason="settings failed validation"),)
+
+    # Act
+    outcome = require_plugin(
+        reports, registry=registry, contract=_Contract, name="openai", setting="[services] embed"
+    )
+
+    # Assert
+    assert outcome is not None
+    code, message = outcome
+    assert code is ExitCode.RESOLUTION_FAILED
+    assert "settings failed validation" in message
+
+
+def test_require_plugin_says_plainly_that_nothing_provides_the_name_when_nothing_is_amiss() -> None:
+    # Arrange — every pack active, and the name still does not resolve: a typo, or a pack
+    # nobody installed. Nothing to blame, so nothing is blamed.
+    registry = Registry()
+    registry.add(_Contract, "hash", _plugin, distribution="weft-embed")
+    reports = (_report("weft-embed", PackStatus.ACTIVE),)
+
+    # Act
+    outcome = require_plugin(
+        reports, registry=registry, contract=_Contract, name="opneai", setting="[services] embed"
+    )
+
+    # Assert
+    assert outcome is not None
+    code, message = outcome
+    assert code is ExitCode.RESOLUTION_FAILED
+    assert "'opneai'" in message
+    assert "'hash'" in message
 
 
 def test_allow_list_from_file_is_none_when_no_config_file_exists(tmp_path: Path) -> None:
@@ -224,6 +321,59 @@ def test_pack_settings_from_config_refuses_a_packs_value_that_is_not_a_table() -
         registry_bootstrap.pack_settings_from_config(document)
 
 
+def test_build_dependencies_survives_its_own_repeated_ext_model_registration(
+    tmp_path: Path,
+) -> None:
+    """`build_dependencies` calls `_ensure_chunk_offset_rehydrates` once per command, many
+    times over within one test run — against the one, process-wide rehydration registry.
+
+    Repair for a reviewer finding: the first cut suppressed every
+    `DuplicateRegistrationError` unconditionally to survive exactly this repeated-call
+    case. This proves the check-then-register replacement still survives it too — a second
+    call in the same process must not raise merely because `ChunkOffset` is already the
+    registrant. Driven through the public `build_dependencies`, never the private helper
+    directly, the same way every other caller in this process reaches it.
+    """
+    # Arrange
+    absent = tmp_path / "weft.toml"
+
+    # Act / Assert — twice in a row, against the real process-wide rehydration registry.
+    registry_bootstrap.build_dependencies(absent)
+    registry_bootstrap.build_dependencies(absent)
+
+
+def test_build_dependencies_lets_a_genuine_ext_model_namespace_collision_raise(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A second class claiming the `weft-chunk` namespace is refused, not swallowed.
+
+    Repair for a reviewer finding: `_ensure_chunk_offset_rehydrates` used to wrap
+    `register_ext_model` in a blanket `contextlib.suppress(DuplicateRegistrationError)`,
+    which could not tell "this function's own idempotent re-registration" apart from "a
+    genuine second class claiming the namespace" — `weft_store.rehydrate.ext_models`'
+    own docstring says every such collision is refused unconditionally, by design. This
+    stands in a fresh rehydration registry already claimed by an impostor and proves the
+    collision now surfaces through `build_dependencies`, the public entry point every
+    real caller reaches this through.
+    """
+    # Arrange
+    import weft_store.rehydrate as rehydrate
+    from weft_kernel.payload import ExtModel
+    from weft_kernel.registry import DuplicateRegistrationError
+
+    class _Impostor(ExtModel):
+        __namespace__ = "weft-chunk"
+
+    fresh = Registry()
+    fresh.add(ExtModel, "weft-chunk", _Impostor, distribution="an-impostor-pack")
+    monkeypatch.setattr(rehydrate, "ext_models", fresh)
+    absent = tmp_path / "weft.toml"
+
+    # Act / Assert
+    with pytest.raises(DuplicateRegistrationError, match="weft-chunk"):
+        registry_bootstrap.build_dependencies(absent)
+
+
 def test_build_dependencies_wires_a_plugins_pin_from_weft_toml_into_the_registry(
     tmp_path: Path,
 ) -> None:
@@ -265,3 +415,36 @@ def test_build_dependencies_with_strict_pins_false_returns_deps_instead_of_raisi
 
     # Assert
     assert deps.registry.unconsulted_pins() == frozenset({"Chunker:no-such-collision"})
+
+
+def test_build_dependencies_carries_the_service_selection_from_weft_toml(
+    tmp_path: Path,
+) -> None:
+    """The path from `[services] embed` to the command that resolves an embedder.
+
+    `weft.toml` is parsed once, here, so the selection travels with the
+    registry it was read beside rather than each command re-opening the file
+    and being free to disagree about what it says.
+    """
+    # Arrange
+    config = tmp_path / "weft.toml"
+    config.write_text('[services]\nembed = "openai"\n')
+
+    # Act
+    deps = registry_bootstrap.build_dependencies(config)
+
+    # Assert
+    assert deps.services.embed == "openai"
+
+
+def test_build_dependencies_defaults_to_the_offline_embedder_with_no_config_file(
+    tmp_path: Path,
+) -> None:
+    # Arrange — a clean checkout, which is what `poe ci-checks` and the quickstart run in.
+    absent = tmp_path / "weft.toml"
+
+    # Act
+    deps = registry_bootstrap.build_dependencies(absent)
+
+    # Assert — no credential, no network, no model download.
+    assert deps.services.embed == "hash"

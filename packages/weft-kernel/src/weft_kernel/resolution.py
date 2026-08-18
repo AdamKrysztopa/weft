@@ -206,6 +206,7 @@ from typing import Final, cast
 
 from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, ValidationError, field_validator
 
+from weft_kernel.errors import UnresolvedNameError
 from weft_kernel.payload import Applies, ExtModel
 from weft_kernel.pipeline import (
     Pipeline,
@@ -217,7 +218,11 @@ from weft_kernel.pipeline import (
 )
 from weft_kernel.registry import Registry, unwrap_factory
 from weft_kernel.runner import IntactViolationError as IntactViolationError
-from weft_kernel.runner import PipelineResolutionError, Stage
+from weft_kernel.runner import (
+    PipelineResolutionError,
+    Stage,
+    UnresolvedNameInPipelineResolutionError,
+)
 from weft_kernel.runner import StageCompositionError as StageCompositionError
 from weft_kernel.runner import UnmetRequiresError as UnmetRequiresError
 
@@ -316,7 +321,9 @@ either.
 """
 
 
-class UnknownParentPipelineError(PipelineResolutionError):
+class UnknownParentPipelineError(
+    UnresolvedNameInPipelineResolutionError, PipelineResolutionError, UnresolvedNameError
+):
     """`extends` names a pipeline the caller's `parents` mapping does not contain.
 
     `02` §3 → *When resolution fails*: every failure names "the pipeline, the stage
@@ -330,6 +337,15 @@ class UnknownParentPipelineError(PipelineResolutionError):
     that would have worked was in the caller's own argument the whole time.
     `weft_kernel.runner`'s own `PipelineResolutionError` has no equivalent, because
     `Runner.resolve` is never handed a document with a parent to follow at all.
+
+    Fitness function 12's family: `valid_options` is every pipeline name `parents`
+    *does* contain.
+
+    No `__init__` of its own — task 2.36's repair collapsed this class's own 19-line
+    forwarding body into `weft_kernel.runner.UnresolvedNameInPipelineResolutionError`, which
+    it now inherits unmodified; see that class's own docstring for why the shared body
+    lives in `runner` rather than here, and why `valid_options` staying required and
+    keyword-only, with no default, is unaffected by the collapse.
     """
 
 
@@ -371,7 +387,9 @@ class StageNotConfigurableError(PipelineResolutionError):
     """
 
 
-class UndefinedVarError(PipelineResolutionError):
+class UndefinedVarError(
+    UnresolvedNameInPipelineResolutionError, PipelineResolutionError, UnresolvedNameError
+):
     """A `with:` value references `${var:NAME}` and no pipeline in the chain defines it.
 
     `02` §3 → *Language, and what a var is for*: "An undefined var is a resolution
@@ -384,10 +402,20 @@ class UndefinedVarError(PipelineResolutionError):
     grepping the whole chain by hand to find out. `stages` names the one stage whose
     `with:` block held the reference — task 1.13's own field, populated here because
     the stage is never absent from scope, unlike a cycle's missing distribution.
+
+    Fitness function 12's family: `valid_options` is every var `merged_vars` defines.
+
+    No `__init__` of its own — task 2.36's repair collapsed this class's own 19-line
+    forwarding body into `weft_kernel.runner.UnresolvedNameInPipelineResolutionError`, which
+    it now inherits unmodified; see that class's own docstring for why the shared body
+    lives in `runner` rather than here, and why `valid_options` staying required and
+    keyword-only, with no default, is unaffected by the collapse.
     """
 
 
-class StaleOperatorTargetError(PipelineResolutionError):
+class StaleOperatorTargetError(
+    UnresolvedNameInPipelineResolutionError, PipelineResolutionError, UnresolvedNameError
+):
     """Task 1.4: an operator names a stage id the running result does not have.
 
     `02` §3 → the operator table's edge rules: "Every operator is strict. A target id
@@ -405,6 +433,16 @@ class StaleOperatorTargetError(PipelineResolutionError):
     took the stage it pointed at, never because the slot itself moved — is the identical
     *kind* of reference-that-turned-out-missing `_slot_anchor_index` raises this for, not
     a sixth error class.
+
+    Fitness function 12's family: `valid_options` is every id that does exist at this
+    point in the chain — stage ids and slot ids alike, since either may be a legal
+    target depending on the operator.
+
+    No `__init__` of its own — task 2.36's repair collapsed this class's own 19-line
+    forwarding body into `weft_kernel.runner.UnresolvedNameInPipelineResolutionError`, which
+    it now inherits unmodified; see that class's own docstring for why the shared body
+    lives in `runner` rather than here, and why `valid_options` staying required and
+    keyword-only, with no default, is unaffected by the collapse.
     """
 
 
@@ -614,6 +652,32 @@ class ResolvedStage(BaseModel):
     since a predicate is data." A reader of a `ResolvedPipeline` — a person running
     `weft pipeline show`, eventually, or a test comparing two resolutions — has no other
     way to see what a stage will route around once `weft_kernel.runner` actually runs it.
+
+    **`fallback` is the other field this module deliberately never looks up, and that is
+    a second, different exception from `applies_to`'s.** `use` is checked against
+    `registry` by `Registry.entry` below, and refuses an unregistered name loudly, by
+    design — `01`'s own rule against a silent fallback. `fallback` is not: a document's
+    `fallback:` list round-trips from `StageDeclaration` onto this field unchecked,
+    exactly as authored, string for string. This is not an oversight this module carries
+    quietly — `manual/user-manual.md` §1 and `02` §3's own worked example say so where a
+    reader meets the field. Looking a fallback name up *here* would force every fallback
+    entry to name a plugin already installed alongside the stage that names it, which
+    forecloses exactly the case `fallback:` exists for: a document naming `ocr` as the
+    fallback for `text` before any pack ships one, so the document is already correct the
+    day a pack providing it is installed, with no edit. `fallback:` is intentionally out
+    of `tests/architecture/test_ff11_pipeline_integrity.py`'s check for the identical
+    reason: that check exists to catch a stage whose plugin will not run *today*, and a
+    fallback naming a plugin nobody has written yet is not that mistake.
+
+    **Phase 2 task 2.28 answered the question this docstring used to leave open**, and the
+    answer preserves everything above. `weft_kernel.fallback.try_in_order` now walks the
+    list, and `weft_kernel.runner.Runner.resolve` — a *later* step than this one — refuses
+    an unregistered fallback name with `UnknownFallbackError`. Not at try time, which
+    would make the failure depend on encountering a document the primary cannot read, and
+    never by skipping, which is `01` rule 5's silent fallback with extra steps. So the
+    promise this module protects is intact and is now visibly a *document*-level one: a
+    pipeline may be authored, stored, diffed and derived while naming a plugin nobody has
+    shipped; what is refused is making that pipeline runnable.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -827,12 +891,14 @@ def _walk_extends(
             break
         parent = parents.get(current.extends)
         if parent is None:
-            available = ", ".join(repr(candidate) for candidate in sorted(parents)) or "(none)"
+            options = tuple(sorted(parents))
+            available = ", ".join(repr(candidate) for candidate in options) or "(none)"
             raise UnknownParentPipelineError(
                 f"pipeline '{current.name}' extends '{current.extends}', but the parent "
                 f"lookup this resolve() call was given has no pipeline named that. Supply it "
                 f"in 'parents', or fix the name if it was mistyped. Pipelines available in "
                 f"'parents': {available}.",
+                valid_options=options,
                 pipeline=current.name,
                 remedy=(
                     f"add '{current.extends}' to 'parents', or fix '{current.name}'s "
@@ -969,13 +1035,16 @@ def _apply_removes(
             continue
         stage_index = next((i for i, stage in enumerate(stages) if stage.id == target), None)
         if stage_index is None:
-            existing_stages = ", ".join(repr(stage.id) for stage in stages) or "(none)"
-            existing_slots = ", ".join(repr(slot.id) for slot in slots) or "(none)"
+            stage_ids = tuple(stage.id for stage in stages)
+            slot_ids = tuple(slot.id for slot in slots)
+            existing_stages = ", ".join(repr(stage_id) for stage_id in stage_ids) or "(none)"
+            existing_slots = ", ".join(repr(slot_id) for slot_id in slot_ids) or "(none)"
             raise StaleOperatorTargetError(
                 f"pipeline '{pipeline.name}' extends '{pipeline.extends}' and its 'remove' "
                 f"operator targets id '{target}', but no stage or slot with that id exists "
                 f"in the parent it resolved against at this point in the chain. Stage ids "
                 f"that do exist: {existing_stages}. Slot ids that do exist: {existing_slots}.",
+                valid_options=stage_ids + slot_ids,
                 pipeline=pipeline.name,
                 stages=(target,),
                 remedy=(
@@ -1118,12 +1187,14 @@ def _slot_anchor_index(
     for position, stage in enumerate(stages):
         if stage.id == target:
             return position + 1 if slot.after is not None else position
-    existing = ", ".join(repr(stage.id) for stage in stages) or "(none)"
+    options = tuple(stage.id for stage in stages)
+    existing = ", ".join(repr(stage_id) for stage_id in options) or "(none)"
     raise StaleOperatorTargetError(
         f"pipeline '{pipeline_name}' declares slot '{slot.id}' positioned against stage id "
         f"'{target}', but no stage with that id exists in the fully resolved chain — an "
         f"ancestor's own operator likely removed or renamed it. The ids that do exist: "
         f"{existing}.",
+        valid_options=options,
         pipeline=pipeline_name,
         stages=(cast("str", target),),
         remedy=(
@@ -1277,12 +1348,14 @@ def _index_of(
     for position, stage in enumerate(stages):
         if stage.id == target:
             return position
-    existing = ", ".join(repr(stage.id) for stage in stages) or "(none)"
+    options = tuple(stage.id for stage in stages)
+    existing = ", ".join(repr(stage_id) for stage_id in options) or "(none)"
     raise StaleOperatorTargetError(
         f"pipeline '{pipeline.name}' extends '{pipeline.extends}' and its '{operator}' "
         f"operator targets stage id '{target}', but no stage with that id exists in the "
         f"parent it resolved against at this point in the chain. The ids that do exist: "
         f"{existing}.",
+        valid_options=options,
         pipeline=pipeline.name,
         stages=(target,),
         remedy=f"fix the '{operator}' target — ids that do exist: {existing}.",
@@ -1399,12 +1472,14 @@ def _substitute(
             return value
         name = match.group(1)
         if name not in merged_vars:
-            defined = ", ".join(repr(key) for key in sorted(merged_vars)) or "(none)"
+            options = tuple(sorted(merged_vars))
+            defined = ", ".join(repr(key) for key in options) or "(none)"
             raise UndefinedVarError(
                 f"'{value}' references var '{name}' in stage '{stage_id}', but pipeline "
                 f"'{pipeline_name}' defines no such var — not directly, and none of its "
                 f"ancestors do either. Add it to a 'vars:' block somewhere in the chain, or "
                 f"fix the reference. Vars defined in this chain: {defined}.",
+                valid_options=options,
                 pipeline=pipeline_name,
                 stages=(stage_id,),
                 remedy=f"add 'vars: {{{name}: ...}}' somewhere in the chain, or fix the reference.",

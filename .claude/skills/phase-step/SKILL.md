@@ -1,33 +1,43 @@
 ---
 name: phase-step
-description: Build one step of the current phase from docs/06-phase-0-build.md — read what the step must make true, write it against the settled contracts, test it, turn on any fitness function it activates, and tick the checklist. Use whenever implementing Weft, starting or continuing a phase step, asking what to build next, or picking up work in this repository, even when the user just names a component like "the registry" or "the payload types".
+description: Build one task of the current phase from docs/build-ledger.md — read what the task must make true, write it against the settled contracts, test it, turn on any fitness function it activates, and tick the checklist. Use whenever implementing Weft, starting or continuing a phase task, asking what to build next, or picking up work in this repository, even when the user just names a component like "the registry" or "the payload types".
 ---
 
-# Build one step
+# Build one task
 
-Weft's phases are sequenced in `docs/06-phase-0-build.md`, and each step names **what it makes true**
-rather than what it adds. That framing is the point: a step is done when a property holds, not when
-files exist. Work one step at a time — they are ordered so that each one has everything it needs and
-nothing it does not.
+Weft's phases are sequenced task by task in `docs/build-ledger.md`, and each task names **what it
+makes true** rather than what it adds. That framing is the point: a task is done when a property
+holds, not when files exist. Work one task at a time — they are ordered so that each one has
+everything it needs and nothing it does not.
+
+`docs/06-phase-0-build.md` is Phase 0's own build order — **retired** now that Phase 0 has exited
+(`docs/README.md` → *Documents*). It is cited below only where a Phase 0 task's own `owner` field in
+`build-ledger.md` still points at it, as history, never as where to start.
 
 ## Orient
 
-**1. Find the step.** The checklist in `docs/README.md` is the project's position on itself; take the
-first unticked item unless told otherwise. Read that step in `06`, and read the step *after* it — the
-next step often reveals what the current one has to leave room for.
+**1. Find the task.** The checklist in `docs/README.md` is the project's position on itself; take the
+first unticked box in `build-ledger.md` for the current phase unless told otherwise. Read that task's
+line, the task after it — the next one often reveals what the current one has to leave room for — and
+the document its `owner` field names (`06` for a Phase 0 task, otherwise the reference document that
+task line points at).
 
 **2. Read what constrains it.** Do not reconstruct the design from the code; it is written down.
 `01` → *The kernel boundary* decides what may be written at all, `02` §1 has the contracts and the
 payload model, `02` §2 has discovery and the trust model. The decision log in `docs/README.md` says
 which gates are settled.
 
-**3. Check the traps.** `06` opens with three places Phase 0 can accidentally settle **G2**, which is
-open: where embedding happens, what a pipeline is before Phase 1, and what two packs claiming one name
-does. Each has a fixed minimal choice. Take it, and do not improve on it — the choices are chosen for
-reversibility, not for elegance.
+**3. Check the gate.** `build-ledger.md`'s phase header carries **⛔** when a gate the phase depends on
+is open, and a task line carries **⚠** when an open gate could still change its shape — `build-ledger.md`
+→ *How to read a task line*. If either applies, stop and name the open gate rather than defaulting it;
+do not take a "minimal reversible choice" as a substitute for reading what the gate actually requires.
+*(Historical: Phase 0's own version of this step was three specific traps naming G2 by number — `06`'s
+preamble. G2 settled 2026-08-16; that paragraph is cited only for a Phase 0 task now.)*
 
-**4. Check the fence.** `06` → *What Phase 0 must not build* lists nine things that belong to later
-phases. If the step seems to need one, re-read the step: it usually needs something smaller.
+**4. Check the fence.** If the phase's own reference document states a scope fence — `06` → *What
+Phase 0 must not build* is Phase 0's — and the task seems to need something on it, re-read the task: it
+usually needs something smaller. Later phases state their own boundaries in `01` → *Phases* and in each
+task's `owner` field; there is no single fence document once Phase 0 has exited.
 
 ## Build
 
@@ -48,13 +58,14 @@ external services mocked.
 
 ## Finish
 
-A step is not done until all of these are true:
+A task is not done until all of these are true:
 
 1. `uv run poe ci-checks` is green.
-2. **Any fitness function the step activates is wired and green.** `06` names them per step — 8(a) at
-   step 5, 7(a) and 8(b) at step 9. Wiring one means adding it to the `ci-checks` composite in the
-   same commit; fitness function 0 fails otherwise.
-3. The checklist item in `docs/README.md` is ticked, and the Status block still reads true.
+2. **Any fitness function the task's own *turns on* field names is wired and green.** Wiring one
+   means adding it to the `ci-checks` composite in the same commit; fitness function 0 fails
+   otherwise.
+3. The task's box in `build-ledger.md` is ticked with its commit sha, and `docs/README.md`'s Status
+   block still reads true.
 4. If the work changed something a document owns, that document is edited in the same commit. The
    plan and the code are meant to be true about each other.
 5. The commit message says **why**, and names the step. The diff already says what.
@@ -65,8 +76,9 @@ on it.
 
 ## When to stop instead of continuing
 
-- **The step needs an open decision.** G2, G7, G8 and G9 are open. Say which one, and what the step
-  would have to assume. Defaulting one quietly is exactly what the gates exist to prevent.
+- **The task needs an open decision.** `docs/README.md` → *Decision log* names which gates are still
+  open. Say which one, and what the task would have to assume. Defaulting one quietly is exactly what
+  the gates exist to prevent.
 - **The kernel crosses 2,800 lines.** That is a review trigger, not a failure — but it is a
   conversation about the boundary, and the budget is never edited in the pull request that grew the
   kernel.

@@ -69,7 +69,7 @@ async def test_ingest_pipeline_produces_stored_nodes(store: PgVectorStore, tmp_p
     # Arrange — a small directory of source documents.
     (tmp_path / "one.txt").write_text("The quick brown fox jumps over the lazy dog.")
     (tmp_path / "two.md").write_text("# Notes\n\nWeft is a microkernel RAG engine.")
-    docs = discover_source_docs(tmp_path)
+    docs = discover_source_docs(tmp_path, extensions=TextExtractor.extensions)
     assert docs, "fixture wrote files discover_source_docs should have found"
 
     def store_factory(_config: object) -> PgVectorStore:

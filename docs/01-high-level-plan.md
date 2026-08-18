@@ -476,6 +476,29 @@ The pipeline model, the resolver, and the derivation operators.
   inserted after chunking, expressed as configuration, with no change to core and no copy of the
   parent. **Also: fitness function 11 is wired and green**, both clauses.
 
+> *(Corrected 2026-08-18, from the Phase 2 exit reference audit; **closed 2026-08-18 by task 2.35**,
+> sha `296be69`. "Category A cleaning processors" was **six** in `04` §A and in
+> `reference/study/08-salvage.md` §T1.1; `weft-clean` registered **four**. Absent: `UnicodeNormalizer`
+> (`indexing/cleaning/processors/unicode_normalizer.py:12`, appended `pipeline.py:70`, *"Fix
+> encoding errors first (e.g., Ã³ -> ó) so regexes work correctly"*) and `ArtifactRemover`
+> (`processors/artifact_remover.py:10`, `pipeline.py:74` — its page-number regex and 0.5 non-alnum
+> separator filter only; §T1.1 records that its documented header removal does not execute, so that
+> half was never lifted). `build-ledger.md` → 1.7 recorded no reason for four. Both are now shipped —
+> `weft_clean.unicode_normalizer.UnicodeNormalizer`, `weft_clean.artifact_remover.ArtifactRemover` —
+> and `ftfy` is a real `weft-clean` dependency; `unicodedata`/`NFKC` still appear nowhere, because
+> `ftfy.fix_text`'s own default is NFC, not NFKC, and the reference's own second, redundant
+> `unicodedata.normalize('NFC', ...)` call (`unicode_normalizer.py:35`) was dropped rather than
+> carried once that redundancy was verified — a correction task 2.35 made, not an omission it left
+> standing. The gap this note named — `UnicodeNormalizer` sitting at position 1 precisely because
+> every later processor's regex needs what it produces, with no machine-checked expression of that
+> constraint — is closed: `weft_clean.property.Verbatim`, a third `Property`, is declared `intact`
+> by `UnicodeNormalizer` alone and `destroys` by every other processor in the pack, which forces
+> position 1 through the identical `intact`/`destroys` mechanism `WhitespaceNormalizer`'s "must run
+> last" already used, pointed the other way, with no new machinery. `build-ledger.md` → 2.35 has the
+> full account, including what was deliberately not lifted (`ArtifactRemover`'s header/footer
+> removal, a scar) and why the page-number pattern stays English-only rather than gaining an
+> unverified per-language table.)*
+
 ### Phase 2 — Retrieval and generation
 
 Retrieval strategies, fusion, reranking, the router, citations. The router keeps the predecessor's
@@ -494,25 +517,133 @@ design: an LLM scores dimensions, a deterministic ladder decides.
   and this is the first phase a second backend for one media type exists for it to compose over, so
   it is built here too, in the kernel, alongside the pack work this phase already does.
 - **Exit:** strategies are plugins, and the router discovers them from the registry rather than
-  from an enum or an if-chain. **Also: fitness function 9(c) is wired and green** — every contract
-  Phase 2 publishes has an out-of-tree example pack implementing it.
+  from an enum or an if-chain. **Also: fitness functions 9(c) and 12 are wired and green** — every
+  contract Phase 2 publishes has an out-of-tree example pack implementing it, and an error reporting
+  an unresolvable name carries the alternatives as a typed field. *(FF12 added to this exit
+  2026-08-18 by G11, per `09` §6.3 step 3: a fitness function's activation belongs in the exit
+  criterion of the phase that activates it, so a phase cannot open one and leave without switching it
+  on. Task 2.36.)*
+
+> **Scope added 2026-08-17, logged as `S1`** (`README.md` → *Decision log*; the procedure is `09` §6.4,
+> and the four task lines with their exit demonstrations are `build-ledger.md` → Phase 2, 2.27–2.30).
+> This phase also ships **PDF extraction**, a **semantic embedder** and a **model-provider adapter**,
+> each as a pack. The forcing function was V1: `09` §4 requires the corpus to cover every format an
+> installed extractor claims, and the corpus that arrived is nine PDF papers — so the prerequisite this
+> phase must satisfy before it can be judged is unbuildable without them, and a baseline measured over
+> content hashes would reproduce §4.2's defect with the labels changed. The **exit above is unchanged**:
+> none of the four is an exit criterion, and none activates a fitness function.
+>
+> Two consequences worth stating rather than discovering. **The `_try_extractors` combinator in the
+> Lift line above stops being conditional** — the "second backend for one media type" it composes over
+> is now a specific pair, so T1.15 lands with something real underneath it. And **nothing is lifted for
+> the PDF work**: `04`'s own note records `PDFParserProvider` as one of the reference's four
+> documented-but-never-executed features, Tier 2 as an idea and never Tier 1, so it is written fresh.
+
+> *(Corrected 2026-08-18, from the Phase 2 exit reference audit. The Lift line above says **nine items**
+> and **eight** were built. The ninth, **language-aware reranker selection**, was deliberately not
+> built: `weft-retrieve` ships `llm-rerank`, `graded-retrieval` and `collapse-to-parent`, and
+> `cross-encoder-rerank` is absent for a reason recorded at the point of the decision
+> (`weft_retrieve/rerank.py`'s module docstring and `build-ledger.md` → 2.7 — a model download `09`
+> §4.4 keeps out of the gate, and `10` §1.2 files the technique on the index path). It is also
+> blocked independently of that: the reference selects the reranker from the collection's language
+> (`core/llm/language_registry.py:89-92` — Polish → `sdadas/polish-reranker-roberta-v3`, everything
+> else → `cross-encoder/ms-marco-MiniLM-L-6-v2`), and **no stage in Weft produces a `Language` fact
+> yet** — `weft-clean` is its interim owner and there is no `detect` stage, which is why
+> `PolishFusedWordFixer.applies_to` narrows to no node at all today. The item is not dropped: it
+> needs a language fact before it can be built at all, and whichever phase ships that ships this with
+> it. This note exists because the same defect had to be repaired for Phase 0 — a Lift line left
+> naming work a closed phase never did — and ticking this phase's Exit box is what would have frozen
+> it a second time.)*
+
+> **Two tasks added 2026-08-18, from the same audit — `build-ledger.md` → Phase 2, 2.34 and 2.35.**
+> Neither is a new lift the plan forgot to schedule; both are items S1 *armed* by putting PDF bytes on
+> the ingest path, in a phase whose extraction and store work is where they land.
+>
+> **2.34 — `reference/study/08-salvage.md` §T1.16, the NUL-byte sanitiser** (`indexing/parsing/converter.py:20-88`,
+> twelve call sites, NUL → **space** rather than deletion, counted and logged before stripping). `04`
+> lists it among the six highly-ranked Tier 1 items its own tables do not name, and no phase Lift line
+> ever claimed it. Measured 2026-08-18, end to end: `corpus/arxiv/2508.18901v1.pdf` — a document
+> declared at `corpus/manifest.toml:122-129` — extracts through Weft's own `pdf-text` to a `Produced`
+> `Node` whose `content` carries **65 NUL bytes**; `weft-store`'s schema is `content TEXT NOT NULL`
+> (`weft_store/pgvector_store.py:138`); psycopg against the live pgvector container answers
+> `DataError: PostgreSQL text fields cannot contain NUL (0x00) bytes`. Two of the corpus's nineteen
+> PDFs do this, both in the `fetch` tier, which is why the gate is green — the publishable baseline
+> rests only on the reproducible tiers.
+>
+> *(Settled 2026-08-18, in the same task. The sanitiser lives at the kernel registration seam*
+> *(`weft_kernel.seam._sanitize_control_bytes`), riding the same `Produced` → `Node` / `tuple` / `list`*
+> *walk `_strip_transient` already performs, immediately after it — never `weft-extract`, never a*
+> *store. Not `weft-extract`: eight sites across `packages/` build a `Node` from text that came from*
+> *outside the process (`weft_extract/text.py:80`, `weft_pdf/document.py:205`, `weft_chunk/*
+> *fixed_size.py:145`, `weft_clean/dictionary_spacing.py:117`, `weft_clean/hyphenation.py:70`,*
+> *`weft_clean/whitespace.py:63`, `weft_clean/table_linearizer.py:79`, `weft_index/raptor.py:254`) —*
+> *the reference's own twelve-call-site fragility, reproduced with a smaller number. Not a store: pgvector's*
+> *`content` column is `TEXT NOT NULL` and refuses a NUL byte; `weft_qdrant/store.py` sends*
+> *`model_dump(mode="json")` over its own wire protocol and does not, so fixing this at a store means*
+> *the same corpus indexes under one backend and fails under another — exactly what this task line*
+> *refuses. The seam already owns this class of concern (`CLAUDE.md`: cross-cutting concerns live at*
+> *the registration seam), already knows what a `Node` is, and `wrap`'s own signature already carries*
+> *`distribution`/`contract`/`plugin`, so the reference's diagnostic triple (source, extractor, count;*
+> *§T1.16, "the diagnostic is the point, not the strip") becomes a span attribute*
+> *(`weft.nul_bytes_removed`) rather than four keyword arguments an author must remember at every call*
+> *site. NUL becomes a space, never a deletion, as the reference chose — and Weft has a live reason the*
+> *reference only had in principle: `weft_chunk.payload.ChunkOffset` records a character offset into a*
+> *parent's content, so a deletion would silently shift every offset recorded downstream. Scope is*
+> *`Node.content` and every `str`-typed field an `ExtModel` in `Node.ext` carries, walked by*
+> *`model_fields` introspection rather than a maintained list — `reference/study/08-salvage.md` §T1.20(a)'s*
+> *lesson about the transient scrub applies unchanged. Measured directly: no first-party `ExtModel`*
+> *shipped as of this task carries verbatim extractor text — `weft_pdf.PdfPages` (`weft_pdf/*
+> *document.py:94-131`), the one built straight from what a PDF backend reads, has only `backend: str`*
+> *(a plugin name) and `starts: tuple[int, ...]` (offsets) — so today's corpus exercises `content`*
+> *only; the `ext` walk covers the column-level fact (pgvector's `ext JSONB NOT NULL` refuses a NUL*
+> *byte exactly as `TEXT` does) rather than a currently-populated field, and costs one `isinstance`*
+> *check per field on a namespace that already changed. Exit demonstration:*
+> *`tests/integration/test_nul_byte_sanitisation.py` runs this exact document through the ordinary*
+> *`pdf-text` → `fixed-size` → `hash` → `pgvector` pipeline against the live container and asserts*
+> *every stored node's `content` is free of `\x00`; reverting the seam change reproduces the*
+> *`DataError` above verbatim, confirmed by running the test against the pre-fix code.)*
+>
+> **2.35 — the two absent cleaning processors**, re-assigned forward from Phase 1's Lift line; the
+> evidence and the reasoning are in that phase's own dated note above.
 
 ### Phase 3 — The CLI
 
 The full driving adapter: REPL, streaming, slash commands, plugin-contributed commands, permissions.
 
-- **Gate:** `05` → **G8** is the REPL agentic. If the answer is anything but "shell", stop and hand
-  off to the `agentic-patterns` skill before writing the loop — retrofitting one later is the
-  expensive order.
+- **Gate:** `05` → **G8** is the REPL agentic — **settled 2026-08-18: no, and it never becomes one,
+  because a planning loop is logic and `03`'s governing rule keeps logic out of the adapter.** Weft's
+  finished form *is* agentic; the agent is a pack, and it is **Phase 7**. This phase owes it one
+  property and needs that property regardless — a `Command` returns a typed result a renderer
+  formats, never printed text (`03` → *Two modes, one implementation*). The `agentic-patterns` handoff
+  moves to **G12**, Phase 7's gate, where there are real contracts to reason about.
 - **Read:** `03` in full.
-- **Lift:** nothing. The reference's CLI reached 1,080 lines in one command module (`indexing/indexer.py`,
-  exact) and is the shape to avoid. Two specifics worth carrying as rules rather than code: it runs
-  `load_dotenv(override=True)` **at module import time** (`:52`), so importing the CLI mutates the
-  process environment — **a driving adapter may not mutate process state at import** — and the reference
-  ships **three** separate entry points (`rag-index`, `rag-chat`, `rag-query`,
-  `pyproject.toml:141-144`), not one.
+- **Lift:** one item, and it is not the CLI. The reference's CLI reached 1,080 lines in one command module
+  (`indexing/indexer.py`, exact) and is the shape to avoid. Two specifics worth carrying as rules
+  rather than code: it runs `load_dotenv(override=True)` **at module import time** (`:52`), so
+  importing the CLI mutates the process environment — **a driving adapter may not mutate process
+  state at import** — and the reference ships **three** separate entry points (`rag-index`, `rag-chat`,
+  `rag-query`, `pyproject.toml:141-144`), not one. The item that *is* lifted is
+  `reference/study/08-salvage.md` **§T1.12, the streaming-safety tuning evidence** — the degenerate-loop
+  guard for streaming generation from small models, plus the markdown-table detector that stops it
+  firing on legitimately repetitive content (`core/engine/citation.py:183-190`, `:192-236`,
+  `:238-333`), *"the densest record of measured tuning in the query path"*, four worked examples left
+  in the source. It arrives here because **this is the phase that ships streaming**; see the dated
+  note below.
 - **Exit:** a plugin ships a command that appears in `weft --help` and in REPL completion without
   core knowing it exists.
+
+> *(Corrected 2026-08-18, from the Phase 2 exit reference audit. This Lift line read **"nothing"**, and
+> that left `reference/study/08-salvage.md` §T1.12 owned by no phase at all. `04` §B assigns
+> `PriorCitationManager` **split into its four responsibilities** to Phase 2; two of the four —
+> `_detect_repetition` and `generate_with_citations_streaming` — are streaming-only, and Phase 2 has
+> no streaming to guard, so `weft-generate` correctly built the other two (the numbered evidence
+> block and citation extraction) and stopped. Streaming is this phase, by G6's own consequence: a
+> `TokenSink` service, not a second contract (`03` → *Output*), which is task **3.6**. The guard is
+> therefore due with 3.6 and is now task **3.10**. Two traps ride with it, per §T1.12 and `04` §B:
+> the guard's cheap heuristics are the asset — positional character equality, chosen as *"a
+> lightweight alternative to Levenshtein distance"* (`citation.py:130`), and char-5-gram diversity
+> below 0.3 — and *"hallucination detection" is not what it does*; it is a loop-breaker for small
+> local models and must not be named or documented as anything else.)*
 
 ### Phase 4 — Evaluation and observability
 
@@ -613,6 +744,37 @@ unit* and reproduces the baseline. Which unit that is — a lockstep version, a 
 named set — is **G10**'s, and `09` §1 recommends an answer rather than fixing one. The criterion is written
 so that only the noun changes when G10 returns: what it demonstrates is that an installation from an
 index, not a checkout, reproduces a published number.
+
+### Phase 7 — The agent
+
+**Added 2026-08-18 by G8, logged as scope decision `S3`** (`09` §6.1 and §6.4). The agentic front
+end: a model that plans, calls Weft's commands as tools and acts on the corpus — shipped as a
+first-party pack, not as part of the CLI.
+
+**Why it is a pack and not the REPL.** `03`'s governing rule is that every operation the CLI performs
+is a library call a FastAPI route could make identically, and a planning loop is not that — it is the
+largest piece of logic in an agentic product. Putting it behind the prompt would make the REPL the one
+adapter able to do something no other caller can, which is the shape that rule exists to refuse. As a
+pack it is driven by the REPL, a script and an HTTP caller alike.
+
+**Why it is after release rather than before.** It is the largest consumer of contract surface Weft
+will have, so it should be built against **published, versioned** contracts rather than moving ones —
+which puts it after **G9** (Phase 5) and after the release that publishes them. That ordering also
+buys the strongest available form of this project's own thesis: Phase 5 proves an outsider can build
+a pack against the source tree, and this proves a first-party pack can be built against nothing but
+the released API, on the same terms a stranger has.
+
+- **Gate:** `05` → **G12** what a permission class means when the caller is never a TTY. `03` →
+  *Permissions* is unchanged until it closes: an `ask`-class operation fails without a TTY, an agent
+  is never a TTY, so a pack here cannot `overwrite` or `destroy` on its own. G12 either accepts that
+  ceiling or argues past it. **This is where the `agentic-patterns` handoff lands** — G8 moved it here
+  from Phase 3 because the questions that skill asks (autonomy level, reasoning loop, tool contracts,
+  human approval, memory) are unanswerable against contracts that do not exist yet.
+- **Read:** `03` in full, and `02` §1 — the agent consumes contracts rather than defining them.
+- **Lift:** nothing. The reference has no agent.
+- **Exit:** the agentic pack is installed from the index alongside the release, drives a corpus
+  end to end through the published command surface with no edit to core and no private API, and
+  `weft plugins doctor` reports it exactly as it reports any other pack.
 
 ---
 
@@ -857,6 +1019,59 @@ All checks run in CI, before tests.
     strategy that registers, is listed, is described to the LLM, and can never run
     (`reference/study/02-discovery-and-config.md:226-234`). **How it fails:** rename a plugin and leave
     `base.yaml` naming the old one — caught in the gate rather than on a user's first index run.
+
+12. **An unknown name names the alternatives.** Requirement 5 has two clauses and until now only the
+    first was enforced: fitness function 4 removes the closed key spaces a name could be silently
+    coerced into, but nothing checked the other half — that the refusal *names the valid options*.
+    Every error class whose failure mode is an unresolvable name carries those options as a **typed
+    field**, not only interpolated into its message, and the check asserts that across the family with
+    a waiver constant pinned empty in the style of item 0. **Added by G11 (2026-08-18), and active
+    from Phase 2**, the phase that closed the gate; per the note under 8, it is wired into `ci-checks`
+    in the same commit that adds it.
+
+    **Why a field rather than a string match.** A test that greps a message for a comma-separated list
+    is a test of prose, and it passes the moment someone writes a plausible-looking sentence. A typed
+    field is a structural fact the renderer formats, so the options cannot be stale, cannot be omitted
+    while the message still reads well, and can be shown differently by a different adapter without
+    re-deriving them. **How it fails:** add a `Retriever` lookup that raises `UnknownPluginError`
+    without collecting the registered names, and the build says so — rather than a user meeting
+    *"unknown retriever: 'graf'"* with no way to discover that `graph` was one character away.
+
+    **The reference is the argument.** This convention appears *correctly* at nine sites in `a prior project`
+    and is missing at three (`reference/study/08-salvage.md` §T1.18(a) names all twelve), and the study's
+    own verdict on why is one line: *"doing it by hand at nine sites is why three sites do not."*
+    Weft has 82 error classes, of which **20** are in this family. That is already twice the point
+    where the reference's approach failed, and G11 was required before Phase 3 precisely because that is
+    where the surface multiplies again.
+
+    > **Corrected 2026-08-18, task 2.36.** This paragraph said 18. The task that turns this function on
+    > audited all 82 by reading every raise site for whether it already computes and interpolates a
+    > concrete, enumerable collection of the names that were valid where the one given was not — the
+    > structural line `tests/architecture/test_ff12_unresolvable_name_carries_options.py`'s own module
+    > docstring states — and found **20**: `weft_cli.run_services.StoreCapabilityMissingError` (its
+    > message already named the store names that *do* provide the missing capability) and
+    > `weft_prompts.errors.TemplateVariableError` (one of its two raise sites already named the input
+    > model's fields, for the placeholder-not-supplied case) joined the 18 this section originally
+    > named. Membership is `weft_kernel.errors.UnresolvedNameError`, a marker mixed into each of the 20
+    > alongside whichever `WeftError` subclass it already was, checked structurally
+    > (`issubclass`, plus a required, typed `valid_options: tuple[str, ...]` constructor parameter with
+    > no default) rather than by class name or by grepping a message.
+    >
+    > **Corrected again 2026-08-18, same day: the sentence above once derived the original 18 from a
+    > name pattern, and that derivation was checked and found false.** It said the 18 were "the class
+    > name reads `Unknown`/`Unresolved`/`Ambiguous`" and the two misses were the ones whose names did
+    > not. Counted directly against `NAME_RESOLUTION_FAMILY`: of the 20, only **12** class names
+    > contain `Unknown`, `Unresolved` or `Ambiguous` — `UndefinedVarError`, `StaleOperatorTargetError`,
+    > `UnclaimedFormatError`, `UnroutedPipelineNameError`, `UnmappedLLMRoleError` and
+    > `UnaddressableFieldError` are six more misses a name pattern would have produced, on top of the
+    > two this section already names. The 18 in this section never came from a name pattern at all —
+    > they came from the same thing the audit above did one level earlier: reading each error's own
+    > failure mode by hand and judging whether it already reports an enumerable set of alternatives.
+    > A name pattern applied in place of that reading finds 12, eight short — which is not a footnote,
+    > it is the argument this whole item makes: "doing it by hand... is why sites do not," restated one
+    > level up, in the audit's own working. That is why fitness function 12 checks `issubclass(cls,
+    > UnresolvedNameError)` — a structural fact set once at the class definition — rather than a name a
+    > reviewer could reasonably, and wrongly, expect to be reliable.
 
 > **Corrected from the reference study (2026-08-10) — fitness function 1, and the preamble.** This
 > section previously opened *"the predecessor's AST boundary checker is the single best thing in

@@ -1,0 +1,285 @@
+# V2 question set (`docs/09-release.md` §4.3) — the Polish round: written from the Wikipedia
+# subset, in Polish, because untested language handling is the reference's `language == 'pl'`
+# branch with the branch removed.
+#
+# `eval/check_questions.py` owns the schema, every rule these entries are refused by, and
+# the argument for why nothing written here may be believed until
+# `tests/docs/test_question_set.py` has read it back out of the corpus. This file holds
+# questions and no design.
+#
+# **Provenance, which V2 requires recorded per answer.** Each question was written by an LLM
+# agent (Claude Opus 5, 2026-08-17) that had read the document it names, from the passage
+# quoted beside it, and was checked by a second, independent agent; `notes` carries the
+# per-question detail. This is not human-expert ground truth and must not be reported as
+# though it were — those agents verified their own quotes, and a mechanical re-check still
+# rejected 4 of 287 as appearing nowhere in the file they named.
+
+[[question]]
+id = "polish-001"
+text = "Ile wynosi entropia pojedynczej litery, gdy alfabet ma 26 równie prawdopodobnych liter, i jaką entropię ma ośmioznakowe hasło złożone z takich liter?"
+language = "pl"
+kind = "quantitative"
+difficulty = "easy"
+relevant_documents = ["pl-entropia-teoria-informacji"]
+reference_answer = "Przy 26 równie prawdopodobnych literach entropia każdej z nich wynosi około 4,7, a ośmioznakowy ciąg liter używany jako hasło ma entropię 37,6. Uproszczony wzór stosuje się wtedy, gdy prawdopodobieństwa poszczególnych zdarzeń w zbiorze są równe."
+notes = "Ground truth napisany przez agenta Claude (Opus 5) 17.08.2026 na podstawie sekcji „Przykład” artykułu o entropii. Cytaty zweryfikowane przez grep -F (dopasowanie dokładne, ze zdwojonymi spacjami po usuniętych wzorach)."
+
+  [[question.quote]]
+  document = "pl-entropia-teoria-informacji"
+  page = 0
+  text = "Przykładowo dla zbioru 26 liter alfabetu entropia każdej z nich wynosi około 4,7, więc ośmioznakowy ciąg liter wykorzystywany np. jako hasło będzie miał entropię 37,6."
+
+  [[question.quote]]
+  document = "pl-entropia-teoria-informacji"
+  page = 0
+  text = "W przypadku, gdy prawdopodobieństwa poszczególnych zdarzeń w zbiorze są równe, powyższy wzór można stosować w postaci uproszczonej:"
+
+[[question]]
+id = "polish-002"
+text = "Co dokładnie mierzy entropia warunkowa i w jakich jednostkach się ją podaje?"
+language = "pl"
+kind = "definitional"
+difficulty = "easy"
+relevant_documents = ["pl-entropia-warunkowa"]
+reference_answer = "Entropia warunkowa mierzy, ile wynosi entropia nieznanej zmiennej losowej, jeśli wcześniej znamy wartość innej zmiennej losowej, i tak jak pozostałe entropie mierzona jest w bitach. Intuicyjnie mówi ona, o ile entropia pary zmiennych jest większa od entropii samej zmiennej warunkującej."
+notes = "Ground truth napisany przez agenta Claude (Opus 5) 17.08.2026 z akapitu wstępnego i akapitu intuicyjnego pl-entropia-warunkowa.txt. Ekstrakcja wiki gubi symbole zmiennych — cytaty zachowują puste miejsca po wzorach i zostały zweryfikowane grep -F."
+
+  [[question.quote]]
+  document = "pl-entropia-warunkowa"
+  page = 0
+  text = "**Entropia warunkowa** – wartość używana w teorii informacji. Mierzy, ile wynosi entropia nieznanej zmiennej losowej jeśli wcześniej znamy wartość innej zmiennej losowej"
+
+  [[question.quote]]
+  document = "pl-entropia-warunkowa"
+  page = 0
+  text = "i tak jak inne entropie mierzy w bitach."
+
+  [[question.quote]]
+  document = "pl-entropia-warunkowa"
+  page = 0
+  text = "Intuicyjnie entropia ta mierzy, o ile entropia pary zmiennych i jest większa od entropii samej zmiennej"
+
+[[question]]
+id = "polish-003"
+text = "Kiedy informacja wzajemna dwóch zmiennych wynosi zero, a kiedy jest równa entropii zmiennej X?"
+language = "pl"
+kind = "definitional"
+difficulty = "easy"
+relevant_documents = ["pl-informacja-wzajemna"]
+reference_answer = "Informacja wzajemna jest zerowa wtedy i tylko wtedy, gdy zmienne X i Y są niezależne. Jeśli natomiast X i Y są identyczne, każda zawiera pełną wiedzę o drugiej i informacja wzajemna równa się entropii X."
+notes = "Ground truth napisany przez agenta Claude (Opus 5) 17.08.2026 z akapitu intuicyjnego i akapitu definicyjnego pl-informacja-wzajemna.txt. Cytaty zweryfikowane grep -F."
+
+  [[question.quote]]
+  document = "pl-informacja-wzajemna"
+  page = 0
+  text = "Informacja wzajemna jest zerowa wtedy i tylko wtedy, gdy zmienne X i Y są niezależne."
+
+  [[question.quote]]
+  document = "pl-informacja-wzajemna"
+  page = 0
+  text = "Jeśli X i Y są identyczne, to każda zawiera pełną wiedzę o drugiej. Wtedy informacja wzajemna jest równa entropii X"
+
+[[question]]
+id = "polish-004"
+text = "Dlaczego maksymalizowanie informacji wzajemnej sprowadza się często do minimalizowania entropii warunkowej?"
+language = "pl"
+kind = "cross-document"
+difficulty = "hard"
+relevant_documents = ["pl-entropia-warunkowa", "pl-informacja-wzajemna"]
+reference_answer = "Informacja wzajemna mierzy, ile informacji o X można poznać znając Y, czyli o ile poznanie jednej zmiennej zmniejsza niepewność co do drugiej, a entropia warunkowa mierzy, ile entropii nieznanej zmiennej pozostaje, gdy znamy wartość drugiej zmiennej. Dlatego w wielu zastosowaniach maksymalizowanie informacji wzajemnej oznacza minimalizowanie entropii warunkowej — im mniej niepewności zostaje po poznaniu Y, tym więcej informacji o X ono niesie."
+notes = "Pytanie krzyżowe: teza o maksymalizacji pochodzi z pl-informacja-wzajemna.txt, ale wyjaśnienie „dlaczego” wymaga definicji z pl-entropia-warunkowa.txt. Ground truth: agent Claude (Opus 5), 17.08.2026; cytaty zweryfikowane grep -F. Retriever musi zwrócić oba pliki."
+
+  [[question.quote]]
+  document = "pl-informacja-wzajemna"
+  page = 0
+  text = "W wielu zastosowaniach ważne jest maksymalizowanie informacji wzajemnej, co często oznacza minimalizowanie entropii warunkowej."
+
+  [[question.quote]]
+  document = "pl-informacja-wzajemna"
+  page = 0
+  text = "Intuicyjnie informacja wzajemna mierzy, ile informacji o X można poznać, znając Y, czyli o ile poznanie jednej z tych zmiennych zmniejsza niepewność o drugiej."
+
+  [[question.quote]]
+  document = "pl-entropia-warunkowa"
+  page = 0
+  text = "**Entropia warunkowa** – wartość używana w teorii informacji. Mierzy, ile wynosi entropia nieznanej zmiennej losowej jeśli wcześniej znamy wartość innej zmiennej losowej"
+
+[[question]]
+id = "polish-005"
+text = "Czym różni się analiza głównych składowych oparta na macierzy kowariancji od tej opartej na macierzy korelacji i kiedy stosuje się którą?"
+language = "pl"
+kind = "methodological"
+difficulty = "medium"
+relevant_documents = ["pl-analiza-glownych-skladowych"]
+reference_answer = "Przy użyciu macierzy kowariancji największy wpływ na wynik mają zmienne o największej wariancji, co jest wskazane, gdy zmienne reprezentują porównywalne wielkości. Użycie macierzy korelacji odpowiada wstępnej normalizacji zbioru wejściowego tak, aby każda zmienna miała identyczną wariancję, co jest wskazane, gdy wartości zmiennych nie są porównywalne."
+notes = "Ground truth: agent Claude (Opus 5), 17.08.2026, z trzeciego akapitu pl-analiza-gownych-skadowych.txt. Oba cytaty zweryfikowane grep -F."
+
+  [[question.quote]]
+  document = "pl-analiza-glownych-skladowych"
+  page = 0
+  text = "W przypadku użycia macierzy kowariancji, zmienne w zbiorze wejściowym o największej wariancji mają największy wpływ na wynik, co może być wskazane, jeśli zmienne reprezentują porównywalne wielkości, np. procentowe zmiany kursów różnych akcji. Użycie macierzy korelacji natomiast odpowiada wstępnej normalizacji zbioru wejściowego tak, aby każda zmienna miała na wejściu identyczną wariancję, co może być wskazane, jeśli wartości zmiennych nie są porównywalne."
+
+  [[question.quote]]
+  document = "pl-analiza-glownych-skladowych"
+  page = 0
+  text = "Użycie macierzy korelacji natomiast odpowiada wstępnej normalizacji zbioru wejściowego tak, aby każda zmienna miała na wejściu identyczną wariancję"
+
+[[question]]
+id = "polish-006"
+text = "W przykładzie PCA ze 100 osobami opisanymi pięcioma zmiennymi — jaki udział pierwszych wartości własnych uzasadnia przyjęcie modelu trzyczynnikowego?"
+language = "pl"
+kind = "quantitative"
+difficulty = "medium"
+relevant_documents = ["pl-analiza-glownych-skladowych"]
+reference_answer = "Wartości własne szereguje się od największej do najmniejszej i jeżeli trzy pierwsze stanowią odpowiednio duży udział w sumie wszystkich pięciu — na przykład powyżej 90% — można rozpatrywać model 3-czynnikowy."
+notes = "Ground truth: agent Claude (Opus 5), 17.08.2026, sekcja „Przykład” w pl-analiza-gownych-skadowych.txt. Próg 90% jest w źródle podany jako przykładowy („np.”) i odpowiedź referencyjna to zaznacza. Cytat zweryfikowany grep -F."
+
+  [[question.quote]]
+  document = "pl-analiza-glownych-skladowych"
+  page = 0
+  text = "Szeregujemy wartości własne od największej do najmniejszej i jeżeli np. 3 pierwsze wartości własne stanowią odpowiednio duży udział w sumie wszystkich pięciu wartości własnych (np. powyżej 90%) to oznacza to, że możemy rozpatrywać model 3-czynnikowy."
+
+[[question]]
+id = "polish-007"
+text = "Czym drzewa ExtraTrees różnią się od zwykłych lasów losowych?"
+language = "pl"
+kind = "comparative"
+difficulty = "medium"
+relevant_documents = ["pl-las-losowy"]
+reference_answer = "Są dwie główne różnice: każde drzewo ExtraTrees jest szkolone przy użyciu całej próbki uczenia się, a nie próbki początkowej (bootstrapowej), oraz rozdzielanie odgórne drzewa jest losowe. Zamiast obliczać lokalnie optymalny punkt odcięcia dla każdej rozważanej cechy, wybierany jest losowy punkt odcięcia, a spośród wszystkich losowo wygenerowanych podziałów wybierany jest ten o najwyższym wyniku."
+notes = "Ground truth: agent Claude (Opus 5), 17.08.2026, sekcja „ExtraTrees” w pl-las-losowy.txt. Cytaty zweryfikowane grep -F."
+
+  [[question.quote]]
+  document = "pl-las-losowy"
+  page = 0
+  text = "Zamiast obliczać lokalnie *optymalny* punkt odcięcia dla każdej rozważanej cechy (przykładowo na podstawie wzmocnienia informacji lub zanieczyszczenia Giniego), *wybierany* jest *losowy* punkt odcięcia. Ta wartość jest wybierana z jednolitego rozkładu w zakresie empirycznym elementu (w zestawie treningowym drzewa). Następnie, spośród wszystkich losowo wygenerowanych podziałów, podział, który daje najwyższy wynik, jest wybierany do podziału węzła."
+
+  [[question.quote]]
+  document = "pl-las-losowy"
+  page = 0
+  text = "Zamiast obliczać lokalnie *optymalny* punkt odcięcia dla każdej rozważanej cechy"
+
+[[question]]
+id = "polish-008"
+text = "Jakie wady ma permutacyjna ocena ważności cech w lasach losowych?"
+language = "pl"
+kind = "limitation"
+difficulty = "medium"
+relevant_documents = ["pl-las-losowy"]
+reference_answer = "Ważność mierzy się permutując wartości danej cechy w danych treningowych i licząc ponownie błąd baggingu na zaburzonym zbiorze, ale metoda ta ma wady: przy zmiennych kategorycznych o różnej liczbie poziomów lasy losowe sprzyjają atrybutom z większą liczbą poziomów, a gdy dane zawierają grupy skorelowanych cech o podobnym znaczeniu, faworyzowane są grupy mniejsze kosztem większych."
+notes = "Ground truth: agent Claude (Opus 5), 17.08.2026, sekcja „Znaczenie zmiennych” w pl-las-losowy.txt. Pytanie istotne dla korpusu o selekcji cech — dotyczy obciążenia rankingu ważności. Cytaty zweryfikowane grep -F (w pierwszym zachowano puste miejsca po symbolach)."
+
+  [[question.quote]]
+  document = "pl-las-losowy"
+  page = 0
+  text = "Aby zmierzyć znaczenie -tej cechy po treningu, wartości -tej cechy są permutowane wśród danych treningowych, a błąd tego baggingu jest ponownie obliczany na tym zaburzonym zbiorze danych."
+
+  [[question.quote]]
+  document = "pl-las-losowy"
+  page = 0
+  text = "W przypadku danych, w tym zmiennych kategorycznych o różnej liczbie poziomów, losowe lasy sprzyjają tym atrybutom z większą liczbą poziomów."
+
+  [[question.quote]]
+  document = "pl-las-losowy"
+  page = 0
+  text = "Jeśli dane zawierają grupy skorelowanych cech o podobnym znaczeniu dla danych wyjściowych, mniejsze grupy są faworyzowane w stosunku do większych grup."
+
+[[question]]
+id = "polish-009"
+text = "Dlaczego las losowy jest mniej podatny na przeuczenie niż pojedyncze głębokie drzewo decyzyjne?"
+language = "pl"
+kind = "cross-document"
+difficulty = "hard"
+relevant_documents = ["pl-las-losowy", "pl-nadmierne-dopasowanie"]
+reference_answer = "Bardzo głębokie drzewa uczą się wysoce nieregularnych wzorów i dopasowują się nadmiernie do zestawów treningowych — mają niskie obciążenie, ale bardzo dużą wariancję — czyli świetnie dopasowują się do danych uczących, a dają słabe wyniki na danych, z którymi nie zetknęły się podczas uczenia. Las losowy uśrednia wiele głębokich drzew wyszkolonych na różnych częściach tego samego zestawu treningowego, co zmniejsza wariancję i poprawia tendencję drzew do nadmiernego dopasowywania się."
+notes = "Pytanie krzyżowe: mechanizm z pl-las-losowy.txt, definicja skutku przeuczenia z pl-nadmierne-dopasowanie.txt. Ground truth: agent Claude (Opus 5), 17.08.2026; cytaty zweryfikowane grep -F."
+
+  [[question.quote]]
+  document = "pl-las-losowy"
+  page = 0
+  text = "W szczególności drzewa, które są bardzo głębokie, mają tendencję do uczenia się wysoce nieregularnych wzorów: dopasowują się nadmiernie do zestawów treningowych, to znaczy mają niskie obciążenie, ale bardzo dużą wariancję."
+
+  [[question.quote]]
+  document = "pl-las-losowy"
+  page = 0
+  text = "Losowe lasy są sposobem uśredniania wielu głębokich drzew decyzyjnych, wyszkolonych na różnych częściach tego samego zestawu treningowego, w celu zmniejszenia wariancji."
+
+  [[question.quote]]
+  document = "pl-nadmierne-dopasowanie"
+  page = 0
+  text = "modele o dużej złożoności mogą świetnie dopasować się do danych uczących, jednak będą dawały słabe wyniki, gdy zastosuje się je do danych, z którymi nie zetknęły się podczas uczenia."
+
+[[question]]
+id = "polish-010"
+text = "Jakimi środkami zapobiega się nadmiernemu dopasowaniu i na czym polega sprawdzian k-krotny?"
+language = "pl"
+kind = "cross-document"
+difficulty = "hard"
+relevant_documents = ["pl-nadmierne-dopasowanie", "pl-sprawdzian-krzyzowy"]
+reference_answer = "Aby uniknąć nadmiernego dopasowania stosuje się dodatkowe środki zapobiegawcze — zbiory walidacyjne, sprawdzian krzyżowy i metody samowsporne — bez których nie można być pewnym, czy model będzie dobrze działał na danych nieużytych do jego konstruowania. W sprawdzianie k-krotnym oryginalną próbę dzieli się na k podzbiorów, kolejno każdy z nich bierze się jako zbiór testowy, a pozostałe razem jako zbiór uczący."
+notes = "Pytanie krzyżowe: lista środków zapobiegawczych z pl-nadmierne-dopasowanie.txt, procedura k-krotna z pl-sprawdzian-krzyzowy.txt. Ground truth: agent Claude (Opus 5), 17.08.2026; cytaty zweryfikowane grep -F."
+
+  [[question.quote]]
+  document = "pl-nadmierne-dopasowanie"
+  page = 0
+  text = "w celu uniknięcia nadmiernego dopasowania konieczne jest zastosowanie dodatkowych środków zapobiegawczych (np. zbiorów walidacyjnych, sprawdzianu krzyżowego, metod samowspornych)"
+
+  [[question.quote]]
+  document = "pl-sprawdzian-krzyzowy"
+  page = 0
+  text = "W tej metodzie oryginalna próba jest dzielona na k podzbiorów. Następnie kolejno każdy z nich bierze się jako zbiór testowy, a pozostałe razem jako zbiór uczący"
+
+  [[question.quote]]
+  document = "pl-sprawdzian-krzyzowy"
+  page = 0
+  text = "Bez jej zastosowania nie można być pewnym, czy model będzie dobrze działał dla danych, które nie były wykorzystywane do jego konstruowania (zob. nadmierne dopasowanie)."
+
+[[question]]
+id = "polish-011"
+text = "Czym jest szansa (odds) w regresji logistycznej i jak definiuje się logit?"
+language = "pl"
+kind = "definitional"
+difficulty = "easy"
+relevant_documents = ["pl-regresja-logistyczna"]
+reference_answer = "Zamiast prawdopodobieństwa liczonego jako stosunek liczby sukcesów do liczby wszystkich prób, oblicza się szansę, czyli stosunek prawdopodobieństwa sukcesu do prawdopodobieństwa porażki. Funkcja przekształcająca prawdopodobieństwo na logarytm szansy nazywa się logitem, a sama regresja logistyczna służy sytuacjom, w których zmienna zależna jest na skali dychotomicznej."
+notes = "Ground truth: agent Claude (Opus 5), 17.08.2026, sekcje „Szansa” i wstęp pl-regresja-logistyczna.txt. Cytaty zweryfikowane grep -F."
+
+  [[question.quote]]
+  document = "pl-regresja-logistyczna"
+  page = 0
+  text = "Zamiast określać prawdopodobieństwo klasycznie, za pomocą stosunku liczby sukcesów do liczby wszystkich prób, oblicza się szansę, czyli stosunek prawdopodobieństwa sukcesu do prawdopodobieństwa porażki."
+
+  [[question.quote]]
+  document = "pl-regresja-logistyczna"
+  page = 0
+  text = "Funkcja przekształcająca prawdopodobieństwo na logarytm szansy zwana jest logitem"
+
+  [[question.quote]]
+  document = "pl-regresja-logistyczna"
+  page = 0
+  text = "jedna z metod regresji używanych w statystyce w przypadku, gdy zmienna zależna jest na skali dychotomicznej (przyjmuje tylko dwie wartości)"
+
+[[question]]
+id = "polish-012"
+text = "Na czym polega uczenie przez wzmacnianie i na jakiej informacji opiera się agent?"
+language = "pl"
+kind = "definitional"
+difficulty = "medium"
+relevant_documents = ["pl-uczenie-maszynowe"]
+reference_answer = "Uczenie przez wzmacnianie to metoda wyznaczania optymalnej polityki sterowania przez agenta w nieznanym mu środowisku, na podstawie interakcji z tym środowiskiem. Jedyną informacją, na której agent się opiera, jest sygnał wzmocnienia — wysoki (nagroda) przy poprawnych decyzjach, niski (kara) przy błędnych."
+notes = "Ground truth: agent Claude (Opus 5), 17.08.2026, sekcja „Metody maszynowego uczenia się” w pl-uczenie-maszynowe.txt (długi artykuł — pozycja odpowiedzi głęboko w tekście podnosi trudność wyszukiwania). Cytaty zweryfikowane grep -F."
+
+  [[question.quote]]
+  document = "pl-uczenie-maszynowe"
+  page = 0
+  text = "Jedyną informacją, na której agent się opiera, jest sygnał wzmocnienia (poprzez wzorowanie się na pojęciu wzmocnienia z nauk behawioralnych w psychologii), który osiąga wysoką wartość (nagrodę), gdy agent podejmuje poprawne decyzje lub niską, (karę) gdy podejmuje decyzje błędnie."
+
+  [[question.quote]]
+  document = "pl-uczenie-maszynowe"
+  page = 0
+  text = "Jedyną informacją, na której agent się opiera, jest sygnał wzmocnienia"
+
+  [[question.quote]]
+  document = "pl-uczenie-maszynowe"
+  page = 0
+  text = "Algorytmy uczenia maszynowego budują model matematyczny na podstawie przykładowych danych, zwanych zbiorem uczącym, w celu prognozowania lub podejmowania decyzji"

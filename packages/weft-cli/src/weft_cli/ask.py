@@ -38,6 +38,9 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable, Sequence
 from typing import cast
 
+from pydantic import BaseModel, ConfigDict, Field
+
+from weft_cli.services import DEFAULT_EMBEDDER, DEFAULT_STORE
 from weft_embed import Embedder
 from weft_kernel.context import Context
 from weft_kernel.errors import WeftError
@@ -48,7 +51,7 @@ from weft_store import NodeStore, Scored, VectorSearch
 
 
 class NotVectorSearchableError(WeftError):
-    """The registered `NodeStore` named `"pgvector"` does not also satisfy `VectorSearch`.
+    """The `NodeStore` `[services] store` named does not also satisfy `VectorSearch`.
 
     Capability is derived, never declared (G4) — this is what it means for
     that derivation to come back empty: a store plugin registered under the
@@ -59,46 +62,75 @@ class NotVectorSearchableError(WeftError):
 
 
 class EmbeddingFailedError(WeftError):
-    """`weft-embed`'s `hash` plugin answered `NothingToProduce` or `Failed` for the question.
+    """The configured `Embedder` answered `NothingToProduce` or `Failed` for the question.
 
     `HashEmbedder` never actually returns either for a non-empty batch of one
-    — this exists so a differently-configured `Embedder` named `"hash"` still
+    — this exists so any other embedder, or a differently-configured one,
     fails loudly rather than this module silently searching with no vector.
+    The message names the plugin, because "could not embed the question" on
+    its own sends an operator to the wrong pack.
     """
 
 
 async def run_ask(
-    question: str, *, registry: Registry, ctx: Context, top_k: int
+    question: str,
+    *,
+    registry: Registry,
+    ctx: Context,
+    top_k: int,
+    embedder: str = DEFAULT_EMBEDDER,
+    store: str = DEFAULT_STORE,
 ) -> tuple[Scored[Node], ...]:
-    """Embed `question` and return its `top_k` nearest stored passages, by vector distance."""
-    embedder_entry = registry.entry(Embedder, "hash")
-    embedder = cast(Embedder, embedder_entry.factory(None))
+    """Embed `question` and return its `top_k` nearest stored passages, by vector distance.
+
+    `embedder` is `[services] embed`'s answer — the same name `weft index`
+    used, and it has to be: a question embedded by one model and a corpus
+    indexed by another are vectors in two unrelated spaces, and comparing them
+    returns a confident ranking of nothing. `weft_cli.services` holds that
+    argument; this is the query half of it.
+
+    `store` is `[services] store`'s answer, and the same sentence applies to it
+    twice over: a question asked of a store `weft index` never wrote to returns
+    nothing at all, and reports no error while doing it.
+    """
+    embedder_entry = registry.entry(Embedder, embedder)
+    instance = cast(Embedder, embedder_entry.factory(None))
     wrapped_embed = wrap(
-        embedder.run,
+        instance.run,
         distribution=embedder_entry.distribution,
         contract="Embedder",
-        plugin="hash",
+        plugin=embedder,
         stage="ask:embed",
     )
     query_node = Node.synthetic(content=question, media_type=MediaType.TEXT, reason="ask query")
-    outcome: Outcome[Sequence[Node]] = await wrapped_embed([query_node], ctx)
+    try:
+        outcome: Outcome[Sequence[Node]] = await wrapped_embed([query_node], ctx)
+    finally:
+        # The same defensive read `run_index` gives every resolved stage, for the same
+        # reason: an embedder that holds a connection (`weft-openai` holds an HTTP client)
+        # has one thing to give back, and no contract requires it to have one.
+        embedder_aclose = _aclose_of(instance)
+        if embedder_aclose is not None:
+            await embedder_aclose()
     if not isinstance(outcome, Produced):
-        raise EmbeddingFailedError(f"could not embed the question: {outcome.reason}")
+        raise EmbeddingFailedError(
+            f"the '{embedder}' embedder could not embed the question: {outcome.reason}"
+        )
     (embedded,) = outcome.value
     if embedded.embedding is None:
         raise EmbeddingFailedError("the embedder produced a node with no embedding attached")
 
-    store_entry = registry.entry(NodeStore, "pgvector")
-    store = store_entry.factory(None)
-    if not isinstance(store, VectorSearch):
+    store_entry = registry.entry(NodeStore, store)
+    instance_store = store_entry.factory(None)
+    if not isinstance(instance_store, VectorSearch):
         raise NotVectorSearchableError(
-            "the registered 'pgvector' NodeStore does not satisfy VectorSearch; "
-            "weft ask has nothing to search."
+            f"the registered '{store}' NodeStore does not satisfy VectorSearch; "
+            f"weft ask has nothing to search."
         )
     try:
-        return tuple(await store.search_vector(embedded.embedding, top_k))
+        return tuple(await instance_store.search_vector(embedded.embedding, top_k))
     finally:
-        aclose = _aclose_of(store)
+        aclose = _aclose_of(instance_store)
         if aclose is not None:
             await aclose()
 
@@ -118,6 +150,63 @@ def render_results(results: Sequence[Scored[Node]]) -> str:
         return "no matching passages found."
     lines = [f"{rank}. {scored.value.content}" for rank, scored in enumerate(results, start=1)]
     return "\n".join(lines)
+
+
+class AskHit(BaseModel):
+    """One retrieved passage, as a caller reading structured output receives it.
+
+    `sources` is the reason this shape exists at all rather than the ranked
+    prose: a scoring harness has to know *which document* a passage came from,
+    and rank-and-content cannot say. It is the node's own `lineage.sources`,
+    sorted so two runs over one index render identically.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    rank: int = Field(ge=1)
+    node_id: str = Field(min_length=1)
+    #: The store's own similarity, unrendered and unbounded — see `weft_cli.output.AskFormat`.
+    score: float
+    sources: tuple[str, ...] = ()
+    content: str
+
+
+class AskResult(BaseModel):
+    """`weft ask`'s whole answer in one JSON document, echoing what was asked.
+
+    The question and `top_k` travel with the hits because the caller that reads
+    this is usually a script running hundreds of questions: a result that does
+    not say which question it answers is one line of output away from being
+    attributed to the wrong one, and a depth that is not recorded is what makes
+    a `@k` metric name unverifiable (`docs/09-release.md` §4.3, V4).
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    question: str
+    top_k: int = Field(ge=1)
+    hits: tuple[AskHit, ...] = ()
+
+
+def render_results_json(question: str, results: Sequence[Scored[Node]], *, top_k: int) -> str:
+    """The same ranking `render_results` prints, as one line of JSON.
+
+    One line, and `ensure_ascii` left off by `model_dump_json`, for two reasons
+    a caller depends on: a stream of results needs no delimiter guessing, and a
+    Polish passage compared against a span read out of the corpus must be the
+    same string it was in the store — an escaped rendering is a different one.
+    """
+    hits = tuple(
+        AskHit(
+            rank=rank,
+            node_id=str(scored.value.id),
+            score=scored.score,
+            sources=tuple(sorted(str(source) for source in scored.value.lineage.sources)),
+            content=scored.value.content,
+        )
+        for rank, scored in enumerate(results, start=1)
+    )
+    return AskResult(question=question, top_k=top_k, hits=hits).model_dump_json()
 
 
 def _aclose_of(instance: object) -> Callable[[], Awaitable[None]] | None:

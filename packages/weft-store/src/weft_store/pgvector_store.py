@@ -1,4 +1,4 @@
-"""`PgVectorStore` — the built-in `NodeStore` + `VectorSearch`, over Postgres and pgvector.
+"""`PgVectorStore` — the built-in `NodeStore`, `VectorSearch` and `TextSearch`, over Postgres.
 
 Specified in `docs/06-phase-0-build.md` step 8: "a pgvector `NodeStore` with
 `VectorSearch`... this is where the one container arrives — a `compose.yaml`
@@ -9,10 +9,31 @@ that one container; `WEFT_DATABASE_URL` in `.env.example` is what a
 `${env:...}`.
 
 **Capability is derived, never declared.** This class implements every
-method `weft_store.contract.NodeStore` and `VectorSearch` name; nothing here
-sets a flag saying so — `isinstance(store, VectorSearch)` at registration is
-what makes that true, per `docs/02-extension-model.md` → *The store contract
-family*.
+method `weft_store.contract.NodeStore`, `VectorSearch`, `TextSearch` and
+`MetadataFilter` name; nothing here sets a flag saying so —
+`isinstance(store, VectorSearch)` at registration is what makes that true, per
+`docs/02-extension-model.md` → *The store contract family*. All four tiers, as
+of task 2.6; the store this repository ships beside it, `weft-qdrant`,
+satisfies three, and that asymmetry is what a capability check has to be
+demonstrable against.
+
+**`TextSearch` arrives at task 2.5**, over a generated `tsvector` column —
+see `_add_tsvector_column_sql` and `_search_text_sql` for why the index is
+generated rather than written, and what each of the three text settings
+decides. The task's property is what that column buys: a retriever asking
+this store for a text channel is asking the thing that already owns the
+corpus, so there is no second index for a pipeline to keep fresh.
+
+**The text arm's three decisions are settings, not this pack's opinion**
+(repair, 2026-08-17). Which text search configuration analyses the words,
+whether a question matches on any of them or all of them, and which ranking
+function scores the hit are all corpus-dependent, and `01` requirement 6 is
+categorical: "every piece of it is parameterisable and composable by someone
+who did not write it". They ship with the defaults this project's own corpus
+wants and are reachable from `[packs.weft-store]` — see `PgVectorSettings`.
+Because the index is a *generated* column, the configuration is schema, and
+`_provision_text_index` refuses a database whose column was generated under a
+different one rather than letting `ADD COLUMN IF NOT EXISTS` no-op.
 
 **Connection settings are pack settings, not stage `with:` config** — the
 same distinction `docs/02-extension-model.md` §2 draws for the graph pack's
@@ -46,34 +67,41 @@ hazard.
 — see that module's docstring for why `Node.model_validate` alone cannot
 reconstruct a node's typed extension data from a JSONB column.
 
-**Filters are not yet translated to SQL.** `docs/02-extension-model.md` →
-*Filters are data*: "validated at pipeline load against the registered ext
-models... nothing in Phase 0 resolves a pipeline against a store's filter
-capability yet." `search_vector` therefore accepts `filter` because the
-`VectorSearch` Protocol requires it, and raises loudly — never silently
-ignores it — if a caller actually supplies one; only `filter=None` is
-implemented today.
+**Filters are translated to SQL at task 2.6**, and what a path may name and
+which operator it admits are `weft_store.fields`', not this module's. That
+split is the point: the same parse and the same refusals feed `weft-qdrant`'s
+translator, so a `Filter` — which `docs/02-extension-model.md` → *Filters are
+data* insists is data, serialised into a resolved pipeline — cannot come to
+mean one thing in Postgres and another in a document store. Every literal
+reaches the database as a bound parameter; the only thing this module
+interpolates into SQL is a JSONB path built out of that parse, never out of
+the raw `field` string an operator typed.
 """
 
+import re
 from collections.abc import Mapping, Sequence
 from datetime import datetime
+from enum import StrEnum
 from functools import partial
 from typing import Any, cast
 
 import psycopg
 from pgvector import Vector as PgVector
 from pgvector.psycopg import register_vector_async
+from psycopg import sql
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, ConfigDict, SecretStr
 
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackRegistrar
-from weft_kernel.errors import WeftError
+from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_kernel.payload import Node, NodeId, Outcome, Produced, SourceId, Vector
 from weft_store.contract import (
     Cursor,
     Filter,
+    FilterOp,
+    FilterValue,
     NodeStore,
     Page,
     Removed,
@@ -81,6 +109,7 @@ from weft_store.contract import (
     SourceRecord,
     SourceStatus,
 )
+from weft_store.fields import FieldKind, FieldPath, NodeField, field_for
 from weft_store.rehydrate import rehydrate_ext
 
 _PAGE_SIZE = 100
@@ -113,36 +142,398 @@ CREATE TABLE IF NOT EXISTS weft_nodes (
 )
 """
 
+_CREATE_TSVECTOR_INDEX = """
+CREATE INDEX IF NOT EXISTS weft_nodes_content_tsv_idx ON weft_nodes USING GIN (content_tsv)
+"""
+
+# Does this database have the configured text search configuration? The cast is the question:
+# `regconfig` resolves a name through `search_path` the way Postgres itself does, so a
+# schema-qualified name and a bare one are answered on the database's own terms rather than by a
+# `cfgname` string comparison that would get both wrong. An unknown name raises `UndefinedObject`,
+# which is where the second statement comes in — `01` requirement 5 is not satisfied by a refusal
+# that says only "no".
+_RESOLVE_TEXT_SEARCH_CONFIG = "SELECT %(config)s::regconfig::oid AS oid"
+
+_INSTALLED_TEXT_SEARCH_CONFIGS = "SELECT cfgname FROM pg_ts_config ORDER BY cfgname"
+
+# What `content_tsv` is actually generated by, in this database, right now. Read back rather than
+# assumed: see `_provision_text_index` for the silent divergence this closes. Keyed on
+# `'weft_nodes'::regclass` rather than on a schema name, so it resolves the table through
+# `search_path` exactly as every other statement here does — asking a differently-resolved table
+# what its column is generated by would compare two different tables.
+_GENERATED_EXPRESSION = """
+SELECT pg_get_expr(d.adbin, d.adrelid) AS generation_expression
+FROM pg_attrdef d
+JOIN pg_attribute a ON a.attrelid = d.adrelid AND a.attnum = d.adnum
+WHERE d.adrelid = 'weft_nodes'::regclass AND a.attname = 'content_tsv'
+"""
+
+_SAME_TEXT_SEARCH_CONFIG = "SELECT %(found)s::regconfig = %(wanted)s::regconfig AS same"
+
+#: Postgres renders a stored generation expression in its own normal form —
+#: `to_tsvector('simple'::regconfig, content)` — which is what makes the configuration readable
+#: back off the column at all. A shape this does not match is one this store did not write.
+_GENERATED_TEXT_SEARCH_CONFIG = re.compile(r"to_tsvector\('([^']+)'::regconfig")
+
+
+class TextQueryMode(StrEnum):
+    """How the words of a question are combined into one `tsquery`.
+
+    `plainto_tsquery` ANDs every word, which for a question ("why is mRMR preferred to plain
+    relevance ranking?") matches nothing at all — a text arm that answers "no passages" to every
+    natural-language ask is worse than no text arm, because it looks like a corpus problem. So
+    `ANY` is the default. It is *not* the right answer everywhere: a keyword-style corpus, or a
+    caller composing its own precise queries, wants the conjunction back, and which of the two a
+    corpus wants is not knowable from inside this pack.
+    """
+
+    ANY = "any"
+    ALL = "all"
+
+
+class TextRank(StrEnum):
+    """Which of Postgres's two ranking functions scores a text hit.
+
+    Cover density (`ts_rank_cd`) ranks a passage by how close the matched words fall to each
+    other, which is the signal a passage-level ranking usually wants; frequency (`ts_rank`)
+    counts occurrences and weights, which is what a corpus of long, single-topic documents is
+    better served by. Neither score is comparable to `search_vector`'s — that is what fusion is
+    for, and why `Scored.score` is per-search.
+    """
+
+    COVER_DENSITY = "cover-density"
+    FREQUENCY = "frequency"
+
+
+def _add_tsvector_column_sql(config: str) -> sql.Composed:
+    """The text index, as a *generated* column rather than a trigger or a second write in `add()`.
+
+    Postgres recomputes it from `content` on every insert and update, so there is no path — no
+    upsert, no future bulk load, no hand-run `UPDATE` — that can leave a node searchable by words
+    it no longer contains. That is the property `TextSearch` is a store capability *for*; an index
+    a retriever maintained beside the store would have exactly the staleness this column makes
+    unreachable.
+
+    Its own statement rather than a column in `_CREATE_NODES_TABLE`, because a database created
+    before this column existed already has the table: `CREATE TABLE IF NOT EXISTS` would do
+    nothing to it and text search would silently return nothing there. `ADD COLUMN IF NOT EXISTS`
+    covers both the fresh database and the existing one, in one path — and it is also why
+    `_provision_text_index` reads the column back: on an existing column this statement is a
+    no-op, including when it asks for a *different* configuration.
+
+    `config` is interpolated as a literal through `psycopg.sql`, never formatted in: DDL cannot
+    carry a bound parameter, and a settings value reaching SQL by string concatenation is how a
+    configuration file becomes an injection surface.
+    """
+    return sql.SQL("""
+        ALTER TABLE weft_nodes
+            ADD COLUMN IF NOT EXISTS content_tsv tsvector
+            GENERATED ALWAYS AS (to_tsvector({config}, content)) STORED
+    """).format(config=sql.Literal(config))
+
+
+def _search_text_sql(
+    config: str, mode: TextQueryMode, rank: TextRank, predicate: sql.Composable
+) -> sql.Composed:
+    """The lexical search, built from the three settings that decide what it means.
+
+    **`ANY` rewrites the operator, not the character.** `plainto_tsquery` does the parsing, lexing
+    and quoting, and its own `tsquery` output is rewritten in text form and cast back — which
+    keeps every one of those Postgres's. The rewritten token is `' & '`, with its spaces: the AND
+    operator is rendered space-delimited and no lexeme the default parser produces contains a
+    space, so that string is unambiguous. A bare `&` is not, and the correction matters — measured
+    on `pgvector/pgvector:pg16`, `plainto_tsquery('simple', 'find http://example.com/a?b&c now')`
+    is `'find' & 'example.com/a?b&c' & 'example.com' & '/a?b&c' & 'now'`: the default parser's
+    `url`, `url_path` and `host` token types routinely carry `&` *inside* a lexeme. Replacing
+    every `&` rewrote those into lexemes no document contains, and the result was still valid
+    `tsquery`, so nothing raised — the most specific term in the question simply never matched.
+
+    The same `config` feeds this and `_add_tsvector_column_sql`, from one settings value, so the
+    stored column and the query can never disagree about what a word is.
+
+    `predicate` is the caller's `Filter`, or a constant true when there is none —
+    built per call rather than once at construction, which task 2.6 forced: a
+    filter is a per-call argument and the statement it appears in cannot be
+    precomputed. The one thing that must not drift, the configuration name, is
+    still read from the single settings field it always was.
+    """
+    parsed = sql.SQL("plainto_tsquery({config}, %(text)s)").format(config=sql.Literal(config))
+    asked = (
+        parsed
+        if mode is TextQueryMode.ALL
+        else sql.SQL("replace({parsed}::text, ' & ', ' | ')::tsquery").format(parsed=parsed)
+    )
+    ranker = sql.SQL("ts_rank_cd" if rank is TextRank.COVER_DENSITY else "ts_rank")
+    return sql.SQL("""
+        WITH asked AS (SELECT {asked} AS query)
+        SELECT weft_nodes.*, {ranker}(content_tsv, asked.query) AS rank
+        FROM weft_nodes, asked
+        WHERE content_tsv @@ asked.query AND {predicate}
+        ORDER BY rank DESC, id
+        LIMIT %(top_k)s
+    """).format(asked=asked, ranker=ranker, predicate=predicate)
+
 
 class PgVectorSettings(BaseModel):
-    """`weft-store`'s pack settings: one connection string, shared by everything it registers."""
+    """`weft-store`'s pack settings: one connection, and what its text arm means.
+
+    **The text search settings are pack settings rather than stage `with:` configuration, and
+    that is forced rather than chosen.** `content_tsv` is a generated column, so its
+    configuration is a property of the *database*; and on the query path the store is reached as
+    a service, not as a stage, so a stage-level `with:` block never gets near `search_text`. All
+    three therefore live where an operator can actually set them — `[packs.weft-store]` in
+    `weft.toml` — which is what makes running this store twice, under two configurations, a
+    configuration edit (`01` requirement 6).
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     dsn: SecretStr
 
+    #: The Postgres text search configuration both the stored column and the query use.
+    #:
+    #: **`simple` is the default, not the right answer.** The corpus this project is built
+    #: against is deliberately bilingual (`09` §4, V1's non-English body), and an English stemmer
+    #: applied to Polish text produces confident nonsense — matches on stems that are not stems
+    #: of anything the reader wrote. `simple` folds case and splits on word boundaries and does
+    #: nothing else, which is the one behaviour that is equally honest in both languages, and
+    #: `Node` carries no language to choose per-node stemming by. An English-only corpus is a
+    #: different situation and gets `english` here: with `simple`, a question about "retrieval"
+    #: never reaches a passage that says "retrieved".
+    text_search_config: str = "simple"
 
-class UnsupportedFilterError(WeftError):
-    """`search_vector` was given a `Filter` this store cannot yet translate to SQL.
+    #: Whether a question matches on any of its words or all of them. See `TextQueryMode`.
+    text_query_mode: TextQueryMode = TextQueryMode.ANY
 
-    Phase 0 has no pipeline-resolution step that validates a `Filter` against
-    a store's capability, so this store refuses loudly at query time instead
-    — the same "no silent fallback" standard every other unimplemented-but-
-    requested capability in this project is held to.
+    #: Which ranking function scores a hit. See `TextRank`.
+    text_rank: TextRank = TextRank.COVER_DENSITY
+
+
+class UnknownTextSearchConfigError(WeftError, UnresolvedNameError):
+    """`text_search_config` names a configuration this database has not got.
+
+    `01` requirement 5 applied to a name an operator types into `weft.toml`: refused before the
+    schema is touched, naming what was asked for and every configuration the database installs.
+    Postgres's own error for the same mistake names neither the setting nor the alternatives.
+
+    Fitness function 12's family: `valid_options` is every text search configuration this
+    database actually has installed.
+    """
+
+    def __init__(self, message: str, *, valid_options: tuple[str, ...], pack: str) -> None:
+        super().__init__(message, pack=pack)
+        self.valid_options = valid_options
+
+
+class TextSearchConfigMismatchError(WeftError):
+    """`content_tsv` is generated by a different configuration than the one configured now.
+
+    The failure this exists to prevent is silent: `ADD COLUMN IF NOT EXISTS` does nothing to an
+    existing column, so a database provisioned under `simple` keeps storing `to_tsvector('simple',
+    …)` however the setting is changed afterwards, while the query starts asking
+    `plainto_tsquery('english', …)`. Stemmed query terms against unstemmed stored lexemes match
+    almost nothing, and nothing anywhere raises — the operator sees a text arm that has quietly
+    stopped working, which is the exact shape `01` requirement 5 forbids.
     """
 
 
-class PgVectorStore:
-    """A `NodeStore` and `VectorSearch` over Postgres, with pgvector for the vector column.
+def _predicate(filter: Filter, values: dict[str, object]) -> sql.Composed:
+    """One `Filter` node as a SQL boolean expression, binding its values into `values`.
 
-    Satisfies both contracts structurally — this class never imports either
-    Protocol, the same path any third-party store pack takes.
+    Recursive, and every literal leaves through a bound parameter — a filter is
+    data an operator wrote, and data that reaches SQL by string formatting is an
+    injection surface. The only thing interpolated as SQL is a JSONB path built
+    out of `weft_store.fields`' own parse, never out of the raw field string.
+
+    The three refusals this never has to make — an unaddressable path, an
+    operator a field cannot carry, an ordered comparison against text — are made
+    for it by `fields.field_for` and by `Filter`'s own validator, so this
+    function and `weft_qdrant`'s translator cannot drift into refusing different
+    things.
+    """
+    if filter.op is FilterOp.AND or filter.op is FilterOp.OR:
+        joiner = sql.SQL(" AND ") if filter.op is FilterOp.AND else sql.SQL(" OR ")
+        return sql.SQL("({})").format(
+            joiner.join(_predicate(clause, values) for clause in filter.clauses)
+        )
+    if filter.op is FilterOp.NOT:
+        return sql.SQL("(NOT {})").format(_predicate(filter.clauses[0], values))
+
+    path = field_for(filter.op, filter.field or "")
+    if path.kind is FieldKind.EXTENSION:
+        return _extension_predicate(filter.op, path, filter.value, values)
+    column = sql.Identifier(_COLUMN_OF[path.core] if path.core is not None else "")
+    placeholder = _bind(values, filter.value)
+    if path.kind is FieldKind.TEXT_SET:
+        return _text_set_predicate(filter.op, column, placeholder)
+    return _text_predicate(filter.op, column, placeholder)
+
+
+def _text_predicate(op: FilterOp, column: sql.Identifier, value: sql.Composable) -> sql.Composed:
+    """`id`, `content`, `media_type` — all `NOT NULL` columns, so `exists` is a tautology."""
+    if op is FilterOp.EXISTS:
+        return sql.SQL("({} IS NOT NULL)").format(column)
+    if op is FilterOp.IN:
+        return sql.SQL("({} = ANY({}))").format(column, value)
+    operator = sql.SQL("=") if op is FilterOp.EQ else sql.SQL("IS DISTINCT FROM")
+    return sql.SQL("({} {} {})").format(column, operator, value)
+
+
+def _text_set_predicate(
+    op: FilterOp, column: sql.Identifier, value: sql.Composable
+) -> sql.Composed:
+    """`lineage.parents`, `lineage.sources` — `TEXT[]` columns, compared element-wise.
+
+    `in` is intersection rather than equality of the whole array, which is what
+    the same filter means to a document store matching a payload array, and the
+    only reading under which `in` on a set and `in` on a scalar are one operator.
+    """
+    if op is FilterOp.EXISTS:
+        return sql.SQL("(array_length({}, 1) IS NOT NULL)").format(column)
+    if op is FilterOp.IN:
+        return sql.SQL("({} && {})").format(column, value)
+    return sql.SQL("({} = ANY({}))").format(value, column)
+
+
+def _extension_predicate(
+    op: FilterOp, path: FieldPath, value: FilterValue | None, values: dict[str, object]
+) -> sql.Composed:
+    """A path into the `ext` JSONB column, compared under this family's array rule.
+
+    **An array is compared element-wise, a scalar directly** —
+    `weft_store.fields`' stated rule, and a document store's native payload
+    behaviour. SQL needs one expression covering both, so `elements` below is the
+    stored value when it is already an array and a one-element array wrapping it
+    otherwise; `jsonb_typeof` decides per row, which is the only place the
+    decision can be made, since a JSONB column has no declared type.
+
+    A consequence worth stating rather than discovering: under that rule `eq` and
+    `contains` are the same question about extension data, and both mean "is this
+    one of the values stored here". A pack that wants whole-array equality has
+    asked for something no store in this family promises.
+
+    `exists` is deliberately more than `IS NOT NULL`: a namespace present but
+    holding JSON `null`, or an empty array, holds nothing, and answering "yes"
+    for it would disagree with the document store, where an empty array is
+    emptiness.
+    """
+    stored = sql.SQL("(ext #> {})").format(sql.Literal([path.namespace, *path.keys]))
+    elements = sql.SQL(
+        "(CASE WHEN jsonb_typeof({stored}) = 'array' THEN {stored} "
+        "ELSE jsonb_build_array({stored}) END)"
+    ).format(stored=stored)
+    if op is FilterOp.EXISTS:
+        return sql.SQL(
+            "({stored} IS NOT NULL AND {stored} <> 'null'::jsonb AND jsonb_array_length({e}) > 0)"
+        ).format(stored=stored, e=elements)
+    if op in _ORDERED_SQL:
+        return sql.SQL(
+            "(EXISTS (SELECT 1 FROM jsonb_array_elements({e}) AS element "
+            "WHERE jsonb_typeof(element) = 'number' "
+            "AND (element #>> '{{}}')::numeric {operator} {value}))"
+        ).format(e=elements, operator=_ORDERED_SQL[op], value=_bind(values, value))
+    if op is FilterOp.IN:
+        wanted = value if isinstance(value, tuple) else (value,)
+        return sql.SQL("({})").format(
+            sql.SQL(" OR ").join(_holds(elements, values, each) for each in wanted)
+        )
+    if op is FilterOp.NE:
+        return sql.SQL("(NOT {})").format(_holds(elements, values, value))
+    return _holds(elements, values, value)
+
+
+def _holds(
+    elements: sql.Composed, values: dict[str, object], value: FilterValue | None
+) -> sql.Composed:
+    """Whether the stored value holds `value` — containment, which is membership for an array.
+
+    `jsonb @> jsonb` answers exactly this: a scalar is contained by an array that
+    has it as an element, which is why the element-wise rule needs no expansion
+    into a subquery here.
+
+    The literal is bound already wrapped in `psycopg.types.json.Jsonb` rather than
+    handed to SQL's own `to_jsonb`, which cannot type a bare parameter: `to_jsonb
+    (%(v)s)` raises *"could not determine polymorphic type because input has type
+    unknown"* against every value. Wrapping it here also keeps one Python value
+    converting to one JSON value in one place, instead of leaving `1` versus
+    `"1"` to whatever type Postgres inferred.
+    """
+    name = f"f{len(values)}"
+    values[name] = Jsonb(None if isinstance(value, tuple) else value)
+    return sql.SQL("({e} @> {value})").format(e=elements, value=sql.Placeholder(name))
+
+
+def _bind(values: dict[str, object], value: FilterValue | None) -> sql.Composable:
+    """Bind one filter literal as a named parameter, returning its placeholder.
+
+    Named rather than positional because the statements above interpolate the
+    same sub-expression more than once; a positional parameter would have to be
+    passed as many times as it appears, which is a counting exercise nobody
+    should have to get right twice.
+    """
+    if value is None:
+        return sql.SQL("NULL")
+    name = f"f{len(values)}"
+    values[name] = list(value) if isinstance(value, tuple) else value
+    return sql.Placeholder(name)
+
+
+#: Which column each addressable core field lives in. The only mapping in this store that
+#: is not derivable, because `Node`'s shape and this schema's column names are two designs.
+_COLUMN_OF: dict[NodeField, str] = {
+    NodeField.ID: "id",
+    NodeField.CONTENT: "content",
+    NodeField.MEDIA_TYPE: "media_type",
+    NodeField.PARENTS: "parents",
+    NodeField.SOURCES: "sources",
+}
+
+_ORDERED_SQL: dict[FilterOp, sql.SQL] = {
+    FilterOp.LT: sql.SQL("<"),
+    FilterOp.LTE: sql.SQL("<="),
+    FilterOp.GT: sql.SQL(">"),
+    FilterOp.GTE: sql.SQL(">="),
+}
+
+
+def _predicate_or_true(filter: Filter | None, values: dict[str, object]) -> sql.Composable:
+    """A filter's predicate, or a constant true where there is no filter.
+
+    `TRUE` rather than two spellings of every statement: a search with no filter
+    and a search with one must run the same SQL shape, or the filtered path is a
+    second query that only a test with a filter in it ever exercises.
+    """
+    return sql.SQL("TRUE") if filter is None else _predicate(filter, values)
+
+
+class PgVectorStore:
+    """Every tier of the store family over Postgres, with pgvector for the vector column.
+
+    Satisfies all four contracts structurally — this class never imports one of
+    the Protocols, the same path any third-party store pack takes.
     """
 
     def __init__(self, settings: PgVectorSettings, config: object = None) -> None:
         del config  # nothing at the stage level this store needs — see the module docstring
         self._dsn = settings.dsn.get_secret_value()
+        self._text_search_config = settings.text_search_config
+        self._text_query_mode = settings.text_query_mode
+        self._text_rank = settings.text_rank
         self._conn: psycopg.AsyncConnection[dict[str, Any]] | None = None
+
+    def _search_text_sql(self, predicate: sql.Composable) -> sql.Composed:
+        """This store's lexical statement, from the same configuration name the column has.
+
+        One method rather than one precomputed statement, because task 2.6 gave
+        `search_text` a per-call `Filter` to narrow by. The property the
+        precomputed version was protecting is unchanged and is what matters:
+        `self._text_search_config` is the single value that feeds both this and
+        `_add_tsvector_column_sql`, so the stored column and the query cannot
+        disagree about what a word is.
+        """
+        return _search_text_sql(
+            self._text_search_config, self._text_query_mode, self._text_rank, predicate
+        )
 
     async def _connection(self) -> psycopg.AsyncConnection[dict[str, Any]]:
         """The lazily-opened, schema-provisioned connection this store reuses for its lifetime."""
@@ -164,8 +555,74 @@ class PgVectorStore:
         async with conn.cursor() as cur:
             await cur.execute(_CREATE_SOURCES_TABLE)
             await cur.execute(_CREATE_NODES_TABLE)
+            await self._provision_text_index(cur)
         self._conn = conn
         return conn
+
+    async def _provision_text_index(self, cur: psycopg.AsyncCursor[dict[str, Any]]) -> None:
+        """Create `content_tsv` under the configured configuration, or refuse to use this database.
+
+        Three statements, and the last two exist because the first one is a no-op when the column
+        is already there. `ADD COLUMN IF NOT EXISTS` cannot *change* a generation expression, so a
+        database provisioned under one configuration and opened under another would keep storing
+        the old lexemes while the query asked for the new ones — matching almost nothing, raising
+        nothing, and looking like an empty corpus. The column is therefore read back and compared,
+        by `regconfig` identity rather than by spelling, so `simple` and `pg_catalog.simple` are
+        one configuration and a genuinely different one is named in the refusal.
+
+        The configuration name itself is resolved first, against this database's own catalogue, so
+        a typo in `weft.toml` is refused before any schema is touched and with the installed names
+        to choose from.
+        """
+        await self._require_text_search_config(cur)
+        await cur.execute(_add_tsvector_column_sql(self._text_search_config))
+        await cur.execute(_CREATE_TSVECTOR_INDEX)
+        await cur.execute(_GENERATED_EXPRESSION)
+        row = await cur.fetchone()
+        expression = cast(str, row["generation_expression"]) if row is not None else ""
+        found = _GENERATED_TEXT_SEARCH_CONFIG.search(expression)
+        if found is None:
+            raise TextSearchConfigMismatchError(
+                f"weft_nodes.content_tsv is generated by an expression this store did not write: "
+                f"{expression!r}. It cannot be checked against text_search_config="
+                f"{self._text_search_config!r}, and searching against a column whose contents are "
+                f"unknown would report matches nobody can account for.",
+                pack="weft-store",
+            )
+        await cur.execute(
+            _SAME_TEXT_SEARCH_CONFIG,
+            {"found": found.group(1), "wanted": self._text_search_config},
+        )
+        row = await cur.fetchone()
+        if row is not None and not cast(bool, row["same"]):
+            raise TextSearchConfigMismatchError(
+                f"weft_nodes.content_tsv in this database is generated by "
+                f"'{found.group(1)}', and [packs.weft-store] text_search_config asks for "
+                f"'{self._text_search_config}'. A generated column cannot be altered in place, so "
+                f"the stored lexemes would stay '{found.group(1)}'s while every query asked "
+                f"'{self._text_search_config}'s — near-zero matches, and no error to notice it by. "
+                f"Either set text_search_config back to '{found.group(1)}', or drop the column "
+                f"(ALTER TABLE weft_nodes DROP COLUMN content_tsv) and let this store recreate "
+                f"it: it is generated from content, so nothing needs re-indexing.",
+                pack="weft-store",
+            )
+
+    async def _require_text_search_config(self, cur: psycopg.AsyncCursor[dict[str, Any]]) -> None:
+        """Refuse a configuration name this database has not got, naming the ones it has."""
+        try:
+            await cur.execute(_RESOLVE_TEXT_SEARCH_CONFIG, {"config": self._text_search_config})
+        except psycopg.errors.UndefinedObject as exc:
+            await cur.execute(_INSTALLED_TEXT_SEARCH_CONFIGS)
+            rows = await cur.fetchall()
+            options = tuple(cast(str, row["cfgname"]) for row in rows)
+            installed = ", ".join(options) or "(none)"
+            raise UnknownTextSearchConfigError(
+                f"[packs.weft-store] text_search_config names "
+                f"'{self._text_search_config}', which this database has no text search "
+                f"configuration for. Installed here: {installed}.",
+                valid_options=options,
+                pack="weft-store",
+            ) from exc
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
         """Store `payload` and pass it through — the module docstring's narrowing note."""
@@ -229,10 +686,7 @@ class PgVectorStore:
                 (after, _PAGE_SIZE + 1),
             )
             rows = await cur.fetchall()
-        has_more = len(rows) > _PAGE_SIZE
-        page_rows = rows[:_PAGE_SIZE]
-        next_cursor = Cursor(cast(str, page_rows[-1]["id"])) if has_more else None
-        return Page(items=tuple(_row_to_node(row) for row in page_rows), next_cursor=next_cursor)
+        return _page_of(rows)
 
     async def count(self) -> int:
         conn = await self._connection()
@@ -279,35 +733,72 @@ class PgVectorStore:
             rows = await cur.fetchall()
         return tuple(_row_to_source_record(row) for row in rows)
 
+    async def matching(self, filter: Filter, cursor: Cursor | None = None) -> Page[Node]:
+        """Every node `filter` selects, paged — `MetadataFilter`, task 2.6.
+
+        The same walk as `scan`, with a predicate: ordered by the node id so a
+        cursor means something, and one page at a time because a predicate over a
+        corpus can select all of it.
+        """
+        values: dict[str, object] = {"after": cursor if cursor is not None else ""}
+        statement = sql.SQL(
+            "SELECT * FROM weft_nodes WHERE id > %(after)s AND {predicate} "
+            "ORDER BY id LIMIT %(limit)s"
+        ).format(predicate=_predicate(filter, values))
+        values["limit"] = _PAGE_SIZE + 1
+        conn = await self._connection()
+        async with conn.cursor() as cur:
+            await cur.execute(statement, values)
+            rows = await cur.fetchall()
+        return _page_of(rows)
+
     async def search_vector(
         self, vector: Vector, top_k: int, filter: Filter | None = None
     ) -> Sequence[Scored[Node]]:
-        if filter is not None:
-            raise UnsupportedFilterError(
-                "PgVectorStore.search_vector does not yet translate Filter to SQL — "
-                "Phase 0 resolves no pipeline against a store's filter capability. "
-                "Pass filter=None."
-            )
         conn = await self._connection()
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
+        values: dict[str, object] = {}
+        statement = sql.SQL("""
                 SELECT *, embedding <=> %(vector)s AS distance
                 FROM weft_nodes
-                WHERE embedding IS NOT NULL
+                WHERE embedding IS NOT NULL AND {predicate}
                 ORDER BY embedding <=> %(vector)s
                 LIMIT %(top_k)s
-                """,
+                """).format(predicate=_predicate_or_true(filter, values))
+        async with conn.cursor() as cur:
+            await cur.execute(
+                statement,
                 # Wrapped in `pgvector.Vector`, not passed as a bare list: a plain Python list
                 # adapts to a Postgres array, and `<=>` has no overload comparing `vector` to
                 # `double precision[]`. `register_vector_async` is what makes `PgVector` dump as
                 # the `vector` type instead.
-                {"vector": PgVector(list(vector.values)), "top_k": top_k},
+                {**values, "vector": PgVector(list(vector.values)), "top_k": top_k},
             )
             rows = await cur.fetchall()
         return [
             Scored(value=_row_to_node(row), score=1.0 - cast(float, row["distance"]))
             for row in rows
+        ]
+
+    async def search_text(
+        self, text: str, top_k: int, filter: Filter | None = None
+    ) -> Sequence[Scored[Node]]:
+        """Rank stored nodes by lexical match on their own text — `TextSearch`, task 2.5.
+
+        Never embeds and never asks who embedded: this is the arm that works on a corpus
+        indexed with no model at all, and the one whose recall does not move when the
+        embedder is swapped. `filter` narrows what may be ranked, exactly as it does on
+        `search_vector` — a store that can evaluate a filter has no excuse for ignoring one.
+
+        No match is an empty sequence, not an error — see `TextSearch`'s own docstring.
+        """
+        conn = await self._connection()
+        values: dict[str, object] = {}
+        statement = self._search_text_sql(_predicate_or_true(filter, values))
+        async with conn.cursor() as cur:
+            await cur.execute(statement, {**values, "text": text, "top_k": top_k})
+            rows = await cur.fetchall()
+        return [
+            Scored(value=_row_to_node(row), score=float(cast(float, row["rank"]))) for row in rows
         ]
 
     async def aclose(self) -> None:
@@ -320,6 +811,20 @@ class PgVectorStore:
 def register(registrar: PackRegistrar, settings: PgVectorSettings) -> None:
     """Register `PgVectorStore` as `"pgvector"` for `NodeStore`. The only plugin this pack ships."""
     registrar.add(NodeStore, "pgvector", partial(PgVectorStore, settings))
+
+
+def _page_of(rows: Sequence[Mapping[str, object]]) -> Page[Node]:
+    """One page of an id-ordered walk, from a query that asked for one row more than a page.
+
+    Shared by `scan` and `matching` because the cursor discipline — fetch
+    `_PAGE_SIZE + 1`, hand back `_PAGE_SIZE`, and carry the last id only when
+    there was a row beyond it — is a property of this store's paging, not of
+    either walk. Two copies would be two chances to say "there is more" wrongly.
+    """
+    page_rows = rows[:_PAGE_SIZE]
+    has_more = len(rows) > _PAGE_SIZE
+    next_cursor = Cursor(cast(str, page_rows[-1]["id"])) if has_more else None
+    return Page(items=tuple(_row_to_node(row) for row in page_rows), next_cursor=next_cursor)
 
 
 def _node_to_row(node: Node) -> dict[str, object]:

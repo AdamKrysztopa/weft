@@ -1,0 +1,9 @@
+name: no-retrieval
+vars:
+  route.summary: "Answers from the model's own memory, with no corpus lookup at all."
+  route.cost: "one model call, no retrieval"
+stages:
+  - {id: retrieve, use: no-retrieval}
+  - {id: fuse,     use: single-list}
+  - {id: pack,     use: repack}
+  - {id: generate, use: cited-answer, with: {when_no_evidence: answer_from_memory}}

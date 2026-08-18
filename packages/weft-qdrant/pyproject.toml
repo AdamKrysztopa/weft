@@ -1,0 +1,29 @@
+[project]
+name = "weft-qdrant"
+version = "0.0.0"
+description = "First-party Qdrant store pack. Registers under the store contract family weft-store publishes."
+requires-python = ">=3.12"
+# `qdrant-client` is Apache-2.0, so it widens nothing an MIT library asks of the people
+# who install it. The floor is the version this pack's behaviour was measured against; a
+# claim about an older release would be a claim nobody here has checked.
+#
+# **No ceiling, and that is a repair.** This read `<1.14` so that resolution would not
+# outrun `compose.yaml`'s pinned `qdrant/qdrant:v1.12.4` and make the conformance kit emit
+# the client's own version warning. That put a *test fixture's* concern into the dependency
+# range every downstream install resolves against, and the client's rule is symmetric —
+# "major versions should match and minor version difference must not exceed 1" — so a
+# client capped at 1.13 is out of its supported window against any server at 1.15 or later.
+# An operator pointing this pack at a current deployment could not widen the range without
+# editing a file in this repository, which is the one cost this project will not pay. The
+# warning itself is something they *can* act on: align the server and the client. The dev
+# environment's own alignment with `compose.yaml` lives in the workspace root's
+# `[tool.uv] constraint-dependencies`, where a fixture pin belongs.
+dependencies = ["weft-kernel", "weft-store", "qdrant-client>=1.12"]
+
+# The one entry point a pack declares (`docs/02-extension-model.md` section 2).
+[project.entry-points."weft.packs"]
+qdrant = "weft_qdrant:register"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

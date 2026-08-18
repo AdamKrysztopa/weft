@@ -14,12 +14,15 @@ of what a plugin must implement.
 
 `EXTENSIONS` is capability metadata, per `docs/02-extension-model.md` section
 1 — "a capability declares its own metadata... this is not decoration — it
-is the fix for the accept-then-fail bug." `discover_source_docs` is what
-actually reads it; a future dispatcher choosing an extractor by file
-extension would read it too, rather than a second, hand-maintained list.
+is the fix for the accept-then-fail bug." It is *this extractor's* claim and
+nothing wider: `weft_extract.accept.claimed_extensions` reads it off this
+class the same way it reads every other registered extractor's, and it is
+their union — never this constant alone — that decides what ingest accepts.
+`discover_source_docs` takes that union as an argument for exactly that
+reason.
 """
 
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
@@ -84,8 +87,8 @@ class TextExtractor:
         return Produced(value=nodes)
 
 
-def discover_source_docs(directory: Path) -> tuple[SourceDoc, ...]:
-    """Every `.txt`/`.md` file under `directory`, read into a `SourceDoc`.
+def discover_source_docs(directory: Path, *, extensions: Collection[str]) -> tuple[SourceDoc, ...]:
+    """Every file under `directory` whose suffix is in `extensions`, read into a `SourceDoc`.
 
     Recurses. `source_id` is the file's resolved path — stable across runs
     from the same checkout, which is what makes re-indexing an unchanged
@@ -93,9 +96,17 @@ def discover_source_docs(directory: Path) -> tuple[SourceDoc, ...]:
     *Identity is a content-addressed digest*). Files are read and returned in
     sorted-path order, so two runs over the same directory build the same
     batch in the same order.
+
+    **`extensions` is required, and that is a repair.** This used to read
+    `EXTENSIONS` — *this* module's constant — which meant a directory walk in
+    a shared helper silently decided that ingest accepts what one pack claims.
+    A second extractor pack made `.pdf` invisible to `weft index` with no
+    error anywhere. The accept set now arrives from the caller, derived from
+    the registry by `weft_extract.accept.claimed_extensions`, and there is no
+    default here for it to fall back to.
     """
     paths = sorted(
-        path for path in directory.rglob("*") if path.is_file() and path.suffix in EXTENSIONS
+        path for path in directory.rglob("*") if path.is_file() and path.suffix in extensions
     )
     return tuple(
         SourceDoc(

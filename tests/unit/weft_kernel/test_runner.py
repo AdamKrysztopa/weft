@@ -33,6 +33,7 @@ there, which is exactly what the test's own assertions rule out.
 
 import asyncio
 import gc
+import time
 import weakref
 from collections.abc import AsyncIterator, Callable, Sequence
 from typing import Protocol
@@ -40,11 +41,13 @@ from typing import Protocol
 import pytest
 
 from weft_kernel import runner
+from weft_kernel.blocking import BlockingCallError
 from weft_kernel.context import Context
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import (
     Applies,
     ExtModel,
+    Failed,
     MediaType,
     Node,
     NothingToProduce,
@@ -1120,3 +1123,519 @@ async def test_run_treats_a_multi_fact_applies_to_tuple_as_a_conjunction() -> No
     # Assert — only the node carrying both facts was marked.
     result = list(captured[0])
     assert [node.content for node in result] == ["both!", "table-only"]
+
+
+# --- task 2.28: a stage's `fallback:` chain, wired to `weft_kernel.fallback` ------------------
+
+
+class _CannotRead:
+    """A backend that refuses every document — the first candidate in the chains below."""
+
+    lifetime = runner.Lifetime.RUN
+    requires: tuple[type[ExtModel], ...] = ()
+    provides: tuple[type[ExtModel], ...] = ()
+
+    def __init__(self, config: object) -> None: ...
+
+    async def run(self, payload: list[str], ctx: Context) -> Outcome[list[str]]:
+        del payload, ctx
+        return Failed(reason="could not read it")
+
+
+def _labelling_factory(built: list[str], label: str) -> Callable[[object], object]:
+    """A backend that stamps its own name onto what it produces, and records being built.
+
+    Both halves are what the chain tests need to observe: *which* backend answered
+    (the stamp, read off the produced payload by the capture stage that follows) and
+    *whether it was ever constructed* (the record, which is how "built lazily, at try
+    time" stops being a claim about the implementation).
+    """
+
+    class _Backend:
+        lifetime = runner.Lifetime.RUN
+        requires: tuple[type[ExtModel], ...] = ()
+        provides: tuple[type[ExtModel], ...] = ()
+
+        def __init__(self, config: object) -> None:
+            built.append(label)
+
+        async def run(self, payload: list[str], ctx: Context) -> Outcome[list[str]]:
+            del ctx
+            return Produced(value=[f"{item} by {label}" for item in payload])
+
+    return _Backend
+
+
+async def test_a_stage_whose_plugin_failed_falls_through_to_the_next_backend() -> None:
+    # Arrange — task 2.28's shape at the kernel: two backends of one contract, the first
+    # refusing, and the chain's order coming from the stage's own data rather than from code.
+    built: list[str] = []
+    captured: list[list[str]] = []
+    registry = Registry()
+    registry.add(_TextStage, "primary", _CannotRead, distribution="weft-test-pack")
+    registry.add(
+        _TextStage, "secondary", _labelling_factory(built, "secondary"), distribution="weft-other"
+    )
+    registry.add(_TextStage, "capture", _text_capture_factory(captured), distribution="weft-test")
+    engine = runner.Runner(registry)
+    pipeline = engine.resolve(
+        (
+            runner.StageSpec(
+                id="extract", contract=_TextStage, name="primary", fallback=("secondary",)
+            ),
+            runner.StageSpec(id="capture", contract=_TextStage, name="capture"),
+        ),
+        tenant_id="tenant-a",
+    )
+
+    async def batches() -> AsyncIterator[list[str]]:
+        yield ["paper"]
+
+    # Act
+    summary = await engine.run(pipeline, batches(), _ctx())
+
+    # Assert — the run produced, and what it produced says which backend answered.
+    assert summary == runner.RunSummary(produced=1)
+    assert captured == [["paper by secondary"]]
+    assert built == ["secondary"]
+
+
+async def test_a_fallback_is_never_built_while_the_primary_is_answering() -> None:
+    # Arrange — "candidates are built lazily, at try time, so an uninstantiable fallback
+    # costs nothing while the primary works." A fallback built at resolution would show up
+    # in `built` before a single batch ran.
+    built: list[str] = []
+    registry = Registry()
+    registry.add(_TextStage, "primary", _labelling_factory(built, "primary"), distribution="a")
+    registry.add(_TextStage, "secondary", _labelling_factory(built, "secondary"), distribution="b")
+    engine = runner.Runner(registry)
+    pipeline = engine.resolve(
+        (
+            runner.StageSpec(
+                id="extract", contract=_TextStage, name="primary", fallback=("secondary",)
+            ),
+        ),
+        tenant_id="tenant-a",
+    )
+
+    async def batches() -> AsyncIterator[list[str]]:
+        yield ["paper"]
+
+    # Act
+    summary = await engine.run(pipeline, batches(), _ctx())
+
+    # Assert
+    assert summary == runner.RunSummary(produced=1)
+    assert built == ["primary"], "the fallback was constructed even though it was never tried"
+
+
+async def test_a_primary_that_produced_nothing_stops_the_chain_rather_than_trying_the_next() -> (
+    None
+):
+    # Arrange — the whole point of the combinator, at the runner: an empty document is a
+    # different outcome from a failed one, and a second backend adds nothing to "I looked,
+    # and there is nothing here."
+    built: list[str] = []
+
+    class _LooksAndFindsNothing:
+        lifetime = runner.Lifetime.RUN
+        requires: tuple[type[ExtModel], ...] = ()
+        provides: tuple[type[ExtModel], ...] = ()
+
+        def __init__(self, config: object) -> None: ...
+
+        async def run(self, payload: list[str], ctx: Context) -> Outcome[list[str]]:
+            del payload, ctx
+            return NothingToProduce(reason="4 page(s), and no text on any of them")
+
+    registry = Registry()
+    registry.add(_TextStage, "primary", _LooksAndFindsNothing, distribution="a")
+    registry.add(_TextStage, "secondary", _labelling_factory(built, "secondary"), distribution="b")
+    engine = runner.Runner(registry)
+    pipeline = engine.resolve(
+        (
+            runner.StageSpec(
+                id="extract", contract=_TextStage, name="primary", fallback=("secondary",)
+            ),
+        ),
+        tenant_id="tenant-a",
+    )
+
+    async def batches() -> AsyncIterator[list[str]]:
+        yield ["paper"]
+
+    # Act
+    summary = await engine.run(pipeline, batches(), _ctx())
+
+    # Assert
+    assert summary.nothing_to_produce == 1
+    assert summary.nothing_to_produce_reasons == ("4 page(s), and no text on any of them",)
+    assert built == []
+
+
+def test_resolve_refuses_an_unregistered_fallback_name_naming_the_valid_options() -> None:
+    # Arrange — refusing at resolution rather than at try time: refusing when the chain is
+    # first *reached* would make the failure depend on encountering a document the primary
+    # cannot read, so a pipeline could be green for a year and fail in production.
+    registry = Registry()
+    registry.add(_TextStage, "primary", _CannotRead, distribution="weft-test-pack")
+    registry.add(_TextStage, "secondary", _CannotRead, distribution="weft-other")
+    engine = runner.Runner(registry)
+
+    # Act
+    with pytest.raises(runner.UnknownFallbackError) as caught:
+        engine.resolve(
+            (
+                runner.StageSpec(
+                    id="extract", contract=_TextStage, name="primary", fallback=("secondary", "ocr")
+                ),
+            ),
+            tenant_id="tenant-a",
+        )
+
+    # Assert — requirement 5: what was wanted, where, and every option that would have worked.
+    message = str(caught.value)
+    assert "'ocr'" in message
+    assert "fallback 2 of 2" in message
+    assert "_TextStage" in message
+    assert "'secondary'" in message
+    assert caught.value.stages == ("extract",)
+    assert "remove" in caught.value.remedy
+
+
+async def test_a_stage_that_blocks_the_loop_still_fails_the_run_when_it_declares_a_fallback() -> (
+    None
+):
+    # Arrange — fitness function 7(b)'s guard is armed by the seam around every candidate,
+    # and `BlockingCallError` is a `WeftError`. A chain that recorded it as a refusal would
+    # let one `fallback:` line opt a stage out of the colour rule: the next candidate
+    # answers, the run exits 0, and the violation is named nowhere.
+    built: list[str] = []
+
+    class _BlocksTheLoop:
+        lifetime = runner.Lifetime.RUN
+        requires: tuple[type[ExtModel], ...] = ()
+        provides: tuple[type[ExtModel], ...] = ()
+
+        def __init__(self, config: object) -> None: ...
+
+        async def run(self, payload: list[str], ctx: Context) -> Outcome[list[str]]:
+            del ctx
+            time.sleep(0)
+            return Produced(value=payload)
+
+    registry = Registry()
+    registry.add(_TextStage, "primary", _BlocksTheLoop, distribution="weft-test-pack")
+    registry.add(_TextStage, "secondary", _labelling_factory(built, "secondary"), distribution="b")
+    engine = runner.Runner(registry)
+    pipeline = engine.resolve(
+        (
+            runner.StageSpec(
+                id="extract", contract=_TextStage, name="primary", fallback=("secondary",)
+            ),
+        ),
+        tenant_id="tenant-a",
+    )
+
+    async def batches() -> AsyncIterator[list[str]]:
+        yield ["paper"]
+
+    # Act / Assert — the same failure the identical stage gets with no fallback declared.
+    with pytest.raises(BlockingCallError) as caught:
+        await engine.run(pipeline, batches(), _ctx())
+
+    assert "extract:primary" in str(caught.value)
+    assert built == [], "the chain moved on from a contract violation instead of failing"
+
+
+def _declaring_factory(
+    *,
+    requires: tuple[type[ExtModel], ...] = (),
+    provides: tuple[type[ExtModel], ...] = (),
+    intact: tuple[type[Property], ...] = (),
+    destroys: tuple[type[Property], ...] = (),
+) -> Callable[[object], object]:
+    """A backend that declares exactly the four class-level facts `_chain` compares."""
+    declared_requires, declared_provides = requires, provides
+    declared_intact, declared_destroys = intact, destroys
+
+    class _Backend:
+        lifetime = runner.Lifetime.RUN
+        requires: tuple[type[ExtModel], ...] = declared_requires
+        provides: tuple[type[ExtModel], ...] = declared_provides
+        intact: tuple[type[Property], ...] = declared_intact
+        destroys: tuple[type[Property], ...] = declared_destroys
+
+        def __init__(self, config: object) -> None: ...
+
+        async def run(self, payload: list[str], ctx: Context) -> Outcome[list[str]]:
+            del ctx
+            return Produced(value=payload)
+
+    return _Backend
+
+
+@pytest.mark.parametrize(
+    ("fallback", "expected"),
+    [
+        pytest.param(
+            _declaring_factory(provides=(_Uppercased,), destroys=(_WordBoundaries,)),
+            "destroys",
+            id="destroys-more",
+        ),
+        pytest.param(_declaring_factory(), "provides", id="provides-less"),
+        pytest.param(
+            _declaring_factory(requires=(_Uppercased,), provides=(_Uppercased,)),
+            "requires",
+            id="requires-more",
+        ),
+        pytest.param(
+            _declaring_factory(provides=(_Uppercased,), intact=(_WordBoundaries,)),
+            "intact",
+            id="needs-more-intact",
+        ),
+    ],
+)
+def test_resolve_refuses_a_fallback_that_demands_more_or_promises_less_than_the_primary(
+    fallback: Callable[[object], object], expected: str
+) -> None:
+    # Arrange — a fallback's whole claim is substitutability at one position. Every
+    # downstream `requires`/`intact` check was answered by the *primary*'s declarations,
+    # so a fallback that provides less or destroys more resolves clean and then corrupts
+    # the run — and only on the documents the primary could not read, which is where a
+    # test would never look. The class-level read this costs is exactly what
+    # `weft_kernel.resolution.resolve` already does, with no instance constructed.
+    registry = Registry()
+    registry.add(
+        _TextStage,
+        "primary",
+        _declaring_factory(provides=(_Uppercased,)),
+        distribution="weft-test-pack",
+    )
+    registry.add(_TextStage, "secondary", fallback, distribution="weft-other")
+    engine = runner.Runner(registry)
+
+    # Act
+    with pytest.raises(runner.FallbackNotSubstitutableError) as caught:
+        engine.resolve(
+            (
+                runner.StageSpec(
+                    id="extract", contract=_TextStage, name="primary", fallback=("secondary",)
+                ),
+            ),
+            tenant_id="tenant-a",
+        )
+
+    # Assert — requirement 5: what was wanted, where, and what would have worked.
+    message = str(caught.value)
+    assert "'secondary'" in message
+    assert "fallback 1 of 1" in message
+    assert expected in message
+    assert caught.value.stages == ("extract",)
+    assert caught.value.remedy
+
+
+def test_resolve_accepts_a_fallback_declaring_exactly_what_the_primary_declares() -> None:
+    # Arrange — the check refuses a difference, never a declaration: a fallback that
+    # declares the same four facts is substitutable and resolves, with neither candidate
+    # constructed beyond the primary resolution already builds.
+    registry = Registry()
+    registry.add(
+        _TextStage,
+        "primary",
+        _declaring_factory(provides=(_Uppercased,), destroys=(_WordBoundaries,)),
+        distribution="weft-test-pack",
+    )
+    registry.add(
+        _TextStage,
+        "secondary",
+        _declaring_factory(provides=(_Uppercased,), destroys=(_WordBoundaries,)),
+        distribution="weft-other",
+    )
+    engine = runner.Runner(registry)
+
+    # Act
+    pipeline = engine.resolve(
+        (
+            runner.StageSpec(
+                id="extract", contract=_TextStage, name="primary", fallback=("secondary",)
+            ),
+        ),
+        tenant_id="tenant-a",
+    )
+
+    # Assert
+    assert [candidate.name for candidate in pipeline.stages[0].chain] == ["primary", "secondary"]
+
+
+async def test_a_fallback_the_chain_reached_is_flushed_like_any_other_stage() -> None:
+    # Arrange — a fallback is built at try time, so it is invisible to a flush loop that
+    # walks only what resolution constructed. A store backend reached as a fallback and
+    # never flushed would lose whatever it buffered, silently.
+    flushed: list[str] = []
+
+    class _FlushableBackend:
+        lifetime = runner.Lifetime.RUN
+        requires: tuple[type[ExtModel], ...] = ()
+        provides: tuple[type[ExtModel], ...] = ()
+
+        def __init__(self, config: object) -> None: ...
+
+        async def run(self, payload: list[str], ctx: Context) -> Outcome[list[str]]:
+            del ctx
+            return Produced(value=payload)
+
+        async def flush(self) -> None:
+            flushed.append("secondary")
+
+    registry = Registry()
+    registry.add(_TextStage, "primary", _CannotRead, distribution="weft-test-pack")
+    registry.add(_TextStage, "secondary", _FlushableBackend, distribution="weft-other")
+    engine = runner.Runner(registry)
+    pipeline = engine.resolve(
+        (
+            runner.StageSpec(
+                id="extract", contract=_TextStage, name="primary", fallback=("secondary",)
+            ),
+        ),
+        tenant_id="tenant-a",
+    )
+
+    async def batches() -> AsyncIterator[list[str]]:
+        yield ["paper"]
+
+    # Act
+    summary = await engine.run(pipeline, batches(), _ctx())
+
+    # Assert
+    assert summary == runner.RunSummary(produced=1)
+    assert flushed == ["secondary"]
+
+
+# --- `run_once` — one payload in, that payload's own outcome out (task 2.4) ----------------
+
+
+async def test_run_once_returns_the_payload_the_last_stage_produced() -> None:
+    # Arrange — `run` returns counts by design, which is right for ingest and useless for a
+    # query path, where there is exactly one payload and the payload is the point.
+    registry = Registry()
+    registry.add(_TextStage, "upper", _Uppercase, distribution="weft-test-pack")
+    registry.add(_CountStage, "count", _Count, distribution="weft-test-pack")
+    engine = runner.Runner(registry)
+    pipeline = engine.resolve(
+        (
+            runner.StageSpec(id="upper", contract=_TextStage, name="upper"),
+            runner.StageSpec(id="count", contract=_CountStage, name="count"),
+        ),
+        tenant_id="tenant-a",
+    )
+
+    # Act
+    outcome = await engine.run_once(pipeline, ["a", "b"], _ctx())
+
+    # Assert
+    assert outcome == Produced(value=2)
+
+
+async def test_run_once_returns_the_first_outcome_that_is_not_produced() -> None:
+    # Arrange
+    class _Declines:
+        lifetime = runner.Lifetime.RUN
+        requires: tuple[type[ExtModel], ...] = ()
+        provides = (_Uppercased,)
+
+        def __init__(self, config: object) -> None: ...
+
+        async def run(self, payload: list[str], ctx: Context) -> Outcome[list[str]]:
+            del payload, ctx
+            return NothingToProduce(reason="declined to act")
+
+    registry = Registry()
+    registry.add(_TextStage, "declines", _Declines, distribution="weft-test-pack")
+    registry.add(_CountStage, "count", _Count, distribution="weft-test-pack")
+    engine = runner.Runner(registry)
+    pipeline = engine.resolve(
+        (
+            runner.StageSpec(id="declines", contract=_TextStage, name="declines"),
+            runner.StageSpec(id="count", contract=_CountStage, name="count"),
+        ),
+        tenant_id="tenant-a",
+    )
+
+    # Act
+    outcome = await engine.run_once(pipeline, ["a"], _ctx())
+
+    # Assert
+    assert outcome == NothingToProduce(reason="declined to act")
+
+
+async def test_run_once_refuses_a_context_for_a_tenant_the_pipeline_was_not_resolved_for() -> None:
+    # Arrange
+    registry = Registry()
+    registry.add(_TextStage, "upper", _Uppercase, distribution="weft-test-pack")
+    engine = runner.Runner(registry)
+    pipeline = engine.resolve(
+        (runner.StageSpec(id="upper", contract=_TextStage, name="upper"),), tenant_id="tenant-a"
+    )
+    other = Context(tenant_id="tenant-b", run_id="run-1", trace_id="trace-1", locale="en")
+
+    # Act / Assert
+    with pytest.raises(runner.TenantMismatchError) as caught:
+        await engine.run_once(pipeline, ["a"], other)
+    assert "tenant-a" in str(caught.value)
+    assert "tenant-b" in str(caught.value)
+
+
+async def test_run_once_flushes_every_stage_once_and_again_when_one_raises() -> None:
+    # Arrange
+    flushed: list[str] = []
+
+    class _Flushable:
+        lifetime = runner.Lifetime.RUN
+        requires: tuple[type[ExtModel], ...] = ()
+        provides = (_Uppercased,)
+
+        def __init__(self, config: object) -> None: ...
+
+        async def run(self, payload: list[str], ctx: Context) -> Outcome[list[str]]:
+            del ctx
+            return Produced(value=payload)
+
+        async def flush(self) -> None:
+            flushed.append("flushable")
+
+    class _Explodes:
+        lifetime = runner.Lifetime.RUN
+        requires = (_Uppercased,)
+        provides: tuple[type[ExtModel], ...] = ()
+
+        def __init__(self, config: object) -> None: ...
+
+        async def run(self, payload: list[str], ctx: Context) -> Outcome[int]:
+            del payload, ctx
+            raise asyncio.CancelledError
+
+    registry = Registry()
+    registry.add(_TextStage, "flushable", _Flushable, distribution="weft-test-pack")
+    registry.add(_CountStage, "explodes", _Explodes, distribution="weft-test-pack")
+    engine = runner.Runner(registry)
+    happy = engine.resolve(
+        (runner.StageSpec(id="flushable", contract=_TextStage, name="flushable"),),
+        tenant_id="tenant-a",
+    )
+    unhappy = engine.resolve(
+        (
+            runner.StageSpec(id="flushable", contract=_TextStage, name="flushable"),
+            runner.StageSpec(id="explodes", contract=_CountStage, name="explodes"),
+        ),
+        tenant_id="tenant-a",
+    )
+
+    # Act
+    await engine.run_once(happy, ["a"], _ctx())
+    with pytest.raises(asyncio.CancelledError):
+        await engine.run_once(unhappy, ["a"], _ctx())
+
+    # Assert — once for the clean run, once for the cancelled one, and the cancellation
+    # reached the caller untouched
+    assert flushed == ["flushable", "flushable"]

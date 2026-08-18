@@ -35,5 +35,45 @@ services:
       timeout: 3s
       retries: 20
 
+  # The second backend, and it is not a second requirement. `01` → *Runtime shape*
+  # says one container is the floor and it is pgvector; G4 moved the over-fitting
+  # guard rather than deleting it, and named the pair it moves to: "the contract is
+  # proven on **pgvector and Qdrant**, which have genuinely different shapes, and a
+  # store that only Postgres can satisfy fails that test just as loudly."
+  #
+  # So this service exists to be *proof*, not to be deployed alongside the first one.
+  # Nothing in Weft requires both at once: the backend is chosen in configuration like
+  # any other plugin, and the store conformance suite is the only thing that asks for
+  # this one.
+  #
+  # Port 6333 is Qdrant's own default and is not remapped, because — unlike Postgres —
+  # there is no widespread convention of one already running on a developer's machine.
+  # If that stops being true, remap it here and say so in `.env.example`, the same way
+  # 5433 is explained there.
+  #
+  # It sits behind a profile, so `docker compose up -d` still means what this file's
+  # opening line says it means: the one container, and it is the database. Starting
+  # it takes `--profile conformance` and is therefore a thing you did on purpose.
+  qdrant:
+    image: qdrant/qdrant:v1.12.4
+    profiles: ["conformance"]
+    ports:
+      - "6333:6333"
+    volumes:
+      - weft-qdrant-data:/qdrant/storage
+    healthcheck:
+      # The image carries neither curl nor wget, so the check speaks HTTP itself
+      # through bash's /dev/tcp. `CMD` with an explicit `bash` rather than `CMD-SHELL`,
+      # because the image's `/bin/sh` is dash and dash has no /dev/tcp — a `CMD-SHELL`
+      # form here reports unhealthy forever while the service is in fact serving.
+      # `/readyz` rather than `/healthz`: healthz answers as soon as the process is up,
+      # readyz waits until the shards are, and a store that answers before it can search
+      # is exactly the race an integration test would hit.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/6333 && printf 'GET /readyz HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q 'all shards are ready' <&3"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
 volumes:
   weft-postgres-data:
+  weft-qdrant-data:

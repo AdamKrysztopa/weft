@@ -1,0 +1,14 @@
+[project]
+name = "weft-llm"
+version = "0.0.0"
+description = "First-party generation-support pack. Publishes the LLMProvider contract, the LLMError taxonomy, and the deterministic offline scripted provider."
+requires-python = ">=3.12"
+dependencies = ["weft-kernel"]
+
+# The one entry point a pack declares (`docs/02-extension-model.md` section 2).
+[project.entry-points."weft.packs"]
+llm = "weft_llm:register"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

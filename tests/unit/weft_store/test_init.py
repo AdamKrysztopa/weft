@@ -2,9 +2,11 @@
 
 Mirrors `packages/weft-store/src/weft_store/pgvector_store.py`'s `register`.
 Covers the happy path (`register` adds a `PgVectorStore` bound to this pack's
-settings as `"pgvector"` under `NodeStore`), and that an unresolvable `dsn`
-field is refused — `PgVectorSettings` has exactly one field, so a missing
-`dsn` is the only shape it can get wrong.
+settings as `"pgvector"` under `NodeStore`), and that a missing `dsn` is
+refused — it is the one field with no default, so it is the only shape a
+`[packs.weft-store]` block can get wrong by omission. The three text-search
+settings beside it are exercised in `test_pgvector_store.py`, where their
+effect on a real database is what makes them worth having.
 """
 
 import pytest

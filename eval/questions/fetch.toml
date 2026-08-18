@@ -1,0 +1,1803 @@
+# V2 question set (`docs/09-release.md` §4.3) — the open-access round: written from the
+# arXiv and BMC papers, which anyone can fetch.
+#
+# `eval/check_questions.py` owns the schema, every rule these entries are refused by, and
+# the argument for why nothing written here may be believed until
+# `tests/docs/test_question_set.py` has read it back out of the corpus. This file holds
+# questions and no design.
+#
+# **Provenance, which V2 requires recorded per answer.** Each question was written by an LLM
+# agent (Claude Opus 5, 2026-08-17) that had read the document it names, from the passage
+# quoted beside it, and was checked by a second, independent agent; `notes` carries the
+# per-question detail. This is not human-expert ground truth and must not be reported as
+# though it were — those agents verified their own quotes, and a mechanical re-check still
+# rejected 4 of 287 as appearing nowhere in the file they named.
+
+[[question]]
+id = "fetch-001"
+text = "According to the Randomized Dependence Coefficient paper, what three steps make up the construction of the RDC statistic?"
+language = "en"
+kind = "methodological"
+difficulty = "easy"
+relevant_documents = ["ax-1304.7717v2"]
+reference_answer = "RDC is built in three steps: (1) the copula transformation of each of the two random samples; (2) projection of those copulas through k randomly chosen non-linear maps; and (3) computation of the largest canonical correlation between the two resulting sets of non-linear random projections."
+notes = "Written by Claude (Opus 5) from Section 3 of arXiv:1304.7717v2. Answer follows from the quoted passage alone; the enumeration is stated explicitly there."
+
+  [[question.quote]]
+  document = "ax-1304.7717v2"
+  page = 2
+  text = """
+we describe the three necessary steps to construct the RDC statistic: copula-transformation of each
+of the two random samples (Section 3.1), projection of the copulas throughk randomly chosen non-
+linear maps (Section 3.2) and computation of the largest canonical correlation between the two sets
+of non-linear random projections (Section 3.3).
+"""
+
+[[question]]
+id = "fetch-002"
+text = "Why do the authors of the RDC paper argue that it is undesirable to approximate the HGR maximum correlation coefficient exactly on finite datasets, and what does RDC do instead?"
+language = "en"
+kind = "methodological"
+difficulty = "hard"
+relevant_documents = ["ax-1304.7717v2"]
+reference_answer = "Because on a finite sample the supremum defining HGR degenerates: the finite-sample version of the HGR definition is constant and equal to 1 for continuous random variables, so it carries no information about dependence. The paper concludes that any meaningful measure of dependence estimated from finite samples must therefore rely on some form of regularization, and RDC obtains that regularization by approximating the space of Borel-measurable functions with the restricted function class F of Theorem 4."
+notes = "Written by Claude (Opus 5) from Section 4 ('Relationship to the HGR coefficient'). Requires the methods/properties section, not the abstract. Two passages quoted because the answer has two halves."
+
+  [[question.quote]]
+  document = "ax-1304.7717v2"
+  page = 5
+  text = """
+Therefore, the ﬁnite-sample version of Equation (1) is con-
+stant and equal to “1” for continuous random variables. Meaningful measures of dependence from
+ﬁnite samples thus must rely on some form of regularization.
+"""
+
+  [[question.quote]]
+  document = "ax-1304.7717v2"
+  page = 5
+  text = """
+RDC achieves this by approximating
+the space of Borel measurable functions with the restricted function classF from Theorem 4:
+"""
+
+[[question]]
+id = "fetch-003"
+text = "In the RDC paper's running-time comparison, how long does RDC take on one million samples, and how does that compare with ACE and Pearson's rho under the same protocol?"
+language = "en"
+kind = "quantitative"
+difficulty = "medium"
+relevant_documents = ["ax-1304.7717v2"]
+reference_answer = "On scalar, uniformly distributed, independent samples of size 1,000,000, averaged over 100 runs, RDC takes 4.6253 seconds, ACE takes 5.3830 seconds and Pearson's rho takes 0.0914 seconds. So RDC is slightly faster than ACE at that sample size but roughly fifty times slower than Pearson's rho. The other measures (dCor, MMD, CMMD, MIC, KCCA) have no entry at that size because single runs above ten minutes were cancelled."
+notes = "Written by Claude (Opus 5) from Table 2. The header row is quoted so the column-to-method mapping of the numeric row is established from the source rather than assumed. Note the paper also flags that Pearson, ACE, dCor and MIC use compiled C while RDC is interpreted R."
+
+  [[question.quote]]
+  document = "ax-1304.7717v2"
+  page = 6
+  text = """
+Table 2 summarizes running times (in seconds) for the considered non-linear
+dependence measures on scalar, uniformly distributed, independent samples of sizes{103,..., 106}
+when averaging over 100 runs. Single runs above ten minutes were cancelled (empty cells in table).
+"""
+
+  [[question.quote]]
+  document = "ax-1304.7717v2"
+  page = 6
+  text = "sample size Pearson’sρ RDC ACE dCor MMD CMMD MIC KCCA"
+
+  [[question.quote]]
+  document = "ax-1304.7717v2"
+  page = 6
+  text = "1,000,000 0.0914 4.6253 5.3830"
+
+[[question]]
+id = "fetch-004"
+text = "On which association patterns does RDC perform worse in the additive-noise power experiments, and what reasons do the authors give?"
+language = "en"
+kind = "limitation"
+difficulty = "medium"
+relevant_documents = ["ax-1304.7717v2"]
+reference_answer = "RDC performs worse on the linear association pattern, which the authors attribute to noise overfitting, and on the step-function pattern, which they attribute to the smoothness prior induced by using sine/cosine basis functions. By contrast it performs well on non-functional association patterns such as the circle and the mixture of sinusoidal waves."
+notes = "Written by Claude (Opus 5) from Section 5.1 ('Resistance to additive noise'). This is a self-reported weakness stated only in the results section."
+
+  [[question.quote]]
+  document = "ax-1304.7717v2"
+  page = 6
+  text = """
+RDC shows worse performance in
+the linear association pattern due to noise overﬁtting and in the step-function due to the smoothness
+prior induced by the use of sine/cosine basis functions, but has good performance in non-functional
+association patterns
+"""
+
+[[question]]
+id = "fetch-005"
+text = "How is RDC evaluated for feature selection on real-world data in this paper — what is the selection criterion, what is being minimised, and what constraint is placed on the competing measures?"
+language = "en"
+kind = "methodological"
+difficulty = "hard"
+relevant_documents = ["ax-1304.7717v2"]
+reference_answer = "Feature selection is done greedily by dependence maximization: at each iteration i the feature x(i) not already in G_{i-1} that maximizes the dependence between the enlarged feature set G_i = {G_{i-1}, x(i)} and the target variable y is added, for i = 1..10, starting from the empty set. The objective is to build the feature subset that minimizes the normalized mean squared regression error (NMSE) of a Gaussian process regressor. Because dCor, MMD and CMMD have quadratic computational demands, they are restricted to at most 1,000 points when measuring dependence — a constraint that only bound on the sarcos and calcensus datasets — and results are averaged over 20 random training/test partitions."
+notes = "Written by Claude (Opus 5) from Section 5.2. Caution for graders: the paper is internally inconsistent about the dataset count (it says 'eight real-world datasets' in one sentence and 'We considered 12 heterogeneous datasets' two sentences later), so the reference answer deliberately does not assert a count."
+
+  [[question.quote]]
+  document = "ax-1304.7717v2"
+  page = 7
+  text = """
+mizes the normalized mean squared regression error (NMSE) of a Gaussian process regressor. We
+do so by selecting the featurex(i) maximizing dependence between the feature setGi ={Gi−1,x (i)}
+and the target variabley at each iterationi∈{ 1,... 10}, such thatG0 ={∅} andx(i) /∈G i−1.
+"""
+
+  [[question.quote]]
+  document = "ax-1304.7717v2"
+  page = 7
+  text = """
+Given their quadratic computational demands, dCor, MMD and CMMD use up to 1, 000
+points when measuring dependence; this constraint only applied on the sarcos and calcensus
+datasets. Results are averages of 20 random training/test partitions.
+"""
+
+[[question]]
+id = "fetch-006"
+text = "In N3LARS, what does adding the ℓ1 regularizer do to the time complexity of the feature-selection problem compared with solving the objective without it?"
+language = "en"
+kind = "quantitative"
+difficulty = "medium"
+relevant_documents = ["ax-1411.2331v1"]
+reference_answer = "Solving Eq. (2) without the ℓ1 regularizer costs O(d²n³) time (with O(n³) for each NHSIC computation), which the paper calls infeasible when both d and n are large. Adding the ℓ1 regularizer and solving with N3LARS means not all NHSIC values have to be computed, so the complexity becomes O(mdn³), where m ≪ d is the number of selected features."
+notes = "Methods section 3.1. Answer written by Claude (Opus 5) from the quoted passage alone; quotes verified by exact substring match against the extracted text, including the PDF's damaged spacing ('N 3Lars')."
+
+  [[question.quote]]
+  document = "ax-1411.2331v1"
+  page = 4
+  text = """
+If we solve Eq.(2) without the ℓ1 regularizer, the time complexity is O(d2n3) (O(n3) for NHSIC), and this
+is infeasible when both d and n are large
+"""
+
+  [[question.quote]]
+  document = "ax-1411.2331v1"
+  page = 4
+  text = """
+However, if we add the ℓ1 regularizer and solve with N 3Lars, we do not need to compute all NHSIC values
+and the complexity becomes O(mdn3) ( m ≪ d is the number of selected features).
+"""
+
+[[question]]
+id = "fetch-007"
+text = "How many basis functions does the paper use for the Nyström approximation of NHSIC, and what are the resulting complexities of N3LARS with and without map-reduce?"
+language = "en"
+kind = "quantitative"
+difficulty = "hard"
+relevant_documents = ["ax-1411.2331v1"]
+reference_answer = "The paper uses b = 20 basis functions (b = 20 ≪ n), with ub = [−5, −4.47, ..., 4.47, 5.0]ᵀ ∈ R²⁰. With the Nyström approximation, computing NHSIC for a regression problem costs O(bn²) and the entire complexity of N3LARS becomes O(mdbn²). Adding map-reduce reduces this further to O(mdbn²/P), where P is the number of mappers."
+notes = "Sections 3.2 and 3.3. Requires the methods sections; not stated in the abstract. Answer written by Claude (Opus 5) strictly from the three quoted passages; all three verified as exact substrings."
+
+  [[question.quote]]
+  document = "ax-1411.2331v1"
+  page = 5
+  text = """
+and b is the number of basis function. In this paper, we use ub = [−5, −4.47, . . . ,4.47, 5.0]⊤ ∈
+R20, where b = 20 ≪ n.
+"""
+
+  [[question.quote]]
+  document = "ax-1411.2331v1"
+  page = 5
+  text = """
+The computational complexity of NHSIC for regression problem is O(bn2), and the
+entire computational complexity of N 3LARS becomes O(mdbn2).
+"""
+
+  [[question.quote]]
+  document = "ax-1411.2331v1"
+  page = 6
+  text = """
+With using map-reduce, the comple xity is further reduced to O(mdbn2/P ),
+where P is the number of mappers.
+"""
+
+[[question]]
+id = "fetch-008"
+text = "Which kernel functions does N3LARS use for the input features and for the output, and how does the output kernel differ between regression and classification?"
+language = "en"
+kind = "methodological"
+difficulty = "medium"
+relevant_documents = ["ax-1411.2331v1"]
+reference_answer = "The Gaussian kernel is used for the inputs x. For the output, a Gaussian kernel is used in regression cases and a delta kernel in classification cases. The delta kernel is defined as L(y, y′) = 1/n_y when y = y′ and 0 otherwise, where n_y is the number of samples in class y. In regression the output is normalized to unit standard deviation before the Gaussian kernel is applied, and the paper sets both Gaussian widths to σ²_x = 1 and σ²_y = 1."
+notes = "Section 3.2, 'Kernel types'. Answer written by Claude (Opus 5) from the quoted passages alone. Quotes preserve the extraction's broken spacing ('regression ca ses') and are verified by exact substring match."
+
+  [[question.quote]]
+  document = "ax-1411.2331v1"
+  page = 5
+  text = """
+In regression cases (i.e., y ∈ R), we normalize an output y to have unit standard deviation, and then use
+the Gaussian kernel, L(y, y′) = exp
+(
+− (y−y′)2
+2σ2y
+)
+, where σy is the Gaussian kernel width. In this paper, we
+use σ2
+x = 1 and σ2
+y = 1.
+"""
+
+  [[question.quote]]
+  document = "ax-1411.2331v1"
+  page = 5
+  text = """
+In classiﬁcation cases (i.e., y is categorical), we use the delta kernel for y,
+L(y, y′) =
+{ 1/ny if y = y′,
+0 otherwise ,
+where ny is the number of samples in class y.
+"""
+
+  [[question.quote]]
+  document = "ax-1411.2331v1"
+  page = 5
+  text = """
+, where σy is the Gaussian kernel width. In this paper, we
+use σ2
+x = 1 and σ2
+y = 1.
+"""
+
+[[question]]
+id = "fetch-009"
+text = "On the large p53 dataset, how did mRMR compare with the simple maximum-relevance baseline MR-NHSIC, and what conclusion did the authors draw from that comparison?"
+language = "en"
+kind = "comparative"
+difficulty = "medium"
+relevant_documents = ["ax-1411.2331v1"]
+reference_answer = "On the p53 mutant dataset (5408 features, 31420 samples; 26120 training and 5000 test samples, 5 randomized runs, average AUC reported), the simple maximum-relevance method MR-NHSIC outperformed mRMR. The authors call this interesting and take it as an indication that the mutual information used inside mRMR is not accurately estimated. They report that overall their proposed method outperforms the existing methods."
+notes = "Section 5.4, scalability results. Requires the results section. Answer written by Claude (Opus 5); every claim traces to one of the three verified quotes. The AUC numbers themselves appear only in Figure 4(a) and are deliberately not asserted."
+
+  [[question.quote]]
+  document = "ax-1411.2331v1"
+  page = 11
+  text = """
+It is in-
+teresting that the simple MR-NHSIC outperforms mRMR in this exper iment, and this indicates that the
+mutual information in mRMR is not accurately estimated. Overall, the proposed method outperforms the
+"""
+
+  [[question.quote]]
+  document = "ax-1411.2331v1"
+  page = 11
+  text = """
+We use the
+p53 mutant data set (Danziger et al. , 2009), which consists of 5408 features and 31420 samples.
+"""
+
+  [[question.quote]]
+  document = "ax-1411.2331v1"
+  page = 11
+  text = """
+use 26120 samples for training and 5000 samples for test. We run th e classiﬁcation experiments 5 times by
+randomly selecting training and test samples, and report the avera ge area under the ROC curve (AUC) score.
+"""
+
+[[question]]
+id = "fetch-010"
+text = "In the TRIM32 gene-expression regression experiment, did the normalized dependence measure used by N3LARS beat plain HSIC, and what redundancy rates were reported for the compared methods?"
+language = "en"
+kind = "limitation"
+difficulty = "hard"
+relevant_documents = ["ax-1411.2331v1"]
+reference_answer = "No — the paper reports the opposite for this experiment. N3LARS performed as well as HSIC Lasso and mRMR on mean squared error, but the authors state that in this regression experiment the HSIC measure performs better than NHSIC (using HSIC as the dependency measure instead of NHSIC recovers the HSIC Lasso solution). The average redundancy rates reported for the proposed method, HSIC Lasso, mRMR and Lasso were 0.42, 0.45, 0.39 and 0.43 respectively, so mRMR had the lowest redundancy rate here."
+notes = "Section 5.3 (Regression) and the Figure 3 caption. Tests whether the engine surfaces a negative result the abstract does not mention. Answer written by Claude (Opus 5) from the quoted passages alone; the ordering claim (mRMR lowest) is arithmetic over the quoted numbers. All quotes verified by exact substring match."
+
+  [[question.quote]]
+  document = "ax-1411.2331v1"
+  page = 10
+  text = """
+Figure 3 shows the mean squared error over 100 runs as a function of the number of selected features.
+As can be observed, the proposed method performs as good as HS IC Lasso and mRMR. we use HSIC
+as a dependency measure instead of NHSIC, we can obtain the HSIC Lasso solution. In this regression
+experiment, HSIC measure performs better than NHSIC.
+"""
+
+  [[question.quote]]
+  document = "ax-1411.2331v1"
+  page = 10
+  text = """
+In this regression
+experiment, HSIC measure performs better than NHSIC.
+"""
+
+  [[question.quote]]
+  document = "ax-1411.2331v1"
+  page = 11
+  text = """
+The average redundancy rate of the proposed
+method, HSIC Lasso, mRMR, and Lasso are 0.42, 0.45, 0.39, and 0.43 , respectively.
+"""
+
+[[question]]
+id = "fetch-011"
+text = "Why do Gao, Ver Steeg and Galstyan argue that the two assumptions underlying most existing MI-based feature selection methods cannot both hold in practice?"
+language = "en"
+kind = "limitation"
+difficulty = "medium"
+relevant_documents = ["ax-1606.02827v1"]
+reference_answer = "The paper argues the Feature Independence Assumption and the Class-Conditioned Independence Assumption are mutually inconsistent: if Assumption 2 is true, Assumption 1 cannot be true in general unless the data follows a very specific model (the rightmost graphical model in Fig. 1). Even in that special case the argument is self-defeating, because there x_i becomes the most important feature since I(x_i : y) > I(x_S_{t-1} : y), so x_i should have been selected at the very first step, which contradicts the feature selection process that is under way."
+notes = "Ground truth authored by Claude (Opus 5) as a Weft corpus-annotation subagent, from the reproducible arXiv tier (arXiv:1606.02827v1). Passage is Sec. 2.2, 'Limitations of Previous MI-Based Feature Selection Methods', page 3. Quote verified by exact substring match against the extracted text."
+
+  [[question.quote]]
+  document = "ax-1606.02827v1"
+  page = 3
+  text = """
+if Assumption 2 is true, then Assumption 1 cannot be true in general, unless the data is generated
+according to a very speciﬁc model shown in the rightmost model in Fig. 1. Note, however, that in
+this case, xi becomes the most important feature becauseI(xi : y)>I (xSt−1 : y); then we should
+have selected xi at the very ﬁrst step, contradicting the feature selection process.
+"""
+
+[[question]]
+id = "fetch-012"
+text = "In the Pairwise Q-distribution, how is q(x_ft | x_f<t, y) constructed from lower-order conditionals, and what justification do the authors give for that construction?"
+language = "en"
+kind = "methodological"
+difficulty = "hard"
+relevant_documents = ["ax-1606.02827v1"]
+reference_answer = "The Pairwise Q-distribution sets q(x_ft | x_f<t, y) to the geometric mean of the pairwise conditional distributions q(x_ft | x_fi, y) over the already-selected features (Eq. 16). The authors justify it as both tractable and reasonable because, if the data really is generated by a Naive Bayes model, then p(x_ft | x_fi, y) equals p(x_ft | y), so the lower bound in Eq. 8 still becomes exact under Eq. 16 — the pairwise choice therefore generalises the Naive Bayes choice without losing its exactness in the Naive Bayes case."
+notes = "Ground truth authored by Claude (Opus 5) as a Weft corpus-annotation subagent. Requires Sec. 3.2.1 'Choice of Variational Distribution' (page 5), not the abstract or introduction. Quote verified by exact substring match."
+
+  [[question.quote]]
+  document = "ax-1606.02827v1"
+  page = 5
+  text = """
+PairwiseQ-distribution. We now consider an alternative approach that is more general than the
+Naive Bayes distribution:
+q (xft|xf<t, y) =
+(t−1∏
+i=1
+p (xft|xfi, y)
+) 1
+t−1
+(16)
+In Eq. 16, we assume q (xft|xf<t, y) to be the geometric mean of conditional distributions
+q(xft|xfi, y). This assumption is tractable as well as reasonable because if the data is gener-
+ated by a Naive Bayes model, the lower bound in Eq. 8 also becomes exact using Eq. 16 due to
+p (xft|xfi, y)≡p (xft|y) in that case.
+"""
+
+[[question]]
+id = "fetch-013"
+text = "In the synthetic tree-model experiment, what mutual information values does the paper report between the label y and the individual features, and how do the top three features under the maximum relevance criterion differ from those VMI_naive selects?"
+language = "en"
+kind = "quantitative"
+difficulty = "medium"
+relevant_documents = ["ax-1606.02827v1"]
+reference_answer = "Table 2 reports the estimated mutual information between y and each feature as I(x1:y)=0.111, I(x2:y)=0.052, I(x3:y)=0.022, I(x4:y)=0.058, I(x5:y)=0.058, I(x6:y)=0.025, I(x7:y)=0.029, I(x8:y)=0.012 and I(x9:y)=0.013. Ranking by these values, the maximum relevance criterion would pick x1, x4 and x5 as its top three features, whereas VMI_naive selects x1, x2 and x3 as its first three features even though x2 and x3 are only weakly correlated with y."
+notes = "Ground truth authored by Claude (Opus 5) as a Weft corpus-annotation subagent. Numbers come from Table 2 on page 7 and the surrounding Sec. 4 text on page 6; the feature-to-value mapping follows the header row 'featurei x1 x2 x3 x4 x5 x6 x7 x8 x9' immediately above the quoted value row. All three quotes verified by exact substring match."
+
+  [[question.quote]]
+  document = "ax-1606.02827v1"
+  page = 7
+  text = """
+featurei x1 x2 x3 x4 x5 x6 x7 x8 x9
+I(xi : y) 0.111 0.052 0.022 0.058 0.058 0.025 0.029 0.012 0.013
+"""
+
+  [[question.quote]]
+  document = "ax-1606.02827v1"
+  page = 6
+  text = """
+We can see from Table 2 that it would
+choose x1, x4 and x5 as the top three features by using the maximum relevance criteria [15].
+"""
+
+  [[question.quote]]
+  document = "ax-1606.02827v1"
+  page = 6
+  text = """
+our algorithm, VMI naive, selects x1, x2, x3 as the ﬁrst three
+features, although x2 and x3 are only weakly correlated with y.
+"""
+
+[[question]]
+id = "fetch-014"
+text = "What computational complexity does the paper claim for VMI_naive and VMI_pairwise, and how does it compare with mRMR and with SPEC_CMI?"
+language = "en"
+kind = "comparative"
+difficulty = "medium"
+relevant_documents = ["ax-1606.02827v1"]
+reference_answer = "Both VMI_naive and VMI_pairwise have total computational complexity O(NDT), where N is the number of samples, D the total number of features and T the number of finally selected features. That is the same complexity as mRMR. SPEC_CMI, the state-of-the-art global optimization method, must precompute the pairwise mutual information matrix, which gives it a higher complexity of O(ND^2)."
+notes = "Ground truth authored by Claude (Opus 5) as a Weft corpus-annotation subagent. Passage is the 'Time Complexity' paragraph of Sec. 3.2.3 on page 6 (Table 1 states the same). Both quotes verified by exact substring match. Note the extraction renders 'O(ND 2)' with a space before the exponent; the quote preserves this."
+
+  [[question.quote]]
+  document = "ax-1606.02827v1"
+  page = 6
+  text = """
+For both VMI naive and
+VMI pairwise, the total computational complexity isO(NDT ) assumingN as number of samples,
+D as total number of features, T as number of ﬁnal selected features.
+"""
+
+  [[question.quote]]
+  document = "ax-1606.02827v1"
+  page = 6
+  text = """
+our methodsVMI naive andVMI pairwise
+have the same time complexity as mRMR [10], while state-of-the-art global optimization method
+SPECCMI [12] is required to precompute the pairwise mutual information matrix, which gives an
+time complexity ofO(ND 2).
+"""
+
+[[question]]
+id = "fetch-015"
+text = "What evaluation protocol — cross-validation scheme and classifiers — did the authors use for the real-world dataset comparison, and how was the synthetic experiment set up?"
+language = "en"
+kind = "methodological"
+difficulty = "medium"
+relevant_documents = ["ax-1606.02827v1"]
+reference_answer = "For the real-world datasets the authors used 10-fold cross-validation on datasets with at least 100 samples (N >= 100) and leave-one-out cross-validation otherwise. The classifier was a 3-Nearest-Neighbor classifier for Gisette and Madelon, and a Linear SVM for all the remaining datasets. For the synthetic tree-model experiment, 5000 samples were generated and the variational Q-distributions were estimated with a kernel density estimator."
+notes = "Ground truth authored by Claude (Opus 5) as a Weft corpus-annotation subagent. Passages are Sec. 4.1 'Real-World Data' (page 7) and Sec. 4 (page 6). Both quotes verified by exact substring match; the second preserves the paper's typo 'synthethic'."
+
+  [[question.quote]]
+  document = "ax-1606.02827v1"
+  page = 7
+  text = """
+10-fold cross-validation is employed for datasets with number of samples
+N≥ 100 and leave-one-out cross-validation otherwise. The 3-Nearest-Neighbor classiﬁer is used
+for Gisette and Madelon, following [5]. While for the remaining datasets, the classiﬁer is chosen to
+be Linear SVM, following [11, 12].
+"""
+
+  [[question.quote]]
+  document = "ax-1606.02827v1"
+  page = 6
+  text = """
+5000 samples are used to generate the synthethic data,
+and variational Q-distributions are estimated by kernel density estimator.
+"""
+
+[[question]]
+id = "fetch-016"
+text = "Under what independence assumption does this paper reduce the mutual information between a feature subset and the class label to pairwise terms, and what expression does the reduction yield?"
+language = "en"
+kind = "methodological"
+difficulty = "medium"
+relevant_documents = ["ax-1706.07535v1"]
+reference_answer = "The paper assumes (Assumption 2.1) that for a selected feature set {X_Si ∪ X_i}, the features X_Si are both conditionally independent and class-conditionally independent given X_i, i.e. p(X_Si|X_i) = ∏_{j∈Si} p(X_j|X_i) and p(X_Si|X_i,Y) = ∏_{j∈Si} p(X_j|X_i,Y). Under that assumption, Theorem 2.2 states that for any X_i in X_S, I(X_S;Y) = I(X_i;Y) + Σ_{j∈Si} I(X_j;Y|X_i) — i.e. the subset-level mutual information becomes the relevance of one feature plus a sum of conditional mutual information terms over pairs of features."
+notes = "Authored by Claude (subagent), from the Assumption 2.1 / Theorem 2.2 passage on page 2 (Section II.A). Requires the methods section; the abstract states the reduction exists but not the assumption's two-part form or the resulting identity."
+
+  [[question.quote]]
+  document = "ax-1706.07535v1"
+  page = 2
+  text = """
+Assumption 2.1: For a set of selected features {XSi∪
+Xi}, the features XSi are conditionally independent and
+class-conditionally independent given Xi, i.e. p(XSi|Xi) =∏
+j∈Si p(Xj|Xi) and p(XSi|Xi, Y ) = ∏
+j∈Si p(Xj|Xi, Y ).
+"""
+
+  [[question.quote]]
+  document = "ax-1706.07535v1"
+  page = 2
+  text = """
+Theorem 2.2: If Assumption 2.1 is true, and Xi∈ XS then,
+I(XS; Y ) = I(Xi; Y ) + ∑
+j∈Si I(Xj; Y|Xi)
+"""
+
+[[question]]
+id = "fetch-017"
+text = "In the Binary Quadratic Problem formulation, what do the diagonal and off-diagonal entries of the matrix Q represent, and how is the Truncated Power method initialised?"
+language = "en"
+kind = "methodological"
+difficulty = "medium"
+relevant_documents = ["ax-1706.07535v1"]
+reference_answer = "Q is an [n×n] non-negative matrix whose diagonal entries are the relevance terms Qii = I(Xi; C) (the mutual information between feature i and the class) and whose off-diagonal entries are the conditional mutual information terms Qij = I(Xj; Y|Xi); the non-zero indices of the BQP solution vector x form the selected subset S. TPower is initialised from the solution of the Linear relaxation: starting from an initial k-sparse vector x0, each iteration multiplies x_{t-1} by A, truncates the entries to zero and sets the largest k entries to 1, and the authors use the Linear solution as that initial sparse vector x0 because TPower benefits from a good starting point."
+notes = "Authored by Claude (subagent) from Section II.A (page 2) and Section II.B.2 (page 3). Methods-section question; neither detail appears in the abstract or introduction."
+
+  [[question.quote]]
+  document = "ax-1706.07535v1"
+  page = 2
+  text = """
+where, Q is a [n×n] non-negative matrix with Qii = I(Xi; C)
+and Qij = I(Xj; Y|Xi) and the non-zero indices of the
+solution x, constitute S.
+"""
+
+  [[question.quote]]
+  document = "ax-1706.07535v1"
+  page = 3
+  text = """
+Starting from an initial k-sparse vector x0, at each
+iteration t, we multiply the vector xt−1 by A and then truncate
+the entries of Axt−1 to zeros and set the largest k entries to
+1. TPower can beneﬁt from a good starting point. We use the
+solution from Linear as the initial sparse vector x0.
+"""
+
+[[question]]
+id = "fetch-018"
+text = "What time complexity does the paper report for the SDP approximation, and at what problem size did their SDP implementation fail?"
+language = "en"
+kind = "quantitative"
+difficulty = "medium"
+relevant_documents = ["ax-1706.07535v1"]
+reference_answer = "Table I gives SDP a time complexity of O(n^4.5) in the number of features n — the worst of the global methods listed, against O(nk) for Linear, O(n^2) for Spectral, O(n^(d+1)) for LowRank (d the approximation rank) and O(tn^2) for TPower (t the number of iterations). Experimentally, the authors used the CVX implementation with the SDPT3 solver for all SDP runs and report that the solver has a huge memory footprint: for matrix sizes n ≥ 700 they ran into 'Out of Memory' errors."
+notes = "Authored by Claude (subagent) from Table I and Section IV.A on page 4. Quantitative: cites the reported exponent O(n^4.5) and the n ≥ 700 failure threshold. Note the extraction renders exponents inline, so 'O(n2)' means O(n^2) and 'O(n4.5)' means O(n^4.5)."
+
+  [[question.quote]]
+  document = "ax-1706.07535v1"
+  page = 4
+  text = """
+TABLE I: Time complexities for the Global approximate solutions
+for BQP in number of features n
+Linear Spectral SDP LowRank* TPower**
+O(nk) O(n2) O(n4.5) O(n(d+1)) O(tn2)
+*d is approximation rank, **t is number of iterations
+"""
+
+  [[question.quote]]
+  document = "ax-1706.07535v1"
+  page = 4
+  text = """
+We used the CVX [18] implementation with SDPT3
+solver [19], for all our SDP experiments. The SDP solver has
+a huge memory footprint and with matrix sizes n≥ 700, we
+run into ‘Out of Memory’ errors.
+"""
+
+[[question]]
+id = "fetch-019"
+text = "Which of the global approximation methods gave the best BQP objective values in the synthetic experiments, and what trade-off do the authors draw between TPower and LowRank in their conclusions?"
+language = "en"
+kind = "comparative"
+difficulty = "medium"
+relevant_documents = ["ax-1706.07535v1"]
+reference_answer = "In the approximation experiment, where each method's objective value x'Qx was compared against the Linear method's objective, TPower and LowRank showed the largest percentage increase over Linear; because they approximate the BQP better than the other methods, the authors argue they must therefore be better feature selectors than Linear, Spectral and SDP. In the conclusions the authors state that both TPower and LowRank perform better than existing global and iterative techniques across most datasets, and that although LowRank slightly outperforms TPower in accuracy, it does not compare well with regard to time — so TPower is the better choice when speed and accuracy are weighed together."
+notes = "Authored by Claude (subagent) from Section IV.B (page 4) and Section V (page 5). Results-section question; the abstract claims only general 'effectiveness' and does not rank the two methods against each other."
+
+  [[question.quote]]
+  document = "ax-1706.07535v1"
+  page = 4
+  text = """
+We evaluated the percentage dif-
+ference of every algorithm’s objective value with the Linear
+method’s objective.
+"""
+
+  [[question.quote]]
+  document = "ax-1706.07535v1"
+  page = 5
+  text = """
+both TPower and LowRank perform better than
+existing global and iterative techniques across most of the
+datasets. While LowRank slightly outperforms TPower, it
+does not compare well with regards to time.
+"""
+
+[[question]]
+id = "fetch-020"
+text = "How did the authors handle continuous features when estimating conditional mutual information, and what limitation do they acknowledge about that step?"
+language = "en"
+kind = "limitation"
+difficulty = "medium"
+relevant_documents = ["ax-1706.07535v1"]
+reference_answer = "Because estimating the CMI requires discrete features, the authors discretised the features using the Class Attribute Interdependence Maximization (CAIM) algorithm of Kurgan and Cios. Feature selection was carried out on the discretised data, but classification after feature selection was performed on the original (undiscretised) feature space. The acknowledged limitation is that they did not study the effect of discretisation: they state that to estimate the probability distributions they had to discretise the features and that the effect of discretisation was not studied in their work (they only express the belief that the role of discretisation is not unduly critical provided it is consistent across experiments)."
+notes = "Authored by Claude (subagent) from Section IV.C and Section V on page 5. The quotes carry the PDF extraction's split words ('discretiz ed', 'Max i-\\nmization', 'discreti ze', 'i n') verbatim."
+
+  [[question.quote]]
+  document = "ax-1706.07535v1"
+  page = 5
+  text = """
+To estimate the CMI we need to discretize the features. We
+believe the role of discretization is not unduly critical as long
+as it is consistent across all the experiments. We discretiz ed
+the features using the Class Attribute Interdependence Max i-
+mization (CAIM) algorithm developed by Kurgan and Cios et
+al. [23]. Feature selection was performed on discretized da ta
+but the classiﬁcation (after feature selection) was perfor med
+on the original feature space.
+"""
+
+  [[question.quote]]
+  document = "ax-1706.07535v1"
+  page = 5
+  text = """
+To
+estimate the probability distributions, we had to discreti ze the
+features. We have not studied the effect of discretization i n our
+work.
+"""
+
+[[question]]
+id = "fetch-021"
+text = "In this paper's improved mRMR criterion, what is the role of the weighting factor introduced into the max-relevance/min-redundancy evaluation, and at what value of that factor does the improved criterion collapse back to standard mRMR?"
+language = "en"
+kind = "methodological"
+difficulty = "medium"
+relevant_documents = ["ax-1903.01907v1"]
+reference_answer = "The authors argue that standard mRMR simply takes the difference between maximal relevance and minimal redundancy, which cannot finely characterise the relative weight of feature relevance versus feature redundancy. To fix this they introduce a feature relevance-redundancy weighting factor (alpha) into the criterion; by assigning it different values the weighting coefficients on relevance and redundancy inside the criterion can be tuned to obtain the best feature-selection result, giving the modified criterion of Eq. (6). When the weighting factor equals 0.5, Eq. (6) degenerates back into Eq. (4), i.e. the standard mRMR criterion."
+notes = "Section 2.1 (对 mRMR 的改进). Paper is bilingual: only the abstract/title/keywords are in English, the body is Chinese, so the supporting passages are Chinese. Ground truth authored by Claude Opus 5 from the quoted passage; the Greek letter alpha appears in the extraction as a private-use glyph and was excluded from the quoted spans to keep them exactly reproducible."
+
+  [[question.quote]]
+  document = "ax-1903.01907v1"
+  page = 2
+  text = """
+进行不同
+的赋值， 对准则中特征相关性与冗余性的加权系数
+进行调整，以求得到最好的特征选择结果，相应地
+将式(4)的最大相关最小冗余准则修正为
+"""
+
+  [[question.quote]]
+  document = "ax-1903.01907v1"
+  page = 2
+  text = """
+0.5 时， 式(6)即退化为式(4)的标准 mRMR
+准则。
+"""
+
+[[question]]
+id = "fetch-022"
+text = "How is the classification accuracy J(S) of a candidate feature subset estimated when the SVM validates the subsets, and over which values of the weighting factor is the search run?"
+language = "en"
+kind = "methodological"
+difficulty = "medium"
+relevant_documents = ["ax-1903.01907v1"]
+reference_answer = "Because the true SVM accuracy on each feature subset is unknown, J(S) is taken as the mean SVM evaluation accuracy of 5-fold cross-validation on the training set of feature set S; the paper argues this unbiased estimate suppresses over-fitting and under-fitting during training. The weighting factor is assigned values over the interval [0,1] with a step of 0.25, i.e. 0, 0.25, ..., 1 (five values), and the improved mRMR is run separately for each of them to produce a group of nested candidate feature sets."
+notes = "Section 2.3 (SVM 验证). Requires the methods section, not the abstract. Quote spans were trimmed to avoid private-use-area glyphs left by the PDF extraction (alpha)."
+
+  [[question.quote]]
+  document = "ax-1903.01907v1"
+  page = 3
+  text = """
+， 采用改进mRMR
+分别得到与权值
+"""
+
+  [[question.quote]]
+  document = "ax-1903.01907v1"
+  page = 3
+  text = """
+在[0,1]区间内、 以0.25 为步长
+赋值， 即
+0,0.25, ,1i
+"""
+
+[[question]]
+id = "fetch-023"
+text = "On the New England 39-bus case, at which weighting-factor value does the proposed method reach its highest classification accuracy, and how do the accuracy and the subset dimension compare with those obtained by standard mRMR?"
+language = "en"
+kind = "quantitative"
+difficulty = "medium"
+relevant_documents = ["ax-1903.01907v1"]
+reference_answer = "The maximum classification accuracy is obtained with the weighting factor set to 0.25. Comparing that with the weighting factor of 0.5 — the value at which the improved criterion degenerates to standard mRMR — introducing the weighting factor raises the maximum classification accuracy from 97.50% to 99.00% while also reducing the dimension of the selected feature subset from 10 to 7."
+notes = "Section 4.1.3 (结果与讨论), discussion of Table 3. The third quote (from Section 2.1) is included because the identification of the 0.5 setting with standard mRMR is needed for the answer and does not appear in the results passage itself."
+
+  [[question.quote]]
+  document = "ax-1903.01907v1"
+  page = 5
+  text = """
+由表 3 可知， 所提方法的最大分类正确率在权
+重因子为 0.25 时取得
+"""
+
+  [[question.quote]]
+  document = "ax-1903.01907v1"
+  page = 5
+  text = """
+mRMR 在引入权重因子后， 不仅最大分类正确率由
+原来的 97.50%提高至 99.00%，而且特征子集的维
+数也由 10 维降为 7 维。
+"""
+
+  [[question.quote]]
+  document = "ax-1903.01907v1"
+  page = 2
+  text = """
+0.5 时， 式(6)即退化为式(4)的标准 mRMR
+准则。
+"""
+
+[[question]]
+id = "fetch-024"
+text = "How large is the original feature set constructed for transient stability assessment in this work, what does the group Tz13-Tz33 represent, and why did the authors choose system-level rather than single-machine features?"
+language = "en"
+kind = "definitional"
+difficulty = "medium"
+relevant_documents = ["ax-1903.01907v1"]
+reference_answer = "Through extensive simulation analysis, and taking into account the post-fault measurements a PMU can supply, the authors build an original feature set consisting of 33 system-level features (Table 1). Features Tz13-Tz33 are the features proposed specifically to exploit the post-fault measured information that PMUs can provide; they characterise the stability behaviour of the system during the process after fault clearing. System-level rather than single-machine features were chosen under the 'systematic' principle, so that the number of input variables does not grow proportionally with the size of the system, which makes the approach suitable for stability analysis of large systems."
+notes = "Section 3 (原始特征集的构造). Note that the 'systematic principle' passage sits on the page-3 side of the page-4 marker in the extracted text; page attributions follow the '===== PAGE n =====' markers in the file."
+
+  [[question.quote]]
+  document = "ax-1903.01907v1"
+  page = 4
+  text = """
+基础上，考虑 PMU 可能提供的故障后实测信息，
+通过大量仿真分析，构建了一组由 33 个系统特征
+所组成的原始特征集，如表 1 所示。
+"""
+
+  [[question.quote]]
+  document = "ax-1903.01907v1"
+  page = 4
+  text = """
+Tz13—Tz33 为考虑 PMU 可以提供故障后实测
+信息的优势而提出的特征量， 它们反映了故障切除
+后的过程中系统的稳定特性。
+"""
+
+  [[question.quote]]
+  document = "ax-1903.01907v1"
+  page = 3
+  text = """
+3）系
+统性原则，选用系统特征，而不是单机特征，以保
+证输入变量个数不随系统规模的增大成比例增长，
+从而适合大系统的稳定分析。
+"""
+
+[[question]]
+id = "fetch-025"
+text = "In the IEEE 50-generator test case, how does the feature subset selected by the proposed method compare with the full original feature set and with the PCA-reduced subset, in dimension and test accuracy?"
+language = "en"
+kind = "comparative"
+difficulty = "hard"
+relevant_documents = ["ax-1903.01907v1"]
+reference_answer = "In Table 7 (test results on the IEEE 50-generator test system), the subset B1 obtained by the proposed method has 11 dimensions and a test accuracy of 96.50% (K = 0.929, r = 0.9619, composite index 0.9520), while the full original feature set B has 33 dimensions and 95.00% (K = 0.897, r = 0.9466, 0.9312) and the PCA-reduced subset B2 has 15 dimensions and only 94.50% (K = 0.889, r = 0.9499, 0.9280). The paper states explicitly that B1 has better classification performance than both the original feature set B and the PCA subset B2. The seven-feature subset B3 carried over from the New England case gives 95.00% (0.9320)."
+notes = "Section 4.2.2, Table 7. This question requires reading a table whose extraction is flattened into rows of numbers; the caption and header quotes are supplied so the column mapping (feature set, dimension, C, gamma, test accuracy, K, r, composite index) is recoverable from the quoted material. The composite index symbol eta is a private-use glyph in the extraction and is therefore described rather than quoted."
+
+  [[question.quote]]
+  document = "ax-1903.01907v1"
+  page = 6
+  text = """
+表 7  IEEE 50 机测试系统的测试结果 
+Tab. 7  Test results in IEEE 50-generator test system
+"""
+
+  [[question.quote]]
+  document = "ax-1903.01907v1"
+  page = 6
+  text = """
+特征集 维数 
+模型参数 测试正确
+率/% 
+K r 
+"""
+
+  [[question.quote]]
+  document = "ax-1903.01907v1"
+  page = 6
+  text = """
+B 33 2048.0 2.0 95.00 0.897 0.9466 0.9312 
+B1 11 32.0 0.125 96.50 0.929 0.9619 0.9520 
+B2 15 8192.0 0.5 94.50 0.889 0.9499 0.9280 
+B3 7 512.0 0.03125 95.00 0.898 0.9481 0.9320
+"""
+
+  [[question.quote]]
+  document = "ax-1903.01907v1"
+  page = 6
+  text = """
+由表 7 可知， 本文方法所得特征子集 B1 比原始
+特征集 B 和采用 PCA 法所得特征子集 B2 分类性能
+更优
+"""
+
+[[question]]
+id = "fetch-026"
+text = "In the mRMR extension that uses a random forest feature importance score as the relevance measure, why do the authors combine relevance and redundancy with a quotient rather than a difference?"
+language = "en"
+kind = "methodological"
+difficulty = "medium"
+relevant_documents = ["ax-1908.05376v1"]
+reference_answer = "Because relevance and redundancy are then measured on different scales. The paper notes that when the two are not the same measure, the scales may differ and this affects the trade-off between relevance and redundancy; compared with the difference scheme (MID, FCD), the quotient scheme (MIQ, FCQ) is relatively immune to such scale differences. Since the proposed model-based feature importance has a different scale from the redundancy measure (correlation), the quotient scheme is adopted instead of the difference scheme — which is why the new methods are defined as RFCQ and RFRQ quotients."
+notes = "Requires Section III.B (Proposed mRMR Extensions), not the abstract. Answer follows from the two quoted passages alone, which are consecutive in the source."
+
+  [[question.quote]]
+  document = "ax-1908.05376v1"
+  page = 3
+  text = """
+One challenge of not using the same measure between
+relevance and redundancy is that the scales may be differ-
+ent between these two, that affects the trade-off between
+the relevance and redundancy. Compared with the difference
+scheme (such as MID, FCD), the quotient scheme (such as
+MIQ, FCQ) is relatively immune to the scale differences.
+"""
+
+  [[question.quote]]
+  document = "ax-1908.05376v1"
+  page = 3
+  text = """
+As the proposed model-based feature importance measure for
+relevance has different scale from the redundancy measure
+(i.e. correlation), the quotient scheme is adopted instead of
+the difference scheme.
+"""
+
+[[question]]
+id = "fetch-027"
+text = "How many sets of empirical performance results does the evaluation design in this paper produce, and which three factors are crossed to reach that number?"
+language = "en"
+kind = "quantitative"
+difficulty = "easy"
+relevant_documents = ["ax-1908.05376v1"]
+reference_answer = "96 sets of empirical performance results. The number comes from crossing 8 feature selection methods x 3 classification models x 4 data sets."
+notes = "Quantitative; drawn from Section IV.A (Setup). Note the multiplication signs and the 'classiﬁcation' ligature preserved verbatim from the extraction."
+
+  [[question.quote]]
+  document = "ax-1908.05376v1"
+  page = 4
+  text = """
+In sum, this evaluation setup leads to 8 (feature selection
+methods)× 3 (classiﬁcation models)× 4 (data sets) = 96 sets
+of empirical performance results.
+"""
+
+[[question]]
+id = "fetch-028"
+text = "According to the computation-time results on the real datasets, which feature selection methods run quickly and which are slow, and what runtime bound does the paper give for the fastest ones?"
+language = "en"
+kind = "comparative"
+difficulty = "medium"
+relevant_documents = ["ax-1908.05376v1"]
+reference_answer = "FCD, FCQ, RFCQ and RF run fairly quickly, whereas MID, MIQ, FRQ and RFRQ take much longer to run. In all scenarios evaluated, the FCQ and FCD methods take less than one minute to run."
+notes = "Requires the real-data results discussion (Section IV.C) referring to Table III; both the ranking and the sub-minute bound are stated in the quoted text."
+
+  [[question.quote]]
+  document = "ax-1908.05376v1"
+  page = 9
+  text = """
+For computation time, as shown in Table III, the FCD,
+FCQ, RFCQ, and RF methods run fairly quickly whereas the
+MID, MIQ, FRQ and RFRQ variants take much longer to run.
+"""
+
+  [[question.quote]]
+  document = "ax-1908.05376v1"
+  page = 9
+  text = """
+In all scenarios evaluated, the FCQ and FCD
+methods take less than one minute to run.
+"""
+
+[[question]]
+id = "fetch-029"
+text = "On the synthetic data, did both proposed extensions to the mRMR framework prove worthwhile? What does the paper say about the nonlinear RDC redundancy measure in particular?"
+language = "en"
+kind = "limitation"
+difficulty = "medium"
+relevant_documents = ["ax-1908.05376v1"]
+reference_answer = "No — only one of the two extensions succeeded on the synthetic data. The model-based feature importance extension (RFCQ, RFRQ) appeared successful, while the extension replacing linear correlation with the nonlinear RDC association measure did not show significant improvement."
+notes = "Negative-result question from Section IV.B (synthetic data evaluation). The answer is scoped to the synthetic data, exactly as the quote scopes it."
+
+  [[question.quote]]
+  document = "ax-1908.05376v1"
+  page = 6
+  text = """
+In this synthetic data, the extension of mRMR framework to
+model-based feature importance score (RFCQ, RFRQ) seems
+to be successful, while the extension from linear correlation
+to nonlinear association using RDC method does not show
+signiﬁcant improvement.
+"""
+
+[[question]]
+id = "fetch-030"
+text = "What did the online randomized experiment measure, and what lift did the deployed cross-sell model produce?"
+language = "en"
+kind = "quantitative"
+difficulty = "hard"
+relevant_documents = ["ax-1908.05376v1"]
+reference_answer = "The cross-sell model for Dataset 3, built with the FCQ feature selection method on the automated ML platform, was used to target the top 60% of treatment users by predicted conversion probability with app notifications and display channels. Two results are reported: users in the top 20% of predicted conversion probability in the control group had 4 times higher actual new product adoption than the baseline of all control users, and the campaign produced 12% incremental adoption for the top 60% propensity users in treatment compared with the equivalent top 60% propensity users in control, with statistical significance (p < 0.05)."
+notes = "Multi-hop within Section V.D; three quotes together carry the setup and both reported numbers. The 'p< 0.05' spacing and the leading space inside the parenthesis are reproduced as extracted."
+
+  [[question.quote]]
+  document = "ax-1908.05376v1"
+  page = 10
+  text = """
+The cross-sell model for Dataset 3 in Table IV was built
+and deployed through the automated machine learning plat-
+form with the FCQ feature selection method implemented. A
+campaign using this model for user targeting was tested online
+in a randomized experiment. Using this model, top 60% (w.r.t.
+the predicted conversion probability) of treatment users were
+cross-sold a new product through app notiﬁcations and display
+channels.
+"""
+
+  [[question.quote]]
+  document = "ax-1908.05376v1"
+  page = 10
+  text = """
+the users with top 20% predicted conversion probability in
+control have 4 times higher actual new product adoption rate
+compared with baseline (all users in control)
+"""
+
+  [[question.quote]]
+  document = "ax-1908.05376v1"
+  page = 10
+  text = """
+marketing campaign creates 12% incremental adoption for the
+top 60% propensity users in treatment group compared with
+the equivalent top 60% propensity users in the control group
+with statistical signiﬁcance ( p< 0.05).
+"""
+
+[[question]]
+id = "fetch-031"
+text = "In VMR_mRMR, what information is preserved as state across iterations, and what does that leave to be computed in each iteration of the mRMR feature selection?"
+language = "en"
+kind = "methodological"
+difficulty = "medium"
+relevant_documents = ["ax-2208.09901v2"]
+reference_answer = "VMR_mRMR is built on a memorization/state-keeping design. The entropy of the individual attributes is not recomputed every iteration: it is computed once in a preliminary step as a separate MapReduce job, stored in a map data structure in the driver, and broadcast to all nodes. The relevance score is likewise stored rather than recalculated, so that its calculation is avoided in every iteration. With the entropy scores and the relevance scores held as state, the computational complexity of each iteration is reduced to that of conditional entropy alone, and that conditional entropy computation is itself restricted to the possible pairs."
+notes = "Answer drawn from Section 4.1 (principles) and Section 5.4's explanation of the gain; deliberately requires the methods section rather than the abstract."
+
+  [[question.quote]]
+  document = "ax-2208.09901v2"
+  page = 17
+  text = """
+VMR_mRMR computed entropy scores only once and then broadcasted to all nodes. Along with that, 
+the conditional entropy score calculation is restricted to  𝑝𝑜𝑠𝑠𝑖𝑏𝑙𝑒𝑃𝑎𝑖𝑟𝑠.
+"""
+
+  [[question.quote]]
+  document = "ax-2208.09901v2"
+  page = 9
+  text = """
+Therefore, storing this information 
+would avoid the calculation of relevance score in every iteration. Hence, the relevance score is also 
+preserved in the state information.
+"""
+
+  [[question.quote]]
+  document = "ax-2208.09901v2"
+  page = 10
+  text = """
+By deriving both the equations Eq.(13) and (15), the computation complexity is reduced to that 
+of conditional entropy.
+"""
+
+[[question]]
+id = "fetch-032"
+text = "What structure does VMR_mRMR build to obtain the pair frequencies needed for conditional entropy, and why does it not use the contingency tables or histograms that the earlier vertical partitioning approaches build?"
+language = "en"
+kind = "definitional"
+difficulty = "medium"
+relevant_documents = ["ax-2208.09901v2"]
+reference_answer = "Conditional entropy between features needs the frequencies of pairs of attribute values. The existing vertical partitioning approaches obtain those frequencies by constructing contingency tables or histograms, but the paper's own observation is that the memory utilisation of these structures in the mappers is significantly high and that this hurts performance. VMR_mRMR instead keeps only the pairs that actually occur — the possible pairs — in a hashmap. Because the possible pairs are very few in number compared with all pairs, the resulting hashmap data structure is small."
+notes = "The paper writes the term as the math-italic string possiblePairs; the quoted spans use its plain-text renderings to stay verbatim-safe. A correct answer may name it either way."
+
+  [[question.quote]]
+  document = "ax-2208.09901v2"
+  page = 8
+  text = """
+Conditional entropy between features requires frequencies of the pairs of attribute values. To 
+obtain the frequency pairs information, existing vertical partitioning approaches have constructed 
+contingency tables or histograms (refer to Table 2). As discussed in Section 3, memory utilisation of 
+these structures of mappers is significantly high, and this affects the performance.
+"""
+
+  [[question.quote]]
+  document = "ax-2208.09901v2"
+  page = 12
+  text = """
+The possible pairs eventually have very little in number compared to all pairs. Hence, 
+the generated hashmap data structure size is small.
+"""
+
+[[question]]
+id = "fetch-033"
+text = "What execution times does the paper report for VMR_mRMR against Spark_VIFS on the Leukemia and nci9 datasets, and what range of computational gain does VMR_mRMR reach over that baseline?"
+language = "en"
+kind = "quantitative"
+difficulty = "easy"
+relevant_documents = ["ax-2208.09901v2"]
+reference_answer = "On Leukemia, VMR_mRMR completes in 49.66 seconds against 212.01 seconds for Spark_VIFS. On nci9, described as the highest dimensional dataset, VMR_mRMR completes in 72.803 seconds and achieves a computational gain of 69.91%. Across all the benchmark datasets in that comparison, VMR_mRMR achieves between 47% and 72% computational gain."
+notes = "Section 5.3, the Spark_VIFS comparison. Note the double space before '47%-72%' in the source, preserved in the quote. Distinct from the Spark_Info-theoretic comparison in Section 5.4, where the reported gains are at least 88%."
+
+  [[question.quote]]
+  document = "ax-2208.09901v2"
+  page = 15
+  text = "For the Leukemia dataset, VMR_mRMR can complete in 49.66 seconds, whereas Spark_VIFS has taken 212.01 seconds. For the highest dimensional dataset nci9, VMR_mRMR completed in 72.803 seconds and achieved a significant gain of 69.91% C.G. In all the benchmark datasets, VMR_mRMR could achieve  47%-72% computational gain."
+
+[[question]]
+id = "fetch-034"
+text = "What does the comparison between HMR_mRMR and VMR_mRMR establish about which dataset shape each partitioning strategy suits, and what gain ranges back that claim?"
+language = "en"
+kind = "comparative"
+difficulty = "medium"
+relevant_documents = ["ax-2208.09901v2"]
+reference_answer = "The experiment separates tall datasets from wide ones. On tall datasets the horizontal approach HMR_mRMR gives better computational gain than VMR_mRMR, achieving 90%-98% CG; on wide datasets the vertical approach VMR_mRMR is better, achieving 47%-76% CG. The paper takes this as establishing that HMR_mRMR is suitable for tall datasets and VMR_mRMR for wide ones — equivalently, that HMR_mRMR works well with moderate feature space and larger object space, while VMR_mRMR works well with larger feature space and moderate object space."
+notes = "Section 5.5 plus the conclusion. Requires the results section; the abstract only says a comparative analysis with HMR_mRMR was conducted."
+
+  [[question.quote]]
+  document = "ax-2208.09901v2"
+  page = 17
+  text = """
+The results depict that for Tall datasets, HMR_mRMR 
+achieves better computational gain than the VMR_mRMR. HMR_mRMR achieved 90%-98% CG. 
+Whereas for wide datasets, VMR_mRMR achieves better computational gain than the HMR_mRMR. 
+However, VMR_mRMR achieved 47%-76% CG. This amply establishes that HMR_mRMR is suitable 
+for tall datasets, whereas VMR_mRMR is for wide datasets.
+"""
+
+  [[question.quote]]
+  document = "ax-2208.09901v2"
+  page = 18
+  text = """
+We have also empirically demonstrated that 
+HMR_mRMR works well with moderate feature space and larger object space, and proposed 
+VMR_mRMR works well with larger feature space and moderate object space.
+"""
+
+  [[question.quote]]
+  document = "ax-2208.09901v2"
+  page = 17
+  text = """
+the horizontal partitioning approach 
+is suitable for tall datasets,
+"""
+
+[[question]]
+id = "fetch-035"
+text = "Why is the evaluation of VMR_mRMR restricted to execution time rather than classification quality, and what limited the comparison against Spark_Info-theoretic in particular?"
+language = "en"
+kind = "limitation"
+difficulty = "hard"
+relevant_documents = ["ax-2208.09901v2"]
+reference_answer = "Both the existing approaches and the proposed one return the same subset of features after L epochs, so they are not distinguishable by classification analysis; the comparison is therefore limited to computational time, and the study is run for L=10 epochs. The comparison with Spark_Info-theoretic carried a further restriction: despite several trials the authors could only get the code from that repository to run on a single node, so that analysis was confined to a single node rather than the seven-node Apache Spark cluster (one master and six slaves) used for the rest of the experiments."
+notes = "Draws on two separated passages (Section 5.1 and Section 5.4), so retrieval must return more than one chunk. The 'six slaves' in the answer follows from 'seven-node cluster. One is the master node, and the rest are slaves.'"
+
+  [[question.quote]]
+  document = "ax-2208.09901v2"
+  page = 14
+  text = """
+Both the existing and proposed results 
+in the same subset of features after L epochs. The comparative analysis is therefore limited to 
+computational time analysis only because they are not distinguishable by classification analysis. The 
+following experimental study is conducted for L=10 epochs.
+"""
+
+  [[question.quote]]
+  document = "ax-2208.09901v2"
+  page = 16
+  text = "Despite several trials, the code provided in the repository [26] can only run in a single node. Hence, the analysis was restricted to the single node on the benchmark datasets as specified in Table 4"
+
+  [[question.quote]]
+  document = "ax-2208.09901v2"
+  page = 14
+  text = """
+The experiments were carried out in Apache Spark [23] of a seven-node cluster. One is the master node, 
+and the rest are slaves.
+"""
+
+[[question]]
+id = "fetch-036"
+text = "Which penalty functions does the paper's sparsistency result cover, and why does the LASSO fall outside it?"
+language = "en"
+kind = "limitation"
+difficulty = "hard"
+relevant_documents = ["ax-2508.18901v1"]
+reference_answer = "The paper considers three penalties in the SmRMR criterion — the LASSO, and the non-convex SCAD and MCP — but its recovery-of-zeros result (Theorem 3.6) is stated only for the SCAD or MCP penalty, and it is these two that the paper says allow the true zero coefficients to be recovered with probability one, ensuring correct identification of the non-relevant features. The LASSO is excluded because the two requirements on the regularisation parameter conflict: for the estimator to be sqrt(n/(p_n s_n^2 log p_n))-consistent the parameter must satisfy lambda_n = O(sqrt(s_n^2 log(p_n)/n)), but it cannot simultaneously satisfy sqrt(n/(p_n s_n^2 log p_n)) lambda_n -> infinity. The authors note the adaptive LASSO would fix this, but it requires stochastic weights depending on a first-step consistent estimator, an additional layer of complexity they prefer to avoid given the multi-stage procedure they propose."
+notes = "Theory section (Section 3), page 11, plus the penalty definitions on page 5. Ground truth written by Claude (Opus 5) from the three quoted passages; no outside knowledge used."
+
+  [[question.quote]]
+  document = "ax-2508.18901v1"
+  page = 11
+  text = """
+In the LASSO case, for the estimator to be
+p
+n/(pns2n log(pn))-consistent, the regularization
+parameter λn should satisfy λn = O(
+p
+s2n log(pn)/n). But it cannot simultaneously satisfyp
+n/(pns2n log(pn))λn→∞ . One way to fix this issue would be the adaptive LASSO, which
+requires the introduction of stochastic weights that depend on a first step consistent estimator. In
+light of the multi-stage procedure we propose hereafter in the context of ultra high-dimensional
+data, we prefer to avoid an additional layer of complexity that would be entailed by the adaptive
+LASSO.
+"""
+
+  [[question.quote]]
+  document = "ax-2508.18901v1"
+  page = 11
+  text = """
+The next result shows that the true zero coefficients can be recovered with probability one for
+the SCAD and MCP penalty functions, which ensures the correct identification of the non-relevant
+features.
+"""
+
+  [[question.quote]]
+  document = "ax-2508.18901v1"
+  page = 11
+  text = """
+parameter λn should satisfy λn = O(
+p
+s2n log(pn)/n). But it cannot simultaneously satisfyp
+n/(pns2n log(pn))λn→∞ . One way to fix this issue would be the adaptive LASSO, which
+requires the introduction of stochastic weights that depend on a first step consistent estimator.
+"""
+
+[[question]]
+id = "fetch-037"
+text = "What practical obstacle prevents the knockoff filter from being applied directly to the full feature set, and how does the paper get around it?"
+language = "en"
+kind = "methodological"
+difficulty = "medium"
+relevant_documents = ["ax-2508.18901v1"]
+reference_answer = "Constructing the knockoff variables requires the sample size condition 2p_n < n, which is often not satisfied in practice. To get around it the authors use a data splitting procedure that builds on Section 4.1 of Barber and Candes (2019): on a first sub-sample they run a feature screening step to select a subset of variables S0 (a subset of {1,...,p_n}), and then apply the knockoff procedure on the remaining data using only those screened variables."
+notes = "Section 4 (FDR control), page 13 — methods, not the abstract. Ground truth written by Claude (Opus 5) from the quoted passage alone."
+
+  [[question.quote]]
+  document = "ax-2508.18901v1"
+  page = 13
+  text = """
+One key hurdle of step (1) when constructing the knockoff variables is the sample size requirement
+2pn<n , which is often not satisfied in practice. To circumvent this issue and apply the knockoff,
+we consider a data splitting procedure that builds upon Section 4.1 of Barber and Candès [2019]:
+on a first sub-sample, we perform a feature screening step to select a subset of variables, say
+bS0⊂{ 1,...,p n}; using the screened variables only, we employ the knockoff procedure on the
+remaining data.
+"""
+
+[[question]]
+id = "fetch-038"
+text = "On the simplest linear data generating process, what mean squared errors does SmRMR(PC, None) reach as the number of features grows from 100 to 5,000 at fixed sample size, and what happens when the sample size is raised?"
+language = "en"
+kind = "quantitative"
+difficulty = "medium"
+relevant_documents = ["ax-2508.18901v1"]
+reference_answer = "On the simplest DGP, linear 1.a, holding n = 100 and increasing p from 100 to 500 to 5,000 raises the MSE of SmRMR(PC, None) from 3.8 to 6.7 to 9.5 respectively. Increasing the sample size n to 500 reduces its MSE to 1.7."
+notes = "Section 5.3 benchmark results, page 19. Quantitative: the four MSE values are read verbatim from the text (the extraction renders them without a space after 'from'/'to'). Ground truth written by Claude (Opus 5) from the quoted passages alone."
+
+  [[question.quote]]
+  document = "ax-2508.18901v1"
+  page = 19
+  text = """
+increasingp from 100 to 500 and 5,000 while keepingn = 100 leads to the MSE of
+SmRMR(PC, None) to increase from3.8, to 6.7, and 9.5 respectively. Similarly, increasingn
+to 500 reduces its MSE to1.7.
+"""
+
+  [[question.quote]]
+  document = "ax-2508.18901v1"
+  page = 19
+  text = """
+for example, in the simplest DGP, i.e. linear 1.a (Section S1 in the Supplementary Material,
+Figure S.1)
+"""
+
+[[question]]
+id = "fetch-039"
+text = "What is SmRMR2, and what does the paper report about its false discovery rate?"
+language = "en"
+kind = "limitation"
+difficulty = "hard"
+relevant_documents = ["ax-2508.18901v1"]
+reference_answer = "SmRMR2 is the variant that guards against the procedure returning an empty feature set. When no features are returned at the chosen level alpha, a while loop in the last step of the knockoff filter increases alpha by 0.05; if alpha reaches 1 with still no features retained, the algorithm is modified to return the feature that maximises the knockoff statistic. The paper reports that this comes at a cost: the FDR is controlled for SmRMR, with FDR rates below alpha, but for SmRMR2 the FDR is not controlled in every situation."
+notes = "Spans the experimental setup (Section 5.1.2, page 18) and the FDR-control results (Section 5.3, page 19); requires joining two passages. Ground truth written by Claude (Opus 5) from the two quoted passages alone."
+
+  [[question.quote]]
+  document = "ax-2508.18901v1"
+  page = 18
+  text = """
+when no features are returned for the setα, we add a while loop in the
+last step of the knockoff filter to increase the value ofα by 0.05. If however we reachα = 1 and
+still no features are retained, we modify the algorithm to return the feature that maximises the
+knockoff statistic. This variant of SmRMR will be named SmRMR2.
+"""
+
+  [[question.quote]]
+  document = "ax-2508.18901v1"
+  page = 19
+  text = """
+we notice that the FDR is controlled for SmRMR with
+FDR rates belowα but that the FDR is not controlled in every situation for SmRMR2, the
+modified method to prevent the empty set return.
+"""
+
+[[question]]
+id = "fetch-040"
+text = "How did SmRMR compare with HSIC-LASSO on the real-world benchmark datasets, and what was the trade-off?"
+language = "en"
+kind = "comparative"
+difficulty = "medium"
+relevant_documents = ["ax-2508.18901v1"]
+reference_answer = "SmRMR achieved better performance than HSIC-LASSO on two of the real-world datasets, TOX_171 and orlraws10P; on the other datasets HSIC-LASSO outperformed SmRMR. The trade-off is that HSIC-LASSO's better scores come at the cost of selecting about 3 times more features. The paper also notes that mRMR itself was not included in this comparison because it was computationally expensive and had already been reported as inferior to HSIC-LASSO, and that between the two non-convex penalties SCAD appears slightly more conservative in feature selection than MCP."
+notes = "Section 5.4 real-world data results, page 21. Ground truth written by Claude (Opus 5) from the three quoted passages alone."
+
+  [[question.quote]]
+  document = "ax-2508.18901v1"
+  page = 21
+  text = """
+SmRMR achieves better performance than HSIC-LASSO on both TOX_171 and
+orlraws10P; on the other datasets, HSIC-LASSO outperforms SmRMR. However, as shown in
+Figure 5, these better scores come at the cost of about 3 times more selected features.
+"""
+
+  [[question.quote]]
+  document = "ax-2508.18901v1"
+  page = 21
+  text = """
+We did not include mRMR as this method was computationally expensive and it was
+highlighted in Climente-González et al. [2019] that its performance was inferior to that of
+HSIC-LASSO.
+"""
+
+  [[question.quote]]
+  document = "ax-2508.18901v1"
+  page = 21
+  text = """
+we notice that SCAD seems to be slightly more conservative
+in terms of feature selection with respect to MCP.
+"""
+
+[[question]]
+id = "fetch-041"
+text = "In BoMGene, the paper defines mRMR with mutual information but then departs from that definition in the actual implementation. Which relevance and redundancy measures does it use instead, and what reason is given?"
+language = "en"
+kind = "methodological"
+difficulty = "medium"
+relevant_documents = ["ax-2510.00907v1"]
+reference_answer = "For the classification task the authors measure feature-label relevance with the F-test and feature-feature redundancy with the Pearson correlation, instead of the mutual information used in the original mRMR definition. The stated reason is that these measures better suit continuous gene-expression features."
+notes = "Requires the Background/methods section (Section II-B-2); the abstract does not mention the substitution. Authored by the ground-truth writer from the passage alone. The same substitution is visible in Algorithm 1, where Red_i is computed from |corr(X_i, X_j)|."
+
+  [[question.quote]]
+  document = "ax-2510.00907v1"
+  page = 3
+  text = """
+Specifically for the classification task,
+we measure feature–label relevance using the F-test and
+feature–feature redundancy using the Pearson correlation,
+rather than mutual information as in the original definition,
+to better suit continuous gene-expression features.
+"""
+
+[[question]]
+id = "fetch-042"
+text = "What rule does BoMGene use to decide which cross-validation scheme is applied to a given dataset?"
+language = "en"
+kind = "methodological"
+difficulty = "easy"
+relevant_documents = ["ax-2510.00907v1"]
+reference_answer = "The choice depends on the number of samples m: 10-fold cross-validation is used when a dataset has at least 300 samples (m >= 300), and leave-one-out cross-validation is used otherwise."
+notes = "Stated twice, in Section III (algorithm inputs) and Section IV-C (evaluation protocol); both quotes verified verbatim. Not derivable from the abstract."
+
+  [[question.quote]]
+  document = "ax-2510.00907v1"
+  page = 3
+  text = """
+the class-label vectory∈
+Rm, and the number of Boruta iterationsT. In addition, we
+employ cross-validation (CV): 10-fold CV whenm≥300,
+otherwise leave-one-out.
+"""
+
+  [[question.quote]]
+  document = "ax-2510.00907v1"
+  page = 5
+  text = """
+For datasets with at least 300 samples, we use 10-
+fold cross-validation; otherwise, leave-one-out is applied.
+"""
+
+[[question]]
+id = "fetch-043"
+text = "What mean training times does the paper report for Boruta-mRMR with GBM and with Random Forest, and how do they compare with the baselines?"
+language = "en"
+kind = "quantitative"
+difficulty = "medium"
+relevant_documents = ["ax-2510.00907v1"]
+reference_answer = "With GBM, Boruta-mRMR has a mean training time of 641 s, substantially lower than mRMR at 5,456 s. With RF, Boruta-mRMR records the smallest mean time at 13 s, roughly half of RF's 21 s and less than half of Boruta's 27 s."
+notes = "Results section IV-C-2 (Training-Time Evaluation). Every number in the reference answer appears in the quoted span; nothing added."
+
+  [[question.quote]]
+  document = "ax-2510.00907v1"
+  page = 5
+  text = """
+With GBM, its mean time is 641 s, substantially lower than
+mRMR (5,456 s). With RF, Boruta–mRMR also records the
+smallest mean time (13 s), roughly half of RF (21 s) and less
+than half of Boruta (27 s).
+"""
+
+[[question]]
+id = "fetch-044"
+text = "Does the paper report any case where the hybrid method is beaten by a single feature-selection method, and how is that explained?"
+language = "en"
+kind = "limitation"
+difficulty = "medium"
+relevant_documents = ["ax-2510.00907v1"]
+reference_answer = "Yes. On dataset 20711 with GBM, BoMGene attains 77.778% accuracy, which is lower than plain mRMR at 84.444%. The authors explain that the successive Boruta-mRMR filtering can occasionally remove useful features because of dataset-specific properties or classifier-feature interactions."
+notes = "Discussion section IV-D, the limitations paragraph. The abstract claims only advantages, so this needs the body of the paper."
+
+  [[question.quote]]
+  document = "ax-2510.00907v1"
+  page = 6
+  text = """
+For instance, on dataset 20711 with GBM, BoMGene attains
+77.778%, which is lower than plain mRMR (84.444%).
+This can occur when the successive Boruta–mRMR filtering
+occasionally removes useful features due to dataset-specific
+properties or classifier–feature interactions.
+"""
+
+[[question]]
+id = "fetch-045"
+text = "How do the sizes of the selected feature sets compare across mRMR alone, Boruta alone, and the combined method?"
+language = "en"
+kind = "comparative"
+difficulty = "medium"
+relevant_documents = ["ax-2510.00907v1"]
+reference_answer = "mRMR selects the largest feature sets, in some cases more than 4,000 features. Boruta alone selects far fewer, mainly from a few dozen to a few hundred. The combined Boruta-mRMR method lands in between the two, which the authors read as a balance between retaining informative features and eliminating redundancy."
+notes = "Results section IV-B (Feature Selection Results). Two quotes are needed because the intermediate-size claim is a separate sentence from the mRMR/Boruta comparison. Both verified verbatim, including the hyphenation break 'afore-\\nmentioned'."
+
+  [[question.quote]]
+  document = "ax-2510.00907v1"
+  page = 5
+  text = """
+the mRMR method tends to select the largest
+number of features, in some cases exceeding 4,000 features.
+Conversely, the Boruta method selects a significantly smaller
+number of features, mainly ranging from a few dozen to a
+few hundred.
+"""
+
+  [[question.quote]]
+  document = "ax-2510.00907v1"
+  page = 5
+  text = """
+Notably, the combined Boruta-mRMR method
+yields an intermediate result compared to the two afore-
+mentioned methods, demonstrating a certain balance between
+retaining informative features and eliminating redundancy.
+"""
+
+[[question]]
+id = "fetch-046"
+text = "In the TMRMR method, per-time-step F-statistic values must be combined into a single relevance score for each gene. Which aggregation operator did the authors settle on, why were median and geometric mean judged unsuitable, and what happened when they tried the Multilayer Aggregation method?"
+language = "en"
+kind = "methodological"
+difficulty = "medium"
+relevant_documents = ["oa-radovic-2017-bmc"]
+reference_answer = "The authors chose the arithmetic mean to aggregate the F-statistic values calculated across all time steps into a single value representing total gene relevance. They rejected the median (and geometric mean) because, although the median is more robust to outliers than the arithmetic mean, in some cases it may fail to detect different levels of gene expression — for example a gene that differs between groups only in a short period after infection. They also implemented the Multilayer Aggregation (MLA) method to combine arithmetic mean, geometric mean and median, but it did not improve results significantly and it reduced the robustness of the proposed feature selection methods, so the plain arithmetic mean was kept."
+notes = "Methods section (aggregation-operator justification), not derivable from the abstract. Reference answer written by Claude (Opus 5) from the quoted passages on pages 3-4."
+
+  [[question.quote]]
+  document = "oa-radovic-2017-bmc"
+  page = 3
+  text = """
+Median is more robust to outliers
+than arithmetic mean which is a nice property, however
+in some cases it may fail to detect different levels of gene
+expressions. For instance, some genes may have differ-
+ent expression between groups in just a short time period
+following infection (e.g., initial two time points with large
+F-statistic values) and thereafter the differences between
+groupsbecomeinsignificant(e.g.,thenextfivetimepoints
+with small or even neglectable F-statistic values). In such
+a case, operators like median and geometric mean would
+fail to detect different gene expression behavior between
+groups.
+"""
+
+  [[question.quote]]
+  document = "oa-radovic-2017-bmc"
+  page = 3
+  text = """
+we implemented the Multilayer Aggregation
+(MLA) method from [16] to combine arithmetic mean,
+geometric mean and median for aggregation of F-statistic
+"""
+
+  [[question.quote]]
+  document = "oa-radovic-2017-bmc"
+  page = 4
+  text = """
+it did not improve results significantly and it reduced
+robustness of the proposed feature selection methods.
+"""
+
+  [[question.quote]]
+  document = "oa-radovic-2017-bmc"
+  page = 4
+  text = """
+For these reasons, we choose the arithmetic mean oper-
+ator to aggregate F-statistic values calculated across all
+time steps into a single value representing the total gene
+relevance:
+"""
+
+[[question]]
+id = "fetch-047"
+text = "What problem does the hyperparameter alpha solve in TMRMR, and what value was it given in the experiments — how many of the 12023 genes does that leave in the candidate pool, and why was it not tuned?"
+language = "en"
+kind = "quantitative"
+difficulty = "medium"
+relevant_documents = ["oa-radovic-2017-bmc"]
+reference_answer = "Alpha was introduced to stop the algorithm from picking irrelevant features, a risk that is especially acute in the first few iterations: under the MIQ criterion the second feature can be selected simply because it is totally different from the first one even if it is itself irrelevant, and that error then propagates into subsequent selections. Alpha controls how many of the top-relevant features (ranked by the average F-statistic of Eqs. 1-2) enter the selection process, restricting the search to the top alpha*G genes. In all experiments alpha was fixed at 0.3, so every selected gene came from the pool of the top 30% most relevant genes — 3610 genes. It was not tuned because, with 12023 features measured at 14-21 time points depending on the dataset, using nested cross-validation to select alpha was too time consuming."
+notes = "Quantitative; requires joining the Methods definition of alpha (page 4) with the experimental setup (page 8). The paper's MIQ-criterion motivation is quoted in the same passage as the definition. Reference answer written by Claude (Opus 5)."
+
+  [[question.quote]]
+  document = "oa-radovic-2017-bmc"
+  page = 4
+  text = """
+AnissuewiththemRMRalgorithmisthepossibleselec-
+tion of irrelevant features, which is possible especially
+in the first few iterations of the algorithm. For instance,
+based on the MIQ criterion the second feature may be
+selectedsimplybecauseitistotallydifferentfromthefirst
+one (feature with the highest relevance) although it may
+be irrelevant. Thereafter, this problem is further propa-
+gated since a selected irrelevant feature affects selection
+of the next ones. In order to solve this issue, we intro-
+duced hyperparameter α, which controls the number of
+the top relevant features (according to the average F-
+statistic value calculated by using Eqs. (1)-(2))included in
+the feature selection process. This means that we choose
+the next non-redundant feature from only the topαG
+relevant genes (whereG is the total number of genes).
+"""
+
+  [[question.quote]]
+  document = "oa-radovic-2017-bmc"
+  page = 8
+  text = """
+due to
+the fact that datasets used in this study contain a huge
+numberoffeatures(12023)measuredinalargenumberof
+timepoints(14-21dependingonadataset),itwastootime
+consumingtousethenestedcross-validationtoselectthe
+valueof α.
+"""
+
+  [[question.quote]]
+  document = "oa-radovic-2017-bmc"
+  page = 8
+  text = """
+Thus,wesimplyfixedthe α parameterto0.3in
+allexperimentsensuringthatallselectedgenescomefrom
+thepoolofthetop30%relevantgenes(3610genes).
+"""
+
+[[question]]
+id = "fetch-048"
+text = "TMRMR-C and TMRMR-M differ in one component. What is that difference, how do their time complexities compare, and which of the two performed better in the experiments?"
+language = "en"
+kind = "comparative"
+difficulty = "hard"
+relevant_documents = ["oa-radovic-2017-bmc"]
+reference_answer = "The two versions differ only in the redundancy measure. TMRMR-C uses Rc, which is computed from DTW distances between every pair of rows in the two gene matrices gi and gj; TMRMR-M uses Rm, computed from DTW distances between corresponding rows only. Because Rc requires all N-by-N pairs while Rm requires only the N diagonal pairs, the total time complexities are O(alpha*G*m*T^2*N^2) for TMRMR-C and O(alpha*G*m*T^2*N) for TMRMR-M. In the experiments TMRMR-C outperformed TMRMR-M in most cases, with a 16-5 count in favour of TMRMR-C and 33 ties."
+notes = "Cross-section within one paper: Methods (Eqs. 3-4, complexity) plus Results. Complexity symbols in the extracted text render exponents inline (O(αGmT2N2)); the reference answer spells them as T^2 and N^2. Written by Claude (Opus 5)."
+
+  [[question.quote]]
+  document = "oa-radovic-2017-bmc"
+  page = 4
+  text = """
+In Eq. 3Rc represents redundancy calculated by using
+DTW distances between every pair of rows in matricesgi
+andgj,whileinEq.4 Rm representsredundancycalculated
+by using only DTW distances between corresponding
+rowsinmatrices gi andgj.
+"""
+
+  [[question.quote]]
+  document = "oa-radovic-2017-bmc"
+  page = 5
+  text = """
+(1) TMRMR-C, using Rc as a measure of redundancy
+and (2) TMRMR-M, usingRm as a measure of redun-
+dancy.
+"""
+
+  [[question.quote]]
+  document = "oa-radovic-2017-bmc"
+  page = 5
+  text = """
+then the total time complexities of the TMRMR-
+C and TMRMR-M algorithms are O(αGmT2N2) and
+O(αGmT2N), respectively.
+"""
+
+  [[question.quote]]
+  document = "oa-radovic-2017-bmc"
+  page = 10
+  text = """
+When comparing the two proposed
+approaches, TMRMR-C outperformed TMRMR-M in
+mostcases(16-5infavorofTMRMR-Cand33tieresults).
+"""
+
+[[question]]
+id = "fetch-049"
+text = "Why are the gene expression time series z-score normalized before the DTW distance matrix is computed? What weakness of DTW does this address?"
+language = "en"
+kind = "methodological"
+difficulty = "medium"
+relevant_documents = ["oa-radovic-2017-bmc"]
+reference_answer = "DTW can align curves that are out of phase in time, but it may fail to recognise similarity between curves that fluctuate in a similar manner while having different offsets and amplitudes — the paper's example is one signal fluctuating between 5 and 10 and another fluctuating similarly between 30 and 40. Z-score normalization is applied before computing the distance matrix because it translates the gene expression time series so they fluctuate around the same (zero) offset and removes differences in amplitudes, leaving the series differing only in shape, which is what the redundancy measure is meant to compare."
+notes = "Methods only; absent from the abstract. The 5-to-10 versus 30-to-40 illustration sits between the two quoted spans in the same paragraph on page 4. Reference answer written by Claude (Opus 5)."
+
+  [[question.quote]]
+  document = "oa-radovic-2017-bmc"
+  page = 4
+  text = """
+Although DTW is able to capture similarity between
+curves that are out of phase in time it may fail to capture
+similarity between curves fluctuating in a similar manner
+but with different offsets and amplitudes. For instance,
+onesignalmayfluctuatewithamplitudebetween5and10,
+whileanothersignalmayfluctuateinasimilarmannerbut
+with larger amplitude between 30 and 40.
+"""
+
+  [[question.quote]]
+  document = "oa-radovic-2017-bmc"
+  page = 4
+  text = """
+Z-score
+normalization ’translates’ gene expression time series to
+fluctuate around the same (zero) offset and removes dif-
+ferences in amplitudes.
+"""
+
+[[question]]
+id = "fetch-050"
+text = "How did the authors measure the stability of the selected feature sets, and what values did the most stable and the least stable methods obtain?"
+language = "en"
+kind = "quantitative"
+difficulty = "hard"
+relevant_documents = ["oa-radovic-2017-bmc"]
+reference_answer = "Stability was measured with three quantities computed for the top 50 selected features (m = 50): Spearman's rank correlation coefficient (rho), the Tanimoto distance (Tdist), and the number of features shared across all folds of the 5-fold cross validation procedure (Nshared). Averaged over all datasets and all tested numbers of time points, TMRMR-C was the most stable method on each of the three measures, with Nshared = 15, rho = 0.40 and Tdist = 0.33. The least stable method was mRMR, with Nshared = 2.16, rho = 0.03 and Tdist = 0.12. In between, ReliefF was second most stable (Nshared = 10.08, rho = 0.36, Tdist = 0.32), ahead of TMRMR-M (Nshared = 9.66, rho = 0.31, Tdist = 0.25)."
+notes = "Results, Robustness subsection (page 11); no part of this is in the abstract. The second quote contains PDF-extraction letter-spacing damage ('ist hemoststa bleone...') and is reproduced verbatim, damage included. Reference answer written by Claude (Opus 5)."
+
+  [[question.quote]]
+  document = "oa-radovic-2017-bmc"
+  page = 11
+  text = """
+we calculated the
+Spearman’srankcorrelationcoefficient( ρ),Tanimotodis-
+tance(Tdist)andnumberoffeaturessharedacrossallfolds
+of the 5-fold cross validation procedure (Nshared)f o rt h e
+top50selectedfeatures( m = 50).Foreachmethod,Fig.6
+shows the average value of each stability measure across
+all datasets (H3N2, HRV and RSV) and across all tested
+numbers of time points
+"""
+
+  [[question.quote]]
+  document = "oa-radovic-2017-bmc"
+  page = 11
+  text = """
+This figure clearly shows
+that,onaverage,theTMRMR-Cfeatureselectionmethod
+ist hemoststa bleoneac c or dingt oeac hoft het hr eemea-
+sures (Nshared = 15, ρ = 0.40 and Tdist = 0.33).
+"""
+
+  [[question.quote]]
+  document = "oa-radovic-2017-bmc"
+  page = 11
+  text = """
+The
+second most stable method is ReliefF (Nshared = 10.08,
+ρ = 0.36 andTdist = 0.32) which appears to be more
+stable than the TMRMR-M algorithm (Nshared = 9.66,
+ρ = 0.31 andTdist = 0.25), while the least stable method
+is mRMR (Nshared = 2.16, ρ = 0.03 andTdist = 0.12).
+"""
+
+[[question]]
+id = "fetch-051"
+text = "Gao, Ver Steeg and Galstyan and Venkateswara et al. both build their method on the same pair of independence assumptions behind mutual-information feature selection, but they draw opposite conclusions from them. What does each paper do with those assumptions, and does the global optimisation route taken by one of them escape the objection raised by the other?"
+language = "en"
+kind = "cross-document"
+difficulty = "hard"
+relevant_documents = ["ax-1606.02827v1", "ax-1706.07535v1"]
+reference_answer = "Both papers start from the same pair: features already selected are assumed independent, and class-conditionally independent, given the candidate feature under consideration. Gao, Ver Steeg and Galstyan treat this as fatal — they demonstrate 'that the two assumptions cannot be valid simultaneously unless the data has a very specific (and unrealistic) structure' — and so abandon estimating mutual information under them, replacing it with a tractable variational lower bound on MI. Crucially, they explicitly deny that moving from greedy selection to global optimisation helps: methods 'based on global optimization of mutual information, such as quadratic programming feature selection (QPFS)... and... conditional mutual information-based spectral method (SPEC_CMI)... are derived from the previous greedy methods and therefore also implicitly rely on those two assumptions.' Venkateswara et al. take the opposite path: they invoke exactly that assumption (their Assumption 2.1, features conditionally independent and class-conditionally independent given X_i) as a deliberate tractability device, reducing MI estimation to conditional mutual information over three variables at a time, and then spend the paper on the optimisation side, modelling selection as an NP-hard Binary Quadratic Problem with global approximations. They belong to precisely the global-optimisation family Gao et al. exclude, and their own conclusion concedes the point rather than answering it: 'current methods applying MI and CMI for feature selection, inherently assume conditional independence between features. The conditional independence assumption limits the number of features compared to only 2 or 3 features at a time.' So no: the global route as they implement it does not escape the objection; it improves the search over an objective that still rests on the disputed assumptions."
+notes = "Authored by Claude (Opus 5) from the quoted passages only; all quotes verified as exact substrings. This is a real disagreement between two papers published a year apart, and neither side can be answered from one document alone: Gao et al. supply the impossibility argument and the charge against global methods, Venkateswara et al. supply the assumption they adopt and their own concession."
+
+  [[question.quote]]
+  document = "ax-1606.02827v1"
+  page = 3
+  text = """
+Assumption 1 and Assumption 2 mean that the selected features are independent and class-
+conditionally independent, respectively, given the unselected feature xi under consideration.
+"""
+
+  [[question.quote]]
+  document = "ax-1606.02827v1"
+  page = 3
+  text = """
+such as quadratic
+programming feature selection (QPFS ) [11] and state-of-the-art conditional mutual information-
+based spectral method (SPECCMI ) [12], are derived from the previous greedy methods and there-
+fore also implicitly rely on those two assumptions.
+"""
+
+  [[question.quote]]
+  document = "ax-1706.07535v1"
+  page = 1
+  text = """
+We
+circumvent this hurdle by invoking the assumption of con-
+ditional independence between the features. This reduces t he
+MI estimation problem to a Conditional Mutual Information
+(CMI) estimation problem, involving three features at a tim e.
+"""
+
+  [[question.quote]]
+  document = "ax-1706.07535v1"
+  page = 2
+  text = """
+Assumption 2.1: For a set of selected features {XSi∪
+Xi}, the features XSi are conditionally independent and
+class-conditionally independent given Xi
+"""
+
+  [[question.quote]]
+  document = "ax-1706.07535v1"
+  page = 5
+  text = """
+current methods applying MI
+and CMI for feature selection, inherently assume condition al
+independence between features. The conditional independe nce
+assumption limits the number of features compared to only 2 o r
+3 features at a time.
+"""
+
+[[question]]
+id = "fetch-052"
+text = "Two papers here parallelise minimum-redundancy maximum-relevance selection on a MapReduce-style framework. What does each distribute across workers, what speed-up or complexity does the earlier one claim, and what does the later one say about the kind of dataset for which that style of partitioning is the right choice?"
+language = "en"
+kind = "cross-document"
+difficulty = "medium"
+relevant_documents = ["ax-1411.2331v1", "ax-2208.09901v2"]
+reference_answer = "N3LARS (Yamada et al., 2014) distributes the per-feature score computations: 'we separately compute ck in N3LARS in parallel with distributed computing such as Hadoop', with Step 1 emitting, for each feature vector u_k, the pair <k, F_k> after computing F_k and NHSIC(u_k, y). With map-reduce 'the complexity is further reduced to O(mdbn2/P), where P is the number of mappers', and the authors note they could go faster on 'a faster distributed computation framework such as SPARK and JAVA'. Vivek and Sai Prasad's VMR_mRMR takes up that suggestion and explains why the framework matters: 'Spark is an Iterative MapReduce framework which is suitable for iterative algorithms such as mRMR as they provide persistence in memory for data across iterations.' They also supply the criterion for choosing the partitioning axis, which N3LARS never states: horizontal partitioning (over the object space) 'is more suitable for tall datasets where the objective space >> attribute space', whereas vertical partitioning (over the attribute space) 'is more suitable for wide datasets where the attribute space >> objective space'. N3LARS's per-feature split is a partition of the attribute space, i.e. the strategy the later paper classifies as the wide-dataset choice — consistent with N3LARS targeting high-dimensional d."
+notes = "Authored by Claude (Opus 5) from the quoted passages; all quotes verified verbatim. The last sentence of the reference answer is an inference the grader may treat as optional — the load-bearing facts (per-feature mapper split and O(mdbn^2/P) from N3LARS; the tall/wide partitioning rule and the Spark rationale from VMR_mRMR) each come from one document only."
+
+  [[question.quote]]
+  document = "ax-1411.2331v1"
+  page = 5
+  text = """
+To deal with this, we separately compute ck in N3LARS
+in parallel with distributed computing such as Hadoop. Here, we show pseudo code for Hadoop streaming.
+"""
+
+  [[question.quote]]
+  document = "ax-1411.2331v1"
+  page = 5
+  text = """
+Step1: For each feature vector uk, we compute Fk, NHSIC(uk,y), and output a key-value pair < k,Fk ∈
+Rn×b >.
+"""
+
+  [[question.quote]]
+  document = "ax-1411.2331v1"
+  page = 6
+  text = """
+With using map-reduce, the comple xity is further reduced to O(mdbn2/P ),
+where P is the number of mappers. To further speed up, we could use a fast er distributed computation
+framework such as SPARK and JA V A.
+"""
+
+  [[question.quote]]
+  document = "ax-2208.09901v2"
+  page = 2
+  text = """
+Spark is an Iterative MapReduce 
+framework which is suitable for iterative algorithms such as mRMR as they provide persistence in 
+memory for data across iterations.
+"""
+
+  [[question.quote]]
+  document = "ax-2208.09901v2"
+  page = 2
+  text = """
+In the literature, we identified that the former technique is more suitable for tall datasets where 
+the objective space >> attribute space. However, the latter technique is more suitable for wide datasets 
+where the attribute space >> objective space.
+"""
+
+[[question]]
+id = "fetch-053"
+text = "The classic mRMR criterion subtracts redundancy from relevance. Two papers here identify a problem with that subtraction when the two terms are measured on different scales, but they fix it in opposite ways — one keeps the difference and adds something to it, the other abandons the difference. Describe both fixes."
+language = "en"
+kind = "cross-document"
+difficulty = "medium"
+relevant_documents = ["ax-1903.01907v1", "ax-1908.05376v1"]
+reference_answer = "Li and Gu keep the difference form and re-weight it: 'the standard mRMR was improved by introducing a weight coefficient in the evaluation criteria to refine the measurement of the features correlation and redundancy.' They then settle the weight empirically with a wrapper stage rather than analytically — the improved criterion generates a sequence of nested candidate subsets by incremental search, and 'each candidate feature subset was tested by a support vector machine classifier to find the optimal feature subset with the highest classification accuracy.' Zhao, Anand and Wang diagnose the same trouble — 'One challenge of not using the same measure between relevance and redundancy is that the scales may be different between these two, that affects the trade-off between the relevance and redundancy' — but treat the subtraction itself as the defect: 'Compared with the difference scheme (such as MID, FCD), the quotient scheme (such as MIQ, FCQ) is relatively immune to the scale differences.' They therefore adopt the quotient scheme for their extensions, so that the differing scales cancel instead of being balanced by a tuned coefficient."
+notes = "Authored by Claude (Opus 5); all quotes verified as exact substrings, including the PDF spacing damage ('measure ment', 'sup port'). The Li and Gu quotes come from the English abstract of a Chinese-language paper. Cross-document by construction: the two remedies are stated in different papers and the contrast is the answer."
+
+  [[question.quote]]
+  document = "ax-1903.01907v1"
+  page = 1
+  text = """
+First, the standard mRMR was improved by 
+introducing a weight coefficient in the evaluation criteria to 
+refine the measure ment of the features correlation and 
+redundancy.
+"""
+
+  [[question.quote]]
+  document = "ax-1903.01907v1"
+  page = 1
+  text = """
+each 
+candidate feature subset was tested by a sup port vector 
+machine classifier to find the optimal feature subset with the 
+highest classification accuracy.
+"""
+
+  [[question.quote]]
+  document = "ax-1908.05376v1"
+  page = 3
+  text = """
+One challenge of not using the same measure between
+relevance and redundancy is that the scales may be differ-
+ent between these two, that affects the trade-off between
+the relevance and redundancy.
+"""
+
+  [[question.quote]]
+  document = "ax-1908.05376v1"
+  page = 3
+  text = """
+Compared with the difference
+scheme (such as MID, FCD), the quotient scheme (such as
+MIQ, FCQ) is relatively immune to the scale differences.
+"""
+
+[[question]]
+id = "fetch-054"
+text = "Peng et al. defined mRMR with mutual information for both terms, yet several papers in this collection score relevance with the F-statistic instead. Which papers do so, what redundancy measure does each pair with it, and what justification is given for leaving mutual information behind?"
+language = "en"
+kind = "cross-document"
+difficulty = "medium"
+relevant_documents = ["ax-1908.05376v1", "ax-2510.00907v1", "oa-radovic-2017-bmc"]
+reference_answer = "Three papers here score relevance with the F-statistic. (1) Radović et al. state the standard split — 'Relevance can be calculated by using the F-statistic (for continuous features) or mutual information (for discrete features) and redundancy can be calculated by using Pearson correlation coefficient (for continuous features) or mutual information (for discrete features)' — and then change the redundancy side for temporal data: their TMRMR computes 'the relevance of a gene by averaging the F-statistic values calculated across individual time steps, and redundancy between genes by using the dynamical time warping (DTW) approach'. (2) BoMGene keeps the classical pairing but says plainly why: 'we measure feature-label relevance using the F-test and feature-feature redundancy using the Pearson correlation, rather than mutual information as in the original definition, to better suit continuous gene-expression features.' (3) Zhao, Anand and Wang give the cost argument for the same substitution: 'For continuous features, as estimating the probability density can be computationally expensive, two alternatives are proposed' — the FCD and FCQ variants that score relevance with the F-statistic and redundancy with correlation. The common justification is that the features are continuous, which makes the density/mutual-information estimate awkward or expensive; the redundancy measure is then chosen to match the data type — Pearson correlation for ordinary continuous features, DTW when the features are time series that may be out of phase."
+notes = "Authored by Claude (Opus 5) from the quoted passages; all quotes verified as exact substrings, including the lost inter-word spacing in the Radović extraction ('dancybetweengenesbyusingthedynamicaltimewarping'). Requires three documents: no single paper states the pattern, and each supplies a different justification for the same substitution."
+
+  [[question.quote]]
+  document = "oa-radovic-2017-bmc"
+  page = 2
+  text = """
+Relevance can be calculated by using the F-statistic (for
+continuous features) or mutual information (for discrete
+features) and redundancy can be calculated by using
+Pearson correlation coefficient (for continuous features)
+or mutual information (for discrete features).
+"""
+
+  [[question.quote]]
+  document = "oa-radovic-2017-bmc"
+  page = 2
+  text = """
+pute the relevance of a gene by averaging the F-statistic
+values calculated across individual time steps, and redun-
+dancybetweengenesbyusingthedynamicaltimewarping
+(DTW) approach.
+"""
+
+  [[question.quote]]
+  document = "ax-2510.00907v1"
+  page = 3
+  text = """
+we measure feature–label relevance using the F-test and
+feature–feature redundancy using the Pearson correlation,
+rather than mutual information as in the original definition,
+to better suit continuous gene-expression features.
+"""
+
+  [[question.quote]]
+  document = "ax-1908.05376v1"
+  page = 3
+  text = """
+For continuous features, as estimating the probability den-
+sity can be computationally expensive, two alternatives are
+proposed in [11].
+"""

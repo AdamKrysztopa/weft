@@ -2,16 +2,31 @@
 
 Specified in `docs/06-phase-0-build.md` step 7 and, in full, `docs/02-extension-model.md`
 section 1 → *The store contract family* (settled in **G4**). Two capabilities
-publish at Phase 0: `NodeStore`, the base every store implements all of, and
+published at Phase 0: `NodeStore`, the base every store implements all of, and
 `VectorSearch`, one of the optional capabilities a store may additionally
-satisfy. `TextSearch` and `MetadataFilter` are the family's remaining tiers —
-`02` names all four as one settled design — and are deliberately not
-published here: `06` step 7 scopes this step to the two capabilities Phase 0
-has a built-in for (step 8's pgvector store, vector search only), and a
-Protocol nobody can satisfy yet is exactly the kind of surface this project
-does not grow ahead of need. Adding `TextSearch`/`MetadataFilter` later costs
-one more Protocol in this module, never a change to `NodeStore` or
-`VectorSearch`.
+satisfy. **`TextSearch` joins them at Phase 2 task 2.5**, on the terms `02`
+predicted — one more Protocol here, no change to either of the other two — and
+for the reason Phase 0 gave for leaving it out: this is the step where a store
+implementing it exists (`pgvector_store.PgVectorStore.search_text`, over a
+`tsvector` column). Text search being a *store* capability rather than a
+retriever's own machinery is the whole of that task: a retriever that had to
+build its own index would own a second copy of the corpus, stale from the
+moment it was built.
+
+**`MetadataFilter` joins them at task 2.6, with a member rather than as the
+bare marker `02` §1 specified.** That correction was measured at task 2.5: a
+`@runtime_checkable` Protocol with an empty body has an empty
+`__protocol_attrs__`, so `isinstance(x, MetadataFilter)` is `True` for every
+object in the language, `42` included, and published that way it would be a
+capability every store advertises and none has to implement. What it needed
+was a member that *is* the capability — "an entry point taking a `Filter` and
+nothing else" — settled against a store that actually translates the whole
+`FilterOp` set, which is what 2.6 brought: `weft-qdrant` translates it to
+Qdrant's own filter language, `pgvector_store` to SQL, and `matching` is the
+member both of them have. The operator set's own narrowings — what a path may
+name, and which operator each kind of field admits — live in
+`weft_store.fields`, published once so that two engines cannot come to
+disagree about what a `Filter` means.
 
 **Capability is derived, never declared — the whole reason these are two
 Protocols rather than one with optional methods.** `docs/02-extension-model.md`:
@@ -24,7 +39,8 @@ registered once under `NodeStore` may also satisfy `VectorSearch`; nothing
 here registers `VectorSearch` under its own plugin name, because it is a
 capability a store has, not a plugin a pipeline selects. `__protocol_attrs__`
 — the set `isinstance` actually checks on a `@runtime_checkable` Protocol —
-is therefore `{'search_vector'}` for `VectorSearch` and exactly `NodeStore`'s
+is therefore `{'search_vector'}` for `VectorSearch`, `{'search_text'}` for
+`TextSearch`, `{'matching'}` for `MetadataFilter`, and exactly `NodeStore`'s
 nine method names for `NodeStore`: a class implementing only those methods
 satisfies the contract, nothing more required.
 
@@ -82,12 +98,21 @@ from weft_kernel.context import Context
 from weft_kernel.payload import Node, NodeId, Outcome, SourceId, Vector
 from weft_kernel.runner import Stage
 
-#: Fitness function 6's subject for the store family — see the module docstring.
-STORE_CONTRACT_VERSION = "1.0.0"
+#: Fitness function 6's subject for the store family — see the module docstring. Moved
+#: `1.0.0` → `1.1.0` at task 2.5, when `TextSearch` joined, and `1.1.0` → `1.2.0` at task 2.6,
+#: when `MetadataFilter` did: the family grew a capability each time, so the constant fitness
+#: function 6 watches has to move with it, and one number covers all four Protocols. **What a
+#: version number *means* is G9's question and G9 is Open** — this records only that the
+#: published surface changed, and nothing here should be read as having settled a
+#: compatibility policy.
+STORE_CONTRACT_VERSION = "1.2.0"
 
 #: Versioned separately from `STORE_CONTRACT_VERSION`: a `Filter` is data that
-#: outlives any one store, serialised into a resolved, stored pipeline.
-FILTER_AST_VERSION = "1.0.0"
+#: outlives any one store, serialised into a resolved, stored pipeline. Moved `1.0.0` →
+#: `1.1.0` at task 2.6, when the four ordered operators narrowed to numbers — a filter this
+#: AST used to accept is now refused, which is a change to what the data *is* and not to any
+#: store that reads it.
+FILTER_AST_VERSION = "1.1.0"
 
 #: An opaque pagination token. Never constructed by a caller — only ever a
 #: value a store previously handed back through `Page.next_cursor`.
@@ -202,6 +227,16 @@ _COMPARISON_OPS = frozenset(
 )
 _COMBINATOR_OPS = frozenset({FilterOp.AND, FilterOp.OR})
 
+#: The four operators that put two values in an order rather than testing them for identity.
+#: Their value must be a number — see `Filter._shape_matches_op` for why that is a fact about
+#: portable data rather than a limitation of any one store.
+_ORDERED_OPS = frozenset({FilterOp.LT, FilterOp.LTE, FilterOp.GT, FilterOp.GTE})
+
+#: The comparison operators that ask *is this value that value* rather than putting two values
+#: in an order. Spelled as its own set rather than derived as `_COMPARISON_OPS - _ORDERED_OPS`,
+#: because a validator that refuses something is worth being able to read the subject of.
+_IDENTITY_OPS = frozenset({FilterOp.EQ, FilterOp.NE, FilterOp.IN, FilterOp.CONTAINS})
+
 
 class Filter(BaseModel):
     """A serialisable Pydantic AST — `docs/02-extension-model.md` → *Filters are data*.
@@ -239,6 +274,8 @@ class Filter(BaseModel):
                 raise ValueError(f"'{self.op}' filter requires both 'field' and 'value'")
             if self.clauses:
                 raise ValueError(f"'{self.op}' filter must not carry 'clauses'")
+            self._ordered_comparison_is_over_numbers()
+            self._identity_comparison_is_not_over_floats()
         elif self.op is FilterOp.EXISTS:
             if self.field is None:
                 raise ValueError("'exists' filter requires 'field'")
@@ -255,6 +292,56 @@ class Filter(BaseModel):
             if self.field is not None or self.value is not None:
                 raise ValueError("'not' filter must not carry 'field' or 'value'")
         return self
+
+    def _ordered_comparison_is_over_numbers(self) -> None:
+        """Refuse `lt`/`lte`/`gt`/`gte` against anything but a number.
+
+        Ordering text means whatever the engine's collation means — a property
+        of a database, not of the filter — and Qdrant, the second backend this
+        AST was proven against at task 2.6, ranges over numbers only. A filter
+        is data that must mean one thing everywhere, so this is refused where
+        the filter is *built*, once, rather than differently by each store.
+        `bool` is excluded explicitly: it is an `int` in Python and nowhere
+        else, and `flag > 0` is not a question anybody meant to ask.
+        """
+        if self.op not in _ORDERED_OPS:
+            return
+        if isinstance(self.value, bool) or not isinstance(self.value, int | float):
+            raise ValueError(
+                f"'{self.op}' compares an order, so its value must be a number; got "
+                f"{self.value!r}. Ordering text would mean whatever the store's collation "
+                f"means, which is a fact about a database rather than about this filter"
+            )
+
+    def _identity_comparison_is_not_over_floats(self) -> None:
+        """Refuse `eq`/`ne`/`in`/`contains` against a float.
+
+        Two reasons that point the same way, and the second is what made it a
+        refusal rather than an opinion. Exact equality between floating-point
+        numbers is a question whose answer depends on how each end rounded, so it
+        is a bad filter wherever it is asked. And a document store indexes floats
+        for range comparison and not for matching, so the same filter that selects
+        in SQL selects nothing there — silently. A range with equal bounds is what
+        this means, and it says so.
+
+        **Guarded by `_IDENTITY_OPS`, and that guard is the whole of a repair.** It
+        used to run for every comparison operator, including the four ordered ones —
+        so `gte` against `0.8` was refused by a message telling the operator to ask
+        for a range with `gte`, and no filter anywhere could compare against a
+        confidence, a score or a threshold. Two validators disagreeing about the same
+        value is the shape of that defect: `_ordered_comparison_is_over_numbers`
+        admits `int | float` two methods up, and both backends were already written
+        for a float bound (`weft_qdrant.store._as_number`, pgvector's `::numeric`).
+        """
+        if self.op not in _IDENTITY_OPS:
+            return
+        values = self.value if isinstance(self.value, tuple) else (self.value,)
+        if any(isinstance(value, float) for value in values):
+            raise ValueError(
+                f"'{self.op}' tests identity, and a floating-point number cannot be tested for "
+                f"identity portably; got {self.value!r}. Ask for a range instead — 'gte' and "
+                f"'lte' with the bounds you actually mean"
+            )
 
 
 @runtime_checkable
@@ -310,3 +397,97 @@ class VectorSearch(Protocol):
 
 
 VectorSearch.version = STORE_CONTRACT_VERSION
+
+
+@runtime_checkable
+class TextSearch(Protocol):
+    """A store that can rank `Node`s by lexical match on their own text.
+
+    The sibling of `VectorSearch`, and the reason `02` insists the two are
+    separate Protocols: "stores never embed. `VectorSearch` takes a vector,
+    `TextSearch` takes text; a store is therefore not coupled to a model."
+    A store may satisfy both, either or neither, and which it is comes out of
+    `isinstance` rather than out of anything a store author writes down.
+
+    **This is the capability a retriever asks for instead of building.** A
+    lexical arm implemented inside a retrieval plugin is a second index over
+    the corpus — one the store's own writes never reach, so it is stale from
+    the first `add()` and there is nothing in the pipeline to make it fresh
+    again. A retriever that wants a text channel therefore declares it needs
+    this capability and is refused, by name, against a store that does not
+    advertise it (task 2.5; `docs/02-extension-model.md` §1 → *Retrievers
+    declare what they need*). Nothing here adapts or degrades: a run that
+    wanted a text channel does not quietly become vector-only.
+
+    **An empty ranking is a result, not a failure.** A store whose index holds
+    nothing matching returns an empty sequence; that is the honest answer to
+    "what matches these words", and it is a different fact from a store that
+    could not look, which raises.
+
+    Not a `Stage`: nothing in an ingest pipeline calls `search_text`, so it
+    carries no `run` and stays a pure capability Protocol, checked with
+    `isinstance` against whatever instance `NodeStore` resolved — the same
+    shape as `VectorSearch`, for the same reason.
+    """
+
+    if TYPE_CHECKING:
+        #: See `NodeStore.version`'s note above — the same `if TYPE_CHECKING:` mechanism,
+        #: assigned below.
+        version: ClassVar[str]
+
+    async def search_text(
+        self, text: str, top_k: int, filter: Filter | None = None
+    ) -> Sequence[Scored[Node]]: ...
+
+
+TextSearch.version = STORE_CONTRACT_VERSION
+
+
+@runtime_checkable
+class MetadataFilter(Protocol):
+    """A store that can evaluate a whole `Filter` against what it holds.
+
+    The fourth tier, published at task **2.6** — one task later than `02` §1
+    scheduled it, and for the reason that task exists. Specified there as a bare
+    marker (`class MetadataFilter(Protocol): ...`), it could not be published as
+    written: a `@runtime_checkable` Protocol with an empty body has an empty
+    `__protocol_attrs__`, so `isinstance(42, MetadataFilter)` is `True` and the
+    capability would be one every store advertises and none implements. It needs
+    a member that *is* the capability, and `02` names the shape that member must
+    have — "an entry point taking a `Filter` and nothing else".
+
+    `matching` is that entry point. No vector, no text, no `top_k`: the filter
+    alone decides membership, which is what makes this capability separable from
+    the two search tiers rather than a footnote on them. `cursor` is not a second
+    query dimension — it is the same paging vocabulary `NodeStore.scan` already
+    uses, because a predicate over a corpus can select more of it than one answer
+    should carry.
+
+    **What a store promises by having it.** Every operator in `FilterOp`, over
+    every path `weft_store.fields` says a `Filter` may name, with the meanings
+    that module states — and, since a store that can evaluate a filter has no
+    excuse for ignoring one, `filter` honoured on whichever of `search_vector`
+    and `search_text` the same store also has. A store that translates only some
+    of the operator set does not implement this Protocol and must not carry
+    `matching`: half a filter language silently applied is the failure `01`
+    requirement 5 exists to forbid, and refusing the whole call is the honest
+    alternative.
+
+    **Order is not promised, pages are.** `matching` and `scan` both walk
+    whatever key the backend orders by — a content digest in Postgres, a UUID in
+    Qdrant — and a caller that needs a ranking is asking a search capability, not
+    this one.
+
+    Not a `Stage`: nothing in an ingest pipeline filters, so it carries no `run`
+    and stays a pure capability Protocol, the same shape as its two siblings.
+    """
+
+    if TYPE_CHECKING:
+        #: See `NodeStore.version`'s note above — the same `if TYPE_CHECKING:` mechanism,
+        #: assigned below.
+        version: ClassVar[str]
+
+    async def matching(self, filter: Filter, cursor: Cursor | None = None) -> Page[Node]: ...
+
+
+MetadataFilter.version = STORE_CONTRACT_VERSION

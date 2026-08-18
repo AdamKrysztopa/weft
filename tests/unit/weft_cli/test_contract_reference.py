@@ -11,18 +11,27 @@ this module is the plumbing that produces it.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, ClassVar, Protocol, runtime_checkable
+
 import pytest
 
 from weft_chunk.contract import Chunker
 from weft_cli.contract_reference import (
     ContractNotDescribableError,
     PublishedContract,
+    capability_siblings,
     discover_for_reference,
     missing_from_walked_set,
     published_contracts,
     render_contract_reference,
 )
-from weft_store.contract import NodeStore, VectorSearch
+from weft_kernel.context import Context
+from weft_kernel.payload import Outcome
+from weft_kernel.runner import Stage
+from weft_retrieve.contract import ContextPacker, Fuser, QueryScorer, Retriever, Sufficiency
+from weft_retrieve.no_retrieval import NoRetrieval
+from weft_retrieve.payload import Candidates, QuerySet
+from weft_store.contract import NodeStore, TextSearch, VectorSearch
 
 
 def test_published_contracts_includes_vectorsearch_beside_nodestore() -> None:
@@ -35,10 +44,116 @@ def test_published_contracts_includes_vectorsearch_beside_nodestore() -> None:
     }
 
     # Assert — VectorSearch is never registered under its own name (weft_store.contract's
-    # own module docstring), so this is only true if the capability-sibling walk ran.
+    # own module docstring), so this is only true if the capability-sibling walk ran. Both
+    # distributions appear against `VectorSearch` because the class each of them registered
+    # under `NodeStore` provides it — the walk attributes a capability to whoever *satisfies*
+    # it, asked of the registered class, never to whoever happens to register a name under
+    # the anchor. `TextSearch` is the asymmetry that proves the distinction: `weft-qdrant`
+    # registers a store and deliberately does not satisfy it (task 2.6), and the shipped
+    # reference must not tell an operator otherwise. Repair for a reviewer finding: the walk
+    # copied the anchor's whole distribution set onto every sibling, and the generated
+    # manual declared a capability the code refuses.
     assert NodeStore in contracts
     assert VectorSearch in contracts
-    assert contracts[VectorSearch] == contracts[NodeStore] == frozenset({"weft-store"})
+    assert (
+        contracts[VectorSearch] == contracts[NodeStore] == frozenset({"weft-store", "weft-qdrant"})
+    )
+    assert contracts[TextSearch] == frozenset({"weft-store"})
+
+
+def test_a_stage_contract_is_never_derived_as_another_stages_sibling() -> None:
+    """Repair for task 2.13: `weft-retrieve`'s pipeline positions share the one
+    method name `run`, so `issubclass` cannot structurally tell `Retriever` from
+    `Fuser` from `QueryScorer` — before this filter, registering `no-retrieval`
+    under `Retriever` made every one of them satisfied by structure alone, and this
+    reference would have printed `weft-retrieve` as "Registered by" for a `Fuser` and
+    a `QueryScorer` nothing registers.
+
+    **Every real `Stage` contract in this tree is registered as of task 2.25** —
+    `ContextPacker` (task 2.19) and `QueryScorer` (task 2.25's own `query-scorer`) were
+    the last two examples of "a `Stage` contract nothing registers" this test could have
+    reached for. Rather than keep chasing whichever real contract is still open, this test
+    now defines its own never-registered stand-in — `_UnregisteredRetriever`, sharing
+    `Retriever`'s exact `In`/`Out` shape and its `run` method name, so `NoRetrieval`
+    satisfies it structurally exactly as it structurally satisfies `Fuser` and
+    `QueryScorer`. The structural fact under test — `capability_siblings` filters every
+    `Stage`-shaped Protocol out of consideration, not merely the ones nothing happens to
+    register — does not depend on which real contract is currently open, and a local
+    stand-in keeps this test true forever rather than needing a fresh "sharper example"
+    every time a task closes the previous one.
+    """
+    # Arrange — the same structural fact the fix depends on, checked directly first so
+    # the assertion on `published_contracts` below is not the only evidence for it.
+    # `isinstance`, not `issubclass`, on pyright's own rule: a Protocol carrying a
+    # non-method member (`version`) cannot be the right side of `issubclass` statically —
+    # `_distributions_satisfying` avoids this by asking only of a `type[object]` pyright
+    # cannot specialise; this test asks a concrete question instead.
+    instance = NoRetrieval()
+    assert isinstance(instance, Fuser)
+    assert isinstance(instance, _UnregisteredRetriever)
+
+    # Act
+    registry = discover_for_reference()
+    contracts = {
+        published.contract: published.distributions for published in published_contracts(registry)
+    }
+
+    # Assert — `Retriever`, `Fuser`, `ContextPacker` and `QueryScorer` are all real: a name
+    # is registered under each, so each is its own anchor with its own registering
+    # distribution. `_UnregisteredRetriever` is not found at all, never found-but-empty,
+    # because it is not a candidate sibling of anything in the first place —
+    # `capability_siblings` excludes every `Stage` contract from the walk, not just the
+    # ones nothing structurally satisfies. A walk without that filter would print
+    # `weft-retrieve` under it anyway, since `NoRetrieval` satisfies it structurally
+    # (asserted above) and `weft-retrieve` is what registers `NoRetrieval` under
+    # `Retriever`.
+    assert contracts[Retriever] == frozenset({"weft-retrieve"})
+    assert contracts[Fuser] == frozenset({"weft-retrieve"})
+    assert contracts[ContextPacker] == frozenset({"weft-retrieve"})
+    assert contracts[QueryScorer] == frozenset({"weft-retrieve"})
+    assert _UnregisteredRetriever not in contracts
+    # `Sufficiency` is not `Stage`-shaped (it takes three arguments, never one payload) —
+    # a legitimate capability sibling of `Retriever`, and as of task 2.24 (`llm-sufficiency`,
+    # `hedge-phrases`) a satisfied one: the walk attributes it to `weft-retrieve` because that
+    # is the distribution whose registered classes actually satisfy the Protocol, the same
+    # rule `test_published_contracts_includes_vectorsearch_beside_nodestore` checks above.
+    assert Sufficiency in contracts
+    assert contracts[Sufficiency] == frozenset({"weft-retrieve"})
+
+
+@runtime_checkable
+class _UnregisteredRetriever(Stage[QuerySet, Candidates], Protocol):
+    """Stand-in: `Retriever`'s exact `In`/`Out` shape and `run` method name, satisfied
+    structurally by `NoRetrieval` (and by every real `Retriever`), registered nowhere.
+    See `test_a_stage_contract_is_never_derived_as_another_stages_sibling`'s own docstring
+    for why a local stand-in replaced the last real "still open" example.
+
+    `version` is declared only under `if TYPE_CHECKING:` and assigned after the class
+    body, the same convention every real contract in this tree follows — a real attribute
+    here would join `__protocol_attrs__` and `isinstance` would then require `NoRetrieval`
+    itself to carry a `.version`, which no plugin instance does.
+    """
+
+    if TYPE_CHECKING:
+        version: ClassVar[str]
+
+    async def run(self, payload: QuerySet, ctx: Context) -> Outcome[Candidates]: ...
+
+
+_UnregisteredRetriever.version = "1.0.0"
+
+
+def test_capability_siblings_excludes_every_stage_contract() -> None:
+    # Act
+    siblings = capability_siblings(Retriever)
+
+    # Assert — the self-test `08` §3 requires of every floor: prove the exclusion can
+    # actually remove something, rather than passing because nothing was ever offered.
+    assert Fuser not in siblings
+    assert ContextPacker not in siblings
+    assert QueryScorer not in siblings
+    assert Retriever not in siblings  # never its own sibling either
+    assert Sufficiency in siblings
 
 
 def test_render_contract_reference_reflects_the_real_signature() -> None:
@@ -136,4 +251,41 @@ def test_render_contract_reference_raises_for_a_contract_with_no_protocol_attrs(
     # Act / Assert — a contract exposing no `__protocol_attrs__` stops generation rather
     # than being described with an empty `### Methods` section.
     with pytest.raises(ContractNotDescribableError, match="__protocol_attrs__"):
+        render_contract_reference(contracts)
+
+
+def test_a_contracts_declared_data_members_are_documented_beside_its_methods() -> None:
+    # Arrange — task 2.7's repair. `weft_prompts.contract.Prompt` is the first contract in
+    # this tree with a registered implementation whose protocol membership includes data
+    # members (`input_model`, `output_model`) rather than methods alone, and an annotation
+    # with no assignment is not an attribute of the class: generation died with a bare
+    # `AttributeError` naming `input_model`.
+    registry = discover_for_reference()
+    contracts = published_contracts(registry)
+
+    # Act
+    rendered = render_contract_reference(contracts)
+
+    # Assert — both halves of the contract are documented, because a `Prompt` missing
+    # `input_model` fails `isinstance` exactly as surely as one missing `render`.
+    assert "### Declared attributes" in rendered
+    assert "input_model: typing.ClassVar[type[pydantic.main.BaseModel]]" in rendered
+    assert "async def render(" in rendered
+
+
+def test_render_contract_reference_raises_for_a_contract_with_nothing_to_call() -> None:
+    # Arrange
+    @runtime_checkable
+    class _MarkerOnly(Protocol):
+        """Stand-in: a versioned Protocol declaring data and no method at all."""
+
+        version: ClassVar[str] = "1.0.0"
+        shape: ClassVar[str]
+
+    contracts = (PublishedContract(contract=_MarkerOnly, distributions=frozenset({"weft-test"})),)
+
+    # Act / Assert — a marker is not something a pack author implements a method of, and
+    # this reference documents what they write. Stopping is the loud half of the same rule
+    # the repair above is the quiet half of.
+    with pytest.raises(ContractNotDescribableError, match="only data members"):
         render_contract_reference(contracts)

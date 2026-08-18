@@ -34,6 +34,8 @@ question, so that a decision's status has exactly one home.
 | 8 | **G8** Is the REPL agentic | Phase 3 | Medium, but expensive if retrofitted |
 | 9 | **G9** Contract versioning policy | First external pack | High — a policy, changeable |
 | 10 | **G10** Release and support policy | Phase 6 | Medium — a policy, but published |
+| 11 | **G11** Kernel error text | Phase 3 | Low — settled 2026-08-18 |
+| 12 | **G12** Permissions when the caller is never a TTY | Phase 7 | Medium — a safety boundary, not a mechanism |
 
 ---
 
@@ -670,3 +672,59 @@ reads as "not needed here," and an English literal reads as "already decided," a
 message or a stated, deliberate reason kernel errors stay English literals — plus a decision on
 whether the 0.14 troubleshooting-ratchet entry and a catalogue message key are the same obligation or
 two separate ones a kernel error must satisfy.
+
+
+---
+
+## G12 — What does a permission class mean when the caller is never a TTY?
+
+**Added 2026-08-18 by G8, which settled that Weft's agentic front end is a first-party pack shipped
+in Phase 7.** This session is that phase's gate.
+
+**The question.** `03` → *Permissions* says an `ask`-class operation — `overwrite`, `destroy` —
+**fails** with no TTY, naming the flag that would permit it, and never proceeds silently. An agent is
+never a TTY. So either a Phase 7 pack can never perform those two classes, or something other than a
+TTY counts as consent. Which?
+
+**Why it cannot be defaulted.** Both defaults are bad in opposite directions and both look reasonable
+from a distance. Reading it strictly, the most useful thing an agent could do — reindex a stale
+collection it just noticed was stale — is permanently out of reach, and the rule reads as a
+capability ceiling nobody chose. Reading it loosely, the pack passes `--yes` and inherits the exact
+failure `03` names one bullet later: *"`destroy` trains people to pass `--yes` reflexively, which
+disarms the whole table."* An agent passing `--yes` on every call is that sentence with the human
+removed, and the permission classes G3 made mandatory at registration stop meaning anything at the
+moment they finally matter.
+
+**Positions to attack.**
+
+- **The ceiling is the answer.** An agentic pack is `read`, `write` and `network` only, by
+  construction, and `03`:133 needs no amendment. *Attack that:* a pack that cannot reindex is a
+  demo, and Phase 7's exit says it drives a corpus end to end — establish whether end-to-end is
+  reachable inside the ceiling before accepting it.
+- **An approval channel counts as interactive.** The pack surfaces the pending operation and a human
+  answers out of band; `03`:133's "non-interactive means non-guessing" is satisfied because nothing
+  was guessed. *Attack that:* the rule's teeth are then entirely in an approval UX, and `03` specifies
+  none — say what makes an approval channel meaningfully different from `--yes` rather than a slower
+  spelling of it.
+- **The class is the wrong unit for a non-human caller.** A human is asked per operation; an agent
+  might be granted a bounded budget, a scoped target, or a dry-run-then-confirm protocol instead.
+  *Attack that:* this invents a second permission model beside the one G3 settled, and two models is
+  how the reference got three overlapping context objects.
+
+**Bring.**
+
+- `03` → *Permissions* in full, including the sentence about `--yes` and the one about the classes
+  protecting you from the tool rather than from a pack.
+- G3's outcome and the reason command permission classes are mandatory at registration with no
+  default (`02` §2 → *The trust model*), since whatever this session decides has to survive the fact
+  that a dishonest pack can declare `read` and destroy a collection anyway.
+- **The `agentic-patterns` skill**, which `01` requires before this phase's loop is written. Its
+  human-approval material is this session's direct input, and G8 moved the handoff here precisely so
+  it lands with real contracts to reason about.
+- What the Phase 7 pack actually needs to do to satisfy its own exit criterion, taken from the
+  criterion rather than imagined — that is what decides whether the ceiling position is viable.
+- Whether `03`'s exit-code table (`3` covers policy refusals) already has the right shape for a
+  refusal a non-human caller receives, or whether it assumes a reader.
+
+**Done when.** A stated position on whether a non-TTY caller can reach `overwrite` and `destroy`, and
+if it can, the mechanism named and specified in `03` → *Permissions* rather than left to the pack.

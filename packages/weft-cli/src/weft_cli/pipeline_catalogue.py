@@ -39,11 +39,14 @@ ConfigFileError` already lets `dispatch` map a broken `weft.toml` there today.
 
 from __future__ import annotations
 
+import importlib.resources
+from collections.abc import Sequence
 from pathlib import Path
 
 import yaml
 from pydantic import ValidationError
 
+from weft_kernel.discovery import PackReport
 from weft_kernel.errors import WeftError
 from weft_kernel.pipeline import Pipeline
 
@@ -82,6 +85,52 @@ class DuplicatePipelineNameError(WeftError):
     """
 
 
+class ContributedPipelineNameCollisionError(WeftError):
+    """Two installed packs' `PipelineResource`s both declare the same `name:`.
+
+    Task **2.8**. `.phase2-design.md` §5 describes a wider guarantee than this class
+    enforces: "a contributed name colliding with a project-local one is refused naming
+    both — the same rule as a duplicate plugin name, resolvable by an operator pin."
+    **Narrowed on repair, 2.8's own line on `docs/build-ledger.md`:** `load_contributed`
+    below takes no project-local catalogue as input, and the one live caller —
+    `weft_cli.route_ask.run_routed_ask` — never merges one in either, because no CLI
+    command yet wires a `load_pipeline_catalogue(directory)` result into a route decision.
+    So what this class actually refuses today is two *contributed* resources, from any
+    distributions, sharing one `name:` — a real check, just not the design record's fuller
+    one. A separate class from `DuplicatePipelineNameError` all the same, because the two
+    would disambiguate different sources in their own message if the wider check existed —
+    a `Path` for a catalogue directory, a `distribution:package/resource` locator for a
+    contributed one — and collapsing them now would make that future error's text lie
+    about where to look. Neither is a plugin-name collision, so `weft_kernel.registry`'s
+    `[plugins]` pin cannot arbitrate this one; the remedy is renaming one of the two
+    pipeline documents.
+    """
+
+
+def _parse_pipeline_text(text: str, *, source: str) -> Pipeline:
+    """`text` parsed as YAML and validated as a `Pipeline` — the one place both
+    `load_pipeline_document` (a file on disk) and `load_contributed` (a resource inside an
+    installed package) turn text into a document, so the two error classes below mean the
+    same thing regardless of which kind of source produced them.
+    """
+    try:
+        document = yaml.safe_load(text)
+    except yaml.YAMLError as exc:
+        raise PipelineDocumentError(f"{source} is not valid YAML: {exc}") from exc
+
+    if not isinstance(document, dict):
+        raise PipelineDocumentError(
+            f"{source} does not parse to a mapping — a pipeline document is a set of "
+            f"top-level keys (name, extends, stages, ...), and this file's top-level YAML "
+            f"value is a {type(document).__name__}."
+        )
+
+    try:
+        return Pipeline.model_validate(document)
+    except ValidationError as exc:
+        raise MalformedPipelineError(f"{source} is not a valid pipeline document: {exc}") from exc
+
+
 def load_pipeline_document(path: Path) -> Pipeline:
     """Parse and validate one pipeline document at `path`.
 
@@ -94,23 +143,56 @@ def load_pipeline_document(path: Path) -> Pipeline:
         text = path.read_text(encoding="utf-8")
     except OSError as exc:
         raise PipelineDocumentError(f"{path} could not be read: {exc}") from exc
+    return _parse_pipeline_text(text, source=str(path))
 
-    try:
-        document = yaml.safe_load(text)
-    except yaml.YAMLError as exc:
-        raise PipelineDocumentError(f"{path} is not valid YAML: {exc}") from exc
 
-    if not isinstance(document, dict):
-        raise PipelineDocumentError(
-            f"{path} does not parse to a mapping — a pipeline document is a set of "
-            f"top-level keys (name, extends, stages, ...), and this file's top-level YAML "
-            f"value is a {type(document).__name__}."
-        )
+def load_contributed(reports: Sequence[PackReport]) -> dict[str, Pipeline]:
+    """Every `PipelineResource` an `ACTIVE` pack contributed, parsed and keyed by its own
+    `name:` field — `weft_retrieve.contract.RouteCatalogue`'s own promise made real:
+    "populated by the same eager discovery pass that builds the registry."
 
-    try:
-        return Pipeline.model_validate(document)
-    except ValidationError as exc:
-        raise MalformedPipelineError(f"{path} is not a valid pipeline document: {exc}") from exc
+    Reads each resource through `importlib.resources`, never through a filesystem path
+    relative to this repository — the property that makes a stranger's pipeline routable
+    once their wheel is installed, with no directory this project controls to place it in.
+    `reports` is `Dependencies.reports` — every pack `discover()` saw, `FAILED` and
+    `REFUSED` ones included; only `PackReport.pipeline_resources` from an `ACTIVE` pack is
+    ever non-empty (see `weft_kernel.discovery.PackRegistrar.commit`'s own atomicity), so
+    this function does not filter on `status` itself — there is nothing to filter that
+    is not already true by construction.
+
+    Raises `PipelineDocumentError` if a resource cannot be read at all — an uninstalled
+    package, or a resource path a rename left stale; `MalformedPipelineError` if it reads
+    but fails `Pipeline.model_validate`; `ContributedPipelineNameCollisionError` if two
+    resources, from any distributions, declare the same `name:`.
+    """
+    catalogue: dict[str, Pipeline] = {}
+    seen_at: dict[str, str] = {}
+    for report in reports:
+        for resource in report.pipeline_resources:
+            source = (
+                f"pipeline resource '{resource.resource}' from package "
+                f"'{resource.package}' (distribution '{resource.distribution}')"
+            )
+            try:
+                traversable = importlib.resources.files(resource.package)
+                for part in resource.resource.split("/"):
+                    traversable = traversable.joinpath(part)
+                text = traversable.read_text(encoding="utf-8")
+            except (ModuleNotFoundError, FileNotFoundError, NotADirectoryError, OSError) as exc:
+                raise PipelineDocumentError(f"{source} could not be read: {exc}") from exc
+
+            pipeline = _parse_pipeline_text(text, source=source)
+            first_seen = seen_at.get(pipeline.name)
+            if first_seen is not None:
+                raise ContributedPipelineNameCollisionError(
+                    f"both {first_seen} and {source} declare name '{pipeline.name}' — a "
+                    f"catalogue key must be unique. Rename one of the two pipeline "
+                    f"documents, or uninstall the distribution shipping the one you do "
+                    f"not want routable."
+                )
+            seen_at[pipeline.name] = source
+            catalogue[pipeline.name] = pipeline
+    return catalogue
 
 
 def load_pipeline_catalogue(directory: Path) -> dict[str, Pipeline]:

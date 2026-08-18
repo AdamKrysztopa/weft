@@ -1,4 +1,4 @@
-"""The machine-checked constraint task 1.7 exists to prove.
+"""The machine-checked constraint tasks 1.7 and 2.35 exist to prove.
 
 Mirrors nothing in `packages/weft-clean/src/`; it exercises the whole pack
 against `weft_kernel.resolution.resolve` the way a real pipeline document
@@ -14,19 +14,26 @@ at load, naming the two real stage ids and the real property, rather than
 silently producing a `ResolvedPipeline` whose stage list happens to be
 wrong.
 
-Every stage a real cleaning `weft.yaml` would name is exercised in the two
+Every stage a real cleaning `weft.yaml` would name is exercised in the
 load-bearing tests: `HyphenationRepair` needing `Newlines` intact,
 `TableLinearizer` needing `WhitespaceGaps` intact, both destroyed in one
 stroke by `WhitespaceNormalizer` — see `weft_clean.property`'s module
-docstring for why one stage destroys both facts. A third test resolves all
-four plugins in a legal order together, so the constraint is proven against
-the whole chain this pack ships, not only a two-stage slice of it.
+docstring for why one stage destroys both facts. Task 2.35 adds the mirror
+case: `UnicodeNormalizer` needing `Verbatim` intact, destroyed by every one
+of the other five stages, which is what forces it to position 1 — the same
+mechanism pointed the other way, proven here against
+`UnicodeNormalizer`/`HyphenationRepair` the same way the whitespace-first
+case is proven against `WhitespaceNormalizer`/`HyphenationRepair`. A final
+test resolves all six plugins in a legal order together, so the constraint
+is proven against the whole chain this pack ships, not only a slice of it.
 """
 
+from weft_clean.artifact_remover import ArtifactRemover
 from weft_clean.contract import Cleaner
 from weft_clean.dictionary_spacing import PolishFusedWordFixer
 from weft_clean.hyphenation import HyphenationRepair
 from weft_clean.table_linearizer import TableLinearizer
+from weft_clean.unicode_normalizer import UnicodeNormalizer
 from weft_clean.whitespace import WhitespaceNormalizer
 from weft_kernel import resolution
 from weft_kernel.pipeline import Pipeline, StageDeclaration
@@ -35,6 +42,8 @@ from weft_kernel.registry import Registry
 
 def _registry() -> Registry:
     registry = Registry()
+    registry.add(Cleaner, "unicode-normalize", UnicodeNormalizer, distribution="weft-clean")
+    registry.add(Cleaner, "artifact-remove", ArtifactRemover, distribution="weft-clean")
     registry.add(Cleaner, "hyphenation", HyphenationRepair, distribution="weft-clean")
     registry.add(Cleaner, "table-linearize", TableLinearizer, distribution="weft-clean")
     registry.add(
@@ -98,12 +107,46 @@ def test_whitespace_before_table_linearize_fails_resolution_naming_both_stages()
         )
 
 
-def test_the_whole_chain_resolves_in_a_legal_order() -> None:
-    # Arrange — hyphenation and table work before whitespace destroys what they need;
-    # the Polish fixer, needing nothing intact, is legal anywhere, including last.
+def test_hyphenation_before_unicode_normalize_fails_resolution_naming_both_stages() -> None:
+    # Arrange — task 2.35's own worked example: a stage placing `UnicodeNormalizer` after
+    # another cleaner fails to resolve, naming both stages and the property that forces
+    # position 1 — the mirror of the two tests above, pointed the other direction.
     pipeline = Pipeline(
         name="cleaning",
         stages=(
+            StageDeclaration(id="hyphenation", use="hyphenation"),
+            StageDeclaration(id="unicode", use="unicode-normalize"),
+        ),
+    )
+    contracts = {"hyphenation": Cleaner, "unicode": Cleaner}
+
+    # Act / Assert
+    try:
+        resolution.resolve(pipeline, registry=_registry(), contracts=contracts)
+    except resolution.IntactViolationError as excinfo:
+        message = str(excinfo)
+        assert "unicode" in message
+        assert "hyphenation" in message
+        assert "Verbatim" in message
+    else:
+        raise AssertionError(
+            "resolving a pipeline that runs HyphenationRepair before UnicodeNormalizer "
+            "must raise IntactViolationError — mojibake repair needs the character "
+            "sequence extraction produced still contiguous, which an earlier repair "
+            "stage can no longer guarantee"
+        )
+
+
+def test_the_whole_six_stage_chain_resolves_in_a_legal_order() -> None:
+    # Arrange — the reference's own order (`indexing/cleaning/pipeline.py:30-49`): unicode
+    # normalisation and artifact removal before the two structure-reading repairs, both
+    # before the destructive whitespace pass; the Polish fixer, needing nothing intact,
+    # is legal anywhere after `UnicodeNormalizer`, including last.
+    pipeline = Pipeline(
+        name="cleaning",
+        stages=(
+            StageDeclaration(id="unicode", use="unicode-normalize"),
+            StageDeclaration(id="artifacts", use="artifact-remove"),
             StageDeclaration(id="hyphenation", use="hyphenation"),
             StageDeclaration(id="table", use="table-linearize"),
             StageDeclaration(id="whitespace", use="whitespace"),
@@ -111,6 +154,8 @@ def test_the_whole_chain_resolves_in_a_legal_order() -> None:
         ),
     )
     contracts = {
+        "unicode": Cleaner,
+        "artifacts": Cleaner,
         "hyphenation": Cleaner,
         "table": Cleaner,
         "whitespace": Cleaner,
@@ -122,6 +167,8 @@ def test_the_whole_chain_resolves_in_a_legal_order() -> None:
 
     # Assert
     assert [stage.id for stage in resolved.stages] == [
+        "unicode",
+        "artifacts",
         "hyphenation",
         "table",
         "whitespace",

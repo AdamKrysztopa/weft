@@ -40,9 +40,16 @@ from importlib import metadata
 from pathlib import Path
 
 from weft_cli.exit_codes import ExitCode, exit_code_for
+from weft_cli.output import AskFormat
 from weft_cli.permissions import CliCommand, PermissionClass
 from weft_cli.plugins_report import render_doctor, render_list
-from weft_cli.registry_bootstrap import Dependencies, build_dependencies, require_active
+from weft_cli.registry_bootstrap import (
+    Dependencies,
+    build_dependencies,
+    require_active,
+    require_plugin,
+)
+from weft_cli.services import ServiceSelection
 from weft_kernel.context import Context
 from weft_kernel.errors import WeftError
 from weft_kernel.registry import Registry
@@ -52,9 +59,22 @@ _DISTRIBUTION = "weft-cli"
 #: `weft ask` says, in its own help text, that it does not generate — the fourth,
 #: smaller trap `docs/06-phase-0-build.md` names: "Phase 0's `weft ask` retrieves and
 #: prints the matching passages, and says so in its help text."
+_INDEX_HELP = (
+    "run the built-in ingest pipeline over a directory. Which formats are accepted is "
+    "derived from the extractors actually installed, never from a fixed list."
+)
+
 _ASK_HELP = (
     "retrieve and print the passages nearest a question. Generation is Phase 2 — "
     "this command prints matching passages, it composes no answer."
+)
+
+#: Task 2.8: the router is reachable from the command line, additively — `weft ask`
+#: above keeps Phase 0's own documented, tested contract unchanged.
+_ROUTE_HELP = (
+    "resolve a pipeline through the installed router — a QueryScorer and a RoutingPolicy "
+    "discovered from the registry, never a fixed list in this command — run it, and print "
+    "the generated answer."
 )
 
 #: The two commands `dispatch` builds a registry with `strict_pins=False` for — see its own
@@ -69,14 +89,40 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="store_true", help="print the version and exit")
     subparsers = parser.add_subparsers(dest="command")
 
-    index_parser = subparsers.add_parser(
-        "index", help="run the built-in ingest pipeline over a directory of text files"
+    index_parser = subparsers.add_parser("index", help=_INDEX_HELP)
+    index_parser.add_argument("path", help="directory to index")
+    # Repair for a reviewer finding: which extractor runs is derived from what registered
+    # (`weft_cli.ingest`), and derivation cannot settle a format two packs claim — `.pdf`
+    # is claimed by both `pdf-text` and `pdf-layout`, deliberately. This names one. It
+    # names no plugin itself, so it is not a privileged path to any of them.
+    index_parser.add_argument(
+        "--extract",
+        dest="extract",
+        default=None,
+        metavar="NAME",
+        help=(
+            "the extractor plugin to use, when more than one claims what is in the "
+            "directory. Omit it and the single claimant is used; a refusal lists the "
+            "candidates."
+        ),
     )
-    index_parser.add_argument("path", help="directory of .txt/.md files to index")
 
     ask_parser = subparsers.add_parser("ask", help=_ASK_HELP, description=_ASK_HELP)
     ask_parser.add_argument("question")
     ask_parser.add_argument("--top-k", type=int, default=5, dest="top_k")
+    ask_parser.add_argument(
+        "--format",
+        type=AskFormat,
+        choices=tuple(AskFormat),
+        default=AskFormat.TEXT,
+        help=(
+            "how to render the result: 'text' ranks the passages for a reader, 'json' emits "
+            "one line carrying each passage's node id, sources and raw similarity score."
+        ),
+    )
+
+    route_parser = subparsers.add_parser("route", help=_ROUTE_HELP, description=_ROUTE_HELP)
+    route_parser.add_argument("question")
 
     plugins_parser = subparsers.add_parser("plugins", help="report on discovered packs")
     plugins_sub = plugins_parser.add_subparsers(dest="plugins_command")
@@ -98,15 +144,54 @@ async def handle_index(args: argparse.Namespace, deps: Dependencies) -> ExitCode
     # weft_embed and weft_store at its own module scope, so importing it up at `cli.py`'s
     # module scope would run all of that for every command, `version` included.
     from weft_cli.ingest import INDEX_DISTRIBUTIONS, run_index
+    from weft_embed import Embedder
+    from weft_extract import Extractor
+    from weft_store import NodeStore
 
+    # `INDEX_DISTRIBUTIONS` covers the stages `weft_cli.ingest` names itself; `require_plugin`
+    # covers the three an operator names, whichever distribution turns out to provide them —
+    # see `weft_cli.registry_bootstrap.require_plugin`, a repair for a reviewer finding
+    # against task 2.29. A hard-coded tuple can never contain a stranger's pack, which is why
+    # `[services] store` joined the second list rather than the first at 2.6's repair.
     refusal = require_active(deps.reports, distributions=INDEX_DISTRIBUTIONS)
+    if refusal is None and args.extract is not None:
+        refusal = require_plugin(
+            deps.reports,
+            registry=deps.registry,
+            contract=Extractor,
+            name=args.extract,
+            setting="--extract",
+        )
+    if refusal is None:
+        refusal = require_plugin(
+            deps.reports,
+            registry=deps.registry,
+            contract=Embedder,
+            name=deps.services.embed,
+            setting="[services] embed",
+        )
+    if refusal is None:
+        refusal = require_plugin(
+            deps.reports,
+            registry=deps.registry,
+            contract=NodeStore,
+            name=deps.services.store,
+            setting="[services] store",
+        )
     if refusal is not None:
         code, message = refusal
         print(message, file=sys.stderr)
         return code
 
     try:
-        result = await run_index(Path(args.path), registry=deps.registry, ctx=_context())
+        result = await run_index(
+            Path(args.path),
+            registry=deps.registry,
+            ctx=_context(),
+            extractor=args.extract,
+            embedder=deps.services.embed,
+            store=deps.services.store,
+        )
     except WeftError as exc:
         print(str(exc), file=sys.stderr)
         return exit_code_for(exc)
@@ -125,9 +210,28 @@ async def handle_index(args: argparse.Namespace, deps: Dependencies) -> ExitCode
 async def handle_ask(args: argparse.Namespace, deps: Dependencies) -> ExitCode:
     # Local import — see `handle_index`'s note and the module docstring on fitness function
     # 8(b): `weft_cli.ask` imports weft_embed and weft_store at its own module scope.
-    from weft_cli.ask import render_results, run_ask
+    from weft_cli.ask import render_results, render_results_json, run_ask
+    from weft_embed import Embedder
+    from weft_store import NodeStore
 
-    refusal = require_active(deps.reports, distributions=("weft-embed", "weft-store"))
+    # The same two-part gate `handle_index` uses, and it has to close on this side too: an
+    # index built with one embedder and a question embedded by another are vectors in two
+    # unrelated spaces, and the ranking that comes back is confident nonsense.
+    refusal = require_plugin(
+        deps.reports,
+        registry=deps.registry,
+        contract=Embedder,
+        name=deps.services.embed,
+        setting="[services] embed",
+    )
+    if refusal is None:
+        refusal = require_plugin(
+            deps.reports,
+            registry=deps.registry,
+            contract=NodeStore,
+            name=deps.services.store,
+            setting="[services] store",
+        )
     if refusal is not None:
         code, message = refusal
         print(message, file=sys.stderr)
@@ -135,14 +239,19 @@ async def handle_ask(args: argparse.Namespace, deps: Dependencies) -> ExitCode:
 
     try:
         results = await run_ask(
-            args.question, registry=deps.registry, ctx=_context(), top_k=args.top_k
+            args.question,
+            registry=deps.registry,
+            ctx=_context(),
+            top_k=args.top_k,
+            embedder=deps.services.embed,
+            store=deps.services.store,
         )
     except WeftError as exc:
         # `run_ask` resolves `Embedder` and `NodeStore` directly against `deps.registry`
-        # rather than through `Runner.resolve` — but `require_active` above only rules out a
-        # distribution being entirely absent, refused, or failed; it does not know whether the
-        # specific plugin name `run_ask` asks for ("hash", "pgvector") is the one a PARTIAL or
-        # otherwise-active distribution actually registered. That is exactly what
+        # rather than through `Runner.resolve`. `require_plugin` above rules out a name no
+        # active distribution registered; what it cannot rule out is a registration that
+        # arrived after the report was taken, or a name lost to a PARTIAL registration. That
+        # is exactly what
         # `UnknownPluginError` reports, so `exit_code_for` gives it resolution failure (4) here
         # for the same reason `handle_index` treats it that way — `docs/03-cli.md` -> Output:
         # "4 stays with genuine resolution failure: a name no pack provides, or one lost to a
@@ -150,12 +259,45 @@ async def handle_ask(args: argparse.Namespace, deps: Dependencies) -> ExitCode:
         print(str(exc), file=sys.stderr)
         return exit_code_for(exc)
 
+    if args.format is AskFormat.JSON:
+        # No empty-result special case on this side: a caller reading structured output
+        # detects "nothing found" from an empty `hits`, and would otherwise have to match
+        # a sentence that is free to be reworded.
+        print(render_results_json(args.question, results, top_k=args.top_k))
+        return ExitCode.SUCCESS
+
     if not results:
         print("no matching passages found.")
         return ExitCode.SUCCESS
     # Rendering lives in `weft_cli.ask.render_results` — one copy, so the rule in
     # `docs/03-cli.md` -> *Output*, *Score display* has exactly one place to be wrong.
     print(render_results(results))
+    return ExitCode.SUCCESS
+
+
+async def handle_route(args: argparse.Namespace, deps: Dependencies) -> ExitCode:
+    # Local import — see `handle_index`'s note and the module docstring on fitness
+    # function 8(b): `weft_cli.route_ask` reaches `weft_retrieve`, `weft_generate`,
+    # `weft_llm` and `weft_prompts` at its own module scope.
+    from weft_cli.route_ask import run_routed_ask
+
+    try:
+        pipeline_name, answer = await run_routed_ask(
+            args.question,
+            registry=deps.registry,
+            reports=deps.reports,
+            ctx=_context(),
+            llm=deps.llm,
+            services=deps.services,
+        )
+    except WeftError as exc:
+        print(str(exc), file=sys.stderr)
+        return exit_code_for(exc)
+
+    print(f"routed to: {pipeline_name}")
+    print(answer.text)
+    for citation in answer.citations:
+        print(f"  [{citation.marker}] {citation.uri}")
     return ExitCode.SUCCESS
 
 
@@ -194,7 +336,7 @@ COMMANDS: dict[str, CliCommand] = {
     ),
     "index": CliCommand(
         name="index",
-        help="run the built-in ingest pipeline over a directory of text files",
+        help=_INDEX_HELP,
         permission=PermissionClass.WRITE,
         needs_registry=True,
         handler=handle_index,
@@ -205,6 +347,13 @@ COMMANDS: dict[str, CliCommand] = {
         permission=PermissionClass.READ,
         needs_registry=True,
         handler=handle_ask,
+    ),
+    "route": CliCommand(
+        name="route",
+        help=_ROUTE_HELP,
+        permission=PermissionClass.READ,
+        needs_registry=True,
+        handler=handle_route,
     ),
     "plugins list": CliCommand(
         name="plugins list",
@@ -236,7 +385,9 @@ def command_key(args: argparse.Namespace) -> str | None:
 async def dispatch(command: CliCommand, args: argparse.Namespace) -> ExitCode:
     """Build a registry only if `command` needs one — see the module docstring, FF8(b)."""
     if not command.needs_registry:
-        return await command.handler(args, Dependencies(registry=Registry(), reports=()))
+        return await command.handler(
+            args, Dependencies(registry=Registry(), reports=(), services=ServiceSelection())
+        )
 
     # Repair for a reviewer finding: `weft plugins list`/`weft plugins doctor` are the two
     # commands whose whole job is explaining what discovery found, so an inert `[plugins]`
@@ -276,7 +427,9 @@ def main() -> None:
     args = parser.parse_args()
     key = command_key(args)
     if key is None:
-        parser.error("a command is required (index, ask, plugins list, plugins doctor, --version)")
+        parser.error(
+            "a command is required (index, ask, route, plugins list, plugins doctor, --version)"
+        )
         return  # unreachable — parser.error() exits the process with code 2
 
     command = COMMANDS[key]

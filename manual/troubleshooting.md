@@ -500,6 +500,60 @@ explicit `StageSpec` list — see `PipelineResolutionError`, above. `exc.pipelin
 the message names as needing the property `intact` to before the stage it names as destroying it —
 the message states both positions explicitly.
 
+### `UnknownFallbackError`
+
+**What it looks like** — task 2.28: a stage's `fallback:` list names a plugin no installed
+distribution registered, so the pipeline can be authored but not run:
+
+```text
+UnknownFallbackError: stage 'extract' names 'ocr' as fallback 2 of 2, but no distribution
+registered that name for Extractor, so this pipeline cannot be run. Names registered for
+Extractor: 'pdf-layout', 'pdf-text', 'text'.
+```
+
+**A `fallback:` name that is not installed yet is legal in a document and refused only when you
+try to run it**, and the split is deliberate. `weft_kernel.resolution.resolve()` carries the name
+through unchecked — a pipeline may name `ocr` as its fallback before any pack ships one, and the
+document should not have to be re-edited the day one arrives. `Runner.resolve` is a later step,
+and it refuses, because *running* a chain whose second candidate does not exist means either
+crashing on the first scanned page or skipping it silently. The second is worse: it degrades
+quality precisely on the inputs the fallback existed for, and nothing reports it.
+
+`exc.stages` carries `('extract',)`; `exc.remedy` names both ways out. **What to do:** install a
+distribution that registers the name — `weft plugins list` shows what each installed pack provides
+— or remove it from that stage's `fallback:` list. The message lists every name that *is*
+registered for the contract, so a typo (`pdf-lyaout`) reads as a typo.
+
+### `FallbackNotSubstitutableError`
+
+**What it looks like** — a `fallback:` entry declares something the plugin it stands in for does
+not, so the pipeline resolves into a chain whose second candidate would break a check the first
+one passed:
+
+```text
+FallbackNotSubstitutableError: stage 'chunk' names 'sentence' as fallback 1 of 1, but it cannot
+stand in for 'fixed-size' at that position: it destroys 'WordBoundaries', which the primary does
+not. Every requires, intact and ordering check this pipeline passed was answered by
+'fixed-size's declarations, and a chain reaching 'sentence' would run against checks nobody made.
+```
+
+**A fallback may demand no more and promise no less than the primary.** Four declarations are
+compared, read off the plugin classes with nothing constructed: a fallback may not `require` or
+need `intact` what the primary does not (nothing guarantees an earlier stage supplies it), may not
+`destroy` what the primary does not (a later stage cleared to run after the primary would silently
+receive corrupted input), and may not drop a `provides` the primary makes (a later stage's
+`requires` was satisfied by that promise). The reverse directions — providing more, destroying
+less — invalidate no check and are not refused.
+
+Why it is refused at resolution rather than left to run: a chain reaches its fallback only on the
+documents the primary could **not** read, so the corruption appears in production on the inputs
+nobody tested, and appears nowhere else.
+
+`exc.stages` carries the stage id and `exc.distributions` both packs. **What to do:** either
+declare on the fallback what the primary declares — if the two really are interchangeable
+backends of one contract, they should agree about what they consume, promise and destroy — or
+give it a stage of its own, where the ordinary `requires`/`intact` checks apply to it directly.
+
 ### `InvalidStageConfigError`
 
 **What it looks like** — task 1.5: a stage's `with:` block does not validate against the
@@ -655,12 +709,12 @@ pack's own `register()`. File it against the pack, or pin it out of `[packs] all
 
 Task 1.9: `weft-cli` is the one distribution allowed to open a pipeline document — G1 keeps
 `weft-kernel` at `pydantic` and `opentelemetry-api` only, so the YAML parser lives here, on the
-identical footing `weft_cli.registry_bootstrap` already established for `weft.toml`'s TOML. None of
-these three is reachable through `weft index`/`weft ask` yet — nothing in Phase 0's CLI opens a
-pipeline document; a future `weft pipeline` command (`docs/build-ledger.md` 3.7) is what will surface
-these at exit `4`, the same exit `03` reserves for "fix the pipeline". Reproduced directly against
-`weft_cli.pipeline_catalogue`'s own Python API, which is also how you will meet them today, writing or
-testing a pipeline catalogue of your own.
+identical footing `weft_cli.registry_bootstrap` already established for `weft.toml`'s TOML. The first
+three fire from `weft_cli.pipeline_catalogue`'s own Python API — nothing in the CLI opens a
+project-local catalogue directory yet, a future `weft pipeline` command (`docs/build-ledger.md` 3.7) is
+what will surface them at exit `4`, the same exit `03` reserves for "fix the pipeline". The fourth,
+`ContributedPipelineNameCollisionError`, is reachable today, through `weft route` (task 2.8): it is
+what fires when two installed packs each ship a pipeline claiming the same `name:`.
 
 ### `PipelineDocumentError`
 
@@ -736,6 +790,26 @@ unique. Rename one pipeline, or one of the two files.
 keyed by the name a document declares, never by the filename it happens to be saved under, so two
 files claiming the same name is a genuine ambiguity, not a coincidence for the loader to arbitrate.
 
+### `ContributedPipelineNameCollisionError`
+
+**What it looks like** — two installed packs' own `PipelineResource`s (task 2.8:
+`PackRegistrar.add_pipeline_resource`, called from each pack's own `register()`) declare the same
+`name:`. Unlike `DuplicatePipelineNameError` above, there is no single directory to point at — each
+side is `distribution:package/resource`, because the two files live inside two separate installed
+packages:
+
+```text
+ContributedPipelineNameCollisionError: both pipeline resource 'pipelines/base.yaml' from package
+'acme_pack_a' (distribution 'acme-pack-a') and pipeline resource 'pipelines/base.yaml' from package
+'acme_pack_b' (distribution 'acme-pack-b') declare name 'base' — a catalogue key must be unique.
+Rename one of the two pipeline documents, or uninstall the distribution shipping the one you do not
+want routable.
+```
+
+**What to do:** rename one pack's pipeline, or uninstall the one you did not mean to have routable —
+`weft plugins doctor` names every active distribution, which is where to look for the second pack
+this message names.
+
 ---
 
 ## Services and messages — `weft_kernel.context`
@@ -768,45 +842,6 @@ would leave it ambiguous which instance a stage gets back. Refused rather than s
 
 **What to do:** whatever assembles the run's `Context` is registering the same contract twice —
 remove the duplicate `services.add(...)` call.
-
-### `UnknownMessageError`
-
-**What it looks like** — `ctx.t()` asked for a key no pack's catalogue carries, for the locale asked:
-
-```text
-UnknownMessageError: no message 'farewell' is registered for locale 'en'. Messages available for
-'en': greeting.
-```
-
-**What to do:** the message lists every key that *is* registered for that locale — a typo'd key reads
-as a typo, not a mystery. If the key is genuinely missing, register it with
-`MessageCatalogue.add(locale=..., key=..., template=...)` before the run starts.
-
-### `DuplicateMessageError`
-
-**What it looks like** — two templates registered for the same `(locale, key)`:
-
-```text
-DuplicateMessageError: message 'greeting' is already registered for locale 'en' as 'hi {name}'; a
-second template ('hello {name}') would leave it ambiguous which one ctx.t() should return. Refused
-rather than silently overwritten.
-```
-
-**What to do:** two packs (or two calls in your own setup code) are contributing the same message key
-for the same locale — rename one key, or namespace it so the collision cannot happen.
-
-### `MessageFormatError`
-
-**What it looks like** — a template names a placeholder the caller's parameters did not supply:
-
-```text
-MessageFormatError: message 'greeting' for locale 'en' (template: 'hi {name}') could not be
-formatted: KeyError('name'). Parameters supplied: none.
-```
-
-**What to do:** the message states the template and every parameter that *was* supplied — pass the
-missing one to `ctx.t(key, **params)`, or fix the template if it names a placeholder that should not
-be there.
 
 ---
 
@@ -849,20 +884,151 @@ mapping — this can only fire against data the store did not write itself. **Wh
 outside Weft edited the `weft_nodes.ext` column directly. Re-index the affected source rather than
 hand-repairing the JSON; there is no supported path for hand-editing stored `ext` data.
 
-### `UnsupportedFilterError`
+### `UnaddressableFieldError`
 
-**What it looks like** — `search_vector` was given a `Filter` the built-in pgvector store cannot yet
-translate to SQL:
+**What it looks like** — a filter names a field that reaches nothing on a `Node`:
 
 ```text
-UnsupportedFilterError: PgVectorStore.search_vector does not yet translate Filter to SQL — Phase 0
-resolves no pipeline against a store's filter capability. Pass filter=None.
+UnaddressableFieldError: filter field 'metadata.author' reaches nothing on a Node. The core fields
+are: content, id, lineage.parents, lineage.sources, media_type. Anything a pack attached is under
+'ext.<namespace>.<field>', where <namespace> is the distribution that owns it — 'ext.weft-pdf.backend',
+say.
 ```
 
-Unreachable through `weft ask` as shipped — Phase 0's CLI never constructs a `Filter`. This is for
-whoever calls `search_vector` directly (a future `Retriever`, or a pack author's own test) with a
-non-`None` filter before filter translation exists. **What to do:** pass `filter=None` until a later
-phase's store implements filter translation; there is nothing to configure around this today.
+Raised by whichever store was asked, before it queries anything, and identically by both — the parse
+lives in `weft-store` and every backend translates from it. **What to do:** the addressable
+vocabulary is `Node`'s own shape, so the path is what you would write to reach the value: `id`,
+`content`, `media_type`, `lineage.parents`, `lineage.sources`, and `ext.<namespace>.<field>` for
+whatever a pack attached. There is no list of blessed field names to consult, and none to add to.
+
+### `FilterOpMismatchError`
+
+**What it looks like** — an operator applied to a field that cannot carry it:
+
+```text
+FilterOpMismatchError: filter operator 'eq' cannot apply to field 'lineage.sources', which holds a
+set of strings. use 'contains', which asks whether the value is one of the set's members.
+```
+
+Three refusals share this class, and each one exists because two backends had to agree rather than
+because anybody preferred it that way. **`eq`/`ne` on a set** — a document store matches a payload
+array element-wise, so `eq` would mean membership there and whole-list equality in SQL: use
+`contains`, or `not` wrapping `contains`. **`contains` on a string** — that reads as substring
+matching, which is what `TextSearch` ranks and no filter can. **An ordered comparison on a core
+field** — `lt`/`lte`/`gt`/`gte` against text would mean whatever the database's collation means,
+which is a fact about a deployment and not about the filter; they apply to numbers under a pack's
+namespace. **What to do:** change the operator, or the field it is applied to. A filter that
+validates is a filter every backend answers the same way, which is the point of the narrowing.
+
+### `VectorWidthMismatchError`
+
+**What it looks like** — a node's embedding is not the width the Qdrant collection was created with:
+
+```text
+VectorWidthMismatchError: node 4f1c… carries a 1536-component embedding and collection 'weft_nodes'
+was created for 64. A Qdrant collection's width is fixed at creation and cannot be altered, so
+either [packs.weft-qdrant] vector_size names the wrong width for the configured embedder, or this
+collection was written by a different one — re-index into a new 'collection'.
+```
+
+Specific to `weft-qdrant`; the pgvector store has no equivalent, because its vector column is
+declared without a dimension. **What to do:** decide which of the two is wrong. If the configured
+embedder changed — `hash` is 64 by default and `openai`'s `text-embedding-3-small` is 1536 — set
+`[packs.weft-qdrant] vector_size` to match it *and* re-index into a fresh `collection`, because the
+existing one holds vectors of the old width and cannot be widened. If the embedder did not change,
+the collection belongs to a different corpus and the `collection` name is what to change.
+
+You will only meet this if `[services] store` names `qdrant`; the settings under
+`[packs.weft-qdrant]` configure the pack, and that key is what selects it.
+
+### `UnknownTextSearchConfigError`
+
+**What it looks like** — `[packs.weft-store] text_search_config` names something this database has
+no text search configuration for:
+
+```text
+UnknownTextSearchConfigError: [packs.weft-store] text_search_config names 'klingon', which this
+database has no text search configuration for. Installed here: arabic, armenian, basque, catalan,
+danish, dutch, english, finnish, french, german, greek, hindi, hungarian, indonesian, irish,
+italian, lithuanian, nepali, norwegian, portuguese, romanian, russian, serbian, simple, spanish,
+swedish, tamil, turkish, yiddish.
+```
+
+Raised on the store's first use, before any schema is touched, and the list is read out of your
+database rather than out of Weft — a configuration you installed yourself appears in it. **What to
+do:** correct the name in `weft.toml`. The pack default is `simple`, which folds case and splits on
+word boundaries and stems nothing; that is deliberate for a mixed-language corpus and wrong for an
+English-only one, where `english` is what makes a question about "retrieval" reach a passage that
+says "retrieved".
+
+### `TextSearchConfigMismatchError`
+
+**What it looks like** — the database's text index was generated under one configuration and
+`weft.toml` now asks for another:
+
+```text
+TextSearchConfigMismatchError: weft_nodes.content_tsv in this database is generated by 'simple', and
+[packs.weft-store] text_search_config asks for 'english'. A generated column cannot be altered in
+place, so the stored lexemes would stay 'simple's while every query asked 'english's — near-zero
+matches, and no error to notice it by. Either set text_search_config back to 'simple', or drop the
+column (ALTER TABLE weft_nodes DROP COLUMN content_tsv) and let this store recreate it: it is
+generated from content, so nothing needs re-indexing.
+```
+
+`content_tsv` is a **generated** column: Postgres recomputes it from `content` on every write, which
+is what makes the text index impossible to leave stale — and also what makes its configuration part
+of the schema rather than of a query. `ADD COLUMN IF NOT EXISTS` cannot change an existing column's
+generation expression, so without this check the setting would appear to apply and would not.
+**What to do:** either of the two fixes in the message. Dropping the column is safe and cheap in the
+sense that matters — nothing needs re-indexing, because the column is derived from `content`, which
+is already stored — but the rebuild is a full table rewrite, so on a large corpus do it when you can
+afford one.
+
+---
+
+## `weft index` — `weft_cli.ingest`
+
+Which formats `weft index` accepts is **derived from the extractors actually installed**, never from
+a fixed list: `weft_extract.accept.claimed_extensions` reads the `extensions` every registered
+`Extractor` declares, and their union is the accept set. Installing an extractor pack therefore makes
+its formats reachable with no edit to anything. Both errors below are what that derivation says when
+it cannot finish — each is a `PipelineResolutionError`, so `weft index` exits `4`.
+
+### `AmbiguousExtractorError`
+
+**What it looks like** — two extractors claim a format found in the directory, which is the normal
+state, not a mistake: `weft-pdf` registers `pdf-text` (`pypdf`) and `pdf-layout` (`pdfplumber`)
+separately *because they read differently*.
+
+```text
+$ weft index corpus/mrmr
+2 extractors could read this directory (pdf-layout, pdf-text, claiming .pdf), and this command will
+not choose between them — they are registered separately because they read differently.
+```
+
+`exc.stages == ('extract',)`, `exc.distributions` names every distribution providing a candidate, and
+`exc.remedy` repeats the fix. **What to do:** name one — `weft index corpus/mrmr --extract pdf-text`.
+Composing several backends into a chain that tries each in turn is built in the kernel (ledger task
+**2.28**), but nothing carries a pipeline document's `fallback:` list into `weft index`'s stages
+until ledger tasks **2.4** and **2.8** land — so for this command, choosing is the operator's, and
+it will not do it silently.
+
+### `UnclaimedFormatError`
+
+**What it looks like** — the directory holds files, and no installed extractor claims any of their
+formats:
+
+```text
+$ weft index ./slides
+nothing under './slides' can be read: found .key, .pptx, and the installed extractors claim .md,
+.pdf, .txt.
+```
+
+An empty directory is *not* this error — it reports "nothing to produce" and exits `0`, because
+nothing to index is a fact. This fires only when there was something to index and nothing installed
+could read it, which is the difference between "nothing here" and "nothing here I can read". **What
+to do:** install a pack claiming one of the formats the message names, then re-run; `weft plugins
+doctor` will show whether a pack you expected registered at all.
 
 ---
 
@@ -887,17 +1053,600 @@ store pack registered under that name.
 
 ### `EmbeddingFailedError`
 
-**What it looks like** — the `"hash"` embedder answered `Failed` or `NothingToProduce` for the
-question, or produced a node with no embedding attached:
+**What it looks like** — the embedder `[services] embed` selected answered `Failed` or
+`NothingToProduce` for the question, or produced a node with no embedding attached:
 
 ```text
-EmbeddingFailedError: could not embed the question: model unavailable
+EmbeddingFailedError: the 'hash' embedder could not embed the question: model unavailable
 ```
 
-The built-in `HashEmbedder` never actually fails for a non-empty question — this exists for a
-differently-configured `Embedder` registered under the same name `"hash"`. **What to do:** whatever
-the message names as the reason is the embedder's own failure — check its own configuration or
-dependency, the same way you would for any pack that failed mid-run.
+The built-in `HashEmbedder` never actually fails for a non-empty question — this exists for any
+other embedder, or a differently-configured one. The message names the plugin, because the fix is
+that pack's own configuration. **What to do:** whatever the message names as the reason is the
+embedder's own failure — check its configuration or dependency, the same way you would for any pack
+that failed mid-run.
+
+---
+
+## Compiling a pipeline document — `weft_cli.compile`
+
+Turning a pipeline document into something runnable needs one thing the document itself never says:
+which *contract* each stage fills. A document names a plugin (`use: vector-top-k`) and nothing else,
+because the kernel names no capability, so the only thing that can answer is the registry — which
+contract currently has a plugin registered under that name. Both errors below are that question
+coming back without exactly one answer, and neither is guessed through.
+
+### `UnknownStagePluginError`
+
+**What it looks like** — a stage's `use:` names a plugin no installed distribution registered under
+any contract:
+
+```text
+stage 'retrieve' names plugin 'vector-top-kk', which no installed distribution registered under any
+contract. Installed plugin names: fixed-size, hash, keybert, pdf-layout, pdf-text, pgvector, text.
+```
+
+Usually a typo, sometimes a pack that is named in the document but not installed. It is *not* raised
+for a `fallback:` name — those are deliberately carried through unchecked, so a document may name a
+plugin nobody has shipped yet; making such a document runnable is refused later, by
+[`UnknownFallbackError`](#unknownfallbackerror). **What to do:** correct the `use:` field to one of
+the names listed, or install the distribution that ships the one you meant — `weft plugins list`
+shows what is registered and which distribution contributed it.
+
+### `AmbiguousStageContractError`
+
+**What it looks like** — two contracts each have a plugin registered under the one name the document
+uses:
+
+```text
+stage 'retrieve' names plugin 'hybrid', which is registered under more than one contract: Fuser,
+Retriever. A pipeline document names a plugin, never a contract, so there is nothing here that says
+which was meant.
+```
+
+Not a defect in either pack: two distributions may pick the same short word without knowing about
+each other. What is refused is choosing between them, because a silently chosen contract resolves,
+runs, and produces a pipeline whose middle does something nobody asked for. `exc.distributions`
+names both distributions, which is what tells you who to talk to. **What to do:** one of them must
+rename its plugin — a plugin name answers to exactly one contract. Until then, `weft plugins list`
+shows both registrations side by side.
+
+---
+
+## Assembling a run — `weft_cli.run_services`
+
+A pipeline resolving is not the same as a pipeline being able to run. A stage may need something
+from the *store* — vector search, text search — that the store you configured does not do, and the
+kernel cannot check that: it names no capability and does not know what a store is. So the check
+happens where both are known for the first time, when the run is assembled, and always **before any
+stage runs**. Nothing here adapts and nothing degrades: a run that asked for a text channel is
+refused rather than quietly served without one, because a run that answers with half the evidence
+looks exactly like a run that answered.
+
+Both errors below exit `4` — fix the pipeline or the configuration, not the corpus.
+
+### `StoreCapabilityMissingError`
+
+**What it looks like** — a stage needs a store capability the configured store does not advertise:
+
+```text
+stage 'retrieve' names 'hybrid', which needs TextSearch from the store, and the configured store
+'qdrant' does not provide it. 'qdrant' advertises: VectorSearch. Registered stores that do provide
+TextSearch: 'pgvector' (weft-store). Nothing here adapts or degrades — a run that asked for a
+capability does not quietly proceed without it.
+```
+
+Which capabilities a store has is *derived* — Weft asks the store object itself, rather than reading
+a flag a store author wrote — so this message describes what your store can actually do, never what
+it claims. `exc.stages` names the stage, `exc.distributions` the distributions providing what is
+missing, and `exc.remedy` repeats the fix. **What to do:** choose a plugin for that stage that does
+not need the capability — the message names the stage — or, if you wrote the store, implement the
+capability's methods; there is nothing to declare, because implementing them *is* the declaration.
+If the stage names the capability from its `fallback:` list rather than its `use:`, dropping that
+name from the list is the third fix: a fallback is a plugin that will really run, so it is checked
+here on the same terms as the primary.
+
+**The fourth fix is the key the message names.** `[services] store` selects which registered
+`NodeStore` a run uses, so the list of registered stores providing what is missing is directly
+actionable: name one of them there and re-index. It is one line and no package edit —
+
+```toml
+[services]
+store = "pgvector"
+```
+
+— and re-indexing is not optional, because the corpus does not move with the key: a store you have
+never written to answers every question with nothing and reports no error while doing it.
+
+### `MalformedNeedsStoreError`
+
+**What it looks like** — a plugin's `needs_store` is not a tuple of capability Protocols:
+
+```text
+plugin 'misdeclared' declares needs_store='VectorSearch', which is not a tuple of capability
+Protocols. Declare the Protocols themselves — `needs_store: ClassVar[tuple[type, ...]] =
+(VectorSearch,)` — importing them from the pack that publishes them.
+```
+
+A plugin-authoring mistake, not an operator one, and it fires even when the store would have
+satisfied the requirement: a declaration nobody can check is refused rather than skipped, because
+skipping it would run the very pipeline the declaration existed to stop. The same error covers a
+capability Protocol written without `@runtime_checkable`, which `isinstance` refuses to answer for.
+**What to do:** report it to the pack the message names — `weft plugins list` shows which
+distribution contributed the plugin.
+
+---
+
+## Routing a query — `weft_cli.route_ask`
+
+`weft route <question>` (task 2.8) resolves `route.yaml` — whichever installed pack contributes it —
+runs it to get a `Route`, resolves whichever pipeline it names, and runs that too. Every error below
+exits `4`: each is "fix the pipeline, the installation or the router's own selection," never a
+question's fault.
+
+### `NoRouterPipelineError`
+
+**What it looks like** — no installed pack contributed a pipeline named `route`:
+
+```text
+NoRouterPipelineError: no installed pack contributed a pipeline named 'route'. Run `weft plugins
+doctor` to see whether 'weft-retrieve' is active.
+```
+
+`weft-retrieve` is the pack that ships `route.yaml` and calls `PackRegistrar.add_pipeline_resource`
+for it in its own `register()`. **What to do:** `weft plugins doctor` — if `weft-retrieve` is not
+`active`, its own row names why (refused by `[packs] allow`, not installed, or `FAILED` with a
+reason); install it, permit it, or fix whatever its report names.
+
+### `UnroutedPipelineNameError`
+
+**What it looks like** — a `RoutingPolicy` selected a pipeline name outside its own
+`RouteCatalogue`:
+
+```text
+UnroutedPipelineNameError: the router selected 'acme-strategy', which the pipeline catalogue does
+not hold. Catalogue: ['no-retrieval', 'retrieve-then-generate', 'route'].
+```
+
+Every shipped `RoutingPolicy` (`threshold-ladder`, `nearest-description`, `always`) selects only from
+`RouteCatalogue.candidates()` — the same catalogue this message prints — so this cannot happen against
+one of them; it means a third-party `RoutingPolicy` returned a name it was never handed. **What to
+do:** report it to the pack that ships the `RoutingPolicy` your `route.yaml`'s `decide:` stage names —
+`exc.pipeline` is the name it invented.
+
+### `PipelineDidNotProduceError`
+
+**What it looks like** — either resolution (the router itself, or whichever pipeline it selected) ran
+to completion but answered `NothingToProduce` or `Failed` rather than `Produced`:
+
+```text
+PipelineDidNotProduceError: pipeline 'retrieve-then-generate' did not produce: the 'openai' provider
+raised LLMAuthenticationError: invalid API key
+```
+
+This is the real reason a stage gave, translated rather than swallowed — the same discipline every
+other `Outcome`-to-exception translation in this tree follows: nothing here invents a second message
+for a fact a stage already stated plainly. **What to do:** read the reason the message quotes; it
+almost always names the actual failing stage and pack.
+
+---
+
+## Embedding with a model — `weft_openai`
+
+`weft-openai` registers `openai` under the same `Embedder` contract `weft-embed`'s deterministic
+`hash` plugin registers under, and `[services] embed` in `weft.toml` chooses between them — see
+[`manual/operations-guide.md`](operations-guide.md) → *Choosing an embedder*. Every error below
+comes from the moment something asked it to embed, never from start-up: the pack registers cleanly
+with no credential at all, deliberately, so `weft plugins doctor` reports it `active` and a run that
+does not use it never needs an account.
+
+### `MissingApiKeyError`
+
+**What it looks like** — `[services] embed = "openai"` with no credential configured, reproduced
+against a real checkout:
+
+```text
+$ cat weft.toml
+[services]
+embed = "openai"
+$ weft index docs
+no OpenAI credential is configured, so the 'openai' embedder has nothing to authenticate with. Add
+`[packs.weft-openai] api_key = "${env:OPENAI_API_KEY}"` to weft.toml — the settings loader
+interpolates `${env:...}`, so the key stays in the environment and out of the file.
+$ echo $?
+1
+```
+
+Exit `1`, not `4`: the pipeline resolved, the run failed. **What to do:** exactly what the message
+says — add the settings block. `weft-openai` deliberately does *not* read `OPENAI_API_KEY` on its
+own the way the vendor SDK would, so that a project that runs on one machine runs on every machine,
+and so that this message can name a file that was actually consulted.
+
+### `EmbeddingRequestFailedError`
+
+**What it looks like** — the API refused the call, or could not be reached. Reproduced with a
+credential that is not a real key:
+
+```text
+$ weft index docs
+the embeddings API refused a batch of 1 for model 'text-embedding-3-small': Error code: 401 -
+{'error': {'message': 'Incorrect API key provided: sk-not-a*****-key. ...', 'type':
+'invalid_request_error', 'code': 'invalid_api_key', 'param': None}, 'status': 401}
+```
+
+The vendor's own message is relayed unedited, with the model this pack asked for in front of it —
+the SDK redacts the key itself, as above. **What to do:** read the relayed status. `401` is the
+credential, `429` is a rate or quota limit, `400` is the request itself — for a batch that reached
+`weft index`, most often one chunk longer than the model's input limit — and a connection error is
+the network. Rate limits, timeouts, connection failures and `5xx` are marked `transient`, so a
+caller that retries knows which ones are worth retrying; the rest will refuse identically forever.
+
+The model and `dimensions` are *not* things to check here, because nothing in `weft.toml` can set
+them: `weft index` and `weft ask` run this pack's defaults until a pipeline document reaches them
+(see [`manual/operations-guide.md`](operations-guide.md) → *Choosing an embedder*). A `400` naming
+a model that does not exist means a library caller built `OpenAIEmbedderConfig` by hand, or the
+`base_url` in `[packs.weft-openai]` points at a server that does not serve that model.
+
+### `UnembeddableNodeError`
+
+**What it looks like** — a node reached the embedder with no text in it:
+
+```text
+node 'sha256:1b4f…' has no text to embed, and the embeddings API refuses an empty input. Drop empty
+chunks before this stage, or check the chunker that produced it.
+```
+
+The API rejects an empty string with `'$.input' is invalid`, which names neither the node nor the
+document it came from, so this pack refuses first and names the node. Note that `hash` embeds an
+empty string quite happily — this is a real behavioural difference between two plugins of one
+contract, not a bug in either. **What to do:** find the node the id names (it is the content digest,
+so an empty or whitespace-only chunk) and fix whatever produced it.
+
+---
+
+## Generation, offline and online — `weft_llm`
+
+Not yet reachable through `weft ask` — `[llm.roles]` (below) names which provider and model
+answer a call, but nothing yet resolves a role at run time; that arrives with the `LLM` service,
+one task later. Every class here is reachable today by driving an `LLMProvider` plugin directly —
+`weft-llm`'s own `scripted` (which never raises any of these; it makes no call to fail) or
+`weft-openai`'s `openai`, whose `_map_error` table turns each of OpenAI's own exception classes
+into exactly one of the fourteen below. A pack author writing a second provider, or a technique
+plugin's own retry logic, catches these — see `weft_llm.errors`'s own module docstring for the
+two places this taxonomy is decided on rather than merely documented.
+
+### `LLMError`
+
+Never raised directly — the root of the taxonomy. Catch this to catch every generation failure
+this pack or any `LLMProvider` it registers can raise, the way `WeftError` catches everything
+Weft itself raises, narrowed to one family.
+
+### `LLMTransientError`
+
+Never raised directly — the branch every class below marked "worth retrying" inherits.
+`transient` is `True` on every instance without a leaf class having to set it, and this is the one
+class the retry wrapper's `isinstance` check actually looks for.
+
+### `LLMRateLimitError`
+
+**What it looks like** — the account is over its request or token budget for the vendor's window:
+
+```text
+LLMRateLimitError: Error code: 429 - {'error': {'message': 'Rate limit reached for gpt-4o-mini...',
+'type': 'requests', 'code': 'rate_limit_exceeded'}}
+```
+
+**What to do:** wait for the window to reset, or reduce concurrency — `transient=True`, so a
+caller's own retry logic (not the kernel's; it runs none) is the right place to handle this
+automatically rather than surfacing it to an operator.
+
+### `LLMTimeoutError`
+
+**What it looks like** — the request was sent and no answer arrived before the client's deadline:
+
+```text
+LLMTimeoutError: Request timed out.
+```
+
+**What to do:** retry — `transient=True` — or raise `[packs.weft-openai] timeout_seconds` if this
+model's answers are routinely slower than the SDK's own default allows.
+
+### `LLMConnectionError`
+
+**What it looks like** — the request never reached the vendor at all:
+
+```text
+LLMConnectionError: Connection error.
+```
+
+**What to do:** check DNS and outbound network access from wherever `weft` is running; `base_url`
+in `[packs.weft-openai]` if this project talks to a proxy or a compatible server rather than the
+vendor's own endpoint.
+
+### `LLMServiceUnavailableError`
+
+**What it looks like** — the vendor accepted the connection and answered with its own `5xx`:
+
+```text
+LLMServiceUnavailableError: Error code: 503 - {'error': {'message': 'The server had an error...',
+'type': 'server_error'}}
+```
+
+**What to do:** retry — `transient=True` — the vendor's own infrastructure, not this request, is
+the failure.
+
+### `LLMPermanentError`
+
+Never raised directly — the branch every class below inherits, `transient=False` without a leaf
+class having to set it. Retrying the identical call will refuse identically forever.
+
+### `LLMAuthenticationError`
+
+**What it looks like** — no credential configured, reproduced against a real checkout with no
+`[packs.weft-openai]` block at all:
+
+```text
+no OpenAI credential is configured, so the 'openai' provider has nothing to authenticate with. Add
+`[packs.weft-openai] api_key = "${env:OPENAI_API_KEY}"` to weft.toml — the settings loader
+interpolates `${env:...}`, so the key stays in the environment and out of the file.
+```
+
+Also raised for a credential the vendor itself rejects — reproduced against the real API with a
+key of the right shape and the wrong value:
+
+```text
+LLMAuthenticationError: Error code: 401 - {'error': {'message': 'Incorrect API key provided:
+sk-not-a*****-key. ...', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+```
+
+**What to do:** the first is `[packs.weft-openai] api_key` missing entirely; the second is the
+same key, wrong. Either way, fix the credential this pack reads — never the `OPENAI_API_KEY` the
+vendor SDK would read on its own, which this pack deliberately ignores.
+
+### `LLMPermissionDeniedError`
+
+**What it looks like** — the credential is real but is not allowed the model or action requested:
+
+```text
+LLMPermissionDeniedError: Error code: 403 - {'error': {'message': 'Your account does not have
+access to model gpt-4o-mini', 'type': 'invalid_request_error'}}
+```
+
+**What to do:** a different credential for the model this project asked for, or a different
+`model` in the `[llm.roles]` entry that names it. Caught separately from `LLMAuthenticationError`
+because the structured-output cascade (one task later) re-raises this one specifically rather than
+stepping down a tier — a bad key surfacing as a low structured-output score is the failure that
+repair exists to prevent.
+
+### `LLMBadRequestError`
+
+**What it looks like** — the vendor rejected the shape of the request itself:
+
+```text
+LLMBadRequestError: Error code: 400 - {'error': {'message': "'model' is a required property",
+'type': 'invalid_request_error'}}
+```
+
+This is also `_map_error`'s catch-all for any `openai.APIError` this table has no more specific
+row for — a `409` or `422` this pack has not seen before lands here rather than escaping unmapped.
+**What to do:** read the relayed vendor message; it names the malformed field.
+
+### `LLMNotFoundError`
+
+**What it looks like** — the model or deployment named in the request does not exist for this
+account:
+
+```text
+LLMNotFoundError: Error code: 404 - {'error': {'message': 'The model `gpt-4o-mnii` does not
+exist...', 'type': 'invalid_request_error'}}
+```
+
+**What to do:** check the model string in `[llm.roles]` — usually a typo, occasionally a model
+retired since the role was configured.
+
+### `LLMContentFilterError`
+
+**What it looks like** — the vendor's own moderation refused the request before it was answered:
+
+```text
+LLMContentFilterError: Error code: 400 - {'error': {'message': "Invalid prompt: your prompt was
+flagged...", 'type': 'invalid_request_error', 'code': 'content_policy_violation'}}
+```
+
+**What to do:** this is a fact about the content sent, not about this project's configuration —
+change what is being asked, or accept that this question cannot be answered through this vendor.
+
+### `LLMContextLengthError`
+
+**What it looks like** — the conversation, tokenised, is longer than the model accepts:
+
+```text
+LLMContextLengthError: Error code: 400 - {'error': {'message': "This model's maximum context
+length is 128000 tokens...", 'type': 'invalid_request_error', 'code': 'context_length_exceeded'}}
+```
+
+**What to do:** fewer or shorter passages reaching the prompt — a `ContextPacker`'s `top_n`, most
+often — or a model with a wider context window.
+
+### `LLMCompletionError`
+
+**What it looks like** — the vendor answered successfully and the answer could not be used:
+
+```text
+LLMCompletionError: could not parse a JSON object from the completion after 3 attempts. Raw text
+(200 chars): "I'm not able to provide that in the requested format because..."
+```
+
+Never raised by a provider itself — a provider has no opinion on what its caller intended to do
+with the text it returned. Raised by the structured-output cascade, one task later, once its last
+tier exhausts every way it knows to parse a completion into the type it was asked for.
+`transient=False`: resending the identical request will not make a differently-shaped answer more
+likely. **What to do:** read the raw text the message truncates to 200 characters — it is usually
+the model explaining, in prose, why it declined the shape asked for.
+
+---
+
+## Which model answers a role — `weft_cli.llm_roles`
+
+### `UnmappedLLMRoleError`
+
+**What it looks like** — a call was made under a role `[llm.roles]` never named:
+
+```text
+UnmappedLLMRoleError: no [llm.roles] entry maps role 'grade'. Roles mapped in weft.toml: generate,
+route. Add, e.g., `[llm.roles]
+grade = { provider = "scripted" }` to weft.toml.
+```
+
+**What to do:** add the role the message names to `[llm.roles]` in `weft.toml` — see
+[`manual/operations-guide.md`](operations-guide.md) → *Choosing which model answers*. The message
+lists every role that *is* mapped, so a typo in a technique plugin's own `role:` configuration
+reads as a typo rather than a mystery.
+
+---
+
+## The LLM client — `weft_llm.client`, `weft_llm.models`
+
+Everything in this section is raised *before or around* a provider call, by the `LLM` service
+rather than by a vendor adapter. None of them is transient: retrying an identical call produces an
+identical refusal, which is why they are all `LLMPermanentError` subclasses.
+
+### `LLMProviderFaultError`
+
+**What it looks like** — a provider adapter let something out that is not an `LLMError`:
+
+```text
+LLMProviderFaultError: provider 'acme' (role 'generate') raised KeyError: 'choices'. That is not an
+LLMError, so nothing downstream could have caught it by class — it is a defect in the provider
+adapter, not a failure mode of the model.
+```
+
+**What to do:** this is a bug in the provider pack, not in your configuration — the adapter's job is
+to turn every vendor failure into exactly one `weft_llm.errors.LLMError` leaf. Report it to whoever
+ships that pack, naming the provider from the message. If it is a first-party pack, the missing row
+belongs in its vendor→domain mapping table. Working around it by catching `Exception` at the call
+site is what this class exists to make unnecessary.
+
+### `NativeStructuredUnsupportedError`
+
+**What it looks like** — `complete_structured` was called for a role whose provider does not offer
+native structured output:
+
+```text
+NativeStructuredUnsupportedError: provider 'scripted' (role 'grade') does not offer native
+structured output. Ask `native_structured_available('grade')` first, or call the structured-output
+cascade, which steps down for you.
+```
+
+**What to do:** call `weft_prompts.cascade.execute(...)` instead of the client directly — it asks
+first and steps down through two more tiers when the answer is no. Only code that deliberately
+requires tier 1 should see this, and the remedy for *that* code is to point the role at a provider
+that offers it.
+
+### `ModelProviderMismatchError`
+
+**What it looks like** — a `[llm.roles]` entry's model string carries a provider prefix naming a
+different provider from the entry's own:
+
+```text
+ModelProviderMismatchError: model string 'openai/gpt-4o-mini' names provider 'openai', but the
+[llm.roles] entry using it resolves to provider 'scripted'. Refused rather than guessed: drop the
+prefix, or point the role at 'openai'.
+```
+
+**What to do:** exactly what the message says — one of the two. A prefix is only read as a provider
+when it names a provider some role in this `weft.toml` maps, so a model id that merely contains a
+slash (`meta-llama/Llama-3-8B`) never trips this.
+
+### `UnknownModelError`
+
+**What it looks like** — a provider publishes a model catalogue and the model a role names is not
+in it:
+
+```text
+UnknownModelError: provider 'acme' does not offer model 'tiny' (from 'tiny'). Models it advertises:
+small-v2, large-v2.
+```
+
+**What to do:** write one of the models the message lists into the role's `model =` line. This
+refusal arrives before any network call, so a typo costs a second rather than an HTTP 404 halfway
+through a run. A provider that publishes no catalogue is asked for whatever you wrote.
+
+### `AmbiguousModelError`
+
+**What it looks like** — a short model name matches two entries in a provider's catalogue:
+
+```text
+AmbiguousModelError: model 'small-v2' (from 'small-v2') matches 2 entries in provider 'acme''s
+catalogue: eu/small-v2, us/small-v2. Write one of them in full — choosing between them by ordering
+is a decision this code must not make.
+```
+
+**What to do:** write the qualified name. Picking one by sort order would be a data-residency (or
+tier, or region) decision made by an accident of ordering, which is exactly the silent coercion
+`docs/02-extension-model.md` §5 records four times over in the reference.
+
+---
+
+## Prompts — `weft_prompts`
+
+The first three are raised where a prompt class is **defined**, not where it renders, so a
+mis-declared prompt cannot reach a run at all. If you see one, it arrives at import time, naming the
+prompt and the locale.
+
+### `TemplateVariableError`
+
+**What it looks like** — a template names a placeholder its input model cannot supply:
+
+```text
+TemplateVariableError: judge:pl: the template names placeholder(s) 'pytanie' that Ask does not
+supply. Fields it does supply: evidence, question.
+```
+
+**What to do:** rename the placeholder to one of the fields the message lists, or add the field to
+the prompt's `input_model`. The same class covers a template that is not a valid `${name}` template
+at all — a literal `$` must be written `$$`.
+
+### `UnusedTemplateFieldError`
+
+**What it looks like** — an input model declares a field one locale's template never renders:
+
+```text
+UnusedTemplateFieldError: judge:pl: Ask declares field(s) 'evidence' that this template never
+renders. A field nothing renders is configuration the model is never told about — remove it, or use
+it. In a translation this is usually a dropped ${placeholder}.
+```
+
+**What to do:** almost always, restore the `${placeholder}` a translation dropped. This is checked
+per locale precisely because that failure is otherwise invisible: the code is unchanged, the prompt
+still renders, and answers get worse in one language only.
+
+### `MissingFallbackLocaleError`
+
+**What it looks like** — a prompt declares translations but not the `en` one every lookup falls
+back to:
+
+```text
+MissingFallbackLocaleError: prompt 'judge' declares locales pl but not 'en', which every lookup
+falls back to. Add the 'en' text: without it a run under an untranslated locale has nothing to
+degrade to.
+```
+
+**What to do:** add the `en` entry to the prompt's `texts`. Locale selection is exact locale →
+primary subtag → `en`, and the last step needs somewhere to land.
+
+### `PromptInputMismatchError`
+
+**What it looks like** — `render` was handed a model that is not the prompt's declared
+`input_model`:
+
+```text
+PromptInputMismatchError: prompt 'judge' renders Ask, and was handed a Verdict. The caller and the
+prompt disagree about what this question needs.
+```
+
+**What to do:** build the model the message names. This is a bug in the calling technique rather
+than in configuration — a prompt's input model *is* its interface.
 
 ---
 

@@ -1,0 +1,26 @@
+[project]
+name = "weft-example-query"
+version = "0.0.0"
+description = "A stranger's whole query path — transform through generation, nine contracts."
+requires-python = ">=3.12"
+# Both deps are published packages any third party would `pip install` — the identical
+# relationship `examples/weft-example-chunker/pyproject.toml` states for `weft-chunk`.
+# `weft-generate` alone pulls in `weft-retrieve` transitively (the design record's own
+# one-way DAG rule), but both are named explicitly rather than relied upon.
+dependencies = ["weft-kernel", "weft-generate", "weft-retrieve"]
+
+# One entry point (weft's docs/02-extension-model.md section 2). Nothing under weft's own
+# packages/ or testing/ names this distribution, this module, or any plugin name below —
+# fitness function 9(b) and 9(c), asserted from the weft repository's own tests/architecture/.
+[project.entry-points."weft.packs"]
+example-query = "weft_example_query:register"
+
+[dependency-groups]
+dev = ["pytest>=8.3", "pytest-asyncio>=0.24"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

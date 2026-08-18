@@ -34,12 +34,53 @@ in the document itself says "this is a chunker." The four fields on a stage:
 | `with` | That plugin's own configuration, validated against its `config_model` once the pipeline resolves — an unconfigurable plugin refuses a non-empty block by name, rather than silently dropping it |
 | `fallback` | A list of plugin names — see the note below |
 
-**`fallback:` is recorded, not run — not yet.** `02` §1 gives the kernel a fallback combinator over
-any contract, and a stage's `fallback:` list is exactly the data that combinator will read. Nothing
-in this phase reads it back: it round-trips through the authored document into the resolved form
-unchanged, and no runner tries a second plugin when the first one fails. Write it if a future
-fallback matters to you — the value will already be there once something executes it — but do not
-expect a retry today.
+**`fallback:` is walked by the runner, as of Phase 2 task 2.28 — and no `weft` command hands it a
+document yet.** Read the scope note at the end of this section before you rely on one. Where a chain
+does run, the names are tried in order until one answers, and what counts as an answer is the
+outcome the plugin returned, never a guess at its value:
+
+| The plugin says | The chain does |
+|---|---|
+| it produced something | stops, and that is the stage's result |
+| **it looked, and there is nothing there** | stops, and *that* is the stage's result |
+| it could not do the job — refused, or raised | records why, and tries the next name |
+
+The middle row is the one worth reading twice. "This document is genuinely empty" and "I could not
+read this document" are different facts, and a fallback chain that cannot tell them apart either
+hands a blank page to every backend in turn and then reports a failure, or reports an unreadable
+scan as a successfully-parsed empty file. Both happen; both are silent. So a backend that cannot
+distinguish the two for a given input is required to say *"I could not do the job"* — and only a
+backend that genuinely looked may stop the chain with an empty result.
+
+The example above is real: `pdf-text` reads a PDF's text layer, `pdf-layout` reconstructs the
+page's geometry, and neither is a degraded version of the other. A PDF truncated in transit fails
+the first and reads fine through the second; a PDF whose pages carry an image and no text fails
+both, which is exactly the document an OCR pack would be for.
+
+**A name in `fallback:` that nothing has installed is fine to write, and refused when a runner is
+given it.** Writing `fallback: [ocr]` before any pack ships an `ocr` is legal — the document
+resolves, diffs and derives — because a document should not have to be re-edited the day the pack
+arrives. `Runner.resolve` refuses that chain at once with `UnknownFallbackError`, naming the stage
+and every name that is registered, rather than crashing on the first page the primary cannot read
+or, worse, skipping the fallback silently. It refuses a fallback that is not *substitutable* for the
+plugin it stands in for the same way, with `FallbackNotSubstitutableError` — see
+[`troubleshooting.md`](troubleshooting.md).
+
+**A fallback takes no `with:` block, so a configured second attempt cannot be written at all today.**
+It is a bare name, and it runs on its plugin's own defaults. There is nowhere in the grammar to
+configure one, and nothing routes a stage's failures into another pipeline — so running a second,
+differently-configured pipeline over the documents the first could not read is something you do,
+not something Weft does. Widening the grammar is a later task.
+
+**Scope, as of today: what runs, and what does not.** The chain above is walked by
+`weft_kernel.fallback.try_in_order` for any caller that hands `Runner.resolve` a `StageSpec`
+carrying a `fallback` list. Nothing that opens a *pipeline document* does that yet: `weft index`
+pins its own four stages and has no `--fallback` option, and `weft_kernel.resolution.resolve` — the
+call every example on this page makes — carries a `fallback:` list through into the resolved form
+and executes nothing. The missing link is `weft_cli/compile.py`, which turns a resolved document
+into `StageSpec`s (`docs/build-ledger.md` 2.4 and 2.8). So a `fallback:` you write today is stored,
+derived and diffed exactly as described above — and until that task lands, no `weft` command tries a
+second backend on your behalf, and no `UnknownFallbackError` reaches you through one.
 
 ## 2. Deriving one pipeline from another
 
@@ -89,7 +130,7 @@ vars: {chunk_size: 200}
 stages:
   - id: extract
     use: text
-    fallback: [ocr]
+    fallback: [pdf-layout]
   - id: chunk
     use: fixed-size
     with: {size: "${var:chunk_size}", overlap: 20}
@@ -148,7 +189,7 @@ What that prints — the resolved form, exactly as `resolved.model_dump(mode="js
       "use": "text",
       "config": {},
       "fallback": [
-        "ocr"
+        "pdf-layout"
       ],
       "applies_to": [],
       "distribution": "weft-extract",
@@ -219,7 +260,7 @@ vars: {chunk_size: 200}
 stages:
   - id: extract
     use: text
-    fallback: [ocr]
+    fallback: [pdf-layout]
   - id: chunk
     use: fixed-size
     with: {size: "${var:chunk_size}", overlap: 20}

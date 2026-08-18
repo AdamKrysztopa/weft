@@ -14,7 +14,14 @@ from collections.abc import Sequence
 
 import pytest
 
-from weft_cli.ask import EmbeddingFailedError, NotVectorSearchableError, render_results, run_ask
+from weft_cli.ask import (
+    AskResult,
+    EmbeddingFailedError,
+    NotVectorSearchableError,
+    render_results,
+    render_results_json,
+    run_ask,
+)
 from weft_embed import Embedder
 from weft_kernel.context import Context
 from weft_kernel.payload import Failed, MediaType, Node, Outcome, Produced, Vector
@@ -98,6 +105,36 @@ async def test_run_ask_embeds_the_question_and_returns_the_stores_results() -> N
     assert results[0].score == 0.9
 
 
+async def test_run_ask_embeds_the_question_with_the_embedder_it_was_given() -> None:
+    # Arrange — a question has to be embedded by the same plugin the corpus was indexed
+    # with, or the search compares vectors from two unrelated spaces. So `[services] embed`
+    # reaches this path exactly as it reaches `weft index`.
+    registry = Registry()
+    registry.add(Embedder, "hash", _FailingEmbedder, distribution="weft-embed")
+    registry.add(Embedder, "model", _FakeEmbedder, distribution="acme-embed")
+    registry.add(NodeStore, "pgvector", _FakeVectorSearchStore, distribution="weft-store")
+
+    # Act
+    results = await run_ask(
+        "what changed?", registry=registry, ctx=_ctx(), top_k=3, embedder="model"
+    )
+
+    # Assert — the deterministic one would have raised; the configured one answered.
+    assert len(results) == 1
+
+
+async def test_run_ask_names_the_embedder_that_failed() -> None:
+    # Arrange
+    registry = Registry()
+    registry.add(Embedder, "model", _FailingEmbedder, distribution="acme-embed")
+    registry.add(NodeStore, "pgvector", _FakeVectorSearchStore, distribution="weft-store")
+
+    # Act / Assert — "could not embed the question" without saying which embedder is a
+    # message that sends an operator to the wrong pack.
+    with pytest.raises(EmbeddingFailedError, match="model"):
+        await run_ask("what changed?", registry=registry, ctx=_ctx(), top_k=3, embedder="model")
+
+
 async def test_run_ask_raises_when_the_embedder_fails() -> None:
     # Arrange
     registry = Registry()
@@ -142,3 +179,52 @@ def test_render_results_reports_no_matching_passages_when_empty() -> None:
 
     # Assert
     assert output == "no matching passages found."
+
+
+def test_render_results_json_carries_the_score_the_human_rendering_withholds() -> None:
+    # Arrange — the other half of `docs/03-cli.md` -> Output, *Score display*: "a programmatic
+    # caller still gets the exact value... a script consuming structured output is exactly the
+    # reader who can use an unbounded float correctly." A baseline harness is that reader, and
+    # it also needs the node's own identity and its sources, which rank-and-content cannot give.
+    node = Node.synthetic(content="closest passage", media_type=MediaType.TEXT, reason="fixture")
+    results = [Scored(value=node, score=-0.0913)]
+
+    # Act
+    document = AskResult.model_validate_json(render_results_json("why?", results, top_k=5))
+
+    # Assert
+    assert document.question == "why?"
+    assert document.top_k == 5
+    assert [(hit.rank, hit.score, hit.content) for hit in document.hits] == [
+        (1, -0.0913, "closest passage")
+    ]
+    assert document.hits[0].node_id == str(node.id)
+
+
+def test_render_results_json_is_one_line_and_leaves_non_ascii_text_readable() -> None:
+    # A passage is scored by finding a ground-truth span inside it, so an escaped rendering of
+    # Polish would compare unequal against the same span read out of the corpus — and the
+    # Polish subset is a fifth of the question set. One line, because a caller reading a stream
+    # of these should not have to guess where one result ends.
+    # Arrange
+    node = Node.synthetic(
+        content="Uczenie maszynowe — dziedzina", media_type=MediaType.TEXT, reason="fixture"
+    )
+
+    # Act
+    rendered = render_results_json("co to jest?", [Scored(value=node, score=0.5)], top_k=1)
+
+    # Assert
+    assert "\n" not in rendered
+    assert "Uczenie maszynowe — dziedzina" in rendered
+
+
+def test_render_results_json_of_no_matches_is_an_empty_list_rather_than_a_sentence() -> None:
+    # The human rendering answers "no matching passages found."; a caller that had to detect
+    # *that* string would break the first time it was reworded. An empty `hits` is the same
+    # fact in a shape nothing has to parse prose to read.
+    # Arrange / Act
+    document = AskResult.model_validate_json(render_results_json("why?", [], top_k=5))
+
+    # Assert
+    assert document.hits == ()

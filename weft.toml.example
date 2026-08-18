@@ -24,6 +24,128 @@
 # at the wrong database does not crash: it answers plausibly.
 dsn = "${env:WEFT_DATABASE_URL}"
 
+# The text arm — what `search_text` means for this corpus. All three have
+# defaults, so this whole group can be absent.
+#
+# `text_search_config` is the Postgres text search configuration, used for BOTH
+# the stored index and the query, so they cannot disagree. `simple` folds case
+# and splits on word boundaries and stems nothing — the honest choice for a
+# mixed-language corpus, and the wrong one for an English-only corpus, where a
+# question about "retrieval" never reaches a passage saying "retrieved". It is
+# part of the schema: the index is a generated column, so changing this against
+# a database that already has one is refused rather than silently ignored (see
+# `manual/troubleshooting.md` → `TextSearchConfigMismatchError` for the two ways
+# out).
+#
+# `text_query_mode` is `any` (a question matches on any of its words — the right
+# default for natural language, since ANDing every word of a real question
+# matches nothing) or `all` (every word must appear — what a keyword-style ask
+# wants).
+#
+# `text_rank` is `cover-density` (how close the matched words fall to each
+# other) or `frequency` (how often they occur, weighted).
+# text_search_config = "simple"
+# text_query_mode = "any"
+# text_rank = "cover-density"
+
+# [packs.weft-openai]
+# Optional — every field here has a default, so this whole block can be absent and
+# `weft-openai` still registers and still reports `active`. That is deliberate: a
+# required credential would make the pack fail at start-up and its `openai` embedder
+# would silently vanish from the registry on any machine without an account. With no
+# key, the failure happens instead at the first thing that asks it to embed, and it
+# names this line.
+#
+# The key is read from here and from nowhere else — never from the `OPENAI_API_KEY` the
+# vendor SDK would pick up on its own, so a project that runs on one machine runs on
+# every machine. `${env:...}` keeps the secret in the environment all the same.
+#
+# api_key = "${env:OPENAI_API_KEY}"
+
+# [packs.weft-qdrant]
+# Optional in the same way and for the same reason — every field has a default, so
+# the pack registers whether or not a Qdrant is running and refuses at first use,
+# naming the address it could not reach, rather than vanishing from the registry.
+#
+# This is the *second* store backend, and `01` → Runtime shape is explicit that it
+# is proof rather than deployment: one container is the floor and it is pgvector.
+# `docker compose --profile conformance up -d qdrant` starts it, deliberately behind
+# a profile, and the store conformance suite is what asks for it.
+#
+# To actually run against it, name it in `[services] store` below. Settings here
+# configure the pack; that key is what selects it.
+#
+# `vector_size` is the one setting Postgres has no equivalent of: a Qdrant collection
+# fixes its vector width at creation and cannot be widened, so it has to name the
+# width the configured embedder produces — 64 for `weft-embed`'s `hash`, 1536 for
+# `openai`'s `text-embedding-3-small`. Changing embedder means changing this *and*
+# re-indexing into a fresh `collection`.
+#
+# url = "http://localhost:6333"
+# api_key = "${env:QDRANT_API_KEY}"
+# collection = "weft_nodes"
+# vector_size = 64
+
+# --- Services ----------------------------------------------------------------
+# Which registered plugin fills a role a command needs. One line changes which
+# embedder `weft index` and `weft ask` resolve, with no package edited and nothing
+# reinstalled — including a plugin from a pack neither of us wrote.
+#
+# The default is `hash`, `weft-embed`'s deterministic embedder: no credential, no
+# network, no model download, and **no semantic understanding whatsoever** — it exists
+# so a clean checkout runs end to end, not so retrieval results can be judged against
+# it. `openai` calls a real model and needs the block above.
+#
+# Changing this means reindexing into an empty store: a stored vector is only comparable
+# to a question embedded by the same model. See manual/operations-guide.md ->
+# Choosing an embedder.
+#
+# `store` selects the backend the same way, from the same registry, and it applies to
+# `weft index` and `weft ask` together on purpose: a corpus written to one store and a
+# question asked of another returns nothing and reports no error. The default is
+# `pgvector`. Changing it means re-indexing — the corpus does not move with the key.
+#
+# [services]
+# embed = "openai"
+# store = "qdrant"
+
+# --- Which model answers a role ----------------------------------------------
+# A pipeline stage never names a provider or a model — it names a *role*
+# (`generate`, `grade`, `rerank`, `route`, or any name a technique plugin's own
+# `role:` configuration reads). This table is what turns a role into an account
+# and a model, so a grader and a generator can share one provider registration
+# and still answer under two different models.
+#
+# Every role left unmapped fails loudly the first time something asks it to
+# answer, naming the role and every role that *is* mapped — there is no
+# silent default here, the same posture `[services]` sets above.
+#
+# `rerank` is the role the shipped `llm-rerank` plugin asks under by default.
+#
+# [llm.roles]
+# generate = { provider = "openai", model = "gpt-4o-mini" }
+# grade    = { provider = "openai", model = "gpt-4o-mini" }
+# rerank   = { provider = "openai", model = "gpt-4o-mini" }
+# route    = { provider = "scripted" }
+
+# --- How hard to try when a model call fails transiently ---------------------
+# Retry is attached once, around the provider, and no technique re-implements
+# it. It re-attempts exactly the failures the taxonomy marks transient — a rate
+# limit, a timeout, a dropped connection, a vendor 5xx — and never a permanent
+# one, because a bad request or a wrong credential fails identically on the
+# second attempt and retrying it only turns an error into a wait.
+#
+# `attempts` counts the first call, so `1` means "do not retry". The delay
+# doubles from `base_delay_ms` and stops at `max_delay_ms`. There is no jitter:
+# one `weft ask` is not a fleet, and a deterministic backoff is one a test can
+# assert on. A stream that has already produced a token is never restarted —
+# re-running it would replay text a reader has seen.
+#
+# [llm.retry]
+# attempts = 3
+# base_delay_ms = 250
+# max_delay_ms = 8000
+
 # --- The trust model ---------------------------------------------------------
 # `allow` is an exhaustive opt-in pin of distribution names. Absent means open,
 # which is the default posture: the threat this addresses is installed-and-
@@ -38,8 +160,14 @@ dsn = "${env:WEFT_DATABASE_URL}"
 # does not yet do, so no pack carries the flag yet. Read the `status` column, not
 # `ambient`, until that lands.
 #
+# **A pin has to list the pack behind every plugin name this file selects**, including the
+# one `[services] embed` names — the list below permits `weft-openai` for exactly that
+# reason. Leave a selected pack off and `weft index` stops before it runs, exits 3, and
+# names this key; that is the repair for a reviewer finding against the example you are
+# reading, which used to select `openai` above and refuse `weft-openai` here.
+#
 # [packs]
-# allow = ["weft-extract", "weft-chunk", "weft-embed", "weft-store"]
+# allow = ["weft-extract", "weft-chunk", "weft-embed", "weft-store", "weft-openai"]
 
 # --- Plugin collisions --------------------------------------------------------
 # Two packs registering the same name under the same contract is refused at

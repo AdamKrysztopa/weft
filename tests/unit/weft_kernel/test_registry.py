@@ -330,6 +330,28 @@ def test_add_refuses_a_partial_wrapped_factory_whose_class_never_declares_destro
     assert registry.contracts() == frozenset()
 
 
+def test_names_for_lists_every_name_under_one_contract_and_nothing_under_another() -> None:
+    # Arrange
+    registry = Registry()
+    registry.add(_Chunker, "fast", lambda: "fast", distribution="acme-a")
+    registry.add(_Chunker, "thorough", lambda: "thorough", distribution="acme-b")
+    registry.add(_Extractor, "fast", lambda: "unrelated", distribution="acme-c")
+
+    # Act / Assert — the contract is part of the key, so one name under two contracts is
+    # two registrations, exactly as `Registry`'s own docstring states.
+    assert registry.names_for(_Chunker) == frozenset({"fast", "thorough"})
+    assert registry.names_for(_Extractor) == frozenset({"fast"})
+
+
+def test_names_for_a_contract_nothing_registered_is_empty_rather_than_an_error() -> None:
+    # Arrange
+    class _Unregistered: ...
+
+    # Act / Assert — symmetric with `distributions_for`: a caller enumerating what is
+    # installed asks a question, and "nothing" is an answer, not a failure.
+    assert Registry().names_for(_Unregistered) == frozenset()
+
+
 def test_unwrap_factory_returns_a_bare_factory_unchanged() -> None:
     # Arrange
     def factory() -> str:

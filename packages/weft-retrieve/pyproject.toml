@@ -1,0 +1,19 @@
+[project]
+name = "weft-retrieve"
+version = "0.0.0"
+description = "First-party retrieval pack. Publishes the query-path contracts and the query vocabulary."
+requires-python = ">=3.12"
+dependencies = ["weft-kernel", "weft-store", "weft-embed", "weft-llm", "weft-prompts"]
+
+# The one entry point a pack declares (`docs/02-extension-model.md` section 2). Task 2.4 left
+# this distribution with none — it published contracts and registered nothing under them, and
+# fitness function 2 asserts that every distribution declaring this entry point is active *and
+# contributing*, so declaring it while contributing nothing is exactly the silently-failed
+# registration that check exists to catch. Task 2.13 ships the first plugin (`no-retrieval`) and
+# this line in the same commit — the same one-file edit a third-party pack makes.
+[project.entry-points."weft.packs"]
+retrieve = "weft_retrieve:register"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

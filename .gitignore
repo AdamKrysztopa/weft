@@ -16,6 +16,10 @@ build/
 .pyright/
 uv.lock
 
+# Session-local attempt counter for the guard_quality_gates.py PreToolUse hook — per-session
+# scratch, not a record anyone should read later. See the hook's module docstring.
+.claude/.gate-attempts.json
+
 # Secrets. `.env` holds live provider keys; only the documented, valueless
 # example is tracked. Listed before any tooling rule so a stray `git add -A`
 # cannot reach it.
@@ -23,7 +27,38 @@ uv.lock
 .env.*
 !.env.example
 
+# Corpus payload. Every subdirectory of /corpus is a materialised document set and
+# is deliberately untracked; `corpus/manifest.toml` and `scripts/fetch_corpus.py`
+# are the tracked artefact. `09` §4 V1 permits exactly this:
+# a corpus is "either redistributable or fetched by a pinned, checksummed script",
+# and the mRMR papers are published under publisher copyright, so committing them
+# would be redistribution this repository has no right to perform. The manifest
+# carries a sha256 per document, which is what makes the set reproducible without
+# the bytes being here. The pattern is a directory glob rather than a list of names
+# so that scaling the corpus up cannot silently start tracking a paper.
+/corpus/*/
+
+# Where a baseline run stages the corpus it indexes and writes the `weft.toml` it measures
+# through (`eval/run_baseline.py`). The staged copies are the same untracked papers one
+# directory over, and the configuration is reproduced by the harness rather than kept — what
+# is tracked is the run it produced, under `eval/baselines/`.
+/.baseline-run/
+
+# Working artefacts of a build session — a generated map of the codebase and a design
+# record produced while planning. Untracked on purpose: `docs/README.md` routes every
+# document this project owns, and a design that matters belongs in the `docs/` file
+# that owns its content, not in a root-level file nothing points at.
+/.phase2-*.md
+
+# Gate-session preparation: the Bring lists of `docs/05-grilling-sessions.md`, measured on the day
+# a session is about to run. Untracked for the same reason — the session's outcome belongs in
+# `docs/README.md`'s decision log and in the reference document the decision changes, never here.
+/.gate-brief-*.md
+
 # Claude Code local state
 .claude/settings.local.json
 
 .DS_Store
+
+# The build harness driving Phase 2, alongside its brief, findings and design record.
+/.phase2-build.js

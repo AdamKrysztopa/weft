@@ -15,6 +15,11 @@ sentence. `intact = (WhitespaceGaps,)` is what makes a pipeline that places
 this stage after `WhitespaceNormalizer` fail at load rather than at the first
 document that happened to contain a table.
 
+**Task 2.35 adds `destroys = (Verbatim,)`.** Rewriting a wide gap into a
+newline (`_linearize` below) inserts a character extraction never produced —
+the same honest reason every other processor in this pack destroys
+`Verbatim`; see `weft_clean.property`'s module docstring.
+
 **`config_model = TableLinearizerConfig` — a repair, not part of the
 original lift.** Without this class attribute, `weft_kernel.resolution.
 resolve` reads `getattr(declared, "config_model", None)` as `None` and
@@ -29,7 +34,7 @@ from collections.abc import Sequence
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from weft_clean.property import WhitespaceGaps
+from weft_clean.property import Verbatim, WhitespaceGaps
 from weft_kernel.context import Context
 from weft_kernel.payload import Node, NothingToProduce, Outcome, Produced, Property
 
@@ -65,7 +70,7 @@ class TableLinearizer:
     """
 
     intact: tuple[type[Property], ...] = (WhitespaceGaps,)
-    destroys: tuple[type[Property], ...] = ()
+    destroys: tuple[type[Property], ...] = (Verbatim,)
     config_model: type[TableLinearizerConfig] = TableLinearizerConfig
 
     def __init__(self, config: TableLinearizerConfig | None = None) -> None:

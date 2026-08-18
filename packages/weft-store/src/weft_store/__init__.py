@@ -2,10 +2,21 @@
 
 Publishes the store contract family settled in G4, in `contract.py` —
 `NodeStore` and `VectorSearch` at Phase 0 (`docs/06-phase-0-build.md` step
-7 scopes the family to the two capabilities Phase 0 has a built-in for);
-`TextSearch` and `MetadataFilter` join later, derived at registration by
-`isinstance` rather than declared. pgvector is the floor. `register()` and
-the built-in pgvector store (`pgvector_store.py`) arrive at step 8.
+7 scopes the family to the two capabilities Phase 0 has a built-in for),
+`TextSearch` at Phase 2 task 2.5 and `MetadataFilter` at task 2.6, each when a
+store implementing it arrived. Every one of them is derived at registration by
+`isinstance` rather than declared. What a `Filter` may name, and which
+operator each kind of field admits, is `fields.py` — published beside the
+family because two stores translating a filter must not come to disagree about
+what it means. pgvector is the floor. `register()` and the built-in pgvector
+store (`pgvector_store.py`) arrive at step 8.
+
+**Every capability Protocol is re-exported here, not only from `contract`.**
+A capability nothing registers under a name is found by walking this module's
+`__all__` — that is how `weft_cli.contract_reference` picks `VectorSearch` up
+beside `NodeStore`, and how a run assembler asks what capabilities this pack's
+family actually contains. One exported from `contract` alone is invisible to
+both, with no test to notice.
 """
 
 from weft_store.contract import (
@@ -15,15 +26,32 @@ from weft_store.contract import (
     Filter,
     FilterOp,
     FilterValue,
+    MetadataFilter,
     NodeStore,
     Page,
     Removed,
     Scored,
     SourceRecord,
     SourceStatus,
+    TextSearch,
     VectorSearch,
 )
-from weft_store.pgvector_store import PgVectorSettings, PgVectorStore, register
+from weft_store.fields import (
+    FieldKind,
+    FieldPath,
+    FilterOpMismatchError,
+    NodeField,
+    UnaddressableFieldError,
+    field_for,
+    parse_field_path,
+)
+from weft_store.pgvector_store import (
+    PgVectorSettings,
+    PgVectorStore,
+    TextQueryMode,
+    TextRank,
+    register,
+)
 
 # Re-exported because `docs/02-extension-model.md` §1 names it as the call a pack shipping its own
 # `ExtModel` makes so its nodes survive a round trip through a store. A documented extension point
@@ -34,9 +62,14 @@ __all__ = [
     "FILTER_AST_VERSION",
     "STORE_CONTRACT_VERSION",
     "Cursor",
+    "FieldKind",
+    "FieldPath",
     "Filter",
     "FilterOp",
+    "FilterOpMismatchError",
     "FilterValue",
+    "MetadataFilter",
+    "NodeField",
     "NodeStore",
     "Page",
     "PgVectorSettings",
@@ -45,7 +78,13 @@ __all__ = [
     "Scored",
     "SourceRecord",
     "SourceStatus",
+    "TextQueryMode",
+    "TextRank",
+    "TextSearch",
+    "UnaddressableFieldError",
     "VectorSearch",
+    "field_for",
+    "parse_field_path",
     "register",
     "register_ext_model",
     "rehydrate_ext",

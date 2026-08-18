@@ -11,17 +11,23 @@ declaring the same name, and the error cases of unreadable YAML and a document t
 parses as YAML but fails `Pipeline`'s own validation.
 """
 
+import importlib.util
+import sys
+from collections.abc import Generator
 from pathlib import Path
 
 import pytest
 
 from weft_cli.pipeline_catalogue import (
+    ContributedPipelineNameCollisionError,
     DuplicatePipelineNameError,
     MalformedPipelineError,
     PipelineDocumentError,
+    load_contributed,
     load_pipeline_catalogue,
     load_pipeline_document,
 )
+from weft_kernel.discovery import PackReport, PackStatus, PipelineResource
 from weft_kernel.pipeline import Pipeline, StageDeclaration
 
 
@@ -97,3 +103,126 @@ def test_load_pipeline_document_raises_for_valid_yaml_that_fails_pipeline_valida
     # Act / Assert
     with pytest.raises(MalformedPipelineError, match="confused.yaml"):
         load_pipeline_document(path)
+
+
+# --- load_contributed (task 2.8) -------------------------------------------------------
+
+
+def _install_fake_resource_package(tmp_path: Path, *, name: str, files: dict[str, str]) -> None:
+    """A real, importable package under `tmp_path`, so `importlib.resources` resolves it
+    exactly the way it resolves an installed wheel — the property `load_contributed`
+    exists for. `files` maps a resource path (`"pipelines/route.yaml"`) to its text.
+    """
+    pkg_dir = tmp_path / name
+    pkg_dir.mkdir()
+    (pkg_dir / "__init__.py").write_text("")
+    for relative, text in files.items():
+        target = pkg_dir / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text)
+    spec = importlib.util.spec_from_file_location(
+        name, pkg_dir / "__init__.py", submodule_search_locations=[str(pkg_dir)]
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+
+
+@pytest.fixture(autouse=True)
+def uninstall_fake_resource_packages() -> Generator[None]:
+    yield
+    for name in [n for n in sys.modules if n.startswith("_weft_test_resource_pkg")]:
+        del sys.modules[name]
+
+
+def test_load_contributed_reads_a_pipeline_resource_through_importlib(tmp_path: Path) -> None:
+    # Arrange — the mechanism `weft_retrieve.contract.RouteCatalogue`'s own docstring
+    # promises: a pipeline reachable from an *installed package*, never a filesystem path
+    # relative to this repository.
+    _install_fake_resource_package(
+        tmp_path,
+        name="_weft_test_resource_pkg_happy",
+        files={"pipelines/route.yaml": "name: route\nstages: []\n"},
+    )
+    report = PackReport(
+        distribution="weft-happy",
+        status=PackStatus.ACTIVE,
+        pipeline_resources=(
+            PipelineResource(
+                distribution="weft-happy",
+                package="_weft_test_resource_pkg_happy",
+                resource="pipelines/route.yaml",
+            ),
+        ),
+    )
+
+    # Act
+    catalogue = load_contributed([report])
+
+    # Assert
+    assert set(catalogue) == {"route"}
+    assert catalogue["route"].stages == ()
+
+
+def test_load_contributed_refuses_two_resources_declaring_the_same_name(tmp_path: Path) -> None:
+    # Arrange
+    _install_fake_resource_package(
+        tmp_path,
+        name="_weft_test_resource_pkg_a",
+        files={"pipelines/one.yaml": "name: shared\nstages: []\n"},
+    )
+    _install_fake_resource_package(
+        tmp_path,
+        name="_weft_test_resource_pkg_b",
+        files={"pipelines/two.yaml": "name: shared\nstages: []\n"},
+    )
+    reports = [
+        PackReport(
+            distribution="weft-a",
+            status=PackStatus.ACTIVE,
+            pipeline_resources=(
+                PipelineResource(
+                    distribution="weft-a",
+                    package="_weft_test_resource_pkg_a",
+                    resource="pipelines/one.yaml",
+                ),
+            ),
+        ),
+        PackReport(
+            distribution="weft-b",
+            status=PackStatus.ACTIVE,
+            pipeline_resources=(
+                PipelineResource(
+                    distribution="weft-b",
+                    package="_weft_test_resource_pkg_b",
+                    resource="pipelines/two.yaml",
+                ),
+            ),
+        ),
+    ]
+
+    # Act / Assert
+    with pytest.raises(ContributedPipelineNameCollisionError, match="shared"):
+        load_contributed(reports)
+
+
+def test_load_contributed_raises_for_a_resource_no_installed_package_provides() -> None:
+    # Arrange — no `add_pipeline_resource` call could ever name an uninstalled package in
+    # production (a pack names its own), but a stale resource path after a rename must
+    # still be diagnosable rather than a bare `ModuleNotFoundError` traceback.
+    report = PackReport(
+        distribution="weft-ghost",
+        status=PackStatus.ACTIVE,
+        pipeline_resources=(
+            PipelineResource(
+                distribution="weft-ghost",
+                package="_weft_test_resource_pkg_never_installed",
+                resource="pipelines/route.yaml",
+            ),
+        ),
+    )
+
+    # Act / Assert
+    with pytest.raises(PipelineDocumentError, match="weft-ghost"):
+        load_contributed([report])

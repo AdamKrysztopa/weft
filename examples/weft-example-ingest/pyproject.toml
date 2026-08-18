@@ -1,0 +1,37 @@
+[project]
+name = "weft-example-ingest"
+version = "0.0.0"
+description = "A stranger's ingest side — extraction, cleaning, enhancement, embedding, storage."
+requires-python = ">=3.12"
+# Every dependency is a published package any third party would `pip install`, this
+# distribution never sees the weft workspace's source tree — the identical relationship
+# `examples/weft-example-chunker/pyproject.toml` states for `weft-chunk`. `weft-store` and
+# `weft-index` are depended on for one thing each: the `NodeStore`/`VectorSearch`/
+# `TextSearch`/`MetadataFilter` family and the `Expander` contract this pack implements.
+dependencies = [
+    "weft-kernel",
+    "weft-clean",
+    "weft-embed",
+    "weft-enhance",
+    "weft-extract",
+    "weft-index",
+    "weft-store",
+]
+
+# One entry point (weft's docs/02-extension-model.md section 2). Nothing under weft's own
+# packages/ or testing/ names this distribution, this module, or any plugin name below —
+# fitness function 9(b) and 9(c), asserted from the weft repository's own tests/architecture/.
+[project.entry-points."weft.packs"]
+example-ingest = "weft_example_ingest:register"
+
+# This pack's own dev tooling — the fourth canonical file's test runner, not shared with
+# weft's own dev group: a stranger's `uv run pytest` here works from this pyproject alone.
+[dependency-groups]
+dev = ["pytest>=8.3", "pytest-asyncio>=0.24"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

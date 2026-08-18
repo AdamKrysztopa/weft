@@ -12,7 +12,7 @@ covers task 1.7's own worked example: `HyphenationRepair` declares `intact =
 from collections.abc import Sequence
 
 from weft_clean.hyphenation import HyphenationRepair, HyphenationRepairConfig
-from weft_clean.property import Newlines
+from weft_clean.property import Newlines, Verbatim
 from weft_kernel.context import Context
 from weft_kernel.payload import MediaType, Node, NothingToProduce, Outcome, Produced
 
@@ -68,7 +68,7 @@ def test_config_takes_no_fields() -> None:
     assert HyphenationRepairConfig().model_dump() == {}
 
 
-def test_needs_newlines_intact() -> None:
+def test_needs_newlines_intact_and_destroys_verbatim() -> None:
     # Act / Assert — declared on the class, readable with no instance, per `02` §3.
     assert HyphenationRepair.intact == (Newlines,)
-    assert HyphenationRepair.destroys == ()
+    assert HyphenationRepair.destroys == (Verbatim,)

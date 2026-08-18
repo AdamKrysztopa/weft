@@ -1,0 +1,186 @@
+# V2 question set (`docs/09-release.md` §4.3) — the unanswerable round: questions this corpus
+# does not answer, which V2 asks for by name — "a RAG engine that cannot say 'not in this
+# corpus' is untested for its most damaging failure". `notes` records what was searched for and
+# not found, because that is the whole evidence an absence can have.
+#
+# `eval/check_questions.py` owns the schema, every rule these entries are refused by, and
+# the argument for why nothing written here may be believed until
+# `tests/docs/test_question_set.py` has read it back out of the corpus. This file holds
+# questions and no design.
+#
+# **Provenance, which V2 requires recorded per answer.** Each question was written by an LLM
+# agent (Claude Opus 5, 2026-08-17) that had read the document it names, from the passage
+# quoted beside it, and was checked by a second, independent agent; `notes` carries the
+# per-question detail. This is not human-expert ground truth and must not be reported as
+# though it were — those agents verified their own quotes, and a mechanical re-check still
+# rejected 4 of 287 as appearing nowhere in the file they named.
+
+[[question]]
+id = "unanswerable-001"
+text = "Jak dropout i wczesne zatrzymywanie uczenia (early stopping) chronią sieć neuronową przed nadmiernym dopasowaniem, i jaką wartość współczynnika dropout zaleca się w praktyce?"
+language = "pl"
+kind = "unanswerable"
+difficulty = "medium"
+relevant_documents = []
+reference_answer = "Korpus nie zawiera odpowiedzi. Ani artykuł o nadmiernym dopasowaniu, ani żaden inny dokument nie wspomina o dropoucie ani o wczesnym zatrzymywaniu uczenia — wymienione są wyłącznie inne środki zapobiegawcze (zbiory walidacyjne, sprawdzian krzyżowy, metody samowsporne, testy istotności statystycznej). Poprawny system powinien powiedzieć, że nie znalazł w korpusie żadnego fragmentu o dropoucie, wczesnym zatrzymywaniu ani o doborze współczynnika dropout."
+notes = "adjacent-but-absent (pl). Confirmed by grep -Fic across all 17 files: 'dropout' = 0, 'early stopping' = 0, 'wczesne zatrzym' = 0, 'regularyzac' = 0 in every pl-*.txt. I read pl-nadmierne-dopasowanie.txt in full: its prevention list is 'zbiorów walidacyjnych, sprawdzianu krzyżowego, metod samowspornych' plus 'testy istotności statystycznej' — no regularisation and no dropout. The only corpus-wide 'regulariz' hits are lopez-paz and radovic (L2,1-norm group lasso inside the MT-LASSO baseline description), which say nothing about neural-network overfitting remedies."
+
+[[question]]
+id = "unanswerable-002"
+text = "How is the maximum-relevance minimum-redundancy idea applied to diversifying search-engine result lists, i.e. how are redundant documents demoted in a ranking while relevance to the query is preserved?"
+language = "en"
+kind = "unanswerable"
+difficulty = "easy"
+relevant_documents = []
+reference_answer = "The corpus does not answer this. All eight papers apply relevance/redundancy criteria to selecting features (variables, genes, columns) for classification or forecasting, never to ranking or diversifying retrieved documents; a correct system should state that it found no passage on information retrieval, document ranking, query result diversification, or maximal marginal relevance."
+notes = "out-of-scope, phrased in the corpus's own relevance/redundancy vocabulary. Confirmed by grep -Fil across all 17 files: 'information retrieval' = 0 files, 'maximal marginal' = 0, 'document ranking' = 0, 'diversif' = 0, 'search engine' = 0. The two files matching 'query' are radovic (line 942, a bibliography entry 'Speech Audio Retrieval Using Voice Query') and ramirez-gallego (line 268, Spark loading data into memory and querying it repeatedly) — both database/citation contexts, neither about ranking documents."
+
+[[question]]
+id = "unanswerable-003"
+text = "Jak zastosować kryterium maksymalnej istotności i minimalnej nadmiarowości do wyboru lokalizacji czujników w sieci monitoringu jakości powietrza, tak by pokrycie obszaru było maksymalne przy minimalnym nakładaniu się pomiarów?"
+language = "pl"
+kind = "unanswerable"
+difficulty = "easy"
+relevant_documents = []
+reference_answer = "Korpus nie zawiera odpowiedzi. Żaden z dokumentów nie dotyczy rozmieszczania czujników ani monitoringu jakości powietrza — kryteria istotności i nadmiarowości są w nich stosowane wyłącznie do wyboru cech (zmiennych, genów, kolumn danych) do klasyfikacji lub prognozowania. Poprawny system powinien powiedzieć, że nie znalazł w korpusie żadnego fragmentu o doborze lokalizacji czujników ani o sieciach pomiarowych."
+notes = "out-of-scope (pl), phrased in corpus vocabulary. Confirmed by grep -Fil across all 17 files: 'sensor' = 0 files, 'czujnik' = 0, 'wireless' = 0, 'sensor placement' = 0, 'air quality' = 0, 'jakości powietrza' = 0. The nearest domain match is Bouzgou & Gueymard's solar irradiance data from 20 measurement sites, but that paper selects lagged time-series variables, never site or instrument locations — I checked its variable-selection scenarios (long window, short window, PCA, clear-sky) and none is spatial."
+
+[[question]]
+id = "unanswerable-004"
+text = "In Ding and Peng's microarray study, how much did the leave-one-out error drop when random forest classifiers were used on the MRMR-selected genes compared with the baseline gene set?"
+language = "en"
+kind = "unanswerable"
+difficulty = "medium"
+relevant_documents = []
+reference_answer = "The question rests on a false premise and the corpus cannot answer it. Ding and Peng evaluate MRMR gene sets with four classification methods — Naive Bayes, linear discriminant analysis, logistic regression and support vector machines — and report no random-forest results at all; a correct system should say it found no random-forest experiment in that paper rather than supplying a number."
+notes = "false-premise. Confirmed by grep -Fic 'random forest' on ding-i-peng-2005-*.txt = 0 hits. The paper's own abstract enumerates its classifiers: 'Improvements are observed consistently among 4 classification methods: Naive Bayes, Linear discriminant analysis, Logistic regression, and Support vector machines.' Random forests do appear elsewhere in the corpus (Zhao et al. at Uber, Xie et al.'s classifier), which makes this a realistic trap — a retriever will surface random-forest passages from the wrong papers, and the system must not transplant those numbers onto Ding and Peng."
+
+[[question]]
+id = "unanswerable-005"
+text = "Which paper proves that the greedy incremental mRMR search is submodular and therefore within a (1 - 1/e) factor of the optimal feature subset, and what is the proof sketch?"
+language = "en"
+kind = "unanswerable"
+difficulty = "hard"
+relevant_documents = []
+reference_answer = "No such proof exists in the corpus. The papers present the incremental/forward search as a heuristic that avoids the intractable exhaustive combinatorial search, but none of them establishes submodularity or any (1 - 1/e) approximation guarantee; a correct system should state that it found no submodularity argument or approximation bound for the greedy mRMR search anywhere in these documents."
+notes = "false-premise. Confirmed by grep -Fil across all 17 files: 'submodular' = 0 files, 'approximation guarantee' = 0, 'NP-hard' = 0. Ding & Peng and Zhao et al. do justify the greedy search by the cost of exhaustive search (Zhao's abstract calls optimal subset selection an NP-complete problem, hyphenated across a line break), but justifying a heuristic is not proving a bound — I read Ding & Peng's incremental-search section and Zhao's method section and neither states any optimality ratio."
+
+[[question]]
+id = "unanswerable-006"
+text = "Which papers published in 2024 or 2025 have extended Xie et al.'s ImRMR method, and what improvements in classification accuracy do they report?"
+language = "en"
+kind = "unanswerable"
+difficulty = "easy"
+relevant_documents = []
+reference_answer = "The corpus cannot answer this because it contains no work published after 2023. Xie et al. (2023) is the newest document, and its own comparison table stops at 2022; a correct system should say that no 2024 or 2025 publication, and no follow-up work on ImRMR, appears anywhere in the corpus."
+notes = "temporally-impossible. Confirmed with grep -oE '\\b20(2[4-9]|3[0-9])\\b' over all 17 files: the only post-2023 four-digit matches are '2025' and '2035' in bouzgou, and I read both — they are solar-capacity projection years, not publication dates. Xie et al.'s Table 4 ('Comparative analysis with other methods', page 18) has a Year column whose latest entries are 2022 (Kang et al., and the proposed method itself), confirming nothing later is cited."
+
+[[question]]
+id = "unanswerable-007"
+text = "How does mRMR compare with large-language-model-based feature selection, where an LLM is prompted to pick the relevant non-redundant columns? What do the benchmarks report?"
+language = "en"
+kind = "unanswerable"
+difficulty = "easy"
+relevant_documents = []
+reference_answer = "The corpus cannot answer this. It contains no work on large language models or LLM-driven feature selection — the newest paper is from 2023 and the comparison baselines throughout are statistical filters, wrappers and tree-based importance measures; a correct system should say it found no LLM-based feature-selection method or benchmark in these documents."
+notes = "temporally-impossible (and out-of-scope). Confirmed by grep -Fic across all 17 files: 'language model' = 0, 'large language model' = 0, 'GPT' = 0, 'ChatGPT' = 0, 'foundation model' = 0, 'attention mechanism' = 0, 'transformer' matches only 'transformation(s)' in xie/zhao. The corpus's baseline sets were checked directly: Zhao et al. evaluate eight feature-selection methods built on F-statistic, RDC, mutual information and random-forest importance; Xie et al. compare against mRMR, IG, SU, GR and RfF."
+
+[[question]]
+id = "unanswerable-008"
+text = "What classification accuracy did ImRMR achieve on the NCI and Lymphoma microarray gene expression datasets?"
+language = "en"
+kind = "unanswerable"
+difficulty = "medium"
+relevant_documents = []
+reference_answer = "The corpus does not report this. Xie et al. evaluate ImRMR on seven datasets — Musk, Urban land cover, Glass, Libras Movement, Ionosphere, Pavia University and Crane songs — and none of them is a microarray dataset; NCI and Lymphoma appear only in Ding and Peng's separate study, which does not evaluate ImRMR. A correct system should say that no ImRMR result on NCI or Lymphoma exists in the corpus."
+notes = "specific-but-absent (with a cross-document false premise). Confirmed by grep -Fic 'lymphoma' on xie-et-al-2023-*.txt = 0 hits. I read Xie section 5.2 'Experimental datasets', which enumerates exactly seven sets (five UCI: Musk, Urban, Glass, Movement, Ionosphere; plus hyperspectral Pavia University and Crane songs), and Table 4's comparative analysis, whose only dataset rows are Ionosphere, Crane, Movement and Musk. NCI and Lymphoma belong to Ding & Peng's six microarray sets, so a retriever will plausibly return both papers and must not splice them."
+
+[[question]]
+id = "unanswerable-009"
+text = "What top-1 accuracy do the mRMR variants in this corpus achieve on standard image benchmarks such as MNIST or CIFAR-10, and how many pixels or feature maps do they retain?"
+language = "en"
+kind = "unanswerable"
+difficulty = "medium"
+relevant_documents = []
+reference_answer = "The corpus reports no such numbers. No paper here evaluates on MNIST, CIFAR-10 or any image-classification benchmark — the evaluations use microarray gene expression data, UCI tabular sets, hyperspectral and audio data, solar irradiance time series, LibSVM large-scale sets and Uber marketing data. A correct system should state that no MNIST or CIFAR-10 result appears anywhere in the corpus."
+notes = "specific-but-absent. Confirmed by grep -Fic across all 17 files: 'MNIST' = 0, 'CIFAR' = 0, 'ImageNet' = 0. I enumerated every paper's evaluation data directly: Ding & Peng (NCI, Lymphoma, Lung, Child Leukemia, Leukemia, Colon), Radovic (H3N2, HRV, RSV), Senawi (eight UCI sets), Xie (Musk, Urban, Glass, Movement, Ionosphere, Pavia University, Crane), Ramirez-Gallego (ECBDL14, epsilon, kddb), Bouzgou (20 irradiance sites), Zhao (one synthetic plus three anonymised Uber datasets), Lopez-Paz (synthetic patterns plus real-world feature-selection sets). None is an image benchmark; the 'image' substring hits are 'imagery'/'imagine'-style incidental matches and hyperspectral remote sensing, not MNIST-style benchmarks."
+
+[[question]]
+id = "unanswerable-010"
+text = "Several of these papers select genes from expression data for classification. How is the mRMR relevance term adapted when the outcome is a censored survival time rather than a class label — for example, using a Cox proportional-hazards score in place of an F-statistic or mutual information?"
+language = "en"
+kind = "unanswerable"
+difficulty = "medium"
+relevant_documents = []
+reference_answer = "This corpus does not answer the question. None of the ten papers treats a censored, time-to-event outcome: the targets handled are class labels (binary and multi-class classification) and, in a few papers, continuous regression targets. No document defines a relevance measure for censored data, and none mentions survival analysis, censoring, or Cox proportional hazards. A correct system should say it found no discussion of survival outcomes in these documents, name the outcome types that are covered instead, and refuse to extrapolate from the classification and regression relevance measures the papers do describe (F-statistic, mutual information, HSIC, correlation)."
+notes = "Category: adjacent-but-absent — survival-outcome gene selection sits one step from the microarray classification these papers do. Absence confirmed by case-insensitive whole-corpus search of every .txt in the extraction directory for 'survival', 'censor', 'time-to-event' and 'hazard': zero hits in any file. 'Cox' occurs only twice in the whole directory and both are author surnames in reference lists ('Z. Zhao, J. Cox, D. Duling...' in ax-2208.09901v2, 'Cox DR, Analysis of Binary Data' in the non-tier Ding & Peng file), never the proportional-hazards model."
+
+[[question]]
+id = "unanswerable-011"
+text = "Do any of these methods offer a privacy-preserving or differentially private version of mRMR, for the case where the gene expression or customer data cannot leave the institution that holds it?"
+language = "en"
+kind = "unanswerable"
+difficulty = "easy"
+relevant_documents = []
+reference_answer = "The corpus contains nothing on this. No paper here discusses privacy, differential privacy, encryption, anonymisation, or federated computation of the relevance and redundancy terms. The distributed papers in the collection (the map-reduce N3LARS work and the Spark-based vertical-partitioning mRMR work) motivate their designs by scalability and fault tolerance on commodity clusters, not by keeping data in place for privacy reasons. A correct system should state that no document in this collection addresses privacy-preserving feature selection, rather than inventing a privatised variant of the mRMR criterion."
+notes = "Category: adjacent-but-absent — a natural next question for anyone applying these gene-expression and customer-propensity methods. Absence confirmed by case-insensitive whole-directory search for 'privacy', 'differential privacy', 'confidential', 'secure', 'encrypt', 'GDPR', 'de-identif' and 'federated': zero hits in every file. 'anonym' matches only once (ax-1908.05376v1, 'anonymous reviewers' in the acknowledgements), which is not about data privacy."
+
+[[question]]
+id = "unanswerable-012"
+text = "When the goal is to pick a maximally relevant, minimally redundant subset of training samples rather than of features — instance selection — which criterion do these papers recommend, and how do they measure the redundancy between two samples?"
+language = "en"
+kind = "unanswerable"
+difficulty = "medium"
+relevant_documents = []
+reference_answer = "The question is outside what this corpus covers. Every method here applies relevance and redundancy to features: relevance is measured between a candidate feature and the target, and redundancy between pairs of features. No paper in the collection applies the mRMR criterion to selecting rows, training examples, prototypes or instances, and none defines a redundancy measure between two samples. A correct system should say that it found only feature-level relevance and redundancy in these documents and that instance or sample selection is not addressed, instead of transferring the feature-level formulas to samples on its own authority."
+notes = "Category: out-of-scope phrased in the corpus's own vocabulary (relevance, redundancy, mRMR) — the words match the corpus exactly, the task does not. Absence confirmed by case-insensitive whole-directory search for 'instance selection', 'sample selection', 'prototype', 'select samples', 'selecting samples', 'sample subset', 'row selection' and 'subsampling': zero hits in every file."
+
+[[question]]
+id = "unanswerable-013"
+text = "For picking a non-redundant, maximally relevant set of sentences for a text summary, what relevance and redundancy measures do these papers use, and how does their criterion compare with Maximal Marginal Relevance?"
+language = "en"
+kind = "unanswerable"
+difficulty = "medium"
+relevant_documents = []
+reference_answer = "This corpus does not cover text summarisation. The application areas represented are gene expression and microarray classification, marketing and customer-propensity modelling, power-system transient stability assessment, and general benchmark classification and regression data. No paper here selects sentences or summary units, and none discusses Maximal Marginal Relevance. A correct system should report that it found no summarisation application and no MMR discussion in this collection, rather than mapping the feature-selection criterion onto sentences by analogy."
+notes = "Category: out-of-scope phrased in the corpus's vocabulary — 'relevance', 'redundancy' and 'non-redundant set' are the corpus's own terms, but the summarisation task is absent. Absence confirmed by case-insensitive whole-directory search for 'summarization', 'summarisation' and 'sentence': zero hits (matches for 'summariz-' as a verb, e.g. 'Table 1 summarizes', were inspected and are ordinary prose, and none is the noun 'summarization'). A case-sensitive regex for 'MMR' not preceded by 'R'/'r' (to exclude 'mRMR') returned zero hits corpus-wide."
+
+[[question]]
+id = "unanswerable-014"
+text = "On the shared gene expression benchmarks, which achieved the lower false discovery rate — SmRMR (Naylor et al.) or the Boruta–mRMR hybrid of BoMGene?"
+language = "en"
+kind = "unanswerable"
+difficulty = "hard"
+relevant_documents = []
+reference_answer = "No such comparison exists in this corpus. The SmRMR paper does report false-discovery-rate control for its own procedure, but it never evaluates BoMGene or Boruta and does not cite that work. The BoMGene paper never reports a false discovery rate at all and does not mention SmRMR. The two papers share no common benchmark comparison, so no answer to 'which was lower' can be grounded here. A correct system should say that the two methods were never compared head to head in these documents and that BoMGene reports no FDR figure, instead of pairing numbers taken from two separate papers."
+notes = "Category: false-premise — it presupposes a head-to-head comparison that does not exist. Confirmed: case-insensitive whole-directory search for 'Boruta' returns hits only in ax-2510.00907v1 (BoMGene); 'Naylor' returns hits only in ax-2508.18901v1 (SmRMR's own author list), so neither cites the other. 'false discovery' and 'FDR' occur only in ax-2508.18901v1 (41 'FDR' hits) and never in ax-2510.00907v1. Deliberate trap worth noting: the literal string 'SmRMR' does occur 6 times in ax-2510.00907v1, but every occurrence is the BoMGene pseudocode's notation for the mRMR-selected feature set (e.g. 'SmRMR ← SmRMR ∪ {j}'), not a reference to the SmRMR method — a retriever that matches on the token alone will surface a false positive."
+
+[[question]]
+id = "unanswerable-015"
+text = "In the transient stability assessment study on the New England 39-bus system, how did the improved mRMR criterion compare with the Boruta wrapper — which selected fewer features, and which gave the higher classification accuracy?"
+language = "en"
+kind = "unanswerable"
+difficulty = "hard"
+relevant_documents = []
+reference_answer = "The question rests on a comparison that this corpus does not contain. The transient stability paper does evaluate its improved mRMR criterion on the New England 39-bus case, but Boruta appears nowhere in that paper; the comparisons it reports are against the standard mRMR criterion, the full original feature set, and PCA-based reduction. Boruta appears in only one document in the whole collection — the BoMGene gene expression paper — which involves no power-system data and no 39-bus case. A correct system should point out that no Boruta comparison exists in the transient stability work and name the baselines that paper actually uses, rather than fabricating feature counts or accuracies for a Boruta run."
+notes = "Category: false-premise (it presupposes a comparison that was never made), anchored in a setting that genuinely exists so the retriever will find the right document. Confirmed: 'New England' and '39-bus' occur only in ax-1903.01907v1, and 'Boruta' occurs only in ax-2510.00907v1 — the two never co-occur in any file. 'PCA' occurs 5 times in ax-1903.01907v1, so the baselines named in the reference answer are the ones that paper does report."
+
+[[question]]
+id = "unanswerable-016"
+text = "Which 2026 successor to BoMGene does this collection recommend for gene expression classification, and what accuracy improvement over the Boruta–mRMR hybrid does it report?"
+language = "en"
+kind = "unanswerable"
+difficulty = "easy"
+relevant_documents = []
+reference_answer = "Nothing in this corpus is dated after 2025, so no such successor can be described. The two most recent documents are the SmRMR paper (arXiv, 26 August 2025) and BoMGene itself (arXiv, 1 October 2025); no 2026 publication, follow-up study or successor method appears anywhere in the collection. A correct system should state that the corpus contains no material from 2026 or later and that no successor to BoMGene is described in it, rather than producing a plausible-sounding method name and accuracy figure."
+notes = "Category: temporally impossible — it asks for work published after the newest document in the corpus. Confirmed: case-insensitive whole-directory search for '2026' returns zero hits in every file; the latest year strings in the tier are the arXiv stamps '26 Aug 2025' (ax-2508.18901v1) and '1 Oct 2025' (ax-2510.00907v1). The question also carries a false premise (that a successor exists), so a system that merely notes 'nothing after 2025' is already correct."
+
+[[question]]
+id = "unanswerable-017"
+text = "What classification accuracy do the mRMR-based selection methods in this corpus reach on the standard image benchmarks — MNIST, CIFAR-10 or ImageNet?"
+language = "en"
+kind = "unanswerable"
+difficulty = "easy"
+relevant_documents = []
+reference_answer = "No image benchmark results are reported anywhere in this corpus. None of the papers evaluates on MNIST, CIFAR-10 or ImageNet. The datasets used are gene expression and microarray data (for example leukemia, nci9, DLBCL and prostate cancer sets, and the p53 data), marketing and customer-propensity datasets, power-system simulation data from the New England 39-bus and IEEE 50-generator cases, and small benchmark regression and classification sets. A correct system should say that no image-benchmark evaluation appears in these documents and name the dataset families that are used instead, rather than reporting an accuracy figure for a benchmark the corpus never touches."
+notes = "Category: specific-but-absent — named benchmarks that are never reported. Confirmed: case-insensitive whole-directory search for 'MNIST', 'CIFAR', 'ImageNet' and 'image classification' returns zero hits in every file. The dataset families named in the reference answer were each seen in the extracted text while verifying (leukemia and nci9 in ax-2208.09901v2, DLBCL and prostate in ax-2510.00907v1, p53 in ax-1411.2331v1, New England 39-bus in ax-1903.01907v1)."

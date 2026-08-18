@@ -18,9 +18,9 @@ factories, never instances. The runner is the first thing that has to
 *resolve and run a chain of them*, which is what forces the shape a plugin
 class must have.
 
-**Four checks happen before a single batch runs — "at resolution", never
+**Five checks happen before a single batch runs — "at resolution", never
 discovered later as a runtime `KeyError`** (`06` step 6; the fourth is G2's,
-task 1.2):
+task 1.2, and the fifth is Phase 2's, task 2.28):
 
 1. **The plugin exists.** `Registry.entry` already raises `UnknownPluginError`
    naming the contract, the name that was wanted, and every name that *is*
@@ -49,6 +49,25 @@ task 1.2):
    registration, before this module ever sees the plugin; `intact` stays an
    optional convention read defensively here exactly as `requires` already
    is.
+
+5. **Every `fallback:` name exists, and stands in for the primary**, task
+   2.28. A stage may name other plugins to try when its own refuses the
+   position, and the chain that walks them is
+   `weft_kernel.fallback.try_in_order` — a combinator over any contract,
+   which is why it lives in its own module and not in this one. What
+   happens *here* is the lookup: each name is resolved against the
+   registry at resolution and refused as `UnknownFallbackError` if
+   nothing registered it, so a chain that cannot run fails before a batch
+   does rather than on the first document the primary could not read.
+   Each is then compared with the primary it would replace — checks 2 and
+   4 above were answered by the primary's declarations alone, so a
+   fallback demanding more or promising less is refused as
+   `FallbackNotSubstitutableError` rather than corrupting a run on
+   exactly the documents nobody tested. Both are class-level reads, so
+   the candidates themselves are still **built lazily, at try time** and
+   an uninstantiable fallback costs nothing while the primary is working
+   — see `_chain`, `_attempt` and `_built_of`, the last of which is why a
+   fallback the run actually reached is still flushed.
 
 **Where a pipeline's types actually come from — a narrowing worth stating
 plainly.** `docs/02-extension-model.md` → *Composition is typed and checked
@@ -176,7 +195,8 @@ from typing import Protocol, cast
 from pydantic import BaseModel, ConfigDict
 
 from weft_kernel.context import Context
-from weft_kernel.errors import WeftError
+from weft_kernel.errors import UnresolvedNameError, WeftError
+from weft_kernel.fallback import Attempt, try_in_order
 from weft_kernel.payload import (
     Applies,
     ExtModel,
@@ -186,7 +206,7 @@ from weft_kernel.payload import (
     Produced,
     Property,
 )
-from weft_kernel.registry import Registry
+from weft_kernel.registry import Registry, RegistryEntry, UnknownPluginError, unwrap_factory
 from weft_kernel.seam import wrap, wrap_flush
 
 
@@ -268,6 +288,115 @@ class PipelineResolutionError(WeftError):
         self.remedy = remedy
 
 
+class UnresolvedNameInPipelineResolutionError:
+    """The shared `__init__` for every `PipelineResolutionError` subclass that is *also*
+    `UnresolvedNameError` — task 2.36's own repair.
+
+    Task 2.36 gave `UnknownParentPipelineError`, `UndefinedVarError` and
+    `StaleOperatorTargetError` (`weft_kernel.resolution`) and `UnknownFallbackError`
+    (below) an identical 19-line `__init__`: forward the family base's four fields, then
+    set `self.valid_options`. Four copies of the same body is exactly the shape `01`'s own
+    rule against a fat class exists to prevent one level down — not four failure *kinds*
+    sharing a name, but one failure kind (a name that did not resolve against an
+    enumerable set of alternatives, inside pipeline resolution specifically) written out
+    four times. This class is that body, written once; each of the four now declares it
+    as their *first* base — so it is the one Python's MRO finds `__init__` on — and
+    declares no `__init__` of its own.
+
+    **The guarantee this exists to serve is unchanged, not merely preserved by accident.**
+    `valid_options` stays a required, keyword-only parameter with no default — the same
+    signature the four used to each declare by hand — so a raise site that forgets it
+    still fails to construct the exception at all, `TypeError` before a `WeftError` even
+    exists to catch. Nothing about collapsing four bodies into one changes what the one
+    body requires.
+
+    **Not itself a `WeftError`, on the identical footing `weft_kernel.errors.
+    UnresolvedNameError`'s own docstring already states for the marker it is mixed in
+    alongside.** Three separate reasons converge on this one shape:
+
+    - *A `PipelineResolutionError` base would make it a `WeftError` subclass, and
+      `tests/docs/test_troubleshooting_coverage.py`'s own coverage ratchet — task 0.14,
+      `08` §3 clause (d) — requires a `manual/troubleshooting.md` entry for every
+      `WeftError` subclass the first-party tree defines, pinned-empty waiver only by a
+      dated decision-log entry.* This class is never raised on its own — only its four
+      concrete subclasses ever are — so it names no failure mode a user ever meets in a
+      traceback; writing a troubleshooting entry for a class nobody encounters would be
+      documentation invented to satisfy a check rather than to help a reader, exactly
+      what `08`'s own rule exists to prevent in the other direction. Not inheriting
+      `WeftError` at all is the honest way to keep it out of that requirement, mirroring
+      the precedent already sitting one class over: `UnresolvedNameError` itself is "not
+      itself a `WeftError`, and defines no `__init__` of its own" for the same reason —
+      it is a marker/mixin, not a failure mode with its own identity.
+    - *Calling `PipelineResolutionError.__init__(self, ...)` explicitly, never via
+      `super()`, is what makes the base unnecessary.* Every concrete subclass below still
+      lists `PipelineResolutionError` as an actual base (so `isinstance` and
+      `PipelineResolutionError.__subclasses__()` see it exactly as before) — this class
+      only has to supply the four raise sites' shared `__init__` *body*, not sit in the
+      inheritance chain itself. Listed first among a subclass's bases, so Python's MRO
+      finds `__init__` here before it reaches `PipelineResolutionError`'s own. The `cast`
+      below is what that split costs statically: this class alone has no way to promise
+      pyright that whatever mixes it in also mixes in `PipelineResolutionError`, so the
+      call is annotated true rather than left for strict mode to refuse. Every real
+      subclass keeps the promise the cast makes.
+    - *Not `_`-prefixed, because pyright's strict mode makes that choice unavailable for a
+      class actually reused across modules.* A leading underscore was tried first, on
+      `weft_kernel.pipeline._QUALIFIER`'s own precedent — but that precedent is for a
+      private *constant*, duplicated on purpose rather than imported, exactly because
+      duplicating one character is cheaper than coupling two modules over it. A shared
+      `__init__` is not that: the entire point of writing it once is that both this
+      module (`UnknownFallbackError`) and `weft_kernel.resolution` (the other three)
+      construct the *same* class, so duplicating it would silently reproduce the very
+      duplication task 2.36's review found. `reportPrivateUsage` under
+      `[tool.pyright] typeCheckingMode = "strict"` refuses a leading-underscore name
+      imported into another module's source regardless of package boundary, which makes
+      the `_QUALIFIER` shape structurally unavailable here — the concrete fact that
+      decided the question, not merely a style preference. It stays out of
+      `weft_kernel/__init__.py`'s own export list all the same: no contract in `02` gives
+      a pack a reason to raise `PipelineResolutionError`'s specific four-field shape —
+      that family is raised only by `weft_kernel.resolution.resolve` and `Runner.resolve`
+      themselves — so a pack wanting `01` requirement 5's guarantee for its own error
+      hierarchy mixes in `UnresolvedNameError` directly instead, exactly as
+      `weft_llm.models.UnknownModelError` and every other non-`PipelineResolutionError`
+      family member already do.
+
+    **Deliberately does not mix in `UnresolvedNameError` itself.** If it did, it would be
+    a direct subclass of the marker, and fitness function 12's own family walk
+    (`test_ff12_unresolvable_name_carries_options.py`'s `_all_unresolved_name_subclasses`,
+    which starts from `UnresolvedNameError.__subclasses__()`) would discover it as a 21st
+    member alongside the 20 pinned in `NAME_RESOLUTION_FAMILY` — an accounting artifact of
+    this refactor, not a new failure kind, and exactly the kind of thing that check exists
+    to catch rather than silently absorb. Each of the four concrete subclasses below still
+    writes `UnresolvedNameError` as its own base, so `issubclass(cls, UnresolvedNameError)`
+    is unchanged for every one of them and the family the fitness function counts stays at
+    20. Neither that walk nor `weft_kernel.errors.UnresolvedNameError.__subclasses__()`
+    needed to become more recursive for this to hold — both already are, and a class that
+    is this one's *user* rather than its subclass is never reached walking downward from
+    either the marker or `WeftError`, since this class is a subclass of neither.
+    """
+
+    valid_options: tuple[str, ...]
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        valid_options: tuple[str, ...],
+        pipeline: str | None = None,
+        stages: tuple[str, ...] = (),
+        distributions: tuple[str, ...] = (),
+        remedy: str = "",
+    ) -> None:
+        PipelineResolutionError.__init__(
+            cast("PipelineResolutionError", self),
+            message,
+            pipeline=pipeline,
+            stages=stages,
+            distributions=distributions,
+            remedy=remedy,
+        )
+        self.valid_options = valid_options
+
+
 class UnmetRequiresError(PipelineResolutionError):
     """A stage's `requires` names an `ExtModel` no earlier stage in this list provides.
 
@@ -295,6 +424,65 @@ class IntactViolationError(PipelineResolutionError):
 
     Task 1.2, `02` §3 → *Ordering constraints*. See `UnmetRequiresError`'s own docstring
     for why this is imported by `weft_kernel.resolution` rather than redefined there.
+    """
+
+
+class UnknownFallbackError(
+    UnresolvedNameInPipelineResolutionError, PipelineResolutionError, UnresolvedNameError
+):
+    """A stage's `fallback:` list names a plugin no distribution registered — task 2.28.
+
+    No `__init__` of its own — task 2.36's repair collapsed this class's own 19-line
+    forwarding body into `UnresolvedNameInPipelineResolutionError` above, which it now
+    inherits unmodified; see that class's own docstring for why the shared body lives
+    here rather than in `weft_kernel.resolution`, and why `valid_options` staying
+    required and keyword-only, with no default, is unaffected by the collapse.
+
+    **Refused here, and deliberately not in `weft_kernel.resolution`.** That module carries
+    a document's `fallback:` names through unchecked, on purpose and at length (see
+    `ResolvedStage.fallback`'s own docstring): a pipeline document may legitimately name
+    `ocr` as a fallback before any pack ships one, and it must stay authorable, storable,
+    diffable and derivable while that is true. What this class refuses is a different
+    claim — making that document **runnable**. The two are separable because
+    `Runner.resolve` is a later step than `resolve()`, and keeping them separate is what
+    lets the late-binding promise and the no-silent-fallback rule both hold.
+
+    **Why not at try time.** Refusing when the chain is first *reached* would make the
+    failure depend on encountering a document the primary cannot read, so a pipeline could
+    be green for a year and fail in production the first time it met a scanned page.
+    Skipping the unknown name instead is `01` requirement 5's silent fallback with extra
+    steps — it degrades quality precisely on the inputs the fallback existed for.
+
+    Fitness function 12's family: `valid_options` is every name registered for the
+    stage's own contract.
+    """
+
+
+class FallbackNotSubstitutableError(PipelineResolutionError):
+    """A `fallback:` entry demands more or promises less than the primary it stands in for.
+
+    A repair to task 2.28, which checked a fallback only for existence. Every
+    `requires`, `intact` and downstream `IntactViolationError` check `resolve` performs
+    was answered by the **primary**'s declarations, because the primary is the only
+    candidate resolution knows will run. A fallback that `destroys` a `Property` the
+    primary does not therefore resolves clean and then corrupts a later stage's input —
+    and it does so only on the documents the primary could not read, which is precisely
+    where a test never looks. `02` §3 names that asymmetry as the one the kernel exists
+    to close: "forgetting `destroys` silently corrupts a stranger's, and the pack that
+    caused it never sees a failure." `provides` is the mirror: a downstream
+    `UnmetRequiresError` satisfied by the primary's declaration leaves a later stage
+    running against an `ExtModel` that is not there.
+
+    So the rule is one sentence — **a fallback may demand no more and promise no less
+    than the primary** — and its four halves are `requires`, `intact`, `provides` and
+    `destroys`. Declaring *more* than the primary in the safe direction (providing an
+    extra model, destroying one property fewer) is not refused: it is the difference
+    that would invalidate a check already made that is.
+
+    **Read off the class, not off an instance** — `weft_kernel.registry.unwrap_factory`,
+    exactly as `weft_kernel.resolution.resolve` and `Registry`'s own `destroys`
+    mandatoriness already read the same four declarations. That is what lets this check
+    cost a `getattr` while candidates stay built lazily, at try time.
     """
 
 
@@ -341,6 +529,41 @@ class StageSpec:
     contract: type[object]
     name: str
     config: object = None
+    fallback: tuple[str, ...] = ()
+    """Plugin names to try, in order, when `name` refuses this position — task 2.28.
+
+    The same list `StageDeclaration.fallback` holds in a document, reaching the runner
+    at last. Every entry names a plugin under the *same* `contract`, so composition needs
+    no second check: a fallback is substitutable for the primary by construction.
+
+    **A fallback carries no `with:` block, and that is a stated narrowing rather than an
+    oversight.** The document grammar has nowhere to put one — `fallback:` is a list of
+    bare names — so a fallback runs on its plugin's own defaults (`_build` calls
+    `factory(None)`). Widening the grammar is not this task's, and inventing a place for
+    the configuration here would put a second spelling of `with:` in the kernel instead of
+    in the document that owns it. The cost is real and is not to be papered over
+    elsewhere: one plugin in two configurations — the same parser in two modes — is the
+    most natural chain there is, and it cannot be expressed at all until the grammar
+    carries a configuration. Nothing routes a failed batch into another pipeline either,
+    so there is no mechanism standing in for it today.
+    """
+
+
+@dataclass(slots=True)
+class _Candidate:
+    """One entry in a stage's chain: how to build a plugin, and the instance once built.
+
+    Not frozen, unlike everything else resolution produces, and the mutability is the
+    point: `instance` is filled in **at try time**, so a fallback that is never reached is
+    never constructed and an uninstantiable one costs nothing while the primary works.
+    It is also what `_built_of` reads, so a fallback the chain did reach is flushed like
+    any other stage rather than losing whatever it buffered.
+    """
+
+    name: str
+    distribution: str
+    factory: Callable[..., object]
+    instance: object | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -352,6 +575,14 @@ class _ResolvedStage:
     plugin_name: str
     distribution: str
     instance: object
+    chain: tuple[_Candidate, ...] = ()
+    """`[primary, *fallbacks]` when this stage declared any, and empty when it did not.
+
+    Empty rather than a one-element chain for a stage with no `fallback:`, so the
+    ordinary path through `_invoke_stage` is the one it always was — a combinator
+    silently interposed on every stage in the tree would be a change to every pipeline
+    in exchange for a uniformity nothing reads.
+    """
 
 
 @dataclass(frozen=True, slots=True)
@@ -484,10 +715,95 @@ class Runner:
                     plugin_name=spec.name,
                     distribution=entry.distribution,
                     instance=instance,
+                    chain=self._chain(spec, primary=entry, instance=instance),
                 )
             )
 
         return RunnablePipeline(tenant_id=tenant_id, stages=tuple(resolved))
+
+    def _chain(
+        self, spec: StageSpec, *, primary: RegistryEntry, instance: object
+    ) -> tuple[_Candidate, ...]:
+        """`spec`'s whole chain — `[primary, *fallbacks]` — or empty when it declares none.
+
+        Every fallback name is looked up **now**, so an unregistered one is refused before
+        a single batch runs (`UnknownFallbackError`), and none of them is *built* now, so
+        the lookup costs a dict read and nothing more. The primary is already constructed
+        — `resolve` did it above, under the full `requires`/`intact`/`Lifetime` treatment
+        — and is carried in as candidate zero rather than rebuilt.
+
+        **And every fallback is checked to be substitutable, which costs no instance.**
+        Task 2.28 shipped this checking existence only, on the stated ground that the four
+        declarations are read off a constructed instance; that ground was wrong.
+        `weft_kernel.resolution.resolve` reads all four off the *unconstructed* class
+        through `unwrap_factory`, and `Registry` reads `destroys` the same way at
+        registration — so the check is available for a `getattr` with laziness intact, and
+        `FallbackNotSubstitutableError` is what it raises. It has to be made here rather
+        than left to the author's claim: every `requires`/`intact` check `resolve` performs
+        was answered by the *primary*'s declarations, so a fallback that destroys more or
+        provides less runs against checks nobody made — and only on the documents the
+        primary could not read.
+
+        What is still not checked is a declaration a plugin computes in `__init__` and
+        never states on its class, which reads as empty here. That direction is safe by
+        construction: an unstated declaration narrows nothing and fails nothing, it only
+        leaves this check with less to compare.
+        """
+        if not spec.fallback:
+            return ()
+        expected = _declared_by(unwrap_factory(primary.factory))
+        candidates = [
+            _Candidate(
+                name=spec.name,
+                distribution=primary.distribution,
+                factory=primary.factory,
+                instance=instance,
+            )
+        ]
+        for position, name in enumerate(spec.fallback, start=1):
+            try:
+                entry = self._registry.entry(spec.contract, name)
+            except UnknownPluginError as exc:
+                registered = tuple(sorted(self._registry.names_for(spec.contract)))
+                options = (
+                    ", ".join(f"'{option}'" for option in registered) if registered else "none"
+                )
+                raise UnknownFallbackError(
+                    f"stage '{spec.id}' names '{name}' as fallback {position} of "
+                    f"{len(spec.fallback)}, but no distribution registered that name for "
+                    f"{spec.contract.__name__}, so this pipeline cannot be run. Names "
+                    f"registered for {spec.contract.__name__}: {options}.",
+                    valid_options=registered,
+                    stages=(spec.id,),
+                    remedy=(
+                        f"install a distribution that registers '{name}' for "
+                        f"{spec.contract.__name__}, or remove '{name}' from stage "
+                        f"'{spec.id}'s fallback list."
+                    ),
+                ) from exc
+            differences = _substitutability_differences(
+                expected, _declared_by(unwrap_factory(entry.factory))
+            )
+            if differences:
+                raise FallbackNotSubstitutableError(
+                    f"stage '{spec.id}' names '{name}' as fallback {position} of "
+                    f"{len(spec.fallback)}, but it cannot stand in for '{spec.name}' at that "
+                    f"position: it {'; and it '.join(differences)}. Every requires, intact and "
+                    f"ordering check this pipeline passed was answered by '{spec.name}'s "
+                    f"declarations, and a chain reaching '{name}' would run against checks "
+                    f"nobody made.",
+                    stages=(spec.id,),
+                    distributions=(primary.distribution, entry.distribution),
+                    remedy=(
+                        f"declare on '{name}' what '{spec.name}' declares — a fallback may "
+                        f"demand no more and promise no less than the plugin it replaces — or "
+                        f"give '{name}' a stage of its own instead of '{spec.id}'s fallback list."
+                    ),
+                )
+            candidates.append(
+                _Candidate(name=name, distribution=entry.distribution, factory=entry.factory)
+            )
+        return tuple(candidates)
 
     async def run(
         self, pipeline: RunnablePipeline, batches: AsyncIterator[object], ctx: Context
@@ -507,12 +823,7 @@ class Runner:
         flush failure in that second case never displaces the exception
         already propagating, which continues on unmodified. See `_flush_all`.
         """
-        if ctx.tenant_id != pipeline.tenant_id:
-            raise TenantMismatchError(
-                f"this pipeline was resolved for tenant '{pipeline.tenant_id}', but run() "
-                f"was given a Context for tenant '{ctx.tenant_id}'. An instance cached for "
-                f"one tenant must never run for another."
-            )
+        _check_tenant(pipeline, ctx, called="run()")
 
         produced = 0
         nothing_to_produce = 0
@@ -547,6 +858,39 @@ class Runner:
             nothing_to_produce_reasons=tuple(nothing_to_produce_reasons),
             failed_reasons=tuple(failed_reasons),
         )
+
+    async def run_once(
+        self, pipeline: RunnablePipeline, payload: object, ctx: Context
+    ) -> Outcome[object]:
+        """Run one payload through the whole stage list and give the caller its outcome back.
+
+        Task **2.4**. `run` above returns a `RunSummary` — counts and reason
+        strings, no payload — which is right for ingest, where the result is
+        in the store and a batch's payload is nobody's business once it has
+        landed. A query path is the opposite shape: exactly one payload, and
+        the payload *is* the point. There is no way to get it out of `run`,
+        and the alternatives are worse than fifteen lines here — a pack
+        re-implementing applicability routing, seam wrapping, tenant checking
+        and flush is exactly the four things this module's own docstring says
+        not to hand-write, and a mutable box passed in through a `Context`
+        field would make the answer a side effect.
+
+        Everything else is `run`'s behaviour unchanged, because it is
+        literally the same code: the same tenant check, the same
+        `_run_one_batch` walk (so `applies_to`, the seam and fallback chains
+        all still apply), and the same `_flush_all` discipline — flushed once
+        on the way out, flushed again with the exception in flight when one
+        cuts the walk off, `CancelledError` above all, which continues on
+        unmodified.
+        """
+        _check_tenant(pipeline, ctx, called="run_once()")
+        try:
+            outcome = await self._run_one_batch(pipeline, payload, ctx)
+        except BaseException as exc:
+            await self._flush_all(pipeline, in_flight=exc)
+            raise
+        await self._flush_all(pipeline)
+        return outcome
 
     async def _run_one_batch(
         self, pipeline: RunnablePipeline, batch: object, ctx: Context
@@ -593,20 +937,40 @@ class Runner:
     async def _invoke_stage(
         self, stage: _ResolvedStage, payload: object, ctx: Context
     ) -> Outcome[object]:
-        runnable = cast("Stage[object, object]", stage.instance)
-        wrapped_run = wrap(
-            runnable.run,
-            distribution=stage.distribution,
-            contract=stage.contract_name,
-            plugin=stage.plugin_name,
+        """One call into this stage's position — through its whole chain when it has one.
+
+        A stage that declared no `fallback:` takes the path it always took, unchanged: one
+        wrapped call, one span named for the stage id. A stage that declared one hands
+        `weft_kernel.fallback.try_in_order` the candidates and lets it decide what
+        continues a chain — the runner itself has no opinion on `Outcome` types here, which
+        is what keeps the three-outcome rule in one testable place instead of two.
+        """
+        if not stage.chain:
+            return await _wrapped_run(
+                stage.instance,
+                distribution=stage.distribution,
+                contract=stage.contract_name,
+                plugin=stage.plugin_name,
+                stage=stage.id,
+            )(payload, ctx)
+        return await try_in_order(
+            payload,
+            ctx,
             stage=stage.id,
+            attempts=[_attempt(stage, candidate) for candidate in stage.chain],
         )
-        return await wrapped_run(payload, ctx)
 
     async def _flush_all(
         self, pipeline: RunnablePipeline, *, in_flight: BaseException | None = None
     ) -> None:
-        """Flush every resolved stage once, regardless of an earlier one's failure.
+        """Flush every instance a run built, once, regardless of an earlier one's failure.
+
+        Every instance, not every resolved stage: a fallback is constructed at try time,
+        so a chain that reached one has an instance resolution never saw. Skipping it here
+        would lose whatever it buffered, silently — the exact shape of failure `flush`
+        being the runner's rather than a plugin's exists to make impossible. `_built_of`
+        is what asks the question, and a fallback that was never reached was never built
+        and so has nothing to answer for.
 
         Each flush runs through `weft_kernel.seam.wrap_flush`, so a failure
         carries the same span and pack/contract/plugin/stage attribution a
@@ -630,20 +994,21 @@ class Runner:
         """
         failures: list[WeftError] = []
         for stage in pipeline.stages:
-            flush = _flush_of(stage.instance)
-            if flush is None:
-                continue
-            wrapped_flush = wrap_flush(
-                flush,
-                distribution=stage.distribution,
-                contract=stage.contract_name,
-                plugin=stage.plugin_name,
-                stage=stage.id,
-            )
-            try:
-                await wrapped_flush()
-            except WeftError as exc:
-                failures.append(exc)
+            for plugin_name, distribution, instance in _built_of(stage):
+                flush = _flush_of(instance)
+                if flush is None:
+                    continue
+                wrapped_flush = wrap_flush(
+                    flush,
+                    distribution=distribution,
+                    contract=stage.contract_name,
+                    plugin=plugin_name,
+                    stage=stage.id,
+                )
+                try:
+                    await wrapped_flush()
+                except WeftError as exc:
+                    failures.append(exc)
 
         if not failures:
             return
@@ -656,6 +1021,107 @@ class Runner:
             in_flight.add_note(f"FlushError: {message}")
             return
         raise FlushError(message) from failures[0]
+
+
+def _wrapped_run(
+    instance: object, *, distribution: str, contract: str, plugin: str, stage: str
+) -> Callable[[object, Context], Awaitable[Outcome[object]]]:
+    """`instance.run`, through the registration seam. The only place this module calls `wrap`."""
+    return wrap(
+        cast("Stage[object, object]", instance).run,
+        distribution=distribution,
+        contract=contract,
+        plugin=plugin,
+        stage=stage,
+    )
+
+
+def _attempt(stage: _ResolvedStage, candidate: _Candidate) -> Attempt[object, object]:
+    """One chain candidate as an `Attempt` — built the moment the chain reaches it, never before.
+
+    The span is named `f"{stage.id}:{candidate.name}"` rather than `stage.id`, which is
+    what makes *which backend answered* readable off a trace with nothing else to consult:
+    a chain of three produces three spans, and their names say which position was being
+    filled and by whom.
+    """
+
+    async def _run(payload: object, ctx: Context) -> Outcome[object]:
+        if candidate.instance is None:
+            candidate.instance = _build(stage, candidate)
+        return await _wrapped_run(
+            candidate.instance,
+            distribution=candidate.distribution,
+            contract=stage.contract_name,
+            plugin=candidate.name,
+            stage=f"{stage.id}:{candidate.name}",
+        )(payload, ctx)
+
+    return Attempt(name=candidate.name, run=_run)
+
+
+def _build(stage: _ResolvedStage, candidate: _Candidate) -> object:
+    """Construct `candidate`, turning a construction failure into an attributed `WeftError`.
+
+    `weft_kernel.seam.wrap` covers a plugin's `run`, and construction happens outside it —
+    so without this, a fallback whose factory raises escapes as a bare `TypeError` naming
+    neither the pack nor the stage, and it does so only on the inputs the primary could not
+    read. Raising `WeftError` instead puts it where `try_in_order` records it, which means
+    a chain that ends with an unbuildable last candidate reports *"could not be built"*
+    beside every other candidate's reason rather than replacing them with a traceback.
+
+    `except Exception` is the same deliberate breadth `seam.wrap` declares for the same
+    reason: a factory is third-party code, nothing is swallowed, and `__cause__` keeps the
+    traceback. `CancelledError` is a `BaseException` and passes through untouched.
+    """
+    label = f"{stage.id}:{candidate.name}"
+    try:
+        # `fallback:` carries no `with:` block — see `StageSpec.fallback` — so a fallback
+        # is built on its plugin's own defaults, the same call an unconfigured stage gets.
+        return candidate.factory(None)
+    except Exception as exc:
+        raise WeftError(
+            f"'{label}' could not be built: {exc}",
+            pack=candidate.distribution,
+            contract=stage.contract_name,
+            plugin=candidate.name,
+            stage=label,
+        ) from exc
+
+
+def _built_of(stage: _ResolvedStage) -> tuple[tuple[str, str, object], ...]:
+    """Every `(plugin_name, distribution, instance)` this stage actually built.
+
+    The primary always; a fallback only once a chain reached it, which is precisely when
+    it can have buffered anything worth flushing. `stage.chain[1:]` rather than the whole
+    chain because candidate zero *is* `stage.instance` — including it twice would flush
+    the primary twice, and `flush` is documented idempotent rather than free.
+    """
+    return (
+        (stage.plugin_name, stage.distribution, stage.instance),
+        *(
+            (candidate.name, candidate.distribution, candidate.instance)
+            for candidate in stage.chain[1:]
+            if candidate.instance is not None
+        ),
+    )
+
+
+def _check_tenant(pipeline: RunnablePipeline, ctx: Context, *, called: str) -> None:
+    """Refuse a `Context` for a tenant `pipeline` was not resolved for. One place, two callers.
+
+    Extracted from `run` when `run_once` arrived (task 2.4). The instance cache is keyed
+    by tenant, so an entry point that forgot this check would silently reach across the
+    boundary the key exists to draw — and the failure would look like a data leak rather
+    than like a missing guard. `called` names the entry point in the message because
+    which one was used is the first thing a reader wants and the traceback is the last
+    place they should have to find it.
+    """
+    if ctx.tenant_id != pipeline.tenant_id:
+        raise TenantMismatchError(
+            f"this pipeline was resolved for tenant '{pipeline.tenant_id}', but {called} "
+            f"was given a Context for tenant '{ctx.tenant_id}'. An instance cached for "
+            f"one tenant must never run for another."
+        )
 
 
 def _stage_signature(contract: type[object]) -> tuple[object, object]:
@@ -798,6 +1264,70 @@ def _segment_by_applicability(
         else:
             segments.append((matches, [item]))
     return segments
+
+
+@dataclass(frozen=True, slots=True)
+class _Declarations:
+    """The four facts one plugin states about its place in a pipeline, as sets.
+
+    Sets rather than the declared tuples because the only question asked of them is
+    membership — see `_substitutability_differences` — and order carries no meaning in
+    any of the four.
+    """
+
+    requires: frozenset[type[ExtModel]]
+    provides: frozenset[type[ExtModel]]
+    intact: frozenset[type[Property]]
+    destroys: frozenset[type[Property]]
+
+
+def _declared_by(target: object) -> _Declarations:
+    """The four declarations, read off an unconstructed plugin class.
+
+    `target` is what `weft_kernel.registry.unwrap_factory` returns — the class itself,
+    with any `functools.partial` binding pack settings peeled away, since `partial` does
+    not proxy attribute access. Reading a class is what keeps a fallback unbuilt until
+    the chain reaches it; it is also exactly what `weft_kernel.resolution.resolve` does
+    for a pipeline document, so the two resolvers judge the same declarations.
+    """
+    return _Declarations(
+        requires=frozenset(_requires_of(target)),
+        provides=frozenset(_provides_of(target)),
+        intact=frozenset(_intact_of(target)),
+        destroys=frozenset(_destroys_of(target)),
+    )
+
+
+def _substitutability_differences(
+    primary: _Declarations, fallback: _Declarations
+) -> tuple[str, ...]:
+    """Every way `fallback` demands more or promises less than `primary`. Empty means it fits.
+
+    One direction only, and that asymmetry is the point: a fallback providing an extra
+    model or destroying one property fewer invalidates no check `Runner.resolve` already
+    made against the primary, so it is not refused. See
+    `FallbackNotSubstitutableError`.
+    """
+    differences: list[str] = []
+    if extra_requires := fallback.requires - primary.requires:
+        differences.append(f"requires {_named(extra_requires)}, which the primary does not")
+    if extra_intact := fallback.intact - primary.intact:
+        differences.append(f"needs {_named(extra_intact)} intact, which the primary does not")
+    if missing_provides := primary.provides - fallback.provides:
+        differences.append(
+            f"declares no {_named(missing_provides)}, which the primary provides to every "
+            f"stage after it"
+        )
+    if extra_destroys := fallback.destroys - primary.destroys:
+        differences.append(f"destroys {_named(extra_destroys)}, which the primary does not")
+    return tuple(differences)
+
+
+def _named(types: frozenset[type[ExtModel]] | frozenset[type[Property]]) -> str:
+    """A stable, readable list of type names for a refusal's message."""
+    return ", ".join(
+        f"'{declared.__name__}'" for declared in sorted(types, key=lambda t: t.__name__)
+    )
 
 
 def _intact_of(instance: object) -> tuple[type[Property], ...]:

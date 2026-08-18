@@ -8,6 +8,13 @@ note), the core property G4 settled — a store's capability is *derived* by
 `VectorSearch` reports both, one satisfying only `NodeStore` reports only
 that — and `Filter`'s shape validation, both a nested `and`/`not` tree that
 builds and a comparison op missing its `value` that does not.
+
+`TextSearch` joins the family at task **2.5**, and the two tests that matter
+for it are the two halves of the same property: a class implementing
+`search_text` advertises the capability with nothing declared, and a store
+that only ranks vectors does *not* — which is what stops a retriever needing
+text search from silently getting a vector-only store and building an index
+of its own.
 """
 
 from collections.abc import AsyncIterator, Sequence
@@ -25,11 +32,13 @@ from weft_store.contract import (
     Cursor,
     Filter,
     FilterOp,
+    MetadataFilter,
     NodeStore,
     Page,
     Removed,
     Scored,
     SourceRecord,
+    TextSearch,
     VectorSearch,
 )
 
@@ -221,6 +230,30 @@ def test_vector_search_isinstance_needs_only_search_vector_not_the_metadata() ->
     assert isinstance(_BareVectorSearch(), VectorSearch)
 
 
+def test_text_search_isinstance_needs_only_search_text_not_the_metadata() -> None:
+    # Arrange — no `version`, `lifetime`, `requires` or `provides` declared anywhere, the
+    # same shape the `VectorSearch` test above checks: capability from the method alone.
+    class _BareTextSearch:
+        async def search_text(
+            self, text: str, top_k: int, filter: Filter | None = None
+        ) -> Sequence[Scored[Node]]:
+            return ()
+
+    # Act / Assert
+    assert isinstance(_BareTextSearch(), TextSearch)
+
+
+def test_a_store_that_only_ranks_vectors_does_not_advertise_text_search() -> None:
+    # Arrange — `_FullStore` implements `search_vector` and no `search_text`, which is
+    # every store this tree shipped before task 2.5.
+    store = _FullStore(config=None)
+
+    # Act / Assert — the half of derived capability that has teeth: a run that needs text
+    # search against this store must be refused, not adapted, and this is what says so.
+    assert isinstance(store, VectorSearch)
+    assert not isinstance(store, TextSearch)
+
+
 def test_filter_accepts_a_nested_and_not_tree() -> None:
     # Arrange
     leaf_a = Filter(op=FilterOp.EQ, field="media_type", value="text")
@@ -263,3 +296,69 @@ def test_store_family_contracts_share_one_declared_version() -> None:
     # Act / Assert
     assert NodeStore.version == STORE_CONTRACT_VERSION
     assert VectorSearch.version == STORE_CONTRACT_VERSION
+    assert TextSearch.version == STORE_CONTRACT_VERSION
+    assert MetadataFilter.version == STORE_CONTRACT_VERSION
+
+
+def test_the_family_version_moved_when_the_family_grew_a_capability() -> None:
+    # Act / Assert — deliberately a literal, and deliberately a test that has to be edited
+    # by whoever grows the family again: `STORE_CONTRACT_VERSION` is fitness function 6's
+    # subject for this family, and a capability added with the constant left alone is a
+    # published surface that changed with nothing recording it. What the number *means* is
+    # G9's, still open; this pins only the mechanical fact that publishing `TextSearch` at
+    # task 2.5 and `MetadataFilter` at task 2.6 each moved it off what came before.
+    assert STORE_CONTRACT_VERSION == "1.2.0"
+
+
+def test_the_filter_ast_version_moved_when_the_operator_set_narrowed() -> None:
+    # Act / Assert — the same discipline one version down, and it fires for a *narrowing*
+    # rather than an addition: task 2.6 refused ordered comparison against text and identity
+    # comparison against floats, so a filter this AST used to accept no longer validates.
+    # That is a change to what the data is, which is precisely what this constant watches.
+    assert FILTER_AST_VERSION == "1.1.0"
+
+
+def test_metadata_filter_is_derived_from_having_the_member_not_from_saying_so() -> None:
+    # Arrange — `02` §1 specified `MetadataFilter` as a bare marker, and task 2.5 measured
+    # what that would have meant: an empty `@runtime_checkable` Protocol has an empty
+    # `__protocol_attrs__`, so every object in the language satisfies it. This is the test
+    # that the published version has a member, and therefore says something.
+    class _FilteringStore(_VectorlessStore):
+        async def matching(self, filter: Filter, cursor: Cursor | None = None) -> Page[Node]:
+            del filter, cursor
+            return Page(items=())
+
+    # Act / Assert
+    assert isinstance(_FilteringStore(config=None), MetadataFilter)
+    assert not isinstance(_VectorlessStore(config=None), MetadataFilter)
+    assert not isinstance(42, MetadataFilter)
+
+
+def test_an_ordered_comparison_against_text_is_refused_where_the_filter_is_built() -> None:
+    # Arrange / Act / Assert — refused once, in the data, rather than differently by each
+    # store: ordering text means whatever a database's collation means, and the second
+    # backend (task 2.6) ranges over numbers only.
+    with pytest.raises(ValidationError, match="must be a number"):
+        Filter(op=FilterOp.GT, field="ext.weft-pdf.backend", value="pypdf")
+
+
+def test_identity_against_a_floating_point_number_is_refused_naming_the_range_to_use() -> None:
+    # Arrange / Act / Assert — a document store indexes floats for ranges and not for
+    # matching, so the same `eq` that selects in SQL selects nothing there, silently.
+    with pytest.raises(ValidationError, match="gte"):
+        Filter(op=FilterOp.EQ, field="ext.weft-clean.confidence", value=0.5)
+
+
+@pytest.mark.parametrize("op", [FilterOp.LT, FilterOp.LTE, FilterOp.GT, FilterOp.GTE])
+def test_an_ordered_comparison_against_a_fractional_bound_is_the_case_ranges_exist_for(
+    op: FilterOp,
+) -> None:
+    # Arrange / Act — the remedy the identity refusal above *names* is a range with the
+    # bounds you meant, and a confidence, a score or a threshold is fractional by nature.
+    # Repair for a reviewer finding against task 2.6: the float refusal ran for every
+    # comparison op, so the remedy it named was refused by the same validator and no filter
+    # anywhere could compare against a fractional number.
+    built = Filter(op=op, field="ext.weft-clean.confidence", value=0.8)
+
+    # Assert
+    assert built.value == 0.8

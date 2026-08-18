@@ -6,9 +6,11 @@ case of a word that merely *looks* fused but is a real word in the exception
 set (left alone, diacritics and case folded first), and the error case of a
 remainder too short to plausibly be a word on its own (left alone without
 even consulting the exception set). Also covers task 1.7's own ordering
-claim: `PolishFusedWordFixer` needs nothing `intact` and destroys nothing —
-"can run on clean text", unlike `weft_clean.hyphenation.HyphenationRepair`
-and `weft_clean.table_linearizer.TableLinearizer`.
+claim: `PolishFusedWordFixer` needs nothing `intact` — "can run on clean
+text", unlike `weft_clean.hyphenation.HyphenationRepair` and
+`weft_clean.table_linearizer.TableLinearizer` — and task 2.35's addition:
+it still destroys `Verbatim`, the same honest reason every processor in this
+pack does, per `weft_clean.property`'s module docstring.
 
 **`test_run_through_the_runner_leaves_a_node_with_no_language_fact_untouched`
 is a repair test.** A review of tasks 1.7/1.8 found `PolishFusedWordFixer`
@@ -31,6 +33,7 @@ from collections.abc import AsyncIterator, Callable, Sequence
 from weft_clean.contract import Cleaner
 from weft_clean.dictionary_spacing import PolishFusedWordFixer, PolishFusedWordFixerConfig
 from weft_clean.language import Language
+from weft_clean.property import Verbatim
 from weft_kernel.context import Context
 from weft_kernel.payload import MediaType, Node, NothingToProduce, Outcome, Produced
 from weft_kernel.payload.property import Property
@@ -128,10 +131,11 @@ def test_config_takes_no_fields() -> None:
     assert PolishFusedWordFixerConfig().model_dump() == {}
 
 
-def test_needs_nothing_intact_and_destroys_nothing() -> None:
-    # Act / Assert — "can run on clean text", unlike the two ordering-constrained stages.
+def test_needs_nothing_intact_but_still_destroys_verbatim() -> None:
+    # Act / Assert — "can run on clean text", unlike the two ordering-constrained stages;
+    # it still ends `Verbatim`, per task 2.35, the same as every processor in this pack.
     assert PolishFusedWordFixer.intact == ()
-    assert PolishFusedWordFixer.destroys == ()
+    assert PolishFusedWordFixer.destroys == (Verbatim,)
 
 
 async def test_run_through_the_runner_leaves_a_node_with_no_language_fact_untouched() -> None:

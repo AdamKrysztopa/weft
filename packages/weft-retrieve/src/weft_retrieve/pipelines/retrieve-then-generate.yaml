@@ -1,0 +1,9 @@
+name: retrieve-then-generate
+vars:
+  route.summary: "One vector search over the corpus, then a cited answer."
+  route.cost: "one embedding call, one search, one model call"
+stages:
+  - {id: retrieve, use: vector-top-k, with: {top_k: 20}}
+  - {id: fuse,     use: single-list}
+  - {id: pack,     use: repack, with: {method: reverse, top_n: 8}}
+  - {id: generate, use: cited-answer}

@@ -101,8 +101,9 @@ waiver constant pinned empty, so a waiver is a visible act in a diff rather than
 
 Four live in `.claude/skills/`:
 
-- **`phase-step`** — build one step of the current phase from `docs/06-phase-0-build.md`. Start here
-  when writing code.
+- **`phase-step`** — build one task of the current phase from `docs/build-ledger.md`, the
+  phase-agnostic task list (`docs/06-phase-0-build.md` is Phase 0's own retired build order, cited
+  only by tasks that carry it as their owner). Start here when writing code.
 - **`weft-qualities`** — review a change, design or phase exit against the six requirements in `01`.
   The properties this project exists for are lost silently, one reasonable commit at a time.
 - **`reference-audit`** — what does the reference have that Weft does not yet? Separates *missed* from *not

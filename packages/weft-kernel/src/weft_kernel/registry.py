@@ -1,16 +1,15 @@
 """`Registry` — where a pack's `register()` adds what it provides.
 
 Specified across `docs/02-extension-model.md` section 2 ("Packs and
-discovery") and the duplicate-name trap in `docs/06-phase-0-build.md` (*the
-three places this phase can accidentally settle G2*, item 3): G2 owns
-arbitration between two packs registering the same name and has not decided,
-so Phase 0 takes the reversible choice — **refuse the second registration
-outright, naming both distributions**, and implement no last-wins,
-first-wins or qualification. Four of the reference's six registration decorators
-overwrote silently with no check at all, and every one of those is a bug
-someone eventually has to find; refusing can be relaxed later without anyone
-having silently lost a registration first, which is why it is the fixed
-choice rather than an improvement on it.
+discovery"). At Phase 0, before G2 settled arbitration between two packs
+registering the same name, this module took the reversible choice —
+**refuse the second registration outright, naming both distributions**, and
+implement no last-wins, first-wins or qualification. Four of the reference's six
+registration decorators overwrote silently with no check at all, and every
+one of those is a bug someone eventually has to find; refusing could be
+relaxed later without anyone having silently lost a registration first,
+which is why it was the fixed choice rather than an improvement on it. G2
+closed 2026-08-16 on exactly that relaxation — see task 1.12 below.
 
 Lookup is the other side of the same design: an unresolvable name is loud —
 naming what was wanted, that nothing registered it, and what the valid
@@ -118,7 +117,7 @@ import functools
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 
-from weft_kernel.errors import WeftError
+from weft_kernel.errors import UnresolvedNameError, WeftError
 
 
 class DuplicateRegistrationError(WeftError):
@@ -133,7 +132,7 @@ class DuplicateRegistrationError(WeftError):
     """
 
 
-class UnresolvedPluginPinError(WeftError):
+class UnresolvedPluginPinError(WeftError, UnresolvedNameError):
     """A `[plugins]` pin exists for this collision, but names neither side of it.
 
     `docs/02-extension-model.md` §3: a pin naming a distribution that did not
@@ -143,7 +142,15 @@ class UnresolvedPluginPinError(WeftError):
     exists to catch. Distinct from `DuplicateRegistrationError`: that one
     fires when *no* pin exists for the key at all; this one fires when a pin
     exists but points somewhere neither contender is.
+
+    Fitness function 12's family: `valid_options` is the two distributions
+    actually contending for the name — the pin can only ever be pointed at
+    one of them.
     """
+
+    def __init__(self, message: str, *, valid_options: tuple[str, ...]) -> None:
+        super().__init__(message)
+        self.valid_options = valid_options
 
 
 class MissingDestroysDeclarationError(WeftError):
@@ -158,7 +165,7 @@ class MissingDestroysDeclarationError(WeftError):
     """
 
 
-class UnknownPluginError(WeftError):
+class UnknownPluginError(WeftError, UnresolvedNameError):
     """`Registry.lookup` was asked for a name no distribution registered.
 
     The message states the contract and name that were wanted, that no
@@ -166,7 +173,15 @@ class UnknownPluginError(WeftError):
     registered for that contract, so a typo reads as a typo rather than a
     mystery — the anti-reference property: asking the reference for `faithfulness`
     returned no error and no score at all.
+
+    Fitness function 12's canonical example: `valid_options` is every name
+    registered for the contract that was asked, carried structurally rather
+    than only inside `available` above.
     """
+
+    def __init__(self, message: str, *, valid_options: tuple[str, ...]) -> None:
+        super().__init__(message)
+        self.valid_options = valid_options
 
 
 @dataclass(frozen=True, slots=True)
@@ -387,16 +402,16 @@ class Registry:
                 f"winner in weft.toml:\n\n[plugins]\n"
                 f'"{pin_key}" = "{existing.distribution}"  # or "{distribution}"\n\n'
                 f"to keep the other distribution's claim instead. See the duplicate-name "
-                f"trap in docs/06-phase-0-build.md and docs/02-extension-model.md §3, "
-                f"'When resolution fails'."
+                f"trap in docs/02-extension-model.md §3, 'When resolution fails'."
             )
         if pin not in (existing.distribution, distribution):
+            contenders = (existing.distribution, distribution)
             raise UnresolvedPluginPinError(
                 f"[plugins] pins '{pin_key}' to '{pin}', but '{pin}' registered neither "
-                f"claim on '{name}' for {contract.__name__} — '{existing.distribution}' and "
-                f"'{distribution}' are the two distributions actually contending for it. "
-                f"Point the pin at one of them, or remove it if it was meant for a "
-                f"different collision."
+                f"claim on '{name}' for {contract.__name__} — {', '.join(contenders)} are "
+                f"the two distributions actually contending for it. Point the pin at one "
+                f"of them, or remove it if it was meant for a different collision.",
+                valid_options=contenders,
             )
         if pin == existing.distribution:
             return _CollisionResolution(
@@ -439,6 +454,25 @@ class Registry:
         """
         return frozenset(contract for contract, _ in self._entries)
 
+    def names_for(self, contract: type[object]) -> frozenset[str]:
+        """Every name registered under `contract`, whoever registered it.
+
+        The kernel names no capability, and this method is why that is
+        affordable: a caller that needs to know *what a contract's plugins
+        collectively claim* — the ingest accept set is the first, the union of
+        the file extensions every registered extractor declares — derives it
+        from what actually registered rather than from a list in one pack's
+        module. `docs/02-extension-model.md` §1: capability is derived, never
+        declared. Without this the derivation is impossible from outside and
+        the list gets hand-maintained, which is exactly the drift it exists to
+        prevent.
+
+        Empty, never an error, for a contract nothing registered — symmetric
+        with `distributions_for`: a caller enumerating what is installed is
+        asking a question, and "nothing" is an answer.
+        """
+        return frozenset(name for (registered, name) in self._entries if registered is contract)
+
     def distributions_for(self, contract: type[object]) -> frozenset[str]:
         """Every distribution that registered at least one name under `contract`.
 
@@ -474,16 +508,19 @@ class Registry:
         if found is not None:
             return found
 
-        options = sorted(
-            registered_name
-            for registered_contract, registered_name in self._entries
-            if registered_contract == contract
+        options = tuple(
+            sorted(
+                registered_name
+                for registered_contract, registered_name in self._entries
+                if registered_contract == contract
+            )
         )
         available = ", ".join(f"'{option}'" for option in options) if options else "none"
         raise UnknownPluginError(
             f"no '{name}' is registered for {contract.__name__}. It is "
             f"unavailable because no distribution has registered that name for this "
-            f"contract. Names registered for {contract.__name__}: {available}."
+            f"contract. Names registered for {contract.__name__}: {available}.",
+            valid_options=options,
         )
 
 

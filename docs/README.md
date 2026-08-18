@@ -26,11 +26,11 @@ public contract as anything a third party writes. `a prior project` is a parts r
 
 | | |
 |---|---|
-| **Phase** | Phase 2 — Retrieval and generation |
-| **Blocked by** | Nothing has to be argued before starting — Phase 2's gate is **none** — but `09` §4 requires **V1–V3** (a named corpus, ground-truthed questions, a repeated baseline) *before this phase can be judged*, and they are not yet done. Tasks 2.1–2.3 are V1–V3 themselves, so Phase 2 starts by producing its own prerequisite, not by skipping past it |
-| **Next action** | Phase 2 task **2.1**, which is V1 (`build-ledger.md` → Phase 2) |
-| **Open decisions** | 5 of 12 — G0, G1, G2, G3, G4, G5 and G6 settled; G7, G8, G9, G10 and G11 open. G0 is logged only; every other row has a session in `05` |
-| **Updated** | 2026-08-17 |
+| **Phase** | Phase 3 — The CLI |
+| **Blocked by** | Nothing. This phase's gate, **G8**, is **settled** (2026-08-18): the REPL is a shell and never becomes an agent, because `03`'s governing rule keeps a planning loop out of the driving adapter — Weft's agentic front end is a pack, and it is **Phase 7**. `build-ledger.md` → Phase 3 carries no ⚠ on any task: the three that held one (3.4, 3.5, 3.11) were re-derived when G8 closed rather than merely unmarked, and all three already stated true properties |
+| **Next action** | **Task 3.1** — eleven tasks in `build-ledger.md` → Phase 3, none of them gated. **Phase 2 closed 2026-08-18 at 36 of 36 tasks**, its Exit box ticked on the evidence its own criterion names: task **2.8** (the router discovers a strategy from the registry, no enum, no closed key space, `tests/architecture/test_ff4_no_closed_key_space.py`), **FF9(c)** wired and green (task 2.11, all 23 published contracts implemented out of tree, proven against real throwaway environments) and **FF12** wired and green (task 2.36, `tests/architecture/test_ff12_unresolvable_name_carries_options.py`). `uv run poe ci-checks` is green — **1303 passed, 1 skipped, 75 architecture tests**. **One thing this phase inherits, and it is a conversation rather than a blocker**: `weft-kernel` stands at **2,869 lines**, past the **2,800 review trigger** in `tests/architecture/test_ff3_kernel_budget.py` and well under its 3,500 budget. Task 2.36 put it there — 20 error classes across five distributions gained a required `valid_options` field, eight of them kernel-owned — and a post-review repair returned 43 of those lines by collapsing four byte-identical constructors onto one shared base. The budget is never edited in the change that grew the kernel (`phase-step`), so the number stands as measured and the boundary question belongs on this phase's agenda |
+| **Open decisions** | 4 of 13 — G0, G1, G2, G3, G4, G5, G6, G8 and G11 settled; G7, G9, G10 and G12 open. G0 is logged only; every other row has a session in `05` |
+| **Updated** | 2026-08-18 |
 
 G2's close resolved the **three places Phase 0 could accidentally settle it**, each of which `06`
 had fixed to a minimal reversible choice: embedding **stays a stage** (G4 forbids a store to embed,
@@ -65,14 +65,14 @@ project's position.
 
 **Phase 2 — Retrieval and generation**
 
-- [ ] **Prerequisite V1–V3** — corpus, question set with ground truth, repeated baseline (`09` §4)
-- [ ] Phase 2 build *(no gate)*
-- [ ] **Exit:** the router discovers strategies from the registry, not an enum
-- [ ] **G11** Kernel error text — catalogue or literal *(before Phase 3, where user-facing text multiplies — deciding after that is deciding too late)*
+- [x] **Prerequisite V1–V3** — corpus, question set with ground truth, repeated baseline (`09` §4)
+- [x] Phase 2 build *(no gate)*
+- [x] **Exit:** the router discovers strategies from the registry, not an enum *(and FF12 green)*
+- [x] **G11** Kernel error text — catalogue or literal *(settled 2026-08-18: literal, and the catalogue is retired; turns on FF12)*
 
 **Phase 3 — The CLI**
 
-- [ ] **G8** Is the REPL agentic *(if not "shell", hand off to `agentic-patterns` first)*
+- [x] **G8** Is the REPL agentic *(settled 2026-08-18: no, and never — the agent is a pack, and it is Phase 7)*
 - [ ] Phase 3 build
 - [ ] **Exit:** a plugin's command appears in `--help` without core knowing it exists
 
@@ -95,6 +95,12 @@ project's position.
 - [ ] Phase 6 build *(turns on FF10)*
 - [ ] **Exit:** a stranger installs the release from the index and reproduces the published baseline
 
+**Phase 7 — The agent** *(added 2026-08-18 by G8, logged as `S3`)*
+
+- [ ] **G12** Permissions when the caller is never a TTY *(this is where the `agentic-patterns` handoff lands)*
+- [ ] Phase 7 build
+- [ ] **Exit:** the agentic pack installs from the index and drives a corpus end to end through the published command surface, with no edit to core
+
 Each phase's gates, required reading, reference lifts and exit criterion are specified in
 `01-high-level-plan.md` → **Phases**. That section is the execution script; this is its state.
 
@@ -115,13 +121,22 @@ positions to attack, what to bring, what done looks like — lives in `05-grilli
 | **G5** | What flows between stages | **Settled** | A frozen `Node` of six core fields admitted by rule, plus typed extension models that declare their namespace and their transience; lineage required and its sources derived, so deletion reaches every descendant; ids are content digests; stages declare what they read and write, and `Stage[In, Out]` composition is checked at resolution. Specified in `02` §1 → *The payload model* | 2026-08-10 |
 | **G6** | Sync or async core | **Settled** | **Async only, no exceptions** — no sync protocol, no sync facade, no declared colour, and one `asyncio.run` in the tree at the CLI entry point. A pack may not be sync-only; blocking calls are caught categorically at the stage seam (fitness function 7). Streaming is a `TokenSink` service, not a second contract; the runner keeps one batch in flight. Specified in `01` → *Colour* | 2026-08-10 |
 | **G7** | Event bus or explicit extension points | Open | — | — |
-| **G8** | Is the REPL agentic | Open | — | — |
+| **G8** | Is the REPL agentic | **Settled** | **No, and it never becomes one — but Weft does.** A planning loop is logic, and `03`'s governing rule keeps logic out of the adapter, so an agentic REPL is the wrong shape whatever the end state. Weft's finished form *is* agentic: the agent ships as a **first-party pack**, driven by the REPL, a script or an HTTP caller alike, scheduled as **Phase 7, after release** so it is built against published, versioned contracts. Phase 3 is unblocked, stays a shell, and owes it one property it needed anyway — a `Command` returns a typed result a renderer formats, never printed text. The `agentic-patterns` handoff moves to **G12**. Specified in `03` → *Is the REPL an agent?* and `01` → Phase 7 | 2026-08-18 |
 | **G9** | Contract versioning and deprecation | Open | — | — |
 | **G10** | Release and support policy | Open | — | — |
-| **G11** | Kernel error text — catalogue or literal | Open | — | — |
+| **G12** | Permissions when the caller is never a TTY | Open | — | — |
+| **G11** | Kernel error text — catalogue or literal | **Settled** | **Literal, and the catalogue is retired.** Weft's *interface* is English-only as a product decision; the **content**-language axis is where it invests. `MessageCatalogue`, `Context.messages` and `ctx.t()` are removed from the kernel with their three error classes, 33 → 30 — after three phases they had zero registered messages and zero call sites, and the 51 pack error classes that were their intended clientele had all chosen literals too. `Context.locale` stays, sharpened to the run's configured *content* language. A kernel error's explanation surface is `manual/troubleshooting.md`'s coverage ratchet — one obligation, not two — and its *quality* is new **fitness function 12**. Specified in `02` §1 | 2026-08-18 |
+| **S1** | Phase 2 scope — reading the corpus, and measuring against it | **Settled** | Phase 2 also ships **PDF extraction**, a **semantic embedder** and a **model-provider adapter**, each as a pack, plus the `_try_extractors` combinator `01` had already assigned here. Forced by V1: the corpus is nine PDF papers, so the prerequisite this phase is judged against is unbuildable without them. Requirement **6** is the one touched; Phase 2's exit is unchanged and no fitness function moves. Tasks and exit demonstrations in `build-ledger.md` → Phase 2, 2.27–2.30 | 2026-08-17 |
+| **S2** | Phase 2 scope — indexing a chunk several ways | **Settled** | The index-path techniques `10` §1.2 had filed as *Phase 1 work* are **Phase 2's**, as tasks **2.31** (`hypothetical-questions`) and **2.32** (`raptor`), plus **2.33** (`collapse-to-parent`), which exists because a chunk indexed four ways would otherwise take four of a ranking's top five slots and make every fan-out measurement in 2.16–2.18 look better than it is. Phase 1 exited without ever holding these rows, so until now no phase owned them. Requirements **6** and **3** are the ones touched; Phase 2's exit is unchanged and no fitness function moves. `10` §1.2 corrected in the same commit | 2026-08-17 |
+| **S3** | Phase 7 — the agent | **Settled** | Weft's finished form is **agentic**, and the agent is a **first-party pack** rather than the REPL, because `03`'s governing rule keeps logic out of the driving adapter. Added as **Phase 7, after release**, so it is built against published, versioned contracts — which also makes it a harder instance of Phase 5's own proof: a pack built against nothing but the released API. Gated by **G12**. Forced by G8, whose two candidate answers were both wrong in the same way — "shell forever" declines the question and "agentic REPL" puts a planning loop where no other adapter could reach it. Requirements **1** and **4** are the ones touched; no earlier phase's exit moves and no fitness function is activated. `01` → Phase 7; procedure `09` §6.1 and §6.4 | 2026-08-18 |
 
 Statuses: **Open** · **Settled** · **Reopened** — a settled decision found wrong is set back to
 Reopened with the date and reason, never quietly edited.
+
+**`G` is a gate, `S` is a scope decision.** They share the log because it is the authoritative status
+of every decision, and they differ in one way that matters: a gate has a session in `05` that must be
+run before it can be settled, and a scope decision has the `09` §6.4 procedure instead — which is why
+`S1` carries no session and why the *Open decisions* count above stays a count of gates.
 
 ---
 
@@ -135,7 +150,7 @@ Reopened with the date and reason, never quietly edited.
 | `03-cli.md` | The CLI as driving adapter, command surface, permissions **including the class every plugin command must declare**, output | Reference |
 | `04-reference-inventory.md` | What to lift from `a prior project`, what to rewrite, what to leave, where each item lands — kernel or pack — the reference's node metadata surface, **and its storage layer after G4** | Reference |
 | `05-grilling-sessions.md` | The substance of every gate session — G1 through G11 | Reference |
-| `06-phase-0-build.md` | The order of work inside Phase 0, what each step makes true, where it must not settle G2, and the scope fence | Reference — retire when Phase 0 exits |
+| `06-phase-0-build.md` | The order of work inside Phase 0, what each step made true, where it had to avoid settling G2, and the scope fence | Historical — **retired 2026-08-16**, when Phase 0 exited (`7dae68b`). Its own retirement condition already fired; nothing routes to it as a live guide any more, and `build-ledger.md` is the phase-agnostic source for how to work a task. Packages' and tests' docstrings still cite specific steps of it as the historical reasoning behind code shaped that way — that is a citation, not a routing, and stays |
 | `07-extension-cost.md` | The per-kind file cost of adding a capability, and fitness function 9 | Reference |
 | `08-manuals.md` | The documents Weft ships to its users, which phase writes each, and the tests that keep them honest | Reference |
 | `09-release.md` | Distribution and publishing, the user-facing version policy, the support and deprecation surface, the validation prerequisite, the production-readiness checklist, and the protocol for adjusting this plan | Reference |

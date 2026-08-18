@@ -1,0 +1,31 @@
+[project]
+name = "weft-index"
+version = "0.0.0"
+description = "First-party index-path pack. Publishes the Expander contract."
+requires-python = ">=3.12"
+dependencies = ["weft-kernel", "weft-embed", "weft-llm", "weft-prompts"]
+
+# Not `weft-retrieve`, on purpose. `Prompts` (`weft_prompts.contract`) is a per-name
+# render-and-nothing-else service this pack already needs `weft-prompts` for; the
+# `StageLookup`/cascade combination the query-path packs reach for is that pack's own
+# looping-technique seam (`weft_retrieve.contract.StageLookup`'s own docstring), and an
+# index-path pack pulling in a query-path one for it would be the wrong-direction
+# dependency `.phase2-findings.md` finding 11 warns against generalising badly — the
+# exact reasoning `weft-generate`'s own split from `weft-retrieve` (task 2.4) already
+# used for the same shape of question, one layer over.
+
+# `weft-embed`, added with task 2.32: `raptor` clusters by embedding similarity, so it
+# needs `weft_embed.contract.Embedder` (`ctx.require(Embedder)`, the same ambient-service
+# pattern `weft_retrieve.routing.NearestDescriptionPolicy` already uses). Not a query-path
+# dependency the way `weft-retrieve` would be — an index-only deployment already needs an
+# embedder for the ordinary `embed` pipeline stage regardless of whether `raptor` runs.
+
+# `weft.packs` arrives with this pack's first task: `hypothetical-questions` (2.31) is
+# the first plugin this distribution registers, so there is finally something for the
+# entry point to name.
+[project.entry-points."weft.packs"]
+index = "weft_index:register"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

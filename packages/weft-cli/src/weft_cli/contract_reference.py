@@ -18,7 +18,12 @@ owning pack's own public module — the same module `weft_kernel.discovery.disco
 already imports to call `register()` — for every other `@runtime_checkable` `Protocol`
 that carries a `.version`: `VectorSearch` sits beside `NodeStore` in `weft_store`'s public
 `__all__`, so it is found the same way, with no per-contract special case written here or
-anywhere a future capability-only contract would need one.
+anywhere a future capability-only contract would need one. **Which distributions get
+printed under a sibling is a separate question from which get printed under its anchor**,
+and it is answered by `issubclass` against the registered class — see
+`_distributions_satisfying`. `weft-qdrant` registers a `NodeStore` and deliberately does
+not satisfy `TextSearch`; a walk that copied the anchor's distribution set across would
+publish a capability the code refuses.
 
 **Generation never touches a real database.** `weft-store`'s `register()` only
 partial-binds `PgVectorStore(settings)`; nothing calls the factory here, and even if it
@@ -73,7 +78,8 @@ from importlib import import_module
 
 from weft_kernel.discovery import discover
 from weft_kernel.errors import WeftError
-from weft_kernel.registry import Registry
+from weft_kernel.registry import Registry, unwrap_factory
+from weft_kernel.runner import Stage
 
 #: Structurally valid, never dialled — see the module docstring's closing paragraph.
 _PLACEHOLDER_DSN = "postgresql://contract-reference-generation/placeholder"
@@ -143,12 +149,20 @@ class ContractNotDescribableError(WeftError):
 
 @dataclass(frozen=True, slots=True)
 class PublishedContract:
-    """One contract this generator found: the class itself and who publishes it.
+    """One contract this generator found: the class itself and who registers under it.
 
     `distributions` is a set, not a single owner — `weft_kernel.registry.Registry`'s own
     `distributions_for` returns every distribution that registered at least one name
     under a contract, and a capability sibling (`VectorSearch`) inherits its anchor
     contract's distributions rather than having its own registration to read one from.
+
+    **The rendered label is "Registered by", and that is a correction rather than a
+    wording preference.** It read "Published by" while every contract happened to have
+    exactly one registering distribution, which was also the one that published it.
+    `weft-pdf` (task 2.27) is the first distribution to register under a contract it does
+    not publish, and the old label stated something false about it. Who *publishes* a
+    contract is not lost: it is the `**Module:**` line directly above, which names the
+    module the Protocol is defined in and therefore the distribution that owns it.
     """
 
     contract: type[object]
@@ -172,20 +186,66 @@ def published_contracts(registry: Registry) -> tuple[PublishedContract, ...]:
 
     Named registrations (`registry.contracts()`) plus each one's capability siblings —
     see the module docstring's `VectorSearch` paragraph.
+
+    **A sibling is attributed to a distribution only when that distribution's registered
+    class satisfies it.** Repair for a reviewer finding against task 2.6: this used to copy
+    the anchor's whole distribution set onto every sibling, so `weft-qdrant` — which
+    registers a `NodeStore` and deliberately does *not* satisfy `TextSearch` — was printed
+    under `TextSearch` in the shipped manual. An operator reading it would be told they can
+    run `hybrid` against Qdrant and then meet `StoreCapabilityMissingError` at run
+    assembly, which is a *declared* capability disagreeing with a *derived* one — the
+    failure G4's "capability is derived, never declared" exists to prevent, arriving
+    through the document instead of through the code.
+
+    Asked of the registered class with `issubclass`, never of an instance, for the reason
+    the module docstring gives and `weft_cli.run_services._providers_of` gives again:
+    building every installed plugin to generate a document would open connections. A
+    factory that is not a class, or a capability Protocol `issubclass` cannot answer, is
+    left unattributed rather than assumed — this document says who *is* known to satisfy a
+    contract, and silence is the honest answer to a question that cannot be asked.
     """
     named = registry.contracts()
     found: dict[type[object], set[str]] = {
         contract: set(registry.distributions_for(contract)) for contract in named
     }
     for contract in named:
-        anchor_distributions = found[contract]
-        for sibling in _capability_siblings(contract):
-            found.setdefault(sibling, set()).update(anchor_distributions)
+        for sibling in capability_siblings(contract):
+            found.setdefault(sibling, set()).update(
+                _distributions_satisfying(registry, contract, sibling)
+            )
 
     return tuple(
         PublishedContract(contract=contract, distributions=frozenset(distributions))
         for contract, distributions in sorted(found.items(), key=lambda item: item[0].__qualname__)
     )
+
+
+def _distributions_satisfying(
+    registry: Registry, anchor: type[object], sibling: type[object]
+) -> frozenset[str]:
+    """Every distribution whose class registered under `anchor` also satisfies `sibling`.
+
+    The same question `weft_cli.run_services._providers_of` asks of a store when it names
+    where a missing capability can be had, and asked the same way — off the registered
+    class, through `weft_kernel.registry.unwrap_factory`, because a pack that binds its own
+    settings registers a `functools.partial` and `partial` does not proxy attribute access.
+    """
+    satisfying: set[str] = set()
+    for name in registry.names_for(anchor):
+        entry = registry.entry(anchor, name)
+        target = unwrap_factory(entry.factory)
+        if not isinstance(target, type):
+            continue
+        try:
+            provides = issubclass(target, sibling)
+        except TypeError:
+            # A Protocol with a non-method member: `issubclass` refuses to answer it, and
+            # inventing an answer is how a generated document starts to differ from the
+            # `isinstance` check a run actually makes.
+            continue
+        if provides:
+            satisfying.add(entry.distribution)
+    return frozenset(satisfying)
 
 
 def missing_from_walked_set(
@@ -234,9 +294,34 @@ def _ruff_format_markdown(markdown: str) -> str:
     return result.stdout
 
 
-def _capability_siblings(contract: type[object]) -> tuple[type[object], ...]:
+def capability_siblings(contract: type[object]) -> tuple[type[object], ...]:
     """Every other `@runtime_checkable` `Protocol` with a `.version`, exported from
     `contract`'s own pack's public module — see the module docstring.
+
+    Public since task 2.5, when a second caller arrived: `weft_cli.run_services` asks the
+    same question of a configured store ("which capabilities does this contract's family
+    contain, and which does this instance have?") to name what a store advertises in a
+    refusal. Two implementations of *which Protocols are a contract's siblings* could
+    disagree, and the reference would then be documenting a family the run assembler does
+    not check against.
+
+    **A `Stage[In, Out]` contract is never a candidate sibling — task 2.13's own repair.**
+    `weft_retrieve.contract` publishes five pipeline positions that share the identical
+    single method name `run`, distinguished from each other only by `In`/`Out` type
+    parameters `runtime_checkable`'s own membership check cannot see. Left unfiltered, a
+    plugin registered under any one of them — `no-retrieval` under `Retriever`, say —
+    satisfies `issubclass` against every other one too, and this document would print
+    `weft-retrieve` as "Registered by" for `Fuser`, `Reranker`, `ContextPacker` and
+    `QueryScorer`, none of which anything registers. `weft_cli.compile`'s own rule keeps
+    this from ever being true in the code: no plugin name is registered under two Phase 2
+    contracts (`weft_cli.compile.AmbiguousStageContractError`, exercised by
+    `tests/unit/weft_cli/test_compile.py::test_a_plugin_name_two_contracts_register_is_refused_by_name`),
+    so a Stage
+    contract's membership is always exactly the one name it was registered under —
+    never a second one derived by structural check, the way `VectorSearch` genuinely is a
+    capability `pgvector` happens to also have. Filtering by `_is_stage_protocol` is what
+    keeps that store-shaped derivation from being applied to a family it was never built
+    for.
     """
     top_level = contract.__module__.split(".")[0]
     module = import_module(top_level)
@@ -245,7 +330,9 @@ def _capability_siblings(contract: type[object]) -> tuple[type[object], ...]:
             (
                 obj
                 for name in getattr(module, "__all__", ())
-                if _is_versioned_protocol(obj := getattr(module, name)) and obj is not contract
+                if _is_versioned_protocol(obj := getattr(module, name))
+                and obj is not contract
+                and not _is_stage_protocol(obj)
             ),
             key=lambda cls: cls.__qualname__,
         )
@@ -261,20 +348,38 @@ def _is_versioned_protocol(obj: object) -> bool:
     )
 
 
+def _is_stage_protocol(obj: type[object]) -> bool:
+    """True when `obj` declares `Stage[In, Out]` as one of its own bases.
+
+    Read the same way `weft_kernel.runner._stage_signature` reads it — off
+    `__orig_bases__`, never off an instance — because this has to answer the question
+    before any plugin is registered under `obj` at all. See `capability_siblings`'s own
+    docstring for why a `Stage` contract must never be derived as another one's sibling.
+    """
+    return any(typing.get_origin(base) is Stage for base in getattr(obj, "__orig_bases__", ()))
+
+
 def _render_section(published: PublishedContract) -> str:
     contract = published.contract
     distributions = ", ".join(f"`{d}`" for d in sorted(published.distributions)) or "—"
     doc = inspect.cleandoc(contract.__doc__ or "*(undocumented)*")
     version = _version_of(contract)
-    protocol_attrs = _protocol_attrs_of(contract)
-    methods = "\n\n".join(_render_method(contract, name) for name in sorted(protocol_attrs))
+    callables, declared = _partition_protocol_attrs(contract)
+    methods = "\n\n".join(_render_method(contract, name) for name in callables)
+    attributes = (
+        f"### Declared attributes\n\n"
+        f"{'\n\n'.join(_render_attribute(contract, name) for name in declared)}\n\n"
+        if declared
+        else ""
+    )
 
     return (
         f"## `{contract.__qualname__}`\n\n"
         f"**Module:** `{contract.__module__}`  \n"
-        f"**Published by:** {distributions}  \n"
+        f"**Registered by:** {distributions}  \n"
         f"**Version:** `{version}`\n\n"
         f"{doc}\n\n"
+        f"{attributes}"
         f"### Methods\n\n"
         f"{methods}\n"
     )
@@ -306,9 +411,54 @@ def _protocol_attrs_of(contract: type[object]) -> frozenset[str]:
     return frozenset(attrs)
 
 
+def _partition_protocol_attrs(contract: type[object]) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """`contract`'s protocol members, split into what is called and what is declared.
+
+    **Repair, in the task that first exposed it (2.7).** Until `weft_prompts.contract.Prompt`
+    had a registered implementation, every contract this generator walked declared methods and
+    nothing else, and `_render_method` could read each member off the class with `getattr`.
+    `Prompt` declares two *data* members — `input_model` and `output_model`, the class
+    attributes a prompt states its own shape with — and an annotation with no assignment is
+    not an attribute of the class at all, so generation died with a bare `AttributeError`
+    naming `input_model` and nothing else. A published contract that cannot be described is
+    supposed to stop generation *loudly*, which is what `ContractNotDescribableError` below is
+    for; crashing on a member shape the renderer never considered is the other thing.
+
+    Data members are documented rather than skipped, because a `Prompt` implementation that
+    omits `input_model` fails `isinstance` exactly as surely as one that omits `render`, and a
+    reference that listed only the method would be telling a pack author half the contract.
+    """
+    callables: list[str] = []
+    declared: list[str] = []
+    for name in sorted(_protocol_attrs_of(contract)):
+        (callables if callable(getattr(contract, name, None)) else declared).append(name)
+    if not callables:
+        raise ContractNotDescribableError(
+            f"{contract.__module__}.{contract.__qualname__} declares only data members "
+            f"({', '.join(declared)}) and no method. A contract with nothing to call is a "
+            f"marker, and this reference documents what a pack author implements — see "
+            f"`weft_store.contract.MetadataFilter`, which is a marker and is deliberately "
+            f"not registered under a name."
+        )
+    return tuple(callables), tuple(declared)
+
+
+def _render_attribute(contract: type[object], name: str) -> str:
+    """One declared data member, as the annotation a pack author writes on their own class."""
+    annotation = inspect.get_annotations(contract).get(name)
+    rendered = _format_annotation(annotation) if annotation is not None else "object"
+    return f"```python\n{name}: {rendered}\n```"
+
+
 def _render_method(contract: type[object], name: str) -> str:
     member = getattr(contract, name)
-    keyword = "async def" if inspect.iscoroutinefunction(member) else "def"
+    # An async generator (`async def ... yield ...`, task 2.30's `LLMProvider.stream`) is
+    # `async` exactly as much as a coroutine is — `inspect.iscoroutinefunction` alone answers
+    # `False` for one, which rendered `stream` as a plain `def` returning an `AsyncIterator`,
+    # a signature nothing in this tree could actually call. Both checks, because a Protocol
+    # method is always one or the other, never both.
+    is_async = inspect.iscoroutinefunction(member) or inspect.isasyncgenfunction(member)
+    keyword = "async def" if is_async else "def"
     signature = inspect.signature(member)
     params = _render_parameters(signature.parameters.values())
     return_part = (

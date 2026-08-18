@@ -47,3 +47,27 @@ class WeftError(Exception):
         self.contract = contract
         self.plugin = plugin
         self.stage = stage
+
+
+class UnresolvedNameError:
+    """Marks a `WeftError` subclass whose failure mode is a name that did not resolve
+    against a known, enumerable set of alternatives — fitness function 12's family
+    (`docs/01-high-level-plan.md` → *Fitness functions*, item 12; grilling session G11).
+
+    `valid_options` is the typed field the function requires: the alternatives a caller
+    could have supplied instead, carried as a structural fact a renderer can format
+    however it likes, rather than only interpolated into `str(self)` where a reviewer
+    has to notice its absence. `01` requirement 5's own words: *"an unknown name fails
+    loudly, naming the valid options."*
+
+    **Not itself a `WeftError`, and defines no `__init__`.** A family member already
+    inherits one from wherever it actually sits — `PipelineResolutionError`'s four
+    fields, `LLMError`'s `provider`/`model`, or plain `WeftError` — and cooperative
+    multiple-inheritance `__init__` chaining across those different shapes is exactly
+    the machinery this class exists to avoid needing. This is mixed in as a second base
+    purely so `issubclass(cls, UnresolvedNameError)` is a real, mechanical fact fitness
+    function 12 can check; each concrete subclass sets `self.valid_options` itself, in
+    its own `__init__`, the same way it already sets any of its other typed fields.
+    """
+
+    valid_options: tuple[str, ...]

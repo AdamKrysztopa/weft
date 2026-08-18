@@ -5,7 +5,9 @@ happy path (a wide-gap row becomes one cell per line), the edge case of a
 short line being left alone even though it contains a wide gap (the
 row-length guard), and the error case of a non-positive `gap_width`
 refused by the config's own validator. Also covers task 1.7's own worked
-example: `TableLinearizer` declares `intact = (WhitespaceGaps,)`, truthfully.
+example: `TableLinearizer` declares `intact = (WhitespaceGaps,)`, truthfully
+— and task 2.35's addition, `destroys = (Verbatim,)`, per
+`weft_clean.property`'s module docstring.
 
 **`test_resolving_a_pipeline_naming_table_linearize_with_a_gap_width_actually_validates_it`
 is a repair test.** A review found `TableLinearizer` shipping with no
@@ -22,7 +24,7 @@ import pytest
 from pydantic import ValidationError
 
 from weft_clean.contract import Cleaner
-from weft_clean.property import WhitespaceGaps
+from weft_clean.property import Verbatim, WhitespaceGaps
 from weft_clean.table_linearizer import TableLinearizer, TableLinearizerConfig
 from weft_kernel import resolution
 from weft_kernel.context import Context
@@ -82,10 +84,10 @@ def test_config_refuses_a_non_positive_gap_width() -> None:
         TableLinearizerConfig(gap_width=0)
 
 
-def test_needs_whitespace_gaps_intact() -> None:
+def test_needs_whitespace_gaps_intact_and_destroys_verbatim() -> None:
     # Act / Assert — declared on the class, readable with no instance, per `02` §3.
     assert TableLinearizer.intact == (WhitespaceGaps,)
-    assert TableLinearizer.destroys == ()
+    assert TableLinearizer.destroys == (Verbatim,)
 
 
 def test_resolving_a_pipeline_naming_table_linearize_with_a_gap_width_actually_validates_it() -> (

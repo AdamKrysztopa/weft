@@ -6,12 +6,14 @@ paragraph break, edges trimmed), the edge case of already-clean text passing
 through unchanged, and the error case of an empty batch answering
 `NothingToProduce`. Also covers task 1.7's own worked example:
 `WhitespaceNormalizer` declares `destroys = (Newlines, WhitespaceGaps)`,
-truthfully — the one stage in this pack that collapses whitespace at all.
+truthfully — the one stage in this pack that collapses whitespace at all —
+and task 2.35's addition, `Verbatim`, which every processor in this pack
+destroys; see `weft_clean.property`'s module docstring.
 """
 
 from collections.abc import Sequence
 
-from weft_clean.property import Newlines, WhitespaceGaps
+from weft_clean.property import Newlines, Verbatim, WhitespaceGaps
 from weft_clean.whitespace import WhitespaceNormalizer, WhitespaceNormalizerConfig
 from weft_kernel.context import Context
 from weft_kernel.payload import MediaType, Node, NothingToProduce, Outcome, Produced
@@ -67,10 +69,11 @@ def test_config_takes_no_fields() -> None:
     assert WhitespaceNormalizerConfig().model_dump() == {}
 
 
-def test_destroys_newlines_and_whitespace_gaps() -> None:
-    # Act / Assert — declared on the class, readable with no instance, per `02` §3. Both
-    # properties, not one: see `weft_clean.property`'s module docstring for why one stage
-    # destroying two facts is what makes "must run last" fall out rather than needing to
-    # be stated twice.
-    assert WhitespaceNormalizer.destroys == (Newlines, WhitespaceGaps)
+def test_destroys_newlines_whitespace_gaps_and_verbatim() -> None:
+    # Act / Assert — declared on the class, readable with no instance, per `02` §3. All
+    # three properties: see `weft_clean.property`'s module docstring for why one stage
+    # destroying `Newlines`/`WhitespaceGaps` together is what makes "must run last" fall
+    # out rather than needing to be stated twice, and why `Verbatim` joins it as the same
+    # honest addition every processor in this pack carries as of task 2.35.
+    assert WhitespaceNormalizer.destroys == (Newlines, WhitespaceGaps, Verbatim)
     assert WhitespaceNormalizer.intact == ()

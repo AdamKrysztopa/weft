@@ -3,7 +3,7 @@ name = "weft-clean"
 version = "0.0.0"
 description = "First-party text-cleaning pack. Publishes the Cleaner contract."
 requires-python = ">=3.12"
-dependencies = ["weft-kernel"]
+dependencies = ["weft-kernel", "ftfy>=6.2"]
 
 # The one entry point a pack declares (`docs/02-extension-model.md` section 2).
 [project.entry-points."weft.packs"]

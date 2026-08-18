@@ -84,8 +84,67 @@ Every row here is Phase 2 work. `01` → Phase 2 owns the phase; this table owns
 
 ### 1.2 Index-path techniques
 
-Phase 1 work. Listed here because they are techniques with origins, not because this file owns the
-phase.
+**Phase 2 work** — `raptor` is ledger task **2.32**, `hypothetical-questions` is **2.31**, and
+`cross-encoder-rerank` was named by **2.7**'s reranking row. Listed here because they are techniques
+with origins, not because this file owns the phase.
+
+> *(Corrected 2026-08-17, when task **2.7** closed.* **`cross-encoder-rerank` did not ship, and is
+> not owed by any open task.** *2.7 shipped `llm-rerank` — a `Reranker` that asks the model an
+> operator has already configured, under a role they already map, and therefore adds no dependency.
+> A cross-encoder needs a model download, which `09` §4.4's own argument keeps out of the gate, and
+> this section already files the technique on the **index path** rather than in 2.7's reranking
+> position. The language-aware mapping in the row below —* `sdadas/polish-reranker-roberta-v3` *for
+> Polish,* `cross-encoder/ms-marco-MiniLM-L-6-v2` *otherwise — stays here as **seed data for the pack
+> that eventually ships it**, plugin-declared as* `by_locale` *configuration and never a table in
+> core. Saying so is better than leaving a closed task named beside an unbuilt row, which is the
+> shape the correction above this one was written about.)*
+
+> *(Corrected 2026-08-17, scope decision `S2`. This section read **"Phase 1 work"** until then, and
+> Phase 1's own ledger never contained a single one of these rows — so from Phase 1's exit until `S2`
+> the sentence assigned work to a phase that had ended, which is exactly the property task **1.17**
+> made false. The correction is recorded rather than made silently because the gap is the interesting
+> part: `tests/docs/test_phase_document_routing.py` did not catch it and was never going to. That
+> file declines the general sweep on purpose — its own docstring says so — because a heuristic cannot
+> tell a document that **routes** a reader to a dead phase from a docstring that **records** why
+> something was built. Both are citations of a closed phase and only one is a defect. So 1.17's
+> property is broader than 1.17's test, and this is what fell through the difference.)*
+
+> *(Corrected 2026-08-18, when task **2.31** closed.* **`hypothetical-questions` shipped, under
+> exactly the citation this row already names** — `weft_index.hypothetical_questions`, registered
+> under `weft_index.contract.Expander`, doc2query (arXiv:1904.08375) rather than HyDE. §3.4 below
+> used to propose phantom tasks **1.11** and **1.12** for `raptor` and this row, written before
+> scope decision `S2` created **2.31**–**2.33** instead; that proposal was never updated when `S2`
+> landed, which is the same "routes to a dead phase" gap task **1.17** and the note above already
+> found once in this section. Removed rather than left to mislead the next reader — `raptor` (task
+> **2.32**) is still open and still needs a real task line, but not this stale one.)*
+
+> *(Corrected 2026-08-18, when task **2.32** closed.* **`raptor` shipped, under the citation this
+> row already names** — `weft_index.raptor`, registered under `weft_index.contract.Expander`
+> beside `hypothetical-questions`, Sarthi, Abdullah, Tuli, Khanna, Goldie & Manning (ICLR 2024,
+> arXiv:2401.18059) — but not the whole paper, and `weft_index.raptor`'s own module docstring
+> states the divergence rather than leaving it to be assumed. Clustering is a fresh, small
+> cosine-similarity algorithm, never the reference's UMAP+GMM (that code "is the LangChain RAPTOR
+> cookbook," this row's own reference column says, and `CLAUDE.md`'s own rule keeps another
+> codebase's source text out of this one). One level of clustering-and-summarisation ships per
+> `Expander.run` call; `max_levels` is deliberately not a field on this plugin. **Chaining
+> `embed`, `raptor`, `embed`, `raptor`, ... in an operator's own pipeline document does not
+> yet build a correct deeper tree** — the second `raptor` stage would receive the whole
+> cumulative node set (original leaves plus level-1 summaries) with no filter excluding
+> already-summarised nodes, so it could re-merge a leaf with its own summary rather than
+> build a genuine next level. That filtering is future work, corrected here (2026-08-18, a
+> repair of task 2.32) after review found the claim above stated as fact what neither the
+> code nor a test actually supported. `mode: collapsed` is what this ships structurally —
+> a summary is just another node
+> with its own vector in the same store, found by the existing vector-search retriever exactly
+> the way task 2.31's own question nodes are; `mode: traversal` — an explicit top-down descent
+> through the tree at query time — is not implemented, and would be a distinct `Retriever`
+> position over `Lineage.parents` read as a tree, filed as future work rather than claimed here.
+> What this task does close is `04` category A's own correction: the reference's RAPTOR summaries
+> carried `relationships={}` and no deletion path could ever reach them; `weft_index.raptor`
+> builds every summary through `Node.combine`, which refuses an empty `members` sequence and
+> derives `Lineage.sources` as the union of the clustered members' own sources, so cascade
+> delete reaches a summary by construction — proven against a real corpus, real embeddings and
+> a real store in `tests/integration/test_raptor_pipeline.py`, not merely asserted of the type.)*
 
 | Weft name | What it does | Origin | Name provenance | Reference |
 |---|---|---|---|---|
@@ -137,6 +196,53 @@ Consolidated, because these are the decisions with no discretion in them.
 | `rag_adaptive` | Two mechanisms share the word, **with no wiring between them**: the router cannot select the strategy. And `adaptive-rag` is a paper's name for a trained classifier |
 | `rag_simple` | Names a single-pass baseline over a pipeline with ≥3 LLM calls and unbounded regeneration. An operator reads this name when deciding what to run in a loop |
 | `sides` (repack method) | The name is Wang et al.'s; the ordering is not theirs. Porting the name without the algorithm launders a defect through a citation |
+
+### 1.5 Supporting plugins
+
+`.phase2-design.md` §12 (in-place note 4) obliges this table: task **2.26**'s own audit checks, in
+both directions, that a registered plugin name appears somewhere in this document and that a Weft
+name this document states is either a registered plugin or a shipped pipeline. §1.1 and §2.2 name
+the fourteen techniques the catalogue traces to an origin; every plugin below is a name the phase
+also registers that traces to no paper of its own — a fuser, a reranker, a routing policy, a
+sufficiency signal, the one shared generator, a provider, an extractor pair, a store, or a prompt
+template one of the fourteen resolves by name. None of it is a naming defect; the catalogue owns
+naming, not just citation, so a name with nothing to cite still needs a row.
+
+| Weft name | Contract | What it is |
+|---|---|---|
+| `vector-top-k` | `Retriever` | A single vector search, `top_k` — the retriever `retrieve-then-generate` resolves. Not itself a cited technique (§2.1 rule 5: a composition is a pipeline, never a plugin); the name states the pipeline's own cost, per §12 decision 12 |
+| `single-list` | `Fuser` | The identity fuser — one ranked list, unchanged. What `no-retrieval` and `retrieve-then-generate` resolve when there is nothing to combine |
+| `boolean-combine` | `Fuser` | Combines each Boolean operand's own result set by set algebra — `boolean-retrieval`'s own combiner, never `reciprocal-rank-fusion`'s statistical merge |
+| `llm-rerank` | `Reranker` | Asks the model an operator has already configured to rerank — `prompt`, `role`, `top_n`. Ships in place of `cross-encoder-rerank` (§1.2), which needs a model download `09` §4.4 keeps out of the gate |
+| `collapse-to-parent` | `Reranker` | Groups a `Ranking`'s hits by parent and keeps one per parent — a `hypothetical-questions` (§1.2) or `raptor` (§1.2) derived node collapses into the one node it stands in for. `policy` (`max`/`sum`/`mean`) states which score survives; ledger **2.33**, `.phase2-findings.md` §11's own closing paragraph. No citation of its own — the artefact it removes is measured, not sourced |
+| `threshold-ladder` | `RoutingPolicy` | Closed, operator-authored bands over `query-scorer`'s dimensions |
+| `nearest-description` | `RoutingPolicy` | Open: matches a query against every installed pipeline's own `route.summary`, zero-edit on install |
+| `always` | `RoutingPolicy` | The constant policy — one named pipeline, no scoring |
+| `llm-sufficiency` | `Sufficiency` | Asks the model whether the evidence suffices — this build's own mechanism; §1.1's `refine-on-uncertainty` row states neither `Sufficiency` implementation traces to a paper |
+| `hedge-phrases` | `Sufficiency` | A locale-keyed hedge-phrase table, authored fresh for Weft as the documented weak baseline — the reference's `str.__contains__` mechanism, replaced rather than ported (§1.4) |
+| `cited-answer` | `Generator` | The one generator every pipeline above resolves. `when_no_evidence` switches stance (refuse, or answer from memory) rather than a second plugin existing |
+| `openai` | `Embedder` / `LLMProvider` | `weft-openai`'s account-backed embedder (`text-embedding-3-small`) and chat provider (`gpt-4o-mini`) |
+| `scripted` | `LLMProvider` | A fixed-response provider for tests and CI — no network, no account |
+| `pdf-text` | `Extractor` | `weft-pdf`'s plain-text extractor — `.pdf`, `MediaType.TEXT` |
+| `pdf-layout` | `Extractor` | `weft-pdf`'s layout-aware extractor — same declared extension and media type |
+| `qdrant` | `NodeStore` | `weft-qdrant`'s store — derives `VectorSearch` and `MetadataFilter`, deliberately not `TextSearch` (ledger 2.6) |
+| `passage-relevance` | `Prompt` | `graded-retrieval`'s own template — the question, and the numbered candidates |
+| `standalone-question` | `Prompt` | `contextual-query-rewrite`'s template — the follow-up as asked, and the history it depends on |
+| `hyde-document` | `Prompt` | `hyde`'s template — the question, and how many hypothetical documents to write |
+| `step-back-question` | `Prompt` | `step-back`'s template — the question exactly as the user asked it |
+| `multi-query-variants` | `Prompt` | `multi-query`'s template — the seed question, and how many alternatives to generate |
+| `relevance-grade` | `Prompt` | `corrective`'s template — the question, and one batch of numbered candidates to grade |
+| `boolean-parse` | `Prompt` | `boolean-retrieval`'s template — the query to tokenise, and which operator keywords it recognises |
+| `sufficiency-check` | `Prompt` | `llm-sufficiency`'s template — the question, and the evidence gathered so far |
+| `route-query` | `Prompt` | `query-scorer`'s template — the question, and the dimensions to score it on |
+| `answer-with-citations` | `Prompt` | `cited-answer`'s template — the question, and the numbered evidence |
+| `contradiction-critic` | `Prompt` | `contradiction-check`'s critic half — the question, and the numbered evidence to judge for agreement |
+| `contradiction-answer` | `Prompt` | `contradiction-check`'s answer half — the question, the numbered evidence, and the critic's verdict |
+
+`graded-retrieval` (a `Reranker`, §1.4's conditional name for `corrective` when the plugin gains no
+distinct knowledge action) and `routing-policy` (§1.1's row label for the family `threshold-ladder`,
+`nearest-description` and `always` implement) are named in §1.1/§2.2 already and are not repeated
+here.
 
 ---
 
@@ -277,18 +383,7 @@ confidence signal produced during generation and read by the strategy) are the t
 that wall. If either does, the instruction is to **stop and reopen G5**, not to widen the payload
 inside a commit. They are not ⚠, because G5 is settled — but they are where it would come unsettled.
 
-### 3.4 Two cross-phase notes, raised rather than decided
-
-**Phase 1.** `raptor` and `hypothetical-questions` are index-path techniques with no ledger line
-naming them; `1.6` and `1.7` cover the ingest stage order and the cleaning chain, not these. Proposed:
-
-```
-- [ ] **1.11 ⚠** the tree builder's shape is configuration — the reduction dimension and the cluster-membership threshold are parameters rather than literals — and its degrade-don't-crash behaviour survives as a stated contract · owner `10` §1.2, the `raptor` row; `01` → requirement 6, second clause · turns on — · sha —
-- [ ] **1.12 ⚠** index-time question generation ships under a name and a citation that match what it does · owner `10` §1.2, the `hypothetical-questions` row · turns on — · sha —
-```
-
-Both ⚠ for the reason every Phase 1 task is ⚠: the phase is blocked on G2 and its task list is a
-hypothesis until G2 closes.
+### 3.4 A cross-phase note, raised rather than decided
 
 **Phase 4.** `4.2` says the metric suite ships *"with its four recorded defects fixed at the door"*.
 This catalogue finds a fifth and a naming correction, both of which are `04`'s content to state, not

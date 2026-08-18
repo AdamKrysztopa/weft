@@ -70,13 +70,14 @@ import os
 import re
 import sys
 from collections.abc import Callable, Collection, Iterable, Mapping
+from dataclasses import dataclass
 from enum import StrEnum
 from importlib import metadata
 from typing import Protocol, cast, get_type_hints
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from weft_kernel.errors import WeftError
+from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_kernel.registry import Registry
 
 #: The one entry-point group a pack declares. `docs/02-extension-model.md` section 2.
@@ -120,6 +121,27 @@ class Disclosure(BaseModel):
     note: str = ""
 
 
+@dataclass(frozen=True, slots=True)
+class PipelineResource:
+    """One pipeline document a pack ships from inside its own installed package.
+
+    Task **2.8**. `weft_retrieve.contract.RouteCatalogue`'s own docstring: "populated by
+    the same eager discovery pass that builds the registry, from the pipelines packs
+    contribute — so a third party's pipeline becomes routable on install with no edit
+    anywhere under `packages/`." `package` and `resource` are exactly
+    `importlib.resources.files(package).joinpath(resource)`'s two arguments — a locator,
+    never an opened file: the kernel still names no capability and opens nothing, the same
+    restraint `weft_kernel.pipeline`'s own module docstring states for the `Pipeline`
+    model itself ("the kernel publishes the model and opens no file"). Reading `resource`
+    and parsing it as a pipeline document is `weft-cli`'s job — the one distribution that
+    already owns `weft_cli.pipeline_catalogue`'s YAML parser.
+    """
+
+    distribution: str
+    package: str
+    resource: str
+
+
 class PackReport(BaseModel):
     """One pack's discovery outcome — the row `weft plugins list|doctor` will print.
 
@@ -130,6 +152,12 @@ class PackReport(BaseModel):
     project manifest. Left `None`-less and `False` by default rather than a
     tri-state, because "cannot determine" is exactly what an absent
     `direct_dependencies` already means to a caller that asked for it.
+
+    `pipeline_resources` is empty for every pack until task 2.8, and empty for any pack
+    that never calls `PackRegistrar.add_pipeline_resource` — most packs ship no pipeline
+    at all, and requiring an empty declaration from every one of them would be a
+    registration tax with no failure behind it, `weft_enhance.contract`'s own declining
+    argument for `destroys` applied here to a different field.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -140,6 +168,7 @@ class PackReport(BaseModel):
     contributed: int = 0
     reason: str | None = None
     disclosure: Disclosure | None = None
+    pipeline_resources: tuple[PipelineResource, ...] = ()
 
 
 class PackSettingsError(WeftError):
@@ -194,7 +223,7 @@ class InertPluginPinError(WeftError):
     """
 
 
-class UnknownPackSettingsError(WeftError):
+class UnknownPackSettingsError(WeftError, UnresolvedNameError):
     """A `packs:` settings key names a distribution no installed `weft.packs` entry point claims.
 
     Raised by `discover()` itself, after every entry point has been
@@ -206,7 +235,14 @@ class UnknownPackSettingsError(WeftError):
     `allow` naming an absent distribution is `ALLOWED_NOT_INSTALLED`,
     reported and not fatal, because `allow` only ever narrows what is already
     there; `packs:` names a requirement, and an unmet requirement raises.
+
+    Fitness function 12's family: `valid_options` is every distribution that
+    does declare a `weft.packs` entry point.
     """
+
+    def __init__(self, message: str, *, valid_options: tuple[str, ...]) -> None:
+        super().__init__(message)
+        self.valid_options = valid_options
 
 
 class MalformedDisclosureError(WeftError):
@@ -271,6 +307,7 @@ class PackRegistrar:
         self._registry = registry
         self._distribution = distribution
         self._pending: list[tuple[type[object], str, Callable[..., object]]] = []
+        self._pending_resources: list[PipelineResource] = []
 
     @property
     def contributed(self) -> int:
@@ -286,6 +323,20 @@ class PackRegistrar:
         """
         self._pending.append((contract, name, factory))
 
+    def add_pipeline_resource(self, package: str, resource: str) -> None:
+        """Buffer a `PipelineResource(distribution, package, resource)`, attributed to this pack.
+
+        Task **2.8**. Buffered exactly like `add` — see `commit` — and for the identical
+        reason: a pack whose `register()` raises after calling this must not leave a
+        catalogue advertising a pipeline it never actually shipped. A pack calls this once
+        per pipeline document it ships, typically its own package name and a
+        `pipelines/<name>.yaml` resource path — `weft_cli.pipeline_catalogue.
+        load_contributed` is what turns the buffered locator into a parsed `Pipeline`.
+        """
+        self._pending_resources.append(
+            PipelineResource(distribution=self._distribution, package=package, resource=resource)
+        )
+
     def commit(self) -> None:
         """Write every buffered registration to the `Registry`, all at once or not at all.
 
@@ -296,6 +347,13 @@ class PackRegistrar:
         from ever being written.
         """
         self._registry.add_many(self._pending, distribution=self._distribution)
+
+    @property
+    def pipeline_resources(self) -> tuple[PipelineResource, ...]:
+        """Every `PipelineResource` this pack has buffered so far — `_activate`'s own read,
+        once `register()` has returned without raising. See `add_pipeline_resource`.
+        """
+        return tuple(self._pending_resources)
 
 
 def interpolate_env(value: object, *, environ: Mapping[str, str] | None = None) -> object:
@@ -520,11 +578,13 @@ def discover(
     unclaimed = sorted(set(settings_source) - seen)
     if unclaimed:
         named = ", ".join(f"'{distribution}'" for distribution in unclaimed)
-        available = ", ".join(f"'{distribution}'" for distribution in sorted(seen)) or "none"
+        options = tuple(sorted(seen))
+        available = ", ".join(f"'{distribution}'" for distribution in options) or "none"
         raise UnknownPackSettingsError(
             f"[packs] settings name {named}, which {'is' if len(unclaimed) == 1 else 'are'} "
             f"not installed. Install the distribution, or remove its settings block. "
-            f"Distributions that declare a '{ENTRY_POINT_GROUP}' entry point: {available}."
+            f"Distributions that declare a '{ENTRY_POINT_GROUP}' entry point: {available}.",
+            valid_options=options,
         )
 
     # Every pack that was going to collide with anyone already has, since every candidate
@@ -600,6 +660,7 @@ def _activate(
         ambient=ambient,
         contributed=registrar.contributed,
         disclosure=disclosure,
+        pipeline_resources=registrar.pipeline_resources,
     )
 
 

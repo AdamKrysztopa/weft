@@ -17,6 +17,17 @@ dev = [
     "ruff>=0.16.0",
 ]
 
+# The dev environment's alignment with `compose.yaml`, and nothing a downstream install
+# ever sees. `qdrant-client` warns when it is more than one minor version ahead of the
+# server it is talking to, and `compose.yaml` pins `qdrant/qdrant:v1.12.4` — so without
+# this, every conformance run against the checked-in container would emit a warning about
+# the container rather than about anything Weft did. A constraint applies to *this
+# workspace's* resolution only; `packages/weft-qdrant` declares no ceiling, because the
+# version an operator's own deployment supports is theirs to decide, not this repository's.
+# Raise this and the image together, in one commit, or the pair stops meaning anything.
+[tool.uv]
+constraint-dependencies = ["qdrant-client<1.14"]
+
 [tool.uv.sources]
 weft-kernel = { workspace = true }
 weft-cli = { workspace = true }
@@ -26,6 +37,14 @@ weft-clean = { workspace = true }
 weft-store = { workspace = true }
 weft-embed = { workspace = true }
 weft-enhance = { workspace = true }
+weft-pdf = { workspace = true }
+weft-openai = { workspace = true }
+weft-llm = { workspace = true }
+weft-prompts = { workspace = true }
+weft-retrieve = { workspace = true }
+weft-generate = { workspace = true }
+weft-qdrant = { workspace = true }
+weft-index = { workspace = true }
 
 # ---------------------------------------------------------------------------
 # Tasks
@@ -68,12 +87,34 @@ max-complexity = 12
 [tool.pyright]
 pythonVersion = "3.12"
 typeCheckingMode = "strict"
-include = ["packages", "testing", "tests"]
+# `examples` joined this list at task 2.11 (`docs/07-extension-cost.md` §9): the out-of-tree
+# example packs FF9(c) requires are neither workspace members nor `uv.lock`-resolved, so
+# they were previously untyped by this gate entirely — a real gap in existing tooling,
+# closed here rather than left implicit.
+include = ["packages", "testing", "tests", "scripts", "eval", "examples"]
+# Every first-party `src/` layout resolves because `uv sync` installs it editable into
+# `.venv` — an out-of-tree example pack is deliberately *not* a workspace member (fitness
+# function 9(a)), so nothing installs it there, and a test importing its own pack by name
+# from outside `src/` has nothing to resolve against without its own path listed here.
+extraPaths = [
+    "scripts",
+    "eval",
+    "examples/weft-example-chunker/src",
+    "examples/weft-example-ingest/src",
+    "examples/weft-example-llm/src",
+    "examples/weft-example-query/src",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
 addopts = "--strict-markers"
+# `scripts/` is not a distribution and must not become one — it holds hand-run operator tools, and
+# `docs/09-release.md` §4's prerequisites are artefacts, not a subsystem. But a test that re-read
+# the corpus manifest itself would be a second manifest reader, drifting from the one an operator
+# actually runs. So the script is imported, not reimplemented, and this is the one line that makes
+# that possible. Paired with `[tool.pyright] extraPaths` below, which resolves the same import.
+pythonpath = ["scripts", "eval"]
 
 # A hang must fail, not stall. The registration seam guards blocking calls by
 # overriding socket and SSL operations, so a regression there does not raise —

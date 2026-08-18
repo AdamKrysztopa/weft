@@ -1,4 +1,4 @@
-"""The `Extractor` contract — published here, never by the kernel.
+"""The `Extractor` and `Renderer` contracts — published here, never by the kernel.
 
 Specified in `docs/06-phase-0-build.md` step 7 and `docs/02-extension-model.md`
 section 1 ("Who publishes a contract", "The payload model"). G1 draws the
@@ -65,12 +65,18 @@ from typing import TYPE_CHECKING, ClassVar, Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict
 
+from weft_extract.payload import Rendition
 from weft_kernel.context import Context
 from weft_kernel.payload import Node, Outcome, SourceId
 from weft_kernel.runner import Stage
 
 #: Fitness function 6's subject for this contract — see the module docstring.
 EXTRACTOR_CONTRACT_VERSION = "1.0.0"
+
+#: Fitness function 6's subject for `Renderer`, versioned separately: two contracts in
+#: one module are still two contracts, and a change to one must not read as a change to
+#: the other.
+RENDERER_CONTRACT_VERSION = "1.0.0"
 
 
 class SourceDoc(BaseModel):
@@ -116,3 +122,42 @@ class Extractor(Stage[Sequence[SourceDoc], Sequence[Node]], Protocol):
 
 
 Extractor.version = EXTRACTOR_CONTRACT_VERSION
+
+
+@runtime_checkable
+class Renderer(Stage[Sequence[Node], Rendition], Protocol):
+    """Turns nodes into one rendered document in a named format.
+
+    `.phase2-design.md` A.2, assigned to ledger 2.27 by A.4's consequences
+    table: 2.27's exit demonstration is that an operator's PDF becomes
+    readable, and an operator who cannot get the parse back out in a format
+    they can read has not been given that.
+
+    **Not a `Node` transformation**, which is why `Out` is `Rendition` and not
+    `Sequence[Node]`: the output leaves the pipeline for a human or another
+    system. It is an ordinary `Stage` terminus, so the kernel's existing
+    composition check covers it and **G5 is untouched** — nothing about `Node`
+    changes and no new payload kind travels inside a pipeline.
+
+    **Why this is published here rather than by the kernel, and why it is one
+    contract rather than a `format:` field.** A `to_markdown()` on `Node` would
+    put a format in the kernel, which G1 forbids outright. A single renderer
+    plugin taking `format="markdown"` would be a closed key space with a branch
+    behind it — finding 9's `if backend == ...` defect with the word changed —
+    and requirement 4 would break the first time a third party wanted `docx`.
+    One contract, one registration per format: a `docx` renderer is a
+    distribution and zero edits to anything here.
+
+    `version` is declared the same way `Extractor`'s is, and for the same
+    reason — see this module's docstring on `__protocol_attrs__`.
+    """
+
+    if TYPE_CHECKING:
+        #: See the module docstring — declared only for a type checker, assigned for real
+        #: after the class body, so it never joins `__protocol_attrs__`.
+        version: ClassVar[str]
+
+    async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Rendition]: ...
+
+
+Renderer.version = RENDERER_CONTRACT_VERSION

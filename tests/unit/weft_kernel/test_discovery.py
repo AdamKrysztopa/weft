@@ -483,3 +483,63 @@ def test_strict_pins_false_returns_every_report_instead_of_raising() -> None:
     assert reports[0].distribution == "weft-only"
     assert reports[0].status == PackStatus.ACTIVE
     assert registry.unconsulted_pins() == frozenset({"_Chunker:shared"})
+
+
+# --- pipeline resources (task 2.8) -----------------------------------------------------
+
+
+def test_a_committed_pack_reports_the_pipeline_resource_it_buffered() -> None:
+    """`add_pipeline_resource` is buffered exactly like `add`, and lands on the report
+    once `register()` returns without raising — `weft_retrieve.contract.RouteCatalogue`'s
+    own docstring: "populated by the same eager discovery pass that builds the registry."
+    """
+    # Arrange
+    registry = Registry()
+
+    def register(registrar: PackRegistrar, settings: _Settings) -> None:
+        registrar.add(_Chunker, "fixed-size", lambda: "instance")
+        registrar.add_pipeline_resource("weft_happy", "pipelines/route.yaml")
+
+    _install_fake_module("_weft_test_pipeline_pack")
+    entry_point = _FakeEntryPoint(
+        distribution="weft-happy", module="_weft_test_pipeline_pack", target=register
+    )
+
+    # Act
+    reports = discover(registry, allow=["weft-happy"], entry_points=[entry_point])
+
+    # Assert
+    [report] = reports
+    [resource] = report.pipeline_resources
+    assert resource.distribution == "weft-happy"
+    assert resource.package == "weft_happy"
+    assert resource.resource == "pipelines/route.yaml"
+
+
+def test_a_raising_register_discards_its_buffered_pipeline_resource_too() -> None:
+    """The same atomicity `add` gets: nothing a raising `register()` buffered — plugin
+    registration or pipeline resource alike — reaches the `PackReport`, because reporting
+    a resource nobody actually contributed would make a catalogue advertise a pipeline the
+    pack that named it never actually shipped.
+    """
+    # Arrange
+    registry = Registry()
+
+    def register(registrar: PackRegistrar, settings: _Settings) -> None:
+        registrar.add_pipeline_resource("weft_broken", "pipelines/route.yaml")
+        raise RuntimeError("boom")
+
+    _install_fake_module("_weft_test_broken_pipeline_pack")
+    entry_point = _FakeEntryPoint(
+        distribution="weft-broken-pipeline",
+        module="_weft_test_broken_pipeline_pack",
+        target=register,
+    )
+
+    # Act
+    reports = discover(registry, entry_points=[entry_point])
+
+    # Assert
+    [report] = reports
+    assert report.status == PackStatus.FAILED
+    assert report.pipeline_resources == ()

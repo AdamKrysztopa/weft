@@ -1,0 +1,1561 @@
+# V2 question set (`docs/09-release.md` §4.3) — the operator round: written while the
+# copyrighted mRMR papers were on disk. Twelve of these turned out to rest only on documents
+# the reproducible tiers already carry, which is why the round is not a tier and nothing reads
+# one off this file name.
+#
+# `eval/check_questions.py` owns the schema, every rule these entries are refused by, and
+# the argument for why nothing written here may be believed until
+# `tests/docs/test_question_set.py` has read it back out of the corpus. This file holds
+# questions and no design.
+#
+# **Provenance, which V2 requires recorded per answer.** Each question was written by an LLM
+# agent (Claude Opus 5, 2026-08-17) that had read the document it names, from the passage
+# quoted beside it, and was checked by a second, independent agent; `notes` carries the
+# per-question detail. This is not human-expert ground truth and must not be reported as
+# though it were — those agents verified their own quotes, and a mechanical re-check still
+# rejected 4 of 287 as appearing nowhere in the file they named.
+
+[[question]]
+id = "operator-001"
+text = "In Bouzgou and Gueymard's solar forecasting study, what distinguishes filter variable-selection methods from wrapper methods?"
+language = "en"
+kind = "definitional"
+difficulty = "easy"
+relevant_documents = ["bouzgou-i-gueymard-2017-minimum-redundancy-maxim"]
+reference_answer = "Filter methods preprocess the time series to rank the predictive strength of the historical variables, so the ranking is done independently of the forecaster. Wrapper methods instead build the selection around a search algorithm that tailors a data subset for maximum forecasting performance, using the predictor's own performance as the objective function for evaluating a candidate subset."
+notes = "Definitional contrast stated in Section 3.2 (Methodology), not in the abstract. A retriever must reach the filter/wrapper paragraph pair on page 4."
+
+  [[question.quote]]
+  document = "bouzgou-i-gueymard-2017-minimum-redundancy-maxim"
+  page = 4
+  text = """
+ﬁlter methods basically consist of a preprocessing of the time series to
+rank the predictive strength of the historical variables.
+"""
+
+  [[question.quote]]
+  document = "bouzgou-i-gueymard-2017-minimum-redundancy-maxim"
+  page = 4
+  text = """
+In wrapper methods the forecasting technique is centered on a
+powerful search algorithm, whose goal is to tailor a data subset that will
+give the maximum possible forecasting performance.
+"""
+
+  [[question.quote]]
+  document = "bouzgou-i-gueymard-2017-minimum-redundancy-maxim"
+  page = 4
+  text = """
+Wrapper methods
+use the predictor performance as the objective function to evaluate the
+variable subset.
+"""
+
+[[question]]
+id = "operator-002"
+text = "How does the MRMR procedure in this paper pick its very first variable, and how are the subsequent variables added?"
+language = "en"
+kind = "methodological"
+difficulty = "medium"
+relevant_documents = ["bouzgou-i-gueymard-2017-minimum-redundancy-maxim"]
+reference_answer = """
+The first "best" variable comes directly from the maximum-relevance criterion of Eq. (3): it is the variable with the largest mutual information I(y, ti) with the target. Every subsequent variable is then added incrementally by Sequential Forward Selection Search (SFSS) driven by the ELM, using the combined criterion max(Vi − Di) of Eq. (4).
+"""
+notes = "Requires the top of page 5 in Section 3.2. The second quote is the (badly extracted) Eq. (4) itself, which is why the reference answer names it as max(Vi − Di) rather than quoting it as readable algebra."
+
+  [[question.quote]]
+  document = "bouzgou-i-gueymard-2017-minimum-redundancy-maxim"
+  page = 5
+  text = """
+the ﬁrst “best” variable is a direct result from Eq. (3),
+and is thus the one generating the largest value of I(y, ti). The next
+variables are selected incrementally with SFSS by means of ELM ac-
+cording to the criterion in Eq. (4).
+"""
+
+  [[question.quote]]
+  document = "bouzgou-i-gueymard-2017-minimum-redundancy-maxim"
+  page = 4
+  text = "−VDmax( ) ,ii (4)"
+
+[[question]]
+id = "operator-003"
+text = "How were the measured irradiance data at each site split into training, validation and test sets, and what is this model-selection scheme called?"
+language = "en"
+kind = "methodological"
+difficulty = "medium"
+relevant_documents = ["bouzgou-i-gueymard-2017-minimum-redundancy-maxim"]
+reference_answer = "Two years of measurements were available per site: the entire first year was used as the training set, and part of the second year was split equally between the validation (VL) and test (TST) sets. The paper calls this model-selection scheme a hold-out method."
+notes = "Section 5.2, page 7. A cross-validation-flavoured query risks pulling the Polish pl-sprawdzian-krzyzowy.txt article instead; the correct source is this paper's hold-out description."
+
+  [[question.quote]]
+  document = "bouzgou-i-gueymard-2017-minimum-redundancy-maxim"
+  page = 7
+  text = """
+For the present study, two years of measured data were available for
+each test site.
+"""
+
+  [[question.quote]]
+  document = "bouzgou-i-gueymard-2017-minimum-redundancy-maxim"
+  page = 7
+  text = """
+The ﬁrst
+year was entirely attributed to the training set whereas a part of the
+second year was divided equally between the VL and TST sets.
+"""
+
+  [[question.quote]]
+  document = "bouzgou-i-gueymard-2017-minimum-redundancy-maxim"
+  page = 7
+  text = """
+It should
+be noted that the model selection adopted throughout this paper is
+referred to as a hold-out method
+"""
+
+[[question]]
+id = "operator-004"
+text = "For 15-min-ahead forecasting at Alice Springs, how much computing time did the ELM need compared with LS-SVM, and how many variables did each of them select?"
+language = "en"
+kind = "quantitative"
+difficulty = "hard"
+relevant_documents = ["bouzgou-i-gueymard-2017-minimum-redundancy-maxim"]
+reference_answer = "At Alice Springs for the 15-min-ahead horizon, ELM needed 21.0 s against 2451.2 s for LS-SVM (with MLP at 1958.6 s and GP at 2235.1 s). ELM used 6 selected variables while LS-SVM used 11 (MLP 38, GP 14)."
+notes = "Table 4, page 14. The numbers only exist in the table body; the column order comes from the header row inside the same quoted block. Hardest item here because the retriever must land on a table, not prose."
+
+  [[question.quote]]
+  document = "bouzgou-i-gueymard-2017-minimum-redundancy-maxim"
+  page = 14
+  text = """
+Comparison of 15-min ahead forecasting results obtained with four machine-learning
+techniques at the Alice Springs test station (arid climate).
+"""
+
+  [[question.quote]]
+  document = "bouzgou-i-gueymard-2017-minimum-redundancy-maxim"
+  page = 14
+  text = """
+MLP GP LS-SVM ELM
+# Selected variables. 38 14 11 6
+RMSE (W/m
+2) 82.3 73.8 73.1 74.5
+NMSE 0.068 0.053 0.051 0.055
+MAPE (W/m 2) 10.8 9.1 8.9 9.3
+R2 0.9487 0.9644 0.9698 0.9604
+Time (s) 1958.6 2235.1 2451.2 21.0
+"""
+
+[[question]]
+id = "operator-005"
+text = "Which input-selection scenario worked best at the 15-min-ahead horizon, and how did that compare with what happened at the 24-hour-ahead horizon?"
+language = "en"
+kind = "comparative"
+difficulty = "medium"
+relevant_documents = ["bouzgou-i-gueymard-2017-minimum-redundancy-maxim"]
+reference_answer = "At the 15-min-ahead horizon the two best techniques were MRMR and the short window of the last five data points, which the authors attribute to the strong natural persistence of very short-term predictions. At the 24-h-ahead horizon, where a large drop in performance is seen, MRMR instead competes advantageously with the clear-sky model."
+notes = "Section 6.2, page 11. Needs two separate paragraphs of the same section to be answered fully, so it punishes single-chunk retrieval."
+
+  [[question.quote]]
+  document = "bouzgou-i-gueymard-2017-minimum-redundancy-maxim"
+  page = 11
+  text = """
+Regarding the 15-min horizon, the two best techniques are MRMR
+and the short window (5 last data points). This can be explained mainly
+by the fact that, for very short-term predictions, a high degree of per-
+sistence is most frequent.
+"""
+
+  [[question.quote]]
+  document = "bouzgou-i-gueymard-2017-minimum-redundancy-maxim"
+  page = 11
+  text = """
+a large drop in per-
+formance can be seen in the 24-h-ahead forecasts using the NMSE,
+"""
+
+  [[question.quote]]
+  document = "bouzgou-i-gueymard-2017-minimum-redundancy-maxim"
+  page = 11
+  text = """
+this case, MRMR now competes advantageously with the clear-sky
+model.
+"""
+
+[[question]]
+id = "operator-006"
+text = "Where does the proposed MRMR-ELM approach fail to beat its baselines, and what conditions degrade it?"
+language = "en"
+kind = "limitation"
+difficulty = "medium"
+relevant_documents = ["bouzgou-i-gueymard-2017-minimum-redundancy-maxim"]
+reference_answer = "For very short-term predictions the natural persistence is so strong that persistence itself outperforms all four proposed scenarios in the majority of cases, as shown by the forecast skill values. More generally, and as with any other forecasting method, the performance of the proposed approach decreases as cloud frequency increases."
+notes = "Negative/limitation question deliberately spanning two distant sections (results on page 11, conclusion on page 14). The abstract claims only improvement, so an abstract-only retrieval answers this wrongly."
+
+  [[question.quote]]
+  document = "bouzgou-i-gueymard-2017-minimum-redundancy-maxim"
+  page = 11
+  text = """
+for very short-term predictions, a high degree of per-
+sistence is most frequent. Hence, the persistence outperforms the four
+other scenarios in the majority of cases, as reported by the forecast skill
+values.
+"""
+
+  [[question.quote]]
+  document = "bouzgou-i-gueymard-2017-minimum-redundancy-maxim"
+  page = 14
+  text = """
+As with any other forecasting method, the performance of the pro-
+posed approach decreases as cloud frequency increases for climatic
+reasons.
+"""
+
+[[question]]
+id = "operator-007"
+text = "In the Ding and Peng microarray study, what does the MRMR acronym stand for, and which two criteria does the framework combine?"
+language = "en"
+kind = "definitional"
+difficulty = "easy"
+relevant_documents = ["ding-i-peng-2005-minimum-redundancy-feature-sele"]
+reference_answer = "MRMR stands for minimum redundancy — maximum relevance. It supplements a minimum redundancy criterion (features made maximally dissimilar to each other, e.g. by minimising their pair-wise correlations) with the usual maximum relevance criterion, such as maximal mutual information with the target phenotypes."
+notes = "Provenance: authored by Claude (ground-truth subagent) from Ding & Peng (2005), J. Bioinform. Comput. Biol. 3(2):185-205, Sec. 2, page 3 of the extracted text. Deliberately not answerable from the title alone: the title never expands the acronym or names the two criteria."
+
+  [[question.quote]]
+  document = "ding-i-peng-2005-minimum-redundancy-feature-sele"
+  page = 3
+  text = """
+we propose to expand the representative power of
+the feature set by requiring that features are maximally dissimilar to each other,
+for example, their mutual Euclidean distances are maximized, or their pair-wise
+correlations are minimized. These minimum redundancy criteria are supplemented
+by the usual maximum relevance criteriasuch as maximal mutual information with
+the target phenotypes. We therefore call this approach the minimum redundancy —
+maximum relevance (MRMR) approach.
+"""
+
+[[question]]
+id = "operator-008"
+text = "How did Ding and Peng discretize the continuous gene expression readings before applying the mutual-information based MRMR criteria, and what do the resulting states mean biologically?"
+language = "en"
+kind = "methodological"
+difficulty = "medium"
+relevant_documents = ["ding-i-peng-2005-minimum-redundancy-feature-sele"]
+reference_answer = "For each gene they used that gene's own mean µ and standard deviation σ across its samples: values above µ + σ/2 became state 1, values between µ − σ/2 and µ + σ/2 became state 0, and values below µ − σ/2 became state −1. The three states correspond to over-expression, baseline, and under-expression of the gene."
+notes = "Provenance: authored by Claude (ground-truth subagent) from Ding & Peng (2005), Sec. 5.3 'Discretization for noise reduction'. The passage is split across a page break in the extracted text (the sentence is interrupted by the running footer), so both halves are quoted; a retriever must return the chunks on pages 10 and 12."
+
+  [[question.quote]]
+  document = "ding-i-peng-2005-minimum-redundancy-feature-sele"
+  page = 10
+  text = """
+probability can be described using a small table. We discretized the observations
+of each gene expression variable using the respective σ (standard deviation) and µ
+(mean) for this gene’s samples: any data larger than µ + σ/2 were transformed to
+state 1; any data betweenµ−σ/2a n dµ+σ/2 were transformed to state 0; any data
+"""
+
+  [[question.quote]]
+  document = "ding-i-peng-2005-minimum-redundancy-feature-sele"
+  page = 12
+  text = """
+smaller than µ − σ/2 were transformed to state −1. These three states correspond
+to the over-expression, baseline, and under-expression of genes. We also compared
+"""
+
+[[question]]
+id = "operator-009"
+text = "Why do Ding and Peng not solve the MRMR objective exactly, and what search procedure do they use instead?"
+language = "en"
+kind = "methodological"
+difficulty = "medium"
+relevant_documents = ["ding-i-peng-2005-minimum-redundancy-feature-sele"]
+reference_answer = "An exact solution to the MRMR requirements would require O(N^|S|) searches over the whole gene set, so they settle for a near-optimal solution from a simple heuristic: the first feature is the one with the highest I(h,i), and further features are added incrementally while earlier selected features stay in the set. These incremental optimizations run in O(|S|·N) complexity."
+notes = "Provenance: authored by Claude (ground-truth subagent) from Ding & Peng (2005), Sec. 3.1, pages 4-5 of the extracted text. Note the PDF extraction mangles the exponent: 'O(N |S|)s e a r c h e s' is the damaged rendering of O(N^|S|) searches; the quote is left exactly as extracted."
+
+  [[question.quote]]
+  document = "ding-i-peng-2005-minimum-redundancy-feature-sele"
+  page = 4
+  text = """
+In practice, a near optimal solution is
+suﬃcient. In this paper, we use a simple heuristic algorithm to resolve this MRMR
+optimization problem.
+"""
+
+  [[question.quote]]
+  document = "ding-i-peng-2005-minimum-redundancy-feature-sele"
+  page = 4
+  text = """
+In our algorithm, the ﬁrst feature is selected according to Eq. (3), i.e. the feature
+with the highestI(h, i). The rest features are selected in an incremental way: earlier
+selected features remain in the feature set.
+"""
+
+  [[question.quote]]
+  document = "ding-i-peng-2005-minimum-redundancy-feature-sele"
+  page = 5
+  text = """
+as listed in Table 1. These optimizations can be computed eﬃciently in O(|S|· N)
+complexity.
+"""
+
+[[question]]
+id = "operator-010"
+text = "What LOOCV error rate did Ding and Peng report on the NCI dataset with Naive Bayes, and how does it compare to the result Ooi and Tan reported on the same data?"
+language = "en"
+kind = "quantitative"
+difficulty = "medium"
+relevant_documents = ["ding-i-peng-2005-minimum-redundancy-feature-sele"]
+reference_answer = "On NCI their leave-one-out cross-validation error rate was 1.67% using Naive Bayes, whereas Ooi and Tan obtained a 14.6% error rate."
+notes = "Provenance: authored by Claude (ground-truth subagent) from Ding & Peng (2005), Sec. 5.5 'Comparison with other work', page 17 of the extracted text. Table 11 on page 14 prints the comparison figure as 14.63; the prose quoted here rounds it to 14.6, and the reference answer follows the quote."
+
+  [[question.quote]]
+  document = "ding-i-peng-2005-minimum-redundancy-feature-sele"
+  page = 17
+  text = """
+others are listed in Table 11. For NCI, our result of LOOCV error rate is 1.67%
+using NB, whereas Ooi and Tan
+28 obtained 14.6% error rate. On the 5-class subset
+"""
+
+[[question]]
+id = "operator-011"
+text = "Ding and Peng test four MRMR selection schemes (MID, MIQ, FCD, FCQ). Which ones performed better on discrete versus continuous data, and what general conclusion did they draw about combining relevance and redundancy?"
+language = "en"
+kind = "comparative"
+difficulty = "medium"
+relevant_documents = ["ding-i-peng-2005-minimum-redundancy-feature-sele"]
+reference_answer = "On discrete data MIQ outperformed MID, and on continuous data FCQ (or TCQ) beat FCD (TCD). Since MIQ and FCQ use the divisive combination of relevance and redundancy while MID and FCD use the difference combination, the authors conclude that the divisive (quotient) combination is preferred."
+notes = "Provenance: authored by Claude (ground-truth subagent) from Ding & Peng (2005), Sec. 5.4 'Results', observation (5), page 14 of the extracted text. 'FCG' in the quoted sentence is a typo for FCQ in the original; the quote is reproduced verbatim and the reference answer uses FCQ, which the same sentence names."
+
+  [[question.quote]]
+  document = "ding-i-peng-2005-minimum-redundancy-feature-sele"
+  page = 14
+  text = """
+(5) With MRMR, for discrete data, MIQ outperforms MID; for continuous data,
+FCQ (or TCQ) is better than FCD (TCD). Both MIQ and FCG use the divisive
+combination of Eq. (5) while both MID and FCD use the diﬀerence combina-
+tion of Eq. (4). Thus the divisive combination of relevance and redundancy is
+preferred.
+"""
+
+[[question]]
+id = "operator-012"
+text = "On the child leukemia data, was the advantage of MRMR features over baseline features uniform across all classifiers and all feature-set sizes, or did the authors record a caveat?"
+language = "en"
+kind = "limitation"
+difficulty = "hard"
+relevant_documents = ["ding-i-peng-2005-minimum-redundancy-feature-sele"]
+reference_answer = "It was not uniform. MRMR gave significantly fewer errors than baseline especially for LDA and SVM, but for Naive Bayes the advantage is only clear below 30 features; the authors note that NB's non-robustness to extra features becomes significant beyond 30 features, so only comparisons under 30 features are faithful for NB on this dataset."
+notes = "Provenance: authored by Claude (ground-truth subagent) from Ding & Peng (2005), Sec. 5.4, discussion of Table 9 (child leukemia, train/test split), page 14 of the extracted text. Hard because the caveat sits in a parenthetical in the results prose, not in the abstract or discussion, and the abstract claims improvements are 'consistent'."
+
+  [[question.quote]]
+  document = "ding-i-peng-2005-minimum-redundancy-feature-sele"
+  page = 14
+  text = """
+the MRMR features lead to signiﬁcant less errors than baseline features, especially
+for the LDA and SVM classiﬁers. For the NB classiﬁer, the better performance of
+MRMR features can be seen clearly for less than 30 features (note: for this data
+set the non-robustness of NB to extra-features turns out to be signiﬁcant for more
+than 30 features, it is only faithful to compare less than 30 features using NB in
+this case).
+"""
+
+[[question]]
+id = "operator-013"
+text = "How does the Randomized Dependence Coefficient define dependence between two random variables, and what is its computational cost with respect to sample size?"
+language = "en"
+kind = "definitional"
+difficulty = "easy"
+relevant_documents = ["lopez-paz-et-al-the-randomized-dependence-coeffi"]
+reference_answer = "RDC defines dependence between two random variables as the largest canonical correlation between random non-linear projections of their respective empirical copula transformations. It is invariant to monotonically increasing transformations, works on random variables of arbitrary dimension, and costs O(n log n) in the sample size."
+notes = "Provenance: answer written by the ground-truth authoring agent (Claude Opus 5) from PAGE 1, Section 1 Introduction, of lopez-paz-et-al-the-randomized-dependence-coeffi.txt. Definitional but deliberately paired with the complexity claim so the answer is not merely the title."
+
+  [[question.quote]]
+  document = "lopez-paz-et-al-the-randomized-dependence-coeffi"
+  page = 1
+  text = """
+deﬁnes dependence between two random variables as the largest canonical correlation between ran-
+dom non-linear projections of their respective empirical copula-transformations. RDC is invariant
+to monotonically increasing transformations, operates on random variables of arbitrary dimension,
+and has computational cost of O(n logn) with respect to the sample size.
+"""
+
+[[question]]
+id = "operator-014"
+text = "Why does RDC operate on the empirical copula transformation of the data rather than on the raw samples?"
+language = "en"
+kind = "methodological"
+difficulty = "medium"
+relevant_documents = ["lopez-paz-et-al-the-randomized-dependence-coeffi"]
+reference_answer = "RDC works on the empirical copula transformation in order to be invariant to transformations of the marginal distributions, such as shifts or rescalings. The copula transformation maps each variable through its own cdf, which yields uniform marginals."
+notes = "Provenance: authored by the ground-truth agent from PAGE 2, Section 3.1 'Estimation of Copula-Transformations'. Requires the methods section; the rationale is not stated in the abstract."
+
+  [[question.quote]]
+  document = "lopez-paz-et-al-the-randomized-dependence-coeffi"
+  page = 2
+  text = """
+Consider a ran-
+dom vectorX = (X1,...,X d) with continuous marginal cumulative distribution functions (cdfs)
+Pi, 1≤i≤d. Then the vector U = (U1,...,U d) :=P (X) = (P1(X1),...,P d(Xd)), known as
+the copula transformation, has uniform marginals:
+"""
+
+  [[question.quote]]
+  document = "lopez-paz-et-al-the-randomized-dependence-coeffi"
+  page = 2
+  text = "the copula transformation, has uniform marginals:"
+
+[[question]]
+id = "operator-015"
+text = "In the real-world feature selection experiments, how did the authors handle the cost of the quadratic baselines dCor, HSIC and CHSIC, and on which datasets did that measure actually bite?"
+language = "en"
+kind = "methodological"
+difficulty = "medium"
+relevant_documents = ["lopez-paz-et-al-the-randomized-dependence-coeffi"]
+reference_answer = "Because dCor, HSIC and CHSIC have quadratic computational demands, they were allowed to use at most 1,000 points when measuring dependence; this cap only applied on the sarcos and abalone datasets. Results were averaged over 20 random training/test partitions."
+notes = "Provenance: authored by the ground-truth agent from PAGE 7, Section 5.2 'Feature Selection in Real-World Data'. Deep in the results; a retriever must reach past the abstract."
+
+  [[question.quote]]
+  document = "lopez-paz-et-al-the-randomized-dependence-coeffi"
+  page = 7
+  text = """
+SinceG can be multi-dimensional, we compare RDC to the non-linear methods dCor, HSIC and
+CHSIC. Given their quadratic computational demands, dCor, HSIC and CHSIC use up to 1, 000
+points when measuring dependence; this constraint only applied on the sarcos and abalone
+datasets. Results are averages of 20 random training/test partitions.
+"""
+
+[[question]]
+id = "operator-016"
+text = "In the running-time comparison, how many seconds did RDC take on average for one million samples, and how did that compare with the other measures?"
+language = "en"
+kind = "quantitative"
+difficulty = "hard"
+relevant_documents = ["lopez-paz-et-al-the-randomized-dependence-coeffi"]
+reference_answer = "At one million samples RDC averaged 4.6253 seconds, against 0.0914 seconds for Pearson's rho and 5.3830 seconds for ACE; KCCA, dCor, HSIC, CHSIC and MIC report no time at that sample size (single runs above ten minutes were cancelled). The figures are average running times in seconds."
+notes = "Provenance: authored by the ground-truth agent from PAGE 6, Table 2 and Section 5.1 'Running times'. The column header quote is needed to attribute 4.6253 to RDC rather than to another column. The 'cancelled above ten minutes' clause is stated in the surrounding prose of the same section."
+
+  [[question.quote]]
+  document = "lopez-paz-et-al-the-randomized-dependence-coeffi"
+  page = 6
+  text = "Single runs above ten minutes were cancelled."
+
+  [[question.quote]]
+  document = "lopez-paz-et-al-the-randomized-dependence-coeffi"
+  page = 6
+  text = """
+sample size Pearson’sρ RDC ACE KCCA dCor HSIC CHSIC MIC
+1,000 0.0001 0.0047 0.0080 0.402 0.3417 0.3103 0.3501 1.0983
+"""
+
+  [[question.quote]]
+  document = "lopez-paz-et-al-the-randomized-dependence-coeffi"
+  page = 6
+  text = "1,000,000 0.0914 4.6253 5.3830 — — — — —"
+
+[[question]]
+id = "operator-017"
+text = "Under what conditions does RDC reduce to Spearman's rank correlation coefficient?"
+language = "en"
+kind = "comparative"
+difficulty = "hard"
+relevant_documents = ["lopez-paz-et-al-the-randomized-dependence-coeffi"]
+reference_answer = "When the random features are linear in some neighbourhood around zero — sinusoids or sigmoids, for instance — RDC converges to Spearman's rank correlation coefficient as the random-feature parameter s tends to 0, for any number k of features."
+notes = "Provenance: authored by the ground-truth agent from PAGE 5, Section 4 'Properties of RDC', immediately before Table 1. One sentence buried between a table caption and surrounding prose — a genuinely hard retrieval target."
+
+  [[question.quote]]
+  document = "lopez-paz-et-al-the-randomized-dependence-coeffi"
+  page = 5
+  text = """
+When using random features φ linear for some neighbourhood around zero (like sinusoids or sig-
+moids), RDC converges to Spearman’s rank correlation coefﬁcient ass→ 0, for anyk.
+"""
+
+[[question]]
+id = "operator-018"
+text = "On which association patterns does RDC perform worse than competing measures in the additive-noise power experiment, and what does the paper blame for each?"
+language = "en"
+kind = "limitation"
+difficulty = "medium"
+relevant_documents = ["lopez-paz-et-al-the-randomized-dependence-coeffi"]
+reference_answer = "RDC does worse on the linear association pattern, which the authors attribute to overfitting, and on the step-function pattern, which they attribute to the smoothness prior induced by the sinusoidal random features. It performs well on non-functional association patterns. Setting k = 20 random features was used throughout, with no significant improvement observed for larger values."
+notes = "Provenance: authored by the ground-truth agent from PAGE 6, Section 5.1 'Resistance to additive noise' and the 'Parameter selection' paragraph. Negative/limitation question: the failure modes are admitted only in the results section, never in the abstract or conclusion."
+
+  [[question.quote]]
+  document = "lopez-paz-et-al-the-randomized-dependence-coeffi"
+  page = 6
+  text = """
+RDC shows worse performance in
+the linear association pattern due to overﬁtting and in the step-function due to the smoothness prior
+induced by the sinusoidal features, but has good performance in non-functional association patterns.
+"""
+
+  [[question.quote]]
+  document = "lopez-paz-et-al-the-randomized-dependence-coeffi"
+  page = 6
+  text = """
+For RDC, the number of random features is set to k = 20 for both random
+samples, since no signiﬁcant improvements were observed for larger values.
+"""
+
+[[question]]
+id = "operator-019"
+text = "In the mRMR algorithm, what are the MID and MIQ objective functions and how do they differ?"
+language = "en"
+kind = "definitional"
+difficulty = "easy"
+relevant_documents = ["oa-radovic-2017-bmc"]
+reference_answer = "MID (Mutual Information Difference criterion) and MIQ (Mutual Information Quotient criterion) are the two commonly used objective functions in mRMR. MID takes the difference of relevance and redundancy, while MIQ takes their quotient."
+notes = "Definitional question answerable from the Methods subsection 'mRMR algorithm and data flattening' (page 2). Not answerable from the abstract."
+
+  [[question.quote]]
+  document = "oa-radovic-2017-bmc"
+  page = 2
+  text = """
+Two commonly used types
+of the objective function are MID (Mutual Information
+Differencecriterion)andMIQ(MutualInformationQuo-
+tientcriterion)representingthedifferenceorthequotient
+of relevance and redundancy, respectively.
+"""
+
+[[question]]
+id = "operator-020"
+text = "Why did the authors choose the arithmetic mean rather than the median or a multilayer aggregation of operators to combine F-statistic values across time steps?"
+language = "en"
+kind = "methodological"
+difficulty = "medium"
+relevant_documents = ["oa-radovic-2017-bmc"]
+reference_answer = "The median, though more robust to outliers than the arithmetic mean, can in some cases fail to detect different levels of gene expression, so the authors chose the arithmetic mean to aggregate the per-time-step F-statistic values into a single relevance value. They also implemented the Multilayer Aggregation method to combine arithmetic mean, geometric mean and median, but it did not improve results significantly and it reduced the robustness of the proposed feature selection methods."
+notes = "Requires the Methods section (TMRMR algorithm, aggregation-operator discussion spanning pages 3-4). The second quote begins mid-sentence because the figure caption for Fig. 2 interrupts the running text in the extraction; the span is verbatim."
+
+  [[question.quote]]
+  document = "oa-radovic-2017-bmc"
+  page = 3
+  text = """
+In addition, we implemented the Multilayer Aggregation
+(MLA) method from [16] to combine arithmetic mean,
+geometric mean and median for aggregation of F-statistic
+"""
+
+  [[question.quote]]
+  document = "oa-radovic-2017-bmc"
+  page = 4
+  text = """
+values corresponding to different time steps, however,
+it did not improve results significantly and it reduced
+robustness of the proposed feature selection methods.
+For these reasons, we choose the arithmetic mean oper-
+ator to aggregate F-statistic values calculated across all
+time steps into a single value representing the total gene
+relevance:
+"""
+
+[[question]]
+id = "operator-021"
+text = "Why is z-score normalization applied to the gene expression time series before the DTW distance matrix is computed?"
+language = "en"
+kind = "methodological"
+difficulty = "medium"
+relevant_documents = ["oa-radovic-2017-bmc"]
+reference_answer = "Although DTW can capture similarity between curves that are out of phase in time, it may fail to capture similarity between curves that fluctuate in a similar manner but with different offsets and amplitudes. Z-score normalization translates the gene expression time series so they fluctuate around the same (zero) offset and removes differences in amplitudes, leaving only the shape to be compared."
+notes = "Methods-section detail (page 4). The second quote contains a curly apostrophe (U+2019) around 'translates', reproduced verbatim."
+
+  [[question.quote]]
+  document = "oa-radovic-2017-bmc"
+  page = 4
+  text = """
+Although DTW is able to capture similarity between
+curves that are out of phase in time it may fail to capture
+similarity between curves fluctuating in a similar manner
+but with different offsets and amplitudes.
+"""
+
+  [[question.quote]]
+  document = "oa-radovic-2017-bmc"
+  page = 4
+  text = """
+Z-score
+normalization ’translates’ gene expression time series to
+fluctuate around the same (zero) offset and removes dif-
+ferences in amplitudes.
+"""
+
+[[question]]
+id = "operator-022"
+text = "What does the hyperparameter alpha control in TMRMR, and what value was used in the experiments?"
+language = "en"
+kind = "quantitative"
+difficulty = "hard"
+relevant_documents = ["oa-radovic-2017-bmc"]
+reference_answer = "Alpha controls how many of the top relevant features, ranked by the average F-statistic value, are admitted into the feature selection process, which was introduced to stop irrelevant features being selected. The authors fixed alpha to 0.3 in all experiments, so every selected gene came from the pool of the top 30% relevant genes, that is 3610 genes."
+notes = "Cross-section within one paper: the definition is in Methods (page 4) and the value used is in the performance-evaluation procedure (page 8). Carries specific numbers: 0.3, 30%, 3610 genes."
+
+  [[question.quote]]
+  document = "oa-radovic-2017-bmc"
+  page = 4
+  text = """
+AnissuewiththemRMRalgorithmisthepossibleselec-
+tion of irrelevant features, which is possible especially
+in the first few iterations of the algorithm.
+"""
+
+  [[question.quote]]
+  document = "oa-radovic-2017-bmc"
+  page = 8
+  text = """
+Thus,wesimplyfixedthe α parameterto0.3in
+allexperimentsensuringthatallselectedgenescomefrom
+thepoolofthetop30%relevantgenes(3610genes).
+"""
+
+[[question]]
+id = "operator-023"
+text = "How did TMRMR-C compare with TMRMR-M in the experiments, and was the advantage over the baselines statistically significant?"
+language = "en"
+kind = "comparative"
+difficulty = "medium"
+relevant_documents = ["oa-radovic-2017-bmc"]
+reference_answer = "TMRMR-C outperformed TMRMR-M in most cases, 16 to 5 in favour of TMRMR-C with 33 tie results, while both algorithms together achieved improvement in 34 out of 54 cases against the alternatives with 12 ties. Applying Welch's t-test, the accuracy of TMRMR-C was found statistically more significant than the other four baseline methods in 17 out of 24 cases at alpha = 0.05."
+notes = "Results section, page 10. Quantitative and comparative: 34/54, 12 ties, 16-5, 33 ties, 17/24 at alpha = 0.05."
+
+  [[question.quote]]
+  document = "oa-radovic-2017-bmc"
+  page = 10
+  text = """
+F o rt h i sp u r p o s e ,w ea p p l i e dW e l c h ’ st - t e s to n
+theresultsgiveninTable2andfoundthattheaccuracyof
+theproposedTMRMR-Cmethodisstatisticallymoresig-
+nificant than other four baseline methods in 17 out of 24
+cases( α = 0.05).
+"""
+
+  [[question.quote]]
+  document = "oa-radovic-2017-bmc"
+  page = 10
+  text = """
+theresultsgiveninTable2andfoundthattheaccuracyof
+theproposedTMRMR-Cmethodisstatisticallymoresig-
+nificant than other four baseline methods in 17 out of 24
+cases( α = 0.05).
+"""
+
+[[question]]
+id = "operator-024"
+text = "What limitation does a small number of time points impose on the proposed methods, and which of the two variants do the authors recommend in that situation?"
+language = "en"
+kind = "limitation"
+difficulty = "medium"
+relevant_documents = ["oa-radovic-2017-bmc"]
+reference_answer = "The accuracy of DTW may degrade considerably on expression profiles with too few data points, which is often the case in gene expression datasets. When the number of time points was reduced, TMRMR-C still outperformed all alternatives in every case, so the authors conclude that with a limited number of time points the computationally more expensive TMRMR-C approach might be more appropriate than TMRMR-M."
+notes = "Limitation question drawn from the reduced-time-point analysis on page 11, not the abstract or conclusion."
+
+  [[question.quote]]
+  document = "oa-radovic-2017-bmc"
+  page = 11
+  text = """
+The accuracy of the DTW algorithm may degrade con-
+siderably when operating on expression profiles with not
+enoughdatapointswhichisoftenthecaseingeneexpres-
+sion datasets.
+"""
+
+  [[question.quote]]
+  document = "oa-radovic-2017-bmc"
+  page = 11
+  text = """
+The obtained results show that the reduc-
+tion of time points did not affect the performance of the
+TMRMR-C algorithm, which outperformed all alterna-
+tives in all cases (for all classifiers and for allT and m
+values).
+"""
+
+  [[question.quote]]
+  document = "oa-radovic-2017-bmc"
+  page = 11
+  text = """
+This leads to the conclusion that in
+cases with a limited number of time points the TMRMR-
+C approach, which is computationally more expen-
+sive, might be more appropriate than the TMRMR-M
+approach.
+"""
+
+[[question]]
+id = "operator-025"
+text = "What is the largest speedup that the sequential CPU implementation of fast-mRMR achieved over the original mRMR, and on which data set?"
+language = "en"
+kind = "quantitative"
+difficulty = "medium"
+relevant_documents = ["ram-rez-gallego-et-al-2017-fast-mrmr-fast-minimu"]
+reference_answer = "The maximum speedup, defined as mRMR time divided by fast-mRMR time, was 387.83, obtained on the Lung data set (326 features, 73 instances), where mRMR took 23.27 seconds and fast-mRMR 0.06 seconds when selecting 200 features."
+notes = "Authored by the ground-truth subagent from Section 4.2 (Results and Analysis) and Table I on PAGE 15. Quantitative; the number appears only in the results, not the abstract. Note the paper's own conclusion states a different rounded figure ('up to 374 times'), so a system quoting 387.83 with the Lung data set is the correct, results-grounded answer."
+
+  [[question.quote]]
+  document = "ram-rez-gallego-et-al-2017-fast-mrmr-fast-minimu"
+  page = 15
+  text = "Table I. mRMR versus CPU fast-mRMR (in seconds) for 200 features selected."
+
+  [[question.quote]]
+  document = "ram-rez-gallego-et-al-2017-fast-mrmr-fast-minimu"
+  page = 15
+  text = """
+Data sets Number of features Number of instances mRMR CPU Speedup
+Lung 326 73 23.27 0.06 387.83
+NCI 9,173 60 39.41 2.02 19.51
+"""
+
+[[question]]
+id = "operator-026"
+text = "Which optimizations does fast-mRMR apply to the original mRMR algorithm, and what does the data-access-pattern optimization change about how the data is stored?"
+language = "en"
+kind = "methodological"
+difficulty = "medium"
+relevant_documents = ["ram-rez-gallego-et-al-2017-fast-mrmr-fast-minimu"]
+reference_answer = "Fast-mRMR applies three optimizations: accumulating redundancy so that only the mutual information between the non-selected features and the last selected feature is computed, caching marginal computations so marginal proportions are calculated once at program start and reused, and changing the data-access pattern. The last one reorganizes the data into a columnar (featurewise) layout, because mRMR accesses data featurewise while random access is far more costly than featurewise access."
+notes = "Authored by the ground-truth subagent from Section 3.1 (Fast-mRMR: Optimizations), PAGE 9. Methodological; requires the bulleted optimization list in the body, not the abstract. Quotes carry PDF extraction damage ('r ' bullet glyphs, 'signiﬁcantly' ligature) and are reproduced verbatim."
+
+  [[question.quote]]
+  document = "ram-rez-gallego-et-al-2017-fast-mrmr-fast-minimu"
+  page = 9
+  text = """
+This is specially important for GPUs, where the data have to be transferred from
+RAM to GPU global memory. Here, the way in which the data are stored in memory is
+reorganized to be in a columnar format (as shown in Figure 2).
+"""
+
+  [[question.quote]]
+  document = "ram-rez-gallego-et-al-2017-fast-mrmr-fast-minimu"
+  page = 9
+  text = """
+problem (see Equation 4).r Caching marginal computations : To avoid computing marginal probabilities in each
+iteration, some marginal proportions are calculated only once at the start of the program
+and cached to be reused in the following iterations.r Data-access pattern: The data access pattern of mRMR is thought to be featurewise, in
+"""
+
+  [[question.quote]]
+  document = "ram-rez-gallego-et-al-2017-fast-mrmr-fast-minimu"
+  page = 9
+  text = """
+and cached to be reused in the following iterations.r Data-access pattern: The data access pattern of mRMR is thought to be featurewise, in
+contrast to many other ML algorithms, in which the access pattern is mainly rowwise
+(see Figure 2a). Although being a low-level technical nuance, this aspect can signiﬁcantly
+degrade its performance since random access has a much greater cost than featurewise
+"""
+
+[[question]]
+id = "operator-027"
+text = "In the GPU implementation of fast-mRMR, how does the number of possible outcomes decide which CUDA kernel is used?"
+language = "en"
+kind = "methodological"
+difficulty = "hard"
+relevant_documents = ["ram-rez-gallego-et-al-2017-fast-mrmr-fast-minimu"]
+reference_answer = "The GPU version uses a hybrid strategy with three thresholds: below 64 possible outcomes the per-thread kernel (Algorithm 3) is used because the full set of processing units can be used without global memory; between 64 and 256 that kernel is no longer valid due to lack of shared memory, so Algorithm 4 is used; above 256 shared memory alone is insufficient and the calculations are partitioned, as detailed in Algorithm 5."
+notes = "Authored by the ground-truth subagent from Section 3.3 (Parallel Fast-mRMR for GPU Processing), PAGE 12. Methodological and quantitative in its thresholds; deep in the implementation section, so it tests retrieval past the abstract and results."
+
+  [[question.quote]]
+  document = "ram-rez-gallego-et-al-2017-fast-mrmr-fast-minimu"
+  page = 12
+  text = """
+1. If the number of possible outcomes is below 64, current GPUs can make use of the full
+set of processing units without using global memory. So, the kernel in Algorithm 3 is
+used.
+"""
+
+  [[question.quote]]
+  document = "ram-rez-gallego-et-al-2017-fast-mrmr-fast-minimu"
+  page = 12
+  text = """
+2. If the number of possible outcomes is greater than 64, and less than 256, the kernel shown
+in Algorithm 3 is no longer valid, since a lack of shared memory would produce a sharp
+decrease in the processing units usage. In this case, the kernel presented in Algorithm 4
+is used.
+"""
+
+  [[question.quote]]
+  document = "ram-rez-gallego-et-al-2017-fast-mrmr-fast-minimu"
+  page = 12
+  text = """
+3. If the number of possible outcomes exceeds 256, then the shared memory is no longer
+an option by itself, so the calculations should be partitioned. This strategy is detailed in
+Algorithm 5.
+"""
+
+[[question]]
+id = "operator-028"
+text = "According to the authors, at roughly what data size does the GPU version of fast-mRMR become worth using instead of the CPU version?"
+language = "en"
+kind = "comparative"
+difficulty = "medium"
+relevant_documents = ["ram-rez-gallego-et-al-2017-fast-mrmr-fast-minimu"]
+reference_answer = "The authors conclude that the parallel GPU implementation is worthwhile when the number of instances is big enough, approximately more than 100,000; below that the CPU version is competitive, and above it the CPU version starts to run slower than the GPU version so parallel execution becomes the better choice."
+notes = "Authored by the ground-truth subagent from the discussion of results on PAGE 17. Comparative; the threshold is stated only in the results discussion. The quote preserves the extracted spacing '(> 100, 000 approximately)'."
+
+  [[question.quote]]
+  document = "ram-rez-gallego-et-al-2017-fast-mrmr-fast-minimu"
+  page = 17
+  text = """
+differences and the use of the aforementioned versions. As shown in Table II, it is
+worthwhile to use the parallel implementation (GPU) in cases where the number of
+instances is big enough (> 100, 000 approximately). In these cases, the CPU version
+starts to run slower than the GPU version and a parallel execution becomes the better
+"""
+
+[[question]]
+id = "operator-029"
+text = "Did the authors measure how fast-mRMR affects classification accuracy, and what reason do they give?"
+language = "en"
+kind = "limitation"
+difficulty = "hard"
+relevant_documents = ["ram-rez-gallego-et-al-2017-fast-mrmr-fast-minimu"]
+reference_answer = "No. The paper states that the classification performance of fast-mRMR was not evaluated, because fast-mRMR selects the same set of features as the original mRMR in all cases, so the optimizations change only speed, not the selected features."
+notes = "Authored by the ground-truth subagent from Section 4.2 (PAGE 16) plus the supporting claim in Section 3.1 (PAGE 9). Limitation/negative question: the answer is an absence of an experiment, which a retriever that only surfaces speedup tables will get wrong. The first quote begins mid-sentence at a page-column boundary ('not accepted by the original version.'), reproduced verbatim."
+
+  [[question.quote]]
+  document = "ram-rez-gallego-et-al-2017-fast-mrmr-fast-minimu"
+  page = 16
+  text = """
+not accepted by the original version. Note that the classiﬁcation performance of
+fast-mRMR has not been evaluated since it selects the same set of features as the
+original mRMR for all cases.
+"""
+
+  [[question.quote]]
+  document = "ram-rez-gallego-et-al-2017-fast-mrmr-fast-minimu"
+  page = 10
+  text = """
+To assure that the original algorithm does not include the aforementioned opti-
+mizations, we have studied the source code of mRMR from the authors’ webpage b
+in depth. Notice that the aforementioned optimizations only affect the performance
+of the original and do not alter the ﬁnal result at all. Therefore, our approach can be
+deemed as an optimized and nonapproximative version of mRMR.
+"""
+
+[[question]]
+id = "operator-030"
+text = "Why does Table III report no CPU time for the kddb data set in the Spark experiments?"
+language = "en"
+kind = "limitation"
+difficulty = "hard"
+relevant_documents = ["ram-rez-gallego-et-al-2017-fast-mrmr-fast-minimu"]
+reference_answer = "Because kddb is stored in sparse format, which the original mRMR implementation does not accept, so no CPU baseline time could be obtained for it; for ECBDL14 the CPU time was estimated using a subset instead."
+notes = "Authored by the ground-truth subagent from Section 4.2, spanning the PAGE 15 to PAGE 16 break — the explanatory sentence is split across two pages, so the answer needs both quotes. Tests whether a chunker that splits on page markers can still recover the full explanation."
+
+  [[question.quote]]
+  document = "ram-rez-gallego-et-al-2017-fast-mrmr-fast-minimu"
+  page = 15
+  text = """
+results show how the Spark version achieves good speedup values (deﬁned as CPU
+time/Spark time), proving that the computational burden is fairly distributed over
+the cluster. Note that, for ECBDL14, CPU time was estimated using a subset; and
+for kddb, this was not possible because the data set is in sparse format, which is
+"""
+
+  [[question.quote]]
+  document = "ram-rez-gallego-et-al-2017-fast-mrmr-fast-minimu"
+  page = 16
+  text = """
+not accepted by the original version. Note that the classiﬁcation performance of
+fast-mRMR has not been evaluated since it selects the same set of features as the
+original mRMR for all cases.
+"""
+
+[[question]]
+id = "operator-031"
+text = "In the MRmMC method, what statistic is used to measure a feature's relevance to the class label, and what do values of that coefficient close to 0 and close to 1 indicate?"
+language = "en"
+kind = "definitional"
+difficulty = "medium"
+relevant_documents = ["senawi-et-al-2017-a-new-maximum-relevance-minimu"]
+reference_answer = "Relevance is measured by a correlation coefficient built on conditional variance, which relates a quantitative variable X to a nominal variable Y. A value approaching 1 indicates a strong correlation or dependency between X and Y, while a value approaching 0 indicates a weak relationship."
+notes = "Authored by the ground-truth agent from Section 3 (page 14, interpretation of r_qn) and the end of Section 2 (page 10, statement of what the relevance term is built from). Answerable from the two quoted passages alone. Definitional but deliberately not the paper's title; requires reading past the abstract."
+
+  [[question.quote]]
+  document = "senawi-et-al-2017-a-new-maximum-relevance-minimu"
+  page = 14
+  text = """
+The correlation coefficient that measure the relationship between a qua ntitative random variable 
+X  and a nominal random variable 
+"""
+
+  [[question.quote]]
+  document = "senawi-et-al-2017-a-new-maximum-relevance-minimu"
+  page = 10
+  text = """
+In the proposed meth od, relevant features are 
+measured using conditional variance [35] while redundancy elimination is  achieved through 
+multiple correlation assessment using an orthogonal projection scheme
+"""
+
+[[question]]
+id = "operator-032"
+text = "How does MRmMC quantify the redundancy of a candidate feature against the features already selected, and how is that quantity actually computed?"
+language = "en"
+kind = "methodological"
+difficulty = "medium"
+relevant_documents = ["senawi-et-al-2017-a-new-maximum-relevance-minimu"]
+reference_answer = "Redundancy is quantified by the squared multiple correlation coefficient, which gives the proportion of the variation in the candidate feature that is predictable from the already-selected features, ranging from 0 to 1 with higher values implying better predictive power (hence more redundancy). It is computed by using pairwise orthogonal projection of the features that have already been selected."
+notes = "Authored by the ground-truth agent from Section 4.1 (page 15) and the bridge into Section 4.2 (page 16). Methods-section question: neither the abstract nor the introduction states the 0-1 range or the orthogonal-projection computation. Note the PDF extraction splits 'coefficient' as 'c oefficient' in the first quote; reproduced verbatim."
+
+  [[question.quote]]
+  document = "senawi-et-al-2017-a-new-maximum-relevance-minimu"
+  page = 15
+  text = """
+This means that a feature with multicollineari ty can be linearly estimated by 
+a set of other features at some high level of accuracy and therefore suggests such a feature has 
+redundant information.
+"""
+
+  [[question.quote]]
+  document = "senawi-et-al-2017-a-new-maximum-relevance-minimu"
+  page = 16
+  text = """
+Note that  the squared multiple correlation 
+coefficient can be computed by utilizing pairwise orthogonal projection of fe atures already selected 
+[4, 41]. This will be further discussed in the next section
+"""
+
+[[question]]
+id = "operator-033"
+text = "What overall time complexity does the paper report for MRmMC, and which of its component steps carries that worst case?"
+language = "en"
+kind = "quantitative"
+difficulty = "medium"
+relevant_documents = ["senawi-et-al-2017-a-new-maximum-relevance-minimu"]
+reference_answer = "The overall time complexity takes the order of O(M^2 N). The dominating step is the computation of the squared correlation coefficient, which has a worst-case complexity of O(M^2 N), whereas feature relevancy assessment is only linear, O(NM), where M is the number of candidate features and N the number of observations."
+notes = "Authored by the ground-truth agent from the complexity paragraph at the end of Section 5 (page 19). The PDF extraction mangles the O(.) notation into the token ')( 2NMO' for O(M^2 N) and ')(MNO' for O(NM); quotes are reproduced with that damage intact. A retrieval system must reach page 19, not the abstract."
+
+  [[question.quote]]
+  document = "senawi-et-al-2017-a-new-maximum-relevance-minimu"
+  page = 19
+  text = """
+Feature relevancy assessment has a linear time complexity of 
+),(MNO  where M is the number of candidate features and N  is the number of observations. The 
+computation of the squared correlation coefficient has a worst-case tim e complexity of )( 2NMO
+"""
+
+  [[question.quote]]
+  document = "senawi-et-al-2017-a-new-maximum-relevance-minimu"
+  page = 19
+  text = """
+As a result, the overall 
+time complexity takes the order of )( 2NMO
+"""
+
+[[question]]
+id = "operator-034"
+text = "What validation protocol was used to obtain the reported classification accuracies: how were the data split, how many repetitions were run, and how are the results reported?"
+language = "en"
+kind = "quantitative"
+difficulty = "easy"
+relevant_documents = ["senawi-et-al-2017-a-new-maximum-relevance-minimu"]
+reference_answer = "A holdout cross-validation scheme was used in which 80% of the data were used for training and the remaining 20% were held out for testing. Thirty rounds of cross-validation were performed to reduce variability, and the validation results are presented as 95% confidence intervals for the classification accuracies obtained over those 30 rounds."
+notes = "Authored by the ground-truth agent from Section 6.4, Cross Validation Procedure (page 20). Quantitative: three specific reported numbers (80/20 split, 30 rounds, 95% CI). Answerable from the quoted passages alone."
+
+  [[question.quote]]
+  document = "senawi-et-al-2017-a-new-maximum-relevance-minimu"
+  page = 20
+  text = """
+For each of the classifiers, a same holdout cross-validation scheme w as used to test the 
+performance. Particularly, 80% of the data were used for training whereas the remaining 20% were 
+holdout (for testing) and once the training completed, these holdout data were the n used to assess 
+the spotted classification models in the testing stage
+"""
+
+  [[question.quote]]
+  document = "senawi-et-al-2017-a-new-maximum-relevance-minimu"
+  page = 20
+  text = """
+In addition, to reduce variability in the assessment, 30 rounds of cross-validat ion were 
+performed. The validation results are presented as the 95% confidence int ervals for the 
+classification accuracies based on the accuracies obtained from that 30 rounds
+"""
+
+[[question]]
+id = "operator-035"
+text = "What limitations of MRmMC do the authors themselves acknowledge — both in the redundancy measure and in the benchmark comparisons?"
+language = "en"
+kind = "limitation"
+difficulty = "medium"
+relevant_documents = ["senawi-et-al-2017-a-new-maximum-relevance-minimu"]
+reference_answer = "The authors state that the proposed redundancy measure is reliable for quantitative features but cannot effectively evaluate the redundancy between a quantitative and a nominal random variable. In the benchmark comparisons, MRmMC gave better or comparable accuracy with few features (about 2 to 15) for all classifiers except on the Vowel and Mfeat Factors datasets."
+notes = "Authored by the ground-truth agent from the Conclusions (page 32) and the results discussion (page 22). Cross-section within one document: the honest answer needs both the stated theoretical limitation and the empirical exception. The first quote contains the paper's own grammatical slip ('measure can is reliable'), reproduced verbatim."
+
+  [[question.quote]]
+  document = "senawi-et-al-2017-a-new-maximum-relevance-minimu"
+  page = 32
+  text = """
+A limitation of MRmMC is that the proposed redundancy 
+measure can is reliable for quantitative features, but cannot effectivel y evaluate the redundancy 
+between a quantitative and a nominal random variable
+"""
+
+  [[question.quote]]
+  document = "senawi-et-al-2017-a-new-maximum-relevance-minimu"
+  page = 22
+  text = """
+From Table 2 and Table 3, it can be observed that the MRmMC method gen erally provides 
+either better or comparable classification accuracy in comparison wi th the other two methods for all 
+classifiers when fewer features (e.g. 2 to 15 features) are used to represent all the candidate features, 
+except in Vowel and Mfeat Factors
+"""
+
+[[question]]
+id = "operator-036"
+text = "According to the win/tie/loss summary in Table 6, how does MRmMC compare with mRMR under the SVM classifier, and what does a 'win' mean in that table?"
+language = "en"
+kind = "comparative"
+difficulty = "hard"
+relevant_documents = ["senawi-et-al-2017-a-new-maximum-relevance-minimu"]
+reference_answer = "A win means MRmMC needed a lower number of selected features than the compared method on a benchmark dataset (tie meaning equal, loss meaning higher). Against mRMR with the SVM classifier MRmMC scores 1 win, 3 ties and 4 losses, and the authors note that it does not perform well with the SVM classifier when compared to mRMR, although it beats MIFS with all four classifiers."
+notes = "Authored by the ground-truth agent from the Table 6 discussion (page 27) and the Table 6 body (page 31). Hard: the definition of a 'win' lives four pages away from the numbers, so a retriever must return two widely separated passages for the answer to be correct rather than merely plausible. Quantitative and comparative at once."
+
+  [[question.quote]]
+  document = "senawi-et-al-2017-a-new-maximum-relevance-minimu"
+  page = 27
+  text = """
+The win/tie/loss scores reported in Table 6 represent the number of benchm ark datasets for which 
+the MRmMC method gives lower/equal/higher number of selected features  in comparison to other 
+methods
+"""
+
+  [[question.quote]]
+  document = "senawi-et-al-2017-a-new-maximum-relevance-minimu"
+  page = 31
+  text = """
+Win/tie/lose mRMR MIFS 
+5-NN 4 / 3 / 1 5 / 3 / 0 
+Naïve Bayes 4 / 2 / 2 5 / 3 / 0 
+SVM 1 / 3 / 4  4 / 2 / 2 
+CART 2 / 4 / 2 3 / 3 / 2
+"""
+
+  [[question.quote]]
+  document = "senawi-et-al-2017-a-new-maximum-relevance-minimu"
+  page = 27
+  text = """
+As can be seen from Table 6, the MRmMC method performs better than the  MIFS for all four 
+classifiers. It performs better for two out of four classifiers and shows c omparable performance for 
+the fourth classifier (CART) when compared to the mRMR method but does not pe rform well with 
+SVM classifier
+"""
+
+[[question]]
+id = "operator-037"
+text = "How does ImRMR fix the number of features per candidate subset and the number of subsets, and what values does the paper's worked example give for a 20-feature dataset?"
+language = "en"
+kind = "methodological"
+difficulty = "hard"
+relevant_documents = ["xie-et-al-2023-a-new-improved-maximal-relevance"]
+reference_answer = "The subset size Fc is taken from the random forest base decision tree's feature count log2(M), where M is the feature dimension, and the number of candidate subsets r follows from it. In the paper's worked example with M = 20 features this gives Fc = 4 and a feature-subset range r = 5."
+notes = "Spans sections 4.1 and 4.2 (pages 7-9); the answer needs the worked example, which is on a different page from the rule. Cross-page within one document."
+
+  [[question.quote]]
+  document = "xie-et-al-2023-a-new-improved-maximal-relevance"
+  page = 8
+  text = """
+(8)r =
+/bracketleft.s2
+1, round
+/parenleft.s2M
+Fc
+/parenright.s2/bracketright.s2
+(9)Fc= round/parenleft.s1log2 (M )
+/parenright.s1
+"""
+
+  [[question.quote]]
+  document = "xie-et-al-2023-a-new-improved-maximal-relevance"
+  page = 8
+  text = "where Fc is the number of features in the feature subset."
+
+  [[question.quote]]
+  document = "xie-et-al-2023-a-new-improved-maximal-relevance"
+  page = 9
+  text = """
+For example, suppose the number of features M = 20, then Fc = 4, and the range 
+of feature subsets r = 5
+"""
+
+[[question]]
+id = "operator-038"
+text = "What is the 'comprehensive rate' used to evaluate feature selection in this paper, and what tradeoff weight is used for it in the experiments?"
+language = "en"
+kind = "definitional"
+difficulty = "medium"
+relevant_documents = ["xie-et-al-2023-a-new-improved-maximal-relevance"]
+reference_answer = "The comprehensive rate Z combines the accuracy rate (Acc) and the dimensionality reduction rate (Dr) through a tradeoff factor, and in the experiments that tradeoff factor is set to 0.5, weighting accuracy and dimensionality reduction equally."
+notes = "Section 5.3, evaluation metrics. The Greek theta is mangled by PDF extraction into the literal string '/u1D703' - the quote preserves that damage verbatim."
+
+  [[question.quote]]
+  document = "xie-et-al-2023-a-new-improved-maximal-relevance"
+  page = 12
+  text = "(17)Z = /u1D703∗ Acc + (1 − /u1D703) ∗ Dr"
+
+  [[question.quote]]
+  document = "xie-et-al-2023-a-new-improved-maximal-relevance"
+  page = 12
+  text = """
+where Z is the comprehensive rate, Acc is the accuracy rate, Dr is the dimensional-
+ity reduction rate. The /u1D703 is the tradeoff factor. In experiments, the value of /u1D703 is 0.5.
+"""
+
+[[question]]
+id = "operator-039"
+text = "Across the seven datasets, what dimensionality reduction rate did ImRMR with equal grouping achieve, and by how much did it raise classification accuracy over the raw features?"
+language = "en"
+kind = "quantitative"
+difficulty = "medium"
+relevant_documents = ["xie-et-al-2023-a-new-improved-maximal-relevance"]
+reference_answer = "ImRMR-EGM reached a dimensionality reduction rate of 55.56% to 90.96% across the seven datasets, and its classification accuracy was 2.34% to 18.75% higher than that obtained with the raw feature set."
+notes = "Results section 5.4.1. Ranges use en dashes as in the source."
+
+  [[question.quote]]
+  document = "xie-et-al-2023-a-new-improved-maximal-relevance"
+  page = 13
+  text = """
+ImRMR-EGM has good effects on the seven data-
+sets. The dimensionality reduction rate reaches 55.56–90.96%, and the classification 
+accuracy is 2.34–18.75% higher than that of the raw feature.
+"""
+
+[[question]]
+id = "operator-040"
+text = "Were there any datasets where ImRMR did not achieve the best comprehensive rate against the competing feature selection methods, and by how much did it fall short?"
+language = "en"
+kind = "comparative"
+difficulty = "hard"
+relevant_documents = ["xie-et-al-2023-a-new-improved-maximal-relevance"]
+reference_answer = "Yes. On the Musk dataset ImRMR's comprehensive rate was 0.6% lower than mRMR's (though 2.67-4.18% higher than the other four methods), and on the Ionosphere dataset it was 0.99% lower than mRMR and 0.04% lower than Symmetrical Uncert, while still being 1.95-6.36% higher than the remaining three methods."
+notes = "Results section 5.4.2 - a negative/qualifying result buried in prose rather than in the abstract or conclusion, which claim only that ImRMR outperforms in most cases."
+
+  [[question.quote]]
+  document = "xie-et-al-2023-a-new-improved-maximal-relevance"
+  page = 13
+  text = """
+for the Musk dataset, the comprehensive rate of ImRMR is only 
+0.6% lower than that of mRMR, and 2.67–4.18% higher than that of the other four 
+methods
+"""
+
+  [[question.quote]]
+  document = "xie-et-al-2023-a-new-improved-maximal-relevance"
+  page = 13
+  text = """
+for the Ionosphere dataset, the comprehensive rate of ImRMR is only 
+0.99% and 0.04% lower than mRMR and SU, respectively, and 1.95–6.36% higher 
+than the other three methods.
+"""
+
+[[question]]
+id = "operator-041"
+text = "What limitations do the authors acknowledge in how ImRMR forms candidate subsets and measures relevance and redundancy?"
+language = "en"
+kind = "limitation"
+difficulty = "medium"
+relevant_documents = ["xie-et-al-2023-a-new-improved-maximal-relevance"]
+reference_answer = "The authors note that EGM is the only candidate-subset division method they explore and that other division methods should be investigated to improve subset quality, and that they use only the Pearson correlation coefficient and mutual information to measure correlation and redundancy, leaving other measurement criteria for future work."
+notes = "Section 6, 'Limitations and future scope'. Both quotes are bullet points; the second ends with the hyphenated line break 'fea-\\ntures.' preserved verbatim."
+
+  [[question.quote]]
+  document = "xie-et-al-2023-a-new-improved-maximal-relevance"
+  page = 21
+  text = """
+This study currently proposes EGM to divide candidate feature subsets. Other 
+more feature subset division methods are needed to be explored to improve the 
+quality of candidate feature subsets.
+"""
+
+  [[question.quote]]
+  document = "xie-et-al-2023-a-new-improved-maximal-relevance"
+  page = 21
+  text = """
+This study only uses Pearson correlation coefficient and mutual information to 
+measure correlation and redundancy. In the next work, we will try to explore 
+other measurement criteria to improve the effectiveness of the selected fea-
+tures.
+"""
+
+[[question]]
+id = "operator-042"
+text = "In the Uber mRMR paper, what is the randomized dependence coefficient (RDC) and what quantity does it actually compute between two variables?"
+language = "en"
+kind = "definitional"
+difficulty = "easy"
+relevant_documents = ["ax-1908.05376v1"]
+reference_answer = "RDC is a measure of non-linear dependence between two random variables: it is defined as the largest canonical correlation between multiple randomly chosen nonlinear projections of the two variables' copula transformations."
+notes = "Definitional, from Section III-A (proposed extensions), not the abstract. Answer is contained entirely in the quoted sentence."
+
+  [[question.quote]]
+  document = "ax-1908.05376v1"
+  page = 3
+  text = """
+The RDC developed by [15] measures the non-linear depen-
+dence between two random variables, as the largest canonical
+correlation between multiple randomly chosen nonlinear pro-
+jections of their copula transformations.
+"""
+
+[[question]]
+id = "operator-043"
+text = "Why did the authors use a quotient scheme rather than a difference scheme when they replaced the relevance measure with a random-forest feature importance score?"
+language = "en"
+kind = "methodological"
+difficulty = "hard"
+relevant_documents = ["ax-1908.05376v1"]
+reference_answer = "Because the model-based feature importance used for relevance is on a different scale from the redundancy measure (correlation), and the quotient scheme (as in MIQ and FCQ) is relatively immune to such scale differences, unlike the difference scheme (MID, FCD); so the quotient scheme was adopted instead of the difference scheme."
+notes = "Methods-section reasoning behind the RFCQ/RFRQ design. Requires reading Section III-B, not the abstract."
+
+  [[question.quote]]
+  document = "ax-1908.05376v1"
+  page = 3
+  text = """
+the relevance and redundancy. Compared with the difference
+scheme (such as MID, FCD), the quotient scheme (such as
+MIQ, FCQ) is relatively immune to the scale differences.
+"""
+
+  [[question.quote]]
+  document = "ax-1908.05376v1"
+  page = 3
+  text = """
+As the proposed model-based feature importance measure for
+relevance has different scale from the redundancy measure
+(i.e. correlation), the quotient scheme is adopted instead of
+the difference scheme.
+"""
+
+[[question]]
+id = "operator-044"
+text = "How many features does the synthetic dataset in this study contain, and how do they break down by type?"
+language = "en"
+kind = "quantitative"
+difficulty = "easy"
+relevant_documents = ["ax-1908.05376v1"]
+reference_answer = "The synthetic dataset has 70 features in total: 10 independent informative features, 20 linear redundant features, 20 nonlinear redundant features, and 20 irrelevant features."
+notes = "Quantitative, from the synthetic-data experimental setup (Section IV-B). Note the hyphenation damage 'linear re-\\ndundant' in the extracted text."
+
+  [[question.quote]]
+  document = "ax-1908.05376v1"
+  page = 6
+  text = """
+In this synthetic data set, there are 70 features in total,
+including 10 independent informative features, 20 linear re-
+dundant features, 20 nonlinear redundant features, and 20
+irrelevant features.
+"""
+
+[[question]]
+id = "operator-045"
+text = "What lift did the online randomized experiment report for the cross-sell model deployed with FCQ feature selection?"
+language = "en"
+kind = "quantitative"
+difficulty = "medium"
+relevant_documents = ["ax-1908.05376v1"]
+reference_answer = "Users in the top 20% of predicted conversion probability in the control group had a 4 times higher actual new product adoption rate than the baseline of all control users, and the campaign produced 12% incremental adoption for the top 60% propensity users in treatment versus the equivalent top 60% in control, with statistical significance at p < 0.05."
+notes = "Quantitative, from Section V-D (online experiment). Extraction preserves the ligature in 'signiﬁcance' and the odd spacing in '( p< 0.05)'."
+
+  [[question.quote]]
+  document = "ax-1908.05376v1"
+  page = 10
+  text = """
+effective in identifying the high conversion users: for example,
+the users with top 20% predicted conversion probability in
+control have 4 times higher actual new product adoption rate
+compared with baseline (all users in control).
+"""
+
+  [[question.quote]]
+  document = "ax-1908.05376v1"
+  page = 10
+  text = """
+compared with baseline (all users in control). In addition, the
+marketing campaign creates 12% incremental adoption for the
+top 60% propensity users in treatment group compared with
+the equivalent top 60% propensity users in the control group
+with statistical signiﬁcance ( p< 0.05).
+"""
+
+[[question]]
+id = "operator-046"
+text = "Between FCQ and RFCQ, which one do the authors recommend, and which one did they actually put into production first?"
+language = "en"
+kind = "comparative"
+difficulty = "medium"
+relevant_documents = ["ax-1908.05376v1"]
+reference_answer = "Combining accuracy and computation efficiency, the authors say RFCQ is a good choice when the downstream classification model is Random Forests, while FCQ has outstanding computation time and robust accuracy across different downstream classifiers. FCQ was implemented in production first, in phase 1, for its simplicity, robust performance and fast computation speed, with more variants such as RFCQ planned for phase 2."
+notes = "Cross-section comparative question spanning the real-data results (Section IV-C) and the production implementation (Section V)."
+
+  [[question.quote]]
+  document = "ax-1908.05376v1"
+  page = 9
+  text = """
+it can be seen that RFCQ can
+be a good choice if the down-stream classiﬁcation model is
+Random Forests, but FCQ has an outstanding performance
+in computation time and robust accuracy for different down-
+stream classiﬁcation models.
+"""
+
+  [[question.quote]]
+  document = "ax-1908.05376v1"
+  page = 10
+  text = """
+IV, it was decided to implement the feature selection module
+in two phases. In phase 1, the FCQ has been implemented
+in production considering its simplicity, robust performance,
+and fast computation speed. In phase 2, more mRMR variants
+"""
+
+[[question]]
+id = "operator-047"
+text = "Did both proposed mRMR extensions pay off on the synthetic data, and what explanation is given for the weak showing of FCD?"
+language = "en"
+kind = "limitation"
+difficulty = "hard"
+relevant_documents = ["ax-1908.05376v1"]
+reference_answer = "No: on the synthetic data the model-based feature importance extension (RFCQ, RFRQ) appeared successful, but the extension from linear correlation to the non-linear RDC association measure did not show significant improvement. FCD's relatively poor performance is attributed to the scale imbalance between the F statistic used as the relevance measure and the correlation used as the redundancy measure within the difference scheme."
+notes = "Negative/limitation question from the synthetic-data results discussion. Both quotes carry ligature damage ('signiﬁcant') preserved verbatim."
+
+  [[question.quote]]
+  document = "ax-1908.05376v1"
+  page = 6
+  text = """
+In this synthetic data, the extension of mRMR framework to
+model-based feature importance score (RFCQ, RFRQ) seems
+to be successful, while the extension from linear correlation
+to nonlinear association using RDC method does not show
+signiﬁcant improvement.
+"""
+
+  [[question.quote]]
+  document = "ax-1908.05376v1"
+  page = 6
+  text = """
+features. And the potential explanation for FCD method is
+the scale imbalance between the F statistic as the relevance
+measure and the correlation as the redundancy measure in the
+difference scheme.
+"""
+
+[[question]]
+id = "operator-048"
+text = "Ding and Peng compared the two ways of combining relevance and redundancy and said which one is preferred. Did the solar-radiation forecasting study follow that recommendation when adding variables incrementally?"
+language = "en"
+kind = "cross-document"
+difficulty = "medium"
+relevant_documents = ["bouzgou-i-gueymard-2017-minimum-redundancy-maxim", "ding-i-peng-2005-minimum-redundancy-feature-sele"]
+reference_answer = "Ding and Peng conclude that the divisive (quotient) combination of relevance and redundancy is preferred over the difference combination — MIQ over MID, FCQ (or TCQ) over FCD (TCD). Bouzgou and Gueymard did not follow that: after picking the first variable by maximum relevance, they select subsequent variables incrementally according to the criterion in their Eq. (4), the difference-based one of the two combination schemes, rather than the quotient scheme of Eq. (5)."
+notes = "Both papers number their equations (4) and (5) the same way (difference and quotient), so the answer needs the recommendation from one paper and the actual choice from the other."
+
+  [[question.quote]]
+  document = "ding-i-peng-2005-minimum-redundancy-feature-sele"
+  page = 14
+  text = """
+(5) With MRMR, for discrete data, MIQ outperforms MID; for continuous data,
+FCQ (or TCQ) is better than FCD (TCD). Both MIQ and FCG use the divisive
+combination of Eq. (5) while both MID and FCD use the diﬀerence combina-
+tion of Eq. (4). Thus the divisive combination of relevance and redundancy is
+preferred.
+"""
+
+  [[question.quote]]
+  document = "bouzgou-i-gueymard-2017-minimum-redundancy-maxim"
+  page = 4
+  text = """
+Eqs. (2) and (3) . This in turn necessitates their combination into one
+single criterion. The two simplest combination schemes are expressed
+as follows:
+−VDmax( ) ,ii (4)
+"""
+
+  [[question.quote]]
+  document = "bouzgou-i-gueymard-2017-minimum-redundancy-maxim"
+  page = 5
+  text = """
+and is thus the one generating the largest value of I(y, ti). The next
+variables are selected incrementally with SFSS by means of ELM ac-
+cording to the criterion in Eq. (4). Suppose now that m variables have
+"""
+
+[[question]]
+id = "operator-049"
+text = "Do the papers agree that adding the minimum-redundancy term to an F-statistic relevance ranking improves classification, or does any of them report the opposite?"
+language = "en"
+kind = "cross-document"
+difficulty = "hard"
+relevant_documents = ["ding-i-peng-2005-minimum-redundancy-feature-sele", "oa-radovic-2017-bmc"]
+reference_answer = "They disagree. Ding and Peng compared MRMR sets against baseline sets built by plain mutual-information, F-statistic or t-statistic ranking and report that on continuous data FCQ features outperform the baseline consistently for LDA and SVM on all three multi-class datasets. Radovic et al., on temporal viral-challenge gene expression data, found the plain F-statistic outperformed the other baselines including mRMR, and conclude that the minimum-redundancy condition computed as a Pearson correlation coefficient hurts mRMR's performance."
+notes = "A genuine disagreement between two papers on the same core claim; needs both to answer. The Radovic text has damaged spacing (words run together) which the quote preserves."
+
+  [[question.quote]]
+  document = "ding-i-peng-2005-minimum-redundancy-feature-sele"
+  page = 8
+  text = """
+of the MRMR performance.
+In experiments, we compared the MRMR feature sets against the baseline fea-
+ture sets obtained using standard mutual information,F-statistic ort-statistic rank-
+ing to pick the top m features.
+"""
+
+  [[question.quote]]
+  document = "ding-i-peng-2005-minimum-redundancy-feature-sele"
+  page = 13
+  text = """
+(2) For continuous datasets, FCQ features outperform baseline features. This is
+consistent for LDA and SVM for all three multi-class datasets, and for LDA,
+SVM and LR for both 2-class datasets (here FCQ is replaced by TCQ). Exam-
+"""
+
+  [[question.quote]]
+  document = "oa-radovic-2017-bmc"
+  page = 10
+  text = """
+ues of m. This figure also shows that, among the four
+tested baseline feature selection approaches, F-statistic
+outperformed the others in most cases including mRMR.
+SincemRMRusesF-statisticasameasureofrelevancewe
+canconcludethatminimumredundancycondition,calcu-
+lated as a Pearsoncorrelation coefficient, hurts its perfor-
+"""
+
+[[question]]
+id = "operator-050"
+text = "The fast-mRMR paper reports timings but no classification accuracy. What reason do its authors give, and which paper in this corpus supplies the accuracy evidence that this reasoning leans on?"
+language = "en"
+kind = "cross-document"
+difficulty = "medium"
+relevant_documents = ["ding-i-peng-2005-minimum-redundancy-feature-sele", "ram-rez-gallego-et-al-2017-fast-mrmr-fast-minimu"]
+reference_answer = "Ramirez-Gallego et al. state that fast-mRMR's classification performance was not evaluated because it selects the same set of features as the original mRMR in all cases, so accuracy is inherited rather than re-measured. The accuracy claim therefore rests on the original minimum-redundancy work: Ding and Peng report that their experiments clearly and consistently show MRMR feature sets outperforming baseline sets based solely on maximum relevance."
+notes = "Tests whether retrieval connects an omission in one paper to the evidence it depends on in another."
+
+  [[question.quote]]
+  document = "ram-rez-gallego-et-al-2017-fast-mrmr-fast-minimu"
+  page = 16
+  text = """
+not accepted by the original version. Note that the classiﬁcation performance of
+fast-mRMR has not been evaluated since it selects the same set of features as the
+original mRMR for all cases.
+"""
+
+  [[question.quote]]
+  document = "ding-i-peng-2005-minimum-redundancy-feature-sele"
+  page = 18
+  text = """
+accuracy. These experiment results clearly and consistently show that the MRMR
+feature sets outperform the baseline feature sets based solely on maximum relevance.
+"""
+
+[[question]]
+id = "operator-051"
+text = "Senawi et al. and Xie et al. both benchmark on the UCI Glass and Musk datasets. Do their reported descriptions of those two datasets agree?"
+language = "en"
+kind = "cross-document"
+difficulty = "hard"
+relevant_documents = ["senawi-et-al-2017-a-new-maximum-relevance-minimu", "xie-et-al-2023-a-new-improved-maximal-relevance"]
+reference_answer = "They agree on Musk — 166 features, 476 instances (Xie splits them 334 training / 142 test) and 2 classes — and on Glass having 9 features and 214 instances (Xie: 150 training + 64 test). They disagree on the number of classes in Glass: Senawi et al.'s table lists 7 classes, while Xie et al.'s table lists 6 categories."
+notes = "Requires reading the dataset table of both papers; the discrepancy in the Glass class count is real and cannot be found in either paper alone."
+
+  [[question.quote]]
+  document = "senawi-et-al-2017-a-new-maximum-relevance-minimu"
+  page = 19
+  text = """
+Dataset Number of features Number of instances Number of classes 
+Glass [N] 9 214 7 
+Magic Gamma [N] 10 19020 2 
+"""
+
+  [[question.quote]]
+  document = "senawi-et-al-2017-a-new-maximum-relevance-minimu"
+  page = 19
+  text = """
+Mfeat Zernike [N] 47 2000 10 
+Sonar  60 208 2 
+Musk [N] 166 476 2 
+"""
+
+  [[question.quote]]
+  document = "xie-et-al-2023-a-new-improved-maximal-relevance"
+  page = 11
+  text = """
+datasets Dataset Training set Test set Number of 
+features
+Number of 
+categories
+Musk 334 142 166 2
+Urban 478 197 147 9
+Ionosphere 246 105 34 2
+Glass 150 64 9 6
+"""
+
+[[question]]
+id = "operator-052"
+text = "Both MRmMC and ImRMR are pitched as improvements over mRMR. Where does each of them admit that plain mRMR was not beaten?"
+language = "en"
+kind = "cross-document"
+difficulty = "medium"
+relevant_documents = ["senawi-et-al-2017-a-new-maximum-relevance-minimu", "xie-et-al-2023-a-new-improved-maximal-relevance"]
+reference_answer = "Senawi et al. state that, considering each classifier used, MRmMC is only inferior to either mRMR or MIFS on the Mfeat Factors dataset. Xie et al. record that ImRMR's comprehensive rate is 0.6% lower than mRMR's on the Musk dataset and 0.99% lower than mRMR's on Ionosphere, while beating it elsewhere."
+notes = "Two papers' self-reported limitations against the same baseline; answering needs the concession sentence from each."
+
+  [[question.quote]]
+  document = "senawi-et-al-2017-a-new-maximum-relevance-minimu"
+  page = 22
+  text = """
+Considering each classifier used, the MRmMC method is only inferior to e ither mRMR or 
+MIFS for the Mfeat Factors dataset. Specifically, the MRmMC met hod shows slightly lower 
+"""
+
+  [[question.quote]]
+  document = "xie-et-al-2023-a-new-improved-maximal-relevance"
+  page = 13
+  text = """
+respectively; for the Musk dataset, the comprehensive rate of ImRMR is only 
+0.6% lower than that of mRMR, and 2.67–4.18% higher than that of the other four 
+"""
+
+  [[question.quote]]
+  document = "xie-et-al-2023-a-new-improved-maximal-relevance"
+  page = 13
+  text = """
+methods; for the Ionosphere dataset, the comprehensive rate of ImRMR is only 
+0.99% and 0.04% lower than mRMR and SU, respectively, and 1.95–6.36% higher 
+"""
+
+[[question]]
+id = "operator-053"
+text = "In the greedy mRMR variants, is the very first feature chosen by the combined relevance-and-redundancy criterion or by relevance alone? What do the microarray MRMR paper, fast-mRMR and TMRMR each say?"
+language = "en"
+kind = "cross-document"
+difficulty = "medium"
+relevant_documents = ["ding-i-peng-2005-minimum-redundancy-feature-sele", "oa-radovic-2017-bmc", "ram-rez-gallego-et-al-2017-fast-mrmr-fast-minimu"]
+reference_answer = "All three pick the first feature by relevance alone and only then switch to the combined criterion. Ding and Peng select the first feature by the maximum-relevance condition, the feature with the highest mutual information I(h,i), and add the rest incrementally; fast-mRMR first computes and caches the relevance of every feature and takes the best one by relevance as the reference for the redundancy phase; TMRMR likewise starts by selecting the gene with the largest relevance before running its greedy search."
+notes = "A convergence question rather than a disagreement: the answer is only complete if evidence from all three implementations is retrieved."
+
+  [[question.quote]]
+  document = "ding-i-peng-2005-minimum-redundancy-feature-sele"
+  page = 4
+  text = """
+In our algorithm, the ﬁrst feature is selected according to Eq. (3), i.e. the feature
+with the highestI(h, i). The rest features are selected in an incremental way: earlier
+selected features remain in the feature set. Supposem features are already selected
+"""
+
+  [[question.quote]]
+  document = "ram-rez-gallego-et-al-2017-fast-mrmr-fast-minimu"
+  page = 8
+  text = """
+Fast-mRMR ﬁrst computes the relevance values for all input features and caches
+them (lines 3–7) to be reused in the following steps. The best feature according to
+relevance is selected and set as reference for the redundancy phase (lines 9–11).
+"""
+
+  [[question.quote]]
+  document = "oa-radovic-2017-bmc"
+  page = 5
+  text = """
+As in mRMR [12], the proposed algorithm starts by
+selecting one feature (gene) having the largest relevance
+calculated by using Eq. 2. Thereafter, algorithm performs
+"""

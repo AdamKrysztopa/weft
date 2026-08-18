@@ -17,6 +17,13 @@ reads, which is why one stage's `destroys` tuple names both properties
 `weft_clean.property` for why splitting the reasoning into two facts, not
 one, matters.
 
+**Task 2.35 adds a third**: `Verbatim` joins the other two, for the same
+reason it joins every other processor in this pack — collapsing whitespace
+and trimming edges (`_normalize` below) both rewrite the exact character
+sequence extraction produced, which is what `weft_clean.property`'s module
+docstring means by every stage in this pack destroying `Verbatim`, not only
+the one that is destructive by design.
+
 `config_model = WhitespaceNormalizerConfig` — a repair, not part of the
 original lift, on the same footing `weft_clean.hyphenation`'s note gives.
 """
@@ -26,7 +33,7 @@ from collections.abc import Sequence
 
 from pydantic import BaseModel, ConfigDict
 
-from weft_clean.property import Newlines, WhitespaceGaps
+from weft_clean.property import Newlines, Verbatim, WhitespaceGaps
 from weft_kernel.context import Context
 from weft_kernel.payload import Node, NothingToProduce, Outcome, Produced, Property
 
@@ -50,7 +57,7 @@ class WhitespaceNormalizer:
     """
 
     intact: tuple[type[Property], ...] = ()
-    destroys: tuple[type[Property], ...] = (Newlines, WhitespaceGaps)
+    destroys: tuple[type[Property], ...] = (Newlines, WhitespaceGaps, Verbatim)
     config_model: type[WhitespaceNormalizerConfig] = WhitespaceNormalizerConfig
 
     def __init__(self, config: WhitespaceNormalizerConfig | None = None) -> None:

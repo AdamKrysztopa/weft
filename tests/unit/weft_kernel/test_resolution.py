@@ -381,6 +381,27 @@ def test_a_standalone_pipeline_resolves_every_stage_with_provenance_and_distribu
     assert resolved.unplaced_contributions == ()
 
 
+def test_a_fallback_naming_no_registered_plugin_still_resolves_carried_through_verbatim() -> None:
+    # Repair for a reviewer finding: `fallback:` is deliberately never looked up against
+    # `registry`, unlike `use:` — `resolution.ResolvedStage`'s own docstring and `02` §3's
+    # fallback callout both say a fallback may legitimately name a plugin nothing installs
+    # yet. This pins that `resolve()` does not raise for one and does not silently drop or
+    # rewrite the name either.
+    # Arrange
+    pipeline = Pipeline(
+        name="base",
+        stages=(
+            StageDeclaration(id="extract", use="docling", fallback=("nothing-registers-this",)),
+        ),
+    )
+
+    # Act
+    resolved = resolution.resolve(pipeline, registry=_registry(), contracts=_CONTRACTS)
+
+    # Assert
+    assert resolved.stages[0].fallback == ("nothing-registers-this",)
+
+
 def test_a_resolved_stage_prints_the_applicability_its_plugin_declared() -> None:
     # Arrange — `02` §3 → *Applicability*: "The resolved form must print each stage's
     # applicability, since a predicate is data." `_ChunkerNarrowedToProse` declares one.

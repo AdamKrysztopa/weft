@@ -20,10 +20,19 @@ import pytest
 
 from weft_cli import cli
 from weft_cli.exit_codes import ExitCode
+from weft_cli.output import AskFormat
 from weft_cli.permissions import CliCommand, PermissionClass
 from weft_cli.registry_bootstrap import Dependencies
+from weft_cli.services import ServiceSelection
+from weft_embed import Embedder
 from weft_kernel.discovery import PackReport, PackStatus
 from weft_kernel.registry import Registry
+
+
+def _null_factory(config: object) -> object:
+    """A registerable factory for a plugin no test ever calls — only resolves by name."""
+    del config
+    return object()
 
 
 def test_command_key_selects_version_over_any_subcommand() -> None:
@@ -68,6 +77,7 @@ def test_only_version_is_declared_as_not_needing_the_registry() -> None:
         "version": False,
         "index": True,
         "ask": True,
+        "route": True,
         "plugins list": True,
         "plugins doctor": True,
     }
@@ -93,6 +103,34 @@ def test_build_parser_parses_ask_with_a_default_top_k() -> None:
 
     # Assert
     assert (args.command, args.question, args.top_k) == ("ask", "what changed?", 5)
+    assert args.format is AskFormat.TEXT, (
+        "the default reader of `weft ask` is a person, and structured output is opt-in — a "
+        "default of JSON would change what every existing invocation prints"
+    )
+
+
+def test_build_parser_parses_the_ask_output_format_as_the_enum_member() -> None:
+    # Arrange — `--format` reaches `handle_ask` as an `AskFormat`, not a string, so the
+    # comparison there is against a member rather than a spelling.
+    parser = cli.build_parser()
+
+    # Act
+    args = parser.parse_args(["ask", "what changed?", "--format", "json"])
+
+    # Assert
+    assert args.format is AskFormat.JSON
+
+
+def test_build_parser_rejects_an_output_format_nothing_renders() -> None:
+    # `01` requirement 5: an unknown name fails loudly, naming the valid options. argparse's
+    # own `choices` message lists them, which is the whole reason the enum is the choice list
+    # rather than a hand-written tuple that could fall behind it.
+    # Arrange
+    parser = cli.build_parser()
+
+    # Act / Assert
+    with pytest.raises(SystemExit):
+        parser.parse_args(["ask", "what changed?", "--format", "yaml"])
 
 
 def test_build_parser_rejects_an_unknown_command() -> None:
@@ -127,7 +165,7 @@ async def test_dispatch_builds_a_registry_for_a_command_that_needs_one(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # Arrange
-    fake_deps = Dependencies(registry=Registry(), reports=())
+    fake_deps = Dependencies(registry=Registry(), reports=(), services=ServiceSelection())
     calls: list[Dependencies] = []
 
     async def _fake_handler(args: argparse.Namespace, deps: Dependencies) -> ExitCode:
@@ -173,7 +211,7 @@ async def test_dispatch_passes_strict_pins_false_only_for_the_two_plugins_comman
 
         def _fake_build_dependencies(*, strict_pins: bool, _name: str = name) -> Dependencies:
             seen[_name] = strict_pins
-            return Dependencies(registry=Registry(), reports=())
+            return Dependencies(registry=Registry(), reports=(), services=ServiceSelection())
 
         with pytest.MonkeyPatch.context() as monkeypatch:
             monkeypatch.setattr(cli, "build_dependencies", _fake_build_dependencies)
@@ -207,7 +245,7 @@ async def test_handle_index_refuses_before_running_when_a_required_pack_is_refus
     reports = (
         PackReport(distribution="weft-extract", status=PackStatus.REFUSED, reason="not allowed"),
     )
-    deps = Dependencies(registry=Registry(), reports=reports)
+    deps = Dependencies(registry=Registry(), reports=reports, services=ServiceSelection())
     args = argparse.Namespace(path=str(tmp_path))
 
     # Act
@@ -226,7 +264,9 @@ async def test_handle_ask_reports_resolution_failure_when_a_required_pack_is_mis
         raise AssertionError("run_ask must not run when a required pack is missing")
 
     monkeypatch.setattr("weft_cli.ask.run_ask", _boom)
-    deps = Dependencies(registry=Registry(), reports=())  # nothing discovered at all
+    deps = Dependencies(
+        registry=Registry(), reports=(), services=ServiceSelection()
+    )  # nothing discovered at all
     args = argparse.Namespace(question="what changed?", top_k=5)
 
     # Act
@@ -250,7 +290,9 @@ async def test_handle_ask_reports_resolution_failure_for_an_unregistered_embedde
         ),
         PackReport(distribution="weft-store", status=PackStatus.ACTIVE),
     )
-    deps = Dependencies(registry=Registry(), reports=reports)  # no 'hash' Embedder registered
+    deps = Dependencies(
+        registry=Registry(), reports=reports, services=ServiceSelection()
+    )  # no 'hash' Embedder registered
     args = argparse.Namespace(question="what changed?", top_k=5)
 
     # Act
@@ -258,6 +300,103 @@ async def test_handle_ask_reports_resolution_failure_for_an_unregistered_embedde
 
     # Assert
     assert exit_code is ExitCode.RESOLUTION_FAILED
+
+
+async def test_handle_index_blames_policy_when_the_selected_embedders_pack_is_refused(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Arrange — the reproduction task 2.29 opened: `[services] embed` names a plugin from a
+    # distribution no list in this repository can contain, and `[packs] allow` leaves it off.
+    # Every distribution `require_active` knows about is ACTIVE, so that gate passes and the
+    # old code went on to tell the operator, falsely, that nothing had registered the name.
+    async def _boom(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("run_index must not run when the selected embedder is unreachable")
+
+    monkeypatch.setattr("weft_cli.ingest.run_index", _boom)
+    registry = Registry()
+    registry.add(Embedder, "hash", _null_factory, distribution="weft-embed")
+    reports = (
+        *(
+            PackReport(distribution=distribution, status=PackStatus.ACTIVE)
+            for distribution in ("weft-extract", "weft-chunk", "weft-embed", "weft-store")
+        ),
+        PackReport(
+            distribution="weft-openai", status=PackStatus.REFUSED, reason="not in [packs] allow"
+        ),
+    )
+    deps = Dependencies(
+        registry=registry, reports=reports, services=ServiceSelection(embed="openai")
+    )
+    args = argparse.Namespace(path=str(tmp_path), extract=None)
+
+    # Act
+    exit_code = await cli.handle_index(args, deps)
+
+    # Assert
+    assert exit_code is ExitCode.POLICY_REFUSED
+    printed = capsys.readouterr().err
+    assert "weft-openai" in printed
+    assert "[packs] allow" in printed
+
+
+async def test_handle_ask_blames_policy_when_the_selected_embedders_pack_is_refused(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arrange — the same hole on the query side. It has to close on both: an index built with
+    # one embedder and a question embedded by another are vectors in unrelated spaces.
+    async def _boom(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("run_ask must not run when the selected embedder is unreachable")
+
+    monkeypatch.setattr("weft_cli.ask.run_ask", _boom)
+    registry = Registry()
+    registry.add(Embedder, "hash", _null_factory, distribution="weft-embed")
+    reports = (
+        PackReport(distribution="weft-embed", status=PackStatus.ACTIVE),
+        PackReport(distribution="weft-store", status=PackStatus.ACTIVE),
+        PackReport(
+            distribution="weft-openai", status=PackStatus.REFUSED, reason="not in [packs] allow"
+        ),
+    )
+    deps = Dependencies(
+        registry=registry, reports=reports, services=ServiceSelection(embed="openai")
+    )
+    args = argparse.Namespace(question="what changed?", top_k=5)
+
+    # Act
+    exit_code = await cli.handle_ask(args, deps)
+
+    # Assert
+    assert exit_code is ExitCode.POLICY_REFUSED
+
+
+async def test_handle_index_blames_policy_for_an_extractor_named_from_a_refused_pack(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Arrange — `--extract` has always been able to name a stranger's plugin, so the same gate
+    # covers it: the fix is about a name an operator supplies, not about embedders.
+    async def _boom(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("run_index must not run when the named extractor is unreachable")
+
+    monkeypatch.setattr("weft_cli.ingest.run_index", _boom)
+    reports = (
+        *(
+            PackReport(distribution=distribution, status=PackStatus.ACTIVE)
+            for distribution in ("weft-extract", "weft-chunk", "weft-embed", "weft-store")
+        ),
+        PackReport(
+            distribution="acme-docx", status=PackStatus.REFUSED, reason="not in [packs] allow"
+        ),
+    )
+    registry = Registry()
+    registry.add(Embedder, "hash", _null_factory, distribution="weft-embed")
+    deps = Dependencies(registry=registry, reports=reports, services=ServiceSelection())
+    args = argparse.Namespace(path=str(tmp_path), extract="docx")
+
+    # Act
+    exit_code = await cli.handle_index(args, deps)
+
+    # Assert
+    assert exit_code is ExitCode.POLICY_REFUSED
 
 
 async def test_handle_plugins_doctor_prints_a_displaced_registration_from_the_registry(
@@ -275,7 +414,7 @@ async def test_handle_plugins_doctor_prints_a_displaced_registration_from_the_re
         PackReport(distribution="weft-loser", status=PackStatus.ACTIVE, contributed=1),
         PackReport(distribution="weft-winner", status=PackStatus.ACTIVE, contributed=1),
     )
-    deps = Dependencies(registry=registry, reports=reports)
+    deps = Dependencies(registry=registry, reports=reports, services=ServiceSelection())
 
     # Act
     exit_code = await cli.handle_plugins_doctor(argparse.Namespace(), deps)

@@ -17,6 +17,13 @@ already parses `[packs] allow`, and `build_dependencies` hands the result to
 `register()` call sees a registry that already knows how to arbitrate a
 collision it is about to cause.
 
+**Task 2.29 adds `[services]`, and it is the same one file again.** Which
+`Embedder` a run resolves is an operator's choice rather than a constant in
+`weft_cli.ingest` — the argument is `weft_cli.services`', not this module's —
+and it is parsed from the *same* `_document_at` call as everything above, so
+the allow-list, the pack settings, the pins and the service selection cannot
+come from two different reads of one file.
+
 **Where pack settings come from, and the narrowing that decides it.**
 `docs/02-extension-model.md` §2's `packs:` settings block (keyed by
 distribution, validated against a pack's own Pydantic model) is real, but
@@ -63,17 +70,37 @@ with its reason attached." Phase 0's built-in pipeline names a fixed, known
 set of distributions (`weft-extract`, `weft-chunk`, `weft-embed`,
 `weft-store`), so `require_active` checks each one's `PackReport` directly
 rather than parsing an `UnknownPluginError` message after the fact.
+
+**That fixed set stopped being the whole answer at task 2.29, and
+`require_plugin` is the other half** — a repair for a reviewer finding. Once
+`[services] embed` lets an operator's file name the plugin, the distribution
+behind that name may be `weft-openai` or a stranger's pack, and no tuple
+written in this repository can contain it. `require_active` still covers the
+distributions this repository's own commands name; `require_plugin` covers
+the name itself, whoever provides it, and it is the one that keeps the two
+sentences above true for a third-party pack.
+
+**Task 2.30 adds `[llm.roles]`, from the same one-file read again.** Which
+provider and model answer a call made under a role is an operator's choice
+in `weft.toml`, exactly as `[services]` is — see `weft_cli.llm_roles`'s own
+module docstring for why it is its own top-level table rather than a third
+`[services]` field. **Task 2.10 adds `[llm.retry]` beside it**, for the same
+reason and out of the same parse: it built the retry wrapper the block
+configures, and a knob parsed by one reader and dropped before the run that
+needs it is a knob that silently does nothing.
 """
 
 from __future__ import annotations
 
 import os
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import cast
 
 from weft_cli.exit_codes import ExitCode
+from weft_cli.llm_roles import LLMRoles, LLMSection, llm_section_from_config
+from weft_cli.services import ServiceSelection, service_selection_from_config
 from weft_kernel.discovery import (
     PackReport,
     PackStatus,
@@ -82,13 +109,22 @@ from weft_kernel.discovery import (
     plugin_pins_from_config,
 )
 from weft_kernel.errors import WeftError
-from weft_kernel.registry import Registry
+from weft_kernel.registry import Registry, UnknownPluginError
 
 #: `docs/build-ledger.md` 0.9's own note — see the module docstring.
 DEFAULT_CONFIG_PATH = Path("weft.toml")
 
 #: `.env.example`'s own name for the one connection string Phase 0 needs.
 _DATABASE_URL_VAR = "WEFT_DATABASE_URL"
+
+#: The statuses that mean a distribution is installed and permitted, and still did not put
+#: everything it publishes in the registry. `require_plugin` names these when a plugin name
+#: does not resolve, because one of them is the likeliest reason it did not.
+_CONTRIBUTED_INCOMPLETELY = (
+    PackStatus.FAILED,
+    PackStatus.PARTIAL,
+    PackStatus.ALLOWED_NOT_INSTALLED,
+)
 
 
 class ConfigFileError(WeftError):
@@ -107,10 +143,30 @@ class ConfigFileError(WeftError):
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Dependencies:
-    """What a registry-needing command's handler receives: the built registry and its reports."""
+    """What a registry-needing command's handler receives.
+
+    The built registry, its reports, and what `[services]` selected — read
+    from the same single parse of `weft.toml` as the allow-list and the pack
+    settings, so no two readers of one file can disagree about what it says.
+
+    `llm` defaults to an empty section — no role mapped and the default retry
+    policy — rather than carrying no default at all, for the same reason every
+    field two tasks over on `ServiceSelection` carries one: a caller building
+    `Dependencies` directly, in a test or a library use `weft ask` does not yet
+    take, should not have to construct one by hand for a run that never asks a
+    model anything. `llm_roles` stays available as a property, because task
+    2.30's shape (a bare role table) is what every existing caller reads.
+    """
 
     registry: Registry
     reports: tuple[PackReport, ...]
+    services: ServiceSelection
+    llm: LLMSection = field(default_factory=LLMSection)
+
+    @property
+    def llm_roles(self) -> LLMRoles:
+        """`[llm.roles]` alone — the narrow view every caller before task 2.10 held."""
+        return self.llm.roles
 
 
 def build_dependencies(
@@ -128,13 +184,63 @@ def build_dependencies(
     caller keeps the default, so an inert `[plugins]` pin still refuses
     `index`/`ask` exactly as it always has.
     """
+    _ensure_chunk_offset_rehydrates()
     document = _document_at(config_path)
     allow = None if document is None else allow_list_from_config(document)
     settings = merged_pack_settings(document)
     pins = {} if document is None else plugin_pins_from_config(document)
+    services = service_selection_from_config(document)
+    llm = llm_section_from_config(document)
     registry = Registry(plugin_pins=pins)
     reports = discover(registry, allow=allow, pack_settings=settings, strict_pins=strict_pins)
-    return Dependencies(registry=registry, reports=reports)
+    return Dependencies(registry=registry, reports=reports, services=services, llm=llm)
+
+
+def _ensure_chunk_offset_rehydrates() -> None:
+    """Make `weft_chunk.payload.ChunkOffset` reconstructable by `weft_store.rehydrate`.
+
+    Every chunk `weft-chunk` derives now carries `ChunkOffset` (ledger 2.9, the
+    page-attribution gap `weft_chunk.fixed_size`'s own module docstring names), and
+    `weft_store.rehydrate` refuses to read a stored node back unless the namespace that
+    reached storage was registered first. Neither pack makes this call itself —
+    `weft_chunk.__init__`'s own module docstring says why: fitness function 9(a) proves a
+    stranger can extend `weft-chunk` from a wheel carrying only `weft-kernel` and
+    `weft-chunk`, and a hard `weft-store` dependency there would break that. `weft-cli`
+    depends on both, so this is where the two ends of a real pipeline meet.
+
+    **Imported lazily, inside this function, never at module scope.** A top-level import
+    of `weft_chunk`/`weft_store` here would put both in `sys.modules` for *every*
+    command `build_dependencies` is not even called for — `weft --version` included,
+    which is exactly what fitness function 8(b) refuses (`test_ff8_trust_model.py`
+    caught this once already, as a module-level version of this same call).
+
+    **Checked first, not caught blindly — a repair for a reviewer finding.** This function
+    runs once per command but many times over within this module's own test suite, each
+    against the one, process-wide registry `register_ext_model` writes to — unlike the
+    plugin `Registry` `build_dependencies` builds fresh every call. The first cut wrapped
+    the call in `contextlib.suppress(DuplicateRegistrationError)` unconditionally, which
+    made "this function's own idempotent second call" and "a genuine second class claiming
+    the `weft-chunk` namespace" indistinguishable — exactly the failure mode CLAUDE.md
+    names by description: a silent fallback whose success and failure paths cannot be told
+    apart. So this looks the namespace up first: if `ChunkOffset` itself is already the
+    registrant, there is nothing to do — it is this function's own earlier call in this
+    process. Otherwise it calls `register_ext_model`, unguarded, and lets
+    `DuplicateRegistrationError` propagate — naming both classes — exactly as
+    `weft_store.rehydrate`'s own docstring says every namespace collision must.
+    """
+    from weft_chunk.payload import ChunkOffset
+    from weft_kernel.payload import ExtModel
+    from weft_kernel.registry import UnknownPluginError
+    from weft_store import register_ext_model
+    from weft_store.rehydrate import ext_models
+
+    try:
+        registrant = ext_models.entry(ExtModel, ChunkOffset.__namespace__).factory
+    except UnknownPluginError:
+        register_ext_model(ChunkOffset)
+        return
+    if registrant is not ChunkOffset:
+        register_ext_model(ChunkOffset)
 
 
 def merged_pack_settings(document: dict[str, object] | None) -> dict[str, dict[str, object]]:
@@ -241,6 +347,96 @@ def require_active(
                 f"'{distribution}' failed to register: {report.reason}",
             )
     return None
+
+
+def require_plugin(
+    reports: tuple[PackReport, ...],
+    *,
+    registry: Registry,
+    contract: type[object],
+    name: str,
+    setting: str,
+) -> tuple[ExitCode, str] | None:
+    """`None` if `name` resolves for `contract`; otherwise the exit code and why it does not.
+
+    **The gate `require_active` structurally cannot be.** That one takes a
+    fixed tuple of distribution names, which was sound while every plugin name
+    a command resolved was written in this repository. It stopped being sound
+    the moment `[services] embed` let an operator's file name the plugin
+    (ledger task 2.29): the distribution behind that name can be `weft-openai`,
+    or a pack neither of us wrote, and neither can ever appear in a tuple
+    compiled in here. With the providing pack `refused` or `failed`,
+    `require_active` returned `None`, the run proceeded, and the operator was
+    told by `weft_kernel.registry.UnknownPluginError` that *no distribution
+    has registered that name* — which is false, and which
+    `docs/02-extension-model.md` → *The trust model* settles twice over:
+    "every unresolvable plugin name carries its reason... never a bare
+    `unknown plugin 'docling'`", and a name from a `refused` pack "exits 3,
+    refused, and names the config key that would permit it."
+
+    So this takes the contract and the name instead of a distribution list,
+    and reads `reports` only once resolution has already failed:
+
+    - **Refused packs present → exit 3.** A refused pack is *never imported*,
+      which is the whole point of refusing it, so nothing here can prove it is
+      the one that would have claimed `name` — and the message says exactly
+      that rather than asserting it. The code is still policy's: the operator's
+      next move is `[packs] allow`, and a CI job acting on 3 is acting on the
+      right thing.
+    - **Failed, partial or allowed-but-absent packs → exit 4, with their
+      reasons attached** — `02` again: "a name lost to `failed` or `partial`
+      stays 4 with its reason attached, because neither is a policy decision."
+    - **Nothing amiss → exit 4** and the registry's own message, whose claim
+      that nothing registered the name is, in that case, true.
+
+    `setting` names where `name` came from — `[services] embed`, `--extract` —
+    because "'openai' is not registered" sends an operator looking for a pack
+    when the thing to edit is a line in their own file. `contract` is a bare
+    `type[object]` for the same reason the kernel's own registry takes one:
+    this module names no capability, and the same gate has to serve the roles
+    `[services]` grows later.
+    """
+    try:
+        registry.entry(contract, name)
+    except UnknownPluginError as exc:
+        return _unresolved(reports, contract=contract, name=name, setting=setting, plain=str(exc))
+    return None
+
+
+def _unresolved(
+    reports: tuple[PackReport, ...],
+    *,
+    contract: type[object],
+    name: str,
+    setting: str,
+    plain: str,
+) -> tuple[ExitCode, str]:
+    """`require_plugin`'s answer once the name is known not to resolve — see its docstring."""
+    refused = tuple(report for report in reports if report.status is PackStatus.REFUSED)
+    silent = tuple(report for report in reports if report.status in _CONTRIBUTED_INCOMPLETELY)
+    wanted = f"{setting} names '{name}', and no registered {contract.__name__} has that name."
+    if refused:
+        listed = ", ".join(sorted(report.distribution for report in refused))
+        return (
+            ExitCode.POLICY_REFUSED,
+            f"{wanted} These distributions are refused by [packs] allow in "
+            f"{DEFAULT_CONFIG_PATH} and were never imported, so what they would have "
+            f"registered is unknown: {listed}. Add the one that provides '{name}' to "
+            f"[packs] allow. {plain}",
+        )
+    if silent:
+        listed = "; ".join(
+            f"{report.distribution} ({report.status.value}"
+            + (f": {report.reason}" if report.reason else "")
+            + ")"
+            for report in sorted(silent, key=lambda report: report.distribution)
+        )
+        return (
+            ExitCode.RESOLUTION_FAILED,
+            f"{wanted} These distributions contributed nothing, or only part of what they "
+            f"publish, and one of them may be the one that provides it: {listed}. {plain}",
+        )
+    return (ExitCode.RESOLUTION_FAILED, f"{wanted} {plain}")
 
 
 def allow_list_from_file(config_path: Path) -> tuple[str, ...] | None:

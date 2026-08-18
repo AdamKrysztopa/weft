@@ -25,6 +25,7 @@ therefore `PipelineResolutionError.__subclasses__()`, is process-global.
 
 from __future__ import annotations
 
+import inspect
 from typing import Final
 
 from weft_kernel import resolution, runner
@@ -35,6 +36,31 @@ _SENTINEL_PIPELINE: Final[str] = "acme-pipeline"
 _SENTINEL_STAGES: Final[tuple[str, ...]] = ("stage-a", "stage-b")
 _SENTINEL_DISTRIBUTIONS: Final[tuple[str, ...]] = ("acme-pack",)
 _SENTINEL_REMEDY: Final[str] = "do the thing the message names"
+
+
+def _other_required_kwargs(cls: type[PipelineResolutionError]) -> dict[str, object]:
+    """Placeholders for whatever `cls.__init__` requires beyond the shared four.
+
+    Fitness function 12 widened some family members (`UnknownFallbackError`,
+    `UndefinedVarError`, `StaleOperatorTargetError`, `UnknownParentPipelineError`) to also
+    require `valid_options` — a fact orthogonal to this file's own obligation, which is
+    only that the shared four still round-trip. Task 2.36's own repair later collapsed
+    those four classes' identical forwarding bodies into one shared
+    `weft_kernel.runner.UnresolvedNameInPipelineResolutionError`, which `_every_family_
+    member` below also walks (it subclasses `PipelineResolutionError` directly) and which
+    carries the identical `valid_options` requirement — this function needs no change for
+    that: it does not hand-list the four by name, it reads whatever `cls.__init__`
+    actually requires. A required keyword this function does not already know about gets
+    an empty-tuple placeholder, the honest "no options" value.
+    """
+    known = {"self", "message", "pipeline", "stages", "distributions", "remedy"}
+    return {
+        name: ()
+        for name, param in inspect.signature(cls.__init__).parameters.items()
+        if name not in known
+        and param.default is inspect.Parameter.empty
+        and param.kind not in (inspect.Parameter.VAR_KEYWORD, inspect.Parameter.VAR_POSITIONAL)
+    }
 
 
 def _carries_the_four_fields(cls: type[PipelineResolutionError]) -> bool:
@@ -52,6 +78,7 @@ def _carries_the_four_fields(cls: type[PipelineResolutionError]) -> bool:
         stages=_SENTINEL_STAGES,
         distributions=_SENTINEL_DISTRIBUTIONS,
         remedy=_SENTINEL_REMEDY,
+        **_other_required_kwargs(cls),
     )
     return (
         exc.pipeline == _SENTINEL_PIPELINE

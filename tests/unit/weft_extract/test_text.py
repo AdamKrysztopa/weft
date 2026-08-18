@@ -29,8 +29,9 @@ def test_discover_source_docs_finds_only_txt_and_md_files(tmp_path: Path) -> Non
     sub.mkdir()
     (sub / "d.txt").write_text("nested", encoding="utf-8")
 
-    # Act
-    docs = discover_source_docs(tmp_path)
+    # Act — the accept set is passed in, never read off this pack's own constant; see
+    # `weft_extract.accept` for the defect that made it an argument.
+    docs = discover_source_docs(tmp_path, extensions=TextExtractor.extensions)
 
     # Assert
     uris = {doc.uri for doc in docs}

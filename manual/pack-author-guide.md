@@ -236,8 +236,13 @@ The rules this obeys, and what enforces each:
 ## 5. Proving it runs
 
 **`weft index` and `weft ask` will not run this plugin.** Phase 0 has not built pipelines as
-configuration yet — `weft index` composes one fixed, hardcoded list of four built-in plugins, and
-nothing you install changes what that list names. Proving a third-party plugin works today means
+configuration yet — `weft index` composes one fixed list of four stages, and nothing you install
+changes which chunker, embedder or store it names. **One stage is the exception, and if you are
+writing an *extractor* it is the one that matters:** `weft index` derives what file formats it
+accepts, and which extractor runs, from the `extensions` every registered `Extractor` declares
+(`weft_extract.accept.claimed_extensions`). Install an extractor pack claiming `.epub` and
+`weft index` reads `.epub` with no edit anywhere; if two installed extractors claim the same
+suffix it refuses by name rather than choosing, and `--extract <name>` picks one. Proving a third-party plugin works today means
 exactly what `tests/architecture/test_ff9_extension_from_outside.py` does, and it is three ordinary
 objects: a `weft_kernel.registry.Registry`, one `weft_kernel.runner.StageSpec` naming your plugin
 for `Chunker`, and `weft_kernel.runner.Runner.resolve(...)` / `.run(...)` to check and execute it.

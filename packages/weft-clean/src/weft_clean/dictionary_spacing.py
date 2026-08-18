@@ -25,10 +25,17 @@ standing exception list of words that must never be split. That the fix is
 *data a pack ships*, not logic every call site re-derives, is the asset; the
 words filling that data are ordinary language and this module's own.
 
-No ordering constraint: the reference's own note is `intact = ()`, `destroys =
-()`, "can run on clean text" — this stage does not care what earlier stages
-in the chain did, unlike `weft_clean.hyphenation.HyphenationRepair` and
-`weft_clean.table_linearizer.TableLinearizer`.
+No `intact` constraint: the reference's own note is "can run on clean text" —
+this stage does not *need* anything an earlier stage produced, unlike
+`weft_clean.hyphenation.HyphenationRepair` and
+`weft_clean.table_linearizer.TableLinearizer`. **Task 2.35 adds one thing to
+`destroys`, though**: splitting a fused word inserts a literal space into
+what was a contiguous run of characters (`_split_if_fused` below), and a
+mis-decoded byte sequence `weft_clean.unicode_normalizer.UnicodeNormalizer`
+has not yet repaired is exactly that — a contiguous run this stage has no
+way to recognise as one thing. `destroys = (Verbatim,)` names that honestly;
+see `weft_clean.property`'s module docstring for why every processor in this
+pack destroys `Verbatim`, not only this one.
 
 **`applies_to` — a repair, not part of the original lift.** This class is the
 one language-specific stage in the tree, and until this fix it declared no
@@ -52,6 +59,7 @@ from collections.abc import Sequence
 from pydantic import BaseModel, ConfigDict
 
 from weft_clean.language import Language
+from weft_clean.property import Verbatim
 from weft_kernel.context import Context
 from weft_kernel.payload import Applies, Node, NothingToProduce, Outcome, Produced, Property
 
@@ -103,7 +111,7 @@ class PolishFusedWordFixer:
     """
 
     intact: tuple[type[Property], ...] = ()
-    destroys: tuple[type[Property], ...] = ()
+    destroys: tuple[type[Property], ...] = (Verbatim,)
     applies_to: tuple[Applies, ...] = (Applies(Language, code="pl"),)
     config_model: type[PolishFusedWordFixerConfig] = PolishFusedWordFixerConfig
 

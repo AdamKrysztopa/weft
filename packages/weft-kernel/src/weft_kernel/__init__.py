@@ -12,12 +12,8 @@ enforced by fitness function 1.
 from weft_kernel.blocking import BlockingCallError
 from weft_kernel.context import (
     Context,
-    DuplicateMessageError,
     DuplicateServiceError,
-    MessageCatalogue,
-    MessageFormatError,
     ServiceRegistry,
-    UnknownMessageError,
     UnresolvedServiceError,
 )
 from weft_kernel.discovery import (
@@ -29,11 +25,13 @@ from weft_kernel.discovery import (
     PackReport,
     PackSettingsError,
     PackStatus,
+    PipelineResource,
     allow_list_from_config,
     discover,
     interpolate_env,
 )
-from weft_kernel.errors import WeftError
+from weft_kernel.errors import UnresolvedNameError, WeftError
+from weft_kernel.fallback import Attempt, try_in_order
 from weft_kernel.payload import (
     ExtMap,
     ExtModel,
@@ -90,17 +88,18 @@ from weft_kernel.runner import (
     StageCompositionError,
     StageSpec,
     TenantMismatchError,
+    UnknownFallbackError,
     UnmetRequiresError,
 )
 from weft_kernel.seam import wrap, wrap_flush
 
 __all__ = [
     "ENTRY_POINT_GROUP",
+    "Attempt",
     "BlockingCallError",
     "Context",
     "Contribution",
     "Disclosure",
-    "DuplicateMessageError",
     "DuplicateRegistrationError",
     "DuplicateServiceError",
     "EntryPointLike",
@@ -114,9 +113,7 @@ __all__ = [
     "InvalidStageConfigError",
     "Lifetime",
     "Lineage",
-    "MessageCatalogue",
     "MediaType",
-    "MessageFormatError",
     "MissingDestroysDeclarationError",
     "Node",
     "NodeId",
@@ -130,6 +127,7 @@ __all__ = [
     "Pipeline",
     "PipelineCycleError",
     "PipelineResolutionError",
+    "PipelineResource",
     "Produced",
     "Property",
     "Registry",
@@ -153,10 +151,11 @@ __all__ = [
     "SyntheticOrigin",
     "TenantMismatchError",
     "UndefinedVarError",
-    "UnknownMessageError",
+    "UnknownFallbackError",
     "UnknownParentPipelineError",
     "UnknownPluginError",
     "UnmetRequiresError",
+    "UnresolvedNameError",
     "UnresolvedServiceError",
     "Vector",
     "WeftError",
@@ -164,6 +163,7 @@ __all__ = [
     "discover",
     "interpolate_env",
     "resolve",
+    "try_in_order",
     "wrap",
     "wrap_flush",
 ]

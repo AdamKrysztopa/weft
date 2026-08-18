@@ -1,0 +1,4 @@
+name: route
+stages:
+  - {id: score,  use: query-scorer,        with: {role: route}}
+  - {id: decide, use: nearest-description}

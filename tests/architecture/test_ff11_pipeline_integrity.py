@@ -46,11 +46,18 @@ fenced block under `manual/` — a tagging convention deliberately distinct from
 `manual/operations-guide.md`'s own ` ```yaml path=compose.yaml `: that one claims "this text
 is the real file, included, not retyped"; this one claims "this text is a pipeline document
 that must resolve," which is a different property and earns a different tag rather than
-overloading one that already means something else. The first two globs are empty in this
-tree today — no pack ships a pipeline document yet — which is fine, because the mechanism
-that would find one is what has to exist, not an instance of one; `manual/user-manual.md`
-already carries two `id=pipeline:...` blocks (`02` §3's own `base`/`specific` walkthrough),
-so the combined set is never empty. `test_at_least_one_shipped_or_quoted_pipeline_is_found`
+overloading one that already means something else. The `examples/*/pipelines/*.yaml` glob is
+still empty in this tree — no example pack ships a pipeline document yet, which is fine,
+because the mechanism that would find one is what has to exist, not an instance of one.
+`packages/*/pipelines/*.yaml` stopped being empty at task **2.19**: `weft-retrieve` ships
+`retrieve-then-generate.yaml` (`.phase2-design.md` §4's V3 baseline — `vector-top-k` →
+`single-list` → `repack` → `cited-answer`) and `no-retrieval.yaml` (ledger 2.13's own
+deferred pairing, `no-retrieval` → `single-list` → `repack` →
+`cited-answer(when_no_evidence=answer_from_memory)`), the pipeline both ledger 2.13 and
+2.14 named and left for whichever of `single-list` (2.7), `cited-answer` (2.9) or `repack`
+(2.19) closed last. `manual/user-manual.md` already carries two `id=pipeline:...` blocks
+(`02` §3's own `base`/`specific` walkthrough), so the combined set was never empty even
+before that. `test_at_least_one_shipped_or_quoted_pipeline_is_found`
 is the floor that makes this true a fact rather than an accident of what happens to exist —
 `08` §3's own rule, "a check with no floor is the reference's `test_keys_parity` with a
 different subject," applied to an architecture check instead of a documentation one.
@@ -341,13 +348,21 @@ def _manual_pipeline_blocks(manual_root: Path) -> list[tuple[str, str]]:
 
 
 def _shipped_pipeline_files(*roots: Path) -> list[tuple[str, str]]:
-    """Every `*.yaml` file directly under a `pipelines/` directory one level inside `roots`.
+    """Every `*.yaml` file directly under a `pipelines/` directory one level inside `roots`,
+    **or** under a `pipelines/` directory one level inside a `src/*` package directory.
 
     `roots` is `packages/*` for a first-party pack and `examples/*` for an example pack —
-    `01` item 11(b)'s other two sources. Both are empty in the real tree today: no pack
-    ships a pipeline document yet. That is a fact about this repository's current state,
-    not a limitation of the glob — the self-test just below plants one and proves the
-    mechanism finds it.
+    `01` item 11(b)'s other two sources. `weft-retrieve/pipelines/` stopped being empty at
+    task 2.19. **Task 2.8 adds the second location**: `weft_kernel.discovery.
+    PipelineResource` reads through `importlib.resources`, which resolves a package's own
+    installed directory — `packages/<name>/pipelines/` sits *outside* every pack's wheel
+    and was never reachable that way, so a pack contributing a pipeline for real
+    installation ships it from inside its own package, `packages/<name>/src/<import
+    name>/pipelines/`. Both locations are first-party conventions this gate must find, not
+    two competing ones: an old-style demonstration pipeline the CLI reads from a checked-out
+    tree can still live at the top level, and a pipeline meant to be routable from an
+    installed wheel lives beside the code that ships it. The self-tests just below plant one
+    of each and prove the mechanism finds both regardless of what the real tree holds.
     """
     found: list[tuple[str, str]] = []
     for root in roots:
@@ -356,6 +371,12 @@ def _shipped_pipeline_files(*roots: Path) -> list[tuple[str, str]]:
         for pack_dir in sorted(p for p in root.iterdir() if p.is_dir()):
             for path in sorted((pack_dir / "pipelines").glob("*.yaml")):
                 found.append((str(path), path.read_text(encoding="utf-8")))
+            src_dir = pack_dir / "src"
+            if not src_dir.is_dir():
+                continue
+            for package_dir in sorted(p for p in src_dir.iterdir() if p.is_dir()):
+                for path in sorted((package_dir / "pipelines").glob("*.yaml")):
+                    found.append((str(path), path.read_text(encoding="utf-8")))
     return found
 
 
@@ -385,6 +406,13 @@ def _stage_use_pairs(pipeline: Pipeline) -> list[tuple[str, str]]:
     input. `replace`'s targets reuse `StageDeclaration` (its own `id` *is* the target, per
     `weft_kernel.pipeline`'s own docstring), so it carries a `use:` exactly like `stages:` and
     an `insert`'s own stage do; `remove` and `set` name no plugin, so neither contributes here.
+
+    **Deliberately excludes `fallback:`.** `weft_kernel.resolution.ResolvedStage`'s own docstring
+    and `02` §3's fallback callout both say why: a fallback name may legitimately name a plugin
+    that is not installed *yet* — `manual/user-manual.md`'s own `id=pipeline:base` block below
+    names `ocr` as `text`'s fallback with no `weft-ocr`-shaped pack anywhere in this tree — and
+    this clause exists to catch a plugin that will not run *today*, which a forward-declared
+    fallback is not. `test_stage_use_pairs_excludes_fallback_names` locks this in.
     """
     pairs = [(stage.id, stage.use) for stage in pipeline.stages]
     pairs += [(op.stage.id, op.stage.use) for op in pipeline.insert]
@@ -563,6 +591,61 @@ def test_every_shipped_or_quoted_pipeline_resolves() -> None:
     assert not failures, "\n".join(failures)
 
 
+def test_stage_use_pairs_excludes_fallback_names() -> None:
+    """Repair for a reviewer finding: `fallback:` must stay invisible to this clause, by name.
+
+    A fallback may legitimately name a plugin nothing installs yet (`02` §3's own fallback
+    callout, `weft_kernel.resolution.ResolvedStage`'s docstring) — a document naming `ocr` as
+    `text`'s fallback before any pack ships one is correct, not rotted. If `_stage_use_pairs`
+    ever grows to include `fallback`, this is the test that would have to change on purpose,
+    rather than the check silently starting to reject every pipeline that uses the field the
+    manual's own worked example ships with.
+    """
+    # Arrange
+    pipeline = _parse_pipeline(
+        "planted.yaml",
+        "name: has-fallback\n"
+        "stages:\n"
+        "  - id: extract\n"
+        "    use: text\n"
+        "    fallback: [nothing-registers-this]\n",
+    )
+
+    # Act
+    pairs = _stage_use_pairs(pipeline)
+
+    # Assert — only the `use:` pair is collected; the fallback name appears nowhere.
+    assert pairs == [("extract", "text")]
+    assert not any("nothing-registers-this" in pair for pair in pairs)
+
+
+def test_manual_pipeline_with_an_unregistered_fallback_still_resolves() -> None:
+    """The concrete case the finding named: `manual/user-manual.md`'s own shipped `fallback:
+    [ocr]` block, against the real installed registry, where no pack registers `ocr` — this
+    must pass, on purpose, because `fallback:` is excluded from what this clause checks."""
+    # Arrange
+    registry = _installed_registry()
+    with_fallback = [
+        (
+            "planted.yaml",
+            "name: has-fallback\n"
+            "stages:\n"
+            "  - id: extract\n"
+            "    use: text\n"
+            "    fallback: [ocr]\n"
+            "  - id: chunk\n"
+            "    use: fixed-size\n",
+        )
+    ]
+
+    # Act
+    unknown_plugins, failures = _resolve_every_pipeline(with_fallback, registry=registry)
+
+    # Assert
+    assert not unknown_plugins, "\n".join(unknown_plugins)
+    assert not failures, "\n".join(failures)
+
+
 def test_a_pipeline_naming_an_unknown_plugin_would_be_caught() -> None:
     """Prove the check above can actually fail — `01` item 11(b)'s own example: rename a
     plugin and leave a document naming the old one."""
@@ -663,6 +746,23 @@ def test_shipped_pipeline_files_are_found_under_a_packs_own_pipelines_directory(
 
     # Assert
     assert found == [(str(planted), "name: base\nstages: []\n")]
+
+
+def test_shipped_pipeline_files_are_found_under_a_packs_own_src_layout_pipelines_directory(
+    tmp_path: Path,
+) -> None:
+    # Arrange — task 2.8's addition: a pipeline shipped from inside the package itself,
+    # reachable through `importlib.resources` once installed, not only from a checkout.
+    pipelines_dir = tmp_path / "weft-something" / "src" / "weft_something" / "pipelines"
+    pipelines_dir.mkdir(parents=True)
+    planted = pipelines_dir / "route.yaml"
+    planted.write_text("name: route\nstages: []\n", encoding="utf-8")
+
+    # Act
+    found = _shipped_pipeline_files(tmp_path)
+
+    # Assert
+    assert found == [(str(planted), "name: route\nstages: []\n")]
 
 
 def test_manual_pipeline_blocks_are_found_under_their_own_tag(tmp_path: Path) -> None:

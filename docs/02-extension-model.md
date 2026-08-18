@@ -230,24 +230,30 @@ class MyStage:
   > contract and plugin name" means in practice, not a reversal: whatever calls `wrap` once a
   > pipeline exists (the runner, step 6) is free to pass a richer `stage` label, and this is not
   > that decision.
-- **Messages are looked up, never formatted in place.** `ctx.t('graph.node_dropped', n=3)` resolves
-  against the merged catalogue, namespaced by pack.
+- **Error text is an English literal at the raise site** (G11, settled 2026-08-18). A plugin writes
+  its message where it raises, in English, and does not look it up. What a reader gets *instead* of a
+  translation is two things a translation never gave them: a `manual/troubleshooting.md` entry, held
+  by a coverage ratchet that fails the build for any `WeftError` subclass without one; and **fitness
+  function 12** — an error reporting an unknown name carries the valid options as a typed field, so
+  requirement 5's second clause is machine-checked rather than a convention each author remembers.
 
-  > **Narrowed in Phase 0 step 4 (2026-08-16), corrected at step 5 (2026-08-16).** The catalogue
-  > built at step 4 owns the *merge* and not the *namespace*: it is a flat `{locale: {key: template}}`
-  > map, and a `(locale, key)` already registered is refused naming both templates rather than
-  > overwritten — the same fixed reversible choice `06` takes for duplicate plugin names. Where a
-  > key's `graph.` prefix would come from — a pack's own `register()` contributing locale resources
-  > through something like `registrar.add_messages(ns=…, resources=…)` — **is not built in any Phase
-  > 0 step.** This section originally said step 5 would make it true; it does not. `06`'s own scope
-  > line for step 5 (*Discovery and the trust model*) lists entry-point enumeration, `allow`, the
-  > status vocabulary, `DISCLOSURE` and pack settings — no catalogue contribution — and `PackRegistrar`
-  > exposes only `add`. No later Phase 0 step names it either, and whether a pack's message keys are
-  > even in scope at all is still open: `09-release.md` flags "message-catalogue keys emitted by
-  > first-party packs" as **not on G9's Bring list**. *"Namespaced by pack"* therefore stays this
-  > section's description of the eventual design, not a guarantee any Phase 0 code makes true; until a
-  > pack can contribute at all, the refusal above is what stops two contributors deciding the same key
-  > differently, and it is strictly weaker than the guarantee above rather than a substitute for it.
+  > **This bullet used to read *"Messages are looked up, never formatted in place"***, describing
+  > `ctx.t('graph.node_dropped', n=3)` resolving against a merged catalogue namespaced by pack. **G11
+  > retired that seam (2026-08-18)** and this section now owns what replaced it. The reasoning, in
+  > short: the gate was opened because two documents disagreed about whether *kernel* errors were
+  > among the catalogue's addressees, and the measurement taken to settle it found something larger —
+  > after three phases the catalogue had **zero registered messages and zero `ctx.t()` call sites**,
+  > and the 51 first-party pack error classes that are its intended clientele had all chosen literals
+  > too. G11 settled that Weft's **interface** is English-only as a product decision, and that the
+  > **content**-language axis is the one it invests in — `Query.locale`, `Applies(Language)`, the
+  > Polish cleaner, per-locale prompt texts. A locale-keyed message store with one locale is a dict
+  > with a constant key, so `MessageCatalogue`, `Context.messages`, `ctx.t()` and their three error
+  > classes are gone, taking the kernel from 33 error classes to **30**. Two open questions this
+  > closes rather than defers: `add_messages` is not merely unbuilt, it is **not going to be built**;
+  > and `09-release.md`'s flag that a pack's message-catalogue keys are *"not on G9's Bring list"* no
+  > longer needs an answer, because there are no such keys. `Context.locale` **stays**, and its
+  > meaning is sharpened — the run's configured *content* language, whose only consumer is prompt text
+  > selection, deliberately distinct from `Query.locale`, "a fact about the ask".
 - **Every contract method is `async def`** (G6). There is no sync protocol and no declared colour: a
   CPU-bound stage is still `async def` and offloads its own blocking work. Fitness function 7 fails
   the build on any blocking *call* made while a stage runs — file IO, sockets, `time.sleep`, a
@@ -412,6 +418,21 @@ stays eager and `Outcome` stays decidable at return.
 > belongs to the contract, which every published contract is expected to state once, at its own
 > declaration (`class Extractor(Stage[Seq[SourceDoc], Seq[Node]], Protocol)`), per `06` step 6.
 
+> **Narrowed in Phase 2 task 2.4 (2026-08-17).** The two query-path pairs written above are the
+> shape, not the types. As published by `weft-retrieve` and `weft-generate`, `Retriever` is
+> `Stage[QuerySet, Candidates]` and `Generator` is `Stage[Passages, Answer]`, with `QueryTransform`,
+> `Fuser`, `Reranker` and `ContextPacker` filling the span between them. **The reason is fan-in.**
+> The sentence above is right that the query path is not one type throughout; what it does not yet
+> say is *why more than two*. A retriever run over n queries across two store arms produces k ranked
+> lists, and something must reduce k to one before a reranker, a packer or a generator can mean
+> anything. Expressing that reduction as a combinator is impossible here — the composition check
+> reads `In`/`Out` off the contract class once, so no stage's types can depend on its configuration
+> — so it is expressed as *types*: `Candidates` means "k lists", `Ranking` means "one", and a
+> `Fuser` is by definition `Stage[Candidates, Ranking]`. The consequence is the point: a pipeline
+> that reaches a reranker before it has fused does not resolve, and the check that refuses it is
+> `weft_kernel.runner`'s own, with no inspector in any pack. Neither **G5** nor **G2** is reopened —
+> the `Node` payload is untouched and this is still one pipeline model over one ordered list.
+
 ### The store contract family
 
 **Settled in G4**, published by `weft-store`. Backends differ genuinely — hybrid search, filtering,
@@ -459,6 +480,76 @@ class MetadataFilter(Protocol): ...                # marker: supports the whole 
 > two capabilities Phase 0 has a built-in for; `TextSearch` and `MetadataFilter` remain this
 > section's design for when a store implementing them exists.
 
+> **Narrowed in Phase 2 task 2.5 (2026-08-17): three of the four tiers are published, and the
+> fourth cannot be published as written.**
+>
+> **`TextSearch` is published**, exactly as the block above specifies, and `PgVectorStore` satisfies
+> it over a generated `tsvector` column. `STORE_CONTRACT_VERSION` moves `1.0.0` → `1.1.0`: the
+> family grew a capability, so fitness function 6's subject for it moves too. That is a mechanical
+> record of a changed surface and nothing more — **G9 is Open** and owns what a version number
+> *means*, so nothing here should be read as a compatibility policy.
+>
+> **`MetadataFilter` is still not published, and the reason is a measurement rather than a
+> schedule.** As written above it is a bare marker — `class MetadataFilter(Protocol): ...` — and a
+> `@runtime_checkable` Protocol with an empty body has an empty `__protocol_attrs__`, which makes
+> `isinstance(x, MetadataFilter)` `True` for *every object in the language*, `42` included.
+> Published in that form it would be a capability every store advertises and none has to implement:
+> capability derived, but derived from nothing, which is a worse version of the declared flag the
+> paragraph below rules out. Making it real needs a member that *is* the capability — an entry point
+> taking a `Filter` and nothing else — and that member's shape should be settled against a store
+> that translates the whole operator set. pgvector translates none of them today, so choosing it
+> now would be a guess against zero implementations, which is what task **2.6** exists to remove.
+> **This is a correction to the block above, not a deferral of it**: whoever publishes
+> `MetadataFilter` must give it a member, and the four-tier design stands otherwise.
+>
+> **Repaired 2026-08-17: `needs_store` is checked for every plugin in a stage's chain, not for
+> its `use:` alone.** A `fallback:` name is a candidate that really runs — `weft_kernel.runner`
+> already refuses one that is unregistered or not substitutable, for exactly that reason — so a
+> stage written `{use: vector-top-k, fallback: [hybrid]}` against a vector-only store used to
+> pass assembly and then raise a bare `AttributeError` mid-batch, after the run had done work.
+> The refusal names which candidate in the chain cannot be served. A fallback name nothing
+> registered is left to the runner's own `UnknownFallbackError`, which answers that question
+> better; the pipeline is refused either way, so nothing runs unchecked.
+
+> **Narrowed in Phase 2 task 2.6 (2026-08-17): the family is complete, and `MetadataFilter`
+> arrives with a member.** The obligation the note above left is discharged — `MetadataFilter`
+> publishes `async def matching(self, filter: Filter, cursor: Cursor | None = None) -> Page[Node]`,
+> which is "an entry point taking a `Filter` and nothing else" made real: no vector, no text, no
+> `top_k`, the filter alone deciding membership, with the same paging vocabulary `scan` already
+> uses. Its shape was settled against a store that translates the whole operator set, as that note
+> required: `weft-qdrant` registers `qdrant` under `NodeStore` and satisfies `VectorSearch` and
+> `MetadataFilter`, and `pgvector` gains SQL translation for the whole set at the same time.
+> `STORE_CONTRACT_VERSION` moves `1.1.0` → `1.2.0` because the family grew a capability. **G9 is
+> Open** and owns what a version number means.
+>
+> **`weft-qdrant` deliberately does not satisfy `TextSearch`, and the asymmetry is the point.**
+> Qdrant's text matching is a filter predicate, not a scored ranking, and `search_text` returns
+> `Scored[Node]`; a shim returning a constant score, or an index this pack maintained beside the
+> collection, would be the second copy of the corpus task 2.5 exists to forbid. So a `hybrid`
+> retriever configured against Qdrant is refused by name, and the promise this section makes
+> — *"failure names the store, the missing capability and the backends that provide it"* — is
+> demonstrable against a real backend rather than against a mock.
+>
+> **Three narrowings to *"the closed operator vocabulary"*, each forced by two engines having to
+> agree**, published in `weft_store.fields` so one parse and one operator table feed both
+> translators. What a `field` may name is `Node`'s own shape — `id`, `content`, `media_type`,
+> `lineage.parents`, `lineage.sources`, `ext.<namespace>.<field>` — and an extension value that is
+> an array is compared element-wise. Then: **ordered comparison (`lt`/`lte`/`gt`/`gte`) takes a
+> number and an `ext.` path**, because ordering text means whatever a database's collation means,
+> which is a fact about a deployment and not about the filter; **`eq`/`ne` on a set is refused,
+> naming `contains`**, because a document store matches a payload array element-wise and SQL
+> compares the whole list — one spelling, two meanings, no error; and **identity comparison against
+> a floating-point number is refused**, because a document store indexes floats for ranges and not
+> for matching, so the same `eq` that selects in SQL selects nothing there. `FILTER_AST_VERSION`
+> moves `1.0.0` → `1.1.0`: a filter this AST used to accept no longer validates, which is a change
+> to what the data *is*.
+>
+> **Recorded rather than hidden:** `01` → *Runtime shape* also names an **ephemeral in-memory
+> store** — "a dict with brute-force cosine, never persisted, used by the conformance kit and by
+> pack authors' unit tests so writing a plugin does not require Docker". It does not exist, no
+> ledger task claims it, and this task did not build it: the conformance kit runs against the two
+> real containers and skips, with a reason, when they are absent.
+
 **Capability is derived, never declared.** At registration the kernel computes which protocols a
 store class satisfies, and that set *is* its capability. Nobody writes a flag, so nobody writes a
 false one — which matters because a declared flag is `hasattr` with better manners, and the reference's
@@ -474,6 +565,44 @@ backends that provide it. There is no adaptation and no degradation: a pipeline 
 search does not quietly become vector-only, because *"quality silently dropped"* is the failure rule
 5 exists to forbid. Hybrid is not a third method — it is a store satisfying both search protocols,
 with fusion staying where it belongs, in the retriever.
+
+> **Narrowed in Phase 2 task 2.4 (2026-08-17), in two places.**
+>
+> **`needs_store` is checked at run assembly, not at resolution.** Neither resolver can do it:
+> `weft_kernel.runner.Runner.resolve` and `weft_kernel.resolution.resolve` are both kernel code, the
+> kernel names no capability, and neither of them knows what a store *is*. The first place that
+> holds both the resolved pipeline and the configured store is whatever assembles the run — in this
+> tree, `weft-cli` — so the check lands there, reading `needs_store` off the registered factory
+> through `weft_kernel.registry.unwrap_factory`. Only the location moves: it is still **before any
+> stage runs**, so the promise this paragraph makes — no adaptation, no degradation, failure naming
+> the store, the missing capability and the backends that provide it — is unchanged. The check
+> itself is built at task **2.5**; the placement is settled here because it is the contract shape's
+> consequence, not that task's discovery.
+>
+> **Fusion does not stay in the retriever.** That clause was written before the query path had a
+> type algebra, and Phase 2 publishes `Fuser` as `Stage[Candidates, Ranking]` — a position of its
+> own, in the pipeline document, between the retriever and everything downstream. The reason is
+> ledger task 2.7's ("fusion and reranking are composable plugins a third party can retune, not a
+> fixed ladder") and it is the same reason as `Retriever`'s own narrowing above: fusion inside a
+> retriever is a fusion nobody can replace, reweight or omit without replacing the retriever, and a
+> hybrid retriever and a query-fan-out retriever would then each need their own copy of it. As one
+> stage over `Candidates` there is one implementation for both, because both arrive in the same
+> shape. What the original clause was right about is unchanged: hybrid is still not a third search
+> method, only a store satisfying both search protocols.
+
+> **Built in Phase 2 task 2.5 (2026-08-17).** The check is
+> `weft_cli.run_services.check_store_capabilities`, run over the resolved stage list before the run
+> starts, and it refuses with `StoreCapabilityMissingError` naming the stage, the plugin, the
+> missing capability, the store, **what that store does advertise**, and which registered stores
+> provide what is missing. Two properties of it are worth recording here because they are what keep
+> it honest. It **names no capability itself**: the plugin names what it needs, `isinstance` answers
+> whether the store has it, and what a store advertises is derived by walking the store contract's
+> own pack for versioned capability Protocols — so a store pack shipping a capability this check has
+> never heard of is still reported correctly. And a `needs_store` it cannot evaluate — a string, or
+> a Protocol without `@runtime_checkable` — raises `MalformedNeedsStoreError` rather than being
+> skipped, because skipping it would run the pipeline the declaration existed to stop. The caller
+> that assembles a query run is task 2.8's and 2.10's; until then `weft ask` keeps its own narrower
+> refusal, since it resolves no plugin that could carry a declaration.
 
 **Stores never embed.** `VectorSearch` takes a vector, `TextSearch` takes text; a store is therefore
 not coupled to a model and can be used with two, or with none. The reference's `query(query: str,
@@ -676,11 +805,19 @@ def register(registry: Registry, settings: Settings) -> None:
   distribution to install. A config block that is silently ignored is how a machine ends up running
   without the pack nobody noticed was missing. The remedy is `weft plugins doctor`, not a warning.
 
-**Catalogues are contributed the same way.** A pack hands the kernel its own locale resources at
-registration, addressed through its own distribution (`importlib.resources`), namespaced by pack.
-No component ever computes a path to another package's files — which is what made the reference's
-`PromptLoader` resolve locales as `Path(__file__).parent.parent / 'locales'` and made shipping
-prompts or translations from a pack impossible. The bug is not fixed here; it is unreachable.
+**A pack addresses its own resources through its own distribution** (`importlib.resources`), never a
+computed path. No component ever computes a path to another package's files — which is what made the
+reference's `PromptLoader` resolve locales as `Path(__file__).parent.parent / 'locales'` and made
+shipping prompts or translations from a pack impossible. The bug is not fixed here; it is
+unreachable. `weft-prompts` is the worked case: a `TypedPrompt` carries its own per-locale texts as
+class data, checked at class-definition time for the fallback locale's presence, so a pack ships its
+own prompt text without asking the kernel for anywhere to put it.
+
+> **This paragraph used to read *"Catalogues are contributed the same way"***, describing
+> `registrar.add_messages(ns=…, resources=…)`. **G11 retired the catalogue (2026-08-18)** — see §1's
+> *Error text is an English literal at the raise site*. `add_messages` is therefore not an unbuilt
+> design any more; it is one that will not be built, and the resource-addressing rule above is the
+> part of this paragraph that was always true and is doing the work on its own.
 
 > **Narrowed in Phase 0 step 5 (2026-08-16).** Two things about the example above are not what the
 > code does, and both are narrowings rather than reversals.
@@ -693,12 +830,10 @@ prompts or translations from a pack impossible. The bug is not fixed here; it is
 > to get wrong. The registrar also **buffers**: nothing reaches the shared registry until `register`
 > returns, so a pack that raises halfway contributes nothing rather than half of itself.
 >
-> **`add_messages` does not exist, and no Phase 0 step builds it.** The *"Catalogues are contributed
-> the same way"* paragraph above therefore describes the eventual design, not a guarantee any Phase 0
-> code makes true — the same correction §1's *Messages are looked up* note carries, and for the same
-> reason: `09-release.md` still lists a pack's message-catalogue keys as **not on G9's Bring list**,
-> so whether they are API at all is undecided. Until a pack can contribute a catalogue,
-> `MessageCatalogue`'s duplicate refusal is what stops two contributors deciding one key differently.
+> **`add_messages` was never built, and G11 settled that it will not be.** This note used to record
+> it as an unbuilt Phase 0 promise whose API status was undecided under G9. Both halves are closed:
+> the catalogue is retired, so there is no contribution seam to build and no message keys for G9 to
+> rule on. See the paragraph above and §1.
 
 ### The trust model
 
@@ -881,16 +1016,67 @@ stages:
     use: pgvector
 ```
 
-> **`fallback: [pdfplumber, ocr]` above is recorded, not executed — yet.** `StageDeclaration.fallback`
-> holds the per-stage list a document writes, "tried in order until one produces" per `11` §4, but
-> nothing in the kernel walks it: the field is data, same as every other field on this model, and
-> resolution passes it through unread. The combinator that would read it is `04`'s kernel row for
-> `_try_extractors`, the fallback-chain executor (`reference/study/08-salvage.md` §T1.15) — a combinator
-> over *any* contract, per `01` → *The kernel boundary*, never specific to extraction. `01` → *Phases*
-> assigns it to Phase 2, the first phase where a second backend for one media type exists for it to
-> try. Until then, a `fallback:` block is honoured as syntax and ignored as behaviour — worth saying
-> here, at the page a reader meets `fallback:` on, rather than leaving it to be discovered only in
-> `pipeline.py`'s module docstring.
+> **A `fallback:` chain is executed, as of Phase 2 task 2.28 — by the runner, and not yet from this
+> document.** `StageDeclaration.fallback` holds the per-stage list a document writes, "tried in order
+> until one produces" per `11` §4, and `weft_kernel.fallback.try_in_order` is what walks it — `04`'s
+> kernel row for `_try_extractors`, the fallback-chain executor (`reference/study/08-salvage.md` §T1.15),
+> built as a combinator over *any* contract per `01` → *The kernel boundary* and never specific to
+> extraction. `Runner._invoke_stage` calls it for a stage whose `StageSpec.fallback` is non-empty and
+> makes the single wrapped call it always made for one whose list is empty.
+>
+> **What is not built, stated here because this is the page a `fallback:` block is written against.**
+> Nothing carries *this document's* list onto a `StageSpec` yet: `resolve()` below produces
+> `ResolvedStage.fallback` as data, `weft_cli/ingest.py` builds `weft index`'s four specs by hand
+> with no fallback at all, and the module that would join the two — `weft_cli/compile.py`, turning a
+> resolved document into specs — is tasks 2.4 and 2.8 (`docs/build-ledger.md`). So the example above
+> is executed by a caller that hands the runner such a spec, which today means a test or a Python
+> caller; the `weft index` route arrives with that task. Everything below describes the mechanism as
+> built, not a path a document already takes.
+>
+> **The three outcomes, and the author rule that makes them honest.** `Produced` stops the chain with
+> a success. `NothingToProduce` **also stops it** — this section's own sentence above, that a backend
+> which legitimately extracted nothing "now [can say so], and it stops the chain", read literally: a
+> second backend adds nothing to the claim *"I looked, and there is nothing here"*. Only `Failed`, or
+> a `WeftError` the registration seam already wrapped, continues to the next candidate; an exhausted
+> chain answers one `Failed` naming every candidate and what each said, in order. The rule that makes
+> the middle row safe is stated on the combinator and on every backend that ships one:
+>
+> > Return `NothingToProduce` only when you can distinguish "there is nothing here" from "I could not
+> > see it". If your backend cannot tell those apart for this input, return `Failed`.
+>
+> `weft-pdf` ships both cases as unit tests — a page whose text layer draws no glyphs against a page
+> with no text and an embedded image, empirically verified to be distinguishable through both `pypdf`
+> and `pdfplumber` — so the distinction the chain rests on is checked rather than promised.
+>
+> **A fallback name is deliberately never looked up *here*, unlike `use:`, and Phase 2 answered the
+> question this paragraph used to leave open.** `resolve()` refuses an unregistered `use:` loudly, by
+> name, with the valid options — the ordinary rule. A `fallback:` entry is carried through to
+> `ResolvedStage.fallback` exactly as written, checked against nothing, because it may legitimately
+> name a plugin that is not installed *yet*: the pipeline above names `ocr` as `docling`'s fallback
+> before any pack ships one, and the document should not have to be re-edited the day one does.
+> `tests/architecture/test_ff11_pipeline_integrity.py`'s "every shipped pipeline resolves" clause is
+> scoped to `use:` for the same reason. What Phase 2 added is a refusal one step later:
+> `Runner.resolve` raises `UnknownFallbackError` for an unregistered fallback name, so the *document*
+> stays authorable while the *pipeline* refuses to run. Not at try time — that would make the failure
+> depend on encountering a document the primary cannot read, so a pipeline could be green for a year
+> and fail in production — and never by skipping, which is `01` rule 5's silent fallback with extra
+> steps, degrading quality precisely on the inputs the fallback existed for.
+>
+> **A fallback must be substitutable for the plugin it stands in for.** `Runner.resolve` compares the
+> two plugins' class-level `requires`, `provides`, `intact` and `destroys` and raises
+> `FallbackNotSubstitutableError` when the fallback demands more or promises less: every check the
+> pipeline passed was answered by the *primary*'s declarations, so a fallback that destroys a
+> `Property` a later stage needs intact would corrupt the run — and only on the documents the primary
+> could not read, which is where nobody looks. Declaring more in the safe direction (an extra
+> `provides`, one fewer `destroys`) invalidates no check and is not refused.
+>
+> **A fallback carries no `with:` block, so a *configured* second attempt is not expressible today.**
+> `fallback:` is a list of bare names and a fallback runs on its plugin's own defaults; there is
+> nowhere in the grammar to put a configuration, and no substitute mechanism — Weft does not route a
+> stage's failures into another pipeline, so writing a differently-configured second pipeline and
+> running it over what the first could not read is a manual act, not a feature. Widening the grammar
+> is a later task, and the narrowing is stated rather than left to be discovered because the natural
+> chain — one parser in two modes — is exactly the one it forbids.
 
 > **Corrected from the reference study (2026-08-10) — this example asserts a stage order the reference did
 > not use, and it is load-bearing.** The reference **chunks first and cleans second**, and it has two

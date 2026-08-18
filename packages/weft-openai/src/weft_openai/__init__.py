@@ -1,0 +1,79 @@
+"""First-party OpenAI adapter pack — a vendor in its own distribution, publishing nothing.
+
+`weft-embed` publishes the `Embedder` contract and this pack registers under
+it; nothing here publishes a contract of its own, because nothing about one
+vendor's API needs one. It is a separate distribution for two reasons, and
+neither is taxonomy. **A vendor SDK is a dependency**: putting it in the pack
+that publishes a contract would make every install of that contract pay for
+an HTTP client it may never call. **And a vendor must be removable**: a
+generation pack that names no vendor is only checkable if the vendor lives
+somewhere else, which is the whole shape of ledger task 2.30.
+
+**The deterministic embedder stays, and stays the default.** `weft-embed`'s
+`hash` plugin is what `poe ci-checks` runs against — no credential, no
+network, no model download — and `openai` is what an operator selects when a
+vector needs to mean something. Two registrations under one contract, chosen
+by name in a pipeline document (or by `[services] embed` in `weft.toml`
+until a document reaches `weft index`), never by a branch inside one class.
+
+**Registered through the same public `weft.packs` entry point a third party
+uses**, with nothing extra for being first-party — fitness function 2.
+
+**Task 2.30 adds a second contract under the same account.** `register`
+below now also registers `OpenAILLMProvider` as `"openai"` for
+`weft_llm.contract.LLMProvider` — the vendor adapter growing a second
+capability rather than a second pack, because both plugins share the one
+thing a vendor pack actually owns: an authenticated account. See
+`weft_openai.llm`'s own module docstring for the mapping table that keeps
+OpenAI's exception hierarchy out of every pack downstream of `weft-llm`.
+"""
+
+from functools import partial
+
+from weft_embed.contract import Embedder
+from weft_kernel.discovery import PackRegistrar
+from weft_llm.contract import LLMProvider
+from weft_openai.embedder import (
+    DEFAULT_MODEL,
+    NAME,
+    EmbeddingRequestFailedError,
+    MissingApiKeyError,
+    OpenAIEmbedder,
+    OpenAIEmbedderConfig,
+    UnembeddableNodeError,
+)
+from weft_openai.llm import DEFAULT_MODEL as DEFAULT_LLM_MODEL
+from weft_openai.llm import OpenAILLMConfig, OpenAILLMProvider
+from weft_openai.settings import Settings
+
+
+def register(registrar: PackRegistrar, settings: Settings) -> None:
+    """Register `OpenAIEmbedder` and `OpenAILLMProvider`, both as `"openai"`, one account.
+
+    `settings` is bound in through `functools.partial`, exactly as
+    `weft_store` binds its connection string, so `Runner.resolve`'s
+    `entry.factory(spec.config)` call becomes `OpenAIEmbedder(settings,
+    spec.config)` — the account from the pack's settings block, the model and
+    its width from the stage's own `with:`. `OpenAILLMProvider` takes no
+    stage `with:` of its own — see `weft_llm.contract.LLMProvider`'s module
+    docstring on why `model` is a per-call argument rather than constructor
+    state — so its factory ignores the second positional argument entirely.
+    """
+    registrar.add(Embedder, NAME, partial(OpenAIEmbedder, settings))
+    registrar.add(LLMProvider, NAME, partial(OpenAILLMProvider, settings))
+
+
+__all__ = [
+    "DEFAULT_LLM_MODEL",
+    "DEFAULT_MODEL",
+    "NAME",
+    "EmbeddingRequestFailedError",
+    "MissingApiKeyError",
+    "OpenAIEmbedder",
+    "OpenAIEmbedderConfig",
+    "OpenAILLMConfig",
+    "OpenAILLMProvider",
+    "Settings",
+    "UnembeddableNodeError",
+    "register",
+]

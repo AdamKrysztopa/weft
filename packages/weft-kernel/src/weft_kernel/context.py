@@ -1,8 +1,8 @@
-"""`Context` — the one passport every stage's `run()` receives, and its two seams.
+"""`Context` — the one passport every stage's `run()` receives, and its one seam.
 
 Specified in `docs/06-phase-0-build.md` step 4 and `docs/02-extension-model.md`
 section 1 ("What a plugin receives"): `tenant_id`, run and trace ids,
-cancellation, locale, `require()` and `t()`. **The admission rule for a new
+cancellation, locale and `require()`. **The admission rule for a new
 field, quoted directly:** a field is admitted only if it is needed by *every*
 plugin regardless of contract **and** is meaningless to resolve as a service.
 Tuning knobs fail the second test — that is precisely how the reference's
@@ -11,24 +11,39 @@ leaking into the kernel, and was still bypassed: only 6 classes in 259 files
 take an `EngineContext`-annotated `__init__` parameter, because strategy
 handlers reached for a second, overlapping bag instead
 (`docs/04-reference-inventory.md`, the C2 correction). This module is deliberately
-narrow: five identity fields with no default, two resolution methods, and
-nothing else.
+narrow, and G11 narrowed it further: four identity fields with no default, one
+collaborator, one resolution method, and nothing else.
 
-**Two collaborators, not two copies of the same idea.** `require()` resolves
-against a `ServiceRegistry`; `t()` resolves against a `MessageCatalogue`. Both
-are separate from `weft_kernel.registry.Registry` (step 2), which maps
-`(contract, name) -> factory` for *plugins a pipeline names in configuration*.
-The service registry maps `contract -> an already-resolved instance` for
-*ambient services every stage may need regardless of what pipeline it runs
-in* — `docs/02-extension-model.md`'s example is `ctx.require(LLM)` returning a
-typed handle with no name to disambiguate, and `ctx.require(TokenSink)` for
-the one streaming service (`docs/03-cli.md` → *Output*). Nothing in Phase 0
-populates either collaborator yet — no service exists to require, no pack has
-registered a message — so both start empty and are handed to `Context`
-already built, exactly as `Registry.add` takes `distribution` as a parameter
-rather than discovering it. Whatever assembles a run (the runner, step 6, or
-the CLI, step 9) builds and populates them; this module only gives `Context`
-somewhere to resolve against.
+**One collaborator, distinct from the registry.** `require()` resolves against
+a `ServiceRegistry`, which is separate from `weft_kernel.registry.Registry`
+(step 2): that one maps `(contract, name) -> factory` for *plugins a pipeline
+names in configuration*, and this one maps `contract -> an already-resolved
+instance` for *ambient services every stage may need regardless of what
+pipeline it runs in* — `docs/02-extension-model.md`'s example is
+`ctx.require(LLM)` returning a typed handle with no name to disambiguate, and
+`ctx.require(TokenSink)` for the one streaming service (`docs/03-cli.md` →
+*Output*). It starts empty and is handed to `Context` already built, exactly
+as `Registry.add` takes `distribution` as a parameter rather than discovering
+it. Whatever assembles a run (the runner, step 6, or the CLI, step 9) builds
+and populates it; this module only gives `Context` somewhere to resolve
+against.
+
+**There was a second seam, `t()`, and G11 retired it (2026-08-18).** A
+`MessageCatalogue` and `Context.messages` lived here from step 4 onward, so a
+kernel or pack error could resolve its text per locale. Three phases shipped
+with **zero registered messages and zero `ctx.t()` call sites** — the
+mechanism's own intended clientele, 51 first-party pack error classes, all
+chose English literals too — and G11 settled that Weft's *interface* is
+English-only as a product decision, investing instead in the **content**-
+language axis it already has. A locale-keyed message store with one locale is
+a dict with a constant key, so the catalogue, `Context.messages`, `t()` and
+the three error classes they brought (`UnknownMessageError`,
+`DuplicateMessageError`, `MessageFormatError`) are gone, taking this kernel
+from 33 error classes to 30. `docs/05-grilling-sessions.md` → G11 holds the
+session; `docs/02-extension-model.md` §1 owns what replaced it — an English
+literal at the raise site, whose explanation surface is
+`manual/troubleshooting.md`'s coverage ratchet, and whose *quality* is
+fitness function 12 rather than a convention an author has to remember.
 
 **Cancellation is not a field, on purpose.** `docs/02-extension-model.md`:
 "cancellation is native, and under an async core that is task cancellation."
@@ -54,22 +69,26 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, cast
+from typing import cast
 
-from weft_kernel.errors import WeftError
-
-if TYPE_CHECKING:
-    from collections.abc import Mapping
+from weft_kernel.errors import UnresolvedNameError, WeftError
 
 
-class UnresolvedServiceError(WeftError):
+class UnresolvedServiceError(WeftError, UnresolvedNameError):
     """`ctx.require()` was asked for a contract nothing registered for this run.
 
     The message states the contract that was wanted and every contract that
     *is* available, so a stage author who forgot to wire a service reads the
     error as a wiring bug rather than a mystery — the same standard
     `registry.py`'s `UnknownPluginError` sets for plugin lookup.
+
+    Fitness function 12's family: `valid_options` is every contract that
+    *is* registered on this run.
     """
+
+    def __init__(self, message: str, *, valid_options: tuple[str, ...]) -> None:
+        super().__init__(message)
+        self.valid_options = valid_options
 
 
 class DuplicateServiceError(WeftError):
@@ -81,41 +100,6 @@ class DuplicateServiceError(WeftError):
     rather than silently overwritten — `registry.py` takes the same stance for
     plugin names, for the same reason: a silent overwrite is a bug someone
     eventually has to find.
-    """
-
-
-class UnknownMessageError(WeftError):
-    """`ctx.t()` was asked for a key no pack's catalogue carries, for the given locale.
-
-    States the key and locale that were wanted and every key registered for
-    that locale, so a typo'd message key reads as a typo rather than a blank
-    string silently reaching a user — the anti-reference property `registry.py`
-    already documents for plugin names, applied to message keys instead.
-    """
-
-
-class DuplicateMessageError(WeftError):
-    """Two templates were registered for the same `(locale, key)` on one `MessageCatalogue`.
-
-    A catalogue is populated once per run by whatever assembles it; a second
-    template for a `(locale, key)` pair already registered is not an update,
-    it is two contributors disagreeing about what `ctx.t()` should return.
-    Refused rather than silently overwritten — `registry.py`'s
-    `DuplicateRegistrationError` takes the same stance for plugin names, and
-    `ServiceRegistry.add`'s `DuplicateServiceError` takes it for services, for
-    the same reason: a silent overwrite is a bug someone eventually has to
-    find, and the duplicate-name trap `docs/06-phase-0-build.md` fixes for G2
-    is refuse, naming both, not last-wins.
-    """
-
-
-class MessageFormatError(WeftError):
-    """`ctx.t()`'s template could not be formatted with the parameters supplied.
-
-    Raised when a template names a placeholder (`{n}`, `{}`) the caller did
-    not pass — `str.format` would otherwise raise a bare `KeyError` or
-    `IndexError` naming only the missing placeholder, with no key, locale or
-    template to say where the mismatch is. States all four.
     """
 
 
@@ -158,77 +142,14 @@ class ServiceRegistry:
             # so this cast states exactly the invariant `resolve` relies on.
             return cast(T, self._instances[contract])
 
-        available = ", ".join(sorted(c.__name__ for c in self._instances)) or "none"
+        options = tuple(sorted(c.__name__ for c in self._instances))
+        available = ", ".join(options) or "none"
         raise UnresolvedServiceError(
             f"no service is registered for {contract.__name__} on this run. It is "
             f"unavailable because nothing resolved one before this stage ran. "
-            f"Services available on this run: {available}."
+            f"Services available on this run: {available}.",
+            valid_options=options,
         )
-
-
-class MessageCatalogue:
-    """Per-locale map of a dotted message key to a format template, merged across packs.
-
-    `docs/02-extension-model.md` section 1 says messages resolve "against the
-    merged catalogue, namespaced by pack" — collision-free by construction,
-    the same guarantee `ExtModel.__namespace__` gives payload fields. This
-    class stays a flat `{locale: {key: template}}` map because *how* a pack's
-    namespace reaches a key — `add_messages(ns=..., resources=...)` on the
-    surface a pack's `register()` receives — **is not built in any Phase 0
-    step.** This docstring originally said step 5 would build it; step 5 built
-    `weft_kernel.discovery.PackRegistrar`, which exposes `add` and nothing
-    else, and `docs/02-extension-model.md` section 1 has been corrected to
-    match. What this class owns today is the merge itself: a `(locale, key)`
-    pair is refused if it is
-    already registered, so two contributors can never silently decide the
-    same key differently — see `DuplicateMessageError`.
-    """
-
-    def __init__(self) -> None:
-        self._templates: dict[str, dict[str, str]] = {}
-
-    def add(self, *, locale: str, key: str, template: str) -> None:
-        """Contribute one message: `key`, in `locale`, formatted from `template`.
-
-        Refuses a second template for a `(locale, key)` pair already
-        registered — see `DuplicateMessageError`.
-        """
-        by_locale = self._templates.setdefault(locale, {})
-        existing = by_locale.get(key)
-        if existing is not None:
-            raise DuplicateMessageError(
-                f"message '{key}' is already registered for locale '{locale}' as "
-                f"'{existing}'; a second template ('{template}') would leave it "
-                f"ambiguous which one ctx.t() should return. Refused rather than "
-                f"silently overwritten."
-            )
-        by_locale[key] = template
-
-    def resolve(self, *, locale: str, key: str, params: Mapping[str, object]) -> str:
-        """`key`'s template for `locale`, formatted with `params`.
-
-        Raises `UnknownMessageError`, naming `key`, `locale`, and every key
-        registered for that locale, if nothing registered one. Raises
-        `MessageFormatError`, naming `key`, `locale`, the template and the
-        parameters supplied, if `template` names a placeholder `params` does
-        not carry.
-        """
-        by_locale = self._templates.get(locale, {})
-        template = by_locale.get(key)
-        if template is None:
-            available = ", ".join(sorted(by_locale)) or "none"
-            raise UnknownMessageError(
-                f"no message '{key}' is registered for locale '{locale}'. Messages "
-                f"available for '{locale}': {available}."
-            )
-        try:
-            return template.format(**params)
-        except (KeyError, IndexError) as exc:
-            supplied = ", ".join(sorted(params)) or "none"
-            raise MessageFormatError(
-                f"message '{key}' for locale '{locale}' (template: {template!r}) could "
-                f"not be formatted: {exc!r}. Parameters supplied: {supplied}."
-            ) from exc
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -240,10 +161,21 @@ class Context:
     rather than a convention a stage could break by assigning `ctx.tenant_id`,
     consistent with CLAUDE.md's "frozen where the value is a domain object"
     and with `registry.RegistryEntry`'s precedent in this same layer. Freezing
-    `Context` does not freeze `services` or `messages`: those two collaborators
-    are populated by whatever assembles the run, not carried as identity.
-    `require()` and `t()` are the two resolution seams — see the module
-    docstring for why nothing else lives here.
+    `Context` does not freeze `services`: that collaborator is populated by
+    whatever assembles the run, not carried as identity.
+    `require()` is the one resolution seam — see the module docstring for why
+    nothing else lives here, and for what G11 retired.
+
+    **`locale` is the run's configured *content* language, never an interface
+    language** (G11, 2026-08-18). Weft's interface is English-only; what this
+    field selects is material a model reads or writes, and its only consumer
+    today is prompt text selection (`weft_prompts.typed_prompt`, exact locale →
+    primary subtag → `en`). It is deliberately distinct from a *query*'s own
+    locale: `weft_retrieve.payload.Query.locale` is "a fact about the ask", and
+    a question asked in Polish against an English corpus is a different thing
+    from a run configured for Polish. Nothing selects this yet — the CLI passes
+    `"en"` — and giving an operator a way to choose it is `docs/03-cli.md`'s,
+    hence Phase 3's.
     """
 
     tenant_id: str
@@ -251,7 +183,6 @@ class Context:
     trace_id: str
     locale: str
     services: ServiceRegistry = field(default_factory=ServiceRegistry)
-    messages: MessageCatalogue = field(default_factory=MessageCatalogue)
 
     @property
     def cancelled(self) -> bool:
@@ -281,13 +212,3 @@ class Context:
         available, if nothing registered one — see `ServiceRegistry.resolve`.
         """
         return self.services.resolve(contract)
-
-    def t(self, key: str, **params: object) -> str:
-        """The message registered as `key` for this context's locale, formatted with `params`.
-
-        Never formats in place elsewhere: `docs/02-extension-model.md` — "messages
-        are looked up, never formatted in place." Raises `UnknownMessageError`
-        naming `key`, the locale, and every key available for it, if nothing
-        registered one — see `MessageCatalogue.resolve`.
-        """
-        return self.messages.resolve(locale=self.locale, key=key, params=params)

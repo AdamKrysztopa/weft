@@ -1,0 +1,338 @@
+# The named corpus — prerequisite V1 (`docs/09-release.md` §4.3).
+#
+# **The bytes are not tracked here, and that is the artefact working as specified.** V1 accepts a
+# corpus that is "either redistributable or fetched by a pinned, checksummed script". What is
+# tracked is this manifest: every document named, with the sha256 that identifies it and the pin
+# that reproduces it. `python scripts/fetch_corpus.py fetch` materialises it;
+# `... verify` checks a local materialisation against these digests.
+#
+# **Three tiers, and the tier decides what may be done with a document.**
+#
+# - `fetch`     — retrieved from a pinned, versioned source. This tier alone satisfies V1.
+# - `gate`      — tracked in this repository; needs no network. (None yet.)
+# - `operator`  — published under publisher copyright. Named and checksummed so a local copy can
+#                 be *verified*, never fetched, and outside V1's reproducibility clause. An
+#                 absent operator document is reported, not a failure.
+#
+# **Pins are versions, not names.** `1304.7717` returns the latest arXiv version; `1304.7717v2`
+# returns one. A Wikipedia title returns today's article; an `oldid` returns one revision. Every
+# fetchable document below carries the versioned form, which is what makes "reproducible
+# byte-for-byte" a property rather than a hope.
+#
+# **`render` names what turns a fetched revision into a document, and both ends are pinned.**
+# `action=raw` serves *wikitext*; the corpus holds prose, because `{{Dopracować|źródła = 2025-11}}`
+# in a document is `{{Dopracować|źródła = 2025-11}}` in every chunk drawn from it. So an entry with
+# a `render` carries `source_sha256` (the revision that was fetched) as well as `sha256` (the
+# document that was written), and `scripts/wikitext.py` is the only thing that turns one into the
+# other. Pinning only the second is how these nine entries were once pinned to bytes made by hand:
+# every digest verified locally and not one of them could be reproduced by anybody else.
+#
+# **`math_blocks_dropped` is checked, not annotated.** MediaWiki's own plaintext renderer flattens
+# one formula into 350 characters at one glyph per line, so mathematics is dropped instead — and a
+# `fetch` fails if the rendering drops a different number than the entry claims.
+#
+# **Formats are NOT declared here.** V1 requires the corpus to cover every format an installed
+# extractor claims, and the authority on what is claimed is the registry. A list here would be a
+# second copy of it, and `README.md` opens by describing what happens to the second copy.
+
+[corpus]
+name = "mrmr-v1"
+description = "Feature selection by minimum redundancy and maximum relevance: papers in English, with a Polish subset from Wikipedia on the adjacent statistics."
+created = "2026-08-17"
+documents = 25
+
+[[document]]
+id = "ax-1304.7717v2"
+tier = "fetch"
+path = "arxiv/1304.7717v2.pdf"
+format = "pdf"
+language = "en"
+sha256 = "57ddc5de6833e9123522b22f5cd5071c0319058983a26d740c7a342cdca5a018"
+pin = "1304.7717v2"
+source = "https://arxiv.org/pdf/1304.7717v2"
+title = "Lopez-Paz et al., The Randomized Dependence Coefficient"
+
+[[document]]
+id = "ax-1411.2331v1"
+tier = "fetch"
+path = "arxiv/1411.2331v1.pdf"
+format = "pdf"
+language = "en"
+sha256 = "d2eabfec28a83f511d6f80af80e898fb936ffdb76960c581027a016251ee0844"
+pin = "1411.2331v1"
+source = "https://arxiv.org/pdf/1411.2331v1"
+title = "N3LARS: Minimum Redundancy Maximum Relevance Feature Selection for Large and High-dimensional Data"
+
+[[document]]
+id = "ax-1606.02827v1"
+tier = "fetch"
+path = "arxiv/1606.02827v1.pdf"
+format = "pdf"
+language = "en"
+sha256 = "e8cf096d934463538f417b585f8fe1fad41c0be33b464a1ac06d1f9724b79e06"
+pin = "1606.02827v1"
+source = "https://arxiv.org/pdf/1606.02827v1"
+title = "Variational Information Maximization for Feature Selection"
+
+[[document]]
+id = "ax-1706.07535v1"
+tier = "fetch"
+path = "arxiv/1706.07535v1.pdf"
+format = "pdf"
+language = "en"
+sha256 = "2303889bdd64be3204539a03fd002528c21daecdb728454d0a0ce39d06b5fffc"
+pin = "1706.07535v1"
+source = "https://arxiv.org/pdf/1706.07535v1"
+title = "Efficient Approximate Solutions to Mutual Information Based Global Feature Selection"
+
+[[document]]
+id = "ax-1903.01907v1"
+tier = "fetch"
+path = "arxiv/1903.01907v1.pdf"
+format = "pdf"
+language = "en"
+sha256 = "ec1a057b59da8bf1bb2cf5381b419fb5077397db8744c9ea590578140d31eb44"
+pin = "1903.01907v1"
+source = "https://arxiv.org/pdf/1903.01907v1"
+title = "Feature Selection for Transient Stability Assessment Based on Improved Maximal Relevance and Minimal Redundancy"
+
+[[document]]
+id = "ax-1908.05376v1"
+tier = "fetch"
+path = "arxiv/1908.05376v1.pdf"
+format = "pdf"
+language = "en"
+sha256 = "af1ebde4da419d56363e7ac75a55b0330dbf4b61ef6666556985b9f7d86b3483"
+pin = "1908.05376v1"
+source = "https://arxiv.org/pdf/1908.05376v1"
+title = "Maximum Relevance and Minimum Redundancy Feature Selection Methods for a Marketing Machine Learning Platform"
+
+[[document]]
+id = "ax-2208.09901v2"
+tier = "fetch"
+path = "arxiv/2208.09901v2.pdf"
+format = "pdf"
+language = "en"
+sha256 = "d29bf13e725991596de4248c798a7034e4c30038855e071e07241ec454e186e1"
+pin = "2208.09901v2"
+source = "https://arxiv.org/pdf/2208.09901v2"
+title = "Scalable mRMR feature selection to handle high dimensional datasets"
+
+[[document]]
+id = "ax-2508.18901v1"
+tier = "fetch"
+path = "arxiv/2508.18901v1.pdf"
+format = "pdf"
+language = "en"
+sha256 = "4f5ca4fa3199f82d9e9aa69939b5d565f60c49d7f5833f04fe86f2545172bf6d"
+pin = "2508.18901v1"
+source = "https://arxiv.org/pdf/2508.18901v1"
+title = "Sparse minimum Redundancy Maximum Relevance for feature selection"
+
+[[document]]
+id = "ax-2510.00907v1"
+tier = "fetch"
+path = "arxiv/2510.00907v1.pdf"
+format = "pdf"
+language = "en"
+sha256 = "037db35b84220d33adc99981c2d7226ca99c90117a72167a78c8142638bf8029"
+pin = "2510.00907v1"
+source = "https://arxiv.org/pdf/2510.00907v1"
+title = "BoMGene: Integrating Boruta-mRMR feature selection for enhanced Gene expression classification"
+
+[[document]]
+id = "oa-radovic-2017-bmc"
+tier = "fetch"
+path = "arxiv/radovic-2017-bmc.pdf"
+format = "pdf"
+language = "en"
+sha256 = "97b4f6e118898672fef31ad7a55423c6085100afcd5030ec1ea265cb64dc07cc"
+pin = "radovic-2017-bmc"
+source = "https://bmcbioinformatics.biomedcentral.com/counter/pdf/10.1186/s12859-016-1423-9.pdf"
+title = "Radovic et al. 2017, BMC Bioinformatics (open access, CC BY)"
+
+[[document]]
+id = "pl-analiza-glownych-skladowych"
+tier = "fetch"
+path = "pl-wiki/analiza-glownych-skladowych.md"
+format = "md"
+language = "pl"
+sha256 = "c44fe6d2ef82f34860e039512ba5343fc27f89d405b5f72fd8040e57e54567fa"
+pin = "78932124"
+source = "https://pl.wikipedia.org/w/index.php?action=raw&oldid=78932124"
+source_sha256 = "dc46b337f475c2581c116202fe72eee62b5f48a6ebbd55c5a2e04e11af0a1fe6"
+render = "wikitext-md"
+title = "Analiza głównych składowych"
+math_blocks_dropped = 12
+
+[[document]]
+id = "pl-entropia-teoria-informacji"
+tier = "fetch"
+path = "pl-wiki/entropia-teoria-informacji.md"
+format = "md"
+language = "pl"
+sha256 = "9f98b91b2939c8ffc77362b8d3374fde01d3b93d2ca2fea7d70b32804d90687f"
+pin = "79551303"
+source = "https://pl.wikipedia.org/w/index.php?action=raw&oldid=79551303"
+source_sha256 = "0a9c4c2e2f8222713d6868bc9b2ec3a03531c284bcf55f18958a5e9e20c6f0f4"
+render = "wikitext-md"
+title = "Entropia (teoria informacji)"
+math_blocks_dropped = 19
+
+[[document]]
+id = "pl-entropia-warunkowa"
+tier = "fetch"
+path = "pl-wiki/entropia-warunkowa.md"
+format = "md"
+language = "pl"
+sha256 = "7cc791d4932d9be0b708fd039f2d5dbf4aaf90dbaa0be3044d78a4c3ce7527c5"
+pin = "57260021"
+source = "https://pl.wikipedia.org/w/index.php?action=raw&oldid=57260021"
+source_sha256 = "b30ae8709f7f6bdfcb85a51fff820555f918aefb395f466a2d277784a60954a0"
+render = "wikitext-md"
+title = "Entropia warunkowa"
+math_blocks_dropped = 58
+
+[[document]]
+id = "pl-informacja-wzajemna"
+tier = "fetch"
+path = "pl-wiki/informacja-wzajemna.txt"
+format = "txt"
+language = "pl"
+sha256 = "e242c4b7c5b31668b8a041d785d9a78de36629284bdc23d1ff33570dbb68d9c1"
+pin = "69419101"
+source = "https://pl.wikipedia.org/w/index.php?action=raw&oldid=69419101"
+source_sha256 = "35fec76c5b91f8fda8c7d80122c2174c8021123d0eac71382102f957a6883bed"
+render = "wikitext-txt"
+title = "Informacja wzajemna"
+math_blocks_dropped = 8
+
+[[document]]
+id = "pl-las-losowy"
+tier = "fetch"
+path = "pl-wiki/las-losowy.md"
+format = "md"
+language = "pl"
+sha256 = "0ae4e816a50f7d4917d564ac36c1cc76d9d3ec4c72825279672c530548813197"
+pin = "78454891"
+source = "https://pl.wikipedia.org/w/index.php?action=raw&oldid=78454891"
+source_sha256 = "5a7515df72d81e6864d766db3fa528b145fed32c9dd028b7939a4e297ca24eea"
+render = "wikitext-md"
+title = "Las losowy"
+math_blocks_dropped = 9
+
+[[document]]
+id = "pl-nadmierne-dopasowanie"
+tier = "fetch"
+path = "pl-wiki/nadmierne-dopasowanie.md"
+format = "md"
+language = "pl"
+sha256 = "4250a5b03fe24a167ada4d5dad881b346a0dd8072d14e6453b941756c099e0f6"
+pin = "79476130"
+source = "https://pl.wikipedia.org/w/index.php?action=raw&oldid=79476130"
+source_sha256 = "ddbbd66852a2afbae4bc880d063617b6c7acc7c6f67cb99937f4b53a74d5c9b8"
+render = "wikitext-md"
+title = "Nadmierne dopasowanie"
+math_blocks_dropped = 1
+
+[[document]]
+id = "pl-regresja-logistyczna"
+tier = "fetch"
+path = "pl-wiki/regresja-logistyczna.txt"
+format = "txt"
+language = "pl"
+sha256 = "8a8a5f414bfb4477b2528625d7ea1f018bb4dbf216aaa2de2c901068348fa9a6"
+pin = "78061283"
+source = "https://pl.wikipedia.org/w/index.php?action=raw&oldid=78061283"
+source_sha256 = "8981e92ea7d1e39c47f6ace4a586e01031bb34d64eb561e6ea10baa453ca0521"
+render = "wikitext-txt"
+title = "Regresja logistyczna"
+math_blocks_dropped = 38
+
+[[document]]
+id = "pl-sprawdzian-krzyzowy"
+tier = "fetch"
+path = "pl-wiki/sprawdzian-krzyzowy.txt"
+format = "txt"
+language = "pl"
+sha256 = "84bb78fbdb09d8bbebeaebeffaeb98afb45d0327e0dd4795c2dce3020f2b56a0"
+pin = "76405976"
+source = "https://pl.wikipedia.org/w/index.php?action=raw&oldid=76405976"
+source_sha256 = "24c0944e20827066eff961d77c05eb3b6a1aa1ca19b170973026167b3235cd36"
+render = "wikitext-txt"
+title = "Sprawdzian krzyżowy"
+math_blocks_dropped = 0
+
+[[document]]
+id = "pl-uczenie-maszynowe"
+tier = "fetch"
+path = "pl-wiki/uczenie-maszynowe.txt"
+format = "txt"
+language = "pl"
+sha256 = "36ff85d0f33943a8e7d38c9728a2bd892af5a39064411e60c7b3b38d73b0852e"
+pin = "80342601"
+source = "https://pl.wikipedia.org/w/index.php?action=raw&oldid=80342601"
+source_sha256 = "a9b596de6736880e1caac1291e7a8f83c4e6f608b24338c3a576a2339ac09f1d"
+render = "wikitext-txt"
+title = "Uczenie maszynowe"
+math_blocks_dropped = 0
+
+[[document]]
+id = "bouzgou-i-gueymard-2017-minimum-redundancy-maxim"
+tier = "operator"
+path = "mrmr/Bouzgou i Gueymard - 2017 - Minimum redundancy – Maximum relevance with extrem.pdf"
+format = "pdf"
+language = "en"
+sha256 = "3e91c0e24f68097f9e08d00f938f788c63247e2b364f87e03b993c4798a0a5da"
+source = "held by the operator; no open version located"
+title = "Bouzgou i Gueymard - 2017 - Minimum redundancy – Maximum relevance with extrem"
+
+[[document]]
+id = "ding-i-peng-2005-minimum-redundancy-feature-sele"
+tier = "operator"
+path = "mrmr/Ding i Peng - 2005 - MINIMUM REDUNDANCY FEATURE SELECTION FROM MICROARR.pdf"
+format = "pdf"
+language = "en"
+sha256 = "e965bf8edb02202f0f3882d0c3445c781d12691105b2c54d8a6304a4fe48c362"
+source = "held by the operator; no open version located"
+title = "Ding i Peng - 2005 - MINIMUM REDUNDANCY FEATURE SELECTION FROM MICROARR"
+
+[[document]]
+id = "lopez-paz-et-al-the-randomized-dependence-coeffi"
+tier = "operator"
+path = "mrmr/Lopez-Paz et al. - The Randomized Dependence Coefficient.pdf"
+format = "pdf"
+language = "en"
+sha256 = "22ddaeb2fef14264fffdad0f0114ea10aad4167044489aa5b72beb64a92eb6eb"
+source = "held by the operator; these bytes are the proceedings version, which has no open pin. The same paper is fetchable as `ax-1304.7717v2` above, in different bytes"
+title = "Lopez-Paz et al. - The Randomized Dependence Coefficient"
+
+[[document]]
+id = "ram-rez-gallego-et-al-2017-fast-mrmr-fast-minimu"
+tier = "operator"
+path = "mrmr/Ramírez-Gallego et al. - 2017 - Fast-mRMR Fast Minimum Redundancy Maximum Relevan.pdf"
+format = "pdf"
+language = "en"
+sha256 = "96494fb05d92035695e4f4bf48fa69fd76842416b039c0b4784517b859349a22"
+source = "held by the operator; no open version located"
+title = "Ramírez-Gallego et al. - 2017 - Fast-mRMR Fast Minimum Redundancy Maximum Relevan"
+
+[[document]]
+id = "senawi-et-al-2017-a-new-maximum-relevance-minimu"
+tier = "operator"
+path = "mrmr/Senawi et al. - 2017 - A new maximum relevance-minimum multicollinearity .pdf"
+format = "pdf"
+language = "en"
+sha256 = "093f5a1d123e4cd6ab02baaa7085369850c3880c4431414fbb0dd1f865a945fb"
+source = "held by the operator; no open version located"
+title = "Senawi et al. - 2017 - A new maximum relevance-minimum multicollinearity "
+
+[[document]]
+id = "xie-et-al-2023-a-new-improved-maximal-relevance"
+tier = "operator"
+path = "mrmr/Xie et al. - 2023 - A new improved maximal relevance and minimal redun.pdf"
+format = "pdf"
+language = "en"
+sha256 = "e524fabf003d335ff478e0944e73e4d533b51c1878238776a23784490952731c"
+source = "held by the operator; no open version located"
+title = "Xie et al. - 2023 - A new improved maximal relevance and minimal redun"

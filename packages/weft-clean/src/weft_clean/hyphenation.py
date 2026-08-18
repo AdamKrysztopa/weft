@@ -15,6 +15,12 @@ longer a seam to find.
 anything that destroys `Newlines` fails at load, naming both stages, rather
 than silently shipping two words that used to be one.
 
+**Task 2.35 adds `destroys = (Verbatim,)`.** Joining `word-\\nword` into
+`wordword` rewrites the character sequence extraction produced — dropping
+the hyphen and the newline is exactly what `weft_clean.property`'s
+`Verbatim` means "no longer true" for, the same honest reason every other
+processor in this pack destroys it.
+
 `config_model = HyphenationRepairConfig` — a repair, not part of the
 original lift. Without this class attribute, a stray non-empty `with:` block
 here would raise `StageNotConfigurableError` claiming this stage cannot be
@@ -28,7 +34,7 @@ from collections.abc import Sequence
 
 from pydantic import BaseModel, ConfigDict
 
-from weft_clean.property import Newlines
+from weft_clean.property import Newlines, Verbatim
 from weft_kernel.context import Context
 from weft_kernel.payload import Node, NothingToProduce, Outcome, Produced, Property
 
@@ -57,7 +63,7 @@ class HyphenationRepair:
     """
 
     intact: tuple[type[Property], ...] = (Newlines,)
-    destroys: tuple[type[Property], ...] = ()
+    destroys: tuple[type[Property], ...] = (Verbatim,)
     config_model: type[HyphenationRepairConfig] = HyphenationRepairConfig
 
     def __init__(self, config: HyphenationRepairConfig | None = None) -> None:

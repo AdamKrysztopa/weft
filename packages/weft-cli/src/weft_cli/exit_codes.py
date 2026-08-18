@@ -23,6 +23,7 @@ from enum import IntEnum
 from typing import Final
 
 from weft_cli.pipeline_catalogue import (
+    ContributedPipelineNameCollisionError,
     DuplicatePipelineNameError,
     MalformedPipelineError,
     PipelineDocumentError,
@@ -61,6 +62,7 @@ _ALSO_RESOLUTION_FAILED: Final[tuple[type[WeftError], ...]] = (
     PipelineDocumentError,
     MalformedPipelineError,
     DuplicatePipelineNameError,
+    ContributedPipelineNameCollisionError,
 )
 
 
@@ -79,7 +81,20 @@ def exit_code_for(exc: WeftError) -> ExitCode:
     after this function is written still matches — no list to fall out of step with) and
     every name in `_ALSO_RESOLUTION_FAILED` map to `RESOLUTION_FAILED`; every other
     `WeftError` maps to `OPERATION_FAILED`, "something failed" rather than "fix the pipeline".
+
+    **`weft_cli.route_ask.NoRouterPipelineError` is checked by a local import, task 2.8.**
+    `exit_codes.py` is imported at `cli.py`'s own module scope — every command needs it,
+    `weft --version` included — so a module-level import of `weft_cli.route_ask` here
+    would pull `weft_retrieve`, `weft_generate`, `weft_llm` and `weft_prompts` into every
+    command's own import path, exactly what fitness function 8(b) refuses. By the time
+    this branch can ever be reached, `handle_route` has already imported `route_ask`
+    itself (`weft_cli.cli`'s own local-import convention for every pack-touching module),
+    so the import below costs nothing beyond a `sys.modules` lookup in the one case it runs.
     """
     if isinstance(exc, (PipelineResolutionError, *_ALSO_RESOLUTION_FAILED)):
+        return ExitCode.RESOLUTION_FAILED
+    from weft_cli.route_ask import NoRouterPipelineError
+
+    if isinstance(exc, NoRouterPipelineError):
         return ExitCode.RESOLUTION_FAILED
     return ExitCode.OPERATION_FAILED
