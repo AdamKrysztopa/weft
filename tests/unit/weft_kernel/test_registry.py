@@ -19,6 +19,18 @@ resolve it. With a pin present, the named distribution's registration wins,
 the other is recorded as `displaced` rather than dropped, and a pin naming
 neither contender — or one that never sees a collision at all — fails loudly
 instead of being read as a no-op.
+
+**Task 3.1 — the mandatory-declaration check generalised.** `docs/03-cli.md`
+→ *Permissions* needs the identical shape `destroys` already has —
+registration refuses a factory silent about a required class attribute,
+naming the plugin, the contract and the remedy — but for `permission_class`
+on `weft_command.contract.Command`, a contract the kernel must not know the
+name of. `_GovernedContract.publishes_property_vocabulary` above is now one
+*source* of a required-declaration name (`"destroys"`) rather than the whole
+mechanism; `_DeclaringContract` below is a second, contract-agnostic source —
+`required_declarations`, a plain tuple of attribute names — and the tests
+after the `destroys` block prove both sources feed the same check and the
+same `MissingRequiredDeclarationError` family, never two parallel checks.
 """
 
 import functools
@@ -29,6 +41,7 @@ import pytest
 from weft_kernel.registry import (
     DuplicateRegistrationError,
     MissingDestroysDeclarationError,
+    MissingRequiredDeclarationError,
     Registry,
     UnknownPluginError,
     UnresolvedPluginPinError,
@@ -328,6 +341,118 @@ def test_add_refuses_a_partial_wrapped_factory_whose_class_never_declares_destro
         registry.add(_GovernedContract, "widget", factory, distribution="acme-widgets")
 
     assert registry.contracts() == frozenset()
+
+
+# --- task 3.1: the generalised required-declarations mechanism --------------------------
+
+
+class _DeclaringContract:
+    """A stand-in contract that names a required declaration directly, never via `destroys`.
+
+    `required_declarations` is the general mechanism task 3.1 adds —
+    `weft_command.contract.Command` uses this exact shape for
+    `permission_class`, but the kernel must not know that name, so this
+    stand-in uses an unrelated one (`widget_colour`) to prove the check is
+    genuinely contract-agnostic rather than secretly special-casing a string
+    the real contract happens to use. Assigned after the class body, the
+    same reason `publishes_property_vocabulary` is on `_GovernedContract`
+    above.
+    """
+
+    if TYPE_CHECKING:
+        required_declarations: ClassVar[tuple[str, ...]]
+
+
+_DeclaringContract.required_declarations = ("widget_colour",)
+
+
+def test_add_refuses_a_factory_missing_a_declared_required_declaration() -> None:
+    # Arrange
+    registry = Registry()
+
+    class _NoColour:
+        """Never mentions `widget_colour` at all."""
+
+    # Act / Assert
+    with pytest.raises(MissingRequiredDeclarationError) as excinfo:
+        registry.add(_DeclaringContract, "widget", _NoColour, distribution="acme-widgets")
+
+    message = str(excinfo.value)
+    assert "widget" in message
+    assert "_DeclaringContract" in message
+    assert "widget_colour" in message
+    assert registry.contracts() == frozenset()
+
+
+def test_add_accepts_a_factory_that_declares_the_required_declaration() -> None:
+    # Arrange
+    registry = Registry()
+
+    class _HasColour:
+        widget_colour = "red"
+
+    # Act
+    registry.add(_DeclaringContract, "widget", _HasColour, distribution="acme-widgets")
+
+    # Assert
+    assert registry.lookup(_DeclaringContract, "widget") is _HasColour
+
+
+def test_a_missing_destroys_declaration_is_still_the_specific_destroys_error() -> None:
+    # Assert — the fold: `destroys` is a required declaration like any other, but the
+    # specific error type task 1.2's own tests catch by name is preserved rather than
+    # collapsed into the generic family.
+    assert issubclass(MissingDestroysDeclarationError, MissingRequiredDeclarationError)
+
+
+def test_add_refuses_when_both_the_legacy_flag_and_the_general_mechanism_name_declarations() -> (
+    None
+):
+    # Arrange — a contract using both sources at once: `publishes_property_vocabulary` (the
+    # legacy spelling `Chunker`/`Cleaner` already ship) contributing `destroys`, and
+    # `required_declarations` contributing a second, unrelated name. Both must be enforced
+    # by the one check.
+    registry = Registry()
+
+    class _BothSources:
+        if TYPE_CHECKING:
+            publishes_property_vocabulary: ClassVar[bool]
+            required_declarations: ClassVar[tuple[str, ...]]
+
+    _BothSources.publishes_property_vocabulary = True
+    _BothSources.required_declarations = ("widget_colour",)
+
+    class _DestroysOnly:
+        destroys: tuple[type, ...] = ()
+
+    class _ColourOnly:
+        widget_colour = "red"
+
+    class _Neither:
+        pass
+
+    class _Both:
+        destroys: tuple[type, ...] = ()
+        widget_colour = "red"
+
+    # Act / Assert — missing the general-mechanism name still refuses, even with `destroys`
+    # present.
+    with pytest.raises(MissingRequiredDeclarationError):
+        registry.add(_BothSources, "a", _DestroysOnly, distribution="acme-widgets")
+
+    # Act / Assert — missing `destroys` still refuses, as the specific subclass, even with
+    # the general-mechanism name present.
+    with pytest.raises(MissingDestroysDeclarationError):
+        registry.add(_BothSources, "b", _ColourOnly, distribution="acme-widgets")
+
+    with pytest.raises(MissingRequiredDeclarationError):
+        registry.add(_BothSources, "c", _Neither, distribution="acme-widgets")
+
+    # Act — both present: registers cleanly.
+    registry.add(_BothSources, "d", _Both, distribution="acme-widgets")
+
+    # Assert
+    assert registry.lookup(_BothSources, "d") is _Both
 
 
 def test_names_for_lists_every_name_under_one_contract_and_nothing_under_another() -> None:

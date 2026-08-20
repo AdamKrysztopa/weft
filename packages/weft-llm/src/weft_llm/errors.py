@@ -186,6 +186,31 @@ class NativeStructuredUnsupportedError(LLMPermanentError):
     """
 
 
+class LLMGenerationLoopError(LLMPermanentError):
+    """`weft_llm.loop_guard.detect_generation_loop` found the answer settling into a repeat.
+
+    Task **3.10**'s own class: `LLMClient.complete` stops consuming `bound.provider.stream`
+    the moment the guard fires, rather than continuing to relay a small model's own stuck
+    output to a reader's terminal. Raised, not returned as a `Failed` reason — the only other
+    class in this file that is constructed but never raised is `LLMCompletionError`, and the
+    difference is deliberate: that class means "the vendor answered and the *shape* was
+    unusable", where this one means generation was cut short deliberately, mid-stream, and the
+    caller must be told loudly rather than handed a quietly truncated `Completion`.
+    `weft_cli.cli.run_command` is what turns this raise into `TokenSink.close(reason=...)`,
+    which is what tells whoever is reading the stream *why* it stopped rather than leaving a
+    truncated answer indistinguishable from one that finished cleanly.
+
+    **Permanent, not transient.** A small or local model that loops on one prompt tends to
+    loop identically on a retry of the same prompt — this is not a fact about the connection,
+    the way `LLMTransientError`'s leaves are, so the retry wrapper must not spend attempts
+    replaying a loop.
+
+    **This is a loop-breaker, never a hallucination judgment.** It has no opinion on whether
+    the text generated so far is true — only that it stopped introducing anything new. Naming
+    or documenting it as detecting a hallucination is the one thing `01`'s Lift note forbids.
+    """
+
+
 class LLMCompletionError(LLMError):
     """The call succeeded and the answer could not be used — not a fact about the transport.
 

@@ -293,7 +293,7 @@ def _sole_claimant(
         "Name one with `--extract <name>`. The kernel walks a stage's `fallback:` chain "
         "(ledger task 2.28), but no route from a pipeline document to this command's stages "
         "exists, so `weft index` cannot compose several. Ledger tasks 2.4 and 2.8 built that "
-        "bridge for a different command (`weft route`); no task currently owns it for `weft "
+        "bridge for `weft ask`'s own routed pipelines; no task currently owns it for `weft "
         "index`."
     )
     raise AmbiguousExtractorError(

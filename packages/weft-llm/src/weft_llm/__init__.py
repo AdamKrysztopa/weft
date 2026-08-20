@@ -25,6 +25,7 @@ from pydantic import BaseModel, ConfigDict
 from weft_kernel.discovery import PackRegistrar
 from weft_llm.client import LLMClient, NullSink, llm_service
 from weft_llm.contract import LLM, LLM_CONTRACT_VERSION, LLMProvider, NativeStructured, TokenSink
+from weft_llm.loop_guard import LoopGuardConfig, detect_generation_loop
 from weft_llm.models import ModelRef, find_runtime_match, model_ref
 from weft_llm.payload import (
     Completion,
@@ -63,6 +64,7 @@ __all__ = [
     "LLMClient",
     "LLMProvider",
     "LLMRoles",
+    "LoopGuardConfig",
     "Message",
     "MessageRole",
     "ModelRef",
@@ -78,6 +80,7 @@ __all__ = [
     "TokenChunk",
     "TokenSink",
     "UnmappedLLMRoleError",
+    "detect_generation_loop",
     "find_runtime_match",
     "llm_service",
     "model_ref",

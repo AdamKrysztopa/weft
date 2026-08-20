@@ -90,6 +90,26 @@ def test_a_malformed_pipeline_document_maps_to_resolution_failed() -> None:
     assert exit_code_for(DuplicatePipelineNameError("dup name")) is ExitCode.RESOLUTION_FAILED
 
 
+def test_a_project_pipeline_name_collision_maps_to_resolution_failed() -> None:
+    # Task 3.7 — the wider guarantee `weft_cli.pipeline_catalogue.full_catalogue` closes:
+    # two sources naming the same pipeline is exactly "fix the pipeline", the identical
+    # exit-4 side `DuplicatePipelineNameError`/`ContributedPipelineNameCollisionError`
+    # already sit on.
+    from weft_cli.pipeline_catalogue import ProjectPipelineNameCollisionError
+
+    exc = ProjectPipelineNameCollisionError("shared name")
+    assert exit_code_for(exc) is ExitCode.RESOLUTION_FAILED
+
+
+def test_an_unknown_config_key_maps_to_resolution_failed() -> None:
+    # Task 3.7 — `weft config get/set` naming a key nothing reads is "fix the command",
+    # `docs/03-cli.md`'s own exit-4 family, one surface over from a pipeline name.
+    from weft_cli.config_surface import UnknownConfigKeyError
+
+    exc = UnknownConfigKeyError("unknown key", valid_options=("services.embed",))
+    assert exit_code_for(exc) is ExitCode.RESOLUTION_FAILED
+
+
 def test_an_unrelated_weft_error_maps_to_operation_failed() -> None:
     # Error case — a `WeftError` that is none of the above (a registry-time collision, say)
     # falls to the generic "something failed" exit, never silently upgraded to 4.

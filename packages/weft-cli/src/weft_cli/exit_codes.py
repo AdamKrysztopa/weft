@@ -5,10 +5,12 @@ in CI." Five values, and the split between 3 and 4 is G3's policy-versus-
 resolution distinction, restated here as the mechanical fact `weft_cli.cli`
 dispatches on:
 
-- **3** covers policy refusals of both kinds a Phase 0 command can hit: a
-  pipeline naming a plugin from a `REFUSED` pack. (The other G3 policy case —
-  an `ask`-class command with no TTY — never arises in Phase 0: nothing built
-  here is `overwrite` or `destroy`, see `weft_cli.permissions`.)
+- **3** covers policy refusals of both kinds G3 names: a pipeline naming a
+  plugin from a `REFUSED` pack, and — since task 3.3 — an `overwrite`/
+  `destroy`-class command with no TTY to confirm in, or one an interactive
+  caller declined. Both are `weft_cli.commands.CommandRefusalError`, carrying
+  this code as data; see `weft_cli.confirm` for the second case's own gate,
+  called from `weft_cli.cli.run_command` immediately before a `Command` runs.
 - **4** stays with genuine resolution failure: a name no pack provides, or one
   lost to a `FAILED`, `PARTIAL` or `ALLOWED_NOT_INSTALLED` report.
 
@@ -22,11 +24,13 @@ check having passed.
 from enum import IntEnum
 from typing import Final
 
+from weft_cli.config_surface import UnknownConfigKeyError
 from weft_cli.pipeline_catalogue import (
     ContributedPipelineNameCollisionError,
     DuplicatePipelineNameError,
     MalformedPipelineError,
     PipelineDocumentError,
+    ProjectPipelineNameCollisionError,
 )
 from weft_kernel.errors import WeftError
 from weft_kernel.registry import UnknownPluginError
@@ -48,21 +52,29 @@ class ExitCode(IntEnum):
 
 
 #: Every `WeftError` type that maps to exit 4 despite carrying no `PipelineResolutionError`
-#: in its own inheritance — task 1.13. Both are deliberately *not* `PipelineResolutionError`
-#: subclasses (see `weft_kernel.resolution`'s own module docstring for `UnknownPluginError`,
-#: and `weft_cli.pipeline_catalogue`'s for the other three — a document that will not even
-#: validate "has no resolved parent and no distributions to name", so filing it under the
-#: family "would hand the failure-mode ratchet one already-documented name to hide behind"),
-#: yet `docs/03-cli.md` -> *Output* puts every one of them on the exit-4 side of the split:
-#: "a name no pack provides" for the first, "fix the pipeline" for the other three. Named
-#: explicitly rather than derived, unlike the family walk `exit_code_for` performs below —
-#: there is no shared base to walk for a group this small and this deliberately disjoint.
+#: in its own inheritance — task 1.13, widened by task 3.7. All are deliberately *not*
+#: `PipelineResolutionError` subclasses (see `weft_kernel.resolution`'s own module docstring
+#: for `UnknownPluginError`, `weft_cli.pipeline_catalogue`'s for the three document-level
+#: ones and `ProjectPipelineNameCollisionError` beside them — a document that will not even
+#: validate, or two sources naming the same pipeline, "has no resolved parent and no
+#: distributions to name", so filing either under the family "would hand the failure-mode
+#: ratchet one already-documented name to hide behind"; `weft_cli.config_surface.
+#: UnknownConfigKeyError` the identical reasoning one surface over — a key `weft config`
+#: does not read has no pipeline, no stage and no distribution to name either), yet
+#: `docs/03-cli.md` -> *Output* puts every one of them on the exit-4 side of the split: "a
+#: name no pack provides" for `UnknownPluginError`, "fix the pipeline"/"fix the command" for
+#: the rest. Named explicitly rather than derived, unlike the family walk `exit_code_for`
+#: performs below — there is no shared base to walk for a group this small and this
+#: deliberately disjoint. (`UnknownPipelineNameError` needs no entry here: it already
+#: inherits `PipelineResolutionError` directly, so `isinstance` below already catches it.)
 _ALSO_RESOLUTION_FAILED: Final[tuple[type[WeftError], ...]] = (
     UnknownPluginError,
     PipelineDocumentError,
     MalformedPipelineError,
     DuplicatePipelineNameError,
     ContributedPipelineNameCollisionError,
+    ProjectPipelineNameCollisionError,
+    UnknownConfigKeyError,
 )
 
 

@@ -22,12 +22,18 @@ taken through the exact surface a user has, with a real distribution set and a r
 boundary, and no private path exists here to drift from the shipped one.
 
 **What it measures, stated plainly, because a number whose scope is unclear is worse than
-none.** `weft ask` retrieves; it does not generate — Phase 2 has not shipped a generating
-command (`docs/build-ledger.md` 2.9). So this is a **retrieval** baseline: single-vector top-k,
-no fusion, no rerank, no enhancement, which is exactly what V3 asks the baseline to be. The
-generation-side number V3's neighbours will want — stance accuracy on the unanswerable subset —
-needs a generator and is not attempted here; those 17 questions are excluded by name and
-counted, never scored as zero.
+none.** This is a **retrieval** baseline: single-vector top-k, no fusion, no rerank, no
+enhancement, which is exactly what V3 asks the baseline to be. It drives `weft ask
+--retrieve-only`, deliberately — Phase 3 task 3.11 made `weft ask` route to a generated,
+cited answer by default, and that default cannot be this baseline's measurement even once a
+provider is configured: V5 (`docs/09-release.md` §4.3) requires a deterministic subset that
+runs in CI with no credentials and no network, and a `weft.toml` with no `[llm.roles]` table
+maps no role at all (`weft_llm.roles.LLMRoles`'s own "no silent default" clause), so routed
+generation refuses loudly rather than running. `--retrieve-only` is Phase 0's own contract,
+kept reachable through task 3.11 for exactly this caller — see `docs/build-ledger.md`'s 3.11
+entry. The generation-side number V3's neighbours will want — stance accuracy on the
+unanswerable subset — needs a generator and is not attempted here; those 17 questions are
+excluded by name and counted, never scored as zero.
 
 **Configuration is written, not assumed.** The run writes the `weft.toml` it then runs against,
 into its own working directory, and records what it wrote. A baseline that depended on the
@@ -349,13 +355,17 @@ def index_corpus(
 
 
 def ask(question: Question, *, workdir: Path, top_k: int) -> AskResult | str:
-    """One `weft ask`, parsed — or the reason this measurement did not happen.
+    """One `weft ask --retrieve-only`, parsed — or the reason this measurement did not happen.
+
+    `--retrieve-only` (task 3.11) is load-bearing here, not incidental: `weft ask` routes to a
+    generated answer by default since that task, and this harness needs the deterministic,
+    model-free retrieval V3 asks the baseline to be — see the module docstring's own paragraph.
 
     A failure comes back as a string rather than as an empty result, because "the command
     failed" and "nothing matched" are different facts and only one of them may reach a mean.
     """
     completed = _weft(
-        ["ask", question.text, "--top-k", str(top_k), "--format", "json"],
+        ["ask", question.text, "--retrieve-only", "--top-k", str(top_k), "--format", "json"],
         workdir=workdir,
         timeout=_ASK_TIMEOUT_SECONDS,
     )

@@ -47,6 +47,18 @@ here. Which *pack settings* a store takes (`[packs.weft-qdrant] collection`,
 it. Until then a `weft.toml` naming one gets a refusal saying so, because the
 alternative is an operator setting a key, seeing no error, and getting a run
 assembled from something other than what they named.
+
+**Repair, 2026-08-20** (`docs/01-high-level-plan.md` item 12's own dated paragraph carries the
+argument in full): the unknown-key refusal below used to be a bare `WeftError` computing the
+valid keys and interpolating them into the message only — invisible to fitness function 12's
+family walk, which looks for a typed `valid_options` field, never message text.
+`UnknownServiceKeyError` now carries it, the identical shape `weft_cli.config_surface.
+UnknownConfigKeyError` already gives `config get`/`config set`'s own vocabulary. The malformed-
+value check just below it (a value that is not the name of a registered plugin at all, checked
+here only for shape) is **not** brought into the family — it reports a type mismatch, not a
+name failing to resolve against an enumerable set; whether the name actually resolves is left to
+the registry lookup a caller performs later, which is where `weft_kernel.registry.
+UnknownPluginError` already carries its own `valid_options`.
 """
 
 from __future__ import annotations
@@ -55,7 +67,7 @@ from typing import Final, cast
 
 from pydantic import BaseModel, ConfigDict
 
-from weft_kernel.errors import WeftError
+from weft_kernel.errors import UnresolvedNameError, WeftError
 
 #: `weft-embed`'s deterministic embedder — see the module docstring on why the offline
 #: one is the default rather than merely available.
@@ -65,6 +77,20 @@ DEFAULT_EMBEDDER: Final[str] = "hash"
 #: floor — "one container is the floor, and it is pgvector" — not because it is privileged:
 #: it is resolved by name through the same registry every other store is.
 DEFAULT_STORE: Final[str] = "pgvector"
+
+
+class UnknownServiceKeyError(WeftError, UnresolvedNameError):
+    """`[services]` names a key this module does not read.
+
+    Repair, 2026-08-20: the identical rule `weft_cli.config_surface.UnknownConfigKeyError`
+    already gives `config get`/`config set`'s own sibling refusal, applied here — `01`
+    requirement 5 and fitness function 12 require the valid keys as a typed field a caller can
+    read, not only text inside the message a reviewer has to notice.
+    """
+
+    def __init__(self, message: str, *, valid_options: tuple[str, ...]) -> None:
+        super().__init__(message)
+        self.valid_options = valid_options
 
 
 class ServiceSelection(BaseModel):
@@ -100,14 +126,15 @@ def service_selection_from_config(document: dict[str, object] | None) -> Service
             f'`services = {services!r}`. Did you mean `[services]\\nembed = "openai"`?'
         )
     written = cast("dict[str, object]", services)
-    known = sorted(ServiceSelection.model_fields)
+    known = tuple(sorted(ServiceSelection.model_fields))
     unknown = sorted(key for key in written if key not in ServiceSelection.model_fields)
     if unknown:
-        raise WeftError(
+        raise UnknownServiceKeyError(
             f"unknown [services] key(s) in weft.toml: {', '.join(repr(key) for key in unknown)}. "
             f"[services] accepts {', '.join(known)}. A key nothing reads is refused rather than "
             f"ignored — a service Weft did not select is one you would have to notice by the "
-            f"answers being wrong."
+            f"answers being wrong.",
+            valid_options=known,
         )
     for key, value in written.items():
         if not isinstance(value, str) or not value:

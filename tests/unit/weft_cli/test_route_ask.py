@@ -12,6 +12,10 @@ takes; `NodeStore`/`Embedder` are trivial fakes because nothing in this particul
 
 Covers the happy path (route, then execute, end to end, against real registry-resolved
 plugins) and the error case of no installed pack contributing `route.yaml` at all.
+
+Task **3.6** adds one more: proof that `sink` genuinely reaches the generating stage
+through this module's own `build_services` call, end to end through the real pipeline
+machinery above — not a fake standing in for `weft_llm.client.LLMClient`.
 """
 
 from __future__ import annotations
@@ -31,7 +35,9 @@ from weft_generate.prompts import ANSWER_WITH_CITATIONS_NAME, AnswerWithCitation
 from weft_kernel.context import Context, ServiceRegistry
 from weft_kernel.discovery import PackReport, PackStatus, PipelineResource
 from weft_kernel.registry import Registry
+from weft_llm.client import NullSink
 from weft_llm.contract import LLMProvider
+from weft_llm.payload import TokenChunk
 from weft_llm.roles import LLMRoles, RoleMapping
 from weft_llm.scripted import ScriptedConfig, ScriptedProvider
 from weft_prompts.contract import Prompt
@@ -160,11 +166,54 @@ async def test_run_routed_ask_selects_and_executes_the_only_routable_pipeline() 
         ctx=_ctx(),
         llm=_llm(),
         services=ServiceSelection(embed="fake-embed", store="fake-store"),
+        sink=NullSink(),
     )
 
     # Assert
     assert pipeline_name == "no-retrieval"
     assert isinstance(answer, Answer)
+
+
+class _RecordingSink:
+    """A `TokenSink` that keeps everything it saw — no filtering, no printing — so a test
+    can inspect exactly what `weft_llm.client.LLMClient.complete` emitted, tagged by role.
+    """
+
+    def __init__(self) -> None:
+        self.chunks: list[TokenChunk] = []
+        self.closed_with: list[str | None] = []
+
+    async def emit(self, chunk: TokenChunk) -> None:
+        self.chunks.append(chunk)
+
+    async def close(self, *, reason: str | None = None) -> None:
+        self.closed_with.append(reason)
+
+
+async def test_run_routed_ask_streams_generation_tokens_into_the_caller_s_sink() -> None:
+    # Arrange — task 3.6: `run_routed_ask`'s own `sink` parameter has to reach the real
+    # generating stage, not merely be accepted and dropped.
+    sink = _RecordingSink()
+
+    # Act
+    _pipeline_name, answer = await run_routed_ask(
+        "what happens if a store advertises no capability at all?",
+        registry=_registry(),
+        reports=_reports(),
+        ctx=_ctx(),
+        llm=_llm(),
+        services=ServiceSelection(embed="fake-embed", store="fake-store"),
+        sink=sink,
+    )
+
+    # Assert — the `generate`-role chunks, rejoined in arrival order, are exactly the
+    # `Answer.text` this same run produced; `weft_llm.client.LLMClient.complete` accumulates
+    # and emits identically (task 2.10's own repair), so this is not a coincidence of the
+    # fixture. `run_routed_ask` itself never closes the sink — that is `weft_cli.cli.
+    # run_command`'s own job (task 3.6), proven by `closed_with` staying empty here.
+    generated = "".join(chunk.text for chunk in sink.chunks if chunk.role == "generate")
+    assert generated == answer.text
+    assert sink.closed_with == []
 
 
 async def test_run_routed_ask_raises_when_no_pack_contributed_a_router() -> None:
@@ -179,4 +228,5 @@ async def test_run_routed_ask_raises_when_no_pack_contributed_a_router() -> None
             ctx=_ctx(),
             llm=_llm(),
             services=ServiceSelection(embed="fake-embed", store="fake-store"),
+            sink=NullSink(),
         )

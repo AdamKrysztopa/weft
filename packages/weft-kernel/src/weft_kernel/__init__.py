@@ -58,6 +58,7 @@ from weft_kernel.pipeline import (
 from weft_kernel.registry import (
     DuplicateRegistrationError,
     MissingDestroysDeclarationError,
+    MissingRequiredDeclarationError,
     Registry,
     RegistryEntry,
     UnknownPluginError,
@@ -115,6 +116,7 @@ __all__ = [
     "Lineage",
     "MediaType",
     "MissingDestroysDeclarationError",
+    "MissingRequiredDeclarationError",
     "Node",
     "NodeId",
     "NothingToProduce",

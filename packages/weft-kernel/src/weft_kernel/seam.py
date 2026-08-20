@@ -130,8 +130,28 @@ signature — there is nothing for `_strip_transient` to strip — but the other
 three concerns still apply: a span, the blocking-call guard, and, for a bare
 `WeftError` a pack raises itself, the same four-field attribution `wrap`
 gives `run()`.
+
+**`guard_blocking_calls`, added by `weft-cli` task 3.4 for a caller outside
+`Runner`'s own reach.** `docs/build-ledger.md` 3.2 tried running a
+`weft_command.contract.Command` invocation through this function unchanged
+and reverted: `weft index`'s synchronous filesystem walk tripped concern 4,
+which exists because a blocking `Stage` starves an event loop *other stages
+share* — a `Command` is CLI orchestration invoked once per invocation or
+REPL turn, with nothing else scheduled on that loop to starve, so the guard
+was a false positive for it rather than a caught defect. 3.4's own analysis
+(recorded in full in its `docs/build-ledger.md` entry) rejected two other
+shapes for this fact: a second, hand-written span-and-attribution wrapper in
+`weft_cli` (a second implementation of a concern this module already owns,
+free to drift from it) and applying the guard unconditionally (the reverted
+status quo, which left every `Command` invocation with no attribution at
+all — a rule an author had to remember, which CLAUDE.md refuses). A keyword
+defaulting to `True` keeps every existing caller's behaviour identical by
+construction; only `weft_cli.cli.run_command` passes `False`, and only
+concern 4 is affected — spans, attribution and `Produced` post-processing
+run exactly as they do when the guard is armed.
 """
 
+import contextlib
 from collections.abc import Awaitable, Callable, Sequence
 from typing import cast
 
@@ -158,6 +178,7 @@ def wrap[**P, T](
     contract: str,
     plugin: str,
     stage: str | None = None,
+    guard_blocking_calls: bool = True,
 ) -> Callable[P, Awaitable[Outcome[T]]]:
     """Wrap `run` so every call through it carries spans, attribution, stripping and the guard.
 
@@ -168,6 +189,9 @@ def wrap[**P, T](
     one to give — the runner (`06` step 6) always does. A caller with no
     pipeline concept (registration, step 3) may omit it and falls back to
     `f"{contract}:{plugin}"`, the label available at registration time.
+
+    `guard_blocking_calls` defaults to `True` for every existing caller — see
+    the module docstring's own paragraph on why and who passes `False`.
     """
     stage_label = stage if stage is not None else f"{contract}:{plugin}"
 
@@ -176,7 +200,13 @@ def wrap[**P, T](
             span.set_attribute("weft.pack", distribution)
             span.set_attribute("weft.contract", contract)
             span.set_attribute("weft.plugin", plugin)
-            with blocking.guard(stage_label):
+            # A fresh context manager per call, never hoisted above `_wrapped`: a
+            # `@contextmanager`-built one (`blocking.guard`) can only be entered once, and
+            # `_wrapped` itself is reusable across many invocations.
+            guard_cm = (
+                blocking.guard(stage_label) if guard_blocking_calls else contextlib.nullcontext()
+            )
+            with guard_cm:
                 try:
                     outcome = await run(*args, **kwargs)
                 except WeftError as exc:

@@ -20,7 +20,7 @@ collision it is about to cause.
 **Task 2.29 adds `[services]`, and it is the same one file again.** Which
 `Embedder` a run resolves is an operator's choice rather than a constant in
 `weft_cli.ingest` — the argument is `weft_cli.services`', not this module's —
-and it is parsed from the *same* `_document_at` call as everything above, so
+and it is parsed from the *same* `document_at` call as everything above, so
 the allow-list, the pack settings, the pins and the service selection cannot
 come from two different reads of one file.
 
@@ -88,11 +88,17 @@ module docstring for why it is its own top-level table rather than a third
 reason and out of the same parse: it built the retry wrapper the block
 configures, and a knob parsed by one reader and dropped before the run that
 needs it is a knob that silently does nothing.
+
+**Task 3.3 adds `[permissions]`, from the same one-file read again.** An
+operator's override of the `overwrite`/`destroy` defaults `weft_cli.confirm`
+enforces at the invocation seam — `weft_cli.permission_policy`'s own module
+docstring carries the shape and why it stops at two keys.
 """
 
 from __future__ import annotations
 
 import os
+import textwrap
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -100,6 +106,7 @@ from typing import cast
 
 from weft_cli.exit_codes import ExitCode
 from weft_cli.llm_roles import LLMRoles, LLMSection, llm_section_from_config
+from weft_cli.permission_policy import PermissionPolicy, permission_policy_from_config
 from weft_cli.services import ServiceSelection, service_selection_from_config
 from weft_kernel.discovery import (
     PackReport,
@@ -110,6 +117,8 @@ from weft_kernel.discovery import (
 )
 from weft_kernel.errors import WeftError
 from weft_kernel.registry import Registry, UnknownPluginError
+from weft_llm.client import NullSink
+from weft_llm.contract import TokenSink
 
 #: `docs/build-ledger.md` 0.9's own note — see the module docstring.
 DEFAULT_CONFIG_PATH = Path("weft.toml")
@@ -156,12 +165,30 @@ class Dependencies:
     take, should not have to construct one by hand for a run that never asks a
     model anything. `llm_roles` stays available as a property, because task
     2.30's shape (a bare role table) is what every existing caller reads.
+
+    **`token_sink`, task 3.6's own addition.** `docs/03-cli.md` -> *Output* (G6): "the CLI
+    registers a `TokenSink` implementation." `weft_cli.cli.main` builds the real one —
+    `weft_cli.sinks.PrintingSink` by default, `JsonSink` under `--json`, `weft_llm.client.
+    NullSink` under `--quiet` — once, from the global flags `argv` carried, and hands it to
+    `build_dependencies` below; every `Command` that streams reads it back off this field
+    rather than being handed a sink of its own (`weft_cli.commands.AskCommand.run`, the
+    only one that streams today — task 3.11 folded `RouteCommand`'s own body in here).
+    Defaults to `NullSink`, the same discard-everything
+    default the library already gives a caller that never registers one — a test or a
+    library use building `Dependencies` directly gets a harmless sink, not a stream printed
+    at whatever `sys.stdout` the test process happens to have.
     """
 
     registry: Registry
     reports: tuple[PackReport, ...]
     services: ServiceSelection
     llm: LLMSection = field(default_factory=LLMSection)
+    #: `[permissions]`, task 3.3 design question 4 — defaults to `ask`/`ask`, the built-in
+    #: `docs/03-cli.md` -> *Permissions* table, so a caller building `Dependencies` directly
+    #: (a test, or a library use `weft ask` does not yet take) gets the same floor a real
+    #: `weft.toml` with no `[permissions]` table would.
+    permissions: PermissionPolicy = field(default_factory=PermissionPolicy)
+    token_sink: TokenSink = field(default_factory=NullSink)
 
     @property
     def llm_roles(self) -> LLMRoles:
@@ -170,30 +197,50 @@ class Dependencies:
 
 
 def build_dependencies(
-    config_path: Path = DEFAULT_CONFIG_PATH, *, strict_pins: bool = True
+    config_path: Path = DEFAULT_CONFIG_PATH,
+    *,
+    strict_pins: bool = True,
+    token_sink: TokenSink | None = None,
 ) -> Dependencies:
     """Discover every installed pack, honouring `[packs] allow` from `config_path` if present.
 
-    Only ever called by a command whose `weft_cli.permissions.CliCommand.needs_registry`
-    is `True` — see `weft_cli.cli` — which is what keeps `weft --version` from
-    running a single line of pack code (fitness function 8(b)).
+    **Never called for `weft --version`** — since task 3.2, `weft_cli.cli.main` checks
+    `_wants_version` *before* deciding whether to call this at all, rather than gating a
+    hand-written `CliCommand.needs_registry` flag per command; every other command needs the
+    registry to build its own argument grammar (`docs/02-extension-model.md` §2: "`weft --help`
+    *does* need [discovery]... That cost is accepted"), so `version` is no longer one flag among
+    several but the one command this function is never reached for at all. See `weft_cli.cli`'s
+    own module docstring for the fitness-function-8(b) argument in full.
 
-    `strict_pins` is threaded straight through to `discover()` — see its own
-    docstring's *repair for a reviewer finding* note. `weft_cli.cli.dispatch`
-    passes `False` only for `plugins list`/`plugins doctor`; every other
-    caller keeps the default, so an inert `[plugins]` pin still refuses
-    `index`/`ask` exactly as it always has.
+    `strict_pins` is threaded straight through to `discover()` — see its own docstring's
+    *repair for a reviewer finding* note. `weft_cli.cli.main` passes `False` only when its own
+    argv pre-scan names `plugins list`/`plugins doctor`; every other caller keeps the default,
+    so an inert `[plugins]` pin still refuses `index`/`ask` exactly as it always has.
+
+    `token_sink` — task **3.6** — is `None` by default, which means "use `Dependencies`'s own
+    default", `weft_llm.client.NullSink`; `weft_cli.cli.main` is the one caller that passes a
+    real one, chosen from `--json`/`--quiet` before this function is ever called (see that
+    module's own docstring). A caller in a test or a library use is free to pass its own.
     """
     _ensure_chunk_offset_rehydrates()
-    document = _document_at(config_path)
+    document = document_at(config_path)
     allow = None if document is None else allow_list_from_config(document)
     settings = merged_pack_settings(document)
     pins = {} if document is None else plugin_pins_from_config(document)
     services = service_selection_from_config(document)
     llm = llm_section_from_config(document)
+    permissions = permission_policy_from_config(document)
     registry = Registry(plugin_pins=pins)
     reports = discover(registry, allow=allow, pack_settings=settings, strict_pins=strict_pins)
-    return Dependencies(registry=registry, reports=reports, services=services, llm=llm)
+    sink = token_sink if token_sink is not None else NullSink()
+    return Dependencies(
+        registry=registry,
+        reports=reports,
+        services=services,
+        llm=llm,
+        permissions=permissions,
+        token_sink=sink,
+    )
 
 
 def _ensure_chunk_offset_rehydrates() -> None:
@@ -349,6 +396,32 @@ def require_active(
     return None
 
 
+@dataclass(frozen=True, slots=True)
+class PluginRefusal:
+    """`require_plugin`'s answer once `name` fails to resolve for `contract`.
+
+    Repair, 2026-08-20 (finding 2, `docs/build-ledger.md` 3.2/3.3/3.7's dated paragraph): this
+    class replaces the bare `tuple[ExitCode, str]` `require_plugin` used to return, which had no
+    field left to carry `weft_kernel.registry.UnknownPluginError.valid_options` through — the
+    caller had already thrown it away into a string before `weft_cli.commands` ever saw it (a
+    second repair, open item O4, later stopped that string from quoting `UnknownPluginError`'s
+    own text verbatim at all — see `_unresolved`'s own docstring). `valid_options` is populated
+    **only** for the two branches inside `_unresolved` that are
+    genuinely a name-resolution failure (the `silent` and `nothing amiss` cases, both
+    `ExitCode.RESOLUTION_FAILED`) — carried from the caught `UnknownPluginError` itself, every
+    name actually registered for `contract` at the moment of the lookup. It stays `None` for the
+    `refused` branch (`ExitCode.POLICY_REFUSED`): a refused pack is never imported, so nothing
+    here can honestly claim to know what it would have registered — inventing a list there would
+    be worse than omitting one, and it is the identical distinction `docs/build-ledger.md` 3.3's
+    own paragraph already draws for why `weft_cli.commands.CommandRefusalError`'s no-TTY refusal
+    does not carry `valid_options` either: a policy decision is not a name failing to resolve.
+    """
+
+    exit_code: ExitCode
+    message: str
+    valid_options: tuple[str, ...] | None = None
+
+
 def require_plugin(
     reports: tuple[PackReport, ...],
     *,
@@ -356,8 +429,9 @@ def require_plugin(
     contract: type[object],
     name: str,
     setting: str,
-) -> tuple[ExitCode, str] | None:
-    """`None` if `name` resolves for `contract`; otherwise the exit code and why it does not.
+) -> PluginRefusal | None:
+    """`None` if `name` resolves for `contract`; otherwise `PluginRefusal` — the exit code, why
+    it does not, and (for a genuine name-resolution failure only) the names that do resolve.
 
     **The gate `require_active` structurally cannot be.** That one takes a
     fixed tuple of distribution names, which was sound while every plugin name
@@ -399,7 +473,7 @@ def require_plugin(
     try:
         registry.entry(contract, name)
     except UnknownPluginError as exc:
-        return _unresolved(reports, contract=contract, name=name, setting=setting, plain=str(exc))
+        return _unresolved(reports, contract=contract, name=name, setting=setting, exc=exc)
     return None
 
 
@@ -409,34 +483,109 @@ def _unresolved(
     contract: type[object],
     name: str,
     setting: str,
-    plain: str,
-) -> tuple[ExitCode, str]:
-    """`require_plugin`'s answer once the name is known not to resolve — see its docstring."""
+    exc: UnknownPluginError,
+) -> PluginRefusal:
+    """`require_plugin`'s answer once the name is known not to resolve — see its docstring.
+
+    **Repair, 2026-08-20 (open item O4, `.phase3-design.md` §4).** This used to build its own
+    `wanted` sentence and then glue `str(exc)` — `weft_kernel.registry.UnknownPluginError`'s own
+    text — onto the end with a bare space. Both messages are correct read alone; concatenated,
+    neither knows it is not first, which produced a sentence beginning lowercase right after a
+    full stop, and restated "nothing is registered under that name" a second time in different
+    words. Fixed by *not* inlining `exc`'s text at all: `exc.valid_options` — the same tuple
+    `PluginRefusal.valid_options` already carries structurally — is enough to state the one new
+    fact `exc`'s message adds (`_registered_names_sentence`), composed as this module's own
+    sentence rather than quoted. `exc` itself is kept only for that field; neither `exc` nor
+    `weft_kernel.registry.UnknownPluginError.__init__` changed, and raising it directly (as
+    `Registry.entry` still does for every other caller) reads exactly as it always has.
+    """
     refused = tuple(report for report in reports if report.status is PackStatus.REFUSED)
     silent = tuple(report for report in reports if report.status in _CONTRIBUTED_INCOMPLETELY)
     wanted = f"{setting} names '{name}', and no registered {contract.__name__} has that name."
+    registered = _registered_names_sentence(contract, exc.valid_options)
     if refused:
         listed = ", ".join(sorted(report.distribution for report in refused))
-        return (
-            ExitCode.POLICY_REFUSED,
-            f"{wanted} These distributions are refused by [packs] allow in "
-            f"{DEFAULT_CONFIG_PATH} and were never imported, so what they would have "
-            f"registered is unknown: {listed}. Add the one that provides '{name}' to "
-            f"[packs] allow. {plain}",
+        return PluginRefusal(
+            exit_code=ExitCode.POLICY_REFUSED,
+            message=_compose(
+                wanted,
+                f"These distributions are refused by [packs] allow in {DEFAULT_CONFIG_PATH} "
+                f"and were never imported, so what they would have registered is unknown: "
+                f"{listed}. Add the one that provides '{name}' to [packs] allow.",
+                # `registered` names whatever is *currently* active despite the refusal — true
+                # and worth stating — but not `PluginRefusal.valid_options` itself: a refused
+                # pack is never imported, so this branch cannot honestly claim to know what it
+                # would have contributed — see that field's own docstring.
+                registered,
+            ),
         )
     if silent:
         listed = "; ".join(
-            f"{report.distribution} ({report.status.value}"
-            + (f": {report.reason}" if report.reason else "")
-            + ")"
+            f"{report.distribution} ({report.status.value})"
             for report in sorted(silent, key=lambda report: report.distribution)
         )
-        return (
-            ExitCode.RESOLUTION_FAILED,
-            f"{wanted} These distributions contributed nothing, or only part of what they "
-            f"publish, and one of them may be the one that provides it: {listed}. {plain}",
+        return PluginRefusal(
+            exit_code=ExitCode.RESOLUTION_FAILED,
+            message=_compose(
+                wanted,
+                f"These distributions contributed nothing, or only part of what they publish, "
+                f"and one of them may be the one that provides it: {listed}.",
+                registered,
+                _diagnostic_detail(silent),
+            ),
+            valid_options=exc.valid_options,
         )
-    return (ExitCode.RESOLUTION_FAILED, f"{wanted} {plain}")
+    return PluginRefusal(
+        exit_code=ExitCode.RESOLUTION_FAILED,
+        message=_compose(wanted, registered),
+        valid_options=exc.valid_options,
+    )
+
+
+def _registered_names_sentence(contract: type[object], valid_options: tuple[str, ...]) -> str:
+    """This module's own statement of `UnknownPluginError.valid_options` — the one fact in the
+    kernel's message genuinely worth carrying forward, composed rather than quoted.
+    """
+    available = ", ".join(f"'{option}'" for option in valid_options) if valid_options else "none"
+    return f"Registered {contract.__name__} names: {available}."
+
+
+def _diagnostic_detail(silent: tuple[PackReport, ...]) -> str:
+    """The raw reason each `silent` pack gave — a Pydantic validation dump, for `weft-store`'s
+    own `FAILED` case — as its own block, indented under the distribution it belongs to, rather
+    than spliced into the middle of `_unresolved`'s summary sentence. Empty for a `silent` tuple
+    where nothing carries a `reason` (`ALLOWED_NOT_INSTALLED` never does).
+    """
+    blocks = [
+        f"{report.distribution}:\n{textwrap.indent(report.reason, '    ')}"
+        for report in sorted(silent, key=lambda report: report.distribution)
+        if report.reason
+    ]
+    return "Diagnostic detail:\n" + "\n".join(blocks) if blocks else ""
+
+
+def _compose(*sentences: str) -> str:
+    """Join `_unresolved`'s pieces into one message, in the order given — the join this whole
+    repair is about.
+
+    Every argument is written by this module, in its own voice, capitalised and ending in a
+    full stop already, so a plain space between two single-line pieces reads as one paragraph.
+    A multi-line piece (`_diagnostic_detail`'s block) gets a blank line on either side instead,
+    so it reads as a distinct, clearly-delimited section rather than a continuation of the
+    sentence next to it. An empty piece (an empty `_diagnostic_detail`, or `_registered_names_
+    sentence` never is) contributes nothing, not even a stray separator.
+    """
+    parts: list[str] = []
+    previous_was_multiline = False
+    for sentence in sentences:
+        if not sentence:
+            continue
+        multiline = "\n" in sentence
+        if parts:
+            parts.append("\n\n" if multiline or previous_was_multiline else " ")
+        parts.append(sentence)
+        previous_was_multiline = multiline
+    return "".join(parts)
 
 
 def allow_list_from_file(config_path: Path) -> tuple[str, ...] | None:
@@ -447,13 +596,24 @@ def allow_list_from_file(config_path: Path) -> tuple[str, ...] | None:
     See `ConfigFileError`'s own docstring for why this module re-raises rather than letting
     `tomllib.TOMLDecodeError` or `OSError` escape uncaught.
     """
-    document = _document_at(config_path)
+    document = document_at(config_path)
     return None if document is None else allow_list_from_config(document)
 
 
-def _document_at(config_path: Path) -> dict[str, object] | None:
+def document_at(config_path: Path) -> dict[str, object] | None:
     """`config_path` parsed, or `None` if it is absent. One read, so the allow-list and the
     pack settings blocks cannot come from two different parses of the same file.
+
+    **Public since task 3.7**, not `_`-prefixed: `weft_cli.config_surface.effective_config`
+    is a second, legitimate reader of the same file — it needs the *raw* parsed document to
+    tell "a key `weft.toml` sets, to the same value the default would have been anyway" from
+    "a key `weft.toml` never mentions at all", which the already-merged `ServiceSelection`/
+    `PermissionPolicy` objects this module builds cannot answer (see that module's own
+    docstring, and `.phase3-design.md` §2.6, for why guessing from the merged value alone is
+    the reference's own sentinel bug). Reusing this function rather than writing a second
+    `tomllib.load` call is the same "one file, one reader" discipline this module's own
+    docstring states for `[services]`/`[permissions]`/`[plugins]` — extended to a caller
+    outside this module for the first time.
     """
     if not config_path.is_file():
         return None

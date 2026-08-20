@@ -31,6 +31,17 @@ the error attribution, the blocking-call guard and the transient strip are the s
 `LLMProviderFaultError` naming the provider — `.phase2-design.md` §7's first enforcement of
 "a taxonomy nobody catches is documentation". `CancelledError` is a `BaseException` and is
 untouched by every `except Exception` in this file, by construction.
+
+**Task 3.10 adds a fifth thing assembled here: the loop-breaker.** `weft_llm.loop_guard.
+detect_generation_loop` needs the whole answer accumulated so far on every call, and `complete`
+already builds exactly that (`parts`, joined) before emitting to the sink — the only place in
+this tree holding that shape on every token, which is why the guard attaches inside `complete`'s
+own accumulation loop rather than living in a `TokenSink` (`reference/study/08-salvage.md` §T1.12,
+lifted per `01` → Phase 3 **Lift**). A detected loop raises `LLMGenerationLoopError` — an
+`LLMPermanentError`, so it takes the same `except LLMError: raise` path a provider's own errors
+do — rather than quietly returning a truncated `Completion`; `weft_cli.cli.run_command` turns
+that raise into `TokenSink.close(reason=...)`, so a reader is told the stream was cut short
+rather than left to mistake it for one that finished cleanly.
 """
 
 from collections.abc import Awaitable, Callable, Mapping, Sequence
@@ -41,7 +52,13 @@ from weft_kernel.payload import NothingToProduce, Outcome, Produced
 from weft_kernel.registry import Registry, unwrap_factory
 from weft_kernel.seam import wrap
 from weft_llm.contract import LLM, LLMProvider, NativeStructured, TokenSink
-from weft_llm.errors import LLMError, LLMProviderFaultError, NativeStructuredUnsupportedError
+from weft_llm.errors import (
+    LLMError,
+    LLMGenerationLoopError,
+    LLMProviderFaultError,
+    NativeStructuredUnsupportedError,
+)
+from weft_llm.loop_guard import LoopGuardConfig, detect_generation_loop
 from weft_llm.models import ModelRef, find_runtime_match, model_ref
 from weft_llm.payload import Completion, Rendered, TokenChunk
 from weft_llm.retry import RetryPolicy, with_retry
@@ -95,11 +112,17 @@ class LLMClient:
     """
 
     def __init__(
-        self, *, registry: Registry, roles: LLMRoles, retry: RetryPolicy | None = None
+        self,
+        *,
+        registry: Registry,
+        roles: LLMRoles,
+        retry: RetryPolicy | None = None,
+        loop_guard: LoopGuardConfig | None = None,
     ) -> None:
         self._registry = registry
         self._roles = roles
         self._retry = retry if retry is not None else RetryPolicy()
+        self._loop_guard = loop_guard if loop_guard is not None else LoopGuardConfig()
         self._bound: dict[str, _Bound] = {}
         #: Every provider name this deployment mapped — what makes a `provider/model` prefix
         #: recognisable as a prefix rather than half of a model id. See `weft_llm.models`.
@@ -118,6 +141,15 @@ class LLMClient:
                 ):
                     parts.append(chunk)
                     await sink.emit(TokenChunk(role=role, text=chunk))
+                    # Task 3.10: `parts` already holds the whole answer accumulated so far —
+                    # exactly the cumulative-text contract `weft_llm.loop_guard` requires — so
+                    # this is where the guard attaches rather than inside a `TokenSink`, which
+                    # only ever sees one chunk at a time. The chunk that revealed the loop has
+                    # already been emitted above, so a reader still sees it before the stream
+                    # stops; nothing after it is generated or shown.
+                    accumulated = "".join(parts)
+                    if detect_generation_loop(accumulated, config=self._loop_guard):
+                        raise self._loop_detected(bound, role, accumulated)
             except LLMError:
                 raise
             except Exception as fault:
@@ -234,9 +266,24 @@ class LLMClient:
             model=bound.ref.model,
         )
 
+    def _loop_detected(self, bound: _Bound, role: str, accumulated: str) -> LLMGenerationLoopError:
+        return LLMGenerationLoopError(
+            f"provider '{bound.ref.provider}' (role '{role}') was generating a repeating span "
+            f"and was stopped after {len(accumulated)} characters rather than left to keep "
+            f"filling the terminal. This is a loop-breaker for a model that got stuck, not a "
+            f"judgment about the content — retrying the identical prompt against the same "
+            f"model is likely to loop again; try a different prompt, role, or model.",
+            provider=bound.ref.provider,
+            model=bound.ref.model,
+        )
+
 
 def llm_service(
-    *, registry: Registry, roles: LLMRoles, retry: RetryPolicy | None = None
+    *,
+    registry: Registry,
+    roles: LLMRoles,
+    retry: RetryPolicy | None = None,
+    loop_guard: LoopGuardConfig | None = None,
 ) -> LLMClient:
     """Build the run's `LLM`. This pack's own constructor, per `.phase2-design.md` §7.
 
@@ -245,7 +292,7 @@ def llm_service(
     run's `ServiceRegistry`; an embedding host application calls it directly with a role table
     it built itself.
     """
-    return LLMClient(registry=registry, roles=roles, retry=retry)
+    return LLMClient(registry=registry, roles=roles, retry=retry, loop_guard=loop_guard)
 
 
 def _declared_catalogue(factory: Callable[..., object]) -> Sequence[str]:

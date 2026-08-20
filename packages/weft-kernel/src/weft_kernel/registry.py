@@ -53,6 +53,34 @@ unwrapped `partial` just returns the default, invisibly. `unwrap_factory`
 is the one place that peeling happens; every reader of a class-level plugin
 declaration goes through it.
 
+**Task 3.1 — `destroys` generalised into `required_declarations`, not duplicated.**
+`docs/03-cli.md` → *Permissions*: "a plugin-contributed command must declare
+its [permission] class, and there is no default (G3)... a command that
+declares none fails to register, loudly, while its author is standing right
+there" — the identical shape `destroys` already has, needed for
+`weft_command.contract.Command`'s `permission_class`. Writing a second,
+parallel `_require_permission_class_if_command` would mean this module
+learning the string `"permission_class"` and, worse, the word `Command` —
+exactly the capability-naming G1 forbids in the kernel. So the check below
+generalises instead: `_required_declarations(contract)` reads *two* sources
+into one tuple — `contract.required_declarations`, a plain tuple of
+attribute names any contract may set (`Command` sets it to
+`("permission_class",)`), and the pre-existing
+`publishes_property_vocabulary` flag, folded in as `"destroys"` for
+`Chunker`, `Cleaner` and every contract that already opted in that way, so
+none of them needed to change. One loop, `_require_declarations_present`,
+walks whatever that tuple contains and raises for the first name
+`unwrap_factory(factory)` lacks — there is exactly one place that checks
+`hasattr` and exactly one place that raises, never one path per contract.
+`MissingDestroysDeclarationError` is kept as a **subclass** of the new
+`MissingRequiredDeclarationError`, specifically for the `"destroys"` name,
+because task 1.2's own tests already catch it by that name and CLAUDE.md's
+existing-test rule means that symbol does not move; every other required
+name (`"permission_class"` included) raises the base class directly, with a
+message built from the declaration name alone — nothing here says
+`Command`, `permission` or any other capability word, so a future contract
+adopting the identical mechanism costs this module nothing.
+
 **Added at step 6 (the linear runner).** `entry()` returns the full
 `RegistryEntry` — factory *and* distribution — where `lookup()` returns only
 the factory. The runner needs the distribution to attribute the spans and
@@ -116,6 +144,7 @@ running."
 import functools
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
+from typing import cast
 
 from weft_kernel.errors import UnresolvedNameError, WeftError
 
@@ -153,7 +182,23 @@ class UnresolvedPluginPinError(WeftError, UnresolvedNameError):
         self.valid_options = valid_options
 
 
-class MissingDestroysDeclarationError(WeftError):
+class MissingRequiredDeclarationError(WeftError):
+    """A plugin registered for a contract that requires a class-level declaration states none.
+
+    Task **3.1**'s generalisation of what task 1.2 built for `destroys`
+    alone — see the module docstring, *"`destroys` generalised into
+    `required_declarations`, not duplicated."* Raised for any name a
+    contract lists in `required_declarations` (or folds in via the legacy
+    `publishes_property_vocabulary` flag) that `unwrap_factory(factory)`
+    does not carry. `MissingDestroysDeclarationError` below is this class's
+    one fixed subclass, kept only because existing tests already catch it by
+    that name; every other required declaration — `permission_class`
+    included — raises this base class directly, so this module never learns
+    a second capability-specific name to special-case.
+    """
+
+
+class MissingDestroysDeclarationError(MissingRequiredDeclarationError):
     """A plugin registered for a contract that publishes a property vocabulary states no `destroys`.
 
     `docs/02-extension-model.md` §3 → *Ordering constraints*: `destroys` is
@@ -162,6 +207,14 @@ class MissingDestroysDeclarationError(WeftError):
     here, at registration, rather than left to surface later as a stranger's
     ordering-sensitive stage silently corrupted by this one at resolution
     time, with neither pack ever seeing a failure that names the cause.
+
+    Subclasses `MissingRequiredDeclarationError` since task 3.1 generalised
+    the check this raises from — `destroys` is now one required declaration
+    among however many a contract names, not a bespoke mechanism, but this
+    symbol stays exactly as task 1.2 left it because `tests/unit/weft_kernel/
+    test_registry.py` already asserts `pytest.raises(
+    MissingDestroysDeclarationError)` and CLAUDE.md's existing-test rule
+    means that assertion does not move.
     """
 
 
@@ -284,11 +337,12 @@ class Registry:
 
         Also refuses `factory` outright — before either check, since this is
         a property of the registration attempt itself rather than of what
-        else is already here — if `contract` publishes a property vocabulary
-        and `factory` never mentions `destroys` at all; see the module
-        docstring, *"`destroys` mandatoriness, added at task 1.2."*
+        else is already here — if `contract` names any required declaration
+        (`required_declarations`, or the legacy `publishes_property_vocabulary`
+        flag) that `factory` never mentions; see the module docstring,
+        *"Task 3.1 — `destroys` generalised into `required_declarations`."*
         """
-        _require_destroys_if_governed(contract, name, factory, distribution=distribution)
+        _require_declarations_present(contract, name, factory, distribution=distribution)
         key = (contract, name)
         existing = self._entries.get(key)
         if existing is None:
@@ -323,7 +377,7 @@ class Registry:
         because the pack that lost one name is installed and active, not
         broken — `docs/03-cli.md`'s own words. Only once every entry is
         either free or pin-resolved does any write happen, so a failed call
-        is still always a no-op. The mandatory-`destroys` check `add`
+        is still always a no-op. The mandatory-declaration check `add`
         performs (see its own docstring) runs here too, for the same reason
         and on the same all-or-nothing terms.
         """
@@ -331,7 +385,7 @@ class Registry:
         pending_new: dict[tuple[type[object], str], RegistryEntry] = {}
         pending_resolutions: list[tuple[tuple[type[object], str], _CollisionResolution]] = []
         for contract, name, factory in batch:
-            _require_destroys_if_governed(contract, name, factory, distribution=distribution)
+            _require_declarations_present(contract, name, factory, distribution=distribution)
             key = (contract, name)
             existing = self._entries.get(key)
             if existing is not None:
@@ -561,37 +615,78 @@ def unwrap_factory(factory: Callable[..., object]) -> object:
     return target
 
 
-def _require_destroys_if_governed(
+def _required_declarations(contract: type[object]) -> tuple[str, ...]:
+    """Every class attribute `contract` requires each of its implementations to declare.
+
+    Task **3.1**'s generalisation — see the module docstring, *"`destroys`
+    generalised into `required_declarations`, not duplicated."* Two sources,
+    merged, neither one a hardcoded contract or capability name:
+
+    - `contract.required_declarations` — a plain `ClassVar[tuple[str, ...]]`
+      any contract may set, read generically off `contract` the same way
+      `publishes_property_vocabulary` already was. `weft_command.contract.
+      Command` sets this to `("permission_class",)`; this module never reads
+      or writes that string anywhere else.
+    - The legacy `publishes_property_vocabulary` flag, folded in as
+      `"destroys"` whenever it is set and not already present — `Chunker`,
+      `Cleaner` and every task-1.2-era contract keeps meaning exactly what
+      it meant, at zero cost, because neither its flag nor its plugins had
+      to change for this generalisation to land.
+
+    An ungoverned contract (the overwhelming majority) returns `()`, and
+    `_require_declarations_present` below is then a no-op, exactly as
+    `_require_destroys_if_governed` was before this task.
+    """
+    declared = cast("tuple[str, ...]", tuple(getattr(contract, "required_declarations", ())))
+    if getattr(contract, "publishes_property_vocabulary", False) and "destroys" not in declared:
+        declared = (*declared, "destroys")
+    return declared
+
+
+def _require_declarations_present(
     contract: type[object], name: str, factory: Callable[..., object], *, distribution: str
 ) -> None:
-    """Refuse `factory` if `contract` publishes a property vocabulary and it never says `destroys`.
+    """Refuse `factory` if `contract` requires a declaration `factory` never states.
 
-    `getattr(contract, "publishes_property_vocabulary", False)` is the whole
-    detection — see the module docstring, *"`destroys` mandatoriness, added
-    at task 1.2."* An ungoverned contract (the overwhelming majority; nothing
-    about `requires`/`provides` or ordinary registration ever required this)
-    is untouched: this function returns immediately, and every existing
-    caller of `add`/`add_many` that registers a bare stand-in with no
-    `destroys` at all keeps working exactly as before.
+    One loop over `_required_declarations(contract)`, one `hasattr` check,
+    one raise — the single code path task 3.1's own module-docstring note
+    describes, replacing the `destroys`-only version task 1.2 wrote.
 
-    `hasattr(unwrap_factory(factory), "destroys")` reads the *class*, not an
-    instance — `factory` is ordinarily the plugin class itself
+    `hasattr(unwrap_factory(factory), declaration)` reads the *class*, not
+    an instance — `factory` is ordinarily the plugin class itself
     (`registrar.add(Chunker, "fixed-size", FixedSizeChunker)`), sometimes a
     `functools.partial` binding pack settings ahead of it (see
     `unwrap_factory`), and no config exists yet to build an instance from at
-    registration time either way. A class that never mentions `destroys` —
-    not even inherited — answers `False`; one that assigns `destroys = ()`
-    explicitly answers `True`, which is exactly the asymmetry `02` §3
-    requires: the empty tuple must be *written*, not merely true by silence.
+    registration time either way. A class that never mentions the
+    declaration — not even inherited — answers `False`; one that assigns it
+    explicitly (`destroys = ()`, `permission_class = PermissionClass.READ`)
+    answers `True`, the same asymmetry `02` §3 states for `destroys`: the
+    value must be *written*, not merely true by silence.
+
+    The exact error type is the one place this function still knows the
+    name `"destroys"` — not as a capability, but as the one required
+    declaration old enough to have tests pinned to its own exception class
+    (see `MissingDestroysDeclarationError`'s docstring). Every other
+    required declaration raises `MissingRequiredDeclarationError` directly,
+    with a message built from `declaration`, `contract` and `distribution`
+    alone.
     """
-    if not getattr(contract, "publishes_property_vocabulary", False):
-        return
-    if hasattr(unwrap_factory(factory), "destroys"):
-        return
-    raise MissingDestroysDeclarationError(
-        f"'{name}' registers for {contract.__name__} (distribution '{distribution}') without "
-        f"declaring `destroys`. {contract.__name__} publishes a property vocabulary "
-        f"(docs/02-extension-model.md §3 → Ordering constraints), so every implementation "
-        f"states what it destroys — an explicit empty tuple if it destroys nothing. Add "
-        f"`destroys: tuple[type[Property], ...] = (...)` to the plugin class."
-    )
+    for declaration in _required_declarations(contract):
+        if hasattr(unwrap_factory(factory), declaration):
+            continue
+        if declaration == "destroys":
+            raise MissingDestroysDeclarationError(
+                f"'{name}' registers for {contract.__name__} (distribution '{distribution}') "
+                f"without declaring `destroys`. {contract.__name__} publishes a property "
+                f"vocabulary (docs/02-extension-model.md §3 → Ordering constraints), so every "
+                f"implementation states what it destroys — an explicit empty tuple if it "
+                f"destroys nothing. Add `destroys: tuple[type[Property], ...] = (...)` to the "
+                f"plugin class."
+            )
+        raise MissingRequiredDeclarationError(
+            f"'{name}' registers for {contract.__name__} (distribution '{distribution}') "
+            f"without declaring `{declaration}`. {contract.__name__}.required_declarations "
+            f"names it as mandatory, with no default silently assumed — see the contract's "
+            f"own docstring for what it means and what value to give it. Add `{declaration} "
+            f"= ...` to the plugin class."
+        )

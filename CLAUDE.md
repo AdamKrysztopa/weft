@@ -91,6 +91,13 @@ uv run poe kernel-isolated # install weft-kernel alone in a clean env and import
 reachable from it, because the reference shipped a boundary checker that was not in its canonical task
 and therefore never ran. If you add a check, add it to the composite in the same commit.
 
+**And a green gate is not a working binary.** Before a task is done, run `weft` through its shipped
+entry point from a directory that is not this repository, including a failure path, and read what it
+prints. This is measured rather than believed: **all four of Phase 3's repairs were found by running
+the binary and none by its 1,513 tests** — one of them was `weft --help` entering the REPL, which
+falsified that phase's own Exit criterion while the test written to prove that criterion passed,
+having been shaped around the defect. `phase-step` → *Finish* carries the step.
+
 The fitness functions are specified in `docs/01-high-level-plan.md` → *Fitness functions*, and each
 test file states which one it implements and why it exists. Several have a **ratchet**: a named
 waiver constant pinned empty, so a waiver is a visible act in a diff rather than a silent edit.

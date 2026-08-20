@@ -20,6 +20,7 @@ import pytest
 
 from weft_cli import registry_bootstrap
 from weft_cli.exit_codes import ExitCode
+from weft_cli.permission_policy import PermissionAction
 from weft_cli.registry_bootstrap import (
     ConfigFileError,
     allow_list_from_file,
@@ -150,19 +151,27 @@ def test_require_plugin_blames_policy_when_a_pack_was_refused_before_it_could_re
 
     # Assert
     assert outcome is not None
-    code, message = outcome
-    assert code is ExitCode.POLICY_REFUSED
-    assert "[services] embed" in message
-    assert "acme-openai" in message
-    assert "[packs] allow" in message
-    assert "'hash'" in message
+    assert outcome.exit_code is ExitCode.POLICY_REFUSED
+    assert "[services] embed" in outcome.message
+    assert "acme-openai" in outcome.message
+    assert "[packs] allow" in outcome.message
+    assert "'hash'" in outcome.message
+    # Repair, 2026-08-20 (finding 2): a refused pack is never imported, so nothing here can
+    # honestly claim to know what it would have registered — `valid_options` stays `None` rather
+    # than inventing a list, the same distinction `docs/build-ledger.md` 3.3's own paragraph
+    # already draws for `CommandRefusalError`'s no-TTY refusal.
+    assert outcome.valid_options is None
 
 
 def test_require_plugin_attaches_the_reason_when_a_pack_failed_to_register() -> None:
     # Arrange — `failed` and `partial` are resolution, not policy (`docs/02-extension-model.md`
     # → *The trust model*), and the reason is what turns a bare "unknown plugin" into a repair.
     registry = Registry()
-    reports = (_report("acme-openai", PackStatus.FAILED, reason="settings failed validation"),)
+    registry.add(_Contract, "hash", _plugin, distribution="weft-embed")
+    reports = (
+        _report("weft-embed", PackStatus.ACTIVE),
+        _report("acme-openai", PackStatus.FAILED, reason="settings failed validation"),
+    )
 
     # Act
     outcome = require_plugin(
@@ -171,9 +180,12 @@ def test_require_plugin_attaches_the_reason_when_a_pack_failed_to_register() -> 
 
     # Assert
     assert outcome is not None
-    code, message = outcome
-    assert code is ExitCode.RESOLUTION_FAILED
-    assert "settings failed validation" in message
+    assert outcome.exit_code is ExitCode.RESOLUTION_FAILED
+    assert "settings failed validation" in outcome.message
+    # Repair, 2026-08-20 (finding 2): this branch genuinely is a name-resolution failure, so
+    # `weft_kernel.registry.UnknownPluginError`'s own `valid_options` — every name actually
+    # registered for `_Contract` — survives rather than being discarded into the message alone.
+    assert outcome.valid_options == ("hash",)
 
 
 def test_require_plugin_says_plainly_that_nothing_provides_the_name_when_nothing_is_amiss() -> None:
@@ -190,10 +202,53 @@ def test_require_plugin_says_plainly_that_nothing_provides_the_name_when_nothing
 
     # Assert
     assert outcome is not None
-    code, message = outcome
-    assert code is ExitCode.RESOLUTION_FAILED
-    assert "'opneai'" in message
-    assert "'hash'" in message
+    assert outcome.exit_code is ExitCode.RESOLUTION_FAILED
+    assert "'opneai'" in outcome.message
+    assert "'hash'" in outcome.message
+    # Repair, 2026-08-20 (finding 2): the canonical genuinely-does-not-resolve case.
+    assert outcome.valid_options == ("hash",)
+
+
+def test_require_plugin_composes_its_own_message_rather_than_splicing_the_kernels() -> None:
+    # Arrange — open item O4 (`.phase3-design.md` §4), reproduced on the real binary: a store
+    # named in `[services]` whose only registering pack failed Pydantic validation. Two
+    # independently-written messages (this module's own `wanted` sentence and `weft_kernel.
+    # registry.UnknownPluginError`'s own text) used to be concatenated with a bare space,
+    # which produced a sentence beginning lowercase after a full stop, a raw multi-line
+    # Pydantic dump spliced mid-sentence, and the same "nothing is registered under that name"
+    # fact stated twice in different words.
+    registry = Registry()
+    registry.add(_Contract, "qdrant", _plugin, distribution="weft-store")
+    pydantic_style_dump = (
+        "'weft-store' settings failed validation: 1 validation error for PgVectorSettings\n"
+        "dsn\n"
+        "  Field required [type=missing, input_value={}, input_type=dict]\n"
+        "    For further information visit https://errors.pydantic.dev/2.13/v/missing"
+    )
+    reports = (_report("weft-store", PackStatus.FAILED, reason=pydantic_style_dump),)
+
+    # Act
+    outcome = require_plugin(
+        reports, registry=registry, contract=_Contract, name="pgvector", setting="[services] store"
+    )
+
+    # Assert
+    assert outcome is not None
+    # No sentence in the composed message begins lowercase right after a full stop — the tell
+    # of two independently-capitalised messages glued together with a bare space.
+    assert re.search(r"\.\s+[a-z]", outcome.message) is None
+    # The Pydantic dump's own content survives (it is genuinely useful diagnostic information,
+    # re-indented as its own block rather than quoted byte-for-byte) but is not spliced into
+    # the middle of the summary sentence that names the failed distribution.
+    assert "Field required [type=missing, input_value={}, input_type=dict]" in outcome.message
+    summary_sentence, _, detail = outcome.message.partition("Diagnostic detail:")
+    assert "Field required" not in summary_sentence
+    assert "Field required" in detail
+    # The kernel's own restatement of "nothing is registered under that name" is summarised,
+    # not quoted verbatim — its literal phrasing does not appear a second time in this
+    # module's own sentence about the same fact.
+    assert "is registered for" not in outcome.message
+    assert "'qdrant'" in outcome.message
 
 
 def test_allow_list_from_file_is_none_when_no_config_file_exists(tmp_path: Path) -> None:
@@ -448,3 +503,37 @@ def test_build_dependencies_defaults_to_the_offline_embedder_with_no_config_file
 
     # Assert — no credential, no network, no model download.
     assert deps.services.embed == "hash"
+
+
+def test_build_dependencies_carries_the_permission_policy_from_weft_toml(
+    tmp_path: Path,
+) -> None:
+    """Task 3.3, design question 4: `[permissions]` travels with the registry it was read
+    beside, the same one-parse discipline `[services]`/`[llm]` already follow.
+    """
+    # Arrange
+    config = tmp_path / "weft.toml"
+    config.write_text('[permissions]\ndestroy = "allow"\n')
+
+    # Act
+    deps = registry_bootstrap.build_dependencies(config)
+
+    # Assert
+
+    assert deps.permissions.destroy is PermissionAction.ALLOW
+    assert deps.permissions.overwrite is PermissionAction.ASK
+
+
+def test_build_dependencies_defaults_permissions_to_ask_with_no_config_file(
+    tmp_path: Path,
+) -> None:
+    # Arrange
+    absent = tmp_path / "weft.toml"
+
+    # Act
+    deps = registry_bootstrap.build_dependencies(absent)
+
+    # Assert — `docs/03-cli.md` -> Permissions' own built-in default for both classes.
+
+    assert deps.permissions.overwrite is PermissionAction.ASK
+    assert deps.permissions.destroy is PermissionAction.ASK

@@ -42,13 +42,23 @@ from __future__ import annotations
 import importlib.resources
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Final
 
 import yaml
 from pydantic import ValidationError
 
 from weft_kernel.discovery import PackReport
-from weft_kernel.errors import WeftError
+from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_kernel.pipeline import Pipeline
+from weft_kernel.runner import PipelineResolutionError, UnresolvedNameInPipelineResolutionError
+
+#: Task **3.7**: `weft pipeline list|show|derive|validate|diff` need somewhere project-local
+#: documents live, on `weft_cli.registry_bootstrap.DEFAULT_CONFIG_PATH`'s own footing — a
+#: single, obvious, cwd-relative default rather than a new `weft.toml` key nothing yet reads.
+#: `load_pipeline_catalogue` already tolerates an absent directory (`Path.glob` on one yields
+#: nothing, never an error), so a project with no `pipelines/` directory at all still has a
+#: full catalogue — just one built entirely from installed packs' own contributions.
+DEFAULT_PIPELINES_DIR: Final[Path] = Path("pipelines")
 
 
 class PipelineDocumentError(WeftError):
@@ -104,6 +114,30 @@ class ContributedPipelineNameCollisionError(WeftError):
     about where to look. Neither is a plugin-name collision, so `weft_kernel.registry`'s
     `[plugins]` pin cannot arbitrate this one; the remedy is renaming one of the two
     pipeline documents.
+
+    **The wider guarantee arrived at task 3.7 — `full_catalogue` below, not this class.**
+    `weft pipeline list|show|derive|validate|diff` is the first caller that actually wires
+    a `load_pipeline_catalogue(directory)` result together with `load_contributed(reports)`,
+    so the project-local-versus-contributed collision `.phase2-design.md` §5 described is now
+    real; it is `ProjectPipelineNameCollisionError` below, not folded into this class, for the
+    identical disambiguation reason this docstring already gives — the two sources still need
+    two different messages.
+    """
+
+
+class ProjectPipelineNameCollisionError(WeftError):
+    """A project-local pipeline document and an installed pack's own contribution declare
+    the same `name:` — task **3.7**, the wider guarantee `ContributedPipelineNameCollisionError`'s
+    own docstring named as missing since task 2.8.
+
+    Refused rather than arbitrated by picking a winner: `02` §3 → *Slots* draws the line for
+    a pack's *stage* contributions ("it may never rewrite a pipeline that did not ask"), and
+    a pack shipping a whole *pipeline* under a name a project already uses is the identical
+    silent-override shape one level up — a project author who wrote `name: base` did not ask
+    to have it shadowed the day some pack happens to ship its own `base.yaml`. Not a
+    plugin-name collision, so `weft_kernel.registry`'s `[plugins]` pin cannot arbitrate this
+    one either, the same reasoning `ContributedPipelineNameCollisionError` already gives — the
+    remedy is renaming one of the two.
     """
 
 
@@ -217,3 +251,54 @@ def load_pipeline_catalogue(directory: Path) -> dict[str, Pipeline]:
         seen_at[pipeline.name] = path
         catalogue[pipeline.name] = pipeline
     return catalogue
+
+
+class UnknownPipelineNameError(
+    UnresolvedNameInPipelineResolutionError, PipelineResolutionError, UnresolvedNameError
+):
+    """A `weft pipeline` command names a pipeline `full_catalogue` does not hold.
+
+    Task **3.7**. Not `weft_kernel.resolution.UnknownParentPipelineError` — that one is
+    raised while *resolving* a document whose own `extends:` names a missing parent; this
+    one is raised before resolution ever starts, for a bare name a person typed at the
+    command line (`weft pipeline show <name>`, `derive <parent> <name>`, `diff <a> <b>`,
+    `validate <name>`). Both are the identical failure *kind* — a name that did not resolve
+    against the same enumerable catalogue — which is why this reuses `weft_kernel.runner.
+    UnresolvedNameInPipelineResolutionError`'s shared `__init__` rather than writing a
+    fifth copy of it: the shape task 2.36 built specifically so more than one module could
+    construct the same family member without duplicating the body.
+
+    Fitness function 12's family: `valid_options` is every pipeline name `full_catalogue`
+    does hold — project-local and pack-contributed alike.
+    """
+
+
+def full_catalogue(
+    *, directory: Path = DEFAULT_PIPELINES_DIR, reports: Sequence[PackReport]
+) -> dict[str, Pipeline]:
+    """Every pipeline a `weft pipeline` command can resolve against.
+
+    Task **3.7** — the first caller that actually merges `load_pipeline_catalogue`'s
+    project-local documents with `load_contributed`'s pack contributions, closing the gap
+    `ContributedPipelineNameCollisionError`'s own docstring named since task 2.8. Neither
+    source is preferred over the other: a name both declare is refused
+    (`ProjectPipelineNameCollisionError`) rather than one silently shadowing the other,
+    the identical "never silently override" rule `02` §3 → *Slots* already states for a
+    pack's stage-level contributions.
+
+    Raises `PipelineDocumentError`/`MalformedPipelineError`/`DuplicatePipelineNameError`
+    from either loader, unchanged, and `ProjectPipelineNameCollisionError` for a name both
+    sources declare. The returned mapping is `resolve()`'s own `parents` shape — pass it
+    directly, exactly as `load_pipeline_catalogue`'s own docstring already says of itself.
+    """
+    project = load_pipeline_catalogue(directory)
+    contributed = load_contributed(reports)
+    shared = sorted(set(project) & set(contributed))
+    if shared:
+        name = shared[0]
+        raise ProjectPipelineNameCollisionError(
+            f"pipeline '{name}' is declared both by a project-local document under "
+            f"'{directory}' and by an installed pack's own contribution. Rename one of "
+            f"the two — `weft plugins doctor` names which pack contributed the other."
+        )
+    return {**contributed, **project}

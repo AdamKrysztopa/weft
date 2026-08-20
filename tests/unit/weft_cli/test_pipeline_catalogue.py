@@ -23,6 +23,8 @@ from weft_cli.pipeline_catalogue import (
     DuplicatePipelineNameError,
     MalformedPipelineError,
     PipelineDocumentError,
+    ProjectPipelineNameCollisionError,
+    full_catalogue,
     load_contributed,
     load_pipeline_catalogue,
     load_pipeline_document,
@@ -226,3 +228,66 @@ def test_load_contributed_raises_for_a_resource_no_installed_package_provides() 
     # Act / Assert
     with pytest.raises(PipelineDocumentError, match="weft-ghost"):
         load_contributed([report])
+
+
+# --- full_catalogue (task 3.7) ----------------------------------------------------------
+
+
+def test_full_catalogue_merges_project_local_and_contributed_pipelines(tmp_path: Path) -> None:
+    # Arrange
+    (tmp_path / "base.yaml").write_text("name: base\nstages: [{id: chunk, use: fixed-size}]\n")
+    _install_fake_resource_package(
+        tmp_path,
+        name="_weft_test_resource_pkg_full",
+        files={"pipelines/route.yaml": "name: route\nstages: []\n"},
+    )
+    report = PackReport(
+        distribution="weft-happy",
+        status=PackStatus.ACTIVE,
+        pipeline_resources=(
+            PipelineResource(
+                distribution="weft-happy",
+                package="_weft_test_resource_pkg_full",
+                resource="pipelines/route.yaml",
+            ),
+        ),
+    )
+
+    # Act
+    catalogue = full_catalogue(directory=tmp_path, reports=[report])
+
+    # Assert
+    assert set(catalogue) == {"base", "route"}
+
+
+def test_full_catalogue_tolerates_an_absent_directory(tmp_path: Path) -> None:
+    # Edge case — a project with no pipelines/ directory at all still has a full catalogue,
+    # built entirely from what installed packs contribute.
+    catalogue = full_catalogue(directory=tmp_path / "nowhere", reports=[])
+
+    assert catalogue == {}
+
+
+def test_full_catalogue_refuses_a_name_shared_between_project_and_pack(tmp_path: Path) -> None:
+    # Arrange
+    (tmp_path / "base.yaml").write_text("name: shared\nstages: [{id: chunk, use: fixed-size}]\n")
+    _install_fake_resource_package(
+        tmp_path,
+        name="_weft_test_resource_pkg_collide",
+        files={"pipelines/shared.yaml": "name: shared\nstages: []\n"},
+    )
+    report = PackReport(
+        distribution="weft-shared",
+        status=PackStatus.ACTIVE,
+        pipeline_resources=(
+            PipelineResource(
+                distribution="weft-shared",
+                package="_weft_test_resource_pkg_collide",
+                resource="pipelines/shared.yaml",
+            ),
+        ),
+    )
+
+    # Act / Assert
+    with pytest.raises(ProjectPipelineNameCollisionError, match="shared"):
+        full_catalogue(directory=tmp_path, reports=[report])

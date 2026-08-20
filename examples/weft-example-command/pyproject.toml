@@ -1,0 +1,27 @@
+[project]
+name = "weft-example-command"
+version = "0.0.0"
+description = "A stranger's CLI command — lives outside the weft workspace, proving fitness function 9 for Command."
+requires-python = ">=3.12"
+# `weft-command` is the one dependency a third-party command pack needs — the `Command`
+# Protocol and `PermissionClass`, nothing else. Not `weft-cli`: `docs/03-cli.md`'s governing
+# rule makes it the *driving* adapter, and a pack implementing a contract depends on the pack
+# that *publishes* it, never on the thing that calls it — the identical relationship
+# `examples/weft-example-chunker/pyproject.toml` states for `weft-chunk`.
+dependencies = ["weft-kernel", "weft-command"]
+
+# One entry point (weft's docs/02-extension-model.md section 2). Nothing under weft's own
+# packages/ or testing/ names this distribution, this module, or the plugin name below —
+# fitness functions 9(b) and 9(c), asserted from the weft repository's own tests/architecture/.
+[project.entry-points."weft.packs"]
+example-command = "weft_example_command:register"
+
+[dependency-groups]
+dev = ["pytest>=8.3", "pytest-asyncio>=0.24"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

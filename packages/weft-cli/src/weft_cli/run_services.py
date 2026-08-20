@@ -64,7 +64,7 @@ from weft_kernel.errors import UnresolvedNameError
 from weft_kernel.pipeline import Pipeline
 from weft_kernel.registry import Registry, RegistryEntry, UnknownPluginError, unwrap_factory
 from weft_kernel.runner import PipelineResolutionError, StageSpec
-from weft_llm.client import NullSink, llm_service
+from weft_llm.client import llm_service
 from weft_llm.contract import LLM, TokenSink
 from weft_prompts.contract import Prompts
 from weft_prompts.registry import prompts_service
@@ -332,10 +332,22 @@ async def build_services(
     catalogue: Mapping[str, Pipeline],
     llm: LLMSection,
     services: ServiceSelection,
+    sink: TokenSink,
 ) -> ServiceRegistry:
     """Assemble one run's `ServiceRegistry` — every service a query-path stage may reach
     through `ctx.require(...)`. See the module docstring's *"`build_services` — task 2.8's
     own addition."*
+
+    **`sink` — task 3.6's own repair.** Every other service this function registers is built
+    by the pack that publishes its contract; `TokenSink` used to be the one exception,
+    hardcoded to `weft_llm.client.NullSink()` regardless of what a caller wanted — the gap
+    `docs/03-cli.md` -> *Output* (G6) names: "the CLI registers a `TokenSink`
+    implementation." Now the caller decides, exactly as it already decides `services.store`/
+    `services.embed`; `weft_cli.route_ask.run_routed_ask` is this function's one caller today
+    and reads `Dependencies.token_sink` to supply it — see that module's own docstring. No
+    default here: a caller with nothing to say about tokens still has to say so explicitly,
+    with `weft_llm.client.NullSink()`, rather than this function silently choosing it —
+    "never absent" is the sink's own promise, not license for this assembler to guess.
 
     `async def`, per `.phase2-design.md` §7, even though nothing below awaits today: every
     constructor called here is synchronous, and the coroutine shape is what lets a future
@@ -353,8 +365,11 @@ async def build_services(
     ever reached; this function does not repeat that translation.
     """
     registered = ServiceRegistry()
-    registered.add(LLM, llm_service(registry=registry, roles=llm.roles, retry=llm.retry))
-    registered.add(TokenSink, NullSink())
+    registered.add(
+        LLM,
+        llm_service(registry=registry, roles=llm.roles, retry=llm.retry, loop_guard=llm.loop_guard),
+    )
+    registered.add(TokenSink, sink)
     registered.add(Prompts, prompts_service(registry))
     registered.add(
         NodeStore, cast(NodeStore, registry.entry(NodeStore, services.store).factory(None))

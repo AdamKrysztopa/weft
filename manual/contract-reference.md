@@ -93,6 +93,37 @@ async def run(
 ]: ...
 ```
 
+## `Command`
+
+**Module:** `weft_command.contract`  
+**Registered by:** `weft-cli`  
+**Version:** `1.1.0`
+
+One CLI-invoked action a pack contributes, registered exactly as it registers a retriever.
+
+Not a pipeline position — see the module docstring's *"`Command` is not a pipeline
+position"* paragraph. `run` accepts the parsed, already-validated arguments and returns a
+decided `Outcome[CommandResult]`, never printed text — see the module docstring's paragraph
+on *"The governing property this task builds into the signature."*
+
+### Declared attributes
+
+```python
+args_model: typing.ClassVar[type[pydantic.main.BaseModel]]
+```
+
+```python
+result_model: typing.ClassVar[type[weft_command.contract.CommandResult]]
+```
+
+### Methods
+
+```python
+async def run(
+    self, args: pydantic.main.BaseModel, ctx: weft_kernel.context.Context
+) -> weft_kernel.payload.outcome.Outcome[weft_command.contract.CommandResult]: ...
+```
+
 ## `ContextPacker`
 
 **Module:** `weft_retrieve.contract`  

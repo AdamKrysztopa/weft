@@ -387,6 +387,56 @@ async def test_wrap_integrates_the_blocking_guard(tracer: _RecordingTracer) -> N
     assert "Chunker:fixed-size" in str(excinfo.value)
 
 
+async def test_wrap_skips_the_blocking_guard_when_disabled(tracer: _RecordingTracer) -> None:
+    # Arrange — task 3.4's O1: `weft_cli.cli.run_command` passes `guard_blocking_calls=False`
+    # for a `Command` invocation, which is CLI orchestration with nothing else sharing its event
+    # loop to starve, unlike a `Stage` — see that module's own docstring for the argument in
+    # full. The same blocking call `test_wrap_integrates_the_blocking_guard` above proves *does*
+    # raise by default must run to completion here.
+    async def run() -> Outcome[str]:
+        time.sleep(0)
+        return Produced(value="ok")
+
+    wrapped = seam.wrap(
+        run,
+        distribution="weft-cli",
+        contract="Command",
+        plugin="index",
+        guard_blocking_calls=False,
+    )
+
+    # Act
+    outcome = await wrapped()
+
+    # Assert
+    assert outcome == Produced(value="ok")
+
+
+async def test_wrap_still_attributes_an_exception_when_the_guard_is_disabled(
+    tracer: _RecordingTracer,
+) -> None:
+    # Arrange — the property O1 exists to restore: attribution must not depend on the guard
+    # being armed, or on an author remembering to add it by hand (CLAUDE.md: cross-cutting
+    # concerns live at the registration seam, never in a rule an author must remember).
+    async def run() -> Outcome[str]:
+        raise WeftError("refused")
+
+    wrapped = seam.wrap(
+        run,
+        distribution="weft-cli",
+        contract="Command",
+        plugin="index",
+        guard_blocking_calls=False,
+    )
+
+    # Act / Assert
+    with pytest.raises(WeftError) as excinfo:
+        await wrapped()
+
+    error = excinfo.value
+    assert (error.pack, error.contract, error.plugin) == ("weft-cli", "Command", "index")
+
+
 async def test_wrap_uses_a_caller_supplied_stage_label_over_the_contract_plugin_default(
     tracer: _RecordingTracer,
 ) -> None:

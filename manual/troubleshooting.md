@@ -178,6 +178,35 @@ own — see `docs/02-extension-model.md` §3 for the asymmetry. **As a user:** t
 named in the message, not your configuration; report it, or pin the pack out of `[packs] allow` until
 it is fixed.
 
+### `MissingRequiredDeclarationError`
+
+**What it looks like** — task **3.1**'s generalisation of the check above: a plugin registers
+for a contract that names a required class-level declaration (`Command.required_declarations`,
+say — `docs/03-cli.md` → *Permissions*) without stating it at all, reproduced directly against a
+`Registry`, the same check every pack's `register()` goes through:
+
+```text
+MissingRequiredDeclarationError: 'graph-build' registers for Command (distribution
+'weft-graph') without declaring `permission_class`. Command.required_declarations names it as
+mandatory, with no default silently assumed — see the contract's own docstring for what it
+means and what value to give it. Add `permission_class = ...` to the plugin class.
+```
+
+The identical mechanism as `MissingDestroysDeclarationError` above — one check,
+`weft_kernel.registry._require_declarations_present`, walking whatever names a contract lists
+in `required_declarations` (or, for `destroys`, the legacy `publishes_property_vocabulary`
+flag) — so this entry and that one share everything except which name was missing and which
+contract asked for it. `MissingDestroysDeclarationError` is this class's own subclass, raised
+specifically for `destroys`; every other required declaration raises this base class directly.
+
+**What to do, as a pack author:** add the named attribute to the plugin class the message names,
+with the value the contract's own documentation asks for — `weft_command.contract.Command`
+documents `permission_class` as one of `weft_command.permission.PermissionClass`'s five members,
+with no default that is safe to assume (`docs/03-cli.md` → *Permissions*: "No default is safe:
+`read` silently under-protects, and `destroy` trains people to pass `--yes` reflexively"). **As a
+user:** this is a bug in the pack named in the message, not your configuration; report it, or pin
+the pack out of `[packs] allow` until it is fixed.
+
 ### `UnknownPluginError`
 
 **What it looks like**, resolving a plugin name nothing registered:
@@ -387,10 +416,12 @@ stage(s) failed to flush: 'store'.`, not `1 of 1`.
 
 `__cause__` on the raised exception is the *first* underlying failure encountered
 (`weft_kernel.runner`'s own `raise ... from failures[0]`) — but **there is no shipped way to see it
-through `weft index` today.** `FlushError` is a `WeftError`; `handle_index` catches it and prints
-`str(exc)` only, the same one line above, `WEFT_TRACEBACK` or not — `_report_unexpected`, the one
-place that reads `WEFT_TRACEBACK`, only ever runs for [an exception no handler translated](#an-error-weft-did-not-translate),
-and `FlushError` is always translated. This surfaces through `weft index` at exit `1`
+through `weft index` today.** `FlushError` is a `WeftError`; `weft_cli.commands.IndexCommand.run`
+never catches it, so it propagates out to `weft_cli.cli.run_command`'s own `except WeftError`,
+which renders `str(exc)` only, the same one line above, `WEFT_TRACEBACK` or not — `_report_unexpected`,
+the one place that reads `WEFT_TRACEBACK`, only ever runs for [an exception no handler translated](#an-error-weft-did-not-translate),
+and `FlushError` is always translated (`weft_cli.exit_codes.exit_code_for` maps it, like every
+`WeftError` outside the resolution family, to `1`). This surfaces through `weft index` at exit `1`
 (`OPERATION_FAILED`) if the store's connection drops between the last write and the end of the run.
 **What to do:** the message names which stage failed to flush — for `store`, this is almost always a
 dropped database connection; check the container is still up and reachable, and re-run `weft index`.
@@ -713,8 +744,9 @@ identical footing `weft_cli.registry_bootstrap` already established for `weft.to
 three fire from `weft_cli.pipeline_catalogue`'s own Python API — nothing in the CLI opens a
 project-local catalogue directory yet, a future `weft pipeline` command (`docs/build-ledger.md` 3.7) is
 what will surface them at exit `4`, the same exit `03` reserves for "fix the pipeline". The fourth,
-`ContributedPipelineNameCollisionError`, is reachable today, through `weft route` (task 2.8): it is
-what fires when two installed packs each ship a pipeline claiming the same `name:`.
+`ContributedPipelineNameCollisionError`, is reachable today, through `weft ask`'s own routed default
+(task 2.8, folded into `weft ask` at task 3.11): it is what fires when two installed packs each ship
+a pipeline claiming the same `name:`.
 
 ### `PipelineDocumentError`
 
@@ -809,6 +841,187 @@ want routable.
 **What to do:** rename one pack's pipeline, or uninstall the one you did not mean to have routable —
 `weft plugins doctor` names every active distribution, which is where to look for the second pack
 this message names.
+
+### `ProjectPipelineNameCollisionError`
+
+**What it looks like** — task 3.7: a project-local document under `pipelines/` and an installed
+pack's own contribution declare the same `name:`. Unlike `DuplicatePipelineNameError` and
+`ContributedPipelineNameCollisionError` above, the two colliding sources are of different *kinds* —
+a file on disk versus a pack's own resource:
+
+```text
+$ printf 'name: base\nstages: []\n' > pipelines/base.yaml
+$ weft pipeline list
+ProjectPipelineNameCollisionError: pipeline 'base' is declared both by a project-local document
+under 'pipelines' and by an installed pack's own contribution. Rename one of the two — `weft
+plugins doctor` names which pack contributed the other.
+```
+
+**What to do:** rename the project-local file's own `name:` field, or find the pack shipping the
+same name (`weft plugins doctor`) and either rename its own document upstream or uninstall it.
+Neither source wins automatically — a pack installing itself must never silently shadow a
+project's own pipeline, or the reverse.
+
+### `UnknownPipelineNameError`
+
+**What it looks like** — task 3.7: `weft pipeline show|derive|validate|diff` names a pipeline
+`weft_cli.pipeline_catalogue.full_catalogue` does not hold — neither a project-local document
+under `pipelines/` nor any installed pack's own contribution:
+
+```text
+$ weft pipeline show ghost
+UnknownPipelineNameError: 'ghost' is not a pipeline this project knows — checked the project's own
+'pipelines' directory and every installed pack's own contribution. Known pipelines: base, route.
+```
+
+**What to do:** the message already names every pipeline that does resolve — pick one of those, or
+fix a typo. If the pipeline you expected is missing from the list entirely, `weft pipeline list`
+and `weft plugins doctor` both help narrow down whether it was never written, or belongs to a pack
+that is not active.
+
+### `UnknownConfigKeyError`
+
+**What it looks like** — task 3.7: `weft config get|set` names a key nothing in this module reads.
+`docs/03-cli.md` -> *Project context*: "a key the CLI does not yet read is refused, naming the keys
+it does":
+
+```text
+$ weft config get --key services.bogus
+UnknownConfigKeyError: 'services.bogus' is not a key weft config reads or writes. Known keys:
+permissions.destroy, permissions.overwrite, services.embed, services.store.
+```
+
+**What to do:** use one of the keys the message names — `weft config get` with no `--key` prints
+every one of them and its current value.
+
+### `UnknownPermissionKeyError`
+
+**What it looks like** — repair, 2026-08-20 (finding 1, `docs/build-ledger.md` 3.3's dated
+paragraph): `[permissions]` names a key `weft_cli.permission_policy.PermissionPolicy` does not
+have — `overwrite`/`destroy` are the only two — reproduced against a real checkout:
+
+```text
+$ printf '[permissions]\ndelete = "allow"\n' > weft.toml
+$ weft plugins list
+unknown [permissions] key(s) in weft.toml: 'delete'. [permissions] accepts destroy, overwrite. A
+key nothing reads is refused rather than ignored — a permission you did not actually change is one
+you would have to notice by the tool behaving differently than the file says.
+$ echo $?
+4
+```
+
+Before this repair the class was a bare `WeftError` — the message already named the keys, but only
+inside the string, invisible to fitness function 12's family walk, which looks for a typed
+`valid_options` field. `UnknownConfigKeyError` above is the same-phase precedent this now matches;
+`(exc.valid_options == ("destroy", "overwrite"))` for any raise site. **What to do:** use `overwrite`
+or `destroy`, the only two keys `[permissions]` reads — `docs/03-cli.md` → *Permissions*.
+
+The sibling "must be 'ask' or 'allow'" refusal, one function below this one and in `weft_cli.
+config_surface.validate_set_value`'s `permissions` branch, stays a plain `WeftError` and is **not**
+in FF12's family — deliberately: `PermissionAction` is a closed, two-member `StrEnum` fixed by the
+type itself, not a name resolved against a set whose membership could ever differ, so there is no
+"valid options" to enumerate beyond the type's own two literals already stated in the message.
+
+### `UnknownServiceKeyError`
+
+**What it looks like** — repair, 2026-08-20 (`docs/01-high-level-plan.md` item 12's own dated
+paragraph): `[services]` names a key `weft_cli.services.ServiceSelection` does not have —
+`embed`/`store` are the only two — reproduced against a real checkout:
+
+```text
+$ printf '[services]\nembedd = "openai"\n' > weft.toml
+$ weft plugins list
+unknown [services]
+key(s) in weft.toml: 'embedd'. [services]
+accepts embed, store. A key nothing reads is refused rather than ignored — a service Weft did
+not select is one you would have to notice by the answers being wrong.
+$ echo $?
+4
+```
+
+Before this repair the class was a bare `WeftError` — the message already named the keys, but only
+inside the string, invisible to fitness function 12's family walk, which looks for a typed
+`valid_options` field. `UnknownConfigKeyError` above is the same-phase precedent this now matches;
+`(exc.valid_options == ("embed", "store"))` for any raise site. `weft plugins list`'s exit `4`
+comes from `weft_cli.cli.main`'s own fixed code for any `WeftError` raised while `build_
+dependencies` is still assembling the registry — see that function's own comment — not from
+`weft_cli.exit_codes.exit_code_for`'s per-exception mapping. **What to do:** use `embed` or
+`store`, the only two keys `[services]` reads — `docs/03-cli.md` → *Project context*.
+
+The malformed-value check just below this one in `weft_cli.services.service_selection_from_
+config` (a `[services]` value that is not a non-empty string) stays a plain `WeftError` and is
+**not** in FF12's family — it reports a type mismatch, not a name failing to resolve against an
+enumerable set; whether the name itself resolves is left to the registry lookup a command
+performs later, which is where `weft_kernel.registry.UnknownPluginError` already carries its own
+`valid_options`.
+
+### `UnknownLLMKeyError`
+
+**What it looks like** — repair, 2026-08-20 (`docs/01-high-level-plan.md` item 12's own dated
+paragraph): `[llm]` names a key `weft_cli.llm_roles.llm_section_from_config` does not read —
+`loop_guard`/`retry`/`roles` are the only three — reproduced against a real checkout:
+
+```text
+$ printf '[llm]\nrules = { attempts = 3 }\n' > weft.toml
+$ weft plugins list
+unknown [llm] key(s) in weft.toml: 'rules'. [llm] accepts 'loop_guard', 'retry', 'roles'. A key
+nothing reads is refused rather than ignored.
+$ echo $?
+4
+```
+
+Before this repair the class was a bare `WeftError` — the message already named the keys, but only
+inside the string, invisible to fitness function 12's family walk, which looks for a typed
+`valid_options` field. `UnknownConfigKeyError` above is the same-phase precedent this now matches;
+`(exc.valid_options == ("loop_guard", "retry", "roles"))` for any raise site. `weft plugins list`'s
+exit `4` comes from the identical fixed code `UnknownServiceKeyError` above documents — a `WeftError`
+raised while `build_dependencies` is still assembling the registry, not `exit_code_for`'s
+per-exception mapping. **What to do:** use one of `loop_guard`, `retry`, `roles` —
+`docs/03-cli.md` → *Project context* and this module's own docstring for `[llm]`'s shape.
+
+The three malformed-shape checks below this one (`[llm.roles]`/`[llm.retry]`/`[llm.loop_guard]`
+each not being a table) stay plain `WeftError` and are **not** in FF12's family — each reports a
+type mismatch, not a name failing to resolve against a set of alternatives.
+
+### `TargetAlreadyExistsError`
+
+**What it looks like** — repair, 2026-08-20 (`docs/build-ledger.md`'s dated paragraph for tasks
+3.3/3.6/3.7): `weft init` scaffolds `weft.toml`; it does not replace one. Running it a second time
+in a project that already has one refuses outright, naming the path, rather than asking:
+
+```text
+$ weft init
+$ weft init
+weft_cli.commands.TargetAlreadyExistsError: 'weft.toml' already exists. 'weft init' creates a new
+project's configuration; it does not replace one. Edit the existing file directly, or remove it
+first if you mean to start over.
+$ echo $?
+1
+```
+
+Exit `1`, not `3`: this is not a permission refusal — `weft init` is `write`-class now (see
+`CommandRefusalError`'s own entry below for why no command reaches that machinery at all today),
+so `weft_cli.confirm.gate` never runs for it. The answer is simply certain: the target this command
+would create is already there. **What to do:** edit the existing `weft.toml` directly (`weft config
+get|set`, or a text editor), or delete it first if you actually mean to start over.
+
+### `PipelineAlreadyExistsError`
+
+**What it looks like** — the identical shape, for `weft pipeline derive`, task 3.7, repaired the
+same day: `pipelines/<name>.yaml` already exists for the name given.
+
+```text
+$ weft pipeline derive base specific
+$ weft pipeline derive base specific
+weft_cli.pipeline_commands.PipelineAlreadyExistsError: 'pipelines/specific.yaml' already exists.
+'weft pipeline derive' creates a new pipeline document; it does not replace one. Choose a different
+name, or remove the existing file first if you mean to start over.
+$ echo $?
+1
+```
+
+**What to do:** pick a name nothing under `pipelines/` uses yet (`weft pipeline list` shows what
+does), or remove the existing file first.
 
 ---
 
@@ -1034,6 +1247,30 @@ doctor` will show whether a pack you expected registered at all.
 
 ## `weft ask` — `weft_cli.ask`
 
+### `ConflictingAskModeError`
+
+**What it looks like** — task 3.11: `weft ask` was given both `--retrieve-only` and
+`--pipeline` in the same invocation, two mutually exclusive claims about what the run should
+do — raised by `weft_cli.commands.AskCommand.run`, before either flag resolves a single plugin:
+
+```text
+$ weft ask "what changed?" --retrieve-only --pipeline retrieve-then-generate
+weft_cli.commands.ConflictingAskModeError: --retrieve-only and --pipeline cannot both be given:
+--retrieve-only runs no pipeline at all (embed + vector search only); --pipeline names one to
+run through to a generated answer. Choose one.
+$ echo $?
+1
+```
+
+Exit `1`, not `3` or `4`: neither flag is invalid on its own, and there is no alternative *name*
+to offer (this is not a `NAME_RESOLUTION_FAMILY` member — see `weft_cli.commands`'s own
+docstring for why), so `weft_cli.exit_codes.exit_code_for`'s default is the right answer, on the
+same footing `TargetAlreadyExistsError`/`PipelineAlreadyExistsError` below argue for a certain
+outcome that is not a policy question. **What to do:** drop one of the two flags — `--retrieve-
+only` for the nearest passages with no model call, or `--pipeline <name>` to run a specific
+pipeline through to a generated answer. With neither, `weft ask` routes through the installed
+router by default.
+
 ### `NotVectorSearchableError`
 
 **What it looks like** — the registered `NodeStore` named `"pgvector"` does not also satisfy
@@ -1179,10 +1416,11 @@ distribution contributed the plugin.
 
 ## Routing a query — `weft_cli.route_ask`
 
-`weft route <question>` (task 2.8) resolves `route.yaml` — whichever installed pack contributes it —
-runs it to get a `Route`, resolves whichever pipeline it names, and runs that too. Every error below
-exits `4`: each is "fix the pipeline, the installation or the router's own selection," never a
-question's fault.
+`weft ask <question>` (task 2.8; folded into `weft ask` as the default at task 3.11 — `weft ask
+--pipeline <name>` skips this and runs a named pipeline directly instead) resolves `route.yaml` —
+whichever installed pack contributes it — runs it to get a `Route`, resolves whichever pipeline it
+names, and runs that too. Every error below exits `4`: each is "fix the pipeline, the installation
+or the router's own selection," never a question's fault.
 
 ### `NoRouterPipelineError`
 
@@ -1543,6 +1781,31 @@ first and steps down through two more tiers when the answer is no. Only code tha
 requires tier 1 should see this, and the remedy for *that* code is to point the role at a provider
 that offers it.
 
+### `LLMGenerationLoopError`
+
+**What it looks like** — `weft_llm.loop_guard` recognised the answer settling into a repeating
+span mid-stream, and generation was stopped rather than left to keep filling the terminal:
+
+```text
+LLMGenerationLoopError: provider 'scripted' (role 'generate') was generating a repeating span and
+was stopped after 214 characters rather than left to keep filling the terminal. This is a
+loop-breaker for a model that got stuck, not a judgment about the content — retrying the identical
+prompt against the same model is likely to loop again; try a different prompt, role, or model.
+```
+
+This is a known failure mode of small or local models under greedy decoding, not a judgment about
+whether the generated text is true — it is never raised because an answer looked wrong, only
+because it stopped saying anything new. Every token shown before the guard fired is exactly what a
+reader already saw; nothing already displayed is retracted, and `weft_cli.cli.run_command` closes
+the run's `TokenSink` with this error's own message as `reason`, so a scrollback shows a distinct
+`[stream error: ...]` line rather than an answer that merely looks like it finished. **What to do:**
+try a different prompt or a different model for the role the message names — replaying the
+identical request against the same model tends to reproduce the same loop. If this fires on
+legitimately repetitive content that is not a markdown table (the guard already excludes those),
+the thresholds are `[llm.loop_guard]` in `weft.toml` — raising `similarity_threshold` (closer to
+`1.0`) or lowering `diversity_threshold` (closer to `0.0`) makes the guard fire on fewer, more
+extreme cases, per [`manual/operations-guide.md`](operations-guide.md).
+
 ### `ModelProviderMismatchError`
 
 **What it looks like** — a `[llm.roles]` entry's model string carries a provider prefix naming a
@@ -1670,6 +1933,153 @@ An absent `weft.toml` is not this — absence means open, per `docs/03-cli.md`. 
 **What to do:** fix the syntax error the message names — `tomllib`'s own error text, unmodified — or
 check the file's permissions if the message says it could not be read.
 
+### `CommandRefusalError`
+
+**What it looks like** — `weft ask`/`weft index` refusing before calling into the library at all,
+because `[services] embed`/`[services] store` or `--extract` names a plugin from a distribution
+`[packs] allow` refuses, reproduced against a real checkout with `weft-store` and `weft-openai`
+left off the allow-list. **`--retrieve-only`, since task 3.11**: the default, routed `weft ask`
+resolves `[services] store` inside `weft_cli.run_services.build_services`, which calls
+`Registry.entry` directly rather than through `require_plugin` (that module's own docstring:
+"this function does not repeat that translation") — a real, narrower gap this repair found and
+named but did not fix, being a different call site than the one it was scoped to. `--retrieve-
+only` is Phase 0's own contract, `weft_cli.ask.run_ask`, which still calls `require_plugin` for
+both `Embedder` and `NodeStore` exactly as it always has:
+
+```text
+$ weft ask "what changed?" --retrieve-only
+[services] store names 'pgvector', and no registered NodeStore has that name. These distributions
+are refused by [packs] allow in weft.toml and were never imported, so what they would have
+registered is unknown: weft-openai, weft-qdrant, weft-store. Add the one that provides 'pgvector'
+to [packs] allow. Registered NodeStore names: none.
+$ echo $?
+3
+```
+
+**Repair, 2026-08-20 (open item O4, `.phase3-design.md` §4).** This message used to end `. no
+'pgvector' is registered for NodeStore. It is unavailable because no distribution has registered
+that name for this contract. Names registered for NodeStore: none.` — `weft_kernel.registry.
+UnknownPluginError`'s own text, spliced on with a bare space, restating in different words the
+same fact `wanted` already stated. `weft_cli.registry_bootstrap._unresolved` now composes its own
+"Registered NodeStore names: ..." sentence from `exc.valid_options` instead of quoting `exc`'s
+text — every sentence in a composed refusal is written by the module raising it, never a
+concatenation of two independently-capitalised messages.
+
+Task **3.2** introduced this class as the typed carrier for a refusal every built-in `Command`
+computes before running — `weft_cli.registry_bootstrap.require_active`/`require_plugin`'s own
+`(exit code, message)` answer, raised rather than printed-and-returned directly because a
+`Command.run` cannot print (`docs/03-cli.md` → *Two modes, one implementation*). The message and
+exit code are unchanged from before that task: `3` when a distribution that would have provided
+the name is refused by `[packs] allow`, `4` when the name is simply unregistered or the pack that
+would provide it only partly loaded. **What to do:** the message names the setting to fix —
+`[packs] allow`, `[services] embed`/`[services] store`, or `--extract` — and, for exit `3`,
+which distribution to add to the allow-list.
+
+**Task 3.3** gives this class a second raise site: an `overwrite`/`destroy`-class command with no
+TTY to confirm in, or one an interactive caller declined — `weft_cli.confirm.gate`, called from
+`weft_cli.cli.run_command` immediately before any registered `Command` runs. **No first-party
+command is `overwrite`/`destroy`-class, and — as of the 2026-08-20 repair recorded in
+`docs/build-ledger.md`'s dated paragraph for tasks 3.3/3.6/3.7 — none is expected to become one
+under this task surface**: `init`, `pipeline derive` and `config set` were briefly `overwrite`,
+found to refuse a first, non-interactive `weft init` in exactly the environment (CI) it most needs
+to work in, and were reclassified `write` with an unconditional refusal-to-clobber in their place
+(`TargetAlreadyExistsError`/`PipelineAlreadyExistsError`, above) rather than a prompt. `weft index`
+was never a candidate either — it upserts by content-addressed id. So this path is reproduced
+directly against `weft_cli.confirm`, the same way the `MissingRequiredDeclarationError` entry above
+is reproduced against a bare `Registry` rather than a full `weft` run — a hand-registered
+`destroy`-class command, no TTY:
+
+```text
+>>> confirm.gate(command, "graph destroy", args, yes=False, policy=PermissionPolicy())
+weft_cli.commands.CommandRefusalError: 'graph destroy' is a destroy-class command, called with
+{'collection': 'reports'}. It refuses to run with no terminal to confirm in, and never proceeds
+silently. Pass --yes to permit it for this invocation.
+```
+
+with exit code `3`. Declining an interactive prompt (a TTY attached, answered anything but `y`/
+`yes`) raises the same class with `'<command>' was not confirmed; nothing was done.`, also `3`.
+**What to do:** pass `--yes` after the command name (`weft <command> ... --yes`) to permit it for
+one invocation, or set `[permissions] destroy = "allow"` / `[permissions] overwrite = "allow"` in
+`weft.toml` to stop asking for that class entirely — `docs/03-cli.md` → *Permissions* and
+*Project context*. These classes protect you from the tool running unattended, not from a
+dishonest pack (`02` §2 → *The trust model*): a pack that lies about its own `permission_class`
+is not caught here.
+
+### `UnresolvedPluginNameError`
+
+**What it looks like** — repair, 2026-08-20 (finding 2, `docs/build-ledger.md`'s dated paragraph
+for tasks 3.2/3.3/3.7): `CommandRefusalError`'s own family member for a genuine name-resolution
+failure — `[services] embed`/`[services] store` or `--extract` names a plugin no *active* pack
+provides, reproduced against a real checkout with `[services] embed` naming a plugin nothing
+provides and every pack otherwise active. `--retrieve-only` again — see the `CommandRefusalError`
+entry above for why the default, routed `weft ask` does not reach this path today:
+
+```text
+$ printf '[services]\nembed = "no-such-embedder"\n' > weft.toml
+$ weft ask "what changed?" --retrieve-only
+[services] embed names 'no-such-embedder', and no registered Embedder has that name. Registered
+Embedder names: 'hash', 'openai'.
+$ echo $?
+4
+```
+
+Before this repair, `weft_cli.registry_bootstrap.require_plugin` caught the kernel's own
+`weft_kernel.registry.UnknownPluginError` — which already carries `valid_options`, every name
+actually registered for the contract asked — and threw the field away into `plain=str(exc)`
+before `IndexCommand`/`AskCommand` ever raised anything: both always raised the plain
+`CommandRefusalError` above, message-only, whatever the underlying cause. Confirmed
+programmatically, not only by the message text already naming the names: catching this
+exception directly off a real `AskCommand.run()` call with the `weft.toml` above gives
+`exc.valid_options == ("hash", "openai")`, a typed field a caller can read, never only text
+inside the message. History: before Phase 3 this path was a plain return value with no typed
+field to lose at all — task 3.2's own `Command`/`Outcome` unification is what turned it into an
+exception and dropped the guarantee in the same motion.
+
+**A second repair, 2026-08-20 (open item O4, `.phase3-design.md` §4).** The message itself used
+to end `. no 'no-such-embedder' is registered for Embedder. It is unavailable because no
+distribution has registered that name for this contract. Names registered for Embedder: 'hash',
+'openai'.` — `weft_kernel.registry.UnknownPluginError`'s own text, spliced onto this module's
+sentence with a bare space: a sentence beginning lowercase right after a full stop, and "nothing
+is registered under that name" stated twice in different words. `require_plugin`'s `_unresolved`
+now composes its own sentence from `exc.valid_options` (the same tuple this section's own
+`valid_options` field already carries) instead of quoting `exc`'s text — see
+`weft_cli.registry_bootstrap._unresolved`'s own docstring for the argument in full, and the
+`CommandRefusalError` entry above for the same fix's effect on a `silent`-branch message, where a
+raw multi-line Pydantic dump used to be spliced mid-sentence too.
+
+`isinstance(exc, CommandRefusalError)` still holds — this **is** a `CommandRefusalError`
+subclass, so `weft_cli.render.render_refusal` needs no change and `.exit_code` still reads off
+it directly — but it additionally carries `valid_options`, keyword-only with no default, so a
+raise site that forgets to collect the registered names cannot construct it at all. **Only** the
+branch that genuinely has real names to offer raises this subclass: a pack refused by `[packs]
+allow` (exit `3`, `POLICY_REFUSED`) still raises the plain `CommandRefusalError` above with no
+`valid_options` — a refused pack is never imported, so nothing here can honestly claim to know
+what it would have registered, and inventing a list would be worse than omitting one.
+**What to do:** the message already names every registered alternative — pick one, or fix a
+typo in `[services] embed`/`[services] store`/`--extract`; `weft plugins doctor` shows what is
+actually installed if none of the names look right.
+
+### `UnsupportedArgumentTypeError`
+
+**What it looks like** — a pack's own `Command.args_model` declares a field type
+`weft_cli.argparse_gen` has no generic mapping for, reproduced directly against the function that
+raises it:
+
+```text
+UnsupportedArgumentTypeError: field 'paths' has annotation tuple[str, ...], which is not a class —
+no generated argument grammar knows how to parse that from the command line. Supported: str, int,
+a StrEnum, or any of those wrapped in `| None`.
+```
+
+This surfaces the moment `weft` builds its argument grammar — which happens for every command
+except `--version` (`docs/02-extension-model.md` §2) — so an installed pack with a malformed
+`args_model` breaks `weft --help` and every other command too, not only its own. It is always a
+**pack author's** bug, never a user's: exits `4`, the same "fix the pipeline" family a malformed
+`weft.toml` exits with, since neither is something a user's own command line caused. **What to
+do, as a user:** report it to the pack's author, or remove the pack from `[packs] allow` until
+it is fixed. **As a pack author:** narrow the field's annotation to `str`, `int`, a `StrEnum`, or
+one of those wrapped in `| None` — the three shapes the generated grammar understands.
+
 ---
 
 ## Contract reference generation — `weft_cli.contract_reference`
@@ -1698,6 +2108,37 @@ scripts/generate_contract_reference.py`), never from `weft index`/`weft ask`. **
 contract author:** every published contract needs a `version: ClassVar[str]` and must be a
 `@runtime_checkable typing.Protocol` with at least one method — see
 [`manual/contract-reference.md`](contract-reference.md) for a contract that already gets this right.
+
+---
+
+## Command table generation — `weft_cli.command_table`
+
+### `CommandNotDescribableError`
+
+**What it looks like** — `scripts/generate_command_table.py` found a registered `Command` it
+cannot describe: no `help` attribute —
+
+```text
+CommandNotDescribableError: 'graph build' carries no `help` attribute. Every registered Command
+must declare one — weft_command.contract.Command.required_declarations names it mandatory — and
+the command-table generator refuses to invent a placeholder for one that does not exist.
+```
+
+— or no `permission_class` attribute, the identical message with `permission_class` in place of
+`help`. In practice neither can happen from a command that registered at all:
+`weft_command.contract.Command.required_declarations` — `("permission_class", "help")` — already
+refuses the registration itself, loudly, naming the missing declaration, before this generator
+ever sees the plugin's name. This error exists as a second, defensive check anyway, on
+`ContractNotDescribableError`'s own footing directly above: a generator that read either
+attribute with a bare `getattr` would crash with an unattributed `AttributeError` if that
+registration check were ever relaxed, instead of failing loudly and naming which command and
+which field.
+
+This only fires while regenerating `manual/user-manual.md`'s command table (`uv run python
+scripts/generate_command_table.py`), never from `weft index`/`weft ask`. **What to do, as a
+command author:** every registered `Command` needs `permission_class: ClassVar[PermissionClass]`
+and `help: ClassVar[str]` — see [`manual/user-manual.md`](user-manual.md) §6 for a command that
+already gets this right.
 
 ---
 

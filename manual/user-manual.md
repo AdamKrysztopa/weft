@@ -13,6 +13,12 @@ file, `weft_kernel.resolution.resolve` to derive it. Definitions link to
 [`docs/02-extension-model.md`](../docs/02-extension-model.md) §3 rather than restating them; this
 page is the task, not the argument for why it is shaped this way.
 
+> **Corrected, 2026-08-20 (task 3.9).** "There is no `weft pipeline derive` command yet" stopped
+> being true at task 3.7 — every pipeline and config command below now exists. The Python
+> examples that follow are unchanged and still teach the shape a real command calls on your
+> behalf; they are no longer the *only* way to reach it. §6 below is the complete, generated
+> command table.
+
 ## 1. A pipeline is a document
 
 A pipeline document has four top-level keys that matter here:
@@ -431,6 +437,44 @@ operator target, an undefined var, a `with:` block that fails its plugin's own c
 or two stages that do not compose by type. [`manual/troubleshooting.md`](troubleshooting.md) has
 one entry per failure class, each reproduced and paired with what to do about it — this page shows
 one example of the shape, not the catalogue.
+
+## 6. Every command, generated
+
+Every table below is walked from the installed registry, not typed — the same mechanism
+`docs/03-cli.md` → *Plugin-contributed commands* already commits `weft --help` to: "Core has no
+list of commands to edit. The help text is generated from the registry, which means it cannot
+drift from what is installed." This table is that identical walk, rendered to Markdown instead of
+a terminal (`docs/08-manuals.md` §3, clause (b)) — a command a pack contributes appears here
+because it registered under `weft_command.contract.Command`, exactly as it appears in `weft
+--help`, never because someone remembered to add a row.
+
+Regenerate it after a command's `help`, permission class or registration changes, and commit the
+result:
+
+```
+uv run python scripts/generate_command_table.py
+```
+
+`tests/docs/test_generated_docs.py` checks the committed copy against a fresh walk of the
+registry on every `ci-checks` run, on `manual/contract-reference.md`'s own footing — a command
+added, removed or reworded without this table noticing fails the build before it fails a reader.
+
+<!-- weft-cli:generated:command-table:begin -->
+| Command | Permission | Registered by | Summary |
+|---|---|---|---|
+| `weft ask` | `read` | `weft-cli` | ask a question. Routes through the installed router by default — a QueryScorer and a RoutingPolicy discovered from the registry, never a fixed list here — and prints the generated, cited answer. --pipeline names one directly, skipping the router; --retrieve-only runs no pipeline at all and prints the nearest passages instead, with no generation and no model call (Phase 0's own contract, kept for scripts). |
+| `weft config get` | `read` | `weft-cli` | the project's effective configuration — one key with --key, or every key CONFIG_KEYS names; --origin says whether each value is set in weft.toml or defaulted |
+| `weft config set` | `write` | `weft-cli` | set one key in weft.toml, preserving every comment and every other key untouched |
+| `weft index` | `write` | `weft-cli` | run the built-in ingest pipeline over a directory. Which formats are accepted is derived from the extractors actually installed, never from a fixed list. |
+| `weft init` | `write` | `weft-cli` | scaffold weft.toml in the current directory — every key commented out, offline by default |
+| `weft pipeline derive` | `write` | `weft-cli` | scaffold a new pipeline document with 'extends:' set to an existing one |
+| `weft pipeline diff` | `read` | `weft-cli` | the exact, structural difference between two resolved pipelines |
+| `weft pipeline list` | `read` | `weft-cli` | every pipeline this project can resolve — project-local documents and every installed pack's own contribution |
+| `weft pipeline show` | `read` | `weft-cli` | the resolved form of one pipeline: every stage's provenance, every var's final value, and anything that went unplaced or unapplied |
+| `weft pipeline validate` | `read` | `weft-cli` | resolve a pipeline and report whether it does, in the resolution-failure family's own words |
+| `weft plugins doctor` | `read` | `weft-cli` | full status, reason and disclosure per discovered pack |
+| `weft plugins list` | `read` | `weft-cli` | one line per discovered pack |
+<!-- weft-cli:generated:command-table:end -->
 
 ## Where to go next
 

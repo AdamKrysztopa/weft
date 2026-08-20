@@ -135,13 +135,13 @@ class _NameCapturingRegistrar:
         self.names.append(name)
 
 
-def _distribution_name(example_dir: Path) -> str:
+def distribution_name(example_dir: Path) -> str:
     """This example's own distribution name, read from its own `pyproject.toml`."""
     with (example_dir / "pyproject.toml").open("rb") as handle:
         return typing.cast("str", tomllib.load(handle)["project"]["name"])
 
 
-def _module_and_plugin_names(example_dir: Path) -> tuple[str, tuple[str, ...]]:
+def module_and_plugin_names(example_dir: Path) -> tuple[str, tuple[str, ...]]:
     """`(module, plugin names)` for one example pack, the latter read off its real `register()`.
 
     The module is imported straight off `example_dir/src` — never installed, never a
@@ -347,7 +347,7 @@ def _dist_info_dir(venv_dir: Path, wheel: Path) -> Path:
     return candidates[0]
 
 
-def _text_files(*roots: Path) -> Iterable[Path]:
+def text_files(*roots: Path) -> Iterable[Path]:
     for root in roots:
         for path in root.rglob("*"):
             if not path.is_file() or "__pycache__" in path.parts:
@@ -355,7 +355,7 @@ def _text_files(*roots: Path) -> Iterable[Path]:
             yield path
 
 
-def _files_naming(names: Iterable[str], *, within: Iterable[Path]) -> list[tuple[Path, str]]:
+def files_naming(names: Iterable[str], *, within: Iterable[Path]) -> list[tuple[Path, str]]:
     """Every `(file, name)` pair where `file` contains `name` as a literal substring.
 
     Binary files (compiled `.pyc`, if any slip past the `__pycache__` filter) are skipped
@@ -380,13 +380,13 @@ def test_no_first_party_file_names_the_example_pack() -> None:
     # `_ALL_EXAMPLE_DIRS`, not the single pack this test file started with.
     names: list[str] = []
     for example_dir in _ALL_EXAMPLE_DIRS:
-        names.append(_distribution_name(example_dir))
-        module_name, plugin_names = _module_and_plugin_names(example_dir)
+        names.append(distribution_name(example_dir))
+        module_name, plugin_names = module_and_plugin_names(example_dir)
         names.append(module_name)
         names.extend(plugin_names)
 
     # Act
-    hits = _files_naming(names, within=_text_files(PACKAGES_ROOT, TESTING_ROOT))
+    hits = files_naming(names, within=text_files(PACKAGES_ROOT, TESTING_ROOT))
 
     # Assert
     assert not hits, (
@@ -405,7 +405,7 @@ def test_the_example_pack_is_outside_the_uv_workspace(
     members = str_list_at(table_at(workspace_config, "tool", "uv", "workspace"), "members")
     sources = table_at(workspace_config, "tool", "uv", "sources")
     location = example_dir.relative_to(REPO_ROOT).as_posix()
-    distribution = _distribution_name(example_dir)
+    distribution = distribution_name(example_dir)
 
     # Act
     claiming = [glob for glob in members if fnmatch(location, glob)]
@@ -426,13 +426,13 @@ def test_the_example_pack_is_outside_the_uv_workspace(
 
 
 def test_the_grep_can_actually_fail(tmp_path: Path) -> None:
-    # Arrange — plant one of the same three literals `_files_naming` looks for.
+    # Arrange — plant one of the same three literals `files_naming` looks for.
     planted = tmp_path / "planted.py"
     planted.write_text(f"# pretend core imported {EXAMPLE_MODULE}\n", encoding="utf-8")
 
     # Act
-    hits = _files_naming(
-        (EXAMPLE_DISTRIBUTION, EXAMPLE_MODULE, EXAMPLE_PLUGIN_NAME), within=_text_files(tmp_path)
+    hits = files_naming(
+        (EXAMPLE_DISTRIBUTION, EXAMPLE_MODULE, EXAMPLE_PLUGIN_NAME), within=text_files(tmp_path)
     )
 
     # Assert

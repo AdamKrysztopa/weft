@@ -299,6 +299,7 @@ async def test_build_services_populates_every_service_a_query_path_stage_may_req
         catalogue=_routable_catalogue(),
         llm=LLMSection(),
         services=ServiceSelection(embed="fake", store="fake"),
+        sink=NullSink(),
     )
 
     # Assert
@@ -314,6 +315,35 @@ async def test_build_services_populates_every_service_a_query_path_stage_may_req
     services.resolve(Prompts)
 
 
+async def test_build_services_registers_exactly_the_sink_the_caller_chose() -> None:
+    # Arrange — task 3.6's own repair: `build_services` used to hardcode `NullSink()`
+    # regardless of what a caller wanted; `docs/03-cli.md` -> *Output* (G6) makes the CLI
+    # responsible for choosing, so this proves the *caller's* instance is what a stage
+    # resolves, not merely that a `NullSink` still shows up by coincidence.
+    registry = _services_registry()
+
+    class _MarkedSink:
+        async def emit(self, chunk: object) -> None:
+            del chunk
+
+        async def close(self, *, reason: str | None = None) -> None:
+            del reason
+
+    chosen = _MarkedSink()
+
+    # Act
+    services = await build_services(
+        registry=registry,
+        catalogue={},
+        llm=LLMSection(),
+        services=ServiceSelection(embed="fake", store="fake"),
+        sink=chosen,
+    )
+
+    # Assert
+    assert services.resolve(TokenSink) is chosen
+
+
 async def test_build_services_route_catalogue_reflects_exactly_the_catalogue_handed_in() -> None:
     # Arrange — an empty catalogue is a legitimate run (no pipeline advertises route.summary
     # yet), and `RouteCatalogue.candidates()` must say so rather than inventing one.
@@ -325,6 +355,7 @@ async def test_build_services_route_catalogue_reflects_exactly_the_catalogue_han
         catalogue={},
         llm=LLMSection(),
         services=ServiceSelection(embed="fake", store="fake"),
+        sink=NullSink(),
     )
 
     # Assert
@@ -346,4 +377,5 @@ async def test_build_services_raises_for_a_service_selection_naming_an_unregiste
             catalogue=_routable_catalogue(),
             llm=LLMSection(),
             services=ServiceSelection(embed="fake", store="ghost"),
+            sink=NullSink(),
         )

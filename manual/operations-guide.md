@@ -166,6 +166,7 @@ statement of policy, not a sandbox — see *What this does not protect you from*
 [services] embed names 'openai', and no registered Embedder has that name. These distributions
 are refused by [packs] allow in weft.toml and were never imported, so what they would have
 registered is unknown: weft-openai. Add the one that provides 'openai' to [packs] allow.
+Registered Embedder names: 'hash'.
 ```
 
 Exit `3`, not `4`: the name is a policy problem, and the key that fixes it is named. A refused
@@ -219,8 +220,8 @@ until something asks it to embed, and then the failure names this exact line.
 size are the embedder stage's own `with:` configuration, and no route from a pipeline document to
 `weft index`'s stages exists — `weft index` still names its four stages in Python rather than
 resolving a document (`weft_cli/services.py`'s own docstring). Ledger tasks 2.4 and 2.8, both now
-closed, built that document-to-`StageSpec` bridge (`weft_cli.compile`) and wired it into a new
-query-path command, `weft route`; neither one touched `weft index`. No task in this ledger
+closed, built that document-to-`StageSpec` bridge (`weft_cli.compile`) and wired it into
+`weft ask`'s own routed default; neither one touched `weft index`. No task in this ledger
 currently owns closing that gap for the ingest path. Until one does, `weft index` and `weft ask`
 run `weft-openai` with its defaults — `text-embedding-3-small`, the model's native 1536
 components, 128 texts per request — and `weft-embed`'s `hash` with its own, the same way. This is
@@ -303,11 +304,13 @@ generated answer against. `weft-openai`'s `openai` calls `gpt-4o-mini` by defaul
 answers that mean something; it needs the credential above, and every call is a metered API call.
 
 **A role nothing maps fails loudly, the first time something asks it to answer** — there is no
-default provider a role silently falls back to. `weft ask` itself still only retrieves — Phase 0's
-own documented contract, unchanged — but `weft route <question>` (task 2.8) does resolve a role:
-it runs the installed router, then whichever pipeline it selects, so the `route` and `generate`
-roles above are exactly what that command reaches for. An unmapped role there fails loudly by
-name, the same as it would for any other pipeline stage.
+default provider a role silently falls back to. **`weft ask` routes and generates by default**
+(task 3.11) — it runs the installed router, then whichever pipeline it selects, so the `route`
+and `generate` roles above are exactly what it reaches for. A clean checkout with no `[llm.roles]`
+table maps neither, so `weft ask` refuses loudly rather than guessing at a provider — configure
+this section, or run `weft ask --retrieve-only` for Phase 0's own contract, unchanged: nearest
+passages, no router, no model call. An unmapped role fails loudly by name, the same as it would
+for any other pipeline stage.
 
 **A model string may name its provider, and a mismatch is refused rather than guessed.**
 `model = "openai/gpt-4o-mini"` under a role whose `provider` is `openai` is the same thing as
@@ -351,6 +354,36 @@ loop never swallows a cancellation to finish its attempts.
 
 There is no jitter. One `weft ask` is not a fleet of clients hammering one endpoint, and a
 deterministic backoff is one a test can assert on.
+
+### Stopping a model stuck in a loop — `[llm.loop_guard]`
+
+A small or local model asked to keep generating can settle into repeating the same span of text
+forever — a known failure mode of greedy decoding, not a claim about whether the text is true.
+`LLMClient.complete` watches the accumulated answer as it streams and stops early rather than
+filling a reader's terminal, raising `LLMGenerationLoopError`
+(see [`manual/troubleshooting.md`](troubleshooting.md) → *The LLM client*). A markdown table is
+deliberately excluded: its rows are *supposed* to repeat a shape, and the guard recognises one
+before either repetition check runs.
+
+```toml
+[llm.loop_guard]
+min_period = 50
+similarity_threshold = 0.85
+diversity_threshold = 0.3
+```
+
+Every field defaults to the value `reference/study/08-salvage.md` §T1.12 measured, so a `weft.toml`
+with no `[llm.loop_guard]` block still runs with the guard active. Two thresholds decide whether a
+candidate span counts as a loop, and **both** must cross: `similarity_threshold` (how alike two
+consecutive windows of the answer must be) and `diversity_threshold` (how internally repetitive
+the compared span must be) — a long answer that legitimately reuses a phrase between otherwise
+different paragraphs has high similarity but stays diverse, which is what keeps it from being
+mistaken for a stuck model. `min_period`/`max_period` bound how short or long a repeating span has
+to be before it counts; `min_text_length` is a floor below which nothing is checked at all. If the
+guard is firing on content that is not actually a loop, raising `similarity_threshold` or lowering
+`diversity_threshold` makes it fire on fewer, more extreme cases; a run that must never be
+interrupted mid-stream can set `min_text_length` above the longest answer it expects, which turns
+the guard off in practice without removing it from the type.
 
 ## Tuning the text arm
 
@@ -455,7 +488,7 @@ same cannot tell "this needs a config change" from "this needs a different pipel
 whole reason the split exists. Concretely, with `weft-store` refused by an active `allow` pin:
 
 ```text
-$ weft ask "hello"
+$ weft ask "hello" --retrieve-only
 'weft-store' is refused by [packs] allow in weft.toml. Add it there to permit it.
 $ echo $?
 3
@@ -517,8 +550,11 @@ under publisher copyright, which nobody else can fetch at any price — that run
 `"reproducible": false`, its file name says `unreproducible`, and the label belongs with the
 number every time it is quoted.
 
-**What is measured, and what is not.** `weft ask` retrieves; it does not yet generate. So the
-baseline is a retrieval measurement — recall, nDCG and MRR at two depths, at two granularities: a
+**What is measured, and what is not.** This baseline drives `weft ask --retrieve-only` (task
+3.11 made `weft ask` route to a generated answer by default; `--retrieve-only` is Phase 0's own
+contract, kept reachable for exactly this measurement — see `eval/run_baseline.py`'s own module
+docstring). So the baseline is a retrieval measurement — recall, nDCG and MRR at two depths, at
+two granularities: a
 `quote-…` metric counts a passage that contains the ground-truth span, a `document-…` metric counts
 one drawn from the right paper. The unanswerable questions carry no retrieval judgement at all;
 they are **excluded and counted**, with the reason recorded in the file, never scored as zero.

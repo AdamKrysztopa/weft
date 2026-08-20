@@ -645,6 +645,17 @@ The full driving adapter: REPL, streaming, slash commands, plugin-contributed co
 > below 0.3 — and *"hallucination detection" is not what it does*; it is a loop-breaker for small
 > local models and must not be named or documented as anything else.)*
 
+> *(Corrected 2026-08-20, from task 3.10's own reference-lift reconnaissance, found at source and
+> independently re-verified by a second agent before this line was written. `reference/study/08-salvage.md`
+> §T1.12 names the alphanumeric-cutoff method **`_is_formatting_noise` at `citation.py:183-190`**.
+> **No method of that name exists in the source.** The real method is **`_is_special_character_pattern`,
+> defined `citation.py:149-190`** — the cited line range covers its four-example comment block and its
+> `return alphanumeric_ratio < 0.3`, so the *range* this Lift line and §T1.12 both cite is correct and
+> only the *name* was wrong. `docs/reference/` is frozen and unwritable by design, so the correction is
+> recorded here rather than there; task 3.10's own `docs/build-ledger.md` entry carries the same
+> correction. Neither this document nor `weft_llm.loop_guard` (the module task 3.10 shipped) ever
+> cites the audit's wrong name.)*
+
 ### Phase 4 — Evaluation and observability
 
 Metrics as plugins, spans on every stage, the evaluation harness as a decorator over a pipeline.
@@ -1072,6 +1083,39 @@ All checks run in CI, before tests.
     > level up, in the audit's own working. That is why fitness function 12 checks `issubclass(cls,
     > UnresolvedNameError)` — a structural fact set once at the class definition — rather than a name a
     > reviewer could reasonably, and wrongly, expect to be reliable.
+
+    > **Second clause added 2026-08-20, from a Phase 3 fitness-function review (not a build-ledger
+    > task; `402a957`'s own two findings are its evidence).** The structural check above proves every
+    > *named* family member carries `valid_options` — but membership is opt-in, and `402a957` found two
+    > raise sites doing exactly what this item forbids while staying invisible to it: `weft_cli.
+    > permission_policy` interpolated computed valid keys into a bare `WeftError`'s message, and
+    > `weft_cli.registry_bootstrap.require_plugin` caught `weft_kernel.registry.UnknownPluginError` —
+    > which already carries `valid_options` — and discarded it into a string before raising an untyped
+    > sibling. Both were repaired by hand; nothing had caught either automatically. `tests/architecture/
+    > test_ff12b_a_repack_keeps_valid_options.py` is the second clause this leaves FF12 with: a
+    > catch-and-repack check — a function that catches an `UnresolvedNameError` subclass and, in the
+    > same handler, raises a `WeftError` that is not one — mechanical, message-blind, and empirically
+    > silent on the tree today (zero matches across all 130 first-party modules), which is why its own
+    > waiver ships pinned empty rather than pre-populated. **A second candidate was built and measured,
+    > then rejected**: flagging any raise of a non-family `WeftError` whose message is built from a
+    > `sorted(...)`, a comprehension, or a `.join(...)` call — the shape `weft_cli.permission_policy`'s
+    > own pre-repair site had. Run against the real tree, 13 raise sites match that syntactic shape and
+    > 11 are not name-resolution failures at all (a closed `StrEnum`'s value check, a contract shape
+    > violation, an inert pin, a Pydantic validation report, a type-provision gap, a pipeline cycle, a
+    > slot-ordering collision, a fallback's capability mismatch, an API error, an unused-field report,
+    > a missing required locale) — distinguishing "these are the valid alternatives for a name" from
+    > "this is some other enumerable fact this raise happens to report" is a question about meaning, not
+    > shape, and a checker precise enough to need no hand-maintained exclusion list would have to
+    > re-derive, structurally, the judgement task 2.36's own audit made by reading every site — the
+    > reference's own lesson ("doing it by hand at nine sites is why three sites do not"), applied to the
+    > checker itself. **The other 2 of the 13 were real, name-resolution refusals with no typed
+    > field, repaired 2026-08-20**: `weft_cli.services.service_selection_from_config`'s unknown-
+    > `[services]`-key refusal now raises `UnknownServiceKeyError`, and `weft_cli.llm_roles.
+    > llm_section_from_config`'s unknown-`[llm]`-key refusal now raises `UnknownLLMKeyError`, both
+    > the identical shape `weft_cli.config_surface.UnknownConfigKeyError` already handles correctly
+    > for `config get`/`config set`'s own vocabulary. `NAME_RESOLUTION_FAMILY`: 24 -> 26. No kernel
+    > line either repair. Reproduced against a real checkout in `manual/troubleshooting.md`'s own
+    > entries for both classes.
 
 > **Corrected from the reference study (2026-08-10) — fitness function 1, and the preamble.** This
 > section previously opened *"the predecessor's AST boundary checker is the single best thing in

@@ -31,6 +31,7 @@ constraint-dependencies = ["qdrant-client<1.14"]
 [tool.uv.sources]
 weft-kernel = { workspace = true }
 weft-cli = { workspace = true }
+weft-command = { workspace = true }
 weft-extract = { workspace = true }
 weft-chunk = { workspace = true }
 weft-clean = { workspace = true }
@@ -100,6 +101,7 @@ extraPaths = [
     "scripts",
     "eval",
     "examples/weft-example-chunker/src",
+    "examples/weft-example-command/src",
     "examples/weft-example-ingest/src",
     "examples/weft-example-llm/src",
     "examples/weft-example-query/src",

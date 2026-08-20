@@ -84,7 +84,7 @@ produced 1, nothing to produce 0, failed 0. nodes now stored: 2.
 ```
 
 ```bash id=ask
-weft ask "what does the weft do"
+weft ask "what does the weft do" --retrieve-only
 ```
 
 ```text
@@ -96,12 +96,15 @@ chunking, embeddings or graphs. Every capability is a plugin discovered
 through Python entry points.
 ```
 
-**`weft ask` retrieves. It does not generate an answer yet** — that is Phase 2's `Generator` and the
-LLM pack it ships with, and the command's own `--help` says so. What you see above is real,
-ranked retrieval: closest passage first, by vector distance against your indexed content, no LLM
-call and no citation to compose because there is no generated sentence to attach one to. Once
-generation lands, this same command starts returning prose with citations instead of a passage
-list — one line of this page changes, not the shape of it.
+**`weft ask` routes to a generated, cited answer by default** — a `QueryScorer` and a
+`RoutingPolicy`, both discovered from the registry, pick a pipeline and run it through to prose.
+That needs a real model, named in `weft.toml`'s `[llm.roles]` table (`manual/operations-guide.md`
+covers wiring one), which this five-minute walkthrough deliberately has not asked you to set up
+yet — with nothing configured, routing refuses loudly rather than guessing at a provider.
+`--retrieve-only` is what you see above instead: Phase 0's own contract, still exactly this —
+closest passage first, by vector distance against your indexed content, no LLM call and no
+citation to compose because there is no generated sentence to attach one to. Configure `[llm.roles]`
+and drop `--retrieve-only` to get the routed, cited answer this same command produces by default.
 
 ## Something not working?
 

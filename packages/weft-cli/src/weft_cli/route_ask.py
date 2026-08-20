@@ -1,13 +1,19 @@
-"""`weft route <question>` — resolve a pipeline through the real router, then run it.
+"""Resolve a pipeline through the real router, then run it — `weft ask`'s own default path.
 
 Task **2.8**. `.phase2-design.md` §5, read literally: "`weft ask` runs `route` through
 `run_once`, gets a `Route`, looks `Route.pipeline` up in the pipeline catalogue, resolves
 it, and runs it. **Selection is pipeline selection, never dispatch.**" This module is
-that walk, as a new command rather than a rewrite of `weft ask` — `weft_cli.ask.run_ask`
-keeps Phase 0's own documented contract (retrieve, print passages, generate nothing) so
-`manual/quickstart.md` and every test that already drives it stay true; `weft route` is
-the additive surface that makes the router reachable from the command line for real,
-against the real, installed registry, rather than only from an architecture test.
+that walk. 2.8 shipped it behind a new, *additive* command, `weft route`, rather than as a
+rewrite of `weft ask` — Phase 0's own documented, tested, retrieve-only contract was left
+untouched deliberately, because rewriting it was a bigger, separate risk than 2.8's own —
+and named the gap explicitly rather than closing it by silence (`docs/build-ledger.md`'s
+2.25 note). **Task 3.11 is that gap closed**: `weft route` is retired, and
+`weft_cli.commands.AskCommand` calls `run_routed_ask` below directly, so the question a
+user asks reaches the pipeline the router names with no second command to learn. `weft_cli.
+ask.run_ask` — the direct embed-and-search call this module never touches — survives as
+`weft ask --retrieve-only`, Phase 0's own contract kept reachable for a caller (a script, a
+deterministic baseline measurement) that genuinely wants no router and no model call; see
+`docs/build-ledger.md`'s 3.11 entry for the argument in full.
 
 **Two resolutions, not one.** `route.yaml` (`packages/weft-retrieve/src/weft_retrieve/
 pipelines/route.yaml`, contributed by `weft-retrieve`'s own `register()`) is resolved and
@@ -22,6 +28,18 @@ own name is the one exception a router has to have — something has to be the r
 `weft_cli.run_services.check_store_capabilities` runs once per resolved pipeline,
 immediately before that pipeline's own `run_once` call — see `weft_cli.run_services`'s
 own module docstring for why that check is not inside `build_services` itself.
+
+**`run_named_ask`, task 3.11 — the same walk, minus the router.** `weft ask <question>
+--pipeline <name>` is what a caller who wants a *specific* pipeline uses now that `weft
+route` has been folded into `ask` (`docs/build-ledger.md`'s 3.11 entry has the surface
+argument in full): this function skips `route.yaml` entirely and resolves `pipeline_name`
+straight against `weft_cli.pipeline_catalogue.full_catalogue` — project-local documents
+*and* every installed pack's own contribution, deliberately broader than `run_routed_ask`'s
+own `load_contributed`-only catalogue, because naming a pipeline by hand is exactly the case
+a project-local document scaffolded by `weft pipeline derive` and never published as a pack
+should be reachable from. `_prepared_runner` below is the setup the two functions share —
+`build_services`, the routed `Context`, the `Runner` and the resolved store — factored out
+once both existed, rather than a second copy of `run_routed_ask`'s own first half.
 """
 
 from __future__ import annotations
@@ -31,7 +49,12 @@ from dataclasses import replace
 
 from weft_cli.compile import contracts_for, to_specs
 from weft_cli.llm_roles import LLMSection
-from weft_cli.pipeline_catalogue import load_contributed
+from weft_cli.pipeline_catalogue import (
+    DEFAULT_PIPELINES_DIR,
+    UnknownPipelineNameError,
+    full_catalogue,
+    load_contributed,
+)
 from weft_cli.run_services import build_services, check_store_capabilities
 from weft_cli.services import ServiceSelection
 from weft_generate.payload import Answer
@@ -43,6 +66,7 @@ from weft_kernel.pipeline import Pipeline
 from weft_kernel.registry import Registry
 from weft_kernel.resolution import resolve
 from weft_kernel.runner import PipelineResolutionError, Runner
+from weft_llm.contract import TokenSink
 from weft_retrieve.payload import Query, QuerySet, Route
 from weft_store import NodeStore
 
@@ -104,6 +128,7 @@ async def run_routed_ask(
     ctx: Context,
     llm: LLMSection,
     services: ServiceSelection,
+    sink: TokenSink,
 ) -> tuple[str, Answer]:
     """Route `question` through the real router, run whichever pipeline it selects, and
     return `(the pipeline name selected, the Answer it produced)`.
@@ -115,6 +140,14 @@ async def run_routed_ask(
     `weft_kernel.runner.PipelineResolutionError` a malformed document or a name nothing
     registered raises, from either resolution. Every one of these is a `WeftError` a
     caller maps to an exit code exactly the way `weft_cli.cli.handle_ask` already does.
+
+    `sink` — task **3.6** — is the `TokenSink` the generating stage streams into, threaded
+    straight through to `build_services`; `weft_cli.commands.AskCommand.run` passes
+    `Dependencies.token_sink`, the sink `weft_cli.cli.main` chose from `--json`/`--quiet`.
+    This is `weft ask`'s own default, router-driven path since task **3.11** folded the
+    formerly-separate `weft route` command into it — `docs/build-ledger.md`'s 3.11 entry
+    has the surface argument; this function's own resolution behaviour is untouched, Phase
+    2's settled work.
     """
     catalogue = load_contributed(reports)
     router = catalogue.get(ROUTE_PIPELINE_NAME)
@@ -124,12 +157,9 @@ async def run_routed_ask(
             f"Run `weft plugins doctor` to see whether 'weft-retrieve' is active."
         )
 
-    service_registry = await build_services(
-        registry=registry, catalogue=catalogue, llm=llm, services=services
+    runner, routed_ctx, store = await _prepared_runner(
+        registry=registry, catalogue=catalogue, ctx=ctx, llm=llm, services=services, sink=sink
     )
-    routed_ctx = replace(ctx, services=service_registry)
-    runner = Runner(registry)
-    store = service_registry.resolve(NodeStore)
 
     query = Query(text=question)
     route = await _run_pipeline(
@@ -157,6 +187,86 @@ async def run_routed_ask(
     )
     assert isinstance(answer, Answer)  # every shipped routable pipeline ends in a Generator
     return route.pipeline, answer
+
+
+async def run_named_ask(
+    question: str,
+    *,
+    pipeline_name: str,
+    registry: Registry,
+    reports: Sequence[PackReport],
+    ctx: Context,
+    llm: LLMSection,
+    services: ServiceSelection,
+    sink: TokenSink,
+) -> Answer:
+    """Run `pipeline_name` directly against `question`, bypassing the router entirely.
+
+    Task **3.11**'s own answer to "what does a caller who wants a specific pipeline use":
+    `weft ask <question> --pipeline <name>`, never a second command. Resolved against
+    `weft_cli.pipeline_catalogue.full_catalogue` — project-local documents *and* every
+    installed pack's own contribution, the identical set `weft pipeline show/validate/diff/
+    derive` already resolve names against — deliberately wider than `run_routed_ask`'s own
+    `load_contributed`-only catalogue, which is the *router*'s own search set (Phase 2's
+    settled behaviour, untouched here): a pipeline scaffolded by `weft pipeline derive` and
+    never published as a pack is reachable the moment it validates.
+
+    Raises `weft_cli.pipeline_catalogue.UnknownPipelineNameError` if `pipeline_name` is not
+    in the catalogue — reused rather than duplicated, on `weft_cli.commands.
+    _raise_for_plugin_refusal`'s own "one code path, not two" footing: that class's own
+    docstring already covers "a bare name a person typed at the command line", which is
+    exactly what this is, one caller further than the four `weft pipeline` commands that
+    established it. `weft_cli.run_services.StoreCapabilityMissingError` and any
+    `weft_kernel.runner.PipelineResolutionError` propagate unchanged, the same set
+    `run_routed_ask` documents for its own second resolution.
+    """
+    catalogue = full_catalogue(reports=reports)
+    target = catalogue.get(pipeline_name)
+    if target is None:
+        options = tuple(sorted(catalogue))
+        raise UnknownPipelineNameError(
+            f"'{pipeline_name}' is not a pipeline this project knows — checked the "
+            f"project's own '{DEFAULT_PIPELINES_DIR}' directory and every installed pack's "
+            f"own contribution. Known pipelines: {', '.join(options) or '(none)'}.",
+            valid_options=options,
+            pipeline=pipeline_name,
+            remedy=f"use one of: {', '.join(options) or '(none — no pipeline is known yet)'}.",
+        )
+
+    runner, routed_ctx, store = await _prepared_runner(
+        registry=registry, catalogue=catalogue, ctx=ctx, llm=llm, services=services, sink=sink
+    )
+    query = Query(text=question)
+    query_set = QuerySet(origin=query, queries=(query,))
+    answer = await _run_pipeline(
+        target, query_set, registry=registry, runner=runner, ctx=routed_ctx, store=store
+    )
+    assert isinstance(answer, Answer)  # every shipped routable pipeline ends in a Generator
+    return answer
+
+
+async def _prepared_runner(
+    *,
+    registry: Registry,
+    catalogue: dict[str, Pipeline],
+    ctx: Context,
+    llm: LLMSection,
+    services: ServiceSelection,
+    sink: TokenSink,
+) -> tuple[Runner, Context, object]:
+    """The setup `run_routed_ask` and `run_named_ask` share: the assembled service
+    registry, a `Context` carrying it, a `Runner`, and the resolved `NodeStore` both
+    functions' own two `_run_pipeline` calls need. Factored out once a second caller
+    existed (task 3.11) rather than duplicated — the identical "one code path, not two"
+    reasoning `weft_cli.commands._raise_for_plugin_refusal`'s own docstring states.
+    """
+    service_registry = await build_services(
+        registry=registry, catalogue=catalogue, llm=llm, services=services, sink=sink
+    )
+    routed_ctx = replace(ctx, services=service_registry)
+    runner = Runner(registry)
+    store = service_registry.resolve(NodeStore)
+    return runner, routed_ctx, store
 
 
 async def _run_pipeline(

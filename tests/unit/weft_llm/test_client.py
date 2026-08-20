@@ -21,7 +21,8 @@ from weft_kernel.payload import NothingToProduce, Outcome, Produced
 from weft_kernel.registry import Registry, UnknownPluginError
 from weft_llm.client import NullSink, llm_service
 from weft_llm.contract import LLMProvider, TokenSink
-from weft_llm.errors import LLMProviderFaultError
+from weft_llm.errors import LLMGenerationLoopError, LLMProviderFaultError
+from weft_llm.loop_guard import LoopGuardConfig
 from weft_llm.models import UnknownModelError
 from weft_llm.payload import Completion, Conversation, Message, MessageRole, Rendered, TokenChunk
 from weft_llm.roles import LLMRoles, RoleMapping, UnmappedLLMRoleError
@@ -271,3 +272,94 @@ async def test_native_structured_is_derived_from_the_provider_never_declared() -
 
     # Assert — capability derived by `isinstance`, never by a flag a provider could lie about.
     assert (native, plain) == (True, False)
+
+
+# --- the degenerate-loop guard (task 3.10) -----------------------------------------------
+
+
+def _streaming_provider(chunks: tuple[str, ...]) -> type:
+    """A throwaway `LLMProvider` that streams exactly `chunks`, one `stream` call at a time."""
+
+    class _Streaming:
+        def __init__(self, config: object = None) -> None:
+            del config
+
+        async def complete(
+            self, conv: Conversation, *, model: str, ctx: Context
+        ) -> Outcome[Completion]:
+            raise NotImplementedError
+
+        async def stream(
+            self, conv: Conversation, *, model: str, ctx: Context
+        ) -> AsyncIterator[str]:
+            del conv, ctx, model
+            for chunk in chunks:
+                yield chunk
+
+        async def close(self) -> None:
+            return
+
+    return _Streaming
+
+
+async def test_a_provider_stuck_in_a_loop_is_stopped_and_only_the_shown_tokens_survive() -> None:
+    # Arrange — task 3.10: a small model repeating the same short phrase forever, well past
+    # the guard's length floor. `LoopGuardConfig` here is the client's default.
+    phrase = "the answer is the answer is "
+    chunks = tuple(phrase for _ in range(20))  # 580 characters if never interrupted
+    registry = Registry()
+    registry.add(LLMProvider, "looping", _streaming_provider(chunks), distribution="weft-looping")
+    client = llm_service(
+        registry=registry, roles=LLMRoles(roles={"generate": RoleMapping(provider="looping")})
+    )
+    sink = _RecordingSink()
+
+    # Act / Assert
+    with pytest.raises(LLMGenerationLoopError) as raised:
+        await client.complete(RENDERED, role="generate", ctx=_ctx(sink))
+    assert "looping" in str(raised.value)
+    # The stream was cut off well before all 20 chunks were asked for — proving the `async
+    # for` stopped early rather than the guard merely being computed and ignored.
+    assert len(sink.chunks) < len(chunks)
+    # Every token shown before the loop was recognised is still exactly what the sink saw —
+    # nothing already displayed is retracted.
+    assert "".join(chunk.text for chunk in sink.chunks) == phrase * len(sink.chunks)
+
+
+async def test_a_streamed_markdown_table_is_not_stopped_by_the_loop_guard() -> None:
+    # Arrange — the trap task 3.10 exists to avoid: a table's rows are legitimately
+    # repetitive, and must not be mistaken for a model stuck in a loop.
+    rows = ("Intro text before the table begins here for good measure.\n",) + tuple(
+        f"| row {i} | value {i} | note {i} |\n" for i in range(8)
+    )
+    registry = Registry()
+    registry.add(LLMProvider, "tabular", _streaming_provider(rows), distribution="weft-tabular")
+    client = llm_service(
+        registry=registry, roles=LLMRoles(roles={"generate": RoleMapping(provider="tabular")})
+    )
+
+    # Act
+    outcome = await client.complete(RENDERED, role="generate", ctx=_ctx(NullSink()))
+
+    # Assert — every row arrived; nothing was cut off.
+    assert isinstance(outcome, Produced)
+    assert outcome.value.text == "".join(rows)
+
+
+async def test_a_tighter_loop_guard_configuration_is_honoured() -> None:
+    # Arrange — parameterisable, not hard-coded: a caller-supplied `LoopGuardConfig` changes
+    # what fires, proving the client actually reads it rather than always using its own default.
+    chunks = tuple("ab" for _ in range(40))  # 80 characters of a two-character repeat
+    registry = Registry()
+    registry.add(LLMProvider, "looping", _streaming_provider(chunks), distribution="weft-looping")
+    tight = LoopGuardConfig(min_period=2, min_text_length=10)
+    client = llm_service(
+        registry=registry,
+        roles=LLMRoles(roles={"generate": RoleMapping(provider="looping")}),
+        loop_guard=tight,
+    )
+
+    # Act / Assert — the default `LoopGuardConfig` (`min_text_length=100`) would never even
+    # start checking an 80-character answer; the tighter one supplied here does.
+    with pytest.raises(LLMGenerationLoopError):
+        await client.complete(RENDERED, role="generate", ctx=_ctx(NullSink()))

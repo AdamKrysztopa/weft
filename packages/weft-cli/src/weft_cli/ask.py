@@ -4,8 +4,8 @@
 a query that streams an answer with citations. Generation belongs to Phase 2
 and no LLM pack exists in Phase 0. **Phase 0's `weft ask` retrieves and
 prints the matching passages, and says so in its help text.**" The help text
-living up to that is `weft_cli.cli.COMMANDS`'s job; this module is the
-retrieval itself.
+living up to that is `weft_cli.commands.AskCommand`'s job since task 3.2; this
+module is the retrieval itself.
 
 **Not a pipeline stage — a direct capability resolution**, exactly as
 `weft_store.contract` says a future `Retriever` will do: "`VectorSearch`...
@@ -188,15 +188,14 @@ class AskResult(BaseModel):
     hits: tuple[AskHit, ...] = ()
 
 
-def render_results_json(question: str, results: Sequence[Scored[Node]], *, top_k: int) -> str:
-    """The same ranking `render_results` prints, as one line of JSON.
-
-    One line, and `ensure_ascii` left off by `model_dump_json`, for two reasons
-    a caller depends on: a stream of results needs no delimiter guessing, and a
-    Polish passage compared against a span read out of the corpus must be the
-    same string it was in the store — an escaped rendering is a different one.
+def hits_for(results: Sequence[Scored[Node]]) -> tuple[AskHit, ...]:
+    """`results`, ranked and reshaped into the caller-facing `AskHit` a script or a `Command`
+    result reads — one place to build this shape, reused by `render_results_json` below and by
+    `weft_cli.commands.AskCommand`, task 3.2's own caller: both need the identical ranked,
+    structured view, and a second hand-built copy is exactly the drift two readers of one
+    result are meant never to have.
     """
-    hits = tuple(
+    return tuple(
         AskHit(
             rank=rank,
             node_id=str(scored.value.id),
@@ -206,7 +205,17 @@ def render_results_json(question: str, results: Sequence[Scored[Node]], *, top_k
         )
         for rank, scored in enumerate(results, start=1)
     )
-    return AskResult(question=question, top_k=top_k, hits=hits).model_dump_json()
+
+
+def render_results_json(question: str, results: Sequence[Scored[Node]], *, top_k: int) -> str:
+    """The same ranking `render_results` prints, as one line of JSON.
+
+    One line, and `ensure_ascii` left off by `model_dump_json`, for two reasons
+    a caller depends on: a stream of results needs no delimiter guessing, and a
+    Polish passage compared against a span read out of the corpus must be the
+    same string it was in the store — an escaped rendering is a different one.
+    """
+    return AskResult(question=question, top_k=top_k, hits=hits_for(results)).model_dump_json()
 
 
 def _aclose_of(instance: object) -> Callable[[], Awaitable[None]] | None:

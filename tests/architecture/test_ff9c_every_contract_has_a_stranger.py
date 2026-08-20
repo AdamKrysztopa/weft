@@ -88,7 +88,7 @@ SERVICE_PROTOCOLS_WITHOUT_AN_EXAMPLE_PACK: Final[frozenset[str]] = frozenset(
 
 #: Every first-party distribution — read from `packages/`'s own directory listing, never a
 #: hand-typed count, so a sixteenth (or a twentieth) pack changes this without an edit here.
-_FIRST_PARTY_DISTRIBUTIONS: Final[tuple[str, ...]] = tuple(
+FIRST_PARTY_DISTRIBUTIONS: Final[tuple[str, ...]] = tuple(
     sorted(p.name for p in PACKAGES_ROOT.iterdir() if (p / "pyproject.toml").is_file())
 )
 
@@ -153,15 +153,15 @@ def _example_identity(example_dir: Path) -> str:
         return typing.cast("str", tomllib.load(handle)["project"]["name"])
 
 
-def _run(command: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
+def run_subprocess(command: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
     env = {key: value for key, value in os.environ.items() if key != "PYTHONPATH"}
     return subprocess.run(  # noqa: S603 — fixed argv, no shell, nothing user-controlled
         command, cwd=cwd, env=env, capture_output=True, text=True, timeout=180, check=False
     )
 
 
-def _build_wheel(source_dir: Path, *, out_dir: Path) -> Path:
-    result = _run(
+def build_wheel(source_dir: Path, *, out_dir: Path) -> Path:
+    result = run_subprocess(
         ["uv", "build", "--wheel", "--out-dir", str(out_dir), str(source_dir)], cwd=out_dir
     )
     assert result.returncode == 0, (
@@ -307,23 +307,23 @@ def test_every_published_contract_has_a_stranger(tmp_path: Path) -> None:
     wheel_dir = tmp_path / "wheels"
     wheel_dir.mkdir()
     first_party_wheels = [
-        _build_wheel(PACKAGES_ROOT / distribution, out_dir=wheel_dir)
-        for distribution in _FIRST_PARTY_DISTRIBUTIONS
+        build_wheel(PACKAGES_ROOT / distribution, out_dir=wheel_dir)
+        for distribution in FIRST_PARTY_DISTRIBUTIONS
     ]
 
     right: set[str] = set()
     for example_dir in _EXAMPLE_DIRS:
         distribution = _example_identity(example_dir)
-        example_wheel = _build_wheel(example_dir, out_dir=wheel_dir)
+        example_wheel = build_wheel(example_dir, out_dir=wheel_dir)
 
         project_dir = tmp_path / f"throwaway-{distribution}"
         project_dir.mkdir()
         venv_dir = project_dir / ".venv"
-        created = _run(["uv", "venv", str(venv_dir), "--python", "3.12"], cwd=project_dir)
+        created = run_subprocess(["uv", "venv", str(venv_dir), "--python", "3.12"], cwd=project_dir)
         assert created.returncode == 0, f"uv venv failed for {distribution}:\n{created.stderr}"
         python = venv_dir / "bin" / "python"
 
-        installed = _run(
+        installed = run_subprocess(
             [
                 "uv",
                 "pip",
@@ -348,7 +348,7 @@ def test_every_published_contract_has_a_stranger(tmp_path: Path) -> None:
         )
 
         # Act
-        ran = _run([str(python), str(probe)], cwd=project_dir)
+        ran = run_subprocess([str(python), str(probe)], cwd=project_dir)
 
         # Assert — this one pack's own contribution to the right side.
         assert ran.returncode == 0, f"{distribution}'s probe crashed:\n{ran.stdout}\n{ran.stderr}"

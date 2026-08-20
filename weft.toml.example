@@ -109,6 +109,23 @@ dsn = "${env:WEFT_DATABASE_URL}"
 # embed = "openai"
 # store = "qdrant"
 
+# --- Permissions ---------------------------------------------------------------
+# An operator's override of the two classes docs/03-cli.md -> Permissions defaults
+# to "ask": `overwrite` (reindexing an existing collection, replacing a pipeline
+# file) and `destroy` (dropping a collection, deleting blobs, purging a cache).
+# `read`/`write` are unconditionally `allow` and are not keys here; `network`'s own
+# "allow, configurable" is a separate knob no command reads yet.
+#
+# "ask" is every field's own built-in default, so leaving this whole block absent
+# is identical to writing it out with both keys set to "ask" — an overwrite/destroy-
+# class command still refuses to run with no TTY, naming --yes, and never proceeds
+# silently. "allow" is the only override, e.g. for a CI job that already trusts its
+# own pipeline and would rather not pass --yes on every invocation.
+#
+# [permissions]
+# overwrite = "ask"
+# destroy = "allow"
+
 # --- Which model answers a role ----------------------------------------------
 # A pipeline stage never names a provider or a model — it names a *role*
 # (`generate`, `grade`, `rerank`, `route`, or any name a technique plugin's own

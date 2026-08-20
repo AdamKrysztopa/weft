@@ -60,15 +60,31 @@ external services mocked.
 
 A task is not done until all of these are true:
 
-1. `uv run poe ci-checks` is green.
+1. `uv run poe ci-checks` is green. Run it in the **foreground**; backgrounding it and waiting for
+   a notification is how three agents in Phase 3 stalled mid-task.
 2. **Any fitness function the task's own *turns on* field names is wired and green.** Wiring one
    means adding it to the `ci-checks` composite in the same commit; fitness function 0 fails
    otherwise.
-3. The task's box in `build-ledger.md` is ticked with its commit sha, and `docs/README.md`'s Status
+3. **You have run the thing, through the shipped entry point, from a directory that is not this
+   repository.** A green suite is not the same evidence as a working binary, and in this project
+   that is measured rather than asserted: **every one of Phase 3's four repairs was found by
+   running `weft` and none by its 1,513 tests.** What they were is the argument for the step —
+   `weft init` refusing a first run in an empty project; a refusal printed twice, once mislabelled
+   as a stream error; `weft --help` entering the REPL instead of printing help; a refusal splicing
+   a raw Pydantic dump into the middle of a sentence. The third of those falsified the phase's own
+   **Exit criterion**, which is written in terms of `weft --help`, and it was not caught by the
+   test written to prove that criterion — that test had been shaped around the defect instead.
+
+   So: `cd` somewhere empty, run the command a user would run, and read what it prints. Run its
+   failure path too — the wrong flag, the missing file, the name nothing provides — because
+   refusals are where composition bugs and text quality both surface. Paste the real output into
+   the task's ledger entry. Leave no artefacts behind in the repository; a stray `weft.toml` at the
+   root is the tell that someone ran a scaffolding command in the wrong directory.
+4. The task's box in `build-ledger.md` is ticked with its commit sha, and `docs/README.md`'s Status
    block still reads true.
-4. If the work changed something a document owns, that document is edited in the same commit. The
+5. If the work changed something a document owns, that document is edited in the same commit. The
    plan and the code are meant to be true about each other.
-5. The commit message says **why**, and names the step. The diff already says what.
+6. The commit message says **why**, and names the step. The diff already says what.
 
 Then run the `weft-qualities` skill against what you wrote if the step added a contract, a capability
 or a config surface. It is cheaper to catch an elasticity regression now than after something depends

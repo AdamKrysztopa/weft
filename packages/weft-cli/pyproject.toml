@@ -3,7 +3,7 @@ name = "weft-cli"
 version = "0.0.0"
 description = "The Weft command line: the only driving adapter, and the only asyncio.run."
 requires-python = ">=3.12"
-dependencies = ["weft-kernel", "weft-extract", "weft-chunk", "weft-embed", "weft-store", "weft-llm", "weft-prompts", "weft-retrieve", "weft-generate", "pyyaml"]
+dependencies = ["weft-kernel", "weft-command", "weft-extract", "weft-chunk", "weft-embed", "weft-store", "weft-llm", "weft-prompts", "weft-retrieve", "weft-generate", "pyyaml"]
 
 # The CLI is the one place `weft index`/`weft ask` are wired to a fixed, hardcoded
 # built-in pipeline (`06` step 9) — Phase 1 replaces this with pipelines as data.
@@ -15,8 +15,19 @@ dependencies = ["weft-kernel", "weft-extract", "weft-chunk", "weft-embed", "weft
 # else weft-cli declares pulls it in (`weft-retrieve` deliberately does not import
 # weft_generate, per `.phase2-design.md`'s DAG rule), so the shared workspace venv hid its
 # absence until a reviewer built weft-cli's wheel alone and installed it clean.
+# `weft-command` is here from task 3.1, for `weft_command.permission.PermissionClass` — see
+# that module's docstring for why `PermissionClass` lives alongside the `Command` contract it
+# names a mandatory declaration for, rather than in `weft-cli` itself.
 [project.scripts]
 weft = "weft_cli.cli:main"
+
+# Task 3.2: `weft-cli` registers its own five built-in commands through the identical
+# `weft.packs` entry point a third-party pack uses — CLAUDE.md's "built-ins get no shortcut",
+# applied to the CLI's own surface. See `weft_cli.commands`'s own module docstring for why
+# `weft-cli` is the owner rather than an eleventh distribution, and `weft_cli.cli`'s for how
+# `weft --version` still runs none of this (fitness function 8(b)).
+[project.entry-points."weft.packs"]
+weft-cli = "weft_cli.commands:register"
 
 [build-system]
 requires = ["hatchling"]

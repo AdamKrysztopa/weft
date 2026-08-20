@@ -17,6 +17,7 @@ from weft_cli.services import (
     DEFAULT_EMBEDDER,
     DEFAULT_STORE,
     ServiceSelection,
+    UnknownServiceKeyError,
     service_selection_from_config,
 )
 from weft_kernel.errors import WeftError
@@ -65,6 +66,18 @@ def test_an_unknown_services_key_is_refused_naming_the_keys_that_exist() -> None
         service_selection_from_config(document)
     assert "embedd" in str(raised.value)
     assert "embed" in str(raised.value)
+
+
+def test_an_unknown_services_key_carries_the_known_keys_as_a_typed_field() -> None:
+    # Arrange — repair, 2026-08-20: the message already named the keys, but only inside the
+    # string, never as a typed field fitness function 12's family walk can see. `weft_cli.
+    # config_surface.UnknownConfigKeyError` is the same-phase precedent this now matches.
+    document: dict[str, object] = {"services": {"embedd": "openai"}}
+
+    # Act / Assert
+    with pytest.raises(UnknownServiceKeyError) as raised:
+        service_selection_from_config(document)
+    assert raised.value.valid_options == ("embed", "store")
 
 
 def test_a_services_value_that_is_not_a_plugin_name_is_refused() -> None:

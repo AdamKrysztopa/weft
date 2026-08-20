@@ -55,6 +55,26 @@ and the REPL renders it again with the session's context around it. G8 (2026-08-
 consequence rather than adding to it — the same property is what lets a Phase 7 agentic pack call
 this surface instead of re-parsing its output. See *Is the REPL an agent?* below.
 
+> **Built in Phase 3 task 3.4 (2026-08-19); the entry condition corrected by task 3.6
+> (2026-08-20), `docs/03-cli.md` → *Output*'s own blockquote carries why — and corrected again
+> by the repair recorded against 3.2/3.4/3.8 in `docs/build-ledger.md`, dated 2026-08-20.**
+> `weft` with no command named — no arguments at all, or only global flags such as
+> `--json`/`--quiet` — enters the session above; a lone `-h`/`--help` does not, and this
+> paragraph used to say it did, which was the defect the repair fixes (`weft_cli.cli.wants_help`
+> is the routing fact that keeps it out, checked ahead of the test below). `weft_cli.repl.run_repl`
+> reads a line, resolves it against the identical registry-driven
+> `argparse.ArgumentParser` `weft --help` is generated from (`weft_cli.cli.build_parser`), and
+> calls `weft_cli.cli.run_command` — the same function a one-shot invocation calls, unmodified —
+> so there is nothing here for the REPL to duplicate. `Command.run` now runs through
+> `weft_kernel.seam.wrap` again (reverted by task 3.2, `.phase3-design.md` O1): the blocking-call
+> guard, the one concern that broke `weft index`'s own filesystem walk, is turned off with a new
+> `guard_blocking_calls` keyword rather than the seam being skipped wholesale, so a `Command`
+> invocation gets spans and error attribution back without a second, hand-written wrapper beside
+> the seam it would drift from. **An interactive session's own process exit code is `SUCCESS`
+> whether it ended by `/exit` or end-of-input, independent of the last command's own result** —
+> a session is a shell, not a pipeline of one command, and a script that wants a meaningful exit
+> code already has the one-shot form for that, per G8.
+
 ## Command surface
 
 Verb-first and small. Depth lives in subcommands, not in flags.
@@ -95,21 +115,171 @@ found no slot, and operators that went unapplied because the pack they name is n
 last two are recorded rather than fatal — see `02` §3, *Slots* — so printing them is the only way
 they are visible.
 
+> **`init`, `pipeline list|show|derive|validate|diff` and `config get|set` — built in Phase 3
+> task 3.7 (2026-08-20), all eight as registered `Command` plugins through the identical
+> single dispatch path every earlier command uses.** `weft_cli.pipeline_commands`/
+> `weft_cli.config_commands` are new modules, both called from `weft_cli.commands.register`'s
+> one entry point — never a second one.
+>
+> **`weft pipeline diff` proves its exactness rather than asserting it.**
+> `weft_cli.pipeline_diff.diff_resolved` compares two `weft_kernel.resolution.ResolvedPipeline`
+> values field by field — stages matched by id, never by position, so an inserted stage reads
+> as one addition rather than a shift; a stage present on both sides is compared by `==`, the
+> same equality `ResolvedPipeline`'s own docstring already promises across two separate
+> `resolve()` calls. No rendered text is ever compared: a text diff would be, in this task's
+> own words, "a guess about a guess" — two renderers' opinions about the same fact, not the
+> fact itself. `tests/unit/weft_cli/test_pipeline_diff.py` proves it directly: two separate
+> resolutions of the identical pipeline diff to `identical=True`, and a pipeline that inserts
+> one stage diffs to exactly that one addition and nothing else.
+>
+> **`weft pipeline show` prints what a pre-G2 `show` structurally could not**, because the
+> fields did not exist before task 1.11: `unapplied_operators` and `unplaced_contributions`,
+> both printed even when empty (which is every case today — nothing in this tree yet builds a
+> slot contribution to populate them; see `weft_cli.pipeline_commands`'s own module docstring
+> for that gap, named rather than built ahead of need), alongside every stage's provenance,
+> distribution, `applies_to` and final `with:` config, and every var's final merged value.
+>
+> **`weft pipeline derive` scaffolds the smallest legal derived pipeline** — `name:` and
+> `extends:`, nothing else — and stops; an author adds `insert`/`replace`/`remove`/`set` by
+> hand, because `weft_cli.argparse_gen`'s own floor (`str`, `int`, `bool`, `StrEnum`, or `|
+> None` wrapping one) has no honest way to generate a CLI grammar for four different operator
+> shapes. `weft pipeline validate <name>` is the natural next command, and `derive`'s own
+> output says so.
+>
+> **`init`, `pipeline derive` and `config set` were briefly `overwrite`-class, and are
+> `write`-class — corrected 2026-08-20, from a review of this task's own landed commit
+> (`docs/build-ledger.md`'s dated repair paragraph for tasks 3.3/3.6/3.7 has the argument in
+> full).** The table below already places "write a derived pipeline" under `write` (allow),
+> and a first `weft init`/`weft pipeline derive` — the case the original "no upsert-safety"
+> argument was actually about, since nothing existed yet to lose — refused outright in CI,
+> where nothing is a TTY, the first thing a new user or a setup script runs. Scaffolding into
+> a project that has nothing yet is a *create*; this table's own `write` row already said so.
+> What `overwrite` bought — never silently discarding whatever a target already held — is not
+> given up: `init`/`derive` now refuse outright, loudly, naming the path, when the target
+> already exists, rather than asking a TTY that CI never has. `config set` reasons from the
+> same table differently: it is `write` because the class this table exists for — a prompt
+> that states "what will be destroyed and how much of it" — has nothing to say about a single,
+> self-named key edit that preserves every other key and comment untouched; see
+> `weft_cli.config_commands`'s own module docstring for the argument in full. **A consequence
+> of all three moving, stated rather than found by accident**: no first-party command, and no
+> out-of-tree example pack in this tree, declares `overwrite`/`destroy` any more, so task 3.3's
+> no-TTY/`--yes` machinery is exercised only by hand-registered test doubles
+> (`tests/unit/weft_cli/test_cli.py::_WipeCommand`, `tests/unit/weft_cli/test_confirm.py`'s own
+> direct unit tests of `gate`) — acceptable, the same position Phase 0 shipped and said so for
+> other machinery, but recorded here rather than left to be noticed later.
+>
+> **`docs/02-extension-model.md` §2's "`weft init`/`weft config get` complete with zero pack
+> code executed" is corrected in this same commit.** That claim predates task 3.2's
+> registry-driven parser: every subcommand's own grammar, `init`'s and `config get`'s
+> included, now needs the whole registry built to be recognised as a valid subcommand at all,
+> so discovery already runs before any command's own body executes. `weft --version` remains
+> the one categorically pack-code-free command — it alone never reaches the registry-driven
+> parser — proven by the same, unweakened subprocess test fitness function 8(b) always has.
+>
+> **`weft ask <question>` above is task 3.11's own answer, and it is already what this table
+> says.** Task 2.8 built the router but shipped it behind a second, additive command, `weft
+> route`, leaving Phase 0's own `weft ask` retrieve-only and untouched — a deferral this table
+> never caught up with: it kept saying *"query, streaming the answer with citations"* the whole
+> time, describing a command that did not yet do that. Task 3.11 makes the table true: `weft ask`
+> now routes through the installed router by default and there is no `weft route` — a caller
+> never has to know a second command exists. **`weft ask <question> --pipeline <name>`** is what
+> a caller who wants a *specific* pipeline uses instead of the router's own choice, resolved
+> against the same catalogue `weft pipeline show` resolves names against
+> (`weft_cli.pipeline_catalogue.full_catalogue` — project-local documents and every installed
+> pack's own contribution, deliberately wider than the router's own `route.yaml`-only search
+> set, so a pipeline scaffolded by `weft pipeline derive` and never published as a pack is
+> reachable). **`weft ask <question> --retrieve-only`** is Phase 0's own contract, kept
+> reachable rather than deleted: `manual/quickstart.md`'s zero-configuration walkthrough and
+> `eval/run_baseline.py`'s V3 baseline (`09` §4.3) both need a deterministic, credential-free,
+> network-free measurement, which routed generation cannot offer once a real model is involved
+> — a `weft.toml` naming no `[llm.roles]` maps nothing (`weft_llm.roles.LLMRoles`'s own "no
+> silent default" clause), so the routed default refuses loudly rather than guessing at a
+> provider. `--retrieve-only` and `--pipeline` are mutually exclusive, refused together before
+> either resolves a plugin. **No reference precedent existed to weigh either way**: every reference CLI
+> path that builds an engine config disables its own router explicitly
+> (`RouterConfig(enabled=False, ...)`, `generation/chat.py:99` and `:270`), and its
+> `retrieval/query_tools.py` exposes only named-strategy subcommands (`hyde`, `stepback`,
+> `compare`) — a user has to already know the strategy name, precisely the gap this task closes.
+>
+> **The double-print `weft route` inherited is fixed in the same commit, reusing the shape of
+> an existing repair rather than a second mechanism for the same class of problem.** Task 3.6's
+> own report flagged it: a routed answer's text printed twice — once live through
+> `PrintingSink`/`JsonSink` as the generating stage streamed it, once more in full after the run
+> finished. The 2026-08-20 repair to a *different* double-print (a permission refusal, shown
+> once by the renderer and once by the sink's own failure path) had already established the
+> right shape — decide from a fact about whether this run's own sink actually showed
+> something — but not the right *fact*: that repair's `_EmissionTrackingSink.emitted` is set by
+> *any* role's chunk, the router's own `role="route"` scoring call included, so reusing it
+> unchanged would suppress the answer even when nothing visible ever streamed. The fix is a
+> second, role-aware fact the sink itself is uniquely positioned to know —
+> `weft_cli.sinks.PrintingSink`/`JsonSink` grew a public `wrote_anything`, true only for a chunk
+> `_visible` already decided a reader would see — read via `getattr(deps.token_sink,
+> "wrote_anything", False)` off the *real* sink in `weft_cli.cli.run_command`, so `NullSink`
+> (`--quiet`, no such attribute) always answers "nothing streamed" and still gets the full text,
+> holding G6's "`--quiet` suppresses progress but keeps the result." Threaded into
+> `weft_cli.render.render_outcome`'s new `streamed` keyword, read only by `_render_ask`.
+
 ## In-session commands
 
 Slash commands inside the REPL, matching the mental model of the CLI:
 
 ```
-/help                    /pipeline [name]       switch or inspect the active pipeline
-/plugins                 /trace                 show the last run's stages and timings
-/eval                    /config
+/help                    /pipeline [name]       show or set the active pipeline
+/plugins                 /trace                 show the last command this session ran
+/eval                    /session                print the session's own state
 /clear                   /exit
 ```
 
 The session carries state a one-shot invocation does not: the active pipeline, the collection,
-conversation history, and the last run's trace. That state is explicit and inspectable — `/config`
+conversation history, and the last run's trace. That state is explicit and inspectable — `/session`
 prints it — because implicit session state is how a tool starts behaving differently for two people
 running the same command.
+
+> **Built in Phase 3 task 3.4 (2026-08-19), three of eight — the rest named as deferred rather
+> than shipped as stubs.** `/help` (reads the same registry walk `--help` is generated from) and
+> `/exit` ship because neither is *about* session state; `/plugins` ships as a slash **alias**
+> for the already-registered `plugins list` `Command` — it builds the identical `args`
+> `weft plugins list` would and calls `weft_cli.cli.run_command`, proof that a slash command need
+> not be a second implementation of anything. `/clear`, `/pipeline` and `/trace` are each about
+> session state this task does not build — conversation history, the active pipeline, the last
+> run's trace — and are task **3.5**'s. `/config` needs `weft config get/set`, task **3.7**'s own
+> command surface. `/eval` has no owner yet: no `weft eval` command is registered anywhere in this
+> repository. Typing any of the five at the prompt names its own reason rather than doing nothing
+> or crashing — `weft_cli.repl`'s own module docstring carries the full list.
+
+> **Built in Phase 3 task 3.5 (2026-08-19), four more of the original eight, plus a ninth this
+> task adds.** `/pipeline [name]`, `/trace` and `/clear` are `weft_cli.session.SessionState` made
+> real — a frozen model replaced wholesale each turn (`with_active_pipeline`, `with_turn_recorded`,
+> `cleared`), never mutated in place. `/pipeline` with no argument shows the session's
+> `active_pipeline`, with one it sets it — held and printed as a bare, unvalidated name, since no
+> `weft pipeline` command surface exists yet to resolve it against (task **3.7**'s own). `/trace`
+> prints the `TurnTrace` the session's last actual `run_command` call attached — the resolved
+> command name, the verbatim line typed, and its exit code — or says plainly that nothing has run
+> yet; a slash command that only inspects or changes the session itself (`/help`, `/pipeline`,
+> `/clear`, `/session`) does not count as a run. `/clear` resets both back to a blank session.
+> **`/config` does not print session state, and this section is corrected to stop saying it
+> does.** The sentence above naming `/config` predates task 3.4's own deferral of `/config` to
+> task **3.7**'s *project* configuration surface (`weft config get/set`, `weft.toml`) — two
+> different questions sharing one name by accident of when each sentence was written: `weft.toml`
+> is read once at startup, a session's own state changes every turn. This task gives the session
+> its own command instead, **`/session`** — not one of the original eight — printing every value
+> `SessionState` carries, nothing more and nothing less: `active_pipeline`, the last `TurnTrace`,
+> and an explicit line stating conversation history is not tracked, rather than a field silently
+> missing from the printout. **The collection and conversation history — the other two of the
+> four named above — are deferred, argued rather than defaulted past**
+> (`weft_cli.session`'s own module docstring carries both in full): no command in this repository
+> accepts a collection argument for a session to hold a choice of, and no contract reads a prior
+> turn back into a later one (`weft_cli.commands.AskArgs`/`RouteArgs` take no history field), so
+> building either now would be exactly the shape the reference's own `_run_chat_loop`
+> (`generation/chat.py:353`, `.phase3-design.md` §2.5) is a warning against — a `chat_history`
+> parameter that always passed `[]`, state that *looks* consulted by generation and is not. This
+> task refuses to reproduce that failure in the opposite direction: state a session holds that
+> nothing ever reads back is the identical defect the other way round.
+
+> **`/config`, shipped task 3.7 — a `run_command` alias for `weft config get`, `/plugins`'s
+> own pattern proven a second time.** `/config` with no argument is `config get` with no
+> `--key`; `/config <key>` forwards `<key>` as `--key`. It prints the *project's* effective
+> `weft.toml`, never the session's own state — `/session` above still owns that.
 
 ## Plugin-contributed commands
 
@@ -124,6 +294,30 @@ weft graph show --entity "Acme"
 Core has no list of commands to edit. The help text is generated from the registry, which means it
 cannot drift from what is installed — the same property that makes the plugin model work applied to
 the CLI's own surface.
+
+> **REPL completion, built in Phase 3 task 3.4 (2026-08-19).** `weft_cli.repl.repl_completions
+> (registry, prefix)` walks the identical `Registry.names_for(Command)` `build_parser` and
+> `--help` already read, so a stranger's registered command appears in completion the moment it
+> registers — no second list. Wired into a real session through Python's `readline`, best-effort
+> (`ImportError`-guarded, since not every platform ships it). This is the *mechanism*; task
+> **3.8** is the automated proof that a real installed stranger's command actually shows up here.
+
+> **Proven automatically, task 3.8 (2026-08-20), repaired 2026-08-20 — this is Phase 3's own
+> exit criterion.** `tests/architecture/test_phase3_exit_command_surface.py` installs
+> `weft-example-command` (task 3.2's stranger) into a throwaway environment built from real
+> wheels, with this repository nowhere on `sys.path`, and shows all three claims hold against
+> the installed binary rather than against an in-process Python call: **bare `weft --help`** — a
+> real subprocess, the exit criterion's own words, no command named — lists the plugin's own
+> registered name and declared `help` text among every other command's, generated by
+> `weft_cli.cli.build_parser` from the registry (`weft_cli.cli.wants_help` is what keeps a lone
+> `-h`/`--help` out of the session two sections up, rather than the session claiming it as this
+> document used to say — see that section's own corrected blockquote); the per-command leaf form,
+> `weft <name> --help`, is kept as a second, additional assertion of the same mechanism.
+> `repl_completions`, called from inside the same venv against the real, installed
+> `weft_cli.registry_bootstrap.build_dependencies`, includes it; and no file under `packages/`
+> names its distribution, module or plugin name. Uninstalling the pack and re-running every probe
+> against the identical venv breaks all of them, so the property is shown to depend on the pack
+> being installed, not on the test's own fixed transcript.
 
 ## Permissions
 
@@ -159,6 +353,40 @@ delete your collection; nothing here prevents it, and nothing can — see `02` �
 for why in-process enforcement is unavailable and what weft does instead. The class exists so that an
 *honest* pack participates in the same safety contract as core.
 
+> **Built in Phase 3 task 3.3 (2026-08-19), and narrower than the paragraph above in one
+> respect, stated rather than pretended past.** `weft_cli.confirm.gate` is the invocation seam —
+> called from `weft_cli.cli.run_command` immediately before any registered `Command` runs, so a
+> pack's `overwrite`/`destroy` command is refused with no cooperation from its own author, exactly
+> as *"the machinery makes that a registration-time fact"* says of `permission_class` itself. The
+> no-TTY refusal and `--yes` land exactly as specified, proven by `tests/unit/weft_cli/
+> test_confirm.py` and `test_cli.py` with `is_interactive`/`read_confirmation` monkeypatched so
+> both branches are provable in CI, which is never a TTY. `--yes` is spelled `weft <command> ...
+> --yes` — declared once, on the leaf subparser a command's own name resolves to, never on the
+> top-level parser too: `argparse`'s subparsers copy a fresh sub-namespace over the shared one on
+> every dispatch, so a same-named flag declared on both levels would silently lose a
+> `weft --yes <command>` spelling back to its subparser default (`weft_cli.cli`'s own module
+> docstring has the mechanics). **The prompt does not yet carry a collection name or a document
+> count.** Stating a count means the command has already looked, which the generic seam cannot do
+> without either partially running the command early or a `Command.describe_impact`-style
+> contract method every registered command — none of which declares `overwrite`/`destroy` today —
+> would have to implement for a need nothing yet has. What it states instead: the command's own
+> registered name and its already-validated, already-typed arguments, e.g. `'graph destroy' is a
+> destroy-class command, called with {'collection': 'reports'}.` — genuinely more than "are you
+> sure?", honestly less than a document count. Left to whichever later task first ships a real
+> `overwrite`/`destroy` command and needs one — `weft_cli.confirm`'s own module docstring records
+> the reasoning in full. Per-class defaults in `weft.toml` are `[permissions]`
+> (`weft_cli.permission_policy`), and cover only `overwrite`/`destroy` — the two classes anything
+> here gates at all — with an unknown key refused, naming `overwrite` and `destroy` as the keys
+> that exist, per *Project context* below.
+
+> **Task 3.7 briefly gave this machinery its first genuine `overwrite`-class commands, and the
+> 2026-08-20 repair took them back** — `init`, `pipeline derive` and `config set` are
+> `write`-class instead (see the *Command surface* section above for the argument in full).
+> `test_cli.py`'s own hand-registered double (`_WipeCommand`) remains the only thing proving
+> the no-TTY refusal and `--yes` in this tree, exactly as it was before this task, which is
+> `docs/build-ledger.md`'s own recorded consequence, not an oversight. The `describe_impact`
+> gap above is still real and still unowned regardless of which command class first needs it.
+
 ## Output
 
 Human output streams: tokens as they generate, stage progress while indexing, citations resolved at
@@ -174,6 +402,46 @@ one, which fitness function 7 asserts by path.
 `--json` switches to newline-delimited JSON events and disables every decoration, including
 spinners and colour. That is the scripting contract: same events, no parsing of prose. `--quiet`
 suppresses progress but keeps the result.
+
+> **Built in Phase 3 task 3.6 (2026-08-20).** `weft_cli.sinks.PrintingSink` is the default
+> `TokenSink` — writes a chunk's text to the terminal the instant it arrives, unbuffered, then a
+> single newline on `close()`; `weft_cli.sinks.JsonSink` is `--json`'s own, one `StreamEvent` per
+> line; `--quiet` reuses `weft_llm.client.NullSink` unchanged, since a sink that discards is
+> already what `--quiet` needs. `weft_cli.cli.global_output_flags` recognises both **before** the
+> subcommand (`weft --json ask ...`, never `weft ask --json ...`) — the opposite side from `--yes`,
+> because these are genuinely top-level flags, never a per-command choice — and `weft_cli.cli.main`
+> chooses the sink from them before `build_dependencies` runs, so it is already on
+> `Dependencies.token_sink` the moment a `Command` can read it. A flags-only invocation
+> (`weft --json`, no subcommand) now enters the interactive session with that sink already
+> selected: `main`'s REPL-entry test changed from "argv is empty" to "no command was named",
+> which is what it always meant. `weft_cli.commands.RouteCommand` (retired into `AskCommand` at
+> task 3.11, below) — the only built-in that streams today — reads `Dependencies.token_sink` and
+> threads it through `weft_cli.route_ask.run_routed_ask`
+> to `weft_cli.run_services.build_services`, which now takes the sink as a required argument rather
+> than hardcoding `NullSink()`. **The event vocabulary is three members** — `CHUNK`, `DONE`,
+> `ERROR` — not the seven a taxonomy in the reference's own engine carries; the other four have nothing
+> in this tree that would emit them yet, named as gaps rather than built ahead of need. **An error
+> can never be mistaken for a clean end**: `TokenSink.close(reason=...)` is the one signal, and
+> `JsonSink` turns `reason=None` into a `DONE` event and any other `reason` into a structurally
+> different `ERROR` event carrying it — never a worded difference a consumer would have to
+> string-match, which is exactly the reference shape this sink refuses to reproduce. `weft_cli.cli.
+> run_command` closes the run's sink exactly once, on every exit — success, a caught `WeftError`,
+> or an uncaught exception including `CancelledError`, which still propagates untouched (G6); see
+> that function's own docstring and task 3.6's ledger entry for the full argument, including why
+> nothing about the REPL's own `read_line`/`weft_extract.accept`'s filesystem walk needed to
+> become async to ship this (O2, `.phase3-design.md` §4).
+
+> **Built in Phase 3 task 3.10 (2026-08-20), the phase's one reference lift.** `close(reason=...)`
+> gained its first real caller on a *non-crash* path: `weft_llm.loop_guard.detect_generation_loop`
+> watches the answer accumulate inside `weft_llm.client.LLMClient.complete` and, on a small model
+> settling into a repeating span, raises `LLMGenerationLoopError` rather than letting the stream run
+> on — a markdown table is checked for and excluded first, so legitimately repetitive rows are never
+> mistaken for one. `run_command`'s existing "a caught `WeftError` closes with `reason=str(exc)`"
+> branch (above) is what turns the raise into the sink's own `[stream error: ...]` line — no new
+> branch needed here, which is itself evidence O1/O2's design already generalised correctly.
+> `[llm.loop_guard]` in `weft.toml` parameterises every threshold; see
+> `manual/operations-guide.md` → *Stopping a model stuck in a loop*. This is a loop-breaker for a
+> model that got stuck, never hallucination detection — `01` → Phase 3 **Lift**'s naming rule.
 
 Exit codes are meaningful, because a CLI that always exits 0 cannot be used in CI: `0` success,
 `1` operation failed, `2` bad usage, `3` refused for permissions, `4` pipeline failed to resolve.
@@ -200,6 +468,20 @@ tell *"fix the environment"* from *"fix the pipeline"*.
 > yet, so the three `pipeline_catalogue` names are proven correct without being reachable —
 > `tests/unit/weft_cli/test_exit_codes.py` is where that proof lives until a real command reaches
 > them.
+
+> **One exception carries its own code, since task 3.2 (2026-08-19), and it is a stated
+> exception to "one function."** `weft_cli.commands.CommandRefusalError` is what a built-in
+> `Command` raises for the two refusals `weft_cli.registry_bootstrap.require_active`/
+> `require_plugin` already computed — `3` for a distribution `[packs] allow` refuses, `4` for a
+> name that is simply unregistered — and it carries that `ExitCode` as data rather than going
+> through `exit_code_for`. It has to: `Command.run` cannot return an `ExitCode` (only an
+> `Outcome[CommandResult]`, per *Two modes, one implementation* above), and the contract must
+> not learn a weft-cli-specific enum any more than it already knows `weft_cli` at all — the
+> identical reasoning that keeps `weft_kernel` from knowing `Command`. `weft_cli.render.
+> render_refusal` reads `.exit_code` off it directly; every other caught `WeftError` still goes
+> through `exit_code_for`, unchanged. The messages and codes themselves are unchanged from
+> before this task — only the vehicle carrying them from "computed" to "printed" moved from a
+> return value to an exception, because `run()` cannot print.
 
 **Score display.** A retrieval result carries `Scored.score` — a similarity, never guaranteed to fall
 in `[0, 1]` (`02` §1: "the score lives on `Scored[Node]`, not on `Node`"; nothing in that contract
@@ -253,6 +535,14 @@ exits **4** with that pack's reason attached; unresolvable with nothing amiss ex
 every name the contract does have. `02` → *The trust model* requires all three, and a hard-coded
 tuple of first-party distribution names could satisfy none of them for a third-party pack.
 
+**`[permissions]` is the *"permission defaults"* named above** (task 3.3). Two keys,
+`overwrite` and `destroy` — the only classes *Permissions* defaults to `ask` — each `"ask"`
+(the built-in default, so a `weft.toml` naming neither key behaves exactly as one with no
+`[permissions]` table at all) or `"allow"` (an operator's override, equivalent to always passing
+`--yes` for that class). An unknown key is refused, naming `overwrite` and `destroy` as the keys
+that exist — the identical rule `[services]` states two paragraphs up. `weft_cli.permission_policy`
+carries the reasoning for why `read`/`write`/`network` are not keys here yet.
+
 > **Extended by the reference study (2026-08-10) — `--origin` is a first-class feature, not a nicety.**
 > In the reference, chunk size can be set in **five** places under **two different** precedence rules,
 > and no single precedence statement exists anywhere: CLI flag → JSON config file → `strategies.json`
@@ -267,6 +557,26 @@ tuple of first-party distribution names could satisfy none of them for a third-p
 > caused silent misconfiguration. One idea there is worth keeping: `ConfigMerger.merge_into_base`
 > returns `base.model_copy(update=…, deep=True)` (`merger.py:177`) — merge immutably rather than in
 > place. Write our own; it is one line and the value is knowing to make it that line. (`reference/study/10-doc-corrections.md` E10.)
+
+> **Built in Phase 3 task 3.7 (2026-08-20) — `weft config get|set` reads and writes exactly
+> four dotted keys**, `services.embed`, `services.store`, `permissions.overwrite`,
+> `permissions.destroy` — the whole of what a command in this repository consults from
+> `weft.toml` today. `weft_cli.config_surface.effective_config` answers `--origin` from the
+> **raw parsed document**, never from comparing the merged `ServiceSelection`/
+> `PermissionPolicy` against their own built-in defaults: that comparison is the reference's own
+> sentinel bug reproduced one field at a time — indistinguishable between "explicitly set to
+> the default value" and "not set". Reading the raw mapping and asking, per key, whether it
+> is literally present answers the question a merged value structurally cannot:
+> `services.embed = "hash"` written explicitly in `weft.toml` reports `origin: file` even
+> though `"hash"` is also the built-in default, and a `weft.toml` that never mentions `embed`
+> at all reports `origin: default` — the exact distinction a sentinel comparison collapses.
+> `weft config set` edits `weft.toml` as **text**, not as a re-serialised document: `tomllib`
+> is read-only and no TOML writer is a dependency this distribution carries, and a
+> parse-mutate-write round trip would discard every comment a real `weft.toml` holds. The
+> smallest edit that makes a key say what was asked — find or insert one `key = "value"` line
+> under its `[section]` header, append the section if absent — leaves every other byte,
+> comments included, untouched; `tests/unit/weft_cli/test_config_surface.py` proves a
+> comment survives a `set` call, and the value round-trips through `tomllib` afterward.
 
 ## Is the REPL an agent?
 

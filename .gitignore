@@ -49,6 +49,7 @@ uv.lock
 # document this project owns, and a design that matters belongs in the `docs/` file
 # that owns its content, not in a root-level file nothing points at.
 /.phase2-*.md
+/.phase3-*.md
 
 # Gate-session preparation: the Bring lists of `docs/05-grilling-sessions.md`, measured on the day
 # a session is about to run. Untracked for the same reason — the session's outcome belongs in

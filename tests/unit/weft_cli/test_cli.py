@@ -1,447 +1,785 @@
 """Unit tests for `weft_cli.cli`.
 
-Mirrors `packages/weft-cli/src/weft_cli/cli.py`. Covers `command_key`'s
-mapping from parsed arguments to a `COMMANDS` entry, the argument grammar
-`build_parser` builds, `dispatch`'s fitness-function-8(b) property — a
-registry is built only for a command that declares `needs_registry=True` —
-and the two command handlers' policy-refusal short-circuit, which must never
-reach `run_index`/`run_ask` at all. External services (the registry a
-command would otherwise build, the ingest and ask pipelines) are stubbed:
-this tier proves the dispatch and refusal logic, not the pipelines
-themselves — those are `tests/integration/test_cli_end_to_end.py`'s job.
+Mirrors `packages/weft-cli/src/weft_cli/cli.py`. Task 3.2 replaced the hand-written
+`COMMANDS`/`build_parser`/`command_key`/`handle_*` shape this file used to cover with a
+registry-driven one — see `cli.py`'s own module docstring. This file now covers: the
+`--version` pre-scan never needing a registry (fitness function 8(b) — the categorical,
+subprocess form of that property is `tests/architecture/test_ff8_trust_model.py`, unchanged and
+still green, so this tier only proves the pre-scan's own logic); `prescan_command_name`'s
+heuristic; `build_parser` walking a real (but hand-populated, not discovered) `Registry` into a
+grammar, including the nested `plugins` subcommand tree; `run_command`'s dispatch and error
+translation; and `main`'s untranslated-exception handling, unchanged from before this task.
+
+**Task 3.3** adds `--yes` at both parser levels and `run_command`'s call into
+`weft_cli.confirm.gate` — `weft_cli.confirm`'s own test file covers `gate`'s decision tree in
+full; what belongs here is the seam-level proof design question 1 asks for: a hand-registered
+`destroy`-class command — `_WipeCommand`, never a real `weft-cli` built-in — is refused with no
+TTY and no cooperation from its own `run()`, which flips `ran` only if it actually executed, so
+"never proceeds silently" is proven by absence of a side effect, not only by an exit code.
+
+**Task 3.6** adds three things: `global_output_flags`/`token_sink_for`'s own logic (mirroring
+`wants_version`'s own pre-scan tests); `run_command` closing `deps.token_sink` exactly once,
+with the right `reason`, on every one of its three exits (clean, `WeftError`, an uncaught
+exception including `CancelledError`); and `main`'s corrected REPL-entry test — "no command
+named", not "empty argv" — see `cli.main`'s own docstring for why that changed.
 """
+
+from __future__ import annotations
 
 import argparse
 import asyncio
+import io
 import sys
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
+from pydantic import BaseModel, ConfigDict
 
 from weft_cli import cli
 from weft_cli.exit_codes import ExitCode
-from weft_cli.output import AskFormat
-from weft_cli.permissions import CliCommand, PermissionClass
 from weft_cli.registry_bootstrap import Dependencies
+from weft_cli.render import Rendered
 from weft_cli.services import ServiceSelection
-from weft_embed import Embedder
-from weft_kernel.discovery import PackReport, PackStatus
+from weft_command.contract import Command, CommandResult
+from weft_command.permission import PermissionClass
+from weft_kernel.context import Context
+from weft_kernel.errors import WeftError
+from weft_kernel.payload import Outcome, Produced
 from weft_kernel.registry import Registry
+from weft_llm.payload import TokenChunk
 
 
-def _null_factory(config: object) -> object:
-    """A registerable factory for a plugin no test ever calls — only resolves by name."""
-    del config
-    return object()
+class _NoArgs(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
 
-def test_command_key_selects_version_over_any_subcommand() -> None:
+class _EchoResult(CommandResult):
+    seen: str
+
+
+class _EchoArgs(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    text: str
+
+
+class _EchoCommand:
+    """A minimal, fake `Command` — registered by hand, never discovered, for `build_parser`
+    and `run_command` tests that must not depend on the real installed packs.
+    """
+
+    args_model: ClassVar[type[BaseModel]] = _EchoArgs
+    result_model: ClassVar[type[CommandResult]] = _EchoResult
+    permission_class: ClassVar[PermissionClass] = PermissionClass.READ
+    help: ClassVar[str] = "echo back its one argument"
+
+    def __init__(self, config: object = None) -> None:
+        del config
+
+    async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        del ctx
+        assert isinstance(args, _EchoArgs)
+        return Produced(value=_EchoResult(seen=args.text))
+
+
+class _BoomCommand(_EchoCommand):
+    """Raises a bare `WeftError` from `run` — for `run_command`'s error-translation test."""
+
+    async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        del args, ctx
+        raise WeftError("something in the library refused")
+
+
+class _CancellingCommand(_EchoCommand):
+    """Raises `asyncio.CancelledError` from `run` — G6's own proof that `run_command`'s new
+    `finally` (task 3.6, closing the token sink) does not turn into a second place cancellation
+    can be swallowed.
+    """
+
+    async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        del args, ctx
+        raise asyncio.CancelledError()
+
+
+class _StreamingBoomCommand(_EchoCommand):
+    """Emits one chunk into `ctx.require(Dependencies).token_sink`, then raises a bare
+    `WeftError` — the positive case the 2026-08-20 repair's `_EmissionTrackingSink` exists to
+    keep true: a command that genuinely starts streaming and then fails must still close with
+    the error's own message, never `None`, which is what tells `--json` (`JsonSink`) and a
+    human (`PrintingSink`'s own `[stream error: ...]` line) that the stream itself broke.
+    `_BoomCommand` above never touches the sink at all, which is exactly why its own close
+    reason changed to `None` in the same repair — see `test_run_command_closes_the_token_sink_
+    with_none_when_nothing_was_ever_streamed` below.
+    """
+
+    async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        del args
+        deps = ctx.require(Dependencies)
+        await deps.token_sink.emit(TokenChunk(role="generate", text="partial answer"))
+        raise WeftError("the stream broke mid-flight")
+
+
+class _StreamingCancellingCommand(_EchoCommand):
+    """Emits one chunk, then raises `asyncio.CancelledError` — the mid-stream-cancellation
+    counterpart to `_StreamingBoomCommand` above, for the generic "command did not complete"
+    fallback `run_command` uses when `failure_reason` was never set (`CancelledError` is not a
+    `WeftError`, so `except WeftError` never captures a message for it).
+    """
+
+    async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        del args
+        deps = ctx.require(Dependencies)
+        await deps.token_sink.emit(TokenChunk(role="generate", text="partial answer"))
+        raise asyncio.CancelledError()
+
+
+class _RecordingSink:
+    """A `weft_llm.contract.TokenSink` that only records `close`'s own `reason` — task 3.6's
+    own proof that `run_command` closes the run's sink exactly once, with the right reason,
+    on every exit path.
+    """
+
+    def __init__(self) -> None:
+        self.closed_with: list[str | None] = []
+
+    async def emit(self, chunk: object) -> None:
+        del chunk
+
+    async def close(self, *, reason: str | None = None) -> None:
+        self.closed_with.append(reason)
+
+
+class _BlockingCommand(_EchoCommand):
+    """Does a real synchronous filesystem read from `run` — the exact shape of `weft index`'s
+    own `weft_extract.accept` walk (`.phase3-design.md` O1) that tripped the blocking-call
+    guard when task 3.2 first tried running `Command.run` through `weft_kernel.seam.wrap`
+    unconditionally. Proof that O1's resolution (`guard_blocking_calls=False`) actually lets
+    this kind of command run, not merely that the kernel primitive accepts the keyword.
+    """
+
+    async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        del ctx
+        assert isinstance(args, _EchoArgs)
+        with Path(__file__).open(encoding="utf-8") as handle:
+            handle.read(0)
+        return Produced(value=_EchoResult(seen=args.text))
+
+
+class _StatusCommand:
+    """A fake no-argument command — stands in for `plugins list`/`plugins doctor`'s shape."""
+
+    args_model: ClassVar[type[BaseModel]] = _NoArgs
+    result_model: ClassVar[type[CommandResult]] = _EchoResult
+    permission_class: ClassVar[PermissionClass] = PermissionClass.READ
+    help: ClassVar[str] = "report status"
+
+    def __init__(self, config: object = None) -> None:
+        del config
+
+    async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        del args, ctx
+        return Produced(value=_EchoResult(seen="status"))
+
+
+class _WipeArgs(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    collection: str
+
+
+class _WipeCommand:
+    """A hand-registered `destroy`-class command — proof for design question 1: it declares
+    `permission_class` and nothing else. It never imports `weft_cli.confirm`, never checks a
+    TTY itself, and never reads `--yes` — the whole gate is the invocation seam's job, not this
+    class's. `ran` is a `ClassVar` rather than an instance attribute because `run_command`
+    constructs a fresh instance from `entry.factory` on every call, so a test has no handle on
+    that instance to inspect afterward; mutating the class itself is what lets a test assert the
+    negative — refused means the destructive body never ran, not merely that the exit code says
+    so. Reset to `False` at the top of every test that reads it.
+    """
+
+    args_model: ClassVar[type[BaseModel]] = _WipeArgs
+    result_model: ClassVar[type[CommandResult]] = _EchoResult
+    permission_class: ClassVar[PermissionClass] = PermissionClass.DESTROY
+    help: ClassVar[str] = "wipe a collection"
+    ran: ClassVar[bool] = False
+
+    def __init__(self, config: object = None) -> None:
+        del config
+
+    async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        del ctx
+        assert isinstance(args, _WipeArgs)
+        _WipeCommand.ran = True
+        return Produced(value=_EchoResult(seen=args.collection))
+
+
+def _registry_with(*names: str) -> Registry:
+    registry = Registry()
+    for name in names:
+        command_cls: type[object] = (
+            _StatusCommand if name.split(" ")[-1] in {"list", "doctor"} else _EchoCommand
+        )
+        registry.add(Command, name, command_cls, distribution="acme-cmd")
+    return registry
+
+
+class _FakeDeps:
+    """A `Dependencies`-shaped stand-in `main`'s own tests patch `build_dependencies` with —
+    only `.registry` is ever read before `run_command` (itself patched below) would need the
+    rest.
+    """
+
+    def __init__(self, registry: Registry) -> None:
+        self.registry = registry
+
+
+def _fake_build_dependencies(*, strict_pins: bool = True, token_sink: object = None) -> _FakeDeps:
+    del strict_pins, token_sink
+    return _FakeDeps(_registry_with("echo"))
+
+
+def _wants_version_false(argv: list[str]) -> bool:
+    del argv
+    return False
+
+
+def test_wants_version_true_when_the_flag_is_present() -> None:
+    assert cli.wants_version(["--version"]) is True
+
+
+def test_wants_version_true_alongside_other_tokens() -> None:
+    # `--version` wins over any subcommand — the same priority `command_key` gave it before
+    # this task, now decided before a registry ever exists to parse anything else against.
+    assert cli.wants_version(["index", "./docs", "--version"]) is True
+
+
+def test_wants_version_false_without_the_flag() -> None:
+    assert cli.wants_version(["index", "./docs"]) is False
+
+
+def test_prescan_command_name_reads_the_first_bare_token() -> None:
+    assert cli.prescan_command_name(["index", "./docs"]) == "index"
+
+
+def test_prescan_command_name_joins_the_plugins_subcommand() -> None:
+    assert cli.prescan_command_name(["plugins", "doctor"]) == "plugins doctor"
+
+
+def test_prescan_command_name_skips_leading_flags() -> None:
+    assert cli.prescan_command_name(["--yes", "plugins", "list"]) == "plugins list"
+
+
+def test_prescan_command_name_is_none_for_no_command() -> None:
+    assert cli.prescan_command_name([]) is None
+    assert cli.prescan_command_name(["--version"]) is None
+
+
+def test_wants_help_true_for_the_long_flag() -> None:
+    assert cli.wants_help(["--help"]) is True
+
+
+def test_wants_help_true_for_the_short_flag() -> None:
+    assert cli.wants_help(["-h"]) is True
+
+
+def test_wants_help_false_without_the_flag() -> None:
+    assert cli.wants_help(["index", "./docs"]) is False
+
+
+def test_wants_help_false_for_no_argv() -> None:
+    assert cli.wants_help([]) is False
+
+
+def test_build_parser_parses_a_flat_command() -> None:
     # Arrange
-    args = argparse.Namespace(version=True, command="index", plugins_command=None)
+    registry = _registry_with("echo")
+    parser = cli.build_parser(registry)
 
     # Act
-    key = cli.command_key(args)
+    args = parser.parse_args(["echo", "hello"])
 
     # Assert
-    assert key == "version"
+    assert args.text == "hello"
+    assert getattr(args, cli.COMMAND_NAME_ATTR) == "echo"
 
 
-def test_command_key_joins_the_plugins_subcommand() -> None:
-    # Arrange
-    args = argparse.Namespace(version=False, command="plugins", plugins_command="doctor")
+def test_build_parser_builds_a_nested_subcommand_tree() -> None:
+    # Arrange — the same namespacing `weft plugins list`/`weft plugins doctor` use.
+    registry = _registry_with("plugins list", "plugins doctor")
+    parser = cli.build_parser(registry)
 
     # Act
-    key = cli.command_key(args)
+    args = parser.parse_args(["plugins", "doctor"])
 
     # Assert
-    assert key == "plugins doctor"
+    assert getattr(args, cli.COMMAND_NAME_ATTR) == "plugins doctor"
 
 
-def test_command_key_is_none_when_plugins_has_no_subcommand() -> None:
-    # Arrange
-    args = argparse.Namespace(version=False, command="plugins", plugins_command=None)
+def test_build_parser_accepts_yes_after_the_subcommand() -> None:
+    # Arrange — task 3.3: `--yes` is declared on the leaf subparser, the position
+    # `weft <command> ... --yes` puts it in, matching `apt-get install -y`/`npm install --yes`.
+    registry = _registry_with("echo")
+    parser = cli.build_parser(registry)
 
     # Act
-    key = cli.command_key(args)
+    after = parser.parse_args(["echo", "hello", "--yes"])
 
     # Assert
-    assert key is None
+    assert after.yes is True
+    assert parser.parse_args(["echo", "hello"]).yes is False
 
 
-def test_only_version_is_declared_as_not_needing_the_registry() -> None:
-    # Arrange / Act
-    needs_registry = {key: command.needs_registry for key, command in cli.COMMANDS.items()}
+def test_build_parser_rejects_yes_before_the_subcommand() -> None:
+    # `--yes` is not declared on the top-level parser — see `cli.py`'s own module docstring for
+    # why declaring it there too would silently lose the value to the leaf's own default.
+    registry = _registry_with("echo")
+    parser = cli.build_parser(registry)
 
-    # Assert
-    assert needs_registry == {
-        "version": False,
-        "index": True,
-        "ask": True,
-        "route": True,
-        "plugins list": True,
-        "plugins doctor": True,
-    }
-
-
-def test_build_parser_parses_index() -> None:
-    # Arrange
-    parser = cli.build_parser()
-
-    # Act
-    args = parser.parse_args(["index", "./docs-to-index"])
-
-    # Assert
-    assert (args.command, args.path) == ("index", "./docs-to-index")
-
-
-def test_build_parser_parses_ask_with_a_default_top_k() -> None:
-    # Arrange
-    parser = cli.build_parser()
-
-    # Act
-    args = parser.parse_args(["ask", "what changed?"])
-
-    # Assert
-    assert (args.command, args.question, args.top_k) == ("ask", "what changed?", 5)
-    assert args.format is AskFormat.TEXT, (
-        "the default reader of `weft ask` is a person, and structured output is opt-in — a "
-        "default of JSON would change what every existing invocation prints"
-    )
-
-
-def test_build_parser_parses_the_ask_output_format_as_the_enum_member() -> None:
-    # Arrange — `--format` reaches `handle_ask` as an `AskFormat`, not a string, so the
-    # comparison there is against a member rather than a spelling.
-    parser = cli.build_parser()
-
-    # Act
-    args = parser.parse_args(["ask", "what changed?", "--format", "json"])
-
-    # Assert
-    assert args.format is AskFormat.JSON
-
-
-def test_build_parser_rejects_an_output_format_nothing_renders() -> None:
-    # `01` requirement 5: an unknown name fails loudly, naming the valid options. argparse's
-    # own `choices` message lists them, which is the whole reason the enum is the choice list
-    # rather than a hand-written tuple that could fall behind it.
-    # Arrange
-    parser = cli.build_parser()
-
-    # Act / Assert
     with pytest.raises(SystemExit):
-        parser.parse_args(["ask", "what changed?", "--format", "yaml"])
+        parser.parse_args(["--yes", "echo", "hello"])
 
 
 def test_build_parser_rejects_an_unknown_command() -> None:
     # Arrange
-    parser = cli.build_parser()
+    registry = _registry_with("echo")
+    parser = cli.build_parser(registry)
 
     # Act / Assert
     with pytest.raises(SystemExit):
         parser.parse_args(["bogus"])
 
 
-async def test_dispatch_never_builds_a_registry_for_a_command_that_does_not_need_one(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    # Arrange
-    def _boom() -> Dependencies:
-        raise AssertionError(
-            "build_dependencies must not be called — this is fitness function 8(b)"
-        )
+def test_build_parser_requires_a_command() -> None:
+    # `add_subparsers(required=True)` is what makes a bare `weft` a bad-usage exit (2),
+    # dynamically, with no hand-written "a command is required" string to fall behind what
+    # is actually registered.
+    registry = _registry_with("echo")
+    parser = cli.build_parser(registry)
 
-    monkeypatch.setattr(cli, "build_dependencies", _boom)
-    command = cli.COMMANDS["version"]
+    with pytest.raises(SystemExit):
+        parser.parse_args([])
+
+
+async def test_run_command_returns_the_rendered_success() -> None:
+    # Arrange
+    registry = _registry_with("echo")
+    deps = Dependencies(registry=registry, reports=(), services=ServiceSelection())
+    args = argparse.Namespace(text="hi")
 
     # Act
-    exit_code = await cli.dispatch(command, argparse.Namespace())
+    rendered = await cli.run_command("echo", args, deps)
+
+    # Assert — the fallback structured renderer, since `_EchoResult` is not one of
+    # `weft_cli.render`'s five known first-party shapes.
+    assert rendered.exit_code is ExitCode.SUCCESS
+    assert rendered.stdout is not None
+    assert "hi" in rendered.stdout
+
+
+async def test_run_command_translates_a_weft_error_into_a_rendered_failure() -> None:
+    # Arrange
+    registry = Registry()
+    registry.add(Command, "boom", _BoomCommand, distribution="acme-cmd")
+    deps = Dependencies(registry=registry, reports=(), services=ServiceSelection())
+    args = argparse.Namespace(text="ignored")
+
+    # Act
+    rendered = await cli.run_command("boom", args, deps)
 
     # Assert
-    assert exit_code is ExitCode.SUCCESS
+    assert rendered.exit_code is ExitCode.OPERATION_FAILED
+    assert rendered.stderr == "something in the library refused"
 
 
-async def test_dispatch_builds_a_registry_for_a_command_that_needs_one(
+async def test_run_command_attributes_an_error_through_the_seam(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # Arrange — O1's own proof: a bare `WeftError` a `Command` raises directly gets its
+    # pack/contract/plugin attribution filled in by `weft_kernel.seam.wrap`, not left `None`
+    # for a caller to notice by its absence. `render_refusal` is intercepted (its own module
+    # attribute, re-imported fresh inside `run_command` on every call — see that function's own
+    # docstring) so the test can inspect the exception `run_command` actually caught, before it
+    # is turned into text.
+    from weft_cli import render as render_module
+
+    captured: list[WeftError] = []
+    real_render_refusal = render_module.render_refusal
+
+    def _capture(exc: WeftError) -> Rendered:
+        captured.append(exc)
+        return real_render_refusal(exc)
+
+    monkeypatch.setattr(render_module, "render_refusal", _capture)
+
+    registry = Registry()
+    registry.add(Command, "boom", _BoomCommand, distribution="acme-cmd")
+    deps = Dependencies(registry=registry, reports=(), services=ServiceSelection())
+    args = argparse.Namespace(text="ignored")
+
+    # Act
+    await cli.run_command("boom", args, deps)
+
+    # Assert
+    assert len(captured) == 1
+    error = captured[0]
+    assert (error.pack, error.contract, error.plugin) == ("acme-cmd", "Command", "boom")
+
+
+async def test_run_command_does_not_trip_the_blocking_guard(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arrange — the failure `docs/build-ledger.md` 3.2 hit and reverted: a `Command` doing real
+    # synchronous filesystem IO (`weft index`'s own shape) must run to completion, not raise
+    # `BlockingCallError`, once `Command.run` goes through the seam again for spans and
+    # attribution (O1's resolution: `guard_blocking_calls=False`).
+    registry = Registry()
+    registry.add(Command, "blocking", _BlockingCommand, distribution="acme-cmd")
+    deps = Dependencies(registry=registry, reports=(), services=ServiceSelection())
+    args = argparse.Namespace(text="hi")
+
+    # Act
+    rendered = await cli.run_command("blocking", args, deps)
+
+    # Assert
+    assert rendered.exit_code is ExitCode.SUCCESS
+
+
+async def test_run_command_refuses_a_destroy_class_command_with_no_tty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arrange — design question 1's own proof: `_WipeCommand` cooperates with none of this,
+    # it only declares `permission_class`. `weft_cli.confirm.is_interactive` is monkeypatched,
+    # never the real terminal, per design question 3.
+    from weft_cli import confirm
+
+    monkeypatch.setattr(confirm, "is_interactive", lambda: False)
+    _WipeCommand.ran = False
+    registry = Registry()
+    registry.add(Command, "wipe", _WipeCommand, distribution="acme-cmd")
+    deps = Dependencies(registry=registry, reports=(), services=ServiceSelection())
+    args = argparse.Namespace(collection="reports")
+
+    # Act
+    rendered = await cli.run_command("wipe", args, deps)
+
+    # Assert — refused naming the flag, exit 3, and the destructive body never ran.
+    assert rendered.exit_code is ExitCode.POLICY_REFUSED
+    assert rendered.stderr is not None
+    assert "--yes" in rendered.stderr
+    assert _WipeCommand.ran is False
+
+
+async def test_run_command_permits_a_destroy_class_command_with_yes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arrange — `--yes` bypasses the prompt outright, even with no TTY.
+    from weft_cli import confirm
+
+    monkeypatch.setattr(confirm, "is_interactive", lambda: False)
+    _WipeCommand.ran = False
+    registry = Registry()
+    registry.add(Command, "wipe", _WipeCommand, distribution="acme-cmd")
+    deps = Dependencies(registry=registry, reports=(), services=ServiceSelection())
+    args = argparse.Namespace(collection="reports", yes=True)
+
+    # Act
+    rendered = await cli.run_command("wipe", args, deps)
+
+    # Assert
+    assert rendered.exit_code is ExitCode.SUCCESS
+    assert _WipeCommand.ran is True
+
+
+async def test_run_command_does_not_double_print_a_gate_refusal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression for `weft init` in a genuinely empty directory (reproduced by hand, not
+    caught by any existing test): exit `3` and no file written were both already correct, but
+    the refusal was printed **twice** — once correctly, via `render_refusal`'s `rendered.
+    stderr`, and once more by `PrintingSink.close(reason=...)`, mislabelled `[stream error:
+    ...]`, because `gate` refusing *before* `instance.run` ever starts closed the token sink
+    with the refusal's own message as if a stream had broken mid-flight. `_WipeCommand`
+    stands in for `weft init`/any `overwrite`/`destroy`-class command here — a real `PrintingSink`
+    bound to a captured stream is what proves the *complete* output, not only the exit code.
+    """
+    from weft_cli import confirm
+    from weft_cli.sinks import PrintingSink
+
+    monkeypatch.setattr(confirm, "is_interactive", lambda: False)
+    _WipeCommand.ran = False
+    registry = Registry()
+    registry.add(Command, "wipe", _WipeCommand, distribution="acme-cmd")
+    stream = io.StringIO()
+    sink = PrintingSink(stream=stream)
+    deps = Dependencies(registry=registry, reports=(), services=ServiceSelection(), token_sink=sink)
+    args = argparse.Namespace(collection="reports")
+
+    # Act
+    rendered = await cli.run_command("wipe", args, deps)
+
+    # Assert — the refusal reaches a reader exactly once, through `rendered.stderr`. The
+    # sink's own stream — what `PrintingSink.close` would have written to a real terminal —
+    # carries nothing: no trailing newline (nothing was ever emitted), and never a
+    # `[stream error: ...]` line, because nothing ever streamed.
+    assert rendered.exit_code is ExitCode.POLICY_REFUSED
+    assert rendered.stderr is not None
+    assert "is a destroy-class command" in rendered.stderr
+    assert "stream error" not in rendered.stderr
+    assert stream.getvalue() == ""
+
+
+async def test_run_command_closes_the_token_sink_cleanly_on_success() -> None:
     # Arrange
-    fake_deps = Dependencies(registry=Registry(), reports=(), services=ServiceSelection())
-    calls: list[Dependencies] = []
+    registry = _registry_with("echo")
+    sink = _RecordingSink()
+    deps = Dependencies(registry=registry, reports=(), services=ServiceSelection(), token_sink=sink)
+    args = argparse.Namespace(text="hi")
 
-    async def _fake_handler(args: argparse.Namespace, deps: Dependencies) -> ExitCode:
-        del args
-        calls.append(deps)
-        return ExitCode.SUCCESS
+    # Act
+    await cli.run_command("echo", args, deps)
 
-    def _fake_build_dependencies(*, strict_pins: bool = True) -> Dependencies:
-        del strict_pins
-        return fake_deps
+    # Assert — exactly one close, `reason=None`: G6's own DONE, never mistakable for an error.
+    assert sink.closed_with == [None]
 
+
+async def test_run_command_closes_the_token_sink_with_none_when_nothing_streamed() -> None:
+    """Repair, 2026-08-20 — this test used to assert the **opposite**: that `_BoomCommand`'s
+    own `WeftError` closed the sink with `"something in the library refused"` as `reason`.
+    That was the bug (`run_command`'s own docstring, "Repaired, 2026-08-20", has the report in
+    full): `_BoomCommand` never calls `token_sink.emit` at all, so under `PrintingSink` this
+    closed with a `[stream error: ...]` line for a command that never streamed a single token
+    — indistinguishable, to a reader, from `weft init`'s own double-print bug. The corrected
+    rule is `_EmissionTrackingSink`-driven: `reason` is real only when something was actually
+    emitted. See `test_run_command_attributes_a_genuine_mid_stream_failure` below for the
+    positive case this repair still has to keep true.
+    """
+    # Arrange
+    registry = Registry()
+    registry.add(Command, "boom", _BoomCommand, distribution="acme-cmd")
+    sink = _RecordingSink()
+    deps = Dependencies(registry=registry, reports=(), services=ServiceSelection(), token_sink=sink)
+    args = argparse.Namespace(text="ignored")
+
+    # Act
+    await cli.run_command("boom", args, deps)
+
+    # Assert
+    assert sink.closed_with == [None]
+
+
+async def test_run_command_attributes_a_genuine_mid_stream_failure() -> None:
+    # Arrange — `_StreamingBoomCommand` actually calls `token_sink.emit` before raising, unlike
+    # `_BoomCommand` above — the positive case: a genuine mid-stream failure must still be
+    # attributed, never silently turned into `None` alongside every non-streaming failure.
+    registry = Registry()
+    registry.add(Command, "streaming-boom", _StreamingBoomCommand, distribution="acme-cmd")
+    sink = _RecordingSink()
+    deps = Dependencies(registry=registry, reports=(), services=ServiceSelection(), token_sink=sink)
+    args = argparse.Namespace(text="ignored")
+
+    # Act
+    await cli.run_command("streaming-boom", args, deps)
+
+    # Assert — an error can never be mistaken for a clean end (`.phase3-design.md` §2.3(b)).
+    assert sink.closed_with == ["the stream broke mid-flight"]
+
+
+async def test_run_command_closes_the_token_sink_with_none_on_a_gate_refusal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Repair, 2026-08-20 — the counterpart to `test_run_command_closes_the_token_sink_with_
+    the_weft_error_s_own_reason` above: **that** test's `WeftError` is raised from inside
+    `_BoomCommand.run`, after `gate` already let the command start, so the sink genuinely may
+    have had something in flight and `reason` carries the message. A `gate` refusal is
+    different — `instance.run` never starts at all — and must close with `reason=None`, never
+    the refusal's own text, which is what `test_run_command_does_not_double_print_a_gate_
+    refusal` proves end to end through a real `PrintingSink`; this proves the same fact one
+    layer down, directly against `_RecordingSink.closed_with`.
+    """
+    from weft_cli import confirm
+
+    monkeypatch.setattr(confirm, "is_interactive", lambda: False)
+    _WipeCommand.ran = False
+    registry = Registry()
+    registry.add(Command, "wipe", _WipeCommand, distribution="acme-cmd")
+    sink = _RecordingSink()
+    deps = Dependencies(registry=registry, reports=(), services=ServiceSelection(), token_sink=sink)
+    args = argparse.Namespace(collection="reports")
+
+    # Act
+    await cli.run_command("wipe", args, deps)
+
+    # Assert
+    assert sink.closed_with == [None]
+
+
+async def test_run_command_closes_the_token_sink_and_still_propagates_cancellation() -> None:
+    """Repair, 2026-08-20 — this test used to assert `reason == "command did not complete"`.
+    `_CancellingCommand` never calls `token_sink.emit` either, exactly `_BoomCommand`'s own
+    shape above, so the corrected rule gives it `None` too — G6 itself (`CancelledError`
+    propagates and is never swallowed) is unaffected: `finally` still runs, still closes the
+    sink exactly once, and the exception still escapes uncaught.
+    """
+    # Arrange
+    registry = Registry()
+    registry.add(Command, "cancel", _CancellingCommand, distribution="acme-cmd")
+    sink = _RecordingSink()
+    deps = Dependencies(registry=registry, reports=(), services=ServiceSelection(), token_sink=sink)
+    args = argparse.Namespace(text="ignored")
+
+    # Act / Assert
+    with pytest.raises(asyncio.CancelledError):
+        await cli.run_command("cancel", args, deps)
+    assert sink.closed_with == [None]
+
+
+async def test_run_command_uses_the_generic_reason_on_mid_stream_cancellation() -> None:
+    # Arrange — `_StreamingCancellingCommand` emits first, so cancellation this time interrupts
+    # a genuine stream: `failure_reason` stays unset (`CancelledError` is not a `WeftError`, so
+    # `except WeftError` never runs), and the generic "command did not complete" fallback —
+    # never a fabricated cause `run_command` does not actually know — is what a reader gets.
+    registry = Registry()
+    registry.add(Command, "streaming-cancel", _StreamingCancellingCommand, distribution="acme-cmd")
+    sink = _RecordingSink()
+    deps = Dependencies(registry=registry, reports=(), services=ServiceSelection(), token_sink=sink)
+    args = argparse.Namespace(text="ignored")
+
+    # Act / Assert
+    with pytest.raises(asyncio.CancelledError):
+        await cli.run_command("streaming-cancel", args, deps)
+    assert sink.closed_with == ["command did not complete"]
+
+
+def test_global_output_flags_recognises_json_before_the_subcommand() -> None:
+    assert cli.global_output_flags(["--json", "route", "hi"]) == (True, False)
+
+
+def test_global_output_flags_recognises_quiet_before_the_subcommand() -> None:
+    assert cli.global_output_flags(["--quiet", "ask", "hi"]) == (False, True)
+
+
+def test_global_output_flags_defaults_to_neither() -> None:
+    assert cli.global_output_flags(["ask", "hi"]) == (False, False)
+    assert cli.global_output_flags([]) == (False, False)
+
+
+def test_global_output_flags_refuses_both_at_once() -> None:
+    # `add_mutually_exclusive_group` — a caller asking for a machine-readable stream and no
+    # output in the same breath has made a mistake worth naming before discovery ever runs.
+    with pytest.raises(SystemExit):
+        cli.global_output_flags(["--json", "--quiet"])
+
+
+def test_token_sink_for_json_is_the_json_sink() -> None:
+    from weft_cli.sinks import JsonSink
+
+    assert isinstance(cli.token_sink_for(json=True, quiet=False), JsonSink)
+
+
+def test_token_sink_for_quiet_is_the_null_sink() -> None:
+    from weft_llm.client import NullSink
+
+    assert isinstance(cli.token_sink_for(json=False, quiet=True), NullSink)
+
+
+def test_token_sink_for_neither_is_the_printing_sink() -> None:
+    from weft_cli.sinks import PrintingSink
+
+    assert isinstance(cli.token_sink_for(json=False, quiet=False), PrintingSink)
+
+
+def test_main_enters_the_repl_when_only_a_global_flag_is_given(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arrange — `cli.main`'s own corrected REPL-entry test: "no command named", proven by a
+    # flag-only invocation that used to fail `argparse`'s own required-subparser check
+    # instead of reaching the REPL. `weft_cli.repl.run_repl` is patched so this exercises only
+    # `main`'s own dispatch decision, not the REPL loop itself.
+    monkeypatch.setattr(sys, "argv", ["weft", "--quiet"])
+    monkeypatch.setattr(cli, "wants_version", _wants_version_false)
     monkeypatch.setattr(cli, "build_dependencies", _fake_build_dependencies)
-    command = CliCommand(
-        name="ask",
-        help="retrieve and print matching passages",
-        permission=PermissionClass.READ,
-        needs_registry=True,
-        handler=_fake_handler,
-    )
 
-    # Act
-    exit_code = await cli.dispatch(command, argparse.Namespace())
+    from weft_cli import repl as repl_module
 
-    # Assert
-    assert exit_code is ExitCode.SUCCESS
-    assert calls == [fake_deps]
-
-
-async def test_dispatch_passes_strict_pins_false_only_for_the_two_plugins_commands() -> None:
-    # Arrange — repair for a reviewer finding: `plugins list`/`plugins doctor` must ask
-    # `build_dependencies` not to die on an inert `[plugins]` pin; every other
-    # registry-needing command keeps the strict default. Table-driven over one
-    # representative of each group rather than every entry in `COMMANDS`, since the
-    # property under test is the boolean `dispatch` computes from `command.name`, not
-    # anything specific to any one handler.
-    seen: dict[str, bool] = {}
-
-    async def _fake_handler(args: argparse.Namespace, deps: Dependencies) -> ExitCode:
-        del args, deps
+    async def _fake_run_repl(_deps: object, _parser: object) -> ExitCode:
         return ExitCode.SUCCESS
 
-    for name in ("plugins list", "plugins doctor", "ask", "index"):
+    monkeypatch.setattr(repl_module, "run_repl", _fake_run_repl)
 
-        def _fake_build_dependencies(*, strict_pins: bool, _name: str = name) -> Dependencies:
-            seen[_name] = strict_pins
-            return Dependencies(registry=Registry(), reports=(), services=ServiceSelection())
-
-        with pytest.MonkeyPatch.context() as monkeypatch:
-            monkeypatch.setattr(cli, "build_dependencies", _fake_build_dependencies)
-            command = CliCommand(
-                name=name,
-                help="test command",
-                permission=PermissionClass.READ,
-                needs_registry=True,
-                handler=_fake_handler,
-            )
-            await cli.dispatch(command, argparse.Namespace())
-
-    # Assert
-    assert seen["plugins list"] is False
-    assert seen["plugins doctor"] is False
-    assert seen["ask"] is True
-    assert seen["index"] is True
+    # Act / Assert
+    with pytest.raises(SystemExit) as exit_info:
+        cli.main()
+    assert exit_info.value.code == int(ExitCode.SUCCESS)
 
 
-async def test_handle_index_refuses_before_running_when_a_required_pack_is_refused(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+def test_main_prints_help_instead_of_entering_the_repl_for_a_bare_help_flag(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    # Arrange — `handle_index` imports `run_index` locally (fitness function 8(b): see
-    # `weft_cli.cli`'s module docstring), so the patch target is `weft_cli.ingest.run_index`
-    # itself, not a `cli`-module attribute — the local import resolves against the module at
-    # call time, which is exactly what lets this patch take effect.
-    async def _boom(*_args: object, **_kwargs: object) -> object:
-        raise AssertionError("run_index must not run when a required pack is refused")
+    # Arrange — the defect this test reproduces: `prescan_command_name` strips every
+    # `-`-prefixed token, so `argv = ["--help"]` reduces to no command name at all and used to
+    # be indistinguishable from a bare `weft` — routed straight into the REPL, `--help` never
+    # reaching `argparse`'s own generated help. `run_repl` is patched to blow up if `main`
+    # still reaches it, so a regression fails here for the same reason the bug was found by
+    # hand: the REPL banner, not a silent wrong answer.
+    monkeypatch.setattr(sys, "argv", ["weft", "--help"])
+    monkeypatch.setattr(cli, "wants_version", _wants_version_false)
+    monkeypatch.setattr(cli, "build_dependencies", _fake_build_dependencies)
 
-    monkeypatch.setattr("weft_cli.ingest.run_index", _boom)
-    reports = (
-        PackReport(distribution="weft-extract", status=PackStatus.REFUSED, reason="not allowed"),
-    )
-    deps = Dependencies(registry=Registry(), reports=reports, services=ServiceSelection())
-    args = argparse.Namespace(path=str(tmp_path))
+    from weft_cli import repl as repl_module
 
-    # Act
-    exit_code = await cli.handle_index(args, deps)
+    async def _run_repl_must_not_be_reached(_deps: object, _parser: object) -> ExitCode:
+        raise AssertionError("weft --help must not enter the REPL")
 
-    # Assert
-    assert exit_code is ExitCode.POLICY_REFUSED
+    monkeypatch.setattr(repl_module, "run_repl", _run_repl_must_not_be_reached)
+
+    # Act / Assert — argparse's own help action exits 0, argparse's convention for a help
+    # request (distinct from `2`, its convention for a usage error).
+    with pytest.raises(SystemExit) as exit_info:
+        cli.main()
+    assert exit_info.value.code == 0
+
+    # The registry-derived command list (`_registry_with("echo")`, `_fake_build_dependencies`'s
+    # own fixture) is what proves this is the generated help, not a hand-written string.
+    captured = capsys.readouterr()
+    assert "echo" in captured.out
 
 
-async def test_handle_ask_reports_resolution_failure_when_a_required_pack_is_missing(
-    monkeypatch: pytest.MonkeyPatch,
+def test_main_prints_help_for_the_short_flag_too(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    # Arrange — see the sibling `handle_index` test above: `handle_ask` imports `run_ask`
-    # locally, so the patch target is `weft_cli.ask.run_ask`, not a `cli`-module attribute.
-    async def _boom(*_args: object, **_kwargs: object) -> object:
-        raise AssertionError("run_ask must not run when a required pack is missing")
+    monkeypatch.setattr(sys, "argv", ["weft", "-h"])
+    monkeypatch.setattr(cli, "wants_version", _wants_version_false)
+    monkeypatch.setattr(cli, "build_dependencies", _fake_build_dependencies)
 
-    monkeypatch.setattr("weft_cli.ask.run_ask", _boom)
-    deps = Dependencies(
-        registry=Registry(), reports=(), services=ServiceSelection()
-    )  # nothing discovered at all
-    args = argparse.Namespace(question="what changed?", top_k=5)
+    from weft_cli import repl as repl_module
 
-    # Act
-    exit_code = await cli.handle_ask(args, deps)
+    async def _run_repl_must_not_be_reached(_deps: object, _parser: object) -> ExitCode:
+        raise AssertionError("weft -h must not enter the REPL")
 
-    # Assert
-    assert exit_code is ExitCode.RESOLUTION_FAILED
+    monkeypatch.setattr(repl_module, "run_repl", _run_repl_must_not_be_reached)
 
-
-async def test_handle_ask_reports_resolution_failure_for_an_unregistered_embedder() -> None:
-    # Arrange — the report set says the registry-needing gate (`require_active`) would pass:
-    # 'weft-embed' is PARTIAL (something registered) and 'weft-store' is ACTIVE. But the
-    # registry itself has no 'hash' Embedder registered, so `run_ask`'s own
-    # `registry.entry(Embedder, "hash")` raises `UnknownPluginError` — exactly the case
-    # `require_active`'s own docstring defers to pipeline resolution. This must come back as
-    # resolution failure (4), the same as `handle_index` treats it, not the generic
-    # operation-failure catch-all (1) — `docs/03-cli.md` -> Output.
-    reports = (
-        PackReport(
-            distribution="weft-embed", status=PackStatus.PARTIAL, reason="optional dep missing"
-        ),
-        PackReport(distribution="weft-store", status=PackStatus.ACTIVE),
-    )
-    deps = Dependencies(
-        registry=Registry(), reports=reports, services=ServiceSelection()
-    )  # no 'hash' Embedder registered
-    args = argparse.Namespace(question="what changed?", top_k=5)
-
-    # Act
-    exit_code = await cli.handle_ask(args, deps)
-
-    # Assert
-    assert exit_code is ExitCode.RESOLUTION_FAILED
-
-
-async def test_handle_index_blames_policy_when_the_selected_embedders_pack_is_refused(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    # Arrange — the reproduction task 2.29 opened: `[services] embed` names a plugin from a
-    # distribution no list in this repository can contain, and `[packs] allow` leaves it off.
-    # Every distribution `require_active` knows about is ACTIVE, so that gate passes and the
-    # old code went on to tell the operator, falsely, that nothing had registered the name.
-    async def _boom(*_args: object, **_kwargs: object) -> object:
-        raise AssertionError("run_index must not run when the selected embedder is unreachable")
-
-    monkeypatch.setattr("weft_cli.ingest.run_index", _boom)
-    registry = Registry()
-    registry.add(Embedder, "hash", _null_factory, distribution="weft-embed")
-    reports = (
-        *(
-            PackReport(distribution=distribution, status=PackStatus.ACTIVE)
-            for distribution in ("weft-extract", "weft-chunk", "weft-embed", "weft-store")
-        ),
-        PackReport(
-            distribution="weft-openai", status=PackStatus.REFUSED, reason="not in [packs] allow"
-        ),
-    )
-    deps = Dependencies(
-        registry=registry, reports=reports, services=ServiceSelection(embed="openai")
-    )
-    args = argparse.Namespace(path=str(tmp_path), extract=None)
-
-    # Act
-    exit_code = await cli.handle_index(args, deps)
-
-    # Assert
-    assert exit_code is ExitCode.POLICY_REFUSED
-    printed = capsys.readouterr().err
-    assert "weft-openai" in printed
-    assert "[packs] allow" in printed
-
-
-async def test_handle_ask_blames_policy_when_the_selected_embedders_pack_is_refused(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    # Arrange — the same hole on the query side. It has to close on both: an index built with
-    # one embedder and a question embedded by another are vectors in unrelated spaces.
-    async def _boom(*_args: object, **_kwargs: object) -> object:
-        raise AssertionError("run_ask must not run when the selected embedder is unreachable")
-
-    monkeypatch.setattr("weft_cli.ask.run_ask", _boom)
-    registry = Registry()
-    registry.add(Embedder, "hash", _null_factory, distribution="weft-embed")
-    reports = (
-        PackReport(distribution="weft-embed", status=PackStatus.ACTIVE),
-        PackReport(distribution="weft-store", status=PackStatus.ACTIVE),
-        PackReport(
-            distribution="weft-openai", status=PackStatus.REFUSED, reason="not in [packs] allow"
-        ),
-    )
-    deps = Dependencies(
-        registry=registry, reports=reports, services=ServiceSelection(embed="openai")
-    )
-    args = argparse.Namespace(question="what changed?", top_k=5)
-
-    # Act
-    exit_code = await cli.handle_ask(args, deps)
-
-    # Assert
-    assert exit_code is ExitCode.POLICY_REFUSED
-
-
-async def test_handle_index_blames_policy_for_an_extractor_named_from_a_refused_pack(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    # Arrange — `--extract` has always been able to name a stranger's plugin, so the same gate
-    # covers it: the fix is about a name an operator supplies, not about embedders.
-    async def _boom(*_args: object, **_kwargs: object) -> object:
-        raise AssertionError("run_index must not run when the named extractor is unreachable")
-
-    monkeypatch.setattr("weft_cli.ingest.run_index", _boom)
-    reports = (
-        *(
-            PackReport(distribution=distribution, status=PackStatus.ACTIVE)
-            for distribution in ("weft-extract", "weft-chunk", "weft-embed", "weft-store")
-        ),
-        PackReport(
-            distribution="acme-docx", status=PackStatus.REFUSED, reason="not in [packs] allow"
-        ),
-    )
-    registry = Registry()
-    registry.add(Embedder, "hash", _null_factory, distribution="weft-embed")
-    deps = Dependencies(registry=registry, reports=reports, services=ServiceSelection())
-    args = argparse.Namespace(path=str(tmp_path), extract="docx")
-
-    # Act
-    exit_code = await cli.handle_index(args, deps)
-
-    # Assert
-    assert exit_code is ExitCode.POLICY_REFUSED
-
-
-async def test_handle_plugins_doctor_prints_a_displaced_registration_from_the_registry(
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    # Arrange — task 1.12: the registry, not `deps.reports`, is where a displaced
-    # registration lives; `handle_plugins_doctor` must read it off `deps.registry`.
-    class _Chunker:
-        """A stand-in contract — only its `__name__` is ever read by rendering."""
-
-    registry = Registry(plugin_pins={"_Chunker:shared": "weft-winner"})
-    registry.add(_Chunker, "shared", lambda: "loser", distribution="weft-loser")
-    registry.add(_Chunker, "shared", lambda: "winner", distribution="weft-winner")
-    reports = (
-        PackReport(distribution="weft-loser", status=PackStatus.ACTIVE, contributed=1),
-        PackReport(distribution="weft-winner", status=PackStatus.ACTIVE, contributed=1),
-    )
-    deps = Dependencies(registry=registry, reports=reports, services=ServiceSelection())
-
-    # Act
-    exit_code = await cli.handle_plugins_doctor(argparse.Namespace(), deps)
-    output = capsys.readouterr().out
-
-    # Assert
-    assert exit_code is ExitCode.SUCCESS
-    assert "weft-winner" in output
-    assert "displaced" in output
+    with pytest.raises(SystemExit) as exit_info:
+        cli.main()
+    assert exit_info.value.code == 0
+    assert "echo" in capsys.readouterr().out
 
 
 def test_main_renders_an_untranslated_exception_without_a_traceback(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """A driving adapter never speaks in stack traces.
+    """A driving adapter never speaks in stack traces — unchanged property, new call site."""
+    # Arrange — force `wants_version` false and short-circuit everything downstream of
+    # argument parsing so this exercises only `main`'s own `asyncio.run` exception handling.
+    monkeypatch.setattr(sys, "argv", ["weft", "echo", "hi"])
+    monkeypatch.setattr(cli, "wants_version", _wants_version_false)
+    monkeypatch.setattr(cli, "build_dependencies", _fake_build_dependencies)
 
-    `weft index` and `weft ask` failed differently against the same unreachable database:
-    `index` printed one line, because every stage runs through the registration seam, and
-    `ask` printed twelve lines of `psycopg` traceback, because it resolves its store directly
-    and there is no stage to attribute. `docs/03-cli.md` -> *Output* does not offer a third
-    behaviour for "the library raised something weft has no translation for".
-    """
-    # Arrange — a handler that raises what no `except` clause in `dispatch` names.
-    monkeypatch.setattr(
-        cli, "dispatch", _raising_dispatch(RuntimeError("connection failed: port 59999"))
-    )
-    monkeypatch.setattr(sys, "argv", ["weft", "--version"])
+    async def _boom(_command_name: str, _args: object, _deps: object) -> Rendered:
+        raise RuntimeError("connection failed: port 59999")
+
+    monkeypatch.setattr(cli, "run_command", _boom)
 
     # Act
     with pytest.raises(SystemExit) as exit_info:
@@ -457,34 +795,46 @@ def test_main_renders_an_untranslated_exception_without_a_traceback(
 
 def test_main_re_raises_when_weft_traceback_is_set(monkeypatch: pytest.MonkeyPatch) -> None:
     """ "No traceback" is right for a user and wrong for whoever has to fix it."""
-    # Arrange
-    monkeypatch.setattr(cli, "dispatch", _raising_dispatch(RuntimeError("boom")))
-    monkeypatch.setattr(sys, "argv", ["weft", "--version"])
+    monkeypatch.setattr(sys, "argv", ["weft", "echo", "hi"])
+    monkeypatch.setattr(cli, "wants_version", _wants_version_false)
+    monkeypatch.setattr(cli, "build_dependencies", _fake_build_dependencies)
+
+    async def _boom(_command_name: str, _args: object, _deps: object) -> Rendered:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(cli, "run_command", _boom)
     monkeypatch.setenv("WEFT_TRACEBACK", "1")
 
-    # Act / Assert
     with pytest.raises(RuntimeError, match="boom"):
         cli.main()
 
 
 def test_main_does_not_swallow_cancellation(monkeypatch: pytest.MonkeyPatch) -> None:
-    """G6: `CancelledError` propagates and is never swallowed. It is a `BaseException`, so the
-    last-resort `except Exception` must not see it — asserted rather than assumed, because a
-    later widening to `BaseException` would look like a harmless tidy-up.
-    """
-    # Arrange
-    monkeypatch.setattr(cli, "dispatch", _raising_dispatch(asyncio.CancelledError()))
-    monkeypatch.setattr(sys, "argv", ["weft", "--version"])
+    """G6: `CancelledError` propagates and is never swallowed."""
+    monkeypatch.setattr(sys, "argv", ["weft", "echo", "hi"])
+    monkeypatch.setattr(cli, "wants_version", _wants_version_false)
+    monkeypatch.setattr(cli, "build_dependencies", _fake_build_dependencies)
 
-    # Act / Assert
+    async def _boom(_command_name: str, _args: object, _deps: object) -> Rendered:
+        raise asyncio.CancelledError()
+
+    monkeypatch.setattr(cli, "run_command", _boom)
+
     with pytest.raises(asyncio.CancelledError):
         cli.main()
 
 
-def _raising_dispatch(exc: BaseException) -> object:
-    """A stand-in for `cli.dispatch` that raises inside the one `asyncio.run`."""
+def test_main_never_builds_a_registry_for_version(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Fitness function 8(b), unit-tier: `tests/architecture/test_ff8_trust_model.py` is the
+    # subprocess-level, categorical proof; this is the same property asserted against the
+    # in-process dispatch this module actually performs.
+    def _boom(**_kwargs: object) -> _FakeDeps:
+        raise AssertionError("build_dependencies must not be called for --version")
 
-    async def _dispatch(_command: object, _args: object) -> ExitCode:
-        raise exc
+    monkeypatch.setattr(cli, "build_dependencies", _boom)
+    monkeypatch.setattr(sys, "argv", ["weft", "--version"])
 
-    return _dispatch
+    with pytest.raises(SystemExit) as exit_info:
+        cli.main()
+
+    assert exit_info.value.code == int(ExitCode.SUCCESS)
