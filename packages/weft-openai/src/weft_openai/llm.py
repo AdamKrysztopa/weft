@@ -76,7 +76,7 @@ from weft_llm.errors import (
     LLMServiceUnavailableError,
     LLMTimeoutError,
 )
-from weft_llm.payload import Completion, Conversation
+from weft_llm.payload import Completion, Conversation, TokenUsage
 from weft_openai.embedder import build_client
 
 if TYPE_CHECKING:
@@ -147,11 +147,24 @@ class ChatCompletionChoice(Protocol):
     def finish_reason(self) -> str | None: ...
 
 
+class ChatCompletionUsage(Protocol):
+    """Token counts one non-streaming answer actually cost — task **4.7**'s money half."""
+
+    @property
+    def prompt_tokens(self) -> int: ...
+
+    @property
+    def completion_tokens(self) -> int: ...
+
+
 class ChatCompletionResponse(Protocol):
-    """One non-streaming answer — the two fields this pack reads off the first choice."""
+    """One non-streaming answer — the three fields this pack reads."""
 
     @property
     def choices(self) -> Sequence[ChatCompletionChoice]: ...
+
+    @property
+    def usage(self) -> ChatCompletionUsage | None: ...
 
 
 class ChatCompletionChunkDelta(Protocol):
@@ -253,8 +266,18 @@ class OpenAILLMProvider:
         response = cast("ChatCompletionResponse", response)
         choice = response.choices[0]
         text = choice.message.content or ""
+        usage = (
+            TokenUsage(
+                prompt_tokens=response.usage.prompt_tokens,
+                completion_tokens=response.usage.completion_tokens,
+            )
+            if response.usage is not None
+            else None
+        )
         return Produced(
-            value=Completion(text=text, model=model, finish_reason=choice.finish_reason or "")
+            value=Completion(
+                text=text, model=model, finish_reason=choice.finish_reason or "", usage=usage
+            )
         )
 
     async def stream(self, conv: Conversation, *, model: str, ctx: Context) -> AsyncIterator[str]:

@@ -201,19 +201,20 @@ def test_the_derived_package_list_names_every_distribution_including_the_two_tha
     # drifted twice — `weft_clean` (task 1.7) and `weft_enhance` (task 1.9) both shipped
     # without landing here, which would have let either pack's first `WeftError`
     # subclass ship with no troubleshooting entry and no failure from this file to catch
-    # it. `_first_party_top_level_packages` must find both, plus the sixteen-distribution
+    # it. `_first_party_top_level_packages` must find both, plus the seventeen-distribution
     # floor `packages/` holds today — eight through Phase 1, `weft_pdf` at task 2.27,
     # `weft_openai` at task 2.29, `weft_retrieve` and `weft_generate` at task 2.4,
-    # `weft_qdrant` at task 2.6, `weft_llm` at task 2.30, `weft_index` at task 2.31, and
-    # `weft_command` at task 3.1.
+    # `weft_qdrant` at task 2.6, `weft_llm` at task 2.30, `weft_index` at task 2.31,
+    # `weft_command` at task 3.1, and `weft_eval` at task 4.1.
     packages = _first_party_top_level_packages()
     assert "weft_clean" in packages
     assert "weft_enhance" in packages
     assert "weft_llm" in packages
     assert "weft_index" in packages
     assert "weft_command" in packages
-    assert len(packages) == 17, (
-        f"expected 17 first-party distributions under packages/, found {sorted(packages)} — "
+    assert "weft_eval" in packages
+    assert len(packages) == 18, (
+        f"expected 18 first-party distributions under packages/, found {sorted(packages)} — "
         f"either a new one shipped (nothing to do here, this walk found it automatically) "
         f"or the walk itself broke."
     )

@@ -9,23 +9,45 @@ comparison against a run that measured something else is refused rather than sco
 import pytest
 from check_baseline import IncomparableRunsError, regressions
 from metrics import MetricRecord
-from run_baseline import BaselineRun, CorpusRecord, DistributionRecord, StageRecord
+from run_baseline import BaselineReport
+
+from weft_eval.run_record import CorpusIdentity, RunRecord
+from weft_kernel.resolution import ResolvedPipeline, ResolvedStage
 
 
-def _run(*, metrics: tuple[MetricRecord, ...], corpus: str = "a" * 64) -> BaselineRun:
-    return BaselineRun(
-        recorded_at="2026-08-17T12:00:00+00:00",
-        corpus=CorpusRecord(
-            name="mrmr-v1", corpus_id=corpus, tiers=("fetch",), documents=("doc-a",)
+def _record(*, corpus_digest: str = "a" * 64) -> RunRecord:
+    return RunRecord(
+        recorded_at="2026-08-20T12:00:00+00:00",
+        resolved_pipeline=ResolvedPipeline(
+            name="baseline",
+            stages=(
+                ResolvedStage(
+                    id="embed",
+                    contract="Embedder",
+                    use="openai",
+                    distribution="weft-openai",
+                    provenance="baseline",
+                ),
+            ),
         ),
+        corpus=CorpusIdentity(name="pl-wiki-v1", digest=corpus_digest),
+        model_versions={"embed": "openai:text-embedding-3-small"},
+        active_distributions=("weft-cli", "weft-eval"),
+    )
+
+
+def _run(*, metrics: tuple[MetricRecord, ...], corpus_digest: str = "a" * 64) -> BaselineReport:
+    return BaselineReport(
+        recorded_at="2026-08-20T12:00:00+00:00",
+        corpus_name="pl-wiki-v1",
+        tiers=("fetch",),
+        extractor="text",
+        documents=("doc-a",),
         reproducible=True,
+        record=_record(corpus_digest=corpus_digest),
         questions=("q001",),
         repeats=len(metrics[0].values),
         retrieval_depth=10,
-        pipeline=(StageRecord(stage="embed", plugin="openai"),),
-        pipeline_sha256="b" * 64,
-        models={"embed": "openai:text-embedding-3-small"},
-        distributions=(DistributionRecord(name="weft-cli", version="0.1.0", status="active"),),
         wall_clock_seconds=1.0,
         metrics=metrics,
     )
@@ -109,7 +131,7 @@ def test_a_run_over_a_different_corpus_is_refused_rather_than_compared() -> None
     # which is what makes refusing better than scoring.
     # Arrange
     baseline = _run(metrics=(_metric("quote-recall@10", (0.4, 0.5)),))
-    later = _run(metrics=(_metric("quote-recall@10", (0.45, 0.45)),), corpus="c" * 64)
+    later = _run(metrics=(_metric("quote-recall@10", (0.45, 0.45)),), corpus_digest="c" * 64)
 
     # Act / Assert
     with pytest.raises(IncomparableRunsError, match="corpus"):

@@ -465,7 +465,10 @@ added, removed or reworded without this table noticing fails the build before it
 | `weft ask` | `read` | `weft-cli` | ask a question. Routes through the installed router by default — a QueryScorer and a RoutingPolicy discovered from the registry, never a fixed list here — and prints the generated, cited answer. --pipeline names one directly, skipping the router; --retrieve-only runs no pipeline at all and prints the nearest passages instead, with no generation and no model call (Phase 0's own contract, kept for scripts). |
 | `weft config get` | `read` | `weft-cli` | the project's effective configuration — one key with --key, or every key CONFIG_KEYS names; --origin says whether each value is set in weft.toml or defaulted |
 | `weft config set` | `write` | `weft-cli` | set one key in weft.toml, preserving every comment and every other key untouched |
-| `weft index` | `write` | `weft-cli` | run the built-in ingest pipeline over a directory. Which formats are accepted is derived from the extractors actually installed, never from a fixed list. |
+| `weft eval compare` | `read` | `weft-cli` | the exact, structural difference between two persisted runs' pipelines, and their per-metric aggregates side by side — refuses if the two ran over a different corpus, model versions or active distribution set, rather than reporting a diff that is not apples to apples |
+| `weft eval metrics` | `read` | `weft-cli` | which registered metrics run in the deterministic gate subset — no credentials, no network, no model download — and which do not, or ask about one metric by name |
+| `weft eval run` | `write` | `weft-cli` | run a named pipeline over a corpus and persist a run record — resolved pipeline, corpus identity, active distribution set, and (with --questions) per-metric aggregates — so a later 'weft eval compare' can diff it against another. 'pipeline' is required: a run record needs a resolved pipeline to persist. |
+| `weft index` | `write` | `weft-cli` | run an ingest pipeline over a directory. Which formats are accepted is derived from the extractors actually installed, never from a fixed list. --pipeline names a document instead of the built-in four stages, reaching a plugin's own 'with:' configuration (ledger task 4.0). |
 | `weft init` | `write` | `weft-cli` | scaffold weft.toml in the current directory — every key commented out, offline by default |
 | `weft pipeline derive` | `write` | `weft-cli` | scaffold a new pipeline document with 'extends:' set to an existing one |
 | `weft pipeline diff` | `read` | `weft-cli` | the exact, structural difference between two resolved pipelines |
@@ -474,6 +477,7 @@ added, removed or reworded without this table noticing fails the build before it
 | `weft pipeline validate` | `read` | `weft-cli` | resolve a pipeline and report whether it does, in the resolution-failure family's own words |
 | `weft plugins doctor` | `read` | `weft-cli` | full status, reason and disclosure per discovered pack |
 | `weft plugins list` | `read` | `weft-cli` | one line per discovered pack |
+| `weft trace` | `read` | `weft-cli` | print what one persisted run recorded — its resolved pipeline, corpus, model versions and active distribution set |
 <!-- weft-cli:generated:command-table:end -->
 
 ## Where to go next

@@ -15,6 +15,11 @@ dev = [
     # `poe ci-checks`' own `fmt` step does to the checked-in file — an in-range resolution
     # below 0.16 would leave a long signature unwrapped instead.
     "ruff>=0.16.0",
+    # Test-only, task 4.5. `weft-kernel` ships `opentelemetry-api` alone (fitness function 1)
+    # and no shipped distribution declares the SDK — see `tests/unit/weft_kernel/
+    # test_seam_trace_visibility.py`'s own docstring for why a real, exporting `TracerProvider`
+    # belongs to the test suite rather than to a pack this phase does not build.
+    "opentelemetry-sdk>=1.28",
 ]
 
 # The dev environment's alignment with `compose.yaml`, and nothing a downstream install
@@ -46,6 +51,7 @@ weft-retrieve = { workspace = true }
 weft-generate = { workspace = true }
 weft-qdrant = { workspace = true }
 weft-index = { workspace = true }
+weft-eval = { workspace = true }
 
 # ---------------------------------------------------------------------------
 # Tasks
@@ -105,6 +111,7 @@ extraPaths = [
     "examples/weft-example-ingest/src",
     "examples/weft-example-llm/src",
     "examples/weft-example-query/src",
+    "examples/weft-example-metric/src",
 ]
 
 [tool.pytest.ini_options]

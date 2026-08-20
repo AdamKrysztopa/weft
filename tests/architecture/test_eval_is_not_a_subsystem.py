@@ -1,22 +1,49 @@
-"""The V-prerequisite harness is an artefact, not a subsystem — and Phase 4 is where it stops.
+"""The V-prerequisite harness is an artefact, not a subsystem — a standing ratchet, not a
+one-time prophecy.
 
 `docs/09-release.md` §4.3 asks for six artefacts, each *"a file or a persisted run"*. `eval/`
-holds three of them and the code that produces them, and every line of it is meant to be
-**deleted and replaced** by Phase 4: task 4.1 publishes `Metric` from a real `weft-eval`
-distribution and 4.2 reimplements the measurements against it (`docs/build-ledger.md`). Nothing
-here is promoted.
+holds three of them and the code that produces them. Before task **4.8** this file's own docstring
+predicted that *"every line of it is meant to be deleted and replaced by Phase 4."* Tasks 4.1 and
+4.2 landed first, and what they actually replaced was narrower than that prediction: `weft-eval`
+now publishes `GenerationMetric`/`RetrievalMetric` as real, registrable contracts and ships the 21
+reference metrics against them — the thing that genuinely risked becoming *"Phase 4's own extensible
+system in disguise"* if it had grown inside `eval/` instead. What 4.1/4.2 did **not** touch, and
+what task 4.8 confirmed does not need touching, is `eval/metrics.py`'s own `measure`/`judge`
+functions and `eval/check_questions.py`'s quote-pinned ground truth: original, Weft-specific
+scoring glue for *this one harness's* baseline (span-in-passage containment against a
+`(document, quote)` judgement — deliberately not a `weft_eval.contract.RetrievalSample`'s
+node-id-based relevance set, for the reason `check_questions.py`'s own docstring gives: a judgement
+pinned to a `NodeId` is invalidated by any chunking change). It was never the reference's metric suite
+and 4.1/4.2 never claimed to reimplement it — the prediction that *every* line would go was simply
+wrong about this part, and 4.8 is where that is said plainly rather than left for a reader to
+notice the docstring no longer matches the tree.
 
-**Being extensible is precisely what would make it Phase 4's system**, which is why this file
-tests for the absence of things rather than the presence of them. A registry of metrics, an
-entry point, a `pyproject.toml` — any one of them and `eval/` has quietly become a distribution
-that Phase 4 must migrate rather than replace, and the phase boundary `01` draws would have been
-crossed by a convenience nobody argued for.
+**Task 4.8 is what this file's own note O4 (`.phase4-design.md` §5) called for: the published
+baseline became one of Phase 4's own persisted runs** (`eval/run_baseline.py`'s `BaselineReport.
+record` is a real `weft_eval.run_record.RunRecord`, built through that pack's own
+`corpus_identity`/`build_run_record` rather than a second, hand-rolled copy of the same shape) —
+which is the one part of the original prediction that *did* come true, just later and by adoption
+rather than by deletion. `eval/` is smaller and more honest for it, but it still exists, and it
+still runs `weft` as a subprocess to take a real, credentialed measurement no gate can take for it.
+
+**So what this file guards changes from "prove the deletion happens" to "prove `eval/` never
+grows the shape that would force one."** Being extensible is precisely what would make it a
+second system, which is why this file tests for the absence of things rather than the presence of
+them. A registry of metrics, an entry point, a `pyproject.toml` — any one of them and `eval/` has
+quietly become a distribution nothing in this plan budgeted for, and the phase boundary `01` draws
+would have been crossed by a convenience nobody argued for. Retiring this file at 4.8 was
+considered and rejected: `eval/` is permanent now (a hand-run harness taking a credentialed
+measurement, not a phase's scaffolding), so the property it guards is permanent too — an
+architecture check earns retirement when the thing it watches is gone, not when the prediction
+that used to justify it turns out to have been too strong.
 
 The third check is the one that would otherwise rot silently: a pack importing the harness would
 make the *measurement* part of the engine, so a change to how a baseline is scored would change
 what the engine does. The dependency is one-way by design — `eval/` drives `weft` as a
-subprocess and imports the CLI's own result model to read what it printed — and this is the
-direction that must never appear.
+subprocess and imports the CLI's own result models (`weft_cli.ask.AskResult`) and, since 4.8,
+`weft_eval.run_record`/`weft_kernel.resolution`/`weft_cli.compile`/`weft_cli.registry_bootstrap`
+to build a real `RunRecord` in-process — reading what those modules publish, never the reverse,
+and this is the direction that must never appear.
 """
 
 import ast
@@ -62,9 +89,9 @@ def test_the_harness_is_not_a_distribution() -> None:
     # Assert
     assert not found, (
         f"{found} make eval/ a distribution. It is a set of hand-run tools producing the "
-        f"artefacts `docs/09-release.md` §4.3 requires; Phase 4 task 4.2 *deletes* them and "
-        f"reimplements the measurements inside a real `weft-eval` pack rather than promoting "
-        f"these."
+        f"artefacts `docs/09-release.md` §4.3 requires — the extensible, registrable half of "
+        f"what a metric suite needs already lives in the real `weft-eval` pack (tasks 4.1/4.2), "
+        f"so nothing here should ever need the shape of one."
     )
 
 

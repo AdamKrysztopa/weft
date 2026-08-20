@@ -215,19 +215,41 @@ is how the secret still stays out of the file. With no key configured at all the
 registers and `weft plugins doctor` still reports it `active`, deliberately: nothing is missing
 until something asks it to embed, and then the failure names this exact line.
 
-**Which model, and how wide — not yet selectable from a file.** `[services] embed` chooses the
-*plugin*; the model name, the `dimensions` a `-3` model will shorten a vector to, and the batch
-size are the embedder stage's own `with:` configuration, and no route from a pipeline document to
-`weft index`'s stages exists — `weft index` still names its four stages in Python rather than
-resolving a document (`weft_cli/services.py`'s own docstring). Ledger tasks 2.4 and 2.8, both now
-closed, built that document-to-`StageSpec` bridge (`weft_cli.compile`) and wired it into
-`weft ask`'s own routed default; neither one touched `weft index`. No task in this ledger
-currently owns closing that gap for the ingest path. Until one does, `weft index` and `weft ask`
-run `weft-openai` with its defaults — `text-embedding-3-small`, the model's native 1536
-components, 128 texts per request — and `weft-embed`'s `hash` with its own, the same way. This is
-stated rather than left to be discovered: the knobs are real, they are on `OpenAIEmbedderConfig`,
-and a library caller constructing the plugin directly can already set them. It is the
-configuration file that cannot reach them yet.
+**Which model, and how wide — selectable from a file, with `--pipeline`.** `[services] embed`
+chooses the *plugin* and carries no configuration; the model name, the `dimensions` a `-3` model
+will shorten a vector to, and the batch size are the embedder stage's own `with:` configuration,
+and reaching them means naming a document rather than a `[services]` key — ledger task **4.0**
+closed the gap this paragraph used to describe (`weft_cli/services.py`'s own docstring recorded it
+as open; `weft_cli.ingest`'s now carries the argument in full). `weft ask --pipeline <name>` has
+resolved a document since ledger tasks 2.4/2.8; `weft index <path> --pipeline <name>` is the
+identical bridge (`weft_cli.compile`), wired into the one command that lacked it:
+
+```yaml
+# pipelines/openai-1024.yaml
+name: openai-1024
+stages:
+  - id: extract
+    use: text
+  - id: chunk
+    use: fixed-size
+  - id: embed
+    use: openai
+    with: {model: text-embedding-3-large, dimensions: 1024, batch_size: 64}
+  - id: store
+    use: pgvector
+```
+
+```bash
+weft index ./corpus --pipeline openai-1024
+```
+
+`[services] embed`/`[services] store` are not read for that run — a document's own `use:` on
+every stage already names the plugin, so there is no config to merge them with (`weft_cli.ingest`'s
+own module docstring, *"Q3, settled"*: the two surfaces stay split rather than growing a second
+`{ use = …, with = … }` grammar inside `[services]`). Without `--pipeline`, `weft index` and
+`weft ask --retrieve-only` are unchanged: `weft-openai` runs with its defaults —
+`text-embedding-3-small`, the model's native 1536 components, 128 texts per request — and
+`weft-embed`'s `hash` with its own, exactly as before.
 
 ## Choosing a store
 
@@ -514,6 +536,83 @@ nor a name nothing could resolve. It is an operation that ran and failed, which 
 `WEFT_TRACEBACK=1` re-raises the underlying exception instead of the one-line rendering, for
 whoever has to actually fix the failure rather than just see that one happened.
 
+## Persisted runs, and `weft trace`
+
+Task **4.4**, `01` → Phase 4 *Exit*, fitness function 8(c). Every `weft index --pipeline` (task
+4.0) and every `weft eval run` persists a **run record** — a plain JSON file, never a row in your
+store: `weft eval run` mints a fresh `uuid4`, `weft index --pipeline` mints one the same way, and
+each writes `runs/<id>.json` under the current directory, the identical project-local footing
+`pipelines/` already has. A `RunRecord` carries five facts, and each one earns its place because a
+later comparison needs it, not because more is better:
+
+- **`resolved_pipeline`** — what actually ran, not the document name that asked for it. This is
+  why task 4.0 exists: before it, `weft index` built its four stages in Python and had nothing
+  resolved to persist.
+- **`corpus`** — a name plus a content-derived digest over every document actually indexed, so
+  "the same corpus" is something two runs can be checked against rather than an operator's own
+  claim.
+- **`model_versions`** — which provider and model a role resolved to (`"embed":
+  "openai:text-embedding-3-small"`), read off the resolved pipeline's own stage configuration,
+  never guessed — a stage whose plugin declares no `model` field contributes nothing, and `weft
+  eval run` never reads `[services]` for this (*Choosing an embedder* above, Q3): a named
+  pipeline's own `use:`/`with:` already decided what ran.
+- **`active_distributions`** — every installed distribution `weft plugins doctor` reports
+  `active`. A pipeline change compared across two different pack sets is compared against the
+  wrong experiment; fitness function 8(c) is exactly this equality, checked.
+- **`metrics`** — task 4.9's own addition: every metric this run actually scored, when `weft eval
+  run` was given `--questions`; `{}`, honestly, when it was not.
+
+**Read one back with `weft eval compare <a> <b>` or `weft trace <run-id>`** — both name a run by
+the id `weft eval run` printed (the file's own stem under `runs/`), and both refuse loudly, naming
+every id that does exist, for one that is not there:
+
+```text
+$ weft trace does-not-exist
+'does-not-exist' is not a persisted run — checked 'runs'. Persisted runs: (none).
+```
+
+`weft eval compare` additionally refuses outright — before it ever computes a pipeline diff —
+when the two runs are not apples to apples: a different corpus, different `model_versions`, or a
+different `active_distributions` set. This is `09-release.md` §4's own V3 failure clause ("a
+shipped technique's improvement... reported against a baseline from a different corpus, pipeline
+or model version") applied at the CLI, and it names which of the three facts differs rather than
+printing a pipeline diff that would misattribute a metric delta to the pipeline change alone.
+
+**A hand-run harness writes a second kind of run record, to a second directory — not the one
+above.** `eval/run_baseline.py`, covered next, is not a `weft` command: it drives `weft` as a
+subprocess and writes its own JSON under `eval/baselines/`, wrapping an identical `RunRecord`
+inside its own report (`BaselineReport.record`). Same type, same `load_run_record` reads either
+one — but `runs/` and `eval/baselines/` are two different directories with two different
+purposes, and neither command looks in the other's for you.
+
+### `weft trace`
+
+`weft trace <run-id>` prints exactly what the persisted record holds — the resolved pipeline's
+name, the corpus identity and digest, the model versions, the active distribution set and, since
+task 4.9, the metrics block — and nothing this command computes or infers on top of it:
+
+```text
+$ weft trace f7ebfc62-33b6-42d8-a8c6-8089687492e8
+run f7ebfc62-33b6-42d8-a8c6-8089687492e8 — recorded 2026-08-20T16:11:03.014604+00:00
+pipeline: index
+corpus: 'corpus' (b217dc7e0bf1…)
+model versions: (none recorded)
+active distributions: weft-chunk, weft-cli, weft-embed, weft-eval, weft-extract, weft-generate,
+weft-index, weft-llm, weft-openai, weft-pdf, weft-qdrant, weft-retrieve, weft-store
+metrics: (none recorded — 'weft eval run' was not given --questions)
+```
+
+**What it does not do — task 4.6, Q2, a narrowing of what `docs/03-cli.md` first promised, not a
+widening.** `weft trace` does not replay a run stage by stage, does not say which stage took how
+long or which one failed, and does not read an exported OpenTelemetry span — because nothing in
+this tree exports one. The kernel depends on `opentelemetry-api` only (`01` → *The kernel
+boundary*: everything that **exports** a span is a pack's job), task 4.5 found the registration
+seam already emits every span a future exporter would need, and Phase 4 ships no exporter pack to
+consume them. Reading spans back would have meant shipping that pack as a second, unbudgeted
+artefact, so `weft trace` reads the cheaper, honest thing that already exists: the five static
+facts above. If you need per-stage timing today, `weft eval run`'s own `wall clock: <seconds>s`
+is the whole run, measured rather than estimated — not a stage, and not a substitute for a span.
+
 ## Measuring a baseline, and judging a later run against it
 
 Weft's numbers are measured by a hand-run harness under `eval/`, and the runs it writes are
@@ -524,11 +623,27 @@ committed under `eval/baselines/`. Nothing about this is a `weft` command: the h
 # the corpus first — the harness refuses to measure a set it cannot verify byte for byte
 uv run python scripts/fetch_corpus.py fetch
 
-OPENAI_API_KEY=… uv run python eval/run_baseline.py --tiers fetch --repeats 3
+uv run python eval/run_baseline.py --tiers fetch --repeats 3
 ```
 
-It stages the corpus, writes the `weft.toml` it measures through, indexes, asks every question
-the tiers allow, repeats the whole pass, and writes one JSON file.
+It stages the corpus, writes the `weft.toml` **and a project-local pipeline document**
+(`--pipeline`, task 4.0) it measures through, indexes, asks every question the tiers allow,
+repeats the whole pass, and writes one JSON file whose `record` field is a real
+`weft_eval.run_record.RunRecord` — the identical type `weft eval run`/`weft trace` persist and
+read (task 4.8), carrying the resolved pipeline, the corpus identity, the model versions and the
+active distribution set fitness function 8(c) checks.
+
+**One `--extractor` per baseline, and no `OPENAI_API_KEY` needed by default.** A resolved
+pipeline names exactly one stage under the `Extractor` contract, so a baseline names one —
+`--extractor text` (the default) covers the `.md`/`.txt` corpus, `--extractor pdf-text` covers
+the PDFs, and a run mixing formats needs two baselines rather than one. `--embedder` defaults to
+`hash`, not `openai`: `weft-openai` registers its one client as `"openai"` under both `Embedder`
+and `LLMProvider`, so a pipeline **document**'s bare `use: openai` cannot say which contract it
+means and `weft index --pipeline` refuses with `AmbiguousStageContractError` — `[services] embed
+= "openai"` is unaffected, since it supplies the contract directly, but this harness's own
+`--pipeline` path cannot use it until that name collision has an owner. `hash` costs nothing to
+run and needs no vendor account, which also makes the published baseline reproducible by a
+stranger with none.
 
 **Why `--repeats` has no default below 2.** A baseline records, per metric, the **interval its own
 repetitions spanned**, and that interval is the only tolerance a later run is judged by. Nobody
@@ -539,16 +654,17 @@ uv run python eval/check_baseline.py eval/baselines/<baseline>.json <later-run>.
 ```
 
 Every metric inside its interval, and the run reproduced the baseline; anything outside, and the
-command names the metric and both bounds and exits `1`. A run over a different corpus, pipeline or
-model is refused outright with exit `2` rather than compared — the comparison would produce an
-ordinary-looking number that means nothing.
+command names the metric and both bounds and exits `1`. A run over a different corpus, resolved
+pipeline or model versions is refused outright with exit `2` rather than compared — the
+comparison would produce an ordinary-looking number that means nothing.
 
-**Two baselines, and only one of them may be published.** `--tiers fetch` measures over the
-documents anybody can obtain from a pinned, checksummed source; that run is marked
-`"reproducible": true` and is the number to report. `--tiers fetch,operator` includes papers held
-under publisher copyright, which nobody else can fetch at any price — that run is written with
-`"reproducible": false`, its file name says `unreproducible`, and the label belongs with the
-number every time it is quoted.
+**Two baselines, and only one of them may be published.** `--tiers fetch` (the default) measures
+over documents anybody can obtain from a pinned, checksummed source; that run is marked
+`"reproducible": true` and is the number to report. Adding the `operator` tier —
+`--tiers fetch,operator --extractor pdf-text`, since every operator-tier document is a PDF —
+includes papers held under publisher copyright, which nobody else can fetch at any price; that
+run is written with `"reproducible": false`, its file name says `unreproducible`, and the label
+belongs with the number every time it is quoted.
 
 **What is measured, and what is not.** This baseline drives `weft ask --retrieve-only` (task
 3.11 made `weft ask` route to a generated answer by default; `--retrieve-only` is Phase 0's own
@@ -557,7 +673,127 @@ docstring). So the baseline is a retrieval measurement — recall, nDCG and MRR 
 two granularities: a
 `quote-…` metric counts a passage that contains the ground-truth span, a `document-…` metric counts
 one drawn from the right paper. The unanswerable questions carry no retrieval judgement at all;
-they are **excluded and counted**, with the reason recorded in the file, never scored as zero.
+they are **excluded and counted**, with the reason recorded in the file, never scored as zero —
+and so is any question whose ground truth names a document outside what this run's own
+`--extractor` staged, so a single-format baseline is never blamed for documents it never indexed.
+
+## The deterministic subset, and pricing a run
+
+Task **4.7**, `docs/09-release.md` §4 V5. 21 metrics ship in `weft-eval` (task 4.2); six of them
+are LLM judges and one (`bertscore`) needs a downloaded model checkpoint. None of the seven can
+run in `poe ci-checks` on a clean checkout with no credentials and no network — the gate's default
+`hash` embedder and `scripted` LLM provider (see *Choosing an embedder* and *Choosing which model
+answers* above) resolve every service a metric asks for, but a judge asked to score against
+`scripted`'s canned text cannot produce a usable structured judgement, and `bertscore` needs a
+package this pack does not carry as a base dependency at all.
+
+**Ask what runs offline; do not guess.**
+
+```bash
+$ weft eval metrics
+runs in the gate (no credentials, no network): accuracy, embedding-similarity, exact-match,
+f1-score, key-terms-precision, mean-average-precision, ndcg, overlap-at-threshold,
+precision-at-k, recall-at-k, rouge-1, rouge-2, rouge-l, token-overlap, token-recall
+does not run in the gate: answer-completeness, answer-correctness, answer-relevance, bertscore,
+context-recall, context-relevance, faithfulness
+```
+
+This is read off the registry itself — `weft_eval.offline.gate_subset` — never a paragraph here
+that can drift from what a checkout actually installs; a stranger's own metric pack is included
+on the identical footing, because `GenerationMetric`/`RetrievalMetric` both refuse to register any
+implementation that never declares whether it runs in the gate (`weft_eval.contract`'s own module
+docstring, Q6). Ask about one metric by name to get the same refusal a real run would give:
+
+```bash
+$ weft eval metrics --name faithfulness
+'faithfulness' cannot run in the deterministic, gate-safe subset: needs a real judge model behind
+'[llm.roles]' — the deterministic 'scripted' provider resolves the service but cannot produce a
+usable structured judgement... Configure '[llm.roles]' to map this metric's role (default
+'grade') to a real provider such as 'openai' to run it outside the gate.
+```
+
+See `manual/troubleshooting.md` → *Asking whether a metric can run here* for the full text and
+exit codes.
+
+**Pricing.** A price needs tokens in and out per call, and a per-model rate. `weft_llm.payload.
+Completion.usage` carries the first half — populated by `weft-openai`'s real provider from the
+vendor's own response, always `None` for the deterministic `scripted` provider, which made no
+real call and has nothing to price. `weft_eval.pricing.price_calls` is the computation: fold many
+priced calls into one total, against a rate table. The default table ships as plain data in
+`weft_eval.pricing.DEFAULT_RATES` — a `Mapping[str, TokenRate]`, never a closed enum a new model
+would need a code change to price — and every `price_calls` call takes `rates=` as a parameter, so
+an operator with current numbers substitutes their own without editing a package. **Staleness is
+never hidden inside a bare total**: `weft_eval.pricing.RATES_AS_OF` is the date the shipped table
+was last checked against a real price sheet, and every computed `RunPrice` carries `rates_as_of`
+alongside `total_usd`. A call whose model has no entry in the rate table is never silently priced
+at `$0` — it is excluded from the total and counted in `unpriced_calls`/`unpriced_models`, the
+identical "excluded, counted rather than merely honoured" shape `weft_eval.aggregate` already
+gives a metric's own failures.
+
+`weft eval run`'s own output carries the wall-clock half of a priced run, measured rather than
+estimated:
+
+```bash
+$ weft eval run corpus index
+run 3f9c...-1 persisted (corpus -> pipeline 'index'). produced 12, nothing to produce 0, failed 0.
+nodes now stored: 12. corpus: 'corpus' (a1b2c3d4e5f6…). wall clock: 1.84s.
+```
+
+Its persisted record's `model_versions` is also no longer always empty: `weft_cli.eval_commands`
+derives it from the resolved pipeline's own stages — whichever stage's plugin declares a `model`
+field in its own `config_model` (`weft_openai.embedder.OpenAIEmbedderConfig.model`, say)
+contributes `"<stage>": "<plugin>:<model>"`, generically, never from `[services]` — a named
+pipeline's own `use:`/`with:` already decided what ran (see *Choosing an embedder* above, Q3).
+
+## Scoring retrieval, and comparing what two runs produced
+
+Task **4.9**. Before this, a persisted `RunRecord` carried no metric scores at all — `weft eval
+compare` could only report that two runs' resolved pipelines *differ*, never what they
+*produced*. `weft eval run --questions <file>` closes that.
+
+`--questions` names a JSON file, a list of judgements:
+
+```json
+[{"query": "what is weft?", "relevant_documents": ["/abs/path/to/weft-intro.md"]}]
+```
+
+`relevant_documents` names a document, not a chunk — the same `SourceDoc.source_id` string a run's
+own `document_ids` already carries (a resolved, absolute file path, for the default text
+extractor), because that is the only identity a fixture can be authored against ahead of a run;
+a node id is a content-addressed digest nobody can predict in advance.
+
+```bash
+$ weft eval run corpus index --questions questions.json --top-k 5
+run 3f9c...-1 persisted (corpus -> pipeline 'index'). produced 12, ... wall clock: 1.9s.
+```
+
+For every question, `weft eval run` retrieves through the resolved pipeline's own
+`Embedder`/`NodeStore` stages — never `[services]`, Q3 still holds — and scores the deterministic,
+gate-safe `RetrievalMetric` subset over the result (`precision-at-k`, `recall-at-k`,
+`mean-average-precision`, `ndcg`; `weft eval metrics` lists the full set live). The result folds
+into the persisted record's `metrics` field, keyed by what each metric actually computed
+(`precision@5`, not the registered plugin name — the same "the report is keyed by what a metric
+computed" rule task 4.3's aggregation already holds elsewhere). `--questions` is optional:
+omitted, `metrics` stays `{}`, honestly — the same gap `model_versions` had before task 4.7.
+
+`weft eval compare` prints the scored metrics from both runs side by side, once the usual
+apples-to-apples check passes:
+
+```bash
+$ weft eval compare 3f9c...-1 3f9c...-2
+'3f9c...-1' vs '3f9c...-2' — same corpus, model versions and active distributions; pipeline is the
+only fact that may differ:
+'index' vs 'specific':
+  ~ chunk: fixed-size -> fixed-size
+metrics:
+  precision@5: 0.520 (n=8, ±0.140) vs 0.680 (n=8, ±0.110)  Δ+0.160
+  recall@5: 0.610 (n=8, ±0.090) vs 0.610 (n=8, ±0.090)  Δ+0.000
+```
+
+A metric one run scored and the other did not prints `not produced (...)` on the side that never
+measured it — never silence, and never a fabricated number standing in for "unmeasured." *Persisted
+runs, and `weft trace`* above covers reading a single run's own `metrics:` block back, and what
+`weft trace` does not do.
 
 ## What this does not protect you from
 

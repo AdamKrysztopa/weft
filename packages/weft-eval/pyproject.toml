@@ -1,0 +1,30 @@
+[project]
+name = "weft-eval"
+version = "0.0.0"
+description = "First-party evaluation pack. Publishes the RetrievalMetric/GenerationMetric contracts."
+requires-python = ">=3.12"
+# `weft-embed`: the two metrics that need a vector embed through `Embedder` rather than a new,
+# heavy dependency of their own (`embedding_metrics.py`'s own module docstring). `weft-llm` /
+# `weft-prompts`: the six LLM judges' async provider call and structured-output cascade
+# (`judges.py`'s own module docstring). `rouge-score`: `docs/04-reference-inventory.md`'s own
+# instruction — the reference's hand-rolled O(m·n) `rouge_l` DP is a performance liability replaced
+# by Google Research's own reference implementation rather than ported; pure Python, no model
+# download, no network call at the `use_stemmer=False` default this pack keeps.
+dependencies = ["weft-embed", "weft-kernel", "weft-llm", "weft-prompts", "rouge-score>=0.1"]
+
+# `bert-score` pulls in `transformers` and a BERT checkpoint download — a base dependency here
+# would break a clean checkout's `poe ci-checks` on a machine with no cached model and no
+# account. `weft_eval.embedding_metrics.BERT_SCORE_AVAILABLE` derives whether it is installed at
+# import time (`importlib.util.find_spec`), the same pattern the reference already used for the
+# identical reason (`bertscore.py:15`, `embedding_similarity.py:15`) — never a hand-maintained
+# table. `bertscore` answers `Failed`, naming this extra, when it is absent.
+[project.optional-dependencies]
+bertscore = ["bert-score>=0.3"]
+
+# The one entry point a pack declares (`docs/02-extension-model.md` section 2).
+[project.entry-points."weft.packs"]
+eval = "weft_eval:register"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

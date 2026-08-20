@@ -157,6 +157,30 @@ async def test_run_ask_refuses_a_store_that_does_not_satisfy_vector_search() -> 
         await run_ask("what changed?", registry=registry, ctx=_ctx(), top_k=3)
 
 
+async def test_run_ask_forwards_a_resolved_stages_own_config_task_4_9() -> None:
+    # Arrange — task 4.9: a caller that resolved a *named* pipeline (Q3, never `[services]`)
+    # hands back each stage's own resolved config instead of the unconfigured `None` every
+    # caller before task 4.9 got.
+    seen: list[object] = []
+
+    class _RecordingEmbedder(_FakeEmbedder):
+        def __init__(self, config: object) -> None:
+            seen.append(config)
+            super().__init__(config)
+
+    registry = Registry()
+    registry.add(Embedder, "hash", _RecordingEmbedder, distribution="weft-embed")
+    registry.add(NodeStore, "pgvector", _FakeVectorSearchStore, distribution="weft-store")
+
+    # Act
+    await run_ask(
+        "what changed?", registry=registry, ctx=_ctx(), top_k=3, embedder_config="a real config"
+    )
+
+    # Assert — the resolved stage's own config reached the factory, not the `None` default.
+    assert seen == ["a real config"]
+
+
 def test_render_results_ranks_without_printing_the_raw_score() -> None:
     # Arrange — `docs/03-cli.md` -> Output, *Score display*: a negative cosine similarity is
     # correct but not reader-facing; only rank order and content reach a human.

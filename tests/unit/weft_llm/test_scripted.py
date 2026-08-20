@@ -40,6 +40,9 @@ async def test_complete_derives_a_deterministic_answer_from_the_last_user_turn()
     assert first.value == second.value
     assert "why does mRMR subtract redundancy?" in first.value.text
     assert first.value.model == "any-model"
+    # Task 4.7: nothing was really called, so there is nothing to price — `usage` says so
+    # honestly rather than a `0` a caller could mistake for a real, priceable zero-cost call.
+    assert first.value.usage is None
 
 
 async def test_a_configured_reply_overrides_the_derived_one() -> None:

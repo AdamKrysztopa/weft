@@ -44,7 +44,7 @@ once both existed, rather than a second copy of `run_routed_ask`'s own first hal
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import replace
 
 from weft_cli.compile import contracts_for, to_specs
@@ -163,7 +163,13 @@ async def run_routed_ask(
 
     query = Query(text=question)
     route = await _run_pipeline(
-        router, query, registry=registry, runner=runner, ctx=routed_ctx, store=store
+        router,
+        query,
+        registry=registry,
+        runner=runner,
+        ctx=routed_ctx,
+        store=store,
+        catalogue=catalogue,
     )
     assert isinstance(route, Route)  # `route.yaml`'s own contract: Stage[Query, Route]
 
@@ -183,7 +189,13 @@ async def run_routed_ask(
         )
     query_set = QuerySet(origin=query, queries=(query,))
     answer = await _run_pipeline(
-        target, query_set, registry=registry, runner=runner, ctx=routed_ctx, store=store
+        target,
+        query_set,
+        registry=registry,
+        runner=runner,
+        ctx=routed_ctx,
+        store=store,
+        catalogue=catalogue,
     )
     assert isinstance(answer, Answer)  # every shipped routable pipeline ends in a Generator
     return route.pipeline, answer
@@ -239,7 +251,13 @@ async def run_named_ask(
     query = Query(text=question)
     query_set = QuerySet(origin=query, queries=(query,))
     answer = await _run_pipeline(
-        target, query_set, registry=registry, runner=runner, ctx=routed_ctx, store=store
+        target,
+        query_set,
+        registry=registry,
+        runner=runner,
+        ctx=routed_ctx,
+        store=store,
+        catalogue=catalogue,
     )
     assert isinstance(answer, Answer)  # every shipped routable pipeline ends in a Generator
     return answer
@@ -277,11 +295,20 @@ async def _run_pipeline(
     runner: Runner,
     ctx: Context,
     store: object,
+    catalogue: Mapping[str, Pipeline],
 ) -> object:
-    contracts = contracts_for(pipeline, registry=registry, parents={pipeline.name: pipeline})
-    resolved = resolve(
-        pipeline, registry=registry, contracts=contracts, parents={pipeline.name: pipeline}
-    )
+    """Resolve `pipeline` and run it — `catalogue`, added as a **repair**, is `resolve()`'s
+    own `parents` lookup, not a one-entry `{pipeline.name: pipeline}` mapping: a derived
+    pipeline's `extends:` names an ancestor, and a mapping holding only the named pipeline
+    itself has no ancestor for `resolve()` to find, so every derived pipeline reached through
+    `weft ask --pipeline`/the router failed `UnknownParentPipelineError` outright — found by
+    running `weft eval run` over a real `weft pipeline derive`d document (task 4.6); see
+    `weft_cli.ingest._specs_from_document`'s own docstring for the parallel repair and the
+    full argument. Both callers already build the full catalogue for their own lookups, so
+    this costs nothing beyond passing it one call further.
+    """
+    contracts = contracts_for(pipeline, registry=registry, parents=catalogue)
+    resolved = resolve(pipeline, registry=registry, contracts=contracts, parents=catalogue)
     specs = to_specs(resolved, registry=registry)
     check_store_capabilities(
         specs,

@@ -68,6 +68,14 @@ run_baseline.py`'s V3 baseline (`docs/09-release.md` §4.3) both depend on a det
 credential-free, network-free measurement that routing cannot honestly offer once generation is
 a real model call resolved from `[llm.roles]` — see `docs/build-ledger.md`'s 3.11 entry for the
 full argument, including the reference's own absent precedent.
+
+**Task 4.0 gives `IndexCommand` the identical `--pipeline` surface `AskArgs` already has.**
+`weft_cli.ingest.run_index`'s own module docstring carries the argument (Q3, settled:
+`[services]` and a document's `with:` stay two surfaces); this module's own share of it is
+`ConflictingIndexModeError` — `--extract`/`--pipeline` refuse together on
+`ConflictingAskModeError`'s exact footing — and skipping `INDEX_DISTRIBUTIONS`/`[services]`'s
+own `require_plugin` gate when a document names the run, since neither promise is one a
+named document has made.
 """
 
 from __future__ import annotations
@@ -79,6 +87,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from weft_cli.ask import AskHit, hits_for, run_ask
 from weft_cli.config_commands import register_config_commands
+from weft_cli.eval_commands import register_eval_commands
 from weft_cli.exit_codes import ExitCode
 from weft_cli.ingest import INDEX_DISTRIBUTIONS, run_index
 from weft_cli.output import AskFormat
@@ -105,8 +114,10 @@ from weft_kernel.runner import RunSummary
 from weft_store import NodeStore
 
 _INDEX_HELP = (
-    "run the built-in ingest pipeline over a directory. Which formats are accepted is "
-    "derived from the extractors actually installed, never from a fixed list."
+    "run an ingest pipeline over a directory. Which formats are accepted is derived from "
+    "the extractors actually installed, never from a fixed list. --pipeline names a "
+    "document instead of the built-in four stages, reaching a plugin's own 'with:' "
+    "configuration (ledger task 4.0)."
 )
 
 _ASK_HELP = (
@@ -199,6 +210,20 @@ class UnresolvedPluginNameError(CommandRefusalError, UnresolvedNameError):
         self.valid_options = valid_options
 
 
+class ConflictingIndexModeError(WeftError):
+    """`weft index` was given both `--extract` and `--pipeline` — two different, mutually
+    exclusive claims about what should run: narrow the default four-stage path's own
+    auto-discovery to one named extractor, or run a whole document whose own `extract`
+    stage already names its plugin (task **4.0**). Neither wins silently over the other,
+    the identical reasoning `ConflictingAskModeError` below already gives `weft ask`'s own
+    `--retrieve-only`/`--pipeline` pair — refused, loudly, before either resolves a plugin.
+
+    Not a name-resolution failure — there is no alternative *name* to offer, only a choice
+    between two flags that are individually valid — so this does not join `NAME_RESOLUTION_
+    FAMILY`, on `ConflictingAskModeError`'s own footing.
+    """
+
+
 class ConflictingAskModeError(WeftError):
     """`weft ask` was given both `--retrieve-only` and `--pipeline` — two different,
     mutually exclusive claims about what this run should do: retrieve the nearest passages
@@ -238,8 +263,13 @@ class NoArgs(BaseModel):
 
 
 class IndexArgs(BaseModel):
-    """`weft index <path> [--extract NAME]` — see `weft_cli.argparse_gen` for how a field
-    with no default becomes a positional and one with a default becomes a flag.
+    """`weft index <path> [--extract NAME | --pipeline NAME]` — see `weft_cli.argparse_gen`
+    for how a field with no default becomes a positional and one with a default becomes a
+    flag.
+
+    `extract` and `pipeline` are mutually exclusive — `IndexCommand.run` refuses both
+    together, loudly, before either resolves a plugin, the identical shape `AskArgs`'
+    `pipeline`/`retrieve_only` pair already has.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -250,7 +280,17 @@ class IndexArgs(BaseModel):
         description=(
             "the extractor plugin to use, when more than one claims what is in the "
             "directory. Omit it and the single claimant is used; a refusal lists the "
-            "candidates."
+            "candidates. Mutually exclusive with --pipeline."
+        ),
+    )
+    pipeline: str | None = Field(
+        default=None,
+        description=(
+            "name a pipeline document instead of the built-in four stages (a project-local "
+            "document or an installed pack's own contribution — the same set `weft pipeline "
+            "show` resolves against). Every stage's plugin and its own 'with:' "
+            "configuration come from the document; [services] embed/store are not read for "
+            "this run. Mutually exclusive with --extract (ledger task 4.0)."
         ),
     )
 
@@ -342,7 +382,18 @@ class PluginsDoctorCommandResult(CommandResult):
 
 
 class IndexCommand:
-    """`weft index` — see the module docstring for what moved and what did not."""
+    """`weft index` — see the module docstring for what moved and what did not.
+
+    **Task 4.0.** `--pipeline` resolves a document through `weft_cli.ingest.run_index`'s own
+    new `pipeline` parameter, exactly the way `AskCommand._run_generating` already resolves
+    `--pipeline` for a query. `INDEX_DISTRIBUTIONS`/`[services] embed`/`[services] store` are
+    the default four-stage path's own promises — a named document may need none of those
+    three distributions and reads no `[services]` value at all (the module docstring's *"Q3,
+    settled"*), so this command checks neither when `--pipeline` is given; `run_index` raises
+    its own `weft_kernel.runner.PipelineResolutionError` family member for whatever the
+    document itself gets wrong, the same family `_raise_for_plugin_refusal` maps the default
+    path's own refusals into.
+    """
 
     args_model: ClassVar[type[BaseModel]] = IndexArgs
     result_model: ClassVar[type[CommandResult]] = IndexCommandResult
@@ -355,41 +406,52 @@ class IndexCommand:
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
         index_args = cast(IndexArgs, args)  # `args_model` is the isinstance contract
         deps = ctx.require(Dependencies)
-        active_refusal = require_active(deps.reports, distributions=INDEX_DISTRIBUTIONS)
-        if active_refusal is not None:
-            # `require_active` never resolves `weft_kernel.registry.UnknownPluginError` — it
-            # checks a fixed distribution list, not a plugin name — so it has no `valid_options`
-            # to lose in the first place; see `weft_cli.registry_bootstrap.require_active`'s own
-            # docstring for why it structurally cannot be the gate `require_plugin` below is.
-            code, message = active_refusal
-            raise CommandRefusalError(message, exit_code=code)
 
-        plugin_refusal: PluginRefusal | None = None
-        if index_args.extract is not None:
-            plugin_refusal = require_plugin(
-                deps.reports,
-                registry=deps.registry,
-                contract=Extractor,
-                name=index_args.extract,
-                setting="--extract",
+        if index_args.pipeline is not None and index_args.extract is not None:
+            raise ConflictingIndexModeError(
+                "--extract and --pipeline cannot both be given: --extract narrows the "
+                "default four-stage path's own auto-discovery to one named extractor; "
+                "--pipeline names a whole document whose own 'extract' stage already names "
+                "its plugin. Choose one."
             )
-        if plugin_refusal is None:
-            plugin_refusal = require_plugin(
-                deps.reports,
-                registry=deps.registry,
-                contract=Embedder,
-                name=deps.services.embed,
-                setting="[services] embed",
-            )
-        if plugin_refusal is None:
-            plugin_refusal = require_plugin(
-                deps.reports,
-                registry=deps.registry,
-                contract=NodeStore,
-                name=deps.services.store,
-                setting="[services] store",
-            )
-        _raise_for_plugin_refusal(plugin_refusal)
+
+        if index_args.pipeline is None:
+            active_refusal = require_active(deps.reports, distributions=INDEX_DISTRIBUTIONS)
+            if active_refusal is not None:
+                # `require_active` never resolves `weft_kernel.registry.UnknownPluginError` —
+                # it checks a fixed distribution list, not a plugin name — so it has no
+                # `valid_options` to lose in the first place; see `weft_cli.registry_bootstrap.
+                # require_active`'s own docstring for why it structurally cannot be the gate
+                # `require_plugin` below is.
+                code, message = active_refusal
+                raise CommandRefusalError(message, exit_code=code)
+
+            plugin_refusal: PluginRefusal | None = None
+            if index_args.extract is not None:
+                plugin_refusal = require_plugin(
+                    deps.reports,
+                    registry=deps.registry,
+                    contract=Extractor,
+                    name=index_args.extract,
+                    setting="--extract",
+                )
+            if plugin_refusal is None:
+                plugin_refusal = require_plugin(
+                    deps.reports,
+                    registry=deps.registry,
+                    contract=Embedder,
+                    name=deps.services.embed,
+                    setting="[services] embed",
+                )
+            if plugin_refusal is None:
+                plugin_refusal = require_plugin(
+                    deps.reports,
+                    registry=deps.registry,
+                    contract=NodeStore,
+                    name=deps.services.store,
+                    setting="[services] store",
+                )
+            _raise_for_plugin_refusal(plugin_refusal)
 
         result = await run_index(
             Path(index_args.path),
@@ -398,6 +460,8 @@ class IndexCommand:
             extractor=index_args.extract,
             embedder=deps.services.embed,
             store=deps.services.store,
+            pipeline=index_args.pipeline,
+            reports=deps.reports,
         )
         return Produced(
             value=IndexCommandResult(summary=result.summary, stored_count=result.stored_count)
@@ -670,7 +734,9 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     unchanged), composed from more than one function rather than one function growing
     without bound. Task **3.11** removes `route`: `AskCommand` now does what it did, so a
     second registered name for the same behaviour would be exactly the "two commands, know
-    which one" surface this task closes.
+    which one" surface this task closes. Task **4.6** adds `register_eval_commands` beside them
+    — `eval run`/`eval compare`/`trace`, `weft_cli.eval_commands`'s own three — on the identical
+    "compose from more than one function" footing, not a fourth entry point.
     """
     del settings
     registrar.add(Command, "index", IndexCommand)
@@ -680,6 +746,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(Command, "init", InitCommand)
     register_pipeline_commands(registrar)
     register_config_commands(registrar)
+    register_eval_commands(registrar)
 
 
 __all__ = [
@@ -688,6 +755,7 @@ __all__ = [
     "AskCommandResult",
     "CommandRefusalError",
     "ConflictingAskModeError",
+    "ConflictingIndexModeError",
     "IndexArgs",
     "IndexCommand",
     "IndexCommandResult",

@@ -21,11 +21,13 @@ machinery above — not a fake standing in for `weft_llm.client.LLMClient`.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from pathlib import Path
 
 import pytest
+import yaml
 
 from weft_cli.llm_roles import LLMSection
-from weft_cli.route_ask import NoRouterPipelineError, run_routed_ask
+from weft_cli.route_ask import NoRouterPipelineError, run_named_ask, run_routed_ask
 from weft_cli.services import ServiceSelection
 from weft_embed import Embedder
 from weft_embed.hash_embedder import HashEmbedder
@@ -230,3 +232,50 @@ async def test_run_routed_ask_raises_when_no_pack_contributed_a_router() -> None
             services=ServiceSelection(embed="fake-embed", store="fake-store"),
             sink=NullSink(),
         )
+
+
+async def test_run_named_ask_resolves_a_derived_pipeline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange — repair, task 4.6: `_run_pipeline` used to pass `resolve()` a one-entry
+    # `parents` mapping holding only the named pipeline itself, so a document's own
+    # `extends:` had no ancestor to find and every derived pipeline failed
+    # `UnknownParentPipelineError` outright — found by running `weft eval run` over a
+    # real `weft pipeline derive`d document. This is that defect's own regression test,
+    # one layer down: `base.yaml` plus a `derived.yaml` that only says `extends: base`,
+    # `weft pipeline derive`'s own minimal shape.
+    monkeypatch.chdir(tmp_path)
+    pipelines = tmp_path / "pipelines"
+    pipelines.mkdir()
+    base = {
+        "name": "base",
+        "stages": [
+            {"id": "retrieve", "use": "no-retrieval"},
+            {"id": "fuse", "use": "single-list"},
+            {"id": "pack", "use": "repack"},
+            {
+                "id": "generate",
+                "use": "cited-answer",
+                "with": {"when_no_evidence": "answer_from_memory"},
+            },
+        ],
+    }
+    (pipelines / "base.yaml").write_text(yaml.safe_dump(base, sort_keys=False))
+    (pipelines / "derived.yaml").write_text(
+        yaml.safe_dump({"name": "derived", "extends": "base"}, sort_keys=False)
+    )
+
+    # Act
+    answer = await run_named_ask(
+        "what happens if a store advertises no capability at all?",
+        pipeline_name="derived",
+        registry=_registry(),
+        reports=(),
+        ctx=_ctx(),
+        llm=_llm(),
+        services=ServiceSelection(embed="fake-embed", store="fake-store"),
+        sink=NullSink(),
+    )
+
+    # Assert
+    assert isinstance(answer, Answer)

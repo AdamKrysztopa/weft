@@ -38,7 +38,7 @@ progress but keeps the result" still has to hold.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import cast
 
@@ -51,6 +51,13 @@ from weft_cli.commands import (
     PluginsListCommandResult,
 )
 from weft_cli.config_commands import ConfigGetCommandResult, ConfigSetCommandResult
+from weft_cli.eval_commands import (
+    EvalCompareCommandResult,
+    EvalMetricsCommandResult,
+    EvalRunCommandResult,
+    MetricComparison,
+    TraceCommandResult,
+)
 from weft_cli.exit_codes import ExitCode, exit_code_for
 from weft_cli.output import AskFormat
 from weft_cli.pipeline_commands import (
@@ -60,8 +67,10 @@ from weft_cli.pipeline_commands import (
     PipelineShowCommandResult,
     PipelineValidateCommandResult,
 )
+from weft_cli.pipeline_diff import PipelineDiff
 from weft_cli.plugins_report import render_doctor, render_list
 from weft_command.contract import CommandResult
+from weft_eval.run_record import MetricRunResult
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import NothingToProduce, Outcome, Produced
 
@@ -179,6 +188,13 @@ _RENDERERS: tuple[tuple[type[CommandResult], Callable[[CommandResult], Rendered]
     ),
     (ConfigGetCommandResult, lambda r: _render_config_get(cast(ConfigGetCommandResult, r))),
     (ConfigSetCommandResult, lambda r: _render_config_set(cast(ConfigSetCommandResult, r))),
+    (EvalRunCommandResult, lambda r: _render_eval_run(cast(EvalRunCommandResult, r))),
+    (EvalCompareCommandResult, lambda r: _render_eval_compare(cast(EvalCompareCommandResult, r))),
+    (TraceCommandResult, lambda r: _render_trace(cast(TraceCommandResult, r))),
+    (
+        EvalMetricsCommandResult,
+        lambda r: _render_eval_metrics(cast(EvalMetricsCommandResult, r)),
+    ),
 )
 
 
@@ -298,15 +314,13 @@ def _render_pipeline_derive(result: PipelineDeriveCommandResult) -> Rendered:
     return Rendered(stdout=stdout, stderr=None, exit_code=ExitCode.SUCCESS)
 
 
-def _render_pipeline_diff(result: PipelineDiffCommandResult) -> Rendered:
-    """`weft pipeline diff` — the diff itself is proven exact by `weft_cli.pipeline_diff.
-    diff_resolved` (structural comparison of two resolved values, never rendered text);
-    this function only turns that already-exact answer into lines for a human.
+def _pipeline_diff_lines(diff: PipelineDiff) -> list[str]:
+    """The lines `weft pipeline diff` and `weft eval compare` both print for one `PipelineDiff`
+    — task **4.6** pulls this out of `_render_pipeline_diff` so `_render_eval_compare` reuses
+    the identical formatting rather than a second, independently-drifting copy of it.
     """
-    diff = result.diff
     if diff.identical:
-        stdout = f"'{diff.a_name}' and '{diff.b_name}' resolve identically."
-        return Rendered(stdout=stdout, stderr=None, exit_code=ExitCode.SUCCESS)
+        return [f"'{diff.a_name}' and '{diff.b_name}' resolve identically."]
 
     lines = [f"'{diff.a_name}' vs '{diff.b_name}':"]
     lines.extend(f"  + {stage.id} ({stage.contract}:{stage.use})" for stage in diff.added_stages)
@@ -319,7 +333,16 @@ def _render_pipeline_diff(result: PipelineDiffCommandResult) -> Rendered:
         lines.append("  unapplied operators differ")
     if diff.unplaced_contributions_changed:
         lines.append("  unplaced contributions differ")
-    return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
+    return lines
+
+
+def _render_pipeline_diff(result: PipelineDiffCommandResult) -> Rendered:
+    """`weft pipeline diff` — the diff itself is proven exact by `weft_cli.pipeline_diff.
+    diff_resolved` (structural comparison of two resolved values, never rendered text);
+    this function only turns that already-exact answer into lines for a human.
+    """
+    stdout = "\n".join(_pipeline_diff_lines(result.diff))
+    return Rendered(stdout=stdout, stderr=None, exit_code=ExitCode.SUCCESS)
 
 
 def _render_config_get(result: ConfigGetCommandResult) -> Rendered:
@@ -329,4 +352,117 @@ def _render_config_get(result: ConfigGetCommandResult) -> Rendered:
         if result.show_origin:
             line += f"  (origin: {entry.origin.value})"
         lines.append(line)
+    return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
+
+
+def _render_eval_run(result: EvalRunCommandResult) -> Rendered:
+    """`weft eval run` — the run id first, since that is what `weft eval compare`/`weft trace`
+    need next, then `weft_cli.render._render_index`'s own summary line, then the corpus this
+    record now carries, then task 4.7's own wall-clock measurement — V5's half of a priced run
+    an operator can see without opening the persisted file.
+    """
+    summary = result.summary
+    stored = "unknown" if result.stored_count is None else str(result.stored_count)
+    corpus = result.record.corpus
+    stdout = (
+        f"run {result.run_id} persisted ({result.path} -> pipeline "
+        f"'{result.record.resolved_pipeline.name}'). produced {summary.produced}, nothing to "
+        f"produce {summary.nothing_to_produce}, failed {summary.failed}. nodes now stored: "
+        f"{stored}. corpus: '{corpus.name}' ({corpus.digest[:12]}…). "
+        f"wall clock: {result.wall_clock_seconds:.2f}s."
+    )
+    stderr = (
+        "\n".join(f"  failed: {reason}" for reason in summary.failed_reasons)
+        if summary.failed_reasons
+        else None
+    )
+    exit_code = ExitCode.SUCCESS if summary.failed == 0 else ExitCode.OPERATION_FAILED
+    return Rendered(stdout=stdout, stderr=stderr, exit_code=exit_code)
+
+
+def _metric_result_text(result: MetricRunResult) -> str:
+    """One `weft_eval.run_record.MetricRunResult`, for a human — a mean with its own dispersion
+    and sample count if the metric was scored, or the honest reason it was not, task 4.9's own
+    "never a bare mean, and never silence for an unmeasured metric" pair of rules.
+    """
+    if isinstance(result, Produced):
+        aggregate = result.value
+        stdev = f"±{aggregate.stdev:.3f}" if aggregate.stdev is not None else "±n/a"
+        excluded = f", excluded {aggregate.excluded}" if aggregate.excluded else ""
+        return f"{aggregate.mean:.3f} (n={aggregate.n}, {stdev}{excluded})"
+    return f"not produced ({result.reason})"
+
+
+def _metrics_comparison_lines(comparison: Mapping[str, MetricComparison]) -> list[str]:
+    """One line per metric name either compared run carries — `weft eval compare`'s own
+    per-metric half, task 4.9. A metric both runs scored also gets a signed delta, computed
+    here rather than stored, since `MetricComparison` carries the two aggregates, not their
+    difference (`02` §1: derive, do not duplicate).
+    """
+    if not comparison:
+        return ["metrics: (none scored on either run — 'weft eval run' was not given --questions)"]
+    lines = ["metrics:"]
+    for name, pair in comparison.items():
+        left = _metric_result_text(pair.a)
+        right = _metric_result_text(pair.b)
+        delta = ""
+        if isinstance(pair.a, Produced) and isinstance(pair.b, Produced):
+            delta = f"  Δ{pair.b.value.mean - pair.a.value.mean:+.3f}"
+        lines.append(f"  {name}: {left} vs {right}{delta}")
+    return lines
+
+
+def _render_eval_compare(result: EvalCompareCommandResult) -> Rendered:
+    """`weft eval compare` — reached only once `weft_cli.eval_commands.EvalCompareCommand`
+    has already confirmed corpus, model versions and active distributions all agree
+    (`IncomparableRunsError` otherwise), so this prints that confirmation, the pipeline diff
+    itself (reusing `_pipeline_diff_lines` rather than a second formatter), and — task 4.9 —
+    the per-metric comparison the tool generates itself: what the two pipelines *produced*,
+    not only how they resolve.
+    """
+    lines = [
+        f"'{result.run_a}' vs '{result.run_b}' — same corpus, model versions and active "
+        f"distributions; pipeline is the only fact that may differ:",
+        *_pipeline_diff_lines(result.pipeline_diff),
+        *_metrics_comparison_lines(result.metrics_comparison),
+    ]
+    return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
+
+
+def _render_trace(result: TraceCommandResult) -> Rendered:
+    """`weft trace` — every fact `weft_eval.run_record.RunRecord` carries, and nothing this
+    module invents on top of it (Q2, `weft_cli.eval_commands`'s own module docstring: this is
+    what the persisted record holds, never a stage-level replay nothing in this tree persists).
+    Task 4.9 widened the record by one field, `metrics`, so this widens by one block to match.
+    """
+    record = result.record
+    lines = [
+        f"run {result.run_id} — recorded {record.recorded_at}",
+        f"pipeline: {record.resolved_pipeline.name}",
+        f"corpus: '{record.corpus.name}' ({record.corpus.digest[:12]}…)",
+        f"model versions: {dict(record.model_versions) or '(none recorded)'}",
+        f"active distributions: {', '.join(record.active_distributions) or '(none)'}",
+    ]
+    if record.metrics:
+        lines.append("metrics:")
+        lines.extend(
+            f"  {name}: {_metric_result_text(metric_result)}"
+            for name, metric_result in sorted(record.metrics.items())
+        )
+    else:
+        lines.append("metrics: (none recorded — 'weft eval run' was not given --questions)")
+    return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
+
+
+def _render_eval_metrics(result: EvalMetricsCommandResult) -> Rendered:
+    """`weft eval metrics [<name>]` — task 4.7, V5's "the offline subset must be identifiable
+    as a subset". A metric that cannot run never reaches this renderer at all — `weft_eval.
+    offline.require_gate_safe` raises before `EvalMetricsCommandResult` is ever constructed —
+    so every line printed here names a metric that genuinely runs with no credentials and no
+    network, or is honestly listed as one that does not.
+    """
+    lines = [
+        f"runs in the gate (no credentials, no network): {', '.join(result.gate_safe) or '(none)'}",
+        f"does not run in the gate: {', '.join(result.gate_unsafe) or '(none)'}",
+    ]
     return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)

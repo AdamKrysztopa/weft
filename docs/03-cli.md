@@ -85,8 +85,15 @@ weft index <path>              run an ingestion pipeline over a source
 weft ask <question>            query, streaming the answer with citations
 weft pipeline list|show|derive|validate|diff
 weft plugins list|info|doctor
-weft eval run|compare
-weft trace [<run-id>]          replay what a run actually did
+weft eval run <path> <pipeline> [--questions <file>] [--top-k <n>]
+                                    run a pipeline over a corpus, persist a run record; with
+                                    --questions, also retrieve and score the gate-safe metric
+                                    subset, folded into the record
+weft eval compare <a> <b>          diff two persisted runs' pipelines and their per-metric
+                                    aggregates, refusing if anything but the pipeline differs
+weft eval metrics [--name <name>]  which registered metrics run in the deterministic gate
+                                    subset — no credentials, no network — or ask about one
+weft trace <run-id>            print what one persisted run recorded
 weft config get|set
 ```
 
@@ -219,6 +226,56 @@ they are visible.
 > holding G6's "`--quiet` suppresses progress but keeps the result." Threaded into
 > `weft_cli.render.render_outcome`'s new `streamed` keyword, read only by `_render_ask`.
 
+> **`weft eval run|compare` and `weft trace`, task 4.6 (2026-08-20) — and `weft trace
+> [<run-id>]` above is narrowed to `weft trace <run-id>`, argued rather than left to drift
+> silently from what shipped.** Q2 — *what does `weft trace` read: the persisted run record
+> task 4.4 built, or exported OTel spans?* — is settled: **the record.** `01` → *The kernel
+> boundary* fixes exporting a span as pack work, Phase 4 ships no exporter pack (task 4.5's
+> own finding: the seam already emits everything a future exporter would need, for free, the
+> instant one exists), and reading spans would mean shipping one as a second, unbudgeted
+> artefact. The cost of that answer is this promise: *"replay what a run actually did"* fits a
+> span-level replay — which stage, how long, why it failed — far better than it fits four
+> static facts, so it is narrowed rather than kept and quietly under-delivered: `weft trace`
+> prints exactly what `weft_eval.run_record.RunRecord` carries (resolved pipeline, corpus,
+> model versions, active distributions), nothing about per-stage timing or attribution.
+> `<run-id>` loses its brackets for a mechanical reason, not a design one: `weft_cli.
+> argparse_gen`'s own floor has no shape for an *optional* positional (a defaulted field
+> becomes a flag, never one), and a bare `weft trace` process has no session and no "last
+> run" the way the REPL's own `/trace` does to fall back to — see `weft_cli.eval_commands`'s
+> own module docstring for the argument in full.
+>
+> **`weft eval run <path> <pipeline>` makes `pipeline` a second required positional, never
+> `weft index`'s optional `--pipeline` flag** — a run record's `resolved_pipeline` field is
+> mandatory, and only a *named* document produces one (task 4.0's own reason to exist), so
+> there is no default to make it optional from. `weft eval compare <a> <b>` refuses outright,
+> naming which facts differ, when the two runs' corpus, model versions or active
+> distributions disagree — `09-release.md` §4's V3 failure clause ("a baseline from a
+> different corpus, pipeline or model version") enforced at the CLI seam, before a pipeline
+> diff is ever computed, rather than left for a reader to misattribute a number later.
+>
+> **Permission classes**: `eval run` is `write` (it indexes a corpus and writes a run
+> record — `docs/03-cli.md`'s own `write`-row example, "index into a new collection");
+> `eval compare`/`trace` are `read` (both only load files already on disk). Neither
+> `overwrite` nor `destroy` fits any of the three — a run id is a fresh `uuid4` every call,
+> so `eval run` has nothing an invocation could ever collide with to ask a TTY about, and
+> `eval compare`/`trace` write nothing at all — holding the same "no first-party command is
+> `overwrite`/`destroy`-class" property this document's own *Permissions* section already
+> records after the 2026-08-20 repair.
+>
+> **A repair found by running the binary, not by the 1,616 tests this task's own gate ran
+> green first.** `weft eval run corpus specific` — `specific` a `weft pipeline derive`d
+> child of `index` — failed `UnknownParentPipelineError` outright, unconditionally: `weft_cli.
+> ingest._specs_from_document` (task 4.0) and `weft_cli.route_ask._run_pipeline` (task 2.8)
+> both called `resolve()`/`contracts_for()` with `parents={document.name: document}` — a
+> one-entry mapping holding only the named document itself, with no ancestor for `extends:`
+> to find — rather than the full catalogue `weft_cli.pipeline_commands._resolved_or_refuse`
+> (task 3.7) already passes correctly. Neither task's own tests ever exercised `extends:`
+> through either path, so nothing caught it until a real corpus was run through a real
+> derived pipeline — precisely 4.9's own exit shape, and precisely why this task built one to
+> check. Fixed in both places, in this commit: `weft ask --pipeline <derived-name>` and
+> `weft index --pipeline <derived-name>` (already true before this task, silently broken)
+> resolve derived pipelines correctly now too, not only `weft eval run`.
+
 ## In-session commands
 
 Slash commands inside the REPL, matching the mental model of the CLI:
@@ -246,6 +303,10 @@ running the same command.
 > command surface. `/eval` has no owner yet: no `weft eval` command is registered anywhere in this
 > repository. Typing any of the five at the prompt names its own reason rather than doing nothing
 > or crashing — `weft_cli.repl`'s own module docstring carries the full list.
+>
+> **Corrected by task 4.6 (2026-08-20): `/eval` has an owner now, and this paragraph's own
+> last sentence stopped being true the moment it landed.** `weft eval run|compare` is
+> registered; see the blockquote at the end of this section for the resolution in full.
 
 > **Built in Phase 3 task 3.5 (2026-08-19), four more of the original eight, plus a ninth this
 > task adds.** `/pipeline [name]`, `/trace` and `/clear` are `weft_cli.session.SessionState` made
@@ -280,6 +341,51 @@ running the same command.
 > own pattern proven a second time.** `/config` with no argument is `config get` with no
 > `--key`; `/config <key>` forwards `<key>` as `--key`. It prints the *project's* effective
 > `weft.toml`, never the session's own state — `/session` above still owns that.
+
+> **`/eval`, task 4.6 — registered, and still deferred as a slash alias, for a different
+> reason than before.** `weft eval run`/`weft eval compare`/`weft trace` are registered
+> `Command`s now (`weft_cli.eval_commands`), and a bare, non-slash line already reaches them
+> inside this session — `eval run <path> <pipeline>`, `eval compare <a> <b>` and `trace
+> <run-id>` all resolve against the identical registry-driven grammar every other command
+> here does, with nothing in `weft_cli.repl` to change. What is still missing is the slash
+> **alias**: `/plugins` and `/config` each alias to one command with at most one bare
+> argument; `/eval` would have to multiplex between two verbs that each need two required
+> positional arguments of their own, which is genuinely more than either precedent's own
+> one-line `parser.parse_args([...])` call — named as a small, separable, still-unbuilt piece
+> of REPL-layer work rather than invented mid-task. Typing `/eval` at the prompt says exactly
+> this, not "not shipped" — `weft_cli.repl._DEFERRED_SLASH_COMMANDS["eval"]` carries the text.
+
+> **`weft eval metrics [--name <name>]`, task 4.7 (2026-08-20) — V5's "the offline subset must be
+> identifiable as a subset."** `read`-class, registered exactly like every other built-in: it
+> reads `weft_eval.offline.gate_subset` off the registry already built at process start and
+> renders which registered `GenerationMetric`/`RetrievalMetric` names run with no credentials,
+> no network and no model download, and which do not. Given `<name>`, it asks the narrower
+> question instead — `weft_eval.offline.require_gate_safe` — and **refuses**, naming why and
+> what would permit it, for a metric that cannot run there, rather than answering with an empty
+> or degraded result: `weft eval metrics --name faithfulness` against a project with no `[llm.roles]`
+> configured prints `'faithfulness' cannot run in the deterministic, gate-safe subset: needs a
+> real judge model behind '[llm.roles]' — the deterministic 'scripted' provider resolves the
+> service but cannot produce a usable structured judgement...` and exits `1`
+> (`weft_eval.offline.MetricNeedsCredentialsError`, `OPERATION_FAILED` — the metric name was
+> valid, so this is "something failed", never FF12's "fix what you typed"). `weft eval run`'s
+> own output also grew a line this task added: `wall clock: <seconds>s`, measured around the
+> real work `run_index` does, and its persisted record's `model_versions` is no longer always
+> `{}` — derived from each resolved stage's own `config`, generically, wherever a stage's plugin
+> declares a `model` field.
+>
+> **`weft eval run --questions <file> [--top-k <n>]`, task 4.9 (2026-08-20) — closes
+> `.phase4-design.md` §7's gap: a persisted `RunRecord` carried no metric scores, so `weft eval
+> compare` could only report that two runs' pipelines *differ*, never what they *produced*.**
+> `--questions` names a JSON file of `{"query": ..., "relevant_documents": [...]}` judgements;
+> given one, `weft eval run` retrieves for every question through the resolved pipeline's own
+> `Embedder`/`NodeStore` stages (never `[services]` — Q3, task 4.0, still holds for a named
+> pipeline) and scores the gate-safe `RetrievalMetric` subset over the result
+> (`weft_eval.harness.score_retrieval_gate_subset`), folding it into `RunRecord.metrics`. Omitted,
+> `metrics` stays `{}`, the same honesty `model_versions` had before task 4.7. `weft eval compare`
+> now also prints `metrics_comparison`: every metric name either run scored, paired side by side
+> with a signed delta when both runs scored it, and an honest "not measured for this run" on
+> whichever side did not — never silence, and never a fabricated number. `weft trace` grew a
+> matching `metrics:` block, since it prints exactly what the record carries.
 
 ## Plugin-contributed commands
 

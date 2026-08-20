@@ -1,149 +1,103 @@
 {
-  "recorded_at": "2026-08-17T16:59:54+00:00",
-  "corpus": {
-    "name": "mrmr-v1",
-    "corpus_id": "2e598efb95f0636b69b45ad557748ccba36c5379fd41dd38bab8529354334e5b",
-    "tiers": [
-      "fetch",
-      "operator"
-    ],
-    "documents": [
-      "ax-1304.7717v2",
-      "ax-1411.2331v1",
-      "ax-1606.02827v1",
-      "ax-1706.07535v1",
-      "ax-1903.01907v1",
-      "ax-1908.05376v1",
-      "ax-2208.09901v2",
-      "ax-2508.18901v1",
-      "ax-2510.00907v1",
-      "bouzgou-i-gueymard-2017-minimum-redundancy-maxim",
-      "ding-i-peng-2005-minimum-redundancy-feature-sele",
-      "lopez-paz-et-al-the-randomized-dependence-coeffi",
-      "oa-radovic-2017-bmc",
-      "pl-analiza-glownych-skladowych",
-      "pl-entropia-teoria-informacji",
-      "pl-entropia-warunkowa",
-      "pl-informacja-wzajemna",
-      "pl-las-losowy",
-      "pl-nadmierne-dopasowanie",
-      "pl-regresja-logistyczna",
-      "pl-sprawdzian-krzyzowy",
-      "pl-uczenie-maszynowe",
-      "ram-rez-gallego-et-al-2017-fast-mrmr-fast-minimu",
-      "senawi-et-al-2017-a-new-maximum-relevance-minimu",
-      "xie-et-al-2023-a-new-improved-maximal-relevance"
+  "recorded_at": "2026-08-20T14:10:58+00:00",
+  "corpus_name": "mrmr-v1",
+  "tiers": [
+    "fetch"
+  ],
+  "extractor": "text",
+  "documents": [
+    "pl-analiza-glownych-skladowych",
+    "pl-entropia-teoria-informacji",
+    "pl-entropia-warunkowa",
+    "pl-informacja-wzajemna",
+    "pl-las-losowy",
+    "pl-nadmierne-dopasowanie",
+    "pl-regresja-logistyczna",
+    "pl-sprawdzian-krzyzowy",
+    "pl-uczenie-maszynowe"
+  ],
+  "reproducible": true,
+  "record": {
+    "recorded_at": "2026-08-20T14:09:47.654368+00:00",
+    "resolved_pipeline": {
+      "name": "baseline",
+      "vars": {},
+      "stages": [
+        {
+          "id": "extract",
+          "contract": "Extractor",
+          "contract_version": "1.0.0",
+          "use": "text",
+          "config": {},
+          "fallback": [],
+          "applies_to": [],
+          "distribution": "weft-extract",
+          "provenance": "baseline"
+        },
+        {
+          "id": "chunk",
+          "contract": "Chunker",
+          "contract_version": "1.0.0",
+          "use": "fixed-size",
+          "config": {
+            "size": 512,
+            "overlap": 50
+          },
+          "fallback": [],
+          "applies_to": [],
+          "distribution": "weft-chunk",
+          "provenance": "baseline"
+        },
+        {
+          "id": "embed",
+          "contract": "Embedder",
+          "contract_version": "1.0.0",
+          "use": "hash",
+          "config": {},
+          "fallback": [],
+          "applies_to": [],
+          "distribution": "weft-embed",
+          "provenance": "baseline"
+        },
+        {
+          "id": "store",
+          "contract": "NodeStore",
+          "contract_version": "1.2.0",
+          "use": "qdrant",
+          "config": {},
+          "fallback": [],
+          "applies_to": [],
+          "distribution": "weft-qdrant",
+          "provenance": "baseline"
+        }
+      ],
+      "unapplied_operators": [],
+      "unplaced_contributions": []
+    },
+    "corpus": {
+      "name": "mrmr-v1",
+      "digest": "8854c33f71eaaf6ac3fc85faad78e21e4ee13fe11155feed10f438cb87d980f9"
+    },
+    "model_versions": {},
+    "active_distributions": [
+      "weft-canary",
+      "weft-chunk",
+      "weft-clean",
+      "weft-cli",
+      "weft-embed",
+      "weft-enhance",
+      "weft-eval",
+      "weft-extract",
+      "weft-generate",
+      "weft-index",
+      "weft-llm",
+      "weft-openai",
+      "weft-pdf",
+      "weft-qdrant",
+      "weft-retrieve"
     ]
   },
-  "reproducible": false,
   "questions": [
-    "fetch-001",
-    "fetch-002",
-    "fetch-003",
-    "fetch-004",
-    "fetch-005",
-    "fetch-006",
-    "fetch-007",
-    "fetch-008",
-    "fetch-009",
-    "fetch-010",
-    "fetch-011",
-    "fetch-012",
-    "fetch-013",
-    "fetch-014",
-    "fetch-015",
-    "fetch-016",
-    "fetch-017",
-    "fetch-018",
-    "fetch-019",
-    "fetch-020",
-    "fetch-021",
-    "fetch-022",
-    "fetch-023",
-    "fetch-024",
-    "fetch-025",
-    "fetch-026",
-    "fetch-027",
-    "fetch-028",
-    "fetch-029",
-    "fetch-030",
-    "fetch-031",
-    "fetch-032",
-    "fetch-033",
-    "fetch-034",
-    "fetch-035",
-    "fetch-036",
-    "fetch-037",
-    "fetch-038",
-    "fetch-039",
-    "fetch-040",
-    "fetch-041",
-    "fetch-042",
-    "fetch-043",
-    "fetch-044",
-    "fetch-045",
-    "fetch-046",
-    "fetch-047",
-    "fetch-048",
-    "fetch-049",
-    "fetch-050",
-    "fetch-051",
-    "fetch-052",
-    "fetch-053",
-    "fetch-054",
-    "operator-001",
-    "operator-002",
-    "operator-003",
-    "operator-004",
-    "operator-005",
-    "operator-006",
-    "operator-007",
-    "operator-008",
-    "operator-009",
-    "operator-010",
-    "operator-011",
-    "operator-012",
-    "operator-013",
-    "operator-014",
-    "operator-015",
-    "operator-016",
-    "operator-017",
-    "operator-018",
-    "operator-019",
-    "operator-020",
-    "operator-021",
-    "operator-022",
-    "operator-023",
-    "operator-024",
-    "operator-025",
-    "operator-026",
-    "operator-027",
-    "operator-028",
-    "operator-029",
-    "operator-030",
-    "operator-031",
-    "operator-032",
-    "operator-033",
-    "operator-034",
-    "operator-035",
-    "operator-036",
-    "operator-037",
-    "operator-038",
-    "operator-039",
-    "operator-040",
-    "operator-041",
-    "operator-042",
-    "operator-043",
-    "operator-044",
-    "operator-045",
-    "operator-046",
-    "operator-047",
-    "operator-048",
-    "operator-049",
-    "operator-050",
-    "operator-051",
-    "operator-052",
-    "operator-053",
     "polish-001",
     "polish-002",
     "polish-003",
@@ -176,274 +130,174 @@
   ],
   "repeats": 3,
   "retrieval_depth": 10,
-  "pipeline": [
-    {
-      "stage": "extract",
-      "plugin": ".md=text,.pdf=pdf-text,.txt=text",
-      "settings": {}
-    },
-    {
-      "stage": "chunk",
-      "plugin": "fixed-size",
-      "settings": {
-        "size": "512",
-        "overlap": "50"
-      }
-    },
-    {
-      "stage": "embed",
-      "plugin": "openai",
-      "settings": {}
-    },
-    {
-      "stage": "store",
-      "plugin": "qdrant",
-      "settings": {
-        "collection": "weft_baseline_2e598efb95f0"
-      }
-    },
-    {
-      "stage": "search",
-      "plugin": "vector-top-k",
-      "settings": {
-        "top_k": "10"
-      }
-    }
-  ],
-  "pipeline_sha256": "ef5792086c9083dd87bdcfdc7847236a03f8bbfa3c05af436be32bb90abd7611",
-  "models": {
-    "embed": "openai:text-embedding-3-small"
-  },
-  "distributions": [
-    {
-      "name": "weft-canary",
-      "version": "0.0.0",
-      "status": "active"
-    },
-    {
-      "name": "weft-chunk",
-      "version": "0.0.0",
-      "status": "active"
-    },
-    {
-      "name": "weft-clean",
-      "version": "0.0.0",
-      "status": "active"
-    },
-    {
-      "name": "weft-embed",
-      "version": "0.0.0",
-      "status": "active"
-    },
-    {
-      "name": "weft-enhance",
-      "version": "0.0.0",
-      "status": "active"
-    },
-    {
-      "name": "weft-extract",
-      "version": "0.0.0",
-      "status": "active"
-    },
-    {
-      "name": "weft-llm",
-      "version": "0.0.0",
-      "status": "active"
-    },
-    {
-      "name": "weft-openai",
-      "version": "0.0.0",
-      "status": "active"
-    },
-    {
-      "name": "weft-pdf",
-      "version": "0.0.0",
-      "status": "active"
-    },
-    {
-      "name": "weft-qdrant",
-      "version": "0.0.0",
-      "status": "active"
-    },
-    {
-      "name": "weft-retrieve",
-      "version": "0.0.0",
-      "status": "active"
-    },
-    {
-      "name": "weft-store",
-      "version": "0.0.0",
-      "status": "failed"
-    }
-  ],
-  "wall_clock_seconds": 446.961,
+  "wall_clock_seconds": 72.118,
   "metrics": [
     {
       "metric": "document-mrr@10",
       "depth": 10,
       "values": [
-        0.834873949579832,
-        0.834873949579832,
-        0.834873949579832
+        0.26875,
+        0.26875,
+        0.26875
       ],
-      "mean": 0.834873949579832,
-      "low": 0.834873949579832,
-      "high": 0.834873949579832,
-      "n_scored": 357,
+      "mean": 0.26875,
+      "low": 0.26875,
+      "high": 0.26875,
+      "n_scored": 36,
       "n_excluded": 51
     },
     {
       "metric": "document-mrr@5",
       "depth": 5,
       "values": [
-        0.834873949579832,
-        0.834873949579832,
-        0.834873949579832
+        0.25,
+        0.25,
+        0.25
       ],
-      "mean": 0.834873949579832,
-      "low": 0.834873949579832,
-      "high": 0.834873949579832,
-      "n_scored": 357,
+      "mean": 0.25,
+      "low": 0.25,
+      "high": 0.25,
+      "n_scored": 36,
       "n_excluded": 51
     },
     {
       "metric": "document-ndcg@10",
       "depth": 10,
       "values": [
-        0.841241003330001,
-        0.841241003330001,
-        0.841241003330001
+        0.3275977762880931,
+        0.3275977762880931,
+        0.3275977762880931
       ],
-      "mean": 0.841241003330001,
-      "low": 0.841241003330001,
-      "high": 0.841241003330001,
-      "n_scored": 357,
+      "mean": 0.3275977762880931,
+      "low": 0.3275977762880931,
+      "high": 0.3275977762880931,
+      "n_scored": 36,
       "n_excluded": 51
     },
     {
       "metric": "document-ndcg@5",
       "depth": 5,
       "values": [
-        0.8585154976691465,
-        0.8585154976691465,
-        0.8585154976691465
+        0.2819344072873667,
+        0.2819344072873667,
+        0.2819344072873667
       ],
-      "mean": 0.8585154976691465,
-      "low": 0.8585154976691465,
-      "high": 0.8585154976691465,
-      "n_scored": 357,
+      "mean": 0.2819344072873667,
+      "low": 0.2819344072873667,
+      "high": 0.2819344072873667,
+      "n_scored": 36,
       "n_excluded": 51
     },
     {
       "metric": "document-recall@10",
       "depth": 10,
       "values": [
-        0.9243697478991598,
-        0.9243697478991598,
-        0.9243697478991598
+        0.5416666666666666,
+        0.5416666666666666,
+        0.5416666666666666
       ],
-      "mean": 0.9243697478991598,
-      "low": 0.9243697478991598,
-      "high": 0.9243697478991598,
-      "n_scored": 357,
+      "mean": 0.5416666666666666,
+      "low": 0.5416666666666666,
+      "high": 0.5416666666666666,
+      "n_scored": 36,
       "n_excluded": 51
     },
     {
       "metric": "document-recall@5",
       "depth": 5,
       "values": [
-        0.9243697478991598,
-        0.9243697478991598,
-        0.9243697478991598
+        0.4166666666666667,
+        0.4166666666666667,
+        0.4166666666666667
       ],
-      "mean": 0.9243697478991598,
-      "low": 0.9243697478991598,
-      "high": 0.9243697478991598,
-      "n_scored": 357,
+      "mean": 0.4166666666666667,
+      "low": 0.4166666666666667,
+      "high": 0.4166666666666667,
+      "n_scored": 36,
       "n_excluded": 51
     },
     {
       "metric": "quote-mrr@10",
       "depth": 10,
       "values": [
-        0.44250700280112054,
-        0.44250700280112054,
-        0.44250700280112054
+        0.0,
+        0.0,
+        0.0
       ],
-      "mean": 0.44250700280112054,
-      "low": 0.44250700280112054,
-      "high": 0.44250700280112054,
-      "n_scored": 357,
+      "mean": 0.0,
+      "low": 0.0,
+      "high": 0.0,
+      "n_scored": 36,
       "n_excluded": 51
     },
     {
       "metric": "quote-mrr@5",
       "depth": 5,
       "values": [
-        0.43641456582633065,
-        0.43641456582633065,
-        0.43641456582633065
+        0.0,
+        0.0,
+        0.0
       ],
-      "mean": 0.43641456582633065,
-      "low": 0.43641456582633065,
-      "high": 0.43641456582633065,
-      "n_scored": 357,
+      "mean": 0.0,
+      "low": 0.0,
+      "high": 0.0,
+      "n_scored": 36,
       "n_excluded": 51
     },
     {
       "metric": "quote-ndcg@10",
       "depth": 10,
       "values": [
-        0.4794435947887426,
-        0.4794435947887426,
-        0.4794435947887426
+        0.0,
+        0.0,
+        0.0
       ],
-      "mean": 0.4794435947887426,
-      "low": 0.4794435947887426,
-      "high": 0.4794435947887426,
-      "n_scored": 357,
+      "mean": 0.0,
+      "low": 0.0,
+      "high": 0.0,
+      "n_scored": 36,
       "n_excluded": 51
     },
     {
       "metric": "quote-ndcg@5",
       "depth": 5,
       "values": [
-        0.46901055336162156,
-        0.46901055336162156,
-        0.46901055336162156
+        0.0,
+        0.0,
+        0.0
       ],
-      "mean": 0.46901055336162156,
-      "low": 0.46901055336162156,
-      "high": 0.46901055336162156,
-      "n_scored": 357,
+      "mean": 0.0,
+      "low": 0.0,
+      "high": 0.0,
+      "n_scored": 36,
       "n_excluded": 51
     },
     {
       "metric": "quote-recall@10",
       "depth": 10,
       "values": [
-        0.4369747899159664,
-        0.4369747899159664,
-        0.4369747899159664
+        0.0,
+        0.0,
+        0.0
       ],
-      "mean": 0.4369747899159664,
-      "low": 0.4369747899159664,
-      "high": 0.4369747899159664,
-      "n_scored": 357,
+      "mean": 0.0,
+      "low": 0.0,
+      "high": 0.0,
+      "n_scored": 36,
       "n_excluded": 51
     },
     {
       "metric": "quote-recall@5",
       "depth": 5,
       "values": [
-        0.36764705882352944,
-        0.36764705882352944,
-        0.36764705882352944
+        0.0,
+        0.0,
+        0.0
       ],
-      "mean": 0.36764705882352944,
-      "low": 0.36764705882352944,
-      "high": 0.36764705882352944,
-      "n_scored": 357,
+      "mean": 0.0,
+      "low": 0.0,
+      "high": 0.0,
+      "n_scored": 36,
       "n_excluded": 51
     }
   ],

@@ -1,61 +1,100 @@
-"""Prerequisite **V3** (`docs/09-release.md` §4.3) — measure the baseline, more than once.
+"""Prerequisite **V3** (`docs/09-release.md` §4.3) and **V6** — measure the baseline, more than
+once, and persist it as one of Phase 4's own runs.
 
-Hand-run. It indexes the corpus tiers it is given, asks every question they can score, repeats
-the whole pass, and writes one file per run under `eval/baselines/`. What makes the file worth
-having is the last part of V3's clause: *"each metric carries the interval its own repetitions
-produced"*, so a later run is judged against a tolerance this system measured about itself
-rather than against a number somebody chose.
+Hand-run. It indexes one corpus tier through one named pipeline, asks every question it can
+score, repeats the whole pass, and writes one file per run under `eval/baselines/`. What makes
+the file worth having is V3's own clause: *"each metric carries the interval its own repetitions
+produced"*, so a later run is judged against a tolerance this system measured about itself rather
+than a number somebody chose — and, since task **4.8**, V6's own clause: *"the baseline is one of
+Phase 4's persisted runs, carrying the resolved pipeline, corpus identity, model versions and the
+active distribution set."* `BaselineReport.record` **is** a `weft_eval.run_record.RunRecord`,
+the identical type `weft eval run`/`weft trace` read — not a second, harness-shaped copy of the
+same facts.
 
-**Two artefacts, never one.** A run over the `fetch` (and `gate`) tiers is **reproducible** —
-its documents are fetchable by a pinned, checksummed script, and Phase 6's exit is a stranger
-repeating the number. A run that includes the `operator` tier is **not**, because those papers
-are held under publisher copyright and cannot be obtained at any price; such a run is written
-with `reproducible: false` and every reader of the file is expected to carry the label with the
-number. `.phase2-findings.md` §15: reporting a figure over the whole set as though it were
-reproducible would be the reference's `gold_node_id_map` defect in a new costume. The flag is
-**derived from the manifest's tiers** (`Tier.reproducible`), never passed in.
+**One extractor per baseline, and that is a scope decision, not an oversight.** A resolved
+pipeline names exactly one stage registered under the `Extractor` contract (task 4.0's own
+design, `weft_cli.ingest._extractor_name_of`); `corpus/manifest.toml`'s `fetch` tier mixes PDFs
+(`arxiv/`) and text/markdown (`pl-wiki/`), which no single resolved pipeline can describe.
+Building multi-extractor pipeline resolution is not this task's to invent, so a published
+baseline instead names one extractor and the manifest documents that extractor actually claims —
+`EXTRACTOR_SUFFIXES` below. This *narrows* the corpus a single published baseline covers; it does
+not narrow what a baseline *could* cover — a second baseline over `pdf-text` is the identical
+recipe, one flag different, and nothing here stops one being taken later.
 
-**`weft` runs as a subprocess, and that is forced twice over.** Fitness function 7(a) permits
-exactly one `asyncio.run` in the tree, at the CLI's entry point, and the walk covers `eval/` —
-so an in-process harness fails the gate. It is also the better measurement: the baseline is
-taken through the exact surface a user has, with a real distribution set and a real process
-boundary, and no private path exists here to drift from the shipped one.
+**The published run record is built in this process, not read back from `weft eval run`.**
+`weft eval run` (task 4.6) is a real command and this harness could shell out to it, but its own
+`corpus_identity` call hashes `IndexResult.document_ids` — resolved *filesystem paths* under
+whatever directory a run happened to stage its corpus in — which is a fact about where a machine
+put the files, not about their bytes. Two byte-identical corpora staged under two different
+working directories (a stranger's checkout, say) would then be handed two different digests
+despite indexing the same documents, which would make a published baseline fail to reproduce for
+exactly the reason V6 exists to rule out. `weft_eval.run_record.corpus_identity`'s own docstring
+says it "does not care" what a document id is, only that the same set always produces the same
+digest — so this is a caller's choice, not a defect in that function, and this harness already
+had a content-derived identity for every document before this task: `corpus/manifest.toml`'s own
+sha256. `build_baseline_record` below resolves the pipeline document and discovers the active
+distribution set **synchronously, in this process** — resolving a document is data manipulation
+over already-parsed structures, never I/O, so it needs no second `asyncio.run` (fitness function
+7(a): `eval/` gets exactly zero) — and then calls `weft_eval.run_record.build_run_record`/
+`corpus_identity` directly, over the manifest's own document identities, so the published
+baseline's corpus digest is the *content* digest V3's own `corpus_id()` used to compute by hand,
+now built through the shared convention 4.4 published rather than a second copy of it.
+
+**`weft` still runs as a subprocess for the one thing that has to be a process: indexing and
+asking.** Fitness function 7(a) permits exactly one `asyncio.run` in the tree, at the CLI's entry
+point, and the walk covers `eval/` — so the actual pipeline execution stays out of process,
+through `weft index --pipeline <name>` and `weft ask --retrieve-only`, exactly as before. Only
+the *resolution* of what that invocation is about to do — a pure computation over the same
+`weft.toml` and pipeline document the subprocess reads — happens here, ahead of the subprocess
+call, so the record this harness writes describes what the next line actually runs.
 
 **What it measures, stated plainly, because a number whose scope is unclear is worse than
 none.** This is a **retrieval** baseline: single-vector top-k, no fusion, no rerank, no
 enhancement, which is exactly what V3 asks the baseline to be. It drives `weft ask
---retrieve-only`, deliberately — Phase 3 task 3.11 made `weft ask` route to a generated,
-cited answer by default, and that default cannot be this baseline's measurement even once a
-provider is configured: V5 (`docs/09-release.md` §4.3) requires a deterministic subset that
-runs in CI with no credentials and no network, and a `weft.toml` with no `[llm.roles]` table
-maps no role at all (`weft_llm.roles.LLMRoles`'s own "no silent default" clause), so routed
-generation refuses loudly rather than running. `--retrieve-only` is Phase 0's own contract,
-kept reachable through task 3.11 for exactly this caller — see `docs/build-ledger.md`'s 3.11
-entry. The generation-side number V3's neighbours will want — stance accuracy on the
-unanswerable subset — needs a generator and is not attempted here; those 17 questions are
-excluded by name and counted, never scored as zero.
+--retrieve-only`, deliberately — Phase 3 task 3.11 made `weft ask` route to a generated, cited
+answer by default, and that default cannot be this baseline's measurement even once a provider is
+configured: V5 (`docs/09-release.md` §4.3) requires a deterministic subset that runs in CI with
+no credentials and no network, and a `weft.toml` with no `[llm.roles]` table maps no role at all,
+so routed generation refuses loudly rather than running. `--retrieve-only` is Phase 0's own
+contract, kept reachable through task 3.11 for exactly this caller.
 
-**Configuration is written, not assumed.** The run writes the `weft.toml` it then runs against,
-into its own working directory, and records what it wrote. A baseline that depended on the
-operator's ambient configuration would be a number nobody else could reproduce even holding the
-same corpus — and `.phase2-findings.md` finding 9 requires swapping a parser to be exactly this:
-a configuration edit, visible in the file and recorded in the run.
+**The default embedder is `hash`, not a real semantic one — found by running the binary, not
+guessed at.** `weft-openai` registers its one client under the literal name `"openai"` for both
+`Embedder` and `LLMProvider` (`packages/weft-openai/src/weft_openai/__init__.py`); a pipeline
+*document*'s bare `use: openai` cannot say which contract it means, and `weft_cli.compile.
+contracts_for` — which must infer a stage's contract from the registry, since a document names no
+contract (G1) — refuses with `AmbiguousStageContractError` rather than guess. That module's own
+docstring already calls this an accepted cost with no remedy available to an operator ("the only
+remedy is a rename inside a distribution that is not theirs"), so this harness does not attempt
+one either. `[services] embed = "openai"` is unaffected — it supplies `Embedder` as the contract
+directly (`weft_cli.ingest.index_specs`) and never asks the registry to infer it — so the
+collision is specific to the *pipeline-document* path task 4.0 built, which is the one this
+baseline now has to use for V6's resolved pipeline. `hash` is the one `Embedder` registered under
+no other contract, so it is what a *document* can name today; it is also the deterministic,
+no-network, no-credential default this whole project treats as first-class (`weft_cli.services`'s
+own docstring), which makes the published baseline reproducible by a stranger with no vendor
+account at all — a stronger property than the openai-embedded baseline this harness used to take,
+not a weaker one, even though it is not a semantic embedding. `--embedder openai` still works for
+a caller who only wants `weft ask --retrieve-only`'s own reading of `[services]`, but cannot be
+combined with `--pipeline`'s resolved form until the name collision above has an owner.
+
+**Configuration is written, not assumed.** The run writes the `weft.toml` and the pipeline
+document it then runs against, into its own working directory, and records what it wrote. A
+baseline that depended on the operator's ambient configuration would be a number nobody else
+could reproduce even holding the same corpus.
 """
 
 from __future__ import annotations
 
 import argparse
-import hashlib
-import json
 import shutil
 import subprocess
 import sys
 import time
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
-from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-from typing import Final
+from typing import Final, cast
 
 from check_questions import Question, load_questions, reproducible_questions
 from metrics import (
@@ -70,9 +109,12 @@ from metrics import (
 )
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from weft_chunk import FixedSizeChunkerConfig
 from weft_cli.ask import AskResult
-from weft_openai.embedder import DEFAULT_MODEL
+from weft_cli.compile import contracts_for
+from weft_cli.pipeline_catalogue import full_catalogue
+from weft_cli.registry_bootstrap import build_dependencies
+from weft_eval.run_record import RunRecord, build_run_record, corpus_identity
+from weft_kernel.resolution import ResolvedPipeline, resolve
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
 
@@ -95,104 +137,74 @@ from fetch_corpus import (  # noqa: E402 — needs the line above to resolve
 #: Where a written run lands. Tracked — V3's artefact is a file, not terminal output.
 BASELINES_DIR: Final[Path] = REPO_ROOT / "eval" / "baselines"
 
-#: The native width of `text-embedding-3-small`, which a Qdrant collection has to be told
-#: before the first vector is written (`weft_qdrant.settings.QdrantSettings.vector_size`).
-#: Overridable, because naming a different model is a configuration edit and this width moves
-#: with it.
-DEFAULT_VECTOR_SIZE: Final[int] = 1536
+#: `weft_embed.hash_embedder`'s own default `dimension`, which a Qdrant collection has to be
+#: told before the first vector is written (`weft_qdrant.settings.QdrantSettings.vector_size`).
+#: Matches the `--embedder` default below (`hash`); override both together for a real one.
+DEFAULT_VECTOR_SIZE: Final[int] = 64
 
-#: Which registered `Extractor` reads each corpus format. **The same names
-#: `tests/docs/test_question_set.py` verified the quotes through** — a baseline indexed by one
-#: backend and ground-truthed against another scores every span as a miss and reports it as bad
-#: retrieval. Options rather than constants, per `.phase2-findings.md` finding 9.
-DEFAULT_EXTRACTORS: Final[Mapping[str, str]] = {".pdf": "pdf-text", ".txt": "text", ".md": "text"}
+#: Which suffixes each registered `Extractor` this harness knows how to name actually claims —
+#: see the module docstring's *"one extractor per baseline"* paragraph. A baseline picks one key
+#: of this mapping and the manifest documents it covers are exactly the ones whose suffix is in
+#: the matching value.
+EXTRACTOR_SUFFIXES: Final[Mapping[str, tuple[str, ...]]] = {
+    "text": (".md", ".txt"),
+    "pdf-text": (".pdf",),
+}
 
 #: Seconds one `weft` invocation may take before the run gives up on it and records the failure.
-#: Generous: a first `weft index` over 25 papers embeds every chunk through a vendor API.
 _INDEX_TIMEOUT_SECONDS: Final[int] = 3600
 _ASK_TIMEOUT_SECONDS: Final[int] = 180
+
+#: `weft_cli.render._render_eval_run`'s own opening words — unused here (this harness builds its
+#: own record rather than reading `weft eval run`'s, see the module docstring), kept only as a
+#: comment marking why `weft index` is called instead.
 
 
 class BaselineError(Exception):
     """The run cannot be taken as asked, and taking a different one silently would be worse."""
 
 
-class StageRecord(BaseModel):
-    """One stage of what actually ran, with the settings that decide what it produced."""
+class BaselineReport(BaseModel):
+    """One baseline: what was measured, over what, how many times, and the persisted run it
+    measured against.
 
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-    stage: str = Field(min_length=1)
-    plugin: str = Field(min_length=1)
-    settings: Mapping[str, str] = {}
-
-
-class DistributionRecord(BaseModel):
-    """An installed distribution and its version, as the environment that ran reported them."""
-
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-    name: str = Field(min_length=1)
-    version: str = Field(min_length=1)
-    status: str = Field(min_length=1)
-
-
-class CorpusRecord(BaseModel):
-    """Which corpus this is, in a form two runs can be compared by.
-
-    `corpus_id` is a digest over `(document id, sha256)` for every document in the declared
-    tiers, so two corpora with the same bytes have the same id however they are laid out, and
-    one document changing gives a different id — which is what makes V3's *"a baseline from a
-    different corpus"* a checkable fact rather than a promise.
-    """
-
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-    name: str = Field(min_length=1)
-    corpus_id: str = Field(min_length=1)
-    tiers: tuple[str, ...]
-    documents: tuple[str, ...]
-
-
-class BaselineRun(BaseModel):
-    """One baseline: what was measured, over what, how many times, and what it spanned.
-
-    Refuses fewer than two repetitions at construction, which is V3's own failure clause —
-    *"or the baseline was run once, in which case it records no interval and no later run can
-    be judged against it"* — enforced where the file is built, so the file cannot exist.
+    `record` is a real `weft_eval.run_record.RunRecord` — the same type `weft eval run`,
+    `weft eval compare` and `weft trace` all read — so a later `weft eval compare` between this
+    run and one taken through the shipped CLI is comparing two instances of one type, not two
+    shapes that happen to look similar. Refuses fewer than two repetitions at construction, which
+    is V3's own failure clause — *"or the baseline was run once, in which case it records no
+    interval and no later run can be judged against it"* — enforced where the file is built, so
+    the file cannot exist.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     recorded_at: str = Field(min_length=1)
-    corpus: CorpusRecord
+    #: The corpus name and manifest tiers this run selected — harness bookkeeping that sits
+    #: beside `record.corpus` rather than duplicating it: `record.corpus.digest` is the one
+    #: digest (`test_baseline_shape.py` recomputes it from `documents` below through the same
+    #: `weft_eval.run_record.corpus_identity` this harness calls), and `tiers`/`documents` are
+    #: what let a reader — and a gate test — say *which* manifest entries it is a digest of.
+    corpus_name: str = Field(min_length=1)
+    tiers: tuple[str, ...]
+    #: The one `Extractor` this baseline's pipeline named — see `EXTRACTOR_SUFFIXES`.
+    extractor: str = Field(min_length=1)
+    documents: tuple[str, ...]
     #: Derived from the tiers, never declared: false the moment an `operator` document is in.
     reproducible: bool
+    record: RunRecord
     questions: tuple[str, ...]
     repeats: int = Field(ge=2)
     #: What the store was asked for per question. Every `@k` metric's `k` is within it.
     retrieval_depth: int = Field(ge=1)
-    pipeline: tuple[StageRecord, ...]
-    #: sha256 over the pipeline record above — V3's *"a different pipeline"*, made checkable.
-    pipeline_sha256: str = Field(min_length=1)
-    models: Mapping[str, str]
-    distributions: tuple[DistributionRecord, ...]
     wall_clock_seconds: float = Field(ge=0.0)
     metrics: tuple[MetricRecord, ...]
-    #: Every measurement that produced no value, with the reason it produced none. Recorded once
-    #: here rather than on each metric, because the same question is excluded from all of them —
-    #: and the validator below is what stops that convenience becoming a count nothing backs.
+    #: Every measurement that produced no value, with the reason it produced none.
     excluded: tuple[Excluded, ...] = ()
 
     @model_validator(mode="after")
-    def _every_metrics_exclusions_are_the_ones_this_run_gave_reasons_for(self) -> BaselineRun:
-        """V4's *"aggregates... report how many were excluded"*, joined back to the reasons.
-
-        Uniform by construction today: a question carries judgements at both granularities or at
-        neither, and a failed `weft ask` takes every metric with it. If a metric ever excludes a
-        different set from the rest, this is the check that says so instead of a file quietly
-        reporting a count no list supports.
-        """
+    def _every_metrics_exclusions_are_the_ones_this_run_gave_reasons_for(self) -> BaselineReport:
+        """V4's *"aggregates... report how many were excluded"*, joined back to the reasons."""
         disagreeing = sorted(
             record.metric for record in self.metrics if record.n_excluded != len(self.excluded)
         )
@@ -208,38 +220,36 @@ class BaselineRun(BaseModel):
         return next((record for record in self.metrics if record.metric == name), None)
 
 
-def load_run(path: Path) -> BaselineRun:
+def load_run(path: Path) -> BaselineReport:
     """One written baseline, refused if anything in it disagrees with itself."""
-    return BaselineRun.model_validate_json(path.read_text(encoding="utf-8"))
-
-
-def corpus_id(documents: Iterable[Document]) -> str:
-    """The identity of a document set: a digest over each document's id and its own digest."""
-    lines = sorted(f"{document.id}\t{document.sha256}" for document in documents)
-    return hashlib.sha256("\n".join(lines).encode("utf-8")).hexdigest()
-
-
-def pipeline_digest(stages: Sequence[StageRecord]) -> str:
-    """A digest over the resolved stage list, so "a different pipeline" is a comparison."""
-    dumped = json.dumps([stage.model_dump() for stage in stages], sort_keys=True)
-    return hashlib.sha256(dumped.encode("utf-8")).hexdigest()
+    return BaselineReport.model_validate_json(path.read_text(encoding="utf-8"))
 
 
 def selected_documents(
-    tiers: Sequence[Tier],
+    tiers: Sequence[Tier], *, extractor: str
 ) -> tuple[str, tuple[Document, ...], tuple[Document, ...]]:
-    """The corpus name, the documents in `tiers`, and every document the manifest declares.
+    """The corpus name, the documents in `tiers` that `extractor` claims, and every manifest entry.
 
     All three, because the question subset is derived from the tier of *every* document a
-    question names — including the ones this run excludes, which is the whole mechanism that
-    keeps an operator-tier paper out of a published number. Refused unless every selected
-    document is on this machine and matches its digest: reference defect 7 by name, whose loader
-    caught a corrupt corpus file and skipped it, silently shrinking what the benchmark ran over.
+    question names — including the ones this run excludes, which is the mechanism that keeps an
+    operator-tier paper out of a published number. Refused unless every selected document is on
+    this machine and matches its digest: reference defect 7 by name, whose loader caught a corrupt
+    corpus file and skipped it, silently shrinking what the benchmark ran over.
     """
+    suffixes = EXTRACTOR_SUFFIXES.get(extractor)
+    if suffixes is None:
+        message = (
+            f"'{extractor}' names no extractor this harness knows how to stage a corpus for. "
+            f"A resolved pipeline names exactly one Extractor stage (task 4.0), so a published "
+            f"baseline picks one of {sorted(EXTRACTOR_SUFFIXES)} rather than mixing formats."
+        )
+        raise BaselineError(message)
     name, entries = load_manifest(MANIFEST)
-    wanted = tuple(entry for entry in entries if entry.tier in tiers)
+    wanted = tuple(
+        entry for entry in entries if entry.tier in tiers and entry.path.suffix in suffixes
+    )
     if not wanted:
-        message = f"no document in the manifest is in tier(s) {[tier.value for tier in tiers]}"
+        message = f"no document '{extractor}' claims is in tier(s) {[tier.value for tier in tiers]}"
         raise BaselineError(message)
     absent = tuple(entry for entry in wanted if verify_one(entry).status is not Status.OK)
     if absent:
@@ -260,14 +270,6 @@ def staged_path(document: Document, workdir: Path) -> Path:
     One function, because two things have to agree exactly: what `stage_corpus` copies, and what
     the scorer resolves a retrieved passage's source back to. A retrieved passage attributed to
     no document scores as a miss against every question, which reads as bad retrieval.
-
-    **One directory per document**, which is not tidiness. `weft index` hands everything it
-    finds under a directory to the runner as a single batch, and `weft-qdrant` writes a batch in
-    one request: sixteen papers at once came to more than Qdrant's 32 MiB request limit, which
-    it refuses with HTTP 400 — surfacing as `'store' failed:` with **no reason at all**, because
-    the driver's exception stringifies to nothing. Indexing a document at a time keeps every
-    write small; the empty reason is `weft-qdrant`'s to fix and is recorded, not worked around
-    silently.
     """
     return (
         workdir
@@ -297,9 +299,10 @@ def write_config(
 ) -> Path:
     """Write the `weft.toml` this run is measured through, and hand back its path.
 
-    Written rather than assumed: the run has to be reproducible by someone whose own project
-    configuration is different, and `weft.toml` is resolved relative to the working directory,
-    so a file here is the whole of what the subprocess sees.
+    `[services]` still names `embedder`/`store` — read by `weft ask --retrieve-only`, which does
+    not take `--pipeline` (it needs no resolved pipeline to persist) — while indexing itself goes
+    through the pipeline document `write_pipeline_document` writes beside this file, so both
+    commands name the identical plugins by two different, necessary routes.
     """
     workdir.mkdir(parents=True, exist_ok=True)
     config = workdir / "weft.toml"
@@ -320,38 +323,101 @@ def write_config(
     return config
 
 
-def index_corpus(
-    documents: Sequence[Document], *, workdir: Path, extractors: Mapping[str, str]
-) -> None:
-    """Run `weft index` once per staged document, through the extractor named for its format.
+def write_pipeline_document(
+    workdir: Path, *, name: str, extractor: str, embedder: str, store: str
+) -> Path:
+    """Write the project-local pipeline document `weft index --pipeline` and this harness's own
+    in-process resolution both read.
 
-    One invocation per document rather than one per format — see `staged_path` for the store
-    request limit that decides it. The extractor is named rather than left to be derived,
-    because two backends claim `.pdf` deliberately and the quotes this run is scored against
-    were verified through one of them.
+    A document, not `--extract`/`[services]` alone, because a `weft_kernel.resolution.
+    ResolvedPipeline` — V6's own required field — only exists for a *named* pipeline (task 4.0):
+    the default four-stage path builds its stages as Python constants and never calls `resolve`.
     """
-    for document in documents:
-        suffix = document.path.suffix
-        extractor = extractors.get(suffix)
-        if extractor is None:
-            message = (
-                f"no extractor named for {suffix!r}; the corpus holds a format this run was not "
-                f"told how to read. Known: {sorted(extractors)}"
-            )
-            raise BaselineError(message)
-        directory = staged_path(document, workdir).parent
-        completed = _weft(
-            ["index", str(directory), "--extract", extractor],
-            workdir=workdir,
-            timeout=_INDEX_TIMEOUT_SECONDS,
+    directory = workdir / "pipelines"
+    directory.mkdir(parents=True, exist_ok=True)
+    document = directory / f"{name}.yaml"
+    document.write_text(
+        "# Written by eval/run_baseline.py. Named so 'weft index --pipeline' resolves a real,\n"
+        "# persistable pipeline for this baseline rather than the default, unresolved path.\n"
+        f"name: {name}\n"
+        "stages:\n"
+        f"  - {{id: extract, use: {extractor}}}\n"
+        "  - {id: chunk, use: fixed-size}\n"
+        f"  - {{id: embed, use: {embedder}}}\n"
+        f"  - {{id: store, use: {store}}}\n",
+        encoding="utf-8",
+    )
+    return document
+
+
+def run_indexing(*, corpus_dir: Path, pipeline_name: str, workdir: Path) -> None:
+    """`weft index <corpus_dir> --pipeline <pipeline_name>`, once, over the whole staged corpus."""
+    completed = _weft(
+        ["index", str(corpus_dir), "--pipeline", pipeline_name],
+        workdir=workdir,
+        timeout=_INDEX_TIMEOUT_SECONDS,
+    )
+    if completed.returncode != 0:
+        message = (
+            f"`weft index {corpus_dir} --pipeline {pipeline_name}` exited "
+            f"{completed.returncode}: {completed.stderr.strip()[-500:]}"
         )
-        if completed.returncode != 0:
-            message = (
-                f"`weft index {directory} --extract {extractor}` exited "
-                f"{completed.returncode}: {completed.stderr.strip()[-500:]}"
-            )
-            raise BaselineError(message)
-        print(f"  indexed {document.id}: {completed.stdout.strip()}", file=sys.stderr)
+        raise BaselineError(message)
+    print(f"  indexed: {completed.stdout.strip()}", file=sys.stderr)
+
+
+def build_baseline_record(
+    *, corpus_name: str, pipeline_name: str, workdir: Path, documents: Sequence[Document]
+) -> RunRecord:
+    """The `RunRecord` `run_indexing` above just ran under — resolved and assembled in this
+    process. See the module docstring's *"the published run record is built in this process"*
+    paragraph for why this does not read `weft eval run`'s own persisted file.
+    """
+    deps = build_dependencies(workdir / "weft.toml")
+    catalogue = full_catalogue(directory=workdir / "pipelines", reports=deps.reports)
+    document = catalogue.get(pipeline_name)
+    if document is None:
+        message = (
+            f"'{pipeline_name}' is not under {workdir / 'pipelines'} — this harness just wrote "
+            f"it, so this is this module's own bug rather than an operator's. Known: "
+            f"{sorted(catalogue)}"
+        )
+        raise BaselineError(message)
+    contracts = contracts_for(document, registry=deps.registry, parents=catalogue)
+    resolved: ResolvedPipeline = resolve(
+        document, registry=deps.registry, contracts=contracts, parents=catalogue
+    )
+    identity = corpus_identity(corpus_name, (f"{doc.id}\t{doc.sha256}" for doc in documents))
+    return build_run_record(
+        recorded_at=datetime.now(UTC).isoformat(),
+        resolved_pipeline=resolved,
+        corpus=identity,
+        model_versions=_model_versions(resolved),
+        reports=deps.reports,
+    )
+
+
+def _model_versions(resolved_pipeline: ResolvedPipeline) -> dict[str, str]:
+    """Every stage whose own resolved config names a `model`, as `use:model`.
+
+    The same generic, no-hand-maintained-table idea task 4.7 built for `weft eval run`
+    (`weft_cli.eval_commands._model_versions`), re-derived here rather than imported: this
+    harness assembles its own `RunRecord` in-process instead of calling that command.
+    """
+    versions: dict[str, str] = {}
+    for stage in resolved_pipeline.stages:
+        config = stage.config
+        model: object | None
+        if isinstance(config, BaseModel):
+            model = getattr(config, "model", None)
+        elif isinstance(config, Mapping):
+            mapping = cast("Mapping[str, object]", config)
+            model = mapping.get("model")
+        else:
+            model = None
+        if isinstance(model, str):
+            versions[stage.id] = f"{stage.use}:{model}"
+    return versions
 
 
 def ask(question: Question, *, workdir: Path, top_k: int) -> AskResult | str:
@@ -433,31 +499,6 @@ def aggregate(
     return tuple(records)
 
 
-def active_distributions(workdir: Path) -> tuple[DistributionRecord, ...]:
-    """What `weft plugins list` reports, with each distribution's installed version.
-
-    Read through the shipped command rather than by importing the discovery machinery, for the
-    same reason the measurement is a subprocess: the set that mattered is the one the process
-    that answered the questions actually had.
-    """
-    completed = _weft(["plugins", "list"], workdir=workdir, timeout=_ASK_TIMEOUT_SECONDS)
-    if completed.returncode != 0:
-        message = f"`weft plugins list` exited {completed.returncode}: {completed.stderr.strip()}"
-        raise BaselineError(message)
-    records: list[DistributionRecord] = []
-    for line in completed.stdout.splitlines():
-        name, _, rest = line.partition(":")
-        status = rest.strip().split(" ", 1)[0]
-        if not name or not status:
-            continue
-        try:
-            installed = version(name.strip())
-        except PackageNotFoundError:
-            installed = "not-installed"
-        records.append(DistributionRecord(name=name.strip(), version=installed, status=status))
-    return tuple(records)
-
-
 def _weft(
     arguments: Sequence[str], *, workdir: Path, timeout: int
 ) -> subprocess.CompletedProcess[str]:
@@ -519,27 +560,34 @@ def build_parser() -> argparse.ArgumentParser:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument("--tiers", default=Tier.FETCH.value, help="corpus tiers, comma separated")
+    parser.add_argument(
+        "--extractor",
+        default="text",
+        choices=sorted(EXTRACTOR_SUFFIXES),
+        help="the one Extractor this baseline's pipeline names — see EXTRACTOR_SUFFIXES",
+    )
     parser.add_argument("--repeats", type=int, default=3, help="how many times to run the pass")
     parser.add_argument("--top-k", type=int, default=10, dest="top_k")
     parser.add_argument("--depths", default="5,10", help="the k's to report at, comma separated")
-    parser.add_argument("--embedder", default="openai", help="`[services] embed`")
+    parser.add_argument(
+        "--embedder",
+        default="hash",
+        help=(
+            "`[services] embed`, and the pipeline document's own 'embed' stage. Defaults to "
+            "'hash', not a real semantic embedder — see the module docstring's own paragraph "
+            "on `AmbiguousStageContractError`: `weft-openai` registers 'openai' under both "
+            "Embedder and LLMProvider, so no pipeline *document* can name it for an embed "
+            "stage today, only `[services] embed` (which supplies its own contract and never "
+            "hits this)."
+        ),
+    )
     parser.add_argument("--store", default="qdrant", help="`[services] store`")
     parser.add_argument("--vector-size", type=int, default=DEFAULT_VECTOR_SIZE, dest="vector_size")
-    parser.add_argument("--pdf-extractor", default=DEFAULT_EXTRACTORS[".pdf"], dest="pdf_extractor")
-    parser.add_argument(
-        "--text-extractor", default=DEFAULT_EXTRACTORS[".txt"], dest="text_extractor"
-    )
     parser.add_argument(
         "--workdir",
         type=Path,
         default=REPO_ROOT / ".baseline-run",
-        help="where the staged corpus and the written weft.toml live",
-    )
-    parser.add_argument(
-        "--reuse-index",
-        action="store_true",
-        dest="reuse_index",
-        help="skip indexing and ask against whatever is already in the collection",
+        help="where the staged corpus, the written weft.toml and the pipeline document live",
     )
     parser.add_argument("--out", type=Path, default=None, help="where to write the run")
     return parser
@@ -566,27 +614,42 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 def _run(args: argparse.Namespace) -> int:
     """The measurement itself, once the options are known to be coherent."""
+    started = time.monotonic()
     tiers = parse_tiers(args.tiers)
     depths = parse_depths(args.depths, top_k=args.top_k)
-    name, documents, declared = selected_documents(tiers)
-    identity = corpus_id(documents)
+    name, documents, declared = selected_documents(tiers, extractor=args.extractor)
     reproducible = all(tier.reproducible for tier in tiers)
 
     # The subset this run can score, derived from the manifest exactly as
     # `tests/docs/test_question_set.py` derives the published one: a question resting on a
     # document outside the selected tiers cannot be scored here, and which documents those are
     # is a fact about the corpus rather than anything written on a question.
-    questions = reproducible_questions(
-        load_questions(),
-        tiers={document.id: document.tier.value for document in declared},
-        reproducible=frozenset(tier.value for tier in tiers),
+    # `reproducible_questions` alone answers "which tier is this document in", not "was this
+    # document actually indexed" — a question whose ground truth names an arxiv PDF is still
+    # `fetch`-tier-reproducible even when this run's own `--extractor` only staged `pl-wiki`'s
+    # text/markdown. Scoring it anyway would credit or blame this pipeline for documents it was
+    # never given to index, which is exactly the "a number whose scope is unclear" failure the
+    # module docstring opens with — so this run additionally keeps only the questions whose
+    # ground truth rests entirely on documents this run's own corpus actually contains.
+    # Unanswerable questions name none and are unaffected, per `reproducible_questions`'s own
+    # docstring.
+    indexed_ids = frozenset(document.id for document in documents)
+    questions = tuple(
+        question
+        for question in reproducible_questions(
+            load_questions(),
+            tiers={document.id: document.tier.value for document in declared},
+            reproducible=frozenset(tier.value for tier in tiers),
+        )
+        if set(question.relevant_documents) <= indexed_ids
     )
     if not questions:
         message = f"no question can be scored from tier(s) {[tier.value for tier in tiers]}"
         raise BaselineError(message)
 
     workdir = Path(args.workdir).resolve()
-    collection = f"weft_baseline_{identity[:12]}"
+    identifier = "-".join(sorted(document.id for document in documents))[:12]
+    collection = f"weft_baseline_{args.extractor}_{identifier}"
     write_config(
         workdir,
         embedder=args.embedder,
@@ -594,18 +657,22 @@ def _run(args: argparse.Namespace) -> int:
         collection=collection,
         vector_size=args.vector_size,
     )
+    pipeline_name = "baseline"
+    write_pipeline_document(
+        workdir,
+        name=pipeline_name,
+        extractor=args.extractor,
+        embedder=args.embedder,
+        store=args.store,
+    )
     stage_corpus(documents, workdir)
-    extractors = {
-        ".pdf": args.pdf_extractor,
-        ".txt": args.text_extractor,
-        ".md": args.text_extractor,
-    }
     known = {str(staged_path(document, workdir)): document.id for document in documents}
 
-    started = time.monotonic()
-    if not args.reuse_index:
-        print(f"indexing {len(documents)} documents into {collection}", file=sys.stderr)
-        index_corpus(documents, workdir=workdir, extractors=extractors)
+    print(f"indexing {len(documents)} documents via '{pipeline_name}'", file=sys.stderr)
+    run_indexing(corpus_dir=workdir / "corpus", pipeline_name=pipeline_name, workdir=workdir)
+    record = build_baseline_record(
+        corpus_name=name, pipeline_name=pipeline_name, workdir=workdir, documents=documents
+    )
 
     per_repetition: list[Mapping[str, float]] = []
     scored_counts: list[int] = []
@@ -650,38 +717,26 @@ def _run(args: argparse.Namespace) -> int:
         per_repetition.append({metric: total / scored for metric, total in totals.items()})
         scored_counts.append(scored)
 
-    stages = _stage_records(
-        extractors=extractors,
-        embedder=args.embedder,
-        store=args.store,
-        collection=collection,
-        top_k=args.top_k,
-    )
-    run = BaselineRun(
+    report = BaselineReport(
         recorded_at=datetime.now(UTC).isoformat(timespec="seconds"),
-        corpus=CorpusRecord(
-            name=name,
-            corpus_id=identity,
-            tiers=tuple(tier.value for tier in tiers),
-            documents=tuple(sorted(document.id for document in documents)),
-        ),
+        corpus_name=name,
+        tiers=tuple(tier.value for tier in tiers),
+        extractor=args.extractor,
+        documents=tuple(sorted(document.id for document in documents)),
         reproducible=reproducible,
+        record=record,
         questions=tuple(sorted(question.id for question in questions)),
         repeats=args.repeats,
         retrieval_depth=args.top_k,
-        pipeline=stages,
-        pipeline_sha256=pipeline_digest(stages),
-        models={"embed": f"{args.embedder}:{DEFAULT_MODEL}"},
-        distributions=active_distributions(workdir),
         wall_clock_seconds=round(time.monotonic() - started, 3),
         metrics=aggregate(
             per_repetition, excluded=excluded, depths=depths, scored_counts=scored_counts
         ),
         excluded=tuple(excluded),
     )
-    out = Path(args.out) if args.out else _default_out(run)
+    out = Path(args.out) if args.out else _default_out(report)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(run.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    out.write_text(report.model_dump_json(indent=2) + "\n", encoding="utf-8")
     print(f"wrote {out}", file=sys.stderr)
     return 0
 
@@ -692,42 +747,11 @@ def _accumulate(totals: dict[str, float], scores: Scores) -> None:
         totals[metric] = totals.get(metric, 0.0) + value
 
 
-def _stage_records(
-    *,
-    extractors: Mapping[str, str],
-    embedder: str,
-    store: str,
-    collection: str,
-    top_k: int,
-) -> tuple[StageRecord, ...]:
-    """What ran, as the digest-able record of it.
-
-    The chunker's settings are read off the pack's own configuration model rather than retyped:
-    `weft index` resolves `fixed-size` with no `with:` block, so its defaults *are* what ran, and
-    a default that moves moves this record with it.
-    """
-    chunk = FixedSizeChunkerConfig()
-    return (
-        StageRecord(
-            stage="extract",
-            plugin=",".join(f"{suffix}={name}" for suffix, name in sorted(extractors.items())),
-        ),
-        StageRecord(
-            stage="chunk",
-            plugin="fixed-size",
-            settings={"size": str(chunk.size), "overlap": str(chunk.overlap)},
-        ),
-        StageRecord(stage="embed", plugin=embedder),
-        StageRecord(stage="store", plugin=store, settings={"collection": collection}),
-        StageRecord(stage="search", plugin="vector-top-k", settings={"top_k": str(top_k)}),
-    )
-
-
-def _default_out(run: BaselineRun) -> Path:
-    """`<corpus_id>-<date>.json`, with an unreproducible run saying so in its own name."""
-    day = run.recorded_at.split("T", 1)[0]
-    label = "" if run.reproducible else "-unreproducible"
-    return BASELINES_DIR / f"{run.corpus.corpus_id[:12]}-{day}{label}.json"
+def _default_out(report: BaselineReport) -> Path:
+    """`<corpus_digest>-<date>.json`, with an unreproducible run saying so in its own name."""
+    day = report.recorded_at.split("T", 1)[0]
+    label = "" if report.reproducible else "-unreproducible"
+    return BASELINES_DIR / f"{report.record.corpus.digest[:12]}-{day}{label}.json"
 
 
 if __name__ == "__main__":

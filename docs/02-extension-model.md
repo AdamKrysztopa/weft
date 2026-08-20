@@ -911,9 +911,14 @@ Two things run **always**, opted in or not, and they carry most of the practical
 
 - **The executed pack set is recorded on every run.** Not as a security feature: **Phase 4 requires it
   anyway.** `weft eval compare` across two pipelines is meaningless if the installed pack set differed
-  between them, and `weft trace` claims to replay what a run actually did. The record therefore has an
-  owner and a user outside security, which is what keeps it correct — and the trust model gets its
-  answer to *"what was in this process?"* for free.
+  between them, and `weft trace` prints it as one of the facts a persisted run carries. The record
+  therefore has an owner and a user outside security, which is what keeps it correct — and the trust
+  model gets its answer to *"what was in this process?"* for free.
+  > **Corrected by task 4.6 (2026-08-20):** this bullet previously said `weft trace` "claims to
+  > replay what a run actually did" — Phase 4 ships no exporter pack (`01` → *The kernel boundary*:
+  > exporting a span is a pack's job), so nothing here persists a stage-level trace to replay.
+  > `weft trace` reads task 4.4's own persisted run record instead — `docs/03-cli.md` → *Command
+  > surface* has the narrowed promise and the argument in full.
 - **`weft plugins doctor` flags packs that are not direct dependencies.** Deriving trust from the
   dependency graph was considered as the *mechanism* and rejected: installed metadata does not record
   which distributions a human named, `uv` knows and `pip` does not, and `uvx weft` has no project
@@ -1047,6 +1052,19 @@ stages:
 > is executed by a caller that hands the runner such a spec, which today means a test or a Python
 > caller; the `weft index` route arrives with that task. Everything below describes the mechanism as
 > built, not a path a document already takes.
+>
+> **Corrected, ledger task 4.0 (2026-08-20): the prediction above was wrong, and 2.29's own note is
+> the record of it.** 2.4 built the document-to-`StageSpec` bridge and 2.8 wired it into `weft ask`'s
+> routed default; neither one touched `weft index`, which kept naming its four stages in Python —
+> `[services] embed`/`[services] store` select a plugin and carry no configuration, so a stage's own
+> `with:` (this section's `size`/`overlap`, or an embedder's own model name) stayed unreachable from
+> a file for the ingest path specifically. Task **4.0** is what actually gives `weft index` a route:
+> `weft index <path> --pipeline <name>` resolves a document through the same bridge, so the
+> `fallback:` list in the example above now reaches `weft index`'s own stages exactly the way it
+> already reached `weft ask`'s — see `weft_cli.ingest`'s own module docstring and `manual/
+> operations-guide.md` → *Choosing an embedder* for the worked example. The default, no-`--pipeline`
+> path is unchanged: three of the four stages are still chosen at run time as this section already
+> describes, with no fallback and no `with:` reachable from `[services]` alone.
 >
 > **The three outcomes, and the author rule that makes them honest.** `Produced` stops the chain with
 > a success. `NothingToProduce` **also stops it** — this section's own sentence above, that a backend

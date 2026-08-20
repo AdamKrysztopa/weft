@@ -71,6 +71,22 @@ class Conversation(BaseModel):
     messages: tuple[Message, ...] = Field(min_length=1)
 
 
+class TokenUsage(BaseModel):
+    """How many tokens one completion actually cost — task **4.7**, V5's money half.
+
+    A price needs tokens in and out per call, and a per-model rate; this is the "per call"
+    half, carried on the `Completion` it describes rather than threaded back out of band. Two
+    fields, never a vendor's own richer usage object relayed verbatim — a caller pricing a run
+    needs exactly these two numbers, and a wider, vendor-shaped field would be `dict[str, Any]`
+    wearing a different hat, the shape CLAUDE.md already refuses.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    prompt_tokens: int = Field(ge=0)
+    completion_tokens: int = Field(ge=0)
+
+
 class Completion(BaseModel):
     """What a provider answered: the text, the model that actually produced it, and why it stopped.
 
@@ -78,6 +94,14 @@ class Completion(BaseModel):
     the exact string it was asked for (an alias, a version pin resolved server-side), and a
     caller comparing a `Completion` against `model="gpt-4o-mini"` should compare against
     what ran, not what was requested.
+
+    `usage` is `None` for a provider that made no real call and so has nothing to report —
+    `weft_llm.scripted.ScriptedProvider` answers this way honestly, the same way it marks its
+    own text `[scripted]` rather than pretending to be a real model — and populated by a real
+    vendor provider (`weft_openai.llm.OpenAILLMProvider`) from what the vendor's own response
+    reports. `weft_llm.stream` reports no usage either, for the identical reason it reports no
+    `finish_reason`: a streamed answer is read a piece at a time, never as one response object
+    a token count could be read off.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -89,6 +113,8 @@ class Completion(BaseModel):
     #: mapped onto a closed vocabulary nothing here can maintain honestly. `""` when the
     #: answer arrived over `stream`, which reports no reason — see `weft_llm.client`.
     finish_reason: str = ""
+    #: See the class docstring's own paragraph on `usage`.
+    usage: TokenUsage | None = None
 
 
 class Rendered(BaseModel):

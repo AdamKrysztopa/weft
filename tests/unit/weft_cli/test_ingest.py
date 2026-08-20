@@ -15,25 +15,40 @@ silently invisible and `weft index` reported success over zero documents. The
 stand-in extractors below therefore declare `extensions` the way a real plugin
 does, and the assertions are about what a *registered but unknown-to-this-file*
 plugin makes reachable.
+
+**Task 4.0's own tests are the `pipeline=` ones**, at the bottom of this file: a document's
+own `with:` block reaching a stage (the whole point — `weft_cli.ingest`'s module docstring
+carries the argument), a document with no `Extractor`-contract stage refusing by name
+(`PipelineMissingExtractStageError`), and a name the catalogue does not hold refusing by
+name (`weft_cli.pipeline_catalogue.UnknownPipelineNameError`, reused rather than
+duplicated). `weft_cli.pipeline_catalogue.full_catalogue` is stubbed rather than pointed at
+a real `pipelines/` directory — that lookup's own logic is `test_pipeline_catalogue.py`'s,
+not this file's.
 """
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 import pytest
+from pydantic import BaseModel, ConfigDict
 
 from weft_chunk import Chunker
+from weft_cli import ingest as ingest_module
 from weft_cli.ingest import (
     INDEX_DISTRIBUTIONS,
     AmbiguousExtractorError,
+    PipelineMissingExtractStageError,
     UnclaimedFormatError,
     index_specs,
     run_index,
 )
+from weft_cli.pipeline_catalogue import UnknownPipelineNameError
 from weft_embed import Embedder
 from weft_extract import Extractor
 from weft_kernel.context import Context
+from weft_kernel.errors import WeftError
 from weft_kernel.payload import Node, NothingToProduce, Outcome, Produced
+from weft_kernel.pipeline import Pipeline, StageDeclaration
 from weft_kernel.registry import Registry, UnknownPluginError
 from weft_store import NodeStore
 
@@ -312,3 +327,146 @@ async def test_run_index_on_an_empty_directory_reports_nothing_to_produce(tmp_pa
     assert result.summary.produced == 0
     assert result.stored_count is None
     assert store.closed is False
+
+
+# --- task 4.0: `pipeline=` resolves a document, reaching a stage's own `with:` -------------
+
+
+class _EmbedderConfig(BaseModel):
+    """A stub `with:` block — the fact this whole task exists to make reachable."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    model: str = "default"
+
+
+def _configured_embedder(built: list[_EmbedderConfig]) -> type:
+    """A fresh `Embedder` class that records every `config` it was built with, in `built`."""
+
+    class _ConfiguredEmbedder:
+        config_model: type[_EmbedderConfig] = _EmbedderConfig
+
+        def __init__(self, config: _EmbedderConfig | None = None) -> None:
+            self.config = config or _EmbedderConfig()
+            built.append(self.config)
+
+        async def run(self, payload: Sequence[object], ctx: Context) -> Outcome[Sequence[object]]:
+            del ctx
+            return Produced(value=payload)
+
+    return _ConfiguredEmbedder
+
+
+def _document(name: str, *stages: StageDeclaration) -> Pipeline:
+    return Pipeline(name=name, stages=stages)
+
+
+def _stub_catalogue(
+    catalogue: dict[str, Pipeline],
+) -> Callable[..., dict[str, Pipeline]]:
+    """A typed stand-in for `weft_cli.pipeline_catalogue.full_catalogue`, so `monkeypatch.
+    setattr` has a real signature to check rather than a bare lambda `pyright` cannot type.
+    """
+
+    def _full_catalogue(
+        *, directory: Path = Path("pipelines"), reports: Sequence[object] = ()
+    ) -> dict[str, Pipeline]:
+        del directory, reports
+        return catalogue
+
+    return _full_catalogue
+
+
+async def test_run_index_with_pipeline_resolves_a_document_and_reaches_its_with_block(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange — the exit demonstration's own claim, at unit scale: a document names its own
+    # plugin per stage, and that stage's `with:` block is what actually built the instance —
+    # never `[services] embed`, which this call never even passes.
+    (tmp_path / "one.txt").write_text("hello weft")
+    registry, store = _registry_with_fakes()
+    built: list[_EmbedderConfig] = []
+    registry.add(Embedder, "model", _configured_embedder(built), distribution="acme-embed")
+    document = _document(
+        "custom",
+        StageDeclaration(id="extract", use="text"),
+        StageDeclaration(id="chunk", use="fixed-size"),
+        StageDeclaration(id="embed", use="model", config={"model": "big"}),
+        StageDeclaration(id="store", use="pgvector"),
+    )
+    monkeypatch.setattr(ingest_module, "full_catalogue", _stub_catalogue({"custom": document}))
+
+    # Act
+    result = await run_index(tmp_path, registry=registry, ctx=_ctx(), pipeline="custom")
+
+    # Assert
+    assert result.summary.produced == 1
+    assert result.stored_count == 1
+    assert store.closed is True
+    assert built == [_EmbedderConfig(model="big")]
+    # Task 4.6: `resolved_pipeline`/`document_ids` — a run record's own two needs, carried
+    # back rather than discarded (`IndexResult`'s own docstring).
+    assert result.resolved_pipeline is not None
+    assert result.resolved_pipeline.name == "custom"
+    assert result.document_ids == (str((tmp_path / "one.txt").resolve()),)
+
+
+async def test_a_document_with_no_extract_stage_refuses_naming_the_stages_it_has(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange — a document that could never say what to read from disk: no stage in it is
+    # registered under the `Extractor` contract at all.
+    (tmp_path / "one.txt").write_text("hello weft")
+    registry, _ = _registry_with_fakes()
+    document = _document(
+        "no-extract",
+        StageDeclaration(id="chunk", use="fixed-size"),
+        StageDeclaration(id="embed", use="hash"),
+        StageDeclaration(id="store", use="pgvector"),
+    )
+    monkeypatch.setattr(ingest_module, "full_catalogue", _stub_catalogue({"no-extract": document}))
+
+    # Act / Assert
+    with pytest.raises(PipelineMissingExtractStageError) as excinfo:
+        await run_index(tmp_path, registry=registry, ctx=_ctx(), pipeline="no-extract")
+
+    assert excinfo.value.valid_options == ("chunk", "embed", "store")
+    assert "no-extract" in str(excinfo.value)
+
+
+async def test_an_unknown_pipeline_name_fails_loudly_listing_the_options(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange — the catalogue this run resolved against is real, and simply does not hold
+    # the name given; `weft_cli.pipeline_catalogue`'s own refusal is reused, not duplicated.
+    (tmp_path / "one.txt").write_text("hello weft")
+    registry, _ = _registry_with_fakes()
+    document = _document("known", StageDeclaration(id="extract", use="text"))
+    monkeypatch.setattr(ingest_module, "full_catalogue", _stub_catalogue({"known": document}))
+
+    # Act / Assert
+    with pytest.raises(UnknownPipelineNameError) as excinfo:
+        await run_index(tmp_path, registry=registry, ctx=_ctx(), pipeline="missing")
+
+    assert excinfo.value.valid_options == ("known",)
+
+
+async def test_pipeline_and_extractor_together_are_refused_rather_than_one_winning(
+    tmp_path: Path,
+) -> None:
+    # Arrange — a document's own `extract` stage already names a plugin, so `--extract`
+    # would have nothing left to narrow; giving both is refused rather than one silently
+    # taking precedence over the other (CLAUDE.md: "a silent fallback is worse than a
+    # failure"). `weft_cli.commands.IndexCommand` refuses this earlier, at the CLI surface —
+    # this proves `run_index` itself does not depend on that caller to be safe.
+    registry, _ = _registry_with_fakes()
+
+    # Act / Assert
+    with pytest.raises(WeftError) as excinfo:
+        await run_index(
+            tmp_path, registry=registry, ctx=_ctx(), extractor="text", pipeline="custom"
+        )
+
+    message = str(excinfo.value)
+    assert "pipeline" in message
+    assert "extractor" in message

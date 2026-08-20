@@ -111,6 +111,7 @@ KNOWN_WORKSPACE_DISTRIBUTIONS: Final[frozenset[str]] = frozenset(
         "weft-generate",
         "weft-index",
         "weft-cli",
+        "weft-eval",
     }
 )
 

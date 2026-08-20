@@ -278,6 +278,26 @@ async def run(
 ) -> weft_kernel.payload.outcome.Outcome[weft_retrieve.payload.Ranking]: ...
 ```
 
+## `GenerationMetric`
+
+**Module:** `weft_eval.contract`  
+**Registered by:** `weft-eval`  
+**Version:** `1.0.0`
+
+Scores one `GenerationSample` — a prediction against a reference (and, sometimes, context).
+
+`evaluate` is `async def` unconditionally (G6) and returns `Outcome[MetricScore]`: a score
+(`Produced`), a legitimate absence of anything to score (`NothingToProduce`), or a failure
+(`Failed`) — see `weft_eval.contract`'s module docstring for the full reasoning.
+
+### Methods
+
+```python
+async def evaluate(
+    self, payload: weft_eval.contract.GenerationSample, ctx: weft_kernel.context.Context
+) -> weft_kernel.payload.outcome.Outcome[weft_eval.contract.MetricScore]: ...
+```
+
 ## `Generator`
 
 **Module:** `weft_generate.contract`  
@@ -491,7 +511,7 @@ async def scan(
 ## `Prompt`
 
 **Module:** `weft_prompts.contract`  
-**Registered by:** `weft-generate`, `weft-index`, `weft-retrieve`  
+**Registered by:** `weft-eval`, `weft-generate`, `weft-index`, `weft-retrieve`  
 **Version:** `1.0.0`
 
 One named, versioned, translatable question a model can be asked.
@@ -623,6 +643,26 @@ out, so a second reranker composes after the first with no new type and no opera
 async def run(
     self, payload: weft_retrieve.payload.Ranking, ctx: weft_kernel.context.Context
 ) -> weft_kernel.payload.outcome.Outcome[weft_retrieve.payload.Ranking]: ...
+```
+
+## `RetrievalMetric`
+
+**Module:** `weft_eval.contract`  
+**Registered by:** `weft-eval`  
+**Version:** `1.0.0`
+
+Scores one `RetrievalSample` — a ranked result against a relevance judgement.
+
+Identical shape to `GenerationMetric` in every respect but the payload type it accepts — see
+the module docstring for why the input, and only the input, needed two contracts rather than
+one wide `Sample`.
+
+### Methods
+
+```python
+async def evaluate(
+    self, payload: weft_eval.contract.RetrievalSample, ctx: weft_kernel.context.Context
+) -> weft_kernel.payload.outcome.Outcome[weft_eval.contract.MetricScore]: ...
 ```
 
 ## `Retriever`

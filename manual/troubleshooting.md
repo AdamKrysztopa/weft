@@ -1204,8 +1204,37 @@ afford one.
 Which formats `weft index` accepts is **derived from the extractors actually installed**, never from
 a fixed list: `weft_extract.accept.claimed_extensions` reads the `extensions` every registered
 `Extractor` declares, and their union is the accept set. Installing an extractor pack therefore makes
-its formats reachable with no edit to anything. Both errors below are what that derivation says when
-it cannot finish — each is a `PipelineResolutionError`, so `weft index` exits `4`.
+its formats reachable with no edit to anything. Three of the errors below are what that derivation
+says when it cannot finish — each is a `PipelineResolutionError`, so `weft index` exits `4`.
+
+**`--pipeline`, ledger task 4.0**: `weft index <path> --pipeline <name>` resolves a whole pipeline
+document instead of the built-in four stages, reaching a plugin's own `with:` configuration —
+`OpenAIEmbedderConfig.model`, say — that `[services] embed`/`[services] store` can never carry,
+since those two name a plugin and nothing else. See `manual/operations-guide.md` → *Choosing an
+embedder* for the worked example, and `weft_cli.ingest`'s own module docstring for why `[services]`
+and a document's `with:` stay two surfaces rather than merging into one grammar.
+
+### `ConflictingIndexModeError`
+
+**What it looks like** — task 4.0: `weft index` was given both `--extract` and `--pipeline` in the
+same invocation, two mutually exclusive claims about what should run — raised by
+`weft_cli.commands.IndexCommand.run`, before either flag resolves a single plugin:
+
+```text
+$ weft index corpus --extract pdf-text --pipeline kg
+weft_cli.commands.ConflictingIndexModeError: --extract and --pipeline cannot both be given:
+--extract narrows the default four-stage path's own auto-discovery to one named extractor;
+--pipeline names a whole document whose own 'extract' stage already names its plugin. Choose one.
+$ echo $?
+1
+```
+
+Exit `1`, not `4`: neither flag is invalid on its own, and there is no alternative *name* to offer
+(this is not a `NAME_RESOLUTION_FAMILY` member, the identical reasoning `ConflictingAskModeError`
+below states for its own pair), so `weft_cli.exit_codes.exit_code_for`'s default is the right
+answer. **What to do:** drop one of the two flags — `--extract <name>` to narrow the default
+path's own discovery, or `--pipeline <name>` to run a specific document. With neither, `weft index`
+auto-discovers as before.
 
 ### `AmbiguousExtractorError`
 
@@ -1242,6 +1271,24 @@ nothing to index is a fact. This fires only when there was something to index an
 could read it, which is the difference between "nothing here" and "nothing here I can read". **What
 to do:** install a pack claiming one of the formats the message names, then re-run; `weft plugins
 doctor` will show whether a pack you expected registered at all.
+
+### `PipelineMissingExtractStageError`
+
+**What it looks like** — task 4.0: `--pipeline` named a document with no stage registered under
+the `Extractor` contract, so there is nothing for `weft index` to derive "which files to read" from
+— the same fact `AmbiguousExtractorError`/`UnclaimedFormatError` derive from `--extract` or from
+every claim the registry holds, for a document that made no claim at all:
+
+```text
+$ weft index corpus --pipeline no-extract
+weft_cli.ingest.PipelineMissingExtractStageError: pipeline 'no-extract' has no stage registered
+under the Extractor contract, so 'weft index' has nothing to derive which files to read from.
+Stages: chunk, embed, store.
+```
+
+`exc.valid_options` is every stage id the document does resolve, `exc.pipeline` names the document.
+**What to do:** add a stage to the document whose `use:` names a registered `Extractor` plugin —
+`weft pipeline show <name>` prints what the document currently resolves to.
 
 ---
 
@@ -1910,6 +1957,239 @@ prompt disagree about what this question needs.
 
 **What to do:** build the model the message names. This is a bug in the calling technique rather
 than in configuration — a prompt's input model *is* its interface.
+
+---
+
+## Aggregating metric observations — `weft_eval.aggregate`
+
+Both errors below are raised while folding many per-sample `Outcome[MetricScore]` observations of
+one metric into one `MetricAggregate` (task 4.3, `docs/09-release.md` §4 V4). Neither is a name
+*resolution* failure — there is no alternative name to offer, only a fact that a caller handed this
+code two things that disagree — so neither joins `NAME_RESOLUTION_FAMILY`.
+
+### `MismatchedMetricNameError`
+
+**What it looks like** — two observations passed to one `aggregate()` call report different
+`metric_name`s:
+
+```text
+MismatchedMetricNameError: cannot aggregate: one observation reports metric_name='precision@7',
+but an earlier observation in the same aggregate reported 'precision@3' — every `Produced`
+observation folded into one aggregate must report the identical name the metric itself computed;
+mixing two configurations (e.g. two different `k`) into one aggregate is a caller error, not
+something to average over.
+```
+
+**What to do:** group observations by which configuration actually produced them before calling
+`aggregate()`. Seeing this means two runs of the same registered plugin at two different `with:`
+values (two different `k`, say) were folded into one call — split them into two calls, one per
+configuration, the same way `weft-eval`'s own two-thresholds demonstration (task 4.1) keeps two
+`AtThresholdConfig` instances' results apart.
+
+### `ReportedNameMismatchError`
+
+**What it looks like** — a report's key for a metric's aggregate does not match the name that
+metric actually computed:
+
+```text
+ReportedNameMismatchError: report key 'precision_at_k' does not match the name this metric
+computed, 'precision@7' — a report's key must be the name the metric itself reports for what it
+measured, never a caller-chosen label maintained by hand.
+```
+
+**What to do:** use the metric's own computed name — `MetricAggregate.reported_name`, read off
+`MetricScore.metric_name` — as the report key, rather than a hand-typed literal. This is the
+reference's own defect (`.phase4-reference-recon.md` §6): two dataset-track runners hardcoded the report
+key `'precision_at_k'`/`'recall_at_k'` while the real `k` was a caller-supplied
+`similarity_top_k`, so the key silently stopped describing what was actually measured the moment
+`k` was anything but the value baked into the literal. Seeing this error means `weft_eval.
+aggregate.aggregate_report` caught that exact drift before it reached a run record or a CLI table.
+
+---
+
+## Asking what a run did — `weft_cli.eval_commands`
+
+### `EmptyCorpusError`
+
+**What it looks like** — `weft eval run` pointed at a directory none of the named pipeline's
+own extractor claims anything in, reproduced against a real checkout with an empty directory:
+
+```text
+$ mkdir empty && weft eval run empty index
+'empty' produced nothing to index under pipeline 'index' — there is nothing for a run record to
+carry a corpus identity over. Point --path at a directory pipeline 'index' can actually read.
+$ echo $?
+1
+```
+
+Unlike `weft index` over the same directory, which is a silent, successful no-op
+(`weft_cli.ingest`'s own module docstring: "An empty directory is not an error"), `weft eval run`
+refuses: a persisted run record with zero documents has a content-derived digest
+(`weft_eval.run_record.corpus_identity`) indistinguishable from any other empty corpus's digest,
+so it would not be a fact worth diffing a later run against — a record that looks complete and
+measures nothing. **What to do:** point `--path` at a directory the named pipeline's own
+`extract` stage can actually read, or run `weft index` first to confirm which formats it claims.
+
+### `IncomparableRunsError`
+
+**What it looks like** — `weft eval compare` given two run ids whose persisted corpora differ,
+reproduced against two real runs over two different directories:
+
+```text
+$ weft eval run corpus-a index
+run 3f9c...-1 persisted (corpus-a -> pipeline 'index'). produced 1, nothing to produce 0, failed
+0. nodes now stored: 1. corpus: 'corpus-a' (a1b2c3d4e5f6…).
+$ weft eval run corpus-b index
+run 3f9c...-2 persisted (corpus-b -> pipeline 'index'). produced 1, nothing to produce 0, failed
+0. nodes now stored: 1. corpus: 'corpus-b' (f6e5d4c3b2a1…).
+$ weft eval compare 3f9c...-1 3f9c...-2
+'3f9c...-1' and '3f9c...-2' are not comparable as a change of pipeline alone: corpus differs
+('corpus-a' a1b2c3d4e5f6… vs 'corpus-b' f6e5d4c3b2a1…). A comparison is only meaningful when the
+corpus, model versions and active distribution set agree and only the pipeline differs —
+otherwise a metric delta cannot be attributed to the pipeline change ('09-release.md' §4, V3's
+own failure clause).
+$ echo $?
+1
+```
+
+This is `09-release.md` §4's V3 failure clause, enforced at the CLI seam rather than left for a
+reader to misattribute a number later: "a shipped technique's improvement is reported against...
+a baseline from a different corpus, pipeline or model version." `weft_eval.run_record`'s own
+module docstring gives the identical reason for the active-distribution-set clause: "`weft eval
+compare` across two pipelines is meaningless if the installed pack set differed between them" —
+this is fitness function 8(c)'s reason to exist, checked here at its first real caller. **What to
+do:** the message names every fact that differed. Compare two runs over the identical corpus,
+with the identical active distribution set, produced by the identical installed environment —
+`weft eval run` twice against the *same* `--path`, once per pipeline, is 4.9's own exit
+demonstration and the shape this error exists to hold every other caller to as well.
+
+### `UnknownRunIdError`
+
+**What it looks like** — `weft eval compare`/`weft trace` given a run id nothing persisted,
+reproduced against a real, empty `runs/` directory:
+
+```text
+$ weft trace does-not-exist
+'does-not-exist' is not a persisted run — checked 'runs'. Persisted runs: (none).
+$ echo $?
+4
+```
+
+Fitness function 12's family: `valid_options` is every run id actually found under `runs/` —
+every `*.json` file's own stem — the identical "list what does exist" rule
+`weft_cli.pipeline_catalogue.UnknownPipelineNameError` already gives a pipeline name. **What to
+do:** the message names every run id that does exist; run `weft eval run` first if none does.
+
+---
+
+## Scoring retrieval for a persisted run — `weft_cli.eval_scoring`
+
+Task **4.9**, `.phase4-design.md` §7. `weft eval run <path> <pipeline> --questions <file>`
+retrieves for every query a `--questions` file names, through the resolved pipeline's own
+`Embedder`/`NodeStore` stages, and folds the gate-safe `RetrievalMetric` subset's scores into the
+persisted `RunRecord`. Both errors below are refused before any partial, misleading `metrics`
+mapping is ever persisted.
+
+### `QuestionsFileError`
+
+**What it looks like** — `--questions` named a file that is not valid JSON, reproduced against a
+real checkout with a deliberately broken fixture:
+
+```text
+$ echo 'not json' > questions.json
+$ weft eval run corpus index --questions questions.json
+'questions.json' is not valid JSON: Expecting value: line 1 column 1 (char 0)
+$ echo $?
+1
+```
+
+Also raised for a file that does not exist, or whose JSON is not a list of
+`{"query": ..., "relevant_documents": [...]}` objects — one refusal for every way this input can
+be malformed, rather than a bare `OSError`/`json.JSONDecodeError`/`pydantic.ValidationError` a
+caller has to already know this module's internals to make sense of. Not a name-resolution
+failure — there is no alternative file name to offer. **What to do:** the message names the path
+and the specific parse problem; fix the file and re-run. `relevant_documents` names a document,
+not a node id — the same `SourceDoc.source_id` string `weft eval run`'s own persisted `corpus`
+identity is built from (for the default text extractor, a file's own resolved path).
+
+### `PipelineNotRetrievableError`
+
+**What it looks like** — `--questions` given a pipeline document with no `Embedder`/`NodeStore`
+stage to retrieve against:
+
+```text
+$ weft eval run corpus extract-only --questions questions.json
+pipeline 'extract-only' has no stage registered under the NodeStore contract, so --questions has
+nothing to retrieve against.
+$ echo $?
+1
+```
+
+Refused outright rather than silently persisting an empty `metrics` mapping indistinguishable
+from "no `--questions` given at all" — a run record that looks like it scored nothing by choice
+when it actually could not score anything is exactly the silent-fallback shape CLAUDE.md refuses.
+**What to do:** name a pipeline that resolves an `Embedder` and a `NodeStore` stage, or drop
+`--questions` if this pipeline genuinely never retrieves.
+
+---
+
+## Asking whether a metric can run here — `weft_eval.offline`
+
+Task **4.7**, `docs/09-release.md` §4 V5. `weft eval metrics [--name <name>]` (`weft_cli.eval_commands.
+EvalMetricsCommand`) answers "what runs in the gate" by reading whether each registered
+`GenerationMetric`/`RetrievalMetric` declared `runs_in_gate = True` at registration — see
+`weft_eval.contract`'s own module docstring for Q6, the mechanism. Both errors below can also
+reach a caller who never typed `weft eval metrics` at all, once a future task's `weft eval run`
+selects metrics by name — see each error's own class docstring.
+
+### `UnknownMetricNameError`
+
+**What it looks like** — a metric name neither `GenerationMetric` nor `RetrievalMetric`
+registered, reproduced against a real, unmodified checkout:
+
+```text
+$ weft eval metrics --name does-not-exist
+'does-not-exist' is not a registered metric. Registered metrics: 'accuracy', 'answer-completeness',
+'answer-correctness', 'answer-relevance', 'bertscore', 'context-recall', 'context-relevance',
+'embedding-similarity', 'exact-match', 'f1-score', 'faithfulness', 'key-terms-precision',
+'mean-average-precision', 'ndcg', 'overlap-at-threshold', 'precision-at-k', 'recall-at-k',
+'rouge-1', 'rouge-2', 'rouge-l', 'token-overlap', 'token-recall'.
+$ echo $?
+4
+```
+
+Fitness function 12's family: `valid_options` is every metric name actually registered, across
+both contracts — never only one, which is why this is a distinct type from
+`weft_kernel.registry.UnknownPluginError` rather than a reuse of it (`weft_eval.offline`'s own
+module docstring). **What to do:** the message names every metric that does exist; check for a
+typo, or that the pack registering the metric you expected is actually installed and active
+(`weft plugins doctor`).
+
+### `MetricNeedsCredentialsError`
+
+**What it looks like** — a real, registered metric that declared `runs_in_gate = False`,
+reproduced against a real, unmodified checkout with no `[llm.roles]` configured anywhere:
+
+```text
+$ weft eval metrics --name faithfulness
+'faithfulness' cannot run in the deterministic, gate-safe subset: needs a real judge model behind
+'[llm.roles]' — the deterministic 'scripted' provider resolves the service but cannot produce a
+usable structured judgement, so this metric is excluded from the gate's offline subset regardless
+of whether an operator configures a role for it. Configure '[llm.roles]' to map this metric's role
+(default 'grade') to a real provider such as 'openai' to run it outside the gate.
+$ echo $?
+1
+```
+
+Not a name-resolution failure — the name was valid, and there is no alternative name to offer, so
+this maps to `OPERATION_FAILED` (exit `1`), the identical footing `EmptyCorpusError`/
+`IncomparableRunsError` already have, never exit `4`. `bertscore` answers the identical way for a
+different reason: "needs the optional 'bert_score' package and a downloaded BERT checkpoint on
+first use — install weft-eval's 'bertscore' extra to run this metric outside the gate." **What to
+do:** the message already names what would permit it — configure a real provider for an LLM
+judge, or install the named extra for `bertscore`. This is by design, not a bug: the whole point
+of `runs_in_gate` is that these metrics never quietly score something meaningless in `poe
+ci-checks` — they refuse loudly instead.
 
 ---
 

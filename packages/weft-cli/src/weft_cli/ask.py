@@ -80,6 +80,8 @@ async def run_ask(
     top_k: int,
     embedder: str = DEFAULT_EMBEDDER,
     store: str = DEFAULT_STORE,
+    embedder_config: object = None,
+    store_config: object = None,
 ) -> tuple[Scored[Node], ...]:
     """Embed `question` and return its `top_k` nearest stored passages, by vector distance.
 
@@ -92,9 +94,16 @@ async def run_ask(
     `store` is `[services] store`'s answer, and the same sentence applies to it
     twice over: a question asked of a store `weft index` never wrote to returns
     nothing at all, and reports no error while doing it.
+
+    **`embedder_config`/`store_config`, task 4.9.** Both default to `None`, `[services]`'
+    own unconfigured shape — every caller before task 4.9 gets identical behaviour. A caller
+    that resolved a *named* pipeline (`weft_cli.eval_scoring.score_pipeline`, Q3's own
+    "`--pipeline` never reads `[services]`" rule) hands back each stage's own resolved
+    `config` instead, so retrieval scoring queries the plugin actually configured to run,
+    never the `[services]` default beside it.
     """
     embedder_entry = registry.entry(Embedder, embedder)
-    instance = cast(Embedder, embedder_entry.factory(None))
+    instance = cast(Embedder, embedder_entry.factory(embedder_config))
     wrapped_embed = wrap(
         instance.run,
         distribution=embedder_entry.distribution,
@@ -121,7 +130,7 @@ async def run_ask(
         raise EmbeddingFailedError("the embedder produced a node with no embedding attached")
 
     store_entry = registry.entry(NodeStore, store)
-    instance_store = store_entry.factory(None)
+    instance_store = store_entry.factory(store_config)
     if not isinstance(instance_store, VectorSearch):
         raise NotVectorSearchableError(
             f"the registered '{store}' NodeStore does not satisfy VectorSearch; "

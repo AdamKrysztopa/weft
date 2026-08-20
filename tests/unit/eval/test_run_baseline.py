@@ -2,9 +2,11 @@
 
 Mirrors `eval/run_baseline.py`. The measurement itself is not simulated here: it needs a corpus,
 a container and a vendor API, and pretending to it with fakes would test the fakes. What is
-covered is everything that decides *what a written run means* — corpus identity, the resolution
-of a retrieved passage back to a corpus document, the interval an aggregate records, and the two
-refusals that stop an unusable file being written at all.
+covered is everything that decides *what a written run means* — the resolution of a retrieved
+passage back to a corpus document, the interval an aggregate records, and the two refusals that
+stop an unusable file being written at all. `corpus_identity`'s own digest property is
+`weft_eval.run_record`'s to test, not retested here — this file tests what this module does with
+the `RunRecord` that function's caller builds.
 """
 
 from pathlib import Path
@@ -14,19 +16,18 @@ from fetch_corpus import Document, Tier
 from metrics import Excluded, ExclusionKind, MetricRecord
 from run_baseline import (
     BaselineError,
-    BaselineRun,
-    CorpusRecord,
-    DistributionRecord,
-    StageRecord,
+    BaselineReport,
     aggregate,
-    corpus_id,
     hits_of,
     main,
     parse_tiers,
+    selected_documents,
     staged_path,
 )
 
 from weft_cli.ask import AskHit, AskResult
+from weft_eval.run_record import CorpusIdentity, RunRecord
+from weft_kernel.resolution import ResolvedPipeline, ResolvedStage
 
 
 def _document(identifier: str, *, sha256: str, suffix: str = ".pdf") -> Document:
@@ -41,21 +42,40 @@ def _document(identifier: str, *, sha256: str, suffix: str = ".pdf") -> Document
     )
 
 
-def _run(**overrides: object) -> BaselineRun:
-    """A written run with one metric, as `BaselineRun` would be built from a real pass."""
-    fields: dict[str, object] = {
-        "recorded_at": "2026-08-17T12:00:00+00:00",
-        "corpus": CorpusRecord(
-            name="mrmr-v1", corpus_id="a" * 64, tiers=("fetch",), documents=("doc-a",)
+def _record() -> RunRecord:
+    return RunRecord(
+        recorded_at="2026-08-20T12:00:00+00:00",
+        resolved_pipeline=ResolvedPipeline(
+            name="baseline",
+            stages=(
+                ResolvedStage(
+                    id="embed",
+                    contract="Embedder",
+                    use="openai",
+                    distribution="weft-openai",
+                    provenance="baseline",
+                ),
+            ),
         ),
+        corpus=CorpusIdentity(name="pl-wiki-v1", digest="a" * 64),
+        model_versions={"embed": "openai:text-embedding-3-small"},
+        active_distributions=("weft-cli", "weft-eval"),
+    )
+
+
+def _report(**overrides: object) -> BaselineReport:
+    """A written run with one metric, as `BaselineReport` would be built from a real pass."""
+    fields: dict[str, object] = {
+        "recorded_at": "2026-08-20T12:00:00+00:00",
+        "corpus_name": "pl-wiki-v1",
+        "tiers": ("fetch",),
+        "extractor": "text",
+        "documents": ("doc-a",),
         "reproducible": True,
+        "record": _record(),
         "questions": ("q001",),
         "repeats": 2,
         "retrieval_depth": 10,
-        "pipeline": (StageRecord(stage="embed", plugin="openai"),),
-        "pipeline_sha256": "b" * 64,
-        "models": {"embed": "openai:text-embedding-3-small"},
-        "distributions": (DistributionRecord(name="weft-cli", version="0.1.0", status="active"),),
         "wall_clock_seconds": 1.0,
         "metrics": (
             MetricRecord(
@@ -71,26 +91,16 @@ def _run(**overrides: object) -> BaselineRun:
         ),
         "excluded": (),
     }
-    return BaselineRun.model_validate(fields | overrides)
+    return BaselineReport.model_validate(fields | overrides)
 
 
-def test_corpus_identity_follows_the_bytes_and_not_the_layout() -> None:
-    # V3 fails a claim measured "against a baseline from a different corpus", so corpus identity
-    # has to be a fact two machines compute the same way: a digest over each document's id and
-    # its own digest, order-independent, and changing the moment any document does.
-    # Arrange
-    first = _document("doc-a", sha256="1" * 64)
-    second = _document("doc-b", sha256="2" * 64)
-    moved = _document("doc-b", sha256="3" * 64)
-
-    # Act
-    one_way = corpus_id([first, second])
-    other_way = corpus_id([second, first])
-    after = corpus_id([first, moved])
-
-    # Assert
-    assert one_way == other_way
-    assert one_way != after
+def test_selected_documents_refuses_an_extractor_this_harness_does_not_know() -> None:
+    # A resolved pipeline names exactly one Extractor stage (task 4.0); a baseline over a format
+    # this harness has no suffix mapping for would either silently pick nothing or silently pick
+    # everything, and `01` requirement 5 rules both out.
+    # Act / Assert
+    with pytest.raises(BaselineError, match="text.*pdf-text|pdf-text.*text"):
+        selected_documents((Tier.FETCH,), extractor="docling")
 
 
 def test_a_retrieved_passage_is_resolved_to_the_document_that_was_staged(tmp_path: Path) -> None:
@@ -192,7 +202,7 @@ def test_a_run_whose_exclusion_count_no_reason_backs_is_refused() -> None:
     # anywhere could tell.
     # Act / Assert
     with pytest.raises(ValueError, match="n_excluded"):
-        _run(
+        _report(
             metrics=(
                 MetricRecord(
                     metric="quote-recall@10",
@@ -211,7 +221,7 @@ def test_a_run_whose_exclusion_count_no_reason_backs_is_refused() -> None:
 def test_a_run_that_reports_no_exclusions_and_records_none_is_accepted() -> None:
     # The complement, so the refusal above is not passing for the wrong reason.
     # Act
-    run = _run(
+    report = _report(
         excluded=(
             Excluded(
                 question_id="q001",
@@ -235,5 +245,6 @@ def test_a_run_that_reports_no_exclusions_and_records_none_is_accepted() -> None
     )
 
     # Assert
-    assert run.metric("quote-recall@10") is not None
-    assert run.metric("document-recall@10") is None
+    assert report.metric("quote-recall@10") is not None
+    assert report.metric("document-recall@10") is None
+    assert report.record.corpus.name == "pl-wiki-v1"

@@ -96,8 +96,15 @@ class _Choice:
 
 
 @dataclass
+class _Usage:
+    prompt_tokens: int
+    completion_tokens: int
+
+
+@dataclass
 class _Response:
     choices: Sequence[_Choice]
+    usage: _Usage | None = None
 
 
 @dataclass
@@ -146,6 +153,7 @@ class _Completions:
     reply: str = "an answer"
     error: Exception | None = None
     mid_stream_error: Exception | None = None
+    usage: _Usage | None = None
     calls: list[_Call] = field(default_factory=lambda: [])
 
     async def create(
@@ -172,7 +180,7 @@ class _Completions:
             raise self.error
         if stream:
             return _chunks(self.reply.split(" "), mid_stream_error=self.mid_stream_error)
-        return _Response(choices=[_Choice(message=_Message(content=self.reply))])
+        return _Response(choices=[_Choice(message=_Message(content=self.reply))], usage=self.usage)
 
 
 @dataclass
@@ -203,9 +211,27 @@ async def test_complete_answers_the_stub_clients_reply_under_the_requested_model
     assert outcome.value.text == "an answer"
     assert outcome.value.model == "gpt-4o-mini"
     assert outcome.value.finish_reason == "stop"
+    assert outcome.value.usage is None
     [sent] = client.chat.completions.calls
     assert sent.messages == [{"role": "user", "content": "why does mRMR subtract redundancy?"}]
     assert sent.stream is False
+
+
+async def test_complete_reports_the_vendors_own_token_usage_when_the_response_carries_it() -> None:
+    # Arrange — task 4.7: a price needs tokens in/out per call, read off the vendor's own
+    # response rather than estimated.
+    completions = _Completions(usage=_Usage(prompt_tokens=42, completion_tokens=7))
+    client = _Client(chat=_Chat(completions=completions))
+    provider = OpenAILLMProvider(_settings(), client=client)
+
+    # Act
+    outcome = await provider.complete(_conversation("q"), model="gpt-4o-mini", ctx=_ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert outcome.value.usage is not None
+    assert outcome.value.usage.prompt_tokens == 42
+    assert outcome.value.usage.completion_tokens == 7
 
 
 async def test_stream_yields_the_same_reply_in_pieces() -> None:

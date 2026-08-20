@@ -54,17 +54,40 @@ does. An in-process `sys.modules` assertion here would therefore pass even
 against a `cli.py` that imports every pack module at the top of the file — a
 fresh interpreter, which starts with none of them loaded, is the only way to
 observe what `cli.main()` alone imports.
+
+**Clause (c) — the run record names the active distribution set, equal to
+what `plugins doctor` reports as `active`.** *Active from Phase 4*, task
+**4.4**: `weft_eval.run_record.active_distribution_set` is the run record's
+own derivation, and `weft_cli.plugins_report.render_doctor` is the function
+`weft plugins doctor` itself calls to print its "active" lines — both read
+`weft_kernel.discovery.PackReport.status`, and nothing else, off the
+identical report tuple. `test_run_record_active_distributions_equal_what_plugins_doctor_reports`
+proves the two still agree, against the real, installed environment, by
+comparing `active_distribution_set`'s output to text parsed out of
+`render_doctor`'s own rendered block — never against a second copy of the
+same filter, which would prove the check could never fail.
+`test_the_equality_check_is_not_vacuous` then manufactures the exact drift
+the clause exists to catch: a plausible-looking alternative filter
+(`contributed > 0` instead of `status is PackStatus.ACTIVE`) that disagrees
+with what `render_doctor` reports the moment a `PARTIAL` pack is in the mix,
+demonstrating the comparison actually fails when the two definitions of
+"active" diverge, rather than passing regardless of what either side
+computes.
 """
 
 import os
+import re
 import subprocess
 import sys
 from importlib import metadata
 from pathlib import Path
+from typing import Final
 
 import pytest
 
-from weft_kernel.discovery import ENTRY_POINT_GROUP, PackStatus, discover
+from weft_cli.plugins_report import render_doctor
+from weft_eval.run_record import active_distribution_set
+from weft_kernel.discovery import ENTRY_POINT_GROUP, PackReport, PackStatus, discover
 from weft_kernel.registry import Registry
 
 CANARY_DISTRIBUTION = "weft-canary"
@@ -188,3 +211,65 @@ def test_version_command_executes_no_pack_code(tmp_path: Path) -> None:
         f"in its categorical form, not just 'the canary stays unimported'. Found imported: "
         f"{loaded_line}"
     )
+
+
+# --- clause (c): the run record's active set equals what `plugins doctor` reports -----------
+
+#: `weft_cli.plugins_report._summary_line`'s own shape — matched, never retyped: a doctor
+#: block's first line is `f"{distribution}: {status}{ambient} ({contributed} contributed)"`.
+#: Only the `active` status line is captured; every other status is deliberately not matched,
+#: since clause (c) is about the active set alone.
+_ACTIVE_SUMMARY_LINE: Final[re.Pattern[str]] = re.compile(
+    r"^(?P<distribution>\S+): active(?:, ambient)? \(\d+ contributed\)$"
+)
+
+
+def _active_names_from_doctor_report(text: str) -> tuple[str, ...]:
+    """Every distribution `render_doctor`'s own text reports as `active`, parsed from its
+    output rather than recomputed — see the module docstring's clause-(c) paragraph.
+    """
+    names = (
+        match.group("distribution")
+        for line in text.splitlines()
+        if (match := _ACTIVE_SUMMARY_LINE.match(line)) is not None
+    )
+    return tuple(sorted(names))
+
+
+def test_run_record_active_distributions_equal_what_plugins_doctor_reports() -> None:
+    # Arrange — real, wide-open discovery against the actual installed environment, the same
+    # call clause (a)'s own test makes with `allow=[]` reversed to "everything permitted".
+    reports = discover(Registry())
+
+    # Act — two independent readings of the identical `PackReport` tuple: the run record's own
+    # derivation, and the text `weft plugins doctor` itself would print.
+    record_active = active_distribution_set(reports)
+    doctor_active = _active_names_from_doctor_report(render_doctor(reports))
+
+    # Assert
+    assert record_active, (
+        "nothing registered ACTIVE in this environment — the comparison below would be "
+        "vacuously true; run `uv sync` first."
+    )
+    assert record_active == doctor_active
+
+
+def test_the_equality_check_is_not_vacuous() -> None:
+    # Arrange — one genuinely active pack, one that registered only part of what it offers.
+    # `PARTIAL` is exactly the status a filter built on "contributed > 0" would wrongly admit,
+    # since a partially-registered pack still contributes something.
+    reports = (
+        PackReport(distribution="weft-real", status=PackStatus.ACTIVE, contributed=3),
+        PackReport(distribution="weft-half", status=PackStatus.PARTIAL, contributed=1),
+    )
+    doctor_active = _active_names_from_doctor_report(render_doctor(reports))
+
+    # Act — the correct derivation, and a plausible-looking wrong one.
+    correct = active_distribution_set(reports)
+    buggy = tuple(sorted(report.distribution for report in reports if report.contributed > 0))
+
+    # Assert — the correct derivation agrees with what doctor reports; the wrong one, which a
+    # regression could plausibly introduce, does not. This is the check clause (c) exists to
+    # be, not merely to state.
+    assert correct == doctor_active == ("weft-real",)
+    assert buggy != doctor_active

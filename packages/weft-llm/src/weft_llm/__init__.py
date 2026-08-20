@@ -35,6 +35,7 @@ from weft_llm.payload import (
     OnFailure,
     Rendered,
     TokenChunk,
+    TokenUsage,
 )
 from weft_llm.retry import RetryPolicy, with_retry
 from weft_llm.roles import LLMRoles, RoleMapping, UnmappedLLMRoleError
@@ -79,6 +80,7 @@ __all__ = [
     "Settings",
     "TokenChunk",
     "TokenSink",
+    "TokenUsage",
     "UnmappedLLMRoleError",
     "detect_generation_loop",
     "find_runtime_match",

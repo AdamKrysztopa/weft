@@ -63,7 +63,9 @@ def test_register_wires_every_built_in_with_its_permission_class() -> None:
     registrar.commit()
 
     # Assert — task 3.7 grew this from five names to thirteen; task 3.11 retires `route`
-    # (folded into `ask`, `docs/build-ledger.md`'s own 3.11 entry), back to twelve.
+    # (folded into `ask`, `docs/build-ledger.md`'s own 3.11 entry), back to twelve; task 4.6
+    # adds `eval run`/`eval compare`/`trace` (`weft_cli.eval_commands`), to fifteen; task 4.7
+    # adds `eval metrics`, to sixteen.
     assert registry.names_for(Command) == {
         "index",
         "ask",
@@ -77,6 +79,10 @@ def test_register_wires_every_built_in_with_its_permission_class() -> None:
         "pipeline diff",
         "config get",
         "config set",
+        "eval run",
+        "eval compare",
+        "eval metrics",
+        "trace",
     }
     expected_permissions = {
         "index": PermissionClass.WRITE,
@@ -97,6 +103,16 @@ def test_register_wires_every_built_in_with_its_permission_class() -> None:
         "pipeline diff": PermissionClass.READ,
         "config get": PermissionClass.READ,
         "config set": PermissionClass.WRITE,
+        # `eval run` writes a corpus into a store and a run record to disk — `write`, the
+        # identical class `index` already carries for the identical reason. `eval compare`/
+        # `trace` only read persisted files — `read`, `weft_cli.eval_commands`'s own module
+        # docstring has the argument in full, including why neither is `overwrite`/`destroy`.
+        "eval run": PermissionClass.WRITE,
+        "eval compare": PermissionClass.READ,
+        # `eval metrics` only reads the registry already built at process start — `read`,
+        # `weft_cli.eval_commands`'s own module docstring.
+        "eval metrics": PermissionClass.READ,
+        "trace": PermissionClass.READ,
     }
     for name, permission in expected_permissions.items():
         entry = registry.entry(Command, name)
@@ -199,6 +215,54 @@ async def test_index_command_produces_a_result_carrying_the_run_summary(
     assert isinstance(result, commands.IndexCommandResult)
     assert result.summary == summary
     assert result.stored_count == 3
+
+
+async def test_index_command_refuses_extract_and_pipeline_together(tmp_path: Path) -> None:
+    # Arrange — task 4.0: a document's own `extract` stage already names its plugin, so
+    # `--extract` would have nothing left to narrow; both together is refused before either
+    # resolves a plugin, `ConflictingAskModeError`'s exact footing applied to `weft index`.
+    deps = Dependencies(registry=Registry(), reports=(), services=ServiceSelection())
+    args = commands.IndexArgs(path=str(tmp_path), extract="pdf-text", pipeline="custom")
+
+    # Act / Assert
+    with pytest.raises(commands.ConflictingIndexModeError) as excinfo:
+        await commands.IndexCommand().run(args, _ctx(deps))
+    assert "--extract" in str(excinfo.value)
+    assert "--pipeline" in str(excinfo.value)
+
+
+async def test_index_command_with_pipeline_skips_the_default_path_s_plugin_checks(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Arrange — task 4.0: `INDEX_DISTRIBUTIONS`/`[services] embed`/`[services] store` are the
+    # default four-stage path's own promises. A named document may depend on none of them —
+    # here every one of the three is refused — and the command must still call `run_index`
+    # rather than raising `CommandRefusalError` for a promise the document never made.
+    reports = tuple(
+        PackReport(distribution=d, status=PackStatus.REFUSED, reason="not allowed")
+        for d in ("weft-extract", "weft-chunk", "weft-embed")
+    )
+    deps = Dependencies(registry=Registry(), reports=reports, services=ServiceSelection())
+    summary = RunSummary(produced=1, nothing_to_produce=0, failed=0)
+    calls: list[dict[str, object]] = []
+
+    async def _fake_run_index(*_args: object, **kwargs: object) -> IndexResult:
+        calls.append(kwargs)
+        return IndexResult(summary=summary, stored_count=1)
+
+    monkeypatch.setattr(commands, "run_index", _fake_run_index)
+    args = commands.IndexArgs(path=str(tmp_path), pipeline="custom")
+
+    # Act
+    outcome = await commands.IndexCommand().run(args, _ctx(deps))
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = outcome.value
+    assert isinstance(result, commands.IndexCommandResult)
+    assert result.stored_count == 1
+    assert calls[0]["pipeline"] == "custom"
+    assert calls[0]["reports"] == reports
 
 
 async def test_ask_command_retrieve_only_raises_a_refusal_for_an_unregistered_embedder() -> None:

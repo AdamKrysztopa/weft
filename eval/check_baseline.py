@@ -14,10 +14,16 @@ criterion.
 
 **A comparison against the wrong baseline is refused, not scored.** V3's failure clause is *"a
 technique's improvement is reported against no baseline, or against a baseline from a different
-corpus, pipeline or model version"* — so a run whose corpus id, pipeline digest, model set or
+corpus, pipeline or model version"* — so a run whose corpus, resolved pipeline, model versions or
 retrieval depth differs is `IncomparableRunsError`, naming what differs. A near-miss comparison
 that produced a plausible number would be the more dangerous outcome, because nothing about the
 number would look wrong.
+
+**Since task 4.8, "corpus", "pipeline" and "model versions" are read off `BaselineReport.record`
+— a real `weft_eval.run_record.RunRecord` — rather than off a hand-rolled digest and a second
+hand-rolled stage list.** `ResolvedPipeline`'s own docstring is explicit that two resolutions of
+the same document are comparable by `==`, so the pipeline check here is a plain equality rather
+than a digest this module used to compute a second way.
 
 Hand-run, and a `main()` is honest here where `eval/check_questions.py` has none: nothing in this
 file is `async`, so it needs no second bridge (fitness function 7(a)).
@@ -32,31 +38,32 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from run_baseline import BaselineRun, load_run
+from run_baseline import BaselineReport, load_run
 
 
 class IncomparableRunsError(Exception):
     """The two runs do not describe the same measurement, so comparing them means nothing."""
 
 
-def comparable(baseline: BaselineRun, later: BaselineRun) -> None:
+def comparable(baseline: BaselineReport, later: BaselineReport) -> None:
     """Refuse a comparison V3 says is not one, naming every field that differs.
 
     Every field checked here is one V3 names, and nothing else is: two runs may legitimately
     differ in when they were taken, how long they took, and which questions failed to measure.
     """
     differences: list[str] = []
-    if baseline.corpus.corpus_id != later.corpus.corpus_id:
+    if baseline.record.corpus != later.record.corpus:
         differences.append(
-            f"corpus {baseline.corpus.corpus_id[:12]}… vs {later.corpus.corpus_id[:12]}… "
-            f"({sorted(baseline.corpus.tiers)} vs {sorted(later.corpus.tiers)})"
+            f"corpus {baseline.record.corpus.digest[:12]}… vs "
+            f"{later.record.corpus.digest[:12]}… "
+            f"({sorted(baseline.tiers)} vs {sorted(later.tiers)})"
         )
-    if baseline.pipeline_sha256 != later.pipeline_sha256:
+    if baseline.record.resolved_pipeline != later.record.resolved_pipeline:
+        differences.append("pipeline differs (see 'weft eval compare' for the stage-by-stage diff)")
+    if dict(baseline.record.model_versions) != dict(later.record.model_versions):
         differences.append(
-            f"pipeline {baseline.pipeline_sha256[:12]}… vs {later.pipeline_sha256[:12]}…"
+            f"models {dict(baseline.record.model_versions)} vs {dict(later.record.model_versions)}"
         )
-    if dict(baseline.models) != dict(later.models):
-        differences.append(f"models {dict(baseline.models)} vs {dict(later.models)}")
     if baseline.retrieval_depth != later.retrieval_depth:
         differences.append(f"retrieval depth {baseline.retrieval_depth} vs {later.retrieval_depth}")
     if differences:
@@ -67,7 +74,7 @@ def comparable(baseline: BaselineRun, later: BaselineRun) -> None:
         raise IncomparableRunsError(message)
 
 
-def regressions(baseline: BaselineRun, later: BaselineRun) -> tuple[str, ...]:
+def regressions(baseline: BaselineReport, later: BaselineReport) -> tuple[str, ...]:
     """Every metric of `later` that falls outside the interval `baseline`'s repetitions spanned.
 
     A metric the baseline measured and the later run did not is a failure too, and deliberately

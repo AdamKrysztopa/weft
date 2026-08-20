@@ -662,8 +662,8 @@ Metrics as plugins, spans on every stage, the evaluation harness as a decorator 
 
 - **Gate:** none.
 - **Read:** `02` §1 for the `Metric` contract.
-- **Lift:** `04` category A — all 21 metric implementations, as the first metric pack, **with the
-  four defects listed in `04` fixed at the door**. Note that RAGAS and ROUGE are not dependencies of
+- **Lift:** `04` category A — all 21 metric implementations, as the first metric pack, **with
+  every defect listed in `04` fixed at the door**. Note that RAGAS and ROUGE are not dependencies of
   the reference; those classes are hand-rolled, so they are original code to lift rather than
   integrations to re-wire.
 - **Exit:** running the same corpus through two derived pipelines produces a comparison the tool
@@ -860,6 +860,31 @@ All checks run in CI, before tests.
      a kernel can sit at 3,400 lines while its API doubles. The surface governor today is `01`'s cap
      of three published contracts in Phase 0 and the G1 rule that the kernel names no capability. If
      that proves insufficient, the second number to add is a public-symbol cap.
+   - **Review, 2026-08-20 — the trigger fired at task 2.36, and this is the conversation it asked
+     for. Both constants stand, unchanged.** Measured at Phase 3's close with the check's own
+     counter: **2,891** lines — 609 under the ceiling, 91 over the trigger. The finding worth
+     recording is that the estimate above was **right in total and wrong in distribution**. The
+     machinery the reference has **none** of — `resolution.py` 676 + `pipeline.py` 310 + `discovery.py`
+     300 = **1,286** — cost roughly double its 600–900 estimate, while the payload model came in at
+     **272** against the 905 its `models/` analogue suggested, because G5's `Node` admits six fields
+     by rule and pushes every other one into a pack's own extension model. The two errors very
+     nearly cancel; the registry-and-context estimate (~300) landed at **259**. What matters is
+     where the residue sits: in the derivation machinery G1 named as the kernel's reason to exist,
+     not in capability knowledge. That last clause is not asserted — fitness functions 1, 2 and 9
+     fail the build on capability knowledge in the kernel, and Phase 3's own two additions
+     (`required_declarations`, +17; the seam's `guard_blocking_calls`, +5) are capability-blind
+     registration-seam work. **No line moves out and neither constant moves**; a split argued from
+     a number that is under its own budget would be architecture bought on a hunch.
+   - **What Phase 4 may therefore add, decided here rather than task by task.** Spans on every stage
+     (ledger 4.5) attach at the **registration seam**, which is kernel by G1's own rule that
+     cross-cutting concerns live at the seam and never in a rule an author must remember — budgeted,
+     small, and already half-built in `seam.py`. The metric suite (4.1, 4.2) is a **pack**,
+     `weft-eval`; `tests/architecture/test_eval_is_not_a_subsystem.py` already fails the build if the
+     throwaway harness under `eval/` grows into one instead of being replaced by it. **Run
+     persistence (4.4) is not kernel**: what a run record must contain is evaluation knowledge, and a
+     kernel that knows what a run is *for* is a kernel that names a capability. **The forcing
+     function, stated so this entry is falsifiable:** if Phase 4 finds that run persistence cannot be
+     built outside the kernel, that reopens this review rather than editing a constant.
 4. **No closed enumeration of registry keys — anywhere a name is decided.** Two clauses. (a) No enum
    shadows a registry. (b) **No literal enumeration of registry keys may appear in a dispatch, a
    validator or a routing decision**, expressed as a runtime property —

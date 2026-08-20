@@ -57,9 +57,18 @@ the identical query `weft config get --key services.embed` would.
 below prints exactly which task owns each, so a user typing one is told the truth instead of
 getting a stub):
 
-- `/eval` — no `weft eval` command is registered anywhere in this repository yet; `docs/03-cli.md`
-  -> *Command surface* names it but no task has built it, so this is out of scope, one phase
-  further out than task 3.7 reaches.
+- `/eval` — **still deferred as of task 4.6, for a different reason than before.** `weft eval
+  run|compare` and `weft trace` are registered `Command`s now (`weft_cli.eval_commands`), and a
+  **bare**, non-slash line already reaches them inside this very session — `eval run <path>
+  <pipeline>`, `eval compare <a> <b>` and `trace <run-id>` all parse against the identical
+  registry-driven grammar every other command here does, with nothing in this module to change
+  (see this file's own top paragraph: dispatch is not duplicated). What is still missing is only
+  the **slash alias** — `/plugins` and `/config` each alias to one command with at most one bare
+  argument (`plugins list`, `config get [--key]`); `/eval` would have to multiplex between two
+  verbs that each need two required positional arguments of their own (`run`'s `<path>
+  <pipeline>`, `compare`'s `<a> <b>`), which is genuinely more than either precedent's own
+  one-line `parser.parse_args([...])` call. Building that multiplexing is a small, real,
+  separable piece of REPL-layer work — named here rather than invented mid-task.
 
 **Every value the session applies is exactly what `/session` and `/trace` print — nothing
 more.** `SessionState` (`weft_cli.session`) is the whole of what this loop carries between
@@ -133,9 +142,12 @@ _SESSION_COMMANDS_TEXT: Final[str] = (
 
 #: `docs/03-cli.md` -> *In-session commands* names one more than this task ships — see the
 #: module docstring's own paragraph on why it is deferred rather than stubbed. `/config`
-#: shipped task 3.7 (below); `/eval` still has no owner.
+#: shipped task 3.7 (below); `/eval` is registered (task 4.6) but has no slash alias yet.
 _DEFERRED_SLASH_COMMANDS: Final[dict[str, str]] = {
-    "eval": "no task owns this yet — no `weft eval` command is registered",
+    "eval": (
+        "no slash alias yet — 'eval run <path> <pipeline>'/'eval compare <a> <b>' already "
+        "work here without the leading slash, exactly like any other registered command"
+    ),
 }
 
 

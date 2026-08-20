@@ -429,3 +429,182 @@ def test_render_config_set_names_the_key_the_value_and_the_file() -> None:
     rendered = render.render_outcome(Produced(value=result))
 
     assert rendered.stdout == "set services.embed = openai in weft.toml."
+
+
+def _run_record(*, pipeline_name: str = "index", corpus_digest: str = "a" * 64):
+    from weft_eval.run_record import CorpusIdentity, RunRecord
+    from weft_kernel.resolution import ResolvedPipeline
+
+    return RunRecord(
+        recorded_at="2026-08-20T00:00:00+00:00",
+        resolved_pipeline=ResolvedPipeline(name=pipeline_name),
+        corpus=CorpusIdentity(name="corpus", digest=corpus_digest),
+    )
+
+
+def test_render_eval_run_names_the_run_id_and_the_index_summary() -> None:
+    from weft_cli.eval_commands import EvalRunCommandResult
+
+    result = EvalRunCommandResult(
+        run_id="run-1",
+        path="corpus",
+        summary=RunSummary(produced=1, nothing_to_produce=0, failed=0),
+        stored_count=1,
+        record=_run_record(),
+        wall_clock_seconds=0.5,
+    )
+    rendered = render.render_outcome(Produced(value=result))
+
+    assert rendered.stdout is not None
+    assert "run run-1 persisted" in rendered.stdout
+    assert "produced 1, nothing to produce 0, failed 0" in rendered.stdout
+    assert "wall clock: 0.50s" in rendered.stdout
+    assert rendered.exit_code is ExitCode.SUCCESS
+
+
+def test_render_eval_run_with_failures_exits_1() -> None:
+    from weft_cli.eval_commands import EvalRunCommandResult
+
+    result = EvalRunCommandResult(
+        run_id="run-1",
+        path="corpus",
+        summary=RunSummary(produced=0, nothing_to_produce=0, failed=1, failed_reasons=("bad",)),
+        stored_count=None,
+        record=_run_record(),
+        wall_clock_seconds=0.1,
+    )
+    rendered = render.render_outcome(Produced(value=result))
+
+    assert rendered.stderr == "  failed: bad"
+    assert rendered.exit_code is ExitCode.OPERATION_FAILED
+
+
+def test_render_eval_compare_confirms_the_environment_matched_before_the_diff() -> None:
+    from weft_cli.eval_commands import EvalCompareCommandResult
+    from weft_cli.pipeline_diff import PipelineDiff
+
+    diff = PipelineDiff(
+        a_name="base",
+        b_name="specific",
+        identical=False,
+        added_stages=(),
+        removed_stages=(),
+        changed_stages=(),
+        var_changes=(),
+        unapplied_operators_changed=False,
+        unplaced_contributions_changed=False,
+    )
+    result = EvalCompareCommandResult(
+        run_a="run-a",
+        run_b="run-b",
+        corpus_matches=True,
+        model_versions_match=True,
+        active_distributions_match=True,
+        pipeline_diff=diff,
+        metrics_comparison={},
+    )
+    rendered = render.render_outcome(Produced(value=result))
+
+    assert rendered.stdout is not None
+    assert "'run-a' vs 'run-b'" in rendered.stdout
+    assert "same corpus, model versions and active distributions" in rendered.stdout
+    assert "metrics: (none scored on either run" in rendered.stdout
+
+
+def test_render_eval_compare_reports_a_per_metric_delta() -> None:
+    # Task 4.9 — the comparison the tool generates itself: not only that the pipelines
+    # differ, but what they scored.
+    from weft_cli.eval_commands import EvalCompareCommandResult, MetricComparison
+    from weft_cli.pipeline_diff import PipelineDiff
+    from weft_eval.aggregate import MetricAggregate
+    from weft_eval.run_record import NotAggregated
+    from weft_kernel.payload import Produced as KernelProduced
+
+    diff = PipelineDiff(
+        a_name="base",
+        b_name="specific",
+        identical=True,
+        added_stages=(),
+        removed_stages=(),
+        changed_stages=(),
+        var_changes=(),
+        unapplied_operators_changed=False,
+        unplaced_contributions_changed=False,
+    )
+    result = EvalCompareCommandResult(
+        run_a="run-a",
+        run_b="run-b",
+        corpus_matches=True,
+        model_versions_match=True,
+        active_distributions_match=True,
+        pipeline_diff=diff,
+        metrics_comparison={
+            "precision@5": MetricComparison(
+                a=KernelProduced(
+                    value=MetricAggregate(
+                        reported_name="precision@5",
+                        mean=0.4,
+                        n=2,
+                        stdev=0.1,
+                        excluded=0,
+                        nothing_to_produce=0,
+                    )
+                ),
+                b=KernelProduced(
+                    value=MetricAggregate(
+                        reported_name="precision@5",
+                        mean=0.6,
+                        n=2,
+                        stdev=0.1,
+                        excluded=0,
+                        nothing_to_produce=0,
+                    )
+                ),
+            ),
+            "recall@5": MetricComparison(
+                a=NotAggregated(reason="not measured"),
+                b=KernelProduced(
+                    value=MetricAggregate(
+                        reported_name="recall@5",
+                        mean=0.5,
+                        n=1,
+                        stdev=None,
+                        excluded=0,
+                        nothing_to_produce=0,
+                    )
+                ),
+            ),
+        },
+    )
+    rendered = render.render_outcome(Produced(value=result))
+
+    assert rendered.stdout is not None
+    assert "precision@5: 0.400 (n=2, ±0.100) vs 0.600 (n=2, ±0.100)  Δ+0.200" in rendered.stdout
+    assert "recall@5: not produced (not measured) vs 0.500 (n=1, ±n/a)" in rendered.stdout
+
+
+def test_render_trace_prints_every_field_the_run_record_carries() -> None:
+    from weft_cli.eval_commands import TraceCommandResult
+
+    result = TraceCommandResult(run_id="run-1", record=_run_record())
+    rendered = render.render_outcome(Produced(value=result))
+
+    assert rendered.stdout is not None
+    assert "run run-1 — recorded 2026-08-20T00:00:00+00:00" in rendered.stdout
+    assert "pipeline: index" in rendered.stdout
+    assert "corpus: 'corpus'" in rendered.stdout
+    assert "model versions: (none recorded)" in rendered.stdout
+    assert "active distributions: (none)" in rendered.stdout
+    assert "metrics: (none recorded" in rendered.stdout
+
+
+def test_render_eval_metrics_names_the_gate_safe_and_gate_unsafe_metrics() -> None:
+    from weft_cli.eval_commands import EvalMetricsCommandResult
+
+    result = EvalMetricsCommandResult(gate_safe=("exact-match",), gate_unsafe=("faithfulness",))
+    rendered = render.render_outcome(Produced(value=result))
+
+    assert rendered.stdout is not None
+    assert "runs in the gate (no credentials, no network): exact-match" in rendered.stdout
+    assert "does not run in the gate: faithfulness" in rendered.stdout
+    assert rendered.exit_code is ExitCode.SUCCESS

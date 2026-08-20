@@ -67,6 +67,14 @@ class ExitCode(IntEnum):
 #: performs below — there is no shared base to walk for a group this small and this
 #: deliberately disjoint. (`UnknownPipelineNameError` needs no entry here: it already
 #: inherits `PipelineResolutionError` directly, so `isinstance` below already catches it.)
+#: `weft_cli.eval_commands.UnknownRunIdError` belongs on this same exit-4 side by the
+#: identical reasoning — a run id `weft eval compare`/`weft trace` does not hold is FF12's
+#: family, "fix what you typed" rather than "something failed" — but it is **not** named
+#: here: `weft_cli.eval_commands` imports `weft_cli.ingest`, which imports `weft_extract`/
+#: `weft_chunk`/`weft_embed`/`weft_store` at its own module scope, and this module is
+#: imported at `cli.py`'s own module scope, unconditionally, for `weft --version` too — the
+#: identical shape `weft_cli.route_ask.NoRouterPipelineError` is already checked by a local
+#: import for below, applied here rather than invented a second way.
 _ALSO_RESOLUTION_FAILED: Final[tuple[type[WeftError], ...]] = (
     UnknownPluginError,
     PipelineDocumentError,
@@ -102,11 +110,30 @@ def exit_code_for(exc: WeftError) -> ExitCode:
     this branch can ever be reached, `handle_route` has already imported `route_ask`
     itself (`weft_cli.cli`'s own local-import convention for every pack-touching module),
     so the import below costs nothing beyond a `sys.modules` lookup in the one case it runs.
+
+    **`weft_cli.eval_commands.UnknownRunIdError`, task 4.6 — the identical local-import
+    shape, one caller further.** `weft_cli.eval_commands` pulls in `weft_cli.ingest`
+    (`weft_extract`/`weft_chunk`/`weft_embed`/`weft_store`) and `weft_eval`
+    (`weft-llm`/`weft-prompts`/`rouge-score`) at its own module scope — a module-level
+    import here would cost `weft --version` all of that, the exact regression
+    `NoRouterPipelineError`'s own paragraph already refuses one caller up. By the time this
+    branch runs, `weft_cli.eval_commands.EvalCompareCommand`/`TraceCommand` have already
+    been resolved and raised, so this import is a `sys.modules` lookup, not a fresh one.
+
+    **`weft_eval.offline.UnknownMetricNameError`, task 4.7 — the identical shape again.**
+    `weft eval metrics <name>` naming a metric neither `GenerationMetric` nor `RetrievalMetric`
+    registered is "fix what you typed", FF12's family, exactly as an unknown run id is —
+    `weft_eval.offline.MetricNeedsCredentialsError`, by contrast, names a *real* metric that
+    cannot run right now, "something failed" rather than "fix the pipeline", so it is
+    deliberately left off this list to fall through to `OPERATION_FAILED` below, the identical
+    footing `EmptyCorpusError`/`IncomparableRunsError` already have.
     """
     if isinstance(exc, (PipelineResolutionError, *_ALSO_RESOLUTION_FAILED)):
         return ExitCode.RESOLUTION_FAILED
+    from weft_cli.eval_commands import UnknownRunIdError
     from weft_cli.route_ask import NoRouterPipelineError
+    from weft_eval.offline import UnknownMetricNameError
 
-    if isinstance(exc, NoRouterPipelineError):
+    if isinstance(exc, (NoRouterPipelineError, UnknownRunIdError, UnknownMetricNameError)):
         return ExitCode.RESOLUTION_FAILED
     return ExitCode.OPERATION_FAILED

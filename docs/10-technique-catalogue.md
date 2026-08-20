@@ -170,7 +170,7 @@ false in one case**, and that "RAGAS" names two different things which must neve
 | Weft name | Reference name | Origin | Reference |
 |---|---|---|---|
 | **`answer-relevance`** | `answer_relevance` | Es et al., arXiv:2309.15217 | **Faithful** to the paper's algorithm, embedding step included |
-| **`context-relevance`** | `document_relevance` (class `RagasContextRelevance`) | Es et al., arXiv:2309.15217 | **Faithful**, and the only one of six that computes its score in code (`ragas_context_relevance.py:117`). Registered under a name that contradicts its own class |
+| **`context-relevance`** | `document_relevance` (class `RagasContextRelevance`) | Es et al., arXiv:2309.15217 | **Faithful**, and one of **three** of six that compute the score in code rather than reading it off the model (`ragas_context_relevance.py:117`) — corrected 2026-08-20, this row said *the only one*; `reference-corrections.md` C3. Registered under a name that contradicts its own class |
 | **`faithfulness`** | `faithfulness` | Es et al., arXiv:2309.15217 | **Defective.** The paper decomposes then verifies then divides; the reference does it in one call and **reads the ratio off the model** (`ragas_faithfulness.py:105`) while the numerator and denominator sit unused two lines below |
 | **`context-recall`** | `ragas_context_recall` | The RAGAS **library**, not the paper | Same self-scored arithmetic (`context_recall.py:107`) |
 | **`answer-correctness`** | `ragas_answer_correctness` | The RAGAS **library**, not the paper | Reasonable reproduction of the library's weighted F1 + semantic score |
@@ -389,10 +389,13 @@ inside a commit. They are not ⚠, because G5 is settled — but they are where 
 This catalogue finds a fifth and a naming correction, both of which are `04`'s content to state, not
 this file's:
 
-- **A fifth defect** — four of six judges read the score off the model's own arithmetic
+- **A fifth defect** — **three** of six judges read the score off the model's own arithmetic *(count corrected 2026-08-20, `reference-corrections.md` C3)*
   (`ragas_faithfulness.py:105`, `context_recall.py:107`, `ragas_completeness.py:96`) while the
-  numerator and denominator sit extracted and unused. `ragas_context_relevance.py:117` gets it right
-  and is the pattern.
+  numerator and denominator sit extracted and unused. **Two** get it right and both are the pattern:
+  `ragas_context_relevance.py:117` divides extracted counts, and `ragas_correctness.py:162,:121` — the
+  better exemplar — extracts a full confusion-matrix term set from the judge and derives an F1 in code.
+  `ragas_answer_relevance.py:150` also computes in code but is **not** an instance of the pattern: it
+  never asks the model for a number, it scores by embedding similarity.
 - **The `ragas_` prefix is false, not merely unnecessary.** `04` currently records that RAGAS is not a
   dependency. It should also record that `ragas_answer_completeness` is not a RAGAS metric under any
   version of the library — so the prefix is a provenance claim, and it is untrue.

@@ -110,6 +110,36 @@ def test_an_unknown_config_key_maps_to_resolution_failed() -> None:
     assert exit_code_for(exc) is ExitCode.RESOLUTION_FAILED
 
 
+def test_an_unknown_run_id_maps_to_resolution_failed_via_the_local_import() -> None:
+    # Task 4.6 — `weft eval compare`/`weft trace` naming a run id nothing persisted is "fix
+    # what you typed", the identical exit-4 family, checked via a local import (this module's
+    # own docstring's paragraph) rather than `_ALSO_RESOLUTION_FAILED`, so `weft --version`
+    # never pays for `weft_cli.eval_commands`'s own heavier import chain.
+    from weft_cli.eval_commands import UnknownRunIdError
+
+    exc = UnknownRunIdError("no such run", valid_options=(), run_id="ghost")
+    assert exit_code_for(exc) is ExitCode.RESOLUTION_FAILED
+
+
+def test_an_unknown_metric_name_maps_to_resolution_failed_via_the_local_import() -> None:
+    # Task 4.7 — `weft eval metrics <name>` naming a metric neither contract registered is
+    # "fix what you typed", the identical exit-4 family as an unknown run id, checked via the
+    # identical local-import shape.
+    from weft_eval.offline import UnknownMetricNameError
+
+    exc = UnknownMetricNameError("no such metric", valid_options=(), name="ghost")
+    assert exit_code_for(exc) is ExitCode.RESOLUTION_FAILED
+
+
+def test_a_metric_that_needs_credentials_maps_to_operation_failed_not_resolution_failed() -> None:
+    # Task 4.7 — the metric name was valid; it is simply not runnable here. "Something failed",
+    # `EmptyCorpusError`'s own footing, never "fix what you typed".
+    from weft_eval.offline import MetricNeedsCredentialsError
+
+    exc = MetricNeedsCredentialsError("cannot run", metric="faithfulness", reason="needs an LLM")
+    assert exit_code_for(exc) is ExitCode.OPERATION_FAILED
+
+
 def test_an_unrelated_weft_error_maps_to_operation_failed() -> None:
     # Error case — a `WeftError` that is none of the above (a registry-time collision, say)
     # falls to the generic "something failed" exit, never silently upgraded to 4.
