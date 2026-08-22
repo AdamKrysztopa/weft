@@ -14,5 +14,6 @@ class Keywords(ExtModel):
     """The keywords a node's content ranked highest for, most important first."""
 
     __namespace__ = "weft-enhance"
+    __schema_version__ = "1.0.0"
 
     terms: tuple[str, ...]

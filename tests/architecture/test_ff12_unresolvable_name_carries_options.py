@@ -97,6 +97,7 @@ NAME_RESOLUTION_FAMILY: Final[frozenset[str]] = frozenset(
         "weft_cli.commands.UnresolvedPluginNameError",
         "weft_cli.llm_roles.UnknownLLMKeyError",
         "weft_cli.permission_policy.UnknownPermissionKeyError",
+        "weft_cli.reconcile_policy.UnknownReconcileKeyError",
         "weft_cli.eval_commands.UnknownRunIdError",
         "weft_cli.pipeline_catalogue.UnknownPipelineNameError",
         "weft_eval.offline.UnknownMetricNameError",
@@ -108,6 +109,7 @@ NAME_RESOLUTION_FAMILY: Final[frozenset[str]] = frozenset(
         "weft_llm.roles.UnmappedLLMRoleError",
         "weft_store.fields.UnaddressableFieldError",
         "weft_store.pgvector_store.UnknownTextSearchConfigError",
+        "weft_store.contract.UnhandledFilterOpError",
         "weft_prompts.errors.TemplateVariableError",
     }
 )

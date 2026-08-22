@@ -55,25 +55,22 @@ def _ctx() -> Context:
 def _ensure_rehydrates(model: type[ExtModel]) -> None:
     """Register `model` with `weft_store.rehydrate` if nothing has claimed its namespace yet.
 
-    `weft_cli.registry_bootstrap._ensure_chunk_offset_rehydrates` does this
-    for a real `weft ask`/`weft index` run; this test's own copy is the same
-    shim `tests/integration/test_hypothetical_questions_pipeline.py` already
-    carries for the identical reason — `PdfPages` is not registered there
-    either (`weft_pdf/__init__.py`'s own module docstring), and this test's
-    `store.scan()` needs both namespaces reconstructable to prove the stored
-    node round-trips clean, not only that the insert succeeded.
+    This test hand-assembles a `Registry` and never calls `weft_kernel.discovery.discover`,
+    so `weft_chunk`/`weft_pdf`'s own `register()` — which now buffers `ChunkOffset`/
+    `PdfPages` through `PackRegistrar.add_ext_model` (task 5.2g) — never runs either.
+    `weft_store.rehydrate.register_from_reports` is the real, generic consumer of that
+    buffer; this wraps one bare model in a throwaway `PackReport` and hands it that same
+    function, rather than re-deriving its idempotent-or-refuse logic by hand a second time.
+    `store.scan()` needs both namespaces reconstructable to prove the stored node
+    round-trips clean, not only that the insert succeeded.
     """
-    from weft_kernel.registry import UnknownPluginError
-    from weft_store import register_ext_model
-    from weft_store.rehydrate import ext_models
+    from weft_kernel.discovery import PackReport, PackStatus
+    from weft_store.rehydrate import register_from_reports
 
-    try:
-        registrant = ext_models.entry(ExtModel, model.__namespace__).factory
-    except UnknownPluginError:
-        register_ext_model(model)
-        return
-    if registrant is not model:
-        register_ext_model(model)
+    report = PackReport(
+        distribution=model.__namespace__, status=PackStatus.ACTIVE, ext_models=(model,)
+    )
+    register_from_reports((report,))
 
 
 async def _database_reachable() -> str | None:

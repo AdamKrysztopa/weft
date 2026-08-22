@@ -53,12 +53,16 @@ class Settings(BaseModel):
 
 
 def register(registrar: PackRegistrar, settings: Settings) -> None:
-    """Register both `Expander`s and both `Prompt`s this pack owns."""
+    """Register both `Expander`s and both `Prompt`s this pack owns, and `Representation` as
+    this pack's own `ExtModel` — task 5.2g, see `weft_chunk.__init__`'s own module
+    docstring for the full argument for why this costs no `weft-store` dependency.
+    """
     del settings
     registrar.add(Expander, HYPOTHETICAL_QUESTIONS_NAME, HypotheticalQuestionGenerator)
     registrar.add(Prompt, GENERATE_QUESTIONS_NAME, GenerateQuestionsPrompt)
     registrar.add(Expander, RAPTOR_NAME, RaptorSummarizer)
     registrar.add(Prompt, SUMMARIZE_CLUSTER_NAME, SummarizeClusterPrompt)
+    registrar.add_ext_model(Representation)
 
 
 __all__ = [

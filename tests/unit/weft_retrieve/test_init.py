@@ -7,6 +7,7 @@ query-path contracts and registered nothing under them — that emptiness was it
 requires of a distribution that is active *and contributing*.
 """
 
+import re
 import tomllib
 from pathlib import Path
 
@@ -36,6 +37,22 @@ from weft_retrieve.rerank import LlmRerank, LlmRerankConfig
 from weft_retrieve.transforms import ContextualQueryRewrite, MultiQuery
 
 _PYPROJECT = Path(__file__).resolve().parents[3] / "packages" / "weft-retrieve" / "pyproject.toml"
+
+#: A dependency specifier's bare name, stripping the compatible range task 5.2a gives every
+#: intra-repo dependency (`docs/09-release.md` §2.3: `>=X,<MAJOR+1`, never a bare name or an
+#: exact pin) — this test cares which distribution is depended on, not which range.
+_DEPENDENCY_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*")
+
+
+def _dependency_name(dependency: str) -> str:
+    match = _DEPENDENCY_NAME.match(dependency)
+    if match is None:
+        raise ValueError(f"not a dependency specifier: {dependency!r}")
+    return match.group(0)
+
+
+def _dependency_names(dependencies: list[str]) -> set[str]:
+    return {_dependency_name(dependency) for dependency in dependencies}
 
 
 def test_the_contracts_this_distribution_publishes_are_exported() -> None:
@@ -186,7 +203,7 @@ def test_the_distribution_declares_the_packs_whose_types_its_contracts_name() ->
     # `weft_embed.contract.Embedder` before it can search for one. `weft-llm` and
     # `weft-prompts` joined at task 2.7: `llm-rerank` asks a model a registered prompt, and
     # both are upstream of this pack on `.phase2-design.md` §2's one-way chain.
-    assert set(document["project"]["dependencies"]) == {
+    assert _dependency_names(document["project"]["dependencies"]) == {
         "weft-kernel",
         "weft-store",
         "weft-embed",

@@ -59,6 +59,20 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     `weft_retrieve.__init__`'s own docstring states why a first-party prompt belongs to
     the plugin that asks the question rather than to `weft-prompts`, which registers
     nothing at all.
+
+    **`Agreement` and `RefinementTrace` are deliberately not passed to `registrar.
+    add_ext_model` — task 5.2g's own finding, not an oversight.** Both attach to
+    `Answer.ext`, never to `Node.ext`, and only a `Node` is ever handed to a `NodeStore` —
+    `weft_store.rehydrate.rehydrate_ext` reconstructs a *node's* `ext` map and is never
+    called with an `Answer`'s. Registering both would also collide: they share
+    `__namespace__ = "weft-generate"`, so `weft_store.rehydrate.ext_models` — one class
+    per namespace, globally — would raise `DuplicateRegistrationError` the moment both
+    are active, which `contradiction-check` and `refine-on-uncertainty` together already
+    are in this pack's own default pipelines. `docs/lessons.md` L5.20 records this as the
+    reason `add_ext_model` is for an `ExtModel` that reaches a `Node`, not for every
+    `ExtModel` a pack happens to own — see `weft_retrieve.__init__`'s own module
+    docstring for the identical finding against `BooleanPlan`/`CorrectiveTrace`/
+    `IterativeRetrievalTrace`.
     """
     del settings
     registrar.add(Generator, CITED_ANSWER_NAME, CitedAnswer)

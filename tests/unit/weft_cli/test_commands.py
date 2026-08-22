@@ -21,14 +21,17 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import cast
+from unittest import mock
 
 import pytest
 
 from weft_cli import commands
 from weft_cli.exit_codes import ExitCode
 from weft_cli.ingest import IndexResult
+from weft_cli.reconcile_policy import ReconcilePolicy
 from weft_cli.registry_bootstrap import Dependencies
 from weft_cli.services import ServiceSelection
+from weft_cli.skew import SkewReport
 from weft_command.contract import Command
 from weft_command.permission import PermissionClass
 from weft_embed import Embedder
@@ -36,10 +39,50 @@ from weft_generate.payload import Answer, AnswerStance
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackRegistrar, PackReport, PackStatus
 from weft_kernel.payload import MediaType, Node, Produced
+from weft_kernel.pipeline import StageDeclaration
 from weft_kernel.registry import Registry
+from weft_kernel.resolution import Contribution
 from weft_kernel.runner import RunSummary
 from weft_retrieve.payload import Query
-from weft_store import NodeStore, Scored
+from weft_store import NodeStore, ReconcileEstimate, ReconcileMode, ReconcileReport, Scored
+
+
+class _DeletableStore:
+    """A `NodeStore` stand-in for the fan-out — `delete_source` is the only method reached,
+    and `SourceDeletable` is satisfied by having it, which is the derivation under test.
+    """
+
+    def __init__(self, config: object = None) -> None:
+        del config
+
+    async def delete_source(self, source_id: object) -> object:
+        del source_id
+        return None
+
+
+class _ReconcilableStore:
+    """A `NodeStore` stand-in satisfying `Reconcilable` — `reconcile`/`estimate` are the only
+    two methods reached, which is all the fan-out ever calls (`weft_cli.fanout`'s own
+    class-level `issubclass` check, never a constructed `NodeStore` used as one).
+    """
+
+    pending: int = 2
+
+    def __init__(self, config: object = None) -> None:
+        del config
+
+    async def reconcile(self, ctx: object, mode: ReconcileMode) -> ReconcileReport:
+        del ctx
+        return ReconcileReport(mode=mode, examined=1, removed=1)
+
+    async def estimate(self, ctx: object, mode: ReconcileMode) -> ReconcileEstimate:
+        del ctx
+        return ReconcileEstimate(
+            mode=mode,
+            pending=_ReconcilableStore.pending,
+            description=f"{_ReconcilableStore.pending} node(s) outstanding",
+            model_calls=_ReconcilableStore.pending,
+        )
 
 
 def _null_factory(config: object) -> object:
@@ -65,8 +108,12 @@ def test_register_wires_every_built_in_with_its_permission_class() -> None:
     # Assert — task 3.7 grew this from five names to thirteen; task 3.11 retires `route`
     # (folded into `ask`, `docs/build-ledger.md`'s own 3.11 entry), back to twelve; task 4.6
     # adds `eval run`/`eval compare`/`trace` (`weft_cli.eval_commands`), to fifteen; task 4.7
-    # adds `eval metrics`, to sixteen.
+    # adds `eval metrics`, to sixteen; task 5.1a adds `delete` — G7's fast path, and the
+    # first first-party `destroy`-class command — to seventeen, and task 5.1b adds
+    # `reconcile`, G7's safety net, to eighteen.
     assert registry.names_for(Command) == {
+        "delete",
+        "reconcile",
         "index",
         "ask",
         "plugins list",
@@ -505,3 +552,244 @@ async def test_plugins_doctor_command_reports_displaced_and_unconsulted_pins() -
     assert result.reports == reports
     assert len(result.displaced) == 1
     assert result.displaced[0].distribution == "weft-loser"
+    # This test's own venv is `uv sync`ed, so nothing is skewed — see
+    # `tests/unit/weft_cli/test_skew.py` for the mechanism proven against doubles instead;
+    # task 5.2e's own ledger entry records a real, force-installed skew against the
+    # shipped binary, which is the only way to see a genuine disagreement fire.
+    assert result.skew == ()
+
+
+async def test_plugins_doctor_command_reports_the_skew_detect_skew_finds() -> None:
+    # Arrange — task 5.2e: proves `PluginsDoctorCommand` actually wires `detect_skew()`
+    # in, rather than merely happening to pass through a clean environment's empty result.
+    reports = (PackReport(distribution="weft-cli", status=PackStatus.ACTIVE, contributed=1),)
+    deps = Dependencies(registry=Registry(), reports=reports, services=ServiceSelection())
+    skewed = SkewReport(
+        requiring_distribution="weft-cli",
+        required_distribution="weft-kernel",
+        specifier=">=0.1.0,<1.0.0",
+        installed_version="9.9.9",
+    )
+
+    with mock.patch("weft_cli.commands.detect_skew", return_value=(skewed,)) as mocked:
+        # Act
+        outcome = await commands.PluginsDoctorCommand().run(commands.NoArgs(), _ctx(deps))
+
+    # Assert
+    mocked.assert_called_once_with()
+    assert isinstance(outcome, Produced)
+    result = outcome.value
+    assert isinstance(result, commands.PluginsDoctorCommandResult)
+    assert result.skew == (skewed,)
+
+
+async def test_plugins_doctor_command_flags_a_contribution_that_lands_nowhere() -> None:
+    """Task **5.3a** (`S8`) — `02` §3 → *Slots*: "`weft plugins doctor` flags a pack whose
+    contributions land in no pipeline at all." No pipeline in the (empty) catalogue this
+    test resolves against declares any slot, so this pack's own offer is unreachable.
+    """
+    # Arrange
+    reports = (PackReport(distribution="weft-graph", status=PackStatus.ACTIVE, contributed=1),)
+    contribution = Contribution(
+        slot="enrich",
+        distribution="weft-graph",
+        stage=StageDeclaration(id="entities", use="entity-extractor"),
+    )
+    deps = Dependencies(
+        registry=Registry(),
+        reports=reports,
+        services=ServiceSelection(),
+        contributions=(contribution,),
+    )
+
+    # Act
+    outcome = await commands.PluginsDoctorCommand().run(commands.NoArgs(), _ctx(deps))
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = outcome.value
+    assert isinstance(result, commands.PluginsDoctorCommandResult)
+    assert result.unreachable_contributions == (contribution,)
+
+
+def test_delete_describes_its_impact_by_naming_every_participant() -> None:
+    # Arrange
+    registry = Registry()
+    registry.add(NodeStore, "pgvector", _DeletableStore, distribution="weft-store")
+    deps = Dependencies(
+        registry=registry,
+        reports=(PackReport(distribution="weft-store", status=PackStatus.ACTIVE),),
+        services=ServiceSelection(store="pgvector"),
+    )
+
+    # Act
+    stated = commands.DeleteCommand().describe_impact(
+        commands.DeleteArgs(source_id="doc-1"), _ctx(deps)
+    )
+
+    # Assert
+    assert stated == "'doc-1' will be removed from 1 participant(s): pgvector (weft-store)."
+
+
+def test_delete_refuses_an_unresolvable_store_before_it_describes_an_impact() -> None:
+    """The repair L5.9 records: the prompt used to state "nothing installed holds data" for a
+    store that was installed and had failed to register, and the real diagnosis was reachable
+    only past `--yes`. `describe_impact` now makes the same check `run` does, first.
+    """
+    # Arrange
+    deps = Dependencies(
+        registry=Registry(),
+        reports=(PackReport(distribution="weft-store", status=PackStatus.FAILED, reason="no dsn"),),
+        services=ServiceSelection(store="pgvector"),
+    )
+
+    # Act
+    with pytest.raises(commands.CommandRefusalError) as raised:
+        commands.DeleteCommand().describe_impact(commands.DeleteArgs(source_id="doc-1"), _ctx(deps))
+
+    # Assert
+    assert "[services] store names 'pgvector'" in str(raised.value)
+
+
+def _reconcilable_deps(*, reconcile_policy: ReconcilePolicy | None = None) -> Dependencies:
+    registry = Registry()
+    registry.add(NodeStore, "pgvector", _ReconcilableStore, distribution="weft-store")
+    return Dependencies(
+        registry=registry,
+        reports=(PackReport(distribution="weft-store", status=PackStatus.ACTIVE),),
+        services=ServiceSelection(store="pgvector"),
+        reconcile_policy=reconcile_policy if reconcile_policy is not None else ReconcilePolicy(),
+    )
+
+
+async def test_reconcile_command_falls_back_to_weft_toml_when_the_flag_is_omitted() -> None:
+    # Arrange — task 5.1c: the flag is `None`, so `weft.toml`'s own `[reconcile] mode`
+    # decides, exactly as `weft_cli.reconcile_policy`'s own module docstring promises.
+    deps = _reconcilable_deps(reconcile_policy=ReconcilePolicy(mode=ReconcileMode.REPAIR))
+    args = commands.ReconcileArgs(mode=None, dry_run=False)
+
+    # Act
+    outcome = await commands.ReconcileCommand().run(args, _ctx(deps))
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = outcome.value
+    assert isinstance(result, commands.ReconcileCommandResult)
+    assert (result.mode, result.estimates) == (ReconcileMode.REPAIR, ())
+
+
+async def test_reconcile_command_flag_wins_over_the_weft_toml_default() -> None:
+    # Arrange — `weft.toml` says `repair`; `--mode full` on this one invocation still wins.
+    deps = _reconcilable_deps(reconcile_policy=ReconcilePolicy(mode=ReconcileMode.REPAIR))
+    args = commands.ReconcileArgs(mode=ReconcileMode.FULL, dry_run=False)
+
+    # Act
+    outcome = await commands.ReconcileCommand().run(args, _ctx(deps))
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = outcome.value
+    assert isinstance(result, commands.ReconcileCommandResult)
+    assert result.mode is ReconcileMode.FULL
+    assert result.estimates[0].estimate is not None
+    assert result.estimates[0].estimate.model_calls == 2
+
+
+async def test_reconcile_command_repair_mode_computes_no_estimates() -> None:
+    # Arrange — task 5.1c: `full` states its cost; `repair` never backfills, so it has none.
+    deps = _reconcilable_deps()
+    args = commands.ReconcileArgs(mode=ReconcileMode.REPAIR, dry_run=False)
+
+    # Act
+    outcome = await commands.ReconcileCommand().run(args, _ctx(deps))
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = outcome.value
+    assert isinstance(result, commands.ReconcileCommandResult)
+    assert result.estimates == ()
+
+
+async def test_reconcile_command_full_dry_run_carries_the_cost_and_asks_nobody() -> None:
+    # Arrange — bullet 3: "--dry-run prints the same block and stops."
+    deps = _reconcilable_deps()
+    args = commands.ReconcileArgs(mode=ReconcileMode.FULL, dry_run=True)
+
+    # Act
+    outcome = await commands.ReconcileCommand().run(args, _ctx(deps))
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = outcome.value
+    assert isinstance(result, commands.ReconcileCommandResult)
+    assert result.participants == ()
+    assert result.would_ask == ("pgvector (weft-store)",)
+    assert result.estimates[0].estimate is not None
+    assert result.estimates[0].estimate.pending == 2
+
+
+async def test_index_command_runs_an_automatic_repair_pass_after_a_successful_run(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Arrange — task 5.1c: no `--reconcile` flag, so the automatic pass is `repair` — never
+    # `full` — regardless of anything `weft.toml` says.
+    registry = Registry()
+    registry.add(Embedder, "hash", _null_factory, distribution="weft-embed")
+    registry.add(NodeStore, "pgvector", _ReconcilableStore, distribution="weft-store")
+    reports = tuple(
+        PackReport(distribution=d, status=PackStatus.ACTIVE)
+        for d in ("weft-extract", "weft-chunk", "weft-embed", "weft-store")
+    )
+    deps = Dependencies(registry=registry, reports=reports, services=ServiceSelection())
+    summary = RunSummary(produced=1, nothing_to_produce=0, failed=0)
+
+    async def _fake_run_index(*_args: object, **_kwargs: object) -> IndexResult:
+        return IndexResult(summary=summary, stored_count=1)
+
+    monkeypatch.setattr(commands, "run_index", _fake_run_index)
+    args = commands.IndexArgs(path=str(tmp_path))
+
+    # Act
+    outcome = await commands.IndexCommand().run(args, _ctx(deps))
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = outcome.value
+    assert isinstance(result, commands.IndexCommandResult)
+    assert result.reconcile is not None
+    assert result.reconcile.mode is ReconcileMode.REPAIR
+    assert result.reconcile.estimates == ()
+    assert result.reconcile.participants[0].plugin == "pgvector"
+
+
+async def test_index_command_reconcile_full_flag_opts_this_run_into_backfill(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Arrange — `weft index --reconcile full`, a person's own per-run flag.
+    registry = Registry()
+    registry.add(Embedder, "hash", _null_factory, distribution="weft-embed")
+    registry.add(NodeStore, "pgvector", _ReconcilableStore, distribution="weft-store")
+    reports = tuple(
+        PackReport(distribution=d, status=PackStatus.ACTIVE)
+        for d in ("weft-extract", "weft-chunk", "weft-embed", "weft-store")
+    )
+    deps = Dependencies(registry=registry, reports=reports, services=ServiceSelection())
+    summary = RunSummary(produced=1, nothing_to_produce=0, failed=0)
+
+    async def _fake_run_index(*_args: object, **_kwargs: object) -> IndexResult:
+        return IndexResult(summary=summary, stored_count=1)
+
+    monkeypatch.setattr(commands, "run_index", _fake_run_index)
+    args = commands.IndexArgs(path=str(tmp_path), reconcile=ReconcileMode.FULL)
+
+    # Act
+    outcome = await commands.IndexCommand().run(args, _ctx(deps))
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = outcome.value
+    assert isinstance(result, commands.IndexCommandResult)
+    assert result.reconcile is not None
+    assert result.reconcile.mode is ReconcileMode.FULL
+    assert result.reconcile.estimates[0].estimate is not None
+    assert result.reconcile.estimates[0].estimate.model_calls == 2

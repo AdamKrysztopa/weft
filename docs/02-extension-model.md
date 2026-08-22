@@ -322,12 +322,97 @@ or corrupt by accident.
 > every namespace that *is* known, and a namespace claimed twice raises naming both claimants —
 > rule 5 applied to storage rather than to plugin lookup.
 >
-> **A pack's `register()` does not contribute one automatically.** A pack shipping its own
-> `ExtModel` calls `weft_store.register_ext_model` itself — re-exported from
-> `weft_store.rehydrate` — or nodes carrying it will not survive a
-> round trip through this store. That is the same gap step 5's narrowing note records for
-> `add_messages` below, and it is recorded rather than solved: closing it means deciding what a pack
-> contributes at registration beyond plugins, which is not Phase 0's to settle.
+> **A pack's `register()` did not contribute one automatically, until task 5.2g — see the block
+> below.** Until then, a pack shipping its own `ExtModel` had to call `weft_store.register_ext_model`
+> itself, a second, explicit call beyond `register()`, or nodes carrying it would not survive a
+> round trip through this store. That was the same gap step 5's narrowing note records for
+> `add_messages` below (G11 has since retired that one outright, rather than closing it); this one
+> is closed, not merely recorded, and how is below.
+
+> **Built in Phase 5 task 5.2g.** A pack now declares its own `ExtModel` the same way it declares a
+> plugin — through the `PackRegistrar` its `register()` already receives —
+> `registrar.add_ext_model(GraphData)`, buffered exactly like `add_pipeline_resource` and
+> `deprecate` (`weft_kernel.discovery`'s own module docstring). The kernel stays capability-blind:
+> `ExtModel` is a payload primitive it already owns (`Node.ext`'s own declared value type), not a
+> capability, so buffering a bare class reference teaches the kernel nothing about stores. Turning
+> the buffer into something `weft_store.rehydrate.rehydrate_ext` can read is
+> `weft_store.rehydrate.register_from_reports`'s job — the generic consumer of every
+> `PackReport.ext_models`, called once by whatever already calls `discover()`
+> (`weft_cli.registry_bootstrap.build_dependencies`), with no pack named at that call site and no
+> edit owed to it by a future pack. `weft_chunk`, `weft_clean`, `weft_enhance`, `weft_pdf` and
+> `weft_index` all call it now, and so does the out-of-tree stranger pack
+> `examples/weft-example-ingest` for its own `WordCount` — the real proof, since that
+> distribution is installed rather than linked (fitness function 9(a)) and reaches
+> `ext_models` with nobody here having anticipated it. `_ensure_chunk_offset_rehydrates` — the
+> shim that proved the gap, hand-registering `ChunkOffset` alone from inside `weft-cli` — is
+> deleted.
+>
+> **Not every `ExtModel` a pack owns calls `add_ext_model`, and that is a finding of this task
+> rather than an oversight.** `weft_retrieve.boolean.BooleanPlan`, `weft_retrieve.corrective.
+> CorrectiveTrace` and `weft_retrieve.iterative.IterativeRetrievalTrace` share
+> `__namespace__ = "weft-retrieve"`; `weft_generate.contradiction.Agreement` and `weft_generate.
+> refine.RefinementTrace` share `"weft-generate"`. All five attach to `QuerySet.ext`/
+> `Candidates.ext`/`Answer.ext`, never to `Node.ext`, and only a `Node` is ever handed to a
+> `NodeStore` — `rehydrate_ext` reconstructs a *node's* `ext` map and is never called with a
+> query-path payload's, so none of the five needs this registry to survive anything. Registering
+> all five would do worse than nothing: `ext_models` holds one class per namespace, globally, so
+> the second pack-owned class sharing a namespace would raise `DuplicateRegistrationError` the
+> moment both are active — which two retrieval or two generation techniques routinely are in one
+> run. `add_ext_model` is therefore for an `ExtModel` that reaches a `Node`, not for every
+> `ExtModel` a pack happens to own; `docs/lessons.md` L5.20 records the measurement. Fitness
+> function 14 (`01`) is the runtime property that keeps every namespace that *does* reach a `Node`
+> reachable for rehydration, checked against real, installed packs rather than asserted.
+
+**A schema version is carried in the data, and it is a second axis (G9, 2026-08-21).** An
+`ExtModel` is a *schema in a user's database*: `GraphData` is validated on write and persisted inside
+every node the pack touched, so adding a required field, renaming one or changing a type breaks rows
+already stored. A contract version cannot cover this, and the reason is mechanical rather than
+philosophical — **the contract version is not available at the read site.** When a store rehydrates a
+JSONB blob, the pack that wrote it may not be installed at all. A version read off the importing
+module would be exactly whatever is installed and could never disagree with it, which is the defect
+`lessons.md` L5.6 records in another costume.
+
+So every `ExtModel` declares `__schema_version__`, mandatory at class definition beside
+`__namespace__`, and the kernel writes it into the dumped namespace. A reader **upgrades or refuses**:
+`upgrade(data, from_version)` is a classmethod whose default **refuses**, naming the namespace, the
+stored version and the current one. Silence is refusal, the same posture §2 takes for permissions,
+and the alternative is the reference's contaminated fallback whose success and failure paths were
+indistinguishable.
+
+The rule is uniform across every surface that is data at rest — the `ext` map, the store's own table,
+the filter AST, pipeline documents, `RunRecord` and `weft.toml` — while the mechanism belongs to
+whoever owns each. `Filter.version` is the worked example of why the rule says *in the data*: it is a
+`ClassVar`, and pydantic never serialises one, so a filter stored inside a pipeline has always
+carried no version at all.
+
+> **Built in Phase 5 task 5.2c.** `__schema_version__` rides the identical seam `__namespace__`
+> already uses — `ExtModel.__pydantic_init_subclass__` — rather than `weft_kernel.registry`'s
+> `required_declarations`, because that mechanism checks a plugin at *registration*, and an
+> `ExtModel` is never registered; it is a `BaseModel` a pack imports and instantiates directly, so
+> class-definition time is the only seam that exists for it. The version travels *in the bytes*
+> via `SCHEMA_VERSION_KEY`, written by `weft_kernel.payload.ext._dump` — the one place a
+> namespace's dumped dict is already assembled, so it is the one place the version can be added to
+> it rather than dropped the way `Filter.version` was. `upgrade`'s default raises
+> `SchemaVersionRefusedError`, naming the namespace, the stored version and the current one; this
+> is not itself a fitness-function-12 family member (`NAME_RESOLUTION_FAMILY`) because there is no
+> alternative *name* to offer, the same reasoning that already excludes
+> `DuplicateRegistrationError`.
+>
+> **A stored namespace carrying no version at all — every row written before this task — is not
+> assumed to be current.** `weft_store.rehydrate.rehydrate_ext` reads `stored_version` as `None`
+> when the key is absent and routes it through `upgrade` exactly like a real mismatch, so the
+> default still refuses rather than silently accepting it; the message says "no version at all
+> (written before schema versioning existed)" rather than naming a version that was never written.
+> The one row this task's own binary run met in the running container took exactly this path.
+>
+> **Every `ExtModel` in the tree gained the declaration**, all at `1.0.0` — nothing had shipped a
+> second shape of any of them, so there is no earlier version for `1.0.0` to be a bump from:
+> `weft_kernel.payload.node.SyntheticOrigin`, `weft_chunk.payload.ChunkOffset`,
+> `weft_clean.language.Language`, `weft_enhance.keywords.Keywords`, `weft_pdf.document.PdfPages`,
+> `weft_index.payload.Representation`, `weft_retrieve.corrective.CorrectiveTrace`,
+> `weft_retrieve.boolean.BooleanPlan`, `weft_retrieve.iterative.IterativeRetrievalTrace`,
+> `weft_generate.refine.RefinementTrace`, `weft_generate.contradiction.Agreement`, and the stranger
+> pack's own `weft_example_ingest.enhancer.WordCount`.
 
 **Transience is a property of the declaration.** `__transient__ = True` on an ext model means the
 kernel strips that namespace before any `Store` sees the node. The reference needed a pipeline stage for
@@ -544,11 +629,119 @@ class MetadataFilter(Protocol): ...                # marker: supports the whole 
 > moves `1.0.0` → `1.1.0`: a filter this AST used to accept no longer validates, which is a change
 > to what the data *is*.
 >
+> **Task 5.2b: the closed operator vocabulary is now dispatched exhaustively, and its permitted
+> sets are stated rather than derived.** `docs/09-release.md` §2.3 found that adding a `FilterOp`
+> member is textbook-additive everywhere it is *declared* but silently answered the wrong query at
+> nine dispatch sites across both translators and the shape validator — `weft_qdrant.store`'s three
+> functions, `weft_store.contract.Filter._shape_matches_op`, and `weft_store.pgvector_store`'s SQL
+> equivalents of the same translation, `_predicate`/`_text_predicate`/`_text_set_predicate`/
+> `_extension_predicate`. Every one now ends `match self.op: ... case _: raise
+> UnhandledFilterOpError(...)` rather than a bare fallthrough. `weft_store.fields._ADMITTED[
+> FieldKind.EXTENSION]` carried the same defect in its own shape — not a fallthrough but a *widen*,
+> since it read `frozenset(FilterOp) - {AND, OR, NOT}` and so admitted whatever the enum gained next
+> with nobody having decided that operator belongs on a pack's own namespaced data — and is now the
+> nine members named by hand, refused everywhere else by `field_for`'s existing
+> `FilterOpMismatchError`. Fitness function 13 (`01`) is the runtime property that keeps this true:
+> a manufactured operator none of the twelve real members equal must be refused by every one of
+> these sites, not merely by the ones a reviewer happened to look at.
+>
 > **Recorded rather than hidden:** `01` → *Runtime shape* also names an **ephemeral in-memory
 > store** — "a dict with brute-force cosine, never persisted, used by the conformance kit and by
 > pack authors' unit tests so writing a plugin does not require Docker". It does not exist, no
 > ledger task claims it, and this task did not build it: the conformance kit runs against the two
 > real containers and skips, with a reason, when they are absent.
+
+> **Extended by G7 (2026-08-21): two more Protocols, because derived data outlives its source.**
+> `delete_source` sat on `NodeStore` from G4 and **nothing in the tree called it** — while `02` §4's
+> graph pack holds entities and relations derived from nodes it would never hear about. That is the
+> reference's RAPTOR scar (`docs/README.md` → *Corrections*: "RAPTOR summaries that no deletion path can
+> reach") reappearing first-party, and G7 found it by asking what the graph pack genuinely cannot do
+> rather than by asking whether a bus would be nice. Both additions are `@runtime_checkable` members
+> of this family, per the paragraph above: a pack satisfies them or it does not, and nobody declares
+> a flag.
+>
+> ```python
+> class SourceDeletable(Protocol):
+>     async def delete_source(self, sid: SourceId) -> Removed
+>
+> class Reconcilable(Protocol):
+>     async def reconcile(self, ctx: Context, mode: ReconcileMode) -> ReconcileReport
+> ```
+>
+> **`SourceDeletable` is the fast path.** Deletion fans out synchronously, in-command, across *every*
+> registered plugin that satisfies it — not just the node store — and a participant that fails is
+> reported rather than swallowed. It is a separate Protocol rather than a reuse of `NodeStore`
+> because a graph store is not a node store: it would otherwise owe `scan`, `count` and the three
+> source methods to answer one question about deletion, which is the optional-method design this
+> family exists to refuse.
+>
+> **`Reconcilable` is the safety net, and it is why there is no bus.** A bus reaches only subscribers
+> live when the event fired; it cannot repair a pack installed *after* the corpus was built, a drain
+> killed mid-flight, or a second machine sharing one database. Convergence can, and it needs nothing
+> new to ask its question: `list_sources`, `scan` and `count` already answer *what should exist*.
+> `reconcile` is idempotent, `O(corpus)`, cursored and interruptible — `CancelledError` propagates
+> per G6, so a half-finished pass resumes rather than restarting.
+>
+> **`ReconcileMode` is an `Enum` with two members, and the distinction is a consent boundary.**
+> `repair` removes derived state whose source is gone; `full` also **backfills** state that was never
+> built. The automatic pass that runs at the end of an index run always uses `repair`. `full` is
+> reached only by a person, per run — `weft index --reconcile full`, or `weft reconcile`, which
+> defaults to it because someone typing that word means it — and it states its cost before spending
+> it. That split is what keeps §3's rule below unamended: backfill runs LLM calls and writes, so an
+> *ambient* backfill would silently change what an existing pipeline does by a second route, which is
+> G3's installed-and-ambient threat wearing a different coat. A per-run human choice is not ambient.
+> `03` owns the command surface and the permission class each mode carries.
+>
+> **Built in Phase 5 tasks 5.1a and 5.1b.** `STORE_CONTRACT_VERSION` moves `1.2.0` → `1.3.0` →
+> `1.4.0`, a minor each time under G9's now-settled rule: a capability added without breaking
+> anything that already satisfied the family. `NodeStore` satisfies `SourceDeletable` by
+> construction, since `delete_source` was already one of its own methods — so the fan-out finds the
+> node store without naming it, which is what "capability is derived, never declared" buys here.
+>
+> **`ReconcileReport` carries `schema_version` as a serialised field**, not a `ClassVar`, which is
+> this section's own G9 rule applied to the report rather than argued about: `Filter.version` is the
+> worked example of the mistake, and pydantic never serialises a `ClassVar`.
+>
+> **A *node* store converges tombstones, not orphans — a narrowing this section's wording does not
+> anticipate.** `repair` is described above as removing "derived state whose source is gone", which
+> is a graph pack's job. A node store holds the primary data, so it *is* the authority on what
+> exists, and a pass that deleted nodes because no `weft_sources` row named them would erase a
+> corpus indexed before source records were written — which is every corpus in this tree today,
+> since nothing on the index path calls `put_source`. What a node store genuinely owns is the other
+> half of `SourceRecord.status`'s reason for existing: every `DELETING` tombstone is a deletion that
+> started and did not end. **That is also where "resumes rather than restarting" stops being a
+> promise about a cursor**: the backlog is durable rows, so a cancelled pass loses only its own
+> progress. `full` backfills nothing here and says so, because a node store holds no derived state
+> to build. Proven on both real backends by the conformance kit, and by a stranger's own pack
+> (`examples/weft-example-ingest`), which needed no new state to satisfy either Protocol.
+>
+> `STORE_CONTRACT_VERSION` moves for a grown family, as it did at 2.5 and 2.6. **G9 owns what the
+> number means** — and G7 has made that session's job larger, not smaller: these are two freshly
+> published capability Protocols, and `ReconcileReport` is persisted by any pack that records what it
+> repaired, so it is the *schema in a user's database* problem G9's brief already calls its sharpest.
+
+> **Task 5.1c adds a second method to `Reconcilable`, and `STORE_CONTRACT_VERSION` moves
+> `1.4.0` → `2.0.0` because of it — a major, not another minor.** `estimate(self, ctx,
+> mode) -> ReconcileEstimate` is what lets `03`'s "full states its cost before it spends it"
+> be asked of a participant rather than guessed at: `list_sources`/`scan`/`count` answer *what
+> should exist*, never *what converging one of them would cost*. It is a required member, not
+> an optional duck-typed one — CLAUDE.md's "cross-cutting concerns live at the registration
+> seam, never in a rule authors must remember" applied to a pack's own promise about its own
+> cost, which is why this is unlike `weft_command.contract.Command.describe_impact`'s
+> optional shape. **G9's two-audience rule is what makes the bump major rather than minor**:
+> adding a method to a published Protocol is minor for a caller (nothing that already called
+> `reconcile` breaks) and major for an implementer (`PgVectorStore`, `weft_qdrant.store.
+> QdrantStore` and the out-of-tree `examples/weft-example-ingest` all stop satisfying
+> `Reconcilable` at all until they add the method) — the bump is the maximum of the two, per
+> `docs/README.md`'s own G9 row. `ReconcileEstimate` carries `mode`, `pending`, `description`
+> and `model_calls: int = 0`: a bare `str` for `description` rather than a structured
+> breakdown, because `03`'s own worked example output is one pack's own prose about its own
+> outstanding work, and a fixed shape here would force every future `Reconcilable` into one
+> vocabulary for "pending" (nodes? sources? entities?) that does not fit all of them. Every
+> first-party implementor's own honest floor is `model_calls=0` — a node store holds the
+> primary data and has no derived state to backfill, whichever mode is asked about — proven on
+> both real backends by the conformance kit and by the stranger's own pack, exactly as
+> `reconcile` itself already is.
 
 **Capability is derived, never declared.** At registration the kernel computes which protocols a
 store class satisfies, and that set *is* its capability. Nobody writes a flag, so nobody writes a
@@ -849,6 +1042,15 @@ own prompt text without asking the kernel for anywhere to put it.
 > it as an unbuilt Phase 0 promise whose API status was undecided under G9. Both halves are closed:
 > the catalogue is retired, so there is no contribution seam to build and no message keys for G9 to
 > rule on. See the paragraph above and §1.
+>
+> **Built in Phase 5 task 5.2g — `PackRegistrar` gains a third buffered call, `add_ext_model`,
+> beside `add_pipeline_resource` and `add`/`deprecate`.** §1 has the full account of why and what
+> it excludes; the point that belongs here is the shape: a pack contributes an `ExtModel` at
+> registration through the identical seam and the identical buffer-then-commit discipline it
+> already uses for a plugin, never a second call outside `register()`. The kernel still learns
+> nothing about stores — `ExtModel` is kernel-owned payload data, and `PackReport.ext_models` is
+> read back by `weft_store.rehydrate.register_from_reports`, a `weft-store` function, never by
+> anything under `weft-kernel`.
 
 ### The trust model
 
@@ -939,6 +1141,18 @@ lost half its registrations to a missing optional dependency are the same questi
 | `partial` | Registered, but conditional registration skipped something — *what*, and *why* (G4) |
 | `allowed, not installed` | Named in `allow`, absent from the environment |
 | `ambient` *(flag on `active`)* | Running, and not a direct dependency |
+| `deprecated` *(flag on `active`)* | The pack marked one of its own surfaces deprecated at registration |
+
+> **Built in Phase 5 task 5.2e.** `weft_kernel.discovery.PackRegistrar.deprecate(surface,
+> reason=...)` is the marking call — a plugin name, a `"Contract:name"` pair, or the pack
+> itself, buffered exactly like `add_pipeline_resource` so a pack whose `register()` raises
+> marks nothing. `docs/09-release.md` §3's own rule — "the warning is emitted by the
+> registration wrapper" — is why the actual `DeprecationWarning` is not this method's job:
+> once a pack's buffer commits, `discovery._activate` hands it to
+> `weft_kernel.seam.warn_deprecated`, so a pack author states the fact once and the warning
+> is never a line they have to remember to print. `weft plugins list`/`doctor` read
+> `PackReport.deprecations` as a flag beside a pack's status, exactly the row above states —
+> no `PackStatus` member gained, on the identical reasoning `ambient` already settled.
 
 The behaviours that vocabulary implies:
 
@@ -1358,6 +1572,21 @@ It may never rewrite a pipeline that did not ask: installing a package — possi
 dependency — must not silently change what an existing pipeline does, which is G3's *installed and
 ambient* threat applied to your data.
 
+> **Tested by G7 (2026-08-21), and unamended.** This rule governs what an *installed* pack may do,
+> and G7 put two candidates against it. An **event bus** was refused by it: a pack observing every
+> node a pipeline touched is the same consent problem as rewriting that pipeline, arriving by a
+> quieter route. **Reconcile backfill** was not, and the reason is the boundary this rule actually
+> draws — a `Reconcilable` pack creating derived data during an automatic pass *would* breach it, so
+> the automatic pass never does; backfill is reached only by a person's per-run flag (§1, and `03`).
+> The rule bites on *installation*, not on what someone deliberately asks for at the command line.
+>
+> **Built in Phase 5 task 5.1c.** `weft_cli.commands.IndexArgs.reconcile` is a hardcoded
+> `ReconcileMode.REPAIR` default, read from no config at all — `weft_cli.reconcile_policy`'s
+> own `[reconcile] mode` governs `weft reconcile` typed by hand, never `weft index`'s automatic
+> pass, so a project cannot make the automatic pass reach `full` by editing `weft.toml` once.
+> `weft index --reconcile full` is the per-run flag this rule requires; `03` → *Command
+> surface* has the fuller argument and the transcript.
+
 - A contribution targets a **named slot**, never a stage id. Stage ids are internal detail that
   `replace` and `remove` exist to change; a slot is a stable, deliberate promise.
 - **Two contributions in one slot** are ordered by the declared relations above. Genuine ties break by
@@ -1379,6 +1608,36 @@ ambient* threat applied to your data.
   pack is absent is an unapplied operator in the resolved form, not a resolution failure — the same
   reasoning as an unplaced contribution, and it keeps a tuned pipeline portable. Strictness governs
   targets the pipeline's own extends chain defines.
+
+> **Built in Phase 5 task 5.3a (`S8`).** Everything above was true of the *resolved form* since
+> task 1.11 and untrue of anything a pack could actually do: `weft_kernel.resolution.Contribution`
+> existed, `resolve()` took a `contributions=` tuple, and placement, qualification and the
+> unplaced-recording all worked — but nothing built the producing half, so every property in this
+> section was demonstrated only by a test file constructing a `Contribution` by hand. This task
+> built it, following `add_ext_model`'s own shape (task 5.2g) rather than inventing a third
+> mechanism: `weft_kernel.discovery.PackRegistrar.add_contribution(slot, stage)` buffers one,
+> attributed to the calling pack exactly as `add`/`deprecate`/`add_ext_model` already are —
+> `distribution` is filled in by the registrar, never stated by the pack — and `PackReport.
+> contributions` carries the buffer once `register()` commits. `weft_cli.registry_bootstrap.
+> build_dependencies` is the one assembly point `Contribution`'s own docstring already named as
+> "whatever assembled the `Registry` from every installed pack's own registration": it
+> concatenates every report's own tuple into `Dependencies.contributions`, and all three
+> `resolve()` call sites in `weft-cli` (`weft_cli.pipeline_commands`, `weft_cli.ingest`,
+> `weft_cli.route_ask`) read it back off that one field — never their own re-derived tuple —
+> which is what fitness function 15 holds true after this task as much as at it.
+>
+> Of the properties this section states, two were genuinely new demonstrations rather than new
+> code: "a contribution with no matching slot is a recorded no-op" and "installation-dependent
+> targets are recorded, never fatal" were already implemented in `resolve()` at task 1.11 and were
+> proven here for the first time against a contribution an installed pack actually produced,
+> rather than one a test built by hand. `weft plugins doctor` flagging a pack whose contributions
+> land in no pipeline at all is new work: `weft_cli.pipeline_catalogue.declared_slot_ids` and
+> `weft_cli.plugins_report.render_doctor`'s own `unreachable_contributions` parameter did not
+> exist before this task, because there was no contribution for either to have anything to say
+> about. `examples/weft-example-ingest` — installed rather than linked, per fitness function 9(a)
+> — is the pack that contributes: it offers its own already-registered `Enhancer` plugin into a
+> slot named `enrich`, the same name this section's own worked example (`weft-graph:entities`)
+> already uses for the identical kind of position.
 
 ### Language, and what a var is for
 
@@ -1567,9 +1826,87 @@ Nothing in core changed. Nothing in core knows what a graph is. If the pack is u
 `kg` pipeline fails to resolve with a message naming the missing plugin and the pack that provides
 it — which is the correct behaviour, and is what "loudly" means in rule 5.
 
+**Deletion, and what the graph owes the corpus.** The table above is what the pack *adds*; G7
+(2026-08-21) found what it *owes*. A graph store holds entities and relations derived from nodes,
+so when a source is deleted the vector store drops its nodes and the graph keeps every entity
+extracted from them — dangling, unreachable, and wrong. The pack therefore registers two more things,
+both narrow store-family Protocols (§1), and neither of them a new concept:
+
+| It registers | Against contract | Effect |
+|---|---|---|
+| The graph store, again | `SourceDeletable` | `weft delete` fans out to it in-command, so the graph loses what the corpus lost |
+| The graph store, again | `Reconcilable` | `repair` drops orphans left by anything the fan-out missed; `full` backfills entities for nodes indexed by a pipeline that had no graph stage |
+
+```bash
+weft reconcile                       # repair and backfill — a person asked for it
+weft index ./more-docs --pipeline kg # repair runs automatically at the end
+```
+
+This is what makes G7's answer *"no bus"* honest rather than merely cheap: the graph pack was walked
+case by case, and the two cases that looked like they needed one did not. A cross-corpus pass —
+entity resolution, community detection — has the runner's `flush()`, which already runs once per
+resolved stage at end of run and on cancellation. Shape-level observation has the OTel spans the
+registration seam already emits on every call. Only deletion had nothing, and it needed a contract
+method, not a mechanism.
+
 **The independence test.** Phase 5 exists to check this honestly: the graph pack is built by
 someone who has not worked on the core. If they need a core change, the extension model has a hole,
 and finding it that way is much cheaper than finding it after publishing contracts.
+
+**The second add-on G7 produced, and the reason it matters more than its size.** The session brought
+an **audit log** as a deliberately awkward capability — something wanting to observe everything,
+including runs that never opted into it. Half of that want is refused by §3's rule and stays refused.
+The other half turned out to be already built and merely unreachable: the registration seam emits an
+OTel span for every plugin call, carrying distribution, contract and plugin, but **nothing in the tree
+configured a `TracerProvider`**, so every one of those spans went to the no-op default.
+
+`weft-otel` closes it as an ordinary pack. Its `register()` sets the provider; discovery is eager
+(§2), so it runs before any pipeline does. It registers no plugin against any contract, contributes
+to no pipeline, and needs no core change — `01`'s rule that *everything that exports a span is a
+pack* is not worked around here, it is used.
+
+That is why this pack belongs in this section beside the graph one. The graph pack demonstrates the
+extension model on the case it was designed for. `weft-otel` demonstrates it on a case nobody
+designed for — a capability that is not a stage, not a store, not a retriever and not a command,
+arriving with no extension point of its own and needing none. **An add-on serving the awkward case
+through the published model, with no core edit, is a stronger result than a bus would have been**,
+and it is Phase 5's exit criterion met early, on the hardest example available.
+
+> **Built in Phase 5 task 5.1d.** `packages/weft-otel/` ships as a first-party pack exactly like any
+> other, one `[project.entry-points."weft.packs"]` line, one `register(registrar, settings)`, zero
+> lines anywhere under `packages/weft-kernel/`. Its `register()` never calls `registrar.add(...)` —
+> there is nothing to buffer, because setting the process's `TracerProvider` is not a capability a
+> pipeline selects among. `OtelSettings.exporter` (`NONE`/`CONSOLE`/`OTLP`) governs whether it does:
+> `OTLP` is probed and verified together, per §1's rule for a pack with an optional dependency
+> (`weft-otel[otlp]`) — checked for the extra being importable and an `endpoint` being configured,
+> never for the collector being reachable, the same "connection is lazy" restraint
+> `weft_store.pgvector_store` already takes — and falls back to `CONSOLE`, loudly, on stderr, when
+> either check fails.
+>
+> **`exporter` defaults to `NONE`, not `CONSOLE`, and that default was corrected by measurement, not
+> chosen twice.** `opentelemetry.trace.set_tracer_provider` succeeds exactly once per process, and
+> this repository's own test suite calls `weft_cli.registry_bootstrap.build_dependencies` — the real,
+> open-by-default discovery path — from dozens of existing tests with nothing to do with tracing.
+> A `CONSOLE` default let whichever of those a given `pytest tests -q` process happened to run first
+> claim the provider slot for good, non-deterministically defeating
+> `tests/unit/weft_kernel/test_seam_trace_visibility.py`'s own SDK-configured exporter later in the
+> same process — `docs/lessons.md` L5.1's own shape one level up, caught the same way L5.1 was: by
+> running it, not by asserting it worked. `NONE` makes installing `weft-otel` necessary but not
+> sufficient; `weft plugins doctor`'s `tracing:` line — assembled in `weft-cli`, from
+> `opentelemetry.trace.get_tracer_provider()`, pack-agnostically, after discovery has run, since
+> nothing on a `PackReport` can carry a fact `register()` decided before the report exists — says so
+> plainly when it is not yet done, and says what set it when it is, whoever set it.
+>
+> **This narrows what the task line above literally asks for** — "`weft-otel` sets the
+> `TracerProvider` in `register()`" reads as unconditional, and `register()` now only does that once
+> a `weft.toml` says to. Recorded here rather than left implicit because the narrowing is not only a
+> test-suite accommodation: a pack that silently redirected a process-global provider the moment it
+> was installed is exactly §3's *slot* rule broken by a quieter route — a contribution reaching
+> somewhere without anyone opting in — and G3's *installed-and-ambient* threat in miniature, the gap
+> between "a pack you chose" and "a pack whose effect you did not." `weft-graph`'s own `endpoint`
+> needing a `weft.toml` entry before it dials a real Neo4j instance is the identical shape one layer
+> down; `weft-otel` needing one before it touches a process-wide singleton is the same shape at the
+> layer this session's audit-log question was actually about.
 
 ## 5. Why this survives where the predecessor did not
 

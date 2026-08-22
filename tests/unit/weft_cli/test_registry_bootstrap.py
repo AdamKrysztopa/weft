@@ -379,15 +379,17 @@ def test_pack_settings_from_config_refuses_a_packs_value_that_is_not_a_table() -
 def test_build_dependencies_survives_its_own_repeated_ext_model_registration(
     tmp_path: Path,
 ) -> None:
-    """`build_dependencies` calls `_ensure_chunk_offset_rehydrates` once per command, many
-    times over within one test run — against the one, process-wide rehydration registry.
+    """`build_dependencies` calls `_register_ext_models` once per command, many times over
+    within one test run — against the one, process-wide rehydration registry.
 
-    Repair for a reviewer finding: the first cut suppressed every
-    `DuplicateRegistrationError` unconditionally to survive exactly this repeated-call
-    case. This proves the check-then-register replacement still survives it too — a second
-    call in the same process must not raise merely because `ChunkOffset` is already the
-    registrant. Driven through the public `build_dependencies`, never the private helper
-    directly, the same way every other caller in this process reaches it.
+    Task 5.2g renamed this from `_ensure_chunk_offset_rehydrates`, which used to name
+    `weft_chunk.payload.ChunkOffset` by hand; `_register_ext_models` is generic over every
+    `PackReport.ext_models` `discover()` returns, but the idempotency this test exists to
+    prove is unchanged: a real `weft.toml`-free discovery run registers `ChunkOffset` (and
+    every other pack's own `ExtModel`) through `weft_store.rehydrate.register_from_reports`,
+    and a second call in the same process must not raise merely because those classes are
+    already the registrant. Driven through the public `build_dependencies`, never the
+    private helper directly, the same way every other caller in this process reaches it.
     """
     # Arrange
     absent = tmp_path / "weft.toml"
@@ -402,14 +404,17 @@ def test_build_dependencies_lets_a_genuine_ext_model_namespace_collision_raise(
 ) -> None:
     """A second class claiming the `weft-chunk` namespace is refused, not swallowed.
 
-    Repair for a reviewer finding: `_ensure_chunk_offset_rehydrates` used to wrap
+    `_ensure_chunk_offset_rehydrates` — the shim task 5.2g deletes — used to wrap
     `register_ext_model` in a blanket `contextlib.suppress(DuplicateRegistrationError)`,
     which could not tell "this function's own idempotent re-registration" apart from "a
-    genuine second class claiming the namespace" — `weft_store.rehydrate.ext_models`'
-    own docstring says every such collision is refused unconditionally, by design. This
-    stands in a fresh rehydration registry already claimed by an impostor and proves the
-    collision now surfaces through `build_dependencies`, the public entry point every
-    real caller reaches this through.
+    genuine second class claiming the namespace"; `weft_store.rehydrate.
+    register_from_reports`'s own `_register_if_new` keeps the check-then-register
+    discipline that replaced it — `weft_store.rehydrate.ext_models`' own docstring says
+    every genuine collision is refused unconditionally, by design. This stands in a fresh
+    rehydration registry already claimed by an impostor and proves the collision now
+    surfaces through `build_dependencies`, the public entry point every real caller
+    reaches this through — `weft_chunk`'s own `register()` calling `registrar.
+    add_ext_model(ChunkOffset)` is what puts `ChunkOffset` in the collision's path at all.
     """
     # Arrange
     import weft_store.rehydrate as rehydrate
@@ -418,6 +423,7 @@ def test_build_dependencies_lets_a_genuine_ext_model_namespace_collision_raise(
 
     class _Impostor(ExtModel):
         __namespace__ = "weft-chunk"
+        __schema_version__ = "1.0.0"
 
     fresh = Registry()
     fresh.add(ExtModel, "weft-chunk", _Impostor, distribution="an-impostor-pack")
@@ -537,3 +543,57 @@ def test_build_dependencies_defaults_permissions_to_ask_with_no_config_file(
 
     assert deps.permissions.overwrite is PermissionAction.ASK
     assert deps.permissions.destroy is PermissionAction.ASK
+
+
+# --- slot contributions (task 5.3a, S8) -------------------------------------------------
+
+
+def test_contributions_from_concatenates_every_reports_own_tuple() -> None:
+    """`contributions_from` is the one assembly point `weft_kernel.resolution.Contribution`'s
+    own docstring names: "whatever assembled the `Registry` from every installed pack's own
+    registration." Two reports, one carrying two contributions and one carrying none, come
+    back as one flat tuple in report order — never filtered on `status` here, since only an
+    `ACTIVE` report's own tuple is ever non-empty (`PackRegistrar.commit`'s atomicity).
+    """
+    # Arrange
+    from weft_kernel.pipeline import StageDeclaration
+    from weft_kernel.resolution import Contribution
+
+    first = Contribution(
+        slot="enrich", distribution="weft-graph", stage=StageDeclaration(id="entities", use="ner")
+    )
+    second = Contribution(
+        slot="enrich",
+        distribution="weft-graph",
+        stage=StageDeclaration(id="relations", use="rel-extract"),
+    )
+    reports = (
+        PackReport(
+            distribution="weft-graph", status=PackStatus.ACTIVE, contributions=(first, second)
+        ),
+        PackReport(distribution="weft-chunk", status=PackStatus.ACTIVE),
+    )
+
+    # Act
+    contributions = registry_bootstrap.contributions_from(reports)
+
+    # Assert
+    assert contributions == (first, second)
+
+
+def test_build_dependencies_carries_empty_contributions_when_no_pack_offers_one(
+    tmp_path: Path,
+) -> None:
+    """No first-party pack calls `add_contribution` yet, so a real discovery run against
+    this repository's own installed distributions carries `Dependencies.contributions ==
+    ()` — the same "leaves every existing caller unchanged" floor `render_doctor`'s own
+    optional parameters carry, applied to assembly rather than rendering.
+    """
+    # Arrange
+    absent = tmp_path / "weft.toml"
+
+    # Act
+    deps = registry_bootstrap.build_dependencies(absent)
+
+    # Assert
+    assert deps.contributions == ()

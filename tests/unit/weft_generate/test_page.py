@@ -18,6 +18,7 @@ class _Offset(ExtModel):
     test proves the duck-typed match rather than a same-class coincidence."""
 
     __namespace__ = "test-offset"
+    __schema_version__ = "1.0.0"
 
     start: int
 
@@ -26,6 +27,7 @@ class _Locator(ExtModel):
     """Structurally identical to `weft_pdf.PdfPages`'s one relevant method."""
 
     __namespace__ = "test-locator"
+    __schema_version__ = "1.0.0"
 
     boundaries: tuple[int, ...]
 

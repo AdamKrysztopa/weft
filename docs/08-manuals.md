@@ -132,6 +132,26 @@ behind, and it cannot describe something that does not exist yet. Applied here:
   the reason `01` gives requirement 1 top billing: if a stranger cannot follow this guide and end up
   with a working pack, the microkernel bet did not pay off, whatever the fitness functions say.
 
+  > **Built in Phase 5 task 5.3.** `manual/pack-author-guide.md` §9 is that second section, adapted
+  > from `02` §4's graph-pack table and backed by two real, checked-in packs rather than an invented
+  > one — `examples/weft-example-ingest/` (seven contracts, including the store-family capabilities
+  > G7 added, plus a pack-owned `ExtModel`) and `examples/weft-example-command/` (a contributed
+  > `Command`) — because the graph pack itself is task 5.4's, not built yet. It also teaches the
+  > three obligations G9 re-derived for a pack author: the `>=X,<MAJOR+1` dependency specifier
+  > (task 5.2a), `ExtModel.__schema_version__` and a refusing `upgrade` (task 5.2c), and what
+  > `registrar.deprecate` obliges a changelog to say (tasks 5.2e–5.2f) — plus the fourth 5.2g added,
+  > that `registrar.add_ext_model` is what makes a namespace survive a store round trip at all, and
+  > only for an `ExtModel` reaching `Node.ext`. **Two rows of `02` §4's table could not be shown
+  > against real code, and §9 says so rather than inventing a sample no check would cover**: no pack
+  > anywhere in this tree — first-party or stranger — can reach `weft_kernel.resolution.Contribution`
+  > from `register()` today, a gap `weft_cli.pipeline_commands`'s own module docstring already names
+  > and assigns to task 5.4; and every `examples/*/pyproject.toml`, including both packs this section
+  > cites, still declares its `weft-*` dependencies as bare names, predating G9 and outside task
+  > 5.2a's own scope. Both are recorded in task 5.3's own `docs/build-ledger.md` entry and in
+  > `docs/lessons.md` rather than papered over. §8's *Open gates you may hit* table is also corrected
+  > in this task, since G2, G7, G8 and G9 — all four gates that table had listed as open — had
+  > settled by the time this task started and the table had not been updated to say so.
+
 - **Contract reference, incremental from Phase 0.** `Extractor`, `Chunker`, `Embedder` and the store
   family are the entire content of the reference at the end of Phase 0, because Phase 0 publishes
   exactly those four (`01` → Phase 0). `Retriever` and `LLM` arrive at Phase 2, `Command` at Phase 3 (gated by
@@ -268,10 +288,12 @@ A check with no floor is that test with a different subject.
 | (b) Generated reference and command table match the registry | `tests/docs/test_generated_docs.py` | `CONTRACTS_WAIVED_FROM_REFERENCE: Final[frozenset[str]]`, pinned empty | The set of contracts the generator walked equals the registry's published-contract set — the same runtime set-equality shape fitness functions 2 and 4(b) use — asserted **before** the text diff runs, so a generator that emits nothing cannot match a committed empty file |
 | (c) Pack guide code samples are the file they claim | `tests/docs/test_pack_guide_samples.py` | `UNTAGGED_CODE_BLOCKS: Final[frozenset[str]]`, pinned empty — a fenced block that reads as a code sample but carries no source-path tag is a failure unless named here | The count of tagged blocks is non-zero. A guide with zero tagged blocks passes zero comparisons, which is exactly how a retyped, untagged sample drifts unnoticed |
 | (d) Troubleshooting coverage | `tests/docs/test_troubleshooting_coverage.py` | `ERRORS_WITHOUT_TROUBLESHOOTING_ENTRY: Final[frozenset[str]]`, pinned empty | The enumerated set of `WeftError` subclasses and doctor statuses is non-zero before checking each has an entry |
+| (e) `CHANGELOG.md` names every deprecated surface | `tests/docs/test_changelog_deprecation_coverage.py` | `DEPRECATIONS_WITHOUT_CHANGELOG_ENTRY: Final[frozenset[str]]`, pinned empty | Stated honestly rather than forced: zero first-party surfaces are deprecated today, so asserting the installed set non-empty would be false. The floor is a proof instead — a real `Deprecation`, produced through `PackRegistrar.deprecate` → `commit`, shown to be reported missing against today's real `CHANGELOG.md` and to clear once an entry naming it is added (`test_the_comparison_can_actually_fail`), the same self-test shape `test_ff9_extension_from_outside.py::test_the_grep_can_actually_fail` uses |
 
-All four run inside `poe ci-checks` via the existing `test` step. None of them touches `poe
+All five run inside `poe ci-checks` via the existing `test` step. None of them touches `poe
 ci-no-tests` or `tests/architecture/` — they are not architecture checks, and `01` item 0's membership
-assertion is unaffected and needs no widening.
+assertion is unaffected and needs no widening. Clause (e) is task **5.2f** (`docs/build-ledger.md`),
+owed by `docs/09-release.md` §3's own block quote and `docs/lessons.md` L5.8.
 
 ---
 

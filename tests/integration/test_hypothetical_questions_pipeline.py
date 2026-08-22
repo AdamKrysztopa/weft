@@ -109,29 +109,26 @@ class _PromptLookup:
 
 
 def _ensure_rehydrates(model: type[ExtModel]) -> None:
-    """Make `model` reconstructable by `weft_store.rehydrate` — this test's own version of
-    `weft_cli.registry_bootstrap._ensure_chunk_offset_rehydrates`, needed for the same
-    reason and not yet generalised there: a node's `ext` cannot round-trip through a real
-    store unless the namespace that reached it was registered first, and `rehydrate.py`'s
-    own registry is process-wide, so a second call for a namespace already claimed by the
-    same class must be a no-op rather than `DuplicateRegistrationError` the moment more
-    than one test in this session needs it. **Not added to `weft_cli.registry_bootstrap`
-    itself** — see this file's own module docstring's closing note: nothing in production
-    can reach this path yet, because no pipeline document or CLI stage list runs
-    `hypothetical-questions`, the same reason `weft_chunk.__init__` gives for not
-    self-registering `ChunkOffset` either.
-    """
-    from weft_kernel.registry import UnknownPluginError
-    from weft_store import register_ext_model
-    from weft_store.rehydrate import ext_models
+    """Make `model` reconstructable by `weft_store.rehydrate` — this test's own use of
+    `weft_store.rehydrate.register_from_reports`, the generic consumer task 5.2g built.
 
-    try:
-        registrant = ext_models.entry(ExtModel, model.__namespace__).factory
-    except UnknownPluginError:
-        register_ext_model(model)
-        return
-    if registrant is not model:
-        register_ext_model(model)
+    This test hand-assembles a `Registry` and never calls `weft_kernel.discovery.discover`,
+    so no pack's own `register()` — which now buffers its `ExtModel`s through
+    `PackRegistrar.add_ext_model` — ever runs to populate `weft_store.rehydrate.
+    ext_models` for it. Wrapping one bare model in a throwaway `PackReport` and handing it
+    to `register_from_reports` reuses that function's own idempotent-or-refuse logic —
+    `rehydrate.py`'s own registry is process-wide, so a second call for a namespace
+    already claimed by the same class must be a no-op rather than
+    `DuplicateRegistrationError` the moment more than one test in this session needs it —
+    rather than re-deriving it by hand a second time.
+    """
+    from weft_kernel.discovery import PackReport, PackStatus
+    from weft_store.rehydrate import register_from_reports
+
+    report = PackReport(
+        distribution=model.__namespace__, status=PackStatus.ACTIVE, ext_models=(model,)
+    )
+    register_from_reports((report,))
 
 
 async def _database_reachable() -> str | None:

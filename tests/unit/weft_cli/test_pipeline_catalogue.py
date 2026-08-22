@@ -24,13 +24,14 @@ from weft_cli.pipeline_catalogue import (
     MalformedPipelineError,
     PipelineDocumentError,
     ProjectPipelineNameCollisionError,
+    declared_slot_ids,
     full_catalogue,
     load_contributed,
     load_pipeline_catalogue,
     load_pipeline_document,
 )
 from weft_kernel.discovery import PackReport, PackStatus, PipelineResource
-from weft_kernel.pipeline import Pipeline, StageDeclaration
+from weft_kernel.pipeline import Pipeline, SlotDeclaration, StageDeclaration
 
 
 def test_load_pipeline_document_parses_yaml_into_a_validated_pipeline(tmp_path: Path) -> None:
@@ -291,3 +292,28 @@ def test_full_catalogue_refuses_a_name_shared_between_project_and_pack(tmp_path:
     # Act / Assert
     with pytest.raises(ProjectPipelineNameCollisionError, match="shared"):
         full_catalogue(directory=tmp_path, reports=[report])
+
+
+# --- declared_slot_ids (task 5.3a, S8) ---------------------------------------------------
+
+
+def test_declared_slot_ids_reads_every_slot_across_the_whole_catalogue() -> None:
+    # Arrange — only a root may carry `slots:`, so walking every catalogue entry's own
+    # `.slots` already covers every pipeline, extending or not.
+    catalogue = {
+        "base": Pipeline(
+            name="base",
+            stages=(StageDeclaration(id="chunk", use="fixed-size"),),
+            slots=(SlotDeclaration(id="enrich", after="chunk"),),
+        ),
+        "other": Pipeline(name="other", stages=()),
+    }
+
+    # Act / Assert
+    assert declared_slot_ids(catalogue) == frozenset({"enrich"})
+
+
+def test_declared_slot_ids_is_empty_for_a_catalogue_with_no_slots() -> None:
+    catalogue = {"base": Pipeline(name="base", stages=())}
+
+    assert declared_slot_ids(catalogue) == frozenset()

@@ -5,16 +5,18 @@ each effective value came from, which is the question people actually have." Thi
 where that question is answered — `weft_cli.config_commands` is the thin `Command` shell
 around it, on the same formatting/data split every other command in this package draws.
 
-**The four keys this module reads are the four keys `weft.toml` already has a reader for.**
-`weft_cli.services.ServiceSelection` (`[services] embed`/`store`) and `weft_cli.
-permission_policy.PermissionPolicy` (`[permissions] overwrite`/`destroy`) are the only two
+**The five keys this module reads are the five keys `weft.toml` already has a reader for.**
+`weft_cli.services.ServiceSelection` (`[services] embed`/`store`), `weft_cli.
+permission_policy.PermissionPolicy` (`[permissions] overwrite`/`destroy`) and, since task
+**5.1c**, `weft_cli.reconcile_policy.ReconcilePolicy` (`[reconcile] mode`) are the only
 project-config blocks any command actually consults today — `[llm]`/`[packs]`/`[plugins]`
 are real, but nothing in `docs/03-cli.md` → *Project context* names them as `config get/set`
 surface, and inventing a dotted key for a block nothing here was asked to expose would be
 documentation for a feature nobody requested. `CONFIG_KEYS` is exactly `services.embed`,
-`services.store`, `permissions.overwrite`, `permissions.destroy` — the same "a key the CLI
-does not read is refused, naming the keys it does" rule `docs/03-cli.md` already states for
-`[services]` itself, applied one level up to the `config` command's own vocabulary.
+`services.store`, `permissions.overwrite`, `permissions.destroy`, `reconcile.mode` — the
+same "a key the CLI does not read is refused, naming the keys it does" rule `docs/03-cli.md`
+already states for `[services]` itself, applied one level up to the `config` command's own
+vocabulary.
 
 **Why `--origin` needs the raw, unmerged document — the reference's sentinel bug, avoided rather
 than reproduced.** `.phase3-design.md` §2.6, verified at source: `a_prior_project`'s `ConfigMerger`
@@ -61,15 +63,24 @@ from weft_cli.permission_policy import permission_policy_from_config as _permiss
 from weft_cli.services import service_selection_from_config as _service_selection
 from weft_kernel.errors import UnresolvedNameError, WeftError
 
-#: Task 3.7's own closed vocabulary — see the module docstring for why these four and no
-#: others. `(section, field)` per dotted key, read by both `effective_config` (to know which
-#: model field answers it) and `set_config_text`'s own caller (to know which `[section]` to
-#: edit).
+# `weft_cli.reconcile_policy` and `weft_store.ReconcileMode` are imported lazily, inside the
+# two functions that actually need them, never at this module's own top level. `weft_cli.
+# exit_codes` imports `UnknownConfigKeyError` from this module at *its* top level, and
+# `exit_codes` is one of `weft_cli.cli`'s own eager imports — reachable for `weft --version`,
+# which must import no pack module at all (fitness function 8(b); `weft_cli.registry_
+# bootstrap._default_reconcile_policy`'s own docstring states the identical constraint for
+# the identical reason, one import hop over).
+
+#: Task 3.7's own closed vocabulary, grown by one key at task 5.1c — see the module
+#: docstring for why these five and no others. `(section, field)` per dotted key, read by
+#: both `effective_config` (to know which model field answers it) and `set_config_text`'s
+#: own caller (to know which `[section]` to edit).
 _KEY_FIELDS: Final[dict[str, tuple[str, str]]] = {
     "services.embed": ("services", "embed"),
     "services.store": ("services", "store"),
     "permissions.overwrite": ("permissions", "overwrite"),
     "permissions.destroy": ("permissions", "destroy"),
+    "reconcile.mode": ("reconcile", "mode"),
 }
 
 #: Every dotted key `weft config get|set` reads or writes, sorted — `UnknownConfigKeyError`'s
@@ -154,16 +165,21 @@ def effective_config(document: dict[str, object] | None) -> tuple[ConfigEntry, .
     `document`, never from comparing `selection`/`policy` against their own built-in
     defaults. Sorted by key, so `weft config get`'s own output is stable across runs.
     """
+    from weft_cli.reconcile_policy import reconcile_policy_from_config
+
     selection = _service_selection(document)
     policy = _permission_policy(document)
+    reconcile = reconcile_policy_from_config(document)
     services_written = _written_section(document, "services")
     permissions_written = _written_section(document, "permissions")
+    reconcile_written = _written_section(document, "reconcile")
 
     values: dict[str, tuple[str, dict[str, object]]] = {
         "services.embed": (selection.embed, services_written),
         "services.store": (selection.store, services_written),
         "permissions.overwrite": (policy.overwrite.value, permissions_written),
         "permissions.destroy": (policy.destroy.value, permissions_written),
+        "reconcile.mode": (reconcile.mode.value, reconcile_written),
     }
 
     entries: list[ConfigEntry] = []
@@ -211,6 +227,20 @@ def validate_set_value(key: str, value: str) -> None:
             raise WeftError(
                 f"'{key}' must be one of {sorted(valid)}, not {value!r} — "
                 f"weft_cli.permission_policy.PermissionPolicy's own vocabulary."
+            )
+        return
+    if section == "reconcile":
+        # The identical exclusion as the `permissions` branch above, for the identical
+        # reason: `ReconcileMode` is a closed, two-member `StrEnum` fixed by the type
+        # itself — a type mismatch with a friendlier message, not an unresolved name.
+        # Imported here, lazily — see the module docstring's own paragraph for why.
+        from weft_store import ReconcileMode
+
+        valid_modes = {member.value for member in ReconcileMode}
+        if value not in valid_modes:
+            raise WeftError(
+                f"'{key}' must be one of {sorted(valid_modes)}, not {value!r} — "
+                f"weft_store.ReconcileMode's own vocabulary."
             )
         return
     if not value:

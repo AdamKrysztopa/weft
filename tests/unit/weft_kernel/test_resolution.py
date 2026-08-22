@@ -125,6 +125,7 @@ class _Chunkish(Stage[list[str], list[str]], Protocol):
 
 class _Extracted(ExtModel):
     __namespace__ = "weft-test-pack"
+    __schema_version__ = "1.0.0"
 
 
 class _WordBoundaries(Property):
@@ -239,6 +240,7 @@ class _Prose(ExtModel):
     """Task 1.6's own worked example: a fact a narrowed chunker declares `applies_to` over."""
 
     __namespace__ = "weft-test-pack"
+    __schema_version__ = "1.0.0"
 
 
 class _ChunkerNarrowedToProse:
@@ -724,6 +726,7 @@ def test_an_unmet_requires_names_every_ext_model_earlier_stages_did_provide() ->
     # was wanted, per `weft_kernel.errors`' own loud-failure invariant.
     class _Marker(ExtModel):
         __namespace__ = "weft-test-pack"
+        __schema_version__ = "1.0.0"
 
     class _ProvidesMarker:
         requires: tuple[type[ExtModel], ...] = ()

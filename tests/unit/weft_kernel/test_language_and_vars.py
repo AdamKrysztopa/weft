@@ -78,6 +78,7 @@ class _Language(ExtModel):
     """
 
     __namespace__ = "weft-test-pack"
+    __schema_version__ = "1.0.0"
 
     code: str
 

@@ -59,8 +59,16 @@ from pydantic import BaseModel
 from weft_kernel.errors import UnresolvedNameError
 from weft_kernel.pipeline import Pipeline
 from weft_kernel.registry import Registry, UnknownPluginError
-from weft_kernel.resolution import ResolvedPipeline
+from weft_kernel.resolution import Contribution, ResolvedPipeline
 from weft_kernel.runner import PipelineResolutionError, StageSpec
+
+_SLOT_QUALIFIER = ":"
+"""A deliberate duplicate of `weft_kernel.resolution._QUALIFIER`, private to that module —
+the identical reasoning `weft_kernel.resolution` itself already gives for duplicating
+`weft_kernel.pipeline._QUALIFIER` rather than importing it: a private name stays private,
+and this module needs the identical qualifying spelling only to build the same key
+`weft_kernel.resolution._qualify` builds, never to read or change how it is chosen.
+"""
 
 
 class AmbiguousStageContractError(PipelineResolutionError, UnresolvedNameError):
@@ -133,7 +141,11 @@ class UnknownStagePluginError(PipelineResolutionError, UnresolvedNameError):
 
 
 def contracts_for(
-    pipeline: Pipeline, *, registry: Registry, parents: Mapping[str, Pipeline]
+    pipeline: Pipeline,
+    *,
+    registry: Registry,
+    parents: Mapping[str, Pipeline],
+    contributions: tuple[Contribution, ...] = (),
 ) -> dict[str, type[object]]:
     """The `contracts` mapping `weft_kernel.resolution.resolve` demands for `pipeline`.
 
@@ -141,14 +153,37 @@ def contracts_for(
     inherits through `extends`, and every id its `insert:` and `replace:` operators
     introduce. `remove:` and `set:` name no plugin and contribute nothing.
 
+    **Task 5.3a** widens this the same way `resolve()`'s own docstring already requires:
+    "including every contribution that might be placed." `contributions` is the *whole*
+    tuple every `resolve()` call site now receives — every pack's own offer, whatever
+    pipeline it was meant for — so this filters to the ones that could conceivably land
+    *here*: a contribution whose `slot` names a slot no ancestor in this chain declares
+    can never place (`weft_kernel.resolution._fill_slots` never touches the registry for
+    it either), and adding a contract entry for it anyway would mean one unrelated pack's
+    broken `use:` failing every *other* pipeline's own resolution — the loud-failure rule
+    applied to the wrong subject. A qualified id (`weft-graph:entities`, `weft_kernel.
+    resolution._qualify`'s own spelling, duplicated here on the identical footing that
+    function's own docstring already states for `_QUALIFIER`) is added for every
+    contribution whose `slot` a declared slot in the chain actually names.
+
     Raises `UnknownStagePluginError` for a name nothing registered and
     `AmbiguousStageContractError` for a name two contracts answer to — both by name, both
     naming the options, and neither guessed through.
     """
+    ancestry = _ancestors_first(pipeline, parents)
     contracts: dict[str, type[object]] = {}
-    for document in _ancestors_first(pipeline, parents):
+    for document in ancestry:
         for stage_id, use in _stage_use_pairs(document):
             contracts[stage_id] = _contract_for(registry, use, pipeline=pipeline, stage=stage_id)
+
+    declared_slots = {slot.id for document in ancestry for slot in document.slots}
+    for contribution in contributions:
+        if contribution.slot not in declared_slots:
+            continue
+        qualified_id = f"{contribution.distribution}{_SLOT_QUALIFIER}{contribution.stage.id}"
+        contracts[qualified_id] = _contract_for(
+            registry, contribution.stage.use, pipeline=pipeline, stage=qualified_id
+        )
     return contracts
 
 

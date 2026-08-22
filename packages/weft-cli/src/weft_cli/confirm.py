@@ -35,6 +35,18 @@ inventing data the seam cannot truthfully have. A `describe_impact` contract add
 whichever later task first ships a real `overwrite`/`destroy` command and needs the count —
 recorded as an open item rather than pretended away.
 
+**Task 5.1a is that later task, and it takes the option the paragraph above named without
+taking the cost it feared.** `weft delete` is the first first-party `destroy`-class command,
+and what it needs stated before consent is not a count but *who will be asked*: a pack the
+operator forgot they installed is about to delete data derived from that source. So
+`describe_impact(args, ctx) -> str` exists — read here with `getattr`, exactly the way
+`permission_class` and `weft_kernel.runner._flush_of` are read, and therefore **optional**.
+It is not a `required_declarations` name and not a Protocol member: a command that has one
+gets its own sentence in the prompt, a command that has none gets the floor above unchanged,
+and no existing implementation in this repository or out of it has to grow a method. That is
+the whole of why the 3.3 note refused to add it then and this note can add it now — the cost
+it refused was making it mandatory, which this does not do.
+
 **Design question 3 — how "no TTY" is detected, and how a test proves both branches.**
 `is_interactive`/`read_confirmation` each wrap one `sys`/builtin call in a module-level name for
 exactly one reason: `tests/unit/weft_cli/test_confirm.py` monkeypatches each name directly,
@@ -61,6 +73,8 @@ from weft_command.permission import PermissionClass
 
 if TYPE_CHECKING:
     from pydantic import BaseModel
+
+    from weft_kernel.context import Context
 
 # Module-level, not a local import inside `gate` — `weft_cli.confirm` is itself only ever
 # imported locally, inside `weft_cli.cli.run_command` (see that module's own FF8(b) paragraph),
@@ -113,6 +127,23 @@ def read_confirmation(prompt: str) -> str:
         return ""
 
 
+def impact_of(instance: object, args: BaseModel, ctx: Context | None) -> str | None:
+    """This command's own sentence about what it is about to do, or `None` if it has none.
+
+    See the module docstring's task-5.1a paragraph: `describe_impact` is optional by
+    construction, so the absence of one is the ordinary case and never an error. A
+    `describe_impact` that itself raises is deliberately *not* caught — a command that cannot
+    say what it will destroy has not earned a confirmation, and swallowing that into the floor
+    text would confirm a destruction on the strength of a failure nobody saw.
+    """
+    if ctx is None:
+        return None
+    describe = getattr(instance, "describe_impact", None)
+    if describe is None:
+        return None
+    return cast(str, describe(args, ctx))
+
+
 def gate(
     instance: object,
     command_name: str,
@@ -120,6 +151,7 @@ def gate(
     *,
     yes: bool,
     policy: PermissionPolicy,
+    ctx: Context | None = None,
 ) -> None:
     """Refuse, prompt, or permit `instance`'s run — see the module docstring in full.
 
@@ -150,19 +182,28 @@ def gate(
     if yes or action is PermissionAction.ALLOW:
         return
 
-    called_with = args.model_dump()
+    # `mode="json"` rather than a bare dump — task 5.1b, found by running the binary. A bare
+    # `model_dump()` leaves an `Enum` member as the object, and an f-string then splices
+    # `{'mode': <ReconcileMode.FULL: 'full'>}` into the middle of a sentence a person reads.
+    # That is the *same* defect Phase 3's fourth repair fixed one raise site over ("a refusal
+    # splicing a raw Pydantic dump into the middle of a sentence", `CLAUDE.md`), which is why
+    # it is corrected here, at the one place every gated command's arguments are rendered,
+    # rather than by each command formatting its own.
+    called_with = args.model_dump(mode="json")
     article = _article(permission_class.value)
+    impact = impact_of(instance, args, ctx)
+    stated = f" {impact}" if impact else ""
     if not is_interactive():
         raise CommandRefusalError(
             f"'{command_name}' is {article} {permission_class.value}-class command, called "
-            f"with {called_with}. It refuses to run with no terminal to confirm in, and "
-            f"never proceeds silently. Pass --yes to permit it for this invocation.",
+            f"with {called_with}.{stated} It refuses to run with no terminal to confirm in, "
+            f"and never proceeds silently. Pass --yes to permit it for this invocation.",
             exit_code=ExitCode.POLICY_REFUSED,
         )
 
     prompt = (
         f"'{command_name}' is {article} {permission_class.value}-class command, called with "
-        f"{called_with}. Proceed? [y/N] "
+        f"{called_with}.{stated} Proceed? [y/N] "
     )
     answer = read_confirmation(prompt).strip().lower()
     if answer not in {"y", "yes"}:
@@ -172,4 +213,4 @@ def gate(
         )
 
 
-__all__ = ["CommandRefusalError", "gate", "is_interactive", "read_confirmation"]
+__all__ = ["CommandRefusalError", "gate", "impact_of", "is_interactive", "read_confirmation"]

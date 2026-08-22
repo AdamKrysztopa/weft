@@ -15,10 +15,14 @@ dev = [
     # `poe ci-checks`' own `fmt` step does to the checked-in file — an in-range resolution
     # below 0.16 would leave a long signature unwrapped instead.
     "ruff>=0.16.0",
-    # Test-only, task 4.5. `weft-kernel` ships `opentelemetry-api` alone (fitness function 1)
-    # and no shipped distribution declares the SDK — see `tests/unit/weft_kernel/
-    # test_seam_trace_visibility.py`'s own docstring for why a real, exporting `TracerProvider`
-    # belongs to the test suite rather than to a pack this phase does not build.
+    # Test-only, task 4.5. `weft-kernel` ships `opentelemetry-api` alone (fitness function 1);
+    # at 4.5 no shipped distribution declared the SDK at all, which is why this copy exists —
+    # see `tests/unit/weft_kernel/test_seam_trace_visibility.py`'s own docstring for the
+    # argument in full. Task 5.1d's `weft-otel` is now the first shipped distribution to
+    # declare `opentelemetry-sdk` for real (its own `pyproject.toml`), which makes this
+    # workspace-root copy redundant for that one package but not for anything else that
+    # imports the SDK in a test without pulling in the rest of `weft-otel` — left in place
+    # rather than pruned on a guess about which future test would need it back.
     "opentelemetry-sdk>=1.28",
 ]
 
@@ -52,6 +56,7 @@ weft-generate = { workspace = true }
 weft-qdrant = { workspace = true }
 weft-index = { workspace = true }
 weft-eval = { workspace = true }
+weft-otel = { workspace = true }
 
 # ---------------------------------------------------------------------------
 # Tasks
@@ -112,6 +117,13 @@ extraPaths = [
     "examples/weft-example-llm/src",
     "examples/weft-example-query/src",
     "examples/weft-example-metric/src",
+    # weft-example-graph (task 5.4): the graph add-on docs/02-extension-model.md section 4
+    # specifies, built by a pack author who never touched packages/ — same reason as every
+    # entry above. Named `weft-example-*` like every other example pack, and deliberately not
+    # `weft-graph`: that is the name the design documents use for this pack as a *hypothetical*,
+    # quoted verbatim in several first-party docstrings, so a real pack taking it turns every
+    # legitimate quotation into a fitness-function-9(b) violation (docs/lessons.md L5.28).
+    "examples/weft-example-graph/src",
 ]
 
 [tool.pytest.ini_options]

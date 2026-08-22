@@ -4,7 +4,7 @@ Mirrors `packages/weft-embed/src/weft_embed/contract.py`. Covers a full
 resolve-then-run of `Embedder` through `weft_kernel.runner` with a plugin
 that satisfies the contract structurally (no inheritance), capability
 derived by `isinstance` rather than declared, and the version constant
-fitness function 6 will eventually check.
+fitness function 6 binds to this distribution's own version.
 """
 
 from collections.abc import AsyncIterator, Sequence

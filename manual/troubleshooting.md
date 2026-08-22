@@ -23,6 +23,14 @@ either) — see
 *Exit codes* for where that split is scoped and reproduced. Every reproduction below is the one-line
 form a user actually sees.
 
+**Under `--json` (task 5.2d), the identical string travels as data instead of as the whole line.**
+`weft_cli.render.render_refusal` puts a structured envelope on stdout in place of that one line: the
+class name below as `error`, the reproduction's own text as `rendered`, unchanged and unabridged, the
+process's exit code as `exit_code`, and — for every entry marked with a `valid_options` field further
+down — the alternatives as a JSON array a script reads directly, never a sentence it has to parse.
+See [`docs/03-cli.md`](../docs/03-cli.md) → *Output* for the envelope's full shape and its own
+version field.
+
 ---
 
 ## Errors nothing translated — `weft_cli.cli`
@@ -922,6 +930,44 @@ in FF12's family — deliberately: `PermissionAction` is a closed, two-member `S
 type itself, not a name resolved against a set whose membership could ever differ, so there is no
 "valid options" to enumerate beyond the type's own two literals already stated in the message.
 
+### `UnknownReconcileKeyError`
+
+**What it looks like** — task 5.1c: `[reconcile]` names a key `weft_cli.reconcile_policy.
+ReconcilePolicy` does not have — `mode` is the only one — reproduced against a real checkout:
+
+```text
+$ printf '[reconcile]\ndelete = "allow"\n' > weft.toml
+$ weft plugins list
+unknown [reconcile] key(s) in weft.toml: 'delete'. [reconcile] accepts mode. A key nothing reads
+is refused rather than ignored — a default you did not actually change is one you would have to
+notice by the tool behaving differently than the file says.
+$ echo $?
+4
+```
+
+The identical shape `UnknownPermissionKeyError` above already gives `[permissions]`'s sibling
+refusal, typed from the start rather than repeating that repair a third time: `(exc.valid_options
+== ("mode",))` for any raise site. **What to do:** the only key `[reconcile]` reads is `mode`, and
+its only legal values are `repair`/`full` — `docs/03-cli.md` → *Project context*, and `weft_cli.
+reconcile_policy`'s own module docstring for what this block governs (`weft reconcile`'s own bare
+`--mode` default, never `weft index`'s automatic post-index pass, which is hardcoded and reads
+nothing here).
+
+The sibling "must be one of ['full', 'repair']" refusal, in `weft_cli.config_surface.
+validate_set_value`'s own `reconcile` branch and in `reconcile_policy_from_config` itself, stays a
+plain `WeftError` and is **not** in FF12's family — the identical reasoning `UnknownPermissionKeyError`
+above states for `PermissionAction`: `ReconcileMode` is a closed, two-member `StrEnum` fixed by the
+type itself, so there is no "valid options" to enumerate beyond the type's own two literals already
+stated in the message:
+
+```text
+$ weft config set reconcile.mode wobble
+'reconcile.mode' must be one of ['full', 'repair'], not 'wobble' — weft_store.ReconcileMode's own
+vocabulary.
+$ echo $?
+1
+```
+
 ### `UnknownServiceKeyError`
 
 **What it looks like** — repair, 2026-08-20 (`docs/01-high-level-plan.md` item 12's own dated
@@ -1097,6 +1143,31 @@ mapping — this can only fire against data the store did not write itself. **Wh
 outside Weft edited the `weft_nodes.ext` column directly. Re-index the affected source rather than
 hand-repairing the JSON; there is no supported path for hand-editing stored `ext` data.
 
+### `SchemaVersionRefusedError`
+
+**What it looks like** — a stored `ext` namespace's schema version disagrees with the class reading
+it, and that class declares no migration for the difference:
+
+```text
+SchemaVersionRefusedError: 'weft-kernel' data was written at no version at all (written before
+schema versioning existed), but the installed class is at '1.0.0' and declares no upgrade path from
+it. Override weft-kernel's ExtModel.upgrade(data, from_version) to migrate this shape, or reindex
+the corpus so this namespace is rewritten at the current version.
+```
+
+Every `ExtModel` declares `__schema_version__`, and the version travels inside the dumped
+namespace's own bytes — never as a `ClassVar` a serialiser would drop. A reader compares the stored
+version against the class's current one; a match rehydrates exactly as before, and anything else —
+including a namespace with **no** stored version at all, which is every row written before this
+mechanism existed — is handed to `upgrade`, whose default refuses rather than guessing. **What to
+do:** two options, and no third. If the pack that owns this namespace can actually reconcile the
+older shape, its author overrides `ExtModel.upgrade(data, from_version)` to return the migrated
+fields. If it cannot (the common case for data older than the pack itself), re-run `weft index` over
+the affected sources — a node's identity is content-addressed, so re-indexing unchanged content
+overwrites the same row with a current, versioned dump rather than creating a duplicate. There is no
+supported way to make this refusal silent; that would be exactly the indistinguishable success and
+failure paths this mechanism exists to avoid.
+
 ### `UnaddressableFieldError`
 
 **What it looks like** — a filter names a field that reaches nothing on a `Node`:
@@ -1132,6 +1203,27 @@ field** — `lt`/`lte`/`gt`/`gte` against text would mean whatever the database'
 which is a fact about a deployment and not about the filter; they apply to numbers under a pack's
 namespace. **What to do:** change the operator, or the field it is applied to. A filter that
 validates is a filter every backend answers the same way, which is the point of the narrowing.
+
+### `UnhandledFilterOpError`
+
+**What it looks like** — an operator a filter translator has not been taught:
+
+```text
+UnhandledFilterOpError: weft-qdrant's range translator has no case for 'between'. It knows: gt,
+gte, lt, lte.
+```
+
+You will only meet this after upgrading `weft-store` (or another pack publishing `FilterOp`) to a
+version that added an operator without also upgrading the store pack that translates filters —
+`weft-qdrant` or `weft-store`'s own pgvector translator — to a version that knows it. Every
+`FilterOp` dispatch in this tree refuses an operator it predates rather than guessing at it, which
+is what keeps a new operator from being silently answered as `eq`, `gte` or `not` instead of the
+question it was actually asking. **What to do:** update the store pack that raised this to a
+version published alongside (or after) the `weft-store` version that added the operator — the
+`valid_options` on this error name exactly the operators that translator currently knows, which is
+what a version mismatch looks like from the inside. If both are already current, this is a defect
+in that translator and is worth reporting rather than working around: the operator is valid and
+admitted, and nothing should be able to reach this refusal on a matched pair of versions.
 
 ### `VectorWidthMismatchError`
 

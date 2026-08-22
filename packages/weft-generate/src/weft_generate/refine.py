@@ -161,6 +161,7 @@ class RefinementTrace(ExtModel):
     """
 
     __namespace__ = "weft-generate"
+    __schema_version__ = "1.0.0"
 
     stopped_because: RefinementStop
     rounds_run: int = Field(ge=1)

@@ -44,12 +44,14 @@ from weft_cli.ingest import (
 )
 from weft_cli.pipeline_catalogue import UnknownPipelineNameError
 from weft_embed import Embedder
+from weft_enhance.contract import Enhancer
 from weft_extract import Extractor
 from weft_kernel.context import Context
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import Node, NothingToProduce, Outcome, Produced
-from weft_kernel.pipeline import Pipeline, StageDeclaration
+from weft_kernel.pipeline import Pipeline, SlotDeclaration, StageDeclaration
 from weft_kernel.registry import Registry, UnknownPluginError
+from weft_kernel.resolution import Contribution
 from weft_store import NodeStore
 
 
@@ -409,6 +411,72 @@ async def test_run_index_with_pipeline_resolves_a_document_and_reaches_its_with_
     assert result.resolved_pipeline is not None
     assert result.resolved_pipeline.name == "custom"
     assert result.document_ids == (str((tmp_path / "one.txt").resolve()),)
+
+
+async def test_run_index_with_pipeline_runs_a_contribution_placed_in_its_declared_slot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Task **5.3a** (`S8`) end to end: a document declares a slot, a pack's own
+    `Contribution` names it, and the contributed stage actually runs — never merely
+    resolves. `contributions=` reaches `run_index` through `_specs_from_document`'s own
+    `contracts_for`/`resolve` calls, exactly the seam `weft_cli.registry_bootstrap.
+    Dependencies.contributions` feeds every real caller.
+    """
+    # Arrange — an `Enhancer` slots in cleanly between `chunk` and `embed`: all three
+    # contracts declare `Stage[Sequence[Node], Sequence[Node]]` (see `weft_enhance.contract`'s
+    # own docstring), so composition holds with no bespoke payload type for this test.
+    (tmp_path / "one.txt").write_text("hello weft")
+    registry, store = _registry_with_fakes()
+    ran: list[str] = []
+
+    class _Enrich:
+        def __init__(self, config: object = None) -> None:
+            del config
+
+        async def run(self, payload: Sequence[object], ctx: Context) -> Outcome[Sequence[object]]:
+            del ctx
+            ran.append("enrich")
+            return Produced(value=payload)
+
+    registry.add(Enhancer, "wordcount", _Enrich, distribution="weft-graph")
+    document = Pipeline(
+        name="custom",
+        stages=(
+            StageDeclaration(id="extract", use="text"),
+            StageDeclaration(id="chunk", use="fixed-size"),
+            StageDeclaration(id="embed", use="hash"),
+            StageDeclaration(id="store", use="pgvector"),
+        ),
+        slots=(SlotDeclaration(id="enrich", after="chunk"),),
+    )
+    monkeypatch.setattr(ingest_module, "full_catalogue", _stub_catalogue({"custom": document}))
+    contribution = Contribution(
+        slot="enrich",
+        distribution="weft-graph",
+        stage=StageDeclaration(id="wordcount", use="wordcount"),
+    )
+
+    # Act
+    result = await run_index(
+        tmp_path,
+        registry=registry,
+        ctx=_ctx(),
+        pipeline="custom",
+        contributions=(contribution,),
+    )
+
+    # Assert
+    assert result.resolved_pipeline is not None
+    assert [stage.id for stage in result.resolved_pipeline.stages] == [
+        "extract",
+        "chunk",
+        "weft-graph:wordcount",
+        "embed",
+        "store",
+    ]
+    assert result.resolved_pipeline.unplaced_contributions == ()
+    assert ran == ["enrich"]
+    assert store.closed is True
 
 
 async def test_a_document_with_no_extract_stage_refuses_naming_the_stages_it_has(

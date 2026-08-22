@@ -42,14 +42,48 @@ raised off and hands it here instead, printed as its own loud block rather than 
 into any one distribution's — the same reasoning `InertPluginPinError`'s own docstring
 already gives for not folding it into a pack's report: this is not one pack's failure.
 `unconsulted_pins=()`, the default, leaves every existing caller's output unchanged.
+
+**`render_doctor`'s `tracing` parameter — task 5.1d.** `weft_cli.tracing_status.
+describe_tracing()`'s own words: whether the process's `TracerProvider` is a real one, read
+after discovery has run, so it reflects what actually happened — `weft-otel` installed and
+configured, installed and set to `exporter: none`, or absent entirely. Printed as its own
+trailing block, the same shape `unconsulted_pins` already takes, because it is a fact about
+the process rather than about any one distribution's `PackReport`; see
+`weft_kernel.discovery.PackReport`'s own docstring for why nothing on it could carry this.
+`tracing=None`, the default, leaves every existing caller's output unchanged.
+
+**`render_doctor`'s `skew` parameter — task 5.2e.** Every `weft_cli.skew.SkewReport`
+`weft_cli.skew.detect_skew()` found: a distribution whose installed version does not
+satisfy another installed distribution's own declared specifier — `docs/09-release.md`
+§2.3 answer 1, "detected and reported by `weft plugins doctor`." Printed as its own
+trailing block for the identical reason `unconsulted_pins`/`tracing` are: it is a fact
+about the environment as a whole, not about any one distribution's own `PackReport`.
+`skew=()`, the default, leaves every existing caller's output unchanged.
+
+**Deprecation, also task 5.2e, needs no new parameter here.** `weft_kernel.discovery.
+PackReport.deprecations` already travels with every report `render_doctor` walks, so it is
+read the same way `ambient` already is — a flag beside a pack's own status, printed from
+`_summary_line`/`_doctor_block` below, `docs/09-release.md` §3: "a flag on an existing
+status... no new status."
+
+**`render_doctor`'s `unreachable_contributions` parameter — task 5.3a (`S8`).** `02` §3 →
+*Slots*: "`weft plugins doctor` flags a pack whose contributions land in *no* pipeline at
+all." `weft_cli.commands.PluginsDoctorCommand` computes this against `weft_cli.
+pipeline_catalogue.declared_slot_ids` — every `Contribution` in `Dependencies.contributions`
+whose `slot` no pipeline in the catalogue declares — and passes it here grouped by
+distribution, the same shape `displaced` already takes, since it is a fact about *that*
+pack's own offer, not about the environment as a whole. `unreachable_contributions=()`, the
+default, leaves every existing caller's output unchanged.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
 
+from weft_cli.skew import SkewReport
 from weft_kernel.discovery import PackReport, PackStatus
 from weft_kernel.registry import DisplacedRegistration
+from weft_kernel.resolution import Contribution
 
 
 def render_list(reports: tuple[PackReport, ...]) -> str:
@@ -64,6 +98,9 @@ def render_doctor(
     reports: tuple[PackReport, ...],
     displaced: tuple[DisplacedRegistration, ...] = (),
     unconsulted_pins: tuple[str, ...] = (),
+    tracing: str | None = None,
+    skew: tuple[SkewReport, ...] = (),
+    unreachable_contributions: tuple[Contribution, ...] = (),
 ) -> str:
     """A fuller block per distribution: status, reason (if any), disclosure, and what it lost.
 
@@ -79,15 +116,33 @@ def render_doctor(
     than folded into any one distribution's, since it is not one
     distribution's fact. The default `()` again reproduces prior output
     unchanged.
+
+    `skew` — task 5.2e, see the module docstring's own paragraph — is every
+    `weft_cli.skew.SkewReport` `weft_cli.skew.detect_skew()` found, printed as its own
+    trailing block after `unconsulted_pins` and before `tracing`, for the same "not one
+    distribution's fact" reason. The default `()` reproduces prior output unchanged.
+
+    `unreachable_contributions` — task 5.3a (`S8`), see the module docstring's own
+    paragraph — is every `Contribution` naming a slot no pipeline in the catalogue
+    declares, grouped under the *offering* distribution's own block, on `displaced`'s own
+    footing. The default `()` reproduces prior output unchanged.
     """
     if not reports:
         return "no packs discovered."
     by_loser = _group_by_loser(displaced)
+    by_offerer = _group_by_distribution(unreachable_contributions)
     blocks = [
-        _doctor_block(report, by_loser.get(report.distribution, ())) for report in _sorted(reports)
+        _doctor_block(
+            report, by_loser.get(report.distribution, ()), by_offerer.get(report.distribution, ())
+        )
+        for report in _sorted(reports)
     ]
     if unconsulted_pins:
         blocks.append(_unconsulted_pins_block(unconsulted_pins))
+    if skew:
+        blocks.append(_skew_block(skew))
+    if tracing is not None:
+        blocks.append(f"tracing: {tracing}")
     return "\n\n".join(blocks)
 
 
@@ -108,14 +163,33 @@ def _group_by_loser(
     }
 
 
+def _group_by_distribution(
+    contributions: tuple[Contribution, ...],
+) -> Mapping[str, tuple[Contribution, ...]]:
+    """Every `Contribution`, keyed by the distribution that offered it — task 5.3a (`S8`)."""
+    by_distribution: dict[str, list[Contribution]] = {}
+    for contribution in contributions:
+        by_distribution.setdefault(contribution.distribution, []).append(contribution)
+    return {
+        distribution: tuple(sorted(items, key=lambda item: (item.slot, item.stage.id)))
+        for distribution, items in by_distribution.items()
+    }
+
+
 def _summary_line(report: PackReport) -> str:
     ambient = ", ambient" if report.ambient else ""
+    deprecated = ", deprecated" if report.deprecations else ""
     return (
-        f"{report.distribution}: {report.status.value}{ambient} ({report.contributed} contributed)"
+        f"{report.distribution}: {report.status.value}{ambient}{deprecated} "
+        f"({report.contributed} contributed)"
     )
 
 
-def _doctor_block(report: PackReport, displaced: tuple[DisplacedRegistration, ...]) -> str:
+def _doctor_block(
+    report: PackReport,
+    displaced: tuple[DisplacedRegistration, ...],
+    unreachable: tuple[Contribution, ...] = (),
+) -> str:
     lines = [_summary_line(report)]
     if report.status is PackStatus.REFUSED:
         lines.append(f"  never imported — {report.reason}")
@@ -127,6 +201,13 @@ def _doctor_block(report: PackReport, displaced: tuple[DisplacedRegistration, ..
             f"  displaced: '{item.pin}' lost to '{item.winner}' — pinned by "
             f'[plugins] "{item.pin}" = "{item.winner}" in weft.toml'
         )
+    for notice in report.deprecations:
+        lines.append(f"  deprecated: '{notice.surface}' — {notice.reason}")
+    for contribution in unreachable:
+        lines.append(
+            f"  unreachable: slot '{contribution.slot}' (stage '{contribution.stage.id}') "
+            f"lands in no pipeline this catalogue holds"
+        )
     return "\n".join(lines)
 
 
@@ -134,6 +215,19 @@ def _unconsulted_pins_block(unconsulted_pins: tuple[str, ...]) -> str:
     lines = ["[plugins] pins that never arbitrated anything:"]
     for pin in sorted(unconsulted_pins):
         lines.append(f"  '{pin}' — weft never saw two distributions contend for what it names.")
+    return "\n".join(lines)
+
+
+def _skew_block(skew: tuple[SkewReport, ...]) -> str:
+    lines = ["version skew — installed does not satisfy a declared specifier:"]
+    ordered = sorted(
+        skew, key=lambda item: (item.requiring_distribution, item.required_distribution)
+    )
+    for item in ordered:
+        lines.append(
+            f"  '{item.requiring_distribution}' requires '{item.required_distribution}' "
+            f"{item.specifier}, but {item.installed_version} is installed."
+        )
     return "\n".join(lines)
 
 

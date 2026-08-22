@@ -1,6 +1,6 @@
 [project]
 name = "weft-eval"
-version = "0.0.0"
+version = "1.0.0"
 description = "First-party evaluation pack. Publishes the RetrievalMetric/GenerationMetric contracts."
 requires-python = ">=3.12"
 # `weft-embed`: the two metrics that need a vector embed through `Embedder` rather than a new,
@@ -10,7 +10,7 @@ requires-python = ">=3.12"
 # instruction — the reference's hand-rolled O(m·n) `rouge_l` DP is a performance liability replaced
 # by Google Research's own reference implementation rather than ported; pure Python, no model
 # download, no network call at the `use_stemmer=False` default this pack keeps.
-dependencies = ["weft-embed", "weft-kernel", "weft-llm", "weft-prompts", "rouge-score>=0.1"]
+dependencies = ["weft-embed>=1.0.0,<2.0.0", "weft-kernel>=0.1.0,<1.0.0", "weft-llm>=1.0.0,<2.0.0", "weft-prompts>=1.0.0,<2.0.0", "rouge-score>=0.1"]
 
 # `bert-score` pulls in `transformers` and a BERT checkpoint download — a base dependency here
 # would break a clean checkout's `poe ci-checks` on a machine with no cached model and no

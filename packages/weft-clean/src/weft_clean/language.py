@@ -31,5 +31,6 @@ class Language(ExtModel):
     """The source language of a node's text — an ISO 639-1 code such as `"pl"` or `"en"`."""
 
     __namespace__ = "weft-clean"
+    __schema_version__ = "1.0.0"
 
     code: str

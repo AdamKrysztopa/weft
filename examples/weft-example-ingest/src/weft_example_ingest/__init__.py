@@ -26,7 +26,7 @@ from weft_embed.contract import Embedder
 from weft_enhance.contract import Enhancer
 from weft_example_ingest.cleaner import ExampleBlankLineCollapser
 from weft_example_ingest.embedder import ExampleChecksumEmbedder
-from weft_example_ingest.enhancer import ExampleWordCountEnhancer
+from weft_example_ingest.enhancer import ExampleWordCountEnhancer, WordCount
 from weft_example_ingest.expander import NAME as EXPANDER_NAME
 from weft_example_ingest.expander import ExampleFirstSentenceExpander
 from weft_example_ingest.extractor import ExampleExtractor
@@ -35,7 +35,18 @@ from weft_example_ingest.store import InMemoryNodeStore
 from weft_extract.contract import Extractor, Renderer
 from weft_index.contract import Expander
 from weft_kernel.discovery import PackRegistrar
+from weft_kernel.pipeline import StageDeclaration
 from weft_store.contract import NodeStore
+
+#: This pack's own local id for the stage it contributes into a slot — task 5.3a (S8).
+#: Unqualified: `Contribution.stage.id` is a pack's local name, qualified by distribution
+#: only once actually placed (`weft_kernel.resolution.Contribution`'s own docstring).
+_ENRICH_STAGE_ID = "wordcount"
+
+#: The slot name this pack offers into — `02` §3 → *Slots*' own worked example
+#: (`weft-graph:entities`) targets a slot named `enrich`; this pack reuses that name
+#: rather than inventing a second convention for the identical kind of position.
+ENRICH_SLOT = "enrich"
 
 
 class Settings(BaseModel):
@@ -45,7 +56,17 @@ class Settings(BaseModel):
 
 
 def register(registrar: PackRegistrar, settings: Settings) -> None:
-    """Register this pack's seven plugins — one per contract it implements."""
+    """Register this pack's seven plugins — one per contract it implements — its own
+    `WordCount` `ExtModel` (task 5.2g), and a slot contribution (task 5.3a, `S8`): the real
+    proof that a stranger's own contributed stage reaches a resolved pipeline with no core
+    edit, since this distribution is installed rather than linked (fitness function 9(a)).
+
+    The contribution reuses the same `example-enhancer` plugin already registered under
+    `Enhancer` — offering a plugin as both an ordinary stage *and* a slot contribution costs
+    nothing extra to declare, and it is the identical class either way: what changes is only
+    whether a pipeline document names it directly (`use: example-enhancer`) or opts a slot
+    into receiving it (`slots: [{id: enrich, ...}]`).
+    """
     del settings
     registrar.add(Extractor, "example-extractor", ExampleExtractor)
     registrar.add(Renderer, "example-renderer", ExamplePlainRenderer)
@@ -54,6 +75,10 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(Embedder, "example-embedder", ExampleChecksumEmbedder)
     registrar.add(Expander, EXPANDER_NAME, ExampleFirstSentenceExpander)
     registrar.add(NodeStore, "example-store", InMemoryNodeStore)
+    registrar.add_ext_model(WordCount)
+    registrar.add_contribution(
+        ENRICH_SLOT, StageDeclaration(id=_ENRICH_STAGE_ID, use="example-enhancer")
+    )
 
 
-__all__ = ["Settings", "register"]
+__all__ = ["ENRICH_SLOT", "Settings", "WordCount", "register"]

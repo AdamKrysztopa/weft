@@ -13,7 +13,7 @@ runner evaluates at the seam. See `weft_kernel.payload.applicability`.
 """
 
 from weft_kernel.payload.applicability import Applies
-from weft_kernel.payload.ext import ExtMap, ExtModel
+from weft_kernel.payload.ext import SCHEMA_VERSION_KEY, ExtMap, ExtModel, SchemaVersionRefusedError
 from weft_kernel.payload.ids import NodeId, SourceId
 from weft_kernel.payload.lineage import Lineage
 from weft_kernel.payload.media_type import MediaType
@@ -23,6 +23,7 @@ from weft_kernel.payload.property import Property
 from weft_kernel.payload.vector import Vector
 
 __all__ = [
+    "SCHEMA_VERSION_KEY",
     "Applies",
     "ExtMap",
     "ExtModel",
@@ -35,6 +36,7 @@ __all__ = [
     "Outcome",
     "Produced",
     "Property",
+    "SchemaVersionRefusedError",
     "SourceId",
     "SyntheticOrigin",
     "Vector",

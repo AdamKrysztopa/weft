@@ -56,6 +56,7 @@ class SyntheticOrigin(ExtModel):
     """
 
     __namespace__ = "weft-kernel"
+    __schema_version__ = "1.0.0"
 
     reason: str
 

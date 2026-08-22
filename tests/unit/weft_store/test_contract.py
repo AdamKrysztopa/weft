@@ -35,6 +35,10 @@ from weft_store.contract import (
     MetadataFilter,
     NodeStore,
     Page,
+    Reconcilable,
+    ReconcileEstimate,
+    ReconcileMode,
+    ReconcileReport,
     Removed,
     Scored,
     SourceRecord,
@@ -305,9 +309,15 @@ def test_the_family_version_moved_when_the_family_grew_a_capability() -> None:
     # by whoever grows the family again: `STORE_CONTRACT_VERSION` is fitness function 6's
     # subject for this family, and a capability added with the constant left alone is a
     # published surface that changed with nothing recording it. What the number *means* is
-    # G9's, still open; this pins only the mechanical fact that publishing `TextSearch` at
-    # task 2.5 and `MetadataFilter` at task 2.6 each moved it off what came before.
-    assert STORE_CONTRACT_VERSION == "1.2.0"
+    # G9's, settled 2026-08-21; this pins the mechanical fact that publishing `TextSearch` at
+    # task 2.5, `MetadataFilter` at task 2.6, `SourceDeletable` at task 5.1a and `Reconcilable`
+    # at task 5.1b each moved it off what came before, and that each was a minor — a capability
+    # added without breaking an implementation that already satisfied the family. Task **5.1c**
+    # moves it again, to `2.0.0` — a *major*, not a minor: it adds `estimate` to `Reconcilable`,
+    # an already-published Protocol, and G9's two-audience rule makes that major for an
+    # implementer (every existing `Reconcilable` stops satisfying the Protocol until it adds
+    # the method) even though it is minor for a caller — the bump is the maximum of the two.
+    assert STORE_CONTRACT_VERSION == "2.0.0"
 
 
 def test_the_filter_ast_version_moved_when_the_operator_set_narrowed() -> None:
@@ -332,6 +342,34 @@ def test_metadata_filter_is_derived_from_having_the_member_not_from_saying_so() 
     assert isinstance(_FilteringStore(config=None), MetadataFilter)
     assert not isinstance(_VectorlessStore(config=None), MetadataFilter)
     assert not isinstance(42, MetadataFilter)
+
+
+def test_reconcilable_requires_estimate_not_only_reconcile() -> None:
+    # Arrange — task 5.1c's own reason `STORE_CONTRACT_VERSION` moved to a major: a class
+    # satisfying the pre-5.1c shape of `Reconcilable` (`reconcile` alone) no longer does,
+    # because `estimate` joined as a second required member rather than an optional one.
+    class _ReconcilesOnly:
+        async def reconcile(self, ctx: Context, mode: ReconcileMode) -> ReconcileReport:
+            del ctx
+            return ReconcileReport(mode=mode)
+
+    class _ReconcilesAndEstimates(_ReconcilesOnly):
+        async def estimate(self, ctx: Context, mode: ReconcileMode) -> ReconcileEstimate:
+            del ctx
+            return ReconcileEstimate(mode=mode, description="nothing to converge")
+
+    # Act / Assert
+    assert not isinstance(_ReconcilesOnly(), Reconcilable)
+    assert isinstance(_ReconcilesAndEstimates(), Reconcilable)
+
+
+def test_reconcile_estimate_defaults_zero_model_calls_and_pending() -> None:
+    # Arrange / Act — the honest floor `docs/03-cli.md`'s worked example names a real number
+    # for only when a pack actually has backfill work; every first-party store today has none.
+    estimate = ReconcileEstimate(mode=ReconcileMode.FULL, description="no unfinished deletions")
+
+    # Assert
+    assert (estimate.pending, estimate.model_calls) == (0, 0)
 
 
 def test_an_ordered_comparison_against_text_is_refused_where_the_filter_is_built() -> None:

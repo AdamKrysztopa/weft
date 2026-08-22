@@ -22,6 +22,7 @@ class _Language(ExtModel):
     """`02` §3's own worked example: a fact about a node, not about the pipeline."""
 
     __namespace__ = "weft-test-pack"
+    __schema_version__ = "1.0.0"
 
     code: str
 
@@ -32,6 +33,7 @@ class _Prose(ExtModel):
     what it needs, and an atomic node simply never carries it."""
 
     __namespace__ = "weft-test-pack"
+    __schema_version__ = "1.0.0"
 
 
 class _Locale(ExtModel):
@@ -41,6 +43,7 @@ class _Locale(ExtModel):
     matches` would have passed every existing test in this file."""
 
     __namespace__ = "weft-test-pack-locale"
+    __schema_version__ = "1.0.0"
 
     language: str
     region: str

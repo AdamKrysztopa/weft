@@ -116,7 +116,7 @@ from weft_kernel.context import Context
 from weft_kernel.discovery import PackReport
 from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_kernel.registry import Registry
-from weft_kernel.resolution import ResolvedPipeline, resolve
+from weft_kernel.resolution import Contribution, ResolvedPipeline, resolve
 from weft_kernel.runner import (
     PipelineResolutionError,
     RunnablePipeline,
@@ -279,6 +279,7 @@ async def run_index(
     store: str = DEFAULT_STORE,
     pipeline: str | None = None,
     reports: Sequence[PackReport] = (),
+    contributions: tuple[Contribution, ...] = (),
 ) -> IndexResult:
     """Extract, chunk, embed and store every file under `directory` an extractor claims.
 
@@ -314,6 +315,12 @@ async def run_index(
     there is nothing whose format needs an extractor, so there is nothing to
     choose, and opening a database connection to report "nothing to index"
     would be work done to say nothing happened.
+
+    `contributions` — task **5.3a** (`S8`) — is `weft_cli.registry_bootstrap.Dependencies.
+    contributions`, passed straight through to `_specs_from_document`'s own `resolve()` call
+    when `pipeline` is given; a pack's own contributed stage runs in a named `--pipeline`
+    document exactly as an authored one does. The default-path four stages below are Python
+    constants with no slot to fill, so this parameter does nothing when `pipeline` is `None`.
     """
     if pipeline is not None and extractor is not None:
         raise WeftError(
@@ -330,7 +337,7 @@ async def run_index(
     resolved_pipeline: ResolvedPipeline | None = None
     if pipeline is not None:
         resolved_pipeline, specs = _specs_from_document(
-            pipeline, registry=registry, reports=reports
+            pipeline, registry=registry, reports=reports, contributions=contributions
         )
         name = _extractor_name_of(specs, pipeline=pipeline)
         store_stage_id = _store_stage_id_of(specs)
@@ -380,10 +387,20 @@ async def run_index(
 
 
 def _specs_from_document(
-    pipeline_name: str, *, registry: Registry, reports: Sequence[PackReport]
+    pipeline_name: str,
+    *,
+    registry: Registry,
+    reports: Sequence[PackReport],
+    contributions: tuple[Contribution, ...] = (),
 ) -> tuple[ResolvedPipeline, tuple[StageSpec, ...]]:
     """`pipeline_name` resolved into a `ResolvedPipeline` and the `StageSpec` list `Runner.
     resolve` consumes.
+
+    `contributions` — task **5.3a** (`S8`) — reaches both `contracts_for` and `resolve()`
+    below, exactly as `weft_cli.pipeline_commands._resolved_or_refuse` and `weft_cli.
+    route_ask._run_pipeline` already receive it: one caller (`weft_cli.registry_bootstrap.
+    build_dependencies`) assembles it once, and every `resolve()` call site passes it through
+    unchanged rather than re-deriving its own tuple.
 
     The exact walk `weft_cli.route_ask.run_named_ask` already performs for a query
     pipeline — `full_catalogue` for the name, `contracts_for`/`to_specs` for the shape —
@@ -416,8 +433,16 @@ def _specs_from_document(
             pipeline=pipeline_name,
             remedy=f"use one of: {', '.join(options) or '(none — no pipeline is known yet)'}.",
         )
-    contracts = contracts_for(document, registry=registry, parents=catalogue)
-    resolved = resolve(document, registry=registry, contracts=contracts, parents=catalogue)
+    contracts = contracts_for(
+        document, registry=registry, parents=catalogue, contributions=contributions
+    )
+    resolved = resolve(
+        document,
+        registry=registry,
+        contracts=contracts,
+        parents=catalogue,
+        contributions=contributions,
+    )
     return resolved, to_specs(resolved, registry=registry)
 
 

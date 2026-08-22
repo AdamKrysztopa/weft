@@ -45,12 +45,15 @@ from typing import cast
 from weft_cli.commands import (
     AskCommandResult,
     CommandRefusalError,
+    DeleteCommandResult,
     IndexCommandResult,
     InitCommandResult,
     PluginsDoctorCommandResult,
     PluginsListCommandResult,
+    ReconcileCommandResult,
 )
 from weft_cli.config_commands import ConfigGetCommandResult, ConfigSetCommandResult
+from weft_cli.error_envelope import build_error_envelope
 from weft_cli.eval_commands import (
     EvalCompareCommandResult,
     EvalMetricsCommandResult,
@@ -69,6 +72,7 @@ from weft_cli.pipeline_commands import (
 )
 from weft_cli.pipeline_diff import PipelineDiff
 from weft_cli.plugins_report import render_doctor, render_list
+from weft_cli.reconcile import ReconcileEstimateOutcome, ReconcileOutcome
 from weft_command.contract import CommandResult
 from weft_eval.run_record import MetricRunResult
 from weft_kernel.errors import WeftError
@@ -107,13 +111,31 @@ def render_outcome(outcome: Outcome[CommandResult], *, streamed: bool = False) -
     return Rendered(stdout=None, stderr=outcome.reason, exit_code=ExitCode.OPERATION_FAILED)
 
 
-def render_refusal(exc: WeftError) -> Rendered:
+def render_refusal(exc: WeftError, *, as_json: bool = False) -> Rendered:
     """A `WeftError` raised before or during `run()` — a `CommandRefusalError`'s own exit code,
     or `weft_cli.exit_codes.exit_code_for`'s mapping for every other `WeftError`.
+
+    **`as_json`, task 5.2d.** `docs/README.md` decision log, S6/G9: CLI error prose is not
+    promised, but a structured channel is in its place — the `WeftError` subclass name as
+    failure identity, `valid_options` where the error has them, and the human string as a
+    `rendered` field (`docs/09-release.md` §3). Before this task every failure printed
+    `str(exc)` to stderr regardless of `--json`, so none of the 78 `valid_options` sites this
+    distribution's raise sites compute ever reached a script except as a sentence it would
+    have had to parse. `as_json=True` — set by `weft_cli.cli.run_command` from
+    `isinstance(deps.token_sink, JsonSink)`, the same global flag `docs/03-cli.md` -> *Output*
+    already uses to decide the run's whole scripting contract — builds the envelope
+    (`weft_cli.error_envelope.build_error_envelope`) instead and puts it on `stdout`, with
+    nothing on `stderr`: the envelope is the whole answer a script reads, the same way
+    `weft_cli.sinks.JsonSink` already puts every event on `stdout` rather than splitting a run
+    across two streams. The default, `as_json=False`, is every existing caller and every human
+    invocation: the exit-code decision itself is unchanged either way, computed once, here,
+    exactly as before.
     """
-    if isinstance(exc, CommandRefusalError):
-        return Rendered(stdout=None, stderr=str(exc), exit_code=exc.exit_code)
-    return Rendered(stdout=None, stderr=str(exc), exit_code=exit_code_for(exc))
+    exit_code = exc.exit_code if isinstance(exc, CommandRefusalError) else exit_code_for(exc)
+    if as_json:
+        envelope = build_error_envelope(exc, exit_code=exit_code)
+        return Rendered(stdout=envelope.model_dump_json(), stderr=None, exit_code=exit_code)
+    return Rendered(stdout=None, stderr=str(exc), exit_code=exit_code)
 
 
 def _render_plugins_list(result: PluginsListCommandResult) -> Rendered:
@@ -121,7 +143,14 @@ def _render_plugins_list(result: PluginsListCommandResult) -> Rendered:
 
 
 def _render_plugins_doctor(result: PluginsDoctorCommandResult) -> Rendered:
-    stdout = render_doctor(result.reports, result.displaced, result.unconsulted_pins)
+    stdout = render_doctor(
+        result.reports,
+        result.displaced,
+        result.unconsulted_pins,
+        result.tracing,
+        result.skew,
+        result.unreachable_contributions,
+    )
     return Rendered(stdout=stdout, stderr=None, exit_code=ExitCode.SUCCESS)
 
 
@@ -137,6 +166,128 @@ def _render_pipeline_validate(result: PipelineValidateCommandResult) -> Rendered
 def _render_config_set(result: ConfigSetCommandResult) -> Rendered:
     stdout = f"set {result.key} = {result.value} in {result.path}."
     return Rendered(stdout=stdout, stderr=None, exit_code=ExitCode.SUCCESS)
+
+
+def _render_delete(result: DeleteCommandResult) -> Rendered:
+    """`weft delete`'s whole answer — one line per participant, and the failures on stderr.
+
+    Task **5.1a**'s property is that a participant that fails is *named*, so every participant
+    is listed whether it succeeded or not: reading only the failures would leave an operator
+    unable to tell a fan-out of one from a fan-out of five. The exit code follows
+    `_render_index`'s own rule — the run happened, and a non-zero code reports that part of it
+    did not — rather than a refusal, because a partial deletion is a real event with a real
+    result, not a command that declined to start.
+    """
+    if not result.participants:
+        return Rendered(
+            stdout=(f"nothing installed holds data for '{result.source_id}'; nothing was deleted."),
+            stderr=None,
+            exit_code=ExitCode.SUCCESS,
+        )
+    lines = [f"'{result.source_id}' — {len(result.participants)} participant(s):"]
+    lines += [
+        f"  {outcome.plugin} ({outcome.distribution}): "
+        + ("failed" if outcome.failed else f"{outcome.node_count} node(s) removed")
+        for outcome in result.participants
+    ]
+    failures = result.failed
+    stderr = (
+        "\n".join(
+            f"  failed: {outcome.plugin} ({outcome.distribution}) — {outcome.error}"
+            for outcome in failures
+        )
+        or None
+    )
+    exit_code = ExitCode.SUCCESS if not failures else ExitCode.OPERATION_FAILED
+    return Rendered(stdout="\n".join(lines), stderr=stderr, exit_code=exit_code)
+
+
+def _render_reconcile(result: ReconcileCommandResult) -> Rendered:
+    """`weft reconcile`'s whole answer — task **5.1b**, and `full`'s own cost block, 5.1c's.
+
+    Three facts a summary must not lose, which is why every participant gets a line. What each
+    one removed and backfilled. Whether it **converged** — `remaining` non-zero means the pass
+    was interrupted and another is owed, which is a different thing from a failure and reads as
+    one if it is folded into the same count. And a failure, named, on stderr.
+
+    An unconverged participant exits non-zero for the same reason a failed one does: the
+    command did not finish the job, and a script that read `0` here would go on believing the
+    corpus had converged.
+
+    **`result.estimates`, task 5.1c — printed first, ahead of every other line, and only when
+    non-empty.** `docs/03-cli.md` → *Command surface*: "full states its cost before it spends
+    it." `ReconcileCommand.run` only ever populates `estimates` for `full` (never `repair`,
+    which has nothing to backfill), so this function needs no mode check of its own — an
+    empty tuple already means "nothing to print here." Ordering the estimate lines first is
+    what "before it spends it" means for a result rendered once, after `run()` returns: the
+    number was computed, and is shown, ahead of what converging actually did.
+    """
+    estimate_lines = [line for outcome in result.estimates for line in _estimate_lines(outcome)]
+    if result.dry_run:
+        head = (
+            f"mode '{result.mode.value}' would run against {len(result.would_ask)} participant(s):"
+        )
+        if not result.would_ask:
+            return Rendered(
+                stdout="nothing installed can reconcile.", stderr=None, exit_code=ExitCode.SUCCESS
+            )
+        body = estimate_lines or [f"  {label}" for label in result.would_ask]
+        return Rendered(stdout="\n".join([head, *body]), stderr=None, exit_code=ExitCode.SUCCESS)
+    if not result.participants:
+        return Rendered(
+            stdout="nothing installed can reconcile; nothing to converge.",
+            stderr=None,
+            exit_code=ExitCode.SUCCESS,
+        )
+    lines = [f"mode '{result.mode.value}' — {len(result.participants)} participant(s):"]
+    lines += estimate_lines
+    lines += [
+        f"  {outcome.plugin} ({outcome.distribution}): {_reconcile_line(outcome)}"
+        for outcome in result.participants
+    ]
+    failures = result.failed
+    stderr = (
+        "\n".join(
+            f"  failed: {outcome.plugin} ({outcome.distribution}) — {outcome.error}"
+            for outcome in failures
+        )
+        or None
+    )
+    finished = not failures and not result.unconverged
+    exit_code = ExitCode.SUCCESS if finished else ExitCode.OPERATION_FAILED
+    return Rendered(stdout="\n".join(lines), stderr=stderr, exit_code=exit_code)
+
+
+def _reconcile_line(outcome: ReconcileOutcome) -> str:
+    if outcome.report is None:
+        return "failed"
+    report = outcome.report
+    counts = f"examined {report.examined}, removed {report.removed}, backfilled {report.backfilled}"
+    if report.converged:
+        return counts
+    return f"{counts} — interrupted, {report.remaining} left; run again"
+
+
+def _estimate_lines(outcome: ReconcileEstimateOutcome) -> tuple[str, ...]:
+    """One participant's own cost, in `docs/03-cli.md`'s own worked-example shape:
+
+    ```
+    weft-graph: 4,312 nodes have no graph data
+                backfill will make ~4,312 model calls
+    ```
+
+    A second, indented line names the model-call cost only when there is one to name —
+    `model_calls == 0` is the honest floor every first-party store reports today (`node
+    stores hold no derived state to build), and a bare "~0 model calls" would say nothing a
+    reader could not already tell from the first line.
+    """
+    if outcome.estimate is None:
+        return (f"  {outcome.plugin} ({outcome.distribution}): estimate failed — {outcome.error}",)
+    head = f"  {outcome.plugin} ({outcome.distribution}): {outcome.estimate.description}"
+    if outcome.estimate.model_calls <= 0:
+        return (head,)
+    indent = " " * len(head[: head.index(": ") + 2])
+    return (head, f"{indent}backfill will make ~{outcome.estimate.model_calls} model calls")
 
 
 def _render_unknown(result: CommandResult) -> Rendered:
@@ -166,6 +317,11 @@ _RENDERERS: tuple[tuple[type[CommandResult], Callable[[CommandResult], Rendered]
         lambda r: _render_plugins_doctor(cast(PluginsDoctorCommandResult, r)),
     ),
     (InitCommandResult, lambda r: _render_init(cast(InitCommandResult, r))),
+    (DeleteCommandResult, lambda r: _render_delete(cast(DeleteCommandResult, r))),
+    (
+        ReconcileCommandResult,
+        lambda r: _render_reconcile(cast(ReconcileCommandResult, r)),
+    ),
     (
         PipelineListCommandResult,
         lambda r: _render_pipeline_list(cast(PipelineListCommandResult, r)),
@@ -208,6 +364,13 @@ def _render_result(result: CommandResult, *, streamed: bool) -> Rendered:
 
 
 def _render_index(result: IndexCommandResult) -> Rendered:
+    """`weft index`'s whole answer, plus the automatic post-index reconciliation pass, task
+    **5.1c**. `result.reconcile` is rendered through `_render_reconcile` itself — one renderer
+    for both `weft reconcile`'s own result and this command's automatic pass, so a participant
+    line, a cost estimate or a failure can never read differently depending on which command
+    produced it. `None` only when `run_index` itself raised before the pass could run, so there
+    is nothing to append; every successful run reports one, even an empty one.
+    """
     summary = result.summary
     stored = "unknown" if result.stored_count is None else str(result.stored_count)
     stdout = (
@@ -220,6 +383,14 @@ def _render_index(result: IndexCommandResult) -> Rendered:
         else None
     )
     exit_code = ExitCode.SUCCESS if summary.failed == 0 else ExitCode.OPERATION_FAILED
+    if result.reconcile is not None:
+        reconciled = _render_reconcile(result.reconcile)
+        if reconciled.stdout:
+            stdout = f"{stdout}\n{reconciled.stdout}"
+        if reconciled.stderr:
+            stderr = f"{stderr}\n{reconciled.stderr}" if stderr else reconciled.stderr
+        if reconciled.exit_code is not ExitCode.SUCCESS:
+            exit_code = ExitCode.OPERATION_FAILED
     return Rendered(stdout=stdout, stderr=stderr, exit_code=exit_code)
 
 

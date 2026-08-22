@@ -1,0 +1,38 @@
+[project]
+name = "weft-example-graph"
+version = "0.1.0"
+description = "A stranger's graph add-on — docs/02-extension-model.md section 4's worked example, built for real."
+requires-python = ">=3.12"
+# Four intra-repo ranges, G9's rule (docs/02-extension-model.md section 4, "a version
+# requirement is the dependency specifier"): each names the contract-publishing pack this
+# distribution depends on, bound to the major that would break it. psycopg is an ordinary
+# third-party library this pack does not publish a contract for, so it gets a floor, never
+# an invented upper bound (docs/02 section 4's own "when you depend on an ordinary library,
+# write the floor you actually require and nothing more").
+dependencies = [
+    "weft-kernel>=0.1.0,<1.0.0",
+    "weft-enhance>=1.0.0,<2.0.0",
+    "weft-store>=2.0.0,<3.0.0",
+    "weft-retrieve>=1.0.0,<2.0.0",
+    "weft-command>=2.0.0,<3.0.0",
+    "psycopg[binary]>=3.2",
+]
+
+# The one entry point a pack declares (docs/02-extension-model.md section 2). Nothing under
+# weft's own packages/ or testing/ names this distribution, this module, or any plugin name
+# registered below — fitness function 9(b), asserted from the weft repository's own
+# tests/architecture/.
+[project.entry-points."weft.packs"]
+graph = "weft_example_graph:register"
+
+# This pack's own dev tooling — a stranger's `uv run pytest` must work from this pyproject
+# alone, nothing borrowed from the workspace it is not a member of.
+[dependency-groups]
+dev = ["pytest>=8.3", "pytest-asyncio>=0.24"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

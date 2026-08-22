@@ -69,7 +69,9 @@ from weft_store.contract import (
     MetadataFilter,
     NodeStore,
     Page,
+    ReconcileMode,
     SourceRecord,
+    SourceStatus,
     TextSearch,
     VectorSearch,
 )
@@ -111,6 +113,13 @@ def _node(
     if pages is not None:
         node = node.with_ext(pages)
     return node if embedding is None else node.with_embedding(embedding)
+
+
+def _conformance_context() -> Context:
+    """A `Context` for `reconcile`, which takes one and — for a node store — reads nothing
+    from it. A pack that converges by running model calls will; this one has no reason to.
+    """
+    return Context(tenant_id="conformance", run_id="run-1", trace_id="trace-1", locale="en")
 
 
 def _corpus() -> tuple[Node, ...]:
@@ -270,6 +279,108 @@ async def test_delete_source_removes_exactly_the_nodes_carrying_it(store: Confor
     assert removed.node_count == 2
     assert frozenset(node.content for node in (await store.scan()).items) == frozenset({"alpha"})
     assert await store.get_source(_SOURCE_B) is None
+
+
+async def test_reconcile_finishes_a_deletion_that_was_interrupted(
+    store: ConformanceStore,
+) -> None:
+    """Task **5.1b**'s property, on both real backends: a deletion that started and did not
+    end is finished by the *next* pass, not restarted from nothing.
+
+    The interruption is constructed rather than raced: a `DELETING` tombstone plus the nodes
+    it should have taken with it is exactly the state a `delete_source` killed between its two
+    statements leaves behind, and it is the state `SourceRecord.status` was given a
+    `DELETING` member for. That the backlog is a *row* rather than a cursor is the whole of
+    why `02` §1 can promise a pass resumes rather than restarts — see
+    `PgVectorStore.reconcile`'s own docstring.
+    """
+    # Arrange — two nodes carrying _SOURCE_B, and a tombstone saying its deletion began.
+    await store.add(_corpus())
+    await store.put_source(
+        SourceRecord(
+            id=_SOURCE_B,
+            uri="file:///corpus/b.txt",
+            content_hash="hash-b",
+            indexed_at=datetime.now(UTC),
+            pipeline="conformance",
+            status=SourceStatus.DELETING,
+        )
+    )
+
+    # Act
+    report = await store.reconcile(_conformance_context(), ReconcileMode.REPAIR)
+    again = await store.reconcile(_conformance_context(), ReconcileMode.REPAIR)
+
+    # Assert — the first pass finished the job; the second found nothing and is a no-op.
+    assert (report.examined, report.removed, report.converged) == (1, 2, True)
+    assert (again.examined, again.removed, again.converged) == (0, 0, True)
+    assert frozenset(node.content for node in (await store.scan()).items) == frozenset({"alpha"})
+    assert await store.get_source(_SOURCE_B) is None
+
+
+async def test_reconcile_leaves_a_healthy_store_alone_on_either_backend(
+    store: ConformanceStore,
+) -> None:
+    """The other half, and the one that would have been a corpus-erasing bug: a node store
+    holds the primary data, so a source record it has never been given is not evidence that
+    its nodes are orphans. Nothing is removed here, and `full` removes no more than `repair`.
+    """
+    # Arrange — three nodes and no source records at all, which is what `weft index` leaves.
+    await store.add(_corpus())
+
+    # Act
+    report = await store.reconcile(_conformance_context(), ReconcileMode.FULL)
+
+    # Assert
+    assert (report.removed, report.backfilled, report.converged) == (0, 0, True)
+    assert await store.count() == 3
+
+
+async def test_estimate_reports_zero_model_calls_on_either_backend(
+    store: ConformanceStore,
+) -> None:
+    """Task **5.1c**'s own floor, on both real backends: a node store holds the primary data,
+    so `full` has nothing to backfill and `estimate` says so honestly rather than guessing at
+    a number — see `PgVectorStore.estimate`'s own docstring, which owns the argument for both.
+    """
+    # Arrange — three nodes, no tombstones: nothing pending either.
+    await store.add(_corpus())
+
+    # Act
+    estimate = await store.estimate(_conformance_context(), ReconcileMode.FULL)
+
+    # Assert
+    assert (estimate.pending, estimate.model_calls) == (0, 0)
+
+
+async def test_estimate_counts_the_identical_tombstones_reconcile_itself_examines(
+    store: ConformanceStore,
+) -> None:
+    """`estimate`'s own `pending` must never disagree with what `reconcile` actually examines —
+    both read the same backlog, so a tombstone `estimate` counts is a tombstone `reconcile`
+    finishes.
+    """
+    # Arrange — an interrupted deletion, the same fixture `test_reconcile_finishes_a_deletion_
+    # that_was_interrupted` above plants.
+    await store.add(_corpus())
+    await store.put_source(
+        SourceRecord(
+            id=_SOURCE_B,
+            uri="file:///corpus/b.txt",
+            content_hash="hash-b",
+            indexed_at=datetime.now(UTC),
+            pipeline="conformance",
+            status=SourceStatus.DELETING,
+        )
+    )
+
+    # Act
+    estimate = await store.estimate(_conformance_context(), ReconcileMode.REPAIR)
+    report = await store.reconcile(_conformance_context(), ReconcileMode.REPAIR)
+
+    # Assert
+    assert estimate.pending == 1
+    assert report.examined == 1
 
 
 async def test_a_source_record_round_trips_and_is_listed(store: ConformanceStore) -> None:

@@ -37,6 +37,7 @@ class _Note(ExtModel):
     "a strategy needs to pass something along", dropped nowhere this plugin can help it."""
 
     __namespace__ = "test-repack"
+    __schema_version__ = "1.0.0"
 
     text: str
 

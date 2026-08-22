@@ -1,9 +1,9 @@
 [project]
 name = "weft-chunk"
-version = "0.0.0"
+version = "1.0.0"
 description = "First-party chunking pack. Publishes the Chunker contract."
 requires-python = ">=3.12"
-dependencies = ["weft-kernel"]
+dependencies = ["weft-kernel>=0.1.0,<1.0.0"]
 
 # The one entry point a pack declares (`docs/02-extension-model.md` section 2).
 [project.entry-points."weft.packs"]

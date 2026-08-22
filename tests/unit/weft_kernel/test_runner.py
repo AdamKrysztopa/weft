@@ -72,6 +72,7 @@ class _NodeStage(runner.Stage[Sequence[Node], Sequence[Node]], Protocol):
 
 class _Uppercased(ExtModel):
     __namespace__ = "weft-test-pack"
+    __schema_version__ = "1.0.0"
 
     note: str = "uppercased"
 
@@ -529,6 +530,7 @@ async def test_resolve_checks_requires_by_model_type_not_merely_by_namespace_str
     # different type; requires must be checked by model, not by the namespace it collides on.
     class _OtherModelSameNamespace(ExtModel):
         __namespace__ = "weft-test-pack"
+        __schema_version__ = "1.0.0"
 
         note: str = "not-the-required-model"
 
@@ -727,6 +729,7 @@ class _Prose(ExtModel):
     """A fact `_NaiveSplitter` genuinely needs — nothing about tables anywhere in it."""
 
     __namespace__ = "weft-test-pack"
+    __schema_version__ = "1.0.0"
 
 
 def _prose_node(text: str) -> Node:
@@ -1060,10 +1063,12 @@ async def test_run_calls_a_stage_with_applies_to_even_on_an_empty_batch() -> Non
 
 class _TableFact(ExtModel):
     __namespace__ = "weft-test-pack-table"
+    __schema_version__ = "1.0.0"
 
 
 class _WideColumns(ExtModel):
     __namespace__ = "weft-test-pack-columns"
+    __schema_version__ = "1.0.0"
 
 
 def _fact_node(text: str, *, wide_columns: bool) -> Node:

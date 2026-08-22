@@ -160,6 +160,7 @@ async def test_querysets_ext_is_carried_onto_the_produced_candidates() -> None:
     # test a fixture no more thoroughly than a private one does.
     class _Carried(ExtModel):
         __namespace__ = "test-vector-top-k"
+        __schema_version__ = "1.0.0"
 
         text: str
 

@@ -12,7 +12,7 @@ import json
 import pytest
 from pydantic import ValidationError
 
-from weft_kernel.payload.ext import ExtModel
+from weft_kernel.payload.ext import SCHEMA_VERSION_KEY, ExtModel
 from weft_kernel.payload.ids import NodeId, SourceId
 from weft_kernel.payload.lineage import Lineage
 from weft_kernel.payload.media_type import MediaType
@@ -22,18 +22,21 @@ from weft_kernel.payload.vector import Vector
 
 class _GraphData(ExtModel):
     __namespace__ = "weft-graph"
+    __schema_version__ = "1.0.0"
 
     entities: tuple[str, ...] = ()
 
 
 class _OtherData(ExtModel):
     __namespace__ = "weft-graph"
+    __schema_version__ = "1.0.0"
 
     label: str = ""
 
 
 class _TransientBlob(ExtModel):
     __namespace__ = "weft-vision"
+    __schema_version__ = "1.0.0"
     __transient__ = True
 
     payload_b64: str
@@ -182,6 +185,12 @@ def test_ext_survives_model_dump_and_json_with_subclass_fields_intact() -> None:
     Deserialising the JSON back into typed `ExtModel` subclasses is out of
     scope here — that needs a namespace-to-class registry that does not
     exist until a later step — so this only checks the write side.
+
+    Task 5.2c: this is also where `SCHEMA_VERSION_KEY` is proven to travel
+    *in the bytes* rather than being dropped the way `Filter.version` (a
+    `ClassVar`) always was — a real `Node`, dumped through the real `ext`
+    serialiser, is the round trip a store actually performs, not a
+    hand-assembled dict that would pass by construction.
     """
     # Arrange
     root = Node.synthetic(content="doc", media_type=MediaType.TEXT, reason="probe")
@@ -194,3 +203,5 @@ def test_ext_survives_model_dump_and_json_with_subclass_fields_intact() -> None:
     # Assert
     assert dumped["ext"]["weft-graph"]["entities"] == ("Acme", "Widgets Inc")
     assert parsed_json["ext"]["weft-graph"]["entities"] == ["Acme", "Widgets Inc"]
+    assert dumped["ext"]["weft-graph"][SCHEMA_VERSION_KEY] == _GraphData.__schema_version__
+    assert parsed_json["ext"]["weft-graph"][SCHEMA_VERSION_KEY] == _GraphData.__schema_version__

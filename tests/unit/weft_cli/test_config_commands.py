@@ -62,6 +62,7 @@ async def test_config_get_with_no_key_reports_every_default(tmp_path: Path) -> N
         "services.store",
         "permissions.overwrite",
         "permissions.destroy",
+        "reconcile.mode",
     }
     assert all(entry.origin is ConfigOrigin.DEFAULT for entry in result.entries)
     assert result.show_origin is False

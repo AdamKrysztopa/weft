@@ -1,9 +1,9 @@
 [project]
 name = "weft-command"
-version = "0.0.0"
+version = "2.0.0"
 description = "First-party command pack. Publishes the Command contract and PermissionClass."
 requires-python = ">=3.12"
-dependencies = ["weft-kernel"]
+dependencies = ["weft-kernel>=0.1.0,<1.0.0"]
 
 # No `[project.entry-points."weft.packs"]` block — the identical reasoning
 # `packages/weft-prompts/pyproject.toml` already carries: fitness function 2 asserts that

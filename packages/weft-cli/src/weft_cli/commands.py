@@ -87,11 +87,22 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from weft_cli.ask import AskHit, hits_for, run_ask
 from weft_cli.config_commands import register_config_commands
+from weft_cli.deletion import ParticipantOutcome, delete_everywhere
+from weft_cli.deletion import participants as deletion_participants
 from weft_cli.eval_commands import register_eval_commands
 from weft_cli.exit_codes import ExitCode
+from weft_cli.fanout import Participant
 from weft_cli.ingest import INDEX_DISTRIBUTIONS, run_index
 from weft_cli.output import AskFormat
+from weft_cli.pipeline_catalogue import declared_slot_ids, full_catalogue
 from weft_cli.pipeline_commands import register_pipeline_commands
+from weft_cli.reconcile import (
+    ReconcileEstimateOutcome,
+    ReconcileOutcome,
+    estimate_everywhere,
+    reconcile_everywhere,
+)
+from weft_cli.reconcile import participants as reconcile_participants
 from weft_cli.registry_bootstrap import (
     DEFAULT_CONFIG_PATH,
     Dependencies,
@@ -100,6 +111,8 @@ from weft_cli.registry_bootstrap import (
     require_plugin,
 )
 from weft_cli.route_ask import run_named_ask, run_routed_ask
+from weft_cli.skew import SkewReport, detect_skew
+from weft_cli.tracing_status import describe_tracing
 from weft_command.contract import Command, CommandResult
 from weft_command.permission import PermissionClass
 from weft_embed import Embedder
@@ -108,16 +121,19 @@ from weft_generate.payload import Answer
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackRegistrar, PackReport
 from weft_kernel.errors import UnresolvedNameError, WeftError
-from weft_kernel.payload import Outcome, Produced
+from weft_kernel.payload import Outcome, Produced, SourceId
 from weft_kernel.registry import DisplacedRegistration
+from weft_kernel.resolution import Contribution
 from weft_kernel.runner import RunSummary
-from weft_store import NodeStore
+from weft_store import NodeStore, ReconcileMode
 
 _INDEX_HELP = (
     "run an ingest pipeline over a directory. Which formats are accepted is derived from "
     "the extractors actually installed, never from a fixed list. --pipeline names a "
     "document instead of the built-in four stages, reaching a plugin's own 'with:' "
-    "configuration (ledger task 4.0)."
+    "configuration (ledger task 4.0). A successful run always ends with an automatic "
+    "'repair' reconciliation pass; --reconcile full opts this run into backfill too "
+    "(ledger task 5.1c)."
 )
 
 _ASK_HELP = (
@@ -126,6 +142,20 @@ _ASK_HELP = (
     "generated, cited answer. --pipeline names one directly, skipping the router; "
     "--retrieve-only runs no pipeline at all and prints the nearest passages instead, with "
     "no generation and no model call (Phase 0's own contract, kept for scripts)."
+)
+
+_DELETE_HELP = (
+    "remove a source and everything derived from it, everywhere — the configured node "
+    "store and every installed pack that holds derived data, each one named in the result "
+    "whether it succeeded or failed"
+)
+
+_RECONCILE_HELP = (
+    "converge derived state against what the corpus actually holds — every installed pack "
+    "that can reconcile is asked, and one that fails is named. --mode full also backfills "
+    "state that was never built, and prints what that will cost first; --dry-run names the "
+    "participants (and, for full, the cost) and stops. --mode omitted uses weft.toml's own "
+    "[reconcile] mode, or 'full' if that says nothing"
 )
 
 _PLUGINS_LIST_HELP = "one line per discovered pack"
@@ -263,13 +293,23 @@ class NoArgs(BaseModel):
 
 
 class IndexArgs(BaseModel):
-    """`weft index <path> [--extract NAME | --pipeline NAME]` — see `weft_cli.argparse_gen`
-    for how a field with no default becomes a positional and one with a default becomes a
-    flag.
+    """`weft index <path> [--extract NAME | --pipeline NAME] [--reconcile repair|full]` — see
+    `weft_cli.argparse_gen` for how a field with no default becomes a positional and one with
+    a default becomes a flag.
 
     `extract` and `pipeline` are mutually exclusive — `IndexCommand.run` refuses both
     together, loudly, before either resolves a plugin, the identical shape `AskArgs`'
     `pipeline`/`retrieve_only` pair already has.
+
+    **`reconcile`, task 5.1c.** `docs/02-extension-model.md` §3 → *Slots*, "Tested by G7":
+    "a `Reconcilable` pack creating derived data during an automatic pass *would* breach
+    it, so the automatic pass never does; backfill is reached only by a person's per-run
+    flag." That is why this field's default is the hardcoded `ReconcileMode.REPAIR` — never
+    read from `weft.toml`'s own `[reconcile]` block (see `weft_cli.reconcile_policy`'s own
+    module docstring for why that block governs `weft reconcile`'s bare default and nothing
+    about this one) — so a project cannot, by editing one file once, turn every future `weft
+    index` into a `full` run with nobody typing `--reconcile full` for that particular
+    invocation. Naming `full` here is exactly what opts *this* run into the expensive pass.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -291,6 +331,17 @@ class IndexArgs(BaseModel):
             "show` resolves against). Every stage's plugin and its own 'with:' "
             "configuration come from the document; [services] embed/store are not read for "
             "this run. Mutually exclusive with --extract (ledger task 4.0)."
+        ),
+    )
+    reconcile: ReconcileMode = Field(
+        default=ReconcileMode.REPAIR,
+        description=(
+            "mode for the automatic reconciliation pass this command runs after a "
+            "successful index — 'repair' (the default, and the only mode reached with no "
+            "flag) drops derived state whose source is gone; 'full' also backfills state "
+            "that was never built, and prints what that will cost before it spends it. "
+            "Never influenced by weft.toml — see 'weft reconcile --mode' for the command "
+            "whose own default that file may change."
         ),
     )
 
@@ -341,10 +392,19 @@ class AskArgs(BaseModel):
 class IndexCommandResult(CommandResult):
     """What `weft index` produced — the same two facts `weft_cli.ingest.IndexResult` always
     carried, now a `CommandResult` a renderer can format without importing that dataclass.
+
+    **`reconcile`, task 5.1c.** The automatic post-index pass's own result, reusing
+    `ReconcileCommandResult` rather than a second, parallel shape — `weft_cli.render.
+    _render_reconcile` is then one renderer for both `weft reconcile`'s own result and
+    `weft index`'s automatic pass, so the two cannot disagree about what a participant's
+    line looks like. `None` only when `run_index` itself raised before the pass could run —
+    never for "the pass found no participants", which `ReconcileCommandResult.participants
+    == ()` already says honestly.
     """
 
     summary: RunSummary
     stored_count: int | None
+    reconcile: ReconcileCommandResult | None = None
 
 
 class AskCommandResult(CommandResult):
@@ -374,11 +434,30 @@ class PluginsListCommandResult(CommandResult):
 
 
 class PluginsDoctorCommandResult(CommandResult):
-    """`weft plugins doctor`'s fuller answer — reports, displacements and unconsulted pins."""
+    """`weft plugins doctor`'s fuller answer — reports, displacements, unconsulted pins, and
+    whether the process's `TracerProvider` is real. `tracing` — task **5.1d** — is
+    `weft_cli.tracing_status.describe_tracing()`'s own words, read *after* discovery has run
+    so it reflects whatever actually happened, `weft-otel` installed or not.
+
+    `skew` — task **5.2e** — is every `weft_cli.skew.SkewReport` `weft_cli.skew.
+    detect_skew()` found: a distribution whose installed version does not satisfy another
+    installed distribution's own declared specifier, `docs/09-release.md` §2.3 answer 1.
+    Deprecation needs no field of its own here — `PackReport.deprecations` already travels
+    on `reports`, read by `weft_cli.plugins_report` as a flag beside a pack's status.
+
+    `unreachable_contributions` — task **5.3a** (`S8`) — is every `weft_kernel.resolution.
+    Contribution` in `Dependencies.contributions` whose `slot` no pipeline in the catalogue
+    declares at all, computed against `weft_cli.pipeline_catalogue.declared_slot_ids` — `02`
+    §3 → *Slots*: "`weft plugins doctor` flags a pack whose contributions land in no pipeline
+    at all."
+    """
 
     reports: tuple[PackReport, ...]
     displaced: tuple[DisplacedRegistration, ...]
     unconsulted_pins: tuple[str, ...]
+    tracing: str
+    skew: tuple[SkewReport, ...]
+    unreachable_contributions: tuple[Contribution, ...]
 
 
 class IndexCommand:
@@ -462,9 +541,49 @@ class IndexCommand:
             store=deps.services.store,
             pipeline=index_args.pipeline,
             reports=deps.reports,
+            contributions=deps.contributions,
         )
+        reconcile_result = await self._auto_reconcile(index_args.reconcile, deps=deps, ctx=ctx)
         return Produced(
-            value=IndexCommandResult(summary=result.summary, stored_count=result.stored_count)
+            value=IndexCommandResult(
+                summary=result.summary,
+                stored_count=result.stored_count,
+                reconcile=reconcile_result,
+            )
+        )
+
+    async def _auto_reconcile(
+        self, mode: ReconcileMode, *, deps: Dependencies, ctx: Context
+    ) -> ReconcileCommandResult:
+        """The automatic post-index pass, task **5.1c** — `docs/02-extension-model.md` §3 →
+        *Slots*, "Tested by G7": run unconditionally after a successful index, in whichever
+        mode `--reconcile` named (hardcoded `repair` unless a person opted this run into
+        `full`), against `[services] store` and every other registered `Reconcilable` — the
+        identical participants `weft reconcile` itself would ask, found the same way
+        (`weft_cli.reconcile.participants`), so the automatic pass and a person's own later
+        `weft reconcile` can never disagree about who converges.
+
+        **Run for `--pipeline` too, deliberately, not only the default four-stage path.**
+        `run_index`'s own "Q3, settled" promise is that `[services] embed`/`store` are not
+        read *to build that run's own stages* when a document names them instead; it says
+        nothing about a *separate*, subsequent convergence step, which is a project-wide
+        concern rather than a fact about one pipeline's own stage list. Skipping it for
+        `--pipeline` would silently drop `--reconcile full` on that path with no refusal and
+        no explanation — exactly the surprise this task exists to prevent — so this runs the
+        same way regardless of which path indexed. A `[services] store` that resolves to
+        nothing registered simply contributes no `NodeStore` participant (`weft_cli.fanout`'s
+        own filtering, not a refusal), so a `--pipeline` project with no store configured at
+        all still indexes cleanly; other `Reconcilable` packs are still asked.
+        """
+        targets = reconcile_participants(registry=deps.registry, store_name=deps.services.store)
+        estimates = (
+            await estimate_everywhere(mode, targets=targets, ctx=ctx)
+            if mode is ReconcileMode.FULL
+            else ()
+        )
+        outcomes = await reconcile_everywhere(mode, targets=targets, ctx=ctx)
+        return ReconcileCommandResult(
+            mode=mode, dry_run=False, participants=outcomes, estimates=estimates
         )
 
 
@@ -580,6 +699,7 @@ class AskCommand:
                 llm=deps.llm,
                 services=deps.services,
                 sink=deps.token_sink,
+                contributions=deps.contributions,
             )
         else:
             pipeline_name, answer = await run_routed_ask(
@@ -590,6 +710,7 @@ class AskCommand:
                 llm=deps.llm,
                 services=deps.services,
                 sink=deps.token_sink,
+                contributions=deps.contributions,
             )
         return Produced(
             value=AskCommandResult(
@@ -633,11 +754,19 @@ class PluginsDoctorCommand:
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
         del args
         deps = ctx.require(Dependencies)
+        catalogue = full_catalogue(reports=deps.reports)
+        declared = declared_slot_ids(catalogue)
+        unreachable = tuple(
+            contribution for contribution in deps.contributions if contribution.slot not in declared
+        )
         return Produced(
             value=PluginsDoctorCommandResult(
                 reports=deps.reports,
                 displaced=deps.registry.displaced(),
                 unconsulted_pins=tuple(sorted(deps.registry.unconsulted_pins())),
+                tracing=describe_tracing(),
+                skew=detect_skew(),
+                unreachable_contributions=unreachable,
             )
         )
 
@@ -661,6 +790,9 @@ _INIT_TEMPLATE = """\
 [permissions]
 # overwrite = "ask"
 # destroy = "ask"
+
+[reconcile]
+# mode = "full"
 
 # [packs.weft-store]
 # dsn = "${env:WEFT_DATABASE_URL}"
@@ -719,6 +851,261 @@ class InitCommand:
         return Produced(value=InitCommandResult(path=str(DEFAULT_CONFIG_PATH)))
 
 
+class DeleteArgs(BaseModel):
+    """`weft delete <source-id>` — one required positional, the source to remove."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    source_id: str
+
+
+class DeleteCommandResult(CommandResult):
+    """Which source was deleted, and what every participant did about it.
+
+    The per-participant list is the result rather than a bare total, because the property
+    task **5.1a** exists to make true is that a participant that failed is *named*. A single
+    "deleted 41 nodes" line cannot carry that, and a total computed across a fan-out where
+    one arm raised is a number that means nothing.
+    """
+
+    source_id: str
+    participants: tuple[ParticipantOutcome, ...]
+
+    @property
+    def failed(self) -> tuple[ParticipantOutcome, ...]:
+        return tuple(outcome for outcome in self.participants if outcome.failed)
+
+
+class DeleteCommand:
+    """`weft delete <source-id>` — G7's fast path, task **5.1a**.
+
+    `docs/02-extension-model.md` §1 → *Extended by G7*: "`SourceDeletable` is the fast path.
+    Deletion fans out synchronously, in-command, across *every* registered plugin that
+    satisfies it — not just the node store." The fan-out itself is `weft_cli.deletion`; this
+    class is the thin command around it, exactly as `IndexCommand` is around `run_index`.
+
+    **`destroy`-class, and that is what makes the prompt appear.** `weft_cli.confirm.gate`
+    already refuses a `destroy` command with no TTY, naming `--yes` — so nothing here writes
+    a confirmation, and `docs/03-cli.md` → *Permissions*'s "the prompt states what will be
+    destroyed and how much of it" is answered by `describe_impact` below, the contract method
+    that section recorded as unbuilt and left to "whichever later task first ships a real
+    `overwrite`/`destroy` command and needs one". This is that command.
+
+    **A source nothing holds is a success, not a refusal.** Every participant answers
+    `node_count=0`, the result says so, and the exit code is `0`: deletion is idempotent, so
+    re-running a delete that already finished has to be the ordinary case rather than an
+    error, and a fan-out resumed after a partial failure depends on it.
+    """
+
+    args_model: ClassVar[type[BaseModel]] = DeleteArgs
+    result_model: ClassVar[type[CommandResult]] = DeleteCommandResult
+    permission_class: ClassVar[PermissionClass] = PermissionClass.DESTROY
+    help: ClassVar[str] = _DELETE_HELP
+
+    def __init__(self, config: object = None) -> None:
+        del config
+
+    def describe_impact(self, args: BaseModel, ctx: Context) -> str:
+        """What the confirmation prompt says before anything is deleted.
+
+        `docs/03-cli.md` → *Permissions*: "The prompt states **what will be destroyed and how
+        much of it**". *How much* is honestly unavailable without asking every backend — which
+        would connect to all of them before consent — so what this states instead is the
+        source and every participant that will be asked, by name and distribution. That is the
+        fact an operator most needs and could not otherwise get: a pack they forgot they
+        installed is about to delete data.
+
+        **It resolves the store first, and that ordering was found by running the binary
+        rather than by a test.** `weft delete doc-1` in a project with no `dsn` configured
+        printed a `destroy`-class TTY refusal whose impact sentence read *"nothing installed
+        holds data for a source to delete"* — plausible, and false: `weft-store` was installed
+        and had refused to *register* because its settings did not validate, which `--yes`
+        then reported perfectly from `run()` one layer down. Two refusals for one situation,
+        the wrong one first. So the same check `run()` makes is made here, ahead of any
+        sentence about participants, and `weft_cli.confirm.impact_of` deliberately does not
+        catch it: a command that cannot say what it will destroy has not earned a
+        confirmation, and the operator gets the diagnosis they can act on instead of a prompt
+        about a deletion that could never have happened.
+        """
+        typed = cast(DeleteArgs, args)
+        targets = self._targets(ctx.require(Dependencies))
+        if not targets:
+            return f"'{typed.source_id}' — no registered plugin holds data derived from it."
+        listed = ", ".join(target.label for target in targets)
+        return f"'{typed.source_id}' will be removed from {len(targets)} participant(s): {listed}."
+
+    async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        typed = cast(DeleteArgs, args)
+        targets = self._targets(ctx.require(Dependencies))
+        outcomes = await delete_everywhere(SourceId(typed.source_id), targets=targets)
+        return Produced(value=DeleteCommandResult(source_id=typed.source_id, participants=outcomes))
+
+    def _targets(self, deps: Dependencies) -> tuple[Participant, ...]:
+        """Who the fan-out will ask — refusing first if `[services] store` names nothing.
+
+        One helper for both `describe_impact` and `run`, rather than the same lines twice: the
+        prompt and the run must not be able to disagree about who participates, and the
+        refusal an unresolvable store earns is the same refusal on both paths.
+        """
+        _raise_for_plugin_refusal(
+            require_plugin(
+                deps.reports,
+                registry=deps.registry,
+                contract=NodeStore,
+                name=deps.services.store,
+                setting="[services] store",
+            )
+        )
+        return deletion_participants(registry=deps.registry, store_name=deps.services.store)
+
+
+class ReconcileArgs(BaseModel):
+    """`weft reconcile [--mode repair|full] [--dry-run]`.
+
+    **`mode`, narrowed at task 5.1c.** `None` means "no flag given" — `ReconcileCommand` then
+    falls back to `weft.toml`'s own `[reconcile] mode` (`weft_cli.reconcile_policy`, default
+    `full`), so someone typing bare `weft reconcile` still reaches `full` unless they, or their
+    project, said otherwise. The flag always wins over that default when given, per
+    `docs/03-cli.md`'s own words. The automatic pass at the end of an index run does not come
+    through here at all — it is `weft_cli.commands.IndexArgs.reconcile`'s own field, hardcoded
+    to `repair`, never influenced by `[reconcile]`.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    mode: ReconcileMode | None = Field(
+        default=None,
+        description=(
+            "repair drops derived state whose source is gone; full also backfills state "
+            "that was never built, and prints what that will cost before it spends it. "
+            "Omit to use weft.toml's [reconcile] mode, or 'full' if that says nothing."
+        ),
+    )
+    dry_run: bool = False
+
+
+class ReconcileCommandResult(CommandResult):
+    """Which mode ran, and what every participant did about it.
+
+    **`estimates`, task 5.1c.** Populated only when `mode` resolved to `full` — `repair` never
+    backfills, so it has no cost to state before spending (`docs/03-cli.md` → *Command
+    surface*: "full states its cost before it spends it"). Computed, and therefore already
+    known, before `participants`/`reconcile_everywhere` ever ran: this is what "before it
+    spends it" means for a command with no streaming output of its own — the number is asked
+    for and carried first, in the data, rather than a raw `print()` inside `run()`, which
+    `docs/03-cli.md`'s own governing rule ("a Command returns a typed result, never writes to
+    a stream") forbids.
+    """
+
+    mode: ReconcileMode
+    dry_run: bool
+    participants: tuple[ReconcileOutcome, ...]
+    #: Populated on `--dry-run`, where nothing was asked and the labels are the whole answer.
+    would_ask: tuple[str, ...] = ()
+    estimates: tuple[ReconcileEstimateOutcome, ...] = ()
+
+    @property
+    def failed(self) -> tuple[ReconcileOutcome, ...]:
+        return tuple(outcome for outcome in self.participants if outcome.failed)
+
+    @property
+    def unconverged(self) -> tuple[ReconcileOutcome, ...]:
+        """Participants that ran and did not finish — an interrupted pass, owed another."""
+        return tuple(
+            outcome for outcome in self.participants if not outcome.failed and not outcome.converged
+        )
+
+
+class ReconcileCommand:
+    """`weft reconcile` — G7's safety net, task **5.1b**, and the cost `full` states, 5.1c's.
+
+    `docs/03-cli.md` → *Command surface*: "`weft reconcile` converges what deletion missed."
+    The fan-out is `weft_cli.reconcile`; this class is the thin command around it, on
+    `DeleteCommand`'s own footing, and it shares that command's `describe_impact` discipline —
+    resolve `[services] store` before saying anything about participants, so an operator whose
+    store failed to register reads that fact rather than a sentence about an empty fan-out
+    (`docs/lessons.md` L5.9).
+
+    **`destroy`-class, which is the stricter of the two `03` names, and unchanged by 5.1c.**
+    That section says "class `network` for `full`, `destroy` for `repair` — one command
+    declaring the higher of the two it may reach", and `permission_class` holds one value:
+    `destroy` is the one the table actually gates, so declaring `network` would be a command
+    that removes state and asks nobody. Every invocation — `full` included — still goes
+    through `weft_cli.confirm.gate`'s own `--yes`/no-TTY machinery exactly as before; what 5.1c
+    adds is the cost block `full` prints in its own *result*, informational rather than a
+    second confirmation on top of the flag — `03`'s own argument against "a confirmation on
+    top of an explicit flag" is about not inventing a second gate, not about the existing one.
+
+    **`_effective_mode`, task 5.1c.** `ReconcileArgs.mode` is `None` exactly when no `--mode`
+    was given; the fallback to `deps.reconcile_policy.mode` happens here, once, so
+    `describe_impact` and `run` cannot resolve it two different ways.
+    """
+
+    args_model: ClassVar[type[BaseModel]] = ReconcileArgs
+    result_model: ClassVar[type[CommandResult]] = ReconcileCommandResult
+    permission_class: ClassVar[PermissionClass] = PermissionClass.DESTROY
+    help: ClassVar[str] = _RECONCILE_HELP
+
+    def __init__(self, config: object = None) -> None:
+        del config
+
+    def describe_impact(self, args: BaseModel, ctx: Context) -> str:
+        typed = cast(ReconcileArgs, args)
+        deps = ctx.require(Dependencies)
+        mode = self._effective_mode(typed, deps)
+        targets = self._targets(deps)
+        if not targets:
+            return "nothing installed can reconcile; there is nothing to converge."
+        listed = ", ".join(target.label for target in targets)
+        return f"mode '{mode.value}' will run against {len(targets)} participant(s): {listed}."
+
+    async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        typed = cast(ReconcileArgs, args)
+        deps = ctx.require(Dependencies)
+        mode = self._effective_mode(typed, deps)
+        targets = self._targets(deps)
+        estimates = (
+            await estimate_everywhere(mode, targets=targets, ctx=ctx)
+            if mode is ReconcileMode.FULL
+            else ()
+        )
+        if typed.dry_run:
+            return Produced(
+                value=ReconcileCommandResult(
+                    mode=mode,
+                    dry_run=True,
+                    participants=(),
+                    would_ask=tuple(target.label for target in targets),
+                    estimates=estimates,
+                )
+            )
+        outcomes = await reconcile_everywhere(mode, targets=targets, ctx=ctx)
+        return Produced(
+            value=ReconcileCommandResult(
+                mode=mode, dry_run=False, participants=outcomes, estimates=estimates
+            )
+        )
+
+    def _effective_mode(self, typed: ReconcileArgs, deps: Dependencies) -> ReconcileMode:
+        """`--mode`, or `weft.toml`'s own `[reconcile] mode` when the flag was not given."""
+        return typed.mode if typed.mode is not None else deps.reconcile_policy.mode
+
+    def _targets(self, deps: Dependencies) -> tuple[Participant, ...]:
+        """Who the pass will ask — refusing first if `[services] store` names nothing. One
+        helper for both `describe_impact` and `run`, so the prompt and the run cannot disagree.
+        """
+        _raise_for_plugin_refusal(
+            require_plugin(
+                deps.reports,
+                registry=deps.registry,
+                contract=NodeStore,
+                name=deps.services.store,
+                setting="[services] store",
+            )
+        )
+        return reconcile_participants(registry=deps.registry, store_name=deps.services.store)
+
+
 class Settings(BaseModel):
     """`weft-cli` takes no pack settings of its own — an empty model is still the required shape."""
 
@@ -744,6 +1131,8 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(Command, "plugins list", PluginsListCommand)
     registrar.add(Command, "plugins doctor", PluginsDoctorCommand)
     registrar.add(Command, "init", InitCommand)
+    registrar.add(Command, "delete", DeleteCommand)
+    registrar.add(Command, "reconcile", ReconcileCommand)
     register_pipeline_commands(registrar)
     register_config_commands(registrar)
     register_eval_commands(registrar)
@@ -756,6 +1145,12 @@ __all__ = [
     "CommandRefusalError",
     "ConflictingAskModeError",
     "ConflictingIndexModeError",
+    "DeleteArgs",
+    "DeleteCommand",
+    "DeleteCommandResult",
+    "ReconcileArgs",
+    "ReconcileCommand",
+    "ReconcileCommandResult",
     "IndexArgs",
     "IndexCommand",
     "IndexCommandResult",

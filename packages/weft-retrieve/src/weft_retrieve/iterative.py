@@ -192,6 +192,7 @@ class IterativeRetrievalTrace(ExtModel):
     """
 
     __namespace__ = "weft-retrieve"
+    __schema_version__ = "1.0.0"
 
     stop_reason: StopReason
     rounds_run: int = Field(ge=1)

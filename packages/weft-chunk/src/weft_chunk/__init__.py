@@ -7,17 +7,17 @@ with no shortcut a third party lacks — fitness function 2. `register()` and
 the built-in fixed-size chunker (`fixed_size.py`) arrive at
 `docs/06-phase-0-build.md` step 8.
 
-**`ChunkOffset` is not registered for rehydration here, on purpose.** Every chunk this
-pack derives now carries it (`fixed_size.py`'s module docstring, ledger 2.9), and
-`weft_store.rehydrate` needs a namespace registered before it can read one back — but
-this distribution does not depend on `weft-store` to make that call itself, exactly the
-choice `weft_pdf.__init__` records for `PdfPages` and for the same reason: fitness
-function 9(a) proves a stranger can extend this pack from a wheel install carrying
-`weft-kernel` and `weft-chunk` alone, and a hard dependency on the store contract would
-make that wheel uninstallable wherever `weft-store` is not also on the index. The call
-is made once, by `weft_cli.registry_bootstrap`, which already depends on both and is
-where the two ends of a real pipeline — the pack that derives the data and the store
-that must read it back — are already required to meet.
+**`ChunkOffset` reaches rehydration through `register()` itself, with no `weft-store`
+dependency here at all — task 5.2g.** `register()` calls `registrar.add_ext_model
+(ChunkOffset)`, exactly the way it calls `registrar.add(Chunker, ...)` for a plugin:
+`PackRegistrar` lives in `weft-kernel`, and `ExtModel` is a kernel-owned payload
+primitive, not a capability, so this costs the dependency this module used to refuse
+nothing at all — fitness function 9(a) still proves a stranger can extend this pack from
+a wheel install carrying `weft-kernel` and `weft-chunk` alone. What actually walks
+`PackReport.ext_models` back into `weft_store.rehydrate.ext_models` is
+`weft_store.rehydrate.register_from_reports`, called once, generically, by whatever
+already calls `discover()` — `weft_cli.registry_bootstrap.build_dependencies` today —
+with no pack named at that call site and no further edit owed to it by a future pack.
 """
 
 from pydantic import BaseModel, ConfigDict
@@ -36,9 +36,12 @@ class Settings(BaseModel):
 
 
 def register(registrar: PackRegistrar, settings: Settings) -> None:
-    """Register `FixedSizeChunker` as `"fixed-size"` for `Chunker` — the only plugin here."""
+    """Register `FixedSizeChunker` as `"fixed-size"` for `Chunker`, and `ChunkOffset` as this
+    pack's own `ExtModel` — task 5.2g, see the module docstring.
+    """
     del settings
     registrar.add(Chunker, "fixed-size", FixedSizeChunker)
+    registrar.add_ext_model(ChunkOffset)
 
 
 __all__ = [

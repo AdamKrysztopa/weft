@@ -16,22 +16,19 @@ what leaves room for a third parser nobody here wrote to register through this
 same public entry point and be selectable immediately. A backend chosen by a
 branch inside one class would satisfy none of that.
 
-**`PdfPages` is not registered for rehydration here.** `document.py`'s own class
-docstring records why: `weft_store.rehydrate` needs a namespace registered before it
-can read one back, and this distribution deliberately does not depend on `weft-store`
-to make that call itself — a pack that reads bytes off disk has no structural reason to
-also carry a database driver, and `weft_kernel.registry`'s own `distribution=` argument
-on that call would be `weft-pdf` regardless of who makes it. Whoever assembles a real
-pipeline with a real store is where the two ends meet; today that is `weft-cli`, for
-`weft_chunk.payload.ChunkOffset` — see that module's docstring — and `PdfPages` is not
-yet wired the same way, because `weft-cli` does not depend on `weft-pdf` at all (an
-`ask`-only deployment need not install a PDF backend it never runs), so there is no
-existing import site to add the call to without giving the CLI a dependency the plugin
-architecture is built to avoid. Recorded rather than silently left: a PDF-sourced
-citation's `page` resolves correctly within one process (`weft_generate.page.page_for`
-is proven against the real types in its own tests) but a node carrying `PdfPages` that
-is *stored and then read back* — `weft index` followed by a separate `weft ask`
-process against a PDF corpus — will fail to rehydrate until this is closed.
+**`PdfPages` reaches rehydration through `register()` itself, with no `weft-store`
+dependency here at all — task 5.2g.** A pack that reads bytes off disk still has no
+structural reason to also carry a database driver, and it no longer needs one:
+`register()` calls `registrar.add_ext_model(PdfPages)`, exactly the shape
+`weft_chunk.__init__` uses for `ChunkOffset` — `PackRegistrar` lives in `weft-kernel`,
+and `ExtModel` is a kernel-owned payload primitive, not a capability, so buffering a
+bare class reference here costs nothing. What actually walks `PackReport.ext_models`
+into `weft_store.rehydrate.ext_models` is `weft_store.rehydrate.register_from_reports`,
+called once, generically, by whatever already calls `discover()` —
+`weft_cli.registry_bootstrap.build_dependencies` today — which is where the two ends of
+a real pipeline, the pack that derives the data and the store that must read it back,
+already meet, with no per-pack edit owed to `weft-cli` and no dependency on `weft-pdf`
+gained by it either: `weft-cli` never imports this module, and does not need to.
 """
 
 from pydantic import BaseModel, ConfigDict
@@ -55,10 +52,13 @@ class Settings(BaseModel):
 
 
 def register(registrar: PackRegistrar, settings: Settings) -> None:
-    """Register both backends for `Extractor`, under the names a pipeline selects them by."""
+    """Register both backends for `Extractor`, under the names a pipeline selects them by,
+    and `PdfPages` as this pack's own `ExtModel` — task 5.2g, see the module docstring.
+    """
     del settings
     registrar.add(Extractor, "pdf-text", PdfTextExtractor)
     registrar.add(Extractor, "pdf-layout", PdfLayoutExtractor)
+    registrar.add_ext_model(PdfPages)
 
 
 __all__ = [

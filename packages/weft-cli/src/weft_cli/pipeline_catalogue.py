@@ -40,7 +40,7 @@ ConfigFileError` already lets `dispatch` map a broken `weft.toml` there today.
 from __future__ import annotations
 
 import importlib.resources
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Final
 
@@ -302,3 +302,20 @@ def full_catalogue(
             f"the two — `weft plugins doctor` names which pack contributed the other."
         )
     return {**contributed, **project}
+
+
+def declared_slot_ids(catalogue: Mapping[str, Pipeline]) -> frozenset[str]:
+    """Every slot id any pipeline in `catalogue` declares — task **5.3a** (`S8`).
+
+    Only the root of an `extends` chain may carry `slots:` (`weft_kernel.pipeline.Pipeline.
+    _extends_and_stages_are_mutually_exclusive_with_operators`), so walking every catalogue
+    entry's own `.slots` — never resolving a single one — already covers the whole chain: a
+    child pipeline contributes no slot of its own to miss. `weft_cli.plugins_report.
+    render_doctor` reads this against `Dependencies.contributions` to flag a pack whose
+    contribution names a slot no pipeline in the catalogue declares at all — `02` §3 →
+    *Slots*: "`weft plugins doctor` flags a pack whose contributions land in no pipeline at
+    all" — never a per-pipeline check, since a contribution unplaced in *this* pipeline but
+    placed in another is exactly the "installed and doing nothing... here" case `02` §3
+    already tells apart from contributing nowhere at all.
+    """
+    return frozenset(slot.id for pipeline in catalogue.values() for slot in pipeline.slots)

@@ -15,10 +15,15 @@ Substituting a recording double at the same seam `wrap` calls through tests
 exactly what this module is responsible for — that it calls the tracer
 correctly — without pulling in the SDK to test a promise the SDK, not this
 module, keeps.
+
+**Task 5.2e** adds `warn_deprecated` on its own: one `DeprecationWarning` per buffered
+`Deprecation`, in order, and an empty buffer warning of nothing — the coverage
+`weft_kernel.discovery`'s own test file exercises through `discover()` end to end.
 """
 
 import asyncio
 import time
+import warnings
 from collections.abc import Generator
 from contextlib import contextmanager
 
@@ -33,6 +38,7 @@ from weft_kernel.payload import ExtModel, MediaType, Node, Outcome, Produced, So
 
 class _Secret(ExtModel):
     __namespace__ = "weft-test-secret"
+    __schema_version__ = "1.0.0"
     __transient__ = True
 
     blob: str
@@ -40,18 +46,21 @@ class _Secret(ExtModel):
 
 class _Kept(ExtModel):
     __namespace__ = "weft-test-kept"
+    __schema_version__ = "1.0.0"
 
     label: str
 
 
 class _TextField(ExtModel):
     __namespace__ = "weft-test-textfield"
+    __schema_version__ = "1.0.0"
 
     body: str
 
 
 class _NoWhitespace(ExtModel):
     __namespace__ = "weft-test-nowhitespace"
+    __schema_version__ = "1.0.0"
 
     word: str = Field(pattern=r"^\S+$")
 
@@ -533,3 +542,33 @@ async def test_wrap_flush_attributes_an_unrelated_exception_and_keeps_its_cause(
         "s1",
     )
     assert error.__cause__ is failure
+
+
+# --- warn_deprecated (task 5.2e) --------------------------------------------------------
+
+
+def test_warn_deprecated_emits_one_deprecation_warning_per_notice() -> None:
+    # Arrange
+    notices = (
+        seam.Deprecation(distribution="weft-old", surface="legacy", reason="use 'fast' instead"),
+        seam.Deprecation(distribution="weft-old", surface="Retriever:slow", reason="removed soon"),
+    )
+
+    # Act
+    with pytest.warns(DeprecationWarning) as caught:
+        seam.warn_deprecated(notices)
+
+    # Assert
+    messages = [str(warning.message) for warning in caught]
+    assert messages == [
+        "'weft-old' marks 'legacy' deprecated: use 'fast' instead",
+        "'weft-old' marks 'Retriever:slow' deprecated: removed soon",
+    ]
+
+
+def test_warn_deprecated_with_no_notices_warns_of_nothing() -> None:
+    # Arrange / Act / Assert — the edge case: an empty buffer is a silent no-op, not an
+    # empty warning nobody asked for.
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        seam.warn_deprecated(())

@@ -269,6 +269,14 @@ class Contribution(BaseModel):
     own G1 reasoning for `parents`. In practice that caller is whatever assembled the
     `Registry` from every installed pack's own registration, since a contribution is
     only ever real once a pack that offers one is actually on the machine.
+
+    **Task 5.3a (`S8`) is where that caller stopped being hypothetical.** A pack offers one
+    through its own `register()`, via `weft_kernel.discovery.PackRegistrar.add_contribution`
+    — `distribution` filled in there, never stated by the pack — and `weft_cli.
+    registry_bootstrap.build_dependencies` is the "whatever assembled the `Registry`" this
+    docstring already named: it concatenates every `weft_kernel.discovery.PackReport.
+    contributions` tuple `discover()` returned into the one `contributions=` argument every
+    `weft_kernel.resolution.resolve` call site in `weft-cli` now passes.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")

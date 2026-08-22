@@ -1,9 +1,9 @@
 [project]
 name = "weft-cli"
-version = "0.0.0"
+version = "0.1.0"
 description = "The Weft command line: the only driving adapter, and the only asyncio.run."
 requires-python = ">=3.12"
-dependencies = ["weft-kernel", "weft-command", "weft-extract", "weft-chunk", "weft-embed", "weft-store", "weft-llm", "weft-prompts", "weft-retrieve", "weft-generate", "weft-eval", "pyyaml"]
+dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-command>=2.0.0,<3.0.0", "weft-extract>=1.0.0,<2.0.0", "weft-chunk>=1.0.0,<2.0.0", "weft-embed>=1.0.0,<2.0.0", "weft-store>=2.0.0,<3.0.0", "weft-llm>=1.0.0,<2.0.0", "weft-prompts>=1.0.0,<2.0.0", "weft-retrieve>=1.0.0,<2.0.0", "weft-generate>=1.0.0,<2.0.0", "weft-eval>=1.0.0,<2.0.0", "pyyaml", "opentelemetry-api", "packaging>=24"]
 
 # The CLI is the one place `weft index`/`weft ask` are wired to a fixed, hardcoded
 # built-in pipeline (`06` step 9) — Phase 1 replaces this with pipelines as data.
@@ -21,6 +21,15 @@ dependencies = ["weft-kernel", "weft-command", "weft-extract", "weft-chunk", "we
 # `weft-eval` is here from task 4.6, for `weft_eval.run_record` — `weft_cli.eval_commands`
 # is what calls `build_run_record`/`write_run_record`/`load_run_record` from a real `weft eval
 # run|compare`/`weft trace` invocation; see that module's own docstring.
+# `opentelemetry-api` is here from task 5.1d, explicit rather than left to arrive
+# transitively through `weft-kernel`: `weft_cli.tracing_status` reads
+# `opentelemetry.trace.get_tracer_provider()` directly, to answer `weft plugins doctor`'s
+# "are my spans going anywhere?" as a fact about the process rather than about any one named
+# pack — see that module's own docstring.
+# `packaging` is here from task 5.2e, explicit for the identical reason `opentelemetry-api`
+# is: `weft_cli.skew` parses PEP 508 requirement strings and version specifiers to detect
+# version skew for `weft plugins doctor`, and it must not depend on some other installed
+# distribution happening to pull `packaging` in transitively.
 [project.scripts]
 weft = "weft_cli.cli:main"
 

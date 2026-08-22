@@ -30,9 +30,9 @@ from weft_generate.contract import Generator
 from weft_generate.payload import Answer
 from weft_kernel.context import Context
 from weft_kernel.payload import Outcome, Produced
-from weft_kernel.pipeline import InsertOperator, Pipeline, StageDeclaration
+from weft_kernel.pipeline import InsertOperator, Pipeline, SlotDeclaration, StageDeclaration
 from weft_kernel.registry import Registry
-from weft_kernel.resolution import resolve
+from weft_kernel.resolution import Contribution, resolve
 from weft_kernel.runner import Runner, StageCompositionError, StageSpec
 from weft_retrieve.contract import (
     ContextPacker,
@@ -202,6 +202,55 @@ def test_the_derived_pipeline_composes_over_seven_stages() -> None:
         ("pack", ContextPacker),
         ("generate", Generator),
     ]
+
+
+# --- slot contributions (task 5.3a, S8) -------------------------------------------------
+
+
+def _with_slot() -> Pipeline:
+    return Pipeline(
+        name="with-slot",
+        stages=(StageDeclaration(id="retrieve", use="vector-top-k"),),
+        slots=(SlotDeclaration(id="enrich", after="retrieve"),),
+    )
+
+
+def test_contracts_for_adds_an_entry_for_a_contribution_whose_slot_this_pipeline_declares() -> None:
+    # Arrange — `hyde` is a real `QueryTransform` plugin `_registry()` already publishes;
+    # reused here as the contribution's own plugin, since `contracts_for` infers a
+    # contribution's contract off the registry exactly as it does for an authored stage.
+    registry = _registry()
+    contribution = Contribution(
+        slot="enrich", distribution="weft-graph", stage=StageDeclaration(id="extra", use="hyde")
+    )
+
+    # Act
+    contracts = contracts_for(
+        _with_slot(), registry=registry, parents={}, contributions=(contribution,)
+    )
+
+    # Assert
+    assert contracts["weft-graph:extra"] is QueryTransform
+
+
+def test_contracts_for_ignores_a_contribution_whose_slot_no_ancestor_declares() -> None:
+    # Arrange — the plugin name is nonsense on purpose: if this contribution were not
+    # filtered out, resolving it would raise `UnknownStagePluginError` for a pipeline the
+    # contribution was never meant for at all.
+    registry = _registry()
+    contribution = Contribution(
+        slot="not-declared-anywhere",
+        distribution="weft-graph",
+        stage=StageDeclaration(id="extra", use="plugin-nobody-registered"),
+    )
+
+    # Act
+    contracts = contracts_for(
+        _baseline(), registry=registry, parents={}, contributions=(contribution,)
+    )
+
+    # Assert
+    assert "weft-graph:extra" not in contracts
 
 
 def _document(name: str, *stages: tuple[str, str]) -> Pipeline:

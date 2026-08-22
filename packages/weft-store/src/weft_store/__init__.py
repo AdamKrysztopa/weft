@@ -4,7 +4,10 @@ Publishes the store contract family settled in G4, in `contract.py` —
 `NodeStore` and `VectorSearch` at Phase 0 (`docs/06-phase-0-build.md` step
 7 scopes the family to the two capabilities Phase 0 has a built-in for),
 `TextSearch` at Phase 2 task 2.5 and `MetadataFilter` at task 2.6, each when a
-store implementing it arrived. Every one of them is derived at registration by
+store implementing it arrived, and `SourceDeletable` and `Reconcilable` at
+tasks 5.1a and 5.1b — the two whose implementors are mostly *not* stores, so
+that deleting a source reaches every pack holding data derived from it, and so
+that what deletion missed converges later. Every one of them is derived at registration by
 `isinstance` rather than declared. What a `Filter` may name, and which
 operator each kind of field admits, is `fields.py` — published beside the
 family because two stores translating a filter must not come to disagree about
@@ -21,6 +24,7 @@ both, with no test to notice.
 
 from weft_store.contract import (
     FILTER_AST_VERSION,
+    RECONCILE_REPORT_SCHEMA_VERSION,
     STORE_CONTRACT_VERSION,
     Cursor,
     Filter,
@@ -29,11 +33,17 @@ from weft_store.contract import (
     MetadataFilter,
     NodeStore,
     Page,
+    Reconcilable,
+    ReconcileEstimate,
+    ReconcileMode,
+    ReconcileReport,
     Removed,
     Scored,
+    SourceDeletable,
     SourceRecord,
     SourceStatus,
     TextSearch,
+    UnhandledFilterOpError,
     VectorSearch,
 )
 from weft_store.fields import (
@@ -56,10 +66,15 @@ from weft_store.pgvector_store import (
 # Re-exported because `docs/02-extension-model.md` §1 names it as the call a pack shipping its own
 # `ExtModel` makes so its nodes survive a round trip through a store. A documented extension point
 # reachable only through a submodule path is a documented extension point that will be got wrong.
-from weft_store.rehydrate import register_ext_model, rehydrate_ext
+# `register_from_reports` — task 5.2g — is the generic consumer `weft-cli` calls once, after
+# `discover()`, so a pack author's own `register()` calling `registrar.add_ext_model` is the only
+# call most packs ever need to make; `register_ext_model` stays published for the caller that
+# builds a registry without running full discovery (a test, `docs/02`'s own worked example).
+from weft_store.rehydrate import register_ext_model, register_from_reports, rehydrate_ext
 
 __all__ = [
     "FILTER_AST_VERSION",
+    "RECONCILE_REPORT_SCHEMA_VERSION",
     "STORE_CONTRACT_VERSION",
     "Cursor",
     "FieldKind",
@@ -74,18 +89,25 @@ __all__ = [
     "Page",
     "PgVectorSettings",
     "PgVectorStore",
+    "Reconcilable",
+    "ReconcileEstimate",
+    "ReconcileMode",
+    "ReconcileReport",
     "Removed",
     "Scored",
+    "SourceDeletable",
     "SourceRecord",
     "SourceStatus",
     "TextQueryMode",
     "TextRank",
     "TextSearch",
     "UnaddressableFieldError",
+    "UnhandledFilterOpError",
     "VectorSearch",
     "field_for",
     "parse_field_path",
     "register",
     "register_ext_model",
+    "register_from_reports",
     "rehydrate_ext",
 ]

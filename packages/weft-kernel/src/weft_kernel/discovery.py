@@ -61,6 +61,38 @@ seam-bound surface with `(contract, name, factory)`." This is that surface:
 `Registry.add` minus its keyword-only `distribution` parameter, bound once
 per pack by whatever called `discover()`, so a pack author writes
 `registrar.add(Contract, "name", factory)` and never sees attribution at all.
+
+**Task 5.2g — `add_ext_model` closes the gap `docs/02-extension-model.md` §1's
+Phase 0 step 8 note left open: "a pack's `register()` does not contribute one
+automatically."** Buffered exactly like `add_pipeline_resource` and
+`deprecate` above, for the identical structural reason — a pack whose
+`register()` raises partway through must not leave a namespace claimed that
+was never actually committed. `weft_kernel.payload.ext.ExtModel` is a payload
+primitive the kernel already owns (`Node.ext`'s own declared value type), not
+a capability, so buffering a `type[ExtModel]` here teaches the kernel nothing
+about stores: it is inert data until something that *does* know what a store
+is reads `PackReport.ext_models` back off every report and registers each
+class with the namespace-to-class registry that actually rehydrates one —
+`weft_store.rehydrate.register_from_reports`, called once, generically, by
+whatever already calls `discover()` (`weft_cli.registry_bootstrap.
+build_dependencies`). No pack-specific knowledge sits in that call site: it
+walks whatever `PackReport.ext_models` any report carries, so a future pack
+shipping a new `ExtModel` needs no edit here and no edit in `weft-cli` at all.
+
+**Task 5.3a (`S8`) — `add_contribution` closes the identical gap for `02` §3 →
+*Slots*: a pack could describe a stage contribution as a `weft_kernel.resolution.
+Contribution` value, but nothing let a pack's own `register()` hand one to anything.
+Buffered exactly like `add_ext_model` just above, for the identical structural
+reason — a pack whose `register()` raises partway through must not leave a slot
+looking filled that was never actually committed. `Contribution` is a pipeline-model
+value the kernel already owns (`weft_kernel.resolution` is this same distribution),
+not a capability, so this teaches the kernel nothing new either: it stops at "this
+pack offered this contribution," and `PackReport.contributions` is read back off
+every report by whatever assembles a `resolve()` call's own `contributions=` tuple —
+`weft_cli.registry_bootstrap.build_dependencies`, the same caller `Contribution`'s
+own docstring names, now real. No pack-specific knowledge sits there either: it
+concatenates whatever `PackReport.contributions` every report carries, so a future
+pack contributing into a slot needs no edit here and no edit in `weft-cli` at all.
 """
 
 from __future__ import annotations
@@ -78,7 +110,11 @@ from typing import Protocol, cast, get_type_hints
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from weft_kernel.errors import UnresolvedNameError, WeftError
+from weft_kernel.payload.ext import ExtModel
+from weft_kernel.pipeline import StageDeclaration
 from weft_kernel.registry import Registry
+from weft_kernel.resolution import Contribution
+from weft_kernel.seam import Deprecation, warn_deprecated
 
 #: The one entry-point group a pack declares. `docs/02-extension-model.md` section 2.
 ENTRY_POINT_GROUP = "weft.packs"
@@ -158,6 +194,26 @@ class PackReport(BaseModel):
     at all, and requiring an empty declaration from every one of them would be a
     registration tax with no failure behind it, `weft_enhance.contract`'s own declining
     argument for `destroys` applied here to a different field.
+
+    `deprecations` — task 5.2e — is every `weft_kernel.seam.Deprecation` the pack buffered
+    through `PackRegistrar.deprecate`, empty for every pack that never calls it. `docs/
+    02-extension-model.md` §2's status vocabulary gains no member for this: `weft plugins
+    doctor` reads a non-empty tuple as a flag beside `status`, the same way it already
+    reads `ambient`, never as a status of its own — `docs/09-release.md` §3, "a flag on
+    an existing status... no new status."
+
+    `ext_models` — task 5.2g — is every `weft_kernel.payload.ext.ExtModel` subclass the pack
+    buffered through `PackRegistrar.add_ext_model`, empty for any pack that ships no
+    namespaced extension data (most packs). This is the *declared* half of fitness function
+    14's runtime property; `weft_store.rehydrate.register_from_reports` reads it back off
+    every report to compute the *present* half.
+
+    `contributions` — task 5.3a — is every `weft_kernel.resolution.Contribution` the pack
+    buffered through `PackRegistrar.add_contribution`, empty for any pack that offers no
+    slot contribution (most packs). `weft_cli.registry_bootstrap.build_dependencies` is the
+    one place every report's own tuple is concatenated into the `contributions=` argument
+    every `weft_kernel.resolution.resolve` call site now passes — `02` §3 → *Slots*: "a pack
+    may... contribute into a slot a pipeline opted into."
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -169,6 +225,9 @@ class PackReport(BaseModel):
     reason: str | None = None
     disclosure: Disclosure | None = None
     pipeline_resources: tuple[PipelineResource, ...] = ()
+    deprecations: tuple[Deprecation, ...] = ()
+    ext_models: tuple[type[ExtModel], ...] = ()
+    contributions: tuple[Contribution, ...] = ()
 
 
 class PackSettingsError(WeftError):
@@ -308,6 +367,9 @@ class PackRegistrar:
         self._distribution = distribution
         self._pending: list[tuple[type[object], str, Callable[..., object]]] = []
         self._pending_resources: list[PipelineResource] = []
+        self._pending_deprecations: list[Deprecation] = []
+        self._pending_ext_models: list[type[ExtModel]] = []
+        self._pending_contributions: list[Contribution] = []
 
     @property
     def contributed(self) -> int:
@@ -337,6 +399,56 @@ class PackRegistrar:
             PipelineResource(distribution=self._distribution, package=package, resource=resource)
         )
 
+    def deprecate(self, surface: str, *, reason: str) -> None:
+        """Mark `surface` — a plugin name, a `"Contract:name"` pair, or the pack itself —
+        deprecated, attributed to this pack.
+
+        Task 5.2e. Buffered exactly like `add_pipeline_resource`, for the identical reason:
+        a pack whose `register()` raises after calling this must not leave a warning
+        standing about a mark that never actually committed. Marking is all this method
+        does — the warning itself is `weft_kernel.seam.warn_deprecated`'s job, run by
+        `_activate` once `register()` has returned without raising, so a pack author states
+        the fact once and never writes the warning by hand; see that function's own
+        docstring for why the notice is a `DeprecationWarning`, not a `WeftError`.
+        """
+        self._pending_deprecations.append(
+            Deprecation(distribution=self._distribution, surface=surface, reason=reason)
+        )
+
+    def add_ext_model(self, model: type[ExtModel]) -> None:
+        """Buffer `model` — a pack's own `ExtModel` subclass — attributed to this pack.
+
+        Task **5.2g**. Buffered exactly like `add_pipeline_resource` and `deprecate`, for
+        the identical reason: a pack whose `register()` raises after calling this must not
+        leave a namespace looking claimed that never actually committed. `model` is a bare
+        class reference, not an instance — nothing here validates, instantiates or reads
+        `model.__namespace__`; this method only remembers that this pack offered it.
+        Turning the buffer into an entry `weft_store.rehydrate.rehydrate_ext` can actually
+        use is `weft_store.rehydrate.register_from_reports`'s job, run once every report is
+        final — the kernel names no capability, so it stops at "this pack declared this
+        class" and goes no further.
+        """
+        self._pending_ext_models.append(model)
+
+    def add_contribution(self, slot: str, stage: StageDeclaration) -> None:
+        """Offer `stage` into `slot` of whichever pipeline declares it, attributed to this pack.
+
+        Task **5.3a** (`S8`). Buffered exactly like `add_ext_model`, for the identical reason:
+        a pack whose `register()` raises after calling this must not leave a slot looking
+        filled that was never actually committed. `distribution` — `weft_kernel.resolution.
+        Contribution`'s own required field — is filled in from this registrar, on `add`'s own
+        footing: attribution is never something a pack author states, or could misattribute to
+        a distribution that is not its own. `stage.id` is the contribution's own **local**
+        name, unqualified by distribution — `Contribution`'s own docstring, and `02` §3 →
+        *Slots*: qualification happens only once a contribution is actually placed. This
+        method validates nothing about `slot` itself: a slot no installed pipeline declares is
+        `02` §3's own "recorded no-op", not a registration-time refusal — `weft_kernel.
+        resolution.resolve` is where that distinction is actually drawn.
+        """
+        self._pending_contributions.append(
+            Contribution(slot=slot, distribution=self._distribution, stage=stage)
+        )
+
     def commit(self) -> None:
         """Write every buffered registration to the `Registry`, all at once or not at all.
 
@@ -354,6 +466,27 @@ class PackRegistrar:
         once `register()` has returned without raising. See `add_pipeline_resource`.
         """
         return tuple(self._pending_resources)
+
+    @property
+    def deprecations(self) -> tuple[Deprecation, ...]:
+        """Every `Deprecation` this pack has buffered so far — `_activate`'s own read, once
+        `register()` has returned without raising. See `deprecate`.
+        """
+        return tuple(self._pending_deprecations)
+
+    @property
+    def ext_models(self) -> tuple[type[ExtModel], ...]:
+        """Every `ExtModel` subclass this pack has buffered so far — `_activate`'s own read,
+        once `register()` has returned without raising. See `add_ext_model`.
+        """
+        return tuple(self._pending_ext_models)
+
+    @property
+    def contributions(self) -> tuple[Contribution, ...]:
+        """Every `Contribution` this pack has buffered so far — `_activate`'s own read, once
+        `register()` has returned without raising. See `add_contribution`.
+        """
+        return tuple(self._pending_contributions)
 
 
 def interpolate_env(value: object, *, environ: Mapping[str, str] | None = None) -> object:
@@ -627,6 +760,23 @@ def _activate(
     nothing was written. Only a `register()` that returns and then commits
     cleanly reaches `ACTIVE`, where `contributed=registrar.contributed`
     reports what actually landed.
+
+    **Task 5.2e** — a clean commit is also the one point `registrar.deprecations`
+    is known to have actually landed, so this is where `weft_kernel.seam.warn_deprecated`
+    is called: once, with whatever the pack buffered, never for a pack that raised.
+
+    **Task 5.2g** — `registrar.ext_models` reaches `PackReport.ext_models` on the identical
+    terms: only once `register()` has returned and `commit()` has not raised. This function
+    does nothing else with it — reading the buffer back off every final report and making
+    the classes it names reachable for rehydration is `weft_store.rehydrate.
+    register_from_reports`'s job, run by whatever calls `discover()`.
+
+    **Task 5.3a** — `registrar.contributions` reaches `PackReport.contributions` on the
+    identical terms, for the identical reason: a pack that raises must never look like it
+    offered a slot contribution it never actually committed. This function does nothing else
+    with it either — assembling every report's own tuple into one `contributions=` argument
+    for `weft_kernel.resolution.resolve` is `weft_cli.registry_bootstrap.build_dependencies`'s
+    job, the one caller `weft_kernel.resolution.Contribution`'s own docstring names.
     """
     ambient = direct_dependencies is not None and distribution not in direct_dependencies
 
@@ -654,6 +804,9 @@ def _activate(
             disclosure=disclosure,
         )
 
+    deprecations = registrar.deprecations
+    warn_deprecated(deprecations)
+
     return PackReport(
         distribution=distribution,
         status=PackStatus.ACTIVE,
@@ -661,6 +814,9 @@ def _activate(
         contributed=registrar.contributed,
         disclosure=disclosure,
         pipeline_resources=registrar.pipeline_resources,
+        deprecations=deprecations,
+        ext_models=registrar.ext_models,
+        contributions=registrar.contributions,
     )
 
 

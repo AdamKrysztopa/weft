@@ -1,0 +1,31 @@
+[project]
+name = "weft-otel"
+version = "0.1.0"
+description = "First-party observability pack. Sets the OpenTelemetry TracerProvider the registration seam has always emitted spans into."
+requires-python = ">=3.12"
+# `opentelemetry-sdk` is a real, required dependency here — the one place in this tree it
+# ships, deliberately: `weft-kernel` depends on `opentelemetry-api` alone (fitness function
+# 1), because the SDK is what turns an API call into an exported span, and `01` -> *The
+# kernel boundary* draws that line exactly ("everything that exports a span is a pack").
+# Root `pyproject.toml`'s dev-group copy predates this pack and exists for
+# `tests/unit/weft_kernel/test_seam_trace_visibility.py` alone; this is the first *shipped*
+# distribution to declare it.
+dependencies = ["weft-kernel>=0.1.0,<1.0.0", "opentelemetry-sdk>=1.28"]
+
+# `docs/02-extension-model.md` §1 -> *Capability is derived, never declared*: the OTLP
+# exporter is optional because it is a network client an operator may not want, never
+# because tracing itself is optional — `exporter: console` (the default, `weft_otel.
+# settings.OtelSettings`) needs nothing beyond the dependency above. `register()` probes for
+# this extra at call time and falls back to console, loudly, when it is absent or
+# unconfigured — see `weft_otel.provider`'s own docstring.
+[project.optional-dependencies]
+otlp = ["opentelemetry-exporter-otlp-proto-http>=1.28"]
+
+# The one entry point a pack declares (`docs/02-extension-model.md` section 2). It registers
+# no plugin against any contract and contributes to no pipeline — see the module docstring.
+[project.entry-points."weft.packs"]
+otel = "weft_otel:register"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

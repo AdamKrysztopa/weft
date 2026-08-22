@@ -29,5 +29,6 @@ class ChunkOffset(ExtModel):
     """
 
     __namespace__ = "weft-chunk"
+    __schema_version__ = "1.0.0"
 
     start: int = Field(ge=0)

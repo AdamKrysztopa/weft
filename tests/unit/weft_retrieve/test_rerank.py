@@ -117,6 +117,7 @@ class _Note(ExtModel):
     -along is dropped without anything noticing."""
 
     __namespace__ = "test-rerank"
+    __schema_version__ = "1.0.0"
 
     text: str
 

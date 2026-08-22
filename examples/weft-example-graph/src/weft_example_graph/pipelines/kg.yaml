@@ -1,0 +1,24 @@
+# `kg` — weft-example-graph's own shipped, derived pipeline. `docs/02-extension-model.md` section 4:
+# "A named pipeline... ships a ready-made derived pipeline users can extend further."
+#
+# No `extends:` — this repository ships no named ingest "base" a stranger could derive from
+# (docs/02 section 3's own `base.yaml` is an illustrative example, never a document any
+# first-party pack actually ships; `weft index`'s default four-stage path is still built in
+# Python, per `weft_cli.ingest`'s own module docstring). So this pipeline states the whole
+# ingest path itself, using only registered, real plugin names — and is itself something a
+# user derives further with their own `extends: kg`, e.g. to swap the embedder or insert a
+# cleaning stage `docs/02` section 3's own "no canonical ingest order" leaves open.
+name: kg
+stages:
+  - id: extract
+    use: text
+  - id: chunk
+    use: fixed-size
+  - id: entities
+    use: example-graph-entities
+  - id: embed
+    use: hash
+  - id: store
+    use: pgvector
+  - id: graph-store
+    use: example-graph

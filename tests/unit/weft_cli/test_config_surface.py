@@ -65,6 +65,22 @@ def test_config_entry_refuses_an_unknown_key_naming_the_valid_ones() -> None:
     assert exc_info.value.valid_options == CONFIG_KEYS
 
 
+def test_reconcile_mode_defaults_to_full_with_no_document() -> None:
+    # Task 5.1c: `[reconcile] mode` joins the surface, unchanged default from `weft
+    # reconcile`'s own pre-5.1c hardcoded `full`.
+    entry = config_entry(None, "reconcile.mode")
+
+    assert (entry.value, entry.origin) == ("full", ConfigOrigin.DEFAULT)
+
+
+def test_reconcile_mode_explicitly_set_to_repair_is_origin_file() -> None:
+    document: dict[str, object] = {"reconcile": {"mode": "repair"}}
+
+    entry = config_entry(document, "reconcile.mode")
+
+    assert (entry.value, entry.origin) == ("repair", ConfigOrigin.FILE)
+
+
 # --- validate_set_value ------------------------------------------------------------------
 
 
@@ -80,6 +96,15 @@ def test_validate_set_value_refuses_an_empty_plugin_name() -> None:
 def test_validate_set_value_refuses_an_illegal_permissions_value() -> None:
     with pytest.raises(WeftError, match="allow.*ask"):
         validate_set_value("permissions.destroy", "sometimes")
+
+
+def test_validate_set_value_accepts_a_legal_reconcile_mode() -> None:
+    validate_set_value("reconcile.mode", "repair")  # does not raise
+
+
+def test_validate_set_value_refuses_an_illegal_reconcile_mode() -> None:
+    with pytest.raises(WeftError, match="full.*repair"):
+        validate_set_value("reconcile.mode", "sometimes")
 
 
 def test_validate_set_value_refuses_an_unknown_key() -> None:

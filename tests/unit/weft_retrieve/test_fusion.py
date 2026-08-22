@@ -54,6 +54,7 @@ class _Note(ExtModel):
     it would kill every such pass-along at the one seam every query path crosses."""
 
     __namespace__ = "test-fusion"
+    __schema_version__ = "1.0.0"
 
     text: str
 

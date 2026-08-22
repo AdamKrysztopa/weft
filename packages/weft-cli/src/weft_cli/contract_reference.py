@@ -30,7 +30,10 @@ partial-binds `PgVectorStore(settings)`; nothing calls the factory here, and eve
 were called, `PgVectorStore.__init__` opens no connection — `pgvector_store.py`'s own
 docstring: the connection is lazy, opened on first use. `_PLACEHOLDER_DSN` below exists
 only to satisfy `weft-store`'s settings model at `register()` time, never to reach a
-socket.
+socket. `weft-otel` (task 5.1d) needs no equivalent placeholder: `OtelSettings.exporter`
+defaults to `NONE`, so its `register()` never touches the real, process-global
+`TracerProvider` unless a `weft.toml` explicitly turns it on — see that pack's own
+`settings.py` for why opt-in, rather than console-by-default, is the settled shape.
 
 **The rendered Markdown is piped through the real `ruff format`, never a second,
 hand-rolled line-wrapping rule.** `poe ci-checks`'s own `fmt` step (`ruff format .`, the

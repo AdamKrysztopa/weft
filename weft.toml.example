@@ -126,6 +126,23 @@ dsn = "${env:WEFT_DATABASE_URL}"
 # overwrite = "ask"
 # destroy = "allow"
 
+# --- Reconcile ------------------------------------------------------------------
+# `weft reconcile`'s own personal default for a bare `--mode` — task 5.1c. "full" is
+# every field's own built-in default, unchanged from before this block existed:
+# someone typing `weft reconcile` with no flag means the expensive, full-convergence
+# pass. An operator who runs it often and would rather it default to the cheaper
+# `repair` sets it here; `weft reconcile --mode full` still reaches `full` for one
+# invocation regardless of what this says — the flag always wins.
+#
+# This has no effect on `weft index`'s own automatic post-index pass, which is
+# hardcoded to `repair` and reads nothing from this block on purpose: see
+# docs/02-extension-model.md -> §3 Slots for why an automatic pass may never reach
+# `full` on its own. `weft index --reconcile full` is how a person opts one index
+# run into it.
+#
+# [reconcile]
+# mode = "repair"
+
 # --- Which model answers a role ----------------------------------------------
 # A pipeline stage never names a provider or a model — it names a *role*
 # (`generate`, `grade`, `rerank`, `route`, or any name a technique plugin's own

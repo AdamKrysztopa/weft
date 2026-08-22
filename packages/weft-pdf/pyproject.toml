@@ -1,6 +1,6 @@
 [project]
 name = "weft-pdf"
-version = "0.0.0"
+version = "0.1.0"
 description = "First-party PDF extraction pack. Registers two Extractor backends over one contract."
 requires-python = ">=3.12"
 # `pypdf` is BSD-3-Clause and `pdfplumber` is MIT, so neither widens what an MIT
@@ -9,7 +9,7 @@ requires-python = ">=3.12"
 # depending on it would push AGPL obligations onto every downstream user of Weft.
 # Floors are the versions this pack's behaviour was actually measured against; a
 # claim about an older release would be a claim nobody here has checked.
-dependencies = ["weft-kernel", "weft-extract", "pypdf>=6.16", "pdfplumber>=0.11.10"]
+dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-extract>=1.0.0,<2.0.0", "pypdf>=6.16", "pdfplumber>=0.11.10"]
 
 # The one entry point a pack declares (`docs/02-extension-model.md` section 2).
 [project.entry-points."weft.packs"]

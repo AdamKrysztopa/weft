@@ -314,12 +314,28 @@ def _providers_of(
     for name in sorted(registry.names_for(store_contract)):
         entry = registry.entry(store_contract, name)
         target = unwrap_factory(entry.factory)
-        if isinstance(target, type) and all(_class_provides(target, cap) for cap in missing):
+        if isinstance(target, type) and all(class_provides(target, cap) for cap in missing):
             found.append((name, entry.distribution))
     return tuple(found)
 
 
-def _class_provides(candidate: type[object], capability: type[object]) -> bool:
+def class_provides(candidate: type[object], capability: type[object]) -> bool:
+    """Whether `candidate` structurally satisfies `capability`, decided from the class alone.
+
+    `capability` is typed `type[object]` rather than a Protocol on purpose, and it is not a
+    weakening: every capability Protocol in the store family declares `version` under
+    `if TYPE_CHECKING:`, which a type checker reads as a non-method member and therefore
+    refuses in an `issubclass` call — while at runtime `__protocol_attrs__` never contains it
+    and the call is exactly the derived-capability check `docs/02-extension-model.md` §1
+    specifies. A capability whose Protocol genuinely *does* carry a non-method member raises
+    `TypeError` here and answers `False`, which is the honest answer for a check that could
+    not be made rather than a guess about one that could.
+
+    **Public since task 5.1a**, when `weft_cli.deletion` needed the same question asked of
+    `SourceDeletable`: two implementations of "does this class have this capability" could
+    disagree, and a fan-out that missed a participant the capability refusal would have named
+    is exactly the divergence this project keeps refusing to ship.
+    """
     try:
         return issubclass(candidate, capability)
     except TypeError:

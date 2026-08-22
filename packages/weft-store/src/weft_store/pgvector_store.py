@@ -104,10 +104,14 @@ from weft_store.contract import (
     FilterValue,
     NodeStore,
     Page,
+    ReconcileEstimate,
+    ReconcileMode,
+    ReconcileReport,
     Removed,
     Scored,
     SourceRecord,
     SourceStatus,
+    UnhandledFilterOpError,
 )
 from weft_store.fields import FieldKind, FieldPath, NodeField, field_for
 from weft_store.rehydrate import rehydrate_ext
@@ -337,6 +341,26 @@ class TextSearchConfigMismatchError(WeftError):
     """
 
 
+#: The nine operators that reach a single leaf predicate rather than combining others —
+#: named by hand for the identical reason `weft_qdrant.store._LEAF_OPS` is: the private
+#: constant this list mirrors, `weft_store.contract._COMPARISON_OPS | {EXISTS}`, belongs to
+#: the module that owns the whole vocabulary, and this one only needs to know which nine
+#: are its own leaves.
+_LEAF_OPS = frozenset(
+    {
+        FilterOp.EQ,
+        FilterOp.NE,
+        FilterOp.IN,
+        FilterOp.LT,
+        FilterOp.LTE,
+        FilterOp.GT,
+        FilterOp.GTE,
+        FilterOp.EXISTS,
+        FilterOp.CONTAINS,
+    }
+)
+
+
 def _predicate(filter: Filter, values: dict[str, object]) -> sql.Composed:
     """One `Filter` node as a SQL boolean expression, binding its values into `values`.
 
@@ -350,33 +374,67 @@ def _predicate(filter: Filter, values: dict[str, object]) -> sql.Composed:
     for it by `fields.field_for` and by `Filter`'s own validator, so this
     function and `weft_qdrant`'s translator cannot drift into refusing different
     things.
-    """
-    if filter.op is FilterOp.AND or filter.op is FilterOp.OR:
-        joiner = sql.SQL(" AND ") if filter.op is FilterOp.AND else sql.SQL(" OR ")
-        return sql.SQL("({})").format(
-            joiner.join(_predicate(clause, values) for clause in filter.clauses)
-        )
-    if filter.op is FilterOp.NOT:
-        return sql.SQL("(NOT {})").format(_predicate(filter.clauses[0], values))
 
-    path = field_for(filter.op, filter.field or "")
-    if path.kind is FieldKind.EXTENSION:
-        return _extension_predicate(filter.op, path, filter.value, values)
-    column = sql.Identifier(_COLUMN_OF[path.core] if path.core is not None else "")
-    placeholder = _bind(values, filter.value)
-    if path.kind is FieldKind.TEXT_SET:
-        return _text_set_predicate(filter.op, column, placeholder)
-    return _text_predicate(filter.op, column, placeholder)
+    **`match`/`case _: raise`, not `if`/`if`/fallthrough — task 5.2b.** The combinators used
+    to be peeled off by two `if`s and everything else fell to `field_for` unconditionally;
+    a second combinator added to `FilterOp` tomorrow would have reached `field_for` as if it
+    were a leaf, been refused there for a reason that has nothing to do with being a
+    combinator, and reported the wrong defect. `case op if op in _LEAF_OPS` states which
+    nine operators this branch is for; `case _: raise` is what stops "not `and`/`or`/`not`"
+    standing in for "is a leaf".
+    """
+    match filter.op:
+        case FilterOp.AND | FilterOp.OR:
+            joiner = sql.SQL(" AND ") if filter.op is FilterOp.AND else sql.SQL(" OR ")
+            return sql.SQL("({})").format(
+                joiner.join(_predicate(clause, values) for clause in filter.clauses)
+            )
+        case FilterOp.NOT:
+            return sql.SQL("(NOT {})").format(_predicate(filter.clauses[0], values))
+        case op if op in _LEAF_OPS:
+            path = field_for(filter.op, filter.field or "")
+            if path.kind is FieldKind.EXTENSION:
+                return _extension_predicate(filter.op, path, filter.value, values)
+            column = sql.Identifier(_COLUMN_OF[path.core] if path.core is not None else "")
+            placeholder = _bind(values, filter.value)
+            if path.kind is FieldKind.TEXT_SET:
+                return _text_set_predicate(filter.op, column, placeholder)
+            return _text_predicate(filter.op, column, placeholder)
+        case _:
+            raise UnhandledFilterOpError(
+                f"pgvector's filter translator has no top-level case for '{filter.op}'. It "
+                f"translates the combinators 'and', 'or', 'not' and the leaf operators "
+                f"{', '.join(sorted(member.value for member in _LEAF_OPS))}.",
+                valid_options=("and", "or", "not", *sorted(member.value for member in _LEAF_OPS)),
+                pack="weft-store",
+            )
 
 
 def _text_predicate(op: FilterOp, column: sql.Identifier, value: sql.Composable) -> sql.Composed:
-    """`id`, `content`, `media_type` — all `NOT NULL` columns, so `exists` is a tautology."""
-    if op is FilterOp.EXISTS:
-        return sql.SQL("({} IS NOT NULL)").format(column)
-    if op is FilterOp.IN:
-        return sql.SQL("({} = ANY({}))").format(column, value)
-    operator = sql.SQL("=") if op is FilterOp.EQ else sql.SQL("IS DISTINCT FROM")
-    return sql.SQL("({} {} {})").format(column, operator, value)
+    """`id`, `content`, `media_type` — all `NOT NULL` columns, so `exists` is a tautology.
+
+    **`match`/`case _: raise` — task 5.2b.** The final line used to be an unconditional
+    `operator = "=" if op is EQ else "IS DISTINCT FROM"`, correct only because `exists` and
+    `in` are peeled off above it and `weft_store.fields._ADMITTED[FieldKind.TEXT]` admits
+    exactly four operators today. A fifth ever admitted for text would have been silently
+    compared with `IS DISTINCT FROM`, whatever it actually meant.
+    """
+    match op:
+        case FilterOp.EXISTS:
+            return sql.SQL("({} IS NOT NULL)").format(column)
+        case FilterOp.IN:
+            return sql.SQL("({} = ANY({}))").format(column, value)
+        case FilterOp.EQ:
+            return sql.SQL("({} = {})").format(column, value)
+        case FilterOp.NE:
+            return sql.SQL("({} IS DISTINCT FROM {})").format(column, value)
+        case _:
+            raise UnhandledFilterOpError(
+                f"pgvector's text-field translator has no case for '{op}'. It knows: eq, "
+                f"exists, in, ne.",
+                valid_options=("eq", "exists", "in", "ne"),
+                pack="weft-store",
+            )
 
 
 def _text_set_predicate(
@@ -387,12 +445,25 @@ def _text_set_predicate(
     `in` is intersection rather than equality of the whole array, which is what
     the same filter means to a document store matching a payload array, and the
     only reading under which `in` on a set and `in` on a scalar are one operator.
+
+    **`match`/`case _: raise` — task 5.2b.** The final line used to answer any operator
+    that was not `exists` or `in` as `contains`, which is correct only because `contains`
+    is the sole other member `weft_store.fields._ADMITTED[FieldKind.TEXT_SET]` admits today.
     """
-    if op is FilterOp.EXISTS:
-        return sql.SQL("(array_length({}, 1) IS NOT NULL)").format(column)
-    if op is FilterOp.IN:
-        return sql.SQL("({} && {})").format(column, value)
-    return sql.SQL("({} = ANY({}))").format(value, column)
+    match op:
+        case FilterOp.EXISTS:
+            return sql.SQL("(array_length({}, 1) IS NOT NULL)").format(column)
+        case FilterOp.IN:
+            return sql.SQL("({} && {})").format(column, value)
+        case FilterOp.CONTAINS:
+            return sql.SQL("({} = ANY({}))").format(value, column)
+        case _:
+            raise UnhandledFilterOpError(
+                f"pgvector's set-field translator has no case for '{op}'. It knows: "
+                f"contains, exists, in.",
+                valid_options=("contains", "exists", "in"),
+                pack="weft-store",
+            )
 
 
 def _extension_predicate(
@@ -416,30 +487,48 @@ def _extension_predicate(
     holding JSON `null`, or an empty array, holds nothing, and answering "yes"
     for it would disagree with the document store, where an empty array is
     emptiness.
+
+    **`match`/`case _: raise` — task 5.2b.** The final line used to be an unconditional
+    `return _holds(...)`, reached by anything that was not `exists`, ordered, `in` or `ne` —
+    correct only because `eq` and `contains` are the two operators left in
+    `weft_store.fields._ADMITTED[FieldKind.EXTENSION]` once those four are removed. That set
+    is now stated by hand rather than derived (see `fields._ADMITTED`'s own docstring), and
+    this match is the other half of the same repair: an operator this function has not been
+    taught refuses here even if a future `_ADMITTED` entry ever let it through.
     """
     stored = sql.SQL("(ext #> {})").format(sql.Literal([path.namespace, *path.keys]))
     elements = sql.SQL(
         "(CASE WHEN jsonb_typeof({stored}) = 'array' THEN {stored} "
         "ELSE jsonb_build_array({stored}) END)"
     ).format(stored=stored)
-    if op is FilterOp.EXISTS:
-        return sql.SQL(
-            "({stored} IS NOT NULL AND {stored} <> 'null'::jsonb AND jsonb_array_length({e}) > 0)"
-        ).format(stored=stored, e=elements)
-    if op in _ORDERED_SQL:
-        return sql.SQL(
-            "(EXISTS (SELECT 1 FROM jsonb_array_elements({e}) AS element "
-            "WHERE jsonb_typeof(element) = 'number' "
-            "AND (element #>> '{{}}')::numeric {operator} {value}))"
-        ).format(e=elements, operator=_ORDERED_SQL[op], value=_bind(values, value))
-    if op is FilterOp.IN:
-        wanted = value if isinstance(value, tuple) else (value,)
-        return sql.SQL("({})").format(
-            sql.SQL(" OR ").join(_holds(elements, values, each) for each in wanted)
-        )
-    if op is FilterOp.NE:
-        return sql.SQL("(NOT {})").format(_holds(elements, values, value))
-    return _holds(elements, values, value)
+    match op:
+        case FilterOp.EXISTS:
+            return sql.SQL(
+                "({stored} IS NOT NULL AND {stored} <> 'null'::jsonb AND "
+                "jsonb_array_length({e}) > 0)"
+            ).format(stored=stored, e=elements)
+        case _ if op in _ORDERED_SQL:
+            return sql.SQL(
+                "(EXISTS (SELECT 1 FROM jsonb_array_elements({e}) AS element "
+                "WHERE jsonb_typeof(element) = 'number' "
+                "AND (element #>> '{{}}')::numeric {operator} {value}))"
+            ).format(e=elements, operator=_ORDERED_SQL[op], value=_bind(values, value))
+        case FilterOp.IN:
+            wanted = value if isinstance(value, tuple) else (value,)
+            return sql.SQL("({})").format(
+                sql.SQL(" OR ").join(_holds(elements, values, each) for each in wanted)
+            )
+        case FilterOp.NE:
+            return sql.SQL("(NOT {})").format(_holds(elements, values, value))
+        case FilterOp.EQ | FilterOp.CONTAINS:
+            return _holds(elements, values, value)
+        case _:
+            raise UnhandledFilterOpError(
+                f"pgvector's extension-field translator has no case for '{op}'. It knows: "
+                f"contains, eq, exists, gt, gte, in, lt, lte, ne.",
+                valid_options=("contains", "eq", "exists", "gt", "gte", "in", "lt", "lte", "ne"),
+                pack="weft-store",
+            )
 
 
 def _holds(
@@ -676,6 +765,78 @@ class PgVectorStore:
             node_count = cur.rowcount
             await cur.execute("DELETE FROM weft_sources WHERE id = %s", (source_id,))
         return Removed(source_id=source_id, node_count=node_count)
+
+    async def reconcile(self, ctx: Context, mode: ReconcileMode) -> ReconcileReport:
+        """Finish every deletion that was interrupted — `Reconcilable`, task **5.1b**.
+
+        **What a *node* store has to converge, and what it deliberately does not.** `02` §1
+        describes `repair` as removing "derived state whose source is gone", which is a
+        graph pack's job and not this one's: a node store holds the primary data, so it *is*
+        the authority on what exists, and a pass that deleted nodes because no `weft_sources`
+        row named them would erase a corpus indexed before source records were written. What
+        this store genuinely owns is the other half of `SourceRecord.status`'s reason for
+        existing — "a crash leaves `status=DELETING`, so the next call or `weft doctor` can
+        finish the job rather than leaving it half-deleted and invisible". Every tombstone is
+        a deletion that started and did not end, and finishing them is convergence for this
+        backend.
+
+        **This is where "resumes rather than restarting" is a fact about durable state rather
+        than a promise about a cursor.** The backlog *is* the tombstone rows. A pass cancelled
+        after two of five leaves three tombstones standing, and the next pass finds exactly
+        those three — no cursor is saved, so none can be lost with the process. `remaining` is
+        what is still tombstoned when this returns, so `converged` answers honestly whether
+        another pass is owed.
+
+        `full` does the same work and backfills nothing, which is not a shortcut: backfill
+        builds derived state that was never created, and a node store holds no derived state
+        to build. `backfilled` is `0` and says so.
+        """
+        del ctx
+        conn = await self._connection()
+        examined = 0
+        removed = 0
+        for source_id in await self._tombstoned():
+            async with conn.cursor() as cur:
+                await cur.execute("DELETE FROM weft_nodes WHERE %s = ANY(sources)", (source_id,))
+                removed += cur.rowcount
+                await cur.execute("DELETE FROM weft_sources WHERE id = %s", (source_id,))
+            examined += 1
+        return ReconcileReport(
+            mode=mode,
+            examined=examined,
+            removed=removed,
+            remaining=len(await self._tombstoned()),
+        )
+
+    async def estimate(self, ctx: Context, mode: ReconcileMode) -> ReconcileEstimate:
+        """What converging would cost — `Reconcilable`, task **5.1c**.
+
+        The honest answer is `model_calls=0` for either mode, always: `reconcile`'s own
+        docstring above owns the argument — a node store holds the primary data, so it has
+        no derived state for `full` to backfill, and this method reports that rather than
+        inventing a number for a mode it does not distinguish. `pending` is the identical
+        tombstone count `reconcile` itself would examine, read the same way, so the two never
+        disagree about what is outstanding.
+        """
+        del ctx
+        pending = len(await self._tombstoned())
+        description = (
+            f"{pending} source(s) have an unfinished deletion to finish"
+            if pending
+            else "no unfinished deletions; nothing to converge"
+        )
+        return ReconcileEstimate(mode=mode, pending=pending, description=description)
+
+    async def _tombstoned(self) -> tuple[str, ...]:
+        """Every source id whose deletion started and did not finish, in id order."""
+        conn = await self._connection()
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "SELECT id FROM weft_sources WHERE status = %s ORDER BY id",
+                (SourceStatus.DELETING.value,),
+            )
+            rows = await cur.fetchall()
+        return tuple(cast(str, row["id"]) for row in rows)
 
     async def scan(self, cursor: Cursor | None = None) -> Page[Node]:
         conn = await self._connection()

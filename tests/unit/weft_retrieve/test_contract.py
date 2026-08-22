@@ -3,9 +3,10 @@
 Mirrors `packages/weft-retrieve/src/weft_retrieve/contract.py`. Covers a full
 resolve-then-run of a `Retriever` through `weft_kernel.runner` with a plugin that
 satisfies the contract structurally, capability derived by `isinstance` rather than
-declared, the version constant fitness function 6 will check, and the one property that
-makes the four-contract decomposition worth having: the `(In, Out)` pair the kernel reads
-off each contract is a *domain* type on both sides, and consecutive contracts compose.
+declared, the version constant fitness function 6 binds to this distribution's own
+version, and the one property that makes the four-contract decomposition worth having:
+the `(In, Out)` pair the kernel reads off each contract is a *domain* type on both
+sides, and consecutive contracts compose.
 """
 
 import inspect

@@ -27,9 +27,13 @@ class Settings(BaseModel):
 
 
 def register(registrar: PackRegistrar, settings: Settings) -> None:
-    """Register `KeyBertKeywordExtractor` as `"keybert"` for `Enhancer`. The only plugin here."""
+    """Register `KeyBertKeywordExtractor` as `"keybert"` for `Enhancer`, and `Keywords` as
+    this pack's own `ExtModel` — task 5.2g, see `weft_chunk.__init__`'s own module
+    docstring for the full argument for why this costs no `weft-store` dependency.
+    """
     del settings
     registrar.add(Enhancer, "keybert", KeyBertKeywordExtractor)
+    registrar.add_ext_model(Keywords)
 
 
 __all__ = [

@@ -33,6 +33,7 @@ from weft_kernel.discovery import (
 from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_kernel.fallback import Attempt, try_in_order
 from weft_kernel.payload import (
+    SCHEMA_VERSION_KEY,
     ExtMap,
     ExtModel,
     Failed,
@@ -44,6 +45,7 @@ from weft_kernel.payload import (
     Outcome,
     Produced,
     Property,
+    SchemaVersionRefusedError,
     SourceId,
     SyntheticOrigin,
     Vector,
@@ -92,14 +94,16 @@ from weft_kernel.runner import (
     UnknownFallbackError,
     UnmetRequiresError,
 )
-from weft_kernel.seam import wrap, wrap_flush
+from weft_kernel.seam import Deprecation, wrap, wrap_flush
 
 __all__ = [
     "ENTRY_POINT_GROUP",
+    "SCHEMA_VERSION_KEY",
     "Attempt",
     "BlockingCallError",
     "Context",
     "Contribution",
+    "Deprecation",
     "Disclosure",
     "DuplicateRegistrationError",
     "DuplicateServiceError",
@@ -139,6 +143,7 @@ __all__ = [
     "RunnablePipeline",
     "Runner",
     "RunSummary",
+    "SchemaVersionRefusedError",
     "ServiceRegistry",
     "SetOperator",
     "SlotDeclaration",

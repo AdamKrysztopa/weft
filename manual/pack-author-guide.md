@@ -10,6 +10,11 @@ and every code block below is that pack's real file, checked in CI: if the file 
 is wrong until it changes too. Definitions link to
 [`docs/02-extension-model.md`](../docs/02-extension-model.md) §1–§2 rather than restating them.
 
+**§1–§8 are one pack, one contract.** §9 is the other shape — a pack spanning several contracts plus
+a contributed command, `docs/02-extension-model.md` §4's graph-add-on case adapted into the same kind
+of tested walkthrough, and what G9 (contract versioning and deprecation) now makes a pack author's own
+responsibility.
+
 ## 1. The directory
 
 ```text
@@ -317,9 +322,476 @@ Two things you may optionally ship, and one you must:
 A pointer to [`docs/05-grilling-sessions.md`](../docs/05-grilling-sessions.md), never a summary of
 it — when a gate closes, that document changes and this list does too.
 
-| Gate | What you would hit |
-|---|---|
-| **G2** — pipeline derivation semantics | Two packs both wanting the name `example-chunker`; inserting a stage into someone else's pipeline; whether pipelines end up authored in YAML, Python or both. Phase 0 raises on duplicate registration and builds no derivation at all — reversible, not an answer |
-| **G7** — event bus or explicit extension points | Wanting to observe every indexed node without owning a stage in the pipeline |
-| **G8** — is the REPL agentic | Nothing, unless you plan to ship an interactive command |
-| **G9** — contract versioning | What a future `weft-chunk` major version owes you, and what you owe your own users once an `ExtModel` you publish gains a required field |
+| Gate | Status | What it means for you |
+|---|---|---|
+| **G2** — pipeline derivation semantics | **Settled** | Pipelines derive (§3 below is the sequel this settling made possible); two packs claiming one plugin name is still a refusal, relaxed only by an operator's pin in `weft.toml` |
+| **G7** — event bus or explicit extension points | **Settled** | **No bus.** A pack participates only by registering against a published extension point — `SourceDeletable`/`Reconcilable` (§3 below) are what that ruling added to the store family, not a way to observe every node ambiently |
+| **G8** — is the REPL agentic | **Settled** | No, and it never becomes one — irrelevant to writing a pack unless you plan to ship an interactive `Command` |
+| **G9** — contract versioning and deprecation | **Settled** | What every dependency specifier you write must look like, what your own `ExtModel` now requires, and what a deprecation warning obliges you to do — §3 below is entirely this ruling's consequences for a pack author |
+| **G10** — release and support policy | Open | Whether the surfaces you depend on (§3's `permission_class`, `[packs] allow`, the filter AST) carry a stability promise before Weft's own 1.0 |
+| **G12** — permissions when the caller is never a TTY | Open | Only if your command expects an interactive confirmation — what a non-TTY caller (a script, an agent) gets instead |
+
+`docs/README.md`'s own decision log is the current source, never this table restated from memory — it is what told this guide G2/G7/G8/G9 had closed since it was first written.
+
+## 9. A pack spanning several contracts, plus a command
+
+Everything above is one pack, one contract. `docs/02-extension-model.md` §4 specifies the other
+shape — a capability spanning several extension points is still **one package** (requirement 2) —
+using a graph add-on as the worked example: it registers an `Enhancer`, a store, a `Retriever`, two
+`Command`s, a named pipeline and a slot contribution, and (per **G7**) `SourceDeletable` and
+`Reconcilable` besides. That pack does not exist yet — task 5.4 builds it — so this section adapts
+the same case from what already does exist and is already checked: `examples/weft-example-ingest/`
+(seven contracts, a pack-owned `ExtModel` and — since task 5.3a — a slot contribution, from one
+entry point) and `examples/weft-example-command/` (a contributed `Command`). Where a real, tested
+pack demonstrates a row, this section shows it, tagged the identical way §1–§7 already are. **Where
+none does yet, it says so rather than inventing a snippet no check would cover** — §9.8 below is
+exactly that, recorded in this phase's own ledger entry (task 5.3, `docs/build-ledger.md`) rather
+than papered over. §9.7 used to be the other one; task 5.3a closed that gap, and its own ledger
+entry says so.
+
+### 9.1 One entry point, one `register()`, several contracts
+
+```python path=examples/weft-example-ingest/src/weft_example_ingest/__init__.py
+"""A stranger's ingest-side pack — the independence proof for the pipeline's first half.
+
+`docs/07-extension-cost.md` §2 clause (c), the task 2.11 backfill: every contract Phase 0
+through Phase 2 publishes on the ingest side needs an implementation that lives *outside*
+this repository's workspace, installed the same way any third-party pack would be,
+registering through the same `weft.packs` entry point every first-party pack uses — no
+shortcut, no private import path. `examples/weft-example-chunker` is the precedent this
+pack's file shape copies exactly; the difference is scope, not mechanism — one distribution
+covering `Extractor`, `Renderer`, `Cleaner`, `Enhancer`, `Embedder`, `Expander` and the whole
+`NodeStore` capability family (`NodeStore`, `VectorSearch`, `TextSearch`, `MetadataFilter`),
+per `.phase2-design.md` §9's "one multi-contract pack per publishing half" — clause (c) is
+set equality over *contracts*, which a multi-point pack satisfies, and a single install
+registering across many extension points is exactly requirement 2, the thing Weft exists to
+make cheap.
+
+`tests/architecture/test_ff9c_every_contract_has_a_stranger.py` installs this distribution
+(built as a real wheel) into a throwaway environment, with the `weft` repository nowhere on
+`sys.path`, and asks the resulting registry which contracts it registered under and which
+capability Protocols its registered classes satisfy.
+"""
+
+from pydantic import BaseModel, ConfigDict
+
+from weft_clean.contract import Cleaner
+from weft_embed.contract import Embedder
+from weft_enhance.contract import Enhancer
+from weft_example_ingest.cleaner import ExampleBlankLineCollapser
+from weft_example_ingest.embedder import ExampleChecksumEmbedder
+from weft_example_ingest.enhancer import ExampleWordCountEnhancer, WordCount
+from weft_example_ingest.expander import NAME as EXPANDER_NAME
+from weft_example_ingest.expander import ExampleFirstSentenceExpander
+from weft_example_ingest.extractor import ExampleExtractor
+from weft_example_ingest.renderer import ExamplePlainRenderer
+from weft_example_ingest.store import InMemoryNodeStore
+from weft_extract.contract import Extractor, Renderer
+from weft_index.contract import Expander
+from weft_kernel.discovery import PackRegistrar
+from weft_kernel.pipeline import StageDeclaration
+from weft_store.contract import NodeStore
+
+#: This pack's own local id for the stage it contributes into a slot — task 5.3a (S8).
+#: Unqualified: `Contribution.stage.id` is a pack's local name, qualified by distribution
+#: only once actually placed (`weft_kernel.resolution.Contribution`'s own docstring).
+_ENRICH_STAGE_ID = "wordcount"
+
+#: The slot name this pack offers into — `02` §3 → *Slots*' own worked example
+#: (`weft-graph:entities`) targets a slot named `enrich`; this pack reuses that name
+#: rather than inventing a second convention for the identical kind of position.
+ENRICH_SLOT = "enrich"
+
+
+class Settings(BaseModel):
+    """This pack takes no settings — an empty model is still the required shape."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+
+def register(registrar: PackRegistrar, settings: Settings) -> None:
+    """Register this pack's seven plugins — one per contract it implements — its own
+    `WordCount` `ExtModel` (task 5.2g), and a slot contribution (task 5.3a, `S8`): the real
+    proof that a stranger's own contributed stage reaches a resolved pipeline with no core
+    edit, since this distribution is installed rather than linked (fitness function 9(a)).
+
+    The contribution reuses the same `example-enhancer` plugin already registered under
+    `Enhancer` — offering a plugin as both an ordinary stage *and* a slot contribution costs
+    nothing extra to declare, and it is the identical class either way: what changes is only
+    whether a pipeline document names it directly (`use: example-enhancer`) or opts a slot
+    into receiving it (`slots: [{id: enrich, ...}]`).
+    """
+    del settings
+    registrar.add(Extractor, "example-extractor", ExampleExtractor)
+    registrar.add(Renderer, "example-renderer", ExamplePlainRenderer)
+    registrar.add(Cleaner, "example-cleaner", ExampleBlankLineCollapser)
+    registrar.add(Enhancer, "example-enhancer", ExampleWordCountEnhancer)
+    registrar.add(Embedder, "example-embedder", ExampleChecksumEmbedder)
+    registrar.add(Expander, EXPANDER_NAME, ExampleFirstSentenceExpander)
+    registrar.add(NodeStore, "example-store", InMemoryNodeStore)
+    registrar.add_ext_model(WordCount)
+    registrar.add_contribution(
+        ENRICH_SLOT, StageDeclaration(id=_ENRICH_STAGE_ID, use="example-enhancer")
+    )
+
+
+__all__ = ["ENRICH_SLOT", "Settings", "WordCount", "register"]
+```
+
+Notice what stayed identical from the single-contract case in §3 above: **one** entry point, **one**
+`register(registrar, settings)`, **one** `Settings` model — even though this pack answers to seven
+`registrar.add` calls across six different contracts (`Extractor`, `Renderer`, `Cleaner`, `Enhancer`,
+`Embedder`, `Expander`) plus `NodeStore`. Nothing about the registration mechanism changes with scope;
+only the number of calls inside one function does. Registration is still transactional over all seven
+at once — a `register()` that raised after the fifth `add` would commit none of them, exactly as it
+would for one.
+
+**An eighth and ninth capability arrive with no ninth `registrar.add` call.** `InMemoryNodeStore`
+(`examples/weft-example-ingest/src/weft_example_ingest/store.py:51-166`) also implements
+`delete_source` and `reconcile`/`estimate`, so it satisfies `SourceDeletable` and `Reconcilable`
+(`docs/02-extension-model.md` §1 → *The store contract family*, G7) **structurally**, the same way
+`WordChunker` in §4 above satisfies `Chunker` with no import of it. `weft delete`'s fan-out and
+`weft reconcile`'s convergence find this store without you registering anything beyond the one
+`NodeStore` line — "capability is derived, never declared" applies exactly as much to a nine-contract
+pack as to a one-contract one.
+
+### 9.2 Contributing a command: `permission_class` and `help` are mandatory
+
+```python path=examples/weft-example-command/src/weft_example_command/greet.py
+"""`GreetCommand` — a stranger's `Command`: one CLI-invoked action with no pipeline behind it.
+
+Deliberately not a copy of one of `weft-cli`'s own five built-ins with different words — a
+third party has no reason to reimplement `weft index` or `weft ask`, so this one is the
+smallest genuinely different action the `Command` contract permits: it takes one argument,
+touches no registry, no store and no network, and returns a typed greeting. It exists to prove
+the same thing `weft_example_chunker.WordChunker` proves for `Chunker`: any implementation
+satisfying `weft_command.contract.Command` structurally is usable, registered through the
+identical `weft.packs` entry point `weft-cli`'s own built-ins use — no shortcut, no private
+import path, `docs/03-cli.md` → *Plugin-contributed commands*' own worked example
+(`weft graph build`) realised for a namespace that happens to be `greet` instead of `graph`.
+"""
+
+from __future__ import annotations
+
+from typing import ClassVar
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from weft_command.contract import CommandResult
+from weft_command.permission import PermissionClass
+from weft_kernel.context import Context
+from weft_kernel.payload import Outcome, Produced
+
+
+class GreetArgs(BaseModel):
+    """`weft greet <name>` — one required positional, the shape `weft_cli.argparse_gen`
+    (task 3.2) turns into a positional argument because it carries no default.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    name: str = Field(description="who to greet")
+
+
+class GreetResult(CommandResult):
+    """What `weft greet` produced — a typed result a renderer formats, never printed text
+    (`docs/03-cli.md` → *Two modes, one implementation*), exactly as `weft-cli`'s own
+    `IndexCommandResult` and friends are.
+    """
+
+    greeting: str
+
+
+class GreetCommand:
+    """Satisfies `weft_command.contract.Command` structurally — this class never imports it,
+    the same path `docs/02-extension-model.md` describes for a third-party plugin.
+
+    `permission_class` and `help` are both mandatory declarations
+    (`Command.required_declarations`); omitting either refuses registration, loudly, at the
+    point this pack's own `register()` runs — proven directly by
+    `tests/test_greet.py::test_greet_without_a_declared_permission_class_is_refused`.
+    """
+
+    args_model: ClassVar[type[BaseModel]] = GreetArgs
+    result_model: ClassVar[type[CommandResult]] = GreetResult
+    permission_class: ClassVar[PermissionClass] = PermissionClass.READ
+    help: ClassVar[str] = "greet somebody by name"
+
+    def __init__(self, config: object = None) -> None:
+        # No `with:`-style configuration this command takes — the registry's factory call
+        # always passes something (`None` here, since nothing registers it with a `with:`
+        # block), so the parameter exists to accept that, not to be used.
+        del config
+
+    async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        del ctx  # no service or locale this command needs
+        assert isinstance(args, GreetArgs)
+        return Produced(value=GreetResult(greeting=f"Hello, {args.name}!"))
+```
+
+`weft_command.contract.Command.required_declarations = ("permission_class", "help")`
+(`packages/weft-command/src/weft_command/contract.py:196`) — the identical mechanism `Chunker`'s
+`destroys` already uses in §4 above, applied to a second contract. Omit either and your pack's own
+`register()` raises at the point it calls `registrar.add(Command, ...)`, naming your class and the
+missing declaration, never a stack trace three layers into `weft-cli`. There is **no default**:
+`PermissionClass` has five members (`read`, `write`, `overwrite`, `destroy`, `network`,
+`packages/weft-command/src/weft_command/permission.py:30-44`) and falling back to `read` would
+silently under-protect a destructive command, so silence is refused rather than defaulted.
+
+```python path=examples/weft-example-command/src/weft_example_command/__init__.py
+"""A stranger's `Command` pack — the independence proof, as an artifact.
+
+Fitness function 9's shape, applied to `weft_command.contract.Command` for the first time:
+a pack that lives *outside* the `weft` repository's workspace, in its own directory with its
+own `pyproject.toml`, installed the same way any third-party pack would be, registering one
+plugin through the same `weft.packs` entry point every first-party pack uses — no shortcut, no
+private import path. `weft`'s `tests/architecture/test_ff9c_every_contract_has_a_stranger.py`
+installs this distribution into a throwaway environment built from wheels, with the `weft`
+repository itself nowhere on `sys.path`, and confirms `"example-command"` registers under
+`Command` there — clause (c)'s obligation for the contract task 3.2 activated by rewiring
+`weft-cli`'s own built-ins onto it (task 3.1 shipped the contract with nothing registered yet,
+so clause (c) had no subject; task 3.2's own registrations are what made this pack necessary,
+and this is it).
+"""
+
+from pydantic import BaseModel, ConfigDict
+
+from weft_command.contract import Command
+from weft_example_command.greet import GreetCommand
+from weft_kernel.discovery import PackRegistrar
+
+
+class Settings(BaseModel):
+    """This pack takes no settings — an empty model is still the required shape."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+
+def register(registrar: PackRegistrar, settings: Settings) -> None:
+    """Register `GreetCommand` as `"greet"` for `Command` — the only plugin here."""
+    del settings
+    registrar.add(Command, "greet", GreetCommand)
+
+
+__all__ = ["GreetCommand", "Settings", "register"]
+```
+
+A command pack is otherwise exactly §3's shape: one entry point, one `register()`, one `Settings`
+model. Nothing about contributing a `Command` needs a second mechanism.
+
+### 9.3 The dependency specifier: a version requirement, or it is not one
+
+**G9, settled 2026-08-21** (`docs/README.md` decision log): *"a version requirement **is** the
+dependency specifier... ranges are `>=X,<MAJOR+1`, never an exact pin — a library that pins exactly
+makes any two packs jointly unresolvable"* (`docs/09-release.md` §2.3, answer 5). A bare name —
+`dependencies = ["weft-chunk"]` — is not a specifier at all: it tells the resolver "any version,
+including one whose contract has moved out from under you since you wrote this line," which is
+exactly the silent incompatibility a semver policy exists to prevent. Task **5.2a** made this real for
+every first-party distribution; the shape to copy is any of them, unchanged since:
+
+```toml path=packages/weft-store/pyproject.toml
+[project]
+name = "weft-store"
+version = "2.0.0"
+description = "First-party storage pack. Publishes the Store contract family."
+requires-python = ">=3.12"
+dependencies = ["weft-kernel>=0.1.0,<1.0.0", "psycopg[binary]>=3.2", "pgvector>=0.3"]
+
+# The one entry point a pack declares (`docs/02-extension-model.md` section 2).
+[project.entry-points."weft.packs"]
+store = "weft_store:register"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+```
+
+Two different shapes appear on that one line, and both are correct for what they name:
+`weft-kernel>=0.1.0,<1.0.0` is the G9 range — an **intra-repo dependency on a contract-publishing
+distribution**, bound to the major that would break it. `psycopg[binary]>=3.2` and `pgvector>=0.3`
+are ordinary PyPI floors on libraries Weft does not publish a contract for — G9's range rule binds a
+*contract's* version to its *publisher's* distribution version; it says nothing about a floor on an
+unrelated third-party package, and inventing an upper bound for those would be exactly the "any two
+packs jointly unresolvable" trap the rule exists to prevent, aimed at yourself. When you depend on
+`weft-chunk` (or any contract-publishing pack) for the `Chunker` Protocol it owns, write the range;
+when you depend on an ordinary library, write the floor you actually require and nothing more.
+
+**Honest gap, not a pattern to copy: every `examples/*/pyproject.toml` in this tree — including both
+packs shown in this section — still declares its `weft-*` dependencies as bare names**, e.g.
+
+```text
+dependencies = ["weft-kernel", "weft-clean", "weft-embed", "weft-enhance", "weft-extract",
+                 "weft-index", "weft-store"]  # examples/weft-example-ingest/pyproject.toml:11-19, today
+```
+
+These packs predate G9 (2026-08-21) and task 5.2a touched only the first-party distributions under
+`packages/`, per its own ledger line — `examples/` was out of its scope, and no later task has closed
+it. **Do not copy this shape.** It is recorded here rather than silently reproduced: closing it is one
+short follow-up task — add a range to every `weft-*` entry in every `examples/*/pyproject.toml`,
+mirroring whichever `packages/*/pyproject.toml` publishes that contract — and it is not this task's
+to do, since 5.3 is the guide, not the examples. Logged in this task's own `docs/build-ledger.md`
+entry and in `docs/lessons.md`.
+
+### 9.4 An `ExtModel` needs `__schema_version__`, and an `upgrade` that refuses
+
+```python path=examples/weft-example-ingest/src/weft_example_ingest/enhancer.py
+"""`ExampleWordCountEnhancer` — a stranger's `Enhancer`: attaches a word count, never rewrites text.
+
+`weft_enhance.contract.Enhancer`'s own distinction from `Cleaner` at the same input/output
+shape: a fact is *added* via `Node.with_ext`, `content` is untouched, and node identity
+(`node.id`) does not move.
+"""
+
+from collections.abc import Sequence
+
+from weft_kernel.context import Context
+from weft_kernel.payload import ExtModel, Node, NothingToProduce, Outcome, Produced
+
+
+class WordCount(ExtModel):
+    """This pack's own namespaced fact: how many whitespace-separated words `content` has."""
+
+    __namespace__ = "weft-example-ingest"
+    __schema_version__ = "1.0.0"
+
+    count: int
+
+
+class ExampleWordCountEnhancer:
+    """Attaches a `WordCount` to every node it is handed. Satisfies `weft_enhance.contract.
+    Enhancer` structurally — this class never imports it.
+    """
+
+    def __init__(self, config: object = None) -> None:
+        del config
+
+    async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        del ctx
+        if not payload:
+            return NothingToProduce(reason="no node to enhance")
+        enhanced = [node.with_ext(WordCount(count=len(node.content.split()))) for node in payload]
+        return Produced(value=enhanced)
+```
+
+**Both class-level declarations are mandatory**, checked at class *definition*, before your pack ever
+runs (`packages/weft-kernel/src/weft_kernel/payload/ext.py:88-101`,
+`ExtModel.__pydantic_init_subclass__`): omit `__namespace__` or `__schema_version__` and `TypeError`
+raises the moment Python finishes building your class — at import time, not at the first `with_ext`
+call or the first read off a store. `__schema_version__` is G9's own addition (task 5.2c) beside the
+`__namespace__` declaration §1 above already required, and for a mechanical reason rather than a
+stylistic one: **a contract version cannot stand in for a schema version, because the contract version
+is not available at the read site** — when a store rehydrates a row your pack wrote, your pack may not
+even be installed. So the version travels *in the data itself*: every namespace your `ExtModel`
+serialises carries its own `__schema_version__` key alongside its fields
+(`weft_kernel.payload.ext._dump`, same file, lines 131-164).
+
+**A reader upgrades or refuses, and the default refuses.** `ExtModel.upgrade(data, from_version)`
+(`ext.py:103-116`) raises `SchemaVersionRefusedError`, naming your namespace, the version the row was
+stored at and the version your installed class declares, unless you override it. You override
+`upgrade` the day you actually change `WordCount`'s shape — add a field, rename one, change a type —
+and need to reconcile a row a user's store already holds; until then, the default is correct and
+`1.0.0` (what every `ExtModel` in this tree carries today, first-party and stranger alike, since
+nothing has shipped a second shape of any of them) needs no override at all.
+
+### 9.5 `add_ext_model` — your `ExtModel` reaches a store only if you offer it
+
+Look again at §9.1's `register()`: the last line is `registrar.add_ext_model(WordCount)`, beside the
+seven `registrar.add` calls. **This is not optional if you want a node carrying your namespace to
+survive a round trip through a store.** Task 5.2g closed a real gap here — before it, a pack's
+`register()` did not contribute its `ExtModel`s automatically at all, and a namespace nobody
+registered raised `UnknownPluginError` the moment a store tried to rehydrate it. The kernel itself
+stays capability-blind: `registrar.add_ext_model` (`packages/weft-kernel/src/weft_kernel/discovery.py:392-405`)
+buffers a bare class reference — no validation, no instantiation — exactly like `add_pipeline_resource`
+and `deprecate` below; turning that buffer into something a store can actually use is
+`weft_store.rehydrate.register_from_reports`'s job, called once by whatever already calls `discover()`,
+with no pack named at that call site (`docs/02-extension-model.md` §1's own "Built in Phase 5 task
+5.2g" block has the full mechanism).
+
+**Call it only for an `ExtModel` that attaches to `Node.ext`.** `docs/lessons.md` L5.20 is the
+measurement this rule rests on: several first-party `ExtModel`s (`weft_retrieve.boolean.BooleanPlan`,
+`weft_generate.contradiction.Agreement`, among others) attach to `QuerySet.ext`, `Candidates.ext` or
+`Answer.ext` instead — the query path's own extension points — and *none* of them calls
+`add_ext_model`, correctly: only a `Node` is ever handed to a `NodeStore`, so a query-path `ExtModel`
+never needs to survive a store round trip, and registering it anyway risks a `DuplicateRegistrationError`
+the moment two packs sharing a namespace are both active. If the `ExtModel` you are writing lives on
+`Node.ext` (via `Node.with_ext`/`Node.ext_as`, as `WordCount` does above), call `add_ext_model`. If it
+lives on a query-path payload's `ext`, do not.
+
+### 9.6 Shipping a named pipeline
+
+`registrar.add_pipeline_resource(package, resource)` buffers a pipeline document the same way
+`add_ext_model` buffers a class — attributed to your pack, committed only once `register()` returns
+without raising. `weft-retrieve` ships three this way:
+
+```text
+registrar.add_pipeline_resource("weft_retrieve", "pipelines/route.yaml")
+registrar.add_pipeline_resource("weft_retrieve", "pipelines/no-retrieval.yaml")
+registrar.add_pipeline_resource("weft_retrieve", "pipelines/retrieve-then-generate.yaml")
+# packages/weft-retrieve/src/weft_retrieve/__init__.py:369-371
+```
+
+`package` and `resource` are read together as an `importlib.resources` path inside your own installed
+distribution — ship the YAML file under your package, call `add_pipeline_resource` once per document,
+and `weft_cli.pipeline_catalogue.load_contributed` makes it visible to `weft pipeline list`/`show` and
+to `--pipeline <name>` the moment your pack is installed, with no core edit.
+
+### 9.7 Contributing into a slot
+
+`docs/02-extension-model.md` §3 → *Slots* specifies the design: a pack "may ship complete named
+pipelines, and it may contribute into a slot a pipeline opted into," never rewrite one that did not
+ask. **Task 5.3a (`S8`) is what let a pack actually reach it.** Buffer one from `register()` the
+identical way you already buffer a pipeline resource or an `ExtModel`:
+
+```text
+registrar.add_contribution(ENRICH_SLOT, StageDeclaration(id=_ENRICH_STAGE_ID, use="example-enhancer"))
+# examples/weft-example-ingest/src/weft_example_ingest/__init__.py:79-81
+```
+
+`add_contribution(slot, stage)` — `discovery.py`'s own `PackRegistrar` — takes the slot name a
+pipeline document opted into and a `weft_kernel.pipeline.StageDeclaration` naming your plugin.
+`stage.id` is your **local**, unqualified name — never write the `distribution:` prefix yourself;
+attribution is filled in for you the identical way `add`'s own `distribution` argument is, and
+`resolve()` prefixes it only once the contribution is actually placed (`weft-graph:entities`, `02`
+§3's own worked example spelling). Buffered, not written through immediately — a `register()` that
+raises after calling this leaves no slot looking filled that was never actually committed, the same
+atomicity `add_pipeline_resource`/`add_ext_model`/`deprecate` already give you.
+
+You do not assemble anything yourself, and you do not call `resolve()` yourself. Every installed
+pack's own buffered contributions reach every pipeline command through one path you never touch:
+`weft_cli.registry_bootstrap.build_dependencies` reads `PackReport.contributions` back off
+`discover()`'s own return value, concatenates every report's tuple into `Dependencies.
+contributions`, and every `resolve()` call site in `weft-cli` passes that field straight through as
+`contributions=`. Your one line above is the entire pack-author-facing surface of this mechanism.
+
+**What you do not control**, because §3's own rule forbids it: whether your contribution actually
+lands anywhere. It places only in a pipeline whose author declared a slot by the exact name you
+targeted (`slots: [{id: enrich, after: chunk}]` in *their* document) — never in one that did not
+ask, and installing your pack cannot make one opt in retroactively. Name a slot no pipeline
+declares and your contribution is a recorded no-op: it shows up in `weft pipeline show`'s own
+`unplaced_contributions`, and `weft plugins doctor` flags your distribution as contributing to no
+pipeline at all, so "installed and doing nothing" stays visible rather than silently swallowed.
+
+`examples/weft-example-ingest` — installed rather than linked, the fitness-function-9(a) pack this
+guide's own §5 already runs from an empty directory — offers its own already-registered `Enhancer`
+plugin into a slot named `enrich` this exact way; read its `register()` for the real, working line.
+
+### 9.8 A deprecation warning obliges a changelog entry
+
+`registrar.deprecate(surface, reason=...)` (`discovery.py:376-390`) buffers a notice — a plugin name,
+a `"Contract:name"` pair, or your pack itself — attributed to your distribution and committed with
+everything else `register()` buffers. Once committed, `weft_kernel.seam.warn_deprecated`
+(`packages/weft-kernel/src/weft_kernel/seam.py:211-229`) emits one `DeprecationWarning` per notice,
+automatically, the moment discovery activates your pack — you state the fact once and never write the
+warning by hand, and `weft plugins doctor` surfaces it as a flag beside your pack's ordinary status.
+
+**What it obliges you to do next is written down, not left to memory.** `docs/09-release.md` §3:
+*"Removal is a changelog entry with a migration line or it does not happen."* If your pack ships
+inside this repository (a first-party pack), `tests/docs/test_changelog_deprecation_coverage.py`
+enforces it directly: every surface any installed pack has marked deprecated must appear, backtick-quoted,
+in `CHANGELOG.md`'s own `### Deprecated` section, or `ci-checks` fails naming exactly which surface is
+missing. **That check reads *this repository's* `CHANGELOG.md`** — if your pack lives outside this
+workspace, as every pack this guide otherwise describes does, nothing here can see your own repository
+at all, so nothing enforces your own changelog for you. The obligation is the same regardless: a
+deprecation without a changelog entry naming it and the release it disappears in is a promise the
+warning made and the paper trail did not keep. Hold your own repository to the identical discipline
+this one enforces on itself.

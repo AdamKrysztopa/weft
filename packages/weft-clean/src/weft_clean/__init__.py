@@ -36,7 +36,11 @@ class Settings(BaseModel):
 
 
 def register(registrar: PackRegistrar, settings: Settings) -> None:
-    """Register all six `Cleaner` plugins this pack ships."""
+    """Register all six `Cleaner` plugins this pack ships, and `Language` as this pack's
+    own `ExtModel` — task 5.2g: a pack contributes its ext models at registration,
+    through the same `PackRegistrar` it already uses for plugins, with no `weft-store`
+    dependency here and no edit owed to `weft-cli`.
+    """
     del settings
     registrar.add(Cleaner, "unicode-normalize", UnicodeNormalizer)
     registrar.add(Cleaner, "artifact-remove", ArtifactRemover)
@@ -44,6 +48,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(Cleaner, "table-linearize", TableLinearizer)
     registrar.add(Cleaner, "polish-dictionary-spacing", PolishFusedWordFixer)
     registrar.add(Cleaner, "whitespace", WhitespaceNormalizer)
+    registrar.add_ext_model(Language)
 
 
 __all__ = [

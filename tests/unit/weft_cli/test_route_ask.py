@@ -36,7 +36,10 @@ from weft_generate.payload import Answer
 from weft_generate.prompts import ANSWER_WITH_CITATIONS_NAME, AnswerWithCitationsPrompt
 from weft_kernel.context import Context, ServiceRegistry
 from weft_kernel.discovery import PackReport, PackStatus, PipelineResource
+from weft_kernel.payload import Outcome, Produced
+from weft_kernel.pipeline import StageDeclaration
 from weft_kernel.registry import Registry
+from weft_kernel.resolution import Contribution
 from weft_llm.client import NullSink
 from weft_llm.contract import LLMProvider
 from weft_llm.payload import TokenChunk
@@ -57,6 +60,7 @@ from weft_retrieve import (
     RoutingPolicy,
     SingleList,
 )
+from weft_retrieve.contract import QueryTransform
 from weft_store import NodeStore
 
 #: `LlmQueryScorer`'s own JSON contract — `RouteQueryScores` — with every one of the
@@ -279,3 +283,69 @@ async def test_run_named_ask_resolves_a_derived_pipeline(
 
     # Assert
     assert isinstance(answer, Answer)
+
+
+async def test_run_named_ask_places_a_contribution_in_a_declared_slot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Task **5.3a** (`S8`): `contributions=` reaches `_run_pipeline`'s own `resolve()` call
+    for a directly-named pipeline, exactly as it does for `weft_cli.ingest.run_index`'s
+    `--pipeline` path — a pack's own `Contribution` lands in a slot the document opted into
+    and its stage actually runs, never merely resolves.
+    """
+    # Arrange — a `QueryTransform` composes cleanly either side of `retrieve`
+    # (`Stage[QuerySet, QuerySet]`), so `before: "retrieve"` needs no bespoke contract.
+    monkeypatch.chdir(tmp_path)
+    pipelines = tmp_path / "pipelines"
+    pipelines.mkdir()
+    base = {
+        "name": "base",
+        "stages": [
+            {"id": "retrieve", "use": "no-retrieval"},
+            {"id": "fuse", "use": "single-list"},
+            {"id": "pack", "use": "repack"},
+            {
+                "id": "generate",
+                "use": "cited-answer",
+                "with": {"when_no_evidence": "answer_from_memory"},
+            },
+        ],
+        "slots": [{"id": "enrich", "before": "retrieve"}],
+    }
+    (pipelines / "base.yaml").write_text(yaml.safe_dump(base, sort_keys=False))
+
+    ran: list[str] = []
+
+    class _NoOpTransform:
+        def __init__(self, config: object = None) -> None:
+            del config
+
+        async def run(self, payload: object, ctx: Context) -> Outcome[object]:
+            del ctx
+            ran.append("enrich")
+            return Produced(value=payload)
+
+    registry = _registry()
+    registry.add(QueryTransform, "noop-transform", _NoOpTransform, distribution="weft-graph")
+    contribution = Contribution(
+        slot="enrich",
+        distribution="weft-graph",
+        stage=StageDeclaration(id="noop", use="noop-transform"),
+    )
+
+    # Act
+    answer = await run_named_ask(
+        "why does this matter?",
+        pipeline_name="base",
+        registry=registry,
+        reports=(),
+        ctx=_ctx(),
+        llm=_llm(),
+        services=ServiceSelection(embed="fake-embed", store="fake-store"),
+        sink=NullSink(),
+        contributions=(contribution,),
+    )
+
+    # Assert
+    assert isinstance(answer, Answer)
+    assert ran == ["enrich"]

@@ -15,24 +15,33 @@ Task **3.11** folds `weft route`'s own retired `RouteCommandResult`/`_render_rou
 
 from __future__ import annotations
 
+import json
+from typing import cast
+
 from weft_cli import render
 from weft_cli.commands import (
     AskCommandResult,
     CommandRefusalError,
+    DeleteCommandResult,
     IndexCommandResult,
     PluginsDoctorCommandResult,
     PluginsListCommandResult,
+    ReconcileCommandResult,
 )
+from weft_cli.deletion import ParticipantOutcome
+from weft_cli.error_envelope import ENVELOPE_VERSION
 from weft_cli.exit_codes import ExitCode
 from weft_cli.output import AskFormat
+from weft_cli.reconcile import ReconcileEstimateOutcome, ReconcileOutcome
 from weft_command.contract import CommandResult
 from weft_generate.payload import Answer, AnswerStance, Citation
 from weft_kernel.discovery import PackReport, PackStatus
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import Failed, NothingToProduce, Produced
-from weft_kernel.registry import DisplacedRegistration
+from weft_kernel.registry import DisplacedRegistration, UnknownPluginError
 from weft_kernel.runner import RunSummary
 from weft_retrieve.payload import Query
+from weft_store import ReconcileEstimate, ReconcileMode, ReconcileReport
 
 
 def test_render_index_success_matches_the_retired_handler_s_line() -> None:
@@ -193,7 +202,14 @@ def test_render_plugins_doctor_delegates_to_the_shared_renderer_including_displa
             pin="_Chunker:shared",
         ),
     )
-    result = PluginsDoctorCommandResult(reports=reports, displaced=displaced, unconsulted_pins=())
+    result = PluginsDoctorCommandResult(
+        reports=reports,
+        displaced=displaced,
+        unconsulted_pins=(),
+        tracing="not configured",
+        skew=(),
+        unreachable_contributions=(),
+    )
 
     # Act
     rendered = render.render_outcome(Produced(value=result))
@@ -262,6 +278,67 @@ def test_render_refusal_falls_back_to_exit_code_for_any_other_weft_error() -> No
 
     # Assert
     assert rendered.exit_code is ExitCode.OPERATION_FAILED
+
+
+# --- task 5.2d: the structured error envelope under --json --------------------------------
+
+
+def test_render_refusal_puts_str_exc_on_stderr_when_json_was_not_asked_for() -> None:
+    # Arrange — the default, and every caller before this task: human output is unchanged.
+    exc = UnknownPluginError("unknown retriever: 'graf'", valid_options=("graph", "vector"))
+
+    # Act
+    rendered = render.render_refusal(exc)
+
+    # Assert
+    assert rendered.stdout is None
+    assert rendered.stderr == "unknown retriever: 'graf'"
+
+
+def test_render_refusal_emits_a_structured_envelope_on_stdout_under_as_json() -> None:
+    # Arrange
+    exc = UnknownPluginError("unknown retriever: 'graf'", valid_options=("graph", "vector"))
+
+    # Act
+    rendered = render.render_refusal(exc, as_json=True)
+
+    # Assert — nothing on stderr: the envelope is the whole answer a script reads.
+    assert rendered.stderr is None
+    assert rendered.exit_code is ExitCode.RESOLUTION_FAILED
+    dumped = json.loads(cast(str, rendered.stdout))
+    assert dumped["error"] == "UnknownPluginError"
+    assert dumped["valid_options"] == ["graph", "vector"]
+    assert dumped["rendered"] == "unknown retriever: 'graf'"
+    assert dumped["exit_code"] == int(ExitCode.RESOLUTION_FAILED)
+    assert dumped["envelope_version"] == ENVELOPE_VERSION
+
+
+def test_render_refusal_as_json_still_reads_the_exit_code_off_a_command_refusal_error() -> None:
+    # Arrange — the `CommandRefusalError` branch stays the one source of truth for its own
+    # exit code; `as_json` only changes where the envelope goes, never how the code is chosen.
+    exc = CommandRefusalError("refused by policy", exit_code=ExitCode.POLICY_REFUSED)
+
+    # Act
+    rendered = render.render_refusal(exc, as_json=True)
+
+    # Assert
+    assert rendered.exit_code is ExitCode.POLICY_REFUSED
+    dumped = json.loads(cast(str, rendered.stdout))
+    assert dumped["error"] == "CommandRefusalError"
+    assert dumped["exit_code"] == int(ExitCode.POLICY_REFUSED)
+
+
+def test_render_refusal_as_json_carries_null_valid_options_when_the_error_has_none() -> None:
+    # Arrange — an ordinary `WeftError` with no alternatives to offer; the field is present
+    # and explicitly null, never silently dropped.
+    exc = WeftError("something in the library refused")
+
+    # Act
+    rendered = render.render_refusal(exc, as_json=True)
+
+    # Assert
+    dumped = json.loads(cast(str, rendered.stdout))
+    assert dumped["valid_options"] is None
 
 
 # --- task 3.7: init, pipeline ..., config ... --------------------------------------------
@@ -608,3 +685,243 @@ def test_render_eval_metrics_names_the_gate_safe_and_gate_unsafe_metrics() -> No
     assert "runs in the gate (no credentials, no network): exact-match" in rendered.stdout
     assert "does not run in the gate: faithfulness" in rendered.stdout
     assert rendered.exit_code is ExitCode.SUCCESS
+
+
+def test_delete_names_every_participant_and_fails_when_one_did() -> None:
+    # Arrange
+    result = DeleteCommandResult(
+        source_id="doc-1",
+        participants=(
+            ParticipantOutcome(
+                contract="NodeStore", plugin="pgvector", distribution="weft-store", node_count=7
+            ),
+            ParticipantOutcome(
+                contract="GraphStore",
+                plugin="graph",
+                distribution="weft-graph",
+                error="RuntimeError: connection refused",
+            ),
+        ),
+    )
+
+    # Act
+    rendered = render.render_outcome(Produced(value=result))
+
+    # Assert
+    assert rendered.exit_code is ExitCode.OPERATION_FAILED
+    assert "pgvector (weft-store): 7 node(s) removed" in (rendered.stdout or "")
+    assert "graph (weft-graph) — RuntimeError: connection refused" in (rendered.stderr or "")
+
+
+def test_delete_with_no_participant_says_so_and_succeeds() -> None:
+    # Arrange
+    result = DeleteCommandResult(source_id="doc-1", participants=())
+
+    # Act
+    rendered = render.render_outcome(Produced(value=result))
+
+    # Assert
+    assert rendered.exit_code is ExitCode.SUCCESS
+    assert rendered.stdout == "nothing installed holds data for 'doc-1'; nothing was deleted."
+
+
+def test_reconcile_reports_an_interrupted_pass_as_unfinished_rather_than_as_a_failure() -> None:
+    # Arrange
+    result = ReconcileCommandResult(
+        mode=ReconcileMode.REPAIR,
+        dry_run=False,
+        participants=(
+            ReconcileOutcome(
+                contract="GraphStore",
+                plugin="graph",
+                distribution="weft-graph",
+                report=ReconcileReport(
+                    mode=ReconcileMode.REPAIR, examined=2, removed=2, remaining=3
+                ),
+            ),
+        ),
+    )
+
+    # Act
+    rendered = render.render_outcome(Produced(value=result))
+
+    # Assert
+    assert rendered.exit_code is ExitCode.OPERATION_FAILED
+    assert "interrupted, 3 left; run again" in (rendered.stdout or "")
+    assert rendered.stderr is None
+
+
+def test_reconcile_dry_run_names_the_participants_and_asks_none_of_them() -> None:
+    # Arrange
+    result = ReconcileCommandResult(
+        mode=ReconcileMode.FULL,
+        dry_run=True,
+        participants=(),
+        would_ask=("graph (weft-graph)",),
+    )
+
+    # Act
+    rendered = render.render_outcome(Produced(value=result))
+
+    # Assert
+    assert rendered.exit_code is ExitCode.SUCCESS
+    assert "would run against 1 participant(s):\n  graph (weft-graph)" in (rendered.stdout or "")
+
+
+def test_reconcile_full_states_its_cost_before_the_outcome_lines() -> None:
+    # Arrange — task 5.1c's worked example: the cost line for a participant appears ahead of
+    # what converging it actually did.
+    result = ReconcileCommandResult(
+        mode=ReconcileMode.FULL,
+        dry_run=False,
+        participants=(
+            ReconcileOutcome(
+                contract="GraphStore",
+                plugin="graph",
+                distribution="weft-graph",
+                report=ReconcileReport(mode=ReconcileMode.FULL, examined=1, removed=0),
+            ),
+        ),
+        estimates=(
+            ReconcileEstimateOutcome(
+                contract="GraphStore",
+                plugin="graph",
+                distribution="weft-graph",
+                estimate=ReconcileEstimate(
+                    mode=ReconcileMode.FULL,
+                    pending=4312,
+                    description="4312 nodes have no graph data",
+                    model_calls=4312,
+                ),
+            ),
+        ),
+    )
+
+    # Act
+    rendered = render.render_outcome(Produced(value=result))
+
+    # Assert
+    stdout = rendered.stdout or ""
+    cost_at = stdout.index("backfill will make ~4312 model calls")
+    outcome_at = stdout.index("examined 1, removed 0")
+    assert cost_at < outcome_at
+    assert rendered.exit_code is ExitCode.SUCCESS
+
+
+def test_reconcile_estimate_names_zero_model_calls_with_no_second_line() -> None:
+    # Arrange — a node store's own honest floor: no backfill, so no second line to print.
+    result = ReconcileCommandResult(
+        mode=ReconcileMode.FULL,
+        dry_run=False,
+        participants=(
+            ReconcileOutcome(
+                contract="NodeStore",
+                plugin="pgvector",
+                distribution="weft-store",
+                report=ReconcileReport(mode=ReconcileMode.FULL),
+            ),
+        ),
+        estimates=(
+            ReconcileEstimateOutcome(
+                contract="NodeStore",
+                plugin="pgvector",
+                distribution="weft-store",
+                estimate=ReconcileEstimate(
+                    mode=ReconcileMode.FULL, description="no unfinished deletions"
+                ),
+            ),
+        ),
+    )
+
+    # Act
+    rendered = render.render_outcome(Produced(value=result))
+
+    # Assert
+    stdout = rendered.stdout or ""
+    assert "pgvector (weft-store): no unfinished deletions" in stdout
+    assert "model calls" not in stdout
+
+
+def test_reconcile_a_failing_estimate_is_named_rather_than_silently_dropped() -> None:
+    # Arrange
+    result = ReconcileCommandResult(
+        mode=ReconcileMode.FULL,
+        dry_run=True,
+        participants=(),
+        would_ask=("graph (weft-graph)",),
+        estimates=(
+            ReconcileEstimateOutcome(
+                contract="GraphStore",
+                plugin="graph",
+                distribution="weft-graph",
+                error="RuntimeError: graph index unavailable",
+            ),
+        ),
+    )
+
+    # Act
+    rendered = render.render_outcome(Produced(value=result))
+
+    # Assert
+    assert "estimate failed — RuntimeError: graph index unavailable" in (rendered.stdout or "")
+
+
+def test_index_renders_the_automatic_reconcile_pass_appended_to_its_own_summary() -> None:
+    # Arrange — task 5.1c: `weft index`'s own automatic pass, rendered through the identical
+    # `_render_reconcile` `weft reconcile` itself uses.
+    result = IndexCommandResult(
+        summary=RunSummary(produced=1, nothing_to_produce=0, failed=0),
+        stored_count=1,
+        reconcile=ReconcileCommandResult(
+            mode=ReconcileMode.REPAIR,
+            dry_run=False,
+            participants=(
+                ReconcileOutcome(
+                    contract="NodeStore",
+                    plugin="pgvector",
+                    distribution="weft-store",
+                    report=ReconcileReport(mode=ReconcileMode.REPAIR, examined=1, removed=1),
+                ),
+            ),
+        ),
+    )
+
+    # Act
+    rendered = render.render_outcome(Produced(value=result))
+
+    # Assert
+    stdout = rendered.stdout or ""
+    assert "nodes now stored: 1." in stdout
+    assert "mode 'repair' — 1 participant(s):" in stdout
+    assert "pgvector (weft-store): examined 1, removed 1, backfilled 0" in stdout
+    assert rendered.exit_code is ExitCode.SUCCESS
+
+
+def test_index_reports_failure_when_its_own_automatic_reconcile_pass_fails() -> None:
+    # Arrange — an index run that itself succeeded, but whose automatic convergence did not:
+    # the failure must still surface, exactly as a standalone `weft reconcile` would report it.
+    result = IndexCommandResult(
+        summary=RunSummary(produced=1, nothing_to_produce=0, failed=0),
+        stored_count=1,
+        reconcile=ReconcileCommandResult(
+            mode=ReconcileMode.REPAIR,
+            dry_run=False,
+            participants=(
+                ReconcileOutcome(
+                    contract="GraphStore",
+                    plugin="graph",
+                    distribution="weft-graph",
+                    error="RuntimeError: connection refused",
+                ),
+            ),
+        ),
+    )
+
+    # Act
+    rendered = render.render_outcome(Produced(value=result))
+
+    # Assert
+    assert rendered.exit_code is ExitCode.OPERATION_FAILED
+    assert "failed: graph (weft-graph) — RuntimeError: connection refused" in (
+        rendered.stderr or ""
+    )

@@ -28,7 +28,8 @@ weft/
 │   ├── weft-extract/      # first-party pack: publishes the Extractor contract
 │   ├── weft-chunk/        # first-party pack: publishes the Chunker contract
 │   ├── weft-store/        # first-party pack: publishes the Store contract family
-│   └── weft-embed/        # first-party pack: publishes the Embedder contract
+│   ├── weft-embed/        # first-party pack: publishes the Embedder contract
+│   └── weft-otel/         # first-party pack: sets the TracerProvider, publishes no contract
 ├── testing/weft-canary/   # test-only distribution for fitness function 8
 ├── tests/architecture/    # the fitness functions
 ├── tests/integration/     # what needs the one container
@@ -40,6 +41,11 @@ weft/
 forced rather than aesthetic: G4 forbids a store from embedding, G2 has not placed the embed step,
 and a walking skeleton must not depend on a model download or an API key. See `docs/06-phase-0-build.md`
 step 8.
+
+`weft-otel` (Phase 5 task 5.1d) is the one distribution that registers no plugin against any
+contract and contributes to no pipeline — see `docs/02-extension-model.md` §4, *The second add-on
+G7 produced*, for why a capability this narrow still ships as an ordinary pack rather than a core
+change.
 
 **One repository, several distributions.** This is not bookkeeping: a kernel that is its own wheel is
 checked by installing it alone and importing it, which is what makes fitness function 1 a fact rather
@@ -106,7 +112,7 @@ waiver constant pinned empty, so a waiver is a visible act in a diff rather than
 
 ## Skills in this repository
 
-Four live in `.claude/skills/`:
+Six live in `.claude/skills/`:
 
 - **`phase-step`** — build one task of the current phase from `docs/build-ledger.md`, the
   phase-agnostic task list (`docs/06-phase-0-build.md` is Phase 0's own retired build order, cited
@@ -116,6 +122,11 @@ Four live in `.claude/skills/`:
 - **`reference-audit`** — what does the reference have that Weft does not yet? Separates *missed* from *not
   due*, runs the check in reverse to catch anything that arrived from the leave-behind list, and
   checks that nothing was copied. Use before declaring a phase complete.
+- **`lessons`** — write a lesson into `docs/lessons.md` the moment it is paid for: a documented check
+  that turned out to be prose, a claim from intuition that measurement falsified, a proposal that
+  contradicted settled text, a defect found by running the binary rather than by its tests.
+- **`implement-ll`** — drain that queue at a phase close: group the entries, route each to the
+  artefact that would actually have caught it, apply them in one commit, leave the queue empty.
 - **`reference-lift`** — port one catalogued idea correctly: verify at source, work out what the asset
   actually is (an ordering, a distinction, a taxonomy, a measurement, a scar), close the file, and
   write it fresh in the right distribution with the recorded corrections applied.
@@ -128,6 +139,10 @@ Four live in `.claude/skills/`:
   changes nothing about what is enforced, only when you find out — a ruff nit surfacing at
   `poe ci-checks` costs a full gate run and arrives after the reasoning is gone. Type checking and the
   architecture checks stay in the gate, where whole-tree properties belong.
+- **Every session opens with what the project has already learned** (`SessionStart`).
+  `.claude/hooks/lessons_context.py` injects `docs/lessons.md`'s applied rules and its current queue
+  depth, so the loop that improves this repository's own tooling does not depend on anyone
+  remembering that the file exists — which is the failure it exists to prevent.
 - **Writes are refused to `docs/reference/` and to anything resolving through the `reference` symlink**
   (`PreToolUse`). The first is a frozen snapshot the plan cites ~90 times; editing it destroys the
   evidence rather than correcting it. The second is a *different repository*, not under version

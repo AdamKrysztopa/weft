@@ -14,6 +14,7 @@ def _ctx() -> Context:
 
 class _Marker(ExtModel):
     __namespace__ = "test-only"
+    __schema_version__ = "1.0.0"
 
 
 async def test_renderer_joins_nodes_and_records_what_it_dropped_through_the_seam() -> None:

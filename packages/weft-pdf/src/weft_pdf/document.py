@@ -117,13 +117,15 @@ class PdfPages(ExtModel):
     matching root-relative offset rather than the chunk's own local one.
 
     Not `__transient__`: a page boundary is a durable fact about the document,
-    not a working value. A pack wanting nodes carrying it to survive a round
-    trip through `weft-store` calls `weft_store.register_ext_model(PdfPages)`
-    itself — the explicit, second call `weft_store.rehydrate`'s own docstring
-    describes, which is why this distribution does not depend on the store.
+    not a working value. Nodes carrying it survive a round trip through
+    `weft-store` because `weft_pdf.register()` declares it — `registrar.
+    add_ext_model(PdfPages)` — through the same `PackRegistrar` this pack
+    already uses for its two `Extractor` plugins (task 5.2g); this class
+    itself still names no store and this distribution still depends on none.
     """
 
     __namespace__ = "weft-pdf"
+    __schema_version__ = "1.0.0"
 
     backend: str = Field(min_length=1)
     starts: tuple[int, ...] = Field(min_length=1)

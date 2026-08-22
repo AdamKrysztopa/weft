@@ -495,6 +495,15 @@ async def run_command(command_name: str, args: argparse.Namespace, deps: Depende
     already reach a reader" (a router's own `role="route"` scoring call would set it long
     before generation ever starts). `RouteCommand` itself is retired into `AskCommand` in the
     same task — see `weft_cli.commands`'s own module docstring.
+
+    **Task 5.2d's own sixth job: deciding whether a caught `WeftError` reaches `render_refusal`
+    as prose or as `weft_cli.error_envelope.ErrorEnvelope`.** `deps.token_sink` — the real sink
+    this function was handed as a parameter, never `tracked_sink` above, whose whole purpose is
+    the `finally` block's own close-`reason` decision and which carries no opinion about output
+    format — decides it: `isinstance(deps.token_sink, JsonSink)` is the identical global `--json`
+    flag `docs/03-cli.md` -> *Output* already used to build that sink in the first place, so
+    there is no second, independently-set flag for the two to disagree about. See `render_
+    refusal`'s own docstring for what the envelope carries and why.
     """
     # Local imports — see the module docstring's FF8(b) paragraph and the `TYPE_CHECKING`
     # import above: `run_command` is only ever reached for a command that already needed
@@ -529,12 +538,13 @@ async def run_command(command_name: str, args: argparse.Namespace, deps: Depende
     succeeded = False
     failure_reason: str | None = None
     try:
-        gate(instance, command_name, args_instance, yes=yes, policy=deps.permissions)
+        gate(instance, command_name, args_instance, yes=yes, policy=deps.permissions, ctx=ctx)
         outcome = await sealed_run(args_instance, ctx)
         succeeded = True
     except WeftError as exc:
         failure_reason = str(exc)
-        return render_refusal(exc)
+        # Task 5.2d — see this function's own docstring, sixth job.
+        return render_refusal(exc, as_json=isinstance(deps.token_sink, JsonSink))
     finally:
         if succeeded or not tracked_sink.emitted:
             reason = None
@@ -624,7 +634,18 @@ def main() -> None:
         # `dispatch` always returned here, never `weft_cli.exit_codes.exit_code_for`'s
         # per-exception mapping, which is for a *chosen* command's own run, not for building
         # the surface a command is chosen from.
-        print(str(exc), file=sys.stderr)
+        #
+        # Task 5.2d: no `Command` was ever chosen here, so `weft_cli.render.render_refusal`'s
+        # own `CommandRefusalError` branch could never apply — this site builds the identical
+        # envelope directly, from `json_flag` (already known, computed above `build_
+        # dependencies` itself ran) rather than a sink that never got the chance to exist.
+        if json_flag:
+            from weft_cli.error_envelope import build_error_envelope
+
+            envelope = build_error_envelope(exc, exit_code=ExitCode.RESOLUTION_FAILED)
+            print(envelope.model_dump_json())
+        else:
+            print(str(exc), file=sys.stderr)
         sys.exit(int(ExitCode.RESOLUTION_FAILED))
 
     if command_hint is None and not wants_help(argv):

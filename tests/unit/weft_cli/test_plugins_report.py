@@ -10,11 +10,21 @@ operator's pin, so it is installed, active, and one of its plugins is
 unreachable." Covers a displaced entry appearing under its losing
 distribution's own block, and the default empty tuple changing nothing about
 the existing renderers.
+
+**Task 5.2e** adds two more: a pack's `PackReport.deprecations` rendered as a flag beside
+its status (`", deprecated"`, exactly the shape `", ambient"` already takes) plus a detail
+line per surface, and `render_doctor`'s own `skew` parameter — every `weft_cli.skew.
+SkewReport` printed as its own trailing block, the same shape `unconsulted_pins`/`tracing`
+already take.
 """
 
 from weft_cli.plugins_report import render_doctor, render_list
+from weft_cli.skew import SkewReport
 from weft_kernel.discovery import Disclosure, PackReport, PackStatus
+from weft_kernel.pipeline import StageDeclaration
 from weft_kernel.registry import DisplacedRegistration
+from weft_kernel.resolution import Contribution
+from weft_kernel.seam import Deprecation
 
 
 class _Chunker:
@@ -134,3 +144,126 @@ def test_render_doctor_with_no_unconsulted_pins_is_unchanged() -> None:
 
     # Act / Assert
     assert render_doctor(reports) == render_doctor(reports, (), ())
+
+
+def test_render_doctor_reports_tracing_as_its_own_trailing_block() -> None:
+    # Arrange — task 5.1d: the fact answers "are my spans going anywhere?", independent of
+    # any one distribution's own block.
+    reports = (PackReport(distribution="weft-otel", status=PackStatus.ACTIVE, contributed=0),)
+
+    # Act
+    output = render_doctor(reports, (), (), "configured — spans export through weft_otel.")
+    blocks = output.split("\n\n")
+
+    # Assert
+    assert len(blocks) == 2
+    assert blocks[1] == "tracing: configured — spans export through weft_otel."
+
+
+def test_render_doctor_with_no_tracing_is_unchanged() -> None:
+    # Arrange — edge case: the default `tracing=None` must not alter existing output.
+    reports = (PackReport(distribution="weft-store", status=PackStatus.ACTIVE, contributed=1),)
+
+    # Act / Assert
+    assert render_doctor(reports) == render_doctor(reports, (), (), None)
+
+
+def test_render_list_and_doctor_flag_a_deprecated_pack_beside_its_status() -> None:
+    # Arrange — task 5.2e: a flag on an existing status, exactly as `ambient` already is
+    # one, never a new `PackStatus` member.
+    reports = (
+        PackReport(
+            distribution="weft-old",
+            status=PackStatus.ACTIVE,
+            contributed=1,
+            deprecations=(
+                Deprecation(distribution="weft-old", surface="legacy", reason="use 'fast'"),
+            ),
+        ),
+    )
+
+    # Act
+    list_output = render_list(reports)
+    doctor_output = render_doctor(reports)
+
+    # Assert
+    assert list_output == "weft-old: active, deprecated (1 contributed)"
+    assert "weft-old: active, deprecated (1 contributed)" in doctor_output
+    assert "deprecated: 'legacy' — use 'fast'" in doctor_output
+
+
+def test_render_list_and_doctor_do_not_flag_a_pack_with_no_deprecations() -> None:
+    # Arrange — edge case: the default `deprecations=()` must not alter existing output.
+    reports = (PackReport(distribution="weft-store", status=PackStatus.ACTIVE, contributed=1),)
+
+    # Act / Assert
+    assert "deprecated" not in render_list(reports)
+    assert "deprecated" not in render_doctor(reports)
+
+
+def test_render_doctor_reports_skew_as_its_own_trailing_block() -> None:
+    # Arrange — task 5.2e: a fact about the environment, not about any one distribution.
+    reports = (PackReport(distribution="weft-cli", status=PackStatus.ACTIVE, contributed=1),)
+    skew = (
+        SkewReport(
+            requiring_distribution="weft-cli",
+            required_distribution="weft-kernel",
+            specifier=">=0.1.0,<1.0.0",
+            installed_version="9.9.9",
+        ),
+    )
+
+    # Act
+    output = render_doctor(reports, (), (), None, skew)
+    blocks = output.split("\n\n")
+
+    # Assert
+    assert len(blocks) == 2
+    assert blocks[1] == (
+        "version skew — installed does not satisfy a declared specifier:\n"
+        "  'weft-cli' requires 'weft-kernel' >=0.1.0,<1.0.0, but 9.9.9 is installed."
+    )
+
+
+def test_render_doctor_with_no_skew_is_unchanged() -> None:
+    # Arrange — edge case: the default `skew=()` must not alter existing output.
+    reports = (PackReport(distribution="weft-store", status=PackStatus.ACTIVE, contributed=1),)
+
+    # Act / Assert
+    assert render_doctor(reports) == render_doctor(reports, (), (), None, ())
+
+
+def test_render_doctor_flags_a_contribution_that_lands_in_no_pipeline_at_all() -> None:
+    # Arrange — task 5.3a (S8), `02` §3 → *Slots*: "`weft plugins doctor` flags a pack whose
+    # contributions land in *no* pipeline at all."
+    reports = (
+        PackReport(distribution="weft-graph", status=PackStatus.ACTIVE, contributed=1),
+        PackReport(distribution="weft-store", status=PackStatus.ACTIVE, contributed=1),
+    )
+    unreachable = (
+        Contribution(
+            slot="never-declared",
+            distribution="weft-graph",
+            stage=StageDeclaration(id="entities", use="entity-extractor"),
+        ),
+    )
+
+    # Act
+    output = render_doctor(reports, (), (), None, (), unreachable)
+    blocks = output.split("\n\n")
+    graph_block = next(block for block in blocks if block.startswith("weft-graph"))
+    store_block = next(block for block in blocks if block.startswith("weft-store"))
+
+    # Assert — the offering distribution's own block names it; an unrelated one does not.
+    assert "unreachable" in graph_block
+    assert "never-declared" in graph_block
+    assert "entities" in graph_block
+    assert "unreachable" not in store_block
+
+
+def test_render_doctor_with_no_unreachable_contributions_is_unchanged() -> None:
+    # Arrange — edge case: the default `unreachable_contributions=()` must not alter output.
+    reports = (PackReport(distribution="weft-store", status=PackStatus.ACTIVE, contributed=1),)
+
+    # Act / Assert
+    assert render_doctor(reports) == render_doctor(reports, (), (), None, (), ())

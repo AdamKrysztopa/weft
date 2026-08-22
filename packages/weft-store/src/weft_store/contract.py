@@ -95,17 +95,30 @@ from typing import TYPE_CHECKING, ClassVar, NewType, Protocol, runtime_checkable
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from weft_kernel.context import Context
+from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_kernel.payload import Node, NodeId, Outcome, SourceId, Vector
 from weft_kernel.runner import Stage
 
 #: Fitness function 6's subject for the store family — see the module docstring. Moved
 #: `1.0.0` → `1.1.0` at task 2.5, when `TextSearch` joined, and `1.1.0` → `1.2.0` at task 2.6,
 #: when `MetadataFilter` did: the family grew a capability each time, so the constant fitness
-#: function 6 watches has to move with it, and one number covers all four Protocols. **What a
-#: version number *means* is G9's question and G9 is Open** — this records only that the
-#: published surface changed, and nothing here should be read as having settled a
-#: compatibility policy.
-STORE_CONTRACT_VERSION = "1.2.0"
+#: function 6 watches has to move with it, and one number covers every Protocol here. Moved
+#: `1.2.0` → `1.3.0` at task **5.1a**, when `SourceDeletable` joined, and `1.3.0` → `1.4.0` at
+#: task **5.1b**, when `Reconcilable` did — a fifth and a sixth capability, on the identical
+#: footing, each a minor: a capability added without breaking an existing implementation.
+#:
+#: **`1.4.0` → `2.0.0` at task 5.1c — a major, not a minor, and deliberately so.** This move
+#: adds `estimate` to `Reconcilable`, an existing published Protocol, rather than publishing a
+#: new one. `docs/README.md`'s G9 row states the rule this constant now demonstrates: semver is
+#: classified for **two audiences**, and the bump is the maximum of the two — adding a method
+#: is minor for a caller (every existing call site still compiles) and **major for an
+#: implementer** (`PgVectorStore`, `weft_qdrant.store.QdrantStore` and every out-of-tree
+#: `Reconcilable`, whoever wrote it, stop satisfying the Protocol at all until they add the
+#: method). `COMMAND_CONTRACT_VERSION`'s own mis-recorded
+#: 1.1.0, corrected to 2.0.0 in the same session, is the worked example this constant now
+#: repeats honestly the first time, rather than under-recording it as G9's own note warns
+#: against.
+STORE_CONTRACT_VERSION = "2.0.0"
 
 #: Versioned separately from `STORE_CONTRACT_VERSION`: a `Filter` is data that
 #: outlives any one store, serialised into a resolved, stored pipeline. Moved `1.0.0` →
@@ -113,6 +126,13 @@ STORE_CONTRACT_VERSION = "1.2.0"
 #: AST used to accept is now refused, which is a change to what the data *is* and not to any
 #: store that reads it.
 FILTER_AST_VERSION = "1.1.0"
+
+#: The schema version `ReconcileReport` carries **in the data**, per G9 (2026-08-21) — see
+#: `ReconcileReport`'s own docstring for why it is a serialised field and not a `ClassVar`.
+#: Versioned separately from `STORE_CONTRACT_VERSION` for the same reason `FILTER_AST_VERSION`
+#: is: a report a pack persisted outlives the contract version of whatever is installed when
+#: it is read back, and the contract version is not available at the read site at all.
+RECONCILE_REPORT_SCHEMA_VERSION = "1.0.0"
 
 #: An opaque pagination token. Never constructed by a caller — only ever a
 #: value a store previously handed back through `Page.next_cursor`.
@@ -238,6 +258,31 @@ _ORDERED_OPS = frozenset({FilterOp.LT, FilterOp.LTE, FilterOp.GT, FilterOp.GTE})
 _IDENTITY_OPS = frozenset({FilterOp.EQ, FilterOp.NE, FilterOp.IN, FilterOp.CONTAINS})
 
 
+class UnhandledFilterOpError(WeftError, UnresolvedNameError):
+    """A `FilterOp` member no dispatch at this site has been taught to translate.
+
+    `docs/09-release.md` §2.3: *"A version bump does not fix silence, so silence is a
+    separate defect."* Adding a member to `FilterOp` is textbook-additive everywhere it is
+    *declared* — the field still validates, `weft_store.fields` may still admit it — but a
+    dispatch that branches on the operator's identity has no branch for a member it predates,
+    and requirement 5 forbids answering under whichever branch it happens to fall through to.
+    Every dispatch over `FilterOp` in this tree (`Filter._shape_matches_op` here,
+    `weft_store.pgvector_store`'s SQL translator, `weft_qdrant.store`'s Qdrant translator)
+    raises this rather than defaulting, so a 13th member is a refusal everywhere until a
+    person teaches every site about it, never a silent answer at some of them and a refusal
+    at others. `valid_options` names the operators *this site* translates, never the whole
+    enum — the raise is "you added a member and this translator does not know it yet", not
+    "you spelled an operator wrong", so the options are what the reader would have to extend
+    rather than what they could have typed instead. Fitness function 13
+    (`docs/01-high-level-plan.md`) is what proves every site actually raises this rather than
+    only being documented to.
+    """
+
+    def __init__(self, message: str, *, valid_options: tuple[str, ...], pack: str) -> None:
+        super().__init__(message, pack=pack)
+        self.valid_options = valid_options
+
+
 class Filter(BaseModel):
     """A serialisable Pydantic AST — `docs/02-extension-model.md` → *Filters are data*.
 
@@ -269,29 +314,74 @@ class Filter(BaseModel):
 
     @model_validator(mode="after")
     def _shape_matches_op(self) -> "Filter":
-        if self.op in _COMPARISON_OPS:
-            if self.field is None or self.value is None:
-                raise ValueError(f"'{self.op}' filter requires both 'field' and 'value'")
-            if self.clauses:
-                raise ValueError(f"'{self.op}' filter must not carry 'clauses'")
-            self._ordered_comparison_is_over_numbers()
-            self._identity_comparison_is_not_over_floats()
-        elif self.op is FilterOp.EXISTS:
-            if self.field is None:
-                raise ValueError("'exists' filter requires 'field'")
-            if self.value is not None or self.clauses:
-                raise ValueError("'exists' filter must not carry 'value' or 'clauses'")
-        elif self.op in _COMBINATOR_OPS:
-            if len(self.clauses) < 2:  # noqa: PLR2004 - "at least two clauses" is the definition
-                raise ValueError(f"'{self.op}' filter requires at least two 'clauses'")
-            if self.field is not None or self.value is not None:
-                raise ValueError(f"'{self.op}' filter must not carry 'field' or 'value'")
-        else:  # FilterOp.NOT
-            if len(self.clauses) != 1:
-                raise ValueError("'not' filter requires exactly one clause")
-            if self.field is not None or self.value is not None:
-                raise ValueError("'not' filter must not carry 'field' or 'value'")
+        """Refuse a `Filter` whose `field`/`value`/`clauses` do not match what `op` needs.
+
+        **`match`/`case _: raise`, not `if`/`elif`/`else` — task 5.2b.** This validator used
+        to end `else:  # FilterOp.NOT`, which is the exact defect
+        `docs/09-release.md` §2.3 names: a 13th `FilterOp` member would fall into that
+        `else` and be *silently validated as if it were `not`*, accepted with the shape
+        `not` happens to require (exactly one clause, no `field` or `value`) rather than
+        refused for being a member this validator has never seen. A `match` whose final arm
+        is `case _: raise UnhandledFilterOpError(...)` cannot do that: every branch above it
+        names the operators it actually covers, and anything left over is refused by
+        construction rather than by whichever arm happens to run last.
+        """
+        match self.op:
+            case op if op in _COMPARISON_OPS:
+                self._comparison_shape_is_valid()
+            case FilterOp.EXISTS:
+                self._exists_shape_is_valid()
+            case op if op in _COMBINATOR_OPS:
+                self._combinator_shape_is_valid()
+            case FilterOp.NOT:
+                self._not_shape_is_valid()
+            case _:
+                self._raise_unhandled_op()
         return self
+
+    def _comparison_shape_is_valid(self) -> None:
+        """A comparison op names `field` and `value` and carries no `clauses`."""
+        if self.field is None or self.value is None:
+            raise ValueError(f"'{self.op}' filter requires both 'field' and 'value'")
+        if self.clauses:
+            raise ValueError(f"'{self.op}' filter must not carry 'clauses'")
+        self._ordered_comparison_is_over_numbers()
+        self._identity_comparison_is_not_over_floats()
+
+    def _exists_shape_is_valid(self) -> None:
+        """`exists` names only `field` and carries no `value` or `clauses`."""
+        if self.field is None:
+            raise ValueError("'exists' filter requires 'field'")
+        if self.value is not None or self.clauses:
+            raise ValueError("'exists' filter must not carry 'value' or 'clauses'")
+
+    def _combinator_shape_is_valid(self) -> None:
+        """`and`/`or` carry two or more `clauses` and no `field` or `value`."""
+        if len(self.clauses) < 2:  # noqa: PLR2004 - "at least two clauses" is the definition
+            raise ValueError(f"'{self.op}' filter requires at least two 'clauses'")
+        if self.field is not None or self.value is not None:
+            raise ValueError(f"'{self.op}' filter must not carry 'field' or 'value'")
+
+    def _not_shape_is_valid(self) -> None:
+        """`not` carries exactly one clause and no `field` or `value`."""
+        if len(self.clauses) != 1:
+            raise ValueError("'not' filter requires exactly one clause")
+        if self.field is not None or self.value is not None:
+            raise ValueError("'not' filter must not carry 'field' or 'value'")
+
+    def _raise_unhandled_op(self) -> None:
+        """The `case _:` arm of `_shape_matches_op` — see that method's own docstring."""
+        known = sorted(
+            member.value
+            for member in (*_COMPARISON_OPS, FilterOp.EXISTS, *_COMBINATOR_OPS, FilterOp.NOT)
+        )
+        raise UnhandledFilterOpError(
+            f"'{self.op}' is a FilterOp this validator has no shape rule for. Every "
+            f"operator must have one, named here rather than assumed — the operators it "
+            f"knows are: {', '.join(known)}.",
+            valid_options=tuple(known),
+            pack="weft-store",
+        )
 
     def _ordered_comparison_is_over_numbers(self) -> None:
         """Refuse `lt`/`lte`/`gt`/`gte` against anything but a number.
@@ -491,3 +581,177 @@ class MetadataFilter(Protocol):
 
 
 MetadataFilter.version = STORE_CONTRACT_VERSION
+
+
+@runtime_checkable
+class SourceDeletable(Protocol):
+    """Anything holding data that a source's deletion must reach — G7 (2026-08-21).
+
+    The fifth capability in this family, and the only one whose implementors
+    are not expected to be stores. `docs/02-extension-model.md` §1 →
+    *Extended by G7*: `delete_source` sat on `NodeStore` from G4 and nothing
+    in the tree called it, while a pack holding entities derived from nodes
+    would never hear that those nodes were gone. That is the reference's RAPTOR
+    scar — summaries no deletion path can reach — reappearing first-party.
+
+    **A separate Protocol rather than a reuse of `NodeStore`, deliberately.**
+    A graph store is not a node store: asked to implement `NodeStore` it would
+    owe `scan`, `count` and the three source methods to answer one question
+    about deletion, which is exactly the optional-method design this family
+    exists to refuse. One member, and that member *is* the capability — the
+    same rule `MetadataFilter` was corrected into at task 2.6.
+
+    **`NodeStore` satisfies this by construction and that is the point.**
+    `delete_source` is already one of `NodeStore`'s own methods, so every store
+    in this family is a participant with nothing added and nothing declared —
+    capability derived, never declared, which is what makes a fan-out over
+    "everything satisfying `SourceDeletable`" find the node store without
+    naming it.
+
+    **What an implementor promises.** Deletion is idempotent and resumable:
+    deleting a source that is already gone is a legitimate no-op returning
+    `node_count=0`, never an error, because a fan-out re-run after a partial
+    failure must be able to finish the job. What it must *not* do is report
+    success it did not achieve — `weft delete` names a participant that raises,
+    and a participant that swallows its own failure makes that promise
+    unkeepable.
+    """
+
+    if TYPE_CHECKING:
+        #: See `NodeStore.version`'s note above — the same `if TYPE_CHECKING:` mechanism,
+        #: assigned below.
+        version: ClassVar[str]
+
+    async def delete_source(self, source_id: SourceId) -> Removed: ...
+
+
+SourceDeletable.version = STORE_CONTRACT_VERSION
+
+
+class ReconcileMode(StrEnum):
+    """What a reconciliation pass is allowed to do — G7's consent boundary, task **5.1b**.
+
+    `docs/02-extension-model.md` §1: "`repair` removes derived state whose source is gone;
+    `full` also **backfills** state that was never built." Two members and no third, because
+    the distinction being drawn is not a degree of thoroughness but a question of consent:
+    backfill runs model calls and writes, so an *ambient* backfill would silently change what
+    an existing pipeline does by a second route — G3's installed-and-ambient threat wearing a
+    different coat. Which mode a caller may reach, and when, is `03`'s and task 5.1c's;
+    nothing here decides it.
+    """
+
+    REPAIR = "repair"
+    FULL = "full"
+
+
+class ReconcileReport(BaseModel):
+    """What one participant's reconciliation pass did, and whether it finished.
+
+    **`schema_version` is a serialised field, not a `ClassVar`, and that is the whole of
+    G9's ruling applied here.** `docs/02-extension-model.md` §1 → *A schema version is
+    carried in the data*: a report is persisted by any pack that records what it repaired,
+    and at the read site the pack that wrote it may not be installed — so a version read off
+    an importing module would be exactly whatever is installed and could never disagree with
+    it. `Filter.version` is the worked example of getting this wrong: pydantic never
+    serialises a `ClassVar`, so a filter stored inside a pipeline has always carried no
+    version at all. This one is in the bytes.
+
+    **`remaining` is what makes a pass resumable rather than atomic.** `reconcile` is
+    `O(corpus)` and interruptible — `CancelledError` propagates per G6 — so a pass that was
+    cut short returns what it managed, and the work it did not do is still *there*, in
+    whatever durable form the participant reads its own backlog from. `remaining == 0` means
+    converged; anything else means run it again, and running it again is safe because
+    `reconcile` is idempotent.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    schema_version: str = RECONCILE_REPORT_SCHEMA_VERSION
+    mode: ReconcileMode
+    examined: int = 0
+    removed: int = 0
+    backfilled: int = 0
+    remaining: int = 0
+
+    @property
+    def converged(self) -> bool:
+        """Whether this pass finished the job — see `remaining`'s note above."""
+        return self.remaining == 0
+
+
+class ReconcileEstimate(BaseModel):
+    """What converging would cost, asked *before* anything is spent — task **5.1c**.
+
+    `docs/03-cli.md` -> *Command surface*: "`full` states its cost before it spends it" —
+    `weft-graph: 4,312 nodes have no graph data / backfill will make ~4,312 model calls" is
+    the worked example. A caller cannot be told that without asking the participant itself —
+    `list_sources`/`scan`/`count` answer *what should exist*, never *what converging one of
+    them would cost* — so this is the shape `Reconcilable.estimate` returns.
+
+    **Shape, settled against the worked example.** `mode` is the mode being asked about, since
+    the honest answer to "what would converging cost" depends on it — `repair` never backfills,
+    so its own honest `model_calls` is always `0`. `pending` is the count the participant's own
+    prose in `description` is about — `docs/03-cli.md`'s own example counts nodes; a node
+    store's own `reconcile` doctring narrows that to its outstanding tombstones, and `estimate`
+    reports the identical count `reconcile` would examine, never a second, disagreeing figure.
+    `description` is deliberately a bare `str`, not a structured breakdown: `03`'s own example
+    output is one pack's own prose about its own outstanding work ("nodes have no graph data"),
+    and a fixed shape here would either constrain every future `Reconcilable` to one kind of
+    "pending" (nodes? sources? entities?) or force a lossy translation into one. `model_calls`
+    defaults to `0` — honest for every `Reconcilable` this tree ships today, since a node store
+    holds the primary data and has no derived state to backfill (see `PgVectorStore.reconcile`'s
+    own docstring, which owns that argument for both first-party backends) — and is the one
+    field `docs/03-cli.md`'s own example is actually about naming a real number for.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    mode: ReconcileMode
+    pending: int = 0
+    description: str
+    model_calls: int = 0
+
+
+@runtime_checkable
+class Reconcilable(Protocol):
+    """Anything whose state can be made to agree with what the corpus actually holds — G7.
+
+    The sixth capability in this family, and `docs/02-extension-model.md` §1 → *Extended by
+    G7* calls it "the safety net, and it is why there is no bus": a bus reaches only
+    subscribers live when the event fired, so it cannot repair a pack installed *after* the
+    corpus was built, a drain killed mid-flight, or a second machine sharing one database.
+    Convergence can, and it needs nothing new to ask its question — `list_sources`, `scan`
+    and `count` already answer *what should exist*.
+
+    **What an implementor promises.** Idempotent, so a second pass over a converged store is
+    a legitimate no-op. `O(corpus)` and cursored, so it is bounded by what is stored rather
+    than by what changed. Interruptible, with `CancelledError` propagating untouched — and,
+    the clause that gives that meaning, **resumable**: whatever a cancelled pass did not
+    finish must still be discoverable on the next pass, from durable state, never from a
+    cursor that died with the process.
+
+    **`estimate`, task 5.1c, added rather than left optional.** `docs/02-extension-model.md`
+    §3 → *Slots*: "backfill is reached only by a person's per-run flag" — and `03`'s own text
+    adds that the person is told the cost first, in real numbers, not asked to trust a flag
+    blindly. A pack that can converge can say what converging would cost, and CLAUDE.md's own
+    "cross-cutting concerns live at the registration seam, never in a rule authors must
+    remember" is exactly why this is a second required member rather than an optional
+    duck-typed method the way `describe_impact` is for `weft_command.contract.Command`:
+    `describe_impact`'s own absence is silently fine because nothing there is mandatory for
+    every command, while a `Reconcilable` that could not say its own cost would make `03`'s
+    promise one whose truth depends on which packs happened to remember. **This is why
+    `STORE_CONTRACT_VERSION` moves `1.4.0` → `2.0.0`** rather than to `1.5.0` — see that
+    constant's own comment for G9's two-audience rule.
+    """
+
+    if TYPE_CHECKING:
+        #: See `NodeStore.version`'s note above — the same `if TYPE_CHECKING:` mechanism,
+        #: assigned below.
+        version: ClassVar[str]
+
+    async def reconcile(self, ctx: Context, mode: ReconcileMode) -> ReconcileReport: ...
+
+    async def estimate(self, ctx: Context, mode: ReconcileMode) -> ReconcileEstimate: ...
+
+
+Reconcilable.version = STORE_CONTRACT_VERSION

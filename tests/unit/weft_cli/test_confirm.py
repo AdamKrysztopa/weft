@@ -20,6 +20,7 @@ from weft_cli import confirm
 from weft_cli.exit_codes import ExitCode
 from weft_cli.permission_policy import PermissionPolicy
 from weft_command.permission import PermissionClass
+from weft_kernel.context import Context
 
 
 class _Args(BaseModel):
@@ -175,3 +176,113 @@ def test_read_confirmation_treats_end_of_input_as_a_decline(
 
     # Assert
     assert answer == ""
+
+
+class _DescribingCommand(_FakeCommand):
+    """A command that has an optional `describe_impact` — task **5.1a**'s own addition.
+
+    Nothing about it is registered, declared or type-checked as a contract member; `gate`
+    finds it with `getattr` or it does not, which is the whole property under test.
+    """
+
+    def describe_impact(self, args: BaseModel, ctx: Context) -> str:
+        del ctx
+        return f"'{args.model_dump()['collection']}' will be removed from 2 participant(s)."
+
+
+def test_describe_impact_reaches_the_no_tty_refusal(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Arrange
+    monkeypatch.setattr(confirm, "is_interactive", lambda: False)
+    command = _DescribingCommand(PermissionClass.DESTROY)
+
+    # Act
+    with pytest.raises(confirm.CommandRefusalError) as raised:
+        confirm.gate(
+            command,
+            "delete",
+            _Args(),
+            yes=False,
+            policy=PermissionPolicy(),
+            ctx=Context(tenant_id="t", run_id="r", trace_id="tr", locale="en"),
+        )
+
+    # Assert
+    assert "will be removed from 2 participant(s)." in str(raised.value)
+
+
+def test_describe_impact_reaches_the_prompt(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Arrange
+    seen: list[str] = []
+    monkeypatch.setattr(confirm, "is_interactive", lambda: True)
+
+    def _record(prompt: str) -> str:
+        seen.append(prompt)
+        return "y"
+
+    monkeypatch.setattr(confirm, "read_confirmation", _record)
+    command = _DescribingCommand(PermissionClass.DESTROY)
+
+    # Act
+    confirm.gate(
+        command,
+        "delete",
+        _Args(),
+        yes=False,
+        policy=PermissionPolicy(),
+        ctx=Context(tenant_id="t", run_id="r", trace_id="tr", locale="en"),
+    )
+
+    # Assert
+    assert "will be removed from 2 participant(s)." in seen[0]
+
+
+def test_a_command_with_no_describe_impact_keeps_the_floor_text(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arrange
+    monkeypatch.setattr(confirm, "is_interactive", lambda: False)
+    command = _FakeCommand(PermissionClass.DESTROY)
+
+    # Act
+    with pytest.raises(confirm.CommandRefusalError) as raised:
+        confirm.gate(
+            command,
+            "wipe",
+            _Args(),
+            yes=False,
+            policy=PermissionPolicy(),
+            ctx=Context(tenant_id="t", run_id="r", trace_id="tr", locale="en"),
+        )
+
+    # Assert
+    assert "called with {'collection': 'reports'}. It refuses to run" in str(raised.value)
+
+
+def test_an_enum_argument_is_rendered_as_its_value_not_as_its_repr(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Task **5.1b**, found by running `weft reconcile`: a bare `model_dump()` left the
+    `ReconcileMode` member as an object, so the refusal read `{'mode': <ReconcileMode.FULL:
+    'full'>}` — Phase 3's fourth repair recurring one raise site over.
+    """
+
+    # Arrange
+    class _EnumArgs(BaseModel):
+        model_config = ConfigDict(frozen=True, extra="forbid")
+
+        mode: PermissionClass = PermissionClass.DESTROY
+
+    monkeypatch.setattr(confirm, "is_interactive", lambda: False)
+
+    # Act
+    with pytest.raises(confirm.CommandRefusalError) as raised:
+        confirm.gate(
+            _FakeCommand(PermissionClass.DESTROY),
+            "wipe",
+            _EnumArgs(),
+            yes=False,
+            policy=PermissionPolicy(),
+        )
+
+    # Assert
+    assert "called with {'mode': 'destroy'}" in str(raised.value)

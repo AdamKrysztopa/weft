@@ -97,7 +97,7 @@ async def run(
 
 **Module:** `weft_command.contract`  
 **Registered by:** `weft-cli`  
-**Version:** `1.1.0`
+**Version:** `2.0.0`
 
 One CLI-invoked action a pack contributes, registered exactly as it registers a retriever.
 
@@ -361,7 +361,7 @@ async def stream(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-qdrant`, `weft-store`  
-**Version:** `1.2.0`
+**Version:** `2.0.0`
 
 A store that can evaluate a whole `Filter` against what it holds.
 
@@ -442,7 +442,7 @@ async def complete_structured(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-qdrant`, `weft-store`  
-**Version:** `1.2.0`
+**Version:** `2.0.0`
 
 The base every store implements all of — see the module docstring for `run`.
 
@@ -582,6 +582,55 @@ the reference defect the invariant closes.
 async def run(
     self, payload: weft_retrieve.payload.QuerySet, ctx: weft_kernel.context.Context
 ) -> weft_kernel.payload.outcome.Outcome[weft_retrieve.payload.QuerySet]: ...
+```
+
+## `Reconcilable`
+
+**Module:** `weft_store.contract`  
+**Registered by:** `weft-qdrant`, `weft-store`  
+**Version:** `2.0.0`
+
+Anything whose state can be made to agree with what the corpus actually holds — G7.
+
+The sixth capability in this family, and `docs/02-extension-model.md` §1 → *Extended by
+G7* calls it "the safety net, and it is why there is no bus": a bus reaches only
+subscribers live when the event fired, so it cannot repair a pack installed *after* the
+corpus was built, a drain killed mid-flight, or a second machine sharing one database.
+Convergence can, and it needs nothing new to ask its question — `list_sources`, `scan`
+and `count` already answer *what should exist*.
+
+**What an implementor promises.** Idempotent, so a second pass over a converged store is
+a legitimate no-op. `O(corpus)` and cursored, so it is bounded by what is stored rather
+than by what changed. Interruptible, with `CancelledError` propagating untouched — and,
+the clause that gives that meaning, **resumable**: whatever a cancelled pass did not
+finish must still be discoverable on the next pass, from durable state, never from a
+cursor that died with the process.
+
+**`estimate`, task 5.1c, added rather than left optional.** `docs/02-extension-model.md`
+§3 → *Slots*: "backfill is reached only by a person's per-run flag" — and `03`'s own text
+adds that the person is told the cost first, in real numbers, not asked to trust a flag
+blindly. A pack that can converge can say what converging would cost, and CLAUDE.md's own
+"cross-cutting concerns live at the registration seam, never in a rule authors must
+remember" is exactly why this is a second required member rather than an optional
+duck-typed method the way `describe_impact` is for `weft_command.contract.Command`:
+`describe_impact`'s own absence is silently fine because nothing there is mandatory for
+every command, while a `Reconcilable` that could not say its own cost would make `03`'s
+promise one whose truth depends on which packs happened to remember. **This is why
+`STORE_CONTRACT_VERSION` moves `1.4.0` → `2.0.0`** rather than to `1.5.0` — see that
+constant's own comment for G9's two-audience rule.
+
+### Methods
+
+```python
+async def estimate(
+    self, ctx: weft_kernel.context.Context, mode: weft_store.contract.ReconcileMode
+) -> weft_store.contract.ReconcileEstimate: ...
+```
+
+```python
+async def reconcile(
+    self, ctx: weft_kernel.context.Context, mode: weft_store.contract.ReconcileMode
+) -> weft_store.contract.ReconcileReport: ...
 ```
 
 ## `Renderer`
@@ -728,6 +777,51 @@ async def run(
 ) -> weft_kernel.payload.outcome.Outcome[weft_retrieve.payload.Route]: ...
 ```
 
+## `SourceDeletable`
+
+**Module:** `weft_store.contract`  
+**Registered by:** `weft-qdrant`, `weft-store`  
+**Version:** `2.0.0`
+
+Anything holding data that a source's deletion must reach — G7 (2026-08-21).
+
+The fifth capability in this family, and the only one whose implementors
+are not expected to be stores. `docs/02-extension-model.md` §1 →
+*Extended by G7*: `delete_source` sat on `NodeStore` from G4 and nothing
+in the tree called it, while a pack holding entities derived from nodes
+would never hear that those nodes were gone. That is the reference's RAPTOR
+scar — summaries no deletion path can reach — reappearing first-party.
+
+**A separate Protocol rather than a reuse of `NodeStore`, deliberately.**
+A graph store is not a node store: asked to implement `NodeStore` it would
+owe `scan`, `count` and the three source methods to answer one question
+about deletion, which is exactly the optional-method design this family
+exists to refuse. One member, and that member *is* the capability — the
+same rule `MetadataFilter` was corrected into at task 2.6.
+
+**`NodeStore` satisfies this by construction and that is the point.**
+`delete_source` is already one of `NodeStore`'s own methods, so every store
+in this family is a participant with nothing added and nothing declared —
+capability derived, never declared, which is what makes a fan-out over
+"everything satisfying `SourceDeletable`" find the node store without
+naming it.
+
+**What an implementor promises.** Deletion is idempotent and resumable:
+deleting a source that is already gone is a legitimate no-op returning
+`node_count=0`, never an error, because a fan-out re-run after a partial
+failure must be able to finish the job. What it must *not* do is report
+success it did not achieve — `weft delete` names a participant that raises,
+and a participant that swallows its own failure makes that promise
+unkeepable.
+
+### Methods
+
+```python
+async def delete_source(
+    self, source_id: weft_kernel.payload.ids.SourceId
+) -> weft_store.contract.Removed: ...
+```
+
 ## `Sufficiency`
 
 **Module:** `weft_retrieve.contract`  
@@ -761,7 +855,7 @@ async def assess(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-store`  
-**Version:** `1.2.0`
+**Version:** `2.0.0`
 
 A store that can rank `Node`s by lexical match on their own text.
 
@@ -803,7 +897,7 @@ async def search_text(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-qdrant`, `weft-store`  
-**Version:** `1.2.0`
+**Version:** `2.0.0`
 
 A store that can rank `Node`s by vector similarity. Never embeds — `02`: "stores never
 embed. `VectorSearch` takes a vector, `TextSearch` takes text; a store is therefore not

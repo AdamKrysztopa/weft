@@ -15,6 +15,7 @@ class WordCount(ExtModel):
     """This pack's own namespaced fact: how many whitespace-separated words `content` has."""
 
     __namespace__ = "weft-example-ingest"
+    __schema_version__ = "1.0.0"
 
     count: int
 

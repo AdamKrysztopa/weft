@@ -1,9 +1,9 @@
 [project]
 name = "weft-canary"
-version = "0.0.0"
+version = "0.1.0"
 description = "Test-only distribution for fitness function 8. Never published."
 requires-python = ">=3.12"
-dependencies = ["weft-kernel", "pydantic>=2"]
+dependencies = ["weft-kernel>=0.1.0,<1.0.0", "pydantic>=2"]
 
 # The one entry point a pack declares (`docs/02-extension-model.md` section 2).
 # Fitness function 8(a) needs a *real* installed pack to refuse, so this

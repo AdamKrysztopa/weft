@@ -29,23 +29,22 @@ rejected: it is exactly the "second dispatch path" this task's own brief refuses
 would also have to duplicate `init`/`config get`'s own argument grammar by hand, the "no
 hand-written table" rule applied to itself.
 
-**`weft pipeline show`/`validate`/`diff`/`derive` all resolve against `weft_kernel.
-resolution.resolve` with `contributions=()`, its own default — never a caller-assembled
-`Contribution` tuple.** Nothing in this tree builds one yet: a grep of `packages/` finds no
-`PackRegistrar.add_contribution`-shaped method and no call site that ever constructs
-`weft_kernel.resolution.Contribution` outside that module's own tests — slot-contribution
-discovery (`02` §3 → *Slots*: "a pack may... contribute into a slot a pipeline opted into")
-has no wiring from an installed pack's `register()` call to a resolved pipeline anywhere in
-this repository, first-party or not. That is a real, named gap for whichever task first
-ships a pack that contributes into a slot (`weft-graph`, per `02` §4's own worked example,
-is the natural first caller) — not this one's to build. What this task *does* build is the
-**print path**: `weft_kernel.resolution.ResolvedPipeline.unapplied_operators`/
-`unplaced_contributions` are carried straight onto `PipelineShowCommandResult` and rendered
-(`weft_cli.render`), honestly empty today because nothing supplies a contribution to have
-one to report, exactly as `weft_kernel.resolution`'s own module docstring already states for
-itself: "`unapplied_operators` stays empty even now... task 1.11 gives them something to
-hold." `docs/03-cli.md` calls printing them "the only way they are visible" — this module is
-what makes that true the day a pack finally does supply one, with no CLI-side change needed.
+**`weft pipeline show`/`validate`/`diff` all resolve against `weft_kernel.resolution.resolve`
+with `contributions=deps.contributions`** — task **5.3a** (`S8`), corrected from this
+paragraph's own former claim that the caller `weft_kernel.resolution.Contribution`'s
+docstring describes "does not exist." It does now: `weft_kernel.discovery.PackRegistrar.
+add_contribution` is a pack's own producing side, `weft_cli.registry_bootstrap.
+build_dependencies` is the one assembly point, and this module is one of three call sites
+that receive the result — see that module's own docstring for the other two
+(`weft_cli.ingest`, `weft_cli.route_ask`). `derive` resolves nothing at all; it scaffolds a
+document and stops (see `PipelineDeriveCommand`'s own docstring), so it was never part of
+this claim despite this paragraph's own former heading listing it as though it were. The
+**print path** this task's own predecessor (3.7) already built needed no change to become
+true rather than aspirational: `weft_kernel.resolution.ResolvedPipeline.unapplied_operators`/
+`unplaced_contributions` were already carried straight onto `PipelineShowCommandResult` and
+rendered (`weft_cli.render`) — honestly empty before this task because nothing supplied a
+contribution to have one to report, and now genuinely populated the moment an installed
+pack's own contribution lands somewhere, or nowhere, in the pipeline being shown.
 
 **`weft pipeline derive` writes the smallest legal derived pipeline, and nothing more.**
 `02` §3 → *Derivation*: "The parent is referenced, never copied... `extends: base`... That
@@ -248,8 +247,16 @@ def _resolved_or_refuse(
             pipeline=name,
             remedy=f"use one of: {', '.join(options) or '(none — no pipeline is known yet)'}.",
         )
-    contracts = contracts_for(pipeline, registry=deps.registry, parents=catalogue)
-    return resolve(pipeline, registry=deps.registry, contracts=contracts, parents=catalogue)
+    contracts = contracts_for(
+        pipeline, registry=deps.registry, parents=catalogue, contributions=deps.contributions
+    )
+    return resolve(
+        pipeline,
+        registry=deps.registry,
+        contracts=contracts,
+        parents=catalogue,
+        contributions=deps.contributions,
+    )
 
 
 class PipelineListCommand:

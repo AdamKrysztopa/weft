@@ -12,7 +12,9 @@ from weft_store.contract import (
     FilterOp,
     MetadataFilter,
     NodeStore,
+    ReconcileMode,
     SourceRecord,
+    SourceStatus,
     TextSearch,
     VectorSearch,
 )
@@ -154,3 +156,46 @@ def test_store_satisfies_the_whole_capability_family_structurally() -> None:
     assert isinstance(store, VectorSearch)
     assert isinstance(store, TextSearch)
     assert isinstance(store, MetadataFilter)
+
+
+async def test_reconcile_finishes_a_deletion_that_was_interrupted() -> None:
+    """`Reconcilable` from a stranger's own pack — the backlog is the tombstone, so the pass
+    that finds it finishes it and the next one has nothing to do.
+    """
+    # Arrange — a source whose deletion began, and two nodes it should have taken.
+    store = InMemoryNodeStore()
+    await store.add(
+        (
+            Node.synthetic(
+                content="one",
+                media_type=MediaType.TEXT,
+                reason="t",
+                sources=frozenset({SourceId("src-a")}),
+            ),
+            Node.synthetic(
+                content="two",
+                media_type=MediaType.TEXT,
+                reason="t",
+                sources=frozenset({SourceId("src-a")}),
+            ),
+        )
+    )
+    await store.put_source(
+        SourceRecord(
+            id=SourceId("src-a"),
+            uri="file:///a.txt",
+            content_hash="h",
+            indexed_at=datetime.now(UTC),
+            pipeline="example",
+            status=SourceStatus.DELETING,
+        )
+    )
+
+    # Act
+    first = await store.reconcile(_ctx(), ReconcileMode.REPAIR)
+    second = await store.reconcile(_ctx(), ReconcileMode.FULL)
+
+    # Assert
+    assert (first.examined, first.removed, first.converged) == (1, 2, True)
+    assert (second.examined, second.removed, second.backfilled) == (0, 0, 0)
+    assert await store.count() == 0

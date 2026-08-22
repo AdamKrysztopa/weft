@@ -112,10 +112,20 @@ discovered by a stranger long after the author who could have been told at regis
 Declared under `if TYPE_CHECKING:`, exactly like `version` and `required_declarations` themselves
 — never a required `isinstance` member, for the same reason `permission_class` is not one: refusing
 at registration means refusing before any instance exists to check, and `hasattr` on the class is
-the only test available at that point. `COMMAND_CONTRACT_VERSION` moves to `"1.1.0"`: a genuine
-shape addition an existing implementation must now also satisfy, not a patch — G9 (what a version
-*means*) is still open, so this is the mechanical fact of a changed required-declaration set,
-nothing more.
+the only test available at that point.
+
+**`COMMAND_CONTRACT_VERSION` was recorded as `"1.1.0"` here, and that was a mis-recorded major —
+corrected to `"2.0.0"` at task **5.2a**, per `docs/README.md` → G9's settled two-audience rule
+(`docs/09-release.md` §2.3).** Adding `help` to `required_declarations` is a minor change for a
+*caller* — nothing that only ever reads a `Command` through this Protocol changes — but a **major**
+change for an *implementer*: every existing `Command` that does not already declare `help` breaks
+at registration, loudly, the instant this contract is depended on at the corrected range. G9's
+table classifies exactly this row ("add a name to `required_declarations`") as `—` / **major** /
+**major**, and the bump a Protocol change takes is the maximum of the two audiences, never the
+caller's alone. At the time this docstring first recorded `"1.1.0"`, G9 had not yet settled that
+rule, so the bump was chosen from the caller's side only; it is corrected here rather than left
+mis-recorded once the rule existed to correct it against — the identical honesty G9's own settled
+row applies to itself.
 """
 
 from typing import TYPE_CHECKING, ClassVar, Protocol, runtime_checkable
@@ -126,8 +136,9 @@ from weft_kernel.context import Context
 from weft_kernel.payload import Outcome
 
 #: Fitness function 6's subject for this contract — see the module docstring's note on the
-#: 3.2 bump to "1.1.0", when `help` joined `required_declarations`.
-COMMAND_CONTRACT_VERSION = "1.1.0"
+#: correction at task 5.2a: the 3.2 bump to "1.1.0" (when `help` joined `required_declarations`)
+#: was a mis-recorded major, per G9's two-audience rule, corrected to "2.0.0".
+COMMAND_CONTRACT_VERSION = "2.0.0"
 
 
 class CommandResult(BaseModel):

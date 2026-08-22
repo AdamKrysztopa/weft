@@ -1,6 +1,6 @@
 [project]
 name = "weft-qdrant"
-version = "0.0.0"
+version = "0.1.0"
 description = "First-party Qdrant store pack. Registers under the store contract family weft-store publishes."
 requires-python = ">=3.12"
 # `qdrant-client` is Apache-2.0, so it widens nothing an MIT library asks of the people
@@ -18,7 +18,7 @@ requires-python = ">=3.12"
 # warning itself is something they *can* act on: align the server and the client. The dev
 # environment's own alignment with `compose.yaml` lives in the workspace root's
 # `[tool.uv] constraint-dependencies`, where a fixture pin belongs.
-dependencies = ["weft-kernel", "weft-store", "qdrant-client>=1.12"]
+dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-store>=2.0.0,<3.0.0", "qdrant-client>=1.12"]
 
 # The one entry point a pack declares (`docs/02-extension-model.md` section 2).
 [project.entry-points."weft.packs"]

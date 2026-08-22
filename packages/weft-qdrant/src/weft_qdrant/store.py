@@ -76,10 +76,14 @@ from weft_store.contract import (
     FilterOp,
     FilterValue,
     Page,
+    ReconcileEstimate,
+    ReconcileMode,
+    ReconcileReport,
     Removed,
     Scored,
     SourceRecord,
     SourceStatus,
+    UnhandledFilterOpError,
 )
 from weft_store.fields import field_for
 from weft_store.rehydrate import rehydrate_ext
@@ -281,6 +285,74 @@ class QdrantStore:
         )
         return Removed(source_id=source_id, node_count=counted.count)
 
+    async def reconcile(self, ctx: Context, mode: ReconcileMode) -> ReconcileReport:
+        """Finish every deletion that was interrupted — `Reconcilable`, task **5.1b**.
+
+        The same convergence `weft_store.pgvector_store.PgVectorStore.reconcile` performs, and
+        the same argument for why a *node* store converges tombstones rather than orphans; see
+        that method's docstring, which owns the reasoning for both. What differs is only what
+        this backend's tombstones are: a source record in the second, vector-less collection
+        whose `status` is `deleting`, left behind by a `delete_source` that got as far as
+        writing it and no further.
+
+        `list_sources` already walks that collection in id order, so the backlog is read with
+        the method this store publishes rather than a second traversal that could disagree
+        with it.
+        """
+        del ctx
+        client = await self._connection()
+        examined = 0
+        removed = 0
+        for record in await self._tombstoned():
+            carries = models.Filter(
+                must=[
+                    models.FieldCondition(
+                        key="lineage.sources", match=models.MatchValue(value=record.id)
+                    )
+                ]
+            )
+            counted = await client.count(self._nodes, count_filter=carries, exact=True)
+            await client.delete(
+                self._nodes, points_selector=models.FilterSelector(filter=carries), wait=True
+            )
+            await client.delete(
+                self._sources,
+                points_selector=models.PointIdsList(points=[str(_point_id(record.id))]),
+                wait=True,
+            )
+            examined += 1
+            removed += counted.count
+        return ReconcileReport(
+            mode=mode,
+            examined=examined,
+            removed=removed,
+            remaining=len(await self._tombstoned()),
+        )
+
+    async def estimate(self, ctx: Context, mode: ReconcileMode) -> ReconcileEstimate:
+        """What converging would cost — `Reconcilable`, task **5.1c**.
+
+        The same convergence `weft_store.pgvector_store.PgVectorStore.estimate` reports, and
+        the same argument for why: a node store holds the primary data, so `model_calls` is
+        honestly `0` for either mode, and `pending` is the identical tombstone count
+        `reconcile` itself would examine — see that method's own docstring, which owns the
+        reasoning for both backends.
+        """
+        del ctx
+        pending = len(await self._tombstoned())
+        description = (
+            f"{pending} source(s) have an unfinished deletion to finish"
+            if pending
+            else "no unfinished deletions; nothing to converge"
+        )
+        return ReconcileEstimate(mode=mode, pending=pending, description=description)
+
+    async def _tombstoned(self) -> tuple[SourceRecord, ...]:
+        """Every source record whose deletion started and did not finish, in id order."""
+        return tuple(
+            record for record in await self.list_sources() if record.status is SourceStatus.DELETING
+        )
+
     async def scan(self, cursor: Cursor | None = None) -> Page[Node]:
         return await self._walk(None, cursor)
 
@@ -385,6 +457,25 @@ class QdrantStore:
             self._client = None
 
 
+#: The nine operators that reach a single leaf condition rather than combining others —
+#: `_COMPARISON_OPS | {EXISTS}` in `weft_store.contract`'s own naming, restated here by hand
+#: rather than imported, because that constant is private to the module that owns the whole
+#: vocabulary and this pack only needs to know which nine are *its* leaves.
+_LEAF_OPS = frozenset(
+    {
+        FilterOp.EQ,
+        FilterOp.NE,
+        FilterOp.IN,
+        FilterOp.LT,
+        FilterOp.LTE,
+        FilterOp.GT,
+        FilterOp.GTE,
+        FilterOp.EXISTS,
+        FilterOp.CONTAINS,
+    }
+)
+
+
 def to_qdrant_filter(filter: Filter) -> models.Filter:
     """A `Filter` as Qdrant's own filter, with `weft_store.fields`' meanings preserved.
 
@@ -396,46 +487,89 @@ def to_qdrant_filter(filter: Filter) -> models.Filter:
     Every refusal this makes is made for it by `weft_store.fields.field_for`, so
     an operator typing a path no node has, or an operator no field can carry, gets
     the same error from either backend.
+
+    **`match`/`case _: raise`, not `if`/`elif`/bare fallthrough — task 5.2b.** The final
+    line used to be `return models.Filter(must=[_condition(filter)])` with no guard at
+    all: any operator that was not `and`/`or`/`not` fell there, leaf or not. A 13th
+    `FilterOp` member that turned out to be a *second* combinator would have been routed
+    into `_condition` as if it were a leaf, which reads `filter.clauses` and, seeing it
+    non-empty, calls back into this function — a mutual-recursion loop neither function's
+    tests could have shown, because it does not exist for any operator this enum has
+    today. `case op if op in _LEAF_OPS` names exactly the nine operators this branch is
+    correct for; `case _: raise` is what makes "not `and`/`or`/`not`" and "is a leaf" stop
+    being treated as the same fact.
     """
-    if filter.op is FilterOp.AND:
-        return models.Filter(must=[_condition(clause) for clause in filter.clauses])
-    if filter.op is FilterOp.OR:
-        return models.Filter(should=[_condition(clause) for clause in filter.clauses])
-    if filter.op is FilterOp.NOT:
-        return models.Filter(must_not=[_condition(filter.clauses[0])])
-    return models.Filter(must=[_condition(filter)])
+    match filter.op:
+        case FilterOp.AND:
+            return models.Filter(must=[_condition(clause) for clause in filter.clauses])
+        case FilterOp.OR:
+            return models.Filter(should=[_condition(clause) for clause in filter.clauses])
+        case FilterOp.NOT:
+            return models.Filter(must_not=[_condition(filter.clauses[0])])
+        case op if op in _LEAF_OPS:
+            return models.Filter(must=[_condition(filter)])
+        case _:
+            raise UnhandledFilterOpError(
+                f"weft-qdrant's filter translator has no top-level case for '{filter.op}'. "
+                f"It translates the combinators 'and', 'or', 'not' and the leaf operators "
+                f"{', '.join(sorted(member.value for member in _LEAF_OPS))}.",
+                valid_options=("and", "or", "not", *sorted(member.value for member in _LEAF_OPS)),
+                pack="weft-qdrant",
+            )
 
 
 def _condition(filter: Filter) -> models.Condition:
-    """One clause as a Qdrant condition — a nested filter where the shape needs one."""
+    """One clause as a Qdrant condition — a nested filter where the shape needs one.
+
+    **`match`/`case _: raise` — task 5.2b.** The final arm used to be an unconditional
+    `return matched` reached by anything that was not `exists`, an ordered op or `in` —
+    which is correct only because today's remaining two leaf operators, `eq` and
+    `contains`, both want an unadorned `MatchValue` and `ne` is peeled off one line above
+    it. An operator added to this leaf set tomorrow that wanted a third shape would
+    silently be answered as `eq` instead, which is `docs/09-release.md` §2.3's own worked
+    example: "`weft_qdrant.store` reinterprets an unknown `FilterOp` as `eq` in
+    `_condition`."
+    """
     if filter.clauses:
         return to_qdrant_filter(filter)
     key = filter.field or ""
     field_for(filter.op, key)  # refuses an unaddressable path or an operator it cannot carry
     value = filter.value
-    if filter.op is FilterOp.EXISTS:
-        # `is_empty` is true for a key that is missing, null, or an empty array — the same
-        # three cases `weft_store.pgvector_store` spells out in SQL, which is what makes
-        # "this node has that field" one question rather than two.
-        return models.Filter(
-            must_not=[models.IsEmptyCondition(is_empty=models.PayloadField(key=key))]
-        )
-    if filter.op in _ORDERED_OPS:
-        return models.FieldCondition(key=key, range=_range(filter.op, _as_number(value)))
-    if filter.op is FilterOp.IN:
-        wanted = value if isinstance(value, tuple) else (value,)
-        # The driver types `any` as a list of one strict scalar type; a `FilterValue` tuple
-        # is already homogeneous by the time it reaches here, and the cast says so rather
-        # than rebuilding the list under a type this module cannot narrow to.
-        return models.FieldCondition(
-            key=key, match=models.MatchAny(any=cast("models.AnyVariants", list(wanted)))
-        )
-    matched = models.FieldCondition(key=key, match=models.MatchValue(value=_as_scalar(value)))
-    if filter.op is FilterOp.NE:
-        return models.Filter(must_not=[matched])
-    # `eq` and `contains` are one condition here, and deliberately: Qdrant matches a payload
-    # array element-wise, which is the rule `weft_store.fields` states for every store.
-    return matched
+    match filter.op:
+        case FilterOp.EXISTS:
+            # `is_empty` is true for a key that is missing, null, or an empty array — the
+            # same three cases `weft_store.pgvector_store` spells out in SQL, which is what
+            # makes "this node has that field" one question rather than two.
+            return models.Filter(
+                must_not=[models.IsEmptyCondition(is_empty=models.PayloadField(key=key))]
+            )
+        case op if op in _ORDERED_OPS:
+            return models.FieldCondition(key=key, range=_range(filter.op, _as_number(value)))
+        case FilterOp.IN:
+            wanted = value if isinstance(value, tuple) else (value,)
+            # The driver types `any` as a list of one strict scalar type; a `FilterValue`
+            # tuple is already homogeneous by the time it reaches here, and the cast says
+            # so rather than rebuilding the list under a type this module cannot narrow to.
+            return models.FieldCondition(
+                key=key, match=models.MatchAny(any=cast("models.AnyVariants", list(wanted)))
+            )
+        case FilterOp.NE:
+            matched = models.FieldCondition(
+                key=key, match=models.MatchValue(value=_as_scalar(value))
+            )
+            return models.Filter(must_not=[matched])
+        case FilterOp.EQ | FilterOp.CONTAINS:
+            # `eq` and `contains` are one condition here, and deliberately: Qdrant matches
+            # a payload array element-wise, which is the rule `weft_store.fields` states
+            # for every store.
+            return models.FieldCondition(key=key, match=models.MatchValue(value=_as_scalar(value)))
+        case _:
+            raise UnhandledFilterOpError(
+                f"weft-qdrant's leaf-condition translator has no case for '{filter.op}'. It "
+                f"knows: {', '.join(sorted(member.value for member in _LEAF_OPS))}.",
+                valid_options=tuple(sorted(member.value for member in _LEAF_OPS)),
+                pack="weft-qdrant",
+            )
 
 
 #: The four operators Qdrant answers with a `Range` rather than a match.
@@ -448,14 +582,29 @@ def _range(op: FilterOp, bound: float) -> models.Range:
     Four branches rather than a keyword table: `Range`'s four fields are separately
     typed, and building it by unpacking a `{name: value}` mapping types the value
     as whatever the first field happens to be.
+
+    **`match`/`case _: raise` — task 5.2b.** The final branch used to be a bare
+    `return models.Range(gte=bound)`, so any operator besides `lt`/`lte`/`gt` — reachable
+    only through `_ORDERED_OPS`, whose own membership check is what made "the other
+    three" mean exactly `gte` and nothing else — answered as `gte` instead of refusing.
+    `docs/09-release.md` §2.3's own words for this: "as `gte` in `_range`."
     """
-    if op is FilterOp.LT:
-        return models.Range(lt=bound)
-    if op is FilterOp.LTE:
-        return models.Range(lte=bound)
-    if op is FilterOp.GT:
-        return models.Range(gt=bound)
-    return models.Range(gte=bound)
+    match op:
+        case FilterOp.LT:
+            return models.Range(lt=bound)
+        case FilterOp.LTE:
+            return models.Range(lte=bound)
+        case FilterOp.GT:
+            return models.Range(gt=bound)
+        case FilterOp.GTE:
+            return models.Range(gte=bound)
+        case _:
+            raise UnhandledFilterOpError(
+                f"weft-qdrant's range translator has no case for '{op}'. It knows: gt, gte, "
+                f"lt, lte.",
+                valid_options=("gt", "gte", "lt", "lte"),
+                pack="weft-qdrant",
+            )
 
 
 def _as_number(value: FilterValue | None) -> float:

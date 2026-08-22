@@ -1,5 +1,6 @@
 """`InMemoryNodeStore` — a stranger's whole store family: `NodeStore`, `VectorSearch`,
-`TextSearch` and `MetadataFilter`, all four, over one process-lifetime Python dict.
+`TextSearch`, `MetadataFilter`, `SourceDeletable` and `Reconcilable`, all six, over one
+process-lifetime Python dict.
 
 **`Lifetime.PROCESS`, stated as the deliberate choice it is.** A plugin defaults to
 `Lifetime.RUN` — a fresh instance per pipeline run — which is exactly right for
@@ -36,6 +37,9 @@ from weft_store.contract import (
     Filter,
     FilterOp,
     Page,
+    ReconcileEstimate,
+    ReconcileMode,
+    ReconcileReport,
     Removed,
     Scored,
     SourceRecord,
@@ -46,8 +50,12 @@ from weft_store.fields import FieldKind, FieldPath, field_for
 
 class InMemoryNodeStore:
     """The whole store family over a plain `dict`. Satisfies `weft_store.contract.NodeStore`,
-    `VectorSearch`, `TextSearch` and `MetadataFilter` structurally — this class never imports
-    any of them.
+    `VectorSearch`, `TextSearch`, `MetadataFilter`, `SourceDeletable` and `Reconcilable`
+    structurally — this class never imports any of them. The last two arrived with G7 at tasks
+    5.1a and 5.1b, and `SourceDeletable` needed no code at all: `delete_source` was already
+    here, which is what "capability is derived, never declared" buys a pack author.
+    `Reconcilable` grew `estimate` at task 5.1c, a major bump for every implementer per G9 —
+    this stranger's own update is one small, honest method, not a rewrite.
     """
 
     lifetime: ClassVar[Lifetime] = Lifetime.PROCESS
@@ -86,6 +94,59 @@ class InMemoryNodeStore:
             del self._nodes[node_id]
         self._sources.pop(source_id, None)
         return Removed(source_id=source_id, node_count=len(removed))
+
+    async def reconcile(self, ctx: Context, mode: ReconcileMode) -> ReconcileReport:
+        """`Reconcilable` — finish every deletion this store started and did not end.
+
+        A stranger's whole convergence, and it is short for the reason the contract is worth
+        having: the backlog is *state this store already keeps*, the `DELETING` tombstones
+        `delete_source` above writes, so a pass that stops early loses nothing and the next
+        one finds exactly what is left. Nothing here is derived from a cursor, which is what
+        `02` §1 means by "resumes rather than restarting".
+
+        `full` backfills nothing, and that is honest rather than lazy: this store holds the
+        primary nodes, so it has no derived state that was never built.
+        """
+        del ctx
+        removed = 0
+        examined = 0
+        for source_id in tuple(self._tombstoned()):
+            gone = tuple(
+                node_id
+                for node_id, node in self._nodes.items()
+                if source_id in node.lineage.sources
+            )
+            for node_id in gone:
+                del self._nodes[node_id]
+            self._sources.pop(source_id, None)
+            examined += 1
+            removed += len(gone)
+        return ReconcileReport(
+            mode=mode, examined=examined, removed=removed, remaining=len(tuple(self._tombstoned()))
+        )
+
+    async def estimate(self, ctx: Context, mode: ReconcileMode) -> ReconcileEstimate:
+        """`Reconcilable.estimate` — what converging would cost, task **5.1c**.
+
+        Honest for the same reason `reconcile` above is: this store holds the primary nodes,
+        never derived state, so `model_calls` is `0` whichever mode is asked about. `pending`
+        is the identical tombstone count `reconcile` itself would examine.
+        """
+        del ctx
+        pending = len(self._tombstoned())
+        description = (
+            f"{pending} source(s) have an unfinished deletion to finish"
+            if pending
+            else "no unfinished deletions; nothing to converge"
+        )
+        return ReconcileEstimate(mode=mode, pending=pending, description=description)
+
+    def _tombstoned(self) -> tuple[SourceId, ...]:
+        return tuple(
+            source_id
+            for source_id, record in self._sources.items()
+            if record.status is SourceStatus.DELETING
+        )
 
     async def scan(self, cursor: Cursor | None = None) -> Page[Node]:
         del cursor  # a single in-memory page holds the whole corpus — no real pagination

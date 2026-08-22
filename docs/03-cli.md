@@ -94,6 +94,9 @@ weft eval compare <a> <b>          diff two persisted runs' pipelines and their 
 weft eval metrics [--name <name>]  which registered metrics run in the deterministic gate
                                     subset — no credentials, no network — or ask about one
 weft trace <run-id>            print what one persisted run recorded
+weft delete <source-id>        remove a source and everything derived from it, everywhere
+weft reconcile [--mode repair|full] [--dry-run]
+                               converge derived state against the corpus
 weft config get|set
 ```
 
@@ -115,6 +118,118 @@ Two of these carry weight beyond their size:
   plugins is unreachable. And a pack whose **contributions land in no pipeline at all**, because no
   available pipeline declares the slot it targets. Both are silent successes otherwise, and both are
   the shape of the reference's registered-but-unreachable strategy.
+
+  **Task 5.1d adds a `tracing:` line, and it is a fact about the process, not about one pack's
+  report.** Nothing on a `PackReport` can say whether the OpenTelemetry `TracerProvider` is real —
+  `DISCLOSURE` is read before `register()` runs, and `weft-otel` (`02` §4) contributes zero
+  registrations by design — so `weft-cli` reads `opentelemetry.trace.get_tracer_provider()` directly,
+  after discovery has finished, and prints what it finds: `not configured` (the no-op default; spans
+  from every pack call go nowhere) or `configured`, naming whatever set it. It never names `weft-otel`
+  by import — a host application embedding `weft` and configuring its own tracing reads the same
+  `configured` line.
+
+  > **Built in Phase 5 task 5.2e**, per G9 answer 1 (`docs/09-release.md` §2.3): "Runtime skew...
+  > is detected and reported by `weft plugins doctor`, never used to refuse a load." `weft_cli.
+  > skew.detect_skew()` compares two independent sources — a distribution's own installed
+  > version (`importlib.metadata.version`) against a *different*, already-installed
+  > distribution's declared requirement on it (`importlib.metadata.requires`, parsed with
+  > `packaging`) — and prints one `version skew` block naming every mismatch it finds, trailing
+  > the reports the same way `unconsulted_pins`/`tracing` already do. This lives in `weft-cli`,
+  > never the kernel: G9's own words, "the kernel gains zero lines." Task 5.2a's real
+  > `>=X,<MAJOR+1` ranges are what make the comparison possible at all — a bare, unconstrained
+  > name has nothing for an installed version to disagree with. Deprecation is the same task's
+  > second half and needs no line here of its own: `02` §2's status vocabulary already carries it
+  > as a flag beside a pack's status, exactly as `ambient` is.
+
+**`weft delete` and `weft reconcile` are G7's (2026-08-21), and they are one idea in two tenses.**
+`02` §1 owns the contracts; this section owns what a person types.
+
+- **`weft delete <source-id>`** fans out synchronously across every registered plugin satisfying
+  `SourceDeletable` — the node store, and any pack holding data derived from it, such as the graph
+  store. Every participant is tried, and one that fails is *named* rather than swallowed: a partial
+  deletion the operator does not know about is worse than a refusal. Class `destroy`, so the table
+  below already governs it, and the prompt states what will be removed and from how many
+  participants.
+
+  > **Built in Phase 5 task 5.1a.** `weft_cli.deletion` is the fan-out, `weft_cli.commands.
+  > DeleteCommand` the command around it. Two narrowings this section did not state, both forced
+  > by the implementation. **The node store is *selected*, not collected**: `[services] store` has
+  > already chosen which store this project writes to, so fanning out across every registered
+  > `NodeStore` would connect to a database the operator does not use — every *other* contract
+  > contributes every plugin satisfying `SourceDeletable`, which is what makes a graph pack a
+  > participant with nothing declared. And the *Permissions* section's own unbuilt
+  > `describe_impact` lands here, **optional rather than mandatory** — read off the instance with
+  > `getattr`, so no command in this repository or out of it grows a method — which is what lets
+  > the prompt name every participant by distribution while the *count* stays honestly
+  > unavailable. It also resolves `[services] store` before it says anything about participants,
+  > which is a repair rather than a design: see `docs/lessons.md` L5.9.
+- **`weft reconcile`** converges what deletion missed. `--mode repair`, the default, drops derived
+  state whose source is gone. `--mode full` also **backfills** — building derived state for nodes a
+  pipeline indexed without it — and that is the mode nothing ambient may ever choose. `weft
+  reconcile` typed by a person defaults to `full`, because someone typing that word means it; the
+  automatic pass at the end of `weft index` is always `repair`, and `weft index --reconcile full`
+  is how a person opts that run into the expensive one. `weft.toml` sets a personal default and the
+  flag always wins.
+
+  > **Built in Phase 5 task 5.1b.** `weft_cli.reconcile` is the fan-out — the same shape and the
+  > same failure rule as `weft delete`'s, sharing `weft_cli.fanout` so two walks cannot disagree
+  > about who participates. `--dry-run` names the participants and stops. The command declares
+  > `destroy`, the stricter of the two classes named above, since `permission_class` holds one
+  > value and `network` is the one the table does not gate.
+  >
+  > **`ReconcileReport.remaining` is what a renderer must not lose.** A pass that was interrupted
+  > is a different fact from one that failed, and both are different from one that converged;
+  > `weft reconcile` prints all three distinctly and exits non-zero for the first two, because a
+  > script reading `0` after an interrupted pass would go on believing the corpus had converged.
+  >
+  > **Task 5.1c closes the three clauses left above**, and each landed exactly where the note
+  > said it would. `weft index` runs `weft_cli.commands.IndexCommand._auto_reconcile` after
+  > every successful run, in whichever mode `IndexArgs.reconcile` names — hardcoded to `repair`,
+  > never read from `weft.toml`, so an installed pack or a stale config file cannot move an
+  > automatic pass into `full` by any route (`docs/02-extension-model.md` §3 → *Slots*, "Tested
+  > by G7", is the rule this reads against). `--mode`'s own default moved from a hardcoded `full`
+  > to `None` — "no flag given" — so `weft_cli.reconcile_policy.ReconcilePolicy` (`[reconcile]
+  > mode` in `weft.toml`, default `full`, unchanged) can supply a personal default for `weft
+  > reconcile` typed bare, with the flag always winning when given (`ReconcileCommand.
+  > _effective_mode`). And `Reconcilable` gained `estimate(ctx, mode) -> ReconcileEstimate`
+  > (`weft-store`, `STORE_CONTRACT_VERSION` `1.4.0` → `2.0.0` — a major, per G9, since an added
+  > method is major for an implementer even though it is minor for a caller), asked only when
+  > the effective mode is `full` and rendered ahead of every other line — see the worked example
+  > below, and `weft_cli.render._render_reconcile`'s own docstring for why "prints before it
+  > spends it" is honoured by the order data is computed and rendered rather than by a second,
+  > mid-run stdout flush this command's own architecture (a `Command` returns a result; it does
+  > not print) does not offer.
+
+**`full` states its cost before it spends it**, because backfill is neither fast nor free:
+
+```
+$ weft reconcile
+weft-graph: 4,312 nodes have no graph data
+            backfill will make ~4,312 model calls
+reconciling... 4,312/4,312 ✓  removed 118 orphaned entities
+```
+
+It then proceeds, without a prompt. The flag is the consent — and this is deliberate against the
+alternative: a confirmation on top of an explicit flag adds no decision, works only on a TTY, and
+teaches `--yes` as the scripted spelling, which the table below says disarms the whole thing. What
+matters is that the number is *printed before the money is spent*, not that a key is pressed after
+it. `--dry-run` prints the same block and stops.
+
+Backfill is `O(corpus)`, cursored and interruptible: `CancelledError` propagates per G6, so a pass
+interrupted at 2,000 of 4,312 resumes there rather than starting again. Class `network` for `full`,
+`destroy` for `repair` — one command declaring the higher of the two it may reach, per the table
+below.
+
+> **Every first-party `Reconcilable` in this tree reports `model_calls=0`, honestly, task
+> 5.1c's own worked floor rather than a shortcoming.** `PgVectorStore`, `weft_qdrant.store.
+> QdrantStore` and the out-of-tree `examples/weft-example-ingest` all hold only primary node
+> data, never derived state a `full` pass would build — see `PgVectorStore.reconcile`'s own
+> docstring, which owns the argument for both first-party backends. `pending` still names a
+> real number, the tombstone backlog `reconcile` itself converges, so `weft reconcile`'s own
+> printed line reads `pgvector (weft-store): 3 source(s) have an unfinished deletion to finish`
+> with no second, model-call line — `weft_cli.render._estimate_lines` omits it rather than
+> print a vacuous "~0 model calls". The worked example above is `weft-graph`'s, a pack this
+> phase does not ship; nothing here can print a nonzero number until one does.
 
 `weft pipeline show` prints the **resolved** form, which after G2 carries more than stages: each
 stage's provenance (which pipeline or pack put it there), every var's final value, contributions that
@@ -493,6 +608,19 @@ for why in-process enforcement is unavailable and what weft does instead. The cl
 > `docs/build-ledger.md`'s own recorded consequence, not an oversight. The `describe_impact`
 > gap above is still real and still unowned regardless of which command class first needs it.
 
+> **Task 5.1c does not move `weft reconcile`'s permission class, and says so rather than
+> leaving a reader to wonder why not.** *Command surface* above already argues it: `full`
+> proceeding "without a prompt" is about not inventing a *second* confirmation on top of the
+> existing `--yes`/no-TTY gate, never about weakening that gate itself — `full`, exactly like
+> `repair`, still refuses with no TTY and still honours `[permissions] destroy`. What `full`
+> adds is informational, printed as part of the command's own typed result (`ReconcileCommandResult.
+> estimates`) rather than a `Command.describe_impact` sentence: `describe_impact` is only ever
+> read when the gate is about to ask a question (`weft_cli.confirm.impact_of` is never called
+> once `--yes`/`[permissions] destroy = "allow"` already permits the run), and 03's own worked
+> example prints the cost block on every `full` invocation, `--yes` included — so the cost
+> could not live there without silently vanishing on exactly the scripted path an operator
+> running backfill in CI is most likely to take.
+
 ## Output
 
 Human output streams: tokens as they generate, stage progress while indexing, citations resolved at
@@ -589,6 +717,31 @@ tell *"fix the environment"* from *"fix the pipeline"*.
 > before this task — only the vehicle carrying them from "computed" to "printed" moved from a
 > return value to an exception, because `run()` cannot print.
 
+> **Built in Phase 5 task 5.2d (2026-08-22).** G9's ruling (`docs/README.md` decision log; `S6`)
+> made CLI error prose unpromised only in exchange for a structured channel that did not yet
+> exist: `weft_cli.render.render_refusal` returned `str(exc)` on every failure path, `--json`
+> included, so of the 78 `valid_options` sites `weft-cli`'s own raise sites compute
+> (`weft_kernel.errors.UnresolvedNameError`, fitness function 12), **none reached a script
+> except as a sentence**. `weft_cli.error_envelope.ErrorEnvelope` is that channel: `error` (the
+> `WeftError` subclass name — the identity `manual/troubleshooting.md`'s own coverage ratchet
+> already enumerates by this exact string), `rendered` (`str(exc)`, whole — prose stays
+> unpromised, not unavailable, and unabridged so a remedy stays a person's judgement, `09` §3's
+> own argument), `exit_code`, `valid_options` (`None` where the error has none, never omitted),
+> and `pack`/`contract`/`plugin`/`stage` — `weft_kernel.seam.wrap`'s own attribution, carried
+> through rather than re-derived. `envelope_version` travels in the data, a plain field with a
+> default rather than a `ClassVar`, on the identical principle task 5.2c's `ExtModel.
+> __schema_version__` settled for a persisted schema (`02` §1's S5 rule, pointed at a wire
+> format instead): additive only, never frozen, `09` §3's own git `--porcelain=v1` warning is
+> why. **The flag is the global `--json`, not `ask`'s own `--format json`** — `weft_cli.render.
+> render_refusal` grew a keyword-only `as_json`, and both of this tree's `WeftError`-catching
+> sites decide it from the identical fact `docs/03-cli.md` already uses to pick the run's
+> `TokenSink`: `weft_cli.cli.run_command` from `isinstance(deps.token_sink, JsonSink)`, and
+> `weft_cli.cli.main`'s own discovery-failure catch (before a `Command` is even chosen, so
+> `render_refusal`'s `CommandRefusalError` branch could never apply there) from `json_flag`
+> directly. `--format json` stays what it always was — one command's own finished-result shape,
+> `weft ask`'s alone — and is untouched by this task. The envelope replaces nothing on the
+> human path: `as_json=False`, the default, is byte-identical to before.
+
 **Score display.** A retrieval result carries `Scored.score` — a similarity, never guaranteed to fall
 in `[0, 1]` (`02` §1: "the score lives on `Scored[Node]`, not on `Node`"; nothing in that contract
 bounds the float). `weft-store`'s own pgvector implementation computes it as `1 - cosine distance`,
@@ -683,6 +836,17 @@ carries the reasoning for why `read`/`write`/`network` are not keys here yet.
 > under its `[section]` header, append the section if absent — leaves every other byte,
 > comments included, untouched; `tests/unit/weft_cli/test_config_surface.py` proves a
 > comment survives a `set` call, and the value round-trips through `tomllib` afterward.
+
+> **Built in Phase 5 task 5.1c — a fifth dotted key, `reconcile.mode`.** `weft_cli.
+> reconcile_policy.ReconcilePolicy` is `[services]`/`[permissions]`'s own shape applied to a
+> third block: one function reading one already-parsed `dict`, a frozen Pydantic result with a
+> built-in default (`full`, unchanged from `weft reconcile`'s own pre-5.1c hardcoded default),
+> an unknown key refused by name, a malformed table refused the way `[packs]` already is. It
+> governs exactly one thing: what `weft reconcile`, typed by hand with no `--mode`, resolves
+> to — never `weft index`'s own automatic post-index pass, which stays hardcoded to `repair`
+> and reads nothing here on purpose, so a project cannot, by editing this file once, turn every
+> future `weft index` into a `full` run with nobody typing a flag for that particular
+> invocation. `weft_cli.reconcile_policy`'s own module docstring carries the argument in full.
 
 ## Is the REPL an agent?
 

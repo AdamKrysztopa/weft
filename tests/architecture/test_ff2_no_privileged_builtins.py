@@ -75,12 +75,22 @@ from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Final, cast
 
-from weft_kernel.discovery import PackReport, discover
+from weft_kernel.discovery import PackReport, PackStatus, discover
 from weft_kernel.registry import Registry
 
 from .conftest import KERNEL_ROOT, REPO_ROOT
 
 PACKAGES_ROOT: Final[Path] = REPO_ROOT / "packages"
+
+#: Every first-party pack that registers no plugin against any contract *by design* —
+#: `docs/02-extension-model.md` §4's own words for `weft-otel`, task 5.1d: "registers no
+#: plugin against any contract, contributes to no pipeline." Named explicitly, the same
+#: ratchet discipline `tests/architecture/test_ff9c_every_contract_has_a_stranger.py`'s own
+#: waivers use, rather than derived from some structural property — there is no way to
+#: compute "contributes nothing on purpose" from a pack's `pyproject.toml` alone, and
+#: guessing at one would be exactly the kind of silent, undocumented carve-out CLAUDE.md's
+#: ratchet discipline exists to make a visible diff instead.
+PACKS_THAT_REGISTER_NOTHING_BY_DESIGN: Final[frozenset[str]] = frozenset({"weft-otel"})
 
 #: `weft-store` requires a `dsn` pack setting with no default (`PgVectorSettings.dsn`), or its
 #: `register()` never runs at all — `discover()` folds a settings-validation failure into
@@ -285,12 +295,31 @@ def test_registry_contents_equal_what_discovery_declared() -> None:
         f"nothing discovery reported contributing is missing from the registry."
     )
 
-    assert expected_builtins <= declared, (
-        f"expected every first-party pack {sorted(expected_builtins)} to be active and "
+    expected_contributing = expected_builtins - PACKS_THAT_REGISTER_NOTHING_BY_DESIGN
+    assert expected_contributing <= declared, (
+        f"expected every first-party pack {sorted(expected_contributing)} to be active and "
         f"contributing; discovery reported contributions only from {sorted(declared)}. Run "
         f"`uv sync` so every built-in pack in this workspace is actually installed — this "
         f"test proves nothing about built-ins specifically unless they are."
     )
+
+    # `weft-otel` (task 5.1d) is the first first-party pack that registers no plugin against
+    # any contract *by design* (`docs/02-extension-model.md` §4: "registers no plugin against
+    # any contract, contributes to no pipeline") — it can never satisfy the "contributing"
+    # floor above, because `declared` only ever counts `contributed > 0`. That does not
+    # narrow what fitness function 2 actually polices: the equality and per-distribution
+    # count assertions above and below are unchanged and still cover it (it reports
+    # `contributed=0` and holds zero registrations, in exact agreement). What the assertion
+    # above protects — "did this pack actually load in this environment, rather than the
+    # check passing vacuously because `uv sync` was never run" — is a fact about `status`,
+    # not about a contribution count, so that is what is asked of it here instead.
+    statuses = {report.distribution: report.status for report in reports}
+    for distribution in PACKS_THAT_REGISTER_NOTHING_BY_DESIGN & expected_builtins:
+        assert statuses.get(distribution) is PackStatus.ACTIVE, (
+            f"expected {distribution!r} to be ACTIVE (it registers nothing by design, not "
+            f"because it failed to load); status was {statuses.get(distribution)!r}. Run "
+            f"`uv sync` so it is actually installed."
+        )
 
     # Every registration is accounted for, one for one. A distribution that registered twice
     # while reporting one contribution has taken a path a pack author cannot take.

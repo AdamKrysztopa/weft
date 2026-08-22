@@ -43,6 +43,17 @@ Watch for the three shapes this takes: a name added to an enum, a branch added t
 added to a catalogue. Each is two lines and each converts an extension point back into a decision
 tree.
 
+**Falsify it the other way too — the half that is easy to miss.** An extension point has a
+*producing* side a pack calls and a *consuming* side core runs, and the two are built at different
+times by different people. Ask, for every seam this change touches: **can a stranger reach both?**
+Phase 5 found three where they could not, all shipped and all green: `ext` models had a registry and
+no way for a pack to contribute to it (`lessons.md` L5.15); slots had placement, id qualification
+and unplaced-recording and nothing that could *offer* a contribution (`L5.22`, scope decision `S8`);
+and a pack's `Command` can return a typed result that no pack-reachable renderer can turn into text,
+because the renderer table is matched on first-party result types (`L5.30`). Each half looked
+finished on its own. None of them was found by a test — all three were found by trying to do the
+thing.
+
 **Reference:** adding one storage backend meant editing **11 library files**, and there were zero
 registered backend names.
 
@@ -130,6 +141,16 @@ discovery, config load — because a check that attaches to an existing seam cos
 it to the `ci-checks` composite in the same commit, which fitness function 0 enforces.
 
 A proposed check is worth more than a fixed line. Say both.
+
+**And before you accept a mechanism as this change's escape hatch, run it.** A design that answers
+an objection by pointing at something that already exists — *"the spans already carry that"*, *"the
+changelog records it"*, *"the doctor reports it"* — has borrowed a guarantee it has not checked.
+Phase 5 caught three: OpenTelemetry spans that every plugin call emitted into a **no-op provider**
+because nothing configured one (`lessons.md` L5.1); a `CHANGELOG.md` named as the artefact a
+deprecation promise is made in, touched in exactly one commit and stale by five phases (`L5.8`); a
+fitness function specified in `01` on day one with no file in the tree until five phases later
+(`L5.4`). All three were cited in argument before anyone ran them. Naming a mechanism is not
+evidence that it works, and the cost of checking is one command.
 
 ## Report like this
 

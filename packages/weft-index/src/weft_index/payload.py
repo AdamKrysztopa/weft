@@ -32,6 +32,7 @@ class Representation(ExtModel):
     """
 
     __namespace__ = "weft-index"
+    __schema_version__ = "1.0.0"
 
     #: The `Expander` plugin name that generated this node — `weft_index.hypothetical_
     #: questions.NAME` for this task's own registration.

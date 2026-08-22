@@ -135,10 +135,26 @@ position in §1 keeps a distribution version distinct from a contract version.
 
 ### 2.2 The 0.x line, and what 1.0 means
 
-**Every distribution in this repository is 0.x until Phase 6.** That is not a policy choice so much as
-an observation: nothing is published to an index before Phase 6, so nothing can have made a 1.0 promise
-to anyone. **What 0.x promises about the published contracts is G9's** (§2.3, dependency 2) and is not
-written here — including whether a contract may move inside 0.x without a deprecation period at all.
+**No distribution in this repository has made a 1.0 promise before Phase 6.** That is not a policy
+choice so much as an observation: nothing is published to an index before Phase 6, so nothing can have
+made that promise to anyone. **What 0.x promises about the published contracts was G9's** (§2.3,
+dependency 2), and G9 answered it on 2026-08-21: **inside 0.x a contract may move without a deprecation
+period, but never silently** — the registration-seam warning still fires and the changelog entry is
+still owed. Phase 5 exists precisely to find the holes in these contracts, so binding 0.x would bind
+the project to contracts it already expects to be wrong.
+
+**Task 5.2a gives every distribution a real version number, and two of them already read above `0.x` —
+that is a mechanical fact, not an early promise.** G9's binding rule (§2.3) forces a distribution's
+version to track the maximum contract it publishes: `weft-store` and `weft-command` are `2.0.0` today
+because `STORE_CONTRACT_VERSION` and `COMMAND_CONTRACT_VERSION` already are, and fitness function 6
+enforces the binding, not the leading digit. This section's argument survives that unchanged, because
+it was never about the digit: nothing is published to an index, so the number a resolver would read is
+not a promise to anyone outside this repository yet, and the precondition table below is untouched by
+it — `weft-store` reading `2.0.0` says nothing about whether it has satisfied "the store contract is
+not over-fitted to one backend" or any other row. **The version number is G9's mechanical fact, settled
+now; the 1.0 milestone is G10's substantive judgment, settled later** — a distribution can carry a
+major digit above `0` before the project has decided it is *1.0-ready* in the sense this section means,
+exactly as an actively-iterating library commonly carries a major version with no external users yet.
 
 What can be said without G9, because it is an observation about Phase 5 rather than a policy: Phase 5
 exists precisely to discover holes in the contracts, and its finding is not available until it has run.
@@ -169,9 +185,11 @@ number is claimed.
 
 ### 2.3 What Phase 6 needs from G9, stated as questions
 
-G9 is **open**. These are the five dependencies from §0, written as the questions the release checklist
-cannot be run without. Phase 6 needs each to have *an* answer; it needs none of them to have a
-*particular* answer, and no section of `09` supplies one.
+**G9 settled 2026-08-21.** These were the five dependencies from §0, written as the questions the
+release checklist could not be run without. Phase 6 needed each to have *an* answer; it needed none of
+them to have a *particular* answer, and no section of `09` supplied one. **The answers are recorded
+below the table**, and the reasoning that produced them is in `05` → G9 and in the documents each
+answer changed.
 
 | # | Phase 6 needs to know | Because |
 |---|---|---|
@@ -181,6 +199,66 @@ cannot be run without. Phase 6 needs each to have *an* answer; it needs none of 
 | 4 | **Which surfaces carry a promise** — every row of §3's table | G9's *Bring* already enumerates the payload model, the store capability protocols, the filter AST, `Disclosure`, the `Command` permission `ClassVar` and `[packs] allow`. The release cannot state a support surface before that list has a policy |
 | 5 | **What a version bound means** — floor, compatible range, or exact pin | Fitness function 10(b) asserts only that a bound exists. Which kind is required is what makes the bound enforceable as a *policy* rather than as a lint |
 | — | *Two more that fall out of the above* | What happens when a pack requires a contract version the kernel does not offer — an existing status in `02` §2's vocabulary or a new one; and whether an `ExtModel` schema change is a contract change, which is the only kind of break a user cannot undo by pinning (G9 *Bring* raises both) |
+
+---
+
+**The answers, settled 2026-08-21.**
+
+| # | Answer |
+|---|---|
+| 1 | **Reported, not refused.** A contract version requirement *is* the distribution dependency specifier, so the resolver refuses an incompatible install before the environment is broken. Runtime skew — an editable install, a forced install, a workspace — is **detected and reported** by `weft plugins doctor`, never used to refuse a load. There is no kernel load-time version check and the kernel gains no lines |
+| 2 | **Inside 0.x a contract may move without a deprecation period, but never silently.** §2.2 above |
+| 3 | **Releases, not months, and the unit is one major of the distribution that publishes the surface.** A calendar window needs a cadence promise this project does not make; a release-counted window needed *whose* releases count, and binding contract versions to distribution versions answers it. A deprecated surface keeps working, warning at registration, until its publisher's next major |
+| 4 | **Every row of §3's table, as amended below.** Two rows changed: the message-catalogue row is **struck** (G11 removed the mechanism, so there is no surface to rule on), and the CLI row is **split** |
+| 5 | **A compatible range** — `>=X,<MAJOR+1`. Never an exact pin: a library that pins exactly makes any two packs jointly unresolvable |
+| — | A pack requiring a contract version that is not installed is **the resolver's refusal**, not a new status — `02` §2's vocabulary is unamended. An `ExtModel` schema change **is not a contract change**: it is a second axis, versioned in the data, specified in `02` §1 |
+
+**What a contract version means, and what a move obliges.** Semver per contract, **bound to the
+distribution version**: a contract major forces a major of the distribution that publishes it, a
+contract minor forces at least a minor, and a distribution publishing several contracts takes the
+maximum. The contract version is the precise statement; the distribution version is its enforceable
+shadow, and the only one a resolver can act on.
+
+**Semver is classified for two audiences and the bump is the maximum.** A change is assessed for the
+**caller** and for the **implementer** separately, because the surface is Protocols that others
+implement:
+
+| Change | Caller | Implementer | Bump |
+|---|---|---|---|
+| Add a method to a Protocol | minor | **major** | **major** |
+| Add an `Enum` member | minor | **major** | **major** |
+| Add a name to `required_declarations` | — | **major** | **major** |
+| Widen a parameter type | minor | **major** | **major** |
+| Narrow a return type | **major** | minor | **major** |
+| Add an optional field to a returned model | minor | minor | minor |
+
+This makes `COMMAND_CONTRACT_VERSION` **1.1.0 a mis-recorded major**: task 3.2 added `help` to
+`required_declarations`, which breaks every `Command` that does not declare one. It is corrected to
+**2.0.0**, and correcting it is what the two-audience rule is for.
+
+**A version bump does not fix silence, so silence is a separate defect.** Adding an `Enum` member is
+textbook-additive and, in this tree, makes a backend answer the wrong query without erroring:
+`weft_qdrant.store` reinterprets an unknown `FilterOp` as `eq` in `_condition` and as `gte` in
+`_range`, `weft_store.contract`'s own `_shape_matches_op` validates it as `not`, and
+`weft_store.fields` *derives* its permitted set from the enum and so silently allows it. A published
+`Enum` must therefore be **dispatched exhaustively by construction**, with no fall-through default —
+requirement 5 applied to a closed vocabulary instead of an open one.
+
+**Closed by task 5.2b, and this paragraph is the worked example rather than an open item now.**
+All four named sites `match`/`case _: raise weft_store.contract.UnhandledFilterOpError(...)`, and
+`weft_store.fields`'s permitted set is now the nine operators a person stated by hand rather than
+`frozenset(FilterOp) - {AND, OR, NOT}`. The audit that fixed them found four more sites with the
+identical shape — `weft_store.pgvector_store`'s SQL translator, the sibling of
+`weft_qdrant.store`'s that this paragraph never named — so nine sites in total, not five. `01` →
+*Fitness functions* item 13 is the runtime property that keeps all nine (and any future site) this
+way: a manufactured `FilterOp` member none of the twelve real ones equal must be refused everywhere,
+never answered.
+
+**The entry-point group name is versioned, not immutable.** Renaming `weft.packs` would unregister
+every pack in the world at once, which no clock can cover. So discovery reads a *tuple* of groups: if
+the name must ever change, the new one is **added**, both are read for one deprecation window, and a
+pack found only in the old group is flagged by `doctor` — `09` §3's already-settled flag on an
+existing status. That converts the one un-deprecatable surface into an ordinary deprecation.
 
 ---
 
@@ -200,8 +278,10 @@ nothing about whether a promise applies, because that is dependency 4.
 | The `weft.packs` entry-point group name, and what `register` receives | `02` §2, `02` §2 → *Pack settings* | Renaming the group unregisters every pack in the world — a fact, whatever the policy |
 | `Disclosure`, and the mandatory permission `ClassVar` on `Command` | `02` §2 → *The trust model*, `03` | G9 *Bring* names both: adding a required `Disclosure` field breaks every pack that ships one |
 | Configuration keys: `packs:`, `[packs] allow`, `${env:}` | `02` §2, `02` §2 → *Pack settings* | G9 *Bring*: `[packs] allow` is operator configuration, the format whose promise is owed to people who never read a changelog |
-| CLI command surface, output shape and **exit codes** | `03` | A CI job branches on exit 3 versus 4 (`02` §2), so a change is breaking in practice; G9 says whether it is breaking in policy |
-| Message-catalogue keys emitted by first-party packs | `02` §2 → *Pack settings* | **Not on G9's *Bring* list.** Phase 6 needs G9 to say whether a pack's message keys are in scope at all — a translation is arguably not an API, and that argument is G9's to accept or reject |
+| CLI command names, flag names and **exit codes** | `03` | **Promised** (G9). A CI job branches on exit 3 versus 4 (`02` §2), so a change is breaking in practice and now in policy |
+| CLI **machine-readable output** — `--format json`, and the structured error envelope G9 requires | `03` | **Promised, additively.** New fields may be added; a consumer ignores what it does not recognise. Never frozen — git froze `--porcelain=v1` by explicit guarantee, could not evolve it, and had to ship v2 as a parallel format |
+| CLI **error and diagnostic prose** | `03` | **Not promised** (G9). Natural-language output is not a stable interface and may change in any release. The promise is the failure-mode *identity* — the `WeftError` subclass name, which `08`'s troubleshooting ratchet already enumerates — and the structured envelope that carries the prose as a `rendered` field. The exclusion is what lets the message stay rich, which is `08`'s own argument that a remedy is a person's judgement |
+| ~~Message-catalogue keys emitted by first-party packs~~ | — | **Struck 2026-08-21.** G11 retired `MessageCatalogue`, `Context.messages` and `ctx.t()`; there are no such keys, so there is no surface to rule on. The row is kept struck rather than deleted because `02` §1 records the removal and a reader arriving here from `§2.3` needs to know the question was retired, not skipped |
 | Anything named `_private`, and everything in `weft-canary` | — | Same: not on the *Bring* list. If G9 does not rule, the release has no basis to call them excluded |
 
 **Where a deprecation notice is emitted, whatever G9 decides is owed.** The seam is already settled and
@@ -217,12 +297,54 @@ will not be printed.
 status**, exactly as `ambient` is a flag on `active` (`02` §2). No new status: `02` §2's vocabulary is
 settled, and adding a member would make one word answer two questions.
 
+**Built by task 5.2e, both halves.** `weft_kernel.discovery.PackRegistrar.deprecate` is the
+registration-time mark, `weft_kernel.seam.warn_deprecated` is the registration wrapper that emits
+the warning from it, and `weft plugins list`/`doctor` read `PackReport.deprecations` as the flag
+the paragraph above describes — `02` §2's own trust-model table now carries the row. Answer 1's own
+"reported by `doctor`, never refused by the kernel" is built the same task: `weft_cli.skew.
+detect_skew()`, comparing a distribution's installed version (`importlib.metadata.version`) against
+a different, already-installed distribution's declared requirement on it
+(`importlib.metadata.requires`) — two sources neither derived from the other, so a real disagreement
+(an editable install, a forced install, a workspace whose lockfile has drifted) is exactly what it
+catches. The kernel gained no lines for this half; `03` → *Command surface* has the worked example.
+
 **The clock's unit — releases or months — is G9's** (§2.3, dependency 3). §5.2's checklist consumes
 whichever it picks; nothing in `09` states a number, a unit, or a default.
 
 **Removal is a changelog entry with a migration line or it does not happen.** `CHANGELOG.md` already
 exists and already states Keep a Changelog and SemVer; from Phase 6 it stops being a courtesy and
 becomes the artefact whatever promise G9 states is made in.
+
+> **And that sentence is currently false, measured (G9, 2026-08-21).** `CHANGELOG.md` is 19 lines, has
+> been touched in exactly one commit — `9815531`, the repository's initialising commit — and still
+> reads *"Nothing released yet. Phase 0 — the walking skeleton — is not built."* Five phases have
+> closed since, and `README.md` → *Protocol* does not name the file among what a phase close updates.
+> A promise made in an artefact nobody writes to is made nowhere.
+>
+> So G9 attaches a condition rather than a hope: **the changelog entry becomes checkable.** A
+> `tests/docs` check asserts that every surface marked deprecated at registration has a `CHANGELOG.md`
+> entry naming it. This is `CLAUDE.md`'s measured rule — every concern the machinery applied held,
+> every concern an author had to remember decayed — applied to a document instead of to code, and it
+> is the third time in one gate that a mechanism named in a document turned out not to run
+> (`lessons.md` L5.1, L5.4, L5.8).
+
+**Built by task 5.2f, and `CHANGELOG.md` itself brought current in the same commit.**
+`tests/docs/test_changelog_deprecation_coverage.py` reads two sources that cannot be derived from
+each other — `weft_kernel.discovery.discover(Registry())` against the real, installed `weft.packs`
+group, exactly as `weft plugins doctor` runs it, folded to every `PackReport.deprecations`'s
+`surface`; and `CHANGELOG.md` off disk — and asserts every surface the first names is a literal,
+backtick-quoted mention in the second. Zero first-party surfaces are deprecated today, so the real
+comparison passes vacuously; the check is proven non-vacuous instead by a real `Deprecation`,
+produced through `PackRegistrar.deprecate` → `commit` rather than hand-built, shown reported missing
+against the real file and cleared once an entry naming it is added
+(`test_the_comparison_can_actually_fail`, `08` §3's own table names it as clause (e)). `CHANGELOG.md`
+no longer reads "Phase 0... is not built" — it names what each of Phases 0–4 shipped and what Phase
+5 has shipped so far, derived from `docs/build-ledger.md`'s own ticked entries rather than invented.
+**Whether `README.md` → *Protocol* should also gain a line requiring this on every phase close is a
+question this task leaves open, deliberately** — `docs/lessons.md` L5.8 named that as the other
+candidate home, the ledger's own task line chose the check, and a check firing only on a
+*deprecation* leaves the rest of the changelog exactly as unmaintained as before. The task's own
+`docs/build-ledger.md` entry records this judgement for `implement-ll` to act on or decline.
 
 **One thing the release must not soften.** `02` §2 → *The trust model* states the posture plainly: a
 pack runs with your full privileges, and installing is trusting; signature verification, sandboxing and

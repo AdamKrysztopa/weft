@@ -38,6 +38,7 @@ class _Representation(ExtModel):
     exercises, proving `collapse.py` reads no import of the pack that ships the real one."""
 
     __namespace__ = "test-collapse"
+    __schema_version__ = "1.0.0"
 
     technique: str = "test-representation"
 

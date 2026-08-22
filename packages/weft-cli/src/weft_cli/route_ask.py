@@ -64,7 +64,7 @@ from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_kernel.payload import Produced
 from weft_kernel.pipeline import Pipeline
 from weft_kernel.registry import Registry
-from weft_kernel.resolution import resolve
+from weft_kernel.resolution import Contribution, resolve
 from weft_kernel.runner import PipelineResolutionError, Runner
 from weft_llm.contract import TokenSink
 from weft_retrieve.payload import Query, QuerySet, Route
@@ -129,6 +129,7 @@ async def run_routed_ask(
     llm: LLMSection,
     services: ServiceSelection,
     sink: TokenSink,
+    contributions: tuple[Contribution, ...] = (),
 ) -> tuple[str, Answer]:
     """Route `question` through the real router, run whichever pipeline it selects, and
     return `(the pipeline name selected, the Answer it produced)`.
@@ -148,6 +149,11 @@ async def run_routed_ask(
     formerly-separate `weft route` command into it — `docs/build-ledger.md`'s 3.11 entry
     has the surface argument; this function's own resolution behaviour is untouched, Phase
     2's settled work.
+
+    `contributions` — task **5.3a** (`S8`) — reaches both of this function's own two
+    `_run_pipeline` calls (the router's own resolution, and whichever pipeline it selects),
+    on the identical footing `weft_cli.pipeline_commands._resolved_or_refuse` and
+    `weft_cli.ingest._specs_from_document` already receive it.
     """
     catalogue = load_contributed(reports)
     router = catalogue.get(ROUTE_PIPELINE_NAME)
@@ -170,6 +176,7 @@ async def run_routed_ask(
         ctx=routed_ctx,
         store=store,
         catalogue=catalogue,
+        contributions=contributions,
     )
     assert isinstance(route, Route)  # `route.yaml`'s own contract: Stage[Query, Route]
 
@@ -196,6 +203,7 @@ async def run_routed_ask(
         ctx=routed_ctx,
         store=store,
         catalogue=catalogue,
+        contributions=contributions,
     )
     assert isinstance(answer, Answer)  # every shipped routable pipeline ends in a Generator
     return route.pipeline, answer
@@ -211,6 +219,7 @@ async def run_named_ask(
     llm: LLMSection,
     services: ServiceSelection,
     sink: TokenSink,
+    contributions: tuple[Contribution, ...] = (),
 ) -> Answer:
     """Run `pipeline_name` directly against `question`, bypassing the router entirely.
 
@@ -231,6 +240,9 @@ async def run_named_ask(
     established it. `weft_cli.run_services.StoreCapabilityMissingError` and any
     `weft_kernel.runner.PipelineResolutionError` propagate unchanged, the same set
     `run_routed_ask` documents for its own second resolution.
+
+    `contributions` — task **5.3a** (`S8`) — reaches `_run_pipeline` below on the identical
+    footing `run_routed_ask` already passes it through.
     """
     catalogue = full_catalogue(reports=reports)
     target = catalogue.get(pipeline_name)
@@ -258,6 +270,7 @@ async def run_named_ask(
         ctx=routed_ctx,
         store=store,
         catalogue=catalogue,
+        contributions=contributions,
     )
     assert isinstance(answer, Answer)  # every shipped routable pipeline ends in a Generator
     return answer
@@ -296,6 +309,7 @@ async def _run_pipeline(
     ctx: Context,
     store: object,
     catalogue: Mapping[str, Pipeline],
+    contributions: tuple[Contribution, ...] = (),
 ) -> object:
     """Resolve `pipeline` and run it — `catalogue`, added as a **repair**, is `resolve()`'s
     own `parents` lookup, not a one-entry `{pipeline.name: pipeline}` mapping: a derived
@@ -306,9 +320,22 @@ async def _run_pipeline(
     `weft_cli.ingest._specs_from_document`'s own docstring for the parallel repair and the
     full argument. Both callers already build the full catalogue for their own lookups, so
     this costs nothing beyond passing it one call further.
+
+    `contributions` — task **5.3a** (`S8`) — is `weft_cli.registry_bootstrap.Dependencies.
+    contributions`, threaded down from `run_routed_ask`/`run_named_ask`, on the identical
+    footing `catalogue` already is: one caller assembles it, every `resolve()` call site
+    receives it unchanged.
     """
-    contracts = contracts_for(pipeline, registry=registry, parents=catalogue)
-    resolved = resolve(pipeline, registry=registry, contracts=contracts, parents=catalogue)
+    contracts = contracts_for(
+        pipeline, registry=registry, parents=catalogue, contributions=contributions
+    )
+    resolved = resolve(
+        pipeline,
+        registry=registry,
+        contracts=contracts,
+        parents=catalogue,
+        contributions=contributions,
+    )
     specs = to_specs(resolved, registry=registry)
     check_store_capabilities(
         specs,

@@ -277,6 +277,7 @@ class _ThirdPartyRepresentation(ExtModel):
     """
 
     __namespace__ = "test-fixture-pack"
+    __schema_version__ = "1.0.0"
 
     technique: str = "test-representation"
 

@@ -121,25 +121,21 @@ class _PromptLookup:
 
 
 def _ensure_rehydrates(model: type[ExtModel]) -> None:
-    """Make `model` reconstructable by `weft_store.rehydrate` — this test's own version of
-    `weft_cli.registry_bootstrap._ensure_chunk_offset_rehydrates`, needed for the same
-    reason `test_hypothetical_questions_pipeline.py`'s own copy is: a node's `ext` cannot
-    round-trip through a real store unless the namespace that reached it was registered
-    first, and a second registration of a namespace already claimed by the same class must
-    be a no-op rather than `DuplicateRegistrationError` once more than one test module in
-    this session needs it.
+    """Make `model` reconstructable by `weft_store.rehydrate` — this test's own use of
+    `weft_store.rehydrate.register_from_reports`, the generic consumer task 5.2g built,
+    for the identical reason `test_hypothetical_questions_pipeline.py`'s own copy is: a
+    node's `ext` cannot round-trip through a real store unless the namespace that reached
+    it was registered first, and a second registration of a namespace already claimed by
+    the same class must be a no-op rather than `DuplicateRegistrationError` once more than
+    one test module in this session needs it.
     """
-    from weft_kernel.registry import UnknownPluginError
-    from weft_store import register_ext_model
-    from weft_store.rehydrate import ext_models
+    from weft_kernel.discovery import PackReport, PackStatus
+    from weft_store.rehydrate import register_from_reports
 
-    try:
-        registrant = ext_models.entry(ExtModel, model.__namespace__).factory
-    except UnknownPluginError:
-        register_ext_model(model)
-        return
-    if registrant is not model:
-        register_ext_model(model)
+    report = PackReport(
+        distribution=model.__namespace__, status=PackStatus.ACTIVE, ext_models=(model,)
+    )
+    register_from_reports((report,))
 
 
 async def _database_reachable() -> str | None:

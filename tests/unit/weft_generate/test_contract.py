@@ -2,8 +2,8 @@
 
 Mirrors `packages/weft-generate/src/weft_generate/contract.py`. Covers a full
 resolve-then-run of a `Generator` through `weft_kernel.runner`, capability derived by
-`isinstance` rather than declared, and the version constant fitness function 6 will
-check.
+`isinstance` rather than declared, and the version constant fitness function 6
+binds to this distribution's own version.
 """
 
 import typing

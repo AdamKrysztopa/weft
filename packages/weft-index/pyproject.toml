@@ -1,9 +1,9 @@
 [project]
 name = "weft-index"
-version = "0.0.0"
+version = "1.0.0"
 description = "First-party index-path pack. Publishes the Expander contract."
 requires-python = ">=3.12"
-dependencies = ["weft-kernel", "weft-embed", "weft-llm", "weft-prompts"]
+dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-embed>=1.0.0,<2.0.0", "weft-llm>=1.0.0,<2.0.0", "weft-prompts>=1.0.0,<2.0.0"]
 
 # Not `weft-retrieve`, on purpose. `Prompts` (`weft_prompts.contract`) is a per-name
 # render-and-nothing-else service this pack already needs `weft-prompts` for; the

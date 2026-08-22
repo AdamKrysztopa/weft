@@ -327,6 +327,7 @@ class BooleanPlan(ExtModel):
     """
 
     __namespace__ = "weft-retrieve"
+    __schema_version__ = "1.0.0"
 
     expr: BoolExpr
     producer: str = Field(min_length=1)

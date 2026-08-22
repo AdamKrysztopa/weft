@@ -7,7 +7,7 @@ that satisfies the contract structurally (no inheritance, exactly the path
 `isinstance` rather than declared (G4's property, restated for this
 contract by `@runtime_checkable`), `SourceDoc` refusing an unknown field the
 way every frozen payload model in this project does, and the version
-constant fitness function 6 will eventually check.
+constant fitness function 6 binds to this distribution's own version.
 """
 
 from collections.abc import AsyncIterator, Sequence

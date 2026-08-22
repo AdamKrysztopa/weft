@@ -394,7 +394,7 @@ carry now. Each has a named forcing function; nothing is deferred on vibes.
 
 | Deferred | Reopen when |
 |---|---|
-| Event bus between components | An add-on genuinely needs to observe events it cannot reach through an explicit extension point. Candidate for G7 — do not build it speculatively |
+| Event bus between components | **G7 ruled against it, 2026-08-21, and the trigger it named has been tested rather than left standing.** The graph pack was walked case by case and needed no bus: a cross-corpus pass has the runner's `flush()`, shape-level observation has the OTel spans the seam already emits, and the one genuine hole — derived data outliving its source — is closed by `SourceDeletable` and `Reconcilable` in the store family (`02` §1). The audit log, brought deliberately as the awkward case, splits in two: observing runs that never opted in is **refused** by `02` §3's rule and is not a missing mechanism, while everything it may legitimately see is **served by a pack** — `weft-otel` sets the `TracerProvider` in its `register()`, which is the *everything that exports a span is a pack* rule above doing exactly the job it was written for. The awkward case was answered through the extension model itself, with no core change, which is the strongest form this session's answer could take. **Reopen when** an add-on needs to observe something where an explicit point cannot be *added* — not merely where one does not exist yet, since adding one is what this session did. A Phase 5 pack author hitting that is a design finding and reopens this row |
 | Background job broker | The first user needs indexing to survive process restart, or a single index run exceeds a session |
 | Any service tier at all — API, worker, gateway | Someone outside the process needs to call this. Until then the library plus one database container is the whole system, and every service added before that point is cost without a user *(the "cost without a user" claim inherits the twenty-four-service figure above and is **unverified** — see `reference/study/09-open-questions.md`, U3/U10)* |
 | CQRS | Never, at library level. It was a deployment-shape decision in the predecessor and belongs there if anywhere |
@@ -695,7 +695,8 @@ The graph add-on, per driving use case B, built as an external package.
   reference would defeat it.
 - **Exit:** it is written by someone who has not touched the core, and they never need to. If they
   file an issue asking for a core change to make their pack work, that is a Phase 5 failure and a
-  design finding, not a feature request.
+  design finding, not a feature request. Fitness function 13 (task 5.2b) is switched on: every
+  dispatch over `FilterOp` raises rather than answers for an operator it predates.
 
 ### Phase 6 — Release
 
@@ -893,7 +894,17 @@ All checks run in CI, before tests.
 5. **Every declared capability resolves.** Every capability a plugin declares must resolve to a live
    implementation at discovery time, or the plugin must declare it unavailable and say why.
 6. **Contracts are versioned.** Every published contract carries a version, and a check fails on a
-   changed contract whose version did not move.
+   changed contract whose version did not move. **Built at task 5.2a, sharpened against what a
+   working check can actually assert** (`docs/09-release.md` §2.3; `docs/lessons.md` L5.4, L5.6):
+   nothing in this repository is tagged or released before Phase 6, so a diff against a stored
+   snapshot would rot at the first accepted bump and catch nothing a reviewer had not already seen.
+   What `tests/architecture/test_ff6_contract_version_binding.py` checks instead, from two
+   independently-read sources — the constant by parsing `contract.py`, the distribution version
+   from its own `pyproject.toml` — is G9's binding rule: a contract's version can never outrun the
+   distribution that publishes it. A contract bumped without its distribution keeping pace fails
+   immediately; a contract silently left unbumped for a real change is outside what this check can
+   see without human judgement about what "changed" means for a Protocol body, and is recorded as a
+   known gap rather than asserted shut.
 7. **Colour integrity.** Two clauses, from G6, and **no tuning constants in either.**
    (a) **One bridge.** `asyncio.run` appears exactly once in the tree, at `weft-cli`'s entry point,
    asserted by path — so a second one fails the build rather than being noticed in review. This
@@ -1141,6 +1152,121 @@ All checks run in CI, before tests.
     > for `config get`/`config set`'s own vocabulary. `NAME_RESOLUTION_FAMILY`: 24 -> 26. No kernel
     > line either repair. Reproduced against a real checkout in `manual/troubleshooting.md`'s own
     > entries for both classes.
+13. **Every dispatch over a published `Enum` is exhaustive by construction.** Added by task 5.2b
+    (`docs/build-ledger.md`), from `docs/09-release.md` §2.3: *"A version bump does not fix
+    silence, so silence is a separate defect. Adding an `Enum` member is textbook-additive and, in
+    this tree, makes a backend answer the wrong query without erroring... A published `Enum` must
+    therefore be dispatched exhaustively by construction, with no fall-through default —
+    requirement 5 applied to a closed vocabulary instead of an open one."* **Active from Phase 5**,
+    which is where the task that builds it lands; per the note under item 8, switching it on is an
+    exit criterion of that phase.
+
+    **A new numbered function rather than a third clause of item 4.** Item 4 is the nearest
+    neighbour — both are about a closed vocabulary and a dispatch over it — but its own proof
+    technique is the *inverse* of this one's. FF4(b) manufactures a name **nothing was told
+    about** and proves the registry still selects and runs it, which is what makes a registry key
+    space *open*; it would fail the instant a hard-coded branch could not produce a fresh UUID. This
+    function manufactures an operator **nothing was told about** and proves every dispatch
+    **refuses** it, which is what makes a closed vocabulary — `FilterOp`, serialised into stored
+    data rather than resolved against a live plugin set — actually stay closed instead of silently
+    admitting whatever it gains next. A registry key space and a closed enum are the same shape
+    read in opposite directions, and folding the closed case into item 4's own clause (b) would
+    make its one runtime property answer two different questions depending on which side of "open"
+    or "closed" the vocabulary under test happens to be — which is exactly the ambiguity a numbered
+    list of properties exists to prevent.
+
+    **The property**, `tests/architecture/test_ff13_filter_op_dispatch_is_exhaustive.py`:
+    manufacture a `FilterOp`-shaped value none of the enum's real members equal, drive every
+    dispatch that branches on `FilterOp` identity with it, and assert each one raises
+    `weft_store.contract.UnhandledFilterOpError` rather than answering. A permitted set *derived*
+    from the enum (`weft_store.fields._ADMITTED[FieldKind.EXTENSION]`, pre-task) is the same defect
+    in a different shape — it does not fall through, it silently widens — so its own clause asserts
+    the manufactured value is admitted by none of `FieldKind`'s three permitted sets, not only that
+    a raise occurs. `test_the_check_can_actually_fail` reproduces the pre-fix shape of
+    `weft_qdrant.store._range` inline and shows it answers `"gte"` for the manufactured operator
+    instead of raising, in the style item 0's own waiver test and FF6's and FF9's `test_the_check_
+    can_actually_fail` already use.
+
+    **Nine sites, not five.** `docs/09-release.md` §2.3 names five: `weft_qdrant.store._condition`,
+    `_range` and `to_qdrant_filter`, `weft_store.contract.Filter._shape_matches_op`, and
+    `weft_store.fields`'s derived permitted set. Task 5.2b's own audit found four more with the
+    identical shape in `weft_store.pgvector_store` — `_predicate`, `_text_predicate`,
+    `_text_set_predicate` and `_extension_predicate` — the SQL half of the same task 2.6
+    translation the five named sites cover only the Qdrant half of. `docs/lessons.md` L5.14 records
+    that a hand-enumerated "known sites" list undercounted by not auditing the sibling backend
+    doing the identical job, the reference's own "doing it by hand at nine sites is why three sites do
+    not" one level up from item 12's family.
+
+14. **Every declared `ExtModel` reaches the rehydration registry.** Added by task 5.2g. A pack's
+    own `weft_kernel.payload.ext.ExtModel` — its namespaced extension data — must be reconstructable
+    by whatever store reads it back, or a node carrying that namespace cannot survive a round trip
+    at all: `weft_store.rehydrate.rehydrate_ext` raises `UnknownPluginError` for any namespace
+    `weft_store.rehydrate.ext_models` was never told about. **Active from Phase 5**, which is where
+    the task that builds it lands; per the note under item 8, switching it on is an exit criterion
+    of that phase.
+
+    **A new numbered function rather than a clause of item 5, even though item 5's own wording —
+    "every declared capability resolves... or the plugin must declare it unavailable and say
+    why" — reads as though it already covers this.** It does not, for a reason worth stating
+    precisely rather than assumed: item 5 already has a real, distinct, unclaimed subject of its
+    own. `docs/11-multimodal.md` names it exactly — the extractor accept set, where a format
+    declared by one pack's metadata (an extension, a MIME type) must resolve to an actually
+    registered `Extractor` or say why it cannot, the reference's `.ppt` bug from `reference/study/
+    10-doc-corrections.md` B11 — and assigns it to task **1.13** in that document, unbuilt, with its
+    own phase placement still an open question left to this document to answer. Folding a second,
+    unrelated property into item 5 now would leave its one numbered clause answering two different
+    questions depending on which surface — a capability *offer* resolving to a live implementation,
+    or a *type* reaching a registry that can reconstruct it — is under test, which is the identical
+    ambiguity item 13's own note refuses for item 4. The two are not the same shape read
+    differently, either: item 5's property is about **conditional registration** (a pack probes an
+    optional dependency and registers only what actually works, or says why not); this one is
+    about a **second registry in a second distribution** (`weft_store.rehydrate.ext_models`) that
+    the kernel's own `PackRegistrar` cannot populate itself, because populating it means knowing
+    what a store is. Numbering it separately keeps item 5 free to be built later, against its own
+    real subject, without this task's test file being read as having already discharged it.
+
+    **The property**, `tests/architecture/test_ff14_ext_model_reaches_rehydration.py`: run real
+    discovery (`weft_kernel.discovery.discover`) against the installed first-party packs, feed the
+    resulting reports to `weft_store.rehydrate.register_from_reports`, and compare two
+    independently-computed sets — every namespace any `ACTIVE` report's own `PackReport.ext_models`
+    names (*declared*), against every namespace `weft_store.rehydrate.ext_models.names_for
+    (ExtModel)` actually holds afterward (*present*) — the identical two-source shape fitness
+    function 2 already uses for "declared" versus "present" in the plugin registry, applied to the
+    ext-model registry instead. **How it fails:** a pack ships a new `ExtModel` and its `register()`
+    never calls `add_ext_model`, or `register_from_reports` is never wired into whatever calls
+    `discover()` — either way `declared` and `present` disagree, and `test_the_check_can_actually_
+    fail` proves it by withholding one pack's own contribution from the reports handed to
+    `register_from_reports` and showing the comparison catches exactly that pack's namespace
+    missing, in the style item 0's own waiver test and FF2's, FF6's and FF9's `test_the_check_
+    can_actually_fail` already use.
+
+15. **Every `weft_kernel.resolution.resolve` call site in `weft-cli` passes `contributions=`.**
+    Added by task 5.3a (`S8`). `02` §3 → *Slots*: a pack's own `Contribution` only reaches a
+    pipeline if the `resolve()` call that produced it was handed one — `weft_cli.registry_
+    bootstrap.build_dependencies` assembles `Dependencies.contributions` once, from every
+    installed pack's own `PackReport.contributions`, but nothing at the language level stops a
+    future `resolve()` call site from being wired to everything else and never that one keyword:
+    it would still compile, still resolve, still pass every other test, and silently make a slot
+    permanently un-fillable by any pack. **Active from Phase 5**, which is where the task that
+    builds it lands; per the note under item 8, switching it on is an exit criterion of that phase.
+
+    **A new numbered function rather than a clause of item 14, its nearest neighbour.** Item 14
+    checks a *runtime* fact — two sets computed by actually running discovery and rehydration.
+    This one is a *caller-shape* fact, true or false by inspection of the call before anything
+    runs at all, which is why an AST walk rather than a driven discovery pass is the right proof
+    technique — the identical reasoning item 13's own note gives for why a different *kind* of
+    question earns its own number rather than a shared clause.
+
+    **The property**, `tests/architecture/test_ff15_resolve_call_sites_pass_contributions.py`:
+    walk every file under `packages/weft-cli/src`, find the ones that bind `resolve` as a bare
+    name via `from weft_kernel.resolution import resolve` — never a textual grep, which would
+    also match `Runner.resolve` and `ServiceRegistry.resolve`, two unrelated methods called in
+    the same files — and assert every `ast.Call` to that bare name carries a `contributions=`
+    keyword. **How it fails:** a fourth call site imports `resolve` and calls it without that
+    keyword; `test_the_check_can_actually_fail` proves it by parsing a file shaped exactly like
+    that regression and showing the same walk reports it as an offender, in the style item 0's
+    own waiver test and FF2's, FF6's, FF9's and FF14's `test_the_check_can_actually_fail`
+    already use.
 
 > **Corrected from the reference study (2026-08-10) — fitness function 1, and the preamble.** This
 > section previously opened *"the predecessor's AST boundary checker is the single best thing in

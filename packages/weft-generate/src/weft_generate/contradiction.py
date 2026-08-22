@@ -88,6 +88,7 @@ class Agreement(ExtModel):
     """
 
     __namespace__ = "weft-generate"
+    __schema_version__ = "1.0.0"
 
     status: ConflictStatus
     agreed: tuple[str, ...] = ()

@@ -78,11 +78,13 @@ import tomllib
 import typing
 from collections.abc import Iterable
 from fnmatch import fnmatch
-from importlib import import_module
+from importlib import import_module, metadata
 from pathlib import Path
 from typing import Final
 
 import pytest
+
+from weft_kernel.discovery import PackRegistrar
 
 from .conftest import str_list_at, table_at
 
@@ -133,6 +135,58 @@ class _NameCapturingRegistrar:
     def add(self, contract: object, name: str, factory: object, **_: object) -> None:
         del contract, factory
         self.names.append(name)
+
+    def add_ext_model(self, model: object) -> None:
+        """A no-op stand-in for `PackRegistrar.add_ext_model` (task 5.2g).
+
+        `weft-example-ingest`'s own `WordCount` namespace is identical to its distribution
+        name — `weft_example_ingest.enhancer.WordCount.__namespace__ ==
+        "weft-example-ingest"` — already captured via `distribution_name` in the caller
+        below, so this scan needs nothing further from an `ExtModel` a pack declares; it
+        only needs `register()` not to raise `AttributeError` calling it.
+        """
+        del model
+
+    def add_pipeline_resource(self, package: str, resource: str) -> None:
+        """A no-op stand-in for `PackRegistrar.add_pipeline_resource` (task 1.11).
+
+        The oldest of the three non-plugin contributions and the last to be stubbed here,
+        because no example pack shipped a pipeline until `examples/weft-graph` did at task
+        5.5 — which is exactly how a hand-maintained double drifts: it grows a method when
+        something calls it, so the gap is invisible for as long as nothing does.
+        `test_the_double_carries_every_registrar_method` below is what stops the fourth
+        recurrence; see `docs/lessons.md` L5.26.
+        """
+        del package, resource
+
+    def deprecate(self, surface: str, *, reason: str) -> None:
+        """A no-op stand-in for `PackRegistrar.deprecate` (task 5.2e).
+
+        Found missing by `test_the_double_carries_every_registrar_method` below rather than
+        by a pack crashing on it — which is the whole reason that test exists. A deprecation
+        names a surface, never a plugin, so clause (b)'s scan needs nothing from it.
+        """
+        del surface, reason
+
+    def commit(self) -> None:
+        """A no-op stand-in for `PackRegistrar.commit`.
+
+        Nothing here calls it — `module_and_plugin_names` reads the names off `.add()` and
+        stops — but a double that is missing a method the real class declares is a double
+        that breaks the moment a caller changes, so it is stubbed rather than argued about.
+        """
+
+    def add_contribution(self, slot: str, stage: object) -> None:
+        """A no-op stand-in for `PackRegistrar.add_contribution` (task 5.3a, `S8`).
+
+        `weft-example-ingest` now offers one (`ENRICH_SLOT`, reusing its own
+        `example-enhancer` plugin, already captured by `.add()` above under its own name)
+        — this method exists purely so `register()` calling it here does not raise
+        `AttributeError`, the identical reason `add_ext_model` above exists. Clause (b)'s
+        own scan needs nothing further from a `Contribution`: it names no new plugin, only
+        a slot a pipeline document declares.
+        """
+        del slot, stage
 
 
 def distribution_name(example_dir: Path) -> str:
@@ -441,3 +495,83 @@ def test_the_grep_can_actually_fail(tmp_path: Path) -> None:
         "this purpose; a clause that stopped being able to fail would pass on a tree that "
         "names the example pack from core, which is the everyday case it exists to catch"
     )
+
+
+def test_the_double_carries_every_registrar_method() -> None:
+    """`_NameCapturingRegistrar` stands in for the real `PackRegistrar`, and a stand-in that
+    lags the class it stands in for fails on whichever pack first calls the missing method.
+
+    **This has now happened three times and been noticed once.** `add_pipeline_resource`
+    (task 1.11), `add_ext_model` (task 5.2g) and `add_contribution` (task 5.3a) were each
+    added to `PackRegistrar` and not to this double; the first two went unnoticed for months
+    because no example pack called them, and `add_pipeline_resource` only surfaced when
+    `examples/weft-example-graph` shipped a pipeline at task 5.5 — as a crash inside a check
+    about something else entirely (`docs/lessons.md` L5.26).
+
+    A double is a second copy of a surface, so the only durable fix is to make the copy's
+    incompleteness a failure *here*, where it is diagnosable, rather than wherever it happens
+    to be called from. Public methods only: `_`-prefixed names are the real class's own
+    business and nothing a pack's `register()` can reach.
+    """
+    # Arrange
+    required = {
+        name
+        for name in vars(PackRegistrar)
+        if not name.startswith("_") and callable(getattr(PackRegistrar, name, None))
+    }
+
+    # Act
+    missing = required - set(dir(_NameCapturingRegistrar))
+
+    # Assert
+    assert not missing, (
+        f"`_NameCapturingRegistrar` is missing {sorted(missing)}, which `PackRegistrar` "
+        f"declares. A pack's `register()` calling one of those raises `AttributeError` "
+        f"inside whichever check happens to run it — add a no-op stand-in here."
+    )
+
+
+def test_no_out_of_workspace_pack_is_installed_in_the_development_environment() -> None:
+    """Clause (a)'s other half — the environment this suite runs in, `docs/lessons.md` L5.31.
+
+    Clause (a) says an example pack is installed into a **throwaway** environment, never linked
+    into this one, and `test_the_example_pack_is_outside_the_uv_workspace` above proves the
+    *declaration* half: no `[tool.uv.workspace] members` glob claims it and no `[tool.uv.sources]`
+    pin names it. Nothing proved the *runtime* half, and the two are different facts: a pack can
+    be correctly declared out-of-workspace and still be sitting in `.venv` because somebody ran
+    `uv pip install` on a wheel to drive the binary by hand.
+
+    **That is not hypothetical and it is not rare.** Closing a task requires both a green
+    `poe ci-checks` and a run of the shipped binary from outside the repository, and for an
+    example pack those two want opposite states of this environment: the binary run needs the pack
+    installed, the suite needs it absent. Left installed it silently changes what `discover()`
+    returns for the whole tree — five tests failed that way during Phase 5's task 5.4, and a
+    commit was made on the resulting red gate before the cause was understood. Uninstalling
+    returned all 1,801 to green with no code change.
+
+    So the cleanup stops being something to remember. The failure names the distribution and the
+    command that undoes it, because the person reading it is mid-task and has just lost a gate run.
+    """
+    # Arrange — every distribution this repository ships from `examples/`, read from its own
+    # `pyproject.toml` rather than guessed from a directory name.
+    out_of_workspace = {distribution_name(example_dir) for example_dir in _ALL_EXAMPLE_DIRS}
+
+    # Act
+    installed = sorted(name for name in out_of_workspace if _is_installed(name))
+
+    # Assert
+    assert not installed, (
+        f"{installed} is installed into this repository's own `.venv`, and fitness function 9(a) "
+        f"requires an example pack to be reachable only from a throwaway environment. It changes "
+        f"what `discover()` returns for every test in the tree (`docs/lessons.md` L5.31). Undo it "
+        f"with `uv pip uninstall " + " ".join(installed) + "`."
+    )
+
+
+def _is_installed(distribution: str) -> bool:
+    """Whether `distribution` has installed metadata in the environment running this suite."""
+    try:
+        metadata.distribution(distribution)
+    except metadata.PackageNotFoundError:
+        return False
+    return True

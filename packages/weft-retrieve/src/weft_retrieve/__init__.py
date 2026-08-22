@@ -314,6 +314,19 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     `passage-relevance`, `standalone-question`, `hyde-document`, `multi-query-variants`,
     `relevance-grade`, `boolean-parse`, `sufficiency-check` or `route-query` in `[plugins]`
     exactly as they would pin a retriever.
+
+    **`BooleanPlan`, `CorrectiveTrace` and `IterativeRetrievalTrace` are deliberately not
+    passed to `registrar.add_ext_model` — task 5.2g's own finding, not an oversight.**
+    They attach to `QuerySet.ext`/`Candidates.ext`, never to `Node.ext`, and only a `Node`
+    is ever handed to a `NodeStore` — `weft_store.rehydrate.rehydrate_ext` reconstructs a
+    *node's* `ext` map and is never called with a query-path payload's. Registering all
+    three would not merely be pointless, it would break every real run the moment two of
+    them are active together: all three declare `__namespace__ = "weft-retrieve"` (one
+    namespace, three carriers, none of them a `Node`), so `weft_store.rehydrate.
+    ext_models` — one class per namespace, globally, by design — would raise
+    `DuplicateRegistrationError` on the second registration. `docs/lessons.md` L5.20
+    records this as the reason `weft_kernel.discovery.PackRegistrar.add_ext_model` is for
+    an `ExtModel` that reaches a `Node`, not for every `ExtModel` a pack happens to own.
     """
     del settings
     registrar.add(Retriever, NO_RETRIEVAL_NAME, NoRetrieval)

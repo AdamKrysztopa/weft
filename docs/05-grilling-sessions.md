@@ -30,7 +30,7 @@ question, so that a decision's status has exactly one home.
 | 4 | **G2** Pipeline derivation semantics | Phase 1 | Low |
 | 5 | **G4** Store contract and capabilities | Phase 0 store work | Low |
 | 6 | **G3** Plugin trust model | Phase 0 discovery | Medium |
-| 7 | **G7** Event bus or explicit extension points | Phase 5 | Medium |
+| 7 | **G7** Event bus or explicit extension points | Phase 5 | Medium — settled 2026-08-21 |
 | 8 | **G8** Is the REPL agentic | Phase 3 | Medium, but expensive if retrofitted |
 | 9 | **G9** Contract versioning policy | First external pack | High — a policy, changeable |
 | 10 | **G10** Release and support policy | Phase 6 | Medium — a policy, but published |
@@ -507,9 +507,17 @@ answering it wrong turns a safety rule into either a blocker or a rubber stamp.
 
 **The question.** What does a contract version mean, and what is owed to a pack when one changes?
 
-**Why it cannot be defaulted.** Fitness function 6 enforces that versions move, but not what a move
-obliges. The first external pack makes this real and it is a promise, so it is better made
-deliberately than discovered.
+**Why it cannot be defaulted.** A contract version moving is the only signal a pack author gets, and
+nothing states what a move obliges. The first external pack makes this real and it is a promise, so
+it is better made deliberately than discovered.
+
+*(Corrected 2026-08-21, at the session. This paragraph read "Fitness function 6 enforces that
+versions move, but not what a move obliges." **It does not — there is no `test_ff6_*` in
+`tests/architecture/`.** Six unit-test docstrings across the packs describe the constant as one
+"fitness function 6 will eventually check", and the eleven contract-version bumps in the tree
+happened because people were diligent. The gate was being argued partly on the belief that a check
+existed; logged as `lessons.md` L5.4, and the session's ruling turns FF6 into a real check with a
+real subject. The argument for the session is unaffected and now rests on a fact.)*
 
 **Positions to attack.** *Semver per contract* with a stated support window. *Single library
 version* with all contracts moving together, which is simpler and coarser. *Capability negotiation*,
@@ -538,6 +546,23 @@ contracts, so fitness function 6 covers them and this session owes them a policy
 `Disclosure` field breaks every pack that ships one. And the `[packs] allow` key is **operator
 configuration in `weft.toml`**, which is the one format whose compatibility promise is owed to people
 who never read a changelog.
+
+**What G7 handed this session, 2026-08-21.** G7 closed by adding **two published Protocols to the
+store family** rather than a bus — `SourceDeletable` and `Reconcilable` — which lands squarely on the
+brittleness this session already identified: a capability Protocol is the most exposed surface in the
+system, because adding a method to one breaks every backend at once. That is now not a hypothetical
+about `VectorSearch` but a fresh, first-party instance created *after* the concern was written down.
+
+It also hands this session a **second persisted schema**. `ReconcileReport` is what `reconcile`
+returns, and a pack that records what it repaired has stored it — so the `GraphData` problem above
+("a schema in a database") now has a sibling that the kernel's own first-party packs will ship. And
+`ReconcileMode` is an `Enum` on a published contract: **adding a member is not a breaking change for a
+caller but is one for an implementer** that exhaustively matches it, which is a case a call-signature
+policy misses in the same way it misses stored data.
+
+Finally, G7 made `weft-cli[otel]` an **optional extra**, so this session inherits a small question it
+should answer explicitly rather than by implication: whether an extra is part of a distribution's
+compatibility promise, or a convenience outside it.
 
 **A question G1 created and did not answer:** contracts are published by *first-party packs*, not by the kernel, and the repository now ships several distributions (`weft-kernel`,
 `weft-cli`, `weft-llm`, `weft-prompts`, `weft-extract`, `weft-store`, `weft-eval`, …). So skew is no

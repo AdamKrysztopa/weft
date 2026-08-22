@@ -29,6 +29,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import io
+import json
 import sys
 from pathlib import Path
 from typing import ClassVar
@@ -393,6 +394,32 @@ async def test_run_command_translates_a_weft_error_into_a_rendered_failure() -> 
     assert rendered.stderr == "something in the library refused"
 
 
+async def test_run_command_emits_a_structured_envelope_when_the_real_sink_is_json() -> None:
+    # Arrange — task 5.2d: `run_command` reads `deps.token_sink`'s own type to decide
+    # `render_refusal`'s `as_json`, the identical global flag `docs/03-cli.md` -> *Output*
+    # already uses to pick the sink itself, never a second, independently-set flag.
+    from weft_cli.sinks import JsonSink
+
+    registry = Registry()
+    registry.add(Command, "boom", _BoomCommand, distribution="acme-cmd")
+    deps = Dependencies(
+        registry=registry,
+        reports=(),
+        services=ServiceSelection(),
+        token_sink=JsonSink(stream=io.StringIO()),
+    )
+    args = argparse.Namespace(text="ignored")
+
+    # Act
+    rendered = await cli.run_command("boom", args, deps)
+
+    # Assert
+    assert rendered.stderr is None
+    dumped = json.loads(rendered.stdout or "")
+    assert dumped["error"] == "WeftError"
+    assert dumped["rendered"] == "something in the library refused"
+
+
 async def test_run_command_attributes_an_error_through_the_seam(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -407,9 +434,9 @@ async def test_run_command_attributes_an_error_through_the_seam(
     captured: list[WeftError] = []
     real_render_refusal = render_module.render_refusal
 
-    def _capture(exc: WeftError) -> Rendered:
+    def _capture(exc: WeftError, *, as_json: bool = False) -> Rendered:
         captured.append(exc)
-        return real_render_refusal(exc)
+        return real_render_refusal(exc, as_json=as_json)
 
     monkeypatch.setattr(render_module, "render_refusal", _capture)
 
@@ -791,6 +818,61 @@ def test_main_renders_an_untranslated_exception_without_a_traceback(
     assert "RuntimeError: connection failed: port 59999" in captured.err
     assert "Traceback" not in captured.err
     assert "WEFT_TRACEBACK=1" in captured.err
+
+
+def test_main_prints_a_discovery_failure_as_prose_by_default(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Arrange — task 5.2d: a `WeftError` raised while building the registry itself, before a
+    # `Command` is even chosen, so `render_refusal`'s own `CommandRefusalError` branch could
+    # never apply here. Human output is unchanged: this is the pre-5.2d behaviour, reproduced.
+    monkeypatch.setattr(sys, "argv", ["weft", "echo", "hi"])
+    monkeypatch.setattr(cli, "wants_version", _wants_version_false)
+
+    def _boom(*, strict_pins: bool = True, token_sink: object = None) -> _FakeDeps:
+        del strict_pins, token_sink
+        raise WeftError("weft.toml is not valid TOML")
+
+    monkeypatch.setattr(cli, "build_dependencies", _boom)
+
+    # Act
+    with pytest.raises(SystemExit) as exit_info:
+        cli.main()
+
+    # Assert
+    captured = capsys.readouterr()
+    assert exit_info.value.code == int(ExitCode.RESOLUTION_FAILED)
+    assert captured.err.strip() == "weft.toml is not valid TOML"
+    assert captured.out == ""
+
+
+def test_main_emits_a_structured_envelope_for_a_discovery_failure_under_json(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Arrange — the identical failure, this time with `--json` ahead of the subcommand, so a
+    # script never has to parse a sentence to learn what failed even when discovery itself is
+    # what refused, not a chosen `Command`.
+    monkeypatch.setattr(sys, "argv", ["weft", "--json", "echo", "hi"])
+    monkeypatch.setattr(cli, "wants_version", _wants_version_false)
+
+    def _boom(*, strict_pins: bool = True, token_sink: object = None) -> _FakeDeps:
+        del strict_pins, token_sink
+        raise WeftError("weft.toml is not valid TOML")
+
+    monkeypatch.setattr(cli, "build_dependencies", _boom)
+
+    # Act
+    with pytest.raises(SystemExit) as exit_info:
+        cli.main()
+
+    # Assert
+    captured = capsys.readouterr()
+    assert exit_info.value.code == int(ExitCode.RESOLUTION_FAILED)
+    assert captured.err == ""
+    dumped = json.loads(captured.out)
+    assert dumped["error"] == "WeftError"
+    assert dumped["rendered"] == "weft.toml is not valid TOML"
+    assert dumped["exit_code"] == int(ExitCode.RESOLUTION_FAILED)
 
 
 def test_main_re_raises_when_weft_traceback_is_set(monkeypatch: pytest.MonkeyPatch) -> None:

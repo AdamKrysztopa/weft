@@ -25,7 +25,9 @@ from weft_cli.registry_bootstrap import Dependencies
 from weft_cli.services import ServiceSelection
 from weft_kernel.context import Context
 from weft_kernel.payload import Produced
+from weft_kernel.pipeline import StageDeclaration
 from weft_kernel.registry import Registry
+from weft_kernel.resolution import Contribution
 from weft_kernel.runner import Stage
 
 
@@ -111,6 +113,86 @@ async def test_pipeline_show_carries_the_fully_resolved_form(tmp_path: Path) -> 
     assert stage.provenance == "base"
     assert resolved.unapplied_operators == ()
     assert resolved.unplaced_contributions == ()
+
+
+async def test_pipeline_show_places_a_contribution_in_a_pipeline_that_declares_its_slot(
+    tmp_path: Path,
+) -> None:
+    """Task **5.3a** (`S8`): `deps.contributions` reaches `resolve()` through this command,
+    and lands in the one pipeline that opted into the slot — `02` §3 → *Slots*.
+    """
+    # Arrange
+    _write_pipeline(
+        tmp_path,
+        "base.yaml",
+        {
+            "name": "base",
+            "stages": [{"id": "chunk", "use": "fixed-size"}],
+            "slots": [{"id": "enrich", "after": "chunk"}],
+        },
+    )
+    registry = _registry()
+    registry.add(_StageContract, "entity-extractor", _factory, distribution="weft-graph")
+    contribution = Contribution(
+        slot="enrich",
+        distribution="weft-graph",
+        stage=StageDeclaration(id="entities", use="entity-extractor"),
+    )
+    deps = Dependencies(
+        registry=registry, reports=(), services=ServiceSelection(), contributions=(contribution,)
+    )
+
+    # Act
+    outcome = await pipeline_commands.PipelineShowCommand().run(
+        pipeline_commands.PipelineNameArgs(name="base"), _ctx(deps)
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = outcome.value
+    assert isinstance(result, pipeline_commands.PipelineShowCommandResult)
+    resolved = result.resolved
+    assert [stage.id for stage in resolved.stages] == ["chunk", "weft-graph:entities"]
+    assert resolved.stages[1].provenance == "weft-graph"
+    assert resolved.stages[1].distribution == "weft-graph"
+    assert resolved.unplaced_contributions == ()
+
+
+async def test_pipeline_show_records_a_contribution_unplaced_against_a_pipeline_with_no_slot(
+    tmp_path: Path,
+) -> None:
+    """The other half of `02` §3 → *Slots*: "a contribution with no matching slot is a
+    recorded no-op" — never a resolution failure, and printed rather than silently dropped.
+    """
+    # Arrange — the identical pipeline the sibling test above uses, minus the `slots:` block.
+    _write_pipeline(
+        tmp_path, "base.yaml", {"name": "base", "stages": [{"id": "chunk", "use": "fixed-size"}]}
+    )
+    registry = _registry()
+    registry.add(_StageContract, "entity-extractor", _factory, distribution="weft-graph")
+    contribution = Contribution(
+        slot="enrich",
+        distribution="weft-graph",
+        stage=StageDeclaration(id="entities", use="entity-extractor"),
+    )
+    deps = Dependencies(
+        registry=registry, reports=(), services=ServiceSelection(), contributions=(contribution,)
+    )
+
+    # Act
+    outcome = await pipeline_commands.PipelineShowCommand().run(
+        pipeline_commands.PipelineNameArgs(name="base"), _ctx(deps)
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = outcome.value
+    assert isinstance(result, pipeline_commands.PipelineShowCommandResult)
+    resolved = result.resolved
+    assert [stage.id for stage in resolved.stages] == ["chunk"]
+    assert len(resolved.unplaced_contributions) == 1
+    assert "weft-graph:entities" in resolved.unplaced_contributions[0]
+    assert "enrich" in resolved.unplaced_contributions[0]
 
 
 async def test_pipeline_show_refuses_an_unknown_name_naming_the_valid_options(

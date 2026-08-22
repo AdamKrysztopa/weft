@@ -50,6 +50,7 @@ class _DocumentFact(ExtModel):
     case for one pack `weft-chunk` does not and must not depend on."""
 
     __namespace__ = "test-document-fact"
+    __schema_version__ = "1.0.0"
 
     value: str
 

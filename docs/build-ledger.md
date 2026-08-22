@@ -682,23 +682,1670 @@ commit, per `README.md` → *Protocol*.
 
 ## Phase 5 — The independence test
 
-**⛔ Blocked by G7 and G9** — event bus or explicit extension points, and contract versioning and
-deprecation. Both Open. G9 is the harder blocker: it is also Phase 6's precondition, and `09` §2
-records five separate places a release policy would settle it by implication.
+**G9 settled 2026-08-21** — contract versioning and deprecation. This phase is **unblocked**. The
+ruling answered all five of `09` §2.3's dependencies and created tasks **5.2a**–**5.2f** below, which
+replace the single placeholder 5.2 that stood here while the gate was open. Two of them are scope
+additions rather than elaborations of existing work — the persisted-schema axis (5.2c) and the
+structured error channel (5.2d) — and are logged as `S5` and `S6` in `README.md`'s decision log under
+`09` §6.4.
+
+**G7 settled 2026-08-21**: explicit extension points only, no bus. It did not leave this phase
+unchanged. Task **5.1** was the task G7 owned, and it is no longer a question — the session found
+one real hole (derived data outliving its source) and closed it with two store-family Protocols,
+which makes 5.1 buildable and splits it into **5.1a**–**5.1d** below — the last of those being the second add-on the session produced, `weft-otel`. G7 also *added* to G9's
+agenda rather than reducing it — two newly published capability Protocols and a persisted
+`ReconcileReport` — and both landed in G9's ruling when it settled on 2026-08-21. **No ⚠ remains on
+this phase: it carried one gate, and that gate is closed.**
 
 **This phase's exit is a person, not a test**, so most of these tasks make *someone else's* work
 possible rather than adding a feature.
 
-- [ ] **5.1 ⚠** a pack can participate where it has no extension point — or it provably cannot, and that is written down · owner `05` → G7; `01` → *The least-architecture check* · turns on — · sha —
-- [ ] **5.2 ⚠** G9's compatibility policy is implemented rather than only written — every published contract's promise is machine-visible · owner `05` → G9; `01` → *Fitness functions* 6 · turns on — · sha —
-- [ ] **5.3 ⚠** a stranger has everything they need before they start: the pack author guide covers a pack spanning several contracts plus a contributed command, adapted from the case `02` §4 already owns · owner `08` §1–§2; `02` §4 · turns on — · sha —
-- [ ] **5.4 ⚠** the graph pack registers four things from one install, with one entry point, one `register()` and one settings model · owner `02` §4 → the registration table · turns on — · sha —
-- [ ] **5.5 ⚠** the pack ships a derived pipeline as data that users can derive from further · owner `02` §4; `02` §3 · turns on — · sha —
-- [ ] **5.6 ⚠** uninstalling the pack fails resolution with a message naming the missing plugin and the pack that provides it · owner `02` §4 · turns on — · sha —
-- [ ] **5.7 ⚠** the pack was built by someone who has not touched core, and they never needed to — every request for a core change recorded as a design finding rather than closed as a feature request · owner `01` → Phase 5 **Exit**; `02` §4 → *The independence test* · turns on — · sha —
+- [x] **5.1a** deleting a source reaches everything derived from it: `SourceDeletable` is published in the store family, `weft delete` fans out across every registered participant, and a participant that fails is named rather than swallowed · owner `02` §1 → *The store contract family*; `03` → *Command surface* · turns on — · sha `8bfbe2a`
+
+  **Run outside the repository, against the real container** — the failure path first, which is
+  where the one defect this task shipped was found (`docs/lessons.md` L5.9, and the repair is in
+  `DeleteCommand.describe_impact`'s own docstring):
+
+  ```
+  $ weft delete doc-1 < /dev/null          # no weft.toml, no dsn
+  [services] store names 'pgvector', and no registered NodeStore has that name. These
+  distributions contributed nothing, or only part of what they publish, and one of them may be
+  the one that provides it: weft-store (failed). Registered NodeStore names: 'qdrant'.
+  ...
+  'weft-store' settings failed validation: 1 validation error for PgVectorSettings / dsn / Field required
+  exit=4
+
+  $ weft delete .../corpus/weaving.txt < /dev/null     # WEFT_DATABASE_URL exported, no TTY
+  'delete' is a destroy-class command, called with {'source_id': '.../weaving.txt'}.
+  '.../weaving.txt' will be removed from 1 participant(s): pgvector (weft-store). It refuses to
+  run with no terminal to confirm in, and never proceeds silently. Pass --yes to permit it for
+  this invocation.
+  exit=3
+
+  $ weft delete .../corpus/weaving.txt --yes
+  '.../weaving.txt' — 1 participant(s):
+    pgvector (weft-store): 1 node(s) removed
+  exit=0
+
+  $ weft delete .../corpus/weaving.txt --yes           # again: idempotent, still a success
+    pgvector (weft-store): 0 node(s) removed
+  exit=0
+  ```
+- [x] **5.1b** derived state converges on what the corpus actually holds, whatever was missed and whoever was not installed at the time: `Reconcilable` is published, `weft reconcile` runs it, and a pass interrupted part-way resumes rather than restarting · owner `02` §1; `03` · turns on — · sha `f38479a`
+
+  **A node store converges tombstones, not orphans**, and that narrowing is recorded in `02` §1
+  rather than only here — `repair` as written removes "derived state whose source is gone", which
+  applied to a node store would erase every corpus indexed before source records were written.
+  Resumption is therefore a fact about durable rows rather than a promise about a cursor, proven
+  on both real backends by the conformance kit and by a stranger's own pack.
+
+  **Run outside the repository, against the real container**, with a half-finished deletion
+  planted by hand — the state a `delete_source` killed between its two statements leaves:
+
+  ```
+  $ weft reconcile --mode wobble
+  usage: weft reconcile [-h] [--mode {repair,full}] [--dry-run] [--yes]
+  weft reconcile: error: argument --mode: invalid ReconcileMode value: 'wobble'
+
+  $ weft reconcile --dry-run --yes
+  mode 'full' would run against 1 participant(s):
+    pgvector (weft-store)
+
+  $ weft reconcile < /dev/null
+  'reconcile' is a destroy-class command, called with {'mode': 'full', 'dry_run': False}. mode
+  'full' will run against 1 participant(s): pgvector (weft-store). It refuses to run with no
+  terminal to confirm in, and never proceeds silently. Pass --yes to permit it for this invocation.
+  exit=3
+
+  $ weft reconcile --yes
+  mode 'full' — 1 participant(s):
+    pgvector (weft-store): examined 1, removed 1, backfilled 0
+  exit=0
+
+  $ weft reconcile --yes                 # again: idempotent
+    pgvector (weft-store): examined 0, removed 0, backfilled 0
+  exit=0
+  ```
+
+  That third block is the repaired one. It first read `{'mode': <ReconcileMode.FULL: 'full'>,
+  ...}` — Phase 3's fourth repair recurring at a different raise site, logged as
+  `docs/lessons.md` L5.10 and fixed at the seam that renders every gated command's arguments.
+- [x] **5.1c** the expensive mode is never reached ambiently and never surprises anyone: the automatic post-index pass is `repair`, `full` is reached only by a person's per-run flag, and `full` prints what it will cost before it spends it · owner `02` §3 → *Slots*; `03` → *Permissions* · turns on — · sha `da37871`
+
+  `weft_cli.commands.IndexArgs.reconcile` is a hardcoded `ReconcileMode.REPAIR`, read from no
+  config — `weft index` runs the automatic pass unconditionally after a successful run, on both
+  the default and `--pipeline` paths, since converging `[services] store` is a project-wide
+  concern independent of which pipeline a given run used. `ReconcileArgs.mode` moved from a
+  hardcoded `full` to `None`, with `weft_cli.reconcile_policy.ReconcilePolicy` (`[reconcile]
+  mode` in `weft.toml`, default `full`) supplying the fallback and the flag always winning —
+  `weft_cli.config_surface` grew a fifth dotted key, `reconcile.mode`, the identical shape
+  `[services]`/`[permissions]` already have. `Reconcilable` gained `estimate(ctx, mode) ->
+  ReconcileEstimate` (`weft-store`), asked only when the effective mode is `full` and rendered
+  first, ahead of every other line — `STORE_CONTRACT_VERSION` moves `1.4.0` → `2.0.0`, a major
+  under G9's two-audience rule, since adding a method to a published Protocol is major for an
+  implementer even though it is minor for a caller. All three first-party `Reconcilable`s
+  (`PgVectorStore`, `weft_qdrant.store.QdrantStore`, and the out-of-tree stranger
+  `examples/weft-example-ingest`) report `model_calls=0` honestly — a node store holds no
+  derived state to backfill — proven on both real backends by the conformance kit.
+
+  **A repair found by `ci-checks`, not by the binary — logged as `docs/lessons.md` L5.11.**
+  `weft_cli.reconcile_policy` needed `weft_store.ReconcileMode` at its own module scope, and
+  importing that module eagerly from `weft_cli.registry_bootstrap` (for `Dependencies.
+  reconcile_policy`'s `default_factory`) and from `weft_cli.config_surface` (for `validate_
+  set_value`'s new branch) each put `weft_store` in `sys.modules` for `weft --version`, which
+  fitness function 8(b) forbids categorically. Both became lazy imports, on the identical
+  footing `registry_bootstrap._ensure_chunk_offset_rehydrates` already documents for
+  `weft_chunk`/`weft_store`.
+
+  **Run outside the repository, against the real container** — the happy path, the cost block,
+  the personal default, and both failure paths:
+
+  ```
+  $ weft init
+  wrote weft.toml.
+
+  $ weft index corpus
+  produced 1, nothing to produce 0, failed 0. nodes now stored: 3.
+  mode 'repair' — 1 participant(s):
+    pgvector (weft-store): examined 0, removed 0, backfilled 0
+  exit=0
+
+  $ weft index corpus --reconcile full --yes
+  produced 1, nothing to produce 0, failed 0. nodes now stored: 3.
+  mode 'full' — 1 participant(s):
+    pgvector (weft-store): no unfinished deletions; nothing to converge
+    pgvector (weft-store): examined 0, removed 0, backfilled 0
+  exit=0
+
+  $ weft reconcile --dry-run --yes
+  mode 'full' would run against 1 participant(s):
+    pgvector (weft-store): no unfinished deletions; nothing to converge
+  exit=0
+
+  $ weft reconcile < /dev/null
+  'reconcile' is a destroy-class command, called with {'mode': None, 'dry_run': False}. mode
+  'full' will run against 1 participant(s): pgvector (weft-store). It refuses to run with no
+  terminal to confirm in, and never proceeds silently. Pass --yes to permit it for this
+  invocation.
+  exit=3
+
+  $ weft config set reconcile.mode repair
+  set reconcile.mode = repair in weft.toml.
+  $ weft reconcile --yes
+  mode 'repair' — 1 participant(s):
+    pgvector (weft-store): examined 0, removed 0, backfilled 0
+  exit=0
+
+  $ printf '[reconcile]\ndelete = "allow"\n' > weft.toml
+  $ weft plugins list
+  unknown [reconcile] key(s) in weft.toml: 'delete'. [reconcile] accepts mode. A key nothing
+  reads is refused rather than ignored — a default you did not actually change is one you
+  would have to notice by the tool behaving differently than the file says.
+  exit=4
+
+  $ weft config set reconcile.mode wobble
+  'reconcile.mode' must be one of ['full', 'repair'], not 'wobble' — weft_store.ReconcileMode's
+  own vocabulary.
+  exit=1
+  ```
+- [x] **5.1d** the spans the seam has always emitted reach somewhere a person can read them, through a pack and with no core edit: `weft-otel` sets the `TracerProvider` in `register()`, and `weft plugins doctor` shows it active · owner `02` §4 → *The second add-on G7 produced*; `01` → *The kernel boundary* · turns on — · sha `73bcdf5`
+
+  `packages/weft-otel/` ships as an ordinary first-party pack: one `[project.entry-points.
+  "weft.packs"]` line, one `register(registrar, settings)`, zero lines under `packages/
+  weft-kernel/`. `register()` never calls `registrar.add(...)` — the kernel boundary this
+  task tests is that a capability need not be a stage, a store, a retriever or a command to
+  arrive through the published model. `OtelSettings.exporter` (`NONE`/`CONSOLE`/`OTLP`)
+  governs whether `register()` calls `opentelemetry.trace.set_tracer_provider`; `OTLP` is
+  probed and verified together — the optional `weft-otel[otlp]` extra importable and an
+  `endpoint` configured, never a live reachability check — and falls back to `CONSOLE`,
+  loudly, on stderr, when either check fails.
+
+  **`exporter` defaults to `NONE`, not `CONSOLE` — a correction made by measurement, logged
+  as `docs/lessons.md` L5.12.** The first draft defaulted to `CONSOLE`, read off `02` §4's own
+  "ordinary pack, install and it works" framing. `weft-otel`'s own tests passed under it, and
+  so did `tests/architecture`/`tests/docs` run alone. Running the *combined* suite
+  (`tests/architecture tests/docs tests/unit`) falsified it: `opentelemetry.trace.
+  set_tracer_provider` succeeds exactly once per process, and dozens of existing
+  `tests/unit/weft_cli` tests (`test_cli.py`, `test_repl.py`, `test_registry_bootstrap.py`)
+  call the real, open-by-default discovery path with nothing to do with tracing. With
+  `CONSOLE` as the default, whichever of those happened to run first inside one `pytest
+  tests -q` process (`tests/unit/weft_cli` sorts before `tests/unit/weft_kernel`) silently
+  claimed the provider slot, and `tests/unit/weft_kernel/test_seam_trace_visibility.py` —
+  which must win that race to prove `seam.wrap`'s spans reach a real SDK exporter — started
+  losing it, deterministically, the moment `weft-otel` was installed. `NONE` makes
+  installing the pack necessary but not sufficient; the one-line opt-in is `[packs.weft-otel]
+  exporter = "console"`.
+
+  **This narrows the task line above, and `02` §4 now says so rather than leaving it
+  implicit.** "`weft-otel` sets the `TracerProvider` in `register()`" reads unconditional;
+  it now does that only once a `weft.toml` opts in. The test-suite collision is what forced
+  the question, not what settles it — a pack that redirected a process-global singleton the
+  moment it was installed, with no operator action, is `02` §3's *slot* rule broken by a
+  quieter route (a contribution landing somewhere without anyone opting in) and G3's
+  *installed-and-ambient* threat in miniature, so `NONE` is the more defensible default
+  independent of the test suite that happened to surface it first.
+
+  **`weft plugins doctor`'s `tracing:` line is pack-agnostic, on purpose.** Nothing on a
+  `PackReport` can carry what `register()` decided — `DISCLOSURE` is read before `register()`
+  runs, and `weft-otel` contributes zero registrations by design, so `contributed` says
+  nothing either. `weft_cli.tracing_status.describe_tracing()` reads `opentelemetry.trace.
+  get_tracer_provider()` directly, after discovery has finished, and reports `not configured`
+  or `configured`, naming whatever class set it — never importing `weft-otel` by name, so a
+  host application embedding `weft` and configuring its own tracing reads the identical line.
+
+  **The trap `01`/`02` name was real, and the fix does not touch what fitness function 2
+  polices.** `test_ff2_no_privileged_builtins.py::test_registry_contents_equal_what_
+  discovery_declared` carried one assertion, `expected_builtins <= declared`, that read as
+  "every first-party pack is active *and contributing*" but was never FF2's substantive
+  check — the docstring above it already says so: it is the *floor*, there only to stop the
+  real checks (`declared == present`, the per-distribution registration count, factory
+  identity — all three untouched by this task) from passing vacuously because `uv sync` was
+  never run. That floor happened to work by counting contributions only because, until this
+  task, every first-party pack contributed at least one. `weft-otel` is the first that does
+  not, by design (`02` §4: "registers no plugin against any contract"), so the floor is
+  replaced, for exactly this one pack, with what it was always actually trying to prove —
+  `status is ACTIVE`, i.e. installed and running, not `FAILED` — behind a named,
+  single-entry waiver constant, `PACKS_THAT_REGISTER_NOTHING_BY_DESIGN`, the identical ratchet
+  discipline `test_ff9c_every_contract_has_a_stranger.py`'s own waivers already use. Nothing
+  about FF2's actual defect-catching mechanism moved. FF9(c) gains no new obligation either:
+  `weft-otel` exports no `Protocol`, so the contract-vs-stranger check it turns on is
+  unaffected — verified by reading `test_ff9c`'s own wheel-building and `Protocol`-scanning
+  logic against `weft-otel`'s `__all__`, not assumed.
+
+  **Run outside the repository, against the real container** — `weft plugins doctor` before
+  and after enabling tracing, a real `weft index` with a span reaching the exporter, and two
+  failure paths:
+
+  ```
+  $ weft init
+  wrote weft.toml.
+
+  $ weft plugins doctor
+  ...
+  weft-otel: active (0 contributed)
+    disclosure: network=[], filesystem=[], subprocess=[], note="Sets the process OpenTelemetry
+  TracerProvider from [packs.weft-otel] settings. exporter defaults to 'none' (nothing exported
+  until configured); 'console' prints to stdout; 'otlp' reaches the network at whatever endpoint
+  is configured. Registers no plugin against any contract."
+  ...
+  tracing: not configured — spans stay on the no-op default and go nowhere. Install weft-otel
+  and set [packs.weft-otel] exporter to 'console' or 'otlp' (its own default is 'none', so
+  installing alone is not enough), or configure a TracerProvider yourself.
+
+  $ printf '\n[packs.weft-otel]\nexporter = "console"\n' >> weft.toml
+  $ weft index corpus --yes
+  {
+      "name": "extract",
+      "context": {"trace_id": "0x939f3b7c7b64ce1fe362531e6491c7dc", "span_id": "0x72bcd1e5..."},
+      "kind": "SpanKind.INTERNAL",
+      "attributes": {"weft.pack": "weft-extract", "weft.contract": "Extractor", "weft.plugin": "text", ...}
+  }
+  { "name": "chunk", ... "attributes": {"weft.pack": "weft-chunk", ...} }
+  { "name": "embed", ... "attributes": {"weft.pack": "weft-embed", ...} }
+  { "name": "store", ... "attributes": {"weft.pack": "weft-store", "weft.plugin": "pgvector", ...} }
+  { "name": "store:flush", ... }
+  { "name": "command:index", ..., "attributes": {"weft.pack": "weft-cli", "weft.plugin": "index"} }
+  produced 1, nothing to produce 0, failed 0. nodes now stored: 2.
+  mode 'repair' — 1 participant(s):
+    pgvector (weft-store): examined 0, removed 0, backfilled 0
+  exit=0
+  # all six spans share one trace_id — one real run, one real trace, reaching a real exporter.
+
+  $ weft plugins doctor
+  ...
+  tracing: configured — spans export through opentelemetry.sdk.trace.TracerProvider.
+
+  $ printf '[packs.weft-otel]\nexporter = "bogus"\n' > weft.toml
+  $ weft plugins doctor
+  ...
+  weft-otel: failed (0 contributed)
+    reason: 'weft-otel' settings failed validation: 1 validation error for OtelSettings
+  exporter
+  exit=0
+
+  $ printf '[packs.weft-otel]\nexporter = "otlp"\n' > weft.toml
+  $ weft plugins doctor
+  weft-otel: exporter 'otlp' requested but not usable (install the 'weft-otel[otlp]' extra and
+  set [packs.weft-otel] endpoint) — falling back to 'console'. See `weft plugins doctor`.
+  ...
+  tracing: configured — spans export through opentelemetry.sdk.trace.TracerProvider.
+  exit=0
+  ```
+- [x] **5.2a** a contract version is a fact a resolver can act on, not a constant people remember to move: every distribution leaves `0.0.0`, every intra-repo dependency carries a compatible range `>=X,<MAJOR+1`, and **fitness function 6 exists** — asserting not that the constant moved but that its movement agrees with the version of the distribution publishing it · owner `09` §2.3; `05` → G9 · turns on **FF6** · sha `71c3f31` · **`COMMAND_CONTRACT_VERSION` 1.1.0 → 2.0.0 lands here**, the mis-recorded major task 3.2 created when `help` joined `required_declarations`
+
+  **Version scheme.** Every first-party distribution's real version is the maximum, per G9's
+  binding rule, of the contract versions it publishes (`tests/architecture/
+  test_ff6_contract_version_binding.py::contract_versions_in`, scanning `packages/*/src/*/contract.py`
+  by AST rather than by import): `weft-store` and `weft-command` land on `2.0.0` (each publishes a
+  contract already bumped to a major), every other contract-publishing distribution lands on `1.0.0`
+  (`STORE_CONTRACT_VERSION` 2.0.0 dominates `weft-store`'s own `FILTER_AST_VERSION` 1.1.0; every other
+  distribution's contracts are still at their initial 1.0.0). A distribution that publishes **no**
+  contract — `weft-kernel`, `weft-cli`, `weft-otel`, and the three backend-implementer packs
+  `weft-pdf`/`weft-openai`/`weft-qdrant` — has nothing to force it above the baseline `09` §2.2
+  states for the project as a whole, so each takes `0.1.0`: a real, non-placeholder number, still
+  inside the 0.x line, distinct from `0.0.0` only in being a fact rather than a stand-in.
+  `testing/weft-canary` is explicitly in scope — its own `pyproject.toml` already says "Never
+  published," but `0.0.0` is still a placeholder a resolver could stumble on, and giving it `0.1.0`
+  costs nothing since nothing in the tree depends on it by name. `docs/09-release.md` §2.2 gained a
+  paragraph reconciling this with "every distribution is 0.x until Phase 6": that sentence was never
+  about the literal leading digit, and `weft-store`/`weft-command` reading `2.0.0` today is G9's
+  mechanical fact, not an early 1.0 promise — the substantive precondition table in that section is
+  untouched.
+
+  **Ranges.** Every intra-repo `dependencies` entry that named another workspace member as a bare
+  string now carries `>=X,<MAJOR+1`, `X` being that dependency's own declared version and `MAJOR+1`
+  its next major — e.g. `weft-cli` now depends on `weft-store>=2.0.0,<3.0.0` and
+  `weft-kernel>=0.1.0,<1.0.0`. `uv sync` re-resolved the whole workspace clean under the new ranges
+  (`[tool.uv.sources]`'s `workspace = true` entries satisfy any range whose floor is that member's
+  own declared version, by construction), and `poe kernel-isolated` still installs `weft-kernel`
+  alone and imports it.
+
+  **Fitness function 6.** `tests/architecture/test_ff6_contract_version_binding.py`. Reads the
+  contract-version constant by parsing `contract.py` as text (never `import`, so a pack's own
+  import-time side effects never run to answer this) and the distribution version from that
+  distribution's own `pyproject.toml` via `tomllib` — two independently-read facts, the direct
+  answer to `docs/lessons.md` L5.6's finding that a declaration derived from the thing it verifies
+  cannot fail. Asserts the invariant G9's binding rule reduces to: a contract's version can never
+  outrun the distribution publishing it. `test_the_check_can_actually_fail` plants a disagreeing pair
+  in a throwaway tree and proves the two facts can diverge, in the spirit of
+  `test_ff9_extension_from_outside.py::test_the_grep_can_actually_fail`; a companion test proves the
+  agreeing case is not flagged, and a third proves `*_SCHEMA_VERSION` constants (the stored-data axis
+  `S5` added, not a contract) are deliberately excluded. **What it does not attempt, recorded rather
+  than faked:** `01`'s literal sentence — "a check fails on a changed contract whose version did not
+  move" — asks for a diff against a stored shape. Nothing in this repository is tagged, released or
+  lock-frozen before Phase 6, so a snapshot taken today would be this commit's own tree and would rot
+  at the first accepted bump. What is checked instead is the fact that actually matters: the
+  agreement invariant holds at every commit, which is what makes the dependency ranges above
+  enforceable at all. `docs/01-high-level-plan.md`'s fitness-function-6 line now states this
+  narrowing in the same place the sentence lives. The six unit-test docstrings `docs/lessons.md` L5.4
+  found saying "fitness function 6 will eventually check" (`tests/unit/weft_{retrieve,enhance,
+  extract,embed,generate,eval}/test_contract.py`) now say it binds to the distribution's own version,
+  present tense.
+
+  **`COMMAND_CONTRACT_VERSION` 1.1.0 → 2.0.0.** Corrected in code (the G9 commit itself,
+  `4fb04d0`, only announced the correction in prose — `docs/README.md`'s decision-log row and
+  `docs/09-release.md` §2.3 already read "corrected to 2.0.0," but `weft_command/contract.py` still
+  read `"1.1.0"` until this task). `help` joining `required_declarations` (task 3.2) is minor for a
+  caller and **major for an implementer** — G9's table, row 3 — so the bump is the maximum of the
+  two, corrected here along with the module docstring's own account of why.
+
+  **Every other moved contract, assessed against G9's two-audience table.** `STORE_CONTRACT_VERSION`
+  is the only other constant with history (1.0.0→1.1.0→1.2.0→1.3.0→1.4.0→2.0.0, tasks 2.5/2.6/5.1a/
+  5.1b/5.1c) and it was **already correctly recorded**, not a second mis-record: each of the first
+  four moves adds an entirely new Protocol to the family (`TextSearch`, `MetadataFilter`,
+  `SourceDeletable`, `Reconcilable`) — additive, since capability is derived by `isinstance` and no
+  existing `NodeStore` implementation is broken by a Protocol it never has to satisfy — correctly
+  minor. Only the fifth move (5.1c, adding `estimate` to the already-published `Reconcilable`)
+  breaks every existing implementer and is correctly major, as `weft_store/contract.py`'s own
+  docstring already argued (written before G9 formally closed, but against the same rule). Every
+  other `*_CONTRACT_VERSION`/`*_AST_VERSION` constant in the tree is still at its untouched initial
+  `1.0.0` — no history to assess.
+
+  **Run outside the repository:**
+
+  ```
+  $ weft --version
+  weft 0.1.0
+
+  $ weft plugins doctor
+  weft-canary: active (0 contributed)
+    disclosure: not disclosed
+  weft-chunk: active (1 contributed)
+    disclosure: not disclosed
+  weft-clean: active (6 contributed)
+    disclosure: not disclosed
+  weft-cli: active (18 contributed)
+    disclosure: not disclosed
+  weft-embed: active (1 contributed)
+    disclosure: not disclosed
+  weft-enhance: active (1 contributed)
+    disclosure: not disclosed
+  weft-eval: active (28 contributed)
+    disclosure: not disclosed
+  weft-extract: active (3 contributed)
+    disclosure: not disclosed
+  weft-generate: active (6 contributed)
+    disclosure: not disclosed
+  weft-index: active (4 contributed)
+    disclosure: not disclosed
+  weft-llm: active (1 contributed)
+    disclosure: not disclosed
+  weft-openai: active (2 contributed)
+    disclosure: not disclosed
+  weft-otel: active (0 contributed)
+    disclosure: network=[], filesystem=[], subprocess=[], note="Sets the process OpenTelemetry
+    TracerProvider from [packs.weft-otel] settings. exporter defaults to 'none' (nothing exported
+    until configured); 'console' prints to stdout; 'otlp' reaches the network at whatever endpoint
+    is configured. Registers no plugin against any contract."
+  weft-pdf: active (2 contributed)
+    disclosure: not disclosed
+  weft-qdrant: active (1 contributed)
+    disclosure: not disclosed
+  weft-retrieve: active (31 contributed)
+    disclosure: not disclosed
+  weft-store: active (1 contributed)
+    disclosure: not disclosed
+  tracing: not configured — spans stay on the no-op default and go nowhere. Install weft-otel and
+  set [packs.weft-otel] exporter to 'console' or 'otlp' (its own default is 'none', so installing
+  alone is not enough), or configure a TracerProvider yourself.
+  exit=0
+
+  $ weft index nonexistent-file.txt
+  [services] store names 'pgvector', and no registered NodeStore has that name. These distributions
+  contributed nothing, or only part of what they publish, and one of them may be the one that
+  provides it: weft-store (failed). Registered NodeStore names: 'qdrant'.
+
+  Diagnostic detail:
+  weft-store:
+      'weft-store' settings failed validation: 1 validation error for PgVectorSettings
+      dsn
+        Field required [type=missing, input_value={}, input_type=dict]
+          For further information visit https://errors.pydantic.dev/2.13/v/missing
+  exit=4
+
+  $ weft ask
+  usage: weft ask [-h] [--pipeline PIPELINE] [--retrieve-only] [--top-k TOP_K]
+                  [--format {text,json}] [--yes]
+                  question
+  weft ask: error: the following arguments are required: question
+  exit=2
+
+  $ weft --help
+  usage: weft [-h] [--version] [--json | --quiet] command ...
+  ... (full command list, unchanged in shape)
+  exit=0
+  ```
+
+  All green: `poe ci-checks` (93 architecture tests, 1727 passed/1 skipped), `poe kernel-isolated`,
+  `uv sync`. `docs/lessons.md` L5.13 logged: two pre-existing unit tests
+  (`tests/unit/weft_generate/test_init.py`, `tests/unit/weft_retrieve/test_init.py`) asserted a
+  dependency list's *literal* shape (a bare-name set) rather than the fact it meant (which
+  distributions are depended on), and broke the instant the range task 5.2a requires was appended —
+  fixed with a small name-extracting helper in each file.
+- [x] **5.2b** an added `Enum` member cannot make a backend answer the wrong query: every dispatch over a published `Enum` is exhaustive by construction, with no fall-through default, and a fitness function keeps it so · owner `05` → G9; `01` → *Fitness functions* · turns on **FF13** · sha `5cd48b3` · **nine sites, not five** — the ledger's own five plus four more this task's audit found in `weft_store.pgvector_store`, undiscovered by `docs/09-release.md` §2.3's own list because it never named the SQL half of task 2.6's translation
+
+  **The five named sites, fixed.** `weft_qdrant.store.to_qdrant_filter`/`_condition`/`_range` and
+  `weft_store.contract.Filter._shape_matches_op` now end `match self.op: ... case _: raise
+  weft_store.contract.UnhandledFilterOpError(...)` — a `match` whose final arm is mandatory rather
+  than an `if`/`elif` chain whose last `else` silently assumed a shape. `weft_store.fields._ADMITTED[
+  FieldKind.EXTENSION]` needed a different fix, because its defect was not a fall-through but a
+  *widen*: it read `frozenset(FilterOp) - {AND, OR, NOT}`, so it does not fail to notice a 13th
+  member, it silently admits it. The nine members are now stated by hand — behaviourally identical
+  for every operator that exists today, refusing (via `field_for`'s existing
+  `FilterOpMismatchError`) anything a person has not explicitly added tomorrow.
+
+  **The four more.** `weft_store.pgvector_store` publishes its own translator over the identical
+  `FilterOp` vocabulary — `_predicate`, `_text_predicate`, `_text_set_predicate`,
+  `_extension_predicate` — and every one had the same shape as the Qdrant side: an unhandled
+  operator silently answered as `eq`/`ne`/`contains`, or (in `_predicate`) a hypothetical second
+  combinator routed through the leaf branch as if it were one, mutually recursing with
+  `to_qdrant_filter`'s own sibling defect one layer up. `docs/lessons.md` L5.14 logged why the
+  ledger's own "known sites" list missed them: it was written by reading `weft_qdrant.store`, never
+  by grepping `FilterOp` across the whole tree for the same dispatch shape.
+
+  **The new error.** `weft_store.contract.UnhandledFilterOpError(WeftError, UnresolvedNameError)` —
+  defined once, where `FilterOp` itself is, so `fields.py`, `pgvector_store.py` and
+  `weft_qdrant.store` all import the one class rather than each inventing their own. `valid_options`
+  names the operators *that site* translates, not the whole enum — the message is "you added a
+  member and this translator does not know it yet," not "you spelled an operator wrong." Joins
+  `NAME_RESOLUTION_FAMILY` in `tests/architecture/test_ff12_unresolvable_name_carries_options.py`
+  (31 members now), and `manual/troubleshooting.md` gains its entry: the realistic trigger is a
+  version-skew one, a store pack translating filters against an older `weft-store` than the one
+  that published a new operator.
+
+  **Fitness function 13**, `tests/architecture/test_ff13_filter_op_dispatch_is_exhaustive.py`. A new
+  numbered function rather than a third clause of FF4 — FF4(b)'s own proof technique manufactures a
+  name *nothing was told about* and proves the system still runs it, which is what makes a registry
+  key space open; this function manufactures an operator nothing was told about and proves every
+  dispatch *refuses* it, which is the mirror-image property for a closed vocabulary serialised into
+  stored data rather than resolved against a live plugin set. `01` → *Fitness functions* item 13
+  carries the argument in full. The check builds a `FilterOp`-shaped `StrEnum` value none of the
+  twelve real members equal (`_unknown_op()`), drives all nine fixed dispatch sites with it through
+  `pytest.raises(UnhandledFilterOpError)`, and asserts the manufactured value is admitted by none of
+  `weft_store.fields._ADMITTED`'s three `FieldKind` sets. `test_the_check_can_actually_fail`
+  reproduces the pre-fix shape of `_range` inline (three named branches, one unconditional
+  `return "gte"`) and shows it answers instead of raising for the identical manufactured operator —
+  proof the assertions above are not vacuous. Reaching several of these dispatch functions directly
+  required bypassing pydantic's own field validation (`Filter.model_construct`, since `op: FilterOp`
+  refuses any string that is not a real member before a validator ever runs) and pyright's
+  `reportPrivateUsage` (a small `_private(target, name)` helper using `getattr` with a string
+  literal, which types as `Any` rather than tripping the check — no suppression comment anywhere in
+  the file).
+
+  **Run outside the repository:**
+
+  ```
+  $ weft --version
+  weft 0.1.0
+
+  $ weft index corpus
+  produced 1, nothing to produce 0, failed 0. nodes now stored: 2.
+  mode 'repair' — 1 participant(s):
+    pgvector (weft-store): examined 0, removed 0, backfilled 0
+  exit=0
+
+  $ weft ask --retrieve-only "what is a closed operator vocabulary"
+  1. Weft is a microkernel RAG engine. Filters are data: a serialisable Pydantic AST with a closed
+  operator vocabulary. Every dispatch over that vocabulary must be exhaustive by construction.
+
+  exit=0
+  ```
+
+  Nothing in the CLI takes a `--filter` flag yet — `MetadataFilter.matching` has no pipeline stage
+  or command reaching it with operator-carrying input authored by a person, so "a pipeline document
+  carrying a filter" has nothing to build against today; recorded here rather than faked. The two
+  required failure paths are demonstrated directly against the installed, shipped packages instead,
+  from the same outside-the-repository directory:
+
+  ```
+  $ python -c "
+  from weft_store.fields import field_for
+  from weft_store.contract import FilterOp
+  field_for(FilterOp.EQ, 'metadata.author')
+  "
+  UnaddressableFieldError: filter field 'metadata.author' reaches nothing on a Node. The core fields
+  are: content, id, lineage.parents, lineage.sources, media_type. Anything a pack attached is under
+  'ext.<namespace>.<field>', where <namespace> is the distribution that owns it — 'ext.weft-pdf.backend',
+  say.
+  valid_options: ('content', 'id', 'lineage.parents', 'lineage.sources', 'media_type')
+
+  $ python -c "
+  from weft_store.fields import field_for
+  from weft_store.contract import FilterOp
+  field_for(FilterOp.EQ, 'lineage.sources')
+  "
+  FilterOpMismatchError: filter operator 'eq' cannot apply to field 'lineage.sources', which holds a
+  set of strings. use 'contains', which asks whether the value is one of the set's members.
+  ```
+
+  And this task's own fix, proven against the installed packages rather than only against
+  `tests/architecture`: a `FilterOp` member neither translator has been taught (`model_construct`
+  standing in for the moment `FilterOp` itself grows one, since pydantic's own field validation
+  refuses an unrecognised string outright today — shown failing first, honestly, before the
+  bypassed call):
+
+  ```
+  UnhandledFilterOpError: weft-qdrant's filter translator has no top-level case for 'between'. It
+  translates the combinators 'and', 'or', 'not' and the leaf operators contains, eq, exists, gt,
+  gte, in, lt, lte, ne.
+  valid_options: ('and', 'or', 'not', 'contains', 'eq', 'exists', 'gt', 'gte', 'in', 'lt', 'lte', 'ne')
+
+  UnhandledFilterOpError: 'between' is a FilterOp this validator has no shape rule for. Every
+  operator must have one, named here rather than assumed — the operators it knows are: and,
+  contains, eq, exists, gt, gte, in, lt, lte, ne, not, or.
+  ```
+
+  All green: `poe ci-checks` (106 architecture tests, 1740 passed/1 skipped), run in the foreground.
+  `docs/lessons.md` L5.14 logged: the ledger's own "five known sites" line was written by reading one
+  backend's translator and never grepping `FilterOp` across the tree, which is why it missed
+  `weft_store.pgvector_store`'s four — the reference's own "doing it by hand at nine sites is why three
+  sites do not," one level up.
+- [x] **5.2c** a pack can read what an older version of itself wrote, or say precisely why it cannot: `ExtModel.__schema_version__` is mandatory at class definition, written into the dumped namespace, and `upgrade(data, from_version)` **refuses by default** naming the namespace, the stored version and the current one · owner `02` §1 → *The payload model*; `05` → G9 · turns on — · sha `f913380` · **must land before 5.4**, because the graph pack ships the first third-party `ExtModel` and a mandatory declaration added after it would break this phase's own exit demonstration
+
+  **Mandatory at class definition, the same seam `__namespace__` already uses.**
+  `ExtModel.__pydantic_init_subclass__` (`weft_kernel/payload/ext.py`) now checks two declarations,
+  not one, and `weft_kernel.registry.required_declarations` was deliberately not reused: that
+  mechanism fires at plugin *registration*, and an `ExtModel` is never registered — it is a
+  `BaseModel` a pack imports and instantiates directly, so class-definition time is the only seam
+  that exists for it. A subclass missing either declaration fails the moment the `class` statement
+  runs, naming the class and citing `02` §1.
+
+  **The version travels in the bytes.** `SCHEMA_VERSION_KEY = "__schema_version__"` is written into
+  every namespace's dumped dict by `ext.py`'s own `_dump` — the one place a namespace's plain-dict
+  form is already assembled from `model.model_dump()`, so it is the one place a version read off
+  the *class* (never the instance) can be added without being dropped the way `Filter.version`, a
+  bare `ClassVar`, always was. Proven by `tests/unit/weft_kernel/payload/test_node.py`'s own
+  `test_ext_survives_model_dump_and_json_with_subclass_fields_intact`, extended to assert
+  `dumped["ext"]["weft-graph"][SCHEMA_VERSION_KEY]` on a real `Node`, through both `model_dump()`
+  and `model_dump_json()`.
+
+  **The read path.** `weft_store.rehydrate.rehydrate_ext` pops `SCHEMA_VERSION_KEY` off the stored
+  mapping (`None` if absent) and compares it against the registered class's current
+  `__schema_version__`; a match rehydrates exactly as before this task, anything else is handed to
+  `model_cls.upgrade(fields, stored_version)`. The default `upgrade` raises
+  `SchemaVersionRefusedError`, naming the namespace, the stored version and the current one — not a
+  `NAME_RESOLUTION_FAMILY` member, checked and rejected deliberately, because there is no alternative
+  *name* to offer, the same reasoning that already excludes `DuplicateRegistrationError`.
+  `manual/troubleshooting.md` gains its entry (the coverage ratchet in
+  `tests/docs/test_troubleshooting_coverage.py` caught its absence on the first `ci-checks` run).
+
+  **Data written before this task carries no version at all, and that is not treated as
+  current.** `stored_version` is `None` when the key is absent, and `None != model_cls.
+  __schema_version__` for every real class, so an unversioned row is routed through `upgrade`
+  exactly like a genuine mismatch — the refusal names *"no version at all (written before schema
+  versioning existed)"* rather than fabricating a version that was never written. The alternative —
+  treating an absent key as "must be current" — is exactly the silent fallback CLAUDE.md forbids,
+  and this task's own binary run met a real row shaped that way in the running container.
+
+  **Every `ExtModel` in the tree gained the declaration, all starting at `1.0.0`** — nothing had
+  shipped a second shape of any of them, so there is no earlier version for `1.0.0` to be a bump
+  from: `weft_kernel.payload.node.SyntheticOrigin`, `weft_chunk.payload.ChunkOffset`,
+  `weft_clean.language.Language`, `weft_enhance.keywords.Keywords`, `weft_pdf.document.PdfPages`,
+  `weft_index.payload.Representation`, `weft_retrieve.corrective.CorrectiveTrace`,
+  `weft_retrieve.boolean.BooleanPlan`, `weft_retrieve.iterative.IterativeRetrievalTrace`,
+  `weft_generate.refine.RefinementTrace`, `weft_generate.contradiction.Agreement`, and the stranger
+  pack's own `weft_example_ingest.enhancer.WordCount`. Roughly forty test-only `ExtModel` fixtures
+  across the tree needed the identical one-line addition to keep constructing at all.
+
+  **Kernel budget.** 2,933 lines against the 3,500 ceiling — +42 from this task (`ext.py`'s
+  mandatory check, `upgrade`, `SchemaVersionRefusedError`, and `SCHEMA_VERSION_KEY`'s injection into
+  `_dump`) — still past the 2,800 review trigger this phase already carried into 5.2a/5.2b (measured
+  2,891 there), not newly crossed by this task.
+
+  **Run outside the repository, against the real container — including the row already in it:**
+
+  ```
+  $ weft --help
+  usage: weft [-h] [--version] [--json | --quiet] command ...
+  Weft — a microkernel RAG engine.
+  [...]
+  $ weft init && weft index .
+  wrote weft.toml.
+  produced 1, nothing to produce 0, failed 0. nodes now stored: 2.
+  mode 'repair' — 1 participant(s):
+    pgvector (weft-store): examined 0, removed 0, backfilled 0
+
+  $ weft ask "microkernel" --retrieve-only --top-k 5
+  1. Weft is a microkernel RAG engine. Task 5.2c gives every ExtModel a mandatory schema version.
+
+  $ python -c "
+  from weft_kernel.payload import ExtModel
+  class MissingVersion(ExtModel):
+      __namespace__ = 'acme-pack'
+  "
+  TypeError: MissingVersion must declare a non-empty __schema_version__ — the version of this
+  namespace's own shape, carried in every dumped instance so a reader can tell an old row from a
+  current one even when the pack that wrote it is not installed (docs/02-extension-model.md §1)
+  ```
+
+  The running container already held one row from an earlier task's own fixture (`ext =
+  {"weft-kernel": {"reason": "test fixture"}}`, no version key at all — an ordinary
+  `Node.synthetic` root with an embedding of `NULL`, invisible to vector search and so never
+  surfaced through `weft ask` itself). Read directly off the real table and fed through the real,
+  installed `weft_store.pgvector_store._row_to_node`:
+
+  ```
+  $ python -c "<fetch the real row, call _row_to_node on it>"
+  raw stored ext: {'weft-kernel': {'reason': 'test fixture'}}
+  SchemaVersionRefusedError: 'weft-kernel' data was written at no version at all (written before
+  schema versioning existed), but the installed class is at '1.0.0' and declares no upgrade path
+  from it. Override weft-kernel's ExtModel.upgrade(data, from_version) to migrate this shape, or
+  reindex the corpus so this namespace is rewritten at the current version.
+  ```
+
+  A deliberate version mismatch, staged the same way — one real, freshly-indexed `weft-chunk` row
+  rewritten in place to claim `__schema_version__: "0.9.0"`, read back through the CLI's own
+  bootstrap (`weft_cli.registry_bootstrap.build_dependencies`, which is what actually populates
+  `ext_models` for `weft-chunk` — see the lesson below) and `weft_store.rehydrate.rehydrate_ext`:
+
+  ```
+  raw stored ext (deliberately rewritten to an older version): {'weft-chunk': {'start': 0,
+  '__schema_version__': '0.9.0'}}
+  SchemaVersionRefusedError: 'weft-chunk' data was written at version '0.9.0', but the installed
+  class is at '1.0.0' and declares no upgrade path from it. Override weft-chunk's
+  ExtModel.upgrade(data, from_version) to migrate this shape, or reindex the corpus so this
+  namespace is rewritten at the current version.
+  ```
+
+  Both rows were restored to their correct, current-version shape afterward (`weft index .`
+  re-derives content-addressed, so re-indexing overwrites rather than duplicates) — the container
+  was left exactly as it was found, working.
+
+  All green: `poe ci-checks` (106 architecture tests; 1746 passed, 1 skipped) and `poe
+  kernel-isolated`, both run in the foreground. `docs/lessons.md` L5.15 logged: proving the
+  version-mismatch path found that only `weft-retrieve` and `weft-pdf` actually call
+  `weft_store.register_ext_model` for their own `ExtModel`s — `weft-chunk`'s gap is papered over by
+  a CLI-side shim (`_ensure_chunk_offset_rehydrates`) nothing else has, and `weft-enhance`,
+  `weft-clean`, `weft-index` and `weft-generate` have no shim at all, so a node carrying any of
+  their own namespaces cannot survive a real store round trip today — a gap `02` §1's own Phase 0
+  narrowing note already named and left open, out of scope for this task but worth a task before
+  5.3's pack-author guide is written.
+- [x] **5.2d** the guarantee requirement 5 makes is one a script can read: `valid_options` crosses the process boundary in a structured error envelope under `--json`, carrying the `WeftError` subclass name as the promised failure identity and the human string as a `rendered` field · owner `03` → *Output*; `09` §3 · turns on — · sha `04a9c19` · **the ledger line said `--format json`; the code does not agree** — `--format json` is `weft ask`'s own per-command result shape (`weft_cli.output.AskFormat`), the only command that has one; `render_refusal` runs for every command's own failure, so the flag this task attaches to is the global `--json` `docs/03-cli.md` already uses to pick the run's `TokenSink`, read here as `isinstance(deps.token_sink, JsonSink)`
+
+  **Two catch sites, one envelope.** `weft_cli.error_envelope.ErrorEnvelope` (new module) carries
+  `error` (`type(exc).__name__`), `rendered` (`str(exc)`, whole), `exit_code`, `valid_options`
+  (`None` unless `exc` is a `weft_kernel.errors.UnresolvedNameError`), and `pack`/`contract`/
+  `plugin`/`stage` — `weft_kernel.seam.wrap`'s own attribution, carried through rather than
+  re-derived. `envelope_version` travels in the data as a plain field with a default, not a
+  `ClassVar`, on the identical principle 5.2c's `ExtModel.__schema_version__` settled for a
+  persisted schema, pointed at a wire format instead — additive only, `09` §3's own `--porcelain
+  =v1` warning is why nothing here is ever frozen. `weft_cli.render.render_refusal` grew a
+  keyword-only `as_json`: `False` (every existing caller) is byte-identical to before this task;
+  `True` builds the envelope and puts it on `stdout` with nothing on `stderr`, the same way
+  `weft_cli.sinks.JsonSink` already puts every event on `stdout` rather than splitting a run
+  across two streams. `weft_cli.cli.run_command` decides it from `deps.token_sink`'s own type;
+  `weft_cli.cli.main`'s own discovery-failure catch (`build_dependencies`/`build_parser` failing
+  before a `Command` is even chosen, so `render_refusal`'s `CommandRefusalError` branch could
+  never apply there) decides it from `json_flag` directly and calls the envelope builder itself.
+
+  **Measured reach.** `grep -rn "valid_options=" packages/weft-cli/src | wc -l` = 22 raise sites
+  constructing a `WeftError` with the field (unchanged by this task — it adds a consumer, not a
+  raise site); `NAME_RESOLUTION_FAMILY` is 31 members tree-wide. Every one of the 22 in `weft-cli`
+  is now reachable from a renderer: each is raised either during `build_dependencies` (caught by
+  `main`'s discovery-failure catch) or during a `Command`'s own `run()` (caught by `run_command`'s
+  `except WeftError`), and fitness function 12(b)'s own ratchet already proves the tree contains
+  zero catch-and-repack sites that would strip the field before either catch runs — so **22 of
+  22**, not a sample. (S6's own "78" counted every textual mention of `valid_options` in
+  `weft-cli`, not raise sites — 81 today, three more added by 5.2b/5.2c's own docstrings since;
+  loose the way `03`'s own prose is loose, which is this task's own opening line.)
+
+  **Human output is unchanged.** `as_json=False` is the default and every pre-existing caller;
+  `tests/unit/weft_cli/test_render.py::test_render_refusal_puts_str_exc_on_stderr_when_json_was_
+  not_asked_for` pins the exact pre-task string. No renderer, docstring example or CLI string a
+  human reads was reworded.
+
+  **Run outside the repository, against the real container:**
+
+  ```
+  $ weft init && weft index docsdir
+  wrote weft.toml.
+  produced 1, nothing to produce 0, failed 0. nodes now stored: 2.
+  mode 'repair' — 1 participant(s):
+    pgvector (weft-store): examined 0, removed 0, backfilled 0
+
+  $ weft ask "hello" --pipeline nope
+  'nope' is not a pipeline this project knows — checked the project's own 'pipelines' directory
+  and every installed pack's own contribution. Known pipelines: no-retrieval,
+  retrieve-then-generate, route.
+  $ echo $?
+  4
+
+  $ weft --json ask "hello" --pipeline nope
+  {"type":"done","role":"","text":"","message":""}
+  {"envelope_version":"1.0.0","error":"UnknownPipelineNameError","rendered":"'nope' is not a
+  pipeline this project knows — checked the project's own 'pipelines' directory and every
+  installed pack's own contribution. Known pipelines: no-retrieval, retrieve-then-generate,
+  route.","exit_code":4,"valid_options":["no-retrieval","retrieve-then-generate","route"],
+  "pack":"weft-cli","contract":"Command","plugin":"ask","stage":"command:ask"}
+  $ echo $?
+  4
+
+  $ weft --json ask "hello" --pipeline nope 2>/dev/null | jq -c 'select(has("error")) |
+      {error, valid_options, exit_code}'
+  {"error":"UnknownPipelineNameError","valid_options":["no-retrieval","retrieve-then-generate",
+  "route"],"exit_code":4}
+  ```
+
+  `jq` never touches the sentence at all — `valid_options` is read as a JSON array, structurally,
+  the property this task exists to make true. Two more failure modes, each driven human and
+  `--json`, both landing the identical envelope shape (`weft --json ask "hello"` against `[services]
+  store = "no-such-store"` → `UnknownPluginError`, `valid_options: ["pgvector","qdrant"]`;
+  `weft --json index docsdir` against `[services] embed = "no-such-embedder"` →
+  `UnresolvedPluginNameError`, `valid_options: ["hash","openai"]`), plus the discovery-time path
+  (`weft --json ask "hello"` against a malformed `weft.toml` → `{"error":"ConfigFileError",
+  "rendered":"weft.toml is not valid TOML: ...","exit_code":4,"valid_options":null, ...}`, no
+  `DONE` event ahead of it — no `Command` ever ran to close a sink). A bad flag (`weft ask
+  --not-a-flag`) is untouched either way: `argparse`'s own exit 2, before any `WeftError` exists.
+
+  All green: `poe ci-checks` (106 architecture tests; 1759 passed, 1 skipped) run in the
+  foreground; `scripts/generate_contract_reference.py`/`generate_command_table.py` regenerated
+  with no diff — no published `Command`/Protocol surface changed. `docs/lessons.md` L5.16 logged:
+  the transcript above shows `--json`'s stdout carrying two JSON shapes on one stream with no
+  shared discriminant (a bare `StreamEvent` and this task's own `ErrorEnvelope`), out of scope for
+  this task to fix.
+- [x] **5.2e** version skew and deprecation are visible where an operator already looks: `weft plugins doctor` reports a distribution whose installed version does not satisfy a declared specifier, and marks a deprecated surface as **a flag on an existing status**, never a new one · owner `09` §3; `02` §2 · turns on — · sha `74178b0`
+
+  **Skew: two sources that can genuinely disagree, never one derived from the other.** `weft_cli.
+  skew.detect_skew()` reads, per requiring distribution, its own declared requirement strings
+  (`importlib.metadata.requires`, PEP 508, parsed with `packaging.requirements.Requirement`) and
+  compares each `weft-...`-named one against that *other* distribution's actually installed
+  version (`importlib.metadata.version`) — G9 answer 1's own two halves: "the distribution
+  dependency specifier" against what is "detected... by `weft plugins doctor`." Filtered to
+  `weft-...` by prefix, never a maintained list of "the weft distributions," so a third-party
+  pack's own mis-declared range is caught exactly as a first-party one's would be. Distinct from
+  fitness function 6 (`test_ff6_contract_version_binding.py`), which AST-parses `contract.py`
+  against `pyproject.toml` at the checked-out tree — a build-time question about what was
+  *published*; this module never opens either file and asks only what is *installed*, which is
+  why the honest question in the task brief has an honest answer: **in a `uv sync`ed workspace
+  nothing is skewed, by construction**, because `uv` already refused an incompatible resolution
+  before the environment existed. `weft-cli` lives in `weft-kernel`, not the kernel: G9's own
+  words, "the kernel gains zero lines" — `detect_skew` is a new module in `weft-cli` alone.
+
+  **Deprecation: marked at registration, warned by the wrapper, no new status.**
+  `weft_kernel.discovery.PackRegistrar.deprecate(surface, reason=...)` buffers a
+  `weft_kernel.seam.Deprecation` exactly as `add_pipeline_resource` buffers a `PipelineResource` —
+  nothing survives a `register()` that raises. Once a pack's buffer commits, `discovery._activate`
+  hands whatever it collected to `weft_kernel.seam.warn_deprecated`, a new function beside `wrap`/
+  `wrap_flush` that emits one `DeprecationWarning` per notice — `09` §3's own words, "the warning
+  is emitted by the registration wrapper... an author has to remember to print is a deprecation
+  notice that will not be printed." `PackReport.deprecations` travels with every report;
+  `weft_cli.plugins_report` reads a non-empty tuple as a flag beside `status` — `", deprecated"`,
+  the identical shape `", ambient"` already takes — and prints each surface/reason as a detail
+  line. `02` §2's status vocabulary gained a documented **row**, not a `PackStatus` member.
+
+  **Kernel: 2,961 lines against the 3,500 ceiling (+28 from 5.2c's 2,933), still past the 2,800
+  review trigger this phase has carried since 5.2a/5.2b.** The 28 lines are entirely the
+  deprecation half — `Deprecation`, `warn_deprecated`, `PackRegistrar.deprecate`/`.deprecations`,
+  and `PackReport.deprecations` — because G9 answer 1 says so in as many words and this task holds
+  to it: skew detection added **zero** kernel lines.
+
+  **Nothing becomes a refusal.** A skewed pack still registers and still runs; a deprecated
+  surface still registers and still runs. Neither `detect_skew` nor `PackRegistrar.deprecate`
+  raises, and `weft plugins doctor` itself still runs with `strict_pins=False` exactly as before —
+  proving the report fires is what the transcript below is for, not a new failure mode for
+  `doctor` itself to trip on.
+
+  **Proven firing, not merely present — two failure paths, both against a real, force-modified
+  environment outside the repository (`docs/lessons.md` L5.1's own defect: a mechanism asserted
+  without being run).** A `cp -R .venv` throwaway copy had `weft-kernel`'s own installed
+  `.dist-info/METADATA` hand-edited from `Version: 0.1.0` to `Version: 9.9.9` — a stand-in for the
+  three cases `09` names (editable, forced, workspace drift) — and a throwaway pack (`weft-demo-
+  pack`, `uv pip install --python <copy>/bin/python3 -e ... --no-deps`, never part of this tree)
+  registered one plugin and called `registrar.deprecate(...)`. `docs/lessons.md` L5.18 logged a
+  trap this cost: a copied venv's console script still shebangs into the *original* interpreter,
+  so every invocation must go through `<copy>/bin/python3 <copy>/bin/weft` explicitly, never the
+  script alone, or the copy is silently never actually running.
+
+  ```
+  $ weft plugins list
+  weft-canary: active (0 contributed)
+  ...
+  weft-demo-pack: active, deprecated (1 contributed)
+  ...
+  weft-store: failed (0 contributed)
+
+  $ weft plugins doctor
+  ...
+  weft-demo-pack: active, deprecated (1 contributed)
+    disclosure: not disclosed
+    deprecated: '_Legacy:old-retriever' — superseded by 'fast-retriever'; removed in
+  weft-demo-pack 2.0
+  ...
+  weft-store: failed (0 contributed)
+    reason: 'weft-store' settings failed validation: 1 validation error for PgVectorSettings
+  dsn
+    Field required [type=missing, input_value={}, input_type=dict]
+      For further information visit https://errors.pydantic.dev/2.13/v/missing
+    disclosure: not disclosed
+
+  version skew — installed does not satisfy a declared specifier:
+    'weft-canary' requires 'weft-kernel' <1.0.0,>=0.1.0, but 9.9.9 is installed.
+    'weft-chunk' requires 'weft-kernel' <1.0.0,>=0.1.0, but 9.9.9 is installed.
+    ... (19 requiring distributions total, every one of them, all correctly named)
+    'weft-store' requires 'weft-kernel' <1.0.0,>=0.1.0, but 9.9.9 is installed.
+
+  tracing: not configured — spans stay on the no-op default and go nowhere. ...
+
+  $ PYTHONWARNINGS=always weft plugins doctor 2>&1 1>/dev/null | grep deprecated
+  .../weft_kernel/discovery.py:695: DeprecationWarning: 'weft-demo-pack' marks
+  '_Legacy:old-retriever' deprecated: superseded by 'fast-retriever'; removed in weft-demo-pack 2.0
+    warn_deprecated(deprecations)
+  ```
+
+  The demo pack was uninstalled, the `.dist-info/METADATA` edit and the copied venv were both
+  discarded, and a clean-case run against the real, unmodified `.venv` (still outside the
+  repository) printed neither block — confirmed by diff against the transcript above, not assumed.
+  `weft --version` and `weft --help` were re-checked against the same clean binary: fitness
+  function 8(b) — zero pack code for `--version` — still holds, and `weft nope` still exits 2 with
+  argparse's own "invalid choice" naming every real subcommand.
+
+  All green: `poe ci-checks` (106 architecture tests; 1774 passed, 1 skipped) run in the
+  foreground; `scripts/generate_contract_reference.py`/`generate_command_table.py` regenerated
+  with no diff — no published `Command`/Protocol surface changed. `manual/operations-guide.md`
+  gained a paragraph beside its existing `ambient` documentation; `manual/troubleshooting.md`'s
+  ratchet needed no new entry, since neither half of this task adds a `WeftError` subclass or a
+  `PackStatus` member — `tests/docs/test_operations_guide.py`'s own `PackStatus`-exactness check
+  is unaffected for the identical reason. `docs/lessons.md` L5.17 and L5.18 logged: an import
+  stripped between edits by the repository's own auto-fix hook before its first usage landed, and
+  the copied-venv shebang trap above.
+- [x] **5.2f** the artefact the deprecation promise is made in is written to rather than hoped for: a `tests/docs` check asserts every surface marked deprecated at registration has a `CHANGELOG.md` entry naming it · owner `09` §3; `08` · turns on — · sha `4dca8cc` · `CHANGELOG.md` has been touched in one commit and is stale by five phases, which is why this is a check and not a sentence
+
+  **Two independent sources, per `docs/lessons.md` L5.6.** `tests/docs/test_changelog_deprecation_
+  coverage.py`'s real check asks the **installed tree** — `weft_kernel.discovery.discover(Registry())`
+  against the real, installed `weft.packs` group, the identical call `weft plugins doctor` makes,
+  folded to every `PackReport.deprecations`'s `surface` — and asks **the document** — `CHANGELOG.md`
+  read off disk — whether it names each one as a literal, backtick-quoted mention. Neither is derived
+  from the other. `08` §3's own table gains row (e); `docs/09-release.md` §3's block quote gains a
+  paragraph recording the check built and naming the protocol question (below) left open.
+
+  **The floor, stated honestly rather than forced — `docs/lessons.md` L5.19 logs the finding.** Zero
+  first-party surfaces are deprecated today, so asserting the real, installed set non-empty would be
+  false, not a floor. The floor actually carried is `test_the_comparison_can_actually_fail`: a real
+  `Deprecation`, produced through `PackRegistrar.deprecate` → `commit` — never a hand-built stand-in
+  — proves the comparison reports `'legacy-widget-plugin'` missing against today's real
+  `CHANGELOG.md` and clears once an entry naming it is appended, the same shape `test_ff9_extension_
+  from_outside.py::test_the_grep_can_actually_fail` and `test_ff6_contract_version_binding.py::test_
+  the_check_can_actually_fail` already use. Proven red, then green, directly:
+
+  ```text
+  $ uv run pytest tests/docs/test_changelog_deprecation_coverage.py -v
+  test_today_the_installed_tree_marks_nothing_deprecated PASSED
+  test_the_comparison_can_actually_fail PASSED
+  test_a_waived_surface_is_excused PASSED
+  test_every_real_deprecation_has_a_changelog_entry PASSED
+  4 passed in 0.66s
+  ```
+
+  And, forcing the real check itself red by swapping `_real_deprecations` for a stub returning
+  `frozenset({"not-really-deprecated-anywhere"})` (a surface no real pack marks and the real
+  `CHANGELOG.md` never names):
+
+  ```text
+  E       AssertionError: ['not-really-deprecated-anywhere'] marked deprecated at registration with
+  no `CHANGELOG.md` entry naming it. Add a bullet naming `not-really-deprecated-anywhere` under
+  `### Deprecated`, or name it in DEPRECATIONS_WITHOUT_CHANGELOG_ENTRY if it is deliberately excused.
+  1 failed in 0.05s
+  ```
+
+  reverted immediately after (`diff` against the pre-break file confirmed byte-identical) — the
+  identical proof-then-revert discipline `test_ff8_trust_model.py`'s own record uses.
+
+  **`CHANGELOG.md` stops being five phases stale.** Rewritten from "Nothing released yet. Phase 0...
+  is not built" to an `[Unreleased]` entry (nothing is published to an index before Phase 6, `09` §2.2
+  — every entry is `[Unreleased]` for that reason, not because nothing shipped) naming what each of
+  Phases 0–4 actually shipped and Phase 5's work so far, derived from `docs/build-ledger.md`'s own
+  ticked entries and `git log --oneline` rather than invented, plus the `COMMAND_CONTRACT_VERSION`
+  correction and the real dependency ranges task 5.2a gave every distribution. No distribution
+  version numbers are restated in it — a second, hand-copied list of the digits already living in
+  each `pyproject.toml` is the two-lists bug aimed at version numbers instead of prose.
+
+  **The protocol question, judged rather than deferred silently.** `docs/lessons.md` L5.8 named two
+  candidate homes — `README.md` → *Protocol* / `phase-step` → *Finish*, or a `tests/docs` check. The
+  ledger chose the check, built here. **Judgement:** a check and a protocol line are not mutually
+  exclusive, and this check fires only on a *deprecation* — the rest of `CHANGELOG.md` (every
+  non-deprecation `Added`/`Changed`/`Fixed` entry) has no mechanism keeping it current at all, which
+  is exactly as unmaintained as before this task. Whether `README.md` → *Protocol* should gain a line
+  requiring a changelog update on every phase close is left **open, for `implement-ll` to act on or
+  decline** at this phase's drain — not edited here, per this task's own instruction not to touch
+  `.claude/skills/` in isolation.
+
+  **Measured.** `uv run poe ci-checks` green: **1,778 passed, 1 skipped, 106 architecture tests**
+  (four tests gained, all in the new file; `poe test`'s own composite sweeps `tests/docs/`
+  automatically — `08` §3 *decision D1*, no second reachability proof needed). `uv run poe
+  kernel-isolated` green (`weft-kernel imports standalone`). **Kernel line delta: zero** — nothing
+  under `packages/weft-kernel` changed.
+
+  **Run outside the repository**, shipped binary, real installed venv:
+
+  ```text
+  $ weft --version
+  weft 0.1.0
+
+  $ weft plugins doctor
+  weft-canary: active (0 contributed)
+  ...
+  weft-otel: active (0 contributed)
+    disclosure: network=[], filesystem=[], subprocess=[], note="Sets the process OpenTelemetry
+    TracerProvider from [packs.weft-otel] settings. ..."
+  ...
+  weft-store: failed (0 contributed)
+    reason: 'weft-store' settings failed validation: 1 validation error for PgVectorSettings
+  dsn
+    Field required [type=missing, input_value={}, input_type=dict]
+  tracing: not configured — spans stay on the no-op default and go nowhere. ...
+  exit=0
+  ```
+
+  No `deprecated` flag on any block — correct: nothing real is marked deprecated today, exactly what
+  `test_today_the_installed_tree_marks_nothing_deprecated` pins. Two failure paths:
+
+  ```text
+  $ weft nope
+  usage: weft [-h] [--version] [--json | --quiet] command ...
+  weft: error: argument command: invalid choice: 'nope' (choose from ask, config, delete, eval,
+  index, init, pipeline, plugins, reconcile, trace)
+  exit=2
+
+  $ weft ask "hello"
+  no 'pgvector' is registered for NodeStore. It is unavailable because no distribution has
+  registered that name for this contract. Names registered for NodeStore: 'qdrant'.
+  exit=4
+  ```
+
+  `weft --help` from the scratch directory printed help and exited `0` — no REPL, the Phase 3 scar
+  named in `CLAUDE.md` stayed shut. No artefact left behind: the scratch directory was empty on
+  entry and removed after. `docs/lessons.md` L5.19 logged: `08` §3's floor clause, read literally,
+  demanded a real-world non-emptiness assertion that would have been false for this check's
+  legitimately-empty-today subject; the actual floor is a self-test proving the comparison is not
+  vacuous, which is what this task built instead.
+- [x] **5.2g** a pack's own `ExtModel` survives a round trip through a store without anyone editing the CLI: a pack contributes its ext models at registration, and a fitness function fails on an `ExtModel` no pack contributes · owner `02` §1 → *The payload model*; `02` §2 · turns on FF14 · sha `edfce8d` · **added 2026-08-22, logged as `S7`**, and it **landed before 5.3 and 5.4**.
+
+  **The seam**: `weft_kernel.discovery.PackRegistrar.add_ext_model(model)` buffers a bare
+  `type[ExtModel]` reference exactly like `add_pipeline_resource`/`deprecate` — no
+  validation, no instantiation, nothing the kernel could get wrong about a capability it
+  does not name. `ExtModel` is a payload primitive the kernel already owns (`Node.ext`'s
+  own declared value type), not a capability, so the kernel learns nothing about stores by
+  buffering a class reference to one. `PackReport.ext_models` carries the buffer once
+  `register()` commits; `weft_store.rehydrate.register_from_reports(reports)` is the
+  generic consumer that reads every report's `ext_models` back and registers each class —
+  wired into `weft_cli.registry_bootstrap.build_dependencies`, once, right after
+  `discover()`, with no pack named at that call site. `weft_chunk`, `weft_clean`,
+  `weft_enhance`, `weft_pdf` and `weft_index` all call `add_ext_model` in their own
+  `register()` now; `_ensure_chunk_offset_rehydrates` — the shim that proved the gap,
+  hand-registering `ChunkOffset` alone from inside `weft-cli` — is **deleted**. The
+  stranger pack `examples/weft-example-ingest` calls it too, for its own `WordCount`,
+  which is the real proof per fitness function 9(a): that distribution is installed
+  rather than linked, and its `ExtModel` reaches `ext_models` with nobody here having
+  anticipated it.
+
+  **Correction to this line's own text, found building it — logged as `docs/lessons.md`
+  L5.20.** `weft-generate` and `weft-retrieve` do **not** call `add_ext_model`, and that is
+  a finding, not an omission. `weft_retrieve.boolean.BooleanPlan`, `weft_retrieve.
+  corrective.CorrectiveTrace` and `weft_retrieve.iterative.IterativeRetrievalTrace` all
+  share `__namespace__ = "weft-retrieve"`; `weft_generate.contradiction.Agreement` and
+  `weft_generate.refine.RefinementTrace` share `"weft-generate"`. All five attach to
+  `QuerySet.ext`/`Candidates.ext`/`Answer.ext`, never to `Node.ext`, and only a `Node` is
+  ever handed to a `NodeStore` — `rehydrate_ext` is never called with a query-path
+  payload's `ext`, so none of the five needs this registry. Registering all five as first
+  drafted would have raised `DuplicateRegistrationError` the moment two of the five
+  techniques were active in one run, which `weft-generate`'s own default registrations
+  (`contradiction-check` and `refine-on-uncertainty`) already are — `ext_models` holds one
+  class per namespace, globally, with no pin mechanism reachable from it. `docs/
+  02-extension-model.md` §1's own "Built in Phase 5 task 5.2g" block records the argument
+  in full.
+
+  **Fitness function 14** (`01` → *Fitness functions*), `tests/architecture/
+  test_ff14_ext_model_reaches_rehydration.py`: two independently-computed sets — every
+  namespace any `ACTIVE` `PackReport.ext_models` names (*declared*) against every
+  namespace `weft_store.rehydrate.ext_models.names_for(ExtModel)` actually holds after
+  `register_from_reports` runs (*present*) — asserted equal, against a fresh, monkeypatched
+  registry so pytest's own collection order cannot leak into the result. Proven able to
+  fail (`test_the_check_can_actually_fail`) by withholding one real, contributing pack's
+  own report from `register_from_reports` and showing the comparison catches exactly that
+  pack's namespace missing. A new numbered function rather than a clause of fitness
+  function 5, whose wording reads as though it already covers this: item 5 already has a
+  real, distinct, unclaimed subject (the extractor accept set, `docs/11-multimodal.md`'s
+  own task 1.13), and folding a second property in would make one numbered item answer two
+  different questions — `01` item 14's own note has the argument in full.
+
+  **Registered-namespace count, measured**: **1 → 6** (`weft-kernel`, `weft-chunk`,
+  `weft-clean`, `weft-enhance`, `weft-pdf`, `weft-index`), plus the stranger's own
+  `weft-example-ingest` when that distribution is installed (fitness function 9(a)'s
+  own throwaway environment, not this workspace's `.venv`). Kernel line count: **2961 →
+  2970** (+9 — `PackRegistrar.add_ext_model`/`.ext_models`, `PackReport.ext_models`, the
+  `_activate` wiring, and their docstrings), well under the 2800 review trigger already
+  crossed at 5.2e and far under the 3500 ceiling.
+
+  **Run outside the repository, against the real container** — the failure this task
+  closes, captured before the fix (via a temporary `git stash` back to the pre-5.2g tree,
+  same binary, same real container), then the identical sequence after:
+
+  ```
+  # before (git stash — the pre-5.2g tree)
+  $ weft init
+  wrote weft.toml.
+  $ weft index corpus --extract pdf-text --yes
+  produced 1, nothing to produce 0, failed 0. nodes now stored: 61.
+  mode 'repair' — 1 participant(s):
+    pgvector (weft-store): examined 0, removed 0, backfilled 0
+  exit=0
+  $ weft ask "what is the topic of this document" --retrieve-only
+  no 'weft-pdf' is registered for ExtModel. It is unavailable because no distribution has
+  registered that name for this contract. Names registered for ExtModel: 'weft-chunk',
+  'weft-kernel'.
+  exit=4
+
+  # after (git stash pop — this task's own tree, same container, same stored rows)
+  $ weft ask "what is the topic of this document" --retrieve-only
+  1. t canonical correlation ρ1 betweenX andY is the supremum of the correlation coefﬁcients
+  over their linear projections, ...
+  [... four more ranked passages ...]
+  exit=0
+  ```
+
+  The write path never failed — `PdfPages` was always written correctly, since a store's
+  `add` never rehydrates anything. Only the read path — `weft ask`, a second process,
+  exactly the "index, then a separate ask against a PDF corpus" scenario `weft_pdf.
+  document.PdfPages`'s own docstring used to warn about — raised, and now does not.
+
+  **Two other failure paths, unrelated to this task's own subject, run the same session**
+  to confirm nothing else regressed:
+
+  ```
+  $ weft --help
+  usage: weft [-h] [--version] [--json | --quiet] command ...
+  ... (full command list; no REPL entered)
+  exit=0
+
+  $ weft index corpus --extract pdf-txt --yes
+  --extract names 'pdf-txt', and no registered Extractor has that name. Registered
+  Extractor names: 'pdf-layout', 'pdf-text', 'text'.
+  exit=4
+  ```
+
+  **Measured**: `uv run poe ci-checks` green — 1,781 passed, 1 skipped, 108 architecture
+  tests (one gained, `test_ff14_ext_model_reaches_rehydration.py`, two tests). `uv run poe
+  kernel-isolated` green. `docs/lessons.md` L5.20 (the namespace-collision finding above)
+  and L5.21 (a pre-existing, unrelated order-dependency in `test_ingest_pipeline.py`'s own
+  earlier test, found while adding a sibling test to that file, confirmed pre-existing by
+  `git stash` and left as a finding rather than a fix — out of this task's own scope).
+
+  **Owed to task 5.3**: the pack author guide now also owes an author the instruction this
+  task's own docstrings carry — declare an `ExtModel` through `registrar.add_ext_model` in
+  `register()`, and only for a model that reaches `Node.ext`; a model attached to a
+  query-path carrier (`QuerySet`/`Candidates`/`Answer`) does not call it. Not written here —
+  5.3's own content is 5.3's to write.
+- [x] **5.3** a stranger has everything they need before they start: the pack author guide covers a pack spanning several contracts plus a contributed command, adapted from the case `02` §4 already owns · owner `08` §1–§2; `02` §4 · turns on — · sha `f1d777b` · **re-derived at G9's close**: the guide now also owes a pack author the three things the ruling makes their responsibility — which dependency specifier to write and why a bare name is not one, that an `ExtModel` needs `__schema_version__` and an `upgrade` that refuses, and what a deprecation warning at registration obliges them to put in a changelog — **and now a fourth, from task 5.2g**: an `ExtModel` reaches storage only if `register()` calls `registrar.add_ext_model` on it, and only when it attaches to `Node.ext` rather than to a query-path payload
+
+  `manual/pack-author-guide.md` §9 is the new section, adapted from `02` §4's graph-pack table —
+  backed by two real packs rather than an invented one, since the graph pack itself is task 5.4's:
+  `examples/weft-example-ingest/` (seven contracts, including `SourceDeletable`/`Reconcilable`
+  satisfied structurally, plus a pack-owned `ExtModel`) for the multi-contract half, and
+  `examples/weft-example-command/` for the contributed `Command`. Every `python`/`toml` sample is
+  `path=`-tagged against one of those two, `packages/weft-store/pyproject.toml`, or
+  `packages/weft-kernel/src/weft_kernel/payload/ext.py`'s citation, and `tests/docs/test_pack_guide_
+  samples.py` passed against all of them unmodified. The dependency specifier (§9.3) cites G9's
+  ruling and `docs/09-release.md` §2.3 answer 5, tagging `packages/weft-store/pyproject.toml` as the
+  shape to copy; `__schema_version__`/`upgrade` (§9.4) and `add_ext_model` (§9.5) cite `packages/
+  weft-kernel/src/weft_kernel/payload/ext.py:88-116` and `discovery.py:392-405`, plus `docs/lessons.md`
+  L5.20's Node.ext-only rule; the deprecation obligation (§9.8) cites `PackRegistrar.deprecate`,
+  `seam.warn_deprecated` and `tests/docs/test_changelog_deprecation_coverage.py`, with the honest
+  narrowing that the check reads *this repository's* `CHANGELOG.md` and cannot see a stranger's own.
+  §8's *Open gates you may hit* table was itself stale — G2, G7, G8 and G9 had all settled since it
+  was written — and is corrected in this task rather than left to drift further.
+
+  **Two rows of `02` §4's table could not be shown against real code, and §9 says so (§9.6, §9.7)
+  rather than inventing a sample no check would cover — both logged as `docs/lessons.md` L5.22.**
+  No pack anywhere in this tree can reach `weft_kernel.resolution.Contribution` from `register()`
+  today: `weft_cli.pipeline_commands:32-40`'s own module docstring already names the gap and assigns
+  it to whichever task first ships a slot-contributing pack, which this task confirmed by grep rather
+  than took on faith, and by running `weft pipeline show route` outside the repository (below) —
+  `unplaced contributions: (none)`, honestly, because nothing can supply one yet. And every
+  `examples/*/pyproject.toml`, including both packs this section cites, still declares its `weft-*`
+  dependencies as bare names: task 5.2a's own scope was `packages/`, never `examples/`, and no later
+  task closed the gap. Neither is this task's to fix — 5.3 is the guide, not the examples or the
+  kernel — and both are candidates for task 6.3's own version-bound fitness function and for task
+  5.4 respectively.
+
+  **Run outside the repository** (`/private/tmp/.../scratchpad/run53`), against the real container,
+  with `examples/weft-example-ingest` and `examples/weft-example-command` built as real wheels
+  (`uv build --wheel`) and installed into the shipped `.venv` — never `uv pip install <directory>`,
+  for the identical reason fitness function 9(a) insists on it — then uninstalled again once the run
+  below finished, leaving no trace in the tree or the venv:
+
+  ```
+  $ weft --help
+  ...
+    greet      greet somebody by name
+    index      run an ingest pipeline over a directory. ...
+  ...
+  (no REPL — the Phase 3 scar stayed shut)
+
+  $ weft plugins doctor
+  weft-example-command: active (1 contributed)
+    disclosure: not disclosed
+  weft-example-ingest: active (7 contributed)
+    disclosure: not disclosed
+  ...
+  (every other first-party pack unchanged, `weft-example-ingest` showing exactly the seven
+  `registrar.add` calls §9.1 claims — `add_ext_model` buffers separately and is not counted here)
+
+  $ weft greet Ada
+  {"greeting":"Hello, Ada!"}
+
+  $ weft greet                              # failure path 1 — missing required arg
+  usage: weft greet [-h] [--yes] name
+  weft greet: error: the following arguments are required: name
+  exit=2
+
+  $ python3 - <<'EOF'                       # failure path 2 — §9.4's claims, live
+  from weft_kernel.payload import ExtModel
+  class Bad(ExtModel):
+      __namespace__ = "throwaway"
+  EOF
+  TypeError: Bad must declare a non-empty __schema_version__ — ...
+
+  $ python3 - <<'EOF'                       # upgrade() refuses by default, live
+  from weft_example_ingest.enhancer import WordCount
+  WordCount.upgrade(WordCount(count=3).model_dump(), "0.9.0")
+  EOF
+  SchemaVersionRefusedError: 'weft-example-ingest' data was written at version '0.9.0', but the
+  installed class is at '1.0.0' and declares no upgrade path from it. Override
+  weft-example-ingest's ExtModel.upgrade(data, from_version) to migrate this shape, or reindex
+  the corpus so this namespace is rewritten at the current version.
+
+  $ weft pipeline show route                # §9.7's claim, confirmed rather than asserted
+  ...
+  unplaced contributions: (none)
+  ```
+
+  Everything the guide claimed a reader could do, this session did by reading only the guide and the
+  files it tags — no gap surfaced that the guide did not already name as one (§9.6, §9.7).
+- [x] **5.3a** a pack can offer a slot contribution, so `02` §4's table row is reachable: a pack contributes through its own `register()`, whatever assembles the registry collects them, and `resolve()` receives them · owner `02` §3 → *Slots*; `02` §4 · turns on FF15 · sha `2821015` · **added 2026-08-22, logged as `S8`**, and it **landed before 5.4**. Measured while closing 5.3: `Contribution` exists, `resolve()` takes a `contributions=` tuple, and resolution places, qualifies and records unplaced ones — but **nothing can produce one**. `PackRegistrar` offers `add`, `add_pipeline_resource`, `deprecate` and `add_ext_model` and no slot seam; `weft_cli.pipeline_commands` passes `contributions=()` and its own docstring says *"never a caller-assembled"*; `Contribution`'s docstring describes its caller as *"whatever assembled the `Registry` from every installed pack's own registration"*, which does not exist. The consuming half was built at task 1.11 and the producing half never was. **Separate from 5.4 deliberately**: 5.7 exists to detect whether a pack author needed a core change, so a graph-pack task that built this seam itself would make the core change and then report that none was needed
+
+  **The seam, following `add_ext_model` (5.2g)/`deprecate` (5.2e)'s own shape, not a third
+  mechanism.** `weft_kernel.discovery.PackRegistrar.add_contribution(slot, stage)` buffers
+  a `weft_kernel.resolution.Contribution`, `distribution` filled in by the registrar — never
+  stated by the pack, never something it could get wrong — exactly the same atomicity every
+  other buffered call already gets: a `register()` that raises after calling this leaves no
+  slot looking filled that was never actually committed. `PackReport.contributions` carries
+  the buffer once `register()` commits. `weft_cli.registry_bootstrap.build_dependencies` is
+  the one assembly point `Contribution`'s own docstring already named as "whatever assembled
+  the `Registry`": `contributions_from(reports)` concatenates every report's own tuple into
+  `Dependencies.contributions`, computed once, right after `discover()`, with no pack named at
+  that call site. **Every `resolve()` call site in `weft-cli` reads it back off that one
+  field** — `weft_cli.pipeline_commands._resolved_or_refuse` (`show`/`validate`/`diff`),
+  `weft_cli.ingest._specs_from_document` (`weft index --pipeline`), and `weft_cli.
+  route_ask._run_pipeline` (both of `run_routed_ask`'s two resolutions and `run_named_ask`'s
+  one) — three call sites, four resolutions, one assembly. `weft_cli.compile.contracts_for`
+  gained a matching `contributions` parameter: it adds a contract entry only for a
+  contribution whose `slot` some pipeline in the ancestor chain actually declares, so an
+  unrelated contribution's own broken `use:` can never fail a pipeline it was never meant for.
+
+  **`02` §3's placement properties — which were new work, which were first demonstrations.**
+  New: `weft plugins doctor` flagging a pack whose contributions land in no pipeline at all —
+  `weft_cli.pipeline_catalogue.declared_slot_ids` and `weft_cli.plugins_report.render_doctor`'s
+  own `unreachable_contributions` parameter did not exist before this task, because there was
+  no contribution for either to have anything to say about. First-time demonstrations against
+  a real, installed pack's own contribution rather than a hand-built test fixture: "a
+  contribution with no matching slot is a recorded no-op, never a resolution failure" and
+  "installation-dependent targets are recorded, never fatal" were both already true of
+  `resolve()` since task 1.11 — this task is the first time either was proven true of
+  something a pack actually produced. Ties breaking by distribution name and a contributed
+  stage being `set`-able but not `replace`/`remove`-able were untouched (task 1.11's own
+  code) and stay covered by that task's own tests; nothing here needed to touch them.
+
+  **`examples/weft-example-ingest`** — installed rather than linked, fitness function 9(a) —
+  is the pack that contributes: its `register()` now also calls `registrar.add_contribution
+  (ENRICH_SLOT, StageDeclaration(id=_ENRICH_STAGE_ID, use="example-enhancer"))`, reusing the
+  same `Enhancer` plugin it already registers under `Enhancer:example-enhancer` — offering a
+  plugin as both an ordinary stage and a slot contribution costs nothing extra to declare.
+  `tests/architecture/test_ff9_extension_from_outside.py`'s `_NameCapturingRegistrar` gained a
+  no-op `add_contribution` so `register()` calling it there does not raise `AttributeError`.
+
+  **Fitness function 15** (`01` → *Fitness functions*), `tests/architecture/
+  test_ff15_resolve_call_sites_pass_contributions.py`: every file under `weft-cli`'s own `src`
+  that binds `resolve` as a bare name via `from weft_kernel.resolution import resolve` is
+  walked for every `ast.Call` whose `func` is that bare name, and each one must carry a
+  `contributions=` keyword. **Structural, not textual, and it has to be** — `docs/lessons.md`
+  L5.23 logged why: a plain `grep "resolve("` over the same three files also matches
+  `Runner.resolve` and `ServiceRegistry.resolve`, two unrelated methods called in the
+  identical files, sometimes the identical function. `test_the_check_can_actually_fail`
+  parses a file shaped exactly like a fourth call site that forgot the keyword and shows the
+  same walk reports it as an offender. A new numbered function rather than a clause of item
+  14 (its nearest neighbour): 14 checks a *runtime* fact by driving discovery; this one is a
+  *caller-shape* fact, true or false by inspection before anything runs — `01` item 15's own
+  note has the argument in full.
+
+  **Kernel: 2982 lines against the 3,500 ceiling (+12 from 5.2g's 2970), still past the
+  2,800 review trigger crossed at 5.2c/5.2e/5.2g and well under the ceiling.**
+
+  **Run outside the repository** (a scratch project directory, never this checkout), against
+  the real container — `examples/weft-example-ingest` built as a real wheel (`uv build
+  --wheel`) and installed into the shipped `.venv` — never `uv pip install <directory>`, the
+  identical reasoning fitness function 9(a) insists on — then uninstalled again once the run
+  below finished, leaving no trace in the tree, the venv or the scratch directory:
+
+  ```
+  $ weft --help
+  usage: weft [-h] [--version] [--json | --quiet] command ...
+  ...
+  (no REPL — the Phase 3 scar stayed shut)
+
+  $ weft pipeline show with-slot        # placed
+  pipeline: with-slot
+  vars:
+    (none)
+  stages:
+    extract: Extractor:text (distribution: weft-extract, provenance: with-slot)
+    chunk: Chunker:fixed-size (distribution: weft-chunk, provenance: with-slot)
+      with: {'size': 512, 'overlap': 50}
+    weft-example-ingest:wordcount: Enhancer:example-enhancer (distribution: weft-example-ingest, provenance: weft-example-ingest)
+    embed: Embedder:hash (distribution: weft-embed, provenance: with-slot)
+    store: NodeStore:pgvector (distribution: weft-store, provenance: with-slot)
+  unapplied operators: (none)
+  unplaced contributions: (none)
+
+  $ weft pipeline show without-slot      # unplaced — a recorded no-op, resolution still succeeds
+  pipeline: without-slot
+  vars:
+    (none)
+  stages:
+    extract: Extractor:text (distribution: weft-extract, provenance: without-slot)
+    chunk: Chunker:fixed-size (distribution: weft-chunk, provenance: without-slot)
+      with: {'size': 512, 'overlap': 50}
+    embed: Embedder:hash (distribution: weft-embed, provenance: without-slot)
+    store: NodeStore:pgvector (distribution: weft-store, provenance: without-slot)
+  unapplied operators: (none)
+  unplaced contributions: weft-example-ingest:wordcount -> slot 'enrich' (pipeline 'without-slot' declares no such slot)
+  exit=0
+
+  $ weft index ./corpus --pipeline with-slot     # the contributed stage actually runs
+  produced 1, nothing to produce 0, failed 0. nodes now stored: 2.
+  mode 'repair' — 1 participant(s):
+    pgvector (weft-store): examined 0, removed 0, backfilled 0
+  exit=0
+
+  # with-slot.yaml moved out of pipelines/ — no pipeline in the catalogue declares 'enrich' at all
+  $ weft plugins doctor
+  weft-example-ingest: active (7 contributed)
+    disclosure: not disclosed
+    unreachable: slot 'enrich' (stage 'wordcount') lands in no pipeline this catalogue holds
+
+  $ weft pipeline show does-not-exist            # failure path 1
+  'does-not-exist' is not a pipeline this project knows — checked the project's own 'pipelines'
+  directory and every installed pack's own contribution. Known pipelines: no-retrieval,
+  retrieve-then-generate, route, without-slot.
+  exit=4
+
+  $ weft pipeline show broken                    # failure path 2 — a document's 'use:' names nothing
+  stage 'embed' names plugin 'totally-not-a-real-embedder', which no installed distribution
+  registered under any contract. Installed plugin names: ... fixed-size, hash, ... text, ...
+  exit=4
+  ```
+
+  **Measured**: `uv run poe ci-checks` green — `arch` 111 passed (one file gained,
+  `test_ff15_resolve_call_sites_pass_contributions.py`, three tests); `test` 1,799 passed, 1
+  skipped. `uv run poe kernel-isolated` green. `docs/lessons.md` L5.23 logged the grep-versus-AST
+  finding above; `manual/pack-author-guide.md` §9.7 — previously "the one row this guide cannot
+  demonstrate yet" — is rewritten to teach the real mechanism, tagged against
+  `examples/weft-example-ingest/src/weft_example_ingest/__init__.py`'s own real line.
+- [x] **5.4** the graph pack registers **six** things from one install, with one entry point, one `register()` and one settings model — G7 added `SourceDeletable` and `Reconcilable` to `02` §4's table, and requirement 2 (*a capability spanning several extension points is still one package*) is only tested by the count going up · owner `02` §4 → the registration table · turns on — · sha `9a1029c`
+
+  **Built by a pack author who never touched `packages/` — `examples/weft-example-graph/`**, outside the
+  uv workspace and `[tool.uv.sources]` exactly as `docs/07-extension-cost.md` §9's own discipline
+  requires for fitness function 9(a). `pyproject.toml` declares four intra-repo ranges (G9's shape)
+  plus a bare floor on `psycopg[binary]`, the ordinary third-party library it is.
+
+  **The six, counted honestly rather than by table row.** `docs/02-extension-model.md` §4's own
+  table has five rows plus two G7 added; excluding the "—" row (pipeline-as-data, task 5.5's), the
+  "Against contract" column names six distinct contracts: `Enhancer` (`graph-entities`), `NodeStore`
+  (`graph` — `02`'s own "`Store`"), `Retriever` (`graph-walk`), `Command` (twice: `graph build`,
+  `graph show`), `SourceDeletable` and `Reconcilable`. Four come from an explicit
+  `registrar.add()` call in `weft_example_graph.register` (`examples/weft-example-graph/src/weft_example_graph/
+  __init__.py`); `SourceDeletable`/`Reconcilable` arrive with **no further `.add()` call**, because
+  `GraphStore` (the one class registered under `NodeStore`) satisfies both structurally — the
+  identical "eighth and ninth capability arrive with no ninth `registrar.add` call" shape
+  `examples/weft-example-ingest`'s own `register()` already demonstrates. `registrar.
+  add_ext_model(GraphData)` is a seventh registrar call, on a separate axis (a payload primitive
+  attaching to `Node.ext`, never a contract) — not one of the six.
+
+  **Measured**: `uv run poe ci-checks` — `fmt`/`lint`/`types` green; `arch` **111 passed, 1
+  failed** (`tests/architecture/test_ff9_extension_from_outside.py::
+  test_no_first_party_file_names_the_example_pack` — see the design finding below; `docs/
+  lessons.md` L5.28); `poe test` (the full `pytest tests -q`, run directly since the sequence
+  aborts on the one `arch` failure) **1,799 passed, 1 skipped**, the identical single failure and
+  nothing else. This pack's own `uv run pytest examples/weft-example-graph/tests` (33 tests, against the
+  real `compose.yaml` Postgres) is green.
+
+  **Design finding — `test_no_first_party_file_names_the_example_pack` false-positives on this
+  pack's own, already-documented name.** (No decision-log `S` id assigned here — that log's rows
+  are settled by whoever adds the follow-up ledger task, which a pack-author task does not do;
+  the finding is recorded fully in `docs/lessons.md` and here instead.) Fitness function 9(b) checks "core must not
+  anticipate a stranger it never imported" via a literal substring search for the pack's
+  distribution name, module name, and every registered plugin name across every file under
+  `packages/`/`testing/`. `weft-example-graph`'s own plugin names (`graph`, `graph build`, `graph show`)
+  are ordinary English words already present, as unrelated prose, in dozens of first-party files —
+  and the literal string `'weft-graph'` itself already appears verbatim in five first-party
+  files (`packages/weft-otel/src/weft_otel/__init__.py` among them), because they quote `docs/
+  02-extension-model.md` §4's own worked example by its planned name. Not a defect in this pack —
+  renaming away from the name every design document already uses would be optimizing for a check
+  instead of for what this task asks it to demonstrate. `docs/lessons.md` L5.28 has the full
+  evidence; this is exactly `01` → Phase 5 Exit's *"a design finding, not a feature request"*
+  clause, logged rather than routed around.
+
+  **Design finding — the deletion/reconcile fan-out's own `NodeStore` special-case excludes this
+  pack from `weft delete`/`weft reconcile`, contradicting `02` §4's own transcript.** (Same note as
+  above: no `S` id assigned by this task.) Run for real, against the shipped binary, from a
+  directory outside this repository:
+
+  ```
+  $ weft index corpus_a
+  produced 1, nothing to produce 0, failed 0. nodes now stored: 2.
+  mode 'repair' — 1 participant(s):
+    pgvector (weft-store): examined 0, removed 0, backfilled 0
+  exit=0
+
+  $ weft reconcile --dry-run --yes
+  mode 'full' would run against 1 participant(s):
+    pgvector (weft-store): no unfinished deletions; nothing to converge
+  exit=0
+  ```
+
+  `weft-example-graph` never appears, even though `GraphStore` structurally satisfies `Reconcilable` (and
+  `SourceDeletable`) — `weft_cli.fanout.participants_for` filters the `NodeStore` contract down to
+  the one name `[services] store` configures (`pgvector` here), a rule written to stop two
+  interchangeable primary stores (pgvector, Qdrant) from both being acted on, which also — by the
+  same filter — excludes a second, *derived* `NodeStore` registration from ever participating.
+  `docs/lessons.md` L5.25 has the full evidence and the falsified docstring quotation. `GraphStore.
+  reconcile`/`.estimate` (`examples/weft-example-graph/src/weft_example_graph/store.py`) additionally raise
+  `GraphBackfillUnavailableError` for `mode=FULL`, for the related but separate reason `docs/
+  lessons.md` L5.24 records: `Reconcilable`'s own signature gives a derived participant no way to
+  see "what should exist" in the primary corpus at all.
+
+  **The binary, run for real, outside the repository** (`WEFT_DATABASE_URL` pointed at the
+  `compose.yaml` container, `[packs.weft-graph] dsn = "${env:WEFT_DATABASE_URL}"` in `weft.toml`):
+
+  ```
+  $ weft plugins doctor
+  weft-graph: active (5 contributed)
+    disclosure: not disclosed
+  [... every other installed pack, unchanged ...]
+
+  $ weft graph --help
+  usage: weft graph [-h] command ...
+  positional arguments:
+    command
+      build     recompute weft-graph's entities and relations from stored content
+      show      show weft-graph's corpus-wide summary, or one entity's neighbours
+
+  $ weft graph show                       # before weft.toml carried a dsn
+  weft-graph has no database to talk to: [packs.weft-graph] dsn is unset. Add
+  `[packs.weft-graph]\ndsn = "${env:WEFT_DATABASE_URL}"` (or a literal DSN) to weft.toml.
+  exit=1
+
+  $ weft graph build                      # overwrite-class, no TTY, no --yes
+  'graph build' is an overwrite-class command, called with {}. It refuses to run with no terminal
+  to confirm in, and never proceeds silently. Pass --yes to permit it for this invocation.
+  exit=3
+
+  $ weft graph show                       # after weft.toml carried the dsn, empty store
+  {"nodes_with_graph_data":0,"distinct_entities":0,"distinct_relations":0,"top_entities":[],
+  "entity":null,"neighbors":[]}
+  exit=0
+  ```
+
+  Registration succeeds with **zero** settings supplied too — `GraphSettings.dsn` defaults to an
+  empty `SecretStr`, deliberately unlike `PgVectorSettings.dsn` (mandatory): `tests/architecture/
+  test_ff9_extension_from_outside.py::module_and_plugin_names` constructs every example pack's
+  `Settings()` bare and runs `register()` against a stand-in registrar with no `weft.toml` at all,
+  so a mandatory `dsn` would break that check for this pack alone. `register()` never opens a
+  connection either way (`GraphStore._connection` is lazy); the DSN is only needed, and only
+  checked, the first time a store method actually runs.
+
+  **Read under `packages/` to get this done, and what the guide did not say.** `weft_store.
+  rehydrate.rehydrate_ext`/`register_ext_model` (`packages/weft-store/src/weft_store/
+  rehydrate.py`) and `weft_cli.fanout.participants_for`/`weft_cli.reconcile._ask` (`packages/
+  weft-cli/src/weft_cli/fanout.py`, `reconcile.py`) were read to confirm exactly how `ext`
+  round-trips through a store and exactly what `ctx` carries into a `Reconcilable` call —
+  `manual/pack-author-guide.md` names `rehydrate_ext` as the mechanism (§9.5) but does not show a
+  stranger's own store calling it, and nothing in the guide or `docs/02-extension-model.md`
+  documents `participants_for`'s `NodeStore` special-case at all (`02` §1's own "capability is
+  derived, never declared" reads as though every capability fans out uniformly, which G7's own
+  "no core edit" claim for the graph pack repeats without qualification). Both readings are cited
+  in `docs/lessons.md` L5.24/L5.25 as the finding, not silently absorbed.
+
+- [x] **5.5** the pack ships a derived pipeline as data that users can derive from further · owner `02` §4; `02` §3 · turns on — · sha `572b041`
+
+  **`weft_example_graph.register` grows two more calls, no new registrar method needed**:
+  `registrar.add_pipeline_resource("weft_example_graph", "pipelines/kg.yaml")` ships the named
+  pipeline (extract → chunk → **entities** (`graph-entities`) → embed → store (pgvector) →
+  **graph-store** (`graph`), stated whole rather than `extends:`-ing a "base" this repository
+  ships nowhere — `docs/02-extension-model.md` §3's own `base.yaml` is illustrative, never a
+  document any first-party pack actually publishes); `registrar.add_contribution("enrich",
+  StageDeclaration(id="entities", use="graph-entities"))` offers the same, already-registered
+  `graph-entities` plugin into any pipeline that opts into an `enrich` slot, reusing
+  `examples/weft-example-ingest`'s own slot name for the identical kind of position rather
+  than inventing a second convention.
+
+  **The binary, run for real, outside the repository**, over a two-document corpus mentioning
+  four entities across two files (`Acme Corp`/`Globex Inc` in one, `Globex Inc`/`Initech`/
+  `Umbrella Corp` in the other):
+
+  ```
+  $ weft pipeline show kg
+  pipeline: kg
+  stages:
+    extract: Extractor:text (distribution: weft-extract, provenance: kg)
+    chunk: Chunker:fixed-size (distribution: weft-chunk, provenance: kg)
+    entities: Enhancer:graph-entities (distribution: weft-graph, provenance: kg)
+    embed: Embedder:hash (distribution: weft-embed, provenance: kg)
+    store: NodeStore:pgvector (distribution: weft-store, provenance: kg)
+    graph-store: NodeStore:graph (distribution: weft-graph, provenance: kg)
+  unplaced contributions: weft-graph:entities -> slot 'enrich' (pipeline 'kg' declares no such slot)
+
+  $ weft index corpus --pipeline kg
+  produced 1, nothing to produce 0, failed 0. nodes now stored: 2.
+  mode 'repair' — 1 participant(s):
+    pgvector (weft-store): examined 0, removed 0, backfilled 0
+  exit=0
+
+  $ weft graph show
+  {"nodes_with_graph_data":2,"distinct_entities":4,"distinct_relations":4,
+   "top_entities":[{"name":"Globex Inc","count":3},{"name":"Acme Corp","count":2},
+                   {"name":"Initech","count":2},{"name":"Umbrella Corp","count":1}]}
+
+  $ weft graph show --entity "Globex Inc"
+  {"entity":"Globex Inc","neighbors":[{"name":"Acme Corp","predicate":"co_occurs_with","count":1},
+   {"name":"Initech","predicate":"co_occurs_with","count":1},
+   {"name":"Umbrella Corp","predicate":"co_occurs_with","count":1}]}
+  ```
+
+  **Derivable further, shown rather than merely claimed** — a project-local
+  `pipelines/kg-slotted.yaml` declaring an `enrich` slot (task 5.5 does not require the
+  pipeline it ships to itself extend anything; §3's own row is about a pack's contribution
+  being placeable by *any* pipeline that opts in, first- or third-party):
+
+  ```
+  $ weft pipeline show kg-slotted
+  pipeline: kg-slotted
+  stages:
+    extract: Extractor:text (distribution: weft-extract, provenance: kg-slotted)
+    chunk: Chunker:fixed-size (distribution: weft-chunk, provenance: kg-slotted)
+    weft-graph:entities: Enhancer:graph-entities (distribution: weft-graph, provenance: weft-graph)
+    embed: Embedder:hash (distribution: weft-embed, provenance: kg-slotted)
+    store: NodeStore:pgvector (distribution: weft-store, provenance: kg-slotted)
+  unplaced contributions: (none)
+  ```
+
+  The contribution places automatically, qualified `weft-graph:entities`, exactly where `02`
+  §3 specifies — no core edit, no pack-author intervention beyond the one `register()` line.
+
+  **The same design finding, now with real data rather than an empty store**: `weft delete
+  <doc1>` reports one participant (`pgvector`, 1 node removed); `weft graph show` afterward
+  still reports `nodes_with_graph_data: 2` and `Acme Corp` at its pre-delete count — `weft-example-graph`'s
+  own entities/relations for the deleted document are left dangling, unreachable, and wrong,
+  which is the RAPTOR scar `docs/02-extension-model.md` §1 → *Extended by G7* names as the
+  reason `SourceDeletable` exists at all, reproduced live against this pack because of the
+  `participants_for` gap `docs/lessons.md` L5.25 records (logged at task 5.4, confirmed here
+  with data rather than an empty corpus).
+
+  **Two more design findings, surfaced only once a pipeline resource actually shipped** —
+  both recorded in `docs/lessons.md` (L5.26, L5.27) and neither fixed here, since both live in
+  `tests/architecture/` files a pack author does not edit:
+
+  - `tests/architecture/test_ff9_extension_from_outside.py::_NameCapturingRegistrar` — the
+    `PackRegistrar` stand-in that file's own `module_and_plugin_names` runs a pack's real
+    `register()` against — implements `.add()`, `.add_ext_model()` and `.add_contribution()`
+    but not `.add_pipeline_resource()` or `.deprecate()`, both real `PackRegistrar` methods.
+    `weft_example_graph.register` calling `add_pipeline_resource` (per `docs/02-extension-model.md`
+    §9.6's own sanctioned mechanism) raises `AttributeError` inside that test.
+  - `tests/architecture/test_ff11_pipeline_integrity.py::_shipped_pipeline_files` walks
+    `examples/*` for shipped pipelines by design (its own docstring: "`examples/*` for an
+    example pack"), but `_installed_registry`'s `discover(..., allow=_first_party_
+    distributions())` structurally refuses any distribution outside `packages/*` — so
+    `kg.yaml`, shipped exactly where that docstring says it should be, fails
+    `test_every_shipped_or_quoted_pipeline_resolves` with "no installed pack registers"
+    for plugins this pack's own `weft pipeline show kg` output above proves resolve
+    correctly against a registry that actually has `weft-example-graph` installed.
+
+  **Measured**: `uv run poe ci-checks` — `fmt`/`lint`/`types` green; `arch` **110 passed, 2
+  failed** (the two findings above; `arch` was **111/1** at task 5.4, so this task's own
+  `add_pipeline_resource` call is what adds the second); `poe test` (full `pytest tests -q`)
+  **1,798 passed, 1 skipped, 2 failed** — the identical two and nothing else. **Verified with
+  `weft-example-graph` uninstalled from the shared dev `.venv` before each run**: installing the wheel
+  for the binary demo above and then re-running the architecture suite without uninstalling
+  first produced a *false pass* on the `add_pipeline_resource` finding — `sys.modules['weft_example_graph']`
+  gets populated from the stale, already-installed wheel by an earlier-running architecture
+  test's own full `discover()` call, so the later in-process `sys.path` import trick returns the
+  cached (older) module instead of re-importing current source. Not logged as a `docs/lessons.md`
+  entry (it is a fact about this task's own verification hygiene, not something a future pack
+  author would hit under normal CI, which never has a stray editable install lying around) —
+  recorded here so the two failure counts above are not mistaken for flaky.
+
+  This pack's own `uv run pytest examples/weft-example-graph/tests` (35 tests) is green.
+
+- [x] **5.6** uninstalling the pack fails resolution with a message naming the missing plugin and the pack that provides it · owner `02` §4 · turns on — · sha `caa2d97`
+
+  **No new code — a demonstration**, against the shipped binary, outside the repository.
+  Because `weft-example-graph` ships `kg` itself (task 5.5), uninstalling it removes the *pipeline name*
+  along with the plugins — `weft pipeline show kg` then fails as "unknown pipeline", not "unknown
+  plugin inside a document that still exists". So the demonstration `02` §4 actually describes
+  (a document that survives uninstall but names a now-missing plugin) needs a project-local
+  pipeline — `pipelines/mykg.yaml` — naming `graph-entities`/`graph` directly, the identical
+  shape a user's own `weft pipeline derive` output would have:
+
+  ```
+  $ weft pipeline show mykg               # weft-graph installed
+  pipeline: mykg
+  stages:
+    entities: Enhancer:graph-entities (distribution: weft-graph, provenance: mykg)
+    graph-store: NodeStore:graph (distribution: weft-graph, provenance: mykg)
+    [... other stages unchanged ...]
+  exit=0
+
+  $ uv pip uninstall --python .venv/bin/python weft-graph
+  Uninstalled 1 package
+
+  $ weft plugins doctor                   # weft-graph: no trace at all, nothing crashes
+  weft-canary: active (0 contributed)
+  [... every other installed pack, unchanged, weft-graph simply absent ...]
+
+  $ weft pipeline show mykg               # weft-graph uninstalled
+  stage 'entities' names plugin 'graph-entities', which no installed distribution registered
+  under any contract. Installed plugin names: accuracy, always, ..., text, threshold-ladder,
+  token-overlap, token-recall, trace, unicode-normalize, vector-top-k, whitespace.
+  exit=4
+
+  $ weft pipeline show kg                 # the pack's OWN shipped pipeline: gone entirely
+  'kg' is not a pipeline this project knows — checked the project's own 'pipelines' directory
+  and every installed pack's own contribution. Known pipelines: mykg, no-retrieval,
+  retrieve-then-generate, route.
+  exit=4
+
+  $ weft pipeline list
+  mykg
+  no-retrieval
+  retrieve-then-generate
+  route
+  ```
+
+  Both refusals are exit 4, loud, and name every valid alternative — rule 5 held for a plugin
+  name and for a pipeline name alike.
+
+  **Design finding — `02` §4's own transcript overclaims what the refusal says.** "Fails to
+  resolve with a message naming the missing plugin **and the pack that provides it**" is `02`
+  §4's own wording; the real message above names the missing plugin and every registered
+  alternative, never a distribution, because `weft_kernel.registry.UnknownPluginError.__init__`
+  (`packages/weft-kernel/src/weft_kernel/registry.py:235-237`) has no field for one and cannot:
+  once uninstalled, nothing in the registry ever knew `weft-example-graph` provided `graph-entities`
+  this run — a `RegistryEntry.distribution` exists only for a name that *is* registered.
+  `manual/pack-author-guide.md` §7's own table already states the honest version ("names the
+  contract, the plugin name that was wanted, and every name that is registered") with no
+  providing-pack clause; `02` §4 and the guide disagree, and the code matches the guide, not
+  `02` §4. `docs/lessons.md` L5.29 has the full evidence; not fixed here — softening a design
+  document's own transcript, or deciding whether resolution owes a last-known-provider record,
+  is not a pack author's call.
+
+  **Cleanup**: `weft-example-graph` uninstalled from the shared `.venv` (confirmed absent from `weft
+  plugins doctor` above); `weft_example_graph_*` tables dropped from the `compose.yaml` Postgres; the
+  scratch run directories hold only `weft.toml` and the project-local `pipelines/*.yaml` this
+  demonstration wrote, nothing under this repository changed by running the binary.
+
+- [x] **5.7** the pack was built by someone who has not touched core, and they never needed to — every request for a core change recorded as a design finding rather than closed as a feature request · owner `01` → Phase 5 **Exit**; `02` §4 → *The independence test* · turns on — · sha `49b478c` · **RUN, AND THE EXIT CRITERION IS NOT MET**
+
+  **The first half held completely.** `examples/weft-example-graph` was built with **zero edits under
+  `packages/`** — not one line of kernel, CLI or first-party pack code. It registers six extension
+  points from one entry point, one `register()` and one settings model; ships `pipelines/kg.yaml` and
+  a slot contribution; `weft index --pipeline kg` runs its stages against the real container; its two
+  commands appear in `--help`; and uninstalling it refuses resolution by name. Requirement 2 — *a
+  capability spanning several extension points is still one package* — is satisfied, and the count
+  went up, which is the only way that requirement is tested.
+
+  **The second half did not.** `01` → Phase 5 **Exit**: *"they never need to. If they file an issue
+  asking for a core change to make their pack work, that is a Phase 5 failure and a design finding."*
+  The author filed three, and two of them stop the pack doing what `02` §4's own table says it does:
+
+  - **`docs/lessons.md` L5.25 — `weft delete` never reaches the graph store, which is the exact scar
+    G7 exists to close.** `02` §1 settled that deletion fans out *"across **every** registered plugin
+    that satisfies it — not just the node store"*. Task **5.1a** narrowed that, excluding every
+    `NodeStore` but the one `[services] store` names, to avoid connecting to pgvector and Qdrant
+    both. `02` §4's table registers the graph store under `NodeStore` — *"Sits beside the vector
+    store"* — so the narrowing excludes it, and derived graph data outlives its source exactly as the
+    reference's RAPTOR summaries did. Reproduced live. **This is a task defaulting an unsettled question
+    instead of stopping**, which is the thing `phase-step` names and this phase caught (`L5.32`).
+  - **L5.24 — `full` reconcile cannot work for a derived store.** `Reconcilable.reconcile(ctx, mode)`
+    hands a participant nothing that names the primary corpus, so *"`full` backfills entities for
+    nodes indexed by a pipeline that had no graph stage"* is unbuildable by a pack. The pack raises
+    `GraphBackfillUnavailableError` naming the gap rather than pretending.
+  - **L5.30 — a pack's command cannot render its result for a person.** `weft example-graph show`
+    prints `{"nodes_with_graph_data":11,...}` to a terminal, because `weft_cli.render._RENDERERS` is
+    a first-party table matched on result type that no pack can join. `03`'s governing rule — a
+    `Command` returns a typed result and the CLI renders it — holds for eighteen first-party commands
+    and for nobody else's.
+
+  **Also found, and repaired here rather than deferred:** L5.26/L5.27 (two core test fixtures that
+  could not accommodate any example pack shipping a pipeline), L5.28 (a name-collision check
+  false-positiving on ordinary English — the pack had also taken `weft-graph`, the name the design
+  documents reserve for this pack as a *hypothetical*, and was renamed), L5.29 (`02` §4's own
+  uninstall transcript overclaims what the refusal can say), L5.31 (the binary-run step and the gate
+  step want opposite venv states and nothing enforces the handover).
+
+  **What this outcome is worth.** Nine of these were invisible to 1,801 tests and to the pack's own
+  35. `02` §4 says the independence test exists because *"if they need a core change, the extension
+  model has a hole, and finding it that way is much cheaper than finding it after publishing
+  contracts"* — which is what happened, one phase before Phase 6 publishes them. **G13 is proposed
+  and Open** (`README.md` → *Decision log*): the derived-participant seam, covering L5.24, L5.25 and
+  L5.30 together, because all three are the same question — what a participant that is *not* the
+  primary store may ask for and be reached by.
 
 **Exit** (`01` → Phase 5): task 5.7. A core change requested to make the pack work is a Phase 5
 failure and a design finding, which means 5.7 can be *failed* — that is what makes it worth running.
+
+**G7 closed as *"shown to work without a bus"*, and 5.7 is where the showing happens.** The session
+walked the graph pack case by case and found no case a bus served that an extension point could not;
+if the pack's author hits one, that is the design finding this phase exists to produce, and `01`'s
+deferred *Event bus* row reopens. G7 is settled, not immune.
 
 ---
 
@@ -729,6 +2376,11 @@ G9 and G10 can take, which is the reason they are stated as weakly as they are.
 - [ ] **6.10** the published trust posture is the one `02` §2 actually claims — no package page implying isolation the design refused · owner `09` §5 → *Security, licensing, documentation*; `02` §2 · turns on — · sha —
 - [ ] **6.11** every file in the release is accounted for as original work, re-checked with `reference-audit`, with `LICENSE` and `NOTICE` in every built artefact · owner `09` §5; `CLAUDE.md` → the originality rule · turns on — · sha —
 - [ ] **6.12** a newcomer installs, indexes and asks from the README alone, without opening `docs/` · owner `09` §5; `08` §1, *Quickstart* · turns on — · sha —
+- [ ] **6.14** the fitness function `01` has named since day one exists: **FF5**, *every declared capability resolves* — a plugin's declared capability resolves to a live implementation at discovery, or the plugin declares it unavailable and says why · owner `01` → *Fitness functions* 5; `11` · turns on **FF5** · sha — · **added 2026-08-22 by Phase 5's lessons drain**, found by FF16 clause (a) on its first run — the same defect as `L5.4` and unnoticed for the same five phases. Waived in `tests/architecture/test_ff16_checks_are_real.py`'s `FITNESS_FUNCTIONS_NOT_YET_DUE` until this closes
+- [ ] **6.15** every architecture check proves it can fail: `CHECKS_WITHOUT_A_SELF_TEST` in `tests/architecture/test_ff16_checks_are_real.py` shrinks to empty, one file at a time, each with a planted disagreement watched going red · owner `01` → *Fitness functions* 0; `05` → `lessons.md` L5.6, L5.19 · turns on — · sha — · **added 2026-08-22 by Phase 5's lessons drain**. Seven files predate FF16 and carry no self-test; the ratchet is pinned so nothing may be added to it
+- [ ] **6.16** a `--json` consumer can tell one event shape from another: the newline-delimited stream carries a discriminant, so a `StreamEvent` and an `ErrorEnvelope` are distinguishable without guessing by key presence · owner `03` → *Output*; `09` §3 · turns on — · sha — · **added 2026-08-22 by Phase 5's lessons drain** (`lessons.md` L5.16). Additive under `09` §3's *"promised, additively"* rule, which is why it is Phase 6's and not a Phase 5 repair
+- [ ] **6.17** `tests/integration/test_ingest_pipeline.py` passes on its own: the test-order dependency confirmed at task 5.2g is removed, so the file's result does not depend on another file having run first · owner `01` → *Fitness functions* 0 · turns on — · sha — · **added 2026-08-22 by Phase 5's lessons drain** (`lessons.md` L5.21)
+
 - [ ] **6.13 ⚠** a machine that has never seen this repository installs the release unit G10 names, from the index, and reproduces the published baseline — every metric inside the interval that baseline recorded across its own repetitions · owner `01` → Phase 6 **Exit**; `09` §4 · turns on — · sha —
 
 **Exit** (`01` → Phase 6): task 6.13, plus FF10 wired and green and each of Phases 0–5's exit criteria

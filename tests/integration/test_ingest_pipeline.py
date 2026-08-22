@@ -15,6 +15,19 @@ docstring of `tests/unit/weft_store/test_pgvector_store.py` for the same
 skip discipline, repeated here rather than shared, because this is the one
 test in the tree that exercises all four built-ins as one pipeline and
 should read as a single, self-contained scenario.
+
+**`test_a_pack_declared_ext_model_reaches_the_store_with_no_cli_edit`, task 5.2g's own
+round-trip proof.** Every other proof in this tree either registers an `ExtModel` by hand
+(`test_store_conformance.py`'s own module-level `register_ext_model(PdfPages)`) or never
+calls `weft_kernel.discovery.discover` at all, as the test above does not. This one runs
+the real mechanism end to end: `discover()` against the real, installed `weft-index` pack,
+whose own `register()` now buffers `weft_index.payload.Representation` through
+`PackRegistrar.add_ext_model`, then `weft_store.rehydrate.register_from_reports` — the
+generic consumer `weft_cli.registry_bootstrap.build_dependencies` calls — with
+`Representation` named nowhere in that test except to build the node and check what came
+back. `Representation` is the subject rather than `PdfPages` on purpose: before this task
+it had no rehydration path at all, not even a hand-written shim, so its round trip is the
+cleanest demonstration that `register_from_reports` closes the gap generically.
 """
 
 import os
@@ -29,6 +42,7 @@ from weft_chunk import Chunker, FixedSizeChunker
 from weft_embed import Embedder, HashEmbedder
 from weft_extract import Extractor, TextExtractor, discover_source_docs
 from weft_kernel.context import Context
+from weft_kernel.payload import MediaType, Node, SourceId
 from weft_kernel.registry import Registry
 from weft_kernel.runner import Runner, StageSpec
 from weft_store import NodeStore
@@ -101,3 +115,52 @@ async def test_ingest_pipeline_produces_stored_nodes(store: PgVectorStore, tmp_p
     assert stored_count > 0
     page = await store.scan()
     assert all(node.embedding is not None for node in page.items)
+
+
+def _discover_and_wire_ext_models() -> None:
+    """The real mechanism, end to end: `discover()`, then the one generic call
+    `weft_cli.registry_bootstrap.build_dependencies` makes right after it — see the module
+    docstring's own paragraph on the test below.
+
+    Imported lazily so this module's own top-level imports stay narrow — nothing else here
+    needs `weft_kernel.discovery` or `weft_store.rehydrate`. `allow` is restricted to
+    `weft-index` and the packs its own `register()` needs to import cleanly, rather than
+    left open, for the identical reason `test_ff2_no_privileged_builtins.py` restricts it:
+    an open `discover()` would also import `weft-canary`.
+    """
+    from weft_kernel.discovery import discover
+    from weft_kernel.registry import Registry
+    from weft_store.rehydrate import register_from_reports
+
+    registry = Registry()
+    reports = discover(
+        registry,
+        allow=frozenset({"weft-index", "weft-store", "weft-prompts"}),
+        pack_settings={"weft-store": {"dsn": _DSN}},
+    )
+    register_from_reports(reports)
+
+
+async def test_a_pack_declared_ext_model_reaches_the_store_with_no_cli_edit(
+    store: PgVectorStore,
+) -> None:
+    # Arrange — the real registration path, then a node carrying the namespace it unlocks.
+    from weft_index.payload import Representation
+
+    _discover_and_wire_ext_models()
+    node = Node.synthetic(
+        content="a generated question standing in for its parent chunk",
+        media_type=MediaType.TEXT,
+        reason="ext-model round-trip proof",
+        sources=frozenset({SourceId("source-a")}),
+    ).with_ext(Representation(technique="hypothetical-questions"))
+
+    # Act
+    await store.add((node,))
+    await store.flush()
+    found = await store.get([node.id])
+
+    # Assert — the namespace that had no rehydration path at all before task 5.2g now
+    # survives, reconstructed by the class `weft_index`'s own `register()` declared.
+    assert len(found) == 1
+    assert found[0].ext_as(Representation) == Representation(technique="hypothetical-questions")

@@ -469,6 +469,30 @@ Every block also prints a pack's `disclosure` — what it says it touches, in it
 that discloses nothing prints `not disclosed`. This is information the pack chose to publish about
 itself, never a fact `weft` checked; see *What this does not protect you from*.
 
+**Two more things `doctor` prints, both added at task 5.2e, neither a new status.** A pack flags
+`active, deprecated` when it marked one of its own surfaces deprecated at registration — the block
+below names the surface and the reason, e.g. `_Chunker:legacy` and "superseded by 'fast'." Nothing
+stops working: the pack still runs exactly as `active` alone would, and the warning underneath it
+is a `DeprecationWarning`, not a refusal. Separately, `doctor` prints a trailing `version skew`
+block naming every distribution whose *installed* version does not satisfy some other installed
+distribution's *declared* dependency range — the case a plain `uv sync` never reaches, because the
+resolver already refused an incompatible install before your environment existed. Skew shows up
+from an editable install whose checked-out code has moved past its own recorded version, a forced
+`pip install`, or a workspace whose lockfile has drifted:
+
+```text
+weft-cli: active (18 contributed)
+  disclosure: not disclosed
+
+version skew — installed does not satisfy a declared specifier:
+  'weft-cli' requires 'weft-kernel' >=0.1.0,<1.0.0, but 9.9.9 is installed.
+```
+
+Nothing is refused for either condition — a skewed or deprecated pack still loads and still runs.
+`docs/09-release.md` §2.3 answer 1 is why: a contract version requirement is the distribution's own
+dependency specifier, so the resolver is where an incompatible install actually gets refused; by
+the time `weft` is running at all, reporting is the honest thing left to do.
+
 ## The one thing to know about `active`
 
 **`weft-store: active` does not mean the database is reachable.** A `dsn` is validated for shape —

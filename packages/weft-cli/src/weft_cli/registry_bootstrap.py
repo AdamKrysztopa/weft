@@ -93,6 +93,14 @@ needs it is a knob that silently does nothing.
 operator's override of the `overwrite`/`destroy` defaults `weft_cli.confirm`
 enforces at the invocation seam — `weft_cli.permission_policy`'s own module
 docstring carries the shape and why it stops at two keys.
+
+**Task 5.3a (`S8`) adds `Dependencies.contributions` — no file read, no new config surface.**
+`weft_kernel.resolution.Contribution`'s own docstring names this module's `build_dependencies`
+as the caller that was missing: `contributions_from` concatenates every `PackReport.
+contributions` the same `discover()` call above already produced, once, here — every
+`resolve()` call site in this distribution reads `deps.contributions` back off this one
+field rather than re-deriving its own tuple from `deps.reports`, which is what keeps "one
+assembly path" true rather than aspirational.
 """
 
 from __future__ import annotations
@@ -102,12 +110,22 @@ import textwrap
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from weft_cli.exit_codes import ExitCode
 from weft_cli.llm_roles import LLMRoles, LLMSection, llm_section_from_config
 from weft_cli.permission_policy import PermissionPolicy, permission_policy_from_config
 from weft_cli.services import ServiceSelection, service_selection_from_config
+
+if TYPE_CHECKING:
+    # Not a top-level import at runtime — see `_default_reconcile_policy`'s own docstring,
+    # just below, for why: `weft_cli.reconcile_policy` imports `weft_store.ReconcileMode` at
+    # its own module scope, and `weft_store` is a pack this module must not put in
+    # `sys.modules` for `weft --version` (fitness function 8(b), the identical reasoning
+    # `_register_ext_models` below already states for `weft_store`).
+    # A type checker still needs the real name for the `Dependencies.reconcile_policy`
+    # annotation, which this guard supplies with no runtime cost.
+    from weft_cli.reconcile_policy import ReconcilePolicy
 from weft_kernel.discovery import (
     PackReport,
     PackStatus,
@@ -117,6 +135,7 @@ from weft_kernel.discovery import (
 )
 from weft_kernel.errors import WeftError
 from weft_kernel.registry import Registry, UnknownPluginError
+from weft_kernel.resolution import Contribution
 from weft_llm.client import NullSink
 from weft_llm.contract import TokenSink
 
@@ -188,7 +207,22 @@ class Dependencies:
     #: (a test, or a library use `weft ask` does not yet take) gets the same floor a real
     #: `weft.toml` with no `[permissions]` table would.
     permissions: PermissionPolicy = field(default_factory=PermissionPolicy)
+    #: `[reconcile]`, task 5.1c — `weft reconcile`'s own personal default for a bare `--mode`,
+    #: defaulting to `full` unchanged from that command's pre-5.1c hardcoded default. Never
+    #: consulted by `weft index`'s automatic post-index pass, which is hardcoded to `repair`
+    #: regardless — see `weft_cli.reconcile_policy`'s own module docstring for why. The
+    #: `default_factory` is `_default_reconcile_policy`, not `ReconcilePolicy` itself — see
+    #: that function's own docstring for why the import is lazy.
+    reconcile_policy: ReconcilePolicy = field(default_factory=lambda: _default_reconcile_policy())
     token_sink: TokenSink = field(default_factory=NullSink)
+    #: Task **5.3a** (`S8`) — every `weft_kernel.resolution.Contribution` any installed pack's
+    #: own `register()` buffered through `PackRegistrar.add_contribution`, concatenated across
+    #: every report in the order `discover()` returned them. This is the one assembly point
+    #: `weft_kernel.resolution.Contribution`'s own docstring names as "whatever assembled the
+    #: `Registry` from every installed pack's own registration" — every `resolve()` call site in
+    #: this distribution passes this field straight through as `contributions=`, never its own
+    #: re-derived tuple, so there is exactly one place a pack's contribution is gathered.
+    contributions: tuple[Contribution, ...] = ()
 
     @property
     def llm_roles(self) -> LLMRoles:
@@ -222,7 +256,6 @@ def build_dependencies(
     real one, chosen from `--json`/`--quiet` before this function is ever called (see that
     module's own docstring). A caller in a test or a library use is free to pass its own.
     """
-    _ensure_chunk_offset_rehydrates()
     document = document_at(config_path)
     allow = None if document is None else allow_list_from_config(document)
     settings = merged_pack_settings(document)
@@ -230,8 +263,13 @@ def build_dependencies(
     services = service_selection_from_config(document)
     llm = llm_section_from_config(document)
     permissions = permission_policy_from_config(document)
+    # Lazy, not a top-level import — see `_default_reconcile_policy`'s own docstring.
+    from weft_cli.reconcile_policy import reconcile_policy_from_config
+
+    reconcile_policy = reconcile_policy_from_config(document)
     registry = Registry(plugin_pins=pins)
     reports = discover(registry, allow=allow, pack_settings=settings, strict_pins=strict_pins)
+    _register_ext_models(reports)
     sink = token_sink if token_sink is not None else NullSink()
     return Dependencies(
         registry=registry,
@@ -239,55 +277,70 @@ def build_dependencies(
         services=services,
         llm=llm,
         permissions=permissions,
+        reconcile_policy=reconcile_policy,
         token_sink=sink,
+        contributions=contributions_from(reports),
     )
 
 
-def _ensure_chunk_offset_rehydrates() -> None:
-    """Make `weft_chunk.payload.ChunkOffset` reconstructable by `weft_store.rehydrate`.
+def contributions_from(reports: tuple[PackReport, ...]) -> tuple[Contribution, ...]:
+    """Every `Contribution` any report buffered, concatenated in report order.
 
-    Every chunk `weft-chunk` derives now carries `ChunkOffset` (ledger 2.9, the
-    page-attribution gap `weft_chunk.fixed_size`'s own module docstring names), and
-    `weft_store.rehydrate` refuses to read a stored node back unless the namespace that
-    reached storage was registered first. Neither pack makes this call itself —
-    `weft_chunk.__init__`'s own module docstring says why: fitness function 9(a) proves a
-    stranger can extend `weft-chunk` from a wheel carrying only `weft-kernel` and
-    `weft-chunk`, and a hard `weft-store` dependency there would break that. `weft-cli`
-    depends on both, so this is where the two ends of a real pipeline meet.
+    Task **5.3a** (`S8`) — `weft_kernel.resolution.Contribution`'s own docstring names this
+    exact caller: "whatever assembled the `Registry` from every installed pack's own
+    registration." Only an `ACTIVE` report's own `PackReport.contributions` is ever
+    non-empty (`PackRegistrar.commit`'s own atomicity — see `weft_kernel.discovery`'s module
+    docstring), so this does not filter on `status` itself, the same reasoning `weft_cli.
+    pipeline_catalogue.load_contributed` already gives for the identical shape one field over.
+    """
+    return tuple(contribution for report in reports for contribution in report.contributions)
+
+
+def _default_reconcile_policy() -> ReconcilePolicy:
+    """`Dependencies.reconcile_policy`'s own `default_factory` — a lazy import, not
+    `weft_cli.reconcile_policy.ReconcilePolicy` used directly.
+
+    `weft_cli.reconcile_policy` imports `weft_store.ReconcileMode` at its own module scope,
+    and this module's own top-level imports run for *every* command, `weft --version`
+    included — the identical constraint `_register_ext_models`'s own docstring states for
+    `weft_store`, and the same fitness function 8(b) this repeats it
+    for: a `default_factory=ReconcilePolicy` reference would need the real class at
+    `Dependencies`' own class-body-execution time, which happens the moment this module is
+    imported, regardless of whether any `Dependencies` instance is ever built without one.
+    A `lambda` wrapping this function costs nothing to construct — only *calling* it imports
+    `weft_store`, and nothing calls it during `weft --version`'s own path.
+    """
+    from weft_cli.reconcile_policy import ReconcilePolicy
+
+    return ReconcilePolicy()
+
+
+def _register_ext_models(reports: tuple[PackReport, ...]) -> None:
+    """Make every `ExtModel` a report's own pack declared reconstructable by `weft_store.rehydrate`.
+
+    Task **5.2g**. Before this task, this function was `_ensure_chunk_offset_rehydrates`,
+    naming `weft_chunk.payload.ChunkOffset` by hand — the one pack whose data happened to
+    survive a round trip through a store, because nothing else had ever been wired at all
+    (`PdfPages`, `Language`, `Keywords`, `Representation`, `Agreement`, `RefinementTrace`,
+    `BooleanPlan`, `CorrectiveTrace` and `IterativeRetrievalTrace` had no such shim, so a
+    node carrying any of their namespaces could not be read back out of a store).
+    `weft_kernel.discovery.PackRegistrar.add_ext_model` closes that generically: a pack
+    declares its own `ExtModel` in its own `register()`, exactly the way it already
+    declares a plugin, and `weft_store.rehydrate.register_from_reports` is the one generic
+    call this function makes — reading `PackReport.ext_models` back off every report
+    `discover()` returned, with no pack named here at all. A future pack shipping a new
+    `ExtModel` costs this function nothing to support.
 
     **Imported lazily, inside this function, never at module scope.** A top-level import
-    of `weft_chunk`/`weft_store` here would put both in `sys.modules` for *every*
-    command `build_dependencies` is not even called for — `weft --version` included,
-    which is exactly what fitness function 8(b) refuses (`test_ff8_trust_model.py`
-    caught this once already, as a module-level version of this same call).
-
-    **Checked first, not caught blindly — a repair for a reviewer finding.** This function
-    runs once per command but many times over within this module's own test suite, each
-    against the one, process-wide registry `register_ext_model` writes to — unlike the
-    plugin `Registry` `build_dependencies` builds fresh every call. The first cut wrapped
-    the call in `contextlib.suppress(DuplicateRegistrationError)` unconditionally, which
-    made "this function's own idempotent second call" and "a genuine second class claiming
-    the `weft-chunk` namespace" indistinguishable — exactly the failure mode CLAUDE.md
-    names by description: a silent fallback whose success and failure paths cannot be told
-    apart. So this looks the namespace up first: if `ChunkOffset` itself is already the
-    registrant, there is nothing to do — it is this function's own earlier call in this
-    process. Otherwise it calls `register_ext_model`, unguarded, and lets
-    `DuplicateRegistrationError` propagate — naming both classes — exactly as
-    `weft_store.rehydrate`'s own docstring says every namespace collision must.
+    of `weft_store` here would put it in `sys.modules` for *every* command
+    `build_dependencies` is not even called for — `weft --version` included, which is
+    exactly what fitness function 8(b) refuses (`test_ff8_trust_model.py` caught this once
+    already, as a module-level version of this same call) — the identical reasoning this
+    function's own predecessor already stated for `weft_chunk`/`weft_store`.
     """
-    from weft_chunk.payload import ChunkOffset
-    from weft_kernel.payload import ExtModel
-    from weft_kernel.registry import UnknownPluginError
-    from weft_store import register_ext_model
-    from weft_store.rehydrate import ext_models
+    from weft_store.rehydrate import register_from_reports
 
-    try:
-        registrant = ext_models.entry(ExtModel, ChunkOffset.__namespace__).factory
-    except UnknownPluginError:
-        register_ext_model(ChunkOffset)
-        return
-    if registrant is not ChunkOffset:
-        register_ext_model(ChunkOffset)
+    register_from_reports(reports)
 
 
 def merged_pack_settings(document: dict[str, object] | None) -> dict[str, dict[str, object]]:

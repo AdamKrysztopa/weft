@@ -29,24 +29,49 @@ fields are not a subset of the base's — refuses them outright as unknown.
 turning each namespace's plain dict into an instance of the *class that
 namespace actually declares* before validation ever sees it.
 
-**Phase 0 seeds this registry with exactly one class**, `weft_kernel.payload.SyntheticOrigin`
-— the only `ExtModel` in the tree today, stamped onto every root node by
-`Node.synthetic`, which `weft_extract`'s built-in text extractor uses for
-every node it produces. A pack that ships its own `ExtModel` and wants nodes
-carrying it to survive a round trip through this store calls
-`register_ext_model` itself; there is no Phase 0 mechanism for a pack's own
-`register()` to contribute one automatically (the same gap
-`docs/02-extension-model.md`'s Phase 0 step 5 narrowing note records for
-`add_messages`), so this is a second, explicit call a pack author makes, not
-a consequence of installing the pack.
+**Seeded unconditionally with exactly one class**, `weft_kernel.payload.SyntheticOrigin`
+— a kernel primitive stamped onto every root node by `Node.synthetic` regardless of which
+packs are installed, so it is registered here at import time rather than through any
+pack's `register()`; see `register_ext_model(SyntheticOrigin)` at the foot of this module.
+
+**Built in Phase 5 task 5.2g.** Every *other* `ExtModel` — a pack's own namespaced
+extension data — now reaches this registry through the pack's own `register()`, with no
+further call and no `weft-cli` edit: `weft_kernel.discovery.PackRegistrar.add_ext_model`
+buffers the class the same way `add_pipeline_resource` buffers a pipeline locator, and
+`register_from_reports` below is the generic consumer, reading `PackReport.ext_models`
+back off every report `discover()` returns and registering whatever it finds. `weft-cli`
+calls it exactly once, right after `discover()`, with no per-pack knowledge in that call
+site — the same shape `weft_cli.pipeline_catalogue.load_contributed` already has for
+`PackReport.pipeline_resources`. Before this task, only `register_ext_model` existed, a
+pack author's own explicit second call; `weft_kernel.discovery.PackRegistrar` had no seam
+for this at all (the same gap this module's own docstring, and `docs/02-extension-model.md`
+§1's Phase 0 step 5 narrowing note, once recorded for `add_messages` — G11 retired that one
+outright, and this is the other half actually closing rather than being retired). Both
+paths write to the identical `ext_models` registry, so a pack author who still calls
+`register_ext_model` directly — a test, or a caller that builds a registry without running
+full discovery — gets the identical idempotent-or-refuse behaviour either way.
+
+**Built in Phase 5 task 5.2c.** This is also the read side of G9's persisted-
+schema axis: every namespace `_dump` writes carries `SCHEMA_VERSION_KEY`
+alongside its fields (`weft_kernel.payload.ext`'s own module docstring), and
+this is where that key is read back off. A stored version equal to the
+class's current `__schema_version__` rehydrates exactly as before this task;
+one that differs — including a namespace with no version key at all, which
+is every row this store held before this task existed — goes through
+`model_cls.upgrade(fields, stored_version)`, whose default refuses with
+`SchemaVersionRefusedError`, naming the namespace, the stored version (or
+that there was none) and the current one. Nothing here decides *how* to
+migrate an older shape; that is the owning pack's `upgrade` override, made
+exactly where the class that understands both shapes already lives.
 """
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from typing import cast
 
+from weft_kernel.discovery import PackReport
 from weft_kernel.errors import WeftError
-from weft_kernel.payload import ExtModel, SyntheticOrigin
-from weft_kernel.registry import Registry
+from weft_kernel.payload import SCHEMA_VERSION_KEY, ExtModel, SyntheticOrigin
+from weft_kernel.registry import Registry, UnknownPluginError
 
 #: `(ExtModel, namespace) -> the class that owns it` — see the module docstring for why this
 #: is a `Registry` rather than a hand-rolled `dict`.
@@ -73,13 +98,55 @@ def register_ext_model(model: type[ExtModel]) -> None:
     ext_models.add(ExtModel, model.__namespace__, model, distribution=model.__namespace__)
 
 
+def register_from_reports(reports: Iterable[PackReport]) -> None:
+    """Register every `ExtModel` any pack declared through `PackRegistrar.add_ext_model`.
+
+    Task **5.2g** — the generic consumer of `PackReport.ext_models`, the same shape
+    `weft_cli.pipeline_catalogue.load_contributed` already has for `PackReport.
+    pipeline_resources`: it walks whatever every report carries and knows nothing about
+    which pack contributed which class, so a future pack shipping a new `ExtModel` costs
+    this function nothing to support. Call once, after `discover()` returns — `weft-cli`'s
+    `registry_bootstrap.build_dependencies` is the one caller today.
+
+    **Idempotent for a namespace already claimed by the identical class** — the same
+    check `_ensure_chunk_offset_rehydrates` used to make by hand for `weft_chunk.payload.
+    ChunkOffset` alone, generalised here for every namespace: this function is safe to
+    call more than once in one process (every test in this tree's own suite that calls
+    `discover()` more than once does), because a namespace `ext_models` already holds
+    against the exact same class is not a collision, only a repeat report of the same
+    fact. A *different* class claiming a namespace already held raises
+    `weft_kernel.registry.DuplicateRegistrationError`, naming both, exactly as
+    `register_ext_model` always has — two packs' `ExtModel`s racing for one namespace is
+    a real collision this function must not paper over.
+    """
+    for report in reports:
+        for model in report.ext_models:
+            _register_if_new(model)
+
+
+def _register_if_new(model: type[ExtModel]) -> None:
+    """`register_ext_model(model)`, skipped only when `model` itself already claimed
+    this namespace — see `register_from_reports`'s own docstring for why.
+    """
+    try:
+        registrant = ext_models.entry(ExtModel, model.__namespace__).factory
+    except UnknownPluginError:
+        register_ext_model(model)
+        return
+    if registrant is not model:
+        register_ext_model(model)
+
+
 def rehydrate_ext(raw: Mapping[str, object]) -> dict[str, ExtModel]:
     """Turn a dumped `ext` mapping — `{namespace: plain dict}` — back into typed models.
 
     Raises `weft_kernel.registry.UnknownPluginError`, naming the namespace and
     every namespace `register_ext_model` *has* registered, if `raw` names one
     this store cannot rehydrate. Raises `MalformedExtDataError` if a
-    namespace's value is not itself a mapping.
+    namespace's value is not itself a mapping. Raises `SchemaVersionRefusedError`
+    (task 5.2c, see the module docstring) if the stored `SCHEMA_VERSION_KEY` —
+    or its absence — disagrees with the registered class's `__schema_version__`
+    and that class's `upgrade` was not overridden to reconcile it.
     """
     rehydrated: dict[str, ExtModel] = {}
     for namespace, value in raw.items():
@@ -89,7 +156,11 @@ def rehydrate_ext(raw: Mapping[str, object]) -> dict[str, ExtModel]:
                 f"(found {type(value).__name__}); cannot rehydrate it."
             )
         model_cls = cast("type[ExtModel]", ext_models.lookup(ExtModel, namespace))
-        rehydrated[namespace] = model_cls(**value)
+        fields: dict[str, object] = dict(cast("Mapping[str, object]", value))
+        stored_version = cast("str | None", fields.pop(SCHEMA_VERSION_KEY, None))
+        if stored_version != model_cls.__schema_version__:
+            fields = dict(model_cls.upgrade(fields, stored_version))
+        rehydrated[namespace] = model_cls(**fields)
     return rehydrated
 
 

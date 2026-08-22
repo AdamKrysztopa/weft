@@ -8,6 +8,7 @@ the `weft.packs` entry point fitness function 2 requires of a distribution that 
 tests this update carries forward one pack over.
 """
 
+import re
 import tomllib
 from pathlib import Path
 
@@ -28,6 +29,22 @@ from weft_kernel.registry import Registry
 from weft_prompts.contract import Prompt
 
 _PYPROJECT = Path(__file__).resolve().parents[3] / "packages" / "weft-generate" / "pyproject.toml"
+
+#: A dependency specifier's bare name, stripping the compatible range task 5.2a gives every
+#: intra-repo dependency (`docs/09-release.md` §2.3: `>=X,<MAJOR+1`, never a bare name or an
+#: exact pin) — these tests care which distribution is depended on, not which range.
+_DEPENDENCY_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*")
+
+
+def _dependency_name(dependency: str) -> str:
+    match = _DEPENDENCY_NAME.match(dependency)
+    if match is None:
+        raise ValueError(f"not a dependency specifier: {dependency!r}")
+    return match.group(0)
+
+
+def _dependency_names(dependencies: list[str]) -> set[str]:
+    return {_dependency_name(dependency) for dependency in dependencies}
 
 
 def test_the_contract_this_distribution_publishes_is_exported() -> None:
@@ -103,8 +120,8 @@ def test_the_dependency_runs_one_way_along_the_pipeline_and_never_back() -> None
     # Act / Assert — `weft-generate` may depend on `weft-retrieve`; the reverse would make
     # the first-party graph cyclic, which is why `Answer` is published here and reached
     # from a retrieval-shaped technique through `StageLookup` rather than through an import.
-    assert "weft-retrieve" in generate["project"]["dependencies"]
-    assert "weft-generate" not in retrieve["project"]["dependencies"]
+    assert "weft-retrieve" in _dependency_names(generate["project"]["dependencies"])
+    assert "weft-generate" not in _dependency_names(retrieve["project"]["dependencies"])
 
 
 def test_the_distribution_declares_the_packs_whose_types_its_contracts_name() -> None:
@@ -116,7 +133,7 @@ def test_the_distribution_declares_the_packs_whose_types_its_contracts_name() ->
     # a registered prompt and answers through the run's `LLM` service, upstream of this
     # pack on `.phase2-design.md` §2's one-way chain. `weft-store` was already here for
     # `Citation.uri` resolution through `NodeStore.get_source`.
-    assert set(document["project"]["dependencies"]) == {
+    assert _dependency_names(document["project"]["dependencies"]) == {
         "weft-kernel",
         "weft-store",
         "weft-retrieve",

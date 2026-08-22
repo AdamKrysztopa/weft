@@ -147,10 +147,36 @@ _ORDERED_REMEDY = (
 
 #: Which operators each kind of field admits. A comparison the table refuses is one whose
 #: meaning would depend on the engine rather than on the filter.
+#:
+#: **`EXTENSION`'s set is stated by hand, not derived — task 5.2b.** It used to read
+#: `frozenset(FilterOp) - {AND, OR, NOT}`, which is `docs/lessons.md` L5.6's shape one level
+#: up from a version constant: a permitted set computed from the very enum it is supposed to
+#: gate does not narrow as the vocabulary grows, it *widens*, admitting whatever `FilterOp`
+#: gains next with nobody having decided that member belongs on a pack's own namespaced data.
+#: Named here instead, the nine members below are exactly what `frozenset(FilterOp) -
+#: {AND, OR, NOT}` evaluates to against today's twelve — no behaviour changes for any
+#: operator that exists now — but a 13th lands in none of the three sets below until a
+#: person adds it, refused by `field_for`'s existing `FilterOpMismatchError` rather than
+#: admitted by construction. Proven by
+#: `tests/architecture/test_ff13_filter_op_dispatch_is_exhaustive.py`, which manufactures a
+#: `FilterOp`-shaped value this table has never seen and asserts every `FieldKind` refuses
+#: it, `EXTENSION` included.
 _ADMITTED: dict[FieldKind, frozenset[FilterOp]] = {
     FieldKind.TEXT: frozenset({FilterOp.EQ, FilterOp.NE, FilterOp.IN, FilterOp.EXISTS}),
     FieldKind.TEXT_SET: frozenset({FilterOp.IN, FilterOp.EXISTS, FilterOp.CONTAINS}),
-    FieldKind.EXTENSION: frozenset(FilterOp) - {FilterOp.AND, FilterOp.OR, FilterOp.NOT},
+    FieldKind.EXTENSION: frozenset(
+        {
+            FilterOp.EQ,
+            FilterOp.NE,
+            FilterOp.IN,
+            FilterOp.LT,
+            FilterOp.LTE,
+            FilterOp.GT,
+            FilterOp.GTE,
+            FilterOp.EXISTS,
+            FilterOp.CONTAINS,
+        }
+    ),
 }
 
 #: Why each refusal exists, in the words the operator needs rather than the ones this module

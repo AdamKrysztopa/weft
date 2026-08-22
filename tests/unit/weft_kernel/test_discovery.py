@@ -23,10 +23,21 @@ canary, so this file stays fast and does not need `uv pip install` anywhere.
 without failing either pack, and the loud `InertPluginPinError` `discover()`
 raises once enumeration finishes if a pin never got to arbitrate anything —
 see `weft_kernel.registry`'s own module docstring for the full reasoning.
+
+**Task 5.2e** adds `PackRegistrar.deprecate`/`deprecations`: buffered exactly like a
+pipeline resource, landing on the `PackReport` only once `register()` returns without
+raising, and the `DeprecationWarning` itself coming from `weft_kernel.seam.warn_deprecated`
+— the registration wrapper — rather than from the pack's own `register()` body.
+
+**Task 5.3a (`S8`)** adds `PackRegistrar.add_contribution`/`contributions`: buffered
+exactly like `add_ext_model`, with `distribution` filled in by the registrar rather than
+stated by the pack, and landing on the `PackReport` only once `register()` returns without
+raising.
 """
 
 import sys
 import types
+import warnings
 from collections.abc import Callable, Generator
 
 import pytest
@@ -45,6 +56,7 @@ from weft_kernel.discovery import (
     plugin_pins_from_config,
 )
 from weft_kernel.errors import WeftError
+from weft_kernel.pipeline import StageDeclaration
 from weft_kernel.registry import Registry, UnknownPluginError
 
 
@@ -543,3 +555,132 @@ def test_a_raising_register_discards_its_buffered_pipeline_resource_too() -> Non
     [report] = reports
     assert report.status == PackStatus.FAILED
     assert report.pipeline_resources == ()
+
+
+# --- deprecation (task 5.2e) ------------------------------------------------------------
+
+
+def test_a_committed_pack_reports_the_deprecation_it_buffered_and_warns_once() -> None:
+    """`deprecate` is buffered exactly like `add_pipeline_resource`, lands on the report
+    once `register()` returns without raising, and the warning comes from the registration
+    wrapper (`weft_kernel.seam.warn_deprecated`) rather than from the pack itself —
+    `docs/09-release.md` §3: "the warning is emitted by the registration wrapper."
+    """
+    # Arrange
+    registry = Registry()
+
+    def register(registrar: PackRegistrar, settings: _Settings) -> None:
+        registrar.add(_Chunker, "legacy", lambda: "instance")
+        registrar.deprecate("_Chunker:legacy", reason="superseded by 'fixed-size'")
+
+    _install_fake_module("_weft_test_deprecated_pack")
+    entry_point = _FakeEntryPoint(
+        distribution="weft-old", module="_weft_test_deprecated_pack", target=register
+    )
+
+    # Act
+    with pytest.warns(DeprecationWarning, match="weft-old.*_Chunker:legacy.*superseded"):
+        reports = discover(registry, entry_points=[entry_point])
+
+    # Assert
+    [report] = reports
+    assert report.status == PackStatus.ACTIVE
+    [notice] = report.deprecations
+    assert notice.distribution == "weft-old"
+    assert notice.surface == "_Chunker:legacy"
+    assert notice.reason == "superseded by 'fixed-size'"
+
+
+def test_a_raising_register_discards_its_buffered_deprecation_and_warns_of_nothing() -> None:
+    """The same atomicity as pipeline resources: a pack that raises after marking a
+    surface deprecated must not leave a warning standing about a mark that never
+    actually committed.
+    """
+    # Arrange
+    registry = Registry()
+
+    def register(registrar: PackRegistrar, settings: _Settings) -> None:
+        registrar.deprecate("legacy", reason="boom")
+        raise RuntimeError("boom")
+
+    _install_fake_module("_weft_test_broken_deprecated_pack")
+    entry_point = _FakeEntryPoint(
+        distribution="weft-broken-deprecation",
+        module="_weft_test_broken_deprecated_pack",
+        target=register,
+    )
+
+    # Act
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        reports = discover(registry, entry_points=[entry_point])
+
+    # Assert
+    [report] = reports
+    assert report.status == PackStatus.FAILED
+    assert report.deprecations == ()
+
+
+# --- slot contributions (task 5.3a, S8) -------------------------------------------------
+
+
+def test_a_committed_pack_reports_the_contribution_it_buffered_with_its_own_attribution() -> None:
+    """`add_contribution` is buffered exactly like `add_ext_model`, and `distribution` is
+    filled in by the registrar — never something the pack states — on `add`'s own
+    footing (module docstring: "attribution is never something the author states").
+    """
+    # Arrange
+    registry = Registry()
+
+    def register(registrar: PackRegistrar, settings: _Settings) -> None:
+        registrar.add(_Chunker, "entity-extractor", lambda: "instance")
+        registrar.add_contribution(
+            "enrich", StageDeclaration(id="entities", use="entity-extractor")
+        )
+
+    _install_fake_module("_weft_test_contributing_pack")
+    entry_point = _FakeEntryPoint(
+        distribution="weft-graph", module="_weft_test_contributing_pack", target=register
+    )
+
+    # Act
+    reports = discover(registry, entry_points=[entry_point])
+
+    # Assert
+    [report] = reports
+    assert report.status == PackStatus.ACTIVE
+    [contribution] = report.contributions
+    assert contribution.slot == "enrich"
+    assert contribution.distribution == "weft-graph"
+    assert contribution.stage.id == "entities"  # local, unqualified — see Contribution's docstring
+    assert contribution.stage.use == "entity-extractor"
+
+
+def test_a_raising_register_discards_its_buffered_contribution_too() -> None:
+    """The same atomicity as pipeline resources and ext models: nothing a raising
+    `register()` buffered reaches the `PackReport` — a slot must never look filled by a
+    pack that never actually committed.
+    """
+    # Arrange
+    registry = Registry()
+
+    def register(registrar: PackRegistrar, settings: _Settings) -> None:
+        registrar.add_contribution(
+            "enrich", StageDeclaration(id="entities", use="entity-extractor")
+        )
+        raise RuntimeError("boom")
+
+    _install_fake_module("_weft_test_broken_contributing_pack")
+    entry_point = _FakeEntryPoint(
+        distribution="weft-broken-contribution",
+        module="_weft_test_broken_contributing_pack",
+        target=register,
+    )
+
+    # Act
+    reports = discover(registry, entry_points=[entry_point])
+
+    # Assert
+    [report] = reports
+    assert report.status == PackStatus.FAILED
+    assert report.contributions == ()

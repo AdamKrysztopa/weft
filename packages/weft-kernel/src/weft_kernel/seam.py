@@ -149,10 +149,27 @@ defaulting to `True` keeps every existing caller's behaviour identical by
 construction; only `weft_cli.cli.run_command` passes `False`, and only
 concern 4 is affected — spans, attribution and `Produced` post-processing
 run exactly as they do when the guard is armed.
+
+**`Deprecation` and `warn_deprecated`, added at task 5.2e.** `docs/09-release.md` §3: "a
+deprecated plugin, contract or config key is marked at registration, and the warning is
+emitted by the registration wrapper — the same wrapper that applies spans, error
+attribution and blocking-call detection." `weft_kernel.discovery.PackRegistrar.deprecate`
+buffers a `Deprecation` per surface a pack names, exactly as `add_pipeline_resource`
+buffers a `PipelineResource` — nothing is warned about until `register()` returns without
+raising, so a pack that raises partway through warns about nothing it only half-marked.
+`discovery._activate` is the one caller: once a pack's buffer has committed, it hands
+whatever `PackRegistrar.deprecations` collected to `warn_deprecated` here, so a pack author
+states the fact once, at registration, and never writes the warning by hand — the same
+reference-measured argument the module docstring opens with, applied to a fifth concern rather
+than the original four. `docs/02-extension-model.md` §2's status vocabulary gains no member
+for this: `weft_kernel.discovery.PackReport.deprecations` is read by `weft plugins doctor`
+as a flag beside a pack's existing status, exactly as `ambient` already is one.
 """
 
 import contextlib
-from collections.abc import Awaitable, Callable, Sequence
+import warnings
+from collections.abc import Awaitable, Callable, Iterable, Sequence
+from dataclasses import dataclass
 from typing import cast
 
 from opentelemetry import trace
@@ -169,6 +186,47 @@ _NUL_BYTES_ATTRIBUTE = "weft.nul_bytes_removed"
 _tracer = trace.get_tracer("weft_kernel")
 
 _FlushFn = Callable[[], Awaitable[None]]
+
+
+@dataclass(frozen=True, slots=True)
+class Deprecation:
+    """One surface a pack marked deprecated at its own registration.
+
+    Task 5.2e. `surface` is a short label the pack author chooses — a
+    plugin name, a `"Contract:name"` pair, or the pack itself — never
+    interpreted by the kernel, which names no capability; `reason` is the
+    free text a human reads in `weft plugins doctor`. Buffered by
+    `weft_kernel.discovery.PackRegistrar.deprecate` exactly as
+    `PipelineResource` is buffered by `add_pipeline_resource`, for the
+    identical reason: a pack whose `register()` raises after calling this
+    must not leave a warning standing about a mark that never actually
+    committed.
+    """
+
+    distribution: str
+    surface: str
+    reason: str
+
+
+def warn_deprecated(deprecations: Iterable[Deprecation]) -> None:
+    """Emit one `DeprecationWarning` per surface a pack marked deprecated at registration.
+
+    The registration wrapper this module's docstring names — see its own
+    paragraph on `Deprecation` above. Called by `weft_kernel.discovery._activate`,
+    once, after a pack's `register()` has returned without raising and every
+    buffered `PackRegistrar.deprecate` call is therefore known to have
+    committed; never called by a pack itself. Uses the stdlib `warnings`
+    machinery rather than `WeftError` or a printed line: a deprecation is
+    not a failure — the pack is still `ACTIVE` — and `warnings.warn` is the
+    one channel every Python tool already knows how to filter, capture or
+    promote to an error, without this module inventing a second one.
+    """
+    for notice in deprecations:
+        warnings.warn(
+            f"'{notice.distribution}' marks '{notice.surface}' deprecated: {notice.reason}",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
 
 def wrap[**P, T](
