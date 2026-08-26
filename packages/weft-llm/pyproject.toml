@@ -3,6 +3,8 @@ name = "weft-llm"
 version = "1.0.0"
 description = "First-party generation-support pack. Publishes the LLMProvider contract, the LLMError taxonomy, and the deterministic offline scripted provider."
 requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE", "NOTICE"]
 dependencies = ["weft-kernel>=0.1.0,<1.0.0"]
 
 # The one entry point a pack declares (`docs/02-extension-model.md` section 2).

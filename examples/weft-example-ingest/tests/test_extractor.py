@@ -1,7 +1,9 @@
 """This pack's own tests for `ExampleExtractor` — the fourth canonical file.
 
-Not collected by `weft`'s own `pytest` — this directory is outside the weft workspace
-entirely, so a stranger's tests are the stranger's own to run.
+**Collected by weft's own gate since its ledger task 6.23**, through the `examples-tests` step —
+a suite no task runs is prose, and two tests in this tree were quietly red for exactly that
+reason. Still runnable on its own with `uv run pytest` from inside this directory, which is how
+a stranger runs it.
 """
 
 from weft_example_ingest.extractor import ExampleExtractor

@@ -44,6 +44,7 @@ def parse(text: str) -> tuple[dict[str, str], list[tuple[str, str, str]]]:
     edges: list[tuple[str, str, str]] = []
     drain = "?"
     fenced = False
+    current: str | None = None
 
     for line in text.splitlines():
         if _FENCE.match(line):
@@ -55,9 +56,25 @@ def parse(text: str) -> tuple[dict[str, str], list[tuple[str, str, str]]]:
             drain = match.group(1)
             continue
         if match := _ENTRY.match(line):
-            lesson_id, rest = match.group(1), match.group(2)
+            lesson_id: str = match.group(1)
             entries[lesson_id] = drain
-            edges += [(lesson_id, kind, target) for kind, target in _EDGE.findall(rest)]
+            edges += [(lesson_id, kind, target) for kind, target in _EDGE.findall(match.group(2))]
+            current = lesson_id
+            continue
+        # An entry's edges are routinely on a *continuation* line — this file's own Format
+        # example puts them there, at the end of a wrapped bullet. Reading only the matched
+        # line found 6 of the 18 edges actually written down, which made the oscillation
+        # check above answer "no oscillation" from a third of the evidence: the one
+        # mechanism standing between this loop and an on/off cycle, running blind.
+        # Found 2026-08-22 at Phase 6's midpoint drain (`lessons.md` L6.16).
+        if current is not None and line.startswith((" ", "\t")):
+            continuation = current
+            edges += [(continuation, kind, target) for kind, target in _EDGE.findall(line)]
+            continue
+        if not line.strip():
+            continue
+        # Any other non-blank, non-indented line ends the entry it followed.
+        current = None
 
     return entries, edges
 
@@ -133,8 +150,14 @@ def main() -> int:
     for source, kind, target in sorted(dangling):
         print(f"DANGLING — {source} `{kind} {target}` but {target} is not in the archive.")
 
-    if not problems and not dangling:
+    # `recurs` counts here even though a single recurrence is not yet a hard problem: the run
+    # above prints "RECURRENCE — L5.32 re-learned 1x" and the clean summary used to follow it
+    # with "no recurrence", contradicting the finding it had just reported. A summary that
+    # denies the line above it is worse than no summary — a reader skims the last line.
+    if not problems and not dangling and not recurs:
         print(f"{len(entries)} entries, {len(edges)} edges — no oscillation, no recurrence.")
+    else:
+        print(f"{len(entries)} entries, {len(edges)} edges — see the findings above.")
 
     return 1 if problems else 0
 

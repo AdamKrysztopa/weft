@@ -37,10 +37,12 @@ what it exists to reject, which is what makes a green result above them evidence
 shape.
 """
 
+import tomllib
 import warnings
 from collections.abc import Callable, Mapping, Sequence
+from importlib import metadata
 from pathlib import Path
-from typing import Final
+from typing import Final, cast
 
 import pytest
 from check_questions import (
@@ -63,6 +65,11 @@ from weft_kernel.context import Context
 from weft_kernel.payload import Node, Produced, SourceId
 from weft_kernel.registry import Registry
 from weft_pdf.document import PdfPages
+
+#: Backends that turn bytes into text with no third-party library behind them — nothing to pin,
+#: and saying so here is what keeps `test_the_extraction_step_the_quotes_were_taken_from_is_pinned`
+#: from reading as a gap. `text` is `weft-extract`'s own decoder.
+_BACKENDS_WITH_NO_LIBRARY: Final[frozenset[str]] = frozenset({"text"})
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 MANIFEST: Final[Path] = REPO_ROOT / "corpus" / "manifest.toml"
@@ -643,3 +650,111 @@ def _self_test_question(**overrides: object) -> dict[str, object]:
         "quote": [{"document": "self-test-doc", "page": 0, "text": "a span"}],
     }
     return entry | overrides
+
+
+# --- The extraction step is pinned too — ledger task 6.27 ---------------------------------------
+
+
+def _recorded_extraction_pins() -> dict[str, dict[str, str]]:
+    """`{backend: {"library": ..., "version": ...}}` off the corpus manifest."""
+    with MANIFEST.open("rb") as handle:
+        document: dict[str, object] = tomllib.load(handle)
+    table = document.get("extraction", {})
+    if not isinstance(table, dict):
+        return {}
+    pins: dict[str, dict[str, str]] = {}
+    for backend, fields in cast("dict[str, object]", table).items():
+        if isinstance(fields, dict):
+            pins[str(backend)] = {
+                str(key): str(value) for key, value in cast("dict[str, object]", fields).items()
+            }
+    return pins
+
+
+def test_the_extraction_step_the_quotes_were_taken_from_is_pinned() -> None:
+    """The manifest's own argument, one step further — ledger task **6.27**.
+
+    `corpus/manifest.toml` pins what is fetched *and* what renders it, and says why: "Pinning only
+    the second is how these nine entries were once pinned to bytes made by hand: every digest
+    verified locally and not one of them could be reproduced by anybody else." A quote is a span of
+    **extracted text**, which is one step past the document bytes — so pinning only the bytes
+    leaves the text the judgements are written against unpinned, and the same sentence applies
+    unchanged.
+
+    It is not hypothetical. `weft-pdf` declares `pypdf>=6.16` with no ceiling; `uv.lock` resolves
+    `6.16.1`; a fresh resolve takes `6.16.2`; and under `6.16.2` five quotes stop being literal
+    spans of the documents they name. Measured at task 6.7, when the suite was first run from
+    freshly-built sdists outside the lock.
+    """
+    # Arrange
+    recorded = _recorded_extraction_pins()
+    verifying = sorted(set(VERIFYING_BACKEND.values()))
+
+    # Act
+    unpinned = [
+        backend
+        for backend in verifying
+        if backend not in recorded and backend not in _BACKENDS_WITH_NO_LIBRARY
+    ]
+
+    # Assert
+    assert recorded, (
+        f"{MANIFEST} records no [extraction] pins at all. Every quote in the question set is a "
+        f"span of text some extractor produced, and an unpinned extractor makes those spans "
+        f"unreproducible for anyone who does not share this repository's lockfile."
+    )
+    assert not unpinned, (
+        f"{unpinned} verify quotes and are not pinned in {MANIFEST}'s [extraction] table."
+    )
+
+
+def test_the_installed_extraction_library_is_the_one_the_quotes_were_taken_from() -> None:
+    """A mismatch is said out loud, first, rather than arriving as unexplained quote failures.
+
+    Five quote mismatches with no named cause is what a `pypdf` patch bump actually looks like
+    from inside the gate. The point of this check is not that it forbids the upgrade — it is that
+    it names it, so the answer ("re-take the quotes from the new backend's output", which this
+    module's own docstring already prescribes for a backend swap) is reachable rather than
+    guessed at.
+    """
+    # Arrange
+    recorded = _recorded_extraction_pins()
+
+    # Act
+    drifted: list[str] = []
+    for backend, pin in sorted(recorded.items()):
+        installed = metadata.version(pin["library"])
+        if installed != pin["version"]:
+            drifted.append(
+                f"{backend}: quotes were taken with {pin['library']} {pin['version']}, "
+                f"{installed} is installed"
+            )
+
+    # Assert
+    assert not drifted, (
+        "the extraction backend that produced this question set's quotes is not the one "
+        "installed:\n  " + "\n  ".join(drifted) + "\n\n"
+        "A quote is a span of extracted text, so a different extractor is a different text. "
+        "Either install the pinned version, or re-take every affected quote from the new "
+        "backend's output and update the pin in the same commit — this module's own docstring "
+        "already requires exactly that for a backend swap, and a library bump is the same event "
+        "arriving through a dependency instead of through a configuration edit."
+    )
+
+
+def test_the_extraction_pin_check_can_fail() -> None:
+    """Planted, because the real comparison agrees whenever the lockfile is respected — which is
+    every run inside `ci-checks`, and therefore every run that has ever been seen.
+    """
+    # Arrange
+    pinned = {"pdf-text": {"library": "pypdf", "version": "0.0.0-never-released"}}
+
+    # Act
+    drifted = [
+        backend
+        for backend, pin in pinned.items()
+        if metadata.version(pin["library"]) != pin["version"]
+    ]
+
+    # Assert
+    assert drifted == ["pdf-text"]

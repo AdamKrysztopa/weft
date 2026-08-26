@@ -16,15 +16,25 @@ from __future__ import annotations
 
 import asyncio
 import io
+import json
 import time
 from collections.abc import AsyncIterator
 
 import pytest
 
-from weft_cli.sinks import DEFAULT_DISPLAY_ROLES, JsonSink, PrintingSink, StreamEventType
+from weft_cli.error_envelope import build_error_envelope
+from weft_cli.exit_codes import ExitCode
+from weft_cli.sinks import (
+    DEFAULT_DISPLAY_ROLES,
+    JsonSink,
+    LineKind,
+    PrintingSink,
+    StreamEvent,
+    StreamEventType,
+)
 from weft_kernel.context import Context, ServiceRegistry
 from weft_kernel.payload import Outcome, Produced
-from weft_kernel.registry import Registry
+from weft_kernel.registry import Registry, UnknownPluginError
 from weft_llm.client import LLMClient
 from weft_llm.contract import LLMProvider, TokenSink
 from weft_llm.payload import Completion, Conversation, Message, MessageRole, Rendered, TokenChunk
@@ -202,3 +212,73 @@ async def test_a_role_outside_the_display_set_never_reaches_the_stream(sink_cls:
 
     # Assert
     assert stream.getvalue() == ""
+
+
+# ---------------------------------------------------------------------------
+# Task 6.16 — a `--json` consumer tells one line's shape from another.
+# `docs/lessons.md` L5.16; `03` -> Output; `09` section 3 (promised, additively).
+# ---------------------------------------------------------------------------
+
+
+def test_a_stream_event_names_its_own_shape() -> None:
+    """The two things `--json` writes to one stream must be distinguishable without guessing.
+
+    `weft --json ask` emits `StreamEvent` lines while a pipeline runs, and a failure emits an
+    `ErrorEnvelope` on the same descriptor. Before this, a consumer told them apart by looking
+    for keys — and worse, `StreamEvent(type="error")` and `ErrorEnvelope` are *both* "an error",
+    in different shapes, so key-sniffing had to get the ambiguous case right to be correct at
+    all.
+    """
+    # Arrange
+    event = StreamEvent(type=StreamEventType.CHUNK, role="answer", text="hello")
+
+    # Act
+    dumped = event.model_dump()
+
+    # Assert
+    assert dumped["kind"] == LineKind.STREAM_EVENT
+    assert dumped["type"] == StreamEventType.CHUNK, (
+        "`type` keeps meaning which stream event this is; `kind` says which *shape* the line is. "
+        "One key answering both questions is what `09` section 3 refuses for the status "
+        "vocabulary, one surface over."
+    )
+
+
+def test_the_two_line_shapes_are_distinguishable_by_one_key() -> None:
+    """The property itself, stated as a consumer would use it."""
+    # Arrange
+    event = StreamEvent(type=StreamEventType.ERROR, message="the model refused")
+    envelope = build_error_envelope(
+        UnknownPluginError("no 'nope' is registered", valid_options=("yes",)),
+        exit_code=ExitCode.OPERATION_FAILED,
+    )
+
+    # Act
+    kinds = {event.model_dump()["kind"], envelope.model_dump()["kind"]}
+
+    # Assert
+    assert kinds == {LineKind.STREAM_EVENT, LineKind.ERROR_ENVELOPE}, (
+        "the ambiguous pair is exactly this one — a stream event whose `type` is 'error', and an "
+        "error envelope. A consumer that cannot separate them cannot tell a stage reporting a "
+        "problem from the run refusing."
+    )
+
+
+async def test_json_sink_writes_the_discriminant_on_every_line() -> None:
+    """It has to be on the wire, not merely on the model — the sink is what a consumer reads.
+
+    `async def`, awaited, rather than a helper calling `asyncio.run`: fitness function 7(a) is
+    exactly one `asyncio.run` in the whole tree, at `weft_cli.cli`'s entry point, and it caught
+    the first draft of this test. `asyncio_mode = "auto"` means an async test needs no runner.
+    """
+    # Arrange
+    stream = io.StringIO()
+    sink = JsonSink(stream=stream, display_roles=frozenset({"answer"}))
+
+    # Act
+    await sink.emit(TokenChunk(role="answer", text="hi"))
+
+    # Assert
+    lines = [json.loads(line) for line in stream.getvalue().splitlines() if line.strip()]
+    assert lines, "the sink wrote nothing to parse"
+    assert all(line["kind"] == LineKind.STREAM_EVENT.value for line in lines)

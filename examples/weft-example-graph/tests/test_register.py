@@ -5,10 +5,11 @@ Registry` rather than by reading the source and trusting it.
 
 import pytest
 import weft_example_graph
+from weft_example_graph.commands import GraphShowResult
 from weft_example_graph.payload import GraphData
 from weft_example_graph.store import GraphStore
 
-from weft_command.contract import Command
+from weft_command.contract import Command, Rendered
 from weft_enhance.contract import Enhancer
 from weft_kernel.discovery import PackRegistrar
 from weft_kernel.registry import DuplicateRegistrationError, Registry, unwrap_factory
@@ -134,3 +135,47 @@ def test_a_second_pack_colliding_on_every_name_leaves_the_first_untouched() -> N
     with pytest.raises(DuplicateRegistrationError):
         second.commit()
     assert registry.entry(NodeStore, "example-graph").distribution == "weft-example-graph"
+
+
+def test_a_renderer_is_offered_for_this_packs_own_result_type() -> None:
+    """Task **6.20**, G13's third repair. `docs/03-cli.md` → *Plugin-contributed commands*:
+    "a result type nobody outside the CLI can format is only half a contract." Before this,
+    `weft example-graph show` printed `{"nodes_with_graph_data":11,...}` at a person while
+    eighteen built-in commands printed for one — this pack's own result had no way to reach a
+    renderer, and that was the gap, not a missing feature in this pack.
+
+    `add_renderer` is the same call the CLI's own `register()` makes for its own eighteen —
+    which is the point: a built-in keeps no private path, so the seam a stranger uses is the
+    only seam there is.
+    """
+    # Arrange
+    registry = Registry()
+    registrar = PackRegistrar(registry, distribution="weft-example-graph")
+
+    # Act
+    weft_example_graph.register(registrar, weft_example_graph.Settings())
+
+    # Assert
+    offered = {offer.result_type for offer in registrar.renderers}
+    assert GraphShowResult in offered
+
+
+def test_this_packs_result_renders_as_text_a_person_can_read() -> None:
+    """And the renderer itself is real: what it returns is prose about the graph, not the
+    structured dump the fallback would have produced.
+    """
+    # Arrange
+    registry = Registry()
+    registrar = PackRegistrar(registry, distribution="weft-example-graph")
+    weft_example_graph.register(registrar, weft_example_graph.Settings())
+    [offer] = [o for o in registrar.renderers if o.result_type is GraphShowResult]
+    result = GraphShowResult(nodes_with_graph_data=11, distinct_entities=4, distinct_relations=2)
+
+    # Act
+    rendered = offer.render(result)
+
+    # Assert
+    assert isinstance(rendered, Rendered)
+    assert rendered.stdout is not None
+    assert "11" in rendered.stdout
+    assert not rendered.stdout.lstrip().startswith("{")

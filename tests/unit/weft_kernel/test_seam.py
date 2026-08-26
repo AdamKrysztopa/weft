@@ -549,9 +549,25 @@ async def test_wrap_flush_attributes_an_unrelated_exception_and_keeps_its_cause(
 
 def test_warn_deprecated_emits_one_deprecation_warning_per_notice() -> None:
     # Arrange
+    removal = seam.Removal(
+        clock=seam.RemovalClock.NEXT_MAJOR,
+        distribution="weft-old",
+        installed_version="2.3.1",
+        release="weft-old 3.0.0",
+    )
     notices = (
-        seam.Deprecation(distribution="weft-old", surface="legacy", reason="use 'fast' instead"),
-        seam.Deprecation(distribution="weft-old", surface="Retriever:slow", reason="removed soon"),
+        seam.Deprecation(
+            distribution="weft-old",
+            surface="legacy",
+            reason="use 'fast' instead",
+            removal=removal,
+        ),
+        seam.Deprecation(
+            distribution="weft-old",
+            surface="Retriever:slow",
+            reason="removed soon",
+            removal=removal,
+        ),
     )
 
     # Act
@@ -561,8 +577,8 @@ def test_warn_deprecated_emits_one_deprecation_warning_per_notice() -> None:
     # Assert
     messages = [str(warning.message) for warning in caught]
     assert messages == [
-        "'weft-old' marks 'legacy' deprecated: use 'fast' instead",
-        "'weft-old' marks 'Retriever:slow' deprecated: removed soon",
+        "'weft-old' marks 'legacy' deprecated: use 'fast' instead — removed in weft-old 3.0.0",
+        "'weft-old' marks 'Retriever:slow' deprecated: removed soon — removed in weft-old 3.0.0",
     ]
 
 
@@ -572,3 +588,72 @@ def test_warn_deprecated_with_no_notices_warns_of_nothing() -> None:
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         seam.warn_deprecated(())
+
+
+# --- the removal clock (task 6.5) ---------------------------------------------------------
+#
+# `docs/09-release.md` §3, and G9's own answer 3: "**Releases, not months, and the unit is one
+# major of the publishing distribution.** A calendar window needs a cadence promise this project
+# does not make... A deprecated surface keeps working, warning at registration, until its
+# publisher's next major." So the clock is **derived** from the publishing distribution's own
+# installed version and never declared by the author — `CLAUDE.md`'s measured rule, every concern
+# an author had to remember decayed. A `removed_in` a pack author types is a number that goes
+# stale on the pack's next release with nothing to notice.
+
+
+def test_the_clock_is_the_publishing_distributions_next_major() -> None:
+    """G9's unit, for a distribution that has reached 1.0 and therefore makes the promise."""
+    # Arrange / Act
+    removal = seam.removal_for("weft-example", version_of=lambda _: "2.3.1")
+
+    # Assert
+    assert removal.clock is seam.RemovalClock.NEXT_MAJOR
+    assert removal.release == "weft-example 3.0.0"
+    assert removal.installed_version == "2.3.1"
+    assert removal.describe() == "removed in weft-example 3.0.0"
+
+
+def test_a_0x_publisher_promises_no_deprecation_period_and_says_so() -> None:
+    """G9: "Inside 0.x a contract may move without a deprecation period but never silently."
+
+    The honest answer for a 0.x distribution is not "removed in 1.0.0" — that would promise a
+    window 0.x explicitly reserves the right not to give. It is that there is no window, said
+    out loud, which is what makes the clock observable rather than invented.
+    """
+    # Arrange / Act
+    removal = seam.removal_for("weft-kernel", version_of=lambda _: "0.1.0")
+
+    # Assert
+    assert removal.clock is seam.RemovalClock.UNPROMISED_BEFORE_1_0
+    assert removal.release is None
+    assert removal.installed_version == "0.1.0"
+    assert "0.x" in removal.describe()
+
+
+def test_an_unreadable_version_is_reported_rather_than_guessed() -> None:
+    """`docs/lessons.md` L5.9 — the absence is the answer, and it reaches the reader."""
+
+    # Arrange
+    def missing(_: str) -> str:
+        raise LookupError("no metadata")
+
+    # Act
+    absent = seam.removal_for("weft-ghost", version_of=missing)
+    unparseable = seam.removal_for("weft-odd", version_of=lambda _: "not-a-version")
+
+    # Assert
+    assert absent.clock is seam.RemovalClock.VERSION_UNREADABLE
+    assert absent.installed_version is None
+    assert unparseable.clock is seam.RemovalClock.VERSION_UNREADABLE
+    assert unparseable.installed_version == "not-a-version"
+    assert "unknown" in absent.describe()
+
+
+def test_a_prerelease_major_still_reads_as_its_major() -> None:
+    """`2.0.0rc1` is major 2 — the edge a naive `int(version.split(".")[0])` gets wrong."""
+    # Arrange / Act
+    removal = seam.removal_for("weft-example", version_of=lambda _: "2.0.0rc1")
+
+    # Assert
+    assert removal.clock is seam.RemovalClock.NEXT_MAJOR
+    assert removal.release == "weft-example 3.0.0"

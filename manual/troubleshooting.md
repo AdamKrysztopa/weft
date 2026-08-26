@@ -96,7 +96,7 @@ the losing pack as `active` with a `displaced:` line naming what it lost and to 
 ```text
 $ weft plugins doctor
 ...
-weft-chunk: active (1 contributed)
+weft-chunk 1.0.0: active (1 contributed)
   disclosure: not disclosed
   displaced: 'Chunker:fixed' lost to 'acme-chunk' — pinned by [plugins] "Chunker:fixed" = "acme-chunk" in weft.toml
 ```
@@ -251,7 +251,7 @@ with neither `weft.toml` nor `WEFT_DATABASE_URL` supplying it:
 ```text
 $ weft plugins doctor
 ...
-weft-store: failed (0 contributed)
+weft-store 2.0.0: failed (0 contributed)
   reason: 'weft-store' settings failed validation: 1 validation error for PgVectorSettings
 dsn
   Field required [type=missing, input_value={}, input_type=dict]
@@ -1442,6 +1442,55 @@ that pack's own configuration. **What to do:** whatever the message names as the
 embedder's own failure — check its configuration or dependency, the same way you would for any pack
 that failed mid-run.
 
+
+### `ReferenceFormatterUnavailableError`
+
+**What it looks like** — you asked `weft` to generate the contract reference and `ruff` is not
+installed in the environment you asked from:
+
+```text
+ReferenceFormatterUnavailableError: the contract reference is formatted with `ruff` and it could
+not be run (Command '[...]' returned non-zero exit status 1.). `ruff` is an optional dependency of
+weft-cli because nothing on the index-and-ask path needs it: install `weft-cli[reference]` to
+generate the reference.
+```
+
+Nothing about indexing or asking reaches this. The contract reference is a *generated document* —
+it lists every contract your installed packs publish, which is the thing worth regenerating once
+you have third-party packs installed — and it is piped through the same `ruff format` the gate
+runs so the generated file is byte-identical to a checked-in one.
+
+**What to do:** `uv add 'weft-cli[reference]'`, or `pip install 'weft-cli[reference]'`. It is a
+refusal rather than a fallback on purpose: a hand-rolled line-wrapper would produce a file that
+differs from what `ruff` produces, and the whole value of generating the reference is that there is
+exactly one formatter deciding what it looks like.
+
+
+### `PipelineProducedTheWrongShapeError`
+
+**What it looks like** — you ran `weft ask --pipeline <name>` against a pipeline that does not end
+in a generating stage:
+
+```text
+pipeline 'my-retrieval' finished and produced PassageSet, but `weft ask` needs Answer. A
+pipeline's last stage decides the shape of its result: a query pipeline that ends in a retriever
+produces passages, and only one ending in a Generator produces an Answer. Add a generating stage,
+or run this pipeline with `--retrieve-only`, which asks for the shape it actually produces.
+```
+
+Nothing is wrong with the pipeline. It ran to completion and produced exactly what its last stage
+produces — the mismatch is between that and what `weft ask` was asked to hand back.
+
+**What to do:** the message names both halves. Either append a stage registered under `Generator`,
+so the pipeline produces an answer, or ask for what it does produce with `--retrieve-only`.
+`weft pipeline show <name>` prints the resolved stage list if you are not sure what it ends in.
+
+**Why this is an error and not an assertion.** It used to be three bare `assert isinstance(...)`
+calls carrying the comment *"every shipped routable pipeline ends in a Generator"* — true of the
+pipelines this project ships and checked against documents anyone may write, so a three-line
+pipeline of your own made it fail with no message at all. `python -O` also strips `assert`
+entirely, which would have let the wrong object flow onward rather than stopping.
+
 ---
 
 ## Compiling a pipeline document — `weft_cli.compile`
@@ -2454,6 +2503,39 @@ one of those wrapped in `| None` — the three shapes the generated grammar unde
 
 ---
 
+## Who a fan-out reaches — `weft_cli.participation`
+
+Task **6.18**, `docs/02-extension-model.md` §1 → *Extended by G13*. `weft delete` and `weft
+reconcile` fan out across the configured `[services] store` **plus** every `NodeStore` named by
+a pipeline in the project's catalogue or by a persisted run record, so a graph store the `kg`
+pipeline writes to loses what the corpus lost. Reading the run history is what makes a store
+that no document names any more still reachable — and it is why a run record that will not parse
+is a refusal rather than a shrug.
+
+### `UnreadableRunRecordError`
+
+**What it looks like** — a file under `runs/` that is not a well-formed run record, reproduced
+against a real project with `runs/broken.json` holding `{not json at all`:
+
+```text
+$ weft delete doc-1 --yes
+run record at runs/broken.json could not be read: 1 validation error for RunRecord
+  Invalid JSON: key must be a string at line 1 column 2 [type=json_invalid, input_value='{not json at all', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/json_invalid. A store this project has run data through may be named only here, so a run record that will not parse is refused rather than silently skipped.
+$ echo $?
+1
+```
+
+Exit `1`, "something failed", rather than the `4` a name you can fix earns: nothing about your
+command line is wrong. **Why it is not skipped:** the run history is read precisely to find a
+store the catalogue no longer names, so the record that will not parse may be the only record
+naming it — skipping it would let that store's contents outlive their source with nothing said,
+which is the failure the fan-out exists to prevent (`docs/lessons.md` L5.9). **What to do:** the
+message names the file. Repair it if you want the run kept, or delete it; a `runs/` directory
+that does not exist at all is not an error, and neither is an empty one.
+
+---
+
 ## Contract reference generation — `weft_cli.contract_reference`
 
 ### `ContractNotDescribableError`
@@ -2537,7 +2619,7 @@ $ cat weft.toml
 [packs]
 allow = ["weft-extract", "weft-chunk"]
 $ weft plugins doctor
-weft-store: refused (0 contributed)
+weft-store 2.0.0: refused (0 contributed)
   never imported — 'weft-store' is not listed in [packs] allow. Add it there to permit it.
   disclosure: not disclosed
 ```
@@ -2550,7 +2632,7 @@ imported.
 
 ```text
 $ weft plugins doctor
-weft-store: failed (0 contributed)
+weft-store 2.0.0: failed (0 contributed)
   reason: 'weft-store' settings failed validation: 1 validation error for PgVectorSettings
 dsn
   Field required [type=missing, input_value={}, input_type=dict]

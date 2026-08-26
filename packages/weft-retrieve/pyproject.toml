@@ -3,6 +3,8 @@ name = "weft-retrieve"
 version = "1.0.0"
 description = "First-party retrieval pack. Publishes the query-path contracts and the query vocabulary."
 requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE", "NOTICE"]
 dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-store>=2.0.0,<3.0.0", "weft-embed>=1.0.0,<2.0.0", "weft-llm>=1.0.0,<2.0.0", "weft-prompts>=1.0.0,<2.0.0"]
 
 # The one entry point a pack declares (`docs/02-extension-model.md` section 2). Task 2.4 left

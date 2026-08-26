@@ -130,7 +130,7 @@ async def test_a_converged_pass_reports_nothing_remaining() -> None:
     _DurableBacklog.backlog = ["a", "b"]
     registry = Registry()
     registry.add(_GraphStore, "graph", _DurableBacklog, distribution="weft-graph")
-    targets = participants(registry=registry, store_name="pgvector")
+    targets = participants(registry=registry, store_names=frozenset({"pgvector"}))
 
     # Act
     outcomes = await reconcile_everywhere(ReconcileMode.REPAIR, targets=targets, ctx=_ctx())
@@ -144,7 +144,7 @@ async def test_an_interrupted_pass_resumes_rather_than_restarting() -> None:
     _DurableBacklog.backlog = ["a", "b", "c", "d", "e"]
     registry = Registry()
     registry.add(_GraphStore, "graph", _DurableBacklog, distribution="weft-graph")
-    targets = participants(registry=registry, store_name="pgvector")
+    targets = participants(registry=registry, store_names=frozenset({"pgvector"}))
 
     # Act — three passes, each one a fresh instance built from the registry.
     passes = [
@@ -166,7 +166,7 @@ async def test_a_failing_participant_is_named_and_the_rest_are_still_asked() -> 
     registry = Registry()
     registry.add(_GraphStore, "broken", _Failing, distribution="weft-broken")
     registry.add(_GraphStore, "graph", _DurableBacklog, distribution="weft-graph")
-    targets = participants(registry=registry, store_name="pgvector")
+    targets = participants(registry=registry, store_names=frozenset({"pgvector"}))
 
     # Act
     outcomes = await reconcile_everywhere(ReconcileMode.FULL, targets=targets, ctx=_ctx())
@@ -182,7 +182,7 @@ async def test_cancellation_propagates_rather_than_becoming_a_named_failure() ->
     # Arrange
     registry = Registry()
     registry.add(_GraphStore, "cancels", _Cancelling, distribution="weft-graph")
-    targets = participants(registry=registry, store_name="pgvector")
+    targets = participants(registry=registry, store_names=frozenset({"pgvector"}))
 
     # Act / Assert
     with pytest.raises(asyncio.CancelledError):
@@ -195,7 +195,7 @@ async def test_estimate_everywhere_reports_each_participant_s_own_cost() -> None
     _DurableBacklog.backlog = ["a", "b", "c"]
     registry = Registry()
     registry.add(_GraphStore, "graph", _DurableBacklog, distribution="weft-graph")
-    targets = participants(registry=registry, store_name="pgvector")
+    targets = participants(registry=registry, store_names=frozenset({"pgvector"}))
 
     # Act
     outcomes = await estimate_everywhere(ReconcileMode.FULL, targets=targets, ctx=_ctx())
@@ -210,7 +210,7 @@ async def test_estimate_everywhere_names_a_failing_participant_rather_than_raisi
     # Arrange
     registry = Registry()
     registry.add(_GraphStore, "broken", _Failing, distribution="weft-broken")
-    targets = participants(registry=registry, store_name="pgvector")
+    targets = participants(registry=registry, store_names=frozenset({"pgvector"}))
 
     # Act
     outcomes = await estimate_everywhere(ReconcileMode.FULL, targets=targets, ctx=_ctx())
@@ -226,7 +226,7 @@ async def test_estimate_everywhere_propagates_cancellation() -> None:
     # Arrange
     registry = Registry()
     registry.add(_GraphStore, "cancels", _Cancelling, distribution="weft-graph")
-    targets = participants(registry=registry, store_name="pgvector")
+    targets = participants(registry=registry, store_names=frozenset({"pgvector"}))
 
     # Act / Assert
     with pytest.raises(asyncio.CancelledError):
@@ -243,7 +243,7 @@ def test_a_node_store_that_cannot_reconcile_is_not_a_participant() -> None:
     registry.add(NodeStore, "pgvector", _DeleteOnlyStore, distribution="weft-store")
 
     # Act
-    found = participants(registry=registry, store_name="pgvector")
+    found = participants(registry=registry, store_names=frozenset({"pgvector"}))
 
     # Assert
     assert (found, isinstance(_DeleteOnlyStore(), Reconcilable)) == ((), False)

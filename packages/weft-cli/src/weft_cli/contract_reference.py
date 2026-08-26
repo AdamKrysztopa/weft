@@ -283,17 +283,50 @@ def render_contract_reference(contracts: tuple[PublishedContract, ...]) -> str:
     return _ruff_format_markdown(f"{_HEADER}\n{sections}")
 
 
+class ReferenceFormatterUnavailableError(WeftError):
+    """`ruff` is not installed, so the reference cannot be rendered — task **6.7**.
+
+    The formatter is an **extra** (`weft-cli[reference]`), not a base dependency: a user who
+    indexes and asks never reaches this module, and shipping a formatter to all of them to
+    serve a document generator would be the wrong trade — the shape `weft-eval[bertscore]`
+    and `weft-otel[otlp]` already have. Before task 6.7 it was declared nowhere at all and
+    worked only because the *workspace root's* dev group carries `ruff`, which is invisible
+    to an import probe: `import weft_cli` never reaches a subprocess call, so task 6.6's
+    install-alone-and-import check was green on a module that could not run
+    (`docs/lessons.md` L6.24).
+    """
+
+
 def _ruff_format_markdown(markdown: str) -> str:
     # `sys.executable -m ruff`, not a bare `"ruff"` argv — see the module docstring's note
     # on why: a bare name depends on the interpreter's own `bin/` being on `PATH`, which
     # `.venv/bin/pytest` (a normal way to run this suite) does not guarantee.
-    result = subprocess.run(  # noqa: S603 - fixed argv, no shell, no user input
-        [sys.executable, "-m", "ruff", "format", "--stdin-filename", "contract-reference.md", "-"],
-        input=markdown,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
+    try:
+        result = subprocess.run(  # noqa: S603 - fixed argv, no shell, no user input
+            [
+                sys.executable,
+                "-m",
+                "ruff",
+                "format",
+                "--stdin-filename",
+                "contract-reference.md",
+                "-",
+            ],
+            input=markdown,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except (OSError, subprocess.CalledProcessError) as error:
+        raise ReferenceFormatterUnavailableError(
+            f"the contract reference is formatted with `ruff` and it could not be run "
+            f"({error}). `ruff` is an optional dependency of weft-cli because nothing on the "
+            f"index-and-ask path needs it: install `weft-cli[reference]` to generate the "
+            f"reference. The formatter is not optional to the *output* — the same `ruff` the "
+            f"gate runs is what makes the generated file byte-identical to the checked-in one, "
+            f"so this is a refusal rather than a fallback to a hand-rolled wrapper."
+        ) from error
+
     return result.stdout
 
 

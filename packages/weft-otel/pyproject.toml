@@ -3,6 +3,8 @@ name = "weft-otel"
 version = "0.1.0"
 description = "First-party observability pack. Sets the OpenTelemetry TracerProvider the registration seam has always emitted spans into."
 requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE", "NOTICE"]
 # `opentelemetry-sdk` is a real, required dependency here — the one place in this tree it
 # ships, deliberately: `weft-kernel` depends on `opentelemetry-api` alone (fitness function
 # 1), because the SDK is what turns an API call into an exported span, and `01` -> *The

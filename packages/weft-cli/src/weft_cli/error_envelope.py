@@ -58,6 +58,7 @@ from typing import Final
 from pydantic import BaseModel, ConfigDict
 
 from weft_cli.exit_codes import ExitCode
+from weft_cli.sinks import LineKind
 from weft_kernel.errors import UnresolvedNameError, WeftError
 
 #: `09` §3's "additively versioned" promise, carried in the data (see module docstring) rather
@@ -73,6 +74,12 @@ class ErrorEnvelope(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
+    #: Which line shape this is — ledger task **6.16**, `weft_cli.sinks.LineKind`. `weft --json`
+    #: writes `StreamEvent` lines and this, on one descriptor, and a consumer must not have to
+    #: tell them apart by which keys are present: a `StreamEvent` whose `type` is `ERROR` and an
+    #: `ErrorEnvelope` are both "an error" in different shapes. Additive under `09` §3, which is
+    #: why it may be added at all — `envelope_version` does not move for a new field.
+    kind: LineKind = LineKind.ERROR_ENVELOPE
     envelope_version: str = ENVELOPE_VERSION
     error: str
     rendered: str

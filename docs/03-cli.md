@@ -112,6 +112,12 @@ Two of these carry weight beyond their size:
   disclosure and what its `register()` cost. The vocabulary is defined once in `02` §2, *The trust
   model*; refusals and half-registered packs share it rather than getting a second surface.
 
+  **The status line also names the distribution's installed version** — task 6.4, `09` §1's "one
+  column, not a new command: the version of each active distribution", read from installed
+  metadata rather than from any manifest. A distribution with none recorded prints `(version not
+  recorded)`, which is a state distinct from a version this command declined to look up. The
+  column is `doctor`'s alone; `weft plugins list` stays a one-line summary.
+
   **G2 adds two reports to it, both about a pack that loaded fine and still does nothing** — the
   failure a status vocabulary alone cannot express. A **displaced** registration: the pack lost a
   `(contract, name)` collision to an operator's pin, so it is installed, active, and one of its
@@ -539,6 +545,36 @@ the CLI's own surface.
 > names its distribution, module or plugin name. Uninstalling the pack and re-running every probe
 > against the identical venv breaks all of them, so the property is shown to depend on the pack
 > being installed, not on the test's own fixed transcript.
+
+> **How a pack's result becomes text — G13, settled 2026-08-22.** The rule at the top of this
+> document says a `Command` returns a typed result and a renderer formats it. Phase 5's independence
+> test found the second half was first-party only: `weft_cli.render._RENDERERS` is a table matched on
+> the CLI's own result types, so `weft example-graph show` printed `{"nodes_with_graph_data":11,...}`
+> at a person while eighteen built-in commands printed for one. **A renderer is registered, at the
+> same seam a command is** — `registrar.add_renderer(ResultType, renderer)`, with `Rendered` published
+> from `weft-command` beside the `Command` contract that produces the result, since a result type
+> nobody outside the CLI can format is only half a contract. **The CLI's own renderers move onto that
+> call in the same change**, so the dispatch has one path and built-ins take the public one —
+> requirement 4 checked at runtime rather than asserted. A result with no registered renderer still
+> falls through to the honest structured dump; that stays the floor, and stops being the ceiling.
+> `COMMAND_CONTRACT_VERSION` moves under G9's two-audience rule, and `03`'s rule finally holds for
+> everyone rather than for the eighteen commands this repository happens to ship. Ledger task
+> **6.20**.
+>
+> **Built at task 6.20 (2026-08-22).** `weft_kernel.discovery.PackRegistrar.add_renderer` buffers a
+> `(result type, renderer)` pair exactly as `add_ext_model` buffers a class — **the kernel names
+> neither `CommandResult` nor `Rendered`**, it remembers that a pack offered some type and some
+> callable and goes no further. `weft_cli.render._RENDERERS` is **deleted**, and
+> `weft_cli.render.register_renderers` makes one `add_renderer` call per built-in result type from
+> inside `weft-cli`'s own `register()`, so the eighteen built-ins reach the dispatch by the same
+> road a stranger's pack does; `register_renderers_from_reports` is the consumer, modelled on
+> `weft_store.rehydrate.register_from_reports` — idempotent for a repeat of the same fact, and
+> refusing two different renderers for one result type by naming both distributions.
+> `COMMAND_CONTRACT_VERSION` went to **`2.1.0`**, not a major: under G9's two-audience rule this is
+> additive for a caller *and* additive for an implementer — nothing on `Command` changed,
+> `required_declarations` is untouched, and a pack registering no renderer still works because the
+> structured dump is the floor. `ExitCode` moved with `Rendered`, because a renderer that cannot say
+> the run failed is a renderer a built-in could not have used.
 
 ## Permissions
 

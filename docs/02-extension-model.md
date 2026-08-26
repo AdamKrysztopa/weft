@@ -679,6 +679,17 @@ class MetadataFilter(Protocol): ...                # marker: supports the whole 
 > live when the event fired; it cannot repair a pack installed *after* the corpus was built, a drain
 > killed mid-flight, or a second machine sharing one database. Convergence can, and it needs nothing
 > new to ask its question: `list_sources`, `scan` and `count` already answer *what should exist*.
+>
+> **Measured false for `list_sources`, 2026-08-22 at task 6.21, and corrected here rather than
+> left standing.** The sentence is true of the *contract* and was false of the *running system*:
+> nothing on the ingest path calls `put_source` — one caller exists in the whole tree, inside
+> `weft_qdrant.store` itself — so `weft_sources` is empty after a real `weft index` and
+> `list_sources()` returns `()`. A `repair` pass built on it deleted every graph node the `kg`
+> pipeline had just written, found by running the binary and not by the tests, whose hand-written
+> corpus double populated the method the system does not. **`scan` and `count` do answer**, because
+> every writer populates the nodes they read; until ledger task **6.24** gives `SourceRecord` a
+> writer, a participant asking *what should exist* by source must derive it from `scan`'s own nodes
+> and their lineage. `docs/lessons.md` L6.14.
 > `reconcile` is idempotent, `O(corpus)`, cursored and interruptible — `CancelledError` propagates
 > per G6, so a half-finished pass resumes rather than restarting.
 >
@@ -742,6 +753,62 @@ class MetadataFilter(Protocol): ...                # marker: supports the whole 
 > primary data and has no derived state to backfill, whichever mode is asked about — proven on
 > both real backends by the conformance kit and by the stranger's own pack, exactly as
 > `reconcile` itself already is.
+
+> **Extended by G13 (settled 2026-08-22) — who a fan-out reaches, and what a participant that is not
+> the primary store may ask for.** Phase 5's independence test ran and found the two clauses above
+> both untrue in practice for the one pack they were written for. This is the correction, and it is
+> stated here because §1 is where both Protocols are published.
+>
+> **Participation follows use.** `SourceDeletable`'s *"every registered plugin that satisfies it"* was
+> narrowed at task 5.1a to the single `NodeStore` that `[services] store` names, so that a project
+> with pgvector and Qdrant both installed does not connect to the backend it does not use. The
+> narrowing is right about the backend and wrong about the graph store, which registers under
+> `NodeStore` too (§4) and is therefore excluded from the fan-out that exists for it. **The rule is
+> now: the configured `[services] store`, plus every `NodeStore` named by a pipeline in the project's
+> catalogue or by a persisted run record — every other contract still contributes every plugin
+> registered under it.** A store this project has actually run data through participates; a store
+> nothing selects and nothing names does not. Nothing is declared, so nobody can declare it falsely,
+> and no pack author has a rule to remember — which is the same standard *capability is derived,
+> never declared* holds registration to, applied to reach. **The cost, stated rather than discovered
+> later:** the delete path now reads the pipeline catalogue and the run history, and a store dropped
+> from every document that also never ran is out of the fan-out — visible in `weft delete`'s own
+> participant list, which names who was asked.
+>
+> **Built at task 6.18 (2026-08-22).** `weft_cli.participation.stores_in_use` computes the set —
+> the configured name, plus every stage name in `full_catalogue` or in a persisted `RunRecord`
+> that is registered under `NodeStore` — and `weft_cli.fanout.participants_for` filters
+> `NodeStore` down to that set rather than to one name, for `weft delete` and `weft reconcile`
+> alike, since both read the same walk and must not disagree about who participates. The set is
+> unordered and nothing here makes the configured store lead the list: `[services]` chooses
+> which store this project *writes* to, not the order a fan-out asks in, and inventing one would
+> be policy this section never argued. A run record that will not parse is refused by name
+> (`UnreadableRunRecordError`) rather than skipped — the history is read precisely to find a
+> store no document names any more, so the unreadable record may be the only one naming it.
+>
+> **A participant asks through the passport, not through a wider signature.** `reconcile(ctx, mode)`
+> hands a participant nothing that names the corpus, which made `full` backfill unbuildable by
+> anyone but the primary store — requirement 4 failing in the open. It needed no contract change:
+> `Context.require` is G1's one resolution seam and `NodeStore` already answers *what should exist*
+> with `list_sources`, `scan` and `count`. **The CLI registers the configured store into the
+> `Context` a reconcile pass carries, and a participant reaches it with `ctx.require(NodeStore)`.**
+> A pack that wants to backfill depends on `weft-store` — which the graph pack already does, to
+> satisfy these Protocols at all — and asks the corpus what it holds. `STORE_CONTRACT_VERSION` does
+> not move: nothing about either Protocol changed, and a contract bumped for a fact about the CLI's
+> service registry would be the mis-recorded version G9 spent a session correcting.
+>
+> **Built at task 6.19 (2026-08-22), and it cost no contract line.** `weft_cli.commands.
+> _register_corpus` puts the configured `NodeStore` on the `Context` inside `ReconcileCommand.run`
+> and `IndexCommand._auto_reconcile` — inside `run`, never inside `describe_impact`, because a
+> confirmation prompt must not open a connection to the corpus before consent. A `[services] store`
+> that resolves to nothing registers nothing, and a participant that then asks gets
+> `UnresolvedServiceError` naming what it wanted and what is available: the loud failure stays at
+> the seam that can diagnose it rather than being translated twice. `examples/weft-example-graph`
+> deleted `GraphBackfillUnavailableError` outright — the class was a truthful design finding while
+> the access did not exist, and would have been a lie the moment it did — and `full` now backfills
+> for real: 2 nodes, 4 entities, from an installed wheel, in a project outside this repository.
+> `repair`'s own half of §4's table, *"drops orphans left by anything the fan-out missed"*, is
+> deliberately **not** built here: it needs the same access but is a separate promise, and task
+> 6.21 is where §4's table is checked row by row.
 
 **Capability is derived, never declared.** At registration the kernel computes which protocols a
 store class satisfies, and that set *is* its capability. Nobody writes a flag, so nobody writes a
@@ -1834,8 +1901,8 @@ both narrow store-family Protocols (§1), and neither of them a new concept:
 
 | It registers | Against contract | Effect |
 |---|---|---|
-| The graph store, again | `SourceDeletable` | `weft delete` fans out to it in-command, so the graph loses what the corpus lost |
-| The graph store, again | `Reconcilable` | `repair` drops orphans left by anything the fan-out missed; `full` backfills entities for nodes indexed by a pipeline that had no graph stage |
+| The graph store, again | `SourceDeletable` | `weft delete` fans out to it in-command, so the graph loses what the corpus lost — because the `kg` pipeline names it, per §1's *participation follows use* |
+| The graph store, again | `Reconcilable` | `repair` drops orphans left by anything the fan-out missed; `full` backfills entities for nodes indexed by a pipeline that had no graph stage, reading the corpus through `ctx.require(NodeStore)` (§1) |
 
 ```bash
 weft reconcile                       # repair and backfill — a person asked for it
@@ -1852,6 +1919,19 @@ method, not a mechanism.
 **The independence test.** Phase 5 exists to check this honestly: the graph pack is built by
 someone who has not worked on the core. If they need a core change, the extension model has a hole,
 and finding it that way is much cheaper than finding it after publishing contracts.
+
+> **It ran on 2026-08-22, and it failed — which is the result this section says is worth having.**
+> `examples/weft-example-graph` was written with **zero edits under `packages/`**: six extension
+> points, one entry point, one `register()`, one settings model, a shipped `kg` pipeline and a slot
+> contribution. Then three things it needed did not work, and all three were core's, not the pack's:
+> `weft delete` never reached the graph store, `reconcile --mode full` could not be built by a pack
+> at all, and `weft example-graph show` printed JSON at a person because the CLI's renderer table is
+> first-party. The first two are the two rows immediately above — this section was describing
+> behaviour the tree did not have, which is why the ledger's 5.7 entry calls the exit **not met**.
+> **G13 settled all three on the same day** (`README.md` → *Decision log*): reach follows use, a
+> participant asks through `ctx.require`, and a renderer registers at the seam. The repairs are Phase
+> 6 tasks **6.18–6.20**, and **6.21 re-runs this test against the pack** — until then the two rows
+> above state what the design promises, not what a `weft delete` in your terminal does today.
 
 **The second add-on G7 produced, and the reason it matters more than its size.** The session brought
 an **audit log** as a deliberately awkward capability — something wanting to observe everything,

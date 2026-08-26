@@ -64,3 +64,7 @@ uv.lock
 
 # The build harness driving Phase 2, alongside its brief, findings and design record.
 /.phase2-build.js
+
+# Transient: harvested subagent findings, promoted into docs/lessons.md by implement-ll.
+# Never committed — its content belongs in the queue or nowhere.
+.claude/lessons-spool.md

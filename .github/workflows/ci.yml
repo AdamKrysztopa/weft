@@ -76,3 +76,61 @@ jobs:
 
       - name: Install weft-kernel alone and import it
         run: uv run --no-project python scripts/check_kernel_isolated.py
+
+  # Fitness function 1, generalised to every published distribution — ledger task 6.6. Same
+  # reason as `kernel-isolation` above: this needs a clean environment the `ci-checks` gate's
+  # own virtualenv cannot provide.
+  isolated-installs:
+    name: every distribution imports standalone
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Install every published distribution alone and import it
+        run: uv run --no-project python scripts/check_isolated_installs.py
+
+  # Ledger task 6.7. Separate from `ci-checks` for the same reason `isolated-installs` is: it
+  # builds and installs sdists into a clean environment `ci-checks`' own virtualenv cannot
+  # provide. `--run-tests` also runs this repository's suite against the built artefacts, so it
+  # needs the one container exactly as the `gate` job above does.
+  sdists:
+    name: every sdist carries what the checkout has
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: weft
+          POSTGRES_PASSWORD: weft
+          POSTGRES_DB: weft
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U weft -d weft"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Sync
+        run: uv sync --frozen
+
+      - name: Build every sdist, check completeness, and run the suite from the artefacts
+        run: uv run python scripts/check_sdists.py --run-tests
+        env:
+          WEFT_DATABASE_URL: postgresql://weft:weft@localhost:5433/weft

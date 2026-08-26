@@ -3,6 +3,8 @@ name = "weft-qdrant"
 version = "0.1.0"
 description = "First-party Qdrant store pack. Registers under the store contract family weft-store publishes."
 requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE", "NOTICE"]
 # `qdrant-client` is Apache-2.0, so it widens nothing an MIT library asks of the people
 # who install it. The floor is the version this pack's behaviour was measured against; a
 # claim about an older release would be a claim nobody here has checked.

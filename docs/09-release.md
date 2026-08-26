@@ -38,24 +38,36 @@ chooses none of them.
 G8 settles as anything other than "shell", the REPL's surface changes and §3's table of candidate
 public surfaces gains rows. Recorded here so it is not discovered at release time.
 
-**A new gate is proposed, and this document does not settle that one either: G10.** `05` → G10 is
-the session, and the decision log records it **Open**. The rule §2.3 applies to G9 holds for G10 as well, and it has
+**A new gate was proposed here, and this document did not settle that one either: G10.** `05` → G10
+is the session; it ran on 2026-08-22 and the decision log records it **Settled**. §1, §2.2 and §3
+state its outcome, each marked where it does — written *after* the session, which is the whole point
+of the paragraphs that follow. The rule §2.3 applies to G9 holds for G10 as well, and it has
 to: a document that guards someone else's gate scrupulously and settles its own by implication has
 only moved the defect one gate over. `01` → *Phases* is explicit that *"a gate is not advice"*: a
 session whose positions are already marked kept and rejected in the document it is told to **Bring** is
 a formality, not a session.
 
-So **§1 and §2.2 are written as the position this document recommends and the argument for it, never as
-a verdict.** Every judgement they make is carried into `05` → G10 → *Positions to attack* as the case
-to beat.
-A session that opens from a strong recommendation is still a session; one that opens from a decision is
-not.
+So **§1 and §2.2 were written as the position this document recommends and the argument for it, never
+as a verdict.** Every judgement they made was carried into `05` → G10 → *Positions to attack* as the
+case to beat. A session that opens from a strong recommendation is still a session; one that opens
+from a decision is not. **G10 ran on 2026-08-22 and kept all three recommendations** — with one of
+§1's own premises falsified by measurement on the day (§1's opening note), and two questions the
+session had to answer that neither this document nor `05` had asked: whether a 1.0 release set may pin
+a 0.x distribution, and what the support window actually is. Both are recorded below, in §2.2 and §3.
 
 | # | What G10 decides, and this document does not | Where this document recommends rather than decides |
 |---|---|---|
 | 1 | **The unit of release** — lockstep, independent semver alone, or independent versions plus a named release set | §1 argues for the third and states the case against the other two. `05` → G10 carries all three |
 | 2 | **What 1.0 rests on** — a checklist of demonstrations, or a date | §2.2 recommends demonstrations and enumerates them. `05` → G10 carries both |
 | 3 | **What the release checklist is stated against**, and therefore what the Phase 6 exit criterion installs | `01` → Phase 6's **Exit** installs *whichever unit G10 names*; §5.2 says the same for its checklist |
+
+**What G10 returned, on 2026-08-22, for each of the three rows above:** (1) independent semver plus a
+named release set, §1; (2) 1.0 rests on evidence, with a date-boxed review that publishes the gap
+rather than shipping past it, §2.2; (3) the checklist is stated against the release set, and the
+Phase 6 exit installs it, §5.2. Two further answers the session was forced to give, recorded where
+they belong rather than here: a 1.0 release set pins **only** distributions at 1.0 or above (§2.2),
+and the support window is the current major plus the previous one for a release-set major or six
+months, whichever is longer (§3).
 
 Two things G10 does **not** decide, recorded here so they are not read into it. Where a deprecation
 notice is emitted follows from the settled rule that cross-cutting concerns live at the registration
@@ -64,12 +76,31 @@ hold under every position either gate can take, which is why they are stated as 
 
 ---
 
-## 1. What a release is when there are several distributions — the position this document recommends
+## 1. What a release is when there are several distributions
 
-*(**A recommendation, not a verdict.** The unit of release is **G10**'s and G10 is Open. What follows
-is the case this document makes and the case against each alternative; `05` → G10 carries all three
-positions into the session, with this recommendation as the one to beat. This section states
-whichever answer G10 returns.)*
+*(**Settled 2026-08-22 by G10: the recommendation held.** The unit of release is **independent semver
+per distribution plus a named release set** — a code-free distribution `weft-rag` pinning one
+exactly-tested combination. The case below is the argument that survived the session, and the two
+alternatives are kept with their attacks because a settled position whose rejected siblings have been
+deleted cannot be re-examined. **One fact moved during the session and is recorded here rather than
+left in the brief:** `05` → G10's *Bring* asked for a count of distributions declaring a bound on a
+sibling and predicted the answer was zero. Taken on the day, it is **all of them** — G9's enforcement
+rule landed in Phase 5, so every distribution under `packages/` now declares `>=X,<MAJOR+1` on each
+sibling, `weft-cli` on nine of them. That removes one of the three arguments this section used to make
+for the release set — bounds are no longer missing — and strengthens the one that remains: bounds say
+what is *compatible*, and only a pinned set says what was *tested together*.)*
+
+> **The name is `weft-rag`, not `weft` — corrected 2026-08-25 at ledger task 6.13.** G10 settled
+> the *shape* (a code-free distribution pinning one exactly-tested combination) and named it
+> `weft`; that name is **taken on PyPI** — "The durable task substrate for agent systems", 99
+> releases, and its release list includes the `0.1.0` this set declares, so `uv add weft` gets a
+> different project today. Nineteen of the twenty names here are free and this was the twentieth.
+> Nothing else about G10's decision moves: the shape, the exact pins, the standing it gives a
+> third-party pack, and fitness function 10(a) are all unchanged, and **the command a user types is
+> still `weft`**, because that is `weft-cli`'s console script. Found by installing from a real
+> index rather than by reading the plan — `docs/lessons.md` **L6.33**, whose rule is that a name is
+> a claim on a namespace somebody else owns, checked when it is chosen and not when it is
+> published.
 
 `01` → *The architecture stack*, Topology row, already records the cost this section pays: several
 distributions to version and release together, and skew between the kernel and a first-party pack. It
@@ -84,9 +115,9 @@ packaging layer instead of the registration layer. Same failure, one floor down.
 
 | Model | What it means | The argument this document makes about it |
 |---|---|---|
-| **Lockstep** — one version, all distributions bumped together | Simple, coarse, familiar | **Argued against.** It is exactly the privileged path above, and it forces a kernel release for a pack's typo fix, which makes the kernel's version meaningless as a compatibility signal |
-| **Independent semver per distribution, and nothing else** | Honest about what actually changes | **Argued insufficient on its own.** A user installing five distributions has to discover a working combination themselves, and *"which versions were tested together"* has no answer |
-| **Independent versions plus a named release set** | Each distribution versions on its own; a thin meta-distribution `weft` depends on an exactly-tested combination and is what a newcomer installs | **Recommended.** It is the only one of the three that gives a third-party pack the same standing as a first-party one — `weft-graph` would *not* be in the release set and would install beside it, exactly as `weft-store-qdrant` does |
+| **Lockstep** — one version, all distributions bumped together | Simple, coarse, familiar | **Rejected (G10).** It also now contradicts G9, which makes a distribution's major a function of the contracts *it* publishes — `weft-store` and `weft-command` are already `2.0.0` while the kernel is `0.1.0`, so lockstep would either falsify those numbers or force a major on every distribution for one contract's break. Beyond that, it is exactly the privileged path above, and it forces a kernel release for a pack's typo fix, which makes the kernel's version meaningless as a compatibility signal |
+| **Independent semver per distribution, and nothing else** | Honest about what actually changes | **Rejected as insufficient on its own (G10).** The session's counter — publish the tested combination as a table in the release notes — was attacked with this repository's own evidence: `CHANGELOG.md` was written once and went stale by five phases (`lessons.md` L5.8), and a combination nothing installs and nothing checks is that artefact again. A user installing five distributions has to discover a working combination themselves, and *"which versions were tested together"* has no answer |
+| **Independent versions plus a named release set** | Each distribution versions on its own; a thin meta-distribution `weft-rag` depends on an exactly-tested combination and is what a newcomer installs | **Settled — this is the unit of release (G10, 2026-08-22).** It is the only one of the three that gives a third-party pack the same standing as a first-party one — `weft-graph` would *not* be in the release set and would install beside it, exactly as `weft-store-qdrant` does. It is also the only one a check can hold to account: the set's pins and the workspace's own distributions are two sources that can genuinely disagree, which is what fitness function 10(a) already compares |
 
 **The release set would not be a new mechanism, and that is the strongest part of the argument.**
 Fitness function 8(c) already requires that every persisted run names the active distribution set,
@@ -96,13 +127,13 @@ so the recommendation adds a name rather than a mechanism. Anything else would b
 description of "which packs, at which versions", which is the drift shape this plan refuses everywhere
 else.
 
-**What the recommendation would oblige, if G10 adopts it.** These are consequences of the third model
-rather than four further decisions; under lockstep the first three do not arise at all. They are set
-out because a recommendation whose consequences are unstated is not one anybody can argue with.
+**What this obliges, now that G10 has adopted it.** These are consequences of the model rather than
+four further decisions. They were set out before the session so the recommendation could be argued
+with; they are binding now.
 
 - The meta-distribution ships **no code**. If it ships code it is a pack, and it will accumulate the
   convenience shims that a kernel budget exists to prevent.
-- **`weft` declares no module and no entry point of its own; the `weft` command a user runs comes from
+- **`weft-rag` declares no module and no entry point of its own; the `weft` command a user runs comes from
   `weft-cli`, which the release set depends on** — which is also why the release set would be what a
   newcomer installs, and why the Phase 6 exit criterion can install the whole product with a single
   `uvx` invocation: a consequence of this bullet rather than a contradiction of the one above it.
@@ -124,14 +155,14 @@ out because a recommendation whose consequences are unstated is not one anybody 
 |---|---|---|
 | A **contract** — `Extractor`, the store protocol family, `ExtModel` schemas, the filter AST, `Disclosure`, the `Command` permission class | Its own contract version, enforced by fitness function 6 | **G9** |
 | A **distribution** — `weft-kernel`, `weft-store`, `weft-graph` | Its own release version, what a user pins | **G10** |
-| The **release set** — `weft`, *if* G10 adopts §1's recommendation | Its own version, naming an exactly-tested combination | **G10** |
+| The **release set** — `weft`, which G10 adopted on 2026-08-22 (§1) | Its own version, naming an exactly-tested combination | **G10** |
 
 They are different numbers because they answer different questions. A contract version answers *"can
 this pack still be loaded"*; a distribution version answers *"what do I install"*. The reference never had
 either, so it never had to keep them apart; the plan will have both from Phase 5 onward, and conflating
-them is how a patch release to fix a log message would appear to break a published contract. **Whether
-the third row exists at all is G10's**, and the first two rows are unaffected by how it answers: every
-position in §1 keeps a distribution version distinct from a contract version.
+them is how a patch release to fix a log message would appear to break a published contract. **The third row exists, G10
+having settled it on 2026-08-22**, and the first two rows were unaffected by how it answered: every
+position in §1 kept a distribution version distinct from a contract version.
 
 ### 2.2 The 0.x line, and what 1.0 means
 
@@ -152,7 +183,8 @@ it was never about the digit: nothing is published to an index, so the number a 
 not a promise to anyone outside this repository yet, and the precondition table below is untouched by
 it — `weft-store` reading `2.0.0` says nothing about whether it has satisfied "the store contract is
 not over-fitted to one backend" or any other row. **The version number is G9's mechanical fact, settled
-now; the 1.0 milestone is G10's substantive judgment, settled later** — a distribution can carry a
+2026-08-21; the 1.0 milestone is G10's substantive judgment, settled 2026-08-22 — see the two
+paragraphs below** — a distribution can carry a
 major digit above `0` before the project has decided it is *1.0-ready* in the sense this section means,
 exactly as an actively-iterating library commonly carries a major version with no external users yet.
 
@@ -161,11 +193,15 @@ exists precisely to discover holes in the contracts, and its finding is not avai
 Whatever G9 decides, it decides it with that evidence in hand, which is why G9 gates Phase 5's successor
 and not Phase 0.
 
-**Recommended: 1.0 rests on evidence rather than on a date — and that is G10's to judge** (`05` → G10, and §0's
-table, row 2). The recommendation is that each precondition names its demonstration, so the question
-*"are we 1.0?"* is answered by running something rather than by arriving at a date. The list below is
-the concrete form of the recommendation, which is what makes it attackable — a session can strike a row,
-add one, or reject the shape:
+**Settled 2026-08-22 by G10: 1.0 rests on evidence, and a date decides what happens when the evidence
+is not in.** Each precondition names its demonstration, so *"are we 1.0?"* is answered by running
+something rather than by arriving at a date. The attack the session had to answer is that a checklist
+whose rows all tick is a date with extra steps, and one whose rows never all tick is a release that
+never happens — so **the date is kept, with a different job**: a fixed review date at which the
+outstanding rows are *published*, naming what is missing and what it would take. The review either
+releases or says publicly why not; what it may never do is ship past a failed row or pass in silence.
+The list below is the concrete form, and a row may still be struck or added — by a decision, in this
+table, never by a release that quietly stops mentioning it:
 
 | Precondition | Demonstrated by |
 |---|---|
@@ -175,6 +211,17 @@ add one, or reject the shape:
 | Quality is a number someone else can reproduce | §4, the validation prerequisite, and the published baseline run |
 | A break is survivable by a pack author | G9's policy exists and is implemented — the policy's *content* is G9's, its *existence* is this precondition |
 | Nothing ships that was not meant to ship | Fitness function 10 |
+
+**A 1.0 release set pins only distributions at 1.0 or above — G10, 2026-08-22, and the session had to
+decide it because nothing had asked.** G9 settled that inside 0.x a contract may move without a
+deprecation period. A release set numbered 1.0 whose pins include a 0.x distribution therefore
+promises, at the set level, precisely what its parts reserve the right to break — the product's number
+saying more than the product does, which is the one thing a version exists to prevent. So the set
+reaching 1.0 forces every distribution it pins to 1.0 first, `weft-kernel` included, and the honest
+consequence is stated rather than discovered: six distributions read `0.1.0` today — `weft-kernel`,
+`weft-cli`, `weft-pdf`, `weft-openai`, `weft-otel` and `weft-qdrant` — and each either makes the
+promise or is left out of the set and installs beside it, exactly as a third-party pack does. A
+distribution may of course keep releasing at 0.x forever; what it may not do is be inside a 1.0 set.
 
 **Under either position, 1.0 is the point at which G9's policy stops being advisory.** Before it, a
 published surface may move under whatever rule G9 states for 0.x; after it, the rule binds and a breach
@@ -284,6 +331,23 @@ nothing about whether a promise applies, because that is dependency 4.
 | ~~Message-catalogue keys emitted by first-party packs~~ | — | **Struck 2026-08-21.** G11 retired `MessageCatalogue`, `Context.messages` and `ctx.t()`; there are no such keys, so there is no surface to rule on. The row is kept struck rather than deleted because `02` §1 records the removal and a reader arriving here from `§2.3` needs to know the question was retired, not skipped |
 | Anything named `_private`, and everything in `weft-canary` | — | Same: not on the *Bring* list. If G9 does not rule, the release has no basis to call them excluded |
 
+**The support window — G10, settled 2026-08-22.** What is owed after a published surface changes, as
+distinct from *how* it changes (G9's clock) and *where* the notice appears (the paragraph below):
+**the current major of every distribution in the release set is supported, and the previous major
+receives fixes for one release-set major or six months, whichever is longer.** Fixes only — a
+capability never lands on the old major, because a supported line that grows is a second line to
+release, and this project has one maintainer's worth of capacity, which is the honest reason. The two
+alternatives are recorded with why they lost: *current major only* leaves an operator on a pinned
+major alone the moment the next one ships and gives a pack author no window to follow; *previous major
+until the next release-set major*, with no calendar, quietly shortens to nothing if two set majors
+land in a month. The `whichever is longer` clause is what makes the pair not merely the sum of both
+failures. **Two clocks now exist and they must not drift**: G9's deprecation clock is one major *of
+the publishing distribution* and governs when a deprecated surface may be removed; this one is the
+release set's and governs how long a released combination still receives fixes. A surface may
+therefore be removed from `main` while the previous major that still carries it is supported — that is
+the intended shape, not a conflict, and `weft plugins doctor`'s version column is where an operator
+sees which side of it they are on.
+
 **Where a deprecation notice is emitted, whatever G9 decides is owed.** The seam is already settled and
 is neither gate's to choose — not G9's, and not G10's, whose *Done when* in `05` → G10 says so explicitly: a
 deprecated plugin, contract or config key is marked **at registration**, and
@@ -310,6 +374,20 @@ catches. The kernel gained no lines for this half; `03` → *Command surface* ha
 
 **The clock's unit — releases or months — is G9's** (§2.3, dependency 3). §5.2's checklist consumes
 whichever it picks; nothing in `09` states a number, a unit, or a default.
+
+**Built by task 6.5, and it is derived rather than declared.** G9 picked *releases*, the unit being
+one major of the publishing distribution, so the removal point is a pure function of that
+distribution's own installed version and no pack author states it —
+`weft_kernel.seam.removal_for`, called at `PackRegistrar.deprecate`, carried on every `Deprecation`,
+and read by both consumers: the registration wrapper's `DeprecationWarning` and `weft plugins
+doctor`'s flag line. This is `CLAUDE.md`'s measured rule applied to a number instead of to a
+concern — a `removed_in` an author types is stale on that pack's next release with nothing to
+notice it. **A 0.x publisher is a third state, not a fourth major.** G9 also settled that "inside
+0.x a contract may move without a deprecation period but never silently", so the answer for a 0.x
+distribution is *not* "removed in 1.0.0" — that promises a window 0.x reserves the right not to
+give. It is that there is no window, printed as such, which is what makes the clock observable
+rather than invented; six distributions read `0.1.0` today (§2.2), so it is the common case. The
+third state is an unreadable version, reported and never guessed at.
 
 **Removal is a changelog entry with a migration line or it does not happen.** `CHANGELOG.md` already
 exists and already states Keep a Changelog and SemVer; from Phase 6 it stops being a courtesy and
@@ -464,11 +542,10 @@ standard for an architectural property and it establishes nothing about three ot
 Each item states the condition that **fails** it. An item with no failure condition is not on this list.
 Items that restate a fitness function say so and link, rather than describing the check again.
 
-**Where an item says *the release set*, read *whichever unit G10 names*.** The checklist is written
-against §1's recommendation because a checklist has to name something, and every item survives all
-three of G10's positions with only that noun changed — under lockstep it is a version, under
-independent semver it is the combination the release notes state. No item is true only under one
-answer.
+**Where an item says *the release set*, it now means one thing.** G10 settled the unit on 2026-08-22
+(§1): a code-free distribution `weft-rag` pinning an exactly-tested combination. The checklist was written
+against that noun while it was still a recommendation, and every item survived all three positions
+with only the noun changed; nothing needed rewording when the session closed.
 
 **Install path**
 
@@ -510,6 +587,14 @@ answer.
       names the release or date at which it is removed, in the unit G9 chose (§2.3, dependency 3).
 - [ ] Fitness function 10 is green; `weft-canary` is not on the index.
 - [ ] `CHANGELOG.md` covers every published distribution, and every removal carries a migration line.
+- [ ] The release set pins **no** distribution below 1.0 (§2.2). *Fails if the set is numbered 1.0 or
+      above while any pin reads `0.x` — the set would promise what its parts reserve the right to break.*
+- [ ] The support window in §3 is published where an operator reads it, not only here, and names the
+      current major and the date or set-major at which the previous one stops receiving fixes. *Fails if
+      "how long is this supported" has no answer outside `docs/`.*
+- [ ] The release set's pins and the workspace's own distributions agree, read from the two files that
+      can genuinely disagree — fitness function 10(a). *Fails if the set is assembled from the same
+      source it is checked against, which is a check that cannot fail (`lessons.md` L5.6).*
 
 **Security, licensing, documentation**
 

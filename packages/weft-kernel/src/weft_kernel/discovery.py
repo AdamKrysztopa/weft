@@ -93,6 +93,18 @@ every report by whatever assembles a `resolve()` call's own `contributions=` tup
 own docstring names, now real. No pack-specific knowledge sits there either: it
 concatenates whatever `PackReport.contributions` every report carries, so a future
 pack contributing into a slot needs no edit here and no edit in `weft-cli` at all.
+
+**Task 6.20 (G13) — `add_renderer` closes the analogous gap for a `Command` result:**
+`docs/03-cli.md` → *Plugin-contributed commands*, "a result type nobody outside the CLI
+can format is only half a contract." Buffered exactly like `add_ext_model` and
+`add_contribution`, on the identical structural reason and the identical restraint: the
+kernel names neither `weft_command.contract.CommandResult` nor `weft_command.render.
+Rendered` — `RendererOffer` remembers only that this pack offered *some* type and *some*
+callable, exactly as `add_ext_model` stops at "this pack declared this class." `PackReport.
+renderers` is read back off every report by `weft_cli.render.register_renderers_from_reports`,
+called once, generically, by whatever already calls `discover()` — the same shape one
+surface over, and the CLI's own built-in renderers register through the identical call so
+no built-in keeps a private path.
 """
 
 from __future__ import annotations
@@ -114,7 +126,7 @@ from weft_kernel.payload.ext import ExtModel
 from weft_kernel.pipeline import StageDeclaration
 from weft_kernel.registry import Registry
 from weft_kernel.resolution import Contribution
-from weft_kernel.seam import Deprecation, warn_deprecated
+from weft_kernel.seam import Deprecation, Unavailable, removal_for, warn_deprecated
 
 #: The one entry-point group a pack declares. `docs/02-extension-model.md` section 2.
 ENTRY_POINT_GROUP = "weft.packs"
@@ -178,6 +190,28 @@ class PipelineResource:
     resource: str
 
 
+class RendererOffer(BaseModel):
+    """One `(result type, renderer)` pair a pack offered, attributed to the pack that offered it.
+
+    Task **6.20**, G13's third repair (`docs/03-cli.md` → *Plugin-contributed commands*): a
+    result type nobody outside the CLI can format is only half a `Command` contract, so a
+    renderer is registered at the same seam a command is — `PackRegistrar.add_renderer`
+    buffers this, exactly as `add_ext_model` buffers a bare class reference. **The kernel
+    names neither of the two `weft-command` types involved** — not `weft_command.contract.
+    CommandResult`, the type a real `result_type` will always actually be, and not
+    `weft_command.render.Rendered`, the type a real `render` will always actually return: it
+    remembers only that this pack offered *some* type and *some* callable, and goes no
+    further. Turning the buffer into something a renderer dispatch can actually use is
+    `weft_cli.render.register_renderers_from_reports`'s job, run once every report is final.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid", arbitrary_types_allowed=True)
+
+    distribution: str
+    result_type: type[object]
+    render: Callable[[object], object]
+
+
 class PackReport(BaseModel):
     """One pack's discovery outcome — the row `weft plugins list|doctor` will print.
 
@@ -214,6 +248,13 @@ class PackReport(BaseModel):
     one place every report's own tuple is concatenated into the `contributions=` argument
     every `weft_kernel.resolution.resolve` call site now passes — `02` §3 → *Slots*: "a pack
     may... contribute into a slot a pipeline opted into."
+
+    `renderers` — task **6.20**, G13 — is every `RendererOffer` the pack buffered through
+    `PackRegistrar.add_renderer`, empty for any pack that contributes no `Command` result a
+    person needs formatted (most packs). `weft_cli.render.register_renderers_from_reports`
+    is the one place every report's own tuple is read back off and made reachable for
+    dispatch — the identical shape `ext_models` and `weft_store.rehydrate.
+    register_from_reports` already have, one surface over.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -226,8 +267,10 @@ class PackReport(BaseModel):
     disclosure: Disclosure | None = None
     pipeline_resources: tuple[PipelineResource, ...] = ()
     deprecations: tuple[Deprecation, ...] = ()
+    unavailable: tuple[Unavailable, ...] = ()
     ext_models: tuple[type[ExtModel], ...] = ()
     contributions: tuple[Contribution, ...] = ()
+    renderers: tuple[RendererOffer, ...] = ()
 
 
 class PackSettingsError(WeftError):
@@ -368,8 +411,10 @@ class PackRegistrar:
         self._pending: list[tuple[type[object], str, Callable[..., object]]] = []
         self._pending_resources: list[PipelineResource] = []
         self._pending_deprecations: list[Deprecation] = []
+        self._pending_unavailable: list[Unavailable] = []
         self._pending_ext_models: list[type[ExtModel]] = []
         self._pending_contributions: list[Contribution] = []
+        self._pending_renderers: list[RendererOffer] = []
 
     @property
     def contributed(self) -> int:
@@ -412,7 +457,30 @@ class PackRegistrar:
         docstring for why the notice is a `DeprecationWarning`, not a `WeftError`.
         """
         self._pending_deprecations.append(
-            Deprecation(distribution=self._distribution, surface=surface, reason=reason)
+            Deprecation(
+                distribution=self._distribution,
+                surface=surface,
+                reason=reason,
+                removal=removal_for(self._distribution),
+            )
+        )
+
+    def unavailable(self, surface: str, *, reason: str) -> None:
+        """Declare that this pack cannot provide `surface`, and why — ledger task **6.29**.
+
+        `01` → *Fitness functions* 5's second half: a capability that does not resolve to a live
+        implementation must be *declared unavailable at discovery time*, with a reason. Calling
+        this makes the pack's report `PackStatus.PARTIAL` — `02` §2's own word for "registered,
+        but a conditional dependency it wanted was not available, so part of what it offers did
+        not" — so `weft plugins doctor` says it before a run does.
+
+        Buffered exactly like `deprecate`, for the identical reason: a pack whose `register()`
+        raises after calling this must not leave a report standing about a mark that never
+        committed. Registering nothing else and declaring one surface unavailable is a perfectly
+        ordinary pack; what it must never be is silent.
+        """
+        self._pending_unavailable.append(
+            Unavailable(distribution=self._distribution, surface=surface, reason=reason)
         )
 
     def add_ext_model(self, model: type[ExtModel]) -> None:
@@ -449,6 +517,24 @@ class PackRegistrar:
             Contribution(slot=slot, distribution=self._distribution, stage=stage)
         )
 
+    def add_renderer(self, result_type: type[object], renderer: Callable[[object], object]) -> None:
+        """Offer `renderer` for `result_type`, attributed to this pack.
+
+        Task **6.20**, G13's third repair. Buffered exactly like `add_ext_model` and
+        `add_contribution`, for the identical reason: a pack whose `register()` raises after
+        calling this must not leave a result type looking renderable that never actually
+        committed. `distribution` is filled in from this registrar, on `add`'s own footing —
+        attribution is never something a pack author states. This method validates nothing
+        about `result_type` or `renderer`: it does not know either is a `weft_command.
+        contract.CommandResult` subclass or a `weft_command.render.Rendered`-returning
+        callable — the kernel names neither type, exactly as the module docstring's own
+        rule requires. Turning the buffer into a working dispatch is `weft_cli.render.
+        register_renderers_from_reports`'s job.
+        """
+        self._pending_renderers.append(
+            RendererOffer(distribution=self._distribution, result_type=result_type, render=renderer)
+        )
+
     def commit(self) -> None:
         """Write every buffered registration to the `Registry`, all at once or not at all.
 
@@ -475,6 +561,13 @@ class PackRegistrar:
         return tuple(self._pending_deprecations)
 
     @property
+    def unavailable_surfaces(self) -> tuple[Unavailable, ...]:
+        """Every `Unavailable` this pack has buffered so far — `_activate`'s own read, once
+        `register()` has returned without raising. See `unavailable`.
+        """
+        return tuple(self._pending_unavailable)
+
+    @property
     def ext_models(self) -> tuple[type[ExtModel], ...]:
         """Every `ExtModel` subclass this pack has buffered so far — `_activate`'s own read,
         once `register()` has returned without raising. See `add_ext_model`.
@@ -487,6 +580,13 @@ class PackRegistrar:
         `register()` has returned without raising. See `add_contribution`.
         """
         return tuple(self._pending_contributions)
+
+    @property
+    def renderers(self) -> tuple[RendererOffer, ...]:
+        """Every `RendererOffer` this pack has buffered so far — `_activate`'s own read, once
+        `register()` has returned without raising. See `add_renderer`.
+        """
+        return tuple(self._pending_renderers)
 
 
 def interpolate_env(value: object, *, environ: Mapping[str, str] | None = None) -> object:
@@ -777,6 +877,12 @@ def _activate(
     with it either — assembling every report's own tuple into one `contributions=` argument
     for `weft_kernel.resolution.resolve` is `weft_cli.registry_bootstrap.build_dependencies`'s
     job, the one caller `weft_kernel.resolution.Contribution`'s own docstring names.
+
+    **Task 6.20** — `registrar.renderers` reaches `PackReport.renderers` on the identical
+    terms: only once `register()` has returned and `commit()` has not raised. A `register()`
+    that raises after calling `add_renderer` leaves `renderers == ()`, the same atomicity
+    every other buffer already has — the CLI must never advertise a way to format a result a
+    pack never actually finished offering.
     """
     ambient = direct_dependencies is not None and distribution not in direct_dependencies
 
@@ -807,16 +913,24 @@ def _activate(
     deprecations = registrar.deprecations
     warn_deprecated(deprecations)
 
+    unavailable = registrar.unavailable_surfaces
+
     return PackReport(
         distribution=distribution,
-        status=PackStatus.ACTIVE,
+        # Task **6.29**: a pack that declared any surface unavailable registered *part* of what it
+        # offers, which is exactly what `02` §2 reserves `PARTIAL` for. `ACTIVE` would say it is
+        # contributing everything it has, and `FAILED` would say it contributed nothing — both
+        # false, and the reason the vocabulary has a third word.
+        status=PackStatus.PARTIAL if unavailable else PackStatus.ACTIVE,
         ambient=ambient,
         contributed=registrar.contributed,
         disclosure=disclosure,
         pipeline_resources=registrar.pipeline_resources,
         deprecations=deprecations,
+        unavailable=unavailable,
         ext_models=registrar.ext_models,
         contributions=registrar.contributions,
+        renderers=registrar.renderers,
     )
 
 

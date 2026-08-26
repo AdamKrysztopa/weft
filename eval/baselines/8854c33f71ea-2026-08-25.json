@@ -1,0 +1,611 @@
+{
+  "recorded_at": "2026-08-25T20:30:48+00:00",
+  "corpus_name": "mrmr-v1",
+  "tiers": [
+    "fetch"
+  ],
+  "extractor": "text",
+  "documents": [
+    "pl-analiza-glownych-skladowych",
+    "pl-entropia-teoria-informacji",
+    "pl-entropia-warunkowa",
+    "pl-informacja-wzajemna",
+    "pl-las-losowy",
+    "pl-nadmierne-dopasowanie",
+    "pl-regresja-logistyczna",
+    "pl-sprawdzian-krzyzowy",
+    "pl-uczenie-maszynowe"
+  ],
+  "reproducible": true,
+  "record": {
+    "recorded_at": "2026-08-25T20:29:33.183999+00:00",
+    "resolved_pipeline": {
+      "name": "baseline",
+      "vars": {},
+      "stages": [
+        {
+          "id": "extract",
+          "contract": "Extractor",
+          "contract_version": "1.0.0",
+          "use": "text",
+          "config": {},
+          "fallback": [],
+          "applies_to": [],
+          "distribution": "weft-extract",
+          "provenance": "baseline"
+        },
+        {
+          "id": "chunk",
+          "contract": "Chunker",
+          "contract_version": "1.0.0",
+          "use": "fixed-size",
+          "config": {
+            "size": 512,
+            "overlap": 50
+          },
+          "fallback": [],
+          "applies_to": [],
+          "distribution": "weft-chunk",
+          "provenance": "baseline"
+        },
+        {
+          "id": "embed",
+          "contract": "Embedder",
+          "contract_version": "1.0.0",
+          "use": "hash",
+          "config": {},
+          "fallback": [],
+          "applies_to": [],
+          "distribution": "weft-embed",
+          "provenance": "baseline"
+        },
+        {
+          "id": "store",
+          "contract": "NodeStore",
+          "contract_version": "2.0.0",
+          "use": "qdrant",
+          "config": {},
+          "fallback": [],
+          "applies_to": [],
+          "distribution": "weft-qdrant",
+          "provenance": "baseline"
+        }
+      ],
+      "unapplied_operators": [],
+      "unplaced_contributions": []
+    },
+    "corpus": {
+      "name": "mrmr-v1",
+      "digest": "8854c33f71eaaf6ac3fc85faad78e21e4ee13fe11155feed10f438cb87d980f9"
+    },
+    "model_versions": {},
+    "active_distributions": [
+      "weft-chunk",
+      "weft-clean",
+      "weft-cli",
+      "weft-embed",
+      "weft-enhance",
+      "weft-extract",
+      "weft-generate",
+      "weft-index",
+      "weft-llm",
+      "weft-openai",
+      "weft-qdrant",
+      "weft-retrieve",
+      "weft-store"
+    ],
+    "metrics": {}
+  },
+  "questions": [
+    "polish-001",
+    "polish-002",
+    "polish-003",
+    "polish-004",
+    "polish-005",
+    "polish-006",
+    "polish-007",
+    "polish-008",
+    "polish-009",
+    "polish-010",
+    "polish-011",
+    "polish-012",
+    "unanswerable-001",
+    "unanswerable-002",
+    "unanswerable-003",
+    "unanswerable-004",
+    "unanswerable-005",
+    "unanswerable-006",
+    "unanswerable-007",
+    "unanswerable-008",
+    "unanswerable-009",
+    "unanswerable-010",
+    "unanswerable-011",
+    "unanswerable-012",
+    "unanswerable-013",
+    "unanswerable-014",
+    "unanswerable-015",
+    "unanswerable-016",
+    "unanswerable-017"
+  ],
+  "repeats": 3,
+  "retrieval_depth": 10,
+  "wall_clock_seconds": 78.002,
+  "metrics": [
+    {
+      "metric": "document-mrr@10",
+      "depth": 10,
+      "values": [
+        0.26875,
+        0.26875,
+        0.26875
+      ],
+      "mean": 0.26875,
+      "low": 0.26875,
+      "high": 0.26875,
+      "n_scored": 36,
+      "n_excluded": 51
+    },
+    {
+      "metric": "document-mrr@5",
+      "depth": 5,
+      "values": [
+        0.25,
+        0.25,
+        0.25
+      ],
+      "mean": 0.25,
+      "low": 0.25,
+      "high": 0.25,
+      "n_scored": 36,
+      "n_excluded": 51
+    },
+    {
+      "metric": "document-ndcg@10",
+      "depth": 10,
+      "values": [
+        0.3275977762880931,
+        0.3275977762880931,
+        0.3275977762880931
+      ],
+      "mean": 0.3275977762880931,
+      "low": 0.3275977762880931,
+      "high": 0.3275977762880931,
+      "n_scored": 36,
+      "n_excluded": 51
+    },
+    {
+      "metric": "document-ndcg@5",
+      "depth": 5,
+      "values": [
+        0.2819344072873667,
+        0.2819344072873667,
+        0.2819344072873667
+      ],
+      "mean": 0.2819344072873667,
+      "low": 0.2819344072873667,
+      "high": 0.2819344072873667,
+      "n_scored": 36,
+      "n_excluded": 51
+    },
+    {
+      "metric": "document-recall@10",
+      "depth": 10,
+      "values": [
+        0.5416666666666666,
+        0.5416666666666666,
+        0.5416666666666666
+      ],
+      "mean": 0.5416666666666666,
+      "low": 0.5416666666666666,
+      "high": 0.5416666666666666,
+      "n_scored": 36,
+      "n_excluded": 51
+    },
+    {
+      "metric": "document-recall@5",
+      "depth": 5,
+      "values": [
+        0.4166666666666667,
+        0.4166666666666667,
+        0.4166666666666667
+      ],
+      "mean": 0.4166666666666667,
+      "low": 0.4166666666666667,
+      "high": 0.4166666666666667,
+      "n_scored": 36,
+      "n_excluded": 51
+    },
+    {
+      "metric": "quote-mrr@10",
+      "depth": 10,
+      "values": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "mean": 0.0,
+      "low": 0.0,
+      "high": 0.0,
+      "n_scored": 36,
+      "n_excluded": 51
+    },
+    {
+      "metric": "quote-mrr@5",
+      "depth": 5,
+      "values": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "mean": 0.0,
+      "low": 0.0,
+      "high": 0.0,
+      "n_scored": 36,
+      "n_excluded": 51
+    },
+    {
+      "metric": "quote-ndcg@10",
+      "depth": 10,
+      "values": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "mean": 0.0,
+      "low": 0.0,
+      "high": 0.0,
+      "n_scored": 36,
+      "n_excluded": 51
+    },
+    {
+      "metric": "quote-ndcg@5",
+      "depth": 5,
+      "values": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "mean": 0.0,
+      "low": 0.0,
+      "high": 0.0,
+      "n_scored": 36,
+      "n_excluded": 51
+    },
+    {
+      "metric": "quote-recall@10",
+      "depth": 10,
+      "values": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "mean": 0.0,
+      "low": 0.0,
+      "high": 0.0,
+      "n_scored": 36,
+      "n_excluded": 51
+    },
+    {
+      "metric": "quote-recall@5",
+      "depth": 5,
+      "values": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "mean": 0.0,
+      "low": 0.0,
+      "high": 0.0,
+      "n_scored": 36,
+      "n_excluded": 51
+    }
+  ],
+  "excluded": [
+    {
+      "question_id": "unanswerable-001",
+      "repetition": 1,
+      "kind": "no-judgement",
+      "detail": "unanswerable-001 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-002",
+      "repetition": 1,
+      "kind": "no-judgement",
+      "detail": "unanswerable-002 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-003",
+      "repetition": 1,
+      "kind": "no-judgement",
+      "detail": "unanswerable-003 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-004",
+      "repetition": 1,
+      "kind": "no-judgement",
+      "detail": "unanswerable-004 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-005",
+      "repetition": 1,
+      "kind": "no-judgement",
+      "detail": "unanswerable-005 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-006",
+      "repetition": 1,
+      "kind": "no-judgement",
+      "detail": "unanswerable-006 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-007",
+      "repetition": 1,
+      "kind": "no-judgement",
+      "detail": "unanswerable-007 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-008",
+      "repetition": 1,
+      "kind": "no-judgement",
+      "detail": "unanswerable-008 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-009",
+      "repetition": 1,
+      "kind": "no-judgement",
+      "detail": "unanswerable-009 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-010",
+      "repetition": 1,
+      "kind": "no-judgement",
+      "detail": "unanswerable-010 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-011",
+      "repetition": 1,
+      "kind": "no-judgement",
+      "detail": "unanswerable-011 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-012",
+      "repetition": 1,
+      "kind": "no-judgement",
+      "detail": "unanswerable-012 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-013",
+      "repetition": 1,
+      "kind": "no-judgement",
+      "detail": "unanswerable-013 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-014",
+      "repetition": 1,
+      "kind": "no-judgement",
+      "detail": "unanswerable-014 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-015",
+      "repetition": 1,
+      "kind": "no-judgement",
+      "detail": "unanswerable-015 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-016",
+      "repetition": 1,
+      "kind": "no-judgement",
+      "detail": "unanswerable-016 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-017",
+      "repetition": 1,
+      "kind": "no-judgement",
+      "detail": "unanswerable-017 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-001",
+      "repetition": 2,
+      "kind": "no-judgement",
+      "detail": "unanswerable-001 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-002",
+      "repetition": 2,
+      "kind": "no-judgement",
+      "detail": "unanswerable-002 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-003",
+      "repetition": 2,
+      "kind": "no-judgement",
+      "detail": "unanswerable-003 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-004",
+      "repetition": 2,
+      "kind": "no-judgement",
+      "detail": "unanswerable-004 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-005",
+      "repetition": 2,
+      "kind": "no-judgement",
+      "detail": "unanswerable-005 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-006",
+      "repetition": 2,
+      "kind": "no-judgement",
+      "detail": "unanswerable-006 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-007",
+      "repetition": 2,
+      "kind": "no-judgement",
+      "detail": "unanswerable-007 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-008",
+      "repetition": 2,
+      "kind": "no-judgement",
+      "detail": "unanswerable-008 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-009",
+      "repetition": 2,
+      "kind": "no-judgement",
+      "detail": "unanswerable-009 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-010",
+      "repetition": 2,
+      "kind": "no-judgement",
+      "detail": "unanswerable-010 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-011",
+      "repetition": 2,
+      "kind": "no-judgement",
+      "detail": "unanswerable-011 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-012",
+      "repetition": 2,
+      "kind": "no-judgement",
+      "detail": "unanswerable-012 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-013",
+      "repetition": 2,
+      "kind": "no-judgement",
+      "detail": "unanswerable-013 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-014",
+      "repetition": 2,
+      "kind": "no-judgement",
+      "detail": "unanswerable-014 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-015",
+      "repetition": 2,
+      "kind": "no-judgement",
+      "detail": "unanswerable-015 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-016",
+      "repetition": 2,
+      "kind": "no-judgement",
+      "detail": "unanswerable-016 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-017",
+      "repetition": 2,
+      "kind": "no-judgement",
+      "detail": "unanswerable-017 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-001",
+      "repetition": 3,
+      "kind": "no-judgement",
+      "detail": "unanswerable-001 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-002",
+      "repetition": 3,
+      "kind": "no-judgement",
+      "detail": "unanswerable-002 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-003",
+      "repetition": 3,
+      "kind": "no-judgement",
+      "detail": "unanswerable-003 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-004",
+      "repetition": 3,
+      "kind": "no-judgement",
+      "detail": "unanswerable-004 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-005",
+      "repetition": 3,
+      "kind": "no-judgement",
+      "detail": "unanswerable-005 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-006",
+      "repetition": 3,
+      "kind": "no-judgement",
+      "detail": "unanswerable-006 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-007",
+      "repetition": 3,
+      "kind": "no-judgement",
+      "detail": "unanswerable-007 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-008",
+      "repetition": 3,
+      "kind": "no-judgement",
+      "detail": "unanswerable-008 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-009",
+      "repetition": 3,
+      "kind": "no-judgement",
+      "detail": "unanswerable-009 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-010",
+      "repetition": 3,
+      "kind": "no-judgement",
+      "detail": "unanswerable-010 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-011",
+      "repetition": 3,
+      "kind": "no-judgement",
+      "detail": "unanswerable-011 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-012",
+      "repetition": 3,
+      "kind": "no-judgement",
+      "detail": "unanswerable-012 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-013",
+      "repetition": 3,
+      "kind": "no-judgement",
+      "detail": "unanswerable-013 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-014",
+      "repetition": 3,
+      "kind": "no-judgement",
+      "detail": "unanswerable-014 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-015",
+      "repetition": 3,
+      "kind": "no-judgement",
+      "detail": "unanswerable-015 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-016",
+      "repetition": 3,
+      "kind": "no-judgement",
+      "detail": "unanswerable-016 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    },
+    {
+      "question_id": "unanswerable-017",
+      "repetition": 3,
+      "kind": "no-judgement",
+      "detail": "unanswerable-017 is unanswerable and carries no judgement: an unanswerable question names no document and quotes no span, so a retrieval metric has nothing to score it against"
+    }
+  ]
+}

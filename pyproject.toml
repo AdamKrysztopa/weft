@@ -76,13 +76,40 @@ test = "pytest tests -q"
 sequence = ["fmt", "lint", "types", "arch"]
 help = "Fast baseline: format, lint, types, architecture. No unit tests."
 
+# Ledger task 6.23. The seven out-of-tree example packs ship 116 tests between them and
+# `testpaths = ["tests"]` meant the gate had never run one — `docs/lessons.md` L6.12: a directory
+# of tests no task runs is prose, exactly as a documented check no task runs is prose, one level
+# up from the check to the suite. Two of `weft-example-graph`'s were quietly red when somebody
+# finally looked.
+#
+# **A task of its own rather than a widened `testpaths`, for two reasons.** An example pack is
+# deliberately not a workspace member (fitness function 9(a)), so nothing installs it and its own
+# `src/` has to reach `sys.path` explicitly — the same gap `[tool.pyright] extraPaths` already
+# closes for type checking. And several packs name a test file the same thing (`test_store.py`,
+# `test_retriever.py`), which pytest's default import mode refuses; `--import-mode=importlib`
+# accepts it without renaming 28 files that belong to strangers.
+[tool.poe.tasks.examples-tests]
+help = "Task 6.23: the out-of-tree example packs' own suites, which the gate reaches."
+cmd = "pytest examples -q --import-mode=importlib"
+
+[tool.poe.tasks.examples-tests.env]
+PYTHONPATH = "examples/weft-example-chunker/src:examples/weft-example-command/src:examples/weft-example-graph/src:examples/weft-example-ingest/src:examples/weft-example-llm/src:examples/weft-example-metric/src:examples/weft-example-query/src"
+
 [tool.poe.tasks.ci-checks]
-sequence = ["fmt", "lint", "types", "arch", "test"]
+sequence = ["fmt", "lint", "types", "arch", "test", "examples-tests"]
 help = "The canonical full gate. Every architecture check must be reachable from here."
 
 [tool.poe.tasks.kernel-isolated]
 help = "Fitness function 1, primary half: install weft-kernel alone and import it."
 cmd = "python scripts/check_kernel_isolated.py"
+
+[tool.poe.tasks.isolated-installs]
+help = "Task 6.6: install every published distribution alone in a clean env and import it."
+cmd = "python scripts/check_isolated_installs.py"
+
+[tool.poe.tasks.sdists]
+help = "Task 6.7: every sdist carries what the checkout has, and the suite passes from them."
+cmd = "python scripts/check_sdists.py"
 
 [tool.ruff]
 line-length = 100
@@ -92,6 +119,18 @@ src = ["packages/*/src", "testing/*/src", "tests"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "B", "C90", "S", "PTH", "RET", "SIM", "TID"]
 ignore = ["S101"]  # assert is the point in tests
+
+[tool.ruff.lint.per-file-ignores]
+# `.claude/hooks/` is not project Python. These files are launched by the Claude Code harness
+# as bare `python3`, which is 3.9 on the development machine — not the 3.12 the packages are
+# built against and not the `.venv` interpreter. `target-version = "py312"` above is therefore
+# wrong for this one directory, and not harmlessly so: before this entry existed, ruff's `UP017`
+# *demanded* `datetime.UTC` in `.claude/hooks/subagent_findings.py`, which is 3.11+ and crashed
+# the hook on import. A hook that fails to import is silently a hook that does not exist, so the
+# gate was not merely blind to the defect — it required it (`docs/lessons.md` L6.6).
+# `UP` alone is suppressed: every other rule selected above is version-independent and these
+# files are worth linting, which is why the directory is not excluded outright.
+".claude/hooks/*" = ["UP"]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 12

@@ -71,6 +71,7 @@ location, against both places the workspace can claim a distribution:
 
 from __future__ import annotations
 
+import ast
 import os
 import subprocess
 import sys
@@ -168,6 +169,17 @@ class _NameCapturingRegistrar:
         """
         del surface, reason
 
+    def unavailable(self, surface: str, *, reason: str) -> None:
+        """A no-op stand-in — ledger task **6.29** added this to `PackRegistrar`.
+
+        Same reason `deprecate` above is here: this double must carry every public method the
+        real registrar declares, or a pack's `register()` calling one raises `AttributeError`
+        inside whichever check happens to run it. `docs/lessons.md` **L5.26** is that rule, and
+        the completeness check enforcing it is what caught this within a minute of the method
+        landing.
+        """
+        del surface, reason
+
     def commit(self) -> None:
         """A no-op stand-in for `PackRegistrar.commit`.
 
@@ -187,6 +199,22 @@ class _NameCapturingRegistrar:
         a slot a pipeline document declares.
         """
         del slot, stage
+
+    def add_renderer(self, result_type: object, renderer: object) -> None:
+        """A no-op stand-in for `PackRegistrar.add_renderer` (task 6.20, G13).
+
+        **The fourth recurrence, and the first one this file caught before a pack crashed on
+        it.** `add_pipeline_resource`'s own docstring above named the shape — a hand-maintained
+        double grows a method only when something calls it, so the gap is invisible for as long
+        as nothing does — and predicted that `test_the_double_carries_every_registrar_method`
+        below is "what stops the fourth recurrence". This is that fourth recurrence:
+        `examples/weft-example-graph`'s `register()` began calling `add_renderer` at task 6.20,
+        and the completeness test named the missing method rather than leaving clause (b)'s scan
+        to die of `AttributeError` inside whichever check happened to run it first
+        (`docs/lessons.md` L5.26). Clause (b) needs nothing from a renderer: it registers no
+        plugin name, only a way to format a result type already registered elsewhere.
+        """
+        del result_type, renderer
 
 
 def distribution_name(example_dir: Path) -> str:
@@ -426,6 +454,137 @@ def files_naming(names: Iterable[str], *, within: Iterable[Path]) -> list[tuple[
             if name in text:
                 hits.append((path, name))
     return hits
+
+
+#: The calls whose string arguments are a *name a pack is registered under* — `02` §2's
+#: registration surface. A literal reaching one of these is core naming a stranger, whatever the
+#: surrounding prose looks like.
+_REGISTRATION_CALLS: Final[frozenset[str]] = frozenset(
+    {"add", "add_renderer", "add_ext_model", "add_pipeline_resource", "add_contribution"}
+)
+
+
+def structurally_naming(names: Iterable[str], *, within: Iterable[Path]) -> list[tuple[Path, str]]:
+    """Every `(file, name)` pair where `file` names an example pack **structurally** — task 6.22.
+
+    Three sources, all read from the AST rather than from the text: an **import** of the pack's
+    module, a string literal passed to a **registration call**, and a dotted prefix of either.
+    `docs/lessons.md` L5.28 is why this exists beside the substring scan rather than instead of
+    it: *"a name-collision check built as a substring search is unsound"* — unsound in both
+    directions, which is the half a repair specified from one instance misses (`L6.13`).
+
+    **Where the text scan over-fires**, a name assembled or discussed rather than used: `02` §4
+    quotes `weft-graph` as a hypothetical throughout, and a real pack taking that name would turn
+    every legitimate quotation into a violation — the second half of L5.28, and the reason
+    `examples/weft-example-graph` is *not* called `weft-graph`.
+
+    **Where the text scan under-fires**, and this is the one that matters: a reference the text
+    never spells. `import weft_example_graph as g` is caught by both; `importlib.import_module(
+    "weft_example" + "_graph")` is caught by neither, but a module aliased through a package
+    `__init__`, or a name reaching a registration call from a constant, is exactly what an AST
+    walk sees and a substring search does not.
+    """
+    wanted = frozenset(names)
+    modules = {name.replace("-", "_") for name in wanted}
+    hits: list[tuple[Path, str]] = []
+
+    for path in within:
+        if path.suffix != ".py":
+            continue
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except (UnicodeDecodeError, OSError, SyntaxError):
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name.split(".")[0] in modules:
+                        hits.append((path, alias.name.split(".")[0]))
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                root = node.module.split(".")[0]
+                if root in modules:
+                    hits.append((path, root))
+            elif isinstance(node, ast.Call) and _is_registration(node):
+                hits.extend(
+                    (path, argument.value)
+                    for argument in node.args
+                    if isinstance(argument, ast.Constant)
+                    and isinstance(argument.value, str)
+                    and argument.value in wanted
+                )
+    return hits
+
+
+def _is_registration(call: ast.Call) -> bool:
+    return isinstance(call.func, ast.Attribute) and call.func.attr in _REGISTRATION_CALLS
+
+
+def test_no_first_party_file_names_the_example_pack_structurally() -> None:
+    """Fitness function 9(b), read from the AST — ledger task **6.22**.
+
+    Runs **beside** the substring scan below, never instead of it: the two fail on different
+    things, and `docs/lessons.md` L5.28 recorded the AST half as owed while the text half was
+    already in place.
+    """
+    # Arrange — every out-of-tree example pack's own identity, the same set clause (b) already
+    # walks, plus each one's module spelling, since an import names the module and not the
+    # distribution.
+    names: list[str] = []
+    for example_dir in _ALL_EXAMPLE_DIRS:
+        names.append(distribution_name(example_dir))
+        module_name, plugin_names = module_and_plugin_names(example_dir)
+        names.append(module_name)
+        names.extend(plugin_names)
+
+    # Act
+    hits = structurally_naming(names, within=text_files(PACKAGES_ROOT, TESTING_ROOT))
+
+    # Assert
+    assert names, "no example pack identity was read — the walk is wrong, not the tree"
+    assert not hits, (
+        "core imports an example pack, or registers something under its name:\n  "
+        + "\n  ".join(f"{path.relative_to(REPO_ROOT)}: {name!r}" for path, name in hits)
+        + "\n\nFitness function 9(b): core must not anticipate a stranger it never imported."
+    )
+
+
+def test_the_structural_check_can_actually_fail(tmp_path: Path) -> None:
+    """Task 6.22's own clause: the self-test plants a **real reference**, not a matching word.
+
+    That distinction is the point. A plant like `"the weft-example-graph pack"` in a docstring is
+    what the *substring* scan catches and what this one must not; a plant that imports the module
+    or registers under its plugin name is what this one catches and the substring scan would too.
+    The pair below is what separates them, and it is why both checks run.
+    """
+    # Arrange
+    real = tmp_path / "real.py"
+    real.write_text(
+        "import weft_example_graph\n"
+        "def register(registrar: object) -> None:\n"
+        '    registrar.add(object, "example-graph", None)\n',
+        encoding="utf-8",
+    )
+    merely_discussed = tmp_path / "discussed.py"
+    merely_discussed.write_text(
+        '"""A pack such as weft-example-graph would register its own store here."""\n',
+        encoding="utf-8",
+    )
+    names = ["weft-example-graph", "weft_example_graph", "example-graph"]
+
+    # Act
+    caught = structurally_naming(names, within=[real])
+    prose = structurally_naming(names, within=[merely_discussed])
+    by_text = files_naming(names, within=[merely_discussed])
+
+    # Assert
+    assert {name for _, name in caught} == {"weft_example_graph", "example-graph"}, (
+        "the structural check must see both the import and the registration literal"
+    )
+    assert prose == [], "a name merely discussed in a docstring is not a structural reference"
+    assert by_text, (
+        "the substring scan must still catch the discussed name — that is the half this check "
+        "does not replace, and why 6.22 adds to it rather than swapping it out"
+    )
 
 
 def test_no_first_party_file_names_the_example_pack() -> None:

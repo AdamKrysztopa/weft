@@ -125,7 +125,7 @@ def test_the_fan_out_finds_a_pack_registered_under_a_contract_it_never_heard_of(
     registry = _registry_with_everything()
 
     # Act
-    found = participants(registry=registry, store_name="pgvector")
+    found = participants(registry=registry, store_names=frozenset({"pgvector"}))
 
     # Assert
     assert [(target.name, target.distribution) for target in found] == [
@@ -134,12 +134,28 @@ def test_the_fan_out_finds_a_pack_registered_under_a_contract_it_never_heard_of(
     ]
 
 
-def test_only_the_configured_node_store_participates() -> None:
+def test_a_second_node_store_this_project_uses_is_asked_as_well() -> None:
+    """G13's repair, task **6.18**. `store_names` is a set rather than a name because a
+    project runs data through more than one `NodeStore` — `02` §1 → *Extended by G13*, whose
+    worked case is the graph store the `kg` pipeline writes to. Both are asked; the one
+    nothing names is still absent, which is the half of task 5.1a's narrowing that was right.
+    """
     # Arrange
     registry = _registry_with_everything()
 
     # Act
-    found = participants(registry=registry, store_name="qdrant")
+    found = participants(registry=registry, store_names=frozenset({"pgvector", "qdrant"}))
+
+    # Assert
+    assert [target.name for target in found] == ["pgvector", "qdrant", "graph"]
+
+
+def test_only_the_node_stores_in_use_participate() -> None:
+    # Arrange
+    registry = _registry_with_everything()
+
+    # Act
+    found = participants(registry=registry, store_names=frozenset({"qdrant"}))
 
     # Assert
     assert [target.name for target in found] == ["qdrant", "graph"]
@@ -151,7 +167,7 @@ async def test_every_participant_is_asked_and_the_failing_one_is_named() -> None
     registry.add(NodeStore, "pgvector", _RecordingStore, distribution="weft-store")
     registry.add(_GraphStore, "broken", _BrokenHolder, distribution="weft-broken")
     registry.add(_GraphStore, "graph", _DerivedHolder, distribution="weft-graph")
-    targets = participants(registry=registry, store_name="pgvector")
+    targets = participants(registry=registry, store_names=frozenset({"pgvector"}))
 
     # Act
     outcomes = await delete_everywhere(SourceId("doc-1"), targets=targets)
@@ -170,7 +186,8 @@ async def test_a_source_nothing_holds_is_not_an_error() -> None:
 
     # Act
     outcomes = await delete_everywhere(
-        SourceId("doc-1"), targets=participants(registry=registry, store_name="pgvector")
+        SourceId("doc-1"),
+        targets=participants(registry=registry, store_names=frozenset({"pgvector"})),
     )
 
     # Assert
@@ -193,7 +210,8 @@ async def test_cancellation_propagates_rather_than_becoming_a_named_failure() ->
     # Act / Assert
     with pytest.raises(asyncio.CancelledError):
         await delete_everywhere(
-            SourceId("doc-1"), targets=participants(registry=registry, store_name="pgvector")
+            SourceId("doc-1"),
+            targets=participants(registry=registry, store_names=frozenset({"pgvector"})),
         )
 
 

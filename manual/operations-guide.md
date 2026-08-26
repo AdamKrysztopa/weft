@@ -465,13 +465,28 @@ actually named as direct dependencies; Phase 0's CLI does not yet supply that, s
 reports without the `ambient` flag regardless of how it arrived. Read the `status` column, not the
 `ambient` flag, until that lands.
 
+**Every block names the version that is installed**, beside the distribution's own name:
+`weft-chunk 1.0.0: active (1 contributed)`. That is what `weft` actually found in the environment,
+read from the distribution's own installed metadata — not what a lockfile said, and not what the
+release set pins. If a distribution is on disk with no recorded metadata, the block says `(version
+not recorded)` rather than leaving the space blank, because a diagnostic command that cannot
+measure something should say so. `weft plugins list` stays a one-line summary and prints no
+version; it is `doctor` that answers *what exactly is installed here*.
+
 Every block also prints a pack's `disclosure` — what it says it touches, in its own words. A pack
 that discloses nothing prints `not disclosed`. This is information the pack chose to publish about
 itself, never a fact `weft` checked; see *What this does not protect you from*.
 
 **Two more things `doctor` prints, both added at task 5.2e, neither a new status.** A pack flags
 `active, deprecated` when it marked one of its own surfaces deprecated at registration — the block
-below names the surface and the reason, e.g. `_Chunker:legacy` and "superseded by 'fast'." Nothing
+below names the surface, the reason, and **when the surface goes**: `deprecated: '_Chunker:legacy'
+— superseded by 'fast' (removed in weft-chunk 2.0.0)`. That last part is not something the pack
+author typed. It is one major of the *publishing* distribution, worked out from the version that
+distribution actually has installed, so it cannot go stale the way a hand-written "removed in
+2.0.0" would. A distribution still on `0.x` gets the honest answer instead of a number — `'weft-cli'
+is 0.x (0.1.0), which promises no deprecation period — this surface may be removed in any release` —
+because a pre-1.0 line reserves exactly that right, and printing a release there would promise a
+window you do not have. Nothing
 stops working: the pack still runs exactly as `active` alone would, and the warning underneath it
 is a `DeprecationWarning`, not a refusal. Separately, `doctor` prints a trailing `version skew`
 block naming every distribution whose *installed* version does not satisfy some other installed
@@ -481,7 +496,7 @@ from an editable install whose checked-out code has moved past its own recorded 
 `pip install`, or a workspace whose lockfile has drifted:
 
 ```text
-weft-cli: active (18 contributed)
+weft-cli 0.1.0: active (18 contributed)
   disclosure: not disclosed
 
 version skew — installed does not satisfy a declared specifier:

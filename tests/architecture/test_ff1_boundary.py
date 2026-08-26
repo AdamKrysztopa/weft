@@ -86,3 +86,55 @@ def _top_level_imports(path: Path) -> set[str]:
             modules.add(node.module.split(".")[0])
 
     return modules - {"weft_kernel"}
+
+
+def test_the_check_can_actually_fail(tmp_path: Path) -> None:
+    """Fitness function 16 clause (b) — ledger task **6.15**.
+
+    The reference's boundary checker "used a denylist, it matched zero imports, and it exited 0
+    on a tree with 11 violations" — this file's own docstring. That is precisely a check
+    nobody had watched fail, and it is why this self-test plants a real violation and runs
+    the real `_top_level_imports` over it rather than asserting anything about a set.
+
+    Three shapes at once, because they take three different AST paths and a walker can be
+    right about one and blind to another: a plain `import`, a dotted `import a.b`, and a
+    `from x import y`. The stdlib and `weft_kernel` exclusions are exercised in the same
+    file, so a walker that stopped excluding either would fail here too.
+    """
+    # Arrange
+    planted = tmp_path / "planted.py"
+    planted.write_text(
+        "import os\n"
+        "import psycopg\n"
+        "import openai.types\n"
+        "from weft_kernel.payload import Node\n"
+        "from pydantic import BaseModel\n",
+        encoding="utf-8",
+    )
+
+    # Act — the same expression `test_kernel_imports_nothing_it_does_not_ship` computes.
+    imported = _top_level_imports(planted)
+    violations = [
+        name
+        for name in sorted(imported)
+        if name not in KERNEL_DEPENDENCIES and name not in sys.stdlib_module_names
+    ]
+
+    # Assert
+    assert violations == ["openai", "psycopg"]
+    assert "os" in imported, "the walker must see stdlib imports; the check is what filters them"
+    assert "weft_kernel" not in imported
+    assert "pydantic" in imported
+
+
+def test_the_dependency_reader_can_actually_fail() -> None:
+    """The other comparison in this file — a declared dependency set that disagrees with G1."""
+    # Arrange
+    declared = ["pydantic>=2", "opentelemetry-api>=1.28", "psycopg[binary]>=3.2"]
+
+    # Act
+    names = {_distribution_name(entry) for entry in declared}
+
+    # Assert
+    assert names != {"pydantic", "opentelemetry-api"}
+    assert names == {"pydantic", "opentelemetry-api", "psycopg"}

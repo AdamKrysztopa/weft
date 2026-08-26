@@ -1,6 +1,9 @@
 # 05 — Open decisions and grilling sessions
 
-This plan settles the architecture and leaves eleven decisions to grilling sessions, G1 through G11.
+This plan settled the architecture and left eleven decisions to grilling sessions, G1 through G11.
+**Two more were added by sessions that ran** — G12 by G8 (2026-08-18) and G13 by Phase 5's own failed
+exit criterion (2026-08-22) — which is the intended shape: a session that discovers a question it was
+not asked files it rather than answering it.
 Each is here because **defaulting it would be a mistake** — either it has no obviously right answer, or getting
 it wrong is expensive to reverse, or it depends on how you actually intend to work.
 
@@ -36,6 +39,7 @@ question, so that a decision's status has exactly one home.
 | 10 | **G10** Release and support policy | Phase 6 | Medium — a policy, but published |
 | 11 | **G11** Kernel error text | Phase 3 | Low — settled 2026-08-18 |
 | 12 | **G12** Permissions when the caller is never a TTY | Phase 7 | Medium — a safety boundary, not a mechanism |
+| 13 | **G13** The derived-participant seam | Phase 6 | Medium — two of its three faces move published contracts |
 
 ---
 
@@ -624,8 +628,16 @@ loud.
 an installation promises and cannot do so before G9 has stated what a contract promises. `01` → *The
 architecture stack*, Topology row, which is where the skew obligation was recorded and deferred. **A
 count, taken on the day of the session, of how many distributions the workspace ships and how many of
-them declare a bound on a sibling** — today every pack declares `dependencies = ["weft-kernel"]` with no
-bound, so any pack installs against any kernel, and that measurement is the argument's concrete form.
+them declare a bound on a sibling** — that measurement is the argument's concrete form.
+
+*(Corrected 2026-08-22, at the session. This sentence continued "today every pack declares
+`dependencies = ["weft-kernel"]` with no bound, so any pack installs against any kernel". **That was
+true when this brief was written and false when the session ran**: G9's enforcement rule landed in
+Phase 5, so every distribution under `packages/` now declares `>=X,<MAJOR+1` on each sibling,
+`weft-cli` on nine of them. The instruction to take the count *on the day* is what caught it; the
+predicted answer is what would have been argued from otherwise. Logged as `lessons.md` L6.1. The case
+for a release set survives on the half a bound does not cover — a bound says what is *compatible*, a
+pinned set says what was *tested together*.)*
 And `02` §2 → *The trust model*, because the release is where its posture is either published to
 operators or quietly lost.
 
@@ -753,3 +765,71 @@ moment they finally matter.
 
 **Done when.** A stated position on whether a non-TTY caller can reach `overwrite` and `destroy`, and
 if it can, the mechanism named and specified in `03` → *Permissions* rather than left to the pack.
+
+---
+
+## G13 — The derived-participant seam
+
+**Proposed 2026-08-22 by Phase 5's own exit criterion (task 5.7), which found three faces of one
+question.** The graph pack was built with zero edits under `packages/` and then could not do what
+`02` §4's own table says it does. This session is the design finding `01` says a core-change request
+*is*.
+
+**The question.** What may a participant that is *not* the primary store ask for, and what reaches
+it? Three symptoms, one subject:
+
+- **Reach.** `02` §1 settles that deletion fans out *"across **every** registered plugin that
+  satisfies `SourceDeletable`"*. Task 5.1a narrowed that at `weft_cli/fanout.py:71`, keeping only the
+  `NodeStore` that `[services] store` names, so pgvector and Qdrant are not both connected to. The
+  graph store registers under `NodeStore` (`02` §4's table), so the narrowing excludes it and derived
+  graph data outlives its source — the reference's RAPTOR scar, first-party (`lessons.md` L5.25, L5.32).
+- **Ask.** `Reconcilable.reconcile(ctx, mode)` hands a participant nothing that names the primary
+  corpus, so `02` §4's *"`full` backfills entities for nodes indexed by a pipeline that had no graph
+  stage"* is unbuildable by a pack (L5.24).
+- **Answer.** `weft_cli.render._RENDERERS` is a first-party tuple matched on first-party result
+  types, so a pack's `Command` returns a typed result nothing can render for a person (L5.30).
+
+**Why it could not be defaulted.** Each face has a two-line fix that converts an extension point back
+into a decision tree — a name in a filter, a branch in a dispatch, a key in a table — which is
+requirement 1's exact failure shape. And the obvious general answer, *let a participant declare that
+it is derived*, is the declared flag `02` §1 rules out: capability is derived, never declared, so
+nobody can write a false one.
+
+**Positions attacked, and what held.**
+
+- **Reach.** *Every registered `NodeStore` participates* was attacked as connecting to a backend the
+  operator does not use; *the operator lists extra participants* was attacked as a rule an author
+  must remember, which this project has measured as the shape that decays; *derived stores must not
+  register under `NodeStore`* was attacked as a convention rather than machinery, and as excluding a
+  legitimate second node store. **What held: participation follows use.** The configured
+  `[services] store`, plus every `NodeStore` named by a pipeline in the catalogue or by a persisted
+  run record. It is derived from what the project actually runs, nothing is declared, and the unused
+  backend stays out. *The cost, stated:* `weft delete` must read the catalogue and the run history,
+  and a store dropped from every document that also never ran is excluded.
+- **Ask.** *A typed corpus view passed to `reconcile`* was attacked on price — a store-contract major
+  under G9's implementer rule, changing every implementation in and out of this tree, to hand over
+  something the passport already carries. *Withdraw the promise* was attacked as requirement 4 in the
+  open: `full` would keep a capability only first-party stores can use. **What held: the primary
+  store through `ctx.require(NodeStore)`.** `Context.require` exists (`context.py:208`) and
+  `NodeStore` already answers *what should exist* with `scan`, `count` and `list_sources`; the gap was
+  only that nothing puts the store in the reconcile `Context`'s services. Zero kernel lines, no
+  contract move.
+- **Answer.** *Results render themselves* was attacked against `03`'s governing rule — a `Command`
+  returns a typed result and the adapter formats it — and on output format, since a `render()` on the
+  result cannot vary by `--format` without becoming the dispatch it replaced. *Leave it as structured
+  JSON* was attacked as eighteen first-party commands printing for people and nobody else's.
+  **What held: a renderer registered at the seam** — `registrar.add_renderer(...)`, `Rendered`
+  published from `weft-command`, and the CLI's own renderers moved onto the same call so built-ins
+  keep no privileged path.
+
+**Bring.** `02` §1 → *The store contract family* and its G7 extension; `02` §4's table and the two
+rows G7 added; `03` → *Output* and *Two modes, one implementation*; `weft_cli/fanout.py`,
+`weft_cli/reconcile.py` and `weft_cli/render.py` read rather than remembered; `examples/weft-example-
+graph`'s `register()` and `pipelines/kg.yaml`, which name the graph store as a stage and are what
+makes *in use* a fact rather than an intention; and `lessons.md` L5.24, L5.25, L5.30 and L5.32.
+
+**Done when.** A stated rule for who a fan-out reaches, a stated answer to what a non-primary
+participant may ask for, a stated seam for rendering a pack's result — each specified in the document
+that owns it (`02` §1, `02` §4, `03`) and each with a task in the ledger. **Not** a declared flag, and
+**not** a per-pack shim: L5.15's rule is that an extension point has a producing and a consuming side
+and both must be reachable by a stranger.

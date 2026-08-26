@@ -2,10 +2,11 @@
 
 Exercises `WordChunker` directly, the same way `weft-chunk`'s own test suite
 exercises `FixedSizeChunker`: against real `Node` inputs, no double standing
-in for the kernel it depends on. Not collected by `weft`'s own `pytest`
-(its `testpaths` is `["tests"]`, and this directory is outside the weft
-workspace entirely) — a stranger's tests are the stranger's own to run,
-`uv run pytest` from inside this directory.
+in for the kernel it depends on.
+**Collected by weft's own gate since its ledger task 6.23**, through the `examples-tests` step —
+a suite no task runs is prose, and two tests in this tree were quietly red for exactly that
+reason. Still runnable on its own with `uv run pytest` from inside this directory, which is how
+a stranger runs it.
 """
 
 from weft_example_chunker.word_chunker import WordChunker

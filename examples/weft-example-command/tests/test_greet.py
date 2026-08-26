@@ -2,9 +2,11 @@
 
 Exercises `GreetCommand` directly, the same way `weft-example-chunker`'s own test suite
 exercises `WordChunker`: against a real `Context`, no double standing in for the kernel or
-contract this pack depends on. Not collected by `weft`'s own `pytest` (its `testpaths` is
-`["tests"]`, and this directory is outside the weft workspace entirely) — a stranger's tests
-are the stranger's own to run, `uv run pytest` from inside this directory.
+contract this pack depends on.
+**Collected by weft's own gate since its ledger task 6.23**, through the `examples-tests` step —
+a suite no task runs is prose, and two tests in this tree were quietly red for exactly that
+reason. Still runnable on its own with `uv run pytest` from inside this directory, which is how
+a stranger runs it.
 """
 
 import pytest

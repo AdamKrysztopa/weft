@@ -9,7 +9,7 @@ requires-python = ">=3.12"
 # it publishes, plus the `Sample`/`MetricScore` boundary types — the same relationship
 # `docs/07-extension-cost.md` §1 states for any pack that implements a contract it does not
 # itself define.
-dependencies = ["weft-kernel", "weft-eval"]
+dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-eval>=1.0.0,<2.0.0"]
 
 # The one entry point a pack declares (weft's docs/02-extension-model.md section 2). Nothing
 # under weft's own packages/ or testing/ names this distribution, this module, or the plugin

@@ -178,7 +178,7 @@ async def run_routed_ask(
         catalogue=catalogue,
         contributions=contributions,
     )
-    assert isinstance(route, Route)  # `route.yaml`'s own contract: Stage[Query, Route]
+    route = _require(route, Route, pipeline=ROUTE_PIPELINE_NAME, produced_by="routing")
 
     target = catalogue.get(route.pipeline)
     if target is None:
@@ -205,8 +205,54 @@ async def run_routed_ask(
         catalogue=catalogue,
         contributions=contributions,
     )
-    assert isinstance(answer, Answer)  # every shipped routable pipeline ends in a Generator
+    answer = _require(answer, Answer, pipeline=route.pipeline, produced_by="`weft ask`")
     return route.pipeline, answer
+
+
+class PipelineProducedTheWrongShapeError(WeftError):
+    """A pipeline ran to completion and its last stage produced something else — task **6.25**.
+
+    **This replaces three bare `assert isinstance(...)` calls, and the comment on two of them is
+    why.** They read `# every shipped routable pipeline ends in a Generator` — an "every X" stated
+    over what *this repository ships*, checked against pipeline documents **anyone may write**.
+    `docs/lessons.md` L6.15: an invariant's scope is the inputs that actually reach it, not the
+    ones its comment names. A three-line user pipeline ending in a retriever made it fail with no
+    message at all, which is how it was found (`weft ask --pipeline <name>`, ledger task 6.21's
+    own binary run).
+
+    **And `assert` is worse than it looks here**: `python -O` strips it, so on an optimised
+    interpreter the wrong object simply flows on to whatever reads it next. A refusal that vanishes
+    under a flag is not a refusal.
+
+    The message names the pipeline, the stage that produced the value, what was expected and what
+    arrived — `02` §2's rule that a refusal says what was wanted and why it is unavailable, applied
+    to a shape rather than to a name.
+    """
+
+
+def _require[T](value: object, expected: type[T], *, pipeline: str, produced_by: str) -> T:
+    """Refuse, by name, when a pipeline's final value is not the shape the caller needs.
+
+    **Returns the value, narrowed**, rather than asserting and returning nothing. That is not a
+    convenience: `assert isinstance(x, T)` narrows `x` for a type checker and a plain call does
+    not, so a refusal seam that returned `None` would trade three bare asserts for sixteen
+    `reportUnknownMemberType` errors at the call sites. Handing back the narrowed value keeps the
+    static guarantee the asserts were carrying while making the runtime one survive `python -O`.
+
+    One seam for all three call sites rather than a repair at the one that was noticed —
+    `docs/lessons.md` L5.10, and L6.13's *"a repair specified from one failing instance narrows to
+    that instance"*. `tests/architecture/test_ff7_colour_integrity.py`'s sibling check keeps a new
+    bare `assert` from reappearing in shipped code.
+    """
+    if isinstance(value, expected):
+        return value
+    raise PipelineProducedTheWrongShapeError(
+        f"pipeline '{pipeline}' finished and produced {type(value).__name__}, but "
+        f"{produced_by} needs {expected.__name__}. A pipeline's last stage decides the shape of "
+        f"its result: a query pipeline that ends in a retriever produces passages, and only one "
+        f"ending in a Generator produces an Answer. Add a generating stage, or run this pipeline "
+        f"with `--retrieve-only`, which asks for the shape it actually produces."
+    )
 
 
 async def run_named_ask(
@@ -272,8 +318,7 @@ async def run_named_ask(
         catalogue=catalogue,
         contributions=contributions,
     )
-    assert isinstance(answer, Answer)  # every shipped routable pipeline ends in a Generator
-    return answer
+    return _require(answer, Answer, pipeline=pipeline_name, produced_by="`weft ask`")
 
 
 async def _prepared_runner(

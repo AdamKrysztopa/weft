@@ -339,6 +339,17 @@ def _budget_grew(path: Path, old_text: str, new_text: str) -> _Finding | None:
 
 
 def _suppression_appeared(path: Path, old_text: str, new_text: str) -> _Finding | None:
+    """A marker in `new_text` that was not in `old_text`.
+
+    **A new file has no "before", and this says so rather than reporting its blind spot as a
+    finding** (`docs/lessons.md` L6.23). `old_text` is empty by construction for a `Write` to a
+    path that did not exist, so *every* marker in the initial content looks added — the
+    false-positive rate on that input is 100%, which makes it a guaranteed prompt rather than a
+    heuristic. The check still fires, because a new file is a perfectly good place to hide a
+    suppression; what changes is that the human being asked is told which of the two situations
+    they are in. Two dispatched implementers and one session paid for the old message before this
+    distinction existed.
+    """
     if not _under(path, *_SUPPRESSION_SCOPE):
         return None
     appeared = [
@@ -346,6 +357,14 @@ def _suppression_appeared(path: Path, old_text: str, new_text: str) -> _Finding 
     ]
     if not appeared:
         return None
+    if not old_text.strip():
+        return (
+            "suppression",
+            "this file is NEW, so there is no previous content to compare against and every "
+            "marker in it necessarily reads as added. The markers are: "
+            "{markers}. Judge them on whether they belong in new code, not on the fact that "
+            "they are new -- the check cannot tell those apart here.".format(markers=appeared),
+        )
     return "suppression", f"a suppression marker appeared that was not there before: {appeared}"
 
 

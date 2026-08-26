@@ -51,40 +51,59 @@ PLAN: Final[Path] = REPO_ROOT / "docs" / "01-high-level-plan.md"
 #: A fitness function `01` names that has no file here **yet**, because `01` itself schedules it
 #: for a later phase. Pinned, dated, and changed only by a decision-log entry — the ratchet
 #: discipline `01` item 0 requires, so a waiver is a visible act in a diff rather than a silent
-#: edit. **10 is Phase 6's** (`01` → Phase 6 *turns on FF10*, ledger tasks 6.2 and 6.3).
+#: edit.
 #:
-#: **5 is this clause's own first catch, 2026-08-22, and it is L5.4 exactly repeated.** *"Every
-#: declared capability resolves"* has been numbered in `01` since the project's first day and has
-#: no file here — five phases, the same span FF6 went unnoticed for, found in this check's first
-#: run. It is waived rather than built in a lessons drain because its subject is real design work
-#: (`docs/11-multimodal.md`'s extractor accept set is the case task 5.2g's author found unclaimed),
-#: and building a fitness function hastily at a phase close is how a check that cannot fail gets
-#: written. **Ledger task 6.14 owns it**, and this constant is where it is owed from.
-FITNESS_FUNCTIONS_NOT_YET_DUE: Final[frozenset[int]] = frozenset({5, 10})
+#: **10 left this set on 2026-08-25**, both clauses built into
+#: `test_ff10_ship_set_integrity.py`: clause (a) at ledger task **6.2** and clause (b) at **6.3**.
+#: It was held here across 6.2 rather than removed the moment a file with the right *name* existed
+#: — a fitness function `01` states in two clauses is not built while one of them is prose, and
+#: removing a waiver per-clause is how `docs/lessons.md` L5.4 gets re-created one clause at a time.
+#:
+#: **5 left this set on 2026-08-25, at ledger task 6.14**, and it is worth recording what it cost
+#: to be here: it was this clause's own first catch, on 2026-08-22 — *"every declared capability
+#: resolves"* had been numbered in `01` since the project's first day with no file here, five
+#: phases, the same span FF6 went unnoticed for, and `docs/lessons.md` L5.4 exactly repeated. It
+#: was waived rather than built in that drain because its subject is real design work and
+#: **building a fitness function hastily at a phase close is how a check that cannot fail gets
+#: written**. `test_ff5_declared_capability_resolves.py` holds two of FF5's clauses and says
+#: plainly in its own docstring that it does not hold the third, which is pinned there as a
+#: ratchet with ledger task **6.29** owning it — a gap with a constant, a date and an owner rather
+#: than a check pretending to be complete.
+FITNESS_FUNCTIONS_NOT_YET_DUE: Final[frozenset[int]] = frozenset()
 
 #: Check files written before this function existed and carrying no self-test — a **ratchet that
-#: must shrink to empty**, never a snapshot to live with. Seven files, 2026-08-22, found by this
-#: clause's first run. They are waived rather than fixed in this drain for one reason, and it is
-#: the reason this function's own docstring already gives: a self-test written hastily to clear a
-#: list is a `test_..._can_actually_fail` that asserts `True`, which satisfies the check and
-#: nothing else. **Ledger task 6.15 owns draining it**, one file at a time, each with a planted
-#: disagreement that is watched going red. Nothing may be added to this set.
-CHECKS_WITHOUT_A_SELF_TEST: Final[frozenset[str]] = frozenset(
-    {
-        "test_ff0_gate_in_the_gate.py",
-        "test_ff1_boundary.py",
-        "test_ff2_no_privileged_builtins.py",
-        "test_ff3_kernel_budget.py",
-        "test_ff7_colour_integrity.py",
-        "test_ff8_trust_model.py",
-        "test_ff11_pipeline_integrity.py",
-    }
-)
+#: must shrink to empty**, never a snapshot to live with.
+#:
+#: **Empty since 2026-08-25, ledger task 6.15.** Seven files were waived here on 2026-08-22, this
+#: clause's first run. Six were given a self-test one at a time, each planting a disagreement
+#: through the file's own real helpers and watched going red: `test_ff0_gate_in_the_gate.py`,
+#: `test_ff1_boundary.py`, `test_ff2_no_privileged_builtins.py`, `test_ff3_kernel_budget.py`,
+#: `test_ff7_colour_integrity.py` and `test_ff8_trust_model.py` — two of those (FF2, FF8) turned
+#: out to have had one all along under a name this clause did not recognise, and FF8's had
+#: quietly stopped describing the shipped command (`docs/lessons.md` L6.21). The seventh,
+#: `test_ff11_pipeline_integrity.py`, always had four; `_SELF_TEST` above is what could not see
+#: them. **Nothing may be added to this set** — a new check arrives with its self-test or it does
+#: not arrive.
+CHECKS_WITHOUT_A_SELF_TEST: Final[frozenset[str]] = frozenset()
 
-#: How a self-test for clause (b) is spelled. Two forms are already in the tree, written
-#: independently by different tasks; both are accepted rather than one being declared canonical
-#: after the fact.
-_SELF_TEST = re.compile(r"^def test_the_\w*can_actually_fail\w*$|^def test_\w*_can_actually_fail$")
+#: How a self-test for clause (b) is spelled. Written independently by different tasks, so the
+#: forms are read off the population rather than declared — `docs/lessons.md` L6.4.
+#:
+#: **A third form was found at ledger task 6.15 and this pattern did not know it.**
+#: `test_ff11_pipeline_integrity.py` carries four self-tests named `..._would_be_caught`
+#: (`test_a_pipeline_naming_an_unknown_plugin_would_be_caught` and its siblings), every one of
+#: them planting a disagreement and watching the comparison go red — exactly what clause (b)
+#: asks for. This pattern recognised two spellings and the file was therefore waived in
+#: `CHECKS_WITHOUT_A_SELF_TEST` as carrying none, which was false about the tree from the day
+#: the constant was written. The fix is here rather than in that file: renaming four accurate
+#: test names to satisfy a regex would be the check dictating the tree, and the defect was
+#: this pattern being written from what its author expected the convention to be instead of
+#: from what the convention actually was.
+_SELF_TEST = re.compile(
+    r"^def test_the_\w*can_actually_fail\w*$"
+    r"|^def test_\w*_can_actually_fail$"
+    r"|^def test_\w*_would_be_caught$"
+)
 
 #: `01` → *Fitness functions* numbers its entries `0.` through `12.` at the start of a line. Read
 #: from the document rather than restated here, so this cannot drift from the list it checks —

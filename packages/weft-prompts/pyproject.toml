@@ -3,6 +3,8 @@ name = "weft-prompts"
 version = "1.0.0"
 description = "First-party prompt pack. Publishes the Prompt contract and the structured-output cascade."
 requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE", "NOTICE"]
 dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-llm>=1.0.0,<2.0.0"]
 
 # No `[project.entry-points."weft.packs"]` block yet — see `packages/weft-retrieve/pyproject.toml`

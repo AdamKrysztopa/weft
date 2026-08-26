@@ -8,10 +8,11 @@ contributed commands* shows for this exact pack: "`weft graph build` / `weft gra
 --entity \"Acme\"`".
 """
 
-from typing import ClassVar
+from typing import ClassVar, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from weft_command import ExitCode, Rendered
 from weft_command.contract import CommandResult
 from weft_command.permission import PermissionClass
 from weft_example_graph.store import GraphSettings, GraphStore
@@ -40,9 +41,10 @@ class GraphBuildCommand:
 
     `permission_class = OVERWRITE` — `docs/03-cli.md` → *Permissions*: "`weft graph build`
     rebuilding a graph belongs in `overwrite` exactly as a core command would." Needs no
-    access to the primary corpus (see `weft_example_graph.store.GraphBackfillUnavailableError`'s own
-    docstring for the gap this sidesteps by working only from what this pack's own store
-    already holds).
+    access to the primary corpus: it recomputes only from content this pack's own store
+    already holds, unlike `weft reconcile --mode full` (`weft_example_graph.store.GraphStore.
+    reconcile`), which reaches the corpus through `ctx.require(NodeStore)` to backfill nodes
+    this store has never seen.
     """
 
     args_model: ClassVar[type[BaseModel]] = GraphBuildArgs
@@ -142,6 +144,45 @@ class GraphShowCommand:
         )
 
 
+def render_graph_show(result: object) -> Rendered:
+    """`weft example-graph show`, for a person — task **6.20**, G13's third repair.
+
+    Before this function existed, `weft example-graph show` printed the raw structured dump
+    every unregistered result falls through to — `{"nodes_with_graph_data":11,...}` — while
+    every built-in command's own result printed prose. Registered through the identical
+    `PackRegistrar.add_renderer` seam `weft_cli.commands.register` uses for its own eighteen
+    (`weft_example_graph.register`, beside this pack's other five extension points), so this
+    pack's own result reaches the same seam a stranger's does — there is no second, private
+    path for a built-in to have kept.
+
+    Takes `object`, not `GraphShowResult`, and `cast`s internally — the same defensive-cast
+    idiom `weft_cli.render`'s own registered dispatch wrappers use for the identical reason:
+    `PackRegistrar.add_renderer`'s own `renderer` parameter is `Callable[[object], object]`,
+    since the kernel names no capability and cannot narrow it to this pack's own result type.
+    Public (no leading underscore), because `weft_example_graph.register` — a different
+    module in this pack — calls it directly.
+    """
+    typed = cast(GraphShowResult, result)
+    lines = [
+        f"{typed.nodes_with_graph_data} node(s) carry graph data: "
+        f"{typed.distinct_entities} distinct entities, {typed.distinct_relations} "
+        f"distinct relations."
+    ]
+    if typed.top_entities:
+        lines.append("top entities:")
+        lines.extend(f"  {entity.name} ({entity.count})" for entity in typed.top_entities)
+    if typed.entity is not None:
+        lines.append(f"neighbours of '{typed.entity}':")
+        if typed.neighbors:
+            lines.extend(
+                f"  {neighbor.predicate} {neighbor.name} ({neighbor.count})"
+                for neighbor in typed.neighbors
+            )
+        else:
+            lines.append("  (none)")
+    return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
+
+
 __all__ = [
     "GraphBuildArgs",
     "GraphBuildCommand",
@@ -149,4 +190,5 @@ __all__ = [
     "GraphShowArgs",
     "GraphShowCommand",
     "GraphShowResult",
+    "render_graph_show",
 ]

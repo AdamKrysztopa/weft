@@ -8,14 +8,36 @@ a terminal. `--json`'s newline-delimited event sink and the REPL's own renderer 
 byte for byte, what the five retired `handle_*` functions in `weft_cli.cli` used to print
 directly, now computed from data instead of interleaved with the logic that produced it.
 
-**Why exit code lives here and not on the result.** `weft_command.contract.CommandResult` is
-capability-agnostic — it does not know `weft_cli.exit_codes.ExitCode` exists, on the same
-footing G1 holds the kernel to for a capability name. `IndexCommandResult.summary.failed > 0`
-still has to become exit code `1` somewhere, and "the CLI renders it" (`03`'s governing rule) is
-exactly the licence to compute that here, from the typed fields a command actually returned,
-rather than smuggling a process-exit concept into the contract to avoid one `isinstance` in this
-module. This mirrors `weft_cli.exit_codes.exit_code_for`'s own placement for exceptions: one
-function owns the whole mapping from "what happened" to "what the process reports."
+**Task 6.20 (G13) — `Rendered` and `ExitCode` move to `weft_command`, and the dispatch itself
+becomes a registration, not a table.** `docs/03-cli.md` → *Plugin-contributed commands*: "a
+result type nobody outside the CLI can format is only half a contract" — before this task,
+`_RENDERERS` matched only the CLI's own result types, so a pack's own `show` command printed a raw
+JSON dump at a person while eighteen built-in commands printed for one. `register_renderers`
+below registers every one of those eighteen through `weft_kernel.discovery.PackRegistrar.
+add_renderer`, the identical seam a third-party pack's own `register()` calls — so a built-in
+renderer and a stranger's are indistinguishable at the seam, and `weft_cli.commands.register`
+calls this function on exactly the same footing it calls `register_pipeline_commands` or
+`register_eval_commands`. `register_renderers_from_reports` is the generic consumer, modelled
+directly on `weft_store.rehydrate.register_from_reports` (task 5.2g) — read that function's own
+docstring first; this is the identical mechanism one surface over: idempotent for a result type
+already held by the identical renderer callable (discovery runs more than once in one process
+across this tree's own suite, and a report re-read is the same fact stated again), and a
+`weft_kernel.registry.DuplicateRegistrationError` for a *different* renderer claiming a result
+type already held, naming both distributions — two packs claiming one result type is a real
+collision, not a repeat. `_render_result` below looks a result up in that registry by walking
+`type(result).__mro__`, and still falls through to `_render_unknown` when nothing is registered
+— the floor stays the floor, and stops being the ceiling.
+
+**Why exit code still lives in a renderer's vocabulary, not on the result — now stated in
+`weft_command.render`'s own docstring, since that is where `Rendered`/`ExitCode` now live.**
+`weft_command.contract.CommandResult` is still capability-agnostic — it does not know
+`ExitCode` exists, on the same footing G1 holds the kernel to for a capability name.
+`IndexCommandResult.summary.failed > 0` still has to become exit code `1` somewhere, and "the
+CLI renders it" (`03`'s governing rule) is exactly the licence every renderer registered here
+takes, computing it from the typed fields a command actually returned. This mirrors
+`weft_cli.exit_codes.exit_code_for`'s own placement for exceptions: one function owns the whole
+mapping from "what happened" to "what the process reports," for a wider family — exceptions,
+not results.
 
 **Two things a result never carries.** Rank order in `weft ask`'s text output, never a raw
 score (`docs/03-cli.md` → *Output*, *Score display* — `AskHit.score` still travels, unrendered,
@@ -33,13 +55,16 @@ own docstring) — `_render_ask` below is the one renderer that reads it, to omi
 text rather than the whole answer: `--quiet` (`NullSink`, which carries no such attribute — read
 with `getattr(..., False)`, `weft_kernel.runner._flush_of`'s own defensive-duck-typing idiom)
 still gets the full text here, because nothing streamed it live and G6's "`--quiet` suppresses
-progress but keeps the result" still has to hold.
+progress but keeps the result" still has to hold. `AskCommandResult` still reaches `_render_ask`
+through a special case in `_render_result` rather than through the registered dispatch, because
+`streamed` is call-specific state no registered `(result type, renderer)` pair carries — it is
+still registered, bound with `streamed=False`, so the built-in count stays honest even though
+`_render_result` never actually calls it that way.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from collections.abc import Callable, Iterable, Mapping
 from typing import cast
 
 from weft_cli.commands import (
@@ -61,7 +86,7 @@ from weft_cli.eval_commands import (
     MetricComparison,
     TraceCommandResult,
 )
-from weft_cli.exit_codes import ExitCode, exit_code_for
+from weft_cli.exit_codes import exit_code_for
 from weft_cli.output import AskFormat
 from weft_cli.pipeline_commands import (
     PipelineDeriveCommandResult,
@@ -73,19 +98,20 @@ from weft_cli.pipeline_commands import (
 from weft_cli.pipeline_diff import PipelineDiff
 from weft_cli.plugins_report import render_doctor, render_list
 from weft_cli.reconcile import ReconcileEstimateOutcome, ReconcileOutcome
+from weft_command import ExitCode
+
+# Explicit re-export — `Rendered` moved to `weft-command` at task 6.20 (see that
+# module's own docstring), and roughly six callers in this distribution plus their
+# tests import it from here. `as Rendered` rather than a bare import is what makes it
+# a *public* re-export under pyright strict, the identical form `weft_cli.exit_codes`
+# already uses for `ExitCode` one module over.
+from weft_command import Rendered as Rendered
 from weft_command.contract import CommandResult
 from weft_eval.run_record import MetricRunResult
+from weft_kernel.discovery import PackRegistrar, PackReport, PackStatus, RendererOffer
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import NothingToProduce, Outcome, Produced
-
-
-@dataclass(frozen=True, slots=True)
-class Rendered:
-    """What `main` writes, and with what exit code — `None` means nothing prints on that stream."""
-
-    stdout: str | None
-    stderr: str | None
-    exit_code: ExitCode
+from weft_kernel.registry import Registry, UnknownPluginError
 
 
 def render_outcome(outcome: Outcome[CommandResult], *, streamed: bool = False) -> Rendered:
@@ -150,6 +176,7 @@ def _render_plugins_doctor(result: PluginsDoctorCommandResult) -> Rendered:
         result.tracing,
         result.skew,
         result.unreachable_contributions,
+        result.versions,
     )
     return Rendered(stdout=stdout, stderr=None, exit_code=ExitCode.SUCCESS)
 
@@ -296,70 +323,89 @@ def _render_unknown(result: CommandResult) -> Rendered:
     return Rendered(stdout=result.model_dump_json(), stderr=None, exit_code=ExitCode.SUCCESS)
 
 
-#: `(result type, renderer)`, tried in order — a dispatch table rather than an `isinstance`
-#: chain, so `_render_result` stays one loop no matter how many `CommandResult` subclasses
-#: this module ends up knowing about (`ruff`'s own complexity check is what asked for this
-#: shape once task 3.7 doubled the count it has to tell apart). Every renderer is wrapped in
-#: a `lambda` that `cast`s its argument down to the specific result type it was written
-#: against — the same defensive-cast idiom every `Command.run` in `weft_cli.commands` already
-#: uses for its own `args` parameter — so each `_render_*` function below keeps the precise
-#: signature its own tests already call it with, rather than every one of them widening to
-#: `CommandResult` purely to satisfy this table. A stranger's result matches nothing here and
-#: falls through to `_render_unknown`, exactly as it did before this table existed.
-#: `AskCommandResult` is deliberately absent here — it is the one result type `streamed`
-#: matters for, so `_render_result` special-cases it ahead of this table rather than widening
-#: every other renderer's own lambda to a parameter it would never use.
-_RENDERERS: tuple[tuple[type[CommandResult], Callable[[CommandResult], Rendered]], ...] = (
-    (IndexCommandResult, lambda r: _render_index(cast(IndexCommandResult, r))),
-    (PluginsListCommandResult, lambda r: _render_plugins_list(cast(PluginsListCommandResult, r))),
-    (
-        PluginsDoctorCommandResult,
-        lambda r: _render_plugins_doctor(cast(PluginsDoctorCommandResult, r)),
-    ),
-    (InitCommandResult, lambda r: _render_init(cast(InitCommandResult, r))),
-    (DeleteCommandResult, lambda r: _render_delete(cast(DeleteCommandResult, r))),
-    (
-        ReconcileCommandResult,
-        lambda r: _render_reconcile(cast(ReconcileCommandResult, r)),
-    ),
-    (
-        PipelineListCommandResult,
-        lambda r: _render_pipeline_list(cast(PipelineListCommandResult, r)),
-    ),
-    (
-        PipelineShowCommandResult,
-        lambda r: _render_pipeline_show(cast(PipelineShowCommandResult, r)),
-    ),
-    (
-        PipelineDeriveCommandResult,
-        lambda r: _render_pipeline_derive(cast(PipelineDeriveCommandResult, r)),
-    ),
-    (
-        PipelineValidateCommandResult,
-        lambda r: _render_pipeline_validate(cast(PipelineValidateCommandResult, r)),
-    ),
-    (
-        PipelineDiffCommandResult,
-        lambda r: _render_pipeline_diff(cast(PipelineDiffCommandResult, r)),
-    ),
-    (ConfigGetCommandResult, lambda r: _render_config_get(cast(ConfigGetCommandResult, r))),
-    (ConfigSetCommandResult, lambda r: _render_config_set(cast(ConfigSetCommandResult, r))),
-    (EvalRunCommandResult, lambda r: _render_eval_run(cast(EvalRunCommandResult, r))),
-    (EvalCompareCommandResult, lambda r: _render_eval_compare(cast(EvalCompareCommandResult, r))),
-    (TraceCommandResult, lambda r: _render_trace(cast(TraceCommandResult, r))),
-    (
-        EvalMetricsCommandResult,
-        lambda r: _render_eval_metrics(cast(EvalMetricsCommandResult, r)),
-    ),
-)
+#: `(CommandResult, qualified result-type name) -> renderer` — task **6.20**. A `Registry`
+#: rather than a hand-rolled `dict`, on `weft_store.rehydrate.ext_models`'s own precedent
+#: (that module's docstring names the reasoning in full): a result type claimed twice by two
+#: different renderers raises `DuplicateRegistrationError` naming both distributions, for
+#: free, rather than one silently overwriting the other. Keyed on `CommandResult` as the
+#: shared "contract" — every real key is a `CommandResult` subclass's own qualified name, so
+#: two unrelated types happening to share a bare class name in different modules never
+#: collide. Never read directly: `register_renderers_from_reports` writes it,
+#: `_lookup_renderer` reads it, and this module never learns any capability from what it
+#: holds — the kernel's own restraint, kept up here too.
+_renderer_registry: Registry = Registry()
+
+
+def _renderer_key(result_type: type[object]) -> str:
+    """The `Registry` name a `CommandResult` subclass registers its renderer under."""
+    return f"{result_type.__module__}.{result_type.__qualname__}"
+
+
+def register_renderers_from_reports(reports: Iterable[PackReport]) -> None:
+    """Register every renderer any pack declared through `PackRegistrar.add_renderer`.
+
+    Task **6.20** — the generic consumer of `PackReport.renderers`, modelled directly on
+    `weft_store.rehydrate.register_from_reports` (task 5.2g): it walks whatever every report
+    carries and knows nothing about which pack contributed which renderer, so a future pack
+    shipping a new `CommandResult` costs this function nothing to support. Call once, after
+    `discover()` returns — `weft_cli.registry_bootstrap.build_dependencies` is the one caller.
+
+    **Idempotent for a result type already held by the identical renderer callable** — the
+    same check `register_from_reports` makes for a namespace and its `ExtModel`, generalised
+    here for a result type and its renderer: this function is safe to call more than once in
+    one process (every test in this tree's own suite that calls `discover()` more than once
+    does), because a result type `_renderer_registry` already holds against the exact same
+    callable is not a collision, only a repeat report of the same fact. A *different*
+    callable claiming a result type already held raises
+    `weft_kernel.registry.DuplicateRegistrationError`, naming both distributions — two packs
+    claiming one result type is a real collision this function must not paper over.
+    """
+    for report in reports:
+        for offer in report.renderers:
+            _register_renderer_if_new(offer)
+
+
+def _register_renderer_if_new(offer: RendererOffer) -> None:
+    """`_renderer_registry.add(...)` for `offer`, skipped only when `offer.result_type`
+    already claims `offer.render` itself — see `register_renderers_from_reports`'s own
+    docstring for why.
+    """
+    name = _renderer_key(offer.result_type)
+    try:
+        registrant = _renderer_registry.entry(CommandResult, name).factory
+    except UnknownPluginError:
+        _renderer_registry.add(CommandResult, name, offer.render, distribution=offer.distribution)
+        return
+    if registrant is not offer.render:
+        _renderer_registry.add(CommandResult, name, offer.render, distribution=offer.distribution)
+
+
+def _lookup_renderer(result: CommandResult) -> Callable[[object], object] | None:
+    """The registered renderer for `result`'s own type, or the first ancestor of it that has
+    one — `type(result).__mro__`, walked most-specific first, so a subclass's own registered
+    renderer wins over a base class's. `None` when nothing along that chain was ever
+    registered, which `_render_result` reads as "fall through to `_render_unknown`."
+    """
+    for cls in type(result).__mro__:
+        try:
+            entry = _renderer_registry.entry(CommandResult, _renderer_key(cls))
+        except UnknownPluginError:
+            continue
+        return entry.factory
+    return None
 
 
 def _render_result(result: CommandResult, *, streamed: bool) -> Rendered:
+    # `AskCommandResult` is the one result type `streamed` matters for — call-specific state
+    # no registered `(result type, renderer)` pair carries — so it is special-cased ahead of
+    # the registered dispatch rather than the dispatch widening every renderer to a parameter
+    # only one of them would ever use. It is still registered (see `register_renderers`,
+    # bound with `streamed=False`) so the built-in count stays honest.
     if isinstance(result, AskCommandResult):
         return _render_ask(result, streamed=streamed)
-    for result_type, renderer in _RENDERERS:
-        if isinstance(result, result_type):
-            return renderer(result)
+    renderer = _lookup_renderer(result)
+    if renderer is not None:
+        return cast(Rendered, renderer(result))
     return _render_unknown(result)
 
 
@@ -637,3 +683,150 @@ def _render_eval_metrics(result: EvalMetricsCommandResult) -> Rendered:
         f"does not run in the gate: {', '.join(result.gate_unsafe) or '(none)'}",
     ]
     return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
+
+
+# --- the eighteen built-in dispatch wrappers, and `register_renderers` — task 6.20 ----------
+#
+# Each wrapper below is a plain module-level `def`, never a `lambda` bound inside
+# `register_renderers` itself: `register_renderers` runs once per `discover()` call, and a
+# `lambda` built inside its body would be a *new* callable object every time, which would
+# make every call after the first look like "a different renderer for a result type already
+# held" to `register_renderers_from_reports`'s identity check — a false collision between
+# `weft-cli` and itself. A module-level `def`, built exactly once at import time, is the same
+# object every time `register_renderers` runs, so a second `discover()` in the same process
+# is correctly read as the identical fact restated. Each one still only `cast`s its argument
+# down to the specific result type the wrapped `_render_*` function was written against — the
+# same defensive-cast idiom every `Command.run` in `weft_cli.commands` already uses for its
+# own `args` parameter — so no `_render_*` function widens its own signature to `CommandResult`
+# purely to satisfy this seam.
+def _dispatch_index(result: object) -> Rendered:
+    return _render_index(cast(IndexCommandResult, result))
+
+
+def _dispatch_plugins_list(result: object) -> Rendered:
+    return _render_plugins_list(cast(PluginsListCommandResult, result))
+
+
+def _dispatch_plugins_doctor(result: object) -> Rendered:
+    return _render_plugins_doctor(cast(PluginsDoctorCommandResult, result))
+
+
+def _dispatch_init(result: object) -> Rendered:
+    return _render_init(cast(InitCommandResult, result))
+
+
+def _dispatch_delete(result: object) -> Rendered:
+    return _render_delete(cast(DeleteCommandResult, result))
+
+
+def _dispatch_reconcile(result: object) -> Rendered:
+    return _render_reconcile(cast(ReconcileCommandResult, result))
+
+
+def _dispatch_pipeline_list(result: object) -> Rendered:
+    return _render_pipeline_list(cast(PipelineListCommandResult, result))
+
+
+def _dispatch_pipeline_show(result: object) -> Rendered:
+    return _render_pipeline_show(cast(PipelineShowCommandResult, result))
+
+
+def _dispatch_pipeline_derive(result: object) -> Rendered:
+    return _render_pipeline_derive(cast(PipelineDeriveCommandResult, result))
+
+
+def _dispatch_pipeline_validate(result: object) -> Rendered:
+    return _render_pipeline_validate(cast(PipelineValidateCommandResult, result))
+
+
+def _dispatch_pipeline_diff(result: object) -> Rendered:
+    return _render_pipeline_diff(cast(PipelineDiffCommandResult, result))
+
+
+def _dispatch_config_get(result: object) -> Rendered:
+    return _render_config_get(cast(ConfigGetCommandResult, result))
+
+
+def _dispatch_config_set(result: object) -> Rendered:
+    return _render_config_set(cast(ConfigSetCommandResult, result))
+
+
+def _dispatch_eval_run(result: object) -> Rendered:
+    return _render_eval_run(cast(EvalRunCommandResult, result))
+
+
+def _dispatch_eval_compare(result: object) -> Rendered:
+    return _render_eval_compare(cast(EvalCompareCommandResult, result))
+
+
+def _dispatch_trace(result: object) -> Rendered:
+    return _render_trace(cast(TraceCommandResult, result))
+
+
+def _dispatch_eval_metrics(result: object) -> Rendered:
+    return _render_eval_metrics(cast(EvalMetricsCommandResult, result))
+
+
+def _dispatch_ask(result: object) -> Rendered:
+    # `_render_result`'s own special-case is what actually reads `streamed` for a live
+    # request — see that function's docstring. Registering this bound-`False` wrapper keeps
+    # `AskCommandResult` counted among the built-ins `register_renderers` offers, without
+    # changing what `_render_result` does for it.
+    return _render_ask(cast(AskCommandResult, result), streamed=False)
+
+
+def register_renderers(registrar: PackRegistrar) -> None:
+    """Register every built-in renderer through the identical seam a stranger's pack uses.
+
+    Task **6.20**, G13's third repair — requirement 4 ("built-ins get no privileged path"),
+    made checkable at runtime rather than merely asserted: `weft_cli.commands.register` calls
+    this on the same footing it calls `register_pipeline_commands`/`register_eval_commands`,
+    so every one of these eighteen calls to `registrar.add_renderer` is indistinguishable, at
+    the seam, from the identical call any third-party pack's own `register()` makes for its own
+    result type. **This module may not name the pack that proves it**, and that is fitness
+    function 9(b) rather than shyness: a first-party file naming the out-of-tree pack would make
+    the pack part of what it is meant to be independent of.
+    """
+    registrar.add_renderer(IndexCommandResult, _dispatch_index)
+    registrar.add_renderer(PluginsListCommandResult, _dispatch_plugins_list)
+    registrar.add_renderer(PluginsDoctorCommandResult, _dispatch_plugins_doctor)
+    registrar.add_renderer(InitCommandResult, _dispatch_init)
+    registrar.add_renderer(DeleteCommandResult, _dispatch_delete)
+    registrar.add_renderer(ReconcileCommandResult, _dispatch_reconcile)
+    registrar.add_renderer(PipelineListCommandResult, _dispatch_pipeline_list)
+    registrar.add_renderer(PipelineShowCommandResult, _dispatch_pipeline_show)
+    registrar.add_renderer(PipelineDeriveCommandResult, _dispatch_pipeline_derive)
+    registrar.add_renderer(PipelineValidateCommandResult, _dispatch_pipeline_validate)
+    registrar.add_renderer(PipelineDiffCommandResult, _dispatch_pipeline_diff)
+    registrar.add_renderer(ConfigGetCommandResult, _dispatch_config_get)
+    registrar.add_renderer(ConfigSetCommandResult, _dispatch_config_set)
+    registrar.add_renderer(EvalRunCommandResult, _dispatch_eval_run)
+    registrar.add_renderer(EvalCompareCommandResult, _dispatch_eval_compare)
+    registrar.add_renderer(TraceCommandResult, _dispatch_trace)
+    registrar.add_renderer(EvalMetricsCommandResult, _dispatch_eval_metrics)
+    registrar.add_renderer(AskCommandResult, _dispatch_ask)
+
+
+def _bootstrap_built_in_renderers() -> None:
+    """Seed `_renderer_registry` with the built-ins the moment this module is imported.
+
+    `weft_cli.commands.register` calling `register_renderers` (through discovery, or through
+    `weft_cli.registry_bootstrap.build_dependencies` calling `register_renderers_from_reports`
+    beside it) is what a *running* `weft` does — but this module is usable stand-alone, and
+    most of this module's own tests, plus every caller that pre-dates task 6.20, call
+    `render_outcome` directly without ever running discovery first. This runs the identical
+    `register_renderers`/`register_renderers_from_reports` path a real discovery pass would,
+    against a throwaway `Registry`/`PackRegistrar`, so the built-ins are reachable either way
+    without a second, independently-drifting registration mechanism: a later, real discovery
+    pass registering the same eighteen callables again is the identical-renderer repeat case
+    `register_renderers_from_reports` already treats as a no-op, never a collision.
+    """
+    registrar = PackRegistrar(Registry(), distribution="weft-cli")
+    register_renderers(registrar)
+    report = PackReport(
+        distribution="weft-cli", status=PackStatus.ACTIVE, renderers=registrar.renderers
+    )
+    register_renderers_from_reports([report])
+
+
+_bootstrap_built_in_renderers()

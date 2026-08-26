@@ -41,6 +41,7 @@ from weft_kernel.errors import WeftError
 from weft_kernel.payload import SCHEMA_VERSION_KEY, Node, NodeId, Outcome, Produced, SourceId
 from weft_store.contract import (
     Cursor,
+    NodeStore,
     Page,
     ReconcileEstimate,
     ReconcileMode,
@@ -125,27 +126,6 @@ class GraphDsnNotConfiguredError(WeftError):
     Raised only where a connection is actually opened — never at `register()`, which never
     calls `_connection` — so a pack installed with no settings still registers cleanly and
     fails exactly where an operator's mistake becomes consequential.
-    """
-
-
-class GraphBackfillUnavailableError(WeftError):
-    """`Reconcilable.reconcile(ctx, mode=FULL)` cannot be honoured — a design finding, not a bug.
-
-    `docs/02-extension-model.md` section 1 promises "`full` backfills entities for nodes
-    indexed by a pipeline that had no graph stage", which needs this store to enumerate the
-    primary corpus's own nodes (or at least its active sources) — `list_sources`/`scan`/
-    `count` "already answer what should exist", per that same section. But `Reconcilable.
-    reconcile`/`.estimate` receive only a bare `Context`, and nothing reachable from it names
-    the primary store: `ctx.services` carries only `weft_cli.commands.Dependencies` (a
-    private core type a pack must not depend on, per `docs/02` section 1's own "a pack
-    depends on the pack that publishes the contract it implements... never on the thing that
-    calls it"); `ctx.require(NodeStore)` resolves nothing for a bare `weft reconcile`/
-    `weft index` call (no run assembler populates it there — that seam exists only for a
-    resolved *query* pipeline); and `weft_retrieve.contract.StageLookup` is scoped to a
-    resolved pipeline run and never constructed for a `Reconcilable` fan-out either. `repair`
-    below still runs — it converges this pack's own bookkeeping against its own stored node
-    content, which needs no such access. Logged in `docs/lessons.md` and `docs/build-
-    ledger.md` task 5.4/5.5's own entry as a Phase 5 design finding.
     """
 
 
@@ -317,14 +297,26 @@ class GraphStore:
     # -- Reconcilable ----------------------------------------------------------------------
 
     async def estimate(self, ctx: Context, mode: ReconcileMode) -> ReconcileEstimate:
-        del ctx
         if mode is ReconcileMode.FULL:
-            raise GraphBackfillUnavailableError(
-                "weft-example-graph cannot estimate a 'full' backfill: see "
-                "GraphBackfillUnavailableError's "
-                "own docstring for exactly what access is missing and why.",
-                pack="weft-example-graph",
+            corpus = ctx.require(NodeStore)
+            pending = 0
+            cursor: Cursor | None = None
+            while True:
+                page = await corpus.scan(cursor)
+                pending += len(await self._missing_from(page.items))
+                cursor = page.next_cursor
+                if cursor is None:
+                    break
+            return ReconcileEstimate(
+                mode=mode,
+                pending=pending,
+                description=(
+                    f"{pending} node(s) in the corpus have no graph data yet and would be "
+                    f"backfilled from their own stored content"
+                ),
+                model_calls=0,
             )
+        del ctx
         conn = await self._connection()
         async with conn.cursor() as cur:
             await cur.execute("SELECT count(*) AS n FROM exgraph_nodes")
@@ -341,44 +333,85 @@ class GraphStore:
         )
 
     async def reconcile(self, ctx: Context, mode: ReconcileMode) -> ReconcileReport:
-        """Repairs this pack's *own* bookkeeping against its *own* stored node content.
+        """Repairs this pack's *own* bookkeeping against its *own* stored node content, and,
+        for `full`, also backfills from the corpus.
 
-        **What this deliberately does not do.** `docs/02-extension-model.md` section 4's own
-        table promises "`repair` drops orphans left by anything the [deletion] fan-out
-        missed" — which means comparing this store's own `sources` against the *primary*
-        corpus's current source list, something this method has no access to (see
-        `GraphBackfillUnavailableError`'s own docstring; the same gap applies to `repair`,
-        not only to `full`, since both need to know "what should exist" from *outside* this
-        store). What it *can* do honestly, with nothing but its own tables: recompute every
-        node's entities/relations from that node's own stored content and re-derive them,
-        so a partial write (a crash between the node upsert and the entities/relations
-        upsert in `add`, since each statement autocommits independently) cannot leave the
-        two out of step. Idempotent — running it twice does the same work and reaches the
-        same state — and this pass is small enough in this pack's own worked examples to run
-        in one statement rather than a paged cursor; `remaining` is honestly `0` because
-        nothing here is left unexamined.
+        **`repair` does two things, and task 6.21 built the second.** It recomputes every
+        node's entities/relations from that node's own stored content and re-derives them, so
+        a partial write (a crash between the node upsert and the entities/relations upsert in
+        `add`, since each statement autocommits independently) cannot leave the two out of
+        step. And it **drops orphans** — `docs/02-extension-model.md` section 4's own table:
+        "`repair` drops orphans left by anything the [deletion] fan-out missed". An orphan is
+        a node here whose source the *primary corpus* no longer lists, which this store cannot
+        answer from its own tables and could not ask about at all until task 6.19 put the
+        corpus on the passport. The deletion fan-out reaching this store in-command (task
+        6.18) makes an orphan rarer, never impossible: a participant that raised part-way
+        through leaves exactly this. Idempotent — running it twice does the same work and
+        reaches the same state.
+
+        **So `repair` requires the corpus too, and refuses without it.** Doing the half it can
+        and silently skipping orphan detection is `01` rule 5's silent degradation with extra
+        steps: the operator would read "converged" and still be holding orphans. A run with no
+        `NodeStore` on the passport raises `UnresolvedServiceError`, naming what was wanted and
+        what is available, and the fan-out records that as this participant's own named failure
+        rather than swallowing it.
+
+        **`full` additionally backfills, task 6.19 (G13's second repair).** `docs/02` section
+        1 → *Extended by G13*: a participant that is not the primary store reaches it through
+        the passport, `ctx.require(NodeStore)` — G1's one resolution seam, never a wider
+        `reconcile` signature. Every node the corpus holds and this store does not is given
+        `GraphData` derived from its own content and stored, exactly what `02` section 4's own
+        table row promises: "`full` backfills entities for nodes indexed by a pipeline that
+        had no graph stage". `remaining` is honestly `0` because nothing here is left
+        unexamined.
         """
-        del ctx
-        if mode is ReconcileMode.FULL:
-            raise GraphBackfillUnavailableError(
-                "weft-example-graph cannot converge in 'full' mode: see "
-                "GraphBackfillUnavailableError's "
-                "own docstring for exactly what access is missing and why.",
-                pack="weft-example-graph",
-            )
+        corpus = ctx.require(NodeStore)
+        live = await _live_sources(corpus)
         conn = await self._connection()
         examined = 0
         removed = 0
         async with conn.cursor() as cur:
-            await cur.execute("SELECT id, ext FROM exgraph_nodes ORDER BY id")
+            await cur.execute("SELECT id, ext, sources FROM exgraph_nodes ORDER BY id")
             rows = await cur.fetchall()
             for row in rows:
                 examined += 1
                 node_id = cast(NodeId, row["id"])
+                sources = {str(source) for source in cast("list[object]", row["sources"])}
+                if sources and not (sources & live):
+                    removed += await _drop_node(cur, node_id)
+                    continue
                 raw_ext = cast(dict[str, object], row["ext"])
                 data = _graph_data_of(raw_ext)
                 removed += await _replace_graph_rows(cur, node_id, data)
-        return ReconcileReport(mode=mode, examined=examined, removed=removed, remaining=0)
+
+        backfilled = 0
+        if mode is ReconcileMode.FULL:
+            cursor: Cursor | None = None
+            while True:
+                page = await corpus.scan(cursor)
+                examined += len(page.items)
+                for node in await self._missing_from(page.items):
+                    entities, relations = extract_graph_data(node.content)
+                    await self.add(
+                        [node.with_ext(GraphData(entities=entities, relations=relations))]
+                    )
+                    backfilled += 1
+                cursor = page.next_cursor
+                if cursor is None:
+                    break
+
+        return ReconcileReport(
+            mode=mode, examined=examined, removed=removed, backfilled=backfilled, remaining=0
+        )
+
+    async def _missing_from(self, nodes: Sequence[Node]) -> list[Node]:
+        """Which of `nodes` this store does not already hold — one batched `get` over their
+        own ids, never assumed.
+        """
+        if not nodes:
+            return []
+        held_ids = {held.id for held in await self.get([node.id for node in nodes])}
+        return [node for node in nodes if node.id not in held_ids]
 
     # -- This pack's own additional surface, for its retriever and commands ----------------
 
@@ -510,6 +543,46 @@ def _count_of(row: Mapping[str, object] | None) -> int:
     return cast(int, row["n"]) if row is not None else 0
 
 
+async def _live_sources(corpus: NodeStore) -> set[str]:
+    """Every source id the primary corpus still holds something for — task **6.21**.
+
+    **Read off `scan()`, not off `list_sources()`, and that is a measurement rather than a
+    preference.** `docs/02-extension-model.md` section 1 says `list_sources`/`scan`/`count`
+    "already answer what should exist", which is true of the *contract* and was false of the
+    running system when this was written: nothing on the ingest path calls `put_source`, so
+    `weft_sources` is empty after a real `weft index` and `list_sources()` returns `()`. An
+    orphan rule resting on it deleted every graph node the `kg` pipeline had just written —
+    found by running the binary, not by this pack's tests, which had populated the double by
+    hand (`docs/lessons.md` L6.14, ledger task **6.24**).
+
+    So both are read and unioned: a node's own lineage names the sources it came from and is
+    populated by every writer, and `list_sources()` contributes whatever a store that *does*
+    keep a source registry knows. Neither can invent a source the other would have missed, and
+    the union degrades correctly in both directions.
+    """
+    live = {str(record.id) for record in await corpus.list_sources()}
+    cursor: Cursor | None = None
+    while True:
+        page = await corpus.scan(cursor)
+        for node in page.items:
+            live.update(str(source) for source in node.lineage.sources)
+        cursor = page.next_cursor
+        if cursor is None:
+            return live
+
+
+async def _drop_node(cur: "psycopg.AsyncCursor[dict[str, Any]]", node_id: NodeId) -> int:
+    """Remove one orphaned node and everything derived from it. Returns how many rows went.
+
+    Task **6.21**. Reached only from `reconcile(REPAIR)`, for a node none of whose sources the
+    primary corpus still lists — see that method's own docstring for what an orphan is and why
+    only the corpus can say.
+    """
+    removed = await _replace_graph_rows(cur, node_id, None)
+    await cur.execute("DELETE FROM exgraph_nodes WHERE id = %s", (node_id,))
+    return removed + cur.rowcount
+
+
 async def _replace_graph_rows(
     cur: "psycopg.AsyncCursor[dict[str, Any]]", node_id: NodeId, data: GraphData | None
 ) -> int:
@@ -589,7 +662,6 @@ def _row_to_source_record(row: Mapping[str, object]) -> SourceRecord:
 
 
 __all__ = [
-    "GraphBackfillUnavailableError",
     "GraphDsnNotConfiguredError",
     "GraphSettings",
     "GraphStore",

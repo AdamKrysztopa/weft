@@ -48,7 +48,13 @@ requires-python = ">=3.12"
 # chunker pack needs from it: the `Chunker` Protocol it publishes — the same
 # relationship docs/07-extension-cost.md section 1 states for any pack that
 # implements a contract it does not itself define.
-dependencies = ["weft-kernel", "weft-chunk"]
+#
+# **Both carry `>=X,<MAJOR+1`, and that is the point of an exemplar** — weft's ledger task 6.26.
+# G9 settled that a version requirement *is* the dependency specifier and bare names end; this
+# pack, and the five beside it, declared bare names until that task, so the thing a pack author
+# copies was teaching that bounds are optional. `tests/architecture/test_example_packs_are_
+# exemplars.py` in the weft repository is what keeps them from drifting back.
+dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-chunk>=1.0.0,<2.0.0"]
 
 # The one entry point a pack declares (weft's docs/02-extension-model.md
 # section 2). Nothing under weft's own packages/ or testing/ names this
@@ -595,6 +601,8 @@ name = "weft-store"
 version = "2.0.0"
 description = "First-party storage pack. Publishes the Store contract family."
 requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE", "NOTICE"]
 dependencies = ["weft-kernel>=0.1.0,<1.0.0", "psycopg[binary]>=3.2", "pgvector>=0.3"]
 
 # The one entry point a pack declares (`docs/02-extension-model.md` section 2).

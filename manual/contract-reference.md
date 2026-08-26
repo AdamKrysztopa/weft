@@ -97,7 +97,7 @@ async def run(
 
 **Module:** `weft_command.contract`  
 **Registered by:** `weft-cli`  
-**Version:** `2.0.0`
+**Version:** `2.1.0`
 
 One CLI-invoked action a pack contributes, registered exactly as it registers a retriever.
 

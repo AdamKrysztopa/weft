@@ -87,9 +87,15 @@ class ReconcileEstimateOutcome(BaseModel):
         return self.error is not None
 
 
-def participants(*, registry: Registry, store_name: str) -> tuple[Participant, ...]:
-    """Every registered plugin that can converge its own state — `weft_cli.fanout`, narrowed."""
-    return participants_for(Reconcilable, registry=registry, store_name=store_name)
+def participants(*, registry: Registry, store_names: frozenset[str]) -> tuple[Participant, ...]:
+    """Every registered plugin that can converge its own state — `weft_cli.fanout`, narrowed.
+
+    `store_names` widened from a single name at task **6.18** — G13's first repair,
+    `docs/02-extension-model.md` §1 → *Extended by G13* — since `weft delete` and `weft
+    reconcile` share `participants_for` and must not disagree about who a `NodeStore` fan-out
+    reaches: the caller computes the set through `weft_cli.participation.stores_in_use`.
+    """
+    return participants_for(Reconcilable, registry=registry, store_names=store_names)
 
 
 async def reconcile_everywhere(

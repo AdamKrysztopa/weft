@@ -18,6 +18,15 @@ separate axis again (a payload primitive, never a contract) — not one of the s
 omitted either: see `docs/02-extension-model.md` section 1's "Call it only for an
 `ExtModel` that attaches to `Node.ext`" rule, which `GraphData` does.
 
+`registrar.add_renderer(GraphShowResult, ...)` — task **6.20**, G13's third repair — is an
+eighth registrar call, on the identical further axis `add_ext_model` already established: a
+`CommandResult` a person can read, never a contract, so the six-contract count above does not
+grow either. Before it, `weft graph show` printed this pack's own result as the raw structured
+dump every unregistered result falls through to, while `weft_cli`'s own eighteen built-in
+commands printed prose — `add_renderer` is the identical `PackRegistrar` call `weft_cli.
+commands.register` makes for its own eighteen, so a stranger's pack and a built-in reach the
+same seam.
+
 The pipeline-as-data row ("A named pipeline, and a slot contribution") is deliberately not
 among the six: `docs/02-extension-model.md` section 4's own table marks that row's "Against
 contract" column "—", because a pipeline resource and a slot contribution are not
@@ -41,7 +50,12 @@ from functools import partial
 
 from weft_command.contract import Command
 from weft_enhance.contract import Enhancer
-from weft_example_graph.commands import GraphBuildCommand, GraphShowCommand
+from weft_example_graph.commands import (
+    GraphBuildCommand,
+    GraphShowCommand,
+    GraphShowResult,
+    render_graph_show,
+)
 from weft_example_graph.enhancer import GraphEntityEnhancer
 from weft_example_graph.payload import GraphData
 from weft_example_graph.retriever import GraphWalkRetriever
@@ -85,6 +99,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(Retriever, "example-graph-walk", partial(GraphWalkRetriever, settings))
     registrar.add(Command, "example-graph build", partial(GraphBuildCommand, settings))
     registrar.add(Command, "example-graph show", partial(GraphShowCommand, settings))
+    registrar.add_renderer(GraphShowResult, render_graph_show)
     registrar.add_ext_model(GraphData)
     registrar.add_pipeline_resource("weft_example_graph", "pipelines/kg.yaml")
     registrar.add_contribution(

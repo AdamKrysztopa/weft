@@ -52,7 +52,7 @@ from weft_eval.contract import (
     RetrievalSample,
     RetrievedPassage,
 )
-from weft_eval.embedding_metrics import BERTScore, EmbeddingSimilarity
+from weft_eval.embedding_metrics import BERT_SCORE_AVAILABLE, BERTScore, EmbeddingSimilarity
 from weft_eval.harness import score_retrieval_gate_subset
 from weft_eval.ir_metrics import MeanAveragePrecision, NDCGAtK, PrecisionAtK, RecallAtK
 from weft_eval.judges import (
@@ -169,6 +169,21 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(GenerationMetric, ACCURACY_NAME, Accuracy)
     registrar.add(GenerationMetric, EMBEDDING_SIMILARITY_NAME, EmbeddingSimilarity)
     registrar.add(GenerationMetric, BERTSCORE_NAME, BERTScore)
+    if not BERT_SCORE_AVAILABLE:
+        # Ledger task **6.29**, and fitness function 5's second half: "a plugin must declare it
+        # unavailable and say why", **at discovery time**. `bertscore` needs the optional
+        # `bert-score` extra; without it this metric answers `Failed` when it is *run*, which is
+        # saying why one moment too late — an operator running `weft plugins doctor` learned
+        # nothing and found out when a scoring run failed. It stays registered on purpose, so
+        # `weft eval` still refuses it by name with a reason rather than reporting it as an
+        # unknown metric, and the pack now reports `PARTIAL` with this notice beside it.
+        registrar.unavailable(
+            BERTSCORE_NAME,
+            reason=(
+                "needs the optional 'bert_score' package, which is not installed. Install "
+                "weft-eval's 'bertscore' extra to run this metric."
+            ),
+        )
 
     registrar.add(GenerationMetric, FAITHFULNESS_NAME, Faithfulness)
     registrar.add(RetrievalMetric, CONTEXT_RECALL_NAME, ContextRecall)

@@ -97,3 +97,46 @@ def _docstring_lines(source: str) -> set[int]:
             occupied.update(range(first.lineno, first.end_lineno + 1))
 
     return occupied
+
+
+def test_the_check_can_actually_fail(tmp_path: Path) -> None:
+    """Fitness function 16 clause (b) — ledger task **6.15**.
+
+    The budget check passes today and always has, so the only way to know the counter is
+    measuring anything is to hand it source whose answer is known and watch the comparison
+    go the other way. Planted through `_count_file` itself rather than against a number:
+    what has to be proved is that the *counter* discriminates, not that `>` works.
+
+    The fixture is chosen to exercise every exclusion the counter makes — a module
+    docstring spanning three lines, a comment, a blank line, and a function docstring —
+    because a counter that silently stopped excluding docstrings would still pass
+    `test_kernel_is_within_budget` right up until it did not, and would then look like
+    kernel growth rather than like a broken count.
+    """
+    # Arrange — four real code lines; everything else is docstring, comment or blank.
+    source = '''"""A module docstring.
+
+    Spanning three lines.
+    """
+
+# a comment
+
+import os
+
+
+def thing() -> int:
+    """A function docstring."""
+    value = os.getpid()
+    return value
+'''
+    planted = tmp_path / "planted.py"
+    planted.write_text(source, encoding="utf-8")
+
+    # Act
+    counted = _count_file(planted)
+    docstrings = _docstring_lines(source)
+
+    # Assert — the four are `import os`, `def thing...`, `value = ...`, `return value`.
+    assert counted == 4
+    assert 1 in docstrings and 3 in docstrings, "the module docstring was not excluded"
+    assert counted > 3, "a budget of 3 would fail on this file — the comparison discriminates"

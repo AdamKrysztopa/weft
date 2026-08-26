@@ -170,6 +170,8 @@ import contextlib
 import warnings
 from collections.abc import Awaitable, Callable, Iterable, Sequence
 from dataclasses import dataclass
+from enum import Enum
+from importlib import metadata
 from typing import cast
 
 from opentelemetry import trace
@@ -188,6 +190,138 @@ _tracer = trace.get_tracer("weft_kernel")
 _FlushFn = Callable[[], Awaitable[None]]
 
 
+class RemovalClock(Enum):
+    """When a deprecated surface may be removed — the three honest answers, task **6.5**.
+
+    G9 settled the unit (`docs/09-release.md` §2.3, dependency 3): "**Releases, not months,
+    and the unit is one major of the publishing distribution.** A calendar window needs a
+    cadence promise this project does not make... A deprecated surface keeps working,
+    warning at registration, until its publisher's next major."
+
+    `UNPROMISED_BEFORE_1_0` is the member that matters and the one it would be easy not to
+    have. G9 also settled that "inside 0.x a contract may move without a deprecation period
+    but never silently", so a 0.x publisher's answer is **not** "removed in 1.0.0" — that
+    would promise a window 0.x explicitly reserves the right not to give. It is that there
+    is no window, said out loud, which is what makes the clock observable rather than
+    invented. Six distributions read `0.1.0` today (`09` §2.2), so this is the common case
+    rather than a corner.
+    """
+
+    NEXT_MAJOR = "next-major"
+    UNPROMISED_BEFORE_1_0 = "unpromised-before-1.0"
+    VERSION_UNREADABLE = "version-unreadable"
+
+
+@dataclass(frozen=True, slots=True)
+class Removal:
+    """The removal clock for one deprecated surface, **derived and never declared**.
+
+    Task **6.5**. A `removed_in` a pack author types is a number that goes stale on that
+    pack's next release with nothing to notice — `CLAUDE.md`'s measured rule, every concern
+    the reference's machinery applied held and every concern an author had to remember decayed.
+    G9's unit makes the answer a pure function of the publishing distribution's own installed
+    version, so it is computed at the registration seam, once, and read by both consumers:
+    the `DeprecationWarning` below and `weft plugins doctor`.
+
+    `installed_version` is carried even when it could not be turned into a clock, because
+    "there is a version and it is not a number I can read" and "there is no version at all"
+    are different problems for whoever has to fix them.
+    """
+
+    clock: RemovalClock
+    distribution: str
+    installed_version: str | None
+    release: str | None
+
+    def describe(self) -> str:
+        """One phrase, owned here, so the warning and `doctor` cannot drift apart."""
+        if self.clock is RemovalClock.NEXT_MAJOR:
+            return f"removed in {self.release}"
+        if self.clock is RemovalClock.UNPROMISED_BEFORE_1_0:
+            return (
+                f"'{self.distribution}' is 0.x ({self.installed_version}), which promises no "
+                f"deprecation period — this surface may be removed in any release"
+            )
+        return (
+            f"removal release unknown — no readable version is recorded for '{self.distribution}'"
+        )
+
+
+def removal_for(distribution: str, version_of: Callable[[str], str] = metadata.version) -> Removal:
+    """G9's clock for `distribution`, read off its own installed version.
+
+    `version_of` is a parameter rather than a hard call so the derivation can be exercised
+    against every version shape without installing four distributions to do it; production
+    passes nothing and gets `importlib.metadata.version`.
+
+    The major is taken as the leading run of digits, so `2.0.0rc1` reads as major 2 —
+    `packaging` is not available here and never will be (G1 fixes this distribution's
+    dependencies at `pydantic` and `opentelemetry-api`), and a bare
+    `int(version.split(".")[0])` gets a pre-release wrong by raising.
+    """
+    try:
+        version = version_of(distribution)
+    except Exception:  # noqa: BLE001 — any lookup failure is the same answer to the caller
+        return Removal(
+            clock=RemovalClock.VERSION_UNREADABLE,
+            distribution=distribution,
+            installed_version=None,
+            release=None,
+        )
+
+    digits = ""
+    for character in version:
+        if not character.isdigit():
+            break
+        digits += character
+
+    if not digits:
+        return Removal(
+            clock=RemovalClock.VERSION_UNREADABLE,
+            distribution=distribution,
+            installed_version=version,
+            release=None,
+        )
+
+    major = int(digits)
+    if major == 0:
+        return Removal(
+            clock=RemovalClock.UNPROMISED_BEFORE_1_0,
+            distribution=distribution,
+            installed_version=version,
+            release=None,
+        )
+
+    return Removal(
+        clock=RemovalClock.NEXT_MAJOR,
+        distribution=distribution,
+        installed_version=version,
+        release=f"{distribution} {major + 1}.0.0",
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class Unavailable:
+    """One surface a pack declared it could not provide, and why — ledger task **6.29**.
+
+    `01` → *Fitness functions* 5: "Every capability a plugin declares must resolve to a live
+    implementation **at discovery time**, or the plugin must declare it unavailable and say why."
+    This is the second half. `PackStatus.PARTIAL` has been in `02` §2's status vocabulary since
+    Phase 0 and nothing could produce it — `weft_kernel.discovery`'s own docstring deferred the
+    mechanism to *"a later step's job"* and no later step took it — so a plugin that could not run
+    said so when a **run** failed rather than when `weft plugins doctor` asked.
+
+    `surface` is a short label the pack chooses, exactly as `Deprecation.surface` is: a plugin
+    name, a `"Contract:name"` pair, or the pack itself. The kernel names no capability and never
+    interprets it. `reason` is what a human reads, and it is required — an unavailability with no
+    reason is the silent drop this exists to end.
+    """
+
+    distribution: str
+    surface: str
+    reason: str
+
+
 @dataclass(frozen=True, slots=True)
 class Deprecation:
     """One surface a pack marked deprecated at its own registration.
@@ -201,11 +335,17 @@ class Deprecation:
     identical reason: a pack whose `register()` raises after calling this
     must not leave a warning standing about a mark that never actually
     committed.
+
+    `removal` — task **6.5**, `09` §3 — is when the surface may go, derived by
+    `removal_for` from the publishing distribution's own version rather than declared. It
+    is required rather than defaulted: a deprecation that does not say when it ends is the
+    thing this task exists to abolish, and a default would let one back in silently.
     """
 
     distribution: str
     surface: str
     reason: str
+    removal: Removal
 
 
 def warn_deprecated(deprecations: Iterable[Deprecation]) -> None:
@@ -223,7 +363,8 @@ def warn_deprecated(deprecations: Iterable[Deprecation]) -> None:
     """
     for notice in deprecations:
         warnings.warn(
-            f"'{notice.distribution}' marks '{notice.surface}' deprecated: {notice.reason}",
+            f"'{notice.distribution}' marks '{notice.surface}' deprecated: {notice.reason}"
+            f" — {notice.removal.describe()}",
             DeprecationWarning,
             stacklevel=2,
         )

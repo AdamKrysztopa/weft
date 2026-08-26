@@ -9,13 +9,13 @@ requires-python = ">=3.12"
 # `weft-index` are depended on for one thing each: the `NodeStore`/`VectorSearch`/
 # `TextSearch`/`MetadataFilter` family and the `Expander` contract this pack implements.
 dependencies = [
-    "weft-kernel",
-    "weft-clean",
-    "weft-embed",
-    "weft-enhance",
-    "weft-extract",
-    "weft-index",
-    "weft-store",
+    "weft-kernel>=0.1.0,<1.0.0",
+    "weft-clean>=1.0.0,<2.0.0",
+    "weft-embed>=1.0.0,<2.0.0",
+    "weft-enhance>=1.0.0,<2.0.0",
+    "weft-extract>=1.0.0,<2.0.0",
+    "weft-index>=1.0.0,<2.0.0",
+    "weft-store>=2.0.0,<3.0.0",
 ]
 
 # One entry point (weft's docs/02-extension-model.md section 2). Nothing under weft's own

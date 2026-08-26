@@ -137,8 +137,19 @@ def _first_party_top_level_packages() -> tuple[str, ...]:
             document = tomllib.load(handle)
         project = cast("dict[str, object]", document.get("project", {}))
         name = project.get("name")
-        if isinstance(name, str):
-            names.append(name.replace("-", "_"))
+        if not isinstance(name, str):
+            continue
+        top_level = name.replace("-", "_")
+        # A distribution that ships no code has no module to sweep, and `packages/weft` — the
+        # release set, ledger task 6.1 — is one by design (`09` §1: "the meta-distribution ships
+        # **no code**"). Skipped on the *structural* fact that it has no `src/` at all, never on
+        # its name: a distribution with a `src/` whose module is missing is a real breakage and
+        # still fails below, which is the half `docs/lessons.md` L5.27 requires a directory sweep
+        # to keep — it must be able to answer the question for everything it sweeps, and
+        # "ships nothing" is an answer where "cannot import it" is not.
+        if not (package_dir / "src").is_dir():
+            continue
+        names.append(top_level)
     return tuple(names)
 
 

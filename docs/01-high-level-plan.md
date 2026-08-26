@@ -723,7 +723,7 @@ works"* is a number someone else can reproduce rather than an opinion held by th
   `reference/study/05-boundaries.md` §4, `reference/study/09-open-questions.md` §C-11). **The rule: a
   distribution is proven installable by installing it, never by reading it** — which is fitness
   function 1's primary half applied to every distribution rather than only to the kernel.
-- **Exit:** on a machine that has never seen this repository, installing **the release unit G10 names**
+- **Exit:** on a machine that has never seen this repository, installing **the release set G10 named** (`09` §1, settled 2026-08-22)
   from the package index reproduces the published baseline — one `uvx` invocation of that unit indexes
   the validation corpus, answers its question set, and `weft eval compare` against the published
   baseline run reports every metric **inside the interval that baseline recorded across its own

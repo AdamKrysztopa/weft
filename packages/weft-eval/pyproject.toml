@@ -3,6 +3,8 @@ name = "weft-eval"
 version = "1.0.0"
 description = "First-party evaluation pack. Publishes the RetrievalMetric/GenerationMetric contracts."
 requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE", "NOTICE"]
 # `weft-embed`: the two metrics that need a vector embed through `Embedder` rather than a new,
 # heavy dependency of their own (`embedding_metrics.py`'s own module docstring). `weft-llm` /
 # `weft-prompts`: the six LLM judges' async provider call and structured-output cascade

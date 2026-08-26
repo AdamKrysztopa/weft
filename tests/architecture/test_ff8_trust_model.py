@@ -85,6 +85,7 @@ from typing import Final
 
 import pytest
 
+from weft_cli.installed_versions import installed_versions
 from weft_cli.plugins_report import render_doctor
 from weft_eval.run_record import active_distribution_set
 from weft_kernel.discovery import ENTRY_POINT_GROUP, PackReport, PackStatus, discover
@@ -219,8 +220,15 @@ def test_version_command_executes_no_pack_code(tmp_path: Path) -> None:
 #: block's first line is `f"{distribution}: {status}{ambient} ({contributed} contributed)"`.
 #: Only the `active` status line is captured; every other status is deliberately not matched,
 #: since clause (c) is about the active set alone.
+#: The distribution name is the first run of non-space characters; everything between it and
+#: the colon is the version column task **6.4** added (`09` §1) — either ` 2.0.0` or
+#: ` (version not recorded)`, and empty when no caller asked for the column at all. Tolerating
+#: it is not cosmetic: this clause claims to parse "what `weft plugins doctor` itself would
+#: print", and after 6.4 the shipped command prints the column. A pattern anchored on the
+#: pre-6.4 spelling kept passing because the test called `render_doctor` with its defaults —
+#: the check went on agreeing with a rendering the binary no longer produces.
 _ACTIVE_SUMMARY_LINE: Final[re.Pattern[str]] = re.compile(
-    r"^(?P<distribution>\S+): active(?:, ambient)? \(\d+ contributed\)$"
+    r"^(?P<distribution>\S+)[^:]*: active(?:, ambient)?(?:, deprecated)? \(\d+ contributed\)$"
 )
 
 
@@ -244,7 +252,15 @@ def test_run_record_active_distributions_equal_what_plugins_doctor_reports() -> 
     # Act — two independent readings of the identical `PackReport` tuple: the run record's own
     # derivation, and the text `weft plugins doctor` itself would print.
     record_active = active_distribution_set(reports)
-    doctor_active = _active_names_from_doctor_report(render_doctor(reports))
+    doctor_active = _active_names_from_doctor_report(
+        # Rendered the way `weft_cli.commands.PluginsDoctorCommand` renders it — with the
+        # version column task 6.4 added. Calling `render_doctor` with its defaults would
+        # compare this clause against output the shipped command no longer produces.
+        render_doctor(
+            reports,
+            versions=installed_versions(report.distribution for report in reports),
+        )
+    )
 
     # Assert
     assert record_active, (
@@ -254,7 +270,13 @@ def test_run_record_active_distributions_equal_what_plugins_doctor_reports() -> 
     assert record_active == doctor_active
 
 
-def test_the_equality_check_is_not_vacuous() -> None:
+def test_the_check_can_actually_fail() -> None:
+    """Fitness function 16 clause (b) — named to the convention at ledger task **6.15**.
+
+    This test predates FF16 and did its job under the name `test_the_equality_check_is_not_
+    vacuous`; only the name changes here, so the clause's AST scan can recognise it. The body
+    is the original and the argument it makes is unchanged.
+    """
     # Arrange — one genuinely active pack, one that registered only part of what it offers.
     # `PARTIAL` is exactly the status a filter built on "contributed > 0" would wrongly admit,
     # since a partially-registered pack still contributes something.

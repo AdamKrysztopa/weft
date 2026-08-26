@@ -341,6 +341,15 @@ def _register_ext_models(reports: tuple[PackReport, ...]) -> None:
     from weft_store.rehydrate import register_from_reports
 
     register_from_reports(reports)
+    # Task 6.20 (G13) — the identical generic-consumer shape, one call further: whatever
+    # renderer any pack's own register() buffered through PackRegistrar.add_renderer, made
+    # reachable for `weft_cli.render._render_result`'s own dispatch. Local import for the
+    # same reason `register_from_reports` is: `weft_cli.render` imports `weft_cli.commands`
+    # (and, through it, every built-in command module) at its own module scope, which would
+    # cost `weft --version` all of that if imported here at this module's own scope.
+    from weft_cli.render import register_renderers_from_reports
+
+    register_renderers_from_reports(reports)
 
 
 def merged_pack_settings(document: dict[str, object] | None) -> dict[str, dict[str, object]]:

@@ -117,3 +117,62 @@ def _names_bound_to_asyncio_run(tree: ast.AST) -> set[str]:
                 (alias.asname or alias.name) for alias in node.names if alias.name == "run"
             )
     return names
+
+
+def test_the_check_can_actually_fail(tmp_path: Path) -> None:
+    """Fitness function 16 clause (b) — ledger task **6.15**.
+
+    The real tree holds exactly one `asyncio.run` and has since Phase 0, so the detector has
+    never been observed saying yes to anything but that one file. Planted here through the
+    real `_calls_asyncio_run` in all four spellings it claims to catch, plus the two shapes
+    it must *not* mistake for a bridge — because a detector that answered `True` for
+    everything would also pass the check above only until someone added a second file, and
+    one that answered `False` for everything would pass forever.
+    """
+    # Arrange — four ways to reach the same bridge, and two near-misses.
+    caught = {
+        "plain": "import asyncio\nasyncio.run(main())\n",
+        "aliased-module": "import asyncio as aio\naio.run(main())\n",
+        "from-import": "from asyncio import run\nrun(main())\n",
+        "aliased-function": "from asyncio import run as go\ngo(main())\n",
+    }
+    ignored = {
+        "someone-elses-run": "import subprocess\nsubprocess.run(['ls'])\n",
+        "merely-imported": (
+            "import asyncio\n\nasync def main() -> None:\n    await asyncio.sleep(0)\n"
+        ),
+    }
+
+    # Act
+    def verdict(source: str, name: str) -> bool:
+        planted = tmp_path / f"{name}.py"
+        planted.write_text(source, encoding="utf-8")
+        return _calls_asyncio_run(planted)
+
+    found = {name for name, source in caught.items() if verdict(source, name)}
+    false_positives = {name for name, source in ignored.items() if verdict(source, name)}
+
+    # Assert
+    assert found == set(caught), f"the detector missed {sorted(set(caught) - found)}"
+    assert false_positives == set(), (
+        f"{sorted(false_positives)} is not a second event-loop bridge, and a check that says "
+        f"it is would make the real assertion fail for the wrong reason."
+    )
+
+
+def test_the_walk_can_actually_fail() -> None:
+    """The other half: a walk that returns nothing makes the assertion above vacuous.
+
+    `sites == [_EXPECTED_PATH]` is not vacuous the way an emptiness check would be — an empty
+    walk fails it rather than passing it — but the walk is still the input everything rests
+    on, and `docs/lessons.md` L5.19 asks for it to be proved real rather than assumed.
+    """
+    # Act
+    walked = _repository_python_files()
+
+    # Assert
+    assert _EXPECTED_PATH in walked, (
+        f"the walk did not reach {_EXPECTED_PATH}, which is the one file that is supposed to "
+        f"be found. The pruning is wrong, not the tree."
+    )
+    assert len(walked) > 100, "the walk reached almost nothing — it is pruning too much"

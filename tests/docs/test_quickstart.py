@@ -149,6 +149,10 @@ async def test_quickstart_executes_against_a_throwaway_project(
     # `docs/03-cli.md` -> Output, *Score display*: human output never prints the raw score.
     assert "score=" not in ask_output
 
-    assert re.search(r"^weft-store: active", outputs["doctor"], re.MULTILINE), (
+    # The fact is "weft-store is reported active", never the literal line
+    # (`docs/lessons.md` L5.13). Task 6.4 put the installed version between the name and the
+    # status — `weft-store 2.0.0: active` — and a pattern anchored on the old spelling
+    # asserted the formatting rather than the state it exists to check.
+    assert re.search(r"^weft-store\b[^:]*: active", outputs["doctor"], re.MULTILINE), (
         f"weft plugins doctor did not report weft-store active:\n{outputs['doctor']}"
     )

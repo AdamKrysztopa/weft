@@ -101,6 +101,7 @@ def render_doctor(
     tracing: str | None = None,
     skew: tuple[SkewReport, ...] = (),
     unreachable_contributions: tuple[Contribution, ...] = (),
+    versions: Mapping[str, str] | None = None,
 ) -> str:
     """A fuller block per distribution: status, reason (if any), disclosure, and what it lost.
 
@@ -126,6 +127,15 @@ def render_doctor(
     paragraph — is every `Contribution` naming a slot no pipeline in the catalogue
     declares, grouped under the *offering* distribution's own block, on `displaced`'s own
     footing. The default `()` reproduces prior output unchanged.
+
+    `versions` — task **6.4**, `docs/09-release.md` section 1 — is what
+    `weft_cli.installed_versions.installed_versions` read for each distribution reported here,
+    printed on the status line beside the name because that section calls for "one column, not
+    a new command". `None`, the default, prints no column at all and leaves every existing
+    caller's output unchanged; a name absent from a mapping that *was* supplied prints
+    "(version not recorded)", which is the state distinguishable from the other two. Only
+    `doctor` takes it: `weft plugins list` is a summary and section 1 gives the column to
+    `doctor`.
     """
     if not reports:
         return "no packs discovered."
@@ -133,7 +143,10 @@ def render_doctor(
     by_offerer = _group_by_distribution(unreachable_contributions)
     blocks = [
         _doctor_block(
-            report, by_loser.get(report.distribution, ()), by_offerer.get(report.distribution, ())
+            report,
+            by_loser.get(report.distribution, ()),
+            by_offerer.get(report.distribution, ()),
+            versions,
         )
         for report in _sorted(reports)
     ]
@@ -176,21 +189,39 @@ def _group_by_distribution(
     }
 
 
-def _summary_line(report: PackReport) -> str:
+def _summary_line(report: PackReport, version_label: str = "") -> str:
     ambient = ", ambient" if report.ambient else ""
     deprecated = ", deprecated" if report.deprecations else ""
     return (
-        f"{report.distribution}: {report.status.value}{ambient}{deprecated} "
+        f"{report.distribution}{version_label}: {report.status.value}{ambient}{deprecated} "
         f"({report.contributed} contributed)"
     )
+
+
+def _version_label(distribution: str, versions: Mapping[str, str] | None) -> str:
+    """The `09` section 1 column, or nothing at all when no caller asked for it.
+
+    Three states, deliberately distinguishable. `versions is None` is "nobody asked" and
+    reproduces the output this renderer gave before the column existed — every caller that has
+    not started passing it sees no change. A name present is its version. A name **absent from a
+    mapping that was supplied** is the one that matters: the caller asked, and the environment
+    had nothing recorded for that distribution, which is said out loud rather than left blank
+    (`docs/lessons.md` L5.9).
+    """
+    if versions is None:
+        return ""
+    if distribution in versions:
+        return f" {versions[distribution]}"
+    return " (version not recorded)"
 
 
 def _doctor_block(
     report: PackReport,
     displaced: tuple[DisplacedRegistration, ...],
     unreachable: tuple[Contribution, ...] = (),
+    versions: Mapping[str, str] | None = None,
 ) -> str:
-    lines = [_summary_line(report)]
+    lines = [_summary_line(report, _version_label(report.distribution, versions))]
     if report.status is PackStatus.REFUSED:
         lines.append(f"  never imported — {report.reason}")
     elif report.reason is not None:
@@ -201,8 +232,15 @@ def _doctor_block(
             f"  displaced: '{item.pin}' lost to '{item.winner}' — pinned by "
             f'[plugins] "{item.pin}" = "{item.winner}" in weft.toml'
         )
+    # Task **6.29** — what the pack said it could not provide, and why, printed beside its
+    # `partial` status. `01` → *Fitness functions* 5: declared unavailable **at discovery
+    # time**, so an operator reads it here rather than meeting it when a run fails.
+    for missing in report.unavailable:
+        lines.append(f"  unavailable: '{missing.surface}' — {missing.reason}")
     for notice in report.deprecations:
-        lines.append(f"  deprecated: '{notice.surface}' — {notice.reason}")
+        lines.append(
+            f"  deprecated: '{notice.surface}' — {notice.reason} ({notice.removal.describe()})"
+        )
     for contribution in unreachable:
         lines.append(
             f"  unreachable: slot '{contribution.slot}' (stage '{contribution.stage.id}') "

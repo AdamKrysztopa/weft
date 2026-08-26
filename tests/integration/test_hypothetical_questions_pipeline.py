@@ -74,6 +74,16 @@ from weft_store.pgvector_store import PgVectorSettings, PgVectorStore
 
 _DSN = os.environ.get("WEFT_DATABASE_URL", "postgresql://weft:weft@localhost:5433/weft")
 _API_KEY_VAR = "OPENAI_API_KEY"
+
+#: The explicit opt-in, separate from the credential — ledger task **6.28**, `09` §4.3's V5.
+#: `OPENAI_API_KEY` says *"I could reach the network"*; this says *"I am asking to"*. A developer
+#: with a key exported for other work should get a deterministic `poe ci-checks`, because a gate
+#: whose green depends on what a live service answered teaches whoever runs it to re-run red tests
+#: until they pass (`docs/lessons.md` L6.27). Repeated in each module that reaches the network
+#: rather than shared, the same way each already repeats its own skip discipline;
+#: `tests/architecture/test_the_gate_is_decidable.py` keeps the copies honest.
+_LIVE_OPT_IN_VAR = "WEFT_LIVE_API_TESTS"
+
 #: One short, real arXiv paper (`.phase2-findings.md` finding 13's `fetch` tier) — small
 #: enough that trimming to its first few chunks below stays representative rather than
 #: contrived.
@@ -158,6 +168,12 @@ async def store() -> AsyncIterator[PgVectorStore]:
 @pytest.fixture
 def api_key() -> SecretStr:
     key = os.environ.get(_API_KEY_VAR)
+    if not os.environ.get(_LIVE_OPT_IN_VAR):
+        pytest.skip(
+            f"{_LIVE_OPT_IN_VAR} is unset: this reaches a live service, so it is opt-in "
+            f"separately from {_API_KEY_VAR} — having a credential is not asking for a "
+            f"network run, and `poe ci-checks` stays deterministic without it."
+        )
     if not key:
         pytest.skip(f"{_API_KEY_VAR} is unset: this test needs a real OpenAI account")
     return SecretStr(key)

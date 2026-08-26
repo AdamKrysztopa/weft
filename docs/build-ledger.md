@@ -2339,6 +2339,16 @@ possible rather than adding a feature.
   L5.30 together, because all three are the same question — what a participant that is *not* the
   primary store may ask for and be reached by.
 
+  **G13 settled 2026-08-22, and the repairs are Phase 6's, not this phase's.** Reach follows use, a
+  participant asks through `ctx.require(NodeStore)`, and a renderer registers at the seam — the full
+  outcome is in `README.md` → *Decision log*, the argument in `05` → G13, the mechanisms in `02` §1,
+  `02` §4 and `03`. Tasks **6.18**, **6.19** and **6.20** build them; **6.21** re-runs this test and
+  is where this criterion is finally met. **This entry stays ticked and the phase's exit stays
+  unticked**, which is the honest pair: the task ran and produced exactly what it exists to produce,
+  and the criterion it was measuring is still not satisfied. Scheduling the repairs into Phase 6 was
+  a decision rather than a drift, and its cost is stated: Phase 6 opens carrying an earlier phase's
+  unfinished exit, and the contracts 6.20 moves are published in the same phase that changes them.
+
 **Exit** (`01` → Phase 5): task 5.7. A core change requested to make the pack work is a Phase 5
 failure and a design finding, which means 5.7 can be *failed* — that is what makes it worth running.
 
@@ -2351,42 +2361,1366 @@ deferred *Event bus* row reopens. G7 is settled, not immune.
 
 ## Phase 6 — Release
 
-**⛔ Blocked by G9 and G10** — G10 (the release and support policy) is proposed by `09` and logged
-Open when `09` lands, and it cannot be run until G9 has settled, which Phase 5 already requires.
-Stating a user-facing release promise before G9 would settle G9 by implication rather than by
-argument.
+**The lessons queue was drained at this phase's opening, not at its close** — two entries logged at
+G10 and G13 (`L6.1`, `L6.2`), spent the same day, `lessons-archive.md` → *2026-08-22 — G10 and G13
+close*. This is Phase 5's own drain finding applied (*"Phase 6 should drain at its midpoint as well as
+its close"*), and the loop's check is answered there: one of the two would have been caught by an
+already-applied rule, `L5.14`, whose subject was too narrow rather than whose home was wrong.
 
-**⚠ marks the four tasks whose shape G9 or G10 decides** — the unit of release itself, the doctor's
-behaviour on skew, the deprecation clock's unit, and what a *release* names when the exit criterion
-installs one. `09` §1 **recommends** the unit and argues for it; it does not decide it, so 6.1's
-property is a hypothesis until G10 closes. The reproduction tolerance is not among the four: `09` §4
-derives it from the baseline's own recorded interval rather than from any gate, which is the point of
-deriving it. The two fitness-function clauses carry none: `09` argues both hold under every position
-G9 and G10 can take, which is the reason they are stated as weakly as they are.
+**✅ Unblocked 2026-08-22. Both gates are settled** — G9 on 2026-08-21, G10 on 2026-08-22 — and
+**G13** settled the same day as G10, which is why this phase gained four tasks it did not have
+(6.18–6.21). Nothing here is waiting on a decision any more; `05` → G12 blocks Phase 7 only.
 
-- [ ] **6.1 ⚠** a release is a named, tested set rather than a wheel · owner `09` §1 · turns on — · sha —
-- [ ] **6.2** the publish set and the workspace agree, computed from different sources, and the canary is never on an index · owner `09`; `01` → *Fitness functions* 10(a) · turns on FF10(a) · sha —
-- [ ] **6.3** no distribution depends on a sibling without a version bound, so a compatibility policy has something to rest on · owner `01` → *Fitness functions* 10(b) · turns on FF10(b) · sha —
-- [ ] **6.4 ⚠** every first-party pack is `active` at the version the release names, and `weft plugins doctor` can *say* what is installed — whether it also flags a mismatch, and what a mismatch does, are G9's · owner `09` §1, and `09` §2's table of what Phase 6 needs from G9 · turns on — · sha —
-- [ ] **6.5 ⚠** every deprecated surface names the release or date at which it is removed, in the unit G9 chose, and the clock is observable · owner `09` §3 · turns on — · sha —
-- [ ] **6.6** every published distribution installs alone into a clean environment and imports — fitness function 1's primary half applied to all of them, not only the kernel · owner `09` §5 → *Install path* · turns on — · sha —
-- [ ] **6.7** the sdist builds and its tests pass from the sdist, so nothing load-bearing is present in the checkout and absent from the artefact · owner `09` §5 → *Install path* · turns on — · sha —
-- [ ] **6.8** a cancelled run leaves the store durable to its last finished batch, a resumable delete finishes on the next command, and a store written by release *n* is read by release *n+1* — executed once, not asserted · owner `09` §5 → *Operability* · turns on — · sha —
-- [ ] **6.9** every shipped technique's claimed improvement is a delta against the published baseline on the same corpus, pipeline and model versions · owner `09` §4, V3; §5 → *Quality* · turns on — · sha —
-- [ ] **6.10** the published trust posture is the one `02` §2 actually claims — no package page implying isolation the design refused · owner `09` §5 → *Security, licensing, documentation*; `02` §2 · turns on — · sha —
-- [ ] **6.11** every file in the release is accounted for as original work, re-checked with `reference-audit`, with `LICENSE` and `NOTICE` in every built artefact · owner `09` §5; `CLAUDE.md` → the originality rule · turns on — · sha —
-- [ ] **6.12** a newcomer installs, indexes and asks from the README alone, without opening `docs/` · owner `09` §5; `08` §1, *Quickstart* · turns on — · sha —
-- [ ] **6.14** the fitness function `01` has named since day one exists: **FF5**, *every declared capability resolves* — a plugin's declared capability resolves to a live implementation at discovery, or the plugin declares it unavailable and says why · owner `01` → *Fitness functions* 5; `11` · turns on **FF5** · sha — · **added 2026-08-22 by Phase 5's lessons drain**, found by FF16 clause (a) on its first run — the same defect as `L5.4` and unnoticed for the same five phases. Waived in `tests/architecture/test_ff16_checks_are_real.py`'s `FITNESS_FUNCTIONS_NOT_YET_DUE` until this closes
-- [ ] **6.15** every architecture check proves it can fail: `CHECKS_WITHOUT_A_SELF_TEST` in `tests/architecture/test_ff16_checks_are_real.py` shrinks to empty, one file at a time, each with a planted disagreement watched going red · owner `01` → *Fitness functions* 0; `05` → `lessons.md` L5.6, L5.19 · turns on — · sha — · **added 2026-08-22 by Phase 5's lessons drain**. Seven files predate FF16 and carry no self-test; the ratchet is pinned so nothing may be added to it
-- [ ] **6.16** a `--json` consumer can tell one event shape from another: the newline-delimited stream carries a discriminant, so a `StreamEvent` and an `ErrorEnvelope` are distinguishable without guessing by key presence · owner `03` → *Output*; `09` §3 · turns on — · sha — · **added 2026-08-22 by Phase 5's lessons drain** (`lessons.md` L5.16). Additive under `09` §3's *"promised, additively"* rule, which is why it is Phase 6's and not a Phase 5 repair
-- [ ] **6.17** `tests/integration/test_ingest_pipeline.py` passes on its own: the test-order dependency confirmed at task 5.2g is removed, so the file's result does not depend on another file having run first · owner `01` → *Fitness functions* 0 · turns on — · sha — · **added 2026-08-22 by Phase 5's lessons drain** (`lessons.md` L5.21)
+**The ⚠ tasks now have their shape, and it is written down.** They were marked because G9 or G10
+decided them; both have. **The unit of release is a named release set** — a code-free distribution
+`weft` pinning an exactly-tested combination (`09` §1), so 6.1's property is settled rather than
+hypothetical and 6.13 installs *that*. The doctor reports skew and never refuses it (G9); the
+deprecation clock is one major of the publishing distribution (G9); the support window is the current
+major plus the previous for a release-set major or six months, whichever is longer (`09` §3). Two
+release facts arrived with G10 and are new obligations rather than restatements: **a 1.0 release set
+may pin nothing below 1.0** (`09` §2.2), and 1.0 rests on evidence with a **date-boxed review that
+publishes the gap** rather than shipping past it. The ⚠ marks are kept on the four task lines as a
+record of what was once undecided; each line now names the answer. The reproduction tolerance was
+never among them — `09` §4 derives it from the baseline's own recorded interval rather than from any
+gate, which is the point of deriving it.
 
-- [ ] **6.13 ⚠** a machine that has never seen this repository installs the release unit G10 names, from the index, and reproduces the published baseline — every metric inside the interval that baseline recorded across its own repetitions · owner `01` → Phase 6 **Exit**; `09` §4 · turns on — · sha —
+- [x] **6.1 ⚠** a release is a named, tested set rather than a wheel · owner `09` §1 · turns on — · sha `1fb66c1`
+  **6.1 — the release set exists, and the wheel proves it ships nothing.** `packages/weft/` is a
+  `pyproject.toml` and a `README.md`; there is no `src/`. Built for real rather than asserted:
+
+  ```
+  $ uv build --wheel packages/weft
+  Successfully built weft-0.1.0-py3-none-any.whl
+  $ unzip -l weft-0.1.0-py3-none-any.whl
+    weft-0.1.0.dist-info/METADATA
+    weft-0.1.0.dist-info/RECORD
+    weft-0.1.0.dist-info/WHEEL
+  $ grep Requires-Dist METADATA        # 15 pins, every one exact
+  weft-chunk==1.0.0   weft-clean==1.0.0    weft-cli==0.1.0     weft-command==2.1.0
+  weft-embed==1.0.0   weft-enhance==1.0.0  weft-eval==1.0.0    weft-extract==1.0.0
+  weft-generate==1.0.0 weft-index==1.0.0   weft-kernel==0.1.0  weft-llm==1.0.0
+  weft-prompts==1.0.0 weft-retrieve==1.0.0 weft-store==2.0.0
+  ```
+
+  Metadata only — no code in the artefact, which is `09` §1's first binding consequence checked
+  against the thing that ships rather than against the checkout. `tests/architecture/
+  test_release_set.py` holds the rest: no module, no entry point, exact pins never ranges, and
+  **every pin read against that distribution's own `pyproject.toml`** — two sources that can
+  genuinely disagree, so a pack bumped without this file following it fails the gate
+  (`docs/lessons.md` L5.6). Version `0.1.0`, and it cannot yet be otherwise: `09` §2.2 forbids a
+  1.0 set from pinning anything below 1.0, and the kernel is `0.1.0`.
+
+  **What installs beside rather than in**, on `09` §1's own `weft-store-qdrant` precedent:
+  `weft-qdrant` (alternative backend), `weft-openai` (credentialed provider), `weft-pdf` (optional
+  format), `weft-otel` (observability add-on), and `testing/weft-canary`, which exists to be
+  *refused* by discovery and must never reach an index. A first-party pack that is in neither list
+  fails `test_the_release_set_names_every_first_party_pack_that_is_not_installed_beside_it` — the
+  set is *exactly* tested, so a pack nobody decided about is the drift this refuses.
+
+  **A code-free distribution broke three directory sweeps, and that is `L5.27` recurring.**
+  `test_ff12`, `test_ff12b` and `tests/docs/test_troubleshooting_coverage.py` each derive a
+  top-level module name from every `packages/*/pyproject.toml` and import it; `weft` has no module,
+  so all three raised `ModuleNotFoundError`. Each now skips a distribution with no `src/` directory
+  at all — the structural fact, never the name — while a distribution that *has* a `src/` whose
+  module will not import still fails, which is the half L5.27 requires a sweep to keep: it must be
+  able to answer the question for everything it sweeps, and *"ships nothing"* is an answer where
+  *"cannot import it"* is not.
+
+- [x] **6.2** the publish set and the workspace agree, computed from different sources, and the canary is never on an index · owner `09`; `01` → *Fitness functions* 10(a) · turns on FF10(a) · sha `9681e48`
+  **6.2 — the two sources, and the release job that gave one of them a subject.** FF10(a) compares
+  "the distributions the release job actually passes to the index" against the workspace members
+  that do not opt out. Before this task there was **no release job**, so one side of the comparison
+  had nothing to read — the clause was runnable in Phase 6 and not before, which is what `01` means
+  by *active from Phase 6*. So `.github/workflows/release.yml` is part of this task rather than a
+  prerequisite of it.
+
+  **The publish list is hand-written on purpose.** A workflow deriving its own matrix from
+  `packages/*` would compare a function to itself and could never fail — the reference's
+  `test_keys_parity` shape `01` names in the clause itself
+  (`reference/study/08-salvage.md:777-782`). The two sides are `.github/workflows/release.yml` and the
+  root `pyproject.toml`'s member globs, and they can genuinely disagree. Both directions were
+  planted and watched going red:
+
+  ```
+  $ # weft-otel removed from the matrix
+  AssertionError: ['weft-otel'] are workspace members with no opt-out marker and the release job
+  never passes them to the index. Add them to a `release.yml` job's 'distribution' matrix, or
+  declare `[tool.weft] publish = false` in the distribution's own pyproject.toml and say why.
+
+  $ # weft-canary added to the matrix
+  AssertionError: ['weft-canary'] would be published and are not workspace members that publish.
+  Either the release job names something that does not exist, or the distribution opted out of
+  publishing and the workflow was not told (`01` → *Fitness functions* 10(a)).
+  ```
+
+  **The opt-out marker is `[tool.weft] publish = false`, in the distribution's own file.** `01`
+  requires "an opt-out marker" and deliberately does not spell one. It lives with the distribution
+  rather than in a central exclusion list because a central list is a second description of the same
+  fact and drifts from it — the failure `docs/README.md`'s own opening rule is written about.
+  `testing/weft-canary` carries it, which is `01` 10(a)'s standing test case: a distribution whose
+  whole purpose is to be *refused* by discovery must never reach an index.
+
+  **Neither side may answer emptily.** `published_distributions` and `workspace_distributions` raise
+  `ShipSetUnreadableError` rather than returning an empty set — an absent workflow, a renamed job, a
+  member glob matching nothing. Two empty sets compare equal and check nothing, which is L5.19's
+  vacuous pass and L5.9's *"I did not find it" is not "it is not there"* in one place.
+
+  **The reader unions every job's matrix, not one named job's.** The release set is published by a
+  second job that `needs` the first, because `weft` pins exact versions (`==`, `09` §1) and is
+  uninstallable until everything it pins is on the index. A reader keyed to `jobs.publish` would
+  have gone blind to that second job the moment it was added — `docs/lessons.md` L6.4, read the
+  population rather than a declaration.
+
+  **The workflow was executed, not only parsed.** A check that reads a YAML file proves the file
+  says something, never that the commands in it run — the *green gate is not a working binary* rule
+  applied to CI. Both build steps were run for real, including the failure path:
+
+  ```
+  $ uv build --package weft --out-dir dist          # the code-free release set
+  Successfully built dist/weft-0.1.0.tar.gz
+  Successfully built dist/weft-0.1.0-py3-none-any.whl
+  $ uv build --package weft-kernel --out-dir dist
+  Successfully built dist/weft_kernel-0.1.0-py3-none-any.whl
+  $ uv build --package weft-nonexistent --out-dir dist
+  error: Package `weft-nonexistent` not found in workspace
+  ```
+
+  `uv publish` itself is not run here — it needs an index and a trusted-publishing identity, and
+  **6.13** is the task that installs the release set from an index for real.
+
+  **FF16's waiver keeps `10`, and says why.** Clause (a) has a file now, so
+  `test_ff16_checks_are_real.py`'s filename check would pass without the waiver. It is kept because
+  clause (b) — no distribution depends on a sibling without a version bound — is still prose:
+  **task 6.3** builds it into the same file and removes the number. Removing a waiver while half the
+  function is unwritten is `L5.4` re-created one clause at a time.
+- [x] **6.3** no distribution depends on a sibling without a version bound, so a compatibility policy has something to rest on · owner `01` → *Fitness functions* 10(b) · turns on FF10(b) · sha `5f3852c`
+  **6.3 — a check whose subject already agreed, and what that changes about writing it.** G9's
+  enforcement rule landed in Phase 5, so every intra-repository requirement in the workspace already
+  carries a bound — `09` §1 records G10's own *Bring* prediction of zero being falsified on the day,
+  the answer being all of them. The clause was therefore green on the first run, which is the
+  condition under which a check is most likely to be worthless: a sweep that reads nothing passes
+  identically to one that reads everything and finds agreement. So the floor is `L5.19`'s. The
+  reader raises `ShipSetUnreadableError` rather than returning an empty workspace, the test asserts
+  the edge population is non-empty **and** that `weft-kernel` is visible in it before judging
+  anything, and the disagreement was planted in the real tree and watched going red:
+
+  ```
+  $ # weft-pdf's "weft-extract>=1.0.0,<2.0.0" reduced to a bare "weft-extract"
+  AssertionError: ['weft-pdf → weft-extract (in dependencies)'] depend on a sibling with no lower
+  bound. `01` → *Fitness functions* 10(b): an unbounded requirement permits any pack against any
+  kernel, and **any** compatibility policy is unenforceable on top of one.
+  ```
+
+  **A bound is a lower bound, and nothing narrower.** `01` names the three shapes — "a floor, a
+  compatible range, or an exact pin" — and says the choice between them "is G9's and this clause
+  does not choose". So the check asks only that the bottom is pinned: `>=`, `>`, `==`, `===`, `~=`.
+  A lone `<1.0.0` is a specifier and not a bound, and is caught. **The clause is deliberately not
+  tightened into G9's own rule** (`>=X,<MAJOR+1`, never exact pins): that rule is true of a pack
+  depending on a contract publisher and deliberately false of the release set, whose `==` pins are
+  what G10 settled it exists for (`09` §1). Two rules, two subjects — collapsing them here would
+  fail `weft` for being what it was designed to be, which is the `L5.32` shape read in advance
+  rather than after.
+
+  **Both published dependency tables are swept**, `dependencies` and `optional-dependencies`;
+  `[dependency-groups]` is not, because a dev group is never installed by anyone depending on the
+  distribution and so is not something *a distribution depends on* in `01`'s sense. Neither of the
+  two members carrying extras (`weft-eval`, `weft-otel`) names a sibling in one today, so that half
+  of the sweep is currently unexercised by the real tree and is exercised by the self-test.
+
+  **FF10 leaves `FITNESS_FUNCTIONS_NOT_YET_DUE` here, not at 6.2.** Both clauses now exist in
+  `test_ff10_ship_set_integrity.py`. Holding the waiver across 6.2 — when a file with the right
+  *name* already existed — is the point: a fitness function `01` states in two clauses is not built
+  while one of them is prose, and per-clause waiver removal is `L5.4` re-created one clause at a
+  time.
+
+  **Filed while measuring, not guessed:** six of the seven example packs declare **bare** sibling
+  names — 18 requirements across `weft-example-chunker`, `-command`, `-ingest`, `-llm`, `-metric`
+  and `-query`. Only `weft-example-graph`, built after G9, carries bounds. They are outside FF10(b)'s
+  subject by `01`'s own wording ("a property over the workspace"), and they are the exemplars a pack
+  author copies. **Task 6.26.**
+- [x] **6.4 ⚠** every first-party pack is `active` at the version the release names, and `weft plugins doctor` can *say* what is installed — whether it also flags a mismatch, and what a mismatch does, are G9's · owner `09` §1, and `09` §2's table of what Phase 6 needs from G9 · turns on — · sha `fdaf689`
+  **6.4 — the column, and the property behind it.** `09` §1: `doctor` "gains one column, not a new
+  command: the version of each active distribution... `doctor` has to be able to *say* what is
+  installed before any policy can act on it." Both halves of the ⚠ are answered by G9, which
+  settled before this task ran: skew is **reported and never refused**, and the kernel gains zero
+  lines for it. So the reader is `weft_cli.installed_versions` — `importlib.metadata`, in the CLI,
+  the same source `weft_cli.skew` already reads and deliberately not the same *question* — and
+  `PackReport` gains no field.
+
+  **Three states, kept distinguishable.** `versions=None` is *nobody asked* and reproduces the
+  output every existing caller already got; a name present is its version; a name **absent from a
+  mapping that was supplied** prints `(version not recorded)`. That third state is the one that
+  matters: a `PackReport` exists for a pack that was refused or failed as readily as for one that
+  loaded, and a diagnostic command that printed a blank where it could not measure would be hiding
+  the diagnosis (`docs/lessons.md` L5.9).
+
+  **Run for real, outside the repository:**
+
+  ```
+  $ weft plugins doctor
+  weft-chunk 1.0.0: active (1 contributed)
+    disclosure: not disclosed
+  weft-cli 0.1.0: active (18 contributed)
+    disclosure: not disclosed
+  [...]
+  $ weft plugins list          # unchanged — `09` §1 gives the column to `doctor`
+  weft-chunk: active (1 contributed)
+  $ weft plugins doctorr
+  weft plugins: error: argument command: invalid choice: 'doctorr' (choose from doctor, list)
+  ```
+
+  **The other half — "active at the version the release names" — is a check, not a feature**, and
+  it reads four sources that can genuinely disagree: the pins from `packages/weft/pyproject.toml`,
+  which of them is a *pack* from each distribution's own `weft.packs` entry-point declaration,
+  `active` from running discovery, and the installed version from `importlib.metadata`. Nothing is
+  derived from anything else (`L5.6`). It is deliberately **not** a skew check: skew asks whether
+  an installed version satisfies another distribution's declared specifier; this asks whether the
+  combination the release set says was tested together is the one actually here. Planted and
+  watched failing:
+
+  ```
+  $ # the release set's weft-store pin changed to 9.9.9
+  AssertionError: ['weft-store: release set says 9.9.9, 2.0.0 is installed']. The release set
+  names the version, and the environment that ran these tests is not the one it names — so
+  'tested together' is a claim about something else.
+  ```
+
+  The pack filter carries its own self-test, because the whole check leans on it and the real tree
+  agrees: `weft-kernel` is pinned and is not a pack, `weft-store` is both, and both facts are
+  asserted so a filter that answered `False` for everything cannot pass this vacuously.
+
+  **What the change cost in documents, and what noticed.** Five worked transcripts quoted the old
+  status line — `manual/troubleshooting.md` ×4, `manual/operations-guide.md` ×1 — and one test
+  assertion did (`tests/docs/test_quickstart.py`, repaired to assert the *fact* rather than the
+  literal line, `L5.13`). Only the test failed the gate, because `08` §3 clause (a) executes the
+  quickstart; the five transcripts are fenced text nothing runs and were found by grepping.
+  **`docs/lessons.md` L6.19** is that finding, and it also records that `L5.29` said the same thing
+  one phase earlier and was declined.
+- [x] **6.5 ⚠** every deprecated surface names the release or date at which it is removed, in the unit G9 chose, and the clock is observable · owner `09` §3 · turns on — · sha `46a2761`
+  **6.5 — the clock is derived, and its third state is the one that matters.** G9 chose the unit
+  (`09` §2.3, dependency 3): "**Releases, not months, and the unit is one major of the publishing
+  distribution.**" That makes the removal point a pure function of the publishing distribution's
+  own installed version, so no pack author states it — `weft_kernel.seam.removal_for`, called from
+  `PackRegistrar.deprecate`, carried on every `Deprecation` as a required field, and read by both
+  consumers so they cannot drift: the registration wrapper's `DeprecationWarning` and
+  `weft plugins doctor`'s flag line. A `removed_in` an author types is stale on that pack's next
+  release with nothing to notice, which is `CLAUDE.md`'s measured rule applied to a number.
+
+  **`UNPROMISED_BEFORE_1_0` is the member it would have been easy not to have.** G9 also settled
+  that "inside 0.x a contract may move without a deprecation period but never silently", so a 0.x
+  publisher's answer is **not** "removed in 1.0.0" — that promises a window 0.x explicitly reserves
+  the right not to give. It is that there is no window, said out loud, which is what makes the clock
+  *observable* rather than invented. Six distributions read `0.1.0` today (`09` §2.2), so this is
+  the common case rather than a corner, and the test asserts `1.0.0` never appears in that render.
+  The third member is an unreadable version — absent metadata, or a version whose major will not
+  parse — reported rather than guessed (`docs/lessons.md` L5.9), carrying the raw string so
+  "no version at all" and "a version I cannot read" stay different problems.
+
+  **`packaging` is not available and never will be**, G1 fixing this distribution's dependencies at
+  `pydantic` and `opentelemetry-api`, so the major is the leading run of digits — `2.0.0rc1` reads
+  as major 2, where a bare `int(version.split(".")[0])` raises. That edge has its own test.
+
+  **The subject is legitimately empty**, exactly as task 5.2f found: no first-party surface is
+  deprecated today. So the derivation is exercised against a distribution that really is installed
+  (`weft-store`, 2.x → `weft-store 3.0.0`) rather than only against the fake entry points the other
+  discovery tests use — otherwise the only state ever seen would be `VERSION_UNREADABLE` and the
+  check would pass while proving nothing about the rule it exists for.
+
+  **Kernel growth, flagged rather than absorbed.** `weft-kernel` went 2,997 → 3,063 lines. It was
+  already past fitness function 3's 2,800 review trigger before this task and the 3,500 budget is
+  untouched — but the trigger is a conversation, and this is where it is recorded that the
+  conversation is owed. The 66 lines are `RemovalClock`, `Removal` and `removal_for`. They are here
+  rather than in `weft-cli` because `01` → *The kernel boundary* puts "the contract *mechanism*:
+  registration and versioning" and "the `plugins doctor` computation" in the kernel's own column,
+  and because both consumers need the same answer; G9's "the kernel gains zero lines" was about
+  *refusing a load* on skew, which this neither is nor does.
+- [x] **6.6** every published distribution installs alone into a clean environment and imports — fitness function 1's primary half applied to all of them, not only the kernel · owner `09` §5 → *Install path* · turns on — · sha `54af70d`
+  **6.6 — twenty distributions, each installed on its own and imported.** `scripts/check_isolated_installs.py`
+  generalises `scripts/check_kernel_isolated.py`, which has done exactly this for `weft-kernel`
+  alone since Phase 0, and it runs the same way: `poe isolated-installs`, in its own CI job, never
+  inside `ci-checks` — the check needs a clean environment this repository's virtualenv cannot
+  provide, which is the whole reason `kernel-isolated` is not in the composite either.
+
+  ```
+  $ uv run poe isolated-installs
+  weft: installed alone, ships no code — nothing to import.
+  weft-chunk: installs alone and imports weft_chunk.
+  weft-cli: installs alone and imports weft_cli.
+  [...]
+  weft-store: installs alone and imports weft_store.
+  ```
+
+  **Watched failing, with the exact defect it exists for** — an undeclared sibling import planted
+  in `weft_chunk/__init__.py`, which the workspace hides because everything is on `sys.path`
+  together:
+
+  ```
+  ModuleNotFoundError: No module named 'weft_store'
+  weft-chunk does not install and import in a clean environment. It needs the workspace, a path
+  dependency, or an environment variable to import — see G1, The kernel boundary.
+  failed: weft-chunk
+  ```
+
+  **A wheelhouse, not an index.** Every member is built into one temporary directory *before* any
+  member is installed, and `--find-links` points at it — a sibling requirement has to resolve
+  against a wheel that already exists there whatever the sorted order, and none of these
+  distributions is on an index yet. That is **6.13**, which does this same install from a real
+  index on a machine that has never seen the repository.
+
+  **`packages/weft` is answered, not skipped.** The release set ships no code, so it is installed
+  and reported as having nothing to import — reached from the structural fact that it has no
+  `src/`, never from its name, which is the half `docs/lessons.md` L5.27 requires of a sweep: it
+  must be able to answer the question for everything it sweeps, and a distribution with a `src/`
+  whose module will not import still fails.
+
+  **One reader, and fitness function 10(a) now uses it.** `scripts/publish_set.publishing_members`
+  owns "which members publish, and what does each ship" — the member globs, the
+  `[tool.weft] publish = false` opt-out from task 6.2, and the `src/` test. FF10(a)'s workspace
+  side calls it instead of keeping a second copy; the clause's independence is untouched, because
+  its *other* side is parsed out of `.github/workflows/release.yml` and this reader never opens it.
+  **Built by a dispatched `weft-implementer` (sonnet)** against a test written first and closed
+  ahead of the dispatch — the split `phase-step` asks for, and the first task in this phase to
+  actually take it (`docs/lessons.md` L6.20).
+- [x] **6.7** the sdist builds and its tests pass from the sdist, so nothing load-bearing is present in the checkout and absent from the artefact · owner `09` §5 → *Install path* · turns on — · sha `cdb49c1`
+  **6.7 — and the run found three things the workspace was hiding.** `scripts/check_sdists.py`,
+  `poe sdists`, its own CI job beside `isolated-installs`. Two phases: a completeness diff per
+  distribution, and — under `--run-tests` — every sdist installed together into one clean
+  environment with the suite run against the artefacts instead of the editable workspace.
+
+  **Phase one, watched failing with `09` §5.2's own named case** — a data file present in the
+  checkout and absent from the artefact, planted by excluding `weft-retrieve`'s pipelines from its
+  sdist and restored afterwards:
+
+  ```
+  weft-retrieve: a data file, locale catalogue or entry-point declaration is present in the
+  checkout and absent from the artefact — missing ['src/weft_retrieve/pipelines/no-retrieval.yaml',
+  'src/weft_retrieve/pipelines/retrieve-then-generate.yaml', 'src/weft_retrieve/pipelines/route.yaml']
+  failed: weft-retrieve
+  ```
+
+  That is not hypothetical: `02` §3 makes a pipeline *data*, so a backend packaging `.py` and
+  nothing else would ship a distribution that installs, imports, registers, and cannot resolve one
+  of the pipelines it declares — invisible to every check that reads the checkout, including
+  task 6.6's.
+
+  **Phase two found a real, undeclared dependency — and it is this task's own failure condition
+  one layer up.** `weft_cli.contract_reference` shells out to `sys.executable -m ruff`, and
+  `weft-cli` declared `ruff` **nowhere**: it worked only because the workspace root's
+  `[dependency-groups] dev` carries it. Installed from its own sdist, four tests failed with
+  `CalledProcessError`. Task **6.6** could not have caught this and was green — `import weft_cli`
+  never reaches a subprocess call, which is `docs/lessons.md` **L6.24**: an import probe measures
+  import-time dependencies and a run-time one is invisible to it. Repaired here, in the shape
+  `weft-eval[bertscore]` and `weft-otel[otlp]` already have: `[project.optional-dependencies]
+  reference = ["ruff>=0.16.0"]`, plus `ReferenceFormatterUnavailableError` naming the extra
+  instead of a subprocess return code, plus its `manual/troubleshooting.md` entry — which
+  `08` §3 clause (d)'s ratchet demanded before the gate would go green, exactly as designed.
+
+  **`--run-tests` runs the suites that are claims about the *code*, and that is a correction to
+  this task's own brief.** `tests/unit` and `tests/integration`; not `tests/architecture` or
+  `tests/docs`, which read `packages/*/pyproject.toml`, walk the repository and assert about the
+  workspace. Two of them cannot answer the question in an artefact environment even in principle —
+  `test_ff8_trust_model.py` needs `weft-canary` installed and `weft-canary` is deliberately never
+  published (task 6.2's opt-out marker). `docs/lessons.md` **L6.25**. Result: **1612 passed** from
+  the built sdists.
+
+  **The third finding is filed rather than fixed: task 6.27.** `tests/docs/test_question_set.py`
+  fails from freshly-resolved sdists — five quotes stop being literal spans of their documents.
+  Measured rather than inferred: `uv.lock` pins `pypdf` at **6.16.1**, a fresh resolve takes
+  **6.16.2**, and `weft-pdf` declares `pypdf>=6.16` with no ceiling. A *patch* bump of the
+  extraction backend moves the text, and the check's own message anticipates it — "either the
+  extraction backend moved and the quotes must be re-taken from its output, or the quote was never
+  in that document". Narrowing phase two took this out of the sdist job's view, and nothing else in
+  CI resolves freshly, so **no check in this repository would now notice it**. That is why it is a
+  task and not a footnote, and why it bears on **6.9**: "the same corpus, pipeline and model
+  versions" has to include the backend that produced the text.
+- [x] **6.8** a cancelled run leaves the store durable to its last finished batch, a resumable delete finishes on the next command, and a store written by release *n* is read by release *n+1* — executed once, not asserted · owner `09` §5 → *Operability* · turns on — · sha `f5c37e3`
+  **6.8 — nothing was built, and that is the finding.** Every mechanism these three promises rest
+  on already existed and every one was unit-tested; **none had been run end to end against the real
+  store.** That is the same gap `L6.14` was written about one task earlier: `list_sources()` was
+  true of the contract, unit-tested against a double, and false of the running system. A promise on
+  a release checklist is worth exactly what has been executed of it, which is what `09` §5.2's own
+  *"Fails if this has never been run"* says in as many words.
+
+  **The resumable delete, through the shipped binary, from outside the repository.** The crash is
+  simulated where it actually happens — after `delete_source` wrote the tombstone and before it
+  deleted the nodes, which is unreachable from outside because the real method does both in one
+  call:
+
+  ```
+  $ weft index . --yes
+  produced 1, nothing to produce 0, failed 0. nodes now stored: 1.
+  $ psql -c "UPDATE weft_sources SET status='deleting'"   # the crash, mid-delete
+  UPDATE 1                                                 # 1 node still present
+  $ weft reconcile --mode repair --dry-run
+  'reconcile' is a destroy-class command [...] mode 'repair' will run against 1 participant(s):
+  pgvector (weft-store). It refuses to run with no terminal to confirm in [...]
+  $ weft reconcile --mode repair --yes
+  mode 'repair' — 1 participant(s):
+    pgvector (weft-store): examined 1, removed 1, backfilled 0
+  # 0 nodes, 0 sources
+  ```
+
+  **Both plants watched going red**, because all three scenarios passed on the first run and a
+  check that has never been seen failing is indistinguishable from one that cannot (`L5.19`):
+  removing `upgrade` from the newer class gives `SchemaVersionRefusedError: 'operability-reading'
+  data was written at version '1', but the installed class is at '2' and declares no upgrade path
+  from it` — the refusal is real, and the upgrade is what makes the read work rather than the read
+  being trivially fine; and a repair pass that removes nothing fails `assert report.removed == 1`.
+  Each scenario also asserts its **precondition** first — the batch is in the store, the tombstone
+  is standing, the payload is at the older version — so none can pass by having nothing to check.
+
+  **What "release *n* → *n+1*" can honestly mean today, stated rather than assumed.** Nothing is on
+  an index yet — that is **6.13** — so there is no *n+1* release to install, and a test claiming
+  otherwise would be theatre. What exists is the axis G9 settled for exactly this problem: the
+  contract version is not available at the read site, because the pack that wrote a row may not be
+  installed, so the stored bytes carry `__schema_version__` and a reader **upgrades or refuses**.
+  That path is executed here against the real store — bytes written by a class calling itself `1`,
+  read back by the class calling itself `2`, value intact. The release-to-release form is owed once
+  something has been published twice, and **6.13** is where it becomes possible.
+
+  **Two things this task found on the way.** The interrupted-run scenario failed first with
+  `no 'weft-chunk' is registered for ExtModel` — a hand-built `Registry` runs no pack's
+  `register()`, so nothing populates the process-global namespace registry. That is exactly the
+  latent dependency **6.17** names, met from a second direction, and this module registers what it
+  needs rather than inheriting it from whichever file ran first. Doing so then failed in the full
+  suite with `DuplicateRegistrationError`, because `register_ext_model` refuses even a
+  re-registration of the same class while `register_from_reports` skips it — contradicting
+  `rehydrate.py`'s own docstring, which says the two are identical *and names this caller*.
+  `docs/lessons.md` **L6.28**.
+- [x] **6.9** every shipped technique's claimed improvement is a delta against the published baseline on the same corpus, pipeline and model versions · owner `09` §4, V3; §5 → *Quality* · turns on — · sha `6c0cb18`
+  **6.9 — half of this existed and the half nothing checked was the sentence's actual subject.**
+  `eval/check_baseline.py` (task 4.8) answers *"did this run reproduce the baseline"*: intervals
+  derived from the baseline's own repetitions, `IncomparableRunsError` when the corpus, pipeline or
+  model versions differ. `09` §5.2's failure clause is about somewhere else entirely — *"Fails if
+  any **claim in the documentation** has no run behind it"* — and a number in a manual is what a
+  reader acts on, reachable by anyone with a text editor and no run at all.
+
+  **Two clauses, because a marker alone polices only the claims that opted in.** (a) a claim is a
+  fenced ` ```text id=claim:<technique> ` block naming a published run — the tagged-block
+  mechanism FF11 already uses for pipelines; (b) **no claim-shaped prose exists outside one**,
+  swept over `manual/` and `README.md` with a pinned waiver. Clause (b) is the one that catches
+  what actually happens: *"raptor improves recall by 12%"* typed straight into a manual. Planted
+  and watched: `user-manual.md: improves recall by 12% over the baseline`.
+
+  **The sweep is over `manual/` and `README.md`, not `docs/`** — `08` §1 defines the shipped
+  documentation set and `09` §5's clause sits under *Security, licensing, documentation*. `docs/`
+  is where the rule is stated and quoted at length; sweeping it would make every discussion of the
+  rule a violation of it.
+
+  **And the check shipped inert once, with its own non-vacuity test passing.** The prose pattern's
+  gap was `[^.\n]{0,80}`, which cannot cross a `.`, and the phrasing both real passages use is
+  `"improvement... reported against a baseline"` — so clause (b) matched **nothing in the entire
+  shipped set** while all five tests were green, the waiver excusing nothing and the
+  waiver-liveness test asking whether the text was *present* rather than whether the check *fired
+  on it*. Found only by emptying `CLAIM_PROSE_WAIVED` and watching the check stay green, which is
+  `phase-step` → *Finish* item 3 doing exactly the job it exists for. Excluding newlines was the
+  second miss: the manuals wrap at 100 columns, so a claim and its number routinely sit on
+  different lines. The sweep now runs over whitespace-collapsed text and the liveness test asserts
+  the sweep *fires*. `docs/lessons.md` **L6.29**, whose closing line names the next thing to check:
+  `test_ff0_gate_in_the_gate.py`'s own waiver-liveness test has the same shape and may have the
+  same hole.
+
+  **Preceded by 6.27**, which pinned the extraction backend the baseline's quotes were taken from
+  — "the same corpus" has to include the text the corpus actually reads as.
+- [x] **6.10** the published trust posture is the one `02` §2 actually claims — no package page implying isolation the design refused · owner `09` §5 → *Security, licensing, documentation*; `02` §2 · turns on — · sha `c58ee66`
+  **6.10 — the gap was exactly the one `09` §3 predicts.** That section says the posture "must
+  appear in the published README of the release, **not only in the plan**", and warns that "a
+  design that refused to simulate a control it cannot enforce would be undone by a package page
+  that lets a reader assume one exists." The repository's own `README.md` has carried the posture
+  since Phase 0. `packages/weft/README.md` — the `readme` the release set *declares*, and therefore
+  the page an index renders — carried **none** of it: no privileges, no trusting, no list of what is
+  out of reach. Everything a stranger reads before installing said nothing about the one thing
+  `02` §2 spent a section refusing to simulate. It says it now, including what Weft gives instead
+  (`doctor`'s disclosure column, `[packs] allow`'s refusal-before-import) and that a disclosure is
+  what a pack says about itself, checked by nothing.
+
+  **Two clauses, and the second needed the words rather than avoiding them.** (a) the published
+  page states both claims — full privileges, installing is trusting — and *names* the absences,
+  because "no sandbox" is the half a reader acts on and the half a marketing edit removes first;
+  (b) no published surface names an isolation control without denying it, swept over
+  `packages/weft/README.md`, `README.md` and every distribution's own one-line `description`, which
+  is what a search result shows. A sweep that flagged the word alone would flag every honest
+  disclaimer and be switched off in a week; one that ignored it would miss the only sentence that
+  matters.
+
+  **Planted and watched:** `packages/weft/README.md: Every pack runs in a secure sandbox, isolated
+  from your data.`
+
+  **And the sweep had a false negative, arrived at by accident.** `README.md`'s distribution listing
+  is a fenced block containing `kernel-isolated`; collapsed into one enormous "sentence", the word
+  "refused" from a different line excused it. Fences are stripped now. The direction of that failure
+  is the one this check must never fail in, and it was found by asking what the sweep actually
+  matched on the real pages rather than trusting that it passed — the same move that caught
+  `docs/lessons.md` **L6.29** one task earlier.
+- [x] **6.11** every file in the release is accounted for as original work, re-checked with `reference-audit`, with `LICENSE` and `NOTICE` in every built artefact · owner `09` §5; `CLAUDE.md` → the originality rule · turns on — · sha `255884f`
+  **6.11a — the licence was in the repository and in no artefact.** Measured before it was fixed:
+  **not one wheel or sdist carried `LICENSE` or `NOTICE`, and no distribution declared a `license`
+  at all.** Twenty wheels were one `uv publish` from an index with nothing in them for anyone's
+  legal team to read. Two approaches were tried and rejected on evidence rather than taste:
+  `[tool.hatch.build.targets.wheel.force-include]` with `"../../LICENSE"` **fails the build**, and
+  PEP 639's `license-files` resolves relative to the distribution's own directory, so the root
+  files are unreachable from a per-distribution build. So each of the twenty carries its own copy,
+  declares `license = "MIT"` and `license-files = ["LICENSE", "NOTICE"]`, and **the copies are held
+  byte-identical to the root originals by a check** — which is what makes twenty copies safe rather
+  than twenty chances to ship a different promise. `files_that_must_ship` now requires both, so
+  task 6.7's comparison against the real archive is what proves they are in the tarball rather than
+  merely in the directory. Verified in built artefacts:
+
+  ```
+  weft_cli-0.1.0.dist-info/licenses/LICENSE     weft-0.1.0.dist-info/licenses/LICENSE
+  weft_cli-0.1.0.dist-info/licenses/NOTICE      weft-0.1.0.dist-info/licenses/NOTICE
+  weft_cli-0.1.0/LICENSE  weft_cli-0.1.0/NOTICE     (sdist, both)
+  ```
+
+  **6.11b — the originality re-check, measured rather than recalled.** `reference-audit`'s step 5,
+  across the whole shipped tree against `reference/src` and `reference/system`:
+
+  - **17,241 substantive source lines in Weft, 23,114 in the reference, 10 identical** — and every one
+    of the ten is a bare class declaration in the `LLMError` taxonomy
+    (`class LLMRateLimitError(LLMTransientError):` and its nine siblings). That is T1.7, which
+    `04` §B assigns as *lift the design, rewrite the code*: a taxonomy's asset **is** its names and
+    its transient/permanent axis, both of which `04` documents, so two independent implementations
+    of it necessarily agree on the declarations. No body, no docstring and no comment is shared.
+  - **0 identical string literals of 40 characters or more**, across 2,650 in Weft and 7,113 in the
+    reference. This is the pointed measurement, because prompts, messages and word lists are where
+    transcription is easiest and hardest to notice.
+  - **The three pre-flagged contamination items have not arrived.** No `RANDOM_SEED = 224`, no
+    `### --- Our code below --- ###`, no STX Next header; `weft_index.raptor` imports only the
+    standard library and `pydantic` and states in its own docstring that its clustering is a fresh
+    small algorithm rather than the reference's UMAP+GMM.
+  - **One near-match was chased to the end rather than explained away**, and it is the finding
+    worth having. `weft_enhance.keybert_stand_in`'s 73-word stop list is a **strict subset** of the
+    reference's 127-word list — no word of its own — which is the shape a transcribe-and-prune
+    produces. It is not one: both are drawn from the same canonical population of English function
+    words, so a short list sits inside a longer one by construction, and the discriminating
+    evidence runs the other way — the reference's list carries `don` and `doing`, the tokenisation
+    artefacts of the NLTK list it derives from, and **neither is here**. A prune keeps artefacts;
+    it does not remove exactly the ones that would identify the source. The module's comment
+    claimed *"any two people asked to write common English stopwords from memory would largely
+    agree"*; it now carries the measurement instead, because an unevidenced "written fresh" is
+    precisely what this audit exists to test.
+
+  **The forward and reverse gap audit is not this task's** — it is `phase-step` → *Close the phase*
+  step 3, run against the whole phase rather than against the release's files. This task is the
+  originality half of `reference-audit` and the licence in the artefact.
+- [x] **6.12** a newcomer installs, indexes and asks from the README alone, without opening `docs/` · owner `09` §5; `08` §1, *Quickstart* · turns on — · sha `c3427a4`
+  **6.12 — measured before it was fixed: they could not.** `README.md`'s *Start here* pointed at
+  `docs/README.md` as "the single source of truth", its table listed five design documents, and
+  every runnable block on the page was a maintainer's command — `poe ci-checks`, `next_task.py`.
+  **No install, no index, no query anywhere.** Somebody arriving at the repository saw a plan
+  rather than a product, and the first thing `09` §5.2's checklist promises them was the one thing
+  the page did not do. The page now carries the whole path, and it is executed rather than
+  believed: `tests/docs/test_readme_is_enough.py` is `08` §3 clause (a)'s harness aimed one page
+  over, because the quickstart is reached *from* the README and a newcomer who has to be told where
+  to go has already opened something else.
+
+  **Running it found the wall a newcomer would hit**, on the first attempt and not in review:
+
+  ```
+  README.md block 'ask' exited 1:
+  no [llm.roles] entry maps role 'route'. Roles mapped in weft.toml: (none mapped).
+  ```
+
+  `weft ask` refuses by name until a provider is mapped — correct behaviour, and a dead end for
+  somebody with no account thirty seconds into their first try. The path uses `--retrieve-only`,
+  which is the offline half `manual/quickstart.md` already uses, and the prose says what the flag
+  is doing and what dropping it needs. Walked by hand from outside the repository afterwards,
+  including that failure path.
+
+  **Two clauses, because "the commands ran" is not the promise.** The second is
+  *"without opening `docs/`"*: every executed block is asserted to reference `docs/` nowhere. A
+  runnable path that says "see `docs/03-cli.md` for the flag you need" satisfies a harness and
+  fails the checklist. **`install` is waived from execution**, one entry, for the reason
+  `test_quickstart.py`'s own waiver exists: nothing is on an index until **6.13**, and both empty
+  at that task.
+- [x] **6.14** the fitness function `01` has named since day one exists: **FF5**, *every declared capability resolves* — a plugin's declared capability resolves to a live implementation at discovery, or the plugin declares it unavailable and says why · owner `01` → *Fitness functions* 5; `11` · turns on **FF5** · sha `0a136c6` · **added 2026-08-22 by Phase 5's lessons drain**, found by FF16 clause (a) on its first run — the same defect as `L5.4` and unnoticed for the same five phases. Waived in `tests/architecture/test_ff16_checks_are_real.py`'s `FITNESS_FUNCTIONS_NOT_YET_DUE` until this closes
+  **6.14 — FF5 exists, and this entry says which of its clauses it holds.** Named in `01` on the
+  project's first day, built five phases later: `docs/lessons.md` L5.4 exactly, caught by FF16
+  clause (a), the check written *from* that lesson finding the lesson's own subject still open.
+  FF16's waiver carried a warning worth answering rather than clearing — *"building a fitness
+  function hastily at a phase close is how a check that cannot fail gets written."*
+
+  **What a declared capability is here.** G4 made a *store* capability derived, asked of the
+  registered class with `issubclass`, so there is nothing there to disagree with itself. The
+  declaration FF5 is about is an extractor's **accept set** — a pack says *"I handle `.pdf`"* — and
+  that is the reference bug `docs/README.md` opens with, which **happened here, predicted by line
+  number before it did**: `11` §2.1 said filtering on one pack's module constant would make `.pdf`
+  silently invisible the moment a second extractor pack shipped, `weft-pdf` shipped at 2.27, and
+  `weft index corpus/mrmr` walked nine PDFs, matched none and **exited 0 reporting success**.
+
+  **Clause (a), structural over the AST** — no call site passes a pack constant as
+  `discover_source_docs`'s `extensions`, following a local name back through its assignments
+  because the real call writes `readable = present & accepted`. Watched failing with the
+  historical defect reintroduced in the real tree. **Clause (b)** — every extension a live
+  extractor declares is in the set ingest accepts, read off the registered classes and off the
+  shipped derivation, so a derivation that started dropping a suffix fails while (a) stays green.
+
+  **Clause (c) is NOT held and is pinned rather than pretended.** *"or the plugin must declare it
+  unavailable and say why"* needs `PackStatus.PARTIAL` to have a mechanism, and it has never had
+  one: `weft_kernel.discovery`'s own docstring deferred it in Phase 0 — *"the mechanism that
+  produces it is G4's conditional registration, a later step's job"* — and no later step took it.
+  The one real instance is `bertscore`, which registers unconditionally and answers `Failed` at
+  *run* time naming the missing extra: saying why, one moment too late.
+  `PLUGINS_REPORTING_UNAVAILABILITY_TOO_LATE` holds it, one entry, with a test proving the entry
+  names a live registration rather than a string somebody typed. **Task 6.29** empties it.
+  `FITNESS_FUNCTIONS_NOT_YET_DUE` is now empty.
+
+  **The first draft of this check broke two other tests, and how that was diagnosed is
+  `docs/lessons.md` L6.32.** It called `discover_for_reference()`, which discovers open and
+  therefore imports `weft-canary` — whose entire purpose is to prove it was *never* imported — so
+  `test_ff8_trust_model.py` failed for every run this file preceded and passed alone.
+  `test_ff2_no_privileged_builtins.py` restricts its own `allow` for exactly that reason and says
+  so; this one now does too. The lesson is not the import: `uv sync` was run and then **FF8 alone**,
+  it passed, and that was written up as venv drift — a green from a narrower scope read as evidence
+  about a change. The next full run said otherwise. The entry was rewritten to the real cause
+  rather than left standing.
+- [x] **6.15** every architecture check proves it can fail: `CHECKS_WITHOUT_A_SELF_TEST` in `tests/architecture/test_ff16_checks_are_real.py` shrinks to empty, one file at a time, each with a planted disagreement watched going red · owner `01` → *Fitness functions* 0; `05` → `lessons.md` L5.6, L5.19 · turns on — · sha `c71538e` · **added 2026-08-22 by Phase 5's lessons drain**. Seven files predate FF16 and carry no self-test; the ratchet is pinned so nothing may be added to it
+  **6.15 — the ratchet is empty, and two of the seven were never what the constant said.** Taken
+  out of ledger order, in the window a dispatched implementer held task 6.6: writing or changing a
+  test is the one thing `phase-step` never delegates, so this is work only the dispatching context
+  can do, and doing it while waiting is the whole reason the window existed. (It also produced
+  `docs/lessons.md` L6.22 — the tree was shared, and the agent paid for that.)
+
+  **Four files genuinely had none, and each was given one planted through its own real helpers**,
+  never against hand-written sets — a self-test asserting `{"arch"} - set() == {"arch"}` proves
+  that `frozenset.__sub__` works:
+
+  - `test_ff0_gate_in_the_gate.py` — a gate sequence that forgot `arch`, and a suite the test task
+    never reaches, both computed by `table_at`/`str_list_at`/`_covered_roots`.
+  - `test_ff1_boundary.py` — a planted file importing `psycopg` and `openai.types`, run through
+    the real `_top_level_imports`, in all three AST shapes; plus the stdlib and `weft_kernel`
+    exclusions exercised in the same file, and a second self-test for the dependency reader. This
+    is the file whose reference ancestor "used a denylist, matched zero imports, and exited 0 on a tree
+    with 11 violations" — a check nobody had watched fail, exactly.
+  - `test_ff3_kernel_budget.py` — a fixture whose answer is known (four code lines under a
+    three-line module docstring, a comment and a blank), so a counter that stopped excluding
+    docstrings reads as kernel growth rather than as a broken count.
+  - `test_ff7_colour_integrity.py` — all four spellings of the `asyncio.run` bridge caught, and the
+    two near-misses (`subprocess.run`, a merely-imported `asyncio`) not caught; plus a walk floor.
+
+  **Two were waived and had a self-test all along**, under names this clause did not recognise:
+  `test_ff2_no_privileged_builtins.py`'s `test_a_registration_outside_discovery_is_caught` and
+  `test_ff8_trust_model.py`'s `test_the_equality_check_is_not_vacuous`. Both were renamed to the
+  convention rather than duplicated, and FF2 gained a second one, because its existing test covers
+  the registry equality and says nothing about the *import* comparison — a different comparison
+  over a different input that had never been observed catching anything.
+
+  **The seventh was the pattern's fault, not the file's.** `test_ff11_pipeline_integrity.py`
+  carries four self-tests named `..._would_be_caught`, each planting a disagreement and watching
+  it go red. `_SELF_TEST` recognised two spellings and not that one, so the file was recorded as
+  carrying none — false about the tree on the day the constant was written. The regex was widened;
+  renaming four accurate test names to satisfy a pattern would be the check dictating the tree.
+  This is `docs/lessons.md` **L6.4** in its own home: read the population, not the declaration.
+
+  **And FF8 had stopped describing the shipped command.** Its clause (c) claims to parse "the text
+  `weft plugins doctor` itself would print" and called `render_doctor(reports)` with the defaults —
+  so from task **6.4** onward it compared against a rendering the binary no longer produces, while
+  its own pattern went on matching the shape it had itself produced. Repaired to render the way
+  `PluginsDoctorCommand` renders. **`docs/lessons.md` L6.21** is that finding: a
+  backward-compatible default keeps a check agreeing with the shape it already had, which is
+  indistinguishable from the check working.
+- [x] **6.16** a `--json` consumer can tell one event shape from another: the newline-delimited stream carries a discriminant, so a `StreamEvent` and an `ErrorEnvelope` are distinguishable without guessing by key presence · owner `03` → *Output*; `09` §3 · turns on — · sha `476c105` · **added 2026-08-22 by Phase 5's lessons drain** (`lessons.md` L5.16). Additive under `09` §3's *"promised, additively"* rule, which is why it is Phase 6's and not a Phase 5 repair
+  **6.16 — the ambiguous pair was the whole problem.** `weft --json ask` writes `StreamEvent`
+  lines while a pipeline runs and an `ErrorEnvelope` when the run refuses, on **one descriptor**,
+  and a consumer told them apart by which keys were present. That is bad enough as guesswork and
+  worse in the one case that matters: a `StreamEvent` whose `type` is `error` and an
+  `ErrorEnvelope` are **both** "an error", in different shapes, so key-sniffing had to get exactly
+  the ambiguous case right to be correct at all.
+
+  **`kind` is a second key, never a widening of `type`.** `StreamEventType` answers *which event*;
+  `LineKind` answers *which line shape*. Collapsing them would make `type: "error"` mean two
+  unrelated things depending on what else is set — the "one word answering two questions" `09` §3
+  refuses for the status vocabulary, one surface over. **Additive**, which is what makes it
+  permissible at all: `09` §3 promises the machine-readable output additively, a consumer ignores
+  what it does not recognise, and `envelope_version` does not move for a new field.
+
+  Both shapes on one stream, from the shipped binary:
+
+  ```
+  $ weft --json ask "x" --pipeline nope
+  {"kind":"stream-event","type":"done","role":"","text":"","message":""}
+  {"kind":"error-envelope","envelope_version":"1.0.0","error":"UnknownPipelineNameError",...}
+  ```
+
+  **Fitness function 7(a) caught the first draft of the test**, which called `asyncio.run` in a
+  helper: exactly one `asyncio.run` in the whole tree, at `weft_cli.cli`'s entry point. The test is
+  `async def` and awaits, which is what `asyncio_mode = "auto"` is for.
+- [x] **6.17** `tests/integration/test_ingest_pipeline.py` passes on its own: the test-order dependency confirmed at task 5.2g is removed, so the file's result does not depend on another file having run first · owner `01` → *Fitness functions* 0 · turns on — · sha `7bcac16` · **added 2026-08-22 by Phase 5's lessons drain** (`lessons.md` L5.21)
+  **6.17 — the cause, not the symptom.** Run alone the file failed with
+  `no 'weft-chunk' is registered for ExtModel`. A hand-built `Registry` runs no pack's
+  `register()`, so nothing calls `PackRegistrar.add_ext_model` and nothing reaches
+  `weft_store.rehydrate`'s **process-global** namespace registry; the file passed only because some
+  other test file had run a real `discover()` first. It registers what it needs now and depends on
+  nothing having gone before it.
+
+  **Through `register_from_reports`, not `register_ext_model`** — the latter refuses a second call
+  even for the same class, so the obvious fix works alone and fails in the full suite. That
+  difference contradicts `rehydrate.py`'s own docstring, which says the two are identical *and
+  names this exact caller*: `docs/lessons.md` **L6.28**.
+
+  **The family is wider than this one file.** Task 6.8 met the identical dependency from a second
+  direction building its interrupted-run scenario, and task 6.14's first draft created a *new* one
+  — importing `weft-canary` through open discovery, which made `test_ff8_trust_model.py` fail for
+  every run it preceded. A process-global registry that any test may write to is the shared
+  mutable state underneath all three.
+
+- [x] **6.18** `weft delete` reaches every store this project actually runs data through: the fan-out takes the configured `[services] store` **plus** every `NodeStore` named by a pipeline in the catalogue or by a persisted run record, and the participant list it prints says who was asked · owner `02` §1 → *Extended by G13*; `05` → G13 · turns on — · sha `6ae68ee` · **added 2026-08-22 by G13**, which settled the question task 5.1a defaulted (`lessons.md` L5.25, L5.32). The reproduction is task 5.7's own: index with `--pipeline kg`, delete the source, and read the graph store — it must be empty. A test that only asserts the participant *list* would pass on the tree as it stands, so the check is the store's contents
+  **6.18 — what the fan-out now reaches, run for real outside this repository.** The property is
+  a set, not a list: `weft_cli.participation.stores_in_use` computes the configured
+  `[services] store` plus every stage name in `full_catalogue` or in a persisted `RunRecord`
+  that is registered under `NodeStore`, and `weft_cli.fanout.participants_for` filters
+  `NodeStore` down to that set for `weft delete` and `weft reconcile` alike. The dev venv has
+  no `weft-example-graph` installed, so `weft-qdrant` and `weft-store` stand in for the two
+  registrations; the demonstration is that the second one joins **because a document names it**
+  and for no other reason:
+
+  ```
+  $ cat weft.toml
+  [services]
+  store = "qdrant"
+
+  [packs.weft-store]
+  dsn = "postgresql://nobody@127.0.0.1:1/none"
+
+  $ ls pipelines/          # nothing names a second store
+  $ weft reconcile --dry-run
+  'reconcile' is a destroy-class command, called with {'mode': None, 'dry_run': True}. mode
+  'full' will run against 1 participant(s): qdrant (weft-qdrant). [...]
+
+  $ cat > pipelines/kg.yaml <<'YAML'
+  name: kg
+  stages:
+    - id: store
+      use: qdrant
+    - id: second-store
+      use: pgvector
+  YAML
+  $ weft reconcile --dry-run
+  'reconcile' is a destroy-class command, called with {'mode': None, 'dry_run': True}. mode
+  'full' will run against 2 participant(s): pgvector (weft-store), qdrant (weft-qdrant). [...]
+
+  $ rm pipelines/kg.yaml && cp /tmp/one-run.json runs/r1.json   # run history alone, no document
+  $ weft delete doc-1
+  'delete' is a destroy-class command, called with {'source_id': 'doc-1'}. 'doc-1' will be
+  removed from 2 participant(s): pgvector (weft-store), qdrant (weft-qdrant). [...]
+  ```
+
+  Both halves of *participation follows use* are visible there: a store a document names joins,
+  a store only the run history names joins, and — asserted in
+  `tests/unit/weft_cli/test_commands.py::test_delete_leaves_a_store_nothing_names_alone` — a
+  registered store nothing names still does not, which is the half of task 5.1a's narrowing G13
+  kept. **The check is the store's contents, per this task's own line**, and that is
+  `test_delete_empties_a_graph_store_a_catalogue_pipeline_names`: it failed
+  `assert {'doc-1': 4} == {}` before the change, the derived store's data outliving its deleted
+  source.
+
+  **Two things this task deliberately did not do.** No ordering: `02` §1 states the rule as a
+  set and never says the configured store is asked first, so the fan-out keeps
+  `participants_for`'s own name ordering — a first draft of the test asserted an order, the
+  implementer invented a `_configured_store_first` policy to satisfy it and said so, and the
+  repair was to the test (`docs/lessons.md` L6.10). And no declaration: nothing opts in, which
+  is what makes a graph pack a participant with no core edit.
+
+  **A run record that will not parse is refused, not skipped** — `UnreadableRunRecordError`,
+  exit `1`, `manual/troubleshooting.md` → *Who a fan-out reaches*. The run history is read
+  precisely to find a store the catalogue no longer names, so the unreadable record may be the
+  only one naming it; skipping it would let that store outlive its source in silence, which is
+  `docs/lessons.md` L5.9 applied to a directory sweep. Found by running the binary — the error
+  class was caught first by task 0.14's own troubleshooting ratchet, which failed the gate
+  naming it.
+
+- [x] **6.19** a participant that is not the primary store can build `reconcile --mode full`: the CLI registers the configured `NodeStore` into the `Context` a reconcile pass carries, and a pack reaches it with `ctx.require(NodeStore)` · owner `02` §1 → *Extended by G13*; `05` → G13 · turns on — · sha `e98e092` · **added 2026-08-22 by G13** (`lessons.md` L5.24). No contract moves — `Context.require` and `scan`/`count`/`list_sources` already exist, and `STORE_CONTRACT_VERSION` staying put is part of the property. Demonstrated by deleting `GraphBackfillUnavailableError` from `examples/weft-example-graph` and having `full` actually backfill
+  **6.19 — the backfill, run for real from an installed wheel.** A throwaway venv with
+  `examples/weft-example-graph` installed alongside the first-party distributions, a project
+  directory outside this repository, and the one `compose.yaml` container. The corpus is indexed
+  by the **default** pipeline, which has no graph stage — the exact case `02` §4's table row is
+  about — and the graph store is empty afterwards:
+
+  ```
+  $ weft index docs --yes
+  produced 1, nothing to produce 0, failed 0. nodes now stored: 2.
+  mode 'repair' — 2 participant(s):
+    example-graph (weft-example-graph): examined 0, removed 0, backfilled 0
+    pgvector (weft-store): examined 0, removed 0, backfilled 0
+  $ psql -tAc 'select count(*) from exgraph_nodes'
+  0
+
+  $ weft reconcile --mode full --dry-run --yes
+  mode 'full' would run against 2 participant(s):
+    example-graph (weft-example-graph): 2 node(s) in the corpus have no graph data yet and
+      would be backfilled from their own stored content
+    pgvector (weft-store): no unfinished deletions; nothing to converge
+
+  $ weft reconcile --mode full --yes
+  mode 'full' — 2 participant(s):
+    example-graph (weft-example-graph): examined 2, removed 0, backfilled 2
+    pgvector (weft-store): examined 0, removed 0, backfilled 0
+  $ psql -tAc 'select (select count(*) from exgraph_nodes), (select count(*) from exgraph_entities)'
+  2|4
+  ```
+
+  The same two commands raised `GraphBackfillUnavailableError` before this task. That class is
+  **deleted**, not left unraised: it was a truthful design finding while the access did not exist
+  and would have been a lie the moment it did. `weft_cli.commands._register_corpus` is the whole
+  CLI-side change — the configured `NodeStore` put on the `Context` inside `ReconcileCommand.run`
+  and `IndexCommand._auto_reconcile`, never inside `describe_impact`, since a confirmation prompt
+  must not connect to the corpus before consent. **No contract moved**, which is part of the
+  property: `Context.require` is G1's one resolution seam and `scan`/`count`/`list_sources`
+  already answered *what should exist*, so `STORE_CONTRACT_VERSION` did not need to and did not.
+
+  **The failure path, also run:** a `[services] store` naming nothing registered refuses with
+  *"[services] store names 'no-such-store', and no registered NodeStore has that name. Registered
+  NodeStore names: 'example-graph', 'pgvector'."* — and a participant reaching for a corpus that
+  was never registered gets `UnresolvedServiceError` naming `NodeStore` and what *is* on the run,
+  asserted at `tests/unit/weft_cli/test_commands.py::test_a_participant_asking_for_a_corpus_that_
+  is_not_there_is_told_so`. An unavailable corpus is not a backfill of zero.
+
+  **Carried to 6.21, deliberately:** `02` §4's `Reconcilable` row promises two things, and only
+  one is built. `full` backfills — done here. `repair` *"drops orphans left by anything the fan-out
+  missed"* needs the same corpus access but is a separate promise about a different mode, and
+  widening `repair`'s behaviour inside this task would have been a decision G13 did not settle.
+  6.21 checks that table row by row, and this is the row it will find.
+
+  **Found while doing it, and filed rather than folded in:** nothing in the gate runs
+  `examples/*/tests/` — task **6.23**, `docs/lessons.md` L6.12.
+
+- [x] **6.20** a pack's `Command` result renders for a person: `registrar.add_renderer(ResultType, renderer)` is the seam, `Rendered` is published from `weft-command`, and the CLI's own renderers register through the same call so no built-in keeps a private path · owner `03` → *Plugin-contributed commands*; `05` → G13 · turns on — · sha `cffb8c2` · **added 2026-08-22 by G13** (`lessons.md` L5.30, and L5.15's producing/consuming rule). `COMMAND_CONTRACT_VERSION` moves under G9's two-audience rule. The unregistered-result fallback stays the honest structured dump — a floor, not a ceiling. Proven the way requirement 4 has to be, at runtime: `weft example-graph show` prints for a person from an installed wheel, and `weft_cli.render` holds no first-party table the check can find
+  **6.20 — a pack's result, printed for a person, from an installed wheel.** The same throwaway
+  venv shape 6.19 used: the first-party distributions plus `examples/weft-example-graph`, a
+  project outside this repository, the one container.
+
+  ```
+  $ weft example-graph show
+  1 node(s) carry graph data: 4 distinct entities, 6 distinct relations.
+  top entities:
+    Acme Corp (1)
+    Globex Inc (1)
+    Initech (1)
+    Umbrella Ltd (1)
+  exit=0
+
+  $ weft example-graph show --entity "Nonesuch Ltd"
+  1 node(s) carry graph data: 4 distinct entities, 6 distinct relations.
+  neighbours of 'Nonesuch Ltd':
+    (none)
+  ```
+
+  Before this task the same command printed `{"nodes_with_graph_data":...}` at a person while
+  eighteen built-in commands printed for one. **`_RENDERERS` is deleted** — `weft_cli.render`
+  holds no first-party dispatch table, asserted by a test that walks the module's own namespace
+  three levels deep, because the table it forbids was a tuple of *pairs* and a one-level scan
+  passed vacuously on the first draft (`docs/lessons.md` L5.19's rule, met by planting the real
+  shape). The eighteen built-in renderers reach the dispatch through
+  `registrar.add_renderer`, the same call the graph pack makes for `GraphShowResult`: requirement
+  4 checked at runtime rather than asserted.
+
+  **`COMMAND_CONTRACT_VERSION` → `2.1.0`, and the reasoning is recorded at the time it was
+  taken** rather than left for a later task to reconstruct — the mistake task 5.2a had to correct.
+  Under G9's two-audience rule this is additive for a caller *and* for an implementer: nothing on
+  `Command` changed, `required_declarations` is untouched, and a pack registering no renderer
+  still works, because the honest structured dump stays the floor. `ExitCode` moved to
+  `weft-command` with `Rendered`, since a renderer that cannot say the run failed is one no
+  built-in could have used — `weft delete` and `weft index` both compute their exit code from
+  their own result's fields. `weft_cli.exit_codes` and `weft_cli.render` re-export both under
+  `X as X`, so no other module in the tree changed an import.
+
+  **Three checks bit during this task, and all three were doing their job.** Fitness function 6
+  forced `packages/weft-command/pyproject.toml` to a matching minor. `test_the_double_carries_
+  every_registrar_method` named `_NameCapturingRegistrar`'s missing `add_renderer` — the *fourth*
+  recurrence of `L5.26`, and the first caught before a pack crashed on it, exactly as
+  `add_pipeline_resource`'s own docstring predicted it would be. And **fitness function 9(b)
+  failed the gate on two ordinary docstring sentences** in `weft_cli/render.py` that named the
+  example pack; they were generalised rather than waived.
+
+  That last one has a consequence for a task still open: **6.22's wording was corrected here**,
+  before anyone implemented it. As filed it said FF9(b) should decide the question structurally
+  *"never as a substring of file text"* — and a purely structural check would have missed both of
+  the violations found today, since a docstring is neither an import, an entry-point declaration
+  nor a registration literal. The check has a false-positive mode and a false-negative mode;
+  6.22 now owns both. `docs/lessons.md` L6.13.
+
+- [x] **6.21** the independence test is re-run against `examples/weft-example-graph` and Phase 5's exit criterion is met — no core change requested, and every row of `02` §4's table true against the running binary · owner `01` → Phase 5 **Exit**; `02` §4 · turns on — · sha `bfce486` · **added 2026-08-22 by G13**. Phase 5 closed with its exit **not met** and the finding recorded; this is where it is discharged, after 6.18–6.20 and before 6.13, because Phase 6's own exit re-demonstrates every earlier phase's criterion against installed wheels and cannot re-demonstrate one that was never met
+
+  **6.21 — Phase 5's exit criterion, discharged.** `01` → Phase 5 **Exit**: *"it is written by
+  someone who has not touched the core, and they never need to."* Run against
+  `examples/weft-example-graph` installed into a throwaway venv beside the first-party
+  distributions, from a project directory outside this repository, with the one container.
+  **Every row of `02` §4's table, against the running binary:**
+
+  ```
+  ROW 1+2  Enhancer stage and graph store, through the pack's own kg pipeline
+  $ weft index docs --pipeline kg --yes
+  produced 1, nothing to produce 0, failed 0. nodes now stored: 1.
+  mode 'repair' — 2 participant(s):
+    example-graph (weft-example-graph): examined 1, removed 10, backfilled 0
+    pgvector (weft-store): examined 0, removed 0, backfilled 0
+  graph nodes|entities: 1|4
+
+  ROW 3    the pack's retriever, swapped into a first-party pipeline by ordinary derivation
+  $ cat pipelines/graph-ask.yaml
+  name: graph-ask
+  extends: retrieve-then-generate
+  replace:
+    - id: retrieve
+      use: example-graph-walk
+  $ weft pipeline show graph-ask
+    retrieve: Retriever:example-graph-walk (distribution: weft-example-graph, provenance: graph-ask)
+    fuse:     Fuser:single-list (distribution: weft-retrieve, provenance: retrieve-then-generate)
+
+  ROW 4    the pack's commands, in --help and rendered for a person
+  $ weft --help | grep example-graph
+      example-graph  'example-graph' subcommands
+  $ weft example-graph show
+  1 node(s) carry graph data: 4 distinct entities, 6 distinct relations.
+
+  ROW 5    the shipped pipeline and the slot contribution
+  $ weft pipeline list
+  kg
+  no-retrieval
+  retrieve-then-generate
+  route
+
+  G7 ROW 1  weft delete fans out to it in-command
+  $ weft delete .../docs/a.txt --yes
+  '.../docs/a.txt' — 2 participant(s):
+    example-graph (weft-example-graph): 1 node(s) removed
+    pgvector (weft-store): 1 node(s) removed
+  graph nodes after delete: 0
+
+  G7 ROW 2  repair drops orphans; full backfills
+  (corpus loses the node, graph keeps it — a participant that raised part-way through)
+  $ weft reconcile --mode repair --yes
+    example-graph (weft-example-graph): examined 1, removed 11, backfilled 0
+  graph nodes after: 0
+  ```
+
+  `full`'s half of the last row is 6.19's own evidence entry. **No core change was requested to
+  make the pack work**, which is the criterion: everything above runs against the code as
+  shipped, and the pack's author touched no file under `packages/`.
+
+  **The remaining half of G7's second row was built here.** 6.19 deliberately left *"repair drops
+  orphans"* for this task rather than widening `repair` inside a task G13 had not settled it for;
+  `repair` now requires the corpus for the same reason `full` does, and refuses without it —
+  doing the half it can and silently skipping orphan detection is `01` rule 5's silent
+  degradation, and the operator would read "converged" while still holding orphans.
+
+  **Two defects found by running the binary, neither by any test.** First, the orphan rule was
+  written on `NodeStore.list_sources()`, the method `02` §1 names for exactly this — and the
+  automatic post-index `repair` pass then **deleted every graph node `kg` had just written**,
+  because nothing on the ingest path calls `put_source` and `list_sources()` returns `()` in a
+  real run. The pack's own tests had passed, on a double that populated the method the system
+  does not. Repaired by deriving the live source set from `scan`'s own nodes and their lineage;
+  `02` §1 corrected in place; ledger task **6.24** owns the underlying gap, and **6.8 depends on
+  it** — a resumable delete needs a persisted `SourceStatus.DELETING` and nothing persists a
+  `SourceRecord` at all. `docs/lessons.md` L6.14. The test was then rewritten to hand the double
+  *no* source records, so it reproduces the real condition rather than the convenient one.
+
+  Second, while checking row 3 an ordinary three-line pipeline naming only a retriever printed
+  `'command:ask' failed: ` — a trailing space and nothing else, exit 1. `weft_cli.route_ask:275`
+  is `assert isinstance(answer, Answer)`, commented *"every shipped routable pipeline ends in a
+  Generator"*: an invariant over what this repository ships, checked against documents anyone may
+  write, failing with no message and stripped entirely under `-O`. Ledger task **6.25**,
+  `docs/lessons.md` L6.15. Not a Phase 5 exit failure — the pack works; this is the CLI
+  diagnosing a malformed *user* document badly — but it is `01` rule 5 broken in the open.
+
+- [x] **6.22** fitness function 9(b) decides "does anything under `packages/` name this pack" **structurally** — imports, entry-point declarations and the string literals passed to registration calls, read from the AST — **in addition to**, never instead of, the text scan it already runs; and its self-test plants a real reference rather than a matching word · owner `01` → *Fitness functions* 9; `05` → `lessons.md` L5.23, L5.28 · turns on — · sha `fb4f5ef` · **added 2026-08-22 while answering the archive's own question at the L6.1/L6.2 drain.** `tests/architecture/test_ff9_extension_from_outside.py:426` is still `if name in text`, and L5.28's row says so in as many words — *"the AST repair is still owed"*. The generalisation was routed to `phase-step` → *Orient* at the Phase 5 drain and the mechanical half was never given an owner, which is `implement-ll`'s own second trap: fixing the instance and calling the lesson applied leaves the class open. The defect it already caused is on the record — the check false-positived on ordinary English prose during task 5.4. **Corrected 2026-08-22 during task 6.20, before anyone implemented this line as first written** (`docs/lessons.md` L6.13): the original wording said *"never as a substring of file text"*, and a purely structural check would have missed the violation FF9(b) actually caught that day — two ordinary docstring sentences in `weft_cli/render.py` naming the example pack, which are neither imports nor entry points nor registration literals, and are real violations because a first-party file naming the out-of-tree pack makes the pack part of what it is meant to be independent of. The check has a false-positive mode *and* a false-negative mode; this task owns both
+  **6.22 — the AST half `L5.28` recorded as owed, added beside the text scan and not instead of
+  it.** `structurally_naming` reads three sources off the AST: an import of the pack's module, a
+  string literal passed to a registration call (`add`, `add_renderer`, `add_ext_model`,
+  `add_pipeline_resource`, `add_contribution`), and a dotted prefix of either. Planted in the real
+  tree and watched: a `registrar.add(Command, "example-graph", ...)` in `weft_cli.commands` is
+  named by file and by literal.
+
+  **Both directions of the unsoundness, which is what `L6.13` asks a repair to cover.** The text
+  scan **over**-fires on a name discussed rather than used — `02` §4 quotes `weft-graph` as a
+  hypothetical throughout, and a real pack taking that name would turn every legitimate quotation
+  into a violation, which is why `examples/weft-example-graph` is not called `weft-graph`. It
+  **under**-fires on a reference the text never spells the same way. The self-test is built on
+  exactly that pair, per this task's own line: a file that *imports and registers* is caught
+  structurally, a file that only mentions the name in a docstring is not — **and the substring
+  scan still catches the second**, asserted in the same test, so neither check can quietly replace
+  the other.
+
+- [x] **6.23** every test suite in the tree is reachable from `ci-checks`: `examples/*/tests/` — six packs' worth, `weft-example-graph`'s twelve included — runs in the gate, and a test whose subject is the one shared container scopes its assertion to what it wrote rather than to the whole table · owner `01` → *Fitness functions* 0; `05` → `lessons.md` L6.12 · turns on — · sha `779d09d` · **added 2026-08-22 during task 6.19**, which needed its pack-side evidence to actually run and found that nothing runs it. `pyproject.toml:142` is `testpaths = ["tests"]`; FF9 installs an example pack and checks the repository does not name it, never that its suite passes. Two of `weft-example-graph`'s tests were red on discovery, on seventeen rows of accumulated residue in `exgraph_nodes`, and went green on `TRUNCATE` — so the wiring and the isolation are one task, because wiring an unisolated suite into the gate only moves the flake
+  **6.23 — 116 tests the gate had never run.** `testpaths = ["tests"]` meant seven out-of-tree
+  example packs' own suites were invisible to `poe ci-checks`, which is `docs/lessons.md` **L6.12**
+  — a directory of tests no task runs is prose, exactly as a documented check no task runs is
+  prose, one level up from the check to the suite. All 116 run now, in half a second.
+
+  **A task of its own rather than a widened `testpaths`, for two measured reasons.** An example
+  pack is deliberately not a workspace member (FF9(a)), so nothing installs it and its `src/` must
+  reach `sys.path` explicitly — the gap `[tool.pyright] extraPaths` already closes for type
+  checking. And several packs name a test file the same thing (`test_store.py`,
+  `test_retriever.py`, `test_enhancer.py`), which pytest's default import mode refuses outright:
+  `--import-mode=importlib` accepts it without renaming 28 files that belong to strangers.
+
+  **FF0 could not have seen the new step, and that is this function's own subject aimed at
+  itself.** `_covered_roots` read the `test` task alone — true while the gate had one pytest step,
+  and a hole the moment it had two: `examples-tests` really would have covered
+  `examples/*/tests`, this function would not have known, and the seven entries would have stayed
+  in `SUITES_WAIVED_FROM_GATE` while the suites were already running. It reads **every pytest step
+  of the composite** now, both `cmd`-string and table task shapes. `SUITES_WAIVED_FROM_GATE` is
+  empty.
+
+  **The container half was already satisfied and was checked rather than assumed.** The task line
+  asks that a test whose subject is the one shared container scope its assertion to what it wrote.
+  `examples/weft-example-graph`'s suite does reach real Postgres, so 17 rows of foreign residue
+  were planted in `exgraph_nodes` (20 total) and all 116 tests still passed — the scoping landed at
+  task 6.19, and this is the evidence rather than the memory.
+
+  **Four test docstrings said "Not collected by `weft`'s own `pytest`", and that is now false** —
+  corrected in the same commit rather than left to rot, which is `L6.19`'s shape: a change that
+  falsifies prose owns the prose.
+
+- [x] **6.24** the ingest path records a `SourceRecord` for every source it indexes, so `NodeStore.list_sources()` answers the question `02` §1 says it answers · owner `02` §1; `05` → `lessons.md` L6.14 · turns on — · sha `2364ac2` · **added 2026-08-22 during task 6.21**, found by running the binary. `grep -rn "put_source" packages/` has exactly one caller and it is inside `weft_qdrant.store` itself, so `weft_sources` is empty after a real `weft index` and `list_sources()` returns `()`. `02` §1's *"`list_sources`/`scan`/`count` already answer what should exist"* is true of the contract and false of the running system, and a design that leaned on it deleted data. **Task 6.8 depends on this**: a resumable delete needs `SourceStatus.DELETING` to be persisted somewhere, and nothing persists a `SourceRecord` at all. Correct `02` §1 in the same commit
+
+  **6.24 — the writer `list_sources()` never had.** `weft_cli.ingest._record_sources`, called
+  after `runner.run` returns without raising: one `SourceRecord` per `SourceDoc`, written through
+  `put_source` on the instance of the stage `_store_stage_id_of` already identified — the store
+  this run actually wrote nodes into, whether it came from `[services] store` or from a named
+  pipeline document. `content_hash` is `sha256` over the document's **own bytes**, because `02` §1's
+  purpose for the field is change detection and a hash of anything else cannot serve it. A failure
+  from `put_source` propagates: a source that was indexed and not recorded is the exact state this
+  task exists to end.
+
+  **`BUILT_IN_PIPELINE_NAME = "built-in"`, and it is a real decision rather than a placeholder.**
+  The default four-stage path resolves no `ResolvedPipeline` at all (`06` step 9's hardcoded
+  pipeline, and `IndexResult`'s own docstring says so), so there is no name to read. `02` §1 wants
+  this field to let `weft index` say *"already indexed, by a different pipeline"*, and a field
+  meaning *which pipeline* cannot be empty on the path most corpora are indexed by.
+
+  **The check is an integration test against the real store, deliberately.** A double is what hid
+  this for a whole phase — `tests/` populated the method the running system did not, so every
+  assertion built on it was true about the double and false about Weft (`docs/lessons.md` L6.14).
+
+  **Run through the shipped binary, from outside the repository, against a clean container:**
+
+  ```
+  $ weft index . --yes
+  produced 1, nothing to produce 0, failed 0. nodes now stored: 2.
+  $ psql -c 'select uri, pipeline from weft_sources'
+   file:///…/d624/fox.txt   | built-in
+   file:///…/d624/notes.md  | built-in
+  ```
+
+  Repeated with a corpus already in the store, to check the write is not conditional on an empty
+  table: three files indexed across two runs, three sources, three nodes.
+
+  **One observation, and the explanation arrived afterwards.** An earlier run of the same binary
+  stored its nodes and left `weft_sources` empty, and did not reproduce under two later attempts.
+  The first guess written here was a stale `.venv` copy; **that was wrong**, and the dispatched
+  implementer's own report supplied the real cause: it had run `git stash` / `git stash pop` on
+  this checkout to test whether a failing test was pre-existing. During that window
+  `weft_cli/ingest.py` was the unmodified file — no `_record_sources` — and the binary run that
+  landed inside it did exactly what the defect this task repairs does. The same window explains
+  the three unrelated tests that went red in a gate run and never again. Both are recorded rather
+  than tidied away, because the guess and the correction are the evidence: `docs/lessons.md`
+  **L6.26**, a leaf agent running a destructive git operation on a checkout somebody else is
+  editing.
+- [x] **6.25** a query pipeline that does not end in a `Generator` is refused by name, not by a bare assertion: `weft_cli.route_ask:275`'s `assert isinstance(answer, Answer)` becomes a refusal naming the pipeline, the stage it ended on, and what a query pipeline must end with · owner `03` → *Command surface*; `01` rule 5; `05` → `lessons.md` L6.15 · turns on — · sha `201f760` · **added 2026-08-22 during task 6.21**, found by running the binary. A three-line user-authored pipeline naming only a retriever prints `'command:ask' failed: ` — a trailing space and nothing else, exit 1 — and under `-O` the stripped assertion returns a non-`Answer` silently instead. The comment on that line reads *"every shipped routable pipeline ends in a Generator"*, which is `L5.32`'s shape: an invariant stated over what this repository ships, checked against documents anyone may write
+  **6.25 — three sites, not the one the task line named.** `grep "assert isinstance" packages/*/src`
+  returns `route_ask.py:181`, `:208` and `:275`; the ledger named the third. Repairing only that
+  one is `docs/lessons.md` **L6.13** exactly — *a repair specified from one failing instance
+  narrows to that instance* — so all three go through one seam, `_require`, which is also `L5.10`:
+  repair at the place that serves every caller, never at the raise site it was noticed from.
+
+  **The comment on two of them was the defect.** `# every shipped routable pipeline ends in a
+  Generator` — an "every X" stated over what *this repository ships*, checked against pipeline
+  documents **anyone may write**. `L6.15`: an invariant's scope is the inputs that actually reach
+  it, not the ones its comment names. **And `python -O` strips `assert` outright**, so on an
+  optimised interpreter the wrong object flowed onward with no check at all — a refusal that
+  vanishes under a flag.
+
+  **`_require` returns the value narrowed rather than asserting and returning nothing**, because
+  `assert isinstance` narrows for a type checker and a plain call does not: a seam returning `None`
+  traded three asserts for sixteen `reportUnknownMemberType` errors. Returning the narrowed value
+  keeps the static guarantee the asserts carried and makes the runtime one survive `-O`.
+
+  **Reproduced through the binary — the same three-line pipeline that found it:**
+
+  ```
+  $ weft ask "fox" --pipeline retrieval-only
+  pipeline 'retrieval-only' finished and produced Candidates, but `weft ask` needs Answer. A
+  pipeline's last stage decides the shape of its result [...] Add a generating stage, or run this
+  pipeline with `--retrieve-only`, which asks for the shape it actually produces.
+  exit code: 1
+  $ weft --json ask "fox" --pipeline retrieval-only
+  {"kind":"error-envelope",...,"error":"PipelineProducedTheWrongShapeError",...}
+  ```
+
+  It names the pipeline, what it produced, what was needed and **both** remedies; the JSON envelope
+  carries the failure identity and task 6.16's discriminant. `manual/troubleshooting.md` gained its
+  entry, which `08` §3 clause (d)'s ratchet demanded before the gate would pass.
+
+- [x] **6.26** the example packs declare the dependency shape G9 settled, so the exemplars a third-party author copies do not teach the unbounded requirement fitness function 10(b) exists to abolish · owner `01` → *Fitness functions* 10(b); `05` → G9; `07` §1 · turns on — · sha `edf753f` · **added 2026-08-25 while building 6.3**, measured rather than guessed: `weft-example-chunker`, `-command`, `-ingest`, `-llm`, `-metric` and `-query` declare 18 bare sibling requirements between them; `weft-example-graph`, written after G9, declares bounds on all five of its. FF10(b) does not reach them — `01` scopes it to the workspace and an example pack is deliberately not a member (FF9(a)) — so this is a separate repair, and the question it has to answer first is whether a never-published pack owes a bound at all or whether what is owed is only that the *documented* example not teach a bare name
+  **6.26 — the exemplars were teaching the rule they exist to demonstrate, backwards.** Eighteen
+  bare requirements across six of the seven example packs — `"weft-kernel"`, no bound — which is
+  exactly what G9 settled against (*"a version requirement **is** the dependency specifier, so
+  `0.0.0` ends, bare names end"*) and exactly what FF10(b) abolished inside the workspace. Only
+  `weft-example-graph`, written after G9 landed, carried bounds. An example pack is what the next
+  pack author copies, so this was teaching that bounds are optional.
+
+  **A separate check, not a widening of FF10(b).** `01` scopes that clause to *"a property over the
+  workspace"*, and an example pack is deliberately **not** a workspace member — that is FF9(a),
+  the whole point of the arrangement. Widening a settled clause to reach something it was written
+  to exclude is the proviso `L5.32` refuses. So the reason is different too: not *"the release must
+  be installable"* but *"the exemplar must teach the rule"*.
+
+  **And `L6.31` fired on its own author, one task after being written.** That lesson says a brief
+  editing a file should *look up* which guides quote it rather than remember —
+  `manual/pack-author-guide.md` quotes `examples/weft-example-chunker/pyproject.toml` byte-for-byte
+  and `tests/docs/test_pack_guide_samples.py` holds them identical. The gate caught it, the sample
+  was resynced from the live file, and the chunker's own comment now states the rule for the five
+  packs whose comments cite it.
+
+- [x] **6.27** the extraction step the published baseline's quotes were taken from is pinned and checked, so a library bump is named rather than arriving as unexplained quote failures · owner `09` §4, V1/V3; `08` §3 · turns on — · sha `e1a046a` · **added and closed 2026-08-25**, found while running 6.7's `--run-tests` phase and reproduced by hand: `uv.lock` pins `pypdf` 6.16.1, a fresh resolve takes 6.16.2, `weft-pdf` declares `pypdf>=6.16` with no ceiling, and under 6.16.2 five quotes stop being literal spans of the documents they name
+  **6.27 — the filed framing was wrong, and the file that owns the check said so.** This task was
+  written as *"either `weft-pdf` bounds `pypdf` where the text is stable, or the quotes are
+  re-taken and the check tolerates what the bound cannot fix"*. Both halves are refused by settled
+  text, and reading it is what corrected them. `tests/docs/test_question_set.py`'s own docstring:
+  *"It must be able to fail, and it is not made tolerant to avoid that... When a quote stops
+  matching, that is the ground truth no longer describing what the pipeline reads — a fact worth a
+  red gate, and one that normalised whitespace or a similarity ratio would quietly absorb."* And a
+  ceiling in `weft-pdf` contradicts G9, which settled that a pack declares `>=X,<MAJOR+1` and never
+  an exact pin, because what version an operator's deployment runs is theirs.
+
+  **What was actually owed is the manifest's own argument, one step further.**
+  `corpus/manifest.toml` pins the fetch *and* the render, and says why: *"Pinning only the second
+  is how these nine entries were once pinned to bytes made by hand: every digest verified locally
+  and not one of them could be reproduced by anybody else."* A quote is a span of **extracted
+  text**, which is one step past the document bytes — so pinning only the bytes leaves the text the
+  judgements are written against unpinned, and that sentence applies unchanged to the third step.
+  `[extraction.pdf-text]` now records `pypdf 6.16.1`: a **record of which extractor produced these
+  quotes**, not a ceiling on anybody's install.
+
+  **The check names the event instead of describing its symptoms.** Before, a `pypdf` patch bump
+  read as five unexplained quote failures; now it reads as:
+
+  ```
+  the extraction backend that produced this question set's quotes is not the one installed:
+    pdf-text: quotes were taken with pypdf 6.16.99, 6.16.1 is installed
+  ```
+
+  — planted and watched. The remedy it names is the one this module already prescribes for a
+  *backend* swap: re-take every affected quote from the new backend's output and move the pin in
+  the same commit. A library bump is that same event arriving through a dependency instead of
+  through a configuration edit, and the only real difference was that nobody chose it and nothing
+  announced it.
+
+  **This had to precede 6.9**, which asserts every shipped technique's improvement is a delta
+  against the baseline *"on the same corpus, pipeline and model versions"*. An unpinned extractor
+  means the corpus's own text is not the same text, and V1's failure condition — *"a fetch is not
+  reproducible byte-for-byte"* — is about bytes that were, by then, one step upstream of the
+  problem.
+
+- [x] **6.28** no member of the canonical gate can go red because a third-party service answered differently: every test under `tests/integration` that reaches the network is behind the same explicit key-absent skip its siblings already use, or stops depending on what a live model returns · owner `01` → *Fitness functions* 0; `08` §3; `05` → `lessons.md` L6.27 · turns on — · sha `474576d` · **added 2026-08-25 from task 6.24's implementer report**, and measured rather than guessed: four files reach OpenAI — `test_openai_llm.py`, `test_openai_embedder.py`, `test_raptor_pipeline.py`, `test_hypothetical_questions_pipeline.py` — while four `pytest.skip` sites in that directory already gate on an API key, so the discipline exists and does not cover all four. The failure seen was `vector search must find something in a store that was just populated: assert []`, green on two immediate reruns with no code change. **The damage is not the red run**: it teaches whoever runs `ci-checks` to re-run until green, which is the habit that lets a real regression through, and it makes a dispatched agent's "green" unfalsifiable because a failure it did not cause is indistinguishable from one it did — this one cost three separate diagnostic detours in one session
+  **6.28 — all four already gated on the credential, and that was not the property.** Every
+  integration module reaching OpenAI skipped when `OPENAI_API_KEY` was unset, so a runner without
+  one was deterministic — which is where the discipline had been checked, and where it holds. The
+  machine it did **not** hold on is a developer's, with the key exported for other work: there the
+  gate calls a live service and its green depends on what that service answered. That is how task
+  6.24's implementer got `vector search must find something in a store that was just populated:
+  assert []`, green on two immediate reruns with no code change.
+
+  **So the opt-in is a second variable, separate from the credential.** `OPENAI_API_KEY` says *"I
+  could reach the network"*; `WEFT_LIVE_API_TESTS` says *"I am asking to"*. Both required.
+  `09` §4.3's **V5** is the requirement in as many words — *"a deterministic subset that runs in CI
+  with no credentials and no network, so a regression is caught by the gate rather than by a
+  quarterly ritual"* — and the damage of the alternative is not the red run: it teaches whoever
+  runs `ci-checks` to re-run until green, which is the habit that lets a real regression through,
+  and it makes a dispatched agent's green unfalsifiable.
+
+  **Made opt-in, not disabled — checked both ways.** `WEFT_LIVE_API_TESTS=1 uv run pytest
+  tests/integration` → **76 passed**, every live test running. `uv run poe ci-checks` → **1919
+  passed, 9 skipped**, and 20 seconds faster. The check reads **imports**, not prose, so a module
+  whose docstring names OpenAI is not mistaken for one calling it (`L5.23`), and its self-test is
+  built on exactly that pair. `CONTRIBUTING.md` says how to run them.
+
+- [x] **6.29** a plugin that cannot run says so at discovery, not at first use: `PackStatus.PARTIAL` gets the mechanism that produces it, so `weft plugins doctor` reports a plugin whose optional dependency is absent instead of a run failing later · owner `01` → *Fitness functions* 5; `02` §2 → *The trust model*; G4 · turns on — · sha `f75c95e` · **added 2026-08-25 at task 6.14**, which built FF5's first two clauses and could not build this one. `weft_kernel.discovery`'s own module docstring has deferred it since Phase 0 — *"`PARTIAL` is part of that vocabulary now because the vocabulary is one piece; the mechanism that produces it is G4's conditional registration, a later step's job"* — and no later step took it, so the status exists in the enum and **no pack has ever reported it**. The one real instance is `weft-eval`'s `bertscore`: it registers unconditionally and answers `Failed` at *run* time naming the missing extra, which is saying why one moment too late — an operator running `doctor` learns nothing and finds out when a run fails. Pinned as `PLUGINS_REPORTING_UNAVAILABILITY_TOO_LATE` in `tests/architecture/test_ff5_declared_capability_resolves.py`, one entry, with a test proving the entry names a live registration rather than a string somebody typed. This task empties it
+  **6.29 — `PARTIAL` gets the mechanism it was given a name for in Phase 0.**
+  `weft_kernel.discovery`'s own docstring deferred it — *"the mechanism that produces it is G4's
+  conditional registration, a later step's job"* — and no later step took it, so the status sat in
+  `02` §2's vocabulary for six phases with nothing able to report it.
+  `PackRegistrar.unavailable(surface, reason=...)` is that mechanism, buffered exactly like
+  `deprecate` and for the identical reason: a pack whose `register()` raises after calling it must
+  not leave a report standing about a mark that never committed. A pack that declared any surface
+  unavailable is `PARTIAL` — not `ACTIVE`, which claims it is contributing everything it has, and
+  not `FAILED`, which claims it contributed nothing.
+
+  **`weft-eval` is the real instance and it now says so at discovery:**
+
+  ```
+  weft-eval 1.0.0: partial (28 contributed)
+    unavailable: 'bertscore' — needs the optional 'bert_score' package, which is not installed.
+                 Install weft-eval's 'bertscore' extra to run this metric.
+  ```
+
+  Before this it registered unconditionally and answered `Failed` when the metric was *run* —
+  saying why, one moment too late. It stays registered on purpose, so `weft eval` still refuses it
+  by name with a reason rather than reporting it as an unknown metric.
+  `PLUGINS_REPORTING_UNAVAILABILITY_TOO_LATE` is empty; **FF5 now holds all three of its clauses.**
+
+  **Two checks caught things within a minute of the method landing, and both were right.**
+  `docs/lessons.md` **L5.26**'s completeness test — a hand-rolled double must carry every public
+  method of the class it doubles — named `_NameCapturingRegistrar` as missing `unavailable`. And
+  task 6.4's own check failed: it asserted every pack the release set names is `ACTIVE`, and
+  `weft-eval` is now `PARTIAL` on any install without the optional extra, **which is every clean
+  install of the set**. Requiring the literal `ACTIVE` would forbid a first-party pack from having
+  an optional extra at all, contradicting `weft-eval[bertscore]` and `weft-otel[otlp]`, both
+  settled — so the check reads *loaded* (`ACTIVE` or `PARTIAL`), and says in place why the word in
+  6.4's line was written when the distinction did not yet exist.
+
+- [x] **6.30** the published baseline is re-taken from a release install, so a stranger's run is comparable to it at all · owner `09` §4, V3/V6; `01` → Phase 6 **Exit** · turns on — · sha `ef28202` · **added 2026-08-25 at task 6.13**, and measured rather than argued. A run driven by the release set installed from an index reproduces `eval/baselines/8854c33f71ea-2026-08-20.json` **exactly — all twelve metrics identical to the last decimal, every one inside the recorded interval** — and `eval/check_baseline.py` still refuses to certify it: `resolved_pipeline.stages[3].contract_version` is `1.2.0` in the baseline and `2.0.0` now (G9's per-contract correction landed after 2026-08-20), and the active distribution sets differ because the baseline was taken **in the development workspace** — it names `weft-canary` and `weft-pdf`, which no release install has, and lacks `weft-store`, which the set pins. The refusal is correct and is V3's own failure clause working: *"a baseline from a different corpus, pipeline or model version"*. **Taking the matching numbers as a pass would be the near-miss comparison `check_baseline`'s own docstring calls the more dangerous outcome**, because nothing about the number would look wrong. The re-take must be driven the way this task drove it — through the shipped command, from a release install — or the next stranger meets the same refusal
+  **6.30 — the baseline is now taken the way a stranger would reproduce it.**
+  `eval/baselines/8854c33f71ea-2026-08-25.json`: driven through the shipped `weft` command from a
+  release install — `weft-rag` plus `weft-qdrant` and `weft-openai` beside it, all from a local
+  index into a throwaway venv — 9 documents, 3 repetitions, 78.0s. Its `active_distributions` is
+  13 and holds no `weft-canary` and no `weft-pdf`, because a release install has neither; its
+  store `contract_version` is `2.0.0`, because that is what the release ships.
+
+  **Then run again and checked, which is the whole point.** A second, independent run through the
+  same install: `12 metric(s) inside the interval 3 repetitions of the baseline spanned`. The
+  2026-08-20 baseline is kept beside it rather than deleted — it is the record of what the
+  workspace measured before G9's contract correction, and deleting it would erase the evidence for
+  why this one exists.
+
+- [ ] **6.31** every first-party distribution that reaches the network declares a `Disclosure`, so the control the release page advertises is not empty where it matters most · owner `02` §2 → *The trust model*; `09` §5 · turns on — · sha — · **added 2026-08-25 by the whole-phase `weft-qualities` reading at Phase 6's close**, and measured: **one of twenty first-party packs declares a `DISCLOSURE`, and it is `weft-otel`, whose exporter defaults to `none`.** `weft-openai` (a credentialed provider) and `weft-qdrant` (a network client) both report `disclosure: not disclosed`. Task 6.10 published a page that tells a reader *"`weft plugins doctor` names ... what each one **discloses** about the network, filesystem and subprocess access it uses"* — true of the mechanism and close to empty in practice, which is requirement 4 read the uncomfortable way: built-ins are exempt from the discipline the page recommends to everyone. **The seam exists**: `DISCLOSURE` is read at import by `weft_kernel.discovery` before `register()` runs, and `tests/architecture/test_the_gate_is_decidable.py` already has the import matcher that says which modules reach a client — a check over the publish set costs almost nothing and attaches where the fact already is
+
+- [ ] **6.32** a pipeline refused for producing the wrong shape names which pipelines would produce the right one · owner `01` → requirement 5; `03` → *Output* · turns on — · sha — · **added 2026-08-25 by the same reading.** `PipelineProducedTheWrongShapeError` (task 6.25) names the pipeline, both shapes and two remedies, and not the valid options. Fitness function 12 does not require it — this is not an unresolvable *name*, and the gate is right to pass — but requirement 5's third clause is *"what the valid options are"*, and `weft_cli.route_ask` holds the catalogue at the raise site, so the answer is one argument away. Small, and filed rather than folded into 6.25's commit because the phase was closed by then
+
+- [ ] **6.33** fitness function 8's canary assertion does not depend on which directory `pytest` visits first · owner `01` → *Fitness functions* 8; `05` → `lessons.md` L5.21 · turns on — · sha — · **added 2026-08-25 at Phase 6's close**, found by running `pytest tests/docs tests/architecture` — a combination the gate never runs. `test_ff8_trust_model.py` asserts `weft_canary not in sys.modules`, and **five files under `tests/docs` import it first**: `test_changelog_deprecation_coverage.py`, `test_corpus_manifest.py`, `test_generated_docs.py`, `test_question_set.py` and `test_technique_naming.py`, each through `weft_cli.contract_reference.discover_for_reference()`, which discovers **open** and therefore imports every installed pack. The gate is green **only because `tests/architecture` sorts before `tests/docs`**, and FF8's own guard is what makes this visible rather than silent — its message is *"Something else in this test session imported the canary first; find it and stop it from doing so."* Same family as task 6.17 and as task 6.14's first draft, which made the identical mistake and was caught the same way. **The fix is a seam choice and is deliberately not being made at a phase boundary** (`docs/lessons.md` L5.10 says repair where every caller is served, and the candidates — an `allow` on `discover_for_reference`, a shared test fixture, or excluding a never-published distribution from a reference generator — trade off differently against `02` §2's "refused by an allow-list, never by name")
+
+- [ ] **6.34** `weft_store/rehydrate.py` says what its two registration paths actually do · owner `02` §1; `05` → `lessons.md` L6.28 · turns on — · sha — · **added 2026-08-25 at Phase 6's lessons drain**, and it is the *finding* half of L6.28 rather than the rule. That module's docstring says `register_ext_model` and `register_from_reports` give "the identical idempotent-or-refuse behaviour either way" and names the caller it is wrong about — "a test, or a caller that builds a registry without running full discovery". Measured: `register_ext_model` calls `ext_models.add` and refuses a second call **even for the same class**, while `register_from_reports` goes through `_register_if_new` and skips it. Two callers hit this in one phase (tasks 6.8 and 6.17), each passing alone and failing in the full suite. One clause to correct, and the honest version is shorter than the wrong one; a test asserting the difference is what would keep it true
+
+- [ ] **6.35** the published baseline, question set and corpus manifest are reachable by somebody who has the release · owner `09` §5.2; `05` → `lessons.md` L6.34 · turns on — · sha — · **added 2026-08-25 at Phase 6's lessons drain**, and it is the finding half of L6.34. `09` §5.2 says "the baseline run is published with the release" and V6 requires it to be a persisted run rather than terminal output — it is, in `eval/baselines/`, with `eval/questions/` beside it and `corpus/manifest.toml`. **None of the three is inside any distribution.** Task 6.13 installed the whole product from an index into a clean environment and everything needed to *reproduce* the number was still only in the repository. The shipped CLI can do the work — `weft eval run` and `weft eval compare` are both on the installed binary — so the gap is reachability, not capability. Three candidate answers and the choice is `09` §5.2's: ship them inside a distribution, attach them to a release, or fetch them by a pinned script the release names (`scripts/fetch_corpus.py` already is that answer for the corpus *bytes*, so the question is narrower than it looks). `09` §5.2's own sentence takes the correction either way
+
+- [x] **6.13 ⚠** a machine that has never seen this repository installs the release set — the meta-distribution G10 settled on (`09` §1), named `weft-rag` since this task found `weft` taken on PyPI — from the index, and reproduces the published baseline — every metric inside the interval that baseline recorded across its own repetitions · owner `01` → Phase 6 **Exit**; `09` §4 · turns on — · sha — · turns on — · sha `ef28202`
+  **6.13 — closed 2026-08-25, both halves, and it found three things on the way.** The install half:
+  a local PEP 503 index, all eighteen distributions published to it, and `uv pip install weft-rag`
+  into a throwaway Python 3.12 venv with no path back to this repository — sixteen distributions at
+  their declared versions, then `weft --version`, `plugins doctor`, `index` and `ask` all driven
+  from it, plus a named failure path, with `weft_cli` resolving from the venv. The baseline half:
+  the published baseline **re-taken from that install** at task **6.30**, then an independent run
+  checked against it — `12 metric(s) inside the interval 3 repetitions of the baseline spanned`.
+
+  **What it found, none of which any check in this repository could have.** (1) `weft` is taken on
+  PyPI at the very version this set declared, so the release set is `weft-rag`
+  (`docs/lessons.md` **L6.33**, and G10's row carries the correction). (2) The 2026-08-20 baseline
+  was taken in the development workspace and before G9's contract-version correction, so nothing
+  installed from a release could ever have been certified against it — the numbers matched to the
+  last decimal and `check_baseline` refused anyway, correctly, which is task **6.30**. (3) The
+  baseline, question set and corpus manifest ship in no distribution
+  (`docs/lessons.md` **L6.34**), so reproducing the number still needs the repository — filed
+  against `09` §5.2's own *"published with the release"*.
+
+  **What is still owed, and it is not this task's:** the actual `uv publish` to a real index. The
+  workflow exists (`6.2`), the artefacts build and carry their licences (`6.7`, `6.11`), the names
+  are checked, and the whole path is proved against a local index. Claiming a name on a public
+  index is the project owner's to run, not a task's to do.
+  **6.13 — what was proved, and the one thing that stops it.** A local PEP 503 index was stood up
+  on `127.0.0.1`, all twenty distributions published to it, and the product installed into a
+  throwaway virtualenv on Python 3.12 with no path back to this repository. **That half works, end
+  to end:**
+
+  ```
+  $ uv pip install --index-url http://127.0.0.1:PORT/simple/ 'weft-cli==0.1.0'   # 33 packages
+  $ weft --version
+  weft 0.1.0
+  $ weft plugins doctor | head -1
+  weft-chunk 1.0.0: active (1 contributed)
+  $ weft index corpus --yes
+  produced 1, nothing to produce 0, failed 0. nodes now stored: 2.
+  $ weft ask "what does the weft do" --retrieve-only
+  1. A loom holds the warp fixed while the weft runs through it.
+  $ weft ask "x" --pipeline nope
+  'nope' is not a pipeline this project knows [...] Known pipelines: no-retrieval, ...
+  ```
+
+  `weft_cli` resolved from the throwaway venv, not the workspace, and the failure path is named.
+
+  **⛔ `weft` is taken on PyPI, at the version this release set declares.** The install of the
+  release set itself came back `+ weft==0.9.97` — *"The durable task substrate for agent systems"*,
+  99 releases, and its release list **includes `0.1.0`**. Measured across all twenty names:
+  **nineteen are free and the twentieth is the one a newcomer types.** `uv add weft` today gets a
+  different project; `uv add 'weft==0.1.0'` can too. G10 settled the set on `weft`, `09` §1 names
+  it throughout, `manual/quickstart.md` and `packages/weft/README.md` both print
+  `uvx --from weft weft --help`, and nothing ever checked the namespace. `docs/lessons.md`
+  **L6.33** — every check this repository has is a check about the repository, and a name is the
+  first property that lives somewhere else.
+
+  **This is a decision, not a defect to patch.** Renaming the release set reopens what G10 settled
+  and edits `09` §1, the quickstart, the release-set README and the publish workflow. Defaulting a
+  name mid-task is exactly what the gates exist to prevent, so **6.13 stays open** and the naming
+  goes back to its owner.
+
+  **Re-run 2026-08-25 with the name settled, and the install half is now proved for the release set
+  itself.** `weft-rag` is free on PyPI (checked before anything depended on it, which is `L6.33`'s
+  own rule), the rename landed, and `uv pip install --index-url <local> weft-rag` pulled the whole
+  exactly-pinned set — 16 distributions, every version as declared — into a throwaway Python 3.12
+  venv with no path back to this repository:
+
+  ```
+  + weft-rag==0.1.0  + weft-cli==0.1.0  + weft-kernel==0.1.0  + weft-store==2.0.0  [...]
+  $ weft --version                     → weft 0.1.0
+  $ weft index corpus --yes            → produced 1, ... nodes now stored: 2.
+  $ weft ask "..." --retrieve-only     → 1. A loom holds the warp fixed...
+  $ weft plugins doctor | grep eval    → weft-eval 1.0.0: partial (28 contributed)
+                                           unavailable: 'bertscore' — needs the optional ...
+  ```
+
+  **And the baseline half was run for real, which is how ledger task 6.30 was found.** The
+  published baseline's own harness was driven with the *installed release* on `PATH` — `weft-qdrant`
+  and `weft-openai` added beside the set, as `09` §1 says a pack outside it is added — 9 documents,
+  107 nodes, 3 repetitions, 82.3s. **All twelve metrics came back identical to the last decimal and
+  inside the recorded interval.** `eval/check_baseline.py` refused anyway, correctly: the store
+  contract version moved from `1.2.0` to `2.0.0` after the baseline was taken, and the baseline's
+  active distribution set is the *development workspace's*. Not ticked on matching numbers —
+  that is precisely the near-miss `check_baseline` exists to refuse.
+
+  **A second finding, filed rather than fixed: `docs/lessons.md` L6.34.** `09` §5.2 says "the
+  baseline run is published with the release", and `eval/baselines/`, `eval/questions/` and
+  `corpus/` are in **no distribution**. The installed product can do the work — `weft eval run` and
+  `weft eval compare` are both on the shipped binary — but a stranger who has the release and not
+  the repository cannot reproduce the published number. That is why the baseline half of this
+  task's own line is not ticked either.
 
 **Exit** (`01` → Phase 6): task 6.13, plus FF10 wired and green and each of Phases 0–5's exit criteria
-re-demonstrated against installed wheels rather than the working tree.
+re-demonstrated against installed wheels rather than the working tree — **which is why 6.21 is in this
+phase and not optional**: Phase 5's criterion was never met, so there is nothing to re-demonstrate
+until 6.18–6.20 land and 6.21 runs.
 
 ---
+
+### Phase 6's close, 2026-08-25
+
+**`weft-qualities` against the phase** — two findings, filed as **6.31** (one first-party pack in
+twenty declares a `Disclosure`, and task 6.10's own published page advertises that control) and
+**6.32** (the wrong-shape refusal names both shapes and not the valid options). Running the review
+turned up a third, **6.33**: FF8's canary assertion is green only because `tests/architecture`
+sorts before `tests/docs`.
+
+**`reference-audit`.** Phase 6's **Lift is "nothing, and one scar recorded as a rule"** (`01` → Phase
+6), so the forward pass is satisfied by construction, and the scar — *"a distribution is proven
+installable by installing it, never by reading it"* — is task **6.6**, built and running in CI. The
+originality half was run at **6.11** and is recorded there in full: 10 identical substantive lines
+out of 17,241, every one a bare class declaration in the `LLMError` taxonomy that `04` §B assigns
+as lift-the-design; **zero** identical string literals of 40 characters or more across 2,650 and
+7,113; none of the three pre-flagged `04` §C contamination items present; and one near-match chased
+to the end and shown not to be one.
+
+**The Exit criterion, re-read against what exists rather than against the ticked boxes — and it is
+not fully met.** `01` → Phase 6 **Exit** asks for four things:
+
+| | asked | what exists |
+|---|---|---|
+| install | "on a machine that has never seen this repository, installing the release set **from the package index**" | **from a local index**, into a throwaway venv with no path back here (6.13). Nothing is on PyPI, and the one-line `uv publish` is deliberately the project owner's to run |
+| one `uvx` invocation | "one `uvx` invocation of that unit indexes the validation corpus, answers its question set" | the install and the drive were separate commands, and the corpus, question set and baseline reached the run **from this repository** — they ship in no distribution (`lessons.md` **L6.34**) |
+| reproduce | "`weft eval compare` against the published baseline reports every metric inside the interval" | **met in substance, by `eval/check_baseline.py` rather than by `weft eval compare`**: 12 of 12 inside the interval, against a baseline re-taken from a release install at **6.30** |
+| the installed state | "fitness function 10 wired and green... every first-party pack `active`... nothing flagged `ambient`" | FF10 green and `weft-canary` absent from the publish matrix ✓; **nothing ambient** ✓ (measured, 0); **`weft-eval` reports `partial`**, not `active`, since task 6.29 gave `PARTIAL` its mechanism — read as *loaded* and argued in place at 6.29, because requiring the literal would forbid a first-party pack from having an optional extra at all |
+
+**So Phase 6 closes with its exit met in substance and unmet in letter, said plainly rather than
+ticked past** — which is the position Phase 5 was found in, and the reason this phase carried
+`6.21`. What is owed is one publish to a real index, and the three tasks above.
 
 ## Phase 7 — The agent
 

@@ -1,0 +1,103 @@
+name: Release
+
+# The release job. Ledger task **6.2**; `docs/09-release.md` §1 (settled by G10, 2026-08-22).
+#
+# **Why the distribution list is written out by hand.** It is the point. Fitness function 10(a)
+# compares "the distributions the release job actually passes to the index" against the workspace
+# members that do not opt out — two sets from two files that can genuinely disagree. A workflow
+# that derived its own matrix from `packages/*` would compare a function to itself and could never
+# fail, which is the reference's `test_keys_parity` shape (`reference/study/08-salvage.md:777-782`) and the
+# exact thing `01` writes the clause to avoid. So: add a distribution, add it here, or the gate
+# says so. `tests/architecture/test_ff10_ship_set_integrity.py` is what says so.
+#
+# **Why `weft-canary` is absent.** Its entire purpose is to be *refused* by discovery (fitness
+# function 8). It declares `[tool.weft] publish = false` in its own `pyproject.toml` and must never
+# reach an index — `01` → *Fitness functions* 10(a) names it as the standing test case, and the
+# check asserts both halves of that.
+#
+# **Why the release set is a second job rather than another matrix row.** `weft` pins exact
+# versions (`==`, not a range — `09` §1), so it is uninstallable until everything it pins is on the
+# index. `needs: publish` makes that ordering a fact rather than a hope about matrix scheduling.
+# The check reads the `distribution` matrix of *every* job for that reason, so a third job cannot
+# quietly publish something outside the comparison.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  # Every distribution that versions on its own — `09` §1's "independent semver per distribution".
+  # `weft-qdrant`, `weft-openai`, `weft-pdf` and `weft-otel` are here and not in the release set:
+  # they install *beside* it, exactly as a third-party pack does, which is requirement 4 holding at
+  # the packaging layer.
+  publish:
+    name: publish ${{ matrix.distribution }}
+    runs-on: ubuntu-latest
+    permissions:
+      # Trusted publishing. No long-lived token exists to leak, and `SECURITY.md`'s posture does
+      # not have to make a claim about one.
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        distribution:
+          - weft-kernel
+          - weft-command
+          - weft-extract
+          - weft-chunk
+          - weft-clean
+          - weft-embed
+          - weft-enhance
+          - weft-index
+          - weft-store
+          - weft-retrieve
+          - weft-generate
+          - weft-llm
+          - weft-prompts
+          - weft-eval
+          - weft-cli
+          - weft-qdrant
+          - weft-openai
+          - weft-pdf
+          - weft-otel
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Build ${{ matrix.distribution }}
+        run: uv build --package ${{ matrix.distribution }} --out-dir dist
+
+      - name: Publish ${{ matrix.distribution }}
+        run: uv publish dist/*
+
+  # The release set, last. `09` §1: "a code-free distribution `weft` pinning one exactly-tested
+  # combination", and it is what a newcomer installs.
+  publish-release-set:
+    name: publish the release set
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    strategy:
+      matrix:
+        distribution: [weft-rag]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Build ${{ matrix.distribution }}
+        run: uv build --package ${{ matrix.distribution }} --out-dir dist
+
+      - name: Publish ${{ matrix.distribution }}
+        run: uv publish dist/*

@@ -1,0 +1,80 @@
+# `weft-rag` — the release set. Ledger task 6.1; `docs/09-release.md` §1, settled by G10
+# (2026-08-22). **Named `weft-rag` and not `weft` since ledger task 6.13**: `weft` is taken on PyPI
+# — "The durable task substrate for agent systems", 99 releases, including the `0.1.0` this file
+# declares — so the name G10 chose is unpublishable. Nineteen of the twenty distributions here are
+# free; this was the twentieth. `docs/lessons.md` L6.33.
+#
+# **The command a user types is still `weft`.** It comes from `weft-cli`'s console script, which
+# this set depends on, so the rename touches what you install and not what you run:
+# `uvx --from weft-rag weft --help`.
+#
+# This distribution ships **no code**. It exists to name one exactly-tested combination of the
+# distributions that make up Weft, and it is the thing a newcomer installs. `09` §1:
+#
+#   "Independent versions plus a named release set — each distribution versions on its own; a thin
+#    meta-distribution `weft` depends on an exactly-tested combination and is what a newcomer
+#    installs."
+#
+# Three consequences of that model are binding, and all three are visible in this file:
+#
+#   * No code. If it shipped code it would be a pack, and it would accumulate the convenience shims
+#     a kernel budget exists to prevent. `[tool.hatch.build.targets.wheel] bypass-selection` is how
+#     that is *declared* rather than left as an accident of there being no `src/` directory.
+#   * No module and no entry point of its own. The `weft` command a user runs comes from `weft-cli`,
+#     which this set depends on — which is also why the Phase 6 exit criterion can install the whole
+#     product with a single `uvx` invocation.
+#   * Exact pins, never ranges. Every distribution here already declares `>=X,<MAJOR+1` on each
+#     sibling (G9's enforcement rule, Phase 5), so a range would restate what is already true and
+#     answer nobody's question. Bounds say what is *compatible*; only a pin says what was *tested
+#     together*, which is the whole reason this distribution exists.
+#
+# `tests/architecture/test_release_set.py` holds every one of those to account, and reads the pins
+# below against each distribution's own `pyproject.toml` — two sources that can genuinely disagree,
+# so a pack bumped without this file following it fails the gate (`docs/lessons.md` L5.6).
+#
+# **What is deliberately not here.** `09` §1's own worked example: a third-party pack "would not be
+# in the release set and would install beside it, exactly as `weft-store-qdrant` does". The
+# first-party distributions that are the same kind of thing install beside it too — `weft-qdrant`
+# (an alternative backend), `weft-openai` (a credentialed provider), `weft-pdf` (an optional file
+# format), `weft-otel` (an observability add-on). None is needed to index a directory and query it,
+# which is what this set has to be able to promise. `testing/weft-canary` exists to be *refused* by
+# discovery (fitness function 8) and must never reach an index at all.
+#
+# **Version.** `0.1.0`, and it cannot yet be otherwise: `09` §2.2 settled at G10 that a 1.0 release
+# set may pin nothing below 1.0, and `weft-kernel` and `weft-cli` are both `0.1.0`.
+
+[project]
+name = "weft-rag"
+version = "0.1.0"
+description = "Weft — the release set: one exactly-tested combination of the distributions that make up Weft."
+requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE", "NOTICE"]
+readme = "README.md"
+dependencies = [
+    "weft-kernel==0.1.0",
+    "weft-cli==0.1.0",
+    "weft-command==2.1.0",
+    "weft-extract==1.0.0",
+    "weft-chunk==1.0.0",
+    "weft-clean==1.0.0",
+    "weft-embed==1.0.0",
+    "weft-enhance==1.0.0",
+    "weft-index==1.0.0",
+    "weft-store==2.0.0",
+    "weft-retrieve==1.0.0",
+    "weft-generate==1.0.0",
+    "weft-llm==1.0.0",
+    "weft-prompts==1.0.0",
+    "weft-eval==1.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# Shipping nothing is a declaration, not an omission — see the header. `hatchling` refuses to build
+# a distribution it cannot find files for, so without this the build fails rather than producing the
+# code-free wheel `09` §1 requires.
+[tool.hatch.build.targets.wheel]
+bypass-selection = true

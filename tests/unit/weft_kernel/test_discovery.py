@@ -58,6 +58,7 @@ from weft_kernel.discovery import (
 from weft_kernel.errors import WeftError
 from weft_kernel.pipeline import StageDeclaration
 from weft_kernel.registry import Registry, UnknownPluginError
+from weft_kernel.seam import RemovalClock
 
 
 class _Chunker:
@@ -589,6 +590,39 @@ def test_a_committed_pack_reports_the_deprecation_it_buffered_and_warns_once() -
     assert notice.distribution == "weft-old"
     assert notice.surface == "_Chunker:legacy"
     assert notice.reason == "superseded by 'fixed-size'"
+    # Task 6.5 — the mark carries G9's clock, derived at registration and never declared by the
+    # pack. `weft-old` is a fake distribution with no installed metadata, which is a state the
+    # record reports rather than hides (`docs/lessons.md` L5.9).
+    assert notice.removal.clock is RemovalClock.VERSION_UNREADABLE
+    assert notice.removal.distribution == "weft-old"
+
+
+def test_a_deprecation_from_a_real_distribution_carries_its_own_removal_release() -> None:
+    """Task 6.5. The clock is a fact about the *publishing* distribution, so the derivation is
+    exercised against one that really is installed rather than against a fake name — otherwise
+    the only state ever seen would be `VERSION_UNREADABLE`, and the check would pass while
+    proving nothing about the rule it exists for.
+    """
+    # Arrange
+    registry = Registry()
+
+    def register(registrar: PackRegistrar, settings: _Settings) -> None:
+        registrar.deprecate("legacy", reason="superseded")
+
+    _install_fake_module("_weft_test_real_distribution_pack")
+    entry_point = _FakeEntryPoint(
+        distribution="weft-store", module="_weft_test_real_distribution_pack", target=register
+    )
+
+    # Act
+    with pytest.warns(DeprecationWarning):
+        reports = discover(registry, entry_points=[entry_point])
+
+    # Assert — `weft-store` is 2.x, so G9's clock reads its next major.
+    [report] = reports
+    [notice] = report.deprecations
+    assert notice.removal.clock is RemovalClock.NEXT_MAJOR
+    assert notice.removal.release == "weft-store 3.0.0"
 
 
 def test_a_raising_register_discards_its_buffered_deprecation_and_warns_of_nothing() -> None:
@@ -619,6 +653,77 @@ def test_a_raising_register_discards_its_buffered_deprecation_and_warns_of_nothi
     [report] = reports
     assert report.status == PackStatus.FAILED
     assert report.deprecations == ()
+
+
+# --- renderer offers (task 6.20, G13) ---------------------------------------------------
+
+
+def test_a_committed_pack_reports_the_renderer_it_buffered_with_its_own_attribution() -> None:
+    """`add_renderer` is buffered exactly like `add_contribution`, with `distribution` filled
+    in by the registrar rather than stated by the pack.
+
+    Task **6.20**, G13's third repair (`docs/03-cli.md` → *Plugin-contributed commands*): a
+    result type nobody outside the CLI can format is only half a contract, so a renderer is
+    registered at the same seam a command is. **The kernel names neither `CommandResult` nor
+    `Rendered`** — it remembers that this pack offered *some* type and *some* callable and
+    goes no further, exactly as `add_ext_model` stops at "this pack declared this class".
+    """
+    # Arrange
+    registry = Registry()
+
+    class _Result:
+        pass
+
+    def _render(result: object) -> object:
+        return f"rendered {type(result).__name__}"
+
+    def register(registrar: PackRegistrar, settings: _Settings) -> None:
+        registrar.add_renderer(_Result, _render)
+
+    _install_fake_module("_weft_test_rendering_pack")
+    entry_point = _FakeEntryPoint(
+        distribution="weft-graph", module="_weft_test_rendering_pack", target=register
+    )
+
+    # Act
+    reports = discover(registry, entry_points=[entry_point])
+
+    # Assert
+    [report] = reports
+    assert report.status == PackStatus.ACTIVE
+    [offer] = report.renderers
+    assert offer.distribution == "weft-graph"
+    assert offer.result_type is _Result
+    assert offer.render is _render
+
+
+def test_a_raising_register_discards_its_buffered_renderer_too() -> None:
+    """The same atomicity as pipeline resources, ext models and contributions: nothing a
+    raising `register()` buffered may reach a report, or the CLI would advertise a way to
+    format a result the pack never actually finished offering.
+    """
+    # Arrange
+    registry = Registry()
+
+    class _Result:
+        pass
+
+    def register(registrar: PackRegistrar, settings: _Settings) -> None:
+        registrar.add_renderer(_Result, lambda result: result)
+        raise RuntimeError("half way through")
+
+    _install_fake_module("_weft_test_raising_renderer_pack")
+    entry_point = _FakeEntryPoint(
+        distribution="weft-broken", module="_weft_test_raising_renderer_pack", target=register
+    )
+
+    # Act
+    reports = discover(registry, entry_points=[entry_point])
+
+    # Assert
+    [report] = reports
+    assert report.status == PackStatus.FAILED
+    assert report.renderers == ()
 
 
 # --- slot contributions (task 5.3a, S8) -------------------------------------------------
@@ -684,3 +789,87 @@ def test_a_raising_register_discards_its_buffered_contribution_too() -> None:
     [report] = reports
     assert report.status == PackStatus.FAILED
     assert report.contributions == ()
+
+
+# --- unavailability, declared at registration (task 6.29) --------------------------------
+
+
+def test_a_pack_that_declares_something_unavailable_reports_partial_and_says_why() -> None:
+    """Fitness function 5's second half — `01`: "or the plugin must declare it unavailable and
+    say why", **at discovery time**.
+
+    `PackStatus.PARTIAL` has been in the vocabulary since Phase 0 and no pack could produce it:
+    this module's own docstring deferred the mechanism to "a later step's job" and no later step
+    took it, so a plugin that could not run said so when a run failed instead of when `weft
+    plugins doctor` asked. `weft-eval`'s `bertscore` is the real instance.
+    """
+    # Arrange
+    registry = Registry()
+
+    def register(registrar: PackRegistrar, settings: _Settings) -> None:
+        registrar.add(_Chunker, "fast", lambda: "instance")
+        registrar.unavailable("slow", reason="needs the optional 'acme' package, not installed")
+
+    _install_fake_module("_weft_test_partial_pack")
+    entry_point = _FakeEntryPoint(
+        distribution="weft-partial", module="_weft_test_partial_pack", target=register
+    )
+
+    # Act
+    reports = discover(registry, entry_points=[entry_point])
+
+    # Assert
+    [report] = reports
+    assert report.status is PackStatus.PARTIAL, (
+        "a pack that registered part of what it offers is PARTIAL, not ACTIVE — `02` section 2's "
+        "vocabulary answers 'why is this not contributing?' for every reason at once"
+    )
+    [notice] = report.unavailable
+    assert notice.surface == "slow"
+    assert "acme" in notice.reason
+    assert report.contributed == 1, "what did register still registered, and still counts"
+
+
+def test_a_pack_that_declares_nothing_unavailable_is_still_active() -> None:
+    """The other side: PARTIAL means *part*, so a pack with nothing missing must not become one."""
+    # Arrange
+    registry = Registry()
+
+    def register(registrar: PackRegistrar, settings: _Settings) -> None:
+        registrar.add(_Chunker, "fast", lambda: "instance")
+
+    _install_fake_module("_weft_test_whole_pack")
+    entry_point = _FakeEntryPoint(
+        distribution="weft-whole", module="_weft_test_whole_pack", target=register
+    )
+
+    # Act
+    [report] = discover(registry, entry_points=[entry_point])
+
+    # Assert
+    assert report.status is PackStatus.ACTIVE
+    assert report.unavailable == ()
+
+
+def test_a_raising_register_discards_its_unavailability_notices() -> None:
+    """The same atomicity every other buffer here has: a pack whose `register()` raises must not
+    leave a report standing about a mark that never committed.
+    """
+    # Arrange
+    registry = Registry()
+
+    def register(registrar: PackRegistrar, settings: _Settings) -> None:
+        registrar.unavailable("slow", reason="boom")
+        raise RuntimeError("register failed after marking")
+
+    _install_fake_module("_weft_test_partial_raiser")
+    entry_point = _FakeEntryPoint(
+        distribution="weft-raiser", module="_weft_test_partial_raiser", target=register
+    )
+
+    # Act
+    [report] = discover(registry, entry_points=[entry_point])
+
+    # Assert
+    assert report.status is PackStatus.FAILED, "a raising register is FAILED, never PARTIAL"
+    assert report.unavailable == ()

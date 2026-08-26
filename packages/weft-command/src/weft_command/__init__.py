@@ -21,14 +21,23 @@ There is therefore no `Settings` model and no `register` function here — a pac
 entry point is never handed either, and declaring them unused would be two more things to keep
 true. `packages/weft-generate` and `packages/weft-prompts` take the same shape for the same
 reason.
+
+**Task 6.20 (G13) adds `ExitCode` and `Rendered` to this namespace** — `weft_command.render`'s
+own module docstring carries the reasoning in full: a renderer a third-party pack registers
+through `weft_kernel.discovery.PackRegistrar.add_renderer` has to answer with a `Rendered`
+carrying an `ExitCode`, and a pack implementing `Command` must not depend on `weft-cli`, the
+driving adapter, for the vocabulary its own renderer speaks.
 """
 
 from weft_command.contract import COMMAND_CONTRACT_VERSION, Command, CommandResult
 from weft_command.permission import PermissionClass
+from weft_command.render import ExitCode, Rendered
 
 __all__ = [
     "COMMAND_CONTRACT_VERSION",
     "Command",
     "CommandResult",
+    "ExitCode",
     "PermissionClass",
+    "Rendered",
 ]

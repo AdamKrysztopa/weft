@@ -96,10 +96,12 @@ a real store too, which `01` requirement 5 rules out as firmly as a missing entr
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import AsyncIterator, Awaitable, Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import cast
+from typing import Final, cast
 
 from weft_chunk import Chunker
 from weft_cli.compile import contracts_for, to_specs
@@ -108,6 +110,7 @@ from weft_cli.services import DEFAULT_EMBEDDER, DEFAULT_STORE
 from weft_embed import Embedder
 from weft_extract import (
     Extractor,
+    SourceDoc,
     claimed_extensions,
     discover_source_docs,
     present_suffixes,
@@ -125,6 +128,14 @@ from weft_kernel.runner import (
     StageSpec,
 )
 from weft_store import NodeStore
+from weft_store.contract import SourceRecord
+
+#: What `SourceRecord.pipeline` records for the built-in four-stage path — `06` step 9's
+#: hardcoded pipeline, which resolves no `ResolvedPipeline` and so has no name to read.
+#: `02` §1 wants this field to let `weft index` say "already indexed, by a different
+#: pipeline", and a field meaning "which pipeline" cannot be empty on the path most corpora
+#: are indexed by.
+BUILT_IN_PIPELINE_NAME: Final[str] = "built-in"
 
 #: Chunking: fixed, explicit, and stated once. See the module docstring for why extraction
 #: is chosen at run time, and `weft_cli.services` for why embedding and storage are.
@@ -372,6 +383,7 @@ async def run_index(
 
     try:
         summary = await runner.run(runnable, batches(), ctx)
+        await _record_sources(runnable, store_stage_id=store_stage_id, docs=docs, pipeline=pipeline)
         stored_count = await _stored_count(runnable, store_stage_id=store_stage_id)
         return IndexResult(
             summary=summary,
@@ -589,6 +601,53 @@ async def _stored_count(runnable: RunnablePipeline, *, store_stage_id: str | Non
     return None
 
 
+async def _record_sources(
+    runnable: RunnablePipeline,
+    *,
+    store_stage_id: str | None,
+    docs: Sequence[SourceDoc],
+    pipeline: str | None,
+) -> None:
+    """One `SourceRecord` per `SourceDoc` this run indexed — ledger task **6.24**'s repair of
+    the defect `02` §1 documents: nothing on the ingest path ever called `put_source`, so
+    `list_sources()` answered `()` after a real `weft index` and a `reconcile --mode repair`
+    pass built on it deleted a corpus it had no record of just writing.
+
+    Found the same way `_stored_count` finds the store: by the stage id `_store_stage_id_of`
+    already derived from the resolved specs' own `contract`, never by the literal `"store"`
+    id — a `--pipeline` document owes this module no naming convention. `content_hash` is over
+    `doc.content` itself, because `02` §1's purpose for the field is change detection, which a
+    hash of anything else could not serve. `pipeline` is `run_index`'s own parameter — the
+    name the caller gave, not a value re-derived from `resolved_pipeline` — falling back to
+    `BUILT_IN_PIPELINE_NAME` on the default four-stage path, which resolves no
+    `ResolvedPipeline` at all and so has no name of its own to read.
+
+    Raises whatever `put_source` raises: a source that was indexed and not recorded is the
+    exact state this task exists to end, so a failure here is not caught and continued past.
+    """
+    if store_stage_id is None:
+        return
+    for stage in runnable.stages:
+        if stage.id != store_stage_id:
+            continue
+        put_source = _put_source_of(stage.instance)
+        if put_source is None:
+            return
+        name = pipeline if pipeline is not None else BUILT_IN_PIPELINE_NAME
+        indexed_at = datetime.now(UTC)
+        for doc in docs:
+            await put_source(
+                SourceRecord(
+                    id=doc.source_id,
+                    uri=doc.uri,
+                    content_hash=hashlib.sha256(doc.content).hexdigest(),
+                    indexed_at=indexed_at,
+                    pipeline=name,
+                )
+            )
+        return
+
+
 def _aclose_of(instance: object) -> Callable[[], Awaitable[None]] | None:
     """`instance.aclose`, if it has one and it is callable — the module docstring's *"Cleanup,
     defensively"* note, in code.
@@ -605,3 +664,15 @@ def _count_of(instance: object) -> Callable[[], Awaitable[int]] | None:
     if found is None or not callable(found):
         return None
     return cast(Callable[[], Awaitable[int]], found)
+
+
+def _put_source_of(instance: object) -> Callable[[SourceRecord], Awaitable[None]] | None:
+    """`instance.put_source`, if it has one and it is callable — the same defensive shape as
+    `_count_of`/`_aclose_of`. `put_source` **is** on the published `NodeStore` contract, so
+    `None` here is not an admission the contract is optional; it is the identical spirit
+    `_stored_count`'s own docstring already states for `count`.
+    """
+    found = getattr(instance, "put_source", None)
+    if found is None or not callable(found):
+        return None
+    return cast(Callable[[SourceRecord], Awaitable[None]], found)

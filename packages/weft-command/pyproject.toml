@@ -1,8 +1,10 @@
 [project]
 name = "weft-command"
-version = "2.0.0"
+version = "2.1.0"
 description = "First-party command pack. Publishes the Command contract and PermissionClass."
 requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE", "NOTICE"]
 dependencies = ["weft-kernel>=0.1.0,<1.0.0"]
 
 # No `[project.entry-points."weft.packs"]` block — the identical reasoning

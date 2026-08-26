@@ -7,16 +7,18 @@ documents: a `pytestmark` computed once, from a synchronous reachability probe).
 
 import os
 import uuid
+from collections.abc import Sequence
+from datetime import UTC, datetime
 
 import psycopg
 import pytest
 from pydantic import SecretStr
 from weft_example_graph.payload import Entity, GraphData, Relation
-from weft_example_graph.store import GraphBackfillUnavailableError, GraphSettings, GraphStore
+from weft_example_graph.store import GraphSettings, GraphStore
 
-from weft_kernel.context import Context
-from weft_kernel.payload import MediaType, Node, Produced, SourceId
-from weft_store.contract import ReconcileMode
+from weft_kernel.context import Context, UnresolvedServiceError
+from weft_kernel.payload import MediaType, Node, NodeId, Produced, SourceId
+from weft_store.contract import Cursor, NodeStore, Page, ReconcileMode, SourceRecord
 
 _DSN = os.environ.get("WEFT_DATABASE_URL", "postgresql://weft:weft@localhost:5433/weft")
 
@@ -46,6 +48,75 @@ def _node(content: str, *, source: str, graph_data: GraphData | None = None) -> 
         sources=frozenset({SourceId(source)}),
     )
     return node if graph_data is None else node.with_ext(graph_data)
+
+
+class _CorpusStore:
+    """The primary `NodeStore` a reconcile pass now carries on its passport — in memory, since
+    what is under test is that the graph store can *reach* a corpus, not what the corpus is.
+
+    Only the three methods `02` §1 names as answering *what should exist* are ever called:
+    `scan`, `count` and `list_sources`. Every other `NodeStore` method is here because a
+    hand-rolled double must carry every public method of the thing it doubles
+    (`docs/lessons.md` L5.26) — a partial double passes until the day the code under test
+    reaches for the missing one.
+    """
+
+    def __init__(self, nodes: list[Node], *, sources: Sequence[str] = ()) -> None:
+        self._nodes = list(nodes)
+        self._sources = tuple(
+            SourceRecord(
+                id=SourceId(source),
+                uri=f"file:///{source}",
+                content_hash="deadbeef",
+                indexed_at=datetime(2026, 8, 22, tzinfo=UTC),
+                pipeline="kg",
+            )
+            for source in sources
+        )
+
+    async def run(self, payload: Sequence[Node], ctx: Context) -> Produced[Sequence[Node]]:
+        del ctx
+        return Produced(value=payload)
+
+    async def add(self, nodes: Sequence[Node]) -> None:
+        self._nodes.extend(nodes)
+
+    async def flush(self) -> None: ...
+
+    async def get(self, ids: Sequence[NodeId]) -> Sequence[Node]:
+        wanted = set(ids)
+        return tuple(node for node in self._nodes if node.id in wanted)
+
+    async def scan(self, cursor: Cursor | None = None) -> Page[Node]:
+        del cursor
+        return Page(items=tuple(self._nodes))
+
+    async def count(self) -> int:
+        return len(self._nodes)
+
+    async def put_source(self, record: SourceRecord) -> None:
+        del record
+
+    async def get_source(self, source_id: SourceId) -> SourceRecord | None:
+        del source_id
+        return None
+
+    async def list_sources(self) -> Sequence[SourceRecord]:
+        return self._sources
+
+
+def _ctx_with_corpus(corpus: _CorpusStore) -> Context:
+    """One `Context` with the configured `NodeStore` on it — what `weft_cli.commands` does for
+    a real reconcile pass, done by hand here so the pack's own test needs no CLI.
+    """
+    ctx = _ctx()
+    ctx.services.add(NodeStore, corpus)
+    return ctx
+
+
+def _graph_entities_of(node: Node) -> tuple[Entity, ...]:
+    data = node.ext.get(GraphData.__namespace__)
+    return data.entities if isinstance(data, GraphData) else ()
 
 
 @pytest.fixture
@@ -151,8 +222,12 @@ async def test_reconcile_repair_recomputes_from_stored_ext(store: GraphStore) ->
     node = _node("Fresh Corp is what this content says now.", source="doc-6", graph_data=stale)
     await store.add([node])
 
-    # Act
-    report = await store.reconcile(_ctx(), ReconcileMode.REPAIR)
+    # Act — `repair` reads the corpus too, as of task 6.21: `02` §4's table promises it drops
+    # orphans left by anything the deletion fan-out missed, and "orphan" is only answerable
+    # against what the corpus still holds. `doc-6` is still there, so nothing is dropped.
+    report = await store.reconcile(
+        _ctx_with_corpus(_CorpusStore([node], sources=())), ReconcileMode.REPAIR
+    )
 
     # Assert — repair converges this pack's own bookkeeping to its own stored `ext`, so
     # "Stale Corp" (from `ext`) is still what is recorded, not "Fresh Corp" (from `content`)
@@ -163,12 +238,116 @@ async def test_reconcile_repair_recomputes_from_stored_ext(store: GraphStore) ->
     assert entities >= 1
 
 
-async def test_reconcile_full_raises_naming_the_gap(store: GraphStore) -> None:
-    # Assert — a design finding, not a bug: see GraphBackfillUnavailableError's own docstring.
-    with pytest.raises(GraphBackfillUnavailableError):
+async def test_reconcile_full_backfills_from_the_corpus_on_the_passport(
+    store: GraphStore,
+) -> None:
+    """Task **6.19**, G13's second repair. `02` §1 → *Extended by G13*: a participant that is
+    not the primary store asks through the passport — `ctx.require(NodeStore)`, G1's one
+    resolution seam — rather than through a wider `reconcile` signature. `02` §4's own table
+    row is what this makes true: "`full` backfills entities for nodes indexed by a pipeline
+    that had no graph stage".
+
+    Until this task the same call raised `GraphBackfillUnavailableError`, and that error class
+    is gone: the access it named as missing exists, so an error saying it does not would now be
+    a lie rather than a design finding.
+    """
+    # Arrange — a node the corpus holds and this graph store has never seen, exactly the
+    # "indexed by a pipeline that had no graph stage" case.
+    orphaned = _node("Acme Corp acquired Initech last spring.", source="doc-backfill")
+    corpus = _CorpusStore([orphaned])
+    ctx = _ctx_with_corpus(corpus)
+
+    # Act
+    report = await store.reconcile(ctx, ReconcileMode.FULL)
+
+    # Assert — the node is now held here, with graph data derived from its own content.
+    assert report.backfilled >= 1
+    held = await store.get([orphaned.id])
+    assert len(held) == 1
+    assert _graph_entities_of(held[0])
+
+
+async def test_estimate_full_counts_what_the_corpus_holds_and_this_store_does_not(
+    store: GraphStore,
+) -> None:
+    """`docs/03-cli.md` → *Command surface*: "full states its cost before it spends it." The
+    cost is a real count read off the corpus, not a placeholder — and `model_calls` is `0`
+    honestly, because this pack's extraction is deterministic and calls no model.
+    """
+    # Arrange
+    already_here = _node("Held already.", source="doc-known")
+    await store.add([already_here])
+    missing = _node("Globex Inc partnered with Umbrella Ltd.", source="doc-missing")
+    ctx = _ctx_with_corpus(_CorpusStore([already_here, missing]))
+
+    # Act
+    estimate = await store.estimate(ctx, ReconcileMode.FULL)
+
+    # Assert
+    assert estimate.pending == 1
+    assert estimate.model_calls == 0
+    assert "doc-missing" in estimate.description or "1" in estimate.description
+
+
+async def test_full_without_a_corpus_on_the_passport_says_what_is_missing(
+    store: GraphStore,
+) -> None:
+    """The loud failure the seam earns. A backfill with no corpus registered is not a backfill
+    of zero — `01` rule 5 — so it refuses, naming the contract it wanted and what *is* on this
+    run's passport.
+    """
+    # Act / Assert
+    with pytest.raises(UnresolvedServiceError) as raised:
         await store.reconcile(_ctx(), ReconcileMode.FULL)
-    with pytest.raises(GraphBackfillUnavailableError):
-        await store.estimate(_ctx(), ReconcileMode.FULL)
+
+    # Assert
+    assert "NodeStore" in str(raised.value)
+
+
+async def test_repair_drops_a_node_whose_source_the_corpus_no_longer_holds(
+    store: GraphStore,
+) -> None:
+    """Task **6.21**, the last unbuilt row of `02` §4's own table: "`repair` drops orphans left
+    by anything the [deletion] fan-out missed".
+
+    An orphan is a graph node whose source the *primary corpus* no longer lists — which this
+    store cannot answer from its own tables, and could not ask about at all until task 6.19 put
+    the corpus on the passport. The fan-out reaching this store in-command (task 6.18) makes an
+    orphan rarer, never impossible: a participant that raised mid-fan-out leaves exactly this.
+    """
+    # Arrange — two sources here, one of them gone from the corpus.
+    kept = _node("Acme Corp is still indexed.", source="doc-kept")
+    orphaned = _node("Initech was deleted from the corpus.", source="doc-gone")
+    await store.add([kept, orphaned])
+    # The corpus holds the node and reports **no** source records — the shape a real
+    # `weft index` actually leaves, since nothing on the ingest path calls `put_source`
+    # (`docs/lessons.md` L6.14). A double that populated both routes could not tell a
+    # correct orphan rule from one reading the empty list, which is how the first draft of
+    # this pack's rule passed here and then deleted every node when run for real.
+    ctx = _ctx_with_corpus(_CorpusStore([kept], sources=()))
+
+    # Act
+    report = await store.reconcile(ctx, ReconcileMode.REPAIR)
+
+    # Assert — the orphan is gone from this store, and the one the corpus still holds is not.
+    assert report.removed >= 1
+    assert await store.get([orphaned.id]) == ()
+    assert len(await store.get([kept.id])) == 1
+
+
+async def test_repair_without_a_corpus_on_the_passport_says_what_is_missing(
+    store: GraphStore,
+) -> None:
+    """`repair` needs the corpus for the same reason `full` does, so it refuses for the same
+    reason too. Doing the half it can and silently skipping orphan detection would be `01`
+    rule 5's silent degradation — the operator would read "converged" and still hold orphans.
+    """
+    # Act / Assert
+    with pytest.raises(UnresolvedServiceError) as raised:
+        await store.reconcile(_ctx(), ReconcileMode.REPAIR)
+
+    # Assert
+    assert "NodeStore" in str(raised.value)
 
 
 async def test_estimate_repair_reports_a_real_pending_count(store: GraphStore) -> None:

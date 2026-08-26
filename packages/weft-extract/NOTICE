@@ -1,0 +1,24 @@
+Weft
+Copyright (c) 2026 Adam Krysztopa
+
+This product is licensed under the MIT License. See the LICENSE file at the root
+of this repository.
+
+--------------------------------------------------------------------------------
+Original work
+--------------------------------------------------------------------------------
+
+**Weft contains no source text from any other codebase.** Every line here is
+written for this project, against this project's contracts.
+
+This is a rule, not a description of the current state: no file may be copied or
+adapted from another project's source, and no third-party source text may be
+pasted into this repository. Where a prior system informed a design, what was
+carried across is understanding — an approach, an ordering, a measurement, a
+reason a guard exists — restated in this project's own words and implemented
+fresh. Copyright does not reach any of that, and nothing in this repository
+depends on a licence granted by anyone else.
+
+`docs/04-reference-inventory.md` records what was learned from prior work and what
+was deliberately not taken. It is a design record. Nothing in it authorises a
+copy, because copying is not permitted here at all.

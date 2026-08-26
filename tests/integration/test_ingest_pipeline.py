@@ -39,14 +39,17 @@ import pytest
 from pydantic import SecretStr
 
 from weft_chunk import Chunker, FixedSizeChunker
+from weft_chunk.payload import ChunkOffset
 from weft_embed import Embedder, HashEmbedder
 from weft_extract import Extractor, TextExtractor, discover_source_docs
 from weft_kernel.context import Context
+from weft_kernel.discovery import PackReport, PackStatus
 from weft_kernel.payload import MediaType, Node, SourceId
 from weft_kernel.registry import Registry
 from weft_kernel.runner import Runner, StageSpec
 from weft_store import NodeStore
 from weft_store.pgvector_store import PgVectorSettings, PgVectorStore
+from weft_store.rehydrate import register_from_reports
 
 _DSN = os.environ.get("WEFT_DATABASE_URL", "postgresql://weft:weft@localhost:5433/weft")
 
@@ -89,6 +92,25 @@ async def test_ingest_pipeline_produces_stored_nodes(store: PgVectorStore, tmp_p
     def store_factory(_config: object) -> PgVectorStore:
         return store
 
+    # `weft-chunk`'s own `ExtModel` — ledger task **6.17**. A hand-built `Registry` runs no pack's
+    # `register()`, so nothing calls `PackRegistrar.add_ext_model` and nothing reaches
+    # `weft_store.rehydrate`'s process-global namespace registry. Reading a chunk back then fails
+    # with `no 'weft-chunk' is registered for ExtModel`, and this file passed only because some
+    # *other* test file had run a real `discover()` first — a test that passes because another
+    # file ran before it is a defect in the test (`docs/lessons.md` L5.21).
+    #
+    # Through `register_from_reports`, not `register_ext_model`: the latter refuses a second call
+    # even for the same class, so the fix would work alone and fail in the full suite. That
+    # difference contradicts `rehydrate.py`'s own docstring and is `docs/lessons.md` L6.28.
+    register_from_reports(
+        [
+            PackReport(
+                distribution="weft-chunk",
+                status=PackStatus.ACTIVE,
+                ext_models=(ChunkOffset,),
+            )
+        ]
+    )
     registry = Registry()
     registry.add(Extractor, "text", TextExtractor, distribution="weft-extract")
     registry.add(Chunker, "fixed-size", FixedSizeChunker, distribution="weft-chunk")

@@ -204,3 +204,44 @@ def test_registering_a_command_with_a_permission_class_succeeds() -> None:
 
     # Assert
     assert registry.lookup(Command, "list") is _ListPipelines
+
+
+# --- what a renderer needs, published beside the contract that produces it (task 6.20) ---
+
+
+def test_rendered_and_exit_code_are_published_from_this_pack() -> None:
+    """Task **6.20**, G13. `docs/03-cli.md` → *Plugin-contributed commands*: "`Rendered`
+    published from `weft-command` beside the `Command` contract that produces the result,
+    since a result type nobody outside the CLI can format is only half a contract."
+
+    `ExitCode` travels with it and is not an afterthought: a renderer that cannot say the run
+    failed is a renderer a built-in could not have used, and `weft delete`/`weft index` both
+    compute their exit code from their own result's fields. `PermissionClass` is the standing
+    precedent for a `docs/03-cli.md` concept living here — this pack already publishes the
+    vocabulary that document defines, because the contract is unusable without it.
+    """
+    # Act
+    from weft_command import ExitCode, Rendered
+
+    rendered = Rendered(stdout="text for a person", stderr=None, exit_code=ExitCode.SUCCESS)
+
+    # Assert
+    assert (rendered.stdout, rendered.stderr, rendered.exit_code) == (
+        "text for a person",
+        None,
+        ExitCode.SUCCESS,
+    )
+    assert ExitCode.OPERATION_FAILED == 1
+
+
+def test_the_contract_version_records_that_the_surface_grew() -> None:
+    """G9's two-audience rule (`docs/09-release.md` §2.3), applied honestly. Publishing
+    `Rendered` and `ExitCode` and gaining a registration seam is **additive** for a caller and
+    **additive** for an implementer: nothing on `Command` changed, `required_declarations` is
+    untouched, and a pack that registers no renderer still works — the unregistered-result
+    fallback is the floor. Maximum of the two audiences is therefore minor, not major. The
+    previous bump here was recorded as a major from the caller's side alone and had to be
+    corrected at task 5.2a; this one states its reasoning at the time it is taken.
+    """
+    # Assert
+    assert COMMAND_CONTRACT_VERSION == "2.1.0"

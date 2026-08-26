@@ -24,7 +24,7 @@ from weft_kernel.discovery import Disclosure, PackReport, PackStatus
 from weft_kernel.pipeline import StageDeclaration
 from weft_kernel.registry import DisplacedRegistration
 from weft_kernel.resolution import Contribution
-from weft_kernel.seam import Deprecation
+from weft_kernel.seam import Deprecation, Removal, RemovalClock
 
 
 class _Chunker:
@@ -177,7 +177,17 @@ def test_render_list_and_doctor_flag_a_deprecated_pack_beside_its_status() -> No
             status=PackStatus.ACTIVE,
             contributed=1,
             deprecations=(
-                Deprecation(distribution="weft-old", surface="legacy", reason="use 'fast'"),
+                Deprecation(
+                    distribution="weft-old",
+                    surface="legacy",
+                    reason="use 'fast'",
+                    removal=Removal(
+                        clock=RemovalClock.NEXT_MAJOR,
+                        distribution="weft-old",
+                        installed_version="2.3.1",
+                        release="weft-old 3.0.0",
+                    ),
+                ),
             ),
         ),
     )
@@ -267,3 +277,123 @@ def test_render_doctor_with_no_unreachable_contributions_is_unchanged() -> None:
 
     # Act / Assert
     assert render_doctor(reports) == render_doctor(reports, (), (), None, (), ())
+
+
+# ---------------------------------------------------------------------------
+# Task 6.4 — `weft plugins doctor` says what is installed. `09` section 1:
+# "gains one column, not a new command: the version of each active distribution."
+# ---------------------------------------------------------------------------
+
+
+def test_render_doctor_names_the_installed_version_of_each_distribution() -> None:
+    """`09` section 1's one column. The version sits on the status line, beside the name."""
+    # Arrange
+    reports = (PackReport(distribution="weft-store", status=PackStatus.ACTIVE, contributed=2),)
+
+    # Act
+    output = render_doctor(reports, versions={"weft-store": "2.0.0"})
+
+    # Assert
+    assert output.startswith("weft-store 2.0.0: active (2 contributed)")
+
+
+def test_render_doctor_says_when_a_version_is_not_recorded() -> None:
+    """`docs/lessons.md` L5.9 — an absent measurement is reported, never rendered as a blank."""
+    # Arrange
+    reports = (PackReport(distribution="weft-mystery", status=PackStatus.ACTIVE),)
+
+    # Act
+    output = render_doctor(reports, versions={})
+
+    # Assert
+    assert output.startswith("weft-mystery (version not recorded): active (0 contributed)")
+
+
+def test_render_list_is_not_given_the_version_column() -> None:
+    """`09` section 1 gives the column to `doctor`, and `weft plugins list` is a summary."""
+    # Arrange
+    reports = (PackReport(distribution="weft-store", status=PackStatus.ACTIVE, contributed=2),)
+
+    # Act
+    output = render_list(reports)
+
+    # Assert
+    assert output == "weft-store: active (2 contributed)"
+
+
+def test_render_doctor_without_versions_is_unchanged() -> None:
+    """The default leaves every existing caller's output exactly as it was."""
+    # Arrange
+    reports = (PackReport(distribution="weft-store", status=PackStatus.ACTIVE, contributed=2),)
+
+    # Act
+    output = render_doctor(reports)
+
+    # Assert
+    assert output.startswith("weft-store: active (2 contributed)")
+
+
+def test_render_doctor_names_when_a_deprecated_surface_goes() -> None:
+    """Task 6.5 — `09` section 3's clock, where an operator actually reads it.
+
+    G9 settled the unit as one major of the publishing distribution. The line already named the
+    surface and the reason; what it could not say was *until when*, which is the whole content of
+    a deprecation policy.
+    """
+    # Arrange
+    reports = (
+        PackReport(
+            distribution="weft-old",
+            status=PackStatus.ACTIVE,
+            deprecations=(
+                Deprecation(
+                    distribution="weft-old",
+                    surface="legacy",
+                    reason="use 'fast'",
+                    removal=Removal(
+                        clock=RemovalClock.NEXT_MAJOR,
+                        distribution="weft-old",
+                        installed_version="2.3.1",
+                        release="weft-old 3.0.0",
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    # Act
+    output = render_doctor(reports)
+
+    # Assert
+    assert "  deprecated: 'legacy' — use 'fast' (removed in weft-old 3.0.0)" in output
+
+
+def test_render_doctor_says_a_0x_publisher_promises_no_window() -> None:
+    """The state that must not be rendered as a release number — see `seam.RemovalClock`."""
+    # Arrange
+    reports = (
+        PackReport(
+            distribution="weft-young",
+            status=PackStatus.ACTIVE,
+            deprecations=(
+                Deprecation(
+                    distribution="weft-young",
+                    surface="legacy",
+                    reason="use 'fast'",
+                    removal=Removal(
+                        clock=RemovalClock.UNPROMISED_BEFORE_1_0,
+                        distribution="weft-young",
+                        installed_version="0.4.0",
+                        release=None,
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    # Act
+    output = render_doctor(reports)
+
+    # Assert
+    assert "0.x" in output
+    assert "1.0.0" not in output

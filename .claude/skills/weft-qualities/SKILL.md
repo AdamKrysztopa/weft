@@ -152,6 +152,42 @@ fitness function specified in `01` on day one with no file in the tree until fiv
 (`L5.4`). All three were cited in argument before anyone ran them. Naming a mechanism is not
 evidence that it works, and the cost of checking is one command.
 
+**Two more kinds of mechanism, learned in Phase 6, because "run it" is not always one command.**
+
+*A platform mechanism is probed at its failure path, not read from its documentation.* The
+`SubagentStop` hook was designed against a documented "cannot inject into the parent"; probed, its
+real behaviour was a loop that re-ran the agent twelve times and destroyed its answer — worse than
+the documented limitation and in a different direction, so a design that had merely respected the
+documentation would still have been wrong (`lessons.md` L6.5).
+
+*A read method with no writer answers emptily rather than wrongly, which is worse.* `02` §1 said
+`list_sources`/`scan`/`count` "already answer what should exist", and a `repair` pass built on
+`list_sources()` deleted every graph node the pipeline had just written — nothing anywhere calls
+`put_source`, so it returns `()` in a real run and every node looked orphaned (`L6.14`). Before
+building on a contract method, grep for who *writes* to it, not only for who declares it. And note
+what hid it: the pack's own tests passed throughout, because the hand-written double populated the
+method the system does not. **A double written from the contract cannot falsify a claim about the
+system.**
+
+*An equivalence stated in prose between two code paths is a missing test.* `weft_store/rehydrate.py`
+told a caller that `register_ext_model` and `register_from_reports` give "the identical
+idempotent-or-refuse behaviour either way", and **named the exact caller it was wrong about** — "a
+test, or a caller that builds a registry without running full discovery". They differ: one refuses a
+second call even for the same class, the other skips it. The more precisely such a sentence names
+who may rely on it, the more expensive it is, because that reader stops looking (`lessons.md`
+L6.28).
+
+**And a number is a mechanism too: a count a document states in the present tense expires the moment
+a phase could have changed it.** Re-take it before you argue from it, and **correct the document in
+place** with what it says now — a stale count that is only worked around in conversation is a stale
+count the next reader will cite. G10's own brief demonstrated both halves: it instructed *"a count,
+taken on the day of the session"* and then stated the answer in advance — *"today every pack declares
+`dependencies = ["weft-kernel"]` with no bound"* — which G9's Phase 5 work had made false, all 18
+distributions now carrying `>=X,<MAJOR+1` on every sibling. The instruction is what caught it; the
+predicted answer is what would have been argued from. This is `L5.14`'s rule about a *list* of sites,
+applied to a *number*, and it lands here rather than in `phase-step` because the sessions that argue
+from cited numbers are gates and reviews, which is when this skill runs (`lessons.md` L6.1).
+
 ## Report like this
 
 Lead with what fails. If nothing fails, say so plainly and stop — a review that always finds

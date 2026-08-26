@@ -35,6 +35,32 @@
 # extractor claims, and the authority on what is claimed is the registry. A list here would be a
 # second copy of it, and `README.md` opens by describing what happens to the second copy.
 
+# **The extraction step is pinned too, and this is the argument above one step further.** A
+# retrieval judgement in `eval/questions/` is a *quote* — a literal span of the text an extractor
+# produced from one of the documents below. Pinning the fetch and the render pins the bytes; the
+# span lives one step past them, in whatever turned those bytes into text. "Pinning only the
+# second is how these nine entries were once pinned to bytes made by hand" applies unchanged to
+# the third.
+#
+# It is not hypothetical, and it was measured rather than argued: `weft-pdf` declares
+# `pypdf>=6.16` with no ceiling, `uv.lock` resolves `6.16.1`, a fresh resolve takes `6.16.2`, and
+# under `6.16.2` five quotes stop being literal spans of the documents they name — found at ledger
+# task 6.7, the first time the suite ran from freshly-built sdists outside the lockfile. Nothing in
+# CI resolves freshly, so nothing else would have seen it.
+#
+# **This pin is a record, not a ceiling.** `weft-pdf` still declares a range, because what version
+# an operator's own deployment runs is theirs to decide (G9). What is pinned here is which
+# extractor produced *these quotes*, so a mismatch is named out loud instead of arriving as five
+# unexplained quote failures. Raise it and re-take every affected quote in the same commit, exactly
+# as `tests/docs/test_question_set.py` already requires when the backend itself is swapped.
+#
+# A backend with no third-party library behind it — `text`, `weft-extract`'s own decoder — has
+# nothing to pin and is named in that module's `_BACKENDS_WITH_NO_LIBRARY` instead.
+
+[extraction.pdf-text]
+library = "pypdf"
+version = "6.16.1"
+
 [corpus]
 name = "mrmr-v1"
 description = "Feature selection by minimum redundancy and maximum relevance: papers in English, with a Polish subset from Wikipedia on the adjacent statistics."

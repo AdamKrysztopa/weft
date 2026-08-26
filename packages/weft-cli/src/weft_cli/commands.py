@@ -89,11 +89,13 @@ from weft_cli.ask import AskHit, hits_for, run_ask
 from weft_cli.config_commands import register_config_commands
 from weft_cli.deletion import ParticipantOutcome, delete_everywhere
 from weft_cli.deletion import participants as deletion_participants
-from weft_cli.eval_commands import register_eval_commands
+from weft_cli.eval_commands import DEFAULT_RUNS_DIR, register_eval_commands
 from weft_cli.exit_codes import ExitCode
 from weft_cli.fanout import Participant
 from weft_cli.ingest import INDEX_DISTRIBUTIONS, run_index
+from weft_cli.installed_versions import installed_versions
 from weft_cli.output import AskFormat
+from weft_cli.participation import load_run_records, stores_in_use
 from weft_cli.pipeline_catalogue import declared_slot_ids, full_catalogue
 from weft_cli.pipeline_commands import register_pipeline_commands
 from weft_cli.reconcile import (
@@ -286,6 +288,49 @@ def _raise_for_plugin_refusal(refusal: PluginRefusal | None) -> None:
     raise CommandRefusalError(refusal.message, exit_code=refusal.exit_code)
 
 
+def _stores_in_use(deps: Dependencies) -> frozenset[str]:
+    """Every `NodeStore` name `weft delete`/`weft reconcile` must reach — task **6.18**, G13's
+    first repair (`docs/02-extension-model.md` §1 → *Extended by G13*): the configured
+    `[services] store`, plus every `NodeStore` named by a pipeline in the project's catalogue or
+    by a persisted run record. One helper for all three call sites — `DeleteCommand._targets`,
+    `ReconcileCommand._targets` and `IndexCommand._auto_reconcile` — so the prompt, the run and
+    the automatic post-index pass cannot disagree about who participates.
+    """
+    return stores_in_use(
+        configured=deps.services.store,
+        registry=deps.registry,
+        catalogue=full_catalogue(reports=deps.reports),
+        records=load_run_records(DEFAULT_RUNS_DIR),
+    )
+
+
+def _register_corpus(ctx: Context, deps: Dependencies) -> None:
+    """Put the configured `NodeStore` on the `Context` a reconcile pass carries — task
+    **6.19**, G13's second repair (`docs/02-extension-model.md` §1 → *Extended by G13*): "the
+    CLI registers the configured store into the `Context` a reconcile pass carries, and a
+    participant reaches it with `ctx.require(NodeStore)`." No contract change: `Context.require`
+    is G1's own one resolution seam, and `NodeStore` already answers "what should exist" with
+    `list_sources`/`scan`/`count`.
+
+    A `[services] store` that resolves to nothing registered adds nothing here — no raise, no
+    placeholder. `weft_cli.registry_bootstrap.require_plugin` is what turns an unresolvable
+    `[services] store` into a diagnosable refusal; a participant that then reaches for a corpus
+    with none registered gets `UnresolvedServiceError`, naming what it wanted and what is
+    available, which is the loud failure, correctly located — a second translation here would
+    give one mistake two messages (`docs/lessons.md` L5.9).
+
+    Called from exactly two places, both inside `run`, never inside `describe_impact` (a
+    confirmation prompt must not open a connection to the corpus before consent), and both
+    before the estimate/reconcile fan-out itself runs. Not idempotent, and does not catch
+    `DuplicateServiceError`: one `Context` is built per `run_command` invocation
+    (`weft_cli.cli._context`), so one call each is exactly one registration.
+    """
+    if deps.services.store not in deps.registry.names_for(NodeStore):
+        return
+    entry = deps.registry.entry(NodeStore, deps.services.store)
+    ctx.services.add(NodeStore, entry.factory(None))
+
+
 class NoArgs(BaseModel):
     """The args model for a command that takes none — `plugins list` and `plugins doctor`."""
 
@@ -450,6 +495,13 @@ class PluginsDoctorCommandResult(CommandResult):
     declares at all, computed against `weft_cli.pipeline_catalogue.declared_slot_ids` — `02`
     §3 → *Slots*: "`weft plugins doctor` flags a pack whose contributions land in no pipeline
     at all."
+
+    `versions` — task **6.4**, `docs/09-release.md` §1 — is the installed version of each
+    distribution reported here, read by `weft_cli.installed_versions.installed_versions`. §1's
+    own words: `doctor` "gains one column, not a new command: the version of each active
+    distribution... `doctor` has to be able to *say* what is installed before any policy can act
+    on it." A distribution with no recorded metadata is **absent from the mapping**, which
+    `weft_cli.plugins_report` renders as "(version not recorded)" rather than as a blank.
     """
 
     reports: tuple[PackReport, ...]
@@ -458,6 +510,7 @@ class PluginsDoctorCommandResult(CommandResult):
     tracing: str
     skew: tuple[SkewReport, ...]
     unreachable_contributions: tuple[Contribution, ...]
+    versions: dict[str, str] = {}
 
 
 class IndexCommand:
@@ -575,7 +628,8 @@ class IndexCommand:
         own filtering, not a refusal), so a `--pipeline` project with no store configured at
         all still indexes cleanly; other `Reconcilable` packs are still asked.
         """
-        targets = reconcile_participants(registry=deps.registry, store_name=deps.services.store)
+        targets = reconcile_participants(registry=deps.registry, store_names=_stores_in_use(deps))
+        _register_corpus(ctx, deps)
         estimates = (
             await estimate_everywhere(mode, targets=targets, ctx=ctx)
             if mode is ReconcileMode.FULL
@@ -767,6 +821,7 @@ class PluginsDoctorCommand:
                 tracing=describe_tracing(),
                 skew=detect_skew(),
                 unreachable_contributions=unreachable,
+                versions=installed_versions(report.distribution for report in deps.reports),
             )
         )
 
@@ -956,7 +1011,7 @@ class DeleteCommand:
                 setting="[services] store",
             )
         )
-        return deletion_participants(registry=deps.registry, store_name=deps.services.store)
+        return deletion_participants(registry=deps.registry, store_names=_stores_in_use(deps))
 
 
 class ReconcileArgs(BaseModel):
@@ -1064,6 +1119,7 @@ class ReconcileCommand:
         deps = ctx.require(Dependencies)
         mode = self._effective_mode(typed, deps)
         targets = self._targets(deps)
+        _register_corpus(ctx, deps)
         estimates = (
             await estimate_everywhere(mode, targets=targets, ctx=ctx)
             if mode is ReconcileMode.FULL
@@ -1103,7 +1159,7 @@ class ReconcileCommand:
                 setting="[services] store",
             )
         )
-        return reconcile_participants(registry=deps.registry, store_name=deps.services.store)
+        return reconcile_participants(registry=deps.registry, store_names=_stores_in_use(deps))
 
 
 class Settings(BaseModel):
@@ -1124,8 +1180,20 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     which one" surface this task closes. Task **4.6** adds `register_eval_commands` beside them
     — `eval run`/`eval compare`/`trace`, `weft_cli.eval_commands`'s own three — on the identical
     "compose from more than one function" footing, not a fourth entry point.
+
+    **Task 6.20 (G13) adds `weft_cli.render.register_renderers(registrar)`** — the same
+    "compose from more than one function" footing again, this time on the renderer axis
+    rather than the command one: every built-in `CommandResult` gets a renderer through
+    `registrar.add_renderer`, the identical seam a stranger's pack uses, so a built-in keeps
+    no privileged path. Imported locally, inside this function body, rather than at module
+    scope: `weft_cli.render` imports this module (`weft_cli.commands`) at its own module
+    scope to reach every built-in `CommandResult`, so a module-level import back here would
+    be a cycle — the identical local-import convention `weft_cli.exit_codes.exit_code_for`'s
+    own docstring documents, applied to the same problem one seam over.
     """
     del settings
+    from weft_cli.render import register_renderers
+
     registrar.add(Command, "index", IndexCommand)
     registrar.add(Command, "ask", AskCommand)
     registrar.add(Command, "plugins list", PluginsListCommand)
@@ -1136,6 +1204,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     register_pipeline_commands(registrar)
     register_config_commands(registrar)
     register_eval_commands(registrar)
+    register_renderers(registrar)
 
 
 __all__ = [

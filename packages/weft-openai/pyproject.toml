@@ -3,6 +3,8 @@ name = "weft-openai"
 version = "0.1.0"
 description = "First-party OpenAI adapter pack. Registers under contracts other packs publish."
 requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE", "NOTICE"]
 # `openai` is Apache-2.0, so it widens nothing an MIT library asks of the people who
 # install it. The floor is the version this pack's behaviour was measured against; a
 # claim about an older release would be a claim nobody here has checked.

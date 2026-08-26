@@ -3,6 +3,8 @@ name = "weft-extract"
 version = "1.0.0"
 description = "First-party extraction pack. Publishes the Extractor contract."
 requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE", "NOTICE"]
 dependencies = ["weft-kernel>=0.1.0,<1.0.0"]
 
 # The one entry point a pack declares (`docs/02-extension-model.md` section 2).

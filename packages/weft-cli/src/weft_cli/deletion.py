@@ -55,11 +55,16 @@ class ParticipantOutcome(BaseModel):
         return self.error is not None
 
 
-def participants(*, registry: Registry, store_name: str) -> tuple[Participant, ...]:
+def participants(*, registry: Registry, store_names: frozenset[str]) -> tuple[Participant, ...]:
     """Every registered plugin that can delete a source — `weft_cli.fanout`, narrowed to one
     capability so that a caller says what it means rather than repeating the Protocol.
+
+    `store_names` is a set rather than a single name as of task **6.18** — G13's first repair,
+    `docs/02-extension-model.md` §1 → *Extended by G13* — because a project's `NodeStore` fan-
+    out is no longer just `[services] store`: the caller computes the full set through
+    `weft_cli.participation.stores_in_use` and hands it in here unchanged.
     """
-    return participants_for(SourceDeletable, registry=registry, store_name=store_name)
+    return participants_for(SourceDeletable, registry=registry, store_names=store_names)
 
 
 async def delete_everywhere(

@@ -11,6 +11,9 @@ this module is the plumbing that produces it.
 
 from __future__ import annotations
 
+import sys
+import tomllib
+from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, Protocol, runtime_checkable
 
 import pytest
@@ -19,6 +22,7 @@ from weft_chunk.contract import Chunker
 from weft_cli.contract_reference import (
     ContractNotDescribableError,
     PublishedContract,
+    ReferenceFormatterUnavailableError,
     capability_siblings,
     discover_for_reference,
     missing_from_walked_set,
@@ -289,3 +293,57 @@ def test_render_contract_reference_raises_for_a_contract_with_nothing_to_call() 
     # the repair above is the quiet half of.
     with pytest.raises(ContractNotDescribableError, match="only data members"):
         render_contract_reference(contracts)
+
+
+# ---------------------------------------------------------------------------
+# Task 6.7 — a shipped module may not depend on a tool the distribution never
+# declares. `09` section 5.2's failure condition, one layer up from files:
+# something load-bearing present in the checkout and absent from the artefact.
+# ---------------------------------------------------------------------------
+
+
+def test_weft_cli_declares_the_formatter_it_shells_out_to() -> None:
+    """`ruff` is invoked at generation time by `_ruff_format_markdown`, so it is a dependency.
+
+    It is an **extra** rather than a base dependency: a user who indexes and asks never reaches
+    this module, and shipping a formatter to all of them to serve a document generator would be
+    the wrong trade. That is the shape `weft-eval[bertscore]` and `weft-otel[otlp]` already
+    have. Before task 6.7 it was declared nowhere at all and worked only because the *workspace
+    root's* dev group happens to carry `ruff` — invisible to every check in this repository
+    until the distribution was installed from its own sdist and the code actually run
+    (`docs/lessons.md` L6.24).
+    """
+    # Arrange
+    manifest = Path(__file__).resolve().parents[3] / "packages" / "weft-cli" / "pyproject.toml"
+
+    # Act
+    with manifest.open("rb") as handle:
+        extras = tomllib.load(handle)["project"].get("optional-dependencies", {})
+
+    # Assert
+    assert "reference" in extras, (
+        "`weft-cli` shells out to `ruff` in `contract_reference` and must declare it. Add a "
+        "`[project.optional-dependencies] reference` extra naming it."
+    )
+    assert any(requirement.startswith("ruff") for requirement in extras["reference"])
+
+
+def test_a_missing_formatter_is_refused_by_name_rather_than_as_a_subprocess_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An absent optional dependency says which extra installs it — `02` section 2's rule that a
+    refusal names what was wanted and how to get it, not `CalledProcessError` with a return code.
+    """
+    # Arrange — an interpreter that certainly cannot run `ruff`, because it is not one. The
+    # public renderer is the subject: what a caller must get back is the named refusal, and
+    # reaching past it into the private formatter would test the plumbing instead of the
+    # promise.
+    monkeypatch.setattr(sys, "executable", "/nonexistent/interpreter")
+
+    # Act / Assert
+    with pytest.raises(ReferenceFormatterUnavailableError) as caught:
+        render_contract_reference(())
+
+    message = str(caught.value)
+    assert "ruff" in message
+    assert "reference" in message, "the refusal must name the extra that installs it"

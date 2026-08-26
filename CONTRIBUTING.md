@@ -78,6 +78,18 @@ uv run poe ci-checks        # the canonical full gate — run this before you pu
 uv run poe kernel-isolated  # install weft-kernel alone in a clean env and import it
 ```
 
+**The gate is deterministic, and reaching a live service is opt-in.** Four integration modules can
+call the OpenAI API. They skip unless **both** `OPENAI_API_KEY` and `WEFT_LIVE_API_TESTS` are set —
+two variables on purpose: having a credential exported for other work is not asking for a network
+run, and `poe ci-checks` must mean the same thing on your machine as on a runner with no account.
+`09` §4.3's V5 is the requirement ("a deterministic subset that runs in CI with no credentials and
+no network"); `tests/architecture/test_the_gate_is_decidable.py` is what holds every such module to
+it. To run them:
+
+```bash
+WEFT_LIVE_API_TESTS=1 uv run pytest tests/integration -q
+```
+
 **If you add an architecture check, add it to `ci-checks` in the same commit.** Fitness function 0
 asserts that membership and will fail otherwise. It exists because the reference shipped a 316-line
 boundary checker that was not in its canonical task and therefore never ran, on a tree with eleven

@@ -3,6 +3,8 @@ name = "weft-pdf"
 version = "0.1.0"
 description = "First-party PDF extraction pack. Registers two Extractor backends over one contract."
 requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE", "NOTICE"]
 # `pypdf` is BSD-3-Clause and `pdfplumber` is MIT, so neither widens what an MIT
 # library asks of the people who install it. The measurably best of the three
 # backends surveyed — `pymupdf` — is AGPL-3.0 and is therefore deliberately absent:

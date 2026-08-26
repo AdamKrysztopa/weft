@@ -10,14 +10,16 @@ container Weft's store needs — Postgres with the `pgvector` extension).
 ## 1. Install
 
 ```bash id=install
-uv add weft-cli
+uv add weft-rag
 ```
 
-`weft-cli` pulls in the kernel and every first-party pack a working install needs — the extractor,
-the chunker, the embedder and the pgvector store — so this is the only install command; nothing
-else to add.
+`weft-rag` is the release set: one exactly-tested combination of the kernel, the CLI and every
+first-party pack a working install needs — the extractor, the chunker, the embedder and the
+pgvector store — so this is the only install command; nothing else to add. **The distribution is
+`weft-rag` and the command is `weft`**: `weft` on PyPI is an unrelated project, and the console
+script comes from `weft-cli`, which this set pins.
 
-> `weft-cli` is not on an index yet — Phase 0 has not published a release. Everything after this
+> `weft-rag` is not on an index yet — Phase 0 has not published a release. Everything after this
 > line runs today against a checkout with `weft-cli` already installed; once `09-release.md`'s
 > policy ships a version, this line starts working exactly as written and nothing else in this
 > page changes.
@@ -37,7 +39,7 @@ export WEFT_DATABASE_URL="postgresql://weft:weft@localhost:5433/weft"
 That variable alone is enough — no `weft.toml` needed for this.
 
 **Leave it unset** and nothing crashes with a stack trace: `weft plugins doctor` reports
-`weft-store: failed`, naming the missing field, rather than a store guessing at a database.
+`weft-store` as `failed`, naming the missing field, rather than a store guessing at a database.
 
 **Set it to something unreachable** — a typo'd port is the usual way — and `doctor` still reports
 `active`, because a connection string is checked for shape, not for whether anything answers at the

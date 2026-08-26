@@ -1,5 +1,15 @@
 """`ExitCode` — the meaningful process exit values `docs/03-cli.md` → *Output* specifies.
 
+**Task 6.20 (G13) moves the class itself to `weft_command.render`, re-exported here.** A
+renderer a third-party pack registers through `weft_kernel.discovery.PackRegistrar.
+add_renderer` has to answer in this same vocabulary — `weft delete` and `weft index` both
+compute their own exit code from their own result's fields, so a pack's own renderer needs
+the identical five values, and a pack implementing `Command` must not depend on `weft-cli`
+for them (see `weft_command.render`'s own module docstring for the argument in full).
+`exit_code_for` below stays exactly where it is: it maps *exceptions*, a wider family than a
+renderer's own answer, and this module is still the one place `docs/03-cli.md`'s exit-code
+split is decided from a caught error.
+
 "Exit codes are meaningful, because a CLI that always exits 0 cannot be used
 in CI." Five values, and the split between 3 and 4 is G3's policy-versus-
 resolution distinction, restated here as the mechanical fact `weft_cli.cli`
@@ -21,7 +31,6 @@ Both are computed *before* a pipeline is ever resolved — see
 check having passed.
 """
 
-from enum import IntEnum
 from typing import Final
 
 from weft_cli.config_surface import UnknownConfigKeyError
@@ -32,24 +41,10 @@ from weft_cli.pipeline_catalogue import (
     PipelineDocumentError,
     ProjectPipelineNameCollisionError,
 )
+from weft_command import ExitCode as ExitCode
 from weft_kernel.errors import WeftError
 from weft_kernel.registry import UnknownPluginError
 from weft_kernel.runner import PipelineResolutionError
-
-
-class ExitCode(IntEnum):
-    """`docs/03-cli.md` → *Output*: "0 success, 1 operation failed, 2 bad usage, 3 refused for
-    permissions, 4 pipeline failed to resolve." `2` is never assigned by this module — `argparse`
-    itself calls `sys.exit(2)` on a usage error, before any command runs, so `weft_cli.cli` adds
-    nothing on top of it.
-    """
-
-    SUCCESS = 0
-    OPERATION_FAILED = 1
-    BAD_USAGE = 2
-    POLICY_REFUSED = 3
-    RESOLUTION_FAILED = 4
-
 
 #: Every `WeftError` type that maps to exit 4 despite carrying no `PipelineResolutionError`
 #: in its own inheritance — task 1.13, widened by task 3.7. All are deliberately *not*

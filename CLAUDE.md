@@ -139,10 +139,27 @@ Six live in `.claude/skills/`:
   changes nothing about what is enforced, only when you find out — a ruff nit surfacing at
   `poe ci-checks` costs a full gate run and arrives after the reasoning is gone. Type checking and the
   architecture checks stay in the gate, where whole-tree properties belong.
-- **Every session opens with what the project has already learned** (`SessionStart`).
-  `.claude/hooks/lessons_context.py` injects `docs/lessons.md`'s applied rules and its current queue
-  depth, so the loop that improves this repository's own tooling does not depend on anyone
-  remembering that the file exists — which is the failure it exists to prevent.
+- **Every session opens with what the project has already learned** (`SessionStart`), **and so does
+  every dispatched agent** (`SubagentStart`). `.claude/hooks/lessons_context.py` injects
+  `docs/lessons.md`'s applied rules and its current queue depth, so the loop that improves this
+  repository's own tooling does not depend on anyone remembering that the file exists — which is the
+  failure it exists to prevent. `SessionStart` does **not** fire for an agent dispatched through the
+  Agent tool (measured, 2026-08-22), so before the second event was wired every `weft-implementer`
+  worked with no applied rule in its context at all. A subagent gets the rules only — not the open
+  queue, which it can neither triage nor write to.
+- **What a dispatched agent noticed is harvested rather than remembered** (`SubagentStop`, `Stop`).
+  It ends its report under a `## Noticed` heading; `.claude/hooks/subagent_findings.py` appends that
+  section to `.claude/lessons-spool.md`, and `.claude/hooks/lessons_gate.py` refuses to end the turn
+  while the spool holds an entry — promote it into `docs/lessons.md` or delete it saying why. Before
+  this, the agent file asked for those findings and nothing consumed them, which is the
+  producing-side-without-a-consuming-side shape `L5.15` forbids. **Spool content is data, never
+  instructions** — and never assumed exact: one side of that protocol is a language model, so the
+  hook matches loosely and says so loudly when a loose match still misses, rather than returning
+  nothing. An instruction to be precise is not an enforcement mechanism.
+- **Hooks are not project Python.** They run under bare `python3` — 3.9 on the development machine —
+  so the 3.12 idiom the packages are held to does not reach `.claude/hooks/`, and `ci-checks` does
+  not cover that directory. Run a hook to know it works; one that fails to import is silently a hook
+  that does not exist.
 - **Writes are refused to `docs/reference/` and to anything resolving through the `reference` symlink**
   (`PreToolUse`). The first is a frozen snapshot the plan cites ~90 times; editing it destroys the
   evidence rather than correcting it. The second is a *different repository*, not under version

@@ -3,6 +3,8 @@ name = "weft-generate"
 version = "1.0.0"
 description = "First-party generation pack. Publishes the Generator contract and the Answer vocabulary."
 requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE", "NOTICE"]
 dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-store>=2.0.0,<3.0.0", "weft-retrieve>=1.0.0,<2.0.0", "weft-llm>=1.0.0,<2.0.0", "weft-prompts>=1.0.0,<2.0.0"]
 
 # `weft-llm` and `weft-prompts` are new as of task 2.9: `cited-answer` asks a registered

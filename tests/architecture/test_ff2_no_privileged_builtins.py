@@ -348,8 +348,11 @@ def test_registry_contents_equal_what_discovery_declared() -> None:
         )
 
 
-def test_a_registration_outside_discovery_is_caught() -> None:
+def test_the_registry_check_can_actually_fail() -> None:
     """The equality check above can fail — proven by planting a violation it must catch.
+
+    Named to fitness function 16 clause (b)'s convention at ledger task **6.15**; it was
+    written as `test_a_registration_outside_discovery_is_caught` and the body is unchanged.
 
     A pack's own `register()` cannot choose its own `distribution`: `PackRegistrar.add` has
     no such parameter, and `discover()` fills attribution in from the entry point it is
@@ -388,3 +391,38 @@ def test_a_registration_outside_discovery_is_caught() -> None:
         "actually holds. If this assertion fails, the equality check above has stopped being "
         "able to fail, which means it is not proven to check anything."
     )
+
+
+def test_the_import_check_can_actually_fail(tmp_path: Path) -> None:
+    """Fitness function 16 clause (b) for this file's *other* comparison — task **6.15**.
+
+    `test_the_registry_check_can_actually_fail` proves the registry equality can fail and says
+    nothing about `test_kernel_imports_no_first_party_pack_module`, which is a different
+    comparison over a different input and had never been observed saying yes to anything. Both
+    halves of it are planted here: a real pack module import, which must be caught, and the
+    two shapes that must not be mistaken for one — the kernel importing itself, and a
+    third-party module that merely starts with the same letters.
+    """
+    # Arrange — a real first-party pack module name, taken from the tree rather than typed,
+    # so this cannot pass by planting a module nothing considers a pack.
+    pack_modules = _first_party_pack_modules()
+    assert "weft_store" in pack_modules, (
+        "`weft_store` is not among the modules read off `packages/*/pyproject.toml` — the "
+        "reader is wrong, and every assertion below would be about nothing"
+    )
+    planted = tmp_path / "planted.py"
+    planted.write_text(
+        "import weft_store\n"
+        "from weft_kernel.payload import Node\n"
+        "import weft_storeish_thirdparty\n",
+        encoding="utf-8",
+    )
+
+    # Act — the same expression the check above computes.
+    imported = _imported_top_level_modules(planted)
+    violations = imported & pack_modules
+
+    # Assert
+    assert violations == {"weft_store"}
+    assert "weft_kernel" in imported, "the walker must see the import; the set is what filters"
+    assert "weft_storeish_thirdparty" in imported and "weft_storeish_thirdparty" not in violations

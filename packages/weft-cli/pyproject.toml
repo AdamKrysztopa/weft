@@ -3,6 +3,8 @@ name = "weft-cli"
 version = "0.1.0"
 description = "The Weft command line: the only driving adapter, and the only asyncio.run."
 requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE", "NOTICE"]
 dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-command>=2.0.0,<3.0.0", "weft-extract>=1.0.0,<2.0.0", "weft-chunk>=1.0.0,<2.0.0", "weft-embed>=1.0.0,<2.0.0", "weft-store>=2.0.0,<3.0.0", "weft-llm>=1.0.0,<2.0.0", "weft-prompts>=1.0.0,<2.0.0", "weft-retrieve>=1.0.0,<2.0.0", "weft-generate>=1.0.0,<2.0.0", "weft-eval>=1.0.0,<2.0.0", "pyyaml", "opentelemetry-api", "packaging>=24"]
 
 # The CLI is the one place `weft index`/`weft ask` are wired to a fixed, hardcoded
@@ -40,6 +42,21 @@ weft = "weft_cli.cli:main"
 # `weft --version` still runs none of this (fitness function 8(b)).
 [project.entry-points."weft.packs"]
 weft-cli = "weft_cli.commands:register"
+
+# `ruff` is a *generation-time* dependency, not a runtime one: `weft_cli.contract_reference`
+# renders the contract reference and pipes it through the real `ruff format`, so the generated
+# file is byte-identical to what `poe ci-checks`' own `fmt` step would produce. Nothing on the
+# index-and-ask path reaches that module, so shipping a formatter to every user would be the
+# wrong trade — this is the shape `weft-eval[bertscore]` and `weft-otel[otlp]` already have.
+#
+# **Declared at task 6.7, and it was declared nowhere before.** It worked only because the
+# *workspace root's* `[dependency-groups] dev` carries `ruff`; installed from its own sdist into
+# a clean environment, the module raised `CalledProcessError`. Task 6.6's install-alone-and-import
+# check could not see it — `import weft_cli` never reaches a subprocess call
+# (`docs/lessons.md` L6.24). The floor matches the root's own: >=0.16.0 is the first release that
+# formats Python code blocks in Markdown by default, which is the behaviour this relies on.
+[project.optional-dependencies]
+reference = ["ruff>=0.16.0"]
 
 [build-system]
 requires = ["hatchling"]

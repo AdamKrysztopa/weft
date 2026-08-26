@@ -126,19 +126,44 @@ caller's alone. At the time this docstring first recorded `"1.1.0"`, G9 had not 
 rule, so the bump was chosen from the caller's side only; it is corrected here rather than left
 mis-recorded once the rule existed to correct it against — the identical honesty G9's own settled
 row applies to itself.
+
+**Task 6.20 (G13) bumps `COMMAND_CONTRACT_VERSION` again, to `"2.1.0"` — this time minor, not
+major, and the reasoning is stated at the time the bump is taken rather than left for a later
+task to reconstruct.** `weft_command.render.Rendered` and `.ExitCode` are published from this
+distribution and re-exported here (see that module's own docstring for why a renderer's
+vocabulary belongs beside the contract that produces the result it formats), and
+`weft_kernel.discovery.PackRegistrar` gains a further registration seam, `add_renderer` — but
+nothing on the `Command` Protocol itself changed, `required_declarations` is untouched, and a
+pack that registers no renderer still works exactly as it did before this task, because the
+unregistered-result structured-dump fallback is the floor and stays the floor. Applying G9's
+table honestly: additive for a *caller* (nothing that reads `Command` through this Protocol
+changes) and additive for an *implementer* (no existing `Command` implementation breaks at
+registration), and the maximum of the two is minor.
 """
 
 from typing import TYPE_CHECKING, ClassVar, Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict
 
+from weft_command.render import ExitCode as ExitCode
+from weft_command.render import Rendered as Rendered
 from weft_kernel.context import Context
 from weft_kernel.payload import Outcome
 
 #: Fitness function 6's subject for this contract — see the module docstring's note on the
 #: correction at task 5.2a: the 3.2 bump to "1.1.0" (when `help` joined `required_declarations`)
 #: was a mis-recorded major, per G9's two-audience rule, corrected to "2.0.0".
-COMMAND_CONTRACT_VERSION = "2.0.0"
+#:
+#: **Task 6.20 bumps this to "2.1.0" — additive for both audiences, so minor, not major.**
+#: `docs/09-release.md` §2.3, G9's two-audience rule, applied at the time this bump is taken
+#: rather than left for a later task to reconstruct: nothing on the `Command` Protocol itself
+#: changed, `required_declarations` is untouched, and a pack that registers no renderer through
+#: the new `PackRegistrar.add_renderer` seam still works exactly as before — the unregistered-
+#: result structured-dump fallback is the floor, and stays the floor. Publishing `Rendered` and
+#: `ExitCode` from this module (see `weft_command.render`) grows the surface without breaking
+#: anything either audience already depended on, which is what "minor" means under G9's table:
+#: the maximum of "additive for a caller" and "additive for an implementer" is still additive.
+COMMAND_CONTRACT_VERSION = "2.1.0"
 
 
 class CommandResult(BaseModel):

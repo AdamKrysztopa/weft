@@ -8,7 +8,7 @@ requires-python = ">=3.12"
 # rule makes it the *driving* adapter, and a pack implementing a contract depends on the pack
 # that *publishes* it, never on the thing that calls it — the identical relationship
 # `examples/weft-example-chunker/pyproject.toml` states for `weft-chunk`.
-dependencies = ["weft-kernel", "weft-command"]
+dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-command>=2.1.0,<3.0.0"]
 
 # One entry point (weft's docs/02-extension-model.md section 2). Nothing under weft's own
 # packages/ or testing/ names this distribution, this module, or the plugin name below —

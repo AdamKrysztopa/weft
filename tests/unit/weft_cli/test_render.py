@@ -16,9 +16,12 @@ Task **3.11** folds `weft route`'s own retired `RouteCommandResult`/`_render_rou
 from __future__ import annotations
 
 import json
+from collections.abc import Callable, Collection
 from typing import cast
 
-from weft_cli import render
+import pytest
+
+from weft_cli import commands, render
 from weft_cli.commands import (
     AskCommandResult,
     CommandRefusalError,
@@ -35,10 +38,15 @@ from weft_cli.output import AskFormat
 from weft_cli.reconcile import ReconcileEstimateOutcome, ReconcileOutcome
 from weft_command.contract import CommandResult
 from weft_generate.payload import Answer, AnswerStance, Citation
-from weft_kernel.discovery import PackReport, PackStatus
+from weft_kernel.discovery import PackRegistrar, PackReport, PackStatus
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import Failed, NothingToProduce, Produced
-from weft_kernel.registry import DisplacedRegistration, UnknownPluginError
+from weft_kernel.registry import (
+    DisplacedRegistration,
+    DuplicateRegistrationError,
+    Registry,
+    UnknownPluginError,
+)
 from weft_kernel.runner import RunSummary
 from weft_retrieve.payload import Query
 from weft_store import ReconcileEstimate, ReconcileMode, ReconcileReport
@@ -925,3 +933,178 @@ def test_index_reports_failure_when_its_own_automatic_reconcile_pass_fails() -> 
     assert "failed: graph (weft-graph) — RuntimeError: connection refused" in (
         rendered.stderr or ""
     )
+
+
+# --- the dispatch is registered, not written down here (task 6.20, G13) ------------------
+
+
+class _StrangerResult(CommandResult):
+    """A pack's own result type, of a kind `weft_cli.render` has never heard of."""
+
+    headline: str
+
+
+def _render_stranger(result: CommandResult) -> render.Rendered:
+    typed = cast(_StrangerResult, result)
+    return render.Rendered(
+        stdout=f"graph: {typed.headline}", stderr=None, exit_code=ExitCode.SUCCESS
+    )
+
+
+def _offer(result_type: type[CommandResult], renderer: object, *, distribution: str) -> PackReport:
+    """One pack's report carrying one renderer, built through the public seam rather than by
+    constructing a `RendererOffer` by hand — `PackRegistrar` is what fills in attribution.
+    """
+    registrar = PackRegistrar(Registry(), distribution=distribution)
+    registrar.add_renderer(result_type, cast(Callable[[object], object], renderer))
+    return PackReport(
+        distribution=distribution, status=PackStatus.ACTIVE, renderers=registrar.renderers
+    )
+
+
+def test_a_packs_result_renders_for_a_person_once_its_renderer_is_registered() -> None:
+    """The property task **6.20** makes true. Before it, `weft example-graph show` printed
+    `{"nodes_with_graph_data":11,...}` at a person while eighteen built-in commands printed
+    for one, because the dispatch was a table matched on the CLI's own result types.
+    """
+    # Arrange
+    render.register_renderers_from_reports(
+        [_offer(_StrangerResult, _render_stranger, distribution="weft-example-graph")]
+    )
+
+    # Act
+    rendered = render.render_outcome(Produced(value=_StrangerResult(headline="11 nodes")))
+
+    # Assert
+    assert rendered.stdout == "graph: 11 nodes"
+
+
+def test_a_result_with_no_registered_renderer_still_gets_the_honest_dump() -> None:
+    """The floor stays the floor, and stops being the ceiling: an unrendered result is a
+    truthful structured dump rather than a crash or a silent blank.
+    """
+
+    # Arrange
+    class _UnrenderedResult(CommandResult):
+        count: int
+
+    # Act
+    rendered = render.render_outcome(Produced(value=_UnrenderedResult(count=3)))
+
+    # Assert
+    assert rendered.stdout is not None
+    assert json.loads(rendered.stdout) == {"count": 3}
+
+
+def test_two_packs_claiming_one_result_type_is_refused_rather_than_shadowed() -> None:
+    """Two renderers for one result type is a real collision, not a repeat of one fact —
+    the identical rule `weft_store.rehydrate.register_from_reports` holds a namespace to.
+    """
+
+    # Arrange
+    class _ContestedResult(CommandResult):
+        value: str
+
+    render.register_renderers_from_reports(
+        [_offer(_ContestedResult, _render_stranger, distribution="weft-a")]
+    )
+
+    def _other(result: CommandResult) -> render.Rendered:
+        del result
+        return render.Rendered(stdout="other", stderr=None, exit_code=ExitCode.SUCCESS)
+
+    # Act / Assert
+    with pytest.raises(DuplicateRegistrationError) as raised:
+        render.register_renderers_from_reports(
+            [_offer(_ContestedResult, _other, distribution="weft-b")]
+        )
+
+    # Assert
+    assert "weft-a" in str(raised.value)
+    assert "weft-b" in str(raised.value)
+
+
+def test_registering_the_same_renderer_twice_is_a_repeat_not_a_collision() -> None:
+    """Discovery runs more than once in one process across this tree's own suite, and a
+    report re-read is the same fact stated again — the identical idempotence
+    `weft_store.rehydrate.register_from_reports` already has.
+    """
+
+    # Arrange
+    class _RepeatedResult(CommandResult):
+        value: str
+
+    def _render_repeated(result: CommandResult) -> render.Rendered:
+        typed = cast(_RepeatedResult, result)
+        return render.Rendered(
+            stdout=f"repeated: {typed.value}", stderr=None, exit_code=ExitCode.SUCCESS
+        )
+
+    report = _offer(_RepeatedResult, _render_repeated, distribution="weft-a")
+
+    # Act
+    render.register_renderers_from_reports([report])
+    render.register_renderers_from_reports([report])
+
+    # Assert — the second registration neither refused nor replaced the first.
+    assert render.render_outcome(Produced(value=_RepeatedResult(value="x"))).stdout == (
+        "repeated: x"
+    )
+
+
+def test_every_built_in_renderer_arrives_through_the_public_registration_seam() -> None:
+    """Requirement 4, checked rather than asserted: **no built-in keeps a private path.**
+    `weft_cli.render` holds no first-party dispatch table — the eighteen built-in renderers
+    reach the dispatch by `weft-cli`'s own `register()` calling `add_renderer`, the same call
+    a stranger's pack makes, so the two cannot be told apart at the seam.
+    """
+    # Arrange
+    registrar = PackRegistrar(Registry(), distribution="weft-cli")
+
+    # Act
+    commands.register(registrar, commands.Settings())
+
+    # Assert — the built-ins are in the report, like anyone else's.
+    offered = {offer.result_type for offer in registrar.renderers}
+    assert IndexCommandResult in offered
+    assert DeleteCommandResult in offered
+    assert AskCommandResult in offered
+    assert all(offer.distribution == "weft-cli" for offer in registrar.renderers)
+
+
+def test_render_holds_no_first_party_dispatch_table_of_its_own() -> None:
+    """The other half of the same property, read off the module rather than off the report: if
+    a private table survived anywhere in `weft_cli.render`, a built-in would render without
+    ever having registered, and the seam would be decorative.
+    """
+
+    def _result_types_in(value: object, *, depth: int = 0) -> bool:
+        """Whether `value` holds a `CommandResult` subclass anywhere shallow inside it.
+
+        Recursive on purpose, and that recursion is the whole check: the table this test
+        exists to forbid was a tuple of `(result type, renderer)` **pairs**, so a one-level
+        scan finds only 2-tuples and passes vacuously — `docs/lessons.md` L5.19's rule, met
+        by planting the real shape rather than a convenient one.
+        """
+        if isinstance(value, type):
+            return issubclass(value, CommandResult)
+        if depth >= 3:
+            return False
+        if isinstance(value, dict):
+            keys = cast("dict[object, object]", value).keys()
+            return any(_result_types_in(key, depth=depth + 1) for key in keys)
+        if isinstance(value, (tuple, list, set, frozenset)):
+            items = cast("Collection[object]", value)
+            return any(_result_types_in(item, depth=depth + 1) for item in items)
+        return False
+
+    # Act
+    tables = [
+        name
+        for name, value in cast("dict[str, object]", vars(render)).items()
+        if isinstance(value, (tuple, list, dict, set, frozenset))
+        and _result_types_in(cast("object", value))
+    ]
+
+    # Assert
+    assert tables == []

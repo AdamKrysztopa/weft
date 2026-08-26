@@ -17,3 +17,12 @@ canary = "weft_canary:register"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+# **Never published.** Ledger task 6.2; `docs/01-high-level-plan.md` → *Fitness functions* 10(a),
+# which names this distribution as the clause's standing test case: it "must always be on the
+# opt-out side and never in the publish job's arguments". A distribution whose whole purpose is to
+# be *refused* by discovery has no business on an index, and the marker lives here rather than in a
+# central exclusion list because a central list is a second description of the same fact and drifts
+# from it. `tests/architecture/test_ff10_ship_set_integrity.py` reads this table.
+[tool.weft]
+publish = false

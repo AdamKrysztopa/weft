@@ -20,7 +20,7 @@ previously two commands' worth of coverage.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import cast
+from typing import ClassVar, Protocol, cast, runtime_checkable
 from unittest import mock
 
 import pytest
@@ -28,6 +28,8 @@ import pytest
 from weft_cli import commands
 from weft_cli.exit_codes import ExitCode
 from weft_cli.ingest import IndexResult
+from weft_cli.reconcile import participants as reconcile_module_participants
+from weft_cli.reconcile import reconcile_everywhere
 from weft_cli.reconcile_policy import ReconcilePolicy
 from weft_cli.registry_bootstrap import Dependencies
 from weft_cli.services import ServiceSelection
@@ -38,13 +40,20 @@ from weft_embed import Embedder
 from weft_generate.payload import Answer, AnswerStance
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackRegistrar, PackReport, PackStatus
-from weft_kernel.payload import MediaType, Node, Produced
+from weft_kernel.payload import MediaType, Node, Produced, SourceId
 from weft_kernel.pipeline import StageDeclaration
 from weft_kernel.registry import Registry
 from weft_kernel.resolution import Contribution
 from weft_kernel.runner import RunSummary
 from weft_retrieve.payload import Query
-from weft_store import NodeStore, ReconcileEstimate, ReconcileMode, ReconcileReport, Scored
+from weft_store import (
+    NodeStore,
+    ReconcileEstimate,
+    ReconcileMode,
+    ReconcileReport,
+    Removed,
+    Scored,
+)
 
 
 class _DeletableStore:
@@ -58,6 +67,16 @@ class _DeletableStore:
     async def delete_source(self, source_id: object) -> object:
         del source_id
         return None
+
+
+@runtime_checkable
+class _DerivedReconcilable(Protocol):
+    """A contract the CLI has never heard of — the graph pack's own, in miniature. A pack
+    registered under it joins the `Reconcilable` fan-out by capability alone, which is what
+    makes it a *derived* participant rather than a second primary store.
+    """
+
+    async def reconcile(self, ctx: Context, mode: ReconcileMode) -> ReconcileReport: ...
 
 
 class _ReconcilableStore:
@@ -631,6 +650,105 @@ def test_delete_describes_its_impact_by_naming_every_participant() -> None:
     assert stated == "'doc-1' will be removed from 1 participant(s): pgvector (weft-store)."
 
 
+class _GraphNodeStore:
+    """A second `NodeStore` — the graph pack's position in `02` §4's table, in miniature.
+
+    It holds its own contents, because task **6.18**'s check is the *store's contents* and
+    not the participant list: a fan-out that names the graph store and never reaches it is
+    exactly the failure G13 settled, and a list assertion alone would not tell the two apart.
+    """
+
+    contents: ClassVar[dict[str, int]] = {}
+
+    def __init__(self, config: object = None) -> None:
+        del config
+
+    async def delete_source(self, source_id: object) -> Removed:
+        removed = type(self).contents.pop(str(source_id), 0)
+        return Removed(source_id=SourceId(str(source_id)), node_count=removed)
+
+
+class _PrimaryNodeStore:
+    """The store `[services] store` names — present so the graph store is the *second* one."""
+
+    def __init__(self, config: object = None) -> None:
+        del config
+
+    async def delete_source(self, source_id: object) -> Removed:
+        return Removed(source_id=SourceId(str(source_id)), node_count=1)
+
+
+async def test_delete_empties_a_graph_store_a_catalogue_pipeline_names(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Task **6.18**, G13's first repair, reproduced the way `docs/build-ledger.md` states it:
+    a pipeline in the catalogue names a second `NodeStore`, a source is deleted, and that
+    store must no longer hold it. Before this task the graph store was outside the fan-out
+    entirely — `[services] store` chose one `NodeStore` and the rest were excluded — so its
+    contents survived their source with nothing said about it.
+    """
+    # Arrange
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "pipelines").mkdir()
+    (tmp_path / "pipelines" / "kg.yaml").write_text(
+        "name: kg\nstages:\n  - id: store\n    use: pgvector\n"
+        "  - id: graph-store\n    use: example-graph\n",
+        encoding="utf-8",
+    )
+    _GraphNodeStore.contents = {"doc-1": 4}
+    registry = Registry()
+    registry.add(NodeStore, "pgvector", _PrimaryNodeStore, distribution="weft-store")
+    registry.add(NodeStore, "example-graph", _GraphNodeStore, distribution="weft-example-graph")
+    deps = Dependencies(
+        registry=registry,
+        reports=(
+            PackReport(distribution="weft-store", status=PackStatus.ACTIVE),
+            PackReport(distribution="weft-example-graph", status=PackStatus.ACTIVE),
+        ),
+        services=ServiceSelection(store="pgvector"),
+    )
+
+    # Act
+    outcome = await commands.DeleteCommand().run(commands.DeleteArgs(source_id="doc-1"), _ctx(deps))
+
+    # Assert
+    assert _GraphNodeStore.contents == {}
+    assert isinstance(outcome, Produced)
+    result = outcome.value
+    assert isinstance(result, commands.DeleteCommandResult)
+    assert sorted((o.plugin, o.node_count) for o in result.participants) == [
+        ("example-graph", 4),
+        ("pgvector", 1),
+    ]
+
+
+def test_delete_leaves_a_store_nothing_names_alone(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The half of task 5.1a's narrowing G13 kept: an installed, registered `NodeStore` that
+    no document and no run record names is not asked, because it is the operator's unused
+    database and connecting to it is the harm the narrowing existed to prevent.
+    """
+    # Arrange
+    monkeypatch.chdir(tmp_path)
+    registry = Registry()
+    registry.add(NodeStore, "pgvector", _PrimaryNodeStore, distribution="weft-store")
+    registry.add(NodeStore, "qdrant", _GraphNodeStore, distribution="weft-qdrant")
+    deps = Dependencies(
+        registry=registry,
+        reports=(PackReport(distribution="weft-store", status=PackStatus.ACTIVE),),
+        services=ServiceSelection(store="pgvector"),
+    )
+
+    # Act
+    stated = commands.DeleteCommand().describe_impact(
+        commands.DeleteArgs(source_id="doc-1"), _ctx(deps)
+    )
+
+    # Assert
+    assert "qdrant" not in stated
+
+
 def test_delete_refuses_an_unresolvable_store_before_it_describes_an_impact() -> None:
     """The repair L5.9 records: the prompt used to state "nothing installed holds data" for a
     store that was installed and had failed to register, and the real diagnosis was reachable
@@ -649,6 +767,85 @@ def test_delete_refuses_an_unresolvable_store_before_it_describes_an_impact() ->
 
     # Assert
     assert "[services] store names 'pgvector'" in str(raised.value)
+
+
+class _CorpusAsking:
+    """A `Reconcilable` participant that is *not* the primary store and needs to see it.
+
+    Task **6.19**, G13's second repair. `02` §1 → *Extended by G13*: "the CLI registers the
+    configured store into the `Context` a reconcile pass carries, and a participant reaches it
+    with `ctx.require(NodeStore)`." This stands in for the graph pack, which needs to know what
+    the corpus holds before it can backfill anything derived from it.
+    """
+
+    seen: ClassVar[list[str]] = []
+
+    def __init__(self, config: object = None) -> None:
+        del config
+
+    async def reconcile(self, ctx: Context, mode: ReconcileMode) -> ReconcileReport:
+        corpus = ctx.require(NodeStore)
+        type(self).seen.append(type(corpus).__name__)
+        return ReconcileReport(mode=mode, examined=1, backfilled=1)
+
+    async def estimate(self, ctx: Context, mode: ReconcileMode) -> ReconcileEstimate:
+        corpus = ctx.require(NodeStore)
+        type(self).seen.append(type(corpus).__name__)
+        return ReconcileEstimate(mode=mode, pending=1, description="one node to backfill")
+
+
+async def test_reconcile_puts_the_configured_store_on_the_passport_it_carries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The property task **6.19** makes true: a participant that is not the primary store can
+    ask what the corpus holds, through `Context.require` — G1's one resolution seam — rather
+    than through a wider `reconcile` signature. No contract moves to make this work.
+    """
+    # Arrange
+    monkeypatch.chdir(tmp_path)
+    _CorpusAsking.seen = []
+    registry = Registry()
+    registry.add(NodeStore, "pgvector", _ReconcilableStore, distribution="weft-store")
+    registry.add(_DerivedReconcilable, "graph", _CorpusAsking, distribution="weft-example-graph")
+    deps = Dependencies(
+        registry=registry,
+        reports=(PackReport(distribution="weft-store", status=PackStatus.ACTIVE),),
+        services=ServiceSelection(store="pgvector"),
+    )
+
+    # Act
+    outcome = await commands.ReconcileCommand().run(
+        commands.ReconcileArgs(mode=ReconcileMode.FULL), _ctx(deps)
+    )
+
+    # Assert
+    assert _CorpusAsking.seen == ["_ReconcilableStore", "_ReconcilableStore"]
+    assert isinstance(outcome, Produced)
+
+
+async def test_a_participant_asking_for_a_corpus_that_is_not_there_is_told_so(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`weft index --pipeline ...` in a project with no `[services] store` still indexes, and
+    its automatic post-index pass deliberately skips the store gate — so a participant that
+    needs the corpus there finds nothing registered. It is told, by name, and the fan-out
+    records it as that participant's own failure rather than swallowing it: an unavailable
+    corpus is not a backfill of zero.
+    """
+    # Arrange
+    monkeypatch.chdir(tmp_path)
+    _CorpusAsking.seen = []
+    registry = Registry()
+    registry.add(_DerivedReconcilable, "graph", _CorpusAsking, distribution="weft-example-graph")
+    deps = Dependencies(registry=registry, reports=(), services=ServiceSelection(store="pgvector"))
+
+    # Act
+    targets = reconcile_module_participants(registry=registry, store_names=frozenset({"pgvector"}))
+    outcomes = await reconcile_everywhere(ReconcileMode.FULL, targets=targets, ctx=_ctx(deps))
+
+    # Assert
+    assert outcomes[0].error is not None
+    assert "NodeStore" in outcomes[0].error
 
 
 def _reconcilable_deps(*, reconcile_policy: ReconcilePolicy | None = None) -> Dependencies:
