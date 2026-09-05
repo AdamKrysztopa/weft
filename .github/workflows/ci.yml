@@ -77,9 +77,17 @@ jobs:
       - name: Install weft-kernel alone and import it
         run: uv run --no-project python scripts/check_kernel_isolated.py
 
-  # Fitness function 1, generalised to every published distribution — ledger task 6.6. Same
-  # reason as `kernel-isolation` above: this needs a clean environment the `ci-checks` gate's
-  # own virtualenv cannot provide.
+  # Fitness function 1, generalised to every published distribution — ledger task 6.6. Separate
+  # from the `ci-checks` gate for the same reason `kernel-isolation` is: the distributions are
+  # installed into clean environments, which is the whole check.
+  #
+  # **Those clean environments are the temporary venvs the script builds, not this runner's.** The
+  # step below therefore runs *inside* the synced project environment, exactly as
+  # `poe isolated-installs` does locally. It was copied from `kernel-isolation` with its
+  # `--no-project` and no `Sync`, which works there only because `check_kernel_isolated.py` imports
+  # nothing outside the standard library; this script reaches `publish_set.py`, which imports
+  # pydantic, and died on it the first time CI ever ran. Invoked through the poe task rather than
+  # respelled, so there is one definition of what this check is.
   isolated-installs:
     name: every distribution imports standalone
     runs-on: ubuntu-latest
@@ -88,12 +96,17 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
 
       - name: Set up Python
         run: uv python install
 
+      - name: Sync
+        run: uv sync --frozen
+
       - name: Install every published distribution alone and import it
-        run: uv run --no-project python scripts/check_isolated_installs.py
+        run: uv run poe isolated-installs
 
   # Ledger task 6.7. Separate from `ci-checks` for the same reason `isolated-installs` is: it
   # builds and installs sdists into a clean environment `ci-checks`' own virtualenv cannot
