@@ -4038,7 +4038,7 @@ it is a config key and two call sites. Said here because nothing else records it
   what `phase-step` → *When to stop* forbids
 - [x] **8.6** a question is answered from vector and full-text results **fused**, retrieved from
   the one store, and the fusion asks neither list where it came from · owner `01` → Phase 8;
-  `10` §1.5's `hybrid` row · turns on — · sha `—` · `weft_store`'s `search_text` was implemented in
+  `10` §1.5's `hybrid` row · turns on — · sha `b9690c5` · `weft_store`'s `search_text` was implemented in
   pgvector and **had no caller in the tree**, while `vector-top-k`'s own config validator had been
   printing *"Use 'hybrid'"* at operators since task 2.14 and `10` §1.5 had been reserving the name
   since 2.33 — a name shown to users in a refusal, documented, and installable by nobody. Two
