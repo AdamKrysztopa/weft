@@ -4020,6 +4020,22 @@ it is a config key and two call sites. Said here because nothing else records it
   requires it **empty**, so the entry is a dated debt rather than a parking space
 - [x] **8.5** every rung is named where a reader looks for it — `10` for the technique claims,
   `03` and `manual/` for `[services] route` · owner `10`; `03` · turns on — · sha `00bf24c`
+- [ ] **8.12** a router an operator can *name* is a router they can *author* · owner `03` →
+  *Project context*; `01` requirement 1 · turns on — · sha — · **Found by `weft-qualities` against
+  task 8.3, by running it rather than reading it.** `[services] route` selects among documents an
+  installed pack **contributed**: `weft_cli.route_ask.run_routed_ask` searches `load_contributed`,
+  not `full_catalogue`, which is Phase 2's settled behaviour and was deliberately not reopened at
+  8.3. Measured consequence — a project-local `pipelines/my-router.yaml` is in the catalogue
+  (`weft pipeline show my-router` resolves it, `weft ask --pipeline my-router` runs it) and
+  `[services] route = "my-router"` refuses it: *"no installed pack contributed a pipeline named
+  'my-router'"*. The message is accurate and the asymmetry is still a defect, because **8.3 is what
+  made it reachable**: while the router's name was a constant nobody could substitute it at all, so
+  the restriction was invisible; now the key invites an operator to name a router and half the ways
+  of having one do not work. Requirement 1's producing/consuming test read against a *project*
+  author rather than a pack author — the consuming side exists and the producing side is ignored,
+  which is `lessons.md` L5.15's shape. **A task and not a patch**: "the router's own search set" is
+  settled text in `weft_cli.route_ask`'s own docstring, and narrowing settled text mid-review is
+  what `phase-step` → *When to stop* forbids
 - [ ] **8.6** a question is answered from vector and full-text results **fused**, retrieved from
   the one store, and the fusion asks neither list where it came from · owner `01` → Phase 8;
   `10` §1.1's unbuilt `hybrid` row · turns on — · sha — · `weft_store`'s `search_text` is

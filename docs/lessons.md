@@ -27,6 +27,34 @@ otherwise paid for twice.
 
 ## Queue
 
+### L8.6 — the repair made a dormant restriction reachable, and I reviewed the repair without re-reading the restriction
+
+**What happened.** Task 8.3 turned the router's name from a constant into `[services] route`, so an
+operator can now select a router. `weft_cli.route_ask.run_routed_ask` searches `load_contributed`
+— packs only — which is Phase 2's settled behaviour and which 8.3 deliberately did not reopen. The
+consequence, measured under `weft-qualities` and not before: a project-local
+`pipelines/my-router.yaml` resolves under `weft pipeline show` and runs under
+`weft ask --pipeline`, and `[services] route = "my-router"` refuses it. I had read the restriction,
+quoted it in three docstrings as *"Phase 2's settled behaviour, not reopened here"*, and never asked
+what the *new* key did to it: while nobody could substitute the router at all the restriction was
+invisible; the moment a key invites you to name one, half the ways of having one silently do not
+count.
+
+**Generalises to.** *Making something configurable does not preserve the restrictions around it —
+it exposes them. When a change turns a constant into a choice, re-read every rule that scoped the
+constant and ask what it now means to somebody exercising the choice, because a rule that was
+unobservable is not the same rule once it can be hit.* Citing a restriction as unchanged is not the
+same as checking it is still right.
+
+**Candidate home.** `weft-qualities` lens 1's producing/consuming paragraph, which already asks
+*"can a stranger reach both sides?"* and would have caught this if it also asked *which* stranger —
+this seam is whole for a pack author and half-built for a project author, and the lens has no prompt
+to try both. Possibly also `phase-step` → *Orient*, beside "read the population, not the
+declaration": when a change makes a value configurable, the population to re-read is the rules that
+assumed it was fixed.
+
+---
+
 ### L8.5 — seven documented configuration surfaces, none of which had ever worked
 
 **What happened.** `corrective`, `iterative-retrieval` and `refine-on-uncertainty` each resolve a
