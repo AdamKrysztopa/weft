@@ -13,16 +13,21 @@ container Weft's store needs — Postgres with the `pgvector` extension).
 uv add weft-rag
 ```
 
-`weft-rag` is the release set: one exactly-tested combination of the kernel, the CLI and every
-first-party pack a working install needs — the extractor, the chunker, the embedder and the
-pgvector store — so this is the only install command; nothing else to add. **The distribution is
-`weft-rag` and the command is `weft`**: `weft` on PyPI is an unrelated project, and the console
-script comes from `weft-cli`, which this set pins.
+`weft-rag` is the default install: the kernel's twelve packs and the CLI in one wheel — the
+extractor, the chunker, the embedder and the pgvector store among them — so this is the only
+install command; nothing else to add. **The distribution is `weft-rag` and the command is
+`weft`**: `weft` on PyPI is an unrelated project, so what you install and what you run are spelled
+differently.
+
+Four add-ons publish beside it and each is a separate `uv add` because each brings a dependency you
+may not want: `weft-openai` (a credential and the OpenAI SDK), `weft-pdf` (two PDF libraries),
+`weft-qdrant` (a second store backend), `weft-otel` (the OpenTelemetry SDK). None is needed to
+index a directory and ask a question about it.
 
 > `weft-rag` is not on an index yet — Phase 0 has not published a release. Everything after this
-> line runs today against a checkout with `weft-cli` already installed; once `09-release.md`'s
-> policy ships a version, this line starts working exactly as written and nothing else in this
-> page changes.
+> line runs today against a checkout with `uv pip install -e packages/weft-rag`; once
+> `09-release.md`'s policy ships a version, this line starts working exactly as written and nothing
+> else in this page changes.
 
 ## 2. Point it at a database
 
@@ -39,7 +44,7 @@ export WEFT_DATABASE_URL="postgresql://weft:weft@localhost:5433/weft"
 That variable alone is enough — no `weft.toml` needed for this.
 
 **Leave it unset** and nothing crashes with a stack trace: `weft plugins doctor` reports
-`weft-store` as `failed`, naming the missing field, rather than a store guessing at a database.
+the `store` pack as `failed`, naming the missing field, rather than a store guessing at a database.
 
 **Set it to something unreachable** — a typo'd port is the usual way — and `doctor` still reports
 `active`, because a connection string is checked for shape, not for whether anything answers at the

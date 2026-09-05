@@ -1,7 +1,7 @@
 [project]
 name = "weft-qdrant"
 version = "0.1.0"
-description = "First-party Qdrant store pack. Registers under the store contract family weft-store publishes."
+description = "First-party Qdrant store pack. Registers under the store contract family weft_store publishes."
 requires-python = ">=3.12"
 license = "MIT"
 license-files = ["LICENSE", "NOTICE"]

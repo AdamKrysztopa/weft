@@ -82,10 +82,12 @@ build-backend = "hatchling.build"
 
 Three things to notice, each a decision rather than a convention:
 
-- **You depend on `weft-chunk`, not on the kernel alone.** The kernel names no capability and
-  publishes no `Chunker`; contracts ship from the packs that own them. You depend on the contract's
-  publisher exactly as you would on any third-party protocol — `weft-kernel` alone would not even
-  give you something to import against.
+- **You depend on the distribution that ships `weft_chunk`, not on the kernel alone.** The kernel
+  names no capability and publishes no `Chunker`; contracts ship from the packs that own them. You
+  depend on the contract's publisher exactly as you would on any third-party protocol —
+  `weft-kernel` alone would not even give you something to import against. That distribution is
+  `weft-rag` since 2026-09-05, which ships fourteen packs in one wheel; the import you write
+  (`from weft_chunk.contract import Chunker`) did not change, and the name you install did.
 - **One entry point, in the `weft.packs` group — not one per plugin.** The alias on the left
   (`example-chunker`) labels this line inside the group; the plugin *name* your pack answers to
   (also `example-chunker` here, but the two are independent) is whatever string you pass to
@@ -229,7 +231,7 @@ The rules this obeys, and what enforces each:
 
 | Rule | Enforced by |
 |---|---|
-| **Every contract method is `async def`.** No sync protocol, no colour to declare | G6. You never write `asyncio.run` — the tree contains exactly one, in `weft-cli` (fitness function 7(a)) |
+| **Every contract method is `async def`.** No sync protocol, no colour to declare | G6. You never write `asyncio.run` — the tree contains exactly one, in `weft_cli` (fitness function 7(a)) |
 | **Return an `Outcome`, never a bare value.** `Produced` / `NothingToProduce` / `Failed` | `02` §1. `NothingToProduce(reason=…)` for a legitimately empty result — never an empty `Produced([])`, which is indistinguishable downstream from a real failure hidden behind a fallback |
 | **Build children with `Node.derive`, and pass an ordinal** | `02` §1 → *The payload model*. `derive` carries lineage automatically, so cascade delete reaches every child; a node's identity is a digest over its content, media type, sorted parent ids **and this ordinal** |
 | **Nothing here writes a span, attributes an error, or checks for a blocking call** | The registration seam (`weft_kernel.seam.wrap`) does all three automatically for every stage a `Runner` actually resolves and runs — see §5. There is nothing to remember and nothing to get wrong by omission |
@@ -592,7 +594,7 @@ model. Nothing about contributing a `Command` needs a second mechanism.
 **G9, settled 2026-08-21** (`docs/README.md` decision log): *"a version requirement **is** the
 dependency specifier... ranges are `>=X,<MAJOR+1`, never an exact pin — a library that pins exactly
 makes any two packs jointly unresolvable"* (`docs/09-release.md` §2.3, answer 5). A bare name —
-`dependencies = ["weft-chunk"]` — is not a specifier at all: it tells the resolver "any version,
+`dependencies = ["weft-rag"]` — is not a specifier at all: it tells the resolver "any version,
 including one whose contract has moved out from under you since you wrote this line," which is
 exactly the silent incompatibility a semver policy exists to prevent. Task **5.2a** made this real for
 every first-party distribution; the shape to copy is any of them, unchanged since:
@@ -601,7 +603,7 @@ every first-party distribution; the shape to copy is any of them, unchanged sinc
 [project]
 name = "weft-qdrant"
 version = "0.1.0"
-description = "First-party Qdrant store pack. Registers under the store contract family weft-store publishes."
+description = "First-party Qdrant store pack. Registers under the store contract family weft_store publishes."
 requires-python = ">=3.12"
 license = "MIT"
 license-files = ["LICENSE", "NOTICE"]
@@ -643,24 +645,18 @@ is an ordinary PyPI floor on a library Weft does not publish a contract for — 
 *contract's* version to its *publisher's* distribution version; it says nothing about a floor on an
 unrelated third-party package, and inventing an upper bound for those would be exactly the "any two
 packs jointly unresolvable" trap the rule exists to prevent, aimed at yourself. When you depend on
-`weft-chunk` (or any contract-publishing pack) for the `Chunker` Protocol it owns, write the range;
+`weft-rag` (or any contract-publishing distribution) for a Protocol one of its packs owns, write
+the range;
 when you depend on an ordinary library, write the floor you actually require and nothing more.
 
-**Honest gap, not a pattern to copy: every `examples/*/pyproject.toml` in this tree — including both
-packs shown in this section — still declares its `weft-*` dependencies as bare names**, e.g.
-
-```text
-dependencies = ["weft-kernel", "weft-clean", "weft-embed", "weft-enhance", "weft-extract",
-                 "weft-index", "weft-store"]  # examples/weft-example-ingest/pyproject.toml:11-19, today
-```
-
-These packs predate G9 (2026-08-21) and task 5.2a touched only the first-party distributions under
-`packages/`, per its own ledger line — `examples/` was out of its scope, and no later task has closed
-it. **Do not copy this shape.** It is recorded here rather than silently reproduced: closing it is one
-short follow-up task — add a range to every `weft-*` entry in every `examples/*/pyproject.toml`,
-mirroring whichever `packages/*/pyproject.toml` publishes that contract — and it is not this task's
-to do, since 5.3 is the guide, not the examples. Logged in this task's own `docs/build-ledger.md`
-entry and in `docs/lessons.md`.
+**This paragraph used to record an honest gap, and the gap is closed.** Every
+`examples/*/pyproject.toml` in this tree once declared its `weft-*` dependencies as bare names —
+these packs predate G9 (2026-08-21), and task 5.2a touched only the distributions under
+`packages/`, so the thing a pack author copies was teaching that bounds are optional. **Ledger task
+6.26 closed it**, and `tests/architecture/test_example_packs_are_exemplars.py` is what keeps it
+closed. Every example pack now declares `>=X,<MAJOR+1` on each `weft-*` dependency, so the shape
+above is the shape to copy — this note stays only because a reader who saw the old paragraph
+deserves to know what happened to it rather than to find it silently gone.
 
 ### 9.4 An `ExtModel` needs `__schema_version__`, and an `upgrade` that refuses
 
@@ -790,7 +786,7 @@ You do not assemble anything yourself, and you do not call `resolve()` yourself.
 pack's own buffered contributions reach every pipeline command through one path you never touch:
 `weft_cli.registry_bootstrap.build_dependencies` reads `PackReport.contributions` back off
 `discover()`'s own return value, concatenates every report's tuple into `Dependencies.
-contributions`, and every `resolve()` call site in `weft-cli` passes that field straight through as
+contributions`, and every `resolve()` call site in `weft_cli` passes that field straight through as
 `contributions=`. Your one line above is the entire pack-author-facing surface of this mechanism.
 
 **What you do not control**, because §3's own rule forbids it: whether your contribution actually

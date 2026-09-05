@@ -3847,6 +3847,77 @@ published page says it means. The remaining letter-of-the-exit gaps are the two 
 index: installing **from PyPI** rather than from a local one, and doing it in a single `uvx`
 invocation.
 
+### Consolidation — twenty published distributions become six (2026-09-05)
+
+**G10 reopened and re-settled.** `docs/plan-one-distribution.md` held the plan, was rejected on
+evidence the same day it was written, and was then corrected: the rejection rested on a fact that
+had not been checked (bundling does **not** break task 6.31's disclosures — `_read_disclosure`
+reads the entry point's own module, `discovery.py:948`, which is per-pack). What the experiment did
+find is that `distribution` was doing two jobs — the thing PyPI installs, and the pack's identity
+in every operator-facing surface. C0 below separates them; everything else follows it. The plan
+file is deleted with this line, as it said it would be.
+
+- [x] **C0** a pack has an identity separate from the distribution that ships it — the `weft.packs`
+  entry-point name, carried on `PackReport.pack`, keying `[packs.<pack>]` settings, the rows
+  `weft plugins list|doctor` prints, `require_active`, and the pack named in a settings or
+  disclosure failure; `distribution` keeps `[packs] allow`, the version column and version skew ·
+  owner `02` §2 → *Pack settings* · sha `f262d25` · **this reverses what G1 settled** and the
+  argument G1 gave is what stopped being true: it keyed settings on the distribution because
+  "entry-point aliases can collide between two packs; distribution names cannot", and under one
+  wheel shipping twelve packs the distribution name is the one that collides · what G1's argument
+  was *right* about is covered rather than dismissed — two distributions can both declare a pack
+  named `graph`, weft does not refuse it (a stranger's entry-point name is not ours to rename), and
+  `weft plugins doctor` names the collision in its own trailing block beside version skew and inert
+  pins · `weft-cli`'s entry point renamed `weft-cli` → `cli`, the last first-party pack still named
+  after its distribution · kernel cost 3,079 → 3,097 counted lines against a 3,500 budget, no new
+  concept and no capability named
+- [x] **C0b** `weft --version` derives the distribution that ships it rather than asserting one ·
+  owner `03` · sha `121afe9` · filed rather than patched at the first experiment, on the grounds
+  that the fix belonged with whoever separated pack identity from distribution · **the obvious
+  mechanism is wrong**: `importlib.metadata.packages_distributions()` maps import packages by
+  reading installed file records, and an editable install records only a `.pth`, so it answers
+  `None` for `weft_cli` in this repository's own venv — measured, not read (`lessons.md` L7.6).
+  Derived from the `console_scripts` entry point pointing at `weft_cli.cli` instead, which is what
+  actually put `weft` on the reader's PATH. Neither degenerate state is guessed past
+- [x] **C1** `weft-rag` ships the fourteen packs' code and their twelve entry points, and a wheel
+  built from it imports every one of them · owner `09` §1 · sha `397d5c1` · **the fourteen
+  `src/` trees moved under `packages/weft-rag/src/`, and that was forced**: leaving them in place
+  and pointing `force-include` at `../weft-chunk/src/...` builds a working wheel and an sdist that
+  cannot build a wheel from itself, so task 6.7 could never have held. The move changed no import
+  and no test
+- [x] **C2** the fourteen `pyproject.toml` files are gone, the workspace resolves, and the gate is
+  green · owner `09` §1 · sha `397d5c1` · `weft-rag` is `2.1.0`, which `09` §2.3's binding
+  rule forces and `09` §2.2 answers in advance — the binding, not the leading digit
+- [x] **C3** `release.yml`'s matrix publishes six names and fitness function 10 still compares two
+  sources that can genuinely disagree · owner `01` → FF10 · sha `397d5c1` · `max-parallel: 1`
+  kept (`lessons.md` L7.3)
+- [x] **C4** the release-set check holds the new shape · owner `09` §1 · sha `397d5c1` ·
+  **the plan's own wording for this task was wrong** — it asked for "exact pins for the four
+  optional packs and the kernel", and the four add-ons depend on `weft-rag` rather than the
+  reverse, so pinning them would invert the graph and force every default install to carry
+  `openai` and `qdrant-client`. What replaces the pins is the comparison the pins were a proxy
+  for: the hand-written `[tool.hatch.build.targets.wheel] packages` list against the source tree
+  beside it, which is now the one place a module can be silently absent from the built wheel
+- [x] **C5** the isolated-install check covers the six, and the fourteen are covered by a stated,
+  explicitly weaker import assertion · owner `09` §5.2 · sha `397d5c1` · the weakening is
+  named in `scripts/check_isolated_installs.py` rather than counted as the same coverage: an
+  undeclared dependency between two bundled packs can no longer break an install, because there is
+  no longer a declaration between them to omit
+- [x] **C6** `09` §1 and `README.md`'s G10 row carry the re-settled decision, and
+  `docs/plan-one-distribution.md` is deleted · owner `docs/README.md` → *Protocol* · sha `397d5c1`
+
+**Verified by running the binary, which is where this phase's own repairs came from.** Six wheels
+and six sdists built; `weft-rag` installed from its wheel into a clean venv and driven from `/tmp`:
+`weft --version`, `plugins list` (twelve distinguishable rows), `plugins doctor` (`weft_store`'s
+disclosure intact — the control the first rejection believed bundling destroyed), `pipeline list`,
+`weft --help`, and a real `weft index` + `weft ask --retrieve-only` against the `compose.yaml`
+container. Four failure paths: a stale `[packs.weft-store]` key refused by name listing all twelve
+valid packs (exit 4), an unknown pipeline (exit 4), an unknown command (exit 2), and
+`[packs] allow = ["weft-rag"]` refusing `weft-pdf` and `weft-otel` before importing them.
+
+**Nothing published and nothing tagged.** PyPI's limiter counts attempts over a rolling window
+(`lessons.md` L7.3); the owner tags.
+
 ## Phase 7 — The agent
 
 **Added 2026-08-18 by G8**, logged as scope decision `S3` (`09` §6.1 and §6.4). `01` → Phase 7 owns

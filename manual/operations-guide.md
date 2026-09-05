@@ -30,12 +30,12 @@ longer matches what ships:
 # `docker compose up -d` brings it up, and the store creates its own schema on
 # first use — there is no separate migration step to run first.
 #
-# **Bringing the container up is not enough to make the store usable.** `weft-store`
+# **Bringing the container up is not enough to make the store usable.** The `store` pack
 # requires a `dsn` in its pack settings, and there are two ways to supply it. With no
 # `weft.toml` at all, an exported `WEFT_DATABASE_URL` is offered as `dsn` and the store
 # comes up `active` — the no-file path `manual/quickstart.md` walks. A `weft.toml`
 # carrying `[packs.store] dsn` — see `weft.toml.example` — wins over the
-# environment, key by key. `weft plugins doctor` reports `weft-store: failed`, naming
+# environment, key by key. `weft plugins doctor` reports `store (weft-rag): failed`, naming
 # the missing field, only when NEITHER supplies a `dsn` — the loud failure working: the
 # pack refuses rather than defaulting to some database it guessed.
 #
@@ -115,10 +115,11 @@ it is brought up only by the conformance suite, which asks for it by profile.
 
 ## Wiring `weft.toml`
 
-`weft-store` takes its connection string from its own pack settings, `[packs.store] dsn`, and
-there are two ways to supply it. **With no `weft.toml` at all** — the path `manual/quickstart.md`
-walks — an exported `WEFT_DATABASE_URL` is offered as `dsn` on its own, and that is enough to bring
-`weft-store` up. A project that wants an explicit, committed connection string instead copies
+The `store` pack takes its connection string from its own pack settings, `[packs.store] dsn` —
+the **pack** name, which is what `weft plugins list` prints in its first column, and not the name
+of the distribution that ships it. There are two ways to supply it. **With no `weft.toml` at all**
+— the path `manual/quickstart.md` walks — an exported `WEFT_DATABASE_URL` is offered as `dsn` on
+its own, and that is enough to bring the store up. A project that wants an explicit, committed connection string instead copies
 `weft.toml.example`:
 
 ```toml
@@ -136,7 +137,7 @@ registry at all, naming the variable, rather than handing a pack half a connecti
 or remove the reference from the configuration.
 ```
 
-**A `weft.toml` value wins over the environment, key by key.** `weft-store`'s settings are built by
+**A `weft.toml` value wins over the environment, key by key.** The `store` pack's settings are built by
 merging what `weft.toml` says over what `WEFT_DATABASE_URL` offers, and the file's own keys are
 never overwritten by the environment — only keys the file leaves unsaid are filled from it. This
 is deliberate: a stale `WEFT_DATABASE_URL` left over in a shell must never quietly redirect a
@@ -144,15 +145,21 @@ project whose `weft.toml` already names a different database. A store pointed at
 database does not crash — it answers plausibly, against the wrong data, which is the failure this
 project exists to remove. Concretely: with `WEFT_DATABASE_URL` pointed at a real, reachable
 database and `weft.toml` naming a different, unreachable one, `weft plugins doctor` reports
-`weft-store: active` — the file's value is the one in play — and `weft ask` fails to connect,
+`store (weft-rag): active` — the file's value is the one in play — and `weft ask` fails to connect,
 exactly as it should for the database `weft.toml` actually named.
 
 `weft.toml` is also where a project pins which packs may run at all:
 
 ```toml
 [packs]
-allow = ["weft-extract", "weft-chunk", "weft-embed", "weft-store"]
+allow = ["weft-rag"]
 ```
+
+**`allow` names distributions, and `[packs.<pack>]` names packs.** That asymmetry is deliberate:
+`allow` is a trust decision, and trust attaches to the thing you installed from an index — so
+listing `weft-rag` permits every pack that wheel ships, which is the same posture as before
+(what you installed is what you allowed). Add `weft-openai` or `weft-qdrant` to the list to permit
+an add-on you installed beside it.
 
 Absent, the posture is open — every installed pack runs. Present, it is exhaustive: anything not
 listed is refused, and refusal happens *before* the pack is ever imported, not after. This is a

@@ -27,6 +27,85 @@ otherwise paid for twice.
 
 ## Queue
 
+### L7.7 — a derivation that agrees with the tree until the tree changes shape
+
+**What happened.** Five separate files derived a distribution's import package as
+`project.name.replace("-", "_")` — `tests/architecture/test_ff12_unresolvable_name_carries_options.py`,
+`test_ff12b_a_repack_keeps_valid_options.py`, `tests/docs/test_troubleshooting_coverage.py`,
+`scripts/publish_set.py` and `tests/architecture/test_isolated_installs.py`. It was correct while
+every distribution shipped exactly one package named after itself. `weft-rag` ships fourteen and is
+named after none of them, so the derivation produced `weft_rag`, a module that does not exist. Three
+of the five failed loudly. **`scripts/publish_set.py` did not**: `check_isolated_installs.py` builds
+a probe from `member.module`, so it would have installed the bundle alone and imported nothing while
+printing success — fitness function 1's generalisation passing by importing zero modules. It was
+caught because a *different* test asserted the module was a directory on disk.
+
+Four of the five carried a docstring explaining that the computation was deliberately **restated
+rather than imported** across test modules ("one self-contained scenario"). That convention is what
+turned one wrong line into a five-file repair, and it is worth knowing that is its price.
+
+**Generalises to.** A structural derivation (`name` → path, `name` → module, one-of-X-per-Y) is an
+assumption about the tree's shape, not a fact about a name — read the shape instead, and where the
+derivation must be duplicated, duplicate a call rather than a rule.
+
+**Candidate home.** `tests/architecture/conftest.py` now holds `first_party_source_roots()`; the
+open question is whether the four restated copies should call it, which means deciding what the
+"restate rather than import" convention is actually protecting.
+
+### L7.6 — the plan named a mechanism that does not work where it is needed
+
+**What happened.** The brief for deriving `weft --version`'s own distribution named
+`importlib.metadata.packages_distributions()`, and it is the obvious answer. Run in this
+repository's own venv it returns `None` for `weft_cli`: it maps import packages to distributions by
+reading installed **file records**, and an editable install records only a `.pth`. The first
+implementation was written, and the failure surfaced as a test asserting exit 0 and getting 1 — not
+as anything the API's documentation would have suggested. The working derivation is the
+`console_scripts` entry point pointing at `weft_cli.cli`, which is written for an editable install
+and a wheel alike, and is also a better answer: it reports the version of the thing that actually
+put `weft` on the reader's PATH.
+
+**Generalises to.** Before building on a packaging or metadata API, run it in the environment the
+code will actually run in — a dev checkout is an environment, and editable installs are where
+metadata APIs most often answer differently.
+
+**Candidate home.** `CLAUDE.md` → *Quality gates*, beside "a green gate is not a working binary";
+this is the same rule one layer down, aimed at an API rather than at a command.
+
+### L7.5 — the guide recorded a gap that had been closed for two weeks
+
+**What happened.** `manual/pack-author-guide.md` §9.3 carried a paragraph headed "Honest gap, not a
+pattern to copy", stating that every `examples/*/pyproject.toml` declared its `weft-*` dependencies
+as bare names, with a worked example and a note that closing it was "one short follow-up task".
+Ledger task **6.26** closed it, added `tests/architecture/test_example_packs_are_exemplars.py` to
+keep it closed, and left the paragraph standing — so the guide went on telling pack authors that
+the tree's own examples taught the wrong thing, while a fitness function enforced the right one.
+Found only because this task happened to be editing the surrounding paragraph.
+
+**Generalises to.** A documented gap needs the task that closes it to name the document — a
+prose "honest gap" outlives its own repair by default, and no check in this tree can see one.
+
+**Candidate home.** `phase-step` → *Finish*, or a check that every "gap"/"not yet"/"follow-up"
+paragraph in `manual/` names a ledger task and fails when that task is ticked.
+
+### L7.4 — a comparison that collapsed twelve rows into one and still passed a type check
+
+**What happened.** Three separate readers indexed reports by distribution name:
+`weft_cli.registry_bootstrap.require_active` (`{report.distribution: report}`),
+`tests/architecture/test_ff2_no_privileged_builtins.py`'s contribution counter (a dict comprehension
+keyed the same way), and `weft_eval.run_record.active_distribution_set` (a sorted list, not a set).
+Every one of them was correct while each distribution shipped one pack, and every one of them
+silently kept whichever report came last, or repeated a name twelve times, once one distribution
+shipped twelve. FF2 was the only one that failed loudly, and only because it compared 102 written
+registrations against the 1 the collapsed dict reported. `require_active` would have answered about
+an arbitrary pack — the check that stops `weft index` running without an extractor.
+
+**Generalises to.** A dict keyed on a field that is *currently* unique is an unstated uniqueness
+assumption; where the key is an identity that may become shared, index on the identity that is
+unique by construction and say which one that is.
+
+**Candidate home.** `weft-qualities` — the identity a surface keys on is a design question, not a
+coding one, and this is the second time in one task that the answer was "the entry-point name".
+
 ### L7.3 — the retry was the thing keeping the door shut
 
 **What happened.** `v0.1.0` published 4 of 20 distributions; PyPI refused the rest with `429 Too
