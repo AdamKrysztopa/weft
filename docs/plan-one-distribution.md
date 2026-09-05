@@ -1,6 +1,24 @@
 # Plan — twenty distributions become six
 
-> **OUTCOME, 2026-09-05: not done, and the reason is measured rather than argued.** The plan below
+> **CORRECTION, 2026-09-05, same day: the outcome below was WRONG and the plan is back on.**
+> It claimed bundling destroys task 6.31's disclosures. It does not. `_read_disclosure` reads
+> `DISCLOSURE` from the *entry point's module* (`discovery.py:948`), which is per-pack and entirely
+> unaffected by how the code is wheeled. `weft-store`'s disclosure survives the bundle intact and
+> was verified in the installed clean environment. The "every row not disclosed" reading came from
+> looking at eight of twelve rows and generalising — eleven rows say "not disclosed" because only
+> one of the installed packs declares a disclosure at all, which is exactly as true before
+> bundling. **The rejection rested on a fact that was not checked, which is the failure this
+> repository writes rules about, committed by the person writing them up.**
+>
+> What is genuinely broken by bundling is narrower and fixable, none of it gate-shaped:
+> **(a)** `plugins list`/`doctor` print the *distribution*, so fourteen rows read `weft-rag`;
+> **(b)** settings are keyed by distribution (`settings_source.get(distribution)`), so
+> `[packs.weft-store]` and `[packs.weft-chunk]` would collapse into one namespace;
+> **(c)** `weft_cli.cli` hardcodes `_DISTRIBUTION = "weft-cli"` so `weft --version` dies.
+> All three are the same root cause: `distribution` does two jobs. The fix is a `pack` identity —
+> the entry-point name, which already exists and is already unique — carried alongside it.
+>
+> ~~OUTCOME, 2026-09-05: not done~~ The plan below
 > was built far enough to answer itself — a real bundled wheel, installed into a clean environment,
 > with the binary run against it. It works mechanically and it breaks a published control. **G10
 > stands.** What was actually wrong was the release *process*, and that is fixed (`max-parallel: 1`,
