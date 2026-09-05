@@ -27,6 +27,33 @@ otherwise paid for twice.
 
 ## Queue
 
+### L7.8 — the gate I ran and the gate CI runs were not the same gate
+
+**What happened.** The consolidation was declared done on a green `poe ci-checks`: 1,867 passed,
+**93 skipped**. CI ran the same task and got 1,917 passed, **42 skipped**, and failed on
+`tests/docs/test_quickstart.py:156` — a pattern anchored on `^weft-store\b[^:]*: active` against
+`weft plugins doctor` output that now reads `store (weft-rag) 2.1.0: active`. Fifty-one tests need
+the `compose.yaml` container and skip without it. I had brought the container up mid-task to drive
+the shipped binary end to end, then run `docker compose down -v` to tidy up, and every gate run
+after that silently covered fifty-one fewer tests than CI's.
+
+The skip count was printed on every one of those runs and read past. It is the only signal that the
+two gates differ, and `CLAUDE.md`'s "a green gate is not a working binary" does not cover this
+case — the binary *was* run, and correctly; what was not run was a fifth of the suite.
+
+The assertion itself had been broken the same way once before: task 6.4 put the installed version
+between the name and the status, and the comment above the line already says *"the fact is
+'weft-store is reported active', never the literal line"* — then anchors on `weft-store`, which is
+the literal line one field further left.
+
+**Generalises to.** A skip count is a coverage number: when a suite's skips depend on an external
+service, the gate is not green until it has been run with that service up, and the count is what
+says whether it was.
+
+**Candidate home.** `CLAUDE.md` → *Quality gates* (`ci-checks` is only the canonical gate with the
+container running), or a `poe` task that refuses to report success when a container-dependent suite
+skipped — the number is already there, nothing reads it.
+
 ### L7.7 — a derivation that agrees with the tree until the tree changes shape
 
 **What happened.** Five separate files derived a distribution's import package as

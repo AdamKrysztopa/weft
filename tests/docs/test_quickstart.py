@@ -149,10 +149,15 @@ async def test_quickstart_executes_against_a_throwaway_project(
     # `docs/03-cli.md` -> Output, *Score display*: human output never prints the raw score.
     assert "score=" not in ask_output
 
-    # The fact is "weft-store is reported active", never the literal line
+    # The fact is "the store is reported active", never the literal line
     # (`docs/lessons.md` L5.13). Task 6.4 put the installed version between the name and the
     # status — `weft-store 2.0.0: active` — and a pattern anchored on the old spelling
-    # asserted the formatting rather than the state it exists to check.
-    assert re.search(r"^weft-store\b[^:]*: active", outputs["doctor"], re.MULTILINE), (
-        f"weft plugins doctor did not report weft-store active:\n{outputs['doctor']}"
+    # asserted the formatting rather than the state it exists to check. The 2026-09-05
+    # consolidation did it a second time, one field further left: a row now leads with the
+    # **pack** and names its distribution after it (`store (weft-rag) 2.1.0: active`), so a
+    # pattern anchored on `weft-store` matched nothing. Anchored on the pack name, which is
+    # the identity this assertion is actually about — everything between it and the colon is
+    # provenance this test has no opinion on.
+    assert re.search(r"^store\b[^:]*: active", outputs["doctor"], re.MULTILINE), (
+        f"weft plugins doctor did not report the store pack active:\n{outputs['doctor']}"
     )
