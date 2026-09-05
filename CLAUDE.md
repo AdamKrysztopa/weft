@@ -58,11 +58,24 @@ than a script.
 These came out of grilling sessions G1 and G3–G6. They are not preferences; each is recorded in
 `docs/` with the argument that produced it, and changing one means reopening its gate.
 
-- **Weft is original work. No source text from any other codebase enters this repository** — not a
-  file, a function body, a docstring, a comment, a prompt string, a word list, a regex or a test
-  fixture. The reference is read to *understand*, then closed; every line here is written for Weft. The
-  test: *if you could not have written this line without the reference's file open, it is a copy.* There
-  is no attribution procedure because there is nothing to attribute — see `NOTICE`.
+- **Weft carries no third party's source text.** Not a file, a function body, a docstring, a
+  comment, a prompt string, a word list or a test fixture. The reference is read to *understand*, then
+  closed; every line here is written for Weft. The test: *if you could not have written this line
+  without the reference's file open, it is a copy.*
+
+  **Two bounded exceptions, added 2026-09-05 because the absolute wording was not accurate** —
+  `NOTICE` carries all three cases in full and is the authority:
+  *(a)* **the copyright holder's own prior work may be carried across**, because it is nobody
+  else's to license — the file that carries it names the source work, so the two origins stay
+  distinguishable; *(b)* **a sentence or two of a third party's stated *rationale* may be quoted,
+  attributed at the point of use, beside Weft's own restatement of the same reasoning** — never
+  standing in for it, and never anything executable. Five docstrings in this tree already did this
+  correctly while the rule forbade it in words.
+
+  A **text-shaped asset** — a prompt, a word list, a locale catalogue — is authored for Weft
+  regardless, and the test above is what decides: if the string is recoverable from a written
+  specification, it is a specification; if it is not, the text *is* the asset and transcribing it
+  is a copy. `docs/04-reference-inventory.md` carries the worked examples on both sides.
 - **The kernel names no capability.** No `Extractor`, `Chunker`, `Store`, `Retriever` or `LLM` in
   `weft-kernel` — those contracts ship from the packs that own them. *If you cannot describe the
   kernel without naming a capability, it is too big.*

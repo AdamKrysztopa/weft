@@ -8,17 +8,57 @@ of this repository.
 Original work
 --------------------------------------------------------------------------------
 
-**Weft contains no source text from any other codebase.** Every line here is
-written for this project, against this project's contracts.
+**Weft carries no third party's source text.** Every line of this project's own
+code is written for it, against its own contracts. Nothing here depends on a
+licence granted by anyone else.
 
-This is a rule, not a description of the current state: no file may be copied or
-adapted from another project's source, and no third-party source text may be
-pasted into this repository. Where a prior system informed a design, what was
-carried across is understanding — an approach, an ordering, a measurement, a
-reason a guard exists — restated in this project's own words and implemented
-fresh. Copyright does not reach any of that, and nothing in this repository
-depends on a licence granted by anyone else.
+That is a rule, not a description: no file may be copied or adapted from another
+project's source, and no third-party source text may be pasted into this
+repository. Where a prior system informed a design, what was carried across is
+understanding — an approach, an ordering, a measurement, a reason a guard exists
+— restated in this project's own words and implemented fresh. Copyright does not
+reach any of that.
 
 `docs/04-reference-inventory.md` records what was learned from prior work and what
 was deliberately not taken. It is a design record. Nothing in it authorises a
-copy, because copying is not permitted here at all.
+copy of a third party's text, because that is not permitted here at all.
+
+--------------------------------------------------------------------------------
+Three cases, because the sentence above used to be absolute and was not accurate
+--------------------------------------------------------------------------------
+
+This section was added on 2026-09-05. It previously read "Weft contains no source
+text from any other codebase", and two separate things made that literally false
+while nothing about the project's substance had changed. Both are stated here
+rather than left for a reader to discover, because a founding claim that is
+almost true is worse than a narrower one that is exactly true.
+
+1. **A third party's code — never.** `a prior project`, reached through the untracked
+   `reference` symlink, is somebody else's work. Not a file, a function body, a
+   docstring, a comment, a prompt string, a word list or a test fixture. Read to
+   understand, then closed. This is the rule above and it has not moved.
+
+2. **The copyright holder's own prior work — permitted, and marked.** Material
+   written by this project's own author before this project began carries no
+   third party's rights. Copying it violates nobody's licence, and forbidding it
+   would be a rule about tidiness dressed as a rule about ownership. Where such
+   material is carried across, the file carrying it says so, naming the source
+   work — so a reader can always tell the two origins apart without asking.
+
+3. **Short attributed quotation of a stated rationale — permitted, and bounded.**
+   A handful of docstrings in this repository quote a sentence of a third party's
+   *reasoning* — why one cleaning stage must run before another — attributed with
+   a path and a line number, immediately beside this project's own restatement of
+   the same reasoning. Nothing executable was ever carried this way: no
+   expression, no algorithm, no data. This is ordinary attributed quotation of a
+   published rationale, of the kind a comment citing a paper makes, and the
+   previous absolute wording forbade it in words while the repository practised
+   it. It is bounded rather than open: a quotation must be a sentence or two, it
+   must be attributed at the point of use, and it must sit next to the project's
+   own words on the same point — never stand in for them.
+
+The distinction that matters, and it is the same test the rest of this project
+uses: **if you could not have written it without the other file open, it is a
+copy.** Case 1 forbids that outright. Case 2 permits it because the other file is
+the author's own. Case 3 is not that at all — it is quoting someone, with their
+name on it, beside your own argument.

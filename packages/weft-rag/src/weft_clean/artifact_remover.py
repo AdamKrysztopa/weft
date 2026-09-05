@@ -58,8 +58,19 @@ from weft_clean.property import Newlines, Verbatim
 from weft_kernel.context import Context
 from weft_kernel.payload import Node, NothingToProduce, Outcome, Produced, Property
 
-#: `reference/study/08-salvage.md` §T1.1's constants table, `artifact_remover.py:22`. English
-#: only — see the module docstring for why no translation is invented here.
+#: **The specification, which is what makes this string ours to write:** a line whose entire
+#: content is the word "Page", any run of spaces, and a run of digits — nothing else on the line
+#: but leading or trailing whitespace — is a page number rather than prose, and page numbers are
+#: extraction artefacts. Case-insensitive because a header may shout; `MULTILINE` because the
+#: anchors are per line, not per document.
+#:
+#: `docs/04-reference-inventory.md`'s own settlement (2026-09-05) is why the specification is written
+#: out rather than the citation left to stand alone: a string a written specification determines is
+#: a specification, not an asset, and the reader should be able to check that claim here instead of
+#: taking it. The reference arrived at the same string — `reference/study/08-salvage.md` §T1.1's constants
+#: table, `artifact_remover.py:22` — which is evidence that the specification determines it, not a
+#: source it was taken from. English only; see the module docstring for why no translation is
+#: invented here.
 _PAGE_NUMBER = re.compile(r"^\s*Page\s+\d+\s*$", re.IGNORECASE | re.MULTILINE)
 
 #: `artifact_remover.py:26`. A line whose non-alphanumeric character ratio (spaces

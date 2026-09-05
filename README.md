@@ -182,7 +182,7 @@ and installing one is trusting it.**
 
 MIT — see [`LICENSE`](LICENSE).
 
-Weft is original work and contains no source text from any other codebase — see [`NOTICE`](NOTICE).
-Where a prior system informed a design, what was carried across is understanding: an approach, an
-ordering, a measurement, the reason a guard exists. That is restated in this project's own words and
-implemented fresh, which is why no third-party licence attaches to anything here.
+Weft carries no third party's source text — see [`NOTICE`](NOTICE), which states the three cases
+precisely. Where a prior system informed a design, what was carried across is understanding: an
+approach, an ordering, a measurement, the reason a guard exists. That is restated in this project's
+own words and implemented fresh, which is why no third-party licence attaches to anything here.

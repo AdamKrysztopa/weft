@@ -3,97 +3,138 @@
 Everything here needs an account, an authority, or a decision that isn't a task's to default.
 Nothing on this list is blocked on more code.
 
-Written 2026-08-26, at Phase 6's close. `docs/README.md` is still the source of truth for project
-state — this file is only the subset that has your name on it.
+Rewritten 2026-09-05, after the consolidation landed and the release was parked. `docs/README.md`
+is still the source of truth for project state — this file is only the subset that has your name on
+it, and it is ordered by what unblocks the most.
 
 ---
 
-## 1. Publish the release — the one thing Phase 6 leaves owed
+## 1. Decide there is a Phase 8, or decide what replaces it
 
-Everything around it is done and proved. What is missing is the act of claiming names on a public
-index, which reaches outside your machine and is irreversible, so it stayed with you.
+**This is the one that blocks the most work, and it was found rather than planned.**
+`docs/product-direction.md` §6: `01-high-level-plan.md` stops at Phase 7, G12 blocks Phase 7
+entirely, and **every batch of work that is not a repair to shipped code has no phase to belong
+to** — the ladder, graph, multimodal, the falsification instrument. Extending the phase script is
+therefore the first planning act, not a consequence of one.
 
-**Do this first, before anything else on this list:** `weft-rag` is currently unclaimed. `weft` was
-too, once. Names go.
+It is yours because `01` is the document that owns what a phase is, and because the answer decides
+whether the next month is *finish the engine* or *ship the ladder*. A task cannot default it.
 
-### What's ready
+**What I would need from you:** either a Phase 8 with an exit criterion, or a decision that the
+buildable work lands as repairs inside Phase 6's already-closed scope and the ladder waits for
+Phase 7. Nothing else here is affected by which you pick, but everything unscheduled is.
 
-- `.github/workflows/release.yml` publishes on a `v*` tag: 19 distributions in parallel, then
-  `weft-rag` (it pins exact versions, so it must land after them), then the reproduction artefacts.
-- Every artefact builds, and every one carries `LICENSE` and `NOTICE` (task 6.11).
-- All twenty names checked against PyPI — nineteen free, and `weft` is why the release set is
-  `weft-rag` (task 6.13, `docs/lessons.md` L6.33).
-- The whole install-and-reproduce path is proved against a local index (tasks 6.13, 6.30).
+---
 
-### What you need to set up
+## 2. Publish — **parked 2026-09-05, by your call**
 
-1. ~~**A PyPI account**~~ — done, 2026-09-05.
-2. ~~**A GitHub remote**~~ — done, 2026-09-05. `AdamKrysztopa/weft`, and **private**, which is item 6.
-3. ~~**Publishing credentials**~~ — done, 2026-09-05, and **not the way the workflow was written**.
-   Trusted publishing needs one *pending publisher* form per distribution, twenty of them, and PyPI
-   exposes no API for them. An account-scoped API token in `PYPI_API_TOKEN` was taken instead; the
-   workflow carries the reasoning and calls itself a debt. `weft-kernel`'s pending publisher was
-   created before the switch and is harmless. **Item 7 is the repayment.**
-4. **Decide the tag.** `v0.1.0` matches what the distributions declare. The release set pins
-   exactly, so the tag and the pins must agree.
+Not stale, not forgotten: paused. Here is the exact state so picking it up costs no re-derivation.
 
-### Then
+`v2.1.0` is tagged, the GitHub Release exists with notes, `main` is green. The workflow ran and
+**all five publish jobs were refused**:
 
-```bash
-git tag v0.1.0 && git push origin v0.1.0
+```
+429 Too many new projects created
 ```
 
-and watch the run. Afterwards, two rows of Phase 6's exit criterion close that nothing else can
-close — installing **from the package index** rather than a local one, and doing it in a single
-`uvx` invocation. `docs/build-ledger.md` → *Phase 6's close* has the table.
+**Nothing was published.** PyPI holds exactly the four names it held this morning —
+`weft-command`, `weft-embed`, `weft-generate`, `weft-llm` — and those are vestigial: they receive
+no further versions, and they need no publisher, no token and no attention, ever.
 
-**Worth knowing before you tag:** a published version is permanent. PyPI lets you yank a release but
-never replace one, so a mistake costs a version number rather than being undoable.
+**Do not re-run the workflow to see if it works now.** The limiter counts *attempts* over a rolling
+window rather than successes, so a rerun pushes recovery further away — `docs/lessons.md` L7.3 is
+the incident and L7.9 is today's repeat of it. Measured today: the saturating burst was `08:53Z`
+and a single request at `13:04Z` was still refused, so the window outlasts four hours at that
+volume.
+
+**When you want it, in preference order:**
+
+1. **Ask PyPI support for a project-creation exception.** One message, and it is exactly what that
+   channel is for — a legitimate multi-distribution project claiming six names. Fastest, and it
+   removes the guessing about the window entirely.
+2. **Or leave it alone for a day and re-run the existing run** — no new tag, the release object and
+   the commit are already correct:
+   ```bash
+   gh run rerun 33967852159 --failed
+   ```
+
+**Six names now, not twenty**, which is the consolidation's most immediate benefit: `weft-rag`,
+`weft-kernel`, `weft-openai`, `weft-pdf`, `weft-qdrant`, `weft-otel`. All six are new projects.
+
+**One thing to confirm before it becomes permanent:** `weft-rag` publishes at **`2.1.0`**, not
+`0.1.0`. `09` §2.3 forces a distribution's version to the maximum contract version it publishes,
+and this wheel publishes `COMMAND_CONTRACT_VERSION = 2.1.0`. §2.2 answers the "but that promises
+1.0" objection in advance — the binding, not the leading digit. It is mechanically correct and it
+is still a number you can never reuse, so it is worth one deliberate look.
 
 ---
 
-## 2. Run G12 — the only open gate, and it blocks all of Phase 7
+## 3. Settle the founding claim — and it goes before the graph work, not after
 
-Phase 7 cannot start. Its four tasks all carry ⚠ and every one is live, which is the opposite of
-Phase 6's, where each mark recorded something already settled.
+`NOTICE` says **"Weft contains no source text from any other codebase."** Two separate things have
+made that sentence false, and one amendment covers both:
+
+1. **Five to eight sites quote reference docstrings verbatim, attributed** — `weft_clean/
+   table_linearizer.py:6-7`, `whitespace.py:6`, `hyphenation.py:7`, `unicode_normalizer.py:5`
+   (which labels its own quotation "verbatim"), `weft_llm/loop_guard.py:50`. Nothing executable was
+   carried and every fragment is attributed ordering rationale — this is a **claim-accuracy**
+   defect, not a plagiarism one.
+2. **You decided on 2026-09-05 that `graph-study-main` may be copied as-is**, because it is your own
+   unlicensed prior work. Licit, and it falsifies the same sentence the moment the first line lands.
+
+**Why it is yours:** it changes a founding claim, so it wants an explicit decision-log line rather
+than a quiet edit. The amendment has to distinguish three cases and is cheap to get wrong: the
+third-party reference (write fresh, always) / your own prior work (copyable) / short attributed
+quotation of a cited rationale.
+
+**I have drafted it** — see the commit that lands with this file. Read the wording; the substance
+is yours to accept or change. There is also a live rule conflict settled in the same act:
+`weft_clean/artifact_remover.py:63,67` carries a reference regex under a "facts, not text" exception
+while `04:144-145` says regexes specifically must be authored fresh.
+
+---
+
+## 4. Run G12 — still the only open gate, and it still blocks all of Phase 7
+
+Unchanged since 2026-08-26 and repeated here because nothing has moved it.
 
 **The question:** `03` → *Permissions* says an `ask`-class operation fails with no TTY and never
 proceeds silently. An agent is never a TTY. So either a Phase 7 pack can never `overwrite` or
 `destroy`, or something other than a TTY counts as consent. Which?
 
-**Why it can't be defaulted, in one line each:** read strictly, the most useful thing an agent could
-do — reindex a collection it just noticed was stale — is permanently out of reach. Read loosely, the
-pack passes `--yes` on every call, which is `03`'s own sentence about `--yes` disarming the whole
-table, with the human removed.
+Read strictly, the most useful thing an agent could do — reindex a collection it just noticed was
+stale — is permanently out of reach. Read loosely, the pack passes `--yes` on every call, which is
+`03`'s own sentence about `--yes` disarming the whole table, with the human removed.
 
-The session is written and waiting in `docs/05-grilling-sessions.md` → **G12**: the question, three
-positions with the attack on each, and what to bring. Run it with the `grilling` skill.
+**New since it was written:** the graph reference supplies two further positions rather than settling
+it — *autonomy licensed by reversibility of writes* rather than by supervision, and
+*propose-without-persisting then activate-from-a-file* as an approval channel that is not a slower
+spelling of `--yes` (`docs/audit-graph-study-2026-09-05.md`). Both are arguments for the session.
 
-**One prerequisite:** `01` requires the **`agentic-patterns`** skill to run before Phase 7's loop is
-written, and G8 deliberately moved that handoff to this gate so it lands with real contracts to
-reason about. Do that first — its human-approval material is this session's direct input.
-
----
-
-## 3. The kernel boundary conversation
-
-`weft-kernel` is **3,079 lines**, past fitness function 3's **2,800-line review trigger**. The
-budget is 3,500 and is not close, so nothing fails — but the trigger exists to make this a
-conversation before the ceiling is a crisis, and the rule is explicit that **the budget is never
-edited in the pull request that grew it**.
-
-It crossed during Phase 5 and Phase 6 added ~90 lines: the deprecation clock (task 6.5, ~66) and the
-`PackStatus.PARTIAL` mechanism (task 6.29, ~25). Both were argued in place against `01` → *The
-kernel boundary*'s own table, which puts "registration and versioning" and "the `plugins doctor`
-computation" in the kernel's column.
-
-**The question to settle:** is that table still the right boundary, or has the kernel taken on
-something a pack should own? Either answer is fine; what isn't is drifting past 3,500 and
-discovering the conversation is now urgent.
+The session is written and waiting in `docs/05-grilling-sessions.md` → **G12**. Run it with the
+`grilling` skill. **Prerequisite:** `01` requires the **`agentic-patterns`** skill to run first —
+G8 moved that handoff to this gate deliberately, so it lands with real contracts to reason about.
 
 ---
 
-## 4. Set the 1.0 review date — G10 required one and there isn't one
+## 5. Push the branches that hold the ledger's evidence — and note what changed
+
+`docs/build-ledger.md`'s sha column points into `phase-6-detail` and `gates-g10-g13`, which hold
+all 70 original per-task commits. **Only `main` has ever been pushed**, so the ledger's evidence is
+one disk failure from gone.
+
+```bash
+git push origin phase-6-detail gates-g10-g13
+```
+
+**What changed since this was first written:** the repository is **public** now. Pushing these
+publishes 70 commits of working history — which is almost certainly fine and arguably the point,
+but it is now a different act from what it was when the repo was private, so it is stated rather
+than assumed.
+
+---
+
+## 6. Set the 1.0 review date — G10 required one and there still isn't one
 
 G10 settled that 1.0 rests on **evidence**, with a **fixed review date** at which any outstanding
 preconditions are *published* — naming what is missing and what it would take. The session's own
@@ -101,91 +142,73 @@ argument for keeping a date: *"a checklist whose rows never all tick is a releas
 happens."*
 
 **No date is set anywhere in `docs/`.** The mechanism G10 built to stop 1.0 drifting is itself
-drifting.
+drifting. Six preconditions in `docs/09-release.md` §2.2; five are demonstrable today, and the
+sixth — *the extension model works for someone who is not us*, with the graph pack installed **from
+the index** — is item 2.
 
-Six preconditions, in `docs/09-release.md` §2.2. Four are demonstrable today:
-
-| Precondition | Where it stands |
-|---|---|
-| The store contract is not over-fitted to one backend | ✅ pgvector and Qdrant, neither stubbed |
-| The kernel names no capability and stayed in budget | ✅ FF1 and FF3 green (see item 3) |
-| Quality is a number someone else can reproduce | ✅ task 6.30 |
-| A break is survivable by a pack author | ✅ G9's policy implemented |
-| Nothing ships that was not meant to ship | ✅ FF10 green |
-| The extension model works for someone who is not us | ⏳ needs the graph pack installed **from the index** — item 1 |
-
-So five of six, and the sixth is item 1. Pick a date, write it into `09` §2.2.
+Pick a date, write it into `09` §2.2.
 
 ---
 
-## 5. ~~Merge the branch~~ — done, 2026-09-05
+## 7. The kernel boundary conversation — the number moved
 
-`phase-6-close-findings`'s twelve commits are on `main` as one squash, `95bbb27`, carrying all five
-task shas and their five ledger-stamp shas in `e94fa74`'s format. `poe ci-checks` was green on the
-exact tree first.
+`weft-kernel` is **3,097 lines**, up from 3,079, past fitness function 3's **2,800-line review
+trigger**. The budget is 3,500 and is not close, so nothing fails — the trigger exists to make this
+a conversation before the ceiling is a crisis, and the rule is explicit that **the budget is never
+edited in the pull request that grew it**.
 
-**What is still only on this laptop:** `phase-6-detail` and `gates-g10-g13` hold all 70 original
-per-task commits, and only `main` was pushed. `docs/build-ledger.md`'s sha column points into them,
-so the ledger's evidence is one disk failure from gone —
+Today's +18 is `PackReport.pack` and its threading through `_activate` — a pack's identity separate
+from its distribution. It was argued in place against `01` → *The kernel boundary*'s own table,
+which puts "registration and versioning" and "the `plugins doctor` computation" in the kernel's
+column.
 
-```bash
-git push origin phase-6-detail gates-g10-g13
-```
-
----
-
-## 6. Decide whether the repository is public
-
-It is **private** today, which was an unexamined default in the `gh repo create` line rather than a
-choice, and it breaks task 6.35. The reproduction artefacts are not shipped inside a distribution —
-they are attached to the *GitHub release* as `weft-reproduction-v0.1.0.tar.gz`. Private means the
-stranger who installs `weft-rag` from PyPI cannot reach them, which makes `09` §5.2's "the baseline
-run is published with the release" true of a directory and false of anything a stranger holds: the
-exact failure 6.35 closed, reintroduced through visibility instead of through code.
-
-It also blocks Phase 6's exit outright — *a stranger installs the release from the index and
-reproduces the published baseline*.
-
-```bash
-gh repo edit AdamKrysztopa/weft --visibility public --accept-visibility-change-consequences
-```
-
-Staying private is a legitimate call. What is not legitimate is tagging without deciding: that row
-of the exit stays open either way, and if it stays open on purpose it belongs in
-`docs/build-ledger.md` → *Phase 6's close* with the reason.
+**A related question worth folding into the same conversation:** `Registry.add` still attributes a
+registration to a *distribution*, not a pack. That is why `plugins doctor` groups displaced
+registrations per wheel rather than per pack, why fitness function 2's count comparison had to be
+aggregated, and why the contract reference says `weft-rag` where it used to say `weft-store`.
+Carrying `pack` down to the registry closes all three; it is ~700 call sites and it grows the
+kernel. Whether that is worth it is a boundary question, not a coding one.
 
 ---
 
-## 7. Repay the token debt, after v0.1.0 lands
+## 8. Repay the token debt — unchanged, and now conditional on item 2
 
-The publish runs on an **account-scoped** PyPI token, which can upload to any of your projects —
+The publish runs on an **account-scoped** PyPI token, which can upload to any of your projects,
 including `dependence-forecastability`. That scope exists only because a project-scoped token
 cannot be minted for a project that has never been published to.
 
-Once v0.1.0 is on the index that constraint is gone. Then, in order of preference:
+Once the six names exist that constraint is gone. Then: add a trusted publisher to each of the
+**six** projects and delete the token — the resting state the workflow was written for — or replace
+it with six project-scoped tokens, which is weaker but bounded. **Either way, delete the
+account-scoped token.**
 
-1. Add a trusted publisher to each of the twenty *existing* projects and delete the token — the
-   resting state the workflow was written for, and the comment in it can go back to being true.
-2. Or replace it with twenty project-scoped tokens, which is weaker but bounded.
-
-Either way, **delete the account-scoped token**. Do this before `v0.2.0`, not "eventually" — a
-credential whose removal is an intention rather than a task is the shape this repository has a
-lesson about.
+The good news the consolidation brings: six trusted-publisher forms, not twenty.
 
 ---
 
+## Done since the last rewrite
+
+- ~~**Decide whether the repository is public.**~~ It is public, so task 6.35's reproduction
+  artefacts are reachable by the stranger who installs from the index, and that row of Phase 6's
+  exit is no longer blocked by visibility.
+- ~~**A PyPI account, a GitHub remote, publishing credentials.**~~ All done 2026-09-05.
+- ~~**Merge the branch.**~~ `phase-6-close-findings` is on `main`. What remains of that item is the
+  push in item 5.
+
 ## Not yours — here so you don't wonder
 
-These came up during Phase 6 and are already handled or already filed. No action needed.
-
-- **The release set is `weft-rag`, not `weft`.** You chose it; `09` §1, the quickstart, the
-  release-set README, the publish workflow and G10's decision-log row all carry the correction.
-- **`ruff` is an optional extra of `weft-cli`** (`weft-cli[reference]`), needed only to regenerate
-  the contract reference. It was an undeclared runtime dependency until task 6.7.
+- **The lessons queue holds nine entries** (L7.1–L7.9), which is the loop working rather than a
+  backlog. `implement-ll` drains it at a phase close — which is one more thing item 1 decides,
+  since there is currently no phase for it to close against.
+- **The release set is `weft-rag`, not `weft`**, and it now *contains* the fourteen packs rather
+  than pinning them. `09` §1, G10's decision-log row, the quickstart and the release-set README all
+  carry it.
+- **`[packs.weft-store]` is now `[packs.store]`.** A pack's identity is its entry-point name; the
+  distribution is only what you install. A stale key is refused by name and lists every valid pack,
+  so nobody silently runs unconfigured.
+- **`ruff` is an optional extra** — `weft-rag[reference]` since the consolidation, needed only to
+  regenerate the contract reference.
 - **Live-API tests are opt-in.** `poe ci-checks` is deterministic on a machine with an
-  `OPENAI_API_KEY` exported; set `WEFT_LIVE_API_TESTS=1` to run them (task 6.28, `CONTRIBUTING.md`).
-- **The lessons queue holds one entry** (L7.1), which drains at Phase 7's close. That is the loop
-  working, not a backlog.
-- **The 2026-08-20 baseline is kept beside the new one** deliberately — it records what the
-  workspace measured before G9's contract correction, and deleting it would erase the evidence for
-  why the 2026-08-25 one exists.
+  `OPENAI_API_KEY` exported; set `WEFT_LIVE_API_TESTS=1` to run them.
+- **`ci-checks` is only the canonical gate with the container up.** Fifty-one tests skip without it
+  and the skip count is the only signal — `docs/lessons.md` L7.8, learned the hard way today.

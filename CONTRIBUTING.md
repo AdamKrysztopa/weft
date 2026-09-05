@@ -124,9 +124,14 @@ already says what.
 
 ## Learning from the reference, without copying it
 
-**No source text from any other codebase enters this repository.** Not a file, not a function, not a
-docstring, not a comment, not a prompt string, not a word list. There is no attribution procedure
-here because there is nothing to attribute: see [`NOTICE`](NOTICE).
+**No third party's source text enters this repository.** Not a file, not a function, not a
+docstring, not a comment, not a prompt string, not a word list.
+
+Two bounded exceptions, and [`NOTICE`](NOTICE) states all three cases precisely: material written by
+this project's own author *before* this project may be carried across, and the file carrying it says
+so; and a sentence or two of a third party's stated **rationale** may be quoted, attributed at the
+point of use, sitting beside our own restatement of the same reasoning rather than instead of it.
+Nothing executable is ever carried that way.
 
 What the reference is for is *understanding*. Read it, work out why something is the way it is, then
 close it and write ours. [`docs/04-reference-inventory.md`](docs/04-reference-inventory.md) is a record of
