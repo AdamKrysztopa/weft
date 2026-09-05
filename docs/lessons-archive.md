@@ -278,32 +278,94 @@ for. That is written up as `L8.18` and applied to `implement-ll` in this same dr
 
 **Dispositions.**
 
-| Entry | Disposition |
-|---|---|
-| `L7.1` | Applied — `implement-ll` → *The two traps*, third trap: a filed remedy is an untested one |
-| `L7.2`, `L7.6`, `L7.8` | Applied together — one paragraph in `CLAUDE.md` → *Quality gates*. All three are "the gate I ran is not the gate CI runs", and no artefact stated that. The two checks they also propose are filed as ledger work |
-| `L7.3`, `L7.9` | **Discharged** — fully implemented in `.github/workflows/release.yml` (cooling-off job, `--check-url`, `max-parallel: 1`), which cites `L7.9` by id at `:45`. That citation is why this took seconds to confirm, and is now required by `implement-ll` → *Finishing* |
-| `L7.4`, `L7.7` | Applied together — a new `weft-qualities` prompt on what identity a surface keys on, and whether it is unique. Both are assumptions true only while cardinality was 1 |
-| `L7.5` | Filed as ledger work — a check that a documented "gap" paragraph is retired when its task ticks |
-| `L8.1` | Applied — `next_task.py` → `live_checks`. **Verified false-passing on the live tree before the fix**, and the repair re-aimed the comparison rather than tightening it: the subject is the task *Next action* names, not the first unticked one, because that row outranks ledger order and Phase 8 deliberately ran before Phase 7 |
-| `L8.2` | Applied — `weft-qualities` lens 5: a waiver's reason being true is necessary and not sufficient |
-| `L8.3` | Filed as ledger work — an executed-sample check over `valid_options` tuples quoted in manuals. The instance was hand-patched and `tests/docs/test_manual_config_keys.py` covers the narrower half |
-| `L8.4` | **Discharged** — `build_index_services` (task 8.10), which names this lesson in its own docstring |
-| `L8.5` | **Discharged** — `_validated_sub_config`/`SubPluginConfigError` (task 8.11). The structural fix supersedes the check the entry asked for |
-| `L8.6`, `L8.16` | Applied together — `weft-qualities` lens 1 gains *which* stranger, and what the old constant satisfied by construction. `L8.16` recurred `L8.6` in the same phase, so this is one paragraph, not two |
-| `L8.7`, `L8.8`, `L8.9` | **Discharged** — fitness function 17, whose own docstring cites all three |
-| `L8.10` | Applied — `phase-step` → *Finish* item 3: a `git ls-files` check is not in its own population until staged |
-| `L8.11` | Applied — `phase-step` → *Finish* item 4: construct the condition for a branch that only fires sometimes |
-| `L8.12` | Applied — `phase-step` → *Red*: grep the base class before writing *Already decided*. The `exit_codes.py` ratchet it also implies is filed as ledger work |
-| `L8.13` | **Discharged** — `tests/architecture/test_pinned_external_facts.py` (task 8.14), both halves |
-| `L8.14` | Half applied — the broken command in `index-text.yaml` is repaired. The check that would have caught it (executed samples over shipped `pipelines/*.yaml` comments) is filed as ledger work |
-| `L8.15` | Applied — `docs/README.md`'s Status table gains a `Lessons queue` row holding only a number, and `live_checks` asserts it equals the count of `lessons.md`'s own `## Queue`. Parsed structurally, never grepped out of prose |
-| `L8.17` | Half applied — `09` §4.3 now says what a zero-width interval actually claims. The rendering change and the deeper sampling repair are filed as ledger work |
-| `L8.18` | Applied — `implement-ll` gains the triage question and the cite-the-id convention |
+- **L7.1** Applied — `implement-ll` → *The two traps*, third trap: a filed remedy is an untested one
+- **L7.2** Applied together — one paragraph in `CLAUDE.md` → *Quality gates*. All three are "the gate I ran is not the gate CI runs", and no artefact stated that. The two checks they also propose are filed as ledger work
+- **L7.6** grouped with `L7.2` — Applied together — one paragraph in `CLAUDE.md` → *Quality gates*. All three are "the gate I ran is not the gate CI runs", and no artefact stated that. The two checks they also propose are filed as ledger work
+- **L7.8** grouped with `L7.2` — Applied together — one paragraph in `CLAUDE.md` → *Quality gates*. All three are "the gate I ran is not the gate CI runs", and no artefact stated that. The two checks they also propose are filed as ledger work
+- **L7.3** **Discharged** — fully implemented in `.github/workflows/release.yml` (cooling-off job, `--check-url`, `max-parallel: 1`), which cites `L7.9` by id at `:45`. That citation is why this took seconds to confirm, and is now required by `implement-ll` → *Finishing*
+- **L7.9** grouped with `L7.3` — **Discharged** — fully implemented in `.github/workflows/release.yml` (cooling-off job, `--check-url`, `max-parallel: 1`), which cites `L7.9` by id at `:45`. That citation is why this took seconds to confirm, and is now required by `implement-ll` → *Finishing*
+- **L7.4** Applied together — a new `weft-qualities` prompt on what identity a surface keys on, and whether it is unique. Both are assumptions true only while cardinality was 1
+- **L7.7** grouped with `L7.4` — Applied together — a new `weft-qualities` prompt on what identity a surface keys on, and whether it is unique. Both are assumptions true only while cardinality was 1
+- **L7.5** Filed as ledger work — a check that a documented "gap" paragraph is retired when its task ticks
+- **L8.1** Applied — `next_task.py` → `live_checks`. **Verified false-passing on the live tree before the fix**, and the repair re-aimed the comparison rather than tightening it: the subject is the task *Next action* names, not the first unticked one, because that row outranks ledger order and Phase 8 deliberately ran before Phase 7
+- **L8.2** Applied — `weft-qualities` lens 5: a waiver's reason being true is necessary and not sufficient
+- **L8.3** Filed as ledger work — an executed-sample check over `valid_options` tuples quoted in manuals. The instance was hand-patched and `tests/docs/test_manual_config_keys.py` covers the narrower half
+- **L8.4** **Discharged** — `build_index_services` (task 8.10), which names this lesson in its own docstring
+- **L8.5** **Discharged** — `_validated_sub_config`/`SubPluginConfigError` (task 8.11). The structural fix supersedes the check the entry asked for
+- **L8.6** Applied together — `weft-qualities` lens 1 gains *which* stranger, and what the old constant satisfied by construction. `L8.16` recurred `L8.6` in the same phase, so this is one paragraph, not two
+- **L8.16** grouped with `L8.6` — Applied together — `weft-qualities` lens 1 gains *which* stranger, and what the old constant satisfied by construction. `L8.16` recurred `L8.6` in the same phase, so this is one paragraph, not two
+- **L8.7** **Discharged** — fitness function 17, whose own docstring cites all three
+- **L8.8** grouped with `L8.7` — **Discharged** — fitness function 17, whose own docstring cites all three
+- **L8.9** grouped with `L8.7` — **Discharged** — fitness function 17, whose own docstring cites all three
+- **L8.10** Applied — `phase-step` → *Finish* item 3: a `git ls-files` check is not in its own population until staged
+- **L8.11** Applied — `phase-step` → *Finish* item 4: construct the condition for a branch that only fires sometimes
+- **L8.12** Applied — `phase-step` → *Red*: grep the base class before writing *Already decided*. The `exit_codes.py` ratchet it also implies is filed as ledger work
+- **L8.13** **Discharged** — `tests/architecture/test_pinned_external_facts.py` (task 8.14), both halves
+- **L8.14** Half applied — the broken command in `index-text.yaml` is repaired. The check that would have caught it (executed samples over shipped `pipelines/*.yaml` comments) is filed as ledger work
+- **L8.15** Applied — `docs/README.md`'s Status table gains a `Lessons queue` row holding only a number, and `live_checks` asserts it equals the count of `lessons.md`'s own `## Queue`. Parsed structurally, never grepped out of prose
+- **L8.17** Half applied — `09` §4.3 now says what a zero-width interval actually claims. The rendering change and the deeper sampling repair are filed as ledger work
+- **L8.18** Applied — `implement-ll` gains the triage question and the cite-the-id convention
 
 **Filed as ledger work rather than carried:** `docs/build-ledger.md` → *Phase 8's close* holds the
 seven follow-ups above. They are tasks with owners, not lessons awaiting a second drain — which is
 the distinction `implement-ll` draws between draining a queue and deferring it.
+
+## 2026-09-06 — Phase 8's real close
+
+Three entries, all written the same day the phase's last two tasks landed, and **none of their
+triggering defects was in Phase 8's own subject matter** — one is in shipped code, one is in a check
+this phase built, one is in the loop's own bookkeeping. That is the healthy shape: the drain caught
+what the phase's work exposed rather than what the phase was about.
+
+- **L8.19** *a pre-flight check is computed over the same set the thing it guards will actually try
+  — a guard that reads the head of a chain refuses exactly the inputs the chain exists to catch* →
+  `01` → *Fitness functions* item 5, which already owns *every declared capability resolves* and is
+  still unplaced · `refines L7.1` — **the defect is live and unowned, and the remedy is written as a
+  suggestion rather than prescribed**, which is `L7.1`'s own rule applied to this entry: a
+  document's `fallback:` chain reaches the resolved stage and `weft_kernel.fallback.try_in_order`
+  would walk it, but `weft index`'s accept-set pre-flight reads the **primary** plugin's claimed
+  formats alone
+- **L8.20** *name what a check leaves uncovered, in the artefact it guards — a green naming an
+  artefact is read as a statement about that artefact* → `docs/08-manuals.md` §3, beneath the
+  mechanism table · `refines L8.3` — task 8.16's check compared a `valid_options` tuple and went
+  green while the same transcript stayed wrong in a way it never looked at, found by running the
+  binary. The missing mechanism, an executed-transcript harness for `manual/troubleshooting.md`, is
+  named and unowned
+- **L8.21** *an id written by hand is unchecked in three ways — it can collide, it can dangle, and
+  it can be mis-aimed; the first two are mechanical and the third must be stated rather than
+  pretended away* → `tests/docs/test_lessons_archive.py`, three new checks · `refines L8.15` —
+  **the collision:** this session wrote `L8.18` into the Queue while the archive already held an
+  `L8.18`, and the citation reached three shipped documents with `ci-checks` green throughout,
+  because nothing read the Queue at all. **The mis-aim:** four sites cited `L6.29` (waiver liveness)
+  for a sweep that could not cross a line break, which is `L6.16`
+
+- **L8.22** *where a record has one reader it must have one writable form, enforced structurally —
+  a completeness check whose two sides are two spellings of the same regex cannot fail; assert the
+  **rejected** shape is absent rather than that the right ones are present* →
+  `tests/docs/test_lessons_archive.py`, a structural rule that a disposition is a bullet and
+  nothing else · `refines L6.17` · `recurs L5.6` — the 2026-09-05 drain wrote **21** dispositions as
+  a Markdown table; `lessons_graph.py` reads `- **Lx.y**` bullets only, so all 21 parsed to nothing
+  and took their edges with them, and the oscillation check answered from a third of the record for
+  a day with `ci-checks` green. Caught because a `refines L8.3` edge came back `DANGLING` while
+  `L8.3` was plainly in the file. **All 21 are converted to bullets in this commit** — 69 → 97
+  parsed entries, 0 dangling — because leaving the loop's memory unreadable until the next phase
+  close is the failure this entry describes
+
+**One thing this drain learned about its own instrument.** The first uniqueness check was built on
+`_BULLET`, which reads the archive's one-line `- **L5.3**` disposition form — 66 of those — and does
+not see the `### L8.18 — title` narrative form, of which there are 28 and **not one `L8.x` entry has
+a bullet at all**. It would have run green over a population that excludes the very block the
+collision happened in. `L6.4` — read the population, not the declaration — recurring inside the check
+written to close `L8.21`, and caught only because its own non-vacuity assertion named a real id.
+
+**The loop's own check — which of this phase's defects would a rule already in *Applied* have
+caught?** **Two, and both were Applied.** `L6.16` (a sweep that reads line by line cannot cross the
+house wrap) recurred in `tests/docs/test_documented_gaps_are_retired.py`, the file written to
+discharge `L7.5`. `L6.4` recurred as above. Neither is re-routed, and the reason is that both are
+already where they can bite — `phase-step` → *Orient* and *Finish* — and both **did** bite, within
+minutes, by the person following that skill. A rule that catches the mistake during the task it is
+written for is working; the failure mode `implement-ll` warns about is a rule that never fires at
+all, which is not what happened here.
 
 ## The entries as they stood
 
@@ -1138,9 +1200,7 @@ step that executes them rather than being restated.*
 One entry, written and applied within the hour, which is the queue working as intended rather than
 a queue being skipped.
 
-| Entry | Disposition |
-|---|---|
-| `L9.1` | Applied — `pyproject.toml` gains a `cold-lint-cache` task (`ruff clean`) as the first step of `ci-checks`, and `CLAUDE.md` → *Quality gates* gains it as the fourth item on the environment-parity list `L7.2`/`L7.6`/`L7.8` produced an hour earlier. `ci-no-tests` deliberately keeps its cache — that is what makes the fast task and the canonical one mean different things |
+- **L9.1** Applied — `pyproject.toml` gains a `cold-lint-cache` task (`ruff clean`) as the first step of `ci-checks`, and `CLAUDE.md` → *Quality gates* gains it as the fourth item on the environment-parity list `L7.2`/`L7.6`/`L7.8` produced an hour earlier. `ci-no-tests` deliberately keeps its cache — that is what makes the fast task and the canonical one mean different things
 
 ## The entry as it stood
 

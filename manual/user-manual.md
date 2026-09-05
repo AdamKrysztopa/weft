@@ -44,7 +44,7 @@ in the document itself says "this is a chunker." The four fields on a stage:
 the stage — `weft pipeline show` prints it.** One gate in front of the runner still reads the
 primary alone: `weft index` decides whether a directory is readable from the formats the primary
 plugin claims, so a chain whose *fallback* claims the format is refused before the run it was
-written to survive. `docs/lessons.md` `L8.18` carries that measurement, and no ledger task owns the
+written to survive. `docs/lessons.md` `L8.19` carries that measurement, and no ledger task owns the
 repair yet. Read the scope note at the end of this section before you rely on one. Where a chain
 does run, the names are tried in order until one answers, and what counts as an answer is the
 outcome the plugin returned, never a guess at its value:

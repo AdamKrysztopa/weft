@@ -74,7 +74,7 @@ def _comment_blocks(yaml_text: str) -> list[str]:
     """Consecutive comment lines, joined into one string each.
 
     Joined because these documents wrap at the house width and a quoted command routinely straddles
-    a line — `preview-plain.yaml`'s own does. `docs/lessons.md` L6.29: a sweep that cannot cross a
+    a line — `preview-plain.yaml`'s own does. `docs/lessons.md` L6.16: a sweep that cannot cross a
     line break has a false negative built into the house style.
     """
     blocks: list[str] = []

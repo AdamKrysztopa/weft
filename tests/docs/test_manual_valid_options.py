@@ -33,7 +33,7 @@ TROUBLESHOOTING: Final[Path] = REPO_ROOT / "manual" / "troubleshooting.md"
 
 #: `exc.valid_options == ("a", "b")` as the manuals write it, wrapped or not. The page wraps at
 #: 100 columns and these transcripts routinely break across a line, so the body is matched with
-#: `re.DOTALL` over a whitespace-collapsed copy — `docs/lessons.md` L6.29's own correction, where
+#: `re.DOTALL` over a whitespace-collapsed copy — `docs/lessons.md` L6.16's own correction, where
 #: a sweep that could not cross a line break had a false negative built into the house style.
 _QUOTED_TUPLE: Final[re.Pattern[str]] = re.compile(
     r"valid_options\s*==\s*\((?P<body>[^)]*)\)", re.DOTALL

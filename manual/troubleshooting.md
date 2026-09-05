@@ -1447,7 +1447,7 @@ Composing several backends into a chain that tries each in turn is built in the 
 document with `--pipeline` and `weft pipeline show` prints the chain on the stage that carries it.
 What it will not do is rescue *this* failure: the directory-readability check above reads the
 formats the **primary** plugin claims, so a chain whose fallback claims the format never gets far
-enough to be tried (`docs/lessons.md` `L8.18`; no task owns that repair). For this command, without
+enough to be tried (`docs/lessons.md` `L8.19`; no task owns that repair). For this command, without
 a document, choosing is the operator's, and it will not do it silently.
 
 ### `UnclaimedFormatError`

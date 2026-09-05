@@ -4401,7 +4401,7 @@ dispositions. None is gated, and none blocks Phase 7.
   because this tree writes "closed the gap" and `### 3.1 The gap` too ·
   **Three defects in the check itself, each found by running it rather than by reasoning about it.**
   *(a)* It read line by line, so a sentence naming a gap on one line and its task on the next was
-  invisible — `L6.29` reproduced in the file written to discharge `L7.5`, and two of its own true
+  invisible — `L6.16` reproduced in the file written to discharge `L7.5`, and two of its own true
   positives straddle a break. Lines are joined into paragraphs now. *(b)* A fence inside a
   blockquote opens `> ```python`, not at column 0, so four of `02` §1's code blocks were joined into
   prose. *(c)* **`docs/11-multimodal.md` keeps a task list of its own whose ids collide with the
@@ -4430,7 +4430,7 @@ dispositions. None is gated, and none blocks Phase 7.
   resolved the wrong way. The remedy is to split the sentence, and that is what the fallback
   paragraphs in `user-manual.md` and `troubleshooting.md` now do ·
   **One live defect, found by running the binary and logged rather than fixed here** (`lessons.md`
-  `L8.18`): a derived document naming `use: pdf-text` with `fallback: [text]` resolves, and
+  `L8.19`): a derived document naming `use: pdf-text` with `fallback: [text]` resolves, and
   `weft pipeline show fb` prints `fallback: text` on the stage — so a document's chain **does** reach
   the resolved `StageSpec`, which is the opposite of what three of the repaired paragraphs claimed.
   But `weft index ./corpus --pipeline fb` over `.md` files refuses before the runner starts —
@@ -4458,6 +4458,26 @@ dispositions. None is gated, and none blocks Phase 7.
   line. The deeper half — requiring a baseline's repetitions to vary in whatever the store's
   ordering depends on — should not be designed from one observation, and is named here rather than
   scoped
+
+**The drain at this phase's real close, 2026-09-06 — four entries, and the loop's own check.**
+`L8.19` (a pre-flight check reads the head of a chain and so refuses exactly what the chain exists
+to catch) went to `01` → *Fitness functions* item 5, which already owns that subject and is still
+unplaced; the defect is live in shipped code and deliberately unowned rather than filed with a
+remedy nobody has tried. `L8.20` (name what a check leaves *uncovered*, in the artefact it guards)
+went to `08` §3. `L8.21` and `L8.22` both went to `tests/docs/test_lessons_archive.py`, and both are
+about the loop's own bookkeeping: an id minted by hand can collide, dangle or be mis-aimed, and
+**the archive had 21 dispositions written as a Markdown table that its own parser cannot read** — so
+the oscillation check, the one mechanism between this loop and an on/off cycle, had been answering
+from a third of the record with `ci-checks` green. All 21 are converted; 69 → 98 parsed entries,
+zero dangling.
+
+*Which of this phase's defects would a rule already in **Applied** have caught?* **Two, and both
+were Applied.** `L6.16` — a sweep that reads line by line cannot cross the house wrap — recurred
+inside `tests/docs/test_documented_gaps_are_retired.py`, the file written to discharge `L7.5`. `L6.4`
+— read the population, not the declaration — recurred while writing `L8.21`'s own uniqueness check,
+which was first built over the archive's bullet form and so could not see the heading form the
+collision actually happened in. Neither is re-routed: both are in `phase-step`, both **did** bite
+within minutes, and the failure `implement-ll` warns about is a rule that never fires at all.
 
 **Exit** (`01` → Phase 8): tasks 8.4 with an empty waiver, 8.6, 8.7 and 8.8, demonstrated
 together from outside this repository against an installed `weft-rag` and one container.

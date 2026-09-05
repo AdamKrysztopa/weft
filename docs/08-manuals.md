@@ -242,6 +242,21 @@ the more tempting place to restate something for a reader's convenience:
 | **Quickstart** | Executed. Its fenced shell blocks are extracted and run against a fresh throwaway project in CI, and the run must exit `0` and produce a structure the prose asserts — never a text match on generated prose, so a model swap cannot break the check. From Phase 2 the executed blocks run against the offline evaluation subset `09-release.md` §4 (V5) requires — no credentials, no network | A quickstart that stopped working being discovered by a reader instead of by CI |
 | **Troubleshooting's coverage** | Checked, not generated — the remedy is written by a person, but *completeness* is a ratchet, in the same style as the one `01` → *Fitness functions* item 0 already uses: a named waiver constant, pinned empty, so a gap is a visible act in a diff | A new failure mode landing in code with no matching entry — a *17 of 23 evaluators registered*-style gap, aimed at documentation coverage instead of registration |
 
+**A check over one field of a quoted block is a floor, and it must say so where it is read**
+(`docs/lessons.md` `L8.20`, Phase 8). The table above has an *Executed* row — the quickstart — and
+that category is the one the troubleshooting transcripts do **not** belong to: their fenced blocks
+are reproductions of real output, checked by nothing. Ledger task 8.16 built a check comparing a
+`valid_options` tuple quoted in `manual/troubleshooting.md` against the live one; it was red on its
+first run and caught a four-day-old staleness, and then it went green while **the same transcript, in
+the same section, was still wrong** — running the binary showed a whole clause the manual's copy had
+never carried. Nothing was mis-stated; the check did exactly what it said. The failure is that a
+green check naming an artefact is read as a statement about that artefact, so the honest obligation
+is the inverse of the usual one: **name what the check leaves uncovered, in the artefact it guards**,
+because that is the sentence a reader needs and the one nobody writes. Where the subject is *output*,
+only executing it proves anything; comparing a field is the floor beneath that, never a substitute.
+An executed-transcript harness for `manual/troubleshooting.md` is the missing mechanism, and **no
+ledger task owns it**.
+
 **What stays honestly hand-written, and does not pretend otherwise.** The *why* in every document —
 why the trust model is open by default, why a store never embeds, why deletion cascades — is argued
 prose that belongs to `01`/`02` and is linked, never generated; generating an explanation would only

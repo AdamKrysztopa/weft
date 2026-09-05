@@ -157,7 +157,7 @@ def _sentences_with_lines(text: str) -> list[tuple[int, int, str]]:
     **Lines are joined into paragraphs before sentences are cut out of them**, and that is not a
     convenience. These documents wrap at the house width, so a sentence that names a gap on one
     line routinely names the task that owns it on the next — and a sweep that reads line by line
-    has a false negative built into the house style, which is `docs/lessons.md` L6.29 exactly. Two
+    has a false negative built into the house style, which is `docs/lessons.md` L6.16 exactly. Two
     of this check's own true positives straddle a line break.
 
     Both ends of the passage are carried: a reader is sent to where it **starts**, and the

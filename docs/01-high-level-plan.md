@@ -916,6 +916,21 @@ All checks run in CI, before tests.
    a grep.
 5. **Every declared capability resolves.** Every capability a plugin declares must resolve to a live
    implementation at discovery time, or the plugin must declare it unavailable and say why.
+
+   **And where a stage has alternates, the capability derived from that stage is derived from the
+   union — or the alternates are decoration** (`docs/lessons.md` `L8.19`, Phase 8). Measured, not
+   reasoned: a document naming `use: pdf-text` with `fallback: [text]` resolves, and
+   `weft pipeline show` prints `fallback: text` on the stage, so the chain *is* carried and
+   `weft_kernel.fallback.try_in_order` would walk it. But `weft index` decides whether a directory is
+   readable from the formats the **primary** plugin claims, so that pipeline refuses a directory of
+   `.md` files — *"nothing under 'corpus' can be read: found .md, and the installed extractors claim
+   .pdf"* — before the runner starts. The chain is refused precisely on the inputs it was written
+   for. The general shape is worth more than the instance: **a pre-flight check must be computed
+   over the same set the thing it guards will actually try**, and a guard that reads the head of a
+   chain rejects exactly what the chain exists to catch. This is the accept-set half of this item's
+   own subject, it is a live defect in shipped code as of 2026-09-06, and **no ledger task owns the
+   repair** — item 5 is still unplaced, and this paragraph is where the next placement should start
+   rather than a second numbered function.
 6. **Contracts are versioned.** Every published contract carries a version, and a check fails on a
    changed contract whose version did not move. **Built at task 5.2a, sharpened against what a
    working check can actually assert** (`docs/09-release.md` §2.3; `docs/lessons.md` L5.4, L5.6):
