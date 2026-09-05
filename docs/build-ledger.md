@@ -4042,11 +4042,21 @@ it is a config key and two call sites. Said here because nothing else records it
   implemented in pgvector and **has no caller**; `reciprocal-rank-fusion` already fuses without
   asking a list's origin. `vector-top-k`'s own error text already advertises `hybrid` to users who
   cannot install it, which is the overclaim this task removes by making it true
-- [ ] **8.7** no run issues more concurrent model calls than its own configured cap · owner
-  `01` → Phase 8 · turns on — · sha — · `asyncio.gather` is unbounded at `raptor.py:191` and
-  `hypothetical_questions.py:93`; a 700-node corpus is 700 concurrent calls. `raptor` already has
-  `max_concurrent_summaries` and does not apply it at that site, so this is one semaphore and one
-  field honoured, not a design
+- [x] **8.7** no run issues more concurrent model calls than its own configured cap · owner
+  `01` → Phase 8 · turns on — · sha `—` · **This line named two sites and one of them was already
+  fixed.** It was written from `ROADMAP.md`'s own row, which said `asyncio.gather` is unbounded at
+  `raptor.py:191` and `hypothetical_questions.py:93`. Grepping every fan-out in the tree before
+  acting — `asyncio.gather|Semaphore|TaskGroup` across `packages/*/src` — found `raptor` already
+  holding `asyncio.Semaphore(max_concurrent_summaries)` at `raptor.py:222`, and `raptor.py:191` is
+  now a docstring line. **One** unbounded fan-out remained, in `hypothetical-questions`, which is
+  `raptor`'s sibling under the same contract doing the same thing one payload shape over — a rule
+  one of two authors remembered, which is the shape `CLAUDE.md` says decays. `max_concurrent_nodes`
+  now mirrors `max_concurrent_summaries`, default `8`, held as one semaphore across the whole call
+  rather than a chunked `gather` loop that would idle every permit behind one slow completion.
+  Checked by a double recording the high-water mark of calls in flight, with a non-vacuity twin
+  raising the cap above the batch and asserting the peak rises — a count of completions would be
+  identical bounded or not (`lessons.md` L6.1: a claim a document states in the present tense
+  expires, and this one had)
 - [ ] **8.8** a claimed improvement can be shown **not** to be real · owner `09` §4 · turns on — ·
   sha — · the falsification instrument. `weft-eval` and a validation corpus both exist and no gate
   blocks it, and it discharges an open 1.0 precondition. It outranks everything below it despite a

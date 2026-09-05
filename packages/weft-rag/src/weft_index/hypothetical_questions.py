@@ -65,6 +65,18 @@ class HypotheticalQuestionsConfig(BaseModel):
     #: distinct, non-empty lines the model actually returns — a model that under-delivers is
     #: not padded, and one that over-delivers is not silently kept in full.
     questions_per_node: int = Field(default=3, ge=1)
+    #: How many nodes may have a completion in flight at once. **Task 8.7**, and the last
+    #: unbounded fan-out in the tree: `asyncio.gather` over every node in the batch meant a
+    #: 700-node corpus fired 700 concurrent completions at whatever provider was configured,
+    #: on the first real corpus somebody pointed at it. `raptor` — this plugin's sibling under
+    #: the same contract, doing the same thing one payload shape over — grew
+    #: `max_concurrent_summaries` for exactly this reason and this one never did, which is
+    #: what a rule an author has to remember looks like after one of two authors remembers it.
+    #:
+    #: A field rather than a constant, and the same default (`8`) as its sibling: what a
+    #: provider tolerates is an operator's fact, not this plugin's, and two plugins that fan
+    #: out against the same configured provider should not disagree about it by accident.
+    max_concurrent_nodes: int = Field(default=8, ge=1)
     prompt: str = Field(default=GENERATE_QUESTIONS_NAME, min_length=1)
     role: str = Field(default="index", min_length=1)
 
@@ -90,9 +102,17 @@ class HypotheticalQuestionGenerator:
 
         prompts = ctx.require(Prompts)
         llm = ctx.require(LLM)
-        derived_per_node = await asyncio.gather(
-            *(self._questions_for(node, prompts=prompts, llm=llm, ctx=ctx) for node in payload)
-        )
+        # Bounded exactly as `weft_index.raptor` bounds its own fan-out — a semaphore held
+        # across the whole call, never a chunked `gather` loop: chunking would make the batch
+        # run in lockstep waves, so one slow completion would idle every other permit until
+        # the wave finished. See `max_concurrent_nodes` for why the bound exists at all.
+        limit = asyncio.Semaphore(self._config.max_concurrent_nodes)
+
+        async def _bounded(node: Node) -> Sequence[Node]:
+            async with limit:
+                return await self._questions_for(node, prompts=prompts, llm=llm, ctx=ctx)
+
+        derived_per_node = await asyncio.gather(*(_bounded(node) for node in payload))
         derived = [child for children in derived_per_node for child in children]
         return Produced(value=(*payload, *derived))
 

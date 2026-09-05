@@ -15,6 +15,8 @@ the identical reason: rendering is exercised against the shape it actually produ
 only the model's answer is scripted.
 """
 
+import asyncio
+
 import pytest
 
 from weft_index.contract import Expander
@@ -204,3 +206,79 @@ async def test_hypothetical_questions_runs_through_the_seam() -> None:
     # own question derived beside it.
     assert isinstance(outcome, Produced)
     assert len(outcome.value) == 2
+
+
+# --- task 8.7: the fan-out is bounded ------------------------------------------------------
+
+
+class _ConcurrencyWatchingLLM:
+    """An `LLM` that records the high-water mark of calls in flight at once.
+
+    The assertion this file needs is about *concurrency*, not about call count, so counting
+    completions would prove nothing: an unbounded `gather` and a capped one make the same
+    number of calls. Only the peak overlap tells them apart, which is why this double holds
+    the two counters rather than a list.
+    """
+
+    def __init__(self) -> None:
+        self.in_flight = 0
+        self.peak = 0
+
+    async def complete(self, rendered: Rendered, *, role: str, ctx: Context) -> Outcome[Completion]:
+        del rendered, role, ctx
+        self.in_flight += 1
+        self.peak = max(self.peak, self.in_flight)
+        # One real suspension point, so every coroutine that `gather` started actually gets
+        # to overlap. Without it the calls would run to completion one after another and the
+        # peak would read 1 whatever the cap said — a test that passes for the wrong reason.
+        await asyncio.sleep(0)
+        self.in_flight -= 1
+        return Produced(value=Completion(text="what is a?\nwhat is b?", model="stub-model"))
+
+    async def complete_structured(self, *args: object, **kwargs: object) -> object:
+        raise AssertionError("hypothetical-questions never asks for structured output")
+
+    async def native_structured_available(self, role: str) -> bool:
+        raise AssertionError("hypothetical-questions never checks tier 1 availability")
+
+    async def close(self) -> None: ...
+
+
+async def test_no_more_than_max_concurrent_nodes_are_in_flight_at_once() -> None:
+    """Task **8.7**. A 700-node corpus was 700 concurrent completions at whatever provider
+    was configured — `raptor` grew `max_concurrent_summaries` for exactly this reason and
+    this plugin, its sibling under the same contract, never did.
+    """
+    # Arrange — twenty nodes, a cap of three.
+    llm = _ConcurrencyWatchingLLM()
+    nodes = [_node(f"chunk {i}") for i in range(20)]
+    expander = HypotheticalQuestionGenerator(
+        HypotheticalQuestionsConfig(questions_per_node=2, max_concurrent_nodes=3)
+    )
+
+    # Act
+    outcome = await expander.run(nodes, _ctx(llm))
+
+    # Assert — every node still processed, and never more than three at once.
+    assert isinstance(outcome, Produced)
+    assert llm.peak <= 3
+    assert len(outcome.value) == 20 + 20 * 2
+
+
+async def test_the_cap_is_what_bounds_it_rather_than_the_batch_being_small() -> None:
+    """The non-vacuity half: with the cap raised above the batch, the same double must
+    report a peak above the previous cap — otherwise the assertion above would hold for a
+    plugin that had no cap at all and simply never overlapped.
+    """
+    # Arrange
+    llm = _ConcurrencyWatchingLLM()
+    nodes = [_node(f"chunk {i}") for i in range(20)]
+    expander = HypotheticalQuestionGenerator(
+        HypotheticalQuestionsConfig(questions_per_node=2, max_concurrent_nodes=20)
+    )
+
+    # Act
+    await expander.run(nodes, _ctx(llm))
+
+    # Assert
+    assert llm.peak > 3
