@@ -4042,7 +4042,7 @@ it is a config key and two call sites. Said here because nothing else records it
   demonstration — "an operator's PDF becomes readable" — is not currently reachable from the CLI
 
 - [x] **8.10** an `Expander` runs where it is registered to run · owner `02` §1; `01` → Phase 8 ·
-  turns on — · sha `—` · **Found by running the binary at 8.2, and it is older than this phase.**
+  turns on — · sha `6e3b700` · **Found by running the binary at 8.2, and it is older than this phase.**
   `weft index --pipeline index-with-raptor` fails with *"no service is registered for Embedder on
   this run"*, and `index-with-questions` with the same sentence about `Prompts`. Both plugins are
   registered under `weft_index.contract.Expander` — an **ingest-path** contract — and both reach an
@@ -4066,7 +4066,7 @@ it is a config key and two call sites. Said here because nothing else records it
   summaries sitting in a different vector space from the chunks they summarise, with nothing
   reporting it
 - [x] **8.11** a `*_config` block reaches the sibling it configures as that sibling's own config
-  object · owner `02` §3; `01` requirement 6 · turns on — · sha `—` · **Found by running
+  object · owner `02` §3; `01` requirement 6 · turns on — · sha `6e3b700` · **Found by running
   `weft ask --pipeline corrective-retrieve` while verifying 8.10.** `corrective`,
   `iterative-retrieval` and `refine-on-uncertainty` publish **seven** `*_config` fields between
   them, each typed `Mapping[str, object] | None` and each documented as the way a document
@@ -4132,5 +4132,5 @@ it through `pytest.warns(...)` called as a bare statement, so it does nothing an
 (`reference/study/08-salvage.md:777-782`). A ledger whose ticks cite nothing is that test with a
 different subject.
 
-**As of the last edit to this file, the tree was at `00bf24c`.** Tasks are ticked by the commit that
+**As of the last edit to this file, the tree was at `6e3b700`.** Tasks are ticked by the commit that
 closes them, so this line is the only place a date-shaped claim appears — everything else is a sha.
