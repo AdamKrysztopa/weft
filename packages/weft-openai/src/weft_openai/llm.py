@@ -44,7 +44,7 @@ docstring gives.** Constructing `AsyncOpenAI` loads a CA bundle through `open()`
 
 import asyncio
 from collections.abc import AsyncIterator, Mapping, Sequence
-from typing import TYPE_CHECKING, ClassVar, Protocol, cast
+from typing import TYPE_CHECKING, ClassVar, Final, Protocol, cast
 
 from openai import (
     APIConnectionError,
@@ -88,7 +88,24 @@ NAME = "openai"
 #: A small, current chat model. Measured against, not read off a page: every claim this
 #: pack's docstrings make about `openai` is checked by `tests/integration/test_openai_llm.py`
 #: against this exact model.
-DEFAULT_MODEL = "gpt-4o-mini"
+#:
+#: **This is a pinned external fact, not a code constant** — ledger task **8.14**,
+#: `docs/lessons.md` L8.13. It names a model on somebody else's price list, and nothing in
+#: this repository can ever detect that the vendor moved on; only `MODEL_PINNED_AS_OF`,
+#: below, tells a reader when it was last checked. Every caller that needs the shipped
+#: default imports this constant rather than repeating the literal — a copy is a second pin
+#: that silently stops tracking the first the moment this one moves, and
+#: `tests/architecture/test_pinned_external_facts.py` sweeps every tracked file to hold that.
+DEFAULT_MODEL = "gpt-5.6-luna"
+
+#: The date `DEFAULT_MODEL` was last checked against a real, current model list — the
+#: deliberate twin of `weft_eval.pricing.RATES_AS_OF`, which exists for the identical reason:
+#: a pinned external fact with no date looks current forever, because nothing downstream of
+#: it can ever compute its own staleness — only a person re-checking the source and moving
+#: this string can. Read, never compared: no code here weighs this date against the wall
+#: clock, because how old is too old is a policy question this task leaves open, on the same
+#: footing `09` §4.4 argues against inventing an unowned quality threshold.
+MODEL_PINNED_AS_OF: Final[str] = "2026-09-05"
 
 #: A `BadRequestError` carrying one of these vendor codes is a context-length refusal, not
 #: an arbitrary malformed request — the one place `map_openai_error` looks inside the body rather
@@ -404,6 +421,7 @@ def map_openai_error(exc: APIError, *, model: str) -> LLMError:
 
 __all__ = [
     "DEFAULT_MODEL",
+    "MODEL_PINNED_AS_OF",
     "NAME",
     "ChatClient",
     "ChatCompletionChunk",

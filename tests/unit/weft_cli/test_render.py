@@ -1115,3 +1115,141 @@ def test_render_holds_no_first_party_dispatch_table_of_its_own() -> None:
 
     # Assert
     assert tables == []
+
+
+def _falsification_result(*, difference: float, verdict: object, low: float, high: float) -> object:
+    """An `EvalCompareCommandResult` carrying one metric's own delta and its verdict."""
+    from weft_cli.eval_commands import EvalCompareCommandResult, MetricComparison
+    from weft_cli.pipeline_diff import PipelineDiff
+    from weft_eval.aggregate import MetricAggregate
+    from weft_eval.falsify import BaselineSpread, DifferenceJudgement, Verdict
+    from weft_kernel.payload import Produced as KernelProduced
+
+    assert isinstance(verdict, Verdict)
+    base = 0.400
+
+    def _aggregate(mean: float) -> KernelProduced[MetricAggregate]:
+        return KernelProduced(
+            value=MetricAggregate(
+                reported_name="precision@5",
+                mean=mean,
+                n=4,
+                stdev=0.0,
+                excluded=0,
+                nothing_to_produce=0,
+            )
+        )
+
+    spread = BaselineSpread(metric="precision@5", means=(low, high), low=low, high=high)
+    return EvalCompareCommandResult(
+        run_a="run-a",
+        run_b="run-b",
+        corpus_matches=True,
+        model_versions_match=True,
+        active_distributions_match=True,
+        pipeline_diff=PipelineDiff(
+            a_name="vector-top-k",
+            b_name="hybrid",
+            identical=False,
+            added_stages=(),
+            removed_stages=(),
+            changed_stages=(),
+            var_changes=(),
+            unapplied_operators_changed=False,
+            unplaced_contributions_changed=False,
+        ),
+        metrics_comparison={
+            "precision@5": MetricComparison(a=_aggregate(base), b=_aggregate(base + difference))
+        },
+        baseline_pipeline="vector-top-k",
+        baseline_runs=("base-1", "base-2"),
+        falsification={
+            "precision@5": DifferenceJudgement(
+                metric="precision@5",
+                verdict=verdict,
+                difference=difference,
+                spread=spread,
+                reason="reason text",
+            )
+        },
+    )
+
+
+def test_render_eval_compare_marks_a_delta_inside_the_baseline_spread() -> None:
+    # Task 8.8 — the falsification instrument has to reach the terminal. A positive delta
+    # printed with nothing qualifying it is exactly the claim `09` §4.2 warns about, so the
+    # verdict is rendered beside the delta it judges, never in a block a reader could miss.
+    from weft_eval.falsify import Verdict
+
+    result = _falsification_result(
+        difference=0.020, verdict=Verdict.WITHIN_BASELINE_SPREAD, low=0.400, high=0.460
+    )
+
+    rendered = render.render_outcome(Produced(value=cast("CommandResult", result)))
+
+    assert rendered.stdout is not None
+    assert "vector-top-k" in rendered.stdout
+    assert "base-1" in rendered.stdout
+    assert Verdict.WITHIN_BASELINE_SPREAD.value in rendered.stdout
+    assert "0.400" in rendered.stdout
+    assert "0.460" in rendered.stdout
+
+
+def test_render_eval_compare_marks_a_delta_outside_the_baseline_spread() -> None:
+    from weft_eval.falsify import Verdict
+
+    result = _falsification_result(
+        difference=0.200, verdict=Verdict.OUTSIDE_BASELINE_SPREAD, low=0.400, high=0.420
+    )
+
+    rendered = render.render_outcome(Produced(value=cast("CommandResult", result)))
+
+    assert rendered.stdout is not None
+    assert Verdict.OUTSIDE_BASELINE_SPREAD.value in rendered.stdout
+
+
+def test_render_eval_compare_prints_no_delta_for_an_unjudgeable_metric() -> None:
+    # Task 8.8 — the block must never invent the measurement it exists to withhold. An
+    # UNJUDGEABLE verdict carries no difference and no spread, so its line is the reason,
+    # and a `Δ+0.000` standing in for "there was nothing to judge" would be exactly the
+    # plausible-number failure `09` §4.2 catalogues.
+    from weft_cli.eval_commands import EvalCompareCommandResult
+    from weft_cli.pipeline_diff import PipelineDiff
+    from weft_eval.falsify import DifferenceJudgement, Verdict
+
+    result = EvalCompareCommandResult(
+        run_a="run-a",
+        run_b="run-b",
+        corpus_matches=True,
+        model_versions_match=True,
+        active_distributions_match=True,
+        pipeline_diff=PipelineDiff(
+            a_name="vector-top-k",
+            b_name="hybrid",
+            identical=False,
+            added_stages=(),
+            removed_stages=(),
+            changed_stages=(),
+            var_changes=(),
+            unapplied_operators_changed=False,
+            unplaced_contributions_changed=False,
+        ),
+        metrics_comparison={},
+        baseline_pipeline="vector-top-k",
+        baseline_runs=("base-1", "base-2"),
+        falsification={
+            "ndcg@10": DifferenceJudgement(
+                metric="ndcg@10",
+                verdict=Verdict.UNJUDGEABLE,
+                difference=None,
+                spread=None,
+                reason="the baseline never measured 'ndcg@10'",
+            )
+        },
+    )
+
+    rendered = render.render_outcome(Produced(value=cast("CommandResult", result)))
+
+    assert rendered.stdout is not None
+    assert "the baseline never measured 'ndcg@10'" in rendered.stdout
+    assert "Δ" not in rendered.stdout

@@ -113,7 +113,7 @@ dsn = "${env:WEFT_DATABASE_URL}"
 # `pgvector`. Changing it means re-indexing — the corpus does not move with the key.
 #
 # [services]
-# embed = "openai"
+# embed = "openai-embeddings"
 # store = "qdrant"
 
 # --- Permissions ---------------------------------------------------------------
@@ -164,9 +164,9 @@ dsn = "${env:WEFT_DATABASE_URL}"
 # `rerank` is the role the shipped `llm-rerank` plugin asks under by default.
 #
 # [llm.roles]
-# generate = { provider = "openai", model = "gpt-4o-mini" }
-# grade    = { provider = "openai", model = "gpt-4o-mini" }
-# rerank   = { provider = "openai", model = "gpt-4o-mini" }
+# generate = { provider = "openai", model = "gpt-5.6-luna" }
+# grade    = { provider = "openai", model = "gpt-5.6-luna" }
+# rerank   = { provider = "openai", model = "gpt-5.6-luna" }
 # route    = { provider = "scripted" }
 
 # --- How hard to try when a model call fails transiently ---------------------

@@ -4018,7 +4018,7 @@ it is a config key and two call sites. Said here because nothing else records it
   requires it **empty**, so the entry is a dated debt rather than a parking space
 - [x] **8.5** every rung is named where a reader looks for it — `10` for the technique claims,
   `03` and `manual/` for `[services] route` · owner `10`; `03` · turns on — · sha `4b6a482`
-- [ ] **8.12** a router an operator can *name* is a router they can *author* · owner `03` →
+- [x] **8.12** a router an operator can *name* is a router they can *author* · owner `03` →
   *Project context*; `01` requirement 1 · turns on — · sha — · **Found by `weft-qualities` against
   task 8.3, by running it rather than reading it.** `[services] route` selects among documents an
   installed pack **contributed**: `weft_cli.route_ask.run_routed_ask` searches `load_contributed`,
@@ -4065,10 +4065,72 @@ it is a config key and two call sites. Said here because nothing else records it
   raising the cap above the batch and asserting the peak rises — a count of completions would be
   identical bounded or not (`lessons.md` L6.1: a claim a document states in the present tense
   expires, and this one had)
-- [ ] **8.8** a claimed improvement can be shown **not** to be real · owner `09` §4 · turns on — ·
-  sha — · the falsification instrument. `weft-eval` and a validation corpus both exist and no gate
-  blocks it, and it discharges an open 1.0 precondition. It outranks everything below it despite a
-  lower headline, because it is what makes every claim tasks 8.6 and 8.1 support worth anything
+- [x] **8.8** a claimed improvement can be shown **not** to be real · owner `09` §4 · turns on — ·
+  sha `ca56ccf` · the falsification instrument. **`weft eval compare` had printed a signed per-metric
+  delta since task 4.9 and nothing anywhere said whether it was larger than the noise the system
+  makes by repeating itself** — a number a reader acts on with no way to tell it from nothing, which
+  is `09` §4.2's whole catalogue in one line. `weft eval compare <a> <b> --baseline <pipeline>` is
+  the answer: **a flag on the existing command, not a new verb**, because the delta being qualified
+  is one this command already prints. `weft_eval.falsify` holds the rule — `09` §4.3's derivation
+  applied to a *difference* rather than a value, so **the only number a difference is ever compared
+  against is `high - low` of the baseline's own repetition means**, and a difference equal to the
+  width is judged *within*, the conservative side. No threshold, no multiplier, no sigma: `09` §4.4
+  forbids one and this is the instrument that makes §4.2's failure visible, so it must not smuggle
+  one in.
+  · **The interval is derived from ordinary persisted `RunRecord`s, never from `eval/baselines/`,
+  and that was forced rather than chosen**: `tests/architecture/test_eval_is_not_a_subsystem.py`
+  forbids any distribution importing `eval/`, so the shipped instrument could not read this
+  repository's own V3 artefact even where that would have been tidier. `--baseline` therefore names
+  a **pipeline** whose persisted runs *are* its repetitions, with `<a>`/`<b>` excluded — a rung is
+  not one of its own baseline's repetitions. `eval/check_baseline.py` is untouched and still answers
+  its own different question.
+  · **Each repetition is checked against `<a>` for corpus, model versions and active distributions
+  — deliberately not for the pipeline.** A baseline *is* a different pipeline from the rung by
+  construction; requiring equality would make the flag unusable, and the three that are checked are
+  exactly what makes the baseline's variability a measurement of the same system.
+  · **Three refusals rather than answers**, because §4.2's failures all produced numbers: a baseline
+  run once (`TooFewRepetitionsError`, exit `1` — the name resolved, the runs cannot answer); a
+  baseline that measured a metric in only some repetitions (no interval taken at all, since one over
+  whichever runs happened to score understates variability and makes every difference look real);
+  and a metric only one compared run scored (the absent side is never read as a zero).
+  `NoBaselineRunsError` exits `4`, FF12's family, naming every pipeline that *was* run.
+  · **Watched fail**: replacing `abs(difference) > width` with `abs(difference) > 0.0` — the exact
+  shape of ignoring the baseline — turns the correctly-refused claim into a fake improvement and
+  `test_a_difference_no_larger_than_the_spread_is_not_shown_to_be_real` goes red. The check consults
+  the baseline; it is not vacuous.
+  · **Three sites keyed on the new error class were missed by the brief and found one at a time by
+  three different mechanisms** — FF12's pinned `NAME_RESOLUTION_FAMILY` (the implementer),
+  `exit_codes.py`'s dispatch (review), and `tests/docs/test_troubleshooting_coverage.py` (the full
+  gate). `lessons.md` L8.12.
+  · **Verified from `/private/tmp/weft88`, outside this repository, against an installed
+  `weft-kernel`/`weft-rag`/`weft-openai` and the `compose.yaml` container.** Four repetitions of
+  `index-text` and one of a derived `rung-small-chunks` (`chunk` replaced, size 180), the store
+  truncated before each so every run indexes only its own chunking:
+
+  ```text
+  $ weft eval compare 6f04fe6b-…-76990a5a778f 57998ac5-…-f8fe088200305 --baseline index-text
+  metrics:
+    mean_average_precision: 0.833 (n=3, ±0.289) vs 0.778 (n=3, ±0.385)  Δ-0.056
+    ndcg@5: 0.877 (n=3, ±0.213) vs 0.833 (n=3, ±0.289)  Δ-0.044
+    precision@5: 0.200 (n=3, ±0.000) vs 0.200 (n=3, ±0.000)  Δ+0.000
+    recall@5: 1.000 (n=3, ±0.000) vs 1.000 (n=3, ±0.000)  Δ+0.000
+  falsification — baseline 'index-text', repetitions: 02d0d1ed-…, 356ebcf2-…, 35e5af38-…:
+    mean_average_precision: outside-baseline-spread (Δ-0.056, baseline spread 0.833-0.833)
+    ndcg@5: outside-baseline-spread (Δ-0.044, baseline spread 0.877-0.877)
+    precision@5: within-baseline-spread (Δ+0.000, baseline spread 0.200-0.200)
+    recall@5: within-baseline-spread (Δ+0.000, baseline spread 1.000-1.000)
+  ```
+
+  A deterministic baseline records a zero-width interval and admits no drift, which `09` §4.3 calls
+  correct and strict — and both verdicts appear in one real run, which is what a demonstration owed.
+  Both refusals were run too: `--baseline hybrid-then-generate` (never run) exits `4` naming
+  `index-text, rung-small-chunks`; `--baseline index-messy-text` (run once) exits `1` quoting V3.
+  · **Two defects in shipped documents were found by this run and neither by any test**, both
+  logged rather than fixed here (`lessons.md` L8.14): `index-text.yaml`'s own comment tells an
+  operator to run `weft pipeline derive index-text --set embed.use=openai`, and `weft pipeline
+  derive` has **no `--set` flag at all**; and the edit is impossible written correctly too, because
+  `openai` is registered under both `Embedder` and `LLMProvider` and a document naming a bare
+  ambiguous name is refused — so `weft-openai`'s embedder is placeable by no pipeline document
 - [x] **8.9** a `Renderer` has a driver, and fitness function 16's waiver is empty · owner `02`
   §1; `01` → *Fitness functions* item 16 · turns on — · sha `3f4751c` · `plain` and `markdown` were
   registered `Stage` termini producing a `Rendition` that **no shipped command returned to
@@ -4133,6 +4195,111 @@ it is a config key and two call sites. Said here because nothing else records it
   `build_capability` validate a `Mapping` into the plugin's own `config_model`, refuse a block
   for a plugin publishing none rather than dropping it, and pass an already-built config object
   through untouched
+
+- [x] **8.14** the model this engine calls by default is one that currently exists, and nothing
+  in the tree can go stale about it in silence · owner `09` §4, V5; `10` §1 · turns on — · sha — ·
+  **Added 2026-09-05 as a scope decision, at the project owner's direction.**
+  `weft_openai.llm.DEFAULT_MODEL` is `gpt-4o-mini`, two generations stale — the account's current
+  family is `gpt-5.6-luna`/`-terra`/`-sol` and `gpt-6-astra`. Embeddings are **not** stale
+  (`text-embedding-3-small` is still current) and do not move. Two things made the staleness
+  invisible and would have made repointing it silently partial, and both are the task rather than
+  the rename: the constant has **copies** — two live-account integration tests hardcode the
+  literal instead of importing it, so they would go on billing the old model — and it carries
+  **no date**, while its own neighbour `weft_eval.pricing.RATES_AS_OF` exists precisely because a
+  pinned external fact goes stale. `lessons.md` L8.13
+- [x] **8.15** a plugin registered under two contracts is placeable by a document, or it is not
+  registered twice · owner `02` §2; `01` item 11 · turns on **FF18** · sha `80b9706` · **Decided
+  2026-09-05, no gate needed — the measurement is what closed it.**
+  Found by running the binary at 8.8. `weft-openai` registers `openai` under **both** `Embedder`
+  and `LLMProvider`; `02` §2's bare-name rule means a document naming it is refused —
+  *"registered under more than one contract... there is nothing here that says which was meant"* —
+  so `weft-openai`'s embedder is placeable by **no pipeline document at all**, while
+  `[services] embed = "openai"` works because that path resolves against a contract. That is `01`
+  item 11's shape again: registered, listed, catalogued in `10` §1, and unreachable from the one
+  place a rung would name it. **Not fixed at 8.8 on purpose** — the three candidate answers are a
+  rename (breaks a documented name), a contract qualifier in the document (G3 settled *against*
+  qualifying bare names), and inference from neighbouring stages' payload types (new resolution
+  behaviour).
+  · **The decision is the rename, and one measurement made it obvious rather than arguable:
+  `openai` is 1 of 107 registered names, and the only one under two contracts.** It is a single
+  accident, not a pattern the tree leans on — 106 names already resolve one-name-one-contract — so
+  rescuing it with new resolution behaviour would be building a mechanism for one mistake. G3 is
+  untouched: `use:` stays a bare name. What changes is that a bare name must *resolve* to exactly
+  one contract, which is the same collision `weft_kernel.registry.DuplicateRegistrationError`
+  already refuses across packs, extended to the within-one-pack case its `(contract, name)` key
+  deliberately leaves open.
+  · **`openai` stays the `LLMProvider`; the `Embedder` becomes `openai-embeddings`.** `[llm.roles]
+  provider = "openai"` reads as a vendor because it *is* one, while every stage plugin in this tree
+  is named for what it does rather than who sells it — `hash`, `fixed-size`, `pgvector`,
+  `vector-top-k`. `openai-embeddings` matches the vendor's own endpoint and leaves an honest name
+  for the next hosted embedder, which `hosted-embed` would not have. **Cheap now and expensive
+  later, measured**: all six release names return 404 on PyPI, so nothing has ever shipped under
+  the old spelling and there is no user to break. `[services] embed = "openai"` becomes
+  `"openai-embeddings"`, and `10` §1's row splits in two.
+  · **What FF18 does and does not cover, stated rather than implied.** It walks the registry the
+  CLI actually builds and fails when any name answers to two contracts, waiver pinned empty — so
+  *this* tree cannot ship the shape again. It is **not** a kernel change: `Registry.add` still keys
+  on `(contract, name)`, so a third party's pack can still register one name twice and will meet
+  `AmbiguousStageContractError` at document resolution — loud and naming both contracts, but at
+  use rather than at discovery. Reporting it at `weft plugins doctor` instead is the stronger
+  answer, on `bertscore`'s own precedent (task 6.29: declare unavailability at discovery, not one
+  moment too late), and it is filed here rather than built, because no third-party instance exists
+  to shape it and a kernel change made for a hypothetical is the wrong trade
+
+### Phase 8's close — what the drain filed rather than fixed
+
+The 2026-09-05 drain took 27 entries to zero. Most became a paragraph in the artefact that would
+have caught them; the seven below are **checks and repairs, not rules**, so they are tasks with
+owners rather than lessons awaiting a second drain. `docs/lessons-archive.md` carries the full
+dispositions. None is gated, and none blocks Phase 7.
+
+- [ ] **8.16** a `[services]`/`[llm.roles]` key list quoted in a manual is the live one · owner
+  `08` §1; `lessons-archive` `L8.3` · turns on — · a worked transcript quoted
+  `valid_options == ("embed", "store")` while the code offered three keys, and the whole gate was
+  green. `tests/docs/test_manual_config_keys.py` now checks that *named* keys are a subset of
+  `ServiceSelection.model_fields`; what it does not do is compare a **quoted tuple literal**
+  against the live tuple, which is the exact shape that went stale
+- [ ] **8.17** a command quoted in a shipped `pipelines/*.yaml` comment is a command that runs ·
+  owner `08` §1; `lessons-archive` `L8.14` · turns on — · `index-text.yaml` told operators to run
+  `weft pipeline derive index-text --set embed.use=openai`; there is no `--set` flag and the plugin
+  name was unresolvable. The comment is repaired; nothing stops the next one. `tests/docs`'s
+  tagged-sample harness is scoped to `manual/`, and pipeline documents carry more operator-facing
+  advice per line than anything else this project ships
+- [ ] **8.18** a pipeline is refused when its first stage cannot accept what the caller will hand
+  it · owner `02` §1; `lessons-archive` `L8.16` · turns on — · a router document without its
+  `query-scorer` dies mid-run with `'Query' object has no attribute 'query'`. **Measured to be
+  cheap, not assumed**: `StageSpec.contract` is resolved for every stage before anything runs, and
+  `weft_kernel.runner._check_composition` already computes `_stage_signature(specs[0].contract)`
+  and discards the entry type because there is nothing to compare it against — while the caller
+  (`weft_cli.route_ask`) knows exactly what it is about to pass. Site it where
+  `check_store_capabilities` already runs, once per resolved pipeline
+- [ ] **8.19** every path a workflow file references is a tracked file · owner `09` §1;
+  `lessons-archive` `L7.2` · turns on — · an untracked `uv.lock` made the local gate and CI's
+  clean-checkout gate two different gates, and nothing could have noticed. The nearest existing
+  checks assert that `ci.yml` *invokes* a poe task, never that the paths it names resolve
+- [ ] **8.20** a gate run that silently shrank is not a green · owner `09` §1;
+  `lessons-archive` `L7.8` · turns on — · a container brought down mid-task dropped 51 tests from
+  every subsequent run, each green. No `poe` task reads pytest's own skip count. The check is
+  small; the judgement is what count is expected, which is why this is a task and not a paragraph
+- [ ] **8.21** a documented gap is retired when the task that closes it ticks · owner `08` §1;
+  `lessons-archive` `L7.5` · turns on — · `manual/pack-author-guide.md` recorded an honest gap that
+  had been closed for two weeks. A "gap"/"not yet"/"follow-up" paragraph citing a task id is
+  mechanically checkable against that task's ticked state
+- [ ] **8.22** `exit_codes.py`'s two hand-maintained error tables are ratcheted · owner `03` →
+  *Output*; `lessons-archive` `L8.12` · turns on — · `_ALSO_RESOLUTION_FAILED` and
+  `exit_code_for`'s local-import branch are pinned tuples of `WeftError` subclasses with **no**
+  discovery walk behind them, unlike `NAME_RESOLUTION_FAMILY`, which has one. A miss does not fail
+  the build: it silently exits `1` where `4` was meant, in production code. The two-way ratchet
+  `test_ff12` already uses is the pattern; `weft_cli.exit_codes`'s own docstring records every
+  hand-added exception, which is the seed a pinned set needs.
+  **`NETWORK_CLIENTS` is deliberately excluded** — it catalogues external libraries, so no
+  introspection can derive it, and it stays hand-maintained like `KERNEL_DEPENDENCIES`
+- [ ] **8.23** `weft eval compare` says when a baseline's interval is zero-width · owner `09` §4;
+  `lessons-archive` `L8.17` · turns on — · a zero-width interval and a badly-sampled one produce an
+  identical record, and the mistake runs in the over-confident direction. The rendering half is one
+  line. The deeper half — requiring a baseline's repetitions to vary in whatever the store's
+  ordering depends on — should not be designed from one observation, and is named here rather than
+  scoped
 
 **Exit** (`01` → Phase 8): tasks 8.4 with an empty waiver, 8.6, 8.7 and 8.8, demonstrated
 together from outside this repository against an installed `weft-rag` and one container.

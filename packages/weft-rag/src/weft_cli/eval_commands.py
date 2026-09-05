@@ -132,6 +132,22 @@ result into `record.metrics` through `build_run_record`'s own `metrics=` paramet
 `--questions`, `metrics` stays `{}`, the same honesty `model_versions` already had before task
 4.7 named its own gap rather than filling it dishonestly.
 
+**`weft eval compare --baseline <pipeline>` — task 8.8, the falsification instrument reaching
+the CLI.** `weft_eval.falsify` derives its own tolerance from a baseline's *repetitions*, so this
+flag names a **pipeline**, never a run id: every persisted run under `DEFAULT_RUNS_DIR` whose own
+`resolved_pipeline.name` equals it is one of that baseline's repetitions, `--a`/`--b` themselves
+excluded (a rung is not one of its own baseline's repetitions). `NoBaselineRunsError` refuses a
+name nothing under `runs/` ran, naming every pipeline that actually did. Each kept repetition is
+checked against `run_a` with the identical `_incomparable_reasons` this module already uses for
+`run_a`/`run_b` themselves — **the pipeline is deliberately not part of that check**: a baseline
+is a different pipeline from the rung being judged by construction, which is the entire point,
+and corpus, model versions and active distributions are what make its variability a measurement
+of the same system. `weft_eval.falsify.baseline_spreads`'s own `TooFewRepetitionsError`
+propagates unchanged when only one repetition is found — reaching the operator as V3's own
+refusal, never as a manufactured verdict. With no `--baseline`, this command returns exactly what
+it always has, plus the three new fields at their empty/`None` defaults — it must not start
+answering a question nobody asked.
+
 **`weft eval compare` reports `metrics_comparison` — the comparison the tool generates itself,
 not two `RunRecord`s a caller has to read side by side.** For every metric name either run's own
 `metrics` carries, `_metrics_comparison` pairs the two `MetricRunResult`s under one key; a run
@@ -162,6 +178,7 @@ from weft_cli.registry_bootstrap import Dependencies
 from weft_command.contract import Command, CommandResult
 from weft_command.permission import PermissionClass
 from weft_eval.aggregate import MetricAggregate
+from weft_eval.falsify import DifferenceJudgement, baseline_spreads, judge_differences
 from weft_eval.offline import GateSubset, gate_subset, require_gate_safe
 from weft_eval.run_record import (
     MetricRunResult,
@@ -269,6 +286,21 @@ class UnknownRunIdError(WeftError, UnresolvedNameError):
         self.run_id = run_id
 
 
+class NoBaselineRunsError(WeftError, UnresolvedNameError):
+    """`weft eval compare --baseline <pipeline>` named a pipeline no persisted run under
+    `DEFAULT_RUNS_DIR` ran.
+
+    Fitness function 12's family, on `UnknownRunIdError`'s own footing one class up:
+    `valid_options` is every distinct resolved-pipeline name any persisted run actually carries,
+    sorted — task 8.8's own "list what does exist" rather than an empty refusal.
+    """
+
+    def __init__(self, message: str, *, valid_options: tuple[str, ...], baseline: str) -> None:
+        super().__init__(message)
+        self.valid_options = valid_options
+        self.baseline = baseline
+
+
 class EvalRunArgs(BaseModel):
     """`weft eval run <path> <pipeline> [--corpus-name NAME]` — see the module docstring for
     why `pipeline` is a second required positional rather than `weft index`'s optional flag.
@@ -309,12 +341,24 @@ class EvalRunArgs(BaseModel):
 
 
 class EvalCompareArgs(BaseModel):
-    """`weft eval compare <a> <b>` — two run ids, `weft pipeline diff`'s own `<a> <b>` shape."""
+    """`weft eval compare <a> <b> [--baseline <pipeline>]` — two run ids, `weft pipeline diff`'s
+    own `<a> <b>` shape, plus task 8.8's own falsification flag.
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     a: str = Field(description="the first run id, printed by 'weft eval run'")
     b: str = Field(description="the second run id")
+    baseline: str | None = Field(
+        default=None,
+        description=(
+            "the name of the pipeline whose persisted runs under 'runs/' are this baseline's "
+            "own repetitions — more than one is needed, since a single run records no interval "
+            "a later difference can be judged against. When given, every metric the baseline "
+            "measured gets a verdict: whether --a and --b's own difference is outside the "
+            "width the baseline's own repetitions spanned by doing nothing at all."
+        ),
+    )
 
 
 class TraceArgs(BaseModel):
@@ -395,7 +439,10 @@ class EvalCompareCommandResult(CommandResult):
     """`weft eval compare`'s whole answer, once both runs pass the apples-to-apples check —
     a refusal is raised before this is ever constructed, see `IncomparableRunsError`.
 
-    `metrics_comparison` is task 4.9's own addition — see `_metrics_comparison`.
+    `metrics_comparison` is task 4.9's own addition — see `_metrics_comparison`. `baseline_pipeline`
+    /`baseline_runs`/`falsification` are task 8.8's own addition — all three default so every
+    existing construction site keeps working; `falsification` stays `None` unless `--baseline`
+    was given, so "no verdict was asked for" and "a verdict was reached" are never confused.
     """
 
     run_a: str
@@ -405,6 +452,9 @@ class EvalCompareCommandResult(CommandResult):
     active_distributions_match: bool
     pipeline_diff: PipelineDiff
     metrics_comparison: Mapping[str, MetricComparison]
+    baseline_pipeline: str | None = None
+    baseline_runs: tuple[str, ...] = ()
+    falsification: Mapping[str, DifferenceJudgement] | None = None
 
 
 class TraceCommandResult(CommandResult):
@@ -431,6 +481,17 @@ def _run_ids(directory: Path) -> tuple[str, ...]:
     if not directory.is_dir():
         return ()
     return tuple(sorted(path.stem for path in directory.glob("*.json")))
+
+
+def _all_run_records(directory: Path = DEFAULT_RUNS_DIR) -> tuple[tuple[str, RunRecord], ...]:
+    """Every run id and the `RunRecord` it holds, under `directory` — sorted by run id.
+
+    Task 8.8's own reader: `weft eval compare --baseline` finds a baseline's repetitions among
+    exactly the ordinary runs `weft eval run` already writes, no second file format.
+    """
+    if not directory.is_dir():
+        return ()
+    return tuple((path.stem, load_run_record(path)) for path in sorted(directory.glob("*.json")))
 
 
 def _load_or_refuse(run_id: str, *, directory: Path = DEFAULT_RUNS_DIR) -> RunRecord:
@@ -579,6 +640,63 @@ class EvalRunCommand:
         )
 
 
+def _falsify_against_baseline(
+    baseline: str,
+    run_a_id: str,
+    record_a: RunRecord,
+    record_b: RunRecord,
+    *,
+    exclude: set[str],
+) -> tuple[tuple[str, ...], Mapping[str, DifferenceJudgement]]:
+    """`weft eval compare --baseline <pipeline>`'s own work — see the module docstring's own
+    task-8.8 paragraph. `exclude` is `{--a, --b}`: a rung is not one of its own baseline's
+    repetitions.
+
+    Raises `NoBaselineRunsError` for a pipeline nothing under `DEFAULT_RUNS_DIR` ran,
+    `IncomparableRunsError` for a kept repetition that differs from `record_a` by more than
+    its pipeline (deliberately not checked — a baseline is a different pipeline from the rung
+    by construction), and lets `weft_eval.falsify.baseline_spreads`'s own
+    `TooFewRepetitionsError` propagate unchanged for a baseline run only once.
+    """
+    all_records = _all_run_records()
+    repetitions = tuple(
+        (run_id, record)
+        for run_id, record in all_records
+        if record.resolved_pipeline.name == baseline and run_id not in exclude
+    )
+    if not repetitions:
+        options = tuple(sorted({record.resolved_pipeline.name for _, record in all_records}))
+        raise NoBaselineRunsError(
+            f"'{baseline}' names no persisted baseline repetition under '{DEFAULT_RUNS_DIR}' "
+            f"(excluding the two runs being compared). Pipelines actually run: "
+            f"{', '.join(options) or '(none)'}.",
+            valid_options=options,
+            baseline=baseline,
+        )
+
+    for run_id, repetition in repetitions:
+        # Deliberately not checking the pipeline here — a baseline is a different pipeline
+        # from the rung being judged by construction, which is the entire point. Corpus, model
+        # versions and active distributions are what make its variability a measurement of the
+        # same system.
+        baseline_reasons = _incomparable_reasons(record_a, repetition)
+        if baseline_reasons:
+            raise IncomparableRunsError(
+                f"baseline run '{run_id}' ('{baseline}') is not comparable to '{run_a_id}': "
+                f"{'; '.join(baseline_reasons)}. A baseline's spread only measures this "
+                "system's own variability when the corpus, model versions and active "
+                "distribution set agree.",
+                run_a=run_a_id,
+                run_b=run_id,
+                reasons=baseline_reasons,
+            )
+
+    spreads = baseline_spreads([record for _, record in repetitions])
+    falsification = judge_differences(record_a, record_b, spreads)
+    baseline_runs = tuple(sorted(run_id for run_id, _ in repetitions))
+    return baseline_runs, falsification
+
+
 class EvalCompareCommand:
     """`weft eval compare` — see the module docstring."""
 
@@ -610,6 +728,20 @@ class EvalCompareCommand:
             )
 
         diff = diff_resolved(record_a.resolved_pipeline, record_b.resolved_pipeline)
+
+        baseline_pipeline: str | None = None
+        baseline_runs: tuple[str, ...] = ()
+        falsification: Mapping[str, DifferenceJudgement] | None = None
+        if compare_args.baseline is not None:
+            baseline_pipeline = compare_args.baseline
+            baseline_runs, falsification = _falsify_against_baseline(
+                compare_args.baseline,
+                compare_args.a,
+                record_a,
+                record_b,
+                exclude={compare_args.a, compare_args.b},
+            )
+
         return Produced(
             value=EvalCompareCommandResult(
                 run_a=compare_args.a,
@@ -619,6 +751,9 @@ class EvalCompareCommand:
                 active_distributions_match=True,
                 pipeline_diff=diff,
                 metrics_comparison=_metrics_comparison(record_a, record_b),
+                baseline_pipeline=baseline_pipeline,
+                baseline_runs=baseline_runs,
+                falsification=falsification,
             )
         )
 
@@ -696,6 +831,7 @@ __all__ = [
     "EvalRunCommandResult",
     "IncomparableRunsError",
     "MetricComparison",
+    "NoBaselineRunsError",
     "TraceArgs",
     "TraceCommand",
     "TraceCommandResult",

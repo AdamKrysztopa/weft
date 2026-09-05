@@ -1,7 +1,7 @@
 """Unit tests for `weft_openai`'s `register()`.
 
 Mirrors `packages/weft-openai/src/weft_openai/__init__.py`. Covers the happy
-path (`register` adds `OpenAIEmbedder` as `"openai"` under the `Embedder`
+path (`register` adds `OpenAIEmbedder` as `"openai-embeddings"` under the `Embedder`
 contract `weft-embed` publishes), the property the whole pack depends on —
 **every settings field carries a default**, so `register()` runs and
 contributes its plugin on a machine with no credential at all — and the
@@ -37,7 +37,7 @@ def test_register_adds_the_openai_embedder_under_the_embedder_contract() -> None
     registrar.commit()
 
     # Assert
-    entry = registry.entry(Embedder, "openai")
+    entry = registry.entry(Embedder, "openai-embeddings")
     assert entry.distribution == "weft-openai"
     assert isinstance(entry.factory(None), OpenAIEmbedder)
 

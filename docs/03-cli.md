@@ -76,8 +76,12 @@ weft eval run <path> <pipeline> [--questions <file>] [--top-k <n>]
                                     run a pipeline over a corpus, persist a run record; with
                                     --questions, also retrieve and score the gate-safe metric
                                     subset, folded into the record
-weft eval compare <a> <b>          diff two persisted runs' pipelines and their per-metric
-                                    aggregates, refusing if anything but the pipeline differs
+weft eval compare <a> <b> [--baseline <pipeline>]
+                                    diff two persisted runs' pipelines and their per-metric
+                                    aggregates, refusing if anything but the pipeline differs;
+                                    with --baseline, judge each per-metric difference against
+                                    the interval that pipeline's own persisted repetitions
+                                    spanned — the falsification instrument, `09` §4.3
 weft eval metrics [--name <name>]  which registered metrics run in the deterministic gate
                                     subset — no credentials, no network — or ask about one
 weft trace <run-id>            print what one persisted run recorded
@@ -504,6 +508,25 @@ running the same command.
 > whichever side did not — never silence, and never a fabricated number. `weft trace` grew a
 > matching `metrics:` block, since it prints exactly what the record carries.
 
+> **`weft eval compare --baseline <pipeline>`, task 8.8 (2026-09-05) — the falsification
+> instrument, and the one comparability rule it deliberately does *not* apply.** `weft eval
+> compare` printed a signed delta per metric from task 4.9 onward, and nothing anywhere said
+> whether that delta was larger than the noise the system produces by repeating itself — a
+> number a reader acts on, with no way to tell it from nothing. `--baseline` names a
+> **pipeline**, not a run id: every persisted run under `runs/` whose own resolved pipeline
+> carries that name is one of its repetitions, with the two runs being compared excluded, since
+> a rung is not one of its own baseline's repetitions. Each repetition is checked against run
+> `<a>` for the same corpus, model versions and active distribution set this command already
+> requires of `<a>`/`<b>` — **and deliberately not for the same pipeline.** A baseline is a
+> different pipeline from the rung being judged by construction; requiring pipeline equality
+> here would make the flag unusable, and the three facts that *are* checked are exactly the ones
+> that make the baseline's variability a measurement of the same system. `09-release.md` §4.3
+> carries the rule and, as importantly, what it does not claim. The two refusals are in
+> `manual/troubleshooting.md`: `NoBaselineRunsError` exits `4` (FF12's family, "fix what you
+> typed"), `TooFewRepetitionsError` exits `1` (the name resolved; the runs on disk cannot answer
+> the question). A verdict itself exits `0` either way — an indistinguishable difference is a
+> fact this command reports, not a failed operation.
+
 ## Plugin-contributed commands
 
 A pack registers commands against the `Command` contract exactly as it registers a retriever. They
@@ -809,7 +832,7 @@ file beats built-in defaults. `weft config get --origin` prints where each effec
 from, which is the question people actually have.
 
 **`[services]` is where the model profile starts** (Phase 2 task 2.29). It maps a role a command
-needs to the name of a registered plugin — `embed = "openai"` today, `store` and an `llm` as the
+needs to the name of a registered plugin — `embed = "openai-embeddings"` today, `store` and an `llm` as the
 tasks that build them land — and it is the whole operation for changing which embedder a corpus is
 indexed with: no package edited, nothing reinstalled, and a plugin from a pack nobody here wrote is
 selectable the moment it is installed. A key the CLI does not yet read is **refused**, naming the

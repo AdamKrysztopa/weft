@@ -70,7 +70,7 @@ if TYPE_CHECKING:
     from weft_openai.settings import Settings
 
 #: The name this embedder is registered and selected under — see `weft_openai.register`.
-NAME = "openai"
+NAME = "openai-embeddings"
 
 #: The default model, and the one every number in this module's docstring was measured
 #: against. Small, current, and 1536 components wide without being asked.

@@ -92,8 +92,8 @@ class Completion(BaseModel):
 
     `model` is restated on the answer rather than left implicit — a provider may not honour
     the exact string it was asked for (an alias, a version pin resolved server-side), and a
-    caller comparing a `Completion` against `model="gpt-4o-mini"` should compare against
-    what ran, not what was requested.
+    caller comparing a `Completion` against the model it requested (e.g. `gpt-5.6-luna`) should
+    compare against what ran, not what was requested.
 
     `usage` is `None` for a provider that made no real call and so has nothing to report —
     `weft_llm.scripted.ScriptedProvider` answers this way honestly, the same way it marks its

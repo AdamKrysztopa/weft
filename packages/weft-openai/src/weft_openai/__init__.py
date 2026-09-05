@@ -20,12 +20,27 @@ until a document reaches `weft index`), never by a branch inside one class.
 uses**, with nothing extra for being first-party — fitness function 2.
 
 **Task 2.30 adds a second contract under the same account.** `register`
-below now also registers `OpenAILLMProvider` as `"openai"` for
-`weft_llm.contract.LLMProvider` — the vendor adapter growing a second
-capability rather than a second pack, because both plugins share the one
-thing a vendor pack actually owns: an authenticated account. See
-`weft_openai.llm`'s own module docstring for the mapping table that keeps
-OpenAI's exception hierarchy out of every pack downstream of `weft-llm`.
+below also registers `OpenAILLMProvider` for `weft_llm.contract.LLMProvider`
+— the vendor adapter growing a second capability rather than a second pack,
+because both plugins share the one thing a vendor pack actually owns: an
+authenticated account. See `weft_openai.llm`'s own module docstring for the
+mapping table that keeps OpenAI's exception hierarchy out of every pack
+downstream of `weft-llm`.
+
+**The two are registered under two names, and until ledger task 8.15 they
+were not** — this module imported one `NAME` from `weft_openai.embedder` and
+passed it to both `registrar.add` calls, so a single constant named two
+different capabilities. The result was a name answering to two contracts,
+which `weft_cli.compile._contract_for` refuses outright: a pipeline document
+selects by bare name and has nothing to say which contract was meant, so the
+embedder was registered, listed, catalogued, selectable through `[services]
+embed`, and **placeable by no pipeline document in existence**. Sharing an
+account is not sharing a name. `openai` stays the provider, because
+`[llm.roles] provider = "openai"` reads as a vendor and is one;
+`openai-embeddings` is the embedder, named for the endpoint it calls, on the
+convention every stage plugin in this tree already follows — `hash`,
+`fixed-size`, `pgvector` are named for what they do. Fitness function **18**
+holds it: no registered name may answer to two contracts.
 """
 
 from functools import partial
@@ -35,14 +50,15 @@ from weft_kernel.discovery import Disclosure, PackRegistrar
 from weft_llm.contract import LLMProvider
 from weft_openai.embedder import (
     DEFAULT_MODEL,
-    NAME,
     EmbeddingRequestFailedError,
     MissingApiKeyError,
     OpenAIEmbedder,
     OpenAIEmbedderConfig,
     UnembeddableNodeError,
 )
+from weft_openai.embedder import NAME as EMBEDDER_NAME
 from weft_openai.llm import DEFAULT_MODEL as DEFAULT_LLM_MODEL
+from weft_openai.llm import NAME as PROVIDER_NAME
 from weft_openai.llm import OpenAILLMConfig, OpenAILLMProvider
 from weft_openai.settings import Settings
 
@@ -72,7 +88,12 @@ DISCLOSURE = Disclosure(
 
 
 def register(registrar: PackRegistrar, settings: Settings) -> None:
-    """Register `OpenAIEmbedder` and `OpenAILLMProvider`, both as `"openai"`, one account.
+    """Register `OpenAIEmbedder` and `OpenAILLMProvider` — one account, two names.
+
+    `EMBEDDER_NAME` and `PROVIDER_NAME` are deliberately two constants, imported from the
+    two modules that own them, rather than one shared between the calls. See the module
+    docstring: one constant for both is exactly how this pack shipped a name no pipeline
+    document could select, and fitness function 18 now refuses the shape.
 
     `settings` is bound in through `functools.partial`, exactly as
     `weft_store` binds its connection string, so `Runner.resolve`'s
@@ -83,14 +104,15 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     docstring on why `model` is a per-call argument rather than constructor
     state — so its factory ignores the second positional argument entirely.
     """
-    registrar.add(Embedder, NAME, partial(OpenAIEmbedder, settings))
-    registrar.add(LLMProvider, NAME, partial(OpenAILLMProvider, settings))
+    registrar.add(Embedder, EMBEDDER_NAME, partial(OpenAIEmbedder, settings))
+    registrar.add(LLMProvider, PROVIDER_NAME, partial(OpenAILLMProvider, settings))
 
 
 __all__ = [
     "DEFAULT_LLM_MODEL",
     "DEFAULT_MODEL",
-    "NAME",
+    "EMBEDDER_NAME",
+    "PROVIDER_NAME",
     "EmbeddingRequestFailedError",
     "MissingApiKeyError",
     "OpenAIEmbedder",

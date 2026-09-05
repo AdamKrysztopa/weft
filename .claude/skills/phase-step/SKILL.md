@@ -111,6 +111,16 @@ fluent docstring citing the section it was not in. It said so in its report, whi
 it was caught. Ask of every literal in an assertion: *would the documents have written this?*
 Where a task's evidence needs more than one test, the `test-patterns` skill owns suite discipline.
 
+**When a brief names a base class, grep for that base class before writing *Already decided*.**
+Putting a class into a marked family is not a base-class choice — it is an edit to every site
+keyed on that marker, and none of those sites is reachable from the new code. One error class
+joining `UnresolvedNameError` owed edits to a pinned membership frozenset inside an architecture
+test, an exit-code dispatch branch, and a troubleshooting-coverage ratchet; a fourth site turned up
+in an unrelated task the same day, from a one-line "remove this entry" instruction. Four sites,
+found one at a time by four different mechanisms, when one grep before writing each brief would
+have found them all (`L8.12`). The implementer cannot fix them — most live in tests it may not
+touch — so a brief that omits them is a dispatch that cannot succeed.
+
 **Before listing what a task touches, look up who quotes it.** `L5.14` says a list in a document is
 where to start looking; the sharper version is that the tree has already built the index for some of
 these. `tests/docs/test_pack_guide_samples.py` holds a machine-readable map of every tagged sample
@@ -226,7 +236,14 @@ A task is not done until all of these are true:
    at all, and a check whose subject is legitimately empty today passes vacuously — there the floor
    is a self-test proving the comparison is not vacuous. → `references/evidence.md`
 
-   **Plant the *right* disagreement, and for a check with a waiver that means emptying the waiver.**
+   **A check whose population comes from `git ls-files` does not include its own new file until
+that file is staged.** Plant *after* `git add`, not before — otherwise the check runs against a
+tree its own subject is missing from, reports nothing wrong, and the green is about a population
+of one fewer than you think (`L8.10`). The same trap catches the cleanup: a staged-then-deleted
+plant leaves a tracked path with no file behind it, and a sweep that does not guard for that
+crashes on the exact state its own non-vacuity exercise produces.
+
+**Plant the *right* disagreement, and for a check with a waiver that means emptying the waiver.**
    It is the one plant that separates *"nothing is wrong"* from *"nothing is being looked at"*.
    Phase 6 shipped a documentation check whose prose sweep matched **nothing in the entire shipped
    set**, with five green tests including a hand-written non-vacuity test — which asked whether the
@@ -239,7 +256,11 @@ A task is not done until all of these are true:
    that renders through a default stops describing the artefact the moment the artefact starts
    passing something else, and it goes on agreeing with the shape it produced itself (`L6.21`).
 4. **You have run the thing, through the shipped entry point, from a directory that is not this
-   repository — including its failure path.** *An import probe is not this.* Installing a
+   repository — including its failure path.** *And construct the condition for any branch that
+   only fires sometimes.* A conditional fan-out, a retry, a fallback, a rare-input path: running
+   the happy case exercises none of them, and two defects once sat behind one such branch where
+   the first hid the second, so fixing only what the first traceback named would have shipped the
+   other (`L8.11`). Ask which branch of this change has never executed, then make it execute. *An import probe is not this.* Installing a
    distribution alone and importing it proves its **import-time** dependencies and nothing else — a
    subprocess call, a lazily-imported optional backend, a data file opened on first use are all
    invisible to it, and `weft-cli` shipped for a phase needing a `ruff` it declared nowhere

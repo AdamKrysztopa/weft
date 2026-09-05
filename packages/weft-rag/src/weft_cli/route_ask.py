@@ -39,12 +39,15 @@ own module docstring for why that check is not inside `build_services` itself.
 route` has been folded into `ask` (`docs/build-ledger.md`'s 3.11 entry has the surface
 argument in full): this function skips `route.yaml` entirely and resolves `pipeline_name`
 straight against `weft_cli.pipeline_catalogue.full_catalogue` — project-local documents
-*and* every installed pack's own contribution, deliberately broader than `run_routed_ask`'s
-own `load_contributed`-only catalogue, because naming a pipeline by hand is exactly the case
-a project-local document scaffolded by `weft pipeline derive` and never published as a pack
-should be reachable from. `_prepared_runner` below is the setup the two functions share —
-`build_services`, the routed `Context`, the `Runner` and the resolved store — factored out
-once both existed, rather than a second copy of `run_routed_ask`'s own first half.
+*and* every installed pack's own contribution, **the same catalogue `run_routed_ask` now
+builds since ledger task 8.12** — naming a pipeline by hand is exactly the case a
+project-local document scaffolded by `weft pipeline derive` and never published as a pack
+should be reachable from, and so is naming one as the router: the narrower,
+contributed-only search set the router used to have was a Phase 2 implementation gap
+carried forward, never a trust boundary, and 8.12 closed it. `_prepared_runner` below is
+the setup the two functions share — `build_services`, the routed `Context`, the `Runner`
+and the resolved store — factored out once both existed, rather than a second copy of
+`run_routed_ask`'s own first half.
 """
 
 from __future__ import annotations
@@ -58,7 +61,6 @@ from weft_cli.pipeline_catalogue import (
     DEFAULT_PIPELINES_DIR,
     UnknownPipelineNameError,
     full_catalogue,
-    load_contributed,
 )
 from weft_cli.run_services import build_services, check_store_capabilities
 from weft_cli.services import DEFAULT_ROUTER, ServiceSelection
@@ -177,7 +179,7 @@ async def run_routed_ask(
     on the identical footing `weft_cli.pipeline_commands._resolved_or_refuse` and
     `weft_cli.ingest._specs_from_document` already receive it.
     """
-    catalogue = load_contributed(reports)
+    catalogue = full_catalogue(reports=reports)
     router_name = services.route
     router = catalogue.get(router_name)
     if router is None:
@@ -367,10 +369,10 @@ async def run_named_ask(
     `weft ask <question> --pipeline <name>`, never a second command. Resolved against
     `weft_cli.pipeline_catalogue.full_catalogue` — project-local documents *and* every
     installed pack's own contribution, the identical set `weft pipeline show/validate/diff/
-    derive` already resolve names against — deliberately wider than `run_routed_ask`'s own
-    `load_contributed`-only catalogue, which is the *router*'s own search set (Phase 2's
-    settled behaviour, untouched here): a pipeline scaffolded by `weft pipeline derive` and
-    never published as a pack is reachable the moment it validates.
+    derive` resolve names against, and, since ledger task **8.12**, the identical set
+    `run_routed_ask` resolves `[services] route` against too: a pipeline scaffolded by
+    `weft pipeline derive` and never published as a pack is reachable the moment it
+    validates, whether it is named by hand here or named as the router.
 
     Raises `weft_cli.pipeline_catalogue.UnknownPipelineNameError` if `pipeline_name` is not
     in the catalogue — reused rather than duplicated, on `weft_cli.commands.

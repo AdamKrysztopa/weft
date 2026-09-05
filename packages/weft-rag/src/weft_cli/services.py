@@ -15,7 +15,7 @@ line each:
 
 ```toml
 [services]
-embed = "openai"
+embed = "openai-embeddings"
 store = "qdrant"
 ```
 
@@ -130,9 +130,17 @@ class ServiceSelection(BaseModel):
     store: str = DEFAULT_STORE
 
     #: The pipeline document `weft ask` runs to choose a pipeline — see `DEFAULT_ROUTER` for
-    #: why this is a key rather than a constant. Only a **contributed** document can be named:
-    #: `run_routed_ask` searches `load_contributed`, not the project's own `pipelines/`
-    #: directory, which is Phase 2's settled behaviour and is not reopened here.
+    #: why this is a key rather than a constant. Since ledger task **8.12**, a project-local
+    #: document may be named here too: `run_routed_ask` searches `weft_cli.pipeline_catalogue.
+    #: full_catalogue`, the identical merged catalogue every `weft pipeline` command and
+    #: `run_named_ask` already resolve against, not `load_contributed` alone. The narrower
+    #: search set 8.3 shipped this with was a Phase 2 implementation gap carried forward —
+    #: `02` §2's trust model is about installed *packs*, and a project's own `pipelines/`
+    #: document is text its own author wrote, not a boundary to defend — so widening it
+    #: introduces no new trust the project did not already have over its own files. A name
+    #: both a project document and a pack contribution declare is refused outright
+    #: (`weft_cli.pipeline_catalogue.ProjectPipelineNameCollisionError`), never resolved to
+    #: one of the two in silence.
     route: str = DEFAULT_ROUTER
 
 
@@ -152,7 +160,7 @@ def service_selection_from_config(document: dict[str, object] | None) -> Service
     if not isinstance(services, dict):
         raise WeftError(
             f"weft.toml's [services] must be a table, not {type(services).__name__} — found "
-            f'`services = {services!r}`. Did you mean `[services]\\nembed = "openai"`?'
+            f'`services = {services!r}`. Did you mean `[services]\\nembed = "openai-embeddings"`?'
         )
     written = cast("dict[str, object]", services)
     known = tuple(sorted(ServiceSelection.model_fields))

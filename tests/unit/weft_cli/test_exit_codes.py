@@ -121,6 +121,27 @@ def test_an_unknown_run_id_maps_to_resolution_failed_via_the_local_import() -> N
     assert exit_code_for(exc) is ExitCode.RESOLUTION_FAILED
 
 
+def test_an_unrun_baseline_pipeline_maps_to_resolution_failed_via_the_local_import() -> None:
+    # Task 8.8 — `weft eval compare --baseline <pipeline>` naming a pipeline nothing under
+    # `runs/` ever ran is "fix what you typed", the identical exit-4 family as an unknown run
+    # id, and it rides the local import that one already pays for.
+    from weft_cli.eval_commands import NoBaselineRunsError
+
+    exc = NoBaselineRunsError("no such baseline", valid_options=(), baseline="ghost")
+    assert exit_code_for(exc) is ExitCode.RESOLUTION_FAILED
+
+
+def test_a_baseline_run_once_maps_to_operation_failed_not_resolution_failed() -> None:
+    # Task 8.8's deliberate other side. A baseline with one repetition is not a misspelled
+    # name — the name resolved, and the runs on disk cannot answer the question. That is
+    # "something failed", the footing `EmptyCorpusError` already has, and reporting it as
+    # "fix the pipeline" would send an operator to edit a document that is not wrong.
+    from weft_eval.falsify import TooFewRepetitionsError
+
+    exc = TooFewRepetitionsError("only one repetition", repetitions=1)
+    assert exit_code_for(exc) is ExitCode.OPERATION_FAILED
+
+
 def test_an_unknown_metric_name_maps_to_resolution_failed_via_the_local_import() -> None:
     # Task 4.7 — `weft eval metrics <name>` naming a metric neither contract registered is
     # "fix what you typed", the identical exit-4 family as an unknown run id, checked via the

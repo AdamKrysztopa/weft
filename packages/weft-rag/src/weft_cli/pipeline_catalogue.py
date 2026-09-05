@@ -102,26 +102,29 @@ class ContributedPipelineNameCollisionError(WeftError):
     enforces: "a contributed name colliding with a project-local one is refused naming
     both — the same rule as a duplicate plugin name, resolvable by an operator pin."
     **Narrowed on repair, 2.8's own line on `docs/build-ledger.md`:** `load_contributed`
-    below takes no project-local catalogue as input, and the one live caller —
-    `weft_cli.route_ask.run_routed_ask` — never merges one in either, because no CLI
-    command yet wires a `load_pipeline_catalogue(directory)` result into a route decision.
-    So what this class actually refuses today is two *contributed* resources, from any
-    distributions, sharing one `name:` — a real check, just not the design record's fuller
-    one. A separate class from `DuplicatePipelineNameError` all the same, because the two
-    would disambiguate different sources in their own message if the wider check existed —
-    a `Path` for a catalogue directory, a `distribution:package/resource` locator for a
-    contributed one — and collapsing them now would make that future error's text lie
-    about where to look. Neither is a plugin-name collision, so `weft_kernel.registry`'s
-    `[plugins]` pin cannot arbitrate this one; the remedy is renaming one of the two
-    pipeline documents.
+    below takes no project-local catalogue as input, so what this class actually refuses
+    is two *contributed* resources, from any distributions, sharing one `name:` — a real
+    check, just not the design record's fuller one. A separate class from
+    `DuplicatePipelineNameError` all the same, because the two would disambiguate
+    different sources in their own message if the wider check existed — a `Path` for a
+    catalogue directory, a `distribution:package/resource` locator for a contributed one —
+    and collapsing them now would make that future error's text lie about where to look.
+    Neither is a plugin-name collision, so `weft_kernel.registry`'s `[plugins]` pin cannot
+    arbitrate this one; the remedy is renaming one of the two pipeline documents.
 
     **The wider guarantee arrived at task 3.7 — `full_catalogue` below, not this class.**
-    `weft pipeline list|show|derive|validate|diff` is the first caller that actually wires
+    `weft pipeline list|show|derive|validate|diff` was the first caller that actually wired
     a `load_pipeline_catalogue(directory)` result together with `load_contributed(reports)`,
-    so the project-local-versus-contributed collision `.phase2-design.md` §5 described is now
+    so the project-local-versus-contributed collision `.phase2-design.md` §5 described became
     real; it is `ProjectPipelineNameCollisionError` below, not folded into this class, for the
     identical disambiguation reason this docstring already gives — the two sources still need
-    two different messages.
+    two different messages. **Ledger task 8.12 gave `weft_cli.route_ask.run_routed_ask` the
+    same wider catalogue**, so every live caller in the tree now resolves a pipeline name
+    against `full_catalogue`; the narrower, contributed-only search the router used to have
+    was this class's own gap carried one caller further, never a trust boundary — a
+    project's own `pipelines/*.yaml` is text its own author wrote, not code a pack shipped —
+    and closing it left this class's own check, the contributed-versus-contributed one,
+    exactly as it was.
     """
 
 

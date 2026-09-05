@@ -107,6 +107,13 @@ lesson about the work — L5.5's unchecked `weft.toml` container is one. The def
 **build-ledger task**; only the generalisation becomes a rule. Fixing the instance and calling the
 lesson applied leaves the class open.
 
+**A task filed with its remedy already chosen has chosen an untested one.** An entry that names
+the fix as well as the defect hands the next person a conclusion reached before anybody tried it,
+and it will be followed — that is what filing it does. One did, and the prescribed repair was
+wrong about a caller it could never have disciplined (`L7.1`). An entry states the property that
+was violated; the remedy is a suggestion and must be written as one, because the person who
+implements it will have read the tree and the person who filed it had read one failure.
+
 **And a task written from one instance narrows to that instance.** When an entry becomes a ledger
 task, carry every qualifier and every failure mode the original carried — a repair specified from the
 one failure that produced it will not cover the opposite one. Task 6.22 was written from `L5.28`,
@@ -115,6 +122,22 @@ be structural *"never as a substring of file text"*. Two months later FF9(b) cau
 violations that were **only** findable by text scan, and the task as filed would have removed the
 clause that found them. The same shape as `L6.3`: a rewrite that keeps the rule and drops the
 exception it qualified. Write the task against the *class*, and say which failure modes it owns.
+
+**Triage on the generalisation, never on the instance.** The first question to ask an entry is
+*not* "is this defect still there?" — almost always it is not, because `lessons` requires the entry
+be written the moment the defect is caught, which is usually the commit that fixes it. One commit
+in this tree says so outright: *"Four lessons logged, L7.4 through L7.7."* Seven of nine `L7.x`
+entries had their triggering defect long gone and their rule still homeless three phases later
+(`L8.18`). Reading *instance repaired* as *entry finished* is how a queue empties itself of
+everything it was for. **The question is: does the artefact that would have caught this contain
+the rule yet, and would it have bitten?**
+
+**An entry is applied when the artefact names it.** `.github/workflows/release.yml` carries
+`docs/lessons.md L7.9` in a comment directly above the job that implements it, and that one line
+is why "is this already done?" took seconds rather than an argument — for every other applied
+entry in this tree it takes a reading. So cite the lesson id at the point of enforcement: in the
+check's docstring, the hook's comment, the paragraph's own sentence. It turns the next drain's
+hardest question into a grep, and it is the cheapest thing in this whole skill.
 
 ## Finishing
 

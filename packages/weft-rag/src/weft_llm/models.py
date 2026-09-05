@@ -12,11 +12,11 @@ consumers: `weft_llm.client` resolves every role's model string through both fun
 `ModelRef.provider` is the catalogue identity (a registry plugin name, what telemetry and an
 invoice attribute cost to), and `ModelRef.model` is the runtime identity (what
 `LLMProvider.complete(..., model=...)` receives). Collapsing them is exactly the mistake this
-distinction guards against: `"openai/gpt-4o-mini"` handed straight to the OpenAI SDK is a 404,
-and `"gpt-4o-mini"` recorded as the provider attributes a bill to nobody.
+distinction guards against: `"openai/gpt-5.6-luna"` handed straight to the OpenAI SDK is a 404,
+and `gpt-5.6-luna` recorded as the provider attributes a bill to nobody.
 
 **A slash is not evidence of a prefix, and that is the whole of the disambiguation.**
-`meta-llama/Llama-3-8B` is one model id; `openai/gpt-4o-mini` is a provider and a model. The
+`meta-llama/Llama-3-8B` is one model id; `openai/gpt-5.6-luna` is a provider and a model. The
 only thing that separates them is whether the segment before the slash names a provider *this
 deployment mapped* — so `providers` is an argument, never a hard-coded vendor list this module
 would then have to maintain. With no providers named, no string is ever split, which is the
@@ -34,7 +34,7 @@ from weft_llm.errors import LLMPermanentError
 class ModelProviderMismatchError(LLMPermanentError):
     """A role's model string carries a provider prefix naming a *different* provider.
 
-    `generate = { provider = "scripted", model = "openai/gpt-4o-mini" }` is two answers to
+    `generate = { provider = "scripted", model = "openai/gpt-5.6-luna" }` is two answers to
     one question, and guessing which one the operator meant is the silent-coercion defect
     `docs/02-extension-model.md` §5 records four times over. Refused, naming both.
     """

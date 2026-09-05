@@ -111,6 +111,15 @@ uv run poe kernel-isolated # install weft-kernel alone in a clean env and import
 reachable from it, because a boundary checker that is not in the canonical task never runs, and a
 fitness function that never runs is not a fitness function. If you add a check, add it to the composite in the same commit.
 
+**And the gate you ran is only the gate if the environment is.** Three separate lessons are one
+sentence: a `uv.lock` that was untracked made a local run and CI's clean-checkout run different
+gates (`L7.2`); a metadata API answered one way under an editable install and another way under a
+real one, which is where it actually runs (`L7.6`); and a container brought down mid-task silently
+dropped 51 tests out of every run afterwards, green each time (`L7.8`). None of the three is a bad
+check — each is a correct check asked in the wrong environment. So before a green means anything:
+**the lockfile is the committed one, the container is up, and the skip count is the one you
+expect.** A skip is not a pass, and a suite that quietly shrank is the failure mode with no symptom.
+
 **And a green gate is not a working binary.** Before a task is done, run `weft` through its shipped
 entry point from a directory that is not this repository, including a failure path, and read what it
 prints. This is measured rather than believed: **all four of Phase 3's repairs were found by running

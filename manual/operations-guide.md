@@ -166,7 +166,7 @@ listed is refused, and refusal happens *before* the pack is ever imported, not a
 statement of policy, not a sandbox — see *What this does not protect you from*, below.
 
 **A pin has to permit the pack behind every plugin name the rest of the file selects.** Setting
-`[services] embed = "openai"` and leaving `weft-openai` off this list is a contradiction, and
+`[services] embed = "openai-embeddings"` and leaving `weft-openai` off this list is a contradiction, and
 `weft index` says so before it runs anything:
 
 ```text
@@ -186,7 +186,7 @@ Weft ships two, registered under one contract, and `[services]` chooses between 
 
 ```toml
 [services]
-embed = "openai"
+embed = "openai-embeddings"
 
 [packs.openai]
 api_key = "${env:OPENAI_API_KEY}"
@@ -240,7 +240,7 @@ stages:
   - id: chunk
     use: fixed-size
   - id: embed
-    use: openai
+    use: openai-embeddings
     with: {model: text-embedding-3-large, dimensions: 1024, batch_size: 64}
   - id: store
     use: pgvector
@@ -340,9 +340,9 @@ a role a technique plugin's own configuration reads:
 
 ```toml
 [llm.roles]
-generate = { provider = "openai", model = "gpt-4o-mini" }
-grade    = { provider = "openai", model = "gpt-4o-mini" }
-rerank   = { provider = "openai", model = "gpt-4o-mini" }
+generate = { provider = "openai", model = "gpt-5.6-luna" }
+grade    = { provider = "openai", model = "gpt-5.6-luna" }
+rerank   = { provider = "openai", model = "gpt-5.6-luna" }
 route    = { provider = "scripted" }
 
 [packs.openai]
@@ -364,7 +364,7 @@ registry names one, so a role added by installing a new pack costs zero edits he
 provider answers deterministically, from the conversation alone, with nothing behind it to call —
 the same honesty `weft-embed`'s `hash` states about its own vectors. It is what lets a clean
 checkout run `poe ci-checks` with no account and no network, and it is the wrong thing to judge a
-generated answer against. `weft-openai`'s `openai` calls `gpt-4o-mini` by default and produces
+generated answer against. `weft-openai`'s `openai` calls `gpt-5.6-luna` by default and produces
 answers that mean something; it needs the credential above, and every call is a metered API call.
 
 **A role nothing maps fails loudly, the first time something asks it to answer** — there is no
@@ -377,8 +377,8 @@ passages, no router, no model call. An unmapped role fails loudly by name, the s
 for any other pipeline stage.
 
 **A model string may name its provider, and a mismatch is refused rather than guessed.**
-`model = "openai/gpt-4o-mini"` under a role whose `provider` is `openai` is the same thing as
-`model = "gpt-4o-mini"`; under a role whose provider is `scripted` it is a contradiction, and
+`model = "openai/gpt-5.6-luna"` under a role whose `provider` is `openai` is the same thing as
+`model = "gpt-5.6-luna"`; under a role whose provider is `scripted` it is a contradiction, and
 Weft says so instead of choosing one half. A slash alone means nothing — `meta-llama/Llama-3-8B`
 is one model id, and the prefix is only read as a provider when it names a provider some role in
 your own file maps.
@@ -730,11 +730,13 @@ active distribution set fitness function 8(c) checks.
 pipeline names exactly one stage under the `Extractor` contract, so a baseline names one —
 `--extractor text` (the default) covers the `.md`/`.txt` corpus, `--extractor pdf-text` covers
 the PDFs, and a run mixing formats needs two baselines rather than one. `--embedder` defaults to
-`hash`, not `openai`: `weft-openai` registers its one client as `"openai"` under both `Embedder`
-and `LLMProvider`, so a pipeline **document**'s bare `use: openai` cannot say which contract it
-means and `weft index --pipeline` refuses with `AmbiguousStageContractError` — `[services] embed
-= "openai"` is unaffected, since it supplies the contract directly, but this harness's own
-`--pipeline` path cannot use it until that name collision has an owner. `hash` costs nothing to
+`hash`, not `openai-embeddings`, and that is a reproducibility choice rather than a workaround.
+**The name collision this paragraph used to describe is gone** — `weft-openai` registered one
+client as `"openai"` under both `Embedder` and `LLMProvider`, so a document's bare `use: openai`
+could not say which contract it meant and `weft index --pipeline` refused with
+`AmbiguousStageContractError`. Ledger task 8.15 split the two: the embedder is
+`openai-embeddings`, the chat provider keeps `openai`, and both `use: openai-embeddings` and
+`[services] embed = "openai-embeddings"` work. `hash` costs nothing to
 run and needs no vendor account, which also makes the published baseline reproducible by a
 stranger with none.
 

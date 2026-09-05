@@ -8,7 +8,7 @@ with a reason, when no credential is present, so `poe ci-checks` runs end to end
 checkout and re-measures the live claim whenever a key is exported.
 
 **What is asserted is behaviour, not a threshold.** `09` §4.4 forbids inventing a quality
-number; the property worth checking against the real API is that `gpt-4o-mini` answers a
+number; the property worth checking against the real API is that `gpt-5.6-luna` answers a
 question this pack asked it to answer, under the model this pack asked for, and that the
 same account refuses cleanly — mapped to `weft_llm.errors.LLMAuthenticationError`, not a bare
 vendor exception — when the key is wrong.

@@ -15,6 +15,13 @@ edge case (an empty corpus refuses rather than persisting a vacuous record), and
 than duplicated). `EvalCompareCommand` — the happy path (a pipeline-only difference diffs
 cleanly) and the error case (a corpus mismatch refuses, naming why). `TraceCommand` — the happy
 path and the error case (an unknown run id names every id that does exist).
+
+Task **8.8** adds `weft eval compare --baseline <pipeline>`, the falsification instrument, and
+the tests for it at the foot of this file. What is exercised here is the *seam*, never the
+arithmetic — which repetitions the command selects out of `runs/`, that it refuses a baseline
+name nothing under `runs/` ran, that it refuses a baseline measured against a different corpus,
+and that omitting the flag invents no verdict at all. The rule itself, and every case where
+there is nothing to judge, is `tests/unit/weft_eval/test_falsify.py`.
 """
 
 from __future__ import annotations
@@ -41,6 +48,7 @@ from weft_cli.eval_commands import (
     EvalRunCommand,
     EvalRunCommandResult,
     IncomparableRunsError,
+    NoBaselineRunsError,
     TraceArgs,
     TraceCommand,
     TraceCommandResult,
@@ -52,6 +60,7 @@ from weft_cli.services import ServiceSelection
 from weft_embed import Embedder
 from weft_eval.aggregate import MetricAggregate
 from weft_eval.contract import GenerationMetric
+from weft_eval.falsify import BaselineSpread, TooFewRepetitionsError, Verdict
 from weft_eval.offline import MetricNeedsCredentialsError, UnknownMetricNameError
 from weft_eval.run_record import CorpusIdentity, NotAggregated, build_run_record, write_run_record
 from weft_extract import Extractor
@@ -563,3 +572,152 @@ async def test_eval_metrics_refuses_an_unknown_name_listing_what_does_exist() ->
         await EvalMetricsCommand().run(EvalMetricsArgs(name="does-not-exist"), _ctx(deps))
     assert "safe-metric" in excinfo.value.valid_options
     assert "unsafe-metric" in excinfo.value.valid_options
+
+
+def _aggregate(name: str, mean: float) -> Produced[MetricAggregate]:
+    """One scored metric for one run — task 8.8's tests care about `mean` and nothing else."""
+    return Produced(
+        value=MetricAggregate(
+            reported_name=name, mean=mean, n=4, stdev=0.0, excluded=0, nothing_to_produce=0
+        )
+    )
+
+
+async def test_eval_compare_without_a_baseline_reports_no_verdict_at_all(tmp_path: Path) -> None:
+    # Arrange — task 8.8 must not start answering a question nobody asked: with no baseline
+    # there is no measured variability, so there is nothing a verdict could be derived from.
+    _write_record(
+        tmp_path,
+        "run-a",
+        pipeline_name="vector-top-k",
+        corpus_name="corpus",
+        metrics={"precision@5": _aggregate("precision@5", 0.40)},
+    )
+    _write_record(
+        tmp_path,
+        "run-b",
+        pipeline_name="hybrid",
+        corpus_name="corpus",
+        metrics={"precision@5": _aggregate("precision@5", 0.90)},
+    )
+
+    # Act
+    outcome = await EvalCompareCommand().run(EvalCompareArgs(a="run-a", b="run-b"), _ctx(_deps()))
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = outcome.value
+    assert isinstance(result, EvalCompareCommandResult)
+    assert result.falsification is None
+    assert result.baseline_runs == ()
+
+
+async def test_eval_compare_judges_a_difference_against_the_named_baselines_repetitions(
+    tmp_path: Path,
+) -> None:
+    # Arrange — the baseline pipeline ran three times and varied by 0.02 doing nothing; the
+    # two rungs then differ by 0.16, which is more than that. Both baseline repetitions and
+    # the rungs are ordinary persisted runs under `runs/`, since that is all `weft eval run`
+    # ever writes — no second file format the CLI would have to be taught to read.
+    for run_id, mean in (("base-1", 0.40), ("base-2", 0.42), ("base-3", 0.41)):
+        _write_record(
+            tmp_path,
+            run_id,
+            pipeline_name="vector-top-k",
+            corpus_name="corpus",
+            metrics={"precision@5": _aggregate("precision@5", mean)},
+        )
+    _write_record(
+        tmp_path,
+        "run-a",
+        pipeline_name="vector-top-k",
+        corpus_name="corpus",
+        metrics={"precision@5": _aggregate("precision@5", 0.41)},
+    )
+    _write_record(
+        tmp_path,
+        "run-b",
+        pipeline_name="hybrid",
+        corpus_name="corpus",
+        metrics={"precision@5": _aggregate("precision@5", 0.57)},
+    )
+
+    # Act
+    outcome = await EvalCompareCommand().run(
+        EvalCompareArgs(a="run-a", b="run-b", baseline="vector-top-k"), _ctx(_deps())
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = outcome.value
+    assert isinstance(result, EvalCompareCommandResult)
+    assert result.baseline_pipeline == "vector-top-k"
+    # Every persisted run of that pipeline is a repetition, and only those.
+    assert set(result.baseline_runs) == {"base-1", "base-2", "base-3"}
+    assert result.falsification is not None
+    judgement = result.falsification["precision@5"]
+    assert judgement.verdict is Verdict.OUTSIDE_BASELINE_SPREAD
+    assert isinstance(judgement.spread, BaselineSpread)
+    assert (judgement.spread.low, judgement.spread.high) == (0.40, 0.42)
+
+
+async def test_eval_compare_refuses_a_baseline_pipeline_nothing_under_runs_ran(
+    tmp_path: Path,
+) -> None:
+    # Arrange — `01` requirement 5 applied to a baseline name exactly as `UnknownRunIdError`
+    # already applies it to a run id: name what does exist rather than answering emptily.
+    _write_record(tmp_path, "run-a", pipeline_name="vector-top-k", corpus_name="corpus")
+    _write_record(tmp_path, "run-b", pipeline_name="hybrid", corpus_name="corpus")
+
+    # Act / Assert
+    with pytest.raises(NoBaselineRunsError) as caught:
+        await EvalCompareCommand().run(
+            EvalCompareArgs(a="run-a", b="run-b", baseline="raptor-and-leaves-rrf"), _ctx(_deps())
+        )
+    assert "raptor-and-leaves-rrf" in str(caught.value)
+    assert set(caught.value.valid_options) == {"vector-top-k", "hybrid"}
+
+
+async def test_eval_compare_refuses_a_baseline_run_once(tmp_path: Path) -> None:
+    # Arrange — V3's own failure clause reaching the CLI: one repetition records no interval,
+    # so there is nothing to judge against and the command says so instead of judging.
+    _write_record(
+        tmp_path,
+        "base-1",
+        pipeline_name="vector-top-k",
+        corpus_name="corpus",
+        metrics={"precision@5": _aggregate("precision@5", 0.40)},
+    )
+    _write_record(tmp_path, "run-a", pipeline_name="rerank", corpus_name="corpus")
+    _write_record(tmp_path, "run-b", pipeline_name="hybrid", corpus_name="corpus")
+
+    # Act / Assert
+    with pytest.raises(TooFewRepetitionsError):
+        await EvalCompareCommand().run(
+            EvalCompareArgs(a="run-a", b="run-b", baseline="vector-top-k"), _ctx(_deps())
+        )
+
+
+async def test_eval_compare_refuses_a_baseline_measured_against_a_different_corpus(
+    tmp_path: Path,
+) -> None:
+    # Arrange — V3's other failure clause. A baseline's spread is a measurement of *this*
+    # system on *this* corpus; one taken elsewhere is not the variability of the thing being
+    # judged, and a plausible number computed from it is the more dangerous outcome.
+    for run_id in ("base-1", "base-2"):
+        _write_record(
+            tmp_path,
+            run_id,
+            pipeline_name="vector-top-k",
+            corpus_name="some-other-corpus",
+            metrics={"precision@5": _aggregate("precision@5", 0.40)},
+        )
+    _write_record(tmp_path, "run-a", pipeline_name="rerank", corpus_name="corpus")
+    _write_record(tmp_path, "run-b", pipeline_name="hybrid", corpus_name="corpus")
+
+    # Act / Assert
+    with pytest.raises(IncomparableRunsError) as caught:
+        await EvalCompareCommand().run(
+            EvalCompareArgs(a="run-a", b="run-b", baseline="vector-top-k"), _ctx(_deps())
+        )
+    assert "corpus" in str(caught.value)

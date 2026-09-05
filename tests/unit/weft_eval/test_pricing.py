@@ -44,9 +44,18 @@ def test_an_empty_run_prices_to_zero_not_an_error() -> None:
 
 
 def test_a_call_with_no_rate_entry_is_excluded_and_counted_never_priced_at_zero() -> None:
-    # Arrange — a model nothing in `rates` prices, beside one that does.
+    # Arrange — a model nothing in `rates` prices, beside one that does. The priced half is
+    # **read off `DEFAULT_RATES` itself** rather than named: this test is about the partition
+    # (priced vs excluded-and-counted), never about which models the shipped table happens to
+    # hold, and a literal here is a copy of the pin that goes stale the next time it moves —
+    # ledger 8.14 and `docs/lessons.md` L8.13, which is exactly what this line used to be an
+    # instance of. Deriving it is not the derived-from-what-it-verifies trap: nothing below
+    # asserts the table's contents, only that a rate present means priced and a rate absent
+    # means excluded, and the guard makes the vacuous case impossible.
+    assert DEFAULT_RATES, "DEFAULT_RATES is empty, so there is no priced half to test with"
+    a_priced_model = next(iter(DEFAULT_RATES))
     priced = PricedCall(
-        model="openai:gpt-4o-mini", usage=TokenUsage(prompt_tokens=1000, completion_tokens=0)
+        model=a_priced_model, usage=TokenUsage(prompt_tokens=1000, completion_tokens=0)
     )
     unpriced = PricedCall(
         model="openai:some-future-model", usage=TokenUsage(prompt_tokens=1000, completion_tokens=0)

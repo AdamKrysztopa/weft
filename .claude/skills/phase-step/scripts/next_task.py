@@ -160,7 +160,50 @@ def _split_fields(text: str) -> dict[str, str]:
     return out
 
 
-STATUS_ROW = re.compile(r"^\|\s*\*\*(?P<key>Phase|Next action)\*\*\s*\|\s*(?P<value>.+?)\s*\|\s*$")
+STATUS_ROW = re.compile(
+    r"^\|\s*\*\*(?P<key>Phase|Next action|Lessons queue)\*\*\s*\|\s*(?P<value>.+?)\s*\|\s*$"
+)
+
+#: The phase a string *declares*, by its leading `Phase <n>`. `docs/lessons.md` L8.1: the Status
+#: cell is prose that legitimately mentions other phases, so only the one it opens with is a
+#: claim about where the project is.
+PHASE_IN_STATUS = re.compile(r"Phase\s+(?P<number>\d+)")
+
+#: `docs/lessons.md` L8.15. The queue's depth was stated by hand in a prose cell and was wrong
+#: in both directions — stale before anyone touched it, and wrong again after arithmetic was
+#: done on it rather than a count. It gets its own row so it can be parsed structurally rather
+#: than grepped out of a sentence, which is the "test of prose" shape this repository already
+#: refuses elsewhere.
+QUEUE_DEPTH_IN_STATUS = re.compile(r"^(?P<count>\d+)\b")
+
+#: The ledger task `docs/README.md`'s Next action row points at — the row that outranks
+#: ledger order, so it is what the Status phase must agree with. See `live_checks`.
+NEXT_ACTION_TASK = re.compile(r"[Tt]ask\s+\*{0,2}(?P<identifier>\d+\.\d+)")
+
+#: One `### L<id> — <title>` entry in `docs/lessons.md`'s own `## Queue` section — the identical
+#: shape `.claude/hooks/lessons_context.py` counts, so the two cannot disagree about what an
+#: entry is.
+QUEUE_ENTRY = re.compile(r"^### (L[\d.]+) — ", re.MULTILINE)
+
+
+def queue_section(lessons: Path) -> str:
+    """The text of `docs/lessons.md`'s own `## Queue` section, and nothing after it.
+
+    `docs/lessons.md` L8.15. Bounded at the next `## ` heading exactly the way
+    `.claude/hooks/lessons_context.py` bounds it, so the two readers of this file cannot
+    disagree about which entries are open. Returns `""` for a file with no Queue heading —
+    the caller then counts zero and the assertion says so, rather than this raising.
+    """
+    try:
+        text = lessons.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+    start = text.find("## Queue")
+    if start == -1:
+        return ""
+    rest = text[start + len("## Queue") :]
+    end = rest.find("\n## ")
+    return rest if end == -1 else rest[:end]
 
 
 def status_block(readme: Path) -> dict[str, str]:
@@ -213,6 +256,89 @@ def find_ledger(explicit: str | None) -> Path:
     return Path("docs/build-ledger.md")
 
 
+def _phase_agreement_failures(tasks: list[Task], task: Task, status: dict[str, str]) -> list[str]:
+    """Does the Status block's declared phase agree with the task it points at?
+
+    Extracted from `live_checks` when that function crossed ruff's complexity ceiling — the two
+    clauses below and `_queue_depth_failures` are each a whole question, and a function holding
+    every question this script asks is one nobody reads before adding the next.
+    """
+    failures: list[str] = []
+    stated = status.get("Phase", "")
+    if stated:
+        # `docs/lessons.md` L8.1, and this is the third defect in this one comparison
+        # (L6.3, L6.4 are the other two). It read `... not in stated` — containment over
+        # the whole free-text cell — so it agreed whenever the *prose* happened to mention
+        # the other phase's name. That is not hypothetical: the live Status row says
+        # "Phase 8 ... It runs before Phase 7, which G12 still gates", the first unticked
+        # task is 7.1, and containment reported agreement on a tree where the two are
+        # deliberately different. Compare the phase the cell *declares* — the first
+        # `Phase <n>` it names — against the one the ledger gives, by equality.
+        # **Which task the Status phase is compared against is the whole question**, and
+        # getting it wrong is why the old check was written loosely enough to pass. Ledger
+        # order is only the default: `docs/README.md`'s own Next action row is documented
+        # as outranking it, and it is doing that right now — Phase 8 runs *before* Phase 7,
+        # which G12 still gates. So the first unticked ledger task is the wrong subject; a
+        # comparison against it fails on a correct tree, which is how a check earns a
+        # loosening that then hides real drift. Compare against the task the Next action
+        # row actually names, and fall back to ledger order only when it names none.
+        pointed = NEXT_ACTION_TASK.search(status.get("Next action", ""))
+        subject = task
+        if pointed is not None:
+            named = next((t for t in tasks if t.identifier == pointed.group("identifier")), None)
+            if named is None:
+                failures.append(
+                    f"the Status block's Next action row points at task "
+                    f"{pointed.group('identifier')!r}, which is in no phase of the ledger"
+                )
+            else:
+                subject = named
+        declared = PHASE_IN_STATUS.search(stated)
+        wanted = PHASE_IN_STATUS.search(subject.phase)
+        if declared is None:
+            failures.append(
+                f"the Status block's Phase row names no phase at all: {stated[:80]!r}… — "
+                f"it must open with the phase it is claiming, e.g. '**Phase 8 — ...**'"
+            )
+        elif wanted is not None and declared.group("number") != wanted.group("number"):
+            failures.append(
+                f"Status declares Phase {declared.group('number')} and the task it "
+                f"points at ({subject.identifier}) is in {subject.phase!r} — one of the "
+                f"two is stale, and the ledger cannot tell you which"
+            )
+    return failures
+
+
+def _queue_depth_failures(path: Path, status: dict[str, str]) -> list[str]:
+    """Does the Status block's stated queue depth equal the count of `lessons.md`'s own Queue?"""
+    failures: list[str] = []
+    # `docs/lessons.md` L8.15. The depth is a count of a file, so a human-written number
+    # is a second source that drifts — it was stale before this session and wrong again
+    # after somebody (me) did arithmetic on it instead of counting. Parsed from its own
+    # row rather than grepped out of the Next action prose, because a check that hunts a
+    # number out of free text passes the moment somebody writes a plausible sentence.
+    if "Lessons queue" not in status:
+        failures.append(
+            "the Status block has no 'Lessons queue' row — the queue's depth is a count of "
+            "docs/lessons.md, and stating it in prose is what L8.15 was paid for"
+        )
+    else:
+        declared_depth = QUEUE_DEPTH_IN_STATUS.match(status["Lessons queue"].strip())
+        counted = len(QUEUE_ENTRY.findall(queue_section(path.parent / "lessons.md")))
+        if declared_depth is None:
+            failures.append(
+                f"the Status block's 'Lessons queue' row must open with the number of open "
+                f"entries, got {status['Lessons queue'][:60]!r}"
+            )
+        elif int(declared_depth.group("count")) != counted:
+            failures.append(
+                f"Status says the lessons queue holds {declared_depth.group('count')} and "
+                f"docs/lessons.md's own '## Queue' section holds {counted} — the number is "
+                f"a count of that file, never a figure carried forward (L8.15)"
+            )
+    return failures
+
+
 def live_checks(
     path: Path, tasks: list[Task], phases: dict[str, Phase], task: Task, status: dict[str, str]
 ) -> list[str]:
@@ -250,12 +376,8 @@ def live_checks(
         for row in ("Phase", "Next action"):
             if row not in status:
                 failures.append(f"the Status block has no {row!r} row — it may have been renamed")
-        stated = status.get("Phase", "")
-        if stated and task.phase.split("\u2014")[0].strip() not in stated:
-            failures.append(
-                f"Status says Phase {stated!r} and the first unticked task is in {task.phase!r} "
-                f"— one of the two is stale, and the ledger cannot tell you which"
-            )
+        failures.extend(_phase_agreement_failures(tasks, task, status))
+        failures.extend(_queue_depth_failures(path, status))
 
     # L6.4's own defect, made checkable. A mark is only readable when the phase preamble says
     # what happened to the gate behind it; without that, a reader can only guess whether a
@@ -465,7 +587,15 @@ def _live_check_failures(
     if not any("provisional task" in f for f in fired):
         failures.append("live_checks stayed silent about a ⚠ its preamble never explains")
 
-    agreeing = {"Phase": first_unticked.phase, "Next action": "carry on"}
+    # The queue-depth clause reads the real `docs/lessons.md`, so the fixture states whatever
+    # that file currently holds — the assertion under test is *agreement*, not a number, and
+    # hard-coding one here would be the second hand-written count `L8.15` is about.
+    live_depth = len(QUEUE_ENTRY.findall(queue_section(path.parent / "lessons.md")))
+    agreeing = {
+        "Phase": first_unticked.phase,
+        "Next action": f"carry on with task {first_unticked.identifier}",
+        "Lessons queue": f"{live_depth} — counted, not stated",
+    }
     phase = phases.get(first_unticked.phase)
     explained = dict(phases)
     if phase is not None:
@@ -481,6 +611,44 @@ def _live_check_failures(
     stale = live_checks(path, tasks, explained, first_unticked, {**agreeing, "Phase": "Phase 0"})
     if not any("stale" in f for f in stale):
         failures.append("live_checks stayed silent about a Status phase that disagrees")
+
+    # `docs/lessons.md` L8.1, planted. The old comparison was `not in stated` — containment over
+    # the whole cell — so a Status row whose *prose* mentioned another phase agreed with it. This
+    # is that exact shape: the cell declares one phase and names a different one in passing, and
+    # the check must read the declaration, not the mention.
+    mentioning = {
+        **agreeing,
+        "Phase": f"**Phase 0 — something else**, which runs before {first_unticked.phase}",
+    }
+    substring = live_checks(path, tasks, explained, first_unticked, mentioning)
+    if not any("stale" in f for f in substring):
+        failures.append(
+            "live_checks agreed with a Status row that merely mentions the right phase while "
+            "declaring a different one — L8.1's own defect, reintroduced"
+        )
+
+    # `docs/lessons.md` L8.15, planted both ways: a missing row, and a number that disagrees.
+    missing_row = live_checks(
+        path,
+        tasks,
+        explained,
+        first_unticked,
+        {k: v for k, v in agreeing.items() if k != "Lessons queue"},
+    )
+    if not any("Lessons queue" in f for f in missing_row):
+        failures.append("live_checks stayed silent about a Status block with no queue-depth row")
+
+    wrong_count = live_checks(
+        path,
+        tasks,
+        explained,
+        first_unticked,
+        {**agreeing, "Lessons queue": f"{live_depth + 7} entries"},
+    )
+    if not any("lessons queue holds" in f for f in wrong_count):
+        failures.append(
+            "live_checks stayed silent about a queue depth that disagrees with the file"
+        )
     return failures
 
 
@@ -544,9 +712,19 @@ def check_live(path: Path) -> int:
         print(f"FAIL  {problem}")
     if problems:
         return 3
+    # Name the task actually compared against, not the first unticked one. `live_checks` reads
+    # the Status block's own Next action row and compares the phase against *that* task, because
+    # that row outranks ledger order — so a message naming `tasks[index]` describes a comparison
+    # this script did not make. `docs/lessons.md` L8.1 was a comparison that agreed for the wrong
+    # reason; a success line that misreports its own subject is the same defect one layer out,
+    # and it is the line a reader trusts when deciding not to look further.
+    pointed = NEXT_ACTION_TASK.search(status.get("Next action", ""))
+    compared = pointed.group("identifier") if pointed else tasks[index].identifier
+    queue_depth = len(QUEUE_ENTRY.findall(queue_section(path.parent / "lessons.md")))
     print(
-        f"live check ok — Status block read, its phase agrees with {tasks[index].identifier}, "
-        f"and every provisional mark in that phase is accounted for in the preamble."
+        f"live check ok — Status block read, its phase agrees with {compared} (the task its own "
+        f"Next action row names), the lessons queue holds {queue_depth}, and every provisional "
+        f"mark in that phase is accounted for in the preamble."
     )
     return 0
 

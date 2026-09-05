@@ -17,7 +17,11 @@ name: index-text
 # the right rule — a document that says `hash` must not silently become `openai` because a
 # config file elsewhere said so — but it means an operator who has configured a real embedder
 # has to derive from this document and `set:` the embed stage, rather than expecting their
-# `weft.toml` to apply. `weft pipeline derive index-text --set embed.use=openai` is that edit.
+# `weft.toml` to apply. `weft pipeline derive index-text my-index` scaffolds the child, and a
+# `replace:` block naming `openai-embeddings` at the `embed` id is that edit. **This line used
+# to name a `--set` flag `weft pipeline derive` has never had, for a plugin name no document
+# could resolve** — both found by running the binary, neither by any test (`docs/lessons.md`
+# L8.14; ledger 8.15 split the name).
 #
 # Two cleaners only, and both are safe on any text in any language: `unicode-normalize` folds
 # the several ways a character can be spelled into one, `whitespace` collapses runs and trims.

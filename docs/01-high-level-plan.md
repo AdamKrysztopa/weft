@@ -1365,6 +1365,37 @@ All checks run in CI, before tests.
     together are every mechanically detectable form the defect took here.
 
 
+18. **A plugin name resolves to exactly one contract.** Added 2026-09-05, ledger task 8.15. A
+    pipeline document selects a plugin by bare name and by nothing else — G3 settled that, and it
+    is what makes pipelines data rather than packaging. The corollary went unstated for eight
+    phases: a name that answers to *two* contracts cannot be selected by a document at all, because
+    there is nothing in the grammar that says which was meant.
+
+    **Found by running the binary, and the shape is `01` item 11's own.** A shipped ingest
+    document's comment instructed operators to place `weft-openai`'s embedder with `use: openai`.
+    That refuses — `openai` is registered under both `Embedder` and `LLMProvider` — so the
+    embedder was registered, listed by `weft plugins list`, catalogued in `10` §1, selectable
+    through `[services] embed`, and **placeable by no pipeline document in existence**. Registered
+    and unreachable, one contract too many.
+
+    **The property, `tests/architecture/test_ff18_one_name_one_contract.py`:** build the registry
+    the CLI actually builds, invert it to name → contracts, and fail naming any name with more than
+    one. Waiver **pinned empty**. The measurement that made this a rule rather than a repair: of
+    **107 registered names, exactly one** was under two contracts — so this codifies what the tree
+    already does 106 times out of 107, rather than imposing a new constraint on it.
+
+    **How it fails:** register any existing plugin a second time under a second contract and the
+    check names it. The subject is never empty — 107 names — so there is no vacuity case to guard,
+    only the inversion itself, which a self-test exercises against a planted double registration.
+
+    **What it cannot check:** a third party's pack. `weft_kernel.registry.Registry.add` keys on
+    `(contract, name)` and deliberately permits the pair, so a stranger's pack can still ship the
+    shape and will meet `AmbiguousStageContractError` at document resolution — loud, naming both
+    contracts, but at use rather than at discovery. Reporting it at `weft plugins doctor` is the
+    stronger answer and is filed on ledger 8.15 rather than built: no third-party instance exists
+    to shape it, and a kernel change made for a hypothetical is the wrong trade.
+
+
 > **Corrected 2026-08-10 — fitness function 1, and the preamble.** This section previously opened
 > *"the single best thing in a codebase examined during design is its AST boundary checker"* and
 > specified FF1 as *"lifted almost verbatim from it."* It is not the best thing there and it must

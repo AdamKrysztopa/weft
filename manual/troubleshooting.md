@@ -1768,13 +1768,13 @@ does not use it never needs an account.
 
 ### `MissingApiKeyError`
 
-**What it looks like** — `[services] embed = "openai"` with no credential configured, reproduced
+**What it looks like** — `[services] embed = "openai-embeddings"` with no credential configured, reproduced
 against a real checkout:
 
 ```text
 $ cat weft.toml
 [services]
-embed = "openai"
+embed = "openai-embeddings"
 $ weft index docs
 no OpenAI credential is configured, so the 'openai' embedder has nothing to authenticate with. Add
 `[packs.openai] api_key = "${env:OPENAI_API_KEY}"` to weft.toml — the settings loader
@@ -2270,6 +2270,54 @@ refuses: a persisted run record with zero documents has a content-derived digest
 so it would not be a fact worth diffing a later run against — a record that looks complete and
 measures nothing. **What to do:** point `--path` at a directory the named pipeline's own
 `extract` stage can actually read, or run `weft index` first to confirm which formats it claims.
+
+### `NoBaselineRunsError`
+
+**What it looks like** — `weft eval compare --baseline` naming a pipeline no persisted run under
+`runs/` ever ran, reproduced from outside the repository against an installed `weft-rag`:
+
+```text
+$ weft eval compare 6f04fe6b-...-76990a5a778f 57998ac5-...-f8fe088200305 --baseline hybrid-then-generate
+'hybrid-then-generate' names no persisted baseline repetition under 'runs' (excluding the two runs
+being compared). Pipelines actually run: index-text, rung-small-chunks.
+$ echo $?
+4
+```
+
+`--baseline` names a **pipeline**, never a run id: its repetitions are every persisted run whose
+own resolved pipeline carries that name, with the two runs being compared excluded — a rung is not
+one of its own baseline's repetitions. So the two ways to see this are naming a pipeline you have
+not run yet, and naming the pipeline of one of the two runs you are comparing when it has no
+*other* run on disk. Exit `4`, not `1`: this is fitness function 12's family, "fix what you typed",
+the same footing an unknown run id already has. **What to do:** the message lists every pipeline
+that has actually been run. Run the baseline pipeline at least twice — `weft eval run <corpus>
+<baseline-pipeline> --questions <file>` — before asking for a verdict against it.
+
+### `TooFewRepetitionsError`
+
+**What it looks like** — a baseline that exists but was run only once, reproduced the same way:
+
+```text
+$ weft eval run ./corpus index-messy-text --questions questions.json
+run 9a1c... persisted (./corpus -> pipeline 'index-messy-text'). ...
+$ weft eval compare 6f04fe6b-...-76990a5a778f 57998ac5-...-f8fe088200305 --baseline index-messy-text
+a baseline needs at least 2 repetitions to measure its own variability; 1 given — V3's own failure
+clause: 'the baseline was run once, in which case it records no interval and no later run can be
+judged against it.'
+$ echo $?
+1
+```
+
+This is `09-release.md` §4.3's derivation refusing to proceed without its own input. The whole
+point of the instrument is that **no tolerance is chosen by anybody** — the only number a
+difference is judged against is the width of the interval the baseline's own repetitions spanned,
+so a baseline that was never repeated has measured nothing and can license no verdict. A tool that
+answered anyway would be inventing the threshold `09` §4.4 forbids. Exit `1`, deliberately not
+`4`: the name resolved and nothing is misspelled — the runs on disk simply cannot answer the
+question, which is "something failed", the footing `EmptyCorpusError` and `IncomparableRunsError`
+already have. **What to do:** run the baseline pipeline again, at least once more, and re-compare.
+A deterministic pipeline will record a zero-width interval, which is correct and strict — it means
+any difference at all is outside what the baseline produced by repeating itself.
 
 ### `IncomparableRunsError`
 

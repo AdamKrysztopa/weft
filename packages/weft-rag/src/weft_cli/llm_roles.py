@@ -11,8 +11,8 @@ configuration field.
 
 ```toml
 [llm.roles]
-generate = { provider = "openai",   model = "gpt-4o-mini" }
-grade    = { provider = "openai",   model = "gpt-4o-mini" }
+generate = { provider = "openai",   model = "<weft_openai.llm.DEFAULT_MODEL>" }
+grade    = { provider = "openai",   model = "<weft_openai.llm.DEFAULT_MODEL>" }
 route    = { provider = "scripted" }
 
 [llm.retry]
@@ -22,6 +22,12 @@ base_delay_ms = 250
 [llm.loop_guard]
 min_period = 50
 ```
+
+**`model` above is a placeholder, deliberately** — ledger task **8.14**: an operator's real
+`weft.toml` names the exact model string, but this docstring is not that file, and hardcoding
+the same literal a second time here is precisely the copied-pin defect `docs/lessons.md` L8.13
+records. Naming the constant that carries the shipped default (`weft_openai.llm.DEFAULT_MODEL`)
+instead means this sample never goes stale on its own.
 
 **Task 3.10 added `[llm.loop_guard]`** alongside `[llm.retry]`, on the identical footing: a
 table an operator may omit entirely (every `weft_llm.loop_guard.LoopGuardConfig` field

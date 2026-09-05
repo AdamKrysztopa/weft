@@ -46,6 +46,20 @@ tree.
 **Falsify it the other way too — the half that is easy to miss.** An extension point has a
 *producing* side a pack calls and a *consuming* side core runs, and the two are built at different
 times by different people. Ask, for every seam this change touches: **can a stranger reach both?**
+
+**And ask *which* stranger, because there are two and a seam can be whole for one and half-built
+for the other.** A *pack* author reaches a seam by registering; a *project* author reaches it by
+writing a document or a config key, and nothing makes those the same reach. `[services] route`
+selected among pack contributions only, so an operator could name a router and could not author
+one — whole for one stranger, refused for the other, and it read as finished from either side
+alone (`L8.6`, ledger 8.12).
+
+**Then ask what the old constant satisfied by construction.** When a change turns a constant into a
+choice it does not preserve the constraints around that constant — it *exposes* them. While only
+one router existed it was the correct one and the stage pairing it needed could not be got wrong;
+the moment a project can author one, a missing upstream stage becomes somebody's first experience
+of the feature, and it arrived as an `AttributeError` rather than a named refusal (`L8.16`). For
+every constraint the old value met for free, ask who writes the refusal now.
 Phase 5 found three where they could not, all shipped and all green: `ext` models had a registry and
 no way for a pack to contribute to it (`lessons.md` L5.15); slots had placement, id qualification
 and unplaced-recording and nothing that could *offer* a contribution (`L5.22`, scope decision `S8`);
@@ -94,7 +108,23 @@ shortcut, the public path is exercised only by outsiders, and it rots.
 own three builders *after* the public decorator had registered them, to add span wrapping. A plugin
 using that same public decorator silently got less observability than a built-in.
 
+**What identity does this surface key on, and is it actually unique?** A comparison, a
+deduplication or a lookup rests on a field somebody chose as the identity, and that choice is
+invisible while the cardinality is 1. Twelve rows collapsed into one because a mapping was keyed on
+a field several rows shared, and it passed a type check because the shape was right and only the
+meaning was wrong (`L7.4`). A derivation agreed with the tree until the tree grew a second thing of
+that kind (`L7.7`). So for any key: name the field, then find the case where two things share it.
+If you cannot construct that case today, say so — that is the assumption, and it will expire.
+
 ### 5. An unknown name fails loudly, naming the valid options
+
+**A waiver's reason being true is necessary and not sufficient.** The question after establishing
+that a waiver's stated fact is correct is whether the fact *should still hold* — because a reason
+can be perfectly accurate and still be the wrong answer, when a short repair would remove the fact
+instead of documenting it. Two entries were once drafted into a fitness function's waiver with an
+accurate reason, and deleted unwritten when the repair turned out to be smaller than the
+justification (`L8.2`). Ask of every waiver: *what would it cost to make this entry unnecessary?*
+If the answer is "less than the paragraph explaining it", the waiver is the wrong artefact.
 
 **Falsify it:** *what happens on an unknown name, a missing optional dependency, a refused pack?*
 Three failures, one standard: say what was wanted, why it is unavailable, and what the valid options

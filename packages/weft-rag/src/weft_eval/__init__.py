@@ -14,10 +14,15 @@ two runs can be diffed after the fact; see that module's own docstring for Q1 an
 function 8(c) is checked. `offline.py` and `pricing.py` (task 4.7) answer V5: which registered
 metrics run in the gate with no credentials and no network (Q6, settled in `contract.py`'s own
 module docstring), and what one run costs in money, a per-model rate table shipped as data rather
-than a closed key space. Neither `aggregate.py`, `run_record.py`, `offline.py` nor `pricing.py`
-is a registered capability of its own — nothing under this file's `register()` call publishes any
-of them — because folding observations into a report, folding a run's own facts into a record,
-reading which metrics are gate-safe, and pricing a set of calls are not themselves plugin points
+than a closed key space. `falsify.py` (task 8.8) applies `09` §4.3's own reproduction-tolerance
+derivation to a *difference between two runs*: a baseline's own repeated means span an interval,
+and a difference no larger than that interval's width is indistinguishable from the baseline
+repeating itself — see that module's own docstring for the full argument and for why no
+threshold, multiplier or sigma appears anywhere in it. Neither `aggregate.py`, `run_record.py`,
+`offline.py`, `pricing.py` nor `falsify.py` is a registered capability of its own — nothing under
+this file's `register()` call publishes any of them — because folding observations into a report,
+folding a run's own facts into a record, reading which metrics are gate-safe, pricing a set of
+calls, and judging a difference against a baseline's own spread are not themselves plugin points
 any pack or third party needs to swap.
 
 **No unregistered category, no dummy, no silent skip.** Every metric this pack ships is
@@ -52,6 +57,16 @@ from weft_eval.contract import (
     RetrievedPassage,
 )
 from weft_eval.embedding_metrics import BERT_SCORE_AVAILABLE, BERTScore, EmbeddingSimilarity
+from weft_eval.falsify import (
+    BaselineMeasurement,
+    BaselineSpread,
+    DifferenceJudgement,
+    NoSpread,
+    TooFewRepetitionsError,
+    Verdict,
+    baseline_spreads,
+    judge_differences,
+)
 from weft_eval.harness import score_retrieval_gate_subset
 from weft_eval.ir_metrics import MeanAveragePrecision, NDCGAtK, PrecisionAtK, RecallAtK
 from weft_eval.judges import (
@@ -232,9 +247,12 @@ __all__ = [
     "AnswerRelevance",
     "AtThresholdConfig",
     "BERTScore",
+    "BaselineMeasurement",
+    "BaselineSpread",
     "ContextRecall",
     "ContextRelevance",
     "CorpusIdentity",
+    "DifferenceJudgement",
     "EmbeddingSimilarity",
     "ExactMatch",
     "F1Score",
@@ -250,6 +268,7 @@ __all__ = [
     "MetricScore",
     "MismatchedMetricNameError",
     "NDCGAtK",
+    "NoSpread",
     "NotAggregated",
     "OverlapAtThreshold",
     "PrecisionAtK",
@@ -268,13 +287,17 @@ __all__ = [
     "TokenOverlap",
     "TokenRate",
     "TokenRecall",
+    "TooFewRepetitionsError",
     "UnknownMetricNameError",
+    "Verdict",
     "active_distribution_set",
     "aggregate",
     "aggregate_report",
+    "baseline_spreads",
     "build_run_record",
     "corpus_identity",
     "gate_subset",
+    "judge_differences",
     "load_run_record",
     "price_calls",
     "register",

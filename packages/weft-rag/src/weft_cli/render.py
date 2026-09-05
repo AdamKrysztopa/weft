@@ -108,6 +108,7 @@ from weft_command import ExitCode
 # already uses for `ExitCode` one module over.
 from weft_command import Rendered as Rendered
 from weft_command.contract import CommandResult
+from weft_eval.falsify import BaselineSpread, DifferenceJudgement
 from weft_eval.run_record import MetricRunResult
 from weft_kernel.discovery import PackRegistrar, PackReport, PackStatus, RendererOffer
 from weft_kernel.errors import WeftError
@@ -630,6 +631,42 @@ def _metrics_comparison_lines(comparison: Mapping[str, MetricComparison]) -> lis
     return lines
 
 
+def _falsification_line(name: str, judgement: DifferenceJudgement) -> str:
+    """One metric's own line under the falsification block — task 8.8. An `UNJUDGEABLE`
+    verdict prints its reason instead of numbers it does not have; a decided verdict prints
+    the signed difference and the baseline spread's own bounds, to three decimal places, the
+    same style `_metric_result_text` already prints a `stdev` in.
+    """
+    spread: BaselineSpread | None = judgement.spread
+    difference = judgement.difference
+    # `spread`/`difference` are both `None` exactly when the verdict is `UNJUDGEABLE`, and the
+    # reason is then the whole answer. Read structurally rather than off the verdict alone: a
+    # judgement missing either one has no numbers to print, and printing `Δ+0.000` for it would
+    # be inventing the very measurement this command exists to withhold.
+    if difference is None or spread is None:
+        return f"  {name}: {judgement.verdict.value} — {judgement.reason}"
+    return (
+        f"  {name}: {judgement.verdict.value} (Δ{difference:+.3f}, baseline spread "
+        f"{spread.low:.3f}-{spread.high:.3f})"
+    )
+
+
+def _falsification_lines(
+    baseline_pipeline: str,
+    baseline_runs: tuple[str, ...],
+    falsification: Mapping[str, DifferenceJudgement],
+) -> list[str]:
+    """`weft eval compare --baseline <pipeline>`'s own block — task 8.8. Printed only when a
+    baseline was actually asked for, see `_render_eval_compare`.
+    """
+    lines = [
+        f"falsification — baseline '{baseline_pipeline}', repetitions: "
+        f"{', '.join(baseline_runs) or '(none)'}:"
+    ]
+    lines.extend(_falsification_line(name, judgement) for name, judgement in falsification.items())
+    return lines
+
+
 def _render_eval_compare(result: EvalCompareCommandResult) -> Rendered:
     """`weft eval compare` — reached only once `weft_cli.eval_commands.EvalCompareCommand`
     has already confirmed corpus, model versions and active distributions all agree
@@ -637,6 +674,11 @@ def _render_eval_compare(result: EvalCompareCommandResult) -> Rendered:
     itself (reusing `_pipeline_diff_lines` rather than a second formatter), and — task 4.9 —
     the per-metric comparison the tool generates itself: what the two pipelines *produced*,
     not only how they resolve.
+
+    **Task 8.8's own falsification block, printed only when `result.falsification is not
+    None`** — a plain `weft eval compare` with no `--baseline` invents no verdict, so it prints
+    nothing beyond what it always has. Exit code stays `ExitCode.SUCCESS` either way: this
+    command reports a fact, and an indistinguishable difference is not a failed operation.
     """
     lines = [
         f"'{result.run_a}' vs '{result.run_b}' — same corpus, model versions and active "
@@ -644,6 +686,11 @@ def _render_eval_compare(result: EvalCompareCommandResult) -> Rendered:
         *_pipeline_diff_lines(result.pipeline_diff),
         *_metrics_comparison_lines(result.metrics_comparison),
     ]
+    if result.falsification is not None:
+        baseline_pipeline = result.baseline_pipeline or ""
+        lines.extend(
+            _falsification_lines(baseline_pipeline, result.baseline_runs, result.falsification)
+        )
     return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
 
 

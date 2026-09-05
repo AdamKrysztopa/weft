@@ -115,6 +115,16 @@ def exit_code_for(exc: WeftError) -> ExitCode:
     branch runs, `weft_cli.eval_commands.EvalCompareCommand`/`TraceCommand` have already
     been resolved and raised, so this import is a `sys.modules` lookup, not a fresh one.
 
+    **`weft_cli.eval_commands.NoBaselineRunsError`, task 8.8 — the same family, the same
+    local import.** `weft eval compare --baseline <pipeline>` naming a pipeline no persisted
+    run under `runs/` ever ran is "fix what you typed" exactly as an unknown run id is, and it
+    already carries `valid_options` naming every pipeline that *was* run. It rides the import
+    `UnknownRunIdError` above already pays for, so it costs nothing further.
+    `IncomparableRunsError` and `weft_eval.falsify.TooFewRepetitionsError`, the other two
+    refusals that flag can produce, are deliberately **not** here: neither is a misspelled
+    name, both report that the runs on disk cannot answer the question, which is "something
+    failed" — the identical footing `EmptyCorpusError` already has.
+
     **`weft_eval.offline.UnknownMetricNameError`, task 4.7 — the identical shape again.**
     `weft eval metrics <name>` naming a metric neither `GenerationMetric` nor `RetrievalMetric`
     registered is "fix what you typed", FF12's family, exactly as an unknown run id is —
@@ -125,10 +135,13 @@ def exit_code_for(exc: WeftError) -> ExitCode:
     """
     if isinstance(exc, (PipelineResolutionError, *_ALSO_RESOLUTION_FAILED)):
         return ExitCode.RESOLUTION_FAILED
-    from weft_cli.eval_commands import UnknownRunIdError
+    from weft_cli.eval_commands import NoBaselineRunsError, UnknownRunIdError
     from weft_cli.route_ask import NoRouterPipelineError
     from weft_eval.offline import UnknownMetricNameError
 
-    if isinstance(exc, (NoRouterPipelineError, UnknownRunIdError, UnknownMetricNameError)):
+    if isinstance(
+        exc,
+        (NoRouterPipelineError, UnknownRunIdError, NoBaselineRunsError, UnknownMetricNameError),
+    ):
         return ExitCode.RESOLUTION_FAILED
     return ExitCode.OPERATION_FAILED

@@ -69,6 +69,7 @@ from weft_llm.payload import Conversation, Message, MessageRole, Rendered
 from weft_llm.roles import LLMRoles, RoleMapping
 from weft_openai import OpenAIEmbedder, OpenAIEmbedderConfig, OpenAILLMProvider
 from weft_openai import Settings as OpenAISettings
+from weft_openai.llm import DEFAULT_MODEL
 from weft_pdf import EXTENSIONS as PDF_EXTENSIONS
 from weft_pdf import PdfPages, PdfTextExtractor
 from weft_prompts.contract import Prompt, Prompts
@@ -220,8 +221,8 @@ def _registry(*, openai_settings: OpenAISettings) -> Registry:
 def _run_services(registry: Registry, *, embedder: object) -> ServiceRegistry:
     roles = LLMRoles(
         roles={
-            "index": RoleMapping(provider="openai", model="gpt-4o-mini"),
-            "generate": RoleMapping(provider="openai", model="gpt-4o-mini"),
+            "index": RoleMapping(provider="openai", model=DEFAULT_MODEL),
+            "generate": RoleMapping(provider="openai", model=DEFAULT_MODEL),
         }
     )
     services = ServiceRegistry()

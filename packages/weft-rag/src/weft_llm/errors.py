@@ -20,7 +20,7 @@ to parse anything at all), so retrying the identical call is exactly as likely t
 fields `weft_kernel.errors.WeftError` already has. Attribution answers "which pack, which
 plugin, which stage" — useful for finding the code, not for reading the message. An operator
 staring at a raised `LLMRateLimitError` wants to know which *account* and which *model* hit
-the limit without opening a traceback, and a run mixing `generate` (`gpt-4o-mini`) and
+the limit without opening a traceback, and a run mixing `generate` (`gpt-5.6-luna`) and
 `grade` (a different model, same or different provider) can raise the same error class from
 either role.
 """

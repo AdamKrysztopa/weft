@@ -44,7 +44,7 @@ from weft_llm.payload import TokenUsage
 
 #: The date `DEFAULT_RATES` was last checked against a real, published price sheet — printed on
 #: every `RunPrice` this module produces. See the module docstring's own paragraph on staleness.
-RATES_AS_OF: Final[str] = "2026-06-01"
+RATES_AS_OF: Final[str] = "2026-09-05"
 
 
 class TokenRate(BaseModel):
@@ -61,8 +61,15 @@ class TokenRate(BaseModel):
 #: Illustrative defaults for the one chat model this tree ships a provider for
 #: (`weft_openai.llm.DEFAULT_MODEL`). A caller pricing a different model, or with current
 #: numbers for this one, passes `rates=` to `price_calls` — see the module docstring.
+#:
+#: `"openai:gpt-5.6-luna"`'s rate is measured, not invented — OpenAI's own published sheet at
+#: https://developers.openai.com/api/docs/pricing, read 2026-09-05, standard tier, short
+#: context: gpt-5.6-luna is $0.20 per 1M input tokens and $1.20 per 1M output tokens.
+#: `TokenRate` prices per 1,000 tokens, so both figures are divided by 1000 below
+#: (0.20 / 1000 = 0.0002, 1.20 / 1000 = 0.0012) — re-check the sheet, not this arithmetic,
+#: before disputing the number.
 DEFAULT_RATES: Final[Mapping[str, TokenRate]] = {
-    "openai:gpt-4o-mini": TokenRate(input_per_1k_usd=0.00015, output_per_1k_usd=0.0006),
+    "openai:gpt-5.6-luna": TokenRate(input_per_1k_usd=0.0002, output_per_1k_usd=0.0012),
 }
 
 
@@ -70,7 +77,7 @@ class PricedCall(BaseModel):
     """One provider call a run made — a `provider:model` string, and what it cost in tokens.
 
     `model` matches `weft_eval.run_record.RunRecord.model_versions`'s own `"provider:model"`
-    vocabulary (e.g. `"openai:gpt-4o-mini"`) rather than inventing a second one — the same string
+    vocabulary (e.g. `"openai:gpt-5.6-luna"`) rather than inventing a second one — the same string
     that pins a run's model versions is what prices its calls.
     """
 

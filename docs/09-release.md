@@ -543,6 +543,20 @@ measurement of the system's own variability at the moment the baseline was taken
 baseline run — not a constant chosen by anyone, which is what §4.4 forbids and what fitness function
 7's rejected threshold was rejected for.
 
+**One caveat on the zero-width case, added 2026-09-05 and measured rather than reasoned
+(`lessons.md` L8.17).** Task 8.8's own demonstration was run twice, hours apart, against the
+identical corpus digest, the identical shipped document and the identical deterministic embedder.
+The baseline scored `0.833` once and `0.667` the other time, while the rung it was compared against
+scored `0.778` both times — and *each* session's repetitions agreed exactly, so both runs recorded
+a **zero-width interval**. The paragraph below is not wrong, but it assumes the repetitions
+**sample** the variability. Repetitions taken back to back share whatever differs between sessions,
+so they are correlated, and a correlated sample records the noise it cannot see as zero. **A
+zero-width interval should therefore be read as a claim about the repetitions that produced it, not
+as evidence that the system is deterministic** — the two are indistinguishable in the record, and
+the mistake runs in the over-confident direction, because every later difference then falls
+outside. What produces the cross-session difference is not yet established and is deliberately not
+asserted here.
+
 Three properties follow, and they are why this is a real check rather than a soft one. A system that is
 deterministic records a zero-width interval and admits no drift at all, which is correct and strict. A
 system that is noisy records a wide interval and honestly says so, rather than being compared against a
@@ -554,6 +568,37 @@ fusion decisions made without them are unmeasured by construction; V4 is a desig
 V5 and V6 are Phase 4 deliverables. Phase 6's exit consumes all six. The minimal plan edit this implies
 is one line in Phase 2's **Read**, and nothing else, because the artefacts belong to `09` and only their
 timing belongs to `01`.
+
+**The same derivation, applied to a difference — task 8.8's falsification instrument.** The rule
+above judges one *value* against the interval a baseline's repetitions spanned. A claimed
+improvement is not a value, it is a **difference** between two runs, and it needs the same
+treatment or it gets none: two runs of the same configuration can differ by as much as that
+interval's own width purely by the variability the baseline measured. So **a difference no larger
+than `high - low` is indistinguishable from the baseline repeating itself, and is not evidence of
+an improvement**; a difference larger than it is outside what the baseline's own noise produced.
+A difference exactly equal to the width is judged *within*, the conservative side, because the
+width is the largest difference the baseline is known to produce by doing nothing.
+
+Nothing here is chosen either. The width is a measurement exactly as `low` and `high` are, and this
+section still names no constant a later pull request could re-baseline. **"Outside the baseline's
+spread" is not a claim that the improvement is real** — it says only that the difference is larger
+than the variability actually measured, on one baseline against one corpus. The load-bearing answer
+is the negative one, which is why §4.4's rule that the plan sets no quality target is what makes
+this instrument coherent rather than what it strains against.
+
+Three things are refused rather than answered, because §4.2's whole catalogue is failures that
+produced numbers: a **baseline run once** (V3's own failure clause reaching the tool — it records
+no interval, so there is nothing to judge against); a **metric the baseline did not measure in
+every repetition** (an interval taken over the repetitions that happened to score understates the
+variability and would make every difference look real); and a **metric only one of the two compared
+runs scored**, where the absent side is never read as a zero.
+
+Where it is: `weft eval compare <a> <b> --baseline <pipeline>`, where the named pipeline's
+persisted runs under `runs/` *are* its repetitions. `weft_eval.falsify` holds the rule.
+`eval/check_baseline.py` is untouched and still answers the different question it was built for —
+*did this run reproduce the baseline* — against this repository's own published V3 artefact.
+
+---
 
 ### 4.4 What V is not: it does not set a quality target
 

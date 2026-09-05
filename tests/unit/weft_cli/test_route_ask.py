@@ -27,7 +27,7 @@ import pytest
 import yaml
 
 from weft_cli.llm_roles import LLMSection
-from weft_cli.pipeline_catalogue import full_catalogue
+from weft_cli.pipeline_catalogue import ProjectPipelineNameCollisionError, full_catalogue
 from weft_cli.registry_bootstrap import build_dependencies
 from weft_cli.route_ask import (
     NoRouterPipelineError,
@@ -404,3 +404,108 @@ def test_a_pipeline_that_ends_in_a_retriever_is_not_offered_as_an_alternative() 
         "`route` ends in a RoutingPolicy and produces a Route, so offering it to somebody who "
         "needs an Answer would send them straight back to this same refusal"
     )
+
+
+async def test_the_router_resolves_a_project_local_document_named_by_services_route(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Ledger **8.12**: a router an operator can *name* is a router they can *author*.
+
+    Task 8.3 made the router's name `[services] route` — a choice — while
+    `run_routed_ask` still searched `load_contributed`, packs only. So a project-local
+    `pipelines/my-router.yaml` resolved under `weft pipeline show` and ran under
+    `weft ask --pipeline`, and naming it as the router was refused. That asymmetry is
+    `01` requirement 1's producing/consuming test read against a *pack* author and never
+    against a *project* author (`docs/lessons.md` L8.6, L5.15).
+    """
+    # Arrange — a project-local router, and a project-local pipeline for it to select.
+    # Nothing is contributed by any pack: `reports=()` below is what makes the point.
+    monkeypatch.chdir(tmp_path)
+    pipelines = tmp_path / "pipelines"
+    pipelines.mkdir()
+    (pipelines / "my-router.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "name": "my-router",
+                # `query-scorer` ahead of `route` is mandatory, not decoration:
+                # `nearest-description` reads `payload.query.text` off a `Scorecard`, and
+                # `run_routed_ask` hands the router a bare `Query`. The shipped `route.yaml`
+                # pairs them for the same reason. See `lessons.md` L8.16 — a router document
+                # that omits the scorer dies inside the run with an attribute error rather
+                # than being refused by name, which 8.12 makes an operator's problem for the
+                # first time.
+                "stages": [
+                    {"id": "score", "use": "query-scorer", "with": {"role": "route"}},
+                    {"id": "route", "use": "nearest-description"},
+                ],
+            },
+            sort_keys=False,
+        )
+    )
+    (pipelines / "my-rung.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "name": "my-rung",
+                "vars": {"route.summary": "Answers without retrieving anything."},
+                "stages": [
+                    {"id": "retrieve", "use": "no-retrieval"},
+                    {"id": "fuse", "use": "single-list"},
+                    {"id": "pack", "use": "repack"},
+                    {
+                        "id": "generate",
+                        "use": "cited-answer",
+                        "with": {"when_no_evidence": "answer_from_memory"},
+                    },
+                ],
+            },
+            sort_keys=False,
+        )
+    )
+
+    # Act
+    selected, answer = await run_routed_ask(
+        "what happens if a store advertises no capability at all?",
+        registry=_registry(),
+        reports=(),
+        ctx=_ctx(),
+        llm=_llm(),
+        services=ServiceSelection(embed="fake-embed", store="fake-store", route="my-router"),
+        sink=NullSink(),
+    )
+
+    # Assert — the router the project authored ran, and it selected the rung the project
+    # authored: both halves, since a router that resolves but can only ever choose a pack's
+    # own documents is still half a seam.
+    assert selected == "my-rung"
+    assert isinstance(answer, Answer)
+
+
+async def test_the_router_refuses_a_name_a_project_and_a_pack_both_declare(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Widening the router's search set must not introduce silent shadowing — `02` §3's
+    "never silently override" rule, which `full_catalogue` already enforces for every
+    other command and which is the reason the widening is safe to make at all.
+    """
+    # Arrange — one name, declared by a project-local document and by a pack contribution.
+    monkeypatch.chdir(tmp_path)
+    pipelines = tmp_path / "pipelines"
+    pipelines.mkdir()
+    (pipelines / "route.yaml").write_text(
+        yaml.safe_dump(
+            {"name": "route", "stages": [{"id": "route", "use": "nearest-description"}]},
+            sort_keys=False,
+        )
+    )
+
+    # Act / Assert — refused by name, never resolved to one of the two in silence.
+    with pytest.raises(ProjectPipelineNameCollisionError, match="route"):
+        await run_routed_ask(
+            "anything",
+            registry=_registry(),
+            reports=_reports(),
+            ctx=_ctx(),
+            llm=_llm(),
+            services=ServiceSelection(embed="fake-embed", store="fake-store"),
+            sink=NullSink(),
+        )
