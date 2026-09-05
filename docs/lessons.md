@@ -27,6 +27,31 @@ otherwise paid for twice.
 
 ## Queue
 
+### L7.9 — the precondition was written down, in this repository, and not checked before acting
+
+**What happened.** `v2.1.0` was tagged and every publish job was refused with
+`429 Too many new projects created`. Nothing reached PyPI; `weft-rag` never ran, because its job
+needs the five before it.
+
+The precondition was already written, twice, by this repository: `L7.3` — *"the limiter counts
+**attempts** over a rolling window rather than successes"* — and the task brief's own
+*"no retry against PyPI until its window has been left alone for hours"*. What was reasoned about
+before tagging was the **size** of the burst (six serialised creations instead of nineteen
+parallel), which is a different variable from the one the limiter actually counts. The window was
+still carrying roughly a hundred attempts fired earlier the same day.
+
+**The measurement, since nobody had one.** The saturating run was `08:53Z`; this one was `13:04Z`
+and was refused on its *first* request. So the window outlasts **four hours** at that volume —
+"hours" was the guess, and it is at least that and possibly much longer.
+
+**Generalises to.** When a rule names a cooling-off period, the check before acting is *how long
+since the last attempt*, not *how much smaller this attempt is* — a rate limiter that counts
+attempts is unaffected by making the next one smaller.
+
+**Candidate home.** `.github/workflows/release.yml` — a first step that refuses to run when the
+previous release run failed less than N hours ago, so the rule is enforced where the action is
+taken rather than remembered by whoever types the tag. `L7.3` and this entry drain together.
+
 ### L7.8 — the gate I ran and the gate CI runs were not the same gate
 
 **What happened.** The consolidation was declared done on a green `poe ci-checks`: 1,867 passed,
