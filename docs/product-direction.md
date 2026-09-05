@@ -96,17 +96,76 @@ everything.** Read literally, and it should be:
   binary; the ladder is proved by someone climbing it, in a directory that is not this repository.
 - **Publish** — everything, to the index. Not a checkout.
 
-## 6. What blocks what, as of 2026-09-05
+## 6. What blocks what, as of 2026-09-05 — after both audits
 
-- **G12** is the only open gate and it blocks **Phase 7** entirely.
+Both audits are complete and land in `audit-a prior project-2026-09-05.md` and
+`audit-graph-study-2026-09-05.md`. Read those for evidence; this section carries only the shape.
+
+**The structural finding neither audit was asked for: there is no Phase 8.**
+`01-high-level-plan.md` stops at Phase 7, which G12 blocks entirely. Every batch below that is not a
+repair to shipped code has no phase to belong to. Extending the phase script is therefore the first
+planning act, not a consequence of one.
+
+- **G12** blocks **Phase 7**, and the graph reference supplies it two new positions rather than settling
+  it: *autonomy licensed by reversibility of writes* rather than by supervision, and
+  *propose-without-persisting then activate-from-a-file* as an approval channel that is not a slower
+  spelling of `--yes`. Both are arguments for the session, not substitutes for it.
 - **`11` D1** blocks all of multimodal.
-- **Graph** will produce its own decisions; the audit is what names them. Known candidates: is a
-  graph store a member of the `G4` store contract family or a new family; does Weft grow a second
-  driving adapter (the source has FastAPI, a worker and a frontend, and Weft's settled position is
-  that `weft-cli` is the only driving adapter and `asyncio.run` appears exactly once).
-- **The ladder (§3.2) is the one piece that appears to need no gate.** It is composition of plugins
-  that already exist into documents that do not. If that holds after review, it is what can start
-  today.
+- **Graph needs three decisions before any of it is schedulable**, in dependency order: is a graph
+  store a member of the G4 family or a second paradigm; where may a corpus-wide revisable pass run
+  and may its expensive output be durable (this one touches G2, G4, G5 and S5 at once); and where
+  does a pack persist per-corpus operator-curated configuration, given that `with:` is
+  per-stage-per-pipeline and `packs:` is per-installation.
+- **The second driving adapter does not reopen.** The graph audit looked for an argument to reopen it
+  and found the opposite: the source's own two invariants reached through three entry points is the
+  best available evidence *for* Weft's rule, produced independently by the same author.
+- **What is buildable today, touching no open gate:** every repair both audits found in shipped
+  first-party code (§7), and the ladder (§3.2). That is a real body of work and it is where to start.
+
+### The one thing that outranks the graph work
+
+`weft-eval` and a corpus both exist, and neither audit found a reason to wait: **a falsification
+instrument** — the ability to show a claimed improvement is not real — discharges an open
+release-checklist question and is not blocked by any gate. The graph audit would schedule it first,
+ahead of everything graph-shaped, and nothing contradicts that.
+
+### Live defects both audits found in shipped code
+
+Not features, not lifts — things that are wrong now, none needing a gate or a kernel line:
+
+- **Unbounded `asyncio.gather`** at `weft_index/raptor.py:191` and `hypothetical_questions.py:93`.
+  A 700-node corpus through `hypothetical-questions` is 700 concurrent LLM calls today.
+- **RAPTOR degrades silently** — no input cap, no overflow retry, no degradation record. A run that
+  dropped every overflowing cluster returns `Produced` and looks identical to a complete one.
+- **`weft ask` bypasses the seam.** `ask.py:106-113` hand-writes `wrap(...)` for the embedder;
+  `:133-140` awaits the store unwrapped. The author-must-remember failure the seam abolishes,
+  failing twice inside one function, with no coverage check.
+- **`bert_score(lang="en")` hardcoded** at `weft_eval/embedding_metrics.py:119` — silently mis-scores
+  a Polish corpus, and fails quality requirement 6.
+- **`MetricScore.value` unbounded**; `cosine_similarity` does not clamp, so `embedding-similarity`
+  can return a negative score that propagates into `answer_correctness`.
+- **`weft pipeline derive base ../../x`** writes outside `.weft/pipelines/`.
+- **No atomic writes anywhere.** Four sites `write_text` user-visible files, including a whole-file
+  read-modify-write of `weft.toml`, which holds the store DSN and the permission policy.
+- **`NodeStore.add` lineage collision** — both backends silently agree on the wrong answer, and
+  `delete_source` filters on `lineage.sources`, so this is a correctness hole rather than tidiness.
+- **Fan-out participants are never closed** — constructed by G13's fan-out, closed by nobody.
+
+### The founding-claim problem, which goes first
+
+Both audits arrive at the same obligation from opposite directions. The copy check found Weft's
+originality claim survives as engineering — 0 byte-identical files of 1,572 reference files hashed — but
+**not in its absolute wording**: five to eight sites quote reference docstrings verbatim, attributed, and
+`NOTICE` says "Weft contains no source text from any other codebase." Separately, §4's decision makes
+copying from `graph-study-main` licit and falsifies the same sentence again. And the rule has **no
+fitness function** — 33 files in `tests/architecture/` enforce lesser invariants; nothing scans for
+reference text, which is `L6.12`'s shape applied to the property the repository is named for.
+
+One amendment covers all three, and it is cheap to get wrong: it must distinguish the third-party
+reference (write fresh, always) from the owner's own prior work (copyable) from short attributed
+quotation of a cited rationale. There is also a **live rule conflict** to settle in the same act:
+`weft_clean/artifact_remover.py:63,67` carries a reference regex under a "facts, not text" exception
+while `04:144-145` says regexes specifically must be authored fresh.
 
 ## 7. Release state, 2026-09-05
 
