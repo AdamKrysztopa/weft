@@ -46,6 +46,21 @@ jobs:
     # that silence is now load-bearing rather than accurate by construction.
     strategy:
       fail-fast: false
+      # **One at a time, and the first release is why.** A matrix of nineteen parallel jobs
+      # asks PyPI to create nineteen *new projects* within seconds of each other, and PyPI
+      # rate-limits project creation: `429 Too many new projects created`. Four landed and
+      # fifteen were refused on the v0.1.0 attempt.
+      #
+      # The limiter counts *attempts* over a rolling window, not successes — so re-running the
+      # failed jobs re-saturates it and makes recovery further away rather than nearer. Seven
+      # attempts fired roughly a hundred creation requests and moved the count from four to
+      # four. Serialising costs wall-clock on a job that runs once per release and removes the
+      # burst entirely.
+      #
+      # This only bites on a **first** publish. Every later release uploads a version to a
+      # project that already exists, which is not rate-limited the same way — which is exactly
+      # why the burst was invisible until the one run where it mattered.
+      max-parallel: 1
       matrix:
         distribution:
           - weft-kernel
