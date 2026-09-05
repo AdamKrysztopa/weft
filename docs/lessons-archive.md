@@ -351,6 +351,62 @@ what the phase's work exposed rather than what the phase was about.
   parsed entries, 0 dangling — because leaving the loop's memory unreadable until the next phase
   close is the failure this entry describes
 
+- **L8.25** *a scope constant whose members are looked up in an external namespace must assert
+  every member resolved — a hand-kept allow-list that silently ignores a name it cannot find
+  degrades to a check about nothing* → `tests/docs/test_technique_naming.py`, plus 18 new rows in
+  `10` §1.5 and a stated contract boundary · `refines L5.19` — `_AUDITED_DISTRIBUTIONS` named four
+  packages that stopped being distributions at **G10's re-settlement**; `discover(allow=...)`
+  ignores an unknown name without complaint, so property 5's reverse direction narrowed from ~100
+  registered names to **5** and went on passing. Its self-test could not catch it: a fabricated name
+  proves the comparison works, never that the population is real. Repaired, the check found **63**
+  undocumented names — 41 outside the catalogue's remit (now a stated boundary, not a backlog) and
+  **18 genuine gaps**, every one a shipped, registered, placeable plugin `10` had never named
+- **L8.26** *a fitness-function number is a registry key, and nothing was checking it resolved to
+  one function* → `tests/architecture/test_ff0b_checks_are_real.py`, renamed from `test_ff16_`, plus
+  a collision assertion · `refines L5.4` — two files answered to **16**: a Phase 5 meta-check that
+  self-assigned a number `01` gave to nothing, and Phase 8's *ladder reachability*, which `01` item
+  16 actually names. Clause (a) maps a number to a file by filename prefix, so **deleting the
+  ladder-reachability check left it reporting nothing missing** — `L5.4`, a fitness function living
+  in prose, reintroduced by the check written to prevent it. FF18 asserts one plugin name resolves
+  to one contract; nothing asserted the same of a plan number
+
+- **L8.23** *a type that reaches a persisted artefact owes a round trip, and the writing half
+  passing proves nothing about the reading half* → **fitness function 19**,
+  `tests/architecture/test_ff19_persisted_models_round_trip.py`, waiver pinned empty ·
+  `refines L6.14` — `Applies` had a serialiser, no validator and a positional-only `fact`, so every
+  `weft eval run` of the shipped `index-polish` wrote a run record nothing could read, and one
+  shared helper put that record in front of `weft index`, `weft reconcile` **and** `weft delete`.
+  `L6.14` is a read method with no writer; the reverse is worse, because the artefact persists and
+  the failure surfaces in commands that only read the directory. **Detection reads pydantic's core
+  schema, never `field.metadata`** — the first version walked `metadata`, which is empty for a field
+  annotated through a PEP 695 alias, so it passed on the very model it was written for and kept
+  passing when the validator was deleted to test it
+- **L8.24** *a repair's account of why the other call sites abstain is a claim about code the author
+  was not editing, and it is checked at those sites or not at all* → `phase-step` → *Verify* ·
+  `refines L6.13` — twice in one phase, both found by running the binary and neither by 2,012
+  tests: task 8.18's `entry_type` docstring said *"every other call keeps making none"* while
+  `run_named_ask` twenty lines above built the payload and knew exactly what it was; and
+  `weft eval run` called `run_index` without the `llm=` its sibling passes, putting every
+  model-calling ingest rung out of reach of the evaluator
+- **L8.27** *a rule stated in the artefact it governs is prose until something reads it* →
+  `tests/docs/test_ledger_records_a_sha.py` · `refines L5.4` — seven ticked Phase 8 boxes carried no
+  sha and an eighth a duplicated field group, in the phase whose closing section argues at length
+  why a ticked box without one is a claim
+- **L8.28** *before asserting a record's referential integrity, check that the process producing the
+  record preserves what it refers to* → `build-ledger.md` → *Phase 8's close* · `caused-by L8.27` —
+  the resolvability half of `L8.27`'s check found **37** shas naming no commit, all of Phases 3–5,
+  and they are correct: this project squashes each phase onto `main`, so the workflow that makes the
+  sha column necessary destroys what it points at. The check would have failed for an honest record
+- **L8.29** *where an exit criterion's clauses were built by different tasks, the word joining them
+  is the part no task owned and therefore the part to check first* → `phase-step` →
+  *Close the phase* item 4 · `refines L5.31` — Phase 8's exit asks that `weft eval` judge two of
+  *those rungs*; every box was honestly ticked, both halves are individually demonstrable, and
+  `weft eval run` refuses a query rung outright
+- **L8.30** *a container that is reachable is not one that still holds what you put in it* →
+  `CLAUDE.md` → *Quality gates* · `refines L7.8` — a close-review measurement read
+  `nodes now stored: 70` and minutes later the table held one row, because a second process in the
+  same session truncated it, silently inverting a retrieval comparison
+
 **One thing this drain learned about its own instrument.** The first uniqueness check was built on
 `_BULLET`, which reads the archive's one-line `- **L5.3**` disposition form — 66 of those — and does
 not see the `### L8.18 — title` narrative form, of which there are 28 and **not one `L8.x` entry has

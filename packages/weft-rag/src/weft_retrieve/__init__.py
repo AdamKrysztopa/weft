@@ -426,6 +426,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     # fail `weft_cli.route_ask._require` at the end of a run it should never have started.
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-text.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-messy-text.yaml")
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-openai.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-polish.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-with-keywords.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-with-questions.yaml")

@@ -1,4 +1,19 @@
-"""Fitness function 16 — a check that is named exists, and a check that exists can fail.
+"""Fitness function 0's other half — a check that is named exists, and a check that exists can fail.
+
+**Renumbered 2026-09-06, at Phase 8's close review, and the collision is the reason.** This file
+called itself *fitness function 16* — a number `docs/01-high-level-plan.md` assigns to nothing at
+all when this was written, and which Phase 8 then assigned to **ladder reachability**
+(`01` item 16, `tests/architecture/test_ff16_ladder_reachability.py`). Clause (a) below maps a plan
+number to a file by filename prefix, so `16` was satisfied by whichever of the two `glob` returned
+first: **delete the ladder-reachability check and this file reported nothing missing.** That is
+`docs/lessons.md` `L5.4` — a fitness function living in prose — reintroduced at the one number the
+phase touched, by the check written to prevent it. A fitness-function number is a registry key, and
+nothing was asserting it resolved to one function.
+
+`0b` rather than a new number because this file's own argument has always been that it is FF0's
+other half: FF0 asserts every architecture check is *reachable* from `ci-checks`, and this asserts
+each one is *real*. `9c` and `12b` already use that suffix convention for a sub-clause of one
+function.
 
 **Added at Phase 5's lessons drain (2026-08-22), from four entries that turned out to be one
 defect.** `docs/lessons.md` L5.1, L5.4, L5.8 and L5.19 were written independently, hours apart,
@@ -210,3 +225,43 @@ def test_the_check_can_actually_fail() -> None:
     # Assert
     assert missing == {99}
     assert not unproven
+
+
+def test_no_plan_number_is_claimed_by_two_different_functions() -> None:
+    """A fitness-function number is a registry key, and until Phase 8's close nothing checked it.
+
+    `_implemented_here` reads the number off the filename, so two files named `test_ff16_*` both
+    answer to 16 and clause (a) is satisfied by either — the check that exists *because* FF6 sat in
+    prose for five phases, made unable to see the same thing. FF18 asserts one plugin name resolves
+    to one contract; this is that property one abstraction up.
+
+    A **letter suffix** is what distinguishes a sub-clause of one function (`ff9c`, `ff12b`) from a
+    second function wearing the same number, so the rule is: at most one unsuffixed file per number.
+    """
+    unsuffixed: dict[int, list[str]] = {}
+    for path in sorted(ARCHITECTURE_ROOT.glob("test_ff*.py")):
+        match = re.match(r"test_ff(?P<number>\d{1,2})_", path.name)
+        if match is not None:
+            unsuffixed.setdefault(int(match.group("number")), []).append(path.name)
+
+    collisions = {number: files for number, files in unsuffixed.items() if len(files) > 1}
+    assert not collisions, (
+        f"these plan numbers are claimed by more than one function: {collisions}. Clause (a) maps "
+        f"a number to a file by prefix, so it is satisfied by whichever glob returns first and the "
+        f"other could be deleted with nothing said. Give a sub-clause a letter suffix (ff9c), or "
+        f"renumber the one that is a different function."
+    )
+
+
+def test_the_collision_rule_can_actually_fail() -> None:
+    # Plant the exact pair that existed until 2026-09-06, through the same matcher.
+    planted = ["test_ff16_ladder_reachability.py", "test_ff16_checks_are_real.py", "test_ff9c_x.py"]
+    seen: dict[int, list[str]] = {}
+    for name in planted:
+        match = re.match(r"test_ff(?P<number>\d{1,2})_", name)
+        if match is not None:
+            seen.setdefault(int(match.group("number")), []).append(name)
+    assert {n: f for n, f in seen.items() if len(f) > 1} == {
+        16: ["test_ff16_ladder_reachability.py", "test_ff16_checks_are_real.py"]
+    }
+    assert 9 not in seen, "a letter-suffixed sub-clause must not count as an unsuffixed claim"

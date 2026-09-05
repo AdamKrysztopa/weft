@@ -3707,7 +3707,7 @@ gate, which is the point of deriving it.
   does. `09` §5.2's line carries the correction and a new failure clause — *fails if reproducing
   the published number requires cloning*.
 
-- [x] **6.13 ⚠** a machine that has never seen this repository installs the release set — the meta-distribution G10 settled on (`09` §1), named `weft-rag` since this task found `weft` taken on PyPI — from the index, and reproduces the published baseline — every metric inside the interval that baseline recorded across its own repetitions · owner `01` → Phase 6 **Exit**; `09` §4 · turns on — · sha — · turns on — · sha `156daf8`
+- [x] **6.13 ⚠** a machine that has never seen this repository installs the release set — the meta-distribution G10 settled on (`09` §1), named `weft-rag` since this task found `weft` taken on PyPI — from the index, and reproduces the published baseline — every metric inside the interval that baseline recorded across its own repetitions · owner `01` → Phase 6 **Exit**; `09` §4 · turns on — · sha `156daf8`
   **6.13 — closed 2026-08-25, both halves, and it found three things on the way.** The install half:
   a local PEP 503 index, all eighteen distributions published to it, and `uv pip install weft-rag`
   into a throwaway Python 3.12 venv with no path back to this repository — sixteen distributions at
@@ -3949,6 +3949,19 @@ closed one — which is what `next_task.py --check-live` refuses to let happen.
 - [ ] **7.4 ⚠** the agentic pack installs from the index alongside the release and drives a corpus end
   to end with no edit to core, and `weft plugins doctor` reports it exactly as it reports any other
   pack · owner `01` → Phase 7 **Exit** · turns on — · sha —
+- [ ] **7.5** Phase 8's Exit is met in the clause its own tasks left joined — `weft eval` judges the
+  difference between two **query** rungs against the published baseline's interval, not between two
+  ingest pipelines · owner `01` → Phase 8 **Exit**; `09` §4 · turns on — · sha — ·
+  **Discharges Phase 8's exit, on `6.21`'s precedent.** Re-checking that exit on a real wheel install
+  found four clauses of five are facts and the fifth is not: `weft eval run` refuses a query rung
+  outright because it has no `Extractor` stage, and `weft_cli.eval_scoring` scores retrieval by
+  running plain vector top-k off the *ingest* pipeline's embedder and store — so no `Retriever`,
+  `Fuser`, `ContextPacker` or `Generator` choice has ever been the thing measured. 8.6 and 8.8 are
+  each demonstrable and cannot meet on the same rungs. **The shape of the repair is deliberately not
+  prescribed here** (`L7.1`): what is owed is that a *query* pipeline can be a subject of
+  `weft eval`, and whoever builds it will have read `eval_scoring.py` while this line was written
+  from one failing command
+
 
 **Exit** (`01` → Phase 7): task 7.4.
 
@@ -4019,7 +4032,7 @@ it is a config key and two call sites. Said here because nothing else records it
 - [x] **8.5** every rung is named where a reader looks for it — `10` for the technique claims,
   `03` and `manual/` for `[services] route` · owner `10`; `03` · turns on — · sha `4b6a482`
 - [x] **8.12** a router an operator can *name* is a router they can *author* · owner `03` →
-  *Project context*; `01` requirement 1 · turns on — · sha — · **Found by `weft-qualities` against
+  *Project context*; `01` requirement 1 · turns on — · sha `4b6a482` · **Found by `weft-qualities` against
   task 8.3, by running it rather than reading it.** `[services] route` selects among documents an
   installed pack **contributed**: `weft_cli.route_ask.run_routed_ask` searches `load_contributed`,
   not `full_catalogue`, which is Phase 2's settled behaviour and was deliberately not reopened at
@@ -4197,7 +4210,7 @@ it is a config key and two call sites. Said here because nothing else records it
   through untouched
 
 - [x] **8.14** the model this engine calls by default is one that currently exists, and nothing
-  in the tree can go stale about it in silence · owner `09` §4, V5; `10` §1 · turns on — · sha — ·
+  in the tree can go stale about it in silence · owner `09` §4, V5; `10` §1 · turns on — · sha `cd853c0` ·
   **Added 2026-09-05 as a scope decision, at the project owner's direction.**
   `weft_openai.llm.DEFAULT_MODEL` is `gpt-4o-mini`, two generations stale — the account's current
   family is `gpt-5.6-luna`/`-terra`/`-sol` and `gpt-6-astra`. Embeddings are **not** stale
@@ -4363,7 +4376,7 @@ dispositions. None is gated, and none blocks Phase 7.
   span fails as loudly as a missing one · **done directly rather than dispatched** — a check, two
   one-line text repairs
 - [x] **8.18** a pipeline is refused when its first stage cannot accept what the caller will hand
-  it · owner `02` §1; `lessons-archive` `L8.16` · turns on — · a router document without its
+  it · owner `02` §1; `lessons-archive` `L8.16` · turns on — · sha `9916f88` · a router document without its
   `query-scorer` dies mid-run with `'Query' object has no attribute 'query'`. **Measured to be
   cheap, not assumed**: `StageSpec.contract` is resolved for every stage before anything runs, and
   `weft_kernel.runner._check_composition` already computes `_stage_signature(specs[0].contract)`
@@ -4371,11 +4384,11 @@ dispositions. None is gated, and none blocks Phase 7.
   (`weft_cli.route_ask`) knows exactly what it is about to pass. Site it where
   `check_store_capabilities` already runs, once per resolved pipeline
 - [x] **8.19** every path a workflow file references is a tracked file · owner `09` §1;
-  `lessons-archive` `L7.2` · turns on — · an untracked `uv.lock` made the local gate and CI's
+  `lessons-archive` `L7.2` · turns on — · sha `9916f88` · an untracked `uv.lock` made the local gate and CI's
   clean-checkout gate two different gates, and nothing could have noticed. The nearest existing
   checks assert that `ci.yml` *invokes* a poe task, never that the paths it names resolve
 - [x] **8.20** a gate run that silently shrank is not a green · owner `09` §1;
-  `lessons-archive` `L7.8` · turns on — · a container brought down mid-task dropped 51 tests from
+  `lessons-archive` `L7.8` · turns on — · sha `9916f88` · a container brought down mid-task dropped 51 tests from
   every subsequent run, each green. No `poe` task reads pytest's own skip count. The check is
   small; the judgement is what count is expected, which is why this is a task and not a paragraph
 - [x] **8.21** a documented gap is retired when the task that closes it ticks · owner `08` §1;
@@ -4444,7 +4457,7 @@ dispositions. None is gated, and none blocks Phase 7.
   ways · **done directly rather than dispatched** — a check and eight prose repairs, all of which
   are `docs/` work the implementer may not touch
 - [x] **8.22** `exit_codes.py`'s two hand-maintained error tables are ratcheted · owner `03` →
-  *Output*; `lessons-archive` `L8.12` · turns on — · `_ALSO_RESOLUTION_FAILED` and
+  *Output*; `lessons-archive` `L8.12` · turns on — · sha `9916f88` · `_ALSO_RESOLUTION_FAILED` and
   `exit_code_for`'s local-import branch are pinned tuples of `WeftError` subclasses with **no**
   discovery walk behind them, unlike `NAME_RESOLUTION_FAMILY`, which has one. A miss does not fail
   the build: it silently exits `1` where `4` was meant, in production code. The two-way ratchet
@@ -4453,7 +4466,7 @@ dispositions. None is gated, and none blocks Phase 7.
   **`NETWORK_CLIENTS` is deliberately excluded** — it catalogues external libraries, so no
   introspection can derive it, and it stays hand-maintained like `KERNEL_DEPENDENCIES`
 - [x] **8.23** `weft eval compare` says when a baseline's interval is zero-width · owner `09` §4;
-  `lessons-archive` `L8.17` · turns on — · a zero-width interval and a badly-sampled one produce an
+  `lessons-archive` `L8.17` · turns on — · sha `9916f88` · a zero-width interval and a badly-sampled one produce an
   identical record, and the mistake runs in the over-confident direction. The rendering half is one
   line. The deeper half — requiring a baseline's repetitions to vary in whatever the store's
   ordering depends on — should not be designed from one observation, and is named here rather than
@@ -4479,8 +4492,71 @@ which was first built over the archive's bullet form and so could not see the he
 collision actually happened in. Neither is re-routed: both are in `phase-step`, both **did** bite
 within minutes, and the failure `implement-ll` warns about is a rule that never fires at all.
 
+**What the sha column can and cannot answer, measured 2026-09-06** (`docs/lessons.md` `L8.28`).
+`tests/docs/test_ledger_records_a_sha.py` now reads this column, and its first run found seven
+ticked Phase 8 boxes carrying no sha at all and an eighth with a duplicated field group — in the
+phase whose own closing section argues at length why a ticked box without one is a claim rather than
+a record. All eight are recorded now. Its second half found **37 recorded shas that name no commit**
+— every per-task sha in Phases 3, 4 and 5 — and **those are not a defect**: this project squashes
+each phase onto `main`, so the per-task commits were deliberately discarded, and none of the 37 is
+in `.git/filter-repo/commit-map` either. The workflow that makes this column necessary is the
+workflow that destroys what it points at, and the surviving squash message names task *ids*, never
+shas. So the check asserts the property that holds for an unsquashed phase and states the rest
+rather than asserting it shut. **If the column is to mean what this document says it means, the
+squash message has to carry the per-task shas** — it already carries the ids.
+
 **Exit** (`01` → Phase 8): tasks 8.4 with an empty waiver, 8.6, 8.7 and 8.8, demonstrated
 together from outside this repository against an installed `weft-rag` and one container.
+
+**Re-checked 2026-09-06 against what exists, on a real wheel install outside this repository — and
+four clauses of five are facts while the fifth is exiting on a claim.** The environment matters and
+was built for the check: `weft-kernel` and `weft-rag` installed as **real wheels, not editable**,
+run from `/private/tmp`, against the `compose.yaml` container — because this repository's own
+`.venv` is entirely editable installs, and a demonstration through it is not the environment the
+Exit names (`L7.6`).
+
+- **A corpus indexed through a shipped ingest document — MET.** `weft index ./corpus --pipeline
+  index-text` → *"produced 1 … nodes now stored: 6"*, and `weft pipeline list` prints 25 documents.
+- **One question, at least three rungs — MET.** Seven answered end to end. The rungs needing a
+  *structured* completion fail under `scripted`, which this phase already records as the test
+  provider behaving as designed.
+- **One rung fusing vector and full-text from the same store — MET, and proved rather than
+  inferred.** *"The orders differ"* was refused as evidence: a rare literal token was planted in one
+  file and `hybrid`'s two arms split into single-channel documents. The text arm returns exactly the
+  document containing the token, and fusion moves it from rank 4 to rank 1.
+- **FF16 wired and green with its waiver empty — MET.** `POSITIONS_WAIVED_FROM_THE_LADDER` is
+  literally `frozenset()`, and it is green under the weft-rag-only install as well as this
+  checkout's, so it is not passing because optional packs happen to be present.
+- **The fan-out cap — MET.** Measured with a high-water-mark counter around the shipped provider,
+  because an instantly-returning provider shows peak 1 whether a semaphore exists or not: 28 calls
+  at `peak_concurrent=2`, `8` and `28` for caps of 2, the shipped default, and 32. The cap-32 run is
+  the non-vacuity proof. *Stated rather than glossed*: only the `hypothetical-questions` semaphore
+  is exercised — `index-with-raptor` still builds zero summaries offline, exactly as this phase
+  already recorded.
+- **`weft eval` judging two of *those rungs* against the baseline interval — NOT MET.** The
+  instrument works, in both directions, and that is not the clause. *"Those rungs"* is the query
+  rungs of the clause above; `weft eval run` refuses one outright — *"pipeline
+  'hybrid-then-generate' has no stage registered under the Extractor contract"* — and
+  `weft_cli.eval_scoring` scores retrieval by running plain vector top-k from the **ingest**
+  pipeline's embedder and store, so no `Retriever`, `Fuser`, `ContextPacker` or `Generator` choice
+  is ever the thing measured. **8.6 and 8.8 are each real and cannot meet on the same rungs**, which
+  is precisely what *"demonstrated together"* asks. Every individual box was honestly ticked; the
+  word that failed is the conjunction (`lessons.md` `L8.29`).
+
+**Filed rather than papered over, on Phase 6's own precedent** — `6.21` discharged Phase 5's exit
+rather than pretending it had been met. **Task 7.5 below owns this**, and Phase 8 closes with its
+exit *four-fifths met and the fifth named*, which is the honest record and the one a later reader
+can act on.
+
+**Three defects the same review found by running the binary, none by 2,012 tests.** Two are repaired
+in this commit — `weft eval run` never passed `[llm.roles]` into `run_index`, so no model-calling
+ingest rung could be evaluated at all; and a `\n` inside a non-raw f-string printed a literal
+backslash-n in a paste-me remedy. The third was product-stopping and is repaired with a fitness
+function behind it: `Applies` could be written and never read, so one `weft eval run` of the shipped
+`index-polish` left a run record that stopped `weft index`, `weft reconcile` **and** `weft delete`
+in that project, exit 1, with no hint which file (`lessons.md` `L8.23`, fitness function 19).
+
+
 
 **Verified by running the binary from `/private/tmp`, outside this repository, against the
 `compose.yaml` container — which is where four of this phase's five findings came from, and

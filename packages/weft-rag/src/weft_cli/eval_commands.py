@@ -585,6 +585,18 @@ class EvalRunCommand:
             ctx=ctx,
             pipeline=run_args.pipeline,
             reports=deps.reports,
+            # **`llm` and `sink`, added 2026-09-06 at Phase 8's close review.** `IndexCommand.run`
+            # passes both; this call passed neither, so `run_index` fell back to an empty
+            # `LLMSection()` and every ingest rung that makes a model call —
+            # `index-with-questions`, `index-with-raptor` — refused here with *"no [llm.roles]
+            # entry maps role 'index'"* while `weft index` ran it fine from the same directory
+            # and the same `weft.toml`. The falsification instrument's whole subject set was
+            # silently narrowed to pipelines that never call a model, which is most of what it
+            # was built to compare. This module's docstring says it "reuses `run_index`
+            # unchanged", which was true and is how the argument went missing: a concern passed
+            # by hand at each call site is one an author has to remember, and one of two did.
+            llm=deps.llm,
+            sink=deps.token_sink,
         )
         wall_clock_seconds = time.monotonic() - started
         if not result.document_ids:

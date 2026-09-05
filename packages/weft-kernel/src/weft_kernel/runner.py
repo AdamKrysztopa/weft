@@ -1154,6 +1154,17 @@ def _stage_signature(contract: type[object]) -> tuple[object, object]:
     )
 
 
+def _type_name(value: object) -> str:
+    """A type as a reader recognises it — `QuerySet`, never `<class '...payload.QuerySet'>`.
+
+    `repr` on a class is the noisy form, and this message's whole job is to name two
+    types clearly enough that somebody can see which document is wrong.
+    `_stage_signature` may hand back something that is not a class at all, so the
+    fallback is `repr` rather than an attribute access that raises inside an error path.
+    """
+    return getattr(value, "__name__", None) or repr(value)
+
+
 def _check_composition(
     specs: Sequence[StageSpec], *, entry_type: type[object] | None = None
 ) -> None:
@@ -1178,7 +1189,8 @@ def _check_composition(
         if previous is None and entry_type is not None and expected != payload_type:
             raise StageCompositionError(
                 f"stage '{spec.id}' ({spec.contract.__name__}:{spec.name}) expects "
-                f"{payload_type!r}, but this pipeline will be handed {entry_type!r}.",
+                f"{_type_name(payload_type)}, but this pipeline will be handed "
+                f"{_type_name(entry_type)}.",
                 stages=(spec.id,),
                 remedy=(
                     f"add a stage ahead of '{spec.id}' that produces {payload_type!r}, or "

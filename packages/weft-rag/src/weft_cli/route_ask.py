@@ -233,6 +233,7 @@ async def run_routed_ask(
     answer = await _run_pipeline(
         target,
         query_set,
+        entry_type=QuerySet,
         registry=registry,
         runner=runner,
         ctx=routed_ctx,
@@ -408,6 +409,7 @@ async def run_named_ask(
     answer = await _run_pipeline(
         target,
         query_set,
+        entry_type=QuerySet,
         registry=registry,
         runner=runner,
         ctx=routed_ctx,
@@ -479,9 +481,18 @@ async def _run_pipeline(
     pipeline's first stage, so `weft_kernel.runner.Runner.resolve` can refuse a document
     whose first stage cannot accept it before anything runs, naming the stage and the
     mismatch by type rather than surfacing as an `AttributeError` mid-run. Defaulted to
-    `None` because only `run_routed_ask`'s own router resolution — the one call site that
-    hands a bare `Query` to a document that may not expect one — makes a claim about what
-    it is about to pass; every other call keeps making none.
+    `None` because a caller that does not know what it is handing over must not guess — but
+    **every caller in this module does know, and all three now say so.** The router's own
+    resolution passes `Query`; `run_named_ask` and the router's selected-pipeline call each
+    construct the `QuerySet` on the line above and pass `QuerySet`.
+
+    **This paragraph used to claim the opposite** — *"every other call keeps making none"* — and
+    that was a statement about two call sites, written at the one being edited, which is `L6.13`
+    exactly: a repair specified from one failing instance narrows to that instance. It was
+    falsified in one command at Phase 8's close review: `weft ask "..." --pipeline route` died with
+    `'QuerySet' object has no attribute 'text'` and exit `1`, while the routed path refused the
+    same mistake by name at exit `4`. The default stays for a genuine stranger; it is no longer
+    the answer any first-party caller gives.
     """
     contracts = contracts_for(
         pipeline, registry=registry, parents=catalogue, contributions=contributions

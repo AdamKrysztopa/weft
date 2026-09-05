@@ -246,6 +246,45 @@ here.
 
 ---
 
+**Eighteen rows added 2026-09-06, at Phase 8's close review, and the reason is that nothing was
+looking.** `tests/docs/test_technique_naming.py`'s `_AUDITED_DISTRIBUTIONS` named four packages —
+`weft-retrieve`, `weft-generate`, `weft-llm`, `weft-prompts` — that stopped being distributions at
+**G10's re-settlement**, when `weft-rag` began *containing* the fourteen packs rather than pinning
+them. `discover(allow=...)` ignores a name it does not know without complaining, so property 5's
+reverse direction narrowed from ~100 registered names to **5** and went on passing. Every plugin
+below was registered, listed by `weft plugins list`, placeable in a document — and named nowhere in
+this catalogue, which is the exact condition §1.5's own opening paragraph says a row exists to
+prevent. The check now asserts that every audited distribution actually resolved.
+
+| Weft name | Contract | What it is |
+|---|---|---|
+| `text` | `Extractor` | Reads a directory of plain-text and Markdown files into one node per file. The default `weft index` resolves, and the reason a clean checkout can index with no PDF backend installed |
+| `fixed-size` | `Chunker` | Splits a node's content into fixed-length character windows with a configurable overlap, recording each chunk's offset into its parent. No citation: it is the floor every chunking comparison is measured against, not a claim |
+| `hash` | `Embedder` | Turns content into a deterministic vector and understands nothing about it. **Not a quality component and the catalogue says so here as well as in the manuals**: two documents on unrelated topics are as "similar" to it as two ways of saying the same thing. It exists so a clean checkout indexes, searches and passes its whole suite with no account and no model download |
+| `unicode-normalize` | `Cleaner` | NFC normalisation, so text that is byte-different and reader-identical compares equal downstream |
+| `whitespace` | `Cleaner` | Collapses runs of whitespace and strips the margins a layout-aware extractor leaves behind |
+| `hyphenation` | `Cleaner` | Rejoins a word a line break split across two lines — a PDF artefact that otherwise reaches the index as two tokens neither of which is the word |
+| `artifact-remove` | `Cleaner` | Removes the repeating page furniture an extractor cannot tell from body text — headers, footers, page numbers — identified by recurrence across pages rather than by a pattern list |
+| `table-linearize` | `Cleaner` | Rewrites an extracted table into one row-per-line reading order, so a retriever scoring on text does not score a table as a column of fragments |
+| `polish-dictionary-spacing` | `Cleaner` | Repairs missing inter-word spacing in Polish text against a dictionary. **The one shipped plugin whose subject is a specific language**, and it is a `Cleaner` rather than anything wider precisely so the content-language axis stays a fact on the node |
+| `keybert` | `Enhancer` | Attaches keyword terms to a node. Named for the method it applies rather than for the outcome it claims, per §2.1 rule 4 |
+| `generate-questions` | `Prompt` | The prompt `hypothetical-questions` (§1.2) resolves by name to produce the questions a chunk answers |
+| `summarize-cluster` | `Prompt` | The prompt `raptor` (§1.2) resolves by name to summarise one cluster of children into a parent node |
+| `faithfulness-judge` | `Prompt` | The prompt the `faithfulness` metric resolves — is every claim in the answer supported by the retrieved context |
+| `answer-relevance-judge` | `Prompt` | The prompt the `answer-relevance` metric resolves — does the answer address the question asked |
+| `answer-correctness-judge` | `Prompt` | The prompt the `answer-correctness` metric resolves — does the answer agree with the reference |
+| `answer-completeness-judge` | `Prompt` | The prompt the `answer-completeness` metric resolves — does the answer cover what the reference covers |
+| `context-relevance-judge` | `Prompt` | The prompt the `context-relevance` metric resolves — is the retrieved context about the question |
+| `context-recall-judge` | `Prompt` | The prompt the `context-recall` metric resolves — does the retrieved context contain what the reference needed |
+
+**What this table deliberately does not owe rows for, and where those live instead.** A `Command`
+is `03`'s subject and is already generated into `manual/user-manual.md`'s command table; a
+`Renderer` is output plumbing making no technique claim; a `GenerationMetric` or `RetrievalMetric`
+is `09` §4's, which specifies what a baseline is judged against and names every one it uses. That
+is a boundary rather than a backlog, and it is stated in
+`tests/docs/test_technique_naming.py`'s `_CONTRACTS_OUTSIDE_THE_CATALOGUE` so the check enforces
+the same line this paragraph draws — 41 of the 63 names that read as missing are these.
+
 ## 2. The naming rule, argued
 
 ### 2.1 The rule

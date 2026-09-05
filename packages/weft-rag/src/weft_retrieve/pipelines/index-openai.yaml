@@ -1,0 +1,32 @@
+name: index-openai
+extends: index-text
+
+# **The shortest path from a clean install to an index that means something.** Everything
+# `index-text` does, with `hash` replaced by a real embedder — one `replace:` block, which is
+# also the whole demonstration that swapping an embedder is a document edit and not a code edit.
+#
+# **Why this document exists at all.** Ledger task 8.15 renamed the OpenAI embedder to
+# `openai-embeddings` so a document could name it — before that it answered to `openai` under two
+# contracts and no `use:` could say which was meant. The rename landed and no shipped rung took
+# the name, so the shortest path to a real embedder was still *write YAML*, which is the exact
+# distance the ladder exists to close. Found at Phase 8's close review, not by a check: fitness
+# function 16 derives its scope from the packs that ship documents, and `weft-openai` ships none.
+#
+# **It needs a credential, and it says so before it spends one.** Add to `weft.toml`:
+#
+#     [packs.openai]
+#     api_key = "${env:OPENAI_API_KEY}"
+#
+# With no credential the run fails at the embed stage naming the block to add — `weft-openai`
+# deliberately does not read `OPENAI_API_KEY` on its own, so a project that runs on one machine
+# runs on every machine. `weft plugins doctor` reports the pack `active` either way, because
+# registering costs nothing and a run that never embeds never needs an account.
+#
+# **Changing the embedder means reindexing into a fresh collection.** `hash` is 64 dimensions and
+# `text-embedding-3-small` is 1536; a stored vector is only comparable to a question embedded by
+# the same model, and where the widths differ the store refuses outright rather than comparing
+# two unrelated spaces. See `manual/operations-guide.md` → *Choosing an embedder*.
+
+replace:
+  - id: embed
+    use: openai-embeddings

@@ -1411,6 +1411,20 @@ All checks run in CI, before tests.
     to shape it, and a kernel change made for a hypothetical is the wrong trade.
 
 
+19. **A model that reaches a persisted artefact can be read back.** Added 2026-09-06, at Phase 8's
+    close review. For every model reachable from a run record,
+    `type(m).model_validate(m.model_dump(mode="json")) == m`. **The writing half passing proves
+    nothing about the reading half**, and this failed silently for a phase:
+    `weft_kernel.payload.applicability.Applies` had a serialiser, no validator and a positional-only
+    `fact`, so every `weft eval run` of the shipped `index-polish` wrote a run record nothing could
+    read — and `weft index`, `weft reconcile` and `weft delete` all load every record through one
+    shared helper, so a single opaque JSON file stopped all three in that project with no hint which
+    file. `tests/architecture/test_ff19_persisted_models_round_trip.py`, waiver pinned empty.
+    Detection reads pydantic's **core schema**, never `field.metadata`: the first version of the
+    check walked `metadata`, which is empty for a field annotated through a PEP 695 alias, so it
+    passed on the very model it was written for and went on passing when the validator was deleted
+    to test it — proved against a planted removal instead (`docs/lessons.md` `L8.23`).
+
 > **Corrected 2026-08-10 — fitness function 1, and the preamble.** This section previously opened
 > *"the single best thing in a codebase examined during design is its AST boundary checker"* and
 > specified FF1 as *"lifted almost verbatim from it."* It is not the best thing there and it must

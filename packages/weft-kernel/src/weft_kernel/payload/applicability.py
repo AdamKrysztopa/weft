@@ -82,24 +82,81 @@ vacuously. This is what keeps every stage written before this task — none
 of which declares `applies_to` at all — running exactly as it did.
 """
 
+import sys
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, PlainSerializer
+from pydantic import BaseModel, BeforeValidator, ConfigDict, PlainSerializer
 
 from weft_kernel.payload.ext import ExtModel
 from weft_kernel.payload.node import Node
 
-type _FactRef = Annotated[
-    type[ExtModel], PlainSerializer(lambda fact: fact.__name__, return_type=str, when_used="json")
-]
-"""`Applies.fact` in a document: the class in memory, its bare name once dumped to JSON.
 
-The same shape `weft_kernel.resolution.StageConfig` already gives a validated
-config object — pydantic knows how to write a plain string back into a
-document and has no serializer at all for an arbitrary `type`, so
-`model_dump(mode='json')` on a `ResolvedStage.applies_to` would otherwise
-raise outright rather than merely print something ugly.
+def _fact_to_ref(fact: type[ExtModel]) -> str:
+    """`module:QualName` — enough to find the class again, and nothing more."""
+    return f"{fact.__module__}:{fact.__qualname__}"
+
+
+def _fact_from_ref(value: object) -> object:
+    """A persisted `module:QualName` back into the class, **without importing anything**.
+
+    The pack that declares a fact was imported at discovery if it is installed at all, so a
+    reference this cannot resolve means the pack is *gone* — and that is a refusal, not an import.
+    Resolving by importing whatever a persisted file names would turn a JSON artefact into an
+    instruction to execute code, which is a much larger promise than reading a run record needs.
+    """
+    if not isinstance(value, str):
+        return value
+    module_name, _, qualname = value.partition(":")
+    if not qualname:
+        raise ValueError(
+            f"{value!r} is not a fact reference. Expected 'module:QualName' — a fact written by a "
+            f"version of Weft before this form was introduced cannot be read, and the record "
+            f"carrying it should be deleted."
+        )
+    module = sys.modules.get(module_name)
+    if module is None:
+        raise ValueError(
+            f"no installed pack has imported '{module_name}', so the fact '{qualname}' this record "
+            f"was written against cannot be resolved. Install the distribution that provides it, "
+            f"or delete the record. Nothing is imported to answer this — a persisted name is data."
+        )
+    resolved: object = module
+    for part in qualname.split("."):
+        resolved = getattr(resolved, part, None)
+        if resolved is None:
+            raise ValueError(
+                f"'{module_name}' no longer declares '{qualname}'. The pack is installed and this "
+                f"fact has been renamed or removed since the record was written."
+            )
+    return resolved
+
+
+type _FactRef = Annotated[
+    type[ExtModel],
+    PlainSerializer(_fact_to_ref, return_type=str, when_used="json"),
+    BeforeValidator(_fact_from_ref),
+]
+"""`Applies.fact` in a document: the class in memory, `module:QualName` once dumped to JSON.
+
+pydantic has no serializer at all for an arbitrary `type`, so `model_dump(mode='json')` on a
+`ResolvedStage.applies_to` would otherwise raise outright rather than merely print something ugly.
+
+**It used to dump the bare `__name__` and had no validator, which made it write-only** — found at
+Phase 8's close review by running the binary. The serialising half worked from the day it was
+written, so nothing ever failed while records were being created; the failure arrived later and
+somewhere else, in three commands that merely *read* the directory those records live in. A bare
+name is also not enough to find a class again, which is why the form changed rather than only
+gaining a validator: two packs may each declare a `Language`, and the record has to say whose.
 """
+
+
+class _Unset:
+    """The absence of an authored `fact`, distinguishable from every value one could hold."""
+
+    __slots__ = ()
+
+
+_UNSET = _Unset()
 
 
 class Applies(BaseModel):
@@ -115,7 +172,31 @@ class Applies(BaseModel):
     fact: _FactRef
     constraints: tuple[tuple[str, object], ...] = ()
 
-    def __init__(self, fact: type[ExtModel], /, **field_values: object) -> None:
+    def __init__(self, fact: type[ExtModel] | _Unset = _UNSET, /, **field_values: object) -> None:
+        """Authored as `Applies(Language, code="pl")`, and **rebuilt from JSON as well**.
+
+        `fact` is positional-only so that a fact model declaring its own `fact` field is still
+        narrowable, and that is exactly what broke reading one back: pydantic validates a persisted
+        `{"fact": "Language", "constraints": [["code", "pl"]]}` by calling `__init__(**data)`, where
+        a positional-only parameter cannot be reached — so `fact` and `constraints` both landed in
+        `field_values`, `fact` was never supplied, and `model_validate` raised
+        *"missing 1 required positional argument: 'fact'"*.
+
+        **The writing half always worked, which is why nothing failed for a phase.** Found at Phase
+        8's close review by running the binary, not by the suite: `index-polish` declares
+        `applies_to = (Applies(Language, code="pl"),)`, so one `weft eval run` of it wrote a run
+        record that nothing could read afterwards — and `weft_cli.commands._participating_stores`
+        loads every record for `weft index`, `weft reconcile` **and** `weft delete`, so a single
+        opaque JSON file stopped all three in that project with no hint which file. `L6.14` says a
+        read method with no writer answers emptily; this is the reverse, and the reverse is worse,
+        because the artefact persists and the failure surfaces somewhere else entirely.
+
+        The unset sentinel is what lets one `__init__` serve both callers: absent means pydantic is
+        rebuilding and `field_values` already holds the model's own fields.
+        """
+        if isinstance(fact, _Unset):
+            super().__init__(**field_values)
+            return
         unknown = sorted(set(field_values) - set(fact.model_fields))
         if unknown:
             valid = ", ".join(sorted(fact.model_fields)) or "(no fields)"

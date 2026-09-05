@@ -210,6 +210,16 @@ rather than shaped to the assertion — a method returning the literal value the
 passes and implements nothing. Anything in the diff that is a design choice and is not in your brief
 was decided by something that had not read the documents.
 
+**And when a repair adds an optional parameter, read the other call sites before writing why they
+abstain.** A defaulted parameter with one caller is a narrowing wearing a default, and the docstring
+explaining it is a claim about code the author was not editing. Task 8.18's said *"every other call
+keeps making none"*; twenty lines above, `run_named_ask` built the payload and knew exactly what it
+was — so one command refused a bad pipeline by name at exit `4` and its neighbour died with a raw
+`AttributeError` at exit `1`. The same phase shipped the shape twice: `weft index` passes
+`llm=deps.llm` into `run_index` and `weft eval run` calls the identical function passing nothing,
+which put every model-calling ingest rung out of reach of the evaluator. Both were found by running
+the binary, neither by 2,012 tests (`docs/lessons.md` `L8.24`).
+
 **Read `.claude/lessons-spool.md` before you move on.** The implementer's `## Noticed` section is
 already in it, and it is the only channel by which what only that agent saw survives the context
 boundary — a finding left in an unread file has been filed, not collected.
@@ -303,6 +313,14 @@ first; a boundary skipped is a boundary skipped silently.
 4. **Re-check the phase's Exit criterion in `01` → *Phases* against what exists**, not against the
    ticked boxes. Phase 5's exit was never met while every box under it was ticked, which is why
    Phase 6 carries `6.21` to discharge it. Read the criterion, then go and look.
+
+   **Check the conjunction first, not the clauses.** Where an exit's clauses were built by different
+   tasks, the word joining them — *together*, *the same*, *one of which* — is the part no task owned
+   and therefore the part that fails. Phase 8's exit asked that `weft eval` judge two of *those
+   rungs*, meaning the query rungs the clause above names; every box was honestly ticked, both
+   halves were individually demonstrable, and `weft eval run` refuses a query rung outright because
+   it has no `Extractor` stage. Reading clause by clause reproduces the division of labour that left
+   the gap (`docs/lessons.md` `L8.29`).
 5. **`python3 .claude/skills/phase-step/scripts/next_task.py --check-live` is green**, before
    and after you edit the Status block. A stale Status block does its most damage exactly here,
    because the next phase is about to be routed off it.

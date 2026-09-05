@@ -75,6 +75,9 @@ class LLMRoles(BaseModel):
         available = ", ".join(options) or "(none mapped)"
         raise UnmappedLLMRoleError(
             f"no [llm.roles] entry maps role '{role}'. Roles mapped in weft.toml: {available}. "
-            f'Add, e.g., `[llm.roles]\\n{role} = {{ provider = "scripted" }}` to weft.toml.',
+            # A literal newline, not `\\n`: this line is meant to be pasted into weft.toml, and
+            # the escape printed itself. Found by running the binary at Phase 8's close review.
+            f"Add, e.g., these two lines to weft.toml:\n"
+            f'[llm.roles]\n{role} = {{ provider = "scripted" }}',
             valid_options=options,
         )

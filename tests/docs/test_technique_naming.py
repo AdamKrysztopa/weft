@@ -204,14 +204,55 @@ def registered_names() -> frozenset[str]:
 #: registry. Extending it to an eighth distribution is a decision this file should make
 #: visibly, in the same commit that adds that distribution's own rows to `10`.
 _AUDITED_DISTRIBUTIONS: Final[tuple[str, ...]] = (
-    "weft-retrieve",
-    "weft-generate",
-    "weft-llm",
-    "weft-prompts",
+    "weft-rag",
     "weft-pdf",
     "weft-qdrant",
     "weft-openai",
 )
+"""**Corrected 2026-09-06 at Phase 8's close review, and the failure was silent.**
+
+This tuple used to name `weft-retrieve`, `weft-generate`, `weft-llm` and `weft-prompts`. Those
+were distributions when it was written and stopped being any at **G10's re-settlement**, which
+made `weft-rag` *contain* the fourteen packs rather than pin them — they are directories inside one
+wheel now. `discover(allow=...)` refuses a name it does not know without complaining, so this
+check narrowed from ~100 names to **5** with no test going red and nothing said anywhere; property
+5's reverse direction was auditing under 5% of the registry while reading as though it covered it.
+Its own self-test could not catch that: fabricating a name proves the comparison works, never that
+the population is real.
+
+The scope decision this comment used to defend is unchanged — *which* distributions `10` owes rows
+is still a judgement, not a registry fact — but `test_every_audited_distribution_resolves` below
+now asserts that every name here actually contributed something, so the next consolidation fails
+loudly instead of quietly emptying the check.
+"""
+
+
+#: Contracts whose names `10` does not owe a row, because another document owns them. **This is a
+#: scope decision and it is written here rather than left to a waiver list**, which is the
+#: difference between a boundary and a backlog: a waiver names an exception to a rule, and these
+#: are outside the rule. `10` is a catalogue of *techniques* — a plugin occupying a pipeline
+#: position and making a claim about how retrieval or generation is done. A `Command` is `03`'s
+#: subject and is already generated into `manual/user-manual.md`'s command table; a `Renderer` is
+#: output plumbing with no technique claim to support or withdraw; a metric is `09` §4's, which
+#: specifies what a baseline is judged against and names every one it uses.
+#:
+#: Measured, not assumed: with `_AUDITED_DISTRIBUTIONS` repaired, these four contracts account for
+#: **41 of the 63** names that read as undocumented, and every one of the remaining 22 is either
+#: genuinely in `10` (§1.2 and §1.3, which this file did not read) or waived below.
+_CONTRACTS_OUTSIDE_THE_CATALOGUE: Final[frozenset[str]] = frozenset(
+    {"Command", "Renderer", "GenerationMetric", "RetrievalMetric"}
+)
+
+
+def names_under(contract_names: frozenset[str]) -> frozenset[str]:
+    """Every registered name under any contract in `contract_names`."""
+    registry = discover_for_tests()
+    return frozenset(
+        name
+        for contract in registry.contracts()
+        if contract.__name__ in contract_names
+        for name in registry.names_for(contract)
+    )
 
 
 def names_registered_by(distributions: tuple[str, ...]) -> frozenset[str]:
@@ -360,8 +401,15 @@ def weft_names_in_catalogue() -> frozenset[str]:
     names = set(_weft_names_in_1_1())
     section_2_2 = _section(text, start="### 2.2 Applied to all ten", end="### 2.3 Why the prefix")
     names.update(_BACKTICK_TOKEN.findall(section_2_2))
-    section_1_5 = _section(text, start="### 1.5 Supporting plugins", end="## 2. The naming rule")
-    names.update(_TABLE_ROW.findall(section_1_5))
+    # **§1.2 and §1.3 were missing until 2026-09-06, and that was the second silent narrowing in
+    # this file.** `## 1. The catalogue` has five subsections; this function read §1.1 and §1.5 and
+    # skipped *index-path techniques* and *judge techniques* entirely, so `raptor`,
+    # `hypothetical-questions` and six judge prompts read as undocumented while `10` documents every
+    # one of them. Read the whole catalogue section instead of an enumerated three, so a sixth
+    # subsection is covered the day it is written rather than the day somebody remembers.
+    section_1 = _section(text, start="## 1. The catalogue", end="## 2. The naming rule")
+    names.update(_TABLE_ROW.findall(section_1))
+    names.update(_BACKTICK_TOKEN.findall(section_1))
     return frozenset(names)
 
 
@@ -429,7 +477,11 @@ def test_every_name_the_audited_distributions_register_is_documented_in_10() -> 
     the base commit shipped fourteen documented names and left roughly two dozen others
     silent about."""
     # Arrange
-    audited = names_registered_by(_AUDITED_DISTRIBUTIONS) - NAMES_WAIVED_FROM_THE_CATALOGUE
+    audited = (
+        names_registered_by(_AUDITED_DISTRIBUTIONS)
+        - NAMES_WAIVED_FROM_THE_CATALOGUE
+        - names_under(_CONTRACTS_OUTSIDE_THE_CATALOGUE)
+    )
     documented = weft_names_in_catalogue()
 
     # Act
@@ -605,3 +657,22 @@ def test_a_missing_citation_would_be_caught() -> None:
 
     # Assert
     assert missing == ["9999.99999"]
+
+
+def test_every_audited_distribution_resolves() -> None:
+    """A scope constant whose members are looked up in an external namespace must assert they
+    resolved. `discover(allow=...)` ignores an unknown name silently, so a hand-kept allow-list
+    degrades to a check about almost nothing the moment the tree renames a distribution — which is
+    exactly what G10's re-settlement did to four of the seven names this tuple used to hold.
+    """
+    empty = sorted(
+        distribution
+        for distribution in _AUDITED_DISTRIBUTIONS
+        if not names_registered_by((distribution,))
+    )
+    assert not empty, (
+        f"these entries in _AUDITED_DISTRIBUTIONS registered nothing: {empty}. Either the "
+        f"distribution was renamed or consolidated — G10 folded fourteen packs into weft-rag once "
+        f"already — or it is not installed. Until it is corrected, every name it was meant to "
+        f"bring into scope is unaudited and nothing else says so."
+    )

@@ -1,0 +1,171 @@
+"""Fitness function 19 — a model that reaches a persisted artefact can be read back.
+
+`docs/lessons.md` `L8.23`. `weft_kernel.payload.applicability.Applies` had a `PlainSerializer` and
+no validator, and a positional-only `fact`, so `model_dump(mode="json")` worked from the day it was
+written and `model_validate` on its own output could never work. **Nothing failed while records
+were being created**; the failure arrived later, in three commands that merely *read* the directory
+those records live in — `weft index`, `weft reconcile` and `weft delete` all load every run record
+through one shared helper, so a single unreadable JSON file stopped all three in that project with
+no hint which file. It was found by running the binary on a real wheel install at Phase 8's close
+review, not by 2,012 tests.
+
+**The property is one line and it holds for a whole population**: for every model that can reach a
+persisted artefact, `type(m).model_validate(m.model_dump(mode="json")) == m`. That is what
+distinguishes a format from a serialiser — `L6.14` says a read method with no writer answers
+emptily, and this is the reverse, which is worse because the artefact persists and outlives the
+session that could not read it.
+
+**Scope is the models a run record actually contains**, walked from `RunRecord` rather than listed:
+a hand-kept list of "models that get persisted" is the thing that goes stale the moment a field is
+added, and `L8.25` is what a hand-kept scope constant does when the tree moves under it. Every model
+reachable from `RunRecord`'s field graph is in, with instances built by the same constructors
+production uses.
+"""
+
+from __future__ import annotations
+
+from typing import Annotated, Final, get_args
+
+from pydantic import BaseModel, BeforeValidator
+
+from weft_kernel.payload.applicability import Applies
+from weft_kernel.payload.ext import ExtModel
+
+#: Models reachable from a persisted artefact that cannot round-trip. **Pinned empty.** A model
+#: here is one this project knowingly writes and cannot read, which is the defect itself.
+MODELS_WAIVED_FROM_ROUND_TRIP: Final[frozenset[str]] = frozenset()
+
+
+class _Language(ExtModel):
+    """A fact model standing in for a pack's own — the shape `index-polish` actually declares."""
+
+    __namespace__ = "weft-test-lang"
+    __schema_version__ = "1.0.0"
+    code: str
+
+
+def _models_reachable_from(root: type[BaseModel]) -> set[type[BaseModel]]:
+    """Every `BaseModel` in `root`'s field graph, including the containers' element types."""
+    seen: set[type[BaseModel]] = set()
+    pending: list[type[BaseModel]] = [root]
+    while pending:
+        model = pending.pop()
+        if model in seen:
+            continue
+        seen.add(model)
+        for field in model.model_fields.values():
+            for candidate in (field.annotation, *_unwrap(field.annotation)):
+                if isinstance(candidate, type) and issubclass(candidate, BaseModel):
+                    pending.append(candidate)
+    return seen
+
+
+def _unwrap(annotation: object) -> tuple[object, ...]:
+    """`tuple[Applies, ...]` → `(Applies, ...)`, one level at a time, recursively."""
+    args = get_args(annotation)
+    if not args:
+        return ()
+    return args + tuple(inner for arg in args for inner in _unwrap(arg))
+
+
+def test_applies_round_trips() -> None:
+    """The instance the class was written from — `index-polish`'s own `applies_to`."""
+    # Arrange
+    original = Applies(_Language, code="pl")
+
+    # Act
+    dumped = original.model_dump(mode="json")
+    restored = Applies.model_validate(dumped)
+
+    # Assert
+    assert restored == original, f"Applies did not survive {dumped}"
+    assert restored.fact is _Language, "the fact resolved to something other than the class itself"
+
+
+def test_a_fact_reference_names_its_module() -> None:
+    # A bare `__name__` cannot find a class again: two packs may each declare a `Language`, and the
+    # record has to say whose. This is why the form changed rather than only gaining a validator.
+    dumped = Applies(_Language, code="pl").model_dump(mode="json")
+    assert dumped["fact"] == f"{_Language.__module__}:{_Language.__qualname__}"
+
+
+def test_a_fact_from_a_pack_that_is_gone_refuses_loudly() -> None:
+    # Nothing is imported to answer this. A pack that is installed was imported at discovery, so a
+    # reference this cannot resolve means the pack is gone — a refusal, never an import of whatever
+    # a persisted file happens to name.
+    try:
+        Applies.model_validate({"fact": "no.such.pack:Language", "constraints": []})
+    except Exception as exc:  # noqa: BLE001 — pydantic wraps the ValueError
+        message = str(exc)
+    else:  # pragma: no cover
+        raise AssertionError("a fact from an uninstalled pack was accepted")
+
+    assert "no.such.pack" in message, f"the refusal does not name what is missing: {message}"
+
+
+def test_every_model_a_run_record_carries_round_trips() -> None:
+    """The population, walked rather than listed."""
+    from weft_eval.run_record import RunRecord
+
+    run_record: type[BaseModel] = RunRecord
+
+    reachable = _models_reachable_from(run_record) - {run_record}
+    assert reachable, "no models reachable from RunRecord — this check compares nothing"
+
+    unserialisable = sorted(
+        model.__name__
+        for model in reachable
+        if model.__name__ not in MODELS_WAIVED_FROM_ROUND_TRIP
+        and _customises_writing_without_reading(model)
+    )
+    assert not unserialisable, (
+        f"these models a run record carries declare a custom serialiser with no matching "
+        f"validator, so they can be written and never read: {unserialisable}. The write half "
+        f"passing proves nothing (lessons.md L8.23)."
+    )
+
+
+def _customises_writing_without_reading(model: type[BaseModel]) -> bool:
+    """Whether `model` declares a custom serialiser and no custom validator beside it.
+
+    **Read off pydantic's own core schema, not off `field.metadata`** — and that distinction is the
+    whole reason this function is trustworthy. The first version of this check walked
+    `field.metadata` looking for `...Serializer` / `...Validator`, and for `Applies.fact` that list
+    is **empty**: the field's annotation is the PEP 695 alias `_FactRef`, so the `Annotated`
+    metadata never reaches there. The check passed on the exact model it was written for, and kept
+    passing when the validator was deleted to test it. `docs/lessons.md` `L5.19` and `L8.25` are the
+    same failure — a check that narrowed to nothing and read as green — so this one is proved
+    against a planted removal rather than reasoned about.
+    """
+    schema = repr(model.__pydantic_core_schema__)
+    return "'serialization'" in schema and "function-before" not in schema
+
+
+def test_the_check_can_actually_fail() -> None:
+    """Plant both shapes and watch the detector separate them.
+
+    This is not decoration. The **first** version of `_customises_writing_without_reading` walked
+    `field.metadata`, which is empty for a field annotated through a PEP 695 alias — so it returned
+    `False` for `Applies` both before and after the validator was deleted, and the whole check was
+    green about the one model it was written for. The version below was chosen by planting the
+    removal and watching this file go red, which is the only reason it is trustworthy.
+    """
+    from pydantic import PlainSerializer
+
+    class WriteOnly(BaseModel):
+        fact: Annotated[type[ExtModel], PlainSerializer(lambda f: f.__name__, return_type=str)]
+
+    class RoundTrips(BaseModel):
+        fact: Annotated[
+            type[ExtModel],
+            PlainSerializer(lambda f: f.__name__, return_type=str),
+            BeforeValidator(lambda v: v),
+        ]
+
+    assert _customises_writing_without_reading(WriteOnly), (
+        "a model that declares how it is written and not how it is read reads as fine"
+    )
+    assert not _customises_writing_without_reading(RoundTrips)
+    assert not _customises_writing_without_reading(Applies), (
+        "Applies is the model this check exists for, and it must pass now that it round-trips"
+    )
