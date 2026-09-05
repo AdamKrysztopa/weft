@@ -41,9 +41,10 @@ from weft_kernel.context import Context, ServiceRegistry
 from weft_kernel.payload import ExtModel, Failed, MediaType, Node, Outcome, Produced, Vector
 from weft_kernel.seam import wrap
 from weft_retrieve.contract import Retriever
+from weft_retrieve.fusion import contributor_label
 from weft_retrieve.payload import Candidates, Channel, Query, QuerySet, RankedList
 from weft_retrieve.vector_top_k import NAME, VectorTopK, VectorTopKConfig
-from weft_store.contract import NodeStore, Scored
+from weft_store.contract import Filter, FilterOp, NodeStore, Scored
 
 
 def _ctx(services: ServiceRegistry | None = None) -> Context:
@@ -77,12 +78,13 @@ class _StubVectorStore:
     def __init__(self, by_key: dict[float, Sequence[Scored[Node]]]) -> None:
         self._by_key = by_key
         self.calls: list[tuple[Vector, int]] = []
+        self.filters: list[object] = []
 
     async def search_vector(
         self, vector: Vector, top_k: int, filter: object = None
     ) -> Sequence[Scored[Node]]:
-        del filter
         self.calls.append((vector, top_k))
+        self.filters.append(filter)
         return self._by_key.get(vector.values[0], ())
 
 
@@ -246,3 +248,90 @@ def test_the_declared_cost_bound_is_zero_zero() -> None:
     # rather than inferred from a counter — the same honest shape `test_no_retrieval.py`
     # already uses for its own `(0, 0)`.
     assert VectorTopK.cost_bound == (0, 0)
+
+
+async def test_an_arm_names_itself_so_a_fuser_can_weight_it_apart() -> None:
+    """Two `vector-top-k` stages over one index are two *bases* only if a `Fuser` can tell
+    them apart. `weft_retrieve.fusion.contributor_label` is `retriever:channel`, and this
+    plugin used to hardcode `channel="vector"` — so a summaries arm and a leaves arm produced
+    the identical label and `reciprocal-rank-fusion`'s `weights` mapping could not address
+    either one.
+    """
+    # Arrange
+    asked = Query(text="what does the corpus say overall?")
+    store = _StubVectorStore({float(len(asked.text)): (_hit("a summary", 0.9),)})
+    services = ServiceRegistry()
+    services.add(NodeStore, store)
+    services.add(Embedder, _StubEmbedder())
+    payload = QuerySet(origin=asked, queries=(asked,))
+    retriever = VectorTopK(VectorTopKConfig(arm="raptor"))
+
+    # Act
+    outcome = await retriever.run(payload, _ctx(services))
+
+    # Assert — the list carries the arm's own name, and the fuser's label follows it.
+    assert isinstance(outcome, Produced)
+    ranked = outcome.value.lists[0]
+    assert ranked.channel == "raptor"
+    assert contributor_label(ranked) == "vector-top-k:raptor"
+
+
+async def test_an_arm_filter_reaches_the_store() -> None:
+    # Arrange — an arm restricted to nodes a named technique produced.
+    asked = Query(text="what does the corpus say overall?")
+    store = _StubVectorStore({float(len(asked.text)): (_hit("a summary", 0.9),)})
+    services = ServiceRegistry()
+    services.add(NodeStore, store)
+    services.add(Embedder, _StubEmbedder())
+    payload = QuerySet(origin=asked, queries=(asked,))
+    only_raptor = Filter(op=FilterOp.EQ, field="ext.weft-index.technique", value="raptor")
+    retriever = VectorTopK(VectorTopKConfig(arm="raptor", filter=only_raptor))
+
+    # Act
+    outcome = await retriever.run(payload, _ctx(services))
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert store.filters == [only_raptor]
+
+
+async def test_an_arm_filter_and_a_query_filter_are_combined_never_replaced() -> None:
+    """A query's own filter is the caller's narrowing and an arm's is the document's. Dropping
+    either would silently widen a search someone deliberately narrowed — the class of failure
+    that returns a plausible answer over the wrong data rather than crashing.
+    """
+    # Arrange
+    per_query = Filter(op=FilterOp.EQ, field="ext.weft-kernel.tenant", value="acme")
+    asked = Query(text="what does the corpus say overall?", filter=per_query)
+    store = _StubVectorStore({float(len(asked.text)): (_hit("a summary", 0.9),)})
+    services = ServiceRegistry()
+    services.add(NodeStore, store)
+    services.add(Embedder, _StubEmbedder())
+    payload = QuerySet(origin=asked, queries=(asked,))
+    per_arm = Filter(op=FilterOp.EQ, field="ext.weft-index.technique", value="raptor")
+    retriever = VectorTopK(VectorTopKConfig(arm="raptor", filter=per_arm))
+
+    # Act
+    outcome = await retriever.run(payload, _ctx(services))
+
+    # Assert — one `and` over both, neither discarded.
+    assert isinstance(outcome, Produced)
+    sent = store.filters[0]
+    assert isinstance(sent, Filter)
+    assert sent.op is FilterOp.AND
+    # Compared as a list, not a set: `Filter` is a pydantic model without `frozen=True` and is
+    # therefore unhashable, which pyright catches. Order is this plugin's own — query first.
+    assert list(sent.clauses) == [per_query, per_arm]
+
+
+async def test_a_retrieval_depth_of_zero_is_refused_at_construction() -> None:
+    """`docs/audit-a prior project-2026-09-05.md` §2, item 5: `top_k=-5` and `top_k=0` both
+    constructed, and a `0` from a `with:` block reached the store. The reference bounded this
+    field (`vector_top_k=15, ge=1, le=50`); every sibling config in this pack already carries
+    `ge`, so the tree was inconsistent on precisely the field that was bounded elsewhere.
+    """
+    for bad in (0, -5):
+        with pytest.raises(ValidationError):
+            VectorTopKConfig(top_k=bad)
+        with pytest.raises(ValidationError):
+            VectorTopKConfig(per_query_top_k=bad)

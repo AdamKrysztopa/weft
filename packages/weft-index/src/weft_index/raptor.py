@@ -73,6 +73,27 @@ Building a real second level needs `RaptorSummarizer` to exclude, on the way in,
 prior `raptor` stage already consumed — filed as future work, not shipped here. Until it is,
 depth stops at one level and an operator's own pipeline document is not a substitute.
 
+**What a degraded run says, and the one thing it still cannot say.** Three facts used to
+arrive as one result — a corpus with nothing to cluster, a corpus whose clusters were all too
+loose, and a run whose every summary request failed — because each answered
+`Produced(payload)`. The third now answers `Failed` naming how many clusters it summarised
+none of, which is the distinction `CLAUDE.md` demands: a success path and a failure path that
+cannot be told apart is the reference defect this pack was written against. **Partial** degradation
+is still invisible: an `Expander` that summarised nine of ten clusters is `Produced` and says
+nothing about the tenth. Recording that count needs a channel this plugin does not have —
+`Produced` is frozen with one field, and writing `span.set_attribute` from a pack would settle
+by default whether the registration seam is the only emitter of telemetry, which is an open
+question and not this task's to answer.
+
+**The retry halves what was sent, and that is the whole point of it.** `weft_llm.retry` already
+owns retrying the same request, and `LLMContextLengthError` is classed *permanent*
+(`weft_llm/errors.py:160`) precisely because re-sending an overflowing prompt fails identically
+forever. So the only useful second attempt is a smaller one. It halves the rendered cluster
+text rather than the configured budget, because a cluster already under `max_cluster_chars`
+would otherwise be re-sent byte-identical — a call that cannot succeed where the first failed.
+There is no third attempt: a cluster that fails twice degrades, which is this contract's stated
+posture.
+
 **What this does not ship, named rather than left to be assumed.** `10` §1.2's own row
 carries `mode: collapsed | traversal` as a *retrieval*-time distinction. `collapsed` mode —
 retrieving over the whole tree, flat — needs nothing from this plugin beyond what it
@@ -130,6 +151,16 @@ class RaptorConfig(BaseModel):
     #: join it. `04`'s own note on the reference's clustering knobs ("hard-coded where it
     #: matters") is exactly what this field, and `cluster_size` above, exist to not repeat.
     similarity_threshold: float = Field(default=0.75, ge=-1.0, le=1.0)
+    #: The most cluster text one summary request may carry. The reference had no cap and neither
+    #: did this plugin: `_format_cluster` joined every member whole, so a single oversized
+    #: cluster could exceed a model's context and take its summary with it. A budget, shared
+    #: evenly across the cluster's members, so no one member can crowd out the rest.
+    max_cluster_chars: int = Field(default=12_000, ge=100)
+    #: How many summaries may be in flight at once. Unbounded `asyncio.gather` over every
+    #: cluster meant a 200-cluster corpus fired 200 concurrent completions at whatever
+    #: provider was configured. What a provider tolerates is an operator's fact, not this
+    #: plugin's, which is why it is a field rather than a constant.
+    max_concurrent_summaries: int = Field(default=8, ge=1)
     prompt: str = Field(default=SUMMARIZE_CLUSTER_NAME, min_length=1)
     role: str = Field(default="index", min_length=1)
 
@@ -188,13 +219,27 @@ class RaptorSummarizer:
 
         prompts = ctx.require(Prompts)
         llm = ctx.require(LLM)
-        summaries = await asyncio.gather(
-            *(
-                self._summarize(cluster, prompts=prompts, llm=llm, ctx=ctx)
-                for cluster in summarizable
-            )
-        )
+        limit = asyncio.Semaphore(self._config.max_concurrent_summaries)
+
+        async def _bounded(cluster: Sequence[Node]) -> Node | None:
+            async with limit:
+                return await self._summarize(cluster, prompts=prompts, llm=llm, ctx=ctx)
+
+        summaries = await asyncio.gather(*(_bounded(cluster) for cluster in summarizable))
         derived = tuple(summary for summary in summaries if summary is not None)
+        if not derived:
+            # Every cluster degraded. Answering `Produced(payload)` here would be
+            # byte-identical to the "nothing clustered tightly enough" branch above, and to a
+            # complete run over a corpus with nothing to summarise — three different facts
+            # arriving as one result, which is the reference trap `CLAUDE.md` names outright.
+            # Degrading a cluster is this contract's posture; degrading *every* cluster is the
+            # ambient service being unusable, and that is worth saying.
+            return Failed(
+                reason=(
+                    f"'{NAME}' summarised none of its {len(summarizable)} cluster(s): every "
+                    f"summary request degraded, so the tree gained no level"
+                )
+            )
         return Produced(value=(*payload, *derived))
 
     async def _embed(
@@ -241,27 +286,46 @@ class RaptorSummarizer:
         an operator's own document being wrong, the identical split `hypothetical_
         questions._questions_for`'s own docstring draws.
         """
-        values = SummarizeClusterRequest(passages=_format_cluster(members))
-        rendered = await prompts.render(self._config.prompt, values, ctx)
-        if not isinstance(rendered, Produced):
-            return None
-        completion = await llm.complete(rendered.value, role=self._config.role, ctx=ctx)
-        if not isinstance(completion, Produced):
-            return None
-        summary = completion.value.text.strip()
-        if not summary:
-            return None
-        return Node.combine(members, content=summary, media_type=MediaType.TEXT).with_ext(
-            Representation(technique=NAME)
-        )
+        # The retry halves the text that was actually sent, never the configured budget. A
+        # cluster already comfortably under `max_cluster_chars` would otherwise be re-sent
+        # byte-identical, which is a second call that cannot succeed where the first failed —
+        # and `weft_llm.retry` already owns retrying the *same* request. What this branch adds
+        # is the only move retry cannot make: a smaller one.
+        budget = self._config.max_cluster_chars
+        for attempt in range(2):
+            passages = _format_cluster(members, budget=budget)
+            if attempt == 1:
+                passages = _format_cluster(members, budget=max(1, len(passages) // 2))
+            values = SummarizeClusterRequest(passages=passages)
+            rendered = await prompts.render(self._config.prompt, values, ctx)
+            if not isinstance(rendered, Produced):
+                return None
+            completion = await llm.complete(rendered.value, role=self._config.role, ctx=ctx)
+            if not isinstance(completion, Produced):
+                continue
+            summary = completion.value.text.strip()
+            if not summary:
+                continue
+            return Node.combine(members, content=summary, media_type=MediaType.TEXT).with_ext(
+                Representation(technique=NAME)
+            )
+        return None
 
 
-def _format_cluster(members: Sequence[Node]) -> str:
+def _format_cluster(members: Sequence[Node], *, budget: int) -> str:
     """One cluster's members, numbered — `weft_retrieve.prompts.PassageGradeRequest`'s own
     precedent for a batch offered to a template: joining is the plugin's job, not the
     template's, because a template substitution has no loop of its own.
+
+    `budget` is shared **evenly across members** rather than spent first-come. Truncating the
+    join as one string would let a single long member consume the whole allowance and leave
+    its siblings out of the summary entirely, which would quietly turn a cluster summary into
+    a paraphrase of its longest member — a wrong answer that still looks like a summary.
     """
-    return "\n\n".join(f"{index}. {member.content}" for index, member in enumerate(members, 1))
+    share = max(1, budget // max(1, len(members)))
+    return "\n\n".join(
+        f"{index}. {member.content[:share]}" for index, member in enumerate(members, 1)
+    )
 
 
 class _Cluster:

@@ -135,6 +135,8 @@ from weft_retrieve.iterative import (
     StopReason,
     stop_reason,
 )
+from weft_retrieve.multi_arm import NAME as MULTI_ARM_NAME
+from weft_retrieve.multi_arm import MultiArm
 from weft_retrieve.no_retrieval import NAME as NO_RETRIEVAL_NAME
 from weft_retrieve.no_retrieval import NoRetrieval
 from weft_retrieve.payload import (
@@ -331,6 +333,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     del settings
     registrar.add(Retriever, NO_RETRIEVAL_NAME, NoRetrieval)
     registrar.add(Retriever, VECTOR_TOP_K_NAME, VectorTopK)
+    registrar.add(Retriever, MULTI_ARM_NAME, MultiArm)
     registrar.add(Retriever, ITERATIVE_RETRIEVAL_NAME, IterativeRetrieval)
     registrar.add(Retriever, CORRECTIVE_NAME, Corrective)
     registrar.add(Fuser, SINGLE_LIST_NAME, SingleList)
@@ -368,11 +371,19 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/route.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/no-retrieval.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/retrieve-then-generate.yaml")
+    # The first shipped document that searches **two bases at once** — the leaf chunks and the
+    # RAPTOR summaries built over them — as one `vector-top-k` twice, narrowed by `filter` and
+    # named apart by `arm`, then combined by `reciprocal-rank-fusion`. It ships because the
+    # ladder from naive to advanced is the product: the engine could already express this and
+    # no document did, so nobody arriving at Weft could see that it could.
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/raptor-and-leaves-rrf.yaml")
 
 
 __all__ = [
     "ALWAYS_NAME",
     "BOOLEAN_COMBINE_NAME",
+    "MULTI_ARM_NAME",
+    "MultiArm",
     "BOOLEAN_PARSE_NAME",
     "BOOLEAN_RETRIEVAL_NAME",
     "COLLAPSE_TO_PARENT_NAME",

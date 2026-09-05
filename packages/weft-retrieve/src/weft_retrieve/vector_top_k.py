@@ -62,13 +62,13 @@ vector representation for a query to drift from the one a corpus was indexed wit
 
 from typing import ClassVar
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from weft_embed.contract import Embedder
 from weft_kernel.context import Context
 from weft_kernel.payload import Failed, MediaType, Node, NothingToProduce, Outcome, Produced, Vector
 from weft_retrieve.payload import Candidates, Channel, Passage, QuerySet, RankedList
-from weft_store.contract import NodeStore, VectorSearch
+from weft_store.contract import Filter, FilterOp, NodeStore, VectorSearch
 
 #: The name this retriever is registered and selectable under — see `weft_retrieve.register`.
 NAME = "vector-top-k"
@@ -90,9 +90,29 @@ class VectorTopKConfig(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    top_k: int = 20
-    per_query_top_k: int | None = None
+    top_k: int = Field(default=20, ge=1)
+    per_query_top_k: int | None = Field(default=None, ge=1)
     channels: tuple[Channel, ...] = (Channel.VECTOR,)
+    #: What this arm calls itself when a `Fuser` combines it with others, carried onto every
+    #: `RankedList.channel` this stage produces and therefore into
+    #: `weft_retrieve.fusion.contributor_label`'s `retriever:channel` key.
+    #:
+    #: **This is what makes "several bases at once" addressable.** A pipeline can name this
+    #: retriever twice — once over the whole index, once narrowed by `filter` to the nodes one
+    #: technique produced — and a `reciprocal-rank-fusion` `weights` mapping can then weight
+    #: the two apart. With the channel hardcoded, both lists carried the identical label and
+    #: an operator had no key to type. `RankedList.channel` is a `str` for exactly this reason
+    #: (`weft_retrieve.payload.Channel`'s own docstring: a vocabulary, deliberately not a field
+    #: type, because `02` names graph traversal among the ways backends genuinely differ), so
+    #: naming a new arm needs no core edit and no new member anywhere.
+    arm: str = Field(default=Channel.VECTOR.value, min_length=1)
+    #: Narrows this arm to part of the index — `ext.weft-index.technique == "raptor"` selects
+    #: RAPTOR summaries, leaving the same retriever over the same store to serve as a distinct
+    #: base. `NodeStore.search_vector` has always taken a `Filter`; what was missing was any
+    #: way for a *document* to supply one, so the only filter that ever reached the store came
+    #: from the query. Combined with the query's own filter rather than replacing it — see
+    #: `combined_filter` below.
+    filter: Filter | None = None
 
     @field_validator("channels", mode="after")
     @classmethod
@@ -189,16 +209,18 @@ class VectorTopK:
             wanted = frozenset(query.channels) if query.channels else offered
             if not wanted & offered:
                 continue
-            vector = await _embed(query.text, embedder=embedder, ctx=ctx)
+            vector = await embed_query(query.text, embedder=embedder, ctx=ctx)
             if isinstance(vector, Failed):
                 return vector
-            scored = await store.search_vector(vector, top_k, filter=query.filter)
+            scored = await store.search_vector(
+                vector, top_k, filter=combined_filter(query.filter, self._config.filter)
+            )
             hits = tuple(
                 Passage(scored=item, rank=rank, retrieved_by=NAME)
                 for rank, item in enumerate(scored)
             )
             lists.append(
-                RankedList(query=query, retriever=NAME, channel=Channel.VECTOR.value, hits=hits)
+                RankedList(query=query, retriever=NAME, channel=self._config.arm, hits=hits)
             )
 
         return Produced(
@@ -206,7 +228,26 @@ class VectorTopK:
         )
 
 
-async def _embed(text: str, *, embedder: Embedder, ctx: Context) -> Vector | Failed:
+def combined_filter(per_query: Filter | None, per_arm: Filter | None) -> Filter | None:
+    """Both narrowings, or whichever one exists.
+
+    Public because `weft_retrieve.multi_arm` searches the same store the same way and must
+    combine the same two filters — one spelling of this rule, not two written a task apart,
+    which is the shape `04`:421-426 records the reference getting wrong three times over.
+
+    A query's filter is the caller's narrowing; an arm's is the document's. Letting either
+    replace the other would silently *widen* a search somebody deliberately narrowed, which is
+    the failure class this project singles out: it does not crash, it answers plausibly over
+    the wrong data. `and` is the only combination that cannot do that.
+    """
+    if per_query is None:
+        return per_arm
+    if per_arm is None:
+        return per_query
+    return Filter(op=FilterOp.AND, clauses=(per_query, per_arm))
+
+
+async def embed_query(text: str, *, embedder: Embedder, ctx: Context) -> Vector | Failed:
     """`text`, embedded through the ingest-side `Embedder` contract — see the module docstring.
 
     Wraps the one query in a one-node batch rather than a bespoke single-string method,

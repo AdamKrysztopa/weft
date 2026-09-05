@@ -1,0 +1,50 @@
+name: raptor-and-leaves-rrf
+vars:
+  route.summary: "Two bases at once — the leaf chunks and the RAPTOR summaries built over them — fused by reciprocal rank."
+  route.cost: "one embedding call, two searches, one model call"
+stages:
+  # One retriever, two arms. It is one stage rather than two because a pipeline is an ordered
+  # list: two retrievers in sequence do not compose by type, and the binary says so. See
+  # `weft_retrieve.multi_arm`'s module docstring for why the arity lives inside the plugin.
+  #
+  # A broad question ("what does the corpus say overall?") is answerable from a summary and
+  # from no single chunk — that is RAPTOR's own claim (Sarthi et al., ICLR 2024,
+  # arXiv:2401.18059). A specific question is answerable from a chunk and only blurred by a
+  # summary. Searching both and fusing is how one pipeline serves both kinds without a router
+  # deciding in advance which kind it was handed.
+  - id: retrieve
+    use: multi-arm
+    with:
+      arms:
+        - name: leaves
+          top_k: 20
+          filter: {op: not, clauses: [{op: eq, field: ext.weft-index.technique, value: raptor}]}
+        - name: raptor
+          top_k: 10
+          filter: {op: eq, field: ext.weft-index.technique, value: raptor}
+
+  # `k=60` is the paper's own default (Cormack, Clarke & Buttcher, SIGIR 2009). The weights are
+  # this document's and are not a measured optimum: leaves outweigh summaries because a summary
+  # is evidence *about* passages rather than a passage, and `cited-answer` cites what it is
+  # given. Retune them against your own corpus — that is what the mapping is for, and
+  # `weft eval` is how you would know whether a change was real rather than felt.
+  - id: fuse
+    use: reciprocal-rank-fusion
+    with:
+      k: 60
+      weights: {"multi-arm:leaves": 1.0, "multi-arm:raptor": 0.7}
+
+  # A chunk indexed several ways must not occupy several slots for having been indexed several
+  # ways. `max` keeps a chunk found by both arms scoring no higher than its best single find,
+  # where `sum` would reward multiplicity of representation as if it were multiplicity of
+  # evidence — ledger 2.33's own stated reason for that default.
+  - id: collapse
+    use: collapse-to-parent
+    with: {policy: max}
+
+  - id: pack
+    use: repack
+    with: {method: reverse, top_n: 8}
+
+  - id: generate
+    use: cited-answer
