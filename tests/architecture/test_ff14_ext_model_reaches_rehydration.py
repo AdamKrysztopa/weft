@@ -73,7 +73,7 @@ _PACKAGES_ROOT: Final = REPO_ROOT / "packages"
 #: private module constant crossing a file boundary is exactly the coupling this repository's
 #: own architecture tests otherwise avoid between each other.
 _PLACEHOLDER_STORE_SETTINGS: Final[dict[str, dict[str, object]]] = {
-    "weft-store": {"dsn": "postgresql://ff14-placeholder/placeholder"}
+    "store": {"dsn": "postgresql://ff14-placeholder/placeholder"}
 }
 
 

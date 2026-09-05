@@ -34,7 +34,7 @@ longer matches what ships:
 # requires a `dsn` in its pack settings, and there are two ways to supply it. With no
 # `weft.toml` at all, an exported `WEFT_DATABASE_URL` is offered as `dsn` and the store
 # comes up `active` — the no-file path `manual/quickstart.md` walks. A `weft.toml`
-# carrying `[packs.weft-store] dsn` — see `weft.toml.example` — wins over the
+# carrying `[packs.store] dsn` — see `weft.toml.example` — wins over the
 # environment, key by key. `weft plugins doctor` reports `weft-store: failed`, naming
 # the missing field, only when NEITHER supplies a `dsn` — the loud failure working: the
 # pack refuses rather than defaulting to some database it guessed.
@@ -115,14 +115,14 @@ it is brought up only by the conformance suite, which asks for it by profile.
 
 ## Wiring `weft.toml`
 
-`weft-store` takes its connection string from its own pack settings, `[packs.weft-store] dsn`, and
+`weft-store` takes its connection string from its own pack settings, `[packs.store] dsn`, and
 there are two ways to supply it. **With no `weft.toml` at all** — the path `manual/quickstart.md`
 walks — an exported `WEFT_DATABASE_URL` is offered as `dsn` on its own, and that is enough to bring
 `weft-store` up. A project that wants an explicit, committed connection string instead copies
 `weft.toml.example`:
 
 ```toml
-[packs.weft-store]
+[packs.store]
 dsn = "${env:WEFT_DATABASE_URL}"
 ```
 
@@ -181,7 +181,7 @@ Weft ships two, registered under one contract, and `[services]` chooses between 
 [services]
 embed = "openai"
 
-[packs.weft-openai]
+[packs.openai]
 api_key = "${env:OPENAI_API_KEY}"
 ```
 
@@ -207,7 +207,7 @@ weft ask: DataException: different vector dimensions 1536 and 64
 — and when they happen to match, nothing refuses at all and the ranking is confident nonsense. So
 after changing `[services] embed`, index into an empty store, or a store you have cleared.
 
-**Where the credential comes from.** `weft-openai` reads its key from `[packs.weft-openai] api_key`
+**Where the credential comes from.** `weft-openai` reads its key from `[packs.openai] api_key`
 and from nowhere else. It deliberately does *not* fall back to the `OPENAI_API_KEY` the vendor's own
 SDK would read on its own — an exported variable that silently made a project work on one machine is
 the same failure mode `weft.toml` beating `WEFT_DATABASE_URL` avoids for the database. `${env:...}`
@@ -260,13 +260,13 @@ chooses between them exactly as it chooses an embedder:
 [services]
 store = "qdrant"
 
-[packs.weft-qdrant]
+[packs.qdrant]
 url = "http://localhost:6333"
 collection = "weft_nodes"
 vector_size = 64
 ```
 
-The `[services] store` line is what *selects* the backend; the `[packs.weft-qdrant]` block
+The `[services] store` line is what *selects* the backend; the `[packs.qdrant]` block
 configures the pack once it is selected. Setting only the second changes nothing about which store
 runs — a distinction worth stating, because the pack settings are the visible half.
 
@@ -303,7 +303,7 @@ grade    = { provider = "openai", model = "gpt-4o-mini" }
 rerank   = { provider = "openai", model = "gpt-4o-mini" }
 route    = { provider = "scripted" }
 
-[packs.weft-openai]
+[packs.openai]
 api_key = "${env:OPENAI_API_KEY}"
 ```
 
@@ -410,11 +410,11 @@ the guard off in practice without removing it from the type.
 ## Tuning the text arm
 
 The pgvector store's lexical search has three decisions in it, and none of them is knowable from
-inside the pack. They are `[packs.weft-store]` settings, so running the same store against two
+inside the pack. They are `[packs.store]` settings, so running the same store against two
 corpora with two different answers is a file edit:
 
 ```toml
-[packs.weft-store]
+[packs.store]
 dsn = "${env:WEFT_DATABASE_URL}"
 text_search_config = "english"
 text_query_mode = "any"
@@ -448,7 +448,11 @@ fusion is for.
 ## Doctor
 
 `weft plugins doctor` is the first and usually last thing to run when a pack is not doing what you
-expect. One status per installed distribution:
+expect. **One status per installed pack**, and a pack is not the same thing as a distribution: one
+distribution can ship several. Each row leads with the pack name and names the distribution that
+shipped it in parentheses — `store (weft-rag 0.1.0): active (6 contributed)`. The pack name is what
+a `[packs.<pack>]` settings block keys on; the distribution is what you install, uninstall, pin in
+`[packs] allow`, and read a version off.
 
 | Status | Meaning | What to do |
 |---|---|---|
@@ -458,6 +462,14 @@ expect. One status per installed distribution:
 | `partial` | Registered, but a conditional dependency it wanted was not available, so part of what it offers did not | Install the missing optional dependency, or accept the reduced set — doctor's reason names what was skipped and why |
 | `allowed, not installed` | Named in `[packs] allow`, but nothing installed provides it | `uv add` the distribution, or remove it from `allow` if it was named in error |
 
+This is the one row with no pack name in front of it, and deliberately so: `[packs] allow` names a
+*distribution*, nothing installed claims it, so there is no entry point and no pack. It prints the
+distribution alone rather than inventing a pack name for something that is not there.
+
+`doctor` also prints a trailing block if two installed distributions both declare a pack under the
+same name. Nothing is refused — a stranger's entry-point name is not yours to rename — but one
+`[packs.<pack>]` block would configure both, so the block names the pack and both claimants.
+
 `doctor` also flags a pack `active, ambient` when it is running but is not a direct dependency of
 the project — arriving as something a chosen pack pulled in transitively, rather than something
 anyone `uv add`ed on purpose. That flag depends on `weft` being told which distributions a project
@@ -466,7 +478,7 @@ reports without the `ambient` flag regardless of how it arrived. Read the `statu
 `ambient` flag, until that lands.
 
 **Every block names the version that is installed**, beside the distribution's own name:
-`weft-chunk 1.0.0: active (1 contributed)`. That is what `weft` actually found in the environment,
+`chunk (weft-chunk) 1.0.0: active (1 contributed)`. That is what `weft` actually found in the environment,
 read from the distribution's own installed metadata — not what a lockfile said, and not what the
 release set pins. If a distribution is on disk with no recorded metadata, the block says `(version
 not recorded)` rather than leaving the space blank, because a diagnostic command that cannot
@@ -496,7 +508,7 @@ from an editable install whose checked-out code has moved past its own recorded 
 `pip install`, or a workspace whose lockfile has drifted:
 
 ```text
-weft-cli 0.1.0: active (18 contributed)
+cli (weft-cli) 0.1.0: active (18 contributed)
   disclosure: not disclosed
 
 version skew — installed does not satisfy a declared specifier:

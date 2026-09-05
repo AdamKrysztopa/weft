@@ -245,30 +245,40 @@ def test_version_command_executes_no_pack_code(tmp_path: Path) -> None:
 # --- clause (c): the run record's active set equals what `plugins doctor` reports -----------
 
 #: `weft_cli.plugins_report._summary_line`'s own shape — matched, never retyped: a doctor
-#: block's first line is `f"{distribution}: {status}{ambient} ({contributed} contributed)"`.
+#: block's first line is `f"{pack} ({distribution}){version}: {status}{ambient} (n contributed)"`.
 #: Only the `active` status line is captured; every other status is deliberately not matched,
 #: since clause (c) is about the active set alone.
-#: The distribution name is the first run of non-space characters; everything between it and
-#: the colon is the version column task **6.4** added (`09` §1) — either ` 2.0.0` or
-#: ` (version not recorded)`, and empty when no caller asked for the column at all. Tolerating
-#: it is not cosmetic: this clause claims to parse "what `weft plugins doctor` itself would
-#: print", and after 6.4 the shipped command prints the column. A pattern anchored on the
-#: pre-6.4 spelling kept passing because the test called `render_doctor` with its defaults —
-#: the check went on agreeing with a rendering the binary no longer produces.
+#: **The distribution is the parenthesised half, not the leading word.** The leading word is the
+#: *pack* — the `weft.packs` entry-point name — and the two stopped being the same string the
+#: moment one distribution shipped more than one pack, which is the whole reason the row prints
+#: both. Reading the first token would have compared a set of pack names against a set of
+#: distribution names and failed on every row.
+#: Everything between the closing parenthesis and the colon is the version column task **6.4**
+#: added (`09` §1) — either ` 2.0.0` or ` (version not recorded)`, and empty when no caller
+#: asked for the column at all. Tolerating it is not cosmetic: this clause claims to parse
+#: "what `weft plugins doctor` itself would print", and after 6.4 the shipped command prints
+#: the column. A pattern anchored on the pre-6.4 spelling kept passing because the test called
+#: `render_doctor` with its defaults — the check went on agreeing with a rendering the binary
+#: no longer produces.
 _ACTIVE_SUMMARY_LINE: Final[re.Pattern[str]] = re.compile(
-    r"^(?P<distribution>\S+)[^:]*: active(?:, ambient)?(?:, deprecated)? \(\d+ contributed\)$"
+    r"^\S+ \((?P<distribution>[^)\s]+)\)[^:]*: active(?:, ambient)?(?:, deprecated)? "
+    r"\(\d+ contributed\)$"
 )
 
 
 def _active_names_from_doctor_report(text: str) -> tuple[str, ...]:
     """Every distribution `render_doctor`'s own text reports as `active`, parsed from its
     output rather than recomputed — see the module docstring's clause-(c) paragraph.
+
+    Deduplicated, because `active_distribution_set` is a *set*: several `active` rows can now
+    name the same distribution, one per pack it ships, and the two sides of this equality have
+    to be counting the same thing.
     """
-    names = (
+    names = {
         match.group("distribution")
         for line in text.splitlines()
         if (match := _ACTIVE_SUMMARY_LINE.match(line)) is not None
-    )
+    }
     return tuple(sorted(names))
 
 
@@ -309,8 +319,8 @@ def test_the_check_can_actually_fail() -> None:
     # `PARTIAL` is exactly the status a filter built on "contributed > 0" would wrongly admit,
     # since a partially-registered pack still contributes something.
     reports = (
-        PackReport(distribution="weft-real", status=PackStatus.ACTIVE, contributed=3),
-        PackReport(distribution="weft-half", status=PackStatus.PARTIAL, contributed=1),
+        PackReport(pack="real", distribution="weft-real", status=PackStatus.ACTIVE, contributed=3),
+        PackReport(pack="half", distribution="weft-half", status=PackStatus.PARTIAL, contributed=1),
     )
     doctor_active = _active_names_from_doctor_report(render_doctor(reports))
 

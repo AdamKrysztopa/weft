@@ -101,7 +101,7 @@ CREATE TABLE IF NOT EXISTS exgraph_relations (
 
 
 class GraphSettings(BaseModel):
-    """This pack's one connection setting — `[packs.weft-example-graph]` in `weft.toml`.
+    """This pack's one connection setting — `[packs.graph]` in `weft.toml`.
 
     **`dsn` defaults to empty, unlike `weft_store.pgvector_store.PgVectorSettings.dsn`, and
     that is a finding rather than a stylistic choice.** `tests/architecture/
@@ -121,7 +121,7 @@ class GraphSettings(BaseModel):
 
 
 class GraphDsnNotConfiguredError(WeftError):
-    """`[packs.weft-example-graph] dsn` was never set, and this call needs a real connection.
+    """`[packs.graph] dsn` was never set, and this call needs a real connection.
 
     Raised only where a connection is actually opened — never at `register()`, which never
     calls `_connection` — so a pack installed with no settings still registers cleanly and
@@ -134,8 +134,8 @@ def _require_dsn(settings: GraphSettings) -> str:
     if not dsn:
         raise GraphDsnNotConfiguredError(
             "weft-example-graph has no database to talk to: "
-            "[packs.weft-example-graph] dsn is unset. Add "
-            '`[packs.weft-example-graph]\\ndsn = "${env:WEFT_DATABASE_URL}"` (or a literal DSN) to '
+            "[packs.graph] dsn is unset. Add "
+            '`[packs.graph]\\ndsn = "${env:WEFT_DATABASE_URL}"` (or a literal DSN) to '
             "weft.toml.",
             pack="weft-example-graph",
         )

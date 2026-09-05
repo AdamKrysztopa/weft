@@ -117,7 +117,7 @@ from weft_kernel.discovery import discover
 from weft_kernel.registry import Registry, unwrap_factory
 
 registry = Registry()
-discover(registry, pack_settings={{"weft-store": {{"dsn": {dsn!r}}}}})
+discover(registry, pack_settings={{"store": {{"dsn": {dsn!r}}}}})
 
 found: set[str] = set()
 for contract in registry.contracts():

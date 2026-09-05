@@ -59,12 +59,12 @@ from weft_openai.settings import Settings
 #: this pack said before task 6.31 despite being the one distribution in the set that cannot work
 #: without an account.
 DISCLOSURE = Disclosure(
-    network=("api.openai.com, or whatever [packs.weft-openai] base_url / OPENAI_BASE_URL names",),
+    network=("api.openai.com, or whatever [packs.openai] base_url / OPENAI_BASE_URL names",),
     filesystem=(),
     subprocess=(),
     note=(
         "Sends prompts and text to be embedded to an OpenAI-compatible API, using the credential "
-        "in [packs.weft-openai] api_key or OPENAI_API_KEY. Every completion and every embedding "
+        "in [packs.openai] api_key or OPENAI_API_KEY. Every completion and every embedding "
         "leaves this process. Registers an Embedder and an LLMProvider; nothing else in Weft "
         "calls out unless a pipeline names one of them."
     ),

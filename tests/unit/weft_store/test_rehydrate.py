@@ -130,6 +130,7 @@ def test_register_from_reports_skips_a_class_that_already_claimed_its_namespace(
     """
     # Arrange
     report = PackReport(
+        pack="test",
         distribution="weft-test",
         status=PackStatus.ACTIVE,
         ext_models=(_TwiceRegistered,),
@@ -155,6 +156,7 @@ def test_register_ext_model_refuses_a_second_call_for_the_same_class() -> None:
     register_from_reports(
         [
             PackReport(
+                pack="test",
                 distribution="weft-test",
                 status=PackStatus.ACTIVE,
                 ext_models=(_TwiceRegistered,),

@@ -281,7 +281,7 @@ async def test_complete_without_a_credential_names_the_configuration_line_that_s
     # Act / Assert
     with pytest.raises(LLMAuthenticationError) as raised:
         await provider.complete(_conversation("hello"), model="gpt-4o-mini", ctx=_ctx())
-    assert "[packs.weft-openai] api_key" in str(raised.value)
+    assert "[packs.openai] api_key" in str(raised.value)
     assert raised.value.model == "gpt-4o-mini"
 
 

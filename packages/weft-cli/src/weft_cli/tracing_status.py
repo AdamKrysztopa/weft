@@ -40,7 +40,7 @@ def describe_tracing() -> str:
     if isinstance(provider, (trace.NoOpTracerProvider, trace.ProxyTracerProvider)):
         return (
             "not configured — spans stay on the no-op default and go nowhere. Install "
-            "weft-otel and set [packs.weft-otel] exporter to 'console' or 'otlp' (its own "
+            "weft-otel and set [packs.otel] exporter to 'console' or 'otlp' (its own "
             "default is 'none', so installing alone is not enough), or configure a "
             "TracerProvider yourself."
         )

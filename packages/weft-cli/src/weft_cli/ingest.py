@@ -141,9 +141,10 @@ BUILT_IN_PIPELINE_NAME: Final[str] = "built-in"
 #: is chosen at run time, and `weft_cli.services` for why embedding and storage are.
 _CHUNK_SPEC = StageSpec(id="chunk", contract=Chunker, name="fixed-size")
 
-#: The distributions `index_specs` names *itself*, in the order a caller should check them —
-#: `weft_cli.registry_bootstrap.require_active`'s input. `weft-store` is deliberately not
-#: among them any more: the store is named by `[services] store`, so the distribution that
+#: The packs `index_specs` names *itself*, in the order a caller should check them —
+#: `weft_cli.registry_bootstrap.require_active`'s input, and entry-point names rather than
+#: distribution names since a distribution may ship several. `store` is deliberately not
+#: among them any more: the store is named by `[services] store`, so the pack that
 #: provides it is whichever one registered that name, and a hard-coded tuple can never
 #: contain a stranger's pack. `weft_cli.cli` covers it with `require_plugin`, exactly as it
 #: already covers `--extract` and `[services] embed`.
@@ -151,7 +152,7 @@ _CHUNK_SPEC = StageSpec(id="chunk", contract=Chunker, name="fixed-size")
 #: Read only for the default, no-`--pipeline` path: a named document may depend on none of
 #: these three (a third party's own extractor and embedder pack, say), so `IndexCommand`
 #: does not consult this tuple at all once `--pipeline` is given — see that class.
-INDEX_DISTRIBUTIONS: tuple[str, ...] = ("weft-extract", "weft-chunk", "weft-embed")
+INDEX_PACKS: tuple[str, ...] = ("extract", "chunk", "embed")
 
 
 class AmbiguousExtractorError(PipelineResolutionError, UnresolvedNameError):

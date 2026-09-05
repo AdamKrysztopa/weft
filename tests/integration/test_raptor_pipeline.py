@@ -143,7 +143,10 @@ def _ensure_rehydrates(model: type[ExtModel]) -> None:
     from weft_store.rehydrate import register_from_reports
 
     report = PackReport(
-        distribution=model.__namespace__, status=PackStatus.ACTIVE, ext_models=(model,)
+        pack=model.__namespace__,
+        distribution=model.__namespace__,
+        status=PackStatus.ACTIVE,
+        ext_models=(model,),
     )
     register_from_reports((report,))
 

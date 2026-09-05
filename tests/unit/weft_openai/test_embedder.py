@@ -204,7 +204,7 @@ async def test_run_without_a_credential_names_the_configuration_line_that_suppli
     # Act / Assert
     with pytest.raises(MissingApiKeyError) as raised:
         await embedder.run([_node("hello")], _ctx())
-    assert "[packs.weft-openai] api_key" in str(raised.value)
+    assert "[packs.openai] api_key" in str(raised.value)
 
 
 async def test_a_node_with_nothing_to_embed_is_refused_by_id() -> None:

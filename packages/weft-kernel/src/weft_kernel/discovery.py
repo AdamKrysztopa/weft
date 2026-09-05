@@ -31,20 +31,31 @@ informational value the kernel reads immediately after import and before
 `register()` runs — never a claim weft checks, never a permission it grants.
 A `DISCLOSURE` that is present but not a `Disclosure` instance is not the
 same fact as no `DISCLOSURE` at all — the pack tried to say something and
-said it wrong — so that case is `FAILED`, naming the distribution and what
+said it wrong — so that case is `FAILED`, naming the pack and what
 the attribute must be, rather than silently read as "not disclosed."
-Pack settings (`docs/02`'s `packs:` block, keyed by distribution name) are
-validated against the pack's own Pydantic model *before* `register()` is
+Pack settings (`docs/02`'s `packs:` block, keyed by **pack** name — the
+`weft.packs` entry-point name, so `[packs.store]`, never `[packs.store]`)
+are validated against the pack's own Pydantic model *before* `register()` is
 called, because a pack author's `register(registry, settings)` should never
 have to guard against malformed input the kernel could have rejected first —
 and `${env:VAR}` interpolation happens on that settings data here, so no pack
 ever reads `os.environ` itself for a secret. A `packs:` key naming a
-distribution nothing installed declares is the strict half of that same
+pack nothing installed declares is the strict half of that same
 model: `docs/02` states the asymmetry exactly — "`packs:` expresses a
 requirement, `allow` expresses a permission" — so once every entry point is
-enumerated, any settings key `seen` never claims raises, naming the
-distribution to install and every distribution that did declare a
-`weft.packs` entry point, rather than being read and quietly discarded.
+enumerated, any settings key no entry point claims raises, naming every pack
+that did declare a `weft.packs` entry point, rather than being read and
+quietly discarded.
+
+**`pack` and `distribution` are two different identities and this module is
+where they part.** A pack is what an entry point names; a distribution is what
+an index ships. They were the same string while every pack had a wheel of its
+own, and stopped being it when one wheel started shipping fourteen. Everything
+an operator points at a *pack* keys on the entry-point name — the rows `weft
+plugins list|doctor` prints, `[packs.<pack>]` settings, and the pack named in a
+settings or disclosure failure. Everything about *provenance* keys on the
+distribution — `[packs] allow`, the version column, and version skew. `docs/
+02-extension-model.md` §2 owns the split.
 
 **Registration is transactional per pack.** `PackRegistrar.add` buffers
 every call instead of writing through to the `Registry` immediately; nothing
@@ -54,7 +65,7 @@ does. A pack that raises partway through therefore contributes exactly the
 `0` its `FAILED` report claims — the report and the registry can never
 disagree about how much of a half-finished pack is actually live.
 
-**`PackRegistrar` exists because `distribution` is attribution, and
+**`PackRegistrar` exists because attribution is not a pack author's to supply, and
 attribution is never a pack author's to supply** — `registry.py`'s own
 docstring names this exact gap: "A pack's own `register()` calls the
 seam-bound surface with `(contract, name, factory)`." This is that surface:
@@ -215,6 +226,20 @@ class RendererOffer(BaseModel):
 class PackReport(BaseModel):
     """One pack's discovery outcome — the row `weft plugins list|doctor` will print.
 
+    `pack` is the pack's identity — its `weft.packs` **entry-point name** (`chunk =
+    "weft_chunk:register"` names the pack `chunk`), which is what every operator-facing
+    surface prints and what a `[packs.<pack>]` settings block keys on. `distribution` is a
+    different fact: the thing PyPI installs, which is what the `[packs] allow` trust
+    boundary, `weft plugins doctor`'s version column and `weft_cli.skew` all key on. They
+    were the same string while every pack shipped in a distribution of its own; they stopped
+    being the same the moment one distribution shipped fourteen packs, and a report that
+    carried only the second could no longer tell fourteen rows apart.
+
+    `pack` is `None` for exactly one row: `ALLOWED_NOT_INSTALLED`, where `[packs] allow`
+    named a distribution nothing installed claims. There is no entry point, so there is no
+    pack — said out loud rather than filled in with the distribution name, which would
+    assert a pack that does not exist.
+
     `ambient` is only ever meaningful on `ACTIVE`: it means "running, and not
     a direct dependency" (`docs/02-extension-model.md`), which `discover()`
     can only judge when its caller supplies `direct_dependencies` — the
@@ -259,6 +284,7 @@ class PackReport(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
+    pack: str | None
     distribution: str
     status: PackStatus
     ambient: bool = False
@@ -326,20 +352,23 @@ class InertPluginPinError(WeftError):
 
 
 class UnknownPackSettingsError(WeftError, UnresolvedNameError):
-    """A `packs:` settings key names a distribution no installed `weft.packs` entry point claims.
+    """A `packs:` settings key names a pack no installed `weft.packs` entry point claims.
 
     Raised by `discover()` itself, after every entry point has been
     enumerated — never caught and folded into a `PackReport`, because this is
     not one pack failing; it is the configuration asking for a pack that is
     not there at all. `docs/02-extension-model.md`: "A `packs:` key naming a
     pack that is not installed is an error... loud, naming the distribution
-    to install." This is the strict half of the `allow`/`packs:` asymmetry —
-    `allow` naming an absent distribution is `ALLOWED_NOT_INSTALLED`,
-    reported and not fatal, because `allow` only ever narrows what is already
-    there; `packs:` names a requirement, and an unmet requirement raises.
+    to install." Keyed on the **pack** — the entry-point name — since `02` §2's
+    settings block is `[packs.store]`, not `[packs.store]`: several packs may
+    ship in one distribution, and each configures itself. This is the strict half
+    of the `allow`/`packs:` asymmetry — `allow` naming an absent distribution is
+    `ALLOWED_NOT_INSTALLED`, reported and not fatal, because `allow` only ever
+    narrows what is already there; `packs:` names a requirement, and an unmet
+    requirement raises.
 
-    Fitness function 12's family: `valid_options` is every distribution that
-    does declare a `weft.packs` entry point.
+    Fitness function 12's family: `valid_options` is every pack that does declare
+    a `weft.packs` entry point.
     """
 
     def __init__(self, message: str, *, valid_options: tuple[str, ...]) -> None:
@@ -712,6 +741,10 @@ def discover(
 ) -> tuple[PackReport, ...]:
     """Discover every installed `weft.packs` pack, importing and registering what is permitted.
 
+    `allow` is keyed on the **distribution**, not the pack: it is a trust
+    boundary, and trust attaches to the thing you installed from an index, not
+    to a name chosen inside a wheel you had already accepted.
+
     `allow=None` is the open-by-default posture: everything installed is
     imported and registered. `allow` present is an exhaustive pin — anything
     installed but unlisted is `REFUSED` **and its entry point is never
@@ -722,7 +755,9 @@ def discover(
     (`allow`) and a requirement (`packs:` settings, which errors on the same
     absence).
 
-    `pack_settings` is interpolated for `${env:VAR}` once, up front, then
+    `pack_settings` is keyed on the **pack** — the `weft.packs` entry-point name,
+    so `[packs.store]` and not `[packs.store]`. It is interpolated for
+    `${env:VAR}` once, up front, then
     each pack's own slice is validated against the Pydantic model its
     `register(registrar, settings: Settings)` declares — before `register` is
     called. `direct_dependencies`, when supplied, is what lets an `ACTIVE`
@@ -730,10 +765,9 @@ def discover(
     module's to compute.
 
     Every `pack_settings` key that no enumerated entry point claims raises
-    `UnknownPackSettingsError`, naming the distribution to install and every
-    distribution that did declare a `weft.packs` entry point — `packs:`
-    expresses a requirement, unlike `allow`, so this is fatal where
-    `ALLOWED_NOT_INSTALLED` is not.
+    `UnknownPackSettingsError`, naming the pack and every pack that did declare a
+    `weft.packs` entry point — `packs:` expresses a requirement, unlike `allow`,
+    so this is fatal where `ALLOWED_NOT_INSTALLED` is not.
 
     `entry_points` defaults to every real, installed `weft.packs` entry
     point; a caller passes its own only to test discovery without installing
@@ -765,23 +799,44 @@ def discover(
 
     reports: list[PackReport] = []
     seen: set[str] = set()
+    seen_packs: set[str] = set()
 
     for entry_point in candidates:
+        # The pack's own identity, and never the distribution's: an entry-point name is
+        # unique within the group and stays the pack's own even when fourteen packs ship
+        # in one wheel. Read before `_distribution_name`, because it is available even
+        # when distribution metadata is not.
+        pack = entry_point.name
         try:
             distribution = _distribution_name(entry_point)
         except MissingDistributionMetadataError as exc:
-            # No distribution name means no attribution and nothing to key a settings
-            # lookup or an allow-list check on — fold into FAILED, keyed by the entry
-            # point's own name, rather than aborting discovery for every other pack.
+            # No distribution name means no attribution for the trust boundary and no
+            # version to report — fold into FAILED, keyed by the entry point's own name,
+            # rather than aborting discovery for every other pack. The pack identity is
+            # intact here; it is the distribution that is missing.
             reports.append(
-                PackReport(distribution=entry_point.name, status=PackStatus.FAILED, reason=str(exc))
+                PackReport(
+                    pack=pack,
+                    distribution=entry_point.name,
+                    status=PackStatus.FAILED,
+                    reason=str(exc),
+                )
             )
             continue
         seen.add(distribution)
+        seen_packs.add(pack)
 
+        # `allow` stays keyed on the **distribution**, deliberately. It is a trust
+        # boundary, and trust is placed in a thing you install from an index and can pin,
+        # audit and revoke — not in a name a pack chose for itself inside a wheel you had
+        # already accepted. `[packs] allow = ["weft-rag"]` therefore permits every pack
+        # that wheel ships, which is the same posture as before: what you installed is
+        # what you allowed. `[packs.<pack>]` settings key on `pack` instead, because that
+        # is configuration of one pack's behaviour, not a decision about provenance.
         if allow_set is not None and distribution not in allow_set:
             reports.append(
                 PackReport(
+                    pack=pack,
                     distribution=distribution,
                     status=PackStatus.REFUSED,
                     reason=(
@@ -795,9 +850,10 @@ def discover(
         reports.append(
             _activate(
                 entry_point,
+                pack=pack,
                 distribution=distribution,
                 registry=registry,
-                raw_settings=settings_source.get(distribution, {}),
+                raw_settings=settings_source.get(pack, {}),
                 direct_dependencies=direct_dependencies,
             )
         )
@@ -805,18 +861,18 @@ def discover(
     if allow_set is not None:
         for missing in sorted(allow_set - seen):
             reports.append(
-                PackReport(distribution=missing, status=PackStatus.ALLOWED_NOT_INSTALLED)
+                PackReport(pack=None, distribution=missing, status=PackStatus.ALLOWED_NOT_INSTALLED)
             )
 
-    unclaimed = sorted(set(settings_source) - seen)
+    unclaimed = sorted(set(settings_source) - seen_packs)
     if unclaimed:
-        named = ", ".join(f"'{distribution}'" for distribution in unclaimed)
-        options = tuple(sorted(seen))
-        available = ", ".join(f"'{distribution}'" for distribution in options) or "none"
+        named = ", ".join(f"'{name}'" for name in unclaimed)
+        options = tuple(sorted(seen_packs))
+        available = ", ".join(f"'{name}'" for name in options) or "none"
         raise UnknownPackSettingsError(
             f"[packs] settings name {named}, which {'is' if len(unclaimed) == 1 else 'are'} "
-            f"not installed. Install the distribution, or remove its settings block. "
-            f"Distributions that declare a '{ENTRY_POINT_GROUP}' entry point: {available}.",
+            f"not installed. Install the distribution that ships it, or remove its settings "
+            f"block. Packs that declare a '{ENTRY_POINT_GROUP}' entry point: {available}.",
             valid_options=options,
         )
 
@@ -845,6 +901,7 @@ def discover(
 def _activate(
     entry_point: EntryPointLike,
     *,
+    pack: str,
     distribution: str,
     registry: Registry,
     raw_settings: Mapping[str, object],
@@ -889,20 +946,25 @@ def _activate(
     try:
         register_fn = entry_point.load()
     except Exception as exc:  # a pack's import can raise anything; that is FAILED, not a crash
-        return PackReport(distribution=distribution, status=PackStatus.FAILED, reason=str(exc))
+        return PackReport(
+            pack=pack, distribution=distribution, status=PackStatus.FAILED, reason=str(exc)
+        )
 
     try:
-        disclosure = _read_disclosure(entry_point, distribution=distribution)
+        disclosure = _read_disclosure(entry_point, pack=pack)
     except MalformedDisclosureError as exc:
-        return PackReport(distribution=distribution, status=PackStatus.FAILED, reason=str(exc))
+        return PackReport(
+            pack=pack, distribution=distribution, status=PackStatus.FAILED, reason=str(exc)
+        )
 
     registrar = PackRegistrar(registry, distribution=distribution)
     try:
-        settings = _resolve_settings(register_fn, distribution=distribution, raw=raw_settings)
+        settings = _resolve_settings(register_fn, pack=pack, raw=raw_settings)
         register_fn(registrar, settings)
         registrar.commit()
     except Exception as exc:  # one broken pack must not stop the rest from loading
         return PackReport(
+            pack=pack,
             distribution=distribution,
             status=PackStatus.FAILED,
             ambient=ambient,
@@ -916,6 +978,7 @@ def _activate(
     unavailable = registrar.unavailable_surfaces
 
     return PackReport(
+        pack=pack,
         distribution=distribution,
         # Task **6.29**: a pack that declared any surface unavailable registered *part* of what it
         # offers, which is exactly what `02` §2 reserves `PARTIAL` for. `ACTIVE` would say it is
@@ -934,14 +997,14 @@ def _activate(
     )
 
 
-def _read_disclosure(entry_point: EntryPointLike, *, distribution: str) -> Disclosure | None:
+def _read_disclosure(entry_point: EntryPointLike, *, pack: str) -> Disclosure | None:
     """The pack's module-level `DISCLOSURE`, read after import, before `register()` runs.
 
     `None` means genuinely absent — no `DISCLOSURE` attribute at all — which
     is the honest "not disclosed" `docs/02-extension-model.md` describes.
     Present but not a `Disclosure` instance is a different fact and is never
     collapsed into that same `None`: it raises `MalformedDisclosureError`,
-    naming the distribution and what the attribute must be, so the caller can
+    naming the pack and what the attribute must be, so the caller can
     fold it into a `FAILED` report instead of reporting a pack that tried to
     disclose something as one that disclosed nothing.
     """
@@ -952,7 +1015,7 @@ def _read_disclosure(entry_point: EntryPointLike, *, distribution: str) -> Discl
     if isinstance(value, Disclosure):
         return value
     raise MalformedDisclosureError(
-        f"'{distribution}' defines DISCLOSURE but it is not a "
+        f"'{pack}' defines DISCLOSURE but it is not a "
         f"weft_kernel.discovery.Disclosure instance (found {type(value).__name__}). "
         f"DISCLOSURE must be built from Disclosure(network=..., filesystem=..., "
         f"subprocess=..., note=...)."
@@ -960,7 +1023,7 @@ def _read_disclosure(entry_point: EntryPointLike, *, distribution: str) -> Discl
 
 
 def _resolve_settings(
-    register_fn: Callable[..., None], *, distribution: str, raw: Mapping[str, object]
+    register_fn: Callable[..., None], *, pack: str, raw: Mapping[str, object]
 ) -> BaseModel:
     """The validated settings instance `register_fn`'s own model expects.
 
@@ -974,7 +1037,7 @@ def _resolve_settings(
     parameters = list(inspect.signature(register_fn).parameters.values())
     if len(parameters) != 2:
         raise PackSettingsError(
-            f"'{distribution}' declares register() with {len(parameters)} parameter(s); "
+            f"'{pack}' declares register() with {len(parameters)} parameter(s); "
             f"docs/02-extension-model.md requires exactly (registrar, settings)."
         )
 
@@ -982,14 +1045,14 @@ def _resolve_settings(
     model = hints.get(parameters[1].name)
     if not (isinstance(model, type) and issubclass(model, BaseModel)):
         raise PackSettingsError(
-            f"'{distribution}' does not annotate its settings parameter with a "
+            f"'{pack}' does not annotate its settings parameter with a "
             f"pydantic.BaseModel subclass; register(registrar, settings: Settings) is required."
         )
 
     try:
         return model.model_validate(raw)
     except ValidationError as exc:
-        raise PackSettingsError(f"'{distribution}' settings failed validation: {exc}") from exc
+        raise PackSettingsError(f"'{pack}' settings failed validation: {exc}") from exc
 
 
 def _distribution_name(entry_point: EntryPointLike) -> str:

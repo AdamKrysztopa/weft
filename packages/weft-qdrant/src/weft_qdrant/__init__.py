@@ -33,17 +33,17 @@ NAME = "qdrant"
 
 #: What this pack touches — ledger task **6.31**, `02` §2 → *The trust model*.
 #:
-#: The address is `[packs.weft-qdrant] url`, defaulting to a local deployment, so the disclosure
+#: The address is `[packs.qdrant] url`, defaulting to a local deployment, so the disclosure
 #: names the setting and its default rather than pretending to know where an operator points it.
 #: Informational only: `02` §2 is explicit that a disclosure is "a disclosure to the operator,
 #: never a claim weft checks".
 DISCLOSURE = Disclosure(
-    network=("whatever [packs.weft-qdrant] url names — http://localhost:6333 by default",),
+    network=("whatever [packs.qdrant] url names — http://localhost:6333 by default",),
     filesystem=(),
     subprocess=(),
     note=(
         "Stores and searches node vectors in a Qdrant deployment, authenticating with "
-        "[packs.weft-qdrant] api_key when one is set. Node content and embeddings are written to "
+        "[packs.qdrant] api_key when one is set. Node content and embeddings are written to "
         "that deployment and read back from it."
     ),
 )

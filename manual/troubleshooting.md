@@ -251,8 +251,8 @@ with neither `weft.toml` nor `WEFT_DATABASE_URL` supplying it:
 ```text
 $ weft plugins doctor
 ...
-weft-store 2.0.0: failed (0 contributed)
-  reason: 'weft-store' settings failed validation: 1 validation error for PgVectorSettings
+store (weft-store) 2.0.0: failed (0 contributed)
+  reason: 'store' settings failed validation: 1 validation error for PgVectorSettings
 dsn
   Field required [type=missing, input_value={}, input_type=dict]
     For further information visit https://errors.pydantic.dev/2.13/v/missing
@@ -271,30 +271,32 @@ requires exactly (registrar, settings).
 Like `DuplicateRegistrationError`, this never reaches you as a bare traceback — it is always folded
 into that pack's `weft plugins doctor` report as `failed`, with the message above as the `reason`.
 **What to do, as a user:** fix the setting the reason names — for `weft-store`'s `dsn`, either export
-`WEFT_DATABASE_URL` or add `[packs.weft-store] dsn = "..."` to `weft.toml`; see
+`WEFT_DATABASE_URL` or add `[packs.store] dsn = "..."` to `weft.toml`; see
 [`manual/operations-guide.md`](operations-guide.md) → *Wiring `weft.toml`*. **As a pack author:** fix
 `register()`'s own signature — it must match `register(registrar: PackRegistrar, settings:
 YourSettingsModel) -> None` exactly.
 
 ### `UnknownPackSettingsError`
 
-**What it looks like** — a `weft.toml` names a `[packs.<distribution>]` settings block for a
-distribution nothing installed declares, reproduced against a real checkout:
+**What it looks like** — a `weft.toml` names a `[packs.<pack>]` settings block for a pack nothing
+installed declares, reproduced against a real checkout:
 
 ```text
 $ cat weft.toml
 [packs.acme-graph]
 endpoint = "http://localhost:1234"
 $ weft plugins doctor
-[packs] settings name 'acme-graph', which is not installed. Install the distribution, or remove its
-settings block. Distributions that declare a 'weft.packs' entry point: 'weft-canary', 'weft-chunk',
-'weft-embed', 'weft-extract', 'weft-store'.
+[packs] settings name 'acme-graph', which is not installed. Install the distribution that ships it,
+or remove its settings block. Packs that declare a 'weft.packs' entry point: 'canary', 'chunk',
+'embed', 'extract', 'store'.
 $ echo $?
 4
 ```
 
-(`weft-canary` in that list is this repository's own test-only distribution — a real install of
-`weft-cli` will not show it; the distribution list is otherwise exactly what got reproduced.) Unlike
+(`canary` in that list is this repository's own test-only pack — a real install of
+`weft-cli` will not show it; the pack list is otherwise exactly what got reproduced.) The key is the
+**pack** name, the first column `weft plugins list` prints, not the distribution: one distribution
+can ship several packs and each configures itself. Unlike
 `[packs] allow` naming an absent distribution (see `allowed, not installed` below, which is reported
 and not fatal), a `packs:` settings block is a requirement, not a permission — `weft` refuses to build
 a registry at all rather than silently ignore a settings block nobody will read. **What to do:** `uv
@@ -1232,27 +1234,27 @@ admitted, and nothing should be able to reach this refusal on a matched pair of 
 ```text
 VectorWidthMismatchError: node 4f1c… carries a 1536-component embedding and collection 'weft_nodes'
 was created for 64. A Qdrant collection's width is fixed at creation and cannot be altered, so
-either [packs.weft-qdrant] vector_size names the wrong width for the configured embedder, or this
+either [packs.qdrant] vector_size names the wrong width for the configured embedder, or this
 collection was written by a different one — re-index into a new 'collection'.
 ```
 
 Specific to `weft-qdrant`; the pgvector store has no equivalent, because its vector column is
 declared without a dimension. **What to do:** decide which of the two is wrong. If the configured
 embedder changed — `hash` is 64 by default and `openai`'s `text-embedding-3-small` is 1536 — set
-`[packs.weft-qdrant] vector_size` to match it *and* re-index into a fresh `collection`, because the
+`[packs.qdrant] vector_size` to match it *and* re-index into a fresh `collection`, because the
 existing one holds vectors of the old width and cannot be widened. If the embedder did not change,
 the collection belongs to a different corpus and the `collection` name is what to change.
 
 You will only meet this if `[services] store` names `qdrant`; the settings under
-`[packs.weft-qdrant]` configure the pack, and that key is what selects it.
+`[packs.qdrant]` configure the pack, and that key is what selects it.
 
 ### `UnknownTextSearchConfigError`
 
-**What it looks like** — `[packs.weft-store] text_search_config` names something this database has
+**What it looks like** — `[packs.store] text_search_config` names something this database has
 no text search configuration for:
 
 ```text
-UnknownTextSearchConfigError: [packs.weft-store] text_search_config names 'klingon', which this
+UnknownTextSearchConfigError: [packs.store] text_search_config names 'klingon', which this
 database has no text search configuration for. Installed here: arabic, armenian, basque, catalan,
 danish, dutch, english, finnish, french, german, greek, hindi, hungarian, indonesian, irish,
 italian, lithuanian, nepali, norwegian, portuguese, romanian, russian, serbian, simple, spanish,
@@ -1273,7 +1275,7 @@ says "retrieved".
 
 ```text
 TextSearchConfigMismatchError: weft_nodes.content_tsv in this database is generated by 'simple', and
-[packs.weft-store] text_search_config asks for 'english'. A generated column cannot be altered in
+[packs.store] text_search_config asks for 'english'. A generated column cannot be altered in
 place, so the stored lexemes would stay 'simple's while every query asked 'english's — near-zero
 matches, and no error to notice it by. Either set text_search_config back to 'simple', or drop the
 column (ALTER TABLE weft_nodes DROP COLUMN content_tsv) and let this store recreate it: it is
@@ -1677,7 +1679,7 @@ $ cat weft.toml
 embed = "openai"
 $ weft index docs
 no OpenAI credential is configured, so the 'openai' embedder has nothing to authenticate with. Add
-`[packs.weft-openai] api_key = "${env:OPENAI_API_KEY}"` to weft.toml — the settings loader
+`[packs.openai] api_key = "${env:OPENAI_API_KEY}"` to weft.toml — the settings loader
 interpolates `${env:...}`, so the key stays in the environment and out of the file.
 $ echo $?
 1
@@ -1711,7 +1713,7 @@ The model and `dimensions` are *not* things to check here, because nothing in `w
 them: `weft index` and `weft ask` run this pack's defaults until a pipeline document reaches them
 (see [`manual/operations-guide.md`](operations-guide.md) → *Choosing an embedder*). A `400` naming
 a model that does not exist means a library caller built `OpenAIEmbedderConfig` by hand, or the
-`base_url` in `[packs.weft-openai]` points at a server that does not serve that model.
+`base_url` in `[packs.openai]` points at a server that does not serve that model.
 
 ### `UnembeddableNodeError`
 
@@ -1774,7 +1776,7 @@ automatically rather than surfacing it to an operator.
 LLMTimeoutError: Request timed out.
 ```
 
-**What to do:** retry — `transient=True` — or raise `[packs.weft-openai] timeout_seconds` if this
+**What to do:** retry — `transient=True` — or raise `[packs.openai] timeout_seconds` if this
 model's answers are routinely slower than the SDK's own default allows.
 
 ### `LLMConnectionError`
@@ -1786,7 +1788,7 @@ LLMConnectionError: Connection error.
 ```
 
 **What to do:** check DNS and outbound network access from wherever `weft` is running; `base_url`
-in `[packs.weft-openai]` if this project talks to a proxy or a compatible server rather than the
+in `[packs.openai]` if this project talks to a proxy or a compatible server rather than the
 vendor's own endpoint.
 
 ### `LLMServiceUnavailableError`
@@ -1809,11 +1811,11 @@ class having to set it. Retrying the identical call will refuse identically fore
 ### `LLMAuthenticationError`
 
 **What it looks like** — no credential configured, reproduced against a real checkout with no
-`[packs.weft-openai]` block at all:
+`[packs.openai]` block at all:
 
 ```text
 no OpenAI credential is configured, so the 'openai' provider has nothing to authenticate with. Add
-`[packs.weft-openai] api_key = "${env:OPENAI_API_KEY}"` to weft.toml — the settings loader
+`[packs.openai] api_key = "${env:OPENAI_API_KEY}"` to weft.toml — the settings loader
 interpolates `${env:...}`, so the key stays in the environment and out of the file.
 ```
 
@@ -1825,7 +1827,7 @@ LLMAuthenticationError: Error code: 401 - {'error': {'message': 'Incorrect API k
 sk-not-a*****-key. ...', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
 ```
 
-**What to do:** the first is `[packs.weft-openai] api_key` missing entirely; the second is the
+**What to do:** the first is `[packs.openai] api_key` missing entirely; the second is the
 same key, wrong. Either way, fix the credential this pack reads — never the `OPENAI_API_KEY` the
 vendor SDK would read on its own, which this pack deliberately ignores.
 
@@ -2619,7 +2621,7 @@ $ cat weft.toml
 [packs]
 allow = ["weft-extract", "weft-chunk"]
 $ weft plugins doctor
-weft-store 2.0.0: refused (0 contributed)
+store (weft-store) 2.0.0: refused (0 contributed)
   never imported — 'weft-store' is not listed in [packs] allow. Add it there to permit it.
   disclosure: not disclosed
 ```
@@ -2632,8 +2634,8 @@ imported.
 
 ```text
 $ weft plugins doctor
-weft-store 2.0.0: failed (0 contributed)
-  reason: 'weft-store' settings failed validation: 1 validation error for PgVectorSettings
+store (weft-store) 2.0.0: failed (0 contributed)
+  reason: 'store' settings failed validation: 1 validation error for PgVectorSettings
 dsn
   Field required [type=missing, input_value={}, input_type=dict]
     For further information visit https://errors.pydantic.dev/2.13/v/missing

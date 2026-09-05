@@ -73,7 +73,7 @@ full argument, including the reference's own absent precedent.
 `weft_cli.ingest.run_index`'s own module docstring carries the argument (Q3, settled:
 `[services]` and a document's `with:` stay two surfaces); this module's own share of it is
 `ConflictingIndexModeError` — `--extract`/`--pipeline` refuse together on
-`ConflictingAskModeError`'s exact footing — and skipping `INDEX_DISTRIBUTIONS`/`[services]`'s
+`ConflictingAskModeError`'s exact footing — and skipping `INDEX_PACKS`/`[services]`'s
 own `require_plugin` gate when a document names the run, since neither promise is one a
 named document has made.
 """
@@ -92,7 +92,7 @@ from weft_cli.deletion import participants as deletion_participants
 from weft_cli.eval_commands import DEFAULT_RUNS_DIR, register_eval_commands
 from weft_cli.exit_codes import ExitCode
 from weft_cli.fanout import Participant
-from weft_cli.ingest import INDEX_DISTRIBUTIONS, run_index
+from weft_cli.ingest import INDEX_PACKS, run_index
 from weft_cli.installed_versions import installed_versions
 from weft_cli.output import AskFormat
 from weft_cli.participation import load_run_records, stores_in_use
@@ -518,7 +518,7 @@ class IndexCommand:
 
     **Task 4.0.** `--pipeline` resolves a document through `weft_cli.ingest.run_index`'s own
     new `pipeline` parameter, exactly the way `AskCommand._run_generating` already resolves
-    `--pipeline` for a query. `INDEX_DISTRIBUTIONS`/`[services] embed`/`[services] store` are
+    `--pipeline` for a query. `INDEX_PACKS`/`[services] embed`/`[services] store` are
     the default four-stage path's own promises — a named document may need none of those
     three distributions and reads no `[services]` value at all (the module docstring's *"Q3,
     settled"*), so this command checks neither when `--pipeline` is given; `run_index` raises
@@ -548,7 +548,7 @@ class IndexCommand:
             )
 
         if index_args.pipeline is None:
-            active_refusal = require_active(deps.reports, distributions=INDEX_DISTRIBUTIONS)
+            active_refusal = require_active(deps.reports, packs=INDEX_PACKS)
             if active_refusal is not None:
                 # `require_active` never resolves `weft_kernel.registry.UnknownPluginError` —
                 # it checks a fixed distribution list, not a plugin name — so it has no
@@ -849,7 +849,7 @@ _INIT_TEMPLATE = """\
 [reconcile]
 # mode = "full"
 
-# [packs.weft-store]
+# [packs.store]
 # dsn = "${env:WEFT_DATABASE_URL}"
 """
 

@@ -41,7 +41,7 @@ that changes turn to turn instead of once per run.
   active pipeline, no command in this repository accepts a collection argument to hold a
   session's choice of — `weft_cli.commands.IndexArgs`/`AskArgs` name no `--collection` flag, and
   `[services] store` selects *which store plugin* runs, never *which named collection inside
-  it* (`weft-qdrant`'s own `collection` is a fixed `[packs.weft-qdrant]` setting, not a runtime
+  it* (`weft-qdrant`'s own `collection` is a fixed `[packs.qdrant]` setting, not a runtime
   choice). `docs/03-cli.md`'s *Permissions* table names "collection" only in prose describing a
   future `overwrite`/`destroy` prompt (`weft_cli.confirm`'s own module docstring, design
   question 2: no command is `overwrite`/`destroy`-class yet either). A session field with no

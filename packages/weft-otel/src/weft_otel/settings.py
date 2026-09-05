@@ -23,14 +23,14 @@ tracing. With `CONSOLE` as the default, whichever of those happened to run first
 wins — started losing that race, non-deterministically, depending on collection order. That
 is `docs/lessons.md` L5.1's own failure shape one level up: a mechanism that looks like it
 closes the gap and does not survive being run. `NONE` closes it correctly: installing
-`weft-otel` is necessary but not sufficient, and `[packs.weft-otel] exporter = "console"` (or
-`weft config set packs.weft-otel.exporter console`) is the one additional step — no different
+`weft-otel` is necessary but not sufficient, and `[packs.otel] exporter = "console"` (or
+`weft config set packs.otel.exporter console`) is the one additional step — no different
 in kind from `weft-qdrant`'s own `url` needing to be told where a non-default deployment
 lives. `weft plugins doctor`'s `tracing:` line says exactly this when it is not yet done.
 
 **Every other field has a default, `weft_qdrant.settings`'s own load-bearing reason restated
 for a different pack**: pack settings are validated *before* `register()` runs, so a required
-field with no default would turn a machine with no `[packs.weft-otel]` block into a `FAILED`
+field with no default would turn a machine with no `[packs.otel]` block into a `FAILED`
 pack — for `weft-otel` specifically, `FAILED` and "declined to export, on purpose" are
 different facts, and only `exporter: NONE`, not a validation error, tells them apart.
 """
@@ -53,7 +53,7 @@ class OtelExporter(StrEnum):
     NONE = "none"
     #: `opentelemetry.sdk.trace.export.ConsoleSpanExporter` — stdout, no network, no extra
     #: dependency beyond this pack's own `opentelemetry-sdk` requirement. The one-line opt-in:
-    #: `[packs.weft-otel] exporter = "console"`.
+    #: `[packs.otel] exporter = "console"`.
     CONSOLE = "console"
     #: `opentelemetry.exporter.otlp.proto.http.trace_exporter.OTLPSpanExporter`, from the
     #: optional `weft-otel[otlp]` extra. Falls back to `CONSOLE`, loudly, when the extra is

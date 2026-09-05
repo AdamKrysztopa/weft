@@ -1049,7 +1049,7 @@ and hope they stayed in sync.
 ```yaml
 # weft.yaml
 packs:
-  weft-graph:                       # keyed by distribution name, never the entry-point alias
+  graph:                            # keyed by the pack's own weft.packs entry-point name
     endpoint: bolt://localhost:7687
     api_key: ${env:GRAPH_KEY}
 ```
@@ -1066,9 +1066,29 @@ def register(registry: Registry, settings: Settings) -> None:
     registry.add_messages(ns="graph", resources=files("weft_graph") / "locales")
 ```
 
-- **Keyed by distribution name.** `weft-graph`, not `graph`. Entry-point aliases can collide between
-  two packs; distribution names cannot, so the `packs:` namespace has no arbitration problem to
-  solve. (Plugin-*name* collisions remain open — G2.)
+- **Keyed by pack name — the `weft.packs` entry-point name.** `graph`, not `weft-graph`.
+
+  **This reverses what G1 settled, and the reason G1 gave is what stopped being true.** G1 chose the
+  distribution name because "entry-point aliases can collide between two packs; distribution names
+  cannot". That held while every pack shipped in a distribution of its own. It stopped holding at
+  G10's re-settlement, where `weft-rag` ships twelve registering packs: keyed by distribution, their
+  twelve settings blocks collapse into one namespace, so `[packs.weft-rag]` would hand the store's
+  `dsn` to the chunker. A key that cannot address one pack is not a per-pack settings namespace.
+
+  So the two identities are separated rather than conflated. **`pack` is what an entry point names**
+  — the row `weft plugins list|doctor` prints, the `[packs.<pack>]` settings key, and the name in a
+  settings or disclosure failure. **`distribution` is what an index ships** — `[packs] allow`, the
+  version column, and G9's deprecation clock. `weft_kernel.discovery`'s own module docstring carries
+  the same split at the seam that applies it.
+
+  **What G1's argument was right about, and what now covers it.** Two distributions *can* both
+  declare an entry point named `graph`; nothing in Python packaging prevents it. Weft does not
+  refuse that — a stranger's pack is not ours to rename, and failing both would punish an operator
+  for something only an uninstall can fix — but it does not pass in silence either: `weft plugins
+  doctor` reports the collision as an environment fact in its own trailing block, beside version
+  skew and inert pins, naming both distributions and saying that one `[packs.<pack>]` block reaches
+  both. Reported, not fatal, is the identical posture `ambient` already has for the identical
+  reason. (Plugin-*name* collisions remain a separate mechanism — `[plugins]` pins, below.)
 - **Typed, validated at discovery.** The pack declares a Pydantic model; the kernel validates before
   `register` is called and fails naming the pack and the field. Never `dict[str, Any]`.
 - **Handed to `register`, not injected into plugins.** The pack wires its own settings into its own
@@ -1076,8 +1096,8 @@ def register(registry: Registry, settings: Settings) -> None:
   injection path and no extra passport field.
 - **Secrets are `SecretStr`, with `${env:VAR}` interpolation performed by the config loader**, so no
   component reads the environment itself.
-- **A `packs:` key naming a pack that is not installed is an error**, per rule 5 — loud, naming the
-  distribution to install. A config block that is silently ignored is how a machine ends up running
+- **A `packs:` key naming a pack that is not installed is an error**, per rule 5 — loud, naming
+  every pack that *is* installed so the reader can see the name they meant. A config block that is silently ignored is how a machine ends up running
   without the pack nobody noticed was missing. The remedy is `weft plugins doctor`, not a warning.
 
 **A pack addresses its own resources through its own distribution** (`importlib.resources`), never a

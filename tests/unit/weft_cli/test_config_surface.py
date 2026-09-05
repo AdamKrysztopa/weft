@@ -138,13 +138,13 @@ def test_set_config_text_inserts_a_missing_key_into_an_existing_section() -> Non
 
 
 def test_set_config_text_appends_a_new_section_and_preserves_comments() -> None:
-    text = '# a project comment weft config set must never discard\n[packs.weft-store]\ndsn = "x"\n'
+    text = '# a project comment weft config set must never discard\n[packs.store]\ndsn = "x"\n'
 
     result = set_config_text(text, section="services", key="embed", value="openai")
 
     assert "# a project comment weft config set must never discard" in result
     assert tomllib.loads(result)["services"]["embed"] == "openai"
-    assert tomllib.loads(result)["packs"]["weft-store"]["dsn"] == "x"
+    assert tomllib.loads(result)["packs"]["store"]["dsn"] == "x"
 
 
 def test_set_config_text_on_an_empty_file_writes_a_minimal_document() -> None:

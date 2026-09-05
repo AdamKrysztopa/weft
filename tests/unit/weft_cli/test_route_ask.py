@@ -131,6 +131,7 @@ def _reports() -> Sequence[PackReport]:
     resources` path a real install would use."""
     return (
         PackReport(
+            pack="retrieve",
             distribution="weft-retrieve",
             status=PackStatus.ACTIVE,
             pipeline_resources=(

@@ -75,6 +75,6 @@ def discover_for_tests() -> Registry:
     discover(
         registry,
         allow=installed_packs_except_the_canary(),
-        pack_settings={"weft-store": {"dsn": _PLACEHOLDER_DSN}},
+        pack_settings={"store": {"dsn": _PLACEHOLDER_DSN}},
     )
     return registry

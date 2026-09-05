@@ -50,9 +50,16 @@ def _corpus() -> CorpusIdentity:
 def test_build_run_record_active_distributions_is_only_the_active_ones() -> None:
     # Arrange — a mix of statuses, the identical vocabulary `plugins doctor` reads off.
     reports = (
-        PackReport(distribution="weft-extract", status=PackStatus.ACTIVE, contributed=2),
-        PackReport(distribution="weft-canary", status=PackStatus.REFUSED, reason="not allowed"),
-        PackReport(distribution="weft-half", status=PackStatus.PARTIAL, contributed=1),
+        PackReport(
+            pack="extract", distribution="weft-extract", status=PackStatus.ACTIVE, contributed=2
+        ),
+        PackReport(
+            pack="canary",
+            distribution="weft-canary",
+            status=PackStatus.REFUSED,
+            reason="not allowed",
+        ),
+        PackReport(pack="half", distribution="weft-half", status=PackStatus.PARTIAL, contributed=1),
     )
 
     # Act
@@ -90,7 +97,11 @@ def test_write_then_load_round_trips_exactly(tmp_path: Path) -> None:
         resolved_pipeline=_resolved_pipeline(),
         corpus=_corpus(),
         model_versions={"embed": "hash:hash"},
-        reports=(PackReport(distribution="weft-extract", status=PackStatus.ACTIVE, contributed=2),),
+        reports=(
+            PackReport(
+                pack="extract", distribution="weft-extract", status=PackStatus.ACTIVE, contributed=2
+            ),
+        ),
     )
     path = tmp_path / "runs" / "one.json"
 

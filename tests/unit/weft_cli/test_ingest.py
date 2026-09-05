@@ -35,7 +35,7 @@ from pydantic import BaseModel, ConfigDict
 from weft_chunk import Chunker
 from weft_cli import ingest as ingest_module
 from weft_cli.ingest import (
-    INDEX_DISTRIBUTIONS,
+    INDEX_PACKS,
     AmbiguousExtractorError,
     PipelineMissingExtractStageError,
     UnclaimedFormatError,
@@ -145,13 +145,13 @@ def test_index_specs_is_the_fixed_extract_chunk_embed_store_pipeline() -> None:
         ("embed", Embedder, "hash"),
         ("store", NodeStore, "pgvector"),
     )
-    assert INDEX_DISTRIBUTIONS == ("weft-extract", "weft-chunk", "weft-embed")
+    assert INDEX_PACKS == ("extract", "chunk", "embed")
 
 
 def test_index_specs_takes_the_store_from_what_it_is_given() -> None:
     # Arrange / Act — repair for a reviewer finding against task 2.6. The store name arrives
     # from `[services] store`, so a second backend is selectable with no file in this
-    # repository edited; `weft-store` left `INDEX_DISTRIBUTIONS` for the same reason
+    # repository edited; the `store` pack left `INDEX_PACKS` for the same reason
     # `--extract` and `[services] embed` are not in it — a hard-coded tuple can never
     # contain a stranger's pack, and `require_plugin` covers whichever one does provide it.
     shape = tuple(

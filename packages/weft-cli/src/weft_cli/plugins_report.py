@@ -2,8 +2,14 @@
 
 `docs/03-cli.md`: "`weft plugins doctor` reports what was discovered, from
 which distribution... and what failed to load and why... one status per
-distribution... plus each pack's disclosure." Everything printed here reads
+pack... plus each pack's disclosure." Everything printed here reads
 straight off `weft_kernel.discovery.PackReport` — nothing is computed twice.
+
+**A row is one pack, not one distribution.** `PackReport.pack` is the `weft.packs`
+entry-point name and `PackReport.distribution` is what an index ships; a status line
+prints `pack (distribution version)` because `weft-rag` ships twelve registering packs
+and twelve rows reading `weft-rag` answer nobody's question. See `weft_kernel.discovery`'s
+own module docstring for where the two identities part, and `docs/02-extension-model.md` §2.
 Two fields that section also names are not printed, because nothing in the
 kernel exposes them yet, and this module states what it has rather than
 approximating what it does not: **per-plugin contract versions** (`PackReport`
@@ -87,7 +93,7 @@ from weft_kernel.resolution import Contribution
 
 
 def render_list(reports: tuple[PackReport, ...]) -> str:
-    """One line per distribution: status, ambient flag, contribution count."""
+    """One line per pack: status, ambient flag, contribution count."""
     if not reports:
         return "no packs discovered."
     lines = [_summary_line(report) for report in _sorted(reports)]
@@ -128,6 +134,13 @@ def render_doctor(
     declares, grouped under the *offering* distribution's own block, on `displaced`'s own
     footing. The default `()` reproduces prior output unchanged.
 
+    **A pack name two installed distributions both claim** gets its own trailing block,
+    computed here from `reports` rather than passed in — `_packs_claimed_by_more_than_one_
+    distribution`. It takes no parameter because it is derivable from what this function was
+    already given, and a second channel for a fact already in the input would be one more
+    thing a caller could forget to pass. See `docs/02-extension-model.md` §2 → *Pack settings*
+    for why this is reported and not refused.
+
     `versions` — task **6.4**, `docs/09-release.md` section 1 — is what
     `weft_cli.installed_versions.installed_versions` read for each distribution reported here,
     printed on the status line beside the name because that section calls for "one column, not
@@ -141,15 +154,26 @@ def render_doctor(
         return "no packs discovered."
     by_loser = _group_by_loser(displaced)
     by_offerer = _group_by_distribution(unreachable_contributions)
+    # A `DisplacedRegistration` and a `Contribution` are attributed to a *distribution*,
+    # which is no longer one pack's fact: `weft-rag` ships fourteen packs, so looking each
+    # one up per report would print the same line under all fourteen blocks. Popped rather
+    # than read, so a distribution's items appear exactly once — under the first of its
+    # packs in sorted order. Carrying `pack` down through `Registry.add` to
+    # `DisplacedRegistration` is what would put each line under the pack that actually lost
+    # it; that is a wider seam than this change opens, and until it is opened, printing once
+    # under a named distribution beats printing fourteen times under fourteen.
     blocks = [
         _doctor_block(
             report,
-            by_loser.get(report.distribution, ()),
-            by_offerer.get(report.distribution, ()),
+            by_loser.pop(report.distribution, ()),
+            by_offerer.pop(report.distribution, ()),
             versions,
         )
         for report in _sorted(reports)
     ]
+    shared = _packs_claimed_by_more_than_one_distribution(reports)
+    if shared:
+        blocks.append(_shared_pack_name_block(shared))
     if unconsulted_pins:
         blocks.append(_unconsulted_pins_block(unconsulted_pins))
     if skew:
@@ -160,12 +184,14 @@ def render_doctor(
 
 
 def _sorted(reports: tuple[PackReport, ...]) -> list[PackReport]:
-    return sorted(reports, key=lambda report: report.distribution)
+    """Ordered by the identity that is printed: the pack, with `ALLOWED_NOT_INSTALLED`'s
+    distribution standing in for the one row that has no pack at all."""
+    return sorted(reports, key=lambda report: report.pack or report.distribution)
 
 
 def _group_by_loser(
     displaced: tuple[DisplacedRegistration, ...],
-) -> Mapping[str, tuple[DisplacedRegistration, ...]]:
+) -> dict[str, tuple[DisplacedRegistration, ...]]:
     """Every `DisplacedRegistration`, keyed by the distribution that lost it."""
     by_loser: dict[str, list[DisplacedRegistration]] = {}
     for item in displaced:
@@ -178,7 +204,7 @@ def _group_by_loser(
 
 def _group_by_distribution(
     contributions: tuple[Contribution, ...],
-) -> Mapping[str, tuple[Contribution, ...]]:
+) -> dict[str, tuple[Contribution, ...]]:
     """Every `Contribution`, keyed by the distribution that offered it — task 5.3a (`S8`)."""
     by_distribution: dict[str, list[Contribution]] = {}
     for contribution in contributions:
@@ -190,10 +216,27 @@ def _group_by_distribution(
 
 
 def _summary_line(report: PackReport, version_label: str = "") -> str:
+    """`pack (distribution): status ...` — the two identities, in that order.
+
+    The pack leads because it is what the reader is looking for: which of the twelve
+    installed packs this row is about. The distribution follows in parentheses because it
+    is what they would `pip install`, uninstall or pin, and because several rows now share
+    one. `ALLOWED_NOT_INSTALLED` is the single row with no pack — `[packs] allow` named a
+    distribution nothing installed claims — and prints the distribution alone rather than
+    inventing a pack name for it, which is byte-for-byte the line this function produced
+    before packs had an identity of their own.
+
+    `version_label` follows the parenthesis rather than sitting inside it, so the
+    "(version not recorded)" state stays the string it has always been instead of becoming
+    a parenthesis nested inside a parenthesis.
+    """
     ambient = ", ambient" if report.ambient else ""
     deprecated = ", deprecated" if report.deprecations else ""
+    identity = (
+        report.distribution if report.pack is None else f"{report.pack} ({report.distribution})"
+    )
     return (
-        f"{report.distribution}{version_label}: {report.status.value}{ambient}{deprecated} "
+        f"{identity}{version_label}: {report.status.value}{ambient}{deprecated} "
         f"({report.contributed} contributed)"
     )
 
@@ -245,6 +288,42 @@ def _doctor_block(
         lines.append(
             f"  unreachable: slot '{contribution.slot}' (stage '{contribution.stage.id}') "
             f"lands in no pipeline this catalogue holds"
+        )
+    return "\n".join(lines)
+
+
+def _packs_claimed_by_more_than_one_distribution(
+    reports: tuple[PackReport, ...],
+) -> dict[str, tuple[str, ...]]:
+    """Every pack name two or more installed distributions both claim, and who claims it.
+
+    `docs/02-extension-model.md` §2 → *Pack settings*: nothing in Python packaging stops two
+    distributions from declaring a `weft.packs` entry point under the same name, and weft does
+    not refuse it — a stranger's pack is not ours to rename, and failing both would punish an
+    operator for something only an uninstall can fix. What it must not do is pass in silence:
+    one `[packs.<pack>]` block would then configure both, and two rows would print the same
+    first column. So it is reported here, as an environment fact in its own block beside
+    version skew and inert pins, rather than folded into either pack's own — neither of them
+    did anything wrong, which is exactly why it belongs to neither.
+    """
+    claimants: dict[str, set[str]] = {}
+    for report in reports:
+        if report.pack is not None:
+            claimants.setdefault(report.pack, set()).add(report.distribution)
+    return {
+        pack: tuple(sorted(distributions))
+        for pack, distributions in sorted(claimants.items())
+        if len(distributions) > 1
+    }
+
+
+def _shared_pack_name_block(shared: Mapping[str, tuple[str, ...]]) -> str:
+    lines = ["pack names claimed by more than one installed distribution:"]
+    for pack, distributions in shared.items():
+        named = ", ".join(f"'{distribution}'" for distribution in distributions)
+        lines.append(
+            f"  '{pack}' — claimed by {named}. One [packs.{pack}] block in weft.toml "
+            f"configures both; uninstall one, or ask its author to rename its entry point."
         )
     return "\n".join(lines)
 

@@ -80,13 +80,13 @@ from weft_store.rehydrate import register_ext_model, register_from_reports, rehy
 #: not the module `register` is defined in.
 #:
 #: `psycopg` opens a socket, so this pack reaches outward whether or not the database is on the
-#: same machine; `[packs.weft-store] dsn` decides where, and a DSN is exactly the kind of concrete
+#: same machine; `[packs.store] dsn` decides where, and a DSN is exactly the kind of concrete
 #: string `02` §2 asks a disclosure to carry rather than a boolean ("a hostname is information,
 #: `network: true` is noise"). The credential inside it is never printed — `dsn` is a `SecretStr`
 #: and this names the setting, not its value. Informational only: `02` §2 is explicit that a
 #: disclosure is "a disclosure to the operator, never a claim weft checks".
 DISCLOSURE = Disclosure(
-    network=("the PostgreSQL server [packs.weft-store] dsn names (WEFT_DATABASE_URL by default)",),
+    network=("the PostgreSQL server [packs.store] dsn names (WEFT_DATABASE_URL by default)",),
     filesystem=(),
     subprocess=(),
     note=(

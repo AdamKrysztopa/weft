@@ -149,6 +149,7 @@ def test_load_contributed_reads_a_pipeline_resource_through_importlib(tmp_path: 
         files={"pipelines/route.yaml": "name: route\nstages: []\n"},
     )
     report = PackReport(
+        pack="happy",
         distribution="weft-happy",
         status=PackStatus.ACTIVE,
         pipeline_resources=(
@@ -182,6 +183,7 @@ def test_load_contributed_refuses_two_resources_declaring_the_same_name(tmp_path
     )
     reports = [
         PackReport(
+            pack="a",
             distribution="weft-a",
             status=PackStatus.ACTIVE,
             pipeline_resources=(
@@ -193,6 +195,7 @@ def test_load_contributed_refuses_two_resources_declaring_the_same_name(tmp_path
             ),
         ),
         PackReport(
+            pack="b",
             distribution="weft-b",
             status=PackStatus.ACTIVE,
             pipeline_resources=(
@@ -215,6 +218,7 @@ def test_load_contributed_raises_for_a_resource_no_installed_package_provides() 
     # production (a pack names its own), but a stale resource path after a rename must
     # still be diagnosable rather than a bare `ModuleNotFoundError` traceback.
     report = PackReport(
+        pack="ghost",
         distribution="weft-ghost",
         status=PackStatus.ACTIVE,
         pipeline_resources=(
@@ -243,6 +247,7 @@ def test_full_catalogue_merges_project_local_and_contributed_pipelines(tmp_path:
         files={"pipelines/route.yaml": "name: route\nstages: []\n"},
     )
     report = PackReport(
+        pack="happy",
         distribution="weft-happy",
         status=PackStatus.ACTIVE,
         pipeline_resources=(
@@ -278,6 +283,7 @@ def test_full_catalogue_refuses_a_name_shared_between_project_and_pack(tmp_path:
         files={"pipelines/shared.yaml": "name: shared\nstages: []\n"},
     )
     report = PackReport(
+        pack="shared",
         distribution="weft-shared",
         status=PackStatus.ACTIVE,
         pipeline_resources=(

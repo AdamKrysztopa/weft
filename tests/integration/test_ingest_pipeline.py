@@ -105,6 +105,7 @@ async def test_ingest_pipeline_produces_stored_nodes(store: PgVectorStore, tmp_p
     register_from_reports(
         [
             PackReport(
+                pack="chunk",
                 distribution="weft-chunk",
                 status=PackStatus.ACTIVE,
                 ext_models=(ChunkOffset,),
@@ -158,7 +159,7 @@ def _discover_and_wire_ext_models() -> None:
     reports = discover(
         registry,
         allow=frozenset({"weft-index", "weft-store", "weft-prompts"}),
-        pack_settings={"weft-store": {"dsn": _DSN}},
+        pack_settings={"store": {"dsn": _DSN}},
     )
     register_from_reports(reports)
 

@@ -331,7 +331,7 @@ class OpenAILLMProvider:
         if not settings.api_key.get_secret_value():
             raise LLMAuthenticationError(
                 "no OpenAI credential is configured, so the 'openai' provider has nothing to "
-                'authenticate with. Add `[packs.weft-openai] api_key = "${env:OPENAI_API_KEY}"` '
+                'authenticate with. Add `[packs.openai] api_key = "${env:OPENAI_API_KEY}"` '
                 "to weft.toml — the settings loader interpolates `${env:...}`, so the key stays "
                 "in the environment and out of the file.",
                 provider=NAME,

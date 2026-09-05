@@ -107,10 +107,22 @@ Two of these carry weight beyond their size:
   it is what makes derived pipelines reviewable.
 - **`weft plugins doctor`** reports what was discovered, from which distribution, at what contract
   version, and what failed to load and why. When someone's pack is not appearing, this is the
-  first and usually last thing they run. It prints one status per distribution — `active`, `refused`,
+  first and usually last thing they run. It prints **one status per pack** — `active`, `refused`,
   `failed`, `partial`, `allowed, not installed`, with an `ambient` flag — plus each pack's
   disclosure and what its `register()` cost. The vocabulary is defined once in `02` §2, *The trust
   model*; refusals and half-registered packs share it rather than getting a second surface.
+
+  **A row leads with the pack and names its distribution in parentheses** — `store (weft-rag
+  0.1.0): active (6 contributed)`. One distribution may ship several packs (`weft-rag` ships
+  twelve), so the distribution alone cannot tell twelve rows apart; the pack is the `weft.packs`
+  entry-point name and is also what a `[packs.<pack>]` settings block keys on. `allowed, not
+  installed` is the one row printed without a pack, because `[packs] allow` named a distribution
+  nothing installed claims and there is therefore no entry point to name. `02` §2 → *Pack settings*
+  owns the split.
+
+  **`doctor` also names a pack two installed distributions both claim**, in its own trailing block
+  beside version skew and inert pins. Nothing is refused — a stranger's entry-point name is not
+  ours to rename — but one `[packs.<pack>]` block would configure both, so it is said out loud.
 
   **The status line also names the distribution's installed version** — task 6.4, `09` §1's "one
   column, not a new command: the version of each active distribution", read from installed

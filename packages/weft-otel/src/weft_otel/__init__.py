@@ -57,7 +57,7 @@ DISCLOSURE = Disclosure(
     filesystem=(),
     subprocess=(),
     note=(
-        "Sets the process OpenTelemetry TracerProvider from [packs.weft-otel] settings. "
+        "Sets the process OpenTelemetry TracerProvider from [packs.otel] settings. "
         "exporter defaults to 'none' (nothing exported until configured); 'console' prints "
         "to stdout; 'otlp' reaches the network at whatever endpoint is configured. "
         "Registers no plugin against any contract."
@@ -91,7 +91,7 @@ def register(registrar: PackRegistrar, settings: OtelSettings) -> None:
     if actual is not settings.exporter:
         print(
             f"weft-otel: exporter '{settings.exporter.value}' requested but not usable "
-            f"(install the 'weft-otel[otlp]' extra and set [packs.weft-otel] endpoint) — "
+            f"(install the 'weft-otel[otlp]' extra and set [packs.otel] endpoint) — "
             f"falling back to '{actual.value}'. See `weft plugins doctor`.",
             file=sys.stderr,
         )

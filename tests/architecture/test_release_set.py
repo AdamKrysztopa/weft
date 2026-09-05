@@ -247,7 +247,7 @@ def test_every_pack_the_release_set_names_is_active_at_the_version_it_names() ->
 
     # Act
     registry = Registry()
-    reports = discover(registry, pack_settings={"weft-store": {"dsn": _PLACEHOLDER_DSN}})
+    reports = discover(registry, pack_settings={"store": {"dsn": _PLACEHOLDER_DSN}})
     status = {report.distribution: report for report in reports}
     inactive = sorted(
         name for name in packs if name not in status or status[name].status not in _LOADED

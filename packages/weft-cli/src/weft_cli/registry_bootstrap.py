@@ -368,19 +368,25 @@ def merged_pack_settings(document: dict[str, object] | None) -> dict[str, dict[s
     """
     from_file = pack_settings_from_config(document)
     merged: dict[str, dict[str, object]] = {
-        distribution: dict(values) for distribution, values in from_file.items()
+        pack: dict(values) for pack, values in from_file.items()
     }
-    for distribution, values in pack_settings_from_environment().items():
-        target = merged.setdefault(distribution, {})
+    for pack, values in pack_settings_from_environment().items():
+        target = merged.setdefault(pack, {})
         for key, value in values.items():
             target.setdefault(key, value)
     return merged
 
 
 def pack_settings_from_config(document: dict[str, object] | None) -> dict[str, dict[str, object]]:
-    """Every `[packs.<distribution>]` table in a parsed `weft.toml`.
+    """Every `[packs.<pack>]` table in a parsed `weft.toml`.
 
-    `[packs]` carries both the allow-list and the per-distribution settings blocks, so the
+    Keyed on the **pack** — the `weft.packs` entry-point name, so `[packs.store]`, never
+    `[packs.store]`. `weft_kernel.discovery.discover` looks each pack's slice up by
+    that name; `[packs] allow` beside it stays keyed on the *distribution*, because it is
+    a trust boundary and trust attaches to what you installed. See
+    `weft_kernel.discovery`'s own module docstring for where the two identities part.
+
+    `[packs]` carries both the allow-list and the per-pack settings blocks, so the
     sub-tables are exactly its dict-valued entries — `allow` is a list and is skipped by that
     same rule rather than by being named here, which means a future scalar key under `[packs]`
     does not have to be added to a second list to be ignored correctly.
@@ -413,7 +419,7 @@ def pack_settings_from_config(document: dict[str, object] | None) -> dict[str, d
 
 
 def pack_settings_from_environment() -> dict[str, dict[str, object]]:
-    """`weft-store`'s settings, referencing `${env:WEFT_DATABASE_URL}` only if it is set.
+    """The `store` pack's settings, referencing `${env:WEFT_DATABASE_URL}` only if it is set.
 
     See the module docstring, *"`pack_settings_from_environment` checks the variable's
     presence, never its value."* — this reads only whether the name exists in
@@ -421,13 +427,18 @@ def pack_settings_from_environment() -> dict[str, dict[str, object]]:
     """
     if _DATABASE_URL_VAR not in os.environ:
         return {}
-    return {"weft-store": {"dsn": f"${{env:{_DATABASE_URL_VAR}}}"}}
+    return {"store": {"dsn": f"${{env:{_DATABASE_URL_VAR}}}"}}
 
 
 def require_active(
-    reports: tuple[PackReport, ...], *, distributions: tuple[str, ...]
+    reports: tuple[PackReport, ...], *, packs: tuple[str, ...]
 ) -> tuple[ExitCode, str] | None:
-    """`None` if every one of `distributions` is usable; otherwise the exit code and why.
+    """`None` if every one of `packs` is usable; otherwise the exit code and why.
+
+    Keyed on `PackReport.pack` — the entry-point name — and not on the distribution, which
+    stopped being unique per report the moment one wheel shipped twelve registering packs:
+    a `{report.distribution: report}` index would have collapsed those twelve into one and
+    then answered about whichever happened to be last.
 
     `PARTIAL` is let through: it means *something* registered, and whether it
     is the specific plugin a command needs is exactly what pipeline
@@ -435,25 +446,25 @@ def require_active(
     this function only rules out the cases it can decide on its own:
     genuinely absent, refused by policy, or `register()` raising outright.
     """
-    by_distribution = {report.distribution: report for report in reports}
-    for distribution in distributions:
-        report = by_distribution.get(distribution)
+    by_pack = {report.pack: report for report in reports}
+    for pack in packs:
+        report = by_pack.get(pack)
         if report is None or report.status is PackStatus.ALLOWED_NOT_INSTALLED:
             return (
                 ExitCode.RESOLUTION_FAILED,
-                f"'{distribution}' is not installed. Install it, or run "
+                f"'{pack}' is not installed. Install it, or run "
                 f"`weft plugins doctor` to see every pack's status.",
             )
         if report.status is PackStatus.REFUSED:
             return (
                 ExitCode.POLICY_REFUSED,
-                f"'{distribution}' is refused by [packs] allow in {DEFAULT_CONFIG_PATH}. "
-                f"Add it there to permit it.",
+                f"'{pack}' is refused by [packs] allow in {DEFAULT_CONFIG_PATH}. "
+                f"Add the distribution that ships it there to permit it.",
             )
         if report.status is PackStatus.FAILED:
             return (
                 ExitCode.RESOLUTION_FAILED,
-                f"'{distribution}' failed to register: {report.reason}",
+                f"'{pack}' failed to register: {report.reason}",
             )
     return None
 

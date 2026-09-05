@@ -237,7 +237,12 @@ async def test_index_command_raises_a_refusal_before_running_when_a_pack_is_refu
 
     monkeypatch.setattr(commands, "run_index", _boom)
     reports = (
-        PackReport(distribution="weft-extract", status=PackStatus.REFUSED, reason="not allowed"),
+        PackReport(
+            pack="extract",
+            distribution="weft-extract",
+            status=PackStatus.REFUSED,
+            reason="not allowed",
+        ),
     )
     deps = Dependencies(registry=Registry(), reports=reports, services=ServiceSelection())
     args = commands.IndexArgs(path=str(tmp_path))
@@ -260,8 +265,8 @@ async def test_index_command_produces_a_result_carrying_the_run_summary(
     registry.add(Embedder, "hash", _null_factory, distribution="weft-embed")
     registry.add(NodeStore, "pgvector", _null_factory, distribution="weft-store")
     reports = tuple(
-        PackReport(distribution=d, status=PackStatus.ACTIVE)
-        for d in ("weft-extract", "weft-chunk", "weft-embed", "weft-store")
+        PackReport(pack=p, distribution=f"weft-{p}", status=PackStatus.ACTIVE)
+        for p in ("extract", "chunk", "embed", "store")
     )
     deps = Dependencies(registry=registry, reports=reports, services=ServiceSelection())
     summary = RunSummary(produced=3, nothing_to_produce=0, failed=0)
@@ -300,13 +305,15 @@ async def test_index_command_refuses_extract_and_pipeline_together(tmp_path: Pat
 async def test_index_command_with_pipeline_skips_the_default_path_s_plugin_checks(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    # Arrange — task 4.0: `INDEX_DISTRIBUTIONS`/`[services] embed`/`[services] store` are the
+    # Arrange — task 4.0: `INDEX_PACKS`/`[services] embed`/`[services] store` are the
     # default four-stage path's own promises. A named document may depend on none of them —
     # here every one of the three is refused — and the command must still call `run_index`
     # rather than raising `CommandRefusalError` for a promise the document never made.
     reports = tuple(
-        PackReport(distribution=d, status=PackStatus.REFUSED, reason="not allowed")
-        for d in ("weft-extract", "weft-chunk", "weft-embed")
+        PackReport(
+            pack=p, distribution=f"weft-{p}", status=PackStatus.REFUSED, reason="not allowed"
+        )
+        for p in ("extract", "chunk", "embed")
     )
     deps = Dependencies(registry=Registry(), reports=reports, services=ServiceSelection())
     summary = RunSummary(produced=1, nothing_to_produce=0, failed=0)
@@ -334,8 +341,13 @@ async def test_index_command_with_pipeline_skips_the_default_path_s_plugin_check
 async def test_ask_command_retrieve_only_raises_a_refusal_for_an_unregistered_embedder() -> None:
     # Arrange
     reports = (
-        PackReport(distribution="weft-embed", status=PackStatus.PARTIAL, reason="optional missing"),
-        PackReport(distribution="weft-store", status=PackStatus.ACTIVE),
+        PackReport(
+            pack="embed",
+            distribution="weft-embed",
+            status=PackStatus.PARTIAL,
+            reason="optional missing",
+        ),
+        PackReport(pack="store", distribution="weft-store", status=PackStatus.ACTIVE),
     )
     deps = Dependencies(registry=Registry(), reports=reports, services=ServiceSelection())
     args = commands.AskArgs(question="what changed?", retrieve_only=True)
@@ -353,8 +365,13 @@ async def test_ask_command_retrieve_only_names_the_embedders_for_an_unresolvable
     registry = Registry()
     registry.add(Embedder, "hash", _null_factory, distribution="weft-embed")
     reports = (
-        PackReport(distribution="weft-embed", status=PackStatus.PARTIAL, reason="optional missing"),
-        PackReport(distribution="weft-store", status=PackStatus.ACTIVE),
+        PackReport(
+            pack="embed",
+            distribution="weft-embed",
+            status=PackStatus.PARTIAL,
+            reason="optional missing",
+        ),
+        PackReport(pack="store", distribution="weft-store", status=PackStatus.ACTIVE),
     )
     deps = Dependencies(
         registry=registry, reports=reports, services=ServiceSelection(embed="opneai")
@@ -377,8 +394,8 @@ async def test_ask_command_retrieve_only_ranks_hits_from_run_ask(
     registry.add(Embedder, "hash", _null_factory, distribution="weft-embed")
     registry.add(NodeStore, "pgvector", _null_factory, distribution="weft-store")
     reports = (
-        PackReport(distribution="weft-embed", status=PackStatus.ACTIVE),
-        PackReport(distribution="weft-store", status=PackStatus.ACTIVE),
+        PackReport(pack="embed", distribution="weft-embed", status=PackStatus.ACTIVE),
+        PackReport(pack="store", distribution="weft-store", status=PackStatus.ACTIVE),
     )
     deps = Dependencies(registry=registry, reports=reports, services=ServiceSelection())
 
@@ -534,7 +551,7 @@ async def test_ask_command_passes_the_run_s_own_token_sink(
 
 async def test_plugins_list_command_reports_the_run_s_reports() -> None:
     # Arrange
-    reports = (PackReport(distribution="weft-chunk", status=PackStatus.ACTIVE),)
+    reports = (PackReport(pack="chunk", distribution="weft-chunk", status=PackStatus.ACTIVE),)
     deps = Dependencies(registry=Registry(), reports=reports, services=ServiceSelection())
 
     # Act
@@ -556,8 +573,12 @@ async def test_plugins_doctor_command_reports_displaced_and_unconsulted_pins() -
     registry.add(_Chunker, "shared", lambda: "loser", distribution="weft-loser")
     registry.add(_Chunker, "shared", lambda: "winner", distribution="weft-winner")
     reports = (
-        PackReport(distribution="weft-loser", status=PackStatus.ACTIVE, contributed=1),
-        PackReport(distribution="weft-winner", status=PackStatus.ACTIVE, contributed=1),
+        PackReport(
+            pack="loser", distribution="weft-loser", status=PackStatus.ACTIVE, contributed=1
+        ),
+        PackReport(
+            pack="winner", distribution="weft-winner", status=PackStatus.ACTIVE, contributed=1
+        ),
     )
     deps = Dependencies(registry=registry, reports=reports, services=ServiceSelection())
 
@@ -581,7 +602,9 @@ async def test_plugins_doctor_command_reports_displaced_and_unconsulted_pins() -
 async def test_plugins_doctor_command_reports_the_skew_detect_skew_finds() -> None:
     # Arrange — task 5.2e: proves `PluginsDoctorCommand` actually wires `detect_skew()`
     # in, rather than merely happening to pass through a clean environment's empty result.
-    reports = (PackReport(distribution="weft-cli", status=PackStatus.ACTIVE, contributed=1),)
+    reports = (
+        PackReport(pack="cli", distribution="weft-cli", status=PackStatus.ACTIVE, contributed=1),
+    )
     deps = Dependencies(registry=Registry(), reports=reports, services=ServiceSelection())
     skewed = SkewReport(
         requiring_distribution="weft-cli",
@@ -608,7 +631,11 @@ async def test_plugins_doctor_command_flags_a_contribution_that_lands_nowhere() 
     test resolves against declares any slot, so this pack's own offer is unreachable.
     """
     # Arrange
-    reports = (PackReport(distribution="weft-graph", status=PackStatus.ACTIVE, contributed=1),)
+    reports = (
+        PackReport(
+            pack="graph", distribution="weft-graph", status=PackStatus.ACTIVE, contributed=1
+        ),
+    )
     contribution = Contribution(
         slot="enrich",
         distribution="weft-graph",
@@ -637,7 +664,7 @@ def test_delete_describes_its_impact_by_naming_every_participant() -> None:
     registry.add(NodeStore, "pgvector", _DeletableStore, distribution="weft-store")
     deps = Dependencies(
         registry=registry,
-        reports=(PackReport(distribution="weft-store", status=PackStatus.ACTIVE),),
+        reports=(PackReport(pack="store", distribution="weft-store", status=PackStatus.ACTIVE),),
         services=ServiceSelection(store="pgvector"),
     )
 
@@ -702,8 +729,10 @@ async def test_delete_empties_a_graph_store_a_catalogue_pipeline_names(
     deps = Dependencies(
         registry=registry,
         reports=(
-            PackReport(distribution="weft-store", status=PackStatus.ACTIVE),
-            PackReport(distribution="weft-example-graph", status=PackStatus.ACTIVE),
+            PackReport(pack="store", distribution="weft-store", status=PackStatus.ACTIVE),
+            PackReport(
+                pack="example-graph", distribution="weft-example-graph", status=PackStatus.ACTIVE
+            ),
         ),
         services=ServiceSelection(store="pgvector"),
     )
@@ -736,7 +765,7 @@ def test_delete_leaves_a_store_nothing_names_alone(
     registry.add(NodeStore, "qdrant", _GraphNodeStore, distribution="weft-qdrant")
     deps = Dependencies(
         registry=registry,
-        reports=(PackReport(distribution="weft-store", status=PackStatus.ACTIVE),),
+        reports=(PackReport(pack="store", distribution="weft-store", status=PackStatus.ACTIVE),),
         services=ServiceSelection(store="pgvector"),
     )
 
@@ -757,7 +786,11 @@ def test_delete_refuses_an_unresolvable_store_before_it_describes_an_impact() ->
     # Arrange
     deps = Dependencies(
         registry=Registry(),
-        reports=(PackReport(distribution="weft-store", status=PackStatus.FAILED, reason="no dsn"),),
+        reports=(
+            PackReport(
+                pack="store", distribution="weft-store", status=PackStatus.FAILED, reason="no dsn"
+            ),
+        ),
         services=ServiceSelection(store="pgvector"),
     )
 
@@ -809,7 +842,7 @@ async def test_reconcile_puts_the_configured_store_on_the_passport_it_carries(
     registry.add(_DerivedReconcilable, "graph", _CorpusAsking, distribution="weft-example-graph")
     deps = Dependencies(
         registry=registry,
-        reports=(PackReport(distribution="weft-store", status=PackStatus.ACTIVE),),
+        reports=(PackReport(pack="store", distribution="weft-store", status=PackStatus.ACTIVE),),
         services=ServiceSelection(store="pgvector"),
     )
 
@@ -853,7 +886,7 @@ def _reconcilable_deps(*, reconcile_policy: ReconcilePolicy | None = None) -> De
     registry.add(NodeStore, "pgvector", _ReconcilableStore, distribution="weft-store")
     return Dependencies(
         registry=registry,
-        reports=(PackReport(distribution="weft-store", status=PackStatus.ACTIVE),),
+        reports=(PackReport(pack="store", distribution="weft-store", status=PackStatus.ACTIVE),),
         services=ServiceSelection(store="pgvector"),
         reconcile_policy=reconcile_policy if reconcile_policy is not None else ReconcilePolicy(),
     )
@@ -934,8 +967,8 @@ async def test_index_command_runs_an_automatic_repair_pass_after_a_successful_ru
     registry.add(Embedder, "hash", _null_factory, distribution="weft-embed")
     registry.add(NodeStore, "pgvector", _ReconcilableStore, distribution="weft-store")
     reports = tuple(
-        PackReport(distribution=d, status=PackStatus.ACTIVE)
-        for d in ("weft-extract", "weft-chunk", "weft-embed", "weft-store")
+        PackReport(pack=p, distribution=f"weft-{p}", status=PackStatus.ACTIVE)
+        for p in ("extract", "chunk", "embed", "store")
     )
     deps = Dependencies(registry=registry, reports=reports, services=ServiceSelection())
     summary = RunSummary(produced=1, nothing_to_produce=0, failed=0)
@@ -967,8 +1000,8 @@ async def test_index_command_reconcile_full_flag_opts_this_run_into_backfill(
     registry.add(Embedder, "hash", _null_factory, distribution="weft-embed")
     registry.add(NodeStore, "pgvector", _ReconcilableStore, distribution="weft-store")
     reports = tuple(
-        PackReport(distribution=d, status=PackStatus.ACTIVE)
-        for d in ("weft-extract", "weft-chunk", "weft-embed", "weft-store")
+        PackReport(pack=p, distribution=f"weft-{p}", status=PackStatus.ACTIVE)
+        for p in ("extract", "chunk", "embed", "store")
     )
     deps = Dependencies(registry=registry, reports=reports, services=ServiceSelection())
     summary = RunSummary(produced=1, nothing_to_produce=0, failed=0)

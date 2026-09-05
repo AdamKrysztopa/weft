@@ -108,12 +108,18 @@ def corpus_identity(name: str, document_ids: Iterable[str]) -> CorpusIdentity:
 
 
 def active_distribution_set(reports: Iterable[PackReport]) -> tuple[str, ...]:
-    """Every distribution `reports` marks `PackStatus.ACTIVE`, sorted. See the module docstring
-    for why this is fitness function 8(c)'s left-hand side and how its equality with what
-    `plugins doctor` reports is checked.
+    """Every distribution `reports` marks `PackStatus.ACTIVE`, sorted and deduplicated. See
+    the module docstring for why this is fitness function 8(c)'s left-hand side and how its
+    equality with what `plugins doctor` reports is checked.
+
+    A *set*, as the name says, and now literally: one distribution may ship several packs,
+    so several `ACTIVE` reports can carry the same distribution name. Recording it once is
+    what the reproducibility claim needs — a distribution is the versioned unit, and the
+    packs inside one move together — and repeating it twelve times would have said nothing
+    a reader could act on.
     """
     return tuple(
-        sorted(report.distribution for report in reports if report.status is PackStatus.ACTIVE)
+        sorted({report.distribution for report in reports if report.status is PackStatus.ACTIVE})
     )
 
 

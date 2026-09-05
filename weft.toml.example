@@ -6,12 +6,19 @@
 # it is missing.
 
 # --- Pack settings -----------------------------------------------------------
-# One block per distribution, under its distribution name. Each block is
-# validated against that pack's own Pydantic model *before* the pack's
+# One block per pack, under its **pack name** — the `weft.packs` entry-point name
+# `weft plugins list` prints in the first column, so `[packs.store]`, not
+# `[packs.weft-store]`. That is not the same thing as the distribution name: one
+# distribution can ship several packs (`weft-rag` ships twelve), and each of them
+# configures itself. The `[packs] allow` list at the foot of this file is the one
+# place distribution names are still what you write, because it is a trust decision
+# about what you installed.
+#
+# Each block is validated against that pack's own Pydantic model *before* the pack's
 # `register()` is called, so a settings mistake is a refusal at start-up rather
 # than a stack trace somewhere inside a pipeline.
 
-[packs.weft-store]
+[packs.store]
 # Required — the pack itself has no default, so a store never guesses at a
 # database. `${env:...}` is interpolated by the settings loader, which keeps the
 # secret in the environment and out of this file.
@@ -48,7 +55,7 @@ dsn = "${env:WEFT_DATABASE_URL}"
 # text_query_mode = "any"
 # text_rank = "cover-density"
 
-# [packs.weft-openai]
+# [packs.openai]
 # Optional — every field here has a default, so this whole block can be absent and
 # `weft-openai` still registers and still reports `active`. That is deliberate: a
 # required credential would make the pack fail at start-up and its `openai` embedder
@@ -62,7 +69,7 @@ dsn = "${env:WEFT_DATABASE_URL}"
 #
 # api_key = "${env:OPENAI_API_KEY}"
 
-# [packs.weft-qdrant]
+# [packs.qdrant]
 # Optional in the same way and for the same reason — every field has a default, so
 # the pack registers whether or not a Qdrant is running and refuses at first use,
 # naming the address it could not reach, rather than vanishing from the registry.

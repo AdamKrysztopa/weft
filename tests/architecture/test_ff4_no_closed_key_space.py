@@ -62,7 +62,7 @@ from .conftest import REPO_ROOT
 #: architecture check in this suite hands it, so `register()` runs without opening a
 #: real connection. See `test_ff11_pipeline_integrity.py`'s own module-level constant.
 _PLACEHOLDER_STORE_SETTINGS: Final[dict[str, dict[str, object]]] = {
-    "weft-store": {"dsn": "postgresql://ff4-placeholder/placeholder"}
+    "store": {"dsn": "postgresql://ff4-placeholder/placeholder"}
 }
 
 #: Every selection surface this function has been asked to waive, pinned empty. Adding a

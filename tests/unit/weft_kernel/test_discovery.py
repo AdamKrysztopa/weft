@@ -77,8 +77,19 @@ class _FakeDistribution:
 class _FakeEntryPoint:
     """A double satisfying `EntryPointLike` structurally, with no real distribution behind it."""
 
-    def __init__(self, *, distribution: str, module: str, target: Callable[..., None]) -> None:
-        self.name = f"{distribution}-entry-point"
+    def __init__(
+        self,
+        *,
+        distribution: str,
+        module: str,
+        target: Callable[..., None],
+        pack: str | None = None,
+    ) -> None:
+        # The entry-point name is the *pack* identity and is deliberately not the
+        # distribution name: `[packs.<pack>]` settings and every `plugins list|doctor` row
+        # key on this, while `[packs] allow` keys on the distribution. A double whose two
+        # identities were the same string could not tell the two apart.
+        self.name = pack if pack is not None else f"{distribution}-entry-point"
         self.module = module
         self.dist = _FakeDistribution(distribution)
         self._target = target
@@ -130,20 +141,22 @@ def test_discover_registers_a_permitted_pack_and_reads_its_disclosure() -> None:
     disclosure = Disclosure(network=("https://example.com",), note="reads a remote index")
     _install_fake_module("_weft_test_happy_pack", DISCLOSURE=disclosure)
     entry_point = _FakeEntryPoint(
-        distribution="weft-happy", module="_weft_test_happy_pack", target=register
+        distribution="weft-happy", pack="happy", module="_weft_test_happy_pack", target=register
     )
 
-    # Act
+    # Act — settings key on the pack, `allow` on the distribution, and the two names differ
+    # here so that neither could be passing by accident.
     reports = discover(
         registry,
         allow=["weft-happy"],
-        pack_settings={"weft-happy": {"endpoint": "https://api"}},
+        pack_settings={"happy": {"endpoint": "https://api"}},
         direct_dependencies=["weft-happy"],
         entry_points=[entry_point],
     )
 
     # Assert
     [report] = reports
+    assert report.pack == "happy"
     assert report.distribution == "weft-happy"
     assert report.status == PackStatus.ACTIVE
     assert report.contributed == 1
@@ -242,19 +255,20 @@ def test_discover_fails_a_pack_whose_settings_do_not_validate_before_register_ru
     _install_fake_module("_weft_test_misconfigured_pack")
     entry_point = _FakeEntryPoint(
         distribution="weft-misconfigured",
+        pack="misconfigured",
         module="_weft_test_misconfigured_pack",
         target=register,
     )
 
     # Act
-    reports = discover(
-        registry, pack_settings={"weft-misconfigured": {}}, entry_points=[entry_point]
-    )
+    reports = discover(registry, pack_settings={"misconfigured": {}}, entry_points=[entry_point])
 
     # Assert
     [report] = reports
     assert report.status == PackStatus.FAILED
-    assert "weft-misconfigured" in (report.reason or "")
+    # The pack, not the distribution: a settings failure is one pack's, and a distribution
+    # shipping fourteen of them would name thirteen innocents.
+    assert "'misconfigured'" in (report.reason or "")
     assert called is False
 
 
@@ -339,15 +353,101 @@ def test_discover_folds_a_missing_distribution_entry_point_into_failed_and_conti
     assert by_distribution["weft-good-no-dist-sibling"].status == PackStatus.ACTIVE
 
 
-def test_discover_raises_when_pack_settings_names_an_uninstalled_distribution() -> None:
+def test_two_packs_in_one_distribution_are_configured_and_reported_separately() -> None:
+    """The property the whole `pack`/`distribution` split exists for.
+
+    One wheel, two `weft.packs` entry points. Each pack must get its own `[packs.<pack>]`
+    slice and its own row; before the split, `settings_source.get(distribution)` handed
+    both packs the same table and `plugins list` printed the distribution name twice.
+    """
+    # Arrange
+    registry = Registry()
+    seen: dict[str, str] = {}
+
+    def register_first(registrar: PackRegistrar, settings: _Settings) -> None:
+        seen["first"] = settings.endpoint
+        registrar.add(_Chunker, "first", lambda: "instance")
+
+    def register_second(registrar: PackRegistrar, settings: _Settings) -> None:
+        seen["second"] = settings.endpoint
+        registrar.add(_Chunker, "second", lambda: "instance")
+
+    _install_fake_module("_weft_test_bundled_first")
+    _install_fake_module("_weft_test_bundled_second")
+    entry_points = [
+        _FakeEntryPoint(
+            distribution="weft-bundle",
+            pack="first",
+            module="_weft_test_bundled_first",
+            target=register_first,
+        ),
+        _FakeEntryPoint(
+            distribution="weft-bundle",
+            pack="second",
+            module="_weft_test_bundled_second",
+            target=register_second,
+        ),
+    ]
+
+    # Act
+    reports = discover(
+        registry,
+        allow=["weft-bundle"],
+        pack_settings={"first": {"endpoint": "one"}, "second": {"endpoint": "two"}},
+        entry_points=entry_points,
+    )
+
+    # Assert
+    assert seen == {"first": "one", "second": "two"}
+    assert {report.pack for report in reports} == {"first", "second"}
+    assert {report.distribution for report in reports} == {"weft-bundle"}
+    assert all(report.status == PackStatus.ACTIVE for report in reports)
+
+
+def test_allow_naming_the_distribution_permits_every_pack_it_ships() -> None:
+    """`[packs] allow` is a trust boundary, so it keys on what you installed.
+
+    Listing `weft-bundle` permits both of its packs; the operator never has to enumerate
+    names chosen inside a wheel they had already accepted.
+    """
+    # Arrange
+    registry = Registry()
+
+    def register(registrar: PackRegistrar, settings: _Settings) -> None:
+        registrar.add(_Chunker, registrar_name, lambda: "instance")
+
+    registrar_name = "only"
+    _install_fake_module("_weft_test_allow_bundled")
+    entry_point = _FakeEntryPoint(
+        distribution="weft-bundle",
+        pack="inner",
+        module="_weft_test_allow_bundled",
+        target=register,
+    )
+
+    # Act
+    reports = discover(registry, allow=["weft-bundle"], entry_points=[entry_point])
+
+    # Assert — allowed by its distribution, reported under its own pack name.
+    [report] = reports
+    assert report.status == PackStatus.ACTIVE
+    assert report.pack == "inner"
+
+    # Act / Assert — and naming the pack instead does not permit it: `allow` is not
+    # keyed on the pack, and saying so is the point of this half.
+    refused = discover(Registry(), allow=["inner"], entry_points=[entry_point])
+    assert [item.status for item in refused if item.pack == "inner"] == [PackStatus.REFUSED]
+
+
+def test_discover_raises_when_pack_settings_names_an_uninstalled_pack() -> None:
     # Arrange
     registry = Registry()
 
     # Act / Assert
     with pytest.raises(UnknownPackSettingsError) as excinfo:
-        discover(registry, pack_settings={"weft-not-installed": {"x": 1}}, entry_points=[])
+        discover(registry, pack_settings={"not-installed": {"x": 1}}, entry_points=[])
 
-    assert "weft-not-installed" in str(excinfo.value)
+    assert "not-installed" in str(excinfo.value)
 
 
 def test_discover_allow_naming_an_uninstalled_distribution_is_reported_not_raised() -> None:

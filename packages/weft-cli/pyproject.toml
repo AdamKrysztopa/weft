@@ -40,8 +40,13 @@ weft = "weft_cli.cli:main"
 # applied to the CLI's own surface. See `weft_cli.commands`'s own module docstring for why
 # `weft-cli` is the owner rather than an eleventh distribution, and `weft_cli.cli`'s for how
 # `weft --version` still runs none of this (fitness function 8(b)).
+# The entry-point name is the **pack** identity — what `weft plugins list|doctor` prints and
+# what a `[packs.cli]` settings block keys on — so it is `cli`, the pack, and not `weft-cli`,
+# the distribution. Every other first-party pack already named itself this way (`chunk`,
+# `store`, `retrieve`); this one did not, and the difference stopped being cosmetic when a
+# distribution started shipping more than one pack.
 [project.entry-points."weft.packs"]
-weft-cli = "weft_cli.commands:register"
+cli = "weft_cli.commands:register"
 
 # `ruff` is a *generation-time* dependency, not a runtime one: `weft_cli.contract_reference`
 # renders the contract reference and pipes it through the real `ruff format`, so the generated

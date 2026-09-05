@@ -180,7 +180,7 @@ def discover_for_reference() -> Registry:
     settings to validate; see the module docstring for why that never opens a connection.
     """
     registry = Registry()
-    discover(registry, pack_settings={"weft-store": {"dsn": _PLACEHOLDER_DSN}})
+    discover(registry, pack_settings={"store": {"dsn": _PLACEHOLDER_DSN}})
     return registry
 
 

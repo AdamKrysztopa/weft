@@ -426,7 +426,7 @@ async def test_a_text_search_configuration_this_database_has_not_got_is_refused_
 
 
 def test_every_text_search_knob_is_reachable_from_a_configuration_table() -> None:
-    """The knobs exist in the settings model, so a `[packs.weft-store]` table reaches all three.
+    """The knobs exist in the settings model, so a `[packs.store]` table reaches all three.
 
     `.phase2-findings.md` finding 9 item 4: "a knob that exists in the library and not in the
     config model is a knob a third party cannot reach." This is that check, run against the shape

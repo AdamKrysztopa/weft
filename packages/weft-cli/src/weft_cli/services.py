@@ -39,7 +39,7 @@ it meant editing a package in this repository. `.phase2-findings.md` finding 9
 is categorical about the general case ("the same argument applies to embedders,
 providers, retrieval strategies"): swapping a backend is a configuration edit
 and nothing else, and a third party's `weft-store-mystore` must cost zero files
-here. Which *pack settings* a store takes (`[packs.weft-qdrant] collection`,
+here. Which *pack settings* a store takes (`[packs.qdrant] collection`,
 `vector_size`) was already configuration; only the selection was missing.
 
 **A key nothing reads is refused, not ignored.** The Phase 2 design record's

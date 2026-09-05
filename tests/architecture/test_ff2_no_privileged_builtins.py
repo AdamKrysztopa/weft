@@ -99,7 +99,7 @@ PACKS_THAT_REGISTER_NOTHING_BY_DESIGN: Final[frozenset[str]] = frozenset({"weft-
 #: the same reason `weft_cli.contract_reference` already relies on one to get `weft-store`
 #: active without a real database.
 _PLACEHOLDER_STORE_SETTINGS: Final[dict[str, dict[str, object]]] = {
-    "weft-store": {"dsn": "postgresql://ff2-placeholder/placeholder"}
+    "store": {"dsn": "postgresql://ff2-placeholder/placeholder"}
 }
 
 

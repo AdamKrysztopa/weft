@@ -824,7 +824,10 @@ def _bootstrap_built_in_renderers() -> None:
     registrar = PackRegistrar(Registry(), distribution="weft-cli")
     register_renderers(registrar)
     report = PackReport(
-        distribution="weft-cli", status=PackStatus.ACTIVE, renderers=registrar.renderers
+        pack="cli",
+        distribution="weft-cli",
+        status=PackStatus.ACTIVE,
+        renderers=registrar.renderers,
     )
     register_renderers_from_reports([report])
 

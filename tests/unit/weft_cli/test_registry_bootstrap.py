@@ -33,16 +33,16 @@ from weft_kernel.errors import WeftError
 from weft_kernel.registry import Registry
 
 
-def _report(distribution: str, status: PackStatus, *, reason: str | None = None) -> PackReport:
-    return PackReport(distribution=distribution, status=status, reason=reason)
+def _report(pack: str, status: PackStatus, *, reason: str | None = None) -> PackReport:
+    return PackReport(pack=pack, distribution=f"weft-{pack}", status=status, reason=reason)
 
 
-def test_require_active_passes_when_every_distribution_is_active() -> None:
+def test_require_active_passes_when_every_pack_is_active() -> None:
     # Arrange
-    reports = (_report("weft-store", PackStatus.ACTIVE), _report("weft-embed", PackStatus.ACTIVE))
+    reports = (_report("store", PackStatus.ACTIVE), _report("embed", PackStatus.ACTIVE))
 
     # Act
-    outcome = require_active(reports, distributions=("weft-store", "weft-embed"))
+    outcome = require_active(reports, packs=("store", "embed"))
 
     # Assert
     assert outcome is None
@@ -51,10 +51,10 @@ def test_require_active_passes_when_every_distribution_is_active() -> None:
 def test_require_active_reports_partial_as_usable() -> None:
     # Arrange — PARTIAL means *something* registered; whether the specific plugin a command
     # needs is among it is pipeline resolution's own question, not this gate's.
-    reports = (_report("weft-store", PackStatus.PARTIAL, reason="optional dependency missing"),)
+    reports = (_report("store", PackStatus.PARTIAL, reason="optional dependency missing"),)
 
     # Act
-    outcome = require_active(reports, distributions=("weft-store",))
+    outcome = require_active(reports, packs=("store",))
 
     # Assert
     assert outcome is None
@@ -62,43 +62,44 @@ def test_require_active_reports_partial_as_usable() -> None:
 
 def test_require_active_refused_is_a_policy_exit() -> None:
     # Arrange
-    reports = (_report("weft-store", PackStatus.REFUSED, reason="not in [packs] allow"),)
+    reports = (_report("store", PackStatus.REFUSED, reason="not in [packs] allow"),)
 
     # Act
-    outcome = require_active(reports, distributions=("weft-store",))
+    outcome = require_active(reports, packs=("store",))
 
     # Assert
     assert outcome is not None
     code, message = outcome
     assert code is ExitCode.POLICY_REFUSED
-    assert "weft-store" in message
+    assert "'store'" in message
 
 
-def test_require_active_missing_distribution_is_a_resolution_exit() -> None:
-    # Arrange — no report at all for 'weft-store': never installed, and no allow-list named it.
+def test_require_active_missing_pack_is_a_resolution_exit() -> None:
+    # Arrange — no report at all for the 'store' pack: never installed, and no allow-list
+    # named the distribution that ships it.
     reports: tuple[PackReport, ...] = ()
 
     # Act
-    outcome = require_active(reports, distributions=("weft-store",))
+    outcome = require_active(reports, packs=("store",))
 
     # Assert
     assert outcome is not None
     code, message = outcome
     assert code is ExitCode.RESOLUTION_FAILED
-    assert "weft-store" in message
+    assert "'store'" in message
 
 
 def test_require_active_failed_pack_is_a_resolution_exit() -> None:
     # Arrange
-    reports = (_report("weft-store", PackStatus.FAILED, reason="settings failed validation"),)
+    reports = (_report("store", PackStatus.FAILED, reason="settings failed validation"),)
 
     # Act
-    outcome = require_active(reports, distributions=("weft-store",))
+    outcome = require_active(reports, packs=("store",))
 
     # Assert
     assert outcome == (
         ExitCode.RESOLUTION_FAILED,
-        "'weft-store' failed to register: settings failed validation",
+        "'store' failed to register: settings failed validation",
     )
 
 
@@ -140,7 +141,7 @@ def test_require_plugin_blames_policy_when_a_pack_was_refused_before_it_could_re
     registry = Registry()
     registry.add(_Contract, "hash", _plugin, distribution="weft-embed")
     reports = (
-        _report("weft-embed", PackStatus.ACTIVE),
+        _report("embed", PackStatus.ACTIVE),
         _report("acme-openai", PackStatus.REFUSED, reason="not in [packs] allow"),
     )
 
@@ -169,7 +170,7 @@ def test_require_plugin_attaches_the_reason_when_a_pack_failed_to_register() -> 
     registry = Registry()
     registry.add(_Contract, "hash", _plugin, distribution="weft-embed")
     reports = (
-        _report("weft-embed", PackStatus.ACTIVE),
+        _report("embed", PackStatus.ACTIVE),
         _report("acme-openai", PackStatus.FAILED, reason="settings failed validation"),
     )
 
@@ -193,7 +194,7 @@ def test_require_plugin_says_plainly_that_nothing_provides_the_name_when_nothing
     # nobody installed. Nothing to blame, so nothing is blamed.
     registry = Registry()
     registry.add(_Contract, "hash", _plugin, distribution="weft-embed")
-    reports = (_report("weft-embed", PackStatus.ACTIVE),)
+    reports = (_report("embed", PackStatus.ACTIVE),)
 
     # Act
     outcome = require_plugin(
@@ -225,7 +226,7 @@ def test_require_plugin_composes_its_own_message_rather_than_splicing_the_kernel
         "  Field required [type=missing, input_value={}, input_type=dict]\n"
         "    For further information visit https://errors.pydantic.dev/2.13/v/missing"
     )
-    reports = (_report("weft-store", PackStatus.FAILED, reason=pydantic_style_dump),)
+    reports = (_report("store", PackStatus.FAILED, reason=pydantic_style_dump),)
 
     # Act
     outcome = require_plugin(
@@ -313,7 +314,7 @@ def test_pack_settings_from_environment_references_the_database_url_when_it_is_s
 
     # Assert — the token, never the value: weft_kernel.discovery.interpolate_env is the only
     # reader of os.environ in this path.
-    assert settings == {"weft-store": {"dsn": "${env:WEFT_DATABASE_URL}"}}
+    assert settings == {"store": {"dsn": "${env:WEFT_DATABASE_URL}"}}
 
 
 def test_pack_settings_from_the_file_beat_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -325,13 +326,13 @@ def test_pack_settings_from_the_file_beat_the_environment(monkeypatch: pytest.Mo
     """
     # Arrange
     monkeypatch.setenv("WEFT_DATABASE_URL", "postgresql://ambient/wrong")
-    document: dict[str, object] = {"packs": {"weft-store": {"dsn": "postgresql://explicit/right"}}}
+    document: dict[str, object] = {"packs": {"store": {"dsn": "postgresql://explicit/right"}}}
 
     # Act
     settings = registry_bootstrap.merged_pack_settings(document)
 
     # Assert
-    assert settings["weft-store"]["dsn"] == "postgresql://explicit/right"
+    assert settings["store"]["dsn"] == "postgresql://explicit/right"
 
 
 def test_the_environment_fills_a_key_the_file_does_not_set(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -343,21 +344,21 @@ def test_the_environment_fills_a_key_the_file_does_not_set(monkeypatch: pytest.M
     settings = registry_bootstrap.merged_pack_settings(None)
 
     # Assert
-    assert settings == {"weft-store": {"dsn": "${env:WEFT_DATABASE_URL}"}}
+    assert settings == {"store": {"dsn": "${env:WEFT_DATABASE_URL}"}}
 
 
 def test_the_allow_list_is_not_read_as_a_settings_block() -> None:
     """`[packs] allow` and `[packs.<dist>]` share one table; only the sub-tables are settings."""
     # Arrange
     document: dict[str, object] = {
-        "packs": {"allow": ["weft-store"], "weft-store": {"dsn": "postgresql://x/y"}}
+        "packs": {"allow": ["weft-store"], "store": {"dsn": "postgresql://x/y"}}
     }
 
     # Act
     settings = registry_bootstrap.pack_settings_from_config(document)
 
     # Assert
-    assert settings == {"weft-store": {"dsn": "postgresql://x/y"}}
+    assert settings == {"store": {"dsn": "postgresql://x/y"}}
 
 
 def test_pack_settings_from_config_refuses_a_packs_value_that_is_not_a_table() -> None:
@@ -569,9 +570,12 @@ def test_contributions_from_concatenates_every_reports_own_tuple() -> None:
     )
     reports = (
         PackReport(
-            distribution="weft-graph", status=PackStatus.ACTIVE, contributions=(first, second)
+            pack="graph",
+            distribution="weft-graph",
+            status=PackStatus.ACTIVE,
+            contributions=(first, second),
         ),
-        PackReport(distribution="weft-chunk", status=PackStatus.ACTIVE),
+        PackReport(pack="chunk", distribution="weft-chunk", status=PackStatus.ACTIVE),
     )
 
     # Act

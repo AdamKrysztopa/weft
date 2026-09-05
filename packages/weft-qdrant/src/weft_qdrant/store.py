@@ -110,7 +110,7 @@ class VectorWidthMismatchError(WeftError):
     Postgres does not have this failure — `weft-store` declares its column with no
     dimension — and that is exactly why it is worth naming rather than letting the
     driver report it. A collection's width cannot be altered, so the remedy is a
-    decision (re-index under a different `[packs.weft-qdrant] collection`, or point
+    decision (re-index under a different `[packs.qdrant] collection`, or point
     `vector_size` at the embedder actually configured), and an operator cannot make
     it from a driver's "expected dim: 64, got 1536".
     """
@@ -212,7 +212,7 @@ class QdrantStore:
                     f"node {node.id} carries a {len(values)}-component embedding and "
                     f"collection '{self._nodes}' was created for "
                     f"{self._settings.vector_size}. A Qdrant collection's width is fixed at "
-                    f"creation and cannot be altered, so either [packs.weft-qdrant] "
+                    f"creation and cannot be altered, so either [packs.qdrant] "
                     f"vector_size names the wrong width for the configured embedder, or "
                     f"this collection was written by a different one — re-index into a new "
                     f"'collection'.",

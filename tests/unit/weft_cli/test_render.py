@@ -185,14 +185,14 @@ def test_render_ask_omits_the_answer_text_when_it_already_streamed() -> None:
 
 def test_render_plugins_list_delegates_to_the_shared_renderer() -> None:
     # Arrange
-    reports = (PackReport(distribution="weft-chunk", status=PackStatus.ACTIVE),)
+    reports = (PackReport(pack="chunk", distribution="weft-chunk", status=PackStatus.ACTIVE),)
     result = PluginsListCommandResult(reports=reports)
 
     # Act
     rendered = render.render_outcome(Produced(value=result))
 
     # Assert
-    assert rendered.stdout == "weft-chunk: active (0 contributed)"
+    assert rendered.stdout == "chunk (weft-chunk): active (0 contributed)"
 
 
 def test_render_plugins_doctor_delegates_to_the_shared_renderer_including_displaced() -> None:
@@ -200,7 +200,11 @@ def test_render_plugins_doctor_delegates_to_the_shared_renderer_including_displa
     class _Chunker:
         pass
 
-    reports = (PackReport(distribution="weft-loser", status=PackStatus.ACTIVE, contributed=1),)
+    reports = (
+        PackReport(
+            pack="loser", distribution="weft-loser", status=PackStatus.ACTIVE, contributed=1
+        ),
+    )
     displaced = (
         DisplacedRegistration(
             contract=_Chunker,
@@ -958,7 +962,10 @@ def _offer(result_type: type[CommandResult], renderer: object, *, distribution: 
     registrar = PackRegistrar(Registry(), distribution=distribution)
     registrar.add_renderer(result_type, cast(Callable[[object], object], renderer))
     return PackReport(
-        distribution=distribution, status=PackStatus.ACTIVE, renderers=registrar.renderers
+        pack=distribution.removeprefix("weft-"),
+        distribution=distribution,
+        status=PackStatus.ACTIVE,
+        renderers=registrar.renderers,
     )
 
 

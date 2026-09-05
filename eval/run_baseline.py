@@ -312,10 +312,10 @@ def write_config(
         f'embed = "{embedder}"\n'
         f'store = "{store}"\n'
         "\n"
-        "[packs.weft-openai]\n"
+        "[packs.openai]\n"
         'api_key = "${env:OPENAI_API_KEY}"\n'
         "\n"
-        "[packs.weft-qdrant]\n"
+        "[packs.qdrant]\n"
         f'collection = "{collection}"\n'
         f"vector_size = {vector_size}\n",
         encoding="utf-8",

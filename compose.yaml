@@ -10,7 +10,7 @@
 # requires a `dsn` in its pack settings, and there are two ways to supply it. With no
 # `weft.toml` at all, an exported `WEFT_DATABASE_URL` is offered as `dsn` and the store
 # comes up `active` — the no-file path `manual/quickstart.md` walks. A `weft.toml`
-# carrying `[packs.weft-store] dsn` — see `weft.toml.example` — wins over the
+# carrying `[packs.store] dsn` — see `weft.toml.example` — wins over the
 # environment, key by key. `weft plugins doctor` reports `weft-store: failed`, naming
 # the missing field, only when NEITHER supplies a `dsn` — the loud failure working: the
 # pack refuses rather than defaulting to some database it guessed.

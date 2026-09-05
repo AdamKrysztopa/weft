@@ -221,7 +221,9 @@ async def test_eval_run_persists_a_run_record_that_round_trips(
     monkeypatch.setattr(
         ingest_module, "full_catalogue", _stub_catalogue({"index": _document("index")})
     )
-    reports = (PackReport(distribution="weft-eval", status=PackStatus.ACTIVE, contributed=1),)
+    reports = (
+        PackReport(pack="eval", distribution="weft-eval", status=PackStatus.ACTIVE, contributed=1),
+    )
     deps = _deps(reports)
 
     # Act

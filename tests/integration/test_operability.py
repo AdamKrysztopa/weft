@@ -117,6 +117,7 @@ def _ingest_registry(store: PgVectorStore) -> Registry:
     register_from_reports(
         [
             PackReport(
+                pack="chunk",
                 distribution="weft-chunk",
                 status=PackStatus.ACTIVE,
                 ext_models=(ChunkOffset,),
@@ -284,6 +285,7 @@ async def test_a_store_written_at_one_schema_version_is_read_at_the_next(
     register_from_reports(
         [
             PackReport(
+                pack="operability-test",
                 distribution="weft-operability-test",
                 status=PackStatus.ACTIVE,
                 ext_models=(_ReadingV2,),

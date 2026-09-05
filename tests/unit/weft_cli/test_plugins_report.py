@@ -35,7 +35,11 @@ def test_render_list_summarises_status_ambient_and_contribution_count() -> None:
     # Arrange
     reports = (
         PackReport(
-            distribution="weft-store", status=PackStatus.ACTIVE, ambient=True, contributed=2
+            pack="store",
+            distribution="weft-store",
+            status=PackStatus.ACTIVE,
+            ambient=True,
+            contributed=2,
         ),
     )
 
@@ -43,7 +47,7 @@ def test_render_list_summarises_status_ambient_and_contribution_count() -> None:
     output = render_list(reports)
 
     # Assert
-    assert output == "weft-store: active, ambient (2 contributed)"
+    assert output == "store (weft-store): active, ambient (2 contributed)"
 
 
 def test_render_list_reports_no_packs_discovered_when_empty() -> None:
@@ -58,6 +62,7 @@ def test_render_doctor_includes_reason_and_disclosure() -> None:
     # Arrange
     reports = (
         PackReport(
+            pack="graph",
             distribution="weft-graph",
             status=PackStatus.REFUSED,
             reason="'weft-graph' is not listed in [packs] allow.",
@@ -76,7 +81,11 @@ def test_render_doctor_includes_reason_and_disclosure() -> None:
 
 def test_render_doctor_reports_not_disclosed_when_disclosure_is_absent() -> None:
     # Arrange
-    reports = (PackReport(distribution="weft-store", status=PackStatus.ACTIVE, contributed=1),)
+    reports = (
+        PackReport(
+            pack="store", distribution="weft-store", status=PackStatus.ACTIVE, contributed=1
+        ),
+    )
 
     # Act
     output = render_doctor(reports)
@@ -88,8 +97,12 @@ def test_render_doctor_reports_not_disclosed_when_disclosure_is_absent() -> None
 def test_render_doctor_lists_a_displaced_registration_under_its_losing_distribution() -> None:
     # Arrange
     reports = (
-        PackReport(distribution="weft-loser", status=PackStatus.ACTIVE, contributed=1),
-        PackReport(distribution="weft-winner", status=PackStatus.ACTIVE, contributed=1),
+        PackReport(
+            pack="loser", distribution="weft-loser", status=PackStatus.ACTIVE, contributed=1
+        ),
+        PackReport(
+            pack="winner", distribution="weft-winner", status=PackStatus.ACTIVE, contributed=1
+        ),
     )
     displaced = (
         DisplacedRegistration(
@@ -104,8 +117,8 @@ def test_render_doctor_lists_a_displaced_registration_under_its_losing_distribut
     # Act
     output = render_doctor(reports, displaced)
     blocks = output.split("\n\n")
-    loser_block = next(block for block in blocks if block.startswith("weft-loser"))
-    winner_block = next(block for block in blocks if block.startswith("weft-winner"))
+    loser_block = next(block for block in blocks if block.startswith("loser (weft-loser)"))
+    winner_block = next(block for block in blocks if block.startswith("winner (weft-winner)"))
 
     # Assert — the loser's block names what it lost and to whom; the winner's does not.
     assert "displaced" in loser_block
@@ -116,7 +129,11 @@ def test_render_doctor_lists_a_displaced_registration_under_its_losing_distribut
 
 def test_render_doctor_with_no_displaced_registrations_is_unchanged() -> None:
     # Arrange — edge case: the default `displaced=()` must not alter existing output.
-    reports = (PackReport(distribution="weft-store", status=PackStatus.ACTIVE, contributed=1),)
+    reports = (
+        PackReport(
+            pack="store", distribution="weft-store", status=PackStatus.ACTIVE, contributed=1
+        ),
+    )
 
     # Act / Assert
     assert render_doctor(reports) == render_doctor(reports, ())
@@ -125,7 +142,9 @@ def test_render_doctor_with_no_displaced_registrations_is_unchanged() -> None:
 def test_render_doctor_reports_an_unconsulted_pin_as_its_own_trailing_block() -> None:
     # Arrange — repair for a reviewer finding: `weft plugins doctor` must still say an
     # inert pin exists once `discover(strict_pins=False)` stops that from being fatal.
-    reports = (PackReport(distribution="weft-only", status=PackStatus.ACTIVE, contributed=1),)
+    reports = (
+        PackReport(pack="only", distribution="weft-only", status=PackStatus.ACTIVE, contributed=1),
+    )
 
     # Act
     output = render_doctor(reports, (), ("_Chunker:shared",))
@@ -140,7 +159,11 @@ def test_render_doctor_reports_an_unconsulted_pin_as_its_own_trailing_block() ->
 
 def test_render_doctor_with_no_unconsulted_pins_is_unchanged() -> None:
     # Arrange — edge case: the default `unconsulted_pins=()` must not alter existing output.
-    reports = (PackReport(distribution="weft-store", status=PackStatus.ACTIVE, contributed=1),)
+    reports = (
+        PackReport(
+            pack="store", distribution="weft-store", status=PackStatus.ACTIVE, contributed=1
+        ),
+    )
 
     # Act / Assert
     assert render_doctor(reports) == render_doctor(reports, (), ())
@@ -149,7 +172,9 @@ def test_render_doctor_with_no_unconsulted_pins_is_unchanged() -> None:
 def test_render_doctor_reports_tracing_as_its_own_trailing_block() -> None:
     # Arrange — task 5.1d: the fact answers "are my spans going anywhere?", independent of
     # any one distribution's own block.
-    reports = (PackReport(distribution="weft-otel", status=PackStatus.ACTIVE, contributed=0),)
+    reports = (
+        PackReport(pack="otel", distribution="weft-otel", status=PackStatus.ACTIVE, contributed=0),
+    )
 
     # Act
     output = render_doctor(reports, (), (), "configured — spans export through weft_otel.")
@@ -162,7 +187,11 @@ def test_render_doctor_reports_tracing_as_its_own_trailing_block() -> None:
 
 def test_render_doctor_with_no_tracing_is_unchanged() -> None:
     # Arrange — edge case: the default `tracing=None` must not alter existing output.
-    reports = (PackReport(distribution="weft-store", status=PackStatus.ACTIVE, contributed=1),)
+    reports = (
+        PackReport(
+            pack="store", distribution="weft-store", status=PackStatus.ACTIVE, contributed=1
+        ),
+    )
 
     # Act / Assert
     assert render_doctor(reports) == render_doctor(reports, (), (), None)
@@ -173,6 +202,7 @@ def test_render_list_and_doctor_flag_a_deprecated_pack_beside_its_status() -> No
     # one, never a new `PackStatus` member.
     reports = (
         PackReport(
+            pack="old",
             distribution="weft-old",
             status=PackStatus.ACTIVE,
             contributed=1,
@@ -197,14 +227,18 @@ def test_render_list_and_doctor_flag_a_deprecated_pack_beside_its_status() -> No
     doctor_output = render_doctor(reports)
 
     # Assert
-    assert list_output == "weft-old: active, deprecated (1 contributed)"
-    assert "weft-old: active, deprecated (1 contributed)" in doctor_output
+    assert list_output == "old (weft-old): active, deprecated (1 contributed)"
+    assert "old (weft-old): active, deprecated (1 contributed)" in doctor_output
     assert "deprecated: 'legacy' — use 'fast'" in doctor_output
 
 
 def test_render_list_and_doctor_do_not_flag_a_pack_with_no_deprecations() -> None:
     # Arrange — edge case: the default `deprecations=()` must not alter existing output.
-    reports = (PackReport(distribution="weft-store", status=PackStatus.ACTIVE, contributed=1),)
+    reports = (
+        PackReport(
+            pack="store", distribution="weft-store", status=PackStatus.ACTIVE, contributed=1
+        ),
+    )
 
     # Act / Assert
     assert "deprecated" not in render_list(reports)
@@ -213,7 +247,9 @@ def test_render_list_and_doctor_do_not_flag_a_pack_with_no_deprecations() -> Non
 
 def test_render_doctor_reports_skew_as_its_own_trailing_block() -> None:
     # Arrange — task 5.2e: a fact about the environment, not about any one distribution.
-    reports = (PackReport(distribution="weft-cli", status=PackStatus.ACTIVE, contributed=1),)
+    reports = (
+        PackReport(pack="cli", distribution="weft-cli", status=PackStatus.ACTIVE, contributed=1),
+    )
     skew = (
         SkewReport(
             requiring_distribution="weft-cli",
@@ -237,7 +273,11 @@ def test_render_doctor_reports_skew_as_its_own_trailing_block() -> None:
 
 def test_render_doctor_with_no_skew_is_unchanged() -> None:
     # Arrange — edge case: the default `skew=()` must not alter existing output.
-    reports = (PackReport(distribution="weft-store", status=PackStatus.ACTIVE, contributed=1),)
+    reports = (
+        PackReport(
+            pack="store", distribution="weft-store", status=PackStatus.ACTIVE, contributed=1
+        ),
+    )
 
     # Act / Assert
     assert render_doctor(reports) == render_doctor(reports, (), (), None, ())
@@ -247,8 +287,12 @@ def test_render_doctor_flags_a_contribution_that_lands_in_no_pipeline_at_all() -
     # Arrange — task 5.3a (S8), `02` §3 → *Slots*: "`weft plugins doctor` flags a pack whose
     # contributions land in *no* pipeline at all."
     reports = (
-        PackReport(distribution="weft-graph", status=PackStatus.ACTIVE, contributed=1),
-        PackReport(distribution="weft-store", status=PackStatus.ACTIVE, contributed=1),
+        PackReport(
+            pack="graph", distribution="weft-graph", status=PackStatus.ACTIVE, contributed=1
+        ),
+        PackReport(
+            pack="store", distribution="weft-store", status=PackStatus.ACTIVE, contributed=1
+        ),
     )
     unreachable = (
         Contribution(
@@ -261,8 +305,8 @@ def test_render_doctor_flags_a_contribution_that_lands_in_no_pipeline_at_all() -
     # Act
     output = render_doctor(reports, (), (), None, (), unreachable)
     blocks = output.split("\n\n")
-    graph_block = next(block for block in blocks if block.startswith("weft-graph"))
-    store_block = next(block for block in blocks if block.startswith("weft-store"))
+    graph_block = next(block for block in blocks if block.startswith("graph (weft-graph)"))
+    store_block = next(block for block in blocks if block.startswith("store (weft-store)"))
 
     # Assert — the offering distribution's own block names it; an unrelated one does not.
     assert "unreachable" in graph_block
@@ -273,7 +317,11 @@ def test_render_doctor_flags_a_contribution_that_lands_in_no_pipeline_at_all() -
 
 def test_render_doctor_with_no_unreachable_contributions_is_unchanged() -> None:
     # Arrange — edge case: the default `unreachable_contributions=()` must not alter output.
-    reports = (PackReport(distribution="weft-store", status=PackStatus.ACTIVE, contributed=1),)
+    reports = (
+        PackReport(
+            pack="store", distribution="weft-store", status=PackStatus.ACTIVE, contributed=1
+        ),
+    )
 
     # Act / Assert
     assert render_doctor(reports) == render_doctor(reports, (), (), None, (), ())
@@ -288,49 +336,63 @@ def test_render_doctor_with_no_unreachable_contributions_is_unchanged() -> None:
 def test_render_doctor_names_the_installed_version_of_each_distribution() -> None:
     """`09` section 1's one column. The version sits on the status line, beside the name."""
     # Arrange
-    reports = (PackReport(distribution="weft-store", status=PackStatus.ACTIVE, contributed=2),)
+    reports = (
+        PackReport(
+            pack="store", distribution="weft-store", status=PackStatus.ACTIVE, contributed=2
+        ),
+    )
 
     # Act
     output = render_doctor(reports, versions={"weft-store": "2.0.0"})
 
     # Assert
-    assert output.startswith("weft-store 2.0.0: active (2 contributed)")
+    assert output.startswith("store (weft-store) 2.0.0: active (2 contributed)")
 
 
 def test_render_doctor_says_when_a_version_is_not_recorded() -> None:
     """`docs/lessons.md` L5.9 — an absent measurement is reported, never rendered as a blank."""
     # Arrange
-    reports = (PackReport(distribution="weft-mystery", status=PackStatus.ACTIVE),)
+    reports = (PackReport(pack="mystery", distribution="weft-mystery", status=PackStatus.ACTIVE),)
 
     # Act
     output = render_doctor(reports, versions={})
 
     # Assert
-    assert output.startswith("weft-mystery (version not recorded): active (0 contributed)")
+    assert output.startswith(
+        "mystery (weft-mystery) (version not recorded): active (0 contributed)"
+    )
 
 
 def test_render_list_is_not_given_the_version_column() -> None:
     """`09` section 1 gives the column to `doctor`, and `weft plugins list` is a summary."""
     # Arrange
-    reports = (PackReport(distribution="weft-store", status=PackStatus.ACTIVE, contributed=2),)
+    reports = (
+        PackReport(
+            pack="store", distribution="weft-store", status=PackStatus.ACTIVE, contributed=2
+        ),
+    )
 
     # Act
     output = render_list(reports)
 
     # Assert
-    assert output == "weft-store: active (2 contributed)"
+    assert output == "store (weft-store): active (2 contributed)"
 
 
 def test_render_doctor_without_versions_is_unchanged() -> None:
     """The default leaves every existing caller's output exactly as it was."""
     # Arrange
-    reports = (PackReport(distribution="weft-store", status=PackStatus.ACTIVE, contributed=2),)
+    reports = (
+        PackReport(
+            pack="store", distribution="weft-store", status=PackStatus.ACTIVE, contributed=2
+        ),
+    )
 
     # Act
     output = render_doctor(reports)
 
     # Assert
-    assert output.startswith("weft-store: active (2 contributed)")
+    assert output.startswith("store (weft-store): active (2 contributed)")
 
 
 def test_render_doctor_names_when_a_deprecated_surface_goes() -> None:
@@ -343,6 +405,7 @@ def test_render_doctor_names_when_a_deprecated_surface_goes() -> None:
     # Arrange
     reports = (
         PackReport(
+            pack="old",
             distribution="weft-old",
             status=PackStatus.ACTIVE,
             deprecations=(
@@ -373,6 +436,7 @@ def test_render_doctor_says_a_0x_publisher_promises_no_window() -> None:
     # Arrange
     reports = (
         PackReport(
+            pack="young",
             distribution="weft-young",
             status=PackStatus.ACTIVE,
             deprecations=(
@@ -397,3 +461,46 @@ def test_render_doctor_says_a_0x_publisher_promises_no_window() -> None:
     # Assert
     assert "0.x" in output
     assert "1.0.0" not in output
+
+
+def test_doctor_names_a_pack_two_installed_distributions_both_claim() -> None:
+    """`docs/02-extension-model.md` §2 → *Pack settings*: reported, never refused.
+
+    Two distributions declaring a `weft.packs` entry point under the same name is legal
+    Python packaging and weft does not stop it. What it must not do is stay quiet, because
+    one `[packs.graph]` block then configures both and two rows print the same first column.
+    """
+    # Arrange
+    reports = (
+        PackReport(pack="graph", distribution="weft-rag", status=PackStatus.ACTIVE),
+        PackReport(pack="graph", distribution="acme-graph", status=PackStatus.ACTIVE),
+        PackReport(pack="store", distribution="weft-rag", status=PackStatus.ACTIVE),
+    )
+
+    # Act
+    output = render_doctor(reports)
+
+    # Assert
+    assert "pack names claimed by more than one installed distribution:" in output
+    assert "'graph' — claimed by 'acme-graph', 'weft-rag'" in output
+    assert "[packs.graph]" in output
+    # `store` is claimed once and must not be listed: the block is about collisions, not
+    # about every pack in the environment.
+    assert "'store' — claimed by" not in output
+
+
+def test_doctor_says_nothing_about_shared_pack_names_when_there_are_none() -> None:
+    # Arrange — two packs from one distribution is the ordinary bundled case, not a
+    # collision: the names differ, which is the only thing that matters here.
+    reports = (
+        PackReport(pack="chunk", distribution="weft-rag", status=PackStatus.ACTIVE),
+        PackReport(pack="store", distribution="weft-rag", status=PackStatus.ACTIVE),
+    )
+
+    # Act
+    output = render_doctor(reports)
+
+    # Assert
+    assert "claimed by more than one" not in output
+    assert "chunk (weft-rag): active" in output
+    assert "store (weft-rag): active" in output
