@@ -293,9 +293,9 @@ they are visible.
 > that states "what will be destroyed and how much of it" — has nothing to say about a single,
 > self-named key edit that preserves every other key and comment untouched; see
 > `weft_cli.config_commands`'s own module docstring for the argument in full. **A consequence
-> of all three moving, stated rather than found by accident**: no first-party command, and no
-> out-of-tree example pack in this tree, declares `overwrite`/`destroy` any more, so task 3.3's
-> no-TTY/`--yes` machinery is exercised only by hand-registered test doubles
+> of all three moving, stated rather than found by accident**: at the time of that repair no
+> first-party command, and no out-of-tree example pack in this tree, declared `overwrite`/`destroy`
+> any more, so task 3.3's no-TTY/`--yes` machinery was exercised only by hand-registered test doubles
 > (`tests/unit/weft_cli/test_cli.py::_WipeCommand`, `tests/unit/weft_cli/test_confirm.py`'s own
 > direct unit tests of `gate`) — acceptable, the same position Phase 0 shipped and said so for
 > other machinery, but recorded here rather than left to be noticed later.
@@ -379,9 +379,13 @@ they are visible.
 > `eval compare`/`trace` are `read` (both only load files already on disk). Neither
 > `overwrite` nor `destroy` fits any of the three — a run id is a fresh `uuid4` every call,
 > so `eval run` has nothing an invocation could ever collide with to ask a TTY about, and
-> `eval compare`/`trace` write nothing at all — holding the same "no first-party command is
-> `overwrite`/`destroy`-class" property this document's own *Permissions* section already
-> records after the 2026-08-20 repair.
+> `eval compare`/`trace` write nothing at all. *(This blockquote used to add "holding the same 'no
+> first-party command is `overwrite`/`destroy`-class' property" — **corrected 2026-09-06 at G12**,
+> which measured the population it was reasoning about: tasks 5.1a and 5.1b refilled the `destroy`
+> row the day after that repair emptied it, and `weft delete` and `weft reconcile` have declared it
+> ever since. Both statements were true when written and the later one was never re-measured, which
+> is `docs/lessons.md` `L6.4` in a document rather than in a marker — and it nearly settled a gate
+> on a false count.)*
 >
 > **A repair found by running the binary, not by the 1,616 tests this task's own gate ran
 > green first.** `weft eval run corpus specific` — `specific` a `weft pipeline derive`d
@@ -676,6 +680,73 @@ for why in-process enforcement is unavailable and what weft does instead. The cl
 > example prints the cost block on every `full` invocation, `--yes` included — so the cost
 > could not live there without silently vanishing on exactly the scripted path an operator
 > running backfill in CI is most likely to take.
+
+### What a permission class means when the caller is never a TTY — G12, settled 2026-09-06
+
+**Nothing other than a TTY counts as consent.** A caller with no TTY — an agent, a script, an HTTP
+route — cannot reach `overwrite` or `destroy` by anything it passes *itself*. It can only
+**propose**, and a proposal is executed by a human on a TTY through the same gate that human would
+face typing the command directly. The autonomous reach of a non-human caller is `read`, `write` and
+`network`.
+
+**The ceiling is the answer, and a measurement is why rather than a preference.** G12's own attack on
+this position was *"a pack that cannot reindex is a demo — establish whether end-to-end is reachable
+inside the ceiling before accepting it"*. It is, and the register says so: of nineteen registered
+commands, twelve are `read`, five are `write` — **including `index`** — two are `destroy`
+(`delete`, `reconcile`) and **none is `overwrite`**. Phase 7's whole exit path — index, derive a
+rung, ask, evaluate, compare — is inside the ceiling. What the ceiling actually costs is `weft
+delete` and `weft reconcile --mode full`, and neither is on that path.
+
+**The hard case splits in two, which is what makes the ceiling affordable.** *Landing* new content
+is `write`: node ids are content digests (G5) and `PgVectorStore.add` upserts, so an agent re-runs
+`weft index` over a changed corpus today. *Removing* what it superseded is `destroy`, because
+`weft index` never calls `delete_source` — a changed document's old nodes stay under their old
+digests until somebody deletes the source. So an agent can add and cannot remove, and an agent that
+silently accumulates stale nodes is a slow version of the failure the `destroy` row already names:
+*deletion the operator does not know about is worse than a refusal*.
+
+**Why "propose" is not `--yes` spelled slowly**, which is G12's own trap for this answer. `--yes` is
+consent to an invocation, given by whoever passes it, unscoped, and passable before reading
+anything. A proposal is bound to one `(command, args)` pair by digest, cannot exist before the
+operation has been described by `describe_impact`, is consumed once, and is answered by a human
+reading that description on a TTY. The sentence this document already carries — *"`destroy` trains
+people to pass `--yes` reflexively, which disarms the whole table"* — cannot happen to a caller that
+has no flag to pass.
+
+**The precondition, and it is a defect rather than a design.** `weft_cli.confirm.gate` is called from
+exactly one place: `weft_cli/cli.py`, inside `run_command`, which takes an `argparse.Namespace` and
+returns a `Rendered`. The typed result an agent is required to use comes from `Command.run`, and
+**nothing gates `Command.run`** — the test double's own docstring says so. So the ceiling this
+section states is prose on the one path Phase 7 is told to take, and the classes G3 made mandatory
+at registration stop meaning anything at the moment they finally matter. `run_command` splits: a
+typed `invoke(...) -> Outcome[CommandResult]` that carries the gate and the seam wrap, with
+rendering after it. **Task 7.3's "published command surface" names `invoke`, never `Command.run`.**
+This is owed by every position G12 considered, including the one that changes nothing else.
+
+**What a refusal hands back is data, not prose.** `CommandRefusalError` gains a typed
+`pending: PendingOperation` — command, args as JSON, the `describe_impact` sentence, and a digest
+over the pair — so a library caller reads a field rather than re-parsing a message that names
+`--yes` in English, which is exactly what task 7.3 forbids. The exit code does not move: `3` already
+means *policy refused*, and a pending operation is one `3` with data attached.
+
+**What is deliberately not built, and why it is named rather than silently omitted.** The command
+that *executes* a proposal — a `weft approve <file>` that recomputes the digest against the live
+command table and runs the ordinary gate — is a ledger task and not Phase 7 work, because no Phase 7
+task requires `destroy` and machinery built for a hypothetical is the wrong trade. **The rule above
+is stated now regardless**, because a G12 that closed as "ceiling, and `--yes` is what an agent does
+when it needs more" would be exactly the defaulted decision this gate exists to prevent.
+
+**Spend is the agent's real risk and no permission class addresses it.** `weft index --reconcile
+full` is `write`-class and runs an `O(corpus)` model-call backfill; `eval run` is `write` and
+generates. The class table gates *destruction*. A step-and-spend budget belongs to the loop
+(ledger 7.2), not to a sixth `PermissionClass` member — and the agent's loop never sets
+`reconcile=full`, which stays a human's flag.
+
+**The dishonest pack is unchanged and unpretended.** A pack that declares `read` and deletes anyway,
+or passes `yes=True` into `invoke`, is `02` §2's stated posture: installing is trusting, and these
+classes protect you from the tool rather than from a pack. What becomes checkable is the *honest*
+first-party agent — a fitness function that refuses `yes=True` and any `weft_cli.confirm` import
+inside the agent pack, waiver pinned empty.
 
 ## Output
 

@@ -3923,26 +3923,84 @@ the content: the agentic front end is a **first-party pack**, not the REPL, beca
 rule keeps logic out of the driving adapter — and it lands after release so it is built against
 published, versioned contracts rather than moving ones.
 
-**⛔ Blocked by G12** — what a permission class means when the caller is never a TTY, Open. Until it
-closes, `03` → *Permissions* stands unchanged: an `ask`-class operation fails without a TTY, an agent
-is never a TTY, so nothing here may `overwrite` or `destroy` on its own. **This is also where the
-`agentic-patterns` handoff lands** (`01` → Phase 3's gate line records the move), so no task below is
-written in detail yet: writing a loop's task list before that skill has run is the order `01` calls
-the expensive one, and the shape of these tasks is what it would decide.
+**Gate: none — G12 settled 2026-09-06.** The answer is the **ceiling**: nothing other than a TTY
+counts as consent, a non-TTY caller's autonomous reach is `read`, `write` and `network`, and it may
+only *propose* an ask-class operation for a human to execute on a TTY. `03` → *Permissions* →
+*What a permission class means when the caller is never a TTY* carries the rule and the argument;
+`05` → G12 records the session. **The `agentic-patterns` handoff has also landed**, so the tasks
+below are written in detail for the first time — writing a loop's task list before that skill ran is
+the order `01` calls the expensive one.
 
-**Every ⚠ below is live, which is the opposite of Phase 6's.** All four tasks carry the mark and
-**G12 is open**, so unlike Phase 6 — where each ⚠ was a record of something G9, G10 or G13 had
-since settled — these are marks on tasks whose shape a decision could still change. `phase-step` →
-*Orient* reads a ⚠ as a question about its gate; here the answer is *not yet*, and a task that
-runs into one stops rather than defaulting it. Recorded explicitly because a phase whose preamble
-never accounts for its own provisional marks is one where nobody can tell an open question from a
-closed one — which is what `next_task.py --check-live` refuses to let happen.
+**Every ⚠ below is now a record rather than a block**, exactly as Phase 6's four were: the mark is
+kept on each line as history of what was once undecided, and this paragraph is where the answer
+lives. `phase-step` → *Orient* reads a ⚠ as a question about its gate; here the gate is closed.
 
+**What the gate found that no task expressed, and why three tasks are added rather than one.** G12
+ran as three independent reviews, and all three reached the ceiling *and* independently found the
+same defect: **`weft_cli.confirm.gate` is called from exactly one place, inside the driving
+adapter, and that function returns `Rendered`** — while the typed result 7.3 requires comes from
+`Command.run`, which nothing gates. The ceiling this phase depends on was already prose on the one
+path the phase is told to take. That is `7.0`, and it is a prerequisite of every position the
+session considered, including the one that changes nothing else. The other two additions are the
+same shape one level out: the agent's tool catalogue is **derived** from `permission_class` rather
+than written, so a third party shipping a `destroy` command tomorrow is out of the agent's reach
+that day with nobody editing the agent (`7.2a`); and `weft-agent` is a **seventh distribution**
+rather than a fifteenth package inside the `weft-rag` wheel, because this phase's whole thesis is a
+first-party pack built against nothing but the released API on the terms a stranger has, and
+bundling would demote that check the way bundling `weft-kernel` would demote fitness function 1
+(`7.1`).
+
+**What is deliberately not built here, named rather than silently omitted.** `weft approve` — the
+command that *executes* a proposal by recomputing its digest against the live command table and
+running the ordinary gate — is filed and not scheduled: no task below needs `destroy`, and machinery
+built for a hypothetical is the wrong trade. The rule it would implement is stated in `03` now
+regardless, because a G12 closing as *"ceiling, and `--yes` is what an agent does when it needs
+more"* is the defaulted decision the gate existed to prevent. Native tool-calling on `LLMProvider`
+is also refused: the ReAct step is a typed structured answer through the three-tier cascade
+`weft_prompts` already ships, which is what keeps the agent testable against `scripted` offline.
+
+- [ ] **7.0** a command's permission class is enforced on the path a library caller uses, not only on
+  the one the terminal uses · owner `03` → *Permissions*; `05` → G12 · turns on — · sha — ·
+  **G12's own precondition, and it is a defect rather than a design.** `weft_cli.confirm.gate` is
+  called from exactly one place — inside `weft_cli.cli.run_command`, which takes an
+  `argparse.Namespace` and returns a `Rendered`. The typed result task 7.3 requires comes from
+  `Command.run`, and **nothing gates `Command.run`**; the test double's own docstring says so. So a
+  pack calling it for typed results is never refused, never prompted and never reads a class — the
+  ceiling G12 settled is prose on the exact path this phase is told to take, which is the *control
+  that looks like enforcement and is not* that `02` §2 refuses. **Nobody chose this**: `run_command`
+  was the only caller and the concern went where the caller was, which is `CLAUDE.md`'s
+  registration-seam rule with a live counter-example. `run_command` splits into a typed
+  `invoke(...) -> Outcome[CommandResult]` carrying the gate and the `seam.wrap`, with rendering
+  after it; `PermissionPolicy`'s *value* moves to `weft-command` while `weft.toml` parsing stays in
+  `weft_cli.permission_policy`. `CommandRefusalError` gains a typed `pending: PendingOperation`
+  (command, args as JSON, the `describe_impact` sentence, a digest over the pair) so a library
+  caller reads a field rather than re-parsing a message that names `--yes` in English — which is
+  what 7.3 forbids. Additive for both G9 audiences if the CLI keeps today's default, so
+  `COMMAND_CONTRACT_VERSION` takes a minor. **Exit code does not move**: `3` already means policy
+  refused, and a pending operation is one `3` with data attached
 - [ ] **7.1 ⚠** the agent is a pack — it registers against contracts it did not define, and core has no
   knowledge of it · owner `01` → Phase 7; `02` §1 · turns on — · sha —
 - [ ] **7.2 ⚠** the loop's autonomy, tool surface, memory and approval points are the ones
   `agentic-patterns` names, chosen rather than inherited · owner `05` → G12; `01` → Phase 7 **Gate** ·
   turns on — · sha —
+- [ ] **7.2a** the agent's tool catalogue is derived from `permission_class`, so a command it must
+  not reach is out of reach without anyone editing the agent · owner `03` → *Permissions*;
+  `02` §2 · turns on — · sha — · **The ceiling made mechanical rather than trusted.** Measured
+  before being designed: of nineteen registered commands twelve are `read`, five `write`, two
+  `destroy` (`delete`, `reconcile`) and **none `overwrite`** — so the filter admits seventeen, and
+  two are excluded **by name, each carrying its reason in code**: `config set`, because it writes
+  `weft.toml` *including `[permissions]`*, so an agent that can set `destroy = "allow"` has climbed
+  its own ceiling — the one row where G12's third position is genuinely right; and `init`, because
+  the agent should not scaffold the project it is running inside. **A deny-list is refused**: the
+  filter is the mechanism, so a third party shipping a `destroy`-class command tomorrow is out of
+  reach that day, which is the same *derived, never declared* shape G4 already holds capability to.
+  The mapping is mechanical and **wider than the CLI's**: name with spaces to underscores,
+  description from the factory's mandatory `help`, parameters from
+  `args_model.model_json_schema()` — `argparse_gen` refuses `list[str]`, `Path` and nested models
+  because a command line has no honest spelling for them, and a JSON schema has one. **This is a
+  third rendering of one walk** — `build_parser` to a terminal, `command_table` to Markdown, this to
+  tool schemas — and saying so is what stops somebody hand-writing a fourth list
+
 - [ ] **7.3 ⚠** the agent reaches Weft only through the published command surface — the same typed
   results a human's renderer formats, never a private API and never re-parsed text · owner `03` →
   *Two modes, one implementation*; `01` → Phase 3's gate line · turns on — · sha —

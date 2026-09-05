@@ -38,7 +38,7 @@ question, so that a decision's status has exactly one home.
 | 9 | **G9** Contract versioning policy | First external pack | High — a policy, changeable |
 | 10 | **G10** Release and support policy | Phase 6 | Medium — a policy, but published |
 | 11 | **G11** Kernel error text | Phase 3 | Low — settled 2026-08-18 |
-| 12 | **G12** Permissions when the caller is never a TTY | Phase 7 | Medium — a safety boundary, not a mechanism |
+| 12 | **G12** Permissions when the caller is never a TTY | Phase 7 | **Settled 2026-09-06** — the ceiling, and a non-TTY caller may only propose |
 | 13 | **G13** The derived-participant seam | Phase 6 | Medium — two of its three faces move published contracts |
 
 ---
@@ -749,6 +749,40 @@ moment they finally matter.
 
 **Done when.** A stated position on whether a non-TTY caller can reach `overwrite` and `destroy`, and
 if it can, the mechanism named and specified in `03` → *Permissions* rather than left to the pack.
+
+**Settled 2026-09-06. The answer is *no* — nothing other than a TTY counts as consent — and the
+mechanism is specified in `03` → *Permissions* → *What a permission class means when the caller is
+never a TTY*.** Read it there; this section records that the session ran and what it had to attack.
+
+**Two measurements decided it, and both were one query away the whole time.** *(a)* The register
+holds **nineteen** commands: twelve `read`, five `write` **including `index`**, two `destroy`
+(`delete`, `reconcile`), and **zero `overwrite`** — so this session's own attack on the ceiling
+position, *"establish whether end-to-end is reachable inside the ceiling before accepting it"*, is
+answered by the tree: Phase 7's entire exit path is `read` and `write`. *(b)* This brief was written
+believing the population might be empty of `overwrite`/`destroy` altogether, and `03` said so in two
+dated blockquotes — both true when written, neither re-measured after tasks 5.1a and 5.1b refilled
+the `destroy` row the following day. **A gate was one grep from being argued on a false count**
+(`docs/lessons.md` `L6.11` applied to a brief's own numbers; `03` corrected in the same commit).
+
+**The third position dissolved rather than losing.** *The class is the wrong unit for a non-human
+caller* decomposes into a budget, a scoped target and a dry-run-then-confirm protocol — and none is
+a permission model: a budget is a loop property that belongs to ledger 7.2, args are already the
+scope, and dry-run-then-confirm **is** the second position's mechanism. What survives from it is the
+observation that the class table gates *destruction* while an agent's dominant risk is *spend*, and
+that is answered in the loop rather than by a sixth `PermissionClass` member.
+
+**The session found a defect that every position owed the same repair.** `weft_cli.confirm.gate` is
+called from one place inside the driving adapter, and that function returns `Rendered`; the typed
+result task 7.3 requires comes from `Command.run`, which nothing gates. The ceiling was already
+prose on the exact path Phase 7 is told to take. Splitting `run_command` into a typed `invoke(...)`
+carrying the gate is therefore a Phase 7 prerequisite whatever this session had decided — recorded
+here because a gate that only changes a document, while the property it argues about is unenforced
+in code, is the shape `02` §2 calls *a control that looks like enforcement and is not*.
+
+**Run as three independent reviews rather than one**, deliberately, because a single line of
+reasoning about a safety boundary is one author's blind spot: all three reached the ceiling, and all
+three independently found the ungated typed path. The two facts above came from two of them and were
+re-measured here before being written down.
 
 ---
 
