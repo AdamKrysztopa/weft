@@ -14,7 +14,15 @@ build/
 .pytest_cache/
 .ruff_cache/
 .pyright/
-uv.lock
+
+# `uv.lock` was here, filed between two caches. It is not a cache: `ci.yml` runs
+# `uv sync --frozen` in three of its four jobs, and every one of them died at that step
+# the first time CI ever ran. It is tracked now — the resolution CI installs and the
+# resolution a developer installs must be one artefact, which is the same argument
+# `docs/README.md` makes about single-sourcing anything two readers can disagree about.
+#
+# It constrains nobody downstream. A lockfile is not a dependency bound; what a consumer
+# resolves is decided by each distribution's `pyproject.toml`.
 
 # Session-local attempt counter for the guard_quality_gates.py PreToolUse hook — per-session
 # scratch, not a record anyone should read later. See the hook's module docstring.
