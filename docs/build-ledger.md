@@ -4254,7 +4254,7 @@ owners rather than lessons awaiting a second drain. `docs/lessons-archive.md` ca
 dispositions. None is gated, and none blocks Phase 7.
 
 - [x] **8.16** a `[services]`/`[llm.roles]` key list quoted in a manual is the live one · owner
-  `08` §1; `lessons-archive` `L8.3` · turns on — · sha `89189d4` · a worked transcript quoted
+  `08` §1; `lessons-archive` `L8.3` · turns on — · sha `0bfaf8e` · a worked transcript quoted
   `valid_options == ("embed", "store")` while the code offered three keys, and the whole gate was
   green. `tests/docs/test_manual_config_keys.py` now checks that *named* keys are a subset of
   `ServiceSelection.model_fields`; what it does not do is compare a **quoted tuple literal**
