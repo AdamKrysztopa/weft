@@ -111,7 +111,11 @@ if TYPE_CHECKING:
 #: FF8(b) would notice — unlike `weft_cli.render`/`weft_cli.commands` just above, which pull
 #: in `weft_extract`/`weft_chunk`/`weft_embed`/`weft_store` and stay local-import-only.
 
-_DISTRIBUTION = "weft-cli"
+#: This module, spelled the way an entry point spells it. `own_distribution` finds the
+#: distribution that ships `weft` by looking for the `console_scripts` entry point pointing
+#: here — a constant rather than `__name__`, which is `"__main__"` when this file is run as a
+#: script and would then match nothing.
+_CONSOLE_SCRIPT_MODULE = "weft_cli.cli"
 
 #: The two commands whose registry-needing discovery must tolerate an inert `[plugins]` pin —
 #: see the module docstring's `prescan_command_name` paragraph. A narrow, unchanged-since-0.9
@@ -561,6 +565,69 @@ async def run_command(command_name: str, args: argparse.Namespace, deps: Depende
     return render_outcome(outcome, streamed=getattr(deps.token_sink, "wrote_anything", False))
 
 
+class OwnDistributionError(WeftError):
+    """Nothing installed, or more than one thing installed, provides the `weft` command.
+
+    `weft --version` is the one command that has to answer without touching a registry
+    (fitness function 8(b)), so it cannot ask discovery where it came from — but it must not
+    assert an answer either. Both halves are real states: no claimant means `weft_cli` is on
+    `sys.path` with no installed metadata behind it (a bare `PYTHONPATH`, a half-built
+    wheel), and two claimants means two distributions both install a `weft` script pointing
+    here, which is an environment that will misbehave far past a version string. Neither is
+    guessed at.
+    """
+
+
+def own_distribution() -> str:
+    """Which installed distribution provides the `weft` command, asked rather than asserted.
+
+    This was `_DISTRIBUTION = "weft-cli"` fed straight to `metadata.version`, which was true
+    right up until something repackaged: `weft-rag` bundles `weft_cli` along with eleven
+    other packs, and inside that wheel there is no `weft-cli` distribution at all — so
+    `weft --version`, the first thing anyone runs, would have died with
+    `PackageNotFoundError`.
+
+    Derived from the **`console_scripts` entry point that points at this module**, which is
+    exactly the thing that put `weft` on the reader's PATH, so the version reported is the
+    version of what they actually ran. `importlib.metadata.packages_distributions()` is the
+    obvious alternative and is wrong here: it maps import packages to distributions by reading
+    installed file records, and an editable install records only a `.pth` file — so it answers
+    `None` for `weft_cli` in this repository's own development environment, which is where
+    `weft --version` is run most often. Entry-point metadata is written for an editable
+    install and a wheel alike.
+
+    Reading metadata imports no pack, so fitness function 8(b) is unaffected.
+
+    Ambiguity is refused, never resolved by taking the first: see `OwnDistributionError`.
+    """
+    claimants = sorted(
+        {
+            entry_point.dist.name
+            for entry_point in metadata.entry_points(group="console_scripts")
+            if entry_point.module == _CONSOLE_SCRIPT_MODULE and entry_point.dist is not None
+        }
+    )
+    if len(claimants) == 1:
+        return claimants[0]
+    if not claimants:
+        raise OwnDistributionError(
+            f"weft cannot report its version: no installed distribution declares a console "
+            f"script pointing at '{_CONSOLE_SCRIPT_MODULE}'. Install weft-rag (or weft-cli) "
+            f"rather than putting its source directory on PYTHONPATH."
+        )
+    named = ", ".join(f"'{name}'" for name in claimants)
+    raise OwnDistributionError(
+        f"weft cannot report its version: {len(claimants)} installed distributions each "
+        f"provide a console script pointing at '{_CONSOLE_SCRIPT_MODULE}' ({named}). "
+        f"Uninstall all but one."
+    )
+
+
+def own_version() -> str:
+    """The installed version of whichever distribution provides the `weft` command."""
+    return metadata.version(own_distribution())
+
+
 def main() -> None:
     """The one entry point. The one `asyncio.run`. Fitness function 7(a)'s subject.
 
@@ -613,7 +680,11 @@ def main() -> None:
     """
     argv = sys.argv[1:]
     if wants_version(argv):
-        print(f"weft {metadata.version(_DISTRIBUTION)}")
+        try:
+            print(f"weft {own_version()}")
+        except OwnDistributionError as exc:
+            print(str(exc), file=sys.stderr)
+            sys.exit(int(ExitCode.OPERATION_FAILED))
         sys.exit(int(ExitCode.SUCCESS))
 
     command_hint = prescan_command_name(argv)

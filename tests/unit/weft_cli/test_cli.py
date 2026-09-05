@@ -31,6 +31,7 @@ import asyncio
 import io
 import json
 import sys
+from importlib import metadata
 from pathlib import Path
 from typing import ClassVar
 
@@ -904,6 +905,89 @@ def test_main_does_not_swallow_cancellation(monkeypatch: pytest.MonkeyPatch) -> 
 
     with pytest.raises(asyncio.CancelledError):
         cli.main()
+
+
+def test_own_distribution_is_derived_from_the_console_script_that_points_here() -> None:
+    """`weft --version` reports the version of whatever put `weft` on the reader's PATH.
+
+    The name is never asserted. `weft-cli` is the answer in this checkout; `weft-rag` is the
+    answer once the bundle ships the same module, and neither is written down here.
+    """
+    # Arrange / Act
+    name = cli.own_distribution()
+
+    # Assert — the derivation agrees with what installed metadata says about the console
+    # script itself, computed a second way rather than compared against a literal.
+    providers = {
+        entry_point.dist.name
+        for entry_point in metadata.entry_points(group="console_scripts")
+        if entry_point.name == "weft" and entry_point.dist is not None
+    }
+    assert name in providers
+    assert cli.own_version() == metadata.version(name)
+
+
+def test_own_distribution_refuses_to_guess_when_nothing_claims_the_console_script(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arrange — `weft_cli` importable with no installed metadata behind it: a bare PYTHONPATH.
+    def _none(**_kwargs: object) -> list[object]:
+        return []
+
+    monkeypatch.setattr(metadata, "entry_points", _none)
+
+    # Act / Assert
+    with pytest.raises(cli.OwnDistributionError) as excinfo:
+        cli.own_distribution()
+
+    assert "no installed distribution" in str(excinfo.value)
+
+
+def test_own_distribution_refuses_to_guess_when_two_distributions_claim_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arrange — both `weft-cli` and `weft-rag` installed, each shipping the same script. A
+    # first-one-wins pick would report a version at random; this state is refused instead.
+    class _Dist:
+        def __init__(self, name: str) -> None:
+            self.name = name
+
+    class _EntryPoint:
+        def __init__(self, distribution: str) -> None:
+            self.name = "weft"
+            self.module = "weft_cli.cli"
+            self.dist = _Dist(distribution)
+
+    def _two(**_kwargs: object) -> list[_EntryPoint]:
+        return [_EntryPoint("weft-cli"), _EntryPoint("weft-rag")]
+
+    monkeypatch.setattr(metadata, "entry_points", _two)
+
+    # Act / Assert
+    with pytest.raises(cli.OwnDistributionError) as excinfo:
+        cli.own_distribution()
+
+    message = str(excinfo.value)
+    assert "'weft-cli'" in message and "'weft-rag'" in message
+
+
+def test_version_reports_a_failure_rather_than_a_traceback(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Arrange
+    def _refuse() -> str:
+        raise cli.OwnDistributionError("weft cannot report its version: contrived.")
+
+    monkeypatch.setattr(cli, "own_version", _refuse)
+    monkeypatch.setattr(sys, "argv", ["weft", "--version"])
+
+    # Act
+    with pytest.raises(SystemExit) as exit_info:
+        cli.main()
+
+    # Assert — a named failure on stderr and exit 1, never a `PackageNotFoundError` traceback.
+    assert exit_info.value.code == int(ExitCode.OPERATION_FAILED)
+    assert "weft cannot report its version" in capsys.readouterr().err
 
 
 def test_main_never_builds_a_registry_for_version(monkeypatch: pytest.MonkeyPatch) -> None:

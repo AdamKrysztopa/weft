@@ -334,6 +334,37 @@ malformed package's metadata degrades to a single row, not a hard stop for every
 to do:** reinstall the offending package; this almost always means its build metadata is corrupt or
 was hand-edited, not that anything about your `weft.toml` is wrong.
 
+### `OwnDistributionError`
+
+**What it looks like** — `weft --version` cannot work out which installed distribution put the
+`weft` command on your PATH, because either nothing claims it or two things do:
+
+```text
+$ weft --version
+weft cannot report its version: no installed distribution declares a console script pointing at
+'weft_cli.cli'. Install weft-rag (or weft-cli) rather than putting its source directory on
+PYTHONPATH.
+$ echo $?
+1
+```
+
+The two-claimant form names both:
+
+```text
+weft cannot report its version: 2 installed distributions each provide a console script pointing at
+'weft_cli.cli' ('weft-cli', 'weft-rag'). Uninstall all but one.
+```
+
+`weft --version` deliberately touches no registry (fitness function 8(b)), so it cannot ask
+discovery where it came from — it reads the `console_scripts` entry point pointing at
+`weft_cli.cli`, which is exactly the thing that installed the command you typed. Neither state is
+guessed past: reporting *a* version when two distributions disagree would be picking one at random.
+
+**What to do:** for the first form, install the distribution rather than running from a source
+checkout on `PYTHONPATH` — `uv pip install weft-rag`, or `uv sync` in this repository. For the
+second, `uv pip uninstall` whichever of the two you did not mean to have; `weft-rag` bundles
+`weft-cli`, so having both installed at once is the usual cause and only one is needed.
+
 ### `EnvInterpolationError`
 
 **What it looks like** — a `${env:VAR}` reference in `weft.toml` names a variable that is not set:
