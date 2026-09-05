@@ -1,46 +1,56 @@
 name: corrective-retrieve
 extends: retrieve-then-generate
 
-# **This rung is why the name `corrective` is honest here, and it needs a corpus indexed with
-# `index-with-raptor`.** `10` §1.1 states the condition as a condition: `corrective` is only
-# earned if the plugin reaches a *distinct knowledge action* — a second `Retriever` resolved by
-# contract, not the same index re-queried broader. Re-querying the same index broader is not a
-# distinct knowledge action, and `10`'s own verdict on that shape is "**Nothing is corrected.**"
+# **This rung is why the name `corrective` is honest here.** `10` §1.1 states the condition as a
+# condition: `corrective` is only earned if the plugin reaches a *distinct knowledge action* — a
+# second `Retriever` resolved by contract, not the same index re-queried. Re-querying the same
+# index the same way is what the donor-era implementations did, and `10`'s verdict on that is
+# blunt: **nothing is corrected**.
 #
-# The distinct action available in a default install is the *summary level*: `multi-arm`
-# narrowed to nodes `raptor` built. That is a different base, not a second look at the same one
-# — a question the leaf chunks answer badly may be answerable from a summary over a cluster of
-# them, which is RAPTOR's own claim. It is also a real dependency, stated in the summary below
-# rather than left for a user to discover as a quietly worse answer: against a corpus with no
-# RAPTOR summaries in it the knowledge action retrieves nothing and this rung degrades to
-# `grade-then-generate`.
+# The distinct action here is **the lexical arm**. `hybrid` narrowed to `channels: [text]` asks
+# the store a question the primary structurally cannot: `search_text` matches words, and a dense
+# vector search that has already failed cannot recover an exact token it blurred away. Grading
+# drops the vector hits that were merely nearby; the text arm then looks for the thing itself.
+# That is a different retrieval *mechanism* over the same corpus, which is what makes it a
+# knowledge action rather than a second guess.
 #
-# `hybrid` — vector plus full-text over the same corpus — would be the other honest action and
-# is not built; ledger task 8.6 owns it. Naming it here would be the overclaim `10` §2.1 rule 4
-# forbids.
+# **Corrected 2026-09-05, found by running it against a real model.** The first draft used
+# `multi-arm` narrowed to RAPTOR summaries. Two things were wrong with it: `MultiArmConfig`
+# requires **at least two** arms, so the config was invalid and the rung failed the moment the
+# knowledge action actually fired — invisible until then, because a corrective action only runs
+# when grading leaves too little. And it made the rung depend on a corpus indexed with
+# `index-with-raptor`, which is a precondition a route summary would have had to carry. The
+# lexical arm needs no such precondition: any `pgvector` store has it.
 vars:
   route.summary: >-
-    Searches the leaf chunks, grades what comes back, and when too little survives the grading
-    reaches the RAPTOR summary level instead of answering from what was left. Needs a corpus
-    indexed with index-with-raptor; without those summaries there is nothing for the corrective
-    step to reach and it behaves like grade-then-generate.
+    Searches by meaning, grades what comes back, and when too little survives the grading looks
+    again for the literal words instead. For a question where the nearest passages keep being
+    almost-right — the corpus is asked a second time by a mechanism that fails differently.
   route.cost: >-
     one embedding call, one search, one model call per batch of five passages graded, then on a
-    poor grade one more embedding call and one more search, and one model call
+    poor grade one more search, and one model call
 
+# **Two `replace`s, and the second is forced by the first** — the same rule every fan-out rung
+# in this ladder obeys. A corrective action that fires returns *two* ranked lists, the primary's
+# and the knowledge action's, and `single-list` is the **identity** fuser: handed two, it refuses
+# by name rather than silently dropping one. That refusal is what found this, on a run where the
+# grading actually triggered the action; the config error above it had been masking it.
 replace:
   - id: retrieve
     use: corrective
     with:
       primary: vector-top-k
-      primary_config:
-        top_k: 20
-        filter: {op: not, clauses: [{op: eq, field: ext.weft-index.technique, value: raptor}]}
+      primary_config: {top_k: 20}
       grader: graded-retrieval
       trigger_kept_below: 3
-      knowledge_action: multi-arm
+      knowledge_action: hybrid
       knowledge_action_config:
-        arms:
-          - name: raptor
-            top_k: 10
-            filter: {op: eq, field: ext.weft-index.technique, value: raptor}
+        top_k: 10
+        channels: [text]
+  # `k=60` is the paper's own default. No `weights`: the two lists here are not two views of
+  # equal standing — one is what the grader kept, the other is what the corpus offered when that
+  # was too little — and weighting them apart would be a claim about which is better that this
+  # document has no measurement behind.
+  - id: fuse
+    use: reciprocal-rank-fusion
+    with: {k: 60}

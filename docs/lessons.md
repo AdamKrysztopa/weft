@@ -27,6 +27,35 @@ otherwise paid for twice.
 
 ## Queue
 
+### L8.11 — the rung only failed on the branch that rarely runs, and two defects hid behind one
+
+**What happened.** `corrective-retrieve` shipped in task 8.1, passed fitness functions 11 and 16,
+resolved cleanly under `weft pipeline show`, and answered questions. It was broken twice over, and
+**neither defect could fire until the corrective branch itself did** — which happens only when
+grading leaves fewer hits than `trigger_kept_below`. Against the deterministic test provider that
+never happened, so the rung looked fine for its whole life.
+
+The first defect was a config the plugin would refuse: `multi-arm` requires **at least two** arms
+and the document supplied one. The second only became visible once the first was fixed: a corrective
+action that fires returns *two* ranked lists, and the inherited `single-list` is the identity fuser,
+which refuses two by name. **The first defect masked the second**, so the first fix looked like it
+had failed rather than progressed.
+
+**Generalises to.** *A conditional branch is untested until something makes the condition true, and
+a document whose rare branch is wrong is indistinguishable from a correct one on every ordinary
+run.* The concrete form for this project: **any pipeline stage that conditionally produces a
+different number of ranked lists changes what its fuser must be**, and the rung has to be exercised
+on the branch that produces the larger number. `iterative-retrieval` and `refine-on-uncertainty`
+have the same shape and should be checked on their looping branch too.
+
+**Candidate home.** Not a fitness function — resolution cannot know how many lists a retriever will
+return at run time, which is precisely why `single-list` refuses at run time instead. It belongs in
+`phase-step` → *Finish* item 4, beside "including a failure path": **run the branch that is
+conditional, not only the path that is default**, and for a rung that means constructing the
+condition rather than hoping a question triggers it.
+
+---
+
 ### L8.10 — the check passed because it was not yet part of its own subject
 
 **What happened.** Fitness function 17 walks **tracked** files, enumerated from `git ls-files`. Its
