@@ -125,7 +125,7 @@ reason is worth internalising because it is the one rule the operators will not 
 transform that turns one query into several leaves `fuse` holding several ranked lists, and
 `single-list` is the *identity* fuser. Two act after the search instead — `rerank-then-generate`
 reorders what was retrieved, `grade-then-generate` discards the parts that fail a relevance grade.
-`boolean-then-retrieve` combines result **sets** by algebra rather than by score.
+`boolean-then-retrieve` combines result **sets** by algebra rather than by score. **`hybrid-then-generate` is the one whose delta changes what is *searched*** rather than how the question is asked or what becomes of the answer: `hybrid` asks the same store by meaning and by the literal words and hands back both rankings, and the `fuse` stage merges them by rank. Reach for it when a question turns on an exact token a vector search blurs away — a name, an identifier, an error code, a number. It needs a store that does both: `pgvector` does, `qdrant` deliberately does not, and a run against one that cannot is refused by name before any stage runs.
 `iterative-retrieve` and `corrective-retrieve` replace the retriever with one that owns a loop or a
 fallback of its own. `contradiction-aware` and `draft-then-refine` replace the generator.
 

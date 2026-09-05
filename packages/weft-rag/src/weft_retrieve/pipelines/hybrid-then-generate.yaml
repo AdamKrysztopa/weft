@@ -1,0 +1,49 @@
+name: hybrid-then-generate
+extends: retrieve-then-generate
+
+# **The rung the whole ladder was climbing towards: several bases searched at once.** Every
+# other rung above `retrieve-then-generate` changes *how the question is asked* or *what
+# happens to the answer*; this one changes what is searched. One `replace`, one `set`.
+#
+# `hybrid` asks the same store twice per query — `search_vector` for meaning, `search_text` for
+# words — and hands back both rankings labelled apart. Nothing merges them inside the plugin:
+# that is `fuse`'s position, and `reciprocal-rank-fusion` combines by **rank**, which is what
+# makes the merge possible at all. A cosine similarity and a lexical relevance score have no
+# common unit, so the weighted-alpha blend most implementations of this name use is a tuning
+# constant nobody can defend — `10` §1.1 records the reference growing exactly that, in the second
+# of its two copies of RRF.
+#
+# The weights below are this document's and are **not** a measured optimum. Vector slightly
+# ahead of text is a starting position, not a finding: dense retrieval usually recalls better
+# on paraphrase and lexical usually wins on rare exact tokens — names, identifiers, error
+# codes, numbers — so the right ratio is a property of your corpus and your questions. Retune
+# them, and use `weft eval` to know whether a change was real rather than felt.
+#
+# **Needs a store that does both.** `hybrid` declares `needs_store = (VectorSearch,
+# TextSearch)`, checked before any stage runs: `pgvector` satisfies both, `qdrant` deliberately
+# advertises no `TextSearch` (ledger 2.6), and a run against one is refused by name at assembly
+# rather than quietly becoming vector-only.
+vars:
+  route.summary: >-
+    Searches the corpus two ways at once — by meaning and by the literal words — and fuses the
+    two rankings by reciprocal rank. The rung to reach for when a question turns on an exact
+    token a vector search blurs away: a name, an identifier, an error code, a number.
+  route.cost: >-
+    one embedding call, then two searches per query against one store, and one model call
+
+# **Two `replace`s, not a `replace` and a `set`.** The first draft used `set:` on `fuse`, and
+# resolution refused it by name: "stage 'fuse' (Fuser:single-list) sets a 'with:' block, but
+# Fuser:single-list publishes no configuration model". That is the operator table working as
+# `02` §3 describes — `set` overrides configuration *without changing the plugin*, and the
+# inherited plugin here is the identity fuser, which has nothing to configure. Changing which
+# plugin sits at an id is `replace`'s job, and the refusal is what tells you which one you
+# meant.
+replace:
+  - id: retrieve
+    use: hybrid
+    with: {top_k: 20}
+  - id: fuse
+    use: reciprocal-rank-fusion
+    with:
+      k: 60
+      weights: {"hybrid:vector": 1.0, "hybrid:text": 0.8}

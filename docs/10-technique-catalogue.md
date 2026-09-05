@@ -211,7 +211,8 @@ naming, not just citation, so a name with nothing to cite still needs a row.
 | Weft name | Contract | What it is |
 |---|---|---|
 | `vector-top-k` | `Retriever` | A single vector search, `top_k` — the retriever `retrieve-then-generate` resolves. Not itself a cited technique (§2.1 rule 5: a composition is a pipeline, never a plugin); the name states the pipeline's own cost, per §12 decision 12 |
-| `multi-arm` | `Retriever` | Searches several **arms** of one index in a single stage — the same `VectorSearch`, narrowed per arm by a `Filter` and labelled per arm so a `Fuser` can weight them apart (`multi-arm:leaves`, `multi-arm:raptor`). No citation of its own: it is the arity a pipeline cannot express, not a technique. **A documented exception to §2.1 rule 5** — a composition is normally a pipeline, but two retrievers cannot sit in sequence because they do not compose by type, so the fan-out has to live inside one plugin. Not `hybrid` (§1.1's unbuilt row), which additionally needs `TextSearch`; naming it that would be the overclaim rule 4 forbids |
+| `multi-arm` | `Retriever` | Searches several **arms** of one index in a single stage — the same `VectorSearch`, narrowed per arm by a `Filter` and labelled per arm so a `Fuser` can weight them apart (`multi-arm:leaves`, `multi-arm:raptor`). No citation of its own: it is the arity a pipeline cannot express, not a technique. **A documented exception to §2.1 rule 5** — a composition is normally a pipeline, but two retrievers cannot sit in sequence because they do not compose by type, so the fan-out has to live inside one plugin. Not `hybrid` — **built at ledger 8.6, three rows below** — which additionally needs `TextSearch`; naming it that would have been the overclaim rule 4 forbids. *(Pointer corrected 2026-09-05: this row said "§1.1's unbuilt row" from task 2.33 until 8.6, and §1.1 never held a `hybrid` row. The name was reserved in prose, in two places, and catalogued in neither — which is how a name ends up printed at users in a refusal while nothing can be installed under it.)* |
+| `hybrid` | `Retriever` | Searches the **vector** and **text** arms of one store per query and returns both rankings, labelled `hybrid:vector` and `hybrid:text` so a `Fuser` can weight them apart. The second documented exception to §2.1 rule 5, on `multi-arm`'s own footing — two retrievers cannot sit in sequence because they do not compose by type, so the arity lives inside one plugin. **No citation, and that is the answer rather than a gap**: "hybrid retrieval" is a practitioner and framework term for a store satisfying both search protocols — `02` §1's own words, *"hybrid is not a third method — it is a store satisfying both search protocols"* — and the technique it composes is `reciprocal-rank-fusion`, which carries the citation. See §5. **Deliberately does no score fusion**: an alpha over a cosine similarity and a lexical relevance score compares two scales with no common unit, which is the tuning constant §1.1's `reciprocal-rank-fusion` row records the reference growing in the second of its two copies. Declares `needs_store = (VectorSearch, TextSearch)` whatever `channels` says, so a run against `qdrant` (no `TextSearch`, ledger 2.6) is refused at assembly rather than at a later `with:` edit |
 | `single-list` | `Fuser` | The identity fuser — one ranked list, unchanged. What `no-retrieval` and `retrieve-then-generate` resolve when there is nothing to combine |
 | `boolean-combine` | `Fuser` | Combines each Boolean operand's own result set by set algebra — `boolean-retrieval`'s own combiner, never `reciprocal-rank-fusion`'s statistical merge |
 | `llm-rerank` | `Reranker` | Asks the model an operator has already configured to rerank — `prompt`, `role`, `top_n`. Ships in place of `cross-encoder-rerank` (§1.2), which needs a model download `09` §4.4 keeps out of the gate |
@@ -436,6 +437,17 @@ visible its gaps are.
 
 **Names with no traceable origin.**
 
+- **`hybrid`** — built at ledger **8.6** with **no origin paper cited, deliberately**. The
+  dense-plus-lexical combination has a real literature (and its *fusion* step is
+  `reciprocal-rank-fusion`, cited in full in §1.1), but this catalogue has **not** searched that
+  literature at source and will not assert an origin it has not read — `CLAUDE.md`'s measure-before-
+  asserting rule applied to a citation rather than to a count. The name is treated as
+  **taxonomy/framework-coined**, and it is one Weft had already fixed the meaning of internally
+  before the plugin existed: `02` §1 and `weft_retrieve.payload.Channel`'s own docstring both define
+  hybrid as *"a store satisfying both search protocols"*, and `weft_retrieve.vector_top_k` has
+  printed the name at operators in a refusal since task 2.14. **What is unconfirmed** is whether any
+  paper introduced the term, and whether the practice of fusing the two arms by rank rather than by
+  a weighted score blend is attributable. Anyone who searches it should record the answer here.
 - **`direct`** — searched LlamaIndex, LangChain and Haystack documentation for a no-retrieval routing
   mode, query-engine setting or component by that name. Found none. Treated as reference-coined;
   **unconfirmed as framework-coined**.

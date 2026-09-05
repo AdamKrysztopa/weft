@@ -4036,12 +4036,22 @@ it is a config key and two call sites. Said here because nothing else records it
   which is `lessons.md` L5.15's shape. **A task and not a patch**: "the router's own search set" is
   settled text in `weft_cli.route_ask`'s own docstring, and narrowing settled text mid-review is
   what `phase-step` → *When to stop* forbids
-- [ ] **8.6** a question is answered from vector and full-text results **fused**, retrieved from
+- [x] **8.6** a question is answered from vector and full-text results **fused**, retrieved from
   the one store, and the fusion asks neither list where it came from · owner `01` → Phase 8;
-  `10` §1.1's unbuilt `hybrid` row · turns on — · sha — · `weft_store`'s `search_text` is
-  implemented in pgvector and **has no caller**; `reciprocal-rank-fusion` already fuses without
-  asking a list's origin. `vector-top-k`'s own error text already advertises `hybrid` to users who
-  cannot install it, which is the overclaim this task removes by making it true
+  `10` §1.5's `hybrid` row · turns on — · sha `—` · `weft_store`'s `search_text` was implemented in
+  pgvector and **had no caller in the tree**, while `vector-top-k`'s own config validator had been
+  printing *"Use 'hybrid'"* at operators since task 2.14 and `10` §1.5 had been reserving the name
+  since 2.33 — a name shown to users in a refusal, documented, and installable by nobody. Two
+  halves, each correct, meeting nowhere. **`hybrid` does no score fusion, deliberately**: an alpha
+  over a cosine similarity and a lexical relevance score compares two scales with no common unit,
+  and `10` §1.1 records the reference growing exactly that in the second of its two RRF copies. It
+  returns two labelled `RankedList`s and `reciprocal-rank-fusion` merges them **by rank**, which
+  needs no calibration — so the composition is a document (`hybrid-then-generate`), not a second
+  fuser. `needs_store = (VectorSearch, TextSearch)` whatever `channels` says, so a run against
+  `qdrant` is refused at assembly rather than at a later `with:` edit. **Row filed in `10` §1.5
+  with no origin paper and §5 says why**: this catalogue has not read the dense-plus-lexical
+  literature at source and will not assert an origin it has not read. The `multi-arm` row's
+  pointer to *"§1.1's unbuilt row"* is corrected in the same commit — §1.1 never held one
 - [x] **8.7** no run issues more concurrent model calls than its own configured cap · owner
   `01` → Phase 8 · turns on — · sha `54c3d6f` · **This line named two sites and one of them was already
   fixed.** It was written from `ROADMAP.md`'s own row, which said `asyncio.gather` is unbounded at

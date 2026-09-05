@@ -126,6 +126,8 @@ from weft_retrieve.fusion import (
 from weft_retrieve.fusion import NAME as SINGLE_LIST_NAME
 from weft_retrieve.graded import NAME as GRADED_RETRIEVAL_NAME
 from weft_retrieve.graded import GradedRetrieval, GradedRetrievalConfig
+from weft_retrieve.hybrid import NAME as HYBRID_NAME
+from weft_retrieve.hybrid import Hybrid, HybridConfig
 from weft_retrieve.iterative import NAME as ITERATIVE_RETRIEVAL_NAME
 from weft_retrieve.iterative import (
     IterativeRetrieval,
@@ -334,6 +336,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(Retriever, NO_RETRIEVAL_NAME, NoRetrieval)
     registrar.add(Retriever, VECTOR_TOP_K_NAME, VectorTopK)
     registrar.add(Retriever, MULTI_ARM_NAME, MultiArm)
+    registrar.add(Retriever, HYBRID_NAME, Hybrid)
     registrar.add(Retriever, ITERATIVE_RETRIEVAL_NAME, IterativeRetrieval)
     registrar.add(Retriever, CORRECTIVE_NAME, Corrective)
     registrar.add(Fuser, SINGLE_LIST_NAME, SingleList)
@@ -403,6 +406,10 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/corrective-retrieve.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/contradiction-aware.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/draft-then-refine.yaml")
+    # Task 8.6. `replace` swaps the retriever and `set` retunes the fuser it feeds — the one
+    # rung whose delta changes *what is searched* rather than how the question is asked or what
+    # becomes of the answer, and the reason `single-list` cannot stay: two arms are two lists.
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/hybrid-then-generate.yaml")
 
     # **Six ingest rungs, and they are contributed from this pack rather than from `weft-index`
     # or `weft-clean` for one reason: a document has to name every plugin it places, and these
@@ -437,6 +444,9 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
 __all__ = [
     "ALWAYS_NAME",
     "BOOLEAN_COMBINE_NAME",
+    "HYBRID_NAME",
+    "Hybrid",
+    "HybridConfig",
     "MULTI_ARM_NAME",
     "MultiArm",
     "BOOLEAN_PARSE_NAME",
