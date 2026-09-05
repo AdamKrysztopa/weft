@@ -3989,14 +3989,14 @@ it is a config key and two call sites. Said here because nothing else records it
 
 - [x] **8.1** every query technique this engine registers is reachable as a rung somebody can run,
   and each rung is a *derivation* on the one below rather than a copy · owner `01` → Phase 8; `02`
-  §3 · turns on — · sha `—` · eleven documents, all `extends: retrieve-then-generate`, one or two
+  §3 · turns on — · sha `00bf24c` · eleven documents, all `extends: retrieve-then-generate`, one or two
   operator blocks each. **Requirement 3 stops being merely available**: `extends` was exercised by
   tests and by `manual/`'s worked example and by nothing a user could run. Every derived rung
   restates its own `route.summary`/`route.cost`, because `weft_retrieve.engine` merges a parent's
   `vars` and a rung that named none would advertise itself to `nearest-description` in its
   parent's words
 - [x] **8.2** a corpus can be indexed through a document rather than through four Python constants ·
-  owner `01` → Phase 8 · turns on — · sha `—` · six ingest documents, the first this project has
+  owner `01` → Phase 8 · turns on — · sha `00bf24c` · six ingest documents, the first this project has
   ever shipped. `weft index --pipeline` was a flag pointing at nothing, and every cleaner, the
   chunker, the embedder and the store were registered, listed by `weft plugins list`, and placeable
   by nobody. **Four of the six run end to end; two cannot, and finding that out is what this task
@@ -4006,7 +4006,7 @@ it is a config key and two call sites. Said here because nothing else records it
   walkable. A ticked box that claims the second thing would be exactly the ledger this file's own
   closing section refuses
 - [x] **8.3** the router is a name an operator selects, not a constant a package holds · owner
-  `03` → *Configuration*; `01` requirement 4 · turns on — · sha `—` · `[services] route`, resolved
+  `03` → *Configuration*; `01` requirement 4 · turns on — · sha `00bf24c` · `[services] route`, resolved
   the way `embed` and `store` already are. Found by writing 8.1: `threshold-ladder` and `always`
   were registered, listed and catalogued in `10` §1.5 and **placeable by nobody**, because a pack
   cannot contribute a second document under a name another pack holds and a project shipping its
@@ -4014,12 +4014,12 @@ it is a config key and two call sites. Said here because nothing else records it
   takes every `weft pipeline` command down until the file is renamed. That is `01` item 11's
   quoted reference defect with a live instance in this tree
 - [x] **8.4** a capability registered into a pipeline position without a rung fails the gate ·
-  owner `01` → *Fitness functions* item 16 · turns on **FF16** · sha `—` · scope derived from
+  owner `01` → *Fitness functions* item 16 · turns on **FF16** · sha `00bf24c` · scope derived from
   which distributions actually contribute a document, positions derived from `Stage in
   __mro__` — neither enumerated here. Waiver pinned at two `Renderer` names, and Phase 8's exit
   requires it **empty**, so the entry is a dated debt rather than a parking space
 - [x] **8.5** every rung is named where a reader looks for it — `10` for the technique claims,
-  `03` and `manual/` for `[services] route` · owner `10`; `03` · turns on — · sha `—`
+  `03` and `manual/` for `[services] route` · owner `10`; `03` · turns on — · sha `00bf24c`
 - [ ] **8.6** a question is answered from vector and full-text results **fused**, retrieved from
   the one store, and the fusion asks neither list where it came from · owner `01` → Phase 8;
   `10` §1.1's unbuilt `hybrid` row · turns on — · sha — · `weft_store`'s `search_text` is
@@ -4091,5 +4091,5 @@ it through `pytest.warns(...)` called as a bare statement, so it does nothing an
 (`reference/study/08-salvage.md:777-782`). A ledger whose ticks cite nothing is that test with a
 different subject.
 
-**As of the last edit to this file, the tree was at `04c1333`.** Tasks are ticked by the commit that
+**As of the last edit to this file, the tree was at `00bf24c`.** Tasks are ticked by the commit that
 closes them, so this line is the only place a date-shaped claim appears — everything else is a sha.
