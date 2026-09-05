@@ -117,8 +117,13 @@ gates (`L7.2`); a metadata API answered one way under an editable install and an
 real one, which is where it actually runs (`L7.6`); and a container brought down mid-task silently
 dropped 51 tests out of every run afterwards, green each time (`L7.8`). None of the three is a bad
 check — each is a correct check asked in the wrong environment. So before a green means anything:
-**the lockfile is the committed one, the container is up, and the skip count is the one you
-expect.** A skip is not a pass, and a suite that quietly shrank is the failure mode with no symptom.
+**the lockfile is the committed one, the container is up, the skip count is the one you
+expect, and the lint cache is cold.** A skip is not a pass, and a suite that quietly shrank is
+the failure mode with no symptom — `poe ci-checks` now fails a run whose `WEFT_DATABASE_URL`
+claims a database that then turns out to be unreachable, and clears ruff's cache before it
+starts. That last one is `L9.1` and it was the fourth instance: ruff caches per file, import
+classification is a fact about the tree, and two real errors sat under a green gate for four
+runs because the file whose verdict changed was not the file that changed.
 
 **And a green gate is not a working binary.** Before a task is done, run `weft` through its shipped
 entry point from a directory that is not this repository, including a failure path, and read what it

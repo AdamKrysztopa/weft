@@ -59,6 +59,13 @@ weft-otel = { workspace = true }
 [tool.poe.tasks]
 fmt = "ruff format ."
 lint = "ruff check ."
+# `docs/lessons.md` L9.1. Ruff caches a verdict **per file**, keyed on that file's own content —
+# but first-party/third-party import classification is a fact about the *tree*, so creating
+# `weft_eval/falsify.py` made a cached verdict wrong for a file that never changed, and nothing
+# invalidated it. Two real errors sat under a green gate across four runs. `ci-checks` is the
+# canonical gate and runs rarely, so it can afford to start cold; `ci-no-tests` is the fast
+# baseline and keeps its cache, which is what makes the two tasks mean different things.
+cold-lint-cache = "ruff clean"
 types = "pyright"
 arch = "pytest tests/architecture -q"
 test = "pytest tests -q"
@@ -87,8 +94,8 @@ cmd = "pytest examples -q --import-mode=importlib"
 PYTHONPATH = "examples/weft-example-chunker/src:examples/weft-example-command/src:examples/weft-example-graph/src:examples/weft-example-ingest/src:examples/weft-example-llm/src:examples/weft-example-metric/src:examples/weft-example-query/src"
 
 [tool.poe.tasks.ci-checks]
-sequence = ["fmt", "lint", "types", "arch", "test", "examples-tests"]
-help = "The canonical full gate. Every architecture check must be reachable from here."
+sequence = ["cold-lint-cache", "fmt", "lint", "types", "arch", "test", "examples-tests"]
+help = "The canonical full gate. Every architecture check must be reachable from here, and it starts from a cold lint cache — see cold-lint-cache."
 
 [tool.poe.tasks.kernel-isolated]
 help = "Fitness function 1, primary half: install weft-kernel alone and import it."

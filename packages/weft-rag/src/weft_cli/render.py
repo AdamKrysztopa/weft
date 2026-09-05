@@ -645,9 +645,18 @@ def _falsification_line(name: str, judgement: DifferenceJudgement) -> str:
     # be inventing the very measurement this command exists to withhold.
     if difference is None or spread is None:
         return f"  {name}: {judgement.verdict.value} — {judgement.reason}"
+    # Ledger 8.23, `docs/lessons.md` L8.17. A zero-width interval is not a number like the
+    # others: a genuinely deterministic system and a badly-sampled one record the identical
+    # thing, and the mistake runs in the over-confident direction, because every difference
+    # then falls outside it. Measured, not supposed — task 8.8's own demonstration scored
+    # 0.833 and 0.667 on identical inputs while each session's repetitions agreed exactly.
+    spread_note = ""
+    if spread.width == 0.0:
+        spread_note = " — zero-width: these repetitions did not vary at all, which is a claim "
+        spread_note += "about them, not proof the system is deterministic"
     return (
         f"  {name}: {judgement.verdict.value} (Δ{difference:+.3f}, baseline spread "
-        f"{spread.low:.3f}-{spread.high:.3f})"
+        f"{spread.low:.3f}-{spread.high:.3f}){spread_note}"
     )
 
 

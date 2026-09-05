@@ -5,7 +5,10 @@ definitions, its distribution metadata, its line counts — so they need the
 repository root rather than an installed package.
 """
 
+import shutil
+import subprocess
 import tomllib
+from functools import cache
 from pathlib import Path
 from typing import Final, cast
 
@@ -13,6 +16,37 @@ import pytest
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 KERNEL_ROOT: Final[Path] = REPO_ROOT / "packages" / "weft-kernel"
+
+
+@cache
+def tracked_files() -> frozenset[str]:
+    """Every path this repository tracks, as posix strings from `git ls-files`.
+
+    **The derivation, never a directory walk** — `docs/lessons.md` L8.8's scoping half: a walk
+    finds build output, virtualenvs and a stranger's checkout sitting in the tree, and a check
+    reading those is reporting on something other than this repository.
+
+    Shared here because it was written twice, in `test_ff17_citations_resolve.py` and
+    `test_pinned_external_facts.py`, and a third caller was about to restate it — which is the
+    open question `lessons-archive` `L7.7` left about `first_party_source_roots()` above,
+    arriving for a second helper. One copy also means one suppression: `git` is invoked with a
+    literal argv and no shell, `shutil.which` supplies the absolute path so nothing resolves
+    through `PATH`, and the alternative to running it at all is the directory walk this
+    function exists to avoid.
+
+    Cached for the session: `git ls-files` is a process spawn and the answer cannot change
+    while a test run is in flight.
+    """
+    git = shutil.which("git")
+    assert git is not None, "git is not on PATH, so nothing here can enumerate tracked files"
+    listing = subprocess.run(  # noqa: S603 — literal argv, no shell; see this docstring
+        [git, "ls-files", "-z"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    return frozenset(name for name in listing.split("\0") if name)
 
 
 @pytest.fixture(scope="session")

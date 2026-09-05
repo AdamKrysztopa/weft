@@ -1253,3 +1253,57 @@ def test_render_eval_compare_prints_no_delta_for_an_unjudgeable_metric() -> None
     assert rendered.stdout is not None
     assert "the baseline never measured 'ndcg@10'" in rendered.stdout
     assert "Δ" not in rendered.stdout
+
+
+def test_render_eval_compare_says_when_a_baseline_spread_is_zero_width() -> None:
+    """Ledger **8.23**, `docs/lessons.md` L8.17.
+
+    A zero-width interval and a badly-sampled one produce an identical record, and the
+    mistake runs in the over-confident direction: every later difference falls outside it.
+    Task 8.8's own demonstration hit this — the same corpus, document and deterministic
+    embedder scored 0.833 in one session and 0.667 in another, while each session's
+    repetitions agreed exactly. So a zero-width spread is printed as the claim it actually
+    is (the repetitions did not vary) rather than as a number like any other.
+    """
+    from weft_cli.eval_commands import EvalCompareCommandResult
+    from weft_cli.pipeline_diff import PipelineDiff
+    from weft_eval.falsify import BaselineSpread, DifferenceJudgement, Verdict
+
+    result = EvalCompareCommandResult(
+        run_a="run-a",
+        run_b="run-b",
+        corpus_matches=True,
+        model_versions_match=True,
+        active_distributions_match=True,
+        pipeline_diff=PipelineDiff(
+            a_name="base",
+            b_name="rung",
+            identical=False,
+            added_stages=(),
+            removed_stages=(),
+            changed_stages=(),
+            var_changes=(),
+            unapplied_operators_changed=False,
+            unplaced_contributions_changed=False,
+        ),
+        metrics_comparison={},
+        baseline_pipeline="base",
+        baseline_runs=("b1", "b2"),
+        falsification={
+            "map": DifferenceJudgement(
+                metric="map",
+                verdict=Verdict.OUTSIDE_BASELINE_SPREAD,
+                difference=0.11,
+                spread=BaselineSpread(metric="map", means=(0.5, 0.5), low=0.5, high=0.5),
+                reason="whatever",
+            )
+        },
+    )
+
+    rendered = render.render_outcome(Produced(value=cast("CommandResult", result)))
+
+    assert rendered.stdout is not None
+    # The words are not asserted, only that the zero-width case says *something* a reader
+    # can act on beyond the bare bounds — an assertion on exact prose would be a test of
+    # wording rather than of the claim.
+    assert "zero-width" in rendered.stdout.lower()

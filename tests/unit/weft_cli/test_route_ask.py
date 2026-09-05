@@ -47,6 +47,7 @@ from weft_kernel.payload import Outcome, Produced
 from weft_kernel.pipeline import StageDeclaration
 from weft_kernel.registry import Registry
 from weft_kernel.resolution import Contribution
+from weft_kernel.runner import StageCompositionError
 from weft_llm.client import NullSink
 from weft_llm.contract import LLMProvider
 from weft_llm.payload import TokenChunk
@@ -509,3 +510,77 @@ async def test_the_router_refuses_a_name_a_project_and_a_pack_both_declare(
             services=ServiceSelection(embed="fake-embed", store="fake-store"),
             sink=NullSink(),
         )
+
+
+async def test_a_router_that_cannot_accept_a_query_is_refused_by_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Ledger **8.18**, `docs/lessons.md` L8.16.
+
+    `run_routed_ask` hands its router a bare `Query`. `nearest-description` reads
+    `payload.query.text` off a `Scorecard`, so a router document without a `query-scorer`
+    ahead of it cannot work — and until this task it failed *inside the run* with
+    ``'route' failed: 'Query' object has no attribute 'query'``, an attribute error
+    surfacing through a stage-failure wrapper, naming neither the stage that needed a
+    `Scorecard` nor the stage that produces one.
+
+    That was invisible while only packs shipped routers, because the one router in existence
+    was the correct one. Task 8.12 lets a project author one, so this is now the first thing
+    somebody writing a router by hand meets. The information to refuse it has always been
+    present — every stage's contract is resolved before anything runs — it was simply never
+    compared against what the caller was about to pass.
+    """
+    # Arrange — the router `nearest-description` needs, minus the stage that feeds it.
+    monkeypatch.chdir(tmp_path)
+    pipelines = tmp_path / "pipelines"
+    pipelines.mkdir()
+    (pipelines / "scorerless.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "name": "scorerless",
+                "stages": [{"id": "route", "use": "nearest-description"}],
+            },
+            sort_keys=False,
+        )
+    )
+    # A routable target, so `nearest-description` gets past its own "nothing to select
+    # between" refusal and the router document actually runs — otherwise this test would
+    # pass for a reason that has nothing to do with the property under test.
+    (pipelines / "a-rung.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "name": "a-rung",
+                "vars": {"route.summary": "Answers without retrieving anything."},
+                "stages": [
+                    {"id": "retrieve", "use": "no-retrieval"},
+                    {"id": "fuse", "use": "single-list"},
+                    {"id": "pack", "use": "repack"},
+                    {
+                        "id": "generate",
+                        "use": "cited-answer",
+                        "with": {"when_no_evidence": "answer_from_memory"},
+                    },
+                ],
+            },
+            sort_keys=False,
+        )
+    )
+
+    # Act / Assert — a named resolution failure, before any stage runs.
+    with pytest.raises(StageCompositionError) as caught:
+        await run_routed_ask(
+            "anything",
+            registry=_registry(),
+            reports=(),
+            ctx=_ctx(),
+            llm=_llm(),
+            services=ServiceSelection(embed="fake-embed", store="fake-store", route="scorerless"),
+            sink=NullSink(),
+        )
+
+    # The message must name the stage and what it wanted, not a Python attribute — `01`
+    # requirement 5 and CLAUDE.md's loud-failure rule.
+    message = str(caught.value)
+    assert "route" in message
+    assert "Scorecard" in message
+    assert "has no attribute" not in message

@@ -648,22 +648,35 @@ class Runner:
         self._registry = registry
         self._process_cache: dict[tuple[str, type[object], str, str], object] = {}
 
-    def resolve(self, specs: Sequence[StageSpec], *, tenant_id: str) -> RunnablePipeline:
+    def resolve(
+        self,
+        specs: Sequence[StageSpec],
+        *,
+        tenant_id: str,
+        entry_type: type[object] | None = None,
+    ) -> RunnablePipeline:
         """Check plugin existence, `requires`/`provides`, `intact`/`destroys` and composition.
 
         Raises `UnknownPluginError` (via `Registry.entry`) if a plugin name
         was never registered; `UnmetRequiresError` if a `requires` goes
         unmet; `IntactViolationError` if an `intact` property was already
         destroyed by an earlier stage; or `StageCompositionError` if two
-        consecutive stages do not compose — task 1.13: three distinct
+        consecutive stages do not compose, or if the first stage cannot
+        accept `entry_type` — task 1.13: three distinct
         `PipelineResolutionError` subclasses, never one bare class covering
         all three (see that class's own docstring). Nothing here runs a
         stage — see `run`.
+
+        `entry_type`, defaulted to `None`, is what the caller is about to hand the
+        resolved pipeline's first stage. Leaving it `None` makes no claim about that —
+        the honest default for a `Runner` that does not know its own caller — and the
+        first stage's declared `In` goes unchecked exactly as before this parameter
+        existed.
         """
         if not specs:
             return RunnablePipeline(tenant_id=tenant_id, stages=())
 
-        _check_composition(specs)
+        _check_composition(specs, entry_type=entry_type)
 
         resolved: list[_ResolvedStage] = []
         provided_models: set[type[ExtModel]] = set()
@@ -1141,11 +1154,37 @@ def _stage_signature(contract: type[object]) -> tuple[object, object]:
     )
 
 
-def _check_composition(specs: Sequence[StageSpec]) -> None:
-    """Every consecutive pair of `specs` composes: one stage's `Out` is the next stage's `In`."""
+def _check_composition(
+    specs: Sequence[StageSpec], *, entry_type: type[object] | None = None
+) -> None:
+    """Every consecutive pair of `specs` composes: one stage's `Out` is the next stage's `In`.
+
+    `entry_type`, when given, is compared against the *first* spec's own expected `In` —
+    the value `_stage_signature` already computes for it below, previously discarded
+    because the `if previous is not None` guard skips the first iteration entirely. A
+    caller that knows what it is about to hand the pipeline can name it here; a caller
+    that does not (the default, `None`) is making no claim, and the first stage's own
+    `In` goes unchecked exactly as it always has.
+    """
     previous: tuple[str, object] | None = None
     for spec in specs:
         payload_type, produced_type = _stage_signature(spec.contract)
+        # `expected` is `entry_type` widened to `object` purely for the comparison:
+        # `_stage_signature` returns the `In`/`Out` pair as `object`, so comparing a
+        # `type[object]` against it directly reads to a type checker as two things that
+        # can never be equal. The parameter stays `type[object]` because that is what a
+        # caller actually has.
+        expected: object = entry_type
+        if previous is None and entry_type is not None and expected != payload_type:
+            raise StageCompositionError(
+                f"stage '{spec.id}' ({spec.contract.__name__}:{spec.name}) expects "
+                f"{payload_type!r}, but this pipeline will be handed {entry_type!r}.",
+                stages=(spec.id,),
+                remedy=(
+                    f"add a stage ahead of '{spec.id}' that produces {payload_type!r}, or "
+                    f"use a pipeline whose first stage expects {entry_type!r}."
+                ),
+            )
         if previous is not None:
             previous_id, previous_produced = previous
             if previous_produced != payload_type:

@@ -4265,7 +4265,7 @@ dispositions. None is gated, and none blocks Phase 7.
   name was unresolvable. The comment is repaired; nothing stops the next one. `tests/docs`'s
   tagged-sample harness is scoped to `manual/`, and pipeline documents carry more operator-facing
   advice per line than anything else this project ships
-- [ ] **8.18** a pipeline is refused when its first stage cannot accept what the caller will hand
+- [x] **8.18** a pipeline is refused when its first stage cannot accept what the caller will hand
   it · owner `02` §1; `lessons-archive` `L8.16` · turns on — · a router document without its
   `query-scorer` dies mid-run with `'Query' object has no attribute 'query'`. **Measured to be
   cheap, not assumed**: `StageSpec.contract` is resolved for every stage before anything runs, and
@@ -4273,11 +4273,11 @@ dispositions. None is gated, and none blocks Phase 7.
   and discards the entry type because there is nothing to compare it against — while the caller
   (`weft_cli.route_ask`) knows exactly what it is about to pass. Site it where
   `check_store_capabilities` already runs, once per resolved pipeline
-- [ ] **8.19** every path a workflow file references is a tracked file · owner `09` §1;
+- [x] **8.19** every path a workflow file references is a tracked file · owner `09` §1;
   `lessons-archive` `L7.2` · turns on — · an untracked `uv.lock` made the local gate and CI's
   clean-checkout gate two different gates, and nothing could have noticed. The nearest existing
   checks assert that `ci.yml` *invokes* a poe task, never that the paths it names resolve
-- [ ] **8.20** a gate run that silently shrank is not a green · owner `09` §1;
+- [x] **8.20** a gate run that silently shrank is not a green · owner `09` §1;
   `lessons-archive` `L7.8` · turns on — · a container brought down mid-task dropped 51 tests from
   every subsequent run, each green. No `poe` task reads pytest's own skip count. The check is
   small; the judgement is what count is expected, which is why this is a task and not a paragraph
@@ -4285,7 +4285,7 @@ dispositions. None is gated, and none blocks Phase 7.
   `lessons-archive` `L7.5` · turns on — · `manual/pack-author-guide.md` recorded an honest gap that
   had been closed for two weeks. A "gap"/"not yet"/"follow-up" paragraph citing a task id is
   mechanically checkable against that task's ticked state
-- [ ] **8.22** `exit_codes.py`'s two hand-maintained error tables are ratcheted · owner `03` →
+- [x] **8.22** `exit_codes.py`'s two hand-maintained error tables are ratcheted · owner `03` →
   *Output*; `lessons-archive` `L8.12` · turns on — · `_ALSO_RESOLUTION_FAILED` and
   `exit_code_for`'s local-import branch are pinned tuples of `WeftError` subclasses with **no**
   discovery walk behind them, unlike `NAME_RESOLUTION_FAMILY`, which has one. A miss does not fail
@@ -4294,7 +4294,7 @@ dispositions. None is gated, and none blocks Phase 7.
   hand-added exception, which is the seed a pinned set needs.
   **`NETWORK_CLIENTS` is deliberately excluded** — it catalogues external libraries, so no
   introspection can derive it, and it stays hand-maintained like `KERNEL_DEPENDENCIES`
-- [ ] **8.23** `weft eval compare` says when a baseline's interval is zero-width · owner `09` §4;
+- [x] **8.23** `weft eval compare` says when a baseline's interval is zero-width · owner `09` §4;
   `lessons-archive` `L8.17` · turns on — · a zero-width interval and a badly-sampled one produce an
   identical record, and the mistake runs in the over-confident direction. The rendering half is one
   line. The deeper half — requiring a baseline's repetitions to vary in whatever the store's

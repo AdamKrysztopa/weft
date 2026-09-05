@@ -211,6 +211,7 @@ async def run_routed_ask(
         store=store,
         catalogue=catalogue,
         contributions=contributions,
+        entry_type=Query,
     )
     route = _require(route, Route, pipeline=router_name, produced_by="routing")
 
@@ -457,6 +458,7 @@ async def _run_pipeline(
     store: object,
     catalogue: Mapping[str, Pipeline],
     contributions: tuple[Contribution, ...] = (),
+    entry_type: type[object] | None = None,
 ) -> object:
     """Resolve `pipeline` and run it — `catalogue`, added as a **repair**, is `resolve()`'s
     own `parents` lookup, not a one-entry `{pipeline.name: pipeline}` mapping: a derived
@@ -472,6 +474,14 @@ async def _run_pipeline(
     contributions`, threaded down from `run_routed_ask`/`run_named_ask`, on the identical
     footing `catalogue` already is: one caller assembles it, every `resolve()` call site
     receives it unchanged.
+
+    `entry_type` — ledger **8.18** — is what `payload` will be once execution reaches this
+    pipeline's first stage, so `weft_kernel.runner.Runner.resolve` can refuse a document
+    whose first stage cannot accept it before anything runs, naming the stage and the
+    mismatch by type rather than surfacing as an `AttributeError` mid-run. Defaulted to
+    `None` because only `run_routed_ask`'s own router resolution — the one call site that
+    hands a bare `Query` to a document that may not expect one — makes a claim about what
+    it is about to pass; every other call keeps making none.
     """
     contracts = contracts_for(
         pipeline, registry=registry, parents=catalogue, contributions=contributions
@@ -492,7 +502,7 @@ async def _run_pipeline(
         store_name=type(store).__name__,
         pipeline=pipeline.name,
     )
-    runnable = runner.resolve(specs, tenant_id=ctx.tenant_id)
+    runnable = runner.resolve(specs, tenant_id=ctx.tenant_id, entry_type=entry_type)
     outcome = await runner.run_once(runnable, payload, ctx)
     if not isinstance(outcome, Produced):
         raise PipelineDidNotProduceError(
