@@ -48,9 +48,20 @@ and was refused on its *first* request. So the window outlasts **four hours** at
 since the last attempt*, not *how much smaller this attempt is* — a rate limiter that counts
 attempts is unaffected by making the next one smaller.
 
-**Candidate home.** `.github/workflows/release.yml` — a first step that refuses to run when the
-previous release run failed less than N hours ago, so the rule is enforced where the action is
-taken rather than remembered by whoever types the tag. `L7.3` and this entry drain together.
+**Candidate home.** `.github/workflows/release.yml` — **built the same day**, before the drain: a
+`cooling-off` job that every publish job needs, refusing when the previous Release run failed less
+than twelve hours ago and naming the recovery, with a `workflow_dispatch` `force` override for the
+case where PyPI has granted an exception. Built rather than queued because the rule had already
+failed twice as prose and the third failure would have been a published version number. What is
+still open for the drain is whether the same shape belongs anywhere else — `L7.3` and this entry
+drain together.
+
+**Found while building it, and worth as much as the entry above.** The workflow could not be
+re-run after a partial failure at all: `v0.1.0` published four of twenty, so a full re-run would
+have failed on `File already exists` for exactly the four that *succeeded*. `uv publish
+--check-url` makes an upload idempotent and is now on both publish steps. A release job that
+cannot be re-run turns every partial failure into hand-work, which is how the seven-attempt retry
+loop L7.3 records became the only visible option.
 
 ### L7.8 — the gate I ran and the gate CI runs were not the same gate
 

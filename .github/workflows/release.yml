@@ -36,8 +36,65 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      force:
+        description: "Publish even if the previous release run failed inside the cooling window"
+        type: boolean
+        default: false
 
 jobs:
+  # **The cooling-off gate — `docs/lessons.md` L7.9, and it is here because remembering did not
+  # work.** PyPI rate-limits *project creation* and counts **attempts** over a rolling window
+  # rather than successes, so a rerun while the window is hot re-saturates it and moves recovery
+  # further away (L7.3). That rule was written down twice — in `lessons.md` and in a task brief —
+  # and was still walked into on 2026-09-05, because what got checked before tagging was the
+  # *size* of the next burst rather than the *time since the last one*. Those are different
+  # variables, and only one of them is what the limiter counts.
+  #
+  # So the rule is enforced where the action is taken. This job refuses the whole workflow when
+  # the previous Release run failed less than `COOLING_HOURS` ago, and says what to do instead.
+  # It costs one API call and it can be overridden — `workflow_dispatch` with `force: true` —
+  # because a legitimate reason to publish inside the window exists the moment PyPI grants a
+  # rate-limit exception, and a guard with no override is a guard people delete.
+  #
+  # Measured, so the number is not a guess: the saturating burst was `08:53Z` and a single
+  # request at `13:04Z` — four hours and eleven minutes later — was still refused on its first
+  # attempt. Twelve hours is therefore the floor, not the estimate.
+  cooling-off:
+    name: PyPI's window has been left alone
+    runs-on: ubuntu-latest
+    env:
+      COOLING_HOURS: "12"
+    steps:
+      - name: Refuse if the previous release run failed recently
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FORCED: ${{ inputs.force }}
+        run: |
+          set -euo pipefail
+          if [ "${FORCED:-false}" = "true" ]; then
+            echo "force: true — the cooling-off gate is being overridden deliberately."
+            exit 0
+          fi
+          last_failure=$(gh run list \
+            --repo "$GITHUB_REPOSITORY" \
+            --workflow release.yml \
+            --status failure \
+            --limit 1 \
+            --json createdAt \
+            --jq '.[0].createdAt // empty')
+          if [ -z "$last_failure" ]; then
+            echo "No previous failed Release run. Nothing to wait for."
+            exit 0
+          fi
+          elapsed=$(( ( $(date -u +%s) - $(date -u -d "$last_failure" +%s) ) / 3600 ))
+          echo "Previous failed Release run: $last_failure (${elapsed}h ago)."
+          if [ "$elapsed" -lt "$COOLING_HOURS" ]; then
+            echo "::error::Refusing to publish. The previous Release run failed ${elapsed}h ago and PyPI's project-creation limiter counts attempts over a rolling window, so publishing now is more likely to extend the block than to clear it — docs/lessons.md L7.3 and L7.9. Wait until ${COOLING_HOURS}h have passed, or ask PyPI support for a project-creation exception, then re-run. To override deliberately: workflow_dispatch with force=true."
+            exit 1
+          fi
+          echo "Window has been left alone for ${elapsed}h. Proceeding."
+
   # The five distributions that version on their own beside the default install — `09` §1's
   # "independent semver per distribution", narrowed to the names that still have one. `weft-kernel`
   # is here because fitness function 1 installs it alone and imports it, which is what proves the
@@ -46,6 +103,7 @@ jobs:
   # exactly as a third-party pack does — requirement 4 holding at the packaging layer.
   publish:
     name: publish ${{ matrix.distribution }}
+    needs: cooling-off
     runs-on: ubuntu-latest
     # An account-scoped API token in `PYPI_API_TOKEN`, not trusted publishing. The workflow was
     # written for the latter and this is a step down from it: a long-lived credential now exists,
@@ -93,10 +151,16 @@ jobs:
       - name: Build ${{ matrix.distribution }}
         run: uv build --package ${{ matrix.distribution }} --out-dir dist
 
+      # `--check-url` asks the index what is already there and skips those files, which is what
+      # makes this workflow **re-runnable at all**. Without it, `v0.1.0`'s aftermath was
+      # unrecoverable by rerun: four distributions had published, so a full re-run failed on
+      # `File already exists` for exactly the four that had *succeeded*, and only the
+      # rerun-failed-jobs path worked. A release job that cannot be re-run after a partial
+      # failure turns every partial failure into hand-work.
       - name: Publish ${{ matrix.distribution }}
         env:
           UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
-        run: uv publish dist/*
+        run: uv publish --check-url https://pypi.org/simple/ dist/*
 
   # The default install, last. `09` §1 settled on "a code-free distribution `weft` pinning one
   # exactly-tested combination"; since 2026-09-05 it *contains* that combination instead of
@@ -121,10 +185,11 @@ jobs:
       - name: Build ${{ matrix.distribution }}
         run: uv build --package ${{ matrix.distribution }} --out-dir dist
 
+      # Idempotent for the same reason as the job above — see its own comment.
       - name: Publish ${{ matrix.distribution }}
         env:
           UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
-        run: uv publish dist/*
+        run: uv publish --check-url https://pypi.org/simple/ dist/*
 
   # Ledger task 6.35. `09` section 5.2 says "the baseline run is published with the release", and
   # task 6.13 found that nothing published it: `eval/baselines/`, `eval/questions/` and
