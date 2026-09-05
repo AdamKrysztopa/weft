@@ -112,7 +112,7 @@ waiver constant pinned empty, so a waiver is a visible act in a diff rather than
 
 ## Skills in this repository
 
-Six live in `.claude/skills/`:
+Seven live in `.claude/skills/`:
 
 - **`phase-step`** — build one task of the current phase from `docs/build-ledger.md`, the
   phase-agnostic task list (`docs/06-phase-0-build.md` is Phase 0's own retired build order, cited
@@ -130,6 +130,11 @@ Six live in `.claude/skills/`:
 - **`reference-lift`** — port one catalogued idea correctly: verify at source, work out what the asset
   actually is (an ordering, a distinction, a taxonomy, a measurement, a scar), close the file, and
   write it fresh in the right distribution with the recorded corrections applied.
+- **`paper-to-plugin`** — a paper arrives and code is the destination: read it at source, settle the
+  **name before writing anything**, decide whether it is a plugin, a pipeline or a config field, write
+  it fresh, and put the divergence from the paper in the docstring beside the name that makes the
+  claim. A plugin name is a published claim about what the code does, and `10` is where that claim
+  is either true or knowingly withdrawn.
 
 ## Automation
 
