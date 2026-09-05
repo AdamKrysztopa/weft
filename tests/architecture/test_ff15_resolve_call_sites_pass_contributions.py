@@ -34,7 +34,12 @@ from typing import Final
 
 from .conftest import REPO_ROOT
 
-_CLI_SRC: Final[Path] = REPO_ROOT / "packages" / "weft-cli" / "src"
+#: `weft_cli`'s own source tree, wherever the distribution that ships it happens to live —
+#: `packages/weft-cli/src` until fourteen distributions became one on 2026-09-05, and
+#: `packages/weft-rag/src/weft_cli` since. Narrowed to the package rather than widened to the
+#: whole of `weft-rag/src`: the property is about the CLI's call sites, and sweeping thirteen
+#: other packages would change what this check claims.
+_CLI_SRC: Final[Path] = REPO_ROOT / "packages" / "weft-rag" / "src" / "weft_cli"
 
 
 def _imports_resolve_as_a_bare_name(tree: ast.Module) -> bool:

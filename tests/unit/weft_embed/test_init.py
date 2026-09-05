@@ -1,6 +1,6 @@
 """Unit tests for `weft_embed`'s `register()`.
 
-Mirrors `packages/weft-embed/src/weft_embed/__init__.py`. Covers the happy
+Mirrors `packages/weft-rag/src/weft_embed/__init__.py`. Covers the happy
 path (`register` adds `HashEmbedder` as `"hash"` under `Embedder`), and that
 an unknown settings field is refused the way every pack settings model in
 this project refuses one — `weft-embed` takes no settings, so `extra` fields

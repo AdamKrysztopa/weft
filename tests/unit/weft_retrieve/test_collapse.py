@@ -1,6 +1,6 @@
 """Unit tests for `weft_retrieve.collapse`.
 
-Mirrors `packages/weft-retrieve/src/weft_retrieve/collapse.py`. Task **2.33**: "one passage
+Mirrors `packages/weft-rag/src/weft_retrieve/collapse.py`. Task **2.33**: "one passage
 cannot occupy several slots of a ranking merely because it was indexed several ways,
 because collapsing a ranking to its parents is a named stage with a stated policy."
 Covers the happy path (a chunk indexed four ways — itself plus three hypothetical

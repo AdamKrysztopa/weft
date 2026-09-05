@@ -1,6 +1,6 @@
 """Unit tests for `weft_store.pgvector_store`'s `register()`.
 
-Mirrors `packages/weft-store/src/weft_store/pgvector_store.py`'s `register`.
+Mirrors `packages/weft-rag/src/weft_store/pgvector_store.py`'s `register`.
 Covers the happy path (`register` adds a `PgVectorStore` bound to this pack's
 settings as `"pgvector"` under `NodeStore`), and that a missing `dsn` is
 refused — it is the one field with no default, so it is the only shape a

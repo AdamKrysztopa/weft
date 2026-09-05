@@ -40,7 +40,7 @@ obligation, in exchange for the kernel reusing the instance across runs, cached 
 ## `Chunker`
 
 **Module:** `weft_chunk.contract`  
-**Registered by:** `weft-chunk`  
+**Registered by:** `weft-rag`  
 **Version:** `1.0.0`
 
 Splits `Node`s into smaller `Node`s, each one a child under `Node.derive`.
@@ -67,7 +67,7 @@ async def run(
 ## `Cleaner`
 
 **Module:** `weft_clean.contract`  
-**Registered by:** `weft-clean`  
+**Registered by:** `weft-rag`  
 **Version:** `1.0.0`
 
 Repairs or normalises a `Node`'s text, one node in, one repaired node out.
@@ -96,7 +96,7 @@ async def run(
 ## `Command`
 
 **Module:** `weft_command.contract`  
-**Registered by:** `weft-cli`  
+**Registered by:** `weft-rag`  
 **Version:** `2.1.0`
 
 One CLI-invoked action a pack contributes, registered exactly as it registers a retriever.
@@ -127,7 +127,7 @@ async def run(
 ## `ContextPacker`
 
 **Module:** `weft_retrieve.contract`  
-**Registered by:** `weft-retrieve`  
+**Registered by:** `weft-rag`  
 **Version:** `1.0.0`
 
 Chooses, orders and labels the evidence that will enter a prompt.
@@ -148,7 +148,7 @@ async def run(
 ## `Embedder`
 
 **Module:** `weft_embed.contract`  
-**Registered by:** `weft-embed`, `weft-openai`  
+**Registered by:** `weft-openai`, `weft-rag`  
 **Version:** `1.0.0`
 
 Attaches an embedding to each `Node` it is handed.
@@ -173,7 +173,7 @@ async def run(
 ## `Enhancer`
 
 **Module:** `weft_enhance.contract`  
-**Registered by:** `weft-enhance`  
+**Registered by:** `weft-rag`  
 **Version:** `1.0.0`
 
 Attaches a new, namespaced fact to each `Node` it is handed — never rewrites `content`.
@@ -200,7 +200,7 @@ async def run(
 ## `Expander`
 
 **Module:** `weft_index.contract`  
-**Registered by:** `weft-index`  
+**Registered by:** `weft-rag`  
 **Version:** `1.0.0`
 
 Every node handed in, unchanged, plus zero or more nodes derived from it.
@@ -229,7 +229,7 @@ async def run(
 ## `Extractor`
 
 **Module:** `weft_extract.contract`  
-**Registered by:** `weft-extract`, `weft-pdf`  
+**Registered by:** `weft-pdf`, `weft-rag`  
 **Version:** `1.0.0`
 
 Turns source documents into the first `Node`s of an ingest pipeline.
@@ -260,7 +260,7 @@ async def run(
 ## `Fuser`
 
 **Module:** `weft_retrieve.contract`  
-**Registered by:** `weft-retrieve`  
+**Registered by:** `weft-rag`  
 **Version:** `1.0.0`
 
 Collapses k ranked lists into one. The arity-reducing position, by definition.
@@ -281,7 +281,7 @@ async def run(
 ## `GenerationMetric`
 
 **Module:** `weft_eval.contract`  
-**Registered by:** `weft-eval`  
+**Registered by:** `weft-rag`  
 **Version:** `1.0.0`
 
 Scores one `GenerationSample` — a prediction against a reference (and, sometimes, context).
@@ -301,7 +301,7 @@ async def evaluate(
 ## `Generator`
 
 **Module:** `weft_generate.contract`  
-**Registered by:** `weft-generate`  
+**Registered by:** `weft-rag`  
 **Version:** `1.0.0`
 
 Turns packed, labelled evidence into an answer that cites it.
@@ -325,7 +325,7 @@ async def run(
 ## `LLMProvider`
 
 **Module:** `weft_llm.contract`  
-**Registered by:** `weft-llm`, `weft-openai`  
+**Registered by:** `weft-openai`, `weft-rag`  
 **Version:** `1.0.0`
 
 One vendor's (or one deterministic offline) answer to "continue this conversation".
@@ -360,7 +360,7 @@ async def stream(
 ## `MetadataFilter`
 
 **Module:** `weft_store.contract`  
-**Registered by:** `weft-qdrant`, `weft-store`  
+**Registered by:** `weft-qdrant`, `weft-rag`  
 **Version:** `2.0.0`
 
 A store that can evaluate a whole `Filter` against what it holds.
@@ -441,7 +441,7 @@ async def complete_structured(
 ## `NodeStore`
 
 **Module:** `weft_store.contract`  
-**Registered by:** `weft-qdrant`, `weft-store`  
+**Registered by:** `weft-qdrant`, `weft-rag`  
 **Version:** `2.0.0`
 
 The base every store implements all of — see the module docstring for `run`.
@@ -511,7 +511,7 @@ async def scan(
 ## `Prompt`
 
 **Module:** `weft_prompts.contract`  
-**Registered by:** `weft-eval`, `weft-generate`, `weft-index`, `weft-retrieve`  
+**Registered by:** `weft-rag`  
 **Version:** `1.0.0`
 
 One named, versioned, translatable question a model can be asked.
@@ -541,7 +541,7 @@ async def render(
 ## `QueryScorer`
 
 **Module:** `weft_retrieve.contract`  
-**Registered by:** `weft-retrieve`  
+**Registered by:** `weft-rag`  
 **Version:** `1.0.0`
 
 Measures a query along named dimensions. Decides nothing (ledger 2.25).
@@ -562,7 +562,7 @@ async def run(
 ## `QueryTransform`
 
 **Module:** `weft_retrieve.contract`  
-**Registered by:** `weft-retrieve`  
+**Registered by:** `weft-rag`  
 **Version:** `1.0.0`
 
 Rewrites, expands or narrows the set of queries that will be retrieved for.
@@ -587,7 +587,7 @@ async def run(
 ## `Reconcilable`
 
 **Module:** `weft_store.contract`  
-**Registered by:** `weft-qdrant`, `weft-store`  
+**Registered by:** `weft-qdrant`, `weft-rag`  
 **Version:** `2.0.0`
 
 Anything whose state can be made to agree with what the corpus actually holds — G7.
@@ -636,7 +636,7 @@ async def reconcile(
 ## `Renderer`
 
 **Module:** `weft_extract.contract`  
-**Registered by:** `weft-extract`  
+**Registered by:** `weft-rag`  
 **Version:** `1.0.0`
 
 Turns nodes into one rendered document in a named format.
@@ -677,7 +677,7 @@ async def run(
 ## `Reranker`
 
 **Module:** `weft_retrieve.contract`  
-**Registered by:** `weft-retrieve`  
+**Registered by:** `weft-rag`  
 **Version:** `1.0.0`
 
 Rescores one list against the question, and returns one list.
@@ -697,7 +697,7 @@ async def run(
 ## `RetrievalMetric`
 
 **Module:** `weft_eval.contract`  
-**Registered by:** `weft-eval`  
+**Registered by:** `weft-rag`  
 **Version:** `1.0.0`
 
 Scores one `RetrievalSample` — a ranked result against a relevance judgement.
@@ -717,7 +717,7 @@ async def evaluate(
 ## `Retriever`
 
 **Module:** `weft_retrieve.contract`  
-**Registered by:** `weft-retrieve`  
+**Registered by:** `weft-rag`  
 **Version:** `1.0.0`
 
 Turns queries into ranked lists — one per query per channel, never fused.
@@ -743,7 +743,7 @@ async def run(
 ## `RoutingPolicy`
 
 **Module:** `weft_retrieve.contract`  
-**Registered by:** `weft-retrieve`  
+**Registered by:** `weft-rag`  
 **Version:** `1.0.0`
 
 Turns a scorecard into a named pipeline. The second half of the router.
@@ -780,7 +780,7 @@ async def run(
 ## `SourceDeletable`
 
 **Module:** `weft_store.contract`  
-**Registered by:** `weft-qdrant`, `weft-store`  
+**Registered by:** `weft-qdrant`, `weft-rag`  
 **Version:** `2.0.0`
 
 Anything holding data that a source's deletion must reach — G7 (2026-08-21).
@@ -825,7 +825,7 @@ async def delete_source(
 ## `Sufficiency`
 
 **Module:** `weft_retrieve.contract`  
-**Registered by:** `weft-retrieve`  
+**Registered by:** `weft-rag`  
 **Version:** `1.0.0`
 
 Judges whether the evidence in hand answers the question. **Not a pipeline position.**
@@ -854,7 +854,7 @@ async def assess(
 ## `TextSearch`
 
 **Module:** `weft_store.contract`  
-**Registered by:** `weft-store`  
+**Registered by:** `weft-rag`  
 **Version:** `2.0.0`
 
 A store that can rank `Node`s by lexical match on their own text.
@@ -896,7 +896,7 @@ async def search_text(
 ## `VectorSearch`
 
 **Module:** `weft_store.contract`  
-**Registered by:** `weft-qdrant`, `weft-store`  
+**Registered by:** `weft-qdrant`, `weft-rag`  
 **Version:** `2.0.0`
 
 A store that can rank `Node`s by vector similarity. Never embeds — `02`: "stores never

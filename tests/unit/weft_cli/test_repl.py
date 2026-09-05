@@ -1,6 +1,6 @@
 """Unit tests for `weft_cli.repl`.
 
-Mirrors `packages/weft-cli/src/weft_cli/repl.py`. Task **3.4**: "the interactive session and the
+Mirrors `packages/weft-rag/src/weft_cli/repl.py`. Task **3.4**: "the interactive session and the
 one-shot invocation are the same commands with a different renderer, not two implementations."
 Drives the loop with scripted input (`monkeypatch.setattr(repl, "read_line", ...)`) and captured
 output (`capsys`) — never a real terminal, per this task's own brief: a REPL is testable by

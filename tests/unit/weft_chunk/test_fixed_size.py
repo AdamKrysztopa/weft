@@ -1,6 +1,6 @@
 """Unit tests for `weft_chunk.fixed_size`.
 
-Mirrors `packages/weft-chunk/src/weft_chunk/fixed_size.py`. Covers the happy
+Mirrors `packages/weft-rag/src/weft_chunk/fixed_size.py`. Covers the happy
 path (overlapping fixed-size windows, each carrying lineage back to its
 parent), the edge case of a node with empty content contributing no chunks
 while a batch that produces none at all answers `NothingToProduce`, and the

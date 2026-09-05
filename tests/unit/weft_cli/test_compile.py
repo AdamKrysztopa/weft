@@ -1,6 +1,6 @@
 """Unit tests for `weft_cli.compile`.
 
-Mirrors `packages/weft-cli/src/weft_cli/compile.py`. Covers the bridge task 2.4
+Mirrors `packages/weft-rag/src/weft_cli/compile.py`. Covers the bridge task 2.4
 builds between a resolved pipeline *document* and the `StageSpec` list
 `weft_kernel.runner.Runner.resolve` consumes — the contract mapping inferred from the
 registry rather than from a table, and the specs that mapping produces.

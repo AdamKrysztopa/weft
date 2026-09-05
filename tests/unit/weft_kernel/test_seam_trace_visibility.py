@@ -163,7 +163,7 @@ async def test_wrap_flush_produces_a_span_of_its_own(exporter: InMemorySpanExpor
 async def test_two_stages_run_one_after_another_land_in_one_trace(
     exporter: InMemorySpanExporter,
 ) -> None:
-    # Arrange — `packages/weft-cli/src/weft_cli/cli.py::run_command` wraps a whole `Command`
+    # Arrange — `packages/weft-rag/src/weft_cli/cli.py::run_command` wraps a whole `Command`
     # invocation through `seam.wrap` (`stage=f"command:{command_name}"`) and only then calls
     # into `Runner`, which wraps each stage the identical way; `Runner._run_one_batch` walks
     # its stages with a plain sequential `await`, never `asyncio.create_task`. Reproduced here

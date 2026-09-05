@@ -1,6 +1,6 @@
 """Unit tests for `weft_cli.session`.
 
-Mirrors `packages/weft-cli/src/weft_cli/session.py`. Task **3.5**: "session state is explicit
+Mirrors `packages/weft-rag/src/weft_cli/session.py`. Task **3.5**: "session state is explicit
 and inspectable, so the same command does not behave differently for two people running the
 same command." These cover the data half in isolation — a frozen model replaced wholesale on
 each change, never mutated in place — before `tests/unit/weft_cli/test_repl.py` proves the loop

@@ -1,6 +1,6 @@
 """Unit tests for `weft_cli.argparse_gen`.
 
-Mirrors `packages/weft-cli/src/weft_cli/argparse_gen.py`. Covers the one convention this module
+Mirrors `packages/weft-rag/src/weft_cli/argparse_gen.py`. Covers the one convention this module
 promises — a required field becomes a positional, a defaulted field becomes a `--flag` with
 underscores turned to hyphens, and a `StrEnum` becomes a `choices=`-bounded argument — plus the
 one refusal it deliberately makes: a field type nothing here knows how to parse.

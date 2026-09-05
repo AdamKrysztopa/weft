@@ -1,6 +1,6 @@
 """Unit tests for `weft_clean.whitespace`.
 
-Mirrors `packages/weft-clean/src/weft_clean/whitespace.py`. Covers the
+Mirrors `packages/weft-rag/src/weft_clean/whitespace.py`. Covers the
 happy path (runs of spaces collapsed, three-or-more blank lines folded to a
 paragraph break, edges trimmed), the edge case of already-clean text passing
 through unchanged, and the error case of an empty batch answering

@@ -1,6 +1,6 @@
 """Unit tests for `weft_llm.roles`.
 
-Mirrors `packages/weft-llm/src/weft_llm/roles.py`. Covers the happy path (a mapped role
+Mirrors `packages/weft-rag/src/weft_llm/roles.py`. Covers the happy path (a mapped role
 resolves to its provider and model), the edge case (an empty table is legitimate) and the
 error case (an unmapped role names itself and every role that *is* mapped).
 

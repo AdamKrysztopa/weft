@@ -91,7 +91,11 @@ from .conftest import str_list_at, table_at
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 KERNEL_DIR: Final[Path] = REPO_ROOT / "packages" / "weft-kernel"
-CHUNK_DIR: Final[Path] = REPO_ROOT / "packages" / "weft-chunk"
+#: The distribution that publishes the `Chunker` contract the example pack registers
+#: against — `weft-chunk` until 2026-09-05, and `weft-rag` since, which ships `weft_chunk`
+#: along with thirteen other packages. A stranger installs whatever publishes the contract,
+#: so this test installs whatever that is now.
+CHUNK_DIR: Final[Path] = REPO_ROOT / "packages" / "weft-rag"
 EXAMPLE_DIR: Final[Path] = REPO_ROOT / "examples" / "weft-example-chunker"
 PACKAGES_ROOT: Final[Path] = REPO_ROOT / "packages"
 TESTING_ROOT: Final[Path] = REPO_ROOT / "testing"

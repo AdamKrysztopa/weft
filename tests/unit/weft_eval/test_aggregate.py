@@ -1,6 +1,6 @@
 """Unit tests for `weft_eval.aggregate`.
 
-Mirrors `packages/weft-eval/src/weft_eval/aggregate.py`. Covers `aggregate()`'s exclusion-and-
+Mirrors `packages/weft-rag/src/weft_eval/aggregate.py`. Covers `aggregate()`'s exclusion-and-
 dispersion shape (happy path, the `n == 1` edge where `stdev` is `None` rather than a claimed
 `0.0`, and the all-excluded error case that refuses rather than averaging a fake zero) and
 `aggregate_report()`'s R5 check — a report key that disagrees with the name a metric actually

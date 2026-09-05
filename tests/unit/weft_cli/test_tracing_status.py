@@ -1,6 +1,6 @@
 """Tests for `weft_cli.tracing_status`.
 
-Mirrors `packages/weft-cli/src/weft_cli/tracing_status.py`. `opentelemetry.trace.
+Mirrors `packages/weft-rag/src/weft_cli/tracing_status.py`. `opentelemetry.trace.
 get_tracer_provider` is monkeypatched rather than read for real — the same discipline
 `tests/unit/weft_otel/test_register.py` documents: the real one is process-global and
 set-once, and this file has no business depending on what order the rest of the suite left

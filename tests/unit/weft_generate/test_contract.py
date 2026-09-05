@@ -1,6 +1,6 @@
 """Unit tests for `weft_generate.contract`.
 
-Mirrors `packages/weft-generate/src/weft_generate/contract.py`. Covers a full
+Mirrors `packages/weft-rag/src/weft_generate/contract.py`. Covers a full
 resolve-then-run of a `Generator` through `weft_kernel.runner`, capability derived by
 `isinstance` rather than declared, and the version constant fitness function 6
 binds to this distribution's own version.

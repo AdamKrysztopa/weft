@@ -1,6 +1,6 @@
 """Unit tests for `weft_cli.eval_scoring`.
 
-Mirrors `packages/weft-cli/src/weft_cli/eval_scoring.py`. `load_questions` is exercised against
+Mirrors `packages/weft-rag/src/weft_cli/eval_scoring.py`. `load_questions` is exercised against
 real files on disk — the happy path (a well-formed JSON list round-trips into `Question`s) and
 the error case (malformed JSON refuses naming the path, mirroring `weft_cli.ask`'s own tests'
 convention of fake embedder/store stand-ins). `score_pipeline` is exercised against fakes for

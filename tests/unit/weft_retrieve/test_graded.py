@@ -1,6 +1,6 @@
 """Unit tests for `weft_retrieve.graded`.
 
-Mirrors `packages/weft-retrieve/src/weft_retrieve/graded.py`. Ledger **2.21**: "per-document
+Mirrors `packages/weft-rag/src/weft_retrieve/graded.py`. Ledger **2.21**: "per-document
 relevance grading is a reusable post-retrieval filter." This module covers the happy path
 (three hits, two batches, one grade below the floor filtered out and the survivors renumbered
 contiguously), the edge case (an empty ranking comes back untouched and no model is called,

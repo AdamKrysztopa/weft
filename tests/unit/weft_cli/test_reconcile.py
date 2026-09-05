@@ -1,6 +1,6 @@
 """Unit tests for `weft_cli.reconcile`.
 
-Mirrors `packages/weft-cli/src/weft_cli/reconcile.py`. Task **5.1b**: "derived state converges
+Mirrors `packages/weft-rag/src/weft_cli/reconcile.py`. Task **5.1b**: "derived state converges
 on what the corpus actually holds, whatever was missed and whoever was not installed at the
 time: `Reconcilable` is published, `weft reconcile` runs it, and a pass interrupted part-way
 resumes rather than restarting."

@@ -1,6 +1,6 @@
 """Unit tests for `weft_clean.hyphenation`.
 
-Mirrors `packages/weft-clean/src/weft_clean/hyphenation.py`. Covers the
+Mirrors `packages/weft-rag/src/weft_clean/hyphenation.py`. Covers the
 happy path (a word broken across a line by a trailing hyphen is rejoined,
 lineage carried), the edge case of text with no broken word at all (passed
 through unchanged, still a new derived node), and the error case of an empty

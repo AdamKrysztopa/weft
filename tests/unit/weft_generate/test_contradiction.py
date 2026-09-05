@@ -1,6 +1,6 @@
 """Unit tests for `weft_generate.contradiction`.
 
-Mirrors `packages/weft-generate/src/weft_generate/contradiction.py`. Task **2.22**,
+Mirrors `packages/weft-rag/src/weft_generate/contradiction.py`. Task **2.22**,
 `docs/build-ledger.md`: "a query about whether the sources agree is answerable, and a
 critic that could not look says so instead of reporting agreement." The load-bearing
 test here is `test_a_critic_whose_cascade_cannot_be_parsed_reports_undetermined_not_

@@ -1,6 +1,6 @@
 """Unit tests for `weft_eval.pricing`.
 
-Mirrors `packages/weft-eval/src/weft_eval/pricing.py`. Covers the happy path (a known model
+Mirrors `packages/weft-rag/src/weft_eval/pricing.py`. Covers the happy path (a known model
 prices to the expected total, `rates_as_of` carried alongside it), the edge case (an empty call
 list prices to `$0.00`, not an error), and the error-shaped case that is not an exception here by
 design (an unpriced model is excluded and counted, never silently folded in at `$0`) — matching

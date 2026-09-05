@@ -42,7 +42,7 @@ from .conftest import REPO_ROOT
 _EXCLUDED_DIR_NAMES: Final[frozenset[str]] = frozenset({"dist", "build", "__pycache__", "reference"})
 
 #: The one call site fitness function 7(a) requires — `docs/06-phase-0-build.md` step 9.
-_EXPECTED_PATH: Final[Path] = REPO_ROOT / "packages" / "weft-cli" / "src" / "weft_cli" / "cli.py"
+_EXPECTED_PATH: Final[Path] = REPO_ROOT / "packages" / "weft-rag" / "src" / "weft_cli" / "cli.py"
 
 
 def test_asyncio_run_appears_exactly_once_at_the_cli_entry_point() -> None:

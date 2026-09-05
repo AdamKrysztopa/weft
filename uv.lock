@@ -16,26 +16,12 @@ resolution-markers = [
 [manifest]
 members = [
     "weft-canary",
-    "weft-chunk",
-    "weft-clean",
-    "weft-cli",
-    "weft-command",
-    "weft-embed",
-    "weft-enhance",
-    "weft-eval",
-    "weft-extract",
-    "weft-generate",
-    "weft-index",
     "weft-kernel",
-    "weft-llm",
     "weft-openai",
     "weft-otel",
     "weft-pdf",
-    "weft-prompts",
     "weft-qdrant",
     "weft-rag",
-    "weft-retrieve",
-    "weft-store",
 ]
 constraints = [{ name = "qdrant-client", specifier = "<1.14" }]
 
@@ -2602,190 +2588,6 @@ requires-dist = [
 ]
 
 [[package]]
-name = "weft-chunk"
-version = "1.0.0"
-source = { editable = "packages/weft-chunk" }
-dependencies = [
-    { name = "weft-kernel" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "weft-kernel", editable = "packages/weft-kernel" }]
-
-[[package]]
-name = "weft-clean"
-version = "1.0.0"
-source = { editable = "packages/weft-clean" }
-dependencies = [
-    { name = "ftfy" },
-    { name = "weft-kernel" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "ftfy", specifier = ">=6.2" },
-    { name = "weft-kernel", editable = "packages/weft-kernel" },
-]
-
-[[package]]
-name = "weft-cli"
-version = "0.1.0"
-source = { editable = "packages/weft-cli" }
-dependencies = [
-    { name = "opentelemetry-api" },
-    { name = "packaging" },
-    { name = "pyyaml" },
-    { name = "weft-chunk" },
-    { name = "weft-command" },
-    { name = "weft-embed" },
-    { name = "weft-eval" },
-    { name = "weft-extract" },
-    { name = "weft-generate" },
-    { name = "weft-kernel" },
-    { name = "weft-llm" },
-    { name = "weft-prompts" },
-    { name = "weft-retrieve" },
-    { name = "weft-store" },
-]
-
-[package.optional-dependencies]
-reference = [
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "opentelemetry-api" },
-    { name = "packaging", specifier = ">=24" },
-    { name = "pyyaml" },
-    { name = "ruff", marker = "extra == 'reference'", specifier = ">=0.16.0" },
-    { name = "weft-chunk", editable = "packages/weft-chunk" },
-    { name = "weft-command", editable = "packages/weft-command" },
-    { name = "weft-embed", editable = "packages/weft-embed" },
-    { name = "weft-eval", editable = "packages/weft-eval" },
-    { name = "weft-extract", editable = "packages/weft-extract" },
-    { name = "weft-generate", editable = "packages/weft-generate" },
-    { name = "weft-kernel", editable = "packages/weft-kernel" },
-    { name = "weft-llm", editable = "packages/weft-llm" },
-    { name = "weft-prompts", editable = "packages/weft-prompts" },
-    { name = "weft-retrieve", editable = "packages/weft-retrieve" },
-    { name = "weft-store", editable = "packages/weft-store" },
-]
-provides-extras = ["reference"]
-
-[[package]]
-name = "weft-command"
-version = "2.1.0"
-source = { editable = "packages/weft-command" }
-dependencies = [
-    { name = "weft-kernel" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "weft-kernel", editable = "packages/weft-kernel" }]
-
-[[package]]
-name = "weft-embed"
-version = "1.0.0"
-source = { editable = "packages/weft-embed" }
-dependencies = [
-    { name = "weft-kernel" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "weft-kernel", editable = "packages/weft-kernel" }]
-
-[[package]]
-name = "weft-enhance"
-version = "1.0.0"
-source = { editable = "packages/weft-enhance" }
-dependencies = [
-    { name = "weft-kernel" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "weft-kernel", editable = "packages/weft-kernel" }]
-
-[[package]]
-name = "weft-eval"
-version = "1.0.0"
-source = { editable = "packages/weft-eval" }
-dependencies = [
-    { name = "rouge-score" },
-    { name = "weft-embed" },
-    { name = "weft-kernel" },
-    { name = "weft-llm" },
-    { name = "weft-prompts" },
-]
-
-[package.optional-dependencies]
-bertscore = [
-    { name = "bert-score" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "bert-score", marker = "extra == 'bertscore'", specifier = ">=0.3" },
-    { name = "rouge-score", specifier = ">=0.1" },
-    { name = "weft-embed", editable = "packages/weft-embed" },
-    { name = "weft-kernel", editable = "packages/weft-kernel" },
-    { name = "weft-llm", editable = "packages/weft-llm" },
-    { name = "weft-prompts", editable = "packages/weft-prompts" },
-]
-provides-extras = ["bertscore"]
-
-[[package]]
-name = "weft-extract"
-version = "1.0.0"
-source = { editable = "packages/weft-extract" }
-dependencies = [
-    { name = "weft-kernel" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "weft-kernel", editable = "packages/weft-kernel" }]
-
-[[package]]
-name = "weft-generate"
-version = "1.0.0"
-source = { editable = "packages/weft-generate" }
-dependencies = [
-    { name = "weft-kernel" },
-    { name = "weft-llm" },
-    { name = "weft-prompts" },
-    { name = "weft-retrieve" },
-    { name = "weft-store" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "weft-kernel", editable = "packages/weft-kernel" },
-    { name = "weft-llm", editable = "packages/weft-llm" },
-    { name = "weft-prompts", editable = "packages/weft-prompts" },
-    { name = "weft-retrieve", editable = "packages/weft-retrieve" },
-    { name = "weft-store", editable = "packages/weft-store" },
-]
-
-[[package]]
-name = "weft-index"
-version = "1.0.0"
-source = { editable = "packages/weft-index" }
-dependencies = [
-    { name = "weft-embed" },
-    { name = "weft-kernel" },
-    { name = "weft-llm" },
-    { name = "weft-prompts" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "weft-embed", editable = "packages/weft-embed" },
-    { name = "weft-kernel", editable = "packages/weft-kernel" },
-    { name = "weft-llm", editable = "packages/weft-llm" },
-    { name = "weft-prompts", editable = "packages/weft-prompts" },
-]
-
-[[package]]
 name = "weft-kernel"
 version = "0.1.0"
 source = { editable = "packages/weft-kernel" }
@@ -2801,33 +2603,20 @@ requires-dist = [
 ]
 
 [[package]]
-name = "weft-llm"
-version = "1.0.0"
-source = { editable = "packages/weft-llm" }
-dependencies = [
-    { name = "weft-kernel" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "weft-kernel", editable = "packages/weft-kernel" }]
-
-[[package]]
 name = "weft-openai"
 version = "0.1.0"
 source = { editable = "packages/weft-openai" }
 dependencies = [
     { name = "openai" },
-    { name = "weft-embed" },
     { name = "weft-kernel" },
-    { name = "weft-llm" },
+    { name = "weft-rag" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "openai", specifier = ">=3.1" },
-    { name = "weft-embed", editable = "packages/weft-embed" },
     { name = "weft-kernel", editable = "packages/weft-kernel" },
-    { name = "weft-llm", editable = "packages/weft-llm" },
+    { name = "weft-rag", editable = "packages/weft-rag" },
 ]
 
 [[package]]
@@ -2859,31 +2648,16 @@ source = { editable = "packages/weft-pdf" }
 dependencies = [
     { name = "pdfplumber" },
     { name = "pypdf" },
-    { name = "weft-extract" },
     { name = "weft-kernel" },
+    { name = "weft-rag" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "pdfplumber", specifier = ">=0.11.10" },
     { name = "pypdf", specifier = ">=6.16" },
-    { name = "weft-extract", editable = "packages/weft-extract" },
     { name = "weft-kernel", editable = "packages/weft-kernel" },
-]
-
-[[package]]
-name = "weft-prompts"
-version = "1.0.0"
-source = { editable = "packages/weft-prompts" }
-dependencies = [
-    { name = "weft-kernel" },
-    { name = "weft-llm" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "weft-kernel", editable = "packages/weft-kernel" },
-    { name = "weft-llm", editable = "packages/weft-llm" },
+    { name = "weft-rag", editable = "packages/weft-rag" },
 ]
 
 [[package]]
@@ -2893,91 +2667,50 @@ source = { editable = "packages/weft-qdrant" }
 dependencies = [
     { name = "qdrant-client" },
     { name = "weft-kernel" },
-    { name = "weft-store" },
+    { name = "weft-rag" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "qdrant-client", specifier = ">=1.12" },
     { name = "weft-kernel", editable = "packages/weft-kernel" },
-    { name = "weft-store", editable = "packages/weft-store" },
+    { name = "weft-rag", editable = "packages/weft-rag" },
 ]
 
 [[package]]
 name = "weft-rag"
-version = "0.1.0"
+version = "2.1.0"
 source = { editable = "packages/weft-rag" }
 dependencies = [
-    { name = "weft-chunk" },
-    { name = "weft-clean" },
-    { name = "weft-cli" },
-    { name = "weft-command" },
-    { name = "weft-embed" },
-    { name = "weft-enhance" },
-    { name = "weft-eval" },
-    { name = "weft-extract" },
-    { name = "weft-generate" },
-    { name = "weft-index" },
-    { name = "weft-kernel" },
-    { name = "weft-llm" },
-    { name = "weft-prompts" },
-    { name = "weft-retrieve" },
-    { name = "weft-store" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "weft-chunk", editable = "packages/weft-chunk" },
-    { name = "weft-clean", editable = "packages/weft-clean" },
-    { name = "weft-cli", editable = "packages/weft-cli" },
-    { name = "weft-command", editable = "packages/weft-command" },
-    { name = "weft-embed", editable = "packages/weft-embed" },
-    { name = "weft-enhance", editable = "packages/weft-enhance" },
-    { name = "weft-eval", editable = "packages/weft-eval" },
-    { name = "weft-extract", editable = "packages/weft-extract" },
-    { name = "weft-generate", editable = "packages/weft-generate" },
-    { name = "weft-index", editable = "packages/weft-index" },
-    { name = "weft-kernel", editable = "packages/weft-kernel" },
-    { name = "weft-llm", editable = "packages/weft-llm" },
-    { name = "weft-prompts", editable = "packages/weft-prompts" },
-    { name = "weft-retrieve", editable = "packages/weft-retrieve" },
-    { name = "weft-store", editable = "packages/weft-store" },
-]
-
-[[package]]
-name = "weft-retrieve"
-version = "1.0.0"
-source = { editable = "packages/weft-retrieve" }
-dependencies = [
-    { name = "weft-embed" },
-    { name = "weft-kernel" },
-    { name = "weft-llm" },
-    { name = "weft-prompts" },
-    { name = "weft-store" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "weft-embed", editable = "packages/weft-embed" },
-    { name = "weft-kernel", editable = "packages/weft-kernel" },
-    { name = "weft-llm", editable = "packages/weft-llm" },
-    { name = "weft-prompts", editable = "packages/weft-prompts" },
-    { name = "weft-store", editable = "packages/weft-store" },
-]
-
-[[package]]
-name = "weft-store"
-version = "2.0.0"
-source = { editable = "packages/weft-store" }
-dependencies = [
+    { name = "ftfy" },
+    { name = "opentelemetry-api" },
+    { name = "packaging" },
     { name = "pgvector" },
     { name = "psycopg", extra = ["binary"] },
+    { name = "pyyaml" },
+    { name = "rouge-score" },
     { name = "weft-kernel" },
+]
+
+[package.optional-dependencies]
+bertscore = [
+    { name = "bert-score" },
+]
+reference = [
+    { name = "ruff" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "bert-score", marker = "extra == 'bertscore'", specifier = ">=0.3" },
+    { name = "ftfy", specifier = ">=6.2" },
+    { name = "opentelemetry-api" },
+    { name = "packaging", specifier = ">=24" },
     { name = "pgvector", specifier = ">=0.3" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
+    { name = "pyyaml" },
+    { name = "rouge-score", specifier = ">=0.1" },
+    { name = "ruff", marker = "extra == 'reference'", specifier = ">=0.16.0" },
     { name = "weft-kernel", editable = "packages/weft-kernel" },
 ]
+provides-extras = ["bertscore", "reference"]

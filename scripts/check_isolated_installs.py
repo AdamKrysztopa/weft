@@ -33,10 +33,24 @@ def _build(name: str, out_dir: Path) -> subprocess.CompletedProcess[str]:
 
 
 def _install_and_check(member: Member, wheelhouse: Path) -> subprocess.CompletedProcess[str]:
-    if member.module is None:
+    """Install one distribution alone into a clean environment and import everything it ships.
+
+    **What this covers for the fourteen packs inside `weft-rag`, and how it is weaker.** Task 6.6
+    generalised fitness function 1 to every published distribution: each installs alone and
+    imports. Fourteen of them stopped being separately installable on 2026-09-05, so what they
+    get instead is this — every module `weft-rag` ships, imported from `weft-rag` installed
+    alone. That still catches an import that needs the workspace, a path dependency or an
+    undeclared third-party package, which is what the check was for. What it can no longer catch
+    is one pack depending on another *without declaring it*, because there is no longer a
+    declaration between them to omit: `weft_generate` importing `weft_retrieve` is now an
+    intra-wheel import and always resolves. That is a real loss of coverage and it is stated
+    here rather than counted as the same check.
+    """
+    if not member.modules:
         probe = "print('no module to import — ships no code')"
     else:
-        probe = f"import {member.module}; print('{member.name} imports standalone')"
+        imports = "; ".join(f"import {module}" for module in member.modules)
+        probe = f"{imports}; print('{member.name} imports standalone ({len(member.modules)})')"
 
     command = [
         "uv",
@@ -93,14 +107,13 @@ def main() -> int:
             sys.stderr.write(checked.stderr)
 
             if checked.returncode == 0:
-                if member.module is None:
+                if not member.modules:
                     sys.stdout.write(
                         f"{member.name}: installed alone, ships no code — nothing to import.\n"
                     )
                 else:
-                    sys.stdout.write(
-                        f"{member.name}: installs alone and imports {member.module}.\n"
-                    )
+                    named = ", ".join(member.modules)
+                    sys.stdout.write(f"{member.name}: installs alone and imports {named}.\n")
             else:
                 sys.stderr.write(
                     f"\n{member.name} does not install and import in a clean environment. It "

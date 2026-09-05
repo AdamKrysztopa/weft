@@ -1,6 +1,6 @@
 """Unit tests for `weft_eval`'s `register()`.
 
-Mirrors `packages/weft-eval/src/weft_eval/__init__.py`. Covers the happy path (every one of the
+Mirrors `packages/weft-rag/src/weft_eval/__init__.py`. Covers the happy path (every one of the
 21 task-4.2 metrics plus task 4.1's own demonstration registers, under the right one of
 `GenerationMetric`/`RetrievalMetric`, and the 6 judge prompts register under `Prompt`), the count
 (exactly 22 metrics — 21 plus the demonstration — and 6 prompts, so a metric silently dropped from

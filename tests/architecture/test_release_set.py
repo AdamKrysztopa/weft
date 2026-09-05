@@ -1,24 +1,42 @@
-"""The release unit is a named set, not a wheel — ledger task **6.1**, `09` §1 (settled by G10).
+"""The default install is one wheel, and what it ships is a decision — `09` §1, re-settled.
 
-`docs/09-release.md` §1: the unit of release is **independent semver per distribution plus a named
-release set** — "a code-free distribution `weft` pinning one exactly-tested combination". This file
-is that obligation made checkable, and it is deliberately not one of fitness function 10's two
-clauses: 10(a) compares the *publish job's* arguments against the workspace, which is a different
-question from whether the release set says what was tested together.
+`docs/09-release.md` §1 settled at G10 (2026-08-22) on "independent semver per distribution plus a
+named release set" — a code-free `weft-rag` pinning one exactly-tested combination. **That is not
+what ships any more.** `v0.1.0`'s first contact with a real index found the cost of twenty names,
+and G10 was reopened: `weft-rag` now *contains* the fourteen packs rather than pinning them, and
+five distributions publish alongside it.
 
-**Why an exact pin and not a range.** §1's own argument: bounds say what is *compatible*, and only a
-pinned set says what was *tested together*. Every distribution in this tree already declares
-`>=X,<MAJOR+1` on each sibling — G9's enforcement rule landed in Phase 5 — so a release set
-declaring ranges would restate what is already there and answer nobody's question.
+**What that does to this file.** Every assertion here used to be about pins — that they were exact,
+that they matched each distribution's own declared version, that nothing beside the set was in it. A
+wheel that contains its members needs none of that: they cannot disagree about a version, because
+there is only one version, and there is no pin left to drift. What the change does *not* remove is
+the obligation those pins existed to discharge — that **what ships is a decision rather than an
+accident** — and that obligation lands one file over. `weft-rag`'s hand-written
+`[tool.hatch.build.targets.wheel] packages` list is now the thing that can silently disagree with
+the source tree beside it: a module added under `packages/weft-rag/src/` and not listed there is not
+shipped, no import in this repository notices, and every other test goes on passing while an
+installed user gets `ModuleNotFoundError`. That is precisely the shape `docs/lessons.md` L5.6
+requires a check for, and that comparison is the core of this file now.
 
-**Why the pins are read against each distribution's own `pyproject.toml`.** Two sources that can
-genuinely disagree, which is what `docs/lessons.md` L5.6 requires of any check: the set is
-hand-written and the versions are not, so a pack bumped without the set following it fails here.
-A check that derived the pins from the same files it compares them to could not fail at all.
+**The two sources, and why they can genuinely disagree.** The first is `packages/weft-rag/src/*`,
+walked from the filesystem. The second is the `packages = [...]` list a person typed into
+`packages/weft-rag/pyproject.toml`, and the `[project.entry-points."weft.packs"]` table beside it.
+Neither is derived from the other. A check that computed the list from the directory it compares it
+to could not fail at all, which is the whole reason the list is not a glob.
+
+**What is deliberately not here.** `09` §1's own worked example: a third-party pack "would not be in
+the release set and would install beside it, exactly as `weft-store-qdrant` does". The first-party
+distributions that are the same kind of thing install beside it too — `weft-qdrant` (an alternative
+backend), `weft-openai` (a credentialed provider), `weft-pdf` (an optional file format), `weft-otel`
+(an observability add-on), and `weft-kernel`, which stays separate because fitness function 1
+installs it alone and imports it. None of the four add-ons is needed to index a directory and query
+it, which is what the default install has to be able to promise. `testing/weft-canary` exists to be
+*refused* by discovery (fitness function 8) and must never reach an index at all.
 """
 
 from __future__ import annotations
 
+import re
 import tomllib
 from importlib import metadata
 from pathlib import Path
@@ -30,7 +48,7 @@ from weft_kernel.discovery import PackStatus, discover
 from weft_kernel.registry import Registry
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_RELEASE_SET = _REPO_ROOT / "packages" / "weft-rag" / "pyproject.toml"
+_DEFAULT_INSTALL = _REPO_ROOT / "packages" / "weft-rag" / "pyproject.toml"
 _PACKAGES = _REPO_ROOT / "packages"
 
 #: Structurally valid and never dialled. `weft-store`'s `register()` only partial-binds
@@ -41,14 +59,10 @@ _PACKAGES = _REPO_ROOT / "packages"
 #: rename there a failure here.
 _PLACEHOLDER_DSN = "postgresql://release-set-check/placeholder"
 
-#: Distributions that install *beside* the release set rather than in it — `09` §1's own worked
-#: example says a third-party pack "would not be in the release set and would install beside it,
-#: exactly as `weft-store-qdrant` does", and these are the first-party members that are the same
-#: kind of thing: an alternative backend, a credentialed provider, an optional file format, and an
-#: observability add-on. None of them is needed to index a directory and query it, which is what
-#: the release set has to be able to promise.
-_INSTALLS_BESIDE = frozenset(
-    {"weft-qdrant", "weft-openai", "weft-pdf", "weft-otel", "weft-canary", "weft-rag"}
+#: Distributions that install *beside* the default install rather than inside it — see the module
+#: docstring. `weft-rag` itself is here so the set can be subtracted from `packages/*` in one step.
+_INSTALLS_BESIDE: Final[frozenset[str]] = frozenset(
+    {"weft-kernel", "weft-qdrant", "weft-openai", "weft-pdf", "weft-otel", "weft-rag"}
 )
 
 
@@ -61,121 +75,183 @@ def _project(path: Path) -> dict[str, Any]:
     return cast("dict[str, Any]", _toml(path)["project"])
 
 
-def _pins() -> dict[str, str]:
-    """`{distribution: pinned version}` read off the release set's own dependency list."""
-    pins: dict[str, str] = {}
-    for requirement in cast("list[str]", _project(_RELEASE_SET)["dependencies"]):
-        name, _, version = requirement.partition("==")
-        pins[name.strip()] = version.strip()
-    return pins
-
-
-def test_the_release_set_exists_and_is_named_weft_rag() -> None:
-    # Assert
-    assert _RELEASE_SET.is_file(), f"{_RELEASE_SET} is the release set G10 settled on (`09` §1)"
-    assert _project(_RELEASE_SET)["name"] == "weft-rag"
-
-
-def test_the_release_set_ships_no_code() -> None:
-    """`09` §1: "The meta-distribution ships **no code**. If it ships code it is a pack, and it
-    will accumulate the convenience shims that a kernel budget exists to prevent."
-    """
-    # Act
-    package_dir = _RELEASE_SET.parent
-    python_files = sorted(path.name for path in package_dir.rglob("*.py"))
-
-    # Assert
-    assert python_files == []
-    assert not (package_dir / "src").exists()
-
-
-def test_the_release_set_declares_no_module_and_no_entry_point() -> None:
-    """`09` §1: "`weft` declares no module and no entry point of its own; the `weft` command a
-    user runs comes from `weft-cli`, which the release set depends on."
-    """
-    # Act
-    project = _project(_RELEASE_SET)
-    tool = cast("dict[str, Any]", _toml(_RELEASE_SET).get("tool", {}))
-
-    # Assert
-    assert "scripts" not in project
-    assert "entry-points" not in project
-    assert "gui-scripts" not in project
-    # `hatchling` refuses to build a distribution it cannot find files for, so shipping nothing
-    # has to be said out loud rather than left implicit — `bypass-selection` is that statement,
-    # and asserting on it keeps "ships no code" a declared fact rather than an accident of
-    # there being no `src/` directory yet.
+def _shipped_packages() -> dict[str, str]:
+    """`{module: declared path}` — the hand-written list `weft-rag`'s wheel target names."""
+    tool = cast("dict[str, Any]", _toml(_DEFAULT_INSTALL).get("tool", {}))
     wheel = cast(
         "dict[str, Any]",
         cast("dict[str, Any]", cast("dict[str, Any]", tool.get("hatch", {})).get("build", {}))
         .get("targets", {})
         .get("wheel", {}),
     )
-    assert wheel.get("bypass-selection") is True
+    declared = cast("list[str]", wheel.get("packages", []))
+    return {entry.rsplit("/", 1)[-1]: entry for entry in declared}
 
 
-def test_installing_the_release_set_brings_the_weft_command() -> None:
-    """The bullet above is only true because `weft-cli` is in the set — that is what lets the
-    Phase 6 exit criterion install the whole product with one `uvx` invocation.
-    """
+def _modules_under(root: Path) -> frozenset[str]:
+    """Every top-level import package with an `__init__.py` under one distribution's `src/`."""
+    src = root / "src"
+    if not src.is_dir():
+        return frozenset()
+    return frozenset(path.name for path in src.iterdir() if (path / "__init__.py").is_file())
+
+
+def _entry_points() -> dict[str, str]:
+    """`{pack name: module}` from `weft-rag`'s own `weft.packs` table."""
+    table = cast(
+        "dict[str, str]", _project(_DEFAULT_INSTALL).get("entry-points", {}).get("weft.packs", {})
+    )
+    return {pack: target.split(":")[0].split(".")[0] for pack, target in table.items()}
+
+
+def _requirement_name(requirement: str) -> str:
+    return re.split(r"[><=~!\[;\s]", requirement)[0].strip()
+
+
+def test_the_default_install_exists_and_is_named_weft_rag() -> None:
     # Assert
-    assert "weft-cli" in _pins()
+    assert _DEFAULT_INSTALL.is_file(), f"{_DEFAULT_INSTALL} is the default install (`09` §1)"
+    assert _project(_DEFAULT_INSTALL)["name"] == "weft-rag"
 
 
-def test_every_dependency_is_pinned_exactly() -> None:
-    """A range says what is compatible; only a pin says what was tested together — `09` §1."""
+def test_every_package_in_the_source_tree_is_declared_by_the_wheel_target() -> None:
+    """The comparison this file exists for — a hand-written list against the tree beside it.
+
+    A package added under `packages/weft-rag/src/` and not added to `packages = [...]` builds a
+    wheel that silently omits it: nothing in this repository imports through the wheel, so every
+    other test in the tree goes on passing while an installed user gets `ModuleNotFoundError`.
+    """
     # Act
-    loose = [
-        requirement
-        for requirement in cast("list[str]", _project(_RELEASE_SET)["dependencies"])
-        if "==" not in requirement
+    on_disk = _modules_under(_DEFAULT_INSTALL.parent)
+    declared = frozenset(_shipped_packages())
+
+    # Assert — the floor first: a walk that found nothing would make the comparison vacuous.
+    assert on_disk, "no package found under packages/weft-rag/src — the walk itself is broken"
+    assert on_disk == declared, (
+        f"packages/weft-rag/src holds {sorted(on_disk)}; its wheel target declares "
+        f"{sorted(declared)}. Unlisted packages are silently absent from the built wheel, and "
+        f"listed-but-absent ones fail the build. The list is not a glob on purpose — what ships "
+        f"is a decision (`09` §1)."
+    )
+
+
+def test_every_declared_package_path_is_a_real_directory() -> None:
+    # Act — `packages = ["src/weft_chunk"]` is a path relative to the manifest, so a typo in it
+    # is otherwise only ever found at build time.
+    root = _DEFAULT_INSTALL.parent
+    declared = _shipped_packages()
+    missing = sorted(path for path in declared.values() if not (root / path).is_dir())
+
+    # Assert
+    assert declared, "the wheel target declares no package — the read is wrong"
+    assert missing == [], f"{missing} is declared by the wheel target and is not a directory"
+
+
+def test_installing_the_default_install_brings_the_weft_command() -> None:
+    """`09` §1's own consequence: the Phase 6 exit criterion installs the whole product with one
+    `uvx` invocation, which is only true if the console script ships with it.
+
+    It was `weft-cli`'s script and is now this distribution's, because `weft_cli` is inside it.
+    """
+    # Act
+    scripts = cast("dict[str, str]", _project(_DEFAULT_INSTALL).get("scripts", {}))
+
+    # Assert
+    assert scripts.get("weft") == "weft_cli.cli:main"
+    assert "weft_cli" in _shipped_packages(), "the console script points at a module it must ship"
+
+
+def test_every_entry_point_names_a_module_this_distribution_ships() -> None:
+    """An entry point pointing at a module the wheel does not carry is a pack that fails to
+    import on an installed machine and loads fine in this workspace, where everything is on the
+    path regardless — the same blind spot `test_distributions_declare_their_imports.py` names.
+    """
+    # Act
+    shipped = frozenset(_shipped_packages())
+    packs = _entry_points()
+    dangling = sorted(
+        f"{pack} -> {module}" for pack, module in packs.items() if module not in shipped
+    )
+
+    # Assert
+    assert packs, "weft-rag declares no weft.packs entry point — the read is wrong"
+    assert dangling == [], f"{dangling}: an entry point names a module this wheel does not ship"
+
+
+def test_no_dependency_names_a_distribution_this_wheel_absorbed() -> None:
+    """The fourteen pins are gone, and a leftover one would not resolve.
+
+    `weft-chunk` and its thirteen siblings are no longer published from this repository — four of
+    them exist on PyPI as vestigial `0.1.0` projects and would *resolve*, to code that predates
+    everything here. A pin left behind is therefore worse than a broken install: it is a silent
+    install of the wrong thing.
+    """
+    # Act
+    absorbed = {module.replace("_", "-") for module in _shipped_packages()}
+    declared = [
+        _requirement_name(requirement)
+        for requirement in cast("list[str]", _project(_DEFAULT_INSTALL)["dependencies"])
     ]
+    leftovers = sorted(set(declared) & absorbed)
 
     # Assert
-    assert loose == []
+    assert declared, "weft-rag declares no dependency at all — the read is wrong"
+    assert leftovers == [], f"{leftovers} is both depended on and shipped by weft-rag"
 
 
-def test_every_pin_matches_the_version_that_distribution_declares() -> None:
-    """The two sides come from different files, so they can genuinely disagree — a pack bumped
-    without the release set following it is exactly what this catches (`docs/lessons.md` L5.6).
+def test_the_kernel_is_depended_on_with_a_major_bound() -> None:
+    """G9's enforcement rule, Phase 5: every distribution declares `>=X,<MAJOR+1` on a sibling.
+
+    The kernel is the one first-party distribution `weft-rag` still depends on, and the bound is
+    what makes a kernel major break a resolver's problem rather than an operator's.
     """
     # Act
-    disagreed = {
-        name: (pinned, _project(_PACKAGES / name / "pyproject.toml")["version"])
-        for name, pinned in _pins().items()
-        if _project(_PACKAGES / name / "pyproject.toml")["version"] != pinned
+    requirements = {
+        _requirement_name(requirement): requirement
+        for requirement in cast("list[str]", _project(_DEFAULT_INSTALL)["dependencies"])
     }
+    kernel = requirements.get("weft-kernel", "")
 
     # Assert
-    assert disagreed == {}, (
-        f"the release set pins a version its distribution does not declare: {disagreed}. "
-        f"Bump the pin in packages/weft/pyproject.toml in the same commit as the release."
+    assert kernel, "weft-rag must depend on weft-kernel — every module it ships imports it"
+    assert ">=" in kernel and "<" in kernel, (
+        f"weft-kernel is declared as {kernel!r}, without both a floor and a major ceiling — "
+        f"`09` §2.3's binding rule is what makes an incompatible kernel a resolution failure."
     )
 
 
-def test_the_release_set_names_every_first_party_pack_that_is_not_installed_beside_it() -> None:
-    """The set is *exactly* tested, so a first-party pack that is neither in it nor deliberately
-    beside it is a pack nobody decided about — the drift this file exists to refuse.
+def test_nothing_that_installs_beside_it_is_shipped_inside_it() -> None:
+    """The add-ons exist to be declinable. One of their modules inside this wheel would install
+    `openai` or `qdrant-client` for everybody, which is exactly what keeping them separate buys.
     """
     # Act
-    first_party = {
-        path.parent.name for path in _PACKAGES.glob("*/pyproject.toml")
-    } - _INSTALLS_BESIDE
-    undecided = first_party - set(_pins())
+    shipped = frozenset(_shipped_packages())
+    beside = {
+        module
+        for name in _INSTALLS_BESIDE - {"weft-rag"}
+        for module in _modules_under(_PACKAGES / name)
+    }
+    overlap = sorted(shipped & beside)
 
     # Assert
-    assert undecided == set(), (
-        f"{sorted(undecided)} is under packages/ and neither pinned by the release set nor "
-        f"listed in _INSTALLS_BESIDE. Decide which it is, in a diff."
-    )
+    assert beside, "no module found for any install-beside distribution — the walk is wrong"
+    assert overlap == [], f"{overlap} ships inside weft-rag and belongs to a distribution beside it"
 
 
-def test_nothing_that_installs_beside_the_set_is_pinned_by_it() -> None:
+def test_every_first_party_distribution_is_either_the_default_install_or_beside_it() -> None:
+    """A distribution under `packages/` that is neither is one nobody decided about — the drift
+    this file exists to refuse, unchanged in intent from when it was phrased about pins.
+    """
     # Act
-    wrongly_pinned = _INSTALLS_BESIDE & set(_pins())
+    first_party = {path.parent.name for path in _PACKAGES.glob("*/pyproject.toml")}
+    undecided = first_party - _INSTALLS_BESIDE
 
     # Assert
-    assert wrongly_pinned == set()
+    assert first_party, "no distribution found under packages/ — the glob is wrong"
+    assert undecided == set(), (
+        f"{sorted(undecided)} is under packages/ and is neither the default install nor listed "
+        f"in _INSTALLS_BESIDE. Decide which it is, in a diff."
+    )
 
 
 @pytest.mark.parametrize("excluded", ["weft-canary", "weft-qdrant"])
@@ -185,14 +261,21 @@ def test_the_standing_exclusions_stay_excluded(excluded: str) -> None:
     Named individually as well as by the set above, so deleting a name from `_INSTALLS_BESIDE`
     does not quietly delete the assertion with it.
     """
+    # Act
+    shipped = frozenset(_shipped_packages())
+    modules = _modules_under(_PACKAGES / excluded) or _modules_under(
+        _REPO_ROOT / "testing" / excluded
+    )
+
     # Assert
-    assert excluded not in _pins()
+    assert modules, f"no module found for {excluded} — this assertion would pass vacuously"
+    assert not (shipped & modules), f"{sorted(shipped & modules)} must never ship inside weft-rag"
 
 
 # ---------------------------------------------------------------------------
-# Task 6.4 — every pack the release set names is `active`, at the version the
-# release names. `09` section 1; `09` section 2's table of what Phase 6 needs
-# from G9.
+# Task 6.4 — every pack the default install names is `active`, at the version
+# that distribution declares. `09` section 1; `09` section 2's table of what
+# Phase 6 needs from G9.
 # ---------------------------------------------------------------------------
 
 
@@ -203,89 +286,69 @@ def test_the_standing_exclusions_stay_excluded(excluded: str) -> None:
 #:
 #: **This read `is PackStatus.ACTIVE` until ledger task 6.29**, and the two were the same word
 #: because nothing could produce `PARTIAL` — the mechanism was deferred in Phase 0 and no step took
-#: it until then. With it, `weft-eval` reports `PARTIAL` on any install without the optional
-#: `bertscore` extra, which is **every clean install of the release set**, by design. Requiring the
-#: literal `ACTIVE` here would forbid a first-party pack from having an optional extra at all,
-#: contradicting `weft-eval[bertscore]` and `weft-otel[otlp]`, both settled. Task 6.4's line was
-#: written when the distinction did not exist; what it means is *loaded*.
+#: it until then. With it, the `eval` pack reports `PARTIAL` on any install without the optional
+#: `bertscore` extra, which is **every clean install**, by design. Requiring the literal `ACTIVE`
+#: here would forbid a first-party pack from having an optional extra at all, contradicting
+#: `weft-rag[bertscore]` and `weft-otel[otlp]`, both settled. Task 6.4's line was written when the
+#: distinction did not exist; what it means is *loaded*.
 _LOADED: Final[frozenset[PackStatus]] = frozenset({PackStatus.ACTIVE, PackStatus.PARTIAL})
 
 
-def _declares_a_pack(distribution: str) -> bool:
-    """Whether a pinned distribution is a *pack* — declares the one `weft.packs` entry point.
+def test_every_pack_the_default_install_declares_is_loaded_at_the_version_it_declares() -> None:
+    """Task 6.4's property, from three sources that can genuinely disagree.
 
-    `02` section 2: a pack is a distribution declaring that entry point, and nothing else is.
-    Two of the release set's pins are not packs and must not be asked to be active:
-    `weft-kernel`, which registers nothing by construction (G1), and `weft` itself, which
-    ships no code at all.
-    """
-    manifest = _PACKAGES / distribution / "pyproject.toml"
-    if not manifest.is_file():
-        raise AssertionError(
-            f"{distribution} is pinned by the release set and is not in {_PACKAGES}"
-        )
-    return "weft.packs" in _toml(manifest).get("project", {}).get("entry-points", {})
+    Which packs exist comes from `weft-rag`'s own entry-point table; `loaded` comes from running
+    real discovery against the installed environment; the installed version comes from
+    `importlib.metadata`. Nothing here is derived from anything else here, which is what
+    `docs/lessons.md` L5.6 requires of a check that is expected to pass.
 
-
-def test_every_pack_the_release_set_names_is_active_at_the_version_it_names() -> None:
-    """Task 6.4's property, from four sources that can genuinely disagree.
-
-    The pins come from the release set's own `pyproject.toml`; which of them is a pack comes
-    from each distribution's own entry-point declaration; `active` comes from running discovery;
-    and the installed version comes from `importlib.metadata`. Nothing here is derived from
-    anything else here, which is what `docs/lessons.md` L5.6 requires of a check that is
-    expected to pass.
+    **Keyed on `PackReport.pack`, not on the distribution.** Twelve reports now carry the same
+    distribution name, so a `{report.distribution: report}` index would keep whichever came last
+    and answer about one pack twelve times — which is exactly the defect `require_active` had.
 
     **What this is not.** It is not a skew check — `weft_cli.skew` asks whether an installed
-    version satisfies another distribution's declared *specifier*, at runtime, for whatever
-    happens to be installed. This asks whether the combination the release set says was tested
-    together is the combination that is actually here, and whether every pack in it loads.
+    version satisfies another distribution's declared *specifier*, at runtime. This asks whether
+    every pack this wheel says it ships actually loads, in the environment that ran these tests.
     """
     # Arrange
-    pins = _pins()
-    packs = {name: pin for name, pin in pins.items() if _declares_a_pack(name)}
+    packs = _entry_points()
+    declared_version = cast("str", _project(_DEFAULT_INSTALL)["version"])
 
     # Act
     registry = Registry()
     reports = discover(registry, pack_settings={"store": {"dsn": _PLACEHOLDER_DSN}})
-    status = {report.distribution: report for report in reports}
-    inactive = sorted(
-        name for name in packs if name not in status or status[name].status not in _LOADED
+    by_pack = {report.pack: report for report in reports}
+    not_loaded = sorted(
+        pack for pack in packs if pack not in by_pack or by_pack[pack].status not in _LOADED
     )
-    mismatched = sorted(
-        f"{name}: release set says {pin}, {metadata.version(name)} is installed"
-        for name, pin in packs.items()
-        if metadata.version(name) != pin
-    )
+    installed_version = metadata.version("weft-rag")
 
-    # Assert — the filter is proved to discriminate before anything is judged, so a
-    # `_declares_a_pack` that answered `False` for everything cannot pass this vacuously.
-    assert packs, "no pinned distribution was read as a pack — the entry-point read is wrong"
-    assert "weft-kernel" in pins and "weft-kernel" not in packs, (
-        "`weft-kernel` is pinned by the release set and declares no `weft.packs` entry point, "
-        "so a pack filter that keeps it is not reading entry points at all"
+    # Assert — the read is proved non-empty before anything is judged.
+    assert packs, "weft-rag declares no pack — the entry-point read is wrong"
+    assert not not_loaded, (
+        f"{not_loaded} are declared by weft-rag and did not load. `09` section 1: the default "
+        f"install is one tested combination, and a pack in it that does not load is not part of "
+        f"a combination anybody tested."
     )
-    assert not inactive, (
-        f"{inactive} are pinned by the release set and did not load. `09` section 1: the set "
-        f"names one exactly-tested combination, and a pack in it that does not load is not part "
-        f"of a combination anybody tested."
-    )
-    assert not mismatched, (
-        f"{mismatched}. The release set names the version, and the environment that ran these "
-        f"tests is not the one it names — so 'tested together' is a claim about something else."
+    assert installed_version == declared_version, (
+        f"weft-rag declares {declared_version} and {installed_version} is installed — so the "
+        f"environment that ran these tests is not the one this manifest describes. Run `uv sync`."
     )
 
 
-def test_the_pack_filter_can_actually_fail() -> None:
-    """`docs/lessons.md` L5.19 — the discrimination this check leans on, watched separating.
+def test_the_shipped_package_read_can_actually_fail() -> None:
+    """`docs/lessons.md` L5.19 — the comparison this file leans on, watched separating.
 
-    The real tree agrees, so the only place the pack/not-a-pack distinction is seen doing
-    work is here: two real distributions, one of each kind, read through the real function.
+    The real tree agrees, so the only place the source-tree-versus-declared-list distinction is
+    seen doing work is here: a package that exists on disk and is absent from the declared list
+    is what silently ships nothing, and the comparison must notice.
     """
-    # Arrange / Act
-    kernel = _declares_a_pack("weft-kernel")
-    store = _declares_a_pack("weft-store")
+    # Arrange — the real declared list, minus one real entry.
+    declared = frozenset(_shipped_packages())
+    on_disk = _modules_under(_DEFAULT_INSTALL.parent)
+    dropped = declared - {"weft_store"}
 
     # Assert
-    assert kernel is False
-    assert store is True
+    assert on_disk == declared, "precondition: the real tree agrees"
+    assert on_disk != dropped, "dropping a real package must make the comparison disagree"
+    assert "weft_store" in declared, "the entry this self-test drops must really be there"

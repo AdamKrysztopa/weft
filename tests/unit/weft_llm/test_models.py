@@ -1,6 +1,6 @@
 """Unit tests for `weft_llm.models`.
 
-Mirrors `packages/weft-llm/src/weft_llm/models.py`. Covers the two-field distinction (what
+Mirrors `packages/weft-rag/src/weft_llm/models.py`. Covers the two-field distinction (what
 the operator asked for versus what is handed to the vendor), the four-step runtime match, and
 the two loud refusals — a provider prefix that disagrees with the role's provider, and a
 model string a provider's catalogue cannot resolve to exactly one entry. The `meta-llama/…`

@@ -1,6 +1,6 @@
 """Unit tests for `weft_command.contract`.
 
-Mirrors `packages/weft-command/src/weft_command/contract.py`. Covers capability derived by
+Mirrors `packages/weft-rag/src/weft_command/contract.py`. Covers capability derived by
 `isinstance` rather than declared — the same property `weft_extract.contract` and
 `weft_chunk.contract`'s own tests assert for `Extractor` and `Chunker` — a full `run` proving
 the typed-result shape `docs/03-cli.md` → *Two modes, one implementation* requires ("a

@@ -1,6 +1,6 @@
 """Unit tests for `weft_llm.errors`.
 
-Mirrors `packages/weft-llm/src/weft_llm/errors.py`. Covers the shape every consumer of this
+Mirrors `packages/weft-rag/src/weft_llm/errors.py`. Covers the shape every consumer of this
 taxonomy actually depends on: `LLMTransientError` leaves are `transient=True` without the
 caller having to set it, `LLMPermanentError` leaves are `transient=False` the same way, and
 `provider`/`model` survive onto the instance alongside `WeftError`'s own four attribution

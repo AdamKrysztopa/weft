@@ -7,7 +7,12 @@ requires-python = ">=3.12"
 # relationship `examples/weft-example-chunker/pyproject.toml` states for `weft-chunk`.
 # `weft-generate` alone pulls in `weft-retrieve` transitively (the design record's own
 # one-way DAG rule), but both are named explicitly rather than relied upon.
-dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-generate>=1.0.0,<2.0.0", "weft-retrieve>=1.0.0,<2.0.0"]
+# The `weft-rag` pin replaces the individual pins this used to carry. A third-party pack
+# depends on whichever distribution publishes the contract it registers against, and on
+# 2026-09-05 fourteen of those became one wheel — so the names changed and the imports
+# did not. This file is what a stranger writes, so it is what a stranger would have to
+# write today.
+dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-rag>=2.1.0,<3.0.0"]
 
 # One entry point (weft's docs/02-extension-model.md section 2). Nothing under weft's own
 # packages/ or testing/ names this distribution, this module, or any plugin name below —

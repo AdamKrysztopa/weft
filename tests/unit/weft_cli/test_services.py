@@ -1,6 +1,6 @@
 """Unit tests for `weft_cli.services`.
 
-Mirrors `packages/weft-cli/src/weft_cli/services.py`. Covers the happy path
+Mirrors `packages/weft-rag/src/weft_cli/services.py`. Covers the happy path
 (a `[services] embed` naming a plugin is what `weft index` and `weft ask`
 resolve), the default (no block at all, or no `weft.toml` at all, selects the
 deterministic offline embedder), and the error cases: a key nothing reads, a

@@ -1,6 +1,6 @@
 """Unit tests for `weft_extract.text`.
 
-Mirrors `packages/weft-extract/src/weft_extract/text.py`. Covers the happy
+Mirrors `packages/weft-rag/src/weft_extract/text.py`. Covers the happy
 path (`.txt` and `.md` files under a directory become `SourceDoc`s, which
 `TextExtractor` then turns into root `Node`s), the edge case of an empty
 batch (`NothingToProduce`), and the error case of a file that is not valid

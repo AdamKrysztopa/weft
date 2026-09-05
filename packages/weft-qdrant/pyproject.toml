@@ -20,7 +20,12 @@ license-files = ["LICENSE", "NOTICE"]
 # warning itself is something they *can* act on: align the server and the client. The dev
 # environment's own alignment with `compose.yaml` lives in the workspace root's
 # `[tool.uv] constraint-dependencies`, where a fixture pin belongs.
-dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-store>=2.0.0,<3.0.0", "qdrant-client>=1.12"]
+# `weft-rag` replaces the `weft-store` pin this used to carry: `weft_store` — the module whose
+# store contract family this pack registers against — now ships inside that one wheel. The
+# import is unchanged; only the name that delivers it is. Note the cost this makes visible:
+# an operator who wants Qdrant and not Postgres still gets `psycopg`, because `weft-rag`
+# declares it. That is the honest price of one wheel, recorded rather than hidden.
+dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-rag>=2.1.0,<3.0.0", "qdrant-client>=1.12"]
 
 # The one entry point a pack declares (`docs/02-extension-model.md` section 2).
 [project.entry-points."weft.packs"]

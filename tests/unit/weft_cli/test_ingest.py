@@ -1,6 +1,6 @@
 """Unit tests for `weft_cli.ingest`.
 
-Mirrors `packages/weft-cli/src/weft_cli/ingest.py`. `run_index` is exercised
+Mirrors `packages/weft-rag/src/weft_cli/ingest.py`. `run_index` is exercised
 against **fake** stand-ins for the four built-ins — the same composition
 `tests/integration/test_ingest_pipeline.py` proves against the real container
 — so this tier covers `run_index`'s own logic (deriving what to accept,

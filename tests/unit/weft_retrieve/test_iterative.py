@@ -1,6 +1,6 @@
 """Unit tests for `weft_retrieve.iterative`.
 
-Mirrors `packages/weft-retrieve/src/weft_retrieve/iterative.py`. Ledger **2.20**: "an
+Mirrors `packages/weft-rag/src/weft_retrieve/iterative.py`. Ledger **2.20**: "an
 evidence-sufficiency loop is expressible, and its stopping rule is one named, testable thing
 rather than four scattered breaks." The task line names what this module has to prove, and
 this file is organised around it rather than around the plugin's method list:

@@ -1258,7 +1258,7 @@ All checks run in CI, before tests.
     question earns its own number rather than a shared clause.
 
     **The property**, `tests/architecture/test_ff15_resolve_call_sites_pass_contributions.py`:
-    walk every file under `packages/weft-cli/src`, find the ones that bind `resolve` as a bare
+    walk every file under `weft_cli`'s own source tree, find the ones that bind `resolve` as a bare
     name via `from weft_kernel.resolution import resolve` — never a textual grep, which would
     also match `Runner.resolve` and `ServiceRegistry.resolve`, two unrelated methods called in
     the same files — and assert every `ast.Call` to that bare name carries a `contributions=`

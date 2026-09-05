@@ -1,6 +1,6 @@
 """Unit tests for `weft_enhance`'s `register()`.
 
-Mirrors `packages/weft-enhance/src/weft_enhance/__init__.py`. Covers the happy path
+Mirrors `packages/weft-rag/src/weft_enhance/__init__.py`. Covers the happy path
 (`register` adds `KeyBertKeywordExtractor` as `"keybert"` under `Enhancer`), and that an
 unknown settings field is refused the way every pack settings model in this project
 refuses one — `weft-enhance` takes no settings, so `extra` fields are the only shape its

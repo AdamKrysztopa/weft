@@ -462,24 +462,24 @@ added, removed or reworded without this table noticing fails the build before it
 <!-- weft-cli:generated:command-table:begin -->
 | Command | Permission | Registered by | Summary |
 |---|---|---|---|
-| `weft ask` | `read` | `weft-cli` | ask a question. Routes through the installed router by default — a QueryScorer and a RoutingPolicy discovered from the registry, never a fixed list here — and prints the generated, cited answer. --pipeline names one directly, skipping the router; --retrieve-only runs no pipeline at all and prints the nearest passages instead, with no generation and no model call (Phase 0's own contract, kept for scripts). |
-| `weft config get` | `read` | `weft-cli` | the project's effective configuration — one key with --key, or every key CONFIG_KEYS names; --origin says whether each value is set in weft.toml or defaulted |
-| `weft config set` | `write` | `weft-cli` | set one key in weft.toml, preserving every comment and every other key untouched |
-| `weft delete` | `destroy` | `weft-cli` | remove a source and everything derived from it, everywhere — the configured node store and every installed pack that holds derived data, each one named in the result whether it succeeded or failed |
-| `weft eval compare` | `read` | `weft-cli` | the exact, structural difference between two persisted runs' pipelines, and their per-metric aggregates side by side — refuses if the two ran over a different corpus, model versions or active distribution set, rather than reporting a diff that is not apples to apples |
-| `weft eval metrics` | `read` | `weft-cli` | which registered metrics run in the deterministic gate subset — no credentials, no network, no model download — and which do not, or ask about one metric by name |
-| `weft eval run` | `write` | `weft-cli` | run a named pipeline over a corpus and persist a run record — resolved pipeline, corpus identity, active distribution set, and (with --questions) per-metric aggregates — so a later 'weft eval compare' can diff it against another. 'pipeline' is required: a run record needs a resolved pipeline to persist. |
-| `weft index` | `write` | `weft-cli` | run an ingest pipeline over a directory. Which formats are accepted is derived from the extractors actually installed, never from a fixed list. --pipeline names a document instead of the built-in four stages, reaching a plugin's own 'with:' configuration (ledger task 4.0). A successful run always ends with an automatic 'repair' reconciliation pass; --reconcile full opts this run into backfill too (ledger task 5.1c). |
-| `weft init` | `write` | `weft-cli` | scaffold weft.toml in the current directory — every key commented out, offline by default |
-| `weft pipeline derive` | `write` | `weft-cli` | scaffold a new pipeline document with 'extends:' set to an existing one |
-| `weft pipeline diff` | `read` | `weft-cli` | the exact, structural difference between two resolved pipelines |
-| `weft pipeline list` | `read` | `weft-cli` | every pipeline this project can resolve — project-local documents and every installed pack's own contribution |
-| `weft pipeline show` | `read` | `weft-cli` | the resolved form of one pipeline: every stage's provenance, every var's final value, and anything that went unplaced or unapplied |
-| `weft pipeline validate` | `read` | `weft-cli` | resolve a pipeline and report whether it does, in the resolution-failure family's own words |
-| `weft plugins doctor` | `read` | `weft-cli` | full status, reason and disclosure per discovered pack |
-| `weft plugins list` | `read` | `weft-cli` | one line per discovered pack |
-| `weft reconcile` | `destroy` | `weft-cli` | converge derived state against what the corpus actually holds — every installed pack that can reconcile is asked, and one that fails is named. --mode full also backfills state that was never built, and prints what that will cost first; --dry-run names the participants (and, for full, the cost) and stops. --mode omitted uses weft.toml's own [reconcile] mode, or 'full' if that says nothing |
-| `weft trace` | `read` | `weft-cli` | print what one persisted run recorded — its resolved pipeline, corpus, model versions and active distribution set |
+| `weft ask` | `read` | `weft-rag` | ask a question. Routes through the installed router by default — a QueryScorer and a RoutingPolicy discovered from the registry, never a fixed list here — and prints the generated, cited answer. --pipeline names one directly, skipping the router; --retrieve-only runs no pipeline at all and prints the nearest passages instead, with no generation and no model call (Phase 0's own contract, kept for scripts). |
+| `weft config get` | `read` | `weft-rag` | the project's effective configuration — one key with --key, or every key CONFIG_KEYS names; --origin says whether each value is set in weft.toml or defaulted |
+| `weft config set` | `write` | `weft-rag` | set one key in weft.toml, preserving every comment and every other key untouched |
+| `weft delete` | `destroy` | `weft-rag` | remove a source and everything derived from it, everywhere — the configured node store and every installed pack that holds derived data, each one named in the result whether it succeeded or failed |
+| `weft eval compare` | `read` | `weft-rag` | the exact, structural difference between two persisted runs' pipelines, and their per-metric aggregates side by side — refuses if the two ran over a different corpus, model versions or active distribution set, rather than reporting a diff that is not apples to apples |
+| `weft eval metrics` | `read` | `weft-rag` | which registered metrics run in the deterministic gate subset — no credentials, no network, no model download — and which do not, or ask about one metric by name |
+| `weft eval run` | `write` | `weft-rag` | run a named pipeline over a corpus and persist a run record — resolved pipeline, corpus identity, active distribution set, and (with --questions) per-metric aggregates — so a later 'weft eval compare' can diff it against another. 'pipeline' is required: a run record needs a resolved pipeline to persist. |
+| `weft index` | `write` | `weft-rag` | run an ingest pipeline over a directory. Which formats are accepted is derived from the extractors actually installed, never from a fixed list. --pipeline names a document instead of the built-in four stages, reaching a plugin's own 'with:' configuration (ledger task 4.0). A successful run always ends with an automatic 'repair' reconciliation pass; --reconcile full opts this run into backfill too (ledger task 5.1c). |
+| `weft init` | `write` | `weft-rag` | scaffold weft.toml in the current directory — every key commented out, offline by default |
+| `weft pipeline derive` | `write` | `weft-rag` | scaffold a new pipeline document with 'extends:' set to an existing one |
+| `weft pipeline diff` | `read` | `weft-rag` | the exact, structural difference between two resolved pipelines |
+| `weft pipeline list` | `read` | `weft-rag` | every pipeline this project can resolve — project-local documents and every installed pack's own contribution |
+| `weft pipeline show` | `read` | `weft-rag` | the resolved form of one pipeline: every stage's provenance, every var's final value, and anything that went unplaced or unapplied |
+| `weft pipeline validate` | `read` | `weft-rag` | resolve a pipeline and report whether it does, in the resolution-failure family's own words |
+| `weft plugins doctor` | `read` | `weft-rag` | full status, reason and disclosure per discovered pack |
+| `weft plugins list` | `read` | `weft-rag` | one line per discovered pack |
+| `weft reconcile` | `destroy` | `weft-rag` | converge derived state against what the corpus actually holds — every installed pack that can reconcile is asked, and one that fails is named. --mode full also backfills state that was never built, and prints what that will cost first; --dry-run names the participants (and, for full, the cost) and stops. --mode omitted uses weft.toml's own [reconcile] mode, or 'full' if that says nothing |
+| `weft trace` | `read` | `weft-rag` | print what one persisted run recorded — its resolved pipeline, corpus, model versions and active distribution set |
 <!-- weft-cli:generated:command-table:end -->
 
 ## Where to go next

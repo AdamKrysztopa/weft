@@ -1,6 +1,6 @@
 """Unit tests for `weft_clean`'s `register()`.
 
-Mirrors `packages/weft-clean/src/weft_clean/__init__.py`. Covers the happy
+Mirrors `packages/weft-rag/src/weft_clean/__init__.py`. Covers the happy
 path (`register` adds all six plugins under `Cleaner`, task 2.35 having
 added `UnicodeNormalizer` and `ArtifactRemover` to the four task 1.7
 shipped), and that an unknown settings field is refused — `weft-clean`

@@ -1,6 +1,6 @@
 """Unit tests for `weft_eval.at_threshold`.
 
-Mirrors `packages/weft-eval/src/weft_eval/at_threshold.py`. `test_the_same_metric_runs_twice_at_
+Mirrors `packages/weft-rag/src/weft_eval/at_threshold.py`. `test_the_same_metric_runs_twice_at_
 two_thresholds_from_one_registration` is task 4.1's own demonstration — `docs/build-ledger.md`:
 "a metric is a plugin, and the same metric runs twice at two thresholds because its registration
 carries a typed configuration model" — one registered plugin, resolved once, constructed twice

@@ -1,6 +1,6 @@
 """Unit tests for `weft_extract.contract`.
 
-Mirrors `packages/weft-extract/src/weft_extract/contract.py`. Covers a full
+Mirrors `packages/weft-rag/src/weft_extract/contract.py`. Covers a full
 resolve-then-run of `Extractor` through `weft_kernel.runner` with a plugin
 that satisfies the contract structurally (no inheritance, exactly the path
 `docs/02-extension-model.md` describes), capability being derived by

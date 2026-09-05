@@ -54,13 +54,15 @@ def _member(name: str) -> Member:
 
 def test_a_packs_data_files_are_required_to_ship() -> None:
     """`09` §5.2's own first-named failure: a data file present in the checkout, absent from the
-    artefact. `weft-retrieve`'s pipeline documents are this repository's real instance.
+    artefact. `weft_retrieve`'s pipeline documents are this repository's real instance — shipped
+    by `weft-retrieve` until 2026-09-05 and by `weft-rag` since, which is why the member read
+    below is the bundle and the paths inside it are unchanged.
     """
     # Arrange
-    retrieve = _member("weft-retrieve")
+    bundle = _member("weft-rag")
 
     # Act
-    required = files_that_must_ship(retrieve)
+    required = files_that_must_ship(bundle)
 
     # Assert
     assert "pyproject.toml" in required, (
@@ -90,21 +92,32 @@ def test_build_droppings_are_not_required_to_ship() -> None:
     assert not [path for path in required if "__pycache__" in path or path.endswith(".pyc")]
 
 
-def test_a_distribution_that_ships_no_code_still_owes_its_manifest_and_its_licence() -> None:
-    """`packages/weft` is code-free by design (`09` §1), and that is an answer rather than a skip
-    (`docs/lessons.md` L5.27). It has no `src/`, so what it owes is its manifest — and, since
-    ledger task **6.11**, its licence, which every published distribution carries whether or not
-    it carries code. A release set that shipped no licence would be the one artefact a newcomer
-    installs and the one with nothing for their legal team to read.
+def test_every_published_distribution_owes_its_manifest_and_its_licence() -> None:
+    """Since ledger task **6.11**, every published distribution carries its licence, whether or
+    not it carries code.
+
+    **This test was about `weft-rag` being code-free**, which was `09` §1's design until
+    2026-09-05 and is not any more — it now ships fourteen packages, so `required` is no longer
+    three paths and the equality that asserted so had to go. What the assertion was *for*
+    survives and is now made of every published distribution at once: the manifest and the
+    licence are owed unconditionally. A distribution that shipped no licence would leave a
+    newcomer's legal team nothing to read.
     """
     # Arrange
-    release_set = _member("weft-rag")
+    members = publishing_members()
 
     # Act
-    required = files_that_must_ship(release_set)
+    owed = {member.name: files_that_must_ship(member) for member in members}
 
     # Assert
-    assert required == frozenset({"pyproject.toml", "LICENSE", "NOTICE"})
+    assert owed, "no published distribution was read — the reader is wrong"
+    missing = sorted(
+        f"{name}:{path}"
+        for name, required in owed.items()
+        for path in ("pyproject.toml", "LICENSE", "NOTICE")
+        if path not in required
+    )
+    assert missing == [], f"{missing} is owed by a published distribution and is not required"
 
 
 def test_sdist_contents_strips_the_archive_root(tmp_path: Path) -> None:

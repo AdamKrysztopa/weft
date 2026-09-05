@@ -33,9 +33,8 @@ from __future__ import annotations
 import importlib
 import pkgutil
 import re
-import tomllib
 from pathlib import Path
-from typing import Final, cast
+from typing import Final
 
 from weft_kernel.discovery import PackStatus
 from weft_kernel.errors import WeftError
@@ -46,47 +45,26 @@ PACKAGES_ROOT: Final[Path] = REPO_ROOT / "packages"
 
 
 def _first_party_top_level_packages() -> tuple[str, ...]:
-    """Every first-party distribution's top-level import name, off `packages/*/pyproject.toml`.
+    """Every first-party top-level import name, read as `packages/*/src/*`.
 
-    Repair for a reviewer finding: this used to be a hand-written tuple, and it had
-    already drifted twice — task 1.7 shipped `weft-clean` and task 1.9 shipped
-    `weft-enhance`, and neither name was added here, which left any `WeftError` subclass
-    either pack might define invisible to the coverage check below. Derived the same way
-    `tests/architecture/test_ff2_no_privileged_builtins.py`'s own `_first_party_pack_
-    distributions` reads `packages/*/pyproject.toml` for `project.name` — not that
-    function itself, since it filters to distributions declaring a `weft.packs` entry
-    point, which `weft-kernel` and `weft-cli` do not (neither is a pack), and both must
-    still be walked here: they define `WeftError` subclasses of their own. `weft-canary`
-    (`testing/weft-canary`) is deliberately outside `packages/`, so this walk excludes it
-    without a second, hand-maintained exclusion list — it is test-only infrastructure and
-    never reaches a user as a failure mode. `project.name` uses a hyphen
-    (`weft-clean`); the import name underneath every `packages/<name>/src/` directory
-    uses an underscore — every distribution in this tree follows that one substitution,
-    so no second file has to be read to confirm it.
+    **This was `packages/*/pyproject.toml` with `project.name`'s hyphens turned into
+    underscores**, which held while every distribution shipped exactly one top-level package
+    and stopped holding on 2026-09-05, when fourteen of them moved into `weft-rag`. That
+    derivation then named `weft_rag` — a module that does not exist — and silently lost the
+    fourteen it was there to find. The invariant that survived is the one read here: every
+    first-party module lives at `packages/<something>/src/<module>`. A distribution that ships
+    no code contributes nothing and needs no name-based exclusion, exactly as before.
+
+    Restated in this file rather than imported from another test module, on the precedent
+    `test_ff11_pipeline_integrity.py` set ("one self-contained scenario"). That convention is
+    what made this a five-file repair, and it is worth knowing that is its price.
     """
-    names: list[str] = []
-    for package_dir in sorted(p for p in PACKAGES_ROOT.iterdir() if p.is_dir()):
-        pyproject = package_dir / "pyproject.toml"
-        if not pyproject.is_file():
-            continue
-        with pyproject.open("rb") as handle:
-            document = tomllib.load(handle)
-        project = cast("dict[str, object]", document.get("project", {}))
-        name = project.get("name")
-        if not isinstance(name, str):
-            continue
-        top_level = name.replace("-", "_")
-        # A distribution that ships no code has no module to sweep, and `packages/weft` — the
-        # release set, ledger task 6.1 — is one by design (`09` §1: "the meta-distribution ships
-        # **no code**"). Skipped on the *structural* fact that it has no `src/` at all, never on
-        # its name: a distribution with a `src/` whose module is missing is a real breakage and
-        # still fails below, which is the half `docs/lessons.md` L5.27 requires a directory sweep
-        # to keep — it must be able to answer the question for everything it sweeps, and
-        # "ships nothing" is an answer where "cannot import it" is not.
-        if not (package_dir / "src").is_dir():
-            continue
-        names.append(top_level)
-    return tuple(names)
+    roots: list[str] = []
+    for src in sorted(PACKAGES_ROOT.glob("*/src")):
+        roots.extend(
+            path.name for path in sorted(src.iterdir()) if (path / "__init__.py").is_file()
+        )
+    return tuple(sorted(roots))
 
 
 #: Every first-party distribution's top-level import name — the whole shipped tree

@@ -1,6 +1,6 @@
 """Unit tests for `weft_cli.pipeline_diff`.
 
-Mirrors `packages/weft-cli/src/weft_cli/pipeline_diff.py`. Task **3.7**'s own exactness
+Mirrors `packages/weft-rag/src/weft_cli/pipeline_diff.py`. Task **3.7**'s own exactness
 proof: every test here builds `weft_kernel.resolution.ResolvedPipeline` values directly —
 no YAML, no registry, no `resolve()` call — because the property under test is that
 `diff_resolved` is a structural comparison of two already-resolved values, not a

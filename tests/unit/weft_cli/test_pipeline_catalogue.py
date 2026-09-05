@@ -1,6 +1,6 @@
 """Unit tests for `weft_cli.pipeline_catalogue`.
 
-Mirrors `packages/weft-cli/src/weft_cli/pipeline_catalogue.py`. Task **1.9**:
+Mirrors `packages/weft-rag/src/weft_cli/pipeline_catalogue.py`. Task **1.9**:
 `weft-cli` is the only distribution allowed to open a pipeline document — G1 fixes the
 kernel's dependencies at `pydantic` and `opentelemetry-api`, so the YAML parser lives
 here, on the same footing `weft_cli.registry_bootstrap` already established for

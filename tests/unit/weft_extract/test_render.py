@@ -1,6 +1,6 @@
 """Unit tests for `weft_extract.render`.
 
-Mirrors `packages/weft-extract/src/weft_extract/render.py`. Binding constraint
+Mirrors `packages/weft-rag/src/weft_extract/render.py`. Binding constraint
 10's second half (`.phase2-findings.md`, and `.phase2-design.md` A.2, assigned
 to ledger 2.27 by A.4's consequences table) is that export formats are **one
 contract with several registrations**, never a `format:` field with a branch

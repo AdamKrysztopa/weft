@@ -1,6 +1,6 @@
 """Unit tests for `weft_store.contract`.
 
-Mirrors `packages/weft-store/src/weft_store/contract.py`. Covers a full
+Mirrors `packages/weft-rag/src/weft_store/contract.py`. Covers a full
 resolve-then-run of `NodeStore` through `weft_kernel.runner` (`run` calling
 `add` and passing its input through, per the module docstring's narrowing
 note), the core property G4 settled — a store's capability is *derived* by

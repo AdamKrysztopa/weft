@@ -1,6 +1,6 @@
 """Unit tests for `weft_generate.payload`.
 
-Mirrors `packages/weft-generate/src/weft_generate/payload.py`. Covers task 2.9's
+Mirrors `packages/weft-rag/src/weft_generate/payload.py`. Covers task 2.9's
 constructional half — an `Answer` carrying a citation nobody can follow back to a
 passage is unconstructable, not merely discouraged — and the three-valued `stance` that
 keeps "the corpus does not contain it" and "the engine could not decide" from collapsing

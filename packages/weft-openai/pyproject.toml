@@ -8,7 +8,10 @@ license-files = ["LICENSE", "NOTICE"]
 # `openai` is Apache-2.0, so it widens nothing an MIT library asks of the people who
 # install it. The floor is the version this pack's behaviour was measured against; a
 # claim about an older release would be a claim nobody here has checked.
-dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-embed>=1.0.0,<2.0.0", "weft-llm>=1.0.0,<2.0.0", "openai>=3.1"]
+# `weft-rag` replaces the `weft-embed` and `weft-llm` pins this used to carry: both modules —
+# whose `Embedder` and `LLMProvider` contracts this pack registers against — now ship inside
+# that one wheel. The imports are unchanged; only the name that delivers them is.
+dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-rag>=2.1.0,<3.0.0", "openai>=3.1"]
 
 # The one entry point a pack declares (`docs/02-extension-model.md` section 2).
 [project.entry-points."weft.packs"]

@@ -1,6 +1,6 @@
 """Unit tests for `weft_prompts.template`.
 
-Mirrors `packages/weft-prompts/src/weft_prompts/template.py`. Covers the happy path (a
+Mirrors `packages/weft-rag/src/weft_prompts/template.py`. Covers the happy path (a
 placeholder is filled from a validated model), the property the renderer exists for (a JSON
 example passes through with its braces untouched), and both directions of the validator — a
 placeholder no field supplies, and a field no placeholder consumes.

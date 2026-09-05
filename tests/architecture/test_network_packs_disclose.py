@@ -78,7 +78,7 @@ def network_reaching_members() -> list[tuple[str, frozenset[str]]]:
     """`(distribution, clients)` for every published member whose source reaches outward."""
     found: list[tuple[str, frozenset[str]]] = []
     for member in publishing_members():
-        if member.module is None:
+        if not member.modules:
             continue
         clients = reaches_the_network(member.directory / "src")
         if clients:

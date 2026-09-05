@@ -31,13 +31,23 @@ _OPT_OUT_KEY: Final[str] = "publish"
 
 
 class Member(BaseModel):
-    """One publishing workspace member: its name, its directory, and what it ships."""
+    """One publishing workspace member: its name, its directory, and what it ships.
+
+    **`modules` is a tuple, and was a single `module: str | None` until 2026-09-05.** It was
+    derived as `name.replace("-", "_")`, which held while every distribution shipped exactly one
+    top-level package named after itself. `weft-rag` ships fourteen and is named after none of
+    them, so that derivation named `weft_rag` — a module that does not exist — and the isolated
+    install check it feeds would have imported nothing while reporting success. Read off the
+    filesystem instead: every directory under the member's own `src/` with an `__init__.py`.
+    Empty for a distribution that ships no code, which is a real state and stays distinguishable
+    from "the read failed" by the raise in `publishing_members`.
+    """
 
     model_config = ConfigDict(frozen=True)
 
     name: str
     directory: Path
-    module: str | None
+    modules: tuple[str, ...]
 
 
 class PublishSetUnreadableError(Exception):
@@ -87,8 +97,15 @@ def publishing_members(repo_root: Path = REPO_ROOT) -> tuple[Member, ...]:
                 continue
 
             name = cast("str", config["project"]["name"])
-            module = name.replace("-", "_") if (candidate / "src").is_dir() else None
-            found.append(Member(name=name, directory=candidate, module=module))
+            src = candidate / "src"
+            modules = (
+                tuple(
+                    sorted(path.name for path in src.iterdir() if (path / "__init__.py").is_file())
+                )
+                if src.is_dir()
+                else ()
+            )
+            found.append(Member(name=name, directory=candidate, modules=modules))
 
     if seen_manifests == 0:
         raise PublishSetUnreadableError(

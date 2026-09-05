@@ -70,11 +70,10 @@ import ast
 import importlib
 import inspect
 import pkgutil
-import tomllib
 from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
-from typing import Final, cast
+from typing import Final
 
 from weft_kernel.errors import UnresolvedNameError, WeftError
 
@@ -88,36 +87,26 @@ CATCH_AND_REPACK_WAIVER: Final[frozenset[str]] = frozenset()
 
 
 def _first_party_top_level_packages() -> tuple[str, ...]:
-    """Every first-party distribution's top-level import name, off `packages/*/pyproject.toml`.
+    """Every first-party top-level import name, read as `packages/*/src/*`.
 
-    Restated rather than imported from `test_ff12_unresolvable_name_carries_options.py` — that
-    file's own precedent (itself citing `test_ff11_pipeline_integrity.py`'s "one self-contained
-    scenario" reasoning) for why a shared computation is duplicated across architecture tests
-    rather than threaded through an import between test modules.
+    **This was `packages/*/pyproject.toml` with `project.name`'s hyphens turned into
+    underscores**, which held while every distribution shipped exactly one top-level package
+    and stopped holding on 2026-09-05, when fourteen of them moved into `weft-rag`. That
+    derivation then named `weft_rag` — a module that does not exist — and silently lost the
+    fourteen it was there to find. The invariant that survived is the one read here: every
+    first-party module lives at `packages/<something>/src/<module>`. A distribution that ships
+    no code contributes nothing and needs no name-based exclusion, exactly as before.
+
+    Restated in this file rather than imported from another test module, on the precedent
+    `test_ff11_pipeline_integrity.py` set ("one self-contained scenario"). That convention is
+    what made this a five-file repair, and it is worth knowing that is its price.
     """
-    names: list[str] = []
-    for package_dir in sorted(p for p in PACKAGES_ROOT.iterdir() if p.is_dir()):
-        pyproject = package_dir / "pyproject.toml"
-        if not pyproject.is_file():
-            continue
-        with pyproject.open("rb") as handle:
-            document = tomllib.load(handle)
-        project = cast("dict[str, object]", document.get("project", {}))
-        name = project.get("name")
-        if not isinstance(name, str):
-            continue
-        top_level = name.replace("-", "_")
-        # A distribution that ships no code has no module to sweep, and `packages/weft` — the
-        # release set, ledger task 6.1 — is one by design (`09` §1: "the meta-distribution ships
-        # **no code**"). Skipped on the *structural* fact that it has no `src/` at all, never on
-        # its name: a distribution with a `src/` whose module is missing is a real breakage and
-        # still fails below, which is the half `docs/lessons.md` L5.27 requires a directory sweep
-        # to keep — it must be able to answer the question for everything it sweeps, and
-        # "ships nothing" is an answer where "cannot import it" is not.
-        if not (package_dir / "src").is_dir():
-            continue
-        names.append(top_level)
-    return tuple(names)
+    roots: list[str] = []
+    for src in sorted(PACKAGES_ROOT.glob("*/src")):
+        roots.extend(
+            path.name for path in sorted(src.iterdir()) if (path / "__init__.py").is_file()
+        )
+    return tuple(sorted(roots))
 
 
 _FIRST_PARTY_TOP_LEVEL_PACKAGES: Final[tuple[str, ...]] = _first_party_top_level_packages()

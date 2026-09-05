@@ -1,6 +1,6 @@
 """Unit tests for `weft_retrieve.engine`.
 
-Mirrors `packages/weft-retrieve/src/weft_retrieve/engine.py`. Ledger **2.8**:
+Mirrors `packages/weft-rag/src/weft_retrieve/engine.py`. Ledger **2.8**:
 `weft_retrieve.contract.StageLookup` and `weft_retrieve.contract.RouteCatalogue` are
 published as services (task 2.4) and used through fakes by every technique's own test
 module (`weft_retrieve.contract.RouteCatalogue`'s own docstring: "populated by the same

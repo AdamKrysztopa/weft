@@ -1,6 +1,6 @@
 """Unit tests for `weft_retrieve.routing`.
 
-Mirrors `packages/weft-retrieve/src/weft_retrieve/routing.py`. Ledger **2.25**: "query
+Mirrors `packages/weft-rag/src/weft_retrieve/routing.py`. Ledger **2.25**: "query
 scoring and routing policy are two plugins, so a threshold ladder can be replaced by a
 trained classifier without touching the scorer." Four plugins, covered in turn:
 

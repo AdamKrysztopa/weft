@@ -1,6 +1,6 @@
 """Unit tests for `weft_cli.contract_reference`.
 
-Mirrors `packages/weft-cli/src/weft_cli/contract_reference.py`. Covers the happy path
+Mirrors `packages/weft-rag/src/weft_cli/contract_reference.py`. Covers the happy path
 (walking the real, installed first-party contracts, `NodeStore`'s `VectorSearch`
 capability sibling included), the edge case (a rendered method reflects the real
 signature and docstring, never a hand-typed approximation), and the error case
@@ -59,10 +59,8 @@ def test_published_contracts_includes_vectorsearch_beside_nodestore() -> None:
     # manual declared a capability the code refuses.
     assert NodeStore in contracts
     assert VectorSearch in contracts
-    assert (
-        contracts[VectorSearch] == contracts[NodeStore] == frozenset({"weft-store", "weft-qdrant"})
-    )
-    assert contracts[TextSearch] == frozenset({"weft-store"})
+    assert contracts[VectorSearch] == contracts[NodeStore] == frozenset({"weft-rag", "weft-qdrant"})
+    assert contracts[TextSearch] == frozenset({"weft-rag"})
 
 
 def test_a_stage_contract_is_never_derived_as_another_stages_sibling() -> None:
@@ -111,10 +109,10 @@ def test_a_stage_contract_is_never_derived_as_another_stages_sibling() -> None:
     # `weft-retrieve` under it anyway, since `NoRetrieval` satisfies it structurally
     # (asserted above) and `weft-retrieve` is what registers `NoRetrieval` under
     # `Retriever`.
-    assert contracts[Retriever] == frozenset({"weft-retrieve"})
-    assert contracts[Fuser] == frozenset({"weft-retrieve"})
-    assert contracts[ContextPacker] == frozenset({"weft-retrieve"})
-    assert contracts[QueryScorer] == frozenset({"weft-retrieve"})
+    assert contracts[Retriever] == frozenset({"weft-rag"})
+    assert contracts[Fuser] == frozenset({"weft-rag"})
+    assert contracts[ContextPacker] == frozenset({"weft-rag"})
+    assert contracts[QueryScorer] == frozenset({"weft-rag"})
     assert _UnregisteredRetriever not in contracts
     # `Sufficiency` is not `Stage`-shaped (it takes three arguments, never one payload) —
     # a legitimate capability sibling of `Retriever`, and as of task 2.24 (`llm-sufficiency`,
@@ -122,7 +120,7 @@ def test_a_stage_contract_is_never_derived_as_another_stages_sibling() -> None:
     # is the distribution whose registered classes actually satisfy the Protocol, the same
     # rule `test_published_contracts_includes_vectorsearch_beside_nodestore` checks above.
     assert Sufficiency in contracts
-    assert contracts[Sufficiency] == frozenset({"weft-retrieve"})
+    assert contracts[Sufficiency] == frozenset({"weft-rag"})
 
 
 @runtime_checkable
@@ -307,14 +305,17 @@ def test_weft_cli_declares_the_formatter_it_shells_out_to() -> None:
 
     It is an **extra** rather than a base dependency: a user who indexes and asks never reaches
     this module, and shipping a formatter to all of them to serve a document generator would be
-    the wrong trade. That is the shape `weft-eval[bertscore]` and `weft-otel[otlp]` already
+    the wrong trade. That is the shape `weft-rag[bertscore]` and `weft-otel[otlp]` already
     have. Before task 6.7 it was declared nowhere at all and worked only because the *workspace
     root's* dev group happens to carry `ruff` — invisible to every check in this repository
     until the distribution was installed from its own sdist and the code actually run
     (`docs/lessons.md` L6.24).
     """
     # Arrange
-    manifest = Path(__file__).resolve().parents[3] / "packages" / "weft-cli" / "pyproject.toml"
+    # `weft-rag` since 2026-09-05: `weft_cli` ships inside it, so the extra it needs is
+    # declared there. The property is unchanged — the module that shells out to `ruff` and the
+    # manifest that declares it must be the same distribution.
+    manifest = Path(__file__).resolve().parents[3] / "packages" / "weft-rag" / "pyproject.toml"
 
     # Act
     with manifest.open("rb") as handle:
@@ -322,7 +323,8 @@ def test_weft_cli_declares_the_formatter_it_shells_out_to() -> None:
 
     # Assert
     assert "reference" in extras, (
-        "`weft-cli` shells out to `ruff` in `contract_reference` and must declare it. Add a "
+        "`weft_cli.contract_reference` shells out to `ruff`, so the distribution that ships "
+        "it must declare it. Add a "
         "`[project.optional-dependencies] reference` extra naming it."
     )
     assert any(requirement.startswith("ruff") for requirement in extras["reference"])

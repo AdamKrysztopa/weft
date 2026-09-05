@@ -1,6 +1,6 @@
 """Unit tests for `weft_cli.eval_commands`.
 
-Mirrors `packages/weft-cli/src/weft_cli/eval_commands.py`. `EvalRunCommand` is exercised the
+Mirrors `packages/weft-rag/src/weft_cli/eval_commands.py`. `EvalRunCommand` is exercised the
 same way `test_ingest.py`'s own `pipeline=` tests are — a real `Registry` with fake
 extract/chunk/embed/store stand-ins, a real document stubbed in for `weft_cli.ingest.
 full_catalogue` — because the property under test is that this command actually reaches

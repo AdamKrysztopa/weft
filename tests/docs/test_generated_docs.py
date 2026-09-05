@@ -94,24 +94,21 @@ CONTRACTS_WAIVED_FROM_REFERENCE: Final[frozenset[str]] = frozenset()
 #: own checked-in file should ever describe. See
 #: `test_generated_reference_matches_the_checked_in_file` below for why this distinction is
 #: asserted before the text diff, not folded into its failure message.
+#:
+#: **Fourteen names left this set on 2026-09-05 and one took their place.** `weft-extract`,
+#: `weft-chunk`, `weft-clean`, `weft-store`, `weft-embed`, `weft-enhance`, `weft-llm`,
+#: `weft-retrieve`, `weft-prompts`, `weft-generate`, `weft-index`, `weft-cli`, `weft-eval` and
+#: `weft-command` ship inside `weft-rag`, so that is the name the registry now reports for
+#: everything they register. Everything the paragraph above says about *which pack* publishes
+#: and which registers is unchanged and still true; only the answer to "what do I install to
+#: get it" collapsed, and for a document whose job is to answer exactly that, one name is the
+#: honest answer rather than a lost one.
 KNOWN_WORKSPACE_DISTRIBUTIONS: Final[frozenset[str]] = frozenset(
     {
-        "weft-extract",
-        "weft-chunk",
-        "weft-clean",
-        "weft-store",
-        "weft-embed",
-        "weft-enhance",
+        "weft-rag",
         "weft-pdf",
         "weft-openai",
         "weft-qdrant",
-        "weft-llm",
-        "weft-retrieve",
-        "weft-prompts",
-        "weft-generate",
-        "weft-index",
-        "weft-cli",
-        "weft-eval",
     }
 )
 

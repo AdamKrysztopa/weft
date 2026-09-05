@@ -323,10 +323,22 @@ def test_registry_contents_equal_what_discovery_declared() -> None:
 
     # Every registration is accounted for, one for one. A distribution that registered twice
     # while reporting one contribution has taken a path a pack author cannot take.
+    #
+    # **Summed per distribution rather than read per report, and that is a real loss of
+    # precision worth naming.** `Registry.add` attributes a registration to the distribution
+    # the registrar was bound to, not to the pack — so with twelve packs in `weft-rag`, the
+    # registry side of this comparison cannot tell them apart, and the report side is
+    # aggregated to match. Before 2026-09-05 the two were the same thing and this caught an
+    # extra registration attributed to *one specific pack*; today it catches an extra
+    # registration attributed to the wheel. Carrying `pack` down through `Registry.add` is
+    # what would restore the finer half. The dict comprehension this replaced was not merely
+    # coarser — it silently kept whichever of the twelve reports came last, and compared 102
+    # written registrations against 1.
     written_per_distribution = Counter(distribution for _, _, _, distribution in registry.written)
-    reported_per_distribution = Counter(
-        {report.distribution: report.contributed for report in reports if report.contributed > 0}
-    )
+    reported_per_distribution: Counter[str] = Counter()
+    for report in reports:
+        if report.contributed > 0:
+            reported_per_distribution[report.distribution] += report.contributed
     assert written_per_distribution == reported_per_distribution, (
         f"registrations actually written = {dict(sorted(written_per_distribution.items()))}; "
         f"contributions discovery reported = {dict(sorted(reported_per_distribution.items()))}. "

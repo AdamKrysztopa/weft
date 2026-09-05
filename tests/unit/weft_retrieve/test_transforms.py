@@ -1,6 +1,6 @@
 """Unit tests for `weft_retrieve.transforms`.
 
-Mirrors `packages/weft-retrieve/src/weft_retrieve/transforms.py`. Ledger **2.15**: "a query
+Mirrors `packages/weft-rag/src/weft_retrieve/transforms.py`. Ledger **2.15**: "a query
 transform is a composable stage a caller can omit, so no strategy pays for a rewrite it did
 not ask for." Covers the happy path (a follow-up question rewritten against history, the
 literal original kept alongside it), the edge case (no history and `skip_without_history` —

@@ -1,6 +1,6 @@
 """Unit tests for `weft_clean.artifact_remover`.
 
-Mirrors `packages/weft-clean/src/weft_clean/artifact_remover.py`. Covers the happy path (a
+Mirrors `packages/weft-rag/src/weft_clean/artifact_remover.py`. Covers the happy path (a
 standalone "Page N" line removed, per `reference/study/08-salvage.md` §T1.1's constants table),
 the edge case of a separator line (more than half non-alphanumeric) dropped while ordinary
 prose survives, the error case of an empty batch answering `NothingToProduce`, task 2.35's

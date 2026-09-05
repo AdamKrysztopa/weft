@@ -499,7 +499,7 @@ class _CitedTechnique:
     to match its module's own voice without this check caring."""
 
     name: str
-    distribution: str
+    pack: str
     anchors: tuple[str, ...]
 
 
@@ -513,33 +513,44 @@ class _CitedTechnique:
 #: is likewise absent: it is `10` §2.1 rule 5's *composition*, not a cited technique in its own
 #: right — see that plugin's own module docstring.
 _CITED_TECHNIQUES: Final[tuple[_CitedTechnique, ...]] = (
-    _CitedTechnique("no-retrieval", "weft-retrieve", ("2002.08910", "2403.14403")),
-    _CitedTechnique("hyde", "weft-retrieve", ("2212.10496",)),
-    _CitedTechnique("step-back", "weft-retrieve", ("2310.06117",)),
-    _CitedTechnique("multi-query", "weft-retrieve", ("2305.03653",)),
-    _CitedTechnique("reciprocal-rank-fusion", "weft-retrieve", ("1571941.1572114",)),
-    _CitedTechnique("boolean-retrieval", "weft-retrieve", ("2305.11694",)),
-    _CitedTechnique("repack", "weft-retrieve", ("2407.01219", "2307.03172")),
-    _CitedTechnique("iterative-retrieval", "weft-retrieve", ("1910.07000",)),
-    _CitedTechnique("graded-retrieval", "weft-retrieve", ("2401.15884",)),
-    _CitedTechnique("corrective", "weft-retrieve", ("2401.15884",)),
-    _CitedTechnique("query-scorer", "weft-retrieve", ("2403.14403",)),
-    _CitedTechnique("contradiction-check", "weft-generate", ("2403.08319",)),
-    _CitedTechnique("refine-on-uncertainty", "weft-generate", ("2305.06983",)),
+    _CitedTechnique("no-retrieval", "weft_retrieve", ("2002.08910", "2403.14403")),
+    _CitedTechnique("hyde", "weft_retrieve", ("2212.10496",)),
+    _CitedTechnique("step-back", "weft_retrieve", ("2310.06117",)),
+    _CitedTechnique("multi-query", "weft_retrieve", ("2305.03653",)),
+    _CitedTechnique("reciprocal-rank-fusion", "weft_retrieve", ("1571941.1572114",)),
+    _CitedTechnique("boolean-retrieval", "weft_retrieve", ("2305.11694",)),
+    _CitedTechnique("repack", "weft_retrieve", ("2407.01219", "2307.03172")),
+    _CitedTechnique("iterative-retrieval", "weft_retrieve", ("1910.07000",)),
+    _CitedTechnique("graded-retrieval", "weft_retrieve", ("2401.15884",)),
+    _CitedTechnique("corrective", "weft_retrieve", ("2401.15884",)),
+    _CitedTechnique("query-scorer", "weft_retrieve", ("2403.14403",)),
+    _CitedTechnique("contradiction-check", "weft_generate", ("2403.08319",)),
+    _CitedTechnique("refine-on-uncertainty", "weft_generate", ("2305.06983",)),
 )
 
 
-def _distribution_source(distribution: str) -> str:
-    """Every `.py` file `packages/<distribution>/src` holds, concatenated — the whole pack's
-    own text, not one hand-picked module, because a citation may legitimately live beside the
-    prompt that asks the paper's own question (`weft_retrieve.prompts`) rather than beside the
-    plugin's `run` method."""
-    src = PACKAGES_ROOT / distribution / "src"
-    return "\n".join(
-        path.read_text(encoding="utf-8")
-        for path in sorted(src.rglob("*.py"))
-        if "__pycache__" not in path.parts
-    )
+def _pack_source(pack: str) -> str:
+    """Every `.py` file one pack's own source tree holds, concatenated — the whole pack's text,
+    not one hand-picked module, because a citation may legitimately live beside the prompt that
+    asks the paper's own question (`weft_retrieve.prompts`) rather than beside the plugin's
+    `run` method.
+
+    **Located as `packages/*/src/<pack>`, and keyed on the pack rather than the distribution.**
+    This read `packages/<distribution>/src` and the two were the same directory until
+    2026-09-05, when fourteen distributions became one: reading `packages/weft-rag/src` would
+    have concatenated every pack's text and let a citation in *any* of them satisfy a claim
+    about `weft_retrieve` — a check that got looser without anyone editing it. Narrower now
+    than it was, which is the right direction.
+    """
+    for src in sorted(PACKAGES_ROOT.glob("*/src")):
+        root = src / pack
+        if root.is_dir():
+            return "\n".join(
+                path.read_text(encoding="utf-8")
+                for path in sorted(root.rglob("*.py"))
+                if "__pycache__" not in path.parts
+            )
+    raise AssertionError(f"no source tree found for pack {pack!r} under packages/*/src")
 
 
 def test_every_cited_technique_names_a_plugin_actually_registered() -> None:
@@ -563,12 +574,12 @@ def test_every_cited_technique_still_carries_its_paper_citation() -> None:
     registers it — the mechanical half of `10` §2.1 rule 4, which a docstring rewrite cannot
     silently break the way prose alone could."""
     # Arrange
-    sources = {t.distribution: _distribution_source(t.distribution) for t in _CITED_TECHNIQUES}
+    sources = {t.pack: _pack_source(t.pack) for t in _CITED_TECHNIQUES}
 
     # Act
     missing = {
         technique.name: [
-            anchor for anchor in technique.anchors if anchor not in sources[technique.distribution]
+            anchor for anchor in technique.anchors if anchor not in sources[technique.pack]
         ]
         for technique in _CITED_TECHNIQUES
     }
@@ -587,8 +598,8 @@ def test_a_missing_citation_would_be_caught() -> None:
     """This check's own teeth: a technique whose anchor is not actually in its pack's source
     must be flagged, proven against a fabricated arXiv id no real paper carries."""
     # Arrange
-    fabricated = _CitedTechnique("hyde", "weft-retrieve", ("9999.99999",))
-    source = _distribution_source(fabricated.distribution)
+    fabricated = _CitedTechnique("hyde", "weft_retrieve", ("9999.99999",))
+    source = _pack_source(fabricated.pack)
 
     # Act
     missing = [anchor for anchor in fabricated.anchors if anchor not in source]

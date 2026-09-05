@@ -1,6 +1,6 @@
 """Unit tests for `weft_generate.__init__`.
 
-Mirrors `packages/weft-generate/src/weft_generate/__init__.py`. Task 2.4 published
+Mirrors `packages/weft-rag/src/weft_generate/__init__.py`. Task 2.4 published
 `Generator` and registered nothing under it — that emptiness was itself a stated fact,
 held until task 2.9 shipped the first plugin (`cited-answer`) and, in the same commit,
 the `weft.packs` entry point fitness function 2 requires of a distribution that is active
@@ -8,7 +8,7 @@ the `weft.packs` entry point fitness function 2 requires of a distribution that 
 tests this update carries forward one pack over.
 """
 
-import re
+import ast
 import tomllib
 from pathlib import Path
 
@@ -28,23 +28,33 @@ from weft_kernel.discovery import PackRegistrar
 from weft_kernel.registry import Registry
 from weft_prompts.contract import Prompt
 
-_PYPROJECT = Path(__file__).resolve().parents[3] / "packages" / "weft-generate" / "pyproject.toml"
+_PYPROJECT = Path(__file__).resolve().parents[3] / "packages" / "weft-rag" / "pyproject.toml"
 
-#: A dependency specifier's bare name, stripping the compatible range task 5.2a gives every
-#: intra-repo dependency (`docs/09-release.md` §2.3: `>=X,<MAJOR+1`, never a bare name or an
-#: exact pin) — these tests care which distribution is depended on, not which range.
-_DEPENDENCY_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*")
-
-
-def _dependency_name(dependency: str) -> str:
-    match = _DEPENDENCY_NAME.match(dependency)
-    if match is None:
-        raise ValueError(f"not a dependency specifier: {dependency!r}")
-    return match.group(0)
+#: The distribution that ships this pack — `weft-generate` until 2026-09-05, `weft-rag` since,
+#: which carries fourteen packs in one wheel (`packages/weft-rag/pyproject.toml`).
+_SRC = Path(__file__).resolve().parents[3] / "packages" / "weft-rag" / "src"
 
 
-def _dependency_names(dependencies: list[str]) -> set[str]:
-    return {_dependency_name(dependency) for dependency in dependencies}
+def _first_party_imports(package: str) -> set[str]:
+    """Every first-party top-level module `package`'s own source imports.
+
+    **This replaces a manifest read.** The dependency assertions below used to read
+    `packages/weft-rag/pyproject.toml`'s `dependencies` list, which stopped existing when
+    the fourteen packs became one distribution — there is no longer a declaration between two
+    of them to omit. What the manifest was a proxy for is the real rule
+    (`.phase2-design.md` §2's one-way chain), and that rule is about *imports*, so this reads
+    them directly. Strictly closer to the property than the list it replaces, and weaker in one
+    stated way: an undeclared dependency can no longer break an install, because there is no
+    install boundary between these packs any more.
+    """
+    modules: set[str] = set()
+    for path in sorted((_SRC / package).rglob("*.py")):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.Import):
+                modules.update(alias.name.split(".")[0] for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                modules.add(node.module.split(".")[0])
+    return {name for name in modules if name.startswith("weft_") and name != package}
 
 
 def test_the_contract_this_distribution_publishes_is_exported() -> None:
@@ -58,10 +68,10 @@ def test_the_pack_entry_point_is_declared_now_that_something_is_registered() -> 
     with _PYPROJECT.open("rb") as handle:
         document = tomllib.load(handle)
 
-    # Act / Assert — the line lands in the commit that ships the first plugin (2.9)
-    assert document["project"]["entry-points"]["weft.packs"] == {
-        "generate": "weft_generate:register"
-    }
+    # Act / Assert — the line landed in the commit that shipped the first plugin (2.9), and
+    # moved into `weft-rag`'s own manifest with the code on 2026-09-05. The pack name is
+    # unchanged, because a pack's identity is its entry-point name and never its distribution.
+    assert document["project"]["entry-points"]["weft.packs"]["generate"] == "weft_generate:register"
 
 
 def test_register_adds_cited_answer_and_the_prompt_it_asks() -> None:
@@ -110,33 +120,27 @@ def test_register_adds_contradiction_check_and_the_two_prompts_it_asks() -> None
 
 
 def test_the_dependency_runs_one_way_along_the_pipeline_and_never_back() -> None:
-    # Arrange
-    with _PYPROJECT.open("rb") as handle:
-        generate = tomllib.load(handle)
-    retrieve_pyproject = _PYPROJECT.parent.parent / "weft-retrieve" / "pyproject.toml"
-    with retrieve_pyproject.open("rb") as handle:
-        retrieve = tomllib.load(handle)
-
-    # Act / Assert — `weft-generate` may depend on `weft-retrieve`; the reverse would make
-    # the first-party graph cyclic, which is why `Answer` is published here and reached
-    # from a retrieval-shaped technique through `StageLookup` rather than through an import.
-    assert "weft-retrieve" in _dependency_names(generate["project"]["dependencies"])
-    assert "weft-generate" not in _dependency_names(retrieve["project"]["dependencies"])
+    # Act / Assert — `weft_generate` may import `weft_retrieve`; the reverse would make the
+    # first-party graph cyclic, which is why `Answer` is published here and reached from a
+    # retrieval-shaped technique through `StageLookup` rather than through an import.
+    #
+    # **Checked against imports, not against two manifests.** Both packs ship in one wheel now,
+    # so there is no dependency declaration between them left to read — and the cycle the rule
+    # forbids was always a cycle of imports. `.phase2-design.md` §2's one-way chain is
+    # unaffected by how the code is wheeled.
+    assert "weft_retrieve" in _first_party_imports("weft_generate")
+    assert "weft_generate" not in _first_party_imports("weft_retrieve")
 
 
-def test_the_distribution_declares_the_packs_whose_types_its_contracts_name() -> None:
-    # Arrange
-    with _PYPROJECT.open("rb") as handle:
-        document = tomllib.load(handle)
-
-    # Act / Assert — `weft-llm` and `weft-prompts` joined at task 2.9: `cited-answer` asks
-    # a registered prompt and answers through the run's `LLM` service, upstream of this
-    # pack on `.phase2-design.md` §2's one-way chain. `weft-store` was already here for
-    # `Citation.uri` resolution through `NodeStore.get_source`.
-    assert _dependency_names(document["project"]["dependencies"]) == {
-        "weft-kernel",
-        "weft-store",
-        "weft-retrieve",
-        "weft-llm",
-        "weft-prompts",
+def test_the_pack_imports_exactly_the_packs_whose_types_its_contracts_name() -> None:
+    # Act / Assert — `weft_llm` and `weft_prompts` joined at task 2.9: `cited-answer` asks a
+    # registered prompt and answers through the run's `LLM` service, upstream of this pack on
+    # `.phase2-design.md` §2's one-way chain. `weft_store` was already here for `Citation.uri`
+    # resolution through `NodeStore.get_source`. Read from imports — see `_first_party_imports`.
+    assert _first_party_imports("weft_generate") == {
+        "weft_kernel",
+        "weft_store",
+        "weft_retrieve",
+        "weft_llm",
+        "weft_prompts",
     }

@@ -1,6 +1,6 @@
 """Unit tests for `weft_cli.skew`.
 
-Mirrors `packages/weft-cli/src/weft_cli/skew.py`. Every test injects `requires`/`version`
+Mirrors `packages/weft-rag/src/weft_cli/skew.py`. Every test injects `requires`/`version`
 doubles rather than reading the real environment — the same discipline
 `weft_kernel.discovery`'s own test file uses for `entry_points`: this file proves the
 module's own logic (parsing, marker evaluation, prefix filtering, specifier comparison)

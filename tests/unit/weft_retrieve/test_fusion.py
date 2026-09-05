@@ -1,6 +1,6 @@
 """Unit tests for `weft_retrieve.fusion`.
 
-Mirrors `packages/weft-retrieve/src/weft_retrieve/fusion.py`. Task **2.7**: "fusion and
+Mirrors `packages/weft-rag/src/weft_retrieve/fusion.py`. Task **2.7**: "fusion and
 reranking are composable plugins a third party can retune, not a fixed ladder." This module
 covers the fusion half — the happy path (one list unwrapped into a `Ranking` that keeps the
 question, the hits and a contributor label naming what fed it), the edge case (no lists at
@@ -586,7 +586,7 @@ async def test_a_candidates_with_no_boolean_plan_is_refused_by_name() -> None:
 
 
 async def test_a_second_query_transform_is_attributed_by_its_own_registered_name() -> None:
-    # Arrange — repair for the reviewer finding on `packages/weft-retrieve/src/
+    # Arrange — repair for the reviewer finding on `packages/weft-rag/src/
     # weft_retrieve/fusion.py`: leaf attribution must key off the producer `BooleanPlan`
     # itself names, not off `weft_retrieve.boolean`'s own hardcoded `NAME`. A second, honestly
     # implemented `QueryTransform` (any third party providing `BooleanPlan`) stamps

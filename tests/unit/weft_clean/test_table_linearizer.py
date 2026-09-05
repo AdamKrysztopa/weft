@@ -1,6 +1,6 @@
 """Unit tests for `weft_clean.table_linearizer`.
 
-Mirrors `packages/weft-clean/src/weft_clean/table_linearizer.py`. Covers the
+Mirrors `packages/weft-rag/src/weft_clean/table_linearizer.py`. Covers the
 happy path (a wide-gap row becomes one cell per line), the edge case of a
 short line being left alone even though it contains a wide gap (the
 row-length guard), and the error case of a non-positive `gap_width`

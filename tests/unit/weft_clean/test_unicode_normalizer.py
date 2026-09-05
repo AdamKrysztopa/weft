@@ -1,6 +1,6 @@
 """Unit tests for `weft_clean.unicode_normalizer`.
 
-Mirrors `packages/weft-clean/src/weft_clean/unicode_normalizer.py`. Covers the happy path
+Mirrors `packages/weft-rag/src/weft_clean/unicode_normalizer.py`. Covers the happy path
 (the reference's own example, `Ã³` -> `ó`, repaired), the edge case of text with no mojibake at
 all (passed through unchanged, still a new derived node), the error case of an empty batch
 answering `NothingToProduce` rather than a silent `Produced([])`, task 2.35's own worked

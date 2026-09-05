@@ -1,6 +1,6 @@
 """Unit tests for `weft_clean.dictionary_spacing`.
 
-Mirrors `packages/weft-clean/src/weft_clean/dictionary_spacing.py`. Covers
+Mirrors `packages/weft-rag/src/weft_clean/dictionary_spacing.py`. Covers
 the happy path (a preposition fused onto the next word is split), the edge
 case of a word that merely *looks* fused but is a real word in the exception
 set (left alone, diacritics and case folded first), and the error case of a

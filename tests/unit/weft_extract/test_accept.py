@@ -1,6 +1,6 @@
 """Unit tests for `weft_extract.accept`.
 
-Mirrors `packages/weft-extract/src/weft_extract/accept.py`. Repair for a
+Mirrors `packages/weft-rag/src/weft_extract/accept.py`. Repair for a
 reviewer finding, and the shape of the defect matters more than the function:
 ingest used to filter on `weft_extract.text.EXTENSIONS`, one pack's module
 constant, so shipping `weft-pdf` left `.pdf` **silently invisible** to

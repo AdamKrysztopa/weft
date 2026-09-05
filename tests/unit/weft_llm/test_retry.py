@@ -1,6 +1,6 @@
 """Unit tests for `weft_llm.retry`.
 
-Mirrors `packages/weft-llm/src/weft_llm/retry.py`. Covers the happy path (a transient failure
+Mirrors `packages/weft-rag/src/weft_llm/retry.py`. Covers the happy path (a transient failure
 followed by a success returns the success), the edge case (a permanent failure is not retried
 even once), and the error case that matters most — `CancelledError` is a `BaseException` and
 must pass through a retry loop untouched, because a retry wrapper that swallows cancellation

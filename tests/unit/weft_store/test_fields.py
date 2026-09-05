@@ -1,6 +1,6 @@
 """Unit tests for `weft_store.fields`.
 
-Mirrors `packages/weft-store/src/weft_store/fields.py`. This module is what
+Mirrors `packages/weft-rag/src/weft_store/fields.py`. This module is what
 stops two stores disagreeing about what a `Filter` means, so its tests are
 deliberately about the *refusals*: what a path may name, and which operator each
 kind of field admits. The agreement itself — that two engines answer the same

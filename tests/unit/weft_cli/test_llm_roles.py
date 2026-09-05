@@ -1,6 +1,6 @@
 """Unit tests for `weft_cli.llm_roles`.
 
-Mirrors `packages/weft-cli/src/weft_cli/llm_roles.py`. Covers the happy path (a role
+Mirrors `packages/weft-rag/src/weft_cli/llm_roles.py`. Covers the happy path (a role
 resolves to the provider and model `[llm.roles]` named), the edge case (no `[llm]` table at
 all is a legitimate, empty mapping — a retrieval-only project need not have one), and the
 error case (a role nothing mapped is refused, naming every role that is).

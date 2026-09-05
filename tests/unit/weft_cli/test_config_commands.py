@@ -1,6 +1,6 @@
 """Unit tests for `weft_cli.config_commands`.
 
-Mirrors `packages/weft-cli/src/weft_cli/config_commands.py`. Runs against a real `weft.toml`
+Mirrors `packages/weft-rag/src/weft_cli/config_commands.py`. Runs against a real `weft.toml`
 under `tmp_path` (`monkeypatch.chdir`), never a stubbed `weft_cli.config_surface` — the
 property under test is the `Command` wiring around that module's real functions, on
 `test_registry_bootstrap.py`'s own convention for `weft.toml`-reading code. Covers the happy

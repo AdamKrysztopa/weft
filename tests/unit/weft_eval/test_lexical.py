@@ -1,6 +1,6 @@
 """Unit tests for `weft_eval.lexical`.
 
-Mirrors `packages/weft-eval/src/weft_eval/lexical.py`. One happy path, the empty-reference edge
+Mirrors `packages/weft-rag/src/weft_eval/lexical.py`. One happy path, the empty-reference edge
 case (`NothingToProduce`, uniformly, per the module's own rule) and one failure case per metric
 family — token metrics and ROUGE.
 """

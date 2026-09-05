@@ -1,6 +1,6 @@
 """Unit tests for `weft_eval.judges`.
 
-Mirrors `packages/weft-eval/src/weft_eval/judges.py`. The `LLM` is a stub and the cascade is
+Mirrors `packages/weft-rag/src/weft_eval/judges.py`. The `LLM` is a stub and the cascade is
 real — `weft_retrieve.rerank`'s own test module states why: stubbing the cascade itself would
 leave each judge's own reading of a *typed* answer untested against the shape the cascade
 actually returns. `native_structured_available` is `False` on the stub, so every judge here runs

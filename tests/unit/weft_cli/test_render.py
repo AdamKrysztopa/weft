@@ -1,6 +1,6 @@
 """Unit tests for `weft_cli.render`.
 
-Mirrors `packages/weft-cli/src/weft_cli/render.py`. Covers the property task 3.2 promises: the
+Mirrors `packages/weft-rag/src/weft_cli/render.py`. Covers the property task 3.2 promises: the
 built-in commands' human output stays byte-identical to what the retired `handle_*` functions
 in `weft_cli.cli` printed directly, now computed from a `CommandResult` instead of interleaved
 with the logic that produced it. Each test below reproduces the exact literal a pre-3.2 handler

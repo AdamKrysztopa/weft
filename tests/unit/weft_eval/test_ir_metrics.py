@@ -1,6 +1,6 @@
 """Unit tests for `weft_eval.ir_metrics`.
 
-Mirrors `packages/weft-eval/src/weft_eval/ir_metrics.py`. One happy path, one empty-relevance
+Mirrors `packages/weft-rag/src/weft_eval/ir_metrics.py`. One happy path, one empty-relevance
 edge case and one `k`-in-the-name check per metric, plus `MeanAveragePrecision`'s own multi-hit
 happy path since averaging is where its formula differs from the other three.
 """

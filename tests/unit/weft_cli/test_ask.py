@@ -1,6 +1,6 @@
 """Unit tests for `weft_cli.ask`.
 
-Mirrors `packages/weft-cli/src/weft_cli/ask.py`. `run_ask` is exercised
+Mirrors `packages/weft-rag/src/weft_cli/ask.py`. `run_ask` is exercised
 against **fake** stand-ins for `weft-embed`'s `hash` plugin and `weft-store`'s
 `pgvector` store — the real question-embedding-then-search path is
 `tests/integration/test_cli_end_to_end.py`'s job, against the real container;

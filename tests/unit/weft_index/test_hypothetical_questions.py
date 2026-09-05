@@ -1,6 +1,6 @@
 """Unit tests for `weft_index.hypothetical_questions`.
 
-Mirrors `packages/weft-index/src/weft_index/hypothetical_questions.py`. Ledger **2.31**:
+Mirrors `packages/weft-rag/src/weft_index/hypothetical_questions.py`. Ledger **2.31**:
 "a chunk can be found by a question it answers rather than by the words it contains,
 because a generated question is its own retrievable node." Covers the happy path (two
 nodes, each getting its own derived question-nodes, correctly parented and marked), the

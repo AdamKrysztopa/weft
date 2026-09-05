@@ -59,27 +59,38 @@ def test_the_enumeration_covers_the_workspace_and_excludes_what_opts_out() -> No
         "`testing/weft-canary` declares `[tool.weft] publish = false` and exists to be refused by "
         "discovery. It is never published, so it is never asked to install alone."
     )
-    assert "weft-kernel" in names and "weft-cli" in names
+    # `weft-cli` was a published name until 2026-09-05 and `weft_cli` now ships inside
+    # `weft-rag`, so the two names that must be here are the two the six-name set cannot do
+    # without: the kernel, which fitness function 1 installs alone, and the default install,
+    # which carries the `weft` command.
+    assert "weft-kernel" in names and "weft-rag" in names
 
 
-def test_a_distribution_that_ships_no_code_is_answered_rather_than_skipped_by_name() -> None:
+def test_a_distribution_shipping_many_modules_names_all_of_them() -> None:
     """`docs/lessons.md` L5.27 — a sweep must answer the question for everything it sweeps.
 
-    `packages/weft` is code-free by design (`09` §1: "the meta-distribution ships **no code**"), so
-    it has no module to import. That is an *answer*, and it is reached from the structural fact
-    that the distribution has no `src/` — never from its name. A distribution that has a `src/`
-    whose module will not import is a real breakage and must still fail.
+    **This test used to assert the opposite fact.** `packages/weft-rag` was code-free by design
+    (`09` §1: "the meta-distribution ships **no code**"), and what was checked here was that its
+    `module` read as `None` — an *answer* rather than a name-based skip. Since 2026-09-05 it
+    ships fourteen top-level packages, and the failure mode moved with it: the old derivation
+    (`name.replace("-", "_")`) would have named `weft_rag`, a module that does not exist, and the
+    isolated-install check would have imported nothing while reporting success. So what is
+    asserted is the plural, against the tree.
     """
     # Arrange
     by_name = {member.name: member for member in publishing_members()}
 
     # Act
-    release_set = by_name["weft-rag"]
+    default_install = by_name["weft-rag"]
     kernel = by_name["weft-kernel"]
 
     # Assert
-    assert release_set.module is None
-    assert kernel.module == "weft_kernel"
+    assert len(default_install.modules) > 1, (
+        "weft-rag ships fourteen top-level packages; a reader that finds one (or none) is "
+        "deriving the name from the distribution instead of reading the tree"
+    )
+    assert "weft_cli" in default_install.modules
+    assert kernel.modules == ("weft_kernel",)
 
 
 def test_every_module_named_is_a_directory_that_exists() -> None:
@@ -89,16 +100,21 @@ def test_every_module_named_is_a_directory_that_exists() -> None:
 
     # Act
     missing = [
-        member.name
+        f"{member.name}:{module}"
         for member in members
-        if member.module is not None and not (member.directory / "src" / member.module).is_dir()
+        for module in member.modules
+        if not (member.directory / "src" / module).is_dir()
     ]
 
     # Assert
+    assert any(member.modules for member in members), (
+        "no member names any module — the read is broken, and the check below would pass by "
+        "having nothing to check"
+    )
     assert not missing, (
-        f"{missing} name a module that is not on disk at `<distribution>/src/<module>`. The "
-        f"module name is derived from the distribution name, and a distribution that does not "
-        f"follow that convention needs the reader to know, not the reader to guess."
+        f"{missing} name a module that is not on disk at `<distribution>/src/<module>`. A "
+        f"distribution that does not follow that convention needs the reader to know, not the "
+        f"reader to guess."
     )
 
 
@@ -138,29 +154,39 @@ def test_the_check_is_reachable_from_a_task_and_from_ci() -> None:
 
 
 def test_the_check_can_actually_fail(tmp_path: Path) -> None:
-    """The module derivation, watched separating two planted distributions.
+    """The module derivation, watched separating three planted distributions.
 
-    The real tree agrees, so this is the only place the "has a `src/`" distinction is seen doing
-    work — without it, a reader that answered `module=None` for everything would sweep nothing and
-    pass (`docs/lessons.md` L5.19).
+    The real tree agrees, so this is the only place the distinctions are seen doing work —
+    without it, a reader that answered "no modules" for everything would sweep nothing and pass
+    (`docs/lessons.md` L5.19). Three plants rather than two since 2026-09-05: the third is a
+    distribution whose packages are **not** named after it, which is the shape the old
+    `name.replace("-", "_")` derivation got silently wrong.
     """
     # Arrange
     (tmp_path / "pyproject.toml").write_text(
         '[tool.uv.workspace]\nmembers = ["packages/*"]\n', encoding="utf-8"
     )
-    for name, has_src in (("weft-planted", True), ("weft-planted-codefree", False)):
+    plants = {
+        "weft-planted": ("weft_planted",),
+        "weft-planted-codefree": (),
+        "weft-planted-bundle": ("alpha_pack", "beta_pack"),
+    }
+    for name, modules in plants.items():
         member = tmp_path / "packages" / name
         member.mkdir(parents=True)
         (member / "pyproject.toml").write_text(
             f'[project]\nname = "{name}"\nversion = "0.0.0"\n', encoding="utf-8"
         )
-        if has_src:
-            (member / "src" / name.replace("-", "_")).mkdir(parents=True)
+        for module in modules:
+            package = member / "src" / module
+            package.mkdir(parents=True)
+            (package / "__init__.py").write_text("", encoding="utf-8")
 
     # Act
     found = {member.name: member for member in publishing_members(tmp_path)}
 
     # Assert
-    assert found["weft-planted"].module == "weft_planted"
-    assert found["weft-planted-codefree"].module is None
+    assert found["weft-planted"].modules == ("weft_planted",)
+    assert found["weft-planted-codefree"].modules == ()
+    assert found["weft-planted-bundle"].modules == ("alpha_pack", "beta_pack")
     assert isinstance(found["weft-planted"], Member)

@@ -1,6 +1,6 @@
 """Unit tests for `weft_prompts.rescue`.
 
-Mirrors `packages/weft-prompts/src/weft_prompts/rescue.py`. Covers the three extraction steps
+Mirrors `packages/weft-rag/src/weft_prompts/rescue.py`. Covers the three extraction steps
 in the order the reference's *executor* used them — direct parse, fenced block, bare object — and
 the case the reference's other copy got wrong: a fenced ```json reply must be read as a fence,
 not clipped by a bare-object scan that runs first.

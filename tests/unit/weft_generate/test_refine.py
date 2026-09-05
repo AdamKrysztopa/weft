@@ -1,6 +1,6 @@
 """Unit tests for `weft_generate.refine`.
 
-Mirrors `packages/weft-generate/src/weft_generate/refine.py`. Ledger **2.24**: "a draft's
+Mirrors `packages/weft-rag/src/weft_generate/refine.py`. Ledger **2.24**: "a draft's
 uncertainty is a replaceable, named signal rather than a phrase list, so the trigger cannot
 break silently under another language or model." This module covers:
 

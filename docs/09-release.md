@@ -90,6 +90,46 @@ sibling, `weft-cli` on nine of them. That removes one of the three arguments thi
 for the release set — bounds are no longer missing — and strengthens the one that remains: bounds say
 what is *compatible*, and only a pinned set says what was *tested together*.)*
 
+> **G10 was reopened and re-settled on 2026-09-05: twenty published names became six, and the
+> release set became the thing it used to pin.** The shape G10 chose — a code-free distribution
+> pinning an exactly-tested combination — met a real index at `v0.1.0` and the cost showed up
+> immediately: nineteen new PyPI projects requested in one matrix, fifteen refused with
+> `429 Too many new projects created`, four created (`lessons.md` L7.3). That was the visible
+> half. The measurable half, taken from the twenty manifests with a parser: **ten of the twenty
+> declared no external dependency at all**, so installing without one of them avoided nothing.
+> They were separate distributions for architectural symmetry, and symmetry is not a user-visible
+> benefit.
+>
+> **What ships now:** `weft-rag`, containing the fourteen packs' code and their twelve entry
+> points, plus `weft-kernel` (separate because fitness function 1 installs it alone and imports
+> it, which is what proves the kernel names no capability) and four add-ons — `weft-openai`,
+> `weft-pdf`, `weft-qdrant`, `weft-otel` — each carrying a dependency somebody may decline.
+>
+> **What G10's argument keeps.** A third-party pack still installs *beside* `weft-rag` on exactly
+> the terms `weft-qdrant` does, so requirement 4 holds at the packaging layer, which was the one
+> thing this section chose the release set for. Fitness function 10(a) still compares two sources
+> that can genuinely disagree: the release job's own matrix against the workspace members that do
+> not opt out. And what "tested together" means is now stronger rather than weaker — the members
+> cannot disagree about a version, because there is one version.
+>
+> **What it gives up, on the table rather than in a footnote.** Independent semver for the
+> fourteen: they versioned separately and now share one number, so most of the skew G9's machinery
+> was built to manage stops existing (contract versions are a separate axis and are untouched).
+> Per-pack isolated-install proof: task 6.6's check narrows to the six, and the fourteen get an
+> import assertion against the built wheel, which is weaker and is labelled weaker in
+> `scripts/check_isolated_installs.py`. And four names — `weft-command`, `weft-embed`,
+> `weft-generate`, `weft-llm` — are already on PyPI at `0.1.0` and cannot be deleted; they are
+> vestigial, receive no further versions, and are recorded so a future reader does not think they
+> were lost.
+>
+> **What made it affordable, and it was not packaging.** The first attempt at this was rejected on
+> 2026-09-05 because bundling collapsed twelve `weft plugins doctor` rows into one name and twelve
+> `[packs.*]` settings namespaces into one. The root cause was that `distribution` was doing two
+> jobs — the thing PyPI installs, *and* the pack's identity in every operator-facing surface. They
+> are separate now: a pack's identity is its `weft.packs` entry-point name (`02` §2 → *Pack
+> settings*), which was already unique and already there. Consolidation became ordinary work only
+> after that.
+>
 > **The name is `weft-rag`, not `weft` — corrected 2026-08-25 at ledger task 6.13.** G10 settled
 > the *shape* (a code-free distribution pinning one exactly-tested combination) and named it
 > `weft`; that name is **taken on PyPI** — "The durable task substrate for agent systems", 99

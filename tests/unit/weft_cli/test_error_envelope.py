@@ -1,6 +1,6 @@
 """Unit tests for `weft_cli.error_envelope`.
 
-Mirrors `packages/weft-cli/src/weft_cli/error_envelope.py`. Task **5.2d**: the structured
+Mirrors `packages/weft-rag/src/weft_cli/error_envelope.py`. Task **5.2d**: the structured
 error envelope `weft_cli.render.render_refusal` emits under `--json` — see that module's own
 docstring for the full argument (S6/G9, `docs/09-release.md` §3).
 """

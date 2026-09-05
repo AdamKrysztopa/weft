@@ -1,6 +1,6 @@
 """Tests for `weft_store.pgvector_store`, against a real Postgres + pgvector container.
 
-Mirrors `packages/weft-store/src/weft_store/pgvector_store.py`. Per
+Mirrors `packages/weft-rag/src/weft_store/pgvector_store.py`. Per
 `docs/06-phase-0-build.md` step 8, "integration tests must run against the
 real container, not a mock, and must be skipped with a clear reason — never
 silently passed — when it is absent." `docker compose up -d` (`compose.yaml`,

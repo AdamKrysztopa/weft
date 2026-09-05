@@ -1,6 +1,6 @@
 """Unit tests for `weft_cli.config_surface`.
 
-Mirrors `packages/weft-cli/src/weft_cli/config_surface.py`. Task **3.7**'s own `--origin`
+Mirrors `packages/weft-rag/src/weft_cli/config_surface.py`. Task **3.7**'s own `--origin`
 proof: covers the happy path (no `weft.toml` at all — every key defaults), the edge case the
 reference's sentinel bug could not express — a value **explicitly** set to what the default
 would have been anyway, distinguished from a key genuinely absent — and the error cases of

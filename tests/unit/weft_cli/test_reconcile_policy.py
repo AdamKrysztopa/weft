@@ -1,6 +1,6 @@
 """Unit tests for `weft_cli.reconcile_policy`.
 
-Mirrors `packages/weft-cli/src/weft_cli/reconcile_policy.py`. Task **5.1c**: "`weft.toml` sets
+Mirrors `packages/weft-rag/src/weft_cli/reconcile_policy.py`. Task **5.1c**: "`weft.toml` sets
 a personal default" for `weft reconcile`'s own bare `--mode` — this file proves the same three
 shapes `weft_cli.permission_policy`'s own test file proves for `[permissions]`: the happy path,
 the default with no block at all, and the two refusals (an unknown key, an illegal value).

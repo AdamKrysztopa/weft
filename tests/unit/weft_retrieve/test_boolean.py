@@ -1,6 +1,6 @@
 """Unit tests for `weft_retrieve.boolean`.
 
-Mirrors `packages/weft-retrieve/src/weft_retrieve/boolean.py`. Ledger **2.23**: "a Boolean
+Mirrors `packages/weft-rag/src/weft_retrieve/boolean.py`. Ledger **2.23**: "a Boolean
 query is parsed to an operator expression with precedence, and an empty conjunction is a
 visible outcome rather than a union." This module covers only the first half — `BoolExpr`,
 `parse_tokens` and `BooleanRetrieval`; the second half, `BooleanCombine`, is tested in

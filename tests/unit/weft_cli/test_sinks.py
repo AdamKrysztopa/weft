@@ -1,6 +1,6 @@
 """Unit tests for `weft_cli.sinks`.
 
-Mirrors `packages/weft-cli/src/weft_cli/sinks.py`. Task **3.6**: "tokens reach a reader as
+Mirrors `packages/weft-rag/src/weft_cli/sinks.py`. Task **3.6**: "tokens reach a reader as
 they arrive, through a resolved service." The timing tests below are the point of this
 file — `docs/build-ledger.md` 3.6's own brief warns that a test only checking the
 *finished* text would pass against a sink that buffered everything and flushed at

@@ -1,6 +1,6 @@
 """Unit tests for `weft_prompts.typed_prompt`.
 
-Mirrors `packages/weft-prompts/src/weft_prompts/typed_prompt.py`. Covers the happy path (a
+Mirrors `packages/weft-rag/src/weft_prompts/typed_prompt.py`. Covers the happy path (a
 declared prompt renders into a `Rendered` carrying its own name and version), the locale
 mechanism (a translation is selected by `ctx.locale`, falling back by primary subtag and then
 to `en`), and the two definition-time refusals a mis-declared prompt earns.

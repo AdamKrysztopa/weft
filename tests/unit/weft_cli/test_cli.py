@@ -1,6 +1,6 @@
 """Unit tests for `weft_cli.cli`.
 
-Mirrors `packages/weft-cli/src/weft_cli/cli.py`. Task 3.2 replaced the hand-written
+Mirrors `packages/weft-rag/src/weft_cli/cli.py`. Task 3.2 replaced the hand-written
 `COMMANDS`/`build_parser`/`command_key`/`handle_*` shape this file used to cover with a
 registry-driven one — see `cli.py`'s own module docstring. This file now covers: the
 `--version` pre-scan never needing a registry (fitness function 8(b) — the categorical,

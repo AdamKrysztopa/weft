@@ -1,6 +1,6 @@
 """Unit tests for `weft_eval.harness`.
 
-Mirrors `packages/weft-eval/src/weft_eval/harness.py`. Exercised against the real, registered
+Mirrors `packages/weft-rag/src/weft_eval/harness.py`. Exercised against the real, registered
 `weft-eval` suite (`weft_eval.register`), the same pattern `test_offline.py` already uses,
 because the property under test is that this module derives the gate-safe `RetrievalMetric`
 subset from the real registry rather than a fixed list of four names.

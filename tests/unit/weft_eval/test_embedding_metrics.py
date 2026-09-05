@@ -1,6 +1,6 @@
 """Unit tests for `weft_eval.embedding_metrics`.
 
-Mirrors `packages/weft-eval/src/weft_eval/embedding_metrics.py`. `EmbeddingSimilarity` is
+Mirrors `packages/weft-rag/src/weft_eval/embedding_metrics.py`. `EmbeddingSimilarity` is
 exercised against `weft_embed.hash_embedder.HashEmbedder` — the real, deterministic, offline
 `Embedder` every clean checkout already has, never a stub, so the `ctx.require(Embedder)` seam is
 proven for real rather than assumed. `BERTScore`'s happy path cannot run in this gate (`bert-score`

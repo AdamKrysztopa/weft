@@ -1,6 +1,6 @@
 """Unit tests for `weft_chunk.property`.
 
-Mirrors `packages/weft-chunk/src/weft_chunk/property.py`. Covers the one
+Mirrors `packages/weft-rag/src/weft_chunk/property.py`. Covers the one
 thing this module states: `WordBoundaries` is a real, namespaced
 `weft_kernel.payload.Property` marker, not a placeholder — task 1.2,
 `docs/02-extension-model.md` §3 → *Ordering constraints*.

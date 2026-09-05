@@ -1,6 +1,6 @@
 """Unit tests for `weft_prompts.contract`.
 
-Mirrors `packages/weft-prompts/src/weft_prompts/contract.py`. Covers the two properties every
+Mirrors `packages/weft-rag/src/weft_prompts/contract.py`. Covers the two properties every
 contract test in this tree checks — capability is structural, and the version constant is the
 contract's own — plus the mechanical rule that keeps a *service* out of the contract
 reference: `Prompts` carries no `version` and is not `@runtime_checkable`.

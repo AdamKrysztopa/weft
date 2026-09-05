@@ -1,6 +1,6 @@
 """Unit tests for `weft_embed.hash_embedder`.
 
-Mirrors `packages/weft-embed/src/weft_embed/hash_embedder.py`. Covers the
+Mirrors `packages/weft-rag/src/weft_embed/hash_embedder.py`. Covers the
 happy path (a batch of nodes each gets a deterministic, fixed-dimension
 vector), the edge case of an empty batch (`NothingToProduce`, never an empty
 `Produced([])`), and the error case of a non-positive configured dimension.

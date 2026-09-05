@@ -1,6 +1,6 @@
 """Unit tests for `weft_retrieve.payload`.
 
-Mirrors `packages/weft-retrieve/src/weft_retrieve/payload.py`. Covers the three
+Mirrors `packages/weft-rag/src/weft_retrieve/payload.py`. Covers the three
 invariants the design record singles out as load-bearing rather than decorative — a
 `QuerySet` that always carries at least one query alongside the user's own untouched
 words, a `Passage` that refuses to say nothing produced it, and the difference between

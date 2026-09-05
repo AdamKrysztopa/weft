@@ -1,6 +1,6 @@
 """Unit tests for `weft_llm.payload`.
 
-Mirrors `packages/weft-llm/src/weft_llm/payload.py`. The one property worth a test of its
+Mirrors `packages/weft-rag/src/weft_llm/payload.py`. The one property worth a test of its
 own: a `Conversation` with nothing said is refused at construction rather than reaching a
 provider that would have to guess what to answer.
 

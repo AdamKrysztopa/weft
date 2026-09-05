@@ -1,6 +1,6 @@
 """Unit tests for `weft_eval.offline`.
 
-Mirrors `packages/weft-eval/src/weft_eval/offline.py`. Covers the happy path (`gate_subset`
+Mirrors `packages/weft-rag/src/weft_eval/offline.py`. Covers the happy path (`gate_subset`
 partitions the real, registered suite into the expected gate-safe/gate-unsafe counts —
 task 4.2's 15 traditional/IR metrics plus the demonstration metric, and the 6 LLM judges plus
 `bertscore`), the edge case (a metric that is registered but declares `runs_in_gate=False`

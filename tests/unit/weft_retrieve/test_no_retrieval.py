@@ -1,6 +1,6 @@
 """Unit tests for `weft_retrieve.no_retrieval`.
 
-Mirrors `packages/weft-retrieve/src/weft_retrieve/no_retrieval.py`. Task **2.13**:
+Mirrors `packages/weft-rag/src/weft_retrieve/no_retrieval.py`. Task **2.13**:
 "the null case is a plugin like any other, and an empty source list is a stated property of
 it rather than a retrieval failure a consumer has to guess at." Covers the happy path
 (a `Candidates(lists=())` carrying the query's own origin), the edge case (the emptiness

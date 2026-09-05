@@ -1,6 +1,6 @@
 """Unit tests for `weft_chunk`'s `register()`.
 
-Mirrors `packages/weft-chunk/src/weft_chunk/__init__.py`. Covers the happy
+Mirrors `packages/weft-rag/src/weft_chunk/__init__.py`. Covers the happy
 path (`register` adds `FixedSizeChunker` as `"fixed-size"` under `Chunker`),
 and that an unknown settings field is refused — `weft-chunk` takes no
 settings, so `extra` fields are the only shape its `Settings` model can get

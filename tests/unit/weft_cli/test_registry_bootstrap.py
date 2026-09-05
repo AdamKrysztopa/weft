@@ -1,6 +1,6 @@
 """Unit tests for `weft_cli.registry_bootstrap`.
 
-Mirrors `packages/weft-cli/src/weft_cli/registry_bootstrap.py`. Covers
+Mirrors `packages/weft-rag/src/weft_cli/registry_bootstrap.py`. Covers
 `require_active`'s exit-code split (`docs/02-extension-model.md` → *The trust
 model*: refused is policy, 3; genuinely absent or failed is resolution, 4) and
 `build_dependencies` reading `[packs] allow` from an on-disk `weft.toml`, or

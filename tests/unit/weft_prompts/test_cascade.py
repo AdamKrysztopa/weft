@@ -1,6 +1,6 @@
 """Unit tests for `weft_prompts.cascade`.
 
-Mirrors `packages/weft-prompts/src/weft_prompts/cascade.py`. Covers all three tiers, the two
+Mirrors `packages/weft-rag/src/weft_prompts/cascade.py`. Covers all three tiers, the two
 corrections `.phase2-design.md` §7 says cannot be re-derived from first principles — tier 2 is
 skipped entirely when tier 1 raised `LLMBadRequestError`, and `LLMPermissionDeniedError` is
 re-raised rather than stepped down — and the total failure, which returns `Failed` carrying the

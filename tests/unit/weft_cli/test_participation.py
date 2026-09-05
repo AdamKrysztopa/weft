@@ -1,6 +1,6 @@
 """Unit tests for `weft_cli.participation`.
 
-Mirrors `packages/weft-cli/src/weft_cli/participation.py`. Task **6.18**, which discharges
+Mirrors `packages/weft-rag/src/weft_cli/participation.py`. Task **6.18**, which discharges
 G13's first repair: `docs/02-extension-model.md` §1 → *Extended by G13*, *"the configured
 `[services] store`, plus every `NodeStore` named by a pipeline in the project's catalogue or
 by a persisted run record"*.

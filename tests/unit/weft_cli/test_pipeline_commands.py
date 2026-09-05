@@ -1,6 +1,6 @@
 """Unit tests for `weft_cli.pipeline_commands`.
 
-Mirrors `packages/weft-cli/src/weft_cli/pipeline_commands.py`. Builds a real `Registry` with
+Mirrors `packages/weft-rag/src/weft_cli/pipeline_commands.py`. Builds a real `Registry` with
 one stand-in contract/plugin (`_StageContract`, `test_commands.py`'s own `_Chunker`
 precedent) and real pipeline documents on disk under a `pipelines/` directory relative to
 `tmp_path` (`monkeypatch.chdir`) — never a stubbed `full_catalogue`/`resolve` — because the

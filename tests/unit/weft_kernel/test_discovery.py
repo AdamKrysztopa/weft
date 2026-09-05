@@ -710,19 +710,23 @@ def test_a_deprecation_from_a_real_distribution_carries_its_own_removal_release(
         registrar.deprecate("legacy", reason="superseded")
 
     _install_fake_module("_weft_test_real_distribution_pack")
+    # `weft-rag` since 2026-09-05: `weft-store` was a real installed distribution at 2.x and is
+    # now a pack inside this one, so a name that is genuinely installed had to move with it —
+    # otherwise this reads `VERSION_UNREADABLE` and proves nothing, which is exactly what it
+    # started doing the moment the fourteen were bundled.
     entry_point = _FakeEntryPoint(
-        distribution="weft-store", module="_weft_test_real_distribution_pack", target=register
+        distribution="weft-rag", module="_weft_test_real_distribution_pack", target=register
     )
 
     # Act
     with pytest.warns(DeprecationWarning):
         reports = discover(registry, entry_points=[entry_point])
 
-    # Assert — `weft-store` is 2.x, so G9's clock reads its next major.
+    # Assert — `weft-rag` is 2.x, so G9's clock reads its next major.
     [report] = reports
     [notice] = report.deprecations
     assert notice.removal.clock is RemovalClock.NEXT_MAJOR
-    assert notice.removal.release == "weft-store 3.0.0"
+    assert notice.removal.release == "weft-rag 3.0.0"
 
 
 def test_a_raising_register_discards_its_buffered_deprecation_and_warns_of_nothing() -> None:

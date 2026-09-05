@@ -1,6 +1,6 @@
 """Unit tests for `weft_eval.contract`.
 
-Mirrors `packages/weft-eval/src/weft_eval/contract.py`. Task 4.2's split: `Metric`/`Sample` from
+Mirrors `packages/weft-rag/src/weft_eval/contract.py`. Task 4.2's split: `Metric`/`Sample` from
 4.1 are now `GenerationMetric`/`GenerationSample` and `RetrievalMetric`/`RetrievalSample`, two
 distinct contracts sharing the one `MetricScore` result shape. Covers capability being derived by
 `isinstance` for both, `GenerationSample`/`RetrievalSample` refusing an unknown field, and the two

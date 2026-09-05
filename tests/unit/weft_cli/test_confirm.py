@@ -1,6 +1,6 @@
 """Unit tests for `weft_cli.confirm`.
 
-Mirrors `packages/weft-cli/src/weft_cli/confirm.py`. Task **3.3**: "a destructive operation with
+Mirrors `packages/weft-rag/src/weft_cli/confirm.py`. Task **3.3**: "a destructive operation with
 no TTY fails naming the flag that would permit it, and never proceeds silently." Covers `gate`'s
 whole decision tree — a `read`/`write`-class command is never gated at all, `--yes` bypasses an
 `overwrite`/`destroy`-class command outright, `[permissions]`'s own `allow` override bypasses it

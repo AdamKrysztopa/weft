@@ -1,6 +1,6 @@
 """Unit tests for `weft_clean.property`.
 
-Mirrors `packages/weft-clean/src/weft_clean/property.py`. Covers the one
+Mirrors `packages/weft-rag/src/weft_clean/property.py`. Covers the one
 thing this module states: `Newlines`, `WhitespaceGaps` and `Verbatim` are
 real, namespaced `weft_kernel.payload.Property` markers, not placeholders —
 task 1.7, extended by task 2.35, `docs/02-extension-model.md` §3 →

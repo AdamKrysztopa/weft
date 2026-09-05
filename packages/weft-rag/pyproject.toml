@@ -1,80 +1,179 @@
-# `weft-rag` — the release set. Ledger task 6.1; `docs/09-release.md` §1, settled by G10
-# (2026-08-22). **Named `weft-rag` and not `weft` since ledger task 6.13**: `weft` is taken on PyPI
-# — "The durable task substrate for agent systems", 99 releases, including the `0.1.0` this file
-# declares — so the name G10 chose is unpublishable. Nineteen of the twenty distributions here are
-# free; this was the twentieth. `docs/lessons.md` L6.33.
+# `weft-rag` — the default install, and the bundle. Ledger task 6.1; `docs/09-release.md` §1,
+# settled by G10 (2026-08-22) and **re-settled 2026-09-05** after v0.1.0's first contact with a
+# real index. **Named `weft-rag` and not `weft` since ledger task 6.13**: `weft` is taken on PyPI
+# — "The durable task substrate for agent systems", 99 releases — so the name G10 chose is
+# unpublishable. `docs/lessons.md` L6.33.
 #
-# **The command a user types is still `weft`.** It comes from `weft-cli`'s console script, which
-# this set depends on, so the rename touches what you install and not what you run:
-# `uvx --from weft-rag weft --help`.
+# **The command a user types is still `weft`.** It is this distribution's console script, so the
+# rename touches what you install and not what you run: `uvx --from weft-rag weft --help`.
 #
-# This distribution ships **no code**. It exists to name one exactly-tested combination of the
-# distributions that make up Weft, and it is the thing a newcomer installs. `09` §1:
+# ---------------------------------------------------------------------------------------------
+# What this is, and what it stopped being
+# ---------------------------------------------------------------------------------------------
 #
-#   "Independent versions plus a named release set — each distribution versions on its own; a thin
-#    meta-distribution `weft` depends on an exactly-tested combination and is what a newcomer
-#    installs."
+# It was a meta-distribution: no code, fifteen exact pins, and one job — naming a tested
+# combination. It now **ships the fourteen packs' code and their twelve entry points in one
+# wheel**, and the fourteen are no longer distributions at all.
 #
-# Three consequences of that model are binding, and all three are visible in this file:
+# The measurement that decided it, taken from the twenty `pyproject.toml` files with a parser
+# rather than a regex: **ten of the twenty declared no external dependency whatsoever**.
+# Installing without one of them avoided nothing. They were separate distributions for
+# architectural symmetry, and symmetry is not a user-visible benefit — while twenty names cost
+# twenty trusted-publisher forms, twenty version numbers to keep coherent, and, on the day
+# `v0.1.0` asked PyPI to create nineteen projects, fifteen refusals with
+# `429 Too many new projects created` (`docs/lessons.md` L7.3).
 #
-#   * No code. If it shipped code it would be a pack, and it would accumulate the convenience shims
-#     a kernel budget exists to prevent. `[tool.hatch.build.targets.wheel] bypass-selection` is how
-#     that is *declared* rather than left as an accident of there being no `src/` directory.
-#   * No module and no entry point of its own. The `weft` command a user runs comes from `weft-cli`,
-#     which this set depends on — which is also why the Phase 6 exit criterion can install the whole
-#     product with a single `uvx` invocation.
-#   * Exact pins, never ranges. Every distribution here already declares `>=X,<MAJOR+1` on each
-#     sibling (G9's enforcement rule, Phase 5), so a range would restate what is already true and
-#     answer nobody's question. Bounds say what is *compatible*; only a pin says what was *tested
-#     together*, which is the whole reason this distribution exists.
+# **Six distributions ship, and the other five each carry a dependency somebody may decline:**
+# `weft-kernel` (`pydantic`, `opentelemetry-api` — and separate for fitness function 1, which
+# installs it alone and imports it; bundling it would demote the check that proves the kernel
+# names no capability), `weft-openai` (`openai`), `weft-pdf` (`pypdf`, `pdfplumber`),
+# `weft-qdrant` (`qdrant-client`), `weft-otel` (`opentelemetry-sdk`).
 #
-# `tests/architecture/test_release_set.py` holds every one of those to account, and reads the pins
-# below against each distribution's own `pyproject.toml` — two sources that can genuinely disagree,
-# so a pack bumped without this file following it fails the gate (`docs/lessons.md` L5.6).
+# **What was given up, stated because the argument is only honest with the cost on the table:**
 #
-# **What is deliberately not here.** `09` §1's own worked example: a third-party pack "would not be
-# in the release set and would install beside it, exactly as `weft-store-qdrant` does". The
-# first-party distributions that are the same kind of thing install beside it too — `weft-qdrant`
-# (an alternative backend), `weft-openai` (a credentialed provider), `weft-pdf` (an optional file
-# format), `weft-otel` (an observability add-on). None is needed to index a directory and query it,
-# which is what this set has to be able to promise. `testing/weft-canary` exists to be *refused* by
-# discovery (fitness function 8) and must never reach an index at all.
+#   * **Independent semver for the fourteen.** They versioned separately (`weft-command` at
+#     2.1.0, `weft-store` at 2.0.0, eleven at 1.0.0) and now share this file's version. G9's
+#     deprecation machinery largely existed to manage skew *between* these packs; most of that
+#     skew stops existing. Contract versions (`STORE_CONTRACT_VERSION` and its siblings) are a
+#     separate axis and are **not** affected — a pack outside this wheel still checks them.
+#   * **Per-pack isolated-install proof.** Task 6.6 generalised fitness function 1 to every
+#     published distribution. Fourteen of them are no longer separately installable, so that
+#     check narrows to the six. What covers the fourteen instead is an import assertion against
+#     the built wheel, which is **weaker**, and is labelled weaker in
+#     `scripts/check_isolated_installs.py` rather than counted as the same coverage.
+#   * **Four already-published names become vestigial.** `weft-command`, `weft-embed`,
+#     `weft-generate` and `weft-llm` reached PyPI before the rate limit stopped the rest. PyPI
+#     cannot delete a project. They stay claimed, receive no further versions, and are recorded
+#     here so a future reader does not think they were lost.
 #
-# **Version.** `0.1.0`, and it cannot yet be otherwise: `09` §2.2 settled at G10 that a 1.0 release
-# set may pin nothing below 1.0, and `weft-kernel` and `weft-cli` are both `0.1.0`.
+# **What did not change, and it is the point.** The Python packages did not move relative to
+# each other, no import changed, every pack still registers through the same public `weft.packs`
+# entry point a third party uses, and a third-party pack installs beside this wheel exactly as
+# `weft-qdrant` does. What changed is how the code is *wheeled*, not how it is written.
+#
+# **A pack's identity is its entry-point name, not this distribution's name.** `weft plugins
+# list|doctor` prints twelve distinguishable rows, and `[packs.store]` configures the store and
+# nothing else — see `weft_kernel.discovery`'s own module docstring for where the two identities
+# part. That separation is what made this file possible; without it, bundling would have
+# collapsed twelve settings namespaces into one.
 
 [project]
 name = "weft-rag"
-version = "0.1.0"
-description = "Weft — the release set: one exactly-tested combination of the distributions that make up Weft."
+# **`2.1.0`, and it is a mechanical fact rather than a promise.** `docs/09-release.md` §2.3's
+# binding rule — G9, 2026-08-21 — forces a distribution's version to track the maximum contract
+# version it publishes, and fitness function 6 enforces it. This wheel publishes sixteen contract
+# constants, and `COMMAND_CONTRACT_VERSION` is `2.1.0`; `weft-command` and `weft-store` already
+# carried `2.x` for exactly this reason before they were bundled, so the number is inherited, not
+# invented. §2.2 answers the objection in advance: "fitness function 6 enforces the binding, not
+# the leading digit... a distribution can carry a major digit above `0` before the project has
+# decided it is *1.0-ready*". The 1.0 milestone is G10's substantive judgment and its precondition
+# table is untouched by this digit.
+version = "2.1.0"
+description = "Weft — a RAG engine built as a microkernel. The default install: the kernel's packs, and the weft command."
 requires-python = ">=3.12"
 license = "MIT"
 license-files = ["LICENSE", "NOTICE"]
 readme = "README.md"
+
+# The kernel, and every external dependency the fourteen bundled packs declared between them.
+# Ten of the fourteen declared none at all; these are the rest, each kept with the floor its
+# own distribution set and the reason its own manifest gave:
+#
+#   * `ftfy` — `weft_clean`'s mojibake repair.
+#   * `rouge-score` — `weft_eval`'s lexical-overlap metrics.
+#   * `psycopg[binary]` + `pgvector` — `weft_store`'s pgvector backend. The heaviest thing here,
+#     and the one genuine argument against a single wheel: an operator who only wants Qdrant
+#     still gets a Postgres driver. Kept in rather than made an extra, because `pgvector` is the
+#     default store every quickstart, every fixture and the one `compose.yaml` container assume,
+#     and an extra that everything defaults to needing is a footgun with a flag on it.
+#   * `pyyaml` — `weft_cli.pipeline_catalogue`, the one module that opens a pipeline document.
+#     G1 fixes `weft-kernel`'s dependencies at `pydantic` and `opentelemetry-api`, so a YAML
+#     parser can never live there.
+#   * `opentelemetry-api` — `weft_cli.tracing_status` reads `get_tracer_provider()` directly, to
+#     answer `weft plugins doctor`'s "are my spans going anywhere?" as a fact about the process.
+#     Declared explicitly rather than left to arrive through `weft-kernel`.
+#   * `packaging` — `weft_cli.skew` parses PEP 508 requirements and version specifiers.
 dependencies = [
-    "weft-kernel==0.1.0",
-    "weft-cli==0.1.0",
-    "weft-command==2.1.0",
-    "weft-extract==1.0.0",
-    "weft-chunk==1.0.0",
-    "weft-clean==1.0.0",
-    "weft-embed==1.0.0",
-    "weft-enhance==1.0.0",
-    "weft-index==1.0.0",
-    "weft-store==2.0.0",
-    "weft-retrieve==1.0.0",
-    "weft-generate==1.0.0",
-    "weft-llm==1.0.0",
-    "weft-prompts==1.0.0",
-    "weft-eval==1.0.0",
+    "weft-kernel>=0.1.0,<1.0.0",
+    "ftfy>=6.2",
+    "rouge-score>=0.1",
+    "psycopg[binary]>=3.2",
+    "pgvector>=0.3",
+    "pyyaml",
+    "opentelemetry-api",
+    "packaging>=24",
 ]
+
+# Both extras are inherited unchanged from the distributions that declared them, and both exist
+# for the same reason: a dependency that only one surface needs, which nothing on the
+# index-and-ask path ever reaches.
+#
+#   * `bertscore` — `weft_eval.embedding_metrics`' optional judge. A model download.
+#   * `reference` — `weft_cli.contract_reference` pipes generated Markdown through the real
+#     `ruff format`, so the checked-in file is byte-identical to what `poe ci-checks`' own `fmt`
+#     step produces. The floor is >=0.16.0, the first release that formats Python code blocks in
+#     Markdown by default, which is the behaviour it relies on. **Declared at task 6.7 and
+#     declared nowhere before**: it worked only because the workspace root's dev group carries
+#     `ruff` (`docs/lessons.md` L6.24).
+[project.optional-dependencies]
+bertscore = ["bert-score>=0.3"]
+reference = ["ruff>=0.16.0"]
+
+[project.scripts]
+weft = "weft_cli.cli:main"
+
+# The twelve packs this wheel registers. **The name on the left is the pack's identity** — the
+# row `weft plugins list|doctor` prints, and the key a `[packs.<pack>]` settings block uses — so
+# these twelve are what an operator writes in `weft.toml`, never `weft-rag`.
+#
+# Fourteen packages ship; twelve register. `weft_command` and `weft_prompts` deliberately declare
+# no entry point and register nothing: fitness function 2 requires a distribution declaring one
+# to be active *and contributing*, and every first-party prompt belongs to the plugin that asks
+# it a question. They are libraries other packs publish contracts from, which is a real thing to
+# be, and a pack that registers nothing is one fitness function 2 would have to waive.
+[project.entry-points."weft.packs"]
+chunk = "weft_chunk:register"
+clean = "weft_clean:register"
+cli = "weft_cli.commands:register"
+embed = "weft_embed:register"
+enhance = "weft_enhance:register"
+eval = "weft_eval:register"
+extract = "weft_extract:register"
+generate = "weft_generate:register"
+index = "weft_index:register"
+llm = "weft_llm:register"
+retrieve = "weft_retrieve:register"
+store = "weft_store:register"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-# Shipping nothing is a declaration, not an omission — see the header. `hatchling` refuses to build
-# a distribution it cannot find files for, so without this the build fails rather than producing the
-# code-free wheel `09` §1 requires.
+# Fourteen top-level packages in one wheel, listed rather than globbed: a glob would silently
+# ship whatever happened to be under `src/`, and what this distribution ships is a decision.
+#
+# **They live under this project's own `src/`, and that placement is load-bearing.** The first
+# attempt pointed `[tool.hatch.build.targets.wheel.force-include]` at `../weft-chunk/src/...` and
+# left the fourteen where they were. The wheel built and worked; `uv build` — which builds the
+# sdist and then builds a wheel *from* it, in an isolated directory where `../` does not exist —
+# failed outright, so task 6.7's "every sdist carries what the checkout has" could never hold.
+# A path outside the project root is not a packaging detail one backend flag away; it is outside
+# what a source distribution can contain. Moving the trees here costs nothing at all — the
+# top-level module names are unchanged, so no import in the tree, and no test, changed.
 [tool.hatch.build.targets.wheel]
-bypass-selection = true
+packages = [
+    "src/weft_chunk",
+    "src/weft_clean",
+    "src/weft_cli",
+    "src/weft_command",
+    "src/weft_embed",
+    "src/weft_enhance",
+    "src/weft_eval",
+    "src/weft_extract",
+    "src/weft_generate",
+    "src/weft_index",
+    "src/weft_llm",
+    "src/weft_prompts",
+    "src/weft_retrieve",
+    "src/weft_store",
+]

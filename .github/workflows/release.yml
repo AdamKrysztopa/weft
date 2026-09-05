@@ -15,11 +15,22 @@ name: Release
 # reach an index — `01` → *Fitness functions* 10(a) names it as the standing test case, and the
 # check asserts both halves of that.
 #
-# **Why the release set is a second job rather than another matrix row.** `weft` pins exact
-# versions (`==`, not a range — `09` §1), so it is uninstallable until everything it pins is on the
-# index. `needs: publish` makes that ordering a fact rather than a hope about matrix scheduling.
-# The check reads the `distribution` matrix of *every* job for that reason, so a third job cannot
-# quietly publish something outside the comparison.
+# **Why the default install is a second job rather than another matrix row.** It began as the
+# release set, pinning exact versions (`==`, not a range — `09` §1), so it was uninstallable until
+# everything it pinned was on the index; `needs: publish` made that ordering a fact rather than a
+# hope about matrix scheduling. It pins nothing now except `weft-kernel`, so the ordering
+# requirement is one edge rather than fifteen — but it is still a real edge, and the four add-ons
+# in the first job depend on `weft-rag`, so the second job would be *first* if this were reordered
+# by dependency. It stays a second job for one further reason: the check reads the `distribution`
+# matrix of *every* job, so a third job cannot quietly publish something outside the comparison.
+#
+# **Six names, and fourteen left this list on 2026-09-05.** `weft-command`, `weft-extract`,
+# `weft-chunk`, `weft-clean`, `weft-embed`, `weft-enhance`, `weft-index`, `weft-store`,
+# `weft-retrieve`, `weft-generate`, `weft-llm`, `weft-prompts`, `weft-eval` and `weft-cli` ship
+# inside `weft-rag` and are no longer published from this repository. Four of them
+# (`weft-command`, `weft-embed`, `weft-generate`, `weft-llm`) reached PyPI at `0.1.0` before the
+# rate limit stopped the rest and cannot be deleted; they are vestigial and receive no further
+# versions. `packages/weft-rag/pyproject.toml` carries the argument in full.
 
 on:
   push:
@@ -27,10 +38,12 @@ on:
   workflow_dispatch:
 
 jobs:
-  # Every distribution that versions on its own — `09` §1's "independent semver per distribution".
-  # `weft-qdrant`, `weft-openai`, `weft-pdf` and `weft-otel` are here and not in the release set:
-  # they install *beside* it, exactly as a third-party pack does, which is requirement 4 holding at
-  # the packaging layer.
+  # The five distributions that version on their own beside the default install — `09` §1's
+  # "independent semver per distribution", narrowed to the names that still have one. `weft-kernel`
+  # is here because fitness function 1 installs it alone and imports it, which is what proves the
+  # kernel names no capability; `weft-qdrant`, `weft-openai`, `weft-pdf` and `weft-otel` are here
+  # because each carries a dependency somebody may decline, and they install *beside* `weft-rag`
+  # exactly as a third-party pack does — requirement 4 holding at the packaging layer.
   publish:
     name: publish ${{ matrix.distribution }}
     runs-on: ubuntu-latest
@@ -64,20 +77,6 @@ jobs:
       matrix:
         distribution:
           - weft-kernel
-          - weft-command
-          - weft-extract
-          - weft-chunk
-          - weft-clean
-          - weft-embed
-          - weft-enhance
-          - weft-index
-          - weft-store
-          - weft-retrieve
-          - weft-generate
-          - weft-llm
-          - weft-prompts
-          - weft-eval
-          - weft-cli
           - weft-qdrant
           - weft-openai
           - weft-pdf
@@ -99,10 +98,11 @@ jobs:
           UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
         run: uv publish dist/*
 
-  # The release set, last. `09` §1: "a code-free distribution `weft` pinning one exactly-tested
-  # combination", and it is what a newcomer installs.
+  # The default install, last. `09` §1 settled on "a code-free distribution `weft` pinning one
+  # exactly-tested combination"; since 2026-09-05 it *contains* that combination instead of
+  # pinning it, and it is still what a newcomer installs.
   publish-release-set:
-    name: publish the release set
+    name: publish the default install
     needs: publish
     runs-on: ubuntu-latest
     # Same token, same debt — see the `publish` job.

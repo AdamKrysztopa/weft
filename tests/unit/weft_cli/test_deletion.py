@@ -1,6 +1,6 @@
 """Unit tests for `weft_cli.deletion`.
 
-Mirrors `packages/weft-cli/src/weft_cli/deletion.py`. Task **5.1a**: "deleting a source
+Mirrors `packages/weft-rag/src/weft_cli/deletion.py`. Task **5.1a**: "deleting a source
 reaches everything derived from it: `SourceDeletable` is published in the store family,
 `weft delete` fans out across every registered participant, and a participant that fails is
 named rather than swallowed."

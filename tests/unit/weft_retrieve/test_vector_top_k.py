@@ -1,6 +1,6 @@
 """Unit tests for `weft_retrieve.vector_top_k`.
 
-Mirrors `packages/weft-retrieve/src/weft_retrieve/vector_top_k.py`. Task **2.14**: "the
+Mirrors `packages/weft-rag/src/weft_retrieve/vector_top_k.py`. Task **2.14**: "the
 single-pass baseline is a plugin whose name states its cost, so an operator choosing what
 to run in a loop is not misled by the registry." Covers the happy path (two queries, each
 turned into a vector through the resolved `Embedder` service and searched through the

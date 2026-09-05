@@ -24,11 +24,11 @@ uv add weft-rag
 `weft-rag` is the release set: one exactly-tested combination of the kernel, the CLI and every
 first-party pack a working install needs — the extractor, the chunker, the embedder and the
 pgvector store. There is nothing else to add. **The distribution is `weft-rag` and the command is
-`weft`**: the name `weft` on PyPI belongs to an unrelated project, and the console script comes
-from `weft-cli`, which this set pins.
+`weft`**: the name `weft` on PyPI belongs to an unrelated project, and the console script is this
+distribution's own.
 
 > Not on an index yet. Until the first release, install from a checkout with
-> `uv pip install -e packages/weft-cli`; everything below is unchanged.
+> `uv pip install -e packages/weft-rag`; everything below is unchanged.
 
 You need Postgres with pgvector. `compose.yaml` in this repository brings one up with
 `docker compose up -d`, or point Weft at your own:
@@ -100,13 +100,25 @@ alone and importing it, rather than by a script that walks the source.
 
 ```text
 packages/weft-kernel     registry, discovery, pipeline model, payload types
-packages/weft-cli        the only driving adapter, and the only asyncio.run in the tree
-packages/weft-extract    first-party pack: publishes the Extractor contract
-packages/weft-chunk      first-party pack: publishes the Chunker contract
-packages/weft-store      first-party pack: publishes the Store contract family
+packages/weft-rag        the default install: fourteen packs in one wheel, and the `weft` command
+  src/weft_cli/          the only driving adapter, and the only asyncio.run in the tree
+  src/weft_extract/      first-party pack: publishes the Extractor contract
+  src/weft_chunk/        first-party pack: publishes the Chunker contract
+  src/weft_store/        first-party pack: publishes the Store contract family
+packages/weft-openai     an add-on: needs `openai` and a credential
+packages/weft-pdf        an add-on: needs `pypdf` and `pdfplumber`
+packages/weft-qdrant     an add-on: needs `qdrant-client`
+packages/weft-otel       an add-on: needs `opentelemetry-sdk`
 testing/weft-canary      test-only distribution, proves refused packs are never imported
 tests/architecture       the fitness functions
 ```
+
+**Six published names, and a pack is not a distribution.** `weft-rag` ships fourteen top-level
+packages and registers twelve of them as packs; each keeps its own identity — its `weft.packs`
+entry-point name — which is what `weft plugins list` prints and what a `[packs.store]` block in
+`weft.toml` configures. `weft-kernel` stays separate because installing it alone and importing it
+is what proves it names no capability; the four add-ons stay separate because each carries a
+dependency somebody may decline.
 
 ## Development
 

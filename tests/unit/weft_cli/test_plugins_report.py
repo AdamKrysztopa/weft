@@ -1,6 +1,6 @@
 """Unit tests for `weft_cli.plugins_report`.
 
-Mirrors `packages/weft-cli/src/weft_cli/plugins_report.py`. Covers the
+Mirrors `packages/weft-rag/src/weft_cli/plugins_report.py`. Covers the
 `list` summary line, `doctor`'s fuller block (reason and disclosure
 included), and the empty-report edge case both renderers share.
 

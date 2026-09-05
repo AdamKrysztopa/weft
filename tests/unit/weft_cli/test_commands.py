@@ -1,6 +1,6 @@
 """Unit tests for `weft_cli.commands`.
 
-Mirrors `packages/weft-cli/src/weft_cli/commands.py`. Covers the shape every built-in command
+Mirrors `packages/weft-rag/src/weft_cli/commands.py`. Covers the shape every built-in command
 now shares: `ctx.require(Dependencies)` recovering what the retired `handle_*` functions used to
 receive as a direct parameter, a policy/resolution refusal raising `CommandRefusalError` with
 the same exit code the old handler used to return directly, a successful run producing the same

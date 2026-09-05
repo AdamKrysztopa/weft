@@ -1,6 +1,6 @@
 """Unit tests for `weft_eval.run_record`.
 
-Mirrors `packages/weft-eval/src/weft_eval/run_record.py`. Covers `build_run_record`'s own
+Mirrors `packages/weft-rag/src/weft_eval/run_record.py`. Covers `build_run_record`'s own
 derivation of `active_distributions` (happy path: only `PackStatus.ACTIVE` reports contribute;
 the edge case of no reports at all), `write_run_record`/`load_run_record`'s round trip,
 `load_run_record`'s refusal of a file that is not a well-formed `RunRecord` (the error case), and

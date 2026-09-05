@@ -1,6 +1,6 @@
 """Unit tests for `weft_extract`'s `register()`.
 
-Mirrors `packages/weft-extract/src/weft_extract/__init__.py`. Covers the
+Mirrors `packages/weft-rag/src/weft_extract/__init__.py`. Covers the
 happy path (`register` adds `TextExtractor` as `"text"` under `Extractor`),
 and that an unknown settings field is refused — `weft-extract` takes no
 settings, so `extra` fields are the only shape its `Settings` model can get

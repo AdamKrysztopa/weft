@@ -1,6 +1,6 @@
 """Unit tests for `weft_cli.run_services`.
 
-Mirrors `packages/weft-cli/src/weft_cli/run_services.py`. Task **2.5**: a stage
+Mirrors `packages/weft-rag/src/weft_cli/run_services.py`. Task **2.5**: a stage
 declaring what it needs from the store is checked against the store the run was
 configured with, *before* the run starts. Covers the happy path (a retriever needing
 vector and text search, against a store advertising both, and a stage that declares

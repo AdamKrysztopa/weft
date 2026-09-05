@@ -75,7 +75,13 @@ PACKAGES: Final[Path] = REPO_ROOT / "packages"
 #: this file ran before them and pass whenever it ran alone — a test-order dependency introduced
 #: by a new test, which is the defect ledger task **6.17** exists about, met from a third
 #: direction (`docs/lessons.md` L5.21).
-_EXTRACTOR_PACKS: Final[frozenset[str]] = frozenset({"weft-extract", "weft-pdf"})
+#:
+#: **Distribution names, because `allow` is keyed on distributions** — so listing `weft-rag`
+#: here admits the twelve packs it ships, not only `weft_extract`. That is the trust boundary's
+#: own granularity (`weft_kernel.discovery`: trust attaches to what you installed), and it is
+#: coarser than this test would like; what it still buys is the one thing it was written for,
+#: which is that `testing/weft-canary` is not among them.
+_EXTRACTOR_PACKS: Final[frozenset[str]] = frozenset({"weft-rag", "weft-pdf"})
 
 
 def _extractor_registry() -> Registry:
@@ -217,7 +223,10 @@ def test_the_ratchet_names_only_real_plugins() -> None:
     # Arrange — the ratchet's one entry is a `weft-eval` metric, so that pack is what has to be
     # discovered to check it is live. Restricted, for the reason `_EXTRACTOR_PACKS` above gives.
     registry = Registry()
-    discover(registry, allow=frozenset({"weft-eval", "weft-embed", "weft-llm", "weft-prompts"}))
+    # `weft-rag` is the distribution shipping `eval`, `embed`, `llm` and `prompts` — four
+    # separate names before 2026-09-05, one wheel since. Still restricted, and still for the
+    # canary reason `_EXTRACTOR_PACKS` above states.
+    discover(registry, allow=frozenset({"weft-rag"}))
 
     # Act
     registered = {

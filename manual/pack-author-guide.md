@@ -44,17 +44,19 @@ description = "A stranger's chunker — lives outside the weft workspace, provin
 requires-python = ">=3.12"
 # Both deps are published packages any third party would `pip install`; this
 # distribution never sees the weft workspace's source tree, only the wheels
-# those two ship. weft-chunk is depended on for the one thing a third-party
-# chunker pack needs from it: the `Chunker` Protocol it publishes — the same
-# relationship docs/07-extension-cost.md section 1 states for any pack that
-# implements a contract it does not itself define.
+# those two ship. weft-rag is depended on for the one thing a third-party
+# chunker pack needs from it: the `Chunker` Protocol weft_chunk publishes — the
+# same relationship docs/07-extension-cost.md section 1 states for any pack that
+# implements a contract it does not itself define. **It is `weft-rag` and not
+# `weft-chunk` because that is where `weft_chunk` ships since 2026-09-05**: the
+# import a pack writes is unchanged, and the name it installs is not.
 #
 # **Both carry `>=X,<MAJOR+1`, and that is the point of an exemplar** — weft's ledger task 6.26.
 # G9 settled that a version requirement *is* the dependency specifier and bare names end; this
 # pack, and the five beside it, declared bare names until that task, so the thing a pack author
 # copies was teaching that bounds are optional. `tests/architecture/test_example_packs_are_
 # exemplars.py` in the weft repository is what keeps them from drifting back.
-dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-chunk>=1.0.0,<2.0.0"]
+dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-rag>=2.1.0,<3.0.0"]
 
 # The one entry point a pack declares (weft's docs/02-extension-model.md
 # section 2). Nothing under weft's own packages/ or testing/ names this
@@ -536,12 +538,12 @@ class GreetCommand:
 ```
 
 `weft_command.contract.Command.required_declarations = ("permission_class", "help")`
-(`packages/weft-command/src/weft_command/contract.py:196`) — the identical mechanism `Chunker`'s
+(`packages/weft-rag/src/weft_command/contract.py:196`) — the identical mechanism `Chunker`'s
 `destroys` already uses in §4 above, applied to a second contract. Omit either and your pack's own
 `register()` raises at the point it calls `registrar.add(Command, ...)`, naming your class and the
 missing declaration, never a stack trace three layers into `weft-cli`. There is **no default**:
 `PermissionClass` has five members (`read`, `write`, `overwrite`, `destroy`, `network`,
-`packages/weft-command/src/weft_command/permission.py:30-44`) and falling back to `read` would
+`packages/weft-rag/src/weft_command/permission.py:30-44`) and falling back to `read` would
 silently under-protect a destructive command, so silence is refused rather than defaulted.
 
 ```python path=examples/weft-example-command/src/weft_example_command/__init__.py
@@ -595,19 +597,39 @@ including one whose contract has moved out from under you since you wrote this l
 exactly the silent incompatibility a semver policy exists to prevent. Task **5.2a** made this real for
 every first-party distribution; the shape to copy is any of them, unchanged since:
 
-```toml path=packages/weft-store/pyproject.toml
+```toml path=packages/weft-qdrant/pyproject.toml
 [project]
-name = "weft-store"
-version = "2.0.0"
-description = "First-party storage pack. Publishes the Store contract family."
+name = "weft-qdrant"
+version = "0.1.0"
+description = "First-party Qdrant store pack. Registers under the store contract family weft-store publishes."
 requires-python = ">=3.12"
 license = "MIT"
 license-files = ["LICENSE", "NOTICE"]
-dependencies = ["weft-kernel>=0.1.0,<1.0.0", "psycopg[binary]>=3.2", "pgvector>=0.3"]
+# `qdrant-client` is Apache-2.0, so it widens nothing an MIT library asks of the people
+# who install it. The floor is the version this pack's behaviour was measured against; a
+# claim about an older release would be a claim nobody here has checked.
+#
+# **No ceiling, and that is a repair.** This read `<1.14` so that resolution would not
+# outrun `compose.yaml`'s pinned `qdrant/qdrant:v1.12.4` and make the conformance kit emit
+# the client's own version warning. That put a *test fixture's* concern into the dependency
+# range every downstream install resolves against, and the client's rule is symmetric —
+# "major versions should match and minor version difference must not exceed 1" — so a
+# client capped at 1.13 is out of its supported window against any server at 1.15 or later.
+# An operator pointing this pack at a current deployment could not widen the range without
+# editing a file in this repository, which is the one cost this project will not pay. The
+# warning itself is something they *can* act on: align the server and the client. The dev
+# environment's own alignment with `compose.yaml` lives in the workspace root's
+# `[tool.uv] constraint-dependencies`, where a fixture pin belongs.
+# `weft-rag` replaces the `weft-store` pin this used to carry: `weft_store` — the module whose
+# store contract family this pack registers against — now ships inside that one wheel. The
+# import is unchanged; only the name that delivers it is. Note the cost this makes visible:
+# an operator who wants Qdrant and not Postgres still gets `psycopg`, because `weft-rag`
+# declares it. That is the honest price of one wheel, recorded rather than hidden.
+dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-rag>=2.1.0,<3.0.0", "qdrant-client>=1.12"]
 
 # The one entry point a pack declares (`docs/02-extension-model.md` section 2).
 [project.entry-points."weft.packs"]
-store = "weft_store:register"
+qdrant = "weft_qdrant:register"
 
 [build-system]
 requires = ["hatchling"]
@@ -615,9 +637,9 @@ build-backend = "hatchling.build"
 ```
 
 Two different shapes appear on that one line, and both are correct for what they name:
-`weft-kernel>=0.1.0,<1.0.0` is the G9 range — an **intra-repo dependency on a contract-publishing
-distribution**, bound to the major that would break it. `psycopg[binary]>=3.2` and `pgvector>=0.3`
-are ordinary PyPI floors on libraries Weft does not publish a contract for — G9's range rule binds a
+`weft-kernel>=0.1.0,<1.0.0` and `weft-rag>=2.1.0,<3.0.0` are G9 ranges — **dependencies on
+contract-publishing distributions**, each bound to the major that would break it. `qdrant-client>=1.12`
+is an ordinary PyPI floor on a library Weft does not publish a contract for — G9's range rule binds a
 *contract's* version to its *publisher's* distribution version; it says nothing about a floor on an
 unrelated third-party package, and inventing an upper bound for those would be exactly the "any two
 packs jointly unresolvable" trap the rule exists to prevent, aimed at yourself. When you depend on
@@ -735,7 +757,7 @@ without raising. `weft-retrieve` ships three this way:
 registrar.add_pipeline_resource("weft_retrieve", "pipelines/route.yaml")
 registrar.add_pipeline_resource("weft_retrieve", "pipelines/no-retrieval.yaml")
 registrar.add_pipeline_resource("weft_retrieve", "pipelines/retrieve-then-generate.yaml")
-# packages/weft-retrieve/src/weft_retrieve/__init__.py:369-371
+# packages/weft-rag/src/weft_retrieve/__init__.py:369-371
 ```
 
 `package` and `resource` are read together as an `importlib.resources` path inside your own installed

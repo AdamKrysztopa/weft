@@ -1,6 +1,6 @@
 """Unit tests for `weft_llm.loop_guard`.
 
-Mirrors `packages/weft-llm/src/weft_llm/loop_guard.py`. Covers the happy path (ordinary prose,
+Mirrors `packages/weft-rag/src/weft_llm/loop_guard.py`. Covers the happy path (ordinary prose,
 including prose that legitimately reuses a phrase, is never flagged), the edge case (a table
 being streamed is read as a table and never reaches the repetition check, and a short answer is
 never checked at all), and the error case a caller gets wrong once and never again — feeding

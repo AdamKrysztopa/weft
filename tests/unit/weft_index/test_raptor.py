@@ -1,6 +1,6 @@
 """Unit tests for `weft_index.raptor`.
 
-Mirrors `packages/weft-index/src/weft_index/raptor.py`. Ledger **2.32**: "a query too
+Mirrors `packages/weft-rag/src/weft_index/raptor.py`. Ledger **2.32**: "a query too
 broad for any one chunk is answerable, because summaries of clustered chunks are
 themselves retrievable nodes, and a summary that cannot be produced degrades the tree
 rather than failing the run." Covers the happy path (four nodes cluster by embedding

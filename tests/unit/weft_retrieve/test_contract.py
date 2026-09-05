@@ -1,6 +1,6 @@
 """Unit tests for `weft_retrieve.contract`.
 
-Mirrors `packages/weft-retrieve/src/weft_retrieve/contract.py`. Covers a full
+Mirrors `packages/weft-rag/src/weft_retrieve/contract.py`. Covers a full
 resolve-then-run of a `Retriever` through `weft_kernel.runner` with a plugin that
 satisfies the contract structurally, capability derived by `isinstance` rather than
 declared, the version constant fitness function 6 binds to this distribution's own

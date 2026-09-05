@@ -1,6 +1,6 @@
 """Unit tests for `weft_cli.route_ask`.
 
-Mirrors `packages/weft-cli/src/weft_cli/route_ask.py`. Ledger **2.8**'s own CLI-facing
+Mirrors `packages/weft-rag/src/weft_cli/route_ask.py`. Ledger **2.8**'s own CLI-facing
 half: `weft-retrieve`'s own `route.yaml` and `no-retrieval.yaml` are resolved and run
 through the *real* `weft_cli.compile`/`weft_kernel.runner.Runner` machinery, against a
 hand-assembled registry of real plugin classes — `LlmQueryScorer`, `NearestDescription`,

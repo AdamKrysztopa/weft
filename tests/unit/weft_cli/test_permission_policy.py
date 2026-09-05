@@ -1,6 +1,6 @@
 """Unit tests for `weft_cli.permission_policy`.
 
-Mirrors `packages/weft-cli/src/weft_cli/permission_policy.py`. Task **3.3**, design question 4:
+Mirrors `packages/weft-rag/src/weft_cli/permission_policy.py`. Task **3.3**, design question 4:
 "[permissions]" is read the same one-file-one-parse way `weft_cli.services.
 service_selection_from_config` already reads `[services]`, and this file proves the same three
 shapes that module's own test file proves for it — the happy path, the default with no block at

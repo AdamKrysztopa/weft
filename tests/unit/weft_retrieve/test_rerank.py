@@ -1,6 +1,6 @@
 """Unit tests for `weft_retrieve.rerank`.
 
-Mirrors `packages/weft-retrieve/src/weft_retrieve/rerank.py`. Task **2.7**: "fusion and
+Mirrors `packages/weft-rag/src/weft_retrieve/rerank.py`. Task **2.7**: "fusion and
 reranking are composable plugins a third party can retune, not a fixed ladder." This module
 covers the reranking half — the happy path (three passages rescored and reordered against the
 question, ranks renumbered, `top_n` honoured), the edge case (an empty ranking comes back

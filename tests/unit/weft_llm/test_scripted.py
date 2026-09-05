@@ -1,6 +1,6 @@
 """Unit tests for `weft_llm.scripted`.
 
-Mirrors `packages/weft-llm/src/weft_llm/scripted.py`. Covers the happy path (a deterministic
+Mirrors `packages/weft-rag/src/weft_llm/scripted.py`. Covers the happy path (a deterministic
 answer derived from the conversation), the edge case (a fixed `reply` overrides the derived
 one), and drives the plugin through `weft_kernel.seam.wrap` — the group note against every
 task from 2.6 forward: a unit test calling `ScriptedProvider.complete` directly never proves

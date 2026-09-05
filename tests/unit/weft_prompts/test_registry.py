@@ -1,6 +1,6 @@
 """Unit tests for `weft_prompts.registry`.
 
-Mirrors `packages/weft-prompts/src/weft_prompts/registry.py`. Covers the happy path (a
+Mirrors `packages/weft-rag/src/weft_prompts/registry.py`. Covers the happy path (a
 registered prompt renders by name) and the error case (an unregistered name is refused by the
 kernel registry's own message, naming every prompt that *is* registered).
 

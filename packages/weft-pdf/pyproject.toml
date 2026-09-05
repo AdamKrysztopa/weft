@@ -11,7 +11,12 @@ license-files = ["LICENSE", "NOTICE"]
 # depending on it would push AGPL obligations onto every downstream user of Weft.
 # Floors are the versions this pack's behaviour was actually measured against; a
 # claim about an older release would be a claim nobody here has checked.
-dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-extract>=1.0.0,<2.0.0", "pypdf>=6.16", "pdfplumber>=0.11.10"]
+# `weft-rag` replaces the `weft-extract` pin this used to carry: `weft_extract` — the module
+# whose `Extractor` contract this pack registers against — now ships inside that one wheel
+# (`packages/weft-rag/pyproject.toml`). The import is unchanged; only the name that delivers
+# it is. `weft-kernel` stays declared explicitly rather than left to arrive through
+# `weft-rag`, on the footing every other explicit-over-transitive declaration here has.
+dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-rag>=2.1.0,<3.0.0", "pypdf>=6.16", "pdfplumber>=0.11.10"]
 
 # The one entry point a pack declares (`docs/02-extension-model.md` section 2).
 [project.entry-points."weft.packs"]

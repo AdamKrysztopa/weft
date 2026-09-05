@@ -1,6 +1,6 @@
 """Unit tests for `weft_llm.client`.
 
-Mirrors `packages/weft-llm/src/weft_llm/client.py`. Covers the happy path (a role resolves to
+Mirrors `packages/weft-rag/src/weft_llm/client.py`. Covers the happy path (a role resolves to
 a registered provider and the answer comes back decided), the streaming property task 2.17
 rests on (every call emits to the `TokenSink`, tagged with the role), the model-string
 resolution a declared catalogue turns on, and the two loud refusals — an unmapped role and a

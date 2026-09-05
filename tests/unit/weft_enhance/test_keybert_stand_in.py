@@ -1,6 +1,6 @@
 """Unit tests for `weft_enhance.keybert_stand_in`.
 
-Mirrors `packages/weft-enhance/src/weft_enhance/keybert_stand_in.py`. Covers the happy
+Mirrors `packages/weft-rag/src/weft_enhance/keybert_stand_in.py`. Covers the happy
 path (a repeated, meaningful word outranks a one-off, stopwords are excluded, and the
 same content always ranks the same way — deterministic by construction, no model, no
 network), the edge case of an empty batch (`NothingToProduce`, never an empty

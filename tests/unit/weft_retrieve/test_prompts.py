@@ -1,6 +1,6 @@
 """Unit tests for `weft_retrieve.prompts`.
 
-Mirrors `packages/weft-retrieve/src/weft_retrieve/prompts.py`. Task **2.7** ships the first
+Mirrors `packages/weft-rag/src/weft_retrieve/prompts.py`. Task **2.7** ships the first
 registered `Prompt` in this tree, and it belongs to the pack whose plugin asks the question —
 task 2.10's ledger line: "every first-party prompt belongs to the plugin that asks it a
 question." Covers the happy path (the English text rendered into the two-message conversation

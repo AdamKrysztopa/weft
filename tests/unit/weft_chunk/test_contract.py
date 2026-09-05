@@ -1,6 +1,6 @@
 """Unit tests for `weft_chunk.contract`.
 
-Mirrors `packages/weft-chunk/src/weft_chunk/contract.py`. Covers a full
+Mirrors `packages/weft-rag/src/weft_chunk/contract.py`. Covers a full
 resolve-then-run of `Chunker` through `weft_kernel.runner`, `Outcome`
 discipline at this contract's boundary — `NothingToProduce` halting the
 chain and a `Failed` reason reaching the returned `RunSummary` — capability

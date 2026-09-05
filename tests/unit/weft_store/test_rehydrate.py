@@ -1,6 +1,6 @@
 """Unit tests for `weft_store.rehydrate`.
 
-Mirrors `packages/weft-store/src/weft_store/rehydrate.py`. Covers the happy
+Mirrors `packages/weft-rag/src/weft_store/rehydrate.py`. Covers the happy
 path (a namespace dumped the way a real `Node` dumps it — through `ExtMap`'s
 `_dump`, carrying `SCHEMA_VERSION_KEY` — comes back as a real
 `SyntheticOrigin`, not a bare `ExtModel`), the edge case of an empty `ext`

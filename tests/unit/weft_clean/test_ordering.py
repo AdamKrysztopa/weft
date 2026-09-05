@@ -1,6 +1,6 @@
 """The machine-checked constraint tasks 1.7 and 2.35 exist to prove.
 
-Mirrors nothing in `packages/weft-clean/src/`; it exercises the whole pack
+Mirrors nothing in `packages/weft-rag/src/`; it exercises the whole pack
 against `weft_kernel.resolution.resolve` the way a real pipeline document
 would. `docs/02-extension-model.md` §3 → *Ordering constraints* quotes the
 reference's own docstring — "IMPORTANT: Changing this order will break

@@ -1,6 +1,6 @@
 """Unit tests for `weft_retrieve.sufficiency`.
 
-Mirrors `packages/weft-retrieve/src/weft_retrieve/sufficiency.py`. Ledger **2.24**: "a
+Mirrors `packages/weft-rag/src/weft_retrieve/sufficiency.py`. Ledger **2.24**: "a
 draft's uncertainty is a replaceable, named signal rather than a phrase list, so the trigger
 cannot break silently under another language or model." Two `Sufficiency` implementations,
 covered separately:

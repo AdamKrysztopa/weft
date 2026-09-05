@@ -1,6 +1,6 @@
 """Unit tests for `weft_eval.prompts`.
 
-Mirrors `packages/weft-eval/src/weft_eval/prompts.py`. Every prompt's template/input-model
+Mirrors `packages/weft-rag/src/weft_eval/prompts.py`. Every prompt's template/input-model
 agreement is already checked at class-definition time by `TypedPrompt.__init_subclass__` — this
 file's job is proving `render` actually substitutes correctly for one prompt (the happy path), an
 answer-model round-trip for the output shapes the judges rely on (the "no score field" property

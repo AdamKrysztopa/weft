@@ -1,6 +1,6 @@
 """Unit tests for `weft_eval.qa_metrics`.
 
-Mirrors `packages/weft-eval/src/weft_eval/qa_metrics.py`. `ExactMatch` is the one metric in the
+Mirrors `packages/weft-rag/src/weft_eval/qa_metrics.py`. `ExactMatch` is the one metric in the
 whole suite that scores an empty-and-empty pair as a real match rather than `NothingToProduce` —
 the module's own module docstring states why, and this file proves it. `F1Score` and `Accuracy`
 each get one happy path and one edge/error case.

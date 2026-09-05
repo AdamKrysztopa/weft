@@ -1,6 +1,6 @@
 """Unit tests for `weft_generate.page`.
 
-Mirrors `packages/weft-generate/src/weft_generate/page.py`. Covers the happy path (an
+Mirrors `packages/weft-rag/src/weft_generate/page.py`. Covers the happy path (an
 offset and a locator on the same node resolve to a page), the edge case of a node
 carrying only one of the two facts (no page, not a crash), and the error case is folded
 into that same edge case — this module never raises, by design, so there is no separate

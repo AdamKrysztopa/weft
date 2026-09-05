@@ -135,7 +135,19 @@ def test_the_published_pages_are_found() -> None:
         f"{RELEASE_SET_PAGE} does not exist, and `packages/weft/pyproject.toml` declares it as "
         f"the release set's `readme` — the page an index renders."
     )
-    assert len(pages) > 10, f"only {len(pages)} published surfaces were found; the reader is wrong"
+    # Derived rather than a magic number: two pages plus one description per published
+    # distribution. It read `> 10` while twenty distributions shipped, and six do now — a
+    # constant calibrated against a distribution count is a check that has to be re-tuned
+    # whenever packaging changes, which is exactly when it should be doing its job instead.
+    descriptions = _distribution_descriptions()
+    manifests = sorted((REPO_ROOT / "packages").glob("*/pyproject.toml"))
+    assert len(descriptions) == len(manifests), (
+        f"{len(descriptions)} of {len(manifests)} distributions under packages/ carry a "
+        f"description; every published one owes an index a sentence"
+    )
+    assert len(pages) == len(descriptions) + 2, (
+        f"only {len(pages)} published surfaces were found; the reader is wrong"
+    )
 
 
 def test_the_release_sets_published_page_states_the_posture() -> None:

@@ -1,6 +1,6 @@
 """Unit tests for `weft_clean.contract`.
 
-Mirrors `packages/weft-clean/src/weft_clean/contract.py`. Covers a full
+Mirrors `packages/weft-rag/src/weft_clean/contract.py`. Covers a full
 resolve-then-run of `Cleaner` through `weft_kernel.runner`, capability being
 derived by `isinstance` rather than declared (the same property
 `weft_chunk.contract`'s tests assert for `Chunker`), and task 1.2's own

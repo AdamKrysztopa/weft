@@ -1,6 +1,6 @@
 """Unit tests for `weft_generate.cited_answer`.
 
-Mirrors `packages/weft-generate/src/weft_generate/cited_answer.py`. Task **2.9**: "an
+Mirrors `packages/weft-rag/src/weft_generate/cited_answer.py`. Task **2.9**: "an
 answer carries citations a reader can follow back to a passage — not to a document, and
 not to a paraphrase." Covers the happy path (a completion whose markers match offered
 labels becomes exactly those citations, with page and uri resolved), the two shapes of

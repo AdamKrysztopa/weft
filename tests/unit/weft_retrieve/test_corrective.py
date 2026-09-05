@@ -1,6 +1,6 @@
 """Unit tests for `weft_retrieve.corrective`.
 
-Mirrors `packages/weft-retrieve/src/weft_retrieve/corrective.py`. Ledger **2.21**: "a
+Mirrors `packages/weft-rag/src/weft_retrieve/corrective.py`. Ledger **2.21**: "a
 knowledge action that reaches a second retriever is what earns the name `corrective`." This
 module covers the happy path (grading leaves enough hits, `knowledge_action` never runs), the
 edge case (grading leaves too few, `knowledge_action` runs and its own hits are appended

@@ -1,6 +1,6 @@
 """Unit tests for `weft_clean.language`.
 
-Mirrors `packages/weft-clean/src/weft_clean/language.py`. Covers the one thing this
+Mirrors `packages/weft-rag/src/weft_clean/language.py`. Covers the one thing this
 module states: `Language` is a real, namespaced `weft_kernel.payload.ExtModel`, not a
 placeholder — the repair that closes a real gap tasks 1.7/1.8 left open, per the
 module's own docstring.

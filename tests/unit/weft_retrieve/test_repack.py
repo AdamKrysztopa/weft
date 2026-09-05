@@ -1,6 +1,6 @@
 """Unit tests for `weft_retrieve.repack`.
 
-Mirrors `packages/weft-retrieve/src/weft_retrieve/repack.py`. Task **2.19**: "context
+Mirrors `packages/weft-rag/src/weft_retrieve/repack.py`. Task **2.19**: "context
 ordering is a named, parameterised stage whose method does what the method is named
 after." This module covers the happy path (`forward` keeps retrieval order and assigns
 the final labels a `Generator` resolves citations against), the two other named

@@ -1,18 +1,36 @@
 # weft-rag
 
-The Weft release set: one exactly-tested combination of the distributions that make up Weft.
+Weft — a RAG engine built as a microkernel. This is the default install: the packs that index a
+directory and answer a question about it, and the `weft` command.
 
-This distribution ships no code. Installing it installs the product — including `weft-cli`, which
-provides the `weft` command. **The distribution is `weft-rag`; the command is `weft`** — the name
-`weft` belongs to an unrelated project on PyPI, and the console script is `weft-cli`'s:
+**The distribution is `weft-rag`; the command is `weft`** — the name `weft` belongs to an unrelated
+project on PyPI, so what you install and what you run are spelled differently:
 
 ```bash
 uvx --from weft-rag weft --help
 ```
 
-A pack that is not in this set installs beside it and is discovered the same way, with no edit to
-anything here. See `docs/09-release.md` §1 for why the unit of release is a named set rather than a
-single wheel.
+## What is in it, and what is not
+
+Twelve packs ship here and each keeps its own identity: `weft plugins list` prints one row per pack,
+and `weft.toml` configures one at a time — `[packs.store]`, not `[packs.weft-rag]`.
+
+Five distributions publish **beside** this one, and each is separate because it carries a dependency
+you may want to decline:
+
+| | |
+|---|---|
+| `weft-kernel` | the registry, discovery, the pipeline model and the payload types. Depends on `pydantic` and `opentelemetry-api` and nothing else, and installs and imports alone — which is what proves the kernel names no capability |
+| `weft-openai` | an `Embedder` and an `LLMProvider` against the OpenAI API. Needs `openai` and a credential |
+| `weft-pdf` | two PDF extraction backends. Needs `pypdf` and `pdfplumber` |
+| `weft-qdrant` | a Qdrant store backend, beside the pgvector one shipped here. Needs `qdrant-client` |
+| `weft-otel` | sets the OpenTelemetry TracerProvider the registration seam already emits spans into. Needs `opentelemetry-sdk` |
+
+None of the four add-ons is needed to index a directory and query it. A pack neither we nor you
+wrote installs beside this one on exactly the same terms and is discovered the same way, with no
+edit to anything here — that is the extension model, not a courtesy.
+
+See `docs/09-release.md` §1 for why this is one wheel rather than fourteen.
 
 ## What installing this trusts
 

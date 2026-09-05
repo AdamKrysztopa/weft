@@ -1,6 +1,6 @@
 """Unit tests for `weft_command.permission`.
 
-Mirrors `packages/weft-command/src/weft_command/permission.py`. Covers the one property
+Mirrors `packages/weft-rag/src/weft_command/permission.py`. Covers the one property
 that matters: `PermissionClass` is exactly the five-member, `Enum`-not-`Literal` vocabulary
 `docs/03-cli.md` → *Permissions* fixes, unchanged by task 3.1 moving it out of
 `weft_cli.permissions`.
