@@ -4315,7 +4315,7 @@ dispositions. None is gated, and none blocks Phase 7.
   than dispatched**: the green half was five manual-text repairs, which is smaller than its own
   brief would have been
 - [x] **8.17** a command quoted in a shipped `pipelines/*.yaml` comment is a command that runs ·
-  owner `08` §1; `lessons-archive` `L8.14` · turns on — · sha `SHA817` · `index-text.yaml` told
+  owner `08` §1; `lessons-archive` `L8.14` · turns on — · sha `9d648ae` · `index-text.yaml` told
   operators to run `weft pipeline derive index-text --set embed.use=openai`; there is no `--set`
   flag and the plugin name was unresolvable. The comment is repaired; nothing stops the next one.
   `tests/docs`'s tagged-sample harness is scoped to `manual/`, and pipeline documents carry more
@@ -4379,7 +4379,7 @@ dispositions. None is gated, and none blocks Phase 7.
   every subsequent run, each green. No `poe` task reads pytest's own skip count. The check is
   small; the judgement is what count is expected, which is why this is a task and not a paragraph
 - [x] **8.21** a documented gap is retired when the task that closes it ticks · owner `08` §1;
-  `lessons-archive` `L7.5` · turns on — · sha `SHA817` · `manual/pack-author-guide.md` recorded an
+  `lessons-archive` `L7.5` · turns on — · sha `9d648ae` · `manual/pack-author-guide.md` recorded an
   honest gap that had been closed for two weeks. A "gap"/"not yet"/"follow-up" paragraph citing a
   task id is mechanically checkable against that task's ticked state ·
   **`tests/docs/test_documented_gaps_are_retired.py`. Both facts are already written down in two
