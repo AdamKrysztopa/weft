@@ -4070,7 +4070,7 @@ it is a config key and two call sites. Said here because nothing else records it
   blocks it, and it discharges an open 1.0 precondition. It outranks everything below it despite a
   lower headline, because it is what makes every claim tasks 8.6 and 8.1 support worth anything
 - [x] **8.9** a `Renderer` has a driver, and fitness function 16's waiver is empty · owner `02`
-  §1; `01` → *Fitness functions* item 16 · turns on — · sha `—` · `plain` and `markdown` were
+  §1; `01` → *Fitness functions* item 16 · turns on — · sha `3d100f4` · `plain` and `markdown` were
   registered `Stage` termini producing a `Rendition` that **no shipped command returned to
   anybody**, so a document ending in one ran and discarded its only product, and task 2.27's own
   exit demonstration — "an operator's PDF becomes readable" — was unreachable from the CLI.
@@ -4085,7 +4085,7 @@ it is a config key and two call sites. Said here because nothing else records it
   `claimed_extensions`, which is keyed by *suffix*, so it always returned empty and `weft render`
   reported "nothing to render" over a directory of readable files, exit 0
 - [x] **8.13** a citation a reader cannot follow fails the gate · owner `01` → *Fitness
-  functions* item 17 · turns on **FF17** · sha `—` · `lessons.md` L8.7, L8.8 and L8.9 discharged
+  functions* item 17 · turns on **FF17** · sha `3d100f4` · `lessons.md` L8.7, L8.8 and L8.9 discharged
   by one check. Tracked files enumerated from `git ls-files` rather than a directory list — the
   scoping half of L8.8 — and two clauses, because clause (a) is structurally blind to clause (b):
   a comment citing `unicode_normalizer.py:12-37` *inside* `unicode_normalizer.py` resolves
