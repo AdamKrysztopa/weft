@@ -27,6 +27,40 @@ otherwise paid for twice.
 
 ## Queue
 
+### L7.2 — the gate had never run anywhere but one laptop, and nobody could have noticed
+
+**What happened.** The first CI run this repository has ever had failed three of its four jobs at
+their first step: `error: Unable to find lockfile at uv.lock, but --frozen was provided`.
+`.gitignore:17` listed `uv.lock` under `# Tooling`, between `.ruff_cache/` and `.pyright/`, and it
+had never been committed in seventy commits. `ci.yml` runs `uv sync --frozen` in `gate` and
+`sdists`, and `isolated-installs` needs a populated environment to import pydantic; only
+`kernel-isolation` survived, because its script imports nothing outside the standard library.
+
+**Why it was undiscoverable.** There was no git remote until 2026-09-05. `ci.yml` was written in
+Phase 0, has been cited and maintained since, and had **executed zero times**. Meanwhile
+`poe ci-checks` was green on every run — because a developer's `.venv` and their untracked
+`uv.lock` were both already sitting there. The gate passed by a path CI does not have, and the two
+paths could not be compared while only one of them was ever taken. `uv lock --check` resolves 145
+packages unchanged, so nothing had drifted: the resolution was correct and merely unshared.
+
+This is `01`'s own rule one level out. *A green gate is not a working binary* was learned about a
+binary nobody ran; this is a gate nobody ran **elsewhere**. A CI workflow that has never executed is
+prose in exactly the sense `L6.12` means it — a directory of tests no task runs — except that it
+looks more like a check than prose does, because it is written in YAML and lives where CI would find
+it.
+
+**Generalises to.** *A workflow that has never executed is a claim, not a check — and an artefact
+whose absence only breaks a path nobody takes is invisible until someone takes it.* Anything the
+gate needs must be in the repository, not in the environment of whoever last ran the gate; the test
+is whether a clean checkout on a machine that has never seen this project can run it.
+
+**Candidate home.** Two candidates, and they answer different halves. A fitness function could
+assert that everything `ci.yml` and `release.yml` reference exists as a tracked file — cheap,
+runs locally, would have caught exactly this. `CLAUDE.md` → *Quality gates* is the other: it already
+says a green gate is not a working binary and could say that a gate that has run in one environment
+is not a gate. The deeper point may belong wherever a phase declares itself complete — Phase 0's
+exit was ticked with its CI never having run once, and no check asked.
+
 ### L7.1 — a task filed with its remedy already chosen had chosen the wrong one
 
 **What happened.** Phase 6's close filed **6.33** from a diagnosis made in the moment: FF8's canary
