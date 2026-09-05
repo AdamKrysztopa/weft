@@ -3,7 +3,7 @@ name: preview-plain
 # something `weft ask` could route to — the same reason the ingest rungs carry none.
 
 # **What Weft actually read.** Extract a directory, normalise it, and hand the result back as
-# one plain-text document — `weft render ./docs --pipeline preview-plain`. The question it
+# one plain-text document — `weft render ./docs preview-plain`. The question it
 # answers is not "what should the corpus hold?" but "what does this file look like once Weft
 # has read it?", which is the question you have before you trust an index built from it.
 #

@@ -842,9 +842,8 @@ pack's own `register()`. File it against the pack, or pin it out of `[packs] all
 Task 1.9: `weft-cli` is the one distribution allowed to open a pipeline document — G1 keeps
 `weft-kernel` at `pydantic` and `opentelemetry-api` only, so the YAML parser lives here, on the
 identical footing `weft_cli.registry_bootstrap` already established for `weft.toml`'s TOML. The first
-three fire from `weft_cli.pipeline_catalogue`'s own Python API — nothing in the CLI opens a
-project-local catalogue directory yet, a future `weft pipeline` command (`docs/build-ledger.md` 3.7) is
-what will surface them at exit `4`, the same exit `03` reserves for "fix the pipeline". The fourth,
+three fire from `weft_cli.pipeline_catalogue`'s own Python API, and **since ledger task 3.7 the
+`weft pipeline` commands open a project-local catalogue directory too**, surfacing them at exit `4`, the same exit `03` reserves for "fix the pipeline". The fourth,
 `ContributedPipelineNameCollisionError`, is reachable today, through `weft ask`'s own routed default
 (task 2.8, folded into `weft ask` at task 3.11): it is what fires when two installed packs each ship
 a pipeline claiming the same `name:`.
@@ -1444,9 +1443,12 @@ not choose between them — they are registered separately because they read dif
 `exc.stages == ('extract',)`, `exc.distributions` names every distribution providing a candidate, and
 `exc.remedy` repeats the fix. **What to do:** name one — `weft index corpus/mrmr --extract pdf-text`.
 Composing several backends into a chain that tries each in turn is built in the kernel (ledger task
-**2.28**), but nothing carries a pipeline document's `fallback:` list into `weft index`'s stages
-until ledger tasks **2.4** and **2.8** land — so for this command, choosing is the operator's, and
-it will not do it silently.
+**2.28**), and a pipeline document's `fallback:` list *does* reach `weft index`'s stages — name the
+document with `--pipeline` and `weft pipeline show` prints the chain on the stage that carries it.
+What it will not do is rescue *this* failure: the directory-readability check above reads the
+formats the **primary** plugin claims, so a chain whose fallback claims the format never gets far
+enough to be tried (`docs/lessons.md` `L8.18`; no task owns that repair). For this command, without
+a document, choosing is the operator's, and it will not do it silently.
 
 ### `UnclaimedFormatError`
 

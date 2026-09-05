@@ -682,9 +682,10 @@ class MetadataFilter(Protocol): ...                # marker: supports the whole 
 > `list_sources()` returns `()`. A `repair` pass built on it deleted every graph node the `kg`
 > pipeline had just written, found by running the binary and not by the tests, whose hand-written
 > corpus double populated the method the system does not. **`scan` and `count` do answer**, because
-> every writer populates the nodes they read; until ledger task **6.24** gives `SourceRecord` a
-> writer, a participant asking *what should exist* by source must derive it from `scan`'s own nodes
-> and their lineage. `docs/lessons.md` L6.14.
+> every writer populates the nodes they read. **Ledger task 6.24 gave `SourceRecord` a writer** —
+> the ingest path records one for every source it indexes — so a participant asking *what should
+> exist* by source reads it directly, rather than deriving it from `scan`'s own nodes and their
+> lineage as it had to before that task. `docs/lessons.md` L6.14.
 > `reconcile` is idempotent, `O(corpus)`, cursored and interruptible — `CancelledError` propagates
 > per G6, so a half-finished pass resumes rather than restarting.
 >

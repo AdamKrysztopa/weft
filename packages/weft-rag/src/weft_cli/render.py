@@ -759,7 +759,7 @@ def _render_eval_metrics(result: EvalMetricsCommandResult) -> Rendered:
 def _render_render(result: RenderCommandResult) -> Rendered:
     """`weft render`'s answer: the rendered text on stdout, and what rendering cost on stderr.
 
-    **The text goes to stdout alone, so `weft render x --pipeline preview-markdown > x.md`
+    **The text goes to stdout alone, so `weft render x preview-markdown > x.md`
     produces a usable file.** Everything about the rendering — how many nodes went in, what was
     dropped — goes to stderr, which is the same split `03` → *Output* already draws for every
     other command and the reason this one is usable in a shell pipeline at all. A count folded

@@ -4314,12 +4314,54 @@ dispositions. None is gated, and none blocks Phase 7.
   the contradiction task 8.20's `tests/conftest.py` guard exists to catch · **done directly rather
   than dispatched**: the green half was five manual-text repairs, which is smaller than its own
   brief would have been
-- [ ] **8.17** a command quoted in a shipped `pipelines/*.yaml` comment is a command that runs ·
-  owner `08` §1; `lessons-archive` `L8.14` · turns on — · `index-text.yaml` told operators to run
-  `weft pipeline derive index-text --set embed.use=openai`; there is no `--set` flag and the plugin
-  name was unresolvable. The comment is repaired; nothing stops the next one. `tests/docs`'s
-  tagged-sample harness is scoped to `manual/`, and pipeline documents carry more operator-facing
-  advice per line than anything else this project ships
+- [x] **8.17** a command quoted in a shipped `pipelines/*.yaml` comment is a command that runs ·
+  owner `08` §1; `lessons-archive` `L8.14` · turns on — · sha `SHA817` · `index-text.yaml` told
+  operators to run `weft pipeline derive index-text --set embed.use=openai`; there is no `--set`
+  flag and the plugin name was unresolvable. The comment is repaired; nothing stops the next one.
+  `tests/docs`'s tagged-sample harness is scoped to `manual/`, and pipeline documents carry more
+  operator-facing advice per line than anything else this project ships ·
+  **`tests/docs/test_pipeline_comment_commands.py`, and the verdict comes from the real parser.**
+  `weft_cli.cli`'s own docstring commits the CLI to generating its grammar from the registry —
+  *"core has no list of commands to edit"* — so the only honest question to ask of a quoted command
+  is the one a shell asks: hand the tokens to `build_parser(discover_for_reference())` and read what
+  argparse says. Walking `parser._actions` to rebuild the subcommand tree here was rejected as a
+  second opinion about a grammar that already has a first one, and one that would go on agreeing
+  with itself after `argparse_gen` changed ·
+  **The population is derived from the installed package, not from a checkout glob** —
+  `Path(weft_retrieve.__file__).parent / "pipelines"`, twenty-six documents, each registered by an
+  explicit `add_pipeline_resource` call rather than by a wildcard. `L6.25`'s distinction applied one
+  file down: the subject of this check is what an operator's installation contains ·
+  **What is checked is the vocabulary, not the completeness, and the three shapes argparse produces
+  are what made that line available rather than invented.** `unrecognized arguments: --pipeline` and
+  `invalid choice: 'nosuchcmd'` are failures; `the following arguments are required: path` is not,
+  because `` `weft index`'s four stages `` is possessive prose and a check demanding a runnable
+  invocation there would force twenty-six documents to stop naming commands at all. The line is
+  drawn at **what a reader can copy wrongly**: a positional they must supply they will supply
+  against `--help`; a flag that does not exist they type verbatim and meet exit 2 ·
+  **It found one, and it is the same defect the tree had already documented and fixed elsewhere.**
+  `preview-plain.yaml:6` said `weft render ./docs --pipeline preview-plain`. There is no
+  `--pipeline` flag — the pipeline is a **positional** — and `weft_cli.commands.RenderArgs`'s own
+  docstring already records that exact error being found by running the binary at task 8.9, in this
+  same repository, with every test passing throughout because they construct `RenderArgs` directly
+  and never meet argparse. **A second live instance, outside this check's population**:
+  `weft_cli/render.py:762`'s `_render_render` docstring carried the identical dead flag in a shell
+  redirection example. Both repaired here ·
+  **Both forms run through the shipped binary from `/private/tmp`, outside this repository**:
+  `weft render ./corpus preview-plain` prints `1 node(s) rendered as text/plain` then the document,
+  exit `0`; `weft render ./corpus --pipeline preview-plain` prints
+  `weft: error: unrecognized arguments: --pipeline`, exit `2` ·
+  **Scope, measured rather than assumed.** Extending the same check to shipped Python docstrings was
+  considered and refused on a count: `grep -rno '`weft [^`]*`' packages/*/src --include='*.py'`
+  returns **417** spans, most of them metasyntax argparse cannot parse — `weft ask <question>
+  [--pipeline NAME] [--retrieve-only]`, `weft --yes <command> ...`. Covering them needs a
+  metasyntax-stripping layer with a real false-positive surface, and that is a widening past this
+  task's own line rather than a part of it. **Named as an unowned residual, with its number**, so
+  the next person deciding has the measurement instead of the guess. The name half of `L8.14` — a
+  plugin name quoted *inside* a flag's value — is likewise not reached by any argparse check; a
+  sweep found all 84 names quoted across the twenty-six documents currently resolve ·
+  **the waiver is pinned empty and ratcheted both ways**, so an entry that stops matching a real
+  span fails as loudly as a missing one · **done directly rather than dispatched** — a check, two
+  one-line text repairs
 - [x] **8.18** a pipeline is refused when its first stage cannot accept what the caller will hand
   it · owner `02` §1; `lessons-archive` `L8.16` · turns on — · a router document without its
   `query-scorer` dies mid-run with `'Query' object has no attribute 'query'`. **Measured to be
@@ -4336,10 +4378,71 @@ dispositions. None is gated, and none blocks Phase 7.
   `lessons-archive` `L7.8` · turns on — · a container brought down mid-task dropped 51 tests from
   every subsequent run, each green. No `poe` task reads pytest's own skip count. The check is
   small; the judgement is what count is expected, which is why this is a task and not a paragraph
-- [ ] **8.21** a documented gap is retired when the task that closes it ticks · owner `08` §1;
-  `lessons-archive` `L7.5` · turns on — · `manual/pack-author-guide.md` recorded an honest gap that
-  had been closed for two weeks. A "gap"/"not yet"/"follow-up" paragraph citing a task id is
-  mechanically checkable against that task's ticked state
+- [x] **8.21** a documented gap is retired when the task that closes it ticks · owner `08` §1;
+  `lessons-archive` `L7.5` · turns on — · sha `SHA817` · `manual/pack-author-guide.md` recorded an
+  honest gap that had been closed for two weeks. A "gap"/"not yet"/"follow-up" paragraph citing a
+  task id is mechanically checkable against that task's ticked state ·
+  **`tests/docs/test_documented_gaps_are_retired.py`. Both facts are already written down in two
+  files, so the check is an agreement between them** — a sentence asserting an open gap that also
+  names the task owning it must not name a ticked one. Nothing in a document changes when a box
+  ticks, and nobody re-reads the manuals looking for sentences that stopped being true ·
+  **Scope is decided by measurement, and each exclusion is a population this check would be *wrong*
+  about rather than merely noisy on.** `build-ledger.md` is out because its per-task entries end
+  with the recurring *"left to later tasks, named rather than silently covered: ... (3.9)"* idiom —
+  a dated record of what that task's exit state **was**, which is the ledger's whole append-only
+  point; a standing-claim check applied to a historical record reports the record as a defect, and
+  a sweep measured **69** such sentences there. `lessons-archive.md` is out for the same reason one
+  level up. `README.md` is out because its decision log is one table of hundred-line rows carrying
+  dozens of ids apiece, and its Status block already has `scripts/next_task.py --check-live` ·
+  **The phrase set is what a sweep of this tree actually found, and the rejected candidates are
+  recorded beside it** so the next person widening it has the measurement: `left to` is ~100% ledger
+  idiom and ordinary English, `deferred` is always a *decided* deferral with a stated reason,
+  `filed rather than` appears only in the ledger, and a bare `gap` fires 45 times for 4 real hits
+  because this tree writes "closed the gap" and `### 3.1 The gap` too ·
+  **Three defects in the check itself, each found by running it rather than by reasoning about it.**
+  *(a)* It read line by line, so a sentence naming a gap on one line and its task on the next was
+  invisible — `L6.29` reproduced in the file written to discharge `L7.5`, and two of its own true
+  positives straddle a break. Lines are joined into paragraphs now. *(b)* A fence inside a
+  blockquote opens `> ```python`, not at column 0, so four of `02` §1's code blocks were joined into
+  prose. *(c)* **`docs/11-multimodal.md` keeps a task list of its own whose ids collide with the
+  ledger's** — its `- [ ] **1.13**` is an unbuilt multimodal proposal while the ledger's ticked
+  `1.13` is about resolution-failure subclasses, so *"assigns it to task 1.13 in that document,
+  unbuilt"* is correct prose and was reported as stale. An id in a sentence that hands its numbering
+  to a numbered design document is not a ledger id unless the sentence says `ledger` ·
+  **A sentence in the past tense is a record, not a standing claim** — *"a pack's `register()` did
+  not contribute one automatically, until task 5.2g"* says 5.2g closed it — which is the same
+  argument that excludes `build-ledger.md` wholesale, applied at the sentence. Both instances were
+  live false positives on the first run. **And this tree's supersede-in-place convention is honoured
+  rather than fought**: 29 `> **Corrected...` blockquotes across six documents, and a passage
+  followed by one has not outlived its repair ·
+  **Eight stale passages, in six documents, the oldest three weeks old.** `02` §1 said `SourceRecord`
+  had no writer *until* 6.24, which gave it one; `03` said no `weft pipeline` surface existed *yet*,
+  which 3.7 shipped; `08` §3 said no pack could reach `Contribution` from `register()` and that the
+  example packs still declared bare names — closed by **5.3a** and **6.26**, the latter with a
+  fitness function to keep it closed, and **this is `L7.5`'s own gap surviving in a second document
+  after the guide's copy was retired**; `pack-author-guide.md` said the graph pack did not exist,
+  which 5.4 built; `troubleshooting.md` sent readers to a *future* `weft pipeline` command; and
+  `user-manual.md` said two ingest rungs did not run, which 8.10 repaired ·
+  **The check enforces a writing discipline, not only a fact, and it proved that against this
+  session's own prose.** Two repairs written to satisfy it fired it again, because each put an open
+  gap and a ticked id in one sentence — where a reader cannot tell whether the id *owns* the gap or
+  merely supplies provenance for the half that is built, which is precisely the ambiguity `L7.5`
+  resolved the wrong way. The remedy is to split the sentence, and that is what the fallback
+  paragraphs in `user-manual.md` and `troubleshooting.md` now do ·
+  **One live defect, found by running the binary and logged rather than fixed here** (`lessons.md`
+  `L8.18`): a derived document naming `use: pdf-text` with `fallback: [text]` resolves, and
+  `weft pipeline show fb` prints `fallback: text` on the stage — so a document's chain **does** reach
+  the resolved `StageSpec`, which is the opposite of what three of the repaired paragraphs claimed.
+  But `weft index ./corpus --pipeline fb` over `.md` files refuses before the runner starts —
+  *"nothing under 'corpus' can be read: found .md, and the installed extractors claim .pdf"* —
+  because the accept-set pre-flight reads the **primary** plugin's claimed formats alone. The chain
+  is carried, the runner would walk it, and a gate in front of the runner refuses the run it was
+  written to survive. The three paragraphs now say that, measured, instead of the stale claim ·
+  **watched failing end to end, both directions**: L7.5's own sentence appended to
+  `manual/user-manual.md` fails the check; the same sentence followed by a `Corrected` blockquote
+  passes, which is the exemption asserted rather than assumed. Waiver pinned empty, ratcheted both
+  ways · **done directly rather than dispatched** — a check and eight prose repairs, all of which
+  are `docs/` work the implementer may not touch
 - [x] **8.22** `exit_codes.py`'s two hand-maintained error tables are ratcheted · owner `03` →
   *Output*; `lessons-archive` `L8.12` · turns on — · `_ALSO_RESOLUTION_FAILED` and
   `exit_code_for`'s local-import branch are pinned tuples of `WeftError` subclasses with **no**

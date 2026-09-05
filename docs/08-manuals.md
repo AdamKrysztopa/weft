@@ -140,12 +140,13 @@ behind, and it cannot describe something that does not exist yet. Applied here:
   > `registrar.deprecate` obliges a changelog to say (tasks 5.2e–5.2f) — plus the fourth 5.2g added,
   > that `registrar.add_ext_model` is what makes a namespace survive a store round trip at all, and
   > only for an `ExtModel` reaching `Node.ext`. **Two rows of `02` §4's table could not be shown
-  > against real code, and §9 says so rather than inventing a sample no check would cover**: no pack
-  > anywhere in this tree — first-party or stranger — can reach `weft_kernel.resolution.Contribution`
-  > from `register()` today, a gap `weft_cli.pipeline_commands`'s own module docstring already names
-  > and assigns to task 5.4; and every `examples/*/pyproject.toml`, including both packs this section
-  > cites, still declares its `weft-*` dependencies as bare names, predating G9 and outside task
-  > 5.2a's own scope. Both are recorded in task 5.3's own `docs/build-ledger.md` entry and in
+  > against real code when this was written, and §9 said so rather than inventing a sample no check
+  > would cover. Both have since closed, and the paragraph is corrected rather than left standing**:
+  > a pack reaches `weft_kernel.resolution.Contribution` from its own `register()` as of task
+  > **5.3a**, and every `examples/*/pyproject.toml` carries a `>=X,<MAJOR+1` specifier as of task
+  > **6.26**, which added `tests/architecture/test_example_packs_are_exemplars.py` to keep it that
+  > way. This correction is itself ledger task 8.21's subject: the gap outlived its own repair here
+  > by longer than it did in the guide, because the guide's copy was retired and this one was not. Both are recorded in task 5.3's own `docs/build-ledger.md` entry and in
   > `docs/lessons.md` rather than papered over. §8's *Open gates you may hit* table is also corrected
   > in this task, since G2, G7, G8 and G9 — all four gates that table had listed as open — had
   > settled by the time this task started and the table had not been updated to say so.

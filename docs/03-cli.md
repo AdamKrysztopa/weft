@@ -433,8 +433,9 @@ running the same command.
 > task adds.** `/pipeline [name]`, `/trace` and `/clear` are `weft_cli.session.SessionState` made
 > real — a frozen model replaced wholesale each turn (`with_active_pipeline`, `with_turn_recorded`,
 > `cleared`), never mutated in place. `/pipeline` with no argument shows the session's
-> `active_pipeline`, with one it sets it — held and printed as a bare, unvalidated name, since no
-> `weft pipeline` command surface exists yet to resolve it against (task **3.7**'s own). `/trace`
+> `active_pipeline`, with one it sets it — held and printed as a bare, unvalidated name, because at
+> task 3.5 there was no `weft pipeline` command surface to resolve it against. **Task 3.7 shipped
+> that surface**, and this name is still unvalidated: closing that is nobody's task yet. `/trace`
 > prints the `TurnTrace` the session's last actual `run_command` call attached — the resolved
 > command name, the verbatim line typed, and its exit code — or says plainly that nothing has run
 > yet; a slash command that only inspects or changes the session itself (`/help`, `/pipeline`,

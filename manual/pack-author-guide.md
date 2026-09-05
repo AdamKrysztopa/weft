@@ -349,7 +349,8 @@ Everything above is one pack, one contract. `docs/02-extension-model.md` §4 spe
 shape — a capability spanning several extension points is still **one package** (requirement 2) —
 using a graph add-on as the worked example: it registers an `Enhancer`, a store, a `Retriever`, two
 `Command`s, a named pipeline and a slot contribution, and (per **G7**) `SourceDeletable` and
-`Reconcilable` besides. That pack does not exist yet — task 5.4 builds it — so this section adapts
+`Reconcilable` besides. That pack now exists as `examples/weft-example-graph/`, built at task 5.4, and this section
+predates it; what follows adapts
 the same case from what already does exist and is already checked: `examples/weft-example-ingest/`
 (seven contracts, a pack-owned `ExtModel` and — since task 5.3a — a slot contribution, from one
 entry point) and `examples/weft-example-command/` (a contributed `Command`). Where a real, tested
