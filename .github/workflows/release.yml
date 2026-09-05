@@ -34,10 +34,16 @@ jobs:
   publish:
     name: publish ${{ matrix.distribution }}
     runs-on: ubuntu-latest
-    permissions:
-      # Trusted publishing. No long-lived token exists to leak, and `SECURITY.md`'s posture does
-      # not have to make a claim about one.
-      id-token: write
+    # An account-scoped API token in `PYPI_API_TOKEN`, not trusted publishing. The workflow was
+    # written for the latter and this is a step down from it: a long-lived credential now exists,
+    # and it is account-scoped because a project-scoped one cannot be minted for a project that has
+    # never been published to. It was taken deliberately at v0.1.0, to claim twenty unclaimed names
+    # without twenty manual `pending publisher` forms.
+    #
+    # **This is a debt, not a resting state.** Once v0.1.0 lands the projects exist, so the token
+    # can be replaced by per-project trusted publishers and deleted. Until then `SECURITY.md` must
+    # not be read as claiming no publishing credential exists — it makes no claim either way, and
+    # that silence is now load-bearing rather than accurate by construction.
     strategy:
       fail-fast: false
       matrix:
@@ -74,6 +80,8 @@ jobs:
         run: uv build --package ${{ matrix.distribution }} --out-dir dist
 
       - name: Publish ${{ matrix.distribution }}
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
         run: uv publish dist/*
 
   # The release set, last. `09` §1: "a code-free distribution `weft` pinning one exactly-tested
@@ -82,8 +90,7 @@ jobs:
     name: publish the release set
     needs: publish
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
+    # Same token, same debt — see the `publish` job.
     strategy:
       matrix:
         distribution: [weft-rag]
@@ -100,6 +107,8 @@ jobs:
         run: uv build --package ${{ matrix.distribution }} --out-dir dist
 
       - name: Publish ${{ matrix.distribution }}
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
         run: uv publish dist/*
 
   # Ledger task 6.35. `09` section 5.2 says "the baseline run is published with the release", and

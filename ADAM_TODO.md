@@ -27,13 +27,14 @@ too, once. Names go.
 
 ### What you need to set up
 
-1. **A PyPI account**, if there isn't one.
-2. **Trusted publishing** for each project — the workflow declares `id-token: write` and uses no
-   API token. On PyPI: *Your projects → Publishing → Add a new pending publisher*, once per
-   distribution, with owner/repo and workflow filename `release.yml`. Twenty of them, and it is
-   tedious; an API token in a secret is the alternative if you'd rather, but it means editing the
-   workflow.
-3. **Decide the tag.** `v0.1.0` matches what the distributions declare. The release set pins
+1. ~~**A PyPI account**~~ — done, 2026-09-05.
+2. ~~**A GitHub remote**~~ — done, 2026-09-05. `AdamKrysztopa/weft`, and **private**, which is item 6.
+3. ~~**Publishing credentials**~~ — done, 2026-09-05, and **not the way the workflow was written**.
+   Trusted publishing needs one *pending publisher* form per distribution, twenty of them, and PyPI
+   exposes no API for them. An account-scoped API token in `PYPI_API_TOKEN` was taken instead; the
+   workflow carries the reasoning and calls itself a debt. `weft-kernel`'s pending publisher was
+   created before the switch and is harmless. **Item 7 is the repayment.**
+4. **Decide the tag.** `v0.1.0` matches what the distributions declare. The release set pins
    exactly, so the tag and the pins must agree.
 
 ### Then
@@ -117,19 +118,59 @@ So five of six, and the sixth is item 1. Pick a date, write it into `09` §2.2.
 
 ---
 
-## 5. Merge the branch
+## 5. ~~Merge the branch~~ — done, 2026-09-05
 
-`phase-6-close-findings` has **12 commits** not on `main` — the five close-out tasks (6.31–6.35),
-the phase-boundary move, and one lesson.
+`phase-6-close-findings`'s twelve commits are on `main` as one squash, `95bbb27`, carrying all five
+task shas and their five ledger-stamp shas in `e94fa74`'s format. `poe ci-checks` was green on the
+exact tree first.
 
-`main` currently holds Phase 6 as a single squash (`e94fa74`). The repository's convention is one
-squashed commit per phase with the true per-task shas in the message
-(`docs/build-ledger.md` → *Why the sha column is not optional*). These twelve are Phase 6's close
-rather than a phase of their own, so either squash them onto `main` the same way or merge them
-normally — your call, and I'd suggest squashing for consistency.
+**What is still only on this laptop:** `phase-6-detail` and `gates-g10-g13` hold all 70 original
+per-task commits, and only `main` was pushed. `docs/build-ledger.md`'s sha column points into them,
+so the ledger's evidence is one disk failure from gone —
 
-`gates-g10-g13` and `phase-6-detail` both still hold all 70 original commits, so nothing is lost
-whichever way you go.
+```bash
+git push origin phase-6-detail gates-g10-g13
+```
+
+---
+
+## 6. Decide whether the repository is public
+
+It is **private** today, which was an unexamined default in the `gh repo create` line rather than a
+choice, and it breaks task 6.35. The reproduction artefacts are not shipped inside a distribution —
+they are attached to the *GitHub release* as `weft-reproduction-v0.1.0.tar.gz`. Private means the
+stranger who installs `weft-rag` from PyPI cannot reach them, which makes `09` §5.2's "the baseline
+run is published with the release" true of a directory and false of anything a stranger holds: the
+exact failure 6.35 closed, reintroduced through visibility instead of through code.
+
+It also blocks Phase 6's exit outright — *a stranger installs the release from the index and
+reproduces the published baseline*.
+
+```bash
+gh repo edit AdamKrysztopa/weft --visibility public --accept-visibility-change-consequences
+```
+
+Staying private is a legitimate call. What is not legitimate is tagging without deciding: that row
+of the exit stays open either way, and if it stays open on purpose it belongs in
+`docs/build-ledger.md` → *Phase 6's close* with the reason.
+
+---
+
+## 7. Repay the token debt, after v0.1.0 lands
+
+The publish runs on an **account-scoped** PyPI token, which can upload to any of your projects —
+including `dependence-forecastability`. That scope exists only because a project-scoped token
+cannot be minted for a project that has never been published to.
+
+Once v0.1.0 is on the index that constraint is gone. Then, in order of preference:
+
+1. Add a trusted publisher to each of the twenty *existing* projects and delete the token — the
+   resting state the workflow was written for, and the comment in it can go back to being true.
+2. Or replace it with twenty project-scoped tokens, which is weaker but bounded.
+
+Either way, **delete the account-scoped token**. Do this before `v0.2.0`, not "eventually" — a
+credential whose removal is an intention rather than a task is the shape this repository has a
+lesson about.
 
 ---
 
