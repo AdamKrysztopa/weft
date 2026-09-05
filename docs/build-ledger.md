@@ -4253,12 +4253,67 @@ have caught them; the seven below are **checks and repairs, not rules**, so they
 owners rather than lessons awaiting a second drain. `docs/lessons-archive.md` carries the full
 dispositions. None is gated, and none blocks Phase 7.
 
-- [ ] **8.16** a `[services]`/`[llm.roles]` key list quoted in a manual is the live one · owner
-  `08` §1; `lessons-archive` `L8.3` · turns on — · a worked transcript quoted
+- [x] **8.16** a `[services]`/`[llm.roles]` key list quoted in a manual is the live one · owner
+  `08` §1; `lessons-archive` `L8.3` · turns on — · sha `89189d4` · a worked transcript quoted
   `valid_options == ("embed", "store")` while the code offered three keys, and the whole gate was
   green. `tests/docs/test_manual_config_keys.py` now checks that *named* keys are a subset of
   `ServiceSelection.model_fields`; what it does not do is compare a **quoted tuple literal**
-  against the live tuple, which is the exact shape that went stale
+  against the live tuple, which is the exact shape that went stale ·
+  **`tests/docs/test_manual_valid_options.py`, and every side of every comparison is derived.**
+  Four `_SOURCES` entries come from a Pydantic model's own `model_fields` (`ServiceSelection`,
+  `PermissionPolicy`, `LLMSection`, `ReconcilePolicy`) and one from the registry the CLI actually
+  builds (`build_dependencies().registry.names_for(Embedder)`), so nothing here is a second copy of
+  an option list and a rename anywhere fails this test rather than rotting in a page. The matcher
+  runs `re.DOTALL` over the raw text because the page wraps at 100 columns and these transcripts
+  routinely break across a line — `L6.29`'s own correction, where a sweep that could not cross a
+  line break had a false negative built into the house style · **the distinction from
+  `test_manual_config_keys.py`, stated rather than implied**: that check asks *is every key this
+  page names one `weft.toml` accepts?* — a subset question, which stays true when the accepted set
+  **grows**. This asks *is the tuple this page prints the tuple the code produces?*, which is
+  equality, and equality is what a reader copying a transcript relies on · **the ratchet**
+  (`test_every_quoted_tuple_has_a_live_source`) refuses a quoted tuple this file has no derivation
+  for, because without it the next `valid_options` transcript somebody writes would simply not be
+  checked — the failure this file exists to end, reproduced one level up ·
+  **It was red on its first run, against a real staleness nobody had noticed.**
+  `manual/troubleshooting.md`'s `UnresolvedPluginNameError` transcript printed
+  `exc.valid_options == ("hash", "openai")` where the live registry answers
+  `("hash", "openai-embeddings")` — **task 8.15's own rename, four days old, and the whole gate was
+  green throughout**, which is `L8.3` recurring in the same file it was filed from. A sweep for the
+  same rename found **four more** stale sites the tuple check does not reach and cannot:
+  `troubleshooting.md`'s two prose renderings of the same registry list, its `text-embedding-3-small`
+  dimension note, its *"`weft-openai` registers `openai` under the same `Embedder` contract"*
+  sentence, and `operations-guide.md`'s `[packs] allow` transcript plus its *"`weft-openai`'s
+  `openai` embedder"* line. All five repaired in this commit ·
+  **The check is scoped to the `valid_options ==` tuple literal on purpose, and the reason is a
+  measurement.** The prose rendering — `Registered Embedder names: 'hash', 'openai-embeddings'.` —
+  looks like the same fact and is not derivable: `operations-guide.md:173` legitimately prints only
+  `'hash'` because `weft-openai` is refused by `[packs] allow` in that transcript's own scenario, so
+  a sweep for that form over the manuals produces a false positive on a correct page. A typed field
+  read off an exception has one live answer; a rendered list has one per scenario. **The residual is
+  named rather than covered**: the prose halves of these transcripts stay unchecked, and
+  `08` §3's tagged-sample harness compares a block against a *file*, never against executed output ·
+  **Found by running the binary, not by the check** — `weft ask "what changed?" --retrieve-only`
+  from `/private/tmp`, outside this repository, against the `compose.yaml` container, printed a
+  clause the manual's transcript did not carry at all:
+  *"These distributions contributed nothing, or only part of what they publish, and one of them may
+  be the one that provides it: weft-rag (partial)."* `weft plugins doctor` says why — `bertscore`
+  needs an optional package a plain checkout does not have, task 6.29's designed behaviour — so the
+  message honestly cannot rule that distribution out. The transcript is repaired to the real output
+  **and gains a paragraph naming the clause as a fact about the environment rather than about the
+  name you typed**, because a reader meeting it for the first time reads it as part of the failure
+  and it is not · **both halves watched failing**: a stale tuple planted back into a sourced section
+  fails `test_every_quoted_tuple_equals_the_live_one`; a `### \`MadeUpError\`` section quoting
+  `("alpha", "beta")` fails the ratchet. No `git ls-files` population is involved, so `L8.10`'s
+  stage-before-you-plant trap does not apply here · **no fitness function and no composite edit** —
+  `poe test` is `pytest tests`, so `tests/docs` was already reachable from `ci-checks`; FF0 is
+  untouched · `weft-kernel`: **+0 lines**, no kernel file opened ·
+  `uv run poe ci-checks` green with `WEFT_DATABASE_URL` set: **1,995 passed, 38 skipped**, 205
+  architecture tests, plus 116 example-pack tests. The 38 are three legitimate opt-outs across 22
+  sites — qdrant unreachable (it is not in `compose.yaml`), `WEFT_LIVE_API_TESTS` unset,
+  `WEFT_CORPUS_NETWORK` unset — and **none** is a `WEFT_DATABASE_URL`-unreachable skip, which is
+  the contradiction task 8.20's `tests/conftest.py` guard exists to catch · **done directly rather
+  than dispatched**: the green half was five manual-text repairs, which is smaller than its own
+  brief would have been
 - [ ] **8.17** a command quoted in a shipped `pipelines/*.yaml` comment is a command that runs ·
   owner `08` §1; `lessons-archive` `L8.14` · turns on — · `index-text.yaml` told operators to run
   `weft pipeline derive index-text --set embed.use=openai`; there is no `--set` flag and the plugin

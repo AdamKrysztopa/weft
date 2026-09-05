@@ -1338,7 +1338,8 @@ collection was written by a different one — re-index into a new 'collection'.
 
 Specific to `weft-qdrant`; the pgvector store has no equivalent, because its vector column is
 declared without a dimension. **What to do:** decide which of the two is wrong. If the configured
-embedder changed — `hash` is 64 by default and `openai`'s `text-embedding-3-small` is 1536 — set
+embedder changed — `hash` is 64 by default and `openai-embeddings`'s `text-embedding-3-small`
+is 1536 — set
 `[packs.qdrant] vector_size` to match it *and* re-index into a fresh `collection`, because the
 existing one holds vectors of the old width and cannot be widened. If the embedder did not change,
 the collection belongs to a different corpus and the `collection` name is what to change.
@@ -1759,7 +1760,8 @@ almost always names the actual failing stage and pack.
 
 ## Embedding with a model — `weft_openai`
 
-`weft-openai` registers `openai` under the same `Embedder` contract `weft-embed`'s deterministic
+`weft-openai` registers `openai-embeddings` under the same `Embedder` contract `weft-embed`'s
+deterministic
 `hash` plugin registers under, and `[services] embed` in `weft.toml` chooses between them — see
 [`manual/operations-guide.md`](operations-guide.md) → *Choosing an embedder*. Every error below
 comes from the moment something asked it to embed, never from start-up: the pack registers cleanly
@@ -2586,11 +2588,21 @@ entry above for why the default, routed `weft ask` does not reach this path toda
 ```text
 $ printf '[services]\nembed = "no-such-embedder"\n' > weft.toml
 $ weft ask "what changed?" --retrieve-only
-[services] embed names 'no-such-embedder', and no registered Embedder has that name. Registered
-Embedder names: 'hash', 'openai'.
+[services] embed names 'no-such-embedder', and no registered Embedder has that name. These
+distributions contributed nothing, or only part of what they publish, and one of them may be
+the one that provides it: weft-rag (partial). Registered Embedder names: 'hash',
+'openai-embeddings'.
 $ echo $?
 4
 ```
+
+**The middle clause is about the environment, not about the name you typed.** `weft-rag` reads
+`partial` here because `bertscore` needs an optional package this checkout does not have — task
+6.29's designed behaviour, reported at discovery rather than one moment too late — so the message
+honestly cannot rule that distribution out as the source of the missing name. Install the
+`bertscore` extra and the clause disappears; `weft plugins doctor` is what says which distribution
+is partial and why. It is named here because a reader meeting it for the first time will read it as
+part of the failure and it is not.
 
 Before this repair, `weft_cli.registry_bootstrap.require_plugin` caught the kernel's own
 `weft_kernel.registry.UnknownPluginError` — which already carries `valid_options`, every name
@@ -2599,15 +2611,16 @@ before `IndexCommand`/`AskCommand` ever raised anything: both always raised the 
 `CommandRefusalError` above, message-only, whatever the underlying cause. Confirmed
 programmatically, not only by the message text already naming the names: catching this
 exception directly off a real `AskCommand.run()` call with the `weft.toml` above gives
-`exc.valid_options == ("hash", "openai")`, a typed field a caller can read, never only text
-inside the message. History: before Phase 3 this path was a plain return value with no typed
-field to lose at all — task 3.2's own `Command`/`Outcome` unification is what turned it into an
+`exc.valid_options == ("hash", "openai-embeddings")`, a typed field a caller can read, never
+only text inside the message. History: before Phase 3 this path was a plain return value with no
+typed field to lose at all — task 3.2's own `Command`/`Outcome` unification is what turned it into an
 exception and dropped the guarantee in the same motion.
 
 **A second repair, 2026-08-20 (open item O4, `.phase3-design.md` §4).** The message itself used
 to end `. no 'no-such-embedder' is registered for Embedder. It is unavailable because no
-distribution has registered that name for this contract. Names registered for Embedder: 'hash',
-'openai'.` — `weft_kernel.registry.UnknownPluginError`'s own text, spliced onto this module's
+distribution has registered that name for this contract. Names registered for Embedder:
+'hash', 'openai-embeddings'.` — `weft_kernel.registry.UnknownPluginError`'s own text, spliced onto
+this module's
 sentence with a bare space: a sentence beginning lowercase right after a full stop, and "nothing
 is registered under that name" stated twice in different words. `require_plugin`'s `_unresolved`
 now composes its own sentence from `exc.valid_options` (the same tuple this section's own

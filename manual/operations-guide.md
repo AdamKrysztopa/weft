@@ -170,9 +170,10 @@ statement of policy, not a sandbox — see *What this does not protect you from*
 `weft index` says so before it runs anything:
 
 ```text
-[services] embed names 'openai', and no registered Embedder has that name. These distributions
-are refused by [packs] allow in weft.toml and were never imported, so what they would have
-registered is unknown: weft-openai. Add the one that provides 'openai' to [packs] allow.
+[services] embed names 'openai-embeddings', and no registered Embedder has that name. These
+distributions are refused by [packs] allow in weft.toml and were never imported, so what they
+would have registered is unknown: weft-openai. Add the one that provides 'openai-embeddings' to
+[packs] allow.
 Registered Embedder names: 'hash'.
 ```
 
@@ -199,7 +200,8 @@ some third party's pack registers is selectable by name the moment it is install
 content into a deterministic vector and understands nothing about it: two documents on unrelated
 topics are as "similar" to it as two ways of saying the same thing. It is what lets a clean checkout
 index, search and pass its whole test suite with no account and no model download, and it is the
-wrong thing to judge a retrieval result against. `weft-openai`'s `openai` embedder calls
+wrong thing to judge a retrieval result against. `weft-openai`'s `openai-embeddings` embedder
+calls
 `text-embedding-3-small` and produces vectors that do carry meaning; it needs a credential, and
 every embedding is a metered API call.
 
