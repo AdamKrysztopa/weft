@@ -522,6 +522,7 @@ added, removed or reworded without this table noticing fails the build before it
 | `weft plugins doctor` | `read` | `weft-rag` | full status, reason and disclosure per discovered pack |
 | `weft plugins list` | `read` | `weft-rag` | one line per discovered pack |
 | `weft reconcile` | `destroy` | `weft-rag` | converge derived state against what the corpus actually holds — every installed pack that can reconcile is asked, and one that fails is named. --mode full also backfills state that was never built, and prints what that will cost first; --dry-run names the participants (and, for full, the cost) and stops. --mode omitted uses weft.toml's own [reconcile] mode, or 'full' if that says nothing |
+| `weft render` | `read` | `weft-rag` | extract a directory and print it as one readable document: `weft render ./docs preview-markdown`. Answers 'what does Weft actually see in this file?' — the question you have before you trust an index built from it. The second argument names a pipeline whose last stage is a Renderer; 'preview-plain' and 'preview-markdown' ship. The rendered text goes to stdout alone, so it can be redirected to a file; what rendering cost goes to stderr. |
 | `weft trace` | `read` | `weft-rag` | print what one persisted run recorded — its resolved pipeline, corpus, model versions and active distribution set |
 <!-- weft-cli:generated:command-table:end -->
 

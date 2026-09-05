@@ -644,6 +644,32 @@ pydantic rejected and why, and lists every field the model accepts (`KeybertConf
 fix the `with:` value the field names, or check the field name itself for a typo against the
 accepted list.
 
+### `PipelineMissingRenderStageError`
+
+**What it looks like** — task 8.9: `weft render` was given a pipeline whose **last** stage is not
+registered under the `Renderer` contract, so it produces nodes rather than a document to read.
+Reproduced against a real install:
+
+```text
+$ weft render ./corpus index-text
+pipeline 'index-text' does not end in a stage registered under the Renderer contract, so it
+produces nodes rather than a document to read. Its stages: extract, normalize, whitespace,
+chunk, embed, store.
+$ echo $?
+4
+```
+
+**Why the *last* stage and not merely "a Renderer somewhere".** A `Renderer` returns a `Rendition`,
+which no stage takes as input, so a document with one in the middle cannot compose at all and
+`weft_kernel.resolution.resolve` has already refused it long before this check runs. What is left
+for this error to catch is the document that composes perfectly and simply ends somewhere else — an
+ingest pipeline, as above — whose terminus is a list of nodes this command has no use for.
+
+**What to do:** name a pipeline that renders. `preview-plain` and `preview-markdown` ship, and
+`weft pipeline list` shows every document this project knows. If you meant to *index* rather than
+read, the command is `weft index`. The message lists the stages the document does have, so an
+operator who named the wrong document can see which one they got.
+
 ### `SubPluginConfigError`
 
 **What it looks like** — task 8.11: a plugin that resolves a *sibling* by name was given a config
@@ -689,9 +715,9 @@ StageNotConfigurableError: stage 'keywords' (Chunker:keybert) in pipeline 'speci
 parameterised at all. Drop 'with:', or have the plugin declare `config_model`.
 ```
 
-`02` §3's own extended note names the reference defect this refuses rather than repeats: a `with:`-
-shaped block with nowhere typed to land was silently dropped in one reference subsystem and simply
-unavailable in another, and no metric or enhancer in it could ever be parameterised as a result. An
+`02` §3's own extended note names the defect this refuses rather than repeats: a `with:`-
+shaped block with nowhere typed to land could be silently dropped in one place and simply
+unavailable in another, so a metric or enhancer could never be parameterised as a result. An
 absent `config_model` is never read as "accept anything and ignore it" here. **What to do:** either
 drop the `with:` block this pipeline wrote for the stage the message names, or — if you own the
 plugin — give it a `config_model` so the block has somewhere checked to land.
@@ -2109,7 +2135,7 @@ is a decision this code must not make.
 
 **What to do:** write the qualified name. Picking one by sort order would be a data-residency (or
 tier, or region) decision made by an accident of ordering, which is exactly the silent coercion
-`docs/02-extension-model.md` §5 records four times over in the reference.
+`docs/02-extension-model.md` §5 records four times over.
 
 ---
 
@@ -2213,8 +2239,8 @@ measured, never a caller-chosen label maintained by hand.
 ```
 
 **What to do:** use the metric's own computed name — `MetricAggregate.reported_name`, read off
-`MetricScore.metric_name` — as the report key, rather than a hand-typed literal. This is the
-reference's own defect (`.phase4-reference-recon.md` §6): two dataset-track runners hardcoded the report
+`MetricScore.metric_name` — as the report key, rather than a hand-typed literal. This guards
+against a documented failure mode: two dataset-track runners hardcoded the report
 key `'precision_at_k'`/`'recall_at_k'` while the real `k` was a caller-supplied
 `similarity_top_k`, so the key silently stopped describing what was actually measured the moment
 `k` was anything but the value baked into the literal. Seeing this error means `weft_eval.

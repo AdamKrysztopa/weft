@@ -28,15 +28,14 @@ that changes turn to turn instead of once per run.
   never a growing log. `/trace` shows it, `/clear` resets it.
 - **Conversation history — deferred, not built.** `docs/03-cli.md` names it as a fourth,
   distinct thing from "the last run's trace" — a transcript a follow-up question could read
-  back, the shape `_run_chat_loop` in the reference's `generation/chat.py:353` gestures at with a
-  `chat_history` parameter it always passes `[]` for, a comment on the same line stating it is
-  stateless (`.phase3-design.md` §2.5, verified at source). No contract in this repository reads
+  back. A `chat_history` parameter that always receives an empty list, with a comment stating
+  the caller is stateless, is a known failure shape (`.phase3-design.md` §2.5): state that
+  *looks* like it changes what happens next and does not. No contract in this repository reads
   a prior turn back into a later one: `weft_cli.commands.AskArgs` takes no history field, and
   neither `weft_llm.contract.LLMProvider` nor `weft_prompts` accepts one from a CLI caller
   today. A transcript this module accumulated for display only, with nothing downstream ever
-  reading it back into a run, would be `_run_chat_loop`'s own failure shape restated rather
-  than avoided: state that *looks* like it changes what happens next and does not. Building it
-  waits for whichever task first gives `weft ask` something to read it for.
+  reading it back into a run, would be that same failure shape restated rather than avoided.
+  Building it waits for whichever task first gives `weft ask` something to read it for.
 - **The collection — deferred, and for a sharper reason: nothing names one yet.** Unlike the
   active pipeline, no command in this repository accepts a collection argument to hold a
   session's choice of — `weft_cli.commands.IndexArgs`/`AskArgs` name no `--collection` flag, and

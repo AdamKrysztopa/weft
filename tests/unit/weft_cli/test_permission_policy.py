@@ -11,7 +11,7 @@ all, and the two refusals (an unknown key, a value that is not `"ask"`/`"allow"`
 test for finding 1 of that review — `permission_policy_from_config`'s unknown-key refusal used to
 raise a bare `WeftError` with the valid keys interpolated only into the message string, invisible
 to fitness function 12's family walk. `UnknownConfigKeyError`
-(`weft_cli.config_surface.py:105-115`) is the same-phase precedent this module now matches.
+(`weft_cli/config_surface.py:105-115`) is the same-phase precedent this module now matches.
 """
 
 from __future__ import annotations

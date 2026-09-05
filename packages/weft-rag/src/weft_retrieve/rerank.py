@@ -2,9 +2,9 @@
 
 Task **2.7**, `docs/build-ledger.md`: "fusion and reranking are composable plugins a third
 party can retune, not a fixed ladder." `weft_retrieve.fusion`'s module docstring carries the
-reference evidence for the fusion half; this is the reranking half of the same sentence. The
-reference's reranking was not a plugin at all — it was a step inside `rag_simple`, which is how a
-name promising one pass came to cost "a query-rewrite call, all-modes hybrid retrieval,
+evidence for the fusion half; this is the reranking half of the same sentence. A reranking step
+fused into a single monolithic pipeline rather than exposed as its own plugin is how a name
+promising one pass came to cost "a query-rewrite call, all-modes hybrid retrieval,
 cross-encoder reranking and up to *N* regenerations" (`10` §1.1's row, quoted in
 `weft_retrieve.vector_top_k`). A rung nobody can remove is a rung nobody can measure.
 
@@ -33,8 +33,8 @@ against the `Sufficiency` contract. That reaches the cascade with the prompt obj
 refuses an unregistered name with the registry's own `UnknownPluginError` (naming the contract,
 the name and every valid option), and invents no second prompt-resolution path. The alternative
 — rendering through `Prompts` and re-implementing the step-down here — would put a second copy
-of the cascade in a technique pack, which is the reference's three-copies-of-one-formula failure in
-a different corner.
+of the cascade in a technique pack: the same three-copies-of-one-formula failure this design
+refuses, in a different corner.
 """
 
 from typing import ClassVar
@@ -100,9 +100,9 @@ class LlmRerank:
 
         **`payload.origin`, never a derived query.** The question the passages are judged
         against is the user's own words. `QuerySet.origin`'s docstring records why that is a
-        type-level invariant rather than a convention here: the reference's HyDE handed its
-        hallucinated document to the cross-encoder *as the query*, so every candidate was
-        scored for resemblance to something the model had just invented. A reranker that reads
+        type-level invariant rather than a convention here: a HyDE implementation that hands its
+        hallucinated document to the reranker *as the query* scores every candidate for
+        resemblance to something the model had just invented. A reranker that reads
         `origin` cannot repeat it.
 
         **An empty ranking is returned exactly as it arrived**, with no model call — the

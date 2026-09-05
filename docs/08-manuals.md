@@ -12,18 +12,16 @@ about the outcome.
 
 `docs/` today is written for the people building Weft. It has no reader who only wants to *use* the
 product, and no phase currently produces one line for that reader. That is not an oversight so much
-as a predictable consequence of the plan being organised entirely around phases and gates — but the
-reference is the warning of what happens when user-facing prose is left to arrive whenever:
-`docs/reference/study/06-dead-and-broken.md:735-737` records that `src/a_prior_project/` ships **no `README` or
-`.md` file at all** — every claim about how to use the library lives in a docstring, uninspected —
-and `reference/study/02-discovery-and-config.md:718` catches one of those docstrings making a claim the
-code cannot back: *"Strategies self-register via decorators so new kinds can be added without
-modifying callers"* (`retrieval/registry.py:15-19`), against a decorator whose `kind` parameter
-requires membership in a **closed 3-member enum** (`retrieval/types.py:24-26`). Nothing checked that
-sentence against the code it described, so it aged into a false advertisement of the reference's central
-thesis — extensibility — read by exactly the audience most likely to try it and be burned. Weft's own
-thesis is the same claim; its shipped documentation needs a mechanism the reference's did not have, not
-just better intentions.
+as a predictable consequence of the plan being organised entirely around phases and gates — but this
+is a known failure shape when user-facing prose is left to arrive whenever: a library that ships **no
+`README` or `.md` file at all** — every claim about how to use it living in a docstring, uninspected —
+is a real, observed case, and so is a docstring in exactly that position making a claim the code
+cannot back: *"Strategies self-register via decorators so new kinds can be added without modifying
+callers,"* against a decorator whose `kind` parameter requires membership in a **closed 3-member
+enum**. Nothing checked that sentence against the code it described, so it aged into a false
+advertisement of the central thesis it was supposed to be proving — extensibility — read by exactly
+the audience most likely to try it and be burned. Weft's own thesis is the same claim; its shipped
+documentation needs a mechanism to keep that from happening, not just better intentions.
 
 ---
 
@@ -60,8 +58,8 @@ build-order document for a phase that does not have one yet — see §2.
 
 None of the four settled rules say where shipped documentation goes, because none of `01`–`06` needed
 to. `docs/` is claimed as **the plan**: `docs/README.md`'s own Documents table gives `01` through `06`
-each a **Reference** kind and an **Owns** line about design — contracts, the CLI surface, the reference
-inventory, the build order — never about a reader outside the project, and `CLAUDE.md` routes readers
+each a **Reference** kind and an **Owns** line about design — contracts, the CLI surface, the build
+order — never about a reader outside the project, and `CLAUDE.md` routes readers
 to `docs/README.md` for *"project status, which phase is live, which decisions are settled, and which
 document owns what"* — again, project state, not product usage. Filing user-facing manuals into `docs/`
 would either dilute that claim or require a second "which half of `docs/` is this" rule nobody has
@@ -207,9 +205,8 @@ behind, and it cannot describe something that does not exist yet. Applied here:
 ## 3. The rule that keeps them true
 
 `docs/README.md` states its own version of this rule in its opening blockquote: a control file that
-paraphrases the plan reproduces the reference's two-lists bug at the level of the plan. The reference's own
-documentation shows exactly what that bug looks like one layer further out, aimed at users instead of
-builders — `reference/study/02-discovery-and-config.md:718` again: a module docstring claiming strategies
+paraphrases the plan risks the same two-lists bug at the level of the plan. That bug shows up one
+layer further out too, aimed at users instead of builders: a module docstring claiming strategies
 "can be added without modifying callers," refuted by the same file's own decorator signature. Nobody
 lied; nobody even checked. That is the failure mode this section exists to make structurally
 unlikely, not to police by discipline.
@@ -242,7 +239,7 @@ the more tempting place to restate something for a reader's convenience:
 | **User manual's command reference** | Generated. `03` already commits to help text generated from the registry so `weft --help` "cannot drift from what is installed" (`03` → *Plugin-contributed commands*); the manual's command table is the same generation step, rendered to Markdown instead of a terminal, run in CI against a committed copy | A command added, removed or reworded in the CLI without the manual noticing |
 | **Operations guide's `compose.yaml`, exit-code table, doctor vocabulary** | Included, not retyped. The compose snippet is the actual shipped file; the exit-code and status tables are generated from the same enums the CLI and doctor read | The guide showing a container topology or a status name that no longer exists |
 | **Quickstart** | Executed. Its fenced shell blocks are extracted and run against a fresh throwaway project in CI, and the run must exit `0` and produce a structure the prose asserts — never a text match on generated prose, so a model swap cannot break the check. From Phase 2 the executed blocks run against the offline evaluation subset `09-release.md` §4 (V5) requires — no credentials, no network | A quickstart that stopped working being discovered by a reader instead of by CI |
-| **Troubleshooting's coverage** | Checked, not generated — the remedy is written by a person, but *completeness* is a ratchet, in the same style as the one `01` → *Fitness functions* item 0 already uses: a named waiver constant, pinned empty, so a gap is a visible act in a diff | A new failure mode landing in code with no matching entry — the reference's *17 of 23 evaluators registered* gap, aimed at documentation coverage instead of registration |
+| **Troubleshooting's coverage** | Checked, not generated — the remedy is written by a person, but *completeness* is a ratchet, in the same style as the one `01` → *Fitness functions* item 0 already uses: a named waiver constant, pinned empty, so a gap is a visible act in a diff | A new failure mode landing in code with no matching entry — a *17 of 23 evaluators registered*-style gap, aimed at documentation coverage instead of registration |
 
 **What stays honestly hand-written, and does not pretend otherwise.** The *why* in every document —
 why the trust model is open by default, why a store never embeds, why deletion cascades — is argued
@@ -259,15 +256,17 @@ not use the network* is unverified... and fails silently in the unsafe direction
 
 **These are ordinary tests, not a numbered fitness function.** `01` → *Fitness functions* is
 architecture enforcement — its own preamble reads *"Architecture that is not enforced decays"* — and
-item 0 exists because the reference's boundary checker sat outside its canonical gate. A documentation
+item 0 exists because a real boundary checker once sat outside its own canonical gate and therefore
+never ran. A documentation
 check is not an architecture property; it belongs under `tests/`, checked by `pytest`, exactly like
 every other test in the tree, and it gets to skip the ceremony item 0 needs for a reason specific to
 that ceremony: `pyproject.toml`'s `[tool.pytest.ini_options]` already sets `testpaths = ["tests"]`, and
 `poe test` is `pytest tests -q`, already the last step of `poe ci-checks`. A test placed under
 `tests/docs/` is swept up automatically — there is no second reachability proof to write, because
-unlike `tests/architecture/` (which needed its own membership check specifically because the reference's
-analogous checker sat in a *different* composite task, `quality`, that was never wired to the one
-`CLAUDE.md` called canonical) `tests/docs/` was never at risk of being orphaned in the first place. That
+unlike `tests/architecture/` (which needed its own membership check specifically because an
+analogous checker once sat in a *different* composite task — call it `quality` — that was never
+wired to the one `CLAUDE.md` calls canonical) `tests/docs/` was never at risk of being orphaned in
+the first place. That
 is not a loophole; it is the actual reason these checks do not need to be fitness-function-shaped —
 "ordinary test under `tests/`" already comes with a working reachability guarantee that architecture
 checks, historically, did not.
@@ -276,11 +275,10 @@ Each check still gets a **ratchet** — a named waiver constant, pinned empty, i
 0's `CHECKS_WAIVED_FROM_GATE` — so that excluding anything from the check is a visible act in a diff,
 never a silent omission. And each check has a **floor**: a condition that must be non-trivially true
 before the comparison runs, so the check cannot pass by having nothing to compare. That floor is the
-fix for the reference's own worst documentation check, `tests/unit/utils/test_localization.py:122`
-`test_keys_parity`, which `reference/study/08-salvage.md:777-782` records **cannot fail** — it computes a
-diff, then reports it through `pytest.warns(...)` called as a bare statement rather than a context
-manager, so it does nothing, and *"the 195/195 parity holds today by discipline, not by enforcement."*
-A check with no floor is that test with a different subject.
+fix for a real, observed documentation check that **cannot fail** — it computes a diff, then reports
+it through `pytest.warns(...)` called as a bare statement rather than a context manager, so it does
+nothing, and *"the 195/195 parity holds today by discipline, not by enforcement."* A check with no
+floor is that test with a different subject.
 
 | Clause | Lives at | Ratchet constant | Floor |
 |---|---|---|---|

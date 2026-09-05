@@ -3,9 +3,9 @@
 **This is not a source of truth and it does not hold state.** `README.md` remains both. This file
 exists for one reason: the direction below was established in conversation on 2026-09-05, and a
 direction that lives only in a conversation is lost when the conversation ends. It is written to be
-**dissolved** — once the two reference audits close, every section here moves into the document that owns
+**dissolved** — once the two audits close, every section here moves into the document that owns
 it (`01` for phases, `11` for multimodal, a new numbered document for graph, `04`-style inventory for
-the second reference, `build-ledger.md` for tasks) and this file is deleted.
+the graph work, `build-ledger.md` for tasks) and this file is deleted.
 
 Nothing here is settled. Where a decision is named, it is named as **open**.
 
@@ -16,18 +16,16 @@ Nothing here is settled. Where a decision is named, it is named as **open**.
 > *"I need weft to be the library to set up quickly rag systems from naive and baseless, to super
 > advanced inducing multiple bases (vectors, graph, chunk, RAPTOR) search at the same time."*
 
-and
-
-> *"my goal is for weft to be richer than reference."*
+The owner's stated goal is for Weft to be **richer than a single monolithic base project.**
 
 Two things follow, and they are not the same thing:
 
 - **A ladder.** Someone starts at no retrieval at all and climbs to every base searched at once,
   and each rung is a small delta rather than a rewrite. The engine already expresses this; almost
   none of the ladder ships (§3).
-- **Richer than the reference.** Not *more ported files* — `04` §C exists precisely so Weft does not
-  inherit the reference's mistakes. Richer means more capability **and** that the capability stays
-  elastic: a third party adds a base with zero core edits. The studies are monoliths and cannot do
+- **Richer, not just larger.** Not *more ported files* — the goal is deliberately not to inherit a
+  monolith's mistakes. Richer means more capability **and** that the capability stays
+  elastic: a third party adds a base with zero core edits. A monolith cannot do
   that, which is the whole reason this project exists.
 
 ## 2. What already exists — measured 2026-09-05, not recalled
@@ -60,7 +58,7 @@ would force a core edit every time somebody added a base.
 
 1. **Graph is the one base that is not real.** It exists as `examples/weft-example-graph` (2,249
    lines, one pipeline `kg.yaml`) — an *example* pack written for Phase 5's independence test, not a
-   shipped distribution. This is what the second reference supplies.
+   shipped distribution. This is what the graph work supplies.
 2. **The ladder does not ship.** Four pipeline documents exist in the entire tree
    (`no-retrieval.yaml`, `retrieve-then-generate.yaml`, `route.yaml`, and the example pack's
    `kg.yaml`). For a library whose promise is *naive to advanced, quickly*, the ladder **is** the
@@ -70,20 +68,20 @@ would force a core edit every time somebody added a base.
    decisions D1–D7 with D1 blocking the rest. `weft-kernel` already ships `MediaType.IMAGE` and
    `MediaType.TABLE` — a closed core vocabulary naming two things nothing in the tree can produce.
 
-## 4. Two references, and they are not governed the same way
+## 4. Two bodies of prior work, and they are not governed the same way
 
-| | `a prior project` | `graph-study-main` |
+| | Third-party source | `graph-study-main` |
 |---|---|---|
-| Reached by | the untracked `reference` symlink | `/Users/adamkrysztopa/projects/graph-study-main` |
+| Reached by | a local, untracked, read-only reference — never committed | `/Users/adamkrysztopa/projects/graph-study-main` |
 | Ownership | third party | **the project owner's own, unlicensed** |
 | Discipline | read to understand, close the file, write fresh. No source text, ever | **may be copied as-is** — owner's decision, 2026-09-05 |
-| Audit | `docs/reference/` (frozen) + `04-reference-inventory.md` | not yet written |
+| Audit | complete; findings folded into the documents that own them | not yet written |
 
 **The consequence that must not be discovered later.** `NOTICE` states as a property of *the
 repository* that no source text from any other codebase enters it, and `tests/architecture/test_release_licensing.py`
 and ledger task **6.11** exist to keep that true. Copying from `graph-study-main` violates nobody's
 licence but it falsifies that sentence. `NOTICE` must be amended to distinguish the third-party
-reference from the owner's own prior work, in the same commit as the first copied line — not after.
+source from the owner's own prior work, in the same commit as the first copied line — not after.
 
 ## 5. What the deliverable is
 
@@ -98,15 +96,16 @@ everything.** Read literally, and it should be:
 
 ## 6. What blocks what, as of 2026-09-05 — after both audits
 
-Both audits are complete and land in `audit-a prior project-2026-09-05.md` and
-`audit-graph-study-2026-09-05.md`. Read those for evidence; this section carries only the shape.
+Both audits are complete; the graph one lands in `audit-graph-study-2026-09-05.md` and the other's
+findings are folded into the documents that own each one (see §6-7 below and `build-ledger.md`).
+Read those for evidence; this section carries only the shape.
 
 **The structural finding neither audit was asked for: there is no Phase 8.**
 `01-high-level-plan.md` stops at Phase 7, which G12 blocks entirely. Every batch below that is not a
 repair to shipped code has no phase to belong to. Extending the phase script is therefore the first
 planning act, not a consequence of one.
 
-- **G12** blocks **Phase 7**, and the graph reference supplies it two new positions rather than settling
+- **G12** blocks **Phase 7**, and the graph work supplies it two new positions rather than settling
   it: *autonomy licensed by reversibility of writes* rather than by supervision, and
   *propose-without-persisting then activate-from-a-file* as an approval channel that is not a slower
   spelling of `--yes`. Both are arguments for the session, not substitutes for it.
@@ -154,18 +153,19 @@ Not features, not lifts — things that are wrong now, none needing a gate or a 
 ### The founding-claim problem, which goes first
 
 Both audits arrive at the same obligation from opposite directions. The copy check found Weft's
-originality claim survives as engineering — 0 byte-identical files of 1,572 reference files hashed — but
-**not in its absolute wording**: five to eight sites quote reference docstrings verbatim, attributed, and
-`NOTICE` says "Weft contains no source text from any other codebase." Separately, §4's decision makes
-copying from `graph-study-main` licit and falsifies the same sentence again. And the rule has **no
-fitness function** — 33 files in `tests/architecture/` enforce lesser invariants; nothing scans for
-reference text, which is `L6.12`'s shape applied to the property the repository is named for.
+originality claim survives as engineering — 0 byte-identical files of 1,572 third-party files hashed
+— but **not in its absolute wording**: five to eight sites quote third-party docstrings verbatim,
+attributed, and `NOTICE` says "Weft contains no source text from any other codebase." Separately,
+§4's decision makes copying from `graph-study-main` licit and falsifies the same sentence again. And
+the rule has **no fitness function** — 33 files in `tests/architecture/` enforce lesser invariants;
+nothing scans for transcribed third-party text, which is `L6.12`'s shape applied to the property the
+repository is named for.
 
-One amendment covers all three, and it is cheap to get wrong: it must distinguish the third-party
-reference (write fresh, always) from the owner's own prior work (copyable) from short attributed
+One amendment covers all three, and it is cheap to get wrong: it must distinguish a third-party
+source (write fresh, always) from the owner's own prior work (copyable) from short attributed
 quotation of a cited rationale. There is also a **live rule conflict** to settle in the same act:
-`weft_clean/artifact_remover.py:63,67` carries a reference regex under a "facts, not text" exception
-while `04:144-145` says regexes specifically must be authored fresh.
+`weft_clean/artifact_remover.py:63,67` carries a transcribed regex under a "facts, not text" exception
+while the rule stated elsewhere for regexes says they specifically must be authored fresh.
 
 ## 7. Release state, 2026-09-05
 

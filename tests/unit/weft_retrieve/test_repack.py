@@ -6,7 +6,7 @@ after." This module covers the happy path (`forward` keeps retrieval order and a
 the final labels a `Generator` resolves citations against), the two other named
 orderings — `reverse` (the default, `10` §1.1's `repack` row: Wang et al.'s Table 11
 Avg-column winner) and `sides`, pinned to the exact n=7 sequence `.phase2-design.md`
-names so the reference's best/worst zip-interleave defect cannot be laundered back in under
+names so a best-at-head-worst-at-slot-1 zip-interleave cannot be laundered back in under
 the same citation — the edge case (`top_n` truncates the *input* ranking before a method
 ever sees it, and an empty `Ranking` comes back as empty `Passages` with no method
 applied), the error case (an unregistered method name is refused at configuration, naming
@@ -92,9 +92,9 @@ async def test_reverse_is_the_default_and_puts_the_best_hit_last() -> None:
 
 async def test_sides_places_the_best_and_second_best_at_the_two_ends_for_seven_hits() -> None:
     # Arrange — the exact n=7 sequence `.phase2-design.md`'s task-map row pins: best at the
-    # head, second-best at the very tail, worst buried in the middle. Porting the reference's
-    # best-at-head-worst-at-slot-1 zip-interleave over this citation is the defect this test
-    # exists to refuse forever.
+    # head, second-best at the very tail, worst buried in the middle. A best-at-head-
+    # worst-at-slot-1 zip-interleave producing this same sequence under the same citation
+    # is the defect this test exists to refuse forever.
     payload = _ranking("d0", "d1", "d2", "d3", "d4", "d5", "d6")
 
     # Act

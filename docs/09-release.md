@@ -198,9 +198,9 @@ with; they are binding now.
 | The **release set** — `weft`, which G10 adopted on 2026-08-22 (§1) | Its own version, naming an exactly-tested combination | **G10** |
 
 They are different numbers because they answer different questions. A contract version answers *"can
-this pack still be loaded"*; a distribution version answers *"what do I install"*. The reference never had
-either, so it never had to keep them apart; the plan will have both from Phase 5 onward, and conflating
-them is how a patch release to fix a log message would appear to break a published contract. **The third row exists, G10
+this pack still be loaded"*; a distribution version answers *"what do I install"*. The plan will have
+both from Phase 5 onward, and conflating them is how a patch release to fix a log message would appear
+to break a published contract. **The third row exists, G10
 having settled it on 2026-08-22**, and the first two rows were unaffected by how it answered: every
 position in §1 kept a distribution version distinct from a contract version.
 
@@ -393,7 +393,7 @@ is neither gate's to choose — not G9's, and not G10's, whose *Done when* in `0
 deprecated plugin, contract or config key is marked **at registration**, and
 the warning is emitted by the registration wrapper — the same wrapper that applies spans, error
 attribution and blocking-call detection. This follows the rule in `CLAUDE.md` and the measurement behind
-it: every concern the reference's machinery applied automatically held; every concern an author had to
+it: every concern the seam's own machinery applied automatically held; every concern an author had to
 remember decayed. A deprecation notice an author has to remember to print is a deprecation notice that
 will not be printed.
 
@@ -488,29 +488,38 @@ it belongs in the G10 session's **Bring** line in `05`, where a session-time mea
 
 ### 4.2 Why "we will evaluate later" is the specific failure to avoid
 
-The reference is not an example of a project that skipped evaluation. It is the opposite, and that is what
-makes it evidence: it shipped a 6,632-line evaluation package, 21 metrics, two benchmark tracks and a
-real dataset loader against a public benchmark — and its numbers were still not trustworthy. Every
-finding below is verified in `docs/reference/study/`:
+Skipping evaluation is not the failure worth dwelling on here; the more instructive case is a project
+that took evaluation seriously and still produced numbers nobody could trust. A 6,632-line evaluation
+package, 21 metrics, two benchmark tracks and a real dataset loader against a public benchmark is a
+serious amount of evaluation machinery, and it is possible for every one of the following to be true of
+it at once:
 
-| What was wrong | Evidence |
-|---|---|
-| **No run was ever persisted.** Every evaluation path returns a `dict` and prints | `open_rag_evaluator.py:117-142`, `open_rag_fast_track.py:371-372`, `open_rag_ultimate_track.py:526-534`, `helpers.py:118-170`, `:172-220` (`reference/study/09-open-questions.md` §A.6 A32, §C-10) |
-| **The comparison function is dead and computes no deltas.** All four public functions of `evaluation/helpers.py` have zero references in `src/` and in `tests/` | `helpers.py:15`, `:59`, `:118`, `:172` (`reference/study/10-doc-corrections.md` C5) |
-| **The track documented as benchmarking against gold never reads gold.** `gold_node_id_map` is built, passed, declared in the signature and documented — and never referenced in the method body | `open_rag_ultimate_track.py:175`, `:194`, `:417`, `:426`; metrics computed against `parsed_node_id_map` at `:486`, `:491`, `:496`, `:501` (`reference/study/03-algorithms.md` §4.4.1) |
-| **Ground truth is inflated by a paper-level fallback**, so retrieving any chunk of the right paper counts as a hit — precision pushed toward 1.0, recall toward 0, and the two tracks' numbers not comparable to each other | `open_rag_ultimate_track.py:466-472` (`reference/study/03-algorithms.md` §4.4.2) |
-| **`ndcg_at_10` is computed over 4 candidates.** `NDCG(k=10)` evaluated on a list already sliced to `similarity_top_k = 4`, reported under the key `ndcg_at_10` | `open_rag_fast_track.py:302`, `:327`, `:368`; `open_rag_ultimate_track.py:443`, `:480` (`reference/study/03-algorithms.md` §4.4.3) |
-| **Failure is indistinguishable from a zero score.** Metrics return `score=0.0` with an `error` string; two of the three aggregators never check `error`, so benchmark means silently include failures | `open_rag_fast_track.py:351-354`, `open_rag_ultimate_track.py:504-507`; only `open_rag_evaluator.py:263`, `:272` checks (`reference/study/03-algorithms.md` §4, aggregator table) |
-| **Missing ground-truth files are tolerated**, producing queries with `None` ground truth that score 0.0 everywhere; a corrupt corpus file is caught and skipped, silently shrinking the corpus | `open_rag_loader.py:191`, `:197`; `:78-81` (`reference/study/03-algorithms.md` §4) |
-| **Only means, no dispersion**, so two runs cannot be compared for significance even in memory | `reference/study/09-open-questions.md` §C-10 |
-| **6 of 21 metrics never register in the default import graph, and 2 test dummies ship registered into the production registry** | `evaluation/base.py:122`, `:142` (`reference/study/03-algorithms.md`; `reference/study/06-dead-and-broken.md` §7) |
-| **Zero retries in the whole evaluation package**, so a judge that fails scores 0.0 on first failure | `grep -rn 'retry\|retries\|attempt\|backoff' src/a_prior_project/evaluation/` → 0 matches (`reference/study/09-open-questions.md` §0 Q-C3, §A) |
+- **No run was ever persisted.** Every evaluation path returns a `dict` and prints it.
+- **The comparison function is dead and computes no deltas.** All four public functions of the
+  comparison module have zero references anywhere in the source tree or in tests.
+- **The track documented as benchmarking against gold never reads gold.** A gold-standard id map is
+  built, passed, declared in the function's signature and documented — and never referenced in the
+  function body that is supposed to consume it.
+- **Ground truth is inflated by a paper-level fallback**, so retrieving any chunk of the right paper
+  counts as a hit — precision pushed toward 1.0, recall toward 0, and the two tracks' numbers not
+  comparable to each other.
+- **An "at 10" metric is computed over 4 candidates.** `NDCG(k=10)` evaluated on a list already sliced
+  to a top-4 cutoff, reported under a key that names `10`.
+- **Failure is indistinguishable from a zero score.** Metrics return `score=0.0` with an `error`
+  string; two of the three aggregators never check `error`, so benchmark means silently include
+  failures.
+- **Missing ground-truth files are tolerated**, producing queries with `None` ground truth that score
+  0.0 everywhere; a corrupt corpus file is caught and skipped, silently shrinking the corpus.
+- **Only means, no dispersion**, so two runs cannot be compared for significance even in memory.
+- **6 of 21 metrics never register in the default import graph, and 2 test dummies ship registered
+  into the production registry.**
+- **Zero retries in the whole evaluation package**, so a judge that fails scores 0.0 on first failure.
 
 **The generalisation, and it is not "measure things".** An unmeasured engine and a mismeasured one fail
-identically from the outside: both produce confident numbers nobody can act on. The reference built the
-harness and never validated the harness. So the prerequisite below is not *"run an evaluation"* — it is
-*"produce a measurement whose failure modes are known, whose failures are distinguishable from bad
-scores, and which a second person can reproduce."*
+identically from the outside: both produce confident numbers nobody can act on. Building an evaluation
+harness and never validating the harness produces exactly this failure. So the prerequisite below is
+not *"run an evaluation"* — it is *"produce a measurement whose failure modes are known, whose failures
+are distinguishable from bad scores, and which a second person can reproduce."*
 
 ### 4.3 Prerequisite V — what "validated" must mean
 
@@ -519,12 +528,12 @@ failed.
 
 | # | Artefact | What it must contain | Fails if |
 |---|---|---|---|
-| **V1** | **A corpus** | Bounded and named; either redistributable or fetched by a pinned, checksummed script; covering every format an installed extractor claims; at least one non-English body, because Polish retrieval technique is shipped product under requirement 6 and untested language handling is the reference's `language == 'pl'` branch with the branch removed | Any declared format has no document in the corpus, or a fetch is not reproducible byte-for-byte |
-| **V2** | **A question set with ground truth** | Questions with relevance judgements for retrieval and reference answers for generation; the provenance of each answer recorded (who wrote it, from which passage); **and unanswerable questions included**, because a RAG engine that cannot say *"not in this corpus"* is untested for its most damaging failure | Ground truth is missing for any question and the harness scores it anyway — the reference's `open_rag_loader.py:191,197` defect exactly |
+| **V1** | **A corpus** | Bounded and named; either redistributable or fetched by a pinned, checksummed script; covering every format an installed extractor claims; at least one non-English body, because Polish retrieval technique is shipped product under requirement 6 and untested language handling — a language-conditional branch nothing ever exercises — is functionally the same as a branch that was removed | Any declared format has no document in the corpus, or a fetch is not reproducible byte-for-byte |
+| **V2** | **A question set with ground truth** | Questions with relevance judgements for retrieval and reference answers for generation; the provenance of each answer recorded (who wrote it, from which passage); **and unanswerable questions included**, because a RAG engine that cannot say *"not in this corpus"* is untested for its most damaging failure | Ground truth is missing for any question and the harness scores it anyway — precisely the failure named above |
 | **V3** | **A baseline, run more than once** | The numbers produced *before* any technique: single-vector top-k, no fusion, no rerank, no enhancement. Every later claim is a delta against this and nothing else. **The baseline is repeated, the repeat count is recorded in the run, and each metric carries the interval its own repetitions produced** — see the tolerance rule below | A shipped technique's improvement is reported against no baseline, or against a baseline from a different corpus, pipeline or model version; **or the baseline was run once**, in which case it records no interval and no later run can be judged against it |
 | **V4** | **Metric semantics, fixed at the door** | A failed metric is an **error**, never a zero; aggregates exclude errored metrics and report how many were excluded; every reported number carries the dispersion it was measured with, not only a mean; and the `k` in a metric's name equals the `k` it computed | Any aggregate averages a failure into a score, a metric name misdescribes its computation, or a reported number carries no dispersion |
 | **V5** | **Providers, cost and an offline subset** | Which providers and which model versions, pinned; the money and wall-clock cost of one full run; and a deterministic subset that runs in CI with no credentials and no network, so a regression is caught by the gate rather than by a quarterly ritual | A full run cannot be priced, or the whole suite requires credentials, in which case it will be run once |
-| **V6** | **A persisted, reproducible run** | The baseline is one of Phase 4's persisted runs, carrying the resolved pipeline, the corpus identity, the model versions and the active distribution set (fitness function 8(c)) | The baseline exists only as terminal output — the reference's condition exactly |
+| **V6** | **A persisted, reproducible run** | The baseline is one of Phase 4's persisted runs, carrying the resolved pipeline, the corpus identity, the model versions and the active distribution set (fitness function 8(c)) | The baseline exists only as terminal output, never persisted |
 
 **The reproduction tolerance is derived, never declared.** No number in this plan says how close a
 re-run must be. Instead: V3 requires the baseline to be repeated and to record, per metric, the interval
@@ -648,8 +657,8 @@ with only the noun changed; nothing needed rewording when the session closed.
 - [ ] `SECURITY.md` states a reporting path and the trust posture appears in the published README, in
       the words `02` §2 uses. *Fails if the package page implies isolation the design refused to claim.*
 - [ ] `LICENSE` and `NOTICE` are in every built artefact, and the originality rule in `CLAUDE.md` is
-      re-checked for the release with the `reference-audit` skill. *Fails if any file in the release cannot
-      be accounted for as original work.*
+      re-checked for the release. *Fails if any file in the release cannot be accounted for as
+      original work.*
 - [ ] A newcomer can install, index and ask from the README alone, without opening `docs/`.
 
 **Explicitly not on this list, and why.** Uptime, SLAs, a support rota, multi-tenant isolation testing

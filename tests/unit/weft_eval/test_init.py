@@ -4,8 +4,9 @@ Mirrors `packages/weft-rag/src/weft_eval/__init__.py`. Covers the happy path (ev
 21 task-4.2 metrics plus task 4.1's own demonstration registers, under the right one of
 `GenerationMetric`/`RetrievalMetric`, and the 6 judge prompts register under `Prompt`), the count
 (exactly 22 metrics — 21 plus the demonstration — and 6 prompts, so a metric silently dropped from
-`register()` fails this file rather than going unnoticed the way the reference's two docstring-only
-`llm_judge/__init__.py` files did), and that an unknown settings field is refused.
+`register()` fails this file rather than going unnoticed the way a package can when its
+`__init__.py` only documents registration instead of performing it), and that an unknown
+settings field is refused.
 """
 
 import pytest
@@ -43,8 +44,8 @@ from weft_kernel.discovery import PackRegistrar
 from weft_kernel.registry import Registry
 from weft_prompts.contract import Prompt
 
-#: The 21 reference metrics, split by which contract they register under — the count this test's own
-#: floor asserts, so a metric quietly dropped from `register()` cannot pass silently.
+#: The 21 task-4.2 metrics, split by which contract they register under — the count this test's
+#: own floor asserts, so a metric quietly dropped from `register()` cannot pass silently.
 _GENERATION_NAMES = frozenset(
     {
         ROUGE_L_NAME,
@@ -94,11 +95,11 @@ def test_register_adds_overlap_at_threshold_under_generation_metric() -> None:
     assert entry.distribution == "weft-eval"
 
 
-def test_every_one_of_the_21_reference_metrics_registers_under_the_right_contract() -> None:
+def test_every_one_of_the_21_task_4_2_metrics_registers_under_the_right_contract() -> None:
     # Arrange / Act
     registry = _registry()
 
-    # Assert — 21 = 15 generation + 6 retrieval, per `.phase4-reference-recon.md`'s own inventory.
+    # Assert — 21 = 15 generation + 6 retrieval, per task 4.2's own inventory.
     assert len(_GENERATION_NAMES) + len(_RETRIEVAL_NAMES) == 21
     for name in _GENERATION_NAMES:
         assert registry.entry(GenerationMetric, name).distribution == "weft-eval"
@@ -110,9 +111,8 @@ def test_the_six_judge_prompts_register_under_prompt() -> None:
     # Arrange / Act
     registry = _registry()
 
-    # Assert — the reference's own defect was these six being unreachable at all
-    # (`.phase4-reference-recon.md` §1); registered names here is the fix, held as a fact rather
-    # than a claim.
+    # Assert — a judge prompt that exists in source but registers nowhere is unreachable at
+    # runtime; registered names here is the fix, held as a fact rather than a claim.
     prompt_names = registry.names_for(Prompt)
     assert len(prompt_names) == 6
 

@@ -54,8 +54,8 @@ third. So this check is blind to a bypass that reuses a distribution name alread
 legitimately `ACTIVE`: an extra registration smuggled in and attributed to
 `weft-extract`, say, on top of the one entry `weft-extract`'s own `register()`
 really added, would not change either flat distribution-name set and would pass
-undetected — the reference's `retrieval/registry.py:649-668` re-wrap-after-decorate
-shape, one level removed. Two things limit that gap in practice rather than close
+undetected — a re-wrap-after-decorate shape, one level removed. Two things limit
+that gap in practice rather than close
 it: `Registry.add` already refuses a duplicate `(contract, name)` outright (a
 built-in's *existing* registrations cannot be silently replaced), and, read across
 this repository's shipped code, `Registry.add`/`add_many` are called from exactly
@@ -201,7 +201,7 @@ def test_kernel_imports_no_first_party_pack_module() -> None:
 def test_at_least_one_kernel_file_is_walked() -> None:
     # Floor — `08` §3's shape, applied to a source walk instead of a document walk: a
     # walk that finds nothing would let clause one above pass vacuously on an empty
-    # tree, exactly the shape `reference/study/08-salvage.md:777-782`'s parity test takes.
+    # tree, exactly the shape a comparison computed once and checked against itself takes.
     walked = sorted((KERNEL_ROOT / "src").rglob("*.py"))
     assert walked, (
         f"no `.py` file found under {KERNEL_ROOT / 'src'} — the walk itself is broken; "
@@ -214,10 +214,10 @@ class _RecordingRegistry(Registry):
     rather than the set of distribution names that made them.
 
     **Comparing name sets is not enough, and this is the whole point of the function.**
-    `01` item 2 names the defect it exists to catch: the reference re-wraps and re-assigns its
-    three indexing builders *after* the decorator already registered them
-    (`retrieval/registry.py:649-668`), so a third party using the public decorator silently
-    does not get the span wrapping the built-ins get. A name-set comparison cannot see that —
+    `01` item 2 names the defect it exists to catch: a built-in path that re-wraps and
+    re-assigns its own factories *after* the decorator already registered them, so a third
+    party using the same public decorator silently does not get the span wrapping the
+    built-ins get. A name-set comparison cannot see that —
     the distribution is in both sets before and after. Neither can it see a second
     registration attributed to a distribution that legitimately registered something else.
 
@@ -348,7 +348,7 @@ def test_registry_contents_equal_what_discovery_declared() -> None:
     )
 
     # And what a pack handed in is what the registry still holds. This is the clause that
-    # catches `01` item 2's own example: the reference re-wraps its built-in factories *after*
+    # catches `01` item 2's own example: a built-in re-wraps its own factories *after*
     # registration to give them span wrapping a third party would not get. The name is
     # unchanged, the distribution is unchanged, and only the identity of the factory moves.
     for contract, name, factory, distribution in registry.written:
@@ -356,7 +356,7 @@ def test_registry_contents_equal_what_discovery_declared() -> None:
             f"{distribution}:{name} factory was replaced after registration. The object the "
             f"pack handed to `register()` is not the object the registry holds, so a built-in "
             f"is running through machinery a third party's plugin would not — `01` -> "
-            f"*Fitness functions* item 2, and the reference defect it cites."
+            f"*Fitness functions* item 2, and the defect it exists to catch."
         )
 
 

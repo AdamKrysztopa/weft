@@ -181,8 +181,8 @@ class NativeStructuredUnsupportedError(LLMPermanentError):
 
     The cascade asks `native_structured_available` first and never sees this; it exists for
     the caller that does not ask. Refusing by name is the alternative to the silent step-down
-    a `hasattr` guard produces, which is the reference defect `.phase2-design.md` §3 replaces
-    `hasattr` to avoid in the first place.
+    a `hasattr` guess produces — the failure mode `.phase2-design.md` §3 replaces `hasattr`
+    to avoid in the first place.
     """
 
 
@@ -222,8 +222,8 @@ class LLMCompletionError(LLMError):
 
     **Constructed, and returned as the reason on a `Failed` rather than raised.** The cascade
     "returns `Failed` and never leaks an exception past the seam" (`.phase2-design.md` §7),
-    because the reference's narrower tier-3 catch set let a malformed completion raise out of
-    `execute()`. This class is still what phrases that `Failed`: the message carries the
+    because a narrower tier-3 catch set can let a malformed completion raise straight out of
+    `execute()` instead. This class is still what phrases that `Failed`: the message carries the
     provider, the model and the truncated raw text, which is the only diagnostic that survives
     a total parse failure.
     """

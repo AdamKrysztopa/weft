@@ -202,7 +202,8 @@ def test_every_relevant_document_is_declared_in_the_manifest(
     questions: tuple[Question, ...], documents: tuple[Document, ...]
 ) -> None:
     # A judgement pointing at a document the corpus does not contain is scored against nothing —
-    # V2's own failure condition, and the reference's `open_rag_loader.py:191` defect by name.
+    # V2's own failure condition: a loader that silently drops an unresolvable document id instead
+    # of failing the load turns a missing document into a quietly absent score, not an error.
     # Arrange
     known = {entry.id for entry in documents}
 

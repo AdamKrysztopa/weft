@@ -2,10 +2,10 @@
 
 Task **2.23**, `docs/build-ledger.md`: "a Boolean query is parsed to an operator expression
 with precedence, and an empty conjunction is a visible outcome rather than a union."
-`docs/10-technique-catalogue.md` §1.1's own row names the reference's defect precisely: the
-decomposition was a flat `(operator, list[str])` (`types.py:75-82`), so any compound query
-parsed to `MIXED` and `MIXED` was handled as `OR` — `a AND b OR c` and `a OR b AND c` were the
-same fact to the reference's own type. That flat shape is structurally unable to represent the
+`docs/10-technique-catalogue.md` §1.1's own row names the defect precisely: a flat
+`(operator, list[str])` decomposition collapses any compound query to `MIXED`, and `MIXED` is
+handled as `OR` — `a AND b OR c` and `a OR b AND c` become the same fact under that
+representation. That flat shape is structurally unable to represent the
 distinction `10` §1.1 is about; `BoolExpr` below, modelled on `weft_store.contract.Filter`'s
 own shape (a discriminating `op`, a leaf payload, and `clauses` for a combinator), is what
 makes the distinction *representable* rather than merely correct by luck of implementation.
@@ -19,7 +19,7 @@ that sequence, entirely deterministic and entirely untested by any model: standa
 `and`/`or` use, and the one every Boolean query language this catalogue cites shares), with
 explicit parentheses overriding it exactly where they appear. This is the fix for "not a split
 on whitespace": a naive scan of `a AND b OR c` cannot tell `(a AND b) OR c` from `a AND (b OR
-c)`, and neither shape is present in the reference's own flat structure to check against — a real
+c)`, and neither shape is representable in a flat structure to check against — a real
 parser is what gives the sentence "one defined reading" a mechanism, and `tests/unit/
 weft_retrieve/test_boolean.py` proves it directly against the parser, with no model in the
 loop at all.
@@ -57,7 +57,7 @@ own `NAME` hardcoded at the reading end — a second `QueryTransform` that provi
 under its own registered name is exactly as attributable as this one, because the plan itself,
 not `weft_retrieve.boolean`, is what `boolean-combine` trusts for the producer's identity.
 
-**No `xor`.** `10` §1.1's own row on this technique names a distinct reference defect — XOR
+**No `xor`.** `10` §1.1's own row on this technique names a distinct defect — XOR
 "advertised in five user-facing places and implemented in none." The corrected reading this
 build takes is not "add XOR and implement it" but "do not advertise what is not backed by real
 evaluation semantics": `BoolOp` ships with exactly the leaf marker and the three combinators

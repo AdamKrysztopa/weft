@@ -7,9 +7,9 @@ never checked at all), and the error case a caller gets wrong once and never aga
 only the newest delta, rather than the whole accumulated answer, silently defeats the guard.
 
 The four worked examples task 3.10 names — a `|---|---|` row, a `====` rule, a `+---+---+`
-border, and ordinary prose — are reproduced below as fresh test cases, not copied from the
-reference's own comment block; only the *shape* of the four cases (three formatting styles that
-must read as a table, one paragraph that must not) is carried over.
+border, and ordinary prose — are reproduced below as fresh test cases; only the *shape* of
+the four cases (three formatting styles that must read as a table, one paragraph that must
+not) is carried over.
 """
 
 import pytest

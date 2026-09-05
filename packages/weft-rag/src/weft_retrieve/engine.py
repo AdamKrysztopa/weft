@@ -142,7 +142,7 @@ def _validated_sub_config(entry: RegistryEntry, name: str, config: object) -> ob
     neither here — a sibling resolved by name has no position in any document. What it does
     reuse is the shape of the rule, including the part that is easy to skip: a non-empty
     block for a plugin publishing no `config_model` is **refused**, never accepted and
-    dropped, because a configuration that silently does nothing is the reference defect
+    dropped, because a configuration that silently does nothing is exactly the failure
     `StageNotConfigurableError` exists to prevent.
 
     **Only a `Mapping` is validated.** A caller that has already built the sibling's config

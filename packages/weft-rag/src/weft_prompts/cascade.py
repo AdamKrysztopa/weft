@@ -14,16 +14,16 @@ All the recorded corrections are carried, and each one is a thing that went wron
 - **Tier 2 `adapted` is skipped entirely when tier 1 raised `LLMBadRequestError`.** `04`:147-153
   records this short-circuit as one that "cannot be re-derived from first principles": a vendor
   that rejected the schema-shaped request rejects the schema-instructed one too. Carried as an
-  explicit `skip_adapted` flag, not the reference's `(None, True)` tuple.
+  explicit `skip_adapted` flag, not an implicit `(None, True)` tuple.
 - **`LLMPermissionDeniedError` is caught at tiers 1 and 2 and re-raised.** Lifting the cascade
   without this re-introduces the worst failure mode it has: a bad API key surfacing as a `0.0`
   that looks like a bad answer. It is why `weft_llm.errors` gives permission-denied its own leaf
   rather than folding it into `LLMAuthenticationError`.
-- **The step-down set is `ValidationError` and `ValueError` only** — narrowed from the reference's
-  five. `AttributeError`, `TypeError` and `RuntimeError` in that tuple silence real bugs, and a
-  cascade that silences a bug spends two more model calls hiding it.
+- **The step-down set is `ValidationError` and `ValueError` only.** `AttributeError`,
+  `TypeError` and `RuntimeError` in that set would silence real bugs, and a cascade that
+  silences a bug spends two more model calls hiding it.
 - **Tier 3's catch set is not narrower than the step-down set**, so a malformed completion
-  returns `Failed` instead of raising out of `execute()` the way the reference's did.
+  returns `Failed` instead of raising out of `execute()`.
 - **No retries inside the cascade.** Retry is the provider wrapper's (`weft_llm.retry`), which is
   why a transient failure leaves here rather than costing a tier: three tiers is at most three
   calls, never nine.
@@ -48,8 +48,8 @@ from weft_llm.payload import Completion, Conversation, Message, MessageRole, Ren
 from weft_prompts.contract import Prompt
 from weft_prompts.rescue import rescue_json
 
-#: How much of an unparseable completion survives into the `Failed` reason. The reference's number,
-#: kept because it is the length at which a model's prose refusal is still readable in a terminal.
+#: How much of an unparseable completion survives into the `Failed` reason — chosen because it
+#: is the length at which a model's prose refusal is still readable in a terminal.
 RAW_TEXT_LIMIT = 200
 
 #: Tier 2's schema instruction. Written here rather than as a registered `Prompt` because it is
@@ -142,9 +142,9 @@ async def _tier_native[T: BaseModel](
 ) -> tuple[Outcome[Structured[T]] | None, bool]:
     """Tier 1. Returns `(settled outcome or None, skip tier 2)`.
 
-    The second half of that tuple is `04`:147-153's short-circuit made explicit — the reference
-    encoded it as a `(None, True)` return whose meaning lived only in the reader's head, and
-    this returns it as a named boolean the caller must do something with.
+    The second half of that tuple is `04`:147-153's short-circuit made explicit: a `(None, True)`
+    return whose meaning would live only in the reader's head is instead returned as a named
+    boolean the caller must do something with.
     """
     try:
         native = await llm.complete_structured(

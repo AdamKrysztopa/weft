@@ -1,9 +1,9 @@
 """Fitness function 1, primary half: install `weft-kernel` alone and import it.
 
-The reference could not do this. `src/a_prior_project/` does not import standalone — it
-resolves `adapters.*` only because `pyproject.toml` sets pytest
-`pythonpath = ["system", ".", "scripts"]`, so its boundary was a test-runner
-setting rather than a property of the package.
+A package can look self-contained while actually resolving its imports only because a test
+runner's `pythonpath` setting papers over the gap — a boundary that is a property of the test
+configuration rather than of the package itself, and that only surfaces when something tries to
+install and import the package alone.
 
 A kernel that is its own wheel is checked by installing it into a clean
 environment and importing it. Anything reachable that should not be fails here,

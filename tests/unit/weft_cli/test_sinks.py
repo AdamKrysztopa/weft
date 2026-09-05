@@ -185,7 +185,7 @@ async def test_json_sink_close_emits_done_on_a_clean_end() -> None:
 
 
 async def test_json_sink_close_emits_error_never_mistakable_for_done() -> None:
-    # Arrange — the reference correction this sink exists to avoid (`.phase3-design.md` §2.3(b)):
+    # Arrange — the failure mode this sink exists to avoid (`.phase3-design.md` §2.3(b)):
     # an error event must be *structurally* distinct from a clean end, not merely worded
     # differently, so a consumer that only checks `type` can never confuse the two.
     stream = io.StringIO()

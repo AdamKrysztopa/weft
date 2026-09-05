@@ -223,7 +223,7 @@ async def test_hedge_phrases_detects_a_hedge_in_the_askers_own_language(
     Polish exactly as it does in English, because the marker table it reads is keyed by
     locale rather than being one English list a call site closed over. Delete the `"pl"`
     entry from `weft_retrieve.sufficiency.DEFAULT_HEDGE_MARKERS` and the Polish half of this
-    test goes red — the property the reference's own single-language list could never be checked
+    test goes red — a property a single hardcoded English marker list could never be checked
     against.
     """
     # Arrange

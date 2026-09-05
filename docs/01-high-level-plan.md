@@ -4,110 +4,90 @@
 
 The decision is settled; this section exists so the reasoning survives into the new repo.
 
-`a prior project` was designed to be elastically extended along at least five axes: parsing methods,
-chunking, file types, retrieval engines, **and storage backends — databases and files alike**. An
-audit of the shipped code found the seam holds on none of the first four, and the deep study has
-since found it holds on the fifth least of all. Adding one parser means editing four to six existing
-files. Adding one file format means editing six parallel structures across three files — nine edit
-sites for an ordinary format, thirteen for one behind an optional dependency. Retriever builders
-have a registry, but it is keyed by a closed enum, so registering one still requires editing core.
-There are zero uses of `entry_points` or `pkgutil` across the 259 library files, and no
-`[project.entry-points]` group in `pyproject.toml`, so nothing can be extended from outside the
-package at all.
+A codebase examined before this rebuild began was designed to be elastically extended along at
+least five axes: parsing methods, chunking, file types, retrieval engines, **and storage backends —
+databases and files alike**. An audit of its shipped code found the seam holds on none of the first
+four, and a closer pass found it holds on the fifth least of all. Adding one parser meant editing
+four to six existing files. Adding one file format meant editing six parallel structures across
+three files — nine edit sites for an ordinary format, thirteen for one behind an optional
+dependency. Retriever builders had a registry, but it was keyed by a closed enum, so registering one
+still required editing core. There were zero uses of `entry_points` or `pkgutil` across its 259
+library files, and no `[project.entry-points]` group in its `pyproject.toml`, so nothing could be
+extended from outside the package at all.
 
-> **Corrected from the reference study (2026-08-10).** Two edits to the paragraph above, neither of
-> which weakens it.
+> **Corrected 2026-08-10.** Two edits to the paragraph above, neither of which weakens it.
 >
 > The file-format claim was *"five parallel maps, two of which are independent sources of truth that
-> silently drift."* Counted, it is **six** structures in **three** files: `FileType`
-> (`indexing/parsing/factory.py:45-61`, 14 members), `EXTENSION_MAP` (`:65-83`, 17 keys), `MIME_MAP`
-> (`:86-103`, 16), `_EXTRACTOR_MAP_BASE` (`:106-118`) → `EXTRACTOR_MAP` (`:124`),
-> `FORCE_MARKDOWN_FILE_TYPES` (`:126-136`, 9), and `SUPPORTED_DOCUMENT_EXTENSIONS`
-> (`indexing/supported_extensions.py:7-27`). **They do not drift today** — the two format lists have
-> an empty symmetric difference, 17 = 17. The defect the sentence needs is different, and worse: a
-> declaration that is right with a resolution that is empty. `.doc` and `.ppt` are declared
-> *unconditionally* in both lists while their extractors are inserted *conditionally* on optional
-> dependencies (`factory.py:119-122`), so a `.ppt` passes every gate and then raises
-> `ValueError('No .ppt extractor available …')` at `factory.py:401-405`. This is the accept-then-fail
-> bug; drift is not its mechanism. (`reference/study/10-doc-corrections.md` A1, A3.)
+> silently drift."* Counted, it was **six** structures in **three** files: a file-type enum (14
+> members), an extension map (17 keys), a MIME map (16), an extractor map built from a base map, a
+> force-markdown set (9), and a supported-extensions list. **They did not drift** — the two format
+> lists had an empty symmetric difference, 17 = 17. The defect the sentence needs is different, and
+> worse: a declaration that is right with a resolution that is empty. `.doc` and `.ppt` were declared
+> *unconditionally* in both lists while their extractors were inserted *conditionally* on optional
+> dependencies, so a `.ppt` passed every gate and then raised
+> `ValueError('No .ppt extractor available …')` at the point of use. This is the accept-then-fail
+> bug; drift is not its mechanism.
 >
-> The entry-point count was *"1,112 files"*, a repo-wide denominator that includes `system/`. The
-> verified figure is **0 across the 259 library files** plus no `[project.entry-points]` block. One
-> nuance the study adds and the plan should keep: **one axis is genuinely open already** —
-> `@register_enhancer('keybert')` works end to end today, and the only thing missing is the import
-> trigger. That is the axis driving use case A runs through, which makes Phase 0's exit criterion
-> cheaper and more credible: the reference already proves decorator + lazy bootstrap + loud lookup is
+> The entry-point count was *"1,112 files"*, a repo-wide denominator that included a deployment
+> layer outside the library. The verified figure was **0 across the 259 library files** plus no
+> `[project.entry-points]` block. One nuance worth keeping: **one axis was genuinely open already** —
+> a `@register_enhancer('keybert')` decorator worked end to end, and the only thing missing was the
+> import trigger. That is the axis driving use case A runs through, which makes Phase 0's exit
+> criterion cheaper and more credible: decorator + lazy bootstrap + loud lookup was already proven
 > sufficient *once discovery exists*, so the genuinely new mechanism in Phase 0 is discovery itself.
-> (`reference/study/10-doc-corrections.md` B13, C7.)
 
-> **The storage axis is now audited, and the verdict is harsher than the guess this blockquote used
-> to record.** The reference does declare a `VectorStoreFactory` port (`core/ports/storage.py:177-239`,
-> three well-shaped, intent-named methods returning typed models), so the intent was clearly there.
-> But **there is no function named `get_vector_store_factory` anywhere in the repository**, and
-> there are **zero `VectorStoreFactory` implementations inside the library** — every named concrete
-> lives in `system/`. Selection is constructor injection with two hard-coded escapes:
-> `retrieval/storage.py:333` imports the local factory as the `None` default, `:338` imports
-> `PGVectorStoreFactory` **unconditionally on every `DocumentStorage` construction**, and `:340-341`
-> decides a domain-visible backend string by `isinstance` against a deployment class. The "remote
-> implementation" inside the library is `VectorStoreMetadataRegistry.save_collection_metadata`,
-> which unconditionally raises `NotImplementedError` with the comment *"This is a placeholder —
-> actual implementation depends on vector store capabilities"*
-> (`indexing/metadata_registry_vector.py:132-138`).
+> **The storage axis was audited, and the verdict is harsher than an earlier guess had recorded.**
+> A `VectorStoreFactory` port existed with three well-shaped, intent-named methods returning typed
+> models, so the intent was clearly there. But **there was no function named
+> `get_vector_store_factory` anywhere in the repository**, and there were **zero
+> `VectorStoreFactory` implementations inside the library** — every named concrete implementation
+> lived outside it. Selection was constructor injection with two hard-coded escapes: one call site
+> imported a local factory as the `None` default, a second imported a Postgres-backed factory
+> **unconditionally on every construction of the storage layer**, and a third decided a
+> domain-visible backend string by `isinstance` against a deployment class. The "remote
+> implementation" inside the library was a metadata-registry method that unconditionally raised
+> `NotImplementedError` with the comment *"This is a placeholder — actual implementation depends on
+> vector store capabilities."*
 >
-> **So storage is not the same closed-dispatch shape as the other four — it is worse.** No registry,
-> no enum, no plugin point, no registered name for any backend: **0 registered names against 10 / 7
-> / 14 / 3 on the other axes**, 17 dispatch sites over backend identity and zero registry lookups.
-> Adding Qdrant requires editing **11 files inside the library**. It is the leakiest boundary in the
-> codebase and the one that most directly threatens the zero-container requirement below, because
-> `DocumentStorage.__init__` currently requires the PGVector adapter module to be importable even
-> for a purely local run. Note also that the port docstrings advertise *"local filesystem, Qdrant,
-> Weaviate"* and *"Elasticsearch"* (`core/ports/storage.py:30,174,181`) and **none of that code
-> exists** — a false premise the rebuild must not inherit.
->
-> **Corrected from the reference study (2026-08-10):** this blockquote previously labelled the axis
-> unaudited and described selection through `get_vector_store_factory(provider=...)`. The audit is
-> now done and that function never existed. This stops being "a first-class question for the deep
-> study" and becomes a settled finding that raises **G4**'s stakes.
-> (`reference/study/10-doc-corrections.md` A9; `reference/study/08-salvage.md` §T2.4.)
->
-> **Unverified:** whether a *remote* `VectorStoreFactory` implementation exists at all, and whether
-> it is a placeholder, concerns `system/`, which the reference study did not examine. See
-> `reference/study/09-open-questions.md` §A.1.
+> **So storage was not the same closed-dispatch shape as the other four axes — it was worse.** No
+> registry, no enum, no plugin point, no registered name for any backend: **0 registered names
+> against 10 / 7 / 14 / 3 on the other axes**, 17 dispatch sites over backend identity and zero
+> registry lookups. Adding a second vector-store backend meant editing **11 files inside the
+> library**. It was the leakiest boundary in the codebase and the one that most directly threatens
+> the zero-container requirement below, because the storage layer's construction required the
+> Postgres adapter module to be importable even for a purely local run. The port's own docstrings
+> also advertised *"local filesystem, Qdrant, Weaviate"* and *"Elasticsearch"* support, and **none of
+> that code existed** — a false premise the rebuild must not inherit. This is now a settled finding
+> that raises **G4**'s stakes.
 
 The failure is structural, not sloppy. Every one of those seams started as a small dispatch and
-grew. The predecessor also proves the counter-case: where a real string-keyed registry exists —
-enhancers, prompts, evaluation metrics — extension is *nearly* clean, and `indexing/enhancers/registry.py`
-(120 lines) is the design to reimplement in full — its shape, not its text; `NOTICE` rules out the
-latter. But the reference's problem was never a shortage of
-registries. It has **9 distinct name→thing registries and 17 registry-shaped containers across 13
-files, using 6 different registration idioms with 4 different failure behaviours on an unknown
-name** — and only 6 of the 17 expose any registration API. The other 11 are frozen literals,
-editable only by patching core.
+grew. The same codebase also proves the counter-case: where a real string-keyed registry existed —
+enhancers, prompts, evaluation metrics — extension was *nearly* clean, and a 120-line registry
+module built for enhancers is the design to reimplement in full — its shape, not its text; `NOTICE`
+rules out the latter. But its problem was never a shortage of registries. It had **9 distinct
+name→thing registries and 17 registry-shaped containers across 13 files, using 6 different
+registration idioms with 4 different failure behaviours on an unknown name** — and only 6 of the 17
+exposed any registration API. The other 11 were frozen literals, editable only by patching core.
 
-> **Corrected from the reference study (2026-08-10):** this paragraph read *"the pattern that works is
-> already in the codebase, in one small file, applied to one of seven places it belongs"*, inherited
-> from `architecture-review:18` (*"three real string-keyed registries"*). Both the count and the
-> diagnosis are wrong. The reference's actual failure is that **the key space is declared separately
-> from the registry**: `StrategyName` (10 members, `core/engine/types.py:56-72`) is declared in a
-> different module from `STRATEGY_REGISTRY` (`core/engine/strategies/registry.py:35`); nothing keeps
-> them in sync; and the config validator resolves the discrepancy by discarding the user's input.
-> The study's formulation is worth quoting: *"The registry is open; the vocabulary is closed; and
-> where they disagree the code prefers to guess."* The design rule this implies is stronger than
-> rule 5 below, and it should be read as an addition to it: **the set of valid names must be the
-> current keys of the registry, never a parallel declaration.** One further correction — "extension
-> is clean" is not true of evaluation metrics: six of the 21 never register at all in the default
-> import graph (see `04`). (`reference/study/10-doc-corrections.md` A7, E1, E6.)
+> **Corrected 2026-08-10:** this paragraph once read *"the pattern that works is already in the
+> codebase, in one small file, applied to one of seven places it belongs"*, drawn from an earlier
+> review claiming *"three real string-keyed registries."* Both the count and the diagnosis were
+> wrong. The actual failure was that **the key space was declared separately from the registry**: a
+> closed 10-member strategy enum was declared in a different module from the registry it was meant
+> to key, nothing kept them in sync, and the config validator resolved the discrepancy by discarding
+> the user's input. The finding is worth stating plainly: *the registry is open; the vocabulary is
+> closed; and where they disagree the code prefers to guess.* The design rule this implies is
+> stronger than rule 5 below, and it should be read as an addition to it: **the set of valid names
+> must be the current keys of the registry, never a parallel declaration.** One further correction —
+> "extension is clean" was not true of evaluation metrics: six of the 21 never registered at all in
+> the default import graph (see `04`).
 
-A refactor could reach the same end state. It would also have to carry a closed `StrategyName`
+Refactoring in place could reach the same end state. It would also have to carry a closed strategy
 enum that shadows the registry, a chunker factory living inside the evaluation package, three
-separate reciprocal-rank-fusion implementations of which one is dead, and a `FileType` enum wired
+separate reciprocal-rank-fusion implementations of which one is dead, and a file-type enum wired
 into six structures across three files and an API schema and a frontend union type. The rebuild is
-chosen not because the old code is bad but because **the extension model has to be the first
+chosen not because that code is bad but because **the extension model has to be the first
 decision, and it cannot be retrofitted underneath 52,000 lines that assume otherwise.**
-
-> **Unverified:** the API schema (`system/sat-db-api`) and the frontend union type
-> (`system/sat-db-web`) concern `system/`, which the reference study did not examine. The library-side
-> wiring is confirmed and re-counted above. See `reference/study/09-open-questions.md`.
 
 ## What "modern and elastic" has to mean concretely
 
@@ -136,17 +116,18 @@ Vague quality attributes do not constrain design. These do:
 > technique costs the kernel nothing and the kernel budget can never be an argument against having
 > ideas.
 >
-> **The second clause is the one with teeth, and the reference is the evidence.** Its metric suite cannot
-> be parameterised at all: a metric is selected by name, unknown names are silently dropped, and there
-> is no way to run the same metric twice with different thresholds. Ten good retrieval strategies were
-> shipped and a third party could not have composed them, because the router assigns literal enum
-> members in a hard-coded ten-branch ladder. **An idea that ships as a black box is a feature, not a
+> **The second clause is the one with teeth, and there is a concrete precedent for what happens
+> without it.** A metric suite in an audited codebase could not be parameterised at all: a metric
+> was selected by name, unknown names were silently dropped, and there was no way to run the same
+> metric twice with different thresholds. Ten good retrieval strategies were shipped and a third
+> party could not have composed them, because the router assigned literal enum members in a
+> hard-coded ten-branch ladder. **An idea that ships as a black box is a feature, not a
 > capability**, and the difference is whether the next person can build on it without asking
 > permission.
 
 Rule 4 is the one that decides whether this works in two years. If the built-ins get a shortcut,
-the public path is exercised only by outsiders, and it rots. Every predecessor seam that failed had
-a privileged internal path.
+the public path is exercised only by outsiders, and it rots. Every failed seam examined during
+design had a privileged internal path.
 
 ## The architecture stack
 
@@ -156,21 +137,20 @@ a privileged internal path.
 | **Domain overlay** | **None.** A maintained glossary, no DDD ceremony | The domain is real but thin: document, chunk, node, embedding, retrieval, citation. There are no bounded contexts fighting each other and no business rules worth aggregates | The vocabulary drifts unless the glossary is maintained deliberately. Cheap to pay, easy to forget |
 | **Topology** | **Modular monolith, several distributions** — one repository shipping a kernel distribution plus first-party packs, and exactly one container: the database | A library with the CLI as its adapter. There is no service tier and none is planned. The only thing that cannot live in the process is durable storage. Splitting the wheel is what makes fitness function 1 a fact rather than a script — see *The kernel boundary* | Several distributions to version and release together, and skew between the kernel and a first-party pack becomes possible. That obligation lands on **G9**. The store obligation is unchanged: keep it behind a contract so the one container is swappable |
 | **Data** | **Pipe-and-filter** | Both RAG paths genuinely are staged transforms, and **G2 settled that neither has a canonical order** — see the note below. A pipeline is whatever its author writes, and any particular order is *proved* by each stage's declarations rather than prescribed here. This is also what makes requirement 3 natural — you can only derive a pipeline if stages are addressable data | Stage boundary contracts must be stable and typed. Getting the payload model right is real design work, and it is grilling session G5 |
-| **Overlay** | **Stability / resilience** at the model seam only | Remote model calls fail, rate-limit and time out. The predecessor learned this the hard way in RAPTOR summarisation | A retry, timeout and backoff surface that has to be configurable without leaking into every call site. **This is new work, not a lift** — see the note below |
+| **Overlay** | **Stability / resilience** at the model seam only | Remote model calls fail, rate-limit and time out — a lesson already paid for once, in RAPTOR summarisation work | A retry, timeout and backoff surface that has to be configurable without leaking into every call site. **This is new work, not a lift** — see the note below |
 
-> **Corrected from the reference study (2026-08-10) — the ingest order.** The Data row previously read
-> *"extract to clean to chunk to enhance to embed to store."* **The reference chunks first and cleans
-> second**, and it has two stages the plan's list omits. `IndexingPipeline.process`
-> (`indexing/pipeline.py:82-150`), by the code's own numbering: **stage 0** separates `Document`s
-> from `BaseNode`s (`:111`) because tables and figures are atomic and must bypass the parser
-> entirely; **1** chunk (`:121`); **2** clean (`:124`); **3** attach `chunk_index` metadata (`:127`);
-> **4** enhance (`:130`); **4.5** scrub transient metadata (`:135-136`); **5** store (`:142`). There
-> is also **no separate embed stage** — embedding happens inside storage.
+> **Corrected 2026-08-10 — the ingest order.** The Data row previously read *"extract to clean to
+> chunk to enhance to embed to store."* **An audited indexing pipeline chunks first and cleans
+> second**, and it has two stages the plan's list omits. By that pipeline's own stage numbering:
+> **stage 0** separates documents from already-atomic nodes, because tables and figures must bypass
+> the parser entirely; **1** chunk; **2** clean; **3** attach `chunk_index` metadata; **4** enhance;
+> **4.5** scrub transient metadata; **5** store. There is also **no separate embed stage** —
+> embedding happens inside storage.
 >
 > This matters here because goals G2 and G5 will both be argued from this list and from the
-> `base.yaml` example in `02` §3, and because the cleaning chain's *internal* stage order is the
-> single highest-value salvage item in the reference (`indexing/cleaning/pipeline.py:30-51`, whose
-> docstring ends *"IMPORTANT: Changing this order will break functionality."*).
+> `base.yaml` example in `02` §3, and because that pipeline's cleaning chain has an *internal* stage
+> order that is the single highest-value thing worth carrying forward from it, whose own docstring
+> ends *"IMPORTANT: Changing this order will break functionality."*
 >
 > **Settled in G2, 2026-08-16: Weft adopts neither order, because it adopts no canonical order at
 > all.** Cleaning is a stage like any other, present or absent at the author's discretion, and an
@@ -182,57 +162,51 @@ a privileged internal path.
 > the runner routes them past), and stage 4.5 was already a seam concern — transient stripping
 > attaches at registration. Stage 4.5's reason stands as written: *"if the enhancer is absent or
 > fails, this guard prevents
-> multi-MB base64 blobs from being serialised into PGVector JSONB"* (`indexing/pipeline.py:429-438`,
-> `_TRANSIENT_METADATA_KEYS = ('_image_data_b64',)` at `:427`).
-> (`reference/study/10-doc-corrections.md` A12; `reference/study/08-salvage.md` §T1.1.)
+> multi-MB base64 blobs from being serialised into PGVector JSONB"*, guarding a fixed set of
+> transient metadata keys such as an image-data field.
 
-> **Corrected from the reference study (2026-08-10) — the resilience overlay.** The RAPTOR half of the
-> Overlay row is confirmed exactly (nine constants at `indexing/parsers/raptor/a_prior_module.py:20-33`).
-> The generalisation is not: **the reference has essentially no retry surface to lift.**
-> `grep 'retry|retries|attempt|backoff' src/a_prior_project/evaluation/` → **0 occurrences**.
-> `PromptExecutor`'s cascade has **no retries** — each tier is attempted once, so its worst case is
-> three LLM calls, not three attempts. The only retry constants in 52,021 lines are RAPTOR's, and
-> their own `TODO` at `:33` says *"map these constants to parser/database config fields once
-> externalized."* Plan the retry/timeout/backoff surface as new work with one worked example
-> donated, not as a layer to port. (`reference/study/10-doc-corrections.md` B12.)
+> **Corrected 2026-08-10 — the resilience overlay.** The RAPTOR half of the Overlay row is confirmed
+> exactly (nine tuning constants in the RAPTOR summarisation utilities). The generalisation is not:
+> **there was essentially no retry surface to lift.** A search for retry/backoff logic across the
+> evaluation code returned **0 occurrences**. The prompt-execution cascade had **no retries** — each
+> tier was attempted once, so its worst case was three LLM calls, not three attempts. The only retry
+> constants in 52,021 lines were RAPTOR's, and their own `TODO` said *"map these constants to
+> parser/database config fields once externalized."* Plan the retry/timeout/backoff surface as new
+> work with one worked example carried forward, not as a layer to port.
 
 **Structure, more precisely.** Microkernel and the ring family are usually alternatives, but here
 they compose cleanly and the distinction matters: **microkernel describes how capability is added,
 rings describe how the kernel itself is built.** The kernel is small and hexagonal — ports at its
 edge, no infrastructure inside. The plugin contracts are simply the subset of those ports that are
-published for extension. Rejecting vertical slices for the same reason as in the predecessor
-review: the four axes are many-instances-of-one-shape, which is a plugin problem, and slicing would
+published for extension. Rejecting vertical slices for the same reason an earlier review gave:
+the four axes are many-instances-of-one-shape, which is a plugin problem, and slicing would
 duplicate the cross-cutting concerns this system actually has.
 
-**What the reference actually validates here, and what it does not.** The paragraph above is a design
-choice for Weft and stands. What it may **not** lean on is the prior review's claim that the reference's
-hexagon is a proven pattern to copy — the deep study's verdict is *"layered code wearing hexagonal
-vocabulary."*
+**What the earlier audit actually validates here, and what it does not.** The paragraph above is a
+design choice for Weft and stands. What it may **not** lean on is an earlier review's claim that the
+audited codebase's hexagon is a proven pattern to copy — a closer audit's verdict is *"layered code
+wearing hexagonal vocabulary."*
 
-> **Corrected from the reference study (2026-08-10):** the rebuild's premise that *"the kernel is small
-> and hexagonal"* was resting on `architecture-review:22,111` (*"the hexagon … the healthiest part
-> of the system and should be left alone"*). Measured:
+> **Corrected 2026-08-10:** the rebuild's premise that *"the kernel is small and hexagonal"* was
+> resting on an earlier review's claim that *"the hexagon … the healthiest part of the system and
+> should be left alone."* Measured:
 >
-> - **31 import statements naming `adapters.*` / `shared.*` across 18 of 259 files** — 20
->   `TYPE_CHECKING`-only, **11 executing at runtime**, of which 2 are module-level and unconditional
->   (`evaluation/datasets/open_rag_fast_track.py:13`, `open_rag_ultimate_track.py:14`) — **plus 11
->   `importlib.import_module('adapters.…')` runtime loads** (`core/llm/adapter.py:19`,
->   `factory.py:29`, `embeddings.py:19`, `callbacks.py:19`, `model_features.py:35`,
->   `_error_mapping.py:27`, and five `indexing/metadata_registry_*` / `sqlite_connection` shims).
-> - **`src/a_prior_project/` does not import standalone.** It resolves `adapters.*` only because
->   `pyproject.toml` sets pytest `pythonpath = ["system", ".", "scripts"]` and pyright
->   `extraPaths = [… "system" …]`.
-> - **52 of 55 port contracts have zero in-library implementation**; **14 port signatures carry a
->   LlamaIndex type**, 6 carry inner/outer-ring concrete types, 12 carry `dict[str, Any]`/`Any`.
->   **Only 11 of 55 contracts are clean.**
+> - **31 import statements naming adapter/shared modules across 18 of 259 files** — 20
+>   `TYPE_CHECKING`-only, **11 executing at runtime**, of which 2 were module-level and unconditional
+>   — **plus 11 `importlib.import_module(...)` runtime loads** of the same adapter layer.
+> - **The library does not import standalone.** It resolved those adapter imports only because the
+>   project's own test and type-checker configuration put an outside deployment directory on the
+>   import path.
+> - **52 of 55 port contracts had zero in-library implementation**; **14 port signatures carried a
+>   third-party framework type**, 6 carried inner/outer-ring concrete types, 12 carried
+>   `dict[str, Any]`/`Any`. **Only 11 of 55 contracts were clean.**
 >
-> So the reference's **rings are a layering** — real, largely respected at runtime, and worth copying.
-> The **hexagon is not**, because its two load-bearing properties (no outward runtime dependency
-> from the core; no vendor type in a port signature) are violated 11 and 14 times in the shipped
-> tree. The design consequence that matters most for Weft's zero-container requirement:
-> **the reference library cannot be exercised end to end without `system/`**, so "kernel + one
-> container" has to be *demonstrated* in Phase 0, not assumed.
-> (`reference/study/10-doc-corrections.md` A6; `reference/study/05-boundaries.md`.)
+> So that codebase's **rings were a layering** — real, largely respected at runtime, and worth
+> copying. The **hexagon was not**, because its two load-bearing properties (no outward runtime
+> dependency from the core; no vendor type in a port signature) were violated 11 and 14 times in the
+> shipped tree. The design consequence that matters most for Weft's zero-container requirement:
+> **that library could not be exercised end to end without its own deployment layer**, so "kernel +
+> one container" has to be *demonstrated* in Phase 0, not assumed.
 
 ## The kernel boundary
 
@@ -243,8 +217,8 @@ what makes it usable in a review comment: *if you cannot describe the kernel wit
 capability, it is too big.*
 
 The rule is phrased against **capability, not size**, because size was never the property that
-failed in the reference. `EngineContext` grew to 10 fields *and* was bypassed by 253 of 259 files — too
-fat and irrelevant at once. A budget alone would have caught neither.
+failed in the audited codebase. A shared context object there grew to 10 fields *and* was bypassed
+by 253 of 259 files — too fat and irrelevant at once. A budget alone would have caught neither.
 
 | The kernel owns | The kernel never owns |
 |---|---|
@@ -267,11 +241,12 @@ SDK; everything that exports a span is a pack.
 
 **Packaging.** One repository, several distributions: `weft-kernel`, `weft-cli`, and first-party
 packs (`weft-llm`, `weft-prompts`, `weft-extract`, `weft-store`, `weft-eval`, …). This is not
-bookkeeping — it is what turns fitness function 1 from a script into a fact. The reference's boundary
-checker could not fire partly because **`src/a_prior_project/` does not import standalone**: it resolves
-`adapters.*` only because `pyproject.toml` sets pytest `pythonpath = ["system", ".", "scripts"]`. A
-kernel that is its own wheel is checked by installing it alone and importing it, and Phase 0's exit
-criterion — *a plugin in a separate installed package* — stops being a claim about directories.
+bookkeeping — it is what turns fitness function 1 from a script into a fact. A boundary checker in
+an audited codebase could not fire partly because **the library did not import standalone**: it
+resolved its adapter imports only because the project's own test configuration put an outside
+directory on the import path. A kernel that is its own wheel is checked by installing it alone and
+importing it, and Phase 0's exit criterion — *a plugin in a separate installed package* — stops
+being a claim about directories.
 
 **Two consequences that will feel wrong, and are meant to.**
 
@@ -288,7 +263,7 @@ criterion — *a plugin in a separate installed package* — stops being a claim
    it would quietly decay.
 
 The numeric budget that holds this line is fitness function 3 below. What a plugin actually
-receives is specified in `02` §1; where every reference item lands is `04` → *Kernel or pack*.
+receives is specified in `02` §1; where every lifted item lands is `04` → *Kernel or pack*.
 
 ## Colour — the core is async, without exception
 
@@ -297,13 +272,13 @@ dual registration, and **no bridge anywhere in the library** — `asyncio.run` a
 the whole tree, at `weft-cli`'s entry point.
 
 The positive case is ordinary: embeddings, model calls and store round-trips are IO-bound, and `03`
-requires streaming. The negative case is the one that decided the shape. The reference has **exactly
-one** `asyncio.run` call site in 259 files (`indexing/enhancers/vision_description.py:74`), and its
-safety is guaranteed by a docstring plus a caller in `system/` — *"Safe only in
-`asyncio.to_thread()` workers — never in FastAPI"* — so calling that method from a route raises
-`RuntimeError: asyncio.run() cannot be called from a running event loop`. A sibling docstring records
-*"Reset to `None` by the adapter before each `asyncio.run()` call"*: per-call mutable state
-maintained by the caller, again by prose. The colour discipline itself held in the reference — 6 real
+requires streaming. The negative case is the one that decided the shape. An audited codebase had
+**exactly one** `asyncio.run` call site in 259 files, and its safety was guaranteed by a docstring
+plus a caller in its own deployment layer — *"Safe only in `asyncio.to_thread()` workers — never in
+FastAPI"* — so calling that method from a route would raise
+`RuntimeError: asyncio.run() cannot be called from a running event loop`. A sibling docstring
+recorded *"Reset to `None` by the adapter before each `asyncio.run()` call"*: per-call mutable state
+maintained by the caller, again by prose. The colour discipline itself held there — 6 real
 `async def` bodies, 10 `await`s, **no blocking call inside an async function**. What did not hold was
 the bridge. So Weft has none to make safe.
 
@@ -320,10 +295,11 @@ Four consequences, each a decision rather than a detail:
   no threshold; what it cannot see, and why that is accepted rather than patched with a number, is
   stated there.
 - **There is no synchronous facade.** Notebooks use top-level `await`; a script writes one
-  `asyncio.run`. A facade would be a bridge, and a bridge is what the reference's incident was made of.
+  `asyncio.run`. A facade would be a bridge, and a bridge is what the fragile-safety incident above
+  was made of.
 - **Streaming does not fork the contracts.** Tokens go to a `TokenSink` resolved as a service, and
-  the generator still returns a decided `Outcome[Answer]` — see `02` §1. The reference's shape is the one
-  being refused: **10 `@register_strategy` and 10 `@register_streaming_strategy` sites, symmetry
+  the generator still returns a decided `Outcome[Answer]` — see `02` §1. This refuses a shape
+  observed elsewhere: **10 `@register_strategy` and 10 `@register_streaming_strategy` sites, symmetry
   maintained by hand with no test asserting it.**
 
 **The runner keeps one batch in flight per pipeline run.** Overlapping batches would make every
@@ -339,15 +315,14 @@ The whole system runs as a library in the caller's process. There is no API serv
 broker, no object store, no observability stack. **The only thing that gets a container is the
 database**, because it is the only component that must outlive the process.
 
-The contrast with the predecessor is the point: it shipped a twenty-four service Compose topology,
-and none of those services were the product. They were the cost of having decided, early, that the
-product was a deployment rather than a library. Weft keeps that decision unmade.
+The contrast with an audited comparison point is the point: it shipped a twenty-four service Compose
+topology, and none of those services were the product. They were the cost of having decided, early,
+that the product was a deployment rather than a library. Weft keeps that decision unmade.
 
-> **Unverified:** the service count and the characterisation concern `system/docker-compose.yml`,
-> which the reference study did not examine. See `reference/study/09-open-questions.md` (U3). What *is*
-> confirmed from inside the library points the same way: the library reaches outward into its own
-> deployment layer 11 times at runtime, and 52 of 55 port contracts have no in-library
-> implementation.
+> **Unverified:** the exact service count and characterisation concern that system's deployment
+> configuration, which was not examined as closely as the library itself. What *is* confirmed from
+> inside the library points the same way: it reached outward into its own deployment layer 11 times
+> at runtime, and 52 of 55 port contracts had no in-library implementation.
 
 ```
 weft-cli  ──▶  weft-kernel  ──▶  Store contract  ──▶  one container
@@ -396,8 +371,8 @@ carry now. Each has a named forcing function; nothing is deferred on vibes.
 |---|---|
 | Event bus between components | **G7 ruled against it, 2026-08-21, and the trigger it named has been tested rather than left standing.** The graph pack was walked case by case and needed no bus: a cross-corpus pass has the runner's `flush()`, shape-level observation has the OTel spans the seam already emits, and the one genuine hole — derived data outliving its source — is closed by `SourceDeletable` and `Reconcilable` in the store family (`02` §1). The audit log, brought deliberately as the awkward case, splits in two: observing runs that never opted in is **refused** by `02` §3's rule and is not a missing mechanism, while everything it may legitimately see is **served by a pack** — `weft-otel` sets the `TracerProvider` in its `register()`, which is the *everything that exports a span is a pack* rule above doing exactly the job it was written for. The awkward case was answered through the extension model itself, with no core change, which is the strongest form this session's answer could take. **Reopen when** an add-on needs to observe something where an explicit point cannot be *added* — not merely where one does not exist yet, since adding one is what this session did. A Phase 5 pack author hitting that is a design finding and reopens this row |
 | Background job broker | The first user needs indexing to survive process restart, or a single index run exceeds a session |
-| Any service tier at all — API, worker, gateway | Someone outside the process needs to call this. Until then the library plus one database container is the whole system, and every service added before that point is cost without a user *(the "cost without a user" claim inherits the twenty-four-service figure above and is **unverified** — see `reference/study/09-open-questions.md`, U3/U10)* |
-| CQRS | Never, at library level. It was a deployment-shape decision in the predecessor and belongs there if anywhere |
+| Any service tier at all — API, worker, gateway | Someone outside the process needs to call this. Until then the library plus one database container is the whole system, and every service added before that point is cost without a user *(the "cost without a user" claim inherits the twenty-four-service figure above and is **unverified**)* |
+| CQRS | Never, at library level. It was a deployment-shape decision elsewhere and belongs there if anywhere |
 | Multi-tenancy in the core | The second tenant. Carry a tenant identifier through the context from day one, because retrofitting an identifier is painful, but build no isolation machinery until it is real |
 | Distributed tracing beyond in-process spans | The first deployment that spans processes. Emit OpenTelemetry spans from day one; do not build a collector story |
 
@@ -413,7 +388,7 @@ Every phase has four lines:
   Starting a phase with an open gate means building on an undecided foundation, which for Phase 0
   means building the wrong kernel.
 - **Read** — the document sections that specify the work.
-- **Lift** — what comes from the reference, per `04`.
+- **Lift** — what is drawn from prior work, per `04`.
 - **Exit** — one criterion that can be demonstrated rather than argued about.
 
 ---
@@ -432,7 +407,7 @@ chunker, one store. `weft index` and `weft ask` work end to end on a directory o
 - **Lift:** `04` category A — model strings, span helpers, and
   `tests/unit/architecture/test_allowlist_empty.py` as the template for fitness functions 0 and 1.
   **Only the span helpers land in the kernel**; model strings ship as a first-party pack, per `04` →
-  *Kernel or pack*. **Not** `scripts/check_hex_boundary.py`, which the study showed does not fire; see
+  *Kernel or pack*. **Not** `scripts/check_hex_boundary.py`, which was shown not to fire; see
   *Fitness functions* below and `04` category A.
 - **Build order:** `06-phase-0-build.md`, which sequences this phase into ten steps and names the
   three places it could accidentally settle **G2**.
@@ -454,8 +429,7 @@ chunker, one store. `weft index` and `weft ask` work end to end on a directory o
 > phase that had already closed. They are not dropped from the plan: they now appear in Phase 2's
 > Lift line, below, as the prompt registry, the three-tier cascade — the union of `PromptExecutor`'s
 > structure and `LLMJudge`'s `LLMBadRequestError` short-circuit — the JSON-rescue extractor nested
-> inside that cascade, and the `LLMError` taxonomy. `reference/study/08-salvage.md` §T1.4, §T1.5, §T1.7,
-> §T2.8.)*
+> inside that cascade, and the `LLMError` taxonomy.)*
 
 ### Phase 1 — Pipelines as data
 
@@ -464,35 +438,31 @@ The pipeline model, the resolver, and the derivation operators.
 - **Gate:** `05` → **G2** derivation semantics — **settled 2026-08-16.**
 - **Read:** `02` §3 in full — the operator table and its edge rules, `intact`/`destroys`,
   applicability, slots, vars, and the KeyBERT case.
-- **Lift:** `04` category B — **not the reference's stage order, which G2 declined to adopt in either
-  direction**, but the two things underneath it: the reason stage 4.5 exists (transient scrubbing,
-  which lands at the seam rather than as a stage) and the reason stage 0 exists (atomic nodes must
-  never be re-chunked, which lands as applicability). Category A cleaning processors, *with* their
-  ordering rationale from `indexing/cleaning/pipeline.py:30-51` — and with the 243-word Polish
-  fused-word exception set (`indexing/cleaning/processors/dictionary_spacing.py:31`), which
-  `reference/study/08-salvage.md` ranks the second most valuable thing in the reference and which `04` does not
-  currently name.
+- **Lift:** `04` category B — **not the stage order observed elsewhere, which G2 declined to adopt
+  in either direction**, but the two things underneath it: the reason stage 4.5 exists (transient
+  scrubbing, which lands at the seam rather than as a stage) and the reason stage 0 exists (atomic
+  nodes must never be re-chunked, which lands as applicability). Category A cleaning processors,
+  *with* their ordering rationale — and with the 243-word Polish fused-word exception set, ranked the
+  second most valuable thing worth carrying forward and which `04` does not currently name.
 - **Exit:** driving use case A works — a `specific` pipeline derived from `base` with KeyBERT
   inserted after chunking, expressed as configuration, with no change to core and no copy of the
   parent. **Also: fitness function 11 is wired and green**, both clauses.
 
-> *(Corrected 2026-08-18, from the Phase 2 exit reference audit; **closed 2026-08-18 by task 2.35**,
-> sha `296be69`. "Category A cleaning processors" was **six** in `04` §A and in
-> `reference/study/08-salvage.md` §T1.1; `weft-clean` registered **four**. Absent: `UnicodeNormalizer`
-> (`indexing/cleaning/processors/unicode_normalizer.py:12`, appended `pipeline.py:70`, *"Fix
-> encoding errors first (e.g., Ã³ -> ó) so regexes work correctly"*) and `ArtifactRemover`
-> (`processors/artifact_remover.py:10`, `pipeline.py:74` — its page-number regex and 0.5 non-alnum
-> separator filter only; §T1.1 records that its documented header removal does not execute, so that
-> half was never lifted). `build-ledger.md` → 1.7 recorded no reason for four. Both are now shipped —
-> `weft_clean.unicode_normalizer.UnicodeNormalizer`, `weft_clean.artifact_remover.ArtifactRemover` —
-> and `ftfy` is a real `weft-clean` dependency; `unicodedata`/`NFKC` still appear nowhere, because
-> `ftfy.fix_text`'s own default is NFC, not NFKC, and the reference's own second, redundant
-> `unicodedata.normalize('NFC', ...)` call (`unicode_normalizer.py:35`) was dropped rather than
-> carried once that redundancy was verified — a correction task 2.35 made, not an omission it left
-> standing. The gap this note named — `UnicodeNormalizer` sitting at position 1 precisely because
-> every later processor's regex needs what it produces, with no machine-checked expression of that
-> constraint — is closed: `weft_clean.property.Verbatim`, a third `Property`, is declared `intact`
-> by `UnicodeNormalizer` alone and `destroys` by every other processor in the pack, which forces
+> *(Corrected 2026-08-18, from the Phase 2 exit audit; **closed 2026-08-18 by task 2.35**,
+> sha `296be69`. "Category A cleaning processors" was **six** in `04` §A; `weft-clean` registered
+> **four**. Absent: `UnicodeNormalizer` (appended late in the cleaning chain, whose docstring read
+> *"Fix encoding errors first (e.g., Ã³ -> ó) so regexes work correctly"*) and `ArtifactRemover` (its
+> page-number regex and 0.5 non-alnum separator filter only; its documented header removal never
+> executed, so that half was never lifted). `build-ledger.md` → 1.7 recorded no reason for four. Both
+> are now shipped — `weft_clean.unicode_normalizer.UnicodeNormalizer`,
+> `weft_clean.artifact_remover.ArtifactRemover` — and `ftfy` is a real `weft-clean` dependency;
+> `unicodedata`/`NFKC` still appear nowhere, because `ftfy.fix_text`'s own default is NFC, not NFKC,
+> and an earlier, redundant `unicodedata.normalize('NFC', ...)` call was dropped rather than carried
+> once that redundancy was verified — a correction task 2.35 made, not an omission it left standing.
+> The gap this note named — `UnicodeNormalizer` sitting at position 1 precisely because every later
+> processor's regex needs what it produces, with no machine-checked expression of that constraint —
+> is closed: `weft_clean.property.Verbatim`, a third `Property`, is declared `intact` by
+> `UnicodeNormalizer` alone and `destroys` by every other processor in the pack, which forces
 > position 1 through the identical `intact`/`destroys` mechanism `WhitespaceNormalizer`'s "must run
 > last" already used, pointed the other way, with no new machinery. `build-ledger.md` → 2.35 has the
 > full account, including what was deliberately not lifted (`ArtifactRemover`'s header/footer
@@ -501,8 +471,8 @@ The pipeline model, the resolver, and the derivation operators.
 
 ### Phase 2 — Retrieval and generation
 
-Retrieval strategies, fusion, reranking, the router, citations. The router keeps the predecessor's
-design: an LLM scores dimensions, a deterministic ladder decides.
+Retrieval strategies, fusion, reranking, the router, citations. The router keeps the same design
+observed elsewhere: an LLM scores dimensions, a deterministic ladder decides.
 
 - **Gate:** none. Re-open **G5** only if a strategy cannot express what it needs to pass along.
 - **Read:** `02` §1 for the `Strategy` and `Retriever` contracts, and `09-release.md` §4 —
@@ -536,31 +506,30 @@ design: an LLM scores dimensions, a deterministic ladder decides.
 > Two consequences worth stating rather than discovering. **The `_try_extractors` combinator in the
 > Lift line above stops being conditional** — the "second backend for one media type" it composes over
 > is now a specific pair, so T1.15 lands with something real underneath it. And **nothing is lifted for
-> the PDF work**: `04`'s own note records `PDFParserProvider` as one of the reference's four
-> documented-but-never-executed features, Tier 2 as an idea and never Tier 1, so it is written fresh.
+> the PDF work**: `04`'s own note records `PDFParserProvider` as one of four documented-but-never-executed
+> features found in the audited codebase, Tier 2 as an idea and never Tier 1, so it is written fresh.
 
-> *(Corrected 2026-08-18, from the Phase 2 exit reference audit. The Lift line above says **nine items**
+> *(Corrected 2026-08-18, from the Phase 2 exit audit. The Lift line above says **nine items**
 > and **eight** were built. The ninth, **language-aware reranker selection**, was deliberately not
 > built: `weft-retrieve` ships `llm-rerank`, `graded-retrieval` and `collapse-to-parent`, and
 > `cross-encoder-rerank` is absent for a reason recorded at the point of the decision
 > (`weft_retrieve/rerank.py`'s module docstring and `build-ledger.md` → 2.7 — a model download `09`
 > §4.4 keeps out of the gate, and `10` §1.2 files the technique on the index path). It is also
-> blocked independently of that: the reference selects the reranker from the collection's language
-> (`core/llm/language_registry.py:89-92` — Polish → `sdadas/polish-reranker-roberta-v3`, everything
-> else → `cross-encoder/ms-marco-MiniLM-L-6-v2`), and **no stage in Weft produces a `Language` fact
-> yet** — `weft-clean` is its interim owner and there is no `detect` stage, which is why
-> `PolishFusedWordFixer.applies_to` narrows to no node at all today. The item is not dropped: it
-> needs a language fact before it can be built at all, and whichever phase ships that ships this with
-> it. This note exists because the same defect had to be repaired for Phase 0 — a Lift line left
-> naming work a closed phase never did — and ticking this phase's Exit box is what would have frozen
-> it a second time.)*
+> blocked independently of that: an audited codebase selected its reranker from the collection's
+> language (Polish → a Polish-specific reranker model, everything else → a general cross-encoder),
+> and **no stage in Weft produces a `Language` fact yet** — `weft-clean` is its interim owner and
+> there is no `detect` stage, which is why `PolishFusedWordFixer.applies_to` narrows to no node at
+> all today. The item is not dropped: it needs a language fact before it can be built at all, and
+> whichever phase ships that ships this with it. This note exists because the same defect had to be
+> repaired for Phase 0 — a Lift line left naming work a closed phase never did — and ticking this
+> phase's Exit box is what would have frozen it a second time.)*
 
 > **Two tasks added 2026-08-18, from the same audit — `build-ledger.md` → Phase 2, 2.34 and 2.35.**
 > Neither is a new lift the plan forgot to schedule; both are items S1 *armed* by putting PDF bytes on
 > the ingest path, in a phase whose extraction and store work is where they land.
 >
-> **2.34 — `reference/study/08-salvage.md` §T1.16, the NUL-byte sanitiser** (`indexing/parsing/converter.py:20-88`,
-> twelve call sites, NUL → **space** rather than deletion, counted and logged before stripping). `04`
+> **2.34 — the NUL-byte sanitiser**, a fragility pattern observed at twelve call sites elsewhere
+> (NUL → **space** rather than deletion, counted and logged before stripping). `04`
 > lists it among the six highly-ranked Tier 1 items its own tables do not name, and no phase Lift line
 > ever claimed it. Measured 2026-08-18, end to end: `corpus/arxiv/2508.18901v1.pdf` — a document
 > declared at `corpus/manifest.toml:122-129` — extracts through Weft's own `pdf-text` to a `Produced`
@@ -577,21 +546,21 @@ design: an LLM scores dimensions, a deterministic ladder decides.
 > *outside the process (`weft_extract/text.py:80`, `weft_pdf/document.py:205`, `weft_chunk/*
 > *fixed_size.py:145`, `weft_clean/dictionary_spacing.py:117`, `weft_clean/hyphenation.py:70`,*
 > *`weft_clean/whitespace.py:63`, `weft_clean/table_linearizer.py:79`, `weft_index/raptor.py:254`) —*
-> *the reference's own twelve-call-site fragility, reproduced with a smaller number. Not a store: pgvector's*
-> *`content` column is `TEXT NOT NULL` and refuses a NUL byte; `weft_qdrant/store.py` sends*
+> *a smaller-scale reproduction of the same twelve-call-site fragility observed elsewhere. Not a*
+> *store: pgvector's* *`content` column is `TEXT NOT NULL` and refuses a NUL byte; `weft_qdrant/store.py` sends*
 > *`model_dump(mode="json")` over its own wire protocol and does not, so fixing this at a store means*
 > *the same corpus indexes under one backend and fails under another — exactly what this task line*
 > *refuses. The seam already owns this class of concern (`CLAUDE.md`: cross-cutting concerns live at*
 > *the registration seam), already knows what a `Node` is, and `wrap`'s own signature already carries*
-> *`distribution`/`contract`/`plugin`, so the reference's diagnostic triple (source, extractor, count;*
-> *§T1.16, "the diagnostic is the point, not the strip") becomes a span attribute*
+> *`distribution`/`contract`/`plugin`, so the earlier diagnostic triple (source, extractor, count —*
+> *"the diagnostic is the point, not the strip") becomes a span attribute*
 > *(`weft.nul_bytes_removed`) rather than four keyword arguments an author must remember at every call*
-> *site. NUL becomes a space, never a deletion, as the reference chose — and Weft has a live reason the*
-> *reference only had in principle: `weft_chunk.payload.ChunkOffset` records a character offset into a*
-> *parent's content, so a deletion would silently shift every offset recorded downstream. Scope is*
-> *`Node.content` and every `str`-typed field an `ExtModel` in `Node.ext` carries, walked by*
-> *`model_fields` introspection rather than a maintained list — `reference/study/08-salvage.md` §T1.20(a)'s*
-> *lesson about the transient scrub applies unchanged. Measured directly: no first-party `ExtModel`*
+> *site. NUL becomes a space, never a deletion, following the earlier precedent — and Weft has a live*
+> *reason that precedent only had in principle: `weft_chunk.payload.ChunkOffset` records a character*
+> *offset into a parent's content, so a deletion would silently shift every offset recorded*
+> *downstream. Scope is `Node.content` and every `str`-typed field an `ExtModel` in `Node.ext`*
+> *carries, walked by `model_fields` introspection rather than a maintained list — the same lesson*
+> *about the transient scrub applies unchanged. Measured directly: no first-party `ExtModel`*
 > *shipped as of this task carries verbatim extractor text — `weft_pdf.PdfPages` (`weft_pdf/*
 > *document.py:94-131`), the one built straight from what a PDF backend reads, has only `backend: str`*
 > *(a plugin name) and `starts: tuple[int, ...]` (offsets) — so today's corpus exercises `content`*
@@ -617,44 +586,31 @@ The full driving adapter: REPL, streaming, slash commands, plugin-contributed co
   formats, never printed text (`03` → *Two modes, one implementation*). The `agentic-patterns` handoff
   moves to **G12**, Phase 7's gate, where there are real contracts to reason about.
 - **Read:** `03` in full.
-- **Lift:** one item, and it is not the CLI. The reference's CLI reached 1,080 lines in one command module
-  (`indexing/indexer.py`, exact) and is the shape to avoid. Two specifics worth carrying as rules
-  rather than code: it runs `load_dotenv(override=True)` **at module import time** (`:52`), so
-  importing the CLI mutates the process environment — **a driving adapter may not mutate process
-  state at import** — and the reference ships **three** separate entry points (`rag-index`, `rag-chat`,
-  `rag-query`, `pyproject.toml:141-144`), not one. The item that *is* lifted is
-  `reference/study/08-salvage.md` **§T1.12, the streaming-safety tuning evidence** — the degenerate-loop
-  guard for streaming generation from small models, plus the markdown-table detector that stops it
-  firing on legitimately repetitive content (`core/engine/citation.py:183-190`, `:192-236`,
-  `:238-333`), *"the densest record of measured tuning in the query path"*, four worked examples left
-  in the source. It arrives here because **this is the phase that ships streaming**; see the dated
-  note below.
+- **Lift:** one item, and it is not the CLI. A CLI examined elsewhere reached 1,080 lines in one
+  command module and is the shape to avoid. Two specifics worth carrying as rules rather than code:
+  it ran `load_dotenv(override=True)` **at module import time**, so importing the CLI mutated the
+  process environment — **a driving adapter may not mutate process state at import** — and it
+  shipped **three** separate entry points (`rag-index`, `rag-chat`, `rag-query`), not one. The item
+  that *is* lifted is **the streaming-safety tuning evidence** — the degenerate-loop guard for
+  streaming generation from small models, plus the markdown-table detector that stops it firing on
+  legitimately repetitive content, *"the densest record of measured tuning in the query path"*, four
+  worked examples in the source. It arrives here because **this is the phase that ships streaming**;
+  see the dated note below.
 - **Exit:** a plugin ships a command that appears in `weft --help` and in REPL completion without
   core knowing it exists.
 
-> *(Corrected 2026-08-18, from the Phase 2 exit reference audit. This Lift line read **"nothing"**, and
-> that left `reference/study/08-salvage.md` §T1.12 owned by no phase at all. `04` §B assigns
+> *(Corrected 2026-08-18, from the Phase 2 exit audit. This Lift line read **"nothing"**, and
+> that left the streaming-safety tuning evidence owned by no phase at all. `04` §B assigns
 > `PriorCitationManager` **split into its four responsibilities** to Phase 2; two of the four —
 > `_detect_repetition` and `generate_with_citations_streaming` — are streaming-only, and Phase 2 has
 > no streaming to guard, so `weft-generate` correctly built the other two (the numbered evidence
 > block and citation extraction) and stopped. Streaming is this phase, by G6's own consequence: a
 > `TokenSink` service, not a second contract (`03` → *Output*), which is task **3.6**. The guard is
-> therefore due with 3.6 and is now task **3.10**. Two traps ride with it, per §T1.12 and `04` §B:
-> the guard's cheap heuristics are the asset — positional character equality, chosen as *"a
-> lightweight alternative to Levenshtein distance"* (`citation.py:130`), and char-5-gram diversity
-> below 0.3 — and *"hallucination detection" is not what it does*; it is a loop-breaker for small
-> local models and must not be named or documented as anything else.)*
-
-> *(Corrected 2026-08-20, from task 3.10's own reference-lift reconnaissance, found at source and
-> independently re-verified by a second agent before this line was written. `reference/study/08-salvage.md`
-> §T1.12 names the alphanumeric-cutoff method **`_is_formatting_noise` at `citation.py:183-190`**.
-> **No method of that name exists in the source.** The real method is **`_is_special_character_pattern`,
-> defined `citation.py:149-190`** — the cited line range covers its four-example comment block and its
-> `return alphanumeric_ratio < 0.3`, so the *range* this Lift line and §T1.12 both cite is correct and
-> only the *name* was wrong. `docs/reference/` is frozen and unwritable by design, so the correction is
-> recorded here rather than there; task 3.10's own `docs/build-ledger.md` entry carries the same
-> correction. Neither this document nor `weft_llm.loop_guard` (the module task 3.10 shipped) ever
-> cites the audit's wrong name.)*
+> therefore due with 3.6 and is now task **3.10**. Two traps ride with it: the guard's cheap
+> heuristics are the asset — positional character equality, chosen as *"a lightweight alternative to
+> Levenshtein distance"*, and char-5-gram diversity below 0.3 — and *"hallucination detection" is not
+> what it does*; it is a loop-breaker for small local models and must not be named or documented as
+> anything else.)*
 
 ### Phase 4 — Evaluation and observability
 
@@ -664,25 +620,23 @@ Metrics as plugins, spans on every stage, the evaluation harness as a decorator 
 - **Read:** `02` §1 for the `Metric` contract.
 - **Lift:** `04` category A — all 21 metric implementations, as the first metric pack, **with
   every defect listed in `04` fixed at the door**. Note that RAGAS and ROUGE are not dependencies of
-  the reference; those classes are hand-rolled, so they are original code to lift rather than
-  integrations to re-wire.
+  the codebase these were drawn from; those classes are hand-rolled, so they are original code to
+  lift rather than integrations to re-wire.
 - **Exit:** running the same corpus through two derived pipelines produces a comparison the tool
-  generates itself, **and both runs are persisted so they can be diffed after the fact**. The
-  predecessor could not do this at all. **Also: fitness function 8(c) is wired and green** — every
+  generates itself, **and both runs are persisted so they can be diffed after the fact**. An
+  audited codebase could not do this at all. **Also: fitness function 8(c) is wired and green** — every
   persisted run names the distribution set that was active, without which a comparison across two
   runs cannot be trusted to be comparing pipelines rather than environments.
 
-> **Corrected from the reference study (2026-08-10):** the exit criterion said the predecessor's
-> comparison helper *"was a display function and the sweep loop was the operator's"*. Correct, and
-> understated. `compare_evaluation_results` (`evaluation/helpers.py:172-220`) does return `None` —
-> but **the entire module is dead**: all four public functions (`:15`, `:59`, `:118`, `:172`) have
-> zero references in `src/a_prior_project/` and zero in `tests/`. `grep 'ab_test|sweep|grid_search|compare_strateg'`
-> → 0. And **nothing in 6,632 lines of `evaluation/` writes a result anywhere** — there is no
-> persistence, so two runs cannot be diffed after the fact even by hand. There is also no retry, no
-> concurrency, and **zero OTEL spans** in `evaluation/`. Hence the added clause: *an evaluation-first
-> product that cannot diff two runs after the fact is not evaluation-first*, and a comparison the
-> tool generates itself implies stored runs. (`reference/study/10-doc-corrections.md` C5;
-> `reference/study/09-open-questions.md` C-10 asks what a persisted run must contain.)
+> **Corrected 2026-08-10:** the exit criterion said an earlier comparison helper *"was a display
+> function and the sweep loop was the operator's"*. Correct, and understated. That helper function
+> did return `None` — but **the entire module was dead**: all four public functions had zero
+> references anywhere in the library or its tests. A search for ab-test, sweep or grid-search usage
+> returned 0 matches. And **nothing in 6,632 lines of evaluation code wrote a result anywhere** —
+> there was no persistence, so two runs could not be diffed after the fact even by hand. There was
+> also no retry, no concurrency, and **zero OTEL spans** in that evaluation code. Hence the added
+> clause: *an evaluation-first product that cannot diff two runs after the fact is not
+> evaluation-first*, and a comparison the tool generates itself implies stored runs.
 
 ### Phase 5 — The independence test
 
@@ -691,8 +645,8 @@ The graph add-on, per driving use case B, built as an external package.
 - **Gate:** `05` → **G7** event bus or explicit extension points, and **G9** contract versioning,
   which the first external pack makes real.
 - **Read:** `02` §4 in full.
-- **Lift:** nothing. This phase exists to test the extension model, so borrowing shortcuts from the
-  reference would defeat it.
+- **Lift:** nothing. This phase exists to test the extension model, so borrowing shortcuts from
+  elsewhere would defeat it.
 - **Exit:** it is written by someone who has not touched the core, and they never need to. If they
   file an issue asking for a core change to make their pack work, that is a Phase 5 failure and a
   design finding, not a feature request. Fitness function 13 (task 5.2b) is switched on: every
@@ -714,13 +668,11 @@ works"* is a number someone else can reproduce rather than an opinion held by th
   functions* 0–10 and every phase exit above, because the release claim is their conjunction and nothing
   more; and `02` §2 → *The trust model*, because *"installing is trusting"* is a statement made to
   operators and a release is where it is either published or quietly dropped.
-- **Lift:** nothing, and one scar recorded as a rule. The reference was never installable: it cannot be
-  installed standalone at all — `core/config/provider_catalog.py:16` reaches a `system/` path through
-  `Path(__file__).parents[4]`, which breaks the moment the package is a wheel, and two evaluation
-  modules carry unguarded top-level runtime imports of `adapters.*` so
-  `import a_prior_project.evaluation.datasets.open_rag_fast_track` hard-fails unless `system/` is on
-  `sys.path` (`evaluation/datasets/open_rag_fast_track.py:13`, `open_rag_ultimate_track.py:14`;
-  `reference/study/05-boundaries.md` §4, `reference/study/09-open-questions.md` §C-11). **The rule: a
+- **Lift:** nothing, and one scar recorded as a rule. An audited codebase was never installable: it
+  could not be installed standalone at all — one config module reached an outside deployment path
+  through `Path(__file__).parents[4]`, which breaks the moment the package is a wheel, and two
+  evaluation modules carried unguarded top-level runtime imports of the same adapter layer, so
+  importing them hard-failed unless that outside directory was on `sys.path`. **The rule: a
   distribution is proven installable by installing it, never by reading it** — which is fitness
   function 1's primary half applied to every distribution rather than only to the kernel.
 - **Exit:** on a machine that has never seen this repository, installing **the release set G10 named** (`09` §1, settled 2026-08-22)
@@ -740,9 +692,10 @@ demonstrated in the tree by the tree's own gate. That is the right standard for 
 the wrong one for a release, because the failure this phase exists to catch lives exactly in the gap
 between them: a package that imports in the workspace and not from a wheel, a data file that is present
 in the checkout and not in the sdist, an entry point that resolves because `uv sync` linked the source
-directory. The reference is the proof that this gap is real and not pedantic — its library resolved its own
-imports only because `pyproject.toml` put `system/` on the pytest path (*The kernel boundary* above),
-and the same mechanism hid an uninstallable package for the life of the project.
+directory. An earlier audit is the proof that this gap is real and not pedantic — a library examined
+there resolved its own imports only because its `pyproject.toml` put an outside directory on the
+pytest path (*The kernel boundary* above), and the same mechanism hid an uninstallable package for
+the life of that project.
 
 **Why the baseline is in the exit criterion at all.** Phases 2 and 4 build retrieval, generation and
 evaluation. Every design decision inside them — a fusion weight, a rerank order, a chunk size — is a
@@ -783,7 +736,7 @@ the released API, on the same terms a stranger has.
   from Phase 3 because the questions that skill asks (autonomy level, reasoning loop, tool contracts,
   human approval, memory) are unanswerable against contracts that do not exist yet.
 - **Read:** `03` in full, and `02` §1 — the agent consumes contracts rather than defining them.
-- **Lift:** nothing. The reference has no agent.
+- **Lift:** nothing. No agent exists elsewhere to draw from.
 - **Exit:** the agentic pack is installed from the index alongside the release, drives a corpus
   end to end through the published command surface with no edit to core and no private API, and
   `weft plugins doctor` reports it exactly as it reports any other pack.
@@ -831,8 +784,8 @@ improvement is *not* real is what makes every later claim about the rungs worth 
   routable document signs; `10` in full, because every rung whose name comes from the literature is
   a published claim `10` either supports or withdraws; and `09` §4, because rows that assert an
   improvement are judged against the baseline that section specifies rather than against an opinion.
-- **Lift:** nothing new, and one scar already recorded as a rule. `01` item 11's own citation of the
-  reference — a strategy that registers, is listed, is described to an LLM in a routing prompt, and can
+- **Lift:** nothing new, and one scar already recorded as a rule. `01` item 11's own worked example —
+  a strategy that registers, is listed, is described to an LLM in a routing prompt, and can
   never run — turned out to have a live instance in *this* tree, one contract over: the router's
   name was a constant in `weft-cli`, so `threshold-ladder` and `always` were registered, listed,
   catalogued in `10` §1.5, and placeable by nobody. Fitness function 16 exists because reading for
@@ -864,26 +817,25 @@ of it, because the ordering table in `05` exists precisely because these decisio
 
 ## Fitness functions
 
-Architecture that is not enforced decays. The predecessor proves both halves of that sentence, and
-the study measured them: **every concern the machinery did automatically held perfectly; every
+Architecture that is not enforced decays. An audited codebase proves both halves of that sentence,
+and measurement bore it out: **every concern the machinery did automatically held perfectly; every
 concern an author had to remember decayed.** Spans applied at registration held on all ten
 strategies; spans written by hand decayed to 58 `traced_operation` sites, 5 with no `span_kind`, 9
 hand-rolled bypasses, 38 of 54 names off-convention, and an entire untraced ingest stage.
-`get_logger` held — **0 `print()` in 259 files**. The catalog file the reference's own standard requires
-does not exist. **The generalisation to adopt: move every cross-cutting concern to the registration
-seam.** (`reference/study/10-doc-corrections.md` E11.)
+`get_logger` held — **0 `print()` in 259 files**. The catalog file its own standard required did not
+exist. **The generalisation to adopt: move every cross-cutting concern to the registration seam.**
 
 All checks run in CI, before tests.
 
 0. **The gate must be in the gate.** Every architecture check runs inside the composite task the
-   docs name as canonical, and a test asserts that membership. This function exists because of the
-   reference: `hex-boundary` is **not** in `poe ci-checks` — the composite the root `CLAUDE.md` calls the
-   canonical full gate resolves to `quality`, which omits it, and `.pre-commit-config.yaml` omits it
-   too. **A fitness function that is not wired into the canonical CI task is not a fitness
-   function.** The pattern to reimplement is the reference's genuinely good one:
-   `tests/unit/architecture/test_allowlist_empty.py:8`, an 18-line test that pins a named waiver
-   constant to empty, fails with a message stating the waiver policy, and is itself unit-tested.
-   That is a ratchet rather than a snapshot, which is the property that makes it work.
+   docs name as canonical, and a test asserts that membership. This function exists because of a
+   finding elsewhere: a `hex-boundary` check was **not** wired into its own canonical full gate —
+   the composite it should have run inside resolved to a narrower task that omitted it, and its
+   pre-commit configuration omitted it too. **A fitness function that is not wired into the
+   canonical CI task is not a fitness function.** The pattern to reimplement is a genuinely good one
+   observed there: an 18-line test that pins a named waiver constant to empty, fails with a message
+   stating the waiver policy, and is itself unit-tested. That is a ratchet rather than a snapshot,
+   which is the property that makes it work.
 1. **Boundary.** Nothing under the library may import anything the library does not ship. Derived
    from the dependency set, never enumerated as a denylist of prefixes. **Lifted as a technique,
    rewritten as a rule** — see the correction below. **G1 gave this a second, cheaper half:** because
@@ -894,15 +846,15 @@ All checks run in CI, before tests.
 2. **No privileged built-ins.** No built-in plugin is imported by the kernel, and no built-in is
    registered by any path a third party could not use. This directly encodes rule 4. **It must be a
    runtime check, not a static one:** after discovery, the registry's contents must equal what the
-   installed distributions declared. A static check would have passed the reference, whose
-   `import a_prior_project.evaluation` registers **17 of 23** evaluators and whose enhancer count is 3 or
-   4 depending on which function you call. The reference also contains the single most literal instance
-   of the defect this function exists to catch: `retrieval/registry.py:649-668` re-wraps and
-   re-assigns the three indexing builders *after* the decorator already registered them, to add span
-   wrapping — *"INDEXING_BUILDERS is updated in-place so strategy dispatch also uses spans"* — so a
-   plugin registering through the public decorator would silently not get the observability the
-   built-ins get. Note this is the same computation `weft plugins doctor` (`03`) has to perform, so
-   the fitness function and the CLI command are one piece of code.
+   installed distributions declared. A static check would have passed a codebase examined elsewhere,
+   whose evaluation import registered **17 of 23** evaluators and whose enhancer count was 3 or 4
+   depending on which function you called. It also contained the single most literal instance of the
+   defect this function exists to catch: a registry module re-wrapped and re-assigned three indexing
+   builders *after* a decorator had already registered them, to add span wrapping — *"INDEXING_BUILDERS
+   is updated in-place so strategy dispatch also uses spans"* — so a plugin registering through the
+   public decorator would silently not get the observability the built-ins got. Note this is the same
+   computation `weft plugins doctor` (`03`) has to perform, so the fitness function and the CLI
+   command are one piece of code.
 3. **Kernel budget — 3,500 lines, review at 2,800.** The kernel fails the build above a stated size.
    A number, argued once, then enforced. The point is not the number; it is that growth becomes a
    conversation. **Settled in G1, 2026-08-10:**
@@ -912,19 +864,22 @@ All checks run in CI, before tests.
      become an argument against documenting the kernel.
    - **The number: 3,500, failing the build. 2,800 (80%) is a review trigger** — crossing it does not
      fail anything, it puts kernel growth on the agenda before the ceiling is a crisis.
-   - **The reason, because a number without one gets waived:** the reference's `core/` measures 13,969
-     non-blank lines across 87 files (`engine/` 7,038 · `ports/` 2,191 · `prompt/` 1,628 · `models/`
-     905 · `llm/` 897 · `config/` 736 · `observability/` 299 · top level 247 · `utils/` 28). Under the
-     G1 boundary, `engine/`, `prompt/` and `llm/` are packs. What remains kernel-analogous is
-     `observability` 299 + `config` 736 + `models` 905 + a thin slice of `ports` (~250 for three
-     contract *mechanisms* against the reference's 55 contracts, 52 of which have no in-library
-     implementation) + context and the registry factory (~300) ≈ **2,500** — plus the discovery,
-     pipeline and derivation machinery the reference has **none** of, 600–900. The honest estimate is
-     **≈ 3,300**, so 3,500 leaves enough headroom to be legitimate and not enough to be ignored.
+   - **The reason, because a number without one gets waived:** a codebase examined during design
+     measured 13,969 non-blank lines in its core-analogous layer, across 87 files (`engine/`-equivalent
+     7,038 · `ports/`-equivalent 2,191 · `prompt/`-equivalent 1,628 · `models/`-equivalent 905 ·
+     `llm/`-equivalent 897 · `config/`-equivalent 736 · `observability/`-equivalent 299 · top level
+     247 · `utils/`-equivalent 28). Under the G1 boundary, the engine, prompt and LLM layers are
+     packs. What remains kernel-analogous is `observability` 299 + `config` 736 + `models` 905 + a
+     thin slice of `ports` (~250 for three contract *mechanisms* against 55 contracts observed there,
+     52 of which had no in-library implementation) + context and the registry factory (~300) ≈
+     **2,500** — plus the discovery, pipeline and derivation machinery that codebase has **none** of,
+     600–900. The honest estimate is **≈ 3,300**, so 3,500 leaves enough headroom to be legitimate
+     and not enough to be ignored.
    - **The revision rule, which is the part that actually does the work:** the constant may be
      changed **only by a dated entry in the decision log**, never in the same pull request that grew
-     the kernel. This is the ratchet property that makes the reference's `test_allowlist_empty.py` its
-     best fitness function — the waiver is a deliberate, visible act rather than a silent edit.
+     the kernel. This is the ratchet property that makes `test_allowlist_empty.py` — a pattern
+     observed elsewhere — its best fitness function — the waiver is a deliberate, visible act rather
+     than a silent edit.
    - **Known limitation, recorded rather than solved:** lines are a proxy for published surface, and
      a kernel can sit at 3,400 lines while its API doubles. The surface governor today is `01`'s cap
      of three published contracts in Phase 0 and the G1 rule that the kernel names no capability. If
@@ -933,9 +888,9 @@ All checks run in CI, before tests.
      for. Both constants stand, unchanged.** Measured at Phase 3's close with the check's own
      counter: **2,891** lines — 609 under the ceiling, 91 over the trigger. The finding worth
      recording is that the estimate above was **right in total and wrong in distribution**. The
-     machinery the reference has **none** of — `resolution.py` 676 + `pipeline.py` 310 + `discovery.py`
+     machinery that codebase has **none** of — `resolution.py` 676 + `pipeline.py` 310 + `discovery.py`
      300 = **1,286** — cost roughly double its 600–900 estimate, while the payload model came in at
-     **272** against the 905 its `models/` analogue suggested, because G5's `Node` admits six fields
+     **272** against the 905 its analogue suggested, because G5's `Node` admits six fields
      by rule and pushes every other one into a pack's own extension model. The two errors very
      nearly cancel; the registry-and-context estimate (~300) landed at **259**. What matters is
      where the residue sits: in the derivation machinery G1 named as the kernel's reason to exist,
@@ -976,7 +931,7 @@ All checks run in CI, before tests.
 7. **Colour integrity.** Two clauses, from G6, and **no tuning constants in either.**
    (a) **One bridge.** `asyncio.run` appears exactly once in the tree, at `weft-cli`'s entry point,
    asserted by path — so a second one fails the build rather than being noticed in review. This
-   exists because the reference's single bridge was safe only by docstring.
+   exists because a single bridge observed elsewhere was safe only by docstring.
    (b) **No blocking call at the stage seam.** While a stage is executing, the kernel's registration
    wrapper — the same one that applies spans and error attribution — installs a detector for
    blocking calls on the loop thread: file IO, sockets, `time.sleep`, `subprocess`, synchronous
@@ -1055,8 +1010,8 @@ All checks run in CI, before tests.
    first-party distributions equals the set of contracts implemented by out-of-tree example packs.
    Both sides are observed at runtime and **neither is derived from the other**: the left from the
    first-party packs' own registrations, the right from each example pack installed on its own. A
-   clause whose two sides came from one computation would be the reference's `test_keys_parity` defect,
-   which cannot fail at all (`reference/study/08-salvage.md:777-782`). **How it fails:** publish a
+   clause whose two sides came from one computation would be the `test_keys_parity` defect observed
+   elsewhere, which cannot fail at all. **How it fails:** publish a
    contract and ship no example for it — which is the everyday case this clause exists to catch. It
    carries a **ratchet** in the style of item 0: a named constant
    `CONTRACTS_WITHOUT_AN_EXAMPLE_PACK`, pinned empty, so an exemption is a visible entry in a diff
@@ -1065,23 +1020,22 @@ All checks run in CI, before tests.
    criterion of that phase.
 
    **Why it exists.** Requirement 1 is the thesis of the project and it is the only one of the six
-   that has never been enforced by anything. The reference is why that matters: adding one storage
-   backend meant editing **11 files inside the library** plus at least 3 in `system/`
-   (`reference/study/01-extension-axes.md:3260-3263`), against **"None at all — 0 registered names"**
-   and 17 dispatch sites of which 0 are registry lookups (`:25`). Nothing in the reference's CI measured
-   that, and nothing could have — its own boundary checker was not in its canonical gate and exited
-   0 on a tree with 11 violations (fitness function 0). Weft's gap today is narrower and the same
-   shape: the requirement is applied by a human running the `weft-qualities` lens, and a lens is not
-   a ratchet.
+   that has never been enforced by anything. An earlier audit is why that matters: adding one
+   storage backend there meant editing **11 files inside the library** plus at least 3 in its
+   deployment layer, against **"None at all — 0 registered names"** and 17 dispatch sites of which
+   0 were registry lookups. Nothing in that project's CI measured that, and nothing could have — its
+   own boundary checker was not in its canonical gate and exited 0 on a tree with 11 violations
+   (fitness function 0). Weft's gap today is narrower and the same shape: the requirement is applied
+   by a human running the `weft-qualities` lens, and a lens is not a ratchet.
 
    **What it deliberately does not catch, and why there is no fourth clause.**
 
    - **Reachability.** A plugin can register from outside, cost zero core edits, and still never
-     execute — the reference's sharpest finding, where a third-party strategy registers, is listed, is
-     described to the LLM in the routing prompt, and hits three walls
-     (`reference/study/02-discovery-and-config.md:226-234`). That is **fitness function 4(b)**'s job.
-     Function 9 asserts that extension happens from outside; 4(b) asserts the extension can *run*.
-     Reading 9 as covering both is how the reference's seam would pass a green build.
+     execute — the sharpest finding from that audit, where a third-party strategy registers, is
+     listed, is described to the LLM in the routing prompt, and hits three walls. That is
+     **fitness function 4(b)**'s job. Function 9 asserts that extension happens from outside; 4(b)
+     asserts the extension can *run*. Reading 9 as covering both is how that seam would pass a green
+     build.
    - **Cost, per change.** A pack needing 400 lines of boilerplate passes clause (a) exactly as a
      four-file one does, and a core edit made in the same commit for an unrelated reason is
      invisible to all three clauses. This is a property of the tree, not of a pull request. The file
@@ -1103,7 +1057,7 @@ All checks run in CI, before tests.
     own `pyproject.toml`. The check fails if either side holds a distribution the other does not. It is
     stated this way so that it can fail *independently of the implementation* — a check that asked the
     derivation function what it derives would compare a function to itself and could never fail, which is
-    the reference's `test_keys_parity` shape (`reference/study/08-salvage.md:777-782`). Here a hand-maintained
+    the same `test_keys_parity` shape observed elsewhere. Here a hand-maintained
     publish list, a new package nobody added to it, or a distribution that opts out and is published
     anyway each break it. `testing/weft-canary` — whose entire purpose is to be *refused* by discovery
     (fitness function 8) — is the standing test case: it must always be on the opt-out side and never in
@@ -1130,10 +1084,10 @@ All checks run in CI, before tests.
     (b) **Every shipped pipeline resolves.** Every pipeline shipped by a first-party pack, by an
     example pack, or quoted as runnable in the manuals resolves against the installed registry in
     `ci-checks`. This is "registration is not reachability" in its data costume: a pipeline file is
-    text that rots silently while every unit test passes, which is exactly how the reference arrived at a
-    strategy that registers, is listed, is described to the LLM, and can never run
-    (`reference/study/02-discovery-and-config.md:226-234`). **How it fails:** rename a plugin and leave
-    `base.yaml` naming the old one — caught in the gate rather than on a user's first index run.
+    text that rots silently while every unit test passes, which is exactly the shape observed
+    elsewhere in a strategy that registers, is listed, is described to the LLM, and can never run.
+    **How it fails:** rename a plugin and leave `base.yaml` naming the old one — caught in the gate
+    rather than on a user's first index run.
 
 12. **An unknown name names the alternatives.** Requirement 5 has two clauses and until now only the
     first was enforced: fitness function 4 removes the closed key spaces a name could be silently
@@ -1152,11 +1106,11 @@ All checks run in CI, before tests.
     without collecting the registered names, and the build says so — rather than a user meeting
     *"unknown retriever: 'graf'"* with no way to discover that `graph` was one character away.
 
-    **The reference is the argument.** This convention appears *correctly* at nine sites in `a prior project`
-    and is missing at three (`reference/study/08-salvage.md` §T1.18(a) names all twelve), and the study's
-    own verdict on why is one line: *"doing it by hand at nine sites is why three sites do not."*
+    **There is a concrete precedent for the argument.** In a codebase examined during design, this
+    convention appeared *correctly* at nine sites and was missing at three, out of twelve total, and
+    the verdict on why is one line: *"doing it by hand at nine sites is why three sites do not."*
     Weft has 82 error classes, of which **20** are in this family. That is already twice the point
-    where the reference's approach failed, and G11 was required before Phase 3 precisely because that is
+    where the earlier approach failed, and G11 was required before Phase 3 precisely because that is
     where the surface multiplies again.
 
     > **Corrected 2026-08-18, task 2.36.** This paragraph said 18. The task that turns this function on
@@ -1184,7 +1138,7 @@ All checks run in CI, before tests.
     > failure mode by hand and judging whether it already reports an enumerable set of alternatives.
     > A name pattern applied in place of that reading finds 12, eight short — which is not a footnote,
     > it is the argument this whole item makes: "doing it by hand... is why sites do not," restated one
-    > level up, in the audit's own working. That is why fitness function 12 checks `issubclass(cls,
+    > level up, in this audit's own working. That is why fitness function 12 checks `issubclass(cls,
     > UnresolvedNameError)` — a structural fact set once at the class definition — rather than a name a
     > reviewer could reasonably, and wrongly, expect to be reliable.
 
@@ -1211,8 +1165,8 @@ All checks run in CI, before tests.
     > "this is some other enumerable fact this raise happens to report" is a question about meaning, not
     > shape, and a checker precise enough to need no hand-maintained exclusion list would have to
     > re-derive, structurally, the judgement task 2.36's own audit made by reading every site — the
-    > reference's own lesson ("doing it by hand at nine sites is why three sites do not"), applied to the
-    > checker itself. **The other 2 of the 13 were real, name-resolution refusals with no typed
+    > same lesson stated above ("doing it by hand at nine sites is why three sites do not"), applied
+    > to the checker itself. **The other 2 of the 13 were real, name-resolution refusals with no typed
     > field, repaired 2026-08-20**: `weft_cli.services.service_selection_from_config`'s unknown-
     > `[services]`-key refusal now raises `UnknownServiceKeyError`, and `weft_cli.llm_roles.
     > llm_section_from_config`'s unknown-`[llm]`-key refusal now raises `UnknownLLMKeyError`, both
@@ -1262,8 +1216,8 @@ All checks run in CI, before tests.
     `_text_set_predicate` and `_extension_predicate` — the SQL half of the same task 2.6
     translation the five named sites cover only the Qdrant half of. `docs/lessons.md` L5.14 records
     that a hand-enumerated "known sites" list undercounted by not auditing the sibling backend
-    doing the identical job, the reference's own "doing it by hand at nine sites is why three sites do
-    not" one level up from item 12's family.
+    doing the identical job, the same "doing it by hand at nine sites is why three sites do
+    not" lesson one level up from item 12's family.
 
 14. **Every declared `ExtModel` reaches the rehydration registry.** Added by task 5.2g. A pack's
     own `weft_kernel.payload.ext.ExtModel` — its namespaced extension data — must be reconstructable
@@ -1279,8 +1233,8 @@ All checks run in CI, before tests.
     precisely rather than assumed: item 5 already has a real, distinct, unclaimed subject of its
     own. `docs/11-multimodal.md` names it exactly — the extractor accept set, where a format
     declared by one pack's metadata (an extension, a MIME type) must resolve to an actually
-    registered `Extractor` or say why it cannot, the reference's `.ppt` bug from `reference/study/
-    10-doc-corrections.md` B11 — and assigns it to task **1.13** in that document, unbuilt, with its
+    registered `Extractor` or say why it cannot, the `.ppt` accept-then-fail bug described earlier
+    in this document — and assigns it to task **1.13** in that document, unbuilt, with its
     own phase placement still an open question left to this document to answer. Folding a second,
     unrelated property into item 5 now would leave its one numbered clause answering two different
     questions depending on which surface — a capability *offer* resolving to a live implementation,
@@ -1348,7 +1302,7 @@ All checks run in CI, before tests.
     forty-eight registered pipeline positions, and every one of 1,900-odd tests green, because
     each half was correct alone. **It is item 11 one question further on.** 11(b) asks whether
     every document that claims to be runnable resolves; this asks whether the documents that ship
-    cover what ships beside them. The reference's own worked example that 11 quotes — a strategy that
+    cover what ships beside them. The worked example item 11 quotes — a strategy that
     registers, is listed, is described to an LLM in a routing prompt, and can never run — is not
     caught by 11(b) at all, because nothing about it fails to resolve. It had a live instance in
     this tree when this item was written, and reading for the shape had not found it.
@@ -1377,62 +1331,88 @@ All checks run in CI, before tests.
     necessary and not sufficient, and the question after establishing it is whether the fact
     should hold.**
 
-> **Corrected from the reference study (2026-08-10) — fitness function 1, and the preamble.** This
-> section previously opened *"the predecessor's AST boundary checker is the single best thing in
-> it"* and specified FF1 as *"lifted almost verbatim from the reference."* It is not the best thing in
-> the reference and it must not be lifted verbatim, because **it does not fire.**
-> `scripts/check_hex_boundary.py` (316 lines, 5 rules) prints *"Hex boundary check passed."* and
-> exits 0 on the current tree — a tree that carries **11 runtime imports of `system/`-owned
-> namespaces**. Why it cannot fire:
+17. **Every citation resolves.** Added 2026-09-05. Two clauses, categorical: a `path:line`
+    citation in a tracked file must name a path that exists in this repository, and must not name
+    the file it appears in.
+
+    **This is `lessons.md` L8.7–L8.9 made mechanical, and it is the most expensive lesson this
+    project has paid for.** Its own evidence rules — *measure before asserting*, *every factual
+    claim carries a `path:line`* — were followed diligently for eight phases while the tree being
+    cited was a sibling checkout that existed on one machine. The result was hundreds of pointers
+    a reader could not follow, **thirteen of them inside published wheels**. The rule that demanded
+    the evidence is the same rule that spread it, and every individual citation looked like
+    diligence because it *was* diligence. Removing them took four agents and three failed
+    scopings — a pattern too narrow (13 sites reported, 277 actual), a scope written as directory
+    names rather than `git ls-files`, and every grep case-sensitive — each found by somebody other
+    than the searcher, because **a search cannot report what its own pattern excludes.**
+
+    **The property, `tests/architecture/test_ff17_citations_resolve.py`:** enumerate tracked files
+    from `git ls-files`, never a directory list; match `path:line` citations; refuse one whose
+    basename exists nowhere the repository owns, and refuse one whose basename is the containing
+    file's own. Matching is on **basename**, deliberately generous, because this codebase
+    abbreviates its own paths — it refuses a pointer that goes nowhere, not one that is merely
+    short. **Clause (b) exists because clause (a) is blind to it:** a comment citing
+    `unicode_normalizer.py:12-37` *inside* `unicode_normalizer.py`, describing a method that file
+    never had, resolves perfectly — the basename collides. Three of those were found here, one
+    carrying the words "verified at source".
+
+    **How it fails:** a citation naming a file nothing here has, watched fire on a planted case in
+    a real tracked file rather than only in a fixture. Waiver **pinned empty**, and it reached
+    empty by the four real violations being fixed rather than recorded.
+
+    **What it cannot check:** whether the cited *line* says what the citing comment claims. No walk
+    can. What it can do is refuse a pointer that goes nowhere and one that goes in a circle, which
+    together are every mechanically detectable form the defect took here.
+
+
+> **Corrected 2026-08-10 — fitness function 1, and the preamble.** This section previously opened
+> *"the single best thing in a codebase examined during design is its AST boundary checker"* and
+> specified FF1 as *"lifted almost verbatim from it."* It is not the best thing there and it must
+> not be lifted verbatim, because **it does not fire.** A `check_hex_boundary.py` script (316 lines,
+> 5 rules) printed *"Hex boundary check passed."* and exited 0 on that tree — a tree that carried
+> **11 runtime imports of deployment-owned namespaces**. Why it could not fire:
 >
-> 1. `INFRA_SDK_PREFIXES` = `litellm` / `psycopg2` / `sqlalchemy` / `redis`, which match **0 imports
->    in the entire library**. The rule is dead code.
-> 2. `llama_index` is **not** on the list, and there are **150** `llama_index` imports, 37 inside
->    `core/`.
-> 3. All `TYPE_CHECKING` blocks are skipped entirely (`check_hex_boundary.py:80-90`).
-> 4. The deployment-namespace rule fires only on `importlib.import_module` **and** only under
->    `src/a_prior_project/core/` (`:119-121`), so a plain `from adapters.storage… import` anywhere in
->    `indexing/`, `retrieval/`, `generation/` or `evaluation/` matches no rule at all.
-> 5. **It is not in the canonical CI composite** — hence fitness function 0 above.
+> 1. Its infrastructure-SDK denylist matched **0 imports in the entire library**. The rule was dead
+>    code.
+> 2. A widely-used framework package was **not** on the list, and there were **150** imports of it,
+>    37 inside the core layer.
+> 3. All `TYPE_CHECKING` blocks were skipped entirely.
+> 4. The deployment-namespace rule fired only on `importlib.import_module` **and** only under the
+>    core layer, so a plain `from adapters.storage… import` anywhere else in the library matched no
+>    rule at all.
+> 5. **It was not in the canonical CI composite** — hence fitness function 0 above.
 >
 > A four-name denylist ages into a no-op the moment the dependency set changes, and this one already
-> has. Hence FF1 as reworded: derive the invariant, do not enumerate the villains. There is a second
-> lesson in it that Weft should take seriously — the reference's gate **shaped the workaround rather
-> than removing the coupling**: `test_core_llm_modules_do_not_use_top_level_adapters_imports` is
-> precisely why eleven modules reach `system/` through `importlib.import_module('adapters.…')` under
-> a module `__getattr__` instead of a plain import. A lazy dynamic import of a literal module path is
-> the exact evasion, and FF1 must police it.
-> (`reference/study/10-doc-corrections.md` A5, A11; `reference/study/08-salvage.md` §T1.17, §T3.14;
-> `reference/study/05-boundaries.md` §4.)
->
-> **Unverified:** which composite the CI workflow actually invokes requires `.github/workflows/`,
-> outside the study's readable scope. The `poe`/pre-commit configuration is confirmed. See
-> `reference/study/09-open-questions.md` §A.4.
+> had. Hence FF1 as reworded: derive the invariant, do not enumerate the villains. There is a second
+> lesson in it that Weft should take seriously — that gate **shaped the workaround rather than
+> removing the coupling**: a test named for exactly this rule is precisely why eleven modules reached
+> the deployment layer through `importlib.import_module('adapters.…')` under a module `__getattr__`
+> instead of a plain import. A lazy dynamic import of a literal module path is the exact evasion, and
+> FF1 must police it.
 
-> **Corrected from the reference study (2026-08-10) — fitness functions 4 and 5.**
+> **Corrected 2026-08-10 — fitness functions 4 and 5.**
 >
 > **FF4** was *"a grep-level check that no enum shadows a registry."* The mechanism is right and the
-> check is not sufficient: it catches `StrategyName` vs `STRATEGY_REGISTRY` and misses the two walls
-> that actually made the reference's strategy seam unusable. (i) `RetrievalStrategyType` (3 members,
-> `retrieval/types.py:24-26`) is the **key type** of `RETRIEVAL_BUILDERS` (`retrieval/registry.py:147`)
-> — there is no shadowing to grep for; the lock is structural, and a plugin cannot construct a
-> fourth member at all. (ii) `AdaptiveRouter._select_strategy_from_scores` (`core/engine/router.py:287-350`)
-> is a hard-coded 10-branch `if/elif` assigning literal `StrategyName.*` members with no plugin
-> branch — an enum check sees nothing. (iii) `RoutingResponse.validate_strategy`
-> (`core/engine/types.py:476-495`) hard-rejects any value not in the enum. **A third-party strategy
-> in the reference registers successfully, is listed by `get_all_strategy_metadata()`, is described to
-> the LLM in the routing prompt (`router.py:381-383`) — and can never be executed.** That is the
-> defect FF4 has to prevent, and only clause (b) prevents it. A runtime check is also the only thing
-> that would have caught the reference's evaluator gap (6 of 23 unregistered).
+> check is not sufficient: it catches a closed strategy enum shadowing its registry and misses the
+> two walls that actually made an examined strategy seam unusable. (i) A 3-member
+> retrieval-strategy-type enum was the **key type** of its own builder registry — there is no
+> shadowing to grep for; the lock is structural, and a plugin cannot construct a fourth member at
+> all. (ii) A router's score-to-strategy selector was a hard-coded 10-branch `if/elif` assigning
+> literal enum members with no plugin branch — an enum check sees nothing. (iii) A
+> routing-response validator hard-rejected any value not in the enum. **A third-party strategy in
+> that codebase registered successfully, was listed by its metadata function, was described to the
+> LLM in the routing prompt — and could never be executed.** That is the defect FF4 has to prevent,
+> and only clause (b) prevents it. A runtime check is also the only thing that would have caught
+> that codebase's evaluator gap (6 of 23 unregistered).
 >
 > **FF5** was *"no capability's metadata may appear in two maps — the file-format drift bug,
-> encoded."* It encodes a bug **that never occurred**: the two format lists are identical (17 = 17,
-> empty symmetric difference). The bug that *did* occur is a capability declared unconditionally
-> whose implementation is inserted conditionally on an optional dependency (`factory.py:119-122`) —
-> the declaration is right and the *resolution* is empty. A source-text comparison would pass a tree
+> encoded."* It encodes a bug **that never occurred**: the two format lists observed there were
+> identical (17 = 17, empty symmetric difference). The bug that *did* occur is a capability declared
+> unconditionally whose implementation is inserted conditionally on an optional dependency — the
+> declaration is right and the *resolution* is empty. A source-text comparison would pass a tree
 > where `.ppt` is declared and unresolvable. Checking the **resolved** map covers both the drift bug
 > and the optional-dependency bug in one check, and it is exactly what `weft plugins doctor`
-> (`03`) already has to print. (`reference/study/10-doc-corrections.md` B10, B11, A1, A10.)
+> (`03`) already has to print.
 
 ## Risks worth stating now
 
@@ -1443,15 +1423,13 @@ All checks run in CI, before tests.
   publishes exactly three, and the rest stay internal until a second implementation exists.
 - **Plugin trust.** Entry points execute third-party code on discovery. This is a real security
   decision, deliberately unresolved here — grilling session G3.
-- **Losing the reference's hard-won detail.** The cleaning order, the retry constants, the Polish
-  reranker selection, the multilingual citation extraction: none are obvious, all were learned. All
-  four are confirmed by the study to the line. The list is also **incomplete**, and deliberately not
-  extended here — an enumeration in a risk paragraph goes stale. Mitigation:
-  `04-reference-inventory.md` names the lifts, and **`reference/study/08-salvage.md` is the authoritative
-  three-tier inventory** with each item's source, its dependencies, what has to change to lift it,
-  and its traps. Its "if you only lift ten things" table is the shortest useful version.
-- **Losing the reference's good habits.** Less obvious than losing its code, and just as expensive. The
-  study confirms: **0 `print()`** in 259 files; **0 `FIXME`/`XXX`/`HACK`/`WORKAROUND`** markers; **no
-  bare `# type: ignore`** — all 138 name their rule; the env-var discipline holding with 4 annotated
-  exceptions; per-file `T201` ignores scoped exactly to `src/a_prior_project/output/*`. These are worth
-  carrying as explicitly as the algorithms.
+- **Losing hard-won detail from what came before.** The cleaning order, the retry constants, the
+  Polish reranker selection, the multilingual citation extraction: none are obvious, all were
+  learned. All four are confirmed to the line by direct measurement. The list is also
+  **incomplete**, and deliberately not extended here — an enumeration in a risk paragraph goes
+  stale.
+- **Losing good habits already established.** Less obvious than losing the code itself, and just as
+  expensive. Direct measurement confirms: **0 `print()`** in 259 files; **0
+  `FIXME`/`XXX`/`HACK`/`WORKAROUND`** markers; **no bare `# type: ignore`** — all 138 name their
+  rule; the env-var discipline holding with 4 annotated exceptions; per-file `T201` ignores scoped
+  exactly to one output module. These are worth carrying as explicitly as the algorithms.

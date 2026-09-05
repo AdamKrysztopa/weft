@@ -6,11 +6,11 @@ chain with a success, `NothingToProduce` stops it with a *fact*, and only
 `Failed` — or a `WeftError` the seam already wrapped — moves to the next
 candidate.
 
-**Why the `NothingToProduce` test is the load-bearing one.** The reference's
-`_try_extractors` had two states for a three-state problem, so "I looked, and
-there is nothing here" was indistinguishable from "I could not see it": a
-genuinely blank document walked the whole chain and was reported as a
-chain-wide failure, while a scanned page was reported as an empty success.
+**Why the `NothingToProduce` test is the load-bearing one.** A chain built on
+only two states for a three-state problem cannot tell "I looked, and there is
+nothing here" apart from "I could not see it": a genuinely blank document
+walks the whole chain and is reported as a chain-wide failure, while a
+scanned page is reported as an empty success.
 Both directions are asserted here, on the same chain, so neither can be fixed
 by breaking the other.
 """

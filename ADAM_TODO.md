@@ -78,7 +78,7 @@ is still a number you can never reuse, so it is worth one deliberate look.
 `NOTICE` says **"Weft contains no source text from any other codebase."** Two separate things have
 made that sentence false, and one amendment covers both:
 
-1. **Five to eight sites quote reference docstrings verbatim, attributed** — `weft_clean/
+1. **Five to eight sites quote third-party docstrings verbatim, attributed** — `weft_clean/
    table_linearizer.py:6-7`, `whitespace.py:6`, `hyphenation.py:7`, `unicode_normalizer.py:5`
    (which labels its own quotation "verbatim"), `weft_llm/loop_guard.py:50`. Nothing executable was
    carried and every fragment is attributed ordering rationale — this is a **claim-accuracy**
@@ -88,13 +88,13 @@ made that sentence false, and one amendment covers both:
 
 **Why it is yours:** it changes a founding claim, so it wants an explicit decision-log line rather
 than a quiet edit. The amendment has to distinguish three cases and is cheap to get wrong: the
-third-party reference (write fresh, always) / your own prior work (copyable) / short attributed
+third-party original (write fresh, always) / your own prior work (copyable) / short attributed
 quotation of a cited rationale.
 
 **I have drafted it** — see the commit that lands with this file. Read the wording; the substance
 is yours to accept or change. There is also a live rule conflict settled in the same act:
-`weft_clean/artifact_remover.py:63,67` carries a reference regex under a "facts, not text" exception
-while `04:144-145` says regexes specifically must be authored fresh.
+`weft_clean/artifact_remover.py:63,67` carries a regex under a "facts, not text" exception
+while the project's own rule is that regexes specifically must be authored fresh.
 
 ---
 
@@ -110,7 +110,7 @@ Read strictly, the most useful thing an agent could do — reindex a collection 
 stale — is permanently out of reach. Read loosely, the pack passes `--yes` on every call, which is
 `03`'s own sentence about `--yes` disarming the whole table, with the human removed.
 
-**New since it was written:** the graph reference supplies two further positions rather than settling
+**New since it was written:** the graph work supplies two further positions rather than settling
 it — *autonomy licensed by reversibility of writes* rather than by supervision, and
 *propose-without-persisting then activate-from-a-file* as an approval channel that is not a slower
 spelling of `--yes` (`docs/audit-graph-study-2026-09-05.md`). Both are arguments for the session.

@@ -209,8 +209,8 @@ def test_a_declared_format_agrees_with_its_own_path(documents: tuple[Document, .
 
 def test_at_least_one_document_is_not_english(documents: tuple[Document, ...]) -> None:
     # V1 asks for a non-English body by name, and says why: Polish retrieval is shipped product
-    # under requirement 6, and untested language handling is the reference's `language == 'pl'` branch
-    # with the branch removed.
+    # under requirement 6, and a language-specific branch nothing in the corpus ever exercises is
+    # indistinguishable, in the test run, from a branch that was deleted.
     # Act
     other = sorted({entry.language for entry in documents if entry.language != "en"})
 
@@ -243,8 +243,9 @@ def test_the_declared_document_count_matches_the_entries() -> None:
 
 def test_a_materialised_tier_is_whole_and_verifies(documents: tuple[Document, ...]) -> None:
     # A tier is either fully present or fully absent. A half-fetched corpus silently shrinks the
-    # set a baseline is measured over — the reference tolerated exactly that, catching a corrupt file
-    # and skipping it — and "not fetched yet" is a fact about this checkout, never a pass.
+    # set a baseline is measured over — catching a corrupt file and quietly skipping it turns a
+    # fetch failure into a smaller, undocumented corpus — and "not fetched yet" is a fact about
+    # this checkout, never a pass.
     # Arrange
     results = {entry.id: verify_one(entry) for entry in documents}
 

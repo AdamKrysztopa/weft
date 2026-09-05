@@ -233,8 +233,8 @@ def selected_documents(
     All three, because the question subset is derived from the tier of *every* document a
     question names — including the ones this run excludes, which is the mechanism that keeps an
     operator-tier paper out of a published number. Refused unless every selected document is on
-    this machine and matches its digest: reference defect 7 by name, whose loader caught a corrupt
-    corpus file and skipped it, silently shrinking what the benchmark ran over.
+    this machine and matches its digest: guarding against exactly the failure where a loader
+    catches a corrupt corpus file and skips it, silently shrinking what the benchmark ran over.
     """
     suffixes = EXTRACTOR_SUFFIXES.get(extractor)
     if suffixes is None:

@@ -14,18 +14,18 @@ empty evidence into `Answer(stance=NOT_IN_CORPUS)`" — and `ANSWER_FROM_MEMORY`
 same prompt with no passages shown, which is what `no-retrieval`'s own pipeline sets.
 
 **Citations are extracted from the completion, never asked for as a second structured
-field.** `docs/04-reference-inventory.md`'s corrected `PriorCitationManager` row records the
-reference's second responsibility as "extract which sources were actually cited" through
-four ordered, language-specific regexes over freeform text. This build does not need
-them: `weft_retrieve.payload.Passages` already assigns every offered passage an exact,
-known label before a model ever sees one, so "which sources were cited" is answered by a
-literal substring search for `[label]` per offered passage — no language heuristic, and
-no way for the search to disagree with what was actually shown, because the label
-searched for and the label shown are the same string. This also settles a question the
-reference's approach could not: a model is asked for prose, not for a second list of markers
-that could name a passage never offered or drop one it clearly used — the two ways
-`weft_retrieve.rerank`'s judgement-set check refuses a reranker's reply, in a shape this
-plugin cannot have because it never asks for that second list.
+field.** A regex-based approach — several ordered, language-specific patterns run over
+freeform text to work out "which sources were actually cited" — is one way to solve this;
+this build does not need it: `weft_retrieve.payload.Passages` already assigns every
+offered passage an exact, known label before a model ever sees one, so "which sources
+were cited" is answered by a literal substring search for `[label]` per offered passage —
+no language heuristic, and no way for the search to disagree with what was actually
+shown, because the label searched for and the label shown are the same string. This also
+settles a question a freeform-regex approach could not: a model is asked for prose, not
+for a second list of markers that could name a passage never offered or drop one it
+clearly used — the two ways `weft_retrieve.rerank`'s judgement-set check refuses a
+reranker's reply, in a shape this plugin cannot have because it never asks for that
+second list.
 
 **Page numbers are `weft_generate.page.page_for`'s, not this module's.** Every citation
 this plugin builds carries whatever that function resolves for the cited node — `None`

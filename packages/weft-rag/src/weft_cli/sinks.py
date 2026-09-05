@@ -19,14 +19,14 @@ never pollutes what a reader sees. Filtering at the sink rather than at the emit
 one place that rule is applied; a role outside `display_roles` is emitted into neither
 sink's stream and does not advance `PrintingSink`'s own "has anything printed yet" state.
 
-**The event vocabulary, and why it is three members, not the reference's seven.**
-`.phase3-design.md` §2.3 reads `core/engine/types.py:85-96`'s `StreamEventType` as a
-taxonomy worth having as knowledge — `TOKEN`, `CITATIONS`, `SOURCES`, `STATUS`, `DONE`,
+**The event vocabulary, and why it is three members, not seven.**
+`.phase3-design.md` §2.3 reads a comparable `StreamEventType` taxonomy as knowledge worth
+keeping — `TOKEN`, `CITATIONS`, `SOURCES`, `STATUS`, `DONE`,
 `ERROR`, `GUARDRAIL_WARNING`, one envelope carrying whichever fields the type needs — and
 names the real ordering it encodes: `STATUS` interleaves with `TOKEN`, and a terminal
 `DONE` or `ERROR` closes the stream. `StreamEvent` below is that shape, rebuilt fresh for
 what this sink actually has to emit today: `CHUNK` (every `TokenChunk` this sink sees —
-named for the payload it carries rather than the reference's `TOKEN`, since Weft already has a
+named for the payload it carries rather than `TOKEN`, since Weft already has a
 type called `TokenChunk` and a member literally named `TOKEN` reads, to a linter and a
 human alike, like the start of "access token" rather than "one piece of a streamed
 answer") and `DONE`/`ERROR` (`close`'s own `reason`). `CITATIONS`/`SOURCES` would need
@@ -38,10 +38,10 @@ not invented ahead of a need, the identical discipline `weft_llm.payload.OnFailu
 docstring states for itself: "not a promise that every enum ships with two members on day
 one."
 
-**An error can never be mistaken for a clean end — the reference correction this sink exists
-to not reproduce.** `.phase3-design.md` §2.3, correction (b): the reference's engine catches an
-exception, logs it, and yields a plain `ERROR` *event* a consumer that does not branch on
-`type` cannot tell apart from a normal `DONE`. `TokenSink.close`'s own `reason: str | None`
+**An error can never be mistaken for a clean end.** `.phase3-design.md` §2.3, correction
+(b): logging an exception and yielding a plain `ERROR` *event* a consumer that does not
+branch on `type` cannot tell apart from a normal `DONE` is exactly the failure mode this
+sink exists to refuse. `TokenSink.close`'s own `reason: str | None`
 parameter is the mechanism that makes the two structurally different here rather than
 textually similar: `close(reason=None)` is the only call that produces a `DONE` event,
 and any other call — `reason` carrying the caught error's own message — produces an
@@ -67,7 +67,7 @@ DEFAULT_DISPLAY_ROLES: frozenset[str] = frozenset({"generate"})
 
 class StreamEventType(StrEnum):
     """One line's shape in `--json`'s newline-delimited event stream — see the module
-    docstring's own paragraph on why this is three members, not the reference's seven.
+    docstring's own paragraph on why this is three members, not seven.
     """
 
     CHUNK = "chunk"
@@ -102,8 +102,8 @@ class LineKind(StrEnum):
 
 class StreamEvent(BaseModel):
     """One line of `--json`'s event stream. One envelope, whichever fields `type` needs —
-    the reference's own shape (`core/engine/types.py:175-200`), read as a taxonomy at
-    `.phase3-design.md` §2.3 and rebuilt here for what this sink actually emits.
+    a taxonomy read at `.phase3-design.md` §2.3 and rebuilt here for what this sink
+    actually emits.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")

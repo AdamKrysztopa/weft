@@ -4,9 +4,9 @@ Task **2.10**: "generation is a pack — the **prompt layer**, the **cascade**, 
 the `LLMError` taxonomy ship outside the kernel." This distribution is the first two of those
 four; `weft-llm` is the other two.
 
-**Its own distribution, per `.phase2-design.md` decision 19.** `docs/04-reference-inventory.md`:45-48
-lands `TypedPrompt`/`PromptRegistry`/`override()` *and* the three-tier cascade in `weft-prompts`
-and the taxonomy in `weft-llm`, so this split is followed as recorded rather than re-litigated.
+**Its own distribution, per `.phase2-design.md` decision 19**, which lands
+`TypedPrompt`/`PromptRegistry`/`override()` *and* the three-tier cascade in `weft-prompts` and
+the taxonomy in `weft-llm`, so this split is followed as recorded rather than re-litigated.
 The independent argument for keeping them apart is worth stating anyway: prompts are text-shaped
 assets a **translator** ships, and a Polish prompt pack must not depend on an HTTP client and a
 retry policy.

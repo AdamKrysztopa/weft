@@ -11,8 +11,8 @@ break silently under another language or model." This module covers:
 2. The loop itself: the happy path (confident on the first draft, one round, no retrieval),
    the edge case (insufficient once, a retriever hands back genuinely new evidence, confident
    on the second draft), a `NO_NEW_EVIDENCE` stop, a `MAX_ROUNDS` ceiling, the error case (a
-   hard `on_signal_failure=FAIL` propagates rather than being read as "good enough" — the
-   reference's own defect this pack has already fixed once, on `weft_retrieve.iterative`), and a
+   hard `on_signal_failure=FAIL` propagates rather than being read as "good enough" — the same
+   defect this pack has already fixed once, on `weft_retrieve.iterative`), and a
    drive through `weft_kernel.seam.wrap`.
 3. **`test_a_real_hedge_phrases_signal_triggers_a_redraft_on_a_polish_hedge`** — the actual
    evidence this ledger line asks for. `signal="hedge-phrases"` resolves, through the same
@@ -22,8 +22,8 @@ break silently under another language or model." This module covers:
    way a fluent English hedge would. `corpus/pl-wiki` is this build's own Polish corpus, and
    the passages below are written about the same subject (`las-losowy` — random forests) a
    reader of that corpus would actually ask about. Delete `hedge-phrases`'s own `"pl"` marker
-   table entry and this test goes red — the reference's single-language mechanism could never
-   have been checked against that failure.
+   table entry and this test goes red — a single-language mechanism could never have been
+   checked against that failure, only assumed correct.
 
 **The `LLM` is a stub and `Prompt.render` is real** — the same split `test_cited_answer.py`
 and `test_contradiction.py` already take.
@@ -431,8 +431,8 @@ async def test_a_real_hedge_phrases_signal_triggers_a_redraft_on_a_polish_hedge(
 
     # Assert — the Polish hedge in round one is what forced the second round: without a real
     # `Sufficiency` reading the draft's own Polish wording, this would have stopped after one
-    # call, exactly as the reference's English-only mechanism would have stopped at the wrong
-    # moment for the wrong reason.
+    # call, exactly as an English-only mechanism would have stopped at the wrong moment for
+    # the wrong reason.
     assert isinstance(outcome, Produced)
     assert llm.calls == 2
     assert len(retriever.calls) == 1

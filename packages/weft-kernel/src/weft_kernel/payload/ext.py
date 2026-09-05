@@ -8,10 +8,10 @@ section 1.
 
 `__transient__` marks a namespace the kernel strips before the node is
 persisted (`Node.without_transient`). This is deliberately a class-level,
-type-checked declaration rather than the reference's `_TRANSIENT_METADATA_KEYS` —
-a tuple of key-name strings a stage author had to remember to extend. A
-namespace's transience is a fact about its type, checked once, at the
-declaration, never re-decided at every call site.
+type-checked declaration rather than a maintained tuple of key-name strings a
+stage author has to remember to extend. A namespace's transience is a fact
+about its type, checked once, at the declaration, never re-decided at every
+call site.
 
 **Built in Phase 5 task 5.2c.** `__schema_version__` is a second mandatory
 declaration, checked in the same `__pydantic_init_subclass__` seam as
@@ -25,7 +25,8 @@ as a `ClassVar` a serialiser would drop, which is the exact defect `Filter.
 version` demonstrates. `upgrade` is the classmethod a reader calls when a
 stored version disagrees with the current one; its default refuses, naming
 the namespace, the stored version and the current one, because silence here
-is the reference's contaminated fallback in another costume.
+is a contaminated fallback in another costume — the exact shape CLAUDE.md's
+rule against silent fallbacks exists to forbid.
 """
 
 from collections.abc import Mapping

@@ -10,9 +10,10 @@ the registration seam, and streaming.
 accumulates, and emits each chunk to `ctx.require(TokenSink)` tagged with the call's `role`.
 `complete()` still returns a decided `Outcome[Completion]`, decided at return and not when a
 stream is drained (G6)." One code path means "a generator that forgets to stream cannot exist,
-and a streaming twin has nowhere to live" — the reference kept ten `@register_strategy` and ten
-`@register_streaming_strategy` sites symmetric by hand, with no test asserting it, and
-`step-back`'s streaming twin silently became a different technique.
+and a streaming twin has nowhere to live" — a design with a separate registry for streaming
+variants depends on an author keeping both symmetric by hand, with nothing to test that they
+stay so, and that is exactly the shape in which one technique's streaming variant can
+silently drift into a different technique from the one it was meant to mirror.
 
 **The cost of always streaming, named rather than discovered.** `LLMProvider.stream` yields
 text and nothing else, so a `Completion` built here carries `finish_reason=""` — the vendor's
@@ -36,8 +37,8 @@ untouched by every `except Exception` in this file, by construction.
 detect_generation_loop` needs the whole answer accumulated so far on every call, and `complete`
 already builds exactly that (`parts`, joined) before emitting to the sink — the only place in
 this tree holding that shape on every token, which is why the guard attaches inside `complete`'s
-own accumulation loop rather than living in a `TokenSink` (`reference/study/08-salvage.md` §T1.12,
-lifted per `01` → Phase 3 **Lift**). A detected loop raises `LLMGenerationLoopError` — an
+own accumulation loop rather than living in a `TokenSink` — lifted per `01` → Phase 3
+**Lift**. A detected loop raises `LLMGenerationLoopError` — an
 `LLMPermanentError`, so it takes the same `except LLMError: raise` path a provider's own errors
 do — rather than quietly returning a truncated `Completion`; `weft_cli.cli.run_command` turns
 that raise into `TokenSink.close(reason=...)`, so a reader is told the stream was cut short
@@ -156,8 +157,8 @@ class LLMClient:
                 raise self._fault(bound, role, fault) from fault
             text = "".join(parts)
             if not text:
-                # Never an empty `Produced` — the reference trap every contract in this tree
-                # documents. A model that answered with nothing did not answer.
+                # Never an empty `Produced` — a model that answered with nothing did not
+                # answer, the trap every contract in this tree documents against.
                 return NothingToProduce(
                     reason=(
                         f"provider '{bound.ref.provider}' returned no text for role '{role}' "

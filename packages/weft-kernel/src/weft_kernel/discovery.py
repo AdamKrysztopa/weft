@@ -669,7 +669,7 @@ def allow_list_from_config(document: Mapping[str, object]) -> tuple[str, ...] | 
     and this function does not collapse them.
 
     **A `packs` key that is present but not a table is refused, not absorbed
-    into absence.** Reference audit finding, `docs/02` §2's *The trust model*:
+    into absence.** `docs/02` §2's *The trust model*:
     `packs = ["weft-store"]` is the plausible typo for `[packs]\\nallow =
     [...]` — TOML parses it to a `list`, and a bare `isinstance(packs,
     Mapping)` guard used to fail that check the same way a genuinely absent

@@ -7,12 +7,10 @@ and the `k` in a metric's name equals the `k` it computed."* Task 4.1 carried V4
 metric cannot carry a score). This module carries the *aggregate* shape — what happens when many
 of those outcomes, from many samples, are folded into one number a human reads.
 
-**Exclusion, counted rather than merely honoured.** The reference has exactly one aggregator in its
-whole tree that reads `error` before averaging at all (`open_rag_evaluator.py:263,271`,
-`.phase4-reference-recon.md` §5) — and even that one reports a *success* count, never an *exclusion*
-count, so a reader who wants to know how many observations were thrown away has to subtract it
-from the total by hand. `MetricAggregate.excluded` below is that count, on the type, not left to
-be reconstructed.
+**Exclusion, counted rather than merely honoured.** Reporting only a *success* count, never an
+*exclusion* count, leaves a reader who wants to know how many observations were thrown away to
+subtract it from the total by hand. `MetricAggregate.excluded` below is that count, on the type,
+not left to be reconstructed.
 
 **No bare mean, by construction.** `aggregate()` has exactly one success path, and its only
 output is `Produced[MetricAggregate]` — there is no function anywhere in this module, or in the
@@ -36,20 +34,18 @@ the aggregate honours the identical rule at `n == 1`, where `stdev` is `None` ra
 `0.0` would silently claim measured, zero spread, which is a different, stronger and unearned
 claim for one data point.
 
-**The `k`-in-the-name check runs on the reported name, not the plugin's own property — R5.** The
-reference's `PrecisionAtK`/`RecallAtK`/`NDCG` already build `metric_name` correctly from their own
-`k` (`.phase4-reference-recon.md` §6: `retrieval/ir_metrics.py:29-30,91-92,230-231`). The defect was
-one layer up: `open_rag_fast_track.py:359-364`/`open_rag_ultimate_track.py:514-519` hardcode the
-literal report key `'precision_at_k'`/`'recall_at_k'` while the real `k` is a caller-supplied
-`similarity_top_k` (`open_rag_fast_track.py:299-301`) — a check against `PrecisionAtK.metric_name`
-in isolation would have passed on that exact tree, because that property was never wrong.
-`aggregate()` does not accept a caller-supplied name at all — `MetricAggregate.reported_name` is
-read off the observations' own `MetricScore.metric_name`, so there is no literal to get stale.
-`aggregate_report()` goes one step further, for the shape a run report actually has (many metrics,
-each under its own key): it takes the key the caller is *about to publish* an aggregate under and
-refuses, via `ReportedNameMismatchError`, the moment that key disagrees with what the metric
-itself computed — precisely the shape that would catch the reference's report keyed `'precision_at_k'`
-sitting beside a metric that actually computed `'precision@7'`.
+**The `k`-in-the-name check runs on the reported name, not the plugin's own property — R5.** A
+metric's own `metric_name` property can build the correct name from its own `k` and still not
+save a report: the defect this check guards against sits one layer up, in a caller that
+hardcodes a literal report key (say `'precision_at_k'`) while the real `k` is caller-supplied —
+a check against the metric's own `metric_name` property in isolation would still pass, because
+that property was never wrong. `aggregate()` does not accept a caller-supplied name at all —
+`MetricAggregate.reported_name` is read off the observations' own `MetricScore.metric_name`, so
+there is no literal to get stale. `aggregate_report()` goes one step further, for the shape a run
+report actually has (many metrics, each under its own key): it takes the key the caller is
+*about to publish* an aggregate under and refuses, via `ReportedNameMismatchError`, the moment
+that key disagrees with what the metric itself computed — precisely the shape that would catch a
+report keyed `'precision_at_k'` sitting beside a metric that actually computed `'precision@7'`.
 """
 
 import statistics
@@ -89,13 +85,13 @@ class MismatchedMetricNameError(WeftError):
 class ReportedNameMismatchError(WeftError):
     """A report's key for a metric's aggregate does not match the name that metric computed.
 
-    This is R5's exact defect (`.phase4-reference-recon.md` §6): `open_rag_fast_track.py` published
-    its retrieval aggregates under the literal report key `'precision_at_k'` while the metric it
-    ran actually computed `f'precision@{k}'` for a caller-supplied `k` — the key and the
-    computation silently diverged the moment `k` was anything but the value baked into the
-    literal, and nothing in that tree noticed. `aggregate_report()` raises this the moment a
-    caller's chosen key and the metric's own computed name disagree, rather than letting a stale
-    or hand-typed key stand next to a computation it no longer describes.
+    This is R5's exact defect: a caller publishes a retrieval aggregate under a literal report
+    key (say `'precision_at_k'`) while the metric it ran actually computes a name built from its
+    real, caller-supplied `k` (`f'precision@{k}'`) — the key and the computation silently diverge
+    the moment `k` is anything but the value baked into the literal, and nothing catches it.
+    `aggregate_report()` raises this the moment a caller's chosen key and the metric's own
+    computed name disagree, rather than letting a stale or hand-typed key stand next to a
+    computation it no longer describes.
     """
 
     def __init__(self, *, report_key: str, computed_name: str) -> None:
@@ -115,8 +111,8 @@ class MetricAggregate(BaseModel):
     metric_name`, the name the metric computed from its own configuration. `excluded` counts the
     `Failed` observations this aggregate excluded from `mean`; `nothing_to_produce` counts the
     `NothingToProduce` observations, kept distinct from `excluded` because an absence and an error
-    are not the same claim — conflating them is exactly what the reference's zero-vs-error accident
-    did one level down, at the per-sample result (`docs/build-ledger.md` 4.1).
+    are not the same claim — conflating them is exactly the zero-vs-error accident this suite
+    refuses one level down, at the per-sample result (`docs/build-ledger.md` 4.1).
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -133,7 +129,7 @@ class MetricAggregate(BaseModel):
     stdev: float | None
     #: How many `Failed` observations this aggregate excluded from `mean`/`stdev` — V4's own
     #: requirement, stated as a count a reader can see, not a fact left to be reconstructed by
-    #: subtracting a success count from a total the way the reference's one error-aware aggregator did.
+    #: subtracting a success count from a total by hand.
     excluded: int = Field(ge=0)
     #: How many `NothingToProduce` observations this aggregate excluded — a legitimate absence,
     #: counted separately from `excluded` because it is not an error.
@@ -214,8 +210,9 @@ def aggregate_report(
     reported_name` — read off the data, per `aggregate()` — is compared against the caller's own
     key, and a disagreement raises `ReportedNameMismatchError` rather than publishing a key that no
     longer describes what was actually computed. This is the check R5 asks for: run on the name
-    that ends up in the report, not only on a metric's own `metric_name` property in isolation,
-    which the reference already got right per-instance while its report keys drifted from it anyway.
+    that ends up in the report, not only on a metric's own `metric_name` property in isolation —
+    that property can be correct on every instance while the published report keys drift from it
+    anyway.
     """
     report: dict[str, Outcome[MetricAggregate]] = {}
     for key, outcomes in groups.items():

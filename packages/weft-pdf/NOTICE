@@ -19,9 +19,9 @@ understanding — an approach, an ordering, a measurement, a reason a guard exis
 — restated in this project's own words and implemented fresh. Copyright does not
 reach any of that.
 
-`docs/04-reference-inventory.md` records what was learned from prior work and what
-was deliberately not taken. It is a design record. Nothing in it authorises a
-copy of a third party's text, because that is not permitted here at all.
+What was learned from prior work, and what was deliberately not taken, is a
+design record kept outside version control. Nothing in it authorises a copy of a
+third party's text, because that is not permitted here at all.
 
 --------------------------------------------------------------------------------
 Three cases, because the sentence above used to be absolute and was not accurate
@@ -33,10 +33,10 @@ while nothing about the project's substance had changed. Both are stated here
 rather than left for a reader to discover, because a founding claim that is
 almost true is worse than a narrower one that is exactly true.
 
-1. **A third party's code — never.** `a prior project`, reached through the untracked
-   `reference` symlink, is somebody else's work. Not a file, a function body, a
-   docstring, a comment, a prompt string, a word list or a test fixture. Read to
-   understand, then closed. This is the rule above and it has not moved.
+1. **A third party's code — never.** Somebody else's work is somebody else's:
+   not a file, a function body, a docstring, a comment, a prompt string, a word
+   list or a test fixture. Read to understand, then closed. This is the rule
+   above and it has not moved.
 
 2. **The copyright holder's own prior work — permitted, and marked.** Material
    written by this project's own author before this project began carries no

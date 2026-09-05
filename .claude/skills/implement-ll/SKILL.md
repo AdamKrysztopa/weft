@@ -68,8 +68,8 @@ executing when the mistake was made.
 ## Routing, in order of preference
 
 The order is by **cost of being forgotten**, and it is not negotiable — it is the same ordering
-`CLAUDE.md` states for cross-cutting concerns, which the reference measured: every concern its machinery
-applied automatically held, and every concern an author had to remember decayed.
+`CLAUDE.md` states for cross-cutting concerns: every concern applied automatically by machinery held,
+and every concern an author had to remember decayed.
 
 1. **A hook** (`.claude/hooks/`, registered in `.claude/settings.json`). Use when the moment is
    mechanically detectable — a file being written, a command being run, a session starting. Strongest
@@ -77,9 +77,9 @@ applied automatically held, and every concern an author had to remember decayed.
    travels with the repository. **Reach here first and only fall through when you genuinely cannot
    detect the moment.**
 2. **A fitness function** (`tests/architecture/`). Use when it is a property of the *whole tree*
-   rather than of one edit. Per FF0, add it to the `ci-checks` composite **in the same commit** — the
-   reference shipped a boundary checker that was not in its canonical task and therefore never ran, and
-   FF0 exists because of it. Prefer a ratchet with a named waiver constant pinned empty, so a waiver
+   rather than of one edit. Per FF0, add it to the `ci-checks` composite **in the same commit** — a
+   boundary checker that is not wired into its canonical task never runs, and FF0 exists to catch
+   exactly that. Prefer a ratchet with a named waiver constant pinned empty, so a waiver
    is a visible act in a diff.
 3. **A skill** (`.claude/skills/`). Use when it is judgement applied at a known moment — a step in
    `phase-step`, a lens in `weft-qualities`. **Amend an existing skill rather than writing a new one**

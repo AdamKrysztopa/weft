@@ -2,22 +2,21 @@
 
 Task **4.2**. Six of the eleven traditional generation metrics: three plain token-set
 computations with no external dependency, and the three ROUGE variants, which do carry one —
-`rouge-score` — on `docs/04-reference-inventory.md`'s own instruction: the reference's `rouge_l` was a
-hand-rolled, pure-Python O(m·n) longest-common-subsequence table, a performance liability the
-correction block names for replacement rather than porting. `rouge-score` is Google Research's own
-reference implementation, pure Python, no model download and no network call at runtime — `use_
-stemmer=False` (the default this module keeps) never reaches for NLTK's downloaded corpora, only
-its bundled, data-free Porter stemmer code path, so nothing here breaks `poe ci-checks` on a clean
-checkout with no account and no cached model.
+`rouge-score` — deliberately chosen over a hand-rolled, pure-Python O(m·n)
+longest-common-subsequence table, a performance liability not worth reproducing. `rouge-score` is
+Google Research's own reference implementation, pure Python, no model download and no network
+call at runtime — `use_stemmer=False` (the default this module keeps) never reaches for NLTK's
+downloaded corpora, only its bundled, data-free Porter stemmer code path, so nothing here breaks
+`poe ci-checks` on a clean checkout with no account and no cached model.
 
 **Empty reference is `NothingToProduce`, everywhere in this file, unconditionally.**
 `weft_eval.contract`'s own rule: nothing to compare against is nothing to compare against, no
-matter what the prediction holds. This is where the reference's own `token_recall` defect
-(`lexical_metrics.py:291`, an unconditional `1.0` on an empty reference) is fixed at the door — and
-fixed identically for `key-terms-precision` and every ROUGE variant, which the reference never
-special-cased for an empty reference at all (an empty reference against `rouge-score` computes a
-real but meaningless `0.0`, indistinguishable from "the prediction shares nothing with a real,
-non-empty reference" — precisely the accident `NothingToProduce` exists to name).
+matter what the prediction holds. Returning an unconditional `1.0` on an empty reference is a
+recurring accident this rule is fixed against at the door — and fixed identically for
+`key-terms-precision` and every ROUGE variant, none of which gets a special case for an empty
+reference at all (an empty reference against `rouge-score` computes a real but meaningless `0.0`,
+indistinguishable from "the prediction shares nothing with a real, non-empty reference" —
+precisely the accident `NothingToProduce` exists to name).
 """
 
 from typing import ClassVar
@@ -111,9 +110,8 @@ class TokenOverlap:
 class TokenRecall:
     """Fraction of `reference`'s own tokens that also appear in `prediction`.
 
-    The reference's `token_recall` returned `1.0` unconditionally on an empty reference
-    (`lexical_metrics.py:291`) — fixed here by the module-wide rule: empty reference is `Nothing
-    ToProduce`, never a computed number.
+    An unconditional `1.0` on an empty reference is the accident to avoid here — fixed by the
+    module-wide rule: empty reference is `NothingToProduce`, never a computed number.
     """
 
     config_model: ClassVar[type[NoConfig]] = NoConfig
@@ -193,7 +191,7 @@ class _RougeMetric:
     """Shared implementation for `RougeL`, `Rouge1` and `Rouge2` — only `_ROUGE_TYPE` differs.
 
     Reports the F-measure — the number ROUGE is conventionally reported as — computed fresh by
-    `rouge-score` for every sample rather than the reference's own hand-rolled DP.
+    `rouge-score` for every sample rather than a hand-rolled DP.
     """
 
     #: Set on each concrete subclass — `rouge1` / `rouge2` / `rougeL`, and the registered

@@ -16,8 +16,9 @@ capability is derived, never declared — asked of the registered class with `is
 is nothing there to disagree with itself. The declaration FF5 is actually about is an extractor's
 **accept set**: a pack says *"I handle `.pdf`"*, and the question is whether anything can.
 
-That is the reference bug `docs/README.md` opens by describing — "the same file format was accepted at
-upload and had no extractor at extraction time" — and **it happened here**, predicted by line
+That is the accept-then-fail bug `docs/README.md` opens by describing — "the same file format was
+accepted at upload and had no extractor at extraction time" — and **it happened here**, predicted by
+line
 number before it did. `docs/11-multimodal.md:205` said `discover_source_docs` filtering on one
 pack's module constant would make `.pdf` "silently invisible to ingest" the moment a second
 extractor pack shipped; `weft-pdf` shipped at ledger 2.27 and `weft index corpus/mrmr` walked nine
@@ -208,7 +209,8 @@ def test_every_extension_a_live_extractor_declares_is_reachable() -> None:
     assert declared <= derived, (
         f"{sorted(declared - derived)} are declared by a live extractor and are not in the set "
         f"ingest accepts. A file with that suffix is walked, matched by nothing, and the run "
-        f"exits 0 having indexed none of it — the reference bug `docs/README.md` opens by describing."
+        f"exits 0 having indexed none of it — the accept-then-fail bug `docs/README.md` opens by "
+        f"describing."
     )
 
 

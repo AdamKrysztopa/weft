@@ -7,25 +7,26 @@ retrieval strategy must understand them to function: `id`, `lineage`,
 attach is namespaced extension data — see `ext.py` — never a seventh core
 field.
 
-Three reference bugs become unrepresentable here rather than merely guarded, as
+Three defect shapes become unrepresentable here rather than merely guarded, as
 `docs/06-phase-0-build.md` step 1 requires:
 
 * **RAPTOR's unreachable summaries.** `Node.combine` refuses an empty
   `members` sequence, and a `model_validator` on `Node` itself refuses any
   parentless node that does not carry `SyntheticOrigin` — so a summary with
   no members and no stated reason for its absent lineage cannot be built by
-  any path, not only through `combine`. The reference built summary nodes with
-  `relationships={}` ("global summary: no single source document"), so they
-  carried no `ref_doc_id` and no deletion path could ever reach them. Under
-  `combine`, parents are explicit and `Lineage.sources` is the union of the
-  members' sources — a summary with no members has no sources to derive.
+  any path, not only through `combine`. A summary node built with an empty
+  relationships mapping to signal that it has no single source document
+  carries no `ref_doc_id` either way, so no deletion path can ever reach it.
+  Under `combine`, parents are explicit and `Lineage.sources` is the union of
+  the members' sources — a summary with no members has no sources to derive.
 * **A node claiming a source its parents do not.** `Lineage` itself refuses
   `sources` authored alongside non-empty `parents` (see `lineage.py`), so a
   node cannot claim ancestry to a document unrelated to what it was actually
   built from — the same defect class, one field over.
-* **The multi-MB base64 blob reaching JSONB.** The reference guarded this with
-  `_TRANSIENT_METADATA_KEYS`, a tuple of key names one pipeline stage had to
-  remember to check. Here, transience is declared once on the `ExtModel`
+* **The multi-MB base64 blob reaching JSONB.** Guarding this with a
+  maintained tuple of key names that one pipeline stage has to remember to
+  check is exactly the kind of rule an author forgets. Here, transience is
+  declared once on the `ExtModel`
   subclass that owns the namespace (`ExtModel.__transient__`) and
   `Node.without_transient` strips by that declaration — a type-level fact
   the registration seam (step 3) will apply automatically, not a list an
@@ -87,8 +88,8 @@ class Node(BaseModel):
     def _lineage_requires_parents_or_synthetic_origin(self) -> "Node":
         """Refuse a parentless node unless it carries `SyntheticOrigin`.
 
-        This is what makes the reference's unreachable-summary bug unrepresentable
-        by construction rather than only by the three factories being
+        This is what makes the unreachable-summary bug described in the module
+        docstring unrepresentable by construction rather than only by the three factories being
         well-behaved: a plain `Node(...)` call with empty `lineage.parents`
         and no stated reason is refused here, no matter how it was built.
         """
@@ -99,8 +100,8 @@ class Node(BaseModel):
             raise ValueError(
                 "a node with no lineage parents must carry SyntheticOrigin in ext, "
                 "stating why — construct it through Node.synthetic, which stamps "
-                "this automatically; an unexplained parentless node is exactly the "
-                "reference's RAPTOR bug, unreachable by any cascade delete"
+                "this automatically; an unexplained parentless node is unreachable by "
+                "any cascade delete, so it outlives the document it describes"
             )
         return self
 
@@ -131,13 +132,14 @@ class Node(BaseModel):
         """A summary built from `members`. Parents are explicit and never empty.
 
         Raises if `members` is empty — see the module docstring for why that
-        refusal is the fix for the reference's unreachable-summary bug.
+        refusal is the fix for the unreachable-summary bug described there.
         """
         if not members:
             raise ValueError(
                 "Node.combine requires at least one member. An empty set would produce "
-                "a summary with no derivable sources, unreachable by any cascade delete — "
-                "this is the exact shape of the reference's RAPTOR bug, refused by construction."
+                "a summary with no derivable sources, unreachable by any cascade delete: "
+                "delete every document it summarised and it stays retrievable forever, "
+                "describing content that is gone. Refused by construction."
             )
 
         parents = tuple(member.id for member in members)
@@ -241,10 +243,10 @@ def _content_digest(
     Excludes the embedding (derived from content, and it would bind ids to a
     model) and any stage configuration, so two pipelines producing
     byte-identical output produce one node. The ordinal disambiguates
-    byte-identical content under the same parent set — the reference's RAPTOR row
-    recovery used exact float equality and cross-assigned cluster ids for
-    identical chunks silently; a caller passing distinct ordinals for
-    siblings avoids that here.
+    byte-identical content under the same parent set: without it, two
+    structurally identical siblings — the same content, the same parents —
+    would collide on identity and silently merge into one node; a caller
+    passing distinct ordinals for siblings avoids that here.
 
     Parts are length-prefixed before hashing so that no concatenation of
     variable-length strings can collide across a different split of the same

@@ -102,14 +102,14 @@ class Extractor(Stage[Sequence[SourceDoc], Sequence[Node]], Protocol):
     """Turns source documents into the first `Node`s of an ingest pipeline.
 
     One method, domain types on both sides — `docs/02-extension-model.md`
-    section 1 names the predecessor's `BaseExtractor` as the interface shape
-    this contract follows, one `@abstractmethod extract(...)`, and the
+    section 1 names a `BaseExtractor`-shaped interface as the shape this
+    contract follows, one `@abstractmethod extract(...)`, and the
     failure to fix was only ever its dispatch, never its narrowness. The
-    shape is reused; no line of the reference's own text is. `run` is that method,
+    shape is reused; nothing else about it is. `run` is that method,
     async per G6, returning `Outcome` rather than a bare value or an
     envelope with an ambiguous empty case: a source that legitimately yields
-    no text answers `NothingToProduce`, distinct from `Failed`, which is the
-    fix for the reference's `fail_silently` trap where both looked like the same
+    no text answers `NothingToProduce`, distinct from `Failed`, which avoids
+    a `fail_silently`-shaped trap where both would look like the same
     empty result downstream.
     """
 

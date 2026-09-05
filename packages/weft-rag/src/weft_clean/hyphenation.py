@@ -1,12 +1,11 @@
 """`HyphenationRepair` — rejoins a word broken across a line by a trailing hyphen.
 
-Task **1.7**'s worked example, and `02` §3 → *Ordering constraints*'s own —
-"hyphenation repair... MUST run before whitespace normalization while
-newlines still exist (e.g. kompu-\\nter -> komputer)" is the reference's own
-docstring restated for Weft, verified against
-`indexing/cleaning/pipeline.py:30-51`. The reasoning is `weft_clean.property`'s:
-a broken word's two halves are only rejoinable while the line break between
-them is still a real newline, not yet folded into an ordinary space by
+Task **1.7**'s worked example, and `02` §3 → *Ordering constraints*'s own
+rule: "hyphenation repair... MUST run before whitespace normalization while
+newlines still exist (e.g. kompu-\\nter -> komputer)". The reasoning is
+`weft_clean.property`'s: a broken word's two halves are only rejoinable
+while the line break between them is still a real newline, not yet folded
+into an ordinary space by
 `weft_clean.whitespace.WhitespaceNormalizer` — once that happens there is no
 longer a seam to find.
 
@@ -38,14 +37,13 @@ from weft_clean.property import Newlines, Verbatim
 from weft_kernel.context import Context
 from weft_kernel.payload import Node, NothingToProduce, Outcome, Produced, Property
 
-# A word ending in a hyphen at a line break, continued on the next line — the
-# reference's own example is `kompu-\nter`. Authored fresh for Weft: match a run of
-# letters, a hyphen sitting at the line break (optional trailing spaces before
-# the newline, since extraction sometimes leaves a stray one), then a run of
-# letters starting the next line, and join the two halves with the hyphen
-# dropped. `re.UNICODE` (the default for `str` patterns in Python 3) keeps this
-# correct for accented letters — the reference's own whitespace stage was flagged
-# for the opposite mistake in `docs/04-reference-inventory.md`.
+# A word ending in a hyphen at a line break, continued on the next line —
+# the same example as above, `kompu-\nter`. Authored fresh for Weft: match a
+# run of letters, a hyphen sitting at the line break (optional trailing
+# spaces before the newline, since extraction sometimes leaves a stray one),
+# then a run of letters starting the next line, and join the two halves with
+# the hyphen dropped. `re.UNICODE` (the default for `str` patterns in
+# Python 3) keeps this correct for accented letters.
 _BROKEN_WORD = re.compile(r"(\w+)-[ \t]*\n[ \t]*(\w+)", re.UNICODE)
 
 

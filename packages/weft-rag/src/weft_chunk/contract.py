@@ -61,8 +61,9 @@ class Chunker(Stage[Sequence[Node], Sequence[Node]], Protocol):
 
     One method, domain types on both sides, exactly `Extractor`'s shape one
     stage later in the pipeline. A chunker that finds nothing to split
-    answers `NothingToProduce`, not an empty `Produced([])` — the same
-    reference-trap fix `weft_extract.contract.Extractor` documents, applied here
+    answers `NothingToProduce`, not an empty `Produced([])` — the same fix
+    `weft_extract.contract.Extractor` documents for collapsing a legitimately
+    empty result into the same ambiguous case as a failure, applied here
     because the same ambiguity is possible at every stage that returns a
     sequence.
     """

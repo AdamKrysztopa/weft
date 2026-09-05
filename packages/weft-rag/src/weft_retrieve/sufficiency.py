@@ -3,12 +3,11 @@
 Task **2.24**, `docs/build-ledger.md`: "a draft's uncertainty is a replaceable, named signal
 rather than a phrase list, so the trigger cannot break silently under another language or
 model." `10` §1.1's own `refine-on-uncertainty` row states the exact failure this line exists
-to close: the reference's `adaptive.py:83-85` tests a draft against a nine-phrase localised list
-(`en.yaml:944-953`) with `str.__contains__` — a mechanism that "fires on hedging, never on
-unsupportedness, and breaks silently under another language or system prompt." *Silently* is
-the load-bearing word: a hard-coded English phrase list that never matches a Polish hedge does
-not raise, does not log, and no test anywhere goes red — the refinement it was supposed to
-trigger simply never fires.
+to close: a nine-phrase localised list checked with `str.__contains__` is a mechanism that
+"fires on hedging, never on unsupportedness, and breaks silently under another language or
+system prompt." *Silently* is the load-bearing word: a hard-coded English phrase list that
+never matches a Polish hedge does not raise, does not log, and no test anywhere goes red — the
+refinement it was supposed to trigger simply never fires.
 
 **The fix is not a better phrase list — it is that no phrase list is hard-coded into a
 generator at all.** `weft_retrieve.contract.Sufficiency` (published at task 2.4) is a named,
@@ -25,15 +24,15 @@ execute` — the same path every other model-backed plugin in this tree already 
 model that already speaks the question's own language is what keeps this implementation
 correct in Polish without a line of this file knowing a word of it — the model does.
 
-**`hedge-phrases`** is the reference's own mechanism, kept rather than discarded, as the
-documented weak baseline `.phase2-design.md` §10's own row names it: "authored fresh for
-Weft, documented as the weak baseline and as exactly the reference's `str.__contains__` mechanism
-it replaces." What actually changes it from a defect into a stated limitation is that the
-table it reads (`markers: Mapping[str, tuple[str, ...]]`) is *configuration*, not a literal
-closed over by one call site — an operator who wants a third language adds a key to a `with:`
-block, never a line here. Its own test module is written so the Polish case *can* fail — the
-property the reference's single-language table could never be checked against, because there was
-never a second language it was expected to handle.
+**`hedge-phrases`** is kept rather than discarded, as the documented weak baseline —
+`.phase2-design.md` §10's own row states it plainly: authored fresh for Weft, documented as
+the weak baseline, and exactly the `str.__contains__` mechanism it replaces. What actually
+changes it from a defect into a stated limitation is that the table it reads
+(`markers: Mapping[str, tuple[str, ...]]`) is *configuration*, not a literal closed over by
+one call site — an operator who wants a third language adds a key to a `with:` block, never a
+line here. Its own test module is written so the Polish case *can* fail — the property a
+single-language table could never be checked against, because it was never expected to
+handle a second language.
 
 **Both consumers, one contract, `draft` is the fork.** `Sufficiency`'s own docstring: "a named
 contract with two implementations is what 'replaceable' means here." `iterative-retrieval`
@@ -137,11 +136,10 @@ class LlmSufficiency:
         )
 
 
-#: The reference's own nine-phrase mechanism (`10` §1.1's `refine-on-uncertainty` row:
-#: `adaptive.py:83-85` against `en.yaml:944-953`), authored fresh for Weft rather than
-#: ported — see the module docstring — and made a *table* rather than a call site. English
-#: and Polish only: a third locale is an operator's own `with: {markers: {...}}` block,
-#: never an edit here.
+#: A nine-phrase weak-baseline mechanism (`10` §1.1's `refine-on-uncertainty` row),
+#: authored fresh for Weft rather than ported — see the module docstring — and made a
+#: *table* rather than a call site. English and Polish only: a third locale is an
+#: operator's own `with: {markers: {...}}` block, never an edit here.
 DEFAULT_HEDGE_MARKERS: Mapping[str, tuple[str, ...]] = {
     "en": (
         "i'm not sure",
@@ -175,9 +173,9 @@ DEFAULT_HEDGE_MARKERS: Mapping[str, tuple[str, ...]] = {
 class HedgePhrasesConfig(BaseModel):
     """`HedgePhrases`'s `with:` config. Every field has a default, per this pack's own rule.
 
-    `markers` is a locale-keyed table of substrings, checked case-insensitively — the reference's
-    own mechanism kept as the documented weak baseline, with its one real defect fixed: the
-    table an operator reaches is configuration, not a constant this file closes over.
+    `markers` is a locale-keyed table of substrings, checked case-insensitively — the same
+    weak-baseline mechanism, with its one real defect fixed: the table an operator reaches is
+    configuration, not a constant this file closes over.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -194,7 +192,7 @@ class HedgePhrases:
     is not zero cost of every kind**: this implementation can only ever be as good as its own
     table, and it has nothing to say about *unsupportedness* — a confident, fluent, entirely
     fabricated draft with no hedge phrase in it reads as `sufficient=True` here exactly as it
-    would to the reference's own mechanism. `10` §1.1's own stated divergence ("this fires on
+    would to any purely lexical mechanism. `10` §1.1's own stated divergence ("this fires on
     hedging, never on unsupportedness") is carried forward as a fact about *this
     implementation*, not fixed by it — `llm-sufficiency` is the one that can judge grounding,
     because it reads the evidence, not only the draft's own tone.

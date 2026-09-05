@@ -591,7 +591,7 @@ class SourceDeletable(Protocol):
     are not expected to be stores. `docs/02-extension-model.md` §1 →
     *Extended by G7*: `delete_source` sat on `NodeStore` from G4 and nothing
     in the tree called it, while a pack holding entities derived from nodes
-    would never hear that those nodes were gone. That is the reference's RAPTOR
+    would never hear that those nodes were gone. That is exactly the RAPTOR
     scar — summaries no deletion path can reach — reappearing first-party.
 
     **A separate Protocol rather than a reuse of `NodeStore`, deliberately.**

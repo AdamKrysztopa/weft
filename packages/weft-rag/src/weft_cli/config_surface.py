@@ -18,14 +18,15 @@ same "a key the CLI does not read is refused, naming the keys it does" rule `doc
 already states for `[services]` itself, applied one level up to the `config` command's own
 vocabulary.
 
-**Why `--origin` needs the raw, unmerged document — the reference's sentinel bug, avoided rather
-than reproduced.** `.phase3-design.md` §2.6, verified at source: `a_prior_project`'s `ConfigMerger`
-compares a merged value against a **sentinel** (`cli_overrides.get('embedding_provider',
-'local')` then `== 'local'`, `merger.py:42-44`), so an explicit `--embedding-provider local`
-is indistinguishable from never having passed the flag at all — it can never override a
-config file naming something else, because by the time anything asks "was this set?" the
-sentinel comparison has already thrown the answer away. `weft_cli.services.
-service_selection_from_config` and `weft_cli.permission_policy.permission_policy_from_config`
+**Why `--origin` needs the raw, unmerged document — a sentinel-comparison bug this design
+avoids rather than reproduces.** `.phase3-design.md` §2.6: a config merger that decides
+whether a value was explicitly set by comparing the *merged* value against a **sentinel**
+(say, treating `cli_overrides.get('embedding_provider', 'local') == 'local'` as "not set")
+makes an explicit `--embedding-provider local` indistinguishable from never having passed the
+flag at all — it can never override a config file naming something else, because by the time
+anything asks "was this set?" the sentinel comparison has already thrown the answer away.
+`weft_cli.services.service_selection_from_config` and
+`weft_cli.permission_policy.permission_policy_from_config`
 both build exactly the merged shape that bug lives in: comparing their *output* — a
 `ServiceSelection`/`PermissionPolicy` instance — against `ServiceSelection()`/
 `PermissionPolicy()`'s own built-in defaults would reproduce the identical defect one field

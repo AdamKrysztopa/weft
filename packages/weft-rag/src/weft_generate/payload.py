@@ -18,8 +18,9 @@ type up one package.
 **`stance` is an enum, not a `refused: bool`.** `09` §4's V2 requires unanswerable
 questions in the question set, and ledger 2.22 requires a critic that could not look to
 say so. "The corpus does not contain it" and "the engine could not decide" are different
-facts about the world; a boolean forces one of them to be reported as the other, which is
-the reference's `has_consensus=True`-on-failure defect wearing a different type.
+facts about the world; a boolean forces one of them to be reported as the other, the same
+report-failure-as-success defect a `has_consensus=True`-on-failure default is, wearing a
+different type.
 """
 
 from enum import StrEnum

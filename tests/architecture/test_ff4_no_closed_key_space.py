@@ -9,7 +9,7 @@ grep."
 
 **Why this is a runtime check and not a grep**, per `01`'s own correction: a grep-level
 "no enum shadows a registry" check catches `StrategyName` vs `STRATEGY_REGISTRY` and
-misses the two walls that actually made the reference's strategy seam unusable — a closed
+misses the two walls that actually make a strategy seam unusable — a closed
 enum used as a dict's *key type* (structural, no shadowing to grep for) and a hard-coded
 `if`/`elif` chain assigning literal enum members (no enum anywhere near a registry to
 grep). Both are catchable only by asking, at runtime, whether the set of names a real
@@ -17,18 +17,17 @@ mechanism can produce equals the set the registry actually holds.
 
 **(a)** is `test_no_strenum_value_set_shadows_a_registered_contracts_names` — every
 `StrEnum` reachable from `packages/`, checked against every registered contract's own
-names, plus `test_no_module_level_dict_is_keyed_by_a_shadowing_enum` for the reference's
-sharper defect, a dict whose *key type* is the closed enum. Both share
+names, plus `test_no_module_level_dict_is_keyed_by_a_shadowing_enum` for the sharper
+defect, a dict whose *key type* is the closed enum. Both share
 `_shadowing_enum_classes`, proven able to fail by
 `test_the_shadow_detector_can_actually_fail`.
 
 **(b)** is `test_the_router_selects_and_executes_a_freshly_generated_pipeline_name` — the
 categorical proof, grafted from the winning proposal `.phase2-design.md` §5 names: no
 hardcoded set, stale literal, mapping table or enum can survive a name generated at test
-time. This is proof, where a set-equality assertion is only correlated with proof — the
-reference's own `AdaptiveRouter._select_strategy_from_scores` (a ten-branch `if`/`elif`
-assigning literal enum members) would fail this test by construction, because no branch
-in it could ever produce a UUID nobody wrote down.
+time. This is proof, where a set-equality assertion is only correlated with proof — a
+ten-branch `if`/`elif` chain assigning literal enum members would fail this test by
+construction, because no branch in it could ever produce a UUID nobody wrote down.
 
 **Ratchet.** `SELECTION_SURFACES_WAIVED_FROM_FF4`, pinned empty, in the style of every
 other ratchet in this suite (`test_ff0_gate_in_the_gate.py`'s own pattern) — see
@@ -185,7 +184,7 @@ def _shadowing_enum_classes(
 
 def _module_level_enum_keyed_dicts() -> list[tuple[str, type[Enum]]]:
     """Every module-level `dict` under a first-party package whose keys are all members
-    of one `Enum` class — the reference's sharper defect (`01`'s own correction): "the enum
+    of one `Enum` class — the sharper defect (`01`'s own correction): "the enum
     was the registry's key **type**," which no amount of walking free-standing `StrEnum`
     classes on their own would ever see, because the closed key space lives in the dict's
     *shape*, not in a second name next to it.
@@ -227,7 +226,7 @@ def test_no_strenum_value_set_shadows_a_registered_contracts_names() -> None:
 
     assert not offenders, (
         "the following StrEnum classes carry the exact set of names a real contract's "
-        "registry holds, which is the reference's `RetrievalStrategyType`-shaped defect: "
+        "registry holds, which is a closed-enum-shadowing-a-registry defect: "
         f"{described}. A plugin registers into the registry, not into a closed enum a "
         f"fourth member cannot join — if this overlap is coincidental, rename one side; "
         f"if it is a real shadow, the enum must not exist."
@@ -235,9 +234,9 @@ def test_no_strenum_value_set_shadows_a_registered_contracts_names() -> None:
 
 
 def test_no_module_level_dict_is_keyed_by_a_shadowing_enum() -> None:
-    """The reference's actual failure, `01`'s own correction states directly: no enum shadowed
-    a registry by name — the enum *was* the registry's key type
-    (`RETRIEVAL_BUILDERS: dict[RetrievalStrategyType, Builder]`), structurally preventing
+    """The sharper failure, `01`'s own correction states directly: no enum shadowed
+    a registry by name — the enum *was* the registry's key type, a
+    `dict[SomeClosedEnum, Builder]`-shaped module constant structurally preventing
     a fourth member from ever being a key, with nothing to grep for. Checked here as a
     dict *shape*, never a text pattern.
     """

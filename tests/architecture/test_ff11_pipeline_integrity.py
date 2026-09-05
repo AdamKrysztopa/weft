@@ -24,9 +24,9 @@ five with no edit here at all; the pinned side stays at four until someone edits
 `OPERATORS_WAIVED_BEYOND_THE_CLOSED_SET` and records why in `docs/README.md`'s decision log.
 
 **(b) Every shipped pipeline resolves.** "A pipeline file is text that rots silently while
-every unit test passes" — `01`'s own words, and the reference's own worked example: a strategy
-that registers, is listed, is described to an LLM in a routing prompt, and can never run
-(`reference/study/02-discovery-and-config.md:226-234`). This clause finds every pipeline
+every unit test passes" — `01`'s own words, and the failure mode it names has a concrete
+shape: a strategy that registers, is listed, is described to an LLM in a routing prompt, and
+can never actually run. This clause finds every pipeline
 document a first-party pack ships, an example pack ships, or a page under `manual/` quotes
 as runnable, and resolves each one against the registry `discover()` actually builds from
 the installed distributions — never a registry this file hand-assembles to make a
@@ -59,8 +59,8 @@ deferred pairing, `no-retrieval` → `single-list` → `repack` →
 (`02` §3's own `base`/`specific` walkthrough), so the combined set was never empty even
 before that. `test_at_least_one_shipped_or_quoted_pipeline_is_found`
 is the floor that makes this true a fact rather than an accident of what happens to exist —
-`08` §3's own rule, "a check with no floor is the reference's `test_keys_parity` with a
-different subject," applied to an architecture check instead of a documentation one.
+`08` §3's own rule, "a check with no floor is a comparison computed once and checked against
+itself, which cannot fail," applied to an architecture check instead of a documentation one.
 """
 
 from __future__ import annotations

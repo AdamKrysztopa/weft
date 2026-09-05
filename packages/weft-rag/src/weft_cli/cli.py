@@ -33,7 +33,7 @@ parser cannot exist yet at that point either — so this is a second, approximat
 at the leading command name, good enough to place one boolean and nothing else. The *real* parse,
 against the real registry, happens afterward and is authoritative for everything else.
 
-**No import-time side effect.** Checked for this task's own addendum on the reference's
+**No import-time side effect.** Checked for this task's own addendum on the
 `load_dotenv(override=True)`-at-import scar: neither this module nor `weft_cli.commands` reads
 an environment variable, opens a file or touches the filesystem at module scope — every read
 (`weft.toml`, `WEFT_DATABASE_URL`) happens inside a function, called from `main()`, never from an
@@ -42,9 +42,9 @@ imports (`entry_point.load()`) whenever `build_dependencies` runs at all — its
 docstring carries the identical check for itself.
 
 **One entry point.** `weft-cli`'s `pyproject.toml` still declares exactly one
-`[project.scripts]` line, `weft = "weft_cli.cli:main"` — the reference's `rag-index`/`rag-chat`/
-`rag-query` split is the shape `docs/01-high-level-plan.md` → Phase 3 **Lift** names as the one
-to avoid, and nothing in this task's own generation layer needs a second surface: every
+`[project.scripts]` line, `weft = "weft_cli.cli:main"` — a `rag-index`/`rag-chat`/`rag-query`
+split is the shape `docs/01-high-level-plan.md` → Phase 3 **Lift** names as the one to avoid,
+and nothing in this task's own generation layer needs a second surface: every
 subcommand this module now discovers still arrives through the one script, the one parser, the
 one `asyncio.run` below.
 

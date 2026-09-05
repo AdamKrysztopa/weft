@@ -6,8 +6,8 @@ receives"): packs raise subclasses of `WeftError`, which carries a
 runs no retry engine of its own, so a caller deciding whether to retry needs
 the pack's opinion, not a guess read off the exception's class name. Every
 kernel-raised error is loud and specific: it says what was wanted, why it is
-unavailable, and what the valid options are, never the reference's bare
-`unknown plugin 'x'`.
+unavailable, and what the valid options are, never a bare
+`unknown plugin 'x'` that names no alternative.
 
 **Attribution is data this type carries, not logic it performs.**
 `docs/06-phase-0-build.md` step 3 builds the registration seam that catches

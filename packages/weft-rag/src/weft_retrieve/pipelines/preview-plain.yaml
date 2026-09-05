@@ -1,0 +1,25 @@
+name: preview-plain
+# No `route.summary`: this document produces a `Rendition`, not an `Answer`, so it is not
+# something `weft ask` could route to — the same reason the ingest rungs carry none.
+
+# **What Weft actually read.** Extract a directory, normalise it, and hand the result back as
+# one plain-text document — `weft render ./docs --pipeline preview-plain`. The question it
+# answers is not "what should the corpus hold?" but "what does this file look like once Weft
+# has read it?", which is the question you have before you trust an index built from it.
+#
+# **This is task 2.27's own exit demonstration, finally reachable.** `Renderer` has been
+# published since that task with `plain` and `markdown` registered under it, and until ledger
+# 8.9 nothing in the tree ever took a `Rendition` out of a pipeline — so "an operator's PDF
+# becomes readable" was true of the contract and false of the product. Fitness function 16
+# carried both names in its waiver for exactly that reason, and this document is half of what
+# empties it.
+#
+# The same two universally-safe cleaners `index-text` uses, and no more: a preview that
+# repaired damage the indexing path would not repair would be a preview of a different
+# document, which is the one thing it must not be. To see what `index-messy-text` will actually
+# store, derive from this and insert the same cleaners it does.
+stages:
+  - {id: extract,    use: text}
+  - {id: normalize,  use: unicode-normalize}
+  - {id: whitespace, use: whitespace}
+  - {id: render,     use: plain}

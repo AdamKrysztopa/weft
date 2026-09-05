@@ -11,30 +11,17 @@ that a FastAPI route could make identically. When a behaviour is tempting to put
 progress aggregation, retry on a failed document, a summary table — the test is whether an HTTP
 caller would want it too. If yes it belongs in the library and the CLI renders it.
 
-> **Unverified:** whether the reference's services could in fact make the same calls concerns
-> `system/`, which the reference study did not examine. See `reference/study/09-open-questions.md` (U9). The
-> rule stands on its own merits; it is the *lesson-from-the-reference* framing that is unsourced.
+This is the rule that keeps requirement 5 true. A CLI module left free to grow into a de facto
+service layer is a known failure shape: a single command module reaching 1,080 lines that no service
+could reuse. Two further facts illustrate the rule:
 
-This is the rule that keeps requirement 5 true. The predecessor's `indexer.py` reached 1,080 lines
-of Typer command that no service could reuse. Two further facts about that file are direct evidence
-for the rule:
-
-- **It runs `load_dotenv(override=True)` at module import time** (`indexing/indexer.py:52`), so
-  merely importing the CLI mutates the process environment. The scar comment explains why — *"This
-  prevents stale shell exports from shadowing .env during local development"* — which is deployment
-  policy hardcoded into a library module. The rule Weft should adopt from it: **a driving adapter
-  may not mutate process state at import.**
-- **The reference ships three separate CLI entry points**, `rag-index`, `rag-chat` and `rag-query`
-  (`pyproject.toml:141-144`), not one. Three surfaces means three places for logic to accumulate and
-  three help texts to drift.
-
-> **Corrected from the reference study (2026-08-10):** this paragraph previously continued *"…and its
-> chunker factory ended up in the evaluation package partly because the CLI was where things
-> accumulated."* The 1,080-line figure is exact, but the causal clause cannot be supported:
-> `create_parser` lives at `evaluation/datasets/settings_loader.py:55-99` and is pulled onto the
-> production path by **function-local imports in `retrieval/storage.py:145` and `:407`**. Nothing
-> connects it to the CLI. The two facts above replace it and argue the same rule more strongly.
-> (`reference/study/10-doc-corrections.md` C1.)
+- **A CLI module that runs `load_dotenv(override=True)` at import time** mutates the process
+  environment for anyone who merely imports it. A scar comment defending exactly this once read —
+  *"This prevents stale shell exports from shadowing .env during local development"* — which is
+  deployment policy hardcoded into a library module. The rule Weft adopts from it: **a driving
+  adapter may not mutate process state at import.**
+- **Shipping three separate CLI entry points** for one tool, rather than one, multiplies the places
+  logic can accumulate by three and gives three help texts room to drift.
 
 ## Two modes, one implementation
 
@@ -135,7 +122,8 @@ Two of these carry weight beyond their size:
   `(contract, name)` collision to an operator's pin, so it is installed, active, and one of its
   plugins is unreachable. And a pack whose **contributions land in no pipeline at all**, because no
   available pipeline declares the slot it targets. Both are silent successes otherwise, and both are
-  the shape of the reference's registered-but-unreachable strategy.
+  the same failure shape: a plugin that registers cleanly and is never reachable by anything that
+  actually runs.
 
   **Task 5.1d adds a `tracing:` line, and it is a fact about the process, not about one pack's
   report.** Nothing on a `PackReport` can say whether the OpenTelemetry `TracerProvider` is real —
@@ -335,11 +323,7 @@ they are visible.
 > — a `weft.toml` naming no `[llm.roles]` maps nothing (`weft_llm.roles.LLMRoles`'s own "no
 > silent default" clause), so the routed default refuses loudly rather than guessing at a
 > provider. `--retrieve-only` and `--pipeline` are mutually exclusive, refused together before
-> either resolves a plugin. **No reference precedent existed to weigh either way**: every reference CLI
-> path that builds an engine config disables its own router explicitly
-> (`RouterConfig(enabled=False, ...)`, `generation/chat.py:99` and `:270`), and its
-> `retrieval/query_tools.py` exposes only named-strategy subcommands (`hyde`, `stepback`,
-> `compare`) — a user has to already know the strategy name, precisely the gap this task closes.
+> either resolves a plugin.
 >
 > **The double-print `weft route` inherited is fixed in the same commit, reusing the shape of
 > an existing repair rather than a second mechanism for the same class of problem.** Task 3.6's
@@ -464,9 +448,9 @@ running the same command.
 > (`weft_cli.session`'s own module docstring carries both in full): no command in this repository
 > accepts a collection argument for a session to hold a choice of, and no contract reads a prior
 > turn back into a later one (`weft_cli.commands.AskArgs`/`RouteArgs` take no history field), so
-> building either now would be exactly the shape the reference's own `_run_chat_loop`
-> (`generation/chat.py:353`, `.phase3-design.md` §2.5) is a warning against — a `chat_history`
-> parameter that always passed `[]`, state that *looks* consulted by generation and is not. This
+> building either now would be exactly the shape of a known failure mode (`.phase3-design.md`
+> §2.5): a `chat_history` parameter that always passed `[]` — state that *looks* consulted by
+> generation and is not. This
 > task refuses to reproduce that failure in the opposite direction: state a session holds that
 > nothing ever reads back is the identical defect the other way round.
 
@@ -701,19 +685,19 @@ suppresses progress but keeps the result.
 > threads it through `weft_cli.route_ask.run_routed_ask`
 > to `weft_cli.run_services.build_services`, which now takes the sink as a required argument rather
 > than hardcoding `NullSink()`. **The event vocabulary is three members** — `CHUNK`, `DONE`,
-> `ERROR` — not the seven a taxonomy in the reference's own engine carries; the other four have nothing
-> in this tree that would emit them yet, named as gaps rather than built ahead of need. **An error
-> can never be mistaken for a clean end**: `TokenSink.close(reason=...)` is the one signal, and
+> `ERROR` — deliberately narrower than a seven-member taxonomy could be; the other four have
+> nothing in this tree that would emit them yet, named as gaps rather than built ahead of need. **An
+> error can never be mistaken for a clean end**: `TokenSink.close(reason=...)` is the one signal, and
 > `JsonSink` turns `reason=None` into a `DONE` event and any other `reason` into a structurally
 > different `ERROR` event carrying it — never a worded difference a consumer would have to
-> string-match, which is exactly the reference shape this sink refuses to reproduce. `weft_cli.cli.
+> string-match, which is the failure mode this sink is built to refuse. `weft_cli.cli.
 > run_command` closes the run's sink exactly once, on every exit — success, a caught `WeftError`,
 > or an uncaught exception including `CancelledError`, which still propagates untouched (G6); see
 > that function's own docstring and task 3.6's ledger entry for the full argument, including why
 > nothing about the REPL's own `read_line`/`weft_extract.accept`'s filesystem walk needed to
 > become async to ship this (O2, `.phase3-design.md` §4).
 
-> **Built in Phase 3 task 3.10 (2026-08-20), the phase's one reference lift.** `close(reason=...)`
+> **Built in Phase 3 task 3.10 (2026-08-20).** `close(reason=...)`
 > gained its first real caller on a *non-crash* path: `weft_llm.loop_guard.detect_generation_loop`
 > watches the answer accumulate inside `weft_llm.client.LLMClient.complete` and, on a small model
 > settling into a repeating span, raises `LLMGenerationLoopError` rather than letting the stream run
@@ -846,7 +830,7 @@ substitute: a pack cannot contribute a second document under a name another pack
 a project that ships its own `route.yaml` is refused by `weft_cli.pipeline_catalogue.full_catalogue`
 — which does not merely lose the override, it fails every `weft pipeline` command until the file is
 renamed. Two registered `RoutingPolicy` plugins were consequently unreachable by any document
-anybody could write, which is requirement 4 broken in the shape `01` item 11 quotes from the reference:
+anybody could write, which is requirement 4 broken in the shape `01` item 11 names:
 registered, listed, described to a model, and never runnable. Only a **contributed** document may be
 named — `run_routed_ask` searches `load_contributed`, not the project's own `pipelines/` directory,
 which is Phase 2's settled behaviour and was not reopened.
@@ -868,28 +852,28 @@ tuple of first-party distribution names could satisfy none of them for a third-p
 that exist — the identical rule `[services]` states two paragraphs up. `weft_cli.permission_policy`
 carries the reasoning for why `read`/`write`/`network` are not keys here yet.
 
-> **Extended by the reference study (2026-08-10) — `--origin` is a first-class feature, not a nicety.**
-> In the reference, chunk size can be set in **five** places under **two different** precedence rules,
-> and no single precedence statement exists anywhere: CLI flag → JSON config file → `strategies.json`
-> on disk → `ChunkingConfig` Pydantic default **1024/100** → `create_parser` builder literal
-> **512/50** (`evaluation/datasets/settings_loader.py:105-106`) — two default systems, silently
-> disagreeing. Worse, **strategy selection inverts the scalar precedence**: config-file strategies >
-> on-disk `strategies.json` > `DEFAULT_STRATEGIES`, with the CLI not participating at all
-> (`indexing/indexer.py:544-550`), while scalars run CLI > config file > schema default. And
-> `ConfigMerger` compares against sentinels in a way that makes an explicit
-> `--embedding-provider local` indistinguishable from the default, so it cannot override a config
-> file saying `openai` (`merger.py:42-46`). The reference's precedence was genuinely unknowable and it
-> caused silent misconfiguration. One idea there is worth keeping: `ConfigMerger.merge_into_base`
-> returns `base.model_copy(update=…, deep=True)` (`merger.py:177`) — merge immutably rather than in
-> place. Write our own; it is one line and the value is knowing to make it that line. (`reference/study/10-doc-corrections.md` E10.)
+> **`--origin` is a first-class feature, not a nicety.** A configuration system that lets one scalar
+> — chunk size, say — be set in **five** different places under **two different** precedence rules,
+> with no single precedence statement written down anywhere, is a real and observed failure mode:
+> CLI flag → JSON config file → an on-disk strategy file → a schema-level default of **1024/100** →
+> a separate builder-literal default of **512/50** — two default systems silently disagreeing.
+> Worse, **strategy selection can invert the scalar precedence entirely**: config-file strategies
+> outranking the on-disk strategy file outranking a hardcoded default list, with the CLI not
+> participating at all, while scalars run CLI > config file > schema default. And a merge step that
+> compares against sentinel values can make an explicit `--embedding-provider local`
+> indistinguishable from the default, so it cannot override a config file saying `openai`. Precedence
+> built this way is genuinely unknowable from the outside and causes silent misconfiguration. One
+> general lesson is worth keeping regardless: merge configuration immutably — return a copy with the
+> update applied rather than mutating in place. Write our own; it is one line and the value is
+> knowing to make it that line.
 
 > **Built in Phase 3 task 3.7 (2026-08-20) — `weft config get|set` reads and writes exactly
 > four dotted keys**, `services.embed`, `services.store`, `permissions.overwrite`,
 > `permissions.destroy` — the whole of what a command in this repository consults from
 > `weft.toml` today. `weft_cli.config_surface.effective_config` answers `--origin` from the
 > **raw parsed document**, never from comparing the merged `ServiceSelection`/
-> `PermissionPolicy` against their own built-in defaults: that comparison is the reference's own
-> sentinel bug reproduced one field at a time — indistinguishable between "explicitly set to
+> `PermissionPolicy` against their own built-in defaults: that comparison is the same sentinel
+> bug reproduced one field at a time — indistinguishable between "explicitly set to
 > the default value" and "not set". Reading the raw mapping and asking, per key, whether it
 > is literally present answers the question a merged value structurally cannot:
 > `services.embed = "hash"` written explicitly in `weft.toml` reports `origin: file` even
@@ -927,8 +911,8 @@ at the top of this document.
 is a library call a FastAPI route could make identically* — and a planning loop is not that. It is
 logic, it is the largest piece of logic in an agentic product, and putting it behind the prompt would
 make the REPL the one adapter that can do something no other caller can. That is the exact shape this
-document's first rule exists to refuse, and the reference's 1,080-line `indexer.py` is what it looks like
-when the rule is not enforced.
+document's first rule exists to refuse, and a single 1,080-line command module holding an entire
+application's logic is what it looks like when the rule is not enforced.
 
 **So the agent is a pack.** It registers against the same contracts a retriever does, it is driven by
 the REPL, by a script and by an HTTP caller alike, and it is scheduled: **Phase 7**, after release,

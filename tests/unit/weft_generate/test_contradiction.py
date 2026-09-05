@@ -4,8 +4,9 @@ Mirrors `packages/weft-rag/src/weft_generate/contradiction.py`. Task **2.22**,
 `docs/build-ledger.md`: "a query about whether the sources agree is answerable, and a
 critic that could not look says so instead of reporting agreement." The load-bearing
 test here is `test_a_critic_whose_cascade_cannot_be_parsed_reports_undetermined_not_
-agreement`: the reference's `critique.py:158-166` returned `has_consensus=True` when its own
-critique call failed, and the fix this task ships is a *third*, distinguishable value in
+agreement`: a critic that returns `has_consensus=True` when its own critique call failed
+makes an error indistinguishable from a genuine agreement, and the fix this task ships is
+a *third*, distinguishable value in
 the returned `Agreement.status` — never a silent fall-through to the same value a clean
 `agree` pass produces. Covers the happy path (sources agree, cited), the edge case
 (sources conflict, cited separately from the agreement), the error case named above, and
@@ -177,7 +178,8 @@ async def test_sources_that_agree_are_answered_with_status_agree_and_cited() -> 
 
 async def test_sources_that_conflict_are_answered_with_status_conflict_and_cited() -> None:
     # Arrange — the edge case: agreement and conflict are reported in *separate* fields,
-    # not folded into one boolean the way the reference's `has_consensus` was.
+    # not folded into one boolean that cannot distinguish "sources agree" from "sources
+    # disagree" from "the critic itself failed".
     payload = _passages(
         _passage("1", "The 2019 report puts the population at 4,200."),
         _passage("2", "The 2021 report puts the population at 6,800."),
@@ -209,7 +211,7 @@ async def test_a_critic_whose_cascade_cannot_be_parsed_reports_undetermined_not_
     # Arrange — the critic's cascade fails at every tier (tier 2 and tier 3 both answer
     # unparseable prose with no JSON anywhere in it), so `weft_prompts.cascade.execute`
     # itself returns `Failed`. The plugin must not let that failure resolve to the same
-    # `AGREE` a clean pass reports — it is the reference's `has_consensus=True`-on-failure
+    # `AGREE` a clean pass reports — a `has_consensus=True`-on-failure result is the exact
     # defect this task exists to fix.
     payload = _passages(
         _passage("1", "Study A found a 12% reduction."),

@@ -1,6 +1,6 @@
 """`OverlapAtThreshold` — the one demonstration metric task 4.1 ships.
 
-Not one of the reference's 21 metrics; `docs/build-ledger.md` task 4.2 owns that suite, "every
+Not one of the 21 catalogued metrics; `docs/build-ledger.md` task 4.2 owns that suite, "every
 recorded defect fixed at the door rather than inherited." This one exists to make requirement
 6's second clause real — "the same metric runs twice at two thresholds because its registration
 carries a typed configuration model" — with a computation simple enough that the demonstration is
@@ -10,12 +10,11 @@ call, no credential, so it runs in `poe ci-checks` on a clean checkout the same 
 
 **What it measures, honestly stated.** Token overlap between `prediction` and `reference`, as a
 fraction of `reference`'s own tokens, thresholded to a hit/miss — deliberately not `token_overlap`
-or `token_recall`, the reference's own registered names for a similar computation
-(`evaluation/generation/traditional/simple_metrics.py`, `lexical_metrics.py`), so nothing here is
-mistaken for one of the 21 arriving pre-fixed at task 4.2. This metric's own empty-reference
-edge case is handled by returning `NothingToProduce` rather than the reference's unconditional `1.0`
-(`lexical_metrics.py:291`, `docs/09-release.md` §4.2) — the fix V4 asks for, demonstrated once here
-rather than deferred to the metric that actually carries the reference's name and the defect to fix.
+or `token_recall`, the registered names task 4.2's own suite uses for a similar computation, so
+nothing here is mistaken for one of the 21 arriving pre-fixed at task 4.2. This metric's own
+empty-reference edge case is handled by returning `NothingToProduce` rather than an unconditional
+`1.0` (`docs/09-release.md` §4.2) — the fix V4 asks for, demonstrated once here rather than
+deferred to the metric that actually carries that name and the defect to fix.
 
 **Updated for task 4.2's contract split** (`weft_eval.contract`'s own module docstring): `Sample`
 is now `GenerationSample` and `Metric` is now `GenerationMetric` — this plugin's own shape (a

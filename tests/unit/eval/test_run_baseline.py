@@ -198,8 +198,8 @@ def test_an_unknown_tier_names_the_ones_the_manifest_declares() -> None:
 def test_a_run_whose_exclusion_count_no_reason_backs_is_refused() -> None:
     # V4: "aggregates exclude errored metrics and report how many were excluded". The count is
     # on the metric and the reasons are on the run, so this is what stops the two drifting —
-    # the reference's aggregators reported means that had failures averaged into them and nothing
-    # anywhere could tell.
+    # an aggregator that silently averages a failure into the mean produces a number that
+    # looks like a score and nothing anywhere could tell.
     # Act / Assert
     with pytest.raises(ValueError, match="n_excluded"):
         _report(

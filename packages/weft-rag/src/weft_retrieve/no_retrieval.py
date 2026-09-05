@@ -3,8 +3,8 @@
 Task **2.13**, `docs/build-ledger.md`: "the null case is a plugin like any other, and an
 empty source list is a *stated property* of it rather than a retrieval failure a consumer
 has to guess at." `docs/10-technique-catalogue.md` §1.1's own row on this technique names
-what the reference got wrong: `strategies/basic.py:56-75` implemented the null case faithfully,
-but its emptiness was a *consequence of which helper it called* — nothing anywhere declared
+a defect worth avoiding: implementing the null case faithfully is not enough if its
+emptiness is only a *consequence of which helper it called* — nothing anywhere declared
 it. `sources_are_empty_by_design` is the fix: a class attribute a caller reads, never a fact
 inferred from `Candidates.lists` happening to be empty. `weft_retrieve.payload.Candidates`'s
 own module docstring draws the line this plugin sits on: `Candidates(lists=())` means

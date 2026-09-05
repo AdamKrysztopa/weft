@@ -218,7 +218,7 @@ async def test_a_provider_that_answers_with_nothing_produces_nothing_rather_than
     # Act
     outcome = await client.complete(RENDERED, role="generate", ctx=_ctx(NullSink()))
 
-    # Assert — never an empty `Produced`, the reference trap every contract in this tree documents.
+    # Assert — never an empty `Produced`, the trap every contract in this tree documents.
     assert isinstance(outcome, NothingToProduce)
 
 

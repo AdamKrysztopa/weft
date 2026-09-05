@@ -1,8 +1,8 @@
 """What a mis-declared or mis-called prompt raises. Four classes, each one failure.
 
 Every one of these is a *definition-time* or *call-time* refusal rather than a degradation.
-`docs/02-extension-model.md` §5 records the reference's four sites where an unknown name became a
-silent default, and the consequence it produced — "registered but unreachable". A prompt whose
+`docs/02-extension-model.md` §5 records the failure mode: an unknown name that silently becomes
+a default produces the consequence "registered but unreachable". A prompt whose
 template and input model disagree has exactly that shape: it renders, it says something
 slightly different from what its author wrote, and nothing anywhere goes red.
 """

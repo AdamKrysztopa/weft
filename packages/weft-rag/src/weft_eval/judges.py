@@ -1,22 +1,20 @@
 """The six LLM-judge metrics — every one of them derives its own ratio in code.
 
-Task **4.2**. `.phase4-reference-recon.md` §4 and `docs/reference-corrections.md` C3: three of the
-reference's six LLM judges read a ratio straight off a `score` field the model itself divided
-(`ragas_faithfulness.py:105`, `context_recall.py:107`, `ragas_completeness.py:96`), while the
-counts that would let the *code* compute it sat unused two lines below. Three others already get
-this right, in three different ways worth naming rather than flattening into one: `ragas_context_
-relevance.py:117` divides a judge-reported count by a code-computed total; `ragas_answer_relevance.
-py:150` never asks the model for a number at all, scoring by embedding similarity over judge-
-generated text; `ragas_correctness.py` extracts a full confusion-matrix term set from the judge
-(`:162`) and derives F1 in code (`:121`) — the richest of the three, and the one this module's
-`AnswerCorrectness` and `AnswerRelevance` are built to match, not `ragas_context_relevance`'s
-single division. **Every judge below follows one of these three code-computes-the-ratio shapes.
-None reads a score field, because none of the six output models this module's prompts ask for
-*has* one** (`weft_eval.prompts`'s own module docstring).
+Task **4.2**. A judge that reads a ratio straight off a `score` field the model itself divided,
+while the counts that would let the *code* compute it sit unused two lines below, is a recurring
+LLM-judge failure mode worth naming outright — and there are at least three different ways to
+avoid it, worth naming separately rather than flattening into one: dividing a judge-reported
+count by a code-computed total; never asking the model for a number at all, and instead scoring
+by embedding similarity over judge-generated text; or extracting a full confusion-matrix term set
+from the judge and deriving F1 in code — the richest of the three, and the one this module's
+`AnswerCorrectness` and `AnswerRelevance` are built to match, not the single-division shape.
+**Every judge below follows one of these three code-computes-the-ratio shapes. None reads a
+score field, because none of the six output models this module's prompts ask for *has* one**
+(`weft_eval.prompts`'s own module docstring).
 
-**Every call goes through `weft_prompts.cascade.execute`** — R2 in `.phase4-reference-recon.md`: the
-reference's `LLMJudge.predict` is synchronous, and Weft's async provider call is not a defect fix, it
-is `CLAUDE.md`'s async-only rule applied where the reference never had to. `weft_retrieve.rerank.
+**Every call goes through `weft_prompts.cascade.execute`** — R2: a synchronous judge-predict call
+is not something inherited and then fixed here; Weft's async provider call is `CLAUDE.md`'s
+async-only rule applied from the start. `weft_retrieve.rerank.
 LlmRerank` is the worked example this module follows: `ctx.require(LLM)`, one `Prompt` instance
 this pack owns directly (no `StageLookup` — that service is for a *pipeline stage* reaching a
 sibling stage, and a `Metric` is explicitly not a pipeline position, per `weft_eval.contract`'s own
@@ -200,7 +198,7 @@ class ContextRelevance:
 
     The denominator — how many sentences were offered — is computed in Weft's own code by
     `_split_sentences`, never asked of the model; only *which* of those sentences are relevant is
-    the model's answer, mirroring `ragas_context_relevance.py:117`'s own shape.
+    the model's answer.
     """
 
     config_model: ClassVar[type[JudgeConfig]] = JudgeConfig
@@ -252,9 +250,9 @@ class ContextRelevance:
 class AnswerRelevance:
     """How closely the questions this answer would address match the question actually asked.
 
-    Never asks the model for a score — the judge only generates candidate questions
-    (`ragas_answer_relevance.py:150`'s own shape); `weft_eval.embedding_support.embed_texts`
-    embeds each one and the original query, and the average cosine similarity is the value.
+    Never asks the model for a score — the judge only generates candidate questions;
+    `weft_eval.embedding_support.embed_texts` embeds each one and the original query, and the
+    average cosine similarity is the value.
     """
 
     config_model: ClassVar[type[JudgeConfig]] = JudgeConfig
@@ -306,17 +304,15 @@ class AnswerCorrectnessConfig(JudgeConfig):
     """`AnswerCorrectness`'s own `with:` shape — `role`, plus how much weight factual F1 gets."""
 
     #: Weight given to the factual F1 half; `1 - factual_weight` goes to semantic similarity.
-    #: The reference's own reasonable weighted-F1-plus-semantic reproduction
-    #: (`.phase4-reference-recon.md` §4), made an operator's own typed choice rather than a constant
-    #: buried in `__init__`.
+    #: A weighted-F1-plus-semantic combination, made an operator's own typed choice rather than a
+    #: constant buried in `__init__`.
     factual_weight: float = Field(default=0.75, ge=0.0, le=1.0)
 
 
 class AnswerCorrectness:
     """Weighted average of a code-derived factual F1 and an embedding-based semantic similarity.
 
-    The factual half mirrors `ragas_correctness.py`'s own shape most closely of any judge here:
-    the judge classifies statements into a true/false-positive/false-negative confusion matrix
+    The judge classifies statements into a true/false-positive/false-negative confusion matrix
     (`weft_eval.prompts.FactualClassification`), and F1 is computed from those three counts in
     this method, never read off a `score` field.
     """

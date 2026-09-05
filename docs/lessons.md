@@ -27,6 +27,112 @@ otherwise paid for twice.
 
 ## Queue
 
+### L8.9 — the citation named this very file, and described a different one
+
+**What happened.** While removing citations that pointed into another codebase, three were found
+that pointed *at a filename this repository also has*. `weft_clean/unicode_normalizer.py` carried
+**"Verified at source: `unicode_normalizer.py:12-37`'s `process` calls…"** — inside
+`unicode_normalizer.py`. There is no `process` method in this file and never was: the citation was
+quoting the other project's file of the same name, and read for three phases as an ordinary
+self-reference. `weft_clean/property.py:27` and `weft_retrieve/iterative.py` carried the same shape.
+The words *"verified at source"* were attached to a claim that was not true of the source they
+appeared to name.
+
+**Why nothing caught it.** Every check that could have run passes: the path exists, the file is
+real, the line range is in range, and no word-search for the other project's name matches — the
+citation is bare. It survives a "does this path resolve?" check precisely *because* the basename
+collides, which makes it the one form of dangling citation that a path-existence check is
+structurally blind to.
+
+**Generalises to.** *A citation's basename matching a real local file is not evidence that it refers
+to that file — and a **self**-citation is the case to distrust most, because it is the one every
+mechanical check waves through.* Where a comment says "verified at source", the thing to verify is
+that the source says it, not that the source exists.
+
+**Candidate home.** Refines the fitness function `L8.8` and `L8.7` both route to. "Every `path:line`
+citation resolves to a path that exists" would have passed all three of these. The check needs a
+second clause with teeth: **a citation naming the file it appears in must be justified**, because a
+module citing itself by name and line is either redundant (it is describing code the reader is
+already looking at) or wrong (it is describing somebody else's file). Both are worth a failure.
+Cheap to implement — the citation and the containing filename are both in hand at the same moment.
+
+---
+
+### L8.8 — the sweep was scoped by a grep, and inherited that grep's blind spot
+
+**What happened.** Asked to remove every reference to another codebase from this repository, the
+scope was measured with a grep requiring a two-segment path fragment, when the question was the
+bare word that fragment starts with. Reported footprint for shipped source: **13
+sites in 9 files**. Actual: **277 sites in 89 files**, a 20× undercount, and the number was then
+used to size the whole plan, to write three agent briefs, and to tell the project's owner what the
+work involved. A dispatched agent found it, not a check — its `## Noticed` asked whether the file
+list was "a deliberate narrow first pass or an undercount".
+
+The same agent found a class **no word-search could ever reach**: `weft_llm/loop_guard.py` carries
+~15 line-citations naming a module that **exists nowhere in
+this repository**. They were dangling pointers into a tree the reader does not have — the exact
+defect the sweep existed to remove — and they contain no matchable word at all.
+
+**Generalises to.** *A search term is a hypothesis about the answer, and a scope measured with one
+grep inherits that grep's blind spot for the whole task. Before sizing work from a pattern, run the
+widest plausible pattern too and compare the counts — a 20× gap between a word and a path fragment
+beginning with that word is visible in one extra command and invisible in none.* And the sharper half: **the durable check is
+not a better search, it is the property.** "No occurrence of this word" cannot see a dangling
+`file.py:NNN`; "no tracked file cites a path that does not exist in this repository" catches both,
+and catches the next form nobody has thought of.
+
+**It happened three times in one session, and the third instance is the one that settles the
+argument.** (1) The scope grep required a two-segment path fragment when the question was the bare
+word: 13 sites reported, 277 actual. (2) The cleanup was then scoped by three *directory* names,
+missing `.claude/`, `.github/`, `eval/`, `scripts/`, the dotfiles and seven `NOTICE` files — a
+population only `git ls-files` could have enumerated. (3) Every grep in the whole exercise was
+**case-sensitive**, so six bold worked-example headings in a skill file — the same word, capitalised
+— were invisible to all of them until an agent working from a different angle reported them. Each miss was found by an agent or by the
+project's owner; none was found by the person doing the searching, because a search cannot report
+what its own pattern excludes. **Three misses, three different mechanisms — narrowness, scope, case
+— and one shape: the searcher grading their own search.**
+
+**Convergent evidence, worth stating because it is unusual.** Three agents working on disjoint
+parts of this sweep, unable to see each other's findings, each independently reported the same gap
+and each proposed the same remedy: make it a check on the property rather than a better search. A
+recommendation reached three times from three different slices of the tree is not a preference.
+
+**Candidate home.** A **fitness function** — every `path:line` citation in a tracked file resolves to
+a path that exists in the tree, waiver pinned empty. It attaches to no new seam (it is a sweep over
+tracked files, like FF16's), it subsumes the word-search this task actually needed, and it is the
+answer to `L8.7` as well. Secondarily `phase-step` → *Orient*, which already says a list in a
+document is where to start looking rather than a census (`L5.14`) — this is that rule applied to a
+**grep**, which is the form it keeps coming back in.
+
+---
+
+### L8.7 — an arrangement that was safe while the repository was private, and nobody scheduled its end
+
+**What happened.** This project was built while reading a sibling codebase for reference, and the
+practice of citing that reading — `path:line`, measure-before-asserting — was written into
+`CLAUDE.md` as a rule and followed diligently for eight phases. The result, counted on the day it
+was finally questioned: **hundreds of citations across `packages/`, `tests/` and `docs/`, including
+13 inside shipped wheels**, pointing at paths that resolve only through one developer's untracked
+symlink. A stranger who installs `weft-rag` reads them. Nobody noticed because every individual
+citation looked like diligence — it *was* diligence — and the rule that demanded the evidence is the
+same rule that spread it. Raised by the project's owner, in anger, and correctly.
+
+It was cheap to detect at any point — one `git ls-files | grep` for the name, at any moment in
+eight phases — and nothing ever ran it.
+
+**Generalises to.** *An arrangement that is safe while a project is private becomes a liability the
+moment it ships, and its cleanup has to be scheduled when the arrangement is adopted — not when
+somebody notices. A convention that produces a growing number of references to anything outside the
+repository needs a stated end condition at the moment it is written down, because by the time it is
+obviously wrong there are hundreds of them and removing them requires rewriting history.*
+
+**Candidate home.** The same fitness function `L8.8` proposes — the two are one subject and should
+be drained together. Beyond the check, `CLAUDE.md`'s own standing rules are where a convention with
+a growing footprint should have to state what ends it: a rule that accumulates artefacts is not
+finished until it says when it stops.
+
+---
+
 ### L8.6 — the repair made a dormant restriction reachable, and I reviewed the repair without re-reading the restriction
 
 **What happened.** Task 8.3 turned the router's name from a constant into `[services] route`, so an

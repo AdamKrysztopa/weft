@@ -23,6 +23,6 @@ and where per-corpus curated configuration lives — the first two of which touc
 at once. A phase does not absorb work that is not schedulable, so it stays unscheduled and is named
 here and in Phase 8's own preamble rather than filed somewhere it would look ready.
 
-The evidence behind the ordering is unchanged and still lives in `docs/product-direction.md` and the
-two audits (`docs/audit-a prior project-2026-09-05.md`, `docs/audit-graph-study-2026-09-05.md`).
+The evidence behind the ordering is unchanged and still lives in `docs/product-direction.md` and
+`docs/audit-graph-study-2026-09-05.md`.
 `ADAM_TODO.md` remains the separate list of what needs an account, an authority or a decision.

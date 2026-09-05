@@ -347,9 +347,8 @@ class _RecordingLLM:
 
 
 async def test_a_cluster_larger_than_the_cap_is_truncated_before_the_model_sees_it() -> None:
-    """The reference's RAPTOR had no input cap and this one did not either: `_format_cluster`
-    joined every member whole, so one oversized cluster could exceed a model's context and
-    take the whole cluster's summary with it.
+    """An uncapped `_format_cluster` joins every member whole, so one oversized cluster can
+    exceed a model's context and take the whole cluster's summary with it.
     """
     # Arrange — two members of 400 characters each against a 100-character cap.
     a, b = _node("a" * 400), _node("b" * 400)
@@ -433,8 +432,8 @@ async def test_concurrent_summaries_are_bounded_by_configuration() -> None:
 
 
 async def test_every_cluster_degrading_fails_rather_than_looking_like_a_complete_run() -> None:
-    """The silent half of the reference's defect, and the one this plugin still had: when every
-    summary degraded, `run` returned `Produced(payload)` — byte-identical to the answer for a
+    """The silent failure mode this test closes: if every summary degraded and `run` still
+    returned `Produced(payload)`, that result would be byte-identical to the answer for a
     corpus that genuinely had nothing to cluster. Two different facts, one result.
     """
     # Arrange — two clusters, every attempt fails.

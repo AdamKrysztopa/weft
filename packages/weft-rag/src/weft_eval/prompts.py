@@ -8,9 +8,9 @@ carrying its `ragas_` prefix into Weft would be a false provenance claim §2.1 r
 None of that is repeated here — this module's job is the wording, not the citation.
 
 **Every output model is a set of counts or judgements, never a score field.** This is the fix for
-the reference's own defect (`.phase4-reference-recon.md` §4, `docs/reference-corrections.md` C3): three of six
-LLM judges read a ratio directly off a `score` field the model itself divided, while the numerator
-and denominator sat unused beside it. None of the models below has anywhere for a model to put a
+a recurring LLM-judge defect: a judge reading a ratio directly off a `score` field the model
+itself divided, while the numerator and denominator sit unused beside it. None of the models
+below has anywhere for a model to put a
 ratio — `FaithfulnessJudgement.statements`, `ContextRecallJudgement.claims`,
 `ContextRelevanceJudgement.relevant_indices` and `FactualClassification`'s three tuples are all
 countable judgements over discrete items; `weft_eval.judges` is where every ratio the suite reports

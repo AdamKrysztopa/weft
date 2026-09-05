@@ -1,19 +1,18 @@
 """The single JSON-rescue extractor — one implementation, in the order that works.
 
-`.phase2-design.md` §7, tier 3: "the single JSON-rescue extractor, in the **executor's** order
-(direct `json.loads` → fenced code block → bare object), **never** `llm_utils`' order whose
-bare-object regex makes the fence branch nearly unreachable for the common ```` ```json ````
-reply." The reference shipped two extractors with different orderings; the ordering is the whole
-asset, and it is not obvious, because both orders look correct until you notice that a bare
+`.phase2-design.md` §7, tier 3: the single JSON-rescue extractor runs in one fixed order — direct
+`json.loads` → fenced code block → bare object — because a bare-object regex tried first makes
+the fenced-block branch nearly unreachable for the common ```` ```json ```` reply. Order is the
+whole asset here, and it is not obvious: both orders look correct until you notice that a bare
 `{`…`}` scan run first will clip a fenced block at its first brace and swallow the fence.
 
 **Returns a value or `None`, never an `{"error": …}` dict.** A caller string-matching on an
 error key is a caller that cannot tell a refusal from an answer containing the word "error";
 `docs/02-extension-model.md` §5's silent-fallback row is the same defect in a different costume.
 
-**One implementation.** `docs/10-technique-catalogue.md`:68 records what two copies of one
-technique cost the reference — only the second copy grew the behaviour anyone wanted. Nothing else
-in Weft may parse a completion into an object.
+**One implementation.** `docs/10-technique-catalogue.md`:68 records the cost of duplicating this
+technique: of two copies, only one ever grew the behaviour anyone wanted. Nothing else in Weft
+may parse a completion into an object.
 """
 
 import json

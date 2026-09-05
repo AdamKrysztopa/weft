@@ -67,7 +67,7 @@ deleted, because `manual/quickstart.md`'s own zero-configuration walkthrough and
 run_baseline.py`'s V3 baseline (`docs/09-release.md` §4.3) both depend on a deterministic,
 credential-free, network-free measurement that routing cannot honestly offer once generation is
 a real model call resolved from `[llm.roles]` — see `docs/build-ledger.md`'s 3.11 entry for the
-full argument, including the reference's own absent precedent.
+full argument.
 
 **Task 4.0 gives `IndexCommand` the identical `--pipeline` surface `AskArgs` already has.**
 `weft_cli.ingest.run_index`'s own module docstring carries the argument (Q3, settled:
@@ -81,7 +81,7 @@ named document has made.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import ClassVar, cast
+from typing import ClassVar, Final, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -98,6 +98,7 @@ from weft_cli.output import AskFormat
 from weft_cli.participation import load_run_records, stores_in_use
 from weft_cli.pipeline_catalogue import declared_slot_ids, full_catalogue
 from weft_cli.pipeline_commands import register_pipeline_commands
+from weft_cli.preview import run_render
 from weft_cli.reconcile import (
     ReconcileEstimateOutcome,
     ReconcileOutcome,
@@ -119,6 +120,7 @@ from weft_command.contract import Command, CommandResult
 from weft_command.permission import PermissionClass
 from weft_embed import Embedder
 from weft_extract import Extractor
+from weft_extract.payload import Rendition
 from weft_generate.payload import Answer
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackRegistrar, PackReport
@@ -472,6 +474,98 @@ class AskCommandResult(CommandResult):
     hits: tuple[AskHit, ...] = ()
 
 
+_RENDER_HELP: Final[str] = (
+    "extract a directory and print it as one readable document: `weft render ./docs "
+    "preview-markdown`. Answers 'what does Weft actually see in this file?' — the question "
+    "you have before you trust an index built from it. The second argument names a pipeline "
+    "whose last stage is a Renderer; 'preview-plain' and 'preview-markdown' ship. The "
+    "rendered text goes to stdout alone, so it can be redirected to a file; what rendering "
+    "cost goes to stderr."
+)
+
+
+class RenderArgs(BaseModel):
+    """`weft render <path> --pipeline NAME` — task **8.9**.
+
+    **Both fields are positional, and `pipeline` is deliberately one of them.**
+    `weft_cli.argparse_gen`'s rule is that a field with no default becomes a positional and one
+    with a default becomes a flag — so giving `pipeline` a default would make it `--pipeline`,
+    and the default is what this command must not have. Its whole output is whatever the
+    document's terminus renders; choosing `preview-plain` on the operator's behalf would be
+    this command deciding what "readable" means, which is the one thing `weft_cli.preview`'s own
+    module docstring says it does not do. Required-and-positional is the honest shape:
+    `weft render ./docs preview-markdown`.
+
+    *Found by running the binary. The first draft said "required flag" in this docstring and
+    wrote `--pipeline` into the help text, and the generated surface is a positional either
+    way — `weft render ./corpus --pipeline preview-markdown` exited 2 with "unrecognized
+    arguments". Every test passed throughout: they construct `RenderArgs` directly and never
+    meet argparse.*
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    path: str = Field(description="directory whose files to extract and render")
+    pipeline: str = Field(
+        description=(
+            "pipeline to render through — its last stage must be a Renderer. 'preview-plain' "
+            "and 'preview-markdown' ship; `weft pipeline list` shows the rest."
+        ),
+    )
+
+
+class RenderCommandResult(CommandResult):
+    """The rendered document, and an honest account of what rendering cost.
+
+    `rendition` is `None` for exactly one case: a directory holding nothing any installed
+    extractor claims. That is a fact about the filesystem rather than a failure — the same
+    distinction `weft index` draws for an empty directory — and it is kept as `None` rather than
+    flattened into an empty `Rendition`, which would be indistinguishable from a corpus that
+    genuinely rendered to nothing.
+    """
+
+    rendition: Rendition | None
+    pipeline: str
+
+
+class RenderCommand:
+    """`weft render` — task **8.9**, and a driver for a contract that had none.
+
+    `weft_extract.contract.Renderer` has been published since task 2.27 with two plugins
+    registered under it, and until this command **nothing in the tree ever took a `Rendition`
+    out of a pipeline**. That is why fitness function 16 carried `plain` and `markdown` in its
+    waiver: a document ending in one would resolve, run, and throw its only product away. Task
+    2.27's own exit demonstration — "an operator's PDF becomes readable" — was not reachable
+    from the CLI at all.
+
+    `permission_class` is `READ`: it opens files and writes to stdout, touching no store and
+    creating nothing. `docs/03-cli.md` → *Permissions* is what that class means.
+    """
+
+    args_model: ClassVar[type[BaseModel]] = RenderArgs
+    result_model: ClassVar[type[CommandResult]] = RenderCommandResult
+    permission_class: ClassVar[PermissionClass] = PermissionClass.READ
+    help: ClassVar[str] = _RENDER_HELP
+
+    def __init__(self, config: object = None) -> None:
+        del config  # this pack takes no `with:`-style configuration
+
+    async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        render_args = cast(RenderArgs, args)
+        deps = ctx.require(Dependencies)
+        rendition = await run_render(
+            Path(render_args.path),
+            pipeline=render_args.pipeline,
+            registry=deps.registry,
+            ctx=ctx,
+            reports=deps.reports,
+            contributions=deps.contributions,
+        )
+        return Produced(
+            value=RenderCommandResult(rendition=rendition, pipeline=render_args.pipeline)
+        )
+
+
 class PluginsListCommandResult(CommandResult):
     """`weft plugins list`'s whole answer — one `PackReport` per discovered distribution."""
 
@@ -661,9 +755,7 @@ class AskCommand:
     never lists `route` at all. This class makes that already-published surface real: `ask`
     absorbs `RouteCommand`'s own body verbatim (the only change is where it lives), and
     `route` is retired as a registered name rather than kept as a second spelling of the
-    same thing (`docs/build-ledger.md`'s 3.11 entry has the fuller argument, including why
-    the reference has no precedent to weigh either way — every reference CLI path disables its own
-    router explicitly).
+    same thing (`docs/build-ledger.md`'s 3.11 entry has the fuller argument).
 
     **Naming a pipeline directly** (the capability the ledger's own note asked this task to
     make sure stayed reachable) is new, not a re-spelling of what `route` did: `route` never
@@ -1208,6 +1300,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(Command, "init", InitCommand)
     registrar.add(Command, "delete", DeleteCommand)
     registrar.add(Command, "reconcile", ReconcileCommand)
+    registrar.add(Command, "render", RenderCommand)
     register_pipeline_commands(registrar)
     register_config_commands(registrar)
     register_eval_commands(registrar)
@@ -1216,6 +1309,9 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
 
 __all__ = [
     "AskArgs",
+    "RenderArgs",
+    "RenderCommand",
+    "RenderCommandResult",
     "AskCommand",
     "AskCommandResult",
     "CommandRefusalError",

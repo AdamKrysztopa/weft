@@ -6,9 +6,8 @@ because `WhitespaceNormalizer` must run last for being destructive, not because 
 reads its output." `intact`/`destroys` are the mirror G2 added for exactly that case, and
 this module is where `weft-clean` states what it has to declare against.
 
-**Why three properties, not two.** The reference's own docstring
-(`indexing/cleaning/pipeline.py:30-51`) gives three independent reasons a cleaning stage
-cares about what an earlier stage did, not two — the first two hold a *later* stage to a
+**Why three properties, not two.** A cleaning stage cares about what an earlier stage did
+for three independent reasons, not two — the first two hold a *later* stage to a
 fact an *earlier* one must not have erased yet; the third is the mirror image, holding
 every *later* stage to account for a fact the *first* one needs. Each is a different fact
 about the text:
@@ -24,7 +23,7 @@ about the text:
   indistinguishable from ordinary prose.
 * `Verbatim` — a node's text is still, character for character, what extraction handed
   over: no earlier stage has inserted, deleted or rearranged anything in it. A mis-decoded
-  byte sequence (the reference's own example, `unicode_normalizer.py:15`: "Ã³ -> ó") is only
+  byte sequence (for example, `Ã³` where `ó` was meant) is only
   recognisable and repairable by `ftfy.fix_text` while its bytes are still contiguous and
   in the order extraction produced them. Insert a space in the middle of it
   (`weft_clean.dictionary_spacing.PolishFusedWordFixer`), delete the line it sits on
@@ -51,10 +50,8 @@ proven the same way any other `intact`/`destroys` pair is: at resolution, by
 `weft_kernel.resolution.resolve`, never by a docstring an inserted stage could land past
 unnoticed.
 
-`docs/04-reference-inventory.md` category A and `docs/01-high-level-plan.md` → Phase 1 **Lift**
-(task **2.35**'s correction) are the owners; both cite `indexing/cleaning/pipeline.py:
-30-51` as the reference location this ordering knowledge was verified against — see
-`weft_clean.hyphenation`, `weft_clean.table_linearizer`, `weft_clean.whitespace`,
+`docs/01-high-level-plan.md` → Phase 1 **Lift** (task **2.35**'s correction) is the owner —
+see `weft_clean.hyphenation`, `weft_clean.table_linearizer`, `weft_clean.whitespace`,
 `weft_clean.dictionary_spacing`, `weft_clean.artifact_remover` and
 `weft_clean.unicode_normalizer` for where each property is actually declared.
 """

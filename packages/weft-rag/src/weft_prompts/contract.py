@@ -1,11 +1,9 @@
 """The `Prompt` contract, and the `Prompts` service — published here, never by the kernel.
 
 Task **2.10**: "the **prompt layer**, the cascade, model strings and the `LLMError` taxonomy
-ship outside the kernel." `docs/04-reference-inventory.md`:45 places `core/prompt/` in
-`weft-prompts` with a one-line verdict — "Names an LLM. Excellent, and not kernel" — and
-`:128` records what makes it excellent: "a prompt is a Pydantic input model, an output model
-and a locale key. Translatable by construction, versioned, and already registry-based … the
-study found no defects."
+ship outside the kernel." A prompt names an LLM, so it belongs in `weft-prompts`, not the
+kernel — and the shape earns that placement: a prompt is a Pydantic input model, an output
+model and a locale key, translatable by construction, versioned, and already registry-based.
 
 **`Prompt` is not a pipeline position.** Like `LLMProvider`, it declares no `Stage` base:
 `.phase2-design.md` §3 groups the two under "named and registered, but not pipeline
@@ -19,14 +17,14 @@ The cost, stated so nobody rediscovers it: `issubclass` against a Protocol with 
 members raises `TypeError`, so any future walk over registered contracts must use `isinstance`
 against an instance, as `weft_prompts.registry` does.
 
-**The one blocker `docs/04-reference-inventory.md`:128 says to fix at the door is fixed.** The
-reference's `PromptLoader` resolved locales as `Path(__file__).parent.parent / 'locales'`, "so a
-pack cannot ship its own prompts or translations". Here a prompt *is* a plugin in a pack, its
-translations are class data, and nothing opens a file at all.
+**The blocker inherent in resolving prompt locales relative to a fixed loader path is avoided
+here.** Resolving locales as `Path(__file__).parent.parent / 'locales'` means a pack cannot
+ship its own prompts or translations. Here a prompt *is* a plugin in a pack, its translations
+are class data, and nothing opens a file at all.
 
-**The reference's bespoke `PromptRegistry` is not rebuilt** (`.phase2-design.md` decision 20): its
-one confirmed asset was raise-on-collision with `override()` as a separate named operation,
-and `weft_kernel.registry` already has exactly that — `DuplicateRegistrationError` printing the
+**No bespoke `PromptRegistry` is built** (`.phase2-design.md` decision 20): the one asset such
+a thing would need is raise-on-collision with `override()` as a separate named operation, and
+`weft_kernel.registry` already has exactly that — `DuplicateRegistrationError` printing the
 `[plugins]` line, an operator pin as the override, and the loser kept in `Registry.displaced()`.
 Prompts are ordinary plugins; A/B is a pin in `weft.toml`.
 """

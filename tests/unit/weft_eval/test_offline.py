@@ -42,7 +42,7 @@ def test_gate_subset_partitions_the_real_suite_into_the_expected_counts() -> Non
     # Act
     subset = gate_subset(registry)
 
-    # Assert — 22 registered (21 reference metrics + the demonstration), 15 gate-safe (4 IR + 11
+    # Assert — 22 registered (21 task-4.2 metrics + the demonstration), 15 gate-safe (4 IR + 11
     # traditional, `bertscore` excluded) and 7 gate-unsafe (the 6 LLM judges plus `bertscore`).
     assert len(subset.gate_safe) == 15
     assert len(subset.gate_unsafe) == 7

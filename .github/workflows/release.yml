@@ -6,9 +6,8 @@ name: Release
 # compares "the distributions the release job actually passes to the index" against the workspace
 # members that do not opt out — two sets from two files that can genuinely disagree. A workflow
 # that derived its own matrix from `packages/*` would compare a function to itself and could never
-# fail, which is the reference's `test_keys_parity` shape (`reference/study/08-salvage.md:777-782`) and the
-# exact thing `01` writes the clause to avoid. So: add a distribution, add it here, or the gate
-# says so. `tests/architecture/test_ff10_ship_set_integrity.py` is what says so.
+# fail, which is exactly the shape `01` writes the clause to avoid. So: add a distribution, add it
+# here, or the gate says so. `tests/architecture/test_ff10_ship_set_integrity.py` is what says so.
 #
 # **Why `weft-canary` is absent.** Its entire purpose is to be *refused* by discovery (fitness
 # function 8). It declares `[tool.weft] publish = false` in its own `pyproject.toml` and must never

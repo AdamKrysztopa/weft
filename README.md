@@ -89,9 +89,7 @@ decisions, what to do next, and which document owns what. Everything else is rea
 | [`docs/01-high-level-plan.md`](docs/01-high-level-plan.md) | The kernel boundary, async colour, the phase script, the fitness functions |
 | [`docs/02-extension-model.md`](docs/02-extension-model.md) | Contracts, the payload model, the store family, discovery and the trust model |
 | [`docs/03-cli.md`](docs/03-cli.md) | The command line as the single driving adapter |
-| [`docs/04-reference-inventory.md`](docs/04-reference-inventory.md) | What to lift from the reference, what to rewrite, what to leave |
 | [`docs/05-grilling-sessions.md`](docs/05-grilling-sessions.md) | The ten decision gates, six closed |
-| [`docs/reference/`](docs/reference/) | The frozen audit of the reference codebase, and the review that started this |
 
 ## Layout
 
@@ -155,18 +153,11 @@ Typed into Claude Code:
 
 The phase boundary is detected rather than remembered: the script flags the phase's last unticked
 task, and `phase-step` → *Close the phase* runs what that boundary owes — the whole-phase
-`weft-qualities` reading, `reference-audit`, and `implement-ll` draining
+`weft-qualities` reading and `implement-ll` draining
 [`docs/lessons.md`](docs/lessons.md) to empty, then the Exit criterion in `01` re-checked against
 what exists rather than against the ticked boxes. **The queue is drained completely or its entries
 are declined with a reason** — nothing is carried to a second phase close. Each of those skills is
 still typed directly when you want it on its own.
-
-## The reference
-
-`a prior project` is a **parts reference, not a baseline** — a production RAG system whose extension points
-were audited in detail before any of this was designed. That audit is frozen in `docs/reference/`, and
-the source itself is reached through an untracked `reference` symlink to a sibling checkout. **No build,
-test or packaging step reads through it.**
 
 ## Contributing
 

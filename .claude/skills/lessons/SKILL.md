@@ -44,7 +44,7 @@ If no, it is not a lesson — it is just something that happened.
 - A check that turned out to be prose: a fitness function named in a document and absent from
   `tests/architecture/`; a validator that runs per block and leaves its container unchecked.
 - A claim from intuition that measurement falsified. This repository already demands evidence for
-  claims about the reference; the lesson is usually that the same standard was owed somewhere else.
+  factual claims elsewhere; the lesson is usually that the same standard was owed somewhere else.
 - A recommendation that contradicted settled text, caught late. The text existed and was not read.
 - **A defect found by running the binary rather than by its tests.** This carries its own weight here:
   all four of Phase 3's repairs were found that way and none by its 1,513 tests — and one of them

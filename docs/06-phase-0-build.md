@@ -29,8 +29,8 @@ each is the same: **make the minimal choice that is reversible, and record that 
 
 **1. Where the embedding happens.** G4 settled that stores take a vector and never embed — a store
 coupled to an embedding model cannot be used with two models or none. So indexing must produce a
-vector before the store stage, and the reference had nowhere for that: it embedded inside storage, which
-is why its `query()` took a string. G2 must decide whether that is a stage in the list or a step
+vector before the store stage, and a real system had nowhere for that: it embedded inside storage,
+which is why its `query()` took a string. G2 must decide whether that is a stage in the list or a step
 inside the store stage. **Phase 0 puts it in the list, as a stage, and this is not an answer to G2.**
 It is the shape that requires no new machinery; if G2 chooses otherwise, one stage moves.
 
@@ -43,8 +43,8 @@ place a stage between `HyphenationFixer` and `WhitespaceNormalizer`.
 
 **3. What happens when two packs register the same name.** G2 owns arbitration and has not decided.
 **Phase 0 raises on duplicate registration**, naming both distributions. This is the reversible
-choice: refusing is strictly recoverable, and every silent-overwrite behaviour in the reference — four of
-its six registration decorators — is a bug someone eventually has to find. If G2 later chooses
+choice: refusing is strictly recoverable, and every silent-overwrite behaviour found elsewhere — four
+of six registration decorators in one such system — is a bug someone eventually has to find. If G2 later chooses
 last-wins, first-wins or explicit qualification, it relaxes a refusal rather than tightening a
 silence.
 
@@ -59,8 +59,8 @@ into a phase whose job is wiring.
 ## The order, and why it is this order
 
 Two principles decide it. **The registration seam comes early**, because every cross-cutting concern
-attaches there and the reference measured what happens otherwise: every concern its machinery applied
-automatically held perfectly, and every concern an author had to remember decayed. **Discovery comes
+attaches there, and measurement elsewhere showed what happens otherwise: every concern a system's own
+machinery applied automatically held perfectly, and every concern an author had to remember decayed. **Discovery comes
 before the built-ins**, because built-ins that exist before the public path exists are built-ins that
 quietly get a private one — which is exactly the defect fitness function 2 was written to catch.
 
@@ -72,7 +72,7 @@ Each step names what it makes true, not just what it adds.
 models, the admission rule for the six core fields, `derive` / `combine` / `synthetic`, `with_ext` /
 `ext_as`, content-addressed identity, and `sources` derived from lineage rather than stored.
 
-*First because every signature below names these types.* Also because two reference bugs stop being
+*First because every signature below names these types.* Also because two known bugs stop being
 representable here rather than being fixed later: non-empty parents plus derived `sources` make
 RAPTOR's unreachable summaries **unwritable**, and `__transient__` makes the multi-MB base64 blob
 into JSONB impossible rather than guarded.
@@ -92,8 +92,9 @@ The wrapper every registration passes through, applying — without the author a
 via `opentelemetry-api`, error attribution naming the stage and the distribution, `__transient__`
 stripping, and the categorical blocking-call detector scoped to stage execution.
 
-*This is the single most load-bearing piece of the kernel and the reason the reference's observability
-decayed.* Build it before there is anything to wrap, so that nothing is ever wrapped by hand.
+*This is the single most load-bearing piece of the kernel — cross-cutting concerns left for authors
+to remember are exactly how observability decays elsewhere.* Build it before there is anything to
+wrap, so that nothing is ever wrapped by hand.
 
 **Makes true:** fitness function 7(b) has somewhere to live. **Runnable:** nothing.
 
@@ -194,7 +195,7 @@ the same artifact step 10 already keeps.
 
 *This is the last step for a reason.* Both checks need something to check against — the CLI (step 9)
 and the independence proof (step 10) — so writing them earlier would mean documenting commands that
-do not exist yet, the exact reference failure `08-manuals.md` §0 opens with.
+do not exist yet, the exact failure `08-manuals.md` §0 opens with.
 
 **Makes true:** Phase 0's thesis is not demonstrated once by a human and then left to age; it is
 asserted by a reader-facing document whose assertion keeps getting checked. **Runnable:** `uv run

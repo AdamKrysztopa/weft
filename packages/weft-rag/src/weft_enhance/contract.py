@@ -6,10 +6,10 @@ contract — `weft.toml`'s pin example a few paragraphs later reads `"Enhancer:k
 "weft-kw"` — and §4's graph pack registers "Entity and relation extractor | `Enhancer`".
 Neither prior task published it, because neither needed a plugin to run under it: this
 is the first task that hands the kernel a document naming `use: keybert`, so this is
-where the contract those examples already assume has to actually exist. `docs/reference/
-study/02-discovery-and-config.md:199` confirms the shape is not invented for this task:
-the reference's own working axis is `@register_enhancer('keybert')` against an `Enhancer`
-family — this contract is the shape that axis is missing, not a new idea.
+where the contract those examples already assume has to actually exist. This shape is
+not invented for this task: a comparable registration axis — a decorator-based
+`@register_enhancer('keybert')` against an `Enhancer` family — already existed
+elsewhere; this contract is the shape that axis was missing, not a new idea.
 
 **`Enhancer` declares `Stage[Sequence[Node], Sequence[Node]]` as one of its own bases**,
 the identical convention `weft_chunk.contract.Chunker`, `weft_clean.contract.Cleaner`
@@ -23,9 +23,9 @@ capability checkable by `isinstance`, and `Enhancer.__protocol_attrs__` is exact
 **What tells `Enhancer` apart from `Cleaner`, at the same input/output shape.** A
 `Cleaner` repairs the text already there; an `Enhancer` attaches a new, namespaced
 *fact* about a node — via `Node.with_ext`, never `Node.derive` — without touching
-`content` at all. `docs/04-reference-inventory.md`'s own row for the reference's enhancer axis
-names the shape: "entities, relations, summary, hypothetical_questions, caption" — every
-one of those is something *added*, not text *rewritten*. That distinction is why this
+`content` at all. An `Enhancer`'s axis of variation is what it adds — entities,
+relations, a summary, a hypothetical question, a caption — every one of those is
+something *added*, not text *rewritten*. That distinction is why this
 contract does not opt into `publishes_property_vocabulary` the way `Cleaner` and
 `Chunker` do: `docs/02-extension-model.md` §3 → *Ordering constraints* exists because a
 destructive text transform can silently corrupt what an earlier stage needed intact, and
@@ -61,7 +61,8 @@ class Enhancer(Stage[Sequence[Node], Sequence[Node]], Protocol):
     `Enhancer` returns the *same* node with an added `Node.with_ext` fact — identity
     (`node.id`) is unaffected, because nothing about the text changed. A batch with
     nothing to enhance still answers `NothingToProduce`, never a silently empty
-    `Produced([])` — the same reference-trap fix every other contract in this tree documents.
+    `Produced([])` — the same fix every other contract in this tree documents for
+    collapsing a legitimately empty result into the same ambiguous case as a failure.
     """
 
     if TYPE_CHECKING:

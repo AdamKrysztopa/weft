@@ -25,7 +25,7 @@ file's own self-test rather than rotting silently.
    fixed `self-rag`, `flare`, `adaptive-rag` and the rest for techniques this build does not
    implement; registering one of those names for something else is exactly the false-provenance
    failure §2.1 rule 4 forbids.
-2. **No registered name reuses a reference name `10` §1.4 renamed for cause** — `rag_consensus`,
+2. **No registered name reuses a name `10` §1.4 renamed for cause** — `rag_consensus`,
    `rag_adaptive`, `reverse_hyde` and the rest are not preferences; reusing one would launder the
    defect its row names back into the registry it was corrected out of.
 3. **Every technique whose row cites a paper still carries that citation somewhere in the pack
@@ -45,8 +45,8 @@ file's own self-test rather than rotting silently.
 judgement call task 2.26 made by reading each plugin against its row — the same limit
 `tests/docs/test_phase_document_routing.py`'s own docstring states for its heuristic: a test
 can confirm a citation survived, not that it was ever honest. That is what the hand-read audit
-recorded in `docs/10-technique-catalogue.md` §1.1/§1.2's own "Reference" column is for, and what a
-reviewer re-reads by eye at the next phase's own audit.
+recorded in `docs/10-technique-catalogue.md` §1.1/§1.2's own provenance-fidelity column is for,
+and what a reviewer re-reads by eye at the next phase's own audit.
 
 **Repaired 2026-08-18, two reviewer findings against the first commit of this file.** (1)
 `registered_names()` used to read `weft_retrieve.__all__`/`weft_generate.__all__`, on the
@@ -143,12 +143,12 @@ def reserved_names() -> tuple[frozenset[str], frozenset[str]]:
     return exact, prefixes
 
 
-def renamed_reference_names() -> frozenset[str]:
-    """`10` §1.4's own table — the reference names each row states a rename is not a preference for.
+def names_renamed_for_cause() -> frozenset[str]:
+    """`10` §1.4's own table — the names each row states a rename is not a preference for.
 
     Bounded at `### 1.5`, not `## 2. The naming rule`: §1.5 sits between 1.4 and section 2
     now, and its own table is a plain one-name-per-row shape `_TABLE_ROW` would just as
-    happily (and wrongly) parse as reference names if the section ran past it.
+    happily (and wrongly) parse as renamed names if the section ran past it.
     """
     section = _section(
         _catalogue_text(),
@@ -190,7 +190,7 @@ def registered_names() -> frozenset[str]:
     Widened for free to every installed pack, not only `weft-retrieve`/`weft-generate`:
     `weft-chunk`, `weft-clean`, `weft-embed`, `weft-enhance` and `weft-extract`/`weft-store`'s
     own built-ins ride along too, which only strengthens the reserved-name and
-    reference-rename checks below — nothing in `10` §4 or §1.4 could ever legitimately be one
+    renamed-for-cause checks below — nothing in `10` §4 or §1.4 could ever legitimately be one
     of theirs anyway.
     """
     return _all_names(discover_for_tests())
@@ -262,7 +262,7 @@ def test_the_catalogue_itself_names_at_least_one_reserved_technique_and_one_rena
 
     # Assert
     assert exact or prefixes, "no reserved name parsed from `10` §4"
-    assert renamed_reference_names(), "no renamed name parsed from `10` §1.4"
+    assert names_renamed_for_cause(), "no renamed name parsed from `10` §1.4"
 
 
 def test_no_registered_name_claims_a_reserved_technique() -> None:
@@ -283,18 +283,18 @@ def test_no_registered_name_claims_a_reserved_technique() -> None:
     )
 
 
-def test_no_registered_name_reuses_a_reference_name_the_catalogue_renamed() -> None:
-    """`10` §1.4: these renames are not preferences. Reusing one would put the reference's own
+def test_no_registered_name_reuses_a_name_the_catalogue_renamed() -> None:
+    """`10` §1.4: these renames are not preferences. Reusing one would put the original
     defect back in the registry under the exact name it was corrected out of."""
     # Arrange
-    banned = renamed_reference_names()
+    banned = names_renamed_for_cause()
 
     # Act
     reused = registered_names() & banned
 
     # Assert
     assert not reused, (
-        f"registered name(s) reuse a reference name `10` §1.4 renamed for cause: {sorted(reused)}. "
+        f"registered name(s) reuse a name `10` §1.4 renamed for cause: {sorted(reused)}. "
         f"See that row for why the rename is not discretionary."
     )
 
@@ -317,9 +317,9 @@ def test_a_reserved_collision_would_be_caught() -> None:
 
 
 def test_a_renamed_name_collision_would_be_caught() -> None:
-    """The renamed-reference-name check's own teeth, the same self-test discipline one function up."""
+    """The renamed-for-cause check's own teeth, the same self-test discipline one function up."""
     # Arrange
-    banned = renamed_reference_names()
+    banned = names_renamed_for_cause()
     assert "rag_consensus" in banned, (
         "`10` §1.4 must list `rag_consensus` for this test to mean anything"
     )
@@ -348,14 +348,13 @@ def weft_names_in_catalogue() -> frozenset[str]:
     """Every Weft name `10` states anywhere — the target side of property 5's reverse
     check: §1.1's own names, §2.2's "Applied to all ten" table, and §1.5.
 
-    §2.2 is read whole rather than column-by-column: the reference column and the "Kind of
-    change" prose both carry backtick tokens too (some of the reference tokens sit beside a
-    literal escaped `\\|`, e.g. `` `corrective` \\| `graded-retrieval` ``, which a
-    column split by `str.split("|")` would misread as a column boundary). The extra reference
-    tokens this pulls in are harmless here: `test_no_registered_name_reuses_a_reference_name_
-    the_catalogue_renamed` above already refuses every one of them as a live registration,
-    so none can ever appear in the `names_registered_by(...)` set this function is
-    compared against.
+    §2.2 is read whole rather than column-by-column: its left-hand rename-source column and
+    the "Kind of change" prose both carry backtick tokens too (some of those extra tokens sit
+    beside a literal escaped `\\|`, e.g. `` `corrective` \\| `graded-retrieval` ``, which a
+    column split by `str.split("|")` would misread as a column boundary). The extra tokens
+    this pulls in are harmless here: `test_no_registered_name_reuses_a_name_the_catalogue_
+    renamed` above already refuses every one of them as a live registration, so none can
+    ever appear in the `names_registered_by(...)` set this function is compared against.
     """
     text = _catalogue_text()
     names = set(_weft_names_in_1_1())

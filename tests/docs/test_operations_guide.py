@@ -24,7 +24,8 @@ copy that could quietly diverge.
 
 Each check has a floor — "at least one thing to compare" — and a self-test proving the comparison
 can actually fail, per `08` §3's own requirement of every check in this file: a check with no floor
-is `reference/study/08-salvage.md:777-782`'s parity test with a different subject.
+degenerates to comparing a set against itself, passes vacuously on an empty guide, and never
+catches the drift it exists to catch.
 """
 
 from __future__ import annotations

@@ -11,8 +11,8 @@ environment this process cannot provide.
 The **static** half lives here, for the distributions that ship together in one
 repository and can therefore see each other on `sys.path` regardless of what
 they declare. It is derived from the declared dependency set rather than
-enumerated as a denylist of prefixes — the reference's checker used a denylist, it
-matched zero imports, and it exited 0 on a tree with 11 violations.
+enumerated as a denylist of prefixes — a denylist can match zero imports and
+exit 0 on a tree that carries real violations, silently checking nothing.
 """
 
 import ast
@@ -61,7 +61,7 @@ def test_kernel_imports_nothing_it_does_not_ship() -> None:
 def test_at_least_one_kernel_file_is_walked() -> None:
     # Floor — `08` §3's shape, applied to a source walk instead of a document walk: a
     # walk that finds nothing would let the assertion above pass on an empty tree,
-    # exactly the vacuous shape `reference/study/08-salvage.md:777-782`'s parity test takes.
+    # exactly the vacuous shape a comparison computed once and checked against itself takes.
     walked = sorted((KERNEL_ROOT / "src").rglob("*.py"))
     assert walked, (
         f"no `.py` file found under {KERNEL_ROOT / 'src'} — the walk itself is broken; "
@@ -91,9 +91,10 @@ def _top_level_imports(path: Path) -> set[str]:
 def test_the_check_can_actually_fail(tmp_path: Path) -> None:
     """Fitness function 16 clause (b) — ledger task **6.15**.
 
-    The reference's boundary checker "used a denylist, it matched zero imports, and it exited 0
-    on a tree with 11 violations" — this file's own docstring. That is precisely a check
-    nobody had watched fail, and it is why this self-test plants a real violation and runs
+    A denylist-based boundary checker can match zero imports and exit 0 on a tree that
+    carries real violations, silently checking nothing — this file's own module docstring
+    states why the check here is derived instead. That is precisely a check nobody had
+    watched fail, and it is why this self-test plants a real violation and runs
     the real `_top_level_imports` over it rather than asserting anything about a set.
 
     Three shapes at once, because they take three different AST paths and a walker can be

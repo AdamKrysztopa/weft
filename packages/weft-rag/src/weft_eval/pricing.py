@@ -30,9 +30,9 @@ priced run always says which price sheet it used.
 
 **Excluded, counted rather than merely honoured — `weft_eval.aggregate`'s own shape, applied to
 money instead of a score.** A call whose model has no entry in `rates` is not silently priced at
-`$0` — `aggregate.py`'s own module docstring names the reference's identical mistake one level up,
-an aggregator that reported a success count and never the exclusion count a reader actually
-wants. `RunPrice.unpriced_calls`/`unpriced_models` are that count and that naming, here.
+`$0` — `aggregate.py`'s own module docstring names the identical mistake one level up, an
+aggregator that reports a success count and never the exclusion count a reader actually wants.
+`RunPrice.unpriced_calls`/`unpriced_models` are that count and that naming, here.
 """
 
 from collections.abc import Mapping, Sequence

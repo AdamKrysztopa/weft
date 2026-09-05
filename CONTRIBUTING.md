@@ -22,12 +22,6 @@ records its question, the positions to attack, what evidence to bring, and what 
   precisely what the gates exist to prevent, and a PR that silently answers one will be asked to
   back it out.
 
-**Claims about the reference need evidence.** Weft's plan asserts a lot about `a prior project`, and every
-assertion carries a `path:line`. This is not pedantry: the review that started this project got
-several of its facts wrong, and the corrections are logged in
-[`docs/reference/study/10-doc-corrections.md`](docs/reference/study/10-doc-corrections.md). Measure, then
-assert.
-
 ---
 
 ## The rules that are not up for negotiation in a PR
@@ -46,8 +40,8 @@ entry, not a code review.
 - **Built-ins get no shortcut.** A first-party pack registers through the same public entry point a
   third party uses.
 - **Cross-cutting concerns go to the registration seam**, never into a rule authors must remember.
-  This is the single most load-bearing lesson from the reference, where every concern the machinery
-  applied automatically held and every concern an author had to remember decayed.
+  This is the single most load-bearing lesson this project has learned: every concern the machinery
+  applied automatically held, and every concern an author had to remember decayed.
 - **No `dict[str, Any]` returns**, no `Literal[...]` where an `Enum` belongs, no bare
   `except Exception`, no silent fallback.
 
@@ -60,15 +54,6 @@ git clone <this repo> && cd weft
 uv sync
 uv run poe ci-checks
 ```
-
-Optionally, for reading the reference and lifting from it:
-
-```bash
-git clone <a prior project> ../a prior project   # the `reference` symlink expects a sibling checkout
-```
-
-The symlink is untracked and **no build, test or packaging step may read through it**. If a check
-starts depending on the reference being present, that check is wrong.
 
 ### Gates
 
@@ -91,9 +76,9 @@ WEFT_LIVE_API_TESTS=1 uv run pytest tests/integration -q
 ```
 
 **If you add an architecture check, add it to `ci-checks` in the same commit.** Fitness function 0
-asserts that membership and will fail otherwise. It exists because the reference shipped a 316-line
-boundary checker that was not in its canonical task and therefore never ran, on a tree with eleven
-violations.
+asserts that membership and will fail otherwise. It exists because a real project once shipped a
+316-line boundary checker that was not wired into its canonical task and therefore never ran, on a
+tree with eleven violations.
 
 Some checks carry a **waiver constant pinned empty**. Adding a name to one is a deliberate, visible
 act in a diff; that is the whole point of the pattern, so do not treat it as a quick unblock.
@@ -122,7 +107,7 @@ already says what.
 
 ---
 
-## Learning from the reference, without copying it
+## Learning from prior art, without copying it
 
 **No third party's source text enters this repository.** Not a file, not a function, not a
 docstring, not a comment, not a prompt string, not a word list.
@@ -133,15 +118,13 @@ so; and a sentence or two of a third party's stated **rationale** may be quoted,
 point of use, sitting beside our own restatement of the same reasoning rather than instead of it.
 Nothing executable is ever carried that way.
 
-What the reference is for is *understanding*. Read it, work out why something is the way it is, then
-close it and write ours. [`docs/04-reference-inventory.md`](docs/04-reference-inventory.md) is a record of
-what was worth understanding — an ordering that was learned from broken output, a taxonomy that
-turned out to be the only usable retry axis, a guard that records a paid-for bug. Carry the
-*knowledge* across in your own words and implement it against Weft's contracts, which are not the
-reference's contracts anyway.
+Reading prior art is for *understanding*. Read it, work out why something is the way it is, then
+close it and write ours — an ordering learned from broken output, a taxonomy that turned out to be
+the only usable retry axis, a guard that records a paid-for bug. Carry the *knowledge* across in
+your own words and implement it against Weft's own contracts.
 
-The practical test, and it is not a formality: **if you could not have written this line without the
-reference's file open, it is a copy.** Reviewers check for this.
+The practical test, and it is not a formality: **if you could not have written this line without
+someone else's file open, it is a copy.** Reviewers check for this.
 
 ---
 

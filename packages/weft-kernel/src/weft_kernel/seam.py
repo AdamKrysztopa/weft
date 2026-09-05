@@ -2,10 +2,10 @@
 
 Specified in `docs/06-phase-0-build.md` step 3 and `docs/01-high-level-plan.md`
 → *Fitness functions*. Four cross-cutting concerns attach here, applied
-without the author asking, because the reference measured what the alternative
-costs: every concern its machinery applied automatically held perfectly, and
-every concern an author had to remember decayed — spans to 58 hand-written
-call sites, 38 of 54 off-convention; observability lost entirely on an
+without the author asking, because measurement shows what the alternative
+costs: every concern applied automatically held perfectly, and every concern
+left for an author to remember decayed — spans missing or off-convention at
+38 of 54 hand-written call sites out of 58; observability lost entirely on an
 untraced ingest stage. `wrap` is built *before* there is a `Stage` protocol,
 a `Context`, or a single published capability contract (those are steps 4, 6
 and 7) — deliberately, so nothing downstream ever has the chance to wrap a
@@ -36,8 +36,7 @@ The four concerns:
 3. **`__transient__` stripping** — see `payload/ext.py` and
    `payload/node.py`. A produced `Node`, or a list/tuple of them, has every
    transient namespace stripped before the result leaves this function. This
-   is the type-level fact `Node.without_transient` exists to apply, and the
-   reference needed a whole pipeline stage (its "4.5") to do it by hand.
+   is the type-level fact `Node.without_transient` exists to apply.
 4. **The categorical blocking-call detector**, fitness function 7(b) — see
    `blocking.py`. Scoped to exactly the `await` below, so a blocking call
    made anywhere else — a fixture, an import, a factory building an instance
@@ -53,10 +52,8 @@ The four concerns:
      `weft_clean/dictionary_spacing.py:117`, `weft_clean/hyphenation.py:70`,
      `weft_clean/whitespace.py:63`, `weft_clean/table_linearizer.py:79`,
      `weft_index/raptor.py:254`. A fix in one extractor covers two of the
-     eight — the reference's own twelve-call-site fragility
-     (`reference/study/08-salvage.md` §T1.16, *"the trap"*), reproduced here with
-     a smaller number but the identical shape: a new construction path that
-     forgets the call reaches storage uncleaned.
+     eight — the same fragility shape at a smaller scale: a new construction
+     path that forgets the call reaches storage uncleaned.
    - **Not in a store.** `weft_store/pgvector_store.py`'s `weft_nodes.content`
      column is `TEXT NOT NULL` (`:138`) and Postgres refuses a NUL byte in it;
      a second store backend sending the same payload over its own wire
@@ -69,14 +66,11 @@ The four concerns:
      rule an author must remember (`CLAUDE.md` → *The rules that are already
      settled*), this function already knows what a `Node` is, and `wrap`'s
      own signature already carries `distribution`, `contract` and `plugin` —
-     so the reference's diagnostic triple (source, chunk index, extractor name;
-     §T1.16, *"the diagnostic is the point, not the strip"*) is structural
-     here, read off the span's own attributes, rather than four keyword
-     arguments an author has to remember to pass at every call site.
+     so a diagnostic triple — source, chunk index, extractor name — is
+     structural here, read off the span's own attributes, rather than four
+     keyword arguments an author has to remember to pass at every call site.
 
-   **NUL becomes a space, never a deletion** — the reference's own choice
-   (§T1.16's `_strip_nul`), and this codebase has a live reason the reference
-   only had in principle: `weft_chunk.payload.ChunkOffset` records a
+   **NUL becomes a space, never a deletion**, because `weft_chunk.payload.ChunkOffset` records a
    character offset into a parent's content, so deleting a byte would
    silently shift every offset recorded downstream of the node being
    cleaned. A space is one character for one character; every offset already
@@ -95,10 +89,9 @@ The four concerns:
    walk still covers `ext` because the JSONB fact above is about the column,
    not about any one model's current fields, and because covering it costs
    one `isinstance` check per field on a namespace that already changed,
-   never a maintained list of which namespaces to check (`reference/study/
-   08-salvage.md` §T1.20(a)'s recorded lesson about the transient scrub
-   applies unchanged: the invariant is "ext is safe to store", not the name
-   of whichever field happens to hold it).
+   never a maintained list of which namespaces to check — the invariant is
+   "ext is safe to store," not the name of whichever field happens to hold
+   it.
 6. **Never with a name list.** Every `ExtModel` namespace `Node.ext` carries
    is walked by `type(model).model_fields`, the same field-introspection
    idiom `weft_kernel.pipeline` and `weft_kernel.resolution` already use
@@ -160,7 +153,7 @@ raising, so a pack that raises partway through warns about nothing it only half-
 `discovery._activate` is the one caller: once a pack's buffer has committed, it hands
 whatever `PackRegistrar.deprecations` collected to `warn_deprecated` here, so a pack author
 states the fact once, at registration, and never writes the warning by hand — the same
-reference-measured argument the module docstring opens with, applied to a fifth concern rather
+measured argument the module docstring opens with, applied to a fifth concern rather
 than the original four. `docs/02-extension-model.md` §2's status vocabulary gains no member
 for this: `weft_kernel.discovery.PackReport.deprecations` is read by `weft plugins doctor`
 as a flag beside a pack's existing status, exactly as `ambient` already is one.
@@ -217,8 +210,8 @@ class Removal:
     """The removal clock for one deprecated surface, **derived and never declared**.
 
     Task **6.5**. A `removed_in` a pack author types is a number that goes stale on that
-    pack's next release with nothing to notice — `CLAUDE.md`'s measured rule, every concern
-    the reference's machinery applied held and every concern an author had to remember decayed.
+    pack's next release with nothing to notice — `CLAUDE.md`'s measured rule: every concern
+    applied automatically held, and every concern an author had to remember decayed.
     G9's unit makes the answer a pure function of the publishing distribution's own installed
     version, so it is computed at the registration seam, once, and read by both consumers:
     the `DeprecationWarning` below and `weft plugins doctor`.

@@ -6,9 +6,9 @@ extends: retrieve-then-generate
 # retrieved sources agree *with each other* before it writes anything, and then answers with
 # agreement and conflict separated and separately cited.
 #
-# The name is `10` §1.4's rename, and the rename is the point. The reference called this
-# `rag_consensus`, and `10` §1.1 records why that name was wrong: there is no sampling and no
-# voting anywhere in it — it detects disagreement among retrieved sources, not among sampled
+# The name is `10` §1.4's rename, and the rename is the point. `10` §1.1 records why a name
+# implying consensus sampling would be wrong here: there is no sampling and no voting
+# anywhere in it — it detects disagreement among retrieved sources, not among sampled
 # answers. `self-consistency` stays free for something that actually samples.
 vars:
   route.summary: >-

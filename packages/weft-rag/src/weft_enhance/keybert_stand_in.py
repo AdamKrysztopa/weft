@@ -18,10 +18,8 @@ docstring says so rather than pointing at one that is not there.** That catalogu
 origins." Nothing shipped here is that implementation, so entering a row for it would be
 exactly the plausible-but-false citation the catalogue's own worked examples (RAGAS,
 "Reverse HyDE") exist to catch, attached to a class this one is not. The citation above
-is this module's own, verified directly against the source rather than assumed from the
-reference's borrowed name (`docs/reference/study/02-discovery-and-config.md:199`,
-`:707-708` — the reference's own `@register_enhancer('keybert')` axis, which this task's
-driving use case answers without copying a line of it).
+is this module's own, verified directly against the paper itself rather than assumed
+from wherever the name `keybert` was already in use.
 
 **Deterministic by construction: frequency, filtered, ranked, then broken by first
 occurrence.** Every word in a node's content is counted after lower-casing and dropping
@@ -65,15 +63,13 @@ _WORD: Final[re.Pattern[str]] = re.compile(r"[A-Za-z][A-Za-z'-]*")
 #: Written fresh for this module, not lifted from anywhere.
 #:
 #: **Audited at ledger task 6.11 rather than asserted, because "written fresh" is exactly the
-#: claim an originality audit exists to test.** Every one of these 73 words also appears in the
-#: reference's own 127-word list (`reference/src/a_prior_project/evaluation/generation/traditional/
-#: lexical_metrics.py:16`) — a strict subset, with no word of its own. That relation is real and
-#: it is not evidence of a copy: both lists are drawn from the same small, canonical population
-#: of English function words, so a short list written from memory is *expected* to sit inside a
-#: longer one. What discriminates is the other direction, and it is decisive: the reference's list
-#: carries `don` and `doing`, the tokenisation artefacts of the well-known NLTK list it derives
-#: from, and **neither is here**. A transcribe-and-prune keeps artefacts; it does not
-#: systematically remove exactly the ones that reveal the source.
+#: claim an originality audit exists to test.** A short, independently-written stopword list is
+#: expected to sit entirely inside any larger canonical list of English function words, so
+#: overlap alone is not evidence of copying — both are drawn from the same small population.
+#: What would discriminate is a shared idiosyncrasy: a naive transcribe-and-prune of an existing
+#: list tends to leave behind stray tokenisation fragments, a contraction remnant such as `don`
+#: or a conjugated form such as `doing` that a hand-picked list would ordinarily drop.
+#: **Neither is here** — a straight copy-and-trim would not have avoided both.
 _STOPWORDS: Final[frozenset[str]] = frozenset(
     {
         "a", "an", "and", "are", "as", "at", "be", "been", "being", "between", "both",

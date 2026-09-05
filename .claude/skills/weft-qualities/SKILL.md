@@ -27,8 +27,8 @@ Ask what is being reviewed, then run the lenses that apply — most changes touc
 | A CLI command | 2, 5 |
 | A phase exit | all six |
 
-Each lens below gives the requirement, the **question that falsifies it**, and what it looked like
-when the reference got it wrong. Use the falsifying question — a lens you cannot fail is a lens that
+Each lens below gives the requirement, the **question that falsifies it**, and a worked example of
+what failing it looks like. Use the falsifying question — a lens you cannot fail is a lens that
 passes everything.
 
 ---
@@ -54,8 +54,8 @@ because the renderer table is matched on first-party result types (`L5.30`). Eac
 finished on its own. None of them was found by a test — all three were found by trying to do the
 thing.
 
-**Reference:** adding one storage backend meant editing **11 library files**, and there were zero
-registered backend names.
+**Worked example:** a codebase where adding one storage backend meant editing **11 library
+files**, because there were zero registered backend names — every call site named the backend.
 
 ### 2. A capability spanning several extension points is still one package
 
@@ -66,8 +66,8 @@ The test is really about whether per-pack settings and per-stage config stay dis
 are *this installation of this pack*, stage config is *this stage in this pipeline*. Collapsing them
 forces a pack to repeat its endpoint three times and hope they stay in sync.
 
-**Reference:** `IndexingStrategy` had exactly three fields and enhancers were named as bare strings, so a
-graph add-on had nowhere to put configuration at all.
+**Worked example:** an indexing config with exactly three fields, and enhancers named as bare
+strings, so a graph add-on had nowhere to put its configuration at all.
 
 ### 3. A pipeline is derivable from another pipeline
 
@@ -78,21 +78,21 @@ Data-dependency ordering is solved by `requires`/`provides` checked at resolutio
 is not, and it is why this lens still needs a human: a destructive stage must run last **because it is
 destructive**, not because anything reads its output, and no dependency graph can see that.
 
-**Reference:** the cleaning chain's ordering constraints existed as a docstring — *"IMPORTANT: Changing
-this order will break functionality"* — and the one config field shaped like a stage list was never
+**Worked example:** a cleaning chain whose ordering constraints existed only as a docstring
+warning that changing the order would break things — and the one config field shaped like a stage list was never
 read by the executor.
 
 ### 4. Built-ins have no privileged path
 
 **Falsify it:** *what does this built-in use that a third party could not?* Then check it at runtime
-rather than by reading — the reference would have passed a static check.
+rather than by reading — a static check alone would pass code that only fails this at runtime.
 
 This is the requirement that decides whether the project works in two years. If built-ins get a
 shortcut, the public path is exercised only by outsiders, and it rots.
 
-**Reference:** the most literal instance available — `retrieval/registry.py:649-668` re-wraps and
-re-assigns the three indexing builders *after* the decorator registered them, to add span wrapping. A
-plugin using the public decorator silently got less observability than a built-in.
+**Worked example, the most literal available:** a registry that re-wrapped and re-assigned its
+own three builders *after* the public decorator had registered them, to add span wrapping. A plugin
+using that same public decorator silently got less observability than a built-in.
 
 ### 5. An unknown name fails loudly, naming the valid options
 
@@ -103,7 +103,7 @@ are.
 A silent fallback is worse than a crash, because it produces a plausible answer. Weft's `Outcome`
 type exists so a degraded path is *visible* rather than indistinguishable from success.
 
-**Reference:** asking for the `faithfulness` metric returned **no error and no score** — 6 of 21
+**Worked example:** asking for a metric by name returned **no error and no score** — 6 of 21
 evaluators never registered, and unknown names were silently dropped.
 
 ### 6. Real technique, parameterisable and composable by someone who did not write it
@@ -120,17 +120,17 @@ argument against having ideas.
 Keep the reasoning with the technique. For most of what is worth shipping, the comment is the asset:
 why a constant is that value, which way to move it, what breaks if you reorder it.
 
-**Reference:** ten genuinely good retrieval strategies that a third party could not compose, because the
-router assigned literal enum members in a hard-coded ten-branch ladder; and a metric suite that could
-not be parameterised at all.
+**Worked example:** ten genuinely good retrieval strategies a third party could not compose,
+because the router assigned literal enum members in a hard-coded ten-branch ladder; and a metric
+suite that could not be parameterised at all.
 
 ---
 
 ## The move that matters most
 
 **When a finding could be caught by machinery, say so and propose the check.** This is the project's
-central generalisation, and it was measured rather than assumed: in the reference, *every concern the
-machinery applied automatically held perfectly, and every concern an author had to remember decayed.*
+central generalisation, and it was measured rather than assumed: *every concern the machinery applied
+automatically held perfectly, and every concern an author had to remember decayed.*
 Spans applied at registration held on all ten strategies; spans written by hand decayed to 38 of 54
 names off-convention and an entire untraced stage.
 
@@ -206,6 +206,5 @@ rather than skipped.
 - **Not an architecture gate.** If the change runs into an *open* decision (G2, G7, G8, G9 in
   `docs/05-grilling-sessions.md`), stop and name the gate. Defaulting an open decision in a code
   review is precisely what the gates exist to prevent.
-- **Not a reference audit.** For what is still unlifted, use `reference-audit`.
 - **Not a veto.** These requirements have costs, recorded in `docs/01` alongside them. A change that
   fails one may still be right; what is not acceptable is failing one without noticing.

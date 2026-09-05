@@ -14,9 +14,8 @@ jobs:
   #
   # This is deliberate, and fitness function 0 depends on it: the checks that run
   # in CI must be exactly the checks `poe ci-checks` runs locally. A workflow that
-  # enumerates its own steps can drift from the composite, which is how the reference
-  # ended up with an architecture checker that was in the repository and in nobody's
-  # gate.
+  # enumerates its own steps can drift from the composite, which is how an architecture
+  # checker ends up in the repository and in nobody's gate.
   gate:
     name: ci-checks
     runs-on: ubuntu-latest

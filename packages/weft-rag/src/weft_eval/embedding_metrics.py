@@ -1,9 +1,9 @@
 """`embedding-similarity` and `bertscore` — the two traditional metrics that need a model.
 
-Task **4.2**. The reference gates both behind a module-level `importlib.util.find_spec(...)` boolean,
-computed once at import rather than hand-maintained in a table (`.phase4-reference-recon.md` §7,
-`bertscore.py:15`, `embedding_similarity.py:15`) — the right *shape* to keep, not the right
-*dependency* to keep it for. Weft already has a contract for "turn text into a vector":
+Task **4.2**. Both are gated behind a module-level `importlib.util.find_spec(...)` boolean,
+computed once at import rather than hand-maintained in a table — the right *shape* for
+declaring optional-dependency availability, independent of which package it happens to gate.
+Weft already has a contract for "turn text into a vector":
 `weft_embed.contract.Embedder`, resolved through `ctx.require(Embedder)` exactly the way
 `weft_retrieve.rerank.LlmRerank` resolves `LLM`. **`embedding-similarity` uses it**, via
 `weft_eval.embedding_support.embed_texts`, so this metric needs no new dependency at all —
@@ -13,7 +13,7 @@ optional import to gate.
 
 **`bertscore` is the one metric in the whole suite that genuinely cannot be expressed this way.**
 It scores token-level, contextual BERT embeddings — a different computation from "embed this
-string once," which is what every `Embedder` in this tree does — so it keeps the reference's own
+string once," which is what every `Embedder` in this tree does — so it keeps that same
 derivation *pattern*: `BERT_SCORE_AVAILABLE` is computed once, at import, via `importlib.util.
 find_spec("bert_score")`, never a hand-maintained flag. `bert-score` (which pulls in `transformers`
 and a checkpoint download) is declared as an **optional extra** (`pyproject.toml`'s `[project.

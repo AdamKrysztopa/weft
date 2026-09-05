@@ -19,8 +19,8 @@ measured over; whether that claim is true is a comparison against the manifest, 
 here by recomputing the corpus identity from `corpus/manifest.toml` — through the identical
 `weft_eval.run_record.corpus_identity` convention `eval/run_baseline.py` itself calls — rather
 than by trusting the digest the run wrote about itself. `.phase2-findings.md` §15 is why: a
-figure over the operator tier reported as though it were reproducible would be the reference's
-`gold_node_id_map` defect in a new costume — *"a benchmark whose headline figure cannot be
+figure over the operator tier reported as though it were reproducible would be exactly the
+failure mode that section names — *"a benchmark whose headline figure cannot be
 recomputed by the person reading it."*
 """
 
@@ -115,8 +115,8 @@ def test_every_baseline_was_run_more_than_once_and_records_what_it_spanned(
 def test_every_metric_names_the_depth_it_was_computed_at(
     runs: tuple[tuple[Path, BaselineReport], ...],
 ) -> None:
-    # V4: "the `k` in a metric's name equals the `k` it computed". The reference reported
-    # `ndcg_at_10` over four candidates, which is the same defect one directory over.
+    # V4: "the `k` in a metric's name equals the `k` it computed" — a metric named for a depth
+    # it did not actually compute over reports a number nobody can trust the meaning of.
     # Act / Assert
     for path, run in runs:
         for record in run.metrics:

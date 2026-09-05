@@ -80,27 +80,27 @@ disclosed here so the table's zero cannot be read as covering them.
 
 ### The measurement this replaces
 
-The reference is the counter-example for every row, and the numbers are the study's. The four columns
-below are the study's own columns from its verdict table at
-`reference/study/01-extension-axes.md:19-25`, reproduced under the headings it gives them.
+The table below reproduces a full measurement of exactly this shape, taken from a real system audited
+in detail before Weft's own design work began. The four columns are the audit's own, reproduced under
+the headings it gave them.
 
-| Axis | Registry? | Dispatch sites over a name | Files to edit to add one | Evidence |
-|---|---|---|---|---|
-| Parsing / extraction | No — 3 unrelated mechanisms | 10 | 1 new + up to 18 existing (~28 edit sites, with the config toggle) | `reference/study/01-extension-axes.md:21` |
-| Chunking | No for chunkers; yes for enhancers | 15, in 5 distinct styles | 1 new + 6 (plus 2 byte-identical alias maps) | `:22` |
-| File types | No | 12 lockstep sites (10 list-shaped, 2 control-flow) | 1 new + 3 (9 edit sites; 13 for an optional format) | `:23`, and the itemised count at `:1766-1777` |
-| Retrieval | Yes — but **three** of them | 21, of which only 3 are registry lookups | 6–8 files, ~12 sites | `:24` |
-| Storage | **None at all — 0 registered names** | 17, of which 0 are registry lookups | 11 in the library + 3 or more in `system/` | `:25`, the 17-step table at `:3238-3258`, the count at `:3260-3263` |
+| Axis | Registry? | Dispatch sites over a name | Files to edit to add one |
+|---|---|---|---|
+| Parsing / extraction | No — 3 unrelated mechanisms | 10 | 1 new + up to 18 existing (~28 edit sites, with the config toggle) |
+| Chunking | No for chunkers; yes for enhancers | 15, in 5 distinct styles | 1 new + 6 (plus 2 byte-identical alias maps) |
+| File types | No | 12 lockstep sites (10 list-shaped, 2 control-flow) | 1 new + 3 (9 edit sites; 13 for an optional format) |
+| Retrieval | Yes — but **three** of them | 21, of which only 3 are registry lookups | 6–8 files, ~12 sites |
+| Storage | **None at all — 0 registered names** | 17, of which 0 are registry lookups | 11 in the library + 3 or more elsewhere in the codebase |
 
-Two axes the verdict table does not cover, cited to where they are actually stated:
+Two axes the audit covered separately, outside its verdict table:
 
 - **CLI command.** There is no `[project.entry-points]` block of any kind; the only declared surface
   is three fixed Typer apps under `[project.scripts]` — *"Nothing a third party can contribute
-  to."* (`reference/study/02-discovery-and-config.md:175-182`.)
+  to."*
 - **Metric.** Registration works mechanically, but consumer sites filter with
   `if name in EVALUATOR_REGISTRY`, so *"an unimported plugin metric is silently dropped rather than
-  reported"* (`:245-247`) — and the built-ins already prove it: `import a_prior_project.evaluation`
-  registers **17 of the 23** decorated classes, measured (`:15-17`).
+  reported"* — and the built-ins already prove it: importing the evaluation package registers
+  **17 of the 23** decorated classes, measured.
 
 Three of these rows are worth reading twice.
 
@@ -111,13 +111,12 @@ imports itself.
 
 **The retrieval row is the one where the file count is misleadingly reassuring.** Six to eight files
 is not catastrophic, and the result is still unusable: the decorator's `kind` parameter is typed
-against a `StrEnum` with exactly three members, which a plugin cannot extend
-(`reference/study/02-discovery-and-config.md:236-240`, citing `retrieval/types.py:24-26`), and a strategy
-that does register is *"registered, listed by `get_all_strategy_metadata()`, described to the LLM in
-the routing prompt … and **can never be executed**"* (`:233-234`).
+against a `StrEnum` with exactly three members, which a plugin cannot extend, and a strategy that does
+register is *"registered, listed by `get_all_strategy_metadata()`, described to the LLM in the
+routing prompt … and **can never be executed**"*.
 
 **The metric row costs almost nothing to add and produces no error and no score when it is wrong.**
-The cheapest extension in the reference is also its quietest failure.
+The cheapest extension measured here was also its quietest failure.
 
 Together they are why **a cost table alone is not a sufficient measure of an extension model**, why
 fitness function 9 is scoped narrowly in §2, and why fitness functions 2, 4 and 5 are not folded into
@@ -163,8 +162,9 @@ it.
 >    first-party distributions equals the set of contracts implemented by out-of-tree example packs.
 >    Both sides are observed at runtime and **neither is derived from the other**: the left from the
 >    first-party packs' own registrations, the right from each example pack installed on its own. A
->    clause whose two sides came from one computation would be the reference's `test_keys_parity` defect,
->    which cannot fail at all (`reference/study/08-salvage.md:777-782`). **How it fails:** publish a
+>    clause whose two sides came from one computation would be a real, observed defect shape: a
+>    parity check computed from a single shared source can never fail, whatever it reports. **How it
+>    fails:** publish a
 >    contract and ship no example for it — which is the everyday case this clause exists to catch. It
 >    carries a **ratchet** in the style of item 0: a named constant
 >    `CONTRACTS_WITHOUT_AN_EXAMPLE_PACK`, pinned empty, so an exemption is a visible entry in a diff
@@ -173,23 +173,22 @@ it.
 >    criterion of that phase.
 >
 >    **Why it exists.** Requirement 1 is the thesis of the project and it is the only one of the six
->    that has never been enforced by anything. The reference is why that matters: adding one storage
->    backend meant editing **11 files inside the library** plus at least 3 in `system/`
->    (`reference/study/01-extension-axes.md:3260-3263`), against **"None at all — 0 registered names"**
->    and 17 dispatch sites of which 0 are registry lookups (`:25`). Nothing in the reference's CI measured
->    that, and nothing could have — its own boundary checker was not in its canonical gate and exited
->    0 on a tree with 11 violations (fitness function 0). Weft's gap today is narrower and the same
->    shape: the requirement is applied by a human running the `weft-qualities` lens, and a lens is not
->    a ratchet.
+>    that has never been enforced by anything. A real, measured case is why that matters: adding one
+>    storage backend meant editing **11 files inside the library** plus at least 3 more elsewhere,
+>    against **"None at all — 0 registered names"** and 17 dispatch sites of which 0 are registry
+>    lookups. Nothing in that system's own CI measured that, and nothing could have — its own boundary
+>    checker was not wired into its canonical gate and exited 0 on a tree with 11 violations (fitness
+>    function 0). Weft's gap today is narrower and the same shape: the requirement is applied by a
+>    human running the `weft-qualities` lens, and a lens is not a ratchet.
 >
 >    **What it deliberately does not catch, and why there is no fourth clause.**
 >
 >    - **Reachability.** A plugin can register from outside, cost zero core edits, and still never
->      execute — the reference's sharpest finding, where a third-party strategy registers, is listed, is
->      described to the LLM in the routing prompt, and hits three walls
->      (`reference/study/02-discovery-and-config.md:226-234`). That is **fitness function 4(b)**'s job.
->      Function 9 asserts that extension happens from outside; 4(b) asserts the extension can *run*.
->      Reading 9 as covering both is how the reference's seam would pass a green build.
+>      execute — the sharpest finding from the measurement above, where a third-party strategy
+>      registers, is listed, is described to the LLM in the routing prompt, and hits three walls
+>      before it can run. That is **fitness function 4(b)**'s job. Function 9 asserts that extension
+>      happens from outside; 4(b) asserts the extension can *run*. Reading 9 as covering both is how a
+>      seam shaped exactly this way would still pass a green build.
 >    - **Cost, per change.** A pack needing 400 lines of boilerplate passes clause (a) exactly as a
 >      four-file one does, and a core edit made in the same commit for an unrelated reason is
 >      invisible to all three clauses. This is a property of the tree, not of a pull request. The file

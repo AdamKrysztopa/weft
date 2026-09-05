@@ -3,7 +3,8 @@
 `docs/01-high-level-plan.md` → *Fitness functions*: "`asyncio.run` appears
 exactly once in the tree, at `weft-cli`'s entry point, asserted by path — so
 a second one fails the build rather than being noticed in review. This
-exists because the reference's single bridge was safe only by docstring."
+exists because a single async-entry bridge is safe only by docstring unless
+something actually checks it."
 `docs/06-phase-0-build.md` step 9 activates this clause.
 
 Found by an AST walk over the **whole repository** — not just `packages/*`
@@ -17,8 +18,8 @@ several) would falsely trip.
 
 The walk excludes only non-source directories (`.venv`, `.git`, build
 artefacts, and any other dot-directory) and never follows a symlink —
-`os.walk`'s own default — so the untracked `reference` symlink at the repository
-root (`CLAUDE.md`: "a different repository, not under version control...
+`os.walk`'s own default — so the untracked symlink `CLAUDE.md` documents at
+the repository root ("a different repository, not under version control...
 Nothing in Weft's build, tests or packaging may even *read* through it") is
 listed but never descended into.
 
@@ -38,8 +39,10 @@ from .conftest import REPO_ROOT
 
 #: Directories that hold no Weft source of our own — vendored dependencies, VCS internals,
 #: build/cache artefacts, and (by name, belt-and-suspenders alongside `followlinks=False`
-#: below) the untracked `reference` symlink, which must never be read through at all.
-_EXCLUDED_DIR_NAMES: Final[frozenset[str]] = frozenset({"dist", "build", "__pycache__", "reference"})
+#: below) the untracked symlink `CLAUDE.md` documents, which must never be read through at all.
+_EXCLUDED_DIR_NAMES: Final[frozenset[str]] = frozenset(
+    {"dist", "build", "__pycache__", "_external-src", "_external-reading"}
+)
 
 #: The one call site fitness function 7(a) requires — `docs/06-phase-0-build.md` step 9.
 _EXPECTED_PATH: Final[Path] = REPO_ROOT / "packages" / "weft-rag" / "src" / "weft_cli" / "cli.py"
@@ -52,7 +55,7 @@ def test_asyncio_run_appears_exactly_once_at_the_cli_entry_point() -> None:
         f"asyncio.run() must appear exactly once in the whole tree, at "
         f"{_EXPECTED_PATH.relative_to(REPO_ROOT)}. Found it at: "
         f"{[str(site.relative_to(REPO_ROOT)) for site in sites]}. A second bridge is exactly "
-        f"the reference's incident this fitness function exists to prevent — see "
+        f"the incident this fitness function exists to prevent — see "
         f"docs/01-high-level-plan.md -> Colour."
     )
 
@@ -61,7 +64,7 @@ def _repository_python_files() -> list[Path]:
     """Every `.py` file in the repository, walked with `followlinks=False`.
 
     `os.walk` never descends into a symlinked directory unless told to, which is what keeps
-    the `reference` symlink (`../a prior project`) unread — its entry is visited (so it can be pruned
+    the untracked repository symlink unread — its entry is visited (so it can be pruned
     from `dirnames` below) but never opened. Hidden directories (`.venv`, `.git`, `.ruff_cache`
     and the like) and build/cache artefacts are pruned the same way: named or dot-prefixed
     entries removed from `dirnames` before `os.walk` recurses into them, exactly the mechanism

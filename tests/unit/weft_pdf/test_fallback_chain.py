@@ -178,8 +178,8 @@ async def test_a_genuinely_empty_document_stops_the_chain_instead_of_walking_it(
     # Act
     summary = await _index(engine, pipeline, minimal_pdf.text_pages(""))
 
-    # Assert — the reference's defect closed in both directions: an empty document is a
-    # different outcome from a failed one, and it is not reported as a chain-wide failure.
+    # Assert — closed in both directions: an empty document is a different outcome from a
+    # failed one, and it is not reported as a chain-wide failure.
     assert summary.nothing_to_produce == 1
     assert summary.failed == 0
     assert "no text on any of them" in summary.nothing_to_produce_reasons[0]

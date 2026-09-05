@@ -1,12 +1,11 @@
 """The renderer, and the two-direction validator that makes a template checkable.
 
-`.phase2-design.md` §7: "`weft-prompts` ships a renderer that takes a template plus a
-validated model and **does not use `str.format`**, so the reference's constraint that every
-JSON-example prompt must escape `{{`/`}}` disappears rather than being documented." That
-constraint is not a style preference — a prompt telling a model to answer with
-`{"verdict": "yes"}` is the *commonest* prompt in a RAG system, and `str.format` reads every
-one of those braces as a placeholder. The reference's answer was a rule authors had to remember,
-which `CLAUDE.md` records as the category of rule that decays.
+`.phase2-design.md` §7: `weft-prompts` ships a renderer that takes a template plus a validated
+model and **does not use `str.format`**, so having to escape `{{`/`}}` in every JSON-example
+prompt disappears rather than being documented. That is not a style preference — a prompt
+telling a model to answer with `{"verdict": "yes"}` is the *commonest* prompt in a RAG system,
+and `str.format` reads every one of those braces as a placeholder. Escaping them is a rule
+authors would have to remember, which `CLAUDE.md` records as the category of rule that decays.
 
 **`${name}` instead, over `string.Template`.** Braces are literal, `$` is the one character
 that needs care, and JSON contains none. Using the standard library's own parser rather than a
@@ -16,10 +15,8 @@ a hand-written scanner beside a hand-written substituter eventually produces.
 
 **Both directions are checked, at class-definition time.** A placeholder no field supplies is a
 crash waiting for a user's question; a field no placeholder consumes is dead configuration and,
-in a *translation*, a silent change to what the model is told. `docs/04-reference-inventory.md`:128
-records that the reference's prompt corner was the one place "the study found no defects", and this
-is why: a prompt was "a Pydantic input model, an output model and a locale key", checkable
-before anything ran.
+in a *translation*, a silent change to what the model is told. A prompt is a Pydantic input
+model, an output model and a locale key — checkable before anything ever ran.
 """
 
 from string import Template

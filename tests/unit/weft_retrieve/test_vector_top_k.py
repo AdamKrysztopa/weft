@@ -325,10 +325,10 @@ async def test_an_arm_filter_and_a_query_filter_are_combined_never_replaced() ->
 
 
 async def test_a_retrieval_depth_of_zero_is_refused_at_construction() -> None:
-    """`docs/audit-a prior project-2026-09-05.md` §2, item 5: `top_k=-5` and `top_k=0` both
-    constructed, and a `0` from a `with:` block reached the store. The reference bounded this
-    field (`vector_top_k=15, ge=1, le=50`); every sibling config in this pack already carries
-    `ge`, so the tree was inconsistent on precisely the field that was bounded elsewhere.
+    """An unbounded `top_k` field lets `-5` or `0` construct cleanly and a `0` from a
+    `with:` block reach the store; every sibling config in this pack already carries `ge`,
+    so leaving this one field open would be the one inconsistency on precisely the value
+    that is bounded everywhere else.
     """
     for bad in (0, -5):
         with pytest.raises(ValidationError):

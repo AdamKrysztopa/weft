@@ -3,10 +3,9 @@
 3,500 non-blank, non-comment, **non-docstring** lines in `weft-kernel`, tests
 excluded. 2,800 is a review trigger, not a failure.
 
-Settled in G1 with its reasoning, which matters more than the number: the reference's
-kernel-analogous code measures roughly 2,500 lines, and the discovery, pipeline
-and derivation machinery it has none of is worth another 600-900. The honest
-estimate is ~3,300, so 3,500 leaves enough headroom to be legitimate and not
+Settled in G1 with its reasoning, which matters more than the number: G1 allowed
+600-900 lines for the discovery, pipeline and derivation machinery a small
+microkernel needs, sized so 3,500 leaves enough headroom to be legitimate and not
 enough to be ignored.
 
 Docstrings are excluded deliberately, so the budget can never become an argument
@@ -54,8 +53,8 @@ def test_review_trigger_is_reported(capsys: object) -> None:
 def test_at_least_one_kernel_file_is_walked() -> None:
     # Floor — `08` §3's shape, applied to a source walk instead of a document walk: a
     # walk that finds nothing counts 0 lines, and 0 is `<= BUDGET` — the test above
-    # would pass on an empty tree, exactly the shape `reference/study/08-salvage.md:777-782`'s
-    # parity test takes.
+    # would pass on an empty tree, exactly the shape a comparison computed once and
+    # checked against itself takes.
     walked = sorted((KERNEL_ROOT / "src").rglob("*.py"))
     assert walked, (
         f"no `.py` file found under {KERNEL_ROOT / 'src'} — the walk itself is broken; "

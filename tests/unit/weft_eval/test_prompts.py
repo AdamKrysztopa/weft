@@ -56,8 +56,8 @@ def test_faithfulness_judgement_carries_no_score_field() -> None:
     # Arrange / Act
     judgement = FaithfulnessJudgement(statements=(StatementSupport(statement="x", supported=True),))
 
-    # Assert — the fix for the reference's defect is structural: there is nowhere on this model for
-    # a model to have put a ratio.
+    # Assert — a faithfulness score collapsing to a bare ratio is closed off structurally:
+    # there is nowhere on this model for a ratio to have been put.
     assert "score" not in type(judgement).model_fields
     assert "value" not in type(judgement).model_fields
 

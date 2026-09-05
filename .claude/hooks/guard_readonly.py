@@ -1,16 +1,15 @@
-"""PreToolUse guard: refuse writes to material that must not be written.
+"""PreToolUse guard: refuse writes to reading material this repository does not own.
 
-Two targets, both easy to hit by accident and expensive to notice late.
+Both targets are excluded from version control, and that is exactly what makes a
+write to either expensive: it would leave no trace in any diff, so nobody reviewing
+this repository could see that it happened or undo it. Reading is unrestricted;
+only writing is refused.
 
-**The reference symlink.** `reference/` points at a sibling `a prior project` checkout — a live
-repository this project reads and lifts from. A path that resolves through it is
-an edit to a *different project*, and since that checkout is not under version
-control, the change would leave no trace.
-
-**The frozen audit.** `docs/reference/` is a finished study of a fixed tree, cited
-about ninety times by the plan. Its value is that it is a snapshot: editing it to
-match a later belief destroys the evidence the plan rests on. If the study is
-wrong, that is a finding to report, not a file to correct.
+The paths are named rather than derived because the property is about *these*
+locations, and a rule computed from `.gitignore` would silently start refusing
+writes to build output, caches and the virtualenv the moment those were added
+to it. Both live under a single `_external-` prefix so that adding a third needs
+one line here and no new vocabulary anywhere else.
 
 Blocking is a PreToolUse convention: exit 2, with the reason on stderr.
 """
@@ -23,16 +22,17 @@ REPO = Path(__file__).resolve().parents[2]
 
 BLOCKED: tuple[tuple[Path, str], ...] = (
     (
-        REPO / "docs" / "reference",
-        "docs/reference/ is the frozen reference audit. It is a snapshot of a fixed tree and the plan "
-        "cites it ~90 times; editing it destroys the evidence rather than correcting it. If the "
-        "study is wrong, report the discrepancy — see the reference-audit skill.",
+        REPO / "docs" / "_external-reading",
+        "That directory is reading material kept on disk and excluded from version control. It "
+        "is a snapshot of a tree at a fixed moment, and its whole value is that it is fixed: "
+        "editing it to match a later belief destroys the record rather than correcting it. If it "
+        "is wrong, that is a finding to report, not a file to rewrite.",
     ),
     (
-        (REPO / "reference").resolve(),
-        "That path resolves through the `reference` symlink into the a prior project checkout. Weft reads "
-        "and lifts from the reference; it never writes to it, and that checkout is not under version "
-        "control, so the change would leave no trace.",
+        (REPO / "_external-src").resolve(),
+        "That path resolves through a symlink into a checkout this repository does not own. It "
+        "may be read; it is never written. That checkout is not under version control, so the "
+        "change would leave no trace in any diff.",
     ),
 )
 

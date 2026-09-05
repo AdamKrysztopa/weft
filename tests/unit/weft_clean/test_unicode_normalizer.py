@@ -1,7 +1,7 @@
 """Unit tests for `weft_clean.unicode_normalizer`.
 
 Mirrors `packages/weft-rag/src/weft_clean/unicode_normalizer.py`. Covers the happy path
-(the reference's own example, `Ã³` -> `ó`, repaired), the edge case of text with no mojibake at
+(the canonical example, `Ã³` -> `ó`, repaired), the edge case of text with no mojibake at
 all (passed through unchanged, still a new derived node), the error case of an empty batch
 answering `NothingToProduce` rather than a silent `Produced([])`, task 2.35's own worked
 example (`UnicodeNormalizer` declares `intact = (Verbatim,)` and `destroys = (Verbatim,)`,
@@ -26,7 +26,7 @@ def _node(content: str) -> Node:
 
 
 async def test_run_repairs_a_mis_decoded_byte_sequence() -> None:
-    # Arrange — the reference's own example, restated: UTF-8 bytes for "ó" decoded as Latin-1.
+    # Arrange — the canonical example: UTF-8 bytes for "ó" decoded as Latin-1.
     normalizer = UnicodeNormalizer()
     parent = _node("kompuÃ³ter")
 

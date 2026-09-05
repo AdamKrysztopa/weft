@@ -17,7 +17,7 @@ member's own constructor chain; each subclass sets `self.valid_options` itself, 
 same way it already sets any of its other typed fields. Membership is therefore a
 mechanical fact: `issubclass(cls, UnresolvedNameError)`. `NAME_RESOLUTION_FAMILY`
 below is the pinned, hand-audited set of qualnames that inherit the marker today —
-audited the way task 2.34 and 2.35 audited their own reference claims, by reading every
+audited the way task 2.34 and 2.35 audited their own inventory claims, by reading every
 raise site of every `WeftError` subclass in the tree (82 today: `test_ff9c_every_
 contract_has_a_stranger.py`'s own `_exported_protocol_classes`-style walk finds 80
 `WeftError` subclasses across the first-party packages, plus `WeftError` itself and
@@ -93,6 +93,7 @@ NAME_RESOLUTION_FAMILY: Final[frozenset[str]] = frozenset(
         "weft_cli.ingest.UnclaimedFormatError",
         "weft_cli.ingest.AmbiguousExtractorError",
         "weft_cli.ingest.PipelineMissingExtractStageError",
+        "weft_cli.preview.PipelineMissingRenderStageError",
         "weft_cli.commands.UnresolvedPluginNameError",
         "weft_cli.llm_roles.UnknownLLMKeyError",
         "weft_cli.permission_policy.UnknownPermissionKeyError",
@@ -211,7 +212,7 @@ def _carries_valid_options_field(cls: type[object]) -> bool:
     __future__ import annotations` and some do not, and a check that only worked
     for one style would be an accident, not a property. Required, not merely
     present: a `valid_options` with a default could be silently omitted at a raise
-    site and the class would still construct, which is the reference's own defect this
+    site and the class would still construct — a defect this
     function exists to make structurally impossible rather than merely discouraged.
     """
     try:
@@ -405,8 +406,8 @@ def test_a_family_member_with_the_field_is_not_reported() -> None:
 
 
 def test_an_optional_valid_options_field_is_not_enough() -> None:
-    # Error case — a `valid_options` with a default is exactly the reference's own defect:
-    # a raise site could silently omit it and the class would still construct with an
+    # Error case — a `valid_options` with a default is exactly the defect this test guards
+    # against: a raise site could silently omit it and the class would still construct with an
     # empty tuple, indistinguishable from "genuinely nothing to offer". This proves
     # `_carries_valid_options_field` requires the field, not merely its name.
     class _OptionalFieldError(WeftError, UnresolvedNameError):

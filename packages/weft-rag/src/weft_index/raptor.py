@@ -13,31 +13,27 @@ arXiv:2401.18059.
 thing." What differs from `hypothetical-questions` is the *build*, not the contract:
 `chunk.derive(...)` gives a question one parent; a cluster summary has several, so this
 plugin reaches `Node.combine(members, ...)` instead — the same classmethod
-`weft_kernel.payload.node`'s own module docstring names as the fix for the reference's own
-RAPTOR defect (see the next section). `weft_index.payload.Representation` is attached
+`weft_kernel.payload.node`'s own module docstring names as the fix for the RAPTOR
+defect described in the next section. `weft_index.payload.Representation` is attached
 exactly as `hypothetical-questions` attaches it; `weft_generate.representation.
 citable_nodes` already reads the *parent count* before ever trusting the marker, so a
 combine-built summary is cited as itself rather than misattributed to one of several
 members — that branch was written for this task before this task existed, per its own
 docstring's closing paragraph.
 
-**The correction this task exists to prove is not still a bug.** `04` category A: the
-reference built RAPTOR summaries with `relationships={}` ("global summary: no single source
-document"), so they carried no `ref_doc_id` and no deletion path could ever reach them —
-"there is one class of node that no deletion mechanism in the system can reach: delete a
-document and its summaries remain retrievable forever, describing content that is gone."
+**The correction this task exists to prove is not still a bug.** `04` category A: RAPTOR
+summaries built with `relationships={}` ("global summary: no single source document") carry
+no `ref_doc_id`, so no deletion path can ever reach them — there is one class of node that no
+deletion mechanism in the system can reach: delete a document and its summaries remain
+retrievable forever, describing content that is gone.
 `Node.combine` makes that unrepresentable rather than merely avoided: it refuses an empty
 `members` sequence, and `Lineage.derived` computes `sources` as the union of the members'
 own sources, so a summary's `Lineage.sources` is never authored and never empty while it
 has members — cascade delete reaches it by construction, the same guarantee `hypothetical-
 questions` gets from `derive` one field over.
 
-**Clustering is a fresh, small algorithm — never the reference's UMAP+GMM.** `10` §1.2's own
-row: the reference's clustering (`a_prior_module.py:20-201`) "is the LangChain RAPTOR cookbook,"
-carried under someone else's SPDX header, and `CLAUDE.md`'s own rule is that no source text
-from any other codebase enters this repository — reading *what* UMAP+GMM soft-clusters is
-fine; copying *how* the reference wrote it is not, so this plugin does not attempt to. What it
-does instead is greedy single-pass grouping by cosine similarity to a running centroid
+**Clustering is a fresh, small algorithm — never UMAP+GMM soft clustering.** What it
+does is greedy single-pass grouping by cosine similarity to a running centroid
 (`_cluster_by_similarity`, below): assign each node to the most similar open cluster if
 that similarity clears `similarity_threshold` and the cluster is not yet at
 `cluster_size`, otherwise open a new one. This is a different algorithm from the paper's
@@ -78,7 +74,7 @@ arrive as one result — a corpus with nothing to cluster, a corpus whose cluste
 loose, and a run whose every summary request failed — because each answered
 `Produced(payload)`. The third now answers `Failed` naming how many clusters it summarised
 none of, which is the distinction `CLAUDE.md` demands: a success path and a failure path that
-cannot be told apart is the reference defect this pack was written against. **Partial** degradation
+cannot be told apart is exactly the defect this pack was written against. **Partial** degradation
 is still invisible: an `Expander` that summarised nine of ten clusters is `Produced` and says
 nothing about the tenth. Recording that count needs a channel this plugin does not have —
 `Produced` is frozen with one field, and writing `span.set_attribute` from a pack would settle
@@ -148,11 +144,11 @@ class RaptorConfig(BaseModel):
     #: paraphrasing, not clustering. `10` §1.2's own row promises "clustered chunks."
     min_cluster_size: int = Field(default=2, ge=2)
     #: The cosine-similarity floor a node must clear against a cluster's running centroid to
-    #: join it. `04`'s own note on the reference's clustering knobs ("hard-coded where it
-    #: matters") is exactly what this field, and `cluster_size` above, exist to not repeat.
+    #: join it. This field, and `cluster_size` above, exist so a clustering knob that matters
+    #: is never hard-coded.
     similarity_threshold: float = Field(default=0.75, ge=-1.0, le=1.0)
-    #: The most cluster text one summary request may carry. The reference had no cap and neither
-    #: did this plugin: `_format_cluster` joined every member whole, so a single oversized
+    #: The most cluster text one summary request may carry. This plugin previously had no cap:
+    #: `_format_cluster` joined every member whole, so a single oversized
     #: cluster could exceed a model's context and take its summary with it. A budget, shared
     #: evenly across the cluster's members, so no one member can crowd out the rest.
     max_cluster_chars: int = Field(default=12_000, ge=100)
@@ -231,7 +227,7 @@ class RaptorSummarizer:
             # Every cluster degraded. Answering `Produced(payload)` here would be
             # byte-identical to the "nothing clustered tightly enough" branch above, and to a
             # complete run over a corpus with nothing to summarise — three different facts
-            # arriving as one result, which is the reference trap `CLAUDE.md` names outright.
+            # arriving as one result, which is exactly the trap `CLAUDE.md` names outright.
             # Degrading a cluster is this contract's posture; degrading *every* cluster is the
             # ambient service being unusable, and that is worth saying.
             return Failed(
@@ -258,7 +254,7 @@ class RaptorSummarizer:
         generated for, not the ambient service the whole run depends on going dark. Swallowing
         this into an empty tuple would make `run` reach its own "nothing clustered" branch and
         answer `Produced` unchanged — indistinguishable from a corpus that genuinely has
-        nothing to cluster, which is exactly the reference trap `CLAUDE.md` names: a silent
+        nothing to cluster, which is exactly the trap `CLAUDE.md` names: a silent
         fallback whose success and failure paths cannot be told apart.
         """
         embedder = ctx.require(Embedder)
@@ -353,7 +349,7 @@ def _cluster_by_similarity(
 ) -> list[list[Node]]:
     """Greedy single-pass grouping by cosine similarity to each open cluster's running
     centroid — see the module docstring's *"Clustering is a fresh, small algorithm"*
-    section for why this, and not the reference's UMAP+GMM, is what ships here.
+    section for why this, and not UMAP+GMM soft clustering, is what ships here.
     """
     clusters: list[_Cluster] = []
     for node, vector in embedded:

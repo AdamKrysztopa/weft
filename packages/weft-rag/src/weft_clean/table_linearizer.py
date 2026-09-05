@@ -2,11 +2,9 @@
 
 Task **1.7**'s second worked example — `02` §3 → *Ordering constraints*:
 "table linearisation needs the whitespace gaps; whitespace normalisation
-destroys both and must run last," verified against the reference's own
-docstring at `indexing/cleaning/pipeline.py:30-51`: "Detect columns based on
-whitespace gaps. MUST run before whitespace normalization collapses gaps."
+destroys both and must run last."
 
-The reasoning, restated for Weft: extracted text carries no marker saying
+The reasoning: extracted text carries no marker saying
 "these two words are in different table columns" — the only surviving signal
 is the run of spaces between them, wider than an ordinary word gap. Once
 `weft_clean.whitespace.WhitespaceNormalizer` has collapsed every run of

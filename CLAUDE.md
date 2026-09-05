@@ -9,11 +9,10 @@ chunking, embeddings or graphs, where every capability is a plugin discovered th
 points, pipelines are data derivable from other pipelines, and built-ins are held to the same public
 contract as anything a third party writes.
 
-`a prior project` is a **parts reference, not a baseline** — and what it donates is **knowledge, never text**.
-It is a sibling checkout reached through the untracked `reference` symlink, and it is used for one thing:
-understanding why something is shaped the way it is, per `docs/04-reference-inventory.md`. Nothing in the
-build, tests or packaging may read through that symlink. The finished audit of the reference lives here,
-in `docs/reference/`, and is frozen.
+**Nothing tracked in this repository references any other codebase.** Reading around is fine —
+understanding why something is shaped the way it is, is how good decisions get made — but what comes
+back is *knowledge, never text*, and what gets written down here is Weft's own reasoning in Weft's
+own words. Anything that is a record of somebody else's project stays out of version control.
 
 ---
 
@@ -21,7 +20,7 @@ in `docs/reference/`, and is frozen.
 
 ```text
 weft/
-├── docs/                  # the plan. README.md routes it; reference/ is the frozen audit
+├── docs/                  # the plan. README.md routes it
 ├── packages/              # the shipped distributions
 │   ├── weft-kernel/       # registry, discovery, pipeline model, payload types
 │   ├── weft-cli/          # the only driving adapter, and the only asyncio.run
@@ -59,9 +58,9 @@ These came out of grilling sessions G1 and G3–G6. They are not preferences; ea
 `docs/` with the argument that produced it, and changing one means reopening its gate.
 
 - **Weft carries no third party's source text.** Not a file, a function body, a docstring, a
-  comment, a prompt string, a word list or a test fixture. The reference is read to *understand*, then
-  closed; every line here is written for Weft. The test: *if you could not have written this line
-  without the reference's file open, it is a copy.*
+  comment, a prompt string, a word list or a test fixture. Another codebase is read to
+  *understand*, then closed; every line here is written for Weft. The test: *if you could not have
+  written this line without that file open, it is a copy.*
 
   **Two bounded exceptions, added 2026-09-05 because the absolute wording was not accurate** —
   `NOTICE` carries all three cases in full and is the authority:
@@ -75,7 +74,7 @@ These came out of grilling sessions G1 and G3–G6. They are not preferences; ea
   A **text-shaped asset** — a prompt, a word list, a locale catalogue — is authored for Weft
   regardless, and the test above is what decides: if the string is recoverable from a written
   specification, it is a specification; if it is not, the text *is* the asset and transcribing it
-  is a copy. `docs/04-reference-inventory.md` carries the worked examples on both sides.
+  is a copy.
 - **The kernel names no capability.** No `Extractor`, `Chunker`, `Store`, `Retriever` or `LLM` in
   `weft-kernel` — those contracts ship from the packs that own them. *If you cannot describe the
   kernel without naming a capability, it is too big.*
@@ -87,14 +86,16 @@ These came out of grilling sessions G1 and G3–G6. They are not preferences; ea
   third party uses, and receives nothing extra.
 - **Cross-cutting concerns live at the registration seam**, never in a rule authors must remember.
   Spans, error attribution, blocking-call detection, transient stripping and `flush` all attach
-  there. The reference measured this precisely: every concern its machinery applied automatically held;
-  every concern an author had to remember decayed.
+  there. This was measured rather than assumed, on a large codebase built the other way: every
+  concern the machinery applied automatically held perfectly, and every concern an author had to
+  remember decayed — hand-written spans drifted off-convention in two-thirds of their call sites and
+  one whole stage ended up with none at all.
 - **Return Pydantic models, never `dict[str, Any]`.** Frozen where the value is a domain object.
 - **`Enum` for string constants**, never `Literal[...]`. Native 3.12 type hints (`list[str]`,
   `int | None`).
-- **Catch specific exceptions.** A silent fallback is worse than a failure — the reference shipped one
-  whose success and failure paths were indistinguishable, and it is in the inventory as a thing not
-  to lift.
+- **Catch specific exceptions.** A silent fallback is worse than a failure: it does not crash, it
+  produces a plausible answer against the wrong data, and its success and failure paths become
+  indistinguishable to the caller.
 
 ---
 
@@ -107,8 +108,8 @@ uv run poe kernel-isolated # install weft-kernel alone in a clean env and import
 ```
 
 **`ci-checks` is load-bearing.** Fitness function 0 asserts that every architecture check is
-reachable from it, because the reference shipped a boundary checker that was not in its canonical task
-and therefore never ran. If you add a check, add it to the composite in the same commit.
+reachable from it, because a boundary checker that is not in the canonical task never runs, and a
+fitness function that never runs is not a fitness function. If you add a check, add it to the composite in the same commit.
 
 **And a green gate is not a working binary.** Before a task is done, run `weft` through its shipped
 entry point from a directory that is not this repository, including a failure path, and read what it
@@ -125,24 +126,18 @@ waiver constant pinned empty, so a waiver is a visible act in a diff rather than
 
 ## Skills in this repository
 
-Seven live in `.claude/skills/`:
+Five live in `.claude/skills/`:
 
 - **`phase-step`** — build one task of the current phase from `docs/build-ledger.md`, the
   phase-agnostic task list (`docs/06-phase-0-build.md` is Phase 0's own retired build order, cited
   only by tasks that carry it as their owner). Start here when writing code.
 - **`weft-qualities`** — review a change, design or phase exit against the six requirements in `01`.
   The properties this project exists for are lost silently, one reasonable commit at a time.
-- **`reference-audit`** — what does the reference have that Weft does not yet? Separates *missed* from *not
-  due*, runs the check in reverse to catch anything that arrived from the leave-behind list, and
-  checks that nothing was copied. Use before declaring a phase complete.
 - **`lessons`** — write a lesson into `docs/lessons.md` the moment it is paid for: a documented check
   that turned out to be prose, a claim from intuition that measurement falsified, a proposal that
   contradicted settled text, a defect found by running the binary rather than by its tests.
 - **`implement-ll`** — drain that queue at a phase close: group the entries, route each to the
   artefact that would actually have caught it, apply them in one commit, leave the queue empty.
-- **`reference-lift`** — port one catalogued idea correctly: verify at source, work out what the asset
-  actually is (an ordering, a distinction, a taxonomy, a measurement, a scar), close the file, and
-  write it fresh in the right distribution with the recorded corrections applied.
 - **`paper-to-plugin`** — a paper arrives and code is the destination: read it at source, settle the
   **name before writing anything**, decide whether it is a plugin, a pipeline or a config field, write
   it fresh, and put the divergence from the paper in the docstring beside the name that makes the
@@ -178,10 +173,9 @@ Seven live in `.claude/skills/`:
   so the 3.12 idiom the packages are held to does not reach `.claude/hooks/`, and `ci-checks` does
   not cover that directory. Run a hook to know it works; one that fails to import is silently a hook
   that does not exist.
-- **Writes are refused to `docs/reference/` and to anything resolving through the `reference` symlink**
-  (`PreToolUse`). The first is a frozen snapshot the plan cites ~90 times; editing it destroys the
-  evidence rather than correcting it. The second is a *different repository*, not under version
-  control, so a write there would leave no trace.
+- **Writes are refused to anything outside this repository's own tracked tree** (`PreToolUse`) —
+  reading material kept on disk and excluded from version control. A write there would leave no
+  trace in any diff, which is the whole reason it is refused rather than merely discouraged.
 
 ## Working here
 
@@ -194,6 +188,7 @@ Seven live in `.claude/skills/`:
   log records *that* it was decided and *what*, never the reasoning.
 - **`docs/README.md` holds state and pointers only, never definitions.** If you find yourself
   explaining *why* there, it belongs in `01` through `05`.
-- **Claims about the reference need evidence.** Every factual assertion in `docs/` about `a prior project`
-  carries a `path:line`, because the assessment that started this project got several of them wrong
-  and the corrections are logged. Measure before asserting.
+- **Claims need evidence.** Every factual assertion in `docs/` about the tree — a count, a line
+  number, a "nothing calls this" — carries something a reader can check, because the assessment that
+  started this project got several of its own claims wrong and the corrections are logged. Measure
+  before asserting, and re-measure before arguing from a number a phase could have changed.

@@ -1,7 +1,7 @@
 """The `Cleaner` contract — published here, never by the kernel.
 
-Task **1.7**, `docs/04-reference-inventory.md` category B; `docs/01-high-level-plan.md`
-→ Phase 1 **Lift**. Shaped exactly the way `weft_chunk.contract.Chunker` is —
+Task **1.7**, `docs/01-high-level-plan.md` → Phase 1 **Lift**. Shaped exactly
+the way `weft_chunk.contract.Chunker` is —
 one `Node` sequence in, a repaired `Node` sequence out — because `docs/02-
 extension-model.md` → *No canonical ingest order* says cleaning is not one
 thing, just several stages that happen to share this contract: "hyphenation
@@ -33,10 +33,10 @@ vocabulary." `weft_kernel.registry` reads this attribute generically off
 *any* contract — never a hardcoded list of contract names — so opting in
 here is the entire mechanism: every `Cleaner` implementation, first-party or
 not, must state `destroys` explicitly or registration refuses it, naming the
-missing declaration. This is what turns the reference's docstring — "IMPORTANT:
-Changing this order will break functionality" — from a sentence an author has
-to remember into a check `weft_kernel.resolution.resolve` runs on every
-pipeline that names a `Cleaner` stage.
+missing declaration. This is what turns an ordering requirement that would
+otherwise live only as a warning comment into a check
+`weft_kernel.resolution.resolve` runs on every pipeline that names a
+`Cleaner` stage.
 """
 
 from collections.abc import Sequence
@@ -58,10 +58,11 @@ class Cleaner(Stage[Sequence[Node], Sequence[Node]], Protocol):
     merges nodes, so every implementation returns exactly as many nodes as it
     was handed, each built through `Node.derive` so lineage records the
     repair as its own step. A batch with nothing to clean still answers
-    `NothingToProduce`, never a silently empty `Produced([])` — the same
-    reference-trap fix `weft_extract.contract.Extractor` and `weft_chunk.contract.
-    Chunker` already document, applied here because the same ambiguity is
-    possible at every stage returning a sequence.
+    `NothingToProduce`, never a silently empty `Produced([])` — the same fix
+    `weft_extract.contract.Extractor` and `weft_chunk.contract.Chunker`
+    already document for collapsing a legitimately empty result into the
+    same ambiguous case as a failure, applied here because the same
+    ambiguity is possible at every stage returning a sequence.
     """
 
     if TYPE_CHECKING:

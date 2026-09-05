@@ -50,9 +50,9 @@ async def test_the_same_metric_runs_twice_at_two_thresholds_from_one_registratio
 
 
 async def test_empty_reference_is_nothing_to_produce_not_a_score() -> None:
-    # Arrange — the reference's own defect (`token_recall` returning `1.0` unconditionally on an
-    # empty reference, `docs/09-release.md` §4.2) fixed at the door: nothing to compare against
-    # is reported as such, never as a computed number.
+    # Arrange — a `token_recall`-shaped defect (returning `1.0` unconditionally on an empty
+    # reference, `docs/09-release.md` §4.2) fixed at the door: nothing to compare against is
+    # reported as such, never as a computed number.
     metric = OverlapAtThreshold(AtThresholdConfig(threshold=0.5))
     sample = GenerationSample(query="q", prediction="anything", reference="")
 

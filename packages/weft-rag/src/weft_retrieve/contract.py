@@ -82,7 +82,7 @@ class QueryTransform(Stage[QuerySet, QuerySet], Protocol):
     a document edit rather than a new plugin.
 
     A transform must not rewrite `QuerySet.origin` — see that field's own docstring for
-    the reference defect the invariant closes.
+    the defect the invariant closes.
     """
 
     if TYPE_CHECKING:
@@ -232,8 +232,8 @@ class StageLookup(Protocol):
     never named in a pipeline — the mechanical rule that keeps a service out of the
     contract reference and out of fitness function 9(c)'s left side.
 
-    **Why this is not the service locator `02` §1 rules out.** The reference's locator
-    resolved *literal module paths* at import time, untyped and unregistered, reaching
+    **Why this is not the service locator `02` §1 rules out.** A service locator that
+    resolves literal module paths at import time, untyped and unregistered, reaches
     past its own boundary. This resolves exactly what discovery registered, keyed by a
     published contract type the calling plugin already imports, and it is handed to a
     stage by the run assembler rather than imported by it.

@@ -5,8 +5,8 @@ Publishes the `Cleaner` contract, in `contract.py`, and six plugins for it —
 `table_linearizer.py`, `dictionary_spacing.py`, `whitespace.py` — task
 **1.7**, completed by task **2.35**: *the cleaning chain's learned order
 survives the lift as a machine-checked constraint, not as prose*
-(`docs/04-reference-inventory.md` category A; `docs/01-high-level-plan.md` →
-Phase 1 **Lift**). Registered through the public entry point, with no
+(`docs/01-high-level-plan.md` → Phase 1 **Lift**). Registered through the
+public entry point, with no
 shortcut a third party lacks — fitness function 2.
 
 Registration order here is irrelevant — `Registry.add_many` writes all six

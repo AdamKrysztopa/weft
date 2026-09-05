@@ -12,8 +12,7 @@ file format or a contract.
 
 **The floor** (`08` §3): "the enumerated set of `WeftError` subclasses and doctor statuses is
 non-zero before checking each has an entry" — a walk that silently imported nothing would otherwise
-let the coverage check pass by having nothing to require, which is exactly the shape
-`reference/study/08-salvage.md:777-782`'s parity test failed in: a comparison with nothing to compare
+let the coverage check pass by having nothing to require: a comparison with nothing to compare
 cannot fail, and a check that cannot fail is not a check.
 
 `ERRORS_WITHOUT_TROUBLESHOOTING_ENTRY` is `08`'s named ratchet for this clause — pinned empty, so
@@ -233,8 +232,8 @@ def test_every_failure_mode_has_a_troubleshooting_entry() -> None:
     )
 
     # Assert — the coverage ratchet: a new WeftError subclass or PackStatus member landing
-    # in code with no matching entry fails here, naming it, rather than aging silently the
-    # way the reference's 17-of-23-evaluators gap did.
+    # in code with no matching entry fails here, naming it, rather than aging silently into
+    # an undocumented gap between what the code implements and what the guide covers.
     assert not missing, (
         f"{sorted(missing)} landed in code with no manual/troubleshooting.md entry. Add a "
         f"`### `{sorted(missing)[0]}`` section — what it looks like, reproduced, and what "

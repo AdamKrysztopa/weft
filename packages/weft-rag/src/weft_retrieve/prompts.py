@@ -40,10 +40,11 @@ class PassageRelevanceRequest(BaseModel):
     """What `passage-relevance` renders: the question as asked, and the numbered candidates.
 
     `question` is `Ranking.origin.text` — the user's own words, never a derived query.
-    `QuerySet.origin`'s own docstring records the reference defect that makes this load-bearing:
-    its HyDE fed a hallucinated passage to the cross-encoder *as the query*, so the reranker
-    scored candidates against a document the model invented. A reranker that reads `origin`
-    and nothing else is structurally unable to repeat that, and the type is where it is held.
+    `QuerySet.origin`'s own docstring records the defect that makes this load-bearing: a
+    HyDE that fed a hallucinated passage to the cross-encoder *as the query* would have the
+    reranker scoring candidates against a document the model invented. A reranker that reads
+    `origin` and nothing else is structurally unable to repeat that, and the type is where it
+    is held.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -490,7 +491,7 @@ class MultiQueryVariantsPrompt(TypedPrompt):
 
     The instruction is explicit that an answer is a *searchable query*, never a restatement of
     the model's own opinion or an answer to the question — `10` §1.1's own row on this
-    technique names the reference's narrower prompt directly: it asked only for paraphrases,
+    technique names a narrower prompt seen elsewhere: asking only for paraphrases,
     "forbidding the two things the expansion literature credits" (new vocabulary, and a
     different facet of the question). `weft_retrieve.transforms.ExpansionKind` is where those
     two are named as configuration instead of left unreachable.
@@ -625,8 +626,9 @@ class BooleanTokenKind(StrEnum):
     keyword, or a parenthesis. `weft_retrieve.boolean`'s own recursive-descent parser is
     what turns a sequence of these into a precedence-respecting `BoolExpr`; this prompt's
     only job is lexical — deciding where one token ends and the next begins — never deciding
-    what the tokens mean together. Splitting the two is the fix for the reference's flat
-    `(operator, list[str])`: a *tokeniser* cannot silently collapse `a AND b OR c` into
+    what the tokens mean together. Splitting the two is the fix for a flat
+    `(operator, list[str])` representation: a *tokeniser* cannot silently collapse
+    `a AND b OR c` into
     `MIXED`, because it never sees the operators as a single "type of query" to begin with.
     """
 
@@ -968,8 +970,8 @@ class SufficiencyCheckPrompt(TypedPrompt):
     Zhengbao Jiang, Frank F. Xu, Luyu Gao, Zhiqing Sun, Qian Liu, Jane Dwivedi-Yu, Yiming
     Yang, Jamie Callan, Graham Neubig, *Active Retrieval Augmented Generation*, EMNLP 2023,
     pp. 7969-7992, arXiv:2305.06983 — `10` §1.1's `refine-on-uncertainty` row names FLARE as
-    "the nearest published ancestor, and the reference does not cite it". Cited here for the same
-    reason, not as a claim this prompt implements FLARE's own mechanism: FLARE's signal is the
+    "the nearest published ancestor". Cited here for the same reason, not as a claim this
+    prompt implements FLARE's own mechanism: FLARE's signal is the
     drafting model's *token probability*, regenerated sentence by sentence; this prompt asks a
     model to judge a *whole* draft once, which is a different, coarser signal — see
     `weft_retrieve.sufficiency`'s module docstring for what this task actually ships instead.

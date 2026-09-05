@@ -1,6 +1,5 @@
 # V2 question set (`docs/09-release.md` §4.3) — the Polish round: written from the Wikipedia
-# subset, in Polish, because untested language handling is the reference's `language == 'pl'`
-# branch with the branch removed.
+# subset, in Polish, because non-English language handling is otherwise untested.
 #
 # `eval/check_questions.py` owns the schema, every rule these entries are refused by, and
 # the argument for why nothing written here may be believed until

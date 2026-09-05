@@ -80,8 +80,8 @@ class NativeStructured(Protocol):
     """A provider that will answer *in a schema*, checked by the vendor rather than by us.
 
     **A derived capability sibling, never a declared one** — `.phase2-design.md` §3: "tier 1
-    is available iff `isinstance(provider, NativeStructured)`. That replaces the reference's
-    `hasattr(self.llm, "structured_predict")` guard with capability derived at registration,
+    is available iff `isinstance(provider, NativeStructured)`. That replaces a
+    `hasattr(self.llm, "structured_predict")` guess with capability derived at registration,
     and it means a provider that lies about structured output cannot exist — it either has
     the method or it does not." The same pattern `weft-store` uses for `VectorSearch` and
     `TextSearch`, applied to the one branch of the cascade that can skip two tiers of work.

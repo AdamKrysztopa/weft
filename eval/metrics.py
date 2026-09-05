@@ -4,10 +4,10 @@ V3 wants *"the numbers produced before any technique: single-vector top-k, no fu
 no enhancement"*, repeated, *"and each metric carries the interval its own repetitions produced"*.
 This module is the arithmetic and the vocabulary; `eval/run_baseline.py` is the measurement and
 `eval/check_baseline.py` is the comparison. Nothing here talks to a store, a model or a CLI, so
-every rule below is checkable without a corpus — which matters, because the reference's evaluation
-package failed on precisely these rules while its plumbing worked (`09` §4.2).
+every rule below is checkable without a corpus — which matters, because an evaluation package can
+fail on precisely these rules while its plumbing works (`09` §4.2).
 
-**Four things the reference got wrong are refused here rather than documented.**
+**Four failure modes are refused here rather than documented.**
 
 * **A metric named for a depth it did not compute.** `ndcg_at_10` was reported over a list the
   retriever had already sliced to four. `measure` raises `DepthTooShallowError` when a requested
@@ -20,9 +20,9 @@ package failed on precisely these rules while its plumbing worked (`09` §4.2).
   (`eval/check_questions.py`), and it is resolved against the text that came back — so a quote
   that no longer occurs anywhere scores zero visibly rather than being quietly dropped.
 
-**Two granularities, reported side by side, neither a fallback for the other.** The reference scored
-a retrieval as a hit when *any* chunk of the right paper came back, as a fallback when its
-node-level resolution failed — precision pushed toward 1.0 and two tracks whose numbers meant
+**Two granularities, reported side by side, neither a fallback for the other.** Scoring a
+retrieval as a hit when *any* chunk of the right paper came back, as a fallback for when
+node-level resolution fails, pushes precision toward 1.0 and blends two tracks whose numbers mean
 different things under one name. Here `quote-*` is the span the answer actually rests on being
 inside a retrieved passage, `document-*` is the paper it came from being reached at all, both are
 always computed, and the granularity is the first word of every metric name. Read together they
@@ -67,11 +67,11 @@ class MetricsError(Exception):
 class DepthTooShallowError(MetricsError):
     """A metric was asked for at a `k` deeper than the retrieval that would feed it.
 
-    The reference reported `ndcg_at_10` over four candidates. V4 states the rule — *"the `k` in a
-    metric's name equals the `k` it computed"* — and this is where it refuses. The comparison is
-    against the depth that was **requested**, not the number of results that came back: a store
-    holding three nodes answers a request for ten with three, and that is a fact about the
-    corpus rather than a mis-named metric.
+    Reporting `ndcg_at_10` over four candidates is exactly this mistake. V4 states the rule —
+    *"the `k` in a metric's name equals the `k` it computed"* — and this is where it refuses. The
+    comparison is against the depth that was **requested**, not the number of results that came
+    back: a store holding three nodes answers a request for ten with three, and that is a fact
+    about the corpus rather than a mis-named metric.
     """
 
 
@@ -139,8 +139,8 @@ class Unscoreable(BaseModel):
     """A question that contributed nothing to any metric, and why.
 
     Returned instead of a set of scores, so that "could not be measured" and "measured zero"
-    are different types rather than the same float. The reference's aggregators could not tell them
-    apart, and two of its three never looked.
+    are different types rather than the same float — collapsing them into one lets an aggregator
+    average over both without ever checking which is which.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -319,7 +319,7 @@ def measure(
 
     `depths` are the `k`s to report at and `retrieval_depth` is what the run actually asked the
     store for; naming a `k` deeper than that is refused rather than reported, which is V4's rule
-    and the reference's `ndcg_at_10`-over-four defect.
+    and exactly the `ndcg_at_10`-over-four defect described above.
     """
     wanted = tuple(depths)
     too_deep = sorted(k for k in wanted if k > retrieval_depth)

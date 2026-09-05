@@ -1,9 +1,9 @@
 """Task 1.8 — a language-specific stage applies per **node**, never per run.
 
 `docs/02-extension-model.md` §3 → *Language, and what a var is for*: two different things
-wear the word "language", and the reference's defect was gating two cleaning steps on
-`config.language == 'pl'`, a **run-wide** setting — uniformly wrong for one document in a
-mixed corpus, with no signal, and a 243-word Polish exception set firing on English text.
+wear the word "language", and gating two cleaning steps on `config.language == 'pl'`, a
+**run-wide** setting, is uniformly wrong for one document in a mixed corpus, with no
+signal, and lets a 243-word Polish exception set fire on English text.
 `02` §3's fix is "the source language is a fact about a **node**", and this module is the
 proof that the fix actually holds once both halves of it are run together.
 
@@ -18,7 +18,7 @@ carries — here, a translation target — never leaks into that per-node decisi
 property of the *composition*, not of either mechanism alone, which is why it needed its own
 test rather than an extra case appended to `test_resolution.py` or `test_runner.py`.
 
-**The three plugins below are the reference's cleaning-chain story, told at the smallest size
+**The three plugins below tell `02` §3's cleaning-chain story, at the smallest size
 that still tells it honestly.** `_Detect` stands in for "the extractor or an ordinary
 `detect` stage" `02` §3 names as the source of the fact — a deliberate no-op, since every
 fixture here attaches (or withholds) `_Language` directly; its only job is to make "some
@@ -84,7 +84,7 @@ class _Language(ExtModel):
 
 
 class _PolishFix:
-    """Stand-in for the reference's Polish fused-word exception set — narrowed, never guessing.
+    """Stand-in for a Polish fused-word exception set — narrowed, never guessing.
 
     `applies_to` names the one fact this stage's own logic needs (`_Language` with
     `code="pl"`); nothing in `run` branches on a node's content or language, so if an

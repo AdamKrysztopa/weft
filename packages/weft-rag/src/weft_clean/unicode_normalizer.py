@@ -1,18 +1,17 @@
 """`UnicodeNormalizer` — repairs mis-decoded byte sequences before any other cleaner runs.
 
-Task **2.35** — `docs/04-reference-inventory.md` category A names six cleaning processors;
-`weft-clean` shipped four. This is the first of the two absent, and the reference's own
-rationale (`indexing/cleaning/pipeline.py:70`, verbatim) is why it goes first: *"Fix
-encoding errors first (e.g., Ã³ -> ó) so regexes work correctly."* Verified at source,
-`reference/study/08-salvage.md` §T1.1 and `unicode_normalizer.py:12-37`: the reference's own
-`process` calls `ftfy.fix_text(text)`, then `unicodedata.normalize('NFC', fixed)`. The
-second call is dropped here, not carried: `ftfy.fix_text`'s own default configuration
-already performs NFC normalisation (`ftfy.TextFixerConfig.normalization = "NFC"`), so
-re-running `unicodedata.normalize` afterward changes nothing it did not already do — a
-correction, not a copy, the same reference-lift latitude that already dropped the reference's
-unused `llm` constructor parameter from every processor in this pack.
+Task **2.35** — six cleaning processors were originally catalogued; `weft-clean` shipped
+four. This is the first of the two absent, and it goes first for a structural reason: an
+encoding error read as ordinary characters will not match what a later regex-based cleaner
+expects, so repair has to happen before any of this pack's other five processors run.
+A two-step normalize-then-NFC pattern collapses to one call here: `ftfy.fix_text`'s own
+default configuration already performs NFC normalisation
+(`ftfy.TextFixerConfig.normalization = "NFC"`), so a second, explicit
+`unicodedata.normalize('NFC', ...)` call afterward would change nothing it did not already
+do — a correction, not a mechanical copy, the same latitude that already dropped an unused
+`llm` constructor parameter from every processor in this pack.
 
-**`intact = (Verbatim,)` is the constraint `01`'s Phase 2 exit reference audit found missing.**
+**`intact = (Verbatim,)` is the constraint `01`'s Phase 2 exit audit found missing.**
 Every regex in this pack's other five processors assumes it is looking at exactly the
 character sequence extraction produced — `weft_clean.property`'s module docstring works
 through why: a mis-decoded byte sequence is only recognisable to `ftfy.fix_text` while it

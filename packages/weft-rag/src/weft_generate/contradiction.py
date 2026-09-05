@@ -2,10 +2,10 @@
 
 Task **2.22**, `docs/build-ledger.md`: "a query about whether the sources agree is
 answerable, and a critic that could not look says so instead of reporting agreement."
-`docs/10-technique-catalogue.md` §1.1 names the reference's own `rag_consensus` and states
-what this plugin must not repeat: "`critique.py:158-166` reports `has_consensus=True`
-when the critique call fails — a disagreement detector that claims agreement when it
-cannot look." `weft_generate.prompts.ConflictStatus.UNDETERMINED` is the fix, and it is
+`docs/10-technique-catalogue.md` §1.1 names `rag_consensus` and states what this plugin
+must not repeat: a disagreement detector that reports `has_consensus=True` when the
+critique call fails is claiming agreement when it cannot look.
+`weft_generate.prompts.ConflictStatus.UNDETERMINED` is the fix, and it is
 not a placeholder third value — it is what `on_critic_failure`'s one member, `FAIL`,
 does here: **a critic whose cascade could not be parsed reports `UNDETERMINED` in the
 `Agreement` this plugin returns, never a defaulted `AGREE`**, and the run still proceeds

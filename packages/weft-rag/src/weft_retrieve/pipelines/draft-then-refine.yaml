@@ -9,7 +9,7 @@ extends: retrieve-then-generate
 # duplicating it. `hedge-phrases` is a locale-keyed phrase table — no model call, no network,
 # a decision in microseconds — and `10` §1.5 calls it exactly what it is: the documented weak
 # baseline. It fires on *hedging*, never on *unsupportedness*, which is the limit `10` §1.1
-# records against the reference's own version of this mechanism. Naming it here makes the weak
+# records against this mechanism. Naming it here makes the weak
 # signal a visible, swappable choice: change this one line to `llm-sufficiency` and the
 # judgement becomes a model call instead, with no other edit to this document.
 vars:

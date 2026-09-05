@@ -30,8 +30,9 @@ def test_a_placeholder_is_filled_from_the_model() -> None:
 
 
 def test_a_json_example_survives_with_its_braces_intact() -> None:
-    # Arrange — the whole reason this renderer is not `str.format`: the reference's prompts had
-    # to escape every `{{`/`}}` in a JSON example, and one that forgot produced garbage.
+    # Arrange — the whole reason this renderer is not `str.format`: a `str.format` template
+    # would require escaping every `{{`/`}}` in a JSON example, and a prompt author who forgot
+    # one would produce garbage.
     class _Empty(BaseModel):
         pass
 

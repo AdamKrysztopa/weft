@@ -6,7 +6,7 @@ names the failure mode this file exists to catch: raising a budget, adding a wai
 sprinkling `# type: ignore`, deleting an assertion, or dropping a step out of `ci-checks` — every
 one of these makes the gate agree with the code instead of moving the code to agree with the
 gate. Several fitness functions are pinned-empty named waivers for exactly this reason (the
-reference's `test_allowlist_empty.py` technique, credited in `test_ff0_gate_in_the_gate.py`): a
+pinned-empty-allowlist technique `test_ff0_gate_in_the_gate.py` describes): a
 weakening is supposed to be a *visible act in a diff*. This hook is what makes it a deliberate one
 too, by refusing the edit the first few times and coaching the agent back toward the code, then
 handing the decision to a human once the same file has been fought over repeatedly.
@@ -58,7 +58,7 @@ to stdout, honoured on any exit code except 2 (2 always blocks, regardless of JS
 prompt to the user rather than a silent block, with `permissionDecisionReason` written for that
 human reader. Multiple `PreToolUse` hooks can fire on the same matcher (`guard_readonly.py` does,
 on the identical `Edit|Write|NotebookEdit` matcher) and precedence across them is
-deny > defer > ask > allow, so a reference-path write this hook would otherwise `ask` about stays
+deny > defer > ask > allow, so a read-only-path write this hook would otherwise `ask` about stays
 blocked if `guard_readonly.py` also denies it. `_ASK_IS_SUPPORTED` below is the one flag to flip
 back to `False` — falling back to `deny` with the same human-directed reason — should a future
 harness revision drop `ask` for this event.

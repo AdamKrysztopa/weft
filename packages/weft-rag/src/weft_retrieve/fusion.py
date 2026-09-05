@@ -1,14 +1,13 @@
 """Fusers — the arity-reducing position, and the label every fuser weights on.
 
 Task **2.7**, `docs/build-ledger.md`: "fusion and reranking are composable plugins a third
-party can retune, not a fixed ladder." `docs/04-reference-inventory.md`:375-376 records what a
-fixed ladder cost the reference: `FusionRetriever`, 460 lines with hardcoded top-k values and an
-unused similarity threshold, referenced only by its own tests — and **three** implementations
-of reciprocal rank fusion, two of them live (`:421-426`). One algorithm, three copies,
-because fusion was something a strategy did rather than a position a document fills.
-`04`:480 names the mechanism that produces that: "a capability that arrives after the
-mechanism did not arrive — that is roughly how the reference itself acquired three fusion
-implementations." So fusion is a `Fuser` here, and the only thing a pipeline document says
+party can retune, not a fixed ladder." A fixed ladder risks exactly the failure this design
+avoids: one algorithm reimplemented at each call site that needs it, every copy carrying its
+own hardcoded top-k values and dead configuration, because fusion was something a strategy
+did rather than a position a document fills. A capability that arrives after the mechanism
+that would host it does not arrive is how that duplication happens — a second call site that
+needs fusion writes its own rather than waiting for a shared position to exist. So fusion is
+a `Fuser` here, and the only thing a pipeline document says
 about it is which registered name fills the `fuse:` position and what goes in its `with:`
 block.
 
@@ -22,9 +21,9 @@ clause in the only form it can be checked in.
 **`single-list` merges nothing, on purpose — that is `reciprocal-rank-fusion`'s job, built
 below.** `contributor_label` is written above the null case rather than beside the real one
 so that this plugin's `contributors` tuple and `ReciprocalRankFusion`'s `weights` mapping are
-keyed on **one** spelling rather than on two written a task apart — the reference's three
-divergent copies of one formula, prevented at the point the second implementation would
-otherwise invent its own key. Fusion also never collapses a ranking to its parents: when one
+keyed on **one** spelling rather than on two written a task apart — preventing the
+divergent-copies failure at the point a second implementation would otherwise invent its
+own key. Fusion also never collapses a ranking to its parents: when one
 chunk is indexed as several derived nodes (`.phase2-findings.md` §11), the several are
 genuinely several hits and a fuser has no business deciding they are one. That is ledger
 2.33's own named stage with its own stated policy, and it is a `Reranker` — `Stage[Ranking,
@@ -49,18 +48,19 @@ that true rather than merely typed — it walks `payload.lists` once, accumulate
 `Node.id` under `contributor_label(ranked)`, and never asks *why* there is more than one
 list. Two lists from `vector-top-k` searched on two channels for one query (hybrid) and two
 lists from `vector-top-k` searched on one channel for two `multi-query`-derived queries
-(fan-out) are indistinguishable to this method, which is the reference's own defect run in
-reverse: `04`:421-426 records the two copies it grew *because* fusion was reached from two
-different call sites rather than through one position both could resolve.
+(fan-out) are indistinguishable to this method — deliberately, since two call sites each
+growing their own copy of the same formula because fusion was reached from two different
+places rather than through one resolvable position is exactly the failure this position
+exists to close off.
 
 Gordon V. Cormack, Charles L. A. Clarke, Stefan Büttcher, *Reciprocal rank fusion outperforms
 condorcet and individual rank learning methods*, SIGIR 2009, pp. 758-759,
 DOI 10.1145/1571941.1572114 — the formula itself, `score(d) = Σ 1/(k + rank(d))` over every
 list `d` appears in, `k=60` the paper's own constant and this plugin's own default, never
-written into the arithmetic the way the reference wrote it into `_retrieval_post.py:113-133`
-(`10` §1.1's own row on this technique). Edward A. Fox, Joseph A. Shaw, *Combination of
-Multiple Searches*, TREC-2, NIST SP 500-215, 1994, p. 243 — the earlier combination-of-ranks
-idea RRF is a response to, cited on the same row and named here for the same reason `Hyde`
+hardcoded into the arithmetic itself (`10` §1.1's own row on this technique). Edward A. Fox,
+Joseph A. Shaw, *Combination of Multiple Searches*, TREC-2, NIST SP 500-215, 1994, p. 243 —
+the earlier combination-of-ranks idea RRF is a response to, cited on the same row and named
+here for the same reason `Hyde`
 and `StepBack` name what they diverge from rather than leaving it for a reader to find.
 
 **`Ranking.contributors` is the *distinct* set of labels that fed the fusion, not one entry
@@ -96,15 +96,16 @@ this plugin a document that never ran `boolean-retrieval` first, before either p
 query — `tests/unit/weft_retrieve/test_init.py`'s own resolution test drives that refusal
 directly.
 
-**The reference's own defect, and why nothing here special-cases it.** `10` §1.1's row: "`AND`
+**A known defect, and why nothing here special-cases it.** `10` §1.1's row: "`AND`
 returns the union when the intersection is empty … the logical opposite of what was asked."
 `_evaluate` below never contains that special case — a `set` intersection that happens to be
 empty simply *is* the empty set, and no line of this module reaches for `or`'s union as a
 rescue. `on_empty_conjunction` (`EmptyConjunction` — `report` or `fail`, **no `union` member**,
 the omission stated rather than merely true by absence) governs only *whether the caller is
 told*, never *what the answer is*: scoped to the case where the whole parsed query's own root
-combinator is `and` and its evaluated result is empty, since that is the shape the reference's flat
-`(operator, list[str])` could only ever represent one of anyway — a query whose root is `or`
+combinator is `and` and its evaluated result is empty, since that is the shape a flat
+`(operator, list[str])` representation could only ever represent one of anyway — a query
+whose root is `or`
 and comes back empty because every branch did is an ordinary empty result, not the specific
 "a conjunction was asked and nothing satisfied it" fact this knob exists to surface.
 
@@ -337,7 +338,7 @@ class EmptyConjunction(StrEnum):
     """What `BooleanCombine` does when the whole query's own root `and` matches nothing.
 
     Deliberately **no `union` member** — see the module docstring's own paragraph on this
-    plugin for the reference defect that omission closes. `report` keeps the pipeline going with
+    plugin for the defect that omission closes. `report` keeps the pipeline going with
     an honestly empty `Ranking`; `fail` is for a caller who would rather the run stop than
     answer a Boolean query with no evidence at all.
     """

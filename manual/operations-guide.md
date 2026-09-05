@@ -436,7 +436,7 @@ similarity_threshold = 0.85
 diversity_threshold = 0.3
 ```
 
-Every field defaults to the value `reference/study/08-salvage.md` §T1.12 measured, so a `weft.toml`
+Every field defaults to an empirically measured value, so a `weft.toml`
 with no `[llm.loop_guard]` block still runs with the guard active. Two thresholds decide whether a
 candidate span counts as a loop, and **both** must cross: `similarity_threshold` (how alike two
 consecutive windows of the answer must be) and `diversity_threshold` (how internally repetitive

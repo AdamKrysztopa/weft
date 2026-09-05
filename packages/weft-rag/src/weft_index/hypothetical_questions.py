@@ -6,8 +6,8 @@ own row: doc2query (Rodrigo Nogueira, Wei Yang, Jimmy Lin, Kyunghyun Cho, *Docum
 Expansion by Query Prediction*, arXiv:1904.08375, 2019) — "at index time, generates the
 questions a chunk would answer and indexes them as retrievable nodes" — under the *correct*
 citation, per that row's own finding that a plausible-looking wrong paper (HyDE,
-arXiv:2212.10496 — a *query-time* technique generating hypothetical *answers*) is what the
-reference attached to this *index-time* technique that generates hypothetical *questions*.
+arXiv:2212.10496 — a *query-time* technique generating hypothetical *answers*) had been
+mistakenly attached to this *index-time* technique that generates hypothetical *questions*.
 
 **One call per node, run concurrently, never one call for a batch.** `weft_retrieve.
 transforms.MultiQuery` batches several *query-path* seeds into one structured cascade call

@@ -1,8 +1,8 @@
 """Unit tests for `weft_clean.artifact_remover`.
 
 Mirrors `packages/weft-rag/src/weft_clean/artifact_remover.py`. Covers the happy path (a
-standalone "Page N" line removed, per `reference/study/08-salvage.md` §T1.1's constants table),
-the edge case of a separator line (more than half non-alphanumeric) dropped while ordinary
+standalone "Page N" line removed), the edge case of a separator line (more than half
+non-alphanumeric) dropped while ordinary
 prose survives, the error case of an empty batch answering `NothingToProduce`, task 2.35's
 own worked example (`ArtifactRemover` declares `intact = (Newlines,)` and
 `destroys = (Verbatim,)`, truthfully), and a drive through `weft_kernel.seam.wrap` — FF7(b).

@@ -25,7 +25,7 @@ min_period = 50
 
 **Task 3.10 added `[llm.loop_guard]`** alongside `[llm.retry]`, on the identical footing: a
 table an operator may omit entirely (every `weft_llm.loop_guard.LoopGuardConfig` field
-defaults to the value `reference/study/08-salvage.md` §T1.12 measured) or override one key of,
+defaults to a measured value, per that module's own docstring) or override one key of,
 never a second parser for the same idea.
 
 **Not `[services]`, deliberately.** `weft_cli.services`'s own module docstring already

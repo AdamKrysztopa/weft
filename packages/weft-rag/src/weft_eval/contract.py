@@ -2,8 +2,8 @@
 
 Task **4.1** shipped a single `Metric`/`Sample` pair and left the split open on purpose: `Sample`
 was "deliberately narrow, and provisional," carrying only what the one demonstration metric
-needed, with the reference's own `RetrievalEvaluator`/`GenerationEvaluator` split named as the
-question 4.2 would settle "once 21 real implementations say which shape they actually need — not
+needed, with a retrieval/generation evaluator split flagged as the question 4.2 would settle
+"once 21 real implementations say which shape they actually need — not
 pre-decided here by guessing." Task **4.2** is that task, and the 21 implementations say the shape
 plainly: the four IR metrics (`weft_eval.ir_metrics`) need a ranked list of retrieved passage ids
 and a set of relevant ids, and never touch a prediction or reference string at all; the eleven
@@ -42,9 +42,10 @@ needs" split `weft_retrieve.rerank.LlmRerank` already makes for `payload.origin`
 
 **Q6 — how a metric declares that it needs credentials or a model download, task 4.7.** The
 house rule is G4's: a capability is derived at registration, never declared in a hand-maintained
-table (`.phase4-reference-recon.md` §6 credits the reference with the right *shape* to copy — a derived
-boolean, `bertscore.py:15`'s own `importlib.util.find_spec` — while noting no derivation for
-"needs an LLM" exists there to lift). `GenerationMetric`/`RetrievalMetric` extend the identical
+table — a derived boolean, the same shape `weft_eval.embedding_metrics.BERT_SCORE_AVAILABLE`'s
+own `importlib.util.find_spec` check uses, though no comparably derivable check for "needs an
+LLM" exists to reuse, so this contract states it explicitly instead. `GenerationMetric`/
+`RetrievalMetric` extend the identical
 mechanism task 3.1 already generalised for `Command.permission_class`, rather than inventing a
 second one: `required_declarations = ("runs_in_gate",)`, read by `weft_kernel.registry`'s own
 `_require_declarations_present` — unchanged, zero new kernel lines — so a metric that never
@@ -59,13 +60,14 @@ derives which registered metric names actually declared `True`, never a second, 
 list of "the offline ones" to keep in sync by hand.
 
 **Every metric's own `evaluate` decides `NothingToProduce` vs `Failed` for its own missing input,
-consistently applied across the suite** — the one place 4.2 makes a call the reference never had to:
-an empty reference (or an empty relevant-id set, its retrieval-side analogue) is `NothingToProduce`
-*unconditionally*, regardless of what the prediction/retrieval carries, never a computed number.
-The reference disagreed with itself here — `token_recall` returned `1.0` on an empty reference
-unconditionally, `f1_score`'s shared `compute_f1` returned `1.0` only when the prediction was
-*also* empty, and nothing recorded that the two reference "trailing defects" were shaped differently.
-Weft flattens the two into one rule rather than porting the inconsistency: nothing to compare
+consistently applied across the suite** — the one place 4.2 makes a rule of what could otherwise
+drift metric by metric: an empty reference (or an empty relevant-id set, its retrieval-side
+analogue) is `NothingToProduce` *unconditionally*, regardless of what the prediction/retrieval
+carries, never a computed number. Two functionally identical checks can disagree with each other
+here in exactly the way that goes unnoticed until compared side by side — one always returning
+`1.0` on an empty reference, another returning `1.0` only when the prediction was *also* empty,
+with nothing recording that the two "trailing" edge cases were shaped differently. Weft flattens
+the two into one rule rather than carrying the inconsistency forward: nothing to compare
 against is nothing to compare against, independent of what the other side of the comparison
 happens to hold. A caller who wants "1.0 because both sides are the empty string" is asking a
 different, legitimate question — `exact-match` already answers it, honestly, as an exact match.

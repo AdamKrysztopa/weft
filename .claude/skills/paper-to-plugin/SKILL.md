@@ -22,7 +22,7 @@ Not bad code — **an overclaiming name attached to good code**. It is invisible
 implementation is fine and the name reads as documentation. It surfaces years later when someone
 configures `self-rag` expecting reflection tokens and gets a confidence threshold.
 
-The catalogue records this happening in the reference: `rag_consensus` named a technique the code did not
+The catalogue records this happening: `rag_consensus` named a technique the code did not
 implement, and `10` §2.2 renames it to `contradicted-check` for exactly that reason. Weft's own
 `hyde` diverges from its paper — it fuses where the paper averages — and that divergence is written
 on the class docstring rather than left for someone to find by diffing the module against the PDF.
@@ -81,7 +81,7 @@ Three outcomes, and picking wrong is the most expensive error available here:
 
 - **A plugin**, if it is one mechanism filling one position.
 - **A pipeline**, if it is a composition of things that already exist. `10` §2.1 rule 5:
-  *a composition is a pipeline, never a plugin*. The reference's `rag_complex` was HyDE plus repacking;
+  *a composition is a pipeline, never a plugin*. `rag_complex` named HyDE plus repacking;
   registering it would have put a name on data that requirement 3 says is derivable. **Weft ships
   four pipeline documents in the whole tree, so this outcome is almost certainly under-used, not
   over-used** — if the paper is a recipe over known parts, a document is the honest answer and it is
@@ -114,7 +114,7 @@ because *for those the text is the asset*.
 While writing, hold Weft's shape: every contract method is `async def`; return frozen Pydantic models,
 never `dict[str, Any]`; `Enum` for string constants, never `Literal`; catch specific exceptions,
 because a silent fallback is worse than a failure. Every constant the paper chose becomes a config
-field with the paper's value as its default — `10`'s whole complaint about the reference's fixed ladder is
+field with the paper's value as its default — `10`'s whole complaint about a fixed ladder is
 that tuned numbers were unreachable.
 
 ### 5. Write the divergence at the name
@@ -164,7 +164,7 @@ this repository, and read what it prints — including a failure path.
 
 Papers like RAPTOR or GraphRAG describe a *system*: an index-side construction, a retrieval-side
 traversal, and often an evaluation protocol. Implementing "the paper" as one plugin is the mistake
-this repository is shaped to prevent — it produces the god-object the reference shipped and the fixed
+this repository is shaped to prevent — it produces the same god-object and fixed
 ladder `10` complains about.
 
 Split by **position**, and let each piece register where it belongs. RAPTOR is already split this way

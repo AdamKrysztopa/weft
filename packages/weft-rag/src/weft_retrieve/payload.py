@@ -115,7 +115,7 @@ class Query(BaseModel):
     which is what lets a fan-out transform expand only the original question rather than
     multiplying whatever an earlier transform already produced.
 
-    `channels` is the fix for the reference's HyDE inversion, made structural: a hypothetical
+    `channels` is the fix for a HyDE inversion, made structural: a hypothetical
     *document* is a good dense-retrieval probe and a bad lexical one, so the transform
     that invents it says so here, once, and every retriever downstream honours it without
     knowing what HyDE is. Empty means "every channel this retriever offers" — an absence,
@@ -159,8 +159,8 @@ class QuerySet(BaseModel):
     """The query path's entry payload: what the user asked, and what will be retrieved for.
 
     **`origin` is a contract term every query-path stage honours, and nothing checks it.**
-    The reference fed a hallucinated HyDE passage to its cross-encoder *as the query*, so the
-    reranker scored every candidate against a document the engine had made up. This field
+    A hallucinated HyDE passage fed to a cross-encoder *as the query* would have the
+    reranker scoring every candidate against a document the engine made up. This field
     is where the user's own words live so that a reranker has something other than the last
     transform's output to rescore against: `Reranker` is `Stage[Ranking, Ranking]` and a
     `Ranking` carries `origin`, so there is a right answer for it to read.
@@ -283,8 +283,8 @@ class Ranking(BaseModel):
     names "a boolean parser reporting a conjunction with no satisfying document" as its
     worked example, and `weft_retrieve.fusion.BooleanCombine` (ledger 2.23) is the fuser
     that needs it — `hits=()` alone says *that* an AND matched nothing, never *which*
-    operands were disjoint, and the reference's own defect was silently substituting the union
-    for exactly that missing explanation.
+    operands were disjoint, and silently substituting the union for exactly that missing
+    explanation is the defect this field exists to avoid.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -349,7 +349,7 @@ class Assessment(BaseModel):
 
     `observed` is not redundant with `sufficient`. A critic that could not reach a model,
     or was handed no evidence to judge, has learned nothing — and reporting that as
-    "not sufficient" is the reference's `has_consensus=True`-on-failure defect with the
+    "not sufficient" repeats a `has_consensus=True`-on-failure defect with the
     boolean flipped. Two fields, because there are two facts.
     """
 

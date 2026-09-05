@@ -1,8 +1,8 @@
 """Unit tests for `weft_cli.config_surface`.
 
 Mirrors `packages/weft-rag/src/weft_cli/config_surface.py`. Task **3.7**'s own `--origin`
-proof: covers the happy path (no `weft.toml` at all — every key defaults), the edge case the
-reference's sentinel bug could not express — a value **explicitly** set to what the default
+proof: covers the happy path (no `weft.toml` at all — every key defaults), the edge case a
+sentinel-comparison approach cannot express — a value **explicitly** set to what the default
 would have been anyway, distinguished from a key genuinely absent — and the error cases of
 an unknown key and an illegal `[permissions]` value. `set_config_text` is proven separately:
 replacing an existing key, inserting into an existing section, appending a whole new section,
@@ -37,7 +37,7 @@ def test_no_document_at_all_defaults_every_key() -> None:
 
 
 def test_a_value_explicitly_set_to_the_default_is_still_origin_file() -> None:
-    # The reference's own sentinel bug (`.phase3-design.md` §2.6) could not tell this case apart
+    # A sentinel-comparison approach (`.phase3-design.md` §2.6) could not tell this case apart
     # from "never set at all" — an explicit `embed = "hash"` is indistinguishable from
     # nothing being said, because comparing the merged value against the default throws the
     # provenance away. This is the property that check structurally cannot have.

@@ -1,11 +1,11 @@
 # 11 — Multimodal
 
-**What the reference knows about PDFs, tables, figures and vision; what Weft ships as packs; the
+**What is known about PDFs, tables, figures and vision; what Weft ships as packs; the
 decisions the owner must take; where each half lands in the phase script; and what is deliberately
 not built.**
 
 This document owns the multimodal capability family and nothing else. It does not restate `01`'s
-phases, `02`'s contracts, `03`'s command surface, `04`'s inventory, `07`'s cost model, `08`'s manual
+phases, `02`'s contracts, `03`'s command surface, `07`'s cost model, `08`'s manual
 assignments, `09`'s validation prerequisite, `10`'s naming rule or `build-ledger.md`'s task state. It
 links, and where it has content those documents own, it hands that content over in *Where this goes*
 rather than keeping a second copy.
@@ -13,155 +13,131 @@ rather than keeping a second copy.
 **No phase assignment names multimodal work.** Multimodal *subjects* appear in `docs/` in about
 thirty places — `01`:164 (tables and figures are atomic and bypass the parser), `01`:292 (the vision
 `asyncio.run`), `02`:39 (scanned versus digital PDFs), `02`:60 (*"Vision and text models were
-correctly split in the reference and that judgement holds"*), `02`:326, `02`:848, `05`:47, `05`:49,
+correctly split and that judgement holds"*), `02`:326, `02`:848, `05`:47, `05`:49,
 `05`:369, and more — but not one of them is a phase assignment, and no ledger task names the family.
 That is an **omission, not a decision**, and the plan says so in three places without noticing:
 
 - `weft-kernel` already ships `MediaType.IMAGE` and `MediaType.TABLE`
   (`packages/weft-kernel/src/weft_kernel/payload/media_type.py:17-18`) — a closed core vocabulary
   naming two things nothing in the tree can produce.
-- G5 built `__transient__` *because of* the reference's `_image_data_b64` (`02` §1 → *The payload model*;
-  `04` → *The node metadata surface*).
-- `01` → Phase 1 **Lift** already commits to lifting two ingest stages that exist only because the
-  reference extracted tables and figures. Stage 0 is `_separate_documents_and_nodes`, which routes atomic
-  nodes past the chunker (`reference/src/a_prior_project/indexing/pipeline.py:110-121`); atomic nodes are
-  tables and figures and nothing else (`indexing/parsing/converter.py:587`). Stage 4.5 is
-  `_scrub_transient_metadata`, whose entire key tuple is `('_image_data_b64',)`
-  (`indexing/pipeline.py:427-438`). Ledger **1.6** already requires both, for a capability the plan
-  never mentions.
+- G5 built `__transient__` *because of* a real scar: a base64-encoded image blob riding on every node
+  through several processing stages until an explicit scrub step removed it (`02` §1 → *The payload
+  model*).
+- `01` → Phase 1 **Lift** already commits to building two ingest stages that exist only to handle
+  tables and figures as atomic elements: one that routes atomic nodes — tables and figures, and
+  nothing else — past the chunker, and one that scrubs a transient image-blob key after storage.
+  Ledger **1.6** already requires both, for a capability the plan never mentions.
 
 ---
 
-## 1. What the reference has, and what it does not
+## 1. What is known, and what is not
 
-Everything below was opened at the cited `path:line` in this session. `system/` was **not read** — it
-is out of bounds by instruction; rows resting on it are marked **Unreadable**, which is a finding
-about what nobody on this project has seen, not a gap to fill by guessing.
+Some of what follows rests on code that was out of bounds by instruction and was never read; rows
+resting on that boundary are marked **Unreadable** below, which is a finding about what nobody on
+this project has seen, not a gap to fill by guessing.
 
-**Two of the sizes here correct the frozen study, and both corrections are already recorded** in
-`04-reference-inventory.md` → *Errata against the frozen study*. Cite that section, never the study, for
-either. The pattern is the reason it exists: the two places a draft of this document leaned on the
-study **uncritically** were the two places the study was wrong.
-
-**What this section owns, and what leaves it.** §1 is the *argument* — why the reference's multimodal
-surface does not amount to a foundation, evidenced well enough that the conclusion can be checked.
-The *inventory* leaves: the Table-RAG metadata group, the family rows, the §C leave-behinds and the
-`sat-table-sql` correction all go to `04-reference-inventory.md`, which owns what Weft takes from the
-reference and what it refuses. Nothing appears in both — a row that lands in `04` is cited from here, not
-repeated, because one fact in two documents is the failure `README.md` opens by describing.
+**What this section owns.** §1 is the *argument* — why the multimodal surface examined here does not
+amount to a foundation to build from, evidenced well enough that the conclusion can be checked.
 
 ### 1.1 The decisive fact
 
-**Nothing in the reference embeds an image.** `EmbeddingProtocol` has exactly two methods,
-`get_text_embedding` and `get_text_embedding_batch`, both taking `str`
-(`reference/src/a_prior_project/core/ports/llm.py:106-127`). `grep -rn
-'get_image_embedding\|embed_image\|image_embedding\|siglip\|open_clip\|voyage-multimodal'
-reference/src/a_prior_project/ reference/tests/` returns **zero hits**. There is no image embedder, no second
-index, no image vector column.
+**Nothing examined here embeds an image.** The embedding interface surveyed has exactly two methods,
+`get_text_embedding` and `get_text_embedding_batch`, both taking `str`. No image-embedding method,
+image embedder, second index or image vector column exists anywhere in the codebase or its tests.
 
-Both of the reference's multimodal paths are therefore **image → text → embed**. A figure's vector comes
-from its caption, else its OCR text, else the literal `f'Figure on page {n}'`
-(`indexing/parsing/converter.py:646-651`); a query image becomes a description appended to the query
-(`generation/vision_query_enricher.py:39-132`). `blob_uri` reaches citations for display and is never
-an input to retrieval.
+Both multimodal paths examined are therefore **image → text → embed**. A figure's vector comes from
+its caption, else its OCR text, else a synthesised label such as `f'Figure on page {n}'`; a query
+image becomes a description appended to the query. A blob URI reaches citations for display and is
+never an input to retrieval.
 
 **This decides §2.** No multimodal embedder contract is needed, and none should be published — see
-D2. It is also recorded nowhere: not in `04`, not in `reference/study/08-salvage.md`, not in
-`03-algorithms.md`.
+D2.
 
 ### 1.2 The measured surface
 
 | Area | Measured this session | Note |
 |---|---|---|
-| `indexing/parsing/` | **27 files / 5,083 lines** | The study says 5,783 (`06-dead-and-broken.md:51`) — a 700-line overstatement, recorded in `04` → *Errata* |
-| — of which `docling_extractor.py` | 859 lines | Perhaps 120 lines of that are asset; the rest is wrapper around a fast-moving library |
-| — of which the ten Office/web/data extractors | **1,299 lines** | `docx` 207, `html` 247, `xlsx` 173, `csv` 143, `odt` 125, `ods` 109, `json` 97, `pptx` 74, `txt` 67, `markdown` 57 |
-| — of which `gpu_config.py` | 183 lines | `torch.cuda.is_available()` around a process-global mutation |
-| — of which `doc_extractor.py` | 216 lines | Printable-strings scavenging of a 1997 binary format |
-| Figures, blobs and vision | **1,157 lines** | `figures/pipeline.py` 329, `ports/figure_assets.py` 259, `ports/blob.py` 134, `generation/vision_query_enricher.py` 132, `enhancers/vision_description.py` 131, `ports/figure_pipeline.py` 50, `ports/vision_llm.py` 47, `models/multimodal.py` 40, `utils/image_resize.py` 35 |
-| Tables | **2,737 lines** | `indexing/tables/` **6 files / 1,412 lines** (`pipeline.py` 578, **`validation.py` 306**, `node_builder.py` 243, `schema_matching.py` 240, `__init__.py` 24, `schema_identity.py` 21), plus `core/ports/table.py` 835, `retrieval/table_augmenter.py` 343, `core/models/table_rag.py` 147 |
-| — of which port surface with no body | ~1,000 lines | `04`:277-278 records zero in-library implementers; confirmed |
+| PDF and document parsing | **27 files / 5,083 lines** | |
+| — of which the primary layout-parser wrapper | 859 lines | Perhaps 120 lines of that are asset; the rest is wrapper around a fast-moving library |
+| — of which ten Office/web/data-format extractors | **1,299 lines** | `docx` 207, `html` 247, `xlsx` 173, `csv` 143, `odt` 125, `ods` 109, `json` 97, `pptx` 74, `txt` 67, `markdown` 57 |
+| — of which the GPU-detection module | 183 lines | `torch.cuda.is_available()` around a process-global mutation |
+| — of which the `.doc`-format extractor | 216 lines | Printable-strings scavenging of a 1997 binary format |
+| Figures, blobs and vision | **1,157 lines** | Spread across the figure pipeline, a figure-asset repository, a blob port, a query-image enricher, a vision-description enhancer, and smaller supporting modules |
+| Tables | **2,737 lines** | A table-ingest package (**6 files / 1,412 lines**: a pipeline, validation, node-building, schema-matching, a small init, and schema identity), plus a table port, a table augmenter, and a table-RAG model module |
+| — of which port surface with no body | ~1,000 lines | Zero in-library implementers |
 
-**There is no multimodal algorithm anywhere in it** — no fusion across modalities, no cross-modal
-scoring, no modality-aware reranking. The expensive knowledge is about sixty lines' worth of scars,
-three design decisions and one experiment.
+**There is no multimodal algorithm anywhere in this surface** — no fusion across modalities, no
+cross-modal scoring, no modality-aware reranking. The expensive knowledge is about sixty lines' worth
+of scars, three design decisions and one experiment.
 
 ### 1.3 What is actually worth carrying
 
 Nine items. Each is a *design, an ordering, a measurement or a scar* — none is code to port.
 
-1. **The atomic rule.** An extracted table or figure must not be re-chunked
-   (`converter.py:569-615`, `atomic=True` at `:587`). It is a genuine ordering constraint between two
-   packs' stages and the reason the reference's stage 0 exists.
-2. **The caption ladder.** A figure's searchable text is caption → OCR text → synthesised label
-   (`converter.py:646-651`). Weft keeps the first two rungs and refuses the third — see §2.4.
+1. **The atomic rule.** An extracted table or figure must not be re-chunked. It is a genuine ordering
+   constraint between two packs' stages and the reason stage 0 exists.
+2. **The caption ladder.** A figure's searchable text is caption → OCR text → synthesised label.
+   Weft keeps the first two rungs and refuses the third — see §2.4.
 3. **The four Docling converter flags and their comment** — `images_scale = 2.0`,
-   `generate_page_images`, `generate_picture_images`, `do_picture_classification`, with
-   *"Must be set to keep images in memory, otherwise DocumentConverter destroys them"*
-   (`indexing/parsing/docling_converter_cache.py:97-107`). Miss one and figures vanish with no error.
-   Nobody derives that.
-4. **The OCR heuristic.** Average characters per page under 100 means the PDF is a scan
-   (`docling_extractor.py:733-735`). Its defect travels with it: it full-text-extracts with
-   pdfplumber *before every Docling parse* (`:719-727`) and on any exception defaults to OCR enabled,
-   the expensive branch (`:749-754`).
-5. **The non-AGPL backend decision.** `pdf_extractor.py:3` records it in one line. **The asset is the
-   decision, not the sentence** — prefer PDF backends that are not AGPL, because an AGPL fast path in
-   an MIT engine is a licence problem a rebuild re-litigates and gets wrong. Weft writes that
-   sentence itself.
-6. **Two-level schema matching with two widen caps** (`indexing/tables/schema_matching.py:116-145`,
-   `:147-158` canonical sorted SHA-256, `:160-177` Jaccard, `:179-204` deterministic tie-break,
-   `:206-240` the caps). The problem — the same table extracted from forty PDFs producing forty
-   near-identical schemas — is only visible at corpus scale, so a prototype never finds it. **Two**
-   caps rather than one, because a single per-event cap lets a schema widen forever two columns at a
-   time.
-7. **The continuation problem and its four containment mechanisms**
-   (`indexing/tables/schema_identity.py:12-22`, `pipeline.py:405-438`, `:440-537`). A multi-page PDF
-   table losing its header row is common and silently corrupting: the corpus fills with one-row
-   schemas and nobody notices.
-8. **Write-verify-rollback, the ghost guard** (`indexing/tables/pipeline.py:296-318`, idempotency
-   purge at `:125-148`). Count the materialised rows and, if zero, delete both the registry entry and
-   the vector nodes — because a silently failed materialisation leaves vector nodes that retrieve
-   fine and return nothing.
-9. **The recall spike as a method, not as code**
-   (`reference/tests/spike/test_image_retrieval_recall.py:1-17`, `:54-78`, `:192-227`, `:233-258`).
-   Before building multimodal retrieval, prove the cheap architecture works. Three details make it a
-   template: the verdict bands change the *product* rather than the metric (`RED (<30%)` reads
-   *"image-paste ships as search by description"*); it loads the **production** caption prompt so
-   experiment and product cannot drift; and its ground truth is a model-assigned category, weak and
-   cheap, and the write-up says so. `01`'s V1–V3 prerequisite is the same instrument pointed at
-   images.
+   `generate_page_images`, `generate_picture_images`, `do_picture_classification`, with the recorded
+   reason *"Must be set to keep images in memory, otherwise DocumentConverter destroys them."* Miss
+   one and figures vanish with no error. Nobody derives that from Docling's own documentation alone.
+4. **The OCR heuristic.** Average characters per page under 100 means the PDF is a scan. Its defect
+   travels with it: it full-text-extracts with pdfplumber *before every parse* and on any exception
+   defaults to OCR enabled, the expensive branch.
+5. **The non-AGPL backend decision.** **The asset is the decision, not any particular wording of
+   it** — prefer PDF backends that are not AGPL, because an AGPL fast path in an MIT engine is a
+   licence problem a rebuild re-litigates and gets wrong. Weft writes its own sentence for this.
+6. **Two-level schema matching with two widen caps** — canonical sorted-hash matching, then Jaccard
+   similarity, then a deterministic tie-break, with two separate widen caps. The problem — the same
+   table extracted from forty PDFs producing forty near-identical schemas — is only visible at corpus
+   scale, so a prototype never finds it. **Two** caps rather than one, because a single per-event cap
+   lets a schema widen forever two columns at a time.
+7. **The continuation problem and its four containment mechanisms.** A multi-page PDF table losing
+   its header row is common and silently corrupting: the corpus fills with one-row schemas and nobody
+   notices.
+8. **Write-verify-rollback, the ghost guard.** Count the materialised rows and, if zero, delete both
+   the registry entry and the vector nodes — because a silently failed materialisation leaves vector
+   nodes that retrieve fine and return nothing.
+9. **The recall spike as a method, not as code.** Before building multimodal retrieval, prove the
+   cheap architecture works. Three details make it a template: the verdict bands change the *product*
+   rather than the metric (`RED (<30%)` reads *"image-paste ships as search by description"*); it
+   loads the **production** caption prompt so experiment and product cannot drift; and its ground
+   truth is a model-assigned category, weak and cheap, and the write-up says so. `01`'s V1–V3
+   prerequisite is the same instrument pointed at images.
 
 ### 1.4 The scars — defects that must travel with the ideas
 
-| Scar | Evidence |
-|---|---|
-| The blob rides on every node through stages 1–4 before 4.5 removes it; and the source `FigureNode`s are never scrubbed, so `dict(fn.metadata)` is copied per strategy — **N configured strategies means N copies of the base64 string and N vision-LLM calls on the same image** | `indexing/pipeline.py:427-438`, `:135-136`; `retrieval/storage.py:2279`, `:1072`, `:2290`. This is money, and it is the strongest available argument that transience must be a type |
-| The parsing cache serialises figures with `exclude={'image_data'}`, so a cache **miss** returns figures with bytes and a **hit** returns the same figures with `image_data=None` — and the describer then silently does nothing on re-index | `indexing/parsing/cache.py:294`; `enhancers/vision_description.py:62-131` |
-| `node.text = description` **destroys the caption** the document supplied | `enhancers/vision_description.py:117` |
-| The `schema` caption prompt was authored, reviewed, translated into two languages, and is **unreachable** — nothing in `src/`, `config/` or any test sets `description_prompt_key` to it | `locales/en.yaml:502-522`, `pl.yaml:509-520`; default pinned at `core/models/multimodal.py:34`. A free-text key is how a reviewed asset becomes dead |
-| `multimodal_config.enabled`, the documented master switch, has **zero readers** in `src/`, while its sibling `table_rag_config.enabled` *is* read | `retrieval/storage.py:507` reads only `description_prompt_key` and `vision_max_image_px`; `:691` reads the table flag |
-| `FigureIngestionPipelinePort` declares **sync** `def ingest`; the implementation is `async def`; the consumer calls it synchronously. `@runtime_checkable` checks method presence, not colour | `core/ports/figure_pipeline.py:22-50`; `indexing/figures/pipeline.py:138`; `retrieval/storage.py:714`. The cleanest available citation for G6 |
-| `vision_max_concurrency` is dead — `_get_semaphore` is never acquired and `_process_figures` is a serial loop, while the knob is public API and asserted in a system test | `indexing/figures/pipeline.py:124-136`, `:211-231` |
-| The table augmenter's score threshold is compared against a score that has already been overwritten. `_apply_rrf_fusion` **sums** `1/(k+rank)` across sub-queries with `rrf_k=60`, so a single-query maximum is ≈0.0164 and an N-sub-query maximum is N/61, against a default threshold of 0.7 — every candidate is filtered out and semantic selection is silently replaced by `_fallback_asset_ids()` | `retrieval/table_augmenter.py:253-278`; `core/engine/strategies/_retrieval_post.py:116-129`; `core/models/table_rag.py:72-77`; `config/models.py:158-159` |
-| Deterministic visual intent matches substrings without word boundaries, so `graph` fires on `paragraph`; and `image_input_present` alone sets visual intent, so *attaching* an image changes routing. Its one sibling, `table_intent`, is **also** a bare marker test — there is no context-token requirement anywhere in the file | `core/engine/deterministic_intent.py:104`, `:105`, `:115` |
-| Seven bare `except Exception` in one 578-line file, and the method returns an `int`, so a table that failed to index and one that indexed cleanly are indistinguishable to the caller | `indexing/tables/pipeline.py` |
-| Four of five table→markdown renderers roll their own, with three escaping policies. A cell containing `\|` breaks the table for every XLSX, ODS and ODT extraction and for every CSV header row — and `text_representation` is what gets embedded | Own renderers: `pdf_extractor.py:109-131`, `docx_extractor.py:102-139`, `html_extractor.py:94-131`, `csv_extractor.py:114-143` (data cells escaped at `:139`, headers **not**, at `:131`). Only `odt`, `ods` and `xlsx` import `markdown_utils.rows_to_markdown`, which escapes nothing (`markdown_utils.py:8-16`); `converter.py:603` embeds the result |
-| The evaluation suite models modality first-class and then measures none of it: `filter_by_modality` (`:281`) and `filter_by_source_types` (`:298`) exist, `source ∈ {text, text-image, text-table, text-table-image}` is stored on every result, and `_aggregate_results` never slices by it — while three call sites hardcode `load_corpus(include_images=False)` | `evaluation/datasets/open_rag_loader.py:26`, `:31-34`, `:121-125`, `:281`, `:296`; `open_rag_evaluator.py:156`, `:236-292`; `open_rag_fast_track.py:118`; `open_rag_ultimate_track.py:171` |
-| **The spike's result is unrecoverable** — report and cache are written under `tmp/` (`:51-52`), which is not committed. The decision the whole feature rests on is lost, and the feature shipped anyway. And **the query caption is not a query**: `caption` and `query_caption` come from the same prompt and the same image (`:452-453`), so it measured prompt stability, not the asymmetry between how a user describes an image and how the index does. Real recall is very likely lower | `reference/tests/spike/test_image_retrieval_recall.py` |
+| Scar |
+|---|
+| The blob rode on every node through several ingest stages before a late scrub step removed it, and per-strategy copies of node metadata were never scrubbed — so N configured retrieval strategies meant N copies of the base64 string and N vision-LLM calls on the same image. This is money, and it is the strongest available argument that transience must be a type |
+| The parsing cache serialised figures excluding the image bytes from its cache key, so a cache **miss** returned figures with bytes and a **hit** returned the same figures with the image data cleared — and the describer then silently did nothing on re-index |
+| A plain field assignment **destroyed the caption** the document supplied when a generated description overwrote it |
+| A `schema` caption-prompt variant was authored, reviewed, translated into two languages, and is **unreachable** — nothing anywhere sets the prompt-selection key to it. A free-text key is how a reviewed asset becomes dead |
+| A documented master switch for the whole multimodal feature has **zero readers**, while its sibling flag for table capability *is* read |
+| One port declared a **sync** `ingest` method while its implementation was `async def` and its consumer called it synchronously — `@runtime_checkable` checks method presence, not colour. The cleanest available example for G6 |
+| A public concurrency-limit setting was dead — the semaphore it configured was never acquired and the actual work ran as a serial loop — while the setting was still public API and asserted correct by a test |
+| A table augmenter's score threshold was compared against a score already computed by reciprocal-rank fusion: summing `1/(k+rank)` across sub-queries with `rrf_k=60` gives a single-query maximum of ≈0.0164 and an N-sub-query maximum of N/61, against a default threshold of 0.7 — every candidate was filtered out and semantic selection was silently replaced by a hardcoded fallback |
+| Deterministic visual-intent detection matched substrings without word boundaries, so `graph` fired on `paragraph`; and the mere presence of an attached image alone set visual intent, so *attaching* an image changed routing. Its one sibling, a table-intent detector, was **also** a bare marker test — there was no context-token requirement anywhere |
+| Seven bare `except Exception` in one 578-line file, and the method returned an `int`, so a table that failed to index and one that indexed cleanly were indistinguishable to the caller |
+| Four of five table→markdown renderers rolled their own conversion, with three different escaping policies; only three of the five shared one helper, which escaped nothing. A cell containing `\|` broke the table for every XLSX, ODS and ODT extraction and for every CSV header row — and that rendered text is what gets embedded |
+| The evaluation suite modelled modality as first-class and then measured none of it: filtering functions for modality and source type existed, `source ∈ {text, text-image, text-table, text-table-image}` was stored on every result, and the result-aggregation step never sliced by it — while three call sites hardcoded images out of the corpus entirely |
+| **A recall spike's result was unrecoverable** — its report and cache were written to an uncommitted temp directory. The decision the whole feature rested on was lost, and the feature shipped anyway. And **the query caption was not a query**: the index caption and the query caption came from the same prompt and the same image, so it measured prompt stability, not the asymmetry between how a user describes an image and how the index does. Real recall is very likely lower |
 
-Two smaller corrections that matter because they change what a reader would conclude:
+Two findings for calibration, because they show extension points can look real without being usable:
 
-- **`EXTRACTOR_MAP` is the live dispatch map**, read at `factory.py:349` — not a dead snapshot. The
-  supportable finding is narrower and still damning: it has **zero readers outside its own file**, so
-  the one structure shaped like an extension point is one nobody extends. Mutating it *would* work.
-- **`converter.py:142` is the only place `extractor_name` is branched on by value** (an `== 'docling'`
-  string test giving one named backend behaviour no third party can obtain). The attribute itself is
-  read in about eighty places, so "the only consumer" is wrong.
+- **One dispatch map was live**, not a dead snapshot — read at one clear call site. The finding is
+  narrower and still damning: it has **zero readers outside its own module**, so the one structure
+  shaped like an extension point is one nobody extends. Mutating it *would* work.
+- **One string comparison was the only place a backend name was branched on by value** (an
+  `== 'docling'` test giving one named backend behaviour no third party could obtain), though the
+  attribute itself was read in about eighty places — so "the only consumer" would have been the wrong
+  conclusion.
 
-### 1.5 What the reference does not have
+### 1.5 What is not covered
 
-Said plainly, because it is the owner's judgement and the survey confirms it: **the reference does not
-cover enough to build multimodal from.**
+Said plainly, because it is the owner's judgement and the survey confirms it: **there is not enough
+here to build multimodal from.**
 
 - No image embedding of any kind (§1.1), so no evidence about the architecture D2 must choose.
 - No page-image retrieval, no late interaction, no vector multiplicity concept at all.
@@ -171,7 +147,7 @@ cover enough to build multimodal from.**
 - No table serialisation choice: the grid is destroyed inside the cleaning pipeline, so nothing
   downstream can choose a representation.
 
-What it *does* supply is the shape of the problem, four expensive scars, and a method. Everything
+What is available amounts to the shape of the problem, four expensive scars, and a method. Everything
 about *what to build* comes from current practice, §3 and §7 — and the two must be kept visibly
 apart, because they were verified by different means.
 
@@ -179,8 +155,8 @@ apart, because they were verified by different means.
 
 | Unreadable | Consequence |
 |---|---|
-| Every concrete blob adapter, the image-serving endpoint, `supports_vision`, the sync figure-pipeline adapter, every `VisionLLM` implementation — located by name only in `system/adapters/` | *"The reference has a substantial blob capability"* rests on code nobody here has read. `supports_vision` is already **blocking** open question A14 (`reference/study/09-open-questions.md:226`) |
-| SQL guardrails, the row store, NL→SQL, the schema analyzer — `system/sat-table-sql/`, `system/adapters/table/`, `system/adapters/storage/postgres_table_adapter.py` | **`04`:136's "8 blocked node types, 15-function blocklist" cannot be repeated as fact.** The in-bounds test (`reference/tests/unit/sat_table_sql/test_sql_guardrails.py:6`, `:57-108`, `:111-176`) exercises **five** statement types and **seven** functions. And `system/sat-table-sql/app/services/sql_self_correct.py` exists — something rewrites rejected SQL and presumably resubmits it, which is exactly where a guardrail bypass lives |
+| Every concrete blob adapter, the image-serving endpoint, a `supports_vision` capability flag, the sync figure-pipeline adapter, every vision-LLM implementation — all in a deployment layer out of bounds by instruction | *"There is a substantial blob capability"* would rest on code nobody here has read. `supports_vision` is already a **blocking** open question |
+| SQL guardrails, the row store, NL→SQL, the schema analyzer — all in the same out-of-bounds deployment layer | **"8 blocked node types, 15-function blocklist" cannot be repeated as fact.** The one in-bounds test exercises **five** statement types and **seven** functions. And a SQL self-correction service exists in that layer — something that rewrites rejected SQL and presumably resubmits it, which is exactly where a guardrail bypass would live |
 
 The in-bounds contract shape *is* legible and is the transferable idea: two functions, not one.
 `validate_select` answers *"is this one read-only statement free of dangerous functions"*;
@@ -194,15 +170,14 @@ touch"* — the tenant-isolation guarantee, enforced on a parsed AST.
 **Nothing here enters `weft-kernel`**, and the falsifiable form of G1 applies cleanly: this design can
 be described without the kernel learning a single new word. `MediaType.IMAGE` and `MediaType.TABLE`
 already exist and are core-field vocabulary under G5's admission rule, not capabilities. There is no
-`MultimodalConfig`, no image cap, no model name and no pixel budget anywhere near the passport — the
-reference put two of ten passport fields there (`core/engine/context.py:67-100`; `04`:295) and one of
-them has zero readers.
+`MultimodalConfig`, no image cap, no model name and no pixel budget anywhere near the passport — a
+comparable design put two of ten passport fields there and one of them had zero readers.
 
 ### 2.1 The packs
 
 | Pack | Contract | Exists? | What it is |
 |---|---|---|---|
-| **`weft-extract`** | publishes `Extractor` | **Contract exists, shipped** | Unchanged. A figure is a `Node` with `media_type=IMAGE`; a table is a `Node` with `media_type=TABLE`. **No new contract is needed for either.** What must grow is the *accept set*: `discover_source_docs` filters on one pack's module constant `EXTENSIONS` (`packages/weft-rag/src/weft_extract/text.py:40`, read at `:98`) and `weft-cli` imports that function by name (`packages/weft-rag/src/weft_cli/ingest.py:36,80`). Correct and Phase-0-scoped when this was written; the moment a second extractor pack ships, `.pdf` becomes **silently invisible to ingest**. Fail-closed, so better than the reference's fail-open — the same missing derivation, and exactly what fitness function 5 exists to hold. **This happened, exactly as predicted, when `weft-pdf` shipped at ledger 2.27, and the derivation was built as part of repairing it** — `weft_extract.accept.claimed_extensions` over `weft_kernel.registry.Registry.names_for`, read by `weft_cli.ingest.run_index`. The line numbers cited above are the ones as of writing and have since moved |
+| **`weft-extract`** | publishes `Extractor` | **Contract exists, shipped** | Unchanged. A figure is a `Node` with `media_type=IMAGE`; a table is a `Node` with `media_type=TABLE`. **No new contract is needed for either.** What must grow is the *accept set*: `discover_source_docs` filters on one pack's module constant `EXTENSIONS` (`packages/weft-rag/src/weft_extract/text.py:40`, read at `:98`) and `weft-cli` imports that function by name (`packages/weft-rag/src/weft_cli/ingest.py:36,80`). Correct and Phase-0-scoped when this was written; the moment a second extractor pack ships, `.pdf` becomes **silently invisible to ingest**. Fail-closed, so better than a fail-open default — the same missing derivation, and exactly what fitness function 5 exists to hold. **This happened, exactly as predicted, when `weft-pdf` shipped at ledger 2.27, and the derivation was built as part of repairing it** — `weft_extract.accept.claimed_extensions` over `weft_kernel.registry.Registry.names_for`, read by `weft_cli.ingest.run_index`. The line numbers cited above are the ones as of writing and have since moved |
 | **`weft-extract-pdf`** | implements `Extractor`; publishes a `TableGrid` and a `BlobRef` ext model, and the **one** table→text serialiser | **New pack, existing contract** | Three plugins against one contract: `pdf-text`, `pdf-layout`, `vlm-parse`. See D3 |
 | **`weft-blob`** | publishes **`BlobStore`** | **New pack, new contract — and the contract is a decision, not an implementation detail** | Weft's first non-`Stage` service contract, reached through the passport's `require()` like `TokenSink`. It becomes a **hard prerequisite for the whole design** under D1's recommendation, which is why it gets the same "argue it, do not commit it" treatment `RowStore` gets below. See §4, G1-a |
 | **`weft-vision`** | publishes **`Describer`** | **New pack, new contract** | One async method: bytes + media type + instruction → text. Named for the medium, not the model class — the same contract covers audio transcription later. Two stages consume it at opposite ends of the pipeline, which is the argument for one service contract rather than an indexing-only enhancer. `02` §1 already endorses the split from the text LLM port (`:60`), for a contract nobody is scheduled to publish. **Depends on an LLM pack existing** — ledger **2.10** places the prompt layer, the cascade, model strings and the `LLMError` taxonomy in Phase 2; it names **no distributions**, so this document invents none |
@@ -243,7 +218,7 @@ materialised cascade (`packages/weft-rag/src/weft_store/contract.py:150-158`), s
 cannot learn URIs after the fact. **Derivable keys are the only design the settled contract admits**,
 and they delete the whole `FigureAssetsRepository` component.
 
-The reference's `store_file` / `DomainFileUpload` half is dropped entirely: Weft has no HTTP tier.
+A file-upload-and-serve half of a comparable design is dropped entirely: Weft has no HTTP tier.
 
 ### 2.3 Plugin names
 
@@ -293,13 +268,13 @@ Out of one page:
 Three of those are decisions, not descriptions:
 
 - **`TableGrid` is not transient.** A cell grid is kilobytes of JSONB, which is what `ext` is for.
-  Only *bytes* are a transience problem. The reference destroyed the grid inside its cleaning pipeline,
-  which is why nothing downstream could choose a representation; Weft keeps the grid and makes
-  serialisation a stage.
-- **A figure with neither caption nor OCR text does not enter the index.** Not a template string. The
-  reference's `f'Figure on page {n}'` and its hardcoded `'Figure from DOCX'`
-  (`extractors/docx_extractor.py:186`) are measurable index poisoning — identical strings collide as
-  a block at retrieval time, and `excluded_embed_metadata_keys` is never set anywhere in its `src/`.
+  Only *bytes* are a transience problem. A comparable design destroyed the grid inside its cleaning
+  pipeline, which is why nothing downstream could choose a representation; Weft keeps the grid and
+  makes serialisation a stage.
+- **A figure with neither caption nor OCR text does not enter the index.** Not a template string.
+  Synthesised labels such as `f'Figure on page {n}'` or a hardcoded `'Figure from DOCX'` are
+  measurable index poisoning — identical strings collide as a block at retrieval time, and no
+  metadata-exclusion setting was ever configured to prevent it.
   Under `Outcome` the honest answer is `NothingToProduce`.
 - **The pixels are written to the blob store by the extractor, and a non-transient `BlobRef` goes in
   `ext`.** The bytes never enter the payload, so the seam behaviour D1 identifies is not merely
@@ -308,13 +283,13 @@ Three of those are decisions, not descriptions:
 **2 · `chunk`.** An atomic node passes the chunker unsplit, and **the chunker does not have to know
 that**. G2 settled this as *applicability*: a stage declares what it operates on, the runner routes
 everything else past it untouched, so a chunker in a *different distribution* that has never heard of
-tables still leaves them whole. This is the cross-pack constraint the reference's stage 0 existed to
-enforce, moved off the author's memory and onto the seam.
+tables still leaves them whole. This is the cross-pack constraint stage 0 existed to enforce, moved
+off the author's memory and onto the seam.
 
-**3 · `clean`.** Text processors in the reference's learned order. **Tables leave this pipeline** — the
-reference's `TableLinearizer` (`indexing/cleaning/processors/table_linearizer.py:10-57`) is text-layout
-repair for multi-column scans despite its name, never produces a `Table`, and never touches Table-RAG;
-`04`:53 already files it with the cleaning pack and it stays there.
+**3 · `clean`.** Text processors in a learned order. **Tables leave this pipeline** — a
+`TableLinearizer`-shaped component is text-layout repair for multi-column scans despite its name,
+never produces a `Table`, and never touches Table-RAG; it is already filed with the cleaning pack and
+stays there.
 
 **4 · `describe` — `describe-figure` *(Phase 2, optional stage)*.** `requires` `BlobRef`, `provides`
 `FigureDescription`. Reads the bytes back through `ctx.require(BlobStore).open(uri)`, calls
@@ -364,8 +339,8 @@ what G5 built it for — a guard against a blob reaching JSONB — rather than b
 mechanism it was never designed to be.
 
 **Why not the alternatives.** *One merged extract-and-describe stage* is cheapest and costs `01`
-requirement 6: the describer stops being swappable or omittable, which is the reference's
-`if name == 'vision_description'` failure with better manners (`retrieval/storage.py:509-514`).
+requirement 6: the describer stops being swappable or omittable, which is the same failure as
+selecting behaviour by comparing a plugin's name to a literal string, only with better manners.
 *Narrowing the strip to the store boundary* is a kernel change that weakens a guarantee to buy
 in-memory blob carriage — precisely the four-pass cost §1.4 measures. And neither makes pixels
 available at query time.
@@ -404,10 +379,10 @@ composition, if it is built, is two nodes fused rather than one node re-embedded
 default is the cheap half: caption-and-embed needs no new contract, no GPU and no model download, and
 the measurement is what decides whether the expensive half earns its 2×.
 
-**And the measurement comes first.** The reference left the template (§1.3 item 9) and two defects to fix
-at the door: the result was written to `tmp/` and is unrecoverable, and the query caption came from
-the same prompt and the same image as the index caption, so it measured prompt stability rather than
-the asymmetry it claimed to measure.
+**And the measurement comes first.** §1.3 item 9 leaves the template and two defects to fix at the
+door: the result was written to an uncommitted temp directory and is unrecoverable, and the query
+caption came from the same prompt and the same image as the index caption, so it measured prompt
+stability rather than the asymmetry it claimed to measure.
 
 **Cost.** One measurement day against the V1 corpus, before the describer stage is built. The risk it
 accepts: a red verdict means Phase 2 grows a model dependency it did not plan for. That is a cheap way
@@ -440,7 +415,7 @@ as real. Three of the four selection criteria for a small MIT project are not ac
    `libreoffice`. That is what disqualifies Unstructured under G4's *probe at `register()` and
    register the class that actually works* rule: `import unstructured` succeeds while `tesseract` is
    absent, so registration would declare a capability whose implementation is not there. **Fitness
-   function 5's exact defect, arriving through a door the reference did not have.**
+   function 5's exact defect, arriving through a door that did not previously exist.**
 4. **Shape.** It is the only option shipping a typed document tree with tables as *cell structure* and
    figures as first-class items — which is what an `Extractor -> Sequence[Node]` boundary needs in
    order to translate into a Weft-owned ext model at all.
@@ -449,11 +424,11 @@ The accuracy gap closes **without changing packs**: `vlm-parse` points at granit
 (Apache-2.0), a vLLM endpoint running PaddleOCR-VL (Apache-2.0), or dots.mocr (MIT, 3B). Model choice
 as a config value is requirement 6 working as intended.
 
-**Cost.** The lift from the reference is **design, not code** — items 3, 4 and 5 of §1.3 plus the three
-render constants (`RENDER_SCALE = 300/72` at `pdf_extractor.py:152`, `optimize_mode='lcd'`,
-`draw_annots=True`). **Do not budget "port the Docling extractor"**: 859 reference lines for perhaps 120
-lines of value wrapped around a fast-moving library. Throughput figures for every parser in this
-document are **unconfirmed** — see §9.
+**Cost.** What carries over is **design, not code** — items 3, 4 and 5 of §1.3 plus three render
+constants (`RENDER_SCALE = 300/72`, `optimize_mode='lcd'`, `draw_annots=True`). **Do not budget "port
+the layout extractor"**: 859 lines measured for perhaps 120 lines of value wrapped around a
+fast-moving library. Throughput figures for every parser in this document are **unconfirmed** — see
+§9.
 
 ### D4 — What is refused outright?
 
@@ -480,17 +455,16 @@ document are **unconfirmed** — see §9.
 5. **Non-commercial embedding weights** — jina-clip-v2 (CC BY-NC-4.0), jina-embeddings-v4 (Qwen
    Research License), NVIDIA `llama-nemoretriever-colembed` (NVIDIA Non-Commercial). A first-party pack
    defaulting to any of these hands every commercial user a problem they did not choose.
-6. **The reference's forced-visual tier 3.** Refused rather than deferred
-   (`core/engine/strategies/_retrieval_post.py:216-320`, stubs at `:189-198`, anchor terms at `:26`).
-   It lists *any* ten figures — the listing call takes no query argument — builds stubs whose entire
-   content is `f'Stored figure from {file_id} (index {n})'` at `score=0.0`, prepends them, and
-   instructs the model to cite them. The guarantee is met and the answer is worse than if it had not
-   been; the reference's own `visual.fallback_used` span is the admission. Under `Outcome`, *"this
+6. **A forced-visual fallback tier.** Refused rather than deferred. One design lists *any* ten
+   figures — the listing call takes no query argument — builds stubs whose entire content is
+   `f'Stored figure from {file_id} (index {n})'` at `score=0.0`, prepends them, and instructs the
+   model to cite them. The guarantee is met and the answer is worse than if it had not been; a
+   telemetry span recording that the fallback fired is itself the admission. Under `Outcome`, *"this
    collection has figures but none match"* is `NothingToProduce`.
-7. **`gpu_config`.** 183 reference lines of `torch.cuda.is_available()` wrapped around
+7. **A GPU-detection module.** 183 lines measured, wrapping `torch.cuda.is_available()` around
    `torch.set_default_device()` — a **process-global mutation from a library module, triggered as a
-   side effect of the first document parse** (`docling_converter_cache.py:62-64`). Device policy is a
-   configuration field, never a shared service.
+   side effect of the first document parse**. Device policy is a configuration field, never a shared
+   service.
 
 **Cost of these refusals:** roughly 20 points of olmOCR-bench against the open-weights ceiling, and one
 AGPL fast path. Both are recoverable by an operator who opts in deliberately; neither is recoverable
@@ -580,9 +554,9 @@ the corpus contains images and tables?
 satisfy.**
 
 1. **A metric result carries the modality of the query that produced it, and the reporter slices by
-   it.** Without it a multimodal regression hides inside a text mean. The reference stored `source` on
-   every result, never sliced, and hardcoded images out at three call sites — so a run against image
-   queries reported what looked like a retrieval failure.
+   it.** Without it a multimodal regression hides inside a text mean. A comparable evaluation suite
+   stored `source` on every result, never sliced by it, and hardcoded images out at three call sites
+   — so a run against image queries reported what looked like a retrieval failure.
 2. **Retrieval and generation are two baselines with two intervals, not one.** V3's reproduction rule
    — every metric inside the recorded interval — becomes unfalsifiable for retrieval if judge noise
    dominates the run. arXiv:2607.10240 measures evaluator choice *alone* moving ST-VQA scores by
@@ -631,9 +605,9 @@ recorded in V5 as `09` already requires, not guessed here.
 
 ### D9 — Tables: node/row split, with SQL, or neither?
 
-**Question.** The reference has 2,737 lines of table capability, of which ~1,000 is a port surface with
-zero in-library implementers and the security-critical half is in `system/`, where nobody on this
-project may read.
+**Question.** 2,737 lines of table capability were measured in a comparable codebase, of which
+~1,000 is a port surface with zero in-library implementers and the security-critical half sits in a
+deployment layer nobody on this project may read.
 
 **Recommendation: neither, yet — and the reason is gates, not size.** Defer behind a new gate; when it
 opens, ship **the node/row split without SQL**.
@@ -858,20 +832,19 @@ passthrough `extra: dict` — stares directly at `02` §1's *"widening to `Any` 
 → **Recommend: no `extra` dict. Expose the *decisions* in a small typed model** — OCR on/off, table
 fidelity versus speed, describe figures or not, classical versus VLM — and treat an unsupported vendor
 option as a pack version bump **(a G9 question, flagged above)**. A typed model of four decisions is
-composable by someone who did not write it; a dict of forty vendor keys is not, and it is the reference's
-free-text `description_prompt_key` failure in a bigger costume — a key authored, reviewed, translated
-into two languages, and unreachable because nothing ever set it. **Prompt variant selection is a typed
-field on the pack's registration model** (`02` §3's `with:` rule), never a free-text locale key.
+composable by someone who did not write it; a dict of forty vendor keys is not, and it is the same
+free-text-key failure in a bigger costume — a key authored, reviewed, translated into two languages,
+and unreachable because nothing ever set it. **Prompt variant selection is a typed field on the
+pack's registration model** (`02` §3's `with:` rule), never a free-text locale key.
 
 **Where the prompts live.** A describer pack's entire behaviour *is* a prompt, which makes it the first
-plausible pack that forces the pack-owned-prompt question `04` category A already flags as a G1
-blocker: the reference's `PromptLoader` resolves locales relative to its own package, so a pack cannot ship
-translations. **Weft's prompts are authored fresh** — the reference's caption prompt is read for its
-*requirements* (name the visualisation type; enumerate visible labels, axes and components; state
-relationships and trends; state what the figure is for; constrain the output to one paragraph, because
-bullet output embeds badly), and those requirements transfer in a sentence. The second variant's
-existence is the transferable observation: one caption style does not fit both a bar chart and a
-circuit diagram.
+plausible pack that forces the pack-owned-prompt question already flagged as a G1 blocker: a prompt
+loader that resolves locales relative to its own package means a pack cannot ship translations.
+**Weft's prompts are authored fresh** — a caption prompt examined for its *requirements* (name the
+visualisation type; enumerate visible labels, axes and components; state relationships and trends;
+state what the figure is for; constrain the output to one paragraph, because bullet output embeds
+badly), and those requirements transfer in a sentence. The second variant's existence is the
+transferable observation: one caption style does not fit both a bar chart and a circuit diagram.
 
 ---
 
@@ -893,22 +866,18 @@ D1 · the transient boundary  ────────────────�
 
 ### Phase 1, in `01`'s four-line format — the two lines that change
 
-> - **Lift:** `04` category B — the ingestion stage order (**chunk before clean**, plus stage 0
+> - **Lift:** the ingestion stage order (**chunk before clean**, plus stage 0
 >   separating atomic nodes and stage 4.5 scrubbing transient metadata; see the Data-row note above),
->   and specifically the reason stage 4.5 exists. **Both stages exist because the reference extracted
->   tables and figures — stage 0 routes them past the chunker (`indexing/pipeline.py:110-121`,
->   `indexing/parsing/converter.py:587`), stage 4.5 removes the image blob
->   (`indexing/pipeline.py:427-438`) — so this phase also lands the first non-text extractor, the blob
->   store the bytes go to, and the atomic-node rule that gives stage 0 something to separate.
->   `11-multimodal.md` §2.4 owns the ingest path and §3 D3 owns the parser choice. What is taken from
->   the reference's parsing package is design, not code — the four converter flags with their comment, the
->   <100-characters-per-page OCR heuristic, the cross-page rejoin, the three render constants and the
->   non-AGPL backend decision; `11` §6 states plainly that "port the Docling extractor" is not a budget
->   line.** Category A cleaning processors, *with* their ordering rationale from
->   `indexing/cleaning/pipeline.py:30-51` — and with the 243-word Polish fused-word exception set
->   (`indexing/cleaning/processors/dictionary_spacing.py:31`), **reconstructed rather than copied**,
->   which `reference/study/08-salvage.md` ranks the second most valuable thing in the reference and which `04`
->   does not currently name.
+>   and specifically the reason stage 4.5 exists. **Both stages exist to handle extracted tables and
+>   figures — stage 0 routes them past the chunker, stage 4.5 removes the image blob — so this phase
+>   also lands the first non-text extractor, the blob store the bytes go to, and the atomic-node rule
+>   that gives stage 0 something to separate. `11-multimodal.md` §2.4 owns the ingest path and §3 D3
+>   owns the parser choice. What carries over from prior parsing work is design, not code — the four
+>   converter flags with their comment, the <100-characters-per-page OCR heuristic, the cross-page
+>   rejoin, the three render constants and the non-AGPL backend decision; `11` §6 states plainly that
+>   "port the layout extractor" is not a budget line.** Cleaning processors, *with* their ordering
+>   rationale — and with a 243-word Polish fused-word exception set, **reconstructed rather than
+>   copied**, ranked as one of the more valuable transferable ideas found.
 > - **Exit:** driving use case A works — a `specific` pipeline derived from `base` with KeyBERT
 >   inserted after chunking, expressed as configuration, with no change to core and no copy of the
 >   parent. **Proposed addition, for `01` to accept or refuse: fitness function 5 is wired and green**
@@ -919,17 +888,16 @@ D1 · the transient boundary  ────────────────�
 
 ### Phase 2 — the two lines that change
 
-> - **Lift:** `04` category B — the router design, the ten strategies, the intent classifier, the
+> - **Lift:** the router design, the ten strategies, the intent classifier, the
 >   citation manager split into its four responsibilities, language-aware reranker selection. **Plus
 >   the multimodal query path per `11-multimodal.md` §2 and §3 D2: a one-method `Describer` contract
->   (`core/ports/vision_llm.py:17-47`, whose split from the text LLM port `02` §1 already endorses),
->   the index-time describer stage that *augments* rather than replaces the caption
->   (`enhancers/vision_description.py:117` is the defect it exists to avoid), the query-side enricher
->   whose marker and the router prompt that recognises it are one lift or neither
->   (`generation/vision_query_enricher.py:126-130`, `locales/en.yaml:9-10`), and — before any of them
->   — the caption-and-embed recall measurement whose reference template is
->   `tests/spike/test_image_retrieval_recall.py` and whose two defects (`tmp/` output, and a query
->   caption drawn from the index caption's own prompt) are fixed at the door.**
+>   (whose split from the text LLM port `02` §1 already endorses), the index-time describer stage that
+>   *augments* rather than replaces the caption (avoiding the defect where a plain assignment
+>   overwrote the caption entirely), the query-side enricher whose marker and the router prompt that
+>   recognises it are one lift or neither, and — before any of them — the caption-and-embed recall
+>   measurement whose template is a spike test for image retrieval recall, and whose two defects
+>   (uncommitted temp-directory output, and a query caption drawn from the index caption's own prompt)
+>   are fixed at the door.**
 > - **Read:** `02` §1 for the `Strategy` and `Retriever` contracts, and `09-release.md` §4 —
 >   prerequisite V1–V3 must exist before this phase's work can be judged. **V1's corpus must cover
 >   every format an installed extractor claims and carry a Polish body no public multimodal benchmark
@@ -959,7 +927,7 @@ Phase 1 task list written before G2 is a hypothesis.
 - [ ] **1.15 ⚠** a PDF is indexable, and its tables and figures arrive as nodes whose media type says what they are, from a pack the CLI has no name for · owner `11` §2.1, §2.4; `01` → Phase 1 **Lift** · turns on — · sha —
 - [ ] **1.16 ⚠** a table reaches the index as its cell grid plus a serialisation a stage chose, so index form and prompt form can differ without re-extracting the document · owner `11` §2.4; `01` → requirement 6 · turns on — · sha —
 - [ ] **1.17 ⚠** two extractors that both render a table as text use one renderer published by the contract's own pack, so a cell containing a pipe cannot break one of them and not the other · owner `11` §1.4; `01` → requirement 1 · turns on — · sha —
-- [ ] **1.18 ⚠** an extractor chain stops at the first rung that produced something, and a rung that correctly produced nothing is distinguishable from a rung that failed · owner `02` §1 → the `Outcome` rule; `04` category C, the contaminated `fail_silently` lift · turns on — · sha —
+- [ ] **1.18 ⚠** an extractor chain stops at the first rung that produced something, and a rung that correctly produced nothing is distinguishable from a rung that failed · owner `02` §1 → the `Outcome` rule, the contaminated `fail_silently` lift · turns on — · sha —
 - [ ] **1.19 ⚠** re-indexing an unchanged file with a different parser is visible as a different pipeline rather than silently keeping whichever parse arrived first · owner `02` §1 → `SourceRecord`; `11` §4, G5-c · turns on — · sha —
 ```
 
@@ -990,8 +958,8 @@ G4-b lands differently, `2.32` is re-derived rather than assumed, per this file'
 - [ ] **7.5 ⚠** guarded structured query is something a store advertises, so no retriever composes SQL · owner `02` §1 → *The store contract family*; `11` §3 D9 · turns on — · sha —
 ```
 
-**Not ledger lines.** The reserved names in §2.3, the licence rows in §7, and the `04` corrections in
-*Where this goes* are **document edits**, not tasks. `build-ledger.md` holds task state only.
+**Not ledger lines.** The reserved names in §2.3 and the licence rows in §7 are **document edits**,
+not tasks. `build-ledger.md` holds task state only.
 
 ---
 
@@ -1005,49 +973,46 @@ are not, and the cut line is stated once here and honoured in the table.**
 | # | Item | Kind | Cost | Verdict |
 |---|---|---|---|---|
 | **1** | **Settle D1 — where `__transient__` strips** | Decision | Half a day of argument, zero code | **Load-bearing, and first.** Everything else is a hypothesis until it is answered, and it is the one item that can invalidate work already committed |
-| **2** | **The caption-and-embed recall measurement (2.31)** | Measurement | One day against the V1 corpus | **Load-bearing, and it must run before the describer is built.** A red verdict changes what gets built rather than what gets tuned. The reference shipped multimodal RAG with this exact measurement's result written to `tmp/` and lost |
+| **2** | **The caption-and-embed recall measurement (2.31)** | Measurement | One day against the V1 corpus | **Load-bearing, and it must run before the describer is built.** A red verdict changes what gets built rather than what gets tuned. A comparable system shipped multimodal RAG with this exact measurement's result written to an uncommitted temp directory and lost |
 | **3** | **Row-level chunking with header propagation, as children of a whole-table parent** | Capability | Small — `derive()` carries lineage, `get(ids)` fetches the parent, the G5 ordinal disambiguates identical rows | **Load-bearing, and on its own benchmark it is the largest absolute gain in the survey:** BM25 Recall@1 **0.366 → 0.754** and hybrid MRR **0.3576 → 0.5945** (arXiv:2605.00318 — verified), corroborated by arXiv:2408.17008 (row-level with the header repeated in every cell). Answer to *one node or many*: **many, plus one.** The missing piece is reverse-lineage lookup — §4, G4-c |
 | **4** | **Hybrid sparse+dense with reranking, not dense alone** | Capability | Bringing `TextSearch` forward from design-only, and a BM25 extension in the floor container | **Load-bearing.** On 23,088 real financial QA triples (T2-RAGBench, EACL 2026; benchmarked in arXiv:2604.01733 — verified): dense **0.587** → hybrid **0.695** → hybrid+rerank **0.816** Recall@5, i.e. **+22.9pp absolute over dense and +12.1pp over unreranked hybrid**. *(An earlier draft called this "+39.0pp / +17.4pp, the largest measured number in the survey". Those are the **relative** gains, and the superlative was wrong on both counts — rank 3's number is larger on its own benchmark, and the two are not comparable metrics.)* Postgres' native `ts_rank` will not do: no IDF, no length normalisation. **Same evidence, negatively: HyDE *underperformed* plain dense (0.544 vs 0.587) and multi-query gained almost nothing** — do not spend Phase 2 budget there for table-heavy corpora |
 | **5** | **FF5 / the derived accept set (1.13)** | Capability | Small | **Load-bearing** — and **the accept-set half is built**, as part of repairing ledger 2.27, whose exit demonstration it turned out to be. The risk was real and dated and it fired: `discover_source_docs` filtered on one pack's module constant, so shipping `weft-pdf` made `.pdf` silently invisible to ingest. FF5 itself is still unplaced; that placement is `01`'s |
-| **6** | **`weft-blob` + PDF extraction with figures and tables as nodes (1.14, 1.15)** | Capability | ~150 lines estimated for the blob pack; the PDF pack is contract-and-test work, not parsing work | **Load-bearing** — the entry point to everything else. Budget it as **one pack**, not as "port the reference's 5,083-line parsing package" |
+| **6** | **`weft-blob` + PDF extraction with figures and tables as nodes (1.14, 1.15)** | Capability | ~150 lines estimated for the blob pack; the PDF pack is contract-and-test work, not parsing work | **Load-bearing** — the entry point to everything else. Budget it as **one pack**, not as "port a 5,083-line parsing package" |
 | **7** | **The atomic-element rule (1.12)** | Capability | Small, and Phase 1 needs it for stage 0 anyway | **Load-bearing.** An ordering constraint across two distributions, which is exactly what ledger 1.2 exists to make declarable |
-| **8** | **`Describer` + the index-time describer (2.27, 2.28)** | Capability | Days, *given* an LLM pack. The reference's describer is 131 lines and most of it is an async bridge Weft deletes under G6 | **Load-bearing, full stop.** This is a multimodal plan; a figure with no description is a figure with a caption or nothing. Rank 2 decides whether the caption is a sufficient *vector source* — not whether descriptions exist |
+| **8** | **`Describer` + the index-time describer (2.27, 2.28)** | Capability | Days, *given* an LLM pack. A comparable describer measured 131 lines, most of it an async bridge Weft deletes under G6 | **Load-bearing, full stop.** This is a multimodal plan; a figure with no description is a figure with a caption or nothing. Rank 2 decides whether the caption is a sufficient *vector source* — not whether descriptions exist |
 | **9** | **Modality-sliced evaluation, and two baselines (2.30)** | Clause on an existing artefact | One clause each on V2/V4 and V3 | **Load-bearing, cheaply.** Without it *"does multimodal work"* is unanswerable and the baseline cannot tell a text regression from a multimodal one |
 | **10** | **Two serialisations, not one (1.16)** | Capability | Trivial once the grid is in `ext` | **Load-bearing, cheaply.** Triplets for the index, markdown or HTML for the prompt. A single linearisation cannot serve both, which is the concrete reason the grid must survive extraction |
 | — | — | — | — | **cut line** |
 | **11** | **The shared table→text serialiser (1.17)** | Capability | Trivial | **Optional, costs nothing, prevents a real defect class.** Best used as the canonical docstring example of *"if two extractors both need it, it belongs to the contract's pack"* |
-| **12** | **Query-side image enrichment (2.29)** | Capability | Small once `Describer` exists | **Optional.** A genuinely elegant simplification — the image never reaches the retriever, which is how the reference shipped image search on a text-only store — but it is a product feature and the CLI is not a paste surface. The two-part protocol travels together or breaks silently |
+| **12** | **Query-side image enrichment (2.29)** | Capability | Small once `Describer` exists | **Optional.** A genuinely elegant simplification — the image never reaches the retriever, which is how image search was shipped on a text-only store elsewhere — but it is a product feature and the CLI is not a paste surface. The two-part protocol travels together or breaks silently |
 | **13** | **Page-image embedding (2.33, D5 single-vector)** | Capability | One embedder plugin plus a render stage | **Conditional on rank 2.** Costs nothing settled; buys the difference rank 2 measures |
 | **14** | **Contextual retrieval on table chunks** | Capability | One LLM call per chunk at index time — the dominant ingest cost of any table pipeline | **Refuse for now.** The famous headline is a large drop in top-20 failure rate on general text; **independently measured on table data it is +2.2 to +2.8pp Recall@5** (arXiv:2604.01733 — verified), an order of magnitude below ranks 3 and 4. Not where a small project spends its first LLM budget |
-| **15** | **Table-RAG without SQL** | Capability | A pack, plus a gate. Reference evidence: 2,737 lines, ~1,000 of it a bodiless port surface | **Defer.** Coherent, self-contained, delivers most of the retrieval benefit — and behind two open gates |
+| **15** | **Table-RAG without SQL** | Capability | A pack, plus a gate. Measured evidence: 2,737 lines, ~1,000 of it a bodiless port surface | **Defer.** Coherent, self-contained, delivers most of the retrieval benefit — and behind two open gates |
 | **16** | **Table-RAG with SQL** | Capability | Two contracts, a store capability tier, and five files nobody may read | **Refuse until `system/` is read.** Roughly doubles the surface. D9 has the argument |
 
 ### What to cut outright
 
-- **`FigureAssetsRepository` (259 lines).** The single biggest scope saving, and Weft's contracts make
-  it not merely unnecessary but inadmissible: `delete_source` returns counts and never a materialised
-  cascade, so **derivable blob keys are the only design the settled contract admits** and a ledger has
-  nothing to do. On the reference's own evidence: 8 of 11 methods have zero in-library callers; the
-  SHA-256 dedup its CHANGELOG advertises twice (`reference/CHANGELOG.md:260`, `:317`) never executes,
-  because `find_by_hash` (`core/ports/figure_assets.py:97`) has **zero production callers** — a
-  `system/` implementation exists at `figure_assets_repository.py:234`, but nothing in the library
-  calls it; the cache key is a positional assumption its own docstring states (`:26-28`) and nothing
-  enforces; and it is the **fourth** of four unrelated deletion mechanisms
-  (`reference/study/08-salvage.md:333-337`).
-- **`gpu_config` (183 lines).** D4 item 7. Add it to `04` §C.
+- **A figure-assets repository (259 lines).** The single biggest scope saving, and Weft's contracts
+  make it not merely unnecessary but inadmissible: `delete_source` returns counts and never a
+  materialised cascade, so **derivable blob keys are the only design the settled contract admits**
+  and a ledger has nothing to do. On the measured evidence: 8 of 11 methods have zero in-library
+  callers; a SHA-256 dedup its own changelog advertised twice never executes, because the lookup
+  method behind it has **zero production callers** — a deployment-layer implementation exists, but
+  nothing in the library calls it; the cache key is a positional assumption its own docstring states
+  and nothing enforces; and it is the **fourth** of four unrelated deletion mechanisms found.
+- **A GPU-detection module (183 lines).** D4 item 7.
 - **`.doc` (216 lines).** A 1997 format behind an optional dependency whose extractor is
   printable-strings scavenging returning field codes and stylesheet fragments interleaved with prose.
   The honest answer for a user with `.doc` files is to convert them. *Keep one sentence: the encoding
-  ladder puts **cp1250 second** (`doc_extractor.py:188-189`) — the Polish scar — and that belongs
-  wherever Weft decodes bytes; the scan window is bounded head+tail (`:161-168`) because Word puts
-  content at both ends.*
+  ladder puts **cp1250 second** — the Polish scar — and that belongs wherever Weft decodes bytes; the
+  scan window is bounded head and tail, because Word puts content at both ends.*
 - **The ten Office/web/data extractors (1,299 lines) from any lift budget.** Library calls. One or two
   days each if wanted later, and the work is contract plumbing.
 - **`resize_for_vision` (35-line module).** Its only content is one invariant — always PNG, so `mime`
   can default — which is a sentence in a docstring. It is also a blocking CPU call, so under G6 it
   goes through the thread offload and FF7(b) catches it if it does not.
 - **The `enabled` flag, in every form.** A capability is absent when its stage is not in the pipeline.
-  The reference's `multimodal_config.enabled` has zero readers, which is what a boolean asserting a
+  A comparable `multimodal_config.enabled` flag had zero readers, which is what a boolean asserting a
   capability is present is worth.
 - **Vendored benchmark data, always.** Fetch by pinned revision with checksums, per V1.
 
@@ -1085,7 +1050,7 @@ or vendor pricing page — except where marked **unconfirmed**.
 | **DuckDB / pandas** | MIT / BSD-3 | program-of-thought over one retrieved table | In-process |
 | **pytrec_eval / ranx** | MIT / MIT | retrieval metrics — **do not hand-roll nDCG** | Both **synchronous** (pytrec_eval is a C extension), so a metric plugin wraps them in `asyncio.to_thread` and FF7(b) must be able to tell that from an accident |
 | **MTEB / vidore-benchmark** | Apache-2.0 / MIT | eval harnesses | |
-| **Ragas** | Apache-2.0 | multimodal faithfulness | **Each metric call is a VLM call.** Its binary 0/1 multimodal-faithfulness metric sits badly with V4's dispersion rule — a binary metric's interval over repeats is 0 or 1 wide. Standing correction: RAGAS was never a reference dependency; those reference classes are hand-rolled |
+| **Ragas** | Apache-2.0 | multimodal faithfulness | **Each metric call is a VLM call.** Its binary 0/1 multimodal-faithfulness metric sits badly with V4's dispersion rule — a binary metric's interval over repeats is 0 or 1 wide. |
 | **ViDoRe V3 datasets** | annotation licence **unconfirmed** — repo gated; paper says only *"a commercially permissive license"* | published baseline corpus | ~26,000 pages, 3,099 queries (verified). **Pin the licence before this is written into `09`** |
 | **ViDoRe V2 `economics_reports_v2`** | CC-BY-3.0 | V5's credential-free CI subset | 55.1 MB, 452 pages, 232 queries (verified) |
 | **MIRACL-VISION** | **`cc-by-sa-4.0`** (verified — *not* non-commercial) | multilingual sanity check | Usable for evaluation. Do not ship a modified subset unless it is itself BY-SA. Its finding stands: VLM embedders trail text retrievers on multilingual content by roughly **30–40pp absolute** per its card; the "up to 59.7% worse" figure is **unconfirmed** and is likely relative |
@@ -1126,39 +1091,40 @@ every commercial user a problem they did not choose.
 
 ## 8. What is deliberately not planned
 
-**Already refused in `04` §C, and re-verified as not having arrived.** `packages/` and `testing/`
+**Refused, and re-verified as not having arrived.** `packages/` and `testing/`
 contain no `FileType`-shaped enum, no second format list, no `EXTRACTOR_MAP` analogue, and no figure,
 image, blob, vision or table code at all. A reader arriving from this document may expect these and
 should not:
 
-- `indexing/parsing/factory.py` and `supported_extensions.py` — refused. §2.1 states the positive rule
-  that replaces them. `04` §C's accept-then-fail finding is confirmed by exactly the mechanism `04`'s
-  2026-08-10 correction states: `_EXTRACTOR_MAP_BASE[FileType.DOC]` is inserted only
-  `if DOC_AVAILABLE and DOCExtractor is not None`, `[FileType.PPT]` only `if DOCLING_AVAILABLE …`
-  (`factory.py:119-122`), while both extensions are declared unconditionally.
-- `StrategyName` / `RetrievalStrategyType` / `FileType` — refused. `MediaType` is not a
-  counter-example: it is a closed *core-field vocabulary* with no registry behind it, which
-  `media_type.py`'s own docstring argues.
-- The silent `rag_simple` fallback — refused, and worth naming again because **this family reproduces
-  it four independent times**: the describer's `except Exception` counter, the visual capability
-  listing, `TableAugmenter.augment`, and the figure cache-hit path each make total failure
-  indistinguishable from a legitimately empty result. Weft's rule against broad exception catching is
-  usually argued from style; this area is the evidence that it is a correctness rule.
+- A per-format dispatch factory and a separate supported-extensions list — refused. §2.1 states the
+  positive rule that replaces them. The accept-then-fail finding it replaces is confirmed by the exact
+  mechanism: an extractor for one format is registered only conditionally on an optional dependency
+  being present, while the format itself is declared unconditionally in a separate list — so the
+  format is accepted and then fails.
+- Closed enums used as registries' key types (a strategy-name enum, a retrieval-strategy-type enum, a
+  file-type enum) — refused. `MediaType` is not a counter-example: it is a closed *core-field
+  vocabulary* with no registry behind it, which its own docstring argues.
+- A silent default-strategy fallback — refused, and worth naming again because **this family
+  reproduces the same shape four independent times**: a bare `except Exception` counter in the
+  describer, the visual-capability listing, a table augmenter's own fallback path, and the figure
+  cache-hit path each make total failure indistinguishable from a legitimately empty result. Weft's
+  rule against broad exception catching is usually argued from style; this area is the evidence that
+  it is a correctness rule.
 
 **Not planned here, with the reason.** *(These rows belong in `01`'s deferred list, which owns
 deferrals; they are stated here only long enough to be moved — see *Where this goes*.)*
 
 | Not planned | Why |
 |---|---|
-| **A multimodal embedder contract** | D2. Nothing in the reference embeds an image, and `weft-embed`'s `Embedder` already accommodates a pixel embedder as a plugin. A second contract fails `01` requirement 1 |
+| **A multimodal embedder contract** | D2. Nothing examined embeds an image, and `weft-embed`'s `Embedder` already accommodates a pixel embedder as a plugin. A second contract fails `01` requirement 1 |
 | **A `PageRenderer` contract** | One plausible implementation is a guess (`01` → *Runtime shape*). Rendering a page is something a PDF extractor does |
-| **S3/MinIO blob backends** | Every concrete adapter is in `system/` and unread, so there is no reference input. `weft-blob` ships a local filesystem implementation written fresh against Weft's own key scheme |
-| **The SQL guardrail, NL→SQL, row materialisation, the schema analyzer** | All in `system/`. Nobody has read the security-critical half of this capability, and `sql_self_correct.py` — something that rewrites rejected SQL — is exactly where a guardrail bypass would live. Reading `system/` is a separate, explicit decision about the reading restriction, not something to smuggle in through a plan |
-| **`supports_vision` semantics** | `system/`, and already blocking open question A14. Weft must decide how a pack declares image capability rather than inherit an answer |
-| **The reference's forced-visual tier 3** | Refused, not deferred. D4 item 6 |
+| **S3/MinIO blob backends** | Every concrete adapter examined lives in the unread deployment layer, so there is no usable input here. `weft-blob` ships a local filesystem implementation written fresh against Weft's own key scheme |
+| **The SQL guardrail, NL→SQL, row materialisation, the schema analyzer** | All in the unread deployment layer. Nobody has read the security-critical half of this capability, and a SQL self-correction service — something that rewrites rejected SQL — is exactly where a guardrail bypass would live. Reading that layer is a separate, explicit decision about the reading restriction, not something to smuggle in through a plan |
+| **`supports_vision` semantics** | In the unread deployment layer, and already a blocking open question. Weft must decide how a pack declares image capability rather than inherit an answer |
+| **A forced-visual fallback tier** | Refused, not deferred. D4 item 6 |
 | **A `MultimodalConfig` equivalent** | G1 forbids it on the passport, and `enabled` should not survive anywhere |
-| **`TableLinearizer` in a tables pack** | Not a table capability despite the name. Already assigned at `04`:53 to the cleaning pack, and it stays there |
-| **The enhancer registry (T2.2)** | Superseded — enhancement is a pipeline stage discovered through entry points; G3's eager discovery replaced the hardcoded built-in tuple. Worth recording once, in `05` → G6 and `02` §1, as the worked example: **the vision describer is the case that broke it.** A generic `(*, llm, language, **kwargs)` constructor cannot express a plugin needing a *different* model, so the factory grew an `if name == 'vision_description'` string comparison (`retrieval/storage.py:509-514`) and the port grew a one-bit `requires_text_llm` flag overridden exactly once. That is `02` §1's *"a registration API without a typed configuration model is decorative"* with a line number |
+| **`TableLinearizer` in a tables pack** | Not a table capability despite the name. Already assigned to the cleaning pack, and it stays there |
+| **The enhancer registry (T2.2)** | Superseded — enhancement is a pipeline stage discovered through entry points; G3's eager discovery replaced a hardcoded built-in tuple. Worth recording once, in `05` → G6 and `02` §1, as the worked example: **the vision describer is the case that broke it.** A generic constructor taking only an LLM handle, a language and open-ended kwargs cannot express a plugin needing a *different* model, so the factory grew a string-comparison special case and the port grew a one-bit flag overridden exactly once. That is `02` §1's *"a registration API without a typed configuration model is decorative"*, demonstrated |
 
 ---
 
@@ -1173,8 +1139,8 @@ written into `docs/` as fact without being re-sourced first.
 
 1. **ViDoRe V3's annotation licence.** The dataset repo is gated; the paper says only "a commercially
    permissive license". D8's corpus recommendation depends on it.
-2. **The reference spike's actual verdict.** Unrecoverable by construction (`tmp/`). Weft's own
-   measurement replaces it; no number from it may be quoted.
+2. **A prior recall-spike's actual verdict.** Unrecoverable by construction (written to an
+   uncommitted temp directory). Weft's own measurement replaces it; no number from it may be quoted.
 
 **Dropped from the arguments above, and not to be reinstated without a source:**
 

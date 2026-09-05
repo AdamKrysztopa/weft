@@ -5,14 +5,13 @@ section 1 ("What a plugin receives"): `tenant_id`, run and trace ids,
 cancellation, locale and `require()`. **The admission rule for a new
 field, quoted directly:** a field is admitted only if it is needed by *every*
 plugin regardless of contract **and** is meaningless to resolve as a service.
-Tuning knobs fail the second test — that is precisely how the reference's
-`EngineContext` grew to ten fields including multimodal config, a capability
-leaking into the kernel, and was still bypassed: only 6 classes in 259 files
-take an `EngineContext`-annotated `__init__` parameter, because strategy
-handlers reached for a second, overlapping bag instead
-(`docs/04-reference-inventory.md`, the C2 correction). This module is deliberately
-narrow, and G11 narrowed it further: four identity fields with no default, one
-collaborator, one resolution method, and nothing else.
+Tuning knobs fail the second test — an unbounded context object that admits
+them accumulates fields no plugin is obliged to honour, and callers route
+around it by building a second, overlapping bag of ad-hoc state instead of
+resolving through the one that already exists, which is a capability leaking
+into the kernel by another name. This module is deliberately narrow, and G11
+narrowed it further: four identity fields with no default, one collaborator,
+one resolution method, and nothing else.
 
 **One collaborator, distinct from the registry.** `require()` resolves against
 a `ServiceRegistry`, which is separate from `weft_kernel.registry.Registry`

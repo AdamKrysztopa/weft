@@ -11,8 +11,8 @@ extends: retrieve-then-generate
 # `sufficiency: llm-sufficiency` is written out although it is the default, because it is the
 # thing this rung is *about* — the critic is a named, swappable plugin, and the sibling rung
 # `draft-then-refine` names the other one at the same kind of position. `min_rounds: 1` is also
-# the default and is left alone: `10` §1.1 records the reference forcing a second round even when
-# its critic said stop, which no paper in the family does.
+# the default and is left alone: `10` §1.1 records the failure of forcing a second round even
+# when a critic said stop, which no paper in the family does.
 vars:
   route.summary: >-
     Searches, asks the model whether the evidence actually answers the question, and searches

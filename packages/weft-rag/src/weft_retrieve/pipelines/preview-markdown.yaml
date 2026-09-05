@@ -1,0 +1,18 @@
+name: preview-markdown
+# No `route.summary`: a `Rendition` is not an `Answer`. See `preview-plain`.
+
+# `preview-plain`'s sibling, and the delta is one `replace` — which is the point being made as
+# much as the output: **a renderer is a stage like any other**, so the difference between plain
+# text and Markdown is a plugin name in a document, never a `format:` field with a branch
+# behind it. `weft_extract.contract.Renderer`'s own docstring argues that at length: a single
+# renderer taking `format="markdown"` would be a closed key space, and requirement 4 would
+# break the first time a third party wanted `docx`. A `docx` renderer is installable today and
+# reachable by writing its name here.
+#
+# `label_non_text: true` is `markdown`'s own default and is kept. A node the renderer cannot
+# represent as Markdown is **labelled in place** rather than dropped silently — and whatever is
+# genuinely dropped is reported on stderr by `weft render`, because a renderer that quietly
+# omits what it could not handle is the plausible-wrong-answer failure this project refuses.
+extends: preview-plain
+replace:
+  - {id: render, use: markdown, with: {label_non_text: true}}

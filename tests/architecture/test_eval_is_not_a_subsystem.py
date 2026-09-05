@@ -5,15 +5,16 @@ one-time prophecy.
 holds three of them and the code that produces them. Before task **4.8** this file's own docstring
 predicted that *"every line of it is meant to be deleted and replaced by Phase 4."* Tasks 4.1 and
 4.2 landed first, and what they actually replaced was narrower than that prediction: `weft-eval`
-now publishes `GenerationMetric`/`RetrievalMetric` as real, registrable contracts and ships the 21
-reference metrics against them — the thing that genuinely risked becoming *"Phase 4's own extensible
+now publishes `GenerationMetric`/`RetrievalMetric` as real, registrable contracts and ships 21
+metrics against them — the thing that genuinely risked becoming *"Phase 4's own extensible
 system in disguise"* if it had grown inside `eval/` instead. What 4.1/4.2 did **not** touch, and
 what task 4.8 confirmed does not need touching, is `eval/metrics.py`'s own `measure`/`judge`
 functions and `eval/check_questions.py`'s quote-pinned ground truth: original, Weft-specific
 scoring glue for *this one harness's* baseline (span-in-passage containment against a
 `(document, quote)` judgement — deliberately not a `weft_eval.contract.RetrievalSample`'s
 node-id-based relevance set, for the reason `check_questions.py`'s own docstring gives: a judgement
-pinned to a `NodeId` is invalidated by any chunking change). It was never the reference's metric suite
+pinned to a `NodeId` is invalidated by any chunking change). It was never part of the 21-metric
+suite
 and 4.1/4.2 never claimed to reimplement it — the prediction that *every* line would go was simply
 wrong about this part, and 4.8 is where that is said plainly rather than left for a reader to
 notice the docstring no longer matches the tree.

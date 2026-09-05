@@ -20,14 +20,13 @@ of them — because folding observations into a report, folding a run's own fact
 reading which metrics are gate-safe, and pricing a set of calls are not themselves plugin points
 any pack or third party needs to swap.
 
-**No unregistered category, no dummy, no silent skip.** The reference's own five defects
-(`docs/04-reference-inventory.md`'s metric-suite correction block) are fixed by this file's own shape
-rather than patched afterwards: every metric this pack ships is registered in the one `register()`
-call below, so there is no second import path a caller could miss the way the reference's two
-docstring-only `llm_judge/__init__.py` files silently dropped all six judges
-(`.phase4-reference-recon.md` §1). Nothing here is a test double — a stranger's own metric lives
-entirely outside this pack, never in this pack's own `register()`. And an unknown name asked of
-the registry raises `weft_kernel.registry.UnknownPluginError`, naming every registered
+**No unregistered category, no dummy, no silent skip.** Every metric this pack ships is
+registered in the one `register()` call below, so there is no second import path a caller
+could miss the way a docstring-only per-category `__init__.py` that only re-exports names can:
+nothing there catches a whole category of exports silently going unregistered, so a name can
+look shipped while nothing ever answers to it. Nothing here is a test double — a stranger's own
+metric lives entirely outside this pack, never in this pack's own `register()`. And an unknown
+name asked of the registry raises `weft_kernel.registry.UnknownPluginError`, naming every registered
 alternative — the same mechanism task 4.1 already proved for `Metric`, now proving it again for
 `RetrievalMetric`/`GenerationMetric`.
 """

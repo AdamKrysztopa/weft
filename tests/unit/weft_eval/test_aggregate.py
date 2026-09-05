@@ -4,9 +4,10 @@ Mirrors `packages/weft-rag/src/weft_eval/aggregate.py`. Covers `aggregate()`'s e
 dispersion shape (happy path, the `n == 1` edge where `stdev` is `None` rather than a claimed
 `0.0`, and the all-excluded error case that refuses rather than averaging a fake zero) and
 `aggregate_report()`'s R5 check — a report key that disagrees with the name a metric actually
-computed, the exact shape of the reference's `'precision_at_k'`-hardcoded-while-`k`-varies defect
-(`.phase4-reference-recon.md` §6), which a check against `PrecisionAtK.metric_name` alone would never
-see because that property was already correct in the reference.
+computed, the shape a report key hardcoded to `'precision_at_k'` takes once `k` is
+caller-configurable and varies, which a check against `PrecisionAtK.metric_name` alone would
+never see because that property can already be correct at every call site while the published
+key still lies.
 """
 
 import pytest
@@ -73,9 +74,9 @@ def test_all_failures_refuse_rather_than_averaging_a_fake_zero() -> None:
     # Act
     outcome = aggregate(outcomes)
 
-    # Assert — `Failed`, not a `Produced[MetricAggregate]` with `mean=0.0`, which is exactly the
-    # reference's own accident (an error becoming an indistinguishable zero) one level up, at the
-    # aggregate rather than the single score.
+    # Assert — `Failed`, not a `Produced[MetricAggregate]` with `mean=0.0`, which would repeat
+    # the single-score accident (an error becoming an indistinguishable zero) one level up, at
+    # the aggregate rather than the single score.
     assert isinstance(outcome, Failed)
     assert "2" in outcome.reason
 
@@ -104,14 +105,13 @@ def test_aggregate_report_accepts_a_key_that_matches_the_computed_name() -> None
     assert outcome.value.reported_name == "precision@7"
 
 
-def test_aggregate_report_refuses_the_references_hardcoded_report_key_shape() -> None:
-    # Arrange — reproduces the reference's own defect (R5, `.phase4-reference-recon.md` §6):
-    # `open_rag_fast_track.py:359-364` publishes its retrieval aggregate under the literal report
-    # key `'precision_at_k'` while the metric it ran was configured with a caller-supplied
+def test_aggregate_report_refuses_a_hardcoded_report_key_shape() -> None:
+    # Arrange — the shape R5 exists to catch: a retrieval aggregate published under the literal
+    # report key `'precision_at_k'` while the metric it ran was configured with a caller-supplied
     # `similarity_top_k` and actually computed `'precision@7'` for this run. A check against
-    # `PrecisionAtK.metric_name` in isolation would never catch this — that property was already
-    # correct in the reference at every call site. This is the check that runs on the reported name a
-    # human actually reads, per R5.
+    # `PrecisionAtK.metric_name` in isolation would never catch this — that property can already
+    # be correct at every call site while the published key still lies. This is the check that
+    # runs on the reported name a human actually reads, per R5.
     groups = {"precision_at_k": [_score("precision@7", 1.0), _score("precision@7", 0.0)]}
 
     # Act / Assert

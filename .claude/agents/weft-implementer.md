@@ -70,7 +70,7 @@ do, and they arrive from `docs/lessons-archive.md` directly so they are never a 
   `Extractor`, `Chunker`, `Store`, `Retriever` or `LLM`, it does not belong there.
 - **An unknown name fails loudly**, saying what was wanted, why it is unavailable, and what the
   valid options are.
-- **No source text from any other codebase**, including the `reference` symlink, enters this repository.
+- **No source text from any other codebase** enters this repository.
 
 ## The loop
 

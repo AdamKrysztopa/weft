@@ -2,13 +2,13 @@
 
 Task **2.24**, `docs/build-ledger.md`: "a draft's uncertainty is a replaceable, named signal
 rather than a phrase list, so the trigger cannot break silently under another language or
-model." `10` §1.1's own `refine-on-uncertainty` row states the reference's actual defect, and it
-is precise about what fails, and how: "`adaptive.py:83-85` tests the draft against a
-nine-phrase localised list (`en.yaml:944-953`) with `str.__contains__` … This fires on
-*hedging*, never on *unsupportedness*, and breaks silently under another language or system
-prompt." Nothing about that failure raises, logs, or fails a test — a phrase list that does
-not match a Polish hedge simply never fires, which is exactly the property this task's own
-line names as the thing to close.
+model." `10` §1.1's own `refine-on-uncertainty` row states the defect this design closes,
+and it is precise about what fails, and how: a nine-phrase localised list tested against
+the draft with `str.__contains__` fires on *hedging*, never on *unsupportedness*, and
+breaks silently under another language or system prompt. Nothing about that failure
+raises, logs, or fails a test — a phrase list that does not match a Polish hedge simply
+never fires, which is exactly the property this task's own line names as the thing to
+close.
 
 **The fix is that there is no phrase list here at all.** `self._config.signal` names a
 `weft_retrieve.contract.Sufficiency` (task 2.4's contract; `weft_retrieve.sufficiency`, task
@@ -23,17 +23,18 @@ ledger line's own claim made mechanical rather than argued in prose.
 Zhengbao Jiang, Frank F. Xu, Luyu Gao, Zhiqing Sun, Qian Liu, Jane Dwivedi-Yu, Yiming Yang,
 Jamie Callan, Graham Neubig, *Active Retrieval Augmented Generation*, EMNLP 2023,
 pp. 7969-7992, arXiv:2305.06983 — `10` §1.1's own row names this as "the nearest published
-ancestor, and the reference does not cite it". Cited here for the same reason, not as a claim
+ancestor" of this technique. Cited here for the same reason, not as a claim
 this plugin *is* FLARE: FLARE's own signal is the drafting model's **token probability**,
 regenerated sentence by sentence as it writes; Self-RAG's is a **trained reflection token**.
 Neither mechanism is implemented — `.phase2-design.md` §10's own task row for this plugin
 states it outright: "Not `self-rag`, not `flare`: `10` §4 reserves both." This plugin's own
 signal is a *whole-draft* verdict, asked once per round, from whichever `Sufficiency` a
 document names — coarser than either paper's mechanism, and honestly named for what it is
-rather than for what it is not. `10` §1.1's closing note on the reference — "capped at one extra
-round despite metadata calling it 'iterative'" — is not repeated by omission here:
-`max_rounds` is a real, documented, configured field (default `1`, matching what the reference
-actually did), never a cap the code enforces while a label elsewhere claims otherwise.
+rather than for what it is not. `10` §1.1's own closing note flags a comparable pattern to
+avoid: a mechanism capped at one extra round while its own metadata calls it 'iterative'
+is a label the code does not honor. That is not repeated here: `max_rounds` is a real,
+documented, configured field (default `1`), never a cap the code enforces while a label
+elsewhere claims otherwise.
 
 **Draft, check, maybe retrieve and redraft — owned end to end, the same concession
 `weft_retrieve.iterative`'s own module docstring names for a looping technique.** `.phase2-
@@ -196,9 +197,9 @@ class RefineOnUncertaintyConfig(BaseModel):
     #: How confident `signal` must be, at or above `sufficient=True`, before this plugin
     #: stops and returns the draft in hand.
     threshold: float = Field(default=0.5, ge=0.0, le=1.0)
-    #: How many *extra* rounds beyond the first draft are allowed. `1` is the reference's own
-    #: real behaviour (`10` §1.1: "capped at one extra round"), now a field an operator reads
-    #: and can change, not a cap the code enforces while metadata claims otherwise.
+    #: How many *extra* rounds beyond the first draft are allowed. Default `1` (`10` §1.1:
+    #: "capped at one extra round") is now a field an operator reads and can change, not a
+    #: cap the code enforces while metadata claims otherwise.
     max_rounds: int = Field(default=1, ge=0)
     #: What a *hard* signal failure does — the `Sufficiency.assess` call itself answering
     #: `Failed`, never the softer `Assessment(observed=False)` `SIGNAL_UNOBSERVED` reports.

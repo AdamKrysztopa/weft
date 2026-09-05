@@ -20,8 +20,9 @@ check exists to catch.
 
 **The floor, stated honestly rather than forced.** `08` §3 asks every `tests/docs` check for "a
 condition that must be non-trivially true before the comparison runs, so the check cannot pass by
-having nothing to compare" — the fix for the reference's `test_keys_parity`, which could not fail
-because nothing computed it ever ran. That shape does not transplant literally here: **zero
+having nothing to compare" — the fix for a parity check that compares a derived value to itself and
+so can never fail, because nothing independent of it was ever computed. That shape does not
+transplant literally here: **zero
 first-party surfaces are deprecated today** (`09` §3's own block quote is written against that
 fact), so asserting the real, installed set is non-empty would be false, not a floor. The floor this
 module actually carries is `test_the_comparison_can_actually_fail` below: a real `Deprecation`,

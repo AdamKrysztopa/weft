@@ -2,22 +2,20 @@
 
 Task **2.25**, `docs/build-ledger.md`: "query scoring and routing policy are two plugins, so
 a threshold ladder can be replaced by a trained classifier without touching the scorer."
-`docs/10-technique-catalogue.md` §1.1's `query-scorer` + `routing-policy` row and
-`docs/04-reference-inventory.md` category B's `AdaptiveRouter` row both name the same reference
-defect this module exists to close: a router that scored seven independent dimensions on a
-span (genuinely good, kept) and then decided with `_select_strategy_from_scores`, ten
-`if`/`elif` branches over constants nobody fit to anything, that could not select the
-strategy named "adaptive" from the router named "adaptive" — and
-`_ROUTER_STRUCTURED_FALLBACK_EXCEPTIONS`, which caught eleven exception types including a
-bare `ValueError` and silently swapped in a different routing algorithm on a parse failure
-nobody could see. Both defects are the same shape: a decision buried inside the same code
-that took the measurement, so retuning the decision meant editing the measurement.
+`docs/10-technique-catalogue.md` §1.1's `query-scorer` + `routing-policy` row names the
+defect this module exists to close: a router that scores seven independent dimensions on a
+span (genuinely good, kept) and then decides via a long hand-written branch cascade over
+constants nobody fit to anything can end up unable to select its own best-named strategy, and
+a decision step wrapped in an overly broad exception catch can silently swap in a different
+routing algorithm on a parse failure nobody sees. Both are the same shape: a decision buried
+inside the same code that took the measurement, so retuning the decision meant editing the
+measurement.
 
 **Splitting the contract is the fix, not a bigger ladder.** `weft_retrieve.contract.
 QueryScorer` (`Stage[Query, Scorecard]`) measures; `weft_retrieve.contract.RoutingPolicy`
 (`Stage[Scorecard, Route]`) decides. Three `RoutingPolicy` implementations ship here —
-`threshold-ladder`, an ordered rule table (the reference's own decision mechanism, rewritten as
-data an operator edits rather than a branch a developer edits); `nearest-description`, which
+`threshold-ladder`, an ordered rule table (a decision mechanism rewritten as data an operator
+edits rather than a branch a developer edits); `nearest-description`, which
 selects by embedding similarity and needs no rule written for a newcomer pipeline at all;
 `always`, the ten-line trivial policy that exists only to prove the first two are genuinely
 interchangeable. Swapping one for another — or a fourth, a trained classifier a third party
@@ -30,15 +28,14 @@ naming both under a shared `Scorecard`.
 routable pipeline's own `route.summary` and `route.cost` into its prompt alongside the
 dimensions it scores, so a model's judgement of, say, how *specific* a question is stays
 grounded in what a router could actually do about it rather than an abstract rubric with no
-connection to a real deployment. **It never writes a pipeline name in its own source** —
-the reference's genuinely good half, `docs/10-technique-catalogue.md`'s own words for it — and
+connection to a real deployment. **It never writes a pipeline name in its own source**, and
 that is checkable directly: nothing in this module imports `weft_retrieve.payload.
 RouteCandidate`'s callers or names a pipeline as a literal string anywhere below. The
 *decision* stays entirely in the policy half; showing the model the options is scoring in
 context, not choosing.
 
 **The seven default dimensions are named fresh for Weft.** No text or specific wording is
-lifted from the reference's own seven (`04`'s own rule: ideas from the literature are fine and
+copied from elsewhere (`04`'s own rule: ideas from the literature are fine and
 cited, text never is), and their citations are the three papers `docs/10-technique-
 catalogue.md`'s own row names for this pair of plugins — Adaptive-RAG's query-complexity
 formulation, *When Not to Trust Language Models*' parametric-vs-retrieved distinction, and
@@ -92,7 +89,7 @@ class Dimension(BaseModel):
     description: str = Field(min_length=1)
 
 
-#: The seven default dimensions — freshly worded for Weft, never the reference's own text. See
+#: The seven default dimensions — freshly worded for Weft, never copied text. See
 #: the module docstring for the three papers they trace to. An operator's `with:
 #: {dimensions: [...]}` replaces this list wholesale; it is not a fixed vocabulary anything
 #: downstream depends on the members of.
@@ -241,9 +238,9 @@ class LlmQueryScorer:
         )
         if not isinstance(judged, Produced):
             # `on_score_failure` has one member today (FAIL): relaying the cascade's own
-            # outcome *is* failing loudly — the fix for the reference's
-            # `_ROUTER_STRUCTURED_FALLBACK_EXCEPTIONS`, which caught a parse failure and
-            # silently swapped in a different routing algorithm instead of reporting it.
+            # outcome *is* failing loudly, refusing the silent-fallback shape where a parse
+            # failure is caught broadly and a different routing algorithm is swapped in
+            # silently instead of being reported.
             return judged
 
         wanted = frozenset(dimension.name for dimension in self._config.dimensions)
@@ -364,10 +361,9 @@ class Rule(BaseModel):
 
 #: Ten seed rules, in priority order — illustrative starting configuration for an operator
 #: to retune against their own installed pipelines, never validated against a real
-#: deployment (the reference's own router shipped disabled by default; this ladder's default is
-#: the equivalent honesty, stated rather than left implicit). They route between the two
-#: pipelines this build ships (`no-retrieval`, `retrieve-then-generate`) using the seven
-#: default dimensions above; an operator with a richer catalogue writes their own.
+#: deployment. They route between the two pipelines this build ships (`no-retrieval`,
+#: `retrieve-then-generate`) using the seven default dimensions above; an operator with a
+#: richer catalogue writes their own.
 _TEN_SEED_RULES: tuple[Rule, ...] = (
     Rule(
         name="confident-and-simple-answers-from-memory",

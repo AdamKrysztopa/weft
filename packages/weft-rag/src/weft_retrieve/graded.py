@@ -4,7 +4,7 @@ capped, and keeps only the ones that clear a configured floor. `Reranker`.
 Task **2.21a**, `docs/build-ledger.md`'s 2.21 line: "per-document relevance grading is a
 reusable post-retrieval filter." `docs/10-technique-catalogue.md` §1.1's own `corrective` row
 states the naming condition this module exists to satisfy without violating: "`corrective` is
-only honest if the plugin gains a *distinct knowledge action* ... If Weft ships the reference's
+only honest if the plugin gains a *distinct knowledge action* ... If Weft ships that
 behaviour unchanged, the name is `graded-retrieval` and the word `corrective` stays free for a
 plugin that earns it." This module *is* that unchanged behaviour, corrected — grade every hit,
 discard the failures — and it registers under `Reranker`, the same open position `llm-rerank`
@@ -21,9 +21,9 @@ evaluator also drives a three-way action (Correct / Incorrect / Ambiguous) this 
 not decide at all — it grades and filters, full stop, and `corrective.py` is where a distinct
 action is added on top.
 
-**Batched, and capped — the reference's own two costs, fixed by construction.** `10` §1.1's row:
-the reference "grades whole nodes with a prompted LLM ... one call per chunk, up to ~30 per
-query, uncapped." `max_graded` (default 20) is the hard ceiling on how many of the ranking's
+**Batched, and capped — two costs fixed by construction.** `10` §1.1's row: grading whole
+nodes with a prompted LLM means one call per chunk, up to ~30 per query, uncapped, absent
+these two limits. `max_graded` (default 20) is the hard ceiling on how many of the ranking's
 own hits are ever offered to a model at all, and `batch` (default 5) is how many are asked
 about per call — `ceil(max_graded / batch)` calls at the ceiling, which is what makes
 `cost_bound`'s `(1, 4)` a fact an operator can check against the two numbers next to it rather
@@ -33,8 +33,8 @@ filter vouches for passages it never looked at, the exact silent half-measure
 `weft_retrieve.rerank`'s own "not one per offered passage is refused" rule exists to keep out
 of the reranking position generally.
 
-**`on_grader_failure` fabricates nothing.** `10` §1.1's row: "critique.py:117-127 also
-fabricates a grade from word overlap when the grader fails." `OnFailure.FAIL` (published by
+**`on_grader_failure` fabricates nothing.** `10` §1.1's row names a defect this avoids:
+fabricating a grade from word overlap when the grader fails. `OnFailure.FAIL` (published by
 `weft-llm`, not invented here — see that field's own docstring) relays a batch's own failure
 outcome; a batch that could not be graded is never read as "keep everything in it" or "drop
 everything in it", either of which would be a grade this module never actually asked for.
@@ -78,7 +78,8 @@ NAME = "graded-retrieval"
 
 class GradedRetrievalConfig(BaseModel):
     """`GradedRetrieval`'s `with:` config. Every field has a default, per this pack's own
-    rule. Every knob the reference's version left hard-coded or absent is one of these: which
+    rule. Every knob a hard-coded or absent version of this technique would fix in place is
+    one of these: which
     wording grades (`prompt`), which model answers (`role`), where the line is drawn
     (`keep_at_or_above`), how many hits are ever offered (`max_graded`), how many per call
     (`batch`), and what a batch that could not be graded does (`on_grader_failure`).
@@ -89,7 +90,7 @@ class GradedRetrievalConfig(BaseModel):
     prompt: str = Field(default=RELEVANCE_GRADE_NAME, min_length=1)
     role: str = Field(default="grade", min_length=1)
     keep_at_or_above: Grade = Grade.RELEVANT
-    #: The reference was uncapped at ~30 calls per query (`10` §1.1's row). This is the hard
+    #: Uncapped runs to ~30 calls per query (`10` §1.1's row). This is the hard
     #: ceiling on how many of `payload.hits` are ever graded at all — see the module
     #: docstring for what happens to a hit ranked beyond it.
     max_graded: int = Field(default=20, ge=1)

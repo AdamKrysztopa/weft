@@ -10,8 +10,8 @@ extends: retrieve-then-generate
 # that is `fuse`'s position, and `reciprocal-rank-fusion` combines by **rank**, which is what
 # makes the merge possible at all. A cosine similarity and a lexical relevance score have no
 # common unit, so the weighted-alpha blend most implementations of this name use is a tuning
-# constant nobody can defend — `10` §1.1 records the reference growing exactly that, in the second
-# of its two copies of RRF.
+# constant nobody can defend — `10` §1.1 records this exact failure: duplicated copies of RRF
+# whose tuning constants drift out of sync with each other.
 #
 # The weights below are this document's and are **not** a measured optimum. Vector slightly
 # ahead of text is a starting position, not a finding: dense retrieval usually recalls better

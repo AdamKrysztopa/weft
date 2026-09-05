@@ -42,7 +42,7 @@ could not see, decides the outcome for the whole batch, exactly as
 `weft_extract.text.TextExtractor` already does for a file that is not valid
 UTF-8: `Produced` carries no room to report what was dropped, so a partial
 answer would be indistinguishable downstream from a complete one, and a corpus
-that silently shrinks is the shape of reference defect 7. A document that was read
+that silently shrinks is exactly the failure mode this design refuses. A document that was read
 and legitimately holds no text is the opposite case and was originally
 conflated with it — it drops nothing, because there was nothing in it to drop,
 and discarding the four documents beside it *is* the shrinking corpus that

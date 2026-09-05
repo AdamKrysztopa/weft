@@ -1,9 +1,9 @@
 """Shared "embed some text through whatever `Embedder` this run configured" helper.
 
 Task **4.2**. Three metrics need it: `weft_eval.embedding_metrics.EmbeddingSimilarity` and two of
-the six LLM judges (`weft_eval.judges.AnswerRelevance`, `weft_eval.judges.AnswerCorrectness`) — the
-two the reference computes with `sentence_transformers` cosine similarity
-(`.phase4-reference-recon.md` §7). All three reuse `weft_embed.contract.Embedder` instead, which is
+the six LLM judges (`weft_eval.judges.AnswerRelevance`, `weft_eval.judges.AnswerCorrectness`). All
+three reuse `weft_embed.contract.Embedder` rather than a direct embedding dependency of their own,
+which is
 what lets every one of them run against `hash` in an offline gate and against a real provider in
 production with no code of their own changing — see `weft_eval.embedding_metrics`'s module
 docstring for the full argument. Factored out once rather than written three times, so the

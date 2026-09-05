@@ -76,6 +76,7 @@ from weft_cli.commands import (
     PluginsDoctorCommandResult,
     PluginsListCommandResult,
     ReconcileCommandResult,
+    RenderCommandResult,
 )
 from weft_cli.config_commands import ConfigGetCommandResult, ConfigSetCommandResult
 from weft_cli.error_envelope import build_error_envelope
@@ -699,6 +700,43 @@ def _render_eval_metrics(result: EvalMetricsCommandResult) -> Rendered:
 # same defensive-cast idiom every `Command.run` in `weft_cli.commands` already uses for its
 # own `args` parameter — so no `_render_*` function widens its own signature to `CommandResult`
 # purely to satisfy this seam.
+def _render_render(result: RenderCommandResult) -> Rendered:
+    """`weft render`'s answer: the rendered text on stdout, and what rendering cost on stderr.
+
+    **The text goes to stdout alone, so `weft render x --pipeline preview-markdown > x.md`
+    produces a usable file.** Everything about the rendering — how many nodes went in, what was
+    dropped — goes to stderr, which is the same split `03` → *Output* already draws for every
+    other command and the reason this one is usable in a shell pipeline at all. A count folded
+    into stdout would corrupt the document it is describing.
+
+    `dropped` is reported rather than summarised away: `Rendition.dropped` exists because a
+    renderer that silently omits content it could not represent is the plausible-wrong-answer
+    failure this project refuses, and a driver that printed only `text` would hide exactly the
+    field that was added to stop it.
+    """
+    if result.rendition is None:
+        return Rendered(
+            stdout=None,
+            stderr=(
+                f"nothing to render: no file in that directory is claimed by an extractor "
+                f"'{result.pipeline}' names."
+            ),
+            exit_code=ExitCode.SUCCESS,
+        )
+    rendition = result.rendition
+    notes = [f"{rendition.nodes_rendered} node(s) rendered as {rendition.media_type}"]
+    if rendition.dropped:
+        notes.append(f"{len(rendition.dropped)} dropped:")
+        notes.extend(
+            f"  {item.node_id}: {item.kind.value} — {item.detail}" for item in rendition.dropped
+        )
+    return Rendered(stdout=rendition.text, stderr="\n".join(notes), exit_code=ExitCode.SUCCESS)
+
+
+def _dispatch_render(result: object) -> Rendered:
+    return _render_render(cast(RenderCommandResult, result))
+
+
 def _dispatch_index(result: object) -> Rendered:
     return _render_index(cast(IndexCommandResult, result))
 
@@ -788,6 +826,7 @@ def register_renderers(registrar: PackRegistrar) -> None:
     the pack part of what it is meant to be independent of.
     """
     registrar.add_renderer(IndexCommandResult, _dispatch_index)
+    registrar.add_renderer(RenderCommandResult, _dispatch_render)
     registrar.add_renderer(PluginsListCommandResult, _dispatch_plugins_list)
     registrar.add_renderer(PluginsDoctorCommandResult, _dispatch_plugins_doctor)
     registrar.add_renderer(InitCommandResult, _dispatch_init)

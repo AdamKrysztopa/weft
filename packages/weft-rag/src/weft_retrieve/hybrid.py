@@ -19,7 +19,7 @@ preference: fusing ranked lists is `Fuser`'s position in the pipeline, and
 `reciprocal-rank-fusion` already does it *by rank*, which needs no calibration between two
 score scales that have no common unit. A cosine similarity and a lexical relevance score are
 not comparable numbers, and an alpha over them is a tuning constant nobody can defend —
-exactly what `10` §1.1 records against the reference, whose RRF existed twice and *"only the
+exactly the failure `10` §1.1 records: an RRF that existed twice, where *"only the
 second copy grew weighted-alpha behaviour"*. Two copies of one technique is what a missing
 plugin boundary looks like; this plugin is on the right side of that boundary and stops there.
 

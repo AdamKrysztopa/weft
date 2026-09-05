@@ -2,7 +2,7 @@
 
 Mirrors `packages/weft-kernel/src/weft_kernel/payload/node.py`. Covers the
 admission rule for the six core fields, the three ways to build a `Node`,
-content-addressed identity, and the two reference bugs G5 makes unrepresentable:
+content-addressed identity, and the two bugs G5 makes unrepresentable:
 RAPTOR's unreachable summaries (`Node.combine` on an empty set) and the
 transient-blob guard (`Node.without_transient`).
 """
@@ -174,8 +174,8 @@ def test_mutating_ext_in_place_raises() -> None:
 def test_ext_survives_model_dump_and_json_with_subclass_fields_intact() -> None:
     """A pack's `ExtModel` subclass fields must not be dropped or crash serialisation.
 
-    Regression for a defect the reference shipped and this project exists to
-    avoid: `ExtMap`'s immutable `MappingProxyType` container has no
+    Regression for a defect this project exists to avoid: `ExtMap`'s
+    immutable `MappingProxyType` container has no
     pydantic-core serializer by default, and declaring the value type as
     the base `ExtModel` makes pydantic serialise every entry as the base
     class, silently dropping a subclass's own fields with no warning. Both

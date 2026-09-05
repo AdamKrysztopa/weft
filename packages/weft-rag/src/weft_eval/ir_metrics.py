@@ -1,15 +1,15 @@
 """The four IR metrics — precision@k, recall@k, mean average precision, NDCG@k.
 
-Task **4.2**, `docs/build-ledger.md`: the reference's metric suite, every recorded defect fixed at
+Task **4.2**, `docs/build-ledger.md`: a metric suite with every recorded defect fixed at
 the door. These four score a `RetrievalSample` — a ranked list of retrieved ids against a
 ground-truth relevance set — and never read a passage's text, which is exactly why they are
 `RetrievalMetric`s rather than `GenerationMetric`s under `weft_eval.contract`'s split.
 
-**The `k`-in-the-name property, held where it is this task's to hold.** R5 in
-`.phase4-reference-recon.md`: the reference's own `PrecisionAtK`/`RecallAtK`/`NDCG` build `metric_name`
-from `self.k` correctly at the per-metric level, and the property breaks one layer up, in two
-dataset-track runners that hardcode a literal `'precision_at_k'` string as a report key while the
-real `k` is caller-supplied. That breakage is a *report's* defect, not this plugin's — `metric_
+**The `k`-in-the-name property, held where it is this task's to hold.** R5: `PrecisionAtK`/
+`RecallAtK`/`NDCG` build `metric_name` from `self.k` correctly at the per-metric level — this
+kind of property actually breaks one layer up, in a caller that hardcodes a literal
+`'precision_at_k'` string as a report key while the real `k` is caller-supplied. That breakage is
+a *report's* defect, not this plugin's — `metric_
 name` below is built from `self._config.k` exactly once, at the point of construction, so nothing
 downstream can restate it wrong without reading it wrong first. Task 4.3 is what checks that a run
 record's own display honours what this field already says.

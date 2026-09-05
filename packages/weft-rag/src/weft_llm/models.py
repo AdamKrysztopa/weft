@@ -1,21 +1,18 @@
 """Model strings — what the operator asked for, and what the vendor is handed.
 
 Task **2.10**: "the prompt layer, the cascade, **model strings** and the `LLMError` taxonomy
-ship outside the kernel." `docs/04-reference-inventory.md`:294 files the reference's `model_strings`
-as a **rewrite**, and names precisely what is worth carrying: "the **two-field distinction**:
-`requested_provider` (catalog identity) vs `litellm_provider` (runtime prefix). Subtle,
-learned the hard way, and what keeps telemetry attributing cost to the real vendor. Carry the
-4-step `find_runtime_match` disambiguation explicitly — that is the hard part." The row also
-records why none of its code is worth lifting: `ResolvedLiteLLMTarget` had "zero consumers
-outside its own module and zero tests". So this is the *distinction*, written fresh, with
+ship outside the kernel." The distinction worth carrying is a two-field one, learned the hard
+way: a catalogue identity kept apart from a runtime prefix is what keeps telemetry
+attributing cost to the real vendor, and the disambiguation step only earns its keep if it is
+carried explicitly rather than assumed. So this is that *distinction*, written fresh, with
 consumers: `weft_llm.client` resolves every role's model string through both functions below.
 
 **Weft has no litellm, so the second field is not a runtime prefix — it is the string the
 `LLMProvider` plugin is handed at the call.** The distinction survives the translation intact:
 `ModelRef.provider` is the catalogue identity (a registry plugin name, what telemetry and an
 invoice attribute cost to), and `ModelRef.model` is the runtime identity (what
-`LLMProvider.complete(..., model=...)` receives). Collapsing them is exactly the mistake the
-reference's row warns about: `"openai/gpt-4o-mini"` handed straight to the OpenAI SDK is a 404,
+`LLMProvider.complete(..., model=...)` receives). Collapsing them is exactly the mistake this
+distinction guards against: `"openai/gpt-4o-mini"` handed straight to the OpenAI SDK is a 404,
 and `"gpt-4o-mini"` recorded as the provider attributes a bill to nobody.
 
 **A slash is not evidence of a prefix, and that is the whole of the disambiguation.**
@@ -80,7 +77,7 @@ class AmbiguousModelError(LLMPermanentError, UnresolvedNameError):
 
 
 class ModelRef(BaseModel):
-    """One resolved model string, in the two fields the reference's row says must stay apart."""
+    """One resolved model string, in the two fields kept deliberately apart."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 

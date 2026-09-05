@@ -9,8 +9,9 @@ not.** L5.4's subject is the sharpest — fitness function 6 was specified in
 until task 5.2a built it, five phases later.
 
 That is this repository's oldest failure mode and it already has a fitness function about it:
-**FF0**, *the gate must be in the gate*, which exists because the reference shipped a boundary checker
-that was not in its canonical task and therefore never ran. FF0 asserts every check *in this
+**FF0**, *the gate must be in the gate*, which exists because a boundary checker can be written,
+committed, and never wired into the canonical task that would actually run it. FF0 asserts every
+check *in this
 directory* is reachable from `ci-checks`. It cannot see the other half — a check that `01`
 promises and nobody wrote is invisible to a walk over the files that exist. This function is that
 half, plus the one property FF0's subject needs to be worth anything.
@@ -19,7 +20,7 @@ half, plus the one property FF0's subject needs to be worth anything.
 reason L5.4 could go five phases unnoticed: `01`'s numbered list is prose, and prose does not fail
 a build. The waiver constant below is pinned to the functions `01` itself defers to a later
 phase — a named, dated act in a diff, `test_allowlist_empty.py`'s own ratchet discipline, which
-`01` item 0 calls the reference's best fitness function.
+`01` item 0 names as the pattern most worth reimplementing.
 
 **Clause (b): every check here proves it can fail.** A check derived from the thing it verifies
 cannot fail, and a check that cannot fail is prose with a test runner attached — `docs/lessons.md`

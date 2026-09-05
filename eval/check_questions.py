@@ -16,7 +16,7 @@ bottom of this docstring for why.
 
 **A judgement is pinned to `(document, quote)`, never to a node id.** A `NodeId` is a content
 digest over the chunker's output, so a judgement pinned to one is invalidated by any chunking
-change — which is how the reference ended up reaching for a paper-level fallback and inflating
+change — the failure mode that pushes an evaluator toward a paper-level fallback and inflates
 precision toward 1.0 (`09` §4.2). A literal span survives re-chunking and resolves, at scoring
 time, to whatever units the pipeline under test actually retrieved.
 

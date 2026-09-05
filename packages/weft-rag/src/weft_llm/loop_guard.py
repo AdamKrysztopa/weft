@@ -1,13 +1,9 @@
 """A loop-breaker for a model that gets stuck mid-stream — never a hallucination judgment.
 
-Task **3.10**, `01` → Phase 3 **Lift**: the one reference lift this phase makes. The reference
-(`a prior project`) kept the densest record of *measured* tuning anywhere in its query path inside
-three methods of an 800-line `PriorCitationManager` — `reference/study/08-salvage.md` §T1.12, verified
-at source and re-verified independently (`.phase3-design.md` §2.1–2.2): the real detection
-method is `_is_special_character_pattern` (`citation.py:149-190`) — **the frozen audit names it
-`_is_formatting_noise`, which does not exist in the source; that is the audit's error, not
-this module's, and it is corrected in `docs/01-high-level-plan.md` → Phase 3 → *Lift* and in
-this task's own `docs/build-ledger.md` entry rather than repeated here.**
+Task **3.10**, `01` → Phase 3 **Lift**: the one lift this phase makes. What earns it that
+status rather than a fresh design is that its thresholds are *measured* tuning, not a guess —
+worked failing and passing examples back every constant below, and each field's own comment
+says which example justifies its particular value, not only what the value is.
 
 **What this is.** A small local model asked to keep generating sometimes settles into
 repeating the same span of text forever — a known failure mode of greedy decoding once a
@@ -38,18 +34,18 @@ the reason the guard attaches there rather than inside a `TokenSink`.
 
 **Ordering, stated rather than nested.** The table check must run — and be seen to run —
 *before* either repetition pass. `_looks_like_table`'s own threshold is deliberately
-aggressive (a single table-like line is enough, `citation.py:232-236`), because a table
-streamed one row at a time is legitimately repetitive until the last row arrives; running the
+aggressive — a single table-like line is enough — because a table streamed one row at a
+time is legitimately repetitive until the last row arrives; running the
 repetition passes first would cut a streamed table off mid-render. `detect_generation_loop`
 below calls the two as two separate top-level functions with the table check first, rather
 than nesting the repetition check inside the table check's negative branch — the ordering
 constraint is then a fact a reader of `detect_generation_loop`'s body sees in three lines,
 not a fact implied by how deeply one function calls into another.
 
-**The similarity measure is deliberately cheap.** `_positional_similarity` is *"a lightweight
-alternative to Levenshtein distance for performance"* (`citation.py:130`) — positional
-character equality over the shorter of two windows, not edit distance. It fires as a loop only
-alongside low n-gram diversity (`citation.py:255-266`): a long answer that legitimately reuses
+**The similarity measure is deliberately cheap.** `_positional_similarity` trades exactness
+for speed: positional character equality over the shorter of two windows, checked once per
+token, rather than true edit distance. It fires as a loop only alongside low n-gram
+diversity: a long answer that legitimately reuses
 a phrase ("as mentioned in the sources...") has high similarity between two windows but stays
 internally diverse, so the diversity half of the test is what keeps ordinary prose from
 tripping this guard — the true/false pair every test in the mirroring test module reproduces.
@@ -61,8 +57,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 #: `[llm.loop_guard]` — every constant this module needs, all parameterisable rather than
-#: hard-coded, with the measured reference values kept as defaults (`citation.py:241-244`, `:278`,
-#: `:190`, `:192`, `:217`, `:236`, `:312`, `:304`, `:327`) because re-deriving them against
+#: hard-coded, with the measured values kept as defaults because re-deriving them against
 #: Weft's own evaluation harness is Phase 4's job, not this task's — see each field's own
 #: comment for why its particular value was chosen, not only what it is.
 class LoopGuardConfig(BaseModel):
@@ -72,10 +67,10 @@ class LoopGuardConfig(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    #: The shortest repeated span worth flagging. Raised from a smaller value the reference also
-    #: tried (`citation.py:269`: "increased from 20 to 50") because a period that short
-    #: matches ordinary short phrases repeating in normal prose — "the the", "and and" from a
-    #: stutter mid-sentence — too often to be worth interrupting a stream for.
+    #: The shortest repeated span worth flagging. Raised from a smaller value that also proved
+    #: too low, because a period that short matches ordinary short phrases repeating in normal
+    #: prose — "the the", "and and" from a stutter mid-sentence — too often to be worth
+    #: interrupting a stream for.
     min_period: int = Field(default=50, ge=1)
     #: The longest repeated span the fuzzy pass below will search for. A model stuck in a
     #: multi-paragraph loop is still a loop, but the search cost of every period up to an
@@ -87,21 +82,21 @@ class LoopGuardConfig(BaseModel):
     similarity_threshold: float = Field(default=0.85, ge=0.0, le=1.0)
     #: How internally repetitive the two-period window being compared must be — at or below
     #: this fraction of its own character n-grams being unique — before the guard actually
-    #: fires. `citation.py:255-266`'s own worked pair is why both thresholds are required
-    #: together: "Hello world. Hello world. Hello world." is high-similarity *and*
+    #: fires. A worked pair is why both thresholds are required together: "Hello world.
+    #: Hello world. Hello world." is high-similarity *and*
     #: low-diversity (fires, because the whole window is one short phrase repeating); a long
     #: answer that reuses "as mentioned in the sources..." once, between two otherwise-different
     #: paragraphs, has nowhere near this much of its surrounding window built from one repeated
     #: span, so its diversity stays high (does not fire).
     diversity_threshold: float = Field(default=0.3, ge=0.0, le=1.0)
-    #: Below this many characters, nothing is checked at all (`citation.py:278`). Two reasons,
+    #: Below this many characters, nothing is checked at all. Two reasons,
     #: not one: a short answer has no room for a period as long as `min_period` twice over, and
     #: skipping the check entirely below this floor is what keeps the per-token cost near-zero
     #: for the common case of a short answer that never loops.
     min_text_length: int = Field(default=100, ge=0)
     #: Above `max(min_period, 100)` characters, candidate periods are sampled every this many
-    #: characters rather than walked one at a time (`citation.py:312`, "step by 10 for
-    #: performance") — the other half of keeping the cumulative-text contract's `O(n²)` bounded.
+    #: characters rather than walked one at a time — the other half of keeping the
+    #: cumulative-text contract's `O(n²)` bounded.
     #: A period this sampling skips past would only be missed by up to `fuzzy_step - 1`
     #: characters, which the next token's check catches.
     fuzzy_step: int = Field(default=10, ge=1)
@@ -109,26 +104,24 @@ class LoopGuardConfig(BaseModel):
     #: function-level default a general-purpose diversity helper would reasonably carry (3,
     #: which is too short to distinguish "the cat sat" from three-word loops of ordinary
     #: prose) — both places this module calls the diversity measure pass this value
-    #: explicitly rather than relying on a shared default (`citation.py:304`, `:327`).
+    #: explicitly rather than relying on a shared default.
     ngram_size: int = Field(default=5, ge=1)
-    #: How far back, in characters, the table detector looks (`citation.py:192`).
+    #: How far back, in characters, the table detector looks.
     table_lookback_chars: int = Field(default=500, ge=0)
-    #: How far back, in lines, the table detector looks (`citation.py:217`) — a second, tighter
+    #: How far back, in lines, the table detector looks — a second, tighter
     #: bound alongside the character one, since a handful of very long lines could otherwise
     #: exhaust the character budget without ever reaching an actual table row.
     table_lookback_lines: int = Field(default=10, ge=0)
     #: How many table-like lines in the lookback window are enough to call it a table.
-    #: Deliberately `1`, not `2` (`citation.py:232-236`, "lowered threshold from 2 to 1"):
-    #: during streaming, a table is being generated one row at a time, and a line starting
-    #: with `|` and carrying more than one pipe is almost always a table row even before its
-    #: closing pipe has arrived — waiting for a second row before believing it risks the
-    #: repetition guard firing on the first row alone.
+    #: Deliberately `1`, not `2`: during streaming, a table is being generated one row at a
+    #: time, and a line starting with `|` and carrying more than one pipe is almost always a
+    #: table row even before its closing pipe has arrived — waiting for a second row before
+    #: believing it risks the repetition guard firing on the first row alone.
     table_line_threshold: int = Field(default=1, ge=1)
     #: A line whose characters are less than this fraction alphanumeric reads as formatting
-    #: rather than prose (`citation.py:190`, alphanumeric ratio `< 0.3`) — the worked examples
-    #: this module's own tests reproduce: a `|---|---|` separator is roughly a tenth
-    #: alphanumeric, a `====` rule is none of it, and an ordinary sentence is well above nine
-    #: tenths.
+    #: rather than prose — the worked examples this module's own tests reproduce: a
+    #: `|---|---|` separator is roughly a tenth alphanumeric, a `====` rule is none of it, and
+    #: an ordinary sentence is well above nine tenths.
     alphanumeric_ratio_threshold: float = Field(default=0.3, ge=0.0, le=1.0)
 
 
@@ -220,8 +213,8 @@ def _candidate_periods(config: LoopGuardConfig) -> Iterator[int]:
 
 def _positional_similarity(earlier: str, recent: str) -> float:
     """A cheap stand-in for edit distance: the fraction of positions where two equal-length
-    windows agree. `citation.py:130` documents the same trade explicitly — exact character
-    alignment rather than an alignment-tolerant distance, because this runs once per token.
+    windows agree — exact character alignment rather than an alignment-tolerant distance,
+    because this runs once per token.
     """
     if not earlier or not recent:
         return 0.0

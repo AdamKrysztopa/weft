@@ -1,6 +1,6 @@
 """`try_in_order` — the fallback combinator, over any contract at all.
 
-`04` → the `_try_extractors` row: the reference's fallback-chain executor belongs
+`04` → the `_try_extractors` row: a fallback-chain executor belongs
 in the kernel "as a combinator", because **it composes plugins rather than
 doing work**. Nothing here inspects a payload, imports a capability or knows
 what a document is; it matches on the `Outcome` type a contract already
@@ -14,12 +14,12 @@ per-file numbers, and it is testable with no `Runner`, no `Registry` and no
 resolved pipeline — which is what makes the three-outcome table below a
 checked fact rather than a claim about the runner.
 
-**The reference's `fail_silently` channel has no equivalent here, and this module
-is where that is enforced.** That channel returned an empty result
-indistinguishable downstream from a successfully-parsed empty document
-(`payload/outcome.py`), and the reason it existed is that the reference had two
-states — success and failure — for a three-state problem. `Outcome` has the
-third, and `02` §1 already assigns the meanings:
+**A `fail_silently` channel has no equivalent here, and this module is where
+that is enforced.** Such a channel returns an empty result indistinguishable
+downstream from a successfully-parsed empty document (`payload/outcome.py`) —
+the shape a two-state success/failure model is forced into once the real
+problem has three states. `Outcome` has the third, and `02` §1 already assigns
+the meanings:
 
 - **`Produced` — stop, return it.** Success is contract-defined, never guessed at
   by looking inside the value the way `fail_silently` had to.
@@ -38,8 +38,8 @@ anything a plugin lets escape into a `WeftError` with `__cause__` preserved and
 the pack, contract, plugin and stage attributed. So the broad tolerance a
 chain over third-party format libraries genuinely needs is declared once, at
 the combinator, against the one class the seam guarantees — rather than as a
-blind `except Exception` inside every backend, which is where the reference put
-it and where nobody can see it. `CancelledError`, `KeyboardInterrupt` and
+blind `except Exception` inside every backend, buried where no reviewer of
+the combinator would ever see it. `CancelledError`, `KeyboardInterrupt` and
 `SystemExit` are `BaseException`, so they are never caught here: cancellation
 propagates by construction, not by an added clause.
 

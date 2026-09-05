@@ -1371,8 +1371,9 @@ def test_a_plugin_publishing_no_config_model_still_resolves_with_an_empty_with_b
 
 def test_a_non_empty_with_block_for_a_plugin_with_no_config_model_is_refused() -> None:
     # Arrange — `02` §3's own driving example writes `with: {top_n: 8}` for `keybert`; here
-    # `_Keywords` is a plugin nobody gave a `config_model`, reproducing the reference's own
-    # mistake on purpose — the block must not be silently accepted and dropped.
+    # `_Keywords` is a plugin nobody gave a `config_model`, reproducing on purpose the
+    # mistake of a `with:` block for a plugin that cannot accept one — the block must not
+    # be silently accepted and dropped.
     pipeline = Pipeline(
         name="base", stages=(StageDeclaration(id="keywords", use="keybert", config={"top_n": 8}),)
     )

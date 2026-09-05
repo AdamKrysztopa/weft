@@ -12,9 +12,8 @@ held to it rather than to paraphrase it:
     side and never in the publish job's arguments.
 
 **Why the two sides are read from two files that can genuinely disagree.** `01` states the reason
-in the clause itself: *"a check that asked the derivation function what it derives would compare a
-function to itself and could never fail, which is the reference's `test_keys_parity` shape"*
-(`reference/study/08-salvage.md:777-782`). So the publish side is parsed out of
+in the clause itself: a check that asked the derivation function what it derives would compare a
+function to itself and could never fail. So the publish side is parsed out of
 `.github/workflows/release.yml` — the artefact CI actually runs, hand-maintained on purpose — and
 the workspace side is expanded from the root `pyproject.toml`'s member globs. Adding a package and
 forgetting the workflow fails here; publishing something that opted out fails here.

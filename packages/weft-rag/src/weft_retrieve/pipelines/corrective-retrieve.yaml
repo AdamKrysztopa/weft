@@ -4,8 +4,8 @@ extends: retrieve-then-generate
 # **This rung is why the name `corrective` is honest here, and it needs a corpus indexed with
 # `index-with-raptor`.** `10` §1.1 states the condition as a condition: `corrective` is only
 # earned if the plugin reaches a *distinct knowledge action* — a second `Retriever` resolved by
-# contract, not the same index re-queried broader. Re-querying the same index is what the reference
-# did, and `10`'s own verdict on it is "**Nothing is corrected.**"
+# contract, not the same index re-queried broader. Re-querying the same index broader is not a
+# distinct knowledge action, and `10`'s own verdict on that shape is "**Nothing is corrected.**"
 #
 # The distinct action available in a default install is the *summary level*: `multi-arm`
 # narrowed to nodes `raptor` built. That is a different base, not a second look at the same one

@@ -1,29 +1,26 @@
 """`ArtifactRemover` — strips page-number lines and separator lines, and nothing else.
 
-Task **2.35** — the second of the two processors `docs/04-reference-inventory.md` category A
-names and `weft-clean` did not ship. Verified at source, `reference/study/08-salvage.md` §T1.1
-and `artifact_remover.py:10-79`: the reference's docstring promises header/footer removal by
-"short lines appearing at fixed intervals", but `process()` is 28 lines doing exactly two
-things — a page-number regex substitution and a per-line non-alphanumeric-ratio filter.
-There is no interval analysis, no line-frequency map, no positional logic anywhere in the
-79-line file. **That half is deliberately not lifted.** Carrying the docstring's promise
-without the code behind it would ship a comment describing a capability that does not
-exist — the exact drift `01`'s Phase 2 exit reference audit exists to catch, one file over from
-where it was already caught once. This is a scar, recorded rather than quietly worked
+Task **2.35** — the second of two cataloged cleaning processors `weft-clean` did not yet
+ship. **Header/footer removal by positional or interval analysis is deliberately not
+implemented.** This processor does exactly two things — a page-number regex substitution
+and a per-line non-alphanumeric-ratio filter — and no more: no interval analysis, no
+line-frequency map, no positional logic. Promising header/footer removal in this stage's
+docstring without that logic behind it would ship a comment describing a capability that
+does not exist — the exact drift `01`'s Phase 2 exit audit exists to catch, one file over
+from where it was already caught once. This is a scar, recorded rather than quietly worked
 around: a real header/footer remover, if one is ever built, is new work against a real
 interval-analysis design, not a promise finally kept.
 
-**Two constants carried as facts, not text** (`artifact_remover.py:22`, `:26`):
-`_PAGE_NUMBER`'s pattern and `_SEPARATOR_THRESHOLD`'s value are the two behaviours that do
-exist, unchanged from the reference — CLAUDE.md's rule is that no source text crosses the
-reference symlink, but a regex and a threshold are facts about what already-verified code does,
-not prose or a name.
+**Two constants carried as facts, not text** — `_PAGE_NUMBER` and `_SEPARATOR_THRESHOLD` below:
+`_PAGE_NUMBER`'s pattern and `_SEPARATOR_THRESHOLD`'s value are the two behaviours this
+stage actually has — a regex and a threshold are facts about what verified code does, not
+prose or a name, and only prose or a name is what this project's copying rule forbids
+carrying across.
 
-**The page pattern is the English literal `Page`, left that way — §T1.1's own correction
-list, item 6, on the record.** The reference's fix is "change it to a per-language list", but
-the reference's own file never supplies one — no Polish (or any other) translation for "page"
-appears anywhere in `artifact_remover.py` or in the salvage study's own citations of it.
-`weft_clean.language.Language` exists in this pack and could narrow this stage the way
+**The page pattern is the English literal `Page`, left that way, on the record as a known
+limitation rather than silently patched.** A per-language translation table was considered
+and rejected: no Polish (or any other) verified translation for "page" exists to put in
+one. `weft_clean.language.Language` exists in this pack and could narrow this stage the way
 `weft_clean.dictionary_spacing.PolishFusedWordFixer` narrows itself with `applies_to` —
 but that narrows a *stage* to a *language it is built for*, not a regex literal to a word
 nobody has verified. Inventing a translation table with no source behind it — "Strona" for
@@ -64,16 +61,15 @@ from weft_kernel.payload import Node, NothingToProduce, Outcome, Produced, Prope
 #: extraction artefacts. Case-insensitive because a header may shout; `MULTILINE` because the
 #: anchors are per line, not per document.
 #:
-#: `docs/04-reference-inventory.md`'s own settlement (2026-09-05) is why the specification is written
-#: out rather than the citation left to stand alone: a string a written specification determines is
-#: a specification, not an asset, and the reader should be able to check that claim here instead of
-#: taking it. The reference arrived at the same string — `reference/study/08-salvage.md` §T1.1's constants
-#: table, `artifact_remover.py:22` — which is evidence that the specification determines it, not a
-#: source it was taken from. English only; see the module docstring for why no translation is
-#: invented here.
+#: The specification above is written out rather than left to a citation to stand alone: a
+#: string a written specification determines is a specification, not an asset, and the reader
+#: should be able to check that claim here instead of taking it — any implementation of the
+#: same specification would arrive at the identical pattern, which is evidence that the
+#: specification determines it, not that it was carried from anywhere. English only; see the
+#: module docstring for why no translation is invented here.
 _PAGE_NUMBER = re.compile(r"^\s*Page\s+\d+\s*$", re.IGNORECASE | re.MULTILINE)
 
-#: `artifact_remover.py:26`. A line whose non-alphanumeric character ratio (spaces
+#: A line whose non-alphanumeric character ratio (spaces
 #: excluded from both the numerator and the count) exceeds this is a separator, not prose.
 _SEPARATOR_THRESHOLD = 0.5
 
@@ -88,7 +84,7 @@ class ArtifactRemover:
     """Strips page-number lines (English `Page N`) and separator lines from every node.
 
     Satisfies `weft_clean.contract.Cleaner` structurally. See the module docstring for the
-    reference's documented header/footer removal, which this class deliberately does not carry.
+    promised header/footer removal this class deliberately does not carry.
     """
 
     intact: tuple[type[Property], ...] = (Newlines,)

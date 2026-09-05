@@ -1,6 +1,6 @@
-# The reference checkout, reachable for reading and lifting only.
+# A sibling checkout, reachable for reading only.
 # Never a build input: see CLAUDE.md and docs/README.md.
-/reference
+/_external-src
 
 # Python
 __pycache__/
@@ -76,3 +76,8 @@ build/
 # Transient: harvested subagent findings, promoted into docs/lessons.md by implement-ll.
 # Never committed — its content belongs in the queue or nowhere.
 .claude/lessons-spool.md
+
+# Reading material and design records about codebases this project does not own.
+# Kept on disk, deliberately outside version control: nothing tracked here refers to
+# them, and a write to any of them would leave no trace in a diff.
+/docs/_external-reading/

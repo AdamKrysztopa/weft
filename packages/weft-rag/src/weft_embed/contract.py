@@ -52,7 +52,8 @@ class Embedder(Stage[Sequence[Node], Sequence[Node]], Protocol):
     One method, domain types on both sides, exactly `Chunker`'s shape one
     stage later in the pipeline. An embedder that finds nothing to embed
     (an empty batch) answers `NothingToProduce`, not an empty `Produced([])`
-    — the same reference-trap fix every other Phase 0 contract documents.
+    — the same fix every other Phase 0 contract documents for collapsing a
+    legitimately empty result into the same ambiguous case as a failure.
     """
 
     if TYPE_CHECKING:

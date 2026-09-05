@@ -1,10 +1,9 @@
 """Unit tests for `eval/metrics.py` — what a number means before any of them is measured.
 
 Mirrors `eval/metrics.py`. The corpus, the store and the CLI are all absent here on purpose:
-every rule these tests pin is a rule about *scoring*, and the reference's evaluation package failed
-on exactly those rules while its plumbing worked — a metric named `ndcg_at_10` computed over
-four candidates, a failure scored as `0.0` and averaged into a mean, a ground truth the harness
-accepted and never read (`docs/09-release.md` §4.2). The measurement itself is
+every rule these tests pin is a rule about *scoring*, not plumbing — a metric named `ndcg_at_10`
+computed over four candidates, a failure scored as `0.0` and averaged into a mean, a ground truth
+the harness accepted and never read (`docs/09-release.md` §4.2). The measurement itself is
 `eval/run_baseline.py`'s, against the real thing.
 """
 
@@ -54,8 +53,8 @@ def _hit(rank: int, *, content: str = "unrelated passage", document: str = "doc-
 
 def test_a_quote_found_inside_a_retrieved_passage_is_a_hit_at_its_rank() -> None:
     # The judgement is pinned to a literal span (`eval/check_questions.py`), so it resolves
-    # against whatever unit the pipeline retrieved — which is what survives re-chunking, and
-    # what the reference gave up on when it fell back to counting any chunk of the right paper.
+    # against whatever unit the pipeline retrieved — which is what survives re-chunking, rather
+    # than falling back to counting any chunk of the right paper as a hit.
     # Arrange
     question = _question()
     hits = (
@@ -76,10 +75,10 @@ def test_a_quote_found_inside_a_retrieved_passage_is_a_hit_at_its_rank() -> None
 
 
 def test_the_right_paper_without_the_span_scores_at_one_granularity_and_not_the_other() -> None:
-    # Both families are reported and neither is a fallback for the other. A chunk of the right
-    # paper that does not carry the span is what the reference's paper-level fallback counted as a
-    # hit — pushing precision toward 1.0 — so here it scores where it is true (the document was
-    # found) and nowhere else (the passage the answer rests on was not).
+    # Both families are reported and neither is a fallback for the other. A paper-level fallback
+    # that counts any chunk of the right document as a hit pushes precision toward 1.0 for
+    # answers the passage never actually supports — so here it scores where it is true (the
+    # document was found) and nowhere else (the passage the answer rests on was not).
     # Arrange
     question = _question()
     hits = (_hit(1, content="a paragraph about something else", document="doc-a"),)
@@ -114,9 +113,10 @@ def test_an_unanswerable_question_is_unscoreable_rather_than_zero() -> None:
 
 
 def test_a_metric_may_not_be_named_for_a_depth_deeper_than_was_asked_for() -> None:
-    # The reference reported `ndcg_at_10` over a list sliced to `similarity_top_k = 4`
-    # (`docs/09-release.md` §4.2). V4 makes the rule explicit — "the `k` in a metric's name
-    # equals the `k` it computed" — and this is that rule refusing rather than documenting.
+    # A metric named `ndcg_at_10` computed over a list sliced to `similarity_top_k = 4`
+    # (`docs/09-release.md` §4.2) reports a depth it never reached. V4 makes the rule explicit
+    # — "the `k` in a metric's name equals the `k` it computed" — and this is that rule
+    # refusing rather than documenting.
     # Arrange
     question = _question()
 

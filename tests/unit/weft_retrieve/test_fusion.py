@@ -457,9 +457,9 @@ async def test_and_intersects_two_leaves_by_node_id() -> None:
 
 async def test_an_empty_conjunction_is_reported_never_silently_turned_into_a_union() -> None:
     # Arrange — the edge case ledger 2.23's own second clause is about: "cats AND dogs" where
-    # the two leaves found disjoint documents. The reference's own defect (`10` §1.1) was
-    # returning the union here; `on_empty_conjunction` defaults to `report`, which must
-    # produce a genuinely empty `Ranking`, never the two documents unioned.
+    # the two leaves found disjoint documents. Silently returning the union here would report
+    # a match neither leaf actually supports; `on_empty_conjunction` defaults to `report`,
+    # which must produce a genuinely empty `Ranking`, never the two documents unioned.
     asked = Query(text="cats AND dogs")
     lists = (
         _leaf_list("cats", 0, (_passage("only cats", 0.9, 0),)),

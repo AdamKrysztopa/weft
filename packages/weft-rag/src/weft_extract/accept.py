@@ -7,9 +7,8 @@ while `weft-extract` was the only extractor pack and became silently wrong the
 moment `weft-pdf` shipped: `weft index corpus/mrmr` walked nine PDFs, matched
 none of them, handed an empty batch to a text extractor and exited 0 reporting
 success. `docs/11-multimodal.md:205` predicted it by line number before the pack
-existed. Fail-closed, so better than the reference's fail-open — and still a run
-whose failure path and success path are indistinguishable, which is the one
-thing this project refuses.
+existed. That silent success is exactly the failure mode this project refuses:
+a run whose failure path and success path are indistinguishable.
 
 `docs/02-extension-model.md` §1 already had the rule: **capability is derived,
 never declared.** A file suffix is claimed by an extractor declaring it, and

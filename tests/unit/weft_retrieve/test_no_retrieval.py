@@ -100,9 +100,9 @@ async def test_driving_no_retrieval_through_the_registration_seam_makes_no_block
 
 
 def test_sources_are_empty_by_design_is_the_stated_property_a_consumer_reads() -> None:
-    # Act / Assert — `10` §1.1's own finding against the reference: the null case's emptiness
-    # was a consequence of which helper it called, never a fact declared anywhere a caller
-    # could read. This class attribute is the fix — readable with no instance, per `02` §3.
+    # Act / Assert — `10` §1.1's own finding: the null case's emptiness was a consequence of
+    # which helper it called, never a fact declared anywhere a caller could read. This class
+    # attribute is the fix — readable with no instance, per `02` §3.
     assert NoRetrieval.sources_are_empty_by_design is True
     assert NoRetrieval.cost_bound == (0, 0)
     assert not hasattr(NoRetrieval, "config_model")

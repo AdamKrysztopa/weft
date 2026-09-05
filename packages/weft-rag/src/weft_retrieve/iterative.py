@@ -15,25 +15,24 @@ editing this file.
 Peng Qi, Xiaowen Lin, Leo Mehr, Zijian Wang, Christopher D. Manning, *Answering Complex
 Open-domain Questions Through Iterative Query Generation*, EMNLP-IJCNLP 2019,
 arXiv:1910.07000 — the paper this plugin's name is earned against, per `10` §1.4 and task
-2.26's own naming audit. `10` §1.1's own row on this technique names the reference's shape
-directly: "`iterative.py:70-170` is Qi et al.'s loop with an LLM sufficiency critic in place
-of a trained query generator" — which is this module's shape too, and the trained query
-generator's replacement is not a second model call. `Assessment.missing` already names what a
+2.26's own naming audit. `10` §1.1's own row on this technique names this module's shape
+directly: an LLM sufficiency critic standing in for Qi et al.'s trained query generator —
+and that replacement is not a second model call. `Assessment.missing` already names what a
 follow-up query should go after (that field's own docstring), so the next round's query is
 built from it directly, the same way `weft_retrieve.transforms._render_history` turns a
 `Turn` tuple into text without a model call: `cost_bound`'s floor of one is one leaf call plus
 one critic call, not two.
 
-**Two reference defects, fixed by construction rather than by discipline — `10` §1.1's own row
+**Two defects, fixed by construction rather than by discipline — `10` §1.1's own row
 names both.**
 
-1. `min_loops=2` "forced a second round even when the critic said stop — no paper in the
-   family does that." `min_rounds` is this build's answer, and its *default* (`1`) is what
-   makes the fix real rather than renamed: nothing is forced unless an operator asks for it,
-   the same "omittable by construction, not by discipline" shape `contextual-query-rewrite`
-   (ledger 2.15) already gave the rewrite-on-every-strategy defect.
-2. `critique.py:76-84` "treats any non-empty context as complete when the critique call
-   failed, silently downgrading the strategy to single-shot." `on_critic_failure: OnFailure =
+1. A hard-coded floor of two rounds "forced a second round even when the critic said stop —
+   no paper in the family does that." `min_rounds` is this build's answer, and its *default*
+   (`1`) is what makes the fix real rather than renamed: nothing is forced unless an operator
+   asks for it, the same "omittable by construction, not by discipline" shape
+   `contextual-query-rewrite` (ledger 2.15) already gave the rewrite-on-every-strategy defect.
+2. A critique call that fails "treated as any non-empty context is complete, silently
+   downgrading the strategy to single-shot." `on_critic_failure: OnFailure =
    FAIL` (published by `weft-llm`, not invented here — see that field's own docstring) is the
    fix: a hard critic failure fails the whole retrieval rather than being read as "good
    enough". See `test_a_hard_critic_failure_fails_the_whole_retrieval` in this module's
@@ -158,7 +157,7 @@ def stop_reason(state: LoopState) -> StopReason | None:
        the eventual stop more honest, only later, and reporting `MAX_ROUNDS` several rounds
        after the critic first went silent would name the wrong reason.
     2. **The floor** (`round < min_rounds`) — keeps the loop going even past a critic that
-       already said `sufficient=True`. The reference's `min_loops=2` fix, made genuinely
+       already said `sufficient=True`. A hard-coded floor of two rounds, made genuinely
        optional: `IterativeRetrievalConfig.min_rounds` defaults to `1`, so nothing is forced
        unless an operator asks for it.
     3. **Sufficient** — the critic's own word that the evidence in hand answers the question.
@@ -211,7 +210,7 @@ class IterativeRetrievalConfig(BaseModel):
     #: rather than a claim — the loop cannot run more rounds than this regardless of what
     #: `stop_reason` decides.
     max_rounds: int = Field(default=3, ge=1)
-    #: The floor. `1` — not the reference's `min_loops=2` — is what makes "no round is forced
+    #: The floor. `1` — not a hard-coded `2` — is what makes "no round is forced
     #: unless an operator asks for one" the *default* rather than an opt-in fix.
     min_rounds: int = Field(default=1, ge=1)
     #: The `Sufficiency` this loop's stopping rule is judged by, resolved by name through
@@ -245,8 +244,8 @@ class IterativeRetrievalConfig(BaseModel):
     leaf_config: Mapping[str, object] | None = None
     #: What a *hard* critic failure does — the `Sufficiency.assess` call itself answering
     #: `Failed`, never the softer `Assessment(observed=False)` `CRITIC_UNOBSERVED` reports.
-    #: `FAIL` fixes the reference treating any non-empty context as complete when the critique
-    #: call failed, silently downgrading to single-shot.
+    #: `FAIL` fixes a failed critique call being treated as any non-empty context is
+    #: complete, silently downgrading to single-shot.
     on_critic_failure: OnFailure = OnFailure.FAIL
     #: Whether evidence — and the critic's own view of it — carries across rounds (`True`),
     #: or each round starts over from nothing (`False`). `True` is Qi et al.'s own shape: the
@@ -340,9 +339,8 @@ class IterativeRetrieval:
             )
             if not isinstance(assessed, Produced):
                 # `on_critic_failure` has one member today (FAIL): relaying the critic's own
-                # outcome *is* failing loudly — the fix for the reference's `critique.py:76-84`,
-                # which read a failed critique call as "the context is complete". See the
-                # module docstring.
+                # outcome *is* failing loudly — the fix for reading a failed critique call as
+                # "the context is complete". See the module docstring.
                 return assessed
 
             state = LoopState(

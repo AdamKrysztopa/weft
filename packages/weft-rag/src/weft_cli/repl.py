@@ -76,8 +76,8 @@ turns; `run_repl` below holds exactly one local variable of that type, reassigne
 (`state = with_turn_recorded(state, ...)`, never `state.foo = ...`) on the frozen-model-
 replaced-wholesale idiom that module's own docstring names. Conversation history and "the
 collection" — the other two of `03`'s four — are deferred, argued, in that same module rather
-than built here as dead state; see its docstring for both arguments in full, including the
-reference's own stateless-chat failure (`.phase3-design.md` §2.5) this task is careful not to
+than built here as dead state; see its docstring for both arguments in full, including a
+stateless-chat failure mode (`.phase3-design.md` §2.5) this task is careful not to
 reproduce in the opposite direction — state that *looks* consulted and is not is the same
 defect as a session that looks stateful and holds nothing.
 

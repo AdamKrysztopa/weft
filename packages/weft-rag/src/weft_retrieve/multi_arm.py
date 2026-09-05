@@ -42,8 +42,8 @@ say so.
 vector-plus-lexical hybrid needs `TextSearch` as well and is still the unbuilt `hybrid` row;
 taking that name here would be exactly the overclaim `10` §2.1 rule 4 forbids. It also does not
 fuse: arity reduction is a `Fuser`'s position, and a retriever that quietly merged its own arms
-would be the reference's `FusionRetriever` — one plugin doing two jobs with the fusion policy
-unreachable (`04`:375-376).
+would be one plugin doing two jobs, with the fusion policy unreachable from a pipeline
+document.
 """
 
 from typing import ClassVar

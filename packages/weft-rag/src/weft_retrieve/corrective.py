@@ -6,16 +6,16 @@ Task **2.21b**, `docs/build-ledger.md`'s 2.21 line: "a knowledge action that rea
 retriever is what earns the name `corrective`." `docs/10-technique-catalogue.md` §1.1 states
 the condition this module exists to satisfy, verbatim: "`corrective` is only honest if the
 plugin gains a *distinct knowledge action* — a second `Retriever` resolved by contract, not
-the same index re-queried. If Weft ships the reference's behaviour unchanged, the name is
+the same index re-queried. If Weft ships that behaviour unchanged, the name is
 `graded-retrieval` and the word `corrective` stays free for a plugin that earns it." `weft_
 retrieve.graded.GradedRetrieval` is that unchanged behaviour; this module is what is built on
 top of it, and `knowledge_action`'s own field below — required, with no default — is what
 makes a same-index `corrective` unconstructable rather than merely undocumented.
 
 Shi-Qi Yan, Jia-Chen Gu, Yun Zhu, Zhen-Hua Ling, *Corrective Retrieval Augmented Generation*,
-arXiv:2401.15884, 2024. **The reference's own divergence, named in `10` §1.1's row, is exactly
-what this module refuses to repeat**: "the reference's correction is 'rewrite the query broader
-and re-ask the same index' ... Nothing is corrected." The paper's own Incorrect action reaches
+arXiv:2401.15884, 2024. **A divergence named in `10` §1.1's row is exactly what this module
+refuses to repeat**: a correction that merely rewrites the query broader and re-asks the same
+index leaves nothing actually corrected. The paper's own Incorrect action reaches
 *outside* the corpus entirely (web search); this plugin does not assume a web search plugin
 exists, so it generalises the paper's shape one notch rather than copying its specific action
 — `knowledge_action` is any registered `Retriever` a document names, which could be a web
@@ -94,7 +94,7 @@ class CorrectiveConfig(BaseModel):
     def _the_action_is_not_the_primary(self) -> "CorrectiveConfig":
         """Refuses the one configuration `10` §1.1's own condition names by name: the same
         plugin resolved twice is the same index re-queried, whatever query text it is handed
-        the second time — the reference's own "rewrite the query broader and re-ask the same
+        the second time — merely "rewrite the query broader and re-ask the same
         index", which the paper's own row states plainly corrects nothing. Checked here,
         at construction, rather than discovered as an honest-looking `Candidates` that
         turns out to hold the same retriever's opinion twice.
@@ -103,8 +103,8 @@ class CorrectiveConfig(BaseModel):
             raise ValueError(
                 f"knowledge_action ('{self.knowledge_action}') must name a Retriever "
                 f"distinct from primary ('{self.primary}') — the same plugin re-queried on "
-                f"the same corpus is not a corrective action, it is the reference's own "
-                f"'rewrite the query broader and re-ask the same index' (`10` §1.1), and "
+                f"the same corpus is not a corrective action — it is 'rewrite the query "
+                f"broader and re-ask the same index', which corrects nothing (`10` §1.1) — and "
                 f"the whole point of this plugin's name is that it is not that. Register a "
                 f"second Retriever under a different name, or use 'graded-retrieval' alone "
                 f"if grading is all this document needs."

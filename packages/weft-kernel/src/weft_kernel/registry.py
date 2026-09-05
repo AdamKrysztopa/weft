@@ -4,9 +4,9 @@ Specified across `docs/02-extension-model.md` section 2 ("Packs and
 discovery"). At Phase 0, before G2 settled arbitration between two packs
 registering the same name, this module took the reversible choice —
 **refuse the second registration outright, naming both distributions**, and
-implement no last-wins, first-wins or qualification. Four of the reference's six
-registration decorators overwrote silently with no check at all, and every
-one of those is a bug someone eventually has to find; refusing could be
+implement no last-wins, first-wins or qualification. A registration path that
+overwrites silently with no check at all is a bug someone eventually has to
+find; refusing could be
 relaxed later without anyone having silently lost a registration first,
 which is why it was the fixed choice rather than an improvement on it. G2
 closed 2026-08-16 on exactly that relaxation — see task 1.12 below.
@@ -119,8 +119,8 @@ still the default, not replaced. A pinned collision instead resolves without
 raising: the named distribution's registration stands (or takes over, if it
 was the second to arrive), and the other is recorded in `displaced()` —
 `docs/03-cli.md`'s own words, "installed, active, and one of its plugins is
-unreachable" — never silently dropped the way the reference's four overwriting
-decorators dropped one every time. This is also why a pinned collision no
+unreachable" — never silently dropped the way an unchecked overwrite drops
+one every time. This is also why a pinned collision no
 longer fails `add_many`'s whole batch the way an unpinned one still does: the
 pack that lost is not broken, so nothing about the rest of what it registered
 should be either.
@@ -224,8 +224,8 @@ class UnknownPluginError(WeftError, UnresolvedNameError):
     The message states the contract and name that were wanted, that no
     distribution registered it, and the full set of names that *are*
     registered for that contract, so a typo reads as a typo rather than a
-    mystery — the anti-reference property: asking the reference for `faithfulness`
-    returned no error and no score at all.
+    mystery — the property refused here: a request for an unregistered name
+    returning no error and no score at all.
 
     Fitness function 12's canonical example: `valid_options` is every name
     registered for the contract that was asked, carried structurally rather

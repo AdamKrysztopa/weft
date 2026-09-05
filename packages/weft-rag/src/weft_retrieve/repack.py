@@ -2,11 +2,11 @@
 
 Task **2.19**, `docs/build-ledger.md`: "context ordering is a named, parameterised stage
 whose method does what the method is named after." `docs/10-technique-catalogue.md` §1.1's
-own row on this technique names exactly the failure that sentence exists to refuse:
-`repacking.py:149-155` emitted `[d0, d6, d1, d5, d2, d4, d3]` for n=7 — best at the head,
+own row on this technique names exactly the failure that sentence exists to refuse: an
+implementation that emitted `[d0, d6, d1, d5, d2, d4, d3]` for n=7 — best at the head,
 **worst** in slot 1, median at the tail — three lines below a docstring stating the
-correct definition. A best/worst zip-interleave wearing Wang et al.'s name. Also
-hard-coded to `sides` (`basic.py:183`), which is not even that paper's own winner.
+correct definition. A best/worst zip-interleave wearing Wang et al.'s name, and
+hard-coded to `sides`, which is not even that paper's own winner.
 
 **One plugin, three methods, because the three are one mechanism with a field.**
 `RepackMethod` is a closed `StrEnum` — `forward` (retrieval order, unchanged), `reverse`
@@ -16,7 +16,7 @@ mapping keyed on the enum, never an `if`/`elif` chain reading a string — the e
 *is* the selector, so there is nothing left for a chain to re-decide, and a fourth method
 is one function and one mapping entry, not a new branch to remember to add.
 
-**`reverse` is the default**, not `forward` and not the reference's hard-coded `sides`: Xiaohua
+**`reverse` is the default**, not `forward` and not a hard-coded `sides`: Xiaohua
 Wang et al. (14 authors), *Searching for Best Practices in Retrieval-Augmented Generation*,
 EMNLP 2024, arXiv:2407.01219 §3.6, Table 11, selects `reverse` on its **Avg** column at
 0.483. Nelson F. Liu, Kevin Lin, John Hewitt, Ashwin Paranjape, Michele Bevilacqua, Fabio
@@ -31,8 +31,8 @@ front, the odd half is reversed and appended. For seven hits ranked `d0` (best) 
 `d6` (worst) that is `[d0, d2, d4, d6]` then `[d5, d3, d1]` — `[d0, d2, d4, d6, d5, d3,
 d1]`, pinned by `tests/unit/weft_retrieve/test_repack.py`. Best at the head, second-best
 at the very tail, worst at the seam in the middle — the shape Wang et al. name and the
-shape LlamaIndex's `LongContextReorder` already ships correctly in the reference's own venv
-(`10` §1.1's row). `LongContextReorder` is the framework's name for the *problem*; `sides`
+shape LlamaIndex's `LongContextReorder` already ships correctly (`10` §1.1's row).
+`LongContextReorder` is the framework's name for the *problem*; `sides`
 is Wang et al.'s name for this *operation*, and that is the name this plugin keeps.
 
 **Labels are assigned here, and this is the type at which they become final.**

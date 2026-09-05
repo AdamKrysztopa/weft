@@ -16,9 +16,8 @@ contracts it registered a name under and which capability siblings its own regis
 satisfies — read the same way `weft_cli.contract_reference.capability_siblings` and
 `_distributions_satisfying` already ask that question, imported directly rather than
 reimplemented, so a probe's "yes, this class is a `VectorSearch`" cannot come to disagree
-with what the generated manual says. This is what stops the comparison being the reference's
-`test_keys_parity` shape (`reference/study/08-salvage.md:777-782`) — a check computed once and
-compared against itself, which cannot fail.
+with what the generated manual says. This is what stops the comparison being a check computed
+once and compared against itself, which cannot fail.
 
 **Every venv installs every first-party wheel, not just the one example pack's own
 dependencies.** `.phase2-design.md` §9 says "the first-party wheels" once, built in a shared

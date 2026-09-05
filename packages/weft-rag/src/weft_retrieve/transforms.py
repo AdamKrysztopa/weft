@@ -9,15 +9,15 @@ This module's job is not to invent that property; it is to ship the first plugin
 on it without weakening it, because `hyde` (2.16) and `step-back` (2.17) register into this
 same position next and inherit whatever shape this module gets wrong.
 
-**Omittable by construction, not by discipline.** The reference ran its follow-up-question
-rewrite on every strategy including the baseline, unconditionally — "un-nameable and
+**Omittable by construction, not by discipline.** A follow-up-question rewrite applied to
+every strategy including the baseline, unconditionally, is "un-nameable and
 un-disableable" (`.phase2-design.md` §10's own words for it). `contextual-query-rewrite` is a
 plugin like any other `Retriever` or `Fuser`: a document that does not name it never pays for
 it, and `skip_without_history` below is what makes "nothing to rewrite" a zero-cost path
 through the *same* plugin rather than a reason to fork a second one.
 
 **`out.origin == in.origin`, always — even on the skip path.** `QuerySet.origin`'s own
-docstring records the reference defect this closes: a hallucinated rewrite fed to a
+docstring records the defect this closes: a hallucinated rewrite fed to a
 cross-encoder *as the query*. This plugin never constructs a `QuerySet` without threading
 `payload.origin` through unchanged, and every test in this module's mirror asserts it rather
 than assuming it — `weft_kernel.runner` does not check `QuerySet.origin` itself; task 2.4's
@@ -53,8 +53,8 @@ and its own row in `.phase2-design.md` §10 carries axes none of these three do:
 `require_distinct` (a check across the derived set, not per-item) and `expansion:
 ExpansionKind` (a choice between rendering strategies, not just a different prompt name).
 Factoring now would still be guessing at *that* shape from three data points that do not
-have it — the reference's own `FusionRetriever` failure mode applied to abstraction, one case
-closer to being wrong about it rather than zero. What has changed is the reason: not "not
+have it — the same premature-abstraction failure mode, one case closer to being wrong about
+it rather than zero. What has changed is the reason: not "not
 enough cases yet" but "the fourth case is the one that might reshape this, and it has not
 been built." Left for task 2.18a to settle, once `multi-query` exists to check the
 abstraction against rather than to guess about.
@@ -134,8 +134,8 @@ class ContextualQueryRewriteConfig(BaseModel):
     keep_question: bool = True
     #: The omittable-by-configuration switch: no history, no model call, no cost. Without
     #: this, the first turn of every conversation would still pay for a rewrite that has
-    #: nothing to rewrite against — the reference's unconditional call, reintroduced one flag at
-    #: a time rather than as a single hard-coded strategy.
+    #: nothing to rewrite against — an unconditional call reintroduced one flag at a time
+    #: rather than as a single hard-coded strategy.
     skip_without_history: bool = True
     on_failure: OnFailure = OnFailure.FAIL
 
@@ -186,7 +186,8 @@ class ContextualQueryRewrite:
         )
         if not isinstance(rewritten, Produced):
             # `on_failure` has one member today (`FAIL`): relaying the cascade's own outcome
-            # *is* failing loudly, exactly as the reference's silent single-shot degrade did not.
+            # *is* failing loudly, refusing a silent single-shot degrade to an unrewritten
+            # question.
             # A second member, when a task needs one, adds a branch here — see
             # `weft_llm.payload.OnFailure`'s own docstring for why none exists yet.
             return rewritten
@@ -229,9 +230,9 @@ class HydeConfig(BaseModel):
     samples: int = Field(default=3, ge=1)
     #: Keep the user's own words in `queries` alongside the hypothetical documents, or
     #: replace them outright. The paper embeds the query's own embedding together with the
-    #: hypothetical documents' before averaging; the reference discarded it. `True` is what
-    #: carries that inclusion forward here — see `Hyde`'s own docstring for the one respect
-    #: in which this plugin does not otherwise reproduce the paper's arithmetic.
+    #: hypothetical documents' before averaging. `True` is what carries that inclusion
+    #: forward here — see `Hyde`'s own docstring for the one respect in which this plugin
+    #: does not otherwise reproduce the paper's arithmetic.
     keep_question: bool = True
     prompt: str = Field(default=HYDE_DOCUMENT_NAME, min_length=1)
     role: str = Field(default="hyde", min_length=1)
@@ -240,7 +241,7 @@ class HydeConfig(BaseModel):
     #: ("every channel this retriever offers") untouched. **HyDE is a claim about dense
     #: retrieval**: a hallucinated passage is a good probe for an embedding index and a bad
     #: one for lexical search, so the default is `(VECTOR,)` alone — this is what stops the
-    #: hallucinated text reaching a `TextSearch` arm the way the reference's did.
+    #: hallucinated text from ever reaching a `TextSearch` arm.
     #:
     #: **Typed `tuple[str, ...]`, matching `Query.channels` itself, not `tuple[Channel,
     #: ...]`.** Unlike `vector-top-k`, which declares `needs_store = (VectorSearch,)` and
@@ -293,8 +294,8 @@ class Hyde:
         `out.origin == in.origin` holds by construction: the `QuerySet` built below threads
         `payload.origin` through unchanged, never substituted for the hallucinated text this
         plugin itself generates. This is the query-path plugin ledger 2.4's own line names
-        directly — the one whose loss of this property *is* the reference's cross-encoder-
-        scores-a-hallucination defect, because `hyde` is the transform that manufactures the
+        directly — the one whose loss of this property *is* the cross-encoder-scores-a-
+        hallucination defect, because `hyde` is the transform that manufactures the
         hallucinated text a substitution would otherwise leak downstream.
         """
         llm = ctx.require(LLM)
@@ -377,12 +378,12 @@ class StepBack:
     Denny Zhou, *Take a Step Back: Evoking Reasoning via Abstraction in Large Language
     Models*, ICLR 2024 (poster; OpenReview forum `3bq3jsvcQ1`), arXiv:2310.06117 — the paper
     this plugin's name is earned against, per `10` §1.4 and task 2.26's own naming audit.
-    `10` §1.1's own entry for it records the reference's specific failure: faithful on the
-    blocking call path, `strategies/stepback.py:100-149` kept the literal and abstract
-    contexts in separate prompt slots — but the streaming twin at `stepback.py:270` ended
-    in the generic cited-context helper, discarding the split, so under streaming the
-    strategy silently became dual-query retrieval with fusion and the paper's step 2 was
-    simply absent. "One name, two techniques, and the weaker one is the interactive default."
+    `10` §1.1's own entry for it records the specific failure this design avoids: a blocking
+    call path that keeps the literal and abstract contexts in separate prompt slots can have
+    a streaming twin that ends in a generic cited-context helper instead, discarding the
+    split — so under streaming the strategy silently becomes dual-query retrieval with
+    fusion and the paper's step 2 goes missing entirely. "One name, two techniques, and the
+    weaker one is the interactive default."
 
     **This is task 2.17's own ledger line, made true by construction rather than by
     discipline.** There is no streaming twin here to keep in sync, because there is nowhere
@@ -395,8 +396,8 @@ class StepBack:
     way the answer arrived. `tests/unit/weft_retrieve/test_transforms.py`'s own equivalence
     test drives this exact method through two providers that answer with the same words —
     one in a single chunk, one word by word — and asserts the resulting `QuerySet`s are
-    equal, which is the reference's `stepback.py:100-149` vs `:270` divergence checked directly
-    rather than reasoned about.
+    equal, which is the blocking-vs-streaming divergence above checked directly rather than
+    reasoned about.
 
     `cost_bound = (1, 1)`: like `Hyde`, step-back is not conditioned on anything in the
     payload — there is no "nothing to step back from" the way a follow-up rewrite has
@@ -478,15 +479,16 @@ class ExpansionKind(StrEnum):
     Management 31(3), pp. 431-448, 1995, and George W. Furnas, Thomas K. Landauer, Louis M.
     Gomez, Susan T. Dumais, *The vocabulary problem in human-system communication*, CACM
     30(11), pp. 964-971, 1987 — the vocabulary mismatch that motivates `TERM` and `ASPECT`.
-    `10` §1.1's own row on this technique names what the reference's prompt asked for instead:
-    "the prompt … asks for *paraphrases*, which forbids the two things the expansion
+    `10` §1.1's own row on this technique names what a paraphrase-only prompt asks for
+    instead: "the prompt … asks for *paraphrases*, which forbids the two things the expansion
     literature credits: new terms, and aspect coverage." `PARAPHRASE` still ships, for an
-    operator who genuinely wants the reference's narrower behaviour back; it is simply not what
+    operator who genuinely wants that narrower behaviour back; it is simply not what
     a fresh install runs.
     """
 
-    #: Restate the question in different words, keeping its exact meaning — the reference's own
-    #: default, and the one member of this enum that cannot reach the other two axes.
+    #: Restate the question in different words, keeping its exact meaning — the narrower
+    #: default this technique starts from, and the one member of this enum that cannot reach
+    #: the other two axes.
     PARAPHRASE = "paraphrase"
     #: Ask about a different facet or sub-question of the same underlying question.
     ASPECT = "aspect"
@@ -534,7 +536,7 @@ class MultiQueryConfig(BaseModel):
     keep_question: bool = True
     expansion: ExpansionKind = ExpansionKind.ASPECT
     #: Drop a variant whose normalised text (whitespace-collapsed, casefolded) duplicates the
-    #: seed's own text or another kept query's — `10` §1.1's own reference finding: "near-duplicate
+    #: seed's own text or another kept query's — `10` §1.1's own finding: "near-duplicate
     #: queries also weaken the fusion, whose benefit comes from rankings that disagree." `False`
     #: keeps every variant the model returned, even an exact repeat of the question it was
     #: asked to vary.
@@ -733,7 +735,7 @@ def _normalised(text: str) -> str:
     """`text`, whitespace-collapsed and casefolded — what `require_distinct` compares by.
 
     Exact after normalisation, not fuzzy: a genuine near-duplicate detector would need a
-    similarity model this plugin resolves no service for, and `10` §1.1's own reference finding is
+    similarity model this plugin resolves no service for, and `10` §1.1's own finding is
     about *near-duplicate* queries specifically arising from a model restating the same words
     with different spacing or capitalisation, which this catches without one.
     """

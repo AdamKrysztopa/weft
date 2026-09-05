@@ -33,7 +33,7 @@ n," and this is the one `Fuser` implementation that fuses what it produces exact
 fuses `vector-top-k` searched on two channels, with no branch anywhere asking which kind of
 multiplicity it was handed. **`repack` (task 2.19) is the tenth**, the first
 `ContextPacker` and the position `weft_generate.cited_answer`'s own `Passages` labels come
-from — see `weft_retrieve.repack`'s module docstring for the reference defect its default
+from — see `weft_retrieve.repack`'s module docstring for the defect its default
 method (`reverse`, not `sides`) refuses to launder through a citation. **`iterative-retrieval`
 (task 2.20) is the eleventh**, the second `Retriever` to own its own loop rather than a single
 pass — `weft_retrieve.contract.StageLookup`'s own docstring names the concession this plugin
@@ -437,6 +437,11 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     # were registered, listed and documented in `10` §1.5 while being placeable by nobody. Both
     # of these carry no `route.summary`, exactly as `route.yaml` does not: a router selects
     # among routing targets and is never one itself.
+    # Task 8.9. Two documents ending in a `Renderer` — the contract's first shipped placements,
+    # and what `weft render` drives. `plain` and `markdown` were registered at task 2.27 and
+    # placeable by nobody until now, which is why fitness function 16 waived them.
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/preview-plain.yaml")
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/preview-markdown.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/route-by-score.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/route-fixed.yaml")
 

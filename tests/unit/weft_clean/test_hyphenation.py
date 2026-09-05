@@ -26,7 +26,7 @@ def _node(content: str) -> Node:
 
 
 async def test_run_rejoins_a_word_broken_by_a_trailing_hyphen() -> None:
-    # Arrange — the reference's own example, restated: `kompu-\nter` -> `komputer`.
+    # Arrange — the canonical example: `kompu-\nter` -> `komputer`.
     repair = HyphenationRepair()
     parent = _node("This is a kompu-\nter on the desk.")
 

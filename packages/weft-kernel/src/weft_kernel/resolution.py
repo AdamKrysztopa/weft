@@ -29,15 +29,15 @@ against the last thing a stage carries once vars are substituted:** a stage's `w
 block is validated against its plugin's own declared `config_model`, and the *validated
 object* — never the raw mapping — is what a `ResolvedStage.config` actually holds.
 
-**Why this check exists — `02` §1's contract rule, and the reference's most-repeated
-mistake.** `02` §1: "a contract's registration API carries a typed configuration model,
+**Why this check exists — `02` §1's contract rule, and a repeated failure pattern.**
+`02` §1: "a contract's registration API carries a typed configuration model,
 or the extension point is decorative." `02` §3's own extended note names the evidence
-that rule is written against: the identical failure occurred *independently* in two
-reference subsystems that never talked to each other — `evaluation/config.py`'s `params`
-field was commented out, so no metric could ever be parameterised, and
-`evaluation/datasets/settings_loader.py` carried a `TODO: Enhance registry to support
-enhancer-specific configuration` because `create_enhancer(name, llm, language, **kwargs)`
-had nowhere typed to put one. Both defects are the same shape: a `with:`-style block
+that rule is written against: the identical failure recurring *independently* in two
+unrelated subsystems — a parameterisation field commented out, so no per-instance
+configuration could ever reach the instance it was meant to shape, and a factory
+function taking only fixed keyword arguments with an unresolved TODO for the case
+its author already knew was coming, because there was nowhere typed to put it. Both
+defects are the same shape: a `with:`-style block
 with nowhere checked to land, so it was either silently dropped or never offered at
 all. This module is where that shape stops being possible for a pipeline document —
 `InvalidStageConfigError` and `StageNotConfigurableError` below are its two ways of
@@ -386,10 +386,10 @@ class StageNotConfigurableError(PipelineResolutionError):
 
     Task 1.5, the other half of `02` §1's rule: an extension point with no typed model
     is decorative, and a `with:` block written against a decorative extension point
-    cannot be silently accepted and dropped — that is exactly the reference's own defect
-    (see the module docstring's reference-study paragraph): a `params` field commented out,
-    an enhancer's per-instance configuration with nowhere typed to go, both swallowed
-    with no error at all. An absent `config_model` is not a refusal to be configured
+    cannot be silently accepted and dropped — that is exactly the failure pattern the
+    module docstring describes: a parameterisation field commented out, a per-instance
+    configuration path with nowhere typed to go, both swallowed with no error at all.
+    An absent `config_model` is not a refusal to be configured
     forever, only *today*; the remedy this names is either dropping the `with:` block,
     or having the plugin declare a `config_model` so it has somewhere to land.
     """
@@ -480,8 +480,9 @@ class DuplicateContributionError(PipelineResolutionError):
     such contributions to one dict entry — the second one built wins, the first is gone:
     not placed, not refused, and never counted in `unplaced_contributions` either, since
     it never survives long enough to be checked against a declared slot. That is the
-    reference's four silently-overwriting registration decorators one seam further in, and
-    `02` §3's *Slots* section rules out exactly this shape of collision for an
+    same silently-overwriting registration defect `weft_kernel.registry` refuses, one
+    seam further in, and `02` §3's *Slots* section rules out exactly this shape of
+    collision for an
     author's own stages; this is the same rule applied where two packs, not a pack and
     an author, are the ones that can collide.
     """
@@ -571,7 +572,7 @@ def _validate_stage_config(
     No model declared and an empty block: nothing to check, returns `_EMPTY_CONFIG`. No
     model declared and a non-empty block: `StageNotConfigurableError`, naming the stage
     and the plugin — a `with:` block with nowhere checked to land must never be silently
-    accepted and dropped, which is the reference's own defect this task exists to close. A
+    accepted and dropped, which is exactly the defect this task exists to close. A
     model declared: `config_model.model_validate(config)`, and any `pydantic.
     ValidationError` it raises becomes `InvalidStageConfigError`, naming the stage, the
     plugin, every field pydantic rejected with its own reason, and — read off `config_model.

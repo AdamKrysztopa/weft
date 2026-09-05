@@ -190,7 +190,7 @@ def last_unticked_in_phase(tasks: list[Task], index: int) -> bool:
     """Is `tasks[index]` the last unticked task of its phase?
 
     This is the phase-close signal. `phase-step` → *Close the phase* fires on it, so that the
-    boundary work — the whole-phase quality reading, the reference re-check, draining the lessons queue
+    boundary work — the whole-phase quality reading, draining the lessons queue
     — is reached by a detected condition rather than by someone remembering that a phase ended.
     That is the failure `.claude/hooks/lessons_context.py` already exists to prevent, applied one
     level up.

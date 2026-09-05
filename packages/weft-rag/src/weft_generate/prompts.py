@@ -98,8 +98,8 @@ class ConflictStatus(StrEnum):
     *Knowledge Conflicts for LLMs: A Survey*, EMNLP 2024, pp. 8541-8565, arXiv:2403.08319
     — "inter-context conflict" is the phenomenon `CONFLICT` names. `docs/10-technique-
     catalogue.md`'s own row records that Vignesh Gokul, Srikanth Tenneti, Alwarappan
-    Nakkiran, *Contradiction Detection in RAG Systems*, arXiv:2504.00180, 2025 postdates
-    the reference and is a parallel framing, not a source this plugin implements.
+    Nakkiran, *Contradiction Detection in RAG Systems*, arXiv:2504.00180, 2025 is a
+    parallel framing, not a source this plugin implements.
 
     **`UNDETERMINED` is not a fourth possible fact about the sources — it is what a
     critic that could not judge them reports**, and it is the one member this whole task
@@ -108,10 +108,10 @@ class ConflictStatus(StrEnum):
     genuinely cannot tell from the evidence in front of it, and what `ContradictionCheck`
     substitutes locally when the critic's own cascade call could not be parsed at all —
     the same value either way, because from a reader's side both are "the engine did not
-    establish agreement", and neither may ever be silently reported as `AGREE`. The
-    reference's `critique.py:158-166` returned `has_consensus=True` on critique failure; this
-    enum's third member is the fix, held at the type a reader actually sees rather than
-    left to a docstring's promise.
+    establish agreement", and neither may ever be silently reported as `AGREE`. A
+    disagreement detector that returns `has_consensus=True` on critique failure is
+    reporting the opposite of what happened; this enum's third member is the fix, held at
+    the type a reader actually sees rather than left to a docstring's promise.
     """
 
     AGREE = "agree"
@@ -156,8 +156,9 @@ class ContradictionCriticPrompt(TypedPrompt):
 
     The instruction is explicit that `undetermined` is a real, expected answer — not a
     last resort the model reaches for only when confused — because a critic that reaches
-    for `agree` whenever it is unsure is exactly the reference's own defect, moved from a
-    caught exception into the model's own judgement instead of out of it.
+    for `agree` whenever it is unsure repeats the same failure-reported-as-agreement
+    defect, just moved from a caught exception into the model's own judgement instead of
+    out of it.
     """
 
     name: ClassVar[str] = CONTRADICTION_CRITIC_NAME

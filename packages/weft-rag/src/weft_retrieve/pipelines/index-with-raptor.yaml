@@ -9,9 +9,9 @@ extends: index-text
 #
 # `raptor` clusters the chunks by similarity and writes one summary per cluster, built through
 # `Node.combine` so each summary's `Lineage.sources` is the union of its members' — which is
-# what makes a summary reachable by cascade delete. `04` category A records the reference's version:
-# summaries with no `ref_doc_id` at all, so deleting a document left them retrievable forever,
-# describing content that was gone.
+# what makes a summary reachable by cascade delete. `04` category A records the failure this
+# guards against directly: a summary shipped with no `ref_doc_id` at all stays retrievable
+# forever after its source document is deleted, describing content that is gone.
 #
 # **Before `embed`, for the same reason as `index-with-questions`** — `Node.combine` carries no
 # embedding, so the summaries are vectorised only because `embed` runs after this stage.

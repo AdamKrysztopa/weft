@@ -12,11 +12,11 @@ correct answer appear in the response at all, substring-contained rather than re
 response to *be* the answer. A prediction that answers in a full sentence around a correct short
 answer fails `exact-match` and passes `accuracy`, and that is the entire point of shipping both.
 
-**The two "trailing" reference defects, deliberately flattened into one rule rather than ported
-inconsistently.** `.phase4-reference-recon.md` §8: the reference's `token_recall` returns `1.0`
-unconditionally on an empty reference, and `f1_score`'s shared `compute_f1` returns `1.0` only
-when the *prediction* is also empty — two different shapes for what reads as one defect. Weft
-does not preserve that difference: every metric in this suite treats an empty reference as
+**Two "trailing" edge cases, deliberately flattened into one rule rather than left
+inconsistent.** A recall-shaped metric returning `1.0` unconditionally on an empty reference, and
+an F1-shaped metric returning `1.0` only when the *prediction* is also empty, are two different
+shapes for what reads as one defect. Weft does not preserve that difference: every metric in this
+suite treats an empty reference as
 `NothingToProduce`, full stop, regardless of what the prediction holds. A caller asking "did the
 prediction and reference agree on being empty" is asking a different, legitimate question, and
 `exact-match` already answers it honestly — an empty prediction against an empty reference is a

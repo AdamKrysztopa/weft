@@ -143,8 +143,8 @@ def test_the_check_is_reachable_from_a_task_and_from_ci() -> None:
     assert ISOLATION_SCRIPT.is_file(), f"{ISOLATION_SCRIPT} does not exist"
     assert task is not None, (
         f"`pyproject.toml` declares no `{POE_TASK}` task. The check needs a clean environment so "
-        f"it cannot be in the `ci-checks` composite, which is exactly the shape that let the "
-        f"reference ship a boundary checker nobody ran (fitness function 0)."
+        f"it cannot be in the `ci-checks` composite, which is exactly the shape that lets a "
+        f"boundary checker ship and never run (fitness function 0)."
     )
     assert "check_isolated_installs.py" in str(task)
     assert "check_isolated_installs.py" in workflow, (

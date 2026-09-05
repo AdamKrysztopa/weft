@@ -13,8 +13,8 @@ into `plain=str(exc)` before raising a bare `CommandRefusalError`. Both were rep
 This file is the machinery that should have caught the second shape before a human found it.
 
 **Two candidate heuristics were weighed, and only one shipped — measured, not guessed.** The
-module docstring of `test_ff12_unresolvable_name_carries_options.py` already states the reference's
-own lesson: *"doing it by hand at nine sites is why three sites do not."* Building a checker that
+module docstring of `test_ff12_unresolvable_name_carries_options.py` already states the lesson:
+*"doing it by hand at nine sites is why three sites do not."* Building a checker that
 also does it by hand — a list of excluded raise sites — repeats the exact failure this whole
 function exists to prevent, one layer up.
 
@@ -29,7 +29,7 @@ function exists to prevent, one layer up.
    locale. Distinguishing "these are the *valid alternatives* for a name" from "this is some
    *other* enumerable fact this raise happens to report" is a question about what the code
    *means*, not what it is shaped like, and AST structure alone cannot answer it — the same
-   reference lesson, applied to the checker itself: a heuristic precise enough to need no
+   lesson, applied to the checker itself: a heuristic precise enough to need no
    hand-maintained exclusion list would have to re-derive, structurally, the judgement task 2.36's
    own audit made by reading every site. (The other 2 of the 13 are real: see the module docstring
    of the ledger entry this task's own report cites — reported, not fixed here.)

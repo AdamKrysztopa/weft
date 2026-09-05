@@ -1,19 +1,18 @@
 """`TypedPrompt` — the base a first-party prompt declares itself against.
 
-`docs/04-reference-inventory.md`:128, on the reference's `core/prompt/`: "a prompt is a Pydantic input
-model, an output model and a locale key. Translatable by construction, versioned, and already
-registry-based … **the study found no defects**. This is the extension model done right." That
-sentence is the specification; none of the reference's 2,070 lines are the implementation.
+A prompt is a Pydantic input model, an output model and a locale key: translatable by
+construction, versioned, and already registry-based. That sentence is the specification;
+everything below is written fresh against it, not lifted from any other implementation.
 
 **Everything checkable is checked when the class is defined.** `__init_subclass__` runs the
 two-direction validator over every declared locale, so a prompt whose template and input model
 disagree cannot be imported, let alone registered. A prompt is data with a shape; a shape is
 worth having only if something refuses the wrong one.
 
-**Locales are class data, and the fallback is `en`.** The reference's one hard blocker was a
-`PromptLoader` resolving locales relative to *its own* file, "so a pack cannot ship its own
-prompts or translations" (`:128`). Here a translation is a value in a dict on the class, a
-translator's pack ships its own prompts under its own names, and nothing opens a file.
+**Locales are class data, and the fallback is `en`.** Resolving locales relative to the
+loader's own file location means a pack cannot ship its own prompts or translations. Here a
+translation is a value in a dict on the class, a translator's pack ships its own prompts under
+its own names, and nothing opens a file.
 Selection is exact locale → primary subtag → `en`; a missing translation degrades the
 *language*, which a reader can see, never the answer, which they cannot.
 """

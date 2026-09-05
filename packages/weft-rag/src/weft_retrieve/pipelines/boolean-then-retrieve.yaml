@@ -10,7 +10,7 @@ extends: retrieve-then-generate
 #
 # Set algebra, not scores: `boolean-combine` intersects, unions and subtracts the operands'
 # result *sets*. `on_empty_conjunction: report` is the plugin's default and is kept, because
-# `10` §1.1 records the reference's silent inversion at exactly this point — an `AND` that returns
+# `10` §1.1 records the failure this default guards against — an `AND` that silently returns
 # the union when the intersection is empty answers the opposite of what was asked, and is
 # indistinguishable to the caller from having worked.
 vars:

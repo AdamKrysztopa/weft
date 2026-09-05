@@ -47,8 +47,9 @@ Splits `Node`s into smaller `Node`s, each one a child under `Node.derive`.
 
 One method, domain types on both sides, exactly `Extractor`'s shape one
 stage later in the pipeline. A chunker that finds nothing to split
-answers `NothingToProduce`, not an empty `Produced([])` — the same
-reference-trap fix `weft_extract.contract.Extractor` documents, applied here
+answers `NothingToProduce`, not an empty `Produced([])` — the same fix
+`weft_extract.contract.Extractor` documents for collapsing a legitimately
+empty result into the same ambiguous case as a failure, applied here
 because the same ambiguity is possible at every stage that returns a
 sequence.
 
@@ -76,10 +77,11 @@ A cleaning stage's job is narrower than a chunker's: it never splits or
 merges nodes, so every implementation returns exactly as many nodes as it
 was handed, each built through `Node.derive` so lineage records the
 repair as its own step. A batch with nothing to clean still answers
-`NothingToProduce`, never a silently empty `Produced([])` — the same
-reference-trap fix `weft_extract.contract.Extractor` and `weft_chunk.contract.
-Chunker` already document, applied here because the same ambiguity is
-possible at every stage returning a sequence.
+`NothingToProduce`, never a silently empty `Produced([])` — the same fix
+`weft_extract.contract.Extractor` and `weft_chunk.contract.Chunker`
+already document for collapsing a legitimately empty result into the
+same ambiguous case as a failure, applied here because the same
+ambiguity is possible at every stage returning a sequence.
 
 ### Methods
 
@@ -156,7 +158,8 @@ Attaches an embedding to each `Node` it is handed.
 One method, domain types on both sides, exactly `Chunker`'s shape one
 stage later in the pipeline. An embedder that finds nothing to embed
 (an empty batch) answers `NothingToProduce`, not an empty `Produced([])`
-— the same reference-trap fix every other Phase 0 contract documents.
+— the same fix every other Phase 0 contract documents for collapsing a
+legitimately empty result into the same ambiguous case as a failure.
 
 ### Methods
 
@@ -183,7 +186,8 @@ job: where a `Cleaner` returns a *repaired* node built through `Node.derive`, an
 `Enhancer` returns the *same* node with an added `Node.with_ext` fact — identity
 (`node.id`) is unaffected, because nothing about the text changed. A batch with
 nothing to enhance still answers `NothingToProduce`, never a silently empty
-`Produced([])` — the same reference-trap fix every other contract in this tree documents.
+`Produced([])` — the same fix every other contract in this tree documents for
+collapsing a legitimately empty result into the same ambiguous case as a failure.
 
 ### Methods
 
@@ -206,8 +210,8 @@ async def run(
 Every node handed in, unchanged, plus zero or more nodes derived from it.
 
 A batch with nothing to expand still answers `NothingToProduce`, never a silently
-empty `Produced([])` — the same reference-trap fix every other contract in this tree
-documents. A single node this plugin could not generate a representation for is not
+empty `Produced([])` — the same ambiguous-empty-case fix every other contract in this
+tree documents. A single node this plugin could not generate a representation for is not
 that case: the node itself is still in the output, unchanged, and only its own
 representations are missing — degrade, never fail the run, the same posture `10` §1.2's
 `raptor` row (task 2.32) states for a summary that cannot be produced, because both
@@ -235,14 +239,14 @@ async def run(
 Turns source documents into the first `Node`s of an ingest pipeline.
 
 One method, domain types on both sides — `docs/02-extension-model.md`
-section 1 names the predecessor's `BaseExtractor` as the interface shape
-this contract follows, one `@abstractmethod extract(...)`, and the
+section 1 names a `BaseExtractor`-shaped interface as the shape this
+contract follows, one `@abstractmethod extract(...)`, and the
 failure to fix was only ever its dispatch, never its narrowness. The
-shape is reused; no line of the reference's own text is. `run` is that method,
+shape is reused; nothing else about it is. `run` is that method,
 async per G6, returning `Outcome` rather than a bare value or an
 envelope with an ambiguous empty case: a source that legitimately yields
-no text answers `NothingToProduce`, distinct from `Failed`, which is the
-fix for the reference's `fail_silently` trap where both looked like the same
+no text answers `NothingToProduce`, distinct from `Failed`, which avoids
+a `fail_silently`-shaped trap where both would look like the same
 empty result downstream.
 
 ### Methods
@@ -416,8 +420,8 @@ async def matching(
 A provider that will answer *in a schema*, checked by the vendor rather than by us.
 
 **A derived capability sibling, never a declared one** — `.phase2-design.md` §3: "tier 1
-is available iff `isinstance(provider, NativeStructured)`. That replaces the reference's
-`hasattr(self.llm, "structured_predict")` guard with capability derived at registration,
+is available iff `isinstance(provider, NativeStructured)`. That replaces a
+`hasattr(self.llm, "structured_predict")` guess with capability derived at registration,
 and it means a provider that lies about structured output cannot exist — it either has
 the method or it does not." The same pattern `weft-store` uses for `VectorSearch` and
 `TextSearch`, applied to the one branch of the cascade that can skip two tiers of work.
@@ -574,7 +578,7 @@ transforms composable in either order, which is how `hyde` then `multi-query` be
 a document edit rather than a new plugin.
 
 A transform must not rewrite `QuerySet.origin` — see that field's own docstring for
-the reference defect the invariant closes.
+the defect the invariant closes.
 
 ### Methods
 
@@ -789,7 +793,7 @@ The fifth capability in this family, and the only one whose implementors
 are not expected to be stores. `docs/02-extension-model.md` §1 →
 *Extended by G7*: `delete_source` sat on `NodeStore` from G4 and nothing
 in the tree called it, while a pack holding entities derived from nodes
-would never hear that those nodes were gone. That is the reference's RAPTOR
+would never hear that those nodes were gone. That is exactly the RAPTOR
 scar — summaries no deletion path can reach — reappearing first-party.
 
 **A separate Protocol rather than a reuse of `NodeStore`, deliberately.**

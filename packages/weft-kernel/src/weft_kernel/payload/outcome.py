@@ -3,9 +3,9 @@
 Settled in G5. Never a bare value: `Produced` / `NothingToProduce` / `Failed`.
 This is what lets the kernel own a fallback combinator over any contract
 without inspecting payload content — it matches on the outcome's type and
-never looks inside it — and it is the fix for the reference's worst extraction
-trap: a `fail_silently` path that returned an empty result indistinguishable
-downstream from a successfully-parsed empty document. A backend that
+never looks inside it — and it is the fix for the worst extraction trap a
+`fail_silently` path opens: an empty result indistinguishable downstream
+from a successfully-parsed empty document. A backend that
 legitimately produced nothing now has `NothingToProduce` to say so, distinct
 from `Failed`. See `docs/02-extension-model.md` section 1.
 """

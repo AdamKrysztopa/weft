@@ -75,38 +75,33 @@ _PLACEHOLDER_STORE_SETTINGS: Final[Mapping[str, Mapping[str, object]]] = {
 }
 
 #: A `(contract, plugin)` pair permitted to occupy a pipeline position no shipped document
-#: names. **Pinned, and it is not empty** — unlike fitness functions 0, 10 and 11, whose
-#: waivers are pinned at zero because every name in their subject genuinely can be covered.
-#: This one carries exactly the pair below, and the reason is a fact about the CLI rather
-#: than a judgement about the plugins:
+#: names. **Pinned empty, and it got there the way a waiver is supposed to** — by the entries
+#: being removed rather than renewed. Phase 8's exit criterion required exactly this, so the
+#: two entries this constant carried were a dated debt rather than a parking space.
 #:
-#: **`Renderer` has no driver.** `weft_extract.contract.Renderer` is `Stage[Sequence[Node],
-#: Rendition]` — "an ordinary `Stage` terminus", its own docstring says, whose output "leaves
-#: the pipeline for a human or another system". Nothing yet takes it *out*: `weft index`
-#: returns an `IndexResult` built from the run summary and the store's own count, and no
-#: shipped command returns a `Rendition` to anybody. A document ending in `plain` or
-#: `markdown` would resolve, run, and throw its only product away — a rung nobody would take,
-#: which is precisely what a rung must not be. The honest repair is a command that renders,
-#: not a document that pretends — ledger task **8.9**, which is where this entry is deleted.
-#: Until it lands these two names are waived here and named there, never quietly satisfied.
+#: **Both were `Renderer` names, and both are gone because the contract got a driver.**
+#: `weft_extract.contract.Renderer` is `Stage[Sequence[Node], Rendition]` — "an ordinary
+#: `Stage` terminus", its own docstring says, whose output "leaves the pipeline for a human or
+#: another system". Nothing took it *out*: no shipped command returned a `Rendition` to
+#: anybody, so a document ending in `plain` or `markdown` would resolve, run, and throw away
+#: its only product. The waiver said so and named ledger task **8.9** as where it would be
+#: deleted. 8.9 built `weft render` and the two `preview-*` documents, and this is that
+#: deletion — task 2.27's own exit demonstration, *"an operator's PDF becomes readable"*,
+#: reachable from the CLI for the first time.
 #:
-#: **A second entry was drafted here and then deleted, which is the outcome this waiver is for.**
-#: Writing the ladder found that `threshold-ladder` and `always` — two registered
-#: `RoutingPolicy` plugins — could be placed by no document anybody could ship, because
-#: `weft_cli.route_ask` held the router's name as a module constant: a pack cannot contribute a
-#: second document under a name another pack already holds, and a project that ships its own
-#: `route.yaml` is refused by `full_catalogue` and takes every `weft pipeline` command down with
-#: it. That is a true fact about what can be run, so it would have been a legitimate waiver
-#: entry — and it was still the wrong answer, because the fact was a defect rather than a
-#: constraint. Ledger task **8.3** made the name `[services] route`, the two router rungs ship,
-#: and this waiver stayed at two. A waiver reason has to be a fact; that is necessary and not
-#: sufficient, and the question to ask after establishing it is whether the fact should hold.
+#: **A second pair was drafted here and never landed, which is the outcome this waiver is
+#: for.** Writing the ladder found that `threshold-ladder` and `always` could be placed by no
+#: document anybody could ship, because `weft_cli.route_ask` held the router's name as a module
+#: constant. That is a true, checked fact about what can be run — precisely the standard this
+#: waiver sets — and it was still the wrong answer, because the fact was a defect rather than
+#: a constraint. Ledger task **8.3** made the name `[services] route` and the entry was never
+#: written. **A waiver reason must be a fact; that is necessary and not sufficient, and the
+#: question to ask after establishing it is whether the fact should hold.**
 #:
 #: Adding a pair here is a visible act in a diff and needs a reason of the same kind: a fact
-#: about what can be run, never "no rung was written for it yet".
-POSITIONS_WAIVED_FROM_THE_LADDER: Final[frozenset[tuple[str, str]]] = frozenset(
-    {("Renderer", "plain"), ("Renderer", "markdown")}
-)
+#: about what can be run, never "no rung was written for it yet" — and it needs the task that
+#: will delete it again, because both entries this constant ever held named one.
+POSITIONS_WAIVED_FROM_THE_LADDER: Final[frozenset[tuple[str, str]]] = frozenset()
 
 
 def _reports() -> tuple[PackReport, ...]:
@@ -199,14 +194,12 @@ def _unreachable(
 
 
 def test_the_waiver_names_only_what_it_documents() -> None:
-    """Pinned exactly. A pair added or removed changes this line, in a diff, on purpose."""
-    assert (
-        frozenset({("Renderer", "plain"), ("Renderer", "markdown")})
-        == POSITIONS_WAIVED_FROM_THE_LADDER
-    ), (
-        "POSITIONS_WAIVED_FROM_THE_LADDER has changed. A waiver here states a fact about "
-        "what can be run — see its own docstring for the one such fact today — never "
-        "'no rung was written for it yet'. Record the new reason there and in "
+    """**Pinned empty**, the shape every other ratchet in this suite holds. A pair added here
+    changes this line, in a diff, on purpose."""
+    assert frozenset() == POSITIONS_WAIVED_FROM_THE_LADDER, (
+        "POSITIONS_WAIVED_FROM_THE_LADDER is no longer empty. A waiver here states a fact "
+        "about what can be run — never 'no rung was written for it yet' — and it needs the "
+        "task that will delete it again. Record both in its own docstring and in "
         "docs/README.md's decision log, or write the rung."
     )
 

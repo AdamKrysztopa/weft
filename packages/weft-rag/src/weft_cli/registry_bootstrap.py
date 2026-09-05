@@ -682,8 +682,8 @@ def document_at(config_path: Path) -> dict[str, object] | None:
     tell "a key `weft.toml` sets, to the same value the default would have been anyway" from
     "a key `weft.toml` never mentions at all", which the already-merged `ServiceSelection`/
     `PermissionPolicy` objects this module builds cannot answer (see that module's own
-    docstring, and `.phase3-design.md` §2.6, for why guessing from the merged value alone is
-    the reference's own sentinel bug). Reusing this function rather than writing a second
+    docstring, and `.phase3-design.md` §2.6, for why guessing from the merged value alone
+    reproduces a known sentinel-value bug). Reusing this function rather than writing a second
     `tomllib.load` call is the same "one file, one reader" discipline this module's own
     docstring states for `[services]`/`[permissions]`/`[plugins]` — extended to a caller
     outside this module for the first time.

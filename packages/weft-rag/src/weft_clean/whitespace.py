@@ -2,10 +2,7 @@
 
 Task **1.7**'s third worked example — `02` §3 → *Ordering constraints*:
 "`WhitespaceNormalizer` must run last for being destructive, not because
-anyone reads its output," verified against the reference's own docstring at
-`indexing/cleaning/pipeline.py:30-51`: "Final step. Collapse remaining
-spaces... This is destructive and must run last to avoid breaking structural
-processors."
+anyone reads its output."
 
 `destroys = (Newlines, WhitespaceGaps)` states that plainly instead of
 leaving it to a comment nobody reads before inserting a new stage: collapsing

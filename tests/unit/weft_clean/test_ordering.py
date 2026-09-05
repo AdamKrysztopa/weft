@@ -2,15 +2,15 @@
 
 Mirrors nothing in `packages/weft-rag/src/`; it exercises the whole pack
 against `weft_kernel.resolution.resolve` the way a real pipeline document
-would. `docs/02-extension-model.md` §3 → *Ordering constraints* quotes the
-reference's own docstring — "IMPORTANT: Changing this order will break
-functionality" — and observes that prose cannot enforce it. Task 1.2 built
-the mechanism generically (`test_resolution.py`'s own `_WordBoundaries`
-worked example already uses "hyphenation repair" and "chunking" as its
-stand-in names); this file is where the *real* pack's stages stand in for
-themselves instead — the ordering that used to live only in a comment in
-`indexing/cleaning/pipeline.py:30-51` now fails a real pipeline's resolution
-at load, naming the two real stage ids and the real property, rather than
+would. `docs/02-extension-model.md` §3 → *Ordering constraints* observes
+that a code comment warning readers not to change a stage order cannot
+enforce it — nothing stops a later edit from reordering the stages anyway.
+Task 1.2 built the mechanism generically (`test_resolution.py`'s own
+`_WordBoundaries` worked example already uses "hyphenation repair" and
+"chunking" as its stand-in names); this file is where the *real* pack's
+stages stand in for themselves instead — an ordering constraint that would
+otherwise live only in a comment now fails a real pipeline's resolution at
+load, naming the two real stage ids and the real property, rather than
 silently producing a `ResolvedPipeline` whose stage list happens to be
 wrong.
 
@@ -54,7 +54,7 @@ def _registry() -> Registry:
 
 
 def test_whitespace_before_hyphenation_fails_resolution_naming_both_stages() -> None:
-    # Arrange — the exact mistake the reference's docstring warns against: a stage inserted
+    # Arrange — the exact mistake an order-warning comment cannot prevent: a stage inserted
     # between hyphenation repair and the destructive step it depends on running after it.
     pipeline = Pipeline(
         name="cleaning",
@@ -76,13 +76,12 @@ def test_whitespace_before_hyphenation_fails_resolution_naming_both_stages() -> 
     else:
         raise AssertionError(
             "resolving a pipeline that runs WhitespaceNormalizer before HyphenationRepair "
-            "must raise IntactViolationError — the reference's own docstring: 'Changing this "
-            "order will break functionality'"
+            "must raise IntactViolationError — changing this order breaks functionality"
         )
 
 
 def test_whitespace_before_table_linearize_fails_resolution_naming_both_stages() -> None:
-    # Arrange — the reference's second worked example, same shape, the other property.
+    # Arrange — the same shape as the test above, the other property.
     pipeline = Pipeline(
         name="cleaning",
         stages=(
@@ -138,8 +137,8 @@ def test_hyphenation_before_unicode_normalize_fails_resolution_naming_both_stage
 
 
 def test_the_whole_six_stage_chain_resolves_in_a_legal_order() -> None:
-    # Arrange — the reference's own order (`indexing/cleaning/pipeline.py:30-49`): unicode
-    # normalisation and artifact removal before the two structure-reading repairs, both
+    # Arrange — a legal order: unicode normalisation and artifact removal before the two
+    # structure-reading repairs, both
     # before the destructive whitespace pass; the Polish fixer, needing nothing intact,
     # is legal anywhere after `UnicodeNormalizer`, including last.
     pipeline = Pipeline(

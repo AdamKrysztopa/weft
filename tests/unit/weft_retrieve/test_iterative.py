@@ -14,14 +14,14 @@ this file is organised around it rather than around the plugin's method list:
    next round's query built from what the critic said was missing), the edge case
    (`NO_NEW_EVIDENCE` stops the loop before `max_rounds` when a leaf keeps handing back the
    same passage), the error case (`on_critic_failure = FAIL` propagates a hard critic failure
-   rather than the reference's silent "any non-empty context is complete"), and a drive through
+   rather than silently treating any non-empty context as complete), and a drive through
    `weft_kernel.seam.wrap`.
 3. `test_the_loop_never_exceeds_max_rounds` is the "cannot spin forever" property from the
    task's own framing, checked as a fact about call counts against a critic that always says
    "not yet" — not inferred from `stop_reason`'s own correctness, which the `for` loop's own
    `range(1, max_rounds + 1)` bound does not depend on.
-4. `test_min_rounds_forces_a_further_round_even_once_the_critic_is_satisfied` is the reference
-   defect `.phase2-design.md` §10's own row names — `min_loops=2` forcing a second round
+4. `test_min_rounds_forces_a_further_round_even_once_the_critic_is_satisfied` checks the
+   `.phase2-design.md` §10 row naming this failure mode — `min_loops=2` forcing a second round
    "even when the critic said stop" — checked with the fix's default (`min_rounds=1`, which
    forces nothing) and with an operator who explicitly asks for a floor.
 
@@ -110,7 +110,7 @@ def test_stop_reason_reports_critic_unobserved_before_anything_else() -> None:
 
 
 def test_stop_reason_keeps_going_below_the_min_rounds_floor_even_when_sufficient() -> None:
-    # Arrange — the reference's `min_loops=2` fix, the other way round: a floor an operator set
+    # Arrange — the `min_rounds` floor, checked the other way round: a floor an operator set
     # is honoured even past a critic that already said `sufficient=True`.
     state = _state(round=1, min_rounds=2, max_rounds=3, sufficient=True)
 
@@ -359,9 +359,10 @@ async def test_no_new_evidence_stops_the_loop_before_max_rounds() -> None:
 
 
 async def test_a_hard_critic_failure_fails_the_whole_retrieval() -> None:
-    # Arrange — `on_critic_failure` defaults `FAIL`: the reference's own defect was treating a
-    # failed critique call as "the context is complete" and silently downgrading to
-    # single-shot. This asserts the fix: the loop does not manufacture a result at all.
+    # Arrange — `on_critic_failure` defaults `FAIL`: treating a failed critique call as "the
+    # context is complete" and silently downgrading to single-shot would hide the failure
+    # behind a plausible-looking result. This asserts the fix: the loop does not manufacture
+    # a result at all.
     origin = _asked()
     q1 = QuerySet(origin=origin, queries=(origin,))
     leaf = _FakeLeaf([Produced(value=_candidates(origin, origin, "some evidence"))])
@@ -427,7 +428,7 @@ async def test_the_loop_never_exceeds_max_rounds() -> None:
 
 
 async def test_min_rounds_forces_a_further_round_even_once_the_critic_is_satisfied() -> None:
-    # Arrange — the reference's own defect, checked from the fixed side: an operator who wants
+    # Arrange — the `min_rounds` floor, checked from the fixed side: an operator who wants
     # at least two rounds gets them, even though the critic is satisfied after the first.
     origin = _asked()
     q1 = QuerySet(origin=origin, queries=(origin,))
@@ -451,7 +452,7 @@ async def test_min_rounds_forces_a_further_round_even_once_the_critic_is_satisfi
 
 async def test_the_default_min_rounds_forces_nothing() -> None:
     # Arrange — the fix, not just the flag: `min_rounds=1` is the default, and it forces no
-    # second round the reference's own `min_loops=2` always did.
+    # second round the way a hardcoded floor of two always did.
     origin = _asked()
     q1 = QuerySet(origin=origin, queries=(origin,))
     leaf = _FakeLeaf([Produced(value=_candidates(origin, origin, "enough on its own"))])

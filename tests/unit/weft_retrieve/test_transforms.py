@@ -16,16 +16,16 @@ cascade's answer untested against the shape it actually returns.
 
 `out.origin == in.origin` is asserted in every test that produces a `QuerySet`, never
 assumed — `QuerySet.origin`'s own docstring records the obligation this rule exists to hold:
-the reference fed a hallucinated HyDE passage to its cross-encoder *as the query*, and this is
-the query-path invariant that stops a transform from repeating it. `weft_retrieve.rerank`'s
-own test module carries the identical assertion for the same stated reason.
+feeding a hallucinated HyDE passage to a cross-encoder *as the query* is the failure this
+query-path invariant stops a transform from committing. `weft_retrieve.rerank`'s own test
+module carries the identical assertion for the same stated reason.
 
 **`Hyde` (ledger 2.16) joins below.** It reuses `_StubLLM` and `_RefusingLLM` as-is and adds
 `_hyde_lookup` beside `_lookup`, because both plugins reach a typed answer through the same
 `weft_prompts.cascade.execute` and the stub shape that proves it is the same shape either
 way. Its own `out.origin == in.origin` assertion is load-bearing rather than a formality:
 `hyde` is the plugin ledger 2.4's own line names as the one whose loss of this property *is*
-the reference's cross-encoder-scores-a-hallucination defect, because this is the transform that
+a cross-encoder-scores-a-hallucination defect, because this is the transform that
 actually generates the hallucinated text a substitution would otherwise leak.
 
 **`StepBack` (ledger 2.17) joins below too, reusing the same stub shapes for its own happy
@@ -36,8 +36,8 @@ once against a provider that answers in a single chunk, once against one that an
 by word — and asserts the two `QuerySet`s that come back are equal. `_StubLLM` cannot stand
 in for this one: it answers `complete()` directly and never touches `stream()` at all, so a
 stub-driven test could not tell a provider whose blocking and streaming answers had drifted
-from one whose had not — exactly the reference's `stepback.py:100-149` vs `:270` defect, which a
-mock of the *symptom's* absence would be blind to.
+from one whose had not — exactly the blocking-vs-streaming drift a mock of the *symptom's*
+absence would be blind to.
 """
 
 from collections.abc import AsyncIterator, Mapping
@@ -405,7 +405,7 @@ async def test_hyde_generates_one_derived_query_per_document_and_keeps_the_quest
         assert derived.produced_by == HYDE_NAME
         # HyDE is a claim about dense retrieval — the hallucinated document must never
         # reach the text arm, per this plugin's own module docstring and `Query.channels`'
-        # own docstring on the reference's HyDE inversion.
+        # own docstring on the inversion this guards against.
         assert derived.channels == (Channel.VECTOR.value,)
     assert lookup.asked == [HYDE_DOCUMENT_NAME]
     assert llm.calls == 1
@@ -463,8 +463,8 @@ async def test_hyde_a_cascade_that_could_not_produce_documents_is_relayed_not_pa
 ):
     # Arrange — the error case: the third named knob, `on_failure`, has one member (`FAIL`)
     # today, and relaying the cascade's own `Failed` *is* that behaviour — never a silent
-    # fall-through to the unrewritten question, the reference's single-shot degrade this line
-    # exists to not repeat.
+    # fall-through to the unrewritten question, which would let a failed rewrite pass as a
+    # successful one.
     asked = Query(text="what is feature selection?")
     payload = QuerySet(origin=asked, queries=(asked,))
     llm = _StubLLM(["I cannot help with that."])
@@ -568,7 +568,7 @@ async def test_step_back_keep_question_false_drops_the_literal_original() -> Non
 async def test_step_back_a_cascade_that_could_not_abstract_is_relayed_not_papered_over() -> None:
     # Arrange — the error case: `on_failure` has one member (`FAIL`) today, and relaying the
     # cascade's own outcome *is* that behaviour — never a silent fall-through to the literal
-    # question alone, the reference's single-shot degrade this line exists to not repeat.
+    # question alone, which would let a failed abstraction pass as a successful one.
     asked = Query(text="why does this happen?")
     payload = QuerySet(origin=asked, queries=(asked,))
     llm = _StubLLM(["I cannot help with that."])
@@ -642,11 +642,11 @@ async def test_step_back_is_the_same_technique_whether_tokens_arrive_at_once_or_
     None
 ):
     """Ledger **2.17**: "`step-back` is the same technique whether tokens arrive at once or
-    one at a time." `10` §1.1's own entry for this technique is the reference defect this test
-    checks directly rather than reasons about: `strategies/stepback.py:100-149` (blocking)
-    kept the literal and abstract contexts in separate prompt slots; `stepback.py:270`
-    (streaming) discarded the split, so the interactive default was silently a different,
-    weaker technique — "one name, two techniques."
+    one at a time." `10` §1.1's own entry for this technique is the failure mode this test
+    checks directly rather than reasons about: a blocking path that keeps the literal and
+    abstract contexts in separate prompt slots while a streaming path discards the split
+    makes the interactive default silently a different, weaker technique — "one name, two
+    techniques."
 
     Here there is exactly one place a model is asked anything: `StepBack.run` calls
     `ctx.require(LLM).complete_structured`/`.complete` through `weft_prompts.cascade.
@@ -780,7 +780,7 @@ async def test_multi_query_batches_every_matched_seed_into_one_cascade_call() ->
 async def test_multi_query_require_distinct_drops_a_duplicate_variant() -> None:
     # Arrange — the edge case: a model answering with a near-duplicate of the seed's own
     # question (differing only by trailing whitespace and case) is dropped rather than kept
-    # as a second, redundant probe — `10` §1.1's own reference finding: "near-duplicate queries
+    # as a second, redundant probe — `10` §1.1's own finding: "near-duplicate queries
     # weaken the fusion, whose benefit comes from rankings that disagree."
     asked = Query(text="what is feature selection?")
     payload = QuerySet(origin=asked, queries=(asked,))

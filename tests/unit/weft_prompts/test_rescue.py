@@ -1,9 +1,9 @@
 """Unit tests for `weft_prompts.rescue`.
 
 Mirrors `packages/weft-rag/src/weft_prompts/rescue.py`. Covers the three extraction steps
-in the order the reference's *executor* used them — direct parse, fenced block, bare object — and
-the case the reference's other copy got wrong: a fenced ```json reply must be read as a fence,
-not clipped by a bare-object scan that runs first.
+in the order most chat-model replies actually favour — direct parse, fenced block, bare
+object — and the case that ordering exists to get right: a fenced ```json reply must be read
+as a fence, not clipped by a bare-object scan that runs first.
 """
 
 from weft_prompts.rescue import rescue_json
@@ -18,11 +18,11 @@ def test_a_clean_json_document_parses_directly() -> None:
 
 
 def test_a_fenced_json_block_is_read_as_a_fence() -> None:
-    # Arrange — the ordering bug the reference's `llm_utils` copy carried: a bare-object regex
-    # placed before this branch makes the fence branch nearly unreachable, and it is the
-    # commonest reply shape a chat model produces.
+    # Arrange — the ordering this guards: a bare-object regex placed before the fence branch
+    # makes the fence branch nearly unreachable, and a fenced ```json block is the commonest
+    # reply shape a chat model produces.
     # The prose deliberately contains a brace: a bare-object scan run first would span from
-    # that brace to the last one and parse nothing, which is precisely the reference's other copy.
+    # that brace to the last one and parse nothing.
     text = 'Given {the evidence}, here you go:\n```json\n{"verdict": "no"}\n```\nHope that helps.'
 
     # Act

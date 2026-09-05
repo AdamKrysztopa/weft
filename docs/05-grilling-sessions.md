@@ -49,23 +49,21 @@ question, so that a decision's status has exactly one home.
 
 **Why it cannot be defaulted.** This is the whole architecture. A microkernel's two failure modes
 sit on either side of this line: a kernel that grows until plugins are decoration, and a kernel so
-thin that every plugin reimplements the same plumbing. The reference failed **both ways at once** —
-multimodal config ended up as a field on the central context object, *and* that object was bypassed.
+thin that every plugin reimplements the same plumbing. A real system failed **both ways at once** —
+multimodal config ended up as a field on a central context object, *and* that object was bypassed.
 
-> **Corrected from the reference study (2026-08-10).** The first half is confirmed: `multimodal_config`
-> is one of 10 `EngineContext` fields (`core/engine/context.py:67-100`). The second half is new, and
-> it reframes this session. Only **6 classes in 259 files** take an `EngineContext`-annotated
-> `__init__` parameter (`UnifiedChatEngine`, `QueryRouter`, `DocumentStorage`, `FusionRetriever`,
-> `IndexingCommand`, `IndexingPipeline`). What strategy handlers actually receive is a *second*
-> context, `StrategyContext` (11 fields, `core/engine/types.py:291-372`), carrying a *third*,
-> `EngineMetadata` (14 fields, `:215-288`). `StrategyContext` duplicates `llm` and `prompt_executor`
-> and **does not carry `tenant_id`**; `EngineMetadata` mixes identity with 7 tuning knobs copied out
-> of `RuntimeGuardrailsConfig`. *"The one passport idea has fissioned into three overlapping bags."*
+> **Corrected after closer verification (2026-08-10).** The first half is confirmed: a multimodal
+> config field is one of 10 fields on the central context object. The second half is new, and
+> it reframes this session. Only **6 classes in 259 files** take that context object as an
+> `__init__` parameter. What strategy handlers actually receive is a *second*
+> context object (11 fields), carrying a *third*, a metadata object (14 fields). The second
+> duplicates two fields already on the first (`llm` and a prompt executor)
+> and **does not carry `tenant_id`**; the third mixes identity with 7 tuning knobs copied out
+> of a guardrails config. *"The one passport idea has fissioned into three overlapping bags."*
 > So the question is not only "how big is the kernel" but **"does a plugin receive one object or
-> three, and which one carries tenancy"** — the reference's answer being that the tenant id lives on the
-> object plugins do not get. Note also `llm: Any`, annotated *"typed `Any` for flexibility in tests"*
-> (`context.py:51`), which defeats typing at the single most important seam.
-> (`reference/study/10-doc-corrections.md` C2; `reference/study/09-open-questions.md` C-6.)
+> three, and which one carries tenancy"** — the answer found being that the tenant id lives on the
+> object plugins do not get. Note also one field typed `Any`, annotated *"typed `Any` for
+> flexibility in tests"*, which defeats typing at the single most important seam.
 
 **Positions to attack.** *Minimal*: registry, pipeline model, ports, context, errors. Everything
 else is a pack, including prompts and observability. *Pragmatic*: the above plus the prompt layer
@@ -73,29 +71,26 @@ and span helpers, on the grounds that every pack needs them and duplicating them
 
 **Bring.**
 
-- The category A reference list from `04` — as corrected against `reference/study/08-salvage.md` — and for each
-  item an argument for which side of the line it sits on.
 - **The three-context fission above.** Decide once whether a plugin gets one passport, and what is
   on it.
 - **The prompt layer's hard blocker, which decides the session rather than colouring it.**
-  `core/prompt/` (9 files, 2,070 lines) is genuinely the extension model done right — 41 typed
-  prompts, `override()` for A/B, frozen `PromptMetadata` carrying `version`, locale-key translation
-  by construction. **But `PromptLoader` resolves locales as
-  `Path(__file__).parent.parent / 'locales'`**, so a pack cannot ship its own prompts or its own
+  A prompt subsystem elsewhere (9 files, 2,070 lines) is genuinely the extension model done right —
+  41 typed prompts, `override()` for A/B, frozen `PromptMetadata` carrying `version`, locale-key
+  translation by construction. **But its loader resolves locales relative to its own installed
+  location**, so a pack cannot ship its own prompts or its own
   translations. "Prompts: kernel or pack?" is therefore not a taste question — **whichever side it
   lands on, the locale-resolution mechanism has to change, and that is a Phase 0 design item.**
-  (`reference/study/10-doc-corrections.md` E16; `reference/study/08-salvage.md` §T1.8.)
 
 - **Where a pack puts its settings.** `02` §2 establishes that a per-pack config namespace is a
   distinct requirement from per-stage `with:` config, and that driving use case B needs both — but
-  no gate owned it until this line. The reference has nowhere at all: `IndexingStrategy`
-  (`core/config/models.py:208-216`) has 3 fields and enhancers get names only, so a pack
+  no gate owned it until this line. There is nowhere at all in the material read for understanding: a
+  strategy config type has 3 fields and enhancers get names only, so a pack
   contributing an enhancer, a retriever and a store has no place for its configuration. Decide the
   namespace's shape here, because Phase 0 publishes the contracts a pack is written against and a
   pack contract with no settled home for pack settings breaks on the first real add-on — which is
   precisely what Phase 5 exists to test.
 
-**Done when.** Every item in `04` is assigned to kernel or pack, there is a stated numeric kernel
+**Done when.** Every catalogued item is assigned to kernel or pack, there is a stated numeric kernel
 budget for fitness function 3 with a reason attached, there is a decision on how many context
 objects a plugin receives and which one carries `tenant_id`, and the per-pack config namespace has
 a defined shape (or an explicit, dated deferral naming what unblocks it).
@@ -103,8 +98,8 @@ a defined shape (or an explicit, dated deferral naming what unblocks it).
 **Where the answers live.** The rule, the kernel/pack table, the packaging and the two consequences
 worth watching are `01` → *The kernel boundary*; the budget and its revision rule are `01` →
 *Fitness functions* 3; what a plugin receives and who publishes a contract are `02` §1; the pack
-settings namespace and catalogue contribution are `02` §2; the per-item assignment is `04` →
-*Kernel or pack*. This session's status is in `README.md`, as with every other.
+settings namespace and catalogue contribution are `02` §2. This session's status is in `README.md`,
+as with every other.
 
 ---
 
@@ -119,27 +114,27 @@ parent removed, two packs contributing fragments that both want to be after `chu
 
 **Positions to attack.** *Flat overlay*, single level of inheritance only, refusing depth to keep
 semantics trivial. *Full chain*, arbitrary depth with precedence rules. *Python-first*, where YAML
-is a serialisation of a builder API rather than the authoring surface. **A fifth position the study
-adds: an ordering-constraint concept, so a pipeline is a constrained order rather than a list** —
-see Bring.
+is a serialisation of a builder API rather than the authoring surface. **A fifth position worth
+attacking: an ordering-constraint concept, so a pipeline is a constrained order rather than a
+list** — see Bring.
 
 **Bring.**
 
 - The KeyBERT case, plus three deliberately nasty cases you invent.
-- **The cleaning chain, as the case that breaks a naive operator set.** `indexing/cleaning/pipeline.py:30-51`:
-  *"HyphenationFixer — MUST run before whitespace normalization while newlines still exist (e.g.
-  kompu-\\nter -> komputer); TableLinearizer — Detect columns based on whitespace gaps, MUST run
-  before whitespace normalization collapses gaps; WhitespaceNormalizer — this is destructive and
-  must run last. **IMPORTANT: Changing this order will break functionality.**"* `insert` lets a
-  third party place a stage between `HyphenationFixer` and `WhitespaceNormalizer` and **silently
-  corrupt text**. The constraints exist in the reference as prose only.
-- **The ingest order itself.** The reference chunks *then* cleans, and has a stage 0 and a stage 4.5 the
-  plan's list omitted (see `02` §3). G2 must state which order Weft adopts and why, because `01` and
-  `02` previously asserted the other one.
-- **Name collisions.** Two packs both registering `keybert` has no defined outcome in the reference —
+- **The cleaning chain, as the case that breaks a naive operator set.** A real cleaning pipeline
+  states — only in code comments — that a hyphenation-repair stage must run before whitespace
+  normalization while newlines still exist, that a table-linearizing stage must run before
+  whitespace normalization collapses the gaps it needs, and that whitespace normalization is
+  destructive and must run last, warning that changing the order breaks functionality. `insert`
+  lets a third party place a stage between the first two and the last one and **silently
+  corrupt text**. The constraints exist only as prose, checked by nothing.
+- **The ingest order itself.** A real system chunks *then* cleans, and has a stage 0 and a stage 4.5
+  the plan's list omitted (see `02` §3). G2 must state which order Weft adopts and why, because `01`
+  and `02` previously asserted the other one.
+- **Name collisions.** Two packs both registering `keybert` has no defined outcome elsewhere —
   six registration decorators, four different collision behaviours, four of them overwriting
   silently with no check at all. G2 currently covers *position* conflicts ("two fragments that both
-  want to be after `chunk`") but not *name* conflicts. See `reference/study/09-open-questions.md` C-12.
+  want to be after `chunk`") but not *name* conflicts.
   **G1 removed one class of this and sharpened the rest:** pack *settings* are keyed by distribution
   name, which cannot collide, so `packs:` needs no arbitration. Plugin names still can, and they are
   now the only unarbitrated namespace in the system — ext namespaces are distribution-keyed too (G5).
@@ -158,17 +153,15 @@ see Bring.
   item, and it is now the only part of the ordering problem still open.
 - **A choice G4 forced onto this session: there must be an embed stage, or an embedding step inside
   the store stage.** G4's stores take a **vector**, never text — a store coupled to an embedding
-  model cannot be used with two models or none. The reference had **no embed stage at all**; embedding
-  happened inside storage, which is why `query()` took a string. So the ingest order G2 settles must
-  name where the vector is produced, and the query path must embed before it searches. This is a new
-  stage in a list this session was already re-deciding.
-- **The one reference field shaped like this YAML is dead.** `CleaningConfig.processors`
-  (`core/config/models.py:51-54`) is never read; the executor reads six individual `*_enabled`
-  booleans, two of them gated on `config.language == 'pl'`. A stage list the executor does not
+  model cannot be used with two models or none. A real system had **no embed stage at all**;
+  embedding happened inside storage, which is why `query()` took a string. So the ingest order G2
+  settles must name where the vector is produced, and the query path must embed before it searches.
+  This is a new stage in a list this session was already re-deciding.
+- **One field shaped like this YAML was found dead elsewhere.** A `processors`-style config field
+  is never read; the executor reads six individual `*_enabled`
+  booleans, two of them gated on a language check. A stage list the executor does not
   consume is worse than no stage list — and **language-conditional stages are a real requirement the
   current YAML model cannot express.**
-
-(`reference/study/10-doc-corrections.md` E7, E8, E5, A12.)
 
 **Done when.** Every operator has stated conflict behaviour, ordering constraints have a
 representation, name collisions have a defined arbitration rule, and a resolution failure has a
@@ -186,8 +179,8 @@ worse design:
 - **Ordering constraints are the mirror of `requires`/`provides`, not references between plugins.**
   `Before(WhitespaceNormalizer)` fails on inspection: it makes one pack import and name another, and
   it protects against that one class, so a third party's normalizer corrupts text again. Read what
-  the reference's own docstring says the dependency *is* — *"while newlines still exist"*, *"whitespace
-  gaps"*, *"destructive"* — and nobody depends on a plugin; they depend on a **property of the text a
+  the comment actually says the dependency *is* — "while newlines still exist", "whitespace
+  gaps", "destructive" — and nobody depends on a plugin; they depend on a **property of the text a
   later stage annihilates**. Hence `intact` / `destroys`, with `destroys` mandatory because
   forgetting it harms strangers while forgetting `intact` harms only yourself.
 - **The language requirement was misdiagnosed as needing conditionals.** The condition is real; what
@@ -237,13 +230,13 @@ discovery is open but capabilities that touch the filesystem, network or shell n
 **Bring.**
 
 - The CLI permission classes from `03`, since a coherent answer probably reuses them.
-- **The reference's actual security posture, which is *no contract at all* — and one concrete hole that
-  predates entry points.** The BM25 node cache is a **pickle** file (`retrieval/utils.py:48`,
-  `pickle.load(f)  # noqa: S301`, guarded only by `CACHE_VERSION: int = 1`), so the reference already
-  executes arbitrary code from disk with no signature. `pickle.load` appears on 3 read paths, there
-  are **zero path-containment checks** anywhere, and `SecretStr` is used **once**. This is the
-  concrete case that makes the *two-tier* position argue itself, and Weft must not inherit that
-  cache format. (`reference/study/10-doc-corrections.md` E15; `reference/study/04-cross-cutting.md` §11.)
+- **A real system's actual security posture, found to be *no contract at all* — and one concrete
+  hole that predates entry points.** A BM25 node cache was found stored as a **pickle** file,
+  loaded with a bare `pickle.load`, guarded only by a version number, so that system already
+  executes arbitrary code from disk with no signature. `pickle.load` appeared on 3 read paths, there
+  were **zero path-containment checks** anywhere, and a secret-string type was used **once** across
+  the whole tree. This is the concrete case that makes the *two-tier* position argue itself, and
+  Weft must not inherit that cache format.
 
 - **What G4 removed from this session's scope, and what it added.** The pickle exhibit is **gone**:
   under G4 text search is a store capability, retrievers never build an index, and the BM25 node
@@ -295,8 +288,8 @@ returns a description and the pipeline adapts. *Tiered contracts*, where `Store`
 **Bring.**
 
 - Three real backends with genuinely different shapes — pgvector, Qdrant, and a local embedded store
-  — plus the zero-container requirement from `01` (now sharpened: the reference's `DocumentStorage.__init__`
-  imports the PGVector adapter unconditionally, even for a purely local run).
+  — plus the zero-container requirement from `01` (now sharpened: a real system's storage
+  constructor imports the PGVector adapter unconditionally, even for a purely local run).
 - **The driver constraint G6 imposed, which narrows the candidates before this session picks any.**
   The core is async-only, so a store adapter is `async def` throughout: pgvector needs `asyncpg` or
   async `psycopg3`, **not `psycopg2`**. And the zero-container store is the awkward case — SQLite and
@@ -304,36 +297,30 @@ returns a description and the pipeline adapts. *Tiered contracts*, where `Store`
   blocks the loop for every other task. Fitness function 7(b) fails the build the moment it touches
   the filesystem inside the loop, which is the good outcome, but it means *"the local store is the
   simple one"* is false here: it is the one with the bridge inside it.
-- **The reference already ran the capability experiment, badly. It declares capability by *undeclared
-  attribute*** — the failure mode the *capability flags* position must beat. All of it:
-  `hasattr(storage_adapter, 'hybrid_search')` plus `getattr(..., 'hybrid_search', False)`, with an
-  error string hard-coding the environment variable `PGVECTOR_HYBRID_SEARCH=true`
-  (`retrieval/registry.py:517-528`); `hasattr(context.storage_adapter, 'get_vector_index')` deciding
-  adapter-backed vs disk-backed index loading (`:250`); `ensure_pgvector_strategy_compatibility`
-  hard-coding the allowed set `{'vector','keyword'}` (`retrieval/utils.py:63-85`);
-  `isinstance(adapter, LocalFileSystemAdapter)` guards that make three safety checks return
-  `all_passed=False` for any non-local adapter (`retrieval/safety_checks.py:96,147,188`) and
-  corruption detection return `('incomplete', ['Adapter is not LocalFileSystemAdapter'])`
-  (`retrieval/corruption_detector.py:83,364`); and `_determine_required_strategy_types` returning an
-  **empty set** for anything that is not `'postgres'` (`retrieval/retriever.py:414-426`), so a remote
-  store silently inherits local tolerance for missing indices. **17 dispatch sites over backend
-  identity, zero registry lookups.**
-- **The exact list of what the `Store` contract must cover, derived from where the reference's leaks.**
-  `retrieval/` owns **92 of the library's 138 `# type: ignore` lines (67%)**, and ~40 of them are one
-  structural fact repeated: the storage port does not expose what retrieval needs, so retrieval
-  reaches **through** it into private attributes of the concrete adapter. The four names are
-  `_vector_indices`, `_strategy_for_nodes`, `indices_dir` and `update_file_metadata` — none of which
-  is on `BaseStorageAdapter` (`core/ports/storage.py:26`). See `retrieval/_index_builder.py:107,206,248,262,283`
-  and `retrieval/storage.py:1288`. The declared contract is 6 adapter methods; the *actually
-  required* contract is those 6 plus **12 undeclared members**.
-- The port's own good bones, so they are not thrown out with the leak: `VectorStoreFactory`
-  (`core/ports/storage.py:177-239`) is three intent-named methods returning typed models, and
-  `ConnectionInfo` is clean. What has to change is documented at `reference/study/08-salvage.md` §T2.4 —
-  kill `**kwargs: Any` (12 concrete keyword arguments flow through it), slim `VectorStoreMetadata`
-  (21 fields), drop the two methods with zero call sites, and note that **`persist()` has no
-  transactional semantics** at 9 call sites.
-- `retrieval/storage.py` is **2,347 lines, the largest file in the library**, and the BM25 node cache
-  is a pickle. Weft must not inherit that format (see G3).
+- **A capability experiment was already run elsewhere, badly. It declared capability by *undeclared
+  attribute*** — the failure mode the *capability flags* position must beat. All of it: a plain
+  `hasattr`/`getattr` check for one named method, with an error string hard-coding an environment
+  variable; a second `hasattr` check deciding adapter-backed vs disk-backed index loading; a
+  compatibility function hard-coding an allowed set of two strategy names; an `isinstance` check
+  against one concrete adapter class that made three safety checks return failure for any other
+  adapter, and made corruption detection report the adapter type itself as the incompleteness; and a
+  function returning an **empty set** for anything that was not one specific named backend, so a
+  remote store silently inherited local tolerance for missing indices. **17 dispatch sites over
+  backend identity, zero registry lookups.**
+- **The exact list of what the `Store` contract must cover, derived from where a comparable system's
+  own contract leaks.** One module there owns **92 of that library's 138 `# type: ignore` lines
+  (67%)**, and ~40 of them are one structural fact repeated: the storage port does not expose what
+  retrieval needs, so retrieval reaches **through** it into private attributes of the concrete
+  adapter. Four private names recur, none of which is on the declared storage port. The declared
+  contract there is 6 adapter methods; the *actually required* contract is those 6 plus **12
+  undeclared members**.
+- The port's own good bones there, so they are not thrown out with the leak: a factory type is three
+  intent-named methods returning typed models, and a connection-info type is clean. What has to
+  change — kill a `**kwargs: Any` escape hatch (12 concrete keyword arguments flow through it), slim
+  an over-wide metadata model (21 fields), drop the two methods with zero call sites, and note that
+  **`persist()` has no transactional semantics** at 9 call sites.
+- The largest storage-adjacent file elsewhere is **2,347 lines**, and its BM25 node cache is a
+  pickle. Weft must not inherit that format (see G3).
 - **Three requirements G5 handed this session (2026-08-10).** (i) `Store` accepts a `Node` **minus
   its transient namespaces** — the kernel strips them at this seam, so the store never sees them and
   never has to know they existed. (ii) **`delete(source)` cascades and returns the removed set.**
@@ -348,11 +335,10 @@ returns a description and the pipeline adapts. *Tiered contracts*, where `Store`
   so whatever capability machinery this session designs lives in that pack and cannot leak inward.
   And there is now a precedent for how a backend declares what it supports: a plugin already
   declares its `lifetime` as a class attribute the kernel reads, which is the *capability
-  declaration* pattern the study extracted. Reuse it rather than inventing a second mechanism, and
-  note that the failure it must beat is the reference's declaration-by-`hasattr`, 17 dispatch sites over
-  backend identity with zero registry lookups.
+  declaration* pattern already established elsewhere in this design. Reuse it rather than inventing a
+  second mechanism, and note that the failure it must beat is declaration-by-`hasattr`, 17 dispatch
+  sites over backend identity with zero registry lookups.
 
-(`reference/study/10-doc-corrections.md` E13, E14, A9; `reference/study/09-open-questions.md` C-4, C-8.)
 
 **Done when.** The contract is specified, at least two backends are shown to satisfy it without
 stub methods, the zero-container path is demonstrated as expressible, and **none of
@@ -368,8 +354,7 @@ through the contract.**
 
 **Where the answers live.** The contract family, derived capabilities, `needs_store`, the filter
 AST, durability, resumable deletion and `SourceRecord` are `02` §1 → *The store contract family*;
-the floor and the in-memory store are `01` → *Runtime shape*; what is lifted from the reference's
-storage layer and what is left is `04` → *Storage, after G4*. Status is in `README.md`.
+the floor and the in-memory store are `01` → *Runtime shape*. Status is in `README.md`.
 
 ---
 
@@ -378,7 +363,7 @@ storage layer and what is left is `04` → *Storage, after G4*. Status is in `RE
 **The question.** How strongly typed is the payload passing from one pipeline stage to the next?
 
 **Why it cannot be defaulted.** The hardest question in the design. Too loose — a dict — and stage
-composition has no safety at all, and you rediscover the reference's habit of stuffing transient keys
+composition has no safety at all, and you rediscover a real system's habit of stuffing transient keys
 into node metadata and scrubbing them before storage. Too rigid and no third party can add a stage
 carrying data the core never anticipated, which breaks requirement 1.
 
@@ -403,8 +388,7 @@ stage receives a payload missing something it needs.
 **Where the answers live.** The `Node` model, the admission rule for core fields, `ExtModel` and
 declared namespaces, `__transient__`, `requires`/`provides`, the three construction paths, derived
 `sources`, cascade on delete, content-addressed identity and `Stage[In, Out]` are all `02` §1 → *The
-payload model*; the resolution-time checks are `02` §3; the reference evidence the model was designed
-against is `04` → *The node metadata surface*. Status is in `README.md`.
+payload model*; the resolution-time checks are `02` §3. Status is in `README.md`.
 
 ---
 
@@ -413,20 +397,19 @@ against is `04` → *The node metadata surface*. Status is in `README.md`.
 **The question.** Is the kernel async-first, sync-first, or both?
 
 **Why it cannot be defaulted.** It colours every contract signature and cannot be changed later
-without touching all of them. The reference was sync with **one** `asyncio.run` bridge inside an
-enhancer, which is the outcome nobody chooses deliberately.
+without touching all of them. A comparable system was sync with **one** `asyncio.run` bridge inside
+an enhancer, which is the outcome nobody chooses deliberately.
 
-> **Corrected from the reference study (2026-08-10):** the plural was wrong and the danger is sharper
-> than "nobody chooses this". There is **exactly one** `asyncio.run` call site in 259 files:
-> `indexing/enhancers/vision_description.py:74`. The library has **6 real `async def` bodies and 10
-> `await`s**, and **no blocking call sits inside an async function** — the colour discipline itself
-> held. What did not hold is the *safety* of that one bridge: it is guaranteed **only by a docstring
-> plus a caller in `system/`** — *"Safe only in `asyncio.to_thread()` workers — never in FastAPI"* —
-> so calling the method directly from a route raises
+> **Corrected after closer verification (2026-08-10):** the plural was wrong and the danger is
+> sharper than "nobody chooses this". There was **exactly one** `asyncio.run` call site in 259
+> files. The library had **6 real `async def` bodies and 10 `await`s**, and **no blocking call sat
+> inside an async function** — the colour discipline itself held. What did not hold is the *safety*
+> of that one bridge: it was guaranteed **only by a docstring plus a caller in one particular
+> module** — "Safe only in `asyncio.to_thread()` workers — never in FastAPI" — so calling the
+> method directly from a route raised
 > `RuntimeError: asyncio.run() cannot be called from a running event loop`. A sibling docstring
-> records *"Reset to `None` by the adapter before each `asyncio.run()` call"*: per-call mutable state
-> maintained by the caller, again by prose. (`reference/study/10-doc-corrections.md` B6;
-> `reference/study/04-cross-cutting.md` §8.)
+> recorded "Reset to `None` by the adapter before each `asyncio.run()` call": per-call mutable
+> state maintained by the caller, again by prose.
 
 **Positions to attack.** *Async-first*, with a thin sync facade, on the grounds that embedding and
 model calls are IO-bound and concurrency is where the throughput is. *Sync-first*, on the grounds
@@ -533,8 +516,8 @@ where a pack declares the range it supports and the kernel refuses incompatible 
 `GraphData` is declared by a pack, validated on write and persisted inside every node the pack
 touched — so a pack that adds a required field, renames one, or changes a type breaks data already
 stored, and does it to *users' indexes*, not to its own test fixtures. Contract versioning that
-covers only call signatures misses this entirely. The reference's V1→V2 schema-migration validator
-(`reference/study/08-salvage.md`) is the salvage item, and this is now the first-party case rather than a
+covers only call signatures misses this entirely. A V1→V2 schema-migration validator found
+elsewhere is the salvage item, and this is now the first-party case rather than a
 hypothetical: `weft-graph` 1.1 must be able to read what `weft-graph` 1.0 wrote, or say precisely
 why it cannot.
 
@@ -656,9 +639,9 @@ resolve through it. Does a kernel `WeftError` resolve through the same mechanism
 catalogue serve packs only, leaving kernel error text as literals?
 
 **Why it cannot be defaulted.** Two documents already point in different directions and neither one
-noticed. `04` → *Kernel or pack* assigns the reference's 195-key en/pl catalogue split by owner:
+noticed. An early assignment split a 195-key en/pl catalogue by owner:
 *"Intent markers to the router pack, error text to the kernel, CLI strings to `weft-cli`"*
-(`04-reference-inventory.md:51`) — which reads as the kernel being one of the catalogue's addressees. But
+— which reads as the kernel being one of the catalogue's addressees. But
 `MessageCatalogue` shipped in Phase 0 step 4 as a **mechanism with zero messages registered**
 (`02` §1 → *What a plugin receives*, the Phase 0 step 4/5 note), and every `WeftError` subclass in
 `weft-kernel` today — `UnresolvedServiceError`, `DuplicateRegistrationError`,
@@ -688,9 +671,10 @@ reads as "not needed here," and an English literal reads as "already decided," a
 
 **Bring.**
 
-- `04-reference-inventory.md:51`'s exact assignment, re-read against what "error text to the kernel" was
+- The exact wording of that early assignment, re-read against what "error text to the kernel" was
   actually arguing when it was written — was it arguing kernel errors should translate, or only that
-  the reference's *content* which happened to be error strings should be owned by whoever raises it?
+  that catalogue's *content*, which happened to be error strings, should be owned by whoever raises
+  it?
 - A current count of kernel `WeftError` subclasses and their message sites, taken on the day of the
   session — 31 subclasses across seven files (`blocking.py`, `context.py`, `discovery.py`,
   `registry.py`, `resolution.py`, `runner.py`, plus `WeftError` itself in `errors.py`) at the time
@@ -746,7 +730,7 @@ moment they finally matter.
 - **The class is the wrong unit for a non-human caller.** A human is asked per operation; an agent
   might be granted a bounded budget, a scoped target, or a dry-run-then-confirm protocol instead.
   *Attack that:* this invents a second permission model beside the one G3 settled, and two models is
-  how the reference got three overlapping context objects.
+  how a comparable system ended up with three overlapping context objects.
 
 **Bring.**
 
@@ -782,7 +766,8 @@ it? Three symptoms, one subject:
   satisfies `SourceDeletable`"*. Task 5.1a narrowed that at `weft_cli/fanout.py:71`, keeping only the
   `NodeStore` that `[services] store` names, so pgvector and Qdrant are not both connected to. The
   graph store registers under `NodeStore` (`02` §4's table), so the narrowing excludes it and derived
-  graph data outlives its source — the reference's RAPTOR scar, first-party (`lessons.md` L5.25, L5.32).
+  graph data outlives its source — the same RAPTOR scar seen elsewhere, now first-party
+  (`lessons.md` L5.25, L5.32).
 - **Ask.** `Reconcilable.reconcile(ctx, mode)` hands a participant nothing that names the primary
   corpus, so `02` §4's *"`full` backfills entities for nodes indexed by a pipeline that had no graph
   stage"* is unbuildable by a pack (L5.24).

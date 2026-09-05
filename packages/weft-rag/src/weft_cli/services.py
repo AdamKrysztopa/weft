@@ -86,9 +86,9 @@ DEFAULT_STORE: Final[str] = "pgvector"
 #: because `weft_cli.pipeline_catalogue.full_catalogue` refuses a name declared by both sources
 #: and takes every `weft pipeline` command down with it until the file is renamed. So
 #: `threshold-ladder` and `always` were registered, listed, catalogued in `10` §1.5 — and
-#: placeable by nobody, which is requirement 4 broken in exactly the shape `01` item 11 quotes
-#: from the reference: a strategy that registers, is listed, is described to a model, and can never
-#: run. Here it is a name resolved by the same mechanism `embed` and `store` already use.
+#: placeable by nobody, which is requirement 4 broken in exactly the shape `01` item 11 names:
+#: a strategy that registers, is listed, is described to a model, and can never run. Here it
+#: is a name resolved by the same mechanism `embed` and `store` already use.
 DEFAULT_ROUTER: Final[str] = "route"
 
 

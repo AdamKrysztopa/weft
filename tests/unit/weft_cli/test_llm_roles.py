@@ -133,8 +133,8 @@ def test_a_loop_guard_block_is_parsed_into_the_config_the_client_reads() -> None
 
 
 def test_no_loop_guard_block_still_yields_the_measured_defaults() -> None:
-    # Arrange / Act — every field carries the value `reference/study/08-salvage.md` §T1.12
-    # measured, so a `weft.toml` that says nothing about it still assembles a run.
+    # Arrange / Act — every field carries its measured default, so a `weft.toml` that says
+    # nothing about it still assembles a run.
     section = llm_section_from_config({"llm": {"roles": {"g": {"provider": "scripted"}}}})
 
     # Assert

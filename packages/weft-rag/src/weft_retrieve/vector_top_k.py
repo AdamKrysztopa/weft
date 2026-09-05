@@ -3,9 +3,10 @@
 Task **2.14**, `docs/build-ledger.md`: "the single-pass baseline is a plugin whose name
 states its cost, so an operator choosing what to run in a loop is not misled by the
 registry." `docs/10-technique-catalogue.md` §1.1's own row on this technique names the
-reference's mistake directly: `rag_simple` cost a floor of roughly three LLM calls with an
-unbounded ceiling — a query-rewrite call, all-modes hybrid retrieval, cross-encoder
-reranking and up to *N* regenerations — behind a name that promised none of it. "A plugin
+mistake this plugin's name refuses: a "simple" baseline that actually cost a floor of
+roughly three LLM calls with an unbounded ceiling — a query-rewrite call, all-modes hybrid
+retrieval, cross-encoder reranking and up to *N* regenerations — behind a name that
+promised none of it. "A plugin
 an operator will run in a loop must not be called `simple`." `vector-top-k` is that
 plugin's honest replacement: one embedding call, one vector search, nothing else. Its name
 says exactly that, and `cost_bound` (below) restates the claim as a class attribute a
@@ -24,8 +25,8 @@ once it was clear the double was never wired into `run`'s `ServiceRegistry` and 
 service exists yet for it to be wired into — see that test module's own docstring.
 
 **Read against `10` §2.1 rule 5 — this plugin, not a `retrieve-then-generate` plugin.**
-Rule 5 reads "a composition is a pipeline, never a plugin", and gives the reference's
-`rag_complex` (HyDE plus repacking on the baseline skeleton) as the worked example of a
+Rule 5 reads "a composition is a pipeline, never a plugin", and gives a HyDE-plus-repacking
+composition built on this baseline skeleton as the worked example of a
 composition that becomes a *pipeline*. `retrieve-then-generate` is `vector-top-k` then a
 `Fuser` then a `ContextPacker` then a `Generator` — a composition by the same rule, not an
 atomic technique. `.phase2-design.md` decision 12 reads ledger 2.14 this way rather than
@@ -233,7 +234,8 @@ def combined_filter(per_query: Filter | None, per_arm: Filter | None) -> Filter 
 
     Public because `weft_retrieve.multi_arm` searches the same store the same way and must
     combine the same two filters — one spelling of this rule, not two written a task apart,
-    which is the shape `04`:421-426 records the reference getting wrong three times over.
+    which is exactly the duplication shape that lets the same combination bug recur in
+    more than one place.
 
     A query's filter is the caller's narrowing; an arm's is the document's. Letting either
     replace the other would silently *widen* a search somebody deliberately narrowed, which is

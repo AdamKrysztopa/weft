@@ -47,8 +47,8 @@ per line:
 ```markdown
 ## 2026-09-14 — Phase 5 close
 
-- **L5.3** *measure before asserting applies to design proposals about this tree, not only to reference
-  claims* → `CLAUDE.md` → *Working here* · `a1b2c3d`
+- **L5.3** *measure before asserting applies to design proposals about this tree, not only to
+  claims that already required it* → `CLAUDE.md` → *Working here* · `a1b2c3d`
 - **L5.1** *a decision citing an existing mechanism as its escape hatch must run it before closing*
   → `weft-qualities`, new lens · `a1b2c3d` · `refines L5.4`
 - **L5.7** *declined* — fires on correct work; the cost of the check exceeds the defect's · `reverses L4.2`
@@ -229,7 +229,7 @@ should drain at its midpoint as well as its close.
 
 - **L5.1** *a design citing an existing mechanism as its escape hatch must run it before the argument closes — naming it is not evidence it works* → `weft-qualities` → *The move that matters most* · `88edcd0`
 - **L5.2** *a recommendation must be checked against the settled text that owns the location before it is written up* → `phase-step` → *Orient* · `88edcd0` · `refines L5.32`
-- **L5.3** *measure before asserting applies to design proposals about this tree, not only to claims about the reference* → declined as a separate rule; the queue's own evidence is that measurement happened every time it was asked for, and `CLAUDE.md` → *Working here* already carries it · `88edcd0`
+- **L5.3** *measure before asserting applies to design proposals about this tree, not only to claims that already required it* → declined as a separate rule; the queue's own evidence is that measurement happened every time it was asked for, and `CLAUDE.md` → *Working here* already carries it · `88edcd0`
 - **L5.4** *every fitness function `01` names has a file in `tests/architecture/`* → **fitness function 16**, clause (a) · `88edcd0`
 - **L5.5** *a validator that checks each block must also check the container the blocks sit in* → declined as a rule, kept as the instance: the general form fires on correct work constantly, and the specific gap is `weft.toml`'s, already closed · `88edcd0`
 - **L5.6** *a check whose two sides are derived from one source cannot fail; read them from places that can genuinely disagree* → **fitness function 16**, clause (b), and `phase-step` → *Finish* · `88edcd0`

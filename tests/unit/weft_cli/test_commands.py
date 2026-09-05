@@ -129,8 +129,11 @@ def test_register_wires_every_built_in_with_its_permission_class() -> None:
     # adds `eval run`/`eval compare`/`trace` (`weft_cli.eval_commands`), to fifteen; task 4.7
     # adds `eval metrics`, to sixteen; task 5.1a adds `delete` — G7's fast path, and the
     # first first-party `destroy`-class command — to seventeen, and task 5.1b adds
-    # `reconcile`, G7's safety net, to eighteen.
+    # `reconcile`, G7's safety net, to eighteen. Task 8.9 adds `render` — the first driver for
+    # the `Renderer` contract, which had two registered plugins and nothing that could take a
+    # `Rendition` out of a pipeline — to nineteen.
     assert registry.names_for(Command) == {
+        "render",
         "delete",
         "reconcile",
         "index",
@@ -152,6 +155,8 @@ def test_register_wires_every_built_in_with_its_permission_class() -> None:
     }
     expected_permissions = {
         "index": PermissionClass.WRITE,
+        # Task 8.9: opens files and writes to stdout, touching no store and creating nothing.
+        "render": PermissionClass.READ,
         "ask": PermissionClass.READ,
         "plugins list": PermissionClass.READ,
         "plugins doctor": PermissionClass.READ,

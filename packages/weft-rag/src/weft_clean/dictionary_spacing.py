@@ -1,16 +1,11 @@
 """`PolishFusedWordFixer` — splits a preposition fused onto the word after it.
 
-Task **1.7**'s second half: `docs/04-reference-inventory.md` ranks the reference's
-243-word Polish fused-word exception set the single most valuable text-shaped
-asset in the reference (`indexing/cleaning/processors/dictionary_spacing.py:31`,
-months of native-speaker corpus work in one `set` literal) — and states
-plainly that it is text, not knowledge: CLAUDE.md's rule is that no word list
-from any other codebase enters this repository, and the reference study itself
-was never opened past its own citations (`path:line` references and category
-counts) to find this module's shape. **`_EXCEPTIONS` below is therefore
-authored fresh for Weft, independently and much smaller** — the `reference-lift`
-skill's own instruction: "a handful of entries authored here, with the
-mechanism proven, is a complete task. A short honest list beats a
+Task **1.7**'s second half: a large Polish fused-word exception set is text,
+not knowledge, and CLAUDE.md's rule is that no word list from any other
+codebase enters this repository. **`_EXCEPTIONS` below is therefore authored
+fresh for Weft, independently and much smaller** — following the instruction
+this kind of port always follows: "a handful of entries authored here, with
+the mechanism proven, is a complete task. A short honest list beats a
 transcribed long one."
 
 **What survives the lift is the design, not the words.** Polish forms many
@@ -25,8 +20,8 @@ standing exception list of words that must never be split. That the fix is
 *data a pack ships*, not logic every call site re-derives, is the asset; the
 words filling that data are ordinary language and this module's own.
 
-No `intact` constraint: the reference's own note is "can run on clean text" —
-this stage does not *need* anything an earlier stage produced, unlike
+No `intact` constraint: this stage can run on clean text as it is —
+it does not *need* anything an earlier stage produced, unlike
 `weft_clean.hyphenation.HyphenationRepair` and
 `weft_clean.table_linearizer.TableLinearizer`. **Task 2.35 adds one thing to
 `destroys`, though**: splitting a fused word inserts a literal space into
@@ -76,8 +71,8 @@ _MIN_REMAINDER_LENGTH = 3
 #: Independently authored for Weft — see the module docstring. Twelve
 #: everyday Polish words, each one a real word beginning with one of the
 #: prefixes above, chosen to demonstrate the mechanism honestly rather than
-#: to approximate the reference's coverage: a fused-word fixer with no exception
-#: list at all would tear every one of these in half.
+#: to approximate production-scale coverage: a fused-word fixer with no
+#: exception list at all would tear every one of these in half.
 _EXCEPTIONS: frozenset[str] = frozenset(
     {
         "zawsze",  # always

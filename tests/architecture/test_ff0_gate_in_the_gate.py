@@ -3,17 +3,15 @@
 Every architecture check runs inside the composite task the documentation calls
 canonical, and this test asserts that membership.
 
-It exists because of the reference. `a prior project` shipped a 316-line hexagonal boundary
-checker that was **not** in `poe ci-checks`: the composite its own `CLAUDE.md`
-called the canonical full gate resolved to `quality`, which omitted it, and
-`.pre-commit-config.yaml` omitted it too. A fitness function that is not wired
-into the canonical task is not a fitness function.
+It exists because a 316-line hexagonal boundary checker can be written, committed, and
+never wired into the composite the documentation calls the canonical full gate: the
+composite a project's own `CLAUDE.md` calls that can resolve to a task that omits the
+checker, and a `.pre-commit-config.yaml` can omit it too. A fitness function that is not
+wired into the canonical task is not a fitness function.
 
-The waiver constant below reimplements the *technique* of the one genuinely good check
-in the reference (`tests/unit/architecture/test_allowlist_empty.py`) — a named escape hatch
-pinned empty, so a waiver is a visible act in a diff rather than a silent edit to a
-script nobody reads. The constant, its shape and the gate it guards are Weft's own; no
-source text crosses from that file to this one. It is pinned empty.
+The waiver constant below is a named escape hatch pinned empty, so a waiver is a visible
+act in a diff rather than a silent edit to a script nobody reads. The constant, its shape
+and the gate it guards are Weft's own. It is pinned empty.
 """
 
 from pathlib import Path
@@ -36,8 +34,9 @@ ARCHITECTURE_TASKS: Final[frozenset[str]] = frozenset({"arch"})
 _REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 
 #: Directories the tree-wide suite sweep never descends into — not waivers, and not test
-#: suites this project owns. `reference` is a different repository reached through an untracked
-#: symlink and nothing here may read through it. `worktrees` is `.claude/worktrees/`, where
+#: suites this project owns. The entry below excludes the untracked symlink `CLAUDE.md`
+#: documents as a different, unversioned repository nothing here may read through.
+#: `worktrees` is `.claude/worktrees/`, where
 #: `git worktree` checkouts of *this* repository live: a suite found in one is the same suite
 #: this gate already runs, at a different commit, and counting it would make the gate's
 #: coverage depend on which branches happen to be checked out on a developer's machine.
@@ -46,7 +45,8 @@ _NOT_OURS: Final[frozenset[str]] = frozenset(
     {
         ".venv",
         ".git",
-        "reference",
+        "_external-src",
+        "_external-reading",
         "worktrees",
         "node_modules",
         "__pycache__",
@@ -138,7 +138,8 @@ def test_canonical_gate_exists(workspace_config: dict[str, object]) -> None:
 
     assert CANONICAL_GATE in tasks, (
         f"The canonical gate '{CANONICAL_GATE}' is not defined. Fitness function 0 has "
-        f"nothing to check membership against, which is exactly the reference's failure."
+        f"nothing to check membership against, which is exactly the failure this function "
+        f"exists to catch."
     )
 
 
@@ -151,8 +152,8 @@ def test_every_architecture_check_runs_in_the_canonical_gate(
 
     assert not missing, (
         f"Architecture checks {sorted(missing)} are not in '{CANONICAL_GATE}'. They will "
-        f"not run in CI. The reference shipped a boundary checker in exactly this state and it "
-        f"passed a tree with 11 violations."
+        f"not run in CI, and a check that does not run in CI can pass silently no matter "
+        f"how many real violations sit underneath it."
     )
 
 

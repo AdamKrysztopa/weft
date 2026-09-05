@@ -276,20 +276,16 @@ first; a boundary skipped is a boundary skipped silently.
 2. **`weft-qualities` against the phase, not the task.** *Finish* already ran it per task where a
    contract or config surface moved; this is the whole-phase reading, and it is the one that catches
    an elasticity regression assembled out of individually reasonable commits.
-3. **`reference-audit`.** What does the reference have that Weft still does not — separating *missed* from
-   *not due* — run in reverse to catch anything that arrived off the leave-behind list, and checking
-   that nothing was copied. Where a ledger task names it (Phase 6's `6.11` does), that task is not a
-   substitute for this: one is about the release's files, this is about the phase's coverage.
-4. **`implement-ll`, to empty.** Every open entry in `docs/lessons.md` is routed to the artefact that
+3. **`implement-ll`, to empty.** Every open entry in `docs/lessons.md` is routed to the artefact that
    would actually have caught it, in one commit — or declined with a reason. Nothing is carried to a
    second phase close.
-5. **Re-check the phase's Exit criterion in `01` → *Phases* against what exists**, not against the
+4. **Re-check the phase's Exit criterion in `01` → *Phases* against what exists**, not against the
    ticked boxes. Phase 5's exit was never met while every box under it was ticked, which is why
    Phase 6 carries `6.21` to discharge it. Read the criterion, then go and look.
-6. **`python3 .claude/skills/phase-step/scripts/next_task.py --check-live` is green**, before
+5. **`python3 .claude/skills/phase-step/scripts/next_task.py --check-live` is green**, before
    and after you edit the Status block. A stale Status block does its most damage exactly here,
    because the next phase is about to be routed off it.
-7. **`docs/README.md`'s Status block is edited to the new position** — phase, blocked-by, next
+6. **`docs/README.md`'s Status block is edited to the new position** — phase, blocked-by, next
    action, open-decision count — and the phase's tasks are squashed onto `main` with the true
    per-task shas in the squash message, per `build-ledger.md` → *Why the sha column is not optional*.
 
@@ -313,6 +309,3 @@ first; a boundary skipped is a boundary skipped silently.
   conversation about the boundary — and the budget is never edited in the pull request that grew it.
 - **A settled decision looks wrong.** Information, not failure, but a stop rather than a patch:
   re-run the session, then re-check the phases downstream, because these decisions cascade.
-- **The reference has something for this.** Use `reference-lift` rather than reinventing it. Most of the
-  inventory is rewrite-from-design rather than copy, which usually produces better code against
-  contracts the reference never had.

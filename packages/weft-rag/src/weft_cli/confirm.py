@@ -55,11 +55,9 @@ whether the process running the suite happens to be attached to a real terminal 
 is, and a developer's own shell usually is, so a check that read `sys.stdin.isatty()` inline could
 never prove the branch CI actually needs proven.
 
-**The reference has nothing here** (`.phase3-design.md` §2.5): a whole-tree search of `a prior project` for
-`typer.confirm`/`Confirm.ask`/any "are you sure" text returns zero matches, and its own most
-destructive command, `rebuild --force`, runs immediately with no TTY check and no `--yes`
-equivalent. This module has no scar to avoid inheriting, only a rule to build from `docs/03-cli.md`
-directly.
+**Built fresh, not ported** (`.phase3-design.md` §2.5): no existing implementation in this
+tree provides a confirmation-prompt precedent, so this module has no scar to avoid
+inheriting, only a rule to build from `docs/03-cli.md` directly.
 """
 
 from __future__ import annotations

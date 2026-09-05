@@ -7,9 +7,9 @@ that constructor for prompts. (The design record calls the module `registry_serv
 `registry.py` here, so the file name mirrors what it holds and
 `tests/unit/weft_prompts/test_registry.py` mirrors it back — the convention every pack follows.)
 
-**No prompt registry of our own** — `.phase2-design.md` decision 20. The reference's bespoke one had
-exactly one confirmed asset, raise-on-collision with `override()` as a separate named operation,
-and `weft_kernel.registry` already has it: `DuplicateRegistrationError` printing the `[plugins]`
+**No prompt registry of our own** — `.phase2-design.md` decision 20. The one asset a bespoke
+registry would need is raise-on-collision with `override()` as a separate named operation, and
+`weft_kernel.registry` already has it: `DuplicateRegistrationError` printing the `[plugins]`
 TOML line an operator would write, the pin itself as the override, and the displaced registration
 kept in `Registry.displaced()` rather than dropped. So this module holds a `Registry`, a small
 instance cache and nothing else. An unknown name is refused by `UnknownPluginError`, which already

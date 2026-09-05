@@ -2,8 +2,9 @@
 
 Settled in G2, `docs/02-extension-model.md` §3 → *Applicability*: "A stage
 declares what it operates on; the runner routes everything else past it,
-untouched. This is the reference's stage 0 as a mechanism instead of a rule an
-author must remember." `docs/11-multimodal.md` §2's own worked example is
+untouched." That makes applicability a mechanism the kernel enforces itself
+rather than a rule every stage's author has to remember and apply by hand.
+`docs/11-multimodal.md` §2's own worked example is
 the ingest-path illustration: "An atomic node passes the chunker unsplit,
 and the chunker does not have to know that."
 
