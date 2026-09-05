@@ -1,0 +1,24 @@
+name: contradiction-aware
+extends: retrieve-then-generate
+
+# One operator, at the last position: the retrieval is the baseline's exactly, and what changes
+# is what the answer is allowed to look like. `contradiction-check` asks a critic whether the
+# retrieved sources agree *with each other* before it writes anything, and then answers with
+# agreement and conflict separated and separately cited.
+#
+# The name is `10` §1.4's rename, and the rename is the point. The reference called this
+# `rag_consensus`, and `10` §1.1 records why that name was wrong: there is no sampling and no
+# voting anywhere in it — it detects disagreement among retrieved sources, not among sampled
+# answers. `self-consistency` stays free for something that actually samples.
+vars:
+  route.summary: >-
+    One vector search, then the sources are checked against each other and the answer states
+    what they agree on separately from where they conflict, citing both. For a corpus that
+    contains more than one version of the truth — superseded policies, revised figures,
+    documents from different years.
+  route.cost: >-
+    one embedding call, one search, one model call to judge whether the sources agree, and one
+    model call
+
+replace:
+  - {id: generate, use: contradiction-check}

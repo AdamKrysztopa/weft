@@ -9,20 +9,24 @@ it, and it is ordered by what unblocks the most.
 
 ---
 
-## 1. Decide there is a Phase 8, or decide what replaces it
+## 1. ~~Decide there is a Phase 8~~ — **answered 2026-09-05: yes**
 
-**This is the one that blocks the most work, and it was found rather than planned.**
-`docs/product-direction.md` §6: `01-high-level-plan.md` stops at Phase 7, G12 blocks Phase 7
-entirely, and **every batch of work that is not a repair to shipped code has no phase to belong
-to** — the ladder, graph, multimodal, the falsification instrument. Extending the phase script is
-therefore the first planning act, not a consequence of one.
+**Closed.** You opened **Phase 8 — From engine to product**, and it owns the whole shortlist rather
+than the ladder alone, so `ROADMAP.md` is retired into it and nothing buildable is homeless any
+more. `01` → Phase 8 carries the exit criterion; `build-ledger.md` → Phase 8 carries the tasks;
+`docs/README.md`'s decision log records it as scope decision `S9`.
 
-It is yours because `01` is the document that owns what a phase is, and because the answer decides
-whether the next month is *finish the engine* or *ship the ladder*. A task cannot default it.
+Two consequences worth knowing, because neither was in the question as asked:
 
-**What I would need from you:** either a Phase 8 with an exit criterion, or a decision that the
-buildable work lands as repairs inside Phase 6's already-closed scope and the ladder waits for
-Phase 7. Nothing else here is affected by which you pick, but everything unscheduled is.
+- **Phase 8 runs before Phase 7**, which G12 still gates. The number says when it was added to the
+  plan, not where it sits in the queue. `scripts/next_task.py` will keep printing `7.1` as the first
+  unticked box; `docs/README.md`'s **Next action** row is the mechanism that overrides that, and it
+  is pointed at task 8.6.
+- **The lessons queue now has a phase close to drain against again**, which it did not before.
+
+Nothing here is blocked on you any more. What is left in Phase 8 — hybrid retrieval, the fan-out
+cap, the falsification instrument, a driver for `Renderer`, and the expander/services repair — are
+tasks, not decisions.
 
 ---
 

@@ -1,0 +1,32 @@
+name: index-with-raptor
+extends: index-text
+
+# **The floor `raptor-and-leaves-rrf` has been standing on since it shipped.** That document
+# searches two bases at once — the leaf chunks and the RAPTOR summaries built over them — by
+# filtering on `ext.weft-index.technique == raptor`, and until this rung existed no shipped path
+# produced a single node carrying that marker. The query rung was correct, the plugin was
+# correct, and the pair could not be run by anybody who had not written this file themselves.
+#
+# `raptor` clusters the chunks by similarity and writes one summary per cluster, built through
+# `Node.combine` so each summary's `Lineage.sources` is the union of its members' — which is
+# what makes a summary reachable by cascade delete. `04` category A records the reference's version:
+# summaries with no `ref_doc_id` at all, so deleting a document left them retrievable forever,
+# describing content that was gone.
+#
+# **Before `embed`, for the same reason as `index-with-questions`** — `Node.combine` carries no
+# embedding, so the summaries are vectorised only because `embed` runs after this stage.
+#
+# **One level of summary, and that is this document's choice rather than the plugin's limit.**
+# `raptor` summarises what it is handed and does not recurse; a second level is a second stage
+# naming it again, which is a document edit and not a plugin change. Sarthi et al. build a tree
+# of several levels — this rung builds the first, and says so rather than borrowing the paper's
+# depth in its name.
+#
+# **Cost is per cluster and is not bounded by this document.** `max_concurrent_summaries: 8` is
+# the plugin's own default and is kept; ledger task 8.7 is the wider cap that is not there yet.
+insert:
+  - after: chunk
+    stage:
+      id: summarise
+      use: raptor
+      with: {cluster_size: 4, min_cluster_size: 2, similarity_threshold: 0.75}

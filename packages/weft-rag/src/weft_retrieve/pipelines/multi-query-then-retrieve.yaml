@@ -1,0 +1,27 @@
+name: multi-query-then-retrieve
+extends: retrieve-then-generate
+
+# The third document with this shape, and the one that makes the point about it: `hyde`,
+# `step-back` and `multi-query` are three different questions asked of the model, and all three
+# are the same *edit* to this pipeline — one `QueryTransform` inserted, one fuser swapped. That
+# is requirement 3 doing its job; nothing about `vector-top-k`, `repack` or `cited-answer`
+# changes for any of them.
+#
+# `expansion: aspect` is the plugin's default and is kept on purpose. `10` §1.1's own note on
+# this technique is that the reference asked for *paraphrases*, which forbids the two things the
+# expansion literature credits — new terms, and aspect coverage — and also weakens the fusion,
+# whose benefit comes from rankings that disagree. Near-duplicate queries fuse to nothing.
+vars:
+  route.summary: >-
+    Fans the question into four alternative formulations covering different aspects of it,
+    searches each independently, and fuses the five rankings by reciprocal rank. Helps a broad
+    question whose good answers are scattered across passages that share no vocabulary.
+  route.cost: >-
+    one model call to generate the variants, then one embedding call and one search per query
+    (five of each by default), and one model call
+
+insert:
+  - before: retrieve
+    stage: {id: fanout, use: multi-query}
+replace:
+  - {id: fuse, use: reciprocal-rank-fusion, with: {k: 60}}

@@ -1,0 +1,33 @@
+name: index-text
+# **No `route.summary`, on purpose.** An ingest document is never a routing target: it produces
+# nodes, not an `Answer`, and `nearest-description` selects among things `weft ask` can run.
+# `weft_retrieve.engine.PipelineRouteCatalogue` reads `route.summary` and nothing else, so
+# omitting it is what keeps this document out of the router's candidate set — not a comment
+# asking anyone to remember.
+
+# **The first ingest document this project has ever shipped**, and the root the other four
+# derive from. Until it existed, `weft index`'s four stages were Python constants in
+# `weft_cli.ingest` and `--pipeline` was a flag with nothing to point at: every cleaner, the
+# chunker, the embedder and the store were registered, reachable by `weft plugins list`, and
+# placeable by nobody.
+#
+# **What `--pipeline` costs you, stated here because it is easy to be surprised by.** A named
+# document's stages name their own plugins, so `[services] embed` and `[services] store` in
+# `weft.toml` are **not read** for this run (`weft_cli.ingest.run_index`, "Q3, settled"). That is
+# the right rule — a document that says `hash` must not silently become `openai` because a
+# config file elsewhere said so — but it means an operator who has configured a real embedder
+# has to derive from this document and `set:` the embed stage, rather than expecting their
+# `weft.toml` to apply. `weft pipeline derive index-text --set embed.use=openai` is that edit.
+#
+# Two cleaners only, and both are safe on any text in any language: `unicode-normalize` folds
+# the several ways a character can be spelled into one, `whitespace` collapses runs and trims.
+# The other four cleaners repair damage that specific *sources* cause rather than damage text
+# has in general, so they sit on `index-messy-text` and `index-polish` instead of here — a
+# cleaner that fires on a corpus it was not meant for is silent corruption, not a no-op.
+stages:
+  - {id: extract,    use: text}
+  - {id: normalize,  use: unicode-normalize}
+  - {id: whitespace, use: whitespace}
+  - {id: chunk,      use: fixed-size, with: {size: 512, overlap: 50}}
+  - {id: embed,      use: hash}
+  - {id: store,      use: pgvector}

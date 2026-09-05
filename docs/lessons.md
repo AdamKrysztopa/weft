@@ -27,6 +27,105 @@ otherwise paid for twice.
 
 ## Queue
 
+### L8.4 — two static checks agreed, and the binary said the feature had never run
+
+**What happened.** Phase 8 shipped `index-with-raptor` and `index-with-questions`, the first
+documents ever to place `raptor` and `hypothetical-questions` — tasks 2.31 and 2.32, shipped in
+Phase 2. Both documents pass fitness function 11(b) (every shipped pipeline resolves) and fitness
+function 16 (every registered pipeline position is placed). Running them from `/private/tmp` against
+the real container: `no service is registered for Embedder on this run` and the same sentence for
+`Prompts`. Both plugins reach an ambient service through `ctx.require`; `weft_cli.run_services.
+build_services` builds those for the **query** path and `weft_cli.ingest.run_index` builds none at
+all. So two index-path techniques have **never been runnable through the CLI** in the one place they
+belong, for two phases, with every gate green — their exit demonstrations were unit tests handing
+the context in directly.
+
+**Generalises to.** *A contract's plugins are only proven runnable where a **driver** assembles what
+they require — so a new contract's first task must name its driver, and a plugin whose only
+execution evidence is a test that constructs its own `Context` has not been shown to run in
+production at all.* Resolution proves a name binds; it says nothing about what the run will provide.
+
+**Candidate home.** `phase-step` → *Finish* item 4 already requires running the binary and this
+slipped past because the plugin had no shipped document to run it *through* — so the sharper
+placement may be a check: every contract with a registered plugin has a driver that builds the
+services those plugins `ctx.require`. Possibly a clause of fitness function 5 (*every declared
+capability resolves*), which is the nearest existing neighbour and today asks a weaker question.
+
+---
+
+### L8.3 — the manual named two of three keys, and the whole gate was green
+
+**What happened.** Task 8.3 added `route` to `[services]`. `manual/troubleshooting.md:1007-1028`
+carried a worked transcript of the unknown-key refusal printing `accepts embed, store`, plus
+`(exc.valid_options == ("embed", "store"))` and the sentence *"the only two keys `[services]`
+reads"* — all three stale the moment the field landed, and `ci-checks` stayed green through the full
+1,929-test run. The block is quoted prose, not a tagged executed sample, so nothing compares it to
+anything. `L6.19` already says exactly this and is marked **Applied**; it did not bite, because what
+was applied was a rule about writing new transcripts rather than a mechanism that finds the existing
+ones a change falsifies.
+
+**Generalises to.** *`L6.8` with a fresh instance — a rule that is re-learned did not bite, so it is
+in the wrong artefact.* The specific move: a change to a typed surface an operator configures
+(`ServiceSelection`, `LLMRoles`, a `valid_options` tuple) must be answerable by a **lookup** of
+which pages quote that surface, the way `tests/docs/test_pack_guide_samples.py` already makes
+"which guides quote this file" a lookup rather than a recollection — never by remembering to grep.
+
+**Candidate home.** Extend the pack-guide sample index to `[services]`/`[llm.roles]` key lists, so a
+manual page naming a key set is checked against the model the way a quoted file already is. Grouped
+with `L8.4` under *the gate agrees with itself and not with the artefact*.
+
+---
+
+### L8.2 — a waiver reason that was true, and still the wrong answer
+
+**What happened.** Writing fitness function 16, two registered `RoutingPolicy` plugins
+(`threshold-ladder`, `always`) turned out to be placeable by no document anybody could ship: the
+router's name was a constant in `weft_cli.route_ask`, a pack cannot contribute a second document
+under a held name, and a project shipping its own `route.yaml` is refused by `full_catalogue` —
+which does not merely lose the override, it fails every `weft pipeline` command. That is a true,
+checked fact about what can be run, which is precisely the standard the new waiver's own docstring
+sets, so the entry was drafted and would have passed review. The repair — `[services] route`,
+resolved like `embed` and `store` — is four lines and one call site, and it turned the fact into a
+former fact. What stopped the waiver was a `PreToolUse` guard firing on a waiver-shaped collection
+gaining an entry, and a standing user preference for the strongest technical option; neither was the
+check itself.
+
+**Generalises to.** *A waiver reason must be a fact about the artefact — that is necessary and not
+sufficient. The question after establishing it is whether the fact should hold, and a fact that a
+short repair would remove is a defect wearing a waiver's clothes.*
+
+**Candidate home.** `weft-qualities`, which reviews for exactly this class and would have asked
+requirement 4's question of a registered plugin nothing can place. Possibly also the waiver
+convention itself (`08` §3): a waiver entry states its fact **and** what would have to change for
+the fact to stop holding, so the reader after next can price the repair instead of re-deriving it.
+
+---
+
+### L8.1 — `--check-live` compared two phase names by substring and reported agreement
+
+**What happened.** `next_task.py`'s live check asserts the Status block's phase and the first
+unticked task's phase are the same, via
+`task.phase.split("—")[0].strip() not in stated` — a **substring** test over a prose table cell.
+Phase 8 is the project's first phase that deliberately runs out of ledger order (no gate; Phase 7 is
+blocked by G12), so `docs/README.md`'s Phase cell now reads *"Phase 8 … It runs before **Phase 7**,
+which G12 still gates"* while the first unticked box is `7.1`. The two genuinely disagree, the cell
+contains the string `Phase 7` because explaining the ordering requires naming it, and the check
+printed *"live check ok — its phase agrees with 7.1"*. Its **premise** is also now false: the two
+phases can legitimately differ, which is what the Next action row exists to carry.
+
+**Generalises to.** *A containment test between a prose field and an identifier reports agreement
+whenever the prose mentions the identifier for any reason — including to say it does **not** apply;
+and a check whose premise is "these two must name the same thing" needs re-argued the first time the
+project makes them legitimately differ, rather than loosened until it passes.*
+
+**Candidate home.** `.claude/skills/phase-step/scripts/next_task.py` → `live_checks`. The repair is
+two things, not one: compare the Status cell's **first** phase identifier for equality rather than
+containment, and replace the premise — the real invariant is *the Next action row names a task that
+exists in the ledger*, which holds whether or not the phases match, and which nothing checks today.
+Sits beside `L6.3` and `L6.4`, both of which are this same script.
+
+---
+
 ### L7.9 — the precondition was written down, in this repository, and not checked before acting
 
 **What happened.** `v2.1.0` was tagged and every publish job was refused with

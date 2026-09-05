@@ -1005,27 +1005,34 @@ $ echo $?
 
 **What it looks like** — repair, 2026-08-20 (`docs/01-high-level-plan.md` item 12's own dated
 paragraph): `[services]` names a key `weft_cli.services.ServiceSelection` does not have —
-`embed`/`store` are the only two — reproduced against a real checkout:
+`embed`, `route` and `store` are the three — reproduced against a real checkout:
 
 ```text
 $ printf '[services]\nembedd = "openai"\n' > weft.toml
 $ weft plugins list
 unknown [services]
 key(s) in weft.toml: 'embedd'. [services]
-accepts embed, store. A key nothing reads is refused rather than ignored — a service Weft did
-not select is one you would have to notice by the answers being wrong.
+accepts embed, route, store. A key nothing reads is refused rather than ignored — a service Weft
+did not select is one you would have to notice by the answers being wrong.
 $ echo $?
 4
 ```
 
+> *(Re-run 2026-09-05 at ledger task 8.3, which added `route` as a third key. **This transcript was
+> stale for the length of that task and nothing caught it** — it is quoted prose rather than an
+> executed sample, so the whole gate stayed green while it named two keys out of three. `docs/
+> lessons.md` L6.19 already says only executed transcripts fail the gate; this is that rule's cost
+> paid once more, and `tests/docs/test_pack_guide_samples.py` is the index that would have found
+> which pages a `[services]` change falsifies, had anyone asked it.)*
+
 Before this repair the class was a bare `WeftError` — the message already named the keys, but only
 inside the string, invisible to fitness function 12's family walk, which looks for a typed
 `valid_options` field. `UnknownConfigKeyError` above is the same-phase precedent this now matches;
-`(exc.valid_options == ("embed", "store"))` for any raise site. `weft plugins list`'s exit `4`
+`(exc.valid_options == ("embed", "route", "store"))` for any raise site. `weft plugins list`'s exit `4`
 comes from `weft_cli.cli.main`'s own fixed code for any `WeftError` raised while `build_
 dependencies` is still assembling the registry — see that function's own comment — not from
-`weft_cli.exit_codes.exit_code_for`'s per-exception mapping. **What to do:** use `embed` or
-`store`, the only two keys `[services]` reads — `docs/03-cli.md` → *Project context*.
+`weft_cli.exit_codes.exit_code_for`'s per-exception mapping. **What to do:** use `embed`,
+`route` or `store`, the three keys `[services]` reads — `docs/03-cli.md` → *Project context*.
 
 The malformed-value check just below this one in `weft_cli.services.service_selection_from_
 config` (a `[services]` value that is not a non-empty string) stays a plain `WeftError` and is

@@ -1,0 +1,27 @@
+name: hyde-then-retrieve
+extends: retrieve-then-generate
+
+# Two operators, and the second is forced by the first. `hyde` writes hypothetical answer
+# documents and adds them to the `QuerySet`; `keep_question: true` (the plugin's default, kept)
+# means the user's own question stays in it. `vector-top-k` then embeds and searches once per
+# query, so `fuse` is handed four ranked lists rather than one — and `single-list`, the identity
+# fuser the base resolves, is not a fuser of four. Hence the `replace`.
+#
+# This is the divergence `10` §1.1 records at the name: Gao et al. average the embeddings of
+# several hypothetical documents *together with the query's*; this fuses their rankings by
+# reciprocal rank instead. Fusing is not averaging, and the row says so rather than the name
+# implying otherwise.
+vars:
+  route.summary: >-
+    Writes three hypothetical answers to the question and searches for those as well as for the
+    question itself, fusing the four rankings by reciprocal rank. Helps when the question is
+    phrased nothing like the passages that answer it.
+  route.cost: >-
+    one model call to write the hypothetical documents, then one embedding call and one search
+    per query (four of each by default), and one model call
+
+insert:
+  - before: retrieve
+    stage: {id: hypothesise, use: hyde}
+replace:
+  - {id: fuse, use: reciprocal-rank-fusion, with: {k: 60}}

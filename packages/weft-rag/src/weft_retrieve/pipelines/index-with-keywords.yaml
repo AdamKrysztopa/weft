@@ -1,0 +1,15 @@
+name: index-with-keywords
+extends: index-text
+
+# The cheapest of the three enrichment rungs, and the only one that adds no nodes and calls no
+# model. `keybert` is an `Enhancer`: it attaches keywords to a node's metadata and never changes
+# its content or its count — `weft_enhance.contract.Enhancer`'s own division of labour, against
+# a `Chunker` which replaces and an `Expander` which adds.
+#
+# Placed after `chunk` and before `embed` because keywords are extracted per chunk, and because
+# the vector is computed from content this stage does not touch — running it after `embed`
+# would produce the same vectors and the same metadata, so the position is about legibility
+# rather than about the result.
+insert:
+  - after: chunk
+    stage: {id: keywords, use: keybert, with: {top_n: 5}}

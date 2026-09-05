@@ -22,8 +22,13 @@ then resolved and run *second*, taking a `QuerySet` — the same two-step `.phas
 §5 states, with `weft_cli.compile.contracts_for`/`to_specs` and `weft_kernel.runner.Runner`
 doing the actual resolution and execution work for both, exactly as they would for any
 other pipeline document. Neither resolution is special-cased: this module names no plugin
-and no pipeline of its own beyond `route.yaml`'s own well-known name, and `route.yaml`'s
-own name is the one exception a router has to have — something has to be the router.
+and no pipeline of its own at all. **Which document is the router is `[services] route`'s
+answer since task 8.3**, defaulting to `route` — until then the name was a constant here, and
+that made it the one pipeline in the tree nobody could substitute: a pack cannot contribute a
+second document under a name another pack already holds, and a project that ships its own
+`route.yaml` is refused by `full_catalogue` and takes every `weft pipeline` command with it.
+`weft_cli.services.DEFAULT_ROUTER` carries the argument, and the two registered routing
+policies that were unreachable because of it are the evidence.
 
 `weft_cli.run_services.check_store_capabilities` runs once per resolved pipeline,
 immediately before that pipeline's own `run_once` call — see `weft_cli.run_services`'s
@@ -56,7 +61,7 @@ from weft_cli.pipeline_catalogue import (
     load_contributed,
 )
 from weft_cli.run_services import build_services, check_store_capabilities
-from weft_cli.services import ServiceSelection
+from weft_cli.services import DEFAULT_ROUTER, ServiceSelection
 from weft_generate.contract import Generator
 from weft_generate.payload import Answer
 from weft_kernel.context import Context
@@ -68,23 +73,39 @@ from weft_kernel.registry import Registry
 from weft_kernel.resolution import Contribution, resolve
 from weft_kernel.runner import PipelineResolutionError, Runner
 from weft_llm.contract import TokenSink
+from weft_retrieve.contract import RoutingPolicy
 from weft_retrieve.payload import Query, QuerySet, Route
 from weft_store import NodeStore
 
-#: `route.yaml`'s own `name:` field — the one pipeline name this module ever writes
-#: itself, because a router has to be named *something* to be resolved at all. Every
-#: pipeline it can route *to* is discovered, never written here.
-ROUTE_PIPELINE_NAME = "route"
+#: `route.yaml`'s own `name:` field, and **the default rather than the law** since ledger task
+#: **8.3**. It was a module constant until then, and `weft_cli.services.DEFAULT_ROUTER` — where
+#: it now lives as `[services] route`'s default — carries the argument for the change in full:
+#: a hard-coded router name is the one privileged pipeline in the tree, because no second
+#: document can take the name and no project may declare it either. This alias stays so the
+#: name a reader greps for still resolves; `run_routed_ask` reads `services.route`.
+ROUTE_PIPELINE_NAME = DEFAULT_ROUTER
 
 
-class NoRouterPipelineError(WeftError):
-    """No installed pack contributed a pipeline named `route.yaml`'s own `route`.
+class NoRouterPipelineError(WeftError, UnresolvedNameError):
+    """`[services] route` names a pipeline no installed pack contributed.
 
-    `weft-retrieve`'s own `register()` calls `registrar.add_pipeline_resource("weft_retrieve",
-    "pipelines/route.yaml")` — this fires only when `weft-retrieve` is not installed, not
-    permitted by `[packs] allow`, or failed to register, all of which `weft plugins doctor`
-    already reports by distribution.
+    `weft-retrieve`'s own `register()` contributes `route`, the default — so against an
+    unedited configuration this fires only when `weft-retrieve` is not installed, not permitted
+    by `[packs] allow`, or failed to register, all of which `weft plugins doctor` already
+    reports by distribution. Since task **8.3** it also fires on a typo in `[services] route`,
+    which is a different mistake and gets a different remedy: `valid_options` carries every
+    contributed pipeline whose last stage is a `RoutingPolicy`, so requirement 5's third clause
+    — *what the valid options are* — is answered with the routers that exist rather than with
+    advice about `doctor`. `weft_cli.route_ask.pipelines_producing` computes it, the same walk
+    `run_named_ask`'s own refusal already uses one contract over.
     """
+
+    def __init__(
+        self, message: str, *, valid_options: tuple[str, ...], remedy: str | None = None
+    ) -> None:
+        super().__init__(message)
+        self.valid_options = valid_options
+        self.remedy = remedy
 
 
 class UnroutedPipelineNameError(PipelineResolutionError, UnresolvedNameError):
@@ -157,11 +178,21 @@ async def run_routed_ask(
     `weft_cli.ingest._specs_from_document` already receive it.
     """
     catalogue = load_contributed(reports)
-    router = catalogue.get(ROUTE_PIPELINE_NAME)
+    router_name = services.route
+    router = catalogue.get(router_name)
     if router is None:
+        options = pipelines_producing(RoutingPolicy, catalogue=catalogue, registry=registry)
         raise NoRouterPipelineError(
-            f"no installed pack contributed a pipeline named '{ROUTE_PIPELINE_NAME}'. "
-            f"Run `weft plugins doctor` to see whether 'weft-retrieve' is active."
+            f"no installed pack contributed a pipeline named '{router_name}', which is what "
+            f"[services] route selects. Routers contributed: "
+            f"{', '.join(options) or '(none)'}.",
+            valid_options=options,
+            remedy=(
+                f"set [services] route in weft.toml to one of: {', '.join(options)}."
+                if options
+                else "run `weft plugins doctor` to see whether 'weft-retrieve' is active — no "
+                "installed pack contributed any pipeline ending in a RoutingPolicy."
+            ),
         )
 
     runner, routed_ctx, store = await _prepared_runner(
@@ -179,7 +210,7 @@ async def run_routed_ask(
         catalogue=catalogue,
         contributions=contributions,
     )
-    route = _require(route, Route, pipeline=ROUTE_PIPELINE_NAME, produced_by="routing")
+    route = _require(route, Route, pipeline=router_name, produced_by="routing")
 
     target = catalogue.get(route.pipeline)
     if target is None:

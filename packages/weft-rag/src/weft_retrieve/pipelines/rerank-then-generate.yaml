@@ -1,0 +1,24 @@
+name: rerank-then-generate
+extends: retrieve-then-generate
+
+# A one-operator rung on the other side of the search: the retrieval is unchanged and what
+# reaches the prompt is reordered before `repack` decides where in the prompt each passage sits.
+# Two orderings in sequence is deliberate and not redundant — `llm-rerank` decides *which*
+# passages are best, `repack` decides *where* the best ones go, and `10` §1.5 keeps them as two
+# plugins for that reason.
+#
+# `top_n: 20` is the plugin's default and is left, which means the rerank is a reordering of the
+# whole retrieved set rather than a truncation of it; `repack`'s inherited `top_n: 8` is still
+# what decides how many passages the generator actually sees.
+vars:
+  route.summary: >-
+    One vector search, then the model reads the retrieved passages against the question and
+    reorders them by relevance before the answer is written. For a question where the nearest
+    vectors are close together and the ordering among them is what decides the answer.
+  route.cost: >-
+    one embedding call, one search, one model call to rerank the retrieved passages, and one
+    model call
+
+insert:
+  - after: fuse
+    stage: {id: rerank, use: llm-rerank}

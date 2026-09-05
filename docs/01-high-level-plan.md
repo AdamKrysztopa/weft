@@ -788,6 +788,74 @@ the released API, on the same terms a stranger has.
   end to end through the published command surface with no edit to core and no private API, and
   `weft plugins doctor` reports it exactly as it reports any other pack.
 
+### Phase 8 — From engine to product
+
+**Added 2026-09-05, logged as scope decision `S9`.** The engine expresses far more than it ships.
+Phases 0–6 built the mechanism and proved it; this phase is about the *distance between what Weft
+can express and what a user can reach*, which nothing before it was measuring. It was found by
+counting: four pipeline documents in the whole tree, naming ten plugins, against forty-eight
+plugins registered into pipeline positions — so the promise "naive to advanced, quickly" was true
+of the engine and false of the product, and a user met ten techniques and had to write YAML from
+scratch to reach the rest.
+
+**It runs before Phase 7, and the numbering is deliberate rather than an accident.** Phase 7 is
+gated by **G12**, which is open; this phase has no gate at all. The number records where it was
+added to the plan, not where it sits in the queue — `docs/README.md`'s **Next action** row is the
+mechanism that carries an ordering the ledger's own sequence does not express, and it is pointed
+here. `scripts/next_task.py` will still print `7.1` as the first unticked box, which is why that
+row outranks ledger order and why this paragraph exists rather than a silent renumbering of a
+phase somebody may already have cited.
+
+**What it absorbs.** `ROADMAP.md` was a working shortlist ordered by effect ÷ effort, written
+because the ordering kept being re-derived between sessions, and it explicitly held no state
+because nothing could tick a row on it. That was the right shape for a list with no phase and the
+wrong one the moment a row got built: `rerank-then-generate` shipped as a side effect of the
+ladder, closing row 5, and there was nowhere to say so. Its rows are now this phase's tasks, its
+ordering argument is below, and the file itself is retired to a pointer. **Row 6 — the graph as a
+shipped pack — is deliberately not here**: it is blocked on three decisions (whether a graph store
+is in the G4 family, where a corpus-wide revisable pass may run, where per-corpus curated
+configuration lives), the first two of which touch G2, G4, G5 and `S5` at once. A phase does not
+absorb work that is not schedulable.
+
+**The ordering, kept from the list it replaces.** The ladder is what you demonstrate; hybrid
+retrieval is the rung that makes the demonstration impressive; the fan-out cap is what stops the
+impressive thing saturating a stranger's rate limit on their first real corpus. The falsification
+instrument is out of order by wow and in order by consequence: the ability to show that a claimed
+improvement is *not* real is what makes every later claim about the rungs worth anything, and both
+2026-09-05 audits reached that independently.
+
+- **Gate:** none. Every decision this phase needs is settled — G2 gave it derivation, G4 the store
+  family, G10 the distribution it ships from. It is the first phase since Phase 2 with no gate line
+  to read, which is itself why it is schedulable while Phase 7 is not.
+- **Read:** `02` §3 in full — the operator set, `extends`, slots, and the `route.summary` contract a
+  routable document signs; `10` in full, because every rung whose name comes from the literature is
+  a published claim `10` either supports or withdraws; and `09` §4, because rows that assert an
+  improvement are judged against the baseline that section specifies rather than against an opinion.
+- **Lift:** nothing new, and one scar already recorded as a rule. `01` item 11's own citation of the
+  reference — a strategy that registers, is listed, is described to an LLM in a routing prompt, and can
+  never run — turned out to have a live instance in *this* tree, one contract over: the router's
+  name was a constant in `weft-cli`, so `threshold-ladder` and `always` were registered, listed,
+  catalogued in `10` §1.5, and placeable by nobody. Fitness function 16 exists because reading for
+  that shape is not the same as checking for it.
+- **Exit:** on a machine that is not this repository, against an installed `weft-rag` and one
+  container: a corpus is indexed through a **shipped ingest document**, and the same question is
+  answered through **at least three rungs of the shipped ladder**, one of which fuses vector and
+  full-text results retrieved from the same store. **Fitness function 16 is wired and green with its
+  waiver empty** — so every plugin the default install registers into a pipeline position is named
+  by a document somebody can run, with no position parked behind a reason. No run issues more
+  concurrent model calls than its own configured cap, demonstrated by a corpus large enough that an
+  uncapped run would exceed it. And `weft eval` reports whether the difference between two of those
+  rungs falls outside the interval the published baseline recorded across its own repetitions —
+  **either answer discharges this criterion**, because the instrument being able to say "no" is the
+  whole of what it is for.
+
+**Why the exit says "either answer".** Every other phase exit is a property that must hold. This one
+is deliberately not, and it is the only place in this plan where that is right: a criterion reading
+*"and the advanced rung measures better"* would make the phase pass by choosing a favourable
+question set, which is the exact failure the instrument is being built to detect. What has to be
+demonstrated is that the measurement runs and that its answer is believed — not which answer it
+gives.
+
 ---
 
 **If a gate reopens mid-phase.** Discovering that a closed decision was wrong is information, not
@@ -1267,6 +1335,47 @@ All checks run in CI, before tests.
     that regression and showing the same walk reports it as an offender, in the style item 0's
     own waiver test and FF2's, FF6's, FF9's and FF14's `test_the_check_can_actually_fail`
     already use.
+16. **Every pipeline position a shipped ladder registers is reachable from a shipped pipeline.**
+    Added by Phase 8. One clause, categorical, carrying no tuning constant: a distribution that
+    contributes any pipeline document at all must contribute enough of them that every plugin it
+    registers into a *pipeline position* is named by one. Not a percentage and not a count of
+    documents — a plugin is either reachable from something a user can run today or it is not.
+
+    **Why this is a fitness function rather than a preference.** A pipeline is data, so the
+    distance between *the engine can express this* and *a user can run this* is one YAML file —
+    which is exactly the distance nobody notices growing, because nothing fails while it does.
+    Measured before the check existed: four shipped documents naming ten plugins against
+    forty-eight registered pipeline positions, and every one of 1,900-odd tests green, because
+    each half was correct alone. **It is item 11 one question further on.** 11(b) asks whether
+    every document that claims to be runnable resolves; this asks whether the documents that ship
+    cover what ships beside them. The reference's own worked example that 11 quotes — a strategy that
+    registers, is listed, is described to an LLM in a routing prompt, and can never run — is not
+    caught by 11(b) at all, because nothing about it fails to resolve. It had a live instance in
+    this tree when this item was written, and reading for the shape had not found it.
+
+    **The property**, `tests/architecture/test_ff16_ladder_reachability.py`: run real discovery;
+    take every distribution whose `PackReport.pipeline_resources` is non-empty — that derivation
+    *is* the scope rule, so a pack shipping no document is held to nothing and a pack shipping one
+    has taken on the ladder; take every contract with `Stage` in its `__mro__`, never a list this
+    file maintains, so a query-path contract published tomorrow is covered with no edit; and
+    assert every `(contract, plugin)` those distributions register appears as a `use:` in some
+    contributed document. `fallback:` is excluded on 11(b)'s own stated grounds, and a `with:`
+    value is out of scope by construction — its meaning belongs to the plugin declaring the field,
+    not to the document — which the test's own docstring says out loud rather than leaving as a
+    silent boundary. **How it fails:** register a plugin and ship no rung for it;
+    `test_the_check_can_actually_fail` drives the identical computation over a planted position
+    nothing names.
+
+    **Its waiver is pinned but not at zero, and the exit criterion is what stops that being
+    permanent.** Two `Renderer` names are waived because no shipped command consumes a
+    `Rendition`, so a document ending in one would run and discard its only product — a fact about
+    what can be run, which is the only kind of reason this waiver accepts. Phase 8's exit requires
+    the waiver **empty**, so the entry is a dated debt rather than a parking space. A third and
+    fourth entry were drafted and then deleted: `threshold-ladder` and `always` were unplaceable
+    because the router's name was a constant in `weft-cli`, which was a true fact and still the
+    wrong answer, because the fact was a defect. **A waiver reason must be a fact; that is
+    necessary and not sufficient, and the question after establishing it is whether the fact
+    should hold.**
 
 > **Corrected from the reference study (2026-08-10) — fitness function 1, and the preamble.** This
 > section previously opened *"the predecessor's AST boundary checker is the single best thing in

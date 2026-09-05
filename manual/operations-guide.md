@@ -297,6 +297,41 @@ would be worse than one that says no. A pipeline whose retriever needs `TextSear
 advertise, and which registered stores provide the rest. `manual/contract-reference.md` lists which
 distribution satisfies which capability, derived from the code rather than typed by hand.
 
+## Choosing which router decides
+
+`weft ask` with no `--pipeline` runs a **router** — a pipeline document that scores the question and
+selects another pipeline to answer it — and `[services] route` names which document that is:
+
+```toml
+[services]
+route = "route-by-score"
+```
+
+Three routers ship, and they differ in *how closed* the choice is rather than in quality:
+
+| `[services] route` | Policy | What it selects from |
+|---|---|---|
+| `route` *(default)* | `nearest-description` | Every installed pipeline that states a `route.summary`, matched against the question. **Open** — a rung installed today is selectable today, with no rule edit |
+| `route-by-score` | `threshold-ladder` | Only what its own bands name, in order, first match wins. **Closed** — the shipped rules choose between `no-retrieval` and `retrieve-then-generate`, and every other rung is invisible to it until you add a band |
+| `route-fixed` | `always` | One named pipeline, whatever the question. The scorecard is still produced and still travels into the trace; it is simply not consulted |
+
+Pick `route-by-score` when you want exactly the behaviours you wrote down and want to know which one
+ran and why. Pick `route-fixed` to pin behaviour — a benchmark that must hit one pipeline every
+time, or an incident where you want the router out of the loop without losing the dimensions that
+would show whether it was at fault. **`route-fixed` is not free**: `RoutingPolicy` takes a
+`Scorecard`, so the scorer stage still runs and still costs one model call per question.
+
+Only a pipeline an installed pack **contributed** can be named here — not a document in your own
+`pipelines/` directory. A name nothing contributed is refused by listing every router that is
+contributed, so a typo names its own alternatives.
+
+> *(Added 2026-09-05 at ledger task 8.3, and it is a repair rather than a feature. Until then the
+> router's name was a constant inside `weft-cli`, which made it the one pipeline nothing could
+> substitute: a pack cannot contribute a second document under a name another pack already holds,
+> and a project that ships its own `route.yaml` is refused outright — taking every `weft pipeline`
+> command with it until the file is renamed. So `threshold-ladder` and `always` were registered,
+> listed by `weft plugins list` and documented, and placeable by nobody.)*
+
 ## Choosing which model answers
 
 Weft ships two `LLMProvider` plugins under one contract, and `[llm.roles]` — not `[services]` —

@@ -1,0 +1,36 @@
+name: index-messy-text
+extends: index-text
+
+# For text that has been through a converter — a PDF-to-text pass, an OCR run, a scrape. Three
+# cleaners inserted, each repairing damage that a *source* caused rather than damage text has in
+# general:
+#
+#   `hyphenation`     — a word split across a line break by typesetting, rejoined.
+#   `artifact-remove` — running heads, page numbers, the furniture of a printed page.
+#   `table-linearize` — a table laid out in columns of spaces, turned into rows a chunker and an
+#                       embedder can both read as sentences rather than as a picture.
+#
+# **All three land before `whitespace`, and that is checked rather than remembered.** Each reads
+# line structure: a hyphen is only a line-break hyphen if a newline follows it, page furniture
+# is recognised as short repeated *lines*, and a table is a table because its columns line up
+# across rows. `whitespace` destroys `Newlines`, so a document that put these after it would be
+# asking three stages to read something an earlier stage had already thrown away.
+#
+# This document was first written with exactly that mistake, and `weft_kernel.resolution`
+# refused it by name before anything ran — "stage 'dehyphenate' needs 'Newlines' intact, but
+# stage 'whitespace' earlier in pipeline 'index-messy-text' already destroys it. The only legal
+# positions for 'dehyphenate' are before 'whitespace', never after." The `intact`/`destroys`
+# declarations on the plugins are the authority on this ordering; a comment reasoning about it
+# is not, and this one is a description of what they enforce rather than a second copy of it.
+#
+# Not on `index-text` itself: each of these edits text that was correct if the corpus did not
+# have that particular damage. `hyphenation` rejoins across a line break, which is wrong for a
+# corpus of poetry; `artifact-remove` deletes short repeated lines, which is wrong for a corpus
+# of forms. A cleaner applied to a corpus it was not meant for corrupts silently.
+insert:
+  - after: normalize
+    stage: {id: dehyphenate, use: hyphenation}
+  - after: dehyphenate
+    stage: {id: strip, use: artifact-remove}
+  - after: strip
+    stage: {id: tables, use: table-linearize}

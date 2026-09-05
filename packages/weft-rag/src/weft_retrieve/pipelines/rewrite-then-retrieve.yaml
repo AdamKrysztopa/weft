@@ -1,0 +1,25 @@
+name: rewrite-then-retrieve
+extends: retrieve-then-generate
+
+# The first rung above the baseline, and the smallest possible one: a single stage inserted
+# ahead of the search, changing nothing else. `contextual-query-rewrite` turns "and what about
+# the second one?" into a question the index can actually be asked, using the turns already in
+# `QuerySet.history`.
+#
+# `skip_without_history: true` is the plugin's own default and is left alone deliberately — on
+# the first question of a conversation there is no history to resolve against, so the rewrite
+# is skipped and this rung costs exactly what `retrieve-then-generate` costs. The summary below
+# says so, because a router that believes an unconditional extra model call would price this
+# rung wrong for every single-shot question.
+vars:
+  route.summary: >-
+    A follow-up question in a conversation, rewritten into a standalone query using the turns
+    that came before it, then one vector search and a cited answer. On a first question, with
+    no history to resolve against, it does exactly what retrieve-then-generate does.
+  route.cost: >-
+    one model call to rewrite (skipped when there is no history), then one embedding call, one
+    search and one model call
+
+insert:
+  - before: retrieve
+    stage: {id: rewrite, use: contextual-query-rewrite}

@@ -1,0 +1,32 @@
+name: iterative-retrieve
+extends: retrieve-then-generate
+
+# The first rung that changes the *retriever* rather than what sits around it, and it looks
+# smaller in the diff than it is: `iterative-retrieval` occupies exactly the position
+# `vector-top-k` occupied and owns a loop inside it, resolving `leaf` and `sufficiency` by name
+# through `StageLookup`. Nothing downstream of `retrieve` can tell that three searches happened
+# rather than one, which is the concession `weft_retrieve.contract.StageLookup`'s own docstring
+# names: a looping technique is one plugin that owns its loop.
+#
+# `sufficiency: llm-sufficiency` is written out although it is the default, because it is the
+# thing this rung is *about* — the critic is a named, swappable plugin, and the sibling rung
+# `draft-then-refine` names the other one at the same kind of position. `min_rounds: 1` is also
+# the default and is left alone: `10` §1.1 records the reference forcing a second round even when
+# its critic said stop, which no paper in the family does.
+vars:
+  route.summary: >-
+    Searches, asks the model whether the evidence actually answers the question, and searches
+    again for what is still missing — up to three rounds — before answering from everything
+    gathered. For a question that needs facts no single passage holds.
+  route.cost: >-
+    one embedding call, one search and one model call to judge sufficiency per round, up to
+    three rounds, and one model call
+
+replace:
+  - id: retrieve
+    use: iterative-retrieval
+    with:
+      max_rounds: 3
+      sufficiency: llm-sufficiency
+      leaf: vector-top-k
+      leaf_config: {top_k: 20}

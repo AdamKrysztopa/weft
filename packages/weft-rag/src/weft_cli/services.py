@@ -78,6 +78,19 @@ DEFAULT_EMBEDDER: Final[str] = "hash"
 #: it is resolved by name through the same registry every other store is.
 DEFAULT_STORE: Final[str] = "pgvector"
 
+#: `weft-retrieve`'s own `route.yaml`. **Added by ledger task 8.3, and it is a repair rather
+#: than a feature.** Until it existed, `weft_cli.route_ask` held `"route"` as a module constant
+#: — "the one pipeline name this module ever writes itself" — and that made the router the only
+#: privileged pipeline in the tree: a pack cannot contribute a second document under a name
+#: another pack already contributed, and a project cannot ship its own `route.yaml` either,
+#: because `weft_cli.pipeline_catalogue.full_catalogue` refuses a name declared by both sources
+#: and takes every `weft pipeline` command down with it until the file is renamed. So
+#: `threshold-ladder` and `always` were registered, listed, catalogued in `10` §1.5 — and
+#: placeable by nobody, which is requirement 4 broken in exactly the shape `01` item 11 quotes
+#: from the reference: a strategy that registers, is listed, is described to a model, and can never
+#: run. Here it is a name resolved by the same mechanism `embed` and `store` already use.
+DEFAULT_ROUTER: Final[str] = "route"
+
 
 class UnknownServiceKeyError(WeftError, UnresolvedNameError):
     """`[services]` names a key this module does not read.
@@ -94,7 +107,17 @@ class UnknownServiceKeyError(WeftError, UnresolvedNameError):
 
 
 class ServiceSelection(BaseModel):
-    """What `[services]` decides. Two fields today; the block is designed to grow."""
+    """What `[services]` decides. Three fields today; the block is designed to grow.
+
+    Two of them name a **plugin** and the third names a **pipeline**, which is a difference
+    worth stating rather than smoothing over: `embed` and `store` are resolved through the
+    registry and fail with `weft_kernel.registry.UnknownPluginError`, while `route` is looked up
+    in the contributed pipeline catalogue and fails with `weft_cli.route_ask.
+    NoRouterPipelineError`. They belong in one block anyway because the question each answers is
+    the same one — *which of the installed things fills this role for this project* — and
+    splitting them by how the lookup happens would put an implementation detail in a user's
+    configuration file.
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -105,6 +128,12 @@ class ServiceSelection(BaseModel):
     #: one key, deliberately: an index written to one store and a question asked of another
     #: is a run that returns nothing and reports no error.
     store: str = DEFAULT_STORE
+
+    #: The pipeline document `weft ask` runs to choose a pipeline — see `DEFAULT_ROUTER` for
+    #: why this is a key rather than a constant. Only a **contributed** document can be named:
+    #: `run_routed_ask` searches `load_contributed`, not the project's own `pipelines/`
+    #: directory, which is Phase 2's settled behaviour and is not reopened here.
+    route: str = DEFAULT_ROUTER
 
 
 def service_selection_from_config(document: dict[str, object] | None) -> ServiceSelection:

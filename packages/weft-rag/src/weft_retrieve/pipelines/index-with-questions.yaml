@@ -1,0 +1,23 @@
+name: index-with-questions
+extends: index-text
+
+# doc2query, indexed. `hypothetical-questions` is an `Expander`: for each chunk it generates
+# questions that chunk would answer and adds them as derived nodes standing in for their one
+# parent. What gets searched is then a question against questions rather than a question against
+# prose, which is the vocabulary mismatch the technique exists for — arXiv:1904.08375, and `10`
+# §1.2 records that this is doc2query rather than HyDE, which does the same trick at query time.
+#
+# **Before `embed`, and that ordering is load-bearing.** The generated nodes carry no vector of
+# their own; they get one because `embed` runs after this stage and embeds everything it is
+# handed. Insert this after `embed` and the questions are stored unsearchable — a corpus that
+# indexes cleanly, costs a model call per chunk, and answers exactly as it did before.
+#
+# **Pair it with `collapse-to-parent` at query time.** A chunk with three generated questions
+# can occupy four of a ranking's slots for having been indexed four ways;
+# `raptor-and-leaves-rrf` shows the collapse stage that fixes it.
+#
+# **Cost is per chunk and is not bounded by this document.** One model call for every chunk in
+# the corpus, issued concurrently — ledger task 8.7 is the semaphore that is not there yet.
+insert:
+  - after: chunk
+    stage: {id: questions, use: hypothetical-questions, with: {questions_per_node: 3}}

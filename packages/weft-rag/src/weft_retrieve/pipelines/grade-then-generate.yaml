@@ -1,0 +1,24 @@
+name: grade-then-generate
+extends: retrieve-then-generate
+
+# The same position as `rerank-then-generate` and a different question asked at it, which is
+# why they are two rungs and not one parameterised one: a reranker *orders* what it was given
+# and a grader *discards* part of it. `graded-retrieval` keeps only passages graded `relevant`
+# or better, so a question the corpus does not answer arrives at `cited-answer` with little or
+# nothing — and `cited-answer`'s inherited `when_no_evidence: refuse` then refuses rather than
+# answering from memory, which is the behaviour this rung exists to make available.
+#
+# `batch: 5` and `max_graded: 20` are the plugin's defaults, kept, and they are what the cost
+# line below is computed from: twenty passages graded five at a time is four model calls.
+vars:
+  route.summary: >-
+    One vector search, then every retrieved passage is graded against the question and the ones
+    that fail are dropped before the answer is written — so a question the corpus does not
+    answer is refused rather than answered from what happened to be nearest.
+  route.cost: >-
+    one embedding call, one search, one model call per batch of five passages graded (four by
+    default), and one model call
+
+insert:
+  - after: fuse
+    stage: {id: grade, use: graded-retrieval}

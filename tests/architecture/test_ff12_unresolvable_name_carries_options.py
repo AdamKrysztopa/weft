@@ -102,6 +102,7 @@ NAME_RESOLUTION_FAMILY: Final[frozenset[str]] = frozenset(
         "weft_eval.offline.UnknownMetricNameError",
         "weft_cli.services.UnknownServiceKeyError",
         "weft_cli.route_ask.UnroutedPipelineNameError",
+        "weft_cli.route_ask.NoRouterPipelineError",
         "weft_cli.run_services.StoreCapabilityMissingError",
         "weft_llm.models.UnknownModelError",
         "weft_llm.models.AmbiguousModelError",

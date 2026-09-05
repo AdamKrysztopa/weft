@@ -378,6 +378,61 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     # no document did, so nobody arriving at Weft could see that it could.
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/raptor-and-leaves-rrf.yaml")
 
+    # **Phase 8 — the ladder.** Everything below this line is the same one-line contribution
+    # every document above it makes, and that is the whole of the Python this phase needed: a
+    # pipeline is data, so a rung is a file and a call, never a branch. Fitness function 16 is
+    # what keeps the list honest from here — a plugin registered into a pipeline position that
+    # no document below names fails the gate, so the next capability this pack registers arrives
+    # with the rung that lets somebody run it, or with the fact that says why it cannot have one.
+    #
+    # **Eleven query rungs, each a derivation.** Every one carries `extends:
+    # retrieve-then-generate` and one or two operator blocks, which is requirement 3 stated in
+    # the shipped set rather than merely available in the model: before this phase, `extends`
+    # was exercised by tests and by `manual/`'s worked example and by nothing a user could run.
+    # Each restates its own `route.summary` and `route.cost` — `weft_retrieve.engine`'s own
+    # docstring records that a derived document inherits its parent's `vars`, so a rung that
+    # named none would advertise itself to `nearest-description` in its parent's words.
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/rewrite-then-retrieve.yaml")
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/hyde-then-retrieve.yaml")
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/step-back-then-retrieve.yaml")
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/multi-query-then-retrieve.yaml")
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/boolean-then-retrieve.yaml")
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/rerank-then-generate.yaml")
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/grade-then-generate.yaml")
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/iterative-retrieve.yaml")
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/corrective-retrieve.yaml")
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/contradiction-aware.yaml")
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/draft-then-refine.yaml")
+
+    # **Six ingest rungs, and they are contributed from this pack rather than from `weft-index`
+    # or `weft-clean` for one reason: a document has to name every plugin it places, and these
+    # place plugins from five distributions' worth of packs at once** — `weft_extract`'s `text`,
+    # `weft_clean`'s cleaners, `weft_chunk`'s `fixed-size`, `weft_index`'s expanders,
+    # `weft_enhance`'s `keybert`, `weft_embed`'s `hash` and `weft_store`'s `pgvector`. They all
+    # ship inside `weft-rag`, so any of those packs could hold the file; this one holds it
+    # because this is where the query ladder already lives and a ladder split across two
+    # `register()` functions is a ladder nobody can read end to end.
+    #
+    # **They carry no `route.summary` and must not.** An ingest document produces nodes, not an
+    # `Answer`; `PipelineRouteCatalogue` reads `route.summary` to build the router's candidate
+    # set, so an ingest rung that advertised one would be selectable by `weft ask` and would
+    # fail `weft_cli.route_ask._require` at the end of a run it should never have started.
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-text.yaml")
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-messy-text.yaml")
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-polish.yaml")
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-with-keywords.yaml")
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-with-questions.yaml")
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-with-raptor.yaml")
+
+    # **Two alternative routers, contributed because task 8.3 made a second one selectable.**
+    # `weft ask` used to run the document named `route` and no other, because
+    # `weft_cli.route_ask` held that name as a constant — so `threshold-ladder` and `always`
+    # were registered, listed and documented in `10` §1.5 while being placeable by nobody. Both
+    # of these carry no `route.summary`, exactly as `route.yaml` does not: a router selects
+    # among routing targets and is never one itself.
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/route-by-score.yaml")
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/route-fixed.yaml")
+
 
 __all__ = [
     "ALWAYS_NAME",

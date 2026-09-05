@@ -1,0 +1,21 @@
+name: index-polish
+extends: index-messy-text
+
+# The one rung in this ladder that is about a language, and the only document that is two
+# `extends` from a root — the cap this ladder holds itself to, because a rung whose real shape
+# lives three documents away stops being readable as a delta at all. `weft pipeline show
+# index-polish` prints the resolved ten stages when reading the chain is not what you want.
+#
+# `polish-dictionary-spacing` splits `wcelu` into `w celu` — a fused preposition, which is what
+# a Polish PDF converter produces at a line break — unless the fused-looking token is itself a
+# real word. It declares `applies_to = (Applies(Language, code="pl"),)`, so the plugin states
+# its own scope rather than this document claiming it; `weft plugins doctor` is where that
+# declaration is read back.
+#
+# It also declares `destroys = (Verbatim,)`, which is the honest label: a corpus where the exact
+# original spelling has to survive — quoted legal text, transcripts — should not have this stage
+# in its pipeline, and the declaration is what lets a caller find that out before running it
+# rather than afterwards.
+insert:
+  - after: tables
+    stage: {id: unfuse, use: polish-dictionary-spacing}

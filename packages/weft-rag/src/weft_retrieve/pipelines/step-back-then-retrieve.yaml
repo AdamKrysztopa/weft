@@ -1,0 +1,22 @@
+name: step-back-then-retrieve
+extends: retrieve-then-generate
+
+# The same two-operator shape `hyde-then-retrieve` uses, for the same structural reason — one
+# question becomes several, so the identity fuser has to go — and a different question of the
+# model: not "what would the answer look like" but "what more general question is this an
+# instance of". Zheng et al.'s own step 1. `keep_question: true` is the default and is kept, so
+# the concrete question and its abstraction are both searched, which is the whole point.
+vars:
+  route.summary: >-
+    Abstracts the question into a more general one, searches for both the original and the
+    abstraction, and answers from the two rankings fused. Helps when the specific question is
+    too narrow to match anything and the principle behind it is written down somewhere.
+  route.cost: >-
+    one model call to abstract the question, then one embedding call and one search per query
+    (two of each), and one model call
+
+insert:
+  - before: retrieve
+    stage: {id: abstract, use: step-back}
+replace:
+  - {id: fuse, use: reciprocal-rank-fusion, with: {k: 60}}

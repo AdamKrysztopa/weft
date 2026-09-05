@@ -833,6 +833,24 @@ keys it does, rather than accepted and ignored: a service Weft did not actually 
 operator would have to notice by the answers being wrong. The defaults are the offline ones, so a
 checkout with no `weft.toml` at all needs no credential and no network.
 
+**`[services]` holds three keys, and the third names a pipeline rather than a plugin** (ledger task
+**8.3**). `embed` and `store` are plugin names resolved through the registry; `route` is the
+**router document** `weft ask` runs to choose a pipeline, resolved in the contributed pipeline
+catalogue. They sit in one block because the question each answers is the same one — *which of the
+installed things fills this role for this project* — and splitting them by how the lookup happens
+would put an implementation detail in a user's configuration file.
+
+`route` exists because the alternative was a privileged name. It was a constant in
+`weft_cli.route_ask` until Phase 8, which made the router the one pipeline in the tree nothing could
+substitute: a pack cannot contribute a second document under a name another pack already holds, and
+a project that ships its own `route.yaml` is refused by `weft_cli.pipeline_catalogue.full_catalogue`
+— which does not merely lose the override, it fails every `weft pipeline` command until the file is
+renamed. Two registered `RoutingPolicy` plugins were consequently unreachable by any document
+anybody could write, which is requirement 4 broken in the shape `01` item 11 quotes from the reference:
+registered, listed, described to a model, and never runnable. Only a **contributed** document may be
+named — `run_routed_ask` searches `load_contributed`, not the project's own `pipelines/` directory,
+which is Phase 2's settled behaviour and was not reopened.
+
 **A name from this block is gated before the command runs, and the gate cannot be a list of
 distributions** — `weft_cli.registry_bootstrap.require_plugin`, a repair for a reviewer finding
 against 2.29. Once the plugin name comes from an operator's file, the pack behind it may be

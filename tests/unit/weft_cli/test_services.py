@@ -15,6 +15,7 @@ import pytest
 
 from weft_cli.services import (
     DEFAULT_EMBEDDER,
+    DEFAULT_ROUTER,
     DEFAULT_STORE,
     ServiceSelection,
     UnknownServiceKeyError,
@@ -77,7 +78,7 @@ def test_an_unknown_services_key_carries_the_known_keys_as_a_typed_field() -> No
     # Act / Assert
     with pytest.raises(UnknownServiceKeyError) as raised:
         service_selection_from_config(document)
-    assert raised.value.valid_options == ("embed", "store")
+    assert raised.value.valid_options == ("embed", "route", "store")
 
 
 def test_a_services_value_that_is_not_a_plugin_name_is_refused() -> None:
@@ -115,3 +116,21 @@ def test_services_store_names_the_backend_a_run_indexes_into_and_searches() -> N
     # Assert
     assert selection.store == "qdrant"
     assert ServiceSelection().store == DEFAULT_STORE == "pgvector"
+
+
+def test_services_route_names_the_pipeline_document_weft_ask_routes_through() -> None:
+    # Arrange — ledger task 8.3. `weft_cli.route_ask` held "route" as a module constant, which
+    # made the router the one pipeline nothing could substitute: a pack cannot contribute a
+    # second document under a name another pack already holds, and a project that ships its own
+    # `route.yaml` is refused by `full_catalogue` outright. So `threshold-ladder` and `always`
+    # were registered, listed and documented while being placeable by nobody. One line in the
+    # operator's own file is the whole operation, exactly as it already is for the embedder and
+    # the store.
+    document: dict[str, object] = {"services": {"route": "route-by-score"}}
+
+    # Act
+    selection = service_selection_from_config(document)
+
+    # Assert
+    assert selection.route == "route-by-score"
+    assert ServiceSelection().route == DEFAULT_ROUTER == "route"

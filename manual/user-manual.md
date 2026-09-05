@@ -110,6 +110,49 @@ matching nothing — fails resolution by name rather than silently doing nothing
 for why written order, rather than a fixed evaluation order, is `02` §3's own; §5 below shows what
 one of these failures actually looks like.
 
+### The shipped ladder — nineteen rungs, and every one of them is a derivation
+
+You do not have to start from a blank document. `weft pipeline list` prints twenty-three, and all
+but the four originals are **one operator block away from something simpler**. That is the fastest
+way to read the whole set: pick the rung nearest what you want, run `weft pipeline show <name>` to
+see the resolved stages with the pipeline each one came from in brackets, and `weft pipeline diff`
+it against its parent to see the delta by itself.
+
+**Eleven query rungs, all `extends: retrieve-then-generate`.** Four insert a `QueryTransform` ahead
+of the search — `rewrite-then-retrieve` (a follow-up made standalone), `hyde-then-retrieve`,
+`step-back-then-retrieve`, `multi-query-then-retrieve`. Three of those also swap the fuser, and the
+reason is worth internalising because it is the one rule the operators will not let you break: a
+transform that turns one query into several leaves `fuse` holding several ranked lists, and
+`single-list` is the *identity* fuser. Two act after the search instead — `rerank-then-generate`
+reorders what was retrieved, `grade-then-generate` discards the parts that fail a relevance grade.
+`boolean-then-retrieve` combines result **sets** by algebra rather than by score.
+`iterative-retrieve` and `corrective-retrieve` replace the retriever with one that owns a loop or a
+fallback of its own. `contradiction-aware` and `draft-then-refine` replace the generator.
+
+**Six ingest rungs**, for `weft index --pipeline`. `index-text` is the root — extract, normalise
+whitespace, chunk, embed, store. `index-messy-text` adds the three cleaners that repair converter
+damage; `index-polish` adds a Polish-specific one on top of that. `index-with-keywords`,
+`index-with-questions` and `index-with-raptor` each insert one enrichment stage before `embed`, and
+*before* is load-bearing: a stage that creates new nodes after the embed stage stores them
+unsearchable.
+
+**Two alternative routers**, selected with `[services] route` — see
+`manual/operations-guide.md` → *Choosing which router decides*.
+
+Three things to know before you run one:
+
+- **A rung tells you what it costs, and the router believes it.** Every routable document states
+  `route.summary` and `route.cost` in its `vars:`. `nearest-description` matches a question against
+  those summaries, so a summary that oversells is not a documentation problem, it is a routing bug.
+  A rung you derive inherits its parent's `vars` unless it restates them — **restate both**, or your
+  rung advertises itself in its parent's words.
+- **A rung may ask a model under a role you have not mapped.** `[llm.roles]` is per role, and the
+  ladder uses `rewrite`, `hyde`, `stepback`, `fanout`, `parse`, `rerank`, `grade`, `generate` and
+  `route`. An unmapped one refuses by name and prints the line to add.
+- **The ingest rungs all name `pgvector`**, so `weft pipeline show index-text` needs `[packs.store]
+  dsn` set before it can resolve. Two of them — `index-with-questions` and `index-with-raptor` —
+  resolve but do not yet run; `docs/build-ledger.md` task 8.10 has the reason and owns the repair.
+
 ### Running it
 
 The example is `02` §3's own worked case: `specific` adds a keyword-extraction stage to `base`

@@ -3958,6 +3958,128 @@ closed one — which is what `next_task.py --check-live` refuses to let happen.
 not run, so these four state the properties the phase must end with while leaving their shape to the
 gate — which is exactly what the ⚠ marker means in *How to read a task line* above.
 
+## Phase 8 — From engine to product
+
+**Added 2026-09-05, logged as scope decision `S9`.** `01` → Phase 8 owns the content and the exit;
+this section owns the tasks. The phase exists because the gap it closes was found by *counting*
+rather than by reading: four pipeline documents in the whole tree naming ten plugins, against
+forty-eight plugins registered into pipeline positions — the promise "naive to advanced, quickly"
+true of the engine and false of the product.
+
+**⚠ No gate, and that is why this phase runs before Phase 7.** G12 blocks Phase 7 and nothing
+blocks this. `scripts/next_task.py` reads the ledger top to bottom, so it will keep printing `7.1`
+as the first unticked box; **`docs/README.md`'s Next action row is what overrides that**, and it is
+pointed here. The number says when this phase was added to the plan, not where it sits in the
+queue. Nothing below carries a ⚠: every decision these tasks need is settled.
+
+**This phase absorbed `ROADMAP.md`, which is now retired to a pointer.** That file was a shortlist
+ordered by effect ÷ effort and it explicitly held no state, which was correct while its rows had no
+phase and wrong the moment one got built — `rerank-then-generate` shipped as a side effect of task
+8.1, closing what that list called row 5, and there was nowhere to record it. Rows 1–5 are tasks
+8.1–8.8 below. **Row 6, the graph as a shipped pack, is deliberately absent**: it is blocked on
+three decisions, the first two of which touch G2, G4, G5 and `S5` at once, and a phase does not
+absorb work that is not schedulable.
+
+**Tasks 8.1–8.5 were built in one commit and by one person rather than through the implementer
+split.** `phase-step` → *Green* permits that where the change is smaller than its brief, and here
+the deliverable *is* the data: nineteen documents whose whole content is judgement — every
+`route.summary` is a claim a router will believe, so writing a brief that specified them would have
+been writing them. Task **8.3** is the exception in kind and was still done the same way, because
+it is a config key and two call sites. Said here because nothing else records it.
+
+- [x] **8.1** every query technique this engine registers is reachable as a rung somebody can run,
+  and each rung is a *derivation* on the one below rather than a copy · owner `01` → Phase 8; `02`
+  §3 · turns on — · sha `—` · eleven documents, all `extends: retrieve-then-generate`, one or two
+  operator blocks each. **Requirement 3 stops being merely available**: `extends` was exercised by
+  tests and by `manual/`'s worked example and by nothing a user could run. Every derived rung
+  restates its own `route.summary`/`route.cost`, because `weft_retrieve.engine` merges a parent's
+  `vars` and a rung that named none would advertise itself to `nearest-description` in its
+  parent's words
+- [x] **8.2** a corpus can be indexed through a document rather than through four Python constants ·
+  owner `01` → Phase 8 · turns on — · sha `—` · six ingest documents, the first this project has
+  ever shipped. `weft index --pipeline` was a flag pointing at nothing, and every cleaner, the
+  chunker, the embedder and the store were registered, listed by `weft plugins list`, and placeable
+  by nobody. **Four of the six run end to end; two cannot, and finding that out is what this task
+  was for** — see 8.10. This line originally also claimed *"and `raptor-and-leaves-rrf` has a
+  floor"*, and that clause was **removed rather than left standing**: the document exists and
+  resolves, and running it is blocked by the defect 8.10 names, so the floor is written and not yet
+  walkable. A ticked box that claims the second thing would be exactly the ledger this file's own
+  closing section refuses
+- [x] **8.3** the router is a name an operator selects, not a constant a package holds · owner
+  `03` → *Configuration*; `01` requirement 4 · turns on — · sha `—` · `[services] route`, resolved
+  the way `embed` and `store` already are. Found by writing 8.1: `threshold-ladder` and `always`
+  were registered, listed and catalogued in `10` §1.5 and **placeable by nobody**, because a pack
+  cannot contribute a second document under a name another pack holds and a project shipping its
+  own `route.yaml` is refused by `full_catalogue` — which does not merely lose the override, it
+  takes every `weft pipeline` command down until the file is renamed. That is `01` item 11's
+  quoted reference defect with a live instance in this tree
+- [x] **8.4** a capability registered into a pipeline position without a rung fails the gate ·
+  owner `01` → *Fitness functions* item 16 · turns on **FF16** · sha `—` · scope derived from
+  which distributions actually contribute a document, positions derived from `Stage in
+  __mro__` — neither enumerated here. Waiver pinned at two `Renderer` names, and Phase 8's exit
+  requires it **empty**, so the entry is a dated debt rather than a parking space
+- [x] **8.5** every rung is named where a reader looks for it — `10` for the technique claims,
+  `03` and `manual/` for `[services] route` · owner `10`; `03` · turns on — · sha `—`
+- [ ] **8.6** a question is answered from vector and full-text results **fused**, retrieved from
+  the one store, and the fusion asks neither list where it came from · owner `01` → Phase 8;
+  `10` §1.1's unbuilt `hybrid` row · turns on — · sha — · `weft_store`'s `search_text` is
+  implemented in pgvector and **has no caller**; `reciprocal-rank-fusion` already fuses without
+  asking a list's origin. `vector-top-k`'s own error text already advertises `hybrid` to users who
+  cannot install it, which is the overclaim this task removes by making it true
+- [ ] **8.7** no run issues more concurrent model calls than its own configured cap · owner
+  `01` → Phase 8 · turns on — · sha — · `asyncio.gather` is unbounded at `raptor.py:191` and
+  `hypothetical_questions.py:93`; a 700-node corpus is 700 concurrent calls. `raptor` already has
+  `max_concurrent_summaries` and does not apply it at that site, so this is one semaphore and one
+  field honoured, not a design
+- [ ] **8.8** a claimed improvement can be shown **not** to be real · owner `09` §4 · turns on — ·
+  sha — · the falsification instrument. `weft-eval` and a validation corpus both exist and no gate
+  blocks it, and it discharges an open 1.0 precondition. It outranks everything below it despite a
+  lower headline, because it is what makes every claim tasks 8.6 and 8.1 support worth anything
+- [ ] **8.9** a `Renderer` has a driver, and fitness function 16's waiver is empty · owner `02`
+  §1; `01` → *Fitness functions* item 16 · turns on — · sha — · `plain` and `markdown` are
+  registered `Stage` termini producing a `Rendition` that **no shipped command returns to
+  anybody**, so a document ending in one runs and discards its only product. Task 2.27's own exit
+  demonstration — "an operator's PDF becomes readable" — is not currently reachable from the CLI
+
+- [ ] **8.10** an `Expander` runs where it is registered to run · owner `02` §1; `01` → Phase 8 ·
+  turns on — · sha — · **Found by running the binary at 8.2, and it is older than this phase.**
+  `weft index --pipeline index-with-raptor` fails with *"no service is registered for Embedder on
+  this run"*, and `index-with-questions` with the same sentence about `Prompts`. Both plugins are
+  registered under `weft_index.contract.Expander` — an **ingest-path** contract — and both reach an
+  ambient service through `ctx.require`, which the query path builds in `weft_cli.run_services.
+  build_services` and which `weft_cli.ingest.run_index` **never builds at all**. So `raptor` and
+  `hypothetical-questions`, tasks 2.31 and 2.32, have never been runnable through the CLI in the
+  one place they belong; their exit demonstrations were unit tests handing the context in directly.
+  **Not fixed here on purpose**: which ambient services an ingest run should expose is a design
+  question — the query path's `build_services` resolves LLM roles, the store and the token sink
+  together — and answering it inside a data task would settle it by implication. It is also the
+  reason 8.2's own line no longer claims `raptor-and-leaves-rrf` has a floor
+
+**Exit** (`01` → Phase 8): tasks 8.4 with an empty waiver, 8.6, 8.7, 8.8 and 8.10, demonstrated
+together from outside this repository against an installed `weft-rag` and one container.
+
+**Verified by running the binary from `/private/tmp`, outside this repository, against the
+`compose.yaml` container — which is where two of this phase's three findings came from.**
+`weft pipeline list` prints **23** documents where it printed 4. `weft pipeline show` resolves every
+one of the nineteen new rungs and prints per-stage provenance, so a derived rung is readable as
+either the delta or the resolved whole. `weft index ./corpus --pipeline index-text` stored 5 nodes;
+`index-messy-text`, `index-polish` and `index-with-keywords` also ran. `weft ask --pipeline` ran
+`retrieve-then-generate`, `no-retrieval`, `rewrite-then-retrieve` and `draft-then-refine` to a
+generated answer against the `scripted` provider. **Three failure paths, all loud and all correct**:
+an unknown `[services]` key naming all three valid keys and exiting 4; a rung needing a role no
+`[llm.roles]` entry maps, naming the role and the line to add; and the structured-output rungs
+(`rerank-then-generate`, `grade-then-generate`) refusing because `scripted` returns fixed prose that
+is not a `PassageRelevance` — the test provider behaving as designed, not a defect in the rung.
+
+**And one piece of friction the ladder did not cause but did expose.** Every ingest rung names
+`pgvector`, so `weft pipeline show index-text` on a checkout with no `[packs.store] dsn` fails with
+*"stage 'store' names plugin 'pgvector', which no installed distribution registered"* followed by a
+hundred names — while the actual cause is that `weft-store` **failed to register for want of a
+DSN**, which `weft plugins doctor` already knows and this message never says. Requirement 5's third
+clause is satisfied and its purpose is not: the options are named and the reason is not. Filed here
+rather than fixed, because the raise site is in resolution and the fact is in the pack report, and
+`phase-step` → *Finish* is explicit that user-facing text is repaired at the seam that renders it
+
 ---
 
 ## Why the sha column is not optional

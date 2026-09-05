@@ -1,0 +1,23 @@
+name: route-fixed
+# No `route.summary`: a router is never a routing target.
+
+# Routing turned off without turning the router off. `always` sends every question to one named
+# pipeline whatever the scorecard says — `cost_bound = (0, 0)`, no service resolved, no model
+# called — while the `score` stage still runs and the scorecard it produces still travels on
+# `Route.scorecard` into the trace.
+#
+# **Why the scorer is still here, since its answer is ignored.** `RoutingPolicy` is
+# `Stage[Scorecard, Route]`: a policy is handed a scorecard because that is its input type, and
+# a document that omitted the scorer would not compose. So this rung is not free — it costs one
+# model call per question to produce a scorecard `always` reads only for the audit trail — and
+# the cost line an operator should read is that one, not "no scoring".
+#
+# **What it is actually for.** Pinning behaviour while keeping the record: a benchmark run that
+# must hit one pipeline every time, an incident where the router is suspected and you want it
+# out of the loop without losing the dimensions that would show whether it was at fault, or a
+# deployment that has settled on one rung and wants a config change rather than a code change to
+# say so. `with: {pipeline: ...}` is where that name goes; it defaults to
+# `retrieve-then-generate`.
+stages:
+  - {id: score,  use: query-scorer, with: {role: route}}
+  - {id: decide, use: always,       with: {pipeline: retrieve-then-generate}}

@@ -1,0 +1,29 @@
+name: boolean-then-retrieve
+extends: retrieve-then-generate
+
+# The one rung whose two operators are not independent: `boolean-combine` refuses to run
+# without `boolean-retrieval` upstream of it, and says so before either plugin runs, because
+# the parsed tree travels between them as data (`BooleanPlan`, `requires`/`provides`) rather
+# than as two halves of one plugin. Remove the `insert` here and keep the `replace` and the
+# document fails resolution — which is the check working, not a document to be repaired by
+# loosening it.
+#
+# Set algebra, not scores: `boolean-combine` intersects, unions and subtracts the operands'
+# result *sets*. `on_empty_conjunction: report` is the plugin's default and is kept, because
+# `10` §1.1 records the reference's silent inversion at exactly this point — an `AND` that returns
+# the union when the intersection is empty answers the opposite of what was asked, and is
+# indistinguishable to the caller from having worked.
+vars:
+  route.summary: >-
+    Parses AND, OR and NOT out of the question, searches for each operand separately, and
+    combines the result sets by set algebra rather than by score. For a question that states a
+    constraint — this and that, this but not that — where a similarity ranking would blur it.
+  route.cost: >-
+    one model call to parse the query, then one embedding call and one search per operand, and
+    one model call
+
+insert:
+  - before: retrieve
+    stage: {id: parse, use: boolean-retrieval}
+replace:
+  - {id: fuse, use: boolean-combine}

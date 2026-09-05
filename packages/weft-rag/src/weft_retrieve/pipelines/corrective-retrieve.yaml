@@ -1,0 +1,46 @@
+name: corrective-retrieve
+extends: retrieve-then-generate
+
+# **This rung is why the name `corrective` is honest here, and it needs a corpus indexed with
+# `index-with-raptor`.** `10` §1.1 states the condition as a condition: `corrective` is only
+# earned if the plugin reaches a *distinct knowledge action* — a second `Retriever` resolved by
+# contract, not the same index re-queried broader. Re-querying the same index is what the reference
+# did, and `10`'s own verdict on it is "**Nothing is corrected.**"
+#
+# The distinct action available in a default install is the *summary level*: `multi-arm`
+# narrowed to nodes `raptor` built. That is a different base, not a second look at the same one
+# — a question the leaf chunks answer badly may be answerable from a summary over a cluster of
+# them, which is RAPTOR's own claim. It is also a real dependency, stated in the summary below
+# rather than left for a user to discover as a quietly worse answer: against a corpus with no
+# RAPTOR summaries in it the knowledge action retrieves nothing and this rung degrades to
+# `grade-then-generate`.
+#
+# `hybrid` — vector plus full-text over the same corpus — would be the other honest action and
+# is not built; ledger task 8.6 owns it. Naming it here would be the overclaim `10` §2.1 rule 4
+# forbids.
+vars:
+  route.summary: >-
+    Searches the leaf chunks, grades what comes back, and when too little survives the grading
+    reaches the RAPTOR summary level instead of answering from what was left. Needs a corpus
+    indexed with index-with-raptor; without those summaries there is nothing for the corrective
+    step to reach and it behaves like grade-then-generate.
+  route.cost: >-
+    one embedding call, one search, one model call per batch of five passages graded, then on a
+    poor grade one more embedding call and one more search, and one model call
+
+replace:
+  - id: retrieve
+    use: corrective
+    with:
+      primary: vector-top-k
+      primary_config:
+        top_k: 20
+        filter: {op: not, clauses: [{op: eq, field: ext.weft-index.technique, value: raptor}]}
+      grader: graded-retrieval
+      trigger_kept_below: 3
+      knowledge_action: multi-arm
+      knowledge_action_config:
+        arms:
+          - name: raptor
+            top_k: 10
+            filter: {op: eq, field: ext.weft-index.technique, value: raptor}

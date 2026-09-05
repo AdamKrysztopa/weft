@@ -1,0 +1,24 @@
+name: route-by-score
+# No `route.summary`: a router is never a routing target. `route.yaml` says the same of itself.
+
+# The alternative router, selected with `[services] route = "route-by-score"` in `weft.toml`.
+# Same scorer, different policy — which is the whole claim `weft_retrieve.routing`'s own module
+# docstring makes for splitting `QueryScorer` from `RoutingPolicy` in the first place: "a
+# threshold ladder can be replaced by a trained classifier without touching the scorer". This
+# document is that claim, shipped, at a cost of two lines' difference from `route.yaml`.
+#
+# **How it differs from the default in behaviour, not just in plumbing.** `nearest-description`
+# (the default) embeds each candidate pipeline's own `route.summary` beside the query and picks
+# the nearest — open by construction, so a pipeline installed tomorrow is selectable today with
+# no rule edit anywhere. `threshold-ladder` reads the scorer's named dimensions against bands an
+# operator wrote, in order, first match wins — closed by construction, so it selects only what
+# its rules name and a new pipeline is invisible to it until a rule mentions it.
+#
+# **That closedness is the reason to choose it**, and the reason it is not the default. The
+# shipped rules select between `no-retrieval` and `retrieve-then-generate` only; every rung this
+# ladder adds is unreachable through this router until an operator adds a band for it. An
+# operator who wants exactly two behaviours and wants to know which one runs and why should pick
+# this; an operator who wants the ladder to be reachable should keep `route`.
+stages:
+  - {id: score,  use: query-scorer,     with: {role: route}}
+  - {id: decide, use: threshold-ladder}
