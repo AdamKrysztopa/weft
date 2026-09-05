@@ -4043,7 +4043,7 @@ it is a config key and two call sites. Said here because nothing else records it
   asking a list's origin. `vector-top-k`'s own error text already advertises `hybrid` to users who
   cannot install it, which is the overclaim this task removes by making it true
 - [x] **8.7** no run issues more concurrent model calls than its own configured cap · owner
-  `01` → Phase 8 · turns on — · sha `—` · **This line named two sites and one of them was already
+  `01` → Phase 8 · turns on — · sha `54c3d6f` · **This line named two sites and one of them was already
   fixed.** It was written from `ROADMAP.md`'s own row, which said `asyncio.gather` is unbounded at
   `raptor.py:191` and `hypothetical_questions.py:93`. Grepping every fan-out in the tree before
   acting — `asyncio.gather|Semaphore|TaskGroup` across `packages/*/src` — found `raptor` already
