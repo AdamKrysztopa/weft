@@ -61,7 +61,7 @@ from fetch_corpus import (
 )
 from wikitext import Rendering, render
 
-from weft_cli.contract_reference import discover_for_reference
+from tests.discovery import discover_for_tests
 from weft_extract.accept import claimed_extensions
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
@@ -91,7 +91,7 @@ def documents() -> tuple[Document, ...]:
 @pytest.fixture(scope="module")
 def claimed() -> frozenset[str]:
     """Every file suffix an installed extractor claims, asked of the registry at run time."""
-    return frozenset(claimed_extensions(discover_for_reference()))
+    return frozenset(claimed_extensions(discover_for_tests()))
 
 
 # --- The two floors, which is what stops an empty walk reporting success ---------------------

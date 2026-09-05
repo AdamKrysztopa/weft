@@ -3584,15 +3584,130 @@ gate, which is the point of deriving it.
   workspace measured before G9's contract correction, and deleting it would erase the evidence for
   why this one exists.
 
-- [ ] **6.31** every first-party distribution that reaches the network declares a `Disclosure`, so the control the release page advertises is not empty where it matters most · owner `02` §2 → *The trust model*; `09` §5 · turns on — · sha — · **added 2026-08-25 by the whole-phase `weft-qualities` reading at Phase 6's close**, and measured: **one of twenty first-party packs declares a `DISCLOSURE`, and it is `weft-otel`, whose exporter defaults to `none`.** `weft-openai` (a credentialed provider) and `weft-qdrant` (a network client) both report `disclosure: not disclosed`. Task 6.10 published a page that tells a reader *"`weft plugins doctor` names ... what each one **discloses** about the network, filesystem and subprocess access it uses"* — true of the mechanism and close to empty in practice, which is requirement 4 read the uncomfortable way: built-ins are exempt from the discipline the page recommends to everyone. **The seam exists**: `DISCLOSURE` is read at import by `weft_kernel.discovery` before `register()` runs, and `tests/architecture/test_the_gate_is_decidable.py` already has the import matcher that says which modules reach a client — a check over the publish set costs almost nothing and attaches where the fact already is
+- [x] **6.31** every first-party distribution that reaches the network declares a `Disclosure`, so the control the release page advertises is not empty where it matters most · owner `02` §2 → *The trust model*; `09` §5 · turns on — · sha `33534ca` · **added 2026-08-25 by the whole-phase `weft-qualities` reading at Phase 6's close**, and measured: **one of twenty first-party packs declares a `DISCLOSURE`, and it is `weft-otel`, whose exporter defaults to `none`.** `weft-openai` (a credentialed provider) and `weft-qdrant` (a network client) both report `disclosure: not disclosed`. Task 6.10 published a page that tells a reader *"`weft plugins doctor` names ... what each one **discloses** about the network, filesystem and subprocess access it uses"* — true of the mechanism and close to empty in practice, which is requirement 4 read the uncomfortable way: built-ins are exempt from the discipline the page recommends to everyone. **The seam exists**: `DISCLOSURE` is read at import by `weft_kernel.discovery` before `register()` runs, and `tests/architecture/test_the_gate_is_decidable.py` already has the import matcher that says which modules reach a client — a check over the publish set costs almost nothing and attaches where the fact already is
+  **6.31 — and the sweep found a third one the review had missed.** `weft-openai` and `weft-qdrant`
+  were the two named at the close; deriving the set from imports rather than from that list added
+  **`weft-store`**, which opens a `psycopg` socket whether or not the database is on the same
+  machine. `docs/lessons.md` L5.14 in miniature: the review's list was where to start looking.
 
-- [ ] **6.32** a pipeline refused for producing the wrong shape names which pipelines would produce the right one · owner `01` → requirement 5; `03` → *Output* · turns on — · sha — · **added 2026-08-25 by the same reading.** `PipelineProducedTheWrongShapeError` (task 6.25) names the pipeline, both shapes and two remedies, and not the valid options. Fitness function 12 does not require it — this is not an unresolvable *name*, and the gate is right to pass — but requirement 5's third clause is *"what the valid options are"*, and `weft_cli.route_ask` holds the catalogue at the raise site, so the answer is one argument away. Small, and filed rather than folded into 6.25's commit because the phase was closed by then
+  **Each disclosure names the *setting*, never a guessed host**, because that is what an operator
+  can actually check — `[packs.weft-openai] base_url` / `OPENAI_BASE_URL`,
+  `[packs.weft-qdrant] url`, `[packs.weft-store] dsn` — and `02` §2's own rule is why they are
+  concrete strings rather than booleans: *"a hostname is information, `network: true` is noise."*
+  No credential value is printed; `api_key` and `dsn` are `SecretStr` and the disclosure names the
+  setting.
 
-- [ ] **6.33** fitness function 8's canary assertion does not depend on which directory `pytest` visits first · owner `01` → *Fitness functions* 8; `05` → `lessons.md` L5.21 · turns on — · sha — · **added 2026-08-25 at Phase 6's close**, found by running `pytest tests/docs tests/architecture` — a combination the gate never runs. `test_ff8_trust_model.py` asserts `weft_canary not in sys.modules`, and **five files under `tests/docs` import it first**: `test_changelog_deprecation_coverage.py`, `test_corpus_manifest.py`, `test_generated_docs.py`, `test_question_set.py` and `test_technique_naming.py`, each through `weft_cli.contract_reference.discover_for_reference()`, which discovers **open** and therefore imports every installed pack. The gate is green **only because `tests/architecture` sorts before `tests/docs`**, and FF8's own guard is what makes this visible rather than silent — its message is *"Something else in this test session imported the canary first; find it and stop it from doing so."* Same family as task 6.17 and as task 6.14's first draft, which made the identical mistake and was caught the same way. **The fix is a seam choice and is deliberately not being made at a phase boundary** (`docs/lessons.md` L5.10 says repair where every caller is served, and the candidates — an `allow` on `discover_for_reference`, a shared test fixture, or excluding a never-published distribution from a reference generator — trade off differently against `02` §2's "refused by an allow-list, never by name")
+  ```
+  weft-openai 0.1.0: active (2 contributed)
+    disclosure: network=['api.openai.com, or whatever [packs.weft-openai] base_url /
+    OPENAI_BASE_URL names'], ... note='Sends prompts and text to be embedded to an
+    OpenAI-compatible API [...] Every completion and every embedding leaves this process.'
+  ```
 
-- [ ] **6.34** `weft_store/rehydrate.py` says what its two registration paths actually do · owner `02` §1; `05` → `lessons.md` L6.28 · turns on — · sha — · **added 2026-08-25 at Phase 6's lessons drain**, and it is the *finding* half of L6.28 rather than the rule. That module's docstring says `register_ext_model` and `register_from_reports` give "the identical idempotent-or-refuse behaviour either way" and names the caller it is wrong about — "a test, or a caller that builds a registry without running full discovery". Measured: `register_ext_model` calls `ext_models.add` and refuses a second call **even for the same class**, while `register_from_reports` goes through `_register_if_new` and skips it. Two callers hit this in one phase (tasks 6.8 and 6.17), each passing alone and failing in the full suite. One clause to correct, and the honest version is shorter than the wrong one; a test asserting the difference is what would keep it true
+  **`weft-store`'s lives in `weft_store/__init__.py`, not in `pgvector_store`** — the kernel reads
+  `DISCLOSURE` off the module a pack's *entry point* names, and that is `weft_store:register`.
 
-- [ ] **6.35** the published baseline, question set and corpus manifest are reachable by somebody who has the release · owner `09` §5.2; `05` → `lessons.md` L6.34 · turns on — · sha — · **added 2026-08-25 at Phase 6's lessons drain**, and it is the finding half of L6.34. `09` §5.2 says "the baseline run is published with the release" and V6 requires it to be a persisted run rather than terminal output — it is, in `eval/baselines/`, with `eval/questions/` beside it and `corpus/manifest.toml`. **None of the three is inside any distribution.** Task 6.13 installed the whole product from an index into a clean environment and everything needed to *reproduce* the number was still only in the repository. The shipped CLI can do the work — `weft eval run` and `weft eval compare` are both on the installed binary — so the gap is reachability, not capability. Three candidate answers and the choice is `09` §5.2's: ship them inside a distribution, attach them to a release, or fetch them by a pinned script the release names (`scripts/fetch_corpus.py` already is that answer for the corpus *bytes*, so the question is narrower than it looks). `09` §5.2's own sentence takes the correction either way
+  **The check derives who owes one and refuses to judge whether it is true.** `02` §2 is explicit
+  that a disclosure is "a disclosure to the operator, never a claim weft checks", so verifying one
+  would simulate the control the section refuses to simulate. What is checkable is that a pack
+  reaching outward has said *something*, and `NETWORK_PACKS_WITHOUT_A_DISCLOSURE` is pinned empty
+  with its own `test_the_waiver_is_empty`: a first-party exemption here would be requirement 4's
+  failure written down. Planted and watched — `weft-openai`'s `DISCLOSURE` renamed, and the check
+  names it by distribution and by the client it imports.
+
+- [x] **6.32** a pipeline refused for producing the wrong shape names which pipelines would produce the right one · owner `01` → requirement 5; `03` → *Output* · turns on — · sha `4872678` · **added 2026-08-25 by the same reading.** `PipelineProducedTheWrongShapeError` (task 6.25) names the pipeline, both shapes and two remedies, and not the valid options. Fitness function 12 does not require it — this is not an unresolvable *name*, and the gate is right to pass — but requirement 5's third clause is *"what the valid options are"*, and `weft_cli.route_ask` holds the catalogue at the raise site, so the answer is one argument away. Small, and filed rather than folded into 6.25's commit because the phase was closed by then
+  **6.32 — and the first draft printed an empty list, which is the lesson.** `pipelines_producing`
+  walks the catalogue and asks the **registry** which contract each pipeline's last stage is
+  registered under, because a document names a plugin and nothing in it says what contract that
+  plugin answers for (G1 keeps the kernel from naming a capability). Computed on the failure path
+  only.
+
+  The first version asked for **`Answer`** — a *payload* type, which nothing is registered under —
+  got `()` back, and printed the refusal with its "valid options" half silently missing. An empty
+  answer read as *"there are none"* when it meant *"I asked the wrong question"*
+  (`docs/lessons.md` L5.9), and **only running the binary showed it**: every test passed, because
+  none of them asserted the list was non-empty. The contract is `Generator`; the test now asserts
+  against the real registry that the answer is non-empty and that `route` — which ends in a
+  `RoutingPolicy` — is *not* offered, since a list that offered everything would send the reader
+  straight back to the same refusal.
+
+  ```
+  $ weft ask "fox" --pipeline retrieval-only
+  pipeline 'retrieval-only' finished and produced Candidates, but `weft ask` needs Answer. [...]
+  Pipelines that already end in Answer: 'no-retrieval', 'retrieve-then-generate'.
+  ```
+
+- [x] **6.33** fitness function 8's canary assertion does not depend on which directory `pytest` visits first · owner `01` → *Fitness functions* 8; `05` → `lessons.md` L5.21 · turns on — · sha `ad356e5` · **added 2026-08-25 at Phase 6's close**, found by running `pytest tests/docs tests/architecture` — a combination the gate never runs. `test_ff8_trust_model.py` asserts `weft_canary not in sys.modules`, and **five files under `tests/docs` import it first**: `test_changelog_deprecation_coverage.py`, `test_corpus_manifest.py`, `test_generated_docs.py`, `test_question_set.py` and `test_technique_naming.py`, each through `weft_cli.contract_reference.discover_for_reference()`, which discovers **open** and therefore imports every installed pack. The gate is green **only because `tests/architecture` sorts before `tests/docs`**, and FF8's own guard is what makes this visible rather than silent — its message is *"Something else in this test session imported the canary first; find it and stop it from doing so."* Same family as task 6.17 and as task 6.14's first draft, which made the identical mistake and was caught the same way. **The fix is a seam choice and is deliberately not being made at a phase boundary** (`docs/lessons.md` L5.10 says repair where every caller is served, and the candidates — an `allow` on `discover_for_reference`, a shared test fixture, or excluding a never-published distribution from a reference generator — trade off differently against `02` §2's "refused by an allow-list, never by name")
+  **6.33 — the first reading of this was wrong, and finding that out is what fixed it.** The close
+  filed it as *"four `tests/docs` modules import the canary through `discover_for_reference()`;
+  stop them"*. Pointing those four at a restricted helper did **not** fix it, because
+  `tests/unit/weft_cli/test_contract_reference.py` calls the open function five times and
+  **cannot stop** — testing that function is what those tests are for. So there is no set of
+  callers to discipline: any session that tests open discovery imports the canary, and FF8's
+  in-process guard was never going to survive that.
+
+  **The mechanism was the defect, and FF8's own docstring already argued the fix.**
+  `test_a_pack_refused_by_the_allow_list_is_never_imported` now runs its probe in a **fresh
+  interpreter**, which starts with an empty `sys.modules` whatever ran before it — exactly what the
+  canary was built for: *"the same canary works for an in-process discovery test and for a CLI
+  invocation."* Its sibling was already a subprocess and was carrying the same in-process guard for
+  no reason; that half is gone, and `_assert_canary_installed` keeps the half that is a fact about
+  the environment rather than about this pytest session.
+
+  **Verified in all three orderings and against the real defect.** `pytest tests/docs
+  tests/architecture` — the combination that failed — 309 passed; the reverse order, 309 passed;
+  and alongside the contract-reference tests that cannot avoid open discovery, 17 passed. Then
+  planted: `entry_point.load()` before the refusal branch in `weft_kernel.discovery`, which is
+  precisely the defect FF8(a) exists for, and it fails naming it — *"an allow-list that excludes
+  it must stop discovery before the import happens, not merely before register() is called"*.
+
+  **`tests/discovery.py` stays**, because the four docs modules are better off restricted anyway —
+  an allow-list there is what a test session means by *"the packs I mean to load"*, and it is
+  derived from what is installed rather than listed, so a pack added tomorrow needs no edit. What
+  it is **not** is the fix; `02` §2 settles that a pack is refused by an allow-list and never by
+  name, so putting `"weft-canary"` in `weft-cli` would have broken that rule in the one
+  distribution that must not.
+
+- [x] **6.34** `weft_store/rehydrate.py` says what its two registration paths actually do · owner `02` §1; `05` → `lessons.md` L6.28 · turns on — · sha `b388a86` · **added 2026-08-25 at Phase 6's lessons drain**, and it is the *finding* half of L6.28 rather than the rule. That module's docstring says `register_ext_model` and `register_from_reports` give "the identical idempotent-or-refuse behaviour either way" and names the caller it is wrong about — "a test, or a caller that builds a registry without running full discovery". Measured: `register_ext_model` calls `ext_models.add` and refuses a second call **even for the same class**, while `register_from_reports` goes through `_register_if_new` and skips it. Two callers hit this in one phase (tasks 6.8 and 6.17), each passing alone and failing in the full suite. One clause to correct, and the honest version is shorter than the wrong one; a test asserting the difference is what would keep it true
+  **6.34 — the clause is corrected, and the correction is now load-bearing rather than prose.**
+  `rehydrate.py` said the two paths give *"the identical idempotent-or-refuse behaviour either
+  way"* and named the caller it was wrong about. They differ: `register_from_reports` goes through
+  `_register_if_new` and **skips** a namespace the same class already claimed;
+  `register_ext_model` calls `ext_models.add` and **refuses** unconditionally, even for a
+  re-registration of that same class. The docstring now says which path a caller outside full
+  discovery wants, and why — the wrong one works alone and raises the moment anything earlier in
+  the process registered first, which is exactly how tasks 6.8 and 6.17 each met it.
+
+  **Two tests, because the missing test is what let the sentence stand.** One asserts
+  `register_from_reports` called twice with the same class raises nothing and leaves the namespace
+  resolving to that class; the other asserts `register_ext_model` raises
+  `DuplicateRegistrationError` for the same second call. They use a namespace of their own, so
+  neither disturbs another test through the process-global registry — which is the same shared
+  mutable state underneath tasks 6.8, 6.17 and 6.33.
+
+- [x] **6.35** the published baseline, question set and corpus manifest are reachable by somebody who has the release · owner `09` §5.2; `05` → `lessons.md` L6.34 · turns on — · sha `9b5efbd` · **added 2026-08-25 at Phase 6's lessons drain**, and it is the finding half of L6.34. `09` §5.2 says "the baseline run is published with the release" and V6 requires it to be a persisted run rather than terminal output — it is, in `eval/baselines/`, with `eval/questions/` beside it and `corpus/manifest.toml`. **None of the three is inside any distribution.** Task 6.13 installed the whole product from an index into a clean environment and everything needed to *reproduce* the number was still only in the repository. The shipped CLI can do the work — `weft eval run` and `weft eval compare` are both on the installed binary — so the gap is reachability, not capability. Three candidate answers and the choice is `09` §5.2's: ship them inside a distribution, attach them to a release, or fetch them by a pinned script the release names (`scripts/fetch_corpus.py` already is that answer for the corpus *bytes*, so the question is narrower than it looks). `09` §5.2's own sentence takes the correction either way
+  **6.35 — "with the release" had to be made to mean something.** Three answers were available and
+  `09` §5.2's own words pick one. *Inside a distribution* would put this corpus's judgements into
+  `weft-eval`, which publishes the metric contracts and is installed by people with no interest in
+  Weft's corpus. *Fetched by a pinned script* is already the answer for the corpus **bytes**
+  (`scripts/fetch_corpus.py`) and cannot be the answer for the **pins**, since the manifest is what
+  the fetch reads — circular. *Attached to the release* is the literal reading of "published
+  **with**", costs no architectural change, and puts the artefacts where somebody holding a release
+  looks.
+
+  A `publish-reproduction-artefacts` job archives `eval/baselines/`, `eval/questions/` and
+  `corpus/manifest.toml` and uploads them to the tag's release. `needs: publish-release-set`, so
+  they land only once the wheels they describe are on the index — a release carrying a baseline for
+  distributions that failed to publish would be worse than one carrying none.
+
+  **The check is the reachability half and says so.** Whether the baseline reproduces is
+  `eval/check_baseline.py`'s question and task 6.30's; whether every quote is a literal span is
+  `test_question_set.py`'s. This asserts the three artefacts exist *and* that the release job names
+  each — two sides, since a job attaching paths that are not there would pass a check that only
+  read the workflow. Its self-test states its own limit: it asks whether the path is named, not
+  whether the upload is correct, and pretending otherwise would be a check claiming more than it
+  does. `09` §5.2's line carries the correction and a new failure clause — *fails if reproducing
+  the published number requires cloning*.
 
 - [x] **6.13 ⚠** a machine that has never seen this repository installs the release set — the meta-distribution G10 settled on (`09` §1), named `weft-rag` since this task found `weft` taken on PyPI — from the index, and reproduces the published baseline — every metric inside the interval that baseline recorded across its own repetitions · owner `01` → Phase 6 **Exit**; `09` §4 · turns on — · sha — · turns on — · sha `ef28202`
   **6.13 — closed 2026-08-25, both halves, and it found three things on the way.** The install half:
@@ -3720,7 +3835,17 @@ not fully met.** `01` → Phase 6 **Exit** asks for four things:
 
 **So Phase 6 closes with its exit met in substance and unmet in letter, said plainly rather than
 ticked past** — which is the position Phase 5 was found in, and the reason this phase carried
-`6.21`. What is owed is one publish to a real index, and the three tasks above.
+`6.21`. What is owed is **one publish to a real index**, and nothing else.
+
+**Re-checked 2026-08-26, after the five close-out tasks landed.** Two of them moved the table
+above. **6.35** attaches `eval/baselines/`, `eval/questions/` and `corpus/manifest.toml` to the
+release, so the *"published with the release"* row is no longer false about anything a stranger
+holds — the artefacts reach them with the release rather than with a clone. **6.31** closes the
+gap the whole-phase review found in the row above it: every distribution that reaches outside the
+process now declares what it touches, so `doctor`'s disclosure column means what task 6.10's
+published page says it means. The remaining letter-of-the-exit gaps are the two that need an
+index: installing **from PyPI** rather than from a local one, and doing it in a single `uvx`
+invocation.
 
 ## Phase 7 — The agent
 
@@ -3735,6 +3860,14 @@ is never a TTY, so nothing here may `overwrite` or `destroy` on its own. **This 
 `agentic-patterns` handoff lands** (`01` → Phase 3's gate line records the move), so no task below is
 written in detail yet: writing a loop's task list before that skill has run is the order `01` calls
 the expensive one, and the shape of these tasks is what it would decide.
+
+**Every ⚠ below is live, which is the opposite of Phase 6's.** All four tasks carry the mark and
+**G12 is open**, so unlike Phase 6 — where each ⚠ was a record of something G9, G10 or G13 had
+since settled — these are marks on tasks whose shape a decision could still change. `phase-step` →
+*Orient* reads a ⚠ as a question about its gate; here the answer is *not yet*, and a task that
+runs into one stops rather than defaulting it. Recorded explicitly because a phase whose preamble
+never accounts for its own provisional marks is one where nobody can tell an open question from a
+closed one — which is what `next_task.py --check-live` refuses to let happen.
 
 - [ ] **7.1 ⚠** the agent is a pack — it registers against contracts it did not define, and core has no
   knowledge of it · owner `01` → Phase 7; `02` §1 · turns on — · sha —

@@ -101,3 +101,36 @@ jobs:
 
       - name: Publish ${{ matrix.distribution }}
         run: uv publish dist/*
+
+  # Ledger task 6.35. `09` section 5.2 says "the baseline run is published with the release", and
+  # task 6.13 found that nothing published it: `eval/baselines/`, `eval/questions/` and
+  # `corpus/manifest.toml` are what a stranger needs to reproduce the number, the shipped CLI can
+  # already do the work (`weft eval run`, `weft eval compare`), and all three lived only in a git
+  # checkout. Attached to the release rather than shipped inside a distribution — putting one
+  # corpus's judgements into `weft-eval` would hand them to everybody installing the metric
+  # contracts, and fetching the *pins* by a script the pins configure is circular.
+  #
+  # `needs: publish-release-set` so the artefacts land only once the wheels they describe are on
+  # the index; a release carrying a baseline for distributions that failed to publish would be
+  # worse than one carrying none.
+  publish-reproduction-artefacts:
+    name: attach what reproduces the baseline
+    needs: publish-release-set
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Collect the artefacts a reproduction needs
+        run: |
+          mkdir -p reproduction
+          cp -R eval/baselines reproduction/baselines
+          cp -R eval/questions reproduction/questions
+          cp corpus/manifest.toml reproduction/corpus-manifest.toml
+          tar -czf weft-reproduction-${{ github.ref_name }}.tar.gz -C reproduction .
+
+      - name: Attach them to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.ref_name }}" weft-reproduction-${{ github.ref_name }}.tar.gz

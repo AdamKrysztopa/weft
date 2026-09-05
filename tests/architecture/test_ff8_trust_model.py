@@ -83,8 +83,6 @@ from importlib import metadata
 from pathlib import Path
 from typing import Final
 
-import pytest
-
 from weft_cli.installed_versions import installed_versions
 from weft_cli.plugins_report import render_doctor
 from weft_eval.run_record import active_distribution_set
@@ -130,7 +128,13 @@ print(",".join(loaded))
 """
 
 
-def _assert_canary_installed_and_unimported() -> None:
+def _assert_canary_installed() -> None:
+    """The canary is installed with its entry point — the floor both clauses rest on.
+
+    Split from the `sys.modules` half at ledger task **6.33**. *Installed* is a fact about the
+    environment and both tests need it; *unimported* is a fact about this pytest process and only
+    an in-process assertion could care — and neither test makes one any more.
+    """
     installed = {
         entry_point.dist.name
         for entry_point in metadata.entry_points(group=ENTRY_POINT_GROUP)
@@ -140,37 +144,58 @@ def _assert_canary_installed_and_unimported() -> None:
         f"'{CANARY_DISTRIBUTION}' must be installed with a '{ENTRY_POINT_GROUP}' entry point "
         f"for this test to mean anything — run `uv sync` first."
     )
-    assert CANARY_MODULE not in sys.modules, (
-        f"'{CANARY_MODULE}' is already imported in this process, which makes the marker "
-        f"check below meaningless — it would pass even if the code under test loaded the "
-        f"canary before it should have, because Python does not re-execute an already"
-        f"-imported module. Something else in this test session imported the canary "
-        f"first; find it and stop it from doing so."
-    )
 
 
-def test_a_pack_refused_by_the_allow_list_is_never_imported(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    # Arrange
+#: Run in a fresh interpreter, for the reason ledger task **6.33** found the hard way. This
+#: assertion used to be made in-process, guarded by "the canary is not imported yet" — and that
+#: guard is a **statement about the whole pytest session**, not about the code under test. Four
+#: `tests/docs` modules and five `tests/unit/weft_cli/test_contract_reference.py` tests call
+#: `discover_for_reference()`, which discovers open and therefore imports the canary; the last of
+#: those cannot avoid it, because testing that function *is* what it is for. So the guard was
+#: satisfied only by `tests/architecture` sorting before `tests/docs`, and `pytest tests/docs
+#: tests/architecture` failed while `pytest tests` passed. A subprocess starts with an empty
+#: `sys.modules` whatever ran before it, which is what the canary's own docstring says it was
+#: built for: "the same canary works for an in-process discovery test and for a CLI invocation."
+_REFUSAL_PROBE = """
+import sys
+from weft_kernel.discovery import discover
+from weft_kernel.registry import Registry
+
+reports = discover(Registry(), allow=[])
+status = {report.distribution: report.status.value for report in reports}
+print("imported", "weft_canary" in sys.modules)
+print("status", status.get("weft-canary"))
+"""
+
+
+def test_a_pack_refused_by_the_allow_list_is_never_imported(tmp_path: Path) -> None:
+    # Arrange — a fresh interpreter, so what this observes is what `discover` did and not what
+    # some earlier test in the session happened to import.
     marker = tmp_path / "canary-marker"
-    monkeypatch.setenv(MARKER_ENV_VAR, str(marker))
-    _assert_canary_installed_and_unimported()
+    _assert_canary_installed()
+    env = {**os.environ, MARKER_ENV_VAR: str(marker)}
 
     # Act
-    reports = discover(Registry(), allow=[])
+    result = subprocess.run(  # noqa: S603 - fixed argv, no shell, no user input
+        [sys.executable, "-c", _REFUSAL_PROBE],
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
 
     # Assert
+    assert result.returncode == 0, f"the probe failed:\n{result.stderr}"
+    reported = dict(line.split(" ", 1) for line in result.stdout.strip().splitlines())
     assert not marker.exists(), (
         "the canary writes its marker at import; an allow-list that excludes it must stop "
         "discovery before the import happens, not merely before register() is called"
     )
-    assert CANARY_MODULE not in sys.modules, (
+    assert reported["imported"] == "False", (
         "the canary must never be imported at all when it is excluded from [packs] allow — "
         "this is the categorical form of the marker assertion above, independent of it"
     )
-    by_distribution = {report.distribution: report for report in reports}
-    assert by_distribution[CANARY_DISTRIBUTION].status == PackStatus.REFUSED
+    assert reported["status"] == PackStatus.REFUSED.value
 
 
 def test_version_command_executes_no_pack_code(tmp_path: Path) -> None:
@@ -180,7 +205,10 @@ def test_version_command_executes_no_pack_code(tmp_path: Path) -> None:
     # would be meaningless in this pytest session.
     marker = tmp_path / "canary-marker"
     env = {**os.environ, MARKER_ENV_VAR: str(marker)}
-    _assert_canary_installed_and_unimported()
+    # Only *installed* matters here: this runs in a fresh interpreter, so whether the canary is
+    # in **this** process's `sys.modules` says nothing about what the subprocess loads
+    # (ledger task 6.33).
+    _assert_canary_installed()
 
     # Act — cwd=tmp_path: no weft.toml there for weft_cli.registry_bootstrap to read.
     result = subprocess.run(  # noqa: S603 — sys.executable, fixed script, no shell, no user input

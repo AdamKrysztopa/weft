@@ -22,6 +22,7 @@ family actually contains. One exported from `contract` alone is invisible to
 both, with no test to notice.
 """
 
+from weft_kernel.discovery import Disclosure
 from weft_store.contract import (
     FILTER_AST_VERSION,
     RECONCILE_REPORT_SCHEMA_VERSION,
@@ -71,6 +72,29 @@ from weft_store.pgvector_store import (
 # call most packs ever need to make; `register_ext_model` stays published for the caller that
 # builds a registry without running full discovery (a test, `docs/02`'s own worked example).
 from weft_store.rehydrate import register_ext_model, register_from_reports, rehydrate_ext
+
+#: What this pack touches — ledger task **6.31**, `02` §2 → *The trust model*.
+#:
+#: **It lives here and not in `pgvector_store`** because the kernel reads `DISCLOSURE` off the
+#: module a pack's entry point names, and `weft-store`'s is `weft_store:register` — the package,
+#: not the module `register` is defined in.
+#:
+#: `psycopg` opens a socket, so this pack reaches outward whether or not the database is on the
+#: same machine; `[packs.weft-store] dsn` decides where, and a DSN is exactly the kind of concrete
+#: string `02` §2 asks a disclosure to carry rather than a boolean ("a hostname is information,
+#: `network: true` is noise"). The credential inside it is never printed — `dsn` is a `SecretStr`
+#: and this names the setting, not its value. Informational only: `02` §2 is explicit that a
+#: disclosure is "a disclosure to the operator, never a claim weft checks".
+DISCLOSURE = Disclosure(
+    network=("the PostgreSQL server [packs.weft-store] dsn names (WEFT_DATABASE_URL by default)",),
+    filesystem=(),
+    subprocess=(),
+    note=(
+        "Reads and writes node content, embeddings and source records in PostgreSQL with "
+        "pgvector, creating its own tables on first use. This is where an indexed corpus lives, "
+        "so everything indexed is stored there in full."
+    ),
+)
 
 __all__ = [
     "FILTER_AST_VERSION",

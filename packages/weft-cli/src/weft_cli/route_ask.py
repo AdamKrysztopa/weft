@@ -57,6 +57,7 @@ from weft_cli.pipeline_catalogue import (
 )
 from weft_cli.run_services import build_services, check_store_capabilities
 from weft_cli.services import ServiceSelection
+from weft_generate.contract import Generator
 from weft_generate.payload import Answer
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackReport
@@ -205,7 +206,13 @@ async def run_routed_ask(
         catalogue=catalogue,
         contributions=contributions,
     )
-    answer = _require(answer, Answer, pipeline=route.pipeline, produced_by="`weft ask`")
+    answer = _require(
+        answer,
+        Answer,
+        pipeline=route.pipeline,
+        produced_by="`weft ask`",
+        alternatives=pipelines_producing(Generator, catalogue=catalogue, registry=registry),
+    )
     return route.pipeline, answer
 
 
@@ -230,7 +237,57 @@ class PipelineProducedTheWrongShapeError(WeftError):
     """
 
 
-def _require[T](value: object, expected: type[T], *, pipeline: str, produced_by: str) -> T:
+def pipelines_producing(
+    contract: type[object], *, catalogue: Mapping[str, Pipeline], registry: Registry
+) -> tuple[str, ...]:
+    """Every pipeline in `catalogue` whose **last stage** is registered under `contract`.
+
+    Public because the check that keeps it honest needs it: the assertion worth making is that
+    this returns something against the *real* registry, and a test reaching a private name to
+    make it would be the wrong shape of coupling.
+
+    **The argument is the *contract*, not the payload the caller wanted.** `Answer` is a payload
+    type and nothing is registered under it; `Generator` is the contract that produces one. The
+    first draft asked the registry for `Answer`, got an empty list, and printed a refusal with no
+    alternatives at all — an empty answer read as "there are none" when it meant "I asked the
+    wrong question" (`docs/lessons.md` L5.9), and it was caught by running the binary rather than
+    by any test.
+
+    Task **6.32**. Requirement 5's third clause is *"what the valid options are"*, and the
+    refusal below could name two remedies without ever saying which pipelines already satisfy
+    the one it recommends. The catalogue is in hand at every raise site, so the answer is one
+    walk away.
+
+    **Asked of the registry, never of the document.** A pipeline names a plugin and nothing in
+    it says what contract that plugin answers for — G1 keeps the kernel from naming a
+    capability, so the registry is the only thing that knows. A stage whose plugin is
+    registered under no contract, or under several, is simply not offered: this list exists to
+    be *useful*, and a name that might not work is worse than a shorter list. Computed on the
+    failure path only, so an ambiguous registry costs nothing on the happy one.
+    """
+    producing: list[str] = []
+    for name, pipeline in catalogue.items():
+        stages = pipeline.stages
+        if not stages:
+            continue
+        registered = {
+            candidate
+            for candidate in registry.contracts()
+            if stages[-1].use in registry.names_for(candidate)
+        }
+        if registered == {contract}:
+            producing.append(name)
+    return tuple(sorted(producing))
+
+
+def _require[T](
+    value: object,
+    expected: type[T],
+    *,
+    pipeline: str,
+    produced_by: str,
+    alternatives: tuple[str, ...] = (),
+) -> T:
     """Refuse, by name, when a pipeline's final value is not the shape the caller needs.
 
     **Returns the value, narrowed**, rather than asserting and returning nothing. That is not a
@@ -252,6 +309,12 @@ def _require[T](value: object, expected: type[T], *, pipeline: str, produced_by:
         f"its result: a query pipeline that ends in a retriever produces passages, and only one "
         f"ending in a Generator produces an Answer. Add a generating stage, or run this pipeline "
         f"with `--retrieve-only`, which asks for the shape it actually produces."
+        + (
+            f" Pipelines that already end in {expected.__name__}: "
+            f"{', '.join(repr(name) for name in alternatives)}."
+            if alternatives
+            else ""
+        )
     )
 
 
@@ -318,7 +381,13 @@ async def run_named_ask(
         catalogue=catalogue,
         contributions=contributions,
     )
-    return _require(answer, Answer, pipeline=pipeline_name, produced_by="`weft ask`")
+    return _require(
+        answer,
+        Answer,
+        pipeline=pipeline_name,
+        produced_by="`weft ask`",
+        alternatives=pipelines_producing(Generator, catalogue=catalogue, registry=registry),
+    )
 
 
 async def _prepared_runner(

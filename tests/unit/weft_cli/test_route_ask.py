@@ -27,7 +27,14 @@ import pytest
 import yaml
 
 from weft_cli.llm_roles import LLMSection
-from weft_cli.route_ask import NoRouterPipelineError, run_named_ask, run_routed_ask
+from weft_cli.pipeline_catalogue import full_catalogue
+from weft_cli.registry_bootstrap import build_dependencies
+from weft_cli.route_ask import (
+    NoRouterPipelineError,
+    pipelines_producing,
+    run_named_ask,
+    run_routed_ask,
+)
 from weft_cli.services import ServiceSelection
 from weft_embed import Embedder
 from weft_embed.hash_embedder import HashEmbedder
@@ -349,3 +356,50 @@ async def test_run_named_ask_places_a_contribution_in_a_declared_slot(
     # Assert
     assert isinstance(answer, Answer)
     assert ran == ["enrich"]
+
+
+# ---------------------------------------------------------------------------
+# Task 6.32 — the refusal names which pipelines would produce the right shape.
+# ---------------------------------------------------------------------------
+
+
+def test_the_refusal_names_the_pipelines_that_do_produce_an_answer() -> None:
+    """Requirement 5's third clause: say what the valid options are.
+
+    **This asserts the list is non-empty against the real registry**, which is the assertion
+    that was missing. The first draft asked the registry for `Answer` — a payload type nothing
+    is registered under — got `()` back, and printed a refusal with no alternatives at all. An
+    empty answer read as "there are none" when it meant "I asked the wrong question"
+    (`docs/lessons.md` L5.9), and only running the binary showed it.
+    """
+    # Arrange — the real catalogue and the real registry, so a lookup asking the wrong
+    # question cannot pass by having nothing to find.
+    deps = build_dependencies(config_path=Path("weft.toml.does-not-exist"))
+    catalogue = full_catalogue(reports=deps.reports)
+
+    # Act
+    producing = pipelines_producing(Generator, catalogue=catalogue, registry=deps.registry)
+
+    # Assert
+    assert producing, (
+        "no shipped pipeline was found ending in a Generator, and `weft-retrieve` ships two. "
+        "The lookup is asking the registry the wrong question — which is exactly how this "
+        "shipped once, printing a refusal whose 'valid options' half was silently empty."
+    )
+    assert "retrieve-then-generate" in producing
+
+
+def test_a_pipeline_that_ends_in_a_retriever_is_not_offered_as_an_alternative() -> None:
+    """The other side: a list that offered everything would be worse than no list."""
+    # Arrange
+    deps = build_dependencies(config_path=Path("weft.toml.does-not-exist"))
+    catalogue = full_catalogue(reports=deps.reports)
+
+    # Act
+    producing = pipelines_producing(Generator, catalogue=catalogue, registry=deps.registry)
+
+    # Assert
+    assert "route" not in producing, (
+        "`route` ends in a RoutingPolicy and produces a Route, so offering it to somebody who "
+        "needs an Answer would send them straight back to this same refusal"
+    )

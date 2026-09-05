@@ -59,7 +59,7 @@ from check_questions import (
 )
 from fetch_corpus import Document, Status, Tier, load_manifest, verify_one
 
-from weft_cli.contract_reference import discover_for_reference
+from tests.discovery import discover_for_tests
 from weft_extract.contract import Extractor, SourceDoc
 from weft_kernel.context import Context
 from weft_kernel.payload import Node, Produced, SourceId
@@ -182,7 +182,7 @@ async def test_every_materialised_document_extracts_to_text(
     # nothing. `materialised` has already refused to let this run over an absent corpus, so this
     # is the half that says the documents which *are* here were actually read.
     # Arrange
-    registry = discover_for_reference()
+    registry = discover_for_tests()
 
     # Act
     texts, _ = await _extracted(materialised, registry)
@@ -318,7 +318,7 @@ async def test_every_quote_is_a_literal_span_of_the_document_it_names(
     questions: tuple[Question, ...], materialised: tuple[Document, ...]
 ) -> None:
     # Arrange
-    registry = discover_for_reference()
+    registry = discover_for_tests()
 
     # Act
     texts, _ = await _extracted(materialised, registry)
@@ -348,7 +348,7 @@ async def test_every_quote_is_on_the_page_it_claims(
     # `page` is what a reader goes and looks at, so an unchecked one is a citation that sends them
     # to the wrong place — the manifest's `math_blocks_dropped` argument applied to ground truth.
     # Arrange
-    registry = discover_for_reference()
+    registry = discover_for_tests()
 
     # Act
     texts, pages = await _extracted(materialised, registry)

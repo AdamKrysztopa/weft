@@ -31,7 +31,7 @@ OpenAI's exception hierarchy out of every pack downstream of `weft-llm`.
 from functools import partial
 
 from weft_embed.contract import Embedder
-from weft_kernel.discovery import PackRegistrar
+from weft_kernel.discovery import Disclosure, PackRegistrar
 from weft_llm.contract import LLMProvider
 from weft_openai.embedder import (
     DEFAULT_MODEL,
@@ -45,6 +45,30 @@ from weft_openai.embedder import (
 from weft_openai.llm import DEFAULT_MODEL as DEFAULT_LLM_MODEL
 from weft_openai.llm import OpenAILLMConfig, OpenAILLMProvider
 from weft_openai.settings import Settings
+
+#: What this pack touches — ledger task **6.31**, `02` §2 → *The trust model*.
+#:
+#: **The address is configuration, so the disclosure names the setting rather than a host.** The
+#: OpenAI SDK reads `OPENAI_BASE_URL` for itself when `base_url` is unset, so what an operator can
+#: actually check is *which knob decides where this goes*, and `network` says that. `02` §2's own
+#: rule is why this is prose and concrete strings rather than a boolean: "a hostname is
+#: information, `network: true` is noise."
+#:
+#: **And it is informational, never a claim weft checks** — nothing here is verified, enforced or
+#: granted. It exists because the alternative an operator reads is `not disclosed`, which is what
+#: this pack said before task 6.31 despite being the one distribution in the set that cannot work
+#: without an account.
+DISCLOSURE = Disclosure(
+    network=("api.openai.com, or whatever [packs.weft-openai] base_url / OPENAI_BASE_URL names",),
+    filesystem=(),
+    subprocess=(),
+    note=(
+        "Sends prompts and text to be embedded to an OpenAI-compatible API, using the credential "
+        "in [packs.weft-openai] api_key or OPENAI_API_KEY. Every completion and every embedding "
+        "leaves this process. Registers an Embedder and an LLMProvider; nothing else in Weft "
+        "calls out unless a pipeline names one of them."
+    ),
+)
 
 
 def register(registrar: PackRegistrar, settings: Settings) -> None:

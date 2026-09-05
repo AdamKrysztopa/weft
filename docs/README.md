@@ -26,11 +26,11 @@ public contract as anything a third party writes. `a prior project` is a parts r
 
 | | |
 |---|---|
-| **Phase** | **Phase 6 — Release. Every task closed 2026-08-25**; the exit is met in substance and unmet in letter, recorded in `build-ledger.md` → *Phase 6's close* |
-| **Blocked by** | **Nothing, and Phase 7 is not open either — G12 gates it.** What Phase 6 leaves owed is **one publish to a real index**, deliberately the project owner's to run: the workflow exists (6.2), the artefacts build and carry their licences (6.7, 6.11), all twenty names are checked, and the whole install path is proved against a local index (6.13). Five tasks were filed at the close and stay open — **6.31**–**6.35** |
-| **Next action** | **G12**, which gates Phase 7 — or **6.31**–**6.35** first, none of which blocks it. The release set is **`weft-rag`**: `weft` is taken on PyPI at the very version this set declared, found by installing from an index and not by reading the plan (`lessons.md` L6.33; G10's row carries the correction). The lessons queue was drained at this phase's midpoint (`ee00889`) and again at its close — `lessons.md` → *Queue* is where its depth is read, never a count restated here |
+| **Phase** | **Phase 7 — The agent.** Phase 6 closed 2026-08-26 with all 35 tasks ticked, its exit met in substance and unmet in letter — `build-ledger.md` → *Phase 6's close* records which rows and why |
+| **Blocked by** | **Nothing, and Phase 7 is not open either — G12 gates it.** Phase 6 is closed: all 35 tasks, including the five filed at its own close. What it leaves owed is **one publish to a real index**, deliberately the project owner's to run — the workflow exists (6.2), the artefacts build and carry their licences (6.7, 6.11), all twenty names are checked, what reproduces the baseline is attached to the release (6.35), and the whole install path is proved against a local index (6.13) |
+| **Next action** | **G12**, which gates Phase 7. The release set is **`weft-rag`**: `weft` is taken on PyPI at the very version this set declared, found by installing from an index and not by reading the plan (`lessons.md` L6.33; G10's row carries the correction). The lessons queue was drained at this phase's midpoint (`ee00889`) and again at its close — `lessons.md` → *Queue* is where its depth is read, never a count restated here |
 | **Open decisions** | 1 of 14 — every row settled except **G12**, which gates Phase 7. G0 is logged only; every other row has a session in `05` |
-| **Updated** | 2026-08-25 |
+| **Updated** | 2026-08-26 |
 
 G2's close resolved the **three places Phase 0 could accidentally settle it**, each of which `06`
 had fixed to a minimal reversible choice: embedding **stays a stage** (G4 forbids a store to embed,

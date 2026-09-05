@@ -40,6 +40,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Final
 
+from tests.discovery import discover_for_tests
 from weft_cli.command_table import (
     PublishedCommand,
     command_entries,
@@ -50,7 +51,6 @@ from weft_cli.command_table import (
 from weft_cli.contract_reference import (
     REGENERATE_COMMAND,
     PublishedContract,
-    discover_for_reference,
     missing_from_walked_set,
     published_contracts,
     render_contract_reference,
@@ -119,13 +119,13 @@ KNOWN_WORKSPACE_DISTRIBUTIONS: Final[frozenset[str]] = frozenset(
 def test_at_least_one_contract_is_registered() -> None:
     # Floor — `08` §3: "at least one X before checking each has an entry" restated for
     # this clause: a registry with nothing registered cannot exercise this check at all.
-    registry = discover_for_reference()
+    registry = discover_for_tests()
     assert registry.contracts(), "no pack registered a single contract — nothing to check"
 
 
 def test_every_registered_contract_is_walked() -> None:
     # Arrange
-    registry = discover_for_reference()
+    registry = discover_for_tests()
     walked = {published.contract for published in published_contracts(registry)}
 
     # Act — the runtime set-equality floor, computed against the real `Registry` directly,
@@ -162,7 +162,7 @@ def test_vectorsearch_is_walked_as_nodestores_capability_sibling() -> None:
     # under its own plugin name, because it is a capability a store has, not a plugin a
     # pipeline selects." A generator that only walked `Registry.contracts()` would silently
     # drop it — this is the check that it did not.
-    registry = discover_for_reference()
+    registry = discover_for_tests()
 
     contracts = {published.contract for published in published_contracts(registry)}
 
@@ -199,7 +199,7 @@ def test_distributions_beyond_workspace_would_catch_a_contaminating_pack() -> No
 
 def test_generated_reference_matches_the_checked_in_file() -> None:
     # Arrange
-    registry = discover_for_reference()
+    registry = discover_for_tests()
     contracts = published_contracts(registry)
 
     # A pack installed into the shared environment for reasons unrelated to this
@@ -236,13 +236,13 @@ def test_generated_reference_matches_the_checked_in_file() -> None:
 def test_at_least_one_command_is_registered() -> None:
     # Floor, restated for the command table — `08` §3: a registry with nothing registered
     # under `Command` cannot exercise this check at all.
-    registry = discover_for_reference()
+    registry = discover_for_tests()
     assert registry.names_for(Command), "no pack registered a single Command — nothing to check"
 
 
 def test_every_registered_command_is_walked() -> None:
     # Arrange
-    registry = discover_for_reference()
+    registry = discover_for_tests()
     walked = {published.name for published in command_entries(registry)}
 
     # Act — the runtime set-equality floor, computed against the real `Registry` directly,
@@ -304,7 +304,7 @@ def test_command_distributions_beyond_workspace_would_catch_a_contaminating_pack
 
 def test_generated_command_table_matches_the_checked_in_manual() -> None:
     # Arrange
-    registry = discover_for_reference()
+    registry = discover_for_tests()
     commands = command_entries(registry)
 
     # Same contamination question `test_generated_reference_matches_the_checked_in_file` asks,

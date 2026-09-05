@@ -66,7 +66,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-from weft_cli.contract_reference import discover_for_reference
+from tests.discovery import discover_for_tests
 from weft_cli.pipeline_catalogue import load_contributed, load_pipeline_catalogue
 from weft_kernel.discovery import discover
 from weft_kernel.registry import Registry
@@ -193,7 +193,7 @@ def registered_names() -> frozenset[str]:
     reference-rename checks below — nothing in `10` §4 or §1.4 could ever legitimately be one
     of theirs anyway.
     """
-    return _all_names(discover_for_reference())
+    return _all_names(discover_for_tests())
 
 
 #: `.phase2-design.md` → "Task 2.26 — the naming audit as a test", item 2's own list — the

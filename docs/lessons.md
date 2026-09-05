@@ -27,7 +27,41 @@ otherwise paid for twice.
 
 ## Queue
 
-*Empty. Last drained 2026-08-25 at Phase 6's close — seventeen entries, five subjects, in
+### L7.1 — a task filed with its remedy already chosen had chosen the wrong one
+
+**What happened.** Phase 6's close filed **6.33** from a diagnosis made in the moment: FF8's canary
+assertion was failing under `pytest tests/docs tests/architecture`, a bisect named five `tests/docs`
+modules that import the canary through `discover_for_reference()`, and the task was written as
+*"stop them"* — with the remedy named, and even a shortlist of candidate seams. Doing it did not
+work. Four of the five could be pointed at a restricted helper; the fifth was
+`tests/unit/weft_cli/test_contract_reference.py`, which calls the open function five times and
+**cannot stop**, because testing that function is what those tests are for.
+
+There was never a set of callers to discipline. Any session that tests open discovery imports the
+canary, so an in-process `sys.modules` guard could not survive — and the real repair was to the
+*mechanism*: run the probe in a fresh interpreter, which FF8's own docstring had already argued for
+in the sibling test beside it. The filed remedy was not merely incomplete; it was impossible, and
+the only way to learn that was to attempt it.
+
+**Why the filing was confident and wrong.** The bisect answered *"which files, run before FF8, make
+it fail?"* — a real question with a real answer. It did not answer *"can each of them stop?"*, and
+nothing in the failing output distinguished the two. A close-out review is exactly where this is
+likely: the diagnosis is made with the evidence in hand and the fix is written from the same glance.
+
+**Generalises to.** *A ledger task states the property that must hold, not the repair that will make
+it hold* — a filed remedy is a hypothesis formed before anyone tried it, and it arrives carrying the
+authority of the ledger. Where a filing does name a candidate fix, it says so as a candidate and
+names what would falsify it.
+
+**Candidate home.** `implement-ll` → *The two traps*, which already says a task written from one
+instance narrows to that instance (`L6.13`); this is its sibling — a task written with its cure
+prescribed narrows to a cure that may not exist. Possibly also `phase-step` → *Orient*, where a task
+is read: a remedy in a task line is the previous author's guess, and the property above it is the
+part that binds.
+
+---
+
+*Last drained 2026-08-25 at Phase 6's close — seventeen entries, five subjects, in
 `lessons-archive.md` under that date, with their edges and the loop's own check answered: three of
 this phase's defects would have been caught by rules already **Applied**, so all three moved to the
 step that executes them rather than being restated.*

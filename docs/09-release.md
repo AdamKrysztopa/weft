@@ -574,7 +574,14 @@ with only the noun changed; nothing needed rewording when the session closed.
 
 **Quality**
 
-- [ ] V1–V6 exist (§4.3), and the baseline run is published with the release.
+- [ ] V1–V6 exist (§4.3), and the baseline run is published with the release — **attached to it**,
+      which is what "with" had to be made to mean. Task 6.13 installed the whole product from an
+      index into a clean environment and found `eval/baselines/`, `eval/questions/` and
+      `corpus/manifest.toml` reachable only from a git checkout, so the sentence was true of a
+      directory and false of anything a stranger holds (`lessons.md` L6.34). The release job
+      attaches all three as one archive (task 6.35); the shipped CLI already does the work, with
+      `weft eval run` and `weft eval compare` both on the installed binary, so what was missing
+      was never capability. *Fails if reproducing the published number requires cloning.*
 - [ ] Every shipped technique's claimed improvement is a delta against V3 on the same corpus, pipeline
       and model versions. *Fails if any claim in the documentation has no run behind it.*
 - [ ] The offline evaluation subset runs in `ci-checks`. *Fails if quality is checked only manually.*
