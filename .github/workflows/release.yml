@@ -131,7 +131,7 @@ jobs:
   # `corpus/manifest.toml` are what a stranger needs to reproduce the number, the shipped CLI can
   # already do the work (`weft eval run`, `weft eval compare`), and all three lived only in a git
   # checkout. Attached to the release rather than shipped inside a distribution — putting one
-  # corpus's judgements into `weft-eval` would hand them to everybody installing the metric
+  # corpus's judgements into `weft-rag` would hand them to everybody installing the metric
   # contracts, and fetching the *pins* by a script the pins configure is circular.
   #
   # `needs: publish-release-set` so the artefacts land only once the wheels they describe are on
