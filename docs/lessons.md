@@ -27,6 +27,35 @@ otherwise paid for twice.
 
 ## Queue
 
+### L8.10 — the check passed because it was not yet part of its own subject
+
+**What happened.** Fitness function 17 walks **tracked** files, enumerated from `git ls-files`. Its
+own test fixtures necessarily contain the shapes it refuses — a citation of a file that does not
+exist, and a citation naming its own filename. It passed six-for-six and the full gate ran green
+(1,955 tests). The gate run happened *before* `git add`, so the file was untracked, so it was not
+in `git ls-files`, so **the check excluded itself from its own population**. The moment it was
+committed it failed on its own fixtures. Nothing between those two states changed except
+membership.
+
+**Generalises to.** *A check whose population is defined by a repository predicate — tracked,
+staged, published, installed — does not include itself until it satisfies that predicate, so its
+first green is meaningless. Run it once more after committing, or arrange for it to be in its own
+subject before you believe it.* The near-miss version is worse than the miss: had the fixtures
+happened not to trip it, the check would have shipped with a permanent blind spot at its own file
+and nobody would have had a reason to look.
+
+**And a second, sharper form of the same thing:** the fix is not to exclude the check's own file —
+that is the carve-out that makes the blind spot permanent and deliberate. It is to build the
+fixtures from parts so the literal never appears, leaving the file genuinely inside its own
+subject. **A check that cannot survive being pointed at itself is not finished.**
+
+**Candidate home.** `phase-step` → *Finish* item 3 already requires watching a new check fail on a
+planted case. This adds a clause with teeth: **run the new check once after `git add`**, because
+until then it may not be looking at itself. Cheap, mechanical, and it generalises to every
+`git ls-files`-derived check this project has.
+
+---
+
 ### L8.9 — the citation named this very file, and described a different one
 
 **What happened.** While removing citations that pointed into another codebase, three were found

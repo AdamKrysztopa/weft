@@ -28,7 +28,8 @@ it accepts a citation this project could plausibly mean, and refuses only one th
 nothing here has. That is the whole of what it can honestly check, and the docstring says so
 rather than implying the line number was verified too.
 
-**Clause (b): a self-citation is refused.** A comment citing `foo.py:26` *inside* `foo.py` is
+**Clause (b): a self-citation is refused.** A comment citing a line of the very file it is
+written in is
 either redundant — it is pointing at code the reader is already looking at, and should name the
 constant — or it is wrong, because it is quoting somebody else's file that happens to share the
 name. The second is not hypothetical: three were found in this tree, including
@@ -193,8 +194,15 @@ def test_no_citation_names_the_file_it_appears_in() -> None:
 def test_a_dangling_citation_would_be_caught(tmp_path: Path) -> None:
     """Prove clause (a) can fail, on a planted file rather than the real tree."""
     # Arrange
+    # Assembled from parts rather than written as a literal. **This file is itself a tracked
+    # file that this check scans**, so a fixture spelled out here would be a violation of the
+    # very rule it is testing — which is exactly what happened: the first green came from a run
+    # made before `git add`, when the file was untracked and therefore excluded from its own
+    # subject. A check whose population is "tracked files" does not include itself until it is
+    # committed, so its first pass proves nothing.
+    absent = "no_such_module_anywhere" + ".py"
     planted = tmp_path / "note.md"
-    planted.write_text("see `no_such_module_anywhere.py:42` for the argument", encoding="utf-8")
+    planted.write_text(f"see `{absent}:42` for the argument", encoding="utf-8")
 
     # Act
     match = _CITATION.search(planted.read_text(encoding="utf-8"))
@@ -207,8 +215,10 @@ def test_a_dangling_citation_would_be_caught(tmp_path: Path) -> None:
 def test_a_self_citation_would_be_caught() -> None:
     """Prove clause (b) can fail — and that clause (a) alone would *not* have caught it,
     which is the whole reason there are two clauses."""
-    # Arrange — a citation naming a file that really does exist here: this one.
-    text = "the guard at `test_ff17_citations_resolve.py:12` explains it"
+    # Arrange — a citation naming a file that really does exist here: this one. Built from
+    # `Path(__file__).name` rather than written out, for the reason `test_a_dangling_citation_
+    # would_be_caught` above explains at length.
+    text = f"the guard at `{Path(__file__).name}:12` explains it"
 
     # Act
     match = _CITATION.search(text)
