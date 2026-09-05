@@ -27,6 +27,43 @@ otherwise paid for twice.
 
 ## Queue
 
+### L7.3 — the retry was the thing keeping the door shut
+
+**What happened.** `v0.1.0` published 4 of 20 distributions; PyPI refused the rest with `429 Too
+many new projects created`. It was read as a PyPI limitation and put on a 40-minute retry loop.
+Seven attempts later the count was still 4. The limiter counts **attempts** over a rolling
+window rather than successes, so every rerun of the fifteen failed jobs re-saturated it — on the
+order of a hundred creation requests fired to achieve nothing. Retrying was not neutral; it was
+the mechanism preventing recovery.
+
+Underneath it, the actual defect was ours: `.github/workflows/release.yml` published a
+nineteen-job matrix in parallel, which asks PyPI to create nineteen new projects within seconds.
+Serialising (`max-parallel: 1`) removes the burst and costs wall-clock on a job that runs once
+per release.
+
+**Why it was invisible.** The flaw exists **only on a first publish**. Every later release
+uploads a version to a project that already exists, which is not rate-limited the same way. So
+the code was correct in every scenario except the single one it had never been run in — the same
+shape as `L7.2` (a CI workflow that had executed zero times) and as the lockfile nothing had
+needed until a clean checkout needed it. Three findings in one day, all of them a path taken for
+the first time in production.
+
+**Generalises to.** Two rules, and they are separable. *A retry against a rate limiter is only
+safe when the limiter counts outcomes; when it counts attempts, retrying moves recovery further
+away* — so before automating a retry, establish which kind of limiter it is, and treat "the
+count did not move" as evidence of the attempt-counting kind rather than of bad luck. And: *a
+burst is a design decision, not a scheduling detail* — fan-out against a shared external quota
+needs a stated concurrency bound at the point the fan-out is written, not after the first refusal.
+
+**Candidate home.** The retry half is the sharper one and has no natural artefact yet: it is not
+a fitness function (nothing in the tree can test PyPI) and not `CLAUDE.md`'s gate section. It may
+belong wherever this project writes about acting on external services — `ADAM_TODO.md` is where
+the release obligations live, and `09-release.md` §5.2 owns the publish path. The burst half is
+narrower and already fixed at the site; what would generalise is a rule that any matrix or
+`gather` against a third-party service names its bound in the same diff that creates it — which
+would also have caught `weft_index.raptor`'s unbounded `asyncio.gather`, found the same day by a
+different route. That coincidence is the argument for one rule rather than two.
+
 ### L7.2 — the gate had never run anywhere but one laptop, and nobody could have noticed
 
 **What happened.** The first CI run this repository has ever had failed three of its four jobs at
