@@ -46,12 +46,16 @@ from weft_cli.pipeline_catalogue import UnknownPipelineNameError
 from weft_embed import Embedder
 from weft_enhance.contract import Enhancer
 from weft_extract import Extractor
-from weft_kernel.context import Context
+from weft_index.contract import Expander
+from weft_kernel.context import Context, UnresolvedServiceError
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import Node, NothingToProduce, Outcome, Produced
 from weft_kernel.pipeline import Pipeline, SlotDeclaration, StageDeclaration
 from weft_kernel.registry import Registry, UnknownPluginError
 from weft_kernel.resolution import Contribution
+from weft_llm.contract import LLM
+from weft_prompts.contract import Prompts
+from weft_retrieve.contract import StageLookup
 from weft_store import NodeStore
 
 
@@ -538,3 +542,171 @@ async def test_pipeline_and_extractor_together_are_refused_rather_than_one_winni
     message = str(excinfo.value)
     assert "pipeline" in message
     assert "extractor" in message
+
+
+# --- task 8.10: an ingest run assembles the services its own stages reach ------------------
+#
+# `raptor` and `hypothetical-questions` are registered under `weft_index.contract.Expander`,
+# an **ingest-path** contract, and both reach an ambient service through `ctx.require` —
+# `Embedder`, `Prompts` and `LLM` between them. `weft_cli.run_services.build_services` builds
+# those for the query path; `run_index` built none at all, so both plugins failed at run time
+# with *"no service is registered for ... on this run"* and had never run through the CLI in
+# the one place they belong. Found by running the binary at task 8.2, not by any of the 1,929
+# tests that were green while it was true.
+
+
+class _ExpanderReachingServices:
+    """An `Expander` that records what it could reach — the shape `raptor` actually has.
+
+    Deliberately reaches for all three rather than one: the population of `ctx.require` calls
+    across `weft_index` is `Embedder`, `Prompts` and `LLM`, and a test that asked for one of
+    them would pass against a service set missing the other two.
+    """
+
+    def __init__(self, seen: dict[str, object]) -> None:
+        self._seen = seen
+
+    async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        self._seen["embedder"] = ctx.require(Embedder)
+        self._seen["prompts"] = ctx.require(Prompts)
+        self._seen["llm"] = ctx.require(LLM)
+        return Produced(value=payload)
+
+
+def _expander_reaching_services(seen: dict[str, object]) -> Callable[[object], object]:
+    def _factory(config: object = None) -> object:
+        del config
+        return _ExpanderReachingServices(seen)
+
+    return _factory
+
+
+async def test_an_ingest_stage_reaches_the_ambient_services_its_contract_allows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    (tmp_path / "one.txt").write_text("hello weft")
+    registry, _store = _registry_with_fakes()
+    seen: dict[str, object] = {}
+    registry.add(Expander, "reaches", _expander_reaching_services(seen), distribution="acme-index")
+    document = _document(
+        "expanding",
+        StageDeclaration(id="extract", use="text"),
+        StageDeclaration(id="chunk", use="fixed-size"),
+        StageDeclaration(id="expand", use="reaches"),
+        StageDeclaration(id="embed", use="hash"),
+        StageDeclaration(id="store", use="pgvector"),
+    )
+    monkeypatch.setattr(ingest_module, "full_catalogue", _stub_catalogue({"expanding": document}))
+
+    # Act
+    result = await run_index(tmp_path, registry=registry, ctx=_ctx(), pipeline="expanding")
+
+    # Assert — all three resolved, and the run produced rather than failing at the expander.
+    assert result.summary.produced == 1
+    assert sorted(seen) == ["embedder", "llm", "prompts"]
+
+
+async def test_the_ambient_embedder_is_the_one_the_document_names_not_the_configured_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The decision task 8.10 had to make, and the reason it was not made inside a data task.
+
+    On a `--pipeline` run `[services] embed` is deliberately not read — `run_index`'s own
+    "Q3, settled" — so an ambient `Embedder` taken from the configured name would cluster
+    RAPTOR's leaves with one embedder while the document's own `embed` stage wrote vectors
+    from another. The two would disagree silently: the run succeeds, the index is built, and
+    the summaries sit in a different vector space from the chunks they summarise. The ambient
+    embedder is therefore derived from the **resolved document**, exactly as the extractor
+    name and the store stage id already are (`_extractor_name_of`, `_store_stage_id_of`).
+    """
+    # Arrange — the document names `model`; the call is *also* given `hash`, which must lose.
+    (tmp_path / "one.txt").write_text("hello weft")
+    registry, _store = _registry_with_fakes()
+    built: list[_EmbedderConfig] = []
+    document_embedder = _configured_embedder(built)
+    registry.add(Embedder, "model", document_embedder, distribution="acme-embed")
+    seen: dict[str, object] = {}
+    registry.add(Expander, "reaches", _expander_reaching_services(seen), distribution="acme-index")
+    document = _document(
+        "two-embedders",
+        StageDeclaration(id="extract", use="text"),
+        StageDeclaration(id="chunk", use="fixed-size"),
+        StageDeclaration(id="expand", use="reaches"),
+        StageDeclaration(id="embed", use="model", config={"model": "big"}),
+        StageDeclaration(id="store", use="pgvector"),
+    )
+    monkeypatch.setattr(
+        ingest_module, "full_catalogue", _stub_catalogue({"two-embedders": document})
+    )
+
+    # Act
+    await run_index(
+        tmp_path, registry=registry, ctx=_ctx(), pipeline="two-embedders", embedder="hash"
+    )
+
+    # Assert — the document's plugin, built from the document's own `with:` block.
+    assert isinstance(seen["embedder"], document_embedder)
+    assert built == [_EmbedderConfig(model="big")]
+
+
+async def test_the_default_path_registers_the_embedder_it_was_given(tmp_path: Path) -> None:
+    """No document, so there is nothing to derive from — the named embedder is the run's."""
+    # Arrange
+    (tmp_path / "one.txt").write_text("hello weft")
+    registry, _store = _registry_with_fakes()
+    built: list[_EmbedderConfig] = []
+    registry.add(Embedder, "model", _configured_embedder(built), distribution="acme-embed")
+
+    # Act
+    result = await run_index(tmp_path, registry=registry, ctx=_ctx(), embedder="model")
+
+    # Assert
+    assert result.summary.produced == 1
+    assert built == [_EmbedderConfig()]
+
+
+async def test_an_ingest_run_does_not_offer_the_query_path_s_own_services(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`StageLookup` and `RouteCatalogue` are `weft-retrieve`'s, and an ingest stage that
+    could reach them would be an ingest plugin depending on the query path. `NodeStore` is
+    excluded for a different reason: an ingest document already names a store *stage*, so an
+    ambient one would give a single run two paths to the same store. Asserted rather than
+    left implicit, because the cheap mistake here is to hand `build_services`' whole set over.
+    """
+    # Arrange
+    (tmp_path / "one.txt").write_text("hello weft")
+    registry, _store = _registry_with_fakes()
+    refused: dict[str, str] = {}
+
+    class _ExpanderReachingTooFar:
+        async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+            for label, contract in (("store", NodeStore), ("lookup", StageLookup)):
+                try:
+                    ctx.require(contract)
+                except UnresolvedServiceError as exc:
+                    refused[label] = str(exc)
+            return Produced(value=payload)
+
+    def _too_far(config: object = None) -> object:
+        del config
+        return _ExpanderReachingTooFar()
+
+    registry.add(Expander, "too-far", _too_far, distribution="acme")
+    document = _document(
+        "reaching",
+        StageDeclaration(id="extract", use="text"),
+        StageDeclaration(id="chunk", use="fixed-size"),
+        StageDeclaration(id="expand", use="too-far"),
+        StageDeclaration(id="embed", use="hash"),
+        StageDeclaration(id="store", use="pgvector"),
+    )
+    monkeypatch.setattr(ingest_module, "full_catalogue", _stub_catalogue({"reaching": document}))
+
+    # Act
+    await run_index(tmp_path, registry=registry, ctx=_ctx(), pipeline="reaching")
+
+    # Assert — both refused, and the refusal names what *is* available (requirement 5).
+    assert sorted(refused) == ["lookup", "store"]
+    assert "Embedder" in refused["store"]

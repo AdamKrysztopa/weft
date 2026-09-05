@@ -23,7 +23,7 @@ from __future__ import annotations
 from typing import ClassVar
 
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from weft_kernel.context import Context, ServiceRegistry
 from weft_kernel.errors import WeftError
@@ -195,3 +195,140 @@ def test_route_catalogue_defaults_cost_to_empty_when_the_pipeline_names_none() -
     # Act / Assert
     [candidate] = catalogue.candidates()
     assert candidate.cost == ""
+
+
+# --- task 8.11: a sub-plugin's config block is validated before its factory sees it --------
+#
+# Found by running `weft ask --pipeline corrective-retrieve` at task 8.10. `corrective`,
+# `iterative-retrieval` and `refine-on-uncertainty` each resolve a sibling by name through
+# `StageLookup` and each publishes a `*_config` field typed `Mapping[str, object] | None` —
+# seven such fields between them, every one documented as the way a document retunes the
+# sibling. `build` passed that mapping to `entry.factory` untouched, so the plugin received a
+# raw `dict` where its own config object was expected and died inside its own `run` with
+# `'dict' object has no attribute 'channels'`. Seven documented configuration surfaces, none
+# of which worked, and no test noticed because every test that exercised these plugins left
+# the sibling's config at `None`.
+
+
+class _SubConfig(BaseModel):
+    """Declared the way every real Weft plugin config is — frozen, `extra="forbid"` — so an
+    unknown field is rejected here for the same reason it would be in production. A plain
+    `BaseModel` silently ignores extras, and a test using one would have proved that
+    validation ran without proving it refuses anything."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    top_k: int = 20
+
+
+class _ConfigurableSub:
+    config_model: ClassVar[type[_SubConfig]] = _SubConfig
+
+    def __init__(self, config: _SubConfig | None = None) -> None:
+        self.config = config
+
+    async def run(self, payload: object, ctx: Context) -> Outcome[object]:
+        del ctx
+        return Produced(value=payload)
+
+
+class _UnconfigurableSub:
+    def __init__(self, config: object = None) -> None:
+        self.config = config
+
+    async def run(self, payload: object, ctx: Context) -> Outcome[object]:
+        del ctx
+        return Produced(value=payload)
+
+
+def _sub_registry(contract: type, name: str, plugin: type) -> Registry:
+    registry = Registry()
+    registry.add(contract, name, plugin, distribution="acme-sub")
+    return registry
+
+
+async def test_build_validates_a_mapping_into_the_plugins_own_config_model() -> None:
+    # Arrange — the exact shape a `with:` block reaches a sibling through.
+    built: list[object] = []
+
+    class _Recording(_ConfigurableSub):
+        def __init__(self, config: _SubConfig | None = None) -> None:
+            super().__init__(config)
+            built.append(config)
+
+    lookup = RegistryStageLookup(_sub_registry(_ConfigurableSub, "sub", _Recording))
+
+    # Act
+    await lookup.build(_ConfigurableSub, "sub", {"top_k": 5})
+
+    # Assert — a validated model, never the raw mapping.
+    assert built == [_SubConfig(top_k=5)]
+
+
+async def test_build_leaves_an_already_built_config_object_alone() -> None:
+    """The other caller shape, which must keep working: a plugin that has already
+    constructed its sibling's config and hands it over typed."""
+    # Arrange
+    built: list[object] = []
+
+    class _Recording(_ConfigurableSub):
+        def __init__(self, config: _SubConfig | None = None) -> None:
+            super().__init__(config)
+            built.append(config)
+
+    lookup = RegistryStageLookup(_sub_registry(_ConfigurableSub, "sub", _Recording))
+    already = _SubConfig(top_k=7)
+
+    # Act
+    await lookup.build(_ConfigurableSub, "sub", already)
+
+    # Assert
+    assert built == [already]
+
+
+async def test_build_refuses_a_mapping_the_config_model_rejects_naming_the_fields() -> None:
+    # Arrange
+    lookup = RegistryStageLookup(_sub_registry(_ConfigurableSub, "sub", _ConfigurableSub))
+
+    # Act / Assert — loud, at construction, naming what the model accepts (requirement 5).
+    with pytest.raises(WeftError) as raised:
+        await lookup.build(_ConfigurableSub, "sub", {"nosuchfield": 1})
+    message = str(raised.value)
+    assert "sub" in message
+    assert "top_k" in message
+
+
+async def test_build_refuses_a_mapping_for_a_plugin_that_publishes_no_config_model() -> None:
+    """A block with nowhere checked to land must never be silently accepted and dropped —
+    `weft_kernel.resolution.StageNotConfigurableError`'s own rule, applied one seam over."""
+    # Arrange
+    lookup = RegistryStageLookup(_sub_registry(_UnconfigurableSub, "sub", _UnconfigurableSub))
+
+    # Act / Assert
+    with pytest.raises(WeftError) as raised:
+        await lookup.build(_UnconfigurableSub, "sub", {"top_k": 5})
+    message = str(raised.value)
+    assert "sub" in message
+    # Not `UnknownPluginError` by accident — the plugin resolves; it is the block that has
+    # nowhere to land, which is a different fact and needs a different sentence.
+    assert "config" in message.lower()
+
+
+async def test_build_capability_validates_the_same_way() -> None:
+    """`Sufficiency` is reached through `build_capability`, and `iterative-retrieval`'s
+    `sufficiency_config` is one of the seven fields — so the same repair has to cover it."""
+    # Arrange
+    built: list[object] = []
+
+    class _Recording(_ConfigurableSub):
+        def __init__(self, config: _SubConfig | None = None) -> None:
+            super().__init__(config)
+            built.append(config)
+
+    lookup = RegistryStageLookup(_sub_registry(_ConfigurableSub, "sub", _Recording))
+
+    # Act
+    await lookup.build_capability(_ConfigurableSub, "sub", {"top_k": 3})
+
+    # Assert
+    assert built == [_SubConfig(top_k=3)]

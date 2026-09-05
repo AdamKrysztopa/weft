@@ -394,3 +394,68 @@ async def build_services(
     registered.add(StageLookup, stage_lookup(registry))
     registered.add(RouteCatalogue, route_catalogue(catalogue))
     return registered
+
+
+async def build_index_services(
+    *, registry: Registry, llm: LLMSection, sink: TokenSink, embedder: Embedder | None
+) -> ServiceRegistry:
+    """Assemble one **ingest** run's `ServiceRegistry` — task **8.10**.
+
+    `build_services` above is the query path's, and this is deliberately not it. Until this
+    function existed `weft_cli.ingest.run_index` assembled no services at all, so a stage that
+    reached one through `ctx.require` failed at run time with *"no service is registered for
+    ... on this run"*. That was not a hypothetical: `raptor` and `hypothetical-questions` are
+    registered under `weft_index.contract.Expander`, an ingest-path contract, and **neither had
+    ever run through the CLI** — two phases, every gate green, because their exit
+    demonstrations were unit tests that constructed a `Context` themselves. Found by running
+    the binary (`docs/lessons.md` L8.4), not by any of the 1,929 tests that were green while it
+    was true.
+
+    **Four services, and the three that are missing are the argument.** The set is what the
+    live population of `ctx.require` calls under `weft_index` actually asks for — `LLM`,
+    `Prompts`, `Embedder`, plus `TokenSink` because `weft_llm.client` requires it to serve the
+    first — read off the tree rather than off a contract's documentation, per
+    `docs/lessons.md` L6.4. What is **not** here:
+
+    - **`StageLookup` and `RouteCatalogue`** are `weft-retrieve`'s, published for the query
+      path. An ingest stage able to reach them would be an ingest plugin depending on the
+      query path, which nothing else in this tree's layering permits and which no ingest
+      plugin has ever asked for. Handing `build_services`' whole set over would have granted
+      it silently, which is the cheap mistake this function exists instead of.
+    - **`NodeStore`**, for a different reason: an ingest document already names a store
+      *stage*, so an ambient one would give a single run two paths to the same store with no
+      ordering between them. On the query path a store is a service because there is no store
+      stage; here there is one, and it is the pipeline's business.
+
+    A stage reaching for any of the three gets `weft_kernel.context.UnresolvedServiceError`
+    naming what *is* available, which is requirement 5 and is also the seam where a third
+    party who genuinely needs one would come and ask.
+
+    **`embedder` is an instance, not a name, and that is the decision this function encodes.**
+    On a `--pipeline` run `[services] embed` is deliberately not read (`weft_cli.ingest.
+    run_index`'s own *"Q3, settled"*), so resolving an ambient embedder from the configured
+    name would let `raptor` cluster its leaves with one embedder while the document's own
+    `embed` stage wrote vectors from another — a run that succeeds, an index that is built,
+    and summaries sitting in a different vector space from the chunks they summarise, with
+    nothing anywhere reporting it. The caller therefore passes the *resolved pipeline's own*
+    embed-stage instance, so there is exactly one embedder per run by construction rather than
+    two that happen to agree. The default path derives it the same way and needs no branch:
+    its specs name `[services] embed` at the embed stage, so the instance is that one. `None`
+    means the resolved pipeline has no embed stage at all, and then no `Embedder` is registered
+    rather than one being conjured from configuration — a stage reaching for it gets the
+    ordinary `UnresolvedServiceError` naming what this run does offer.
+
+    `async def` for the reason `build_services` states for itself: nothing below awaits today,
+    and the coroutine shape is what lets a service that genuinely needs to join without
+    changing every caller from sync to async at once.
+    """
+    registered = ServiceRegistry()
+    registered.add(
+        LLM,
+        llm_service(registry=registry, roles=llm.roles, retry=llm.retry, loop_guard=llm.loop_guard),
+    )
+    registered.add(TokenSink, sink)
+    registered.add(Prompts, prompts_service(registry))
+    if embedder is not None:
+        registered.add(Embedder, embedder)
+    return registered

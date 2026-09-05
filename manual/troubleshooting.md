@@ -644,6 +644,40 @@ pydantic rejected and why, and lists every field the model accepts (`KeybertConf
 fix the `with:` value the field names, or check the field name itself for a typo against the
 accepted list.
 
+### `SubPluginConfigError`
+
+**What it looks like** — task 8.11: a plugin that resolves a *sibling* by name was given a config
+block for it that the sibling's own `config_model` rejects. `iterative-retrieval`'s `leaf_config`,
+below; `corrective`'s `primary_config`/`grader_config`/`knowledge_action_config` and
+`refine-on-uncertainty`'s `retriever_config`/`signal_config` behave identically. Reproduced against
+a real install, from a project-local `pipelines/bad-sub.yaml` that types `top_kk` for `top_k`:
+
+```text
+$ weft ask "what is fusion" --pipeline bad-sub
+the config block passed for 'vector-top-k' is invalid for VectorTopKConfig: field 'top_kk': Extra
+inputs are not permitted. VectorTopKConfig accepts: arm, channels, filter, per_query_top_k, top_k.
+$ echo $?
+1
+```
+
+**Why it is separate from `InvalidStageConfigError` above**, which reports the same *kind* of fact
+about a stage's own `with:` block. That one can name a stage id and a pipeline, because a stage has
+a position in a document. A sibling resolved through `weft_retrieve.contract.StageLookup` has
+neither: it is named by a *field* of the plugin that reaches it, so the message names the plugin
+and the model instead. The two are deliberately not merged; a shared message would have to drop
+whichever half the other could not supply.
+
+**What to do:** the message names the field that was rejected, why, and every field the model
+accepts — fix the value, or check the field name against the accepted list. If you meant to
+configure the *outer* plugin rather than its sibling, the block belongs in `with:` directly rather
+than inside a `*_config` field.
+
+> *(This error class exists because those seven `*_config` fields had **never worked**. `build`
+> handed the raw mapping to the sibling's factory, which received a `dict` where its config object
+> belonged and failed later inside its own `run` with `'dict' object has no attribute 'channels'` —
+> a message naming neither the field nor the document that set it. Found by running
+> `weft ask --pipeline corrective-retrieve`; `docs/lessons.md` L8.5.)*
+
 ### `StageNotConfigurableError`
 
 **What it looks like** — a stage writes a non-empty `with:` block for a plugin that declares no

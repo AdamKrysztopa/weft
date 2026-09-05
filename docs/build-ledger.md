@@ -4041,8 +4041,8 @@ it is a config key and two call sites. Said here because nothing else records it
   anybody**, so a document ending in one runs and discards its only product. Task 2.27's own exit
   demonstration — "an operator's PDF becomes readable" — is not currently reachable from the CLI
 
-- [ ] **8.10** an `Expander` runs where it is registered to run · owner `02` §1; `01` → Phase 8 ·
-  turns on — · sha — · **Found by running the binary at 8.2, and it is older than this phase.**
+- [x] **8.10** an `Expander` runs where it is registered to run · owner `02` §1; `01` → Phase 8 ·
+  turns on — · sha `—` · **Found by running the binary at 8.2, and it is older than this phase.**
   `weft index --pipeline index-with-raptor` fails with *"no service is registered for Embedder on
   this run"*, and `index-with-questions` with the same sentence about `Prompts`. Both plugins are
   registered under `weft_index.contract.Expander` — an **ingest-path** contract — and both reach an
@@ -4053,13 +4053,54 @@ it is a config key and two call sites. Said here because nothing else records it
   **Not fixed here on purpose**: which ambient services an ingest run should expose is a design
   question — the query path's `build_services` resolves LLM roles, the store and the token sink
   together — and answering it inside a data task would settle it by implication. It is also the
-  reason 8.2's own line no longer claims `raptor-and-leaves-rrf` has a floor
+  reason 8.2's own line no longer claims `raptor-and-leaves-rrf` has a floor ·
+  **closed by `build_index_services`**, a second, narrower assembler beside `build_services`:
+  `LLM`, `TokenSink`, `Prompts` and `Embedder`, and the three that are *absent* are the design
+  answer this task owed. `StageLookup`/`RouteCatalogue` are `weft-retrieve`'s and an ingest
+  stage able to reach them would be an ingest plugin depending on the query path; `NodeStore`
+  is absent because an ingest document already names a store *stage*, so an ambient one would
+  give one run two paths to the same store. **And the `Embedder` is the resolved document's own
+  embed-stage instance, not `[services] embed`** — on a `--pipeline` run that key is
+  deliberately unread, so resolving it here would let `raptor` cluster with one embedder while
+  the document wrote vectors with another: a run that succeeds, an index that is built, and
+  summaries sitting in a different vector space from the chunks they summarise, with nothing
+  reporting it
+- [x] **8.11** a `*_config` block reaches the sibling it configures as that sibling's own config
+  object · owner `02` §3; `01` requirement 6 · turns on — · sha `—` · **Found by running
+  `weft ask --pipeline corrective-retrieve` while verifying 8.10.** `corrective`,
+  `iterative-retrieval` and `refine-on-uncertainty` publish **seven** `*_config` fields between
+  them, each typed `Mapping[str, object] | None` and each documented as the way a document
+  retunes a sibling resolved by name. `RegistryStageLookup.build` handed that mapping straight
+  to the factory, so the sibling was constructed with a raw `dict` where its config object
+  belonged and died inside its own `run` — `'dict' object has no attribute 'channels'`. Seven
+  parameterisation surfaces, none of which worked, requirement 6 ("every piece of it is
+  parameterisable") false at all seven, and no test caught it because every test driving these
+  plugins left the sibling's config at `None`. `tests/unit/weft_retrieve/test_engine.py`'s own
+  `_echo_factory` had been guarding `isinstance(config, _EchoConfig)` since the file was
+  written, which is the shape a workaround leaves behind. Repaired at the seam: `build` and
+  `build_capability` validate a `Mapping` into the plugin's own `config_model`, refuse a block
+  for a plugin publishing none rather than dropping it, and pass an already-built config object
+  through untouched
 
-**Exit** (`01` → Phase 8): tasks 8.4 with an empty waiver, 8.6, 8.7, 8.8 and 8.10, demonstrated
+**Exit** (`01` → Phase 8): tasks 8.4 with an empty waiver, 8.6, 8.7 and 8.8, demonstrated
 together from outside this repository against an installed `weft-rag` and one container.
 
 **Verified by running the binary from `/private/tmp`, outside this repository, against the
-`compose.yaml` container — which is where two of this phase's three findings came from.**
+`compose.yaml` container — which is where four of this phase's five findings came from, and
+where tasks 8.10 and 8.11 came from outright.** After those two: `weft index --pipeline
+index-with-raptor` and `--pipeline index-with-questions` both run, and the store holds the
+proof rather than the summary line — `SELECT ext->'weft-index'->>'technique', count(*) FROM
+weft_nodes GROUP BY 1` returns `hypothetical-questions | 9` and `raptor | 1`, so
+`raptor-and-leaves-rrf`'s filter finally selects something a shipped path produced.
+`iterative-retrieve` and `corrective-retrieve` now run their sub-retrievers to completion and
+fail only where `scripted` cannot answer a structured prompt, which is the test provider
+behaving as designed. **One thing measured and not repaired**: `index-with-raptor` against the
+default `hash` embedder builds **zero** summaries and reports success — `similarity_threshold:
+0.75` over deterministic hash vectors is a bar nothing clears. Stated in the document itself
+rather than fixed, because clustering meaningless vectors arguably *should* produce nothing;
+what is wrong is only that it is silent.
+
+**The first verification pass, before 8.10 and 8.11 existed, found this:**
 `weft pipeline list` prints **23** documents where it printed 4. `weft pipeline show` resolves every
 one of the nineteen new rungs and prints per-stage provenance, so a derived rung is readable as
 either the delta or the resolved whole. `weft index ./corpus --pipeline index-text` stored 5 nodes;

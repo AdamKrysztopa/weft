@@ -595,6 +595,13 @@ class IndexCommand:
             pipeline=index_args.pipeline,
             reports=deps.reports,
             contributions=deps.contributions,
+            # Task 8.10: an ingest stage may ask a model — `raptor` summarises a cluster,
+            # `hypothetical-questions` writes questions per chunk — so the roles an operator
+            # mapped in `[llm.roles]` have to reach the ingest run, exactly as they already
+            # reach a query one through `run_routed_ask`. Before this, `run_index` assembled
+            # no services at all and both plugins failed at run time.
+            llm=deps.llm,
+            sink=deps.token_sink,
         )
         reconcile_result = await self._auto_reconcile(index_args.reconcile, deps=deps, ctx=ctx)
         return Produced(

@@ -98,14 +98,16 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import AsyncIterator, Awaitable, Callable, Collection, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Final, cast
 
 from weft_chunk import Chunker
 from weft_cli.compile import contracts_for, to_specs
+from weft_cli.llm_roles import LLMSection
 from weft_cli.pipeline_catalogue import UnknownPipelineNameError, full_catalogue
+from weft_cli.run_services import build_index_services
 from weft_cli.services import DEFAULT_EMBEDDER, DEFAULT_STORE
 from weft_embed import Embedder
 from weft_extract import (
@@ -127,6 +129,8 @@ from weft_kernel.runner import (
     RunSummary,
     StageSpec,
 )
+from weft_llm.client import NullSink
+from weft_llm.contract import TokenSink
 from weft_store import NodeStore
 from weft_store.contract import SourceRecord
 
@@ -292,6 +296,8 @@ async def run_index(
     pipeline: str | None = None,
     reports: Sequence[PackReport] = (),
     contributions: tuple[Contribution, ...] = (),
+    llm: LLMSection | None = None,
+    sink: TokenSink | None = None,
 ) -> IndexResult:
     """Extract, chunk, embed and store every file under `directory` an extractor claims.
 
@@ -378,12 +384,21 @@ async def run_index(
 
     runner = Runner(registry)
     runnable = runner.resolve(specs, tenant_id=ctx.tenant_id)
+    indexing_ctx = replace(
+        ctx,
+        services=await build_index_services(
+            registry=registry,
+            llm=llm if llm is not None else LLMSection(),
+            sink=sink if sink is not None else NullSink(),
+            embedder=_embedder_instance_of(specs, runnable),
+        ),
+    )
 
     async def batches() -> AsyncIterator[object]:
         yield docs
 
     try:
-        summary = await runner.run(runnable, batches(), ctx)
+        summary = await runner.run(runnable, batches(), indexing_ctx)
         await _record_sources(runnable, store_stage_id=store_stage_id, docs=docs, pipeline=pipeline)
         stored_count = await _stored_count(runnable, store_stage_id=store_stage_id)
         return IndexResult(
@@ -481,6 +496,35 @@ def _extractor_name_of(specs: tuple[StageSpec, ...], *, pipeline: str) -> str:
         pipeline=pipeline,
         remedy=(f"add a stage to '{pipeline}' whose 'use:' names a registered Extractor plugin."),
     )
+
+
+def _embedder_instance_of(
+    specs: Sequence[StageSpec], runnable: RunnablePipeline
+) -> Embedder | None:
+    """The **built instance** of the one stage registered under `Embedder`, or `None` — 8.10.
+
+    Matched by stage `id` rather than by position, so it does not depend on `Runner.resolve`
+    preserving the order of `specs`. The third of this module's three "which stage is the X"
+    walks, beside `_extractor_name_of` and `_store_stage_id_of`, and the only one that returns
+    an object rather than a name: `weft_cli.run_services.build_index_services` takes the
+    instance precisely so a run has one embedder rather than two that happen to agree — see
+    that function's own docstring for why resolving `[services] embed` a second time here
+    would be a silent defect on a `--pipeline` run.
+
+    **`None` rather than a refusal for a document with no embed stage**, deliberately.
+    `index_specs` writes one unconditionally, so the default path always has it; a document
+    that omits it is unusual and this function is not the place to decide it is wrong —
+    refusing here would change what such a document does today, which is outside task 8.10's
+    scope. Registering nothing is the honest translation: a stage that then reaches for
+    `Embedder` gets `weft_kernel.context.UnresolvedServiceError` naming what the run does
+    offer, which is requirement 5's answer at the seam that already gives it, and a document
+    whose stages never ask is unaffected.
+    """
+    by_id = {stage.id: stage.instance for stage in runnable.stages}
+    for spec in specs:
+        if spec.contract is Embedder and spec.id in by_id:
+            return cast(Embedder, by_id[spec.id])
+    return None
 
 
 def _store_stage_id_of(specs: tuple[StageSpec, ...]) -> str | None:

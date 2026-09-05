@@ -22,6 +22,16 @@ extends: index-text
 # of several levels — this rung builds the first, and says so rather than borrowing the paper's
 # depth in its name.
 #
+# **With the default `hash` embedder this rung produces no summaries at all, and says
+# nothing about it.** Measured 2026-09-05: `similarity_threshold: 0.75` against `weft-embed`'s
+# deterministic hash vectors — which carry no semantic similarity by their own admission — is
+# a threshold nothing clears, so no cluster reaches `min_cluster_size` and the run reports
+# success over zero summaries. That is arguably the honest outcome (clustering meaningless
+# vectors *should* produce nothing) and it is still a silent one, so it is stated here rather
+# than left for someone to find by an empty `raptor-and-leaves-rrf`. Configure a real embedder
+# in `[services] embed`, or lower `similarity_threshold` in a derived document if you are
+# only exercising the shape.
+#
 # **Cost is per cluster and is not bounded by this document.** `max_concurrent_summaries: 8` is
 # the plugin's own default and is kept; ledger task 8.7 is the wider cap that is not there yet.
 insert:

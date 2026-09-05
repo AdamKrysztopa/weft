@@ -27,6 +27,37 @@ otherwise paid for twice.
 
 ## Queue
 
+### L8.5 — seven documented configuration surfaces, none of which had ever worked
+
+**What happened.** `corrective`, `iterative-retrieval` and `refine-on-uncertainty` each resolve a
+sibling plugin by name through `StageLookup` and each publishes `*_config` fields — seven between
+them (`primary_config`, `grader_config`, `knowledge_action_config`, `leaf_config`,
+`sufficiency_config`, `retriever_config`, `signal_config`), every one typed
+`Mapping[str, object] | None` and documented in its own docstring as *the* way a pipeline document
+retunes that sibling. `RegistryStageLookup.build` passed the mapping straight to `entry.factory`,
+so the sibling was built with a raw `dict` where its config object belonged and died later inside
+its own `run`: `'dict' object has no attribute 'channels'`. Requirement 6 — *"every piece of it is
+parameterisable"* — was false at all seven, `10` §1.1 describes several of them as if they worked,
+and the whole suite was green, because **every test that drove these plugins left the sibling's
+config at `None`**. Found by running `weft ask --pipeline corrective-retrieve`, the first caller in
+the tree's history to set one. `tests/unit/weft_retrieve/test_engine.py`'s own `_echo_factory` had
+been written as `_Echo(config if isinstance(config, _EchoConfig) else None)` since the file was
+created — the defect's own workaround, sitting in the test that was supposed to prove the seam.
+
+**Generalises to.** *An optional parameter that every test leaves unset is an untested parameter,
+and a test helper that defensively narrows a type the production caller does not narrow is a
+recorded sighting of the bug.* The general move: where a field is documented as the way to
+configure something, at least one test must actually set it — and an `isinstance` guard in a test
+double is a question to ask, not a convenience to write.
+
+**Candidate home.** Grouped with `L8.4` (both are "the gate agrees with itself and not with the
+artefact"). Two candidate mechanisms: a check that every `Mapping[str, object]`-typed config field
+on a registered plugin is set by at least one test or one shipped document — the ladder makes the
+second half cheap now — and a note in `phase-step` → *Red*, beside the existing "assert the fact a
+field means", that a defensive `isinstance` in a test double is evidence about production.
+
+---
+
 ### L8.4 — two static checks agreed, and the binary said the feature had never run
 
 **What happened.** Phase 8 shipped `index-with-raptor` and `index-with-questions`, the first

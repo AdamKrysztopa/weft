@@ -41,10 +41,13 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable, Mapping
 from typing import cast
 
+from pydantic import BaseModel, ValidationError
+
 from weft_kernel.context import Context
+from weft_kernel.errors import WeftError
 from weft_kernel.payload import Outcome
 from weft_kernel.pipeline import Pipeline
-from weft_kernel.registry import Registry
+from weft_kernel.registry import Registry, RegistryEntry, unwrap_factory
 from weft_kernel.runner import Stage
 from weft_kernel.seam import wrap
 from weft_retrieve.payload import RouteCandidate
@@ -88,7 +91,7 @@ class RegistryStageLookup:
         nothing here invents a second message for the same fact.
         """
         entry = self._registry.entry(contract, name)
-        instance = cast("Stage[In, Out]", entry.factory(config))
+        instance = cast("Stage[In, Out]", entry.factory(_validated_sub_config(entry, name, config)))
         return wrap(
             instance.run,
             distribution=entry.distribution,
@@ -104,7 +107,75 @@ class RegistryStageLookup:
         `Prompt`) already runs inside the calling technique's own seam-wrapped span.
         """
         entry = self._registry.entry(contract, name)
-        return cast(T, entry.factory(config))
+        return cast(T, entry.factory(_validated_sub_config(entry, name, config)))
+
+
+class SubPluginConfigError(WeftError):
+    """A `*_config` block a plugin passed for a sibling it resolves by name does not fit
+    that sibling's own `config_model`.
+
+    **Task 8.11, and it is a repair.** `corrective`, `iterative-retrieval` and
+    `refine-on-uncertainty` each resolve a sibling through `StageLookup` and each publishes
+    a `*_config` field typed `Mapping[str, object] | None` — seven such fields between them,
+    every one documented as *the* way a pipeline document retunes the sibling. `build` used
+    to hand that mapping straight to `entry.factory`, so the sibling was constructed with a
+    raw `dict` where its own config object belonged and died later inside its own `run`
+    (`'dict' object has no attribute 'channels'`, found by running
+    `weft ask --pipeline corrective-retrieve`). Seven configuration surfaces, none of which
+    worked, and no test caught it because every test that drove these plugins left the
+    sibling's config at `None`. `tests/unit/weft_retrieve/test_engine.py`'s own
+    `_echo_factory` had been guarding `isinstance(config, _EchoConfig)` since this file was
+    written, which is the workaround the defect leaves behind.
+
+    **Deliberately not in fitness function 12's family.** It reports a block that does not
+    fit a model, not a name failing to resolve against an enumerable set — the identical line
+    `weft_cli.services` already draws between `UnknownServiceKeyError` and its own
+    malformed-value check, for the identical reason.
+    """
+
+
+def _validated_sub_config(entry: RegistryEntry, name: str, config: object) -> object:
+    """`config`, validated into the resolved plugin's own `config_model` when it is a mapping.
+
+    Mirrors `weft_kernel.resolution`'s own `with:` validation one seam over, and does not
+    reuse it: that function's messages name a *stage id* in a *pipeline*, and there is
+    neither here — a sibling resolved by name has no position in any document. What it does
+    reuse is the shape of the rule, including the part that is easy to skip: a non-empty
+    block for a plugin publishing no `config_model` is **refused**, never accepted and
+    dropped, because a configuration that silently does nothing is the reference defect
+    `StageNotConfigurableError` exists to prevent.
+
+    **Only a `Mapping` is validated.** A caller that has already built the sibling's config
+    object passes it through untouched, which is the shape every in-tree caller used before
+    this repair and which must keep working — `unwrap_factory` is how the declaration is read
+    off a factory a pack may have bound its settings into, the same call
+    `weft_kernel.resolution` makes for `requires`/`provides`.
+    """
+    if not isinstance(config, Mapping):
+        return config
+    block = cast("Mapping[str, object]", config)
+    declared = unwrap_factory(entry.factory)
+    config_model = cast("type[BaseModel] | None", getattr(declared, "config_model", None))
+    if config_model is None:
+        raise SubPluginConfigError(
+            f"a config block {dict(block)!r} was passed for '{name}', which publishes no "
+            f"config_model and therefore cannot be parameterised at all. Drop the block, or "
+            f"have '{name}' declare a `config_model` so it has somewhere to land."
+        )
+    try:
+        return config_model.model_validate(block)
+    except ValidationError as exc:
+        problems = "; ".join(
+            f"field '{'.'.join(str(part) for part in error['loc']) or '(the block itself)'}': "
+            f"{error['msg']}"
+            for error in exc.errors()
+        )
+        accepted = ", ".join(sorted(config_model.model_fields)) or "(no fields)"
+        raise SubPluginConfigError(
+            f"the config block passed for '{name}' is invalid for "
+            f"{config_model.__name__}: {problems}. {config_model.__name__} accepts: "
+            f"{accepted}."
+        ) from exc
 
 
 def stage_lookup(registry: Registry) -> RegistryStageLookup:
