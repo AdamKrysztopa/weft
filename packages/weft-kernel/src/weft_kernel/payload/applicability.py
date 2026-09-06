@@ -1,4 +1,4 @@
-"""`Applies` — what a stage operates on, declared as data. Task 1.6.
+"""`Applies` — what a stage operates on, declared as data. Task 1.6, extended by 9.2.
 
 Settled in G2, `docs/02-extension-model.md` §3 → *Applicability*: "A stage
 declares what it operates on; the runner routes everything else past it,
@@ -64,6 +64,20 @@ routing a stranger's `Atomic`-marked node past it is a byproduct of that
 requirement never being met, not a rule about tables the chunker's author
 had to think of and add.
 
+**A media-type constraint, task 9.2's addition.** `media_type` is already a core `Node`
+field — G5's admission rule, `node.py`'s own module docstring — rather than a namespaced
+fact, so it cannot be spelled as `Applies(SomeFact, ...)`; there is no `ExtModel` to narrow.
+`Applies(media_type=MediaType.TEXT)` claims a node of that type; `Applies(media_type=
+(MediaType.TEXT, MediaType.IMAGE))` claims any node whose type is one of those listed —
+the "any of these" reading lives *inside* one `Applies`, never across two, because a node
+has exactly one media type and two media-type `Applies` in one (conjunctive) tuple would
+jointly match nothing. `Applies(SomeFact, media_type=...)` is refused with a `ValueError` naming
+`media_type`: one `Applies` states one kind of constraint, and a fact constraint (narrows
+an `ExtModel` a node may carry) and a media-type constraint (narrows a field every node
+already has) are two different conjunction rules that a single object cannot mean at once.
+`Applies()` claiming neither is refused for the same reason it matters here at all — a
+constraint that matches nothing is a stage that silently never runs.
+
 **Vars never participate.** Nothing here reads `weft_kernel.pipeline`'s
 `vars:` block, and nothing could: `applies_to` is a class-level declaration
 a plugin's own module carries, never a field a pipeline document writes, so
@@ -88,6 +102,7 @@ from typing import Annotated
 from pydantic import BaseModel, BeforeValidator, ConfigDict, PlainSerializer
 
 from weft_kernel.payload.ext import ExtModel
+from weft_kernel.payload.media_type import MediaType
 from weft_kernel.payload.node import Node
 
 
@@ -169,11 +184,30 @@ class Applies(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    fact: _FactRef
+    fact: _FactRef | None = None
     constraints: tuple[tuple[str, object], ...] = ()
+    media_type: tuple[MediaType, ...] = ()
+    """The media types this constraint claims, its own typed field rather than an entry in
+    `constraints` — which is `tuple[tuple[str, object], ...]` because a *fact's* narrowed values
+    are arbitrary, and `object` is exactly the annotation that makes pydantic hand a persisted
+    `"text"` back as the string `"text"`. A constraint that dumps correctly and reads back as
+    something `matches` compares false against is write-only, which is the defect `_FactRef`'s
+    docstring above records this module already paying for once: it "worked from the day it was
+    written, so nothing ever failed while records were being created", and surfaced later in three
+    commands that merely read. Typed here, pydantic validates the round trip rather than this
+    module hoping for it.
+    """
 
-    def __init__(self, fact: type[ExtModel] | _Unset = _UNSET, /, **field_values: object) -> None:
-        """Authored as `Applies(Language, code="pl")`, and **rebuilt from JSON as well**.
+    def __init__(
+        self,
+        fact: type[ExtModel] | _Unset = _UNSET,
+        /,
+        *,
+        media_type: MediaType | tuple[MediaType, ...] | _Unset = _UNSET,
+        **field_values: object,
+    ) -> None:
+        """Authored as `Applies(Language, code="pl")` **or** `Applies(media_type=...)`,
+        and **rebuilt from JSON as well**.
 
         `fact` is positional-only so that a fact model declaring its own `fact` field is still
         narrowable, and that is exactly what broke reading one back: pydantic validates a persisted
@@ -191,11 +225,40 @@ class Applies(BaseModel):
         read method with no writer answers emptily; this is the reverse, and the reverse is worse,
         because the artefact persists and the failure surfaces somewhere else entirely.
 
-        The unset sentinel is what lets one `__init__` serve both callers: absent means pydantic is
-        rebuilding and `field_values` already holds the model's own fields.
+        The unset sentinel is what lets one `__init__` serve every caller: `fact` and `media_type`
+        both absent means pydantic is rebuilding and `field_values` already holds the model's own
+        fields (`fact`, `constraints`); `fact` given with `media_type` given too is the one
+        combination task 9.2 refuses outright, one `Applies` stating two conjunction rules at once.
         """
+        if not isinstance(fact, _Unset) and not isinstance(media_type, _Unset):
+            raise ValueError(
+                f"Applies({fact.__name__}, media_type=...) is not allowed: a fact constraint "
+                f"narrows an ExtModel a node may carry, and media_type narrows a field every "
+                f"node already has. One Applies states one kind of constraint — declare two "
+                f"separate stages, or drop whichever constraint this stage does not need."
+            )
         if isinstance(fact, _Unset):
-            super().__init__(**field_values)
+            if "fact" in field_values:
+                if not isinstance(media_type, _Unset):
+                    field_values["media_type"] = media_type
+                super().__init__(**field_values)
+                return
+            if isinstance(media_type, _Unset):
+                raise TypeError(
+                    "Applies() states no constraint at all. Pass a fact to narrow "
+                    "(Applies(Language, code='pl')) or a media type to claim "
+                    "(Applies(media_type=MediaType.TEXT)); an Applies claiming nothing would "
+                    "match no node and say nothing about why."
+                )
+            if field_values:
+                unexpected = ", ".join(sorted(field_values))
+                raise TypeError(
+                    f"Applies(media_type=...) accepts no keyword but media_type; got "
+                    f"{unexpected}. A media-type constraint narrows a field every node has, "
+                    f"with nothing left to name."
+                )
+            claimed = (media_type,) if isinstance(media_type, MediaType) else tuple(media_type)
+            super().__init__(fact=None, media_type=claimed)
             return
         unknown = sorted(set(field_values) - set(fact.model_fields))
         if unknown:
@@ -207,20 +270,28 @@ class Applies(BaseModel):
         super().__init__(fact=fact, constraints=tuple(sorted(field_values.items())))
 
     def matches(self, node: Node) -> bool:
-        """Whether `node` carries `fact` — and, if narrowed, every named field equals it.
+        """Whether `node` satisfies this constraint — a fact, or a media type, never both.
 
-        `node.ext_as(self.fact)` returning `None` is an ordinary absence —
-        "the stage does not apply", the safe-side reading the module
-        docstring describes — never treated as an error here, unlike a
-        namespace collision, which `ext_as` itself already raises on and
-        this method makes no attempt to catch.
+        `fact is None` means this `Applies` was built from `media_type=...`, and `media_type`
+        is checked directly against `node.media_type` — a core field every node has, so there
+        is no absence case to fail to the safe side of, unlike a fact.
+
+        Otherwise, `node.ext_as(self.fact)` returning `None` is an ordinary absence — "the
+        stage does not apply", the safe-side reading the module docstring describes — never
+        treated as an error here, unlike a namespace collision, which `ext_as` itself already
+        raises on and this method makes no attempt to catch.
         """
+        if self.fact is None:
+            return node.media_type in self.media_type
         value = node.ext_as(self.fact)
         if value is None:
             return False
         return all(getattr(value, name) == expected for name, expected in self.constraints)
 
     def __repr__(self) -> str:
+        if self.fact is None:
+            types = ", ".join(claimed.value for claimed in self.media_type)
+            return f"Applies(media_type=({types}))"
         if not self.constraints:
             return f"Applies({self.fact.__name__})"
         fields = ", ".join(f"{name}={value!r}" for name, value in self.constraints)

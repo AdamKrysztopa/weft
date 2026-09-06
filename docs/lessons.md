@@ -935,11 +935,37 @@ for any branch that only fires sometimes and does not say to re-run it after the
 
 
 
+### L9.42 — a task line asserted its mechanism already existed, and the mechanism could not express the property
+
+**What happened.** Ledger task `9.2` requires that "a chunker declares what it splits and the runner
+routes the rest past it", and its evidence paragraph states **"the mechanism exists
+(`runner.py:138-161`, `payload/applicability.py:162`)"**. Both citations resolve, and the mechanism
+they name is real — but it cannot express the property. `Applies` wraps an **`ExtModel` subclass**
+and nothing else, by its own module docstring; `media_type` is a field on `Node`, not an ext model,
+and `grep -n "media_type\|MediaType"` over both cited files returns **zero hits**. So "a node whose
+media type is not text" is not a constraint any shipped `applies_to` could carry, and the task as
+written needs a kernel grammar extension its own line says is unnecessary.
+
+The line was written the same day, by a planning pass that verified its citations resolved. Both do.
+What went unchecked is whether the thing at the other end could do the job claimed for it.
+
+**Generalises to.** "The mechanism exists" is a claim about *capability*, and a resolving `path:line`
+only evidences *existence* — so a task line asserting that some seam already supports a property
+carries the smallest expression of that property against the seam, or says it is unverified. A
+citation proves the code is there; it never proves the code can do what the sentence needs.
+
+**Candidate home.** `phase-step` → *Orient*, which says to read what a check asserts rather than what
+its name says, and does not extend that to a mechanism a plan asserts is sufficient. Possibly the
+planning pass itself: a line claiming an existing mechanism should name the call that would use it.
+
+
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in
 `lessons-archive.md`, session by session, with the edges between entries — which is where the
 question *have we been here before?* is answered, and where an on/off cycle becomes visible.
+
 
 
 
