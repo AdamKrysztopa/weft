@@ -613,7 +613,11 @@ rather than restating it — the two should be one sentence about extending a su
 
 ### L9.30 — the catalogue row claimed a mode the same page withdrew two paragraphs above it
 
-**What happened.** `docs/10-technique-catalogue.md:148` names the shipped plugin
+**Repaired 2026-09-06** by Phase 10's planning pass, which rewrote the row; it now carries no
+`mode:` annotation and names recursion and traversal as *not shipped*. That edit moved the row and
+the correction block down the catalogue, so the line numbers below are as-found, not as-they-are.
+
+**What happened.** `docs/10-technique-catalogue.md:148` named the shipped plugin
 **`raptor`** *(mode: `collapsed` | `traversal`)* — the mode annotation sitting inside the row's own
 name column. `RaptorConfig` has no `mode` field (`packages/weft-rag/src/weft_index/raptor.py:141-161`
 — seven fields, none of them it), and no `Retriever` in `packages/` descends a tree: the only reader
@@ -637,7 +641,7 @@ withdrawal edits the column rather than appending a paragraph.
 
 ### L9.31 — a pipeline document told operators to do the thing its own plugin documents as broken
 
-**What happened.** `packages/weft-rag/src/weft_index/pipelines/index-with-raptor.yaml` tells the
+**What happened.** `packages/weft-rag/src/weft_retrieve/pipelines/index-with-raptor.yaml` tells the
 reader that one summary level "is this document's choice rather than the plugin's limit", and that
 "a second level is a second stage naming it again, which is a document edit and not a plugin
 change". The plugin says the opposite, in bold, at
@@ -797,7 +801,10 @@ that no persisted `SourceRecord`/`Node` field is write-only, which would have ca
 
 ### L9.38 — "proven in <file>, not merely asserted" named a file that proves nothing of the kind
 
-**What happened.** `docs/10-technique-catalogue.md:143-144` states that `raptor`'s cascade delete —
+**Repaired 2026-09-06** in the same pass: the catalogue sentence now says the test asserts the
+precondition and never deletes. Line numbers below are as-found.
+
+**What happened.** `docs/10-technique-catalogue.md:143-144` stated that `raptor`'s cascade delete —
 a summary being reachable by the deletion of a source it was built from — is *"proven against a real
 corpus, real embeddings and a real store in `tests/integration/test_raptor_pipeline.py`, not merely
 asserted of the type"*. That file contains no deletion at all: `grep -c delete` over it returns

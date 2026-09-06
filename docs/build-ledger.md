@@ -5254,22 +5254,327 @@ which it has not been since the consolidation.
 
 ## Phase 10 — RAPTOR, extended
 
-**Added 2026-09-06 by the owner's roadmap decision. ⛔ Not specifiable yet: the source papers have
-not arrived.** `01` → Phase 10 owns the content and the exit; this section will own the tasks.
+**Added 2026-09-06 by the owner's roadmap decision; specified 2026-09-06, the day the papers arrived.**
+`01` → Phase 10 owns the content and the exit; this section owns the tasks. The ⛔ this section
+carried for a few hours — *the source papers have not arrived* — is lifted: four did, all read at
+source and adversarially peer-reviewed before a line below was written (31 claims confirmed, 5
+refuted, 8 overstated, 1 unverifiable; the refuted and overstated ones are **not** in this section as
+stated). They are:
 
-**This phase has no task lines on purpose.** RAPTOR already ships — `RaptorSummarizer` is a
-registered `Expander` (`packages/weft-rag/src/weft_index/__init__.py:63`) built at task 2.32 — so
-the work is an extension whose shape is decided by what the papers say. Writing speculative task
-lines now would be writing the repair before the property, which `L7.1` forbids, and would put a
-name in `10-technique-catalogue.md` before `paper-to-plugin` had settled it.
+- Parth Sarthi, Salman Abdullah, Aditi Tuli, Shubh Khanna, Anna Goldie, Christopher D. Manning,
+  *RAPTOR: Recursive Abstractive Processing for Tree-Organized Retrieval*, ICLR 2024,
+  arXiv:2401.18059 — the paper the shipped plugin is named after.
+- Chunyu Wei, Huaiyu Qin, Siyuan He, Yunhai Wang, Yueguo Chen, *T-Retriever: Tree-based Hierarchical
+  Retrieval Augmented Generation for Textual Graphs*, 2026, arXiv:2601.04945 — cited as arXiv: the PDF
+  carries an AAAI template block and no acceptance statement, and the venue was not checked.
+- Takato Yasuno, *RAPTOR-AI for Disaster OODA Loop: Hierarchical Multimodal RAG with
+  Experience-Driven Agentic Decision-Making*, 2026, arXiv:2602.00030.
+- Charbel Chucri, Rami Azouz, Joachim Ott, *Recursive Abstractive Processing for Retrieval in Dynamic
+  Datasets*, 2024, arXiv:2410.01736.
 
-**What must happen first:** the owner supplies the papers; `paper-to-plugin` runs; the name is
-settled; only then do task lines appear here.
+**What ships today, so the lines below are read against it and not against the acronym.**
+`RaptorSummarizer` is a registered `Expander` (`packages/weft-rag/src/weft_index/__init__.py:63`,
+task 2.32). It embeds whatever nodes the run hands it (`weft_index/raptor.py:196` → `:260`), groups
+them in one greedy pass by cosine similarity to a running centroid (`:347-368`), writes one summary
+per cluster through `Node.combine`, and returns the original payload plus the summaries (`:239`).
+**It recurses zero times, has no traversal retriever, and clusters greedily rather than by the
+paper's soft GMM** — and its module docstring says each of those things itself, in bold (`:35-43`,
+`:45-56`, `:58-70`, `:93-102`); what the docstring is silent on, rather than wrong about, is
+truncation, order-dependence, the double embed and cross-document scope, which are 10.2–10.5. Nothing
+has ever measured it: the one recorded live run produced a single summary (Phase 8's own measurement paragraph in this file,
+`raptor | 1`), under the default `hash` embedder it produces none and reports success (`:4965-4969`),
+and the one integration test pins every clustering knob to a degenerate value
+(`tests/integration/test_raptor_pipeline.py:295` — threshold `0.0`, one cluster holding every
+chunk) behind an opt-in (`:92`), so no test in the tree exercises the clustering decision at all.
 
-**One dependency is already known.** Phase 9 makes figures and tables into nodes, and five Phase 9
-task lines carry a *Phase 10 note* recording what a RAPTOR summariser would see once they land —
-9.2, 9.6, 9.7, 9.11 and 9.14. Those notes are the input to this phase's specification, not a
-commitment about it.
+**Repairs are separated from the extension, and the Exit counts only the extension.** The review
+found six of seventeen candidate properties to be repairs of shipped defects, and `01:948-949`
+requires the Exit to state *what the extension does that the shipped `raptor` does not, measured on
+the corpus*. A repair cannot satisfy that clause, so the choice was between hiving the repairs off
+and rewriting the Exit; **the repairs are hived off**, into group A below, marked as counting for
+nothing at the Exit — because they are real, they block the extension (10.7 cannot be scheduled until
+10.4 is settled; 10.13 cannot be repeated until 10.3 holds), and a repair filed nowhere is the shape
+`L9.15` forbids. The Exit sentence is kept and sharpened in `01`, not weakened. One repair is
+**recorded and not owned** — see the paragraph before the task lines.
+
+**⚠ means what *How to read a task line* says, and the tension with D2 is stated rather than
+hidden.** Phase 11's two open scope decisions reach into this phase: **D2** — where a corpus-wide,
+revisable pass runs and whether its expensive output may be durable — and **D3** — where a pack
+persists per-corpus curated configuration (`README.md:33`; `build-ledger.md` → Phase 11 → *⚠ means
+what…*). 10.5, 10.14 and 10.15 carry ⚠ D2; 10.9 carries ⚠ D3. **The shipped `raptor` already
+answers D2 by default**: `_cluster_by_similarity` receives the whole run's node set with no source
+filter (`raptor.py:347-368`) and its summaries are durable nodes in the store, which is a corpus-wide
+pass with durable expensive output. That is code answering a question the owner has not, and it is
+**not** D2 settled — D2 becomes a scope row under `09` §6.4 when the owner takes it, and until then
+10.5's content is a hypothesis exactly as Phase 11's four ⚠ lines are. Two further lines carry ⚠ for
+open questions that are neither D2 nor D3, named on the line: 10.4 (may an `Embedder` pass through a
+node that already carries a vector — an `02` §1 contract question) and 10.10 (whether the
+registration seam is the only telemetry emitter, `raptor.py:72-82`). Neither is settled here by
+default.
+
+**What the papers do not settle, recorded so nobody cites them for it.** *(i)* **Depth.** The two
+papers that measured it disagree: T-Retriever reports accuracy rising with tree depth (Fig. 3, p.6,
+on graphs); RAPTOR's own appendix runs five stories, three for depth and two against (Tables 8 and
+14–17), and its body generalises from the one that agreed. RAPTOR's stop rule — *"until further
+clustering becomes infeasible"* (p.3) — is undefined at source. **No line below asserts that deeper
+is better**; 10.7 states a criterion that is Weft's own, and 10.13 tests it. *(ii)* **Collapsed
+against traversal** is one measurement, not a consensus: RAPTOR tested both on 20 QASPER stories and
+kept collapsed (p.5–6); Chucri adopts that result by citation (§3.4); T-Retriever never compared;
+Yasuno names a traversal strategy and neither specifies nor measures it. Nothing in the set argues
+*for* descent, so leaving it unbuilt stands — on n = 1. *(iii)* **The clustering algorithm** is the
+least-evidenced component in every paper: RAPTOR's only ablation of its own clustering is 0.8 points
+on one dataset with no variance (Appendix B, Table 9), so Weft's divergence at `raptor.py:35-43` is a
+divergence from a component its paper barely defended, and no line below adopts UMAP+GMM. *(iv)*
+**A tree over a changing corpus.** Chucri's incremental adRAP loses head-to-head to a full rebuild
+on two of three datasets and falls short on context relevance (§6.5, p.9); *the rebuild is the strong
+baseline*, and 10.14 is conditional because of it.
+
+**Recorded rather than owned — a data-correctness defect that is not Phase 10's.** Re-indexing a
+changed document leaves the previous version's nodes in the store and destroys the evidence that it
+happened. Six reads, each opened: `weft_cli/ingest.py:688` writes `content_hash` onto every
+`SourceRecord` and `:663-665` states the field's purpose as change detection; nothing on the ingest
+path reads it back — `get_source`'s only non-store callers are three answer-time citation renderers
+(`weft_generate/refine.py:388`, `cited_answer.py:260`, `contradiction.py:284`); nothing on the ingest
+path deletes — `delete_source`'s only caller is `weft_cli/deletion.py:128`; nodes upsert
+`ON CONFLICT (id) DO UPDATE` (`weft_store/pgvector_store.py:733`) and a node id is a content digest
+(`weft_kernel/payload/node.py:148-150`), so a changed chunk is a new row beside the old; and the
+source upsert overwrites the old hash (`pgvector_store.py:866-868`). Confirmed by reading every writer
+and reader, not by observation — the check is three commands (index, edit, index, count). It lands
+here only because with summaries in play a stale chunk becomes a stale *summary of a stale chunk*;
+it is independent of all four papers and **should be repaired against whichever phase is live**,
+which this planning pass cannot file into. Chucri, by omission, agrees: it defines insert and delete
+and never update.
+
+**Names.** `raptor` stays — its row's provenance argument (`10:163`; `:148` until today) is about the proper noun and survives —
+and the row is edited to what ships (2026-09-06, `L9.30`). `t-retriever`, `structural-entropy`,
+`g-retriever`, `grag`, `archrag`, `hipporag`, `adrap` and `postqfrap` are reserved in `10` §4 with
+citations; `colvbert` is neither taken nor reserved, because its own paper uses the name for two
+different things and demonstrates the late-interaction mechanism for neither. A traversal retriever,
+if ever built, is its own plugin under its own name — never a `mode:` of `raptor`, which an
+index-side plugin cannot own (`raptor.py:93-102`).
+
+**Ordering, stated once.** 10.0 first and before anything else touches the plugin, because 10.2 and
+10.3 change what it builds and a baseline taken after them measures the repaired plugin rather than
+the shipped one. 10.1 is a document commit and may land with this plan minus its `packages/` half.
+Then 10.3 → 10.2, the two clustering repairs, each re-measured against 10.0. 10.4 and 10.5 wait on
+the owner — a contract question and D2 respectively — and 10.7 waits on 10.4. 10.6 next, buildable
+against no decision, and it is the interface everything after it filters on. 10.7 → 10.8 → 10.9,
+with 10.10 beside them. 10.11 only after Phase 9's 9.6 and 9.7 have produced a node it can see.
+10.12 after 10.0 and beside 10.7. 10.13 last. 10.14 and 10.15 are not scheduled and say what would
+schedule them.
+
+- [ ] **10.0** a baseline exists before any line changes the plugin: a persisted `weft eval` run,
+  against a real embedder, comparing leaves-only retrieval with the shipped one-level `raptor` on the
+  corpus, stating the smallest effect it could have detected · owner `01` → Phase 10 → *Exit*;
+  Phase 8's measurement paragraph in this file · turns on — · sha — · nothing has measured this
+  plugin (Phase 8's measurement paragraph in this file; `test_raptor_pipeline.py:295`, `:92`). The effect
+  sizes the papers report set the bar: RAPTOR's controlled with/without gains are 0.33 to 4.41 points
+  (Tables 1–2) and its clustering ablation 0.8 on one dataset with no variance (Appendix B); an exit
+  that cannot see a 2-point change cannot claim anything either way and must say so. Opt-in on
+  `WEFT_LIVE_API_TESTS`'s precedent because under `hash` the rung builds nothing
+  (`weft_retrieve/pipelines/index-with-raptor.yaml:25-33`), and under `L8.30`'s discipline — row
+  counts asserted immediately before and after, one process on the container
+
+**Group A — repairs of the shipped `raptor`. Real, ordered, and counting for nothing at the Exit.**
+
+- [ ] **10.1** the catalogue row, its correction block, the pipeline document and the module
+  docstring make the same claims about `raptor`, and every *"proven in `<file>`"* among them names an
+  assertion that file makes · owner `10` §1.2; `weft_retrieve/pipelines/index-with-raptor.yaml`;
+  `paper-to-plugin` → step 6 · turns on *a catalogue row claims no mode, variant or proof its plugin
+  and its cited file do not carry* (numbered when filed) · sha — · three overclaims verified
+  2026-09-06 (`L9.30`, `L9.31`, `L9.38`). Two are repaired in `10` by this planning pass — the row (now
+  `10:163`; `:148` until today) no longer annotates a `mode:` `RaptorConfig` does not carry (`raptor.py:132-171`, seven
+  fields, none of them it) or claims recursion and descent no code performs; the block (`:143-149`)
+  no longer says cascade delete is *proven* in a file that never deletes (`grep -c delete
+  tests/integration/test_raptor_pipeline.py` → `0`; `:305-306` assert the precondition only). The
+  third is in `packages/` and is this line's: `index-with-raptor.yaml:19-23` tells an operator a
+  second level "is a second stage naming it again", `raptor.py:58-70` says in bold that this chain does
+  not build a correct deeper tree, and **the plugin is right, so the document changes** — to say what
+  the docstring says — and stays that way until 10.7 makes the sentence true, at which point depth is
+  demonstrated by a new derived document rather than by restoring this one. The proof the block
+  claimed is owed too: a test that deletes one member's source and finds the summary gone. It holds by
+  construction (`pgvector_store.py:764` deletes on `ANY(sources)`, and `Node.combine` derives
+  `sources` as the union of members'), and *by construction* is exactly what "not merely asserted of
+  the type" promised to exceed
+- [ ] **10.2** no member's content is dropped from a summary without the summary recording it ·
+  owner `10` §1.2 → the `raptor` row; `raptor.py` module docstring · turns on — · sha — ·
+  `_format_cluster` slices every member to an even share of `max_cluster_chars` (`raptor.py:321`,
+  `:323`) and the retry halves what was sent (`:291-294`); the even split is argued at `:311-320` —
+  a long member must not crowd out its siblings — and stays. What is missing is any record that
+  content was dropped: a summary that read 40% of its cluster is byte-identical to one that read all
+  of it, at the point where the plugin makes its strongest claim. The paper this plugin is named
+  after refuses truncation outright — RAPTOR p.4 re-clusters within an oversized cluster until each
+  piece fits — so the two shapes that discharge this are the paper's (split the cluster) and a marked
+  node; which is the implementer's, the property is not. Where the record lives is 10.10's question
+  only if the channel is the span; on the node it needs no decision. No gate, no D2/D3
+- [ ] **10.3** the same node set yields the same clusters whatever order the run delivered it in ·
+  owner `10` §1.2 → the `raptor` row; `raptor.py` → *Clustering is a fresh, small algorithm* · turns
+  on — · sha — · `_cluster_by_similarity` (`raptor.py:347-368`) walks `embedded` once in payload
+  order, mutating clusters in place, so input order decides membership and an index rebuilt from the
+  same corpus after a different extraction order is a different tree; the docstring at `:35-43`
+  documents the algorithm and not this property. No paper motivates it — all four use
+  order-independent clusterers (GMM/EM, *k*-means, an entropy-minimising partition) and assume it. A
+  repair because 10.0 and 10.13 are unrepeatable without it. **Not** the paper's GMM: the divergence
+  at `:35-43` stands, and the least-evidenced component in every paper is not adopted to fix a
+  property a stable ordering also fixes
+- [ ] **10.4 ⚠** every leaf is embedded once per ingest, and every summary carries a vector when the
+  run ends · owner `02` §1 → the `Embedder` contract (`weft_embed/contract.py`);
+  `weft_retrieve/pipelines/index-with-raptor.yaml` · turns on — · sha — · `raptor` embeds the whole
+  payload to cluster (`raptor.py:196` → `:260`) and returns the original objects (`:239`); the
+  document sits the stage before `embed` (`index-with-raptor.yaml:37-42`, `:16-17`), which embeds the
+  same leaves again — a paid embedder's leaf cost paid twice, measured as embedder calls per run.
+  **The obvious repair does not work, verified**: neither shipped `Embedder` skips a node that already
+  carries a vector (`weft_embed/hash_embedder.py:82-85`; `weft_openai/embedder.py:238`), and the
+  contract docstring frames the stage around a node *"that already has content but no vector yet"*
+  (`weft_embed/contract.py:14-19`) — so returning embedded leaves changes nothing, and moving the stage
+  after `embed` leaves its summaries with no vector (`Node.combine` carries none) and silently
+  unretrievable. The property therefore needs either `Embedder`'s stated semantics settled — may a
+  node already carrying a vector pass through unchanged? a published-contract question for `02` §1,
+  the ⚠ on this line, and not this task's to answer by default — or a pipeline reshape that runs
+  `embed` twice with a filter. **10.7 inherits it**: the pack-local depth route chains an `embed`,
+  `raptor` pair per rung and re-embeds the cumulative set each time, so this line is settled before
+  10.7 is scheduled
+- [ ] **10.5 ⚠ D2** whether a tree is per-document or corpus-wide is a named, stated choice — in the
+  row, the docstring and the pipeline document — and a corpus-wide tree says what it is a tree of ·
+  owner `10` §1.2 → the `raptor` row; `01` → Phase 11 → D2 · turns on — · sha — ·
+  `_cluster_by_similarity` receives whatever `run` was handed and applies no source filter
+  (`raptor.py:347-368`), so a document's tree depends on what else was in the batch; RAPTOR built one
+  tree per document — *"The RAPTOR tree is built for each of these stories"* (p.9) — and validated no
+  other scope; neither the docstring nor the row says which Weft does. **The tension, on the line:**
+  the shipped default is already a corpus-wide pass with durable expensive output, which is D2's own
+  clause answered by code (`README.md:33`). Whether that stays is the owner's scope row, not this
+  line's default; the choice is named here and made there. Chucri's paper is the only measurement of
+  a corpus-wide tree over a changing corpus and it favours the full rebuild (§6.5, p.9) — 10.14
+  carries that
+
+**Group B — the extension. What the Exit measures.**
+
+- [ ] **10.6** every node a `raptor` stage produces states its level as a stored fact a filter can
+  select on, kept beside the `Representation` marker and never inside it · owner `02` §1 → *The
+  payload model*; `weft_index.payload` · turns on — · sha — · T-Retriever indexes every tree node
+  tagged with its level (p.5, `I = {(α, zα, lα)}`); RAPTOR carries no tag because it never filters. A
+  pack-owned `ExtModel` registered through `add_ext_model`, the route `Representation` already takes
+  (`weft_index/__init__.py:65`) — an ordinary pack act, no kernel or contract change. **Beside**, not
+  inside, because `raptor-and-leaves-rrf.yaml:21` and `:24` filter on
+  `ext.weft-index.technique == raptor` and changing that model's meaning changes a shipped query rung.
+  One argument owed rather than assumed: an ext model is a published payload schema shipped documents
+  can filter on (`weft_store/fields.py` gives `ext.*` the widest operator set), so its shape is fixed
+  in its docstring and versioned before 10.7 filters on it. **This line and 10.7 are the interface
+  Phase 11 would consume** — a hierarchy over graph facts, if one is wanted, is built from the graph's
+  structure and *reuses* this summariser (`01` → Phase 10 → *Why it sits between*) — which is why the
+  two rank above group A in what the phase is for and below it in order
+- [ ] **10.7** a tree deeper than one level exists after one ingest; each level is built from the
+  previous level's nodes alone, so no cluster ever contains a node and an abstraction built from it;
+  and the stop criterion is stated, testable and Weft's own · owner `10` §1.2 → the `raptor` row;
+  `raptor.py` → *One level per invocation* and *Chaining…* · turns on — · sha — · **depends on 10.4
+  and 10.6.** The docstring refuses to loop internally (`:45-56` — `max_levels` is deliberately not a
+  field, so one `Expander.run` never makes a variable number of embedder calls) and says why chaining
+  fails today (`:58-70` — the linear runner threads the cumulative set and nothing filters on
+  `Lineage` or the marker). The pack-local route — exclude on the way in every node a prior `raptor`
+  stage consumed, by the level 10.6 writes — reaches depth only through the pipeline document, one
+  `embed`, `raptor` pair per rung; the alternative, a repeat construct in the kernel's pipeline model,
+  is a kernel change and a ⛔ this phase does not take. All four papers build depth (RAPTOR §3;
+  T-Retriever eq. 8–9; Yasuno §3.2.3, 4,250 → 18 → 1; Chucri Alg. 1, fewer than 5 layers) and **none
+  can tell Weft how deep**: RAPTOR's own rule is undefined at source and its appendix runs 3 of 5
+  stories for depth; T-Retriever's rise with depth is on graphs. The criterion is cited to nobody, and
+  *deeper is better* is asserted nowhere in this phase — 10.13 is where it is tested. The scope it
+  deepens is 10.5's
+- [ ] **10.8** a summary is expandable to its members through the published store contract, and the
+  plugin states which walk a deeper summary's `lineage.parents` makes — to the level below it, or to
+  the leaves — and what the walk costs, measured · owner `02` §1 → *The store contract family*;
+  `raptor.py` module docstring · turns on — · sha — · reachable today with no contract change:
+  `lineage.parents` is `TEXT_SET` (`weft_store/fields.py:68`, `:166`), which admits `contains`
+  (`weft_store/contract.py:227`) through `MetadataFilter.matching` (`:586`). A dedicated store method
+  is a change to a published family at `2.0.0` (`:121`), G4/G9 territory, and a ⛔ taken *only if*
+  `matching` measures too slow on either proven backend — measure before deciding. The two shipped
+  readers of `lineage.parents` on the query path both exclude a multi-parent node by construction
+  (`weft_retrieve/collapse.py:142-146` returns the node's own id; `weft_generate/representation.py:68-72`
+  returns `None`), so nothing shipped walks down and nothing breaks. T-Retriever eq. 13 wants leaf
+  members in one read; RAPTOR's traversal wants immediate children; 10.7 builds each level from the
+  one below, which is the argument for parents-as-previous-level, and the line records the choice
+  rather than presuming it
+- [ ] **10.9 ⚠ D3** `cluster_size` stays the only cluster-size threshold; every field a paper tuned
+  per dataset says so in its docstring; and a default computed by a rule rather than typed by an
+  operator says when it is computed and where its value lives · owner `10` §1.2 → the `raptor` row;
+  `RaptorConfig` (`raptor.py:132-171`) · turns on — · sha — · Chucri's τ_c is the same knob as
+  `cluster_size` (`raptor.py:141`, *"the most members one cluster can hold"*) and a `tau_c` beside it
+  ships one knob twice; τ_n has no analogue in a clusterer with no EM to approximate. T-Retriever's
+  KDE bandwidth *h* is grid-searched per dataset and never reported (p.6); Yasuno's α = 0.7 and
+  entropy thresholds are "empirically optimized" with no sweep shown (§3.2.1, §4.1); Chucri's τ_c = 11
+  is asserted (§6.4). Weft's own defaults (`:141-161`) are no better evidenced —
+  `similarity_threshold: 0.75` is a bar nothing clears under `hash` (Phase 8's measurement paragraph in this file). **⚠
+  D3** because a default a rule computes at index time over the corpus is per-corpus derived
+  configuration, and where a pack keeps that is D3's question (`README.md:33`); a `with:` value an
+  operator types is not. The line names the question and does not decide which shape wins
+- [ ] **10.10 ⚠** a run that summarised nine clusters of ten says so where a reader can find it, and
+  10.2's coverage record rides the same channel · owner `raptor.py` → *What a degraded run says*;
+  `02` §2 → the registration seam · turns on — · sha — · `raptor.py:72-82` names the blocker in its own words: `Produced` is
+  frozen with one field, and a pack writing `span.set_attribute` would settle by default whether the
+  registration seam is the only emitter of telemetry — an open question, not D2 or D3, and not this
+  line's to settle by default; the ⚠ names it. If it stays open the count rides on the summary nodes
+  or the run record instead, and the line is discharged either way. What it forbids is silence
+- [ ] **10.11** a cluster containing a node whose media type is not text produces a summary whose
+  content is derived by a stated rule, and the rule says it is Weft's own with no paper behind it ·
+  owner `11` §2.4; the *Phase 10 note*s on 9.2, 9.6, 9.7, 9.11 and 9.14 · turns on — · sha — ·
+  **depends on 9.6 and 9.7.** Five Phase 9 lines carry a note waiting on exactly this
+  (the five Phase 9 lines carrying a *Phase 10 note* — 9.2, 9.6, 9.7, 9.11 and 9.14). The one paper in the set that touches
+  modality never puts a non-text node in a summariser's view — Yasuno eq. 1–3 blend a visual vector
+  into each *chunk's* vector, eq. 4 clusters those chunk vectors, every parent is text, and "table"
+  never appears as a content type — so no paper says what a parent over mixed-modality children
+  should contain, and the answer is first principles. The cheapest true rule is the one the notes
+  already anticipate — a `TABLE` node is read through the index-form text its extractor's serialiser
+  produced (`11:265`), a figure through its caption-and-description content — and what this line
+  forbids is an unstated one. Until 9.6 and 9.7 land, a stated exclusion discharges it
+- [ ] **10.12** a retrieved summary and the leaves it was built from do not both consume the answer's
+  budget as independent evidence, and the weight that decides it is measured rather than guessed ·
+  owner `weft_retrieve/pipelines/raptor-and-leaves-rrf.yaml`; `10` §1.1 → `reciprocal-rank-fusion` ·
+  turns on — · sha — · **depends on 10.0.** The shipped rung fuses two filtered arms with a `0.7` the
+  document itself calls *"not a measured optimum"* (`raptor-and-leaves-rrf.yaml:26-30`, `:35`) and
+  budgets by count (`:47`, `top_n: 8`) where RAPTOR's Algorithm 2 stops on a token threshold
+  (Appendix F). Three papers give three answers — RAPTOR retrieves flat under a token budget,
+  T-Retriever expands a summary to its members (eq. 13), Chucri summarises the retrieved set at query
+  time (§5) — and Weft has picked a fourth without a number. No gate on the fusion route; **⛔ if the
+  expansion route is taken**, because `Reranker` is `Ranking → Ranking`
+  (`weft_retrieve/contract.py:132-143`) and its docstring is silent on whether the output may hold
+  hits the input did not — an `02` §1 question settled before any plugin in that position adds hits
+- [ ] **10.13** the Exit measurement: a persisted `weft eval` run, opt-in on a real embedder,
+  comparing leaves-only, the one-level tree 10.0 measured and the multi-level tree 10.7 builds, on the
+  corpus, at the minimum detectable effect 10.0 stated — and a null result discharges it if it says
+  so · owner `01` → Phase 10 → *Exit* · turns on — · sha — · every line in this group presumes a
+  deeper tree is worth having and no paper settles it (10.7); this is where that is a number rather
+  than a belief. Last, because it measures what everything above built; under `L8.30`'s discipline;
+  it retires `raptor-and-leaves-rrf.yaml:35`'s `0.7` through 10.12 or records that it could not see
+  the difference. The languages and metrics of the four papers are not Weft's corpus — every
+  measurement in the set is English or Japanese/English QA, and only Chucri uses an LLM judge — so no
+  paper number is a prediction of this one
+
+**Conditional — recorded with what would schedule them, and not scheduled.**
+
+- [ ] **10.14 ⚠ D2** a newly indexed document joins the existing tree rather than founding a second
+  one, and no query ever returns both the old and the new summary of one cluster · owner `01` → Phase
+  11 → D2; `02` §1 → *The store contract family* · turns on — · sha — · **⛔ as well, and not
+  scheduled.** Chucri §4 (adRAP) is the paper on this, and its own §6.5 (p.9) reports that adRAP
+  *"falls short by at least 3%"* on context relevance and *"underperforms compared to RAPTOR in the
+  MultiHop and QASPER datasets"* — the full rebuild is the strong baseline, and *rebuilding twice may
+  cost less than `01`'s ordering sentence assumed*. What it needs: persisted per-cluster state that is
+  not a `Node` — Chucri §4.2 stores fitted UMAP models and GMM instances with the tree, which is D2's
+  *"expensive output may be durable"* clause verbatim — and removal of superseded ancestors, because a
+  node id is a content digest (`weft_kernel/payload/node.py:148-150`), so a summary with one more
+  member is a new node and so is every ancestor above it, and **`NodeStore` has no per-node delete**
+  (ten members, `weft_store/contract.py:455-464`; `delete_source` is the only removal). A change to a
+  published family is the ⛔. What schedules it is a rebuild cost on the corpus that 10.13 can state
+  and the owner finds too high; until then the line is a record, and the cheapest form — Chucri's
+  greedy variant, assign to the nearest cluster and never refit (§6.4) — is the one that paper measured
+  as the worse of its two
+- [ ] **10.15 ⚠ D2** a query-time recursive summariser, if it ships, is a pipeline document over
+  existing positions and not a plugin named for the paper, and nothing it produces is stored · owner
+  `02` §3; `weft_index/contract.py` · turns on — · sha — · **not scheduled.** Chucri §5 (postQFRAP)
+  is the strongest measured result in the four (§6.5, Figs. 6–9), against post-retrieval baselines
+  only and never head-to-head with a persisted tree. `Expander.run` takes `(payload, ctx)` and no
+  query (`weft_index/contract.py:64`), so how a query reaches a summarising stage on the retrieval
+  path is a contract question — ⛔ if it needs a member. *Never stored* is a durability ruling of
+  the kind D2 owns, very probably right, and the owner's to make; the ⚠ names it. `postqfrap` stays
+  reserved in `10` §4 rather than taken, because a pipeline is not a plugin
 
 ## Phase 11 — The graph pack
 

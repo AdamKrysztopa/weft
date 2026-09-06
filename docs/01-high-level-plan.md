@@ -929,26 +929,67 @@ the finding.
 
 ### Phase 10 — RAPTOR, extended
 
-**Added 2026-09-06 by the owner's roadmap decision; ⛔ its source papers have not arrived.** RAPTOR
-is not new here — `RaptorSummarizer` has shipped as a registered `Expander` since Phase 2 task 2.32
-(`weft_index/__init__.py:63`) with its `summarize-cluster` `Prompt` beside it — so this phase is an
-**extension of a shipped plugin**, not a new capability, and its scope is whatever the papers the
-owner supplies actually change.
+**Added 2026-09-06 by the owner's roadmap decision; specified the same day, when its four source
+papers arrived.** RAPTOR is not new here — `RaptorSummarizer` has shipped as a registered `Expander`
+since Phase 2 task 2.32 (`weft_index/__init__.py:63`) with its `summarize-cluster` `Prompt` beside it
+— so this phase is an **extension of a shipped plugin**, not a new capability. The papers, read at
+source and adversarially peer-reviewed before the plan was written: Parth Sarthi, Salman Abdullah,
+Aditi Tuli, Shubh Khanna, Anna Goldie, Christopher D. Manning, *RAPTOR: Recursive Abstractive
+Processing for Tree-Organized Retrieval*, ICLR 2024, arXiv:2401.18059; Chunyu Wei, Huaiyu Qin,
+Siyuan He, Yunhai Wang, Yueguo Chen, *T-Retriever: Tree-based Hierarchical Retrieval Augmented
+Generation for Textual Graphs*, 2026, arXiv:2601.04945; Takato Yasuno, *RAPTOR-AI for Disaster OODA
+Loop: Hierarchical Multimodal RAG with Experience-Driven Agentic Decision-Making*, 2026,
+arXiv:2602.00030; Charbel Chucri, Rami Azouz, Joachim Ott, *Recursive Abstractive Processing for
+Retrieval in Dynamic Datasets*, 2024, arXiv:2410.01736. What the shipped plugin does and does not do
+is one paragraph in `build-ledger.md` → Phase 10: one level, no traversal, greedy cosine rather than
+soft GMM, each divergence in its own docstring — and no measurement of it anywhere.
 
-**Gate:** none, and that is not the same as unblocked. The phase cannot be specified until the
-papers are read, and `paper-to-plugin` owns the path from a paper to a name: the name is settled
-before anything is written, and any divergence from the paper is recorded in the docstring beside
-the name that makes the claim (`10` is where that claim is true or knowingly withdrawn).
+**Gate:** none. `paper-to-plugin` ran: `raptor` keeps its name on the proper-noun argument `10` §1.2
+records, and its row now claims what ships; eight names the literature has fixed are reserved in
+`10` §4, and one coinage, `colvbert`, is neither taken nor reserved. Two of Phase 11's open
+decisions reach in — **D2** (where a corpus-wide, revisable pass runs, and whether its expensive
+output may be durable) and **D3** (where a pack persists per-corpus curated configuration) — and the
+ledger marks every affected line ⚠. One tension is stated there rather than resolved: the shipped
+`raptor` already clusters corpus-wide and writes durable summaries, which is D2 answered by code and
+not by the owner.
 
-**Why it sits between Phase 9 and Phase 11.** Phase 9 makes a figure and a table into nodes; a
-summariser that can see them is a strictly larger instrument than one that cannot, and Phase 11's
-graph facts are the third thing it could cluster. Running it after the graph would mean rebuilding
-its inputs twice.
+**Why it sits between Phase 9 and Phase 11 — the reasons repaired 2026-09-06, the order unchanged.**
+The paragraph this replaces gave two. *(a)* Phase 9 makes a figure and a table into nodes, and a
+summariser that can see them is a larger instrument than one that cannot. **That is Weft's own
+reasoning and no paper supports it**: the one paper in the set that touches modality (Yasuno) blends
+a visual vector into each chunk's own vector and clusters chunk vectors — no image or table is ever a
+node, no parent carries anything but text, and "table" never appears as a content type. The clause
+stands on its own argument, which is sound, and is stated here so nobody cites a paper for it; what a
+summary over mixed-modality children contains is a question Phase 10 answers from first principles
+(task 10.11). *(b)* Phase 11's graph facts would be the third thing it could cluster. **That has
+evidence against it**: T-Retriever measured RAPTOR-style semantic clustering over graph nodes as the
+weakest of its hierarchical variants on all three datasets (Table 1, p.6) and says so in prose —
+*"the semantics-first RAPTOR, which ignores graph topology, struggles on these tasks and is sometimes
+outperformed by strong flat baselines like GRAG"* (p.5) — and its Table 2 puts an embedding-only
+hierarchy at 82% of the joint structure-and-semantics one. Each gap is roughly one standard deviation
+with no run count stated, the baseline is a competitor's re-implementation, and the setting is graphs;
+but nothing in the set argues the other way. So clause (b) is withdrawn and the dependency reads the
+other way round: a hierarchy over graph facts, if one is wanted, is built from the graph's structure
+and *reuses* this phase's multi-level summariser (10.6, 10.7) — Phase 11-or-later work that consumes
+Phase 10, not an input to it. **The order stands on what survives**: this phase has real, graph-free
+work — depth, truncation, order-independence, a measurement — none of which waits on Phase 9 or
+Phase 11, and its level marker is the interface a later graph hierarchy would consume. One presumption
+in the old sentence is named too: *"rebuilding its inputs twice"* assumed a built tree is worth
+preserving across a change to what it was built from, and the only measurement of that in the set
+(Chucri §6.5, p.9) favours the rebuild.
 
-**Exit:** to be written when the papers land. It must state what the extension does that the shipped
-`raptor` does not, measured on the corpus rather than asserted.
+**Exit:** from outside this repository, against a real embedder, one ingest through a shipped
+pipeline document builds a tree of at least two levels in which every node states its level and no
+cluster holds a node and an abstraction built from it; a summary's members are reachable through the
+published store contract; and a persisted `weft eval` run compares leaves-only, the shipped one-level
+tree and the multi-level tree on the corpus at a minimum detectable effect stated before the run — a
+null result discharges it if it says so, because the papers disagree about depth and none of them is
+a prediction of this corpus. **Group A's five repairs (10.1–10.5) count for nothing here**: they are
+what the shipped `raptor` should already have done, and the Exit asks what the extension does that it
+does not. The stale-node re-index defect the ledger records is not this phase's either.
 
-**Tasks:** none yet — `build-ledger.md` → Phase 10 carries the placeholder and the reason.
+**Tasks:** `build-ledger.md` → Phase 10 — 10.0 the baseline, 10.1–10.5 repairs, 10.6–10.13 the
+extension, 10.14–10.15 conditional and unscheduled.
 
 ### Phase 11 — The graph pack
 

@@ -140,12 +140,27 @@ with origins, not because this file owns the phase.
 > genealogy tracking carried `relationships={}` and no deletion path could ever reach them; `weft_index.raptor`
 > builds every summary through `Node.combine`, which refuses an empty `members` sequence and
 > derives `Lineage.sources` as the union of the clustered members' own sources, so cascade
-> delete reaches a summary by construction — proven against a real corpus, real embeddings and
-> a real store in `tests/integration/test_raptor_pipeline.py`, not merely asserted of the type.)*
+> delete reaches a summary by construction. *Corrected 2026-09-06 (`L9.38`):* this sentence went on
+> to say that was "proven against a real corpus, real embeddings and a real store in
+> `tests/integration/test_raptor_pipeline.py`, not merely asserted of the type". That file asserts
+> the precondition — `summary.lineage.sources` equals the union of its members' (`:305-306`) — and
+> never deletes anything (`grep -c delete` over it → `0`), so the end-to-end proof is owed by Phase 10
+> task 10.1 and is claimed nowhere until it exists.)*
+
+> *(Corrected 2026-09-06, `L9.30`.* **The row below carried** *(mode: `collapsed` \| `traversal`)*
+> **in its name column and "recursively … by descending it" in its description from task 2.32 until
+> today, while this block withdrew both** — a correction that did not edit the claim it corrected, so
+> the row a reader scanning the table sees kept claiming what the prose four lines above denied. The
+> row now says what ships. The mode annotation is gone because `RaptorConfig` has no `mode` field
+> (`packages/weft-rag/src/weft_index/raptor.py:132-171`, seven fields) and an index-side plugin
+> cannot own a query-time behaviour (`raptor.py:93-102`); the only readers of `lineage.parents` on
+> the query path walk child→parent (`weft_retrieve/collapse.py:142-146`,
+> `weft_generate/representation.py:68-72`). `build-ledger.md` → Phase 10 is where recursion becomes
+> true (10.7) and where a traversal retriever, if ever built, gets its own name and its own row.)*
 
 | Weft name | What it does | Origin | Name provenance |
 |---|---|---|---|
-| **`raptor`** *(mode: `collapsed` \| `traversal`)* | Recursively embeds, clusters and summarises chunks into a hierarchy, then retrieves over the whole tree or by descending it. Caveats for any implementation: the tree's shape depends heavily on the clustering step's dimensionality-reduction and probability-threshold parameters — hard-coding them defeats configurability. A degrade-rather-than-crash behaviour around a failing clustering step (continuing with fewer levels instead of raising) is a genuinely useful robustness property that neither the paper nor common reference implementations provide, and is worth keeping deliberately | Parth Sarthi, Salman Abdullah, Aditi Tuli, Shubh Khanna, Anna Goldie, Christopher D. Manning, *RAPTOR: Recursive Abstractive Processing for Tree-Organized Retrieval*, ICLR 2024, arXiv:2401.18059 | **Literature** — a proper noun with one paper and no competing meaning. Keep the acronym |
+| **`raptor`** | Clusters chunks by embedding similarity and writes one LLM summary per cluster as a retrievable node beside the leaves, its `Lineage.sources` the union of its members' — **one level per stage, built by greedy cosine grouping rather than the paper's soft GMM, each divergence stated in the module docstring** (`packages/weft-rag/src/weft_index/raptor.py:35-103`). Retrieval is over the whole tree, flat, through the existing vector-search retriever — what the paper calls *collapsed*. **Not shipped:** the paper's recursion to deeper levels (Phase 10 task 10.7) and its top-down *traversal*, which, if ever built, is its own `Retriever` under its own name and never a `mode:` of this plugin — the paper measured it worse than collapsed on 20 QASPER stories (p.5) and dropped it. Caveats for any implementation: every clustering knob that matters (`cluster_size`, `min_cluster_size`, `similarity_threshold`, `max_cluster_chars`) is a field and none is hard-coded — hard-coding them defeats configurability. A degrade-rather-than-crash behaviour around a failed summary (continuing with fewer summaries instead of failing the run) is a genuinely useful robustness property that neither the paper nor common reference implementations provide, and is kept deliberately. Under the default `hash` embedder the shipped rung builds zero summaries and its pipeline document says so | Parth Sarthi, Salman Abdullah, Aditi Tuli, Shubh Khanna, Anna Goldie, Christopher D. Manning, *RAPTOR: Recursive Abstractive Processing for Tree-Organized Retrieval*, ICLR 2024, arXiv:2401.18059 | **Literature** — a proper noun with one paper and no competing meaning. Keep the acronym |
 | **`hypothetical-questions`** | At index time, generates the questions a chunk would answer and indexes them as retrievable nodes. Caveat: this is easily miscited as HyDE (arXiv:2212.10496) purely on name-association — HyDE is a query-time technique that generates hypothetical *answers*; this is the mechanical opposite, done at index time. A plausible-looking reference attached to the wrong paper is exactly the failure this catalogue exists to catch | Rodrigo Nogueira, Wei Yang, Jimmy Lin, Kyunghyun Cho, *Document Expansion by Query Prediction* (doc2query), arXiv:1904.08375, 2019 | **Framework-coined** ("Reverse HyDE" circulates in framework docs and blog posts). **No paper uses the term** — see §5 |
 | **`cross-encoder-rerank`** | Rescores first-stage candidates with a full-attention query-passage model and keeps the top *n*. Caveats: constructing this inline at each call site with divergent defaults, rather than behind one registered and swappable component, defeats composability. Building a cache for the model but never routing calls through it is dead infrastructure worth checking for. And silently returning the unranked candidates when the model fails to load is a silent fallback indistinguishable to the caller from a real reranking — it must fail loudly instead | Rodrigo Nogueira, Kyunghyun Cho, *Passage Re-ranking with BERT*, arXiv:1901.04085, 2019 (never formally published; the canonical citation). The architecture term: Samuel Humeau, Kurt Shuster, Marie-Anne Lachaux, Jason Weston, *Poly-encoders*, ICLR 2020, arXiv:1905.01969. Polish models: Sławomir Dadas, Małgorzata Grębowiec, *Assessing generalization capability of text ranking models in Polish*, presented at **ICAISC 2024**; Springer LNCS proceedings volume dated **2025**, pp. 37-49, DOI 10.1007/978-3-031-84353-2_4, arXiv:2402.14318. **Both years are stated deliberately** — conference 2024, proceedings 2025 — so a bibliography tool does not flag the mismatch as an error | **Literature** |
 
@@ -458,6 +473,32 @@ Press, Muru Zhang, Sewon Min, Ludwig Schmidt, Noah A. Smith, Mike Lewis, *Measur
 Compositionality Gap*, Findings of EMNLP 2023, arXiv:2210.03350) · `self-consistency` (Xuezhi Wang et
 al., ICLR 2023, arXiv:2203.11171) · `adaptive-rag` (Jeong et al., NAACL 2024, arXiv:2403.14403) ·
 `query2doc` · `ragas-*` (free for a pack that genuinely wraps the library).
+
+**Added 2026-09-06, from Phase 10's four papers** (`build-ledger.md` → Phase 10; each read at source):
+`t-retriever` (Chunyu Wei, Huaiyu Qin, Siyuan He, Yunhai Wang, Yueguo Chen, *T-Retriever: Tree-based
+Hierarchical Retrieval Augmented Generation for Textual Graphs*, 2026, arXiv:2601.04945 — cited as
+arXiv; the PDF carries an AAAI template block and no acceptance statement. **Must not be taken by
+anything that omits the GNN soft prompt of its eq. 14–16**, which every Weft plugin would: that path
+prepends a vector to an LLM's input embedding layer, and `LLM.complete` takes a rendered string) ·
+`structural-entropy` / `s2-entropy` (the same paper's criterion, eq. 5 — the criterion, not the
+system) · `g-retriever` (He et al. 2024), `grag` (Hu et al. 2024) and `archrag` (Wang et al. 2025 —
+the structure-first hierarchical baseline), all three as cited in T-Retriever's baselines, p.5, and
+none read at its own source · `hipporag` (Jimenez Gutierrez et al. 2024, as cited in T-Retriever's
+related work, p.2; PPR-based; not read at source) · `adrap` (Charbel Chucri, Rami Azouz, Joachim Ott,
+*Recursive Abstractive Processing for Retrieval in Dynamic Datasets*, 2024, arXiv:2410.01736, §4 —
+the incremental tree, which the paper's own §6.5 measures below a full rebuild on two of three
+datasets) · `postqfrap` (same paper, §5 — a query-time recursive summariser; if the technique ever
+ships in Weft it is a pipeline document, not a plugin, so the name stays free — ledger 10.15).
+
+`colvbert` is **neither reserved nor to be taken, for a third reason**: its paper (Takato Yasuno,
+*RAPTOR-AI for Disaster OODA Loop*, 2026, arXiv:2602.00030, §3.2) coins it as "Contextualized Late
+Interaction over Visual-BERT" and asserts ColBERT-style token-level matching, while its own eq. 1–3
+produce one dense fused vector per chunk and eq. 4 clusters that single vector — no MaxSim, no
+token-level scoring anywhere in the PDF — and Table 1 then uses the same name for an ablation
+baseline "without hierarchical structure". One name for two things, and the mechanism it names
+demonstrated for neither: not a technique the literature has fixed, so nothing to reserve, and an
+overclaim under §2.1 rule 4 to take. `late-interaction` and `maxsim` are already reserved by `11`
+(`11:238-239`).
 
 `decomposition` is reserved too, for the opposite reason: it is spoken for by the *reasoning*
 decomposition line (least-to-most — Denny Zhou et al., ICLR 2023, arXiv:2205.10625; decomposed
