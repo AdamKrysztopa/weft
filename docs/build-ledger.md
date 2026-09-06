@@ -4060,7 +4060,7 @@ is also refused: the ReAct step is a typed structured answer through the three-t
   re-routed from *Green* to *Red*, where the mistake is actually made
 - [x] **7.2 ⚠** the loop's autonomy, tool surface, memory and approval points are the ones
   `agentic-patterns` names, chosen rather than inherited · owner `05` → G12; `01` → Phase 7 **Gate** ·
-  turns on — · sha `SHA72` ·
+  turns on — · sha `051586b` ·
   **The design pass ran before this task, and its answers are asserted in the test rather than
   described in a comment** — which is what makes "chosen rather than inherited" checkable. Autonomy:
   a **single agent**, no planner, no reflection pass, no sub-agents, no topology layer. The
