@@ -204,6 +204,48 @@ def figures_on_two_pages(first: str | None, second: str | None) -> bytes:
     return _assemble(objects)
 
 
+def ruled_table_and_figure() -> bytes:
+    """One page carrying prose, a ruled table **and** a captioned figure — task `9.8`'s corpus.
+
+    Phase 9's exit asks for *"a PDF with at least one table and one figure"* in a single document,
+    which neither `ruled_table` nor `figure_with_caption` gives on its own. Assembled from the same
+    primitives both use rather than by drawing something new, so what this exercises is those two
+    features meeting, not a third fixture's own quirks.
+    """
+    rows = (("Region", "Revenue"), ("EMEA", "1,204"))
+    left, top, width, height = 72.0, 700.0, 120.0, 24.0
+    operations = [b"BT /F1 10 Tf 72 740 Td (" + _literal("Annual report.") + b") Tj ET", b"0.5 w"]
+    for index in range(len(rows) + 1):
+        y = top - index * height
+        operations.append(b"%.2f %.2f m %.2f %.2f l S" % (left, y, left + 2 * width, y))
+    for index in range(3):
+        x = left + index * width
+        operations.append(b"%.2f %.2f m %.2f %.2f l S" % (x, top, x, top - len(rows) * height))
+    for row_index, row in enumerate(rows):
+        for column_index, cell in enumerate(row):
+            x = left + column_index * width + 4
+            y = top - (row_index + 1) * height + 8
+            operations.append(b"BT /F1 10 Tf %.2f %.2f Td (" % (x, y) + _literal(cell) + b") Tj ET")
+    operations.append(b"q 100 0 0 60 72 540 cm /Im1 Do Q")
+    operations.append(
+        b"BT /F1 9 Tf 72 526 Td (" + _literal("Figure 1. Revenue by region.") + b") Tj ET"
+    )
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R "
+        b"/Resources << /Font << /F1 5 0 R >> /XObject << /Im1 6 0 R >> >> >>",
+        _stream(b"", b"\n".join(operations)),
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        _stream(
+            b"/Type /XObject /Subtype /Image /Width 1 /Height 1 "
+            b"/ColorSpace /DeviceGray /BitsPerComponent 8",
+            _ONE_PIXEL,
+        ),
+    ]
+    return _assemble(objects)
+
+
 def image_inside_a_form() -> bytes:
     """A page whose only image is nested one level down, inside a Form XObject.
 

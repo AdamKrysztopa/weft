@@ -35,7 +35,15 @@ from pydantic import BaseModel, ConfigDict
 
 from weft_clean.property import Newlines, Verbatim
 from weft_kernel.context import Context
-from weft_kernel.payload import Node, NothingToProduce, Outcome, Produced, Property
+from weft_kernel.payload import (
+    Applies,
+    MediaType,
+    Node,
+    NothingToProduce,
+    Outcome,
+    Produced,
+    Property,
+)
 
 # A word ending in a hyphen at a line break, continued on the next line —
 # the same example as above, `kompu-\nter`. Authored fresh for Weft: match a
@@ -62,6 +70,16 @@ class HyphenationRepair:
 
     intact: tuple[type[Property], ...] = (Newlines,)
     destroys: tuple[type[Property], ...] = (Verbatim,)
+    #: Ledger task **9.8**. `docs/11-multimodal.md` §2.4: **"Tables leave this pipeline."** A
+    #: cleaner rebuilds its node with `Node.derive`, which deliberately drops `ext` — so a
+    #: `TABLE` node passing through here loses the `TableGrid` that *is* the table, and an
+    #: `IMAGE` node loses the `BlobRef` that is the only surviving pointer to its pixels. That is
+    #: `11` §1.4's own scar, verbatim: a comparable design "destroyed the grid inside its cleaning
+    #: pipeline, which is why nothing downstream could choose a representation".
+    #:
+    #: Declared as what this cleaner *needs* rather than as what it excludes, per `02` §3: it
+    #: repairs prose, and prose is `MediaType.TEXT`. Everything else the runner routes past.
+    applies_to: tuple[Applies, ...] = (Applies(media_type=MediaType.TEXT),)
     config_model: type[HyphenationRepairConfig] = HyphenationRepairConfig
 
     def __init__(self, config: HyphenationRepairConfig | None = None) -> None:

@@ -53,7 +53,15 @@ from pydantic import BaseModel, ConfigDict
 
 from weft_clean.property import Newlines, Verbatim
 from weft_kernel.context import Context
-from weft_kernel.payload import Node, NothingToProduce, Outcome, Produced, Property
+from weft_kernel.payload import (
+    Applies,
+    MediaType,
+    Node,
+    NothingToProduce,
+    Outcome,
+    Produced,
+    Property,
+)
 
 #: **The specification, which is what makes this string ours to write:** a line whose entire
 #: content is the word "Page", any run of spaces, and a run of digits — nothing else on the line
@@ -89,6 +97,16 @@ class ArtifactRemover:
 
     intact: tuple[type[Property], ...] = (Newlines,)
     destroys: tuple[type[Property], ...] = (Verbatim,)
+    #: Ledger task **9.8**. `docs/11-multimodal.md` §2.4: **"Tables leave this pipeline."** A
+    #: cleaner rebuilds its node with `Node.derive`, which deliberately drops `ext` — so a
+    #: `TABLE` node passing through here loses the `TableGrid` that *is* the table, and an
+    #: `IMAGE` node loses the `BlobRef` that is the only surviving pointer to its pixels. That is
+    #: `11` §1.4's own scar, verbatim: a comparable design "destroyed the grid inside its cleaning
+    #: pipeline, which is why nothing downstream could choose a representation".
+    #:
+    #: Declared as what this cleaner *needs* rather than as what it excludes, per `02` §3: it
+    #: repairs prose, and prose is `MediaType.TEXT`. Everything else the runner routes past.
+    applies_to: tuple[Applies, ...] = (Applies(media_type=MediaType.TEXT),)
     config_model: type[ArtifactRemoverConfig] = ArtifactRemoverConfig
 
     def __init__(self, config: ArtifactRemoverConfig | None = None) -> None:

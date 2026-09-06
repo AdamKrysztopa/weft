@@ -1,0 +1,27 @@
+name: index-pdf
+# **The first shipped ingest document that reads a PDF**, and ledger task `9.8` needs it to exist:
+# that task's own clause is *"through a shipped ingest document"*, and measured 2026-09-06 no
+# document in this tree named a PDF extractor at all. `weft index --extract pdf-layout` reached one
+# by hand, which is exactly the gap `docs/build-ledger.md` 2.8 describes for stages generally — a
+# plugin registered, listed by `weft plugins list`, and placeable by nobody.
+#
+# **Derived rather than written out, because the difference is one stage.** Everything after
+# extraction — the two safe cleaners, the chunker, the embedder, the store — is what `index-text`
+# already says, and repeating it here would be the copy `02` §3's derivation exists to remove: the
+# day `index-text`'s chunk size changes, a copy silently disagrees with it. `replace:` at the
+# `extract` id is the whole document.
+#
+# **What this buys beyond reading PDFs.** `pdf-layout` is the only shipped extractor that recovers
+# a table (`9.6`) and a figure (`9.7`), so this is the first document under which a `TABLE` or an
+# `IMAGE` node can be produced at all. A table passes the chunker whole because `fixed-size`
+# declares `applies_to` (`9.2`) — inherited from `index-text` with nothing here saying so, which is
+# the cross-pack property `11` §2 states.
+#
+# **It needs `[services] blob` and `[packs.blob] root`, and a run without them fails loudly.** A
+# figure's pixels go through `ctx.require(BlobStore)`; with no blob store selected the run refuses
+# naming every service that *is* available, rather than dropping the figure. That is `9.0`'s seam
+# doing its job and it is deliberately not softened here: a document that extracts figures into
+# nowhere would index a corpus whose images are gone.
+extends: index-text
+replace:
+  - {id: extract, use: pdf-layout}

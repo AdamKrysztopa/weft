@@ -5367,7 +5367,29 @@ marked.
   on — · sha — · the ingest half of the exit, no model call. FF16 obliges the document to name every
   position it registers; `L8.30` (`docs/lessons-archive.md:405`) is why the counts bracket the run.
   The transcript lands in `manual/` under `08` §3's rule, reproduced against the binary rather than
-  hand-edited
+  hand-edited · **no shipped document named a PDF extractor**, measured 2026-09-06, so this task
+  ships `index-pdf` — `extends: index-text`, one `replace:` at the `extract` id. A derivation
+  because everything after extraction is what `index-text` already says, and a copy would silently
+  disagree with it the day its chunk size changes · **the cleaners were destroying the table.**
+  `index-pdf` runs `normalize` and `whitespace` over every node; a `Cleaner` rebuilds its node with
+  `Node.derive`, which deliberately drops `ext` — so the `TableGrid` that *is* the table, and the
+  `BlobRef` that is the only surviving pointer to a figure's pixels, were gone before the store.
+  `11` §2.4 already settles it (*"Tables leave this pipeline"*) and `11` §1.4 records it as a scar a
+  third party paid for; nothing implemented it. All five text cleaners now declare
+  `applies_to = (Applies(media_type=MediaType.TEXT),)` — the same declaration `9.2` made for
+  chunkers, at the stage that was actually destroying the thing · **found by writing the exit as a
+  test**, and it exposed a wider defect this task deliberately does not fix: `PdfPages` never
+  reaches the store on *any* cleaned pipeline, for the identical reason, so a stored node's `ext`
+  holds `weft-chunk` and nothing else — measured against the live container. `L9.63`; it owes a
+  task · **the exit is a test, not only a transcript.**
+  `tests/integration/test_phase9_exit_multimodal_ingest.py` re-runs it every gate with both counts
+  bracketed either side (`L8.30`), because Phase 5's exit was never met while every box under it was
+  ticked · **through the shipped binary from outside the repository**: `weft index corpus --pipeline
+  index-pdf` over a one-page PDF holding a ruled table and a captioned figure — `nodes now stored:
+  4`, one blob on disk, and the store holding `image|Figure 1. Revenue by region.` and
+  `table|Region: EMEA | Revenue: 1,204` beside the prose, nodes bracketed 1 → 4 · **what this task
+  does not discharge**: the exit's `weft ask` clause needs `9.11`'s describer, and its
+  installed-wheels clause is the phase close's · `poe ci-checks` green: **2272 passed, 39 skipped**
 - [ ] **9.9** an image is describable through one contract that names the medium and not the model;
   its first implementation lives in the pack that already holds the provider's client, discloses in
   its `note` that page crops leave the process, resizes off the event loop, and is natively

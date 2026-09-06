@@ -34,7 +34,15 @@ from pydantic import BaseModel, ConfigDict, model_validator
 
 from weft_clean.property import Verbatim, WhitespaceGaps
 from weft_kernel.context import Context
-from weft_kernel.payload import Node, NothingToProduce, Outcome, Produced, Property
+from weft_kernel.payload import (
+    Applies,
+    MediaType,
+    Node,
+    NothingToProduce,
+    Outcome,
+    Produced,
+    Property,
+)
 
 #: A run this wide is read as a column boundary rather than an ordinary word
 #: gap. Chosen independently for Weft — a short row is exempted below instead
@@ -69,6 +77,16 @@ class TableLinearizer:
 
     intact: tuple[type[Property], ...] = (WhitespaceGaps,)
     destroys: tuple[type[Property], ...] = (Verbatim,)
+    #: Ledger task **9.8**. `docs/11-multimodal.md` §2.4: **"Tables leave this pipeline."** A
+    #: cleaner rebuilds its node with `Node.derive`, which deliberately drops `ext` — so a
+    #: `TABLE` node passing through here loses the `TableGrid` that *is* the table, and an
+    #: `IMAGE` node loses the `BlobRef` that is the only surviving pointer to its pixels. That is
+    #: `11` §1.4's own scar, verbatim: a comparable design "destroyed the grid inside its cleaning
+    #: pipeline, which is why nothing downstream could choose a representation".
+    #:
+    #: Declared as what this cleaner *needs* rather than as what it excludes, per `02` §3: it
+    #: repairs prose, and prose is `MediaType.TEXT`. Everything else the runner routes past.
+    applies_to: tuple[Applies, ...] = (Applies(media_type=MediaType.TEXT),)
     config_model: type[TableLinearizerConfig] = TableLinearizerConfig
 
     def __init__(self, config: TableLinearizerConfig | None = None) -> None:
