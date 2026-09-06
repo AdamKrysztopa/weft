@@ -1863,6 +1863,62 @@ the declaration is part of attaching it — a `provides` written only when someo
 across the tree. Failing that, `phase-step` → *Finish*, beside the run-the-binary step. Note the
 repair declared all four facts rather than the one that failed, per `L6.13`.
 
+### L9.75 — a dependency evaluation that resolves an unpinned name measures a version nobody would install
+
+**What happened.** A dispatched agent evaluating `litellm` as a provider adapter measured it
+against the tree and found the resolver *succeeded*. It succeeded by backtracking `litellm` from
+`1.100.0` to `1.83.0` — seventeen minor versions of a fast-moving SDK — because `litellm==1.100.0`
+requires `openai>=2.20.0,<3.0.0` and `packages/weft-openai/pyproject.toml:14` requires
+`openai>=3.1` (`uv.lock:1499` pins `3.1.0`). Nothing said so. Pinning the current release is what
+makes the resolver answer "unsatisfiable" instead. Every downstream conclusion — licence, wheel
+weight, API surface — was therefore about a release from a different year.
+
+**Generalises to.** *Resolve the **current** release explicitly when evaluating a new dependency: a
+resolver that succeeds by backtracking has answered a question about a version you did not ask
+about, and it reports that as success.* `L7.2`'s shape one level up — the constraint is real, the
+environment hides it, and the quiet answer is the dangerous one.
+
+**Candidate home.** `paper-to-plugin`, which already governs arriving-capability decisions, or a
+line in `phase-step` → *Orient* beside the existing "check the namespace it will be published
+into" paragraph, which is the same act (look the name up) at the same moment.
+
+### L9.76 — importing a pack can rewrite the environment of the kernel that loaded it
+
+**What happened.** Measured, not read: importing `litellm` calls `load_dotenv()` at module scope
+(`litellm/__init__.py:26-27`; `LITELLM_MODE` defaults to `DEV`) and mutates `os.environ`
+process-wide — a planted `.env` key was injected into the running process. Weft's discovery is
+**eager**: it imports every allowed pack before any `register()` runs. So a third-party pack's
+*import*, before it has registered anything or been given any settings, can change the environment
+the kernel and every other pack then read. `02` §2 already states that CPython offers no in-process
+boundary; what was missing was a worked example of a first-party-plausible dependency exercising it.
+
+**Generalises to.** *A pack's import is executable code the kernel runs before the pack has
+declared anything, so a dependency with import-time side effects is a trust decision and not a
+weight decision.* Evaluate what a candidate dependency does at import, not only what it costs.
+
+**Candidate home.** `02` §2's trust-model section, which makes the claim abstractly and now has a
+measured instance to cite — and the same paragraph of `phase-step` → *Orient* as `L9.75`, since
+both are checks owed at the moment a dependency is chosen.
+
+### L9.77 — the file an operator copies did not carry the field three other documents argue for
+
+**What happened.** `weft.toml.example`'s `[packs.openai]` block (`:58-70`) documents `api_key` and
+nothing else. Meanwhile `weft_openai/settings.py:41-45` explains at length that `base_url` is the
+one knob deciding where every request goes, `manual/troubleshooting.md:2069` tells operators to set
+it, and `docs/10-technique-catalogue.md:238` builds a settled claim on top of it. The capability,
+the reasoning and the troubleshooting entry all exist; the file an operator actually copies never
+names the key — and a field whose entire point is that it must live in `weft.toml` rather than the
+environment is exactly the field the example file has to carry.
+
+**Generalises to.** *A settings field the documentation argues for is unreachable until the example
+file names it, so the example file is generated from the settings model or checked against it —
+never maintained by hand beside it.*
+
+**Candidate home.** A check in `tests/docs/` that every `Settings` field of a shipped pack appears
+in `weft.toml.example`, on the precedent of `tests/docs/test_pack_guide_samples.py`'s existing
+sample-to-source map — which is the mechanism that already turns "which guides quote this file"
+into a lookup rather than a recollection.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in
