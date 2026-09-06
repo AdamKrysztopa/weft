@@ -1937,12 +1937,110 @@ install it and import the module you named, in the session that writes it down.*
 specification is not checked by reading the vendor's documentation, because the documentation
 describes the union of the extras and not any one of them.
 
+**And the repair was itself insufficient, which is the sharper half.** `convert-core` made the
+module import, so the pack installed, registered and reported `ACTIVE` — and every real
+conversion then failed twice: `No OCR engine found` (the config's `ocr` default is `True` and no
+engine ships with those extras) and `No module named 'cv2'`. Found by running the binary, one
+step further along than the import probe that found the first gap. Two measurements, and only the
+second one reached a document. `L6.24` is the same shape and this is its worked example for
+extras: *"installing a distribution alone and importing it proves its import-time dependencies
+and nothing else."*
+
 **Candidate home.** The same paragraph of `phase-step` → *Orient* that `L9.75` and `L9.76` want —
 *"when a decision names something that will be published, check the namespace"* is already the
 look-it-up-now rule, and this is the same act one step earlier: when a decision names something
-that will be **installed**, install it. Alternatively a fitness function over `packages/*` that
-every declared extra resolves, which is cheap and would not have caught this one (the set
-resolved; it did not import).
+that will be **installed**, install it *and run one real input through it*. A fitness function
+over `packages/*` asserting every declared extra resolves is cheap and would have caught neither
+gap: the set resolved both times.
+
+### L9.79 — every test replaced the seam and none asserted what was handed to it
+
+**What happened.** `weft_docling.pdf_layout_model.convert_pdf` is the one place this pack calls
+docling, and eight tests reach it through `monkeypatch.setattr(pdf_layout_model, "convert_pdf",
+...)`. All eight passed against a `run` that called it with `artifacts_path=None` **hard-coded** —
+so the pack's `[packs.docling] artifacts_path` setting was checked at registration and ignored at
+conversion. An operator pointing at their own weights directory would have got a pack reporting
+`ACTIVE` off one directory and failing to load weights from another, which is worse than either
+failure alone because the status says it cannot happen. Found by reading the implementation on
+return, not by any of the 32 green tests, and not by the implementer either.
+
+**Generalises to.** *A double that replaces a seam sees every call and asserts none of them unless
+it is told to: where a value's whole job is to travel from configuration to a call, one test must
+capture the call's arguments, or the wire is untested along its entire length.* The green tests
+prove the seam is reached; they say nothing about what reached it.
+
+**Candidate home.** `phase-step` → *Red*, beside *"an assertion is a specification"* — the same
+paragraph already warns that an incidental literal in an assertion is a design decision handed
+onward; this is its complement, a decision left *out* of every assertion. Possibly also the
+`test-patterns` skill, which owns suite discipline: a suite that patches a seam owes one
+argument-capturing test.
+
+### L9.80 — the formatter silently undid the spelling that satisfied the type checker
+
+**What happened.** Reported by the dispatched implementer, and measured by it rather than
+inferred: docling's `TableStructureModel._model_repo_folder` is a protected attribute with no
+public accessor. Dotted access trips pyright's `reportPrivateUsage` under this repository's strict
+config; the obvious escape, `getattr(cls, "_model_repo_folder")`, is rewritten *back* to dotted
+access by ruff's `B009` auto-fix — which this repository runs on `PostToolUse`, so it happens the
+moment the file is saved. Two configured tools disagreeing, with the automation resolving the
+disagreement in favour of the one that fails. It settled on `vars(TableStructureModel)[...]`,
+which neither rule flags.
+
+**Generalises to.** *Where an auto-fixer and a type checker are both authoritative over one line,
+the auto-fixer wins silently — so a lint rule that rewrites code is a rule that can reintroduce a
+type error, and the pair has to be checked together rather than each on its own.*
+
+**Candidate home.** A `per-file-ignores` entry or a `B009` narrowing is the wrong fix (it widens a
+rule for one call site). More likely a note in `CONTRIBUTING.md` or beside the `PostToolUse` hook
+in `CLAUDE.md` → *Automation*, which already argues that auto-formatting changes *when* you find
+out rather than *what* is enforced — this is the case where it changes what.
+
+### L9.81 — `None` did not mean "unset", it meant "you decide", and the vendor decided to download
+
+**What happened.** `weft_docling` passed `artifacts_path=None` to docling when no directory was
+configured, on the reading that `None` means *"use docling's own cache"* — which is what
+`weights.py` checks (`settings.cache_dir / "models"`). It does not. To docling, `None` means
+*"resolve the models yourself"*, and it resolves them with `snapshot_download`, over the network,
+into `~/.cache/huggingface`. Measured by running the binary: the pack reported **`PARTIAL`** from
+one directory and the run then **downloaded 593 MB** into another, while the pack's own
+`Disclosure` — written from the design an hour earlier — said *"no network call on any path this
+pack owns"* and *"weights are never fetched on demand"*. Both false, and the status line said the
+opposite of what happened. 34 unit tests were green throughout; every one of them replaces the
+call, which is `L9.79` biting in the same task that filed it.
+
+**Generalises to.** *Passing `None` into a third party's API is not withholding a value, it is
+delegating the decision — so a check that assumes what the default resolves to is a check on a
+different code path than the one that runs. Resolve it yourself and pass it explicitly, or measure
+what the vendor does with the absence.*
+
+**Candidate home.** `phase-step` → *Verify*, which already carries *"when a repair adds an optional
+parameter, read the other call sites before writing why they abstain"* — a defaulted parameter
+handed **outward** to a dependency is the mirror image and the paragraph does not cover it. The
+narrower version is worth having in `CLAUDE.md` beside "catch specific exceptions": an unset value
+forwarded to a vendor is a silent fallback wearing a default.
+
+### L9.82 — the default configuration crashed on the platform the project is developed on
+
+**What happened.** `PdfLayoutModelConfig.device` defaults to `AUTO`, which is docling's own
+default and follows this repository's settled convention (`pdf_layout.PdfLayoutExtractorConfig`:
+*"a wrapper that quietly disagrees with the library it wraps makes the library's own
+documentation wrong for its users"*). On Apple Silicon `AUTO` selects MPS, and docling's layout
+model raises *"Cannot convert a MPS Tensor to float64 dtype as the MPS framework doesn't support
+float64"* — so **every default-configuration run fails on the machine this project is built on**.
+`device: cpu` converts the same document cleanly. Found by running the binary against a real PDF;
+34 unit tests, the full architecture suite and `weft plugins doctor` all reported healthy, because
+none of them converts a document.
+
+**Generalises to.** *"Adopt the library's default" is a decision about **quality**, and it stops
+being safe the moment the default is a decision about **platform** — so a config default inherited
+from a dependency needs one real run on each platform the project claims, not an argument from
+consistency.* The convention is right and its scope was never stated.
+
+**Candidate home.** The convention itself, wherever it is written down — `pdf_layout.py`'s
+docstring states it and `weft-docling` inherited it by reading that file, so the exception belongs
+beside the rule rather than in the pack that discovered it. Possibly also `phase-step` →
+*Finish*'s run-the-binary step, which says to construct the condition for a branch that only
+fires sometimes: a platform is such a branch, and it is the one the step does not name.
 
 ## When the queue is empty
 

@@ -241,6 +241,7 @@ naming, not just citation, so a name with nothing to cite still needs a row.
 | `scripted` | `LLMProvider` | A fixed-response provider for tests and CI — no network, no account |
 | `pdf-text` | `Extractor` | `weft-pdf`'s plain-text extractor — `.pdf`, `MediaType.TEXT` |
 | `pdf-layout` | `Extractor` | `weft-pdf`'s layout-aware extractor — same declared extension and media type |
+| `pdf-layout-model` | `Extractor` | `weft-docling`'s **learned** layout rung, over docling's page-level object-detection model — the one backend here that reads a page image rather than a text layer, which is what makes a scanned PDF readable at all. Named for what it is rather than for the library behind it, per §2.1 rule 6 — the same reasoning `openai-vision`'s row cites in the other direction (*"the same reasoning that keeps `pdf-layout` from being called `docling`"*). Its own distribution for a measured reason: 897 MB of `torch`, `torchvision` and `transformers` against `weft-pdf`'s few megabytes, so nobody pays for a model their corpus does not need. Ledger 9.13 |
 | `qdrant` | `NodeStore` | `weft-qdrant`'s store — derives `VectorSearch` and `MetadataFilter`, deliberately not `TextSearch` (ledger 2.6) |
 | `passage-relevance` | `Prompt` | `graded-retrieval`'s own template — the question, and the numbered candidates |
 | `standalone-question` | `Prompt` | `contextual-query-rewrite`'s template — the follow-up as asked, and the history it depends on |
@@ -512,9 +513,14 @@ under §2.1 rule 4 rather than under provenance: ViDoRe V3 (arXiv:2601.08620) me
 grounding F1 at **0.602 human, 0.089 Qwen3-VL, 0.065 Gemini 3 Pro**, so a plugin called
 `grounded-answer` today would claim a capability the field delivers at roughly one-seventh of human.
 
-`describe-query-image` · `pdf-layout-model` · `describe-table` — Weft's own, reserved so that the
-first implementation cannot seize a name that will have siblings (§2.1 rule 6). `pdf-layout-model` is
-ledger `9.13`'s and `pdf-layout` is already the shipped pdfplumber rung.
+`describe-query-image` · `describe-table` — Weft's own, reserved so that the
+first implementation cannot seize a name that will have siblings (§2.1 rule 6).
+
+**`pdf-layout-model` was reserved here and is now shipped** — ledger `9.13`, 2026-09-06, and its row
+is in §1.5 beside the two `weft-pdf` rungs. The reservation did the job it exists to do: the name
+was fixed before the code, so the first implementation could not call itself `docling` and leave a
+second learned rung with nowhere to go. `pdf-layout` was already the pdfplumber rung's name, which
+is why the learned one is not simply that.
 
 **`describe-table` is reserved and deliberately not built, and the number is why.** A table already
 gets two *deterministic* renderings of its grid — index form and prompt form, ledger `9.6` — and its

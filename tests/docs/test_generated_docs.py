@@ -109,6 +109,13 @@ CONTRACTS_WAIVED_FROM_REFERENCE: Final[frozenset[str]] = frozenset()
 #: sentence anyway: this is the first entry added by a pack whose whole purpose is to prove the
 #: extension model works from outside, so the fact that it needed *this* edit and no other kind
 #: is itself part of what Phase 7 claims.
+#: **An eighth name joined on 2026-09-06, ledger task 9.13.** `weft-docling` registers a second
+#: `Extractor` backend under the contract `weft-extract` publishes — the `weft-pdf` shape again,
+#: registering without publishing anything of its own. It is here for the ordinary reason, and
+#: the check that sent it here is worth keeping in view: this set exists so a *stray* install in
+#: someone's environment cannot quietly widen a generated document, and a genuinely new
+#: first-party distribution is indistinguishable from that until a human says which it is. Saying
+#: so is the edit.
 KNOWN_WORKSPACE_DISTRIBUTIONS: Final[frozenset[str]] = frozenset(
     {
         "weft-rag",
@@ -116,6 +123,7 @@ KNOWN_WORKSPACE_DISTRIBUTIONS: Final[frozenset[str]] = frozenset(
         "weft-pdf",
         "weft-openai",
         "weft-qdrant",
+        "weft-docling",
     }
 )
 

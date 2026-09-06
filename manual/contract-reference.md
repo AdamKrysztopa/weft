@@ -291,7 +291,7 @@ async def run(
 ## `Extractor`
 
 **Module:** `weft_extract.contract`  
-**Registered by:** `weft-pdf`, `weft-rag`  
+**Registered by:** `weft-docling`, `weft-pdf`, `weft-rag`  
 **Version:** `1.0.0`
 
 Turns source documents into the first `Node`s of an ingest pipeline.

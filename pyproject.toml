@@ -37,7 +37,7 @@ dev = [
 [tool.uv]
 constraint-dependencies = ["qdrant-client<1.14"]
 
-# Six published distributions, and the workspace resolves every one of them from this
+# Eight published distributions, and the workspace resolves every one of them from this
 # checkout rather than from an index. Fourteen names left this list on 2026-09-05: their code
 # ships inside `weft-rag` now (`packages/weft-rag/pyproject.toml` carries the argument), so
 # there is nothing left for `uv` to resolve under those names.
@@ -49,6 +49,7 @@ weft-openai = { workspace = true }
 weft-qdrant = { workspace = true }
 weft-otel = { workspace = true }
 weft-agent = { workspace = true }
+weft-docling = { workspace = true }
 
 # ---------------------------------------------------------------------------
 # Tasks

@@ -197,6 +197,11 @@ def test_the_derived_package_list_names_every_distribution_including_the_two_tha
     # the last of these defines no `WeftError` subclass of its own (it registers no plugin
     # and raises nothing; a fallback exporter is reported on stderr, not an exception), so
     # its arrival moves only the count this assertion pins, not `manual/troubleshooting.md`.
+    # `weft_docling` at task 9.13 is the second of that kind and for a different reason: it
+    # defines no `WeftError` subclass because every refusal it owns is already somebody else's
+    # — a missing weights directory is `registrar.unavailable` at discovery (so `weft plugins
+    # doctor` reports it, not an exception), and an unreadable PDF is `Failed`, which is an
+    # `Outcome` and not a raise. So it too moves only the count.
     packages = _first_party_top_level_packages()
     assert "weft_clean" in packages
     assert "weft_enhance" in packages
@@ -206,8 +211,9 @@ def test_the_derived_package_list_names_every_distribution_including_the_two_tha
     assert "weft_eval" in packages
     assert "weft_otel" in packages
     assert "weft_agent" in packages
-    assert len(packages) == 22, (
-        f"expected 22 first-party distributions under packages/, found {sorted(packages)} — "
+    assert "weft_docling" in packages
+    assert len(packages) == 23, (
+        f"expected 23 first-party distributions under packages/, found {sorted(packages)} — "
         f"either a new one shipped (nothing to do here, this walk found it automatically) "
         f"or the walk itself broke."
     )

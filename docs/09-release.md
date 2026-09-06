@@ -665,9 +665,14 @@ the easy number as the finding is the exact failure `11` §1.4 attributes to a c
 3. **n = 10, and the interval is wide** — ±0.316 at `@1`. One question changing its mind moves the
    number by 0.1. The band boundaries are far enough from `0.900` that the verdict survives that;
    a number near a boundary would not.
-4. **The index side is the document's own caption**, not a model's description — `9.11`'s describer
-   does not exist yet. That is exactly what *caption*-and-embed names, so it is the right
-   measurement for this decision, and it is not evidence about description-and-embed.
+4. **The index side is the document's own caption**, not a model's description. That is exactly
+   what *caption*-and-embed names, so it is the right measurement for this decision, and it is not
+   evidence about description-and-embed. This clause read *"`9.11`'s describer does not exist
+   yet"* until 2026-09-06, when `9.11` shipped `describe-figure` (`17467c4`) and the sentence
+   stopped being true — **the limit itself is unchanged**, because it is a fact about what this
+   run measured and not about what the tree can do. The describer existing now is precisely the
+   reason to say so: a reader who knows `describe-figure` ships would otherwise assume this
+   number includes it.
 
 **What this discharges and what it does not.** It discharges `9.10`, whose line says *"either
 verdict discharges the line"*, and it decides `9.15`/`9.16` against being built. It does not

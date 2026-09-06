@@ -77,6 +77,13 @@ _INSTALLS_BESIDE: Final[frozenset[str]] = frozenset(
         # green while the claim quietly stopped being true — fitness function 21 is what asserts
         # the distinction directly.
         "weft-agent",
+        # Ledger task 9.13, and the clearest instance this set has of the property it exists to
+        # protect. `weft-docling` pulls `torch`, `torchvision` and `transformers` — 897 MB
+        # measured on 2026-09-06 against Python 3.12, against `weft-pdf`'s few megabytes for the
+        # same capability on born-digital input. Inside the default install that is a cost every
+        # `pip install weft-rag` pays for a model most corpora never need; beside it, it is a
+        # decision. `weft_pdf/__init__.py`'s dependency argument, one order of magnitude louder.
+        "weft-docling",
     }
 )
 
