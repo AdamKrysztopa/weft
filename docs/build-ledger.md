@@ -5060,10 +5060,10 @@ marked.
   (`tests/docs/test_manual_config_keys.py`, `test_manual_valid_options.py`) and re-derive from the
   declared role set in the same commit, or the transcripts they guard go stale the way `L8.3`
   describes. FF4's clause (a) reaches the `[services]` key set through this task
-- [ ] **9.1** `02` §1 says of a transient namespace what the seam does — stripped from a produced
+- [x] **9.1** `02` §1 says of a transient namespace what the seam does — stripped from a produced
   `Node` before the result leaves *any* stage — and the example that presumed stage-to-stage byte
   carriage is withdrawn rather than annotated, with `11` §3 D1 marked settled as a narrowing · owner
-  `02` §1 → *The payload model*; `11` §3 D1; `09` §6.2 · turns on — · sha — · settled by the owner
+  `02` §1 → *The payload model*; `11` §3 D1; `09` §6.2 · turns on — · sha `b0f04d1` · settled by the owner
   2026-09-06; the text is one narrowing block under `docs/02-extension-model.md:409-414`, in the
   form that section has used thirteen times (`:148`, `:177`, `:188`, `:215`, `:309`, `:491`, `:501`,
   `:546`, `:563`, `:594`, `:613`, `:712`, `:822`). Nothing in the kernel changes: `seam.py:421`
