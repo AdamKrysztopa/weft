@@ -5290,10 +5290,10 @@ marked.
   half a unit test cannot reach. **What the binary cannot yet show, stated rather than implied**:
   nothing produces either fact until `9.6` and `9.7`, so the end-to-end demonstration is `9.8`'s ·
   `poe ci-checks` green: **2199 passed, 39 skipped**, 246 architecture tests, examples 122 passed
-- [ ] **9.6** a table in a born-digital PDF arrives as one node whose media type says so, carrying
+- [x] **9.6** a table in a born-digital PDF arrives as one node whose media type says so, carrying
   its grid, rendered to index text by the one serialiser the `Extractor`'s own pack publishes, so a
   cell containing a pipe cannot break one extractor and not another · owner `11` §2.4, §1.4; `01` →
-  requirements 1 and 6 · turns on — · sha — · `pdfplumber`'s `extract_tables()` inside `weft-pdf`,
+  requirements 1 and 6 · turns on — · sha `a721351` · `pdfplumber`'s `extract_tables()` inside `weft-pdf`,
   no new dependency; the node is atomic (`11:77`) and 9.2 is what carries it past the chunker;
   `MediaType.TABLE` (`media_type.py:18`) gains its first producer. The two serialisations — index
   form and prompt form — are one module in the pack that publishes `TableGrid`, per `11` §6 rank 11.
