@@ -4196,9 +4196,67 @@ is also refused: the ReAct step is a typed structured answer through the three-t
   **One flagged observation was checked and was wrong**: the agent reported `weft_cli/confirm.py` as
   an empty stub. It is 214 lines and defines `gate`. Spool content is data, and this is why it is
   verified rather than acted on
-- [ ] **7.4 ⚠** the agentic pack installs from the index alongside the release and drives a corpus end
+- [x] **7.4 ⚠** the agentic pack installs from the index alongside the release and drives a corpus end
   to end with no edit to core, and `weft plugins doctor` reports it exactly as it reports any other
-  pack · owner `01` → Phase 7 **Exit** · turns on — · sha —
+  pack · owner `01` → Phase 7 **Exit** · turns on — · sha `SHA74` ·
+  **Demonstrated from a genuinely isolated install, and the first attempt was not one.**
+  `uv pip install packages/...` left `_editable_impl_weft_kernel.pth` and
+  `_editable_impl_weft_rag.pth` in the venv — only `weft-agent` was a real copy, so the run proved
+  nothing about the artefact (`L7.6`, the lesson that a metadata API answers differently under an
+  editable install than under a real one). Redone properly: `uv build --wheel` for all three, a
+  fresh venv, `--find-links`, **zero `_editable` files**, both packages resolving inside the venv.
+  From `/private/tmp`: `weft plugins doctor` reports
+  `agent (weft-agent) 0.1.0: active (2 contributed)`; `weft index ./corpus --pipeline index-text`
+  stores 2 nodes; `weft agent "which pipelines can I run?"` runs and reports
+  `stopped because: no_decision` ·
+  **What that `no_decision` proves, and it is the right answer rather than a shortfall.** The
+  `scripted` provider returns derived prose, not a structured `NextAction`, so the cascade cannot
+  parse a decision — the same limit this project already records for `rerank-then-generate` and
+  `grade-then-generate`, the test provider behaving as designed. **And it is `NO_DECISION` rather
+  than `BUDGET_EXHAUSTED`**, which is task 7.2's own contradiction paying off in the one place it
+  matters: an operator reading this knows the remedy is the model, not the budget. A *completed*
+  goal needs a real model; the loop's own behaviour is covered by unit tests against a stub LLM,
+  and **a role cannot carry provider config** (`RoleMapping` is `provider` and `model` only), so
+  making `scripted` emit a decision from `weft.toml` is not possible today. Named rather than
+  worked around ·
+  **The exit clause "no edit to core" holds, and the honest sentence is longer than that.**
+  `weft-kernel` is untouched — that is what `01` → Phase 7 means by core. But **shipping the agent
+  required an edit to `weft-cli`**, and pretending otherwise would be the kind of claim this phase
+  exists to test. `weft_cli.cli.run_command` registered exactly one thing into `ctx.services`: its
+  own `Dependencies`, a type a pack cannot import without depending on the driving adapter — the
+  dependency `weft_command.contract`'s placement argument forbids. So `ServiceRegistry` had a
+  consuming side anyone could reach and a producing side reachable only by editing the adapter,
+  which is `L5.15`'s shape and **exactly what Phase 8's own close review predicted would fail
+  requirement 1**. Phase 7 is where it stopped being theoretical. The repair registers the run's
+  ambient services by their *published contract types* — `LLM`, `Prompts`, `TokenSink`, `Registry`
+  — so **the next pack needs no edit at all**, which is the distinction requirement 1 turns on ·
+  **`Registry` is in that list because running the binary falsified a docstring.**
+  `weft_cli.commands`' own module docstring tells a pack author their command may
+  *"read `ctx.require(weft_kernel.registry.Registry)` directly if all it needs is plugin
+  resolution"* — and nothing registered one. The refusal named every service that *was* available
+  and no `Registry`, which is requirement 5 doing its job on a gap requirement 1 had left. Every
+  built-in reads `Dependencies` instead, by the route the docstring told strangers not to use, so
+  no first-party caller could ever have found it. `lessons.md` `L8.38` ·
+  **A second defect found the same way, repaired here, and it is the more user-facing of the two.**
+  One mistyped key in `[llm.roles]` gave an operator a **full Python traceback** ending in a
+  pydantic URL, exit `1` — on the one file every operator edits. `weft_cli.cli.main` catches
+  `WeftError` and its own comment says it covers a malformed `weft.toml`; `[llm]`'s inner tables
+  are validated by pydantic, whose `ValidationError` is not a `WeftError`. Now
+  `MalformedLLMSectionError`, exit **4**, naming the key and the file, with
+  `manual/troubleshooting.md` gaining its entry. **Measured rather than assumed**: `[services]` and
+  `[permissions]` were checked at the same time and already refused correctly, so the drift was in
+  exactly one reader — `lessons.md` `L8.39`, and
+  `tests/unit/weft_cli/test_malformed_config_refuses.py` is one parametrised case per section so
+  the next reader added joins the list or is unguarded ·
+  **Three repairs to this task's own code after the dispatch**, all mine: a test fixture declaring
+  bare `pydantic.BaseModel` as an `args_model` (a no-argument command declares a real empty model —
+  and the mistake found a genuine unguarded `model_json_schema()` call in
+  `weft_agent.tools`, now a named refusal); `AgentTool.description` declared `ClassVar`, which
+  forbids the derived description every `CommandTool` has, so the Protocol states what a tool must
+  *have* rather than how to spell it; and the result type narrowed at the assertion rather than
+  read off `CommandResult` · `weft-kernel`: **+0 lines** · `uv run poe ci-checks` green:
+  **2,064 passed, 38 skipped** · **`manual/user-manual.md`'s command table regenerated**: 20
+  commands, `agent` among them, with nobody editing that file
 - [ ] **7.5** Phase 8's Exit is met in the clause its own tasks left joined — `weft eval` judges the
   difference between two **query** rungs against the published baseline's interval, not between two
   ingest pipelines · owner `01` → Phase 8 **Exit**; `09` §4 · turns on — · sha — ·

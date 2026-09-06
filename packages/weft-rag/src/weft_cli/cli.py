@@ -88,9 +88,11 @@ from weft_command.invocation import invoke
 from weft_kernel.context import Context
 from weft_kernel.errors import WeftError
 from weft_kernel.registry import Registry, unwrap_factory
-from weft_llm.client import NullSink
-from weft_llm.contract import TokenSink
+from weft_llm.client import NullSink, llm_service
+from weft_llm.contract import LLM, TokenSink
 from weft_llm.payload import TokenChunk
+from weft_prompts.contract import Prompts
+from weft_prompts.registry import prompts_service
 
 if TYPE_CHECKING:
     # `weft_cli.render` imports `weft_cli.commands`, which imports `weft_extract`,
@@ -102,13 +104,18 @@ if TYPE_CHECKING:
     # for a type checker without costing `--version` a single import at runtime.
     from weft_cli.render import Rendered
 
-#: `weft_llm.contract.TokenSink` and `weft_llm.client.NullSink` cost nothing at import time
-#: — `weft-llm` is already one of `weft-cli`'s own dependencies, publishes no pack of its
-#: own to discover, and neither name touches the filesystem or a registry at module scope
-#: (checked directly: `weft_llm.client`'s own module-level code is class/function
-#: definitions only). Importing them here, unconditionally, costs `weft --version` nothing
-#: FF8(b) would notice — unlike `weft_cli.render`/`weft_cli.commands` just above, which pull
-#: in `weft_extract`/`weft_chunk`/`weft_embed`/`weft_store` and stay local-import-only.
+#: `weft_llm.contract.TokenSink`/`LLM`, `weft_llm.client.NullSink`/`llm_service` and
+#: `weft_prompts.contract.Prompts`/`weft_prompts.registry.prompts_service` cost nothing at
+#: import time — `weft-llm` and `weft-prompts` are already among `weft-cli`'s own
+#: dependencies, and neither publishes a pack of its own to discover (`weft-rag`'s own
+#: `pyproject.toml`: "`weft_command` and `weft_prompts` deliberately declare no entry point
+#: and register nothing"), and none of these four modules touches the filesystem or a
+#: registry at module scope (class/function definitions only). Importing them here,
+#: unconditionally, costs `weft --version` nothing FF8(b) would notice — unlike
+#: `weft_cli.render`/`weft_cli.commands` just above, which pull in
+#: `weft_extract`/`weft_chunk`/`weft_embed`/`weft_store` and stay local-import-only. Task
+#: **7.4**'s own seam repair is what needed `LLM`/`Prompts` here: see `run_command`'s own
+#: docstring.
 
 #: This module, spelled the way an entry point spells it. `own_distribution` finds the
 #: distribution that ships `weft` by looking for the `console_scripts` entry point pointing
@@ -549,6 +556,33 @@ async def run_command(command_name: str, args: argparse.Namespace, deps: Depende
     # the tracking wrapper for this run only; `deps.token_sink` itself, the one `finally`
     # closes below, is untouched.
     ctx.services.add(Dependencies, dataclasses.replace(deps, token_sink=tracked_sink))
+    # **Task 7.4's own seam repair.** The run's ambient services, registered a second time —
+    # by their *published contract types*, alongside `Dependencies` above — so a command that
+    # is not `weft-cli`'s own can reach one through `ctx.require(LLM)` without depending on the
+    # driving adapter at all. Built through the identical constructors `weft_cli.run_services.
+    # build_services` already calls for the query path (`weft_llm.client.llm_service`,
+    # `weft_prompts.registry.prompts_service`) — this is not a second implementation of either,
+    # only a second registration of what they built. See this module's own docstring, the
+    # module-level comment above these imports, and `tests/unit/weft_agent/test_command.py::
+    # test_the_ambient_services_reach_every_command_not_only_the_cli_s_own`.
+    ctx.services.add(
+        LLM,
+        llm_service(
+            registry=deps.registry,
+            roles=deps.llm.roles,
+            retry=deps.llm.retry,
+            loop_guard=deps.llm.loop_guard,
+        ),
+    )
+    ctx.services.add(Prompts, prompts_service(deps.registry))
+    ctx.services.add(TokenSink, tracked_sink)
+    # **`Registry` too, and `weft_cli.commands`' own module docstring is why.** It tells a third
+    # party their command may "read `ctx.require(weft_kernel.registry.Registry)` directly if all it
+    # needs is plugin resolution" — and nothing registered one, so that sentence was false for
+    # every caller it was written for. Found by running `weft agent` from outside this repository:
+    # the refusal named `Dependencies, LLM, Prompts, TokenSink` and no `Registry`, which is
+    # requirement 5 doing its job on a gap requirement 1 had left. `docs/lessons.md` `L8.38`.
+    ctx.services.add(Registry, deps.registry)
 
     entry = deps.registry.entry(Command, command_name)
     instance = cast(Command, entry.factory(None))

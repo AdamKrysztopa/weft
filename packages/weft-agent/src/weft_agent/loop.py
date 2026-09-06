@@ -31,7 +31,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from enum import StrEnum
-from typing import ClassVar, Protocol, cast, runtime_checkable
+from typing import Protocol, cast, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict
 
@@ -54,7 +54,11 @@ class AgentTool(Protocol):
     implementation.
     """
 
-    description: ClassVar[str]
+    #: Not a `ClassVar`. A tool whose description is *derived* — every `CommandTool`'s is, being
+    #: the command's own mandatory `help` — sets this per instance, and declaring it a `ClassVar`
+    #: here would make that a type error while working perfectly at runtime. The Protocol states
+    #: what a tool must *have*, never how the implementer must spell it.
+    description: str
 
     async def call(self, arguments: Mapping[str, object], ctx: Context) -> str: ...
 

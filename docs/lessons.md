@@ -27,6 +27,62 @@ otherwise paid for twice.
 
 ## Queue
 
+### L8.39 — the handler caught a type and its comment described a cause
+
+**What happened.** `weft_cli.cli.main` wraps `build_dependencies` in `except WeftError`, and its
+comment explains the handler exists for *"`weft.toml` is not valid TOML, `[packs] allow`/`[plugins]`
+is malformed"*. Those two sections are parsed by hand and raise `WeftError`. `[llm]` is validated by
+pydantic, whose `ValidationError` is not a `WeftError` — so **one mistyped key in `[llm.roles]` gave
+an operator a full Python traceback ending in a pydantic documentation URL, and exit `1`**, on the
+one file every operator edits. Found by running the binary at ledger task 7.4, from a directory
+outside the repository.
+
+**The comment was not wrong about anything it named.** It listed the causes somebody had in mind
+when the `except` was written, and the `except` catches a *type*. Those two descriptions agreed
+then and drifted apart the moment a config reader started validating with a model instead of by
+hand — with nothing to notice, because the handler still catches everything it ever caught.
+
+**Generalises to.** Where a handler catches a **type** and its comment describes **causes**, the
+comment is a claim about which causes produce that type — and nothing checks it, because both halves
+go on being individually true. Either enumerate the causes as a test (one malformed input per
+reader, asserting the refusal rather than the traceback), or say in the comment which type each
+named cause actually raises. Measured while fixing this: of the three model-validated sections,
+`[services]` and `[permissions]` already refused correctly, so the drift was in exactly one reader
+and no reading of the comment would have told anybody which.
+
+**Candidate home.** `tests/unit/weft_cli/test_malformed_config_refuses.py`, written for this task —
+one parametrised case per config section, asserting a named refusal at exit 4 and the absence of a
+traceback. A new `weft.toml` section joins the list or its reader is unguarded.
+
+### L8.38 — a docstring told third parties to call something nothing had registered
+
+**What happened.** `weft_cli.commands`' module docstring, explaining that built-ins hold no
+privileged path, tells a pack author their command is free "to read
+`ctx.require(weft_kernel.registry.Registry)` directly if all it needs is plugin resolution".
+Nothing registered a `Registry` into any run's `ServiceRegistry`. The sentence was written to
+reassure a stranger that the seam was open, and it named the one call that would have proved it
+closed. Found by running `weft agent` from outside the repository at task 7.4 — the refusal was
+perfect (*"no service is registered for Registry on this run. Services available: Dependencies,
+LLM, Prompts, TokenSink"*), which is requirement 5 doing its job on a gap requirement 1 had left.
+
+**It survived because nothing first-party ever took the advice.** Every built-in reads
+`ctx.require(Dependencies)`, which *is* registered, and `Dependencies` carries a registry — so the
+five commands the docstring was written beside all had one, by a route the docstring explicitly
+told strangers not to use. The advice was correct about what a stranger *should* do and wrong about
+whether it worked, and no first-party caller could ever have discovered that.
+
+**Generalises to.** A docstring that tells somebody else how to use a seam is a claim about a path
+the author is not on, and it is worth exactly as much as the last time somebody walked it. This is
+`L8.24`'s shape — a claim about the *other* call sites — with the other call sites being **outside
+the repository**, where no test in this tree will ever be. The tell is any sentence of the form
+*"a third party may instead ..."*: it describes an untaken path, and the tree's own callers cannot
+falsify it.
+
+**Candidate home.** `weft-canary` is this repository's answer to exactly this problem — a test-only
+distribution existing to be the stranger. A canary command that reaches for every service the
+documentation promises a pack author would have caught this the day the sentence was written, and
+it is the same shape as fitness function 8's own use of that pack.
+
 ### L8.37 — a lint exemption justified for tests is switched on for the whole tree
 
 **What happened.** Task 7.3's implementation reached me containing

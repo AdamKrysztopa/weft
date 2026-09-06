@@ -63,7 +63,7 @@ alternatives.
 
 from typing import cast
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_llm.loop_guard import LoopGuardConfig
@@ -109,6 +109,27 @@ class LLMSection(BaseModel):
     loop_guard: LoopGuardConfig = Field(default_factory=LoopGuardConfig)
 
 
+class MalformedLLMSectionError(WeftError):
+    """`weft.toml`'s `[llm]` section did not validate — a person's typo, named as one.
+
+    A distinct class rather than a bare `WeftError` because `manual/troubleshooting.md`'s coverage
+    ratchet is keyed on the class name, so this failure earns its own entry the way every other
+    named failure does.
+    """
+
+
+def _first_problem(exc: ValidationError) -> str:
+    """One pydantic error as a sentence an operator can act on, never the whole dump.
+
+    `weft_cli.registry_bootstrap`'s own repair (task 3.2, finding 2) is the precedent: a raw
+    multi-line pydantic dump spliced mid-sentence is what that task removed from a refusal, and
+    reintroducing one here would undo it.
+    """
+    first = exc.errors()[0]
+    where = ".".join(str(part) for part in first["loc"]) or "(the section itself)"
+    return f"{where}: {first['msg']}"
+
+
 def llm_section_from_config(document: dict[str, object] | None) -> LLMSection:
     """`[llm]` from a parsed `weft.toml`, refusing an unknown key under it by name."""
     if document is None or "llm" not in document:
@@ -128,9 +149,24 @@ def llm_section_from_config(document: dict[str, object] | None) -> LLMSection:
             f"reads is refused rather than ignored.",
             valid_options=_KNOWN_LLM_KEYS,
         )
-    return LLMSection(
-        roles=_roles(llm_table), retry=_retry(llm_table), loop_guard=_loop_guard(llm_table)
-    )
+    # **The three helpers below validate with pydantic, and a `ValidationError` is not a
+    # `WeftError`** — so before this, a mistyped key *inside* `[llm.roles]` escaped
+    # `weft_cli.cli.main`'s handler and reached the operator as a raw traceback ending in a
+    # pydantic documentation URL. The keys of `[llm]` itself were refused by name two lines
+    # above; the keys of the tables under it were not, and the handler's own comment claimed to
+    # cover *"`weft.toml` is ... malformed"* without qualification. Found by running the binary
+    # at task 7.4 (`docs/lessons.md` `L8.39`). `[services]` and `[permissions]` were measured at
+    # the same time and already refuse correctly, so this is the one reader that needed it.
+    try:
+        return LLMSection(
+            roles=_roles(llm_table), retry=_retry(llm_table), loop_guard=_loop_guard(llm_table)
+        )
+    except ValidationError as exc:
+        raise MalformedLLMSectionError(
+            f"weft.toml's [llm] section is not valid: {_first_problem(exc)}. Every key under "
+            f"[llm.roles], [llm.retry] and [llm.loop_guard] is checked, and one nothing reads is "
+            f"refused rather than ignored."
+        ) from exc
 
 
 def llm_roles_from_config(document: dict[str, object] | None) -> LLMRoles:

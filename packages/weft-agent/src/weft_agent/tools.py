@@ -106,4 +106,15 @@ def _args_schema_of(factory: object, name: str) -> Mapping[str, object]:
             "agent's tool catalogue refuses to invent a placeholder schema for one that does "
             "not exist."
         )
+    if args_model is BaseModel:
+        # `issubclass(BaseModel, BaseModel)` is `True`, so the check above lets the base class
+        # itself through — and pydantic then refuses `model_json_schema()` on it with a bare
+        # `AttributeError`, which escapes unattributed past the named refusal this function exists
+        # to raise. An argument-free command declares a real empty model (`weft_cli.commands`'
+        # own `NoArgs`); the bare class is a declaration mistake, and it is named as one.
+        raise CommandNotDescribableError(
+            f"'{name}' declares `args_model = BaseModel`, the base class itself rather "
+            f"than a model of its own. Declare an empty subclass — the CLI's own argument-free "
+            f"commands use one — so the command's arguments have a schema a caller can read."
+        )
     return args_model.model_json_schema()

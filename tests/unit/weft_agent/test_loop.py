@@ -38,7 +38,6 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
-from typing import ClassVar
 
 import pytest
 
@@ -86,9 +85,10 @@ class _StubLLM:
 class _CountingTool:
     """One tool the loop may call, recording every set of arguments it was given."""
 
-    description: ClassVar[str] = "count something"
-
     def __init__(self, answer: str = "counted nine") -> None:
+        # An instance attribute, matching the Protocol — a tool whose description is *derived*
+        # cannot use a `ClassVar`, and every `CommandTool`'s is, being the command's own `help`.
+        self.description = "count something"
         self.calls: list[Mapping[str, object]] = []
         self._answer = answer
 

@@ -2833,6 +2833,32 @@ and not fatal — `allow` only ever narrows what is already there.
 
 ---
 
+### `MalformedLLMSectionError`
+
+**What it looks like** — one mistyped key inside `[llm.roles]`, reproduced from a directory with
+nothing else in it:
+
+```text
+$ printf '[llm.roles]\ngenerate = { provider = "scripted", nonsense = 1 }\n' > weft.toml
+$ weft pipeline list
+weft.toml's [llm] section is not valid: nonsense: Extra inputs are not permitted. Every key under
+[llm.roles], [llm.retry] and [llm.loop_guard] is checked, and one nothing reads is refused rather
+than ignored.
+$ echo $?
+4
+```
+
+Exit `4`, not `1`: no command was chosen, because the surface a command is chosen *from* could not
+be built. **What to do:** remove the key, or check it against
+[`manual/operations-guide.md`](operations-guide.md)'s `[llm]` reference — `provider`, `model` and
+`params` are what a role accepts.
+
+**Until 2026-09-06 this printed a Python traceback.** The keys of `[llm]` itself were refused by
+name; the keys of the tables *under* it were validated by pydantic, whose `ValidationError` is not
+a `WeftError` and so walked straight past `weft_cli.cli.main`'s handler — a handler whose own
+comment said it covered a malformed `weft.toml`. Found by running the binary at ledger task 7.4.
+`[services]` and `[permissions]` were measured at the same time and already refused correctly.
+
 ## The agent's ceiling — `weft_agent`
 
 `weft-agent` drives Weft through the same command surface a person types at, and it is capped at
