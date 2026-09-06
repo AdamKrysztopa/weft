@@ -1919,6 +1919,31 @@ in `weft.toml.example`, on the precedent of `tests/docs/test_pack_guide_samples.
 sample-to-source map — which is the mechanism that already turns "which guides quote this file"
 into a lookup rather than a recollection.
 
+### L9.78 — a dependency's extras were specified from its documentation and did not import
+
+**What happened.** Ledger `9.13` specifies `docling-slim[format-pdf,models-local]` — *"named
+extras only, since `format-html-render` pulls a browser and `format-audio` pulls a speech model"*.
+Installed exactly as written, on Python 3.12, `import docling.document_converter` raises
+`ModuleNotFoundError: No module named 'scipy'`: `document_converter` reaches
+`models/base_ocr_model.py` through its pipeline imports unconditionally, and `scipy` arrives with
+the `convert-core` extra, which the line does not name. The reasoning about which extras to
+*exclude* was careful and correct; nobody had installed the set and imported it. The same task's
+line already says *"whether the models run under `models-onnxruntime` without torch is unconfirmed
+and is **measured before it is promised**"* — the discipline was written down one clause away from
+the claim that needed it.
+
+**Generalises to.** *An extras list, like a version range, is a claim about an installation — so
+install it and import the module you named, in the session that writes it down.* A dependency
+specification is not checked by reading the vendor's documentation, because the documentation
+describes the union of the extras and not any one of them.
+
+**Candidate home.** The same paragraph of `phase-step` → *Orient* that `L9.75` and `L9.76` want —
+*"when a decision names something that will be published, check the namespace"* is already the
+look-it-up-now rule, and this is the same act one step earlier: when a decision names something
+that will be **installed**, install it. Alternatively a fitness function over `packages/*` that
+every declared extra resolves, which is cheap and would not have caught this one (the set
+resolved; it did not import).
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in
