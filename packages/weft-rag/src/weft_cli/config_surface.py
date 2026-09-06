@@ -145,8 +145,15 @@ class UnknownConfigKeyError(WeftError, UnresolvedNameError):
     """`weft config get|set` names a key this module does not read.
 
     `docs/03-cli.md` → *Project context*: "a key the CLI does not yet read is refused, naming
-    the keys it does". Fitness function 12's family — `valid_options` is `CONFIG_KEYS`,
-    always, since the vocabulary itself never depends on what any particular `weft.toml` says.
+    the keys it does". Fitness function 12's family.
+
+    **`valid_options` is this run's vocabulary, not a constant — repaired at ledger task 9.0,
+    found by running the binary.** It used to be `CONFIG_KEYS`, "always, since the vocabulary
+    itself never depends on what any particular `weft.toml` says". That stopped being true when
+    the `[services]` half became the declared role set: `weft config get` printed
+    `services.route` while `weft config get --key services.route` refused it as *"not a key weft
+    config reads or writes"* — two halves of one command disagreeing, with 2,103 tests green.
+    A role a stranger's pack declares would have been refused the same way.
     """
 
     def __init__(self, message: str, *, valid_options: tuple[str, ...]) -> None:
@@ -154,22 +161,42 @@ class UnknownConfigKeyError(WeftError, UnresolvedNameError):
         self.valid_options = valid_options
 
 
-def _refuse_unknown_key(key: str) -> None:
-    if key not in _KEY_FIELDS:
+def _section_and_field(key: str) -> tuple[str, str]:
+    """`("services", "embed")` for `"services.embed"`, derived rather than looked up.
+
+    `_KEY_FIELDS` answers for the three keys that name no role. Every `services.*` key splits
+    on the dot, because since ledger task **9.0** the `[services]` half is the declared role
+    set and a table of them here would be the fourth hand-written copy of a set the packs
+    already state. `_refuse_unknown_key` has already established the key is one this run reads.
+    """
+    if key in _KEY_FIELDS:
+        return _KEY_FIELDS[key]
+    section, _, field = key.partition(".")
+    return section, field
+
+
+def _refuse_unknown_key(key: str, *, table: RoleTable) -> None:
+    """Refuse a key this run does not read, naming the ones it does.
+
+    Asked of `config_keys_for(table)` rather than the static `CONFIG_KEYS`, so the set named is
+    the one `weft config get` will actually print — see `UnknownConfigKeyError` for the live
+    disagreement that repaired this.
+    """
+    known = config_keys_for(table)
+    if key not in known:
         raise UnknownConfigKeyError(
-            f"'{key}' is not a key weft config reads or writes. Known keys: "
-            f"{', '.join(CONFIG_KEYS)}.",
-            valid_options=CONFIG_KEYS,
+            f"'{key}' is not a key weft config reads or writes. Known keys: {', '.join(known)}.",
+            valid_options=known,
         )
 
 
-def section_and_field(key: str) -> tuple[str, str]:
+def section_and_field(key: str, *, table: RoleTable) -> tuple[str, str]:
     """`("services", "embed")` for `"services.embed"` — `weft_cli.config_commands.
     ConfigSetCommand`'s own way to know which `[section]`/field `set_config_text` should
     edit, without reaching into this module's private `_KEY_FIELDS` directly.
     """
-    _refuse_unknown_key(key)
-    return _KEY_FIELDS[key]
+    _refuse_unknown_key(key, table=table)
+    return _section_and_field(key)
 
 
 def _written_section(document: dict[str, object] | None, section: str) -> dict[str, object]:
@@ -228,46 +255,28 @@ def effective_config(
     return tuple(entries)
 
 
-def _legacy_entry(document: dict[str, object] | None, key: str, *, table: RoleTable) -> ConfigEntry:
-    """`config_entry`'s own answer for one of `CONFIG_KEYS`'s five static keys.
-
-    `config_entry` (and, through it, `weft config get --key ...`) is scoped to `_KEY_FIELDS`
-    alone. It still needs the run's `RoleTable`, because `[services]`'s own key set is derived
-    from it since ledger task **9.0** — there is no default to fall back on, deliberately: a
-    guessed table naming `embed` and `store` would be the closed key space this task deletes,
-    put back one layer down and failing silently rather than loudly.
-    """
-    from weft_cli.reconcile_policy import reconcile_policy_from_config
-
-    selection = _service_selection(document, table=table)
-    policy = _permission_policy(document)
-    reconcile = reconcile_policy_from_config(document)
-    services_written = _written_section(document, "services")
-    permissions_written = _written_section(document, "permissions")
-    reconcile_written = _written_section(document, "reconcile")
-
-    values: dict[str, tuple[str, dict[str, object]]] = {
-        "services.embed": (selection.embed, services_written),
-        "services.store": (selection.store, services_written),
-        "permissions.overwrite": (policy.overwrite.value, permissions_written),
-        "permissions.destroy": (policy.destroy.value, permissions_written),
-        "reconcile.mode": (reconcile.mode.value, reconcile_written),
-    }
-    value, written = values[key]
-    _, field = _KEY_FIELDS[key]
-    origin = ConfigOrigin.FILE if field in written else ConfigOrigin.DEFAULT
-    return ConfigEntry(key=key, value=value, origin=origin)
-
-
 def config_entry(document: dict[str, object] | None, key: str, *, table: RoleTable) -> ConfigEntry:
-    """One key's effective value — `UnknownConfigKeyError` if `key` is not one of
-    `CONFIG_KEYS`.
+    """One key's effective value — `UnknownConfigKeyError` if `key` is not one this run reads.
+
+    **One derivation, not two — repaired at ledger task 9.0, found by running the binary
+    twice.** This used to compute the answer itself from a table of the five static keys, so
+    `weft config get --key services.route` first refused a key the listing printed, and then,
+    once the refusal was fixed, died with a raw `KeyError` inside the second implementation.
+    The first defect was hiding the second (`docs/lessons.md` `L8.11`). `effective_config`
+    already answers every key this run reads; asking it and selecting is what makes the
+    single-key path and the print-everything path incapable of disagreeing.
     """
-    _refuse_unknown_key(key)
-    return _legacy_entry(document, key, table=table)
+    _refuse_unknown_key(key, table=table)
+    for entry in effective_config(document, table=table):
+        if entry.key == key:
+            return entry
+    raise UnknownConfigKeyError(  # pragma: no cover - `_refuse_unknown_key` has already run
+        f"'{key}' is not a key weft config reads or writes.",
+        valid_options=config_keys_for(table),
+    )
 
 
-def validate_set_value(key: str, value: str) -> None:
+def validate_set_value(key: str, value: str, *, table: RoleTable) -> None:
     """`value` is legal for `key` — `UnknownConfigKeyError` for an unread key, a plain
     `WeftError` for a value `weft.toml`'s own loader would refuse at read time anyway.
 
@@ -280,8 +289,8 @@ def validate_set_value(key: str, value: str) -> None:
     moment something does. Checking eagerly here would make `weft config set` stricter than
     `weft.toml` itself, a second, disagreeing rule for the identical field.
     """
-    _refuse_unknown_key(key)
-    section, field = _KEY_FIELDS[key]
+    _refuse_unknown_key(key, table=table)
+    section, field = _section_and_field(key)
     if section == "permissions":
         # Repair, 2026-08-20 (`docs/build-ledger.md` 3.3's dated paragraph): examined for FF12
         # family membership and excluded, the identical reasoning `weft_cli.permission_policy`'s

@@ -906,11 +906,41 @@ is the check `L8.24` should have filed and did not; filing it now is what stops 
 
 
 
+### L9.41 — one command's two halves answered from two sources, and the first defect hid the second
+
+**What happened.** Task 9.0 made `[services]`'s key set the declared role set. `weft config get`
+prints it correctly. `weft config get --key services.route` refused it — *"'services.route' is not a
+key weft config reads or writes"* — because the **listing** read `config_keys_for(table)` while the
+**refusal** read the static `CONFIG_KEYS`. Two halves of one command disagreeing about their own
+vocabulary, with 2,103 tests and the full gate green. Found by running the binary from outside the
+repository; no test in the tree asked one half about the other.
+
+Fixing the refusal exposed a second defect the first had been hiding: `--key` then died with a raw
+`KeyError`, because `_legacy_entry` was a **second implementation** of the same answer scoped to the
+same five static keys. Both are now one call — `config_entry` asks `effective_config` and selects —
+so the single-key path and the print-everything path are structurally incapable of disagreeing. The
+second was only reachable once the first was repaired, which is `L8.11`'s shape: *"two defects sat
+behind one branch where the first hid the second, so fixing only what the first traceback named
+would have shipped the other."*
+
+**Generalises to.** Where one command can both **list** a vocabulary and **be asked about one member
+of it**, those are two readers of one set and they are checked against each other, not each against a
+constant — and after repairing the reader that failed, the branch is run again, because a refusal
+that fires early is a lid on everything behind it.
+
+**Candidate home.** A check that every `--key`-style choice a command advertises is one the same
+command's listing produces, which is `L8.3`'s manual-transcript rule applied to a live surface rather
+than to documentation. Failing that, `phase-step` → *Finish*, which says to construct the condition
+for any branch that only fires sometimes and does not say to re-run it after the repair.
+
+
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in
 `lessons-archive.md`, session by session, with the edges between entries — which is where the
 question *have we been here before?* is answered, and where an on/off cycle becomes visible.
+
 
 
 

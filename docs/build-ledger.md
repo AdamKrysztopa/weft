@@ -119,7 +119,7 @@ second copy of the table `08` owns and would go stale the first time a file is r
 accidentally settle **G2** — duplicate names, what a pipeline is before Phase 1, and where embedding
 happens. Each carries a minimal reversible choice that is *not* an answer.
 
-- [x] **0.0** the repository is several distributions and the gate refuses to be bypassed · owner `06` → *The order* preamble; `01` → *Fitness functions* 0, 1, 3 · turns on FF0, FF1, FF3 · sha `7742883`
+- [x] **0.0** the repository is several distributions and the gate refuses to be bypassed · owner `06` → *The order* preamble; `01` → *Fitness functions* 0, 1, 3 · turns on FF0, FF1, FF3 · sha `641420d`
 - [x] **0.1** G5 exists in code — a stage payload cannot be malformed rather than being validated · owner `06` step 1; `02` §1 → *The payload model* · turns on — · sha `aa9b581`
 - [x] **0.2 ⚠** there is something to register into, and two packs claiming one name is refused with both distributions named · owner `06` step 2; `06` → *The three places…* item 3 · turns on — · sha `5507e55`
 - [x] **0.3** every cross-cutting concern attaches without an author asking, so FF7(b) has somewhere to live · owner `06` step 3; `01` → *Fitness functions* 7(b) · turns on — · sha `829ed21`
@@ -5020,7 +5020,7 @@ with no model call. 9.9 and 9.12 can run beside it; 9.10 needs 9.8 and 9.12; 9.1
 verdict is recorded. 9.13 after 9.8, independent of the describer. 9.14–9.17 last, conditional as
 marked.
 
-- [ ] **9.0** a pack that publishes a run-wide service is reachable by `ctx.require` on every path —
+- [x] **9.0** a pack that publishes a run-wide service is reachable by `ctx.require` on every path —
   command, query, ingest — with no edit to `weft-cli`, through three properties each tested alone:
   **(i) role selection** — `[services].<role>` names one plugin for a role the contract-publishing
   pack declares selectable, one constant beside the Protocol and never a fan-out capability; an
@@ -5033,7 +5033,7 @@ marked.
   capability is checked against the instance the role table resolves for it, and the refusal names
   the role key to set — **not multimodal work: Phase 11 (graph) depends on it too** · owner `02` §1
   → *What a plugin receives*; `03` → *Project context*; `build-ledger.md` → *Phase 7's close*, finding (a) (Phase 7's
-  close, *(a)*) · turns on — · sha — · **three consumers, which is why it is one task and not a
+  close, *(a)*) · turns on *a run-wide service a pack published is reachable on every path, and no code builds a run outside the named assemblers* (**FF22**, filed 2026-09-06) · sha `a9a2ca6` · **three consumers, which is why it is one task and not a
   line in any of them.** The failing instance: Phase 7's close measured that `run_command`
   registers `LLM`, `Prompts`, `TokenSink` and `Registry` and a pack needing the configured
   `NodeStore` or `Embedder` cannot reach one, because which name the project chose lives in

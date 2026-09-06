@@ -16,7 +16,6 @@ import tomllib
 import pytest
 
 from weft_cli.config_surface import (
-    CONFIG_KEYS,
     ConfigOrigin,
     UnknownConfigKeyError,
     config_entry,
@@ -73,10 +72,21 @@ def test_a_key_the_file_never_mentions_is_origin_default() -> None:
 
 
 def test_config_entry_refuses_an_unknown_key_naming_the_valid_ones() -> None:
+    """The set named is **this run's**, not a module constant.
+
+    Repaired at ledger task 9.0, found by running the binary: `weft config get` printed
+    `services.route` while `weft config get --key services.route` refused it as "not a key weft
+    config reads or writes", because the refusal read the static `CONFIG_KEYS` while the listing
+    read the declared role set. Two halves of one command disagreeing, with 2,103 tests green.
+    Asserting against `config_keys_for` here is not comparing the check to itself: the point is
+    that the refusal and the listing answer from **one** source, and this test fails the moment
+    they answer from two.
+    """
     with pytest.raises(UnknownConfigKeyError) as exc_info:
         config_entry(None, "services.bogus", table=_INSTALLED)
 
-    assert exc_info.value.valid_options == CONFIG_KEYS
+    assert exc_info.value.valid_options == config_keys_for(_INSTALLED)
+    assert "services.route" in exc_info.value.valid_options
 
 
 def test_reconcile_mode_defaults_to_full_with_no_document() -> None:
@@ -99,31 +109,31 @@ def test_reconcile_mode_explicitly_set_to_repair_is_origin_file() -> None:
 
 
 def test_validate_set_value_accepts_a_plugin_name_for_a_services_key() -> None:
-    validate_set_value("services.embed", "openai")  # does not raise
+    validate_set_value("services.embed", "openai", table=_INSTALLED)  # does not raise
 
 
 def test_validate_set_value_refuses_an_empty_plugin_name() -> None:
     with pytest.raises(WeftError, match="services.embed"):
-        validate_set_value("services.embed", "")
+        validate_set_value("services.embed", "", table=_INSTALLED)
 
 
 def test_validate_set_value_refuses_an_illegal_permissions_value() -> None:
     with pytest.raises(WeftError, match="allow.*ask"):
-        validate_set_value("permissions.destroy", "sometimes")
+        validate_set_value("permissions.destroy", "sometimes", table=_INSTALLED)
 
 
 def test_validate_set_value_accepts_a_legal_reconcile_mode() -> None:
-    validate_set_value("reconcile.mode", "repair")  # does not raise
+    validate_set_value("reconcile.mode", "repair", table=_INSTALLED)  # does not raise
 
 
 def test_validate_set_value_refuses_an_illegal_reconcile_mode() -> None:
     with pytest.raises(WeftError, match="full.*repair"):
-        validate_set_value("reconcile.mode", "sometimes")
+        validate_set_value("reconcile.mode", "sometimes", table=_INSTALLED)
 
 
 def test_validate_set_value_refuses_an_unknown_key() -> None:
     with pytest.raises(UnknownConfigKeyError):
-        validate_set_value("services.bogus", "x")
+        validate_set_value("services.bogus", "x", table=_INSTALLED)
 
 
 # --- set_config_text ----------------------------------------------------------------------

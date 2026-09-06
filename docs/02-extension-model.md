@@ -158,6 +158,35 @@ class MyStage:
   > run, and `PackRegistrar` — the whole surface a pack's `register()` receives — has no service
   > seam. Naming the providing pack therefore waits on a step that lets a pack contribute a service,
   > which no Phase 0 step does.
+
+  > **Narrowed again in Phase 9 task 9.0 (2026-09-06) — that step now exists, and it is not on
+  > `PackRegistrar`.** A pack declares a `weft_kernel.context.ServiceRole` — a `[services]` key and
+  > the contract it selects for — as a **module-level `SERVICE_ROLES` constant beside the Protocol
+  > it publishes**, and `weft_kernel.discovery` reads it at import, in the same place and at the
+  > same moment it already reads `DISCLOSURE`. Three consequences worth stating, because each was
+  > the reason for a choice:
+  >
+  > *Not a `ClassVar` on the contract.* `typing.Protocol` computes `__protocol_attrs__` once from
+  > the class body, so a marker written there becomes a *required* structural member and a
+  > third-party implementation that never restates it fails a capability check that has nothing to
+  > do with capability — the mechanism `weft_extract.contract` already documents for `version`.
+  >
+  > *Not buffered through `register()`, unlike every other pack contribution.* Which `[services]`
+  > keys exist is a fact about what is **installed**, not about what configured itself
+  > successfully. `weft-store` settles it: `[packs.store] dsn` is required and this repository
+  > ships no `weft.toml`, so that pack reports `failed` on a clean checkout — and `[services]
+  > store = "qdrant"` must still parse, or the operator reads *unknown key* on precisely the
+  > machine where they are configuring their way out of it. So a role survives a settings failure
+  > and a raising `register()`, which is the one buffer that deliberately does not follow
+  > `commit()`'s atomicity.
+  >
+  > *The key set is derived, never declared here.* `[services]` accepts every role an installed
+  > pack declares, plus `route`, which names a pipeline rather than a plugin. `weft-cli` states no
+  > list of its own; two hand-written copies of that set were deleted when this landed, one of
+  > which had already drifted. Reaching the instance is `ctx.require(ThatContract)` on any of the
+  > three run paths, and a capability a resolved stage *demands* of it resolves to the same
+  > instance — by demand, never by satisfaction, so a fan-out capability many participants share
+  > is never answered with one arbitrary participant.
 - **Every contract returns an `Outcome`**, never a bare value: `Produced` / `NothingToProduce` /
   `Failed`. This is what lets the kernel own a fallback combinator without knowing what any stage
   does — it matches on the outcome and never inspects payload content. It also kills the worst

@@ -881,8 +881,10 @@ poisoning (`11` §2.4).
   figure's description returns it citing the `IMAGE` node; `weft delete` of that source leaves node
   count and blob count at zero, with both counts **asserted immediately before and after** (`L8.30`).
   **A pack that publishes a run-wide service reaches every path with no edit to `weft-cli`**,
-  demonstrated by the blob store and by nothing the kernel or the CLI names. **Fitness functions 22 and
-  23 are wired and green with their waivers empty.** And the caption-and-embed recall measurement
+  demonstrated by the blob store and by nothing the kernel or the CLI names. **Every fitness function this phase turns on is wired
+  and green with its waiver empty** — the ambient-service seam's (`9.0`, filed as **22**), *a stage
+  that splits declares what it splits* (`9.2`) and *bytes never enter a node* (`9.5`), the last two
+  numbered by the commits that file them rather than reserved here. And the caption-and-embed recall measurement
   exists as a **persisted `weft eval` run with modality-sliced results**, its verdict recorded in `09`
   §4 in the product terms `11` §1.3 item 9 requires — **whichever verdict it is**, for the reason
   Phase 8's exit already gives: the instrument being able to say "no" is what it is for.
@@ -1730,6 +1732,22 @@ All checks run in CI, before tests.
     true**: a pack bundled inside the `weft-rag` wheel registers through the same public entry point
     and satisfies every check that reads a registry, and a stranger cannot add a package to somebody
     else's wheel. `tests/architecture/test_ff21_agent_is_an_ordinary_pack.py`.
+
+22. **Every run path reaches a declared `[services]` role.** Added 2026-09-06, ledger task 9.0.
+    A run's services are assembled in three places — the query path, the ingest path and the
+    command path — and they are one list written thrice, so every repair to that seam has so far
+    landed in whichever assembler somebody happened to notice was missing: task 8.10 built the
+    ingest one because two registered `Expander` plugins had never run through the CLI at all, and
+    task 7.4 repaired the command one for the four contracts a single pack needed
+    (`build-ledger.md` → Phase 7's exit verdict, finding *(a)*). **A fourth assembler added later
+    would reproduce the defect with every behavioural test still green**, because a test asserts
+    the paths it knows about. So this one is deliberately about the text: nothing under
+    `packages/*/src` may build a run's `ServiceRegistry` outside the named assemblers — the
+    legitimate case for a source-reading check that `docs/lessons.md` `L9.39` describes. Clause
+    *(b)* keeps it from passing vacuously by running each named assembler against a role no
+    first-party pack declares and requiring the instance back, since clause *(a)* alone would pass
+    against three assemblers that all forgot. Waiver `ASSEMBLERS_WAIVED_FROM_CARRYING_ROLES`
+    pinned empty. `tests/architecture/test_ff22_every_run_path_reaches_a_declared_role.py`.
 
 > **Corrected 2026-08-10 — fitness function 1, and the preamble.** This section previously opened
 > *"the single best thing in a codebase examined during design is its AST boundary checker"* and

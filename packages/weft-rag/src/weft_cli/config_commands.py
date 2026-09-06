@@ -140,9 +140,11 @@ class ConfigSetCommand:
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
         set_args = cast(ConfigSetArgs, args)
-        del ctx
-        validate_set_value(set_args.key, set_args.value)
-        section, field = section_and_field(set_args.key)
+        # Ledger task **9.0**: `[services]`'s key set is the declared role set, so this command
+        # needs the run's `RoleTable` and can no longer answer from a module constant.
+        deps = ctx.require(Dependencies)
+        validate_set_value(set_args.key, set_args.value, table=deps.roles)
+        section, field = section_and_field(set_args.key, table=deps.roles)
 
         path = DEFAULT_CONFIG_PATH
         current = path.read_text(encoding="utf-8") if path.is_file() else ""

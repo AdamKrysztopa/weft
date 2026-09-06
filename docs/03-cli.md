@@ -922,8 +922,16 @@ keys it does, rather than accepted and ignored: a service Weft did not actually 
 operator would have to notice by the answers being wrong. The defaults are the offline ones, so a
 checkout with no `weft.toml` at all needs no credential and no network.
 
-**`[services]` holds three keys, and the third names a pipeline rather than a plugin** (ledger task
-**8.3**). `embed` and `store` are plugin names resolved through the registry; `route` is the
+**`[services]` holds every role an installed pack declares, plus one key that names a pipeline
+rather than a plugin** (ledger tasks **8.3** and **9.0**). *Until 9.0 it held exactly three, fixed
+as fields on `weft_cli.services.ServiceSelection`, which meant a pack publishing a new run-wide
+service could not be selected without an edit to `weft-rag` — requirement 1 failing for the next
+pack, which is what Phase 7's close filed rather than fixed. A pack now declares a role beside the
+contract it publishes and the key set is read off what is installed; `weft config get` lists them,
+and an undeclared key is refused naming the declared set. The two keys below are the roles whose
+names predate that mechanism and they arrive through it like any other.*
+
+`embed` and `store` are plugin names resolved through the registry; `route` is the
 **router document** `weft ask` runs to choose a pipeline, resolved in the contributed pipeline
 catalogue. They sit in one block because the question each answers is the same one — *which of the
 installed things fills this role for this project* — and splitting them by how the lookup happens
@@ -973,7 +981,11 @@ carries the reasoning for why `read`/`write`/`network` are not keys here yet.
 > knowing to make it that line.
 
 > **Built in Phase 3 task 3.7 (2026-08-20) — `weft config get|set` reads and writes exactly
-> four dotted keys**, `services.embed`, `services.store`, `permissions.overwrite`,
+> four dotted keys**, *(five from task 5.1c, and since **9.0** the `services.*` half is derived
+> from the declared role set rather than hand-written: `weft_cli.config_surface._KEY_FIELDS` was a
+> second closed vocabulary over the same block and had already drifted — it never grew
+> `services.route` after 8.3, and the test guarding it pinned the expected set as a literal so both
+> sides came from one hand. `config_keys_for(table)` is the one derivation both surfaces read now)*, `services.embed`, `services.store`, `permissions.overwrite`,
 > `permissions.destroy` — the whole of what a command in this repository consults from
 > `weft.toml` today. `weft_cli.config_surface.effective_config` answers `--origin` from the
 > **raw parsed document**, never from comparing the merged `ServiceSelection`/
