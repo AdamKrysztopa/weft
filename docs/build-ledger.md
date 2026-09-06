@@ -4153,7 +4153,7 @@ is also refused: the ReAct step is a typed structured answer through the three-t
 
 - [x] **7.3 ⚠** the agent reaches Weft only through the published command surface — the same typed
   results a human's renderer formats, never a private API and never re-parsed text · owner `03` →
-  *Two modes, one implementation*; `01` → Phase 3's gate line · turns on — · sha `SHA73` ·
+  *Two modes, one implementation*; `01` → Phase 3's gate line · turns on — · sha `d43a2af` ·
   **Three properties, each of which is a way the agent could have cheated.** *(a)* Every call goes
   through `weft_command.invocation.invoke`, so the gate task 7.0 moved onto the typed path applies
   to it — **asserted over the module's own source rather than by patching at runtime**, because the
