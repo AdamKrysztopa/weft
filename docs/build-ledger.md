@@ -119,7 +119,7 @@ second copy of the table `08` owns and would go stale the first time a file is r
 accidentally settle **G2** — duplicate names, what a pipeline is before Phase 1, and where embedding
 happens. Each carries a minimal reversible choice that is *not* an answer.
 
-- [x] **0.0** the repository is several distributions and the gate refuses to be bypassed · owner `06` → *The order* preamble; `01` → *Fitness functions* 0, 1, 3 · turns on FF0, FF1, FF3 · sha `641420d`
+- [x] **0.0** the repository is several distributions and the gate refuses to be bypassed · owner `06` → *The order* preamble; `01` → *Fitness functions* 0, 1, 3 · turns on FF0, FF1, FF3 · sha `f57960b`
 - [x] **0.1** G5 exists in code — a stage payload cannot be malformed rather than being validated · owner `06` step 1; `02` §1 → *The payload model* · turns on — · sha `aa9b581`
 - [x] **0.2 ⚠** there is something to register into, and two packs claiming one name is refused with both distributions named · owner `06` step 2; `06` → *The three places…* item 3 · turns on — · sha `5507e55`
 - [x] **0.3** every cross-cutting concern attaches without an author asking, so FF7(b) has somewhere to live · owner `06` step 3; `01` → *Fitness functions* 7(b) · turns on — · sha `829ed21`
