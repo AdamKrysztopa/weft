@@ -1420,6 +1420,47 @@ the parts you did not mean*), which warns about incidental literals and not abou
 One sentence. A mechanical version is possible for the pass-side case — assert the two constructed
 inputs differ before comparing their renderings — and is cheap enough to be the actual fix here.
 
+
+### L9.59 — a fitness function's population stopped one hop short at a PEP 695 alias, and read as complete
+
+**What happened.** FF19 asserts that every model a `RunRecord` persists survives
+`model_validate(model_dump(mode="json"))`, and walks the population from `RunRecord`'s field graph
+*"rather than listed"* — the right instinct, and the module docstring argues for it because a
+hand-kept list goes stale. Measured 2026-09-06 while surveying for ledger task `9.12`: the walk
+returned **five** models where it should have returned **nine**.
+
+`RunRecord.metrics` is `Mapping[str, MetricRunResult]`, and `MetricRunResult` is
+`type MetricRunResult = Produced[MetricAggregate] | NotAggregated` — a PEP 695 alias, so
+`typing.get_args()` on it returns `()` rather than its two members. The walk's `_unwrap` therefore
+stopped dead there and never reached `MetricAggregate`, `NotAggregated`, `Produced[MetricAggregate]`
+or `ExtModel`. `MetricAggregate` is what a `RunRecord` persists for every scored metric on every
+`weft eval run`. Resolving `__value__` before `get_args` takes the population to nine, and
+everything still passes — so no defect was hiding behind it, which is luck rather than evidence.
+
+**This is the same language feature, in the same file, for the third time.** FF19's own
+`_customises_writing_without_reading` reads pydantic's core schema *because* `field.metadata` is
+empty for a field annotated through a PEP 695 alias, and its docstring cites `L5.19` and `L8.25` as
+the two occasions that cost. The serialiser reader was fixed; the *population* reader beside it was
+not, and nothing connected them.
+
+**Two things it cost beyond the blindness.** Ledger `9.12` asserts *"FF19 round-trips it"* about a
+field it was about to add to `MetricAggregate` — a task line resting on a mechanism that did not
+cover the model, which is `L9.42` exactly. And a check whose population silently shrinks reports
+nothing: there was no failure to notice, only four models quietly outside the set.
+
+**Generalises to.** When a repair is made to one reader of a language feature, grep the file for
+every *other* reader of the same feature before closing it — `L6.8` says a re-learned rule is in
+the wrong artefact, and this is the narrower case where the rule was learned, applied correctly, and
+applied to one of two places. Concretely for this tree: `typing.get_args` is wrong for a
+`TypeAliasType` and every walk over annotations must resolve `__value__` first.
+
+**Candidate home.** A `tests/architecture` check that no annotation walk in the suite is blind to a
+`TypeAliasType` is over-engineering for one idiom; the cheap version is what landed — a named
+non-vacuity test asserting the four models by name, so a regression says which one went missing.
+The rule worth writing down is the general one, in `phase-step` → *Orient*, beside *read the
+population, not the declaration*: a derived population is only as wide as its widening function, and
+that function is the thing to test.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

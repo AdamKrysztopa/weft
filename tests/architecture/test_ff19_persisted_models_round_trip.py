@@ -61,11 +61,46 @@ def _models_reachable_from(root: type[BaseModel]) -> set[type[BaseModel]]:
 
 
 def _unwrap(annotation: object) -> tuple[object, ...]:
-    """`tuple[Applies, ...]` → `(Applies, ...)`, one level at a time, recursively."""
-    args = get_args(annotation)
+    """`tuple[Applies, ...]` → `(Applies, ...)`, one level at a time, recursively.
+
+    **A PEP 695 alias is resolved through `__value__` before `get_args` is asked.** `type X = A | B`
+    produces a `typing.TypeAliasType`, and `get_args` on one returns `()` — not the alias's members.
+    So this walk stopped dead at `weft_eval.run_record.MetricRunResult`
+    (`type MetricRunResult = Produced[MetricAggregate] | NotAggregated`) and never reached
+    `MetricAggregate`, which a `RunRecord` persists on every scored run. The population was five
+    models when it should have been eight, and the check reported nothing wrong about the three it
+    could not see — measured 2026-09-06 while surveying for ledger task `9.12`, whose own line
+    asserts *"FF19 round-trips it"* about a field on one of the missing three (`docs/lessons.md`
+    `L9.59`).
+
+    This is the third time this file has been blind to something reached through an alias, and the
+    module docstring records the first two: `field.metadata` is empty for a field annotated through
+    a PEP 695 alias, which is why the serialiser check reads the core schema. Same language feature,
+    same file, a different reader.
+    """
+    resolved = getattr(annotation, "__value__", annotation)
+    args = get_args(resolved)
     if not args:
         return ()
     return args + tuple(inner for arg in args for inner in _unwrap(arg))
+
+
+def test_the_population_reaches_through_a_pep_695_alias() -> None:
+    """Non-vacuity with a name on it: the four models this walk could not see until 2026-09-06.
+
+    `MetricAggregate` is what a `RunRecord` persists for every scored metric, and it sat outside
+    this check's population entirely because `MetricRunResult` is a `type X = A | B` alias and
+    `get_args` answers `()` for one. The population was five models and read as complete. Naming
+    the members here rather than asserting a count means a regression says *which* model went
+    missing, and a count would drift every time a field is added (`docs/lessons.md` `L9.59`).
+    """
+    from weft_eval.run_record import RunRecord
+
+    # Act
+    reachable = {model.__name__ for model in _models_reachable_from(RunRecord)}
+
+    # Assert
+    assert {"MetricAggregate", "NotAggregated", "ResolvedPipeline", "CorpusIdentity"} <= reachable
 
 
 def test_applies_round_trips() -> None:
