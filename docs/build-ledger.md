@@ -5390,11 +5390,11 @@ marked.
   `table|Region: EMEA | Revenue: 1,204` beside the prose, nodes bracketed 1 → 4 · **what this task
   does not discharge**: the exit's `weft ask` clause needs `9.11`'s describer, and its
   installed-wheels clause is the phase close's · `poe ci-checks` green: **2272 passed, 39 skipped**
-- [ ] **9.9** an image is describable through one contract that names the medium and not the model;
+- [x] **9.9** an image is describable through one contract that names the medium and not the model;
   its first implementation lives in the pack that already holds the provider's client, discloses in
   its `note` that page crops leave the process, resizes off the event loop, and is natively
   cancellable — **depends on 9.0** · owner `11` §2.1, §2.2, §3 D6, D7; `02` §2 → *The trust model*
-  (`Disclosure`) · turns on — · sha — · `Describer` published from `weft-rag`; `openai-vision` in
+  (`Disclosure`) · turns on — · sha `cabd511` · `Describer` published from `weft-rag`; `openai-vision` in
   `weft-openai`, whose `httpx` import already owes a disclosure — the obligation stays derived from
   imports (`tests/architecture/test_network_packs_disclose.py:17-18`), and what this adds is text:
   `Disclosure.note` (`packages/weft-kernel/src/weft_kernel/discovery.py:180`) names the content class
