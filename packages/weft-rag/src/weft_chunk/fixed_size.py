@@ -62,6 +62,8 @@ from weft_chunk.payload import ChunkOffset
 from weft_chunk.property import WordBoundaries
 from weft_kernel.context import Context
 from weft_kernel.payload import (
+    Applies,
+    MediaType,
     Node,
     NothingToProduce,
     Outcome,
@@ -107,6 +109,10 @@ class FixedSizeChunker:
     """
 
     destroys: tuple[type[Property], ...] = (WordBoundaries,)
+    #: `_windows` slices `node.content` as a character string — a fixed window cut through a
+    #: table's cell grid or an image's caption would not honour either shape, so `TEXT` is the
+    #: one media type this splitting logic can claim.
+    applies_to: tuple[Applies, ...] = (Applies(media_type=MediaType.TEXT),)
     config_model: type[FixedSizeChunkerConfig] = FixedSizeChunkerConfig
 
     def __init__(self, config: FixedSizeChunkerConfig | None = None) -> None:

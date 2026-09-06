@@ -258,7 +258,15 @@ What that prints — the resolved form, exactly as `resolved.model_dump(mode="js
         "overlap": 20
       },
       "fallback": [],
-      "applies_to": [],
+      "applies_to": [
+        {
+          "fact": null,
+          "constraints": [],
+          "media_type": [
+            "text"
+          ]
+        }
+      ],
       "distribution": "weft-chunk",
       "provenance": "base"
     },
@@ -291,7 +299,6 @@ What that prints — the resolved form, exactly as `resolved.model_dump(mode="js
   "unplaced_contributions": []
 }
 ```
-
 Four stages, not three plus one appended — `keywords` sits between `chunk` and `embed` exactly
 where `insert: {after: chunk}` put it, and `specific.yaml` never mentioned `extract`, `chunk` or
 `embed` by name. **`provenance` is where each stage's plugin was last decided**, not where the
@@ -413,17 +420,19 @@ block in the first place.
 
 ## 4. Applicability — what a stage operates on
 
-A stage may declare `applies_to` — a tuple of facts a node must carry for that stage to run on it
-at all; a node that does not carry them passes through untouched, and the stage never sees it.
-`weft_clean.dictionary_spacing.PolishFusedWordFixer` is a real, shipped example: it narrows itself
-to nodes whose `Language` fact reads `code="pl"`, so an English node in the same batch is never
-handed to a splitter tuned for Polish prefixes. Every stage in the walkthrough above declares none
-— `"applies_to": []` in the printed resolved form — which is the default, and it means exactly what
-it says: the stage runs on everything it is handed. When a stage does declare one, the resolved
-form prints it, because a predicate is data too, not a rule a reader has to trust blindly. The
-mechanism that evaluates it — a runner routing whole contiguous runs of matching nodes around a
-stage, not one node at a time — is `docs/02-extension-model.md` §3 → *Applicability*, not restated
-here.
+A stage may declare `applies_to` — a tuple of constraints a node must satisfy for that stage to run
+on it at all; a node that does not satisfy them passes through untouched, and the stage never sees
+it. A constraint claims either a **fact** the node carries or a **media type** the node is.
+`weft_clean.dictionary_spacing.PolishFusedWordFixer` is the fact form: it narrows itself to nodes
+whose `Language` fact reads `code="pl"`, so an English node in the same batch is never handed to a
+fixer tuned for Polish prefixes. The `chunk` stage in the walkthrough above is the media-type form
+— `fixed-size` slices `content` as a character string, so it claims `MediaType.TEXT` and nothing
+else, which is why a table or a figure reaches the store as one node rather than as windows cut
+through it. Both print in the resolved form, because a predicate is data too, not a rule a reader
+has to trust blindly; a stage that declares nothing prints `"applies_to": []`, which is the default
+and means exactly what it says — the stage runs on everything it is handed. The mechanism that
+evaluates it — a runner routing whole contiguous runs of matching nodes around a stage, not one
+node at a time — is `docs/02-extension-model.md` §3 → *Applicability*, not restated here.
 
 ## 5. When resolution fails
 

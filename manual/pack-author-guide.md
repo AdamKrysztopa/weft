@@ -187,7 +187,15 @@ so the tuple is empty rather than borrowed from `FixedSizeChunker`.
 from collections.abc import Sequence
 
 from weft_kernel.context import Context
-from weft_kernel.payload import Node, NothingToProduce, Outcome, Produced, Property
+from weft_kernel.payload import (
+    Applies,
+    MediaType,
+    Node,
+    NothingToProduce,
+    Outcome,
+    Produced,
+    Property,
+)
 
 
 class WordChunker:
@@ -201,6 +209,10 @@ class WordChunker:
     """
 
     destroys: tuple[type[Property], ...] = ()
+    #: `_words` splits `node.content` on whitespace — a table's cell grid or an image's
+    #: caption is not prose this splitting logic was written to tokenise, so `TEXT` is the
+    #: one media type it can honestly claim.
+    applies_to: tuple[Applies, ...] = (Applies(media_type=MediaType.TEXT),)
 
     def __init__(self, config: object = None) -> None:
         # No `with:` configuration this chunker takes — the runner's factory

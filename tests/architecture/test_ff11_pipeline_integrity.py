@@ -66,10 +66,8 @@ itself, which cannot fail," applied to an architecture check instead of a docume
 from __future__ import annotations
 
 import re
-import sys
 import tomllib
 from collections.abc import Mapping
-from importlib import import_module
 from pathlib import Path
 from typing import Final, cast
 
@@ -77,7 +75,8 @@ import pytest
 import yaml
 from pydantic import BaseModel, Field, ValidationError
 
-from weft_kernel.discovery import PackRegistrar, discover
+from tests.discovery import register_out_of_tree_examples
+from weft_kernel.discovery import discover
 from weft_kernel.errors import WeftError
 from weft_kernel.pipeline import PIPELINE_OPERATOR_MARK, Pipeline, is_pipeline_operator_field
 from weft_kernel.registry import Registry, UnknownPluginError
@@ -341,38 +340,12 @@ def _register_out_of_tree_examples(registry: Registry) -> None:
     Two wrong repairs were available and both were refused. Dropping `examples/` from the
     sweep would leave an example pack's shipped pipeline unchecked, which is the one kind of
     pipeline most likely to rot, since no first-party test drives it. Widening `allow` would
-    do nothing: the packs are not installed, so there is no entry point to allow. What is
-    correct is to register them the way they would be if installed — importing each pack's
-    module off its own `src/` and running its real `register()`, the identical technique
-    `test_ff9_extension_from_outside.module_and_plugin_names` already uses, against a real
-    `PackRegistrar` rather than a stand-in so the pipeline resources and contributions arrive
-    too. A pack whose `register()` raises here fails this check loudly, which is correct: a
-    pack that cannot register cannot ship a resolvable pipeline either.
+    do nothing: the packs are not installed, so there is no entry point to allow.
+
+    **The body moved to `tests/discovery.py` on 2026-09-06**, when fitness function 23 became
+    its second caller; this function stays as the name this file's own reasoning hangs on.
     """
-    for example_dir in _ALL_EXAMPLE_DIRS:
-        src_dir = example_dir / "src"
-        module_name = next(p.name for p in sorted(src_dir.iterdir()) if p.is_dir())
-        sys.path.insert(0, str(src_dir))
-        try:
-            module = import_module(module_name)
-            registrar = PackRegistrar(registry, distribution=_distribution_name(example_dir))
-            module.register(registrar, module.Settings())
-            registrar.commit()
-        finally:
-            sys.path.remove(str(src_dir))
-
-
-def _distribution_name(example_dir: Path) -> str:
-    """The `[project] name` an example pack declares — read, never derived from the directory."""
-    with (example_dir / "pyproject.toml").open("rb") as handle:
-        document = tomllib.load(handle)
-    project = cast("dict[str, object]", document["project"])
-    return cast(str, project["name"])
-
-
-_ALL_EXAMPLE_DIRS: Final[tuple[Path, ...]] = tuple(
-    sorted(p for p in (REPO_ROOT / "examples").iterdir() if (p / "pyproject.toml").is_file())
-)
+    register_out_of_tree_examples(registry)
 
 
 def _manual_pipeline_blocks(manual_root: Path) -> list[tuple[str, str]]:

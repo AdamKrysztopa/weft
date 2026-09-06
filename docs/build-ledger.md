@@ -5073,14 +5073,59 @@ marked.
 - [ ] **9.2** a node whose media type is not text reaches the store whole through every shipped
   chunker, because a chunker declares what it splits and the runner routes the rest past it —
   `1.6`'s property, held for the product and not only for its fixture · owner `02` §3 →
-  *Applicability*; `build-ledger.md` 1.6 · turns on *a stage that splits declares what it splits* (numbered when filed) · sha — · measured 2026-09-06:
+  *Applicability*; `build-ledger.md` 1.6 · turns on *a stage that splits declares what it splits* (**FF23**, filed 2026-09-06) · sha — · measured 2026-09-06:
   `FixedSizeChunker` (`packages/weft-rag/src/weft_chunk/fixed_size.py:100`, registered as
-  `fixed-size` at `weft_chunk/__init__.py:39`) declares no `applies_to` and splits a
-  `MediaType.TABLE` node into two chunks; the mechanism exists (`runner.py:138-161`,
-  `payload/applicability.py:162`) and the only `applies_to` in `packages/weft-rag/src` outside a
-  contract module is `weft_clean/dictionary_spacing.py:110`. Depends on nothing; first in order.
-  `02` §3 → *Applicability* gains a narrowing block for the one contract this obliges — the
-  everything-by-default rule at `02:1621` stays for every other stage. **Phase 10 note:** the
+  `fixed-size` at `weft_chunk/__init__.py:39`) declared no `applies_to` and split a
+  `MediaType.TABLE` node into two chunks. Depends on nothing; first in order. **Two halves, and the
+  first was a kernel grammar extension this line said was unnecessary.** *(a)* `Applies` wrapped an
+  `ExtModel` subclass and nothing else, and `media_type` is a core `Node` field rather than a
+  namespaced fact, so the property was not expressible by any `applies_to` a plugin could write —
+  `L9.42`, and this line's own evidence paragraph is what it was paid for. `a4c51ac` gave `Applies`
+  a typed `media_type` field (`L9.43` is the write-only first attempt), with the round trip pinned
+  at `tests/unit/weft_kernel/payload/test_applicability_media_type.py`. *(b)* Both registered
+  chunkers now declare `applies_to = (Applies(media_type=MediaType.TEXT),)` — `FixedSizeChunker`
+  and, out of tree, `WordChunker`
+  (`examples/weft-example-chunker/src/weft_example_chunker/word_chunker.py`), found by grepping
+  every `registrar.add(Chunker` in the tree rather than by reading this line's own citation.
+  `testing/weft-canary` registers nothing. The declaration names each chunker's *own* requirement —
+  both slice `node.content` as prose — so a table being routed past is the requirement going unmet,
+  never a rule about tables either author had to think of · **the check is FF23**
+  (`tests/architecture/test_ff23_chunkers_declare_what_they_split.py`, waiver
+  `CHUNKERS_APPLYING_TO_EVERYTHING` pinned empty), reading `applies_to` off the object the
+  registered factory builds — the way `runner._applies_to_of` reads it — over the installed packs
+  plus every `examples/*` pack registered off its own `src/`. That registration helper moved from
+  `test_ff11_pipeline_integrity.py` into `tests/discovery.py` when FF23 became its second caller;
+  FF11 keeps the name its reasoning hangs on and delegates. `01` → *Fitness functions* item 23
+  states **what it cannot see**: `Chunker` forces `destroys` at registration through
+  `publishes_property_vocabulary` and `applies_to` is not on that footing, so a stranger's silent
+  chunker is refused by nothing — putting `applies_to` in `required_declarations` is the stronger
+  answer and is deliberately not taken, being an amendment to `02` §3's everything-by-default rule
+  owed `09` §6.2's widening test · **the product property, not the fixture's**
+  (`tests/unit/weft_chunk/test_fixed_size_applicability.py`): the *real* chunker on a *real*
+  `Runner`, a `TABLE` node sandwiched between two 4,000-character text nodes coming out as the same
+  object in the same position while the text around it splits, plus the contrast case — a subclass
+  with `applies_to` emptied splits the table — so the three assertions are properties of the
+  declaration and not of a chunker that quietly stopped splitting. The claimed set is read off
+  `MediaType`'s own membership, so a member added later is covered without an edit there · **found
+  by the gate, not by review**: FF0(b) refused the file because its self-test was named
+  `..._is_caught` and the pattern knows three spellings, none of them that (`L9.46`) · **run through
+  the shipped binary from `/private/tmp/.../binrun`, not this repository.** `weft pipeline show
+  index-text` prints `applies_to: [{'fact': None, 'constraints': [], 'media_type': ['text']}]` on
+  the `chunk` stage — live, and rendered as a model dump where `Applies.__repr__` exists for exactly
+  that reader (`L9.45`, a pre-existing renderer defect this line doubles the audience for). No
+  regression on text: `weft index` of a 2,700-character file still chunks, `nodes now stored: 7`,
+  and `weft delete <source>` reports `6 node(s) removed` with `weft_nodes` bracketed 7 → 1
+  immediately before and after (`L8.30`). Failure path: `weft pipeline show ingest-basic` names all
+  26 known pipelines. **What the binary cannot yet demonstrate, stated rather than implied** — no
+  shipped extractor produces a non-`TEXT` node, so the routed branch is exercised end to end only by
+  the unit test above; `9.6` and `9.7` are the first producers and `9.8` is the exit demonstration ·
+  three documents edited in the same commit: `02` §3 gains the narrowing block in two parts (the
+  grammar widening and the everything-by-default carve-out), `01` gains item 23 and had its own
+  `ff22` filename collision repaired (`L9.44`), and `manual/user-manual.md` §4 was falsified twice
+  over — its executed `id=derive-out` transcript and its prose calling `applies_to` "a tuple of
+  facts". `manual/pack-author-guide.md`'s byte-identical copy of `word_chunker.py` was resynced,
+  found by `tests/docs/test_pack_guide_samples.py` rather than remembered · `poe ci-checks` green:
+  **2118 passed, 38 skipped**, 234 architecture tests, examples 116 passed. **Phase 10 note:** the
   declaration this line makes mandatory is the same fact a RAPTOR clustering stage reads to decide
   whether an atomic `TABLE` or `IMAGE` node joins a cluster or is a leaf of its own
 - [ ] **9.3** a `SourceDeletable` participant reports what it removed by kind, so a blob store that

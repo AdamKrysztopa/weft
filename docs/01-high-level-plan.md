@@ -899,7 +899,7 @@ the finding.
 ---
 
 
-**Fitness functions this phase turns on.** Stated here as properties rather than as numbers: each is numbered and filed in `tests/architecture/` **by the task that makes it true**, because both assert properties the tree does not satisfy today and a check that cannot yet pass is the prose FF0(b) refuses. `lessons.md` L9.15 is why the numeral waits for the file.
+**Fitness functions this phase turns on.** Stated here as properties rather than as numbers: each is numbered and filed in `tests/architecture/` **by the task that makes it true**, because each asserts a property the tree does not satisfy when it is written and a check that cannot yet pass is the prose FF0(b) refuses. `lessons.md` L9.15 is why the numeral waits for the file — and a *filename* carrying a numeral is that numeral claimed, which is the way this block got it wrong once already (see 9.5's entry). An entry that has been filed says so and points at the numbered list; it is not maintained in two places.
 
 - **Bytes never enter a node.** Added 2026-09-06, ledger task 9.5. Two clauses, each able to fail
       alone. *(a)* No `ExtModel` in `packages/`, `testing/` or `examples/` declares a field whose
@@ -911,23 +911,14 @@ the finding.
       JSONB column (`02` §1 → *The payload model*), and after D1 bytes leave the payload through
       `BlobStore` with a non-transient `BlobRef` in `ext` — so an ext model that grows a bytes field is
       not a small convenience but the reintroduction of the transport `__transient__` never was, and
-      nothing in a green gate would say so. `tests/architecture/test_ff22_no_bytes_in_a_node.py`, waiver
-      `EXT_MODELS_CARRYING_BYTES` pinned empty. No tuning constant.
+      nothing in a green gate would say so. `tests/architecture/test_ff<NN>_no_bytes_in_a_node.py` — `<NN>` is a
+      placeholder and the file names its own numeral when it is written, per the rule this block
+      opens with. Waiver `EXT_MODELS_CARRYING_BYTES` pinned empty. No tuning constant.
 
-- **A stage that splits declares what it splits.** Added 2026-09-06, ledger task 9.2. Every plugin
-      discovery registers under `Chunker` carries a non-empty `applies_to`, read off the registered
-      class the way the runner reads it (`packages/weft-kernel/src/weft_kernel/runner.py:138-161`) and
-      never off source text, over `packages/`, `testing/` and `examples/`. **Why:** ledger `1.6` is
-      ticked — *an atomic node passes the chunker unsplit without the chunker knowing what atomic
-      means* — and the property held for its test fixture and not for the product: measured 2026-09-06,
-      `FixedSizeChunker` (`packages/weft-rag/src/weft_chunk/fixed_size.py:100`) declares no
-      `applies_to` and splits a `MediaType.TABLE` node into two chunks, and the only `applies_to` in
-      `packages/weft-rag/src` outside a contract module is `weft_clean/dictionary_spacing.py:110`.
-      `02` §3's default — a stage that declares nothing applies to everything (`02:1621`) — stays for
-      every other contract; for a stage whose whole job is to split, "everything" is the defect, and
-      reading for it is not the same as checking for it. `tests/architecture/
-      test_ff23_chunkers_declare_what_they_split.py`, waiver `CHUNKERS_APPLYING_TO_EVERYTHING` pinned
-      empty. No tuning constant.
+- **A stage that splits declares what it splits.** Added 2026-09-06, ledger task 9.2, **filed the
+      same day as fitness function 23** — so it is no longer stated here as a property: item 23 of the
+      numbered list below owns it, and `tests/architecture/test_ff23_chunkers_declare_what_they_split.py`
+      is the check. Waiver `CHUNKERS_APPLYING_TO_EVERYTHING` pinned empty.
 
 ### Phase 10 — RAPTOR, extended
 
@@ -1748,6 +1739,26 @@ All checks run in CI, before tests.
     first-party pack declares and requiring the instance back, since clause *(a)* alone would pass
     against three assemblers that all forgot. Waiver `ASSEMBLERS_WAIVED_FROM_CARRYING_ROLES`
     pinned empty. `tests/architecture/test_ff22_every_run_path_reaches_a_declared_role.py`.
+
+23. **A stage that splits declares what it splits.** Added 2026-09-06, ledger task 9.2. Every plugin
+    discovery registers under `Chunker` carries a non-empty `applies_to`, read off the object the
+    registered factory builds — the way `weft_kernel.runner._applies_to_of` reads it — and never off
+    source text, over `packages/` and `examples/`. **Why:** ledger `1.6` is ticked, *an atomic node
+    passes the chunker unsplit without the chunker knowing what atomic means*, and the property held
+    for its test fixture and not for the product — measured 2026-09-06, `FixedSizeChunker` declared
+    no `applies_to` and split a `MediaType.TABLE` node into two chunks (`lessons.md` `L9.6`). `02`
+    §3's default — a stage that declares nothing applies to everything
+    (`docs/02-extension-model.md:1672`) — stays for every other contract; for a stage whose whole job
+    is to split, "everything" is the defect, and reading for it is not the same as checking for it.
+    `testing/` contributes no subject: `weft-canary` registers nothing and must never be imported
+    (FF8(a)). **What it cannot see:** `Chunker` already forces `destroys` at registration through
+    `publishes_property_vocabulary`, and `applies_to` is not on that footing — so a third party's
+    silent chunker registers fine, and this check's subject is the chunkers *this tree* ships.
+    Putting `applies_to` beside `destroys` in `required_declarations` is the stronger answer and is
+    not taken here: `02` §3 settles that a stage declaring nothing applies to everything, and
+    narrowing that at the seam is an amendment owed `09` §6.2's widening test, not a repair a task
+    may make in passing. Waiver `CHUNKERS_APPLYING_TO_EVERYTHING` pinned empty. No tuning constant.
+    `tests/architecture/test_ff23_chunkers_declare_what_they_split.py`.
 
 > **Corrected 2026-08-10 — fitness function 1, and the preamble.** This section previously opened
 > *"the single best thing in a codebase examined during design is its AST boundary checker"* and

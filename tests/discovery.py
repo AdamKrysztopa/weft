@@ -28,10 +28,13 @@ exactly what this is: the list of packs a test session means to load.
 
 from __future__ import annotations
 
-from importlib import metadata
-from typing import Final
+import sys
+import tomllib
+from importlib import import_module, metadata
+from pathlib import Path
+from typing import Final, cast
 
-from weft_kernel.discovery import discover
+from weft_kernel.discovery import PackRegistrar, discover
 from weft_kernel.registry import Registry
 
 #: The one distribution a test session must never import. Named here, in the tests, because that
@@ -78,3 +81,44 @@ def discover_for_tests() -> Registry:
         pack_settings={"store": {"dsn": _PLACEHOLDER_DSN}},
     )
     return registry
+
+
+def register_out_of_tree_examples(registry: Registry) -> None:
+    """Add every `examples/*` pack's own registrations to `registry`.
+
+    **Moved here 2026-09-06, from `test_ff11_pipeline_integrity.py`, when fitness function 23
+    became its second caller.** The reasoning that produced it is unchanged and stays worth
+    stating: an example pack is deliberately **not** a workspace member (fitness function 9(a)),
+    so it declares no installed entry point for `discover()` to find, and a check that swept
+    `examples/` through `discover()` alone would report an example pack's own plugins as absent
+    rather than as unregistered. Registering them the way they would be if installed — importing
+    each pack's module off its own `src/` and running its real `register()` against a real
+    `PackRegistrar` — is what makes the sweep answer about the pack rather than about the
+    packaging. A pack whose `register()` raises fails the caller's check loudly, which is
+    correct: a pack that cannot register cannot ship anything resolvable either.
+    """
+    for example_dir in example_pack_dirs():
+        src_dir = example_dir / "src"
+        module_name = next(p.name for p in sorted(src_dir.iterdir()) if p.is_dir())
+        sys.path.insert(0, str(src_dir))
+        try:
+            module = import_module(module_name)
+            registrar = PackRegistrar(registry, distribution=_distribution_name(example_dir))
+            module.register(registrar, module.Settings())
+            registrar.commit()
+        finally:
+            sys.path.remove(str(src_dir))
+
+
+def example_pack_dirs() -> tuple[Path, ...]:
+    """Every `examples/*` directory carrying a `pyproject.toml`, read from the listing itself."""
+    examples_root = Path(__file__).resolve().parents[1] / "examples"
+    return tuple(sorted(p for p in examples_root.iterdir() if (p / "pyproject.toml").is_file()))
+
+
+def _distribution_name(example_dir: Path) -> str:
+    """The `[project] name` an example pack declares — read, never derived from the directory."""
+    with (example_dir / "pyproject.toml").open("rb") as handle:
+        document = tomllib.load(handle)
+    project = cast("dict[str, object]", document["project"])
+    return cast(str, project["name"])

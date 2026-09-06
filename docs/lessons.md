@@ -990,6 +990,69 @@ count but not about asserting through a container. Possibly a fitness function i
 `BaseModel` a stage declaration persists survives `model_validate(model_dump(mode="json"))` with
 `==` — the property is general and this module has now failed it twice.
 
+
+### L9.44 — a paragraph forbade naming an identifier before its artefact existed, and named two in its own body
+
+**What happened.** `docs/01-high-level-plan.md`'s *Fitness functions this phase turns on* block opens
+*"Stated here as properties rather than as numbers: each is numbered and filed in `tests/architecture/`
+by the task that makes it true... `lessons.md` L9.15 is why the numeral waits for the file."* Its two
+bullets then named `tests/architecture/test_ff22_no_bytes_in_a_node.py` (task 9.5) and
+`test_ff23_chunkers_declare_what_they_split.py` (task 9.2). Hours later task 9.0 filed a real FF22 —
+`test_ff22_every_run_path_reaches_a_declared_role.py` — and item 22 of the numbered list. So a block
+whose first sentence forbids allocating a number held an allocated number that had already collided.
+Found by a dispatched survey agent whose brief asked what the highest allocated number was; the
+paragraph and the filenames disagreed and nothing in the gate could see it, because FF17 resolves a
+citation and does not ask whether a path *exists*.
+
+**Generalises to.** A rule stated in prose does not govern the identifiers in the same paragraph — a
+filename carrying a numeral **is** that numeral claimed, so a document that must refer to an unfiled
+check writes `test_ff<NN>_...` and never a digit. The general form: where a document forbids
+allocating from a sequence, check the document's own body against that rule before trusting the rule.
+
+**Candidate home.** A fitness function is the natural one and is cheap: every
+`tests/architecture/test_ff\d+_*.py` path named anywhere in `docs/` or `manual/` resolves to a file
+that exists, and no two documents name the same numeral for different checks. FF17 is the neighbour
+that already walks citations and stops one step short.
+
+
+### L9.45 — a `__repr__` written for the one human audience there is renders nowhere
+
+**What happened.** `Applies.__repr__` (`packages/weft-kernel/src/weft_kernel/payload/applicability.py`)
+prints `Applies(Language, code='pl')` and `Applies(media_type=(text))` — a form written for a reader.
+The one place a human meets applicability is `weft pipeline show`, and it prints the model dump
+instead: `applies_to: [{'fact': 'weft_clean.language:Language', 'constraints': [['code', 'pl']],
+'media_type': []}]`. Found by running the binary from outside the repository while verifying task
+9.2, not by 2,118 tests. It is pre-existing — the `Language` case has rendered that way since task
+1.6 — and 9.2 doubles the audience for it by making the declaration obligatory on every chunker.
+
+**Generalises to.** `L5.15`'s shape one notch smaller: a producing side with no consuming side. A
+`__repr__` (or any renderer) written for a named audience is checked against the command that
+audience actually runs, in the task that writes it — otherwise it is documentation of an intention.
+
+**Candidate home.** A one-line repair in `weft_cli.pipeline_commands`' renderer plus a test, filed as
+a ledger line rather than implemented here. Possibly `phase-step` → *Finish*, whose "run the binary"
+step asks for a failure path and does not ask whether what the happy path *printed* was readable.
+
+
+### L9.46 — the self-test naming convention grew a fourth spelling, and the regex that polices it grew a third
+
+**What happened.** FF0(b) (`tests/architecture/test_ff0b_checks_are_real.py:118-122`) matches a
+fitness function's non-vacuity self-test by name, against three alternations. Its own comment records
+that the pattern was written from what its author expected the convention to be and missed a whole
+form — *"a third form was found at ledger task 6.15 and this pattern did not know it"*, four accurate
+test names in `test_ff11_pipeline_integrity.py`. Writing FF23 I produced a fourth spelling,
+`test_a_planted_chunker_declaring_nothing_is_caught`, which plants exactly the disagreement clause (b)
+wants and matched none of the three. The `weft-implementer` dispatched for the green phase is what
+surfaced it, by running `ci-no-tests` and reading the `arch` failure it was not responsible for.
+
+**Generalises to.** A convention policed by a regex over names, and stated nowhere an author reads
+before naming, will keep growing spellings — so either the allowed forms are quoted in the artefact
+that tells someone to write the test (`phase-step` → *Finish*, item 3), or the check stops matching on
+the name. Enforcing a convention downstream of the moment it is chosen is a lint, not a convention.
+
+**Candidate home.** `phase-step` → *Finish*, item 3, which says "plant a disagreeing case and see it
+go red" and does not say what the function must be called. The three forms are two lines of quotation.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

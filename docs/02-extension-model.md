@@ -1673,6 +1673,31 @@ a node actually *is*.
 silent: every stage written before this task — none of which declares one — keeps running exactly as
 it did, and an empty tuple costs nothing to check because there is nothing in it to fail.
 
+> **Narrowed in Phase 9 task 9.2 (2026-09-06), in two parts.**
+>
+> *(a) `Applies` no longer wraps only an ext model.* `Applies(media_type=MediaType.TEXT)` claims a
+> node by the core field every node already carries, and `Applies(media_type=(MediaType.TEXT,
+> MediaType.IMAGE))` claims any one of several — the *any-of* reading lives inside one `Applies`,
+> never across two, because a node has exactly one media type and two media-type constraints in one
+> conjunctive tuple would jointly match nothing. `Applies(SomeFact, media_type=...)` is refused: a
+> fact constraint narrows an `ExtModel` a node *may* carry and a media-type constraint narrows a
+> field every node *does* carry, and those are two conjunction rules one object cannot mean at once.
+> The paragraph above said *"`Applies` wraps an **ext model**"* and stated the whole grammar; it now
+> states one half of it. This was not a widening chosen for convenience — `9.2`'s property is *"a
+> node whose media type is not text reaches the store whole"*, and no `applies_to` a plugin could
+> write could express it (`lessons.md` `L9.42`).
+>
+> *(b) The everything-by-default rule does not reach a stage whose job is to split.* It stays
+> exactly as written for every other contract — a `Cleaner`, an `Enhancer`, an `Embedder` that
+> declares nothing still sees every node, and that is right. For a `Chunker` it is the defect:
+> ledger `1.6` ticked *"an atomic node passes the chunker unsplit"* against a test fixture that
+> declared `applies_to`, while the one chunker this project ships declared none and split a
+> `MediaType.TABLE` node into two chunks. The declaration is now obligatory there, checked by
+> fitness function **23** (`tests/architecture/test_ff23_chunkers_declare_what_they_split.py`),
+> waiver pinned empty. What is obligatory is *that* a chunker declares, never *what* — the
+> declaration still names the chunker's own requirement in the chunker's own vocabulary, and a
+> table being routed past is a consequence of that requirement going unmet.
+
 Routing is what makes the declaration true. The runner splits a batch into its **maximal contiguous
 runs** of "every `Applies` matches" and "at least one does not" — a single filtered call over every
 matching node is not enough, because a chunker's `Sequence[Node] -> Sequence[Node]` does not preserve
