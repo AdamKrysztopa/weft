@@ -27,6 +27,37 @@ otherwise paid for twice.
 
 ## Queue
 
+### L8.37 — a lint exemption justified for tests is switched on for the whole tree
+
+**What happened.** Task 7.3's implementation reached me containing
+`assert isinstance(outcome, Failed)` in shipped code, to keep an import used. `ruff` did not object,
+because `pyproject.toml` carries `ignore = ["S101"]  # assert is the point in tests` — a tree-wide
+exemption whose stated reason is about `tests/` alone. Measured at the moment of noticing:
+**7 asserts live in `packages/*/src`**, across five modules including `weft-kernel`.
+
+**This project has already been bitten by exactly this, and says so in two places.** `CLAUDE.md`
+and `phase-step` → *When to stop* both cite `weft_cli.route_ask`'s
+`assert isinstance(answer, Answer)  # every shipped routable pipeline ends in a Generator` as the
+worked example of settled text written over a population the author does not control — *"it sat
+there through Phase 5 and most of Phase 6 failing with no message at all"*. The rule was written;
+the lint setting that lets the shape recur was not looked at, because the lesson was filed as being
+about **claims** and the exemption reads as being about **style**.
+
+An assert in shipped code is not a check: it is stripped under `-O`, so the failure it was written
+to catch becomes an `AttributeError` somewhere else. In this instance it was also proving something
+`pyright` already proves — the branch was flagged `reportUnnecessaryIsInstance` the moment the
+`assert` became an `if`, so the type checker had the exhaustiveness the whole time.
+
+**Generalises to.** An exemption's *scope* and its *stated reason* must match, and where they do not
+the reason is the honest one — so narrow the scope to it. A comment naming a narrower case than the
+setting covers is not documentation, it is a claim nobody re-reads when the setting starts applying
+somewhere else.
+
+**Candidate home.** `pyproject.toml` — `S101` scoped to `tests/` and `testing/` through
+`[tool.ruff.lint.per-file-ignores]`, with the seven existing instances either removed or waived
+individually. That is a mechanical change and it makes the next one visible at the moment it is
+typed, which is where `implement-ll` says a rule of this shape belongs.
+
 ### L8.36 — a brief that forbids every option has decided nothing, and says so only by contradicting itself
 
 **What happened.** Task 7.2's dispatch brief told the implementer, of the branch where the cascade

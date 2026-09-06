@@ -4151,9 +4151,51 @@ is also refused: the ReAct step is a typed structured answer through the three-t
   skipped** · **dispatched to `weft-implementer` at `sonnet`**, green, and it correctly refused to
   fix a lint error in the test file rather than editing a test
 
-- [ ] **7.3 ⚠** the agent reaches Weft only through the published command surface — the same typed
+- [x] **7.3 ⚠** the agent reaches Weft only through the published command surface — the same typed
   results a human's renderer formats, never a private API and never re-parsed text · owner `03` →
-  *Two modes, one implementation*; `01` → Phase 3's gate line · turns on — · sha —
+  *Two modes, one implementation*; `01` → Phase 3's gate line · turns on — · sha `SHA73` ·
+  **Three properties, each of which is a way the agent could have cheated.** *(a)* Every call goes
+  through `weft_command.invocation.invoke`, so the gate task 7.0 moved onto the typed path applies
+  to it — **asserted over the module's own source rather than by patching at runtime**, because the
+  property is *"this module never does that"* and not *"it did not do it this once"*. A tool calling
+  `instance.run` directly would return the same observation and have no ceiling at all, which is
+  exactly the defect 7.0 repaired one caller earlier. *(b)* The observation is
+  `outcome.value.model_dump(mode="json")` — the typed result — and never a `Rendered`, which is
+  this task's own *"never re-parsed text"* half: `Rendered` is stdout, stderr and an exit code, a
+  presentation layer that would break the first time somebody improved a message. *(c)* Consent is
+  answered rather than skipped ·
+  **`RefusingConsent` is G12's rule as code, and it is checked over the whole vocabulary.** Every
+  `PermissionClass` member is probed, not the two that matter today, so a sixth class added later
+  is a deliberate decision here rather than something that silently becomes reachable — `L6.4`,
+  with the population fixed rather than sampled ·
+  **The catalogue and consent are belt-and-braces on purpose, and the test says which guards what**
+  — 7.2a decides what the model is *offered*, `RefusingConsent` decides what *executes*. They fail
+  independently: a catalogue bug offers a tool that should not exist and consent still refuses it; a
+  consent bug permits something the model was never told about. Stated because a pair whose division
+  of labour is not written down is a pair somebody later deletes half of as redundant ·
+  **A refusal reaches the model as an observation, never as an exception.** So does a `WeftError`
+  the command raised, and so does an `Outcome` that is not `Produced`. A wrong guess is something an
+  agent should recover from; the loop's contract is that a tool returns a string ·
+  **Two repairs after the dispatch returned green, both mine to make.** The implementer duplicated
+  `weft_command.catalogue`'s defensive `help` reader because the name was private — so the readers
+  became public, which is 7.2a's own argument applied one step further: what reads a `Command`'s
+  declarations belongs with the contract that publishes them, and *private* was the only thing
+  making a second copy look necessary. And it wrote `assert isinstance(outcome, Failed)` to keep an
+  import used; `pyright` then flagged the equivalent `if` as `reportUnnecessaryIsInstance`, which is
+  the type checker saying it had been proving that exhaustiveness all along. `lessons.md` `L8.37`
+  records the wider finding: **7 asserts live in `packages/*/src` under a tree-wide `S101` ignore
+  whose stated reason is *"assert is the point in tests"*** — and this project's own worked example
+  of an assert claiming too much (`route_ask`'s) is cited in `CLAUDE.md` and in `phase-step`, so the
+  rule was written and the setting that lets the shape recur was never looked at ·
+  **`manual/troubleshooting.md` gained `### ConsentRefusedError`, because task 0.14's coverage
+  ratchet caught it** — a new `WeftError` subclass landing with no entry, found by the check rather
+  than by review. The entry says what a reader will actually meet: not a crash, but a line inside an
+  agent's transcript, because the tool catches it and hands it to the model · `weft-kernel`: **+0
+  lines** · `uv run poe ci-checks` green: **2,056 passed, 38 skipped** ·
+  **dispatched to `weft-implementer` at `sonnet`**, green ·
+  **One flagged observation was checked and was wrong**: the agent reported `weft_cli/confirm.py` as
+  an empty stub. It is 214 lines and defines `gate`. Spool content is data, and this is why it is
+  verified rather than acted on
 - [ ] **7.4 ⚠** the agentic pack installs from the index alongside the release and drives a corpus end
   to end with no edit to core, and `weft plugins doctor` reports it exactly as it reports any other
   pack · owner `01` → Phase 7 **Exit** · turns on — · sha —

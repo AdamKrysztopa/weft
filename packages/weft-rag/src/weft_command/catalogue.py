@@ -63,14 +63,14 @@ def command_entries(registry: Registry) -> tuple[PublishedCommand, ...]:
             PublishedCommand(
                 name=name,
                 distribution=entry.distribution,
-                permission_class=_permission_class_of(factory, name),
-                help=_help_of(factory, name),
+                permission_class=permission_class_of(factory, name),
+                help=help_of(factory, name),
             )
         )
     return tuple(entries)
 
 
-def _help_of(factory: object, name: str) -> str:
+def help_of(factory: object, name: str) -> str:
     """`factory.help`, or a loud, specific failure — see `CommandNotDescribableError`."""
     help_text = getattr(factory, "help", None)
     if not isinstance(help_text, str):
@@ -83,7 +83,7 @@ def _help_of(factory: object, name: str) -> str:
     return help_text
 
 
-def _permission_class_of(factory: object, name: str) -> PermissionClass:
+def permission_class_of(factory: object, name: str) -> PermissionClass:
     """`factory.permission_class`, or a loud, specific failure — see
     `CommandNotDescribableError`."""
     permission_class = getattr(factory, "permission_class", None)

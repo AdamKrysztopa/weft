@@ -2833,6 +2833,43 @@ and not fatal — `allow` only ever narrows what is already there.
 
 ---
 
+## The agent's ceiling — `weft_agent`
+
+`weft-agent` drives Weft through the same command surface a person types at, and it is capped at
+what a caller with no terminal may do. Grilling session G12 settled that cap: **nothing other than
+a TTY counts as consent**, so an agent — which is never a TTY — may reach `read`, `write` and
+`network` commands and may not reach `overwrite` or `destroy` ones. See
+[`docs/03-cli.md`](../docs/03-cli.md) → *Permissions* for the rule and the argument.
+
+### `ConsentRefusedError`
+
+**What it looks like** — not as a crash, and that is deliberate. The agent's own tools catch it and
+hand it back to the model as an observation, so it appears inside a run's transcript rather than on
+stderr:
+
+```text
+'delete' is a destroy-class command. This caller has no terminal to confirm in, and nothing other
+than a terminal counts as consent, so it cannot be run from here.
+```
+
+**What it means.** Something asked to run an `overwrite`- or `destroy`-class command through a path
+that cannot obtain a person's consent. In normal use you will not see it at all: the agent's tool
+catalogue is derived from `permission_class` and never offers such a command in the first place, so
+meeting this error means the tool was constructed directly — by a pack, a script, or a test.
+
+**Two mechanisms, and they guard different things.** The catalogue decides what the model is
+*offered*; consent decides what actually *executes*. They fail independently on purpose, so a bug
+in either one alone does not lift the ceiling.
+
+**What to do.** Run the operation yourself. `weft delete <source-id>` and `weft reconcile` prompt on
+a terminal, state what will be affected before they touch anything, and take `--yes` when you have
+read that and mean it. An agent proposing one of these is telling you what it would do; deciding is
+yours, and no flag it can pass changes that.
+
+**What not to do:** do not give an automated caller `--yes`. `docs/03-cli.md` → *Permissions* is
+explicit that `destroy` trains people to pass `--yes` reflexively, which disarms the whole table —
+and an agent passing it on every call is that sentence with the human removed.
+
 ## Where to go next
 
 - **Never run `weft` before?** [`manual/quickstart.md`](quickstart.md) is the five-minute path from
