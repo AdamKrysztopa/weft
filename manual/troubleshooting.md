@@ -1100,6 +1100,54 @@ enumerable set; whether the name itself resolves is left to the registry lookup 
 performs later, which is where `weft_kernel.registry.UnknownPluginError` already carries its own
 `valid_options`.
 
+### `AmbiguousCapabilityError`
+
+**What it looks like** — ledger task **9.0**: a stage in the pipeline you are running needs a
+capability from a run-wide service, and more than one of the roles you selected in `[services]`
+provides it, so there is no single instance to hand the stage:
+
+```text
+AmbiguousCapabilityError: a stage needs VectorSearch from a run-wide service, and more than
+one selected role provides it: [services] embed, [services] store. Resolving it would hand
+that stage one of the two arbitrarily and report nothing, so it is refused here. Select a
+plugin for exactly one of those roles that provides VectorSearch.
+```
+
+Refused at assembly, before any stage runs. Deliberately **not** in fitness function 12's
+`UnresolvedNameError` family, on `DuplicateServiceRoleError`'s footing: nothing failed to resolve
+against an enumerable set — two things resolved and disagree, which is a collision rather than a
+lookup miss, so there is no `valid_options` to offer. **What to do:** the message names both role
+keys. Change one of them in `weft.toml` to a plugin that does *not* provide the named capability,
+or drop that role if this project does not need it. `weft plugins doctor` lists what every
+installed pack registered.
+
+### `SelectedCapabilityMissingError`
+
+**What it looks like** — ledger task **9.0**: a stage needs a capability from a run-wide service,
+and nothing you selected in `[services]` provides it. Two shapes, and the difference matters:
+
+```text
+SelectedCapabilityMissingError: stage 'retrieve' needs TextSearch from a run-wide service, and
+what is selected does not provide it: [services] store = 'qdrant'. Nothing here adapts or
+degrades — a run that asked for a capability does not quietly proceed without it.
+```
+
+The second shape arises for a role with no built-in default — one a pack you installed declares
+and your `weft.toml` never names. It reads *"nothing is selected for"* and then that role's key,
+rather than naming a plugin.
+
+The first says the role *is* selected and the plugin you named lacks the capability; the second
+says the role is not selected at all. Collapsing them would tell you to swap a plugin you never
+chose. This is `StoreCapabilityMissingError`'s refusal asked of the whole selected set rather than
+of the one configured store, which is why the remedy names **the role key that could provide it**
+rather than a fixed `[services] store`. It exits **4** — this configuration cannot run this
+pipeline, decided before anything ran.
+
+**What to do:** the remedy names the `[services]` key to set, and the message names the plugin you
+currently have there *by the name you wrote in `weft.toml`*, never by its Python class. `weft
+plugins doctor` lists what every installed pack registered, and `weft plugins list` shows which
+of them provide the capability you need.
+
 ### `MalformedServiceRolesError`
 
 **What it looks like** — ledger task **9.0**: an installed pack defines a module-level

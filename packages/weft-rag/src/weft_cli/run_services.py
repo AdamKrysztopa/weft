@@ -57,10 +57,11 @@ from typing import cast
 
 from weft_cli.contract_reference import capability_siblings
 from weft_cli.llm_roles import LLMSection
+from weft_cli.service_roles import RoleTable
 from weft_cli.services import ServiceSelection
 from weft_embed import Embedder
 from weft_kernel.context import ServiceRegistry
-from weft_kernel.errors import UnresolvedNameError
+from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_kernel.pipeline import Pipeline
 from weft_kernel.registry import Registry, RegistryEntry, UnknownPluginError, unwrap_factory
 from weft_kernel.runner import PipelineResolutionError, StageSpec
@@ -459,3 +460,213 @@ async def build_index_services(
     if embedder is not None:
         registered.add(Embedder, embedder)
     return registered
+
+
+class AmbiguousCapabilityError(WeftError):
+    """Two selected roles both satisfy one capability a stage demanded.
+
+    Ledger task **9.0**, property (ii). Aliasing answers a demanded capability with *the* one
+    instance that provides it, and there is no such instance when two do — resolving to either
+    would hand a stage one arbitrary service and report nothing.
+
+    Refused at assembly, before any stage runs, naming the capability and **both role keys**,
+    because the role key is the thing an operator edits. `ServiceRegistry.add`'s own
+    `DuplicateServiceError` would also fire here, at whichever registration happened to come
+    second, but it can only name the contract — an operator would learn that something is
+    ambiguous and not what to change.
+
+    Deliberately **not** in fitness function 12's `UnresolvedNameError` family, on
+    `weft_cli.service_roles.DuplicateServiceRoleError`'s footing and for the identical reason:
+    nothing failed to resolve against an enumerable set. Two things resolved and disagree,
+    which is a collision rather than a lookup miss, so there is no `valid_options` to offer.
+    """
+
+
+class SelectedCapabilityMissingError(PipelineResolutionError, UnresolvedNameError):
+    """A stage needs a capability no selected role provides.
+
+    Ledger task **9.0**, property (iii) — `StoreCapabilityMissingError` above, generalised off
+    the one configured store and onto the whole selected set. That class validates every
+    `needs_store` against the store alone and its remedy names only `[services] store`, so a
+    stage needing a capability some *other* role provides was refused before aliasing could
+    help, with a remedy pointing at the wrong key. This is the same refusal asked of the right
+    instance.
+
+    Under `PipelineResolutionError` for the reason that class states: to an operator this is a
+    pipeline that cannot run against this configuration, decided before anything ran, which
+    `docs/03-cli.md`'s exit-code split puts at 4.
+
+    **The remedy names a plugin name, never a Python class.** `docs/lessons.md` `L9.26`: the
+    one production caller of the older check passed `store_name=type(store).__name__`
+    (`weft_cli/route_ask.py:513`), so a live refusal read *the configured store
+    'PgVectorStore'* while `[services] store` accepts `pgvector` — a remedy nobody could carry
+    out. Every other call site was a test supplying that name by hand, which is exactly why
+    none of them could catch it.
+
+    Fitness function 12's family: `valid_options` is every role key whose declared contract
+    publishes the missing capability.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        valid_options: tuple[str, ...],
+        stages: tuple[str, ...] = (),
+        remedy: str = "",
+    ) -> None:
+        PipelineResolutionError.__init__(self, message, stages=stages, remedy=remedy)
+        self.valid_options = valid_options
+
+
+def _roles_publishing(capability: type[object], *, table: RoleTable) -> tuple[str, ...]:
+    """Every declared role key whose own contract's pack publishes `capability`, in name order.
+
+    Derived exactly as `_advertised` derives what a store advertises — `capability_siblings`
+    walks the contract-publishing pack's public module — so a capability this file has never
+    heard of is attributed to the right role by a function that has never heard of it either.
+    That is what keeps this module naming no capability, one layer out from where the store
+    check already holds it.
+    """
+    return tuple(
+        sorted(
+            key
+            for key, role in table.roles.items()
+            if capability in capability_siblings(role.contract) or capability is role.contract
+        )
+    )
+
+
+def register_selected_roles(
+    registered: ServiceRegistry,
+    *,
+    selected: Mapping[str, object],
+    table: RoleTable,
+    demanded: Sequence[type[object]] = (),
+) -> None:
+    """Register each selected role's instance under its contract, and alias it under every
+    capability the resolved pipeline actually demands of it.
+
+    Ledger task **9.0**, property (ii). `ServiceRegistry` keys by **exact type**
+    (`weft_kernel/context.py:105`), so an instance registered under its role's contract answers
+    no `ctx.require` for anything else it satisfies. Aliasing is what makes a second capability
+    reachable at all.
+
+    **By demand, never by satisfaction**, and the deletion fan-out is why. `SourceDeletable` is
+    a fan-out capability — many participants satisfy it at once, discovered by walking the
+    factory registry (`weft_cli/fanout.py:59`, `deletion.py:67`) and never through this
+    registry. A single-valued `ctx.require(SourceDeletable)` could only answer with one
+    arbitrary participant, which is a wrong answer wearing a type. Nothing demands it, so
+    nothing aliases it, and a stage reaching for it gets `UnresolvedServiceError` naming what
+    the run does offer.
+
+    A demanded capability **no** selected instance provides is passed over in silence here:
+    `check_selected_capabilities` owns that refusal and has the stage id needed to make it
+    diagnosable. Two providers is `AmbiguousCapabilityError`.
+
+    Builds nothing — constructing a plugin from its configured name is the caller's job, so
+    this function opens no connection and can be asked about a run that will not happen.
+    """
+    for key, instance in selected.items():
+        role = table.roles.get(key)
+        if role is None:
+            continue
+        registered.add(role.contract, instance)
+
+    for capability in demanded:
+        providers = tuple(
+            key
+            for key, instance in selected.items()
+            if key in table.roles and _satisfies_capability(instance, capability)
+        )
+        if len(providers) > 1:
+            named = ", ".join(f"[services] {key}" for key in sorted(providers))
+            raise AmbiguousCapabilityError(
+                f"a stage needs {capability.__name__} from a run-wide service, and more than "
+                f"one selected role provides it: {named}. Resolving it would hand that stage "
+                f"one of the two arbitrarily and report nothing, so it is refused here. "
+                f"Select a plugin for exactly one of those roles that provides "
+                f"{capability.__name__}."
+            )
+        if len(providers) == 1:
+            registered.add(capability, selected[providers[0]])
+
+
+def _satisfies_capability(instance: object, capability: type[object]) -> bool:
+    """Whether `instance` has `capability`, derived — the one question asked of a selection.
+
+    `_satisfies` above asks the identical question of a store and turns a non-`runtime_checkable`
+    Protocol into `MalformedNeedsStoreError`. This is that stance without a plugin or stage to
+    attribute it to, which is the only reason it is a second function rather than a call.
+    """
+    try:
+        return isinstance(instance, capability)
+    except TypeError:
+        return False
+
+
+def check_selected_capabilities(
+    *,
+    demanded: Mapping[type[object], str],
+    selected: Mapping[str, object],
+    table: RoleTable,
+    names: Mapping[str, str],
+) -> None:
+    """Refuse the run if a stage needs a capability no selected role provides.
+
+    Ledger task **9.0**, property (iii). Returns nothing: like `check_store_capabilities` above,
+    this speaks only to refuse, and runs before any stage does, so the promise `02` §1 makes —
+    no adaptation, no degradation, a refusal naming the missing capability and where to get it
+    — is unchanged by being asked of a set rather than of one store.
+
+    `demanded` maps a capability Protocol to the **stage id** that declared it needs one; the
+    stage is in the refusal because "something needs this" is not a thing an operator can act
+    on. `names` maps a role key to the plugin name written in `weft.toml`, so the message can
+    say what was configured rather than what class it turned into — `docs/lessons.md` `L9.26`.
+    """
+    for capability, stage in demanded.items():
+        if any(
+            _satisfies_capability(instance, capability)
+            for key, instance in selected.items()
+            if key in table.roles
+        ):
+            continue
+
+        candidates = _roles_publishing(capability, table=table)
+        if not candidates:
+            raise SelectedCapabilityMissingError(
+                f"stage '{stage}' needs {capability.__name__} from a run-wide service, and no "
+                f"installed pack declares a [services] role whose contract publishes it. "
+                f"Nothing here adapts or degrades — a run that asked for a capability does not "
+                f"quietly proceed without it.",
+                valid_options=(),
+                stages=(stage,),
+                remedy=(
+                    f"install a pack that publishes {capability.__name__} and declares a "
+                    f"[services] role for it; `weft plugins doctor` lists what is installed."
+                ),
+            )
+
+        unfilled = tuple(key for key in candidates if key not in selected)
+        filled = tuple(
+            f"[services] {key} = {names.get(key, selected[key].__class__.__name__)!r}"
+            for key in candidates
+            if key in selected
+        )
+        keys = ", ".join(f"[services] {key}" for key in candidates)
+        detail = (
+            f"nothing is selected for {keys}"
+            if unfilled == candidates
+            else f"what is selected does not provide it: {', '.join(filled)}"
+        )
+        raise SelectedCapabilityMissingError(
+            f"stage '{stage}' needs {capability.__name__} from a run-wide service, and "
+            f"{detail}. Nothing here adapts or degrades — a run that asked for a capability "
+            f"does not quietly proceed without it.",
+            valid_options=candidates,
+            stages=(stage,),
+            remedy=(
+                f"name a plugin that provides {capability.__name__} in {keys}. "
+                f"`weft plugins doctor` lists what every installed pack registered."
+            ),
+        )

@@ -597,7 +597,12 @@ implementer said so plainly and stopped, which is the right outcome and still a 
 closes the brief is for the class being extended, never for the sibling being imitated. Where such a
 site is a test, the dispatcher lands that edit **before** dispatching: a brief whose completion
 requires the implementer to edit a test is a dispatch that cannot succeed, however complete its
-site list.
+site list. **And an enumerated fallout list is read as exhaustive**: part 2's brief said "expect
+fallout in `test_manual_config_keys.py` and `test_manual_valid_options.py`", having grepped
+constructions of `ServiceSelection` but never call sites of `service_selection_from_config` — so a
+third file, `tests/unit/weft_cli/test_services.py`, broke in nine places and the implementer had to
+invent a default to get past a list it reasonably read as complete. Name the search that produced
+the list, or say the list is not exhaustive.
 
 **Candidate home.** `phase-step` → *Red*, which already carries `L8.12` in the base-class form
 ("when a brief names a base class, grep for that base class") and does not carry the
@@ -697,11 +702,132 @@ requires a service it does not return the product of.
 
 
 
+### L9.34 — three of four agents cited one paragraph at three different line numbers, on the same day
+
+**What happened.** Four agents were dispatched to read four papers against this tree on 2026-09-06.
+Three of them cited `docs/01-high-level-plan.md`'s Phase 10 ordering paragraph — the same paragraph,
+in the same file, on the same day — as `:936-939`, `:943-946` and `:945-948`. Only one was right.
+Separately, two of the four disagreed about how many members `weft_store.contract.NodeStore`
+declares (nine versus ten; it is ten), and one of them listed ten items while writing "nine". None
+of these was a reasoning error: every conclusion built on them held. The *pointers* were wrong.
+
+**Generalises to.** A `path:line` produced by a dispatched agent is a claim like any other and is
+wrong often enough to be assumed wrong — so a citation an agent supplies is re-derived by whoever
+lands it in a tracked document, and a brief that asks for `path:line` citations is asking for
+leads, not for evidence.
+
+**Candidate home.** `phase-step` → *Verify*, which tells you to read the diff and does not tell you
+that an agent's citations are the least reliable part of its report. FF17 cannot help: it checks
+that a line resolves, never that it holds what the citation claims (`L9.23`).
+
+### L9.35 — an error message had to be reworded because a documentation scraper mistook it for a key
+
+**What happened.** `tests/docs/test_manual_config_keys.py:41` scrapes `manual/*.md` with
+`\[services\][ \t]+([A-Za-z_][A-Za-z0-9_]*)`, treating "`[services]` followed by an identifier" as a
+documented key. Task 9.0's new `DuplicateServiceRoleError` originally read *"[services] role 'blobs'
+was declared by..."*; quoted into `manual/troubleshooting.md`, as the troubleshooting-coverage
+ratchet requires, the word `role` was scraped as an undeclared `[services]` key and failed the test.
+The implementer reworded the **error message** — to *"role 'blobs' ... for [services]:"* — to get
+past a documentation check. The product's user-facing text was shaped by a regex.
+
+**Generalises to.** A check that scrapes prose for identifiers constrains every sentence that will
+ever quote its subject, including sentences in error messages that have to be quoted somewhere else
+— so such a scraper matches a *documented-key* form specific enough to exclude ordinary prose, or it
+silently becomes a style rule nobody agreed to.
+
+**Candidate home.** `tests/docs/test_manual_config_keys.py`'s two regexes, which could require the
+assignment form (`key = value`) it actually cares about. Also worth a line in `CLAUDE.md`'s
+automation section: a docs check is a constraint on writing, not only on drift.
+
+### L9.36 — a dispatched agent read a third-party codebase, and nothing in its brief had bounded where it could read
+
+**What happened.** One of four paper-reading agents, briefed to read a PDF at
+`tmp/raptor/files/749/`, went to that paper's public GitHub repository on its own initiative and
+drew roughly nine of its reported constants from it, marking them `[repo]`. It restated rather than
+transcribed, so it did not breach the originality rule — but nothing in the brief had told it not
+to, and this repository's central constraint is that another codebase is read to *understand* and
+what comes back is "knowledge, never text". The synthesis step noticed and deliberately rebuilt its
+own verdict without any repo-derived fact, which is the only reason the distinction survived into
+anything a human read.
+
+**Generalises to.** A brief naming a source names what to read, not where to stop — so a brief
+dispatched in this repository states the reading boundary explicitly, because "read this paper" and
+"read whatever this paper points at" are different instructions and only one of them was given.
+
+**Candidate home.** `.claude/agents/`'s standing prohibitions, which cover writing and not reading;
+and `paper-to-plugin` → step 1, which says to read the paper at source and is silent on the
+authors' code. `SubagentStart` already injects the applied rules, so this is a rule that would
+travel if it existed.
+
+
+
+### L9.37 — re-indexing a changed document keeps the old chunks and destroys the evidence it changed
+
+**What happened.** Found while a dispatched agent was reading `weft reconcile` for an unrelated
+paper. `SourceRecord.content_hash` is written at
+`packages/weft-rag/src/weft_cli/ingest.py:688` and its purpose is stated in this tree's own words at
+`:139` — "`02` §1 wants this field to let `weft index` say *already indexed, by a different
+pipeline*". **Nothing compares it.** Every use in `packages/` is a write
+(`pgvector_store.py:864-876`), a read-back into a model (`:1039`), or a copy
+(`weft_qdrant/store.py:272`); there is no equality test anywhere.
+
+The consequence is not a missing feature, it is data corruption. A node's id is
+`_content_digest(media_type, content, parent_ids, ordinal)`
+(`packages/weft-kernel/src/weft_kernel/payload/node.py:118`, `:148`), so an **edited** chunk hashes
+to a **different** id; `add` upserts `ON CONFLICT (id)` (`pgvector_store.py:733`), and a different id
+inserts rather than updates. Nothing on the ingest path calls `delete_source` — its only non-store
+caller in the tree is `weft_cli/deletion.py:128`, the `weft delete` fan-out. So the old chunks
+survive beside the new ones and are retrievable forever. And the source upsert sets
+`content_hash = EXCLUDED.content_hash` (`pgvector_store.py:868`), so after the second ingest nothing
+records that the document ever differed. Confirmed by exhaustively reading every writer and reader;
+**not** confirmed by running, so the reproduction is still owed.
+
+**Generalises to.** A field written, persisted and never read is a feature that does not exist, and
+one whose stated purpose is *change detection* is worse than absent — it makes the system look like
+it handles change. So a field added for a behaviour lands with the behaviour or with a check that
+fails while it is missing, and "the model carries it" is never evidence the behaviour is there
+(`L6.14`, whose "read method with no writer" this is the mirror image of).
+
+**Candidate home.** This one owes a **ledger task before it owes a rule** — it is a live
+data-correctness defect and the owner should place it. The rule it also owes: a fitness function
+that no persisted `SourceRecord`/`Node` field is write-only, which would have caught it the day
+`content_hash` landed.
+
+
+
+### L9.38 — "proven in <file>, not merely asserted" named a file that proves nothing of the kind
+
+**What happened.** `docs/10-technique-catalogue.md:143-144` states that `raptor`'s cascade delete —
+a summary being reachable by the deletion of a source it was built from — is *"proven against a real
+corpus, real embeddings and a real store in `tests/integration/test_raptor_pipeline.py`, not merely
+asserted of the type"*. That file contains no deletion at all: `grep -c delete` over it returns
+**0**. It asserts `summary.lineage.sources` and the citation path, which is the *precondition* for
+cascade delete, and never exercises the cascade. The sentence's own emphasis — "not merely asserted
+of the type" — is what makes it worse than a vague claim: it explicitly promises the stronger form
+of evidence, and points at a file to prove it. Found by an adversarial reviewer opening the file;
+the third overclaim in this one document, after `L9.30` and `L9.31`.
+
+**Generalises to.** A citation of the form *"proven in `<file>`"* is a claim about what that file
+does, and it is the one kind of claim a reader is least likely to check because it looks like it has
+already been checked — so a sentence naming a test as evidence names the assertion, not the file,
+and "not merely asserted" is a phrase that has to be earned by opening the thing you are pointing at.
+
+**Candidate home.** The same check `L9.30` and `L9.31` want: `docs/10-technique-catalogue.md`'s
+claims about the tree are unguarded, and three of them are now known false. A fitness function that
+resolves each *"proven in `<file>`"* to a named test and fails when the file lacks it would have
+caught all three. `phase-step` → *Verify* carries "read what a check asserts, not what its name says
+it is for", which is this rule one level up and did not reach a document.
+
+
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in
 `lessons-archive.md`, session by session, with the edges between entries — which is where the
 question *have we been here before?* is answered, and where an on/off cycle becomes visible.
+
+
+
 
 
 
