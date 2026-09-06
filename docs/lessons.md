@@ -1606,6 +1606,136 @@ which must survive cleaning belongs somewhere other than `ext`. The rule it also
 integration test for an ingest pipeline asserts on the **facts** a stored node carries, not only on
 how many nodes there are — every existing one counts rows.
 
+
+### L9.64 — the invocation a feature was verified through is the one its author was already thinking in
+
+**What happened.** Task `9.17` shipped a re-index change detector and was verified through the binary,
+as `phase-step` → *Finish* requires. The invocation chosen was `weft index --pipeline
+index-with-keywords`. On the **default** path — `weft index <dir>`, with no `--pipeline` — the
+detector is dead: `resolved_pipeline` is only assigned inside `if pipeline is not None`
+(`packages/weft-rag/src/weft_cli/ingest.py:386`), and the identity is therefore
+`pipeline_identity(resolved_pipeline) if resolved_pipeline is not None else ""` (`:439`). So
+`weft index --extract A` followed by `weft index --extract B` reports `UNCHANGED`, which is exactly
+the false negative the task existed to remove. Found by a dispatched agent reading the diff, not by
+the 45 unit tests, not by the gate, and not by the binary run that ticked the box.
+
+**Generalises to.** Running the binary defeats a test's shared assumptions only if the invocation is
+chosen adversarially. An author verifies through the invocation they were holding in their head
+while they wrote the code — which is the configured, flag-rich one. *The default invocation is the
+one nobody runs on purpose and the one every user takes first, so it is the one the verification
+step owes: run the feature through the path that names nothing.*
+
+**Candidate home.** `phase-step` → *Finish*, whose run-the-binary step already says "including a
+failure path". It should also say: **and the default path — the invocation with no flags — where one
+exists.** Possibly also a fitness function: a code path guarded by an optional argument, whose
+absence silently disables a feature the task claims, is a shape a check could look for.
+
+### L9.65 — four docstrings cite a shipped file that does not exist, and the citation checker cannot see it
+
+**What happened.** `hyde-fanout-rrf.yaml` is named as a shipped worked example at
+`packages/weft-rag/src/weft_retrieve/transforms.py:272` and `:548`, `engine.py:32` ("all shipped
+pipelines both do, `hyde-fanout-rrf.yaml` included") and `payload.py:430`. There is no such document;
+the shipped rung is `hyde-then-retrieve.yaml`. Fitness function 16 asserts that every registered
+plugin is reachable from a shipped pipeline document — it checks documents against plugins, and
+nothing checks *filenames named in prose* against the documents that exist.
+
+**Generalises to.** This project's rule is that a factual claim about the tree carries something a
+reader can check. A filename in a docstring is exactly that kind of claim, and it is the one form
+that reads as self-verifying while being unchecked — a reader assumes a path in source was written
+next to the file. *Any path-shaped string in tracked prose or a docstring is a claim about the tree
+and needs the same treatment as a count: either it resolves, or it is waived by name.*
+
+**Candidate home.** A fitness function, and a cheap one: scan tracked `.py` and `.md` for
+`[A-Za-z0-9_./-]+\.(yaml|py|md|toml)` inside backticks and assert each resolves against the tree or
+sits in a named waiver. `L6.11`'s "a brief's list of affected sites comes from a search you ran" is
+the same defect one artefact upstream.
+
+### L9.66 — a consequence reasoned out in one document's frame was a defect in another's, and the frame that wrote it down was the last to notice
+
+**What happened.** `L9.37` was collected as a fresh discovery: re-indexing a changed document leaves
+its old nodes permanently, because `weft index` never calls `delete_source`. But
+`docs/03-cli.md:729-734`, landed earlier in commit `047fb62` ("G12 settles: the ceiling…"), had
+already written the identical mechanism down — *"Removing what it superseded is `destroy`, because
+`weft index` never calls `delete_source`; a changed document's old nodes stay under their old digests
+until somebody deletes the source."* `git merge-base --is-ancestor` confirms the ordering. The G12
+session understood the fact perfectly and recorded it as an *acceptable permissions consequence*.
+Nobody asked what it meant for data correctness, and `L9.37` cites none of it.
+
+**Generalises to.** A gate reasons inside its own frame, and a fact that is benign in that frame can
+be a defect in another. The permissions frame asked "may this operation do that?" and answered
+correctly; the correctness frame would have asked "then who cleans up?" and nobody was in the room.
+*When a document records that some operation never happens on a data path, it owes a pointer to the
+document that owns that path's correctness — the sentence "X never calls Y" is a finding for
+whoever owns Y, not only a premise for the argument being made.*
+
+**Candidate home.** `docs/README.md` → *Protocol*, where a closing session already edits the
+reference document that owns the content. One added clause: a settled consequence about a data path
+is cross-referenced from the document that owns that path, not only from the gate that noticed it.
+
+### L9.67 — a task that makes something measurable is not done until it has measured once
+
+**What happened.** Three independent instances surfaced in one sweep. (a) Task `7.5` added
+`--query-pipeline` so evaluation runs the real query rung; the branch has three unit tests, **zero**
+integration tests and **zero** persisted runs, and shipped with three silent-wrong-number defects
+(`recall@10` computed over the packer's ≤8 candidates; MRR/nDCG scored over `repack: reverse`'s
+deliberately inverted order; a `RunRecord` that cannot name the rung, so `weft eval compare` treats
+different rungs as repetitions of each other). (b) `weft_eval.pricing.price_calls` is exported,
+unit-tested and called by nothing. (c) Both published V3 baselines report all six `quote-*` metrics
+as exactly `0.0000` across 36 scored observations each, five days apart — an instrument that has
+never once fired, published as half of a release artefact.
+
+**Generalises to.** `tests/docs/test_technique_claims.py` already forbids a *documented* improvement
+claim with no run behind it. The same standard is owed one level down: a registered plugin name, a
+metric, a pricing function and a scoring branch are each a claim that something is measurable.
+*A metric with no non-zero observation in any run is not yet known to be a metric, and a measuring
+instrument repaired without taking a measurement is a repair with no evidence — the run-the-binary
+rule applied to the gate itself.*
+
+**Candidate home.** `phase-step` → *Finish*, beside the run-the-binary step, for the per-task half.
+The standing half wants a check: a registered metric or driver with no observation in any persisted
+run is prose, exactly as a documented check no task runs is prose (`L6.12`).
+
+### L9.68 — a research batch that half-ran reported success, and three agents hit it independently
+
+**What happened.** The `ctx_batch_execute` / `ctx_execute` tools run commands under **zsh**, not sh.
+Three separate dispatched agents lost output the same way: a bare `for f in …; do … done` (zsh
+"parse error near `for'"), `echo ===BASE===` (zsh `=` filename expansion) and `grep --include=*.py`
+(zsh "no matches found" on an unquoted glob). In each case the earlier stages of the compound
+command had already run, the later stages silently did not, and **the batch reported success** with
+an error string as its captured output. Findings were then reasoned from truncated evidence.
+
+**Generalises to.** This is `L7.8`'s shape in the research tooling rather than the test suite: a
+correct check asked in an environment that quietly dropped part of it, with no symptom. *A tool
+result is evidence only if the command that produced it is known to have run to completion — quote
+every glob, avoid shell loops in batched commands, and prefer a command whose exit status is
+asserted over one whose stdout merely looks plausible.*
+
+**Candidate home.** `CLAUDE.md` → *Automation*, or the dispatch briefs themselves. Related and worth
+carrying in the same place: `.claude/worktrees/` holds three full stale copies of this repository,
+each with its own `docs/` and pipeline YAML, so a naive repo-wide `grep` **quadruple-counts** — and
+this project's standard is that every count in `docs/` is something a reader can check.
+
+### L9.69 — the fix made the value computable and stopped one inch short of the sentence that motivated it
+
+**What happened.** `docs/02-extension-model.md:1010` promises that *"re-index skips an unchanged file
+instead of re-paying for every enhancer's LLM calls."* Task `9.17` built the comparison
+(`changes_against_records`) and `ingest.py:443` calls it — and then `:436` hands the **unfiltered**
+docs to the runner. The verdict is displayed and never acted on, so the promised saving does not
+happen. Separately, `weft doctor` is named as the recovery path in three settled places
+(`docs/02-extension-model.md:1005`, `:1011`, `weft_store/pgvector_store.py:195`) and does not exist —
+the command that does the job is `weft reconcile`.
+
+**Generalises to.** Both are the producing-side-without-a-consuming-side shape (`L5.15`), and both
+survived because the *computation* was the deliverable everyone reviewed. *When a lesson's fix makes
+a value computable, re-read the settled text that motivated it and check whether that text promised
+the value be **used** — a sentence promising a behaviour is not discharged by a function that could
+support it.*
+
+**Candidate home.** `implement-ll` → routing, which already reads the whole queue: a lesson whose fix
+adds a value should route to the document that promised the behaviour, not only to the module that
+computes it. `weft doctor` is a separate, immediate repair — either the command exists or the three
+sentences name `weft reconcile`.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in
