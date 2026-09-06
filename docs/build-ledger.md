@@ -4015,8 +4015,49 @@ is also refused: the ReAct step is a typed structured answer through the three-t
   blocked — correctly.** The brief promised a green tree and my own freshly-written test carried two
   defects I had misread as belonging to the absent module; `lessons.md` `L8.35` records it. The
   seam itself came back honest and needed no change; the CLI wiring and FF20 are mine
-- [ ] **7.1 ⚠** the agent is a pack — it registers against contracts it did not define, and core has no
-  knowledge of it · owner `01` → Phase 7; `02` §1 · turns on — · sha —
+- [x] **7.1 ⚠** the agent is a pack — it registers against contracts it did not define, and core has no
+  knowledge of it · owner `01` → Phase 7; `02` §1 · turns on **FF21** · sha `SHA71` ·
+  **`weft-agent` is a seventh distribution, and that is Phase 7's claim rather than a packaging
+  preference.** `01` → Phase 7 asks for *"a first-party pack built against nothing but the released
+  API, on the same terms a stranger has"*, and a stranger cannot add a package to somebody else's
+  wheel. Bundled as a fifteenth package inside `weft-rag` it would still register through the
+  public entry point and still pass every check that reads a registry — **and the claim would have
+  quietly stopped being true**, which is the demotion bundling `weft-kernel` would inflict on
+  fitness function 1. FF21 asserts the distinction directly rather than leaving it to prose ·
+  **The name was checked in the namespace it will be published into, in the session that chose
+  it** — `weft-agent` returns 404 on PyPI. `L6.33` was paid for by discovering `weft` was taken at
+  the very version the release set declared, and the rule it bought is one lookup at the moment of
+  choosing ·
+  **It registers one `Prompt`, `next-action`, and that is a real artefact rather than a placeholder**:
+  the ReAct step task 7.2 executes is a typed structured answer through the three-tier cascade
+  `weft_prompts` already ships, not a native tool-calling API — which is what keeps the agent
+  testable against `scripted` offline. `payload.py` carries `ToolCall`, `NextAction` (exactly one
+  of `call`/`final_answer`, enforced by a validator rather than a silent preference) and a frozen
+  `AgentTranscript`. No `Command`, no loop, no tool catalogue — those are 7.2, 7.2a and 7.3, and a
+  shipped command that always failed would have been worse than none ·
+  **Six published names became seven, and G10 does not reopen.** The shape that session settled is
+  independent semver per distribution plus a named release set; an add-on installing *beside* the
+  set is the provision that shape makes, and using it is not changing how the set is composed.
+  `09` §1 gains a dated correction rather than an edit to the record, per `L8.32` ·
+  **Five pinned sites, found one at a time by five different mechanisms** — which is `L8.12`'s own
+  shape and worth the count: `pyproject.toml`'s workspace members; `.github/workflows/release.yml`'s
+  publish matrix (FF10 named both options in its failure message and the exit criterion chose
+  between them); `test_release_set.py`'s `_INSTALLS_BESIDE`; `test_troubleshooting_coverage.py`'s
+  distribution count, 19 → 20; and `test_generated_docs.py`'s `KNOWN_WORKSPACE_DISTRIBUTIONS`,
+  which reported the new pack as *environment contamination* — the right answer for the question it
+  asks, and a reminder that a check phrased against an unchanging workspace fails informatively
+  when the workspace is what changed ·
+  **`manual/contract-reference.md` regenerated, and the diff is one line**: `Prompt` is now
+  *"Registered by: `weft-agent`, `weft-rag`"*. The pack reaching a published document through the
+  ordinary generation step, with nobody editing that document, is the extension model working ·
+  **Run from `/private/tmp`, outside this repository**: `weft plugins doctor` reports
+  `agent (weft-agent) 0.1.0: active (1 contributed)` · `weft-kernel`: **+0 lines** — and FF21's
+  third clause asserts the kernel never learns the word *agent* at all, in a name, a dependency or
+  a comment · `uv run poe ci-checks` green: **2,038 passed, 38 skipped**, 221 architecture tests ·
+  **dispatched to `weft-implementer`, which returned blocked — correctly, for the second time this
+  phase and for the same reason.** My test called `registrar.flush()`; `PackRegistrar` has
+  `commit()` and never had a `flush`. `lessons.md` `L8.35` is updated with the recurrence and
+  re-routed from *Green* to *Red*, where the mistake is actually made
 - [ ] **7.2 ⚠** the loop's autonomy, tool surface, memory and approval points are the ones
   `agentic-patterns` names, chosen rather than inherited · owner `05` → G12; `01` → Phase 7 **Gate** ·
   turns on — · sha —

@@ -50,9 +50,23 @@ red tree, attribute **each** failure to the absent artefact by name — and wher
 type it did not define, copy the construction from an existing use rather than inventing it, because
 the tree has already written down what that constructor takes.
 
-**Candidate home.** `phase-step` → *Green*, beside the existing "run `ci-no-tests` before you
-dispatch" instruction, which currently asks for a green and has nothing to say about the case where
-the tree is red *on purpose* — which is every test-first task.
+**It happened again one task later, which changes where this should land.** Task 7.1's test called
+`registrar.flush()`; `PackRegistrar` has `commit()` and has never had a `flush`. Same dispatch
+wasted, same agent correctly blocked, same cause: a call written from memory rather than copied from
+one of the four existing uses in `tests/unit/*/test_init.py` — which also show that `PackRegistrar`
+takes its registry **positionally** and that `register` is handed a real settings object, two more
+things I had guessed. A recurrence inside one phase means the prose form will not bite.
+
+**The sharper rule, and it is mechanical enough to follow.** Before a test calls anything it did not
+itself define, `grep` for one existing call and copy its shape. The tree has already written down
+what every constructor takes, and *"I know what that takes"* is precisely the belief both failures
+were made of. Pair it with: attribute every failure in a deliberately-red run to the absent artefact
+**by name** before dispatching — a count of failures is not a reading of them.
+
+**Candidate home.** `phase-step` → *Red*, where the test is written, rather than *Green*, where it is
+dispatched — the mistake is made at authoring time and only *detected* at dispatch time, and
+`L6.18` says to route a rule to the artefact that performs the falsifying act rather than the one
+that notices afterwards.
 
 ### L8.31 — the gate lived where the first caller was, and the second caller gets none
 

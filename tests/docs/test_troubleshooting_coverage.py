@@ -205,8 +205,9 @@ def test_the_derived_package_list_names_every_distribution_including_the_two_tha
     assert "weft_command" in packages
     assert "weft_eval" in packages
     assert "weft_otel" in packages
-    assert len(packages) == 19, (
-        f"expected 19 first-party distributions under packages/, found {sorted(packages)} — "
+    assert "weft_agent" in packages
+    assert len(packages) == 20, (
+        f"expected 20 first-party distributions under packages/, found {sorted(packages)} — "
         f"either a new one shipped (nothing to do here, this walk found it automatically) "
         f"or the walk itself broke."
     )

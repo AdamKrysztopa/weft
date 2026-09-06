@@ -138,6 +138,10 @@ jobs:
           - weft-openai
           - weft-pdf
           - weft-otel
+          # Task 7.1. The seventh, and the first added since G10's re-settlement:
+          # Phase 7's exit is that the agent pack installs *from the index* alongside the
+          # release, which is only a real claim if it is published like every other add-on.
+          - weft-agent
     steps:
       - uses: actions/checkout@v4
 

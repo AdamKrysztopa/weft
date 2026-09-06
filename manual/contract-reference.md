@@ -515,7 +515,7 @@ async def scan(
 ## `Prompt`
 
 **Module:** `weft_prompts.contract`  
-**Registered by:** `weft-rag`  
+**Registered by:** `weft-agent`, `weft-rag`  
 **Version:** `1.0.0`
 
 One named, versioned, translatable question a model can be asked.

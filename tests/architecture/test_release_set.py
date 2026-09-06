@@ -62,7 +62,22 @@ _PLACEHOLDER_DSN = "postgresql://release-set-check/placeholder"
 #: Distributions that install *beside* the default install rather than inside it — see the module
 #: docstring. `weft-rag` itself is here so the set can be subtracted from `packages/*` in one step.
 _INSTALLS_BESIDE: Final[frozenset[str]] = frozenset(
-    {"weft-kernel", "weft-qdrant", "weft-openai", "weft-pdf", "weft-otel", "weft-rag"}
+    {
+        "weft-kernel",
+        "weft-qdrant",
+        "weft-openai",
+        "weft-pdf",
+        "weft-otel",
+        "weft-rag",
+        # Task 7.1, and the first name added since G10's re-settlement. `weft-agent` installs
+        # *beside* `weft-rag` rather than inside it, which is Phase 7's own claim rather than a
+        # packaging preference: `01` → Phase 7 asks for "a first-party pack built against nothing
+        # but the released API, on the same terms a stranger has", and a stranger cannot add a
+        # package to somebody else's wheel. Bundling it would leave every registry-reading check
+        # green while the claim quietly stopped being true — fitness function 21 is what asserts
+        # the distinction directly.
+        "weft-agent",
+    }
 )
 
 

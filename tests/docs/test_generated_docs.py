@@ -103,9 +103,16 @@ CONTRACTS_WAIVED_FROM_REFERENCE: Final[frozenset[str]] = frozenset()
 #: and which registers is unchanged and still true; only the answer to "what do I install to
 #: get it" collapsed, and for a document whose job is to answer exactly that, one name is the
 #: honest answer rather than a lost one.
+#: **A seventh name joined on 2026-09-06, ledger task 7.1.** `weft-agent` registers a `Prompt`
+#: under a contract `weft-prompts` publishes — the `weft-pdf` shape, registering without
+#: publishing anything of its own. It belongs here for the ordinary reason and is worth one
+#: sentence anyway: this is the first entry added by a pack whose whole purpose is to prove the
+#: extension model works from outside, so the fact that it needed *this* edit and no other kind
+#: is itself part of what Phase 7 claims.
 KNOWN_WORKSPACE_DISTRIBUTIONS: Final[frozenset[str]] = frozenset(
     {
         "weft-rag",
+        "weft-agent",
         "weft-pdf",
         "weft-openai",
         "weft-qdrant",

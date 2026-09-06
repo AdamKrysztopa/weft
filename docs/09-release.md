@@ -142,6 +142,22 @@ what is *compatible*, and only a pinned set says what was *tested together*.)*
 > a claim on a namespace somebody else owns, checked when it is chosen and not when it is
 > published.
 
+> **Corrected 2026-09-06 at ledger task 7.1: six published names became seven.** `weft-agent`
+> publishes beside the release set, on `weft-qdrant`'s own footing, and every count in the
+> blockquote above was true when it was written. This is **not** a reopening of G10: the shape that
+> session settled is *independent semver per distribution plus a named release set*, and an add-on
+> installing beside the set is exactly what that shape provides for — what would reopen it is a
+> change to how the set is composed, not another name using the provision.
+>
+> **Why it is not the fifteenth package inside `weft-rag`**, which would have cost nothing and
+> changed no count: `01` → Phase 7 asks for *"a first-party pack built against nothing but the
+> released API, on the same terms a stranger has"*, and a stranger cannot add a package to somebody
+> else's wheel. Bundled, the pack would still register through the public entry point and still
+> pass every check that reads a registry — and the claim would have quietly stopped being true,
+> which is the same demotion bundling `weft-kernel` would inflict on fitness function 1. Fitness
+> function 21 asserts the distinction rather than leaving it to this paragraph.
+
+
 `01` → *The architecture stack*, Topology row, already records the cost this section pays: several
 distributions to version and release together, and skew between the kernel and a first-party pack. It
 lands that obligation on G9. This section makes the argument about the half G9 does not own: what the

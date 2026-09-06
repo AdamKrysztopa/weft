@@ -48,6 +48,7 @@ weft-pdf = { workspace = true }
 weft-openai = { workspace = true }
 weft-qdrant = { workspace = true }
 weft-otel = { workspace = true }
+weft-agent = { workspace = true }
 
 # ---------------------------------------------------------------------------
 # Tasks
