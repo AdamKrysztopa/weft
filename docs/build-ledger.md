@@ -5334,7 +5334,31 @@ marked.
   wrong blob — the positional-index defect `11` §1.4 travels with — and it is a stated obligation on
   every image extractor, including 9.13's. **Phase 10 note:** a figure node's `content` is caption
   (and after 9.11, description); that text is what a summariser sees, and a `BlobRef` is not
-  inherited by a `combine`d parent
+  inherited by a `combine`d parent · **the async split is the shape of this task.**
+  `extract_documents` runs inside `asyncio.to_thread` and `BlobStore.put` is `async`, so finding
+  and cropping happen in the thread and the `put` happens back on the loop in
+  `PdfLayoutExtractor.run` — the function returns `PendingFigure`s rather than nodes, and a second
+  `to_thread` was never added · **the ordinal is `page * 1000 + index_on_page`, not a running
+  counter**, which is the positional-index defect `11` §1.4 records; a page-1 figure that stops
+  being recovered leaves page 2's key untouched, and a test drives exactly that · **a settled rule
+  was nearly narrowed twice and needed no narrowing.** `_first_unseen_page` refuses a page with an
+  image and no text; figure extraction looked like it falsified that. It does not — a figure
+  becomes a node only if it has a caption, and a caption *is* text on that page, so such a page is
+  never a candidate. The implementer shipped a narrowing derived from *"the only combination that
+  satisfies every test in the directory"*, flagged it as `L5.32`'s shape itself, and was right to:
+  it would have passed a fifty-page scan whose first page carried a running header. My replacement
+  was narrower and also wrong. What was actually broken was this task's own fixture, which drew a
+  captionless figure on an otherwise blank page — the scanned-page case exactly. `L9.62` ·
+  `pypdfium2` ships no `py.typed`, so a stub landed under `typings/` on `rouge_score`'s precedent —
+  a third file my "exhaustive list of sites" undercounted, and the implementer said so · **run
+  through the shipped binary from outside the repository.** With no `[services] blob` selected:
+  `no service is registered for BlobStore on this run... Services available on this run: Embedder,
+  LLM, Prompts, TokenSink` — the loud refusal `9.0`'s seam exists for. With it selected: `nodes now
+  stored: 3`, one blob on disk, and the image node reading `Figure 1. Revenue by region.` with
+  `weft-blob` and `weft-extract-page` in its `ext`. `weft delete` printed `filesystem (weft-rag): 0
+  node(s), 1 blob(s) removed` beside `pgvector (weft-rag): 2 node(s) removed`, nodes bracketed
+  3 → 1 and blobs 1 → 0. The same PDF with its caption removed indexes cleanly and produces **zero**
+  image nodes · `poe ci-checks` green: **2271 passed, 39 skipped**
 - [ ] **9.8** `weft index` over a directory holding a PDF with a table and a figure, through a
   shipped ingest document, leaves the store holding both as nodes and the blob under the root;
   `weft ask` reads the table back; `weft delete` of the source leaves node and blob counts at zero —

@@ -1534,6 +1534,43 @@ modes, and the failure modes land on the agent rather than on the person who cho
 agent and does not say what to do when the answer is two. The concrete sentence: *two implementers
 at once need two worktrees; the same checkout serialises them whether or not their files overlap.*
 
+
+### L9.62 — a settled rule was nearly narrowed twice, and what actually needed fixing was my fixture
+
+**What happened.** `weft_pdf.document._first_unseen_page` refuses a document containing a page with
+an image and no text: the backend cannot tell a scan from a blank page, so another backend should
+try it. Task `9.7` adds figure extraction, and the rule looked like it must now be wrong — surely a
+page whose content is a picture is not an unread page.
+
+Two narrowings were written before the question was asked properly. The implementer shipped the
+first — *skip the check entirely when a figure reader is configured and the document holds any text*
+— derived, in its own words, from "the only combination that satisfies every test in the directory",
+and it flagged that as `L5.32`'s shape and asked for a second pair of eyes. It is much wider than
+the fact behind it: a fifty-page scan whose first page carries a running header would pass as fully
+read. I replaced it with a per-page version — *a page a figure reader recovered something from is
+seen* — which is narrower and still wrong: a scanned page whose image the reader finds and cannot
+caption is exactly that page, now reported as read.
+
+**The rule needed no narrowing at all.** A figure becomes a node only if it has a **caption**, and a
+caption is text *on that page*, so such a page has non-empty text and was never a candidate. What
+was actually wrong was my own fixture: `figures_on_two_pages` drew a captionless figure on a page
+with nothing else, which *is* the scanned-page case, and the document failed for a reason with
+nothing to do with the ordinal property the test was about. Both narrowings existed to make a bad
+fixture pass. Reverting the rule and giving the fixture body text turned 5 failures into 72 passes.
+
+**Generalises to.** When a new capability appears to falsify a settled rule, state the rule's own
+condition and check whether the new case actually meets it before writing the exception — here, *no
+text on the page*, which a captioned figure never satisfies. And when a narrowing is derived from
+"what makes the suite pass", suspect the suite: a fixture is far likelier to be wrong than a rule
+that has held for a phase, and the narrowing is the expensive way to find that out. `L5.32`'s
+warning is about tests written alongside a narrowing asserting it; this is the neighbouring case
+where a test written *before* the narrowing caused it.
+
+**Candidate home.** `phase-step` → *When to stop instead of continuing*, whose existing rule is
+*"settled text says every X and you have found an X it should not cover — that is a gate to reopen,
+not a proviso to add"*. It does not say to first check whether the X really is one. One sentence,
+and it would have saved two narrowings and a wrong fixture.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

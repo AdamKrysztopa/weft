@@ -157,6 +157,53 @@ def figure_with_caption(caption: str | None, prose: str = "Some body text above.
     return _assemble(objects)
 
 
+def figures_on_two_pages(first: str | None, second: str | None) -> bytes:
+    """Two pages, each drawing an image and optionally a caption beneath it.
+
+    Task `9.7`'s ordinal-stability fixture. `first=None` is the same document with the first
+    page's figure *caption* gone, so that figure produces no node — which is what makes the second
+    page's figure "the one that lost a predecessor" without changing anything about page two.
+
+    **Both pages carry prose, and that is load-bearing rather than decoration.** A page with an
+    image and no text at all is the *scanned page* case `_first_unseen_page` refuses, and an
+    earlier version of this fixture drew the captionless figure alone — which made the document
+    fail for a reason that has nothing to do with ordinals, and very nearly bought a narrowing of
+    that settled rule to make this test pass (`docs/lessons.md` `L9.62`). A real document that
+    loses a caption still has its body text.
+    """
+    pages: list[bytes] = []
+    objects: list[bytes] = [b"", b""]
+    kids: list[bytes] = []
+    number = 3
+    for caption in (first, second):
+        operations = [
+            b"BT /F1 10 Tf 72 720 Td (" + _literal("Body text on this page.") + b") Tj ET",
+            b"q 100 0 0 60 72 640 cm /Im1 Do Q",
+        ]
+        if caption is not None:
+            operations.append(b"BT /F1 9 Tf 72 626 Td (" + _literal(caption) + b") Tj ET")
+        pages.append(b"\n".join(operations))
+    content_first, content_second = 4, 6
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R 5 0 R] /Count 2 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents %d 0 R "
+        b"/Resources << /Font << /F1 7 0 R >> /XObject << /Im1 8 0 R >> >> >>" % content_first,
+        _stream(b"", pages[0]),
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents %d 0 R "
+        b"/Resources << /Font << /F1 7 0 R >> /XObject << /Im1 8 0 R >> >> >>" % content_second,
+        _stream(b"", pages[1]),
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        _stream(
+            b"/Type /XObject /Subtype /Image /Width 1 /Height 1 "
+            b"/ColorSpace /DeviceGray /BitsPerComponent 8",
+            _ONE_PIXEL,
+        ),
+    ]
+    del kids, number
+    return _assemble(objects)
+
+
 def image_inside_a_form() -> bytes:
     """A page whose only image is nested one level down, inside a Form XObject.
 

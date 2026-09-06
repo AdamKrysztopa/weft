@@ -28,22 +28,59 @@ be interrupted, so `CancelledError` delivered mid-batch takes effect when the
 current document finishes rather than immediately. It is never swallowed —
 `to_thread` re-raises it at the await — but a cancelled run does finish the
 document it was on.
+
+**The one figure-producing backend in this pack, and the one stage anywhere that reaches a
+service `weft-cli` does not name — ledger `9.7`.** `extract_documents` (`document.py`) runs
+entirely inside the single `to_thread` call above, synchronously, so it can find a figure's
+bounding box and render its crop, but it cannot `await BlobStore.put` — `BlobStore` is an async
+contract and a thread has no event loop to hand the coroutine to. So it hands back each
+captioned figure as a `document.PendingFigure` instead of a finished `Node`, and *this* method's
+`run` — back on the event loop, past the `await asyncio.to_thread(...)` — is where the blob
+actually gets written and the `Node` actually gets built. Two libraries do the finding:
+`pdfplumber` reports a bounding box `pypdfium2` has no equivalent for, and its own word
+extraction (already loaded for `_read_pages`) is reused to find a caption; `pypdfium2` renders
+the crop pypdfium2's own page object at the identical `scale=1` — see `_read_figures` for the
+geometry argument that makes a `pdfplumber` box usable as a `pypdfium2` crop box directly.
 """
 
 import asyncio
 from collections.abc import Sequence
 from enum import StrEnum
 from io import BytesIO
+from typing import Any
 
 import pdfplumber
+import pypdfium2
+from pdfplumber.page import Page
 from pdfplumber.utils.exceptions import PdfminerException
 from pydantic import BaseModel, ConfigDict, Field
 
+from weft_blob.contract import BlobStore
+from weft_blob.keys import blob_key
+from weft_blob.payload import BlobRef
 from weft_extract.contract import SourceDoc
-from weft_extract.payload import BoundingBox
+from weft_extract.payload import BoundingBox, PageSpan
 from weft_kernel.context import Context
-from weft_kernel.payload import Node, Outcome
-from weft_pdf.document import EXTENSIONS, ExtractedTable, PageText, extract_documents
+from weft_kernel.payload import MediaType, Node, Outcome, Produced
+from weft_pdf.document import (
+    EXTENSIONS,
+    ExtractedFigure,
+    ExtractedTable,
+    PageText,
+    extract_documents,
+)
+
+#: The media type stamped on every figure's `BlobRef` and passed to `BlobStore.put` — always
+#: PNG, per ledger `9.7`; one resize invariant belongs to `9.9`, not this module.
+_FIGURE_MEDIA_TYPE = "image/png"
+
+#: How far below a figure's own bounding box `_caption_below` looks for a caption line, in
+#: points. Verified against this pack's own fixture (`tests/unit/weft_pdf/minimal_pdf.py`,
+#: `figure_with_caption`): a 9pt caption drawn immediately under the image reads back with its
+#: baseline roughly 7pt below the image's bottom edge, and this budget leaves room for a larger
+#: font or a blank line above the caption without reaching far enough to pull in a second
+#: figure's own caption on a densely packed page.
+_CAPTION_BAND_HEIGHT = 40.0
 
 #: The name this backend is registered and selected under — see `weft_pdf.register`.
 NAME = "pdf-layout"
@@ -127,7 +164,11 @@ class PdfLayoutExtractorConfig(BaseModel):
 
 
 class PdfLayoutExtractor:
-    """Groups each page's characters into words with `pdfplumber`, one root `Node` per document."""
+    """Groups each page's characters into words with `pdfplumber`, one root `Node` per document.
+
+    Also this pack's one figure producer (ledger `9.7`) — see the module docstring for why
+    `run` does more than await `extract_documents` once `read_figures` is in play.
+    """
 
     extensions: tuple[str, ...] = EXTENSIONS
     config_model: type[PdfLayoutExtractorConfig] = PdfLayoutExtractorConfig
@@ -136,10 +177,9 @@ class PdfLayoutExtractor:
         self._config = config if config is not None else PdfLayoutExtractorConfig()
 
     async def run(self, payload: Sequence[SourceDoc], ctx: Context) -> Outcome[Sequence[Node]]:
-        del ctx  # no service or locale this stage needs
         # `to_thread` rather than a direct call — see the module docstring, both for the
         # rule (`01` → *Colour*) and for what it weakens about cancellation.
-        return await asyncio.to_thread(
+        outcome = await asyncio.to_thread(
             extract_documents,
             payload,
             backend=NAME,
@@ -147,7 +187,38 @@ class PdfLayoutExtractor:
             unreadable=(PdfminerException,),
             separator=self._config.page_separator,
             read_tables=self._read_tables,
+            read_figures=self._read_figures,
         )
+        if not isinstance(outcome, Produced):
+            return outcome
+
+        result = outcome.value
+        if not result.figures:
+            # No captioned figure anywhere in this batch: a text-only project that added
+            # `pdf-layout` must not suddenly need `[services] blob` configured — see the module
+            # docstring and the class docstring on `PendingFigure` for why this check runs
+            # after the figures are already known rather than before extraction starts.
+            return Produced(value=result.nodes)
+
+        blob_store = ctx.require(BlobStore)
+        nodes = list(result.nodes)
+        for figure in result.figures:
+            key = blob_key(
+                tenant_id=ctx.tenant_id,
+                source_id=figure.source_id,
+                ordinal=figure.ordinal,
+                extension="png",
+            )
+            uri = await blob_store.put(key, figure.png, _FIGURE_MEDIA_TYPE)
+            node = (
+                figure.root.derive(
+                    content=figure.caption, media_type=MediaType.IMAGE, ordinal=figure.ordinal
+                )
+                .with_ext(BlobRef(uri=uri, media_type=_FIGURE_MEDIA_TYPE))
+                .with_ext(PageSpan(page=figure.page, ordinal=figure.page_ordinal))
+            )
+            nodes.append(node)
+        return Produced(value=nodes)
 
     def _read_pages(self, content: bytes) -> Sequence[PageText]:
         """Every page of `content`, in order, as `pdfplumber` groups its characters.
@@ -217,3 +288,67 @@ class PdfLayoutExtractor:
                         )
                     )
         return tuple(tables)
+
+    def _read_figures(self, content: bytes) -> Sequence[ExtractedFigure]:
+        """Every image `pdfplumber` finds, cropped to PNG by `pypdfium2`, paired with a caption.
+
+        Two libraries opened on the same `content`: `pdfplumber` for the bounding box and the
+        caption text, `pypdfium2` for the render neither `pdfplumber` nor `pypdf` can do — the
+        module docstring's argument for why this backend, not `pdf_text.py`, is the one that
+        contributes `read_figures` at all. Both are asked to render at `scale=1`, the same scale
+        this pack's own fixture module verified a `pdfplumber` bounding box against directly
+        (`tests/unit/weft_pdf/minimal_pdf.py`'s `figure_with_caption` docstring): at that scale a
+        `pdfplumber` box in points is a `pypdfium2`/`PIL` crop box in pixels with no conversion,
+        because both libraries put the coordinate origin at the page's own top-left corner.
+
+        Images on a page are sorted by `top` (then `x0`) before `index_on_page` is assigned, so
+        that number is this page's own reading order rather than whatever order `pdfplumber`
+        happened to return `page.images` in — `ExtractedFigure`'s own docstring is why that
+        number must be stable regardless of which images on the page turn out to have captions.
+        """
+        config = self._config
+        figures: list[ExtractedFigure] = []
+        with (
+            pdfplumber.open(BytesIO(content), password=config.password) as plumber_document,
+            pypdfium2.PdfDocument(content, password=config.password) as pdfium_document,
+        ):
+            for number, page in enumerate(plumber_document.pages, start=1):
+                images = sorted(page.images, key=lambda image: (image["top"], image["x0"]))
+                if not images:
+                    continue
+                rendered = pdfium_document[number - 1].render(scale=1).to_pil()
+                for index, image in enumerate(images):
+                    box = (
+                        round(image["x0"]),
+                        round(image["top"]),
+                        round(image["x1"]),
+                        round(image["bottom"]),
+                    )
+                    buffer = BytesIO()
+                    rendered.crop(box).save(buffer, format="PNG")
+                    figures.append(
+                        ExtractedFigure(
+                            page=number,
+                            index_on_page=index,
+                            caption=_caption_below(page, image),
+                            png=buffer.getvalue(),
+                        )
+                    )
+        return tuple(figures)
+
+
+def _caption_below(page: Page, image: dict[str, Any]) -> str | None:
+    """The caption line beneath `image` on `page`, or `None` if the band under it reads blank.
+
+    Spans the page's full width rather than just the image's own: `"Figure 1. Revenue by
+    region."` already outruns the 100pt-wide image in this pack's own fixture
+    (`tests/unit/weft_pdf/minimal_pdf.py`), and clipping to the image's own x-range would
+    truncate a real caption's text — the opposite of what `document.py`'s caption ladder needs,
+    which is to tell a real absence from one this method merely cut off.
+    """
+    bottom = float(image["bottom"])
+    band_bottom = min(bottom + _CAPTION_BAND_HEIGHT, page.height)
+    if band_bottom <= bottom:
+        return None
+    text = page.crop((0, bottom, page.width, band_bottom)).extract_text().strip()
+    return text or None
