@@ -876,11 +876,42 @@ which reads a change and could ask whether a failing test is asserting behaviour
 
 
 
+### L9.40 — `L8.24` recurred in the same function family, three weeks and one applied rule later
+
+**What happened.** Task 9.0 added a sixth field to `Dependencies`. `weft_cli.commands.AskCommand`
+threads it into `run_named_ask`; `weft_cli.eval_scoring` calls the identical function and threaded
+five of six, so `weft eval` over a query pipeline would have assembled **no role-selected services**
+while the same pipeline under `weft ask` got them — the evaluator measuring a different
+configuration from the one an operator runs, silently, with every test green.
+
+That is `L8.24` exactly: *"`weft index` passes `llm=deps.llm` into `run_index` and `weft eval run`
+calls the identical function passing nothing, which put every model-calling ingest rung out of reach
+of the evaluator... found by running the binary, neither by 2,012 tests."* Same evaluator, same
+function family, same shape. The comment `L8.24` left at
+`packages/weft-rag/src/weft_cli/eval_commands.py:608-609` — *"a concern passed by hand at each call
+site is one an author has to remember, and one of two did"* — was sitting four lines above the call
+that lost the sixth field. **A comment stating the rule at the site did not prevent the site from
+repeating it.** Caught only because a dispatched implementer flagged the call it had declined to
+update rather than leaving it silent.
+
+**Generalises to.** `L6.8` says a re-learned rule is in the wrong artefact, and this one is: the rule
+lives in a comment beside the code it governs, where it is read only by someone already editing that
+line. A set of arguments that must travel together is enforced where it is *constructed* — one
+object passed whole, or a check that every `Dependencies` field reaches every caller of the functions
+that take them — not by a sentence asking the next author to remember.
+
+**Candidate home.** A fitness function over `Dependencies`' fields versus the call sites of the
+functions that accept them individually, which would have failed on the missing sixth argument. That
+is the check `L8.24` should have filed and did not; filing it now is what stops a third instance.
+
+
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in
 `lessons-archive.md`, session by session, with the edges between entries — which is where the
 question *have we been here before?* is answered, and where an on/off cycle becomes visible.
+
 
 
 

@@ -49,6 +49,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from weft_cli.ask import run_ask
 from weft_cli.llm_roles import LLMSection
 from weft_cli.route_ask import run_named_ask
+from weft_cli.service_roles import RoleTable
 from weft_cli.services import ServiceSelection
 from weft_embed import Embedder
 from weft_eval.aggregate import MetricAggregate
@@ -259,6 +260,7 @@ async def score_pipeline(
     reports: Sequence[PackReport] = (),
     llm: LLMSection | None = None,
     services: ServiceSelection | None = None,
+    roles: RoleTable | None = None,
     sink: TokenSink | None = None,
     contributions: tuple[Contribution, ...] = (),
 ) -> Mapping[str, Outcome[MetricAggregate]]:
@@ -307,6 +309,7 @@ async def score_pipeline(
                 ctx=ctx,
                 llm=llm if llm is not None else LLMSection(),
                 services=services if services is not None else ServiceSelection(),
+                roles=roles if roles is not None else RoleTable(),
                 sink=sink if sink is not None else NullSink(),
                 contributions=contributions,
             )

@@ -644,6 +644,7 @@ class EvalRunCommand:
                 reports=deps.reports,
                 llm=deps.llm,
                 services=deps.services,
+                roles=deps.roles,
                 sink=deps.token_sink,
                 contributions=deps.contributions,
             )
