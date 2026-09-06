@@ -5359,12 +5359,12 @@ marked.
   node(s), 1 blob(s) removed` beside `pgvector (weft-rag): 2 node(s) removed`, nodes bracketed
   3 → 1 and blobs 1 → 0. The same PDF with its caption removed indexes cleanly and produces **zero**
   image nodes · `poe ci-checks` green: **2271 passed, 39 skipped**
-- [ ] **9.8** `weft index` over a directory holding a PDF with a table and a figure, through a
+- [x] **9.8** `weft index` over a directory holding a PDF with a table and a figure, through a
   shipped ingest document, leaves the store holding both as nodes and the blob under the root;
   `weft ask` reads the table back; `weft delete` of the source leaves node and blob counts at zero —
   demonstrated from outside the repository against installed wheels, counts asserted immediately
   before and after, and never only by a unit test · owner `01` → Phase 9 **Exit**; `08` §3 · turns
-  on — · sha — · the ingest half of the exit, no model call. FF16 obliges the document to name every
+  on — · sha `426424f` · the ingest half of the exit, no model call. FF16 obliges the document to name every
   position it registers; `L8.30` (`docs/lessons-archive.md:405`) is why the counts bracket the run.
   The transcript lands in `manual/` under `08` §3's rule, reproduced against the binary rather than
   hand-edited · **no shipped document named a PDF extractor**, measured 2026-09-06, so this task

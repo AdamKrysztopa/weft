@@ -1571,6 +1571,41 @@ where a test written *before* the narrowing caused it.
 not a proviso to add"*. It does not say to first check whether the X really is one. One sentence,
 and it would have saved two narrowings and a wrong fixture.
 
+
+### L9.63 — a fact attached at extraction has never reached the store on any cleaned pipeline
+
+**What happened.** Writing task `9.8`'s exit test — a PDF with a table and a figure, indexed through
+`index-pdf`, both nodes read back from the container — the `TableGrid` came back `None`. The cause
+is one line of settled design meeting another: a `Cleaner` rebuilds its node with `Node.derive`,
+whose docstring says plainly that *"lineage is carried; `ext` and `embedding` are not"*, and
+`index-text` (which every ingest document extends) runs two cleaners between extraction and
+chunking. So every fact an extractor attaches is destroyed before the chunker sees it.
+
+`weft_chunk.fixed_size._carry_forward` exists precisely to carry `ext` across the chunker's own
+`derive`, and its docstring names `weft_pdf.PdfPages` as the fact it protects — but it copies from
+the node it is *handed*, which by then has already been through the cleaners. Measured against the
+live container: every stored node's `ext` holds `weft-chunk` and nothing else. **`PdfPages` has
+never reached the store on a cleaned pipeline**, which means `weft_generate.page`'s `_PageLocator`
+— the thing that turns a citation into a page number — has never had anything to read.
+
+`9.8` fixed the half it owed: the cleaners now claim `MediaType.TEXT`, so a `TABLE` or `IMAGE` node
+is routed past them and keeps its `ext`. That is `11` §2.4's *"tables leave this pipeline"*, and
+`11` §1.4 records the scar it prevents. It does nothing for a `TEXT` node's own facts, which is the
+larger half and not that task's.
+
+**Generalises to.** Two mechanisms that are each correct — `derive` dropping `ext` so a child does
+not inherit a parent's facts, and a carry-forward helper restoring the ones that should survive —
+compose into a defect when a *third* stage sits between them. The general form: where a value is
+deliberately dropped and selectively restored, the restoring code owns the whole path, not its own
+call site, and the test that proves it must run the real pipeline rather than the one stage.
+
+**Candidate home.** A ledger task first, as `L9.37` needed: this is a live data-correctness defect
+with a user-visible consequence (page citations), and the fix is a design choice between carrying
+`ext` at the seam for every stage, giving `Cleaner` its own carry-forward, or declaring that a fact
+which must survive cleaning belongs somewhere other than `ext`. The rule it also owes: an
+integration test for an ingest pipeline asserts on the **facts** a stored node carries, not only on
+how many nodes there are — every existing one counts rows.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in
