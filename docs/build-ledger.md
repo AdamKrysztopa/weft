@@ -3960,7 +3960,7 @@ is also refused: the ReAct step is a typed structured answer through the three-t
 `weft_prompts` already ships, which is what keeps the agent testable against `scripted` offline.
 
 - [x] **7.0** a command's permission class is enforced on the path a library caller uses, not only on
-  the one the terminal uses · owner `03` → *Permissions*; `05` → G12 · turns on **FF20** · sha `SHA70` ·
+  the one the terminal uses · owner `03` → *Permissions*; `05` → G12 · turns on **FF20** · sha `60a2fdd` ·
   **G12's own precondition, and it is a defect rather than a design.** `weft_cli.confirm.gate` is
   called from exactly one place — inside `weft_cli.cli.run_command`, which takes an
   `argparse.Namespace` and returns a `Rendered`. The typed result task 7.3 requires comes from
