@@ -175,24 +175,32 @@ def test_the_ambient_services_reach_every_command_not_only_the_cli_s_own() -> No
     `run_command` used to register only `weft_cli.registry_bootstrap.Dependencies`, which a pack
     cannot import without depending on the driving adapter. It now registers the run's services by
     their published contract types, so `ctx.require(LLM)` answers for anybody.
+
+    **Rewritten at ledger task 9.0**, and the reason is worth keeping. This test used to parse
+    `weft_cli/cli.py`'s own AST looking for a literal `.add(LLM, ...)` call — so it asserted
+    *where the registration is written* rather than *that a command can reach the service*, which
+    is the property its own docstring names. The moment 9.0 moved that construction into
+    `weft_cli.run_services.command_path_services`, so the three assemblers stop being one list
+    written thrice, a green test failed for a change that strictly improved the thing it guards.
+    An assertion is a specification including the parts you did not mean (`docs/lessons.md`
+    `L9.39`). This version asks the question through the seam a command actually uses, so it
+    survives the code moving and would still fail if the registration were dropped.
     """
-    import ast
-    from pathlib import Path
+    # Arrange
+    from weft_cli.registry_bootstrap import Dependencies
+    from weft_cli.run_services import command_path_services
+    from weft_cli.services import ServiceSelection
+    from weft_llm.client import NullSink
+    from weft_prompts.contract import Prompts
 
-    import weft_cli.cli as cli
+    registry = Registry()
+    deps = Dependencies(registry=registry, reports=(), services=ServiceSelection())
 
-    tree = ast.parse(Path(cli.__file__).read_text(encoding="utf-8"))
-    added = {
-        node.args[0].id
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Attribute)
-        and node.func.attr == "add"
-        and node.args
-        and isinstance(node.args[0], ast.Name)
-    }
+    # Act
+    services = command_path_services(deps, sink=NullSink())
 
-    assert "LLM" in added, (
-        "weft_cli.cli registers no LLM into the run's services, so a command that is not "
-        "weft-cli's own cannot reach one without importing the driving adapter"
-    )
+    # Assert — every published contract a stranger's command may reach, by contract and not by
+    # `Dependencies`, which is `weft-cli`'s own and unimportable from a pack.
+    assert services.resolve(LLM) is not None
+    assert services.resolve(Prompts) is not None
+    assert services.resolve(Registry) is registry

@@ -715,10 +715,27 @@ Separately, two of the four disagreed about how many members `weft_store.contrac
 declares (nine versus ten; it is ten), and one of them listed ten items while writing "nine". None
 of these was a reasoning error: every conclusion built on them held. The *pointers* were wrong.
 
+**Three more instances, all the caller's, all within the hour.** *(1)* `L9.31` was written from a
+reading agent's report and cites `weft_index/pipelines/index-with-raptor.yaml`; the only copy is
+under `weft_retrieve/`. The contradiction the lesson records was verified at source; the *path* was
+not — a lesson about a documentation defect, containing one. *(2)* A brief repeated a reviewer's
+"both halves are false" about a catalogue row when one half — retrieval over the whole tree — was
+true of the code, and the dispatched agent had to correct the brief. *(3)* A brief, and several
+reports to the project owner, said a paper blends "a page render" into each leaf vector; the paper
+never names the visual unit, and an earlier reviewer had already refuted that phrasing. In every
+case the claim was checked once, by somebody else, and then travelled as if it had been checked by
+whoever repeated it.
+
+**And a citation can go stale while it is being written.** Two agents ran concurrently over one
+tree; one cited `run_services.py` and `cli.py` while the other was editing them, and a third's doc
+edit moved the catalogue rows that two open lessons cite. A `path:line` taken during parallel work
+is a claim about a file that may not hold still.
+
 **Generalises to.** A `path:line` produced by a dispatched agent is a claim like any other and is
-wrong often enough to be assumed wrong — so a citation an agent supplies is re-derived by whoever
-lands it in a tracked document, and a brief that asks for `path:line` citations is asking for
-leads, not for evidence.
+wrong often enough to be assumed wrong — so a citation an agent supplies is re-derived, **at the
+moment it is landed**, by whoever lands it in a tracked document; a brief that asks for `path:line`
+citations is asking for leads, not evidence; and a claim repeated from another agent's report
+inherits none of that agent's verification.
 
 **Candidate home.** `phase-step` → *Verify*, which tells you to read the diff and does not tell you
 that an agent's citations are the least reliable part of its report. FF17 cannot help: it checks
@@ -827,11 +844,44 @@ it is for", which is this rule one level up and did not reach a document.
 
 
 
+### L9.39 — a test asserted where the code was written, and then forbade the refactor that improved it
+
+**What happened.** `tests/unit/weft_agent/test_command.py`'s ambient-services test existed to prove
+that *"`ctx.require(LLM)` answers for anybody"* — its own docstring's words. It asserted that by
+parsing `weft_cli/cli.py`'s **AST** for a literal `.add(LLM, ...)` call. Task 9.0 moved that
+construction into `weft_cli.run_services.command_path_services`, so the three assemblers stop being
+one list written thrice — the exact defect Phase 7's close filed. A green test went red for a change
+that strictly improved the thing it guards, and it could not be satisfied without either duplicating
+the registration in both files or leaving dead `.add()` calls in `cli.py` to feed the parser. The
+dispatched implementer refused both and reported the conflict rather than picking one, which was
+right.
+
+Its sibling in the same repair is the mirror image: a test fixture whose plugin class declared no
+`__init__` made the production call `registry.entry(...).factory(None)` — the convention every
+assembler in the tree uses — fail, and the implementer changed *production* to a bare `factory()`
+to suit it. Both real plugins take a config argument
+(`packages/weft-rag/src/weft_embed/hash_embedder.py:75`,
+`packages/weft-rag/src/weft_store/pgvector_store.py:605`), so the fixture was the unrealistic half.
+
+**Generalises to.** A test that reads source instead of running it asserts *where* code lives, and
+location is the thing a good change moves — so a behavioural property is asserted through the seam a
+caller actually uses, and a check that greps or parses first-party source is reserved for properties
+that really are about the text. And when a test and an implementation disagree, decide which one
+models reality before changing either: an unrealistic fixture that the implementation is bent around
+is how a suite starts specifying its own fixtures.
+
+**Candidate home.** `phase-step` → *Red*, which carries "an assertion is a specification including
+the parts you did not mean" and does not carry the AST/source-reading case; and `weft-qualities`,
+which reads a change and could ask whether a failing test is asserting behaviour or location.
+
+
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in
 `lessons-archive.md`, session by session, with the edges between entries — which is where the
 question *have we been here before?* is answered, and where an on/off cycle becomes visible.
+
 
 
 

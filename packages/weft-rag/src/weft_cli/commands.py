@@ -696,6 +696,11 @@ class IndexCommand:
             # no services at all and both plugins failed at run time.
             llm=deps.llm,
             sink=deps.token_sink,
+            # Ledger task **9.0** — every declared role `[services]` selected reaches this run
+            # exactly as `deps.llm` above already does; see `weft_cli.run_services.
+            # build_index_services`'s own docstring for the exclusion this makes possible.
+            services=deps.services,
+            roles=deps.roles,
         )
         reconcile_result = await self._auto_reconcile(index_args.reconcile, deps=deps, ctx=ctx)
         return Produced(
@@ -853,6 +858,9 @@ class AskCommand:
                 services=deps.services,
                 sink=deps.token_sink,
                 contributions=deps.contributions,
+                # Ledger task **9.0** — every declared role `[services]` selected reaches
+                # this query-path run, exactly as `deps.llm` above already does.
+                roles=deps.roles,
             )
         else:
             pipeline_name, answer = await run_routed_ask(
@@ -864,6 +872,7 @@ class AskCommand:
                 services=deps.services,
                 sink=deps.token_sink,
                 contributions=deps.contributions,
+                roles=deps.roles,
             )
         return Produced(
             value=AskCommandResult(

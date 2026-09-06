@@ -63,6 +63,7 @@ from weft_cli.pipeline_catalogue import (
     full_catalogue,
 )
 from weft_cli.run_services import build_services, check_store_capabilities
+from weft_cli.service_roles import RoleTable
 from weft_cli.services import DEFAULT_ROUTER, ServiceSelection
 from weft_generate.contract import Generator
 from weft_generate.payload import Answer
@@ -86,6 +87,14 @@ from weft_store import NodeStore
 #: document can take the name and no project may declare it either. This alias stays so the
 #: name a reader greps for still resolves; `run_routed_ask` reads `services.route`.
 ROUTE_PIPELINE_NAME = DEFAULT_ROUTER
+
+#: `run_routed_ask`/`run_named_ask`/`_prepared_runner`'s own default for their new `roles`
+#: parameter (ledger task **9.0**) — a module-level singleton, never `RoleTable()` written
+#: inline in a signature, because ruff's B008 refuses a function call in a default argument's
+#: position regardless of the type being frozen. Empty and selects nothing, which is exactly
+#: today's behaviour for a caller that names none — `weft_cli.eval_scoring`'s own
+#: `run_named_ask` call, which holds no `Dependencies` to read a real one from.
+_NO_ROLES: RoleTable = RoleTable()
 
 
 class NoRouterPipelineError(WeftError, UnresolvedNameError):
@@ -154,6 +163,7 @@ async def run_routed_ask(
     services: ServiceSelection,
     sink: TokenSink,
     contributions: tuple[Contribution, ...] = (),
+    roles: RoleTable = _NO_ROLES,
 ) -> tuple[str, Answer]:
     """Route `question` through the real router, run whichever pipeline it selects, and
     return `(the pipeline name selected, the Answer it produced)`.
@@ -178,6 +188,11 @@ async def run_routed_ask(
     `_run_pipeline` calls (the router's own resolution, and whichever pipeline it selects),
     on the identical footing `weft_cli.pipeline_commands._resolved_or_refuse` and
     `weft_cli.ingest._specs_from_document` already receive it.
+
+    `roles` — ledger task **9.0** — is `weft_cli.registry_bootstrap.Dependencies.roles`,
+    threaded straight through to `_prepared_runner`'s own `build_services` call. Defaults to
+    `_NO_ROLES` (empty), so `weft_cli.eval_scoring`'s own call — which holds no `Dependencies`
+    to read a real one from — keeps registering exactly today's set.
     """
     catalogue = full_catalogue(reports=reports)
     router_name = services.route
@@ -198,7 +213,13 @@ async def run_routed_ask(
         )
 
     runner, routed_ctx, store = await _prepared_runner(
-        registry=registry, catalogue=catalogue, ctx=ctx, llm=llm, services=services, sink=sink
+        registry=registry,
+        catalogue=catalogue,
+        ctx=ctx,
+        llm=llm,
+        services=services,
+        sink=sink,
+        roles=roles,
     )
 
     query = Query(text=question)
@@ -364,6 +385,7 @@ async def run_named_ask(
     services: ServiceSelection,
     sink: TokenSink,
     contributions: tuple[Contribution, ...] = (),
+    roles: RoleTable = _NO_ROLES,
 ) -> Answer:
     """Run `pipeline_name` directly against `question`, bypassing the router entirely.
 
@@ -387,6 +409,9 @@ async def run_named_ask(
 
     `contributions` — task **5.3a** (`S8`) — reaches `_run_pipeline` below on the identical
     footing `run_routed_ask` already passes it through.
+
+    `roles` — ledger task **9.0** — the identical parameter `run_routed_ask` documents for
+    itself, threaded through to `_prepared_runner` the same way.
     """
     catalogue = full_catalogue(reports=reports)
     target = catalogue.get(pipeline_name)
@@ -402,7 +427,13 @@ async def run_named_ask(
         )
 
     runner, routed_ctx, store = await _prepared_runner(
-        registry=registry, catalogue=catalogue, ctx=ctx, llm=llm, services=services, sink=sink
+        registry=registry,
+        catalogue=catalogue,
+        ctx=ctx,
+        llm=llm,
+        services=services,
+        sink=sink,
+        roles=roles,
     )
     query = Query(text=question)
     query_set = QuerySet(origin=query, queries=(query,))
@@ -434,15 +465,19 @@ async def _prepared_runner(
     llm: LLMSection,
     services: ServiceSelection,
     sink: TokenSink,
+    roles: RoleTable = _NO_ROLES,
 ) -> tuple[Runner, Context, object]:
     """The setup `run_routed_ask` and `run_named_ask` share: the assembled service
     registry, a `Context` carrying it, a `Runner`, and the resolved `NodeStore` both
     functions' own two `_run_pipeline` calls need. Factored out once a second caller
     existed (task 3.11) rather than duplicated — the identical "one code path, not two"
     reasoning `weft_cli.commands._raise_for_plugin_refusal`'s own docstring states.
+
+    `roles` — ledger task **9.0** — reaches `build_services` unchanged; both callers document
+    it for themselves.
     """
     service_registry = await build_services(
-        registry=registry, catalogue=catalogue, llm=llm, services=services, sink=sink
+        registry=registry, catalogue=catalogue, llm=llm, services=services, sink=sink, roles=roles
     )
     routed_ctx = replace(ctx, services=service_registry)
     runner = Runner(registry)

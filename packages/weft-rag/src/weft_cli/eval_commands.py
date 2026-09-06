@@ -609,6 +609,11 @@ class EvalRunCommand:
             # by hand at each call site is one an author has to remember, and one of two did.
             llm=deps.llm,
             sink=deps.token_sink,
+            # Ledger task **9.0** — the identical concern the comment above already names for
+            # `llm`/`sink`: a role `[services]` selected must reach this call too, or the same
+            # silent narrowing repeats one field over.
+            services=deps.services,
+            roles=deps.roles,
         )
         wall_clock_seconds = time.monotonic() - started
         if not result.document_ids:

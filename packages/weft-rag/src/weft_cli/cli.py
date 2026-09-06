@@ -88,11 +88,9 @@ from weft_command.invocation import invoke
 from weft_kernel.context import Context
 from weft_kernel.errors import WeftError
 from weft_kernel.registry import Registry, unwrap_factory
-from weft_llm.client import NullSink, llm_service
-from weft_llm.contract import LLM, TokenSink
+from weft_llm.client import NullSink
+from weft_llm.contract import TokenSink
 from weft_llm.payload import TokenChunk
-from weft_prompts.contract import Prompts
-from weft_prompts.registry import prompts_service
 
 if TYPE_CHECKING:
     # `weft_cli.render` imports `weft_cli.commands`, which imports `weft_extract`,
@@ -103,19 +101,6 @@ if TYPE_CHECKING:
     # paragraph. `TYPE_CHECKING`-only here so the return-type annotations below still resolve
     # for a type checker without costing `--version` a single import at runtime.
     from weft_cli.render import Rendered
-
-#: `weft_llm.contract.TokenSink`/`LLM`, `weft_llm.client.NullSink`/`llm_service` and
-#: `weft_prompts.contract.Prompts`/`weft_prompts.registry.prompts_service` cost nothing at
-#: import time — `weft-llm` and `weft-prompts` are already among `weft-cli`'s own
-#: dependencies, and neither publishes a pack of its own to discover (`weft-rag`'s own
-#: `pyproject.toml`: "`weft_command` and `weft_prompts` deliberately declare no entry point
-#: and register nothing"), and none of these four modules touches the filesystem or a
-#: registry at module scope (class/function definitions only). Importing them here,
-#: unconditionally, costs `weft --version` nothing FF8(b) would notice — unlike
-#: `weft_cli.render`/`weft_cli.commands` just above, which pull in
-#: `weft_extract`/`weft_chunk`/`weft_embed`/`weft_store` and stay local-import-only. Task
-#: **7.4**'s own seam repair is what needed `LLM`/`Prompts` here: see `run_command`'s own
-#: docstring.
 
 #: This module, spelled the way an entry point spells it. `own_distribution` finds the
 #: distribution that ships `weft` by looking for the `console_scripts` entry point pointing
@@ -547,42 +532,28 @@ async def run_command(command_name: str, args: argparse.Namespace, deps: Depende
     # Local imports — see the module docstring's FF8(b) paragraph and the `TYPE_CHECKING`
     # import above: `run_command` is only ever reached for a command that already needed
     # discovery, so this costs nothing beyond a `sys.modules` lookup by the time it runs.
+    # `weft_cli.run_services` pulls in `weft_embed`/`weft_store`/`weft_retrieve`/`weft_llm`/
+    # `weft_prompts` transitively (`build_services`/`build_index_services`'s own imports),
+    # exactly what `weft --version` must not execute — the same reasoning this module's other
+    # local imports already state for `weft_cli.render`/`weft_cli.commands`.
     from weft_cli.render import render_outcome, render_refusal
+    from weft_cli.run_services import command_path_services
 
-    ctx = _context()
     tracked_sink = _EmissionTrackingSink(deps.token_sink)
-    # `dataclasses.replace`, never a mutation of the caller's own `deps` (frozen, and — across
-    # REPL turns — shared): a `Command` that reads `ctx.require(Dependencies).token_sink` sees
-    # the tracking wrapper for this run only; `deps.token_sink` itself, the one `finally`
-    # closes below, is untouched.
-    ctx.services.add(Dependencies, dataclasses.replace(deps, token_sink=tracked_sink))
-    # **Task 7.4's own seam repair.** The run's ambient services, registered a second time —
-    # by their *published contract types*, alongside `Dependencies` above — so a command that
-    # is not `weft-cli`'s own can reach one through `ctx.require(LLM)` without depending on the
-    # driving adapter at all. Built through the identical constructors `weft_cli.run_services.
-    # build_services` already calls for the query path (`weft_llm.client.llm_service`,
-    # `weft_prompts.registry.prompts_service`) — this is not a second implementation of either,
-    # only a second registration of what they built. See this module's own docstring, the
-    # module-level comment above these imports, and `tests/unit/weft_agent/test_command.py::
-    # test_the_ambient_services_reach_every_command_not_only_the_cli_s_own`.
-    ctx.services.add(
-        LLM,
-        llm_service(
-            registry=deps.registry,
-            roles=deps.llm.roles,
-            retry=deps.llm.retry,
-            loop_guard=deps.llm.loop_guard,
-        ),
-    )
-    ctx.services.add(Prompts, prompts_service(deps.registry))
-    ctx.services.add(TokenSink, tracked_sink)
-    # **`Registry` too, and `weft_cli.commands`' own module docstring is why.** It tells a third
-    # party their command may "read `ctx.require(weft_kernel.registry.Registry)` directly if all it
-    # needs is plugin resolution" — and nothing registered one, so that sentence was false for
-    # every caller it was written for. Found by running `weft agent` from outside this repository:
-    # the refusal named `Dependencies, LLM, Prompts, TokenSink` and no `Registry`, which is
-    # requirement 5 doing its job on a gap requirement 1 had left. `docs/lessons.md` `L8.38`.
-    ctx.services.add(Registry, deps.registry)
+    # **Ledger task 9.0.** This run's ambient services — `Dependencies` (with `token_sink`
+    # replaced by `tracked_sink`, per `_EmissionTrackingSink`'s own docstring), `LLM`,
+    # `Prompts`, `TokenSink`, `Registry`, and every `[services]` role this run selected — used
+    # to be built here, five `ctx.services.add` calls in a row with no counterpart the query
+    # and ingest assemblers could be checked against for the identical gap Phase 7's close
+    # found (`docs/build-ledger.md:4358-4366`): "`run_command` registers four contracts and a
+    # pack needing the configured store or embedder... still cannot reach one." Moved into
+    # `weft_cli.run_services.command_path_services` — see that function's own docstring for
+    # each service and why it is there — so the three assemblers are one list written thrice
+    # in one module rather than three, one of them inline here where nothing else could see it
+    # drift. `Context` is built with `services` already populated rather than the empty default
+    # `_context()` gives, since `Context` is frozen and `ctx.services` is not reassignable
+    # after construction.
+    ctx = dataclasses.replace(_context(), services=command_path_services(deps, sink=tracked_sink))
 
     entry = deps.registry.entry(Command, command_name)
     instance = cast(Command, entry.factory(None))

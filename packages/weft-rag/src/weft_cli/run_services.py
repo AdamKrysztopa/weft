@@ -52,15 +52,17 @@ first.
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Callable, Mapping, Sequence
-from typing import cast
+from typing import Final, cast
 
 from weft_cli.contract_reference import capability_siblings
 from weft_cli.llm_roles import LLMSection
+from weft_cli.registry_bootstrap import Dependencies
 from weft_cli.service_roles import RoleTable
 from weft_cli.services import ServiceSelection
 from weft_embed import Embedder
-from weft_kernel.context import ServiceRegistry
+from weft_kernel.context import ServiceRegistry, UnresolvedServiceError
 from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_kernel.pipeline import Pipeline
 from weft_kernel.registry import Registry, RegistryEntry, UnknownPluginError, unwrap_factory
@@ -72,6 +74,16 @@ from weft_prompts.registry import prompts_service
 from weft_retrieve.contract import RouteCatalogue, StageLookup
 from weft_retrieve.engine import route_catalogue, stage_lookup
 from weft_store import NodeStore
+
+#: Ledger task **9.0**'s own defaults for `build_services`/`build_index_services`'s new
+#: `roles`/`services` parameters — module-level singletons, never `RoleTable()`/
+#: `ServiceSelection()` written inline in a signature, because ruff's B008 refuses a function
+#: call in a default argument's position regardless of the type being frozen. Both are empty
+#: and register nothing (`RoleTable.roles`/`ServiceSelection.roles` default to `{}`), which is
+#: exactly today's behaviour for a caller that names neither — see each function's own
+#: docstring for which caller that is.
+_NO_ROLES: Final[RoleTable] = RoleTable()
+_NO_SELECTION: Final[ServiceSelection] = ServiceSelection()
 
 
 class StoreCapabilityMissingError(PipelineResolutionError, UnresolvedNameError):
@@ -343,6 +355,58 @@ def class_provides(candidate: type[object], capability: type[object]) -> bool:
         return False
 
 
+def selected_role_instances(
+    *, registry: Registry, services: ServiceSelection, table: RoleTable
+) -> dict[str, object]:
+    """Every declared role `services` actually names, built and keyed by its `[services]` key.
+
+    Ledger task **9.0** — the one resolver the three assemblers share, so a pack's declared
+    role reaches every path from a single implementation rather than three that could drift.
+    For each key in `table.declared` that `services.roles` also names, this builds the plugin
+    the same way `build_services` already builds the store and the embedder — one call to
+    the registered factory, no per-role `with:` configuration to pass, since `[services]`
+    selects a plugin by name only. A declared role `services` says nothing about is skipped —
+    no default, no guess, per `weft_cli.service_roles`'s own module docstring. An unregistered
+    plugin name raises the registry's own `UnknownPluginError`, unchanged and uncaught: an
+    operator naming a plugin that does not exist for that role's contract gets the loud,
+    diagnosable refusal `weft_kernel.registry` already writes, not a second, worse one
+    invented here.
+
+    **Called with no argument, not `factory(None)`.** `weft_kernel.runner._build`'s own
+    comment states the kernel's convention for a plugin built on no configuration — "a
+    fallback is built on its plugin's own defaults, the same call an unconfigured stage
+    gets" — as `factory(None)`, and every plugin class this repository ships honours it with
+    an explicit `def __init__(self, config: object = None) -> None:`. A role plugin that
+    declares no `__init__` at all — no configuration to accept, ever, because a role is
+    selected by name alone — takes `factory(None)`, the identical call `build_services` makes for
+    would satisfy `factory(None)` if it *had* written the boilerplate parameter, so a role
+    author who genuinely has nothing to configure is not taxed into writing an `__init__`
+    whose only job would be discarding an argument this call never needed to send.
+    """
+    return {
+        key: registry.entry(role.contract, services.roles[key]).factory(None)
+        for key, role in table.roles.items()
+        if key in services.roles
+    }
+
+
+def _contract_registered(registered: ServiceRegistry, contract: type[object]) -> bool:
+    """Whether `registered` already holds an instance for `contract`.
+
+    `ServiceRegistry` exposes no membership test of its own, only `resolve` (which raises)
+    and `add` (which refuses a duplicate) — this is the one question both `build_services`
+    and `command_path_services` need answered *before* calling `add`, so a role whose contract
+    a caller already populated ambiently (`NodeStore`, `Embedder`) is skipped rather than
+    raising `weft_kernel.context.DuplicateServiceError` at whichever registration happened to
+    come second.
+    """
+    try:
+        registered.resolve(contract)
+    except UnresolvedServiceError:
+        return False
+    return True
+
+
 async def build_services(
     *,
     registry: Registry,
@@ -350,6 +414,7 @@ async def build_services(
     llm: LLMSection,
     services: ServiceSelection,
     sink: TokenSink,
+    roles: RoleTable = _NO_ROLES,
 ) -> ServiceRegistry:
     """Assemble one run's `ServiceRegistry` — every service a query-path stage may reach
     through `ctx.require(...)`. See the module docstring's *"`build_services` — task 2.8's
@@ -380,6 +445,19 @@ async def build_services(
     own `UnknownPluginError` naming every option — `weft_cli.registry_bootstrap.
     require_plugin` is what turns that into a diagnosable exit code before this point is
     ever reached; this function does not repeat that translation.
+
+    **`roles` — ledger task 9.0's own addition, the query-path half of the sentence "a pack
+    that publishes a run-wide service is reachable by `ctx.require` on every path."**
+    Defaults to `_NO_ROLES` (empty — see that constant's own docstring), so an existing
+    caller naming neither keeps registering exactly the six services above and nothing more.
+    Every role `services.roles` names is built through `selected_role_instances`, the one
+    resolver all three assemblers share, then registered under its own contract through
+    `register_selected_roles` — `demanded=()` for now: threading the resolved pipeline's own
+    demanded capabilities in is a later step, not this task's. A role whose contract this
+    function already added ambiently (`NodeStore`, `Embedder`) is filtered out first, through
+    `_contract_registered`, rather than left to `register_selected_roles`' own `add` raise
+    `weft_kernel.context.DuplicateServiceError` at whichever registration happens to run
+    second — the same store/embedder contracts, never a second capability name.
     """
     registered = ServiceRegistry()
     registered.add(
@@ -394,11 +472,27 @@ async def build_services(
     registered.add(Embedder, cast(Embedder, registry.entry(Embedder, services.embed).factory(None)))
     registered.add(StageLookup, stage_lookup(registry))
     registered.add(RouteCatalogue, route_catalogue(catalogue))
+
+    selected = {
+        key: instance
+        for key, instance in selected_role_instances(
+            registry=registry, services=services, table=roles
+        ).items()
+        if not _contract_registered(registered, roles.roles[key].contract)
+    }
+    register_selected_roles(registered, selected=selected, table=roles, demanded=())
     return registered
 
 
 async def build_index_services(
-    *, registry: Registry, llm: LLMSection, sink: TokenSink, embedder: Embedder | None
+    *,
+    registry: Registry,
+    llm: LLMSection,
+    sink: TokenSink,
+    embedder: Embedder | None,
+    roles: RoleTable = _NO_ROLES,
+    services: ServiceSelection = _NO_SELECTION,
+    filled_by_stages: Sequence[type[object]] = (),
 ) -> ServiceRegistry:
     """Assemble one **ingest** run's `ServiceRegistry` — task **8.10**.
 
@@ -422,7 +516,9 @@ async def build_index_services(
       path. An ingest stage able to reach them would be an ingest plugin depending on the
       query path, which nothing else in this tree's layering permits and which no ingest
       plugin has ever asked for. Handing `build_services`' whole set over would have granted
-      it silently, which is the cheap mistake this function exists instead of.
+      it silently, which is the cheap mistake this function exists instead of. Neither is a
+      declared role of any ingest-side pack, so no `roles`/`services` combination below can
+      register one either.
     - **`NodeStore`**, for a different reason: an ingest document already names a store
       *stage*, so an ambient one would give a single run two paths to the same store with no
       ordering between them. On the query path a store is a service because there is no store
@@ -431,6 +527,22 @@ async def build_index_services(
     A stage reaching for any of the three gets `weft_kernel.context.UnresolvedServiceError`
     naming what *is* available, which is requirement 5 and is also the seam where a third
     party who genuinely needs one would come and ask.
+
+    **`roles`, `services` and `filled_by_stages` — ledger task 9.0's own addition, generalising
+    `NodeStore`'s exclusion above into data rather than repeating it as a second hardcoded
+    absence.** The argument for excluding an ambient `NodeStore` was never about the *name*
+    `NodeStore` — it was that an ingest document's own resolved pipeline already has a stage
+    filling that contract, and an ambient second path to it has no ordering against the first.
+    That argument is about the resolved pipeline, not about which capabilities `weft-cli` has
+    heard of, so `filled_by_stages` — every contract the caller's own resolved `StageSpec`
+    list already fills, `weft_cli.ingest.run_index`'s `tuple(spec.contract for spec in
+    specs)` — is what a role is checked against, never a capability name written here. Every
+    role `services.roles` names is built through `selected_role_instances`, the same resolver
+    `build_services` shares, and a role whose contract is in `filled_by_stages` is filtered out
+    before `register_selected_roles` ever sees it — which is how `NodeStore` stays excluded
+    without this function naming it a second time. Both default to `_NO_ROLES`/`_NO_SELECTION`
+    (empty — see those constants' own docstring), so an existing caller naming neither keeps
+    registering exactly the four services above and nothing more.
 
     **`embedder` is an instance, not a name, and that is the decision this function encodes.**
     On a `--pipeline` run `[services] embed` is deliberately not read (`weft_cli.ingest.
@@ -459,6 +571,15 @@ async def build_index_services(
     registered.add(Prompts, prompts_service(registry))
     if embedder is not None:
         registered.add(Embedder, embedder)
+
+    selected = {
+        key: instance
+        for key, instance in selected_role_instances(
+            registry=registry, services=services, table=roles
+        ).items()
+        if roles.roles[key].contract not in filled_by_stages
+    }
+    register_selected_roles(registered, selected=selected, table=roles, demanded=())
     return registered
 
 
@@ -670,3 +791,80 @@ def check_selected_capabilities(
                 f"`weft plugins doctor` lists what every installed pack registered."
             ),
         )
+
+
+def command_path_services(deps: Dependencies, *, sink: TokenSink) -> ServiceRegistry:
+    """Assemble the third assembler's `ServiceRegistry` — the one `weft_cli.cli.run_command`
+    builds inline for **every** command, `--pipeline`-driven or not. Ledger task **9.0**.
+
+    Moved here from `run_command`'s own body, which used to build this same set — `Dependencies`,
+    `LLM`, `Prompts`, `TokenSink`, `Registry` — by calling `ctx.services.add` five times in a
+    row with no counterpart this module's own `build_services`/`build_index_services` could be
+    checked against for the identical gap Phase 7's close found (`docs/build-ledger.md:
+    4358-4366`): "`run_command` registers four contracts and a pack needing the configured
+    store or embedder... still cannot reach one." The three assemblers are one list written
+    thrice, and a fix landed in only two of them is exactly that defect, unrepaired, one
+    assembler over.
+
+    **`Dependencies`, replaced rather than reused.** `deps` is the run's own, frozen and
+    shared across REPL turns — `dataclasses.replace(deps, token_sink=sink)` is a new instance
+    carrying the caller's chosen sink, so a `Command` reading `ctx.require(Dependencies).
+    token_sink` sees it for this run only, and `deps` itself is left untouched for whatever
+    else holds a reference to it (`weft_cli.repl.run_repl`, across turns).
+
+    **`LLM`/`Prompts`/`TokenSink`, registered by their own published contract types, alongside
+    `Dependencies`** — task **7.4**'s own seam repair, so a command that is not `weft-cli`'s
+    own can reach one through `ctx.require(LLM)` without depending on the driving adapter at
+    all. Built through the identical constructors `build_services` already calls for the query
+    path (`weft_llm.client.llm_service`, `weft_prompts.registry.prompts_service`) — this is not
+    a second implementation of either, only a second registration of what they built.
+
+    **`Registry` too.** `weft_cli.commands`'s own module docstring tells a third party their
+    command may "read `ctx.require(weft_kernel.registry.Registry)` directly if all it needs is
+    plugin resolution" — and nothing registered one before task 8.38's own repair, so that
+    sentence was false for every caller it was written for. Found by running `weft agent` from
+    outside this repository: the refusal named `Dependencies, LLM, Prompts, TokenSink` and no
+    `Registry`, which is requirement 5 doing its job on a gap requirement 1 had left
+    (`docs/lessons.md` `L8.38`).
+
+    **`roles` — this task's own addition, closing the sentence Phase 7's close actually
+    measured as failing.** Built through `selected_role_instances`, the resolver every
+    assembler shares, then registered through `register_selected_roles` with `demanded=()` —
+    the identical reasoning `build_services`' own docstring gives for the same call. A role
+    whose contract this function already registered ambiently (none of `Dependencies`, `LLM`,
+    `Prompts`, `TokenSink`, `Registry` is ever a role's own contract, since a role is declared
+    against a pack's *own* published contract, never against one of these five) is filtered
+    through `_contract_registered` on the identical footing `build_services` filters `NodeStore`/
+    `Embedder` — kept here rather than assumed impossible, because the check costs nothing and
+    a future role whose contract happened to collide would otherwise raise `weft_kernel.context.
+    DuplicateServiceError` with no clue this function is where to look.
+
+    Not `async def`: nothing this function calls awaits, unlike `build_services`/
+    `build_index_services`, whose own coroutine shape exists for a future service that might.
+    `weft_cli.cli.run_command` is a synchronous call site (`ctx.services.add`, not `await`
+    anything) and this keeps it one.
+    """
+    registered = ServiceRegistry()
+    registered.add(Dependencies, dataclasses.replace(deps, token_sink=sink))
+    registered.add(
+        LLM,
+        llm_service(
+            registry=deps.registry,
+            roles=deps.llm.roles,
+            retry=deps.llm.retry,
+            loop_guard=deps.llm.loop_guard,
+        ),
+    )
+    registered.add(Prompts, prompts_service(deps.registry))
+    registered.add(TokenSink, sink)
+    registered.add(Registry, deps.registry)
+
+    selected = {
+        key: instance
+        for key, instance in selected_role_instances(
+            registry=deps.registry, services=deps.services, table=deps.roles
+        ).items()
+        if not _contract_registered(registered, deps.roles.roles[key].contract)
+    }
+    register_selected_roles(registered, selected=selected, table=deps.roles, demanded=())
+    return registered

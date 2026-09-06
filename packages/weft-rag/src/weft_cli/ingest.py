@@ -108,7 +108,8 @@ from weft_cli.compile import contracts_for, to_specs
 from weft_cli.llm_roles import LLMSection
 from weft_cli.pipeline_catalogue import UnknownPipelineNameError, full_catalogue
 from weft_cli.run_services import build_index_services
-from weft_cli.services import DEFAULT_EMBEDDER, DEFAULT_STORE
+from weft_cli.service_roles import RoleTable
+from weft_cli.services import DEFAULT_EMBEDDER, DEFAULT_STORE, ServiceSelection
 from weft_embed import Embedder
 from weft_extract import (
     Extractor,
@@ -144,6 +145,15 @@ BUILT_IN_PIPELINE_NAME: Final[str] = "built-in"
 #: Chunking: fixed, explicit, and stated once. See the module docstring for why extraction
 #: is chosen at run time, and `weft_cli.services` for why embedding and storage are.
 _CHUNK_SPEC = StageSpec(id="chunk", contract=Chunker, name="fixed-size")
+
+#: `run_index`'s own defaults for its new `services`/`roles` parameters (ledger task **9.0**)
+#: — module-level singletons, never `ServiceSelection()`/`RoleTable()` written inline in the
+#: signature, because ruff's B008 refuses a function call in a default argument's position
+#: regardless of the type being frozen. Both are empty and select nothing, which is exactly
+#: today's behaviour for a caller — `weft_cli.eval_commands.EvalRunCommand.run`, until it too
+#: threads `deps.services`/`deps.roles` through — that names neither.
+_NO_SELECTION: Final[ServiceSelection] = ServiceSelection()
+_NO_ROLES: Final[RoleTable] = RoleTable()
 
 #: The packs `index_specs` names *itself*, in the order a caller should check them —
 #: `weft_cli.registry_bootstrap.require_active`'s input, and entry-point names rather than
@@ -298,6 +308,8 @@ async def run_index(
     contributions: tuple[Contribution, ...] = (),
     llm: LLMSection | None = None,
     sink: TokenSink | None = None,
+    services: ServiceSelection = _NO_SELECTION,
+    roles: RoleTable = _NO_ROLES,
 ) -> IndexResult:
     """Extract, chunk, embed and store every file under `directory` an extractor claims.
 
@@ -339,6 +351,13 @@ async def run_index(
     when `pipeline` is given; a pack's own contributed stage runs in a named `--pipeline`
     document exactly as an authored one does. The default-path four stages below are Python
     constants with no slot to fill, so this parameter does nothing when `pipeline` is `None`.
+
+    `services`/`roles` — ledger task **9.0** — are `weft_cli.registry_bootstrap.Dependencies.
+    services`/`.roles`, threaded straight through to `weft_cli.run_services.
+    build_index_services` alongside `filled_by_stages` (every contract the resolved `specs`
+    already fill, computed here since this is the one place both `specs` and the role table
+    are in scope). Both default to an empty table/selection — a caller naming neither gets
+    exactly today's four-service ingest registry, unchanged.
     """
     if pipeline is not None and extractor is not None:
         raise WeftError(
@@ -384,6 +403,11 @@ async def run_index(
 
     runner = Runner(registry)
     runnable = runner.resolve(specs, tenant_id=ctx.tenant_id)
+    # Ledger task **9.0** — every contract a stage in this resolved `specs` already fills is
+    # excluded from the ambient role set `build_index_services` would otherwise register; see
+    # that function's own docstring for why this is derived from the pipeline rather than a
+    # second hardcoded absence beside `NodeStore`'s own.
+    filled_by_stages = tuple(spec.contract for spec in specs)
     indexing_ctx = replace(
         ctx,
         services=await build_index_services(
@@ -391,6 +415,9 @@ async def run_index(
             llm=llm if llm is not None else LLMSection(),
             sink=sink if sink is not None else NullSink(),
             embedder=_embedder_instance_of(specs, runnable),
+            roles=roles,
+            services=services,
+            filled_by_stages=filled_by_stages,
         ),
     )
 
