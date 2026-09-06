@@ -5070,10 +5070,10 @@ marked.
   already does what the block records, `payload/ext.py:9-10` already says it, `README.md:141` (G5's
   row) states what transience is and never where. Closes in the commit that pastes the block, which
   may be the commit that lands this section
-- [ ] **9.2** a node whose media type is not text reaches the store whole through every shipped
+- [x] **9.2** a node whose media type is not text reaches the store whole through every shipped
   chunker, because a chunker declares what it splits and the runner routes the rest past it —
   `1.6`'s property, held for the product and not only for its fixture · owner `02` §3 →
-  *Applicability*; `build-ledger.md` 1.6 · turns on *a stage that splits declares what it splits* (**FF23**, filed 2026-09-06) · sha — · measured 2026-09-06:
+  *Applicability*; `build-ledger.md` 1.6 · turns on *a stage that splits declares what it splits* (**FF23**, filed 2026-09-06) · sha `6d40406` · measured 2026-09-06:
   `FixedSizeChunker` (`packages/weft-rag/src/weft_chunk/fixed_size.py:100`, registered as
   `fixed-size` at `weft_chunk/__init__.py:39`) declared no `applies_to` and split a
   `MediaType.TABLE` node into two chunks. Depends on nothing; first in order. **Two halves, and the
