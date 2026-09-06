@@ -960,6 +960,36 @@ planning pass itself: a line claiming an existing mechanism should name the call
 
 
 
+
+### L9.43 — an incidental literal in my assertion chose the storage design, and the design was write-only
+
+**What happened.** Task `9.2`'s test carried `assert Applies(media_type=MediaType.TEXT).constraints
+!= ()`. I meant it as "this constraint is not empty"; the implementer correctly read it as the
+specification it was, and stored the media types inside `constraints` — which is
+`tuple[tuple[str, object], ...]`, because a *fact's* narrowed values are arbitrary. `object` is
+exactly the annotation that hands a persisted `"text"` back as the string `"text"`, so the
+constraint dumped correctly and read back matching **no node at all**, silently. The agent said so
+in its report — *"only makes sense under the design of folding the media-type constraint into the
+existing `constraints` tuple rather than adding a dedicated field"* — which is the only reason the
+cause is known rather than guessed at. Repaired in `a4c51ac` by giving it a typed field; the
+round-trip test that catches it was written after reading the diff, not before dispatch.
+
+This is `L6.10` recurring — *"an assertion is a specification including the parts you did not
+mean"* — one drain after it was applied, and `L6.8` says a rule that is re-learned is in the wrong
+artefact. It is also this module's second write-only constraint: `_FactRef`'s own docstring records
+the first, found at Phase 8's close by running the binary.
+
+**Generalises to.** Where a test asserts on a value's **container** rather than on the fact the
+value means, it has specified storage — so either assert the fact (`matches` returns what it
+should, before and after a JSON round trip) or accept that the brief has chosen the field. And any
+new constraint that persists gets its round-trip test written in the *red* phase, because a
+serialiser that works from the day it is written never fails while records are being created.
+
+**Candidate home.** `phase-step` → *Red*, beside `L6.10`, which currently warns about order and
+count but not about asserting through a container. Possibly a fitness function instead: every
+`BaseModel` a stage declaration persists survives `model_validate(model_dump(mode="json"))` with
+`==` — the property is general and this module has now failed it twice.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in
