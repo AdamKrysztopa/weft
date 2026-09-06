@@ -5251,7 +5251,45 @@ marked.
   (`packages/weft-kernel/src/weft_kernel/discovery.py:515`), which is what lets FF14 and FF19 cover
   them by construction. `TableGrid` is **not** transient — kilobytes of JSONB is what `ext` is for
   (`11:245-318`); only bytes were ever a transience problem, and after 9.4 no ext model has a reason
-  to hold them, which is the property FF22 pins
+  to hold them, which is the property **FF24** pins. *(This line said "FF22" until 2026-09-06 —
+  a number task 9.0 had already filed a different check under, the third instance of `L9.44` in
+  one phase.)* · **`TableGrid` and `PageSpan` live in `weft_extract`, not in `weft-pdf`, and `11:181`
+  proposes otherwise.** That line predates `9.13`, which ships a *second* structured extractor
+  (`weft-docling`, its own distribution for its dependency weight) that produces tables too — a
+  `TableGrid` published from `weft-pdf` would make every future table producer depend on the
+  pdfplumber pack to name the fact it produces. `11` §6 rank 11 already states the rule and calls it
+  the canonical example of itself: *"if two extractors both need it, it belongs to the contract's
+  pack"* · `BoundingBox` and `CellSpan` are frozen models rather than a 4-tuple and a 4-tuple: a
+  positional quadruple is a convention a docstring states and nothing enforces, which `11` §6
+  records a third party paying for, and naming the edges lets a validator refuse an inverted box.
+  A **ragged grid is refused** where the fact is built rather than at whichever of `9.6`'s two
+  serialisers notices first — cells under the wrong headers is a silent wrong answer · **the round
+  trip is proved on both real backends, not one.** `tests/integration/test_store_conformance.py`
+  gained a case carrying all three facts on one node — three namespaces, so a store that dropped or
+  overwrote one would pass a test storing only two — and it was run with the `conformance` profile
+  up: `2 passed` for that case, `54 passed` for the whole kit against pgvector *and* Qdrant. The
+  container was returned to postgres-only afterwards, which is why the gate's **skip count moves 38
+  → 39**: this case skips when Qdrant is down, and that is the number to expect from here ·
+  **FF24 is the check, and it has two clauses because clause (a) structurally cannot see clause
+  (b)'s case.** (a) no `ExtModel` under `packages/`, `testing/` or `examples/` declares a
+  bytes-shaped field, read off pydantic's own core schema — `field.metadata` is empty for a field
+  annotated through an alias, which is `L5.19` and `L8.25` twice; (b) no first-party `Extractor`
+  answers `Produced` with its own input in base64, because that is a `str` and satisfies every type
+  clause (a) checks while reaching the same JSONB column. Measured while filing: **only `bytes` is
+  reachable** — pydantic refuses to build a schema for `bytearray` or `memoryview` at all, so those
+  are unrepresentable rather than unchecked, and all three stay named so a future pydantic does not
+  open the hole silently. `01`'s entry placed clause (b) *"as a conformance case in `weft_extract`'s
+  kit"*; no such kit exists — the only one in the tree is the store's, under `tests/` — so the
+  clause lives beside (a) and `01` is corrected · **FF7 caught the first draft**: clause (b) used
+  `asyncio.run`, and the tree permits exactly one, at `weft-cli`'s entry point. The check did its
+  job on this file's first full gate run · **run through the shipped binary from outside the
+  repository**: `weft plugins doctor` reports `extract` and `blob` active, `weft index` and
+  `weft delete` are unchanged (`filesystem (weft-rag): 0 node(s), 0 blob(s) removed` beside
+  `pgvector (weft-rag): 8 node(s) removed`), and the installed artefact's own discovery lists
+  `weft-extract-page` and `weft-extract-table` among the rehydratable namespaces — which is the
+  half a unit test cannot reach. **What the binary cannot yet show, stated rather than implied**:
+  nothing produces either fact until `9.6` and `9.7`, so the end-to-end demonstration is `9.8`'s ·
+  `poe ci-checks` green: **2199 passed, 39 skipped**, 246 architecture tests, examples 122 passed
 - [ ] **9.6** a table in a born-digital PDF arrives as one node whose media type says so, carrying
   its grid, rendered to index text by the one serialiser the `Extractor`'s own pack publishes, so a
   cell containing a pipe cannot break one extractor and not another · owner `11` §2.4, §1.4; `01` →

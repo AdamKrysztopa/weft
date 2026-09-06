@@ -1342,6 +1342,38 @@ already refuses writes outside the tracked tree. Secondarily, the brief template
 (*"the tree was green at `<sha>` before you started"*), which removes the reason the agent reached
 for the command at all.
 
+
+### L9.57 — I edited a test file while the implementer holding it was still running
+
+**What happened.** `phase-step` → *Green* says it in two clauses: *"Run `ci-no-tests` before you
+dispatch, and then keep off the tree until the agent returns... do not edit the tree, and do not run
+the gate either."* During task `9.5` I dispatched a `weft-implementer` and then, while it worked,
+found and fixed a defect in one of the test files I had handed it — `test_a_grid_reaches_a_node...`
+called `Node.synthetic(..., ext=grid)`, and `Node.synthetic` has no `ext` parameter.
+
+The agent hit that failure first, correctly read it as demanding a kernel signature change its brief
+excluded, and was on its way to reporting **blocked** — against a test that, by the time anyone read
+the report, no longer said that. It re-ran, the test had changed under it, and it passed. It flagged
+this itself: *"had I been asked to diagnose the failure a few minutes earlier, I would have had to
+report it as blocked against a test that no longer existed in that form."*
+
+Nothing was lost, and that is not the point. The rule exists because a shared checkout makes an
+agent's report a claim about a tree that may already be gone, and I produced exactly that state
+while believing I was being helpful — the fix was small, correct, and mine to make, which is what
+made it feel exempt.
+
+**Generalises to.** *Keep off the tree* has no small-edit exemption, and the tempting case is
+precisely a defect in the artefact the agent is working against: the smaller the fix, the more
+obviously it should just be done, and the more confusing the resulting report. A test defect found
+mid-dispatch is either worth interrupting the agent for — say so, and re-dispatch — or worth waiting
+for. It is never worth silently repairing underneath.
+
+**Candidate home.** `phase-step` → *Green*, which states the rule and gives the container and gate
+as its reasons (`L6.22`, `L6.30`). Neither reason covers this case: I edited no shared *state*, I
+edited the agent's own *specification*. One sentence naming that — *the brief and its tests are the
+agent's ground truth and freeze at dispatch* — is what the rule is missing, and the dispatcher is
+the only party who can break it.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

@@ -53,7 +53,10 @@ from pydantic import SecretStr
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.http.exceptions import ResponseHandlingException, UnexpectedResponse
 
+from weft_blob.contract import BlobUri
+from weft_blob.payload import BlobRef
 from weft_cli.run_services import StoreCapabilityMissingError, check_store_capabilities
+from weft_extract.payload import BoundingBox, PageSpan, TableGrid
 from weft_kernel.context import Context
 from weft_kernel.payload import MediaType, Node, Outcome, Produced, SourceId, Vector
 from weft_kernel.registry import Registry
@@ -87,6 +90,11 @@ _QDRANT_URL = os.environ.get("WEFT_QDRANT_URL", "http://localhost:6333")
 #: point rather than a store's own type. `docs/02-extension-model.md` names this call as the
 #: one a pack makes so its nodes survive a store; nothing registers it implicitly.
 register_ext_model(PdfPages)
+#: Ledger task 9.5's three, on the identical footing — a store reads `ext` back by namespace, so
+#: a namespace this process never registered rehydrates as nothing at all.
+register_ext_model(BlobRef)
+register_ext_model(TableGrid)
+register_ext_model(PageSpan)
 
 _SOURCE_A = SourceId("source-a")
 _SOURCE_B = SourceId("source-b")
@@ -239,6 +247,54 @@ async def test_a_node_round_trips_through_the_store_with_its_lineage_and_its_ext
     assert found[0].lineage.sources == frozenset({_SOURCE_A, _SOURCE_B})
     assert found[0].ext_as(PdfPages) == PdfPages(backend="pdfplumber", starts=(0, 500))
     assert found[0].embedding is not None
+
+
+async def test_the_multimodal_facts_round_trip_through_every_store(
+    store: ConformanceStore,
+) -> None:
+    """Ledger task `9.5`: `BlobRef`, `TableGrid` and `PageSpan` survive a real backend — both.
+
+    The task says *"each survive a round trip through every store"*, and "every store" is what this
+    kit is — one suite, two real containers. A unit test over `model_validate(model_dump())` proves
+    the model; it cannot prove that a backend's own JSONB or payload encoding carries a nested
+    tuple-of-tuples and a float bounding box back unchanged, which is the half that has actually
+    broken before.
+
+    All three at once on one node, deliberately: they occupy three namespaces and `ext` is keyed by
+    namespace, so a store that dropped or overwrote one would pass a test that stored only the other
+    two.
+    """
+    # Arrange
+    grid = TableGrid(
+        headers=("Region", "Revenue"),
+        rows=(("EMEA", "1,204"), ("APAC", "988")),
+        caption="Table 2. Revenue by region.",
+        page=7,
+        bbox=BoundingBox(x0=72.0, y0=520.5, x1=523.0, y1=610.25),
+    )
+    span = PageSpan(page=7, ordinal=3)
+    ref = BlobRef(uri=BlobUri("file:///blobs/t/9f2c/0.png"), media_type="image/png")
+    node = (
+        Node.synthetic(
+            content="Region | Revenue",
+            media_type=MediaType.TABLE,
+            reason="9.5's conformance subject",
+        )
+        .with_ext(grid)
+        .with_ext(span)
+        .with_ext(ref)
+    )
+
+    # Act
+    await store.add([node])
+    await store.flush()
+    found = await store.get([node.id])
+
+    # Assert
+    assert len(found) == 1
+    assert found[0].ext_as(TableGrid) == grid
+    assert found[0].ext_as(PageSpan) == span
+    assert found[0].ext_as(BlobRef) == ref
 
 
 async def test_scan_and_count_see_every_stored_node_whatever_order_a_backend_walks_in(

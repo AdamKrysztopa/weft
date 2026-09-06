@@ -26,7 +26,15 @@ from weft_extract.contract import (
     Renderer,
     SourceDoc,
 )
-from weft_extract.payload import DroppedContent, DroppedKind, Rendition
+from weft_extract.payload import (
+    BoundingBox,
+    CellSpan,
+    DroppedContent,
+    DroppedKind,
+    PageSpan,
+    Rendition,
+    TableGrid,
+)
 from weft_extract.render import (
     MARKDOWN_NAME,
     PLAIN_NAME,
@@ -56,6 +64,8 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(Extractor, "text", TextExtractor)
     registrar.add(Renderer, PLAIN_NAME, PlainRenderer)
     registrar.add(Renderer, MARKDOWN_NAME, MarkdownRenderer)
+    registrar.add_ext_model(TableGrid)
+    registrar.add_ext_model(PageSpan)
 
 
 __all__ = [
@@ -64,17 +74,21 @@ __all__ = [
     "MARKDOWN_NAME",
     "PLAIN_NAME",
     "RENDERER_CONTRACT_VERSION",
+    "BoundingBox",
+    "CellSpan",
     "DroppedContent",
     "DroppedKind",
     "Extractor",
     "MarkdownRenderer",
     "MarkdownRendererConfig",
+    "PageSpan",
     "PlainRenderer",
     "PlainRendererConfig",
     "Renderer",
     "Rendition",
     "Settings",
     "SourceDoc",
+    "TableGrid",
     "TextExtractor",
     "TextExtractorConfig",
     "claimed_extensions",

@@ -902,19 +902,10 @@ the finding.
 
 **Fitness functions this phase turns on.** Stated here as properties rather than as numbers: each is numbered and filed in `tests/architecture/` **by the task that makes it true**, because each asserts a property the tree does not satisfy when it is written and a check that cannot yet pass is the prose FF0(b) refuses. `lessons.md` L9.15 is why the numeral waits for the file — and a *filename* carrying a numeral is that numeral claimed, which is the way this block got it wrong once already (see 9.5's entry). An entry that has been filed says so and points at the numbered list; it is not maintained in two places.
 
-- **Bytes never enter a node.** Added 2026-09-06, ledger task 9.5. Two clauses, each able to fail
-      alone. *(a)* No `ExtModel` in `packages/`, `testing/` or `examples/` declares a field whose
-      annotation is `bytes`, `bytearray` or `memoryview`, read off the model's **core schema** and never
-      off `field.metadata` — the same detection FF19 corrected itself to, since `metadata` is empty for a
-      field annotated through an alias. *(b)* No first-party `Extractor` produces a `Node.content` that
-      is a base64 rendering of its own input, as a conformance case in `weft_extract`'s kit. **Why a
-      fitness function rather than a review note:** `__transient__` was built to keep a blob out of a
-      JSONB column (`02` §1 → *The payload model*), and after D1 bytes leave the payload through
-      `BlobStore` with a non-transient `BlobRef` in `ext` — so an ext model that grows a bytes field is
-      not a small convenience but the reintroduction of the transport `__transient__` never was, and
-      nothing in a green gate would say so. `tests/architecture/test_ff<NN>_no_bytes_in_a_node.py` — `<NN>` is a
-      placeholder and the file names its own numeral when it is written, per the rule this block
-      opens with. Waiver `EXT_MODELS_CARRYING_BYTES` pinned empty. No tuning constant.
+- **Bytes never enter a node.** Added 2026-09-06, ledger task 9.5, **filed the same day as fitness
+      function 24** — item 24 of the numbered list below owns it, and
+      `tests/architecture/test_ff24_no_bytes_in_a_node.py` is the check. Waiver
+      `EXT_MODELS_CARRYING_BYTES` pinned empty.
 
 - **A stage that splits declares what it splits.** Added 2026-09-06, ledger task 9.2, **filed the
       same day as fitness function 23** — so it is no longer stated here as a property: item 23 of the
@@ -1761,6 +1752,30 @@ All checks run in CI, before tests.
     narrowing that at the seam is an amendment owed `09` §6.2's widening test, not a repair a task
     may make in passing. Waiver `CHUNKERS_APPLYING_TO_EVERYTHING` pinned empty. No tuning constant.
     `tests/architecture/test_ff23_chunkers_declare_what_they_split.py`.
+
+24. **Bytes never enter a node.** Added 2026-09-06, ledger task 9.5. Two clauses, each able to fail
+    alone. *(a)* No `ExtModel` in `packages/`, `testing/` or `examples/` declares a field whose
+    annotation is `bytes`, `bytearray` or `memoryview`, read off the model's **core schema** and
+    never off `field.metadata` — the same detection FF19 corrected itself to, since `metadata` is
+    empty for a field annotated through an alias. Measured while filing: only `bytes` is reachable,
+    because pydantic refuses to build a schema for the other two at all, so those are
+    unrepresentable rather than merely unchecked — all three stay named so a pydantic release
+    adding support does not open the hole silently. *(b)* No first-party `Extractor` answers
+    `Produced` with a `Node.content` that is a base64 rendering of the bytes it was handed, checked
+    against every `Extractor` the real registry holds. **Clause (a) structurally cannot see clause
+    (b)'s case** — base64 of a megabyte of pixels is a `str`, so it satisfies every type clause (a)
+    checks and reaches the same JSONB column by a different door; `11` §1 names the encoded form
+    rather than the Python type. **Why a fitness function rather than a review note:**
+    `__transient__` was built to keep a blob out of a JSONB column (`02` §1 → *The payload model*),
+    and after task 9.4 bytes leave the payload through `BlobStore` with a non-transient `BlobRef`
+    in `ext` — so an ext model that grows a bytes field is not a small convenience but the
+    reintroduction of the transport `__transient__` never was, with the strip that used to be a
+    backstop no longer covering it. **Clause (b) is not where this entry first put it**: it said
+    *"as a conformance case in `weft_extract`'s kit"*, and measured 2026-09-06 no such kit exists —
+    the only conformance kit in the tree is the store's, under `tests/`, published nowhere.
+    Inventing a module to hold one case would ship a seam with one user, so the clause is asserted
+    in the fitness function beside clause (a). Waiver `EXT_MODELS_CARRYING_BYTES` pinned empty. No
+    tuning constant. `tests/architecture/test_ff24_no_bytes_in_a_node.py`.
 
 > **Corrected 2026-08-10 — fitness function 1, and the preamble.** This section previously opened
 > *"the single best thing in a codebase examined during design is its AST boundary checker"* and
