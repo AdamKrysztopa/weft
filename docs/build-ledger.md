@@ -4198,7 +4198,7 @@ is also refused: the ReAct step is a typed structured answer through the three-t
   verified rather than acted on
 - [x] **7.4 ⚠** the agentic pack installs from the index alongside the release and drives a corpus end
   to end with no edit to core, and `weft plugins doctor` reports it exactly as it reports any other
-  pack · owner `01` → Phase 7 **Exit** · turns on — · sha `SHA74` ·
+  pack · owner `01` → Phase 7 **Exit** · turns on — · sha `f8b2f75` ·
   **Demonstrated from a genuinely isolated install, and the first attempt was not one.**
   `uv pip install packages/...` left `_editable_impl_weft_kernel.pth` and
   `_editable_impl_weft_rag.pth` in the venv — only `weft-agent` was a real copy, so the run proved
