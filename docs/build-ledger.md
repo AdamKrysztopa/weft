@@ -5244,9 +5244,9 @@ marked.
   transcript is corrected to the four keys `[services]` now accepts, and `02` §1 records the
   contract · `poe ci-checks` green: **2176 passed, 38 skipped**, 235 architecture tests, examples
   122 passed
-- [ ] **9.5** a reference to bytes, a cell grid and a page span each survive a round trip through
+- [x] **9.5** a reference to bytes, a cell grid and a page span each survive a round trip through
   every store, carry their own schema version, and no ext model anywhere in the tree can hold bytes ·
-  owner `02` §1 → *The payload model*; `11` §2.4 · turns on *bytes never enter a node* (numbered when filed) · sha — · `BlobRef`, `TableGrid`,
+  owner `02` §1 → *The payload model*; `11` §2.4 · turns on *bytes never enter a node* (**FF24**, filed 2026-09-06) · sha `7b8572d` · `BlobRef`, `TableGrid`,
   `PageSpan` as `ExtModel`s reaching rehydration through `add_ext_model`
   (`packages/weft-kernel/src/weft_kernel/discovery.py:515`), which is what lets FF14 and FF19 cover
   them by construction. `TableGrid` is **not** transient — kilobytes of JSONB is what `ext` is for
