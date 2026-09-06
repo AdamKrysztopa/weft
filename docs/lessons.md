@@ -1374,6 +1374,52 @@ edited the agent's own *specification*. One sentence naming that — *the brief 
 agent's ground truth and freeze at dispatch* — is what the rule is missing, and the dispatcher is
 the only party who can break it.
 
+**It happened again in the same session, twice more, before this entry was even drained.** During
+task `9.6` I edited `tests/unit/weft_extract/test_table_text.py` to remove a degenerate parametrised
+case (`L9.58`) while its implementer was running — it had independently found the same defect and
+was *about to report blocked* when the file changed underneath it — and I added a
+`figure_with_caption` fixture to `tests/unit/weft_pdf/minimal_pdf.py`, for a *different* task, in the
+same window. The agent flagged both. Three instances, one session, all by the dispatcher, all while
+the rule was written down and had just been written down *by me*. That is the strongest available
+argument that this belongs in a mechanism rather than a sentence: the person breaking it is the
+person who knows it best and is the only one positioned to break it.
+
+
+### L9.58 — a parametrised case built its own control by transforming the input, and one value transformed to itself
+
+**What happened.** Task `9.6`'s serialiser test asserts injectivity — two different grids must never
+render to the same string — and built its control by *neutralising* the awkward input:
+
+```python
+@pytest.mark.parametrize("awkward", ["a|b", "a\\b", "a\nb", "|", "---", "a|b\\c"])
+plain  = _grid((awkward.replace("|", "!").replace("\\", "/").replace("\n", " "), "x"), ...)
+tricky = _grid((awkward, "x"), ...)
+assert index_text(plain) != index_text(tricky)
+```
+
+For `"---"` every replacement is a no-op, so `plain` and `tricky` are the **same grid** and the
+assertion says a string differs from itself. Unsatisfiable by any implementation. Five of the six
+cases were fine, so the file read as a normal parametrised test and the defect surfaced only when it
+ran. The dispatched implementer found it independently and was about to report **blocked** against
+it.
+
+This is `L5.6`'s shape one level down — there, a declaration derived from the thing it verified and
+so could not fail; here, a *control* derived from the input by a transform that, for one value, is
+the identity. The difference that matters: `L5.6`'s check could never fail, and this one fails
+*always*, for exactly one parameter, which is why it was caught in a second rather than living in a
+green gate. Both come from the same move — computing one side of a comparison out of the other.
+
+**Generalises to.** Where a test builds a control by transforming its input, the transform must be
+asserted to have changed something, or every parametrised value must be checked by hand against it.
+The compact form: a parametrised case whose two sides are equal by construction is a case that
+cannot pass, and one whose two sides are equal *by coincidence* is a case that cannot fail — both
+are the same authoring mistake and neither is visible in the parameter list.
+
+**Candidate home.** `phase-step` → *Red*, beside `L6.10` (*an assertion is a specification including
+the parts you did not mean*), which warns about incidental literals and not about a derived control.
+One sentence. A mechanical version is possible for the pass-side case — assert the two constructed
+inputs differ before comparing their renderings — and is cheap enough to be the actual fix here.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

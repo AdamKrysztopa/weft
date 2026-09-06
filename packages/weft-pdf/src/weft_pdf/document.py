@@ -54,9 +54,11 @@ them.
 from bisect import bisect_right
 from collections.abc import Callable, Sequence
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from weft_extract.contract import SourceDoc
+from weft_extract.payload import BoundingBox, TableGrid
+from weft_extract.table_text import index_text
 from weft_kernel.payload import (
     ExtModel,
     Failed,
@@ -153,6 +155,32 @@ class PdfPages(ExtModel):
 type PageReader = Callable[[bytes], Sequence[PageText]]
 
 
+class ExtractedTable(BaseModel):
+    """One table a backend found, before it becomes a `TableGrid` — ledger task `9.6`.
+
+    Deliberately not `TableGrid` itself: a backend's own reading of a table can be
+    ragged, headerless or otherwise malformed in ways `TableGrid` refuses by
+    construction (see `weft_extract.payload`'s module docstring), and refusing that
+    grid must skip the one table rather than fail the document. This model is what
+    a backend hands back before that check runs.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    #: 1-based, matching `PageText.number`.
+    page: int = Field(ge=1)
+    headers: tuple[str, ...]
+    rows: tuple[tuple[str, ...], ...]
+    bbox: BoundingBox
+
+
+#: What a backend contributes for tables, and the only thing it contributes: bytes in,
+#: tables out. `None` (the default on `extract_documents`) means the backend cannot see
+#: a table at all — see the module docstring's argument for why `pdf_text.py` passes
+#: no reader rather than one that always answers empty.
+type TableReader = Callable[[bytes], Sequence[ExtractedTable]]
+
+
 def extract_documents(
     payload: Sequence[SourceDoc],
     *,
@@ -160,6 +188,7 @@ def extract_documents(
     read_pages: PageReader,
     unreadable: tuple[type[Exception], ...],
     separator: str,
+    read_tables: TableReader | None = None,
 ) -> Outcome[Sequence[Node]]:
     """One root `Node` per source document, under the rules in the module docstring.
 
@@ -168,6 +197,13 @@ def extract_documents(
     documented, expected outcome that belongs in `Failed` so the fallback chain
     can try the next backend, while anything else escaping a backend is a bug
     that must reach the registration seam with its traceback intact.
+
+    `read_tables` defaults to `None`, and that default is a fact about one specific
+    caller rather than every caller: `pdf_text.py` — the only other backend in this
+    pack — wraps `pypdf`, which has no table extraction of any kind, so it passes
+    nothing rather than a reader shaped to always answer empty. `pdf_layout.py`
+    supplies one because `pdfplumber` can actually find a table; the backend that
+    cannot see one must not guess at one.
     """
     if not payload:
         return NothingToProduce(reason="no source documents to extract")
@@ -203,17 +239,43 @@ def extract_documents(
             empty.append(f"'{doc.uri}': {len(pages)} page(s), and no text on any of them")
             continue
 
-        nodes.append(
-            Node.synthetic(
-                content=content,
-                media_type=MediaType.TEXT,
-                reason=f"extracted from '{doc.uri}' by {backend}",
-                sources=frozenset({doc.source_id}),
-            ).with_ext(PdfPages(backend=backend, starts=starts))
-        )
+        root = Node.synthetic(
+            content=content,
+            media_type=MediaType.TEXT,
+            reason=f"extracted from '{doc.uri}' by {backend}",
+            sources=frozenset({doc.source_id}),
+        ).with_ext(PdfPages(backend=backend, starts=starts))
+        nodes.append(root)
+
+        if read_tables is not None:
+            for ordinal, table in enumerate(read_tables(doc.content)):
+                table_node = _table_node(root, table, ordinal=ordinal)
+                if table_node is not None:
+                    nodes.append(table_node)
     if not nodes:
         return NothingToProduce(reason="; ".join(empty))
     return Produced(value=nodes)
+
+
+def _table_node(root: Node, table: ExtractedTable, *, ordinal: int) -> Node | None:
+    """`table` as a child of `root`, or `None` if its grid could not be built.
+
+    Skipped rather than repaired or raised, per the module docstring: a ragged grid, one
+    with no headers at all, or one whose header row is entirely blank is not a table this
+    pack can index, and one unreadable table in a document is not a reason to fail the
+    document. Raggedness is `TableGrid`'s own refusal (see `weft_extract.payload`'s
+    module docstring) — pydantic wraps it as `ValidationError`, caught here rather than
+    left to propagate past this one table.
+    """
+    if not table.headers or not any(header.strip() for header in table.headers):
+        return None
+    try:
+        grid = TableGrid(headers=table.headers, rows=table.rows, page=table.page, bbox=table.bbox)
+    except ValidationError:
+        return None
+    return root.derive(
+        content=index_text(grid), media_type=MediaType.TABLE, ordinal=ordinal
+    ).with_ext(grid)
 
 
 def _first_unseen_page(pages: Sequence[PageText]) -> PageText | None:

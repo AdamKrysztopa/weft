@@ -43,6 +43,7 @@ from weft_extract.render import (
     PlainRenderer,
     PlainRendererConfig,
 )
+from weft_extract.table_text import index_text, prompt_markdown
 from weft_extract.text import EXTENSIONS, TextExtractor, TextExtractorConfig, discover_source_docs
 from weft_kernel.discovery import PackRegistrar
 
@@ -93,6 +94,8 @@ __all__ = [
     "TextExtractorConfig",
     "claimed_extensions",
     "discover_source_docs",
+    "index_text",
     "present_suffixes",
+    "prompt_markdown",
     "register",
 ]

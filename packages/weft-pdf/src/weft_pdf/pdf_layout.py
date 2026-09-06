@@ -40,9 +40,10 @@ from pdfplumber.utils.exceptions import PdfminerException
 from pydantic import BaseModel, ConfigDict, Field
 
 from weft_extract.contract import SourceDoc
+from weft_extract.payload import BoundingBox
 from weft_kernel.context import Context
 from weft_kernel.payload import Node, Outcome
-from weft_pdf.document import EXTENSIONS, PageText, extract_documents
+from weft_pdf.document import EXTENSIONS, ExtractedTable, PageText, extract_documents
 
 #: The name this backend is registered and selected under — see `weft_pdf.register`.
 NAME = "pdf-layout"
@@ -145,6 +146,7 @@ class PdfLayoutExtractor:
             read_pages=self._read_pages,
             unreadable=(PdfminerException,),
             separator=self._config.page_separator,
+            read_tables=self._read_tables,
         )
 
     def _read_pages(self, content: bytes) -> Sequence[PageText]:
@@ -179,3 +181,39 @@ class PdfLayoutExtractor:
                 )
                 for number, page in enumerate(document.pages, start=1)
             )
+
+    def _read_tables(self, content: bytes) -> Sequence[ExtractedTable]:
+        """Every table `pdfplumber` finds, at its own default table-detection settings.
+
+        `find_tables` rather than a separate call to `extract_tables`: in `pdfplumber`'s
+        own source, `extract_tables` is exactly `find_tables` followed by `.extract()`
+        per table, so calling `find_tables` once gives the cell matrix and the bounding
+        box `9.6` needs for `bbox` paired by construction, rather than by two passes
+        that could disagree in order.
+
+        The first row of each table is its header row — a cell `pdfplumber` could not
+        read comes back `None`, rendered here as `""` rather than the text `"None"`.
+        A table `pdfplumber` found but could not extract any cells from is skipped;
+        a table whose header row is blank, or whose grid is ragged, is `document.py`'s
+        `_table_node` to skip, not this method's.
+        """
+        config = self._config
+        tables: list[ExtractedTable] = []
+        with pdfplumber.open(BytesIO(content), password=config.password) as document:
+            for number, page in enumerate(document.pages, start=1):
+                for table in page.find_tables():
+                    matrix = table.extract()
+                    if not matrix:
+                        continue
+                    headers = tuple(cell or "" for cell in matrix[0])
+                    rows = tuple(tuple(cell or "" for cell in row) for row in matrix[1:])
+                    x0, top, x1, bottom = table.bbox
+                    tables.append(
+                        ExtractedTable(
+                            page=number,
+                            headers=headers,
+                            rows=rows,
+                            bbox=BoundingBox(x0=x0, y0=top, x1=x1, y1=bottom),
+                        )
+                    )
+        return tuple(tables)

@@ -5298,7 +5298,31 @@ marked.
   `MediaType.TABLE` (`media_type.py:18`) gains its first producer. The two serialisations — index
   form and prompt form — are one module in the pack that publishes `TableGrid`, per `11` §6 rank 11.
   **Phase 10 note:** the index-form text is what a RAPTOR summariser reads for a table; the grid
-  stays on the leaf and a summary built by `Node.combine` carries no `TableGrid` of its own
+  stays on the leaf and a summary built by `Node.combine` carries no `TableGrid` of its own ·
+  **the serialisers live in `weft_extract`, the finder in `weft-pdf`.** `weft_extract.table_text`
+  publishes `index_text` and `prompt_markdown` over one shared escape, because `9.13`'s Docling
+  backend is the second extractor and two escaping policies would give the same table two node
+  ids — the scar `11` §1.4 records as *"four of five table→markdown renderers rolled their own
+  conversion, with three different escaping policies... and that rendered text is what gets
+  embedded"*. `11` §6 rank 11 is the rule and calls this its canonical example · **the pipe clause
+  is asserted as injectivity, not as an escape sequence**: two different grids never render to one
+  string, which is falsifiable without dictating punctuation · **`extract_documents` gained
+  `read_tables`, defaulting `None`, and `pdf-text` abstains for a reason specific to it** —
+  `pypdf` has no table extraction at all, so the backend that cannot see a table must not guess at
+  one. `L8.24` is why that docstring names `pdf_text.py` rather than generalising · a ragged,
+  headerless or blank-header grid is **skipped**, never repaired and never fatal: repairing means
+  cells under the wrong headers, silently, and one unreadable table is not a reason to fail a
+  document. The three conditions were unpinned when the implementer returned — it said so — and are
+  now driven through `extract_documents` with a stub reader rather than through the private helper,
+  which is also the seam a type checker lets a test reach · **run through the shipped binary from
+  outside the repository.** `weft index corpus --extract pdf-layout` over a one-page PDF holding a
+  ruled 3x2 grid: `nodes now stored: 3`, `weft_nodes` bracketed 1 → 3, two `text` rows and one
+  `table` row whose content is `Region: EMEA | Revenue: 1,204` / `Region: APAC | Revenue: 988` and
+  whose `ext` holds `weft-extract-table` with the headers, both rows, the page and the bbox. The
+  table reached the store **as one node** — `9.2`'s applicability routing, with nothing in this pack
+  knowing a chunker exists. `--pipeline index-text` refuses the same directory naming the extensions
+  it claims, which is `ingest.py`'s documented narrowing and not a defect · `poe ci-checks` green:
+  **2228 passed, 39 skipped**
 - [ ] **9.7** a figure in a born-digital PDF arrives as one node whose media type says so, whose
   content is its caption or nothing, whose pixels are in the blob store under a key derived from an
   ordinal that is stable across re-extraction of an unchanged file, and which is absent from the index

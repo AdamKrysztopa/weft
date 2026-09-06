@@ -70,6 +70,43 @@ def text_columns(left: str, right: str) -> bytes:
     return _assemble(objects)
 
 
+def ruled_table(rows: Sequence[Sequence[str]]) -> bytes:
+    """A one-page PDF drawing `rows` as a ruled grid — the fixture task `9.6` needs.
+
+    Built rather than checked in for this module's own stated reason: a table is a *structural*
+    feature, and constructing it here says which feature is under test — stroked rules bounding
+    every cell, with a text object inside each — rather than asserting against an opaque blob.
+    `pdfplumber`'s default table strategy is `lines`, so the rules are what make this a table at
+    all; without them the same glyphs are three lines of prose and `extract_tables` finds nothing.
+
+    Verified against `pdfplumber` before being written down: a 3x2 grid built this way reads back
+    as `[['Region', 'Revenue'], ['EMEA', '1,204'], ['APAC', '988']]`.
+    """
+    row_count, column_count = len(rows), len(rows[0])
+    left, top, width, height = 72.0, 700.0, 120.0, 24.0
+    operations = [b"0.5 w"]
+    for index in range(row_count + 1):
+        y = top - index * height
+        operations.append(b"%.2f %.2f m %.2f %.2f l S" % (left, y, left + column_count * width, y))
+    for index in range(column_count + 1):
+        x = left + index * width
+        operations.append(b"%.2f %.2f m %.2f %.2f l S" % (x, top, x, top - row_count * height))
+    for row_index, row in enumerate(rows):
+        for column_index, cell in enumerate(row):
+            x = left + column_index * width + 4
+            y = top - (row_index + 1) * height + 8
+            operations.append(b"BT /F1 10 Tf %.2f %.2f Td (" % (x, y) + _literal(cell) + b") Tj ET")
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R "
+        b"/Resources << /Font << /F1 5 0 R >> >> >>",
+        _stream(b"", b"\n".join(operations)),
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    ]
+    return _assemble(objects)
+
+
 def image_without_text() -> bytes:
     """A PDF of one page that draws an image and declares no font and no text object."""
     objects = [
@@ -78,6 +115,39 @@ def image_without_text() -> bytes:
         b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources "
         b"<< /XObject << /Im1 5 0 R >> >> /Contents 4 0 R >>",
         _stream(b"", b"q 100 0 0 100 20 20 cm /Im1 Do Q"),
+        _stream(
+            b"/Type /XObject /Subtype /Image /Width 1 /Height 1 "
+            b"/ColorSpace /DeviceGray /BitsPerComponent 8",
+            _ONE_PIXEL,
+        ),
+    ]
+    return _assemble(objects)
+
+
+def figure_with_caption(caption: str | None, prose: str = "Some body text above.") -> bytes:
+    """A one-page PDF drawing prose, then an image, then a caption line beneath it.
+
+    Task `9.7`'s fixture. `caption=None` draws the image with no line under it — the case whose
+    honest answer is `NothingToProduce` for that node rather than `f"Figure on page {n}"`
+    (`docs/11-multimodal.md` §2.4, and G5-b at `11:667`).
+
+    Verified against both libraries before being written down: `pdfplumber` reports the image box
+    at `(72, 92, 172, 152)` in its top-left coordinate space and reads the caption as text;
+    `pypdfium2` renders the page at 612x792 so a crop of that box is exact.
+    """
+    operations = [
+        b"BT /F1 10 Tf 72 720 Td (" + _literal(prose) + b") Tj ET",
+        b"q 100 0 0 60 72 640 cm /Im1 Do Q",
+    ]
+    if caption is not None:
+        operations.append(b"BT /F1 9 Tf 72 626 Td (" + _literal(caption) + b") Tj ET")
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R "
+        b"/Resources << /Font << /F1 5 0 R >> /XObject << /Im1 6 0 R >> >> >>",
+        _stream(b"", b"\n".join(operations)),
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
         _stream(
             b"/Type /XObject /Subtype /Image /Width 1 /Height 1 "
             b"/ColorSpace /DeviceGray /BitsPerComponent 8",
