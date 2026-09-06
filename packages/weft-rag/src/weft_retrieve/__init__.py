@@ -411,14 +411,23 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     # becomes of the answer, and the reason `single-list` cannot stay: two arms are two lists.
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/hybrid-then-generate.yaml")
 
-    # **Six ingest rungs, and they are contributed from this pack rather than from `weft-index`
-    # or `weft-clean` for one reason: a document has to name every plugin it places, and these
-    # place plugins from five distributions' worth of packs at once** — `weft_extract`'s `text`,
+    # **The ingest rungs — listed below and deliberately not counted here — are contributed from
+    # this pack rather than from `weft-index` or `weft-clean` for one reason: a document has to
+    # name every plugin it places, and these place plugins from five distributions' worth of
+    # packs at once** — `weft_extract`'s `text`,
     # `weft_clean`'s cleaners, `weft_chunk`'s `fixed-size`, `weft_index`'s expanders,
     # `weft_enhance`'s `keybert`, `weft_embed`'s `hash` and `weft_store`'s `pgvector`. They all
     # ship inside `weft-rag`, so any of those packs could hold the file; this one holds it
     # because this is where the query ladder already lives and a ladder split across two
     # `register()` functions is a ladder nobody can read end to end.
+    #
+    # *This comment opened with "Six ingest rungs" while the block below listed ten, and a
+    # dispatched agent adding the eleventh (ledger `9.14`) is what noticed. The first repair
+    # written here said "nine", counted by hand in the same edit that complained about counting
+    # by hand, and was also wrong. So the number is gone rather than corrected: a count beside
+    # the thing it counts has no reader who benefits and one who is misled, and
+    # `docs/README.md`'s rule that a count is read from the file rather than carried forward
+    # applies one level down to a comment. `lessons.md` L8.15.*
     #
     # **They carry no `route.summary` and must not.** An ingest document produces nodes, not an
     # `Answer`; `PipelineRouteCatalogue` reads `route.summary` to build the router's candidate
@@ -432,6 +441,10 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-pdf.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-pdf-described.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-pdf-undescribed.yaml")
+    # Ledger task 9.14: row-level chunking, absent from `index-pdf` by omission. See the
+    # document's own header for why `table-rows` is placed here rather than folded into
+    # `index-pdf` directly.
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-pdf-rows.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-polish.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-with-keywords.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-with-questions.yaml")

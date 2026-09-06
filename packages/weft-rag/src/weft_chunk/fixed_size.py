@@ -30,15 +30,21 @@ existed.
 
 **Every window carries `ChunkOffset`, and every window carries forward what its parent's
 `ext` said — ledger 2.9's page-attribution gap, closed here.** `Node.derive` drops `ext`
-on purpose ("later stages attach their own"); this is that later stage. `_carry_forward`
-copies each namespace in the parent's `ext` onto the chunk verbatim, so a fact a pack
-attached to the whole document — `weft_pdf.PdfPages`, a future heading map — survives a
-window cut from that document's content, without this pack importing `weft-pdf` or
-knowing what the fact means. `SyntheticOrigin` is the one namespace excluded: it states
+on purpose ("later stages attach their own"); this is that later stage. `weft_chunk.carry.
+carry_forward` copies each namespace in the parent's `ext` onto the chunk verbatim, so a
+fact a pack attached to the whole document — `weft_pdf.PdfPages`, a future heading map —
+survives a window cut from that document's content, without this pack importing `weft-pdf`
+or knowing what the fact means. `SyntheticOrigin` is the one namespace excluded: it states
 that *this* node has no real lineage, and a derived chunk always does, so copying it
 forward would attach a claim about the chunk that is false the moment it is read. The
 offset is applied last, after the copy, so a chunk's own `ChunkOffset` always wins over
 a stale one a multi-level chunker might otherwise carry in from its own parent.
+
+**`carry_forward` moved to `weft_chunk.carry` at ledger task `9.14`**, where it was this
+module's own private `_carry_forward` before `weft_chunk.table_rows.TableRowChunker`
+needed the identical shape for a second caller — a table row derived from its table, not
+a window derived from whatever it is chunking, but the same fact-survives-`derive` problem
+either way. This module now imports it rather than keeping its own copy.
 
 **Repair, ledger 2.9: `ChunkOffset.start` now compounds across nested chunking.** Three
 reviewers of the first cut traced the same defect: `_windows` computed `start` as an offset
@@ -58,6 +64,7 @@ from collections.abc import Sequence
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
+from weft_chunk.carry import carry_forward
 from weft_chunk.payload import ChunkOffset
 from weft_chunk.property import WordBoundaries
 from weft_kernel.context import Context
@@ -69,7 +76,6 @@ from weft_kernel.payload import (
     Outcome,
     Produced,
     Property,
-    SyntheticOrigin,
 )
 
 #: `docs/02-extension-model.md` §3's own pipeline example: `{size: 512, overlap: 50}`.
@@ -148,25 +154,8 @@ def _windows(node: Node, *, size: int, overlap: int) -> list[Node]:
     start = 0
     while start < len(text):
         piece = text[start : start + size]
-        chunk = _carry_forward(node.derive(content=piece, ordinal=ordinal), parent=node)
+        chunk = carry_forward(node.derive(content=piece, ordinal=ordinal), parent=node)
         windows.append(chunk.with_ext(ChunkOffset(start=base_start + start)))
         ordinal += 1
         start += step
     return windows
-
-
-def _carry_forward(chunk: Node, *, parent: Node) -> Node:
-    """`chunk`, plus every namespace `parent.ext` carries except its root-origin marker.
-
-    See the module docstring for why this is the fix for ledger 2.9's page-attribution
-    gap: a fact a pack attached to the whole document is still a fact about a window cut
-    from that document's content, and this is the one place that fact would otherwise be
-    lost. `SyntheticOrigin` is excluded by name — `weft-chunk` already depends on
-    `weft-kernel`, which owns it, so excluding it costs no new dependency — because it
-    means "this node has no real lineage" and a derived chunk always has some.
-    """
-    for namespace, model in parent.ext.items():
-        if namespace == SyntheticOrigin.__namespace__:
-            continue
-        chunk = chunk.with_ext(model)
-    return chunk

@@ -592,6 +592,65 @@ async def test_every_operator_means_the_same_thing_to_both_backends(
     assert await _all(page) == expected, f"'{label}' disagrees between backends"
 
 
+async def test_a_parent_is_one_filter_away_from_its_child_on_either_backend(
+    store: ConformanceStore,
+) -> None:
+    """`lineage.parents` selects a node's children — `11` §4 question **G4-c**, ledger `9.14`.
+
+    G4-c asked *"is `lineage.parents` a validated, filterable field path?"* and recommended
+    yes, *"and the filter AST gains one operator over it."* **Measured 2026-09-06: the field
+    path already exists and the operator already works** — `weft_store.fields.NodeField.PARENTS`
+    has been a `TEXT_SET` field since the filter grammar was built, admitting `contains`, and
+    both translators derive from that one parse. So the amendment G4-c proposed costs nothing
+    to accept, because the code already implements it.
+
+    **What was missing was this test.** Nothing in the tree filtered on `lineage.parents`
+    *through a store*: the grammar was checked, the translators were checked, and the round
+    trip that a table-to-rows expansion actually performs was checked nowhere. A field path
+    that parses and translates but was never asked of a live backend is a capability nobody
+    has seen work — and G4-c's own fallback clause (*"a store that cannot filter on it falls
+    back to fetching parents by id, which is correct but N+1"*) is unreachable as long as this
+    passes on both, which is the fact worth pinning.
+    """
+    # Arrange
+    parent = _node("parent", sources=frozenset({_SOURCE_A}))
+    children = tuple(
+        parent.derive(content=f"row {ordinal}", ordinal=ordinal) for ordinal in range(2)
+    )
+    unrelated = _node("unrelated", sources=frozenset({_SOURCE_B}))
+    await store.add((parent, *children, unrelated))
+    assert isinstance(store, MetadataFilter)
+
+    # Act
+    page = await store.matching(
+        Filter(op=FilterOp.CONTAINS, field="lineage.parents", value=str(parent.id))
+    )
+
+    # Assert
+    assert await _all(page) == {"row 0", "row 1"}
+
+
+async def test_a_parent_id_nothing_derives_from_selects_nothing_rather_than_everything(
+    store: ConformanceStore,
+) -> None:
+    """The negative half, because a filter that silently matched nothing and one that silently
+    matched everything look identical from a single positive case — and `weft_store.fields`'
+    own `UnaddressableFieldError` docstring is explicit that *"a filter matching nothing looks
+    exactly like a corpus that holds nothing"*.
+    """
+    # Arrange
+    await store.add(_corpus())
+    assert isinstance(store, MetadataFilter)
+
+    # Act
+    page = await store.matching(
+        Filter(op=FilterOp.CONTAINS, field="lineage.parents", value="no-such-node")
+    )
+
+    # Assert
+    assert await _all(page) == frozenset()
+
+
 async def test_a_filter_reaches_vector_search_rather_than_being_ignored(
     store: ConformanceStore,
 ) -> None:

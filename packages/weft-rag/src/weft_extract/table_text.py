@@ -34,14 +34,37 @@ def _escape(cell: str) -> str:
     return cell.replace("\\", "\\\\").replace("|", "\\|").replace("\n", "\\n").replace("\r", "\\r")
 
 
+def row_text(grid: TableGrid, index: int) -> str:
+    """`grid.rows[index]` rendered exactly the way `index_text` renders that row.
+
+    Factored out for ledger task `9.14`: `weft_chunk.table_rows.TableRowChunker` turns a
+    row into a node of its own, and that node's content has to be byte-for-byte what
+    `index_text` already emits for that row, or the two renderings drift the moment either
+    is edited alone. `index_text` calls this for every row rather than duplicating the
+    format, which is what makes drift structurally impossible rather than merely unlikely.
+
+    Each cell renders `{header}: {value}`, joined ` | ` across the row, through the same
+    `_escape` both serialisers share. `index` is passed straight to `grid.rows[index]`, so
+    an out-of-range index raises the ordinary `IndexError` — no guard is added, since a
+    caller passing an index it did not get from iterating `grid.rows` has a bug worth
+    seeing plainly.
+    """
+    headers = tuple(_escape(header) for header in grid.headers)
+    row = grid.rows[index]
+    return " | ".join(
+        f"{header}: {_escape(value)}" for header, value in zip(headers, row, strict=True)
+    )
+
+
 def index_text(grid: TableGrid) -> str:
     """The retrieval rendering: a caption line if there is one, then one line per row.
 
-    Each cell renders `{header}: {value}`, joined ` | ` across a row, with the header
-    repeated on every row deliberately — `11` §6 rank 3's measured gain (BM25 Recall@1
-    0.366 → 0.754, arXiv:2605.00318) is row-level retrieval with the header propagated,
-    and a row reaching a retriever without its header is a row of numbers nobody can read.
-    No caption line is emitted when `grid.caption` is `None` — `11` §2.4 refuses a
+    Each row's line is `row_text`'s own line for it — see that function's docstring for
+    why the two must never be produced by two separate formatters. The header is repeated
+    on every row deliberately — `11` §6 rank 3's measured gain (BM25 Recall@1 0.366 →
+    0.754, arXiv:2605.00318) is row-level retrieval with the header propagated, and a row
+    reaching a retriever without its header is a row of numbers nobody can read. No
+    caption line is emitted when `grid.caption` is `None` — `11` §2.4 refuses a
     synthesised label outright.
     """
     headers = tuple(_escape(header) for header in grid.headers)
@@ -49,13 +72,8 @@ def index_text(grid: TableGrid) -> str:
     if grid.caption is not None:
         lines.append(_escape(grid.caption))
     if grid.rows:
-        for row in grid.rows:
-            lines.append(
-                " | ".join(
-                    f"{header}: {_escape(value)}"
-                    for header, value in zip(headers, row, strict=True)
-                )
-            )
+        for index in range(len(grid.rows)):
+            lines.append(row_text(grid, index))
     else:
         # A table an extractor found and recovered no body from is still a table: the
         # headers are the only fact left to carry, so they render on their own line.

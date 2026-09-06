@@ -1,0 +1,22 @@
+name: index-pdf-rows
+extends: index-pdf
+
+# Ledger task **9.14**: *"a table's rows are children of the table node with the header carried
+# into each, so a row is retrievable on its own and its parent is one filter away."* Row-level
+# chunking with the header propagated into every row moves BM25 Recall@1 **0.366 → 0.754** and
+# hybrid MRR **0.3576 → 0.5945** (arXiv:2605.00318), which `10` §4 records as the largest absolute
+# gain in the multimodal survey.
+#
+# **Absent from `index-pdf` by omission, the same way `describe-figure` is absent from
+# `index-pdf-undescribed` above** — see that document's own header for why there is no `enabled`
+# flag anywhere in this design. `weft plugins list` shows `table-rows` registered regardless;
+# `weft pipeline show index-pdf` is what shows it does not run there.
+#
+# **`after: extract`, not `after: chunk`.** A table already exists as a `TABLE` node the moment
+# `pdf-layout` produces it, and `fixed-size` never touches it in the first place — it declares
+# `Applies(media_type=TEXT)`, so a table already routes past the text chunker untouched (`9.2`).
+# Placing `rows` any later would buy nothing and would put it downstream of cleaners meant for
+# prose, which `index-pdf-described`'s own header notes a table never passes through.
+insert:
+  - after: extract
+    stage: {id: rows, use: table-rows}

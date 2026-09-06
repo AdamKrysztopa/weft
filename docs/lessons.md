@@ -2042,6 +2042,52 @@ beside the rule rather than in the pack that discovered it. Possibly also `phase
 *Finish*'s run-the-binary step, which says to construct the condition for a branch that only
 fires sometimes: a platform is such a branch, and it is the one the step does not name.
 
+### L9.83 — a brief that enumerates files omits the registration that makes one of them reachable
+
+**What happened.** 9.14's brief listed the new pipeline document `index-pdf-rows.yaml` in its
+*Files you write* section and did not list the one-line
+`registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-pdf-rows.yaml")` beside it.
+The dispatched implementer added it anyway and flagged the omission, correctly: **FF11 and FF16
+read two different populations.** FF11 globs `packages/*/pipelines/*.yaml` off disk; FF16 reads
+`weft_cli.pipeline_catalogue.load_contributed`, which sees only what a pack's `register()`
+actually contributed. Without the registration the file exists, resolves, satisfies FF11 — and
+FF16 fails, because the plugin it places occupies a pipeline position no *contributed* document
+names. Two checks over the same artefact answering from two sources is the right design; a brief
+that names the artefact and not its registration is a dispatch that cannot succeed.
+
+**Generalises to.** *A new artefact in a discovered directory is two edits, not one — the file and
+the line that makes it discoverable — and an enumerated brief that names only the file has
+enumerated the half that is visible in `ls`.* `L8.12`'s shape ("putting a class into a marked
+family is an edit to every site keyed on that marker") applied to resources rather than classes.
+
+**Candidate home.** `phase-step` → *Red*, in the paragraph that already says *"when a brief names
+a base class, grep for that base class before writing Already decided"* — the same instruction
+generalises: when a brief names a file in a directory something globs, grep for who else reads
+that directory. A checkable version would be a fitness function asserting every
+`packages/*/pipelines/*.yaml` is named by some `add_pipeline_resource` call, which is the AST
+walk FF11 already does one field over.
+
+### L9.84 — the repair for a stale hand-count was a fresh hand-count, wrong in the same way
+
+**What happened.** A dispatched agent noticed that `weft_retrieve/__init__.py`'s comment opened
+*"Six ingest rungs"* over a block that listed ten. Correcting it, I wrote *"Nine"* — counted by
+hand, in the same edit whose new sentence complained about counting by hand — and the true figure
+was **eleven**. Caught only because I ran `grep -c` afterwards out of habit. `L8.15` already says
+a count is read from the file rather than carried forward, and `docs/README.md`'s lessons-queue
+row exists to enforce exactly that for one number; the rule had never been read as applying to a
+*comment*, and a comment is where it is least likely to be re-derived. The number is now gone
+rather than corrected: the block below it is the list, and nothing about the prose needed a
+cardinality.
+
+**Generalises to.** *When a hand-maintained count is found stale, delete it rather than update it
+— the correct new value has the same half-life as the wrong old one, and prose beside a list
+almost never needs the cardinality it states.*
+
+**Candidate home.** `L8.15` itself, which should widen from "the lessons queue's depth" to any
+count written beside the thing it counts, in code comments as much as in `docs/`. That widening
+is `implement-ll`'s to route — this entry exists so the second instance is on file beside the
+first, per `L6.8`: a rule re-learned did not bite, so it is in the wrong artefact.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

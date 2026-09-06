@@ -26,6 +26,7 @@ from weft_chunk.contract import CHUNKER_CONTRACT_VERSION, Chunker
 from weft_chunk.fixed_size import FixedSizeChunker, FixedSizeChunkerConfig
 from weft_chunk.payload import ChunkOffset
 from weft_chunk.property import WordBoundaries
+from weft_chunk.table_rows import TableRowChunker, TableRowChunkerConfig
 from weft_kernel.discovery import PackRegistrar
 
 
@@ -36,11 +37,13 @@ class Settings(BaseModel):
 
 
 def register(registrar: PackRegistrar, settings: Settings) -> None:
-    """Register `FixedSizeChunker` as `"fixed-size"` for `Chunker`, and `ChunkOffset` as this
-    pack's own `ExtModel` — task 5.2g, see the module docstring.
+    """Register `FixedSizeChunker` as `"fixed-size"` and `TableRowChunker` as `"table-rows"`
+    for `Chunker`, and `ChunkOffset` as this pack's own `ExtModel` — task 5.2g, see the
+    module docstring, and `weft_chunk.table_rows` for `"table-rows"` — ledger task `9.14`.
     """
     del settings
     registrar.add(Chunker, "fixed-size", FixedSizeChunker)
+    registrar.add(Chunker, "table-rows", TableRowChunker)
     registrar.add_ext_model(ChunkOffset)
 
 
@@ -51,6 +54,8 @@ __all__ = [
     "FixedSizeChunker",
     "FixedSizeChunkerConfig",
     "Settings",
+    "TableRowChunker",
+    "TableRowChunkerConfig",
     "WordBoundaries",
     "register",
 ]
