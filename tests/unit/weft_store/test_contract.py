@@ -317,7 +317,11 @@ def test_the_family_version_moved_when_the_family_grew_a_capability() -> None:
     # an already-published Protocol, and G9's two-audience rule makes that major for an
     # implementer (every existing `Reconcilable` stops satisfying the Protocol until it adds
     # the method) even though it is minor for a caller — the bump is the maximum of the two.
-    assert STORE_CONTRACT_VERSION == "2.0.0"
+    # Task **9.3** moves it to `2.1.0`, a *minor*: `Removed` gains an optional field defaulting
+    # empty, which G9's table classifies minor for the caller and minor for the implementer —
+    # every participant already returning a `Removed` keeps satisfying the family untouched, and
+    # `tests/unit/weft_store/test_removed_by_kind.py` is what pins that it actually does.
+    assert STORE_CONTRACT_VERSION == "2.1.0"
 
 
 def test_the_filter_ast_version_moved_when_the_operator_set_narrowed() -> None:

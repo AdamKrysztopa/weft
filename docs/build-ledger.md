@@ -5138,7 +5138,42 @@ marked.
   reports zero — the inverse of the promise its own docstring makes (`:587-625`). Additive for
   implementers (a defaulted field on a model they return) and for callers → minor, `2.0.0` →
   `2.1.0` (`:121`). **Phase 11 counts entities and facts through this same field**; it lands here
-  because this phase deletes blobs first, and Phase 11 cites this sha rather than bumping again
+  because this phase deletes blobs first, and Phase 11 cites this sha rather than bumping again ·
+  **it is not a contract-only change, and the census is what said so.** `weft_cli.deletion.
+  _delete_from` ended `return removed.node_count`, reducing the whole model to one `int` at the
+  first frame that saw it, so a field added to `Removed` reached nobody: `ParticipantOutcome` gains
+  the same field through the same frozen-mapping alias (imported, never redeclared) and
+  `_render_delete` prints it. A field a participant fills and nothing reads is `L6.14` with the
+  sides swapped · **the shape was settled text disagreeing with settled text, and was not
+  defaulted.** `L9.17` records two planning passes converging on the problem and not on an
+  artefact, leaving `Mapping[str, int]` and `tuple[RemovedCount, ...]` both written down; `11` §3's
+  revision log (`docs/11-multimodal.md:342`) records that the `Mapping` won and that 9.3 carries it,
+  and this line agrees. Ledger `11.3` still carried the losing branch as a live-looking argument —
+  *"never a `Mapping` (`CLAUDE.md`: models, never dicts)"* — against a house rule that names
+  `dict[str, Any]`, an untyped bag, where `Node.ext` is already a typed `Mapping` on the payload
+  model itself. `11.3` is repaired in this commit; `L9.47` is the lesson · **`node` is the one
+  reserved key**: `node_count` already carries that number and a second spelling inside the same
+  model is `README.md`'s own opening anecdote at arm's length. Refused at validation, naming
+  `node_count` · **frozen on read** through a `MappingProxyType` `AfterValidator` plus a
+  `PlainSerializer`, `Node.ext`'s idiom written out locally rather than importing another
+  distribution's private `_freeze`; the JSON round trip is asserted in the red phase, per `L9.43` ·
+  **the rendered line for a participant reporting nothing new is byte-identical** —
+  `pgvector (weft-rag): 8 node(s) removed`, confirmed through the shipped binary — and one reporting
+  kinds inserts them between the count and the trailing word, sorted by kind. `(s)` rather than a
+  pluraliser, because the vocabulary belongs to the participant · **run through the shipped binary
+  from a directory that is not this repository, including the branch nothing shipped can reach
+  yet.** No first-party participant reports a kind until `9.4`, so a throwaway pack registering one
+  `SourceDeletable` was installed into its own venv beside real wheels and `weft delete` printed
+  `scratch-blobs (scratch-kind): 0 node(s), 40 blob(s), 3 thumbnail(s) removed` beside
+  `pgvector (weft-rag): 8 node(s) removed`, `weft_nodes` bracketed 9 → 1 (`L8.30`). The error branch
+  was constructed too: the same pack reporting `{"node": 6}` produced
+  `scratch-blobs (scratch-kind): failed`, the validation error naming `node_count` on stderr, the
+  other participant still run, exit `1` · **`manual/contract-reference.md` is generated and embeds
+  every contract version**; the census missed it and `tests/docs/test_generated_docs.py` caught it,
+  one gate run later (`L9.49`). Regenerated, never hand-edited · three documents edited in the same
+  commit: `02` §1 gains the narrowing block, `03` → *Command surface* gains what a person now sees,
+  and `11.3`'s dead counterfactual is repaired · `poe ci-checks` green: **2129 passed, 38 skipped**,
+  234 architecture tests, examples 116 passed
 - [ ] **9.4** a document's bytes outlive the stage that produced them: any stage or generator, on the
   command, query or ingest path, reaches them by `ctx.require(BlobStore)` under the role the
   publishing pack declares through 9.0; the contract and its filesystem implementation ship beside
@@ -5697,15 +5732,17 @@ that assumed one was withdrawn from the plan before it reached this list.
   never answers with `node_count=0` as its whole account · owner `02` §1 → *The store contract
   family*; `09` §2 · turns on — · sha — · *on this tree `Removed` is `source_id`, `node_count`,
   `cursor` (`weft_store/contract.py:195-210`) and the fan-out already asks every `SourceDeletable`
-  participant (`weft_cli/fanout.py:60-79`) — what it cannot do is answer honestly. **The field is
-  expected to have landed in Phase 9**, whose plan schedules a per-kind count before its own
-  deletion demonstration (a blob store reaping blobs has the same lie in the other direction); if
-  it did, this line is the graph's *use* of it and moves no version. If it did not, the change
-  lands here: a defaulted, typed field of frozen `(kind, count)` pairs, the kind an open
-  vocabulary on `Channel`'s precedent (FF4), never a `Mapping` (`CLAUDE.md`: models, never
-  dicts) — additive for both of G9's audiences, `STORE_CONTRACT_VERSION` `"2.0.0"`
-  (`contract.py:121`) one minor, `weft-rag` with it, and this line's "turns on" becomes FF6.
-  Which of the two it is, is a fact the implementer measures, not one this line asserts*
+  participant (`weft_cli/fanout.py:60-79`) — what it cannot do is answer honestly. **The field landed
+  in Phase 9 at task `9.3`** (2026-09-06), so this line is the graph's *use* of it and moves no
+  version: `Removed.removed: Mapping[str, int]`, defaulting empty, the kinds an open vocabulary the
+  participant owns, frozen on read, with `node` reserved because `node_count` already carries it.
+  `STORE_CONTRACT_VERSION` is `2.1.0` and this line does not bump it. **This paragraph read
+  differently until 2026-09-06** — it carried a conditional design for the branch where Phase 9 did
+  *not* land the field ("frozen `(kind, count)` pairs... never a `Mapping` (`CLAUDE.md`: models,
+  never dicts)"), and a conditional design in a task line nobody has run yet is indistinguishable
+  from a settled position on a question another task owns. `11` §3's revision log had already
+  recorded that the `Mapping` won; `L9.17` is the convergence failure behind the two shapes and
+  `L9.47` is this line's own half of it*
 - [ ] **11.4** `weft-graph` publishes the traversal Protocol — versioned, `@runtime_checkable`,
   not a `Stage`, satisfied structurally by its own store and by an out-of-tree stranger — and the
   condition under which it moves into the store family is a dated row in `01`'s deferred table

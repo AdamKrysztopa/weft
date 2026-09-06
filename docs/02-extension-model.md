@@ -857,6 +857,37 @@ class MetadataFilter(Protocol): ...                # marker: supports the whole 
 > deliberately **not** built here: it needs the same access but is a separate promise, and task
 > 6.21 is where §4's table is checked row by row.
 
+> **Narrowed in Phase 9 task 9.3 (2026-09-06) — `Removed` says *what* it removed, not only how
+> much.** G7 made the fan-out reach every plugin satisfying `SourceDeletable`, not only node
+> stores, and `Removed` carried `node_count` and nothing else. So a participant that removes
+> something which is not a node answers `node_count=0` — the exact inverse of the promise this
+> section makes, that a fan-out names what each participant did, and `weft delete` renders that
+> zero next to a real node store's real count with nothing to tell them apart. `9.4`'s blob store
+> is the first participant for which that is the normal case rather than an edge one, and Phase 11
+> counts entities and facts through the same field.
+>
+> `Removed` gains **`removed: Mapping[str, int]`, defaulting empty** — a count per kind, the kinds
+> an **open vocabulary owned by the participant**: a blob store counts blobs, a graph pack counts
+> entities and relations, a pack nobody has written yet counts something nobody has named. An
+> `Enum` here would be a closed key space over third-party data, which is fitness function 4's own
+> subject; the house rule it might look like it breaks — *"return Pydantic models, never
+> `dict[str, Any]`"* — is about an untyped bag, and `Node.ext` is already a typed `Mapping` on the
+> payload model itself. It is frozen on read the way `ext` is, so what a participant reported
+> cannot be edited by whoever received it.
+>
+> **`node` is the one reserved key.** `node_count` already carries that number, and a second
+> spelling of it inside the same model is the two-lists-that-can-drift failure `docs/README.md`
+> opens with, at arm's length. A participant passing it is refused, and the refusal names
+> `node_count`.
+>
+> `STORE_CONTRACT_VERSION` moves **`2.0.0` → `2.1.0`**: `09` §3's two-audience table puts *add an
+> optional field to a returned model* at minor for the caller and minor for the implementer, and
+> every one of the thirteen sites in this tree that constructs a `Removed` keeps working untouched.
+> **The CLI half is part of the same task and is why this is not a contract-only change** —
+> `weft_cli.deletion._delete_from` reduced the whole `Removed` to one `int` at the first frame that
+> saw it, so a field added here reached nobody until `ParticipantOutcome` and `_render_delete`
+> carried it too. A field a participant fills and nothing reads is `L6.14` with the sides swapped.
+
 **Capability is derived, never declared.** At registration the kernel computes which protocols a
 store class satisfies, and that set *is* its capability. Nobody writes a flag, so nobody writes a
 false one — which matters because a declared flag is `hasattr` with better manners, and a real

@@ -79,6 +79,7 @@ from weft_cli.commands import (
     RenderCommandResult,
 )
 from weft_cli.config_commands import ConfigGetCommandResult, ConfigSetCommandResult
+from weft_cli.deletion import ParticipantOutcome
 from weft_cli.error_envelope import build_error_envelope
 from weft_cli.eval_commands import (
     EvalCompareCommandResult,
@@ -197,6 +198,25 @@ def _render_config_set(result: ConfigSetCommandResult) -> Rendered:
     return Rendered(stdout=stdout, stderr=None, exit_code=ExitCode.SUCCESS)
 
 
+def _removed_clause(outcome: ParticipantOutcome) -> str:
+    """The half of `_render_delete`'s participant line describing what it removed.
+
+    A failed participant keeps rendering `failed`, unchanged. A participant that reported no
+    kinds — every one written before task 9.3 — keeps rendering exactly `{n} node(s) removed`,
+    pinned byte-for-byte by `tests/unit/weft_cli/test_render.py:724`. A participant that
+    reported kinds inserts each one, sorted by kind name, between the node count and the
+    trailing word `removed`: `0 node(s), 40 blob(s) removed`. `(s)` rather than a real
+    pluraliser is this file's existing convention (`participant(s)`, `node(s)`), so
+    `entity(s)` is deliberately not English — inventing a pluraliser here is a second thing
+    to get wrong for no reader-facing benefit.
+    """
+    if outcome.failed:
+        return "failed"
+    parts = [f"{outcome.node_count} node(s)"]
+    parts += [f"{count} {kind}(s)" for kind, count in sorted(outcome.removed.items())]
+    return f"{', '.join(parts)} removed"
+
+
 def _render_delete(result: DeleteCommandResult) -> Rendered:
     """`weft delete`'s whole answer — one line per participant, and the failures on stderr.
 
@@ -206,6 +226,12 @@ def _render_delete(result: DeleteCommandResult) -> Rendered:
     `_render_index`'s own rule — the run happened, and a non-zero code reports that part of it
     did not — rather than a refusal, because a partial deletion is a real event with a real
     result, not a command that declined to start.
+
+    Task **9.3** adds a per-kind breakdown, and the no-kinds line is kept byte-for-byte
+    identical to what it always rendered: every participant written before this task reports
+    an empty `removed`, and a shipped transcript already pins `pgvector (weft-rag): 6 node(s)
+    removed` — changing that line's shape for participants that have nothing new to say would
+    break a promise this task was never asked to touch.
     """
     if not result.participants:
         return Rendered(
@@ -215,8 +241,7 @@ def _render_delete(result: DeleteCommandResult) -> Rendered:
         )
     lines = [f"'{result.source_id}' — {len(result.participants)} participant(s):"]
     lines += [
-        f"  {outcome.plugin} ({outcome.distribution}): "
-        + ("failed" if outcome.failed else f"{outcome.node_count} node(s) removed")
+        f"  {outcome.plugin} ({outcome.distribution}): {_removed_clause(outcome)}"
         for outcome in result.participants
     ]
     failures = result.failed

@@ -25,12 +25,13 @@ from __future__ import annotations
 
 import asyncio
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from weft_cli.fanout import Participant, participants_for
 from weft_kernel.payload import SourceId
 from weft_kernel.registry import Registry
 from weft_store import SourceDeletable
+from weft_store.contract import Removed, RemovedByKind
 
 
 class ParticipantOutcome(BaseModel):
@@ -40,6 +41,12 @@ class ParticipantOutcome(BaseModel):
     type alongside its text, because a bare message like `connection refused` names nothing
     an operator can act on and a partial deletion is precisely the case where they need to
     know which layer refused.
+
+    `removed` (task 9.3) carries the same per-kind breakdown `Removed` reports, through the
+    identical frozen-mapping alias reused from `weft_store.contract` rather than redeclared
+    here, so the two never drift apart. It defaults empty, which is what a failed participant
+    reports — it removed nothing anyone can name — and is what every participant reported
+    before this task existed.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -49,6 +56,7 @@ class ParticipantOutcome(BaseModel):
     distribution: str
     node_count: int | None = None
     error: str | None = None
+    removed: RemovedByKind = Field(default_factory=dict, validate_default=True)
 
     @property
     def failed(self) -> bool:
@@ -108,25 +116,29 @@ async def _ask(target: Participant, source_id: SourceId) -> ParticipantOutcome:
         contract=target.contract,
         plugin=target.name,
         distribution=target.distribution,
-        node_count=removed,
+        node_count=removed.node_count,
+        removed=removed.removed,
     )
 
 
-async def _delete_from(instance: object, source_id: SourceId) -> int:
+async def _delete_from(instance: object, source_id: SourceId) -> Removed:
     """One participant's `delete_source`, with the `isinstance` that makes it callable.
 
     The class-level `issubclass` in `participants()` cannot be the last word: a factory may
     return something other than the class it was registered as, and a participant that is
     not what it claimed is a failure with a name rather than an `AttributeError` from
     somewhere deeper.
+
+    Returns the whole `Removed` rather than just `node_count` (task 9.3) — reducing it to one
+    int at the first frame that saw it is what made every other field on it, `removed`
+    included, unreachable from `_ask` onward, no matter what a later task added to the model.
     """
     if not isinstance(instance, SourceDeletable):
         raise TypeError(
             f"{type(instance).__qualname__} was registered as a class satisfying "
             f"SourceDeletable but the instance it built does not — no 'delete_source' to call"
         )
-    removed = await instance.delete_source(source_id)
-    return removed.node_count
+    return await instance.delete_source(source_id)
 
 
 __all__ = [

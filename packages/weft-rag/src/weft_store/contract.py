@@ -87,12 +87,13 @@ only here, so the reference document stays the one place this fact is
 stated.
 """
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from enum import StrEnum
-from typing import TYPE_CHECKING, ClassVar, NewType, Protocol, runtime_checkable
+from types import MappingProxyType
+from typing import TYPE_CHECKING, Annotated, ClassVar, NewType, Protocol, runtime_checkable
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, PlainSerializer, model_validator
 
 from weft_kernel.context import Context, ServiceRole
 from weft_kernel.errors import UnresolvedNameError, WeftError
@@ -118,7 +119,14 @@ from weft_kernel.runner import Stage
 #: 1.1.0, corrected to 2.0.0 in the same session, is the worked example this constant now
 #: repeats honestly the first time, rather than under-recording it as G9's own note warns
 #: against.
-STORE_CONTRACT_VERSION = "2.0.0"
+#:
+#: **`2.0.0` → `2.1.0` at task 9.3 — a minor.** `Removed` gains `removed`, an optional field
+#: defaulting to an empty mapping, so every participant already returning a `Removed` keeps
+#: satisfying the family untouched. G9's two-audience table classifies this minor for both
+#: sides: minor for a caller (an existing field, `node_count`, is untouched, so nothing that
+#: reads a `Removed` breaks) and minor for an implementer (nothing that already builds a
+#: `Removed` is asked for a new required value).
+STORE_CONTRACT_VERSION = "2.1.0"
 
 #: Versioned separately from `STORE_CONTRACT_VERSION`: a `Filter` is data that
 #: outlives any one store, serialised into a resolved, stored pipeline. Moved `1.0.0` →
@@ -192,6 +200,29 @@ class SourceRecord(BaseModel):
     status: SourceStatus = SourceStatus.ACTIVE
 
 
+def _freeze_removed(value: Mapping[str, int]) -> Mapping[str, int]:
+    """Wrap a validated `removed` mapping in an immutable view.
+
+    The identical mechanism `weft_kernel.payload.ext._freeze` uses for
+    `Node.ext` (`packages/weft-kernel/src/weft_kernel/payload/ext.py:120-129`), copied rather
+    than imported because it is a private name of another distribution's module, not a
+    published one — this module owns its own small equivalent instead.
+    """
+    return MappingProxyType(dict(value))
+
+
+#: A frozen, JSON-round-tripping mapping of kind name to count — `Removed.removed`'s type,
+#: not just its default. `MappingProxyType` has no serializer pydantic-core knows on its own
+#: (the same gap `weft_kernel.payload.ext.ExtMap` closes for `Node.ext`), so the
+#: `PlainSerializer` below dumps it back to a plain `dict` rather than leaving
+#: `model_dump(mode="json")` to raise.
+RemovedByKind = Annotated[
+    Mapping[str, int],
+    AfterValidator(_freeze_removed),
+    PlainSerializer(dict, return_type=dict),
+]
+
+
 class Removed(BaseModel):
     """What `delete_source` returns: counts and the source deleted, never a materialised cascade.
 
@@ -201,6 +232,22 @@ class Removed(BaseModel):
     through the deleted node ids via `scan`-shaped calls a future step may
     add — carried here as the documented placeholder for that, not yet a
     method this contract requires any store to expose.
+
+    **`removed` (task 9.3) is an open, participant-owned vocabulary, not a closed one the
+    contract enumerates.** `node_count` already existed when `SourceDeletable` was still
+    node-store-shaped; G7 then widened the fan-out to every plugin satisfying it, and a
+    participant that removes something other than a node — a blob store, a graph pack — had
+    no way to say what it actually did, reporting `node_count=0` and nothing else. `removed`
+    is that vocabulary: each participant names its own kinds (`"blob"`, `"entity"`,
+    `"relation"`, ...), so the contract does not have to know them in advance and a pack
+    nobody has written yet can still report honestly. `Enum` is the project's rule for a
+    *closed* vocabulary the kernel or a contract owns; this one is neither, which is why it
+    is a `Mapping[str, int]` rather than a `StrEnum`-keyed one.
+
+    **`"node"` is the one reserved key.** `node_count` already carries that number, so a
+    second spelling of it inside `removed` is the exact two-lists-that-can-drift shape
+    `docs/README.md` opens with, reproduced inside a single model — refused at validation
+    rather than left to drift silently.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -208,6 +255,16 @@ class Removed(BaseModel):
     source_id: SourceId
     node_count: int
     cursor: Cursor | None = None
+    removed: RemovedByKind = Field(default_factory=dict, validate_default=True)
+
+    @model_validator(mode="after")
+    def _reject_reserved_node_key(self) -> "Removed":
+        if "node" in self.removed:
+            raise ValueError(
+                "'removed' must not carry the key 'node' — that count already lives in "
+                "'node_count'; report every other kind under its own name"
+            )
+        return self
 
 
 class FilterOp(StrEnum):

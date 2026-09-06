@@ -1053,6 +1053,85 @@ the name. Enforcing a convention downstream of the moment it is chosen is a lint
 **Candidate home.** `phase-step` → *Finish*, item 3, which says "plant a disagreeing case and see it
 go red" and does not say what the function must be called. The three forms are two lines of quotation.
 
+
+### L9.47 — a not-yet-run task line carried a conditional design, and it read as a decision
+
+**What happened.** Ledger `11.3` (the graph pack's per-kind deletion counts) was written with two
+branches: *"if it did [land in Phase 9], this line is the graph's use of it... If it did not, the
+change lands here: a defaulted, typed field of frozen `(kind, count)` pairs... **never a `Mapping`**
+(`CLAUDE.md`: models, never dicts)"*. Task `9.3` is the Phase 9 line that lands the field, and its
+own text — plus `docs/11-multimodal.md:342`'s revision log, *"the graph plan's `Mapping[str, int]`
+won (§11 item 3); 9.3 carries it"* — specifies a `Mapping`. So a dead branch of a task nobody has
+run held a live-looking argument against the shape the *live* task was about to build, citing a
+house rule (`CLAUDE.md`: *"Return Pydantic models, never `dict[str, Any]`"*) that is about an
+untyped bag and not about `Mapping[str, int]` — which `Node.ext` already is, on the payload model.
+Surfaced by a dispatched census agent reading both lines side by side; nothing in the gate compares
+two ledger lines about one field.
+
+**Generalises to.** A task line states what must become true, not what it would do under a
+counterfactual. Where a line genuinely depends on whether an earlier task landed something, it names
+the earlier task and stops — because a design written for the branch that does not fire is
+indistinguishable, later, from one that was argued and settled, and the reader who finds it is
+usually the person implementing the *other* branch.
+
+**Candidate home.** `build-ledger.md` → *How to read a task line*, which defines the fields and does
+not say a line may not carry an alternative design. Related to `L9.17` (two parties converging on a
+problem and not on an artefact) and to `L9.15` (an identifier minted by the wrong document); the
+three may be one edit.
+
+
+### L9.48 — a manual transcript names a distribution that was renamed a phase ago, and nothing executes it
+
+**What happened.** `manual/troubleshooting.md:254`, `:2873` and `:2886` each show a `weft plugins
+doctor` transcript reading `store (weft-store) 2.0.0: ...`. There has been no `weft-store`
+distribution since ledger task 6.13 folded it into `weft-rag` (`packages/weft-rag/pyproject.toml`,
+`version = "2.2.0"`); the real line reads `store (weft-rag) 2.2.0`. The block opens with `...`
+rather than being a runnable sample, so `tests/docs`' executed-transcript machinery never looks at
+it and the gate has been green over it for three phases. Found by a dispatched census agent chasing
+a version literal, not by any check.
+
+This is `L6.19` recurring — *a change to a command's output falsifies every worked transcript of it,
+and only the executed ones fail the gate* — and `L6.8` says a rule that is re-learned is in the
+wrong artefact. What it adds to `L6.19`: the falsifying change here was not to the output at all, it
+was a **distribution rename**, so nobody editing a command's renderer would have thought to look.
+
+**Generalises to.** An illustrative transcript is prose about a command, and prose about a command
+rots against every rename in the system it names, not only against edits to that command. So either
+a transcript is executed, or the identifiers inside it are checked by something — a sweep for
+distribution names appearing in `manual/` that no installed distribution answers to would be a
+handful of lines and would have caught this the day 6.13 landed.
+
+**Candidate home.** A `tests/docs` check: every parenthesised distribution name in a `manual/`
+transcript is one `importlib.metadata` knows. Alternatively `08` §3's transcript rule, which today
+distinguishes executed from illustrative and asks nothing of the second kind.
+
+
+### L9.49 — the census listed every source site and missed the generated one
+
+**What happened.** Before dispatching task `9.3` I had a survey enumerate every place
+`STORE_CONTRACT_VERSION`'s value is asserted, pinned or compared — *"tests, architecture checks,
+docs, manual pages, CHANGELOG"*. It returned eleven sites and the brief said *"asserted as a literal
+in exactly one place"*. `manual/contract-reference.md` carries the version four times and was in
+neither list, so `poe ci-checks` went red at
+`tests/docs/test_generated_docs.py::test_generated_reference_matches_the_checked_in_file` after the
+implementer returned. The remedy was not an edit — the file is **generated**
+(`uv run python scripts/generate_contract_reference.py`, named in the failure message itself), and
+editing it by hand would have been the wrong repair.
+
+The check worked exactly as designed and cost one gate run. What did not work is the census: a grep
+for the value in `manual/` would have found it, and the question that would have found it reliably
+is a different one.
+
+**Generalises to.** *Where does this value appear* and *what is generated from this value* are two
+questions, and only the second one finds an artefact whose copy is refreshed by a build step rather
+than by an edit. A brief that lists sites lists the generator too, with its command — otherwise the
+implementer meets the stale copy as a red gate and the honest fix looks like a hand edit.
+
+**Candidate home.** `phase-step` → *Red*, beside `L5.14` (*a list in a document is where to start
+looking, not a census*) and the paragraph about looking up who quotes a file — which already knows
+about `tests/docs/test_pack_guide_samples.py`'s byte-for-byte map and does not mention generated
+artefacts at all. One sentence, and the list of generators is short.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

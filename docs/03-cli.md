@@ -173,6 +173,24 @@ Two of these carry weight beyond their size:
   > the prompt name every participant by distribution while the *count* stays honestly
   > unavailable. It also resolves `[services] store` before it says anything about participants,
   > which is a repair rather than a design: see `docs/lessons.md` L5.9.
+
+  > **Task 9.3 (2026-09-06): a participant's line says *what* it removed, not only how much.**
+  > `02` §1 gives `Removed` a per-kind count; this is what a person sees. A participant that
+  > reports no kinds — every one written before that task — renders exactly as it always did:
+  > `  pgvector (weft-rag): 6 node(s) removed`. One that reports kinds inserts them between the
+  > node count and the trailing word, sorted by kind name:
+  >
+  > ```text
+  >   blobfs (weft-blob): 0 node(s), 40 blob(s) removed
+  >   graph (weft-graph): 0 node(s), 12 entity(s), 30 relation(s) removed
+  > ```
+  >
+  > `entity(s)` is not English and is deliberate: `(s)` is this surface's existing convention
+  > (`participant(s)`, `node(s)`), and a pluraliser over a vocabulary the *participant* owns —
+  > it may name a kind in any language, or none — is a second thing to get wrong for a reader
+  > who already has the count and the name. The unchanged line is what makes this additive: a
+  > blob store reaping forty blobs and a node store removing nothing were the same line before
+  > this, and the whole point is that they are not now.
 - **`weft reconcile`** converges what deletion missed. `--mode repair`, the default, drops derived
   state whose source is gone. `--mode full` also **backfills** — building derived state for nodes a
   pipeline indexed without it — and that is the mode nothing ambient may ever choose. `weft
