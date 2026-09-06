@@ -5407,7 +5407,7 @@ marked.
   recall over an image-question slice of the validation corpus is a persisted `weft eval` run whose
   results carry query modality, whose questions were written by a person and never by the index
   prompt, and whose verdict is recorded in `09` §4 in the product terms `11` §1.3 item 9 requires ·
-  owner `09` §4 (V1–V3, V6); `11` §1.3 item 9, §3 D2, D8 · turns on — · sha — · depends on 9.8 (a
+  owner `09` §4 (V1–V3, V6); `11` §1.3 item 9, §3 D2, D8 · turns on — · sha `640bbaf` · depends on 9.8 (a
   corpus to index) and 9.12 (modality on the result). The third party's spike is the method and not
   the artefact: its report under `tmp/`, its model-assigned ground truth and its verdict bands are
   each what a persisted run with human-written questions makes unrepresentable. ViDoRe V2
