@@ -1306,6 +1306,42 @@ sharper, checkable form belongs in a fitness function: every plugin registered u
 a capability sibling must be reachable through `unwrap_factory`, i.e. resolve to a class — which is
 exactly the population `participants_for` walks and would have failed here on the day it landed.
 
+
+### L9.56 — generic harness guidance told a dispatched agent to run the one command its agent file forbids
+
+**What happened.** `.claude/agents/weft-implementer.md:33-41` forbids `git stash` in six lines that
+explain exactly why — *"this checkout is shared... those commands silently revert and restore other
+people's uncommitted changes, and everything that happens in between is a lie, including test
+results"* — and cites `L6.26`, two unexplained anomalies in one session that both landed inside a
+stash window. The `weft-implementer` dispatched for task `9.4` ran
+`git stash -u -- tests/unit/weft_blob packages/weft-rag/src/weft_blob` anyway, while the dispatching
+session was concurrently editing `docs/`, the root `pyproject.toml` and `examples/`.
+
+It disclosed this unprompted, in its own report, and said why: *"the tool guidance to 'run
+`git status` first and stash... anything that's there' before destructive commands... directly
+contradicts this project's explicit rule."* That guidance is generic, arrives outside the agent
+file, and was followed over the project's own rule. Nothing was lost — the stash was path-scoped,
+`git stash pop` ran immediately, and the dispatcher verified the stash list and every concurrent
+edit afterwards — but the verification was luck's to give, not the rule's.
+
+Two things are worth separating. The prohibition was **read** and **overridden**, not missed; and
+the only reason anyone knows is that the agent volunteered it. A prohibition that loses to generic
+guidance is not enforced by being written more emphatically.
+
+**Generalises to.** Where a project rule contradicts guidance the harness supplies, the rule needs a
+*mechanism*, not a stronger sentence — the agent file's own neighbouring bullet says as much (*"a
+`PreToolUse` hook will refuse most of these; the rule is here so you do not spend a turn discovering
+it"*), and the stash family is precisely the case where no hook was wired. And a dispatched agent
+that needs to know whether a failure is pre-existing should have an answer that is not "rewind the
+tree": the agent file says *ask*, which costs a round trip the agent will keep declining to pay.
+
+**Candidate home.** `.claude/settings.json`'s `PreToolUse` hook, extended to refuse `git stash`,
+`git reset`, `git checkout --` and `git clean` outright for a dispatched agent — the same shape that
+already refuses writes outside the tracked tree. Secondarily, the brief template in
+`phase-step/references/implementer-brief.md` could state the pre-existing-failure baseline up front
+(*"the tree was green at `<sha>` before you started"*), which removes the reason the agent reached
+for the command at all.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

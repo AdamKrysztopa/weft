@@ -5174,14 +5174,14 @@ marked.
   commit: `02` §1 gains the narrowing block, `03` → *Command surface* gains what a person now sees,
   and `11.3`'s dead counterfactual is repaired · `poe ci-checks` green: **2129 passed, 38 skipped**,
   234 architecture tests, examples 116 passed
-- [ ] **9.4** a document's bytes outlive the stage that produced them: any stage or generator, on the
+- [x] **9.4** a document's bytes outlive the stage that produced them: any stage or generator, on the
   command, query or ingest path, reaches them by `ctx.require(BlobStore)` under the role the
   publishing pack declares through 9.0; the contract and its filesystem implementation ship beside
   `BlobRef` from the pack that publishes it; a blob root carries its own layout version, checked at
   open and refused on mismatch with a named remedy; and `weft delete` of a source reaps every blob
   under it through `SourceDeletable`, counted by kind — **depends on 9.0** and on 9.3 · owner `11`
   §2.2; `02` §1 → *The store contract family*; `02` §2 → *Pack settings* (the root directory);
-  `README.md` `S11` · turns on — · sha — · three `async` methods and no pipeline position: keys are
+  `README.md` `S11` · turns on — · sha `cd06259` · three `async` methods and no pipeline position: keys are
   derived, `{tenant_id}/{source_id}/{ordinal}.{ext}` (`11:193-222`; `tenant_id` on the passport,
   `packages/weft-kernel/src/weft_kernel/context.py:60`), so cascade is one prefix and no ledger. The
   seam wraps stages (`seam.py:366`) and `flush` (`:428`) and nothing else — a service passes through
