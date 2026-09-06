@@ -5,7 +5,7 @@ an outside review (2026-09-06) proposed eleven phases, 16–26, that had to be c
 tree before any of them could be scheduled. **Nine parallel researchers and two adversarial
 reviewers did that check.** What follows is what survived it.
 
-**Read this with `README.md`'s Status block, which says which tranche is live.** This document holds
+**Read this with `README.md`'s Status block, which says which phase is live.** This document holds
 the argument and the ordering; `README.md` holds the state.
 
 ---
@@ -24,32 +24,49 @@ suggest. **Phases 12–15 exist nowhere in `docs/`** — they are four words in 
 and the proposed Phase 16 and Phase 26 both declare dependencies on them.
 
 **Nothing below fires a single one of `01`'s deferred-row triggers.** That is the test this document
-applies and it is the reason the plan is tranches rather than phases: a phase implies a gate and an
-exit, and most of this is work `01` and the ledger already scheduled, waiting on nothing.
+applies and it is the reason several phases split, one dissolves, and one is added: the numbers the review chose
+are kept, and what moved is stated per row rather than hidden behind a new unit of work.
 
 ---
 
-## 1 · The table
+## 1 · The phases
 
-Complication is rated **for the work as this document scopes it**, not as the review proposed it —
-several ratings collapse once the duplication is removed. MoSCoW is **order, never exclusion**:
-every row gets built. A `WON'T` here means *not in this cycle, and here is what fires it* — a
-`WON'T` with no stated trigger is a defect in the verdict, not a decision.
+Eleven phases were proposed, 16–26. All eleven keep their numbers here. What changed after checking
+each against the tree is stated per row: **two split**, **one dissolves into work the ledger already
+holds**, **one moves to the front**, and **one is added** — Phase 27, because the sharpest defect the
+check found belongs to no proposed phase.
 
-| # | Tranche / work | Complication | MoSCoW | What must be true first |
+Complication is rated for the work as this document scopes it, not as the review proposed it;
+several ratings collapse once the duplication is removed. **MoSCoW is order, never exclusion.**
+Every phase gets built. A `WON'T` means *not in this cycle*, and it carries the trigger that fires
+it — a `WON'T` with no trigger is a defect in the verdict, not a decision.
+
+| Phase | Introduces | Complication | MoSCoW | Depends on |
 |---|---|---|---|---|
-| **T0** | **Truth and publication** — the status banner, the changelog, the release protocol, and `uv publish` | LOW | **MUST** | Nothing |
-| **T1** | **Measurable, in both languages** — `RunRecord.query_pipeline`, the three metric defects, Polish scoring | MEDIUM | **MUST** | T0 published, so a run can name a released version |
-| **T2** | **The ladder tells the truth** — `--explain`, `score_semantics`, and whichever shipped defaults Weft's *own* measurements condemn | LOW | **SHOULD** | T1's numbers returned, **and** §4's citations recovered at source |
-| **T3a** | **Embeddable** — `runtime.run(name, args)`, one verb; `08` §33's promised Python documentation | MEDIUM | **SHOULD** | Nothing (runs beside T3b) |
-| **T3b** | **Incremental ingest** — chunked batch iterator; make `02` §1010 true; `SourceStatus.INDEXING` | MEDIUM | **SHOULD** | T4 settled — nothing persists on `NodeId` before then |
-| **T4** | **Node identity** — two files with identical bytes share one node id, and the second ingest takes the first's nodes. A live data-loss defect, and the same decision the tenant question turns on | MEDIUM to repair, VERY HIGH to defer | **MUST** | Nothing — the trigger has already fired |
-| **T5** | **Breadth at the edges** — `format-office`/`format-html` extras on 9.13, `feat-ocr-rapidocr`, `base_url`, a second provider account | LOW | **SHOULD** | Phase 9's `9.13` |
-| **T6** | **Everything else** — each gated on a named trigger | HIGH+ | **WON'T yet** | See §5, one trigger per row |
+| **26a** | **Public truth and publication.** Status banner, changelog, release protocol, `uv publish`. **Split out of Phase 26 and moved first** — see §2 | LOW | **MUST** | nothing |
+| **16a** | **Evidence truth.** Query-rung identity in `RunRecord`, the three metric defects, Polish scoring. **Phase 16's evidence half** | MEDIUM | **MUST** | 26a |
+| **27** | **Node identity.** Does provenance enter the content digest? A live data-loss defect. **New — belongs to no proposed phase** | MEDIUM to repair, VERY HIGH to defer | **MUST** | nothing; its trigger has fired |
+| **21a** | **The ladder tells the truth.** `--explain`, `score_semantics`, and whichever shipped defaults Weft's *own* measurements condemn | LOW | **SHOULD** | 16a, and §4's citations recovered |
+| **24a** | **Embeddable Python API.** One verb over the `Command` registry, plus `08` §33's promised documentation. **Phase 24 minus its HTTP adapter** | MEDIUM | **SHOULD** | nothing |
+| **17** | **Incremental ingestion.** Chunked batch iterator, honour `02` §1010, `SourceStatus.INDEXING` | MEDIUM | **SHOULD** | 27 settled first |
+| **19** | **Format breadth.** docx/pptx/html extras and an OCR engine — **folded into ledger task `9.13`; the phase dissolves** (§7) | LOW | **SHOULD** | `9.13` |
+| **20a** | **Provider reach.** Document `base_url`, and a second `weft.packs` account so local-embeddings-plus-hosted-chat is representable | LOW | **SHOULD** | nothing |
+| **16b** | **Capability manifest and reconciliation.** The derived manifest, maturity, index availability, evidence links. **Phase 16's other half — it is A2's work, not A1's** | LOW-MEDIUM | **SHOULD** | 26a |
+| **26b** | **Extension kit.** Publish a conformance kit an author can import, and a pack template | MEDIUM | **SHOULD** | 26a |
+| **18** | **Source connectors.** An enumeration seam, then HTTP and object-store connectors | MEDIUM (seam) to VERY HIGH (as proposed) | **WON'T yet** | a real second source |
+| **20b** | **Local model packs.** TEI/HTTP embedder, `cross-encoder-rerank`, later `sentence-transformers` | MEDIUM | **WON'T yet** | 21a's depth measurement |
+| **21b** | **Retrieval backends.** A BM25 `TextSearch` pack; sparse vectors; late interaction | HIGH | **WON'T yet** | per-row triggers, §6 |
+| **22** | **Tenant isolation.** Scope enforcement, ACL, purge. The *machinery*, not the identity decision | VERY HIGH | **WON'T yet** | `01`'s second-tenant trigger |
+| **23** | **Durable jobs.** A job store — in the same Postgres as the data, never SQLite beside it | HIGH | **WON'T yet** | `01`'s restart trigger |
+| **24b** | **Service tier.** HTTP adapter, and an MCP server over it | HIGH | **WON'T yet** | `01`'s out-of-process trigger, and 22 |
+| **25** | **Interaction capture.** Feedback, experiments, promotion — and the **only** privacy, consent and retention scope anywhere in the proposal | VERY HIGH | **WON'T yet** | 22, 23, 24b |
+| **26c** | **1.0 graduation.** `09` §2.2's six preconditions | VERY HIGH | **WON'T yet** | three unmet preconditions |
 
----
+**What the letters mean.** A phase that split keeps its number and gains a letter, so `16a` and `16b`
+stay findable from the review that proposed Phase 16. Nothing is renamed away from the vocabulary the
+review and the owner already share.
 
-## 2 · Tranche 0 — truth and publication
+## 2 · Phase 26a — public truth and publication, moved to the front
 
 **The cheapest work in this document and the only critical path in it.**
 
@@ -61,7 +78,7 @@ distribution names return 404 on PyPI. `CHANGELOG.md` is frozen at Phase 5 (2026
 
 **This is a release-process defect first and a documentation defect second.** `README.md` → *Protocol*
 governs closing a gate; **nothing governs cutting a tag**, which is why `v2.1.0` shipped with a stale
-changelog, no assets and an install command that 404s. Writing that protocol is part of this tranche.
+changelog, no assets and an install command that 404s. Writing that protocol is part of this phase.
 
 **Publishing is the critical path and nothing else in this document comes close.** One act discharges
 three downstream exits: Phase 6's Exit (*a stranger installs the release from the index*), Phase 7's
@@ -75,7 +92,7 @@ banner. Repairing the wrong line would leave the real defect standing.
 
 ---
 
-## 3 · Tranche 1 — measurable, in both languages
+## 3 · Phase 16a — measurable, in both languages
 
 **Nothing in this tree is measurable until `RunRecord` can name the query rung.** `weft eval compare
 --baseline` selects repetitions by `resolved_pipeline.name`; task `7.5` added `--query-pipeline` as a
@@ -103,7 +120,7 @@ generation scoring in Polish is wrong**, in shipped product. No proposed phase n
 
 ---
 
-## 4 · Tranche 2 — the ladder tells the truth
+## 4 · Phase 21a — the ladder tells the truth
 
 `01`'s requirement 6 is that a shipped technique is real and parameterisable. A user who climbs
 `rerank-then-generate` and sees no gain concludes the ladder is decorative, which is a product defect
@@ -141,11 +158,11 @@ What survives, and is genuinely cheap:
   each, inside the untracked review file. They are new work, not an extension of something shipped.
 
 And the thing to do before changing any default: **run the sweep on Weft's own corpus**, which is
-what Tranche 1 makes possible. Do not deprecate dominated pipelines either way — it breaks FF16,
+what Phase 16a makes possible. Do not deprecate dominated pipelines either way — it breaks FF16,
 whose waiver is pinned empty, and the ladder is pedagogical: `hyde-then-retrieve` exists so a user
 can watch HyDE lose, which is what `11` §6 measures it doing.
 
-## 5 · Tranche 4 — node identity, and the bug hiding behind the tenant question
+## 5 · Phase 27 — node identity, and the bug hiding behind the tenant question
 
 **`NodeId` is a content digest over `media_type`, `content`, sorted `parent_ids` and `ordinal`
 (`weft_kernel/payload/node.py:245-260`). It excludes the tenant — and it excludes the source.**
@@ -180,14 +197,14 @@ forever.** A reported success that did nothing is worse than a failure, which is
 *different* ids so the old nodes linger; here, duplicate content produces the *same* id so one
 document's nodes are taken by another. Both are content-addressed identity that excludes provenance.
 Two lessons pointing at one cause is the signal that the fix belongs at the cause, and that is why
-this is one tranche rather than a repair filed under each.
+this is one phase rather than a repair filed under each.
 
 **So the decision is one question with three consequences.** Does provenance — the source, the
 tenant, or both — enter the digest? Either the primary key becomes composite, which is cheap in SQL
 but needs a key that `get(ids)`, every lineage array and every citation currently do not carry; or
 provenance enters the digest, which **changes every node id in every existing corpus** and
 invalidates every stored `BlobRef`, `RunRecord` and citation. That is a one-way door, it is the only
-item in this document whose cost grows monotonically with every corpus indexed, and the single-tenant
+phase in this document whose cost grows monotonically with every corpus indexed, and the single-tenant
 half means it is a defect to repair rather than a deferral to schedule.
 
 Two things ride with it and are cheap. Write down the fact that is true today and stated nowhere:
@@ -198,14 +215,14 @@ second tenant*, and that trigger needs an operational reading — a second `tena
 deployment, or an in-process caller that is not the CLI — because "real" is not a condition anything
 can check.
 
-## 6 · Tranche 6 — deferred, each with the trigger that fires it
+## 6 · The deferred phases, each with the trigger that fires it
 
 Every row is work this project intends to do. None of it starts on a preference.
 
 | Work | Fires when |
 |---|---|
 | Source-enumeration seam (`SourceConnector`) | A real second source — a user with an object store, or `weft index <url>`. `02` §1: a contract with one implementation is a guess |
-| TEI/HTTP local embedder, `cross-encoder-rerank` | Tranche 2's depth measurement returns the paper's ≥0.826-at-50 |
+| TEI/HTTP local embedder, `cross-encoder-rerank` | Phase 21a's depth measurement returns the paper's ≥0.826-at-50 |
 | BM25 `TextSearch` backend | Chosen: `timescale/pg_textsearch` (PostgreSQL licence). `pg_search` is AGPL and unavailable on stock managed Postgres; VectorChord-bm25 is **now confirmed** dual AGPL/Elastic |
 | Durable job broker | `01`: indexing must survive process restart, or one run exceeds a session. And when it does, the job table lives in **the same Postgres as the data** — a separate store is a dual write |
 | Service tier, HTTP, MCP server | `01`: someone outside the process needs to call this. The MCP ecosystem ships *clients*, which is `weft-agent`'s business; the protocol also broke on 2026-07-28 |
@@ -245,9 +262,9 @@ Every row is work this project intends to do. None of it starts on a preference.
 
 ## 8 · Sequencing hazards the review missed
 
-- **Tranches 3b and 4 share `NodeId`.** A durable delta plan or transformation cache keyed on a node
-  id computed *before* the digest decision is computed twice. This is why T3b is constrained to key
-  its verdict on `SourceRecord` and to persist nothing on `NodeId`.
+- **Phases 17 and 27 share `NodeId`.** A durable delta plan or transformation cache keyed on a node
+  id computed *before* the digest decision is computed twice. This is why Phase 17 is constrained to key
+  its verdict on `SourceRecord` and to persist nothing on `NodeId` until Phase 27 has settled.
 - **Three proposed phases all write `RunRecord`.** One schema change wearing three phase numbers.
   `9.17` has just demonstrated what an uncoordinated writer to a persisted record costs.
 - **A cache key without a model fingerprint is wrong at the first commit** — incremental ingest and

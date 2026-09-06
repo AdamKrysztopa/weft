@@ -1797,6 +1797,72 @@ divergence in the docstring beside the name — it should also own the citation 
 that changes shipped configuration. And one clause in `CLAUDE.md`'s *Claims need evidence*
 paragraph, widening it from claims about the tree to claims used to change it.
 
+
+### L9.72 — the state file typed a fact the ledger owns, and understated its own project
+
+**What happened.** `docs/README.md` listed Phase 8 tasks 8.6–8.9 as unticked while
+`docs/build-ledger.md` carries all four ticked with commit shas. The file `CLAUDE.md` designates the
+single source of truth understated the state it exists to hold. Found by a dispatched reviewer
+reading across, not by any check — and it is the *same* drift the outside review found on the public
+`README.md`, occurring one level in. Its lessons row also cited `scripts/next_task.py`, a path that
+does not exist (the script is at `.claude/skills/phase-step/scripts/next_task.py`), in the row whose
+whole point is that the number is never stated by hand.
+
+**Generalises to.** `docs/README.md`'s own opening rule is that it holds state and pointers, never
+definitions — and a *typed* checkbox mirroring a ledger line is a second copy of a fact, which is the
+thing that rule forbids. The lessons count is already derived by a script and was right; the phase
+checkboxes are typed and drifted. *A control file may hold a fact it derives or a pointer to where
+the fact lives; a fact it retypes will disagree with its source, and the file that disagrees is the
+one everybody reads first.*
+
+**Candidate home.** The `--check-live` script already reconciles the lessons count against
+`lessons.md`. Extend it to reconcile every phase checkbox against the ledger's own `- [x]` marks —
+the data is there and the comparison is mechanical. Same commit should fix the cited script path.
+
+### L9.73 — nine agents agreeing was read as corroboration and was partly one blind spot
+
+**What happened.** Nine researchers were dispatched, one topic each, over one roadmap and one review.
+All nine independently reported that the roadmap re-declares what G4 settled is derived, and the
+consolidation treated that unanimity as strong evidence. An adversarial reviewer then found that
+**none of the nine quoted the roadmap's own *Priority rules if capacity is constrained* section**,
+which reaches nearly the same top-three the nine "corrected" it to — and that the consolidated
+verdicts contained **no owner for language at all**, despite the product brief naming Polish and
+English and two live defects sitting in shipped code (`weft_eval.embedding_metrics` hardcoding
+`bert_score(lang="en")`, `weft_store.pgvector_store` defaulting to unstemmed `simple`).
+
+**Generalises to.** Two distinct failures, and the second is the expensive one. *Agents given the
+same sources do not produce independent evidence; their agreement measures the sources, not the
+world* — so a consolidation step owes a sentence naming what every agent read in common. And *a
+fan-out partitioned by subsystem cannot see a defect whose axis is cross-cutting* — language,
+cost, latency and upgrade path were each invisible in nine reports and appeared only on reading
+across. Partition by subsystem and you get subsystem findings; the product axes need an owner or
+they get none.
+
+**Candidate home.** Wherever dispatch briefs are written — a fan-out plans at least one agent whose
+topic is an axis rather than a component, and the consolidation names the shared source set before
+counting agreement.
+
+### L9.74 — a produced fact nothing declares stays invisible until the first consumer arrives
+
+**What happened.** `weft_pdf.pdf_layout.PdfLayoutExtractor` attaches `PdfPages`, `TableGrid`,
+`BlobRef` and `PageSpan`, and declared **none** of them in a `provides` tuple — tasks `9.6` and `9.7`
+both shipped their fact and skipped the declaration. Nothing failed, because
+`weft_kernel.resolution` checks `requires` against earlier `provides` and there was nothing in the
+tree that declared a `requires`. Task `9.11`'s `describe-figure` is the first plugin to declare one,
+and fitness function 11 refused its shipped document immediately: *"requires 'BlobRef' but no earlier
+stage provides it. Provided so far: (none)."*
+
+**Generalises to.** `L5.15`'s producing-side-without-a-consuming-side, in the declaration layer
+rather than the data layer, and with a nastier property: the check that would catch it *exists and
+passes*, because a check over an empty set of consumers is vacuous. *When a stage attaches a fact,
+the declaration is part of attaching it — a `provides` written only when someone finally asks is a
+`provides` written by whoever needed it, not by whoever knows what the stage does.*
+
+**Candidate home.** A fitness function is available and cheap: a plugin whose source calls
+`with_ext(X)` and whose class does not name `X` in `provides` is a declaration gap, checkable by AST
+across the tree. Failing that, `phase-step` → *Finish*, beside the run-the-binary step. Note the
+repair declared all four facts rather than the one that failed, per `L6.13`.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in
