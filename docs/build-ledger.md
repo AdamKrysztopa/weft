@@ -4268,7 +4268,7 @@ is also refused: the ReAct step is a typed structured answer through the three-t
   each demonstrable and cannot meet on the same rungs. **The shape of the repair is deliberately not
   prescribed here** (`L7.1`): what is owed is that a *query* pipeline can be a subject of
   `weft eval`, and whoever builds it will have read `eval_scoring.py` while this line was written
-  from one failing command · sha `SHA75` ·
+  from one failing command · sha `c1d527a` ·
   **What actually blocked it was one line, and it is worse than the refusal that hid it.**
   `weft eval run` refusing a query pipeline (*"no stage registered under the Extractor contract"*)
   is reasonable for a command that also indexes. Underneath, `weft_cli.eval_scoring` pulled the
