@@ -1184,6 +1184,33 @@ paragraphs under it — the paragraphs here were right the whole time.
 that, a line in `phase-step` → *Verify*, which today asks whether the diff contains a design choice
 that was not in the brief and does not ask whether it contains a name nothing uses.
 
+
+### L9.52 — a check's idea of the valid key set stayed static after the task that made it dynamic
+
+**What happened.** `tests/docs/test_manual_config_keys.py:83` computes the `[services]` keys a manual
+page may document as `frozenset(ServiceSelection.model_fields) | SERVICES_KEYS_DOCUMENTED_BEFORE_
+THEY_EXIST` — four literal field names (`embed`, `store`, `route`, `roles`) plus a ratchet pinned
+empty at `:38`. Task `9.0` (closed the same phase) made role keys **declared by packs** and resolved
+through `RoleTable`, so `[services].<role>` is now an open set a pack contributes to. The check did
+not follow. The consequence is precise and arrives at `9.4`: the blob store declares a real `blob`
+role, an operator really can write `[services] blob = "filesystem"`, and documenting that remedy
+fails a `tests/docs` check whose only escape is a constant named *documented **before** they exist* —
+for a key that does exist. A ratchet used that way stops meaning what its name says.
+
+Found by a dispatched survey agent enumerating what a new pack must satisfy, before the pack was
+written; nothing had failed yet, because no manual page documents a role key.
+
+**Generalises to.** When a task turns a closed set into a declared one, every check that enumerates
+that set is part of the task — and a check derived from `model_fields` is exactly the kind that keeps
+passing while going out of date, because its source of truth is still true, just no longer complete.
+`L5.6`'s inverse: not a check that cannot fail, but a check whose population stopped being the
+population.
+
+**Candidate home.** The check itself: derive the accepted set from `ServiceSelection.model_fields`
+*plus* `role_table_from_reports(...)`'s declared keys, which is the same walk `weft_cli` performs to
+accept the key at runtime. Failing that, `phase-step` → *Finish*, item 2, which asks whether a task's
+own fitness function is wired and does not ask which existing checks the task just made incomplete.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in
