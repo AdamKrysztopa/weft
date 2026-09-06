@@ -49,7 +49,7 @@ from weft_cli.config_surface import (
     set_config_text,
     validate_set_value,
 )
-from weft_cli.registry_bootstrap import DEFAULT_CONFIG_PATH, document_at
+from weft_cli.registry_bootstrap import DEFAULT_CONFIG_PATH, Dependencies, document_at
 from weft_command.contract import Command, CommandResult
 from weft_command.permission import PermissionClass
 from weft_kernel.context import Context
@@ -115,12 +115,14 @@ class ConfigGetCommand:
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
         get_args = cast(ConfigGetArgs, args)
-        del ctx  # this command reads weft.toml directly; it needs no registered plugin
+        # Ledger task 9.0 — `effective_config`'s "print everything" path is dynamic, over
+        # whatever this run's own discovery declared, so it needs `Dependencies.roles`.
+        deps = ctx.require(Dependencies)
         document = document_at(DEFAULT_CONFIG_PATH)
         entries = (
-            (config_entry(document, get_args.key),)
+            (config_entry(document, get_args.key, table=deps.roles),)
             if get_args.key is not None
-            else effective_config(document)
+            else effective_config(document, table=deps.roles)
         )
         return Produced(value=ConfigGetCommandResult(entries=entries, show_origin=get_args.origin))
 

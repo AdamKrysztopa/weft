@@ -1100,6 +1100,46 @@ enumerable set; whether the name itself resolves is left to the registry lookup 
 performs later, which is where `weft_kernel.registry.UnknownPluginError` already carries its own
 `valid_options`.
 
+### `MalformedServiceRolesError`
+
+**What it looks like** — ledger task **9.0**: an installed pack defines a module-level
+`SERVICE_ROLES` attribute, but it is not a tuple of `weft_kernel.context.ServiceRole`, so
+discovery cannot tell which `[services]` keys the pack meant to declare:
+
+```text
+MalformedServiceRolesError: 'blob' defines SERVICE_ROLES but it is not a tuple of
+weft_kernel.context.ServiceRole (found list). Declare it as `SERVICE_ROLES = (MY_ROLE,)`,
+beside the contract the role selects for.
+```
+
+The pack is reported `FAILED` rather than treated as declaring nothing, on
+`MalformedDisclosureError`'s own footing: a pack that *tried* to declare a role and got the
+shape wrong is a different fact from a pack that declares none, and collapsing the two would
+leave an operator with a `[services]` key that silently does not exist. **What to do:** this is
+a defect in the pack, not in your configuration — `weft plugins doctor` names the distribution,
+and its author needs to declare `SERVICE_ROLES` as a tuple beside the contract the role selects
+for. Until then the pack contributes nothing.
+
+### `DuplicateServiceRoleError`
+
+**What it looks like** — ledger task **9.0**: two installed, trusted packs each declared a
+`ServiceRole` under the same `[services]` key, so `weft_cli.service_roles.
+role_table_from_reports` has two claimants for one name and no way to prefer either:
+
+```text
+DuplicateServiceRoleError: role 'blobs' was declared by more than one pack for [services]:
+'weft-blob' and 'weft-other'. A role key names exactly one contract, so an operator's
+[services].blobs must have exactly one pack it could mean.
+```
+
+Deliberately **not** in fitness function 12's `UnresolvedNameError` family, unlike
+`UnknownServiceKeyError` just above it: nothing here failed to *resolve* against an enumerable
+set — two names resolved to the same key and disagree about what it means, which is a
+collision, not a lookup miss, so there is no `valid_options` to offer. **What to do:** one of
+the two packs named in the message is not the one you meant to install, or the two packs
+themselves need to stop naming the same role — `weft plugins doctor` shows what each
+installed distribution actually registers.
+
 ### `UnknownLLMKeyError`
 
 **What it looks like** — repair, 2026-08-20 (`docs/01-high-level-plan.md` item 12's own dated

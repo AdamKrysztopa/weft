@@ -132,6 +132,7 @@ from typing import Protocol, cast, get_type_hints
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
+from weft_kernel.context import ServiceRole
 from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_kernel.payload.ext import ExtModel
 from weft_kernel.pipeline import StageDeclaration
@@ -223,6 +224,24 @@ class RendererOffer(BaseModel):
     render: Callable[[object], object]
 
 
+class ServiceRoleOffer(BaseModel):
+    """One `ServiceRole` a pack declared, attributed to the pack that declared it.
+
+    Ledger task **9.0**: `docs/02-extension-model.md` §1's own Phase 0 narrowing named the
+    hole this closes — a pack had no seam through which to declare that `[services].<key>`
+    selects an implementation of a contract it publishes. `_read_service_roles` builds one of
+    these per entry in the pack's module-level `SERVICE_ROLES`: `distribution` is filled in
+    from the entry point currently being imported, never something the pack states and never
+    something it could misattribute to a distribution not its own. `role` is the declaration
+    itself; this wrapper adds only attribution.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid", arbitrary_types_allowed=True)
+
+    distribution: str
+    role: ServiceRole
+
+
 class PackReport(BaseModel):
     """One pack's discovery outcome — the row `weft plugins list|doctor` will print.
 
@@ -280,6 +299,13 @@ class PackReport(BaseModel):
     is the one place every report's own tuple is read back off and made reachable for
     dispatch — the identical shape `ext_models` and `weft_store.rehydrate.
     register_from_reports` already have, one surface over.
+
+    `service_roles` — task **9.0** — is every `ServiceRoleOffer` read from the pack's
+    module-level `SERVICE_ROLES`, empty for any pack that declares no `[services]` role (most
+    packs). Unlike `renderers`, it is **not** gated on a clean `commit()`: a role key is a
+    static fact about the pack, and a pack whose settings failed must still be able to tell an
+    operator that its `[services]` key exists — see `_read_service_roles` for the case that
+    settles it.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -297,6 +323,7 @@ class PackReport(BaseModel):
     ext_models: tuple[type[ExtModel], ...] = ()
     contributions: tuple[Contribution, ...] = ()
     renderers: tuple[RendererOffer, ...] = ()
+    service_roles: tuple[ServiceRoleOffer, ...] = ()
 
 
 class PackSettingsError(WeftError):
@@ -385,6 +412,16 @@ class MalformedDisclosureError(WeftError):
     a bare dict, a `Disclosure` from an incompatible version — is reported
     identically. Folded into a `FAILED` report by `_activate`, naming the
     distribution and what `DISCLOSURE` must be, rather than propagated.
+    """
+
+
+class MalformedServiceRolesError(WeftError):
+    """A pack's module-level `SERVICE_ROLES` is not a tuple of `ServiceRole`.
+
+    Task **9.0**, on `MalformedDisclosureError`'s own footing: a pack that tried to declare a
+    role and got the shape wrong is a different fact from a pack that declared none, and
+    collapsing the two would leave an operator with a `[services]` key that silently does not
+    exist. Folded into a `FAILED` report by `_activate`, naming the pack.
     """
 
 
@@ -940,6 +977,11 @@ def _activate(
     that raises after calling `add_renderer` leaves `renderers == ()`, the same atomicity
     every other buffer already has — the CLI must never advertise a way to format a result a
     pack never actually finished offering.
+
+    **Task 9.0** — `service_roles` does **not** follow that pattern, deliberately. It is read
+    from the pack's module-level `SERVICE_ROLES` before settings are validated, and travels on
+    every report from that point on, `FAILED` included: which `[services]` keys exist is a fact
+    about what is installed, not about what successfully configured itself.
     """
     ambient = direct_dependencies is not None and distribution not in direct_dependencies
 
@@ -957,6 +999,13 @@ def _activate(
             pack=pack, distribution=distribution, status=PackStatus.FAILED, reason=str(exc)
         )
 
+    try:
+        service_roles = _read_service_roles(entry_point, distribution=distribution)
+    except MalformedServiceRolesError as exc:
+        return PackReport(
+            pack=pack, distribution=distribution, status=PackStatus.FAILED, reason=str(exc)
+        )
+
     registrar = PackRegistrar(registry, distribution=distribution)
     try:
         settings = _resolve_settings(register_fn, pack=pack, raw=raw_settings)
@@ -970,6 +1019,7 @@ def _activate(
             ambient=ambient,
             reason=str(exc),
             disclosure=disclosure,
+            service_roles=service_roles,
         )
 
     deprecations = registrar.deprecations
@@ -994,6 +1044,7 @@ def _activate(
         ext_models=registrar.ext_models,
         contributions=registrar.contributions,
         renderers=registrar.renderers,
+        service_roles=service_roles,
     )
 
 
@@ -1019,6 +1070,49 @@ def _read_disclosure(entry_point: EntryPointLike, *, pack: str) -> Disclosure | 
         f"weft_kernel.discovery.Disclosure instance (found {type(value).__name__}). "
         f"DISCLOSURE must be built from Disclosure(network=..., filesystem=..., "
         f"subprocess=..., note=...)."
+    )
+
+
+def _read_service_roles(
+    entry_point: EntryPointLike, *, distribution: str
+) -> tuple[ServiceRoleOffer, ...]:
+    """The pack's module-level `SERVICE_ROLES`, read after import, before `register()` runs.
+
+    Ledger task **9.0**, and the timing is the whole point. Which `[services]` roles a pack
+    declares is a **static fact about the pack** — which key selects which contract — not a
+    product of its configuration, so it is read exactly where `DISCLOSURE` is read: after the
+    module imports, before settings are validated and before `register()` runs. A pack whose
+    settings fail therefore still tells an operator that its role key *exists*.
+
+    That is not a nicety. `weft-store`'s `[packs.store] dsn` is required, so on a machine with
+    no `weft.toml` the `store` pack reports `FAILED` and registers nothing — and had this
+    declaration been buffered through `register()`, `[services] store = "qdrant"` would then be
+    refused as an *unknown key*, naming the wrong problem entirely, on exactly the machine where
+    an operator is trying to configure their way out of it. The pre-9.0 behaviour — the key
+    parses, and the plugin name fails later through `weft_cli.registry_bootstrap.require_plugin`,
+    which names the pack and its reason — is the better error, and reading the declaration here
+    is what preserves it.
+
+    Absent means absent: most packs declare no role. Present but not a tuple of `ServiceRole`
+    is a different fact and is never collapsed into the same empty answer, on
+    `_read_disclosure`'s own footing.
+    """
+    module = sys.modules.get(entry_point.module)
+    raw: object = getattr(module, "SERVICE_ROLES", None) if module is not None else None
+    if raw is None:
+        return ()
+    found = type(raw).__name__
+    declared = cast("tuple[object, ...]", raw) if isinstance(raw, tuple) else ()
+    if not isinstance(raw, tuple) or not all(isinstance(item, ServiceRole) for item in declared):
+        raise MalformedServiceRolesError(
+            f"'{entry_point.name}' defines SERVICE_ROLES but it is not a tuple of "
+            f"weft_kernel.context.ServiceRole (found {found}). Declare it as "
+            f"`SERVICE_ROLES = (MY_ROLE,)`, beside the contract the role selects for."
+        )
+    return tuple(
+        ServiceRoleOffer(distribution=distribution, role=role)
+        for role in declared
+        if isinstance(role, ServiceRole)
     )
 
 

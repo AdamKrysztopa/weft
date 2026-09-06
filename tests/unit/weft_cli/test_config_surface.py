@@ -20,19 +20,33 @@ from weft_cli.config_surface import (
     ConfigOrigin,
     UnknownConfigKeyError,
     config_entry,
+    config_keys_for,
     effective_config,
     set_config_text,
     validate_set_value,
 )
+from weft_cli.service_roles import RoleTable
+from weft_kernel.context import ServiceRole
 from weft_kernel.errors import WeftError
 
 # --- effective_config / config_entry ----------------------------------------------------
 
 
-def test_no_document_at_all_defaults_every_key() -> None:
-    entries = effective_config(None)
+#: The roles a real installation declares. Stated rather than defaulted: task **9.0** removed
+#: `effective_config`'s ability to guess a key set, because a guess that names `embed` and
+#: `store` is the closed key space the task deletes, put back one layer down.
+_INSTALLED = RoleTable(
+    roles={
+        "embed": ServiceRole(key="embed", contract=object),
+        "store": ServiceRole(key="store", contract=object),
+    }
+)
 
-    assert {entry.key for entry in entries} == set(CONFIG_KEYS)
+
+def test_no_document_at_all_defaults_every_key() -> None:
+    entries = effective_config(None, table=_INSTALLED)
+
+    assert {entry.key for entry in entries} == set(config_keys_for(_INSTALLED))
     assert all(entry.origin is ConfigOrigin.DEFAULT for entry in entries)
 
 
@@ -43,7 +57,7 @@ def test_a_value_explicitly_set_to_the_default_is_still_origin_file() -> None:
     # provenance away. This is the property that check structurally cannot have.
     document: dict[str, object] = {"services": {"embed": "hash"}}  # "hash" is the default
 
-    entry = config_entry(document, "services.embed")
+    entry = config_entry(document, "services.embed", table=_INSTALLED)
 
     assert entry.value == "hash"
     assert entry.origin is ConfigOrigin.FILE
@@ -52,7 +66,7 @@ def test_a_value_explicitly_set_to_the_default_is_still_origin_file() -> None:
 def test_a_key_the_file_never_mentions_is_origin_default() -> None:
     document: dict[str, object] = {"services": {"store": "qdrant"}}  # embed left unmentioned
 
-    entry = config_entry(document, "services.embed")
+    entry = config_entry(document, "services.embed", table=_INSTALLED)
 
     assert entry.value == "hash"
     assert entry.origin is ConfigOrigin.DEFAULT
@@ -60,7 +74,7 @@ def test_a_key_the_file_never_mentions_is_origin_default() -> None:
 
 def test_config_entry_refuses_an_unknown_key_naming_the_valid_ones() -> None:
     with pytest.raises(UnknownConfigKeyError) as exc_info:
-        config_entry(None, "services.bogus")
+        config_entry(None, "services.bogus", table=_INSTALLED)
 
     assert exc_info.value.valid_options == CONFIG_KEYS
 
@@ -68,7 +82,7 @@ def test_config_entry_refuses_an_unknown_key_naming_the_valid_ones() -> None:
 def test_reconcile_mode_defaults_to_full_with_no_document() -> None:
     # Task 5.1c: `[reconcile] mode` joins the surface, unchanged default from `weft
     # reconcile`'s own pre-5.1c hardcoded `full`.
-    entry = config_entry(None, "reconcile.mode")
+    entry = config_entry(None, "reconcile.mode", table=_INSTALLED)
 
     assert (entry.value, entry.origin) == ("full", ConfigOrigin.DEFAULT)
 
@@ -76,7 +90,7 @@ def test_reconcile_mode_defaults_to_full_with_no_document() -> None:
 def test_reconcile_mode_explicitly_set_to_repair_is_origin_file() -> None:
     document: dict[str, object] = {"reconcile": {"mode": "repair"}}
 
-    entry = config_entry(document, "reconcile.mode")
+    entry = config_entry(document, "reconcile.mode", table=_INSTALLED)
 
     assert (entry.value, entry.origin) == ("repair", ConfigOrigin.FILE)
 

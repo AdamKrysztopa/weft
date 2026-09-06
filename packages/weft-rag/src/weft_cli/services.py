@@ -63,10 +63,12 @@ UnknownPluginError` already carries its own `valid_options`.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Final, cast
 
 from pydantic import BaseModel, ConfigDict
 
+from weft_cli.service_roles import RoleTable
 from weft_kernel.errors import UnresolvedNameError, WeftError
 
 #: `weft-embed`'s deterministic embedder — see the module docstring on why the offline
@@ -143,9 +145,50 @@ class ServiceSelection(BaseModel):
     #: one of the two in silence.
     route: str = DEFAULT_ROUTER
 
+    #: The plugin name selected for every declared role other than `embed`/`store` —
+    #: ledger task **9.0**. Keyed by the same `key` a `weft_kernel.context.ServiceRole`
+    #: declared; a key with nothing selected for it is simply absent, never guessed
+    #: (`weft_cli.service_roles.RoleTable`'s own module docstring).
+    roles: Mapping[str, str] = {}
 
-def service_selection_from_config(document: dict[str, object] | None) -> ServiceSelection:
+    def plugin_for(self, key: str) -> str:
+        """The plugin name selected for role `key`.
+
+        `embed` and `store` predate the mechanism and keep their own fields; every other
+        declared role is read from `roles`. A `key` this selection holds nothing for raises
+        `UnknownServiceKeyError` naming the keys it does hold — `roles` is never guessed at,
+        so an unresolved role is a refusal, not a silent default.
+        """
+        if key == "embed":
+            return self.embed
+        if key == "store":
+            return self.store
+        if key not in self.roles:
+            raise UnknownServiceKeyError(
+                f"[services] holds no selection for {key!r}. Selected: "
+                f"{', '.join(sorted(self.roles)) or '(none)'}.",
+                valid_options=tuple(sorted(self.roles)),
+            )
+        return self.roles[key]
+
+
+def service_selection_from_config(
+    document: dict[str, object] | None, *, table: RoleTable
+) -> ServiceSelection:
     """`[services]` from a parsed `weft.toml`, or every default if it says nothing.
+
+    The key set this validates against is `set(table.declared) | {"route"}` — every role a
+    trusted, installed pack declared, plus `route`, which names a pipeline rather than a
+    plugin and so is never a role (`docs/03-cli.md:925-930`). Never `ServiceSelection.
+    model_fields`: that set is closed to `embed`, `store` and `route`, which is exactly the
+    hole ledger task 9.0 closes — `weft_cli.service_roles`'s own module docstring.
+
+    `table` is **required and has no default**, deliberately. A default naming `embed` and
+    `store` would put back, one layer down, the closed key space this task exists to delete —
+    and it would fail *silently*: a caller that forgot the table would get a plausible key set
+    rather than a refusal, which `CLAUDE.md` names as strictly worse than a crash.
+    `weft_cli.registry_bootstrap.build_dependencies` builds the real one from what discovery
+    actually found, and every other caller says which set it means.
 
     Refuses an unknown key by naming it *and* the keys that exist, the same
     rule `weft_kernel.pipeline` applies to a pipeline document — `01`
@@ -154,6 +197,7 @@ def service_selection_from_config(document: dict[str, object] | None) -> Service
     refuses a malformed `[packs]`: two readers of one file must not disagree
     about what a broken block means.
     """
+    known = tuple(sorted(set(table.declared) | {"route"}))
     if document is None or "services" not in document:
         return ServiceSelection()
     services = document["services"]
@@ -163,8 +207,7 @@ def service_selection_from_config(document: dict[str, object] | None) -> Service
             f'`services = {services!r}`. Did you mean `[services]\\nembed = "openai-embeddings"`?'
         )
     written = cast("dict[str, object]", services)
-    known = tuple(sorted(ServiceSelection.model_fields))
-    unknown = sorted(key for key in written if key not in ServiceSelection.model_fields)
+    unknown = sorted(key for key in written if key not in known)
     if unknown:
         raise UnknownServiceKeyError(
             f"unknown [services] key(s) in weft.toml: {', '.join(repr(key) for key in unknown)}. "
@@ -179,4 +222,8 @@ def service_selection_from_config(document: dict[str, object] | None) -> Service
                 f"weft.toml's [services] {key} must be the name of a registered plugin, not "
                 f"{value!r}. `weft plugins doctor` lists what every installed pack registered."
             )
-    return ServiceSelection.model_validate(written)
+    role_selections = {
+        key: value for key, value in written.items() if key not in ("embed", "store", "route")
+    }
+    base = {key: value for key, value in written.items() if key in ("embed", "store", "route")}
+    return ServiceSelection.model_validate({**base, "roles": role_selections})

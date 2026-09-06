@@ -44,9 +44,21 @@ _SECTION: Final[re.Pattern[str]] = re.compile(r"^### `(?P<name>\w+)`", re.MULTIL
 
 
 def _service_keys() -> tuple[str, ...]:
-    from weft_cli.services import ServiceSelection
+    """The `[services]` keys `UnknownServiceKeyError` actually offers, derived the way the
+    refusal derives them.
 
-    return tuple(sorted(ServiceSelection.model_fields))
+    Ledger task **9.0** moved this off `ServiceSelection.model_fields`. That set was closed to
+    `embed`, `store` and `route`, which is precisely the hole 9.0 closes: the live set is now
+    every role an installed pack declared, plus `route`, which names a pipeline rather than a
+    plugin and so is never a role. Reading `model_fields` here would also now be simply wrong —
+    it holds `roles`, a field and not a key.
+    """
+    from pathlib import Path
+
+    from weft_cli.registry_bootstrap import build_dependencies
+
+    deps = build_dependencies(Path("/nonexistent/weft.toml"))
+    return tuple(sorted(set(deps.roles.declared) | {"route"}))
 
 
 def _permission_keys() -> tuple[str, ...]:

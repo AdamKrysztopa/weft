@@ -970,7 +970,12 @@ class PgVectorStore:
 
 
 def register(registrar: PackRegistrar, settings: PgVectorSettings) -> None:
-    """Register `PgVectorStore` as `"pgvector"` for `NodeStore`. The only plugin this pack ships."""
+    """Register `PgVectorStore` as `"pgvector"` for `NodeStore`. The only plugin this pack ships.
+
+    `[services].store` is declared by this pack's module-level `SERVICE_ROLES`, not here —
+    ledger task **9.0**. It is read before settings are validated, so the key still exists on a
+    machine where `[packs.store] dsn` is unset and this function never runs.
+    """
     registrar.add(NodeStore, "pgvector", partial(PgVectorStore, settings))
 
 

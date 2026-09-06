@@ -13,6 +13,7 @@ true by construction rather than by nobody having written the file yet.
 
 import pytest
 
+from weft_cli.service_roles import RoleTable
 from weft_cli.services import (
     DEFAULT_EMBEDDER,
     DEFAULT_ROUTER,
@@ -21,12 +22,24 @@ from weft_cli.services import (
     UnknownServiceKeyError,
     service_selection_from_config,
 )
+from weft_kernel.context import ServiceRole
 from weft_kernel.errors import WeftError
+
+#: The two roles a real installation declares, stated here rather than defaulted inside
+#: `service_selection_from_config` — task **9.0** removed that default on purpose, because a
+#: fallback naming `embed` and `store` is the closed key space the task deletes, reintroduced
+#: one layer down and failing silently. A test says which role set it means.
+_INSTALLED = RoleTable(
+    roles={
+        "embed": ServiceRole(key="embed", contract=object),
+        "store": ServiceRole(key="store", contract=object),
+    }
+)
 
 
 def test_no_document_at_all_selects_the_deterministic_embedder() -> None:
     # Act
-    selection = service_selection_from_config(None)
+    selection = service_selection_from_config(None, table=_INSTALLED)
 
     # Assert
     assert selection == ServiceSelection()
@@ -38,7 +51,7 @@ def test_a_document_with_no_services_block_selects_the_deterministic_embedder() 
     document: dict[str, object] = {"packs": {"allow": ["weft-store"]}}
 
     # Act
-    selection = service_selection_from_config(document)
+    selection = service_selection_from_config(document, table=_INSTALLED)
 
     # Assert
     assert selection.embed == "hash"
@@ -50,7 +63,7 @@ def test_services_embed_names_the_embedder_a_run_resolves() -> None:
     document: dict[str, object] = {"services": {"embed": "openai"}}
 
     # Act
-    selection = service_selection_from_config(document)
+    selection = service_selection_from_config(document, table=_INSTALLED)
 
     # Assert
     assert selection.embed == "openai"
@@ -64,7 +77,7 @@ def test_an_unknown_services_key_is_refused_naming_the_keys_that_exist() -> None
     # embedder while its operator believes a model ran, which does not crash: it answers
     # plausibly, against vectors that mean nothing.
     with pytest.raises(WeftError) as raised:
-        service_selection_from_config(document)
+        service_selection_from_config(document, table=_INSTALLED)
     assert "embedd" in str(raised.value)
     assert "embed" in str(raised.value)
 
@@ -77,7 +90,7 @@ def test_an_unknown_services_key_carries_the_known_keys_as_a_typed_field() -> No
 
     # Act / Assert
     with pytest.raises(UnknownServiceKeyError) as raised:
-        service_selection_from_config(document)
+        service_selection_from_config(document, table=_INSTALLED)
     assert raised.value.valid_options == ("embed", "route", "store")
 
 
@@ -87,7 +100,7 @@ def test_a_services_value_that_is_not_a_plugin_name_is_refused() -> None:
 
     # Act / Assert
     with pytest.raises(WeftError) as raised:
-        service_selection_from_config(document)
+        service_selection_from_config(document, table=_INSTALLED)
     assert "embed" in str(raised.value)
 
 
@@ -99,7 +112,7 @@ def test_a_services_key_that_is_not_a_table_is_refused_the_way_packs_is() -> Non
 
     # Act / Assert
     with pytest.raises(WeftError) as raised:
-        service_selection_from_config(document)
+        service_selection_from_config(document, table=_INSTALLED)
     assert "[services]" in str(raised.value)
 
 
@@ -111,7 +124,7 @@ def test_services_store_names_the_backend_a_run_indexes_into_and_searches() -> N
     document: dict[str, object] = {"services": {"store": "qdrant"}}
 
     # Act
-    selection = service_selection_from_config(document)
+    selection = service_selection_from_config(document, table=_INSTALLED)
 
     # Assert
     assert selection.store == "qdrant"
@@ -129,7 +142,7 @@ def test_services_route_names_the_pipeline_document_weft_ask_routes_through() ->
     document: dict[str, object] = {"services": {"route": "route-by-score"}}
 
     # Act
-    selection = service_selection_from_config(document)
+    selection = service_selection_from_config(document, table=_INSTALLED)
 
     # Assert
     assert selection.route == "route-by-score"

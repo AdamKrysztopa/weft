@@ -14,7 +14,7 @@ pack uses — fitness function 2 — with no shortcut for being first-party.
 
 from pydantic import BaseModel, ConfigDict
 
-from weft_embed.contract import EMBEDDER_CONTRACT_VERSION, Embedder
+from weft_embed.contract import EMBED_ROLE, EMBEDDER_CONTRACT_VERSION, Embedder
 from weft_embed.hash_embedder import HashEmbedder, HashEmbedderConfig
 from weft_kernel.discovery import PackRegistrar
 
@@ -25,14 +25,25 @@ class Settings(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
 
+#: Ledger task **9.0** — read by `weft_kernel.discovery._read_service_roles` at import time,
+#: before settings are validated, exactly where `DISCLOSURE` is read. Module-level rather than
+#: buffered through `register()` because which `[services]` key this pack declares is a static
+#: fact about the pack: a pack whose settings fail must still be able to tell an operator that
+#: its role key exists, or the refusal names the wrong problem.
+SERVICE_ROLES = (EMBED_ROLE,)
+
+
 def register(registrar: PackRegistrar, settings: Settings) -> None:
-    """Register `HashEmbedder` as `"hash"` for `Embedder`. The only plugin this pack ships."""
+    """Register `HashEmbedder` as `"hash"` for `Embedder`, and declare `[services].embed`
+    selectable — ledger task **9.0**. The only plugin this pack ships.
+    """
     del settings
     registrar.add(Embedder, "hash", HashEmbedder)
 
 
 __all__ = [
     "EMBEDDER_CONTRACT_VERSION",
+    "EMBED_ROLE",
     "Embedder",
     "HashEmbedder",
     "HashEmbedderConfig",

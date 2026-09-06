@@ -61,6 +61,7 @@ from pydantic import BaseModel, ConfigDict
 
 from weft_cli.permission_policy import PermissionAction
 from weft_cli.permission_policy import permission_policy_from_config as _permission_policy
+from weft_cli.service_roles import RoleTable
 from weft_cli.services import service_selection_from_config as _service_selection
 from weft_kernel.errors import UnresolvedNameError, WeftError
 
@@ -87,6 +88,32 @@ _KEY_FIELDS: Final[dict[str, tuple[str, str]]] = {
 #: Every dotted key `weft config get|set` reads or writes, sorted — `UnknownConfigKeyError`'s
 #: own `valid_options`, and `weft config get`'s own "print everything" default.
 CONFIG_KEYS: Final[tuple[str, ...]] = tuple(sorted(_KEY_FIELDS))
+
+#: The keys `config_keys_for` always includes regardless of what any pack declared —
+#: `permissions.*` and `reconcile.*` name no role and never will.
+_STATIC_KEYS: Final[tuple[str, ...]] = (
+    "permissions.overwrite",
+    "permissions.destroy",
+    "reconcile.mode",
+)
+
+
+def config_keys_for(table: RoleTable) -> tuple[str, ...]:
+    """Every dotted `[services]` key `weft config get|set` reads for *this* run, plus the
+    two blocks that name no role — sorted.
+
+    Ledger task **9.0**, `docs/README.md`'s own opening rule applied to `config get|set`'s
+    vocabulary: `_KEY_FIELDS` above is a second, hand-written key space over the identical
+    `[services]` block `weft_cli.services.service_selection_from_config` already derives
+    from installed packs, and it had already drifted — it never grew `services.route`, which
+    task 8.3 added. This is the one derivation both `effective_config` and (eventually)
+    `config get|set`'s own `--key` grammar read, rather than a second copy hand-maintained
+    beside it.
+    """
+    keys = {f"services.{role}" for role in table.declared}
+    keys.add("services.route")
+    keys.update(_STATIC_KEYS)
+    return tuple(sorted(keys))
 
 
 class ConfigOrigin(StrEnum):
@@ -159,8 +186,16 @@ def _written_section(document: dict[str, object] | None, section: str) -> dict[s
     return cast("dict[str, object]", written)
 
 
-def effective_config(document: dict[str, object] | None) -> tuple[ConfigEntry, ...]:
-    """Every key `CONFIG_KEYS` names, its effective value, and where that value came from.
+def effective_config(
+    document: dict[str, object] | None, *, table: RoleTable
+) -> tuple[ConfigEntry, ...]:
+    """Every key `config_keys_for(table)` names, its effective value, and where it came from.
+
+    Ledger task **9.0** — `services.*` is now built from `table` rather than the literal
+    `services.embed`/`services.store` dict this held before: `config_keys_for(table)` is the
+    one key space, and every `services.<key>` reads through `ServiceSelection.plugin_for`
+    rather than a hand-written field lookup. `permissions.*`/`reconcile.*` are unchanged —
+    they name no role and never will (`_STATIC_KEYS`).
 
     See the module docstring's own paragraph on why `origin` is computed from the **raw**
     `document`, never from comparing `selection`/`policy` against their own built-in
@@ -168,7 +203,43 @@ def effective_config(document: dict[str, object] | None) -> tuple[ConfigEntry, .
     """
     from weft_cli.reconcile_policy import reconcile_policy_from_config
 
-    selection = _service_selection(document)
+    selection = _service_selection(document, table=table)
+    policy = _permission_policy(document)
+    reconcile = reconcile_policy_from_config(document)
+    services_written = _written_section(document, "services")
+    permissions_written = _written_section(document, "permissions")
+    reconcile_written = _written_section(document, "reconcile")
+
+    entries: list[ConfigEntry] = []
+    for key in config_keys_for(table):
+        section, field = key.split(".", 1)
+        if section == "services":
+            value = selection.route if field == "route" else selection.plugin_for(field)
+            written = services_written
+        elif section == "permissions":
+            action = policy.overwrite if field == "overwrite" else policy.destroy
+            value = action.value
+            written = permissions_written
+        else:
+            value = reconcile.mode.value
+            written = reconcile_written
+        origin = ConfigOrigin.FILE if field in written else ConfigOrigin.DEFAULT
+        entries.append(ConfigEntry(key=key, value=value, origin=origin))
+    return tuple(entries)
+
+
+def _legacy_entry(document: dict[str, object] | None, key: str, *, table: RoleTable) -> ConfigEntry:
+    """`config_entry`'s own answer for one of `CONFIG_KEYS`'s five static keys.
+
+    `config_entry` (and, through it, `weft config get --key ...`) is scoped to `_KEY_FIELDS`
+    alone. It still needs the run's `RoleTable`, because `[services]`'s own key set is derived
+    from it since ledger task **9.0** — there is no default to fall back on, deliberately: a
+    guessed table naming `embed` and `store` would be the closed key space this task deletes,
+    put back one layer down and failing silently rather than loudly.
+    """
+    from weft_cli.reconcile_policy import reconcile_policy_from_config
+
+    selection = _service_selection(document, table=table)
     policy = _permission_policy(document)
     reconcile = reconcile_policy_from_config(document)
     services_written = _written_section(document, "services")
@@ -182,23 +253,18 @@ def effective_config(document: dict[str, object] | None) -> tuple[ConfigEntry, .
         "permissions.destroy": (policy.destroy.value, permissions_written),
         "reconcile.mode": (reconcile.mode.value, reconcile_written),
     }
-
-    entries: list[ConfigEntry] = []
-    for key in CONFIG_KEYS:
-        value, written = values[key]
-        _, field = _KEY_FIELDS[key]
-        origin = ConfigOrigin.FILE if field in written else ConfigOrigin.DEFAULT
-        entries.append(ConfigEntry(key=key, value=value, origin=origin))
-    return tuple(entries)
+    value, written = values[key]
+    _, field = _KEY_FIELDS[key]
+    origin = ConfigOrigin.FILE if field in written else ConfigOrigin.DEFAULT
+    return ConfigEntry(key=key, value=value, origin=origin)
 
 
-def config_entry(document: dict[str, object] | None, key: str) -> ConfigEntry:
-    """One key's `effective_config` entry — `UnknownConfigKeyError` if `key` is not one of
+def config_entry(document: dict[str, object] | None, key: str, *, table: RoleTable) -> ConfigEntry:
+    """One key's effective value — `UnknownConfigKeyError` if `key` is not one of
     `CONFIG_KEYS`.
     """
     _refuse_unknown_key(key)
-    by_key = {entry.key: entry for entry in effective_config(document)}
-    return by_key[key]
+    return _legacy_entry(document, key, table=table)
 
 
 def validate_set_value(key: str, value: str) -> None:
@@ -307,6 +373,7 @@ __all__ = [
     "ConfigOrigin",
     "UnknownConfigKeyError",
     "config_entry",
+    "config_keys_for",
     "effective_config",
     "section_and_field",
     "set_config_text",

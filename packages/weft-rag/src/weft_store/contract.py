@@ -94,7 +94,7 @@ from typing import TYPE_CHECKING, ClassVar, NewType, Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from weft_kernel.context import Context
+from weft_kernel.context import Context, ServiceRole
 from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_kernel.payload import Node, NodeId, Outcome, SourceId, Vector
 from weft_kernel.runner import Stage
@@ -465,6 +465,12 @@ class NodeStore(Stage[Sequence[Node], Sequence[Node]], Protocol):
 
 
 NodeStore.version = STORE_CONTRACT_VERSION
+
+#: Ledger task **9.0** — `weft_store`'s own declaration that `[services].store` selects a
+#: `NodeStore`. A plain module-level constant beside the Protocol, never a `ClassVar` on
+#: `NodeStore` itself — see `weft_embed.contract.EMBED_ROLE`'s identical note, and
+#: `weft_extract.contract` (`:44-56`) for the `__protocol_attrs__` reasoning in full.
+STORE_ROLE = ServiceRole(key="store", contract=NodeStore)
 
 
 @runtime_checkable

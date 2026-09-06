@@ -115,6 +115,7 @@ from typing import TYPE_CHECKING, cast
 from weft_cli.exit_codes import ExitCode
 from weft_cli.llm_roles import LLMRoles, LLMSection, llm_section_from_config
 from weft_cli.permission_policy import PermissionPolicy, permission_policy_from_config
+from weft_cli.service_roles import RoleTable, role_table_from_reports
 from weft_cli.services import ServiceSelection, service_selection_from_config
 
 if TYPE_CHECKING:
@@ -201,6 +202,12 @@ class Dependencies:
     registry: Registry
     reports: tuple[PackReport, ...]
     services: ServiceSelection
+    #: Ledger task **9.0** — every `[services]` role a trusted, installed pack declared,
+    #: gathered from `reports` by `role_table_from_reports`. `default_factory=RoleTable`
+    #: (empty), the same reasoning every other field below states for its own default: a
+    #: caller building `Dependencies` directly (a test, or a library use) should not have to
+    #: construct one by hand for a run that resolves no role beyond `embed`/`store`.
+    roles: RoleTable = field(default_factory=RoleTable)
     llm: LLMSection = field(default_factory=LLMSection)
     #: `[permissions]`, task 3.3 design question 4 — defaults to `ask`/`ask`, the built-in
     #: `docs/03-cli.md` -> *Permissions* table, so a caller building `Dependencies` directly
@@ -260,7 +267,6 @@ def build_dependencies(
     allow = None if document is None else allow_list_from_config(document)
     settings = merged_pack_settings(document)
     pins = {} if document is None else plugin_pins_from_config(document)
-    services = service_selection_from_config(document)
     llm = llm_section_from_config(document)
     permissions = permission_policy_from_config(document)
     # Lazy, not a top-level import — see `_default_reconcile_policy`'s own docstring.
@@ -270,11 +276,17 @@ def build_dependencies(
     registry = Registry(plugin_pins=pins)
     reports = discover(registry, allow=allow, pack_settings=settings, strict_pins=strict_pins)
     _register_ext_models(reports)
+    # Ledger task **9.0** — the declared role set does not exist until discovery has run, so
+    # `roles` is built here and `services` is parsed *after* it, never before: a `[services]`
+    # key an operator names can only be validated against what actually got discovered.
+    roles = role_table_from_reports(reports)
+    services = service_selection_from_config(document, table=roles)
     sink = token_sink if token_sink is not None else NullSink()
     return Dependencies(
         registry=registry,
         reports=reports,
         services=services,
+        roles=roles,
         llm=llm,
         permissions=permissions,
         reconcile_policy=reconcile_policy,

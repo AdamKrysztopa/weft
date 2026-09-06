@@ -449,8 +449,260 @@ the doc repairs are committed separately from the ledger text so neither rides i
 detail with no shape this project can hold a rule about — logging it would pad the queue, which the
 `lessons` skill names as the failure that stops queues being drained.
 
+### L9.23 — a citation pointed at a section title that exists as no heading, five times over
+
+**What happened.** `docs/build-ledger.md` cites *`build-ledger.md` → Phase 7's close* at `:5009`,
+`:5011`, `:5035`, `:5282` and `:5283`, as the owner field of task `9.0` among others. There is no
+such heading: `grep -n '^#\{2,4\} '` over the file returns close headings for Phase 6 (`:3807`) and
+Phase 8 (`:4657`) and none for Phase 7. The text meant is unheaded prose under `## Phase 7 — The
+agent` at `:4358-4366`. Found while following the citation to read what `9.0` was actually filed as.
+FF17 resolves citations by **basename** (`tests/architecture/test_ff17_citations_resolve.py`), so a
+pointer whose file exists and whose *section* does not is green by construction.
+
+**A second instance, sharper, found the same day.** Ledger task `11.4` cites `02:666-670` for the
+sentence "a graph store is not a node store". Those lines hold the in-memory-store passage; the
+sentence is at `docs/02-extension-model.md:691`. That citation was **written today**, in `b0f04d1`,
+and FF17 passed it — because FF17 asks whether a `path:line` *resolves*, never whether the lines
+hold what the citation claims. A pointer can be green and wrong on the day it is written.
+
+**Generalises to.** A citation is only as good as the thing it can be checked against — so a
+`document → Section` pointer needs the section to be a heading, and a `path:line` pointer needs its
+*content* checked, not merely its existence. A check that a line number resolves is a check that the
+file is long enough.
+
+**Candidate home.** FF17, whose subject would widen from basenames to `→ Section` anchors; or the
+`phase-step` orientation step, which follows these pointers and is where the miss is felt.
+
+### L9.24 — three abandoned worktrees make every tree-wide search silently over-count
+
+**What happened.** `git worktree list` reports three live worktrees under `.claude/worktrees/`
+(`phase2-group-e` at `d487653`, `repair-2-30-llm` at `7020480`, `task-2-30` at `c8af558`), all from
+Phase 2, each a full checkout of this repository. They are hidden from `git status` by
+`.git/info/exclude:11` — a **local, untracked** exclude, so nothing in a diff or a fresh clone
+records that they exist. A naive `grep -r` from the repo root therefore returns up to four copies of
+every hit. Surfaced by a dispatched agent that scoped its own walks to `packages/ tests/ examples/
+testing/ docs/` and said so; nothing in the repository would have told it.
+
+**Generalises to.** A count from a tree-wide search is a claim about the working tree only if the
+search's scope was stated — so a search that feeds a brief or a document names the directories it
+walked, and stale worktrees are removed at the phase close that abandons them rather than left to
+be discovered by whatever trips over them.
+
+**Candidate home.** `phase-step` → *Finish* (leave no worktrees behind, beside "leave no artefacts
+behind"); or a `ci-checks` row failing on a worktree whose branch is merged. Phase 13 owns the
+removal; this owes the rule that stops the next three.
+
+### L9.25 — two comments asserted another module's state, and were false for a whole phase
+
+**What happened.** `packages/weft-rag/src/weft_retrieve/vector_top_k.py:176` says of
+`weft_cli.run_services.check_store_capabilities` that "**nothing does yet**" call it, and
+`tests/unit/weft_retrieve/test_vector_top_k.py:189-192` repeats the claim in its Arrange block as
+the reason the test exists. `packages/weft-rag/src/weft_cli/route_ask.py:508` has called it since
+Phase 2 task 2.8. Both comments are about a **different module's** call graph, so nothing that
+changed `route_ask.py` had any reason to touch either, and the test asserting the fallback still
+passes — it is the stated *reason* that rotted, not the assertion.
+
+**Generalises to.** A comment claiming what some other module does not yet do has no mechanism to
+notice when it starts — so a claim about another file's call sites is written as a check
+(`grep`-able, or an assertion) or is not written down.
+
+**Candidate home.** `weft-qualities`, which reads a change and could ask it of the comments in
+range; or `phase-step` → *Verify*, beside "read what a check asserts, not what its name says".
+
+### L9.26 — every test supplied the argument by hand, so none could catch the caller supplying the wrong one
+
+**What happened.** `check_store_capabilities` takes `store_name` and builds a refusal reading *"the
+configured store '{store_name}'"* whose remedy is *"name a store that provides X in [services]
+store"* (`packages/weft-rag/src/weft_cli/run_services.py:186-198`). The one production caller passes
+`store_name=type(store).__name__` (`packages/weft-rag/src/weft_cli/route_ask.py:513`), so a live
+refusal names `PgVectorStore` where `[services] store` accepts `pgvector` — a remedy an operator
+cannot carry out. All six other call sites are tests (`tests/unit/weft_cli/test_run_services.py:134`,
+`:152`, `:189`, `:219`, `:237`; `tests/integration/test_store_conformance.py:640`) and every one
+passes a plausible plugin-shaped name by hand (`"fake-vector-only"`, `"qdrant"`).
+
+**Generalises to.** A test that supplies a parameter itself is testing the callee and never the
+caller — so where a parameter's *value* carries the promise (a name an operator must be able to
+type), the check derives it the way production derives it, or runs the production path.
+
+**Candidate home.** Task `9.0` property (iii) repairs the instance; the rule belongs where briefs
+are written — `phase-step` → *Verify*, which already carries "read the other call sites before
+writing why they abstain" and does not carry "a hand-supplied argument tests nothing about the
+caller".
+
+
+### L9.27 — the check guarding a key set globs the directory that restates it, not the one that defines it
+
+**What happened.** `tests/docs/test_manual_config_keys.py` derives the accepted `[services]` key set
+from `ServiceSelection.model_fields` (`:83`) and sweeps for drift across `manual/*.md` plus
+`weft.toml.example` (`:47-48`). It never reads `docs/`. But `docs/03-cli.md:925-930` is where the key
+set is *defined* — "**`[services]` holds three keys, and the third names a pipeline rather than a
+plugin**" — and `docs/02-extension-model.md:1373`, `docs/README.md:114` and some 45 `build-ledger.md`
+lines restate it too. Task `9.0` changes that key set from three fixed fields to a declared role set,
+and every one of those sentences would have gone stale with the whole gate green. Found by a survey
+of the blast radius, not by any check. The same page carries three more statements of the key set in
+prose that neither of its two regexes matches (`manual/troubleshooting.md:1066-1067`, `:1074`,
+`:1093-1094`) — `_INLINE` (`:41`) requires `[services]` followed immediately by an identifier, and
+`:1074` sits inside a ```` ```text ```` block that `_QUOTED_TUPLE` does not reach.
+
+**Generalises to.** A drift check's scope is the set of files that *state* the fact, not the set that
+is convenient to glob — so a check guarding a definition covers the document that owns it first, and
+a definition restated in prose the check's pattern cannot match is either rewritten into the form the
+check reads or is not written down twice.
+
+**Candidate home.** `tests/docs/test_manual_config_keys.py`'s own `_documents()`, widened to the
+documents that own the definition; or FF4, which `build-ledger.md:5062` already says must reach the
+`[services]` key set through `9.0`.
+
+### L9.28 — a test pinned the expected set as a literal, so the derivation it was guarding could not fail it
+
+**What happened.** `weft config get|set`'s dotted-key vocabulary is a hand-written dict —
+`packages/weft-rag/src/weft_cli/config_surface.py:79-85` `_KEY_FIELDS` — listing `services.embed` and
+`services.store` and **not** `services.route`, which task 8.3 added to `ServiceSelection`
+(`services.py:144`) and wired into `route_ask.py:183`. So two key spaces over one `[services]` block
+have disagreed since 8.3. The test that would have caught it,
+`tests/unit/weft_cli/test_config_commands.py:60-66`, asserts the five-key set as a **literal**
+matching `_KEY_FIELDS`, so both sides of the comparison come from the same hand-written source and
+the check cannot fail. The module docstring (`:8-19`) still says "the five keys".
+
+**Generalises to.** Where a production value is hand-written and its test restates the same literal,
+the pair is one source checked against itself — so a test over a key space asserts it against the
+thing the keys are *for*, and a literal on both sides is the signal that nothing is being looked at.
+
+**Candidate home.** FF4, whose subject is exactly a closed key space over registry-adjacent names;
+`weft-qualities`, requirement 4. `9.0` repairs this instance by deriving the `[services]` half of
+`_KEY_FIELDS` from the declared role set.
+
+
+
+### L9.29 — the brief searched for the precedent it was copying, not for who enumerates the surface it grew
+
+**What happened.** Task `9.0` adds one public method, `add_service_role`, to
+`weft_kernel.discovery.PackRegistrar`. Before writing the brief I searched for `add_renderer` —
+the precedent whose shape I was copying — and listed its five sites. I did not search for
+`PackRegistrar` itself, so the brief omitted
+`tests/architecture/test_ff9_extension_from_outside.py:125`, where `_NameCapturingRegistrar` is a
+hand-written double whose completeness `test_the_double_carries_every_registrar_method` (`:663`)
+asserts against `vars(PackRegistrar)`. The implementer was correctly blocked — the repair is an edit
+to a test file, which its standing prohibitions forbid — and a round trip was spent. The check
+itself worked: its own docstring records that this had "happened three times and been noticed once",
+and this is the first time it fired instead of surfacing as a crash inside an unrelated check.
+
+**And it could not have been delegated even once found.** The designed repair is to add a no-op
+stand-in to `_NameCapturingRegistrar`, which lives inside that same test file — so a brief naming
+this site would still have handed the implementer work its standing prohibitions forbid. The
+implementer said so plainly and stopped, which is the right outcome and still a wasted round trip.
+
+**Generalises to.** Adding a public method to a class is an edit to every site keyed on that class's
+*surface*, and none of those sites is reachable from the method you are copying — so the search that
+closes the brief is for the class being extended, never for the sibling being imitated. Where such a
+site is a test, the dispatcher lands that edit **before** dispatching: a brief whose completion
+requires the implementer to edit a test is a dispatch that cannot succeed, however complete its
+site list.
+
+**Candidate home.** `phase-step` → *Red*, which already carries `L8.12` in the base-class form
+("when a brief names a base class, grep for that base class") and does not carry the
+add-a-method form. This is that rule re-learned one shape over, which `L6.8` says means moving it
+rather than restating it — the two should be one sentence about extending a surface.
+
+
+
+### L9.30 — the catalogue row claimed a mode the same page withdrew two paragraphs above it
+
+**What happened.** `docs/10-technique-catalogue.md:148` names the shipped plugin
+**`raptor`** *(mode: `collapsed` | `traversal`)* — the mode annotation sitting inside the row's own
+name column. `RaptorConfig` has no `mode` field (`packages/weft-rag/src/weft_index/raptor.py:141-161`
+— seven fields, none of them it), and no `Retriever` in `packages/` descends a tree: the only reader
+of `lineage.parents` under `weft_retrieve` is `collapse.py:142-146`, which walks child→parent, the
+opposite direction. The plugin itself is **honest** — its docstring at `:93-102` says `traversal`
+"is not implemented here" and names it as a distinct `Retriever` position — and `10:119-128` carries
+a correction block saying the same. So one page states the claim in its row and withdraws it in its
+prose, and the row is the half a reader scanning a table actually consumes. Found by a dispatched
+agent reading the paper against the code, not by `tests/docs/test_technique_naming.py`, which checks
+that a divergence is recorded on the docstring — and it *is*.
+
+**Generalises to.** A correction that does not edit the claim it corrects leaves both in the tree,
+and the shorter one wins — so a withdrawal is made **in the row**, and a note added elsewhere is a
+second copy of the fact rather than a repair of it. This is `L6.17` (anchoring finds the
+illustrative copy first) with the two copies inside a single document.
+
+**Candidate home.** `tests/docs/test_technique_naming.py`, whose five properties cover the docstring
+and not the row — a row's parenthetical mode/variant annotations are a claim with no check behind
+them. Also `paper-to-plugin` → step 6, which says to fill five columns and does not say that a later
+withdrawal edits the column rather than appending a paragraph.
+
+### L9.31 — a pipeline document told operators to do the thing its own plugin documents as broken
+
+**What happened.** `packages/weft-rag/src/weft_index/pipelines/index-with-raptor.yaml` tells the
+reader that one summary level "is this document's choice rather than the plugin's limit", and that
+"a second level is a second stage naming it again, which is a document edit and not a plugin
+change". The plugin says the opposite, in bold, at
+`packages/weft-rag/src/weft_index/raptor.py:58-70`: "**Chaining `embed`, `raptor`, `embed`,
+`raptor`, ... does not yet build a correct deeper tree, and this module does not claim that it
+does**" — because the linear runner hands the second stage the whole cumulative node set, so a leaf
+can be re-clustered with the summary already built from it. The document's advice produces a node
+mixing raw and already-abstracted content, silently. `10:119-128` agrees with the plugin. Two
+artefacts describe one mechanism from opposite sides and only one of them is operator-facing.
+
+**Generalises to.** A pipeline document is operator-facing instruction, not commentary — so a claim
+in one about what an operator may safely do is checked against the plugin it names, and a plugin
+that documents a limit owes an edit to every document that offers the workaround.
+
+**Candidate home.** A fitness function pairing each shipped pipeline document against the docstrings
+of the plugins it names is the durable form, and is plausibly the same check `L9.30` wants. Failing
+that, `phase-step` → *Verify*, beside "read the other call sites before writing why they abstain".
+
+
+
+### L9.32 — a divergence was justified by a claim about the paper that the paper contradicts
+
+**What happened.** `packages/weft-rag/src/weft_index/raptor.py:35-43` explains why Weft's `raptor`
+clusters greedily by cosine similarity rather than the paper's soft GMM, and justifies it like this:
+"Sarthi et al.'s own contribution is *recursive abstraction over a similarity-based hierarchy*, not
+a specific clustering procedure". A dispatched agent reading the paper at source reports that the
+authors present soft clustering as a distinctive design choice in their own right (p.3). So the
+divergence note — which is exactly the artefact `paper-to-plugin` step 5 requires, and which is
+otherwise well written — rests on an assertion about what the original authors cared about, made
+without evidence, that runs the other way. The paper's own ablation is the better argument and the
+docstring does not use it: GMM versus a recency tree is reportedly 0.8 points, once, on one dataset,
+without variance.
+
+**Generalises to.** A divergence note is a claim about the paper, not only about the code, and
+carries the same evidence burden as any other factual claim here — so "the authors did not really
+care about the part I changed" is the one justification that must never be written without a
+citation, because it is the one that makes a divergence sound like agreement.
+
+**Candidate home.** `paper-to-plugin` → step 5, which tells you to write the divergence and does not
+tell you that the *reason* is itself a claim needing a page number. `tests/docs/
+test_technique_naming.py` checks a divergence is recorded, never that its stated reason is sourced.
+
+### L9.33 — an expensive intermediate is computed, discarded, and recomputed by the next stage
+
+**What happened.** `weft_index.raptor.RaptorSummarizer` embeds every leaf in order to cluster it
+(`_embed`, `packages/weft-rag/src/weft_index/raptor.py:241-263`), then returns
+`Produced(value=(*payload, *derived))` at `:239` — where `payload` is the input sequence, unchanged
+and un-embedded. The shipped rung `index-with-raptor.yaml` runs `embed` after `raptor`, so every
+leaf is embedded **twice per ingest**: once inside the plugin to decide clusters, once by the stage
+that actually stores the vector. With the offline `hash` embedder this is invisible; with a paid
+embedder it is the entire leaf cost, paid twice. Nothing has ever measured it, because nothing
+measures this rung's cost at all.
+
+**Generalises to.** A stage that computes something expensive for its own internal decision and
+returns its input unchanged has hidden a cost at a boundary, where no stage-level test can see it —
+so a plugin that embeds, calls a model, or does IO for an intermediate says so in its docstring and
+names what downstream recomputes, or the cost is discovered on somebody's bill.
+
+**Candidate home.** The `Expander` contract's own documentation, or `weft-eval` gaining a per-rung
+cost the comparison already has a place to print. `weft-qualities` could ask it of any plugin that
+requires a service it does not return the product of.
+
+
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in
 `lessons-archive.md`, session by session, with the edges between entries — which is where the
 question *have we been here before?* is answered, and where an on/off cycle becomes visible.
+
+
+
+

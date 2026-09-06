@@ -43,6 +43,7 @@ from collections.abc import Callable, Generator
 import pytest
 from pydantic import BaseModel
 
+from weft_kernel.context import ServiceRole
 from weft_kernel.discovery import (
     Disclosure,
     EnvInterpolationError,
@@ -977,3 +978,115 @@ def test_a_raising_register_discards_its_unavailability_notices() -> None:
     # Assert
     assert report.status is PackStatus.FAILED, "a raising register is FAILED, never PARTIAL"
     assert report.unavailable == ()
+
+
+# --- service roles (task 9.0) -----------------------------------------------------------
+
+
+def test_a_pack_reports_the_service_role_it_declared_at_module_level() -> None:
+    """`SERVICE_ROLES` is read from the pack's module, after import, before `register()`.
+
+    Ledger task **9.0**. `docs/02-extension-model.md` §1's own Phase 0 narrowing records the
+    hole this closes: "a **service** is not registered through discovery at all ...
+    `PackRegistrar` — the whole surface a pack's `register()` receives — has no service seam.
+    Naming the providing pack therefore waits on a step that lets a pack contribute a service,
+    which no Phase 0 step does." This is that step.
+
+    **The kernel names no capability here** — it remembers that this pack declared *some* key
+    selects *some* contract and goes no further, exactly as `add_renderer` stops at "this pack
+    offered this type and this callable".
+    """
+    # Arrange
+    registry = Registry()
+
+    class _BlobStore:
+        pass
+
+    def register(registrar: PackRegistrar, settings: _Settings) -> None:
+        del registrar, settings
+
+    _install_fake_module(
+        "_weft_test_service_role_pack",
+        SERVICE_ROLES=(ServiceRole(key="blobs", contract=_BlobStore),),
+    )
+    entry_point = _FakeEntryPoint(
+        distribution="weft-blob", module="_weft_test_service_role_pack", target=register
+    )
+
+    # Act
+    reports = discover(registry, entry_points=[entry_point])
+
+    # Assert
+    [report] = reports
+    assert report.status == PackStatus.ACTIVE
+    [offer] = report.service_roles
+    assert offer.distribution == "weft-blob"
+    assert offer.role.key == "blobs"
+    assert offer.role.contract is _BlobStore
+
+
+def test_a_pack_whose_settings_fail_still_reports_the_role_key_it_declares() -> None:
+    """The one buffer that deliberately does **not** follow `commit()` atomicity.
+
+    Which `[services]` keys exist is a fact about what is *installed*, not about what
+    successfully configured itself. `weft-store` is the live case: `[packs.store] dsn` is
+    required, so on a machine with no `weft.toml` that pack is `FAILED` — and `[services]
+    store = "qdrant"` must still parse, or the operator reads "unknown key" when the truth is
+    "that pack has no DSN". Reading `SERVICE_ROLES` before settings are validated, where
+    `DISCLOSURE` is already read, is what keeps the pre-9.0 behaviour.
+    """
+    # Arrange
+    registry = Registry()
+
+    class _BlobStore:
+        pass
+
+    def register(registrar: PackRegistrar, settings: _Settings) -> None:
+        del registrar, settings
+
+    _install_fake_module(
+        "_weft_test_unconfigurable_role_pack",
+        SERVICE_ROLES=(ServiceRole(key="blobs", contract=_BlobStore),),
+    )
+    entry_point = _FakeEntryPoint(
+        distribution="weft-blob",
+        module="_weft_test_unconfigurable_role_pack",
+        target=register,
+        pack="blob",
+    )
+
+    # Act — a settings value of the wrong shape, refused before `register()` is ever called
+    reports = discover(
+        registry, entry_points=[entry_point], pack_settings={"blob": {"endpoint": []}}
+    )
+
+    # Assert
+    [report] = reports
+    assert report.status == PackStatus.FAILED
+    assert [offer.role.key for offer in report.service_roles] == ["blobs"]
+
+
+def test_a_malformed_service_roles_declaration_is_failed_rather_than_read_as_none() -> None:
+    """A pack that tried to declare a role and got the shape wrong is not a pack with none.
+
+    `_read_disclosure`'s own footing: collapsing the two would leave an operator with a
+    `[services]` key that silently does not exist.
+    """
+    # Arrange
+    registry = Registry()
+
+    def register(registrar: PackRegistrar, settings: _Settings) -> None:
+        del registrar, settings
+
+    _install_fake_module("_weft_test_malformed_roles_pack", SERVICE_ROLES=["blobs"])
+    entry_point = _FakeEntryPoint(
+        distribution="weft-blob", module="_weft_test_malformed_roles_pack", target=register
+    )
+
+    # Act
+    reports = discover(registry, entry_points=[entry_point])
+
+    # Assert
+    [report] = reports
+    assert report.status == PackStatus.FAILED
+    assert "SERVICE_ROLES" in (report.reason or "")

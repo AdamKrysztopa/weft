@@ -25,8 +25,9 @@ from weft_cli.config_commands import (
 )
 from weft_cli.config_surface import ConfigOrigin, UnknownConfigKeyError
 from weft_cli.registry_bootstrap import Dependencies
+from weft_cli.service_roles import RoleTable
 from weft_cli.services import ServiceSelection
-from weft_kernel.context import Context
+from weft_kernel.context import Context, ServiceRole
 from weft_kernel.payload import Produced
 from weft_kernel.registry import Registry
 
@@ -42,8 +43,22 @@ def in_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
 
 
+#: What a real installation declares. Stated rather than left empty: since ledger task **9.0**
+#: `weft config`'s `[services]` vocabulary is derived from the role set discovery found, so a
+#: `Dependencies` with no roles describes a machine where no pack loaded — which is not the
+#: state these tests are about.
+_INSTALLED = RoleTable(
+    roles={
+        "embed": ServiceRole(key="embed", contract=object),
+        "store": ServiceRole(key="store", contract=object),
+    }
+)
+
+
 def _deps() -> Dependencies:
-    return Dependencies(registry=Registry(), reports=(), services=ServiceSelection())
+    return Dependencies(
+        registry=Registry(), reports=(), services=ServiceSelection(), roles=_INSTALLED
+    )
 
 
 async def test_config_get_with_no_key_reports_every_default(tmp_path: Path) -> None:
@@ -57,9 +72,13 @@ async def test_config_get_with_no_key_reports_every_default(tmp_path: Path) -> N
     assert isinstance(outcome, Produced)
     result = outcome.value
     assert isinstance(result, ConfigGetCommandResult)
+    # Every declared role, plus the two keys that name no role. `services.route` is here and
+    # was not before 9.0: `_KEY_FIELDS` was a second, hand-written vocabulary that never grew
+    # the key task 8.3 added, and this assertion pinned that gap as a literal (`L9.28`).
     assert {entry.key for entry in result.entries} == {
         "services.embed",
         "services.store",
+        "services.route",
         "permissions.overwrite",
         "permissions.destroy",
         "reconcile.mode",

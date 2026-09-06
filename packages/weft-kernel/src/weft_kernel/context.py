@@ -70,6 +70,8 @@ import asyncio
 from dataclasses import dataclass, field
 from typing import cast
 
+from pydantic import BaseModel, ConfigDict, Field
+
 from weft_kernel.errors import UnresolvedNameError, WeftError
 
 
@@ -100,6 +102,40 @@ class DuplicateServiceError(WeftError):
     plugin names, for the same reason: a silent overwrite is a bug someone
     eventually has to find.
     """
+
+
+class ServiceRole(BaseModel):
+    """A pack's declaration, beside the contract it publishes, that `[services].<key>`
+    selects an implementation of that contract for one run.
+
+    Ledger task **9.0**, closing the hole `docs/02-extension-model.md` §1 named in its own
+    Phase 0 narrowing: a service is populated into a `ServiceRegistry` by whatever assembles
+    a run, but nothing let a pack *name* which of its contracts is selectable that way, or
+    under what `[services]` key. `ServiceRole` is that declaration — "one constant beside the
+    Protocol" (`docs/build-ledger.md:5026`, `:5370`), never a member on the Protocol itself.
+
+    It is a plain constant rather than a `ClassVar` written into the contract's own body,
+    for the reason `weft_extract.contract` (`:44-56`) already states for `Extractor.version`:
+    `typing.Protocol` computes `__protocol_attrs__` once, by walking every attribute present
+    in the class body at that moment, so a marker placed there would become a *required*
+    structural member — a third-party implementation that provides the real methods but
+    never restates the marker would then fail a capability check that has nothing to do with
+    capability. Holding the declaration beside the Protocol, not inside it, keeps
+    `isinstance` checking exactly what it always checked.
+
+    The kernel names no capability here: `contract` is a bare `type`, never `NodeStore`,
+    `Embedder` or any other capability name a pack might publish — the same restraint
+    `weft_kernel.discovery.RendererOffer` keeps for a result type it never names.
+
+    `key` and `contract` state the declaration only; resolving `[services].<key>`
+    against a running `weft.toml` and building the named plugin into a `ServiceRegistry`
+    entry is the job of whatever assembles a run, not this model's.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid", arbitrary_types_allowed=True)
+
+    key: str = Field(min_length=1)
+    contract: type[object]
 
 
 class ServiceRegistry:

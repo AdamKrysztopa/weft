@@ -27,6 +27,7 @@ from weft_store.contract import (
     FILTER_AST_VERSION,
     RECONCILE_REPORT_SCHEMA_VERSION,
     STORE_CONTRACT_VERSION,
+    STORE_ROLE,
     Cursor,
     Filter,
     FilterOp,
@@ -95,11 +96,21 @@ DISCLOSURE = Disclosure(
         "so everything indexed is stored there in full."
     ),
 )
+#: Ledger task **9.0** — read by `weft_kernel.discovery._read_service_roles` at import time,
+#: before settings are validated, exactly where `DISCLOSURE` above is read. Module-level rather
+#: than buffered through `register()` because which `[services]` key this pack declares is a
+#: static fact about the pack. This pack is the case that settles it: `[packs.store] dsn` is
+#: required, so on a machine with no `weft.toml` this pack reports `FAILED` — and `[services]
+#: store = "qdrant"` must still parse, or the refusal an operator reads names the wrong problem
+#: on exactly the machine where they are trying to configure their way out of it.
+SERVICE_ROLES = (STORE_ROLE,)
+
 
 __all__ = [
     "FILTER_AST_VERSION",
     "RECONCILE_REPORT_SCHEMA_VERSION",
     "STORE_CONTRACT_VERSION",
+    "STORE_ROLE",
     "Cursor",
     "FieldKind",
     "FieldPath",

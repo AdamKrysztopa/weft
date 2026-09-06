@@ -14,6 +14,7 @@ from weft_kernel.context import (
     Context,
     DuplicateServiceError,
     ServiceRegistry,
+    ServiceRole,
     UnresolvedServiceError,
 )
 from weft_kernel.discovery import (
@@ -145,6 +146,7 @@ __all__ = [
     "RunSummary",
     "SchemaVersionRefusedError",
     "ServiceRegistry",
+    "ServiceRole",
     "SetOperator",
     "SlotDeclaration",
     "SlotOrderConflictError",

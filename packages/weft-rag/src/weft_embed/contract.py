@@ -37,7 +37,7 @@ assign-after-the-class-body split, which applies here unchanged.
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, ClassVar, Protocol, runtime_checkable
 
-from weft_kernel.context import Context
+from weft_kernel.context import Context, ServiceRole
 from weft_kernel.payload import Node, Outcome
 from weft_kernel.runner import Stage
 
@@ -65,3 +65,10 @@ class Embedder(Stage[Sequence[Node], Sequence[Node]], Protocol):
 
 
 Embedder.version = EMBEDDER_CONTRACT_VERSION
+
+#: Ledger task **9.0** — `weft_embed`'s own declaration that `[services].embed` selects an
+#: `Embedder`. A plain module-level constant beside the Protocol, never a `ClassVar` on
+#: `Embedder` itself: `typing.Protocol` computes `__protocol_attrs__` by walking the class
+#: body once, so a marker placed there would become a *required* structural member — see
+#: `weft_extract.contract` (`:44-56`) for the identical reasoning about `version`.
+EMBED_ROLE = ServiceRole(key="embed", contract=Embedder)
