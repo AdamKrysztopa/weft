@@ -4109,7 +4109,7 @@ is also refused: the ReAct step is a typed structured answer through the three-t
   phase to come back green, and the seventh test (`NO_DECISION`) is mine, written after its report
 - [x] **7.2a** the agent's tool catalogue is derived from `permission_class`, so a command it must
   not reach is out of reach without anyone editing the agent · owner `03` → *Permissions*;
-  `02` §2 · turns on — · sha `SHA72A` · **The ceiling made mechanical rather than trusted.** Measured
+  `02` §2 · turns on — · sha `9fba2fe` · **The ceiling made mechanical rather than trusted.** Measured
   before being designed: of nineteen registered commands twelve are `read`, five `write`, two
   `destroy` (`delete`, `reconcile`) and **none `overwrite`** — so the filter admits seventeen, and
   two are excluded **by name, each carrying its reason in code**: `config set`, because it writes
