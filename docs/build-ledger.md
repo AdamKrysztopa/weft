@@ -4268,7 +4268,37 @@ is also refused: the ReAct step is a typed structured answer through the three-t
   each demonstrable and cannot meet on the same rungs. **The shape of the repair is deliberately not
   prescribed here** (`L7.1`): what is owed is that a *query* pipeline can be a subject of
   `weft eval`, and whoever builds it will have read `eval_scoring.py` while this line was written
-  from one failing command
+  from one failing command · sha `SHA75` ·
+  **What actually blocked it was one line, and it is worse than the refusal that hid it.**
+  `weft eval run` refusing a query pipeline (*"no stage registered under the Extractor contract"*)
+  is reasonable for a command that also indexes. Underneath, `weft_cli.eval_scoring` pulled the
+  `Embedder` and `NodeStore` stages out of whatever pipeline it was handed and called `run_ask` —
+  **plain vector top-k, every time**. So no `Retriever`, `Fuser`, `ContextPacker` or `Generator`
+  choice had ever been the thing measured, and `hybrid-then-generate` and `retrieve-then-generate`
+  would have scored **identically**, because neither was ever run. Phase 8's falsification
+  instrument was real and pointed at the wrong subject ·
+  **A query rung is scored over `Answer.used`, and that field's own docstring is the authority** —
+  *"exactly the passages that entered the prompt … what a reader needs to judge the answer without
+  re-running the pipeline"*. Scoring the ranking instead would measure something the generator
+  never saw ·
+  **`--query-pipeline` is a separate field rather than an overload of `pipeline`**, because the two
+  are different roles in one run: the ingest document says what was indexed and is what a baseline
+  is keyed on; the rung is what is being judged. Optional, so every baseline taken before this task
+  stays readable — and folding them into one positional would make *"which of these two did I
+  change?"* unanswerable from a persisted record ·
+  **The scope is narrower than "run the rung", deliberately.** Retrieval metrics judge what came
+  back. Whether the *answer* is good is `GenerationMetric`'s question and needs a real model, which
+  `09` §4.4 keeps out of the gate. This task makes a query rung **measurable**, which is what Phase
+  8's exit asks, and claims nothing about the generation half ·
+  **One repair after the dispatch, and it is the same mistake a third time**: my test's stand-in
+  declared a `node_id` field the real `Passage` does not have, which forced the function's return
+  type to widen to `tuple[Any, ...]` — a test inventing an API making shipped code less honest.
+  Fixed to `retrieved_by`, and the signature says `tuple[Passage, ...]` again. `lessons.md` `L8.35`
+  has now recurred three times in one phase, which is the queue telling the next drain where it
+  belongs · **`03` → *Command surface* corrected in the same commit**: line 75's published grammar
+  did not mention the new flag, and `manual/troubleshooting.md` gained
+  `### AnswerCarriesNoUsedPassagesError` because the coverage ratchet caught it ·
+  `weft-kernel`: **+0 lines** · `uv run poe ci-checks` green: **2,067 passed, 38 skipped**
 
 
 **Exit** (`01` → Phase 7): task 7.4.

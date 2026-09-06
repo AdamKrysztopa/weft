@@ -338,6 +338,18 @@ class EvalRunArgs(BaseModel):
         ge=1,
         description="how many passages to retrieve per question when --questions is given.",
     )
+    query_pipeline: str | None = Field(
+        default=None,
+        description=(
+            "ledger task 7.5: score retrieval through a named *query* rung — a pipeline "
+            "resolved and run per question through 'weft_cli.route_ask.run_named_ask', "
+            "rather than the plain vector top-k 'run_ask' otherwise uses — so a Retriever, "
+            "Fuser, ContextPacker or Generator choice is the thing actually measured. "
+            "Optional and distinct from 'pipeline': every baseline taken before this task "
+            "named none, and those records must stay readable. Ignored when --questions is "
+            "not given."
+        ),
+    )
 
 
 class EvalCompareArgs(BaseModel):
@@ -623,6 +635,12 @@ class EvalRunCommand:
                 questions=questions,
                 top_k=run_args.top_k,
                 ctx=ctx,
+                query_pipeline=run_args.query_pipeline,
+                reports=deps.reports,
+                llm=deps.llm,
+                services=deps.services,
+                sink=deps.token_sink,
+                contributions=deps.contributions,
             )
 
         corpus_name = run_args.corpus_name if run_args.corpus_name is not None else run_args.path

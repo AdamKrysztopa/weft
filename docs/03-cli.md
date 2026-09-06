@@ -72,7 +72,7 @@ weft index <path>              run an ingestion pipeline over a source
 weft ask <question>            query, streaming the answer with citations
 weft pipeline list|show|derive|validate|diff
 weft plugins list|info|doctor
-weft eval run <path> <pipeline> [--questions <file>] [--top-k <n>]
+weft eval run <path> <pipeline> [--query-pipeline <name>] [--questions <file>] [--top-k <n>]
                                     run a pipeline over a corpus, persist a run record; with
                                     --questions, also retrieve and score the gate-safe metric
                                     subset, folded into the record
@@ -400,6 +400,16 @@ they are visible.
 > check. Fixed in both places, in this commit: `weft ask --pipeline <derived-name>` and
 > `weft index --pipeline <derived-name>` (already true before this task, silently broken)
 > resolve derived pipelines correctly now too, not only `weft eval run`.
+
+> **`--query-pipeline` joined it at ledger task 7.5, and it is what discharges Phase 8's exit.**
+> `pipeline` is the *ingest* document — what was indexed, and what a baseline is keyed on.
+> `--query-pipeline` names the rung being *judged*, and it is optional because every baseline taken
+> before that task named none and those records stay readable. They are two roles in one run, and
+> folding them into one positional would make *"which of these two did I change?"* unanswerable
+> from a persisted record. Without it, `weft_cli.eval_scoring` pulled the `Embedder` and `NodeStore`
+> stages out of whatever pipeline it was given and ran plain vector top-k — so no `Retriever`,
+> `Fuser`, `ContextPacker` or `Generator` choice had ever been the thing measured, and two rungs
+> that differ only in those would have scored identically because neither was ever run.
 
 ## In-session commands
 

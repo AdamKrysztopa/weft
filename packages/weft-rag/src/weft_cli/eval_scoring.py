@@ -42,20 +42,27 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from weft_cli.ask import run_ask
+from weft_cli.llm_roles import LLMSection
+from weft_cli.route_ask import run_named_ask
+from weft_cli.services import ServiceSelection
 from weft_embed import Embedder
 from weft_eval.aggregate import MetricAggregate
 from weft_eval.contract import RetrievalSample, RetrievedPassage
 from weft_eval.harness import score_retrieval_gate_subset
 from weft_kernel.context import Context
+from weft_kernel.discovery import PackReport
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import Node, Outcome
 from weft_kernel.registry import Registry
-from weft_kernel.resolution import ResolvedPipeline, ResolvedStage
+from weft_kernel.resolution import Contribution, ResolvedPipeline, ResolvedStage
+from weft_llm.client import NullSink
+from weft_llm.contract import TokenSink
+from weft_retrieve.payload import Passage
 from weft_store import NodeStore, Scored
 
 
@@ -80,6 +87,54 @@ class PipelineNotRetrievableError(WeftError):
     def __init__(self, message: str, *, pipeline: str) -> None:
         super().__init__(message)
         self.pipeline = pipeline
+
+
+class AnswerCarriesNoUsedPassagesError(WeftError):
+    """`passages_for_scoring` was handed something that is not a `weft_generate.payload.Answer`
+    — or a stand-in shaped like one — so there is no `used` tuple to score a query rung over.
+
+    Named rather than a bare `AttributeError`: `01` requirement 5's rule applies here exactly
+    as it does to every other refusal in this module, even though there is no "valid option" to
+    list — the caller passed the wrong *kind* of value, not an unrecognised name.
+    """
+
+    def __init__(self, message: str, *, answer_type: str) -> None:
+        super().__init__(message)
+        self.answer_type = answer_type
+
+
+def passages_for_scoring(answer: object) -> tuple[Passage, ...]:
+    """The passages a query rung's own answer is scored over — `answer.used`, and nothing else.
+
+    **Why `used` and not the ranking.** `weft_generate.payload.Answer.used`'s own docstring is
+    the authority: "exactly the passages that entered the prompt — not the ranking, not the
+    candidates... what a reader needs to judge the answer without re-running the pipeline."
+    Scoring `Candidates`/`Ranking` instead would measure what a `Retriever` or `Fuser` handed
+    back, which is not necessarily what the `ContextPacker` kept or the `Generator` actually
+    read — exactly the gap this module's own docstring names as Phase 8's finding.
+
+    `answer` is typed `object` rather than `Answer` deliberately: this is read at the seam a
+    real `weft_generate.payload.Answer` and a test's duck-typed stand-in both cross, and a
+    stand-in that carries `used` but is not literally an `Answer` instance must not be turned
+    away by a type check this function has no need to make — `getattr` decides, not
+    `isinstance`. **The return type is `tuple[Any, ...]` for the identical reason, not
+    `tuple[weft_retrieve.payload.Passage, ...]`**: a caller resolving a *real* `Answer` reads
+    genuine `Passage`s back (see `score_pipeline`'s own `.scored` access), but a declared
+    `Passage` return would bind the test's duck-typed stand-in to that same concrete type at
+    every call site, including one that never imports `weft_retrieve` at all — turning a
+    seam this function deliberately keeps untyped on the way in into one that is typed on the
+    way out. Raises `AnswerCarriesNoUsedPassagesError` for anything that carries no `used` at
+    all, rather than an `AttributeError` a caller has to already know this module's internals
+    to make sense of.
+    """
+    used = getattr(answer, "used", None)
+    if used is None:
+        raise AnswerCarriesNoUsedPassagesError(
+            f"{type(answer).__name__} carries no 'used' passages to score a query rung over — "
+            "expected an Answer (or a stand-in shaped like one) with a 'used' tuple.",
+            answer_type=type(answer).__name__,
+        )
+    return cast("tuple[Any, ...]", used)
 
 
 class Question(BaseModel):
@@ -200,13 +255,35 @@ async def score_pipeline(
     questions: tuple[Question, ...],
     top_k: int,
     ctx: Context,
+    query_pipeline: str | None = None,
+    reports: Sequence[PackReport] = (),
+    llm: LLMSection | None = None,
+    services: ServiceSelection | None = None,
+    sink: TokenSink | None = None,
+    contributions: tuple[Contribution, ...] = (),
 ) -> Mapping[str, Outcome[MetricAggregate]]:
-    """Retrieve for every one of `questions` through `resolved_pipeline`'s own embed/store
-    stages, and score the gate-safe `RetrievalMetric` subset over the result.
+    """Retrieve for every one of `questions` and score the gate-safe `RetrievalMetric` subset
+    over the result.
 
-    Raises `PipelineNotRetrievableError` if `resolved_pipeline` names no `Embedder`/`NodeStore`
-    stage. An empty `questions` tuple still calls through — `weft_eval.harness.
-    score_retrieval_gate_subset` already answers that honestly, one place rather than two.
+    **`query_pipeline`, ledger task 7.5 — the query rung Phase 8's exit needed measurable.**
+    `None` (the default) is exactly today's behaviour, unchanged: `run_ask`, plain vector
+    top-k, against `resolved_pipeline`'s own `Embedder`/`NodeStore` stages. Given a name
+    instead, retrieval for every question runs through *that* query pipeline —
+    `weft_cli.route_ask.run_named_ask`, so a `Retriever`, `Fuser`, `ContextPacker` or
+    `Generator` choice is the thing actually measured — and what reaches the metrics is
+    `passages_for_scoring(answer)`: exactly the passages that entered the prompt, never the
+    ranking underneath it. `reports`/`llm`/`services`/`sink`/`contributions` are only read on
+    this path — `weft_cli.eval_commands.EvalRunCommand.run` already has all five in scope from
+    its own `Dependencies`, the identical set `run_named_ask`'s other caller, `AskCommand`,
+    already threads through.
+
+    Raises `PipelineNotRetrievableError` if `resolved_pipeline` (the *ingest* pipeline
+    `--questions` was corroborated over) names no `Embedder`/`NodeStore` stage — checked
+    unconditionally, whether or not `query_pipeline` is given: a query rung has nothing to
+    retrieve unless the corpus was actually indexed and stored first, so this refusal must
+    not narrow just because a second pipeline is now doing the retrieving. An empty
+    `questions` tuple still calls through — `weft_eval.harness.score_retrieval_gate_subset`
+    already answers that honestly, one place rather than two.
     """
     embed_stage = _stage_for_contract(resolved_pipeline, Embedder.__name__)
     store_stage = _stage_for_contract(resolved_pipeline, NodeStore.__name__)
@@ -220,16 +297,31 @@ async def score_pipeline(
 
     samples: list[RetrievalSample] = []
     for question in questions:
-        hits = await run_ask(
-            question.query,
-            registry=registry,
-            ctx=ctx,
-            top_k=top_k * _OVERSAMPLE_FACTOR,
-            embedder=embed_stage.use,
-            store=store_stage.use,
-            embedder_config=_factory_config(embed_stage.config),
-            store_config=_factory_config(store_stage.config),
-        )
+        hits: Sequence[Scored[Node]]
+        if query_pipeline is not None:
+            answer = await run_named_ask(
+                question.query,
+                pipeline_name=query_pipeline,
+                registry=registry,
+                reports=reports,
+                ctx=ctx,
+                llm=llm if llm is not None else LLMSection(),
+                services=services if services is not None else ServiceSelection(),
+                sink=sink if sink is not None else NullSink(),
+                contributions=contributions,
+            )
+            hits = [passage.scored for passage in passages_for_scoring(answer)]
+        else:
+            hits = await run_ask(
+                question.query,
+                registry=registry,
+                ctx=ctx,
+                top_k=top_k * _OVERSAMPLE_FACTOR,
+                embedder=embed_stage.use,
+                store=store_stage.use,
+                embedder_config=_factory_config(embed_stage.config),
+                store_config=_factory_config(store_stage.config),
+            )
         samples.append(
             RetrievalSample(
                 query=question.query,
@@ -242,9 +334,11 @@ async def score_pipeline(
 
 
 __all__ = [
+    "AnswerCarriesNoUsedPassagesError",
     "PipelineNotRetrievableError",
     "Question",
     "QuestionsFileError",
     "load_questions",
+    "passages_for_scoring",
     "score_pipeline",
 ]

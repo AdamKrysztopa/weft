@@ -2859,6 +2859,27 @@ a `WeftError` and so walked straight past `weft_cli.cli.main`'s handler — a ha
 comment said it covered a malformed `weft.toml`. Found by running the binary at ledger task 7.4.
 `[services]` and `[permissions]` were measured at the same time and already refused correctly.
 
+### `AnswerCarriesNoUsedPassagesError`
+
+**What it looks like** — `weft eval run <path> <pipeline> --query-pipeline <rung>` where the rung
+produced something that is not an `Answer`:
+
+```text
+the query pipeline's result carries no `used` passages, so there is nothing to score retrieval
+against.
+```
+
+**What it means.** A query rung is judged on what it actually put in front of the generator —
+`Answer.used`, *"exactly the passages that entered the prompt"*. A pipeline whose last stage is not
+a `Generator` produces no `Answer`, so there is nothing to score. **What to do:** name a rung that
+ends in a generator (`weft pipeline show <name>` prints the resolved stages), or drop
+`--query-pipeline` and score the ingest pipeline's own plain retrieval, which is what happens by
+default.
+
+**Why this is a refusal rather than a zero.** A rung that scored `0.0` because nothing was measured
+is indistinguishable from one that retrieved nothing useful, and `09` §4 exists to keep those two
+apart.
+
 ## The agent's ceiling — `weft_agent`
 
 `weft-agent` drives Weft through the same command surface a person types at, and it is capped at
