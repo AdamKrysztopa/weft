@@ -21,12 +21,19 @@ report, so an operator learns at the moment it happens rather than from a retrie
 mixes two parses.
 """
 
+from collections.abc import Sequence
 from datetime import UTC, datetime
+from pathlib import Path
 
-from weft_cli.ingest import SourceChange, changes_against_records
+from weft_chunk import Chunker
+from weft_cli.ingest import SourceChange, changes_against_records, run_index
+from weft_embed import Embedder
+from weft_extract import Extractor
 from weft_extract.contract import SourceDoc
-from weft_kernel.payload import SourceId
-from weft_store import SourceRecord
+from weft_kernel.context import Context
+from weft_kernel.payload import NothingToProduce, Outcome, Produced, SourceId
+from weft_kernel.registry import Registry
+from weft_store import NodeStore, SourceRecord
 
 _NOW = datetime(2026, 9, 6, tzinfo=UTC)
 
@@ -180,3 +187,144 @@ def test_the_identity_field_defaults_empty_so_every_existing_writer_keeps_workin
 
     # Assert
     assert record.pipeline_identity == ""
+
+
+class _RecordingStore:
+    """A `NodeStore` double that also keeps `SourceRecord`s, so `run_index`'s own wiring of the
+    comparison is exercised rather than only `changes_against_records`' arithmetic.
+
+    Every test above this line hands `changes_against_records` a record mapping it built by hand.
+    That proves the comparison and proves nothing about whether `run_index` ever computes an
+    identity worth comparing — which is exactly where `9.17` was broken: verified through
+    `weft index --pipeline …`, dead on `weft index <dir>`. See `docs/lessons.md` `L9.64`.
+    """
+
+    def __init__(self, config: object) -> None:
+        del config
+        self.nodes: list[object] = []
+        self.records: dict[SourceId, SourceRecord] = {}
+
+    async def run(self, payload: Sequence[object], ctx: Context) -> Outcome[Sequence[object]]:
+        del ctx
+        self.nodes.extend(payload)
+        return Produced(value=payload)
+
+    async def add(self, nodes: Sequence[object]) -> None:
+        self.nodes.extend(nodes)
+
+    async def flush(self) -> None:
+        return
+
+    async def count(self) -> int:
+        return len(self.nodes)
+
+    async def put_source(self, record: SourceRecord) -> None:
+        self.records[record.id] = record
+
+    async def list_sources(self) -> Sequence[SourceRecord]:
+        return tuple(self.records.values())
+
+
+class _Passthrough:
+    extensions: tuple[str, ...] = (".txt",)
+    destroys: tuple[type, ...] = ()
+
+    def __init__(self, config: object) -> None:
+        del config
+
+    async def run(self, payload: Sequence[object], ctx: Context) -> Outcome[Sequence[object]]:
+        del ctx
+        if not payload:
+            return NothingToProduce(reason="nothing to pass through")
+        return Produced(value=payload)
+
+
+class _OtherExtractor(_Passthrough):
+    """A second extractor claiming the same suffix — the thing `--extract` selects between."""
+
+
+def _default_path_registry() -> tuple[Registry, _RecordingStore]:
+    registry = Registry()
+    registry.add(Extractor, "text", _Passthrough, distribution="weft-extract")
+    registry.add(Extractor, "text-other", _OtherExtractor, distribution="acme-extract")
+    registry.add(Chunker, "fixed-size", _Passthrough, distribution="weft-chunk")
+    registry.add(Embedder, "hash", _Passthrough, distribution="weft-embed")
+    store = _RecordingStore(None)
+
+    def _store_factory(config: object) -> _RecordingStore:
+        del config
+        return store
+
+    registry.add(NodeStore, "pgvector", _store_factory, distribution="weft-store")
+    return registry, store
+
+
+def _source_id(tmp_path: Path) -> SourceId:
+    """What `weft_extract.text.discover_source_docs` assigns: the resolved absolute path.
+
+    Spelled out here rather than hardcoded, because `tests/unit/weft_cli/test_ingest.py`'s own
+    `document_ids` assertion pins the same convention on the same path and the two must not be
+    free to drift apart.
+    """
+    return SourceId(str((tmp_path / "one.txt").resolve()))
+
+
+def _default_ctx() -> Context:
+    return Context(tenant_id="tenant-a", run_id="run-1", trace_id="trace-1", locale="en")
+
+
+async def test_the_default_path_reports_a_reparse_when_the_extractor_changes(
+    tmp_path: Path,
+) -> None:
+    """`weft index --extract A` then `--extract B`, with no `--pipeline`, is a reparse.
+
+    The default four-stage path never calls `weft_kernel.resolution.resolve`, so it has no
+    `ResolvedPipeline` — and `9.17` therefore left its identity as `""`, which made two different
+    extractors indistinguishable on the one invocation a user reaches first. `L9.64`.
+    """
+    # Arrange
+    (tmp_path / "one.txt").write_text("hello weft")
+    registry, _store = _default_path_registry()
+
+    # Act — two runs over identical bytes, differing only in which extractor ran.
+    await run_index(tmp_path, registry=registry, ctx=_default_ctx(), extractor="text")
+    second = await run_index(
+        tmp_path, registry=registry, ctx=_default_ctx(), extractor="text-other"
+    )
+
+    # Assert
+    assert second.source_changes == {_source_id(tmp_path): SourceChange.PIPELINE_CHANGED}
+
+
+async def test_the_default_path_reports_unchanged_when_nothing_moved(tmp_path: Path) -> None:
+    """The other half, and the one a false positive would break: the same run twice is quiet.
+
+    An identity that moved between two identical runs would report a reparse that did not happen,
+    which `pipeline_identity`'s own docstring names as worse than no detector at all.
+    """
+    # Arrange
+    (tmp_path / "one.txt").write_text("hello weft")
+    registry, _store = _default_path_registry()
+
+    # Act
+    await run_index(tmp_path, registry=registry, ctx=_default_ctx(), extractor="text")
+    second = await run_index(tmp_path, registry=registry, ctx=_default_ctx(), extractor="text")
+
+    # Assert
+    assert second.source_changes == {_source_id(tmp_path): SourceChange.UNCHANGED}
+
+
+async def test_the_default_path_identity_is_not_empty(tmp_path: Path) -> None:
+    """The identity a default-path run writes is a real digest, so a record it leaves is
+    comparable by a later run — an empty string compares equal to every other empty string.
+    """
+    # Arrange
+    (tmp_path / "one.txt").write_text("hello weft")
+    registry, store = _default_path_registry()
+
+    # Act
+    result = await run_index(tmp_path, registry=registry, ctx=_default_ctx(), extractor="text")
+
+    # Assert
+    assert result.pipeline_identity != ""
+    assert store.records[_source_id(tmp_path)].pipeline_identity == result.pipeline_identity

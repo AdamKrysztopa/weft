@@ -430,6 +430,8 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     # Ledger task 9.8: the first shipped ingest document that reads a PDF, and therefore the
     # first under which a TABLE or an IMAGE node can be produced at all.
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-pdf.yaml")
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-pdf-described.yaml")
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-pdf-undescribed.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-polish.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-with-keywords.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-with-questions.yaml")

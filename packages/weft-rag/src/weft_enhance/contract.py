@@ -39,6 +39,16 @@ is left where it was found rather than guessed at.
 `version` is readable off the class (`Enhancer.version`) but is not part of that
 `isinstance` membership — see `weft_extract.contract`'s module docstring for the full
 `if TYPE_CHECKING:` / assign-after-the-class-body reasoning, unchanged here.
+
+> **Widened at ledger task 9.11.** `Enhancer` above says it "never rewrites `content`."
+> `weft_vision.describe_figure.FigureDescriber` does — it augments a figure node's caption with
+> a description, because `11` §2.4 stage 4 requires exactly that: the description has to live
+> where retrieval matches, which is `content`, not only in `ext`. This is the widening this class
+> docstring already anticipated one paragraph up, taken by name rather than guessed at:
+> `docs/09-release.md` §6.2's test is whether the change strengthens or reverses the settled
+> reading, and it strengthens it — the axis of variation (something *added*, never a destructive
+> rewrite of prose already there) is unchanged, and `FigureDescriber` never *replaces* `content`,
+> only extends it.
 """
 
 from collections.abc import Sequence

@@ -47,7 +47,7 @@ import asyncio
 from collections.abc import Sequence
 from enum import StrEnum
 from io import BytesIO
-from typing import Any
+from typing import Any, ClassVar
 
 import pdfplumber
 import pypdfium2
@@ -59,14 +59,15 @@ from weft_blob.contract import BlobStore
 from weft_blob.keys import blob_key
 from weft_blob.payload import BlobRef
 from weft_extract.contract import SourceDoc
-from weft_extract.payload import BoundingBox, PageSpan
+from weft_extract.payload import BoundingBox, PageSpan, TableGrid
 from weft_kernel.context import Context
-from weft_kernel.payload import MediaType, Node, Outcome, Produced
+from weft_kernel.payload import ExtModel, MediaType, Node, Outcome, Produced
 from weft_pdf.document import (
     EXTENSIONS,
     ExtractedFigure,
     ExtractedTable,
     PageText,
+    PdfPages,
     extract_documents,
 )
 
@@ -172,6 +173,21 @@ class PdfLayoutExtractor:
 
     extensions: tuple[str, ...] = EXTENSIONS
     config_model: type[PdfLayoutExtractorConfig] = PdfLayoutExtractorConfig
+    #: Every fact this backend attaches, declared so a later stage's `requires` can bind to it —
+    #: `02` §3 → *Ordering constraints*. Not one entry per node kind: a document yields a root
+    #: carrying `PdfPages`, table nodes carrying `TableGrid`, and figure nodes carrying `BlobRef`
+    #: and `PageSpan`, and `provides` is a claim about the *stage*, so all four belong here.
+    #:
+    #: **Declared at ledger task `9.11`, and it is a gap 9.6 and 9.7 both left.** Those tasks
+    #: attached these facts and declared none of them, which cost nothing while no stage asked:
+    #: `weft_kernel.resolution` checks `requires` against earlier `provides` and had nothing to
+    #: check. `describe-figure` is the first plugin in the tree to declare `requires`, and
+    #: fitness function 11 refused `index-pdf-described.yaml` the moment it shipped —
+    #: *"requires 'BlobRef' but no earlier stage provides it. Provided so far: (none)."* A
+    #: producing side with no consuming side is invisible until the consumer arrives, which is
+    #: `L5.15`'s shape; all four are declared rather than only the one that failed, because a
+    #: repair cut to the failing instance narrows to it (`L6.13`).
+    provides: ClassVar[tuple[type[ExtModel], ...]] = (PdfPages, TableGrid, BlobRef, PageSpan)
 
     def __init__(self, config: PdfLayoutExtractorConfig | None = None) -> None:
         self._config = config if config is not None else PdfLayoutExtractorConfig()

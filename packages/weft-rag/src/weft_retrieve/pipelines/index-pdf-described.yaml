@@ -1,0 +1,21 @@
+name: index-pdf-described
+extends: index-pdf
+
+# Ledger task **9.11**. `docs/11-multimodal.md` §2.4 stage 4: `describe-figure` `requires`
+# `BlobRef`, `provides` `FigureDescription` — it reads a figure's pixels back through
+# `ctx.require(BlobStore).open(uri)`, calls `ctx.require(Describer)`, and augments the node's
+# caption with what it saw rather than replacing it.
+#
+# **Needs `[services] describe` and a `Describer` plugin selected, on top of `index-pdf`'s own
+# `[services] blob` requirement.** With neither wired, a run through this document refuses loudly,
+# naming every service that *is* available — the same seam `9.0` built for `BlobStore`, applied
+# here to a second service role.
+#
+# Placed after `chunk`, not after `clean`: a figure node never passes through this pack's text
+# cleaners in the first place (`11` §2.4 stage 3, "Tables leave this pipeline" — a figure is the
+# other atomic node type that does), so there is no ordering constraint between `describe` and
+# anything `index-messy-text` or `index-polish` might insert. `chunk` is the nearest named stage
+# this document can anchor to without depending on either rung.
+insert:
+  - after: chunk
+    stage: {id: describe, use: describe-figure}

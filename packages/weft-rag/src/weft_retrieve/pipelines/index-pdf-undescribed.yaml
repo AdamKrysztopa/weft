@@ -1,0 +1,12 @@
+name: index-pdf-undescribed
+extends: index-pdf-described
+
+# This document's whole existence is the proof, not a convenience: `11` §2.4 stage 4 states
+# "Because it is a stage, removing it is a `remove:` in a derived pipeline, not a boolean. That is
+# why there is no `enabled` flag anywhere in this design." So the capability this pack ships —
+# calling a VLM to describe a figure — is absent from a run through this document *by omission*,
+# the same way any stage is absent from a document that never named it, rather than by a flag
+# somewhere defaulting to off. `weft plugins list` still shows `describe-figure` registered;
+# `weft pipeline show index-pdf-undescribed` is what shows it does not run here.
+remove:
+  - describe

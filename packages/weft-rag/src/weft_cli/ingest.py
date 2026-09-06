@@ -104,6 +104,8 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Final, cast
 
+from pydantic import BaseModel
+
 from weft_chunk import Chunker
 from weft_cli.compile import contracts_for, to_specs
 from weft_cli.llm_roles import LLMSection
@@ -124,7 +126,13 @@ from weft_kernel.discovery import PackReport
 from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_kernel.payload import SourceId
 from weft_kernel.registry import Registry
-from weft_kernel.resolution import Contribution, ResolvedPipeline, pipeline_identity, resolve
+from weft_kernel.resolution import (
+    Contribution,
+    ResolvedPipeline,
+    ResolvedStage,
+    pipeline_identity,
+    resolve,
+)
 from weft_kernel.runner import (
     PipelineResolutionError,
     RunnablePipeline,
@@ -267,6 +275,67 @@ def index_specs(
         StageSpec(id="embed", contract=Embedder, name=embedder),
         StageSpec(id="store", contract=NodeStore, name=store),
     )
+
+
+def _identity_of_specs(specs: tuple[StageSpec, ...], *, registry: Registry) -> str:
+    """`pipeline_identity` for the default four-stage path, which never calls `resolve()` —
+    ledger task **9.17** repaired, `L9.64`.
+
+    `index_specs` builds its `StageSpec`s as constants, so this path never has a
+    `ResolvedPipeline` to hand `pipeline_identity`, and until this function existed the
+    identity it recorded was `""` for every default-path run — indistinguishable from
+    itself no matter which extractor, embedder or store actually ran. This rebuilds only
+    the shape `pipeline_identity` actually reads off a `ResolvedStage` — `id`, `contract`,
+    `contract_version`, `use`, `distribution`, `config` — from the `specs` this path
+    already has, and feeds it through that one existing digest function rather than
+    adding a second.
+
+    **The `ResolvedPipeline`/`ResolvedStage` built here are throwaway, local to this
+    computation, and never become `IndexResult.resolved_pipeline`.** That field means
+    "what `weft_kernel.resolution.resolve` produced from a document", and this is a
+    reconstruction from constants, not a resolution — one that cannot honestly fill
+    `ResolvedPipeline.name`, `unapplied_operators` or `unplaced_contributions` (all three
+    describe what happened while resolving a *document*: inheritance, operators,
+    slot-filling — none of which this path ever does), or `ResolvedStage.provenance`
+    (which pipeline or pack authored the stage — again a document-resolution fact this
+    path has no answer for). `pipeline_identity`'s own docstring excludes all four from
+    what it hashes, which is exactly why leaving them at their defaults here is safe
+    rather than merely convenient.
+    """
+    stages = tuple(
+        ResolvedStage(
+            id=spec.id,
+            contract=spec.contract.__name__,
+            contract_version=getattr(spec.contract, "version", None),
+            use=spec.name,
+            config=_reconstructed_config(spec.config),
+            distribution=registry.entry(spec.contract, spec.name).distribution,
+            provenance="",
+        )
+        for spec in specs
+    )
+    return pipeline_identity(ResolvedPipeline(name="", stages=stages))
+
+
+def _reconstructed_config(config: object) -> Mapping[str, object]:
+    """`StageSpec.config` translated into the shape `ResolvedStage.config` holds — see
+    `_identity_of_specs`.
+
+    `None`, what every stage `index_specs` builds today carries, becomes the same empty
+    mapping `weft_kernel.resolution._validate_stage_config` returns for a plugin that
+    declares no `config_model`. A plugin's own config object — a `pydantic.BaseModel` a
+    caller assembled by hand — goes through `model_dump()`, the identical translation
+    `weft_kernel.resolution._dump_stage_config` performs when a resolved pipeline's own
+    config is serialised, so a caller who does hand the default path a real config object
+    still gets sorted keys in the identity rather than a model's own `repr()` caught by
+    `pipeline_identity`'s `default=str` fallback. Anything already mapping-shaped is
+    passed through unchanged.
+    """
+    if config is None:
+        return {}
+    if isinstance(config, BaseModel):
+        return config.model_dump()
+    return cast("Mapping[str, object]", config)
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -436,7 +505,11 @@ async def run_index(
         yield docs
 
     try:
-        identity = pipeline_identity(resolved_pipeline) if resolved_pipeline is not None else ""
+        identity = (
+            pipeline_identity(resolved_pipeline)
+            if resolved_pipeline is not None
+            else _identity_of_specs(specs, registry=registry)
+        )
         # Read *before* the run writes over them: the comparison is against what the last index
         # left, and `_record_sources` below replaces exactly those rows.
         previous = await _recorded_sources(runnable, store_stage_id=store_stage_id)
