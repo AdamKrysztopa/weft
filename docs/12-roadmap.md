@@ -40,10 +40,10 @@ every row gets built. A `WON'T` here means *not in this cycle, and here is what 
 |---|---|---|---|---|
 | **T0** | **Truth and publication** — the status banner, the changelog, the release protocol, and `uv publish` | LOW | **MUST** | Nothing |
 | **T1** | **Measurable, in both languages** — `RunRecord.query_pipeline`, the three metric defects, Polish scoring | MEDIUM | **MUST** | T0 published, so a run can name a released version |
-| **T2** | **The ladder tells the truth** — the four measured parameter defaults, `--explain`, `score_semantics` | LOW | **MUST** | T1's numbers returned |
+| **T2** | **The ladder tells the truth** — `--explain`, `score_semantics`, and whichever shipped defaults Weft's *own* measurements condemn | LOW | **SHOULD** | T1's numbers returned, **and** §4's citations recovered at source |
 | **T3a** | **Embeddable** — `runtime.run(name, args)`, one verb; `08` §33's promised Python documentation | MEDIUM | **SHOULD** | Nothing (runs beside T3b) |
-| **T3b** | **Incremental ingest** — chunked batch iterator; make `02` §1010 true; `SourceStatus.INDEXING` | MEDIUM | **SHOULD** | Persists nothing keyed on `NodeId` — see T4 |
-| **T4** | **The one-way door** — does the tenant enter the node digest? A `05` session, answered in writing either way | LOW to decide, VERY HIGH to defer | **MUST decide** | T3 persisted nothing on `NodeId` |
+| **T3b** | **Incremental ingest** — chunked batch iterator; make `02` §1010 true; `SourceStatus.INDEXING` | MEDIUM | **SHOULD** | T4 settled — nothing persists on `NodeId` before then |
+| **T4** | **Node identity** — two files with identical bytes share one node id, and the second ingest takes the first's nodes. A live data-loss defect, and the same decision the tenant question turns on | MEDIUM to repair, VERY HIGH to defer | **MUST** | Nothing — the trigger has already fired |
 | **T5** | **Breadth at the edges** — `format-office`/`format-html` extras on 9.13, `feat-ocr-rapidocr`, `base_url`, a second provider account | LOW | **SHOULD** | Phase 9's `9.13` |
 | **T6** | **Everything else** — each gated on a named trigger | HIGH+ | **WON'T yet** | See §5, one trigger per row |
 
@@ -105,53 +105,98 @@ generation scoring in Polish is wrong**, in shipped product. No proposed phase n
 
 ## 4 · Tranche 2 — the ladder tells the truth
 
-`01`'s requirement 6 is that a shipped technique is real and parameterisable. Weft ships two
-retrieval defaults that **its own cited paper measures as wrong**, and the finding came from opening
-the PDF Weft cites rather than from any check:
+`01`'s requirement 6 is that a shipped technique is real and parameterisable. A user who climbs
+`rerank-then-generate` and sees no gain concludes the ladder is decorative, which is a product defect
+and not an evidence task — so if any shipped default sits in a regime where the technique it names
+does nothing, that is worth finding.
 
-- **RRF `k: 60`** scores 0.695; `k = 10` scores 0.716.
-- **Rerank candidate depth 20.** The paper's own words: *"With only 20 candidates, reranking is
-  ineffective"* — Recall@5 0.458, against 0.826 at depth 50. **Weft's shipped default sits inside the
-  regime where the technique it names does nothing.** A user who climbs `rerank-then-generate` and
-  sees no gain concludes the ladder is decorative, which is a product defect and not an evidence task.
-- **`hybrid-then-generate.yaml`'s comment asserts a weighted blend is "a tuning constant nobody can
-  defend".** §IV-C-a of the same paper defends one: convex combination at α = 0.5 reaches 0.726,
-  above RRF's 0.695. A shipped comment contradicted by the shipped citation.
-- **Postgres text ranking runs with `normalization = 0`** — no length normalisation, which is one
-  integer, unlike the missing IDF, which is not.
+**The claim that Weft ships two such defaults did not survive checking, and this section records the
+failure rather than the finding, because the failure is the more useful of the two.** A researcher
+reported that Weft's own cited paper measures RRF `k: 60` (0.695) below `k = 10` (0.716), and rerank
+candidate depth 20 as ineffective (0.458) against 0.826 at depth 50. Verified at source:
 
-Change the defaults the measurement condemns, **or** record in each rung's own comment why a
-dominated default stays. Do **not** deprecate dominated pipelines: it breaks FF16, whose waiver is
-pinned empty, and the ladder is pedagogical — `hyde-then-retrieve` exists so a user can watch HyDE
-lose, which is what the same paper measures it doing.
+- **`0.716`, `0.458` and `0.826` appear nowhere in this repository.** `0.695` appears exactly once —
+  `11` §6, where it is **hybrid Recall@5 on T²-RAGBench**, part of the chain 0.587 → 0.695 → 0.816.
+  It is not a point on an RRF `k`-sweep, and no `k`-sweep is cited anywhere. `weft_retrieve.fusion`
+  cites Cormack/Clarke/Büttcher (SIGIR 2009) for the formula and for `k = 60` as **that paper's own
+  constant**.
+- **"Rerank candidate depth 20" misreads the parameter.** `weft_retrieve.rerank`'s `top_n` is
+  *output truncation*, and the same module says candidate depth is the retriever's `top_k`,
+  deliberately not this plugin's. `rerank-then-generate.yaml` says `top_n: 20` is chosen to make the
+  stage "a reordering of the whole retrieved set rather than a truncation of it" — the opposite of
+  what the finding assumed it was.
 
----
+**So the numbers may be real in some paper, and none of them is traceable from anything Weft cites.**
+This project's rule is that a factual claim carries something a reader can check; the rule as written
+scopes that to claims *about the tree*, and this was a claim about the *literature*, used to justify
+changing the tree. Same standard, and the gap is worth closing: a number quoted from a paper carries
+its table or figure, or it does not move a default.
 
-## 5 · Tranche 4 — the decision that gets more expensive every day
+What survives, and is genuinely cheap:
 
-**`NodeId` is a content digest that excludes the tenant.** Two tenants indexing the same document
-derive the same id; `weft_nodes.id` is the primary key and `ON CONFLICT (id) DO UPDATE` overwrites
-`sources`. So tenant B's ingest replaces tenant A's row and erases A's source id, after which A can
-no longer delete or reconcile its own document and B's deletion takes A's content with it.
+- **Postgres text ranking runs with `normalization = 0`** — `weft_store.pgvector_store` passes no
+  normalization argument, so there is no length normalisation. One integer, unlike the missing IDF,
+  which is architectural and is `11` §6 rank 4's real subject.
+- **`--explain` and a `score_semantics` label do not exist** — both appear in the tree exactly once
+  each, inside the untracked review file. They are new work, not an extension of something shipped.
 
-**This is not exploitable today** — `tenant_id` is the constant `"default"` and there is no network
-listener anywhere in `packages/`. It is a latent design defect, not a live one, and `01`'s row is
-explicit: *"carry a tenant identifier through the context from day one… but build no isolation
-machinery until it is real."* Weft did the first half and did it well.
+And the thing to do before changing any default: **run the sweep on Weft's own corpus**, which is
+what Tranche 1 makes possible. Do not deprecate dominated pipelines either way — it breaks FF16,
+whose waiver is pinned empty, and the ladder is pedagogical: `hyde-then-retrieve` exists so a user
+can watch HyDE lose, which is what `11` §6 measures it doing.
 
-**But the deferral assumed the identifier could be retrofitted, and identity was settled in Phase 0
-in a way that decides the retrofit's cost.** Nobody connected the two. Either the primary key becomes
-composite — cheap in SQL, but every `get(ids)`, every lineage array and every citation needs a key it
-does not have — or the tenant enters the digest, which **changes every node id in every existing
-corpus** and invalidates every stored `BlobRef`, `RunRecord` and citation. That is a one-way door and
-it is the only item here that gets monotonically more expensive with every corpus indexed.
+## 5 · Tranche 4 — node identity, and the bug hiding behind the tenant question
 
-**So the decision is Tranche 4 and the build is not.** Answer it in a `05` session, in writing, either
-way. And write the paragraph that is true today and stated nowhere: **a library has no security
-boundary; the deployment is it** — a second tenant is a second `dsn` or collection, enforced by
-Postgres roles or a collection-scoped token, and nothing below the configuration enforces anything.
+**`NodeId` is a content digest over `media_type`, `content`, sorted `parent_ids` and `ordinal`
+(`weft_kernel/payload/node.py:245-260`). It excludes the tenant — and it excludes the source.**
 
----
+The tenant half is the one an outside review raised, and it is real: two tenants indexing the same
+document derive the same id, `weft_nodes.id` is the primary key, and `ON CONFLICT (id) DO UPDATE SET
+… sources = EXCLUDED.sources` (`weft_store/pgvector_store.py:750-756`) is a wholesale *replace*
+rather than a merge. But `tenant_id` is the constant `"default"` and there is no network listener
+anywhere in `packages/`, so that half was filed as latent.
+
+**Filing it as latent was wrong, and running it is what showed why.** The same mechanism fires inside
+a single tenant, today, with no second tenant and no attacker. Two files with identical bytes in one
+corpus produce identical node ids — `weft_extract/text.py:93-96` documents that collision as
+*intended* — while their `SourceId`s differ, because a source id is the resolved path. So the second
+ingest's `ON CONFLICT` overwrites `sources` with its own id alone, and the first document's nodes
+silently become the second's. Measured against the live pgvector store, on a throwaway database:
+
+```text
+node ids equal: True
+count after both ingests: 1
+stored sources: frozenset({'/beta.txt'})
+delete alpha removed nodes: 0
+alpha's content still retrievable: identical bytes
+```
+
+`delete_source` is `DELETE FROM weft_nodes WHERE %s = ANY(sources)`, so **deleting the first document
+reports success, removes nothing, drops its `weft_sources` row, and leaves its content retrievable
+forever.** A reported success that did nothing is worse than a failure, which is the rule
+`CLAUDE.md` states for silent fallbacks, arriving through a data path rather than an exception path.
+
+**This and `L9.37` are one defect failing in opposite directions.** There, a re-parse produces
+*different* ids so the old nodes linger; here, duplicate content produces the *same* id so one
+document's nodes are taken by another. Both are content-addressed identity that excludes provenance.
+Two lessons pointing at one cause is the signal that the fix belongs at the cause, and that is why
+this is one tranche rather than a repair filed under each.
+
+**So the decision is one question with three consequences.** Does provenance — the source, the
+tenant, or both — enter the digest? Either the primary key becomes composite, which is cheap in SQL
+but needs a key that `get(ids)`, every lineage array and every citation currently do not carry; or
+provenance enters the digest, which **changes every node id in every existing corpus** and
+invalidates every stored `BlobRef`, `RunRecord` and citation. That is a one-way door, it is the only
+item in this document whose cost grows monotonically with every corpus indexed, and the single-tenant
+half means it is a defect to repair rather than a deferral to schedule.
+
+Two things ride with it and are cheap. Write down the fact that is true today and stated nowhere:
+**a library has no security boundary; the deployment is it** — a second tenant is a second `dsn` or
+collection, enforced by Postgres roles or a collection-scoped token, and nothing below the
+configuration enforces anything. And build no isolation machinery: `01`'s row defers that until *the
+second tenant*, and that trigger needs an operational reading — a second `tenant_id` value in one
+deployment, or an in-process caller that is not the CLI — because "real" is not a condition anything
+can check.
 
 ## 6 · Tranche 6 — deferred, each with the trigger that fires it
 
@@ -178,9 +223,14 @@ Every row is work this project intends to do. None of it starts on a preference.
 2. **Shipped worked examples.** Twenty-eight pipeline documents and no examples directory. Every
    phase Exit says "from outside this repository" and each is a one-off act by the builder rather
    than an artefact a user re-runs.
-3. **The conformance kit.** Promised by `07` §1, `08` §1 and `01` — which already *measured* that it
-   does not exist. It is precisely what a third party needs in order to write the second store
-   backend that several gates keep deferring for want of one.
+3. **A conformance kit a third party can import.** Careful here, because the obvious claim is wrong:
+   a store conformance kit *does* exist, at `tests/integration/test_store_conformance.py`, and it
+   runs against both backends. What does not exist is a **published** one — `01` measured that
+   nothing under `packages/` carries a kit, and republishing this one was proposed at a Phase 2 task
+   and refused. Four documents promise a kit an author can install; the tree holds one only this
+   repository can run. It is precisely what a third party needs in order to write the second backend
+   that several gates keep deferring for want of one, so either the promises are made true or they
+   are withdrawn.
 4. **Atomic writes to `weft.toml`.** It is a whole-file read-modify-write holding the store DSN and
    the permission policy, and four separate proposals want to write it.
 5. **Cost and latency as a column on the ladder.** *Measurable* is one of three adjectives in the

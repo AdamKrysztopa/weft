@@ -1736,6 +1736,67 @@ adds a value should route to the document that promised the behaviour, not only 
 computes it. `weft doctor` is a separate, immediate repair — either the command exists or the three
 sentences name `weft reconcile`.
 
+
+### L9.70 — "not exploitable" ended the investigation, and the same mechanism was losing data inside one tenant
+
+**What happened.** A dispatched reviewer was asked whether an outside review's tenant-isolation
+finding was real. `NodeId` is a content digest over `media_type`, `content`, sorted `parent_ids` and
+`ordinal` (`weft_kernel/payload/node.py:245-260`) and excludes the tenant, so two tenants indexing
+one document collide on `weft_nodes.id` and `ON CONFLICT (id) DO UPDATE SET … sources =
+EXCLUDED.sources` (`weft_store/pgvector_store.py:750-756`) replaces rather than merges. Every
+reader — the review, and the researcher who assessed it — reached the same place and stopped:
+`tenant_id` is the constant `"default"`, there is no listener in `packages/`, therefore not
+exploitable, therefore latent, therefore a decision to schedule.
+
+The reviewer ran it instead, against the live store on a throwaway database. **The digest also
+excludes the source.** Two files with identical bytes in one corpus — one tenant, no attacker —
+produce identical node ids while their `SourceId`s differ, so the second ingest's `ON CONFLICT`
+overwrites `sources` with its own id alone. `delete_source` is `DELETE … WHERE %s = ANY(sources)`,
+so deleting the first document **reports success, removes nothing, drops its `weft_sources` row, and
+leaves its content retrievable forever**. And `weft_extract/text.py:93-96` documents the id collision
+as intended, which is why nothing looked wrong to anyone reading.
+
+**Generalises to.** Two rules, and the first is the one that cost the most:
+
+*A threat model is not a fault model.* "No attacker can reach this" answers a different question from
+"does this behave correctly", and the security framing is the more satisfying of the two to finish —
+so when an analysis concludes *not exploitable*, that is the moment to ask what the same mechanism
+does with no adversary at all. Absence of an attacker is not absence of a bug.
+
+*A documented invariant is not a tested one.* The collision is stated as intended in one module's
+docstring and the merge semantics are stated in another's; no test pairs them, because each is
+correct alone and the defect is the composition. This is `L9.63`'s shape exactly — two correct
+mechanisms, a third thing between them — and it is the second time in one phase.
+
+**Candidate home.** A ledger task first, as `L9.37` needed and for the same reason: this is a live
+data-correctness defect with a reported-success delete, and the fix is a design choice about whether
+provenance enters the digest. `docs/12-roadmap.md` §5 holds the argument and the measurement. The
+rules themselves want two homes — the threat-model one in `weft-qualities`, which reviews a change
+and would have asked the second question; the invariant one wherever `L9.63` lands, since they are
+the same finding and routing them apart would file one cause under two headings.
+
+### L9.71 — a number quoted from a paper moved a shipped default, and three of the four did not exist
+
+**What happened.** A researcher reported that Weft ships two retrieval defaults its own cited paper
+measures as wrong — RRF `k: 60` scoring 0.695 against 0.716 at `k = 10`, and rerank candidate depth
+20 as ineffective at 0.458 against 0.826 at depth 50 — and it was strong enough to become a `MUST`
+in the first draft of `docs/12-roadmap.md`. Checked at source: **`0.716`, `0.458` and `0.826` appear
+nowhere in this repository**, and `0.695` appears exactly once, in `11` §6, as hybrid Recall@5 on
+T²-RAGBench — a different metric in a different table, not a point on any `k`-sweep. The rerank half
+also misread the parameter: `weft_retrieve.rerank`'s `top_n` is output truncation, and the same
+module says candidate depth is the retriever's `top_k`, deliberately not this plugin's.
+
+**Generalises to.** This project's evidence rule is scoped to *"every factual assertion in `docs/`
+about the tree"*. That scope has a hole exactly where it matters most: a claim about the
+**literature**, used to justify changing the tree, carries no such obligation and reads as more
+authoritative than a claim about the tree, because a reader cannot check it with a grep. *A number
+quoted from a paper carries its table or figure number, or it does not move a default.*
+
+**Candidate home.** `paper-to-plugin`, which already owns reading a paper at source and putting the
+divergence in the docstring beside the name — it should also own the citation shape for a number
+that changes shipped configuration. And one clause in `CLAUDE.md`'s *Claims need evidence*
+paragraph, widening it from claims about the tree to claims used to change it.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in
