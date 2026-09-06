@@ -31,6 +31,13 @@ because reading them here with a bare `getattr(..., name)` would let a future re
 required-declarations check turn into a generator crash with no attribution, instead of a loud,
 specific failure naming which command and which field.
 
+**Task 7.2a moved the walk itself — `PublishedCommand`, `command_entries`,
+`CommandNotDescribableError` and the two defensive readers — to `weft_command.catalogue`**, so
+`weft_agent.tools` can build the agent's own tool catalogue from the identical walk without
+importing this driving adapter. This module re-exports them unchanged, so nothing that already
+imports them from here has to change; see `weft_command.catalogue`'s own module docstring for
+the full reasoning.
+
 **The table is spliced into `manual/user-manual.md`, never the whole file.** Unlike
 `manual/contract-reference.md` — a document with no other job — the user manual is mostly
 hand-written narrative (`08` §1: "how to derive a pipeline... the equivalent Python calls"), and
@@ -43,90 +50,30 @@ overwrite a sentence a person wrote.
 from __future__ import annotations
 
 from collections.abc import Set as AbstractSet
-from dataclasses import dataclass
 from typing import Final
 
-from weft_command.contract import Command
-from weft_command.permission import PermissionClass
-from weft_kernel.errors import WeftError
-from weft_kernel.registry import Registry, unwrap_factory
+from weft_command.catalogue import (
+    CommandNotDescribableError,
+    PublishedCommand,
+    command_entries,
+)
+
+__all__ = [
+    "SECTION_BEGIN",
+    "SECTION_END",
+    "CommandNotDescribableError",
+    "PublishedCommand",
+    "command_entries",
+    "missing_command_names",
+    "render_command_table",
+    "spliced_manual",
+]
 
 #: The region `render_command_table`'s output owns inside `manual/user-manual.md` — see the
 #: module docstring's closing paragraph. HTML comments so they render invisibly wherever the
 #: file is viewed as Markdown, the same convention a generated README table uses elsewhere.
 SECTION_BEGIN: Final[str] = "<!-- weft-cli:generated:command-table:begin -->"
 SECTION_END: Final[str] = "<!-- weft-cli:generated:command-table:end -->"
-
-
-class CommandNotDescribableError(WeftError):
-    """A registered `Command` this generator cannot describe — see the module docstring's
-    paragraph on why this exists even though `Command.required_declarations` already makes it
-    unreachable in practice.
-    """
-
-
-@dataclass(frozen=True, slots=True)
-class PublishedCommand:
-    """One registered `Command`, exactly as `weft --help` would already show it.
-
-    `name` is the registered name in full — `"plugins doctor"`, not just `"doctor"` — the same
-    string `weft_cli.cli.build_parser` reads off `Registry.names_for(Command)` to build the
-    subcommand tree; `weft {name}` is the invocation.
-    """
-
-    name: str
-    distribution: str
-    permission_class: PermissionClass
-    help: str
-
-
-def command_entries(registry: Registry) -> tuple[PublishedCommand, ...]:
-    """Every registered `Command`, sorted by name for a stable, diffable render.
-
-    Walks `registry.names_for(Command)` — `weft_cli.cli.build_parser`'s own source of the
-    subcommand tree — never a hand-written list of the five (now thirteen) built-ins, so a
-    plugin's own command is walked identically to a first-party one.
-    """
-    entries: list[PublishedCommand] = []
-    for name in sorted(registry.names_for(Command)):
-        entry = registry.entry(Command, name)
-        factory = unwrap_factory(entry.factory)
-        entries.append(
-            PublishedCommand(
-                name=name,
-                distribution=entry.distribution,
-                permission_class=_permission_class_of(factory, name),
-                help=_help_of(factory, name),
-            )
-        )
-    return tuple(entries)
-
-
-def _help_of(factory: object, name: str) -> str:
-    """`factory.help`, or a loud, specific failure — see `CommandNotDescribableError`."""
-    help_text = getattr(factory, "help", None)
-    if not isinstance(help_text, str):
-        raise CommandNotDescribableError(
-            f"'{name}' carries no `help` attribute. Every registered Command must declare "
-            "one — weft_command.contract.Command.required_declarations names it mandatory — "
-            "and the command-table generator refuses to invent a placeholder for one that "
-            "does not exist."
-        )
-    return help_text
-
-
-def _permission_class_of(factory: object, name: str) -> PermissionClass:
-    """`factory.permission_class`, or a loud, specific failure — see
-    `CommandNotDescribableError`."""
-    permission_class = getattr(factory, "permission_class", None)
-    if not isinstance(permission_class, PermissionClass):
-        raise CommandNotDescribableError(
-            f"'{name}' carries no `permission_class` attribute. Every registered Command must "
-            "declare one — weft_command.contract.Command.required_declarations names it "
-            "mandatory — and the command-table generator refuses to invent a placeholder for "
-            "one that does not exist."
-        )
-    return permission_class
 
 
 def missing_command_names(

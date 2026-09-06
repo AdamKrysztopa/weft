@@ -4107,9 +4107,9 @@ is also refused: the ReAct step is a typed structured answer through the three-t
   `weft-kernel`: **+0 lines** · `uv run poe ci-checks` green: **2,045 passed, 38 skipped**, 221
   architecture tests · **dispatched to `weft-implementer` at `sonnet`** — the first dispatch this
   phase to come back green, and the seventh test (`NO_DECISION`) is mine, written after its report
-- [ ] **7.2a** the agent's tool catalogue is derived from `permission_class`, so a command it must
+- [x] **7.2a** the agent's tool catalogue is derived from `permission_class`, so a command it must
   not reach is out of reach without anyone editing the agent · owner `03` → *Permissions*;
-  `02` §2 · turns on — · sha — · **The ceiling made mechanical rather than trusted.** Measured
+  `02` §2 · turns on — · sha `SHA72A` · **The ceiling made mechanical rather than trusted.** Measured
   before being designed: of nineteen registered commands twelve are `read`, five `write`, two
   `destroy` (`delete`, `reconcile`) and **none `overwrite`** — so the filter admits seventeen, and
   two are excluded **by name, each carrying its reason in code**: `config set`, because it writes
@@ -4124,6 +4124,32 @@ is also refused: the ReAct step is a typed structured answer through the three-t
   because a command line has no honest spelling for them, and a JSON schema has one. **This is a
   third rendering of one walk** — `build_parser` to a terminal, `command_table` to Markdown, this to
   tool schemas — and saying so is what stops somebody hand-writing a fourth list
+  · **Measured through the shipped install**: 19 registered commands, **15 reachable**. Out of
+  reach: `delete` and `reconcile` **by the filter**, `config set` and `init` **by name**. The
+  filter is `permission_class in REACHABLE_CLASSES` and nothing else — the words `destroy` and
+  `overwrite` appear in this module's prose and never in its logic, which is what makes the claim
+  *"a third party's `destroy` command is out of reach the day it ships"* true rather than
+  maintained ·
+  **The walk moved to `weft_command.catalogue`, and the reason is 7.0's reason.** `weft_agent` must
+  not import the driving adapter, and the alternative to moving was a second walk — which is how a
+  fourth hand-written list gets written, the thing the design pass warned about by name.
+  `PublishedCommand`, `command_entries` and the two defensive readers now live with the contract
+  that publishes `Command`; `weft_cli.command_table` re-exports them so every existing importer is
+  untouched, and `manual/user-manual.md` does not change by a byte — this is a move, not a rewrite ·
+  **A named exclusion is not a waiver, and the distinction is load-bearing.** A waiver says *this
+  rule should apply here and does not*; these two say *this rule does not decide this case*.
+  `config set` is `write`-class and the class is **right** — the consequence is one level up, since
+  it writes `[permissions]` and an agent that can call it can set `destroy = "allow"` and climb its
+  own ceiling. That is the single row out of nineteen where G12's rejected third position — *the
+  class is the wrong unit for a non-human caller* — turns out to be correct, and it is worth
+  recording that a rejected position was right about exactly one thing rather than about nothing ·
+  **Ratcheted both ways**: a test asserts each excluded name still names a registered command, so
+  an exclusion cannot outlive what it excludes — the stale-waiver defect `L8.21` names for ids,
+  applied to a scope list · **watched failing**: a `read`-class stranger is admitted and a
+  `destroy`-class one is not, from the identical registry shape, so a green cannot mean the filter
+  stopped looking · `weft-kernel`: **+0 lines** · `uv run poe ci-checks` green: **2,051 passed, 38
+  skipped** · **dispatched to `weft-implementer` at `sonnet`**, green, and it correctly refused to
+  fix a lint error in the test file rather than editing a test
 
 - [ ] **7.3 ⚠** the agent reaches Weft only through the published command surface — the same typed
   results a human's renderer formats, never a private API and never re-parsed text · owner `03` →
