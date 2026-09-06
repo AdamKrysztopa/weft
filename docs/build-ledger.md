@@ -5128,14 +5128,14 @@ marked.
   **2118 passed, 38 skipped**, 234 architecture tests, examples 116 passed. **Phase 10 note:** the
   declaration this line makes mandatory is the same fact a RAPTOR clustering stage reads to decide
   whether an atomic `TABLE` or `IMAGE` node joins a cluster or is a leaf of its own
-- [ ] **9.3** a `SourceDeletable` participant reports what it removed by kind, so a blob store that
+- [x] **9.3** a `SourceDeletable` participant reports what it removed by kind, so a blob store that
   reaped forty blobs and a node store that removed no node are distinguishable in `weft delete`'s
   output — `Removed.removed: Mapping[str, int]` defaulting empty, kinds an open vocabulary the
   participant owns, `node_count` unchanged, `STORE_CONTRACT_VERSION` one minor · owner `02` §1 →
   *The store contract family* (`SourceDeletable`); `09` §2–§3 (G9's two-audience rule) · turns on
-  — · sha — · `Removed` carries `node_count` and nothing else
+  — · sha `4000d1e` · `Removed` carried `node_count` and nothing else
   (`packages/weft-rag/src/weft_store/contract.py:195-209`), so a participant that removes non-nodes
-  reports zero — the inverse of the promise its own docstring makes (`:587-625`). Additive for
+  reported zero — the inverse of the promise its own docstring makes (`:587-625`). Additive for
   implementers (a defaulted field on a model they return) and for callers → minor, `2.0.0` →
   `2.1.0` (`:121`). **Phase 11 counts entities and facts through this same field**; it lands here
   because this phase deletes blobs first, and Phase 11 cites this sha rather than bumping again ·
