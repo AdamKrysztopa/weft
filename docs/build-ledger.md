@@ -5508,12 +5508,12 @@ marked.
   two were built in parallel by two implementers on file sets that were disjoint everywhere except
   `weft_cli/render.py`, and splitting that file across two commits would have put one task's
   renderer under the other's message · `poe ci-checks` green: **2260 passed, 39 skipped**
-- [ ] **9.13** a scanned or multi-column PDF is readable through a learned layout rung shipped as its
+- [x] **9.13** a scanned or multi-column PDF is readable through a learned layout rung shipped as its
   own distribution for its dependency weight, selectable by name in a pipeline document, exposing
   four typed decisions and no vendor dict, reporting itself partial when its weights are not on disk
   without touching the network, and honouring cancellation at document granularity with that
   weakening written down · owner `11` §3 D3, D6; `11` §4 → *Requirement 6*; `01` → *Runtime shape*;
-  `10` §4 (the name) · turns on — · sha — · `weft-docling` over `docling-slim[format-pdf,models-local]`
+  `10` §4 (the name) · turns on — · sha `b552719` · `weft-docling` over `docling-slim[format-pdf,models-local]`
   — named extras only, since `format-html-render` pulls a browser and `format-audio` pulls a speech
   model; the torch reason `weft_pdf/__init__.py:3-7` gives for its own wheel, applied again. The
   plugin name is **`pdf-layout-model`** — `pdf-layout` is the shipped pdfplumber rung
@@ -5524,7 +5524,37 @@ marked.
   surfacing in the typed config is a pack bump and never an `Extractor` contract bump (G9).
   `pdf_layout.py:25-29` is the offload shape and the sentence about cancellation; FF7(b) cannot see
   CPU-bound work, so the pack's conformance case times the loop. Whether the models run under
-  `models-onnxruntime` without torch is unconfirmed and is measured before it is promised
+  `models-onnxruntime` without torch is unconfirmed and is measured before it is promised ·
+  **the extras this line names do not work, and it took two measurements to find the bottom of
+  that.** Installed exactly as written, `import docling.document_converter` raises
+  `ModuleNotFoundError: No module named 'scipy'` — `convert-core` carries it. With that added the
+  pack imports, registers and reports `ACTIVE`, and every *conversion* then fails on
+  `No OCR engine found` and `No module named 'cv2'`; `feat-ocr-rapidocr-onnx` carries both, on
+  `onnxruntime` rather than more `torch`, which is also the first real evidence on this line's own
+  open question — the OCR rung runs under onnxruntime, the *layout* rung was not tested without
+  torch and remains unpromised. Shipped extras: `convert-core,format-pdf,models-local,`
+  `feat-ocr-rapidocr-onnx`. `L9.78` · **897 MB installed**, measured on 3.12 — the number the
+  "dependency weight" clause was asserting without one · **`10` §4's reservation is retired in
+  the same commit that claims the name**, per `paper-to-plugin`; the row is now in §1.5 beside the
+  two `weft-pdf` rungs · **FF5 clause (c) gains its first real subject and
+  `PLUGINS_REPORTING_UNAVAILABILITY_TOO_LATE` stays empty**: the plugin registers whether or not
+  the weights are there and `registrar.unavailable` says why at discovery, the `bertscore` shape ·
+  **five defects, every one found by running the binary and none by the 34 tests.** Two were bugs
+  in the tests themselves, which the dispatched implementer surfaced by returning *blocked* rather
+  than guessing. Three came from running it: a hard-coded `artifacts_path` that made the pack check
+  one directory and convert from another; `artifacts_path=None` meaning *"resolve these yourself"*
+  to docling, which resolved them by downloading **593 MB** into the Hugging Face cache while the
+  pack reported `PARTIAL` (`L9.81`); and a `Disclosure` claiming no network call on any path this
+  pack owns, written from the design and false when measured. Re-tested with both caches deleted:
+  the run fails loudly naming the directory and fetches nothing · **`device: auto` fails on Apple
+  Silicon** — docling's layout model raises on MPS — and the default is left at the library's own
+  anyway, on `pdf_layout`'s settled precedent, because pinning `CPU` would cost every CUDA operator
+  their accelerator to work around an upstream bug. The remedy is one line in a pipeline document
+  and it is written beside the field. `L9.82` · **demonstrated through the shipped binary from a
+  directory that is not this repository**: weights absent → `partial` naming both missing folders
+  and two remedies; present → `active`; a run without them → exit 1, nothing downloaded; a run with
+  them and `device: cpu` → **exit 0, one node from a two-column PDF** · `poe ci-checks` green:
+  **2372 passed, 9 skipped**, both containers up
 - [ ] **9.14 ⚠ `11` §4 question G4-c** a table's rows are children of the table node with the header
   carried into each, so a row is retrievable on its own and its parent is one filter away — and
   `lineage.parents` is a filterable path in every store or the fallback is an id fetch, never
