@@ -5369,10 +5369,15 @@ marked.
   whichever parse arrived first · owner `02` §1 → `SourceRecord`; `11` §4 G5-c · turns on — · sha
   — · after 9.13, which is the first time two parsers can produce the same node ids from one file
 
-**Document edits owed by this section, not tasks** (`11` §5's own rule): `10` §4 gains the reserved
-names (`colpali`, `colqwen`, `late-interaction`, `maxsim`, `visual-citation`, `grounded-answer`,
-`describe-query-image`) and `pdf-layout-model` — today it holds no multimodal name
-(`docs/10-technique-catalogue.md:447-468`); `11` §3 D1 is marked settled (Block F) and `11` §4's
+**Document edits owed by this section, not tasks** (`11` §5's own rule): ~~`10` §4 gains the
+reserved names (`colpali`, `colqwen`, `late-interaction`, `maxsim`, `visual-citation`,
+`grounded-answer`, `describe-query-image`) and `pdf-layout-model`~~ — **done 2026-09-06**, and it
+gained a ninth, `describe-table`, at the owner's request: a table's semantic surface is two
+*deterministic* serialisations plus row children, not a model's prose, and `11` §6 rank 14's
+measured **+2.2 to +2.8pp Recall@5** against row-level chunking's **0.366 → 0.754** is why. The name
+is reserved so the first implementation cannot take it, and `01` → *The least-architecture check*
+carries the reopen trigger — a measurement beating the serialised grid *plus* row children, never
+beating raw extraction; `11` §3 D1 is marked settled (Block F) and `11` §4's
 gate statuses and citations are refreshed (`:323-355` cites `02:323-324` and `seam.py:133`,
 `:202-234`, none of which is the strip today); `11` §5 becomes a pointer to this section; `01` →
 *Runtime shape* gains the one-paragraph carve-out that a VLM parser reached over HTTP is an

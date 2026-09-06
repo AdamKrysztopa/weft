@@ -500,6 +500,32 @@ demonstrated for neither: not a technique the literature has fixed, so nothing t
 overclaim under §2.1 rule 4 to take. `late-interaction` and `maxsim` are already reserved by `11`
 (`11:238-239`).
 
+**Added 2026-09-06, from Phase 9's design (`11`)** — the multimodal set this section owed and did
+not hold. The first six are the literature's, on this section's own rubric; the last three are
+**Weft's own names, held against nothing built**, which is a different reason and is stated as one:
+
+`colpali` · `colqwen` · `late-interaction` · `maxsim` (all four fixed by the late-interaction
+literature; `11` §3 D5 has why none is built) · `visual-citation` · `grounded-answer` — the last two
+under §2.1 rule 4 rather than under provenance: ViDoRe V3 (arXiv:2601.08620) measures visual
+grounding F1 at **0.602 human, 0.089 Qwen3-VL, 0.065 Gemini 3 Pro**, so a plugin called
+`grounded-answer` today would claim a capability the field delivers at roughly one-seventh of human.
+
+`describe-query-image` · `pdf-layout-model` · `describe-table` — Weft's own, reserved so that the
+first implementation cannot seize a name that will have siblings (§2.1 rule 6). `pdf-layout-model` is
+ledger `9.13`'s and `pdf-layout` is already the shipped pdfplumber rung.
+
+**`describe-table` is reserved and deliberately not built, and the number is why.** A table already
+gets two *deterministic* renderings of its grid — index form and prompt form, ledger `9.6` — and its
+rows become children with the header propagated (`9.14`). Those are where the measured gain is:
+row-level chunking moves BM25 Recall@1 **0.366 → 0.754** and hybrid MRR **0.3576 → 0.5945**
+(arXiv:2605.00318). An LLM pass over table chunks was evaluated against the same corpus family and
+measured **+2.2 to +2.8pp Recall@5** (arXiv:2604.01733) — an order of magnitude less, for one model
+call per chunk at index time, which is the dominant ingest cost of any table pipeline. `11` §6 rank
+14 is the refusal; `01` → *The least-architecture check* carries the reopen trigger. The asymmetry
+with a figure is not an oversight: a figure has no structure to render, so a describer is the only
+thing standing between it and a caption or nothing. **Whoever builds this has to beat 0.754, not
+0.366.**
+
 `decomposition` is reserved too, for the opposite reason: it is spoken for by the *reasoning*
 decomposition line (least-to-most — Denny Zhou et al., ICLR 2023, arXiv:2205.10625; decomposed
 prompting — Tushar Khot et al., ICLR 2023, arXiv:2210.02406), and using it for Boolean operand
