@@ -31,6 +31,11 @@ circular import at the moment `weft_agent` itself is still being defined.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from weft_agent import Settings
+
 from collections.abc import Mapping
 from typing import ClassVar, cast
 
@@ -82,15 +87,33 @@ class AgentCommand:
     permission_class: ClassVar[PermissionClass] = PermissionClass.WRITE
     help: ClassVar[str] = _AGENT_HELP
 
-    def __init__(self, config: object = None) -> None:
+    def __init__(self, settings: Settings | None = None, config: object = None) -> None:
+        """`settings` bound at construction, `config` accepted and unused.
+
+        **Bound rather than constructed in `run`**, which is what `weft_qdrant` and `weft_openai`
+        already do through `functools.partial`. The first version built a fresh `Settings()` per
+        run, so `[packs.agent] max_steps = 3` validated, was accepted and was silently discarded —
+        a knob that reads as configurable and is not. `config` is the per-plugin argument every
+        factory receives and an agent has nothing per-stage to configure.
+        """
         del config
+        # Imported here, not at module scope: `weft_agent/__init__.py` imports this module in
+        # order to register the command, so a module-scope import would be a cycle — the same
+        # reason the docstring above already gives for `Settings` not appearing in the imports.
+        from weft_agent import Settings  # noqa: PLC0415
+
+        self._settings = settings if settings is not None else Settings()
+
+    @property
+    def max_steps(self) -> int:
+        """The configured step budget this command will run under."""
+        return self._settings.max_steps
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
         # Local import: `weft_agent/__init__.py` imports `AgentCommand` from this module to
         # register it, so a module-scope `from weft_agent import Settings` here would be a
         # circular import at the moment `weft_agent` itself is still being defined — see this
         # module's own docstring.
-        from weft_agent import Settings
 
         agent_args = cast(AgentArgs, args)
         registry = ctx.require(Registry)
@@ -109,7 +132,7 @@ class AgentCommand:
             tools=cast("Mapping[str, AgentTool]", tools),
             llm=llm,
             ctx=ctx,
-            max_steps=Settings().max_steps,
+            max_steps=self.max_steps,
         )
 
         return Produced(

@@ -230,6 +230,38 @@ could catch it** — naming the seam.
 Then one line on requirements that were checked and held, so the reader knows the lens was applied
 rather than skipped.
 
+## Lens: a claim about a path you are not on
+
+Four of Phase 7's findings were one question asked in four places, and none of them could be
+falsified by anything this repository runs. Ask it of every sentence a change adds or leaves
+standing:
+
+- **"the one place that calls X" is a coincidence, not a seam.** `weft_cli.confirm.gate`'s own
+  docstring called itself *the invocation seam* and refused a pack's destructive command *"with no
+  cooperation from its author"* — true for every caller through `run_command`, which was the only
+  caller. Phase 7 was the second, and would silently have got no gate. Placing a concern where the
+  first caller happens to be is a bet that there will never be a second one, and the bet's expiry
+  is written down nowhere (`L8.31`; fitness function 20 now holds the `Command` instance of it).
+- **A docstring telling a stranger how to use a seam describes an untaken path.**
+  `weft_cli.commands` told pack authors their command may `ctx.require(Registry)`; nothing
+  registered one. Every built-in read `Dependencies` instead — by the route the docstring told
+  strangers *not* to use — so no first-party caller could ever have discovered it (`L8.38`). The
+  tell is any sentence of the form *"a third party may instead ..."*.
+- **A handler catches a type; a comment describes causes.** Both stay individually true while
+  drifting apart. `main` catches `WeftError` and its comment claimed to cover a malformed
+  `weft.toml`; `[llm]`'s inner tables are validated by pydantic, whose error is not one, so a
+  mistyped key gave an operator a traceback (`L8.39`).
+- **A dated count is a claim that expires.** `03` asserted twice that no first-party command was
+  `overwrite`/`destroy`-class while recording two that were; both statements were true when
+  written, and a gate was one grep from being argued on the false one (`L8.32`). The same shape
+  reaches a vocabulary: `PermissionClass.OVERWRITE` has **no** live instance, so its meaning is
+  whatever its docstring last claimed (`L8.34`).
+
+**What to do with a hit.** Re-measure at the point of reasoning rather than citing the sentence, and
+where the claim is about a path this tree does not exercise, ask whether `weft-canary` — the
+test-only distribution that exists to *be* the stranger — could take it instead. A claim only a
+stranger can falsify belongs where a stranger lives.
+
 ## What this is not
 
 - **Not a style review.** Ruff and Pyright run in `ci-checks` and are better at it.

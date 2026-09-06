@@ -1439,6 +1439,16 @@ All checks run in CI, before tests.
     ordinary method name and a textual sweep would grow a waiver list under it
     (`docs/lessons.md` `L8.31`).
 
+21. **The agent is an ordinary pack.** Added 2026-09-06, ledger task 7.1. Three clauses, each able
+    to fail alone: `weft-agent` is its **own distribution** with its own licence files and a single
+    `weft.packs` entry point; every contract it registers under is published by some *other*
+    distribution, read off the registry it actually populates rather than textually; and
+    `weft-kernel` never learns the word *agent* — not in a name, a dependency or a comment.
+    **The first clause is the one that could have passed while the claim quietly stopped being
+    true**: a pack bundled inside the `weft-rag` wheel registers through the same public entry point
+    and satisfies every check that reads a registry, and a stranger cannot add a package to somebody
+    else's wheel. `tests/architecture/test_ff21_agent_is_an_ordinary_pack.py`.
+
 > **Corrected 2026-08-10 — fitness function 1, and the preamble.** This section previously opened
 > *"the single best thing in a codebase examined during design is its AST boundary checker"* and
 > specified FF1 as *"lifted almost verbatim from it."* It is not the best thing there and it must

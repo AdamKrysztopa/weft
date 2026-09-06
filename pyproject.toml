@@ -117,9 +117,23 @@ src = ["packages/*/src", "testing/*/src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "B", "C90", "S", "PTH", "RET", "SIM", "TID"]
-ignore = ["S101"]  # assert is the point in tests
+# **`S101` is not ignored tree-wide any more** — `docs/lessons.md` `L8.37`. The reason written
+# beside it was always "assert is the point in tests", and the setting applied everywhere, so an
+# `assert` in shipped code passed lint under a justification about test files. It is scoped to the
+# directories the reason names, below. An `assert` is stripped under `-O`, so in shipped code it is
+# not a check — this project has already been bitten by one claiming more than it could know
+# (`weft_cli.route_ask`'s, cited in `CLAUDE.md` and in `phase-step`).
+ignore = []
 
 [tool.ruff.lint.per-file-ignores]
+# **Assert is the point in a test** — it is the assertion mechanism, and a test never runs under
+# `-O`. That sentence used to sit beside a tree-wide `ignore = ["S101"]`, so it justified a
+# narrower thing than it permitted and an `assert` in shipped code passed lint under a reason about
+# test files (`docs/lessons.md` `L8.37`). Scoped here to the directories the reason names.
+"tests/**/*.py" = ["S101"]
+"testing/**/*.py" = ["S101"]
+"examples/**/*.py" = ["S101"]
+
 # `.claude/hooks/` is not project Python. These files are launched by the Claude Code harness
 # as bare `python3`, which is 3.9 on the development machine — not the 3.12 the packages are
 # built against and not the `.venv` interpreter. `target-version = "py312"` above is therefore

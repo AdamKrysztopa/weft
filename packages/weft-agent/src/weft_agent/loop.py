@@ -38,6 +38,7 @@ from pydantic import BaseModel, ConfigDict
 from weft_agent.payload import AgentStep, AgentTranscript, NextAction, NextActionRequest
 from weft_agent.prompts import NextActionPrompt
 from weft_kernel.context import Context
+from weft_kernel.errors import WeftError
 from weft_kernel.payload import Produced
 from weft_llm.contract import LLM
 from weft_prompts.cascade import execute
@@ -61,6 +62,14 @@ class AgentTool(Protocol):
     description: str
 
     async def call(self, arguments: Mapping[str, object], ctx: Context) -> str: ...
+
+
+class UndecidedActionError(WeftError):
+    """A `NextAction` carrying neither a call nor a final answer reached the loop.
+
+    Unreachable through `NextAction`'s own validator, and named rather than asserted so that it
+    stays a refusal in an optimised build — see the raise site.
+    """
 
 
 class StopReason(StrEnum):
@@ -181,10 +190,17 @@ async def run_agent(
                 stopped_because=StopReason.ANSWERED,
             )
 
-        # `NextAction`'s own validator guarantees exactly one of `call`/`final_answer` is set;
-        # `final_answer` was just ruled out above, so `call` is set.
+        # `NextAction`'s own validator guarantees exactly one of `call`/`final_answer` is set, and
+        # `final_answer` was ruled out above — so this is unreachable. It is a **named refusal
+        # rather than an `assert`**: an assert is stripped under `-O`, which would leave the line
+        # below dereferencing `None` in exactly the build where nobody is watching
+        # (`docs/lessons.md` `L8.37`).
         call = action.call
-        assert call is not None
+        if call is None:  # pragma: no cover - the validator makes this unreachable
+            raise UndecidedActionError(
+                f"a NextAction reached the loop with neither a call nor a final answer, which "
+                f"NextAction's own validator forbids: {action!r}"
+            )
 
         tool = tools.get(call.tool)
         if tool is None:

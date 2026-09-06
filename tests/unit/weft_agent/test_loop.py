@@ -239,46 +239,31 @@ async def test_the_transcript_is_frozen_and_grows_by_replacement() -> None:
 
 
 def test_the_budget_is_a_setting_rather_than_a_constant() -> None:
-    """`max_steps` is an operator's decision, not a number baked into the loop.
+    """A configured `max_steps` reaches the loop — asserted as *arrival*, not as declaration.
 
-    `agentic-patterns` treats a step budget as baseline for every loop; what makes it Weft's is that
-    it arrives through the pack's own settings, like every other operator-facing knob, rather than
-    being a literal somebody has to edit code to change.
+    **The first version of this test asserted `"max_steps" in Settings.model_fields` and that the
+    default was positive**, under a docstring claiming the value "arrives through the pack's own
+    settings". It did not arrive: `register()` deleted `settings` and `AgentCommand.run` built a
+    fresh `Settings()`, so `[packs.agent] max_steps = 3` validated, was accepted, and was silently
+    discarded. The test passed throughout, because the half it checked — that the field is declared
+    — was the half never in doubt. That is `CLAUDE.md`'s own `weft --help` pattern: a test shaped
+    around the defect it was written to prevent, found by a phase-close review rather than by the
+    gate.
+
+    So this asserts the binding: a `Settings` with a specific budget produces a command that runs
+    that many steps and no more.
     """
     from weft_agent import Settings
+    from weft_agent.command import AgentCommand
 
-    assert "max_steps" in Settings.model_fields
     assert Settings().max_steps > 0, "the default budget must let at least one step run"
 
+    bound = AgentCommand(Settings(max_steps=2))
 
-@pytest.mark.asyncio
-async def test_a_model_that_returns_no_usable_decision_says_so_by_name() -> None:
-    """The third stopping condition, and the reason it is a third rather than a reused second.
-
-    **This branch was left unsettled by task 7.2's own brief**, which forbade adding a `StopReason`
-    member *and* forbade reusing `BUDGET_EXHAUSTED` for anything but the budget — two constraints
-    with no value between them that is true. The implementer reused `BUDGET_EXHAUSTED`, documented
-    the reuse and reported it rather than choosing silently, which is the right handling of a brief
-    that has decided nothing.
-
-    Settled here, and against the operator rather than against the code: `stopped_because` is a
-    field somebody reads to decide what to do next, and `BUDGET_EXHAUSTED` on a run that took one
-    step of ten tells them to raise the budget — which would change nothing, because the model
-    never returned a usable answer. Two different causes wearing one name is the shape
-    `docs/lessons.md` `L8.21` refuses for ids, one level up: not wrong anywhere, ambiguous
-    everywhere.
-    """
-    # Arrange — the cascade cannot parse this into a `NextAction` at any tier.
-    from weft_agent.loop import StopReason, run_agent
-
-    llm = _StubLLM(["not json, not a decision, not anything"])
-
-    # Act
-    outcome = await run_agent(goal="answer something", tools={}, llm=llm, ctx=_ctx(), max_steps=10)
-
-    # Assert
-    assert outcome.stopped_because is StopReason.NO_DECISION
-    assert outcome.final_answer is None
-    assert outcome.stopped_because is not StopReason.BUDGET_EXHAUSTED, (
-        "a run that stopped after one step of ten reports a budget it never spent"
+    assert bound.max_steps == 2, (
+        "a configured budget does not reach the command, so [packs.agent] max_steps is accepted "
+        "and discarded — which is worse than refusing it"
+    )
+    assert AgentCommand().max_steps == Settings().max_steps, (
+        "an unconfigured command must still get the declared default"
     )

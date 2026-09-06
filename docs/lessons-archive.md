@@ -423,6 +423,74 @@ minutes, by the person following that skill. A rule that catches the mistake dur
 written for is working; the failure mode `implement-ll` warns about is a rule that never fires at
 all, which is not what happened here.
 
+## 2026-09-06 — Phase 7's close
+
+Ten entries, and the shape of the phase is in them: **six are one question asked in different
+places** — *is this sentence still true about a path I am not on?* — and the three that recurred are
+the three a prose rule could never have caught.
+
+- **L8.35** *before a test calls anything it did not define, grep for one existing use and copy its
+  shape; and attribute every failure in a deliberately-red run to the absent artefact by name* →
+  **a hook**, `.claude/hooks/guard_test_calls.py` · `moves L8.35` — **it recurred three times in one
+  phase** as prose (`Context(registry=...)`, `registrar.flush()`, `_Passage(node_id=...)`), each
+  time costing a dispatch and each time correctly returned `blocked`. The hook runs `pyright` on a
+  written test file and reports only the discriminating case: a module that **exists** being asked
+  for an attribute or keyword it does not have. An absent module is the red phase and is ignored.
+  Triggered on all three shapes before being trusted — and its first version was silent on every
+  one of them, because it looked for `/tests/` in a path the harness hands over relative
+- **L8.31** *a claim about a path you are not on is worth what the
+  last walk of it was worth* → one new `weft-qualities` lens · `refines L8.24` — the four are one
+  question: a concern placed at "the one place that calls X"; a docstring telling a stranger to call
+  something nothing registered; a dated count that expired and nearly settled a gate on it; and a
+  vocabulary member with no live instance. Routed as one lens rather than four sentences, and the
+  lens ends by asking whether `weft-canary` — the distribution that exists to *be* the stranger —
+  could take the claim instead
+- **L8.38** grouped with `L8.31` — a docstring told a pack author to call `ctx.require(Registry)`
+  and nothing registered one; every built-in read `Dependencies` instead, by the route the docstring
+  told strangers not to use · `refines L8.24`
+- **L8.32** grouped with `L8.31` — `03` asserted twice that no first-party command was
+  `overwrite`/`destroy`-class while recording two that were, and a gate was one grep from being
+  argued on the false count · `refines L6.4`
+- **L8.34** grouped with `L8.31` — `PermissionClass.OVERWRITE` has no live instance, so its meaning
+  is whatever its docstring last claimed · `refines L6.4`
+- **L8.36** *a brief's constraints can be jointly unsatisfiable while each reads as reasonable, and
+  an escape hatch in a brief is a signal the author left a fork unsettled* →
+  `phase-step` → `references/implementer-brief.md` · `refines L7.1`
+- **L8.37** *an exemption's scope and its stated reason must match; where they differ the reason is
+  the honest one* → `pyproject.toml`, `S101` scoped to `tests/`, `testing/` and `examples/` through
+  `per-file-ignores` · `refines L6.4` — the ignore was tree-wide under the reason *"assert is the
+  point in tests"*. Scoping it surfaced **four** asserts in shipped code (not seven — two of the
+  original count were prose inside docstrings, re-measured here): one was mine and became a named
+  refusal that survives `-O`; three in `weft_llm.retry` are narrowing-only and now carry an
+  individual `# noqa` with its reason, which is the visible act the blanket prevented
+- **L8.39** *where a handler catches a **type** and its comment describes **causes**, nothing checks
+  that the causes still produce that type* → `tests/unit/weft_cli/test_malformed_config_refuses.py`,
+  one parametrised case per config section · `caused-by L8.24`
+- **L8.33** *a gate's Bring list names the measurements to take, not only the documents to read* →
+  `docs/05-grilling-sessions.md`, above G12
+- **L8.40** *a test for a configuration knob asserts the configured value reaches the thing it
+  configures; asserting the field exists tests the declaration* → applied directly, and the
+  fitness-function form is named rather than built · `refines L5.19` — `[packs.agent] max_steps`
+  validated, was accepted and was silently discarded, under a docstring saying it was an operator's
+  decision. **The test I wrote to prove it was shaped around the defect** — `CLAUDE.md`'s own
+  `weft --help` case verbatim. Three siblings from the same close review: `weft-rag` gained two
+  public modules and stayed at its tagged `2.1.0`, so `weft-agent`'s lower bound would have resolved
+  from an index to a distribution that cannot satisfy its imports (now 2.2.0, bound tightened);
+  FF21 existed as a file and was missing from `01`'s numbered list; and `invoke`/`Consent` were the
+  two names not exported from the package a caller is told to use
+
+**Two floors of this drain's own making failed at the phase close, and both said something about the
+project under the name of something about the checker.** `test_ledger_records_a_sha` and
+`test_documented_gaps_are_retired` each asserted the live ledger holds an **unticked** task — true
+while work remained, and false the moment every box was ticked. Both now plant the unticked spelling
+and assert the *matcher* recognises it, which is the fact they were reaching for.
+
+**The loop's own check — which of this phase's defects would a rule already in *Applied* have
+caught?** **Three, and all three were `L8.35`, which was in the queue rather than Applied** — it was
+written during this phase and drained at its close, so the loop collected and did not spend. That is
+`implement-ll`'s own *"drain earlier"* signal, and Phase 6's answer to it (drain at the midpoint as
+well as the close) is the one this phase should have taken.
+
 ## The entries as they stood
 
 ### L8.18 — "is the defect still there?" is the wrong question to ask a lessons queue

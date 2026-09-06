@@ -80,7 +80,12 @@ def test_the_ledger_parses_into_something_worth_checking() -> None:
     blocks = _task_blocks()
     assert len(blocks) > 100, f"only {len(blocks)} task lines parsed out of the ledger"
     assert any(ticked for _, ticked, _ in blocks)
-    assert any(not ticked for _, ticked, _ in blocks)
+    # **Not `any(not ticked)`.** That held while the project had unfinished work and is not a fact
+    # about this parser — every box in the ledger became ticked at Phase 7's close and the floor
+    # failed, asserting something about the *project* under the name of something about the
+    # *checker*. What must be true is that both spellings are recognised, which is planted below.
+    assert _TASK_LINE.match("- [ ] **9.9** something not done yet") is not None
+    assert _TASK_LINE.match("- [x] **9.9** something done") is not None
     assert "N.M" not in {identifier for identifier, _, _ in blocks}
 
 

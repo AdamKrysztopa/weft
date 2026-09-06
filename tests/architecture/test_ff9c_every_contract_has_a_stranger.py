@@ -75,6 +75,17 @@ CONTRACTS_WITHOUT_AN_EXAMPLE_PACK: Final[frozenset[str]] = frozenset()
 #: this list from being a way to hide a real contract.
 SERVICE_PROTOCOLS_WITHOUT_AN_EXAMPLE_PACK: Final[frozenset[str]] = frozenset(
     {
+        # **`Consent` is supplied by a caller, never registered by one** — task 7.0. It is the
+        # answer `weft_command.invocation.invoke` demands before it will run a command, and the
+        # two answers that exist are the CLI's TTY prompt and the agent's blanket refusal; neither
+        # is chosen among by name, and `weft plugins list` must never show it. That is the
+        # definition of a service in this file's own terms, and the sibling test proves it by
+        # asserting zero registrations rather than taking this comment's word. It is
+        # `@runtime_checkable` — unlike the other entries — because a caller handing over
+        # something that cannot answer should be told so at the seam rather than meeting an
+        # `AttributeError` inside it; that is a usability choice about a service, not a claim to
+        # be a contract.
+        "weft_command.invocation.Consent",
         "weft_kernel.discovery.EntryPointLike",
         "weft_kernel.runner.Stage",
         "weft_llm.contract.LLM",

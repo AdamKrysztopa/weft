@@ -68,7 +68,16 @@ name = "weft-rag"
 # the leading digit... a distribution can carry a major digit above `0` before the project has
 # decided it is *1.0-ready*". The 1.0 milestone is G10's substantive judgment and its precondition
 # table is untouched by this digit.
-version = "2.1.0"
+# **2.1.0 → 2.2.0 at Phase 7's close, and the bump is a correction rather than a routine
+# increment.** Tasks 7.0 and 7.2a added two *public* modules — `weft_command.invocation` (the
+# invocation seam, where a library caller now enters) and `weft_command.catalogue` (the command
+# walk, moved out of `weft_cli`) — and the version did not move. `v2.1.0` is a git tag, and
+# `git ls-tree v2.1.0` shows neither module, so `2.1.0` named two different APIs and
+# `weft-agent`'s own `weft-rag>=2.0.0` would have resolved, from an index, to a published
+# distribution that cannot satisfy `from weft_command.invocation import invoke`. **Minor, per
+# G9's two-audience rule**: a new module is additive for a caller and changes no Protocol, so an
+# implementer owes nothing. Found by Phase 7's close review; `docs/lessons.md` `L8.40`.
+version = "2.2.0"
 description = "Weft — a RAG engine built as a microkernel. The default install: the kernel's packs, and the weft command."
 requires-python = ">=3.12"
 license = "MIT"

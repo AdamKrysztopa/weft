@@ -20,6 +20,8 @@ open. `AgentCommandResult`'s own renderer is registered the identical way any pa
 
 from __future__ import annotations
 
+from functools import partial
+
 from pydantic import BaseModel, ConfigDict
 
 from weft_agent.command import AgentCommand, AgentCommandResult
@@ -52,9 +54,8 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     `AgentCommand.run` reads `Settings` itself, for the reason its own module docstring gives
     (a module-scope import here would be circular).
     """
-    del settings
     registrar.add(Prompt, NEXT_ACTION_NAME, NextActionPrompt)
-    registrar.add(Command, "agent", AgentCommand)
+    registrar.add(Command, "agent", partial(AgentCommand, settings))
     registrar.add_renderer(AgentCommandResult, render_agent)
 
 

@@ -9,7 +9,11 @@ license-files = ["LICENSE", "NOTICE"]
 # `weft_prompts.contract.Prompt`, a contract that distribution publishes — task 7.1's own
 # structural test (`tests/architecture/test_ff21_agent_is_an_ordinary_pack.py`) asserts every
 # contract this pack registers under is defined *outside* `weft_agent`.
-dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-rag>=2.0.0,<3.0.0"]
+# `weft-rag>=2.2.0`, not `>=2.0.0`: this pack imports `weft_command.invocation` and
+# `weft_command.catalogue`, and neither exists before 2.2.0. A lower bound naming a version that
+# cannot satisfy the imports is a dependency that resolves and then fails at import — which is
+# what `>=2.0.0` would have done against the published 2.1.0.
+dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-rag>=2.2.0,<3.0.0"]
 
 # The one entry point a pack declares (`docs/02-extension-model.md` section 2) — the same
 # single mechanism a third party uses, per `01` -> Phase 7's own claim for this pack.

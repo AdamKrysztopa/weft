@@ -4259,7 +4259,7 @@ is also refused: the ReAct step is a typed structured answer through the three-t
   commands, `agent` among them, with nobody editing that file
 - [x] **7.5** Phase 8's Exit is met in the clause its own tasks left joined — `weft eval` judges the
   difference between two **query** rungs against the published baseline's interval, not between two
-  ingest pipelines · owner `01` → Phase 8 **Exit**; `09` §4 · turns on — · sha — ·
+  ingest pipelines · owner `01` → Phase 8 **Exit**; `09` §4 · turns on — · sha `c1d527a` ·
   **Discharges Phase 8's exit, on `6.21`'s precedent.** Re-checking that exit on a real wheel install
   found four clauses of five are facts and the fifth is not: `weft eval run` refuses a query rung
   outright because it has no `Extractor` stage, and `weft_cli.eval_scoring` scores retrieval by

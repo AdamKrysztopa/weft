@@ -111,3 +111,20 @@ Two implementers at once only when their write sets are disjoint and neither's t
 green by the other's file. In practice that is rare inside one ledger task — the tasks are ordered
 so each is one property — and two agents editing the same module produce a merge you have to
 untangle, which costs more than the sequence saved. Default to one.
+
+
+## Constraints can be jointly unsatisfiable, and the author is who cannot see it
+
+`docs/lessons.md` `L8.36`. Task 7.2's brief told the implementer, of one branch, *"do not invent a
+`StopReason` member for it; use `BUDGET_EXHAUSTED` only for the budget"* — two clauses with no
+value between them that is true, each reasonable alone. It also said *"if you find you need a third
+member to be honest, stop and report"*, which is the tell: **an escape hatch in a brief is a signal
+the author noticed a fork and did not settle it**, not a safety net that makes leaving it open fine.
+
+The implementer took the strongest available action — it reused the wrong member, wrote the
+contradiction into the module docstring *and* its report, and shipped green. No test reached that
+branch, so the report was the only reason anyone looked.
+
+**Before dispatching, take each branch the brief constrains and name the value it should produce.**
+A branch with no nameable value is a decision still owed, not a constraint. *Already decided* is
+read once per constrained branch, never once per file.

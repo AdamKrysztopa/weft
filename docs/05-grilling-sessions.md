@@ -697,6 +697,15 @@ two separate ones a kernel error must satisfy.
 
 ---
 
+> **A session's *Bring* list names measurements to take, not only documents to read**
+> (`docs/lessons.md` `L8.33`, from this session). G12's own positions said *"establish whether
+> end-to-end is reachable inside the ceiling before accepting it"* — which is not a judgement to
+> form but a query against the tree: `weft index` is `write`-class, so it is. Its **Bring** list
+> named five documents and no measurement, and two of the three independent reviews spent their
+> first effort finding the same number. Where a position turns on a fact about the tree, write the
+> query down beside it, or every participant re-derives it and the session risks being argued from
+> whichever stale prose it opens first.
+
 ## G12 — What does a permission class mean when the caller is never a TTY?
 
 **Added 2026-08-18 by G8, which settled that Weft's agentic front end is a first-party pack shipped

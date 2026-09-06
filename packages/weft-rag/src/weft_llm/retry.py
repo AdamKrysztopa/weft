@@ -103,7 +103,7 @@ class RetryingProvider:
                 last = error
         # Unreachable with `attempts >= 1`, but stated rather than assumed: the loop either
         # returned, re-raised a permanent failure, or recorded a transient one.
-        assert last is not None
+        assert last is not None  # noqa: S101 - narrowing only; `attempts >= 1` makes it true
         raise last
 
     async def stream(self, conv: Conversation, *, model: str, ctx: Context) -> AsyncIterator[str]:
@@ -122,7 +122,7 @@ class RetryingProvider:
                 if yielded or not error.transient:
                     raise
                 last = error
-        assert last is not None
+        assert last is not None  # noqa: S101 - narrowing only; `attempts >= 1` makes it true
         raise last
 
     async def close(self) -> None:
@@ -160,7 +160,7 @@ class RetryingNativeStructuredProvider(RetryingProvider):
                 if not error.transient:
                     raise
                 last = error
-        assert last is not None
+        assert last is not None  # noqa: S101 - narrowing only; `attempts >= 1` makes it true
         raise last
 
 

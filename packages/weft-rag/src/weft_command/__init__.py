@@ -30,10 +30,14 @@ driving adapter, for the vocabulary its own renderer speaks.
 """
 
 from weft_command.contract import COMMAND_CONTRACT_VERSION, Command, CommandResult
+from weft_command.invocation import Consent as Consent
+from weft_command.invocation import invoke as invoke
 from weft_command.permission import PermissionClass
 from weft_command.render import ExitCode, Rendered
 
 __all__ = [
+    "Consent",
+    "invoke",
     "COMMAND_CONTRACT_VERSION",
     "Command",
     "CommandResult",

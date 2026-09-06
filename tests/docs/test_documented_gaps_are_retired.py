@@ -242,7 +242,10 @@ def test_the_ledger_parses_into_a_population_worth_comparing_against() -> None:
     states = ledger_task_states()
     assert states, "no task lines parsed out of build-ledger.md"
     assert any(states.values()), "no ticked task parsed — the box is not being read"
-    assert not all(states.values()), "no unticked task parsed — the box is not being read"
+    # **Not `not all(...)`.** A ledger with every box ticked is a finished project, not a broken
+    # parser, and this floor failed the day Phase 7 closed. What it must actually assert is that
+    # the unticked spelling is still recognised — a fact about the matcher, planted here.
+    assert _TASK_LINE.match("- [ ] **9.9** something not done yet") is not None
     assert "N.M" not in states, "the fenced example task line was counted as a real task"
 
 

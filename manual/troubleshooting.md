@@ -2888,6 +2888,19 @@ a TTY counts as consent**, so an agent — which is never a TTY — may reach `r
 `network` commands and may not reach `overwrite` or `destroy` ones. See
 [`docs/03-cli.md`](../docs/03-cli.md) → *Permissions* for the rule and the argument.
 
+### `UndecidedActionError`
+
+**What it looks like** — you will not see this. It names a state `NextAction`'s own validator makes
+impossible: an action carrying neither a tool call nor a final answer.
+
+**Why it exists at all.** The loop needs one of the two to be set, and the check that proves it is
+the model's own validator. The line that reads the call would otherwise be an `assert`, which is
+**stripped under `-O`** — so in an optimised build the guarantee would vanish and the next line
+would dereference `None`, in exactly the build where nobody is watching. A named refusal survives
+`-O`; an assertion does not.
+
+**What to do** if you ever meet it: it is a defect in `weft-agent`, not in your configuration.
+
 ### `ConsentRefusedError`
 
 **What it looks like** — not as a crash, and that is deliberate. The agent's own tools catch it and
