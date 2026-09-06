@@ -4991,6 +4991,519 @@ rather than fixed, because the raise site is in resolution and the fact is in th
 
 ---
 
+## Phase 9 — Figures and tables as nodes
+
+**Added 2026-09-06, logged as scope decision `S11`.** `01` → Phase 9 owns the content and the exit;
+this section owns the tasks; `11` is the design and stays the design — its §5 ledger lines (`1.11`–
+`1.19`) were written against ids Phase 1 has since used, and are replaced by this block. The phase
+exists because the payload model has named `IMAGE` and `TABLE` since Phase 0
+(`packages/weft-kernel/src/weft_kernel/payload/media_type.py:17-18`) and nothing has ever produced
+either, and because ledger `1.6`'s ticked property — an atomic node passes the chunker unsplit — was
+measured on 2026-09-06 to hold for its fixture and not for the product.
+
+**No gate. D1 was settled 2026-09-06 as a narrowing, and 9.1 is the paste.** Nothing here carries a
+gate marker. Two lines carry `⚠` as a **question label** from `11` §4 (`G4-b`, `G4-c`): each is an
+amendment to `02` §1 the owner accepts or refuses under `09` §6.2's widening test, and neither is a
+gate reopened by a marker.
+
+**9.0 is not multimodal work, and it is here because this phase runs first.** Phase 7's close filed
+the ambient-service seam as a design question *"that must not be settled from one instance"*
+(`build-ledger.md` → *Phase 7's close*, finding (a)) and gave it no id; two plans then re-derived it and numbered it
+the same — `L9.15`. This line is the id. It has one failing instance and two consuming phases, and
+Phase 11 (graph) depends on it exactly as 9.4 and 9.9 below do. **Phase 10 (RAPTOR) sits between this
+phase and graph** and summarises what this phase produces; the lines whose output a summariser would
+see carry a note saying so, and nothing here builds it.
+
+**Ordering, stated once.** 9.2 first — buildable today against no decision. 9.0 next, because three
+consumers wait on it. 9.1 is a document commit. 9.3 → 9.4 → 9.5 → 9.6 → 9.7 → 9.8 is the ingest path
+with no model call. 9.9 and 9.12 can run beside it; 9.10 needs 9.8 and 9.12; 9.11 only after 9.10's
+verdict is recorded. 9.13 after 9.8, independent of the describer. 9.14–9.17 last, conditional as
+marked.
+
+- [ ] **9.0** a pack that publishes a run-wide service is reachable by `ctx.require` on every path —
+  command, query, ingest — with no edit to `weft-cli`, through three properties each tested alone:
+  **(i) role selection** — `[services].<role>` names one plugin for a role the contract-publishing
+  pack declares selectable, one constant beside the Protocol and never a fan-out capability; an
+  unknown role is refused naming the declared set; `embed` and `store` stay as the two roles whose
+  names predate the mechanism and `route` as the one that names a pipeline rather than a plugin;
+  **(ii) exact-key aliasing by demand** — the selected instance answers `ctx.require` under its
+  role's contract and under every capability the resolved pipeline's stages demand of it, never
+  under a fan-out capability, and a capability two selected instances both satisfy is refused at
+  assembly naming both; **(iii) `needs_store` validation over the selected set** — a stage's needed
+  capability is checked against the instance the role table resolves for it, and the refusal names
+  the role key to set — **not multimodal work: Phase 11 (graph) depends on it too** · owner `02` §1
+  → *What a plugin receives*; `03` → *Project context*; `build-ledger.md` → *Phase 7's close*, finding (a) (Phase 7's
+  close, *(a)*) · turns on — · sha — · **three consumers, which is why it is one task and not a
+  line in any of them.** The failing instance: Phase 7's close measured that `run_command`
+  registers `LLM`, `Prompts`, `TokenSink` and `Registry` and a pack needing the configured
+  `NodeStore` or `Embedder` cannot reach one, because which name the project chose lives in
+  `ServiceSelection` (`weft_cli/services.py:109`, three fixed fields) inside `weft-cli` —
+  requirement 1 failing for the next pack. The two consumers: `BlobStore` and `Describer` (9.4,
+  9.9) on the ingest path; `GraphTraversal` (Phase 11) on the query path. **Why each property is
+  its own test.** `ServiceRegistry` keys by exact type (`packages/weft-kernel/src/weft_kernel/
+  context.py:105`; `add` at `:119`, `resolve` at `:133`), so an instance registered under
+  `NodeStore` answers no `ctx.require` for anything else it satisfies — (ii) is what makes a
+  second capability reachable at all. `check_store_capabilities` (`weft_cli/run_services.py:127`)
+  validates every `needs_store` against the one configured store and its remedy names only
+  `[services] store`, so a retriever needing a role-selected capability is refused before aliasing
+  could help — (iii). The three assemblers (`run_services.py:345`, `:399`, the command path in
+  `weft_cli.cli`) are one list written thrice, and 8.10's two ingest exclusions survive as data on
+  the path — (i). The deletion fan-out never reads `ServiceRegistry` (`weft_cli/fanout.py:59`,
+  `deletion.py:67` walk the factory registry), so aliasing cannot collapse it; what a single-valued
+  `ctx.require(SourceDeletable)` *would* do is answer with one arbitrary participant, which is why
+  aliasing is by demand and never by satisfaction. **The role set is declared, not derived** —
+  singleton-ness is not a fact a Protocol carries, so a walk over `capability_siblings`
+  (`weft_cli/contract_reference.py:333`) cannot tell `NodeStore` from `SourceDeletable`; structural
+  satisfaction stays derived. **No `service_key` ClassVar** on any contract: a `ClassVar` in a
+  Protocol body breaks `issubclass` (`packages/weft-rag/src/weft_extract/contract.py:44-52`). Task
+  8.16's two manual checks derive their key set from `ServiceSelection.model_fields`
+  (`tests/docs/test_manual_config_keys.py`, `test_manual_valid_options.py`) and re-derive from the
+  declared role set in the same commit, or the transcripts they guard go stale the way `L8.3`
+  describes. FF4's clause (a) reaches the `[services]` key set through this task
+- [ ] **9.1** `02` §1 says of a transient namespace what the seam does — stripped from a produced
+  `Node` before the result leaves *any* stage — and the example that presumed stage-to-stage byte
+  carriage is withdrawn rather than annotated, with `11` §3 D1 marked settled as a narrowing · owner
+  `02` §1 → *The payload model*; `11` §3 D1; `09` §6.2 · turns on — · sha — · settled by the owner
+  2026-09-06; the text is one narrowing block under `docs/02-extension-model.md:409-414`, in the
+  form that section has used thirteen times (`:148`, `:177`, `:188`, `:215`, `:309`, `:491`, `:501`,
+  `:546`, `:563`, `:594`, `:613`, `:712`, `:822`). Nothing in the kernel changes: `seam.py:421`
+  already does what the block records, `payload/ext.py:9-10` already says it, `README.md:141` (G5's
+  row) states what transience is and never where. Closes in the commit that pastes the block, which
+  may be the commit that lands this section
+- [ ] **9.2** a node whose media type is not text reaches the store whole through every shipped
+  chunker, because a chunker declares what it splits and the runner routes the rest past it —
+  `1.6`'s property, held for the product and not only for its fixture · owner `02` §3 →
+  *Applicability*; `build-ledger.md` 1.6 · turns on *a stage that splits declares what it splits* (numbered when filed) · sha — · measured 2026-09-06:
+  `FixedSizeChunker` (`packages/weft-rag/src/weft_chunk/fixed_size.py:100`, registered as
+  `fixed-size` at `weft_chunk/__init__.py:39`) declares no `applies_to` and splits a
+  `MediaType.TABLE` node into two chunks; the mechanism exists (`runner.py:138-161`,
+  `payload/applicability.py:162`) and the only `applies_to` in `packages/weft-rag/src` outside a
+  contract module is `weft_clean/dictionary_spacing.py:110`. Depends on nothing; first in order.
+  `02` §3 → *Applicability* gains a narrowing block for the one contract this obliges — the
+  everything-by-default rule at `02:1621` stays for every other stage. **Phase 10 note:** the
+  declaration this line makes mandatory is the same fact a RAPTOR clustering stage reads to decide
+  whether an atomic `TABLE` or `IMAGE` node joins a cluster or is a leaf of its own
+- [ ] **9.3** a `SourceDeletable` participant reports what it removed by kind, so a blob store that
+  reaped forty blobs and a node store that removed no node are distinguishable in `weft delete`'s
+  output — `Removed.removed: Mapping[str, int]` defaulting empty, kinds an open vocabulary the
+  participant owns, `node_count` unchanged, `STORE_CONTRACT_VERSION` one minor · owner `02` §1 →
+  *The store contract family* (`SourceDeletable`); `09` §2–§3 (G9's two-audience rule) · turns on
+  — · sha — · `Removed` carries `node_count` and nothing else
+  (`packages/weft-rag/src/weft_store/contract.py:195-209`), so a participant that removes non-nodes
+  reports zero — the inverse of the promise its own docstring makes (`:587-625`). Additive for
+  implementers (a defaulted field on a model they return) and for callers → minor, `2.0.0` →
+  `2.1.0` (`:121`). **Phase 11 counts entities and facts through this same field**; it lands here
+  because this phase deletes blobs first, and Phase 11 cites this sha rather than bumping again
+- [ ] **9.4** a document's bytes outlive the stage that produced them: any stage or generator, on the
+  command, query or ingest path, reaches them by `ctx.require(BlobStore)` under the role the
+  publishing pack declares through 9.0; the contract and its filesystem implementation ship beside
+  `BlobRef` from the pack that publishes it; a blob root carries its own layout version, checked at
+  open and refused on mismatch with a named remedy; and `weft delete` of a source reaps every blob
+  under it through `SourceDeletable`, counted by kind — **depends on 9.0** and on 9.3 · owner `11`
+  §2.2; `02` §1 → *The store contract family*; `02` §2 → *Pack settings* (the root directory);
+  `README.md` `S11` · turns on — · sha — · three `async` methods and no pipeline position: keys are
+  derived, `{tenant_id}/{source_id}/{ordinal}.{ext}` (`11:193-222`; `tenant_id` on the passport,
+  `packages/weft-kernel/src/weft_kernel/context.py:60`), so cascade is one prefix and no ledger. The
+  seam wraps stages (`seam.py:366`) and `flush` (`:428`) and nothing else — a service passes through
+  no wrap, which is why nothing on this contract produces a `Node`. **Never a store-family member**:
+  `capability_siblings` (`weft_cli/contract_reference.py:333`) enumerates a contract pack's public
+  module, so a `BlobStore` published from `weft_store` would be advertised as a capability no node
+  store satisfies; it is a `SourceDeletable` participant joined by `issubclass` at the fan-out
+  (`weft_cli/fanout.py:59`, `deletion.py:67`) and nothing more. The module home — beside `Extractor`
+  in `weft_extract`, or a `weft_blob` module importing `BlobRef` from it — is fixed by the brief;
+  the line is true under either. FF9(c) obliges a stranger, `examples/weft-example-blob`
+  (`tests/architecture/test_ff9c_every_contract_has_a_stranger.py:76`), which is also the
+  contract's second implementation. The `bytea`-in-Postgres backend is not a task
+- [ ] **9.5** a reference to bytes, a cell grid and a page span each survive a round trip through
+  every store, carry their own schema version, and no ext model anywhere in the tree can hold bytes ·
+  owner `02` §1 → *The payload model*; `11` §2.4 · turns on *bytes never enter a node* (numbered when filed) · sha — · `BlobRef`, `TableGrid`,
+  `PageSpan` as `ExtModel`s reaching rehydration through `add_ext_model`
+  (`packages/weft-kernel/src/weft_kernel/discovery.py:515`), which is what lets FF14 and FF19 cover
+  them by construction. `TableGrid` is **not** transient — kilobytes of JSONB is what `ext` is for
+  (`11:245-318`); only bytes were ever a transience problem, and after 9.4 no ext model has a reason
+  to hold them, which is the property FF22 pins
+- [ ] **9.6** a table in a born-digital PDF arrives as one node whose media type says so, carrying
+  its grid, rendered to index text by the one serialiser the `Extractor`'s own pack publishes, so a
+  cell containing a pipe cannot break one extractor and not another · owner `11` §2.4, §1.4; `01` →
+  requirements 1 and 6 · turns on — · sha — · `pdfplumber`'s `extract_tables()` inside `weft-pdf`,
+  no new dependency; the node is atomic (`11:77`) and 9.2 is what carries it past the chunker;
+  `MediaType.TABLE` (`media_type.py:18`) gains its first producer. The two serialisations — index
+  form and prompt form — are one module in the pack that publishes `TableGrid`, per `11` §6 rank 11.
+  **Phase 10 note:** the index-form text is what a RAPTOR summariser reads for a table; the grid
+  stays on the leaf and a summary built by `Node.combine` carries no `TableGrid` of its own
+- [ ] **9.7** a figure in a born-digital PDF arrives as one node whose media type says so, whose
+  content is its caption or nothing, whose pixels are in the blob store under a key derived from an
+  ordinal that is stable across re-extraction of an unchanged file, and which is absent from the index
+  rather than present as a template string when it has no caption · owner `11` §2.4, §4 G5-b; `02` §1
+  → the `Outcome` rule · turns on — · sha — · depends on 9.4. `pypdfium2` is already in the lockfile
+  through `pdfplumber`, so a page crop costs no dependency; a captionless figure is
+  `NothingToProduce` for that node (`11:667`), never `f'Figure on page {n}'`. The stable ordinal is
+  what makes a re-extraction that finds one figure fewer unable to shift every later figure onto the
+  wrong blob — the positional-index defect `11` §1.4 travels with — and it is a stated obligation on
+  every image extractor, including 9.13's. **Phase 10 note:** a figure node's `content` is caption
+  (and after 9.11, description); that text is what a summariser sees, and a `BlobRef` is not
+  inherited by a `combine`d parent
+- [ ] **9.8** `weft index` over a directory holding a PDF with a table and a figure, through a
+  shipped ingest document, leaves the store holding both as nodes and the blob under the root;
+  `weft ask` reads the table back; `weft delete` of the source leaves node and blob counts at zero —
+  demonstrated from outside the repository against installed wheels, counts asserted immediately
+  before and after, and never only by a unit test · owner `01` → Phase 9 **Exit**; `08` §3 · turns
+  on — · sha — · the ingest half of the exit, no model call. FF16 obliges the document to name every
+  position it registers; `L8.30` (`docs/lessons-archive.md:405`) is why the counts bracket the run.
+  The transcript lands in `manual/` under `08` §3's rule, reproduced against the binary rather than
+  hand-edited
+- [ ] **9.9** an image is describable through one contract that names the medium and not the model;
+  its first implementation lives in the pack that already holds the provider's client, discloses in
+  its `note` that page crops leave the process, resizes off the event loop, and is natively
+  cancellable — **depends on 9.0** · owner `11` §2.1, §2.2, §3 D6, D7; `02` §2 → *The trust model*
+  (`Disclosure`) · turns on — · sha — · `Describer` published from `weft-rag`; `openai-vision` in
+  `weft-openai`, whose `httpx` import already owes a disclosure — the obligation stays derived from
+  imports (`tests/architecture/test_network_packs_disclose.py:17-18`), and what this adds is text:
+  `Disclosure.note` (`packages/weft-kernel/src/weft_kernel/discovery.py:180`) names the content class
+  that leaves. A local or hosted VLM is the same plugin with a different `base_url`. `TokenSink` is
+  the precedent for a service without a stage. One resize invariant — always PNG, bounded max
+  pixels — in the plugin, off the loop. FF9(c) obliges `examples/weft-example-describer`. D7 stays
+  *documented, not enforced*: an operator who wants to refuse egress centrally has no lever, and
+  that residual is written in the operations guide rather than hidden
+- [ ] **9.10** the cheap architecture is measured before the expensive one is built: caption-and-embed
+  recall over an image-question slice of the validation corpus is a persisted `weft eval` run whose
+  results carry query modality, whose questions were written by a person and never by the index
+  prompt, and whose verdict is recorded in `09` §4 in the product terms `11` §1.3 item 9 requires ·
+  owner `09` §4 (V1–V3, V6); `11` §1.3 item 9, §3 D2, D8 · turns on — · sha — · depends on 9.8 (a
+  corpus to index) and 9.12 (modality on the result). The third party's spike is the method and not
+  the artefact: its report under `tmp/`, its model-assigned ground truth and its verdict bands are
+  each what a persisted run with human-written questions makes unrepresentable. ViDoRe V2
+  `economics_reports_v2` is the credential-free slice; V3's licence is unpinned and does not enter
+  `09` until it is. **Either verdict discharges the line**; what the verdict decides is whether
+  9.15 exists
+- [ ] **9.11** a described figure keeps the caption its document supplied and gains a description
+  beside it; the stage that does this is named by a shipped ingest document and is a `remove:` in a
+  derived one, so the capability is absent by omission and never by a flag · owner `11` §2.4; `02`
+  §3; `01` → FF16 · turns on — · sha — · `describe-figure`: `requires` `BlobRef`, reads through
+  `ctx.require(BlobStore)` and `ctx.require(Describer)` — depends on 9.4 and 9.9, and through them
+  on 9.0. The caption is never overwritten by assignment; a run whose document names the stage with
+  no `Describer` configured fails with `UnresolvedServiceError` naming what exists, never a
+  `fallback` counter in a span. Scheduled only after 9.10's verdict is recorded. **Phase 10 note:**
+  a description is a VLM call per figure and is persisted in `Node.content`, so a summariser reads
+  it once and never re-describes; the ingest document that names this stage is the one a RAPTOR
+  document would `extends:`
+- [ ] **9.12** every metric result carries the modality of the query that produced it and the
+  reporter slices by it, and retrieval and generation are two baselines with two intervals, so a
+  multimodal regression cannot hide inside a text mean and a judged metric's dispersion cannot make
+  V3 unfalsifiable for retrieval · owner `09` §4.3; `11` §3 D8 · turns on — · sha — · a field on the
+  persisted run's result model (`packages/weft-rag/src/weft_eval/run_record.py:162`; FF19 round-trips
+  it) and one grouping in `weft eval`'s report; `09:540` already wants a near-zero retrieval
+  interval, so the split is a reporting clause and not a new instrument
+- [ ] **9.13** a scanned or multi-column PDF is readable through a learned layout rung shipped as its
+  own distribution for its dependency weight, selectable by name in a pipeline document, exposing
+  four typed decisions and no vendor dict, reporting itself partial when its weights are not on disk
+  without touching the network, and honouring cancellation at document granularity with that
+  weakening written down · owner `11` §3 D3, D6; `11` §4 → *Requirement 6*; `01` → *Runtime shape*;
+  `10` §4 (the name) · turns on — · sha — · `weft-docling` over `docling-slim[format-pdf,models-local]`
+  — named extras only, since `format-html-render` pulls a browser and `format-audio` pulls a speech
+  model; the torch reason `weft_pdf/__init__.py:3-7` gives for its own wheel, applied again. The
+  plugin name is **`pdf-layout-model`** — `pdf-layout` is the shipped pdfplumber rung
+  (`packages/weft-pdf/src/weft_pdf/pdf_layout.py:48`) — and its `10` §4 entry lands before the
+  code, per `paper-to-plugin`. FF5 clause (c) gains its first real subject and
+  `PLUGINS_REPORTING_UNAVAILABILITY_TOO_LATE`
+  (`tests/architecture/test_ff5_declared_capability_resolves.py:107`) stays empty. A vendor option
+  surfacing in the typed config is a pack bump and never an `Extractor` contract bump (G9).
+  `pdf_layout.py:25-29` is the offload shape and the sentence about cancellation; FF7(b) cannot see
+  CPU-bound work, so the pack's conformance case times the loop. Whether the models run under
+  `models-onnxruntime` without torch is unconfirmed and is measured before it is promised
+- [ ] **9.14 ⚠ `11` §4 question G4-c** a table's rows are children of the table node with the header
+  carried into each, so a row is retrievable on its own and its parent is one filter away — and
+  `lineage.parents` is a filterable path in every store or the fallback is an id fetch, never
+  silence · owner `11` §6 rank 3, §4 G4-c; `02` §1 → *The store contract family* · turns on — ·
+  sha — · the marker is a question label, not a gate: an amendment to `02` §1 the owner accepts or
+  refuses under `09` §6.2's widening test. Rows are `derive()`d children, reaped by `delete_source`
+  through lineage; no new store tier and nothing SQL-shaped — that is a deferred row in `01`. After
+  9.6. **Phase 10 note:** rows are leaves under a table the way chunks are leaves under a document;
+  a summariser that clusters by lineage sees the table node as their common parent already
+- [ ] **9.15** *(conditional on 9.10's verdict)* a figure's pixels are embeddable by a plugin
+  satisfying the same `Embedder` contract a text embedder satisfies, producing a second node fused at
+  query time by the fuser the ladder already ships, so which embedder runs is a pipeline edit · owner
+  `11` §3 D2, D5; `01` → requirement 6 · turns on — · sha — · `Embedder` is
+  `Stage[Sequence[Node], Sequence[Node]]` (`packages/weft-rag/src/weft_embed/contract.py:49`) — a
+  pixel embedder is a plugin, never a contract and never a one-bit flag on the text one; it reads
+  through `ctx.require(BlobStore)`. Built only if 9.10 says pixels win; otherwise this box stays
+  unticked with 9.10's sha named here as the reason
+- [ ] **9.16 ⚠ `11` §4 question G4-b** *(conditional on 9.15)* a pipeline whose embedders disagree
+  about dimensionality fails at load naming the dimensions and the store, in the store pack's own
+  validation and never in the kernel's resolver · owner `02` §1 → *The store contract family*; `11`
+  §4 G4-b · turns on — · sha — · a question label, not a gate. `weft_kernel.runner.resolve` must not
+  learn the words *embedding dimension*; the check is a declared pack setting checked at load, since
+  every oversized model supports Matryoshka truncation and the surprise must not be an `INSERT`
+- [ ] **9.17** re-indexing an unchanged file with a different parser — or the same parser and a
+  different model — is visible as a different pipeline identity rather than silently keeping
+  whichever parse arrived first · owner `02` §1 → `SourceRecord`; `11` §4 G5-c · turns on — · sha
+  — · after 9.13, which is the first time two parsers can produce the same node ids from one file
+
+**Document edits owed by this section, not tasks** (`11` §5's own rule): `10` §4 gains the reserved
+names (`colpali`, `colqwen`, `late-interaction`, `maxsim`, `visual-citation`, `grounded-answer`,
+`describe-query-image`) and `pdf-layout-model` — today it holds no multimodal name
+(`docs/10-technique-catalogue.md:447-468`); `11` §3 D1 is marked settled (Block F) and `11` §4's
+gate statuses and citations are refreshed (`:323-355` cites `02:323-324` and `seam.py:133`,
+`:202-234`, none of which is the strip today); `11` §5 becomes a pointer to this section; `01` →
+*Runtime shape* gains the one-paragraph carve-out that a VLM parser reached over HTTP is an
+operator-run model server and not a second container of Weft's; `02` §3 → *Applicability* gains
+9.2's narrowing block; `02` §1 → *What a plugin receives* gains 9.0's block; `README.md` gains the
+Phase 9 rows (Block E), the `S11` row (Block D) and a Next action row that records the six-step
+order of 2026-09-06; `CLAUDE.md` → *Where things are* is redrawn for the seven-distribution tree,
+which it has not been since the consolidation.
+
+## Phase 10 — RAPTOR, extended
+
+**Added 2026-09-06 by the owner's roadmap decision. ⛔ Not specifiable yet: the source papers have
+not arrived.** `01` → Phase 10 owns the content and the exit; this section will own the tasks.
+
+**This phase has no task lines on purpose.** RAPTOR already ships — `RaptorSummarizer` is a
+registered `Expander` (`packages/weft-rag/src/weft_index/__init__.py:63`) built at task 2.32 — so
+the work is an extension whose shape is decided by what the papers say. Writing speculative task
+lines now would be writing the repair before the property, which `L7.1` forbids, and would put a
+name in `10-technique-catalogue.md` before `paper-to-plugin` had settled it.
+
+**What must happen first:** the owner supplies the papers; `paper-to-plugin` runs; the name is
+settled; only then do task lines appear here.
+
+**One dependency is already known.** Phase 9 makes figures and tables into nodes, and five Phase 9
+task lines carry a *Phase 10 note* recording what a RAPTOR summariser would see once they land —
+9.2, 9.6, 9.7, 9.11 and 9.14. Those notes are the input to this phase's specification, not a
+commitment about it.
+
+## Phase 11 — The graph pack
+
+**Added 2026-09-06, logged as scope decision `S12`.** `01` → Phase 11 owns the content and the
+exit; this section owns the tasks. Phase 8 excluded this pack by name (`build-ledger.md` → *Phase 8*, which excluded this pack by name)
+because it was blocked on three decisions; two are taken and one is still open, and the tasks
+below carry ⚠ exactly where that one reaches.
+
+**A prerequisite this phase inherits and does not build.** Task **9.0**, Phase 9's, is the
+ambient-service seam Phase 7's close filed as *"a design question rather than a repair"* that
+*"should not be settled from one instance"* (`build-ledger.md` → *Phase 7's close*, finding (a)) — role selection,
+exact-key aliasing by demand, `needs_store` validation over the selected set. The graph retriever
+is its second consumer: it declares `needs_store` against a Protocol `weft-store` does not publish
+and reaches the store through `ctx.require`, which on this tree is refused before any aliasing
+could help (`weft_cli/run_services.py:127-202`, remedy at `:186-199` naming `[services] store`)
+and keyed by exact type (`weft_kernel/context.py:133-142`). Task 11.10 cites `9.0` on its line and
+is ⛔ until it ticks; nothing else here waits on it. Two plans once numbered this seam the same
+`9.2` from opposite sides (`L9.15`); the id is now Phase 9's and this section uses no other.
+
+**⚠ means what *How to read a task line* says.** Two scope decisions are open. **D2** — where a
+corpus-wide, revisable pass runs, and whether its output may be durable — shapes 11.7, 11.8 and
+11.9; **D3** — where a pack persists per-corpus, operator-curated configuration — shapes 11.11.
+Each is a scope row under `09` §6.4 when the owner takes it; the four tasks are real and their
+content is a hypothesis until then. Nothing else below is ⚠: D1 is `S12`, D4 is a proof rather
+than a decision and 11.1 is that proof.
+
+**Recorded rather than decided — a slot finding.** No shipped document declares a `slots:` block
+(`grep -rn 'slots' packages/weft-rag/src/*/pipelines/*.yaml` → two comments, no declaration), so
+`S8`'s producing side lands nowhere a user can run and the example pack's `add_contribution("enrich",
+…)` (`examples/weft-example-graph/src/weft_example_graph/__init__.py:107-109`) reaches no shipped
+ladder. Whether `index-text` should declare one is a `02` §3 question for the owner — declaring it
+would let an *installed* pack change what `weft index` costs without a document edit, G3's
+installed-and-ambient threat applied to money. Until it is answered, `weft-graph` contributes into
+no slot and every stage it ships is an explicit rung. `Contribution` is `slot`, `distribution`,
+`stage` (`weft_kernel/resolution.py:251-285`) and can express no "no-model-only" filter, so a task
+that assumed one was withdrawn from the plan before it reached this list.
+
+- [ ] **11.0** a file carrying the owner's prior work is detectable by a check that reads the
+  marker `NOTICE` case 2 names, and the gate fails when `NOTICE`, the repository `README.md` and
+  the carrying files disagree about which lines are that work · owner `NOTICE`;
+  `tests/architecture/test_release_licensing.py` · turns on — · sha — · *before 11.7, because the
+  obligation is "in the same commit as the first copied line — not after" (`product-direction.md:84`)
+  and a check that exists only after the first copy is the prose-check shape `L6.12` forbids.
+  `NOTICE:41` already states the case — "permitted, and marked" — and what this task owes is the
+  marker convention and the check, not a fourth case. The existing file checks declarations and
+  byte-identical copies (`test_release_licensing.py:1-45`) and reads no source file. **If Phase 9
+  copied from `graph-study` first** (its plan names the same donor for figures and tables), the
+  check may already exist and this line is its extension to the graph's files — verify before
+  writing a second one*
+- [ ] **11.1** a `Node` carrying a fact is offered as a passage, labelled, cited, and
+  `Answer._citations_resolve` and FF17 both hold unchanged — **and a fact node carries in its own
+  `ext` the page-bearing model its parent carried**, so its citation resolves to a page and not only
+  to a parent id · owner `02` §1 → *The payload model*; `weft_generate/payload.py:102` · turns on —
+  · sha — · *the proof D1 rests on, written before any payload is fixed, because it is cheap to
+  prove and expensive to be wrong about. Provenance is one `NodeStore.get` away through
+  `lineage.parents`; the page is **not**: `Node.derive` and `Node.combine` both drop `ext`
+  (`weft_kernel/payload/node.py:108-112, 122-151`) and `page_for` walks only the same node's `ext`
+  (`weft_generate/page.py:42-60`), so a fact's page is the extractor's obligation, and a fact from
+  two chunks is built by `combine`, never `derive`. Read `02` §1 as Phase 9's `9.0`-adjacent
+  narrowing amended it: the page-bearing model is not transient and the narrowing does not reach
+  it, but the sentence that says where transients strip is the one this task's ext copying must
+  not contradict. A fact's content is readable prose, because that is what the generator sees and
+  a reader follows; its citation is one hop shallower than its evidence, and the manual says so
+  (11.14)*
+- [ ] **11.2** a retriever fans out over *retrievers* resolved by name, returns every list labelled
+  by the arm that produced it, and refuses a name that is not a `Retriever` before any stage runs ·
+  owner `02` §3; `10` §1.5 · turns on — · sha — · *`weft-retrieve`, no gate, and independent of the
+  graph: "several bases at once" (`product-direction.md:16-17`) has no plugin — `multi-arm` fans out
+  over **filters** on one store (`weft_retrieve/multi_arm.py:64-79`, `Arm.filter`) and `corrective`
+  resolves exactly one sibling through `StageLookup` (`weft_retrieve/corrective.py:53`). 11.10's
+  `graph-and-vector-rrf` is the first document to need it — unless Phase 9's visual-retrieval rung
+  needed it first, in which case this line is already ticked under a `9.x` id and is struck here*
+- [ ] **11.3** `weft delete` of one source reports the graph pack's removals **by kind** —
+  facts, mentions, entities — beside `node_count`, so a store that reaped forty of its own rows
+  never answers with `node_count=0` as its whole account · owner `02` §1 → *The store contract
+  family*; `09` §2 · turns on — · sha — · *on this tree `Removed` is `source_id`, `node_count`,
+  `cursor` (`weft_store/contract.py:195-210`) and the fan-out already asks every `SourceDeletable`
+  participant (`weft_cli/fanout.py:60-79`) — what it cannot do is answer honestly. **The field is
+  expected to have landed in Phase 9**, whose plan schedules a per-kind count before its own
+  deletion demonstration (a blob store reaping blobs has the same lie in the other direction); if
+  it did, this line is the graph's *use* of it and moves no version. If it did not, the change
+  lands here: a defaulted, typed field of frozen `(kind, count)` pairs, the kind an open
+  vocabulary on `Channel`'s precedent (FF4), never a `Mapping` (`CLAUDE.md`: models, never
+  dicts) — additive for both of G9's audiences, `STORE_CONTRACT_VERSION` `"2.0.0"`
+  (`contract.py:121`) one minor, `weft-rag` with it, and this line's "turns on" becomes FF6.
+  Which of the two it is, is a fact the implementer measures, not one this line asserts*
+- [ ] **11.4** `weft-graph` publishes the traversal Protocol — versioned, `@runtime_checkable`,
+  not a `Stage`, satisfied structurally by its own store and by an out-of-tree stranger — and the
+  condition under which it moves into the store family is a dated row in `01`'s deferred table
+  with its reopen trigger, not an assumption · owner `02` §1 → *Who publishes a contract*; `01` →
+  *The least-architecture check* · turns on FF6 (the pack's own contract constant), FF9c (a fifth
+  probe) · sha — · *`S12`. The trigger: promote into `weft_store.contract` when a **second real
+  backend** — `weft-neo4j` behind a compose profile, on `qdrant`'s `conformance` precedent
+  (`compose.yaml:44-58`) — implements it; the in-memory store counts for nothing under G4
+  (`01:349-352`: "exists, and is not a backend") and Qdrant has no traversal primitive. Promotion
+  is a G9 major for the pack's implementers (a Protocol moves home) and a minor for `weft-store`,
+  said on the row. `STORE_CONTRACT_VERSION` does **not** move here. The Protocol declares itself
+  **selectable** in the form `9.0` fixed — one constant beside the Protocol, never on its body,
+  where a `ClassVar` breaks `issubclass` (`weft_extract/contract.py:44-56`). Members: four, at
+  batch granularity — entities by name, entities in nodes, nearest entities to a vector,
+  neighbourhood of entity ids bounded by hops — and never the donor's 33
+  (the owner's `graph-study` ports layer, read and closed). A stated cost, recorded: until
+  promotion a third-party backend depends on `weft-graph` for the Protocol. `02:666-670`'s "a
+  graph store is not a node store" is amended to what the code implements — a sentence about
+  obligation, not a prohibition on being one*
+- [ ] **11.5** `weft-graph` installs beside `weft-rag` by name into an environment that has never
+  seen this repository, registers under `NodeStore` and its own traversal Protocol, is reached by
+  `weft delete` and `weft reconcile` because a document names it, and closes its own connection when
+  a fan-out constructed it · owner `09` §1; `02` §4 · turns on FF1, FF10(a), FF24 · sha — ·
+  *carries the example pack's Postgres store forward — Weft's own code, a move, not a copy — with
+  `[packs.graph] dsn` optional and defaulting to the same `WEFT_DATABASE_URL` offer `store` takes,
+  so one container is still one. **Beside, and not for the dependency reason**: G10's
+  re-settlement criterion (`09:104-106`) would place a `psycopg`-only pack *inside* `weft-rag`;
+  it ships beside because `09:176` and `02:1893` already say so and because a pack that is the
+  permanent instrument of requirement 2 cannot live inside the thing it measures — the divergence
+  is on `S12` so G10 is not reopened by implication. Files that change: `release.yml:137` matrix,
+  `test_release_set.py:64-75` `_INSTALLS_BESIDE`, root `pyproject.toml:49`,
+  `scripts/check_isolated_installs.py`. On this tree `deletion.py`, `fanout.py` and
+  `reconcile.py` contain no `aclose` (`grep` → 0; only `ingest.py:412-414` and `ask.py:121-144`
+  close anything) and the plan repaired that here as the first first-party participant to open
+  its own connection — **Phase 9's blob store now opens one first**, so this clause is either
+  verification of a repair already landed or the repair itself, and the line says which when it
+  ticks. An eighth PyPI name; first publish is rate-limited (`L7.3`)*
+- [ ] **11.6** a corpus indexed with no model and no credential carries co-occurrence entities,
+  and `index-with-cooccurrence` is a rung `weft index --pipeline` runs from outside the repository
+  · owner `01` → Phase 11; `10` · turns on FF16 (scope now includes `weft-graph`) · sha — · *on
+  this tree the one advanced rung a laptop can climb under `hash` — `index-with-raptor` produces
+  nothing without a model (its own comment) — **re-measure after Phase 10**, which extends RAPTOR
+  and may change that. `extends: index-text`, two operator blocks: a no-model `Enhancer` after
+  `chunk` and the `graph` store stage after `store`; restates its own `route.summary`/`route.cost`
+  (8.1's rule, task 8.1). Entity-name vectors, where a rung wants them, are
+  written by the pipeline's embedder and only held by the store (G4)*
+- [ ] **11.7 ⚠ D2** extraction is paid once: a chunk's facts and mentions are `Node`s derived
+  from it, persisted through the ordinary store stage, never recomputed by any later pass; the
+  stage holds a concurrency cap; and every dropped candidate is counted **per reason**, never
+  summed · owner `02` §1; `NOTICE` case 2 · turns on FF14, FF19 · sha — · *`index-with-facts`,
+  `extends: index-text`, one `Expander` before `embed` (8.2/8.10's rule: a model-calling stage
+  after `embed` is stored unsearchable) plus the `graph` store stage; the cap takes the field name
+  8.7 gave `raptor` and `hypothetical-questions` — or whatever Phase 10 renamed it to. The
+  five-rule non-atomic filter and the LABEL-token guard are carried from the owner's
+  the owner's `graph-study` domain-extraction module under case 2, marked in the file, and read by
+  11.0's check; the prompt is authored fresh. A fact's `sources` may name a node of any media
+  type — Phase 9's figure and table nodes included — because `Lineage` is media-type-agnostic and
+  nothing here narrows it. The extractor's `Disclosure.note` says that chunk content leaves
+  through whichever provider the `LLM` role names — documented, never derived, because egress is
+  a property of the selected provider (`weft_llm/scripted.py:1-8` makes no call) and the import
+  rule already catches the provider (`test_network_packs_disclose.py:40-42`). ⚠ because D2
+  decides whether this per-chunk irreversible tier is the only one a stage may run and whether
+  its output is durable; the plan's position is that `02:1918-1921`'s `flush()` is the seam only
+  for a cheap idempotent pass, since `flush()` runs on cancellation (`02:877-890`)*
+- [ ] **11.8 ⚠ D2** two mentions of one thing become one entity by a deterministic, idempotent
+  pass a second run cannot change, and the canonical id is a function of the set, not of arrival
+  order · owner `02` §1 → `Reconcilable`; `NOTICE` case 2 · turns on — · sha — · *blended
+  similarity with both failure modes in the docstring, both acronym signals with their opposite
+  precision arguments, union-find, lexicographic representative — carried under case 2 where the
+  function is pure; `pg_trgm` does the lexical term in the database (measured in the floor image:
+  `docker run --rm pgvector/pgvector:pg16 ls /usr/share/postgresql/16/extension/` lists
+  `pg_trgm`, `fuzzystrmatch`, `ltree`, and no `age`). Entities and aliases are the pack's own
+  tables, `ON DELETE CASCADE` from mention node ids as the example already does
+  (`examples/weft-example-graph/src/weft_example_graph/store.py:82-93`), carrying their own
+  version row (`S5`, per surface) and refusing one they do not know — the same
+  upgrade-or-refuse case Phase 9's blob-key layout owes, run by both packs. ⚠ because D2 decides
+  whether this runs in the store stage's `flush()` for its batch and in `Reconcilable.repair` over
+  everything, or somewhere else*
+- [ ] **11.9 ⚠ D2** the expensive pass runs only under `full`, states `model_calls` before
+  spending, abstains inside a stated band, and a bridge-merge re-points aliases so the evidence
+  for the judgement survives the judgement · owner `02` §1, §4; `03` → *Permissions* · turns on —
+  · sha — · *`Reconcilable.full` is already the consented, cost-stated, cursored, resumable pass
+  (`02:686-694`; `ReconcileEstimate.model_calls`), and G12 makes a non-TTY caller able only to
+  propose it (`README.md:147`) — the spend axis answered by reuse, not a sixth permission class.
+  The adjudicator is three-valued with first-non-`None`-wins; "abstain" is never a kernel
+  `Outcome` member, and the trap is `weft_kernel.fallback.try_in_order`, whose `NothingToProduce`
+  stops a chain rather than deferring. No third `ReconcileMode` member (`05:544-547`: breaking for
+  implementers). ⚠ because D2 owns the tier boundary this line assumes*
+- [ ] **11.10** a question naming an entity is answered from nodes reached by a bounded walk,
+  through a retriever that declares what it needs of the store and is refused **by name at
+  assembly** against a store that lacks it; and the same question is answered by vector and graph
+  **fused**, the fuser asking neither list where it came from · owner `02` §1; `10` §1.5 · turns
+  on FF16 · sha — · ***depends on `9.0`** — the retriever reaches the traversal store through
+  `ctx.require` and a `[services]` role, as `02:818` requires of every retriever; on this tree it
+  is refused before any aliasing could help (`run_services.py:186-199`) and ⛔ until `9.0` ticks —
+  and on 11.2. Documents: `graph-then-generate` (`replace retrieve`), `graph-2hop-then-generate`
+  (`set retrieve: {hops: 2}` — the parameterisation rung, requirement 6), `graph-and-vector-rrf`
+  (11.2's fan-out plus `reciprocal-rank-fusion`), `graph-then-rerank` (`llm-rerank` on facts,
+  which works with no new code because facts are nodes — 11.1). Four plugins in pipeline
+  positions, each named by a document, FF16's waiver still empty*
+- [ ] **11.11 ⚠ D3** an operator curates a schema the corpus proposed, activates it from a file,
+  and every fact extracted under it carries which schema it was extracted under — so a corpus
+  holding two schemas is a fact `weft graph show` prints, never a silence · owner `02` §2 → *Pack
+  settings* (amended); `03` → *Project context* · turns on — · sha — · *`propose` prints and never
+  persists; `activate` validates a frozen model with `__schema_version__` (never an open
+  `tuple[str]`) and records its name through the same text-edit surface `weft config set` uses
+  (`03:963-975`); the lifecycle state is set by the event, never inferred from fact presence. The
+  constrain-and-verify third layer counts `off_schema_dropped`, with the honest note that the
+  prior art's only evidence for that layer being live came from a stubbed provider in its own test
+  suite rather than from a real one, so the counter is unproven against a vendor. ⚠ because D3 decides where the
+  document lives: the plan's position is a project-local file named from `[packs.graph]` — the
+  diffable artefact a human approves — resting on `weft.toml` being per project (`03:911`) while
+  `02:1032-1034` still says per installation, a wording amendment D3's row carries*
+- [ ] **11.12** `weft eval` reports every metric per question `kind`, and a comparison can be
+  asked for one `kind` alone, so a rung's claim about one class of question is a number over that
+  class · owner `09` §4; `weft_eval/aggregate.py:107` · turns on — · sha — · *`weft-eval`, no
+  gate. `eval/questions/*.toml` already carries `kind` per question; `MetricAggregate` is `mean`,
+  `n`, `stdev` and `RunRecord.metrics` is one aggregate per metric, so nothing reports per kind —
+  the one thing the owner's `graph-study` evaluation layer contributes, and the shape is not
+  carried: an empty subset there is `0.0`, here it stays `NothingToProduce`. Phase 9's evaluation
+  prerequisite (its D8) may want the same partition for `image-only` questions first; if it built
+  it, this line is struck and 11.13 cites the `9.x` that did*
+- [ ] **11.13** a corpus's own facts yield the questions on which vector retrieval must fail: a
+  `weft graph bridges` command lists two-hop paths whose endpoints share no chunk, each hop with
+  its own citation, and prints the vector ceiling on the same question first · owner `09` §4.3 ·
+  turns on — · sha — · *the graph-specific half of the falsification instrument; the general half
+  shipped as 8.8 (task 8.8, sha `ca56ccf`) and this is behind the pack, not ahead of
+  it. Generated questions are **diagnostic**, never V2 ground truth: the command writes them with
+  `kind = "requires-graph-hop"` and an empty `reference_answer` that `eval/check_questions.py`
+  refuses until a person fills it*
+- [ ] **11.14** every name this pack registers has its row in `10` — origin, whether the name is
+  earned, what the shipped implementation is faithful to — and the manuals name each rung where a
+  reader looks, including that a citation on a fact is a citation on a claim *derived from* a
+  chunk · owner `10`; `08` · turns on `tests/docs/test_technique_naming.py` · sha — · *Microsoft's
+  *GraphRAG* is community-summary retrieval and no name here claims it; `10` §2.1 decides each.
+  `examples/weft-example-graph/pipelines/kg.yaml:4-7` still says the repository ships no ingest
+  base to derive from, stale since 8.2, and is corrected in the same commit*
+
+**Exit** — `01` → Phase 11 owns it; restated here so the demonstration is on the same page as the
+tasks: from a directory that is not this repository, against installed `weft-rag` and `weft-graph`
+and the one container, a corpus is indexed through `index-with-facts`; the same question is
+answered through `retrieve-then-generate`, `graph-then-generate` and `graph-and-vector-rrf`;
+`weft delete` of one source leaves no fact, mention or entity only it supported and reports the
+counts by kind; fitness functions 16 and 24 are green with empty waivers and `9.0`'s stays green
+with the graph retriever's demand in the tree; the deferral row is dated in `01`; and `weft eval
+compare` restricted to `kind = requires-graph-hop` reports whether the difference lies outside the
+baseline's interval — either answer discharges it.
+
 ## Why the sha column is not optional
 
 A ticked box with no sha is a claim; a ticked box with a sha is a fact someone else can check. The

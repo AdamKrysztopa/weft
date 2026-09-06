@@ -320,37 +320,34 @@ Nothing survives its document.
 
 Each is a question, **one** recommendation, and what it costs. None is a menu.
 
-### D1 — Where does `__transient__` strip? *(Blocking. Nothing below is buildable first.)*
+### D1 — Where does `__transient__` strip? *(Settled 2026-09-06 as a narrowing of `02` §1 → *The payload model* — the block under `docs/02-extension-model.md:409`; Phase 9 task 9.1. The citations below are as written on 2026-08-18: the strip is now the call at `seam.py:421` and the walk at `:492-524`, and the prose it corrects is at `02:409-414`.)*
 
-**Question.** `02` §1 → *The payload model* says a transient namespace is stripped *"before any
-`Store` sees the node"* (`docs/02-extension-model.md:323-324`). `weft_kernel.seam` strips it before the
-result leaves *any* stage's `wrap` (`packages/weft-kernel/src/weft_kernel/seam.py:36-39`, `:133`,
-`:202-234`). Which is the specification?
+---
 
-For Phase 0 the two are indistinguishable. For multimodal they are not: **a `__transient__` ext model
-cannot carry image bytes from an extractor stage to a describer stage, because the bytes die at the
-extractor's own seam.** The obvious plan — "the bytes ride in a transient namespace, exactly as G5
-intended" — does not work as written.
+## What did not survive being written as a task
 
-**Recommendation: neither statement changes. Bytes leave the payload entirely.** An extractor writes
-pixels to a `BlobStore` and puts a **non-transient** `BlobRef` in `ext`. The seam keeps its current,
-stricter behaviour; `02` §1's prose is amended to say what the seam does; and `__transient__` remains
-what G5 built it for — a guard against a blob reaching JSONB — rather than becoming a transport
-mechanism it was never designed to be.
-
-**Why not the alternatives.** *One merged extract-and-describe stage* is cheapest and costs `01`
-requirement 6: the describer stops being swappable or omittable, which is the same failure as
-selecting behaviour by comparing a plugin's name to a literal string, only with better manners.
-*Narrowing the strip to the store boundary* is a kernel change that weakens a guarantee to buy
-in-memory blob carriage — precisely the four-pass cost §1.4 measures. And neither makes pixels
-available at query time.
-
-**Cost.** A new contract and a new pack before any figure work — `weft-blob`, three methods, one
-local-filesystem plugin, estimated ~150 lines. Plus one unwritten line in `02` §1 (§4, G1-a). This is
-most likely a **narrowing** of the kind `02` §1 has already recorded twice for Phase 0 steps 7 and 8,
-not a reopen — but that is the owner's judgement, and if the answer is that G5 decided something it
-cannot support, its decision-log row goes to **Reopened** with a date and reason, per `README.md` →
-*Protocol*. **Nothing else in this document should be built first.**
+- **`service_key: ClassVar` on the contract** — withdrawn in the plan's §11 after the Codex review
+  (`weft_extract/contract.py:44-52` is why); 9.0's role set is declared by the publishing pack.
+- **"Derived, not declared" for the role set** — the plan's §11 said the two plans agreed on it; the
+  graph plan's own review then showed singleton-ness is not derivable from a Protocol, and 9.0
+  carries the declared form. Structural satisfaction stays derived.
+- **`registrar.add_service`** — the plan's §8 first draft; superseded twice, absent here.
+- **`weft-blob` as a distribution** — one fewer wheel; the contract ships beside `BlobRef`, and the
+  module home is the brief's. The graph plan's `weft-blob` module name is the same property under a
+  different path.
+- **A `bytea` second `BlobStore` backend** — the plan's §3 wanted it "within the phase"; it is not a
+  task. FF9(c)'s stranger is the second implementation the contract needs.
+- **The D7 extension deriving disclosure from the contract registered under** — retracted in §10 C7;
+  what remains is a `note` naming the content class (9.9).
+- **`RemovedCount` tuple** — the graph plan's `Mapping[str, int]` won (§11 item 3); 9.3 carries it.
+- **`⚠ D1` on every line and the `⛔` gate line** — gone with the decision; 9.1 is a paste.
+- **`turns on FF5 clause (c)`** for the Docling task — FF5 is already wired; 9.13 turns on nothing
+  and keeps the ratchet empty.
+- **`FF-M1`/`FF-M2`, `M.x`, `7.6`, and the first draft's `10.x`/FF24/FF25/`S12`** — replaced by
+  FF22/FF23, `9.x` and `S11` under the owner's reordering; `7.6` became `9.0`.
+- **A separate task for the seventh persistence surface** — folded into 9.4's line; the decision is
+  the `S11` row.
+- **`describe-query-image`** — below `11` §6's cut line; the name is reserved in `10` §4, nothing built.
 
 ### D2 — Text-after-description, or true multimodal embedding?
 
