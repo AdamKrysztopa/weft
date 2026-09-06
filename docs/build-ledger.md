@@ -5555,15 +5555,43 @@ marked.
   and two remedies; present → `active`; a run without them → exit 1, nothing downloaded; a run with
   them and `device: cpu` → **exit 0, one node from a two-column PDF** · `poe ci-checks` green:
   **2372 passed, 9 skipped**, both containers up
-- [ ] **9.14 ⚠ `11` §4 question G4-c** a table's rows are children of the table node with the header
+- [x] **9.14 ⚠ `11` §4 question G4-c** a table's rows are children of the table node with the header
   carried into each, so a row is retrievable on its own and its parent is one filter away — and
   `lineage.parents` is a filterable path in every store or the fallback is an id fetch, never
   silence · owner `11` §6 rank 3, §4 G4-c; `02` §1 → *The store contract family* · turns on — ·
-  sha — · the marker is a question label, not a gate: an amendment to `02` §1 the owner accepts or
-  refuses under `09` §6.2's widening test. Rows are `derive()`d children, reaped by `delete_source`
+  sha `7a3a618` · the marker is a question label, not a gate: an amendment to `02` §1 the owner accepts or
+  refuses under `09` §6.2's widening test. **Accepted as a widening, and it cost nothing, because
+  the code already implemented it.** G4-c recommended making `lineage.parents` a validated,
+  filterable field path *"and the filter AST gains one operator over it"*; measured 2026-09-06,
+  `weft_store.fields.NodeField.PARENTS` has been a `TEXT_SET` field admitting `contains` since the
+  filter grammar was built, and both backends translate it from that one parse. So there was no
+  amendment to make — only evidence to produce, and none existed: nothing in the tree had ever
+  filtered on `lineage.parents` *through a store*. Two conformance cases now do, positive and
+  negative, on both backends, which is what keeps G4-c's own N+1 fallback clause unreachable
+  rather than merely unwritten · a marked note under `02` §1's settled content, per `09` §6.2's
+  widening-versus-reversal rule, not a Reopened row. Rows are `derive()`d children, reaped by `delete_source`
   through lineage; no new store tier and nothing SQL-shaped — that is a deferred row in `01`. After
   9.6. **Phase 10 note:** rows are leaves under a table the way chunks are leaves under a document;
-  a summariser that clusters by lineage sees the table node as their common parent already
+  a summariser that clusters by lineage sees the table node as their common parent already ·
+  **`table-rows` is a `Chunker` declaring `Applies(media_type=TABLE)`, which is the atomic rule's
+  own mechanism rather than an exception to it** — `fixed-size` declares `TEXT` and routes a table
+  past untouched, so splitting one from a stage that understands a grid takes nothing away from
+  *"an atomic node passes the chunker unsplit"* · **many, plus one**: the table survives beside its
+  rows, because a row that is retrievable while its parent is unreachable is half the property ·
+  a row's content is `weft_extract.table_text.row_text`'s own line for it, factored out of
+  `index_text` in this commit so two renderings of one row cannot drift, and each row carries a
+  one-row `TableGrid` — no `spans`, no caption, both being the table's facts and not the row's ·
+  `weft_chunk.carry.carry_forward` is `fixed_size._carry_forward` made public, now that it has two
+  callers · **demonstrated through the shipped binary from outside this repository**, against the
+  container with the node count asserted immediately before and after (`L8.30`): 2 → 6 nodes,
+  three of them `TABLE`, each row carrying its header and each one parent away; `weft delete`
+  reaped all four derived nodes through lineage back to 2, refusing first without `--yes` ·
+  **the dispatched implementer returned blocked twice and was right twice** — the tests spelled
+  `BoundingBox` with pdfplumber's `top`/`bottom` rather than the `y0`/`y1` the model declares, and
+  left an import block unsorted; it also found what the brief missed, that FF11 globs pipeline
+  files off disk while FF16 reads only what `register()` contributed, so a document needs both the
+  file and its `add_pipeline_resource` line or it resolves and is unreachable (`L9.83`) ·
+  `poe ci-checks` green: **2395 passed, 9 skipped**, both containers up
 - [ ] **9.15 — not built; `9.10` said so** *(conditional on 9.10's verdict)* a figure's pixels are embeddable by a plugin
   satisfying the same `Embedder` contract a text embedder satisfies, producing a second node fused at
   query time by the fuser the ladder already ships, so which embedder runs is a pipeline edit · owner
