@@ -23,12 +23,12 @@ weft/
 ├── docs/                  # the plan. README.md routes it
 ├── packages/              # the shipped distributions
 │   ├── weft-kernel/       # registry, discovery, pipeline model, payload types
-│   ├── weft-cli/          # the only driving adapter, and the only asyncio.run
-│   ├── weft-extract/      # first-party pack: publishes the Extractor contract
-│   ├── weft-chunk/        # first-party pack: publishes the Chunker contract
-│   ├── weft-store/        # first-party pack: publishes the Store contract family
-│   ├── weft-embed/        # first-party pack: publishes the Embedder contract
-│   └── weft-otel/         # first-party pack: sets the TracerProvider, publishes no contract
+│   ├── weft-rag/          # the release set: fourteen packs in one distribution, incl. weft_cli
+│   ├── weft-agent/        # add-on: the agentic pack (Phase 7)
+│   ├── weft-openai/       # add-on: model-provider adapter
+│   ├── weft-pdf/          # add-on: PDF extraction
+│   ├── weft-qdrant/       # add-on: the second store backend G4's proof requires
+│   └── weft-otel/         # add-on: sets the TracerProvider, publishes no contract
 ├── testing/weft-canary/   # test-only distribution for fitness function 8
 ├── tests/architecture/    # the fitness functions
 ├── tests/integration/     # what needs the one container
@@ -36,10 +36,15 @@ weft/
 └── scripts/
 ```
 
-`weft-embed` is a fifth distribution the original plan did not anticipate, and the reasoning is
-forced rather than aesthetic: G4 forbids a store from embedding, G2 has not placed the embed step,
-and a walking skeleton must not depend on a model download or an API key. See `docs/06-phase-0-build.md`
-step 8.
+**A pack's identity is not its distribution, and this tree is where that stops being abstract.**
+`weft_cli`, `weft_extract`, `weft_chunk`, `weft_store`, `weft_embed` and nine more are *packs* — each
+with its own `weft.packs` entry point, its own `[packs.*]` namespace and its own `plugins doctor`
+row — and all fourteen ship inside the one `weft-rag` distribution. So `packages/weft-cli/` does not
+exist; the module is at `packages/weft-rag/src/weft_cli/`. G10 re-settled this on 2026-09-05, turning
+twenty published names into six and then seven; `09` §1 owns the reasoning and `docs/README.md`'s G10
+row records it. *(This section listed the pre-consolidation layout until 2026-09-06 — five
+directories that no longer exist and four that do. It was found by a dispatched agent whose brief
+sent it here first, which is the argument for the paragraph rather than against it.)*
 
 `weft-otel` (Phase 5 task 5.1d) is the one distribution that registers no plugin against any
 contract and contributes to no pipeline — see `docs/02-extension-model.md` §4, *The second add-on

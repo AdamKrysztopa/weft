@@ -56,7 +56,7 @@ requires-python = ">=3.12"
 # pack, and the five beside it, declared bare names until that task, so the thing a pack author
 # copies was teaching that bounds are optional. `tests/architecture/test_example_packs_are_
 # exemplars.py` in the weft repository is what keeps them from drifting back.
-dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-rag>=2.1.0,<3.0.0"]
+dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-rag>=2.2.0,<3.0.0"]
 
 # The one entry point a pack declares (weft's docs/02-extension-model.md
 # section 2). Nothing under weft's own packages/ or testing/ names this
@@ -628,7 +628,7 @@ license-files = ["LICENSE", "NOTICE"]
 # import is unchanged; only the name that delivers it is. Note the cost this makes visible:
 # an operator who wants Qdrant and not Postgres still gets `psycopg`, because `weft-rag`
 # declares it. That is the honest price of one wheel, recorded rather than hidden.
-dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-rag>=2.1.0,<3.0.0", "qdrant-client>=1.12"]
+dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-rag>=2.2.0,<3.0.0", "qdrant-client>=1.12"]
 
 # The one entry point a pack declares (`docs/02-extension-model.md` section 2).
 [project.entry-points."weft.packs"]
@@ -640,7 +640,7 @@ build-backend = "hatchling.build"
 ```
 
 Two different shapes appear on that one line, and both are correct for what they name:
-`weft-kernel>=0.1.0,<1.0.0` and `weft-rag>=2.1.0,<3.0.0` are G9 ranges — **dependencies on
+`weft-kernel>=0.1.0,<1.0.0` and `weft-rag>=2.2.0,<3.0.0` are G9 ranges — **dependencies on
 contract-publishing distributions**, each bound to the major that would break it. `qdrant-client>=1.12`
 is an ordinary PyPI floor on a library Weft does not publish a contract for — G9's range rule binds a
 *contract's* version to its *publisher's* distribution version; it says nothing about a floor on an

@@ -17,7 +17,7 @@ requires-python = ">=3.12"
 # pack, and the five beside it, declared bare names until that task, so the thing a pack author
 # copies was teaching that bounds are optional. `tests/architecture/test_example_packs_are_
 # exemplars.py` in the weft repository is what keeps them from drifting back.
-dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-rag>=2.1.0,<3.0.0"]
+dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-rag>=2.2.0,<3.0.0"]
 
 # The one entry point a pack declares (weft's docs/02-extension-model.md
 # section 2). Nothing under weft's own packages/ or testing/ names this
