@@ -616,6 +616,66 @@ persisted runs under `runs/` *are* its repetitions. `weft_eval.falsify` holds th
 
 ---
 
+### 4.3b The caption-and-embed verdict — Phase 9 task 9.10, measured 2026-09-06
+
+**GREEN. Caption-and-embed retrieves the right figure, so image search ships as search over the
+caption a document already supplied, and the pixel embedder is not built.** Ledger `9.15` and
+`9.16` stay unticked with this measurement named as the reason, which is the outcome `11` §1.3
+item 9 asks for: *the verdict bands change the product rather than the metric.*
+
+| Band | What it would mean for the product |
+|---|---|
+| **GREEN — recall@1 ≥ 0.7** | A figure is findable from its own caption. Image search is search over captions; no second embedder, no second vector per node, no `Embedder` plugin reading pixels |
+| **AMBER — 0.3 ≤ recall@1 < 0.7** | Captions find a figure often enough to ship and not often enough to rely on. `9.15` becomes worth its cost and the decision moves to whether a second vector per node is affordable |
+| **RED — recall@1 < 0.3** | The caption is not a retrieval surface. Image search would have to ship as *search by description* — a VLM describing every figure at index time, which is `9.11` made mandatory rather than optional, and `9.15` built on top |
+
+**The run.** A persisted `weft eval run`, id `26cb9ad1-7085-4375-8efb-8fcb74751f45`, corpus
+`figure-recall-hard` (`852fd9a3d548…`), pipeline `index-pdf-openai`, embedder
+`openai-embeddings:text-embedding-3-small`. Thirty single-figure PDFs, sixty nodes, ten
+image-modality questions:
+
+| | recall | nDCG |
+|---|---|---|
+| **@1** | **0.900** (n=10, ±0.316) | 0.900 |
+| **@5** | **1.000** (n=10, ±0.000) | 0.963 |
+
+**Twenty of the thirty documents are near-duplicate distractors, and that is the measurement.** A
+first run over ten orthogonal topics returned `recall@1 = 1.000`, which tested nothing: with ten
+subjects that share no vocabulary, a caption embedding cannot lose. The corpus was rebuilt so that
+answering *"how has income broken down across territories"* requires separating *revenue by region*
+from *revenue by product line*, *by customer segment* and *by distribution channel* — and the same
+for headcount, churn, latency, emissions, cash, uptime, hiring, returns and warehouse throughput.
+`0.900` is that harder number; `1.000` was the easy one and is recorded here only because reporting
+the easy number as the finding is the exact failure `11` §1.4 attributes to a comparable spike.
+
+**Four limits on this verdict, stated because a verdict without them is the artefact `11` §1.3 item
+9 warns about.**
+
+1. **The questions were written by a model, not a person**, which `9.10`'s own line requires and
+   this run does not satisfy. `11` §1.4 records why it matters: a comparable spike drew its index
+   caption and its query caption from one prompt and so measured prompt stability rather than
+   recall, and *"real recall is very likely lower"*. The questions here were deliberately
+   paraphrased away from the caption wording — *"are we meeting the availability we promised
+   customers?"* against *"Service uptime against the contractual target"* — but a model
+   paraphrasing a caption is not a person who never read it. **Replace `questions.json` and re-run;
+   the harness is one command.** Until then this verdict is provisional in its provenance, not in
+   its arithmetic.
+2. **The corpus is synthetic.** Every caption is clean, every document holds exactly one figure, and
+   no figure is captionless. A real corpus has all three the other way.
+3. **n = 10, and the interval is wide** — ±0.316 at `@1`. One question changing its mind moves the
+   number by 0.1. The band boundaries are far enough from `0.900` that the verdict survives that;
+   a number near a boundary would not.
+4. **The index side is the document's own caption**, not a model's description — `9.11`'s describer
+   does not exist yet. That is exactly what *caption*-and-embed names, so it is the right
+   measurement for this decision, and it is not evidence about description-and-embed.
+
+**What this discharges and what it does not.** It discharges `9.10`, whose line says *"either
+verdict discharges the line"*, and it decides `9.15`/`9.16` against being built. It does not
+discharge V1–V3 for the multimodal slice: a validated baseline needs the person-written questions
+above and repetition, and this is one run.
+
+---
+
 ### 4.4 What V is not: it does not set a quality target
 
 **The plan must not invent a threshold** — no *"nDCG@10 ≥ 0.7 before release"*. That number would be

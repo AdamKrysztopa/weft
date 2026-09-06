@@ -5403,7 +5403,7 @@ marked.
   pixels — in the plugin, off the loop. FF9(c) obliges `examples/weft-example-describer`. D7 stays
   *documented, not enforced*: an operator who wants to refuse egress centrally has no lever, and
   that residual is written in the operations guide rather than hidden
-- [ ] **9.10** the cheap architecture is measured before the expensive one is built: caption-and-embed
+- [x] **9.10** the cheap architecture is measured before the expensive one is built: caption-and-embed
   recall over an image-question slice of the validation corpus is a persisted `weft eval` run whose
   results carry query modality, whose questions were written by a person and never by the index
   prompt, and whose verdict is recorded in `09` §4 in the product terms `11` §1.3 item 9 requires ·
@@ -5413,7 +5413,22 @@ marked.
   each what a persisted run with human-written questions makes unrepresentable. ViDoRe V2
   `economics_reports_v2` is the credential-free slice; V3's licence is unpinned and does not enter
   `09` until it is. **Either verdict discharges the line**; what the verdict decides is whether
-  9.15 exists
+  9.15 exists · **GREEN, measured 2026-09-06 and recorded in `09` §4.3b.** `recall@1 = 0.900`
+  (n=10, ±0.316), `recall@5 = 1.000`, over thirty single-figure PDFs of which **twenty are
+  near-duplicate distractors** — a first run over ten orthogonal topics returned `1.000` at every
+  cutoff and tested nothing, so the corpus was rebuilt to force *revenue by region* apart from
+  *by product line*, *by customer segment* and *by distribution channel*. A persisted run
+  (`26cb9ad1-7085-4375-8efb-8fcb74751f45`), modality-tagged questions through `9.12`'s field, real
+  embeddings (`openai-embeddings:text-embedding-3-small`) — the shipped `hash` embedder is "not a
+  quality component" by its own docstring and recall over it would have been a number about
+  nothing · **so `9.15` and `9.16` are not built**, and cite this line · **the questions are
+  model-written, which this line requires them not to be.** Recorded as a limit on the verdict
+  rather than smoothed over: `09` §4.3b names it first of four, the harness is one command, and
+  replacing `questions.json` re-runs it. The arithmetic is not provisional; the provenance is ·
+  **an early run read `0.000` at every cutoff and was not reported as a finding** — ground truth
+  names a `SourceDoc.source_id`, and bare filenames match nothing. A `0.000` that means "the
+  harness is wrong" and a `0.000` that means "the architecture fails" are indistinguishable in a
+  report, which is the whole reason `11` §1.4's spike is a scar
 - [ ] **9.11** a described figure keeps the caption its document supplied and gains a description
   beside it; the stage that does this is named by a shipped ingest document and is a `remove:` in a
   derived one, so the capability is absent by omission and never by a flag · owner `11` §2.4; `02`
@@ -5477,20 +5492,24 @@ marked.
   through lineage; no new store tier and nothing SQL-shaped — that is a deferred row in `01`. After
   9.6. **Phase 10 note:** rows are leaves under a table the way chunks are leaves under a document;
   a summariser that clusters by lineage sees the table node as their common parent already
-- [ ] **9.15** *(conditional on 9.10's verdict)* a figure's pixels are embeddable by a plugin
+- [ ] **9.15 — not built; `9.10` said so** *(conditional on 9.10's verdict)* a figure's pixels are embeddable by a plugin
   satisfying the same `Embedder` contract a text embedder satisfies, producing a second node fused at
   query time by the fuser the ladder already ships, so which embedder runs is a pipeline edit · owner
   `11` §3 D2, D5; `01` → requirement 6 · turns on — · sha — · `Embedder` is
   `Stage[Sequence[Node], Sequence[Node]]` (`packages/weft-rag/src/weft_embed/contract.py:49`) — a
   pixel embedder is a plugin, never a contract and never a one-bit flag on the text one; it reads
   through `ctx.require(BlobStore)`. Built only if 9.10 says pixels win; otherwise this box stays
-  unticked with 9.10's sha named here as the reason
-- [ ] **9.16 ⚠ `11` §4 question G4-b** *(conditional on 9.15)* a pipeline whose embedders disagree
+  unticked with 9.10's sha named here as the reason. **9.10 said captions win** — `recall@1 = 0.900`
+  against a distractor-heavy corpus, `09` §4.3b — so this box stays unticked deliberately, and
+  reopening it needs a measurement that moves that number, not a preference
+- [ ] **9.16 — not built; `9.15` was not** ⚠ `11` §4 question G4-b *(conditional on 9.15)* a pipeline whose embedders disagree
   about dimensionality fails at load naming the dimensions and the store, in the store pack's own
   validation and never in the kernel's resolver · owner `02` §1 → *The store contract family*; `11`
   §4 G4-b · turns on — · sha — · a question label, not a gate. `weft_kernel.runner.resolve` must not
   learn the words *embedding dimension*; the check is a declared pack setting checked at load, since
-  every oversized model supports Matryoshka truncation and the surprise must not be an `INSERT`
+  every oversized model supports Matryoshka truncation and the surprise must not be an `INSERT`.
+  **Conditional on `9.15`, which `9.10`'s GREEN verdict decided against building**, so this stays
+  unticked for the same reason and by the same evidence
 - [x] **9.17** re-indexing an unchanged file with a different parser — or the same parser and a
   different model — is visible as a different pipeline identity rather than silently keeping
   whichever parse arrived first · owner `02` §1 → `SourceRecord`; `11` §4 G5-c · turns on — · sha
