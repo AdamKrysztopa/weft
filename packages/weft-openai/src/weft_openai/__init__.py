@@ -61,6 +61,8 @@ from weft_openai.llm import DEFAULT_MODEL as DEFAULT_LLM_MODEL
 from weft_openai.llm import NAME as PROVIDER_NAME
 from weft_openai.llm import OpenAILLMConfig, OpenAILLMProvider
 from weft_openai.settings import Settings
+from weft_openai.vision import OpenAIVisionDescriber
+from weft_vision import Describer
 
 #: What this pack touches — ledger task **6.31**, `02` §2 → *The trust model*.
 #:
@@ -74,15 +76,26 @@ from weft_openai.settings import Settings
 #: granted. It exists because the alternative an operator reads is `not disclosed`, which is what
 #: this pack said before task 6.31 despite being the one distribution in the set that cannot work
 #: without an account.
+#: The plugin name, per `10` §2.1: it names the *role* this plugin plays for this provider, and
+#: the model is a `with:` value. `openai` is already the `LLMProvider` and `openai-embeddings`
+#: the `Embedder` — one name per contract, which fitness function 18 requires.
+VISION_NAME = "openai-vision"
+
 DISCLOSURE = Disclosure(
     network=("api.openai.com, or whatever [packs.openai] base_url / OPENAI_BASE_URL names",),
     filesystem=(),
     subprocess=(),
     note=(
-        "Sends prompts and text to be embedded to an OpenAI-compatible API, using the credential "
-        "in [packs.openai] api_key or OPENAI_API_KEY. Every completion and every embedding "
-        "leaves this process. Registers an Embedder and an LLMProvider; nothing else in Weft "
-        "calls out unless a pipeline names one of them."
+        "Sends prompts, text to be embedded, and — since ledger task 9.9 — the image bytes of "
+        "any figure a pipeline asks to have described, to an OpenAI-compatible API, using the "
+        "credential in [packs.openai] api_key or OPENAI_API_KEY. Every completion, every "
+        "embedding and every page crop leaves this process. The images are named separately "
+        "rather than folded into 'prompts' on purpose: a figure cropped from a document is a "
+        "different and more sensitive content class than the text beside it, and an operator "
+        "deciding whether this pack may run needs to be told which content leaves, not only "
+        "that the network is reached (`02` §2 -> The trust model). Registers an Embedder, an "
+        "LLMProvider and a Describer; nothing else in Weft calls out unless a pipeline names "
+        "one of them."
     ),
 )
 
@@ -106,10 +119,16 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     """
     registrar.add(Embedder, EMBEDDER_NAME, partial(OpenAIEmbedder, settings))
     registrar.add(LLMProvider, PROVIDER_NAME, partial(OpenAILLMProvider, settings))
+    # `partial`, never a closure: `weft_kernel.registry.unwrap_factory` peels a `partial` and
+    # nothing else, so a closure makes the class invisible to every reader that inspects a
+    # factory rather than an instance — which cost ledger task 9.4 a pack silently absent from
+    # `weft delete`'s fan-out (`docs/lessons.md` L9.55).
+    registrar.add(Describer, VISION_NAME, partial(OpenAIVisionDescriber, settings))
 
 
 __all__ = [
     "DEFAULT_LLM_MODEL",
+    "VISION_NAME",
     "DEFAULT_MODEL",
     "EMBEDDER_NAME",
     "PROVIDER_NAME",

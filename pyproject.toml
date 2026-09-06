@@ -92,7 +92,7 @@ help = "Task 6.23: the out-of-tree example packs' own suites, which the gate rea
 cmd = "pytest examples -q --import-mode=importlib"
 
 [tool.poe.tasks.examples-tests.env]
-PYTHONPATH = "examples/weft-example-blob/src:examples/weft-example-chunker/src:examples/weft-example-command/src:examples/weft-example-graph/src:examples/weft-example-ingest/src:examples/weft-example-llm/src:examples/weft-example-metric/src:examples/weft-example-query/src"
+PYTHONPATH = "examples/weft-example-blob/src:examples/weft-example-describer/src:examples/weft-example-chunker/src:examples/weft-example-command/src:examples/weft-example-graph/src:examples/weft-example-ingest/src:examples/weft-example-llm/src:examples/weft-example-metric/src:examples/weft-example-query/src"
 
 [tool.poe.tasks.ci-checks]
 sequence = ["cold-lint-cache", "fmt", "lint", "types", "arch", "test", "examples-tests"]
@@ -164,6 +164,7 @@ extraPaths = [
     "scripts",
     "eval",
     "examples/weft-example-blob/src",
+    "examples/weft-example-describer/src",
     "examples/weft-example-chunker/src",
     "examples/weft-example-command/src",
     "examples/weft-example-ingest/src",

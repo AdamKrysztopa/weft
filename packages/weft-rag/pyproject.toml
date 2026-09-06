@@ -154,6 +154,7 @@ index = "weft_index:register"
 llm = "weft_llm:register"
 retrieve = "weft_retrieve:register"
 store = "weft_store:register"
+vision = "weft_vision:register"
 
 [build-system]
 requires = ["hatchling"]
@@ -187,4 +188,5 @@ packages = [
     "src/weft_prompts",
     "src/weft_retrieve",
     "src/weft_store",
+    "src/weft_vision",
 ]

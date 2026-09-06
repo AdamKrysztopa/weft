@@ -179,6 +179,32 @@ async def run(
 ) -> weft_kernel.payload.outcome.Outcome[weft_retrieve.payload.Passages]: ...
 ```
 
+## `Describer`
+
+**Module:** `weft_vision.contract`  
+**Registered by:** `weft-openai`  
+**Version:** `1.0.0`
+
+Says what an image (or, later, some other medium) contains, in words.
+
+`data` is the bytes themselves and `media_type` is the IANA type that says how to read them —
+a plain `str` for the reason `weft_extract.payload.Rendition.media_type` gives: the IANA set is
+open by construction, and a closed enum here would need a member added in a distribution a
+third party does not own.
+
+`instruction` is what the caller wants said. It is an argument rather than plugin
+configuration because two stages consume this contract for different purposes — an index-time
+describer wants a retrieval-shaped description, a query-side one wants the user's own question
+answered about the image — and a prompt fixed at registration could serve only one of them.
+
+### Methods
+
+```python
+async def describe(
+    self, data: bytes, media_type: str, instruction: str
+) -> weft_kernel.payload.outcome.Outcome[str]: ...
+```
+
 ## `Embedder`
 
 **Module:** `weft_embed.contract`  

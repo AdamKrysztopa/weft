@@ -5402,7 +5402,36 @@ marked.
   the precedent for a service without a stage. One resize invariant — always PNG, bounded max
   pixels — in the plugin, off the loop. FF9(c) obliges `examples/weft-example-describer`. D7 stays
   *documented, not enforced*: an operator who wants to refuse egress centrally has no lever, and
-  that residual is written in the operations guide rather than hidden
+  that residual is written in the operations guide rather than hidden · **the contract is published
+  from `weft_vision`, a pack that registers nothing.** `Describer` is implemented in `weft-openai`
+  because that is the pack holding the provider's client, so the publishing pack has no plugin of
+  its own — its `register()` is empty and its entry point exists for the *import*, which is what
+  makes `SERVICE_ROLES` readable and `[services] describe` a key an operator can set at all ·
+  **it names the medium and not the model, and a test enforces that literally**: the contract
+  module's whole source is read and asserted to contain no `openai`, `anthropic`, `gemini`, `qwen`,
+  `gpt-`, `claude` or `llava`, in any case, including comments. A signature check would not have
+  caught a vendor named in a docstring example, which is how this gets broken · **one resize
+  invariant, always PNG and bounded pixels, and it is the plugin's not the contract's** — a page
+  crop from a 600-DPI scan is megabytes and both the bill and the latency are linear in it, which
+  is this provider's economics rather than a fact about describing images. Off the event loop via
+  `to_thread` (G6); a *service* passes through no seam wrap, so `weft_kernel.blocking.guard` is
+  armed directly in the tests because nothing catches it automatically · **`temperature` is
+  deliberately absent from the config**: a description that varies run to run makes `Node.content`
+  non-deterministic, and a node id is a digest of its content, so the same corpus would re-index
+  into different nodes on every pass · `partial`, never a closure, per `L9.55` · **the disclosure
+  now names the content class**, not just the network: `02` §2's rule, and page crops are a third
+  and more sensitive thing than the completions and embeddings it already listed · FF9(c)'s
+  stranger is `examples/weft-example-describer`, a `ShapeDescriber` that **calls no model at all**
+  and reports an image's own dimensions from its PNG header — deliberately not a second API client,
+  because what needs proving is that the contract names the medium rather than the model, and an
+  implementation with no model in it is the cheapest possible proof · **run through the shipped
+  binary from outside the repository**, including a live provider call: `weft plugins doctor`
+  reports `vision (weft-rag) 2.2.0: active (0 contributed)` — honest, since it registers nothing —
+  and `openai (weft-openai)` rising to 3 contributions; a typo'd role key prints
+  `[services] accepts blob, describe, embed, route, store`; and the describer against a real
+  four-bar chart and a real credential answered *"The figure displays a bar graph with four
+  vertical bars in varying heights, all colored in blue…"* · `poe ci-checks` green: **2294 passed,
+  39 skipped**, examples 127 passed
 - [x] **9.10** the cheap architecture is measured before the expensive one is built: caption-and-embed
   recall over an image-question slice of the validation corpus is a persisted `weft eval` run whose
   results carry query modality, whose questions were written by a person and never by the index

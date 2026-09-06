@@ -1,0 +1,30 @@
+[project]
+name = "weft-example-describer"
+version = "0.0.0"
+description = "A stranger's describer — lives outside the weft workspace, proving fitness function 9."
+requires-python = ">=3.12"
+# Both deps are published packages any third party would `pip install`; this distribution never
+# sees the weft workspace's source tree, only the wheels those two ship. weft-rag is depended on
+# for the one thing a third-party describer pack needs from it: the `Describer` Protocol
+# weft_vision publishes, and the `Outcome` vocabulary it answers in.
+#
+# **Both carry `>=X,<MAJOR+1`, and that is the point of an exemplar** — weft's ledger task 6.26.
+# G9 settled that a version requirement *is* the dependency specifier and bare names end;
+# `tests/architecture/test_example_packs_are_exemplars.py` keeps these bounds from drifting off.
+dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-rag>=2.2.0,<3.0.0"]
+
+# The one entry point a pack declares (weft's docs/02-extension-model.md section 2). Nothing under
+# weft's own packages/ or testing/ names this distribution, this module, or the plugin name below
+# — fitness function 9(b), asserted from the weft repository's own tests/architecture/.
+[project.entry-points."weft.packs"]
+example-describer = "weft_example_describer:register"
+
+[dependency-groups]
+dev = ["pytest>=8.3", "pytest-asyncio>=0.24"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

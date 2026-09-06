@@ -1063,15 +1063,15 @@ $ echo $?
 ### `UnknownServiceKeyError`
 
 **What it looks like** — repair, 2026-08-20 (`docs/01-high-level-plan.md` item 12's own dated
-paragraph): `[services]` names a key nothing declares — `embed`, `route`, `store` and `blob` are what a
-default install accepts — reproduced against a real checkout:
+paragraph): `[services]` names a key nothing declares — `embed`, `route`, `store`, `blob` and `describe`
+are what a default install accepts — reproduced against a real checkout:
 
 ```text
 $ printf '[services]\nembedd = "openai"\n' > weft.toml
 $ weft plugins list
 unknown [services]
 key(s) in weft.toml: 'embedd'. [services]
-accepts blob, embed, route, store. A key nothing reads is refused rather than ignored — a service
+accepts blob, describe, embed, route, store. A key nothing reads is refused rather than ignored — a service
 Weft did not select is one you would have to notice by the answers being wrong.
 $ echo $?
 4
@@ -1087,7 +1087,7 @@ $ echo $?
 Before this repair the class was a bare `WeftError` — the message already named the keys, but only
 inside the string, invisible to fitness function 12's family walk, which looks for a typed
 `valid_options` field. `UnknownConfigKeyError` above is the same-phase precedent this now matches;
-`(exc.valid_options == ("blob", "embed", "route", "store"))` for any raise site. `weft plugins list`'s exit `4`
+`(exc.valid_options == ("blob", "describe", "embed", "route", "store"))` for any raise site. `weft plugins list`'s exit `4`
 comes from `weft_cli.cli.main`'s own fixed code for any `WeftError` raised while `build_
 dependencies` is still assembling the registry — see that function's own comment — not from
 `weft_cli.exit_codes.exit_code_for`'s per-exception mapping. **What to do:** use one of the keys
