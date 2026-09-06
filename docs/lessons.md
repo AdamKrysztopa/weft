@@ -1132,6 +1132,58 @@ looking, not a census*) and the paragraph about looking up who quotes a file —
 about `tests/docs/test_pack_guide_samples.py`'s byte-for-byte map and does not mention generated
 artefacts at all. One sentence, and the list of generators is short.
 
+
+### L9.50 — a line citation was correct when written and wrong two commits later, in the same phase
+
+**What happened.** Task `9.2` filed a check whose docstring cited
+`docs/02-extension-model.md:1672` for *"a stage that declares no `applies_to` applies to
+everything"*, and `docs/01-high-level-plan.md:1751` cited the same line for the same sentence. Both
+were correct when `6d40406` landed. Task `9.3`'s commit then inserted a 31-line narrowing block into
+**§1 of the same file**, and the cited sentence moved to `:1703`. Neither citing file was touched by
+that commit, and neither could have been: nothing about the `Removed` change has anything to do with
+applicability. Today `:1672` reads *"It also disposes of branching..."* — a reader who follows the
+citation to check the claim lands on an unrelated sentence. Found by a reviewer subagent, four
+commits later; `FF17` resolves a citation's *path* and never asks whether the line still says what
+the citing text quotes.
+
+This is the same family as `L6.16` and `L9.44`, and the mechanism is new: not the wrong file, and
+not an identifier claimed before it existed, but a correct citation invalidated by an edit
+**elsewhere in the right file**. Line numbers into a long shared prose document decay with every
+insertion above them, and two documents in one phase inserted above each other.
+
+**Generalises to.** Cite a *section* into a long prose document a phase is actively editing, and a
+line only into code or into a document nobody is editing this phase. A `file.md:NNN` citation is a
+claim that survives exactly until the next insertion above it, which in an active phase is hours.
+
+**Candidate home.** Two candidates and they are not exclusive. A rule in `CLAUDE.md` → *Claims need
+evidence*, which today says a claim carries "something a reader can check" and does not distinguish a
+line from a section. And a cheap check: for every `docs/*.md:NNN` citation in `docs/`, `manual/` or a
+test docstring, assert the cited line is inside the section the citing text names — FF17 already
+walks these citations and stops one question short.
+
+
+### L9.51 — a constant nothing reads asserted behaviour the function beneath it does not have
+
+**What happened.** Task `9.0` shipped `weft_cli/service_roles.py` with a module-level
+`_TRUSTED_STATUSES = (PackStatus.ACTIVE, PackStatus.PARTIAL)` and a four-line comment justifying it.
+Nothing in the module referenced it. The one function in the file opened *"Gather every
+`ServiceRoleOffer` on every **trusted** report"* and then iterated every report unconditionally —
+which the paragraph immediately below the summary line explains at length is deliberate and load
+bearing (*"A `FAILED` report's declarations count"*, with `weft-store`'s required `dsn` as the case
+that settles it). So the file carried a dead constant, a summary line contradicting its own body, and
+the correct reasoning, all at once. Found by a dispatched survey agent reading the module for an
+unrelated reason; `ruff` does not flag an unused module-level constant, and no check does.
+
+**Generalises to.** A constant is an assertion about behaviour whether or not anything reads it, and
+a docstring's *first* line is the one a reader trusts and the one most likely to be left behind when
+the body changes. So: before a review of a new module ends, grep each private constant it introduced
+for a second occurrence, and read the summary line against the body rather than against the
+paragraphs under it — the paragraphs here were right the whole time.
+
+**Candidate home.** A `ruff` rule if one exists for an unreferenced module-level private name; failing
+that, a line in `phase-step` → *Verify*, which today asks whether the diff contains a design choice
+that was not in the brief and does not ask whether it contains a name nothing uses.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

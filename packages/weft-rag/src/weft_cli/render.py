@@ -203,7 +203,10 @@ def _removed_clause(outcome: ParticipantOutcome) -> str:
 
     A failed participant keeps rendering `failed`, unchanged. A participant that reported no
     kinds — every one written before task 9.3 — keeps rendering exactly `{n} node(s) removed`,
-    pinned byte-for-byte by `tests/unit/weft_cli/test_render.py:724`. A participant that
+    pinned byte-for-byte by
+    `tests/unit/weft_cli/test_deletion_reports_kinds.py::test_a_participant_reporting_only_nodes_
+    renders_exactly_as_it_always_did`, and separately by `test_render.py`'s own pre-existing
+    delete case, which asserts the same shape with its own values. A participant that
     reported kinds inserts each one, sorted by kind name, between the node count and the
     trailing word `removed`: `0 node(s), 40 blob(s) removed`. `(s)` rather than a real
     pluraliser is this file's existing convention (`participant(s)`, `node(s)`), so

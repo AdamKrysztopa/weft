@@ -140,6 +140,55 @@ def test_several_kinds_all_reach_the_reader() -> None:
     assert "relation" in line
 
 
+class _ReservedKeyParticipant:
+    """A participant whose own `delete_source` violates the reserved-key rule.
+
+    The mistake this models is a real one an author can make: reporting the node count twice,
+    once under `node_count` and once as a kind. `Removed`'s validator refuses it — inside the
+    participant's own frame, so the exception the fan-out sees comes from the participant.
+    """
+
+    def __init__(self, config: object = None) -> None:
+        del config
+
+    async def delete_source(self, source_id: SourceId) -> Removed:
+        return Removed(source_id=source_id, node_count=6, removed={"node": 6})
+
+
+async def test_a_participant_refused_by_the_reserved_key_is_named_and_the_others_still_run() -> (
+    None
+):
+    """The whole chain 9.3's reserved key sits on, end to end rather than in three pieces.
+
+    Before this test the raise, the catch, the naming and the surviving participant were each
+    covered alone and the chain only by one manual run of the binary, which `ci-checks` cannot
+    repeat. `_ask`'s broad `except Exception` is what turns the `ValidationError` into data about
+    that participant instead of control flow that ends the fan-out, and that is the behaviour
+    being pinned — not the exception type.
+    """
+    # Arrange
+    registry = Registry()
+    registry.add(SourceDeletable, "pgvector", _NodeParticipant, distribution="weft-rag")
+    registry.add(SourceDeletable, "reserved", _ReservedKeyParticipant, distribution="weft-bad")
+    targets = participants(registry=registry, store_names=frozenset({"pgvector"}))
+
+    # Act
+    outcomes = await delete_everywhere(SourceId("doc-1"), targets=targets)
+    rendered = _rendered(*outcomes)
+    lines = _rendered_lines(*outcomes)
+
+    # Assert — the good participant still ran, the bad one is named, and the refusal says where
+    # the number already lives rather than merely that something was wrong.
+    by_plugin = {outcome.plugin: outcome for outcome in outcomes}
+    assert by_plugin["pgvector"].node_count == 6
+    assert by_plugin["reserved"].failed
+    assert "node_count" in (by_plugin["reserved"].error or "")
+    assert "  pgvector (weft-rag): 6 node(s) removed" in lines
+    assert "  reserved (weft-bad): failed" in lines
+    assert "node_count" in (rendered.stderr or "")
+    assert rendered.exit_code is ExitCode.OPERATION_FAILED
+
+
 def test_a_failing_participant_reports_no_kinds_rather_than_a_wrong_count() -> None:
     """The error case: a participant that raised removed nothing anyone can name."""
     # Arrange

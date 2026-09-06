@@ -6,8 +6,10 @@ filing it is what mints the number: FF22 was taken the same day by task 9.0's
 
 **The property.** Every plugin discovery registers under `Chunker` carries a non-empty
 `applies_to`. `02` §3's default — *a stage that declares no `applies_to` applies to everything*
-(`docs/02-extension-model.md:1672`) — stays for every other contract; for a stage whose whole job
-is to split, "everything" is the defect.
+(`docs/02-extension-model.md` §3 → *Applicability*; cited by section rather than by line, because
+the line moved within the same phase when task 9.3 inserted a block earlier in that file — `L9.50`)
+— stays for every other contract; for a stage whose whole job is to split, "everything" is the
+defect.
 
 **Why a fitness function and not a review note.** Ledger `1.6` is ticked — *an atomic node passes
 the chunker unsplit without the chunker knowing what atomic means* — and on 2026-09-06 that

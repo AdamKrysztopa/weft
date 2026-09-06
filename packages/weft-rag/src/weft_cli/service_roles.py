@@ -25,14 +25,8 @@ from collections.abc import Iterable, Mapping
 from pydantic import BaseModel, ConfigDict
 
 from weft_kernel.context import ServiceRole
-from weft_kernel.discovery import PackReport, PackStatus
+from weft_kernel.discovery import PackReport
 from weft_kernel.errors import WeftError
-
-#: Reports whose `service_roles` are trusted. Matches `PackRegistrar.commit`'s own atomicity:
-#: a `PARTIAL` pack still committed whatever it buffered before the field that failed, exactly
-#: as `PackReport.contributions` is read for the identical two statuses elsewhere in this
-#: distribution.
-_TRUSTED_STATUSES = (PackStatus.ACTIVE, PackStatus.PARTIAL)
 
 
 class DuplicateServiceRoleError(WeftError):
@@ -64,9 +58,16 @@ class RoleTable(BaseModel):
 
 
 def role_table_from_reports(reports: Iterable[PackReport]) -> RoleTable:
-    """Gather every `ServiceRoleOffer` on every trusted report into one `RoleTable`.
+    """Gather every `ServiceRoleOffer` on every report into one `RoleTable`.
 
-    **A `FAILED` report's declarations count.** `weft_kernel.discovery._read_service_roles`
+    **Every report, and a `FAILED` one's declarations count.** This function filtered on
+    nothing when it was written and still does; it carried a `_TRUSTED_STATUSES` constant
+    (`ACTIVE`, `PARTIAL`) that nothing referenced and a summary line saying *"every trusted
+    report"*, both removed 2026-09-06 at a review of task 9.0 — a constant no code reads is a
+    claim about behaviour, and this one contradicted the paragraph directly beneath it
+    (`docs/lessons.md` `L9.51`). Trust is decided upstream, as the paragraph below says.
+
+    `weft_kernel.discovery._read_service_roles`
     reads a pack's `SERVICE_ROLES` at import, before its settings are validated, precisely so
     that a pack which failed to configure still tells an operator its `[services]` key exists.
     `weft-store` is the case that settles it: `[packs.store] dsn` is required, so with no

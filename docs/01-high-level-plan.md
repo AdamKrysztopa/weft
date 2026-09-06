@@ -1748,7 +1748,8 @@ All checks run in CI, before tests.
     for its test fixture and not for the product — measured 2026-09-06, `FixedSizeChunker` declared
     no `applies_to` and split a `MediaType.TABLE` node into two chunks (`lessons.md` `L9.6`). `02`
     §3's default — a stage that declares nothing applies to everything
-    (`docs/02-extension-model.md:1672`) — stays for every other contract; for a stage whose whole job
+    (`docs/02-extension-model.md` §3 → *Applicability*, cited by section rather than by line: the
+    line moved the same day, `L9.50`) — stays for every other contract; for a stage whose whole job
     is to split, "everything" is the defect, and reading for it is not the same as checking for it.
     `testing/` contributes no subject: `weft-canary` registers nothing and must never be imported
     (FF8(a)). **What it cannot see:** `Chunker` already forces `destroys` at registration through

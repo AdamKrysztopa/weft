@@ -882,7 +882,7 @@ class MetadataFilter(Protocol): ...                # marker: supports the whole 
 >
 > `STORE_CONTRACT_VERSION` moves **`2.0.0` → `2.1.0`**: `09` §3's two-audience table puts *add an
 > optional field to a returned model* at minor for the caller and minor for the implementer, and
-> every one of the thirteen sites in this tree that constructs a `Removed` keeps working untouched.
+> every one of the twelve sites in this tree that constructs a `Removed` keeps working untouched.
 > **The CLI half is part of the same task and is why this is not a contract-only change** —
 > `weft_cli.deletion._delete_from` reduced the whole `Removed` to one `int` at the first frame that
 > saw it, so a field added here reached nobody until `ParticipantOutcome` and `_render_delete`
@@ -1723,11 +1723,21 @@ it did, and an empty tuple costs nothing to check because there is nothing in it
 > declares nothing still sees every node, and that is right. For a `Chunker` it is the defect:
 > ledger `1.6` ticked *"an atomic node passes the chunker unsplit"* against a test fixture that
 > declared `applies_to`, while the one chunker this project ships declared none and split a
-> `MediaType.TABLE` node into two chunks. The declaration is now obligatory there, checked by
-> fitness function **23** (`tests/architecture/test_ff23_chunkers_declare_what_they_split.py`),
-> waiver pinned empty. What is obligatory is *that* a chunker declares, never *what* — the
-> declaration still names the chunker's own requirement in the chunker's own vocabulary, and a
-> table being routed past is a consequence of that requirement going unmet.
+> `MediaType.TABLE` node into two chunks. **Every chunker this repository ships now declares**,
+> held there by fitness function **23**
+> (`tests/architecture/test_ff23_chunkers_declare_what_they_split.py`), waiver pinned empty. What
+> is required is *that* a chunker declares, never *what* — the declaration still names the
+> chunker's own requirement in the chunker's own vocabulary, and a table being routed past is a
+> consequence of that requirement going unmet.
+>
+> **The scope of that "now", stated rather than implied.** `applies_to` is *not* in `Chunker`'s
+> `required_declarations`, so registration refuses nothing: a third party's chunker that declares
+> none registers, runs, and splits every node it is handed, exactly as the default above says. FF23
+> is a check about `packages/` and `examples/` — this tree's own chunkers — and it is deliberately
+> not the stronger answer. Putting `applies_to` beside `destroys` in `required_declarations` would
+> narrow the default this block is written under, for everybody, which is an amendment owed `09`
+> §6.2's widening test and not a repair a task may make in passing. `01` → *Fitness functions*
+> item 23 carries the same sentence, so neither document promises what the registry does not do.
 
 Routing is what makes the declaration true. The runner splits a batch into its **maximal contiguous
 runs** of "every `Applies` matches" and "at least one does not" — a single filtered call over every
