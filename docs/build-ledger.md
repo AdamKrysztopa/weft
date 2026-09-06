@@ -4257,7 +4257,7 @@ is also refused: the ReAct step is a typed structured answer through the three-t
   read off `CommandResult` · `weft-kernel`: **+0 lines** · `uv run poe ci-checks` green:
   **2,064 passed, 38 skipped** · **`manual/user-manual.md`'s command table regenerated**: 20
   commands, `agent` among them, with nobody editing that file
-- [ ] **7.5** Phase 8's Exit is met in the clause its own tasks left joined — `weft eval` judges the
+- [x] **7.5** Phase 8's Exit is met in the clause its own tasks left joined — `weft eval` judges the
   difference between two **query** rungs against the published baseline's interval, not between two
   ingest pipelines · owner `01` → Phase 8 **Exit**; `09` §4 · turns on — · sha — ·
   **Discharges Phase 8's exit, on `6.21`'s precedent.** Re-checking that exit on a real wheel install
