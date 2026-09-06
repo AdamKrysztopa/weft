@@ -73,7 +73,6 @@ import dataclasses
 import os
 import sys
 import uuid
-from collections.abc import Awaitable, Callable
 from importlib import metadata
 from typing import TYPE_CHECKING, cast
 
@@ -81,14 +80,14 @@ from pydantic import BaseModel, ConfigDict
 
 from weft_cli.argparse_gen import add_model_arguments
 from weft_cli.exit_codes import ExitCode
+from weft_cli.permission_policy import PermissionPolicy
 from weft_cli.registry_bootstrap import Dependencies, build_dependencies
 from weft_cli.sinks import JsonSink, PrintingSink
-from weft_command.contract import Command, CommandResult
+from weft_command.contract import Command
+from weft_command.invocation import invoke
 from weft_kernel.context import Context
 from weft_kernel.errors import WeftError
-from weft_kernel.payload import Outcome
 from weft_kernel.registry import Registry, unwrap_factory
-from weft_kernel.seam import wrap
 from weft_llm.client import NullSink
 from weft_llm.contract import TokenSink
 from weft_llm.payload import TokenChunk
@@ -387,6 +386,35 @@ class _EmissionTrackingSink:
         await self._sink.close(reason=reason)
 
 
+@dataclasses.dataclass(frozen=True)
+class TtyConsent:
+    """`weft_command.invocation.Consent` as the terminal answers it — task **7.0**.
+
+    The whole of the driving adapter's permission policy, and it stays here rather than moving
+    into `weft-command` for the reason `03`'s governing rule gives: `weft.toml`, `--yes` and what
+    a TTY *is* are the adapter's subject, and a contract package that learned any of them would be
+    the second permission model G12 refused. The seam asks; this answers.
+
+    `gate` is unchanged and still raises `CommandRefusalError` carrying its own `ExitCode`, which
+    `render_refusal` reads directly — so the refusal path a person sees is byte-identical to the
+    one this task found ungated on the library side.
+    """
+
+    yes: bool
+    policy: PermissionPolicy
+
+    async def decide(self, *, command_name: str, instance: object, args: BaseModel) -> None:
+        # Imported here, not at module scope: `weft_cli.confirm` pulls `weft_chunk`,
+        # `weft_embed`, `weft_extract` and `weft_store` transitively, and **fitness function
+        # 8(b) requires `weft --version` to execute no pack code at all**. The function this
+        # class replaced imported `gate` inside its own body for exactly this reason; moving the
+        # call into a class must not move the import out of the function that runs it. Caught by
+        # FF8(b) going red on the first wiring attempt, which is the check doing its job.
+        from weft_cli.confirm import gate  # noqa: PLC0415
+
+        gate(instance, command_name, args, yes=self.yes, policy=self.policy)
+
+
 async def run_command(command_name: str, args: argparse.Namespace, deps: Dependencies) -> Rendered:
     """Resolve `command_name`, run it against `args`, and render whatever comes back.
 
@@ -512,7 +540,6 @@ async def run_command(command_name: str, args: argparse.Namespace, deps: Depende
     # Local imports — see the module docstring's FF8(b) paragraph and the `TYPE_CHECKING`
     # import above: `run_command` is only ever reached for a command that already needed
     # discovery, so this costs nothing beyond a `sys.modules` lookup by the time it runs.
-    from weft_cli.confirm import gate
     from weft_cli.render import render_outcome, render_refusal
 
     ctx = _context()
@@ -530,20 +557,25 @@ async def run_command(command_name: str, args: argparse.Namespace, deps: Depende
     args_instance = args_model(**payload)
     yes = cast(bool, getattr(args, "yes", False))
 
-    sealed_run: Callable[[BaseModel, Context], Awaitable[Outcome[CommandResult]]] = wrap(
-        instance.run,
-        distribution=entry.distribution,
-        contract="Command",
-        plugin=command_name,
-        stage=f"command:{command_name}",
-        guard_blocking_calls=False,
-    )
-
     succeeded = False
     failure_reason: str | None = None
     try:
-        gate(instance, command_name, args_instance, yes=yes, policy=deps.permissions, ctx=ctx)
-        outcome = await sealed_run(args_instance, ctx)
+        # **Task 7.0.** The gate and the seam wrap used to be assembled here, and that was the
+        # defect G12 found: this function was the *only* caller, so `weft_cli.confirm.gate` was
+        # documented as "the invocation seam" while `Command.run` itself was reachable —
+        # ungated — by anything holding a registry. Phase 7's pack is the first second caller.
+        # Both now live in `weft_command.invocation.invoke`, which takes the consent decision as
+        # a **required** argument, so a caller that has not decided cannot construct the call.
+        # This function's own answer is the TTY prompt it has always used (`docs/lessons.md`
+        # `L8.31`).
+        outcome = await invoke(
+            command_name=command_name,
+            instance=instance,
+            args=args_instance,
+            ctx=ctx,
+            consent=TtyConsent(yes=yes, policy=deps.permissions),
+            distribution=entry.distribution,
+        )
         succeeded = True
     except WeftError as exc:
         failure_reason = str(exc)

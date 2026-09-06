@@ -3959,8 +3959,8 @@ more"* is the defaulted decision the gate existed to prevent. Native tool-callin
 is also refused: the ReAct step is a typed structured answer through the three-tier cascade
 `weft_prompts` already ships, which is what keeps the agent testable against `scripted` offline.
 
-- [ ] **7.0** a command's permission class is enforced on the path a library caller uses, not only on
-  the one the terminal uses · owner `03` → *Permissions*; `05` → G12 · turns on — · sha — ·
+- [x] **7.0** a command's permission class is enforced on the path a library caller uses, not only on
+  the one the terminal uses · owner `03` → *Permissions*; `05` → G12 · turns on **FF20** · sha `SHA70` ·
   **G12's own precondition, and it is a defect rather than a design.** `weft_cli.confirm.gate` is
   called from exactly one place — inside `weft_cli.cli.run_command`, which takes an
   `argparse.Namespace` and returns a `Rendered`. The typed result task 7.3 requires comes from
@@ -3978,6 +3978,43 @@ is also refused: the ReAct step is a typed structured answer through the three-t
   what 7.3 forbids. Additive for both G9 audiences if the CLI keeps today's default, so
   `COMMAND_CONTRACT_VERSION` takes a minor. **Exit code does not move**: `3` already means policy
   refused, and a pending operation is one `3` with data attached
+  · **Built as `weft_command.invocation`, and `Consent` is a Protocol rather than a policy
+  object.** The seam must not learn `weft.toml`, `PermissionPolicy` or what a TTY is — those belong
+  to the driving adapter per `03`'s governing rule — so it asks one question and takes whatever
+  answer it is given: `weft_cli.TtyConsent` answers with the prompt the CLI already shipped, and an
+  agent will answer *"refuse every ask-class operation"*. **`consent` is keyword-only with no
+  default**, which is the whole property: a caller that has not decided cannot construct the call.
+  A defaulted parameter would have restored exactly the arrangement that failed — `L8.24`, a
+  narrowing wearing a default — so the test asserts it against `inspect.signature` rather than
+  against one traceback · **the seam asks for consent on every command whatever its class**, and
+  never reads `permission_class` itself: deciding which classes are interesting is the `Consent`
+  implementation's job, kept in `03`'s table rather than duplicated in a contract package ·
+  **FF20 is what makes the repair durable rather than a one-time fix** — every command run goes
+  through `seam.wrap(..., contract="Command")`, and exactly one module may make that call, so a
+  second path fails the gate instead of quietly working without a permission ceiling. Asked at the
+  seam rather than by sweeping `.run(` call sites, because `run` is an ordinary method name and a
+  textual sweep grows a waiver list under it (`L8.25`). **Watched failing**: a second
+  `wrap(instance.run, ..., contract="Command")` planted in `weft_cli/cli.py` fails two of its four
+  tests; a `wrap` declaring any other contract does not, which is the discriminator and is planted
+  too · **FF8(b) caught the first wiring attempt**, and correctly: `weft_cli.confirm` pulls
+  `weft_chunk`, `weft_embed`, `weft_extract` and `weft_store` transitively, so importing `gate` at
+  module scope made `weft --version` execute pack code. The function this replaced imported it
+  inside its own body for that reason; **moving a call into a class must not move the import out of
+  the function that runs it**, and `ruff --fix` then removed the *lazy* import as a redefinition
+  rather than the module-level one, which is worth knowing about that flag ·
+  **Run from `/private/tmp`, outside this repository, through the shipped binary**:
+  `weft delete some-source < /dev/null` prints *"'delete' is a destroy-class command, called with
+  {'source_id': 'some-source'}. It refuses to run with no terminal to confirm in, and never
+  proceeds silently. Pass --yes to permit it for this invocation."* and exits **3** — byte-identical
+  to before, now through the new seam; `weft pipeline list` exits **0**; `weft --version` prints
+  `weft 2.1.0` and exits **0** · `weft-kernel`: **+0 lines**, no kernel file opened ·
+  `COMMAND_CONTRACT_VERSION` **does not move**: `invoke` is a new module-level function, not a
+  change to the `Command` Protocol, so neither of G9's two audiences owes anything — additive for a
+  caller and invisible to an implementer · `uv run poe ci-checks` green: **2,033 passed, 38
+  skipped**, 213 architecture tests · **dispatched to `weft-implementer`, which returned
+  blocked — correctly.** The brief promised a green tree and my own freshly-written test carried two
+  defects I had misread as belonging to the absent module; `lessons.md` `L8.35` records it. The
+  seam itself came back honest and needed no change; the CLI wiring and FF20 are mine
 - [ ] **7.1 ⚠** the agent is a pack — it registers against contracts it did not define, and core has no
   knowledge of it · owner `01` → Phase 7; `02` §1 · turns on — · sha —
 - [ ] **7.2 ⚠** the loop's autonomy, tool surface, memory and approval points are the ones

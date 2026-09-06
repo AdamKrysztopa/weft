@@ -27,6 +27,33 @@ otherwise paid for twice.
 
 ## Queue
 
+### L8.35 — the expected red hid an unexpected one, and it cost a dispatch
+
+**What happened.** Writing task 7.0's test, I ran `uv run poe ci-no-tests` before dispatching the
+implementer — the check `phase-step` → *Green* requires, because a brief's *done when* names the
+gate and that is a promise the gate currently reports on the agent's diff and nothing else
+(`L6.30`). `pyright` reported **16 errors**. I read all sixteen as *"the module the implementer is
+about to write does not exist yet"*, which was true of ten of them. **Six were mine**: the test
+doubles declared `permission_class`/`help`/`args_model` as `Final` and omitted `version`,
+`required_declarations` and `result_model`, so they did not statically satisfy the `Command`
+Protocol the seam's parameter is typed against. The `_context()` helper also called
+`Context(tenant_id=..., registry=...)`, and `Context` has no `registry` field — every other test
+file in the tree constructs it correctly. The brief then told the implementer *"the tree is green
+right now apart from this module being absent, so anything else that goes red is yours."* That was
+false, it was the one sentence the agent had to trust, and it returned **blocked** with both defects
+correctly diagnosed and correctly refused as not its to fix.
+
+**Generalises to.** When a red is *expected*, the expected red is camouflage for an unexpected one:
+a count of failures is not a reading of them, and "these are all the same cause" is a hypothesis
+that costs nothing to check and a whole dispatch to skip. Before dispatching against a deliberately
+red tree, attribute **each** failure to the absent artefact by name — and where a test constructs a
+type it did not define, copy the construction from an existing use rather than inventing it, because
+the tree has already written down what that constructor takes.
+
+**Candidate home.** `phase-step` → *Green*, beside the existing "run `ci-no-tests` before you
+dispatch" instruction, which currently asks for a green and has nothing to say about the case where
+the tree is red *on purpose* — which is every test-first task.
+
 ### L8.31 — the gate lived where the first caller was, and the second caller gets none
 
 **What happened.** Found by all three of G12's independent reviews, and confirmed directly:

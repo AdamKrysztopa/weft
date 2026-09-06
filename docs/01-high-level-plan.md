@@ -1425,6 +1425,20 @@ All checks run in CI, before tests.
     passed on the very model it was written for and went on passing when the validator was deleted
     to test it — proved against a planted removal instead (`docs/lessons.md` `L8.23`).
 
+20. **A `Command` is run from exactly one place.** Added 2026-09-06, ledger task 7.0, from G12.
+    Every command run in this tree goes through `weft_kernel.seam.wrap(..., contract="Command")`,
+    and exactly one module may make that call: `weft_command.invocation`, where the consent
+    decision is a **required** argument. **The defect this refuses had already happened silently**
+    — `weft_cli.confirm.gate` was called from one place inside the driving adapter, documented as
+    *"the invocation seam"*, while `Command.run` itself was reachable and ungated by anything
+    holding a registry; Phase 7's pack is the first second caller and would have got no gate at
+    all. A second path is not a failing test but a caller that quietly loses its permission
+    ceiling, which is what makes this a fitness function rather than a review note.
+    `tests/architecture/test_ff20_one_command_invocation_path.py`, `INVOCATION_SITES` holding one
+    entry. Asked at the seam rather than by sweeping `.run(` call sites, because `run` is an
+    ordinary method name and a textual sweep would grow a waiver list under it
+    (`docs/lessons.md` `L8.31`).
+
 > **Corrected 2026-08-10 — fitness function 1, and the preamble.** This section previously opened
 > *"the single best thing in a codebase examined during design is its AST boundary checker"* and
 > specified FF1 as *"lifted almost verbatim from it."* It is not the best thing there and it must
