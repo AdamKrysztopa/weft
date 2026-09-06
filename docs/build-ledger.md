@@ -5458,17 +5458,30 @@ marked.
   names a `SourceDoc.source_id`, and bare filenames match nothing. A `0.000` that means "the
   harness is wrong" and a `0.000` that means "the architecture fails" are indistinguishable in a
   report, which is the whole reason `11` §1.4's spike is a scar
-- [ ] **9.11** a described figure keeps the caption its document supplied and gains a description
+- [x] **9.11** a described figure keeps the caption its document supplied and gains a description
   beside it; the stage that does this is named by a shipped ingest document and is a `remove:` in a
   derived one, so the capability is absent by omission and never by a flag · owner `11` §2.4; `02`
-  §3; `01` → FF16 · turns on — · sha — · `describe-figure`: `requires` `BlobRef`, reads through
+  §3; `01` → FF16 · turns on — · sha `17467c4` · `describe-figure`: `requires` `BlobRef`, reads through
   `ctx.require(BlobStore)` and `ctx.require(Describer)` — depends on 9.4 and 9.9, and through them
   on 9.0. The caption is never overwritten by assignment; a run whose document names the stage with
   no `Describer` configured fails with `UnresolvedServiceError` naming what exists, never a
   `fallback` counter in a span. Scheduled only after 9.10's verdict is recorded. **Phase 10 note:**
   a description is a VLM call per figure and is persisted in `Node.content`, so a summariser reads
   it once and never re-describes; the ingest document that names this stage is the one a RAPTOR
-  document would `extends:`
+  document would `extends:` · **shipped as two documents, not one.**
+  `index-pdf-described.yaml` inserts `describe` after `chunk`; `index-pdf-undescribed.yaml`
+  `extends:` it and `remove:`s that stage. The second exists so the absence is *provable* — the
+  capability is gone because a document did not name the stage, and not because a flag was set
+  false somewhere the pipeline cannot see. `02` §3's own argument for `remove:`, exercised ·
+  **it rewrites `content`, and `weft_enhance.contract`'s docstring says an enhancer does not.**
+  Recorded there as a marked widening under `09` §6.2's test rather than left as a silent
+  contradiction: the rewrite is additive — `f"{caption}\n\n{description}"` — so no clause of the
+  original sentence's *purpose* is lost, and the words are amended to match the code · 11 unit
+  tests (`tests/unit/weft_vision/test_describe_figure.py`), one per clause of `11` §2.4 stage 4 ·
+  **FF11 caught what 9.6 and 9.7 left undone**: `requires BlobRef` had nothing declaring
+  `provides`, because both PDF backends attached their facts and declared none of them. Repaired
+  for all four (`PdfPages`, `TableGrid`, `BlobRef`, `PageSpan`), not only the one that failed —
+  `L6.13`
 - [x] **9.12** every metric result carries the modality of the query that produced it and the
   reporter slices by it, and retrieval and generation are two baselines with two intervals, so a
   multimodal regression cannot hide inside a text mean and a judged metric's dispersion cannot make
