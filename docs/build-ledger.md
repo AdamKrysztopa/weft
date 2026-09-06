@@ -5379,10 +5379,10 @@ marked.
   a description is a VLM call per figure and is persisted in `Node.content`, so a summariser reads
   it once and never re-describes; the ingest document that names this stage is the one a RAPTOR
   document would `extends:`
-- [ ] **9.12** every metric result carries the modality of the query that produced it and the
+- [x] **9.12** every metric result carries the modality of the query that produced it and the
   reporter slices by it, and retrieval and generation are two baselines with two intervals, so a
   multimodal regression cannot hide inside a text mean and a judged metric's dispersion cannot make
-  V3 unfalsifiable for retrieval · owner `09` §4.3; `11` §3 D8 · turns on — · sha — · a field on the
+  V3 unfalsifiable for retrieval · owner `09` §4.3; `11` §3 D8 · turns on — · sha `f77285b` · a field on the
   persisted run's result model (`packages/weft-rag/src/weft_eval/run_record.py:162`; FF19 round-trips
   it) and one grouping in `weft eval`'s report; `09:540` already wants a near-zero retrieval
   interval, so the split is a reporting clause and not a new instrument · **the scar is the
@@ -5448,7 +5448,7 @@ marked.
 - [x] **9.17** re-indexing an unchanged file with a different parser — or the same parser and a
   different model — is visible as a different pipeline identity rather than silently keeping
   whichever parse arrived first · owner `02` §1 → `SourceRecord`; `11` §4 G5-c · turns on — · sha
-  — · ~~after 9.13, which is the first time two parsers can produce the same node ids from one
+  `f77285b` · ~~after 9.13, which is the first time two parsers can produce the same node ids from one
   file~~ — **not after 9.13, and the reason matters**: two parsers producing the same ids was never
   the risk. Node ids are content digests, so a different parse produces *different* ids,
   `ON CONFLICT (id)` never fires, and the old nodes and the new ones **coexist**, both retrievable,
