@@ -4307,6 +4307,63 @@ is also refused: the ReAct step is a typed structured answer through the three-t
 not run, so these four state the properties the phase must end with while leaving their shape to the
 gate — which is exactly what the ⚠ marker means in *How to read a task line* above.
 
+**Exit** (`01` → Phase 7): the agentic pack is installed **from the index** alongside the release,
+drives a corpus end to end through the published command surface with no edit to core and no private
+API, and `weft plugins doctor` reports it exactly as it reports any other pack.
+
+**Re-checked 2026-09-06 against what exists, and the conjunction read first** — `phase-step` →
+*Close the phase* item 4, which this project added at Phase 8's close precisely because reading an
+exit clause by clause reproduces the division of labour that left the gap.
+
+- **`weft plugins doctor` reports it as any other pack — MET.** From a non-editable wheel install
+  outside this repository: `agent (weft-agent) 0.1.0: active (2 contributed)`, the same shape and
+  the same fields as every other row.
+- **No edit to core, no private API — MET, with the caveat recorded rather than glossed.**
+  `git diff --stat` over `packages/weft-kernel` across the whole phase is **empty** — not "+0
+  lines" but no diff at all, covering `pyproject.toml`, docstrings and comments — and fitness
+  function 21's third clause independently asserts the kernel never learns the word *agent*. No
+  private API: `weft-agent` imports nothing from `weft_cli`. **And shipping it required an edit to
+  `weft-cli`**, which is not core and is stated anyway, because the phase exists to test that claim
+  rather than to pass it. What makes the edit defensible is that the next pack needs none — a claim
+  the close review then partly falsified (see below).
+- **Drives a corpus end to end through the published command surface — MET as far as the gate can
+  see, and no further.** `weft index ./corpus --pipeline index-text` stores nodes and `weft agent
+  "<goal>"` runs through `invoke`, returning `no_decision` because `scripted` emits prose rather
+  than a structured `NextAction`. A *completed* goal needs a real model, which `09` §4.4
+  deliberately keeps out of the gate — the same position this project already takes for
+  `rerank-then-generate` and `grade-then-generate`. The loop's own behaviour is covered by unit
+  tests against a stub, and **a role cannot carry provider config** (`RoleMapping` is `provider` and
+  `model`), so no `weft.toml` can make `scripted` decide. Named rather than worked around.
+- **Installed *from the index* — NOT MET, and it is the project's one standing debt rather than
+  this phase's failure.** No Weft distribution is published: all six release names return 404 on
+  PyPI, which `L6.33` established when `weft` itself turned out to be taken. The demonstration used
+  locally built wheels through `--find-links`, which proves the artefact and **cannot** prove the
+  index. G10 and task 6.13 already record this as *"one publish to a real index, deliberately the
+  project owner's to run"*, and Phase 7 inherits it unchanged. The close review found the precise
+  consequence: `weft-agent` declared `weft-rag>=2.0.0` while the published `2.1.0` tree contains
+  neither `weft_command.invocation` nor `weft_command.catalogue`, so an index install would have
+  resolved and then failed at import. `weft-rag` is `2.2.0` now and the bound is `>=2.2.0` — but
+  **only a real publish can close the clause.**
+
+**So Phase 7 exits three-quarters met, with the fourth clause owned by a publish nobody has run.**
+Recorded this way on Phase 8's own precedent rather than ticked as if whole: an exit claimed on a
+clause its own evidence cannot reach is what `L8.29` exists to stop.
+
+**What the whole-phase `weft-qualities` reading found, and what it leaves open.** Four failures, all
+repaired in the drain commit: an inert `max_steps`, the stale `weft-rag` version, fitness function
+21 missing from `01`'s numbered list, and `invoke`/`Consent` absent from their own package
+namespace. **Two findings are filed rather than fixed**, because each is a design question rather
+than a repair, and neither should be settled from one instance:
+*(a)* **requirement 1 still fails for the next pack.** `run_command` registers `LLM`, `Prompts`,
+`TokenSink` and `Registry`; a pack needing the configured `NodeStore` or `Embedder` still cannot
+reach one, because *which* name the project chose lives in `ServiceSelection`, inside `weft-cli`.
+The seam was repaired for the four contracts the agent needed rather than made whole.
+*(b)* **the agent can call itself.** `agent` is `write`-class and in its own catalogue, so
+`CommandTool` → `invoke` → `AgentCommand.run` → `command_tools` → `agent`, with `max_steps` bounding
+one loop and nothing bounding depth. The cheap fix — a name in `EXCLUDED_BY_NAME` — is the one to
+avoid, because it is the deny-list shape requirement 4 already objects to for `config set`; the
+honest answer is a depth or ancestry fact carried on the `Context` and refused at the tool seam.
+
 ## Phase 8 — From engine to product
 
 **Added 2026-09-05, logged as scope decision `S9`.** `01` → Phase 8 owns the content and the exit;
