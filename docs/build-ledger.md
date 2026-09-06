@@ -4016,7 +4016,7 @@ is also refused: the ReAct step is a typed structured answer through the three-t
   defects I had misread as belonging to the absent module; `lessons.md` `L8.35` records it. The
   seam itself came back honest and needed no change; the CLI wiring and FF20 are mine
 - [x] **7.1 ⚠** the agent is a pack — it registers against contracts it did not define, and core has no
-  knowledge of it · owner `01` → Phase 7; `02` §1 · turns on **FF21** · sha `SHA71` ·
+  knowledge of it · owner `01` → Phase 7; `02` §1 · turns on **FF21** · sha `067776d` ·
   **`weft-agent` is a seventh distribution, and that is Phase 7's claim rather than a packaging
   preference.** `01` → Phase 7 asks for *"a first-party pack built against nothing but the released
   API, on the same terms a stranger has"*, and a stranger cannot add a package to somebody else's
