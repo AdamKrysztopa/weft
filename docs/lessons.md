@@ -27,6 +27,35 @@ otherwise paid for twice.
 
 ## Queue
 
+### L8.36 — a brief that forbids every option has decided nothing, and says so only by contradicting itself
+
+**What happened.** Task 7.2's dispatch brief told the implementer, of the branch where the cascade
+returns something other than `Produced`: *"Do not invent a `StopReason` member for it; use
+`BUDGET_EXHAUSTED` only for the budget."* Those two clauses have no value between them that is
+true — the branch is neither an answer nor an exhausted budget, and the third member was forbidden.
+The brief also said *"if you find you need a third member to be honest, stop and report"*, and the
+implementer did the strongest available thing: it reused `BUDGET_EXHAUSTED`, wrote the reuse and
+the contradiction into the module docstring **and** into its report, and shipped green. Nothing was
+hidden, and I would still not have looked at that branch if the report had not named it — none of
+the six tests reach it, because the stub always answers.
+
+The resolution, once looked at, took one enum member and was not close: `stopped_because` is a
+field an operator reads to decide what to do next, and `BUDGET_EXHAUSTED` on a run that stopped
+after one step of ten tells them to raise the budget — which would change nothing, because the
+model never returned a usable decision.
+
+**Generalises to.** A brief's constraints are a specification and can be **jointly unsatisfiable**
+while each one reads as reasonable alone — and the author is exactly the person who cannot see it,
+because they wrote them one at a time. Before dispatching, take each branch the brief constrains
+and name the value it is supposed to produce; a branch with no nameable value is a decision still
+owed, not a constraint. The tell in this instance was already in the brief's own text: an escape
+hatch (*"stop and report"*) written for a fork the author had noticed and had not settled.
+
+**Candidate home.** `references/implementer-brief.md`, which owns the brief template — the *Already
+decided* section should be read once per constrained branch rather than once per file, and an
+escape hatch in a brief is a signal the author left something open, not a safety net that makes
+leaving it open fine.
+
 ### L8.35 — the expected red hid an unexpected one, and it cost a dispatch
 
 **What happened.** Writing task 7.0's test, I ran `uv run poe ci-no-tests` before dispatching the

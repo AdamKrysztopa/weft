@@ -57,20 +57,38 @@ class NextAction(BaseModel):
         return self
 
 
+class AgentStep(BaseModel):
+    """One decided `NextAction`, paired with what it observed once it ran.
+
+    Task **7.2**: a transcript of decisions alone cannot be reasoned from — the model deciding
+    step *n+1* needs to see what step *n*'s tool call actually returned, not only that a call
+    was made. `observation` is `None` for a step that answered rather than called: an answering
+    step observes nothing, and inventing a placeholder for it would manufacture a fact the loop
+    never had.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    action: NextAction
+    observation: str | None = None
+
+
 class AgentTranscript(BaseModel):
-    """A run's goal, and every `NextAction` decided toward it so far, in order.
+    """A run's goal, and every step taken toward it so far, in order.
 
     Frozen, so advancing a run never mutates the transcript already handed to a caller — `
     with_step` returns a new instance, the same discipline `weft_kernel.payload`'s own frozen
-    models are held to.
+    models are held to. `steps` holds `AgentStep`, not bare `NextAction`: a decision on its own
+    says what the model chose but not what came back from it, and a loop deciding what to do
+    next needs both halves of that pair.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     goal: str
-    steps: tuple[NextAction, ...] = ()
+    steps: tuple[AgentStep, ...] = ()
 
-    def with_step(self, step: NextAction) -> AgentTranscript:
+    def with_step(self, step: AgentStep) -> AgentTranscript:
         """A new transcript with `step` appended after every step already recorded."""
         return self.model_copy(update={"steps": (*self.steps, step)})
 

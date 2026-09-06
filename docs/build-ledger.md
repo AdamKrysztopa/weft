@@ -4058,9 +4058,55 @@ is also refused: the ReAct step is a typed structured answer through the three-t
   phase and for the same reason.** My test called `registrar.flush()`; `PackRegistrar` has
   `commit()` and never had a `flush`. `lessons.md` `L8.35` is updated with the recurrence and
   re-routed from *Green* to *Red*, where the mistake is actually made
-- [ ] **7.2 ⚠** the loop's autonomy, tool surface, memory and approval points are the ones
+- [x] **7.2 ⚠** the loop's autonomy, tool surface, memory and approval points are the ones
   `agentic-patterns` names, chosen rather than inherited · owner `05` → G12; `01` → Phase 7 **Gate** ·
-  turns on — · sha —
+  turns on — · sha `SHA72` ·
+  **The design pass ran before this task, and its answers are asserted in the test rather than
+  described in a comment** — which is what makes "chosen rather than inherited" checkable. Autonomy:
+  a **single agent**, no planner, no reflection pass, no sub-agents, no topology layer. The
+  irreducible reason an agent is needed at all is that `weft index` reports what failed only
+  *after* running, and twenty-seven shipped pipeline documents make *"which rung fits this corpus"*
+  a runtime choice no branch table can enumerate; everything else is a fixed two-step. Loop: ReAct,
+  one step at a time, under a hard budget. Memory: a frozen transcript within one invocation and
+  nothing across them, because durable read-back already exists **as tools** (`weft trace`,
+  `weft eval`) and a Recorder contract would add a gate for something the command surface answers.
+  Approval: none in the loop — G12's ceiling, and 7.2a is what makes it mechanical ·
+  **The ReAct step is a typed structured answer through `weft_prompts.cascade`, not native
+  tool-calling, and that is a decision with a cost stated.** `LLMProvider` has `complete`, `stream`
+  and `close`; `Conversation`/`Message` carry `role` and `content` and no tool-call field. Adding
+  one would be a **G9 major for every implementer** to buy what `complete_structured` plus the
+  three-tier cascade already buys — and it would make the agent untestable against `scripted`,
+  which is exactly the offline property this phase's exit depends on ·
+  **`AgentStep` was added here because a transcript of decisions cannot be reasoned from.** 7.1
+  shipped `steps` as bare `NextAction`s, enough to record what was decided and not enough to decide
+  anything *next*: without the observation the loop is a plan with extra rounds, since the model
+  would choose step two knowing only what it chose in step one. The memory shape is this task's own
+  subject, so it changed here rather than being worked around ·
+  **A tool the catalogue does not hold is refused as an observation fed back to the model**, naming
+  what was asked for and what is available — requirement 5 applied to a model's own output, which is
+  an untrusted source of names exactly as a pipeline document is. The one difference from a document
+  naming an unknown plugin is **who is told**: a wrong guess is something an agent should recover
+  from, so the run continues and the step still counts against the budget. The refusal is no
+  quieter ·
+  **Exhausting the budget is a typed result and never an exception**, because a loop that raises on
+  its own designed stopping condition makes every caller treat a normal outcome as a failure and
+  puts what the agent actually did on an exception instead of in the result ·
+  **`weft_llm.loop_guard` was proposed by the design pass and is not used — measured, not assumed.**
+  That module answers *"has this generated text settled into repeating itself?"*, a streaming-token
+  question whose thresholds are tuned for markdown tables. An agent going in circles is a different
+  fact, about repeated *actions* across steps. Citing it would have been a citation rather than a
+  mechanism ·
+  **`StopReason.NO_DECISION` exists because this task's own brief had decided nothing** and the
+  implementer said so instead of choosing quietly: the brief forbade adding a member *and* forbade
+  reusing `BUDGET_EXHAUSTED` outside the budget, which leaves no true value for the branch where the
+  cascade cannot parse a decision. It reused `BUDGET_EXHAUSTED`, wrote the contradiction into the
+  module docstring and into its report, and shipped green — and none of the six tests reach that
+  branch, so the report is the only reason it was looked at. **Settled against the operator**:
+  `stopped_because` is read to decide what to do next, and `BUDGET_EXHAUSTED` on a run that stopped
+  after one step of ten says *raise the budget*, which would change nothing. `lessons.md` `L8.36` ·
+  `weft-kernel`: **+0 lines** · `uv run poe ci-checks` green: **2,045 passed, 38 skipped**, 221
+  architecture tests · **dispatched to `weft-implementer` at `sonnet`** — the first dispatch this
+  phase to come back green, and the seventh test (`NO_DECISION`) is mine, written after its report
 - [ ] **7.2a** the agent's tool catalogue is derived from `permission_class`, so a command it must
   not reach is out of reach without anyone editing the agent · owner `03` → *Permissions*;
   `02` §2 · turns on — · sha — · **The ceiling made mechanical rather than trusted.** Measured

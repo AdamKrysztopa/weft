@@ -26,15 +26,17 @@ from weft_prompts.contract import Prompt
 
 
 class Settings(BaseModel):
-    """`weft-agent` takes no pack settings yet.
+    """`weft-agent`'s pack settings — task 7.2's own: the loop's step budget.
 
-    The loop's own settings — which prompt to ask, how many steps to allow, which tools to
-    offer — arrive at task 7.2, once there is a loop to configure. An empty model is still the
-    required shape (`docs/02-extension-model.md` section 2): every pack declares one, even
-    with nothing to validate.
+    `max_steps` is an operator's decision, not a number baked into `weft_agent.loop`, per that
+    module's own docstring. Defaulted to 10: enough for a handful of tool calls plus a final
+    answer on the kind of multi-step retrieval question this pack exists for, without letting a
+    model stuck in a loop run away unbounded.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
+
+    max_steps: int = 10
 
 
 def register(registrar: PackRegistrar, settings: Settings) -> None:
