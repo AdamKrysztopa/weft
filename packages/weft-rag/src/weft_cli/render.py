@@ -89,6 +89,7 @@ from weft_cli.eval_commands import (
     TraceCommandResult,
 )
 from weft_cli.exit_codes import exit_code_for
+from weft_cli.ingest import SourceChange
 from weft_cli.output import AskFormat
 from weft_cli.pipeline_commands import (
     PipelineDeriveCommandResult,
@@ -109,6 +110,7 @@ from weft_command import ExitCode
 # already uses for `ExitCode` one module over.
 from weft_command import Rendered as Rendered
 from weft_command.contract import CommandResult
+from weft_eval.contract import MetricKind
 from weft_eval.falsify import BaselineSpread, DifferenceJudgement
 from weft_eval.run_record import MetricRunResult
 from weft_kernel.discovery import PackRegistrar, PackReport, PackStatus, RendererOffer
@@ -439,6 +441,32 @@ def _render_result(result: CommandResult, *, streamed: bool) -> Rendered:
     return _render_unknown(result)
 
 
+def _reparse_lines(changes: Mapping[str, SourceChange]) -> list[str]:
+    """The sources a re-index re-parsed, and why — ledger task **9.17**.
+
+    **Only what moved.** A corpus of a thousand unchanged files must not print a thousand lines
+    saying so; `UNCHANGED` and `NEW` are the ordinary cases and stay silent, which is what makes
+    the two that print worth reading.
+
+    A `PIPELINE_CHANGED` line is the one this task exists for: the bytes are identical and the
+    pipeline that read them is not, so the corpus now holds this document parsed two ways. The
+    line says so plainly rather than implying it, and it does **not** claim anything was cleaned
+    up — nothing was. `docs/lessons.md` `L9.37` owns that half.
+    """
+    reportable = {
+        SourceChange.CONTENT_CHANGED: "changed on disk, re-parsed",
+        SourceChange.PIPELINE_CHANGED: (
+            "unchanged on disk but re-parsed by a different pipeline — the earlier parse's nodes "
+            "are still stored beside the new ones"
+        ),
+    }
+    return [
+        f"  {source}: {reportable[change]}"
+        for source, change in sorted(changes.items())
+        if change in reportable
+    ]
+
+
 def _render_index(result: IndexCommandResult) -> Rendered:
     """`weft index`'s whole answer, plus the automatic post-index reconciliation pass, task
     **5.1c**. `result.reconcile` is rendered through `_render_reconcile` itself — one renderer
@@ -453,6 +481,9 @@ def _render_index(result: IndexCommandResult) -> Rendered:
         f"produced {summary.produced}, nothing to produce {summary.nothing_to_produce}, "
         f"failed {summary.failed}. nodes now stored: {stored}."
     )
+    reparsed = _reparse_lines(result.source_changes)
+    if reparsed:
+        stdout += "\n" + "\n".join(reparsed)
     stderr = (
         "\n".join(f"  failed: {reason}" for reason in summary.failed_reasons)
         if summary.failed_reasons
@@ -627,16 +658,34 @@ def _render_eval_run(result: EvalRunCommandResult) -> Rendered:
     return Rendered(stdout=stdout, stderr=stderr, exit_code=exit_code)
 
 
+def _slice_text(stdev: float | None) -> str:
+    """The `±stdev` fragment `_metric_result_text` prints, shared with its own per-modality
+    lines below — one dispersion format for the whole aggregate and each of its slices."""
+    return f"±{stdev:.3f}" if stdev is not None else "±n/a"
+
+
 def _metric_result_text(result: MetricRunResult) -> str:
     """One `weft_eval.run_record.MetricRunResult`, for a human — a mean with its own dispersion
     and sample count if the metric was scored, or the honest reason it was not, task 4.9's own
     "never a bare mean, and never silence for an unmeasured metric" pair of rules.
+
+    Task 9.12 — a per-modality line for each entry `MetricAggregate.by_modality` carries, but
+    **only when there is more than one**: a text-only run's `by_modality` holds at most the one
+    `TEXT` slice, and printing it beside a whole-run mean that is already that same slice would
+    be pure noise, not information — so a single-modality run renders exactly as it always has.
     """
     if isinstance(result, Produced):
         aggregate = result.value
-        stdev = f"±{aggregate.stdev:.3f}" if aggregate.stdev is not None else "±n/a"
+        stdev = _slice_text(aggregate.stdev)
         excluded = f", excluded {aggregate.excluded}" if aggregate.excluded else ""
-        return f"{aggregate.mean:.3f} (n={aggregate.n}, {stdev}{excluded})"
+        text = f"{aggregate.mean:.3f} (n={aggregate.n}, {stdev}{excluded})"
+        if len(aggregate.by_modality) > 1:
+            per_modality = ", ".join(
+                f"{modality.value}: {slice_.mean:.3f} (n={slice_.n}, {_slice_text(slice_.stdev)})"
+                for modality, slice_ in sorted(aggregate.by_modality.items())
+            )
+            text += f" [{per_modality}]"
+        return text
     return f"not produced ({result.reason})"
 
 
@@ -731,11 +780,43 @@ def _render_eval_compare(result: EvalCompareCommandResult) -> Rendered:
     return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
 
 
+def _metric_kind(result: MetricRunResult) -> MetricKind:
+    """Which contract produced `result` — read straight off the persisted aggregate when there
+    is one. A `NotAggregated` metric carries no `kind` of its own — nothing was ever computed to
+    read one off — so it falls back to `MetricKind.RETRIEVAL`, the same compromise
+    `MetricAggregate.kind` itself documents; every metric this pack scores into a `RunRecord`
+    today is a `RetrievalMetric` regardless (`weft_eval.harness` ships no generation-scoring
+    counterpart yet), so the fallback names no metric wrongly in practice.
+    """
+    if isinstance(result, Produced):
+        return result.value.kind
+    return MetricKind.RETRIEVAL
+
+
+def _grouped_metric_lines(metrics: Mapping[str, MetricRunResult]) -> list[str]:
+    """`metrics`, one heading per `MetricKind` present, retrieval first — task 9.12.
+
+    Printed even when every metric is the one kind: a heading that disappears the moment there
+    is only one group is a heading a reader cannot rely on.
+    """
+    lines: list[str] = []
+    for kind in (MetricKind.RETRIEVAL, MetricKind.GENERATION):
+        members = {name: result for name, result in metrics.items() if _metric_kind(result) is kind}
+        if not members:
+            continue
+        lines.append(f"  {kind.value}:")
+        lines.extend(
+            f"    {name}: {_metric_result_text(result)}" for name, result in sorted(members.items())
+        )
+    return lines
+
+
 def _render_trace(result: TraceCommandResult) -> Rendered:
     """`weft trace` — every fact `weft_eval.run_record.RunRecord` carries, and nothing this
     module invents on top of it (Q2, `weft_cli.eval_commands`'s own module docstring: this is
     what the persisted record holds, never a stage-level replay nothing in this tree persists).
     Task 4.9 widened the record by one field, `metrics`, so this widens by one block to match.
+    Task 9.12 groups that block by `MetricKind` — see `_grouped_metric_lines`.
     """
     record = result.record
     lines = [
@@ -747,10 +828,7 @@ def _render_trace(result: TraceCommandResult) -> Rendered:
     ]
     if record.metrics:
         lines.append("metrics:")
-        lines.extend(
-            f"  {name}: {_metric_result_text(metric_result)}"
-            for name, metric_result in sorted(record.metrics.items())
-        )
+        lines.extend(_grouped_metric_lines(record.metrics))
     else:
         lines.append("metrics: (none recorded — 'weft eval run' was not given --questions)")
     return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)

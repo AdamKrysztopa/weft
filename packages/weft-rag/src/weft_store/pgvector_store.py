@@ -127,8 +127,24 @@ CREATE TABLE IF NOT EXISTS weft_sources (
     content_hash TEXT NOT NULL,
     indexed_at TIMESTAMPTZ NOT NULL,
     pipeline TEXT NOT NULL,
-    status TEXT NOT NULL
+    status TEXT NOT NULL,
+    pipeline_identity TEXT NOT NULL DEFAULT ''
 )
+"""
+
+#: Ledger task **9.17**'s column, added to a table that already exists rather than only to a
+#: fresh one — `CREATE TABLE IF NOT EXISTS` does nothing to a database created before the column
+#: was declared, which is the identical reason `_add_content_tsv_sql` is its own statement.
+#:
+#: **Found by running the binary, and it is exactly what that step is for.** Every unit test for
+#: `9.17` builds a `SourceRecord` in memory, so all of them passed while the write silently
+#: dropped the field: `put_source` names its columns explicitly, so a value with no column simply
+#: never arrives. A second index under the *same* pipeline then read back `pipeline_identity=""`
+#: and reported a re-parse that had not happened — a false positive in a change detector, which
+#: this task's own tests call worse than no detector (`docs/lessons.md` `L9.60`).
+_ADD_SOURCES_PIPELINE_IDENTITY = """
+ALTER TABLE weft_sources
+    ADD COLUMN IF NOT EXISTS pipeline_identity TEXT NOT NULL DEFAULT ''
 """
 
 # `embedding` is declared as a bare `vector`, with no fixed dimension: pgvector has allowed an
@@ -643,6 +659,7 @@ class PgVectorStore:
         await register_vector_async(conn)
         async with conn.cursor() as cur:
             await cur.execute(_CREATE_SOURCES_TABLE)
+            await cur.execute(_ADD_SOURCES_PIPELINE_IDENTITY)
             await cur.execute(_CREATE_NODES_TABLE)
             await self._provision_text_index(cur)
         self._conn = conn
@@ -861,14 +878,16 @@ class PgVectorStore:
         async with conn.cursor() as cur:
             await cur.execute(
                 """
-                INSERT INTO weft_sources (id, uri, content_hash, indexed_at, pipeline, status)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                INSERT INTO weft_sources
+                    (id, uri, content_hash, indexed_at, pipeline, status, pipeline_identity)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (id) DO UPDATE SET
                     uri = EXCLUDED.uri,
                     content_hash = EXCLUDED.content_hash,
                     indexed_at = EXCLUDED.indexed_at,
                     pipeline = EXCLUDED.pipeline,
-                    status = EXCLUDED.status
+                    status = EXCLUDED.status,
+                    pipeline_identity = EXCLUDED.pipeline_identity
                 """,
                 (
                     record.id,
@@ -877,6 +896,7 @@ class PgVectorStore:
                     record.indexed_at,
                     record.pipeline,
                     record.status.value,
+                    record.pipeline_identity,
                 ),
             )
 
@@ -1039,5 +1059,6 @@ def _row_to_source_record(row: Mapping[str, object]) -> SourceRecord:
         content_hash=cast(str, row["content_hash"]),
         indexed_at=cast(datetime, row["indexed_at"]),
         pipeline=cast(str, row["pipeline"]),
+        pipeline_identity=cast(str, row.get("pipeline_identity") or ""),
         status=SourceStatus(cast(str, row["status"])),
     )

@@ -29,6 +29,15 @@ produced one, falling back to the registered name only when every sample failed 
 ever computed to report a name for — the identical fallback `weft_cli.eval_commands.
 EvalMetricsCommand` gives no equivalent to, because this is the one place in the tree a metric's
 own name can be genuinely unknown before it runs.
+
+**Every score also carries which modality it came from — ledger task 9.12.** `RetrievalMetric`
+scores `RetrievalSample`s, so `kind=MetricKind.RETRIEVAL` is a fact this module already knows
+from *which contract it fetched the metric off of* (`registry.names_for(RetrievalMetric)`), not
+a guess from the metric's own name. `_modality_slices` partitions each metric's own `samples` by
+`sample.modality`, folds each partition with `aggregate()` again, and keeps only the partitions
+that actually produced a mean — see `weft_eval.aggregate`'s own module docstring for why the
+partitioning happens here rather than inside `aggregate()` itself: only the caller that paired
+samples to outcomes can make that link.
 """
 
 from __future__ import annotations
@@ -38,8 +47,14 @@ from typing import cast
 
 from pydantic import BaseModel, ValidationError
 
-from weft_eval.aggregate import MetricAggregate, aggregate
-from weft_eval.contract import RetrievalMetric, RetrievalSample
+from weft_eval.aggregate import MetricAggregate, ModalitySlice, aggregate
+from weft_eval.contract import (
+    MetricKind,
+    MetricScore,
+    QueryModality,
+    RetrievalMetric,
+    RetrievalSample,
+)
 from weft_eval.offline import gate_subset
 from weft_kernel.context import Context
 from weft_kernel.payload import Outcome, Produced
@@ -62,6 +77,32 @@ def _metric_config(config_model: type[BaseModel] | None, *, top_k: int) -> BaseM
         return config_model()
     except ValidationError:
         return config_model(k=top_k)
+
+
+def _modality_slices(
+    samples: Sequence[RetrievalSample], outcomes: Sequence[Outcome[MetricScore]]
+) -> Mapping[QueryModality, ModalitySlice]:
+    """Partition `outcomes` by the `modality` of the `RetrievalSample` that produced each, fold
+    each partition with `aggregate()`, and keep only the partitions that produced a mean.
+
+    A partition whose observations all failed or had nothing to score contributes no slice — an
+    absence and an error are not the same claim, the identical distinction `MetricAggregate.
+    excluded` vs `nothing_to_produce` already keeps one level up.
+    """
+    by_modality: dict[QueryModality, list[Outcome[MetricScore]]] = {}
+    for sample, outcome in zip(samples, outcomes, strict=True):
+        by_modality.setdefault(sample.modality, []).append(outcome)
+
+    slices: dict[QueryModality, ModalitySlice] = {}
+    for modality, modality_outcomes in by_modality.items():
+        partition = aggregate(modality_outcomes)
+        if isinstance(partition, Produced):
+            slices[modality] = ModalitySlice(
+                mean=partition.value.mean,
+                n=partition.value.n,
+                stdev=partition.value.stdev,
+            )
+    return slices
 
 
 async def score_retrieval_gate_subset(
@@ -89,7 +130,11 @@ async def score_retrieval_gate_subset(
         metric = cast(RetrievalMetric, factory(config))
 
         outcomes = [await metric.evaluate(sample, ctx) for sample in samples]
-        outcome = aggregate(outcomes)
+        outcome = aggregate(
+            outcomes,
+            kind=MetricKind.RETRIEVAL,
+            by_modality=_modality_slices(samples, outcomes),
+        )
         key = outcome.value.reported_name if isinstance(outcome, Produced) else name
         report[key] = outcome
     return report

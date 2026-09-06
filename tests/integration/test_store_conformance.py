@@ -440,13 +440,28 @@ async def test_estimate_counts_the_identical_tombstones_reconcile_itself_examine
 
 
 async def test_a_source_record_round_trips_and_is_listed(store: ConformanceStore) -> None:
-    # Arrange
+    """The whole record, compared with `==` — every field, not the three someone remembered.
+
+    **This test asserted three fields by name until 2026-09-06, and that is why it missed one.**
+    Task `9.17` added `SourceRecord.pipeline_identity`; `pgvector`'s `put_source` names its columns
+    explicitly and the table had no column for it, so the value was written into a statement with
+    nowhere to put it and read back as its own default — silently, and the default *means*
+    something, so the feature reported a re-parse that had not happened. Twenty-one unit tests and
+    the whole gate passed; the binary found it (`docs/lessons.md` `L9.60`).
+
+    A field-by-field assertion can only check fields its author has heard of, which makes it exactly
+    as complete as the day it was written. `==` on a frozen model is complete by construction and
+    owes no edit when the model grows.
+    """
+    # Arrange — every field populated, including the ones with defaults: a default that is never
+    # written is a default the store is never asked to carry.
     record = SourceRecord(
         id=_SOURCE_A,
         uri="file:///corpus/a.txt",
         content_hash="hash-a",
         indexed_at=datetime.now(UTC),
         pipeline="conformance",
+        pipeline_identity="9f2c1a4e",
     )
 
     # Act
@@ -455,9 +470,7 @@ async def test_a_source_record_round_trips_and_is_listed(store: ConformanceStore
     listed = await store.list_sources()
 
     # Assert
-    assert found is not None
-    assert found.uri == "file:///corpus/a.txt"
-    assert found.content_hash == "hash-a"
+    assert found == record
     assert tuple(item.id for item in listed) == (_SOURCE_A,)
 
 

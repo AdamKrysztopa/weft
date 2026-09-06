@@ -46,14 +46,29 @@ report actually has (many metrics, each under its own key): it takes the key the
 *about to publish* an aggregate under and refuses, via `ReportedNameMismatchError`, the moment
 that key disagrees with what the metric itself computed — precisely the shape that would catch a
 report keyed `'precision_at_k'` sitting beside a metric that actually computed `'precision@7'`.
+
+**`kind` and `by_modality` — ledger task 9.12, and the scar `tests/unit/weft_eval/test_modality.
+py`'s own module docstring names.** A comparable evaluation suite stored a per-result modality
+tag and never sliced by it at aggregation time, so a multimodal regression hid inside a mean a
+repeated-baseline interval would never flag. `MetricAggregate.kind` records which contract —
+`RetrievalMetric` or `GenerationMetric` — produced the observations, so `weft trace` can group by
+it with no registry to ask; `MetricAggregate.by_modality` carries each modality's own `mean`/`n`/
+`stdev` as a `ModalitySlice`, beside the whole-run mean rather than instead of it. **`aggregate()`
+does not compute the slices itself** — it receives a bare `Sequence[Outcome[MetricScore]]`, and
+`MetricScore` carries only `metric_name` and `value` (verified against `weft_eval.contract`), with
+no link back to the `RetrievalSample`/`GenerationSample` whose `modality` produced each score. Only
+the caller that zipped samples to outcomes in the first place — `weft_eval.harness`, for the one
+partition this pack computes today — can partition by modality, so `by_modality` is a parameter
+`aggregate()` passes straight into the `MetricAggregate` it builds, never a computation it performs.
 """
 
 import statistics
 from collections.abc import Mapping, Sequence
+from typing import cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from weft_eval.contract import MetricScore
+from weft_eval.contract import MetricKind, MetricScore, QueryModality
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import Failed, NothingToProduce, Outcome, Produced
 
@@ -104,6 +119,23 @@ class ReportedNameMismatchError(WeftError):
         self.computed_name = computed_name
 
 
+class ModalitySlice(BaseModel):
+    """One modality's own `mean`/`n`/`stdev` within a `MetricAggregate.by_modality` mapping.
+
+    The same three quantities `MetricAggregate` carries for the whole run, one level down, and
+    the same reasons: `n` is `ge=1` because there is nothing to average over zero observations —
+    a partition with none is absent from `by_modality` entirely, never a zero-`n` entry — and
+    `stdev` is `None` rather than `0.0` at `n == 1`, since a standard deviation of one observation
+    is not a real quantity to claim.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    mean: float
+    n: int = Field(ge=1)
+    stdev: float | None
+
+
 class MetricAggregate(BaseModel):
     """One metric's aggregate result over many observations — mean, `n` and `stdev` travel together.
 
@@ -134,9 +166,27 @@ class MetricAggregate(BaseModel):
     #: How many `NothingToProduce` observations this aggregate excluded — a legitimate absence,
     #: counted separately from `excluded` because it is not an error.
     nothing_to_produce: int = Field(ge=0)
+    #: Which contract — `RetrievalMetric` or `GenerationMetric` — produced these observations, so
+    #: `weft trace` can group by it with no registry to ask (see the module docstring). Defaulted
+    #: to `MetricKind.RETRIEVAL` as a compromise, not a claim: eleven existing test fixtures
+    #: construct `MetricAggregate` directly and are out of the editable set for task 9.12, so this
+    #: field cannot be made required today. `aggregate()`'s own caller — `weft_eval.harness` —
+    #: always passes it explicitly, so no production value is ever the default.
+    kind: MetricKind = MetricKind.RETRIEVAL
+    #: Each modality's own `mean`/`n`/`stdev`, sliced from the same observations `mean`/`stdev`
+    #: were folded from as a whole. `{}` is the honest answer for a caller that did not partition
+    #: by modality — every caller before task 9.12 — never one slice fabricated from the whole.
+    by_modality: Mapping[QueryModality, ModalitySlice] = Field(
+        default_factory=lambda: cast("Mapping[QueryModality, ModalitySlice]", {})
+    )
 
 
-def aggregate(outcomes: Sequence[Outcome[MetricScore]]) -> Outcome[MetricAggregate]:
+def aggregate(
+    outcomes: Sequence[Outcome[MetricScore]],
+    *,
+    kind: MetricKind = MetricKind.RETRIEVAL,
+    by_modality: Mapping[QueryModality, ModalitySlice] | None = None,
+) -> Outcome[MetricAggregate]:
     """Fold many observations of *one* metric into `Produced[MetricAggregate]`, or say why not.
 
     `Failed` observations are excluded from `mean`/`stdev` and counted in `excluded`.
@@ -151,6 +201,12 @@ def aggregate(outcomes: Sequence[Outcome[MetricScore]]) -> Outcome[MetricAggrega
     Raises `MismatchedMetricNameError` if two `Produced` observations report different
     `metric_name`s — mixing two metric configurations into one aggregate is a caller error this
     function refuses rather than silently averaging together.
+
+    `kind` and `by_modality` are passed straight through onto the `MetricAggregate` this builds,
+    never computed here — see the module docstring's own paragraph for why: this function receives
+    a bare sequence of scores with no link back to the sample that produced each, so only the
+    caller that paired samples to outcomes (`weft_eval.harness`, today) can partition by modality.
+    `by_modality` defaults to `{}`, the honest answer for a caller that did not partition.
     """
     scored: list[float] = []
     reported_name: str | None = None
@@ -195,6 +251,8 @@ def aggregate(outcomes: Sequence[Outcome[MetricScore]]) -> Outcome[MetricAggrega
             stdev=stdev,
             excluded=excluded,
             nothing_to_produce=nothing_to_produce,
+            kind=kind,
+            by_modality=by_modality or {},
         )
     )
 

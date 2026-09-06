@@ -80,6 +80,7 @@ named document has made.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 from typing import ClassVar, Final, cast
 
@@ -92,7 +93,7 @@ from weft_cli.deletion import participants as deletion_participants
 from weft_cli.eval_commands import DEFAULT_RUNS_DIR, register_eval_commands
 from weft_cli.exit_codes import ExitCode
 from weft_cli.fanout import Participant
-from weft_cli.ingest import INDEX_PACKS, run_index
+from weft_cli.ingest import INDEX_PACKS, SourceChange, run_index
 from weft_cli.installed_versions import installed_versions
 from weft_cli.output import AskFormat
 from weft_cli.participation import load_run_records, stores_in_use
@@ -452,6 +453,10 @@ class IndexCommandResult(CommandResult):
     summary: RunSummary
     stored_count: int | None
     reconcile: ReconcileCommandResult | None = None
+    #: What re-indexing changed, per source — ledger task **9.17**. Carried here so the renderer
+    #: can report it without reaching back into `weft_cli.ingest`; empty when the store could not
+    #: answer `list_sources`, which is an absent comparison and not a claim that nothing moved.
+    source_changes: Mapping[str, SourceChange] = Field(default_factory=dict)
 
 
 class AskCommandResult(CommandResult):
@@ -708,6 +713,7 @@ class IndexCommand:
                 summary=result.summary,
                 stored_count=result.stored_count,
                 reconcile=reconcile_result,
+                source_changes=result.source_changes,
             )
         )
 

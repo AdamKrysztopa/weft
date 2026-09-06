@@ -120,13 +120,19 @@ from weft_kernel.runner import Stage
 #: repeats honestly the first time, rather than under-recording it as G9's own note warns
 #: against.
 #:
+#: **`2.1.0` → `2.2.0` at task 9.17 — a minor, for the same reason.** `SourceRecord` gains
+#: `pipeline_identity`, an optional field defaulting to the empty string, so every writer of a
+#: `SourceRecord` keeps satisfying the family untouched and every reader that ignores it is
+#: unaffected. G9's table again: an added optional field on a returned model is minor for the
+#: caller and minor for the implementer.
+#:
 #: **`2.0.0` → `2.1.0` at task 9.3 — a minor.** `Removed` gains `removed`, an optional field
 #: defaulting to an empty mapping, so every participant already returning a `Removed` keeps
 #: satisfying the family untouched. G9's two-audience table classifies this minor for both
 #: sides: minor for a caller (an existing field, `node_count`, is untouched, so nothing that
 #: reads a `Removed` breaks) and minor for an implementer (nothing that already builds a
 #: `Removed` is asked for a new required value).
-STORE_CONTRACT_VERSION = "2.1.0"
+STORE_CONTRACT_VERSION = "2.2.0"
 
 #: Versioned separately from `STORE_CONTRACT_VERSION`: a `Filter` is data that
 #: outlives any one store, serialised into a resolved, stored pipeline. Moved `1.0.0` →
@@ -197,6 +203,17 @@ class SourceRecord(BaseModel):
     content_hash: str
     indexed_at: datetime
     pipeline: str
+    #: A digest of what the pipeline actually **ran** — `weft_kernel.resolution.pipeline_identity`,
+    #: ledger task 9.17. `pipeline` above is the document's *name*, and a name does not move when
+    #: the plugin behind a stage does: swapping `pdf-text` for `pdf-layout` inside `index-text`, or
+    #: changing an embedder's `with: model:`, leaves it reading `index-text` while the corpus was
+    #: built two different ways.
+    #:
+    #: **Defaults empty, and empty means "not compared", never "unchanged".** Every record already
+    #: on disk was written before this field existed, so an empty value is the absence of evidence
+    #: rather than evidence of sameness — `weft_cli.ingest.changes_against_records` reports a
+    #: reparse for one, because claiming `UNCHANGED` there would claim a comparison nobody made.
+    pipeline_identity: str = ""
     status: SourceStatus = SourceStatus.ACTIVE
 
 

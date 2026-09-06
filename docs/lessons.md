@@ -1384,6 +1384,14 @@ the rule was written down and had just been written down *by me*. That is the st
 argument that this belongs in a mechanism rather than a sentence: the person breaking it is the
 person who knows it best and is the only one positioned to break it.
 
+**Instances four and five, and the first with a measured cost.** Running `9.12` and `9.17` in
+parallel, I edited `weft_eval/aggregate.py` (the 9.12 implementer's own file, a one-line pyright
+fix it was about to make itself) and `weft_kernel/resolution.py` mid-flight. The second broke three
+of *its* test runs with an `AttributeError` from a function that had nothing to do with its task;
+they passed on re-run seconds later. It reported both, could not attribute the first to any actor
+it had been told about, and correctly declined to revert either. Five instances now, one session.
+The separate lesson about *why parallel dispatch made this inevitable* is `L9.61`.
+
 
 ### L9.58 — a parametrised case built its own control by transforming the input, and one value transformed to itself
 
@@ -1460,6 +1468,71 @@ non-vacuity test asserting the four models by name, so a regression says which o
 The rule worth writing down is the general one, in `phase-step` → *Orient*, beside *read the
 population, not the declaration*: a derived population is only as wide as its widening function, and
 that function is the thing to test.
+
+
+### L9.60 — a new model field was written, dropped by the store, and read back as its own default
+
+**What happened.** Task `9.17` added `SourceRecord.pipeline_identity`, defaulting `""`, so a
+re-index could tell *the document changed* from *the pipeline changed*. Twenty-one unit tests
+passed, the full gate passed at 2,260 tests, and then the binary was run: a second `weft index` of
+an **unchanged** file under the **same** pipeline reported
+
+> `unchanged on disk but re-parsed by a different pipeline`
+
+`pgvector_store.put_source` names its columns explicitly, and `weft_sources` had no
+`pipeline_identity` column — `CREATE TABLE IF NOT EXISTS` does nothing to a table that already
+exists. So the value was written into a statement that had nowhere to put it, silently, and read
+back as the field's own default. The default then *meant* something: this task deliberately treats
+an empty identity as "not compared", so the store's silence was indistinguishable from a real
+finding, and the feature reported the exact false positive its own tests call *worse than no
+detector, because it teaches people to ignore it*.
+
+Every unit test built a `SourceRecord` in memory. Not one went through a store.
+
+**Generalises to.** A field added to a persisted model is not persisted until a column, a payload
+key or a serialiser carries it, and the failure is silent in the worst direction: a defaulted field
+reads back as a plausible value rather than as an error. So a new field on a model any store writes
+lands with a **round trip through a real backend** in the same commit — the conformance kit exists
+for exactly this and is parameterised over both. And where the default is itself meaningful, say so
+at the field and check the store separately: `""` meaning "not compared" is what turned a dropped
+write into a wrong answer instead of a missing one.
+
+**Candidate home.** The conformance kit is the mechanism and it is already the right shape: a case
+asserting that a `SourceRecord` round-trips **whole** — `record == read_back` rather than
+field-by-field — would have failed the day the field landed, on both backends, with no per-field
+edit ever owed again. `phase-step` → *Finish* item 4 is what caught it, and its wording already
+covers this ("construct the condition for any branch that only fires sometimes"); what is missing
+is the cheaper check that makes running the binary a confirmation rather than the only detector.
+
+
+### L9.61 — two implementers on disjoint files still share one test suite
+
+**What happened.** Asked to parallelise, I dispatched `9.12` and `9.17` at once, having checked that
+their file sets were disjoint — `weft_eval/*` and `weft_cli/eval_scoring.py` for one,
+`weft_kernel/resolution.py`, `weft_store/contract.py` and `weft_cli/ingest.py` for the other — and
+told each to leave the other's alone. Both obeyed. It did not help.
+
+The `9.12` implementer ran `pytest tests/unit/weft_cli` while my half-finished
+`pipeline_identity` was on disk, and three tests it had no involvement with failed with an
+`AttributeError` from inside it. It reported them, correctly identified the cause as the concurrent
+edit rather than as its own defect, and re-ran. It happened to be an agent careful enough to do
+that. An agent that reported **blocked** on those three failures would have been reporting
+truthfully about a tree that no longer existed, and I would have had to work out why.
+
+**Disjoint files are not disjoint work.** The shared thing is not the files, it is the *suite* — an
+agent's only evidence that it is done is a test run over the whole tree, and every concurrent edit
+anywhere is inside that evidence. `phase-step` → *Green* already knows the container and the
+lockfile are shared (`L6.22`); the test tree is the third shared resource and the one nobody named.
+
+**Generalises to.** Parallel dispatch in one checkout is safe only for agents that never run a
+suite wider than their own files, which is no agent worth dispatching. Two implementers at once
+means `isolation: "worktree"` — the skill already offers it — and the dispatcher merging after,
+paying the merge instead of the interference. Anything less is serial work with extra failure
+modes, and the failure modes land on the agent rather than on the person who chose them.
+
+**Candidate home.** `phase-step` → *Green*, whose "keep off the tree" paragraph is written for one
+agent and does not say what to do when the answer is two. The concrete sentence: *two implementers
+at once need two worktrees; the same checkout serialises them whether or not their files overlap.*
 
 ## When the queue is empty
 

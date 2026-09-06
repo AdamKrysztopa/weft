@@ -5385,7 +5385,26 @@ marked.
   V3 unfalsifiable for retrieval · owner `09` §4.3; `11` §3 D8 · turns on — · sha — · a field on the
   persisted run's result model (`packages/weft-rag/src/weft_eval/run_record.py:162`; FF19 round-trips
   it) and one grouping in `weft eval`'s report; `09:540` already wants a near-zero retrieval
-  interval, so the split is a reporting clause and not a new instrument
+  interval, so the split is a reporting clause and not a new instrument · **the scar is the
+  point.** `11` §1.4: a comparable suite *"modelled modality as first-class and then measured none
+  of it"* — the field was on every result and the aggregation step never sliced by it. So
+  `QueryModality` lands on `Question` and both sample types, and `MetricAggregate` gains
+  `by_modality`, computed by the **harness** — which knows which sample produced which score —
+  rather than by `aggregate()`, which receives a bare `Sequence[Outcome[MetricScore]]` and
+  structurally cannot know · `MetricKind` is *recorded* rather than looked up: `weft trace` renders
+  a persisted `RunRecord` off disk with no registry to ask whether `precision@5` came from a
+  `RetrievalMetric`, and re-deriving it would need the registry that produced the run, on the
+  machine reading it · **the default is a compromise stated as one** — eleven test fixtures
+  construct `MetricAggregate` and were outside this dispatch's editable set, so `kind` could not be
+  required; the harness always passes it explicitly, so no production value is ever the default ·
+  **FF19 did not cover this model, and this line said it did.** `RunRecord.metrics` is
+  `Mapping[str, MetricRunResult]`, a PEP 695 alias, and `get_args` answers `()` for one — the walk
+  stopped there and `MetricAggregate` sat outside FF19's population entirely, along with three
+  other models. Repaired in `ffb9243` *before* this task built on the claim; `L9.59`, and `L9.42`'s
+  shape a second time · **landed in one commit with `9.17`**, which is why both cite one sha: the
+  two were built in parallel by two implementers on file sets that were disjoint everywhere except
+  `weft_cli/render.py`, and splitting that file across two commits would have put one task's
+  renderer under the other's message · `poe ci-checks` green: **2260 passed, 39 skipped**
 - [ ] **9.13** a scanned or multi-column PDF is readable through a learned layout rung shipped as its
   own distribution for its dependency weight, selectable by name in a pipeline document, exposing
   four typed decisions and no vendor dict, reporting itself partial when its weights are not on disk
@@ -5426,10 +5445,39 @@ marked.
   §4 G4-b · turns on — · sha — · a question label, not a gate. `weft_kernel.runner.resolve` must not
   learn the words *embedding dimension*; the check is a declared pack setting checked at load, since
   every oversized model supports Matryoshka truncation and the surprise must not be an `INSERT`
-- [ ] **9.17** re-indexing an unchanged file with a different parser — or the same parser and a
+- [x] **9.17** re-indexing an unchanged file with a different parser — or the same parser and a
   different model — is visible as a different pipeline identity rather than silently keeping
   whichever parse arrived first · owner `02` §1 → `SourceRecord`; `11` §4 G5-c · turns on — · sha
-  — · after 9.13, which is the first time two parsers can produce the same node ids from one file
+  — · ~~after 9.13, which is the first time two parsers can produce the same node ids from one
+  file~~ — **not after 9.13, and the reason matters**: two parsers producing the same ids was never
+  the risk. Node ids are content digests, so a different parse produces *different* ids,
+  `ON CONFLICT (id)` never fires, and the old nodes and the new ones **coexist**, both retrievable,
+  while the source row is overwritten so nothing records the corpus was built two ways. Not "the
+  first parse wins" — "both win and the evidence is gone", which is `L9.37`'s finding, confirmed
+  independently by this task's own survey · **what was missing was a comparable thing.**
+  `SourceRecord.pipeline` holds a document's *name*, and a name does not move when the plugin
+  behind a stage does. `weft_kernel.resolution.pipeline_identity` is a digest over the resolved
+  stages — id, contract, contract version, plugin, distribution, sorted config, plus the
+  pipeline's vars — length-prefixed exactly as `_content_digest` is and for its reason. `name`,
+  `unapplied_operators` and `unplaced_contributions` are excluded: a rename re-parses nothing, and
+  an identity that moved on one would report a re-parse that did not happen — a false positive in
+  a change detector is worse than no detector, because it teaches people to ignore it ·
+  `SourceRecord.pipeline_identity` defaults `""`, and **empty means "not compared", never
+  "unchanged"**: every record already on disk has one, which is the absence of evidence.
+  `STORE_CONTRACT_VERSION` `2.1.0` → `2.2.0`, a minor by G9's table · **this task reports; it does
+  not clean up.** Removing the stale nodes is a deletion on the ingest path that nobody argued
+  for; `L9.37` says it owes a task of its own and this is not it · **found by running the binary
+  and by nothing else** (`L9.60`): 21 unit tests and a 2,260-test gate passed while `pgvector`
+  silently dropped the new column — `put_source` names its columns and `CREATE TABLE IF NOT EXISTS`
+  does nothing to an existing table — so a second index under the *same* pipeline read back `""`
+  and reported the exact false positive this line calls worse than silence. Repaired with an
+  `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` on `_add_content_tsv_sql`'s own precedent, and the
+  conformance kit's source-record case now compares **whole records with `==`** rather than three
+  fields by name — watched to fail against the planted original defect, on `pgvector`, with
+  `qdrant` unaffected because its payload is a whole `model_dump` · through the binary: a first
+  index is silent, a second under the same pipeline is silent, and `--pipeline index-with-keywords`
+  over identical bytes prints `unchanged on disk but re-parsed by a different pipeline — the
+  earlier parse's nodes are still stored beside the new ones` · sha shared with `9.12`
 
 **Document edits owed by this section, not tasks** (`11` §5's own rule): ~~`10` §4 gains the
 reserved names (`colpali`, `colqwen`, `late-interaction`, `maxsim`, `visual-citation`,

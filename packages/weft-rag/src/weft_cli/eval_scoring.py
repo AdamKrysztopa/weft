@@ -53,7 +53,7 @@ from weft_cli.service_roles import RoleTable
 from weft_cli.services import ServiceSelection
 from weft_embed import Embedder
 from weft_eval.aggregate import MetricAggregate
-from weft_eval.contract import RetrievalSample, RetrievedPassage
+from weft_eval.contract import QueryModality, RetrievalSample, RetrievedPassage
 from weft_eval.harness import score_retrieval_gate_subset
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackReport
@@ -148,6 +148,10 @@ class Question(BaseModel):
 
     query: str = Field(min_length=1)
     relevant_documents: tuple[str, ...] = ()
+    #: What kind of query this is — task 9.12. Defaulted to `TEXT` so a questions file written
+    #: before this task keeps loading unchanged; `load_questions` needs no edit beyond this model
+    #: accepting the key.
+    modality: QueryModality = QueryModality.TEXT
 
 
 def load_questions(path: Path) -> tuple[Question, ...]:
@@ -330,6 +334,7 @@ async def score_pipeline(
                 query=question.query,
                 retrieved=_deduplicated_by_document(hits, top_k=top_k),
                 relevant_ids=frozenset(question.relevant_documents),
+                modality=question.modality,
             )
         )
 

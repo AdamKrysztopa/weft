@@ -198,6 +198,8 @@ name" — never a fabricated placeholder a caller could mistake for real data.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 import typing
 from collections.abc import Mapping
@@ -741,6 +743,77 @@ def _read_only[K, V](value: Mapping[K, V]) -> Mapping[K, V]:
     `extends` reading live parents.
     """
     return MappingProxyType(dict(value))
+
+
+#: How much of the sha256 hex digest `pipeline_identity` keeps. Thirty-two hex characters is 128
+#: bits — far past any collision an operator's set of pipelines could reach, and short enough that
+#: the value stays readable in a `weft index` line and in a `weft_sources` column an operator
+#: greps. The full 64 buys nothing here and costs legibility at exactly the moment it is read.
+_IDENTITY_WIDTH: Final[int] = 32
+
+
+def pipeline_identity(pipeline: ResolvedPipeline) -> str:
+    """A stable digest of what a resolved pipeline actually *runs* — ledger task **9.17**.
+
+    `SourceRecord.pipeline` records a document's **name**, and a name does not move when the
+    plugin behind a stage does: swap `pdf-text` for `pdf-layout` inside `index-text`, or change an
+    embedder's `with: model:`, and the record still says `index-text` while the corpus was built
+    two different ways. This is the comparable thing — `weft_cli.pipeline_diff`'s field-by-field
+    `==` over two `ResolvedPipeline` values, reduced to one string a store column can carry and an
+    operator can read.
+
+    **What moves it.** Every resolved stage in order, and for each: `id`, `contract`,
+    `contract_version`, `use`, `distribution`, and `config` with its keys sorted. Plus the
+    pipeline's `vars`, keys sorted — a var reaches a stage's config at resolution, but a var the
+    document declares and no stage reads is still part of what an operator wrote, and excluding it
+    would need an argument nobody has made.
+
+    **What does not, and why each is deliberate.** `name` is excluded: renaming a document does not
+    re-parse a corpus, and an identity that moved on a rename would report a reparse that did not
+    happen — a false positive in a change detector is worse than no detector, because it teaches
+    people to ignore it. `unapplied_operators` and `unplaced_contributions` are excluded: they
+    record what resolution *could not* do, which is a diagnostic about the document rather than part
+    of what ran, so a corpus built with one is the same corpus.
+
+    **Every part is length-prefixed before hashing**, exactly as
+    `weft_kernel.payload.node._content_digest` does and for its reason: without it no concatenation
+    of variable-length strings is safe against a different split of the same bytes, and
+    `("ab", "c")` would collide with `("a", "bc")`.
+
+    Pure and deterministic — no clock, no environment, no registry. It names no capability either:
+    it reads `ResolvedStage`'s own fields and knows nothing about what a `contract` string means.
+    """
+    digest = hashlib.sha256()
+    for part in _identity_parts(pipeline):
+        encoded = part.encode("utf-8")
+        digest.update(len(encoded).to_bytes(8, byteorder="big"))
+        digest.update(encoded)
+    return digest.hexdigest()[:_IDENTITY_WIDTH]
+
+
+def _identity_parts(pipeline: ResolvedPipeline) -> tuple[str, ...]:
+    """Everything `pipeline_identity` hashes, in order — see its docstring for what is left out.
+
+    `default=str` on the config dump is deliberate rather than lax: a `config` value pydantic
+    validated but `json` cannot encode would otherwise make this function *raise*, and an identity
+    function able to fail a run that was otherwise fine is a worse outcome than a value rendered
+    through `str`. The digest stays stable either way, which is the only property asked of it.
+    """
+    parts: list[str] = [
+        json.dumps(dict(sorted(pipeline.vars.items())), sort_keys=True, default=str)
+    ]
+    for stage in pipeline.stages:
+        parts.extend(
+            (
+                stage.id,
+                stage.contract,
+                stage.contract_version or "",
+                stage.use,
+                stage.distribution,
+                json.dumps(cast("Mapping[str, object]", stage.config), sort_keys=True, default=str),
+            )
+        )
+    return tuple(parts)
 
 
 def resolve(

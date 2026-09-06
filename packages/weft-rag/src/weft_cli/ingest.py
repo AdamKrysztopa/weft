@@ -98,8 +98,9 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import AsyncIterator, Awaitable, Callable, Collection, Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
+from enum import StrEnum
 from pathlib import Path
 from typing import Final, cast
 
@@ -121,8 +122,9 @@ from weft_extract import (
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackReport
 from weft_kernel.errors import UnresolvedNameError, WeftError
+from weft_kernel.payload import SourceId
 from weft_kernel.registry import Registry
-from weft_kernel.resolution import Contribution, ResolvedPipeline, resolve
+from weft_kernel.resolution import Contribution, ResolvedPipeline, pipeline_identity, resolve
 from weft_kernel.runner import (
     PipelineResolutionError,
     RunnablePipeline,
@@ -293,6 +295,15 @@ class IndexResult:
     stored_count: int | None
     resolved_pipeline: ResolvedPipeline | None = None
     document_ids: tuple[str, ...] = ()
+    #: What re-indexing changed, per source — ledger task **9.17**. Empty when the store this run
+    #: used cannot answer `list_sources`, which is honest rather than a claim that nothing changed:
+    #: an absent comparison and an unchanged corpus are different facts and `changes_against_
+    #: records` is what keeps them apart. The renderer reports only the sources that moved.
+    source_changes: Mapping[str, SourceChange] = field(
+        default_factory=lambda: cast("Mapping[str, SourceChange]", {})
+    )
+    #: The identity this run's pipeline ran under, so a caller can print or persist it.
+    pipeline_identity: str = ""
 
 
 async def run_index(
@@ -425,14 +436,27 @@ async def run_index(
         yield docs
 
     try:
+        identity = pipeline_identity(resolved_pipeline) if resolved_pipeline is not None else ""
+        # Read *before* the run writes over them: the comparison is against what the last index
+        # left, and `_record_sources` below replaces exactly those rows.
+        previous = await _recorded_sources(runnable, store_stage_id=store_stage_id)
+        changes = changes_against_records(docs, previous, identity=identity)
         summary = await runner.run(runnable, batches(), indexing_ctx)
-        await _record_sources(runnable, store_stage_id=store_stage_id, docs=docs, pipeline=pipeline)
+        await _record_sources(
+            runnable,
+            store_stage_id=store_stage_id,
+            docs=docs,
+            pipeline=pipeline,
+            identity=identity,
+        )
         stored_count = await _stored_count(runnable, store_stage_id=store_stage_id)
         return IndexResult(
             summary=summary,
             stored_count=stored_count,
             resolved_pipeline=resolved_pipeline,
             document_ids=tuple(str(doc.source_id) for doc in docs),
+            source_changes={str(source): change for source, change in changes.items()},
+            pipeline_identity=identity,
         )
     finally:
         for stage in runnable.stages:
@@ -673,12 +697,104 @@ async def _stored_count(runnable: RunnablePipeline, *, store_stage_id: str | Non
     return None
 
 
+async def _recorded_sources(
+    runnable: RunnablePipeline, *, store_stage_id: str | None
+) -> Mapping[SourceId, SourceRecord]:
+    """Every `SourceRecord` the run's own store already holds, by id — task **9.17**.
+
+    Found the same way `_record_sources` and `_stored_count` find the store: by the stage id
+    already derived from the resolved specs, never by the literal `"store"`. A store with no
+    callable `list_sources` answers `{}`, and `changes_against_records` then reports every source
+    as `NEW` — which is honest for a store that cannot say otherwise, and is the same defensive
+    footing `_stored_count`'s own `None` sits on.
+    """
+    if store_stage_id is None:
+        return {}
+    for stage in runnable.stages:
+        if stage.id != store_stage_id:
+            continue
+        list_sources = getattr(stage.instance, "list_sources", None)
+        if list_sources is None:
+            return {}
+        return {record.id: record for record in await list_sources()}
+    return {}
+
+
+class SourceChange(StrEnum):
+    """What a re-index found about one source, relative to what a `SourceRecord` already said.
+
+    Ledger task **9.17**. `SourceRecord` has carried `content_hash` since G4 and `pipeline` since
+    task 6.24, and `02` §1 states their purpose — *"`pipeline` is what lets `weft index` say
+    'already indexed, by a different pipeline'"*. Measured 2026-09-06, **nothing compared either**:
+    every use in `packages/` was a write, a read-back or a copy (`docs/lessons.md` `L9.37`). This
+    enum is the vocabulary of the comparison that was missing.
+    """
+
+    #: No `SourceRecord` exists for this source. The first index of anything, and the state every
+    #: corpus indexed before task 9.17 is in for its pipeline identity.
+    NEW = "new"
+    #: Same bytes, same pipeline identity. The common re-index, and the one worth saying least
+    #: about.
+    UNCHANGED = "unchanged"
+    #: The document itself moved. Reported in preference to `PIPELINE_CHANGED` when both did,
+    #: because it is the fact an operator can act on — see `changes_against_records`.
+    CONTENT_CHANGED = "content-changed"
+    #: The bytes are identical and the pipeline that read them is not: a different parser, or the
+    #: same parser and a different model. 9.17's own case, and the one that was invisible.
+    PIPELINE_CHANGED = "pipeline-changed"
+
+
+def changes_against_records(
+    docs: Sequence[SourceDoc],
+    records: Mapping[SourceId, SourceRecord],
+    *,
+    identity: str,
+) -> Mapping[SourceId, SourceChange]:
+    """What re-indexing `docs` under `identity` changes, per source — task **9.17**.
+
+    Pure and synchronous: the caller fetches the records, this decides what they mean. Keyed on
+    the docs this run actually saw, so a source elsewhere in the corpus is not reported — `weft
+    index` reports on what it indexed.
+
+    **An empty `pipeline_identity` on a stored record reports `PIPELINE_CHANGED`, not
+    `UNCHANGED`.** Every record written before task 9.17 has one, and it is the *absence of
+    evidence* rather than evidence of sameness; `02` §1's own rule is that an empty answer is never
+    a fact about the world. Claiming `UNCHANGED` there would claim a comparison nobody made.
+
+    **When both the bytes and the pipeline moved, the bytes are reported.** The document is
+    re-parsed either way, so the useful half is the one an operator can act on — telling them the
+    pipeline changed would send them looking for a configuration difference that is not the
+    interesting fact.
+
+    **What this does not do, stated so nobody infers it.** It reports; it removes nothing. A
+    re-parse produces *different* node ids — ids are content digests — so `ON CONFLICT (id)` never
+    fires and the old nodes stay beside the new ones, retrievable. That is `L9.37`'s finding and it
+    owes a task of its own; 9.17's property is visibility, and quietly widening it here would be a
+    deletion on the ingest path that nobody argued for.
+    """
+    found: dict[SourceId, SourceChange] = {}
+    for doc in docs:
+        record = records.get(doc.source_id)
+        if record is None:
+            found[doc.source_id] = SourceChange.NEW
+            continue
+        if record.content_hash != hashlib.sha256(doc.content).hexdigest():
+            found[doc.source_id] = SourceChange.CONTENT_CHANGED
+            continue
+        if record.pipeline_identity != identity:
+            found[doc.source_id] = SourceChange.PIPELINE_CHANGED
+            continue
+        found[doc.source_id] = SourceChange.UNCHANGED
+    return found
+
+
 async def _record_sources(
     runnable: RunnablePipeline,
     *,
     store_stage_id: str | None,
     docs: Sequence[SourceDoc],
     pipeline: str | None,
+    identity: str = "",
 ) -> None:
     """One `SourceRecord` per `SourceDoc` this run indexed — ledger task **6.24**'s repair of
     the defect `02` §1 documents: nothing on the ingest path ever called `put_source`, so
@@ -715,6 +831,7 @@ async def _record_sources(
                     content_hash=hashlib.sha256(doc.content).hexdigest(),
                     indexed_at=indexed_at,
                     pipeline=name,
+                    pipeline_identity=identity,
                 )
             )
         return

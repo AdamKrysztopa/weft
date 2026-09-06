@@ -59,6 +59,16 @@ business enforcing. `weft_eval.offline.gate_subset` is the reading half: given a
 derives which registered metric names actually declared `True`, never a second, hand-maintained
 list of "the offline ones" to keep in sync by hand.
 
+**`modality` — ledger task 9.12.** `QueryModality` names what kind of query produced a sample:
+`TEXT` for every question this suite has ever scored, `IMAGE` reserved for the day
+`describe-query-image` ships (unbuilt today, per `S11` on `MediaType`: no member gets added
+without a producer). Both `GenerationSample` and `RetrievalSample` default it to `TEXT`, so every
+question written before this task is a text question and stays one with no edit anywhere. See
+`weft_eval.aggregate`'s own module docstring for why the fact is stored here but sliced there.
+`MetricKind` names which of the two contracts — `RetrievalMetric`/`GenerationMetric` — produced a
+given score; it travels on `MetricAggregate`, not looked up at report time, for the reason that
+module's docstring gives.
+
 **Every metric's own `evaluate` decides `NothingToProduce` vs `Failed` for its own missing input,
 consistently applied across the suite** — the one place 4.2 makes a rule of what could otherwise
 drift metric by metric: an empty reference (or an empty relevant-id set, its retrieval-side
@@ -73,12 +83,37 @@ happens to hold. A caller who wants "1.0 because both sides are the empty string
 different, legitimate question — `exact-match` already answers it, honestly, as an exact match.
 """
 
+from enum import StrEnum
 from typing import TYPE_CHECKING, ClassVar, Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict
 
 from weft_kernel.context import Context
 from weft_kernel.payload import Outcome
+
+
+class QueryModality(StrEnum):
+    """What kind of query produced a sample — ledger task 9.12.
+
+    Two members only: `TEXT` is every question this suite has ever scored, and `IMAGE` is
+    reserved for `describe-query-image` — unbuilt today. A member with no producer is exactly
+    what `S11` calls out about `MediaType`, so this enum grows a third member only once a third
+    producer exists, never ahead of it.
+    """
+
+    TEXT = "text"
+    IMAGE = "image"
+
+
+class MetricKind(StrEnum):
+    """Which of the two metric contracts — `RetrievalMetric` or `GenerationMetric` — produced a
+    `MetricScore`. Carried on `MetricAggregate` rather than looked up at report time; see
+    `weft_eval.aggregate`'s own module docstring for why.
+    """
+
+    RETRIEVAL = "retrieval"
+    GENERATION = "generation"
+
 
 #: Fitness function 6's subject for this contract. A fresh `1.0.0` for both halves of the split
 #: rather than carrying task 4.1's `METRIC_CONTRACT_VERSION` forward onto one arm of it — `Metric`
@@ -101,8 +136,15 @@ class GenerationSample(BaseModel):
 
     query: str
     prediction: str | None = None
-    reference: str
+    #: Defaulted to `""` — task 9.12's `test_a_query_is_text_unless_something_says_otherwise`
+    #: constructs a `GenerationSample` with only `query` to check `modality`'s own default, and an
+    #: empty reference is already a meaningful, existing state: the module docstring's own rule
+    #: treats it as `NothingToProduce` unconditionally, regardless of what `prediction` carries.
+    reference: str = ""
     contexts: tuple[str, ...] = ()
+    #: What kind of query produced this sample — task 9.12. Defaulted to `TEXT` because every
+    #: question written before this task is one, and stays one with no edit anywhere.
+    modality: QueryModality = QueryModality.TEXT
 
 
 class RetrievedPassage(BaseModel):
@@ -135,6 +177,9 @@ class RetrievalSample(BaseModel):
     retrieved: tuple[RetrievedPassage, ...] = ()
     relevant_ids: frozenset[str] = frozenset()
     reference: str | None = None
+    #: What kind of query produced this sample — task 9.12. Defaulted to `TEXT` because every
+    #: question written before this task is one, and stays one with no edit anywhere.
+    modality: QueryModality = QueryModality.TEXT
 
 
 class MetricScore(BaseModel):
