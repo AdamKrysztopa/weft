@@ -433,7 +433,13 @@ def shipped_pipeline_names() -> frozenset[str]:
         names.update(load_pipeline_catalogue(directory))
 
     registry = Registry()
-    reports = discover(registry, pack_settings={"store": {"dsn": _PLACEHOLDER_DSN}})
+    reports = discover(
+        registry,
+        pack_settings={
+            "store": {"dsn": _PLACEHOLDER_DSN},
+            "blob": {"root": "/nonexistent-technique-naming"},
+        },
+    )
     names.update(load_contributed(reports))
     return frozenset(names)
 

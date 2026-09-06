@@ -331,7 +331,13 @@ def test_every_pack_the_default_install_declares_is_loaded_at_the_version_it_dec
 
     # Act
     registry = Registry()
-    reports = discover(registry, pack_settings={"store": {"dsn": _PLACEHOLDER_DSN}})
+    reports = discover(
+        registry,
+        pack_settings={
+            "store": {"dsn": _PLACEHOLDER_DSN},
+            "blob": {"root": "/nonexistent-release-set-check"},
+        },
+    )
     by_pack = {report.pack: report for report in reports}
     not_loaded = sorted(
         pack for pack in packs if pack not in by_pack or by_pack[pack].status not in _LOADED

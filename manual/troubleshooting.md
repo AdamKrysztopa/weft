@@ -1063,16 +1063,16 @@ $ echo $?
 ### `UnknownServiceKeyError`
 
 **What it looks like** — repair, 2026-08-20 (`docs/01-high-level-plan.md` item 12's own dated
-paragraph): `[services]` names a key `weft_cli.services.ServiceSelection` does not have —
-`embed`, `route` and `store` are the three — reproduced against a real checkout:
+paragraph): `[services]` names a key nothing declares — `embed`, `route`, `store` and `blob` are what a
+default install accepts — reproduced against a real checkout:
 
 ```text
 $ printf '[services]\nembedd = "openai"\n' > weft.toml
 $ weft plugins list
 unknown [services]
 key(s) in weft.toml: 'embedd'. [services]
-accepts embed, route, store. A key nothing reads is refused rather than ignored — a service Weft
-did not select is one you would have to notice by the answers being wrong.
+accepts blob, embed, route, store. A key nothing reads is refused rather than ignored — a service
+Weft did not select is one you would have to notice by the answers being wrong.
 $ echo $?
 4
 ```
@@ -1087,11 +1087,16 @@ $ echo $?
 Before this repair the class was a bare `WeftError` — the message already named the keys, but only
 inside the string, invisible to fitness function 12's family walk, which looks for a typed
 `valid_options` field. `UnknownConfigKeyError` above is the same-phase precedent this now matches;
-`(exc.valid_options == ("embed", "route", "store"))` for any raise site. `weft plugins list`'s exit `4`
+`(exc.valid_options == ("blob", "embed", "route", "store"))` for any raise site. `weft plugins list`'s exit `4`
 comes from `weft_cli.cli.main`'s own fixed code for any `WeftError` raised while `build_
 dependencies` is still assembling the registry — see that function's own comment — not from
-`weft_cli.exit_codes.exit_code_for`'s per-exception mapping. **What to do:** use `embed`,
-`route` or `store`, the three keys `[services]` reads — `docs/03-cli.md` → *Project context*.
+`weft_cli.exit_codes.exit_code_for`'s per-exception mapping. **What to do:** use one of the keys
+`[services]` actually reads — `docs/03-cli.md` → *Project context*. **The set is no longer fixed**:
+task 9.0 made `[services]` keys *declared* by the packs that publish the contracts they select, so
+`blob` joined it when `weft_blob` shipped at task 9.4 and a pack you install can add another. That
+is why the tuple above is checked against the live one by
+`tests/docs/test_manual_valid_options.py` rather than trusted — which is what caught this page the
+day `blob` was added.
 
 The malformed-value check just below this one in `weft_cli.services.service_selection_from_
 config` (a `[services]` value that is not a non-empty string) stays a plain `WeftError` and is
@@ -1476,6 +1481,89 @@ generation expression, so without this check the setting would appear to apply a
 sense that matters — nothing needs re-indexing, because the column is derived from `content`, which
 is already stored — but the rebuild is a full table rewrite, so on a large corpus do it when you can
 afford one.
+
+---
+
+## Blob storage — `weft_blob`
+
+Where a figure's pixels live. `[packs.blob] root` names a directory; a `BlobRef` in a node's `ext`
+points into it, and `weft delete` reaps a source's blobs through the same fan-out that reaches the
+node store. The bytes never enter the payload — `docs/02-extension-model.md` §1 → *The payload
+model* is why, and it is what keeps a JSONB column from growing a megabyte per figure.
+
+### `BlobKeyRefusedError`
+
+**What it looks like** — a key or a blob uri that would resolve outside the configured root:
+
+```text
+'../escaped.png' is refused: a blob key or prefix must be a relative path with no '..' segment,
+so it cannot resolve outside the configured root
+```
+
+or, on the reading side:
+
+```text
+'file:///etc/passwd' resolves outside /srv/weft/blobs, the root [packs.blob] root names. A blob
+uri is read back from a stored record, so this store resolves only inside its own root and
+refuses anything else rather than reading it.
+```
+
+Two boundaries, one rule. First-party keys are derived by `weft_blob.keys.blob_key`, which cannot
+produce a traversal — but `put`, `delete_prefix` and `open` all take a bare string, and a key
+composed by a third-party extractor or a uri read back from a stored `BlobRef` are both inputs this
+pack did not write. A stored record is **data**, not an instruction, which is the identical
+argument `weft_kernel.payload.applicability._FactRef` makes one layer up about resolving a
+persisted class reference by importing it.
+
+An empty key or prefix is refused for its own reason: it names the root itself, so
+`delete_prefix("")` would reap every tenant in it, and an empty string arriving at a
+`destroy`-class operation is far more likely to be a variable nobody set than a caller who means
+*everything*.
+
+**What to do:** compose keys through `weft_blob.keys.blob_key` rather than by hand. If the refusal
+names a uri rather than a key, the `BlobRef` in that node was written against a different root —
+check `[packs.blob] root` against the one the corpus was indexed with.
+
+### `BlobNotFoundError`
+
+**What it looks like** — `open` was asked for a uri nothing ever wrote, or whose file has since
+been removed from outside Weft:
+
+```text
+no blob was ever written at 'file:///srv/weft/blobs/tenant-a/9f2c.../0.png'
+```
+
+Never an empty `bytes`. An empty answer here would be indistinguishable from a real empty blob, so
+a describer or an embedder handed it would produce a plausible result against nothing at all —
+the exact silent-fallback shape `CLAUDE.md` refuses.
+
+**What to do:** the common cause is a root that was emptied, moved, or is a different directory
+from the one that was indexed. `weft reconcile` does **not** reach blobs today, so a corpus whose
+blob root was lost needs re-indexing rather than repair.
+
+### `BlobLayoutVersionError`
+
+**What it looks like** — the root was written by a different on-disk layout than this version of
+the pack reads:
+
+```text
+/srv/weft/blobs was written by blob layout version '2'; this store is layout version '1' and
+refuses to read or write a root a different layout produced. Point [packs.blob] root at a root
+this version wrote, or migrate this root's contents to the current layout before reusing it.
+```
+
+**This is the seventh persistence surface, and the rule behind it is `S11`** (`docs/README.md`'s
+decision log). `ExtModel.__schema_version__` versions the `BlobRef` a node carries and says nothing
+about the layout that reference resolves *through*; every persistence root a pack owns outside the
+node store carries its own version, in the root, checked at open and refused on mismatch. Guessing
+here means reading somebody's bytes from a layout that did not write them.
+
+A root with no marker and no blobs is a *fresh* root and is adopted rather than refused — otherwise
+first use would be impossible.
+
+**What to do:** what the message says. There is no automatic migration, deliberately: a migration
+nobody wrote is a migration nobody tested, and the alternative to refusing is silently
+misinterpreting a corpus.
 
 ---
 

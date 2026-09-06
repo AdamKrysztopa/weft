@@ -37,6 +37,38 @@ no thread-safety obligation on the author. `Lifetime.PROCESS` is opt-in and acce
 obligation, in exchange for the kernel reusing the instance across runs, cached by
 `(tenant_id, contract, name, config_hash)`.
 
+## `BlobStore`
+
+**Module:** `weft_blob.contract`  
+**Registered by:** `weft-rag`  
+**Version:** `1.0.0`
+
+Puts bytes under a caller-composed key, opens them back by the returned uri, and reaps a
+prefix on delete. Three methods, and every one of them the whole surface a plugin owes.
+
+**`put` takes a plain `str` key, not a `weft_blob.keys.BlobUri` or a `SourceId`-shaped
+argument** — the module publishing this contract has no opinion on how a key is derived;
+`weft_blob.keys` is one caller's answer, not part of the capability. A caller composing its
+own key is exactly the case `weft_blob.filesystem_store`'s own boundary check exists for.
+
+**`media_type` on `put` and nowhere else.** `open` returns the bytes a caller already knows
+the shape of — the `BlobRef.media_type` field carries that fact durably — so the contract
+does not ask a store to remember or return it a second time.
+
+### Methods
+
+```python
+async def delete_prefix(self, prefix: str) -> int: ...
+```
+
+```python
+async def open(self, uri: weft_blob.contract.BlobUri) -> bytes: ...
+```
+
+```python
+async def put(self, key: str, data: bytes, media_type: str) -> weft_blob.contract.BlobUri: ...
+```
+
 ## `Chunker`
 
 **Module:** `weft_chunk.contract`  

@@ -1211,6 +1211,101 @@ population.
 accept the key at runtime. Failing that, `phase-step` → *Finish*, item 2, which asks whether a task's
 own fitness function is wired and does not ask which existing checks the task just made incomplete.
 
+
+### L9.53 — a key layout in a design document assumed an id that measurement showed is a filesystem path
+
+**What happened.** `docs/11-multimodal.md:213-217` specifies blob keys as
+`{tenant_id}/{source_id}/{ordinal}.{ext}`, *"derived, never allocated"*, with cascade delete as
+`delete_prefix(f"{tenant_id}/{source_id}/")` — the argument that deletes a whole
+`FigureAssetsRepository` component, and it is a good argument. `docs/build-ledger.md`'s task `9.4`
+repeats the layout and cites `11:193-222`. Measured 2026-09-06, by indexing a directory through the
+shipped binary and reading `weft_sources`: a real `SourceId` is
+`/private/tmp/.../binrun/corpus/doc.txt` — an **absolute path**. `SourceId` is
+`NewType("SourceId", str)` (`packages/weft-kernel/src/weft_kernel/payload/ids.py:22`) and nothing
+constrains its characters; the ingest path assigns the source's URI.
+
+So the layout as written interpolates a leading `/` and every interior separator straight into a
+storage key. On a filesystem backend that is a deep accidental tree at best and an escape from the
+configured root at worst, and the escape needs no attacker — a source whose path contains `..`
+suffices. The design is not wrong about *derivation*; it is wrong about what it is deriving from,
+and the sentence that carries the error is the same sentence that carries the good argument.
+
+**Generalises to.** A layout, key or path built from an identifier is a claim about that
+identifier's alphabet, and a `NewType` over `str` makes no such claim. Before interpolating an id
+into anything positional or hierarchical, read one real value of it out of a running system — not
+its type, not its docstring, not the example in the design. The example in a design document is
+chosen by whoever wrote the design and is always well-behaved.
+
+**Candidate home.** `phase-step` → *Orient*, beside *read the population, not the declaration*
+(`L6.4`), which today is about markers and invariants and not about identifiers. The sharper form:
+an id's *type* is not its alphabet, and one `select` against the container answers it.
+
+
+### L9.54 — the second pack with a required setting had to be added to eleven hand-written lists
+
+**What happened.** `weft-store` has been the only pack with a required setting (`[packs.store] dsn`,
+no default) since Phase 0, so every place that runs `discover()` outside a real project hands it a
+placeholder — *"structurally valid and never dialled"*. Task `9.4` shipped the second such pack
+(`[packs.blob] root`), and it turned out that placeholder is written out by hand in **ten test
+modules and one shipped function**: `weft_cli.contract_reference.discover_for_reference`,
+`tests/discovery.py`, and eight `tests/architecture`/`tests/docs` modules, five of which define
+their own private `_PLACEHOLDER_STORE_SETTINGS` constant with its own private DSN string.
+
+Only one of the eleven failed loudly (`test_release_set.py`, which asserts every declared pack
+loads). The rest would have gone on passing about a tree the new pack was invisible in — FF14 would
+have compared `BlobRef` against nothing and stayed green, which is a check going vacuous rather than
+red. The shipped one is worse than the tests: `discover_for_reference` generates
+`manual/contract-reference.md`, so a pack whose settings fail validation registers nothing and the
+contract it publishes would simply be absent from the reference, with no failure anywhere.
+
+**Generalises to.** A "placeholder settings" dict is a copy of *which packs require configuration*,
+and that fact belongs to the packs, not to eleven call sites. Two instances is where a pattern stops
+being an instance: the population should be derived — every installed pack whose `Settings` has a
+required field gets a structurally valid placeholder — rather than enumerated per module. Short of
+that, one shared constant, imported.
+
+**Candidate home.** `tests/discovery.py` already exists as the single source for test-side discovery
+and gained `register_out_of_tree_examples` at task 9.2 for the same reason; a
+`placeholder_pack_settings()` there, imported by the eight modules that hand-roll one, is the
+mechanical fix. The shipped `discover_for_reference` needs its own answer, and *deriving* it — walk
+each pack's `Settings.model_fields` for a required field and supply a typed placeholder — is the one
+that does not need editing again for the third pack.
+
+
+### L9.55 — a brief offered two binding shapes and only one of them is visible to the readers downstream
+
+**What happened.** Task `9.4`'s dispatch brief said the pack's factory must bind its settings ahead
+of the `factory(None)` call the runner makes, and offered *"`functools.partial` or a closure; your
+choice"*. The implementer chose a closure. Every one of the forty-four unit tests passed, `poe
+ci-checks` was green across 2,175 tests, and `weft delete` reported **one** participant where it
+should have reported two — the blob store was silently absent from the fan-out, so a deleted
+source's blobs were never reaped and nothing anywhere said so.
+
+`weft_cli.fanout.participants_for` decides membership with
+`class_provides(unwrap_factory(entry.factory), SourceDeletable)`, and
+`weft_kernel.registry.unwrap_factory` peels `functools.partial` **and nothing else** — its own
+docstring says so in the first line and adds that a plugin needing pack settings "has only one
+shape available to it". A closure is opaque to it, so every reader that inspects a class attribute
+rather than a constructed instance sees nothing. The brief handed over a choice the tree does not
+actually offer.
+
+Found by running the binary from outside the repository. The reason no test could see it is worth
+as much as the defect: all forty-four construct `FilesystemBlobStore` directly, so not one of them
+went through the registered factory at all.
+
+**Generalises to.** Two things, and the second is the one that would have caught it. *(a)* Where a
+seam reads a factory rather than an instance, the binding idiom is part of the contract, not a
+style choice — a brief that offers alternatives there is a brief that can be satisfied wrongly, and
+"your choice" is the phrase to grep for. *(b)* A pack's tests that only ever construct its plugin
+class directly test the class and not the *pack*: at least one must go through
+`register()` → the registry → the factory, which is the path everything at runtime takes.
+
+**Candidate home.** `phase-step` → *Red*, which already says every name a test asserts on is a
+decision the test author is making, and does not say that a *construction path* is one too. The
+sharper, checkable form belongs in a fitness function: every plugin registered under a contract with
+a capability sibling must be reachable through `unwrap_factory`, i.e. resolve to a class — which is
+exactly the population `participants_for` walks and would have failed here on the day it landed.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

@@ -87,6 +87,14 @@ from weft_kernel.runner import Stage
 #: Structurally valid, never dialled — see the module docstring's closing paragraph.
 _PLACEHOLDER_DSN = "postgresql://contract-reference-generation/placeholder"
 
+#: The settings every pack with a required one needs before `register()` will run. Structurally
+#: valid and never used: `PgVectorStore.__init__` opens no connection and `FilesystemBlobStore.
+#: __init__` touches no directory, so discovery runs here against neither a database nor a disk.
+_PLACEHOLDER_PACK_SETTINGS: dict[str, dict[str, object]] = {
+    "store": {"dsn": _PLACEHOLDER_DSN},
+    "blob": {"root": "/nonexistent-contract-reference-generation"},
+}
+
 #: The one spelling of the regeneration command, referenced from `_HEADER` below and from
 #: `tests/docs/test_generated_docs.py`'s failure message, so the two copies a reader
 #: actually sees cannot drift from each other or from `scripts/generate_contract_reference.py`'s
@@ -176,11 +184,18 @@ def discover_for_reference() -> Registry:
     """A fresh `Registry`, populated the same way `weft plugins doctor` populates one.
 
     Open by default — no `[packs] allow` — because a reference generator describes what
-    a contract *is*, never a project's runtime policy. `weft-store` gets just enough
-    settings to validate; see the module docstring for why that never opens a connection.
+    a contract *is*, never a project's runtime policy.
+
+    **Every pack with a required setting gets just enough of one to validate**, and no more:
+    `weft-store` a structurally valid DSN that is never dialled, `weft-blob` a root that is
+    never written to. Neither is touched by `register()` — see the module docstring — and a
+    pack whose settings fail validation registers nothing, so a contract it publishes would
+    silently vanish from the generated reference rather than fail loudly. `weft-blob` joining
+    this list is `docs/lessons.md` `L9.54`: the list is hand-written here and in nine test
+    modules, and a second pack with a required setting is what made that visible.
     """
     registry = Registry()
-    discover(registry, pack_settings={"store": {"dsn": _PLACEHOLDER_DSN}})
+    discover(registry, pack_settings=_PLACEHOLDER_PACK_SETTINGS)
     return registry
 
 

@@ -141,6 +141,7 @@ weft = "weft_cli.cli:main"
 # it a question. They are libraries other packs publish contracts from, which is a real thing to
 # be, and a pack that registers nothing is one fitness function 2 would have to waive.
 [project.entry-points."weft.packs"]
+blob = "weft_blob:register"
 chunk = "weft_chunk:register"
 clean = "weft_clean:register"
 cli = "weft_cli.commands:register"
@@ -171,6 +172,7 @@ build-backend = "hatchling.build"
 # top-level module names are unchanged, so no import in the tree, and no test, changed.
 [tool.hatch.build.targets.wheel]
 packages = [
+    "src/weft_blob",
     "src/weft_chunk",
     "src/weft_clean",
     "src/weft_cli",

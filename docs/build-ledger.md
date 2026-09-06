@@ -5193,7 +5193,57 @@ marked.
   in `weft_extract`, or a `weft_blob` module importing `BlobRef` from it — is fixed by the brief;
   the line is true under either. FF9(c) obliges a stranger, `examples/weft-example-blob`
   (`tests/architecture/test_ff9c_every_contract_has_a_stranger.py:76`), which is also the
-  contract's second implementation. The `bytea`-in-Postgres backend is not a task
+  contract's second implementation. The `bytea`-in-Postgres backend is not a task · **the module
+  home the brief fixes: `weft_blob`, a pack of its own inside `weft-rag`** — its own
+  `weft.packs` entry point, its own `[packs.blob]` namespace, its own `plugins doctor` row, and
+  `BlobRef` beside the contract that resolves through it. Not `weft_extract`: a blob root is not
+  an extraction setting, and a pack needs a namespace of its own to have one at all · **the key
+  layout in `11` §2.2 was falsified by measurement and repaired rather than followed.**
+  `{tenant_id}/{source_id}/{ordinal}.{ext}` assumes `source_id` is a safe segment; measured
+  2026-09-06 by indexing through the shipped binary and reading `weft_sources`, a real `SourceId`
+  is an **absolute filesystem path**, so the layout interpolates a leading `/` and every separator
+  into a storage key and a source whose path contains `..` walks out of the configured root with
+  nobody attacking anything (`L9.53`). The source segment is a sha256 digest; every property the
+  design argued for survives — derived not allocated, one prefix per cascade, no ledger — and
+  `source_prefix` derives the identical segment through the same helper, so `put` and
+  `delete_prefix` cannot disagree. `tenant_id` is *checked*, never digested: an operator reads it
+  on disk, and two tenants folded into one directory is the one failure here that loses somebody
+  else's data · **the root carries its own layout version** (`<root>/.weft-blob-layout`), checked
+  before every operation and refused with a named remedy — `S11`'s seventh-surface rule, and a
+  fresh root with no marker is adopted rather than refused or first use would be impossible ·
+  **`[packs.blob] root` is required with no default**, on `[packs.store] dsn`'s precedent. The cost
+  is stated rather than discovered: every install that does not use blobs now shows one `failed`
+  row at `weft plugins doctor`, naming the missing field. The ripple was larger than the choice —
+  the placeholder settings a second required-setting pack needs are hand-written in ten test
+  modules and one *shipped* function (`weft_cli.contract_reference.discover_for_reference`, which
+  generates `manual/contract-reference.md`, so a pack failing validation would have gone missing
+  from the reference with nothing failing). All eleven updated; `L9.54` · **the escape and the
+  empty prefix were holes the first diff had and the tests did not.** `open` accepted any
+  `file://` uri, so a `BlobRef` read back from a stored row — *data*, on `_FactRef`'s own argument
+  one layer up — could read any file on the machine; and `delete_prefix("")` resolved to the root
+  and would have reaped every tenant. Both found by reading the diff, both refused by name now ·
+  **found by running the binary and by nothing else: the pack was invisible to `weft delete`.**
+  `register()` bound its settings in a closure, and `unwrap_factory` peels `functools.partial` and
+  nothing else, so `participants_for` could not see the class — 45 unit tests green, 2,176 in the
+  gate green, and `weft delete` naming one participant instead of two while a deleted source's
+  blobs stayed on disk. The brief offered "partial or a closure" and only one works (`L9.55`).
+  Repaired, and pinned by a test that goes through the real registry rather than constructing the
+  class · **`examples/weft-example-blob` is FF9(c)'s stranger and the contract's second
+  implementation** — an in-memory store, deliberately not a second filesystem one, which is the
+  cheapest proof the contract is about a keyspace of bytes rather than a directory (`11` §3 wanted
+  a `bytea` backend for that and it is not a task) · **run through the shipped binary from a
+  directory that is not this repository.** `weft plugins doctor` with no root: `blob (weft-rag)
+  2.2.0: failed`, naming `root  Field required`. A typo'd role key: `[services] accepts blob,
+  embed, route, store` — the role is live end to end. With a root configured and three blobs on
+  disk under one source's derived prefix, `weft delete` printed `filesystem (weft-rag): 0 node(s),
+  3 blob(s) removed` beside `pgvector (weft-rag): 8 node(s) removed`, with blobs bracketed 3 → 0
+  and `weft_nodes` 9 → 1 immediately before and after (`L8.30`) — which is 9.3's field and 9.4's
+  cascade meeting on the real binary · four documents edited in the same commit:
+  `manual/troubleshooting.md` gains a `weft_blob` section with all three error classes,
+  `manual/contract-reference.md` is regenerated to 29 contracts, the `UnknownServiceKeyError`
+  transcript is corrected to the four keys `[services]` now accepts, and `02` §1 records the
+  contract · `poe ci-checks` green: **2176 passed, 38 skipped**, 235 architecture tests, examples
+  122 passed
 - [ ] **9.5** a reference to bytes, a cell grid and a page span each survive a round trip through
   every store, carry their own schema version, and no ext model anywhere in the tree can hold bytes ·
   owner `02` §1 → *The payload model*; `11` §2.4 · turns on *bytes never enter a node* (numbered when filed) · sha — · `BlobRef`, `TableGrid`,

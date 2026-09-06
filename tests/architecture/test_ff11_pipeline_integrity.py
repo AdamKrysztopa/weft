@@ -260,7 +260,8 @@ def test_a_fifth_marked_field_would_be_caught() -> None:
 #: the identical reason: the connection is opened lazily on first use, so a placeholder DSN
 #: is enough to get `NodeStore:pgvector` registered without a real database).
 _PLACEHOLDER_STORE_SETTINGS: Final[dict[str, dict[str, object]]] = {
-    "store": {"dsn": "postgresql://ff11-placeholder/placeholder"}
+    "store": {"dsn": "postgresql://ff11-placeholder/placeholder"},
+    "blob": {"root": "/nonexistent-blob-root"},
 }
 
 _MANUAL_ROOT: Final[Path] = REPO_ROOT / "manual"

@@ -888,6 +888,34 @@ class MetadataFilter(Protocol): ...                # marker: supports the whole 
 > saw it, so a field added here reached nobody until `ParticipantOutcome` and `_render_delete`
 > carried it too. A field a participant fills and nothing reads is `L6.14` with the sides swapped.
 
+> **Added in Phase 9 task 9.4 (2026-09-06): `BlobStore`, and why it is *not* a member of this
+> family.** A document's bytes have to outlive the stage that produced them — a figure's pixels
+> leave the payload entirely and a non-transient `BlobRef` in `ext` resolves through them — so
+> `weft_blob` publishes a `BlobStore` with three async methods, `put`/`open`/`delete_prefix`, and no
+> pipeline position at all. `TokenSink` is the precedent for a service without a stage; the seam
+> wraps stages and `flush` and nothing else, which is why nothing on this contract produces a
+> `Node`.
+>
+> **It is published from its own pack, and putting it here would have been the mistake.**
+> `weft_cli.contract_reference.capability_siblings` enumerates a contract pack's public module, so a
+> `BlobStore` exported from `weft_store` would be advertised as a capability of this family — and
+> `weft plugins doctor` would then report every node store as missing one it was never meant to
+> have. What connects it to this family instead is `SourceDeletable`, satisfied **structurally**
+> with nothing declared: `weft delete` finds the blob store the same way it finds a graph pack,
+> and reaps a source's blobs by one derived prefix. That is capability derived rather than declared,
+> reaching across a pack boundary the family never had to learn about.
+>
+> **A blob root is the seventh persistence surface, and `S11`'s rule lands here first.** It carries
+> its own layout version in the root, checked at open and refused on mismatch with a named remedy —
+> a conformance case per pack, never a contract change, because `ExtModel.__schema_version__`
+> versions the *reference* and says nothing about the layout the reference resolves *through*.
+>
+> **One thing the design got wrong and measurement caught.** `11` §2.2 derives a blob key as
+> `{tenant_id}/{source_id}/{ordinal}.{ext}`. A real `SourceId` is an absolute filesystem path —
+> `SourceId` is a `NewType` over `str` and constrains nothing — so the source segment is a digest
+> rather than the id itself. Everything the derivation argued for is unchanged, and the traversal
+> that layout would have permitted is unrepresentable (`docs/lessons.md` `L9.53`).
+
 **Capability is derived, never declared.** At registration the kernel computes which protocols a
 store class satisfies, and that set *is* its capability. Nobody writes a flag, so nobody writes a
 false one — which matters because a declared flag is `hasattr` with better manners, and a real

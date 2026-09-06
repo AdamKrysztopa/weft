@@ -71,7 +71,8 @@ from weft_kernel.runner import Stage
 #: reason both state: `PgVectorStore.__init__` opens no connection, so `weft-store`'s
 #: `register()` runs without a container and `NodeStore:pgvector` is a real registration here.
 _PLACEHOLDER_STORE_SETTINGS: Final[Mapping[str, Mapping[str, object]]] = {
-    "store": {"dsn": "postgresql://ff16-placeholder/placeholder"}
+    "store": {"dsn": "postgresql://ff16-placeholder/placeholder"},
+    "blob": {"root": "/nonexistent-blob-root"},
 }
 
 #: A `(contract, plugin)` pair permitted to occupy a pipeline position no shipped document

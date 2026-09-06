@@ -52,6 +52,12 @@ ENTRY_POINT_GROUP: Final[str] = "weft.packs"
 #: here.
 _PLACEHOLDER_DSN: Final[str] = "postgresql://tests-discovery/placeholder"
 
+#: `weft-blob`'s own required setting, on the identical footing. `FilesystemBlobStore.__init__`
+#: creates nothing and touches no disk, so a root that does not exist is enough for `register()`
+#: — and a path deliberately outside any real tree, so a test that accidentally writes through
+#: this store fails rather than leaving files somewhere plausible.
+_PLACEHOLDER_BLOB_ROOT: Final[str] = "/nonexistent-tests-discovery-blob-root"
+
 
 def installed_packs_except_the_canary() -> frozenset[str]:
     """Every installed pack the test session is willing to import.
@@ -78,7 +84,10 @@ def discover_for_tests() -> Registry:
     discover(
         registry,
         allow=installed_packs_except_the_canary(),
-        pack_settings={"store": {"dsn": _PLACEHOLDER_DSN}},
+        pack_settings={
+            "store": {"dsn": _PLACEHOLDER_DSN},
+            "blob": {"root": _PLACEHOLDER_BLOB_ROOT},
+        },
     )
     return registry
 
