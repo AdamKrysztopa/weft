@@ -5323,11 +5323,11 @@ marked.
   knowing a chunker exists. `--pipeline index-text` refuses the same directory naming the extensions
   it claims, which is `ingest.py`'s documented narrowing and not a defect · `poe ci-checks` green:
   **2228 passed, 39 skipped**
-- [ ] **9.7** a figure in a born-digital PDF arrives as one node whose media type says so, whose
+- [x] **9.7** a figure in a born-digital PDF arrives as one node whose media type says so, whose
   content is its caption or nothing, whose pixels are in the blob store under a key derived from an
   ordinal that is stable across re-extraction of an unchanged file, and which is absent from the index
   rather than present as a template string when it has no caption · owner `11` §2.4, §4 G5-b; `02` §1
-  → the `Outcome` rule · turns on — · sha — · depends on 9.4. `pypdfium2` is already in the lockfile
+  → the `Outcome` rule · turns on — · sha `45faffc` · depends on 9.4. `pypdfium2` is already in the lockfile
   through `pdfplumber`, so a page crop costs no dependency; a captionless figure is
   `NothingToProduce` for that node (`11:667`), never `f'Figure on page {n}'`. The stable ordinal is
   what makes a re-extraction that finds one figure fewer unable to shift every later figure onto the
