@@ -2088,6 +2088,58 @@ count written beside the thing it counts, in code comments as much as in `docs/`
 is `implement-ll`'s to route — this entry exists so the second instance is on file beside the
 first, per `L6.8`: a rule re-learned did not bite, so it is in the wrong artefact.
 
+### L9.85 — the ladder check exempts exactly the packs most likely to fail it
+
+**What happened.** Found by running `weft-qualities` over Phase 9 rather than over a task.
+`pdf-layout-model` — the entire point of `weft-docling`, an 897 MB distribution — was named by
+**zero** shipped pipeline documents when `9.13` closed. Measured across the tree: `pdf-layout` 1,
+`describe-figure` 1, `table-rows` 1, `pdf-layout-model` **0**. An operator installing the pack got
+a plugin `weft plugins list` shows and nothing that places it, which is `S9`'s finding recurring
+one distribution later — *"the engine expresses far more than it ships"*.
+
+**Fitness function 16 did not catch it, and its scope rule is why.**
+`_distributions_shipping_a_pipeline` holds only distributions that already contribute at least one
+document, on a correct argument its own docstring gives: a document naming `qdrant` could not
+resolve on an install without `weft-qdrant`. But the consequence is that **shipping no document is
+the way to be exempt from the ladder** — the check is weakest exactly where a new capability is
+most likely to arrive undocumented, and it gets weaker the more the pack matters. The repair the
+docstring itself implies is the one nothing enforces: *"the pack that owns the plugin is the only
+one that could ever place it"*, so that pack ships the document. `weft-docling` now does.
+
+**Generalises to.** *A scope rule that exempts a population on a sound argument still has to be
+asked what behaviour it rewards — if the cheapest way to satisfy a check is to fall outside it, the
+check is an incentive pointing the wrong way.*
+
+**Candidate home.** FF16 itself, widened: a distribution registering a pipeline position and
+shipping no document is not out of scope, it is a distribution that must ship one — with the
+genuinely-unplaceable cases (`weft-qdrant`'s store, a `Describer` selected through `[services]`
+rather than a `use:`) named in a pinned waiver rather than falling out of the population silently.
+That turns an exemption nobody sees into a waiver visible in a diff, which is the ratchet shape
+every other check in that suite already uses.
+
+### L9.86 — the same absence was loud at discovery and half-mute at run time
+
+**What happened.** With docling's weights missing, `weft plugins doctor` reports the pack `partial`
+and says *"weights not found under <dir>: missing <folders>. Either point the 'artifacts_path' pack
+setting at a directory that already holds them, or fetch them there with docling's own
+downloader"* — what was wanted, why it is unavailable, and the options. A **run** in the same state
+fails with *"The value of self.artifacts_path=<dir> is not valid. When defined, it must point to a
+folder containing all models required by the pipeline"* — the vendor's own sentence, correctly
+naming the directory and naming **no remedy at all**. Requirement 5 is satisfied on the path an
+operator reads *after* something went wrong, and half-satisfied on the path that goes wrong.
+
+**Generalises to.** *A refusal written at discovery does not cover the run — the same condition
+reached by two paths owes the same three facts on both, and the path where the operator is already
+failing is the one that needs the remedy most.*
+
+**Candidate home.** Ambiguous on purpose, which is why it is queued rather than applied: the narrow
+fix is `weft_docling.pdf_layout_model.run` recognising this condition and re-raising with the
+remedy attached, and that is a string match on a vendor message, which goes stale silently — the
+defect class `L9.80` just filed. The wider fix is a seam: a pack that declared a surface
+`unavailable` at discovery could have that reason attached automatically to any `Failed` its
+plugins return, at the registration seam, where `CLAUDE.md` says cross-cutting concerns belong and
+where no author has to remember it. The second is the real answer if it is cheap.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

@@ -1,0 +1,48 @@
+name: index-pdf-learned
+# **The document that places this pack's own rung, and it ships from this pack because nothing
+# else can.** Ledger `9.13` built `pdf-layout-model` and shipped no document naming it, which is
+# `S9`'s finding recurring one distribution later: *"the engine expresses far more than it ships"*
+# — a plugin registered, listed by `weft plugins list`, and placeable by nobody without hand-written
+# YAML. Fitness function 16 did not catch it, and correctly: its scope rule holds only
+# distributions that already contribute at least one document, because a document naming a plugin
+# from an uninstalled pack could not resolve. That rule is right and it makes shipping *no*
+# document the way to be exempt from the ladder — so the pack that owns the plugin ships the
+# document, which is the same sentence FF16's own docstring uses for `weft-qdrant`.
+#
+# **Derived, not written out**, for `index-pdf`'s own stated reason: everything after extraction is
+# what `index-text` already says, and a copy silently disagrees with it the day its chunk size
+# changes. Two `replace:` operators would be wrong here — `extends: index-pdf` inherits the one
+# that put `pdf-layout` at `extract`, and this replaces it again, so the derivation chain reads
+# text → pdf → learned-pdf and each link states only its own difference.
+#
+# **What this buys over `index-pdf`.** `pdf-layout` reads the glyph geometry a PDF's text layer
+# already carries, so it recovers nothing at all from a scanned page — a photograph of a page has
+# no text layer — and a justified multi-column layout is where a rule-based column guess is
+# weakest. This rung runs a learned object-detection model over each page's rendered image
+# instead. It costs 897 MB of installed dependency and seconds of CPU per page, which is why it is
+# a separate distribution and a separate document rather than `index-pdf`'s default.
+#
+# **It needs the weights on disk and refuses loudly without them.** `weft plugins doctor` reports
+# this pack `partial` and names the directory it searched; a run without them fails naming the
+# same directory. Nothing here fetches them — see `weft_docling.DISCLOSURE`.
+#
+# **`device: cpu` here, while the config field's own default stays docling's `auto`, and the two
+# are not in conflict.** `auto` selects MPS on Apple Silicon, where docling's layout model raises
+# *"Cannot convert a MPS Tensor to float64"* — so a document defaulting to `auto` is a worked
+# example that cannot run on one of the three platforms this project is developed and used on, and
+# a worked example that does not work is worse than none. The *field* keeps the library's default
+# for `pdf_layout.PdfLayoutExtractorConfig`'s settled reason (a wrapper that quietly disagrees with
+# the library it wraps makes the library's own documentation wrong); the *document* is exactly the
+# place a choice like this belongs, because an operator with a GPU overrides it in three lines
+# rather than editing a package:
+#
+#     name: index-pdf-learned-cuda
+#     extends: index-pdf-learned
+#     set:
+#       - {id: extract, with: {device: cuda}}
+#
+# That asymmetry is the derivation model working as designed: correctness everywhere by default,
+# speed by derivation, and neither one a fork of the other.
+extends: index-pdf
+replace:
+  - {id: extract, use: pdf-layout-model, with: {device: cpu}}

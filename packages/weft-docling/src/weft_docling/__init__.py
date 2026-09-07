@@ -84,6 +84,12 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     # (`provides`, `extensions`) readable through it.
     registrar.add(Extractor, NAME, partial(PdfLayoutModelExtractor, settings.artifacts_path))
 
+    # The document that places this rung — see its own header. Without this line the file
+    # exists on disk and satisfies fitness function 11's glob, while FF16 reads only what a
+    # pack actually contributed, so the rung would be unreachable from any document a user
+    # can name. `L9.83`.
+    registrar.add_pipeline_resource("weft_docling", "pipelines/index-pdf-learned.yaml")
+
     root = artifacts_dir(settings.artifacts_path)
     missing = missing_weights(root)
     if missing:
