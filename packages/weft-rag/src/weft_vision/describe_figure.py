@@ -27,6 +27,18 @@ load-bearing:
   raising through a stage that has forty more figures to get through." Neither case synthesises a
   label; `11` §2.4 already names `f'Figure on page {n}'`-shaped template strings *"measurable index
   poisoning"*, and there is no `fallback` counter anywhere in this stage's telemetry.
+- **But a batch in which *nothing* could be described is a `Failed` — ledger `9.14`, narrowing the
+  clause above.** That clause is about *one figure among many* and it was written to cover all of
+  them, which made a completely dead capability indistinguishable from a corpus of uninformative
+  images. Phase 9's exit demonstration is what found it: `weft index` through
+  `index-pdf-described` stored an `IMAGE` node carrying its caption, no `weft-vision` namespace,
+  exit code `0`, and nothing anywhere saying why — while the real cause was a `BlockingCallError`
+  that `openai-vision` built its SDK client on the event loop thread, converted by that plugin's
+  own broad handler into a `Failed` this stage then discarded. Three green suites, a green gate,
+  and `weft plugins doctor` reporting the pack `active` throughout. So: *some* refusals are still
+  a success, and *no* success in a batch that asked for one is a failure naming the first reason.
+  `09` §6.2's widening test applied to a decision `9.11` recorded in this same phase — the
+  original argument survives, its scope does not.
 - **A missing `Describer` is a wiring bug, not a legitimate absence.** `ctx.require` raises
   `UnresolvedServiceError` on its own, naming what was wanted and what is available; this module
   does not catch it.
@@ -36,6 +48,7 @@ subclass it — the same path every third-party `Enhancer` pack is expected to t
 """
 
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 from weft_blob.contract import BlobStore
 from weft_blob.payload import BlobRef
@@ -43,6 +56,7 @@ from weft_kernel.context import Context
 from weft_kernel.payload import (
     Applies,
     ExtModel,
+    Failed,
     MediaType,
     Node,
     NothingToProduce,
@@ -99,33 +113,78 @@ class FigureDescriber:
             return NothingToProduce(reason="no figures to describe")
         blobs = ctx.require(BlobStore)
         describer = ctx.require(Describer)
-        described = [
-            await _describe_one(node, blobs=blobs, describer=describer) for node in payload
-        ]
+        described: list[Node] = []
+        failures: list[str] = []
+        asked = 0
+        succeeded = 0
+        for node in payload:
+            outcome = await _describe_one(node, blobs=blobs, describer=describer)
+            described.append(outcome.node)
+            asked += outcome.asked
+            succeeded += outcome.described
+            if outcome.failure is not None:
+                failures.append(outcome.failure)
+        if asked and not succeeded and failures:
+            # **A batch where nothing could be described is a failure, and this is `9.14`'s
+            # narrowing of `9.11`.** See the module docstring: the "one refused figure is not
+            # the document's failure" argument is about *one among many*, and applied to a
+            # batch where every figure errored it reported a dead capability as success.
+            return Failed(
+                reason=(
+                    f"no figure in this batch could be described: {len(failures)} asked, "
+                    f"{len(failures)} failed. First reason: {failures[0]}"
+                )
+            )
         return Produced(value=described)
 
 
-async def _describe_one(node: Node, *, blobs: BlobStore, describer: Describer) -> Node:
+@dataclass(frozen=True, slots=True)
+class _Attempt:
+    """What one figure's turn produced: the node to keep, and what happened to it.
+
+    Three counters rather than one node, because `run` now has to tell three cases apart that
+    all leave the node unchanged — it carried no `BlobRef` and was never a candidate, the
+    describer had nothing to say, or the describer *errored*. `9.11` returned a bare `Node` and
+    so could distinguish none of them, which is how a batch in which every call failed reported
+    itself as an ordinary success.
+    """
+
+    node: Node
+    #: Whether this node was actually put to the describer at all.
+    asked: int = 0
+    #: Whether a description came back and was attached.
+    described: int = 0
+    #: The provider's own reason, when it errored. `None` for both other cases.
+    failure: str | None = None
+
+
+async def _describe_one(node: Node, *, blobs: BlobStore, describer: Describer) -> _Attempt:
     """`node`, augmented if it carries a `BlobRef` and the describer had something to say.
 
-    Any other outcome — no `BlobRef` to read pixels from, `NothingToProduce`, or `Failed` — leaves
-    `node` exactly as it was: the same node, same id, nothing about it changed. See the module
-    docstring for why that is the honest answer rather than a synthesised one.
+    Any other outcome — no `BlobRef` to read pixels from, `NothingToProduce`, or `Failed` —
+    leaves `node` exactly as it was: the same node, same id, nothing about it changed. What
+    changed at `9.14` is that the three are no longer *reported* alike; see `_Attempt`.
     """
     blob_ref = node.ext_as(BlobRef)
     if blob_ref is None:
-        return node
+        return _Attempt(node=node)
 
     data = await blobs.open(blob_ref.uri)
     outcome = await describer.describe(data, blob_ref.media_type, _INSTRUCTION)
+    if isinstance(outcome, Failed):
+        return _Attempt(node=node, asked=1, failure=outcome.reason)
     if not isinstance(outcome, Produced):
-        return node
+        return _Attempt(node=node, asked=1)
 
     described = node.derive(
         content=f"{node.content}{_JOIN}{outcome.value}", media_type=node.media_type
     )
     described = _carry_forward(described, original=node)
-    return described.with_ext(FigureDescription(description=outcome.value))
+    return _Attempt(
+        node=described.with_ext(FigureDescription(description=outcome.value)),
+        asked=1,
+        described=1,
+    )
 
 
 def _carry_forward(described: Node, *, original: Node) -> Node:

@@ -2140,6 +2140,67 @@ defect class `L9.80` just filed. The wider fix is a seam: a pack that declared a
 plugins return, at the registration seam, where `CLAUDE.md` says cross-cutting concerns belong and
 where no author has to remember it. The second is the real answer if it is cheap.
 
+### L9.87 — the whole describe capability was dead in every real run and three suites said otherwise
+
+**What happened.** Phase 9's exit demonstration stored an `IMAGE` node carrying its caption, no
+`weft-vision` namespace, exit code `0`, and nothing anywhere saying why. One defect with three
+layers, each individually defensible:
+
+1. `weft_openai.vision._SdkClient.describe` called `build_client(...)` **on the event loop
+   thread**. That constructor reaches httpx, which loads a CA bundle with a synchronous `open()`,
+   so the registration seam's blocking-call detector fired — correctly, FF7(b) doing its job.
+   `build_client`'s two other callers already await it through `asyncio.to_thread`, and `llm.py`'s
+   docstring even says *"the client is built off the event loop, for the same measured reason."*
+   This was the third caller and the only one that had not read the other two (`L8.24`).
+2. `OpenAIVisionDescriber.describe`'s broad `except Exception` caught that `BlockingCallError` —
+   a `WeftError`, this project telling itself it is wrong — and returned it as `Failed`, dressed
+   as ordinary provider trouble about one image.
+3. `describe_figure._describe_one` treated `Failed` exactly as `NothingToProduce` and returned the
+   node unchanged, on `9.11`'s argument that one refused figure must not fail a document.
+
+**Not one test could see it, and the reason is structural.** Every unit test builds the describer
+with an injected client (`_describer(client=...)`), which never reaches `build_client`; and every
+`describe-figure` test drives a stubbed `Describer`. Both doubles are written from the contract, so
+neither can falsify a claim about the system — the exact sentence `weft-qualities` already carries
+about `L6.14`. `weft plugins doctor` reported the pack `active` throughout, because it is.
+
+**Generalises to.** *Where a plugin's real path constructs its own dependency, at least one test
+must let it — an injected-client test proves the call shape and says nothing about whether the
+plugin can obtain a client at all.* And, separately: *a broad `except Exception` in a plugin must
+re-raise the project's own error type, because a `WeftError` is never a fact about the data.*
+
+**Candidate home.** Two seams and both already exist. The second half is a rule for every plugin
+that catches broadly — checkable by AST across `packages/`, the shape FF24 and FF23 already use.
+The first half is `phase-step` → *Finish*'s run-the-binary step, which found this and would find
+the next one; the durable version is a conformance case per provider pack that exercises the
+lazy-construction path with no injected client.
+
+### L9.88 — `--json` printed prose, and the citation dropped the one field that identifies a node
+
+**What happened.** Two defects on the same output path, found while trying to observe Phase 9's
+exit clause *"returns it citing the `IMAGE` node"*.
+
+`weft --json ask ...` emits a JSON-lines stream and then, on stdout, two lines of prose:
+`routed to: hybrid-then-generate` and `  [2] file://…/report.pdf`. A consumer parsing stdout as
+JSON fails on the last two lines. And `packages/weft-rag/src/weft_cli/render.py:520` renders a citation as
+`f"  [{citation.marker}] {citation.uri}"` — while `weft_generate.payload.Citation` carries
+`node_id`, `source_id`, `uri`, `quote` **and** `page`. So the node a claim rests on is in the
+model, is persisted, and reaches the operator through no shipped surface at all: all three nodes
+of this corpus share one `uri`, so the rendered citation cannot distinguish the figure from the
+table. The exit criterion's clause is satisfied in substance — the answer states a fact present
+only in the description — and is **unobservable** as written.
+
+**Generalises to.** *A field that exists in the model and in the store but in no rendering is a
+capability the product does not have — and provenance is the one place where "it is in the data"
+is not an answer, because the whole claim is that a reader can follow it.*
+
+**Candidate home.** `weft-cli`'s renderer, and a check with a seam that already exists: `08`'s
+generated contract reference walks the registry, and the same walk could assert that every field
+of a persisted result model reaches some rendering. Narrower and cheaper first: `--json` must emit
+only JSON, which is a single test over the CLI's output on one command and would have caught half
+of this. Notably this touches `12`'s positioning directly — provenance is the wedge, and the
+citation is where it is either true or decorative.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

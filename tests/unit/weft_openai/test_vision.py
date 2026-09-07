@@ -26,11 +26,12 @@ and a plugin absent from the registry is absent from the contract reference, fro
 check, and from everything else that walks what is installed.
 """
 
+import threading
 from typing import Any
 
 import pytest
 
-from weft_kernel.blocking import guard
+from weft_kernel.blocking import BlockingCallError, guard
 from weft_kernel.payload import Failed, NothingToProduce, Produced
 from weft_openai.settings import Settings
 from weft_openai.vision import (
@@ -252,3 +253,110 @@ def test_the_plugin_name_is_registered_under_the_describer_contract() -> None:
 
     # Act / Assert
     assert "openai-vision" in registry.names_for(Describer)
+
+
+# --- Ledger 9.9's repair, found by Phase 9's exit demonstration -----------------------
+#
+# The exit criterion asked `weft ask` a question answerable only from a figure's description
+# and got nothing, because **the whole describe capability was dead in a real run and silent
+# about it.** `_SdkClient.describe` built its vendor client on the event loop thread; that
+# constructor reaches httpx, which loads a CA bundle with a synchronous `open()`; the
+# registration seam's blocking-call detector fired exactly as fitness function 7(b) intends;
+# and this module's broad `except Exception` turned that architectural error into a `Failed`
+# about the image, which `weft_vision.describe_figure` then discarded as an ordinary absence.
+# Three green suites, a green gate and `weft plugins doctor` reporting the pack `active`.
+#
+# `weft_openai.embedder.build_client` is awaited through `asyncio.to_thread` at both of its
+# other call sites — `embedder.py:290` and `llm.py:357` — and `llm.py`'s own docstring says
+# why: *"The client is built off the event loop, for the same measured reason."* This plugin
+# was the third caller and the only one that did not. `docs/lessons.md` L8.24.
+
+
+class _SdkShapedClient:
+    """A vendor-SDK-shaped double: `client.chat.completions.create(...)` and nothing else."""
+
+    def __init__(self, reply: str = "A grey square.") -> None:
+        self.reply = reply
+
+    @property
+    def chat(self) -> "_SdkShapedClient":
+        return self
+
+    @property
+    def completions(self) -> "_SdkShapedClient":
+        return self
+
+    async def create(self, **kwargs: Any) -> Any:
+        message = type("M", (), {"content": self.reply})()
+        choice = type("C", (), {"message": message})()
+        return type("R", (), {"choices": [choice]})()
+
+
+def _sdk_describer() -> OpenAIVisionDescriber:
+    """A describer on its *real* lazy client path, so `build_client` is actually reached."""
+    return OpenAIVisionDescriber(
+        Settings(api_key="sk-test"),  # type: ignore[arg-type]
+        OpenAIVisionConfig(),
+    )
+
+
+async def test_the_sdk_client_is_built_off_the_event_loop_thread(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Constructing the vendor client is blocking I/O and must not run on the loop thread.
+
+    Asserted as the fact rather than the mechanism — the construction is observed on a thread
+    that is not the loop's — so a future change from `to_thread` to a pool still satisfies it.
+    """
+    loop_thread = threading.get_ident()
+    seen: list[int] = []
+
+    def record(settings: object) -> object:
+        seen.append(threading.get_ident())
+        return _SdkShapedClient()
+
+    monkeypatch.setattr("weft_openai.embedder.build_client", record)
+
+    await _sdk_describer().describe(_png(), "image/png", "describe it")
+
+    assert seen and seen[0] != loop_thread
+
+
+async def test_a_blocking_call_error_is_not_reported_as_a_refused_figure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`BlockingCallError` is a defect in this code, never a fact about the image.
+
+    The broad handler exists so one provider error about one figure does not fail a document
+    with forty more to get through. A `WeftError` raised by the seam is not that: it says the
+    stage is written wrongly, and converting it into `Failed` hides a defect behind a result
+    that reads as ordinary provider trouble — which is exactly what happened for a whole phase.
+    """
+
+    def explode(settings: object) -> object:
+        raise BlockingCallError("stage 'describe' made a blocking call (open()) on the loop")
+
+    monkeypatch.setattr("weft_openai.embedder.build_client", explode)
+
+    with pytest.raises(BlockingCallError):
+        await _sdk_describer().describe(_png(), "image/png", "describe it")
+
+
+async def test_a_provider_error_about_one_image_is_still_a_refused_figure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The other half, so the narrowing above is a narrowing and not a removal."""
+
+    class Angry(_SdkShapedClient):
+        async def create(self, **kwargs: Any) -> Any:
+            raise RuntimeError("the vendor refused this image")
+
+    def angry(settings: object) -> object:
+        return Angry()
+
+    monkeypatch.setattr("weft_openai.embedder.build_client", angry)
+
+    outcome = await _sdk_describer().describe(_png(), "image/png", "describe it")
+
+    assert isinstance(outcome, Failed)
+    assert "the vendor refused this image" in outcome.reason

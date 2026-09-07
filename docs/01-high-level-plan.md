@@ -890,6 +890,50 @@ poisoning (`11` §2.4).
   §4 in the product terms `11` §1.3 item 9 requires — **whichever verdict it is**, for the reason
   Phase 8's exit already gives: the instrument being able to say "no" is what it is for.
 
+**Exit met, 2026-09-07, and the demonstration is what repaired it.** Run on a machine that is
+not this repository: five wheels built from this checkout (`weft-kernel`, `weft-rag`, `weft-pdf`,
+`weft-openai`, `weft-docling`), installed into a throwaway 3.12 environment with the source tree
+off the path, against the checked-in Postgres container. Clause by clause, and **the conjunction
+first**, per `lessons.md` `L8.29` — one directory, one shipped document, a table *and* a described
+figure in the same run:
+
+- **Indexed through `index-pdf-described`**, a shipped document, over a PDF carrying a ruled table
+  and a captioned bar chart. `produced 1, failed 0`, exit `0`.
+- **The store holds both.** A `TABLE` node carrying `TableGrid` (`Region: EMEA | Revenue: 1,204`)
+  and an `IMAGE` node carrying `BlobRef`, `PageSpan` **and** `FigureDescription`, its blob present
+  under the configured root. Node count `0 → 3` and blob count `0 → 2`, asserted immediately
+  before and after (`L8.30`).
+- **`weft ask` answers from the description.** *"What colours are the bars in the figure?"* →
+  *"The bars in the figure are colored blue, red, and green"* — a fact stated nowhere in the
+  document's text, its table, or the figure's caption, and present only in what the describer
+  wrote. **The clause's own wording — *"citing the `IMAGE` node"* — is satisfied in substance and
+  is not observable**: `weft_generate.payload.Citation` carries `node_id`, and
+  `packages/weft-rag/src/weft_cli/render.py:520` renders `[marker] uri` alone, so with three nodes from one source the
+  rendered citation cannot name which answered. Recorded as `lessons.md` `L9.88` rather than
+  waved through; it is a renderer gap, not a provenance gap, and Phase 9 did not create it.
+- **`weft delete` takes both counts to zero** — `3 → 0` nodes, `1 → 0` blobs, asserted either
+  side, and refused first without `--yes`.
+- **The ambient-service seam reaches every path with no edit to `weft-cli`.** `weft-docling` — a
+  distribution that did not exist when the seam was built — registered, resolved and ran through
+  it; `9.13`'s own commit changed **zero** files under `weft-kernel` or `weft_cli`.
+- **Fitness functions 22, 23 and 24 are wired into `ci-checks` and green with their waivers
+  pinned empty** (`ASSEMBLERS_WAIVED_FROM_CARRYING_ROLES`, `CHUNKERS_APPLYING_TO_EVERYTHING`,
+  `EXT_MODELS_CARRYING_BYTES`).
+- **The caption-and-embed measurement is a persisted `weft eval` run with modality-sliced
+  results**, its verdict recorded in `09` §4.3b: `recall@1 = 0.900`, GREEN, so `9.15` and `9.16`
+  were not built. Its four stated limits stand with it.
+
+**What the demonstration found, which no test could.** The first run through it stored an `IMAGE`
+node with a caption and **no description**, exit `0`, silent — the whole describe capability dead
+in every real run while 2,395 tests, a green gate and `weft plugins doctor` all reported health.
+Three layers: `openai-vision` built its SDK client on the event loop thread, so the seam's
+blocking-call detector fired (FF7(b), correctly); the plugin's broad `except Exception` converted
+that `WeftError` into a `Failed` about the image; and `describe-figure` discarded the `Failed` as
+an ordinary absence. Every unit test on both sides injects a double, and a double written from the
+contract cannot falsify a claim about the system. Repaired in all three places, and the middle one
+narrowed rather than reversed: *some* refused figures are still a success, *no* successful figure
+in a batch that asked for one is a `Failed`. `lessons.md` `L9.87`.
+
 **Why the measurement is in the exit and the pixel embedder is not.** Every other line above is a
 property; the recall run is the one that decides whether tasks 9.15 and 9.16 exist at all. A phase
 whose exit read *"and pixels are embedded"* would have built the expensive architecture to satisfy its

@@ -160,6 +160,14 @@ class OpenAIVisionDescriber:
             )
         except asyncio.CancelledError:
             raise
+        except WeftError:
+            # **A `WeftError` here is this project telling itself it is wrong, not the vendor
+            # refusing an image.** `BlockingCallError` is the case that cost a phase: the seam
+            # raised it correctly, the handler below turned it into a `Failed`, and a defect in
+            # our own code arrived at the operator wearing the costume of ordinary provider
+            # trouble. Re-raised alongside `CancelledError` and for the same reason — neither is
+            # a fact about this figure.
+            raise
         except Exception as exc:  # noqa: BLE001 — see the docstring: one refused figure is data
             return Failed(reason=f"{type(exc).__name__}: {exc}")
         if not reply.strip():
@@ -184,13 +192,29 @@ class _SdkClient:
 
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
+        self._client: Any = None
 
     async def describe(self, **kwargs: Any) -> str:
         import base64
 
         from weft_openai.embedder import build_client
 
-        client = cast("Any", build_client(self._settings))
+        # **Off the loop thread, and this was a defect for a whole phase.** Constructing the
+        # vendor client reaches httpx, which loads a CA bundle with a synchronous `open()` —
+        # so calling `build_client` here directly made the registration seam's blocking-call
+        # detector fire (fitness function 7(b)), and this module's own broad handler below
+        # turned that into a `Failed` about the image. Net effect: `openai-vision` could never
+        # describe anything inside a real pipeline, and said nothing.
+        #
+        # `build_client`'s two other callers already did this — `embedder.py`'s
+        # `_client = await asyncio.to_thread(build_client, settings)` and `llm.py`'s, whose
+        # docstring says *"The client is built off the event loop, for the same measured
+        # reason."* This was the third caller and the only one that had not read them
+        # (`docs/lessons.md` L8.24). Cached, because paying a thread hop per figure to rebuild
+        # an identical client is the other half of what `embedder.py` already avoids.
+        if self._client is None:
+            self._client = cast("Any", await asyncio.to_thread(build_client, self._settings))
+        client = self._client
         encoded = base64.b64encode(cast("bytes", kwargs["image"])).decode("ascii")
         response = await client.chat.completions.create(
             model=kwargs["model"],

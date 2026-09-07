@@ -81,7 +81,23 @@ class _StubDescriber:
         return self._answer
 
 
-def _figure_node() -> Node:
+class _SequenceDescriber:
+    """A `Describer` that answers each call with the next outcome in a list.
+
+    Needed once `9.14`'s narrowing distinguishes *some* figures failing from *all* of them:
+    a stub with one fixed answer cannot express the mixed batch that separates the two.
+    """
+
+    def __init__(self, answers: list[Outcome[str]]) -> None:
+        self._answers = list(answers)
+        self.calls: list[tuple[bytes, str, str]] = []
+
+    async def describe(self, data: bytes, media_type: str, instruction: str) -> Outcome[str]:
+        self.calls.append((data, media_type, instruction))
+        return self._answers.pop(0)
+
+
+def _figure_node(ordinal: int = 1001) -> Node:
     """An `IMAGE` node in exactly the shape `pdf-layout` leaves one: caption as content, a
     `BlobRef` and a `PageSpan` in `ext` (`weft_pdf.pdf_layout:215`).
     """
@@ -91,7 +107,7 @@ def _figure_node() -> Node:
         reason="the document root a PDF extractor derives every page node from",
         sources=frozenset({SourceId("report.pdf")}),
     )
-    figure = root.derive(content=_CAPTION, media_type=MediaType.IMAGE, ordinal=1001)
+    figure = root.derive(content=_CAPTION, media_type=MediaType.IMAGE, ordinal=ordinal)
     return figure.with_ext(BlobRef(uri=_URI, media_type="image/png")).with_ext(
         PageSpan(page=1, ordinal=1)
     )
@@ -239,12 +255,47 @@ async def test_a_describer_that_produces_nothing_leaves_the_node_exactly_as_it_w
     assert after.ext_as(FigureDescription) is None
 
 
-async def test_a_describer_that_fails_does_not_take_the_rest_of_the_batch_with_it() -> None:
+async def test_a_describer_that_fails_one_figure_does_not_take_the_batch_with_it() -> None:
     """One figure's provider error is not the document's failure — `Describer`'s own docstring:
     *"has to be able to say so without raising through a stage that has forty more figures to get
-    through."*
+    through."* That clause survives `9.14`'s narrowing below unchanged: what changes is only the
+    case where **nothing** could be described.
     """
-    # Arrange — two figures, and a describer that fails the first thing it is asked.
+    # Arrange — two figures, and a describer that fails the first and answers the second.
+    stage = FigureDescriber(None)
+    ctx = _ctx(
+        describer=_SequenceDescriber(
+            [Failed(reason="provider returned 500"), Produced(value="A bar chart.")]
+        ),
+        blobs=_StubBlobStore(),
+    )
+    # Act
+    outcome = await _run(stage, [_figure_node(), _figure_node(ordinal=1)], ctx)
+
+    # Assert — the refused figure survives undescribed, and the batch does not fail.
+    assert isinstance(outcome, Produced)
+    first, second = outcome.value
+    assert first.content == _CAPTION
+    assert first.ext_as(FigureDescription) is None
+    assert second.ext_as(FigureDescription) is not None
+
+
+async def test_a_batch_where_no_figure_could_be_described_is_a_failure() -> None:
+    """**Found by Phase 9's exit demonstration, and it is the narrowing `9.11` needed.**
+
+    `9.11` decided that a `Failed` describer leaves its figure exactly as it was, on the
+    argument quoted above — and that argument is about *one* figure among many. Applied to a
+    batch where **every** figure failed, it reported total failure as ordinary success: the
+    exit run stored an `IMAGE` node with a caption, no `weft-vision` namespace, exit code 0
+    and nothing in the output, while the real cause was a `BlockingCallError` the describer's
+    own broad handler had converted into a `Failed`. A capability that is entirely dead must
+    not be indistinguishable from one that had nothing to add.
+
+    So the clause narrows rather than reverses: *some* refused figures are still a success,
+    *no* successful figure in a batch that asked for one is a `Failed`, naming the first
+    reason. `09` §6.2's widening test, applied to a decision this same phase recorded.
+    """
+    # Arrange
     stage = FigureDescriber(None)
     ctx = _ctx(
         describer=_StubDescriber(Failed(reason="provider returned 500")),
@@ -253,11 +304,31 @@ async def test_a_describer_that_fails_does_not_take_the_rest_of_the_batch_with_i
     # Act
     outcome = await _run(stage, [_figure_node()], ctx)
 
-    # Assert — the node survives undescribed rather than the batch failing.
+    # Assert
+    assert isinstance(outcome, Failed)
+    assert "provider returned 500" in outcome.reason
+
+
+async def test_a_batch_nothing_could_be_said_about_is_not_a_failure() -> None:
+    """`NothingToProduce` stays an absence however many figures report it.
+
+    The distinction the three-outcome type exists for: a describer with nothing to add about
+    every figure in a batch is a corpus of uninformative images, which is data. A describer
+    that *errored* on every one of them is a broken run. Collapsing the two is what `9.11` did.
+    """
+    # Arrange
+    stage = FigureDescriber(None)
+    ctx = _ctx(
+        describer=_StubDescriber(NothingToProduce(reason="nothing to say about this image")),
+        blobs=_StubBlobStore(),
+    )
+    # Act
+    outcome = await _run(stage, [_figure_node()], ctx)
+
+    # Assert
     assert isinstance(outcome, Produced)
     (after,) = outcome.value
     assert after.content == _CAPTION
-    assert after.ext_as(FigureDescription) is None
 
 
 async def test_a_run_with_no_describer_configured_is_refused_naming_what_exists() -> None:
