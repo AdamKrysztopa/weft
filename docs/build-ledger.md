@@ -6110,6 +6110,34 @@ schedule them.
   piece fits — so the two shapes that discharge this are the paper's (split the cluster) and a marked
   node; which is the implementer's, the property is not. Where the record lives is 10.10's question
   only if the channel is the span; on the node it needs no decision. No gate, no D2/D3
+  · **The marked node, not the paper's re-clustering** — the ledger offered both and this is the
+  one taken, because it composes with everything after it: 10.6 adds the level to the same model
+  and 10.9 adds its resolved `auto` values, so the pack gets one place a reader looks rather than
+  three. `weft_index.payload.RaptorFacts`, namespace **`weft-index-raptor`** (a second namespace
+  from one pack, `weft_extract`'s own `weft-extract-page`/`weft-extract-table` convention), schema
+  `1.0.0`, registered through `add_ext_model` and carried on **every** summary — truncated or not.
+  That last word is the design: a field only a degraded summary carried could never be read as
+  *"nothing was dropped"*, because its absence would equally mean an older `raptor` wrote the node
+  or that this pack is not installed on whatever read it back.
+
+  Four fields — `members`, `members_truncated`, `characters_held`, `characters_shown` — and
+  `characters_shown` describes **the request that succeeded**. When the first attempt fails and the
+  retry halves the cluster, a record taken from the first attempt would overstate what the summary
+  is built on by exactly the amount the retry gave up. `_format_cluster` returns the counts
+  alongside the text it rendered, so the record cannot disagree with the truncation it describes;
+  the test reads them back out of **what the model was shown**, which is a different source from
+  the plugin's own accounting (`L9.28`). `Representation` is untouched: it stays the `weft-index`
+  namespace `raptor-and-leaves-rrf.yaml:21` filters on, and changing its meaning would change a
+  shipped query rung. Written by a dispatched `weft-implementer`.
+
+  **Re-measured against 10.0** — records under `eval/raptor-baseline/remeasurements/after-10.2/`.
+  Same tree as after-10.3 (1,014 nodes, **112 summaries**), and every metric moved by less than
+  its own arm width: `mean_average_precision` 0.907407 → 0.900253 against a width of 0.0076,
+  `ndcg@3` 0.923987 → 0.920980, `precision@3` and `recall@3` up by less again. **The argument is
+  stronger than the measurement here and is stated rather than replaced by it**: `ext` is not
+  embedded, the baseline's plain top-k does not filter on it, and `Node.combine` computes the node
+  id *before* `with_ext` attaches anything — so this task cannot change what is retrieved, and the
+  three runs are a check on that reasoning rather than the reason to believe it
 - [x] **10.3** the same node set yields the same clusters whatever order the run delivered it in ·
   owner `10` §1.2 → the `raptor` row; `raptor.py` → *Clustering is a fresh, small algorithm* · turns
   on — · sha `b1aa695` · `_cluster_by_similarity` (`raptor.py:347-368`) walks `embedded` once in payload
@@ -6252,7 +6280,7 @@ schedule them.
   stage consumed, by the level 10.6 writes — reaches depth only through the pipeline document, one
   `embed`, `raptor` pair per rung; the alternative, a repeat construct in the kernel's pipeline model,
   is a kernel change and a ⛔ this phase does not take. All four papers build depth (RAPTOR §3;
-  T-Retriever eq. 8–9; Yasuno §3.2.3, 4,250 → 18 → 1; Chucri Alg. 1, fewer than 5 layers) and **none
+  T-Retriever eq. 8–9; Yasuno §3.2.3, 4,250 → 18 → 1; Chucri Alg. 1 line 4, *"while the top layer contains more than 10 nodes **and** there are fewer than 5 layers"* — a width floor and a depth ceiling together, and this line quoted only the ceiling until 2026-09-07; the width half is the more transferable one, since a depth ceiling alone does not stop a shallow, wide tree) and **none
   can tell Weft how deep**: RAPTOR's own rule is undefined at source and its appendix runs 3 of 5
   stories for depth; T-Retriever's rise with depth is on graphs. The criterion is cited to nobody, and
   *deeper is better* is asserted nowhere in this phase — 10.13 is where it is tested. The scope it
@@ -6278,8 +6306,14 @@ schedule them.
   `cluster_size` (`raptor.py:141`, *"the most members one cluster can hold"*) and a `tau_c` beside it
   ships one knob twice; τ_n has no analogue in a clusterer with no EM to approximate. T-Retriever's
   KDE bandwidth *h* is grid-searched per dataset and never reported (p.6); Yasuno's α = 0.7 and
-  entropy thresholds are "empirically optimized" with no sweep shown (§3.2.1, §4.1); Chucri's τ_c = 11
-  is asserted (§6.4). Weft's own defaults (`:141-161`) are no better evidenced —
+  entropy thresholds are "empirically optimized" with no sweep shown (§3.2.1, §4.1); **Chucri's τ_c = 11 is *not* asserted, and this line said it
+  was** — corrected 2026-09-07 against the paper, which was kept on disk for exactly this
+  (`L10.2`): §6.4, p.8 reads *"The choice of τc is based on the average cluster size in the full
+  RAPTOR tree, which is always less than 10 (see appendix, Table 12)"*, and Table 12 is real and
+  per-corpus. **That is the one threshold in all four papers derived from a measured property of
+  the tree it configures, which makes it the precedent for `auto` rather than an instance of the
+  failure `auto` fixes.** The asserted one in the same sentence is `τ_n = max(100, √|D₀|)`, and
+  the charge moves there. Weft's own defaults (`:141-161`) are no better evidenced —
   `similarity_threshold: 0.75` is a bar nothing clears under `hash` (Phase 8's measurement paragraph in this file). **Decided
   2026-09-07 and the ⚠ is discharged without D3 being taken — see the preamble.** The operator
   chooses per field: a typed value, or **`auto`, which is now the default**, retiring three numbers
@@ -6328,7 +6362,22 @@ schedule them.
   budgets by count (`:47`, `top_n: 8`) where RAPTOR's Algorithm 2 stops on a token threshold
   (Appendix F). Three papers give three answers — RAPTOR retrieves flat under a token budget,
   T-Retriever expands a summary to its members (eq. 13), Chucri summarises the retrieved set at query
-  time (§5) — and Weft has picked a fourth without a number. No gate on the fusion route; **⛔ if the
+  time (§5) — and Weft has picked a fourth without a number. **Two facts added 2026-09-07 from a
+  second reading of the four at source.** *(i)* **Nothing in any of them gives a weight to a
+  hierarchical arm against a leaf arm**, checked by reading every occurrence of weight, fusion,
+  hybrid, reciprocal and combin* across all four: the set holds one flat pool (RAPTOR collapsed,
+  Chucri, and T-Retriever eq. 12, which *"treats all encoding tree nodes uniformly regardless of
+  their hierarchical position"*), one expansion that drops the summary text (T-Retriever eq. 13),
+  and one hard route by query class (Yasuno §4.1) — so the weighted two-arm fusion is Weft's own
+  invention and **deleting it for one flat pool is the cheapest defensible alternative to measuring
+  0.7**, not a fallback. *(ii)* **Yasuno's α = 0.7 is not this 0.7 and must never be cited as
+  though it were** — §3.2.1 blends a *visual* vector into a chunk's own vector at index time; the
+  numeric coincidence is a trap for whoever next reaches for a citation, and it is written here so
+  the reach fails loudly. RAPTOR's own argument against `top_n` is on the record too: *"Using a
+  token-based approach ensures the context does not exceed model context constraints as token
+  counts can vary across nodes"* (p.6), with its Table 10 measuring summaries at 131 tokens against
+  leaves' 85.6 — bimodal, so a count budget spends about half again as much context on a
+  summary-heavy result. No gate on the fusion route; **⛔ if the
   expansion route is taken**, because `Reranker` is `Ranking → Ranking`
   (`weft_retrieve/contract.py:132-143`) and its docstring is silent on whether the output may hold
   hits the input did not — an `02` §1 question settled before any plugin in that position adds hits

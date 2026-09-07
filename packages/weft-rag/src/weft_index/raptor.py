@@ -95,6 +95,15 @@ nothing about the tenth. Recording that count needs a channel this plugin does n
 by default whether the registration seam is the only emitter of telemetry, which is an open
 question and not this task's to answer.
 
+**Per-summary coverage rides on the node itself, and does not wait on that channel.** Task
+**10.2**: every summary this plugin returns carries `weft_index.payload.RaptorFacts` — how
+many members its cluster held, how many of them were truncated, and how many characters the
+model that wrote the summary actually saw versus how many the cluster held in full. A reader
+can now tell a summary built from its whole cluster apart from one built from 40% of it,
+which content alone never could. The run-level count named in the paragraph above — how many
+of a run's clusters degraded — is a separate fact, about the run rather than about one
+summary, and stays open for task 10.10.
+
 **The retry halves what was sent, and that is the whole point of it.** `weft_llm.retry` already
 owns retrying the same request, and `LLMContextLengthError` is classed *permanent*
 (`weft_llm/errors.py:160`) precisely because re-sending an overflowing prompt fails identically
@@ -124,7 +133,7 @@ from typing import ClassVar
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from weft_embed.contract import Embedder
-from weft_index.payload import Representation
+from weft_index.payload import RaptorFacts, Representation
 from weft_index.prompts import SUMMARIZE_CLUSTER_NAME, SummarizeClusterRequest
 from weft_kernel.context import Context
 from weft_kernel.payload import (
@@ -302,10 +311,13 @@ class RaptorSummarizer:
         # and `weft_llm.retry` already owns retrying the *same* request. What this branch adds
         # is the only move retry cannot make: a smaller one.
         budget = self._config.max_cluster_chars
+        characters_held = sum(len(member.content) for member in members)
         for attempt in range(2):
-            passages = _format_cluster(members, budget=budget)
+            passages, characters_shown, members_truncated = _format_cluster(members, budget=budget)
             if attempt == 1:
-                passages = _format_cluster(members, budget=max(1, len(passages) // 2))
+                passages, characters_shown, members_truncated = _format_cluster(
+                    members, budget=max(1, len(passages) // 2)
+                )
             values = SummarizeClusterRequest(passages=passages)
             rendered = await prompts.render(self._config.prompt, values, ctx)
             if not isinstance(rendered, Produced):
@@ -316,26 +328,47 @@ class RaptorSummarizer:
             summary = completion.value.text.strip()
             if not summary:
                 continue
-            return Node.combine(members, content=summary, media_type=MediaType.TEXT).with_ext(
-                Representation(technique=NAME)
+            facts = RaptorFacts(
+                members=len(members),
+                members_truncated=members_truncated,
+                characters_held=characters_held,
+                characters_shown=characters_shown,
+            )
+            return (
+                Node.combine(members, content=summary, media_type=MediaType.TEXT)
+                .with_ext(Representation(technique=NAME))
+                .with_ext(facts)
             )
         return None
 
 
-def _format_cluster(members: Sequence[Node], *, budget: int) -> str:
-    """One cluster's members, numbered — `weft_retrieve.prompts.PassageGradeRequest`'s own
-    precedent for a batch offered to a template: joining is the plugin's job, not the
-    template's, because a template substitution has no loop of its own.
+def _format_cluster(members: Sequence[Node], *, budget: int) -> tuple[str, int, int]:
+    """One cluster's members, numbered, alongside how much of them actually went in.
+
+    `weft_retrieve.prompts.PassageGradeRequest`'s own precedent for a batch offered to a
+    template: joining is the plugin's job, not the template's, because a template
+    substitution has no loop of its own.
 
     `budget` is shared **evenly across members** rather than spent first-come. Truncating the
     join as one string would let a single long member consume the whole allowance and leave
     its siblings out of the summary entirely, which would quietly turn a cluster summary into
     a paraphrase of its longest member — a wrong answer that still looks like a summary.
+
+    Returns the rendered text, the total length of the passages actually sent (never the
+    members' own content), and how many of those members were cut short — task **10.2**'s
+    `RaptorFacts`, read here rather than recomputed from a second division of the same budget
+    elsewhere, so the record can never disagree with the truncation it describes.
     """
     share = max(1, budget // max(1, len(members)))
-    return "\n\n".join(
-        f"{index}. {member.content[:share]}" for index, member in enumerate(members, 1)
+    passages = [member.content[:share] for member in members]
+    text = "\n\n".join(f"{index}. {passage}" for index, passage in enumerate(passages, 1))
+    characters_shown = sum(len(passage) for passage in passages)
+    members_truncated = sum(
+        1
+        for member, passage in zip(members, passages, strict=True)
+        if len(passage) < len(member.content)
     )
+    return text, characters_shown, members_truncated
 
 
 class _Cluster:

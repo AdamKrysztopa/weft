@@ -19,13 +19,14 @@ own `_StubEmbedder` shape, enough to make clustering deterministic without a rea
 
 import asyncio
 import math
+import re
 from collections.abc import Mapping, Sequence
 
 import pytest
 
 from weft_embed.contract import Embedder
 from weft_index.contract import Expander
-from weft_index.payload import Representation
+from weft_index.payload import RaptorFacts, Representation
 from weft_index.prompts import SUMMARIZE_CLUSTER_NAME, SummarizeClusterPrompt
 from weft_index.raptor import NAME, RaptorConfig, RaptorSummarizer
 from weft_kernel.context import Context, ServiceRegistry
@@ -552,4 +553,111 @@ async def test_the_same_nodes_in_a_different_order_build_the_same_tree() -> None
         "groupings and gave them different ids — a node id is a content digest, and a cluster "
         "rendered members-first-seen produces different content for the same membership. An "
         "index rebuilt from the same corpus must be the same index."
+    )
+
+
+# --- Ledger task 10.2 — no member's content is dropped without the summary recording it.
+
+
+def _passages_shown(rendered: str) -> list[str]:
+    """The member bodies `_format_cluster` actually put in front of the model.
+
+    Read out of the rendered prompt rather than recomputed from the members and the budget.
+    Recomputing the even share here would compare `_format_cluster`'s arithmetic against a
+    second copy of itself, and a coverage record derived from the same division as the
+    truncation cannot disagree with it (`docs/lessons.md` L9.28). What this parses is the
+    request that left the plugin.
+    """
+    block = rendered.split("Passages:\n", 1)[1].split("\n\nWrite one summary", 1)[0]
+    return [re.sub(r"^\d+\. ", "", part) for part in block.split("\n\n")]
+
+
+async def test_a_summary_records_its_cluster_even_when_nothing_was_dropped() -> None:
+    """The record exists on every summary, not only on a degraded one.
+
+    A field written only when something went wrong cannot be read as *"nothing went wrong"* —
+    its absence would mean that, or that an older `raptor` wrote the node, or that the pack is
+    not installed. `10` §1.2's strongest claim is that a summary abstracts its whole cluster,
+    and a reader has to be able to check it on the summaries that are fine.
+    """
+    # Arrange — two short members against the shipped 12,000-character budget.
+    a, b = _node("passage a"), _node("passage b")
+    embedder = _StubEmbedder({"passage a": _A, "passage b": _B})
+    llm = _RecordingLLM([_reply("A summary of A and B.")])
+
+    # Act
+    outcome = await RaptorSummarizer().run((a, b), _ctx(embedder=embedder, llm=llm))
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    summary = next(node for node in outcome.value if len(node.lineage.parents) > 1)
+    facts = summary.ext_as(RaptorFacts)
+    assert facts is not None, (
+        "the summary carries no coverage record at all, so a reader cannot tell a summary that "
+        "read its whole cluster from one that read 40% of it — which is the point at which this "
+        "plugin makes its strongest claim"
+    )
+    assert facts.members == 2
+    assert facts.members_truncated == 0
+    assert facts.characters_held == len(a.content) + len(b.content)
+    assert facts.characters_shown == facts.characters_held
+
+
+async def test_a_summary_that_saw_only_part_of_its_cluster_records_how_much() -> None:
+    """The property 10.2 names. `_format_cluster` slices every member to an even share of
+    `max_cluster_chars`, so a summary built from 40% of its cluster is byte-identical to one
+    built from all of it — the record is what makes the two distinguishable.
+    """
+    # Arrange — two 400-character members against a 100-character budget.
+    a, b = _node("a" * 400), _node("b" * 400)
+    embedder = _StubEmbedder({"a" * 400: _A, "b" * 400: _B})
+    llm = _RecordingLLM([_reply("A summary.")])
+
+    # Act
+    outcome = await RaptorSummarizer(RaptorConfig(max_cluster_chars=100)).run(
+        (a, b), _ctx(embedder=embedder, llm=llm)
+    )
+
+    # Assert — the record against what the model was actually shown, which is a different
+    # source from the record: one is the plugin's own accounting, the other is the request.
+    assert isinstance(outcome, Produced)
+    summary = next(node for node in outcome.value if len(node.lineage.parents) > 1)
+    facts = summary.ext_as(RaptorFacts)
+    assert facts is not None
+    shown = _passages_shown(llm.shown[0])
+    assert facts.characters_shown == sum(len(passage) for passage in shown)
+    assert facts.characters_held == 800
+    assert facts.characters_shown < facts.characters_held
+    assert facts.members_truncated == sum(
+        1 for member, passage in zip((a, b), shown, strict=True) if passage != member.content
+    )
+    assert facts.members_truncated == 2
+
+
+async def test_the_record_describes_the_request_that_succeeded_not_the_one_that_failed() -> None:
+    """The retry halves what was sent, so a record taken from the first attempt would overstate
+    what the summary is built on — by exactly the amount the retry gave up.
+    """
+    # Arrange — the first completion fails, the second is handed half the text.
+    a, b = _node("a" * 400), _node("b" * 400)
+    embedder = _StubEmbedder({"a" * 400: _A, "b" * 400: _B})
+    llm = _RecordingLLM([Failed(reason="too long"), _reply("A summary.")])
+
+    # Act
+    outcome = await RaptorSummarizer(RaptorConfig(max_cluster_chars=200)).run(
+        (a, b), _ctx(embedder=embedder, llm=llm)
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert len(llm.shown) == 2, "this test needs the retry to have happened"
+    summary = next(node for node in outcome.value if len(node.lineage.parents) > 1)
+    facts = summary.ext_as(RaptorFacts)
+    assert facts is not None
+    second = sum(len(passage) for passage in _passages_shown(llm.shown[1]))
+    first = sum(len(passage) for passage in _passages_shown(llm.shown[0]))
+    assert second < first, "the retry did not actually send less, so this test proves nothing"
+    assert facts.characters_shown == second, (
+        "the record describes the first, larger request — the one that failed and whose text "
+        "the summary is not built on"
     )

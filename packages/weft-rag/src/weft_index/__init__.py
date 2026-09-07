@@ -31,7 +31,7 @@ from weft_index.hypothetical_questions import (
     HypotheticalQuestionGenerator,
     HypotheticalQuestionsConfig,
 )
-from weft_index.payload import Representation
+from weft_index.payload import RaptorFacts, Representation
 from weft_index.prompts import (
     GENERATE_QUESTIONS_NAME,
     SUMMARIZE_CLUSTER_NAME,
@@ -63,6 +63,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(Expander, RAPTOR_NAME, RaptorSummarizer)
     registrar.add(Prompt, SUMMARIZE_CLUSTER_NAME, SummarizeClusterPrompt)
     registrar.add_ext_model(Representation)
+    registrar.add_ext_model(RaptorFacts)
 
 
 __all__ = [
@@ -77,6 +78,7 @@ __all__ = [
     "HypotheticalQuestionGenerator",
     "HypotheticalQuestionsConfig",
     "RaptorConfig",
+    "RaptorFacts",
     "RaptorSummarizer",
     "Representation",
     "Settings",

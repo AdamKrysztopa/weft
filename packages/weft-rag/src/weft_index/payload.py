@@ -17,6 +17,8 @@ module's `weft_generate.representation` for the duck-typed read and why it repla
 import, the same precedent `weft_generate.page.page_for` already set for a chunk's offset.
 """
 
+from pydantic import Field
+
 from weft_kernel.payload import ExtModel
 
 
@@ -37,3 +39,45 @@ class Representation(ExtModel):
     #: The `Expander` plugin name that generated this node — `weft_index.hypothetical_
     #: questions.NAME` for this task's own registration.
     technique: str
+
+
+class RaptorFacts(ExtModel):
+    """What `raptor`'s cluster a summary was built from actually held, and how much of it the
+    model that wrote the summary was actually shown. Ledger task **10.2**.
+
+    `raptor._format_cluster` slices every member to an even share of `max_cluster_chars` so
+    one long member cannot crowd its siblings out of the summary — argued in that function's
+    own docstring, and this model does not change it. What it repairs is that the slicing was
+    otherwise invisible: a summary built from 40% of its cluster is byte-identical to one
+    built from the whole thing, at exactly the point where this plugin makes its strongest
+    claim — that a summary abstracts its whole cluster, not a truncated prefix of it.
+
+    Attached to **every** summary `raptor` returns, truncated or not — a field only a
+    degraded summary carried could never be read as "nothing was dropped," because its
+    absence would equally mean an older `raptor` wrote the node, or that this pack is not
+    installed on whatever reads it back.
+
+    The paper this plugin is named after does not truncate at all: Sarthi et al., *RAPTOR*
+    (ICLR 2024, arXiv:2401.18059), p.4, re-clusters within an oversized cluster until every
+    piece fits the model it is handed to. Weft diverges — it truncates evenly and records the
+    truncation rather than re-clustering — and this model is that divergence stated rather
+    than left implicit in `_format_cluster`'s own arithmetic.
+
+    `characters_shown` describes the request that **succeeded**: when a first attempt fails
+    and `raptor` retries with the cluster halved, this is the retry's count, never the
+    failed attempt's — a record taken from the request that did not produce the summary
+    would overstate what the summary is actually built on.
+    """
+
+    __namespace__ = "weft-index-raptor"
+    __schema_version__ = "1.0.0"
+
+    #: How many nodes the cluster held.
+    members: int = Field(ge=1)
+    #: How many of those members the model saw less than the whole content of.
+    members_truncated: int = Field(ge=0)
+    #: The total length of the members' own `content` — what the cluster held.
+    characters_held: int = Field(ge=0)
+    #: The total length of the member text that actually reached the model, in the request
+    #: that produced this summary.
+    characters_shown: int = Field(ge=0)

@@ -340,9 +340,24 @@ in the tree somebody else is editing.* **G14 is open and is exactly this questio
 isolated checkout the default for a dispatched implementer?* — recorded as blocking nothing. It
 blocked nothing and it cost something.
 
-**Candidate home.** G14, which now has a second concrete instance to weigh and should probably be
-answered rather than left open; and `references/implementer-brief.md`, whose *Files* section says
-what may be written and says nothing about what may be *created* beside it.
+**A third instance, one task later, and this one is the dispatcher's fault.** 10.2's implementer
+ended up with **three concurrent `poe ci-no-tests` runs** in the same checkout — one auto-
+backgrounded by a tool timeout, one it backgrounded itself, and one it could not account for,
+which was mine: I ran `poe ci-checks` while it was still working, which `phase-step` forbids in
+those words and which I had already broken twice. The contention produced a **false red** —
+`test_ff9c_every_contract_has_a_stranger` timed out, because the `arch` step builds real wheels
+and installs them into throwaway venvs per test, so two runs contend for CPU and disk rather than
+for the database. A clean single run passed 260/260. This matters beyond the incident: `L6.22`'s
+mechanism is *two suites truncating each other's tables*, and an author who has internalised that
+one will reason "different databases, no conflict" and be wrong — the second mechanism needs no
+shared state at all, only a shared machine, and it fails as a **timeout**, which reads as a real
+defect rather than as contention.
+
+**Candidate home.** G14, which now has three concrete instances to weigh and should be answered
+rather than left open; `references/implementer-brief.md`, whose *Files* section says what may be
+written and says nothing about what may be *created* beside it; and `phase-step` → *Green*, whose
+"do not run the gate either" sentence gives `L6.22`'s database reason and should give this one
+too, since the reason is what a reader checks their own situation against.
 
 ### L10.13 — a published contract's docstring states what its first implementation did, and has been false of its second since the day that second shipped
 
@@ -400,6 +415,36 @@ one granularity down — a citation of the form ``\`X.y\`'s own docstring: "<quo
 checkable by finding the quoted words inside that symbol's docstring, which `ast` can extract. Its
 population wants measuring first: how many docstring citations in `packages/` already quote, and
 how many only point.
+
+### L10.15 — the plan cited a paper for the failure that paper is the counter-example to
+
+**What happened.** `build-ledger.md`'s Phase 10 task line 10.9 listed the hyperparameters its
+source papers tune without evidence and ended *"Chucri's τ_c = 11 is asserted (§6.4)"*. §6.4, p.8
+of that paper says the opposite, verbatim: *"The choice of τc is based on the average cluster size
+in the full RAPTOR tree, which is always less than 10 (see appendix, Table 12)."* Table 12 exists
+and is per-corpus. **τ_c is the one threshold in all four papers derived from a measured property
+of the tree it configures** — which is precisely the shape 10.9 is building (`auto`, recomputed
+from the run's own payload), so the line cited the best available precedent for its own design as
+an example of the failure it was fixing. A second, smaller instance in the same phase: 10.7 cited
+*"Chucri Alg. 1, fewer than 5 layers"* where line 4 reads *"while the top layer contains more than
+10 nodes **and** there are fewer than 5 layers"* — half a conjunction, and the omitted half is the
+more transferable one, since a depth ceiling alone does not stop a shallow, wide tree. Both found
+by a dispatched agent re-reading the papers at source, both re-verified here by grepping the
+extracted text before the correction was written.
+
+**Generalises to.** *A claim of the form "paper X asserts Y without evidence" is a claim about
+what X does **not** contain, and a negative claim about a source cannot be made from a reading
+that was looking for something else — it needs a second pass whose whole purpose is to look for
+the evidence and fail to find it.* The planning pass that wrote this line read four papers for
+what they *say*; the sentence it produced is about what one of them does not, and that is a
+different question asked of the same text.
+
+**Candidate home.** `paper-to-plugin`, which owns the read-at-source path and already requires the
+divergence in the docstring, and which is where a step could say: a line asserting that a source
+*lacks* evidence names the section it looked in. Note the loop worked here — `L10.2`'s remedy was
+to keep the papers on disk so a derived claim stays re-checkable, and this is the first thing that
+re-check caught. That is evidence for `L10.2`'s rule and an argument for scheduling its
+implementation rather than leaving it queued.
 
 ## When the queue is empty
 
