@@ -1,0 +1,112 @@
+{
+  "task": "10.0",
+  "what_this_is": "The baseline the shipped one-level `raptor` was measured at, taken before any line of Phase 10 changed the plugin. Six persisted `weft eval run` records under runs/, produced by the shipped binary from a directory that is not this repository, and the statement of what they say. `tests/docs/test_raptor_baseline.py` holds this file to those records.",
+  "taken_on": "2026-09-07",
+  "taken_at_commit": "901e2b6",
+  "arms_are": {
+    "leaves": "leaves-baseline",
+    "raptor": "raptor-baseline"
+  },
+  "corpus": {
+    "name": "mrmr-v1-pdf-fetch",
+    "manifest": "corpus/manifest.toml",
+    "tier": "fetch",
+    "suffix": ".pdf",
+    "documents": 10,
+    "extractor": "pdf-text",
+    "note": "The reproducible half of the named corpus that one extractor claims — `eval/run_baseline.py`'s own EXTRACTOR_SUFFIXES rule, because a resolved pipeline names exactly one Extractor stage. The `.md`/`.txt` half of the same tier carries only 12 scoreable questions against these 66, which is why the PDFs were measured."
+  },
+  "questions": {
+    "count": 66,
+    "source": "eval/questions/, every question all of whose relevant_documents are in the corpus above",
+    "granularity": "document",
+    "top_k": 3
+  },
+  "environment": {
+    "weft": "2.2.0",
+    "embedder": "openai-embeddings:text-embedding-3-small",
+    "summariser_role": "index -> openai:gpt-5.4-mini",
+    "store": "pgvector",
+    "active_distributions": ["weft-openai", "weft-pdf", "weft-qdrant", "weft-rag"]
+  },
+  "why_depth_three": "At --top-k 10 every metric is at or beside its ceiling by construction: the corpus holds 10 documents, ground truth is named per document, and `weft_cli.eval_scoring` deduplicates a retrieved pool to one entry per document — so retrieving 10 retrieves all of them and recall@10 is 1.0 before any technique runs. Measured, not supposed: three leaves-arm runs at depth 10 scored recall@10 1.0, ndcg@10 0.933169, precision@10 0.107576, mean_average_precision 0.905952, identically. Depth 3 is where this corpus still has headroom.",
+  "arms": {
+    "leaves-baseline": {
+      "runs": [
+        "507bc3a9-dec0-407b-b508-d11d225dc7eb",
+        "a0282832-28d9-4576-8919-f7925a984fea",
+        "88014f37-f2fb-42f1-b110-6a121c7344ba"
+      ],
+      "nodes_stored": [902, 902, 902],
+      "summaries": [0, 0, 0],
+      "spread_width": {
+        "mean_average_precision": 0.0,
+        "ndcg@3": 0.0,
+        "precision@3": 0.0,
+        "recall@3": 0.0
+      },
+      "arm_mean": {
+        "mean_average_precision": 0.891414,
+        "ndcg@3": 0.914397,
+        "precision@3": 0.333333,
+        "recall@3": 0.959596
+      }
+    },
+    "raptor-baseline": {
+      "runs": [
+        "01845743-5726-4ab8-80e5-003defb53a26",
+        "b94907ef-e6a4-4a20-b625-1dbcdf2ff4ab",
+        "10d1156c-6134-4a9c-befe-79081ae38e6e"
+      ],
+      "nodes_stored": [1015, 1015, 1015],
+      "summaries": [113, 113, 113],
+      "spread_width": {
+        "mean_average_precision": 0.012626,
+        "ndcg@3": 0.017135,
+        "precision@3": 0.010101,
+        "recall@3": 0.030303
+      },
+      "arm_mean": {
+        "mean_average_precision": 0.909091,
+        "ndcg@3": 0.924976,
+        "precision@3": 0.335017,
+        "recall@3": 0.957071
+      }
+    }
+  },
+  "compared": {
+    "a": "507bc3a9-dec0-407b-b508-d11d225dc7eb",
+    "b": "01845743-5726-4ab8-80e5-003defb53a26",
+    "note": "The one run of each arm `weft eval compare` judged. Transcribed below with the verdicts it printed; a spread it took excludes both of these, so an arm supplying a compared run contributes two repetitions to its own spread and not three."
+  },
+  "verdicts": {
+    "leaves-baseline": {
+      "mean_average_precision": "outside-baseline-spread",
+      "ndcg@3": "outside-baseline-spread",
+      "precision@3": "outside-baseline-spread",
+      "recall@3": "outside-baseline-spread"
+    },
+    "raptor-baseline": {
+      "mean_average_precision": "outside-baseline-spread",
+      "ndcg@3": "outside-baseline-spread",
+      "precision@3": "within-baseline-spread",
+      "recall@3": "within-baseline-spread"
+    }
+  },
+  "papers_effect_size_bar": 0.02,
+  "papers_effect_size_bar_is": "Two points. RAPTOR's own controlled with/without gains are 0.33 to 4.41 points (Tables 1-2) and its clustering ablation 0.8 on one dataset with no variance (Appendix B); the ledger's own 10.0 line fixes two points as the bar an exit must be able to see before it may claim anything either way.",
+  "minimum_detectable_effect": {
+    "mean_average_precision": {"effect": 0.012626, "detects_the_papers_bar": true},
+    "ndcg@3": {"effect": 0.017135, "detects_the_papers_bar": true},
+    "precision@3": {"effect": 0.010101, "detects_the_papers_bar": true},
+    "recall@3": {"effect": 0.030303, "detects_the_papers_bar": false}
+  },
+  "minimum_detectable_effect_is": "The wider of the two arms' own repetition spreads, per metric. V3 derives a tolerance from one baseline repeating itself; two arms is Weft's own extension of that and no paper is cited for it. An effect smaller than either arm's own noise is not one this instrument can see, so the smallest it can see is the larger width. The leaves arm contributes nothing to it: three runs scored identically to six decimal places, which is a claim about those three runs and not proof the arm is deterministic.",
+  "what_the_baseline_says": "Judged against the wider spread, the shipped one-level `raptor` moves mean_average_precision by +0.017677 on this corpus, which is outside the 0.012626 this instrument cannot see; and moves ndcg@3 (+0.010579), precision@3 (+0.001684) and recall@3 (-0.002525) by less than their own minimum detectable effects. One measurable improvement, three results indistinguishable from the arms repeating themselves.",
+  "caveats": [
+    "A verdict depends on which repetition is `b`. `weft eval compare` judges one run against a spread, and the run compared here is the best of the raptor arm's three: against it ndcg@3 reads outside the spread, while against the arm's own mean it reads inside. The arm means are stated above for exactly that reason, and 10.13 should compare means rather than single runs.",
+    "A summary node is attributed to the alphabetically first of its `lineage.sources` (`weft_cli.eval_scoring._document_id_of`). The shipped `raptor` clusters batch-wide, so a summary can span documents, and a cross-document summary is scored as evidence for one of them arbitrarily. This instrument therefore cannot represent a cross-document summary honestly, in either direction. It is a limit of the measurement, not of the plugin, and 10.5 is where the scope it comes from is named.",
+    "`model_versions` carries the embedder and not the summariser: the summarising model lives in `[llm.roles]`, which a resolved pipeline never names, so `weft eval compare` would compare two raptor runs summarised by two different models without objecting. The model actually used is recorded under `environment` above by hand for that reason.",
+    "The clusterer produced 113 summaries in all three raptor runs from the same 902 chunks — the greedy pass is deterministic given the same embeddings and the same input order. What varies between the runs is the summary text, not the tree shape. 10.3 is where order-independence becomes a property rather than a coincidence of one batching."
+  ]
+}

@@ -178,7 +178,17 @@ QUEUE_DEPTH_IN_STATUS = re.compile(r"^(?P<count>\d+)\b")
 
 #: The ledger task `docs/README.md`'s Next action row points at — the row that outranks
 #: ledger order, so it is what the Status phase must agree with. See `live_checks`.
-NEXT_ACTION_TASK = re.compile(r"[Tt]ask\s+\*{0,2}(?P<identifier>\d+\.\d+)")
+#:
+#: **The delimiter class is the whole repair, 2026-09-07 (`docs/lessons.md` L10.7).** This
+#: pattern allowed bold (`task **9.14**`) and bare (`task 9.14`) and not backticks, and every
+#: Next action row this project has ever written spells the identifier in backticks — twelve
+#: consecutive revisions of `docs/README.md` checked, twelve no-matches. So the branch
+#: `live_checks` calls "the whole question" had never once run against the live document: the
+#: comparison silently fell back to ledger order, which that function's own comment says
+#: "fails on a correct tree". It went unnoticed because falling back agreed by coincidence
+#: while the Next action row happened to point inside the same phase the first unticked box
+#: was in. A regex is a claim about a document's shape and is checked against the document.
+NEXT_ACTION_TASK = re.compile(r"[Tt]ask\s+[*`]{0,2}(?P<identifier>\d+\.\d+)")
 
 #: One `### L<id> — <title>` entry in `docs/lessons.md`'s own `## Queue` section — the identical
 #: shape `.claude/hooks/lessons_context.py` counts, so the two cannot disagree about what an

@@ -83,6 +83,134 @@ divergence in the docstring beside the name — it does not require the divergen
 later, nor say where a source lives. Possibly a fitness function over `10`'s catalogue rows, since
 10.1 is already repairing three overclaims in that document by hand.
 
+### L10.3 — the metric was at its ceiling before the technique ran, and the default depth is what put it there
+
+**What happened.** Task 10.0's first measurement ran `weft eval run --questions ... --top-k 10`
+against the reproducible PDF half of the named corpus. It scored `recall@10 = 1.0`, `precision@10 =
+0.1076`, `ndcg@10 = 0.9332` — identically, in all three repetitions. The corpus holds **ten**
+documents, ground truth is named per *document* (`weft_cli.eval_scoring`'s own choice), and
+`_deduplicated_by_document` keeps one entry per document, so retrieving ten retrieves every document
+there is and `recall@10` is 1.0 whatever the pipeline does. The baseline the whole of Phase 10 rests
+on would have been taken on an instrument that could not move. Caught by reading the first run's
+numbers rather than by any check: nothing in the tree relates a retrieval depth to how many
+documents the corpus has. Re-taken at depth 3, where the same arm scores `recall@3 = 0.9596` and has
+headroom.
+
+**Generalises to.** *A retrieval measurement states the depth it was taken at **beside the size of
+the population it retrieves from**, and a depth at or above that size is refused rather than
+reported — at document granularity, `k >= |corpus|` makes recall identically 1 and measures
+nothing.* The wider shape: an instrument's ceiling is a property of the instrument and the corpus
+together, and neither one alone can be inspected for it.
+
+**Candidate home.** `weft_cli.eval_scoring.score_pipeline`, which knows both `top_k` and — through
+the resolved store — how many documents were indexed, so it is the one place that could refuse or
+warn. Alternatively `weft eval run`'s own renderer, or `tests/docs/test_raptor_baseline.py`'s
+`why_depth_three` field promoted into a rule the harness applies rather than a sentence a human
+wrote.
+
+### L10.4 — the falsification instrument judges one run, so which repetition you hand it changes the verdict
+
+**What happened.** 10.0's two arms were each run three times. `weft eval compare <a> <b> --baseline
+raptor-baseline` judged `ndcg@3` **outside** the baseline spread (Δ+0.019 against 0.916–0.925) — but
+`b` was the best of the raptor arm's three runs, and against that arm's own *mean* the difference is
++0.0106 against a full-arm width of 0.0171, which is **inside**. Same six records, same instrument,
+opposite verdicts, decided by which repetition was named on the command line.
+`weft_eval.falsify.judge_differences` takes one `RunRecord` per side by construction and computes no
+arm mean; `weft_cli.eval_commands._falsify_against_baseline` then removes `a` and `b` from the
+repetitions, so an arm that supplies a compared run also loses a third of its own measured
+variability. Both behaviours are individually defensible and together they make a verdict depend on
+an arbitrary choice.
+
+**Generalises to.** *Where a claim is about two configurations rather than two runs, the instrument
+must compare their distributions — a verdict computed from one representative of each side is a
+verdict about those two representatives, and naming a different one is allowed to reverse it.*
+
+**Candidate home.** `weft_eval.falsify` — a `judge_arms(a_records, b_records)` beside
+`judge_differences`, or `weft eval compare` taking a set per side. Task 10.13 is the first caller
+that needs it, and `09` §4.3's V3 is the document that already reasons in repetitions rather than
+runs.
+
+### L10.5 — the comparability guard checks "model versions" and cannot see the model that did the work
+
+**What happened.** `weft eval compare` refuses two runs whose `corpus`, `model_versions` or
+`active_distributions` differ — V3's own failure clause at the CLI seam
+(`weft_cli.eval_commands._incomparable_reasons`). 10.0's raptor arm was summarised by
+`gpt-5.4-mini`, named in `[llm.roles]`. `_model_versions` derives its mapping from the **resolved
+pipeline's stage configs**, and `RaptorConfig` carries `role`, never `model`, because a stage never
+names a provider or a model (`manual/operations-guide.md` → *Choosing which model answers*). So the
+records for both arms read `{"embed": "openai-embeddings:text-embedding-3-small"}`, and two raptor
+runs summarised by two different models would compare as apples to apples with no objection. Found
+while taking 10.0 and recorded by hand in `eval/raptor-baseline/measurement.json` under
+`environment`, because nothing in the record could carry it.
+
+**Generalises to.** *A guard named for a class of fact must be derived from every channel that
+supplies that class — `[llm.roles]` is a second source of model identity, and a check that reads
+only the pipeline is a check whose name overstates it.* The same shape as `L9.42`: the mechanism
+existed and the capability did not.
+
+**Candidate home.** `weft_eval.run_record.RunRecord.model_versions`, filled from the `RoleTable`
+that was in scope at `EvalRunCommand.run` as well as from the resolved stages — or `_model_versions`
+renamed to what it actually derives, so the guard stops claiming the wider fact. `R9.6`'s neighbour:
+a model an operator sets in `weft.toml` that no artefact records.
+
+### L10.6 — a diff line printed both sides identically, because what changed is a field the line does not print
+
+**What happened.** `weft eval compare` on the two 10.0 arms printed:
+
+```
+'leaves-baseline' vs 'raptor-baseline':
+  + summarise (Expander:raptor)
+  ~ embed: openai-embeddings -> openai-embeddings
+  ~ extract: pdf-text -> pdf-text
+```
+
+Two of the three lines say a stage changed and then show the same value twice. Both documents
+`replace:` those stages with the identical plugin, so `ResolvedStage.provenance` differs
+(`leaves-baseline` vs `raptor-baseline`) while `use` does not, and
+`weft_cli.render._pipeline_diff_lines` renders `change.a.use -> change.b.use` alone. The line is
+correct about *that* something changed and useless about *what*, and a reader comparing two arms of
+a measurement is exactly the reader who has to decide whether the two differ by more than the one
+stage. Found by running the binary; no test in the tree renders a provenance-only change.
+
+**Generalises to.** *A renderer for a difference must print the field the difference is in, or say
+which field it is in — a line whose two sides are identical is a line that has withheld its own
+subject.* Sibling of `L9.45` (`Applies.__repr__` reached by nothing) one step over: this one is
+reached, and says nothing.
+
+**Candidate home.** `weft_cli.render._pipeline_diff_lines`, with a test in `tests/unit/weft_cli/`
+constructing two resolved stages that differ only in provenance — `weft pipeline diff` is the other
+command that renders through the same helper, so the repair is one place and covers both.
+
+### L10.7 — the branch a check's own comment calls "the whole question" had never once run
+
+**What happened.** `.claude/skills/phase-step/scripts/next_task.py`'s `live_checks` compares the
+Status block's declared phase against *the task its **Next action** row names*, falling back to
+ledger order only when the row names none — its own comment: *"Which task the Status phase is
+compared against is the whole question, and getting it wrong is why the old check was written
+loosely enough to pass."* `NEXT_ACTION_TASK` matched `task 9.14` and `task **9.14**` and not
+``task `9.14` ``. **Every Next action row this project has written spells the identifier in
+backticks** — twelve consecutive revisions of `docs/README.md` checked by replaying the regex over
+`git show <sha>:docs/README.md`, twelve no-matches. So the branch never ran, the comparison always
+fell back to ledger order, and the check stayed green because falling back happened to agree while
+the row pointed inside the same phase as the first unticked box. It surfaced the moment those two
+diverged: 10.0 ticked, Phase 9's two deliberately-unticked conditional boxes still first in ledger
+order, and the check reported the Status block stale when the Status block was right. Repaired in
+the same edit, delimiter class widened to ``[*`]``.
+
+**Generalises to.** *A regex over a document this repository writes is a claim about that
+document's shape, and it is checked by running it over the document's own history — a
+`re.search` that silently returns `None` degrades to a fallback path, so its failure looks
+exactly like its success.* The sharper half, which is what makes this a third instance rather
+than a first: `next_task.py`'s two known defects (`L6.3`, `L6.4`) were both *an input the script
+never read*; this is the same defect one layer in — an input it reads and cannot parse.
+
+**Candidate home.** `next_task.py`'s own `self_test`, which runs against a synthetic ledger and
+so had a `## Status` fixture written in whatever shape the author had in mind — the fixture is
+the second source that agreed with the regex because the same person wrote both (`L5.6`). The
+non-vacuity floor for a pattern with a fallback is an assertion that it *matched*, taken against
+the real file rather than the fixture; `live_checks` is where that belongs, since it is already
+the half that reads the real documents.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

@@ -5959,6 +5959,84 @@ schedule them.
   `WEFT_LIVE_API_TESTS`'s precedent because under `hash` the rung builds nothing
   (`weft_retrieve/pipelines/index-with-raptor.yaml:25-33`), and under `L8.30`'s discipline — row
   counts asserted immediately before and after, one process on the container
+  · **Taken 2026-09-07 against `901e2b6`, before any Phase 10 commit touched `packages/`.**
+  Six persisted `weft eval run` records, committed under `eval/raptor-baseline/runs/`, with the
+  statement in `eval/raptor-baseline/measurement.json` and `tests/docs/test_raptor_baseline.py`
+  holding one to the other. Run through the shipped binary from
+  `<scratch>/run10.0`, a directory that is not this repository, out of a venv holding
+  `weft-kernel`, `weft-rag`, `weft-openai`, `weft-pdf` and `weft-qdrant` installed non-editable
+  from `packages/`. Corpus: the `fetch` tier's ten PDFs, the reproducible half one extractor
+  claims (`pdf-text`), scored by the 66 questions in `eval/questions/` all of whose
+  `relevant_documents` it holds. Embedder `openai-embeddings:text-embedding-3-small`; summariser
+  `[llm.roles] index = openai:gpt-5.4-mini`; store `pgvector`, on a database of its own
+  (`weft_r10`) truncated and asserted empty immediately before every run and non-empty
+  immediately after — `L8.30`, and nothing else touched that container while the six ran.
+  **The two arms differ by exactly one stage:** both `extends: index-text` and replace `extract`
+  with `pdf-text` and `embed` with `openai-embeddings`; the raptor arm additionally inserts
+  `summarise: raptor` after `chunk` with `index-with-raptor.yaml`'s own shipped `with:` block
+  (`cluster_size: 4, min_cluster_size: 2, similarity_threshold: 0.75`). Every raptor run stored
+  902 chunks and **113 summaries**; every leaves run stored 902 and none.
+
+  **The default depth measured nothing, and that is the first thing this task found.** The first
+  pass ran at `--top-k 10` and scored `recall@10 = 1.0` in all three repetitions — the corpus
+  holds ten documents, ground truth is named per document, and `weft_cli.eval_scoring`
+  deduplicates to one entry per document, so retrieving ten retrieves every document there is.
+  `ndcg@10 = 0.933169`, `precision@10 = 0.107576`, `mean_average_precision = 0.905952`,
+  identical three times. Re-taken at `--top-k 3`, which is where this corpus still has headroom.
+  Filed as `L10.3`.
+
+  **What the binary printed**, both falsification comparisons, `a` = leaves run 1, `b` = raptor
+  run 1:
+
+  ```text
+  $ weft eval compare 507bc3a9-… 01845743-… --baseline leaves-baseline
+  '507bc3a9-…' vs '01845743-…' — same corpus, model versions and active distributions; pipeline is the only fact that may differ:
+  'leaves-baseline' vs 'raptor-baseline':
+    + summarise (Expander:raptor)
+    ~ embed: openai-embeddings -> openai-embeddings
+    ~ extract: pdf-text -> pdf-text
+  metrics:
+    mean_average_precision: 0.891 (n=66, ±0.240) vs 0.917 (n=66, ±0.219)  Δ+0.025
+    ndcg@3: 0.914 (n=66, ±0.197) vs 0.933 (n=66, ±0.183)  Δ+0.019
+    precision@3: 0.333 (n=66, ±0.058) vs 0.338 (n=66, ±0.071)  Δ+0.005
+    recall@3: 0.960 (n=66, ±0.168) vs 0.967 (n=66, ±0.158)  Δ+0.008
+  falsification — baseline 'leaves-baseline', repetitions: 88014f37-…, a0282832-…:
+    mean_average_precision: outside-baseline-spread (Δ+0.025, baseline spread 0.891-0.891) — zero-width: these repetitions did not vary at all, which is a claim about them, not proof the system is deterministic
+    ndcg@3: outside-baseline-spread (Δ+0.019, baseline spread 0.914-0.914) — zero-width: …
+    precision@3: outside-baseline-spread (Δ+0.005, baseline spread 0.333-0.333) — zero-width: …
+    recall@3: outside-baseline-spread (Δ+0.008, baseline spread 0.960-0.960) — zero-width: …
+
+  $ weft eval compare 507bc3a9-… 01845743-… --baseline raptor-baseline
+  falsification — baseline 'raptor-baseline', repetitions: 10d1156c-…, b94907ef-…:
+    mean_average_precision: outside-baseline-spread (Δ+0.025, baseline spread 0.904-0.907)
+    ndcg@3: outside-baseline-spread (Δ+0.019, baseline spread 0.916-0.925)
+    precision@3: within-baseline-spread (Δ+0.005, baseline spread 0.328-0.338)
+    recall@3: within-baseline-spread (Δ+0.008, baseline spread 0.937-0.967)
+  ```
+
+  **The smallest effect this instrument can see**, per metric, taken as the wider of the two arms'
+  own three-repetition spreads — the leaves arm contributed nothing to it, having scored
+  identically to six decimal places three times running, which is a claim about those three runs
+  and not proof it is deterministic: `mean_average_precision` **0.0126**, `ndcg@3` **0.0171**,
+  `precision@3` **0.0101**, `recall@3` **0.0303**. Against the two-point bar 10.0's own line
+  fixes from RAPTOR's Tables 1–2, three of the four can see it and `recall@3` cannot, and the
+  file says so field by field rather than in prose.
+
+  **What the baseline says about the shipped plugin.** Read from the arm means rather than from
+  one representative run: `raptor` moves `mean_average_precision` by **+0.0177**, outside the
+  0.0126 this instrument cannot see; and moves `ndcg@3` (+0.0106), `precision@3` (+0.0017) and
+  `recall@3` (−0.0025) by less than their own minimum detectable effects. One measurable
+  improvement, three results indistinguishable from an arm repeating itself. **Four lessons the
+  measurement paid for** — `L10.3` the ceiling at the default depth, `L10.4` a verdict that
+  flips with which repetition is named (`ndcg@3` reads *outside* against run 1 and *inside*
+  against the arm mean, which is why the means are stated), `L10.5` a comparability guard that
+  cannot see the summarising model because it lives in `[llm.roles]`, `L10.6` a diff line
+  printing `openai-embeddings -> openai-embeddings`. Two caveats are recorded in the file and
+  are not defects in it: a cross-document summary is attributed to the alphabetically first of
+  its sources, so this instrument cannot represent one honestly in either direction (10.5 names
+  the scope it comes from); and the 113 summaries were identical in count across all three runs
+  because the greedy pass is deterministic given the same embeddings *and the same input order*,
+  which is 10.3's subject rather than a property yet
 
 **Group A — repairs of the shipped `raptor`. Real, ordered, and counting for nothing at the Exit.**
 
