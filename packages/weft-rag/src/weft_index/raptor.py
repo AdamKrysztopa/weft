@@ -162,6 +162,29 @@ one `weft index` invocation was handed, so the shipped behaviour was **batch-wid
 documents in one command and in two built different trees, which is neither paper's scope and was
 nobody's decision. `docs/lessons.md` L10.1.)*
 
+**Expanding a summary to its members, and what that walk costs (task 10.8).** A summary's
+`Lineage.parents` names **the level directly below it and nothing else** — that is what 10.7
+builds, one rung per level — so one hop reaches that level and reaching the leaves from level
+*n* costs *n* hops. RAPTOR's own traversal retrieval wants exactly that shape (immediate
+children, layer by layer); T-Retriever eq. 13 wants the leaf members in a single read, which
+would need the walk flattened at index time or a second field, and Weft does neither and states
+the cost instead.
+
+**The mechanism is `NodeStore.get`, on the base contract, and no filter at all.** A summary
+already carries its members' ids, so the ids *are* the query — `store.get(summary.lineage.parents)`
+is one call and a store implementing nothing beyond `NodeStore` can walk a tree. The plan for
+this task reasoned that expansion was reachable through `MetadataFilter.matching` with `contains`
+on `lineage.parents`; that is true of the **reverse** walk — *given a node, which summary stands
+over it* — and unnecessary for this one. Neither route needs the dedicated store method a change
+to the `2.0.0` store family would have meant, and that ⛔ is not taken.
+
+**Measured 2026-09-07, on both proven backends**, over a two-level tree of 673 nodes (512 leaves,
+128 level-1, 33 level-2), median of seven calls: expansion hop one (`get`, 4 ids) **0.37 ms** on
+pgvector and **1.84 ms** on Qdrant; hop two (`get`, 16 ids) **0.56 ms** and **2.05 ms**; the
+reverse walk (`matching` with `contains`, one id) **0.38 ms** and **2.66 ms**. A full walk from a
+level-2 summary to its leaves is under a millisecond on pgvector and about four on Qdrant, which
+is the number that decided the ⛔ rather than an argument about it.
+
 **What a degraded run says, and the one thing it still cannot say.** Three facts used to
 arrive as one result — a corpus with nothing to cluster, a corpus whose clusters were all too
 loose, and a run whose every summary request failed — because each answered
