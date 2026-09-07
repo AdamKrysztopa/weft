@@ -23,16 +23,44 @@ stages:
           top_k: 10
           filter: {op: eq, field: ext.weft-index.technique, value: raptor}
 
-  # `k=60` is the paper's own default (Cormack, Clarke & Buttcher, SIGIR 2009). The weights are
-  # this document's and are not a measured optimum: leaves outweigh summaries because a summary
-  # is evidence *about* passages rather than a passage, and `cited-answer` cites what it is
-  # given. Retune them against your own corpus — that is what the mapping is for, and
-  # `weft eval` is how you would know whether a change was real rather than felt.
+  # `k=60` is the paper's own default (Cormack, Clarke & Buttcher, SIGIR 2009). **The weights are
+  # equal, and that is now measured rather than felt — ledger task 10.12.**
+  #
+  # This block read `"multi-arm:raptor": 0.7` from task 2.33 until 2026-09-07, with a comment
+  # saying outright that it was "not a measured optimum": leaves were down-weighted because a
+  # summary is evidence *about* passages rather than a passage. The reasoning was sound and the
+  # number was a guess, so it was measured — four rungs over the same corpus, two runs each, on
+  # the ten `fetch`-tier PDFs and the 66 questions that score them:
+  #
+  #   rung           MAP     ndcg@3   prec@3   rec@3    (within-rung spread, worst 0.0455)
+  #   raptor 0.7   0.7121    0.7547   0.3030   0.8586
+  #   raptor 1.0   0.7210    0.7777   0.3258   0.9293
+  #   raptor 0.3   0.7159    0.7575   0.3030   0.8586
+  #   one flat pool 0.7260   0.7752   0.3157   0.9028
+  #
+  # **Down-weighting the summaries cost recall and bought nothing.** `1.0` beats `0.7` on
+  # `recall@3` by 0.0707, outside the largest within-rung spread (0.0379); every other difference
+  # is inside it. So the weight is retired to equality, which is what the evidence supports and no
+  # more. The map is kept rather than deleted because equality here is a *finding* — a reader who
+  # sees no `weights:` cannot tell a measured 1.0 from a default nobody examined.
+  #
+  # **One flat pool measured comparably**, and that is worth knowing: three of this plugin's four
+  # source papers do exactly that (RAPTOR's collapsed tree, Chucri, and T-Retriever eq. 12, which
+  # "treats all encoding tree nodes uniformly regardless of their hierarchical position"), and
+  # **none of the four weights a hierarchical arm against a leaf arm at all**. The two arms are
+  # kept for a reason the measurement does not touch: they guarantee summaries their own `top_k`
+  # slots rather than letting a large leaf set crowd them out of one pool.
+  #
+  # Retune against your own corpus — that is what the mapping is for, and `weft eval` is how you
+  # would know whether a change was real rather than felt. Note what it cannot hold still:
+  # `weft eval run` always indexes, so two query rungs cannot be compared against one index
+  # (`docs/lessons.md` L10.25); each arm above got its own fresh store, which is why the
+  # within-rung spread is the bar a between-rung difference has to clear.
   - id: fuse
     use: reciprocal-rank-fusion
     with:
       k: 60
-      weights: {"multi-arm:leaves": 1.0, "multi-arm:raptor": 0.7}
+      weights: {"multi-arm:leaves": 1.0, "multi-arm:raptor": 1.0}
 
   # A chunk indexed several ways must not occupy several slots for having been indexed several
   # ways. `max` keeps a chunk found by both arms scoring no higher than its best single find,

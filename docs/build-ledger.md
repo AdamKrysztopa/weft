@@ -6730,6 +6730,50 @@ schedule them.
   expansion route is taken**, because `Reranker` is `Ranking → Ranking`
   (`weft_retrieve/contract.py:132-143`) and its docstring is silent on whether the output may hold
   hits the input did not — an `02` §1 question settled before any plugin in that position adds hits
+  · **Both clauses, and the ⛔ does not fire.** The expansion route is not taken, so `Reranker`'s
+  silence about output holding hits its input did not is never tested: this task only ever
+  **drops** hits.
+
+  **Clause one — a summary and its own members no longer both occupy the budget.**
+  `_collapse_key` maps a *single-parent* representation onto the node it stands in for, and a
+  `Node.combine` summary has several parents, so it kept its own id and its members kept theirs:
+  three groups, three slots of the answer's budget, one piece of evidence — and `repack`'s
+  `top_n: 8` cannot tell, so on a corpus where a cluster is four chunks the same content could be
+  packed five times. A second pass in `CollapseToParent` drops any hit another surviving hit was
+  built from, **in both directions**, keeping the higher-scoring one: a leaf that outscores its
+  own summary keeps its place and the summary goes. Deciding in advance that an abstraction beats
+  a passage would overrule the ranking and make a specific question answerable only through a
+  summary written for a broad one. The first attempt checked one direction only, and the test for
+  the other caught it. Done by hand rather than dispatched — the subagent dispatch was refused by
+  this environment's permission classifier, and the change is one helper.
+
+  **Clause two — the weight is measured, and the measurement retired it.** Four rungs over the
+  same corpus, two runs each, the ten `fetch`-tier PDFs and their 66 questions:
+
+  | rung | MAP | ndcg@3 | prec@3 | rec@3 |
+  |---|---|---|---|---|
+  | raptor **0.7** (shipped) | 0.7121 | 0.7547 | 0.3030 | 0.8586 |
+  | raptor **1.0** | 0.7210 | 0.7777 | 0.3258 | **0.9293** |
+  | raptor **0.3** | 0.7159 | 0.7575 | 0.3030 | 0.8586 |
+  | **one flat pool** | 0.7260 | 0.7752 | 0.3157 | 0.9028 |
+
+  Within-rung spreads ran to **0.0455** at worst. **`1.0` beats `0.7` on `recall@3` by 0.0707,
+  outside that bar; every other difference is inside it.** So down-weighting the summaries cost
+  recall and bought nothing measurable, and the weight is retired to equality — what the evidence
+  supports and no more. The map is kept rather than deleted because equality is now a *finding*,
+  and a reader seeing no `weights:` could not tell a measured 1.0 from a default nobody examined.
+  **One flat pool measured comparably**, which is worth recording since three of the four source
+  papers do exactly that and **none of them weights a hierarchical arm against a leaf arm at
+  all**; the two arms are kept for a reason the measurement does not touch, that they guarantee
+  summaries their own `top_k` slots rather than letting a large leaf set crowd them out.
+
+  **What the instrument could not hold still, found by this project's own discipline.** The
+  measurement was first written to index once and run each rung against that one store — and
+  `weft eval run` **always** indexes, so the second run re-ingested and added a fresh set of
+  summaries beside the old ones. The `L8.30` row-count assertion caught it and refused; each arm
+  therefore gets its own fresh store, which is why the *within-rung* spread is the bar a
+  between-rung difference has to clear. Filed as `L10.25`, because no two query rungs in this
+  tree can currently be compared against one index — which is a constraint 10.13 inherits
 - [ ] **10.13** the Exit measurement: a persisted `weft eval` run, opt-in on a real embedder,
   comparing leaves-only, the one-level tree 10.0 measured and the multi-level tree 10.7 builds, on the
   corpus, at the minimum detectable effect 10.0 stated — and a null result discharges it if it says

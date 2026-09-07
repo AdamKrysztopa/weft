@@ -220,3 +220,119 @@ def test_the_declared_cost_bound_is_zero_zero() -> None:
     # Act / Assert — `run` resolves `NodeStore`, never an `LLM`-shaped service, and only
     # when a group's parent is not already among the ranking's own hits.
     assert CollapseToParent.cost_bound == (0, 0)
+
+
+# --- Ledger task 10.12 — a summary and its own members do not both consume the budget.
+
+
+async def test_a_summary_and_the_leaves_it_was_built_from_do_not_both_occupy_the_budget() -> None:
+    """A retrieved summary is evidence *about* the passages it abstracts, not a passage beside
+    them — so a ranking holding both spends several slots of the answer's budget on one piece of
+    evidence.
+
+    This is the shape `_collapse_key` cannot reach on its own: it maps a **single-parent**
+    representation onto the node it stands in for, and a `Node.combine` summary has several
+    parents, so it returns the summary's own id and the leaves keep theirs. Three separate
+    groups, three slots, one fact. `repack`'s `top_n: 8` then packs the same content four times
+    over on a corpus where a cluster is four chunks.
+
+    **The higher-scoring one survives**, which is the only choice that does not decide in advance
+    whether an abstraction or a passage answers better — the ranking already has an opinion and
+    this keeps it. No paper settles the question: RAPTOR's collapsed tree treats every node
+    uniformly (its own §3, p.5) without ever asking about double-counting, T-Retriever's eq. 13
+    expands a summary to its members and drops the summary text, and Chucri summarises the
+    retrieved set at query time. Nothing in the four weights a hierarchical arm against a leaf
+    arm at all.
+    """
+    # Arrange — two leaves and the summary built over them, all three retrieved.
+    root = Node.synthetic(
+        content="doc", media_type=MediaType.TEXT, reason="fixture", sources=frozenset()
+    )
+    first = root.derive(content="mRMR reduces redundancy among selected features.", ordinal=0)
+    second = root.derive(
+        content="It maximises relevance to the target at the same time.", ordinal=1
+    )
+    summary = Node.combine(
+        (first, second),
+        content="mRMR trades redundancy against relevance.",
+        media_type=MediaType.TEXT,
+    )
+    ranking = _ranking(
+        _passage(summary, 0.91, 1),
+        _passage(first, 0.62, 2),
+        _passage(second, 0.55, 3),
+    )
+
+    # Act
+    outcome = await CollapseToParent().run(ranking, _ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    kept = [hit.scored.value.id for hit in outcome.value.hits]
+    assert summary.id in kept, "the higher-scoring hit must be the one that survives"
+    assert first.id not in kept and second.id not in kept, (
+        "a summary and the leaves it was built from both occupied the budget. That is one piece "
+        "of evidence taking three of the answer's slots, and `repack`'s `top_n` cannot tell."
+    )
+
+
+async def test_a_leaf_outscoring_its_own_summary_is_the_one_that_survives() -> None:
+    """The rule is *the higher-scoring one*, in both directions — not *always the summary*.
+
+    Deciding in advance that an abstraction beats a passage would be this plugin overruling the
+    ranking, and would make a specific question answerable only through a summary written for a
+    broad one. `raptor-and-leaves-rrf` exists precisely because both kinds are worth searching.
+    """
+    # Arrange — the same three nodes, with a leaf scoring highest this time.
+    root = Node.synthetic(
+        content="doc", media_type=MediaType.TEXT, reason="fixture", sources=frozenset()
+    )
+    first = root.derive(content="mRMR reduces redundancy among selected features.", ordinal=0)
+    second = root.derive(
+        content="It maximises relevance to the target at the same time.", ordinal=1
+    )
+    summary = Node.combine(
+        (first, second),
+        content="mRMR trades redundancy against relevance.",
+        media_type=MediaType.TEXT,
+    )
+    ranking = _ranking(
+        _passage(first, 0.93, 1),
+        _passage(summary, 0.44, 2),
+        _passage(second, 0.40, 3),
+    )
+
+    # Act
+    outcome = await CollapseToParent().run(ranking, _ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    kept = [hit.scored.value.id for hit in outcome.value.hits]
+    assert first.id in kept
+    assert summary.id not in kept, (
+        "the summary outlived a leaf that scored higher than it, which decides in advance that "
+        "an abstraction answers better than a passage"
+    )
+
+
+async def test_a_summary_whose_members_were_not_retrieved_is_untouched() -> None:
+    """The rule fires on an overlap, never on a summary alone — otherwise a broad question, which
+    is the one a summary exists to answer, would lose the only node that can answer it."""
+    # Arrange
+    root = Node.synthetic(
+        content="doc", media_type=MediaType.TEXT, reason="fixture", sources=frozenset()
+    )
+    first = root.derive(content="one", ordinal=0)
+    second = root.derive(content="two", ordinal=1)
+    other = root.derive(content="an unrelated passage", ordinal=2)
+    summary = Node.combine(
+        (first, second), content="a summary of one and two", media_type=MediaType.TEXT
+    )
+    ranking = _ranking(_passage(summary, 0.80, 1), _passage(other, 0.70, 2))
+
+    # Act
+    outcome = await CollapseToParent().run(ranking, _ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert [hit.scored.value.id for hit in outcome.value.hits] == [summary.id, other.id]

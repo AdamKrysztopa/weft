@@ -146,6 +146,55 @@ def _collapse_key(node: Node) -> NodeId:
     return node.lineage.parents[0]
 
 
+def _without_absorbed_members(
+    ordered: Sequence[tuple[float, int, Passage]],
+) -> list[tuple[float, int, Passage]]:
+    """`ordered` with any hit dropped that another surviving hit was built from — task **10.12**.
+
+    **A summary is evidence *about* the passages it abstracts, not a passage beside them.** The
+    grouping pass above cannot reach this case: `_collapse_key` maps a *single-parent*
+    representation onto the node it stands in for, and a `Node.combine` summary has several
+    parents, so it keeps its own id and its members keep theirs. Three groups, three slots of the
+    answer's budget, one piece of evidence — and `repack`'s `top_n` cannot tell, so on a corpus
+    where a cluster is four chunks the same content can be packed five times over.
+
+    **The higher-scoring one survives, in both directions.** `ordered` is already sorted by score,
+    so walking it once and dropping anything a kept hit names as a parent gives exactly that: a
+    leaf that outscores its own summary keeps its place and the summary goes. Deciding in advance
+    that an abstraction beats a passage would overrule the ranking this stage was handed, and
+    would make a specific question answerable only through a summary written for a broad one —
+    which is the opposite of why `raptor-and-leaves-rrf` searches both bases.
+
+    A summary whose members were not retrieved is untouched: the rule fires on an overlap, never
+    on a summary alone, or a broad question would lose the one node able to answer it.
+
+    **No paper settles this.** RAPTOR's collapsed tree evaluates every node uniformly (§3, p.5)
+    and never asks about double-counting; T-Retriever's eq. 13 expands a summary to its members
+    and drops the summary text; Chucri summarises the retrieved set at query time (§5). Nothing in
+    those four weights a hierarchical arm against a leaf arm at all, so this rule is Weft's own —
+    and it is the weakest one that makes the sentence true, which is why it is a drop rather than
+    a re-score.
+
+    Hits are only ever dropped, never added. `Reranker` is `Ranking -> Ranking` and its docstring
+    is silent on whether the output may hold hits the input did not; that question stays unasked.
+    """
+    kept: list[tuple[float, int, Passage]] = []
+    kept_ids: set[NodeId] = set()
+    absorbed: set[NodeId] = set()
+    for item in ordered:
+        node = item[2].node
+        # Both directions, and both are needed. A *member* of something already kept is
+        # absorbed; so is a *summary* one of whose members is already kept — the first drops the
+        # leaves under a winning summary, the second drops the summary under a winning leaf.
+        # Checking only one leaves the other pair in the budget, which is the whole defect.
+        if node.id in absorbed or kept_ids.intersection(node.lineage.parents):
+            continue
+        kept.append(item)
+        kept_ids.add(node.id)
+        absorbed.update(node.lineage.parents)
+    return kept
+
+
 class CollapseToParent:
     """Groups a ranking's hits by parent, keeps one per parent, scores each by the
     configured policy. Satisfies `weft_retrieve.contract.Reranker` structurally.
@@ -221,7 +270,7 @@ class CollapseToParent:
         ordered = sorted(collapsed, key=lambda item: (-item[0], item[1]))
         hits = tuple(
             passage.model_copy(update={"rank": rank})
-            for rank, (_, _, passage) in enumerate(ordered)
+            for rank, (_, _, passage) in enumerate(_without_absorbed_members(ordered))
         )
         return Produced(
             value=Ranking(

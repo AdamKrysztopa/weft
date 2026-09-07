@@ -705,6 +705,33 @@ before anything else is started. The sharper form is that the ledger tick alread
 missing **entry** — a task line ticked with a sha whose body says nothing about what was built is
 a shape that check cannot see, and could.
 
+### L10.25 — the instrument for comparing two query rungs re-indexes the corpus every time
+
+**What happened.** 10.12 asks whether the `0.7` `raptor-and-leaves-rrf` fuses with is
+distinguishable from the alternatives. The obvious shape is: index once, then run each query rung
+against that one index, so the *only* thing varying is the weight. `weft eval run` cannot do it —
+it **always** indexes (`weft_cli.eval_commands.EvalRunCommand.run` calls `run_index` before it
+scores anything, and `--query-pipeline` is an *additional* argument, not an alternative to
+indexing). So a second run over the same store re-ingests the corpus and, because a summary's id
+is a digest of text a model just wrote, **adds** a fresh set of summaries beside the old ones. The
+comparison silently becomes one over a store that has grown between its arms. Caught by this
+project's own `L8.30` discipline — the script asserted the row count before each run and refused
+when it had changed — not by anything in the tool.
+
+**Generalises to.** *A measurement tool that couples two phases makes the second phase
+unmeasurable on its own: if scoring a query rung requires indexing, then no two query rungs can
+ever be compared against one index, and any difference between them also contains a difference of
+corpus.* The consequence is not theoretical — it is the shape of every comparison this phase's
+Exit asks for.
+
+**Candidate home.** `weft eval run` itself: an `--index/--no-index` split, or a
+`weft eval score <run-id> --query-pipeline` that scores against a store some earlier run already
+built. `EvalRunCommand`'s own docstring argues at length that `pipeline` is required because a run
+record needs a resolved pipeline — that argument is about the *record*, not about re-ingesting,
+and it is what has kept the two coupled. Until then a comparison must give each arm its own fresh
+store and repeat each arm, so the within-arm spread bounds the between-arm difference — which is
+what 10.12 does and what 10.13 must.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in
