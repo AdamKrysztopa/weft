@@ -6679,6 +6679,30 @@ schedule them.
   already anticipate — a `TABLE` node is read through the index-form text its extractor's serialiser
   produced (`11:265`), a figure through its caption-and-description content — and what this line
   forbids is an unstated one. Until 9.6 and 9.7 land, a stated exclusion discharges it
+  · **9.6 and 9.7 landed, so the rule is stated rather than the exclusion.** Every member is read
+  through its `content` and nothing else — the index-form text that node's own extractor produced,
+  which `11` §2.4's third column already fixes per kind — and the summary built over them is
+  `MediaType.TEXT`, because it is prose *about* a table and a figure, and claiming either kind
+  would make it unreadable to every stage that routes on media type. Stated in `raptor.py`'s
+  module docstring and in `11` §2.4 itself, beside the table the five Phase 10 notes point at.
+
+  **Weft's own, with no paper behind it, and the docstring says so rather than borrowing
+  authority.** Yasuno is the one source in this phase's four that touches modality and never puts
+  a non-text node in a summariser's view — eq. 1–3 blend a visual vector into each *chunk's* own
+  vector, eq. 4 clusters those chunk vectors, every parent is text, and "table" never appears as a
+  content type.
+
+  **What the rule forbids is the expensive alternative**, and that half is asserted rather than
+  described: re-deriving a table from its `TableGrid` or re-describing a figure from its pixels
+  would make an index-side plugin second-guess the extractor and require a `Describer` a pipeline
+  may not have. `test_a_summary_over_a_non_text_member_needs_no_describer_or_blob_store` runs a
+  real summarisation through a context **shown** to carry neither — read out of `resolve`'s own
+  refusal before the run, so it cannot pass by having nothing to look at — which is a property of
+  the seam rather than of the source text (`L9.39`).
+
+  Nothing needed building: `_format_cluster` already reads `content`, so the task was to find out
+  whether the cheapest rule was the true one, state it in both places, and pin it so it cannot
+  become unstated again. Written by hand
 - [ ] **10.12** a retrieved summary and the leaves it was built from do not both consume the answer's
   budget as independent evidence, and the weight that decides it is measured rather than guessed ·
   owner `weft_retrieve/pipelines/raptor-and-leaves-rrf.yaml`; `10` §1.1 → `reciprocal-rank-fusion` ·

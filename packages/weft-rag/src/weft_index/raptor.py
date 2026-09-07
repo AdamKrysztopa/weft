@@ -216,6 +216,29 @@ of them were truncated, and how many characters the model that wrote the summary
 versus how many the cluster held in full. A reader can now tell a summary built from its whole
 cluster apart from one built from 40% of it, which content alone never could.
 
+**A cluster holding a node that is not text (task 10.11) — the rule, and it is Weft's own.**
+Every member is read through its `content` and nothing else: the index-form text that node's own
+extractor produced. `11` §2.4 already fixes what that is per kind — a `TABLE` node carries *the
+index-form serialisation*, an `IMAGE` node *the caption the document supplied, else the OCR text
+beneath it* — so a summariser reading `content` is reading exactly what the pack that owns the
+format decided was that node's text. The summary built over them is `MediaType.TEXT`: it is prose
+*about* a table and a figure, not a table and not an image, and claiming either would make it
+unreadable to every stage that routes on media type.
+
+**No paper says this, and the docstring says so rather than borrowing authority.** The one paper
+in this plugin's four that touches modality is Yasuno (arXiv:2602.00030), and it never puts a
+non-text node in a summariser's view: eq. 1–3 blend a visual vector into each *chunk's* own
+vector, eq. 4 clusters those chunk vectors, every parent is text, and "table" never appears as a
+content type. So what a parent over mixed-modality children should contain is first principles,
+and this is the cheapest true answer — which is why the five Phase 9 lines carrying a *Phase 10
+note* (9.2, 9.6, 9.7, 9.11, 9.14) anticipated it.
+
+**What the rule forbids is the expensive alternative.** Re-deriving a table from its `TableGrid`,
+or re-describing a figure from its pixels, would make this plugin second-guess the extractor and
+require services it has never required — a `raptor` needing a `Describer` could not run in a
+pipeline that has none, which is most of them. It requires neither that nor a `BlobStore`, and a
+test asserts their absence from the context before running rather than asserting it of the source.
+
 **The retry halves what was sent, and that is the whole point of it.** `weft_llm.retry` already
 owns retrying the same request, and `LLMContextLengthError` is classed *permanent*
 (`weft_llm/errors.py:160`) precisely because re-sending an overflowing prompt fails identically

@@ -24,6 +24,7 @@ from collections.abc import Mapping, Sequence
 
 import pytest
 
+from weft_blob.contract import BlobStore
 from weft_embed.contract import Embedder
 from weft_index.contract import Expander
 from weft_index.payload import RaptorFacts, Representation
@@ -45,6 +46,7 @@ from weft_llm.contract import LLM
 from weft_llm.payload import Completion, Rendered
 from weft_prompts.contract import Prompts
 from weft_store import NodeStore
+from weft_vision import Describer
 
 _SOURCE = SourceId("doc-1")
 
@@ -1457,3 +1459,121 @@ async def test_a_complete_run_says_it_summarised_every_cluster() -> None:
         assert facts is not None
         assert facts.clusters_found == 2
         assert facts.clusters_summarised == 2
+
+
+# --- Ledger task 10.11 — a cluster holding a node that is not text.
+
+
+async def test_a_cluster_of_mixed_modalities_summarises_from_each_node_s_own_index_text() -> None:
+    """**The rule, stated: every member is read through its `content` and nothing else — the
+    index-form text its own extractor produced — and the summary is `TEXT`.**
+
+    It is **Weft's own, with no paper behind it.** The one paper in the four that touches modality
+    is Yasuno, and it never puts a non-text node in a summariser's view: eq. 1–3 blend a visual
+    vector into each *chunk's* own vector, eq. 4 clusters those chunk vectors, every parent is
+    text, and "table" never appears as a content type. So no paper says what a parent over
+    mixed-modality children should contain, and this answer is first principles.
+
+    It is also the cheapest true rule, which is why five Phase 9 lines anticipated it: `11` §2.4
+    already fixes what `content` holds for each kind — a `TABLE` node carries *the index-form
+    serialisation*, an `IMAGE` node *the caption the document supplied, else the OCR text beneath
+    it* — so a summariser that reads `content` is reading exactly what the extractor decided was
+    that node's text. Nothing here re-derives a table from its `TableGrid` or re-describes a
+    figure from its pixels; both would be this plugin second-guessing the pack that owns the
+    format, and `raptor` requires no `Describer` and no `BlobStore`.
+
+    What this test forbids is an **unstated** rule, so it asserts the two observable halves: the
+    model saw each member's own content, and the node built over them is `TEXT`.
+    """
+    # Arrange — one prose node, one table node, one figure node, in one cluster.
+    prose = _node("Feature selection reduces redundancy among predictors.")
+    table = Node.synthetic(
+        content="| method | recall |\n| mRMR | 0.81 |",
+        media_type=MediaType.TABLE,
+        reason="a table node as an extractor's serialiser leaves it",
+        sources=frozenset({_SOURCE}),
+    )
+    figure = Node.synthetic(
+        content="Figure 2. Recall against redundancy for four selectors.",
+        media_type=MediaType.IMAGE,
+        reason="a figure node carrying the caption the document supplied",
+        sources=frozenset({_SOURCE}),
+    )
+    vectors = _fan_vectors(3, 5.0)
+    lookup = {
+        prose.content: vectors[0],
+        table.content: vectors[1],
+        figure.content: vectors[2],
+    }
+    members = _embedded((prose, table, figure), lookup)
+    llm = _RecordingLLM([_reply("A summary over prose, a table and a figure.")])
+
+    # Act
+    # The threshold is typed: this test's subject is the modality rule, and `auto` over three
+    # near-identical vectors resolves to a percentile so tight that the cluster splits.
+    outcome = await RaptorSummarizer(RaptorConfig(cluster_size=3, similarity_threshold=0.5)).run(
+        members, _ctx(embedder=_StubEmbedder(lookup), llm=llm)
+    )
+
+    # Assert — the model saw all three, read through `content` alone.
+    assert isinstance(outcome, Produced), outcome
+    shown = llm.shown[0]
+    for member in members:
+        assert member.content[:40] in shown, (
+            f"the summariser did not see this member's own content: {member.content[:40]!r}. A "
+            f"table read any way but through the index text its extractor produced would be this "
+            f"plugin second-guessing the pack that owns the format."
+        )
+
+    summary = next(node for node in outcome.value if len(node.lineage.parents) > 1)
+    assert summary.media_type is MediaType.TEXT, (
+        "a summary over mixed modalities is prose about them, so it is TEXT — it is not a table "
+        "and not an image, and claiming either would make it unreadable to the stages that "
+        "route on media type"
+    )
+    assert set(summary.lineage.parents) == {node.id for node in members}
+
+
+async def test_a_summary_over_a_non_text_member_needs_no_describer_or_blob_store() -> None:
+    """The rule's other half, asserted through the seam rather than by reading the source.
+
+    Reading a figure through its pixels or a table through its `TableGrid` would make this plugin
+    require services it has never required — and a `raptor` that needed a `Describer` could not
+    run in a pipeline that has none, which is most of them. The context here carries neither, and
+    `ctx.require` raises for a service nothing registered, so a plugin that reached for one would
+    fail here rather than pass quietly.
+    """
+    # Arrange
+    table = Node.synthetic(
+        content="| method | recall |\n| mRMR | 0.81 |",
+        media_type=MediaType.TABLE,
+        reason="a table node",
+        sources=frozenset({_SOURCE}),
+    )
+    figure = Node.synthetic(
+        content="Figure 2. Recall against redundancy.",
+        media_type=MediaType.IMAGE,
+        reason="a figure node",
+        sources=frozenset({_SOURCE}),
+    )
+    vectors = _fan_vectors(2, 5.0)
+    lookup = {table.content: vectors[0], figure.content: vectors[1]}
+    members = _embedded((table, figure), lookup)
+    ctx = _ctx(embedder=_StubEmbedder(lookup), llm=_ScriptedLLM([_reply("A summary.")]))
+
+    # Assert the arrangement, so this cannot pass by having nothing to look at.
+    for absent in (Describer, BlobStore):
+        with pytest.raises(UnresolvedServiceError):
+            ctx.services.resolve(absent)
+
+    # Act
+    outcome = await RaptorSummarizer(RaptorConfig(cluster_size=2, similarity_threshold=0.5)).run(
+        members, ctx
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced), (
+        f"the run failed with no Describer and no BlobStore in scope, so it asked for one: "
+        f"{outcome}"
+    )
+    assert any(len(node.lineage.parents) > 1 for node in outcome.value)

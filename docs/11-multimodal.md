@@ -265,6 +265,15 @@ Out of one page:
 | 1 table node | `TABLE` | the **index-form** serialisation | `TableGrid` (rows, headers, spans, caption, page, bbox) + `Atomic` |
 | 1 chart node | `IMAGE` | the caption the document supplied → else the OCR text beneath it → else **`NothingToProduce` for that node** | `PageSpan` + `Atomic` + `BlobRef(uri)` |
 
+*(Settled 2026-09-07 at ledger task **10.11**, which is what the five Phase 10 notes in this
+document were waiting for: **a `raptor` summariser reads every member through its `content` and
+nothing else** — this table's own third column, whatever the kind. The summary it builds is
+`TEXT`. The rule is **Weft's own with no paper behind it**: Yasuno is the one source in Phase
+10's four that touches modality and it never puts a non-text node in a summariser's view, blending
+a visual vector into each chunk's own vector instead. What it forbids is re-deriving a table from
+its `TableGrid` or re-describing a figure from its pixels, either of which would make an
+index-side plugin second-guess the extractor and require a `Describer` a pipeline may not have.)*
+
 Three of those are decisions, not descriptions:
 
 - **`TableGrid` is not transient.** A cell grid is kilobytes of JSONB, which is what `ext` is for.
