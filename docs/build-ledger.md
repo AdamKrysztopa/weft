@@ -6667,9 +6667,9 @@ schedule them.
   still a default that **asserts a fact** (*"one cluster, all of it summarised"*) where 10.9's
   `None` admits absence, and a default that asserts is the shape this project refuses elsewhere.
   Flagged for `weft-qualities` at the phase close rather than left to be found later
-- [ ] **10.11** a cluster containing a node whose media type is not text produces a summary whose
+- [x] **10.11** a cluster containing a node whose media type is not text produces a summary whose
   content is derived by a stated rule, and the rule says it is Weft's own with no paper behind it ·
-  owner `11` §2.4; the *Phase 10 note*s on 9.2, 9.6, 9.7, 9.11 and 9.14 · turns on — · sha — ·
+  owner `11` §2.4; the *Phase 10 note*s on 9.2, 9.6, 9.7, 9.11 and 9.14 · turns on — · sha `31663b5` ·
   **depends on 9.6 and 9.7.** Five Phase 9 lines carry a note waiting on exactly this
   (the five Phase 9 lines carrying a *Phase 10 note* — 9.2, 9.6, 9.7, 9.11 and 9.14). The one paper in the set that touches
   modality never puts a non-text node in a summariser's view — Yasuno eq. 1–3 blend a visual vector
