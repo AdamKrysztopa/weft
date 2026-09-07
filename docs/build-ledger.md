@@ -5819,20 +5819,83 @@ nothing at the Exit — because they are real, they block the extension (10.7 ca
 `L9.15` forbids. The Exit sentence is kept and sharpened in `01`, not weakened. One repair is
 **recorded and not owned** — see the paragraph before the task lines.
 
-**⚠ means what *How to read a task line* says, and the tension with D2 is stated rather than
-hidden.** Phase 11's two open scope decisions reach into this phase: **D2** — where a corpus-wide,
-revisable pass runs and whether its expensive output may be durable — and **D3** — where a pack
-persists per-corpus curated configuration (`README.md:33`; `build-ledger.md` → Phase 11 → *⚠ means
-what…*). 10.5, 10.14 and 10.15 carry ⚠ D2; 10.9 carries ⚠ D3. **The shipped `raptor` already
-answers D2 by default**: `_cluster_by_similarity` receives the whole run's node set with no source
-filter (`raptor.py:347-368`) and its summaries are durable nodes in the store, which is a corpus-wide
-pass with durable expensive output. That is code answering a question the owner has not, and it is
-**not** D2 settled — D2 becomes a scope row under `09` §6.4 when the owner takes it, and until then
-10.5's content is a hypothesis exactly as Phase 11's four ⚠ lines are. Two further lines carry ⚠ for
-open questions that are neither D2 nor D3, named on the line: 10.4 (may an `Embedder` pass through a
-node that already carries a vector — an `02` §1 contract question) and 10.10 (whether the
-registration seam is the only telemetry emitter, `raptor.py:72-82`). Neither is settled here by
-default.
+**The four ⚠ marks this section carried are discharged, 2026-09-07, and the ⚠ glyphs stay on the
+lines as the record *How to read a task line* says they are.** All four are **phase-content
+changes** under `09` §6.4 item 1 — none touches one of `01`'s six requirements, none changes a
+published contract, and the one new published surface is an `ext` model 10.6 was already adding —
+so none takes a decision-log row. Three are discharged by **not being reached** and one by
+decision; the reasoning is here because this section owns the tasks they shape.
+
+- **10.4 — the `Embedder` question is not answered, because the stage order was wrong.** The line
+  asked whether an `Embedder` may pass through a node that already carries a vector, and framed
+  that as an `02` §1 contract question. It is not one. **RAPTOR §3 (p.3) specifies the order**:
+  *"The chunks and their corresponding SBERT embeddings form the leaf nodes of our tree
+  structure"*, then *"Once clustered, a Language Model is used to summarize the grouped texts.
+  These summarized texts are then re-embedded, and the cycle of embedding, clustering, and
+  summarization continues"* — and p.4, *"Note that we embed all nodes using SBERT."* So embedding
+  is a **precondition** of clustering and the summariser **embeds its own output**; a leaf is
+  embedded once. Weft ships the inverse (`index-with-raptor.yaml:37-42` inserts `summarise` after
+  `chunk`, so `raptor` embeds leaves at `raptor.py:196` and returns them unembedded at `:239` for
+  `embed` to do again), and **that divergence is claimed by no docstring** — `raptor.py:45-56`
+  argues against embedding its own output on the grounds that it would make one `run` do a
+  variable number of `Embedder` calls, which is an argument about *internal recursion* and not
+  about embedding one level's own summaries in one batch. The decision: **adopt the paper's
+  cycle.** `raptor` moves after `embed`, requires every node it receives to carry a vector and
+  fails loudly naming the stage order when one does not, clusters on the vectors it was handed,
+  and embeds only its own summaries before returning. `EMBEDDER_CONTRACT_VERSION` stays `1.0.0`,
+  no G9 event, and no third-party embedder becomes non-conforming. `raptor.py:45-56`'s refusal is
+  withdrawn against the paper and its docstring says so.
+- **10.5 — D2 is not taken; the scope is named and the corpus-wide *read* is not built.** The tree
+  is a tree of **the one collection**, meaning the configured store (`weft_cli/ingest.py:43` —
+  *"which store a run uses decides where the corpus is"*), and **not** per-document. That is
+  Chucri's scope (§4.1, a tree over dataset `D`) rather than RAPTOR's, whose p.9 is explicit that
+  *"The RAPTOR tree is built for each of these stories"* and which validated no other; the
+  divergence is the owner's and is named in the row, the docstring and the document, which is all
+  10.5 asks. **The ledger's own claim that the shipped default "is already a corpus-wide pass" was
+  wrong and is corrected here:** `_cluster_by_similarity` receives whatever *one `weft index`
+  invocation* was handed, so the shipped scope is **batch-wide** — ten documents in one command
+  and the same ten in two commands build different trees. That is neither paper's scope, and it is
+  what made 10.0 unreproducible under a different batching. `raptor` stays a pure stage over its
+  payload and performs **no store read**, so D2's expensive clause — where a corpus-wide revisable
+  pass runs, and whether its output may be durable — is untouched and stays open for Phase 11.
+  Stated consequence, and it is a property of the rung rather than a defect hidden in it: the
+  collection is expected to be indexed in one run, a later batch founds a second tree rather than
+  joining the first, and 10.14 stays unscheduled with Chucri §6.5 still the reason.
+- **10.9 — D3 is not reached, because an `auto` value is never persisted.** Each threshold takes
+  either an operator-typed value or **`auto`, which is the default**. `Auto` is an `Enum` sentinel
+  and never a `Literal`, so the fields type as `int | Auto` and `float | Auto`. **`auto` is
+  recomputed from the run's payload every run and stored nowhere**, and that is precisely what
+  keeps D3 out of this phase: derived configuration raises D3's question only when it must survive
+  between runs. Every resolution is reported on the nodes the run produces (10.10), because an
+  `auto` that resolves silently is the silent-fallback shape `CLAUDE.md` forbids. `cluster_size:
+  auto` derives from the summariser's context budget and cites RAPTOR p.4 — *"Should a local
+  cluster's combined context ever exceed the summarization model's token threshold, our algorithm
+  recursively applies clustering within the cluster"* — which is the paper's own criterion for the
+  same quantity. `similarity_threshold: auto` is a percentile of the similarity distribution the
+  payload actually exhibits, **has no paper behind it**, and says so in its docstring beside the
+  name, which is what `paper-to-plugin` requires of a coinage. **It carries a degeneracy check and
+  that check is not optional:** a percentile always clears, so under the default `hash` embedder —
+  whose vectors carry no semantic similarity by their own admission — a naive `auto` would replace
+  today's honest silence (`index-with-raptor.yaml:25-33`: nothing clears `0.75`, no summaries, no
+  message) with confident summaries over meaningless groupings, which is a plausible answer
+  against the wrong data. Where the observed distribution has no structure, `auto` **fails loudly
+  naming the embedder and the remedy**, which is better than both the current behaviour and a
+  naive auto.
+- **10.10 — the telemetry seam question is not opened.** What a run did rides on **the nodes it
+  produces**, in the pack-owned `ext` model 10.6 registers through `add_ext_model` — the level,
+  the member count and 10.2's coverage record, and 10.9's resolved `auto` values — with run-level
+  counts on the run record. No pack writes a span, so `02` §2's *"cross-cutting concerns live at
+  the registration seam"* stands untouched and `raptor.py:72-82`'s blocker is routed around rather
+  than settled. The channel is also the better one on its own merits: `ext.*` carries the widest
+  operator set in `weft_store/fields.py`, so an operator can **find** the summaries that dropped
+  content, which a span in a trace nobody exports cannot do.
+
+**What is still open, and what now depends on it: nothing in this phase.** D2 and D3 remain open,
+both Phase 11's, and after the four settlements above **no Phase 10 task depends on either**.
+10.14 and 10.15 keep their ⚠ D2 and stay unscheduled, which is what a conditional line is for.
+10.12's ⛔ is conditional on the expansion route and the fusion route is what ships, so it does not
+fire. 10.11's dependency on 9.6 and 9.7 is met — both ticked. **Phase 10 is unblocked end to end
+and 10.0 is the first task.**
 
 **What the papers do not settle, recorded so nobody cites them for it.** *(i)* **Depth.** The two
 papers that measured it disagree: T-Retriever reports accuracy rising with tree depth (Fig. 3, p.6,
@@ -5950,24 +6013,43 @@ schedule them.
   contract docstring frames the stage around a node *"that already has content but no vector yet"*
   (`weft_embed/contract.py:14-19`) — so returning embedded leaves changes nothing, and moving the stage
   after `embed` leaves its summaries with no vector (`Node.combine` carries none) and silently
-  unretrievable. The property therefore needs either `Embedder`'s stated semantics settled — may a
-  node already carrying a vector pass through unchanged? a published-contract question for `02` §1,
-  the ⚠ on this line, and not this task's to answer by default — or a pipeline reshape that runs
-  `embed` twice with a filter. **10.7 inherits it**: the pack-local depth route chains an `embed`,
-  `raptor` pair per rung and re-embeds the cumulative set each time, so this line is settled before
-  10.7 is scheduled
+  unretrievable. **Settled 2026-09-07 and the ⚠ is discharged — see the preamble.** Neither branch
+  this line offered is taken: the `Embedder` contract is not reopened and the document does not run
+  `embed` twice. **RAPTOR §3 specifies the order and Weft ships its inverse** — leaves are embedded
+  *before* clustering and are leaf nodes by virtue of carrying their embedding (p.3), and the
+  summariser **re-embeds its own output** as the paper's own cycle, every node embedded once (p.4,
+  *"we embed all nodes using SBERT"*). So: `raptor` moves after `embed`; it **requires** every node
+  it receives to carry a vector and answers `Failed` naming the stage order and the remedy when one
+  does not — the first `Expander` in the tree with an input precondition, which is a real cost and
+  is stated rather than hidden; it clusters on the vectors handed to it, making **zero** embedder
+  calls for leaves; and it embeds **only its own summaries** before returning, which is what makes
+  the "silently unretrievable" half above impossible by construction rather than by a downstream
+  stage. `raptor.py:45-56`'s stated refusal to embed its own output is **withdrawn** — its argument
+  is about a variable call count under internal recursion, and one batch per level is not that —
+  and the docstring records the withdrawal beside the claim it replaces. **10.7 inherits the good
+  case**: `embed`, `raptor`, `raptor` re-embeds nothing, since each rung embeds only what it
+  created
 - [ ] **10.5 ⚠ D2** whether a tree is per-document or corpus-wide is a named, stated choice — in the
   row, the docstring and the pipeline document — and a corpus-wide tree says what it is a tree of ·
   owner `10` §1.2 → the `raptor` row; `01` → Phase 11 → D2 · turns on — · sha — ·
   `_cluster_by_similarity` receives whatever `run` was handed and applies no source filter
   (`raptor.py:347-368`), so a document's tree depends on what else was in the batch; RAPTOR built one
   tree per document — *"The RAPTOR tree is built for each of these stories"* (p.9) — and validated no
-  other scope; neither the docstring nor the row says which Weft does. **The tension, on the line:**
-  the shipped default is already a corpus-wide pass with durable expensive output, which is D2's own
-  clause answered by code (`README.md:33`). Whether that stays is the owner's scope row, not this
-  line's default; the choice is named here and made there. Chucri's paper is the only measurement of
-  a corpus-wide tree over a changing corpus and it favours the full rebuild (§6.5, p.9) — 10.14
-  carries that
+  other scope; neither the docstring nor the row says which Weft does. **Named 2026-09-07 by the
+  owner and the ⚠ is discharged without D2 being taken — see the preamble.** The tree is a tree of
+  **the one collection**, meaning the configured store (`weft_cli/ingest.py:43`), and **not** per
+  document — Chucri's scope (§4.1) rather than RAPTOR's, a deliberate divergence from the paper the
+  plugin is named after, carried in the row, the docstring and the document. **This line's own
+  "tension" paragraph was wrong and is corrected rather than deleted:** the shipped default is not
+  corpus-wide, it is **batch-wide** — `run` is one `weft index` invocation, so the same ten
+  documents indexed in one command and in two build different trees, which is neither paper's scope
+  and is what made 10.0 unreproducible under a different batching. D2 stays open because `raptor`
+  performs **no store read**: it clusters over its payload, and the collection being one run's
+  payload is a stated expectation of the rung. What follows and is stated rather than fixed — a
+  later batch founds a second tree instead of joining the first, and a re-indexed document leaves
+  its old summaries standing. Chucri's paper is the only measurement of a corpus-wide tree over a
+  changing corpus and it favours the full rebuild (§6.5, p.9) — 10.14 carries that, still
+  unscheduled
 
 **Group B — the extension. What the Exit measures.**
 
@@ -6024,17 +6106,34 @@ schedule them.
   KDE bandwidth *h* is grid-searched per dataset and never reported (p.6); Yasuno's α = 0.7 and
   entropy thresholds are "empirically optimized" with no sweep shown (§3.2.1, §4.1); Chucri's τ_c = 11
   is asserted (§6.4). Weft's own defaults (`:141-161`) are no better evidenced —
-  `similarity_threshold: 0.75` is a bar nothing clears under `hash` (Phase 8's measurement paragraph in this file). **⚠
-  D3** because a default a rule computes at index time over the corpus is per-corpus derived
-  configuration, and where a pack keeps that is D3's question (`README.md:33`); a `with:` value an
-  operator types is not. The line names the question and does not decide which shape wins
+  `similarity_threshold: 0.75` is a bar nothing clears under `hash` (Phase 8's measurement paragraph in this file). **Decided
+  2026-09-07 and the ⚠ is discharged without D3 being taken — see the preamble.** The operator
+  chooses per field: a typed value, or **`auto`, which is now the default**, retiring three numbers
+  nothing measured. `Auto` is an `Enum` sentinel and never a `Literal`; the fields become
+  `int | Auto` and `float | Auto`. **D3 is not reached because an `auto` value is recomputed from
+  the run's payload every run and persisted nowhere** — derived configuration raises D3's question
+  only when it must survive between runs — and every resolution is reported on the produced nodes
+  (10.10), an `auto` that resolves silently being the exact shape `CLAUDE.md` forbids.
+  `cluster_size: auto` derives from the summariser's context budget on RAPTOR p.4's own criterion
+  for that quantity; `similarity_threshold: auto` is a percentile of the distribution the payload
+  exhibits, is **Weft's own with no paper behind it** and says so beside the name. **The degeneracy
+  check is part of the task, not a refinement of it:** a percentile always clears, so on `hash`
+  vectors a naive `auto` would turn today's honest silence into confident summaries over
+  meaningless groupings — where the observed distribution has no structure, `auto` fails loudly
+  naming the embedder and the remedy
 - [ ] **10.10 ⚠** a run that summarised nine clusters of ten says so where a reader can find it, and
   10.2's coverage record rides the same channel · owner `raptor.py` → *What a degraded run says*;
   `02` §2 → the registration seam · turns on — · sha — · `raptor.py:72-82` names the blocker in its own words: `Produced` is
   frozen with one field, and a pack writing `span.set_attribute` would settle by default whether the
   registration seam is the only emitter of telemetry — an open question, not D2 or D3, and not this
-  line's to settle by default; the ⚠ names it. If it stays open the count rides on the summary nodes
-  or the run record instead, and the line is discharged either way. What it forbids is silence
+  line's to settle by default; the ⚠ names it. **Routed 2026-09-07 and the ⚠ is discharged with the
+  seam question left unopened — see the preamble.** The count, 10.2's coverage record and 10.9's
+  resolved `auto` values all ride on **the nodes the run produces**, in the pack-owned `ext` model
+  10.6 registers through `add_ext_model`; run-level counts ride on the run record. No pack writes a
+  span, so `02` §2's registration-seam doctrine is untouched. This was the better channel on its own
+  merits rather than merely the cheaper one: `ext.*` carries the widest operator set in
+  `weft_store/fields.py`, so an operator can **query** for the summaries that dropped content, which
+  a span in a trace nobody exports cannot answer. What it forbids is silence
 - [ ] **10.11** a cluster containing a node whose media type is not text produces a summary whose
   content is derived by a stated rule, and the rule says it is Weft's own with no paper behind it ·
   owner `11` §2.4; the *Phase 10 note*s on 9.2, 9.6, 9.7, 9.11 and 9.14 · turns on — · sha — ·

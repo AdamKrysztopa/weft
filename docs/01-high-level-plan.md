@@ -976,11 +976,20 @@ soft GMM, each divergence in its own docstring — and no measurement of it anyw
 **Gate:** none. `paper-to-plugin` ran: `raptor` keeps its name on the proper-noun argument `10` §1.2
 records, and its row now claims what ships; eight names the literature has fixed are reserved in
 `10` §4, and one coinage, `colvbert`, is neither taken nor reserved. Two of Phase 11's open
-decisions reach in — **D2** (where a corpus-wide, revisable pass runs, and whether its expensive
-output may be durable) and **D3** (where a pack persists per-corpus curated configuration) — and the
-ledger marks every affected line ⚠. One tension is stated there rather than resolved: the shipped
-`raptor` already clusters corpus-wide and writes durable summaries, which is D2 answered by code and
-not by the owner.
+decisions reached in — **D2** (where a corpus-wide, revisable pass runs, and whether its expensive
+output may be durable) and **D3** (where a pack persists per-corpus curated configuration) — and
+**neither does any more, as of 2026-09-07: both stay open and no task in this phase depends on
+either.** The owner named the tree's scope as **the one collection**, meaning the configured store,
+without building the corpus-wide *read* that is D2's expensive clause; and the clustering thresholds
+take an operator's typed value or `auto`, where `auto` is recomputed from the run's payload every
+run and persisted nowhere, which is what keeps D3 unreached. Two further questions the ledger marked
+⚠ went the same way — the `Embedder` contract is **not** reopened, because RAPTOR §3's own order
+(embed, cluster, summarise, re-embed) shows the double embed to be a stage-order defect rather than
+a contract question; and the telemetry seam is **not** opened, because what a run did rides on the
+nodes it produces. `build-ledger.md` → Phase 10 carries all four settlements with their evidence.
+One correction those settlements forced, recorded because this paragraph asserted it: the shipped
+`raptor` does **not** cluster corpus-wide — it clusters **batch-wide**, over whatever one `weft
+index` invocation was handed, which is neither paper's scope and was nobody's decision.
 
 **Why it sits between Phase 9 and Phase 11 — the reasons repaired 2026-09-06, the order unchanged.**
 The paragraph this replaces gave two. *(a)* Phase 9 makes a figure and a table into nodes, and a
