@@ -6629,9 +6629,9 @@ schedule them.
   typing a number is a fixture making a claim about its own corpus. `L10.23` is the other thing
   that dispatch found: an `Enum` sentinel that an operator writes into YAML arrives as a **string**
   no `float | Auto` annotation accepts
-- [ ] **10.10 ⚠** a run that summarised nine clusters of ten says so where a reader can find it, and
+- [x] **10.10 ⚠** a run that summarised nine clusters of ten says so where a reader can find it, and
   10.2's coverage record rides the same channel · owner `raptor.py` → *What a degraded run says*;
-  `02` §2 → the registration seam · turns on — · sha — · `raptor.py:72-82` names the blocker in its own words: `Produced` is
+  `02` §2 → the registration seam · turns on — · sha `85063fd` · `raptor.py:72-82` names the blocker in its own words: `Produced` is
   frozen with one field, and a pack writing `span.set_attribute` would settle by default whether the
   registration seam is the only emitter of telemetry — an open question, not D2 or D3, and not this
   line's to settle by default; the ⚠ names it. **Routed 2026-09-07 and the ⚠ is discharged with the
@@ -6642,6 +6642,31 @@ schedule them.
   merits rather than merely the cheaper one: `ext.*` carries the widest operator set in
   `weft_store/fields.py`, so an operator can **query** for the summaries that dropped content, which
   a span in a trace nobody exports cannot answer. What it forbids is silence
+  · **`clusters_found` and `clusters_summarised` on `RaptorFacts`, at schema `1.3.0`.** Nine of
+  ten is readable off any summary the run wrote — and *any* is the design rather than a
+  compromise: they are **run-level** facts carried on every produced node, because the cluster
+  that degraded produces no node at all, so the count has to ride on the ones that do.
+  `clusters_summarised` is `ge=1` because a run that summarised nothing already answers `Failed`
+  and writes no node to carry a zero; that branch predates this task and stays.
+
+  **The counts are known only after every cluster has been attempted**, and `RaptorFacts` was
+  built inside `_summarize`, which cannot know a total — so the summaries are built first and the
+  run-level pair attached afterwards. One model now carries what a run did to one node *and* what
+  it did overall, which is the single place a reader looks that the routing decision was for.
+
+  **No pack writes a span, and the telemetry-seam question stays unopened** — `raptor.py:72-82`'s
+  own blocker is routed around rather than answered by default, exactly as the preamble settled,
+  and `02` §2's doctrine is untouched. The channel is the better one on its merits too: `ext.*`
+  carries the widest operator set in `weft_store/fields.py`, so an operator can **query** for the
+  runs that dropped a cluster, which a span in a trace nobody exports cannot answer.
+
+  **One judgement recorded rather than accepted quietly.** Both fields ship with `default=1`
+  rather than required, because several fixtures construct a `RaptorFacts` standing in for a
+  prior stage's node and would otherwise need editing — the precedent 10.9's `resolved_*` set.
+  `run` overwrites both on every node it returns, so no real path carries the default. It is
+  still a default that **asserts a fact** (*"one cluster, all of it summarised"*) where 10.9's
+  `None` admits absence, and a default that asserts is the shape this project refuses elsewhere.
+  Flagged for `weft-qualities` at the phase close rather than left to be found later
 - [ ] **10.11** a cluster containing a node whose media type is not text produces a summary whose
   content is derived by a stated rule, and the rule says it is Weft's own with no paper behind it ·
   owner `11` §2.4; the *Phase 10 note*s on 9.2, 9.6, 9.7, 9.11 and 9.14 · turns on — · sha — ·

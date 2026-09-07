@@ -680,6 +680,31 @@ that a field an operator types needs a `mode="before"` validator and a widened a
 this instance as the worked example. Possibly also `02` §3, which owns what a document may write
 into a `with:` block and says nothing about sentinels.
 
+### L10.24 — the guarded edit failed its own assertion and the background launch swallowed the message
+
+**What happened.** Task 10.10's ledger entry was written by a `python3` heredoc whose first line
+is `assert s.count(anchor) == 1` — the guard this session uses on every document edit, precisely
+so a stale anchor cannot silently write nothing. It fired: the anchor said *"cannot do. What it
+forbids is silence"* and the document says *"cannot **answer**. What it forbids is silence"*. The
+traceback went nowhere, because the same shell command **also launched `poe ci-checks` in the
+background**, and the tool returned the launch notice instead of the command's output. So the
+gate ran, went green, and the task was committed (`85063fd`) with **no ledger entry at all** —
+found two steps later by grepping for a string the entry should have contained.
+
+**Generalises to.** *A command whose output is a background-launch notice has no room for any
+other command's output, so a guarded edit chained with one is a guard whose alarm is muted —
+never put an assertion and a `&` in the same invocation.* The wider shape is this repository's own
+`L5.15`: a producing side with no consuming side. Here the producer is an `AssertionError` and the
+consumer is a stdout nobody read.
+
+**Candidate home.** Not a hook — the shape is a habit of composing shell commands, and the cheap
+form is a rule in `phase-step` → *Finish*, beside the existing instruction to run the gate in the
+foreground: an edit that guards itself must be its own invocation, and its output must be read
+before anything else is started. The sharper form is that the ledger tick already has a check
+(`tests/docs/test_ledger_records_a_sha.py`) which would have caught a missing **sha** but not a
+missing **entry** — a task line ticked with a sha whose body says nothing about what was built is
+a shape that check cannot see, and could.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in
