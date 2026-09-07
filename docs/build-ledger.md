@@ -6407,10 +6407,10 @@ schedule them.
   same reason (`Node.combine` computes the id before `with_ext`, `ext` is not embedded, and the
   baseline's plain top-k does not filter on it). 10.2's three runs already checked that reasoning
   once; running it again would be spending an API budget to observe the summariser's own sampling
-- [ ] **10.7** a tree deeper than one level exists after one ingest; each level is built from the
+- [x] **10.7** a tree deeper than one level exists after one ingest; each level is built from the
   previous level's nodes alone, so no cluster ever contains a node and an abstraction built from it;
   and the stop criterion is stated, testable and Weft's own · owner `10` §1.2 → the `raptor` row;
-  `raptor.py` → *One level per invocation* and *Chaining…* · turns on — · sha — · **depends on 10.4
+  `raptor.py` → *One level per invocation* and *Chaining…* · turns on — · sha `8df084f` · **depends on 10.4
   and 10.6.** The docstring refuses to loop internally (`:45-56` — `max_levels` is deliberately not a
   field, so one `Expander.run` never makes a variable number of embedder calls) and says why chaining
   fails today (`:58-70` — the linear runner threads the cumulative set and nothing filters on
