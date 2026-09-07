@@ -6204,9 +6204,9 @@ schedule them.
   not left to be rediscovered: 10.9 is where `auto` must fail loudly on a distribution with no
   structure rather than invent clusters, and 10.16 is the example that has to run flagless and
   therefore has to meet it
-- [ ] **10.4 ⚠** every leaf is embedded once per ingest, and every summary carries a vector when the
+- [x] **10.4 ⚠** every leaf is embedded once per ingest, and every summary carries a vector when the
   run ends · owner `02` §1 → the `Embedder` contract (`weft_embed/contract.py`);
-  `weft_retrieve/pipelines/index-with-raptor.yaml` · turns on — · sha — · `raptor` embeds the whole
+  `weft_retrieve/pipelines/index-with-raptor.yaml` · turns on — · sha `7f062b3` · `raptor` embeds the whole
   payload to cluster (`raptor.py:196` → `:260`) and returns the original objects (`:239`); the
   document sits the stage before `embed` (`index-with-raptor.yaml:37-42`, `:16-17`), which embeds the
   same leaves again — a paid embedder's leaf cost paid twice, measured as embedder calls per run.
