@@ -185,26 +185,36 @@ reverse walk (`matching` with `contains`, one id) **0.38 ms** and **2.66 ms**. A
 level-2 summary to its leaves is under a millisecond on pgvector and about four on Qdrant, which
 is the number that decided the ⛔ rather than an argument about it.
 
-**What a degraded run says, and the one thing it still cannot say.** Three facts used to
-arrive as one result — a corpus with nothing to cluster, a corpus whose clusters were all too
-loose, and a run whose every summary request failed — because each answered
-`Produced(payload)`. The third now answers `Failed` naming how many clusters it summarised
-none of, which is the distinction `CLAUDE.md` demands: a success path and a failure path that
-cannot be told apart is exactly the defect this pack was written against. **Partial** degradation
-is still invisible: an `Expander` that summarised nine of ten clusters is `Produced` and says
-nothing about the tenth. Recording that count needs a channel this plugin does not have —
+**What a partly degraded run says, riding on the same channel as everything else (task
+10.10).** Three facts used to arrive as one result — a corpus with nothing to cluster, a
+corpus whose clusters were all too loose, and a run whose every summary request failed —
+because each answered `Produced(payload)`. The third now answers `Failed` naming how many
+clusters it summarised none of, which is the distinction `CLAUDE.md` demands: a success path
+and a failure path that cannot be told apart is exactly the defect this pack was written
+against. **Partial** degradation used to be invisible the same way: an `Expander` that
+summarised nine of ten clusters answered `Produced` and said nothing about the tenth. It rides
+on the nodes instead — the channel task 10.2's per-summary coverage record and task 10.9's
+resolved `auto` values already use — rather than waiting on a channel this plugin does not
+have: `weft_index.payload.RaptorFacts.clusters_found`/`.clusters_summarised` are a run-level
+pair, computed once every cluster in the run has been attempted and carried unchanged onto
+every summary the run produced, because the degraded cluster is exactly the one that produces
+no node to carry the count instead. A reader who finds any one summary from the run finds the
+whole run's tally beside it. `02` §2's registration-seam doctrine is untouched by this: no
+pack writes a span, and whether that seam is the only emitter of telemetry stays an open
+question this task does not answer.
+
+*(This section used to say the partial case "needs a channel this plugin does not have —
 `Produced` is frozen with one field, and writing `span.set_attribute` from a pack would settle
 by default whether the registration seam is the only emitter of telemetry, which is an open
-question and not this task's to answer.
+question and not this task's to answer." The nodes were already the answer; the question about
+telemetry was never this task's to open, and task 10.10 leaves it exactly as unopened as it
+found it.)*
 
-**Per-summary coverage rides on the node itself, and does not wait on that channel.** Task
-**10.2**: every summary this plugin returns carries `weft_index.payload.RaptorFacts` — how
-many members its cluster held, how many of them were truncated, and how many characters the
-model that wrote the summary actually saw versus how many the cluster held in full. A reader
-can now tell a summary built from its whole cluster apart from one built from 40% of it,
-which content alone never could. The run-level count named in the paragraph above — how many
-of a run's clusters degraded — is a separate fact, about the run rather than about one
-summary, and stays open for task 10.10.
+**Per-summary coverage rides on the node itself, task 10.2.** Every summary this plugin
+returns carries `weft_index.payload.RaptorFacts` — how many members its cluster held, how many
+of them were truncated, and how many characters the model that wrote the summary actually saw
+versus how many the cluster held in full. A reader can now tell a summary built from its whole
+cluster apart from one built from 40% of it, which content alone never could.
 
 **The retry halves what was sent, and that is the whole point of it.** `weft_llm.retry` already
 owns retrying the same request, and `LLMContextLengthError` is classed *permanent*
@@ -563,6 +573,21 @@ class RaptorSummarizer:
                     f"summary request degraded, so the tree gained no level"
                 )
             )
+        # **The run-level tally, task 10.10.** Neither count is knowable inside `_summarize`,
+        # which sees one cluster and never the run: `clusters_found` is the width of
+        # `summarizable` and `clusters_summarised` is how many of `_bounded`'s results
+        # actually came back a `Node`, so both exist only once every cluster in the run has
+        # been attempted. `_summarize` builds each summary's `RaptorFacts` with a placeholder
+        # pair it cannot make true on its own; this pass is what makes it true, on every
+        # summary the run produced, before anything downstream ever reads one.
+        derived = tuple(
+            _with_run_counts(
+                summary,
+                clusters_found=len(summarizable),
+                clusters_summarised=len(derived),
+            )
+            for summary in derived
+        )
         embedded_derived = await self._embed_summaries(derived, ctx=ctx)
         if isinstance(embedded_derived, Failed):
             return embedded_derived
@@ -628,6 +653,12 @@ class RaptorSummarizer:
         `resolved_similarity_threshold`/`resolved_cluster_size` are this run's own `auto`
         resolution — `None` when the operator typed the field instead — and ride onto the
         returned node's own `RaptorFacts` unchanged, task **10.9**.
+
+        `RaptorFacts.clusters_found`/`.clusters_summarised` — task **10.10** — are run-level
+        facts this one call cannot know: it sees a single cluster, never how many the run had
+        or how many of them came back a summary. Left at their own default here for exactly
+        that reason; `run` overwrites both with the real tally on every summary it keeps, in
+        `_with_run_counts`, before anything downstream of `_summarize` ever reads one.
         """
         # The retry halves the text that was actually sent, never the configured budget. A
         # cluster already comfortably under `max_cluster_chars` would otherwise be re-sent
@@ -663,6 +694,9 @@ class RaptorSummarizer:
                 level=level,
                 resolved_similarity_threshold=resolved_similarity_threshold,
                 resolved_cluster_size=resolved_cluster_size,
+                # `clusters_found`/`clusters_summarised` left at their own default — see this
+                # method's own docstring. `run` overwrites both once every cluster in the run
+                # has been attempted.
             )
             return (
                 Node.combine(members, content=summary, media_type=MediaType.TEXT)
@@ -670,6 +704,30 @@ class RaptorSummarizer:
                 .with_ext(facts)
             )
         return None
+
+
+def _with_run_counts(node: Node, *, clusters_found: int, clusters_summarised: int) -> Node:
+    """`node`'s own `RaptorFacts`, with `clusters_found`/`clusters_summarised` overwritten to
+    this run's real tally — task **10.10**. Every node reaching here was just built by
+    `_summarize`, which always attaches a `RaptorFacts` before returning one, so the `facts is
+    None` branch below can never actually fire; it exists for the same reason
+    `_typed_cluster_size`'s own `AssertionError` does — pyright cannot see that a summary node
+    is never one without facts.
+    """
+    facts = node.ext_as(RaptorFacts)
+    if facts is None:
+        raise AssertionError(
+            f"'{NAME}' derived a summary node with no RaptorFacts attached — _summarize "
+            f"always attaches one before returning a node, so this should be unreachable"
+        )
+    return node.with_ext(
+        facts.model_copy(
+            update={
+                "clusters_found": clusters_found,
+                "clusters_summarised": clusters_summarised,
+            }
+        )
+    )
 
 
 def _node_level(node: Node) -> int:

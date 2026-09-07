@@ -99,10 +99,21 @@ class RaptorFacts(ExtModel):
     class's refusal was left standing at `1.1.0`: an older stored row naming neither field at
     all is not the same claim as one that resolved them and found nothing — `None` here would
     say the operator typed the value, which a `1.0.0`/`1.1.0` row never claimed either way.
+
+    `clusters_found`/`clusters_summarised` — task **10.10** — are facts about the **run**, not
+    about the one cluster this particular summary was built from: how many clusters this run
+    had that cleared `min_cluster_size` and were therefore eligible to be summarised, and how
+    many of those actually produced a summary. Both are computed once, after every cluster in
+    the run has been attempted, and carried unchanged onto **every** summary the run produced
+    — a degraded cluster produces no node at all, so there is nowhere else for the count to
+    ride, and a reader who finds any one summary from the run finds the whole run's tally
+    beside it. `clusters_summarised` is `Field(ge=1)` rather than `ge=0` because a run that
+    summarised none of its clusters already answers `Failed` and produces no node to carry a
+    zero — see `raptor.RaptorSummarizer.run`'s own "every cluster degraded" branch.
     """
 
     __namespace__ = "weft-index-raptor"
-    __schema_version__ = "1.2.0"
+    __schema_version__ = "1.3.0"
 
     #: How many nodes the cluster held.
     members: int = Field(ge=1)
@@ -131,3 +142,19 @@ class RaptorFacts(ExtModel):
     #: the value themselves — task **10.9**. Same rule as `resolved_similarity_threshold`
     #: above.
     resolved_cluster_size: int | None = Field(default=None)
+    #: How many clusters this run had that cleared `min_cluster_size` and were therefore
+    #: eligible to be summarised — a run-level fact, task **10.10**. See the class docstring's
+    #: own paragraph for why this and `clusters_summarised` are carried on every summary the
+    #: run produced rather than only on the ones that were part of a degraded cluster.
+    #: Defaults to `1` for the same reason `resolved_similarity_threshold`/
+    #: `resolved_cluster_size` default rather than requiring every constructor to state them:
+    #: a fixture standing in for a node a *prior* `raptor` stage already wrote (10.6's and
+    #: 10.7's own tests build these directly) predates this field's existence in exactly the
+    #: same sense. Every node this plugin's own `run` actually returns has this overwritten
+    #: with the real tally, in `_with_run_counts`, before it is ever handed back.
+    clusters_found: int = Field(default=1, ge=1)
+    #: How many of those eligible clusters actually produced a summary. `ge=1`, never `ge=0`
+    #: — see the class docstring's own paragraph for why a run that summarised none of its
+    #: clusters never reaches this model at all. Defaults to `1` for the same reason
+    #: `clusters_found` does, immediately above.
+    clusters_summarised: int = Field(default=1, ge=1)

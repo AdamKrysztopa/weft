@@ -1360,3 +1360,100 @@ async def test_a_typed_threshold_is_never_refused_for_a_flat_distribution() -> N
     # Assert
     assert isinstance(outcome, Produced)
     assert [node.id for node in outcome.value] == [node.id for node in nodes]
+
+
+# --- Ledger task 10.10 — a run that summarised nine clusters of ten says so.
+
+
+async def test_a_partly_degraded_run_records_how_many_clusters_it_summarised() -> None:
+    """The gap `raptor.py`'s own docstring has named since task 2.32.
+
+    Three facts used to arrive as one result, and two of them were separated then: a corpus with
+    nothing to cluster, a corpus whose clusters were all too loose, and a run whose every summary
+    request failed. **Partial** degradation stayed invisible — a run that summarised nine clusters
+    of ten answered `Produced` and said nothing about the tenth — because `Produced` is frozen
+    with one field and a pack writing a span would settle by default whether the registration seam
+    is the only emitter of telemetry.
+
+    It rides on the nodes instead, the channel 10.2's coverage record and 10.9's resolved `auto`
+    values already use. `02` §2's registration-seam doctrine is untouched, no pack writes a span,
+    and the channel is the better one on its own merits: `ext.*` carries the widest operator set
+    in `weft_store.fields`, so an operator can **query** for the runs that dropped a cluster,
+    which a span in a trace nobody exports cannot answer.
+
+    **The degraded cluster produces no node, which is exactly why the count rides on the ones that
+    do.** A reader finds it on any summary the run wrote.
+    """
+    # Arrange — two clusters; every request mentioning "alph" is refused, so one degrades.
+    a, b, c, d = (
+        _node("alpha passage a"),
+        _node("alpha passage b"),
+        _node("gamma passage c"),
+        _node("gamma passage d"),
+    )
+    table = {
+        "alpha passage a": _A,
+        "alpha passage b": _B,
+        "gamma passage c": _C,
+        "gamma passage d": _D,
+    }
+    embedder = _StubEmbedder(table)
+    a, b, c, d = _embedded((a, b, c, d), table)
+
+    # Act
+    outcome = await RaptorSummarizer(RaptorConfig(similarity_threshold=0.75)).run(
+        (a, b, c, d), _ctx(embedder=embedder, llm=_RefusingLLM(refuse_marker="alph"))
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    summaries = [node for node in outcome.value if len(node.lineage.parents) > 1]
+    assert len(summaries) == 1, "the fixture must degrade exactly one of two clusters"
+    facts = summaries[0].ext_as(RaptorFacts)
+    assert facts is not None
+    assert facts.clusters_found == 2, (
+        "the surviving summary must say how many clusters this run had, or a reader cannot tell "
+        "a complete tree from one missing a branch"
+    )
+    assert facts.clusters_summarised == 1
+
+
+async def test_a_complete_run_says_it_summarised_every_cluster() -> None:
+    """The counts are on every summary, not only on a degraded run's.
+
+    A field written only when something went wrong cannot be read as *"nothing went wrong"* — the
+    identical argument 10.2 made for its own coverage record, and the reason both live on every
+    node this plugin produces.
+    """
+    # Arrange
+    table = {
+        "alpha passage a": _A,
+        "alpha passage b": _B,
+        "gamma passage c": _C,
+        "gamma passage d": _D,
+    }
+    nodes = _embedded(
+        (
+            _node("alpha passage a"),
+            _node("alpha passage b"),
+            _node("gamma passage c"),
+            _node("gamma passage d"),
+        ),
+        table,
+    )
+
+    # Act
+    outcome = await RaptorSummarizer(RaptorConfig(similarity_threshold=0.75)).run(
+        nodes,
+        _ctx(embedder=_StubEmbedder(table), llm=_ScriptedLLM([_reply("A summary.")] * 2)),
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    summaries = [node for node in outcome.value if len(node.lineage.parents) > 1]
+    assert len(summaries) == 2
+    for summary in summaries:
+        facts = summary.ext_as(RaptorFacts)
+        assert facts is not None
+        assert facts.clusters_found == 2
+        assert facts.clusters_summarised == 2
