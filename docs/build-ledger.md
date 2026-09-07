@@ -6040,11 +6040,11 @@ schedule them.
 
 **Group A — repairs of the shipped `raptor`. Real, ordered, and counting for nothing at the Exit.**
 
-- [ ] **10.1** the catalogue row, its correction block, the pipeline document and the module
+- [x] **10.1** the catalogue row, its correction block, the pipeline document and the module
   docstring make the same claims about `raptor`, and every *"proven in `<file>`"* among them names an
   assertion that file makes · owner `10` §1.2; `weft_retrieve/pipelines/index-with-raptor.yaml`;
   `paper-to-plugin` → step 6 · turns on **fitness function 26** — *a catalogue row claims no
-  configuration its plugin has not got, and no proof its cited file does not make* · sha — · three overclaims verified
+  configuration its plugin has not got, and no proof its cited file does not make* · sha `2d2443a` · three overclaims verified
   2026-09-06 (`L9.30`, `L9.31`, `L9.38`). Two are repaired in `10` by this planning pass — the row (now
   `10:163`; `:148` until today) no longer annotates a `mode:` `RaptorConfig` does not carry (`raptor.py:132-171`, seven
   fields, none of them it) or claims recursion and descent no code performs; the block (`:143-149`)
