@@ -6110,9 +6110,9 @@ schedule them.
   piece fits — so the two shapes that discharge this are the paper's (split the cluster) and a marked
   node; which is the implementer's, the property is not. Where the record lives is 10.10's question
   only if the channel is the span; on the node it needs no decision. No gate, no D2/D3
-- [ ] **10.3** the same node set yields the same clusters whatever order the run delivered it in ·
+- [x] **10.3** the same node set yields the same clusters whatever order the run delivered it in ·
   owner `10` §1.2 → the `raptor` row; `raptor.py` → *Clustering is a fresh, small algorithm* · turns
-  on — · sha — · `_cluster_by_similarity` (`raptor.py:347-368`) walks `embedded` once in payload
+  on — · sha `b1aa695` · `_cluster_by_similarity` (`raptor.py:347-368`) walks `embedded` once in payload
   order, mutating clusters in place, so input order decides membership and an index rebuilt from the
   same corpus after a different extraction order is a different tree; the docstring at `:35-43`
   documents the algorithm and not this property. No paper motivates it — all four use
@@ -6154,6 +6154,28 @@ schedule them.
   `recall@3` 0.0303 → 0.0152), and **that is not claimed as an improvement**: a width over three
   repetitions is itself a noisy estimate, the summariser's own sampling is the only source of
   variation left, and three runs cannot tell a sharper instrument from a quieter afternoon
+  · **Run through the shipped binary from outside this repository** — the three re-measurement
+  runs above are that, each `weft eval run` from `<scratch>/run10.0` out of a venv holding the
+  five distributions installed non-editable. The branch worth constructing deliberately is the
+  **default, flagless** one, and it was: `weft index . --pipeline index-with-raptor` over the
+  nine `pl-wiki` documents under the default `hash` embedder, from a directory holding nothing
+  but the corpus and a four-line `weft.toml`, with the table asserted empty before and counted
+  after —
+
+  ```text
+  rows before: 0
+  produced 1, nothing to produce 0, failed 0. nodes now stored: 56.
+  mode 'repair' — 1 participant(s):
+    pgvector (weft-rag): examined 0, removed 0, backfilled 0
+  rows after: 56 summaries: 0
+  ```
+
+  **Fifty-six nodes, zero summaries, exit 0, and not one word about it.** That is the silence
+  `index-with-raptor.yaml:25-33` documents and the plugin does not, reproduced on the invocation
+  nobody runs on purpose and every user runs first (`L9.64`). It is not 10.3's to fix and it is
+  not left to be rediscovered: 10.9 is where `auto` must fail loudly on a distribution with no
+  structure rather than invent clusters, and 10.16 is the example that has to run flagless and
+  therefore has to meet it
 - [ ] **10.4 ⚠** every leaf is embedded once per ingest, and every summary carries a vector when the
   run ends · owner `02` §1 → the `Embedder` contract (`weft_embed/contract.py`);
   `weft_retrieve/pipelines/index-with-raptor.yaml` · turns on — · sha — · `raptor` embeds the whole

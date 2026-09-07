@@ -344,6 +344,63 @@ blocked nothing and it cost something.
 answered rather than left open; and `references/implementer-brief.md`, whose *Files* section says
 what may be written and says nothing about what may be *created* beside it.
 
+### L10.13 — a published contract's docstring states what its first implementation did, and has been false of its second since the day that second shipped
+
+**What happened.** `weft_index/contract.py:18-20` defines what an `Expander` is: *"every node
+handed in continues, unchanged, into the output, and new nodes are added beside it — **each one
+`parent.derive(content=...)`**, so its id is its own content digest and its `Lineage` names the
+parent it was built from."* `RaptorSummarizer` has never done that. It builds through
+`Node.combine(members, ...)`, which takes **several** parents, and it has done so since task 2.32
+— the contract was written for `hypothetical-questions` and never revisited when the second
+registration arrived. Two neighbours carry the same overstatement:
+`weft_index/payload.py:24`, where `Representation` is *"a stand-in for the **one parent** it was
+built from"*, and `weft_generate.representation`, which already carries a multi-parent branch
+**written for `raptor` before `raptor` existed** — so the author of the reader knew, and the
+contract and the marker were never corrected. The docstring is also copied verbatim into
+`manual/contract-reference.md:268`, generated and drift-checked, so the wrong sentence is
+published to operators and a check guarantees the two copies agree with each other. Found by an
+agent surveying what task 10.4 would break, not by anything in the gate.
+
+**Generalises to.** *A contract's docstring describes a population — every plugin registered
+against it — so the second registration is when it stops being a description and becomes a claim,
+and that is the moment to re-read it.* This is `phase-step`'s "settled text says *every X* and you
+have found an X it should not cover" in the one place the rule does not look: not `docs/`, not an
+`assert` comment (`L5.32`, `L6.15`, and the code-invariant clause added after them), but a
+**Protocol's own docstring**, which is settled text with a machine-checkable population sitting
+right beside it in the registry.
+
+**Candidate home.** A fitness function is available and cheap, which is unusual for this family:
+the registry knows every `(contract, name)` pair, so *"a contract docstring naming a specific
+construction (`parent.derive`, `Node.combine`, `with_ext`) is checked against every plugin
+registered under it"* is decidable — and the population is small enough to measure before
+adopting (`L9.89`). The narrow half is a repair: 10.4 is already editing this file's neighbourhood
+and should correct all three sites, since `manual/contract-reference.md` is regenerated from the
+first.
+
+### L10.14 — the citation resolved, named the right file, and pointed at the wrong method
+
+**What happened.** `weft_index/raptor.py:60-61` reads: *"A summary `Node.combine` builds carries
+no embedding (`Node.combine`'s own docstring: parents are explicit, content is new, an embedding
+is not carried over)"*. `Node.combine`'s docstring (`weft_kernel/payload/node.py:131`) says only
+*"A summary built from `members`. Parents are explicit and never empty."* The quoted clause about
+the embedding is **`Node.derive`'s**, twenty lines earlier. The fact is true — `combine`
+constructs without an embedding — and the attribution is not. Fitness function 17 passes it,
+correctly and by design: it matches a citation at **basename** granularity and its own docstring
+says outright that it cannot check whether the cited line says what the citing comment claims.
+
+**Generalises to.** *A citation to a `Thing.method`'s docstring is a claim about a span FF17
+cannot see, so it carries the quotation or it carries nothing — quoting text and attributing it to
+the wrong member of the same file is the one form that reads as more rigorous than a bare
+pointer.* Sibling of `L8.9`, where a self-citation resolved *because* the basename collided; this
+one resolves because the file is right and the member is not.
+
+**Candidate home.** FF26 just established the shape for exactly this in a document: a claim names
+the literal string the cited file must contain, and the check greps for it. The same trick works
+one granularity down — a citation of the form ``\`X.y\`'s own docstring: "<quoted words>"`` is
+checkable by finding the quoted words inside that symbol's docstring, which `ast` can extract. Its
+population wants measuring first: how many docstring citations in `packages/` already quote, and
+how many only point.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in
