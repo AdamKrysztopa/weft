@@ -1,0 +1,230 @@
+{
+  "recorded_at": "2026-09-07T10:05:26.961768+00:00",
+  "resolved_pipeline": {
+    "name": "raptor-baseline",
+    "vars": {},
+    "stages": [
+      {
+        "id": "extract",
+        "contract": "Extractor",
+        "contract_version": "1.0.0",
+        "use": "pdf-text",
+        "config": {
+          "mode": "plain",
+          "page_separator": "\n\n",
+          "password": null,
+          "strict": false,
+          "orientations": [
+            0,
+            90,
+            180,
+            270
+          ],
+          "space_width": 200.0,
+          "layout_mode_space_vertically": true,
+          "layout_mode_scale_weight": 1.25,
+          "layout_mode_strip_rotated": true,
+          "layout_mode_font_height_weight": 1.0
+        },
+        "fallback": [],
+        "applies_to": [],
+        "distribution": "weft-pdf",
+        "provenance": "raptor-baseline"
+      },
+      {
+        "id": "normalize",
+        "contract": "Cleaner",
+        "contract_version": "1.0.0",
+        "use": "unicode-normalize",
+        "config": {},
+        "fallback": [],
+        "applies_to": [
+          {
+            "fact": null,
+            "constraints": [],
+            "media_type": [
+              "text"
+            ]
+          }
+        ],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      },
+      {
+        "id": "whitespace",
+        "contract": "Cleaner",
+        "contract_version": "1.0.0",
+        "use": "whitespace",
+        "config": {},
+        "fallback": [],
+        "applies_to": [
+          {
+            "fact": null,
+            "constraints": [],
+            "media_type": [
+              "text"
+            ]
+          }
+        ],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      },
+      {
+        "id": "chunk",
+        "contract": "Chunker",
+        "contract_version": "1.0.0",
+        "use": "fixed-size",
+        "config": {
+          "size": 512,
+          "overlap": 50
+        },
+        "fallback": [],
+        "applies_to": [
+          {
+            "fact": null,
+            "constraints": [],
+            "media_type": [
+              "text"
+            ]
+          }
+        ],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      },
+      {
+        "id": "summarise",
+        "contract": "Expander",
+        "contract_version": "1.0.0",
+        "use": "raptor",
+        "config": {
+          "cluster_size": 4,
+          "min_cluster_size": 2,
+          "similarity_threshold": 0.75,
+          "max_cluster_chars": 12000,
+          "max_concurrent_summaries": 8,
+          "prompt": "summarize-cluster",
+          "role": "index"
+        },
+        "fallback": [],
+        "applies_to": [],
+        "distribution": "weft-rag",
+        "provenance": "raptor-baseline"
+      },
+      {
+        "id": "embed",
+        "contract": "Embedder",
+        "contract_version": "1.0.0",
+        "use": "openai-embeddings",
+        "config": {
+          "model": "text-embedding-3-small",
+          "dimensions": null,
+          "batch_size": 128
+        },
+        "fallback": [],
+        "applies_to": [],
+        "distribution": "weft-openai",
+        "provenance": "raptor-baseline"
+      },
+      {
+        "id": "store",
+        "contract": "NodeStore",
+        "contract_version": "2.2.0",
+        "use": "pgvector",
+        "config": {},
+        "fallback": [],
+        "applies_to": [],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      }
+    ],
+    "unapplied_operators": [],
+    "unplaced_contributions": []
+  },
+  "corpus": {
+    "name": "mrmr-v1-pdf-fetch",
+    "digest": "c175e53fbdec5b89e5bbb84fb15e76a6766ed2d14a9b93699e7eba0ad725aabe"
+  },
+  "model_versions": {
+    "embed": "openai-embeddings:text-embedding-3-small"
+  },
+  "active_distributions": [
+    "weft-openai",
+    "weft-pdf",
+    "weft-qdrant",
+    "weft-rag"
+  ],
+  "metrics": {
+    "mean_average_precision": {
+      "value": {
+        "reported_name": "mean_average_precision",
+        "mean": 0.9116161616161615,
+        "n": 66,
+        "stdev": 0.23610025570365387,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.9116161616161615,
+            "n": 66,
+            "stdev": 0.23610025570365387
+          }
+        }
+      }
+    },
+    "ndcg@3": {
+      "value": {
+        "reported_name": "ndcg@3",
+        "mean": 0.9258506808041521,
+        "n": 66,
+        "stdev": 0.2098825873547422,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.9258506808041521,
+            "n": 66,
+            "stdev": 0.2098825873547422
+          }
+        }
+      }
+    },
+    "precision@3": {
+      "value": {
+        "reported_name": "precision@3",
+        "mean": 0.3333333333333333,
+        "n": 66,
+        "stdev": 0.0826898230594723,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.3333333333333333,
+            "n": 66,
+            "stdev": 0.0826898230594723
+          }
+        }
+      }
+    },
+    "recall@3": {
+      "value": {
+        "reported_name": "recall@3",
+        "mean": 0.9520202020202021,
+        "n": 66,
+        "stdev": 0.19777642456954803,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.9520202020202021,
+            "n": 66,
+            "stdev": 0.19777642456954803
+          }
+        }
+      }
+    }
+  }
+}

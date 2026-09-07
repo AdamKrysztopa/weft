@@ -262,6 +262,88 @@ Possibly enforced: a task line carrying a bare `⛔` glyph must either name an o
 preamble records, or write the glyph inside a conditional clause — which is a shape a check could
 tell apart, and which `next_task.py`'s own preamble handling already had to solve once.
 
+### L10.10 — a correct repair read as a regression, because a test had pinned an order nothing specified
+
+**What happened.** Task 10.3 sorted `_cluster_by_similarity`'s input by `Node.id`, so a cluster's
+members — and therefore a summary's `Lineage.parents` — come out in a canonical order rather than
+in the order the caller handed them over. One pre-existing test went red:
+`tests/unit/weft_index/test_raptor.py`'s `test_a_tight_cluster_is_summarised_and_a_singleton_is_
+left_alone` asserted `summary.lineage.parents == (a.id, b.id)`, which was the order those two
+nodes were passed in and which **no document has ever stated**. The implementer could not fix it
+(it may not touch tests) and correctly returned with it red; the repair was to assert the two
+facts that *are* specified — which nodes the summary was built from, and that their order is
+canonical — rather than the literal that happened to hold.
+
+**Generalises to.** *An assertion on an order, a count or a container shape is a specification of
+that order, and the code will be held to it by whoever changes something nearby — so before
+writing one, ask whether a document states it; if none does, assert the fact instead.* Nothing
+new: `phase-step` → *Red* already says exactly this, in bold, with a worked example. **It did not
+bite**, and by `implement-ll`'s own rule (`L6.8`) that means it is in the wrong artefact — a rule
+about what a *new* test may assert cannot reach a literal written eleven phases ago, and the
+moment it costs something is the moment somebody changes behaviour the literal silently
+constrained.
+
+**Candidate home.** Not another sentence in `phase-step`. The falsifying act is *writing an
+equality against a tuple, a count or a dict* in a test, so the artefact that could perform it is a
+check over `tests/` — an assertion comparing a `.parents`, `.sources`, `.hits` or similar sequence
+against a literal tuple, where the same comparison as a set would do. Its population would need
+measuring before adoption (`L9.89`), and it may turn out to be too noisy to be worth having, which
+is a finding either way. The cheaper half: `phase-step` → *Verify* could ask, of every
+**pre-existing** test a green-phase diff turns red, whether the assertion it broke was a
+specification or an accident — which is the question actually asked here, and it is asked nowhere.
+
+### L10.11 — a dispatched agent explained a real, deterministic failure as a build artefact
+
+**What happened.** 10.3's implementer reported: *"The very first `pytest` run right after the edit
+(and only that one run) showed a stale-build failure on
+`test_a_tight_cluster_is_summarised_and_a_singleton_is_left_alone` — actual `lineage.parents`
+order didn't match expected, an artefact of `uv run` reusing a wheel built before the edit
+landed... Worth knowing that a single `uv run pytest` result right after an edit under concurrent
+build activity in a shared checkout can be a false negative — re-run before trusting a first
+red."* It was not a false negative. Sorting the clusterer's input by `Node.id` makes that
+fixture's parents come out `(b.id, a.id)`, and the assertion pinned `(a.id, b.id)` — verified by
+computing both digests: `passage a` hashes to `f380843a…` and `passage b` to `43f4049d…`, so
+sorted order reverses them, deterministically, every run. The agent's later green runs were green
+because the assertion had been repaired in the shared checkout in the meantime, not because the
+failure went away. Had the explanation been believed, the accident would have stayed in the test
+and the entry it earned (`L10.10`) would never have been written.
+
+**Generalises to.** *An agent's account of **why** something failed is a claim to re-derive, not a
+result to accept — and an explanation that names an environment state (a stale build, a cache, a
+concurrent process) is the one to re-derive first, because it is the explanation that dismisses
+the evidence.* `L6.32` is the same sentence about a message: *"a message naming an environment
+state is a hypothesis, not a diagnosis."* This is that hypothesis arriving inside a report, where
+it reads as a finding rather than as a guess, and where `phase-step`'s *Verify* step reads the
+**diff** rather than the reasoning.
+
+**Candidate home.** `phase-step` → *Verify* already says a `path:line` an agent reports is a lead
+rather than evidence (`L9.34`), and says nothing about a *causal claim*. The cheapest form is that
+every red-then-green an implementer reports must name what changed between the two runs — a diff,
+not a condition — since "I re-ran it and it passed" and "somebody else fixed it" are
+indistinguishable from inside the agent. Possibly also
+`.claude/agents/weft-implementer.md`, which is what travels with the dispatch.
+
+### L10.12 — the dispatch had no isolation and the agent added its own, in the shared checkout
+
+**What happened.** The same 10.3 implementer reported using `git worktree add` against the shared
+checkout to establish a pre-edit baseline, and noted that the brief's prohibitions *"don't mention
+`worktree add`/`remove`"*. It cleaned up after itself and nothing was lost. But the dispatch was
+made without `isolation: "worktree"` — a judgement that the task was small and serial — and the
+agent then created the isolation the dispatcher had declined to give it, inside the one checkout
+the dispatcher was still working in, and named that as the likely cause of the build state it
+misdiagnosed in `L10.11`. Two decisions that each looked local: mine not to isolate, and the
+agent's to isolate itself.
+
+**Generalises to.** *An agent that needs a baseline needs a checkout, so either the dispatch gives
+it one or the brief says how to get one — leaving it unstated is choosing that the agent decides,
+in the tree somebody else is editing.* **G14 is open and is exactly this question** — *is an
+isolated checkout the default for a dispatched implementer?* — recorded as blocking nothing. It
+blocked nothing and it cost something.
+
+**Candidate home.** G14, which now has a second concrete instance to weigh and should probably be
+answered rather than left open; and `references/implementer-brief.md`, whose *Files* section says
+what may be written and says nothing about what may be *created* beside it.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

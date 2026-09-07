@@ -6120,6 +6120,40 @@ schedule them.
   repair because 10.0 and 10.13 are unrepeatable without it. **Not** the paper's GMM: the divergence
   at `:35-43` stands, and the least-evidenced component in every paper is not adopted to fix a
   property a stable ordering also fixes
+  · **The repair is a stable input order, and it is two orders rather than one.**
+  `_cluster_by_similarity` consumes `embedded` sorted by `Node.id` ascending, which makes the
+  greedy pass a function of the node *set*; and because a member is appended the moment it is
+  visited, the same sort fixes each cluster's own member order, which is what makes the summary's
+  **id** reproducible — `_format_cluster` numbers members in the order it holds them, a node id is
+  a content digest over the summary text and the parent ids, so the same membership rendered in a
+  different order is a different node. A membership-only repair would have satisfied the first
+  half of the test and rebuilt a different index. `Node.id` is the key because it is a content
+  digest: deterministic, a function of the node alone, and already in hand. No new configuration
+  field — a clusterer whose answer depends on batching order is a defect, not an operator's
+  choice. Written by a dispatched `weft-implementer`; the test and this entry are not.
+
+  **A pre-existing test went red and it was right to.**
+  `test_a_tight_cluster_is_summarised_and_a_singleton_is_left_alone` asserted
+  `summary.lineage.parents == (a.id, b.id)` — the order those two nodes happened to be passed in,
+  which no document has ever stated. The implementer may not touch a test and correctly left it
+  red. Repaired here to assert the two facts that *are* specified: which nodes the summary was
+  built from, and that their order is canonical. Filed as `L10.10`, whose finding is not the
+  literal but that `phase-step` already forbids writing one **and could not reach an assertion
+  written eleven phases ago**.
+
+  **Re-measured against 10.0, three repetitions, same corpus, same embedder, same installed set**
+  — records committed under `eval/raptor-baseline/remeasurements/after-10.3/` and held to their
+  own statement by `tests/docs/test_raptor_baseline.py`. The tree did change: **113 summaries
+  before, 112 after**, which is the sorted order producing different groupings and is the whole
+  point of the repair. What it bought, read carefully: `mean_average_precision` 0.909091 →
+  **0.907407**, `ndcg@3` 0.924976 → **0.923987**, `precision@3` and `recall@3` unmoved to six
+  decimal places. **Every one of those deltas is smaller than either arm's own spread, so this
+  repair did not change what the tree is worth on this corpus** — which is the right outcome for
+  a repair whose subject is reproducibility rather than quality. The observed spreads were also
+  narrower than before (`mean_average_precision` 0.0126 → 0.0076, `ndcg@3` 0.0171 → 0.0056,
+  `recall@3` 0.0303 → 0.0152), and **that is not claimed as an improvement**: a width over three
+  repetitions is itself a noisy estimate, the summariser's own sampling is the only source of
+  variation left, and three runs cannot tell a sharper instrument from a quieter afternoon
 - [ ] **10.4 ⚠** every leaf is embedded once per ingest, and every summary carries a vector when the
   run ends · owner `02` §1 → the `Embedder` contract (`weft_embed/contract.py`);
   `weft_retrieve/pipelines/index-with-raptor.yaml` · turns on — · sha — · `raptor` embeds the whole

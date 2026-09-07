@@ -18,6 +18,7 @@ own `_StubEmbedder` shape, enough to make clustering deterministic without a rea
 """
 
 import asyncio
+import math
 from collections.abc import Mapping, Sequence
 
 import pytest
@@ -179,7 +180,17 @@ async def test_a_tight_cluster_is_summarised_and_a_singleton_is_left_alone() -> 
     summary = derived[0]
     assert summary.content == "A summary of A and B."
     assert summary.embedding is None  # `Expander` derives text; embedding is a later stage
-    assert summary.lineage.parents == (a.id, b.id)
+    # **The membership, and then the *canonical* order — not the order they arrived in.**
+    # This assertion read `== (a.id, b.id)` until task 10.3, which is the order the two nodes
+    # happened to be handed over in and a fact no document ever stated. Sorting the clusterer's
+    # input by `Node.id` made a correct repair look like a regression here, which is
+    # `phase-step`'s own rule about an incidental literal being a design decision handed to
+    # something that has not read the documents. What is asserted now is the pair of facts that
+    # *are* specified: which nodes the summary was built from, and that their order is canonical
+    # rather than incidental — a node id is a content digest over the parent ids, so a stable
+    # order is what makes an index rebuilt from the same corpus the same index.
+    assert set(summary.lineage.parents) == {a.id, b.id}
+    assert list(summary.lineage.parents) == sorted(summary.lineage.parents)
     assert summary.lineage.sources == frozenset({_SOURCE})
     marker = summary.ext_as(Representation)
     assert marker is not None
@@ -448,3 +459,97 @@ async def test_every_cluster_degrading_fails_rather_than_looking_like_a_complete
     # Assert — a run that produced no summary at all says so.
     assert isinstance(outcome, Failed)
     assert "2" in outcome.reason
+
+
+# --- Ledger task 10.3 — the same node set yields the same clusters whatever order it arrived in.
+
+#: Seven nodes evenly spaced 20° apart on the unit circle. **The spacing is what makes this a
+#: control rather than a decoration.** At the shipped `similarity_threshold=0.75`, neighbours 20°
+#: apart (cosine 0.94) and 40° apart (0.766) clear the bar and 60° apart (0.5) does not; with
+#: `cluster_size=3` the greedy pass therefore fills a cluster and opens the next one at a boundary
+#: that depends entirely on where it started. Walked forwards it groups {0°,20°,40°},
+#: {60°,80°,100°} and leaves 120° alone; walked backwards it groups {120°,100°,80°},
+#: {60°,40°,20°} and leaves 0° alone. Seven rather than six because six is symmetric under
+#: reversal and would have produced the *same* two groups both ways — a control that cannot
+#: disagree, which is `docs/lessons.md` L9.58's shape exactly.
+_FAN = tuple(
+    Vector(values=(math.cos(math.radians(20 * step)), math.sin(math.radians(20 * step))))
+    for step in range(7)
+)
+
+
+class _EchoLLM:
+    """An `LLM` whose answer is a function of what it was shown, and of nothing else.
+
+    A scripted-by-call-order stub cannot be used here: two runs of the same nodes in two orders
+    would be handed replies by index and would agree because the *script* agreed, not because
+    the tree did. Echoing the rendered prompt makes the summary's content — and therefore, since
+    a node id is a content digest, the summary's id — depend on the cluster's members **and on
+    the order they were rendered in**. That is deliberate: 10.3 asks that the same node set
+    yield the same clusters, and a tree whose nodes carry different ids for the same membership
+    is not the same tree. Fixing the input order without fixing the member order inside a
+    cluster would satisfy a membership-only assertion and still rebuild a different index.
+    """
+
+    async def complete(self, rendered: Rendered, *, role: str, ctx: Context) -> Outcome[Completion]:
+        del role, ctx
+        shown = "".join(message.content for message in rendered.conversation.messages)
+        return _reply(f"summary of: {shown}")
+
+    async def complete_structured(self, *args: object, **kwargs: object) -> object:
+        raise AssertionError("raptor never asks for structured output")
+
+    async def native_structured_available(self, role: str) -> bool:
+        raise AssertionError("raptor never checks tier 1 availability")
+
+    async def close(self) -> None: ...
+
+
+async def _tree_of(nodes: Sequence[Node]) -> tuple[Node, ...]:
+    """The summaries one `raptor` run builds over `nodes`, in the order it returned them."""
+    table = {node.content: _FAN[index] for index, node in enumerate(sorted(nodes, key=_fan_key))}
+    outcome = await RaptorSummarizer(RaptorConfig(cluster_size=3)).run(
+        nodes, _ctx(embedder=_StubEmbedder(table), llm=_EchoLLM())
+    )
+    assert isinstance(outcome, Produced), outcome
+    return tuple(node for node in outcome.value if len(node.lineage.parents) > 1)
+
+
+def _fan_key(node: Node) -> int:
+    """`node`'s position in the fan, read off its own content rather than off its position."""
+    return int(node.content.removeprefix("fan-"))
+
+
+async def test_the_same_nodes_in_a_different_order_build_the_same_tree() -> None:
+    """Ledger 10.3. `_cluster_by_similarity` walked its input once in payload order, mutating
+    clusters in place, so which cluster a node joined depended on what preceded it — and an
+    index rebuilt from the same corpus after a different extraction order was a different tree.
+    No paper motivates the greedy pass being order-dependent: all four use order-independent
+    clusterers (GMM/EM, k-means, an entropy-minimising partition) and assume it. The repair is
+    a stable input order, not the paper's GMM — `raptor.py`'s divergence from UMAP+GMM stands,
+    and the least-evidenced component in every paper is not adopted to fix something a stable
+    ordering also fixes.
+    """
+    # Arrange
+    forwards = tuple(_node(f"fan-{step}") for step in range(7))
+    backwards = tuple(reversed(forwards))
+
+    # Act
+    from_forwards = await _tree_of(forwards)
+    from_backwards = await _tree_of(backwards)
+
+    # Assert — the control first: these two orderings are genuinely different inputs, and the
+    # fixture genuinely exercises the clustering decision rather than degenerating to one
+    # cluster or to all singletons.
+    assert [node.id for node in forwards] != [node.id for node in backwards]
+    assert 1 < len(from_forwards) < len(forwards)
+
+    assert {frozenset(node.lineage.parents) for node in from_forwards} == {
+        frozenset(node.lineage.parents) for node in from_backwards
+    }, "the same seven nodes grouped differently depending on which end the run started from"
+    assert {node.id for node in from_forwards} == {node.id for node in from_backwards}, (
+        "the clusters agree and the summary nodes do not, so the two runs built the same "
+        "groupings and gave them different ids — a node id is a content digest, and a cluster "
+        "rendered members-first-seen produces different content for the same membership. An "
+        "index rebuilt from the same corpus must be the same index."
+    )

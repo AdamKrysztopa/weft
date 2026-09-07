@@ -260,3 +260,69 @@ def test_the_smallest_detectable_effect_is_stated_and_compared_against_the_paper
             f"'{metric}' claims detects_the_papers_bar={stated['detects_the_papers_bar']} at a "
             f"measured width of {widest} against a bar of {bar}"
         )
+
+
+# --- Re-measurements. A repair that changes what the plugin builds is measured against 10.0.
+
+REMEASUREMENTS: Final[Path] = BASELINE_DIR / "remeasurements"
+
+
+def _remeasurements() -> list[tuple[Path, dict[str, Any]]]:
+    """Every committed re-measurement, as `(directory, its own statement)`."""
+    return [
+        (directory, json.loads((directory / "remeasurement.json").read_text(encoding="utf-8")))
+        for directory in sorted(REMEASUREMENTS.glob("after-*"))
+        if (directory / "remeasurement.json").exists()
+    ]
+
+
+def test_every_remeasurement_is_comparable_to_the_baseline_it_is_measured_against(
+    records: dict[str, tuple[RunRecord, ...]],
+) -> None:
+    """The phase's own instruction — *"each re-measured against 10.0"* — is only meaningful if
+    the two are comparable, which is `weft_cli.eval_commands._incomparable_reasons`' three facts.
+    A re-measurement taken on a different corpus, a different embedder or a different installed
+    set is a number about something else, and `weft eval compare` would refuse it outright.
+    """
+    # Arrange
+    baseline = records["raptor-baseline"][0]
+
+    # Assert
+    for directory, statement in _remeasurements():
+        for run_id in statement["runs"]:
+            record = load_run_record(directory / f"{run_id}.json")
+            assert record.corpus == baseline.corpus, f"{directory.name}: corpus differs"
+            assert record.model_versions == baseline.model_versions, f"{directory.name}: models"
+            assert record.active_distributions == baseline.active_distributions, (
+                f"{directory.name}: the installed distribution set differs"
+            )
+
+
+def test_every_remeasurement_states_the_numbers_its_own_records_produce() -> None:
+    """The same staleness floor the baseline itself carries, one directory over: a statement a
+    reader quotes must be the one its committed runs say, or a later phase argues from a number
+    nothing produced.
+    """
+    for directory, statement in _remeasurements():
+        # Arrange
+        repetitions = tuple(
+            load_run_record(directory / f"{run_id}.json") for run_id in statement["runs"]
+        )
+
+        # Act
+        measured = {
+            name: fmean(
+                [
+                    outcome.value.mean
+                    for record in repetitions
+                    if isinstance(outcome := record.metrics.get(name), Produced)
+                ]
+            )
+            for name in statement["arm_mean"]
+        }
+
+        # Assert
+        assert statement["arm_mean"] == pytest.approx(measured, abs=5e-7), directory.name
+        assert statement["spread_width"] == pytest.approx(_spread_widths(repetitions), abs=5e-7), (
+            directory.name
+        )

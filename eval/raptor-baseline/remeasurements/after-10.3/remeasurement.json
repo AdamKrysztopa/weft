@@ -1,0 +1,32 @@
+{
+  "task": "10.3",
+  "arm": "raptor-baseline",
+  "what_changed": "`_cluster_by_similarity` now consumes its input sorted by `Node.id`, so the greedy pass's answer is a function of the node set rather than of the order the run delivered it in \u2014 and each cluster's members are rendered in that same canonical order, which is what makes a summary's own id reproducible.",
+  "runs": [
+    "a01b6356-0b58-4cb1-adfb-c9bef46ae8e7",
+    "a9ff5c47-be83-44ac-a79d-07fe9bee3b47",
+    "b919f0b3-d967-4756-b59c-21e257f713bb"
+  ],
+  "nodes_stored": [
+    1014,
+    1014,
+    1014
+  ],
+  "summaries": [
+    112,
+    112,
+    112
+  ],
+  "arm_mean": {
+    "mean_average_precision": 0.907407,
+    "ndcg@3": 0.923987,
+    "precision@3": 0.335017,
+    "recall@3": 0.957071
+  },
+  "spread_width": {
+    "mean_average_precision": 0.007576,
+    "ndcg@3": 0.005592,
+    "precision@3": 0.005051,
+    "recall@3": 0.015152
+  }
+}

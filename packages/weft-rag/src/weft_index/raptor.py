@@ -42,6 +42,20 @@ similarity-based hierarchy*, not a specific clustering procedure, and every work
 in the paper's own appendix describes clusters as "similar text segments," which greedy
 cosine grouping produces honestly, just not probabilistically.
 
+**The greedy pass consumes its input sorted by `Node.id`, ascending, not in whatever order
+the caller handed it over** (`_cluster_by_similarity`, task **10.3**). A single-pass
+algorithm that mutates clusters in place as it walks its input is order-dependent by
+construction: which cluster a node joins depends on what was already open when it arrived,
+so the same seven nodes produced different groupings, and different summary content, merely
+because a different extraction run happened to hand them over in a different sequence. A
+node id is a content digest and needs nothing this plugin does not already hold, so sorting
+by it makes the answer a function of the node *set* rather than of the run. This is not a
+step toward the paper's own clusterer: all four of this plugin's source papers (GMM/EM,
+k-means, an entropy-minimising partition) use order-independent clustering and simply assume
+the property this sort restores — a stable ordering fixes the defect without adopting the
+least-evidenced component of any of them, and the divergence from UMAP+GMM stated above still
+stands.
+
 **One level per invocation, and today that is all this plugin claims.** A summary
 `Node.combine` builds carries no embedding (`Node.combine`'s own docstring: parents are
 explicit, content is new, an embedding is not carried over) — clustering the summaries this
@@ -350,9 +364,17 @@ def _cluster_by_similarity(
     """Greedy single-pass grouping by cosine similarity to each open cluster's running
     centroid — see the module docstring's *"Clustering is a fresh, small algorithm"*
     section for why this, and not UMAP+GMM soft clustering, is what ships here.
+
+    `embedded` is consumed in ascending `Node.id` order rather than in whatever order the
+    caller handed it over, so the greedy pass's answer is a function of the node *set*, not
+    of the run's own extraction or batching order — see the module docstring's *"Clustering
+    is a fresh, small algorithm"* section. Sorting up front also fixes the order each
+    returned cluster's own members are in, since a member is appended the moment it is
+    visited: the same key answers both, so this is the only sort this function needs.
     """
+    ordered = sorted(embedded, key=lambda pair: pair[0].id)
     clusters: list[_Cluster] = []
-    for node, vector in embedded:
+    for node, vector in ordered:
         best_cluster: _Cluster | None = None
         best_similarity = float("-inf")
         for cluster in clusters:
