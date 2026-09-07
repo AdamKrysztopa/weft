@@ -6514,10 +6514,10 @@ schedule them.
   `scripted` provider echoed the repetitive text back, `loop_guard` refused every completion, and
   `raptor` correctly answered `Failed` — which ends the batch, so nothing was stored at all. The
   failure path works; the fixture was unrepresentative, and `L10.21` is that interaction.)*
-- [ ] **10.8** a summary is expandable to its members through the published store contract, and the
+- [x] **10.8** a summary is expandable to its members through the published store contract, and the
   plugin states which walk a deeper summary's `lineage.parents` makes — to the level below it, or to
   the leaves — and what the walk costs, measured · owner `02` §1 → *The store contract family*;
-  `raptor.py` module docstring · turns on — · sha — · reachable today with no contract change:
+  `raptor.py` module docstring · turns on — · sha `6e5772b` · reachable today with no contract change:
   `lineage.parents` is `TEXT_SET` (`weft_store/fields.py:68`, `:166`), which admits `contains`
   (`weft_store/contract.py:227`) through `MetadataFilter.matching` (`:586`). A dedicated store method
   is a change to a published family at `2.0.0` (`:121`), G4/G9 territory, and a ⛔ taken *only if*
