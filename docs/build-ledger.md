@@ -6357,9 +6357,9 @@ schedule them.
 
 **Group B — the extension. What the Exit measures.**
 
-- [ ] **10.6** every node a `raptor` stage produces states its level as a stored fact a filter can
+- [x] **10.6** every node a `raptor` stage produces states its level as a stored fact a filter can
   select on, kept beside the `Representation` marker and never inside it · owner `02` §1 → *The
-  payload model*; `weft_index.payload` · turns on — · sha — · T-Retriever indexes every tree node
+  payload model*; `weft_index.payload` · turns on — · sha `31136d7` · T-Retriever indexes every tree node
   tagged with its level (p.5, `I = {(α, zα, lα)}`); RAPTOR carries no tag because it never filters. A
   pack-owned `ExtModel` registered through `add_ext_model`, the route `Representation` already takes
   (`weft_index/__init__.py:65`) — an ordinary pack act, no kernel or contract change. **Beside**, not
