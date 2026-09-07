@@ -16,7 +16,9 @@ store where a filter can tell them apart. That is a claim about the runner, the 
 and the store together, and only a real run makes it.
 
 **Container, no credential, no network** — `hash` and `scripted`, with `similarity_threshold: 0.0`
-so clustering is deterministic and both levels form reliably. An absent container skips with its
+typed in the project-local derivation so clustering is deterministic and both levels form reliably;
+the shipped rung's `auto` refuses `hash` outright, which is why a typed value has to appear
+somewhere and why that somewhere is here. An absent container skips with its
 reason printed rather than passing silently.
 """
 
@@ -50,9 +52,11 @@ _DEEP = "index-with-deep-raptor"
 #: so that `hash` vectors cluster at all.
 #:
 #: **The demonstration values live here and not in the shipped rung, on purpose.** `_DEEP`
-#: inherits `similarity_threshold: 0.75` from its parent, which no `hash` vector clears, so it
-#: builds nothing under the default embedder — the same honest silence `index-with-raptor.yaml`
-#: measured and recorded. Widening it to `0.0` makes everything cluster with everything, which is
+#: inherits `similarity_threshold: auto` from its parent, and `auto` under `hash` does not resolve
+#: at all: the median pairwise cosine of those vectors is at or below zero, so the rung returns
+#: `Failed` naming the embedder and the remedy rather than summarising nothing quietly
+#: (task 10.9; this comment said `0.75` and "builds nothing" until task 10.17 re-read the parent).
+#: Typing `0.0` makes everything cluster with everything, which is
 #: what this test needs and is the last thing a *shipped* rung should do by default: it would
 #: produce confident summaries over meaningless groupings the first time anyone ran it flagless
 #: (`docs/lessons.md` L9.64), which is the failure ledger task 10.9's degeneracy check exists to

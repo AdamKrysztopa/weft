@@ -748,3 +748,76 @@ question *have we been here before?* is answered, and where an on/off cycle beco
 
 
 
+
+### L10.26 — the null reading came from a field that does not exist, and was about to be written into a shipped document as a finding
+
+**What happened.** Task 10.17's measurement counted RAPTOR clusters holding a non-text node by
+reading `payload["parents"]` out of the qdrant scroll response. That key is not there — parents are
+nested under `payload["lineage"]["parents"]` — so `.get("parents")` returned `None` for all 121
+points and the count came out **zero** on the `auto` run and **zero** again on a typed run. Both
+readings were wrong: the correct query found **4** and **7** mixed clusters respectively, one of
+them holding three `TABLE` nodes and two `IMAGE` nodes. The zero was acted on twice before it was
+doubted — a shipped example document was edited to lower `similarity_threshold` to 0.25 "to
+construct the condition deliberately", carrying a comment asserting that `auto` produced
+*"nine summaries, every one of them over text alone"*, which was false. What caught it was not a
+check but arithmetic: 18 summaries over 104 leaves with every non-text node in the corpus somewhere
+made "zero mixed" implausible, and one `print(sorted(payload))` settled it in a single call.
+
+**Generalises to.** *A measurement that reads a field by name proves the field's path before it
+reports the field's value: print the keys of one record first, because a wrong path reports `None`
+as a finding and an absence is the one result that looks the same as a discovery.* The sharper
+half: **a zero is the reading most likely to be an artefact of the instrument**, so it earns a
+plausibility check against something already known — here, the corpus's own node counts — before
+anything is written down or configured around it.
+
+**Candidate home.** `phase-step` → *Verify*, beside "an empty answer is not a fact about the
+world", which currently addresses code the implementer writes and not the ad-hoc scripts that
+measure it. Possibly also `CLAUDE.md` → *Claims need evidence*, whose "measure before asserting"
+does not yet say that the measurement itself needs a control.
+
+### L10.27 — three services, three runs, and each failure named what was missing but never the line that supplies it
+
+**What happened.** Configuring 10.17's vision path took three consecutive runs of `weft index`.
+The first failed with *"no service is registered for BlobStore"*, the second — after adding
+`[services] blob = "filesystem"` — with *"no service is registered for Describer"*, and only the
+third ran. Each message correctly named the missing service and none named `[services]`, the
+config table that supplies one, nor which registered plugins could fill the role. The information
+needed to say so is available before the run starts: the resolved pipeline knows every stage's
+required services, and the registry knows which plugins are registered against each.
+
+**Generalises to.** *Where a resolver already knows the full set of requirements, a missing one is
+a diagnosis it owes at resolution time and in full — naming the config key that supplies it and
+the registered candidates — rather than a discovery the run makes one service at a time.* Failing
+serially is a special case of the loud-failure rule this project already holds: a message that
+names the gap and not the remedy sends the operator round the loop once per gap.
+
+**Candidate home.** The service-resolution seam in `weft_kernel`/`weft_cli` — a check at
+resolution rather than at run, listing every unregistered service the document needs. Worth
+weighing against `L9.64` (the flagless invocation) since both are about what the first run of a
+correct-looking document tells you.
+
+### L10.28 — a shipped document's comment described its sibling's configuration, and the sibling changed two tasks later
+
+**What happened.** `index-with-deep-raptor.yaml` was written at task 10.7 with a paragraph
+explaining what it does under the default embedder: *"`index-with-raptor.yaml` records the
+measurement: `similarity_threshold: 0.75` against `hash`'s … vectors clears nothing … This document
+**inherits that threshold unchanged**."* Task **10.9**, two tasks later, deleted `0.75` from the
+parent — the shipped rung now sets only `min_cluster_size: 2`, so the threshold is `auto` — and
+made `auto` under `hash` **fail the run loudly** rather than summarise zero clusters quietly. Both
+halves of the child's paragraph were false from that moment: the number it named was gone and the
+behaviour it promised was inverted. `tests/integration/test_raptor_depth.py` carried the same claim
+in two places for the same reason. Three green gates ran over all three. It was found at 10.17 by
+reading the parent for an unrelated reason, not by any check.
+
+**Generalises to.** *A comment that states another file's configuration is a claim about a file its
+author is not editing, and no gate reads it — so state the sibling's **behaviour and where it is
+recorded**, never its literal values, and when a task changes a shipped default, grep the tree for
+the old value before ticking it.* The narrower operational form: **task 10.9's own Verify should
+have included `grep -rn "0\.75"` across `pipelines/` and `tests/`**, which finds all three sites in
+one call.
+
+**Candidate home.** `phase-step` → *Verify* already says a claim about what code does is checked
+against its callers; a configuration default has no callers, it has *quoters*, and the analogous
+act is a grep for the literal. Possibly a fitness function instead: a pipeline document's comment
+naming a `key: value` that its own resolved config contradicts is machine-checkable, and this
+phase's FF26 already reads resolved documents for exactly this class of claim.

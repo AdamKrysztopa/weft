@@ -5712,7 +5712,14 @@ it had read one failure (`L7.1`).
   which is what made Phase 9's exit clause *"citing the `IMAGE` node"* satisfiable in substance and
   unobservable in fact. Separately, `_render_ask`'s JSON guard covers only the `answer is None`
   branch, so a routed answer prints two lines of prose after the stream. **This is the provenance
-  claim `12` rests the project's positioning on**, which is why it is filed rather than noted
+  claim `12` rests the project's positioning on**, which is why it is filed rather than noted.
+  **Confirmed live 2026-09-07 at task 10.16**, both halves, from outside this repository:
+  `weft --json ask "…" --pipeline raptor-and-leaves-rrf` emitted well-formed stream events and
+  then **five lines of prose on stdout** — `routed to: raptor-and-leaves-rrf` plus four
+  `[n] file://…` citations — so nothing downstream can parse that output; and each citation is a
+  marker and a `uri` with no node id, so **whether the node that answered was a `raptor` summary
+  is unobservable**, which is exactly what 10.16 was asked to show and could not. Second
+  independent finding, the first being Phase 9's own exit demonstration
 - [ ] **R9.3** a distribution that registers a pipeline position and ships no pipeline document is
   held by fitness function 16, or the position is in a pinned waiver naming why it is genuinely
   unplaceable · owner `01` → *Fitness functions* 16 · `L9.85` · FF16's scope rule
@@ -6848,6 +6855,60 @@ extractors and **both branches of 10.9**, so no branch of this phase ships havin
   first thing the example finds. Depends on 10.6 for a level a reader can see and on 10.9 for what
   `auto` does under `hash`, which is where the degeneracy check either fires loudly or this
   example's own default is a lie
+  · **Run 2026-09-07 from `<scratch>/ex1016`, a directory that is not this repository**, over the
+  nine `pl-wiki` documents, through the venv holding the five distributions installed
+  non-editable.
+
+  **The flagless default first, because that is the invocation the line is about.**
+
+  ```text
+  $ weft index . --pipeline index-with-raptor        # [services] embed = "hash"
+    failed: 'raptor': similarity_threshold: auto could not resolve a threshold from this run's
+    own embeddings — the median pairwise cosine similarity is -0.0031, at or below zero, meaning
+    the typical pair here is orthogonal or worse and there is no relationship in these vectors
+    for a threshold to describe. Configure an embedder whose vectors carry semantic meaning in
+    '[services] embed', or type a similarity_threshold yourself …
+  produced 0, nothing to produce 0, failed 1. nodes now stored: 0.
+  $ echo $?
+  1
+  ```
+
+  **That is the degeneracy check firing rather than inventing clusters**, which is what this
+  example exists to demonstrate. Before 10.9 the same command stored 107 leaves, built no
+  summaries and said nothing at all.
+
+  **Then the same corpus with a real embedder**, through `index-with-deep-raptor` with only the
+  `embed` stage replaced — 113 nodes, and the tree read back out of the store by the level each
+  node states:
+
+  ```text
+  produced 1, nothing to produce 0, failed 0. nodes now stored: 113.
+   level  | count        lvl | members | summarised | auto_thr | content
+  --------+-------        ----+---------+------------+----------+---------------------------
+   1      |     5          1  |      24 |   5/5      |  0.4943  | Pojęcie entropii w teorii…
+   2      |     1          1  |      24 |   5/5      |  0.4943  | Zestaw dotyczy uczenia ma…
+   (leaf) |   107          1  |       4 |   5/5      |  0.4943  | Passages te opisują histo…
+                              2  |       3 |   1/1      |  0.5738  | Uczenie maszynowe jako dz…
+  ```
+
+  Every field this phase added, visible at once: **`level`** (10.6), **`clusters_summarised` /
+  `clusters_found`** (10.10), and **`resolved_similarity_threshold`** (10.9) — **0.4943 at level
+  1 and 0.5738 at level 2**, which is `auto` recomputed per rung from that rung's own payload
+  rather than once per run, exactly as the field claims.
+
+  **An answer, through the shipped query rung**, in the corpus's own language, citing five
+  documents — the full text is in `10.17`'s neighbour below rather than repeated here.
+
+  **And the clause this example could not satisfy, which is the point of running it.** The line
+  asks for *an answer citing one* — one **summary**. That is **not observable through the shipped
+  renderer**, and both halves of the already-filed `R9.2` were confirmed live here: a citation
+  renders `[marker] uri` alone, with no node id, so a summary and a leaf from the same document
+  cite identically; and `weft --json ask` emitted well-formed stream events followed by **five
+  lines of prose on stdout**, so nothing downstream can parse it. `R9.2` is a *Carried repair*
+  owned by no phase's content, and this example is the second independent finding of it — the
+  first being Phase 9's own exit demonstration. Not repaired here: it is not Phase 10's content,
+  and quietly widening a phase to swallow a filed repair is how a carried repair stops being
+  countable
 - [ ] **10.17** a PDF carrying figures and tables is indexed so that Phase 9's `TABLE` and `IMAGE`
   nodes reach the summariser, and a cluster containing a non-text node produces a summary by 10.11's
   stated rule — run, not asserted · owner `11` §2.4; the *Phase 10 note*s on 9.2, 9.6, 9.7, 9.11 and
@@ -6859,6 +6920,69 @@ extractors and **both branches of 10.9**, so no branch of this phase ships havin
   adapters against 10.16 deliberately — the other store, the other embedder, the other extractor —
   because a demonstration that repeats the first one's configuration proves the configuration, not
   the capability
+  · **Run 2026-09-07 from `<scratch>/ex1017`, `ex1017b` and `ex1017c`**, none of them this
+  repository, over one PDF that carries seven tables and three figures (arXiv:2208.09901v2),
+  through the same non-editable venv 10.16 used. **Every adapter differs from 10.16's**: `qdrant`
+  rather than `pgvector`, `openai-embeddings` rather than `hash`, and `pdf-layout` /
+  `pdf-layout-model` rather than the plain `text` extractor.
+
+  **The vision path is three configuration lines, and the binary named them one at a time.**
+  `index-pdf-described` resolved and then failed at run time with *"no service is registered for
+  BlobStore"*; adding `[services] blob = "filesystem"` moved the failure to *"no service is
+  registered for Describer"*; adding `describe = "openai-vision"` ran it. Each message named what
+  was missing and none named the line that supplies it — filed as `L10.27`, because a service
+  named in a stage's requirements and absent from `[services]` is a diagnosis the resolver already
+  has and the run discovers.
+
+  **Rung A — `auto`, `weft-pdf`, and the mixed cluster this task exists for.** 121 nodes: 111
+  `text`, **7 `table`, 3 `image`**, with genuine vision descriptions (`Fig. 2: Computational Gain
+  analysis between VMR mRMR and Spark VIFS …`). 17 summaries, `auto` resolving **0.5180**, and
+  **four of them over clusters holding a non-text node**. The densest one held **three `TABLE`
+  nodes, two `IMAGE` nodes and one text chunk**, all about the same execution-time comparison:
+
+  ```text
+  summary media_type: text
+  facts: {"level": 1, "members": 6, "members_truncated": 0, "characters_held": 5319,
+          "characters_shown": 5319, "clusters_found": 17, "clusters_summarised": 17,
+          "resolved_similarity_threshold": 0.5179639756305261, "resolved_cluster_size": null}
+  member kinds: {'table': 3, 'text': 1, 'image': 2}
+
+  "The passages present computational gain and execution-time comparisons for feature selection
+   methods, especially VMR_mRMR, against Spark_VIFS and Spark_Info-theoretic across multiple
+   datasets. … The tables and figures show that VMR_mRMR consistently achieves much lower
+   runtimes than the Spark-based methods …"
+  ```
+
+  **That is 10.11's rule, run rather than asserted**: every member read through its `content`
+  alone, and the parent stated `MediaType.TEXT` — prose *about* a table and a figure, not a table
+  and not an image. The five Phase 9 lines carrying a *Phase 10 note* (9.2, 9.6, 9.7, 9.11, 9.14)
+  can now see that it fired.
+
+  **Rung B — the other extractor, and it cannot carry this task, which is the honest finding.**
+  `pdf-layout-model` declares `provides: ClassVar[...] = ()`
+  (`weft_docling/pdf_layout_model.py:155`), so deriving the described document onto it was refused
+  before anything ran — *"stage 'describe' (Enhancer:describe-figure) requires 'BlobRef' but no
+  earlier stage in pipeline 'example-multimodal-docling' provides it. Provided so far: (none)."*
+  That is the resolution model doing exactly its job. Run on its own rung instead, docling gave
+  **107 nodes, every one of them `text`** — its learned layout model flattens tables into the
+  markdown it exports — 16 summaries at `auto` **0.5249**, and **zero** mixed clusters. So the two
+  extractors are not two ways of doing one thing: only `weft-pdf`'s geometry backend emits the
+  `TABLE` and `IMAGE` nodes this task needs, and the contrast is what makes rung A's 7 + 3 mean
+  something.
+
+  **Rung C — typed rather than `auto`, so both branches of 10.9 have executed.** The same corpus
+  and document at `similarity_threshold: 0.25` gave 18 summaries and **7** mixed clusters against
+  `auto`'s 17 and 4, with `resolved_similarity_threshold: null` — the field correctly reporting
+  that nothing was resolved, which is what distinguishes a typed run from an `auto` one in the
+  store rather than only in the config.
+
+  **What this example nearly recorded instead.** The first measurement read `parents` off the top
+  of the qdrant payload, where the field does not exist — it is nested under `lineage` — so it
+  returned `None` for every node and reported **zero mixed clusters** on both the `auto` and the
+  typed run. On the strength of that, a comment was written into the shipped example document
+  asserting that `auto` *"produced nine summaries, every one of them over text alone"*, and the
+  threshold was lowered to construct a condition that was already happening four times over. The
+  correct query found it immediately. Filed as `L10.26`
 
 **Conditional — recorded with what would schedule them, and not scheduled.**
 

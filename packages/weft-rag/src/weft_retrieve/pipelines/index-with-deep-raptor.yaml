@@ -25,16 +25,26 @@ extends: index-with-raptor
 # own output states level 2, derived from its members exactly as 10.6 requires, never from this
 # stage's position in the document.
 #
-# **With the default `hash` embedder this document builds nothing, exactly as its parent does,
-# and that is deliberate.** `index-with-raptor.yaml` records the measurement: `similarity_threshold:
-# 0.75` against `hash`'s deterministic, semantically-empty vectors clears nothing, so the first rung
-# summarises zero clusters and the second has nothing to cluster either. This document **inherits
-# that threshold unchanged** rather than widening it. A shipped rung whose default clusters anything
-# with anything would produce confident summaries over meaningless groupings the first time anyone
-# ran it flagless — which is the invocation nobody runs on purpose and everyone runs first
-# (`docs/lessons.md` L9.64), and the exact failure ledger task 10.9's degeneracy check exists to
-# refuse. Configure a real embedder in `[services] embed`, or derive from this document and widen
-# the thresholds yourself if you are only exercising the shape;
+# **With the default `hash` embedder this document fails the run, exactly as its parent does, and
+# that is deliberate.** *(Corrected 2026-09-07 at task 10.17. This paragraph was written at 10.7
+# and said the document "builds nothing" because it inherited `similarity_threshold: 0.75`; task
+# 10.9 landed two tasks later and removed that number. Both halves went stale at once — the parent
+# now sets only `min_cluster_size: 2`, so the threshold is `auto`, and `auto` under `hash` no
+# longer summarises zero clusters quietly. A comment describing a **sibling document's**
+# configuration is a claim about a file its own author is not editing, and nothing in the gate
+# reads it; `docs/lessons.md` L10.28.)*
+#
+# `index-with-raptor.yaml` records the measurement: `hash`'s deterministic, semantically-empty
+# vectors have a **median** pairwise cosine of −0.0028 against `openai-embeddings`' 0.4328, so
+# `auto` refuses to resolve a threshold at all and the first rung returns `Failed` naming the
+# embedder and the remedy. A `Failed` ends the batch, so the second rung never runs and nothing is
+# stored. This document **inherits that behaviour unchanged** rather than typing a threshold to
+# get past it. A shipped rung whose default clusters anything with anything would produce
+# confident summaries over meaningless groupings the first time anyone ran it flagless — which is
+# the invocation nobody runs on purpose and everyone runs first (`docs/lessons.md` L9.64), and the
+# exact failure ledger task 10.9's degeneracy check exists to refuse. Configure a real embedder in
+# `[services] embed`, or derive from this document and type the thresholds yourself if you are only
+# exercising the shape;
 # `tests/integration/test_raptor_depth.py` does precisely that, in its own project-local document,
 # so the demonstration values live where they cannot be run by accident.
 #

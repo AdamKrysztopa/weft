@@ -52,7 +52,9 @@ _SOURCE = SourceId("doc-1")
 
 # Two tight pairs, far apart from each other — `A`/`B` and `C`/`D` each cluster with
 # themselves (cosine ~1) and not with the other pair (cosine ~0), deterministically, at the
-# default `similarity_threshold=0.75`.
+# `similarity_threshold=0.75` the tests below pass explicitly. It is no longer a *default* —
+# task 10.9 made the field default to `Auto` — so every test relying on this arrangement types
+# the number, and this comment says `passed` rather than `default` to stop the two drifting.
 _A = Vector(values=(1.0, 0.0))
 _B = Vector(values=(0.9, 0.1))
 _C = Vector(values=(0.0, 1.0))
@@ -532,7 +534,8 @@ async def test_every_cluster_degrading_fails_rather_than_looking_like_a_complete
 # --- Ledger task 10.3 — the same node set yields the same clusters whatever order it arrived in.
 
 #: Seven nodes evenly spaced 20° apart on the unit circle. **The spacing is what makes this a
-#: control rather than a decoration.** At the shipped `similarity_threshold=0.75`, neighbours 20°
+#: control rather than a decoration.** At the `similarity_threshold=0.75` these tests type
+#: explicitly — the shipped rung resolves `auto` since task 10.9 — neighbours 20°
 #: apart (cosine 0.94) and 40° apart (0.766) clear the bar and 60° apart (0.5) does not; with
 #: `cluster_size=3` the greedy pass therefore fills a cluster and opens the next one at a boundary
 #: that depends entirely on where it started. Walked forwards it groups {0°,20°,40°},
