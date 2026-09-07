@@ -6099,8 +6099,8 @@ schedule them.
   wrapped across two `> ` lines — `L10.7`'s shape, one file over, caught here by the vacuity floor
   rather than by luck. Both waivers pinned empty; both clauses carry a floor; the plant test is
   named `test_the_check_can_actually_fail` and fires all three assertions
-- [ ] **10.2** no member's content is dropped from a summary without the summary recording it ·
-  owner `10` §1.2 → the `raptor` row; `raptor.py` module docstring · turns on — · sha — ·
+- [x] **10.2** no member's content is dropped from a summary without the summary recording it ·
+  owner `10` §1.2 → the `raptor` row; `raptor.py` module docstring · turns on — · sha `bdb40f4` ·
   `_format_cluster` slices every member to an even share of `max_cluster_chars` (`raptor.py:321`,
   `:323`) and the retry halves what was sent (`:291-294`); the even split is argued at `:311-320` —
   a long member must not crowd out its siblings — and stays. What is missing is any record that
