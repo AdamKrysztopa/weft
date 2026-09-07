@@ -6291,9 +6291,9 @@ schedule them.
   identical mistake was not a mistake at all — the stage embedded the payload itself and the
   order was merely wasteful — so this refusal is a capability the phase added rather than a guard
   on one it had
-- [ ] **10.5 ⚠ D2** whether a tree is per-document or corpus-wide is a named, stated choice — in the
+- [x] **10.5 ⚠ D2** whether a tree is per-document or corpus-wide is a named, stated choice — in the
   row, the docstring and the pipeline document — and a corpus-wide tree says what it is a tree of ·
-  owner `10` §1.2 → the `raptor` row; `01` → Phase 11 → D2 · turns on — · sha — ·
+  owner `10` §1.2 → the `raptor` row; `01` → Phase 11 → D2 · turns on — · sha `79e8212` ·
   `_cluster_by_similarity` receives whatever `run` was handed and applies no source filter
   (`raptor.py:347-368`), so a document's tree depends on what else was in the batch; RAPTOR built one
   tree per document — *"The RAPTOR tree is built for each of these stories"* (p.9) — and validated no
