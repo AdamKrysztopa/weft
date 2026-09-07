@@ -6844,10 +6844,10 @@ that is not this repository, with its actual output pasted into its own entry �
 the wrong side of. Between them they must exercise both store backends, both embedders, two
 extractors and **both branches of 10.9**, so no branch of this phase ships having never executed.
 
-- [ ] **10.16** a plain text or markdown corpus is indexed through `index-with-raptor` and answered
+- [x] **10.16** a plain text or markdown corpus is indexed through `index-with-raptor` and answered
   through `raptor-and-leaves-rrf`, from outside this repository, with the tree visible — the
   summaries, the level each one states, and an answer citing one · owner `08` → the manuals;
-  `weft_retrieve/pipelines/index-with-raptor.yaml` · turns on — · sha — · **the flagless run is the
+  `weft_retrieve/pipelines/index-with-raptor.yaml` · turns on — · sha `a88acb0` · **the flagless run is the
   point.** This is the example that must work under the *default* configuration, which is the
   invocation nobody runs on purpose and every user runs first (`L9.64`) — and under the default
   embedder the shipped rung builds **zero** summaries and says nothing about it
@@ -6909,10 +6909,10 @@ extractors and **both branches of 10.9**, so no branch of this phase ships havin
   first being Phase 9's own exit demonstration. Not repaired here: it is not Phase 10's content,
   and quietly widening a phase to swallow a filed repair is how a carried repair stops being
   countable
-- [ ] **10.17** a PDF carrying figures and tables is indexed so that Phase 9's `TABLE` and `IMAGE`
+- [x] **10.17** a PDF carrying figures and tables is indexed so that Phase 9's `TABLE` and `IMAGE`
   nodes reach the summariser, and a cluster containing a non-text node produces a summary by 10.11's
   stated rule — run, not asserted · owner `11` §2.4; the *Phase 10 note*s on 9.2, 9.6, 9.7, 9.11 and
-  9.14 · turns on — · sha — · **depends on 10.11**, and is what makes 10.11 a demonstration rather
+  9.14 · turns on — · sha `a88acb0` · **depends on 10.11**, and is what makes 10.11 a demonstration rather
   than a sentence: five Phase 9 lines carry a note waiting on that rule and none of them can see
   whether it fired. Needs the vision path configured in `weft.toml` — `[packs.openai] api_key`, not
   an environment variable alone (`R9.6`'s neighbour, and `L9.87`'s whole subject: every unit test on

@@ -732,23 +732,6 @@ and it is what has kept the two coupled. Until then a comparison must give each 
 store and repeat each arm, so the within-arm spread bounds the between-arm difference — which is
 what 10.12 does and what 10.13 must.
 
-## When the queue is empty
-
-That is the healthy state, and it means the last drain finished. What was learned lives in
-`lessons-archive.md`, session by session, with the edges between entries — which is where the
-question *have we been here before?* is answered, and where an on/off cycle becomes visible.
-
-
-
-
-
-
-
-
-
-
-
-
 ### L10.26 — the null reading came from a field that does not exist, and was about to be written into a shipped document as a finding
 
 **What happened.** Task 10.17's measurement counted RAPTOR clusters holding a non-text node by
@@ -821,3 +804,10 @@ against its callers; a configuration default has no callers, it has *quoters*, a
 act is a grep for the literal. Possibly a fitness function instead: a pipeline document's comment
 naming a `key: value` that its own resolved config contradicts is machine-checkable, and this
 phase's FF26 already reads resolved documents for exactly this class of claim.
+
+
+## When the queue is empty
+
+That is the healthy state, and it means the last drain finished. What was learned lives in
+`lessons-archive.md`, session by session, with the edges between entries — which is where the
+question *have we been here before?* is answered, and where an on/off cycle becomes visible.
