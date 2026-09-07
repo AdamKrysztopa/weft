@@ -6774,10 +6774,10 @@ schedule them.
   therefore gets its own fresh store, which is why the *within-rung* spread is the bar a
   between-rung difference has to clear. Filed as `L10.25`, because no two query rungs in this
   tree can currently be compared against one index — which is a constraint 10.13 inherits
-- [ ] **10.13** the Exit measurement: a persisted `weft eval` run, opt-in on a real embedder,
+- [x] **10.13** the Exit measurement: a persisted `weft eval` run, opt-in on a real embedder,
   comparing leaves-only, the one-level tree 10.0 measured and the multi-level tree 10.7 builds, on the
   corpus, at the minimum detectable effect 10.0 stated — and a null result discharges it if it says
-  so · owner `01` → Phase 10 → *Exit* · turns on — · sha — · every line in this group presumes a
+  so · owner `01` → Phase 10 → *Exit* · turns on — · sha `e2e19db` · every line in this group presumes a
   deeper tree is worth having and no paper settles it (10.7); this is where that is a number rather
   than a belief. Last, because it measures what everything above built; under `L8.30`'s discipline;
   it retires `raptor-and-leaves-rrf.yaml:35`'s `0.7` through 10.12 or records that it could not see
