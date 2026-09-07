@@ -29,7 +29,7 @@ from weft_index.contract import Expander
 from weft_index.payload import RaptorFacts, Representation
 from weft_index.prompts import SUMMARIZE_CLUSTER_NAME, SummarizeClusterPrompt
 from weft_index.raptor import NAME, RaptorConfig, RaptorSummarizer
-from weft_kernel.context import Context, ServiceRegistry
+from weft_kernel.context import Context, ServiceRegistry, UnresolvedServiceError
 from weft_kernel.payload import (
     Failed,
     MediaType,
@@ -44,6 +44,7 @@ from weft_kernel.seam import wrap
 from weft_llm.contract import LLM
 from weft_llm.payload import Completion, Rendered
 from weft_prompts.contract import Prompts
+from weft_store import NodeStore
 
 _SOURCE = SourceId("doc-1")
 
@@ -838,4 +839,86 @@ async def test_a_summary_the_embedder_could_not_vectorise_fails_the_run() -> Non
     assert isinstance(outcome, Failed), (
         "a summary came back with no vector and the run reported success. It is stored, it is "
         "unretrievable, and nothing says so — which is the silent-fallback shape CLAUDE.md names."
+    )
+
+
+# --- Ledger task 10.5 — the tree is a tree of the one collection, and nothing reads a store.
+
+
+async def test_the_run_needs_no_store_and_asks_for_none() -> None:
+    """The property that keeps `11` D2 unreached, asserted rather than assumed.
+
+    D2 is *where a corpus-wide revisable pass runs, and whether its expensive output may be
+    durable* — and it stays open only while `raptor` clusters over **its own payload** and never
+    reads back what a store already holds. That is a claim about behaviour, so it is checked
+    through the seam a caller uses: a `Context` whose service registry provably has no
+    `NodeStore` in it, and a run that completes anyway. `ctx.require` raises for a service that
+    is absent, so a `raptor` that ever reached for one would fail here rather than pass quietly.
+
+    The registry's emptiness is asserted first on purpose. Every other test in this file also
+    omits the store, so without that assertion this one would pass by having nothing to look at
+    — which is indistinguishable from passing by being satisfied.
+    """
+    # Arrange
+    table = {"passage a": _A, "passage b": _B}
+    a, b = _embedded((_node("passage a"), _node("passage b")), table)
+    ctx = _ctx(embedder=_StubEmbedder(table), llm=_ScriptedLLM([_reply("A summary of A and B.")]))
+
+    # Assert the arrangement before acting on it — see the docstring. `resolve` raises for a
+    # service nothing registered, naming every contract that *is* available, so this reads the
+    # registry's own answer rather than a private attribute.
+    with pytest.raises(UnresolvedServiceError) as absent:
+        ctx.services.resolve(NodeStore)
+    assert NodeStore.__name__ not in absent.value.valid_options, (
+        "this test's own context carries a store, so it cannot show that the run does not use one"
+    )
+
+    # Act
+    outcome = await RaptorSummarizer().run((a, b), ctx)
+
+    # Assert
+    assert isinstance(outcome, Produced), (
+        f"the run failed without a store in scope, which means it asked for one: {outcome}"
+    )
+    assert any(len(node.lineage.parents) > 1 for node in outcome.value)
+
+
+async def test_a_second_run_founds_a_second_tree_rather_than_joining_the_first() -> None:
+    """The stated consequence of the scope, made observable.
+
+    The tree is a tree of **the one collection** — the configured store — and not per document:
+    Chucri's scope (§4.1, a tree over dataset `D`) rather than RAPTOR's, whose p.9 says *"The
+    RAPTOR tree is built for each of these stories"*. That divergence from the paper the plugin
+    is named after is the owner's, and what it costs is *"the collection is expected to be
+    indexed in one run"*: a later batch cannot join a tree it cannot see, because this plugin
+    reads no store. Stating that in three documents is most of 10.5; this is the part a document
+    cannot do, which is to show that it is true.
+    """
+    # Arrange — two batches whose members would happily have clustered together.
+    table = {"passage a": _A, "passage b": _B, "passage c": _A, "passage d": _B}
+    first = _embedded((_node("passage a"), _node("passage b")), table)
+    second = _embedded((_node("passage c"), _node("passage d")), table)
+
+    # Act — two runs, as two `weft index` invocations would be.
+    outcomes = [
+        await RaptorSummarizer().run(
+            batch,
+            _ctx(embedder=_StubEmbedder(table), llm=_ScriptedLLM([_reply("A summary.")])),
+        )
+        for batch in (first, second)
+    ]
+
+    # Assert
+    assert all(isinstance(outcome, Produced) for outcome in outcomes)
+    summaries = [
+        [node for node in outcome.value if len(node.lineage.parents) > 1]
+        for outcome in outcomes
+        if isinstance(outcome, Produced)
+    ]
+    assert [len(group) for group in summaries] == [1, 1]
+    first_ids = {node.id for node in first}
+    assert set(summaries[1][0].lineage.parents).isdisjoint(first_ids), (
+        "the second batch's summary names a member of the first. This plugin reads no store, so "
+        "it cannot have seen those nodes — if this ever fails, something gave it corpus-wide "
+        "reach and `11` D2 is no longer unreached."
     )

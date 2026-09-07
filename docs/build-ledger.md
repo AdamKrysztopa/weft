@@ -6312,6 +6312,48 @@ schedule them.
   its old summaries standing. Chucri's paper is the only measurement of a corpus-wide tree over a
   changing corpus and it favours the full rebuild (§6.5, p.9) — 10.14 carries that, still
   unscheduled
+  · **Named in all three, and the property that keeps D2 unreached is now asserted rather than
+  assumed.** The row, the module docstring and `index-with-raptor.yaml` each say the same thing:
+  one tree over the configured store's collection, not one per document; Chucri §4.1's scope and a
+  deliberate divergence from Sarthi et al., whose p.9 builds one tree per story. Each states the
+  cost as a property of the rung — the plugin reads no store, so the collection is expected to be
+  indexed in one run, a second batch founds a second tree, and a re-indexed document leaves its
+  old summaries standing. The docstring also carries the correction `L10.1` earned: what this
+  section left unsaid was **batch-wide**, not corpus-wide, and that was nobody's decision.
+
+  **Two tests, because a document cannot show that it is true.**
+  `test_the_run_needs_no_store_and_asks_for_none` runs a full summarising pass through a `Context`
+  whose registry is *shown* to hold no `NodeStore` — read out of `resolve`'s own refusal and its
+  `valid_options`, not off a private attribute — so a `raptor` that ever reached for one would
+  fail rather than pass quietly. The emptiness is asserted **before** the run on purpose: every
+  other test in that file also omits the store, so without it this one would pass by having
+  nothing to look at. `test_a_second_run_founds_a_second_tree_rather_than_joining_the_first` runs
+  two batches whose members would happily have clustered together and asserts the second summary
+  names none of the first batch's nodes — the stated consequence, made observable. Both watched
+  failing against a planted `ctx.require(NodeStore)` in `run`.
+
+  Written by hand rather than dispatched: the change is three paragraphs of prose whose content is
+  the decision itself, and two tests, which are never delegated either way
+  · **And the consequence measured through the binary, from outside this repository**, because a
+  document saying *"a later batch founds a second tree"* is worth less than the two numbers that
+  show it. The same ten `fetch`-tier PDFs, the same `raptor-baseline` rung, the same real
+  embedder — indexed as **two commands of five documents** instead of one command of ten:
+
+  ```text
+  rows before: 0
+  produced 1, nothing to produce 0, failed 0. nodes now stored: 409.
+  after batch a — nodes: 409 summaries: 45
+  produced 1, nothing to produce 0, failed 0. nodes now stored: 1012.
+  after batch b — nodes: 1012 summaries: 110
+  ```
+
+  **110 summaries against the 112 one run builds**, over identical documents, decided by nothing
+  but how the operator typed the commands — and **zero** of the 110 draw on documents from both
+  batches (`select count(*) ... where exists (a source under split/a) and exists (a source under
+  split/b)` → `0`), which is the second tree, visible. Ten summaries span more than one document
+  *within* a batch, so the clusterer does cross document boundaries when it can see across them;
+  it simply never sees across a command. That is the divergence from Sarthi et al. costing
+  something an operator can observe, which is why it is named in three places rather than one
 
 **Group B — the extension. What the Exit measures.**
 

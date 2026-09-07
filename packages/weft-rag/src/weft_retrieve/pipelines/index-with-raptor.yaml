@@ -49,6 +49,13 @@ extends: index-text
 # several levels; this rung builds the first. Ledger task **10.7** is where depth becomes real, and
 # it is demonstrated there by a new derived document rather than by restoring this sentence.
 #
+# **One tree, over the collection this run writes to — not one tree per document.** `raptor`
+# clusters whatever this invocation handed it and reads no store, so *the collection is expected to
+# be indexed in one run*. Index ten documents in one `weft index` and they share one tree; index
+# them in two commands and the second founds a second tree rather than joining the first. That is a
+# deliberate divergence from Sarthi et al., whose p.9 builds one tree per story, and it is stated
+# here rather than left to be discovered from a second ingest.
+#
 # **With the default `hash` embedder this rung produces no summaries at all, and says
 # nothing about it.** Measured 2026-09-05: `similarity_threshold: 0.75` against `weft-embed`'s
 # deterministic hash vectors — which carry no semantic similarity by their own admission — is

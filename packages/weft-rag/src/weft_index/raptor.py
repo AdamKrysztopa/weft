@@ -110,6 +110,31 @@ Building a real second level needs `RaptorSummarizer` to exclude, on the way in,
 prior `raptor` stage already consumed — filed as future work, not shipped here. Until it is,
 depth stops at one level and an operator's own pipeline document is not a substitute.
 
+**What the tree is a tree of, named rather than left to be inferred (task 10.5).** It is a tree
+of **the one collection** — the store this run is configured to write to (`weft_cli.ingest`'s own
+"which store a run uses decides where the corpus is") — and **not one tree per document.** That
+is Chucri et al.'s scope (§4.1, a tree over the dataset) and it is a **deliberate divergence from
+the paper this plugin is named after**, whose p.9 is explicit the other way: *"The RAPTOR tree is
+built for each of these stories."* The divergence is the owner's, taken 2026-09-07, and it is
+recorded here, in `10` §1.2's row and in `index-with-raptor.yaml` so no reader has to infer it
+from behaviour.
+
+What it costs, stated because it is a property of this rung rather than a defect hidden in it:
+**this plugin performs no store read.** It clusters over the payload it was handed and nothing
+else, so *the collection is expected to be indexed in one run*. Index ten documents in one `weft
+index` and they share one tree; index them in two commands and the second batch **founds a second
+tree** rather than joining the first, and a re-indexed document leaves its old summaries standing.
+Reading the store back to avoid that is a corpus-wide revisable pass, which is `11` D2's open
+question about where such a pass runs and whether its output may be durable — not this plugin's to
+answer by default. Chucri §6.5 (p.9) is the only measurement of a tree over a changing corpus in
+the four papers and it favours the full rebuild, which is why the incremental join is filed and
+unscheduled rather than built.
+
+*(The scope this section used to leave unsaid was not corpus-wide either. `run` receives whatever
+one `weft index` invocation was handed, so the shipped behaviour was **batch-wide** — the same ten
+documents in one command and in two built different trees, which is neither paper's scope and was
+nobody's decision. `docs/lessons.md` L10.1.)*
+
 **What a degraded run says, and the one thing it still cannot say.** Three facts used to
 arrive as one result — a corpus with nothing to cluster, a corpus whose clusters were all too
 loose, and a run whose every summary request failed — because each answered
