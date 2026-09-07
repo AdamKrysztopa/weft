@@ -5948,10 +5948,10 @@ with 10.10 beside them. 10.11 only after Phase 9's 9.6 and 9.7 have produced a n
 10.12 after 10.0 and beside 10.7. 10.13 last. 10.14 and 10.15 are not scheduled and say what would
 schedule them.
 
-- [ ] **10.0** a baseline exists before any line changes the plugin: a persisted `weft eval` run,
+- [x] **10.0** a baseline exists before any line changes the plugin: a persisted `weft eval` run,
   against a real embedder, comparing leaves-only retrieval with the shipped one-level `raptor` on the
   corpus, stating the smallest effect it could have detected · owner `01` → Phase 10 → *Exit*;
-  Phase 8's measurement paragraph in this file · turns on — · sha — · nothing has measured this
+  Phase 8's measurement paragraph in this file · turns on — · sha `dcb3702` · nothing has measured this
   plugin (Phase 8's measurement paragraph in this file; `test_raptor_pipeline.py:295`, `:92`). The effect
   sizes the papers report set the bar: RAPTOR's controlled with/without gains are 0.33 to 4.41 points
   (Tables 1–2) and its clustering ablation 0.8 on one dataset with no variance (Appendix B); an exit
