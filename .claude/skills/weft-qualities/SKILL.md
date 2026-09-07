@@ -116,6 +116,15 @@ meaning was wrong (`L7.4`). A derivation agreed with the tree until the tree gre
 that kind (`L7.7`). So for any key: name the field, then find the case where two things share it.
 If you cannot construct that case today, say so — that is the assumption, and it will expire.
 
+**A threat model is not a fault model, and "not exploitable" ends the wrong investigation.**
+`Node`'s id is a content digest that excludes both tenant and source. Asked as a security question
+that answers cleanly — no tenant can reach another's data, because every query is scoped — and the
+question that was never asked is whether it behaves *correctly* inside one tenant. It does not: two
+identical files collide, the second silently takes the first's nodes, and deleting either reports
+success while removing the other's data (`docs/lessons.md` `L9.70`, `L9.37`). Of any mechanism
+cleared on a safety argument, ask the separate question: *what does this do when nobody is
+attacking it?*
+
 ### 5. An unknown name fails loudly, naming the valid options
 
 **A waiver's reason being true is necessary and not sufficient.** The question after establishing

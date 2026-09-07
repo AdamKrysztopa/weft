@@ -72,6 +72,24 @@ against ⚠'s definition and every live ⚠ meant something the definition did n
 a Generator` is checked against documents *anyone* may write — a three-line user pipeline made it
 fail with no message at all. Before you rely on what a thing means, enumerate what it currently is.
 
+**An id's type is not its alphabet, and a cited mechanism's existence is not its capability.**
+Two ways a fact about the tree gets assumed rather than read. `SourceId` is a `NewType` over `str`
+and says nothing about what characters a real one holds — a blob-key layout was designed around
+short ids and met resolved filesystem paths (`L9.53`); one `select` against a running store would
+have answered it. And a task line asserted the applicability grammar already expressed what it
+needed, when the grammar had no `media_type` field at all (`L9.42`) — the mechanism existed and the
+*capability* did not.
+
+**When a decision names something that will be *installed*, install it and run one real input
+through it.** The namespace rule below is the same act for names; this is it for dependencies, and
+it cost Phase 9 three rounds. An extras list is a claim about an installation: `L9.78`'s set
+resolved and could not be imported, and the repair that fixed the import still could not convert a
+document. A resolver that *succeeds* may have done so by backtracking seventeen minor versions past
+your own pins, reporting that as success (`L9.75`) — so resolve the **current** release explicitly.
+And an import is executable code the kernel runs before a pack has declared anything: one candidate
+called `load_dotenv()` at module scope and rewrote the environment of everything else in the
+process (`L9.76`), which makes import-time behaviour a trust question, not a weight question.
+
 **When a decision names something that will be published, check the namespace it will be published
 into — in the session that decides it.** A name is a claim on a registry somebody else owns, and
 choosing it is not claiming it. Every check in this repository is a check *about* this repository —
@@ -102,10 +120,27 @@ direction (`build-ledger.md` → *The working protocol*), not a gate — it is n
 Shape: the mirroring path under `tests/`, happy path, one edge case, one error case, AAA with one
 block each, external services mocked. Assert the *fact a field means*, never its literal shape.
 
+**A comparison whose two sides come from one source cannot disagree, and this is not only a
+fitness-function rule.** *Finish* item 3 states it for checks; it applies identically to an ordinary
+unit test — an expected value read from the same literal as the value under test (`L9.28`), or a
+control built by transforming the input by a rule that can degenerate to identity, so one case
+becomes its own control (`L9.58`). Before comparing, ask where each side came from; for a
+parametrised control, assert the transform actually changed something.
+
+**Assert a behavioural property through the seam a caller uses.** Parsing or grepping first-party
+source to check *where* code lives asserts the current arrangement and forbids the refactor that
+would improve it (`L9.39`). And a value the test supplies by hand is one the caller's real
+derivation was never asked for (`L9.26`): where a value's whole job is to travel from configuration
+to a call, one test must capture that call's arguments, or the wire is untested along its length
+(`L9.79`).
+
 **An assertion is a specification, including the parts you did not mean.** Where the settled text
 states a *set*, assert membership; where it states a fact, assert the fact. An incidental literal —
-an order, a count, a formatting — is a design decision handed to something that has not read the
-documents, and it will be satisfied rather than questioned: task 6.18's test asserted a participant
+an order, a count, a formatting, **or a container shape** — is a design decision handed to
+something that has not read the documents, and it will be satisfied rather than questioned. The
+container case reads as harmless and is not: asserting `constraints != ()` rather than the fact the
+constraint *means* specified storage, and the storage chosen to satisfy it was write-only
+(`L9.43`). Worked example: task 6.18's test asserted a participant
 *list* where `02` §1 states a set, and the implementer duly invented a reordering helper with a
 fluent docstring citing the section it was not in. It said so in its report, which is the only reason
 it was caught. Ask of every literal in an assertion: *would the documents have written this?*
@@ -220,6 +255,12 @@ was — so one command refused a bad pipeline by name at exit `4` and its neighb
 which put every model-calling ingest rung out of reach of the evaluator. Both were found by running
 the binary, neither by 2,012 tests (`docs/lessons.md` `L8.24`).
 
+**A `path:line` an agent reports is a lead, not evidence.** Re-derive it as you land it: three
+agents reading one paragraph on the same day cited it at three different line numbers (`L9.34`), and
+fitness function 17 cannot help — it proves a path resolves, never that the line says what the
+sentence claims. A citation repeated from another agent's report inherits none of that agent's
+verification.
+
 **Read `.claude/lessons-spool.md` before you move on.** The implementer's `## Noticed` section is
 already in it, and it is the only channel by which what only that agent saw survives the context
 boundary — a finding left in an unread file has been filed, not collected.
@@ -242,7 +283,10 @@ A task is not done until all of these are true:
 2. **Any fitness function the task's *turns on* field names is wired and green** — wired means added
    to the `ci-checks` composite in the same commit, because fitness function 0 fails otherwise.
 3. **A check you added can fail, and you have watched it.** Plant a disagreeing case and see it go
-   red. Two shapes make this non-optional: a check whose two sides come from one source cannot fail
+   red, and **name the self-test `test_the_check_can_actually_fail`** — the spelling
+   `tests/architecture/test_ff0b_checks_are_real.py` accepts. The convention has grown a fourth and
+   a fifth variant invented by authors who could not see the list (`L9.46`), and this drain's own
+   new fitness function tripped it. Two shapes make this non-optional: a check whose two sides come from one source cannot fail
    at all, and a check whose subject is legitimately empty today passes vacuously — there the floor
    is a self-test proving the comparison is not vacuous. → `references/evidence.md`
 
@@ -267,7 +311,18 @@ crashes on the exact state its own non-vacuity exercise produces.
    passing something else, and it goes on agreeing with the shape it produced itself (`L6.21`).
 4. **You have run the thing, through the shipped entry point, from a directory that is not this
    repository — including its failure path.** *And construct the condition for any branch that
-   only fires sometimes.* A conditional fan-out, a retry, a fallback, a rare-input path: running
+   only fires sometimes.* **Three branches this step keeps missing, each named by a defect it
+   cost:** the **default, flagless** invocation — the one nobody runs on purpose, every user runs
+   first, and an author verifying their own feature is least likely to reach for (`L9.64`); the
+   **platform**, because a config default inherited from a dependency is safe as a quality
+   judgement and not as a platform one, and `device: auto` crashed on the machine this project is
+   built on (`L9.82`); and the path where a plugin **constructs its own dependency for real**, with
+   no injected double — every unit test on both sides of `describe-figure` injected one, so the
+   whole capability shipped dead and silent (`L9.87`). Then ask whether the promised behaviour
+   actually *fired* — a published artefact, a computed value, a rendered field: both halves of a
+   seam existing is not either one being reached (`L9.12`, `L9.45`, `L9.67`, `L9.69`), which is
+   `L5.15`'s shape and this phase met it five more times.
+   A conditional fan-out, a retry, a fallback, a rare-input path: running
    the happy case exercises none of them, and two defects once sat behind one such branch where
    the first hid the second, so fixing only what the first traceback named would have shipped the
    other (`L8.11`). Ask which branch of this change has never executed, then make it execute. *An import probe is not this.* Installing a

@@ -310,6 +310,181 @@ for. That is written up as `L8.18` and applied to `implement-ll` in this same dr
 seven follow-ups above. They are tasks with owners, not lessons awaiting a second drain — which is
 the distinction `implement-ll` draws between draining a queue and deferring it.
 
+## 2026-09-07 — Phase 9's close
+
+**Ninety entries, the largest drain this project has run, and its headline finding is about the
+loop rather than the code: six *Applied* rules recurred inside this one phase** — `L5.15` five
+times, `L6.4` five times, `L6.10` twice, `L5.6` twice, `L6.14` once, `L5.19` once. `implement-ll`
+asks at every close *which of this phase's defects would a rule already in Applied have caught?* and
+the answer here is *many* — which by that skill's own rule means those rules are in the wrong
+artefact, not that they were wrong. `scripts/lessons_graph.py` could see none of it: it walks this
+file, and a recurrence only becomes visible once archived, which happens at the end of the drain
+(`L9.91` → **R9.12**). Every one of the six was stated in plain prose in the entries themselves.
+
+Routed by four dispatched agents reading in parallel, banded by subject; the groupings, the
+measurements that overturned two of their proposals, and the commit are the router's.
+
+**Three verdicts this drain did not discharge, and says so.** With the edges above written,
+`scripts/lessons_graph.py` now returns **MOVE IT** for three rules — `L5.15` (re-learned 4×, by
+`L9.12`, `L9.45`, `L9.67`, `L9.69`), `L6.4` (4×, by `L9.6`, `L9.27`, `L9.52`, `L9.59`) and `L5.6`
+(3×, by `L8.22`, `L9.28`, `L9.58`). *"Move it"* means the rule is in the wrong artefact and the
+repair is a relocation, **not a second sentence saying it louder** — and a second sentence in the
+same skill is precisely what this drain gave all three of them (`phase-step` → *Finish*, *Orient*
+and *Red* respectively). Recorded as a known defect in this drain rather than papered over: those
+sentences are individually correct and land where the mistakes were made, and they are not the
+move the graph is asking for. Filed as **R9.13**, because inventing three relocations in the last
+hour of a long session is the under-argued change this project refuses, and because the honest
+target for at least `L5.15` looks like a mechanism rather than a paragraph — every instance was
+found by a human looking, and two of them (**R9.10**, **R9.11**) are already filed as the
+individually checkable cases.
+
+**Mechanisms this drain added** — fitness function **25** (a broad handler that swallows into an
+`Outcome` lets `WeftError` past first; found a second live instance in `weft-docling` the moment it
+was tightened), fitness function **11(c)** (every shipped pipeline document is contributed by its
+pack), FF17's worktree exclusion, and `.claude/hooks/guard_history_rewrites.py` (the four git
+commands that discard unrecoverable work). Twelve defects that were instances rather than rules are
+filed as **carried repairs R9.1–R9.12** in `build-ledger.md`.
+
+- **L9.2** Filed as **R9.7** — an intra-workspace floor equals the dependency's current in-tree
+  version; FF10(b) asserts a bound exists and never that its floor is publishable
+- **L9.3** Applied — `ADAM_TODO.md`'s own convention: record the act and its precondition, never a
+  mutable CI run id
+- **L9.4** Applied — `CLAUDE.md` → *Claims need evidence*, widened: a claim about a third party's
+  platform cites that platform's own documentation
+- **L9.5** Applied — cite by stable phrase or anchor, never by an ordinal in a list that renumbers
+- **L9.6** Applied — `phase-step` → *Orient*, the population rule. `recurs L6.4`
+- **L9.7** Applied — FF17 widening (bare filenames, headings). `refines L8.9`
+- **L9.8** Applied — `docs/README.md`'s own uniqueness and agreement, checked by `--check-live`
+- **L9.9** Applied — `README.md` → *Protocol*: a mechanism in two reference documents names one
+  owner and one pointer
+- **L9.10** Applied — a "do this first" recommendation carries the task id that discharges it
+- **L9.11** Applied — `CLAUDE.md` → *Claims need evidence*: an external fact carries a measured date
+- **L9.12** Filed as **R9.10** — `Pipeline.slots` has a consuming side and no producer in any
+  shipped document. `recurs L5.15`
+- **L9.13** Applied — a file with a live concurrent producer is re-read immediately before the write
+  that clears it
+- **L9.14** Applied — `phase-step` → *Orient*: a cited mechanism's existence is not its capability
+- **L9.15** Applied — `phase-step` → *Finish*: an identifier is minted by the artefact that owns its
+  sequence; a finding filed before that says *placeholder*
+- **L9.16** Applied — `implementer-brief.md` → fan-out: a design is exchanged with its next consumer,
+  not read twice by its author
+- **L9.17** Applied — same: convergence is one shared artefact every party cites, never two reports
+  agreeing
+- **L9.18** **Moved** — `CLAUDE.md`: a claim about what code does is checked against its callers,
+  including a claim made by a review or another agent. `moves L5.32`, `recurs L6.15` — third
+  instance, in a genre `phase-step` has no step for
+- **L9.19** Applied — `weft-qualities`: a claim of the form "X already does Y" is re-measured, not
+  re-read
+- **L9.20** Filed as ledger work under `09` — a reproducibility clause guarded by a reachability test
+- **L9.21** **Deferred, and said so** — the runbook it describes could not be located in the tracked
+  tree by the router or by me; the rule (*a written procedure is prose until executed once*) is
+  correct and is `CLAUDE.md`'s green-gate sentence applied to documents, but archiving it as applied
+  would assert a repair to a file nobody can find. Re-file when the artefact is identified
+- **L9.22** Applied — `CLAUDE.md`'s own layout block, corrected in place with the argument for it
+- **L9.23** Applied — FF17 widening: a `→ Section` pointer resolves to a real heading
+- **L9.24** **To G14** — worktree cleanup has no owner; three survive, unmerged, holding 95% of the
+  tree's Python files. *caused-by* the same default as L9.57 and L9.61
+- **L9.25** Applied — `weft-qualities`: a claim about another module's call sites is greppable or
+  unwritten
+- **L9.26** Applied — `phase-step` → *Red*: a hand-supplied argument tests the callee, never the wire
+- **L9.27** Filed as **R9.4** — the `[services]` vocabulary has no single source. `recurs L6.4`
+- **L9.28** Applied — `phase-step` → *Red*: two sides from one source, for ordinary tests too.
+  `recurs L5.6`
+- **L9.29** Applied — `phase-step` → *Red*, broadened from "base class" to any marked surface.
+  `recurs L8.12`
+- **L9.30** Applied — `tests/docs/test_technique_naming.py` widening. `recurs L6.17`
+- **L9.31** Filed as ledger work — a pipeline document advises what its own plugin documents as broken
+- **L9.32** Applied — `paper-to-plugin`: a divergence note's stated reason carries a page citation
+- **L9.33** Filed as **R9.8** — RAPTOR embeds every leaf twice per ingest, disclosed nowhere
+- **L9.34** Applied — `phase-step` → *Verify*: an agent's `path:line` is a lead, re-derived on landing
+- **L9.35** Filed as **R9.4** (regex) + Applied (`CLAUDE.md` → *Automation*: a docs-scraping check is
+  a constraint on writing, not only on drift)
+- **L9.36** Applied — `paper-to-plugin`: a brief naming a source names where to stop
+- **L9.37** **Declined a new task — Phase 27 already owns it** (`12` §5), with `L9.70`, as one cause
+  failing in opposite directions; splitting them would lose the argument
+- **L9.38** Applied — `test_technique_naming.py`: "proven in `<file>`" resolves to an assertion that
+  file contains
+- **L9.39** Applied — `phase-step` → *Red*: assert through the seam, not by parsing first-party source
+- **L9.40** Filed as ledger work — an AST check over the call sites of functions that must be offloaded.
+  `recurs L8.24` — third instance
+- **L9.41** **Declined** — the repair was structural (one function both readers call) and `L8.11` is
+  Applied and working. Nothing to add
+- **L9.42** Applied — `phase-step` → *Orient*: a mechanism's existence is not its capability
+- **L9.43** Filed as **R9.9** + Applied (`phase-step` → *Red*: a container shape is an incidental
+  literal). `recurs L6.10`
+- **L9.44** Applied — FF17 widening for bare `test_ff<n>_*.py` filenames
+- **L9.45** Filed as **R9.11** — a `__repr__` reached by no command. `recurs L5.15`
+- **L9.46** Applied — `phase-step` → *Finish*: the self-test spelling `test_the_check_can_actually_fail`,
+  quoted; this drain's own new check tripped it
+- **L9.47** Applied — `build-ledger.md` → *How to read a task line*: no counterfactual design
+- **L9.48** Filed as ledger work — a `manual/` transcript's distribution names resolve via metadata
+- **L9.49** Applied — `phase-step` → *Red*: a census includes generated artefacts and their generator
+- **L9.50** Applied — FF17 widening. `refines L9.7`
+- **L9.51** Applied — `phase-step` → *Verify*: grep a new module's private constants for a second use
+- **L9.52** Filed as **R9.4**. `recurs L6.4`
+- **L9.53** Applied — `phase-step` → *Orient*: an id's type is not its alphabet
+- **L9.54** Filed as ledger work — one shared source for test-side placeholder pack settings
+- **L9.55** Filed as ledger work — the binding idiom is contract, not style; plus
+  `implementer-brief.md`: "your choice" is the phrase to grep for
+- **L9.56** **Applied as a hook** — `.claude/hooks/guard_history_rewrites.py`. The prohibition
+  existed in the agent file, was read, and lost to generic harness guidance. `moves L6.26`
+- **L9.57** **To G14**, and `phase-step` → *Green* gains the frozen-brief sentence
+- **L9.58** Applied — `phase-step` → *Red*: a control that can degenerate to identity. `recurs L5.6`
+- **L9.59** Applied — the code fix landed; the rule is *Orient*'s population sentence. `recurs L6.4`
+- **L9.60** **Declined** — instance fixed and the rule is already Applied at
+  `test_store_conformance.py`, which asserts whole-record equality and cites this id
+- **L9.61** **To G14** — `implementer-brief.md`'s "disjoint write sets" criterion corrected in this
+  commit, being live wrong advice
+- **L9.62** Applied — `phase-step` → *When to stop*: check the new case meets the rule's own condition
+  before writing a narrowing
+- **L9.63** Filed as **R9.1** — a TEXT node still loses its extraction facts through the cleaners
+- **L9.64** Applied — `phase-step` → *Finish*: the default flagless invocation
+- **L9.65** Applied — FF17 widening for bare filenames
+- **L9.66** Applied — `README.md` → *Protocol*: a document recording "X never happens here"
+  cross-references the document that owns that path's correctness
+- **L9.67** Applied — `phase-step` → *Finish*: a task that makes something measurable measures once.
+  `recurs L5.15`
+- **L9.68** Applied — `CLAUDE.md` → *Automation*: quote every glob; a tool result is evidence only
+  when the command is known to have completed
+- **L9.69** Applied — `phase-step` → *Finish*: existence is not effect. `recurs L5.15`
+- **L9.70** **Declined a new task — Phase 27 owns it**, with `L9.37`; the *rule* landed in
+  `weft-qualities`: a threat model is not a fault model
+- **L9.71** Applied — `paper-to-plugin`: a number that moves a shipped default cites its page
+- **L9.72** Applied — `docs/README.md`'s state, checked by `--check-live`
+- **L9.73** Applied — `implementer-brief.md` → fan-out: agreement among agents reading one source is
+  not corroboration, and a fan-out partitioned by component owes one cross-cutting dispatch
+- **L9.74** Filed as ledger work — an AST check that every `with_ext(X)` names `X` in `provides`.
+  `recurs L5.19`
+- **L9.75** Applied — `phase-step` → *Orient*: resolve the current release explicitly
+- **L9.76** Applied — same paragraph: an import is executable code the kernel runs before a pack
+  declares anything
+- **L9.77** Filed as **R9.6** — `weft.toml.example` omits `base_url`
+- **L9.78** Applied — `phase-step` → *Orient*: install the extras named and run one real input
+  through them. `refines L6.24`
+- **L9.79** Applied — `phase-step` → *Red*: a test that replaces a seam asserts what was handed to it
+- **L9.80** Applied — `CLAUDE.md` → *Automation*: an auto-fixer and a type checker can each be
+  locally correct and jointly wrong, and the auto-fixer wins silently
+- **L9.81** Applied — `phase-step` → *Orient*: `None` to a third party delegates the decision
+- **L9.82** Applied — `phase-step` → *Finish*: the platform is a branch that only fires sometimes
+- **L9.83** **Applied as fitness function 11(c)** — every shipped pipeline document is contributed by
+  its pack; FF11 and FF16 read two populations and a file can satisfy one while being unreachable.
+  `refines L8.12`
+- **L9.84** Applied — `phase-step`: a stale hand-count is deleted, not recounted. The first repair
+  recounted by hand and was wrong again. `refines L8.15`
+- **L9.85** Filed as **R9.3** — FF16's exemption rewards shipping no document
+- **L9.86** Filed as **R9.5** — a refusal at discovery does not cover the run
+- **L9.87** **Applied as fitness function 25** — a broad handler that swallows into an `Outcome` lets
+  `WeftError` past first; plus `phase-step` → *Finish*: exercise the real construction path with no
+  injected double. `recurs L6.14` — a double written from the contract cannot falsify a claim about
+  the system, met again three phases later
+- **L9.88** Filed as **R9.2** — the citation drops `node_id` and `--json` prints prose
+- **L9.89** Applied — `implement-ll` → *Routing*: size a proposed check against its population and
+  state both numbers, before adopting it
+- **L9.90** Applied — FF17's `_NOT_THIS_REPO` excludes `worktrees`; a check that walks the filesystem
+  is answering about every checkout under that root
+- **L9.91** Filed as **R9.12** — the recurrence detector reads only the archive, so it is blind to
+  the queue in front of it
+
 ## 2026-09-06 — Phase 8's real close
 
 Three entries, all written the same day the phase's last two tasks landed, and **none of their

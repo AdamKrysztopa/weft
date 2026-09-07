@@ -196,6 +196,16 @@ Five live in `.claude/skills/`:
   so the 3.12 idiom the packages are held to does not reach `.claude/hooks/`, and `ci-checks` does
   not cover that directory. Run a hook to know it works; one that fails to import is silently a hook
   that does not exist.
+- **The four git commands that discard unrecoverable work are refused** (`PreToolUse` on `Bash`) —
+  `git stash`, `git reset`, `git checkout --`, `git clean`. Each throws away a working tree or an
+  index that exists nowhere else, and this checkout is shared with whatever agent is running in it.
+  The prohibition lived in `.claude/agents/weft-implementer.md` first, was read, and was overridden
+  anyway by generic harness guidance that says to stash before a destructive operation — which is
+  `docs/lessons.md` L9.56's rule: *a project prohibition that contradicts generic tool guidance
+  needs a mechanism, not a stronger sentence.* `git rm` and `--amend` are deliberately not refused:
+  both are recorded and recoverable, and a guard that fires on safe commands is one people learn to
+  route around. Matched at a **command position** only, after the first version refused the very
+  edit that documented it.
 - **Writes are refused to anything outside this repository's own tracked tree** (`PreToolUse`) —
   reading material kept on disk and excluded from version control. A write there would leave no
   trace in any diff, which is the whole reason it is refused rather than merely discouraged.
@@ -211,6 +221,13 @@ Five live in `.claude/skills/`:
   log records *that* it was decided and *what*, never the reasoning.
 - **`docs/README.md` holds state and pointers only, never definitions.** If you find yourself
   explaining *why* there, it belongs in `01` through `05`.
+- **A claim about what code does is checked against its callers, never against its name, its
+  docstring, or a comment's stated scope** — including a claim made by a review or another agent.
+  This has now cost three phases in three genres: a proviso invented mid-task rather than reopening
+  a gate (`L5.32`), a code invariant asserting "every shipped pipeline" over documents anyone may
+  write (`L6.15`), and an adversarial review's finding about a fan-out that was half true, where
+  only the call sites said which half (`L9.18`). It lived in `phase-step` through the first two and
+  did not bite; it is here because the third arrived in a genre `phase-step` has no step for.
 - **Claims need evidence.** Every factual assertion in `docs/` about the tree — a count, a line
   number, a "nothing calls this" — carries something a reader can check, because the assessment that
   started this project got several of its own claims wrong and the corrections are logged. Measure

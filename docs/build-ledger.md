@@ -77,6 +77,12 @@ the content before any code is written to fit.
 
 ## How to read a task line
 
+**A task line states the property, never an alternative design for a branch nobody has run.** Task
+`9.3` carried a conditional design for the case where an earlier task went the other way; that task
+went the first way, and the counterfactual sat there reading as a decision rather than as a branch
+that was closed (`docs/lessons.md` `L9.47`). When a task is conditional, name the condition and the
+sha that discharges it — not the design it would have had.
+
 ```
 - [ ] **N.M ⚠** the property that is true once this is done · owner `02` §3 · turns on — · sha —
 ```
@@ -5001,6 +5007,22 @@ exists because the payload model has named `IMAGE` and `TABLE` since Phase 0
 either, and because ledger `1.6`'s ticked property — an atomic node passes the chunker unsplit — was
 measured on 2026-09-06 to hold for its fixture and not for the product.
 
+**Closed 2026-09-07. What this phase learned about itself, per `phase-step` → *Close the phase*.**
+Sixteen of eighteen ticked; `9.15` and `9.16` deliberately not, each naming `9.10`'s sha. The Exit
+was demonstrated from outside this repository against five wheels and the container, and **the
+demonstration is what found the phase's worst defect** — `describe-figure` was dead in every real
+run and silent about it, behind 2,395 green tests, a green gate and a `doctor` reporting `active`.
+That is the fourth phase running in which the binary found what the suite could not.
+
+**The drain's answer to `implement-ll`'s closing question — *which of this phase's defects would a
+rule already in Applied have caught?* — is: many, and that is the finding.** Six *Applied* rules
+recurred inside this phase: `L5.15` four times, `L6.4` four times, `L6.10` twice, `L5.6` twice,
+`L6.14` and `L5.19` once each. By that skill's own rule, a rule re-learned is in the wrong artefact
+— and `scripts/lessons_graph.py` could see none of it while the phase was running, because it reads
+only the archive (`R9.12`). Three of them now return **MOVE IT** and this drain answered them with
+another sentence in the same skill, which is the forbidden repair; that contradiction is filed as
+`R9.13` rather than left implicit.
+
 **No gate. D1 was settled 2026-09-06 as a narrowing, and 9.1 is the paste.** Nothing here carries a
 gate marker. Two lines carry `⚠` as a **question label** from `11` §4 (`G4-b`, `G4-c`): each is an
 amendment to `02` §1 the owner accepts or refuses under `09` §6.2's widening test, and neither is a
@@ -5661,6 +5683,96 @@ operator-run model server and not a second container of Weft's; `02` §3 → *Ap
 Phase 9 rows (Block E), the `S11` row (Block D) and a Next action row that records the six-step
 order of 2026-09-06; `CLAUDE.md` → *Where things are* is redrawn for the seven-distribution tree,
 which it has not been since the consolidation.
+
+## Carried repairs — filed at Phase 9's lessons drain, owned by no phase's content
+
+**Every one of these is a property the tree does not have, extracted from a lessons entry whose
+*rule* landed elsewhere in the same drain.** `implement-ll`'s own trap: an entry that carries a
+defect as well as a lesson yields a task for the defect and a rule for the generalisation, and
+fixing the instance while filing the rule leaves the class open — or, worse, the reverse. They sit
+here rather than inside a phase because none of them is that phase's content, and a repair filed
+only in a Next-action sentence is one nobody can tick (`L9.15`). Each states what must be true and
+**names no remedy**: the person who implements it will have read the tree, and the person who filed
+it had read one failure (`L7.1`).
+
+- [ ] **R9.1** a `TEXT` node's own extraction-time `ext` facts survive every cleaner an ingest
+  document extending `index-text` runs, on the same footing `TABLE` and `IMAGE` nodes already have ·
+  owner `02` §1 → *The payload model*; the `Cleaner` contract · `L9.63` · half of this is already
+  true and that is what hid it: task `9.8` gave all five cleaners
+  `applies_to = (Applies(media_type=MediaType.TEXT),)`, so a table or a figure routes past them
+  and keeps its `ext` — while a `TEXT` node still passes through `Node.derive`, which drops `ext`
+  by design, before `weft_chunk.carry.carry_forward` can restore it. `PdfPages` is the fact that
+  goes, and `weft_generate.page.page_for` is what stops answering, so a citation loses its page
+  number on every text pipeline. The ledger already said *"it owes a task"* and none was filed
+- [ ] **R9.2** every field a persisted `Citation` carries reaches some rendering, and `weft --json`
+  emits only JSON on stdout on every code path · owner `03` → *Output*; `08` §1 · `L9.88` · two
+  halves of one surface. `weft_generate.payload.Citation` carries `node_id`, `source_id`, `uri`,
+  `quote` and `page`; `packages/weft-rag/src/weft_cli/render.py:520` renders `[marker] uri` alone,
+  so several nodes from one document cite identically and the node that answered is unnameable —
+  which is what made Phase 9's exit clause *"citing the `IMAGE` node"* satisfiable in substance and
+  unobservable in fact. Separately, `_render_ask`'s JSON guard covers only the `answer is None`
+  branch, so a routed answer prints two lines of prose after the stream. **This is the provenance
+  claim `12` rests the project's positioning on**, which is why it is filed rather than noted
+- [ ] **R9.3** a distribution that registers a pipeline position and ships no pipeline document is
+  held by fitness function 16, or the position is in a pinned waiver naming why it is genuinely
+  unplaceable · owner `01` → *Fitness functions* 16 · `L9.85` · FF16's scope rule
+  (`_distributions_shipping_a_pipeline`) holds only distributions that already contribute a
+  document, on a sound argument — a document naming `qdrant` could not resolve without the pack —
+  whose consequence is that **shipping no document is how a pack becomes exempt**. `weft-docling`
+  shipped `pdf-layout-model` unreachable for the length of task `9.13` and FF16 stayed green
+- [ ] **R9.4** the `[services]` key vocabulary has one source that production code and every
+  drift-check read · owner `02` §2; `03` → *Configuration* · `L9.27`, `L9.28`, `L9.52`, `L9.35` ·
+  four entries, one cause: `tests/docs/test_manual_config_keys.py` derives the accepted set from
+  `ServiceSelection.model_fields`, `weft_cli.config_surface` hand-patches `_KEY_FIELDS` the same
+  way, and neither reads the roles a pack declares at registration — so a check globbed `manual/*`
+  while `03` is the document that defines the set, a test compared a literal against itself, and an
+  error message was reworded to satisfy a scraper that had mistaken prose for a key
+- [ ] **R9.5** a run-time failure on a condition already reported `unavailable` at discovery
+  carries the same remedy the discovery message gave · owner `02` §2 → *The trust model* · `L9.86` ·
+  `weft plugins doctor` names the directory and two remedies; a run in the same state prints the
+  vendor's own sentence and no remedy at all. The wide fix is at the registration seam, where
+  `CLAUDE.md` says cross-cutting concerns attach; the narrow one is a string match on a vendor
+  message, which is the shape `L9.80` warns goes stale silently
+- [ ] **R9.6** every field a shipped pack's `Settings` model exposes is named in
+  `weft.toml.example`, or its absence is stated as deliberate · owner `08` → the manuals ·
+  `L9.77` · `[packs.openai]` documents `api_key` and not `base_url`, the field
+  `weft_openai/settings.py`, `manual/troubleshooting.md` and `10` §4 all argue decides where every
+  request goes — and whose entire point is that it lives in `weft.toml` rather than the environment
+- [ ] **R9.7** an intra-workspace dependency's declared floor equals that dependency's current
+  in-tree version · owner `01` → *Fitness functions* 10 · `L9.2` · FF10(b) asserts a bound *exists*
+  and never that its floor is publishable; three siblings drifted once and were repaired by hand
+- [ ] **R9.8** a stage that computes something costly for its own internal decision and returns its
+  input unchanged names what downstream recomputes · owner `weft_index.contract.Expander`'s
+  docstring · `L9.33` · `RaptorSummarizer._embed` embeds every leaf to cluster it and returns the
+  payload unmodified, and `index-with-raptor` places it before the base `embed` stage — so every
+  leaf is embedded **twice per ingest** under a paid embedder, disclosed nowhere
+- [ ] **R9.9** `Applies` round-trips through fitness function 19 for every constraint kind its own
+  fields can hold · owner `01` → *Fitness functions* 19 · `L9.43` · FF19 constructs one instance,
+  `Applies(_Language, code="pl")`, and never a `media_type`-constrained one — which is precisely the
+  shape that failed to read back and took three commands down with it
+- [ ] **R9.10** a shipped pipeline document declares a `slots:` block, or the field is withdrawn ·
+  owner `02` §3 · `L9.12` · `Pipeline.slots` is placed, id-qualified and recorded by resolution, and
+  **no document in the tree declares one**, so the consuming half has never run against a real
+  producer
+- [ ] **R9.11** `Applies.__repr__` is reached by a command, or it is deleted · owner `03` ·
+  `L9.45` · written for the one human audience there is and rendered nowhere:
+  `weft pipeline show` dumps the model instead
+- [ ] **R9.13** `L5.15`, `L6.4` and `L5.6` are held by an artefact that makes them bite · owner this
+  repository's own loop; `docs/lessons-archive.md`'s edge vocabulary · with the Phase 9 edges
+  written, `scripts/lessons_graph.py` returns **MOVE IT** for all three — re-learned four, four and
+  three times. Phase 9's drain answered each with another sentence in the same skill, which is what
+  `implement-ll` forbids for exactly this verdict, and it says so in its own archive section rather
+  than leaving the contradiction implicit. The property that must hold is that a rule the graph
+  reports as re-learned three times or more has moved to an artefact that executes, or has a
+  recorded decision that it cannot. `R9.10` and `R9.11` are two of `L5.15`'s instances already
+  filed as individually checkable, which is evidence the move may be mechanical rather than
+  editorial — but that is a finding to test, not the remedy
+
+- [ ] **R9.12** `scripts/lessons_graph.py` reads `docs/lessons.md`'s open Queue as well as the
+  archive · owner this repository's own loop · `L9.91` · a recurrence is visible only once archived,
+  which happens *after* the drain — so the phase whose queue is densest with recurrences is the one
+  the detector can say least about. Phase 9's drain found **six** recurrences inside Phase 9 that
+  the script could not see, every one stated in the entries' own prose
 
 ## Phase 10 — RAPTOR, extended
 

@@ -107,10 +107,21 @@ test node ids it was given, which is not the same evidence (`docs/lessons.md` L5
 
 ## 4. Parallel dispatch
 
-Two implementers at once only when their write sets are disjoint and neither's test can be made
-green by the other's file. In practice that is rare inside one ledger task — the tasks are ordered
-so each is one property — and two agents editing the same module produce a merge you have to
-untangle, which costs more than the sequence saved. Default to one.
+**Disjoint write sets are not enough, and this paragraph said they were.** Two implementers at
+once need **two worktrees**: the same checkout serialises them whether or not their files overlap,
+because the thing they share is not the files, it is the *test suite*, the one `.venv` and the one
+container. Two agents running `pytest` against the same tree truncate each other's tables and get a
+result about neither — three unrelated red tests, naming nothing (`docs/lessons.md` `L9.61`,
+`L6.22`). `isolation: "worktree"` gives an agent its own checkout; it does **not** give it its own
+container, so anything touching the database is serial whatever the isolation.
+
+In practice parallelism is rare inside one ledger task — the tasks are ordered so each is one
+property — and the merge costs more than the sequence saved. Default to one.
+
+**And the dispatcher counts as a writer.** While an agent runs, the brief and its tests are that
+agent's ground truth and are frozen at dispatch: a defect found in them mid-flight is interrupted
+and re-dispatched, or waited out — never silently repaired underneath (`L9.57`, broken five times in
+one session by the author who had just written the rule down).
 
 
 ## Constraints can be jointly unsatisfiable, and the author is who cannot see it

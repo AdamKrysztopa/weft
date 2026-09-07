@@ -18,6 +18,19 @@ skill is how a new paper gets through that door.
 
 ## The thing that goes wrong
 
+**Read the paper, and stop there.** *"Read this paper"* and *"read whatever it points at"* are
+different instructions, and a brief that names a source names what to read rather than where to
+stop. A dispatched agent, told to read a PDF, went to the authors' own GitHub repository on its own
+initiative and drew nine constants from it (`docs/lessons.md` `L9.36`). Nothing was copied — the
+synthesis step rebuilt everything in Weft's own words, which is the only reason the originality rule
+held — but that was luck rather than instruction. The authors' implementation is out of bounds
+unless the brief names it separately.
+
+**A number taken from a paper and used to move a shipped default is a claim about the tree, not
+just about the literature.** Four figures were quoted to justify changing a retrieval default and
+three of them did not exist in the paper (`L9.71`). Cite the page, and quote the sentence the number
+comes from, at the point the default changes.
+
 Not bad code — **an overclaiming name attached to good code**. It is invisible in review, because the
 implementation is fine and the name reads as documentation. It surfaces years later when someone
 configures `self-rag` expecting reflection tokens and gets a confidence threshold.

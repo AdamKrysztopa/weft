@@ -19,6 +19,16 @@ python3 scripts/lessons_graph.py
 **Run this before reading the queue, not after routing it.** It walks
 `docs/lessons-archive.md` and reports three things a flat reading cannot see:
 
+**The script reads the archive, so it is blind to the queue in front of you.** A recurrence only
+becomes visible once the recurring entry has been archived with a `recurs` edge, and that happens at
+the *end* of this drain — so the phase whose queue is densest with recurrences is the one the script
+can say least about. Phase 9's drain reported five recurrences and a careful reading of the queue
+found **six more inside that phase alone** (`L5.15` ×5, `L6.4` ×5, `L6.10` ×2, `L5.6` ×2, `L6.14`,
+`L5.19`), every one of them stated in the entries' own prose. Until the script reads the queue too
+(`L9.91`), read each entry for a sentence of the form *"this is `L…`'s shape"* and treat it as a
+provisional `recurs` edge — five rules failing to bite inside one phase is the loop's own closing
+question answering badly, and it is worth a line in the phase's preamble.
+
 - **Oscillation** — a `reverses` edge onto an entry that itself reverses something. Per the archive's
   own rule this is a **stop**: what you are holding is an unsettled decision wearing a lesson's
   clothes, and it goes to a grilling session with the whole chain as its evidence. Do not apply
@@ -77,7 +87,13 @@ and every concern an author had to remember decayed.
    travels with the repository. **Reach here first and only fall through when you genuinely cannot
    detect the moment.**
 2. **A fitness function** (`tests/architecture/`). Use when it is a property of the *whole tree*
-   rather than of one edit. Per FF0, add it to the `ci-checks` composite **in the same commit** — a
+   rather than of one edit. **Size it against its population before adopting it, and say the two
+   numbers** — how many sites it walks, and how many it would fail on today. A proposal justified
+   by its true positives and never measured against its false ones arrives red, and its waiver
+   becomes where the real violations hide: this drain's own broad-handler check was proposed in the
+   wide form, which would have failed on six correct kernel boundary sites; narrowed to handlers
+   that *swallow* it walks 2 and fails 0 (`L9.89`). The proposal usually comes from a subagent,
+   which cannot run the gate, so the measurement is structurally the router's to take. Per FF0, add it to the `ci-checks` composite **in the same commit** — a
    boundary checker that is not wired into its canonical task never runs, and FF0 exists to catch
    exactly that. Prefer a ratchet with a named waiver constant pinned empty, so a waiver
    is a visible act in a diff.

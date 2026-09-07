@@ -861,3 +861,52 @@ participant may ask for, a stated seam for rendering a pack's result — each sp
 that owns it (`02` §1, `02` §4, `03`) and each with a task in the ledger. **Not** a declared flag, and
 **not** a per-pack shim: L5.15's rule is that an extension point has a producing and a consuming side
 and both must be reachable by a stranger.
+
+## G14 — Is an isolated checkout the default for a dispatched implementer?
+
+**Opened 2026-09-07, at Phase 9's lessons drain.** Three queue entries logged at three different
+moments turned out to be one unowned default, which is the shape `implement-ll` routes to a gate
+rather than to three edits.
+
+**The question.** `phase-step` → *Green* offers `isolation: "worktree"` *"if there is genuinely
+parallel work"*, so a **single** dispatch shares the live checkout with the session that dispatched
+it, by construction. Should an isolated checkout be the default for every green-phase dispatch,
+single or parallel — and if so, who removes it afterwards?
+
+**What the three entries are, and why they are one question.**
+
+- `L9.57` — may the dispatcher touch the shared checkout while an agent runs against it? The rule
+  says no; it was broken **five times in one session**, including immediately after being written
+  down, which the entry itself calls the strongest available argument for a mechanism over a
+  sentence.
+- `L9.61` — do two agents on disjoint files still collide? Yes. What they share is not the files:
+  it is the one test suite, one `.venv` and one container. `references/implementer-brief.md` told
+  the next reader that disjoint write sets were sufficient, which is now corrected.
+- `L9.24` — who removes a worktree once its work lands? Nobody, measured: three still exist
+  (`phase-2-group-e`, `repair-2-30-llm`, `task-2-30-llm`), hidden by `.git/info/exclude`.
+
+**Bring, and the numbers are already taken.** The worktrees are **not merged** — 174, 115 and 111
+unique commits each — so the obvious mechanism, a hook warning about worktrees already ancestral to
+`main`, would say nothing about any of them. And the cost is not hypothetical: **12,365 of the
+12,976 Python files under the repository root live inside those three checkouts**, 95%, so every
+`rglob`-based check walks them. Fitness function 17 was resolving citations against them until this
+drain (`L9.90`) — including into `_external-reading`, the directory it exists to exclude.
+
+**Positions to attack.**
+1. *Worktree by default.* Removes the shared-tree question entirely and makes `L9.57` unreachable
+   rather than forbidden. Costs a checkout per dispatch and needs an owner for removal — and the
+   evidence above is that removal does not happen without a mechanism.
+2. *Shared tree, with a lock.* A session-scoped "this resource has a writer" primitive, the shape
+   `guard_quality_gates.py` already uses for attempt counting. Cheaper per dispatch; needs the hook
+   to distinguish the parent session's own tool call from one nested inside its subagent, which is
+   **unverified** and must be probed at its failure path before being designed against (`L6.5`).
+3. *Status quo, plus the three repairs already shipped.* Defensible only if the rule bites, and it
+   demonstrably did not.
+
+**What done looks like.** A default stated in `phase-step` → *Green*, an owner for removal, and —
+whichever way it goes — a decision about whether a second checkout under this root may ever answer
+a question about *this* repository, since three checks other than FF17 walk the tree the same way.
+
+**Not a blocker for Phase 10.** No task in Phase 10 or 11 depends on the answer; the three concrete
+repairs (`implementer-brief.md`'s corrected criterion, `phase-step`'s frozen-brief sentence, FF17's
+exclusion) are landed already and are correct under any of the three positions.

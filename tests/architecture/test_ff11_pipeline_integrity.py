@@ -65,6 +65,7 @@ itself, which cannot fail," applied to an architecture check instead of a docume
 
 from __future__ import annotations
 
+import ast
 import re
 import tomllib
 from collections.abc import Mapping
@@ -614,6 +615,96 @@ def test_every_shipped_or_quoted_pipeline_resolves() -> None:
     # Assert
     assert not unknown_plugins, "\n".join(unknown_plugins)
     assert not failures, "\n".join(failures)
+
+
+#: A shipped pipeline document permitted to exist without a `add_pipeline_resource` call naming
+#: it. **Pinned empty.** An entry here is a document a pack ships and does not contribute, which
+#: makes it unreachable by name from any command — say why, in a diff.
+PIPELINES_WAIVED_FROM_CONTRIBUTION: Final[frozenset[str]] = frozenset()
+
+
+def _first_party_pipeline_documents() -> tuple[Path, ...]:
+    """Every `pipelines/*.yaml` a first-party pack ships, off disk.
+
+    Named apart from `_shipped_pipeline_files` above, which takes roots and covers `examples/`
+    too: this clause is about what a *first-party* pack contributes, and an example pack is
+    deliberately not a workspace member.
+    """
+    return tuple(sorted((REPO_ROOT / "packages").rglob("pipelines/*.yaml")))
+
+
+def _contributed_resource_names() -> frozenset[str]:
+    """Every `resource` string handed to `PackRegistrar.add_pipeline_resource` under `packages/`.
+
+    Read by AST rather than by grep so a call spread across lines, or reached through an
+    attribute, still counts — the same walk clause (b) already does one field over.
+    """
+    names: set[str] = set()
+    for path in sorted((REPO_ROOT / "packages").rglob("*.py")):
+        if "__pycache__" in path.parts:
+            continue
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            called = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)
+            if called != "add_pipeline_resource" or len(node.args) < 2:
+                continue
+            resource = node.args[1]
+            if isinstance(resource, ast.Constant) and isinstance(resource.value, str):
+                names.add(resource.value)
+    return frozenset(names)
+
+
+def test_every_shipped_pipeline_document_is_contributed_by_its_pack() -> None:
+    """Clause (c) — `docs/lessons.md` `L9.83`, added 2026-09-07 at Phase 9's drain.
+
+    **Two checks read two different populations, and a document can satisfy one while being
+    invisible to the other.** Clause (b) above globs `packages/*/pipelines/*.yaml` off disk;
+    fitness function 16 reads `weft_cli.pipeline_catalogue.load_contributed`, which sees only
+    what a pack's `register()` actually handed to `add_pipeline_resource`. A file added without
+    that one line therefore *resolves* — clause (b) is happy — and is reachable by nobody, since
+    no command can name a document the catalogue does not hold. Task `9.14` shipped
+    `index-pdf-rows.yaml` and a dispatched implementer added the registration line because it
+    noticed the gap; the brief had not asked for it.
+
+    Measured when written: 32 documents, 32 registrations, 0 missing.
+    """
+    # Arrange
+    shipped = _first_party_pipeline_documents()
+    assert shipped, "no shipped pipeline document found — this clause would pass vacuously"
+    contributed = _contributed_resource_names()
+
+    # Act
+    missing = [
+        str(path.relative_to(REPO_ROOT))
+        for path in shipped
+        if f"pipelines/{path.name}" not in contributed
+        and str(path.relative_to(REPO_ROOT)) not in PIPELINES_WAIVED_FROM_CONTRIBUTION
+    ]
+
+    # Assert
+    assert not missing, (
+        "these pipeline documents ship on disk and are contributed by no `register()`, so "
+        "nothing can name them:\n  "
+        + "\n  ".join(missing)
+        + "\n\nAdd `registrar.add_pipeline_resource(<package>, 'pipelines/<file>')` beside the "
+        "pack's other contributions (docs/lessons.md L9.83)."
+    )
+
+
+def test_the_contribution_waiver_is_empty() -> None:
+    assert frozenset() == PIPELINES_WAIVED_FROM_CONTRIBUTION
+
+
+def test_the_contribution_clause_can_actually_fail() -> None:
+    """Non-vacuity: the comparison fires on a document nothing contributes."""
+    # Arrange — a name no pack registers.
+    contributed = _contributed_resource_names()
+
+    # Act / Assert
+    assert "pipelines/nothing-contributes-this.yaml" not in contributed
+    assert contributed, "the AST walk found no contributions at all — the pattern stopped matching"
 
 
 def test_stage_use_pairs_excludes_fallback_names() -> None:

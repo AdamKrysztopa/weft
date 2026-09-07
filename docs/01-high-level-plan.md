@@ -1821,6 +1821,33 @@ All checks run in CI, before tests.
     in the fitness function beside clause (a). Waiver `EXT_MODELS_CARRYING_BYTES` pinned empty. No
     tuning constant. `tests/architecture/test_ff24_no_bytes_in_a_node.py`.
 
+25. **A handler that swallows an error into an `Outcome` lets our own errors past first.** Added
+    2026-09-07 at Phase 9's lessons drain, from `lessons.md` `L9.87`. Every broad handler under
+    `packages/` — `except:` or `except Exception:` — that **returns** `Failed` or
+    `NothingToProduce` must have an earlier handler in the same `try` naming `WeftError`. A broad
+    handler that *raises* is untouched: `weft_kernel.seam`, `discovery`, `runner` and `weft_cli.cli`
+    all catch `Exception` at a boundary in order to raise a `WeftError` with attribution, which is
+    the shape `CLAUDE.md` asks for. What is refused is swallowing, because an `Outcome` is a
+    statement about the **data** and a `WeftError` is a statement about the **code**, and reporting
+    the second as the first is a silent fallback wearing a result. **This is written from a defect
+    that cost a phase:** `openai-vision` built its SDK client on the event loop thread, the seam's
+    blocking-call detector raised `BlockingCallError`, the plugin's broad handler returned it as
+    `Failed`, and `describe-figure` discarded that as an ordinary absence — so `weft index` stored
+    a figure with no description, exit `0`, nothing printed, 2,395 tests green, and the pack
+    reporting `active`. Found by running the binary at Phase 9's exit demonstration.
+    **Two things about how it was written are the point.** *(i)* Its population was measured before
+    it was adopted (`L9.89`): 15 broad handlers exist, 13 raise, **2 swallow** — a first draft
+    asking the wider question would have arrived red on six correct kernel boundary sites, and its
+    waiver would have been where the real violations hid. *(ii)* That first draft asked whether
+    *any* narrower `*Error` handler came first, and **planted against the real defect it passed** —
+    `vision.py` already carried `except asyncio.CancelledError: raise` ahead of its broad handler
+    before the repair, so the check would have shipped green through the phase it exists to
+    prevent. It names `WeftError` specifically for that reason, and its self-test pins the
+    `CancelledError`-only shape as a case that must fire. Tightening it that far found a **second
+    live instance immediately**, in `weft-docling`. Waiver `HANDLERS_SWALLOWING_OUR_OWN_ERRORS`
+    pinned empty; a non-vacuity floor asserts the population is at least 2. No tuning constant.
+    `tests/architecture/test_ff25_broad_handlers_let_our_own_errors_past.py`.
+
 > **Corrected 2026-08-10 — fitness function 1, and the preamble.** This section previously opened
 > *"the single best thing in a codebase examined during design is its AST boundary checker"* and
 > specified FF1 as *"lifted almost verbatim from it."* It is not the best thing there and it must

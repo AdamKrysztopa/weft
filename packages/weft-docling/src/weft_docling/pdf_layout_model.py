@@ -40,6 +40,7 @@ from pydantic import BaseModel, ConfigDict
 from weft_docling.weights import artifacts_dir
 from weft_extract.contract import SourceDoc
 from weft_kernel.context import Context
+from weft_kernel.errors import WeftError
 from weft_kernel.payload import (
     ExtModel,
     Failed,
@@ -196,6 +197,15 @@ class PdfLayoutModelExtractor:
                     artifacts_path=str(artifacts_dir(self._artifacts_path)),
                 )
             except asyncio.CancelledError:
+                raise
+            except WeftError:
+                # **A `WeftError` is this project telling itself it is wrong.** Found by
+                # fitness function 25 the moment it was written, and it is `L9.87`'s exact
+                # shape sitting here latent: `BlockingCallError` from the seam's detector,
+                # caught below, would have been reported as "could not read this PDF" — a
+                # statement about the operator's document standing in for a defect in ours.
+                # A `CancelledError` guard is not this guard, which is the mistake FF25's
+                # own first draft made.
                 raise
             except Exception as error:
                 # `CancelledError` inherits from `BaseException` in 3.12, so this `except

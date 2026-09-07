@@ -38,7 +38,11 @@ is wrong, that is a finding to report — never an edit to make.
   unexplained anomalies in one session: a binary run that showed the exact defect its task had just
   repaired, and a gate run that came back red on three unrelated tests, both of them landing inside
   a `git stash` window (`docs/lessons.md` L6.26). If you need to know whether a failure is
-  pre-existing, **ask** — do not rewind the tree to find out.
+  pre-existing, **ask** — do not rewind the tree to find out. **This is refused by
+  `.claude/hooks/guard_history_rewrites.py` now rather than only written here**, because the
+  sentence above was read and overridden anyway: generic harness guidance said to stash before a
+  destructive operation, and generic guidance beats a project sentence every time there is nothing
+  behind it (`docs/lessons.md` L9.56).
 - **Do not decide anything the brief left open.** If two implementations both make the test pass
   and they differ in a way a reader would call a design choice, say so and stop. Guessing is
   indistinguishable, afterwards, from a decision that was argued.

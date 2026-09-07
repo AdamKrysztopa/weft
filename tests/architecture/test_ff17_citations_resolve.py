@@ -62,7 +62,25 @@ _CITATION: Final[re.Pattern[str]] = re.compile(r"([A-Za-z0-9_./-]+\.(?:py|md|tom
 #: Directories excluded from the search for a cited basename: reading material kept on disk and
 #: out of version control. A citation that resolves only inside one of these is exactly the
 #: defect this check exists for, so they must not count as a hit.
-_NOT_THIS_REPO: Final[tuple[str, ...]] = (".venv", "_external-src", "_external-reading", ".git")
+#:
+#: **`worktrees` joined this list at Phase 9's drain, and it was not a tidy-up** — `docs/lessons.md`
+#: `L9.90`. `git worktree add` puts a whole second checkout under `.claude/worktrees/`, and this
+#: repository had three, unmerged, carrying 174, 115 and 111 unique commits: **12,365 of the
+#: 12,976 Python files under the repository root lived inside them**. Because each worktree holds
+#: its own older copy of `_external-src` and `_external-reading`, the three names above were being
+#: smuggled straight back into the population they exclude — **39 basenames resolved only through
+#: a stale worktree**, among them `_BRIEFING.md`, `04-donor-inventory.md`, `08-salvage.md` and a
+#: dozen `ax-*.pdf`: reading material about somebody else's project. A citation naming one of them
+#: would have passed, which is the precise defect the sentence above says this list prevents.
+#: Measured the same day: **zero** tracked citations actually did, so this was a latent hole and
+#: not an active failure — recorded that way rather than dressed up as a catch.
+_NOT_THIS_REPO: Final[tuple[str, ...]] = (
+    ".venv",
+    "_external-src",
+    "_external-reading",
+    ".git",
+    "worktrees",
+)
 
 #: A citation permitted to name a path this repository does not have, or to name its own file.
 #: **Pinned empty**, and it reached empty by the violations being *fixed* rather than recorded:
@@ -108,10 +126,18 @@ def _basenames_present() -> frozenset[str]:
     quietly starts charging and nobody attributes to it.
     """
     return frozenset(
-        path.name
-        for path in REPO_ROOT.rglob("*")
-        if path.is_file() and not any(part in _NOT_THIS_REPO for part in path.parts)
+        path.name for path in REPO_ROOT.rglob("*") if path.is_file() and _owned_by_this_repo(path)
     )
+
+
+def _owned_by_this_repo(path: Path) -> bool:
+    """Whether `path` is in the part of the tree this repository owns — see `_NOT_THIS_REPO`.
+
+    Factored out of the walk so it can be self-tested against synthetic paths. Testing the
+    exclusion by asserting a known worktree file is absent would be vacuous on a clean checkout,
+    which is the shape `phase-step` → *Finish* item 3 refuses.
+    """
+    return not any(part in _NOT_THIS_REPO for part in path.parts)
 
 
 def _basename_exists(basename: str) -> bool:
@@ -141,6 +167,27 @@ def _violations() -> tuple[list[str], list[str]]:
                     f"{relative}: cites '{match.group(0)}', which is nowhere in this repo"
                 )
     return dangling, self_citing
+
+
+def test_a_second_checkout_under_this_root_does_not_answer_for_this_repository() -> None:
+    """The exclusion `L9.90` bought, driven through the predicate the walk actually uses.
+
+    A `git worktree` puts a whole second checkout inside this tree, carrying its own older copy
+    of `_external-src` and `_external-reading` — so without this, the three directories
+    `_NOT_THIS_REPO` names to exclude were reachable again one level down, and a citation into
+    another project's reading material resolved green.
+    """
+    # Arrange — a path that **only** the worktree rule can exclude. Picking one under
+    # `_external-reading` inside a worktree would be excluded by the older rule too, so the
+    # test would pass with this repair reverted: that exact case was written first, planted,
+    # and passed. It is kept in the comment because the trap is the point — a disagreeing
+    # case must disagree for the reason under test and no other.
+    smuggled = REPO_ROOT / ".claude" / "worktrees" / "old" / "docs" / "01-high-level-plan.md"
+    ours = REPO_ROOT / "docs" / "01-high-level-plan.md"
+
+    # Act / Assert
+    assert not _owned_by_this_repo(smuggled)
+    assert _owned_by_this_repo(ours)
 
 
 def test_the_waiver_is_empty() -> None:
