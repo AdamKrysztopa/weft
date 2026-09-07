@@ -67,10 +67,26 @@ class RaptorFacts(ExtModel):
     and `raptor` retries with the cluster halved, this is the retry's count, never the
     failed attempt's — a record taken from the request that did not produce the summary
     would overstate what the summary is actually built on.
+
+    `level` — task **10.6** — is the stored fact a filter can select on, kept beside this
+    model's own `characters_held`/`characters_shown` rather than inside `Representation`,
+    because `raptor-and-leaves-rrf.yaml` already filters on `ext.weft-index.technique` and
+    changing what that model means would change a shipped query rung. It is **derived from
+    the members, never from the stage**: a summary whose members carry no `RaptorFacts` of
+    their own is level 1; a summary whose deepest member is at level *n* is at level *n+1*.
+    A document may run one `raptor` stage or three, and a stage cannot know its own position
+    in a pipeline, so a level computed from "which stage am I" would be wrong the moment an
+    operator writes their own document — deriving it from what was actually clustered makes
+    it true under any arrangement of stages. A leaf carries no `RaptorFacts` at all and
+    therefore states no level: it is not level zero, because the filter
+    `ext.weft-index-raptor.level` has to select exactly the abstractions, and a leaf tagged
+    `0` would need every reader to know that `0` means "not one of these." T-Retriever (Wei
+    et al., 2026, arXiv:2601.04945) p.5 indexes every tree node tagged with its level,
+    `I = {(α, zα, lα)}`; RAPTOR itself carries no such tag because it never filters on one.
     """
 
     __namespace__ = "weft-index-raptor"
-    __schema_version__ = "1.0.0"
+    __schema_version__ = "1.1.0"
 
     #: How many nodes the cluster held.
     members: int = Field(ge=1)
@@ -81,3 +97,13 @@ class RaptorFacts(ExtModel):
     #: The total length of the member text that actually reached the model, in the request
     #: that produced this summary.
     characters_shown: int = Field(ge=0)
+    #: This summary's depth in the tree: 1 over leaves, one more than the deepest member's
+    #: own `level` otherwise. See the class docstring's own paragraph for why this is derived
+    #: rather than read off the stage, and why a leaf states none at all rather than `0`.
+    #:
+    #: **No `upgrade` is implemented, so the base class's refusal stands**: a stored `1.0.0`
+    #: row raises `SchemaVersionRefusedError` naming the namespace and both versions, rather
+    #: than inventing a level for a row written before this field existed. That is correct
+    #: rather than unfortunate — the only rows that could carry `1.0.0` were written by a
+    #: development build inside this same unreleased phase.
+    level: int = Field(ge=1)

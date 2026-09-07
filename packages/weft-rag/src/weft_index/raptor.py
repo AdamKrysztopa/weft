@@ -175,6 +175,13 @@ question node, the identical "no new Retriever" property task 2.31 already estab
 time — is not implemented here: it is a distinct `Retriever` position reading `Lineage.
 parents` as a tree, and naming this plugin `raptor` does not claim it, on the same footing
 `10` §1.4 states for `corrective` and `boolean-retrieval`'s own conditional rows.
+
+**Every summary now states its own level (task 10.6).** `weft_index.payload.RaptorFacts.
+level` is derived from the members a summary was actually built from, never from this
+stage's own position in a pipeline — see that field's docstring for why. This is the
+interface task 10.7 will filter on to build each level from the previous level's nodes
+alone; that filtering is not built here, and this section claims nothing beyond the level
+being sayable.
 """
 
 import asyncio
@@ -397,11 +404,15 @@ class RaptorSummarizer:
             summary = completion.value.text.strip()
             if not summary:
                 continue
+            member_facts = (member.ext_as(RaptorFacts) for member in members)
+            member_levels = (facts.level for facts in member_facts if facts is not None)
+            level = max(member_levels, default=0) + 1
             facts = RaptorFacts(
                 members=len(members),
                 members_truncated=members_truncated,
                 characters_held=characters_held,
                 characters_shown=characters_shown,
+                level=level,
             )
             return (
                 Node.combine(members, content=summary, media_type=MediaType.TEXT)

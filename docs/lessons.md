@@ -353,7 +353,22 @@ one will reason "different databases, no conflict" and be wrong — the second m
 shared state at all, only a shared machine, and it fails as a **timeout**, which reads as a real
 defect rather than as contention.
 
-**Candidate home.** G14, which now has three concrete instances to weigh and should be answered
+**A fourth instance, and the count is the finding now.** 10.6's implementer reported the same
+collision: a `poe ci-checks` it had not started running `pytest tests/architecture` beside its own
+`poe ci-no-tests`, its `arch` step taking **14.5 minutes** against the ~9.5 a clean run takes. Mine
+again. So the tally is four, inside one phase, every one by the person who wrote this entry and
+who re-read it each time the queue was injected at a subagent's start. **That is the argument.** A
+rule broken four times by its own author is not a rule anyone will follow by remembering it, and
+`implement-ll`'s own verdict for a re-learned rule is that it is in the wrong artefact. The
+falsifying act is *starting a gate while a dispatched agent is live*, which is mechanically
+detectable — the session knows what it dispatched and a `PreToolUse` hook on `Bash` can see
+`poe ci-checks` in the command.
+
+**Candidate home.** **A `PreToolUse` hook**, on the evidence above, refusing `poe ci-checks` and
+`poe ci-no-tests` while this session holds a live dispatch — the same shape as the four git
+commands `.claude/settings.json` already refuses, and for the same stated reason: *a project
+prohibition that contradicts generic tool guidance needs a mechanism, not a stronger sentence*
+(`L9.56`). Also G14, which now has four concrete instances to weigh and should be answered
 rather than left open; `references/implementer-brief.md`, whose *Files* section says what may be
 written and says nothing about what may be *created* beside it; and `phase-step` → *Green*, whose
 "do not run the gate either" sentence gives `L6.22`'s database reason and should give this one
@@ -499,6 +514,36 @@ model carries `means` so `len(means)` is in hand at every use. A `DifferenceJudg
 does (`L8.17`, `weft_cli.render._falsification_line`) — that precedent is exact: a number that is
 technically an interval and not yet evidence, printed with what is wrong with it. Task **10.13**
 is the first caller that must not repeat this, and its ledger line should carry the n.
+
+### L10.18 — one file removed its hand-counted total and the manual beside it kept three
+
+**What happened.** `manual/user-manual.md` opens its ladder section *"The shipped ladder —
+**nineteen rungs**"*, then *"**Eleven query rungs**, all `extends: retrieve-then-generate`"* and
+*"**Six ingest rungs**, for `weft index --pipeline`"*. Measured against the registry:
+`packages/weft-rag/src/weft_retrieve/__init__.py` calls `add_pipeline_resource` **31** times, the
+`pipelines/` directory holds **31** documents, and **11** of them are `index-*`. So *six* is wrong
+by five, *nineteen* is wrong by twelve, and the two sub-counts do not even sum to the total they
+sit under — eleven and six make seventeen. Nothing checks any of them. Found by an agent surveying
+what task 10.7 would break, not by any test.
+
+**The sharp part is one file over.** `weft_retrieve/__init__.py:424-430` carries a comment
+repenting of exactly this and *removing* its own count: *"the number is gone rather than
+corrected: a count beside the thing it counts has no reader who benefits and one who is misled…
+`lessons.md` L8.15."* The same author, the same day, the same fact, in the file next door — and
+the manual's three counts were not visited.
+
+**Generalises to.** *A repair that deletes a stale count deletes one instance of it; the rule it
+was applied under is about the **kind**, so its diff has to name every other place the same number
+is written down.* This is `L6.8` (*a rule re-learned is in the wrong artefact*) with the artefact
+question already answered once: `L8.15` was applied to `docs/README.md`'s queue depth and to
+`weft_retrieve/__init__.py`'s rung count and to nothing else, because each application was aimed
+at the site that hurt rather than at the population.
+
+**Candidate home.** A check, and a cheap one: a hand-written cardinal number immediately before a
+noun the registry can count (*"nineteen rungs"*, *"six ingest rungs"*, *"fourteen packs"*) is a
+small, greppable population in `manual/` and `docs/`, and `tests/docs/` already reads both trees.
+The narrower repair is three sentences in `manual/user-manual.md` that name no number at all,
+which is what the file next door did.
 
 ## When the queue is empty
 

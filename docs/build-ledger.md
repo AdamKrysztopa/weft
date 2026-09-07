@@ -6371,6 +6371,42 @@ schedule them.
   Phase 11 would consume** — a hierarchy over graph facts, if one is wanted, is built from the graph's
   structure and *reuses* this summariser (`01` → Phase 10 → *Why it sits between*) — which is why the
   two rank above group A in what the phase is for and below it in order
+  · **`level` on `RaptorFacts`, and it is derived from the members rather than from the stage.**
+  A document may run one `raptor` stage or three, and `Context` carries no stage id, no position
+  and no siblings — a stage genuinely cannot count where it is — so a level read off the stage
+  would be wrong the moment an operator writes their own document. The rule instead: a summary
+  whose members carry no `RaptorFacts` is **level 1**; one whose deepest member is at *n* is at
+  *n+1*. That makes the marker true under any arrangement of stages, which is what a filter has to
+  be able to rely on. **A leaf carries no `RaptorFacts` at all and states no level** — it is not
+  level zero, because `ext.weft-index-raptor.level` has to select exactly the abstractions and a
+  leaf tagged `0` would need every reader to know that `0` means *"not one of these"*.
+  T-Retriever p.5 tags every tree node with its level (`I = {(α, zα, lα)}`); RAPTOR carries no tag
+  because it never filters on one.
+
+  `__schema_version__` goes to **`1.1.0`** with **no `upgrade`**, so the base class's refusal
+  stands and a stored `1.0.0` row raises naming the namespace and both versions. That is a
+  decision, not an omission: `level` cannot be invented for a row written without it, and the only
+  rows that can carry `1.0.0` were written by a development build inside this same unreleased
+  phase. Said so in the field's own docstring.
+
+  **Two of the four tests need the container, because half this property is the word *stored*.**
+  A field on a frozen model in memory is not a fact a query rung can act on:
+  `tests/integration/test_raptor_level_is_selectable.py` runs a real ingest into `pgvector` and
+  narrows it with `Filter(op=EQ, field="ext.weft-index-raptor.level", value=1)` — the same grammar
+  `raptor-and-leaves-rrf.yaml:24` already uses one namespace over, which is the point of keeping
+  the level *beside* `Representation` rather than inside it. The second test asserts the value
+  comes back **as the pack's own model**, because `weft_store.rehydrate` reconstructs a namespace
+  only for a pack that registered it, and without that the level is JSON nobody owns. That test
+  earned its keep on the first run: the file's first draft omitted the registration and
+  `store.get` raised `UnknownPluginError` naming the namespace — the seam refusing loudly rather
+  than handing back a mapping, which is exactly the half a write-only test misses (`L6.14`).
+  Written by a dispatched `weft-implementer`.
+
+  **No re-measurement.** This task adds a field to `ext` and changes no vector, no cluster and no
+  content, so it cannot move a retrieval metric — the same argument 10.2's entry makes and for the
+  same reason (`Node.combine` computes the id before `with_ext`, `ext` is not embedded, and the
+  baseline's plain top-k does not filter on it). 10.2's three runs already checked that reasoning
+  once; running it again would be spending an API budget to observe the summariser's own sampling
 - [ ] **10.7** a tree deeper than one level exists after one ingest; each level is built from the
   previous level's nodes alone, so no cluster ever contains a node and an abstraction built from it;
   and the stop criterion is stated, testable and Weft's own · owner `10` §1.2 → the `raptor` row;

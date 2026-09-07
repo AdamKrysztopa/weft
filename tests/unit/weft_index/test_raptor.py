@@ -922,3 +922,92 @@ async def test_a_second_run_founds_a_second_tree_rather_than_joining_the_first()
         "it cannot have seen those nodes — if this ever fails, something gave it corpus-wide "
         "reach and `11` D2 is no longer unreached."
     )
+
+
+# --- Ledger task 10.6 — every node a `raptor` stage produces states its level.
+
+
+async def test_a_summary_over_leaves_states_level_one() -> None:
+    """The base case. T-Retriever indexes every tree node tagged with its level (p.5,
+    `I = {(α, zα, lα)}`); RAPTOR carries no tag because it never filters on one. Weft needs it
+    for both reasons a tag exists: 10.7 builds each level from the previous level's nodes alone
+    and has to be able to *say* which those are, and a query rung that wants only abstractions
+    has nothing else to select on.
+    """
+    # Arrange
+    table = {"passage a": _A, "passage b": _B}
+    a, b = _embedded((_node("passage a"), _node("passage b")), table)
+
+    # Act
+    outcome = await RaptorSummarizer().run(
+        (a, b),
+        _ctx(embedder=_StubEmbedder(table), llm=_ScriptedLLM([_reply("A summary of A and B.")])),
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    summary = next(node for node in outcome.value if len(node.lineage.parents) > 1)
+    facts = summary.ext_as(RaptorFacts)
+    assert facts is not None
+    assert facts.level == 1
+
+
+async def test_a_leaf_states_no_level_at_all() -> None:
+    """A leaf is not level zero, it is *not a summary* — and the difference is what makes the
+    level a usable filter. `ext.weft-index-raptor.level` selects exactly the abstractions; a
+    leaf tagged `0` would need every reader to know that 0 means "not one of these", which is
+    the sentinel `weft_extract.payload`'s own `page` field refuses for the same reason.
+    """
+    # Arrange
+    table = {"passage a": _A, "passage b": _B}
+    a, b = _embedded((_node("passage a"), _node("passage b")), table)
+
+    # Act
+    outcome = await RaptorSummarizer().run(
+        (a, b),
+        _ctx(embedder=_StubEmbedder(table), llm=_ScriptedLLM([_reply("A summary of A and B.")])),
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    leaves = [node for node in outcome.value if len(node.lineage.parents) <= 1]
+    assert len(leaves) == 2
+    assert all(node.ext_as(RaptorFacts) is None for node in leaves)
+
+
+async def test_a_summary_over_summaries_states_the_level_above_them() -> None:
+    """The rule 10.7 consumes, and the reason this task comes before it.
+
+    A level is not a property of *which stage* wrote a node — a document may run three `raptor`
+    stages or one, and a stage cannot count its own position — it is a property of what the node
+    was built from. So it is derived: one more than the deepest member, and one when no member
+    is a summary at all. That makes the marker true under any arrangement of stages, including
+    an operator's own, which is what a filter has to be able to rely on.
+    """
+    # Arrange — two nodes that already carry level 1, as a prior `raptor` stage would leave them.
+    table = {"summary one": _A, "summary two": _B}
+    first, second = (
+        node.with_ext(
+            RaptorFacts(
+                members=2, members_truncated=0, characters_held=10, characters_shown=10, level=1
+            )
+        )
+        for node in _embedded((_node("summary one"), _node("summary two")), table)
+    )
+
+    # Act
+    outcome = await RaptorSummarizer().run(
+        (first, second),
+        _ctx(embedder=_StubEmbedder(table), llm=_ScriptedLLM([_reply("A summary of both.")])),
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    built = next(node for node in outcome.value if len(node.lineage.parents) > 1)
+    facts = built.ext_as(RaptorFacts)
+    assert facts is not None
+    assert facts.level == 2, (
+        "a summary over level-1 members must state level 2. Deriving the level from the members "
+        "rather than from the stage is what makes the marker true whatever document an operator "
+        "writes — a stage cannot count its own position in a pipeline."
+    )

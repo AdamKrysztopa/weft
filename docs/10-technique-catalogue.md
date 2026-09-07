@@ -131,7 +131,11 @@ with origins, not because this file owns the phase.
 > build a genuine next level. *(Re-scoped 2026-09-07 at task 10.4, which moved the stage after
 > `embed`: the shipped rung is now `embed` → `raptor`, so the warning above is about the **second**
 > `raptor` in such a chain and never the first. The first is what `index-with-raptor` ships, and it
-> is correct — a summary comes back already vectorised, by the plugin that wrote it.)* That filtering is future work, corrected here (2026-08-18, a
+> is correct — a summary comes back already vectorised, by the plugin that wrote it. **And the
+> chain the sentence above names is itself one an operator should not write, corrected at 10.6:**
+> since 10.4 `raptor` embeds its own summaries, so a second `embed` between two `raptor` stages
+> re-bills every leaf and every level-1 summary — the doubled cost 10.4 removed, reintroduced.
+> A deeper rung is `embed`, `raptor`, `raptor`.)* That filtering is future work, corrected here (2026-08-18, a
 > repair of task 2.32) after review found the claim above stated as fact what neither the
 > code nor a test actually supported. `mode: collapsed` is what this ships structurally —
 > a summary is just another node
