@@ -144,8 +144,15 @@ with origins, not because this file owns the phase.
 > to say that was "proven against a real corpus, real embeddings and a real store in
 > `tests/integration/test_raptor_pipeline.py`, not merely asserted of the type". That file asserts
 > the precondition — `summary.lineage.sources` equals the union of its members' (`:305-306`) — and
-> never deletes anything (`grep -c delete` over it → `0`), so the end-to-end proof is owed by Phase 10
-> task 10.1 and is claimed nowhere until it exists.)*
+> never deletes anything (`grep -c delete` over it → `0`), so the end-to-end proof was owed by Phase
+> 10 task 10.1. **It exists as of 2026-09-07 and cascade delete is proven in
+> `tests/integration/test_raptor_cascade_delete.py` (`delete_source`)**, over a cluster deliberately
+> built across two documents: deleting one takes the summary with it and leaves the other document's
+> own leaf standing, which is the cross-document case the claim is actually about and the one a
+> precondition about `sources` cannot decide on its own. A store deleting on `sources = ARRAY[id]`
+> rather than on containment would satisfy that precondition and fail this, silently. The claim is
+> written in the form fitness function **26** requires — the cited file and the literal string it
+> must contain — so the next time it stops being true, something says so.)*
 
 > *(Corrected 2026-09-06, `L9.30`.* **The row below carried** *(mode: `collapsed` \| `traversal`)*
 > **in its name column and "recursively … by descending it" in its description from task 2.32 until

@@ -149,7 +149,7 @@ waiver constant pinned empty, so a waiver is a visible act in a diff rather than
 
 ## Skills in this repository
 
-Five live in `.claude/skills/`:
+Six live in `.claude/skills/`:
 
 - **`phase-step`** — build one task of the current phase from `docs/build-ledger.md`, the
   phase-agnostic task list (`docs/06-phase-0-build.md` is Phase 0's own retired build order, cited
@@ -161,6 +161,11 @@ Five live in `.claude/skills/`:
   contradicted settled text, a defect found by running the binary rather than by its tests.
 - **`implement-ll`** — drain that queue at a phase close: group the entries, route each to the
   artefact that would actually have caught it, apply them in one commit, leave the queue empty.
+- **`implementation-status`** — answer *"where are we"* with one table of the live phase's tasks:
+  id, five words, a size estimate, a status derived from `docs/build-ledger.md`'s own ticks and
+  shas. Added 2026-09-07. The table **is** the answer; a paragraph about the plan is not, and the
+  standing instruction to keep answers short does not make a status question an exception to
+  itself.
 - **`paper-to-plugin`** — a paper arrives and code is the destination: read it at source, settle the
   **name before writing anything**, decide whether it is a plugin, a pipeline or a config field, write
   it fresh, and put the divergence from the paper in the docstring beside the name that makes the

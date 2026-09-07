@@ -211,6 +211,57 @@ non-vacuity floor for a pattern with a fallback is an assertion that it *matched
 the real file rather than the fixture; `live_checks` is where that belongs, since it is already
 the half that reads the real documents.
 
+### L10.8 — the ledger's own field parser returns a sha that is not one, on three lines
+
+**What happened.** `.claude/skills/phase-step/scripts/next_task.py`'s `_split_fields` reads a task
+line's `· sha \`xxxxxxx\` ·` field by splitting on the separator, and a line whose tail continues
+past that field leaks the separator into the value. Measured over the live ledger by calling
+`parse()` directly: `10.11` and `11.5` both return `sha` = `'— ·'`, and `9.17` returns
+`'shared with \`9.12\`'`. Three of the tree's task lines hand a caller a two-character string
+where a sha belongs. `next_task.py` itself never notices, because it prints the field rather than
+using it; a *second* caller found it immediately — the `implementation-status` skill's own script,
+written the same day, which has to distinguish "done, here is the commit" from "ticked with
+nothing behind it". It worked around it by pulling the sha out by shape rather than trusting the
+field, which is a second parser for the same thing. Raised by a dispatched agent and re-derived
+here before being written down.
+
+**Generalises to.** *A parser with exactly one caller has never had its output checked, only its
+side effect — the first field a second caller actually reads is where it stops being right.* The
+sharper half, which is what makes this fixable rather than merely noted:
+`tests/docs/test_ledger_records_a_sha.py` already extracts the same field with its own regex and
+agrees with git about it, so the tree holds **two** readings of one field and the checked one is
+not the one the skill uses.
+
+**Candidate home.** `next_task.py`'s `_split_fields`, made to stop at the next `· <field>` rather
+than at the end of the tail — with the fix asserted against the three live lines above, since a
+fixture would have been written in the shape the parser already handles (`L5.6`). Or, better, the
+field extraction moved to one place both `next_task.py` and `test_ledger_records_a_sha.py` read,
+which is the shape `tests/architecture/conftest.py`'s `tracked_files()` already took for the same
+reason.
+
+### L10.9 — a glyph's meaning was documented for one population and read against another
+
+**What happened.** `next_task.py` documents that a `⛔` in a **phase preamble** is a mention that
+must be read rather than a verdict, and refuses to rule on it. Nothing says the same about a `⛔`
+on a **task line**, and all four occurrences in Phase 10's task lines today are conditional prose
+— *"a kernel change and a ⛔ this phase does not take"*, *"⛔ **if** the expansion route is
+taken"* — while `docs/README.md` states the phase is unblocked end to end. A reader or a script
+that treats the glyph as a status reports four blocked tasks in a phase with none. Found by an
+agent writing a second consumer of the ledger, which had to decide what the glyph meant and found
+the answer written down for the wrong half of the population.
+
+**Generalises to.** *Where a marker's meaning has been written down for one population, write it
+for every population the marker appears in — a rule recorded against preambles is not a rule
+about the glyph.* This is `L6.4` (*read the population, not the declaration*) with the failure on
+the other foot: here the declaration exists, is correct, and is scoped to a subset nobody said it
+was scoped to.
+
+**Candidate home.** `build-ledger.md` → *How to read a task line*, which already defines `⚠` and
+`⛔` for task lines and is the document that would be read by whoever writes the next consumer.
+Possibly enforced: a task line carrying a bare `⛔` glyph must either name an open gate the
+preamble records, or write the glyph inside a conditional clause — which is a shape a check could
+tell apart, and which `next_task.py`'s own preamble handling already had to solve once.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

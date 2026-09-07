@@ -1857,6 +1857,36 @@ All checks run in CI, before tests.
     pinned empty; a non-vacuity floor asserts the population is at least 2. No tuning constant.
     `tests/architecture/test_ff25_broad_handlers_let_our_own_errors_past.py`.
 
+26. **A catalogue row claims no configuration its plugin has not got, and no proof its cited file
+    does not make.** Added 2026-09-07, ledger task 10.1. Two clauses over
+    `docs/10-technique-catalogue.md`, each written from a defect found on the same plugin within a
+    day of the other. *(a)* A configuration annotation in a row's name column —
+    `*(method: `sides` \| `forward` \| `reverse`)*` — must name a field the plugin's registered
+    `config_model` carries, and every value it advertises must be one that model accepts, asked by
+    constructing it and reading the error's own `loc` rather than by re-deriving what an `Enum`, a
+    constrained `str` or a union would accept. The `raptor` row carried *(mode: `collapsed` \|
+    `traversal`)* from task 2.32 until 2026-09-06 for a field `RaptorConfig` has never had, four
+    lines below a correction block that had already withdrawn it — a correction that does not edit
+    what it corrects leaves both readings standing (`lessons.md` `L9.30`), and an annotation is a
+    promise an operator will write into a `with:` block. *(b)* A proof claim must be written as
+    `` proven in `<path>` (`<needle>`) `` and the cited file must contain that literal string.
+    **The needle is the design decision**: fitness function 17 already proves a path *resolves* and
+    its own docstring says it can never prove the file says what the sentence claims, because that
+    is a judgement no walk can make. This clause does not try either — it makes the *author* name
+    the string, which costs one parenthesis and turns the sentence into something falsifiable. The
+    withdrawn claim's needle would have been `delete_source`, in a file where `grep -c delete`
+    returned `0` (`L9.38`). **Quotations are excluded from (b)'s prose half, and that is a rule
+    rather than a convenience**: this document corrects itself by quoting the sentence it
+    withdraws, so refusing a quoted `proven` would refuse the withdrawal instead of the claim —
+    measured before adopting it, `10` holds 106 double quotes in 53 balanced spans, the longest
+    146 characters, and every occurrence of the proof word today lies inside one. Claims are
+    matched over the document with its wrapping and blockquote markers folded away, because
+    whether a claim is seen must not depend on where the line broke (`L10.7`, one file over).
+    Waivers `ANNOTATIONS_WITHOUT_A_FIELD` and `PROOF_CLAIMS_WITHOUT_A_NEEDLE` pinned empty; both
+    clauses carry a non-vacuity floor, since each population is small enough that *green* and
+    *looked at nothing* would otherwise read the same.
+    `tests/architecture/test_ff26_catalogue_claims_are_carried.py`.
+
 > **Corrected 2026-08-10 — fitness function 1, and the preamble.** This section previously opened
 > *"the single best thing in a codebase examined during design is its AST boundary checker"* and
 > specified FF1 as *"lifted almost verbatim from it."* It is not the best thing there and it must

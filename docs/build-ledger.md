@@ -6043,8 +6043,8 @@ schedule them.
 - [ ] **10.1** the catalogue row, its correction block, the pipeline document and the module
   docstring make the same claims about `raptor`, and every *"proven in `<file>`"* among them names an
   assertion that file makes · owner `10` §1.2; `weft_retrieve/pipelines/index-with-raptor.yaml`;
-  `paper-to-plugin` → step 6 · turns on *a catalogue row claims no mode, variant or proof its plugin
-  and its cited file do not carry* (numbered when filed) · sha — · three overclaims verified
+  `paper-to-plugin` → step 6 · turns on **fitness function 26** — *a catalogue row claims no
+  configuration its plugin has not got, and no proof its cited file does not make* · sha — · three overclaims verified
   2026-09-06 (`L9.30`, `L9.31`, `L9.38`). Two are repaired in `10` by this planning pass — the row (now
   `10:163`; `:148` until today) no longer annotates a `mode:` `RaptorConfig` does not carry (`raptor.py:132-171`, seven
   fields, none of them it) or claims recursion and descent no code performs; the block (`:143-149`)
@@ -6059,6 +6059,46 @@ schedule them.
   construction (`pgvector_store.py:764` deletes on `ANY(sources)`, and `Node.combine` derives
   `sources` as the union of members'), and *by construction* is exactly what "not merely asserted of
   the type" promised to exceed
+  · **Done, and the fitness function this line turns on is numbered 26.** Written by hand rather
+  than dispatched: there was no implementation to make pass — one document paragraph was wrong, one
+  proof was missing, and the rest is a check.
+
+  **The pipeline document changed and the plugin did not, which is the whole finding.**
+  `index-with-raptor.yaml` told an operator that a second level *"is a second stage naming it
+  again, which is a document edit and not a plugin change"*, and `raptor.py:58-70` says in bold
+  that chaining `embed`, `raptor`, `embed`, `raptor` does **not** build a correct deeper tree — the
+  linear runner threads the cumulative node set forward, nothing filters on `Lineage` or on the
+  marker the plugin attaches, so the second stage would cluster a leaf with the summary built from
+  it. The plugin was right. The rung now says so and points at 10.7, and says depth will be
+  demonstrated by a new derived document rather than by restoring the sentence.
+
+  **The proof the catalogue owed exists**, in
+  `tests/integration/test_raptor_cascade_delete.py` — container only, no credential, `hash` and
+  `scripted`, so it runs in the ordinary gate, which is where a proof a document cites belongs. Two
+  tests: a cluster built deliberately **across two documents**, where deleting one must take the
+  summary and leave the other document's own leaf standing; and the single-document case asserted
+  through `store.count() == 0`, because the failure `04` category A describes is a node **nobody
+  holds an id for** and `get` can only ask about ids the caller already has. Watched failing
+  against a planted regression — `Node.combine` narrowed to the last member's `sources` instead of
+  the union — where the two-document test goes red and the single-document one stays green, which
+  is why the cross-document case is the load-bearing one.
+
+  **Fitness function 26** (`tests/architecture/test_ff26_catalogue_claims_are_carried.py`, `01` →
+  *Fitness functions* 26) holds both kinds of claim `10` makes that a machine can check. *(a)* A
+  configuration annotation in a row's name column names a field the plugin's registered
+  `config_model` carries and advertises only values that model accepts — asked by constructing it
+  and reading the error's own `loc`, never by re-deriving what an `Enum` or a union would take.
+  *(b)* A proof claim is written as `` proven in `<path>` (`<needle>`) `` and the cited file
+  contains that literal string. **The needle is the design decision**: FF17 proves a path resolves
+  and its own docstring says it can never prove the file says what the sentence claims; this makes
+  the author name the string instead, which costs a parenthesis and makes the sentence falsifiable.
+  Quotations are excluded from the prose half because this document corrects itself *by quoting the
+  sentence it withdraws* — measured before adopting it: 106 double quotes, 53 balanced spans, the
+  longest 146 characters, every proof word today inside one. Claims are matched with wrapping and
+  blockquote markers folded away, after the first draft silently matched nothing on a claim that
+  wrapped across two `> ` lines — `L10.7`'s shape, one file over, caught here by the vacuity floor
+  rather than by luck. Both waivers pinned empty; both clauses carry a floor; the plant test is
+  named `test_the_check_can_actually_fail` and fires all three assertions
 - [ ] **10.2** no member's content is dropped from a summary without the summary recording it ·
   owner `10` §1.2 → the `raptor` row; `raptor.py` module docstring · turns on — · sha — ·
   `_format_cluster` slices every member to an even share of `max_cluster_chars` (`raptor.py:321`,
@@ -6246,6 +6286,38 @@ schedule them.
   the difference. The languages and metrics of the four papers are not Weft's corpus — every
   measurement in the set is English or Japanese/English QA, and only Chucri uses an LLM judge — so no
   paper number is a prediction of this one
+
+**Group C — the worked examples. Added 2026-09-07 by the owner, as scope this section did not
+carry.** `09` §6.4 item 3: work nobody can tick is work nobody did, so added scope gets task lines
+naming the phase that owns it and the demonstration that discharges it, rather than being done off
+the ledger. **Neither is a test.** Each is a real run of the shipped `weft` binary from a directory
+that is not this repository, with its actual output pasted into its own entry — the distinction
+`phase-step` → *Finish* item 4 exists for, and the one all four of Phase 3's repairs were found on
+the wrong side of. Between them they must exercise both store backends, both embedders, two
+extractors and **both branches of 10.9**, so no branch of this phase ships having never executed.
+
+- [ ] **10.16** a plain text or markdown corpus is indexed through `index-with-raptor` and answered
+  through `raptor-and-leaves-rrf`, from outside this repository, with the tree visible — the
+  summaries, the level each one states, and an answer citing one · owner `08` → the manuals;
+  `weft_retrieve/pipelines/index-with-raptor.yaml` · turns on — · sha — · **the flagless run is the
+  point.** This is the example that must work under the *default* configuration, which is the
+  invocation nobody runs on purpose and every user runs first (`L9.64`) — and under the default
+  embedder the shipped rung builds **zero** summaries and says nothing about it
+  (`index-with-raptor.yaml:25-33`), so either the example is not flagless or that silence is the
+  first thing the example finds. Depends on 10.6 for a level a reader can see and on 10.9 for what
+  `auto` does under `hash`, which is where the degeneracy check either fires loudly or this
+  example's own default is a lie
+- [ ] **10.17** a PDF carrying figures and tables is indexed so that Phase 9's `TABLE` and `IMAGE`
+  nodes reach the summariser, and a cluster containing a non-text node produces a summary by 10.11's
+  stated rule — run, not asserted · owner `11` §2.4; the *Phase 10 note*s on 9.2, 9.6, 9.7, 9.11 and
+  9.14 · turns on — · sha — · **depends on 10.11**, and is what makes 10.11 a demonstration rather
+  than a sentence: five Phase 9 lines carry a note waiting on that rule and none of them can see
+  whether it fired. Needs the vision path configured in `weft.toml` — `[packs.openai] api_key`, not
+  an environment variable alone (`R9.6`'s neighbour, and `L9.87`'s whole subject: every unit test on
+  both sides of `describe-figure` injected a double, so the capability shipped dead). Varies the
+  adapters against 10.16 deliberately — the other store, the other embedder, the other extractor —
+  because a demonstration that repeats the first one's configuration proves the configuration, not
+  the capability
 
 **Conditional — recorded with what would schedule them, and not scheduled.**
 

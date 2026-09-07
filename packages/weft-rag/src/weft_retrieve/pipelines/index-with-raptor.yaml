@@ -16,11 +16,19 @@ extends: index-text
 # **Before `embed`, for the same reason as `index-with-questions`** — `Node.combine` carries no
 # embedding, so the summaries are vectorised only because `embed` runs after this stage.
 #
-# **One level of summary, and that is this document's choice rather than the plugin's limit.**
-# `raptor` summarises what it is handed and does not recurse; a second level is a second stage
-# naming it again, which is a document edit and not a plugin change. Sarthi et al. build a tree
-# of several levels — this rung builds the first, and says so rather than borrowing the paper's
-# depth in its name.
+# **One level of summary, and it is the plugin's limit rather than this document's choice.**
+# Corrected 2026-09-07 at ledger task 10.1. This paragraph used to say a second level "is a second
+# stage naming it again, which is a document edit and not a plugin change", and told an operator to
+# make one. It is not true and the plugin says so in bold: `weft_index.raptor`'s module docstring,
+# *"Chaining `embed`, `raptor`, `embed`, `raptor`, ... does not yet build a correct deeper tree"* —
+# the linear runner threads the whole cumulative node set into the next stage, nothing filters on
+# `Lineage` or on the marker this plugin attaches, so a second `raptor` stage would cluster a leaf
+# together with the summary already built from it and produce a node mixing raw and abstracted
+# content. **The plugin was right and this document was wrong**, which is why the document changed:
+# a pipeline document is the surface an operator acts on, so a rung that advertises a derivation
+# nobody can safely take is worse than one that admits its ceiling. Sarthi et al. build a tree of
+# several levels; this rung builds the first. Ledger task **10.7** is where depth becomes real, and
+# it is demonstrated there by a new derived document rather than by restoring this sentence.
 #
 # **With the default `hash` embedder this rung produces no summaries at all, and says
 # nothing about it.** Measured 2026-09-05: `similarity_threshold: 0.75` against `weft-embed`'s
