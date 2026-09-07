@@ -1,0 +1,47 @@
+{
+  "task": "10.4",
+  "arm": "raptor-baseline",
+  "what_changed": "The `summarise: raptor` stage moved from `after: chunk` to `after: embed`. `raptor` now requires every node it receives to carry a vector, clusters on the vectors it is handed, makes zero embedder calls for leaves, and embeds only its own summaries \u2014 RAPTOR \u00a73's order, and the end of a doubled leaf embed on every ingest.",
+  "runs": [
+    "10b1ab5a-fd73-494d-970d-d816696f234d",
+    "4ad16762-a716-46db-936f-d10cf38c07a4",
+    "6e3d6f6f-c224-4446-beb6-b7aca031633d"
+  ],
+  "nodes_stored": [
+    1014,
+    1014,
+    1014
+  ],
+  "summaries": [
+    112,
+    112,
+    112
+  ],
+  "arm_mean": {
+    "mean_average_precision": 0.901094,
+    "ndcg@3": 0.920105,
+    "precision@3": 0.3367,
+    "recall@3": 0.962121
+  },
+  "spread_width": {
+    "mean_average_precision": 0.021465,
+    "ndcg@3": 0.024711,
+    "precision@3": 0.015152,
+    "recall@3": 0.045455
+  },
+  "pooled_with": "after-10.2",
+  "pooled_is": "10.2 and 10.4 both leave retrieval untouched \u2014 10.2 attaches `ext`, which is not embedded and which the baseline's plain top-k does not filter on, and 10.4 changes only where the vectors come from, not what they are. Their six runs are therefore six repetitions of one configuration over an identical 112-summary tree, and pooling them is the honest spread rather than a convenience.",
+  "pooled_spread_width": {
+    "mean_average_precision": 0.021465,
+    "ndcg@3": 0.024711,
+    "precision@3": 0.015152,
+    "recall@3": 0.045455
+  },
+  "pooled_arm_mean": {
+    "mean_average_precision": 0.900673,
+    "ndcg@3": 0.920542,
+    "precision@3": 0.337542,
+    "recall@3": 0.964646
+  },
+  "what_this_costs_the_baseline": "10.0 stated a minimum detectable effect of 0.012626 on mean_average_precision from three repetitions, and reported the shipped plugin moving that metric by +0.017677 \u2014 outside it, and therefore measurable. Six repetitions of one configuration span 0.021465. **The reported improvement is inside the pooled width, so it is not distinguishable from the arm repeating itself**, and the two triples that produced it span 0.0025 and 0.0215 \u2014 the same configuration, an 8.6-fold difference in the estimate. What 10.0 measured was honest and what it stated about it was too narrow: a width over three repetitions is an estimate with its own variance, and V3's machinery spends it as if it were the system's variability. 10.13 must repeat more than three times or state that its own effect could not be separated from this."
+}

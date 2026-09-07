@@ -70,17 +70,45 @@ def _node(content: str) -> Node:
     )
 
 
+#: What `_StubEmbedder` gives a node whose content is not in its table — a summary, which no
+#: test can predict the text of. Its value is never asserted on; what matters is that a summary
+#: comes back carrying *a* vector.
+_SUMMARY_VECTOR = Vector(values=(0.5, 0.5))
+
+
+def _embedded(nodes: Sequence[Node], vectors: Mapping[str, Vector]) -> tuple[Node, ...]:
+    """`nodes` carrying the vectors the `embed` stage would have given them.
+
+    **Task 10.4 moved that stage in front of `raptor`**, so a payload reaching this plugin
+    already carries its embeddings and the plugin makes no embedder call for a leaf. Handing
+    over unembedded nodes is now a stage-order mistake and is refused, which is what
+    `test_a_node_without_a_vector_is_refused_by_name` exercises deliberately.
+    """
+    return tuple(node.with_embedding(vectors[node.content]) for node in nodes)
+
+
 class _StubEmbedder:
     """An `Embedder` answering from a fixed content-to-vector table — `test_routing.py`'s
-    own `_StubEmbedder`, one field over."""
+    own `_StubEmbedder`, one field over.
+
+    Since 10.4 this serves the **summaries** rather than the leaves, so it must answer for
+    content no test wrote: anything absent from the table gets `_SUMMARY_VECTOR`. `seen`
+    records every payload it was handed, which is how a test asserts that the leaves never
+    reached it.
+    """
 
     def __init__(self, vectors: Mapping[str, Vector]) -> None:
         self._vectors = vectors
+        self.seen: list[tuple[Node, ...]] = []
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
         del ctx
+        self.seen.append(tuple(payload))
         return Produced(
-            value=[node.with_embedding(self._vectors[node.content]) for node in payload]
+            value=[
+                node.with_embedding(self._vectors.get(node.content, _SUMMARY_VECTOR))
+                for node in payload
+            ]
         )
 
 
@@ -163,7 +191,9 @@ def _ctx(*, embedder: object, llm: object | None = None, prompts: object | None 
 async def test_a_tight_cluster_is_summarised_and_a_singleton_is_left_alone() -> None:
     # Arrange — A and B cluster tightly; C stands alone, below `min_cluster_size`.
     a, b, c = _node("passage a"), _node("passage b"), _node("passage c")
-    embedder = _StubEmbedder({"passage a": _A, "passage b": _B, "passage c": _C})
+    table = {"passage a": _A, "passage b": _B, "passage c": _C}
+    embedder = _StubEmbedder(table)
+    a, b, c = _embedded((a, b, c), table)
     llm = _ScriptedLLM([_reply("A summary of A and B.")])
     summarizer = RaptorSummarizer()
 
@@ -180,7 +210,12 @@ async def test_a_tight_cluster_is_summarised_and_a_singleton_is_left_alone() -> 
     assert len(derived) == 1
     summary = derived[0]
     assert summary.content == "A summary of A and B."
-    assert summary.embedding is None  # `Expander` derives text; embedding is a later stage
+    assert summary.embedding is not None, (
+        "the summary came back with no vector. Since task 10.4 this plugin runs *after* the "
+        "`embed` stage and nothing downstream will vectorise its output, so a summary "
+        "without one is stored and silently unretrievable — which is worse than the double "
+        "embed the move was made to remove."
+    )
     # **The membership, and then the *canonical* order — not the order they arrived in.**
     # This assertion read `== (a.id, b.id)` until task 10.3, which is the order the two nodes
     # happened to be handed over in and a fact no document ever stated. Sorting the clusterer's
@@ -208,14 +243,14 @@ async def test_a_failed_summary_leaves_its_cluster_retrievable_and_its_sibling_u
         _node("gamma passage c"),
         _node("gamma passage d"),
     )
-    embedder = _StubEmbedder(
-        {
-            "alpha passage a": _A,
-            "alpha passage b": _B,
-            "gamma passage c": _C,
-            "gamma passage d": _D,
-        }
-    )
+    table = {
+        "alpha passage a": _A,
+        "alpha passage b": _B,
+        "gamma passage c": _C,
+        "gamma passage d": _D,
+    }
+    embedder = _StubEmbedder(table)
+    a, b, c, d = _embedded((a, b, c, d), table)
     # Refusal is keyed on the cluster's own text, so it holds for the retry too — a single
     # `Failed` no longer degrades a cluster, because the halve-and-retry branch gets a second
     # attempt. What this test is about is a cluster that cannot be summarised *at all*.
@@ -254,11 +289,15 @@ async def test_an_embedder_outage_fails_the_run_rather_than_degrading_to_unchang
             del payload, ctx
             return Failed(reason="401 unauthorized")
 
-    a, b = _node("passage a"), _node("passage b")
+    a, b = _embedded((_node("passage a"), _node("passage b")), {"passage a": _A, "passage b": _B})
     summarizer = RaptorSummarizer()
 
-    # Act
-    outcome = await summarizer.run((a, b), _ctx(embedder=_BrokenEmbedder()))
+    # Act — the leaves arrive embedded and the model answers, so the run reaches the one embedder
+    # call this plugin still makes since task 10.4: its own summaries. That is where the outage
+    # lands now, and the summary has to exist before there is anything to embed.
+    outcome = await summarizer.run(
+        (a, b), _ctx(embedder=_BrokenEmbedder(), llm=_ScriptedLLM([_reply("A summary.")]))
+    )
 
     # Assert — the embedder's own reason survives, and the run is `Failed`, not `Produced`.
     assert isinstance(outcome, Failed)
@@ -273,11 +312,14 @@ async def test_an_embedder_with_nothing_to_produce_also_fails_the_run() -> None:
             del payload, ctx
             return NothingToProduce(reason="embedding backend returned an empty batch")
 
-    a, b = _node("passage a"), _node("passage b")
+    a, b = _embedded((_node("passage a"), _node("passage b")), {"passage a": _A, "passage b": _B})
     summarizer = RaptorSummarizer()
 
-    # Act
-    outcome = await summarizer.run((a, b), _ctx(embedder=_EmptyEmbedder()))
+    # Act — see the sibling test above: since task 10.4 the only embedder call is the summaries',
+    # so the leaves have to arrive embedded *and* the model has to answer for the run to reach it.
+    outcome = await summarizer.run(
+        (a, b), _ctx(embedder=_EmptyEmbedder(), llm=_ScriptedLLM([_reply("A summary.")]))
+    )
 
     # Assert
     assert isinstance(outcome, Failed)
@@ -299,7 +341,9 @@ async def test_an_unmapped_prompt_name_propagates_rather_than_degrading() -> Non
     # Arrange — a `with:` block naming a prompt nobody registered is an operator mistake,
     # not a model failure, so it must not be swallowed into "no summary for this cluster".
     a, b = _node("passage a"), _node("passage b")
-    embedder = _StubEmbedder({"passage a": _A, "passage b": _B})
+    table = {"passage a": _A, "passage b": _B}
+    embedder = _StubEmbedder(table)
+    a, b = _embedded((a, b), table)
     summarizer = RaptorSummarizer(RaptorConfig(prompt="nonexistent"))
 
     # Act / Assert
@@ -314,7 +358,9 @@ async def test_raptor_runs_through_the_seam() -> None:
     """
     # Arrange
     a, b = _node("passage a"), _node("passage b")
-    embedder = _StubEmbedder({"passage a": _A, "passage b": _B})
+    table = {"passage a": _A, "passage b": _B}
+    embedder = _StubEmbedder(table)
+    a, b = _embedded((a, b), table)
     llm = _ScriptedLLM([_reply("A summary of A and B.")])
     summarizer = RaptorSummarizer()
     assert isinstance(summarizer, Expander)
@@ -364,7 +410,9 @@ async def test_a_cluster_larger_than_the_cap_is_truncated_before_the_model_sees_
     """
     # Arrange — two members of 400 characters each against a 100-character cap.
     a, b = _node("a" * 400), _node("b" * 400)
-    embedder = _StubEmbedder({"a" * 400: _A, "b" * 400: _B})
+    table = {"a" * 400: _A, "b" * 400: _B}
+    embedder = _StubEmbedder(table)
+    a, b = _embedded((a, b), table)
     llm = _RecordingLLM([_reply("A summary.")])
     summarizer = RaptorSummarizer(RaptorConfig(max_cluster_chars=100))
 
@@ -385,7 +433,9 @@ async def test_a_failed_completion_is_retried_once_with_the_cluster_halved() -> 
     """
     # Arrange — the first attempt fails; the second must be strictly smaller.
     a, b = _node("a" * 200), _node("b" * 200)
-    embedder = _StubEmbedder({"a" * 200: _A, "b" * 200: _B})
+    table = {"a" * 200: _A, "b" * 200: _B}
+    embedder = _StubEmbedder(table)
+    a, b = _embedded((a, b), table)
     llm = _RecordingLLM([Failed(reason="context length exceeded"), _reply("A smaller summary.")])
     summarizer = RaptorSummarizer()
 
@@ -404,7 +454,9 @@ async def test_a_failed_completion_is_retried_once_with_the_cluster_halved() -> 
 async def test_a_retry_that_also_fails_degrades_that_cluster_without_a_third_attempt() -> None:
     # Arrange — both attempts fail for the one cluster.
     a, b = _node("passage a"), _node("passage b")
-    embedder = _StubEmbedder({"passage a": _A, "passage b": _B})
+    table = {"passage a": _A, "passage b": _B}
+    embedder = _StubEmbedder(table)
+    a, b = _embedded((a, b), table)
     llm = _RecordingLLM([Failed(reason="nope"), Failed(reason="still nope")])
     summarizer = RaptorSummarizer()
 
@@ -429,7 +481,7 @@ async def test_concurrent_summaries_are_bounded_by_configuration() -> None:
         shared = Vector(values=tuple(1.0 if i == index else 0.0 for i in range(6)))
         table[first.content] = shared
         table[second.content] = shared
-    nodes = tuple(node for pair in pairs for node in pair)
+    nodes = _embedded(tuple(node for pair in pairs for node in pair), table)
     embedder = _StubEmbedder(table)
     llm = _RecordingLLM([])
     summarizer = RaptorSummarizer(RaptorConfig(max_concurrent_summaries=2))
@@ -450,7 +502,9 @@ async def test_every_cluster_degrading_fails_rather_than_looking_like_a_complete
     """
     # Arrange — two clusters, every attempt fails.
     a, b, c, d = _node("passage a"), _node("passage b"), _node("passage c"), _node("passage d")
-    embedder = _StubEmbedder({"passage a": _A, "passage b": _A, "passage c": _C, "passage d": _C})
+    table = {"passage a": _A, "passage b": _A, "passage c": _C, "passage d": _C}
+    embedder = _StubEmbedder(table)
+    a, b, c, d = _embedded((a, b, c, d), table)
     llm = _RecordingLLM([Failed(reason="no") for _ in range(4)])
     summarizer = RaptorSummarizer()
 
@@ -510,7 +564,7 @@ async def _tree_of(nodes: Sequence[Node]) -> tuple[Node, ...]:
     """The summaries one `raptor` run builds over `nodes`, in the order it returned them."""
     table = {node.content: _FAN[index] for index, node in enumerate(sorted(nodes, key=_fan_key))}
     outcome = await RaptorSummarizer(RaptorConfig(cluster_size=3)).run(
-        nodes, _ctx(embedder=_StubEmbedder(table), llm=_EchoLLM())
+        _embedded(nodes, table), _ctx(embedder=_StubEmbedder(table), llm=_EchoLLM())
     )
     assert isinstance(outcome, Produced), outcome
     return tuple(node for node in outcome.value if len(node.lineage.parents) > 1)
@@ -582,7 +636,9 @@ async def test_a_summary_records_its_cluster_even_when_nothing_was_dropped() -> 
     """
     # Arrange — two short members against the shipped 12,000-character budget.
     a, b = _node("passage a"), _node("passage b")
-    embedder = _StubEmbedder({"passage a": _A, "passage b": _B})
+    table = {"passage a": _A, "passage b": _B}
+    embedder = _StubEmbedder(table)
+    a, b = _embedded((a, b), table)
     llm = _RecordingLLM([_reply("A summary of A and B.")])
 
     # Act
@@ -610,7 +666,9 @@ async def test_a_summary_that_saw_only_part_of_its_cluster_records_how_much() ->
     """
     # Arrange — two 400-character members against a 100-character budget.
     a, b = _node("a" * 400), _node("b" * 400)
-    embedder = _StubEmbedder({"a" * 400: _A, "b" * 400: _B})
+    table = {"a" * 400: _A, "b" * 400: _B}
+    embedder = _StubEmbedder(table)
+    a, b = _embedded((a, b), table)
     llm = _RecordingLLM([_reply("A summary.")])
 
     # Act
@@ -640,7 +698,9 @@ async def test_the_record_describes_the_request_that_succeeded_not_the_one_that_
     """
     # Arrange — the first completion fails, the second is handed half the text.
     a, b = _node("a" * 400), _node("b" * 400)
-    embedder = _StubEmbedder({"a" * 400: _A, "b" * 400: _B})
+    table = {"a" * 400: _A, "b" * 400: _B}
+    embedder = _StubEmbedder(table)
+    a, b = _embedded((a, b), table)
     llm = _RecordingLLM([Failed(reason="too long"), _reply("A summary.")])
 
     # Act
@@ -660,4 +720,122 @@ async def test_the_record_describes_the_request_that_succeeded_not_the_one_that_
     assert facts.characters_shown == second, (
         "the record describes the first, larger request — the one that failed and whose text "
         "the summary is not built on"
+    )
+
+
+# --- Ledger task 10.4 — every leaf embedded once per ingest, every summary carrying a vector.
+
+
+async def test_a_node_without_a_vector_is_refused_by_name() -> None:
+    """The precondition, and the first one any `Expander` in this tree has had.
+
+    RAPTOR §3 (p.3) puts embedding *before* clustering — *"The chunks and their corresponding
+    SBERT embeddings form the leaf nodes of our tree structure"* — and Weft shipped the inverse,
+    with `raptor` embedding the whole payload itself and returning it unembedded for the `embed`
+    stage to do again. A paid embedder's leaf cost, twice per ingest, disclosed nowhere. The stage
+    moves after `embed`, which means a node can now arrive without the thing this plugin needs,
+    and **that is a stage-order mistake in an operator's own document** — so the refusal has to
+    name the order and the remedy, not merely the absence. `01` requirement 5's rule, applied to a
+    condition rather than to a name.
+    """
+    # Arrange — one of the two nodes never went through an embedder.
+    a, b = _node("passage a"), _node("passage b")
+    embedded_a = a.with_embedding(_A)
+
+    # Act
+    outcome = await RaptorSummarizer().run(
+        (embedded_a, b), _ctx(embedder=_StubEmbedder({}), llm=_ScriptedLLM([]))
+    )
+
+    # Assert — the fact, then the two things an operator needs in order to act on it.
+    assert isinstance(outcome, Failed), (
+        "a node with no vector was accepted. Clustering it is impossible and silently dropping "
+        "it would make a run over half a corpus look like a complete one."
+    )
+    assert "embed" in outcome.reason, (
+        f"the refusal does not name the stage whose absence caused it: {outcome.reason!r}"
+    )
+    assert NAME in outcome.reason
+    assert "1" in outcome.reason, "the refusal does not say how many nodes arrived unembedded"
+
+
+async def test_the_embedder_is_asked_for_the_summaries_and_never_for_a_leaf() -> None:
+    """*"Every leaf is embedded once per ingest"* — measured as embedder calls, which is the
+    only way it can be measured: neither shipped `Embedder` skips a node that already carries a
+    vector (`weft_embed/hash_embedder.py`, `weft_openai/embedder.py` both call `with_embedding`
+    unconditionally), so *once* is a property of the stage order and of what this plugin asks
+    for, never of the embedder's own restraint.
+    """
+    # Arrange
+    table = {"passage a": _A, "passage b": _B}
+    a, b = _embedded((_node("passage a"), _node("passage b")), table)
+    embedder = _StubEmbedder(table)
+
+    # Act
+    outcome = await RaptorSummarizer().run(
+        (a, b), _ctx(embedder=embedder, llm=_ScriptedLLM([_reply("A summary of A and B.")]))
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    summaries = [node for node in outcome.value if len(node.lineage.parents) > 1]
+    assert len(embedder.seen) == 1, (
+        f"the embedder was called {len(embedder.seen)} time(s); this plugin makes exactly one "
+        f"call, for its own summaries"
+    )
+    assert [node.content for node in embedder.seen[0]] == [node.content for node in summaries], (
+        "the embedder was handed something other than exactly this run's summaries — a leaf "
+        "among them is the doubled bill this task exists to remove"
+    )
+
+
+async def test_the_leaves_come_back_exactly_as_they_arrived() -> None:
+    """`Expander`'s own contract: every node handed in continues, unchanged, into the output.
+
+    Before 10.4 that was false in a way nothing noticed — `raptor` returned the objects it was
+    handed while having embedded copies of them internally, so the claim held by accident. Now
+    it holds because the plugin touches them not at all, and this asserts identity rather than
+    equality, which is the only assertion that can tell those two apart.
+    """
+    # Arrange
+    table = {"passage a": _A, "passage b": _B}
+    a, b = _embedded((_node("passage a"), _node("passage b")), table)
+
+    # Act
+    outcome = await RaptorSummarizer().run(
+        (a, b),
+        _ctx(embedder=_StubEmbedder(table), llm=_ScriptedLLM([_reply("A summary of A and B.")])),
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert outcome.value[0] is a
+    assert outcome.value[1] is b
+
+
+async def test_a_summary_the_embedder_could_not_vectorise_fails_the_run() -> None:
+    """A summary stored without a vector is retrievable by nothing, and nothing downstream will
+    give it one now that this stage runs after `embed`. Degrading a *cluster* is this contract's
+    posture; producing a node that cannot be found is not a degradation, it is a silent loss.
+    """
+
+    # Arrange — the embedder answers for nothing at all.
+    class _EmptyOnSummaries:
+        async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+            del ctx
+            return Produced(value=[node for node in payload])  # returned, never embedded
+
+    table = {"passage a": _A, "passage b": _B}
+    a, b = _embedded((_node("passage a"), _node("passage b")), table)
+
+    # Act
+    outcome = await RaptorSummarizer().run(
+        (a, b),
+        _ctx(embedder=_EmptyOnSummaries(), llm=_ScriptedLLM([_reply("A summary of A and B.")])),
+    )
+
+    # Assert
+    assert isinstance(outcome, Failed), (
+        "a summary came back with no vector and the run reported success. It is stored, it is "
+        "unretrievable, and nothing says so — which is the silent-fallback shape CLAUDE.md names."
     )

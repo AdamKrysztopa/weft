@@ -326,3 +326,36 @@ def test_every_remeasurement_states_the_numbers_its_own_records_produce() -> Non
         assert statement["spread_width"] == pytest.approx(_spread_widths(repetitions), abs=5e-7), (
             directory.name
         )
+
+
+def test_a_pooled_spread_is_the_one_both_its_directories_produce() -> None:
+    """A re-measurement may pool with another whose configuration is retrieval-identical, and
+    the pooled width is the number a later phase will plan against.
+
+    `10.4`'s statement does exactly that, and it is the one number in this artefact that
+    contradicts `measurement.json`: six repetitions of one configuration span more than twice
+    what three of them did, which puts `10.0`'s reported improvement back inside the noise. A
+    figure that important is not left as prose — it is recomputed here from the runs in both
+    directories, so it cannot drift from them or quietly lose one.
+    """
+    for directory, statement in _remeasurements():
+        pooled_with = statement.get("pooled_with")
+        if pooled_with is None:
+            continue
+
+        # Arrange
+        sibling = REMEASUREMENTS / pooled_with
+        sibling_statement = json.loads((sibling / "remeasurement.json").read_text("utf-8"))
+        repetitions = tuple(
+            load_run_record(directory / f"{run_id}.json") for run_id in statement["runs"]
+        ) + tuple(
+            load_run_record(sibling / f"{run_id}.json") for run_id in sibling_statement["runs"]
+        )
+
+        # Assert
+        assert len(repetitions) > len(statement["runs"]), (
+            f"{directory.name} claims to pool with '{pooled_with}' and gained no repetitions"
+        )
+        assert statement["pooled_spread_width"] == pytest.approx(
+            _spread_widths(repetitions), abs=5e-7
+        ), f"{directory.name}'s pooled width is not what its two directories' runs span"

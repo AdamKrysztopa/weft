@@ -137,14 +137,22 @@ def _services() -> ServiceRegistry:
 
 
 async def _summarised(leaves: Sequence[Node]) -> tuple[Sequence[Node], Node]:
-    """Every node a real `raptor` run produced over `leaves`, and the one summary among them."""
+    """Every node a real `raptor` run produced over `leaves`, and the one summary among them.
+
+    The leaves are embedded here, by the same `hash` embedder the run's own services carry,
+    because since ledger task **10.4** `raptor` sits *after* the `embed` stage and refuses a node
+    that arrives without a vector. This function is standing in for that stage.
+    """
     # `similarity_threshold: 0.0` and a `cluster_size` covering the whole slice put every node in
     # one cluster whatever `hash` happens to say about their similarity — see the module
     # docstring. `min_cluster_size: 2` is the shipped default and is kept.
     summariser = RaptorSummarizer(
         RaptorConfig(cluster_size=4, min_cluster_size=2, similarity_threshold=0.0)
     )
-    outcome = await summariser.run(leaves, _ctx(_services()))
+    services = _services()
+    embedded = await HashEmbedder().run(leaves, _ctx(services))
+    assert isinstance(embedded, Produced), f"the fixture could not embed its own leaves: {embedded}"
+    outcome = await summariser.run(embedded.value, _ctx(services))
     assert isinstance(outcome, Produced), f"'{RAPTOR_NAME}' produced nothing to store: {outcome}"
     summaries = [node for node in outcome.value if len(node.lineage.parents) > 1]
     assert len(summaries) == 1, (

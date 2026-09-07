@@ -446,6 +446,60 @@ to keep the papers on disk so a derived claim stays re-checkable, and this is th
 re-check caught. That is evidence for `L10.2`'s rule and an argument for scheduling its
 implementation rather than leaving it queued.
 
+### L10.16 — the test double ran out of script and raised `IndexError` instead of saying so
+
+**What happened.** 10.4 moves `raptor`'s one `Embedder` call from the leaves to the summaries, so
+two existing tests about an embedder outage had to be re-pointed: their leaves now arrive embedded,
+and the run must get as far as *generating a summary* before there is anything to embed. I rewrote
+their payloads and their comments and left `_ctx(...)` without an `llm=`, which defaults to
+`_ScriptedLLM([])`. `_ScriptedLLM.complete` indexes its reply list by call number
+(`self._replies[len(self.calls) - 1]`), so an empty script does not return an `Outcome` — it raises
+`IndexError: list index out of range`. The dispatched implementer, whose brief forbids editing a
+test, correctly returned **blocked**, and had to reconstruct from the traceback that the stub had
+run dry rather than that the implementation was wrong. The repair is one argument in each test.
+
+**Generalises to.** *A test double that answers from a script must fail, when the script runs out,
+with a message naming itself and the call it could not answer — an `IndexError` out of a stub is a
+defect report about the wrong module, and the reader who gets it is usually the one least able to
+tell.* The cost is asymmetric: the author of the stub always has the context to read the traceback,
+and the caller who trips it — a later test, or an agent forbidden from touching either — does not.
+
+**Candidate home.** `_ScriptedLLM` in `tests/unit/weft_index/test_raptor.py`, and its siblings:
+`grep -rn "self._replies\[" tests/` finds how many scripted doubles in this tree index a list by
+call count, which is the population to measure before deciding whether this is one repair or a
+convention. `tests/unit/weft_index/test_raptor.py`'s own `_RefusingLLM` docstring already argues
+that *"a test that scripts by index is really asserting a scheduling accident"* — the same file
+knows the hazard and the sibling stub still has it.
+
+### L10.17 — the spread was estimated from three runs, and the estimate has more spread than the thing it measures
+
+**What happened.** 10.0 took a baseline: three repetitions of each arm, and a minimum detectable
+effect derived from the width their means spanned — `mean_average_precision` **0.012626**. It
+reported the shipped one-level `raptor` moving that metric by **+0.017677**, outside the width and
+therefore measurable. Re-measuring after 10.2 and again after 10.4 produced two more triples of a
+configuration that is **retrieval-identical** to each other — 10.2 attaches `ext`, which is not
+embedded and which the plain top-k does not filter on; 10.4 changes where the vectors come from,
+not what they are; both trees are the same 112 summaries over the same 1,014 nodes. Their widths:
+**0.0025** and **0.0215**. Same configuration, same corpus, same embedder, an **8.6-fold**
+difference in the estimate. Pooled over the six, the width is 0.021465 — and **+0.017677 is inside
+it**, so the phase's headline improvement is not distinguishable from the arm repeating itself.
+
+**Generalises to.** *An interval taken over n repetitions is a random variable with its own
+spread, and at n = 3 that spread can exceed the quantity being estimated — so a tolerance derived
+from repetitions carries the number of them, and a claim judged against it is only as strong as
+that n.* `09` §4.3's derivation is right that the system's own variability is the honest tolerance;
+what it does not say, and what `weft_eval.falsify` cannot know, is that three points measure that
+variability badly enough to invert a verdict. `L10.4` is the neighbouring half — a verdict flips
+with *which* repetition is compared; this is the width itself moving.
+
+**Candidate home.** `weft_eval.falsify.BaselineSpread` already refuses fewer than two repetitions,
+with V3's own failure clause as the reason; the same argument reaches further than two, and the
+model carries `means` so `len(means)` is in hand at every use. A `DifferenceJudgement` whose
+`spread` rests on three points could say so in its `reason`, the way the zero-width case already
+does (`L8.17`, `weft_cli.render._falsification_line`) — that precedent is exact: a number that is
+technically an interval and not yet evidence, printed with what is wrong with it. Task **10.13**
+is the first caller that must not repeat this, and its ledger line should carry the n.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

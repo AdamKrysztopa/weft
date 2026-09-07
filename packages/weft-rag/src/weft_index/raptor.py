@@ -57,17 +57,44 @@ least-evidenced component of any of them, and the divergence from UMAP+GMM state
 stands.
 
 **One level per invocation, and today that is all this plugin claims.** A summary
-`Node.combine` builds carries no embedding (`Node.combine`'s own docstring: parents are
-explicit, content is new, an embedding is not carried over) — clustering the summaries this
-call just produced would need embedding them first, and this plugin already needs
-`ctx.require(Embedder)` once per call for the leaves it was handed (the same ambient-service
-pattern `weft_retrieve.routing.NearestDescriptionPolicy` already uses in production code, not
-a new precedent). Rather than embedding its own output mid-call — which would make one
-`Expander.run` silently do a variable number of `Embedder` calls depending on how deep
-clustering happened to go, the exact "cost depends on what's in the batch" shape
-`hypothetical-questions`'s own module docstring already rejected for a different reason —
-`max_levels` is not a field on this plugin: depth is left to the caller rather than looped
-internally.
+`Node.combine` builds carries no embedding — `Node.combine`'s own docstring says only that
+its parents are explicit and never empty; it is `Node.derive`'s docstring that states the
+"embedding is not carried over" rule, corrected here after `docs/lessons.md` L10.14 found the
+attribution wrong. Either way, a freshly combined summary starts with no vector of its own.
+`max_levels` is still not a field on this plugin: chaining levels stays the caller's job
+(`Expander.run` does not loop internally), not this plugin's.
+
+**Embedding order, corrected against the paper rather than around it (task 10.4).** RAPTOR §3
+(p.3): "The chunks and their corresponding SBERT embeddings form the leaf nodes of our tree
+structure," then clustering runs on those embeddings, and "[o]nce clustered, a Language Model
+is used to summarize the grouped texts. These summarized texts are then re-embedded, and the
+cycle of embedding, clustering, and summarization continues." And p.4, flatly: "we embed all
+nodes using SBERT." Embedding is a precondition of clustering, not something this plugin
+computes in order to cluster — and a summariser re-embeds only what it just wrote. Weft
+shipped the inverse: this plugin embedded the whole payload itself to cluster it, returned the
+original nodes unembedded, and the `embed` stage downstream embedded every leaf a second time
+— a doubled bill against a paid account, disclosed nowhere. Since 10.4, every node this plugin
+is handed must already carry the embedding the `embed` stage gave it — `run` refuses a payload
+that does not, by name, before any clustering or any prompt — clustering spends no `Embedder`
+call at all, and this plugin makes exactly one `Embedder` call of its own: on the summaries it
+just wrote, in one batch, before returning (`_embed_summaries`, below). A leaf is embedded
+once per ingest; a summary is embedded once, by the plugin that authored it.
+
+An earlier version of this section argued against a plugin embedding its own output, on the
+grounds that it would make one `Expander.run` silently do a variable number of `Embedder`
+calls depending on how deep clustering happened to go. **That argument is withdrawn**: it was
+about *internal* recursion — embedding level after level inside a single call while depth
+looped internally — and a single batch call over one level's own summaries, once, is not that
+shape. Nothing about depth changed here; `max_levels` is still not a field on this plugin,
+chaining levels stays the caller's job.
+
+**The input precondition, named because it is new.** No other `Expander` this pack ships
+requires anything of the vectors on the nodes it is handed — `hypothetical-questions` reads
+only `content` and `media_type`. This plugin is the first with a real precondition, because
+clustering needs a vector to compare and cannot manufacture one honestly. That precondition
+is a real cost stated in the open rather than hidden in a stage-order convention: a pipeline
+document that puts `raptor` before `embed` no longer silently degrades to "no clustering
+happened," it fails, naming the stage that has to move.
 
 **Chaining `embed`, `raptor`, `embed`, `raptor`, ... does not yet build a correct deeper
 tree, and this module does not claim that it does.** `weft_kernel.runner`'s linear runner
@@ -216,10 +243,18 @@ class RaptorSummarizer:
         if not payload:
             return NothingToProduce(reason="no nodes to cluster into summaries")
 
-        embedded_outcome = await self._embed(payload, ctx=ctx)
-        if isinstance(embedded_outcome, Failed):
-            return embedded_outcome
-        embedded = embedded_outcome.value
+        unembedded = sum(1 for node in payload if node.embedding is None)
+        if unembedded:
+            return Failed(
+                reason=(
+                    f"'{NAME}' received {unembedded} node(s) with no embedding out of "
+                    f"{len(payload)}. This plugin clusters by the vectors it is handed and no "
+                    f"longer computes them itself, so it must run after the 'embed' stage, not "
+                    f"before it — move the '{NAME}' stage in the pipeline document to follow "
+                    f"'embed' and re-run"
+                )
+            )
+        embedded = tuple((node, node.embedding) for node in payload if node.embedding is not None)
         clusters = _cluster_by_similarity(
             embedded,
             cluster_size=self._config.cluster_size,
@@ -259,13 +294,17 @@ class RaptorSummarizer:
                     f"summary request degraded, so the tree gained no level"
                 )
             )
-        return Produced(value=(*payload, *derived))
+        embedded_derived = await self._embed_summaries(derived, ctx=ctx)
+        if isinstance(embedded_derived, Failed):
+            return embedded_derived
+        return Produced(value=(*payload, *embedded_derived.value))
 
-    async def _embed(
-        self, payload: Sequence[Node], *, ctx: Context
-    ) -> Produced[tuple[tuple[Node, Vector], ...]] | Failed:
-        """`payload` paired with its own embedding, for whichever nodes an `Embedder` could
-        actually embed.
+    async def _embed_summaries(
+        self, summaries: Sequence[Node], *, ctx: Context
+    ) -> Produced[tuple[Node, ...]] | Failed:
+        """`summaries`, each carrying the embedding RAPTOR §3 (p.4) requires of every node —
+        *"we embed all nodes using SBERT"* — computed here rather than by the caller, because
+        this is the one node type nothing downstream of this stage will ever vectorise.
 
         A cluster too dissimilar to summarise and an `Embedder` that could not run at all are
         different failures and must not collapse into the same result — the same distinction
@@ -274,28 +313,33 @@ class RaptorSummarizer:
         stage's own `Failed`, and `NothingToProduce` becomes a `Failed` naming what the
         embedder itself said, because an `Expander`'s "degrade, never fail the run" posture
         (`weft_index.contract.Expander`'s own docstring) covers a *cluster* nothing could be
-        generated for, not the ambient service the whole run depends on going dark. Swallowing
-        this into an empty tuple would make `run` reach its own "nothing clustered" branch and
-        answer `Produced` unchanged — indistinguishable from a corpus that genuinely has
-        nothing to cluster, which is exactly the trap `CLAUDE.md` names: a silent
-        fallback whose success and failure paths cannot be told apart.
+        generated for, not the ambient service the whole run depends on going dark. And a
+        `Produced` that still hands back a summary with no vector is the same shape by another
+        route: that summary would be stored and findable by nothing, and nothing runs after
+        this stage now to give it one — a silent loss, not a degradation.
         """
         embedder = ctx.require(Embedder)
-        outcome = await embedder.run(payload, ctx)
+        outcome = await embedder.run(summaries, ctx)
         if isinstance(outcome, Failed):
             return outcome
         if isinstance(outcome, NothingToProduce):
             return Failed(
                 reason=(
-                    f"'{NAME}' cannot cluster {len(payload)} node(s): the configured embedder "
-                    f"produced nothing for them: {outcome.reason}"
+                    f"'{NAME}' produced {len(summaries)} summary node(s) but the configured "
+                    f"embedder returned nothing for them: {outcome.reason}"
                 )
             )
-        return Produced(
-            value=tuple(
-                (node, node.embedding) for node in outcome.value if node.embedding is not None
+        unembedded = sum(1 for node in outcome.value if node.embedding is None)
+        if unembedded:
+            return Failed(
+                reason=(
+                    f"'{NAME}': the configured embedder returned {unembedded} of "
+                    f"{len(summaries)} summary node(s) with no vector — a summary stored "
+                    f"without one is unretrievable, and nothing downstream of '{NAME}' will "
+                    f"embed it"
+                )
             )
-        )
+        return Produced(value=tuple(outcome.value))
 
     async def _summarize(
         self, members: Sequence[Node], *, prompts: Prompts, llm: LLM, ctx: Context

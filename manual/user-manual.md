@@ -136,9 +136,14 @@ fallback of its own. `contradiction-aware` and `draft-then-refine` replace the g
 **Six ingest rungs**, for `weft index --pipeline`. `index-text` is the root — extract, normalise
 whitespace, chunk, embed, store. `index-messy-text` adds the three cleaners that repair converter
 damage; `index-polish` adds a Polish-specific one on top of that. `index-with-keywords`,
-`index-with-questions` and `index-with-raptor` each insert one enrichment stage before `embed`, and
-*before* is load-bearing: a stage that creates new nodes after the embed stage stores them
-unsearchable.
+`index-with-questions` and `index-with-raptor` each insert one enrichment stage, and **where it goes
+is decided by whether that stage embeds what it creates**. `index-with-keywords` and
+`index-with-questions` insert *before* `embed`, and *before* is load-bearing for them: neither
+plugin embeds anything, so a node they create after the embed stage would be stored unsearchable.
+`index-with-raptor` inserts *after* `embed`, because `raptor` clusters by the vectors it is handed
+and embeds its own summaries — the order its source paper specifies, and the one that stops every
+leaf being embedded twice per ingest. Put it back before `embed` in a derived document and it
+refuses by name rather than silently clustering nothing.
 
 **Two alternative routers**, selected with `[services] route` — see
 `manual/operations-guide.md` → *Choosing which router decides*.

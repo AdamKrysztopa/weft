@@ -6231,6 +6231,66 @@ schedule them.
   and the docstring records the withdrawal beside the claim it replaces. **10.7 inherits the good
   case**: `embed`, `raptor`, `raptor` re-embeds nothing, since each rung embeds only what it
   created
+  · **Built, and the document moved with the plugin.** `raptor` checks the precondition after the
+  empty-payload branch and before any clustering or any prompt, so a stage-order mistake costs
+  nothing; the refusal names the plugin, how many nodes of how many arrived without a vector, the
+  `embed` stage, and the move that fixes it. `_embed` is gone and `_embed_summaries` replaces it —
+  one call, on the summaries only, after they are written. A `Failed` or `NothingToProduce` from
+  it becomes the run's `Failed`; **so does a `Produced` that hands back a summary still lacking a
+  vector**, which is a separate branch from the outcome type and is the one that matters, because
+  nothing runs after this stage now to give it one. `index-with-raptor.yaml` inserts `after:
+  embed`, and its *"Before `embed`, for the same reason as `index-with-questions`"* paragraph is
+  replaced by the reason the two rungs now differ: `hypothetical-questions` embeds nothing, so its
+  output must be created before `embed`; `raptor` embeds what it creates, so it may sit after.
+  `manual/user-manual.md`'s *"each insert one enrichment stage before `embed`, and before is
+  load-bearing"* said one rule for three rungs and now says the rule that decides where each goes.
+  `10` §1.2's chaining warning is re-scoped to the **second** `raptor` in a chain, since the
+  shipped rung is now the first. `raptor.py:60-61`'s misattributed quotation is corrected in the
+  same pass (`L10.14`).
+
+  **Red was written before the plugin and it was incomplete, which is what the split is for.**
+  Sixteen existing tests hand `raptor` unembedded nodes; all sixteen were rewritten to embed
+  first. Two of them — the embedder-outage pair — were re-pointed at the summary embed and left
+  with an empty LLM script, so the implementer, forbidden from touching a test, hit
+  `IndexError: list index out of range` out of `_ScriptedLLM` and **returned blocked, correctly**,
+  having had to reconstruct from the traceback that the stub had run dry rather than that its own
+  code was wrong. Repaired here; filed as `L10.16`, whose finding is the stub rather than the
+  omission.
+
+  **Re-measured against 10.0 — and this is where the phase's headline number changed.** Records
+  under `eval/raptor-baseline/remeasurements/after-10.4/`. Same tree as before: 1,014 nodes, 112
+  summaries, so the move costs nothing in what is built. But **10.2's and 10.4's six runs are six
+  repetitions of one retrieval-identical configuration** — 10.2 attaches `ext`, which is not
+  embedded and which the plain top-k does not filter on; 10.4 changes where the vectors come from,
+  not what they are — and their two triples span `mean_average_precision` widths of **0.0025 and
+  0.0215**, an 8.6-fold difference for the same thing measured twice. Pooled over the six the
+  width is **0.021465**, and 10.0's reported **+0.017677** improvement is *inside* it. So the
+  shipped one-level `raptor`'s effect on this corpus is **not** distinguishable from the arm
+  repeating itself, and the baseline's claim that it was rests on an interval taken over three
+  points. Filed as `L10.17`; the pooled figure is recomputed from both directories' records by
+  `tests/docs/test_raptor_baseline.py` rather than left as prose, and **10.13 must repeat more
+  than three times or state that its own effect could not be separated from this**
+  · **Run through the shipped binary from outside this repository, both branches.** The
+  stage-order mistake constructed deliberately — a derived document putting `raptor` back before
+  `embed`, over one `pl-wiki` document, from a directory holding nothing but the corpus, a
+  four-line `weft.toml` and that document:
+
+  ```text
+  $ weft index . --pipeline raptor-before-embed
+    failed: 'raptor' received 4 node(s) with no embedding out of 4. This plugin clusters by the
+    vectors it is handed and no longer computes them itself, so it must run after the 'embed'
+    stage, not before it — move the 'raptor' stage in the pipeline document to follow 'embed'
+    and re-run
+  produced 0, nothing to produce 0, failed 1. nodes now stored: 0.
+  $ echo $?
+  1
+  ```
+
+  Nothing stored, exit **1**, and the message names the stage and the move. The same corpus
+  through the shipped `index-with-raptor` exits 0 and stores its four nodes. Before 10.4 the
+  identical mistake was not a mistake at all — the stage embedded the payload itself and the
+  order was merely wasteful — so this refusal is a capability the phase added rather than a guard
+  on one it had
 - [ ] **10.5 ⚠ D2** whether a tree is per-document or corpus-wide is a named, stated choice — in the
   row, the docstring and the pipeline document — and a corpus-wide tree says what it is a tree of ·
   owner `10` §1.2 → the `raptor` row; `01` → Phase 11 → D2 · turns on — · sha — ·

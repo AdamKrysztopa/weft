@@ -3,10 +3,11 @@
 `docs/build-ledger.md`: "a query no single chunk answers is answered from a summary node,
 and a chunk whose summary could not be generated stays retrievable — the tree degrades
 rather than the run failing." Every service in this test is real: `weft-pdf` extracts a
-real paper from `corpus/arxiv/`, `weft-chunk` splits it, `weft_index.raptor.
-RaptorSummarizer` clusters the real chunks by embedding similarity and asks the real OpenAI
-account this environment carries for one abstractive summary over the cluster, `weft-
-openai`'s embedder gives every node — chunk and summary alike — a real vector, `weft-
+real paper from `corpus/arxiv/`, `weft-chunk` splits it, `weft-openai`'s embedder gives every
+chunk a real vector, `weft_index.raptor.RaptorSummarizer` clusters those vectors and asks the
+real OpenAI account this environment carries for one abstractive summary over the cluster, then
+embeds that summary and nothing else — RAPTOR §3's own cycle, and the shipped stage order since
+ledger task 10.4, `weft-
 store`'s `pgvector` backend holds them, and `weft_generate.cited_answer.CitedAnswer` runs
 over the summary hit to prove it is cited as itself rather than crashing on a node with
 more than one parent (`weft_generate.representation`'s own multi-parent branch, written for
@@ -295,7 +296,17 @@ async def test_a_broad_query_is_answered_from_a_summary_node_cited_as_itself(
         RaptorConfig(cluster_size=len(chunks), min_cluster_size=2, similarity_threshold=0.0)
     )
     assert isinstance(raptor, Expander)
-    expand_outcome = await raptor.run(chunks, ctx)
+
+    # **Embed, then cluster — RAPTOR §3's own order, and the shipped one since ledger task
+    # 10.4.** *"The chunks and their corresponding SBERT embeddings form the leaf nodes of our
+    # tree structure"* (p.3), and the summariser re-embeds its own output. This sequence used to
+    # run the other way round, which cost every leaf a second call against this very account.
+    embed_outcome = await embedder.run(chunks, ctx)
+    assert isinstance(embed_outcome, Produced)
+    embedded_chunks = embed_outcome.value
+    assert all(node.embedding is not None for node in embedded_chunks)
+
+    expand_outcome = await raptor.run(embedded_chunks, ctx)
     assert isinstance(expand_outcome, Produced)
     expanded = expand_outcome.value
     summaries = [node for node in expanded if node.ext_as(Representation) is not None]
@@ -304,13 +315,12 @@ async def test_a_broad_query_is_answered_from_a_summary_node_cited_as_itself(
     assert len(summary.lineage.parents) == len(chunks)
     expected_sources = frozenset[SourceId]().union(*(chunk.lineage.sources for chunk in chunks))
     assert summary.lineage.sources == expected_sources
+    assert summary.embedding is not None, (
+        "the summary came back unembedded. Nothing runs after this stage to vectorise it now, "
+        "so it would be stored and found by nothing."
+    )
 
-    embed_outcome = await embedder.run(expanded, ctx)
-    assert isinstance(embed_outcome, Produced)
-    embedded = embed_outcome.value
-    assert all(node.embedding is not None for node in embedded)
-
-    await store.add(embedded)
+    await store.add(expanded)
     await store.flush()
 
     broad_question = await _broad_question(chunks, ctx=ctx)

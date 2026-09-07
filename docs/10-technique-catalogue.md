@@ -128,7 +128,10 @@ with origins, not because this file owns the phase.
 > yet build a correct deeper tree** — the second `raptor` stage would receive the whole
 > cumulative node set (original leaves plus level-1 summaries) with no filter excluding
 > already-summarised nodes, so it could re-merge a leaf with its own summary rather than
-> build a genuine next level. That filtering is future work, corrected here (2026-08-18, a
+> build a genuine next level. *(Re-scoped 2026-09-07 at task 10.4, which moved the stage after
+> `embed`: the shipped rung is now `embed` → `raptor`, so the warning above is about the **second**
+> `raptor` in such a chain and never the first. The first is what `index-with-raptor` ships, and it
+> is correct — a summary comes back already vectorised, by the plugin that wrote it.)* That filtering is future work, corrected here (2026-08-18, a
 > repair of task 2.32) after review found the claim above stated as fact what neither the
 > code nor a test actually supported. `mode: collapsed` is what this ships structurally —
 > a summary is just another node

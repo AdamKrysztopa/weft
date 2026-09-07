@@ -13,8 +13,27 @@ extends: index-text
 # guards against directly: a summary shipped with no `ref_doc_id` at all stays retrievable
 # forever after its source document is deleted, describing content that is gone.
 #
-# **Before `embed`, for the same reason as `index-with-questions`** — `Node.combine` carries no
-# embedding, so the summaries are vectorised only because `embed` runs after this stage.
+# **After `embed`, and that is the paper's own order rather than this document's preference.**
+# Changed 2026-09-07 at ledger task 10.4; this paragraph used to say *before* `embed`, "for the same
+# reason as `index-with-questions`". RAPTOR §3 (p.3): "The chunks and their corresponding SBERT
+# embeddings form the leaf nodes of our tree structure", then clustering runs over those embeddings
+# and "[o]nce clustered, a Language Model is used to summarize the grouped texts. These summarized
+# texts are then re-embedded". So embedding is a *precondition* of clustering, and the summariser
+# re-embeds its own output. Weft shipped the inverse, and the cost was real: `raptor` embedded the
+# whole payload itself in order to cluster it, returned the leaves unembedded, and the `embed` stage
+# below embedded every one of them **a second time** — neither shipped `Embedder` skips a node that
+# already carries a vector, so on a paid account that was a doubled leaf bill on every ingest,
+# disclosed nowhere including here.
+#
+# **`index-with-questions` keeps its own rule and this rung no longer shares it.** That document's
+# *before* is load-bearing for a different reason — `hypothetical-questions` derives text nodes and
+# nothing in it embeds, so a question inserted after `embed` would be stored unsearchable. `raptor`
+# is now the one `Expander` that embeds what it creates, so it is the one that may sit here. Two
+# enrichment rungs before `embed`, one after, each for a reason it states.
+#
+# **`raptor` refuses a node with no vector, by name.** It clusters by the vectors it is handed and
+# computes none, so a derived document that puts this stage back before `embed` gets a `Failed`
+# naming the stage that has to move — not a silent run that clusters nothing.
 #
 # **One level of summary, and it is the plugin's limit rather than this document's choice.**
 # Corrected 2026-09-07 at ledger task 10.1. This paragraph used to say a second level "is a second
@@ -34,7 +53,10 @@ extends: index-text
 # nothing about it.** Measured 2026-09-05: `similarity_threshold: 0.75` against `weft-embed`'s
 # deterministic hash vectors — which carry no semantic similarity by their own admission — is
 # a threshold nothing clears, so no cluster reaches `min_cluster_size` and the run reports
-# success over zero summaries. That is arguably the honest outcome (clustering meaningless
+# success over zero summaries. *(Measured under the pre-10.4 order, where the vectors came from
+# `raptor`'s own embedder call; they now arrive from the `embed` stage above, which is the same
+# `hash` plugin producing the same vectors, so the outcome is unchanged and the mechanism is one
+# stage over.)* That is arguably the honest outcome (clustering meaningless
 # vectors *should* produce nothing) and it is still a silent one, so it is stated here rather
 # than left for someone to find by an empty `raptor-and-leaves-rrf`. Configure a real embedder
 # in `[services] embed`, or lower `similarity_threshold` in a derived document if you are
@@ -43,7 +65,7 @@ extends: index-text
 # **Cost is per cluster and is not bounded by this document.** `max_concurrent_summaries: 8` is
 # the plugin's own default and is kept; ledger task 8.7 is the wider cap that is not there yet.
 insert:
-  - after: chunk
+  - after: embed
     stage:
       id: summarise
       use: raptor
