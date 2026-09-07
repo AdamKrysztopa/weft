@@ -6528,10 +6528,10 @@ schedule them.
   members in one read; RAPTOR's traversal wants immediate children; 10.7 builds each level from the
   one below, which is the argument for parents-as-previous-level, and the line records the choice
   rather than presuming it
-- [ ] **10.9 ⚠ D3** `cluster_size` stays the only cluster-size threshold; every field a paper tuned
+- [x] **10.9 ⚠ D3** `cluster_size` stays the only cluster-size threshold; every field a paper tuned
   per dataset says so in its docstring; and a default computed by a rule rather than typed by an
   operator says when it is computed and where its value lives · owner `10` §1.2 → the `raptor` row;
-  `RaptorConfig` (`raptor.py:132-171`) · turns on — · sha — · Chucri's τ_c is the same knob as
+  `RaptorConfig` (`raptor.py:132-171`) · turns on — · sha `402f252` · Chucri's τ_c is the same knob as
   `cluster_size` (`raptor.py:141`, *"the most members one cluster can hold"*) and a `tau_c` beside it
   ships one knob twice; τ_n has no analogue in a clusterer with no EM to approximate. T-Retriever's
   KDE bandwidth *h* is grid-searched per dataset and never reported (p.6); Yasuno's α = 0.7 and
