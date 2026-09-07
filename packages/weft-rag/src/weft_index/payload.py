@@ -83,10 +83,26 @@ class RaptorFacts(ExtModel):
     `0` would need every reader to know that `0` means "not one of these." T-Retriever (Wei
     et al., 2026, arXiv:2601.04945) p.5 indexes every tree node tagged with its level,
     `I = {(α, zα, lα)}`; RAPTOR itself carries no such tag because it never filters on one.
+
+    `resolved_similarity_threshold`/`resolved_cluster_size` — task **10.9** — are what this
+    run's own `auto` actually resolved a field to, computed once from the run's own payload
+    and never persisted anywhere except here, on the nodes that run produced. `None` on
+    either means the operator typed that field themselves rather than leaving it to `auto`:
+    a reader who wants to tell an operator's own number apart from one this run computed has
+    nowhere else to look, since `raptor.RaptorConfig` itself is not carried onto the node and
+    a stored `float`/`int` alone cannot say which of the two it is. See
+    `weft_index.raptor`'s own module docstring, *"`cluster_size` and `similarity_threshold`
+    are typed by an operator or resolved by `auto`"*, for how each is derived and why a
+    per-run value that is never persisted as configuration keeps `11` D3 unreached.
+
+    **No `upgrade` is implemented for this version either**, for the same reason the base
+    class's refusal was left standing at `1.1.0`: an older stored row naming neither field at
+    all is not the same claim as one that resolved them and found nothing — `None` here would
+    say the operator typed the value, which a `1.0.0`/`1.1.0` row never claimed either way.
     """
 
     __namespace__ = "weft-index-raptor"
-    __schema_version__ = "1.1.0"
+    __schema_version__ = "1.2.0"
 
     #: How many nodes the cluster held.
     members: int = Field(ge=1)
@@ -107,3 +123,11 @@ class RaptorFacts(ExtModel):
     #: rather than unfortunate — the only rows that could carry `1.0.0` were written by a
     #: development build inside this same unreleased phase.
     level: int = Field(ge=1)
+    #: What `similarity_threshold: auto` resolved to for this run, or `None` when the
+    #: operator typed the value themselves — task **10.9**. See the class docstring's own
+    #: paragraph for why a reader needs this to tell the two apart.
+    resolved_similarity_threshold: float | None = Field(default=None)
+    #: What `cluster_size: auto` resolved to for this run, or `None` when the operator typed
+    #: the value themselves — task **10.9**. Same rule as `resolved_similarity_threshold`
+    #: above.
+    resolved_cluster_size: int | None = Field(default=None)

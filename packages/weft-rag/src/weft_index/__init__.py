@@ -41,7 +41,7 @@ from weft_index.prompts import (
     SummarizeClusterRequest,
 )
 from weft_index.raptor import NAME as RAPTOR_NAME
-from weft_index.raptor import RaptorConfig, RaptorSummarizer
+from weft_index.raptor import Auto, RaptorConfig, RaptorSummarizer
 from weft_kernel.discovery import PackRegistrar
 from weft_prompts.contract import Prompt
 
@@ -72,6 +72,7 @@ __all__ = [
     "HYPOTHETICAL_QUESTIONS_NAME",
     "RAPTOR_NAME",
     "SUMMARIZE_CLUSTER_NAME",
+    "Auto",
     "Expander",
     "GenerateQuestionsPrompt",
     "GenerateQuestionsRequest",

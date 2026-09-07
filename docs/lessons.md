@@ -619,6 +619,67 @@ it refused is an echo of its own prompt. The narrow fix already landed in
 `tests/integration/test_raptor_depth.py`'s own comment, which is where the next reader of that
 value will look.
 
+### L10.22 — the degeneracy check I was about to write would have passed on the meaningless vectors
+
+**What happened.** 10.9 requires `auto` to *"fail loudly naming the embedder and the remedy"*
+where the observed similarity distribution has no structure. The obvious reading of "no structure"
+is *narrow spread* — vectors all alike, so a percentile means nothing — and that is the check I
+was about to specify. Measured first, on the same 107 real chunks embedded both ways:
+
+| | min | p10 | p50 | p75 | p90 | max | p90−p10 |
+|---|---|---|---|---|---|---|---|
+| `hash` | −0.4150 | −0.1638 | **−0.0028** | 0.0834 | 0.1607 | 0.4079 | **0.3245** |
+| `openai-embeddings` | 0.0096 | 0.3114 | **0.4328** | 0.4948 | 0.5765 | 0.8469 | **0.2651** |
+
+**The meaningless vectors have the *wider* spread.** `hash` produces near-orthogonal random
+directions in 64 dimensions, which are spread out precisely *because* they carry no shared
+meaning; a real embedding model puts everything in a narrow cone. A spread-based check would have
+passed on `hash` and could have refused a good embedder — shipped backwards, green, and only
+falsifiable by the run it was written to prevent. What separates them is **where the distribution
+sits**, not how wide it is: the typical `hash` pair is orthogonal or worse (`p50 = −0.0028`) and
+the typical real pair is strongly positive (`p50 = 0.4328`). So the criterion is *median ≤ 0* —
+orthogonal means *no relationship at all*, which needs no tuned constant, and the margin between
+the two measured medians is 0.43.
+
+**Generalises to.** *"No structure" is not a synonym for "little variation", and a check built on
+the intuitive reading of a phrase in a plan is a check nobody has measured — so measure both
+populations the check is meant to separate **before** choosing the statistic, not after.* The
+sharper half: the statistic that separates two populations is an empirical question, and the first
+one that comes to mind is the one the plan's own wording suggested rather than one the data
+supports.
+
+**Candidate home.** `paper-to-plugin` or `phase-step` → *Red*, whichever owns "a threshold is
+derived from a measurement": the rule is that a check separating two populations names both, with
+the numbers, in the docstring beside it — which is what Chucri did for `τ_c` (`L10.15`) and what
+RAPTOR's own Appendix B did for its window size of 7, derived from a measured average cluster
+size of 6.7. Two precedents in this phase's own sources, and the plan reached for neither.
+
+### L10.23 — the sentinel could not be spelled in the file operators write it in
+
+**What happened.** 10.9's settled design says a threshold takes an operator's typed value or
+`auto`, that `Auto` is an **`Enum` sentinel and never a `Literal`** — this project's standing rule
+for a closed vocabulary — and that the fields become `int | Auto` and `float | Auto`. All true,
+and none of it can accept what a pipeline document actually contains: YAML has no enum syntax, so
+`similarity_threshold: auto` arrives as the **string** `"auto"`. A `field_validator(mode="before")`
+converts it at runtime, but pydantic's dataclass-transform stub gives pyright no way to advertise
+an input type wider than the stored one, so a document-authored `auto` is either a type error or
+the annotation widens to `... | Auto | str` — and then every reader downstream has to narrow past
+a `str` arm that can never survive validation. The implementer took the widening plus two private
+narrowing helpers, which is sound and is a real cost nobody had priced.
+
+**Generalises to.** *A closed vocabulary that operators write in a configuration file is
+constructible from a string whether its type says so or not, so "`Enum`, never `Literal`" carries
+a second obligation the rule does not state: the field's declared type has to admit the spelling
+the file uses, or the narrowing moves into every caller.* Worth knowing before the next sentinel:
+`Auto` is the first value in this tree that is both a config field's default and something a
+document types by name.
+
+**Candidate home.** `CLAUDE.md`'s *"`Enum` for string constants, never `Literal[...]`"* rule,
+which is where the obligation belongs and where the next author will read it — a clause saying
+that a field an operator types needs a `mode="before"` validator and a widened annotation, with
+this instance as the worked example. Possibly also `02` §3, which owns what a document may write
+into a `with:` block and says nothing about sentinels.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

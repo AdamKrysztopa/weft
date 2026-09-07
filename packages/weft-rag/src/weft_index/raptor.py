@@ -231,14 +231,71 @@ level` is derived from the members a summary was actually built from, never from
 stage's own position in a pipeline — see that field's docstring for why. This is the
 interface task 10.7 filters on, above, to build each level from the previous level's nodes
 alone.
+
+**`cluster_size` and `similarity_threshold` are typed by an operator or resolved by `auto`,
+never both, and `cluster_size` stays the only cluster-*size* threshold (task 10.9).** `10`
+§1.2's own row and every paper in the set assert their own numbers with no sweep behind
+them — T-Retriever never reports its KDE bandwidth at all, Yasuno's α = 0.7 is "empirically
+optimized" and cited nowhere further. Weft's shipped `4` and `0.75` were exactly as
+unevidenced, which is why `Auto` exists: an `Enum` sentinel, never a `Literal` (this
+project's standing rule), whose one member a pipeline document spells `auto`. A typed value
+is honoured exactly as before; `auto` is resolved **once per run, from that run's own
+payload, and persisted nowhere** — computed configuration that does not survive between
+runs raises no question about where a derived default should live, which is what keeps
+`11` D3 unreached. `weft_index.payload.RaptorFacts.resolved_similarity_threshold` and
+`.resolved_cluster_size` carry what a given run's `auto` actually resolved to, so a reader
+can tell an operator's own number from one this run computed — `None` means the former.
+
+`cluster_size: auto` answers RAPTOR §3 (p.4)'s own criterion for this quantity — "[s]hould
+a local cluster's combined context ever exceed the summarization model's token threshold,
+our algorithm recursively applies clustering within the cluster, ensuring that the context
+remains within the token threshold" — against Weft's analogue of that threshold,
+`max_cluster_chars`: how many members of *this run's own payload* fit that budget without
+truncation, `max_cluster_chars // mean(len(node.content) for node in selected)`, floored at
+2 because a cluster of one is not a cluster (`_resolve_cluster_size`, below).
+
+`similarity_threshold: auto` is **Weft's own, with no paper behind it**: the 75th
+percentile of the pairwise cosine similarities this run's own payload actually exhibits
+(`_resolve_similarity_threshold`, below). Sampling **all** pairs rather than a subset keeps
+the answer a function of the id-sorted node set the same way task 10.3 made the clusterer's
+own greedy pass — never of the order the run's extraction happened to hand nodes over, and
+never by `random`.
+
+**The degeneracy check, and the criterion is measured rather than intuited.** A percentile
+always clears something, so a naive `auto` would turn today's honest silence under `hash`
+into confident summaries over meaningless groupings. The obvious candidate — refuse a
+distribution too *narrow* to threshold — is wrong and was falsified before it was written
+(`docs/lessons.md` L10.22): measured 2026-09-07 on 107 real chunks embedded both ways,
+`hash` gives min/p10/median/p75/p90/max **−0.4150 / −0.1638 / −0.0028 / 0.0834 / 0.1607 /
+0.4079** (spread p90−p10 **0.3245**) and `openai-embeddings` gives **0.0096 / 0.3114 /
+0.4328 / 0.4948 / 0.5765 / 0.8469** (spread **0.2651**). The *meaningless* vectors are the
+more spread out — `hash` produces near-orthogonal random directions, which are spread
+precisely because they share no meaning — so a spread-based check passes on `hash` and
+could refuse a good embedder. The criterion that actually holds is the **median observed
+pairwise similarity, refused at or below zero**: where the typical pair is orthogonal or
+worse there is no relationship in the vectors for a threshold to describe, and zero needs
+no tuning to justify it. The refusal names the embedder and the word `auto`, and states the
+remedy — configure an embedder whose vectors carry meaning, or type a `similarity_threshold`
+if there is a stated claim about the corpus `auto` should not second-guess. **It applies
+only when `auto` was asked to resolve**: an operator who typed a number has made that claim
+already and gets today's behaviour exactly, including building nothing.
+
+`min_cluster_size` is **not** a third `auto` field. Its own docstring already argues it from
+what a cluster *is* — a cluster of one node has nothing to abstract over — which is a
+constant, not a number a paper tuned per dataset; an `auto` that always resolved to 2 would
+be that same constant wearing a costume. The ledger line for this task named three numbers
+nothing measured; this is the correction, recorded here because a docstring is where a
+reader looks for it.
 """
 
 import asyncio
 import math
+import statistics
 from collections.abc import Sequence
-from typing import ClassVar
+from enum import StrEnum
+from typing import Annotated, ClassVar
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from weft_embed.contract import Embedder
 from weft_index.payload import RaptorFacts, Representation
@@ -260,6 +317,19 @@ from weft_prompts.contract import Prompts
 NAME = "raptor"
 
 
+class Auto(StrEnum):
+    """The sentinel a `RaptorConfig` field takes instead of an operator-typed number, task
+    **10.9**. An `Enum`, never a `Literal[...]` — this project's standing rule — with one
+    member whose value is the literal string `"auto"`, so a pipeline document that omits
+    `cluster_size:`/`similarity_threshold:` or writes `auto` explicitly parses to the same
+    thing. See `weft_index.raptor`'s own module docstring, *"`cluster_size` and
+    `similarity_threshold` are typed by an operator or resolved by `auto`"*, for what each
+    field resolves to and why neither number was ever evidenced enough to keep hard-coding.
+    """
+
+    AUTO = "auto"
+
+
 class RaptorConfig(BaseModel):
     """`raptor`'s `with:` config. Every field has a default, per this pack's own rule that a
     Phase 2 pack's settings must be constructible with none supplied.
@@ -269,15 +339,32 @@ class RaptorConfig(BaseModel):
 
     #: The most members one cluster can hold before a node that would have joined it opens
     #: a new cluster instead. Not "how many clusters" — that falls out of the corpus.
-    cluster_size: int = Field(default=4, ge=2)
+    #: Defaults to `Auto.AUTO`: resolved once per run from this run's own payload
+    #: (`_resolve_cluster_size`) rather than typed, because no paper in `10` §1.2 evidences a
+    #: number here either. A typed `int` is honoured exactly. The declared type carries a
+    #: bare `str` alongside `int | Auto` only so a pipeline document's `cluster_size: auto` —
+    #: YAML has no enum syntax, so that is a plain string by the time it reaches this model —
+    #: type-checks as a constructor argument; `_parse_auto_string` below intercepts every
+    #: string before this field's own validation ever sees one, so nothing downstream ever
+    #: observes the `str` arm (`_resolved_cluster_size`'s own docstring narrows it back).
+    cluster_size: Annotated[int, Field(ge=2)] | Auto | str = Auto.AUTO
     #: Below this many members, a cluster is left as ordinary leaves rather than summarised
     #: — a "cluster" of one node has nothing to abstract over, and summarising it would be
-    #: paraphrasing, not clustering. `10` §1.2's own row promises "clustered chunks."
+    #: paraphrasing, not clustering. `10` §1.2's own row promises "clustered chunks." **Not**
+    #: an `auto` field: this is a constant argued from what a cluster *is*, not a number a
+    #: paper tuned per dataset — see the module docstring's closing paragraph.
     min_cluster_size: int = Field(default=2, ge=2)
     #: The cosine-similarity floor a node must clear against a cluster's running centroid to
-    #: join it. This field, and `cluster_size` above, exist so a clustering knob that matters
-    #: is never hard-coded.
-    similarity_threshold: float = Field(default=0.75, ge=-1.0, le=1.0)
+    #: join it. Defaults to `Auto.AUTO`: resolved once per run as the 75th percentile of the
+    #: pairwise cosine similarities this run's own payload actually exhibits
+    #: (`_resolve_similarity_threshold`) — **Weft's own criterion, with no paper behind it**.
+    #: Refused, naming the embedder, when the payload's median pairwise similarity is at or
+    #: below zero — see the module docstring's *"The degeneracy check"* section for why that
+    #: is the measured criterion and not a spread-based one. A typed `float` is honoured
+    #: exactly, including that refusal never applying to it. Carries a bare `str` in its
+    #: declared type for the same reason `cluster_size` does, immediately above — see that
+    #: field's own comment.
+    similarity_threshold: Annotated[float, Field(ge=-1.0, le=1.0)] | Auto | str = Auto.AUTO
     #: The most cluster text one summary request may carry. This plugin previously had no cap:
     #: `_format_cluster` joined every member whole, so a single oversized
     #: cluster could exceed a model's context and take its summary with it. A budget, shared
@@ -298,9 +385,33 @@ class RaptorConfig(BaseModel):
     #: makes this necessary rather than optional.
     over_level: int = Field(default=0, ge=0)
 
+    @field_validator("cluster_size", "similarity_threshold", mode="before")
+    @classmethod
+    def _parse_auto_string(cls, value: object) -> object:
+        """A pipeline document writes `auto` as a plain string — YAML has no enum syntax for
+        it — so a bare `str` rides in each field's own declared type purely so that string
+        type-checks as a constructor argument at all. This runs first and closes that gap
+        for real: `Auto.AUTO`'s own value passes straight through unchanged (it is already
+        an `Auto`, not a plain `str`, even though `Auto` happens to subclass `str`), the
+        exact string `"auto"` becomes the sentinel itself rather than surviving as a raw
+        string, and any other string is refused here rather than silently accepted by the
+        permissive `str` arm the type carries — nothing past this point, and no reader of
+        either field, ever sees anything but `int`/`float` or `Auto`.
+        """
+        if isinstance(value, str) and not isinstance(value, Auto):
+            if value == Auto.AUTO.value:
+                return Auto.AUTO
+            raise ValueError(
+                f"{value!r} is not a number and is not 'auto' either — type a number, or "
+                f"write 'auto' to let this run resolve it from its own payload"
+            )
+        return value
+
     @model_validator(mode="after")
     def _min_cluster_size_within_cluster_size(self) -> "RaptorConfig":
-        if self.min_cluster_size > self.cluster_size:
+        # Only checkable against a typed `cluster_size` — `Auto.AUTO` is not resolved until
+        # `run` sees this run's own payload, so there is nothing to compare yet.
+        if isinstance(self.cluster_size, int) and self.min_cluster_size > self.cluster_size:
             raise ValueError(
                 f"min_cluster_size ({self.min_cluster_size}) cannot exceed cluster_size "
                 f"({self.cluster_size}) — no cluster could ever reach the minimum needed "
@@ -368,10 +479,48 @@ class RaptorSummarizer:
             return Produced(value=tuple(payload))
 
         embedded = tuple((node, node.embedding) for node in selected if node.embedding is not None)
+
+        # **`auto`, resolved once per run from this run's own payload — task 10.9.** See the
+        # module docstring's own section for why each is derived the way it is, and why
+        # neither is persisted anywhere: a value computed here lives only on the `RaptorFacts`
+        # of the summaries this call produces, never as configuration that must survive to a
+        # later run.
+        resolved_cluster_size: int | None = None
+        resolved_similarity_threshold: float | None = None
+        cluster_size = _typed_cluster_size(self._config.cluster_size)
+        similarity_threshold = _typed_similarity_threshold(self._config.similarity_threshold)
+        if cluster_size is Auto.AUTO:
+            resolved_cluster_size = _resolve_cluster_size(
+                selected, max_cluster_chars=self._config.max_cluster_chars
+            )
+            cluster_size = resolved_cluster_size
+        if similarity_threshold is Auto.AUTO:
+            threshold, median = _resolve_similarity_threshold(embedded)
+            if median <= 0.0:
+                # **The degeneracy check — measured, not intuited.** See the module
+                # docstring's *"The degeneracy check"* section for why the criterion is the
+                # median rather than the spread. Applies only here, because only here did
+                # `auto` do the resolving; a typed `similarity_threshold` never reaches this
+                # branch at all.
+                return Failed(
+                    reason=(
+                        f"'{NAME}': similarity_threshold: auto could not resolve a threshold "
+                        f"from this run's own embeddings — the median pairwise cosine "
+                        f"similarity is {median:.4f}, at or below zero, meaning the typical "
+                        f"pair here is orthogonal or worse and there is no relationship in "
+                        f"these vectors for a threshold to describe. Configure an embedder "
+                        f"whose vectors carry semantic meaning in '[services] embed', or type "
+                        f"a similarity_threshold yourself if you have a stated claim about "
+                        f"this corpus that auto should not second-guess"
+                    )
+                )
+            resolved_similarity_threshold = threshold
+            similarity_threshold = threshold
+
         clusters = _cluster_by_similarity(
             embedded,
-            cluster_size=self._config.cluster_size,
-            similarity_threshold=self._config.similarity_threshold,
+            cluster_size=cluster_size,
+            similarity_threshold=similarity_threshold,
         )
         summarizable = [
             cluster for cluster in clusters if len(cluster) >= self._config.min_cluster_size
@@ -390,7 +539,14 @@ class RaptorSummarizer:
 
         async def _bounded(cluster: Sequence[Node]) -> Node | None:
             async with limit:
-                return await self._summarize(cluster, prompts=prompts, llm=llm, ctx=ctx)
+                return await self._summarize(
+                    cluster,
+                    prompts=prompts,
+                    llm=llm,
+                    ctx=ctx,
+                    resolved_similarity_threshold=resolved_similarity_threshold,
+                    resolved_cluster_size=resolved_cluster_size,
+                )
 
         summaries = await asyncio.gather(*(_bounded(cluster) for cluster in summarizable))
         derived = tuple(summary for summary in summaries if summary is not None)
@@ -455,12 +611,23 @@ class RaptorSummarizer:
         return Produced(value=tuple(outcome.value))
 
     async def _summarize(
-        self, members: Sequence[Node], *, prompts: Prompts, llm: LLM, ctx: Context
+        self,
+        members: Sequence[Node],
+        *,
+        prompts: Prompts,
+        llm: LLM,
+        ctx: Context,
+        resolved_similarity_threshold: float | None,
+        resolved_cluster_size: int | None,
     ) -> Node | None:
         """One cluster's summary node, or `None` when generation degrades — never raised.
         `_config.prompt` and `_config.role` naming nothing registered still raises: that is
         an operator's own document being wrong, the identical split `hypothetical_
         questions._questions_for`'s own docstring draws.
+
+        `resolved_similarity_threshold`/`resolved_cluster_size` are this run's own `auto`
+        resolution — `None` when the operator typed the field instead — and ride onto the
+        returned node's own `RaptorFacts` unchanged, task **10.9**.
         """
         # The retry halves the text that was actually sent, never the configured budget. A
         # cluster already comfortably under `max_cluster_chars` would otherwise be re-sent
@@ -494,6 +661,8 @@ class RaptorSummarizer:
                 characters_held=characters_held,
                 characters_shown=characters_shown,
                 level=level,
+                resolved_similarity_threshold=resolved_similarity_threshold,
+                resolved_cluster_size=resolved_cluster_size,
             )
             return (
                 Node.combine(members, content=summary, media_type=MediaType.TEXT)
@@ -516,6 +685,77 @@ def _node_level(node: Node) -> int:
     """
     facts = node.ext_as(RaptorFacts)
     return facts.level if facts is not None else 0
+
+
+def _typed_cluster_size(value: int | Auto | str) -> int | Auto:
+    """Narrows `RaptorConfig.cluster_size`'s own declared type back down to what a
+    validated `RaptorConfig` instance can actually hold.
+
+    That field carries a bare `str` in its type only so `cluster_size: "auto"` type-checks
+    as a constructor argument — see the field's own comment. `RaptorConfig._parse_auto_string`
+    already turns every legal string into `Auto.AUTO` and refuses every other one before a
+    `RaptorConfig` instance exists at all, so the `AssertionError` below can never actually
+    fire; it exists because pyright has no way to know that a validator already closed the
+    gap its own declared type has to leave open.
+    """
+    if isinstance(value, Auto | int):
+        return value
+    raise AssertionError(
+        f"RaptorConfig.cluster_size held a raw string ({value!r}) at run time — its own "
+        f"validator should already have turned it into Auto.AUTO or refused it"
+    )
+
+
+def _typed_similarity_threshold(value: float | Auto | str) -> float | Auto:
+    """`_typed_cluster_size`'s own twin, for `RaptorConfig.similarity_threshold`."""
+    if isinstance(value, Auto | float):
+        return value
+    raise AssertionError(
+        f"RaptorConfig.similarity_threshold held a raw string ({value!r}) at run time — its "
+        f"own validator should already have turned it into Auto.AUTO or refused it"
+    )
+
+
+def _resolve_cluster_size(selected: Sequence[Node], *, max_cluster_chars: int) -> int:
+    """`cluster_size: auto`'s resolution, task **10.9** — see the module docstring's own
+    section for the argument. RAPTOR §3 (p.4)'s criterion for this quantity, restated
+    against Weft's analogue of its token threshold: how many of *this run's own* selected
+    nodes fit `max_cluster_chars` without truncation, floored at 2 because a cluster of one
+    is not a cluster.
+    """
+    mean_chars = statistics.fmean(len(node.content) for node in selected)
+    if mean_chars <= 0:
+        return 2
+    return max(2, int(max_cluster_chars // mean_chars))
+
+
+def _pairwise_similarities(embedded: Sequence[tuple[Node, Vector]]) -> list[float]:
+    """Every pairwise cosine similarity `embedded` exhibits, computed over the *id-sorted*
+    node list so the answer is a function of the node set, never of the order this run's own
+    extraction happened to hand nodes over — the same determinism task 10.3 gave
+    `_cluster_by_similarity`'s own greedy pass, applied here because a run-derived default
+    must not depend on arrival order either.
+    """
+    ordered = sorted(embedded, key=lambda pair: pair[0].id)
+    values = [vector.values for _, vector in ordered]
+    return [
+        _cosine(values[i], values[j]) for i in range(len(values)) for j in range(i + 1, len(values))
+    ]
+
+
+def _resolve_similarity_threshold(embedded: Sequence[tuple[Node, Vector]]) -> tuple[float, float]:
+    """`similarity_threshold: auto`'s resolution, task **10.9** — **Weft's own, with no paper
+    behind it**: the 75th percentile of the pairwise cosine similarities this run's own
+    payload actually exhibits. Returns that value alongside the *median* of the same
+    distribution, which is the degeneracy criterion `run` checks before trusting either —
+    see the module docstring's own *"The degeneracy check"* section for why the median, and
+    not the spread, is what is measured.
+    """
+    similarities = _pairwise_similarities(embedded)
+    if len(similarities) == 1:
+        return similarities[0], similarities[0]
+    percentile_75 = statistics.quantiles(similarities, n=4, method="inclusive")[2]
+    return percentile_75, statistics.median(similarities)
 
 
 def _format_cluster(members: Sequence[Node], *, budget: int) -> tuple[str, int, int]:

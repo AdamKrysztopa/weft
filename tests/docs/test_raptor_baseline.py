@@ -57,9 +57,14 @@ MEASUREMENT: Final[Path] = BASELINE_DIR / "measurement.json"
 #: "against a real embedder" and why this name is refused rather than merely not expected.
 DETERMINISTIC_EMBEDDER: Final[str] = "hash"
 
-#: The shipped `raptor` configuration, as `weft_retrieve/pipelines/index-with-raptor.yaml`'s
-#: own `with:` block writes it. The baseline measures the plugin this project ships, not one
-#: tuned until it looked better; 10.9 is where these numbers are allowed to move.
+#: The `raptor` configuration the **baseline was taken under**, which is what these records
+#: encode and therefore what this file may assert. It is no longer what the shipped document
+#: writes: task 10.9 replaced `cluster_size` and `similarity_threshold` with `auto` in
+#: `index-with-raptor.yaml`, retiring two numbers nothing had measured. That is exactly the move
+#: this constant's own earlier comment anticipated — *"10.9 is where these numbers are allowed to
+#: move"* — and the pin stays because a baseline describes the run that produced it, not the
+#: tree's current defaults. A later baseline taken under `auto` will carry `auto`'s own resolved
+#: values on its nodes instead, which is what `RaptorFacts` records them for.
 SHIPPED_RAPTOR_CONFIG: Final[dict[str, object]] = {
     "cluster_size": 4,
     "min_cluster_size": 2,

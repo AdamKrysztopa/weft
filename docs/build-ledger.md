@@ -6558,6 +6558,77 @@ schedule them.
   vectors a naive `auto` would turn today's honest silence into confident summaries over
   meaningless groupings — where the observed distribution has no structure, `auto` fails loudly
   naming the embedder and the remedy
+  · **Two fields take `auto`, not three, and the count is corrected rather than satisfied.**
+  `cluster_size` and `similarity_threshold` become `int | Auto` and `float | Auto` with the
+  sentinel as the default. The third number this line names is `min_cluster_size: 2`, and it is
+  **not** an unmeasured number: its own docstring argues it from what a cluster *is* — *"a
+  'cluster' of one node has nothing to abstract over, and summarising it would be paraphrasing,
+  not clustering"* — so an `auto` resolving always to 2 would be a constant in a costume. It stays
+  a plain `int`. Recorded here rather than papered over with a third rule invented to make the
+  word *three* true.
+
+  **What each `auto` resolves from, per run, persisted nowhere** — which is what keeps `11` D3
+  unreached, since derived configuration raises D3's question only when it must survive between
+  runs. `cluster_size: auto` is *how many members of this payload fit `max_cluster_chars` without
+  truncation*, RAPTOR p.4's own criterion for that quantity — *"Should a local cluster's combined
+  context ever exceed the summarization model's token threshold…"* — against Weft's analogue of
+  that threshold. `similarity_threshold: auto` is the **75th percentile of the pairwise cosine
+  similarities the payload exhibits**, is **Weft's own with no paper behind it**, and says so
+  beside the name. Both resolutions ride onto the produced nodes as
+  `RaptorFacts.resolved_similarity_threshold` / `resolved_cluster_size`, `None` meaning *the
+  operator typed this one* — a reader must be able to tell a number a run computed from one a
+  person chose, and echoing a typed value into a field named *resolved* is a lie a query would
+  believe. `__schema_version__` to `1.2.0`, `upgrade` still unimplemented for 10.6's reason.
+
+  **The degeneracy check, and the criterion was falsified before it was written.** The obvious
+  reading of *"no structure"* is a narrow spread, and it is wrong. Measured on 107 real chunks
+  embedded both ways: `hash` gives median **−0.0028** and p90−p10 **0.3245**;
+  `openai-embeddings` gives median **0.4328** and spread **0.2651** — **the meaningless vectors
+  are the more spread out**, being near-orthogonal random directions, so a spread-based check
+  would pass on `hash` and could refuse a good embedder. What separates them is where the
+  distribution sits, so the criterion is **the median pairwise similarity at or below zero**:
+  orthogonal means no relationship at all, and zero needs no tuning to justify it. `L10.22`.
+  It applies to `auto` alone — an operator who typed `0.75` has made a claim about their own
+  corpus and gets today's behaviour exactly, including building nothing.
+
+  **The shipped document stops asserting two numbers nothing measured**, and the consequence is a
+  real behaviour change stated in its own comments: `index-with-raptor.yaml`'s `with:` block is
+  now `{min_cluster_size: 2}`. Under `hash` that rung used to store its leaves and silently build
+  no summaries; it now **refuses loudly and stores nothing**, because a `Failed` ends the batch.
+  That is the improvement — a rung whose whole purpose is summaries, quietly producing none, is a
+  plausible answer against the wrong data.
+
+  **Both branches through the shipped binary, from outside this repository.** Flagless, `hash`,
+  the nine `pl-wiki` documents:
+
+  ```text
+    failed: 'raptor': similarity_threshold: auto could not resolve a threshold from this run's
+    own embeddings — the median pairwise cosine similarity is -0.0031, at or below zero, meaning
+    the typical pair here is orthogonal or worse and there is no relationship in these vectors
+    for a threshold to describe. Configure an embedder whose vectors carry semantic meaning in
+    '[services] embed', or type a similarity_threshold yourself if you have a stated claim about
+    this corpus that auto should not second-guess
+  produced 0, nothing to produce 0, failed 1. nodes now stored: 0.
+  $ echo $?
+  1
+  ```
+
+  **−0.0031 against the −0.0028 measured offline** on a different sample of the same corpus, which
+  is the check meeting the distribution it was built from. And the same rung with
+  `openai-embeddings` replacing `embed`: **112 nodes, 5 summaries, exit 0**, every summary
+  carrying `resolved_similarity_threshold = 0.4944` and `resolved_cluster_size = 24` — and 0.4944
+  against the **0.4948** p75 measured offline, which is independent confirmation that `auto` is
+  the percentile it claims to be rather than a number that merely worked.
+
+  **A blocked return that was right, and two fixtures that were on the boundary.** The implementer
+  found that `test_concurrent_summaries_are_bounded_by_configuration` and
+  `test_every_cluster_degrading_fails_rather_than_looking_like_a_complete_run` build orthogonal
+  vector pairs, whose median pairwise similarity is *exactly* 0.0 — the degeneracy boundary — so
+  under `auto` both are refused, and it declined to weaken the criterion to force them green. Both
+  now type `similarity_threshold: 0.75`, because neither is about the threshold and a fixture
+  typing a number is a fixture making a claim about its own corpus. `L10.23` is the other thing
+  that dispatch found: an `Enum` sentinel that an operator writes into YAML arrives as a **string**
+  no `float | Auto` annotation accepts
 - [ ] **10.10 ⚠** a run that summarised nine clusters of ten says so where a reader can find it, and
   10.2's coverage record rides the same channel · owner `raptor.py` → *What a degraded run says*;
   `02` §2 → the registration seam · turns on — · sha — · `raptor.py:72-82` names the blocker in its own words: `Produced` is

@@ -28,7 +28,7 @@ from weft_embed.contract import Embedder
 from weft_index.contract import Expander
 from weft_index.payload import RaptorFacts, Representation
 from weft_index.prompts import SUMMARIZE_CLUSTER_NAME, SummarizeClusterPrompt
-from weft_index.raptor import NAME, RaptorConfig, RaptorSummarizer
+from weft_index.raptor import NAME, Auto, RaptorConfig, RaptorSummarizer
 from weft_kernel.context import Context, ServiceRegistry, UnresolvedServiceError
 from weft_kernel.payload import (
     Failed,
@@ -485,7 +485,15 @@ async def test_concurrent_summaries_are_bounded_by_configuration() -> None:
     nodes = _embedded(tuple(node for pair in pairs for node in pair), table)
     embedder = _StubEmbedder(table)
     llm = _RecordingLLM([])
-    summarizer = RaptorSummarizer(RaptorConfig(max_concurrent_summaries=2))
+    # **The threshold is typed, because this test's subject is the concurrency bound.** Six
+    # orthogonal pairs put the median pairwise similarity at exactly 0.0, which is task
+    # 10.9's degeneracy boundary — `auto` refuses a distribution whose typical pair is
+    # orthogonal or worse, and would refuse this one. Typing a number says *I have made a
+    # claim about this corpus*, which is exactly what a fixture does, and keeps what is under
+    # test independent of how `auto` resolves.
+    summarizer = RaptorSummarizer(
+        RaptorConfig(max_concurrent_summaries=2, similarity_threshold=0.75)
+    )
 
     # Act
     outcome = await summarizer.run(nodes, _ctx(embedder=embedder, llm=llm))
@@ -507,7 +515,9 @@ async def test_every_cluster_degrading_fails_rather_than_looking_like_a_complete
     embedder = _StubEmbedder(table)
     a, b, c, d = _embedded((a, b, c, d), table)
     llm = _RecordingLLM([Failed(reason="no") for _ in range(4)])
-    summarizer = RaptorSummarizer()
+    # Typed, for the same reason the concurrency test above types it: two orthogonal pairs sit on
+    # 10.9's degeneracy boundary, and what is under test here is every cluster degrading.
+    summarizer = RaptorSummarizer(RaptorConfig(similarity_threshold=0.75))
 
     # Act
     outcome = await summarizer.run((a, b, c, d), _ctx(embedder=embedder, llm=llm))
@@ -1180,3 +1190,173 @@ async def test_the_default_rung_still_consumes_the_leaves() -> None:
     facts = built.ext_as(RaptorFacts)
     assert facts is not None
     assert facts.level == 1
+
+
+# --- Ledger task 10.9 — a threshold is typed by an operator or derived from the run, never both.
+
+
+def _fan_vectors(count: int, degrees: float) -> tuple[Vector, ...]:
+    """`count` unit vectors `degrees` apart — a distribution with real, positive structure."""
+    return tuple(
+        Vector(
+            values=(
+                math.cos(math.radians(degrees * step)),
+                math.sin(math.radians(degrees * step)),
+            )
+        )
+        for step in range(count)
+    )
+
+
+async def test_auto_is_the_default_and_a_typed_value_is_kept() -> None:
+    """`Auto` is an `Enum` sentinel, never a `Literal`, and an operator's own number wins.
+
+    `10` §1.2's own row and every paper in the set assert their thresholds: T-Retriever's KDE
+    bandwidth is never reported at all, Yasuno's α = 0.7 is *"empirically optimized"* with no
+    sweep. Weft's own `4` and `0.75` were no better evidenced, which is why the field defaults
+    stop being numbers. What does not change is that a typed value is honoured exactly.
+    """
+    # Assert — the shipped defaults are the sentinel, and a number survives validation as itself.
+    assert RaptorConfig().similarity_threshold is Auto.AUTO
+    assert RaptorConfig().cluster_size is Auto.AUTO
+    assert RaptorConfig(similarity_threshold=0.75).similarity_threshold == 0.75
+    assert RaptorConfig(cluster_size=4).cluster_size == 4
+    # A document writes `auto` as a string; the sentinel is what it parses to.
+    assert RaptorConfig(similarity_threshold="auto").similarity_threshold is Auto.AUTO
+
+
+async def test_auto_resolves_from_this_run_and_the_summary_records_what_it_resolved_to() -> None:
+    """*"A default computed by a rule rather than typed by an operator says when it is computed
+    and where its value lives."*
+
+    Computed **per run, from the run's own payload**, and written onto the nodes that run
+    produced — which is what keeps `11` D3 unreached: derived configuration raises D3's question
+    only when it must survive between runs, and nothing here persists it as configuration. An
+    `auto` that resolved silently would be the exact shape `CLAUDE.md` forbids.
+    """
+    # Arrange — eight nodes 15° apart: a real, positive similarity distribution.
+    vectors = _fan_vectors(8, 15.0)
+    table = {f"chunk {index}": vector for index, vector in enumerate(vectors)}
+    nodes = _embedded(tuple(_node(f"chunk {index}") for index in range(8)), table)
+
+    # Act
+    outcome = await RaptorSummarizer().run(
+        nodes,
+        _ctx(embedder=_StubEmbedder(table), llm=_ScriptedLLM([_reply("A summary.")] * 8)),
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced), outcome
+    summaries = [node for node in outcome.value if len(node.lineage.parents) > 1]
+    assert summaries, "auto resolved to something that clustered nothing"
+    facts = summaries[0].ext_as(RaptorFacts)
+    assert facts is not None
+    assert facts.resolved_similarity_threshold is not None, (
+        "the summary does not say what `auto` resolved to, so a reader cannot tell a threshold "
+        "an operator chose from one this run computed"
+    )
+    assert facts.resolved_cluster_size is not None
+    assert 0.0 < facts.resolved_similarity_threshold < 1.0
+
+
+async def test_a_typed_threshold_is_recorded_as_the_operator_s_and_not_as_derived() -> None:
+    """A reader has to be able to tell the two apart, or the record answers a different question
+    from the one it looks like it answers."""
+    # Arrange
+    vectors = _fan_vectors(4, 10.0)
+    table = {f"chunk {index}": vector for index, vector in enumerate(vectors)}
+    nodes = _embedded(tuple(_node(f"chunk {index}") for index in range(4)), table)
+
+    # Act
+    outcome = await RaptorSummarizer(RaptorConfig(similarity_threshold=0.5, cluster_size=4)).run(
+        nodes, _ctx(embedder=_StubEmbedder(table), llm=_ScriptedLLM([_reply("A summary.")] * 4))
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    summary = next(node for node in outcome.value if len(node.lineage.parents) > 1)
+    facts = summary.ext_as(RaptorFacts)
+    assert facts is not None
+    assert facts.resolved_similarity_threshold is None, (
+        "a threshold the operator typed must not be reported as a resolved `auto` value — the "
+        "field says *this run computed it*, and saying so about a typed number is a lie a query "
+        "would believe"
+    )
+    assert facts.resolved_cluster_size is None
+
+
+async def test_auto_refuses_a_distribution_with_no_structure_naming_the_embedder() -> None:
+    """**The degeneracy check, and the criterion is measured rather than intuited.**
+
+    A percentile always clears something, so a naive `auto` would turn today's honest silence
+    under `hash` into confident summaries over meaningless groupings — a plausible answer against
+    the wrong data, which is the one failure `CLAUDE.md` names outright.
+
+    The criterion is **the median observed pairwise similarity, refused at zero or below**, and
+    the obvious alternative was falsified before it was written (`docs/lessons.md` L10.22).
+    Measured on 107 real chunks embedded both ways: `hash` gives median **−0.0028** and spread
+    (p90−p10) **0.3245**; `openai-embeddings` gives median **0.4328** and spread **0.2651**. The
+    *meaningless* vectors are the more spread out — they are near-orthogonal random directions,
+    spread precisely because they share no meaning — so a spread-based check would have passed on
+    `hash` and could have refused a good embedder. Where the typical pair is orthogonal or worse
+    there is no relationship to threshold, and zero needs no tuning to justify it.
+    """
+    # Arrange — near-orthogonal vectors, alternating sign: `hash`'s own shape, centred on zero.
+    # Six directions spread evenly around the circle: every second pair is opposed, the median
+    # pairwise similarity is below zero, and that is `hash`'s measured shape rather than a
+    # contrived one — 107 real chunks embedded by `hash` gave a median of −0.0028 against
+    # `openai-embeddings`' 0.4328.
+    table = {
+        f"chunk {index}": Vector(
+            values=(
+                math.cos(math.radians(60.0 * index)),
+                math.sin(math.radians(60.0 * index)),
+            )
+        )
+        for index in range(6)
+    }
+    nodes = _embedded(tuple(_node(f"chunk {index}") for index in range(6)), table)
+
+    # Act
+    outcome = await RaptorSummarizer().run(
+        nodes, _ctx(embedder=_StubEmbedder(table), llm=_ScriptedLLM([]))
+    )
+
+    # Assert
+    assert isinstance(outcome, Failed), (
+        "a distribution with no structure was clustered anyway. Under `auto` a percentile always "
+        "clears, so this is where meaningless vectors become confident summaries."
+    )
+    assert "embed" in outcome.reason, (
+        f"the refusal must name the embedder as the thing to change: {outcome.reason!r}"
+    )
+    assert "auto" in outcome.reason
+
+
+async def test_a_typed_threshold_is_never_refused_for_a_flat_distribution() -> None:
+    """The degeneracy check belongs to `auto` alone.
+
+    An operator who typed `0.75` has made a claim about their own corpus and gets today's
+    behaviour exactly: nothing clears the bar, no summary is built, the run says so by producing
+    none. Refusing *them* would be this plugin overruling a number it was handed.
+    """
+    # Arrange — the same structureless vectors as above.
+    table = {
+        f"chunk {index}": Vector(
+            values=(
+                math.cos(math.radians(60.0 * index)),
+                math.sin(math.radians(60.0 * index)),
+            )
+        )
+        for index in range(6)
+    }
+    nodes = _embedded(tuple(_node(f"chunk {index}") for index in range(6)), table)
+
+    # Act
+    outcome = await RaptorSummarizer(RaptorConfig(similarity_threshold=0.75)).run(
+        nodes, _ctx(embedder=_StubEmbedder(table), llm=_ScriptedLLM([]))
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert [node.id for node in outcome.value] == [node.id for node in nodes]
