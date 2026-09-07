@@ -364,3 +364,128 @@ def test_a_pooled_spread_is_the_one_both_its_directories_produce() -> None:
         assert statement["pooled_spread_width"] == pytest.approx(
             _spread_widths(repetitions), abs=5e-7
         ), f"{directory.name}'s pooled width is not what its two directories' runs span"
+
+
+# --- Phase 10's Exit measurement — ledger task 10.13.
+
+EXIT: Final[Path] = BASELINE_DIR / "exit"
+
+
+@pytest.fixture(scope="module")
+def exit_statement() -> dict[str, Any]:
+    return json.loads((EXIT / "exit-measurement.json").read_text(encoding="utf-8"))
+
+
+def test_the_exit_measured_three_arms_on_the_documents_this_project_ships(
+    exit_statement: dict[str, Any],
+) -> None:
+    """`01` → Phase 10 → *Exit* asks for leaves-only, the shipped one-level tree and the
+    multi-level tree — and the arms have to be the **shipped** documents, or the measurement is
+    about something nobody can run. Each extends one of them and replaces only the extractor and
+    the embedder.
+    """
+    # Arrange
+    arms = exit_statement["arms"]
+    extends = exit_statement["arms_extend"]
+
+    # Assert
+    assert set(exit_statement["arms_are"].values()) == set(arms)
+    assert extends["exit-one"] == "index-with-raptor"
+    assert extends["exit-deep"] == "index-with-deep-raptor"
+    for name, parent in extends.items():
+        resolved = {stage.use for stage in _arm_records(arms, name)[0].resolved_pipeline.stages}
+        assert "openai-embeddings" in resolved, f"{name} did not run against a real embedder"
+        assert "hash" not in resolved, f"{name} ran against `hash`, so {parent} measured nothing"
+
+
+def _arm_records(arms: dict[str, Any], name: str) -> tuple[RunRecord, ...]:
+    return tuple(load_run_record(EXIT / f"{run_id}.json") for run_id in arms[name]["runs"])
+
+
+def test_the_multi_level_arm_actually_built_a_second_level(
+    exit_statement: dict[str, Any],
+) -> None:
+    """The Exit's first clause is a tree of **at least two levels**, so the arm that claims one
+    has to have built one in every run — a measurement of a deep rung that silently built one
+    level is a measurement of the one-level rung under another name.
+    """
+    # Arrange
+    deep = exit_statement["arms"]["exit-deep"]
+
+    # Assert
+    assert all(count >= 1 for count in deep["level_two"]), (
+        f"a run of the multi-level arm produced no level-2 node: {deep['level_two']}"
+    )
+    assert all(count >= 1 for count in deep["level_one"])
+    assert all(count == 0 for count in exit_statement["arms"]["exit-leaves"]["level_one"]), (
+        "the leaves arm produced summaries, so it is not a leaves-only control"
+    )
+
+
+def test_every_exit_arm_was_repeated_enough_to_estimate_its_own_spread(
+    exit_statement: dict[str, Any],
+) -> None:
+    """`L10.17`: a width over three repetitions is an estimate with more spread than the thing it
+    estimates, and 10.13's own line requires more than three or a statement that it could not
+    separate its effect. The arms where a model writes the content are repeated six times.
+    """
+    # Assert
+    for name in ("exit-one", "exit-deep"):
+        runs = exit_statement["arms"][name]["runs"]
+        assert len(runs) > 3, (
+            f"{name} was repeated {len(runs)} times, which L10.17 measured as too few"
+        )
+        assert len(set(runs)) == len(runs), f"{name} lists a run id twice"
+
+
+def test_the_exit_verdicts_are_the_ones_its_own_records_produce(
+    exit_statement: dict[str, Any],
+) -> None:
+    """The statement against the runs. Every arm mean, every spread, the minimum detectable
+    effect and every verdict recomputed — because this is the artefact `01`'s Exit criterion is
+    discharged by, and a number in it that its own records do not produce would discharge nothing.
+    """
+    # Arrange
+    arms = exit_statement["arms"]
+    measured = {name: _spread_widths(_arm_records(arms, name)) for name in arms}
+    metrics = sorted(measured["exit-leaves"])
+
+    # Assert — the per-arm figures first.
+    for name, body in arms.items():
+        records = _arm_records(arms, name)
+        assert body["spread_width"] == pytest.approx(measured[name], abs=5e-7), name
+        means = {
+            metric: fmean(
+                [
+                    outcome.value.mean
+                    for record in records
+                    if isinstance(outcome := record.metrics.get(metric), Produced)
+                ]
+            )
+            for metric in body["arm_mean"]
+        }
+        assert body["arm_mean"] == pytest.approx(means, abs=5e-7), name
+
+    # The minimum detectable effect, and then every verdict that rests on it.
+    mde = {
+        metric: max(measured["exit-one"][metric], measured["exit-deep"][metric])
+        for metric in metrics
+    }
+    assert exit_statement["minimum_detectable_effect"] == pytest.approx(mde, abs=5e-7)
+
+    pairs = {
+        "one_level_vs_leaves": ("exit-leaves", "exit-one"),
+        "multi_level_vs_leaves": ("exit-leaves", "exit-deep"),
+        "multi_level_vs_one_level": ("exit-one", "exit-deep"),
+    }
+    for name, (left, right) in pairs.items():
+        for metric in metrics:
+            difference = arms[right]["arm_mean"][metric] - arms[left]["arm_mean"][metric]
+            assert exit_statement["comparisons"][name][metric] == pytest.approx(
+                difference, abs=5e-7
+            ), f"{name}/{metric}"
+            expected = "outside" if abs(difference) > mde[metric] else "inside"
+            assert exit_statement["verdicts"][name][metric] == expected, (
+                f"{name}/{metric}: stated {exit_statement['verdicts'][name][metric]!r} for a "
+                f"difference of {difference} against a minimum detectable effect of {mde[metric]}"
+            )

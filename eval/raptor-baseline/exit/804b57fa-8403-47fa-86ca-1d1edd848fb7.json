@@ -1,0 +1,231 @@
+{
+  "recorded_at": "2026-09-07T19:12:20.419809+00:00",
+  "resolved_pipeline": {
+    "name": "exit-one",
+    "vars": {},
+    "stages": [
+      {
+        "id": "extract",
+        "contract": "Extractor",
+        "contract_version": "1.0.0",
+        "use": "pdf-text",
+        "config": {
+          "mode": "plain",
+          "page_separator": "\n\n",
+          "password": null,
+          "strict": false,
+          "orientations": [
+            0,
+            90,
+            180,
+            270
+          ],
+          "space_width": 200.0,
+          "layout_mode_space_vertically": true,
+          "layout_mode_scale_weight": 1.25,
+          "layout_mode_strip_rotated": true,
+          "layout_mode_font_height_weight": 1.0
+        },
+        "fallback": [],
+        "applies_to": [],
+        "distribution": "weft-pdf",
+        "provenance": "exit-one"
+      },
+      {
+        "id": "normalize",
+        "contract": "Cleaner",
+        "contract_version": "1.0.0",
+        "use": "unicode-normalize",
+        "config": {},
+        "fallback": [],
+        "applies_to": [
+          {
+            "fact": null,
+            "constraints": [],
+            "media_type": [
+              "text"
+            ]
+          }
+        ],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      },
+      {
+        "id": "whitespace",
+        "contract": "Cleaner",
+        "contract_version": "1.0.0",
+        "use": "whitespace",
+        "config": {},
+        "fallback": [],
+        "applies_to": [
+          {
+            "fact": null,
+            "constraints": [],
+            "media_type": [
+              "text"
+            ]
+          }
+        ],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      },
+      {
+        "id": "chunk",
+        "contract": "Chunker",
+        "contract_version": "1.0.0",
+        "use": "fixed-size",
+        "config": {
+          "size": 512,
+          "overlap": 50
+        },
+        "fallback": [],
+        "applies_to": [
+          {
+            "fact": null,
+            "constraints": [],
+            "media_type": [
+              "text"
+            ]
+          }
+        ],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      },
+      {
+        "id": "embed",
+        "contract": "Embedder",
+        "contract_version": "1.0.0",
+        "use": "openai-embeddings",
+        "config": {
+          "model": "text-embedding-3-small",
+          "dimensions": null,
+          "batch_size": 128
+        },
+        "fallback": [],
+        "applies_to": [],
+        "distribution": "weft-openai",
+        "provenance": "exit-one"
+      },
+      {
+        "id": "summarise",
+        "contract": "Expander",
+        "contract_version": "1.0.0",
+        "use": "raptor",
+        "config": {
+          "cluster_size": "auto",
+          "min_cluster_size": 2,
+          "similarity_threshold": "auto",
+          "max_cluster_chars": 12000,
+          "max_concurrent_summaries": 8,
+          "prompt": "summarize-cluster",
+          "role": "index",
+          "over_level": 0
+        },
+        "fallback": [],
+        "applies_to": [],
+        "distribution": "weft-rag",
+        "provenance": "index-with-raptor"
+      },
+      {
+        "id": "store",
+        "contract": "NodeStore",
+        "contract_version": "2.2.0",
+        "use": "pgvector",
+        "config": {},
+        "fallback": [],
+        "applies_to": [],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      }
+    ],
+    "unapplied_operators": [],
+    "unplaced_contributions": []
+  },
+  "corpus": {
+    "name": "mrmr-v1-pdf-fetch",
+    "digest": "c175e53fbdec5b89e5bbb84fb15e76a6766ed2d14a9b93699e7eba0ad725aabe"
+  },
+  "model_versions": {
+    "embed": "openai-embeddings:text-embedding-3-small"
+  },
+  "active_distributions": [
+    "weft-openai",
+    "weft-pdf",
+    "weft-qdrant",
+    "weft-rag"
+  ],
+  "metrics": {
+    "mean_average_precision": {
+      "value": {
+        "reported_name": "mean_average_precision",
+        "mean": 0.851010101010101,
+        "n": 66,
+        "stdev": 0.2997560088699889,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.851010101010101,
+            "n": 66,
+            "stdev": 0.2997560088699889
+          }
+        }
+      }
+    },
+    "ndcg@3": {
+      "value": {
+        "reported_name": "ndcg@3",
+        "mean": 0.8733183774998134,
+        "n": 66,
+        "stdev": 0.2723992541738447,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.8733183774998134,
+            "n": 66,
+            "stdev": 0.2723992541738447
+          }
+        }
+      }
+    },
+    "precision@3": {
+      "value": {
+        "reported_name": "precision@3",
+        "mean": 0.3181818181818182,
+        "n": 66,
+        "stdev": 0.09118063563009589,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.3181818181818182,
+            "n": 66,
+            "stdev": 0.09118063563009589
+          }
+        }
+      }
+    },
+    "recall@3": {
+      "value": {
+        "reported_name": "recall@3",
+        "mean": 0.9141414141414141,
+        "n": 66,
+        "stdev": 0.26188407470342406,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.9141414141414141,
+            "n": 66,
+            "stdev": 0.26188407470342406
+          }
+        }
+      }
+    }
+  }
+}

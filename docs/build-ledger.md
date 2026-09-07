@@ -6784,6 +6784,49 @@ schedule them.
   the difference. The languages and metrics of the four papers are not Weft's corpus — every
   measurement in the set is English or Japanese/English QA, and only Chucri uses an LLM judge — so no
   paper number is a prediction of this one
+  · **Taken 2026-09-07. It is a null result, on every metric and every pair, and it says so.**
+  Three arms extending the documents this project actually ships — `index-text`,
+  `index-with-raptor`, `index-with-deep-raptor` — each replacing only the extractor with
+  `pdf-text` and the embedder with `openai-embeddings`, so what is measured is the shipped rung,
+  `auto` thresholds included. Fifteen runs, records under `eval/raptor-baseline/exit/`, every one
+  given its own fresh store because `weft eval run` always indexes (`L10.25`) and every one
+  asserting the store empty before and non-empty after (`L8.30`). **Six repetitions per raptor
+  arm**, not three, because `L10.17` measured a three-repetition width as an estimate with more
+  spread than the thing it estimates; the leaves arm keeps three, having scored identically to
+  six decimal places every time it has ever been run.
+
+  | arm | n | MAP | ndcg@3 | prec@3 | rec@3 |
+  |---|---|---|---|---|---|
+  | leaves-only | 3 | 0.8914 | 0.9144 | 0.3333 | 0.9596 |
+  | one level | 6 | 0.8725 | 0.8946 | 0.3291 | 0.9407 |
+  | multi-level | 6 | 0.8706 | 0.8951 | 0.3308 | 0.9470 |
+
+  Minimum detectable effect, the wider of the two raptor arms' own six-run spreads: **0.0278**
+  MAP, **0.0286** ndcg@3, **0.0152** precision@3, **0.0379** recall@3.
+
+  | comparison | MAP | ndcg@3 | prec@3 | rec@3 |
+  |---|---|---|---|---|
+  | one level − leaves | −0.0189 | −0.0198 | −0.0042 | −0.0189 |
+  | multi-level − leaves | −0.0208 | −0.0193 | −0.0025 | −0.0126 |
+  | **multi-level − one level** | −0.0019 | +0.0005 | +0.0017 | +0.0063 |
+
+  **Every one of those twelve differences is inside the minimum detectable effect.** Including
+  multi-level against one-level, which is the direct test of whether deeper is better — and
+  *deeper is better* was asserted nowhere in this phase precisely so this line could be the
+  number rather than the belief. It is: **this instrument cannot tell them apart.** The three
+  differences against leaves-only are all slightly *negative*, so what evidence there is points
+  away from the tree helping on this corpus rather than towards it; none of it clears the bar
+  either. The multi-level arm did build a real second level in all six runs — 43 level-1 nodes
+  and 4 to 6 level-2 — so this is a null result about a tree that exists, not about one that
+  failed to form.
+
+  **`01`'s Exit says *"a null result discharges it if it says so"*. It says so**, and the
+  statement is held to its own records by `tests/docs/test_raptor_baseline.py`: every arm mean,
+  every spread, the minimum detectable effect and all twelve verdicts recomputed from the
+  fifteen committed runs, watched failing against two planted verdicts. What the phase built is
+  therefore demonstrated and what it is *worth* on this corpus is, so far, not distinguishable
+  from leaves-only — which is the honest answer and the one the four papers could not have
+  predicted, none of them having measured this corpus, this language mix, or this instrument
 
 **Group C — the worked examples. Added 2026-09-07 by the owner, as scope this section did not
 carry.** `09` §6.4 item 3: work nobody can tick is work nobody did, so added scope gets task lines

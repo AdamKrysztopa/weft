@@ -1,0 +1,194 @@
+{
+  "task": "10.13",
+  "what_this_is": "Phase 10's Exit measurement. Three arms on the documents this project actually ships, each run given its own fresh store, persisted as `weft eval run` records and held to this statement by `tests/docs/test_raptor_baseline.py`.",
+  "taken_on": "2026-09-07",
+  "arms_are": {
+    "leaves": "exit-leaves",
+    "one_level": "exit-one",
+    "multi_level": "exit-deep"
+  },
+  "arms_extend": {
+    "exit-leaves": "index-text",
+    "exit-one": "index-with-raptor",
+    "exit-deep": "index-with-deep-raptor"
+  },
+  "each_arm_replaces": "the `extract` stage with `pdf-text` and the `embed` stage with `openai-embeddings`, and nothing else \u2014 so what is measured is the shipped rung, thresholds included, against a real embedder.",
+  "repetitions_are": "Six for each raptor arm and three for the leaves arm. `L10.17` measured a three-repetition width as an estimate with more spread than the thing it estimates \u2014 two triples of one configuration spanned 0.0025 and 0.0215 \u2014 so three is not enough where a model writes the content. The leaves arm keeps three because it has scored identically to six decimal places every time it has been run, which is a claim about those runs and not proof it is deterministic.",
+  "each_run_has_its_own_store": "`weft eval run` always indexes, so no two arms can be compared against one index (`L10.25`). Every run truncates first, asserts the store empty, and asserts it non-empty afterwards (`L8.30`).",
+  "arms": {
+    "exit-leaves": {
+      "runs": [
+        "14ccdd46-7c2b-49af-aa7a-65e4ebe12ac2",
+        "4ceef49d-cb7e-4218-86ee-41e3e6f441cf",
+        "0aea77c8-448e-4901-9e48-f154d05ca719"
+      ],
+      "nodes_stored": [
+        902,
+        902,
+        902
+      ],
+      "level_one": [
+        0,
+        0,
+        0
+      ],
+      "level_two": [
+        0,
+        0,
+        0
+      ],
+      "arm_mean": {
+        "mean_average_precision": 0.891414,
+        "ndcg@3": 0.914397,
+        "precision@3": 0.333333,
+        "recall@3": 0.959596
+      },
+      "spread_width": {
+        "mean_average_precision": 0.0,
+        "ndcg@3": 0.0,
+        "precision@3": 0.0,
+        "recall@3": 0.0
+      }
+    },
+    "exit-one": {
+      "runs": [
+        "36b7a231-8831-4d72-ad5d-1a238e4459ee",
+        "7ff7240b-01d8-477d-a9fc-5b84c98cfa5f",
+        "94a26854-9db1-4acb-8a05-2a7b7f961a5a",
+        "804b57fa-8403-47fa-86ca-1d1edd848fb7",
+        "eee0e2ee-920d-4a06-a948-151baf6c614d",
+        "febf5f99-a6f6-4d15-94a5-8a2eb98ecb0b"
+      ],
+      "nodes_stored": [
+        945,
+        945,
+        945,
+        945,
+        945,
+        945
+      ],
+      "level_one": [
+        43,
+        43,
+        43,
+        43,
+        43,
+        43
+      ],
+      "level_two": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "arm_mean": {
+        "mean_average_precision": 0.872475,
+        "ndcg@3": 0.894617,
+        "precision@3": 0.329125,
+        "recall@3": 0.940657
+      },
+      "spread_width": {
+        "mean_average_precision": 0.027778,
+        "ndcg@3": 0.028589,
+        "precision@3": 0.015152,
+        "recall@3": 0.037879
+      }
+    },
+    "exit-deep": {
+      "runs": [
+        "3bf08a79-bf62-4c9f-9f55-c0bc035fc099",
+        "945830d8-3a57-4091-985d-277f91906222",
+        "86640466-ec97-41ba-9a02-21808905ff4c",
+        "59b2d10a-b329-4324-ac7e-bc59a31ad947",
+        "9c6c3304-0df7-41b8-976f-e86f68684d07",
+        "6a713346-42da-4370-a35c-68a7e1d0ce6d"
+      ],
+      "nodes_stored": [
+        951,
+        949,
+        950,
+        949,
+        950,
+        951
+      ],
+      "level_one": [
+        43,
+        43,
+        43,
+        43,
+        43,
+        43
+      ],
+      "level_two": [
+        6,
+        4,
+        5,
+        4,
+        5,
+        6
+      ],
+      "arm_mean": {
+        "mean_average_precision": 0.870581,
+        "ndcg@3": 0.895097,
+        "precision@3": 0.330808,
+        "recall@3": 0.94697
+      },
+      "spread_width": {
+        "mean_average_precision": 0.018939,
+        "ndcg@3": 0.014613,
+        "precision@3": 0.005051,
+        "recall@3": 0.015152
+      }
+    }
+  },
+  "minimum_detectable_effect": {
+    "mean_average_precision": 0.027778,
+    "ndcg@3": 0.028589,
+    "precision@3": 0.015152,
+    "recall@3": 0.037879
+  },
+  "minimum_detectable_effect_is": "The wider of the two raptor arms' own six-repetition spreads, per metric. The leaves arm contributes nothing to it, having scored identically three times.",
+  "comparisons": {
+    "one_level_vs_leaves": {
+      "mean_average_precision": -0.018939,
+      "ndcg@3": -0.01978,
+      "precision@3": -0.004208,
+      "recall@3": -0.018939
+    },
+    "multi_level_vs_leaves": {
+      "mean_average_precision": -0.020833,
+      "ndcg@3": -0.0193,
+      "precision@3": -0.002525,
+      "recall@3": -0.012626
+    },
+    "multi_level_vs_one_level": {
+      "mean_average_precision": -0.001894,
+      "ndcg@3": 0.00048,
+      "precision@3": 0.001683,
+      "recall@3": 0.006313
+    }
+  },
+  "verdicts": {
+    "one_level_vs_leaves": {
+      "mean_average_precision": "inside",
+      "ndcg@3": "inside",
+      "precision@3": "inside",
+      "recall@3": "inside"
+    },
+    "multi_level_vs_leaves": {
+      "mean_average_precision": "inside",
+      "ndcg@3": "inside",
+      "precision@3": "inside",
+      "recall@3": "inside"
+    },
+    "multi_level_vs_one_level": {
+      "mean_average_precision": "inside",
+      "ndcg@3": "inside",
+      "precision@3": "inside",
+      "recall@3": "inside"
+    }
+  },
+  "what_it_says": "A null result, on every metric and every pair. The shipped one-level tree, the multi-level tree and leaves-only retrieval cannot be told apart on this corpus at this instrument's resolution \u2014 every difference is inside the minimum detectable effect, including multi-level against one-level, which is the direct test of whether deeper is better. The three differences against leaves-only are all slightly negative, so what evidence there is points away from the tree helping here rather than towards it; none of it clears the bar. Phase 10's Exit says a null result discharges it if it says so. It says so."
+}
