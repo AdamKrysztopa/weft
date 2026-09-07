@@ -545,6 +545,80 @@ small, greppable population in `manual/` and `docs/`, and `tests/docs/` already 
 The narrower repair is three sentences in `manual/user-manual.md` that name no number at all,
 which is what the file next door did.
 
+### L10.19 — two test functions with one name, and pytest reported one passing test
+
+**What happened.** Writing 10.7's integration test I built the file in two passes, and the second
+pass left the first draft's stub — same module, same function name, docstring and nothing else —
+*after* the real test. Python bound the name to the later definition, so the body with all the
+assertions was unreachable and pytest reported `1 passed in 0.18s`. Nothing warned: not the
+collector, not ruff (`F811` covers redefinition of an unused name and does not fire for two
+`async def`s at module scope here), not pyright. It was caught only because **0.18s was too fast
+for a test that indexes six documents**, and the check that settled it was planting
+`raise AssertionError` on the first line of the real body and watching it still pass.
+
+**Generalises to.** *A duplicate test-function name in one module deletes a test and reports a
+pass, so the floor for "this test runs" is to watch it fail once — a green from a test you have
+never seen red is a green about nothing.* This repository already knows the general rule
+(`phase-step` → *Red*: watch it fail for the right reason) and it is stated for a test's
+**assertions**, never for its **existence**; the failure mode here is not an assertion that
+cannot fail but a body that is not executed.
+
+**Candidate home.** A check, and the population is trivially enumerable: parse every module under
+`tests/` with `ast` and refuse two module-level `def`/`async def` sharing a name. That is a
+handful of lines, has no waiver worth having, and would have caught this in the same second it
+was written. `tests/architecture/` already walks the tree with `git ls-files` through
+`conftest.tracked_files()`, so the machinery exists. Worth checking whether the tree holds other
+instances before assuming this was the first — the check answers that on its first run.
+
+### L10.20 — a `# type: ignore` silenced the line it sat on and the assignment one line up kept the error
+
+**What happened.** `tests/integration/test_raptor_depth.py` read a stage's config field as
+`stage.config.over_level  # type: ignore[union-attr]` inside a list comprehension.
+`ResolvedStage.config` is typed `object` by kernel design (`type StageConfig = object` — it holds
+any plugin's own model), so under pyright's strict mode the suppression silenced the attribute
+access and a **different** diagnostic, `reportUnknownVariableType`, then fired on the enclosing
+`levels = [...]` assignment one line above. `ruff` and the tests were both green; only `pyright`
+saw it, and it saw it at a line the comment could not reach. The bracket code was a mypy spelling
+besides, which pyright ignores entirely. Repaired by reading the value through `getattr` into an
+explicitly annotated `list[object]`.
+
+**Generalises to.** *A suppression comment is scoped to one line and a type error is a property of
+an expression, so a suppression inside a comprehension, a chained call or a nested literal silences
+the wrong thing — and the checker that still complains is the one you have to satisfy.* The
+sharper half: a suppression whose code belongs to a **different checker** than the one this project
+runs is not a suppression at all, and nothing in the tree distinguishes `# type: ignore[...]` from
+`# pyright: ignore[...]`.
+
+**Candidate home.** A ruff rule already exists for the second half — `PGH003` (blanket type-ignore)
+and the `TD`/`PGH` family — but the tree's `select` list (`pyproject.toml` → `[tool.ruff.lint]`)
+carries neither. Adding `PGH` would refuse a bare or foreign-code ignore across the tree; the
+population wants measuring first (`L9.89`), since a pre-existing count above a handful means this
+is a ratchet rather than a repair.
+
+### L10.21 — the deterministic fixture the clusterer needed was the one the loop guard refuses
+
+**What happened.** 10.7's integration test needs `hash` vectors to cluster, and `hash` carries no
+semantic similarity, so the corpus was built deliberately repetitive. The `scripted` LLM provider
+echoes its own last user turn back, and `weft_llm.loop_guard` — a cross-cutting guard attached at
+the registration seam, strict by design — refuses a completion whose content repeats. So the
+fixture that made clustering deterministic made summarisation fail, and the failure surfaced as a
+degraded cluster rather than as anything naming the guard. It cost the implementer real debugging
+time and was resolved by capping `max_cluster_chars` so the echoed text stays short.
+
+**Generalises to.** *A test double chosen for determinism and a guard that refuses degenerate
+output are in direct tension, and the guard wins silently — so a fixture built to be repetitive
+must name the guard it is steering around, at the place the value that steers it is set.* The
+general shape is older than this instance: `scripted` exists to make a gate run with no
+credential, and every property it is used to prove is a property of a system with a real model in
+it, minus whatever the stand-in changes.
+
+**Candidate home.** `weft_llm.scripted`'s own module docstring, which argues for the provider's
+determinism and says nothing about the guard that sits downstream of it; and possibly
+`loop_guard`'s refusal message, which could name `scripted` as a known cause when the completion
+it refused is an echo of its own prompt. The narrow fix already landed in
+`tests/integration/test_raptor_depth.py`'s own comment, which is where the next reader of that
+value will look.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

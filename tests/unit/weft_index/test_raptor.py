@@ -995,8 +995,12 @@ async def test_a_summary_over_summaries_states_the_level_above_them() -> None:
         for node in _embedded((_node("summary one"), _node("summary two")), table)
     )
 
-    # Act
-    outcome = await RaptorSummarizer().run(
+    # Act — `over_level=1` because task 10.7 gave this plugin a selector and the default rung
+    # takes the leaves. **The property under test is unchanged**: the level a summary states is
+    # derived from its members, not from the rung that built it. What changed is how level-1
+    # members reach the clusterer at all — before 10.7 every node in the payload was clustered,
+    # so this arrangement needed no selector; it is the fixture that was stale, not the rule.
+    outcome = await RaptorSummarizer(RaptorConfig(over_level=1)).run(
         (first, second),
         _ctx(embedder=_StubEmbedder(table), llm=_ScriptedLLM([_reply("A summary of both.")])),
     )
@@ -1011,3 +1015,168 @@ async def test_a_summary_over_summaries_states_the_level_above_them() -> None:
         "rather than from the stage is what makes the marker true whatever document an operator "
         "writes — a stage cannot count its own position in a pipeline."
     )
+
+
+# --- Ledger task 10.7 — a tree deeper than one level, each level built from the one below.
+
+
+def _summary_at(level: int, content: str, vector: Vector) -> Node:
+    """A node shaped exactly as a prior `raptor` stage would have left it at `level`."""
+    return (
+        _node(content)
+        .with_embedding(vector)
+        .with_ext(Representation(technique=NAME))
+        .with_ext(
+            RaptorFacts(
+                members=2,
+                members_truncated=0,
+                characters_held=10,
+                characters_shown=10,
+                level=level,
+            )
+        )
+    )
+
+
+async def test_a_rung_over_level_one_clusters_the_summaries_and_not_the_leaves() -> None:
+    """The whole of 10.7's first clause: each level is built from the previous level's nodes
+    alone.
+
+    The linear runner threads every stage's whole output into the next
+    (`weft_kernel.runner._run_one_batch`), so a second `raptor` stage receives the leaves *and*
+    the level-1 summaries in one payload, indistinguishable to a clusterer that looks at
+    vectors. `over_level` is what tells this stage which of them are its input.
+    """
+    # Arrange — two leaves and two level-1 summaries, all embedded, in one payload.
+    table = {"leaf a": _A, "leaf b": _B, "summary one": _C, "summary two": _D}
+    leaf_a, leaf_b = _embedded((_node("leaf a"), _node("leaf b")), table)
+    first = _summary_at(1, "summary one", _C)
+    second = _summary_at(1, "summary two", _D)
+
+    # Act
+    outcome = await RaptorSummarizer(RaptorConfig(over_level=1, similarity_threshold=0.0)).run(
+        (leaf_a, leaf_b, first, second),
+        _ctx(embedder=_StubEmbedder(table), llm=_ScriptedLLM([_reply("A level-two summary.")])),
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    built = [node for node in outcome.value if node.id not in {n.id for n in outcome.value[:4]}]
+    assert len(built) == 1, f"one rung over one level should build one level, got {len(built)}"
+    assert set(built[0].lineage.parents) == {first.id, second.id}, (
+        "the level-2 summary was built from something other than exactly the level-1 nodes — "
+        "the leaves are in the payload and must not be in the cluster"
+    )
+    facts = built[0].ext_as(RaptorFacts)
+    assert facts is not None
+    assert facts.level == 2
+
+
+async def test_no_cluster_holds_a_node_and_an_abstraction_built_from_it() -> None:
+    """10.7's own words, asserted as the property rather than as an arrangement.
+
+    This is the defect the module docstring has warned about since task 2.32: a second `raptor`
+    stage with no filter re-merges a leaf with the summary already built from it and produces a
+    node mixing raw and already-abstracted content. Under 10.6's rule such a node would also
+    claim `level: 2`, so the marker would be false as well as the tree wrong. The check is on
+    the *result*: no produced summary may name, among its parents, both a node and a node
+    derived from it.
+    """
+    # Arrange — a leaf and the level-1 summary built over it, which would happily cluster.
+    table = {"leaf a": _A, "leaf b": _A, "summary of a and b": _A}
+    leaf_a, leaf_b = _embedded((_node("leaf a"), _node("leaf b")), table)
+    over_them = (
+        Node.combine((leaf_a, leaf_b), content="summary of a and b", media_type=MediaType.TEXT)
+        .with_embedding(_A)
+        .with_ext(Representation(technique=NAME))
+        .with_ext(
+            RaptorFacts(
+                members=2, members_truncated=0, characters_held=10, characters_shown=10, level=1
+            )
+        )
+    )
+
+    # Act — a threshold of 0.0 and identical vectors: everything would cluster with everything.
+    outcome = await RaptorSummarizer(RaptorConfig(over_level=1, similarity_threshold=0.0)).run(
+        (leaf_a, leaf_b, over_them),
+        _ctx(embedder=_StubEmbedder(table), llm=_ScriptedLLM([_reply("Level two.")])),
+    )
+
+    # Assert — with one node at level 1 there is nothing to cluster, so nothing is built. What
+    # must not happen is a summary naming a leaf and its own abstraction together.
+    assert isinstance(outcome, Produced)
+    descendants = {leaf_a.id, leaf_b.id}
+    for node in outcome.value:
+        parents = set(node.lineage.parents)
+        assert not (parents & descendants and over_them.id in parents), (
+            "a cluster held a leaf and the summary built from it — the node this produces is "
+            "neither an abstraction nor a passage, and 10.6's level marker would call it level 2"
+        )
+
+
+async def test_a_rung_whose_level_has_too_few_nodes_builds_nothing_and_passes_everything_on() -> (
+    None
+):
+    """**Weft's stop criterion, and it is stated here because no paper settles it.**
+
+    A `raptor` stage builds a level only if the level below it holds at least `min_cluster_size`
+    nodes to cluster. The *depth ceiling* is not the plugin's at all — it is however many rungs
+    the operator's document declares. Chucri Alg. 1 line 4 has the same **shape**, a width
+    condition and a depth condition conjoined — *"while the top layer contains more than 10 nodes
+    and there are fewer than 5 layers"* — with both constants asserted and no ablation; RAPTOR's
+    own rule is *"until further clustering becomes infeasible"* and is undefined at source. The
+    shape is borrowed and neither number is: the width floor is `min_cluster_size`, which an
+    operator already sets, and the ceiling is the document.
+
+    **It must answer `Produced`, not `NothingToProduce`** — `weft_kernel.runner._run_one_batch`
+    returns from the whole batch on any outcome that is not `Produced`, so a rung that answered
+    `NothingToProduce` because its level was thin would take the `store` stage down with it and
+    the corpus would never be written. That is not silence: a level that was not built has no
+    node in the store, and *asking the store for `level == n` and getting nothing* is the tree
+    stating its own depth.
+    """
+    # Arrange — exactly one node at level 1, below the default `min_cluster_size` of 2.
+    table = {"leaf a": _A, "leaf b": _B, "summary one": _C}
+    leaf_a, leaf_b = _embedded((_node("leaf a"), _node("leaf b")), table)
+    lone = _summary_at(1, "summary one", _C)
+
+    # Act
+    outcome = await RaptorSummarizer(RaptorConfig(over_level=1, similarity_threshold=0.0)).run(
+        (leaf_a, leaf_b, lone), _ctx(embedder=_StubEmbedder(table), llm=_ScriptedLLM([]))
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced), (
+        "a thin level answered something other than `Produced`, which ends the batch and takes "
+        "the store stage with it"
+    )
+    assert [node.id for node in outcome.value] == [leaf_a.id, leaf_b.id, lone.id], (
+        "a rung that built nothing must pass its whole payload on unchanged — `Expander`'s own "
+        "contract, and the reason a thin level costs the corpus nothing"
+    )
+
+
+async def test_the_default_rung_still_consumes_the_leaves() -> None:
+    """`over_level` defaults to 0, so `index-with-raptor` is what it was.
+
+    A node with no `RaptorFacts` is at level 0 for selection purposes — which is *not* the same
+    as saying a leaf states level 0 (it states none at all, `test_a_leaf_states_no_level_at_all`).
+    One is what this stage looks for; the other is what a node claims about itself.
+    """
+    # Arrange
+    table = {"passage a": _A, "passage b": _B}
+    a, b = _embedded((_node("passage a"), _node("passage b")), table)
+
+    # Act
+    outcome = await RaptorSummarizer().run(
+        (a, b),
+        _ctx(embedder=_StubEmbedder(table), llm=_ScriptedLLM([_reply("A summary of A and B.")])),
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    built = next(node for node in outcome.value if len(node.lineage.parents) > 1)
+    assert set(built.lineage.parents) == {a.id, b.id}
+    facts = built.ext_as(RaptorFacts)
+    assert facts is not None
+    assert facts.level == 1

@@ -1,0 +1,46 @@
+name: index-with-deep-raptor
+extends: index-with-raptor
+
+# **The document `index-with-raptor.yaml` said would demonstrate depth, at ledger task 10.7.**
+# That document's own comment — *"One level of summary, and it is the plugin's limit rather than
+# this document's choice"* — pointed here: `weft_index.raptor`'s module docstring now says a rung
+# names which level its input is drawn from (`RaptorConfig.over_level`), clusters only that
+# level's nodes, and passes every other node it was handed straight through. A depth ceiling was
+# never the plugin's to hold — it is however many `raptor` rungs a document declares — and this
+# document declares two.
+#
+# **One `embed`, two `raptor` rungs — not `embed, raptor, embed, raptor`.** Since task 10.4
+# `raptor` embeds the summaries it writes, so a second `embed` between the rungs would re-embed
+# every leaf and every level-1 summary a second time: neither shipped `Embedder` skips a node
+# that already carries a vector (`weft_embed/hash_embedder.py`, `weft_openai/embedder.py` both
+# call `with_embedding` unconditionally), which is exactly the doubled bill 10.4 removed,
+# reintroduced one stage later. The parent document's own `summarise` stage already runs after
+# the one `embed` stage `index-text` ships; this document adds a second rung after it and no
+# second `embed` anywhere.
+#
+# **The second rung consumes level 1 by name, and changes nothing else.** `insert:` adds
+# `summarise-deeper` with
+# `over_level: 1` — the level `summarise` states on the summaries it writes — so it clusters
+# those summaries and never touches the leaves sitting beside them in the same payload. Its
+# own output states level 2, derived from its members exactly as 10.6 requires, never from this
+# stage's position in the document.
+#
+# **With the default `hash` embedder this document builds nothing, exactly as its parent does,
+# and that is deliberate.** `index-with-raptor.yaml` records the measurement: `similarity_threshold:
+# 0.75` against `hash`'s deterministic, semantically-empty vectors clears nothing, so the first rung
+# summarises zero clusters and the second has nothing to cluster either. This document **inherits
+# that threshold unchanged** rather than widening it. A shipped rung whose default clusters anything
+# with anything would produce confident summaries over meaningless groupings the first time anyone
+# ran it flagless — which is the invocation nobody runs on purpose and everyone runs first
+# (`docs/lessons.md` L9.64), and the exact failure ledger task 10.9's degeneracy check exists to
+# refuse. Configure a real embedder in `[services] embed`, or derive from this document and widen
+# the thresholds yourself if you are only exercising the shape;
+# `tests/integration/test_raptor_depth.py` does precisely that, in its own project-local document,
+# so the demonstration values live where they cannot be run by accident.
+#
+insert:
+  - after: summarise
+    stage:
+      id: summarise-deeper
+      use: raptor
+      with: {over_level: 1}

@@ -449,6 +449,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-with-keywords.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-with-questions.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-with-raptor.yaml")
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-with-deep-raptor.yaml")
 
     # **Two alternative routers, contributed because task 8.3 made a second one selectable.**
     # `weft ask` used to run the document named `route` and no other, because

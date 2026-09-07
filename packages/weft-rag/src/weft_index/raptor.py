@@ -96,19 +96,46 @@ is a real cost stated in the open rather than hidden in a stage-order convention
 document that puts `raptor` before `embed` no longer silently degrades to "no clustering
 happened," it fails, naming the stage that has to move.
 
-**Chaining `embed`, `raptor`, `embed`, `raptor`, ... does not yet build a correct deeper
-tree, and this module does not claim that it does.** `weft_kernel.runner`'s linear runner
-threads each stage's whole output straight into the next stage's payload, so a second
-`raptor` stage in such a pipeline would receive the *entire* cumulative node set — the
-original leaves plus the level-1 summaries built from some of them — not an isolated "this
-level's nodes." Neither `_cluster_by_similarity` nor `run` filters on `Lineage` or reads the
-`Representation` marker this plugin itself attaches, so that second stage would cluster
-leaves and their own summary together indiscriminately: a leaf could be re-merged with the
-summary already built from it, or with an unrelated summary from another branch, producing a
-node that mixes raw and already-abstracted content rather than a genuine deeper level.
-Building a real second level needs `RaptorSummarizer` to exclude, on the way in, any node a
-prior `raptor` stage already consumed — filed as future work, not shipped here. Until it is,
-depth stops at one level and an operator's own pipeline document is not a substitute.
+**A tree deeper than one level, and each level built from the one below it alone (task
+10.7).** `weft_kernel.runner`'s linear runner threads each stage's whole output straight
+into the next stage's payload, so a second `raptor` stage in a pipeline document receives
+the *entire* cumulative node set — the original leaves plus whatever an earlier `raptor`
+stage already built — not an isolated "this level's nodes." `RaptorConfig.over_level`
+is how a stage tells the difference: it names the level this stage's input is drawn from,
+`0` meaning the leaves, and `run` clusters only the nodes selected at that level, passing
+every other node it was handed straight through unchanged. A node's level *for selection*
+is `node.ext_as(RaptorFacts).level`, or `0` when it carries no `RaptorFacts` at all — which
+is not the same fact a leaf *states* about itself (it states none, `RaptorFacts.level`'s own
+docstring and `test_a_leaf_states_no_level_at_all`); one is what this stage looks for, the
+other is what a node claims. The level a built summary states is unchanged from task 10.6:
+derived from its members, never from `over_level`, so a rung over level 1 produces level 2
+because its members are at level 1 — the two are deliberately uncoupled, which is what keeps
+a document's own arrangement of stages free to differ from what any one stage assumes about
+its position.
+
+**The stop criterion, and it is Weft's own.** A rung builds a level only when its selected
+input holds at least `min_cluster_size` nodes to cluster; below that, `run` answers
+`Produced` with the payload **unchanged**, building nothing. It must answer `Produced`,
+never `NothingToProduce`: `weft_kernel.runner._run_one_batch` (around lines 908-917) returns
+from the *whole batch* on any outcome that is not `Produced`, so a thin rung that answered
+`NothingToProduce` would take the `store` stage down with it and the corpus would never be
+written — the obvious reading of `Expander`'s own contract, "a batch with nothing to expand
+still answers `NothingToProduce`," points the wrong way here, because what is thin is one
+level of a tree, not the whole run. The depth *ceiling* is not this plugin's at all — it is
+however many `raptor` rungs an operator's document declares; the width *floor* is
+`min_cluster_size`, a field an operator already sets for the ordinary one-level case. Neither
+number is drawn from either paper. Chucri Alg. 1 line 4 conjoins the same **shape** — a width
+condition and a depth condition together, *"while the top layer contains more than 10 nodes
+and there are fewer than 5 layers"* — with both constants asserted and no ablation behind
+either; RAPTOR's own rule is *"until further clustering becomes infeasible"* (§3, p.3) and is
+never defined, in its body or its appendix. This module does not assert that a deeper tree
+answers better — no section of this task does; task 10.13 is where that is measured.
+
+*(This section used to say chaining `raptor` stages "does not yet build a correct deeper
+tree, and this module does not claim that it does," and that building one needed
+`RaptorSummarizer` "to exclude, on the way in, any node a prior `raptor` stage already
+consumed — filed as future work, not shipped here." `over_level` above is that exclusion,
+shipped at task 10.7.)*
 
 **What the tree is a tree of, named rather than left to be inferred (task 10.5).** It is a tree
 of **the one collection** — the store this run is configured to write to (`weft_cli.ingest`'s own
@@ -179,9 +206,8 @@ parents` as a tree, and naming this plugin `raptor` does not claim it, on the sa
 **Every summary now states its own level (task 10.6).** `weft_index.payload.RaptorFacts.
 level` is derived from the members a summary was actually built from, never from this
 stage's own position in a pipeline — see that field's docstring for why. This is the
-interface task 10.7 will filter on to build each level from the previous level's nodes
-alone; that filtering is not built here, and this section claims nothing beyond the level
-being sayable.
+interface task 10.7 filters on, above, to build each level from the previous level's nodes
+alone.
 """
 
 import asyncio
@@ -241,6 +267,13 @@ class RaptorConfig(BaseModel):
     max_concurrent_summaries: int = Field(default=8, ge=1)
     prompt: str = Field(default=SUMMARIZE_CLUSTER_NAME, min_length=1)
     role: str = Field(default="index", min_length=1)
+    #: The level this rung's input is drawn from — `0` meaning the leaves, which is the
+    #: default and keeps `index-with-raptor` exactly what it was. A second `raptor` stage in
+    #: a document sets this to the level the first one built, so it clusters that level's
+    #: summaries and leaves the leaves — and any other level in the payload — untouched. See
+    #: the module docstring's *"A tree deeper than one level"* section for why the runner
+    #: makes this necessary rather than optional.
+    over_level: int = Field(default=0, ge=0)
 
     @model_validator(mode="after")
     def _min_cluster_size_within_cluster_size(self) -> "RaptorConfig":
@@ -254,8 +287,9 @@ class RaptorConfig(BaseModel):
 
 
 class RaptorSummarizer:
-    """Clusters every node it is handed by embedding similarity, and derives one summary
-    node per cluster that clears `min_cluster_size`.
+    """Clusters the nodes at `RaptorConfig.over_level` by embedding similarity, and derives
+    one summary node per cluster that clears `min_cluster_size` — every other node it was
+    handed, at any other level, continues into the output untouched (task 10.7).
 
     Satisfies `weft_index.contract.Expander` structurally. Each derived node is
     `Node.combine(members, content=summary, media_type=MediaType.TEXT)`, so its id is its
@@ -275,18 +309,42 @@ class RaptorSummarizer:
         if not payload:
             return NothingToProduce(reason="no nodes to cluster into summaries")
 
-        unembedded = sum(1 for node in payload if node.embedding is None)
+        # **Selection, not the whole payload.** The linear runner threads every stage's
+        # whole output into the next stage's payload (`weft_kernel.runner._run_one_batch`),
+        # so a second `raptor` stage in a document receives the leaves *and* whatever an
+        # earlier rung already built, in one payload. `_node_level` reads what a node
+        # carries for *selection* purposes — `0` for a node with no `RaptorFacts` at all —
+        # which is deliberately not the same fact `RaptorFacts.level` states about a summary
+        # (a leaf states no level; see that field's own docstring). Only nodes at
+        # `over_level` are candidates for this rung's clustering; everything else rides
+        # through in `payload` below, untouched, so a leaf can never be re-merged with an
+        # abstraction already built from it.
+        selected = [node for node in payload if _node_level(node) == self._config.over_level]
+
+        unembedded = sum(1 for node in selected if node.embedding is None)
         if unembedded:
             return Failed(
                 reason=(
                     f"'{NAME}' received {unembedded} node(s) with no embedding out of "
-                    f"{len(payload)}. This plugin clusters by the vectors it is handed and no "
-                    f"longer computes them itself, so it must run after the 'embed' stage, not "
-                    f"before it — move the '{NAME}' stage in the pipeline document to follow "
-                    f"'embed' and re-run"
+                    f"{len(selected)} at level {self._config.over_level}. This plugin clusters "
+                    f"by the vectors it is handed and no longer computes them itself, so it "
+                    f"must run after the 'embed' stage, not before it — move the '{NAME}' "
+                    f"stage in the pipeline document to follow 'embed' and re-run"
                 )
             )
-        embedded = tuple((node, node.embedding) for node in payload if node.embedding is not None)
+
+        if len(selected) < self._config.min_cluster_size:
+            # **Weft's own stop criterion's width half**, and it must answer `Produced`, not
+            # `NothingToProduce` — see the module docstring's *"The stop criterion, and it is
+            # Weft's own"* section. `weft_kernel.runner._run_one_batch` (around lines
+            # 908-917) returns from the *whole batch* on any outcome that is not `Produced`,
+            # so answering `NothingToProduce` here because one level is thin would take the
+            # `store` stage down with it and the corpus would never be written at all. The
+            # depth ceiling is the document's, not this plugin's: it simply has nothing to
+            # build at this level and says so by changing nothing.
+            return Produced(value=tuple(payload))
+
+        embedded = tuple((node, node.embedding) for node in selected if node.embedding is not None)
         clusters = _cluster_by_similarity(
             embedded,
             cluster_size=self._config.cluster_size,
@@ -420,6 +478,21 @@ class RaptorSummarizer:
                 .with_ext(facts)
             )
         return None
+
+
+def _node_level(node: Node) -> int:
+    """`node`'s level *for selection* — task 10.7 — never the level a node *states* about
+    itself.
+
+    A summary states its level in `RaptorFacts.level`; a leaf carries no `RaptorFacts` at
+    all and states none (`test_a_leaf_states_no_level_at_all`). This function answers `0`
+    for that leaf anyway, because a rung with the default `over_level=0` has to keep
+    consuming the leaves `index-with-raptor` already relies on. The two are not the same
+    claim: one is what this stage looks for on its way in, the other is what a node says
+    about what it is.
+    """
+    facts = node.ext_as(RaptorFacts)
+    return facts.level if facts is not None else 0
 
 
 def _format_cluster(members: Sequence[Node], *, budget: int) -> tuple[str, int, int]:

@@ -6423,6 +6423,97 @@ schedule them.
   stories for depth; T-Retriever's rise with depth is on graphs. The criterion is cited to nobody, and
   *deeper is better* is asserted nowhere in this phase — 10.13 is where it is tested. The scope it
   deepens is 10.5's
+  · **`RaptorConfig.over_level` selects the rung's input, and the ceiling lives in the document.**
+  A node's level *for selection* is `ext_as(RaptorFacts).level` or `0` when it carries none —
+  which is not the same as a leaf *stating* level 0, since it states none at all; one is what a
+  rung looks for, the other is what a node claims. Selection is **exact**: `over_level: 1`
+  clusters level-1 nodes and passes leaves through untouched, so no cluster can hold a node and an
+  abstraction built from it. The level a summary *states* stays 10.6's rule — derived from its
+  members — so a rung over level 1 produces level 2 because of what it clustered, not because of
+  where it sits, and that keeps holding in a document nobody anticipated.
+
+  **Not `applies_to`, and the reason is a real conflict rather than a preference.** The kernel's
+  applicability grammar *can* already express `Applies(RaptorFacts, level=n)` and the runner would
+  route on it — but two rungs in one document need two different constraints, so it would have to
+  be an **instance** attribute, and `weft_kernel/resolution.py:924` reads `applies_to` off the
+  **class** for the resolved form. `weft pipeline show` would print `()` while a different
+  constraint actually ran, against `02` §3's requirement that the resolved form print each stage's
+  applicability. In-`run` selection instead, which is the pattern `weft_vision/describe_figure.py`
+  and `weft_chunk/table_rows.py` already ship. Found by a read-only survey before the brief was
+  written, which is the only reason the wrong route was not taken.
+
+  **The stop criterion, stated: a rung builds a level only if its selected input holds at least
+  `min_cluster_size` nodes; the depth ceiling is however many rungs the document declares.** The
+  width floor is the plugin's and an operator already sets it; the ceiling is the operator's.
+  **Neither number is cited to a paper.** Chucri Alg. 1 line 4 has the same *shape* — *"while the
+  top layer contains more than 10 nodes **and** there are fewer than 5 layers"*, a width condition
+  and a depth condition conjoined — with both constants asserted and no ablation, and RAPTOR's own
+  rule is *"until further clustering becomes infeasible"* (§3, p.3), undefined at source and
+  undefined in all eight appendices. The shape is borrowed and the numbers are not.
+
+  **A thin rung answers `Produced`, not `NothingToProduce`, and that is load-bearing.**
+  `weft_kernel/runner.py:908-917` returns from the whole batch on any outcome that is not
+  `Produced`, so a rung answering `NothingToProduce` because its level was thin would take the
+  `store` stage down with it and the corpus would never be written — verified in the code, not
+  assumed, and commented at the branch because `Expander`'s contract points the other way. It is
+  not silence either: a level that was not built has no node in the store, and asking the store
+  for `level == n` and getting nothing **is** the tree stating its own depth.
+
+  **`index-with-deep-raptor.yaml` ships**, registered in `weft_retrieve/__init__.py`, extending
+  `index-with-raptor` and inserting one rung with `with: {over_level: 1}` — **one `embed`, two
+  `raptor` rungs**, never `embed, raptor, embed, raptor`: since 10.4 the plugin embeds its own
+  summaries, so a second `embed` between the rungs re-bills every leaf and every level-1 summary,
+  which is 10.4's doubled cost reintroduced one stage later. The integration test asserts exactly
+  one embed stage for that reason.
+
+  **The shipped rung inherits `similarity_threshold: 0.75` and therefore builds nothing under
+  `hash` — deliberately, and this was changed after the implementer returned.** The first version
+  widened the shipped document to `0.0` so its own test could pass. A shipped rung whose default
+  clusters anything with anything produces confident summaries over meaningless groupings the
+  first time anyone runs it flagless, which is `L9.64`'s invocation and precisely the failure
+  10.9's degeneracy check exists to refuse — a document tuned until its test went green is an
+  implementation shaped to the assertion, one level up. The demonstration values moved into a
+  **project-local derived document the test writes itself**, found the way `weft` finds one
+  (`pipelines/` relative to the working directory), which is also what an operator would actually
+  do. Watched failing with `over_level: 0` planted on the second rung: no level-2 node exists.
+
+  **Two of my own tests were wrong and the implementer found both**, which is the split working.
+  10.6's `test_a_summary_over_summaries_states_the_level_above_them` fed level-1 nodes to a
+  *default* rung, which exact selection no longer clusters — the property was right and the
+  arrangement was stale, so it now sets `over_level=1` and says why. And `test_raptor_depth.py`
+  carried a `# type: ignore[union-attr]` that silenced its own line while `reportUnknownVariableType`
+  fired on the comprehension above it, in a checker whose code the comment did not even use
+  (`L10.20`). The agent refused to weaken exact selection to force the stale test green, and said
+  so; that refusal is the whole reason the split exists
+  · **A real two-level tree, through the shipped binary, from outside this repository.** Six
+  passages, `hash`, `scripted`, the demonstration derivation in a project-local `pipelines/`
+  directory — and the store afterwards, grouped by the level each node states:
+
+  ```text
+  rows before: 0
+  produced 1, nothing to produce 0, failed 0. nodes now stored: 50.
+   level  | count
+  --------+-------
+   1      |    14
+   2      |     6
+   (leaf) |    30
+  ```
+
+  Thirty leaves, fourteen level-1 summaries, six level-2. **And the safety property asked of the
+  live store rather than of the plugin:** the count of level-2 nodes naming a parent that is not a
+  level-1 node is **0** — a `select` over `unnest(parents)` joined back to `weft_nodes`, which is
+  the same question `test_no_cluster_holds_a_node_and_an_abstraction_built_from_it` asks in
+  memory, asked again where the tree actually lives.
+
+  **The flagless path, on the real corpus, separately.** `weft index . --pipeline
+  index-with-deep-raptor` over the nine `pl-wiki` documents under the default `hash` embedder:
+  **107 leaves, zero summaries, exit 0** — the same honest silence the parent document measured
+  and recorded, inherited rather than papered over, which is what dropping the widened thresholds
+  bought. *(A first attempt used the six-passage fixture instead and is worth recording: near-
+  identical content gives `hash` near-identical vectors, so clusters formed at `0.75`, the
+  `scripted` provider echoed the repetitive text back, `loop_guard` refused every completion, and
+  `raptor` correctly answered `Failed` — which ends the batch, so nothing was stored at all. The
+  failure path works; the fixture was unrepresentative, and `L10.21` is that interaction.)*
 - [ ] **10.8** a summary is expandable to its members through the published store contract, and the
   plugin states which walk a deeper summary's `lineage.parents` makes — to the level below it, or to
   the leaves — and what the walk costs, measured · owner `02` §1 → *The store contract family*;
