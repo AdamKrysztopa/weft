@@ -6703,10 +6703,10 @@ schedule them.
   Nothing needed building: `_format_cluster` already reads `content`, so the task was to find out
   whether the cheapest rule was the true one, state it in both places, and pin it so it cannot
   become unstated again. Written by hand
-- [ ] **10.12** a retrieved summary and the leaves it was built from do not both consume the answer's
+- [x] **10.12** a retrieved summary and the leaves it was built from do not both consume the answer's
   budget as independent evidence, and the weight that decides it is measured rather than guessed ·
   owner `weft_retrieve/pipelines/raptor-and-leaves-rrf.yaml`; `10` §1.1 → `reciprocal-rank-fusion` ·
-  turns on — · sha — · **depends on 10.0.** The shipped rung fuses two filtered arms with a `0.7` the
+  turns on — · sha `cfe9e59` · **depends on 10.0.** The shipped rung fuses two filtered arms with a `0.7` the
   document itself calls *"not a measured optimum"* (`raptor-and-leaves-rrf.yaml:26-30`, `:35`) and
   budgets by count (`:47`, `top_n: 8`) where RAPTOR's Algorithm 2 stops on a token threshold
   (Appendix F). Three papers give three answers — RAPTOR retrieves flat under a token budget,
