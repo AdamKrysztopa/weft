@@ -498,6 +498,17 @@ class RaptorSummarizer:
         # abstraction already built from it.
         selected = [node for node in payload if _node_level(node) == self._config.over_level]
 
+        # **Refusal C, task 10.21 — a level a prior rung in this same run already consumed.**
+        # See `_refuse_level_already_consumed`'s own docstring for the argument. Drawn here,
+        # once `selected` names which nodes this rung would cluster, and before the embedding
+        # and cluster-size checks below, which are about whether this rung *can* run rather
+        # than whether it *should*.
+        already_consumed_refusal = _refuse_level_already_consumed(
+            payload, selected=selected, over_level=self._config.over_level
+        )
+        if already_consumed_refusal is not None:
+            return already_consumed_refusal
+
         unembedded = sum(1 for node in selected if node.embedding is None)
         if unembedded:
             return Failed(
@@ -849,6 +860,47 @@ def _refuse_unreachable_over_level(payload: Sequence[Node], *, over_level: int) 
                 f"rungs in this run could have produced it, however well each one had done"
             )
         )
+    return None
+
+
+def _refuse_level_already_consumed(
+    payload: Sequence[Node], *, selected: Sequence[Node], over_level: int
+) -> Failed | None:
+    """`None` when nothing in `payload` was already built *from* a node in `selected`;
+    `Failed` naming `over_level` and the level it should have consumed instead when some
+    node was — task **10.21**.
+
+    The linear runner threads every stage's whole output into the next stage's payload, so
+    two `raptor` rungs sharing an `over_level` in one document both see this rung's leaves
+    *and* whatever an earlier rung already built over them. Two summaries then exist over one
+    cluster — one from each rung — and the store keeps both, because a summary's id is its
+    own content digest and the two differ in text. A query reaching this level counts them as
+    independent evidence instead of one abstraction.
+
+    A node is that prior summary when it *carries `RaptorFacts`* and names a node from
+    `selected` among its own `lineage.parents`: only a summary carries `RaptorFacts` at all,
+    so keying on parents alone would fire on the very first rung of an ordinary ingest — a
+    leaf chunk's own parents name the document root it was split from, and that is not a
+    level anything has consumed. `_node_level` is deliberately not used for this check: it
+    answers `0` for a node with no `RaptorFacts`, which cannot tell "a leaf" apart from "a
+    summary that states level 0" — nothing states level 0, but the point of this rule is the
+    presence of `RaptorFacts` itself, not the level it reports.
+    """
+    selected_ids = {node.id for node in selected}
+    for node in payload:
+        if node.ext_as(RaptorFacts) is None:
+            continue
+        if selected_ids.intersection(node.lineage.parents):
+            return Failed(
+                reason=(
+                    f"'{NAME}': over_level={over_level} has already been consumed by an "
+                    f"earlier rung in this run — a node in this payload carries RaptorFacts "
+                    f"and was built from a node at level {over_level}. A second rung over the "
+                    f"same level would give one cluster two independent-looking abstractions "
+                    f"in the store; if this rung is meant to build the next level up, set "
+                    f"over_level to {over_level + 1} instead"
+                )
+            )
     return None
 
 

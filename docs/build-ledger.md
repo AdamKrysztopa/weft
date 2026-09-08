@@ -7110,9 +7110,9 @@ extractors and **both branches of 10.9**, so no branch of this phase ships havin
   stored `clusters_found: 1` written under `1.3.0` cannot be told from a default, so the version is
   what says which reading applies
 
-- [ ] **10.21** a `raptor` rung refuses a level a prior rung in the same run already consumed,
+- [x] **10.21** a `raptor` rung refuses a level a prior rung in the same run already consumed,
   rather than building a second parallel set of summaries over it · owner `weft_index/raptor.py`;
-  `01` → requirement 3 · turns on — · sha — · **Requirement 3's second question — *if someone
+  `01` → requirement 3 · turns on — · sha `PENDING` · **Requirement 3's second question — *if someone
   inserts a stage in the wrong place, what tells them?* — has no answer for this stage.** Two rungs
   sharing an `over_level` each cluster that level's nodes and each writes summaries over them;
   because the summary text comes from a model, the two sets differ in content and therefore in id,
@@ -7124,6 +7124,26 @@ extractors and **both branches of 10.9**, so no branch of this phase ships havin
   leaf and every level-1 summary, undoing exactly what 10.4 saved, and only prose in
   `index-with-deep-raptor.yaml` stands against it. A pack has no way to validate a resolved
   document's stage arrangement; that absence is the finding, and it is bigger than this task
+  · **Refused, and read back through the shipped binary from `<scratch>/ex1018`** — a document
+  deriving the two-rung one and inserting a third rung at the level the first already took:
+
+  ```text
+  $ weft index . --pipeline double-rung   # insert: {id: summarise-again, with: {over_level: 0}}
+  failed: 'raptor': over_level=0 has already been consumed by an earlier rung in this run — a node
+  in this payload carries RaptorFacts and was built from a node at level 0. A second rung over the
+  same level would give one cluster two independent-looking abstractions in the store; if this rung
+  is meant to build the next level up, set over_level to 1 instead
+  ```
+
+  **The `RaptorFacts` half of the condition is what makes the rule safe, and it is not incidental.**
+  A rule keyed on parents alone fires on the *first* rung of an ordinary ingest, because a leaf
+  chunk names the document root it was split from — `over_level: 0` would then refuse every
+  ingest Weft ships. Only a summary can consume a level and only a summary carries the facts, so
+  the check reads `node.ext_as(RaptorFacts) is not None` and deliberately not `_node_level`, which
+  answers `0` for a leaf and could not tell the two apart. The control is again a test that was
+  green before the change and had to stay green — the shipped deep document's own second rung at
+  `over_level: 1`, which consumes nothing and must run. Green by a dispatched `weft-implementer`;
+  `run` did not need extraction this time
 
 **Conditional — recorded with what would schedule them, and not scheduled.**
 

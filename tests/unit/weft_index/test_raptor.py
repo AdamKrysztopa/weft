@@ -1641,6 +1641,114 @@ async def test_a_complete_run_says_it_summarised_every_cluster() -> None:
         assert facts.clusters_summarised == 2
 
 
+# --- Ledger task 10.21 — a level a prior rung already consumed is refused, not summarised twice.
+
+
+async def test_a_level_a_prior_rung_already_consumed_is_refused() -> None:
+    """Requirement 3's second question — *what tells them?* — had no answer for this stage.
+
+    Two `raptor` rungs in one document sharing an `over_level` each cluster that level's nodes and
+    each writes summaries over them. Because the summary text comes from a model the two sets
+    differ in content, so they differ in id (`Node.combine`'s digest covers content and parents),
+    and the store keeps both: one cluster, two abstractions, and every query that reaches the level
+    sees them as independent evidence. Nothing warned. `requires`/`provides` cannot see it — it is
+    not a data dependency — and the plugin cannot see its sibling stages either.
+
+    **What it can see is its own payload**, which is the whole of this rule: if some node in the
+    payload *carries `RaptorFacts`* and names a selected node among its `lineage.parents`, then an
+    earlier rung in this same run already built an abstraction over this level.
+
+    **The `RaptorFacts` half is load-bearing, not incidental.** A rule keyed on parents alone fires
+    on the very first rung, because a leaf chunk names the document root it was split from — so
+    `over_level: 0` would refuse every ordinary ingest. Only a summary can consume a level, and
+    only a summary carries `RaptorFacts`.
+    """
+    # Arrange — two leaves and a real summary built from them, as a first rung would leave things.
+    table = {"passage a": _A, "passage b": _B}
+    left, right = _embedded((_node("passage a"), _node("passage b")), table)
+    already = (
+        Node.combine((left, right), content="a summary of a and b", media_type=MediaType.TEXT)
+        .with_embedding(_C)
+        .with_ext(Representation(technique=NAME))
+        .with_ext(
+            RaptorFacts(
+                members=2, members_truncated=0, characters_held=10, characters_shown=10, level=1
+            )
+        )
+    )
+
+    # Act — a second rung aimed at level 0, the level `already` was built from.
+    outcome = await RaptorSummarizer(RaptorConfig(similarity_threshold=0.5)).run(
+        (left, right, already),
+        _ctx(embedder=_StubEmbedder(table), llm=_ScriptedLLM([_reply("Another summary.")])),
+    )
+
+    # Assert
+    assert isinstance(outcome, Failed), (
+        "a second rung re-summarised a level an earlier rung had already consumed, and reported "
+        "success. The store would then hold two different abstractions over one cluster, and a "
+        "query reaching that level would count them as independent evidence."
+    )
+    assert "over_level" in outcome.reason and "0" in outcome.reason, (
+        f"the refusal must name the level it refused to consume twice: {outcome.reason!r}"
+    )
+
+
+async def test_the_next_level_up_is_not_mistaken_for_a_level_already_consumed() -> None:
+    """The control, and the reason the rule reads `RaptorFacts` rather than parents alone.
+
+    The shipped `index-with-deep-raptor` is exactly this shape: leaves and level-1 summaries in one
+    payload, and a second rung at `over_level: 1` whose job is to build level 2 over them. Nothing
+    in the payload has yet consumed level 1, so the rung must run. If 10.21's refusal ever widens
+    to catch this, the shipped deep document stops working and this test is where that is found.
+    """
+    # Arrange — two level-1 summaries, each genuinely built from its own pair of leaves.
+    table = {f"passage {name}": vector for name, vector in (("a", _A), ("b", _B))}
+    left, right = _embedded((_node("passage a"), _node("passage b")), table)
+    first = (
+        Node.combine((left,), content="summary one", media_type=MediaType.TEXT)
+        .with_embedding(_C)
+        .with_ext(Representation(technique=NAME))
+        .with_ext(
+            RaptorFacts(
+                members=1, members_truncated=0, characters_held=10, characters_shown=10, level=1
+            )
+        )
+    )
+    second = (
+        Node.combine((right,), content="summary two", media_type=MediaType.TEXT)
+        .with_embedding(_C)
+        .with_ext(Representation(technique=NAME))
+        .with_ext(
+            RaptorFacts(
+                members=1, members_truncated=0, characters_held=10, characters_shown=10, level=1
+            )
+        )
+    )
+
+    # Act — the deep document's own second rung.
+    outcome = await RaptorSummarizer(
+        RaptorConfig(over_level=1, cluster_size=2, similarity_threshold=0.5)
+    ).run(
+        (left, right, first, second),
+        _ctx(embedder=_StubEmbedder(table), llm=_ScriptedLLM([_reply("A summary of both.")])),
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced), (
+        "the shipped deep document's second rung was refused. Level 1 has not been consumed by "
+        f"anything in this payload — nothing here was built *from* a level-1 node: {outcome!r}"
+    )
+    levels = sorted(
+        facts.level
+        for facts in (node.ext_as(RaptorFacts) for node in outcome.value)
+        if facts is not None
+    )
+    assert levels == [1, 1, 2], (
+        f"the rung must have built level 2 over the two level-1 nodes: {levels}"
+    )
+
+
 # --- Ledger task 10.20 — an uncomputed tally is absent, never a plausible number.
 
 
