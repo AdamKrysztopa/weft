@@ -423,7 +423,7 @@ async def stream(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-qdrant`, `weft-rag`  
-**Version:** `2.2.0`
+**Version:** `2.3.0`
 
 A store that can evaluate a whole `Filter` against what it holds.
 
@@ -504,7 +504,7 @@ async def complete_structured(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-qdrant`, `weft-rag`  
-**Version:** `2.2.0`
+**Version:** `2.3.0`
 
 The base every store implements all of — see the module docstring for `run`.
 
@@ -513,6 +513,14 @@ the eight capability methods below `run`; see that section for what each
 one is for and why (durability as a guarantee rather than a `persist()`
 call, deletion as idempotent-and-resumable rather than atomic, and the
 rest).
+
+**`supersede` is deliberately *not* here — see `NodeSupersedable`, ledger task
+10.24.** It was written onto this Protocol first, and that broke this family's own
+stated rule: `SourceDeletable`'s docstring calls a separate Protocol *"exactly the
+optional-method design this family exists to refuse"*, and `MetadataFilter` was
+corrected into the same shape at task 2.6. Growing this base would also have made
+every third-party store owe a method to keep satisfying it — a **major** by `09`'s
+table — to gain a capability most of them will never offer.
 
 ### Methods
 
@@ -568,6 +576,50 @@ async def run(
 async def scan(
     self, cursor: weft_store.contract.Cursor | None = None
 ) -> weft_store.contract.Page[weft_kernel.payload.node.Node]: ...
+```
+
+## `NodeSupersedable`
+
+**Module:** `weft_store.contract`  
+**Registered by:** `weft-qdrant`, `weft-rag`  
+**Version:** `2.3.0`
+
+A store that can replace one node with another — ledger task **10.24**, G15's *Remove*.
+
+**One member, and that member *is* the capability**, which is this family's own rule:
+`SourceDeletable` states it (*"A separate Protocol rather than a reuse of `NodeStore`,
+deliberately... exactly the optional-method design this family exists to refuse"*) and
+`MetadataFilter` was corrected into it at task 2.6. This began as a method on `NodeStore`
+and was moved here before it shipped — growing the base would have obliged every
+third-party store to implement supersession to keep satisfying it, a **major** under
+`09`'s table, for a capability most stores will never offer. Both shipped backends satisfy
+this structurally and declare nothing, so `adrap` asks the store it was handed and refuses
+by name when the answer is no.
+
+**Why it exists.** `delete_source` is keyed on a *source*, and a summary's relationship to
+a source is many-to-many — `Lineage.sources` is the union of its members' — so *"this node
+is out of date"* had no expression at all and an incremental tree could not replace what it
+superseded.
+
+**Write `new` first, delete `old` second, and that ordering is the contract.** An
+interruption then leaves a **duplicate**, which `reconcile` can find, and never a **hole**,
+which nothing can and which `04` category A records as staying retrievable forever
+describing content that is gone. No atomicity is promised: Qdrant has no cross-operation
+transaction, and a guarantee only one backend could keep is worse than the honest one —
+`weft_qdrant.delete_source` already works exactly this way and calls itself *"`02`'s
+idempotent, resumable deletion"*.
+
+**Idempotent**, so the retry that ordering makes safe is also possible: `old` already
+absent is not an error. **Refuses first**, changing nothing, when `new.lineage.sources`
+does not cover every source `old` carries — see `SupersedeNarrowsSourcesError`.
+Superseding a node with itself is a no-op that must not delete it.
+
+### Methods
+
+```python
+async def supersede(
+    self, old: weft_kernel.payload.ids.NodeId, new: weft_kernel.payload.node.Node
+) -> None: ...
 ```
 
 ## `Prompt`
@@ -650,7 +702,7 @@ async def run(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-qdrant`, `weft-rag`  
-**Version:** `2.2.0`
+**Version:** `2.3.0`
 
 Anything whose state can be made to agree with what the corpus actually holds — G7.
 
@@ -843,7 +895,7 @@ async def run(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-qdrant`, `weft-rag`  
-**Version:** `2.2.0`
+**Version:** `2.3.0`
 
 Anything holding data that a source's deletion must reach — G7 (2026-08-21).
 
@@ -917,7 +969,7 @@ async def assess(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.2.0`
+**Version:** `2.3.0`
 
 A store that can rank `Node`s by lexical match on their own text.
 
@@ -959,7 +1011,7 @@ async def search_text(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-qdrant`, `weft-rag`  
-**Version:** `2.2.0`
+**Version:** `2.3.0`
 
 A store that can rank `Node`s by vector similarity. Never embeds — `02`: "stores never
 embed. `VectorSearch` takes a vector, `TextSearch` takes text; a store is therefore not

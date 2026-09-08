@@ -132,7 +132,18 @@ from weft_kernel.runner import Stage
 #: sides: minor for a caller (an existing field, `node_count`, is untouched, so nothing that
 #: reads a `Removed` breaks) and minor for an implementer (nothing that already builds a
 #: `Removed` is asked for a new required value).
-STORE_CONTRACT_VERSION = "2.2.0"
+#:
+#: **`2.2.0` → `2.3.0` at task 10.24 — a minor, and it was nearly a major.** The family gains
+#: `NodeSupersedable`, a *new* one-member Protocol. Nothing that already satisfies any member
+#: of this family is asked for anything, so it is minor for an implementer and minor for a
+#: caller. `supersede` was first written onto `NodeStore` itself, which by `09`'s table ("Add a
+#: method to a Protocol" — minor for a caller, **major** for an implementer) would have forced
+#: `2.2.0` → `3.0.0` and, through fitness function 6's binding, a major of `weft-rag` itself.
+#: The dispatched implementer declined to make that bump unilaterally and recorded the cascade,
+#: which is what sent the design back to this family's own rule — `SourceDeletable`'s *"a
+#: separate Protocol... exactly the optional-method design this family exists to refuse"*. The
+#: correct shape and the cheap version turn out to be the same answer.
+STORE_CONTRACT_VERSION = "2.3.0"
 
 #: Versioned separately from `STORE_CONTRACT_VERSION`: a `Filter` is data that
 #: outlives any one store, serialised into a resolved, stored pipeline. Moved `1.0.0` →
@@ -508,6 +519,31 @@ class Filter(BaseModel):
             )
 
 
+class SupersedeNarrowsSourcesError(WeftError):
+    """`new` covers fewer sources than the `old` node `NodeStore.supersede` was asked to replace.
+
+    A constraint violation, not a name failing to resolve against an enumerable set —
+    this does **not** join `UnresolvedNameError`'s family (fitness function 12), unlike
+    `UnhandledFilterOpError` below: an operator *is* a name a dispatch either knows or
+    does not, while a narrowed source set is a relationship between two nodes that no
+    list of "valid options" describes.
+
+    **What this refuses, and why refusing first is the whole of it.** `supersede`
+    writes `new` before it deletes `old`, so a crash between the two leaves a
+    *duplicate* — one `reconcile` can find — rather than a *hole*, which nothing can.
+    That ordering protects against a crash; it does nothing about a caller that hands
+    over a replacement covering fewer sources than the node it replaces, which would
+    remove the last node carrying a source while that source's own documents remain —
+    `docs/04-*`'s category A scar, approached from the caller's end rather than a
+    crash's. `Node.combine` already refuses an empty member set by construction for
+    the identical reason; this is that same refusal one level up, checked and raised
+    *before* either write happens, so a refused `supersede` changes nothing at all.
+
+    The message names the superseded node and every source that would be dropped —
+    see `manual/troubleshooting.md`'s own entry for the wording a reader meets.
+    """
+
+
 @runtime_checkable
 class NodeStore(Stage[Sequence[Node], Sequence[Node]], Protocol):
     """The base every store implements all of — see the module docstring for `run`.
@@ -517,6 +553,14 @@ class NodeStore(Stage[Sequence[Node], Sequence[Node]], Protocol):
     one is for and why (durability as a guarantee rather than a `persist()`
     call, deletion as idempotent-and-resumable rather than atomic, and the
     rest).
+
+    **`supersede` is deliberately *not* here — see `NodeSupersedable`, ledger task
+    10.24.** It was written onto this Protocol first, and that broke this family's own
+    stated rule: `SourceDeletable`'s docstring calls a separate Protocol *"exactly the
+    optional-method design this family exists to refuse"*, and `MetadataFilter` was
+    corrected into the same shape at task 2.6. Growing this base would also have made
+    every third-party store owe a method to keep satisfying it — a **major** by `09`'s
+    table — to gain a capability most of them will never offer.
     """
 
     if TYPE_CHECKING:
@@ -661,6 +705,55 @@ class MetadataFilter(Protocol):
 
 
 MetadataFilter.version = STORE_CONTRACT_VERSION
+
+
+@runtime_checkable
+class NodeSupersedable(Protocol):
+    """A store that can replace one node with another — ledger task **10.24**, G15's *Remove*.
+
+    **One member, and that member *is* the capability**, which is this family's own rule:
+    `SourceDeletable` states it (*"A separate Protocol rather than a reuse of `NodeStore`,
+    deliberately... exactly the optional-method design this family exists to refuse"*) and
+    `MetadataFilter` was corrected into it at task 2.6. This began as a method on `NodeStore`
+    and was moved here before it shipped — growing the base would have obliged every
+    third-party store to implement supersession to keep satisfying it, a **major** under
+    `09`'s table, for a capability most stores will never offer. Both shipped backends satisfy
+    this structurally and declare nothing, so `adrap` asks the store it was handed and refuses
+    by name when the answer is no.
+
+    **Why it exists.** `delete_source` is keyed on a *source*, and a summary's relationship to
+    a source is many-to-many — `Lineage.sources` is the union of its members' — so *"this node
+    is out of date"* had no expression at all and an incremental tree could not replace what it
+    superseded.
+
+    **Write `new` first, delete `old` second, and that ordering is the contract.** An
+    interruption then leaves a **duplicate**, which `reconcile` can find, and never a **hole**,
+    which nothing can and which `04` category A records as staying retrievable forever
+    describing content that is gone. No atomicity is promised: Qdrant has no cross-operation
+    transaction, and a guarantee only one backend could keep is worse than the honest one —
+    `weft_qdrant.delete_source` already works exactly this way and calls itself *"`02`'s
+    idempotent, resumable deletion"*.
+
+    **Idempotent**, so the retry that ordering makes safe is also possible: `old` already
+    absent is not an error. **Refuses first**, changing nothing, when `new.lineage.sources`
+    does not cover every source `old` carries — see `SupersedeNarrowsSourcesError`.
+    Superseding a node with itself is a no-op that must not delete it.
+    """
+
+    if TYPE_CHECKING:
+        #: See `NodeStore.version`'s note above — the same `if TYPE_CHECKING:` mechanism,
+        #: so the attribute is readable off the class and never reaches
+        #: `__protocol_attrs__`, where `isinstance` would demand it of every implementer.
+        version: ClassVar[str]
+
+    async def supersede(self, old: NodeId, new: Node) -> None: ...
+
+
+#: The same assignment its six siblings carry — a published capability of this family,
+#: versioned with it. `NodeStore.version`'s own note explains why this is set after the class
+#: body rather than inside it: an attribute in the body reaches `__protocol_attrs__` and
+#: `isinstance` would then demand it of every implementer.
+NodeSupersedable.version = STORE_CONTRACT_VERSION
 
 
 @runtime_checkable

@@ -1396,6 +1396,29 @@ which is a fact about a deployment and not about the filter; they apply to numbe
 namespace. **What to do:** change the operator, or the field it is applied to. A filter that
 validates is a filter every backend answers the same way, which is the point of the narrowing.
 
+### `SupersedeNarrowsSourcesError`
+
+**What it looks like** — a replacement node that would drop a source the node it replaces carries:
+
+```text
+SupersedeNarrowsSourcesError: cannot supersede node 3f9a2c… with a replacement that drops
+source(s) 'source-b'. A superseding node must carry at least the sources of the node it
+replaces, or the last node carrying a source disappears while that source's documents remain.
+```
+
+You will meet this from a stage that revises a stored tree — an incremental summariser replacing a
+summary with a newer one built over more members. `NodeStore.supersede` writes the replacement
+first and deletes the superseded node second, so an interrupted call leaves a **duplicate**, which
+`weft reindex --repair` finds, rather than a **hole**, which nothing finds. That ordering protects
+against a crash; it cannot protect against a caller handing over a replacement that covers less
+than the original, which is why this refusal exists as well.
+
+**What to do:** build the replacement so its `Lineage.sources` is the union of every member it was
+derived from — `Node.combine` does this for you and is the supported way to build a summary. If you
+constructed the node another way, the sources named in the message are the ones missing. A node
+that genuinely should no longer carry a source is not a supersede: delete the source with
+`weft delete`, which cascades to everything derived from it.
+
 ### `UnhandledFilterOpError`
 
 **What it looks like** — an operator a filter translator has not been taught:

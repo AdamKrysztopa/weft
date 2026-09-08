@@ -3514,7 +3514,7 @@ requires-dist = [
 
 [[package]]
 name = "weft-rag"
-version = "2.2.0"
+version = "2.3.0"
 source = { editable = "packages/weft-rag" }
 dependencies = [
     { name = "ftfy" },

@@ -969,6 +969,13 @@ The implementer stopped and reported rather than inventing a `document_count` fi
 dispatch split working exactly as designed — and it also had to spend its report correcting a claim
 the brief had asserted in bold.
 
+**Recurred one dispatch later, 2026-09-08 at task 10.24.** That brief also asserted the tree's red
+state — *"red right now, for exactly two reasons, and both are this task"* — and it was three: I
+counted the pyright errors and ran the docs suite, and never ran **lint**, where my own edit to a
+test double had pushed a function past ruff's complexity ceiling. Counting two of three sources is
+not counting. **An accounting of a red tree is over every gate step, or it is a sample with extra
+confidence.**
+
 **Generalises to.** *A search run to prove an absence must be counted, not sampled: no `head`, and
 the answer is the count rather than the lines.* `grep -c` and an assertion that it is zero says the
 thing; `grep | head -3` says only what three arbitrary lines happen to be. And an inverted filter is
@@ -979,6 +986,57 @@ so pair it with the positive count and check the two sum to the total.
 lives and where L10.29's second instance now says the dispatcher owes *accounted for* rather than
 *green*. Accounting is a count. Worth stating that the brief may not assert completeness the
 dispatcher has not counted — the agent reads a bold claim as settled and reasons from it.
+
+### L10.35 — the brief grew a published Protocol, and the family's own rule against that was twelve classes down the same file
+
+**What happened.** Task 10.24's brief said, under *Already decided*: add `supersede` to the
+`NodeStore` Protocol. `weft_store/contract.py` contains, in `SourceDeletable`'s own docstring,
+the rule that forbids it — *"A separate Protocol rather than a reuse of `NodeStore`, deliberately…
+One member, and that member **is** the capability"* — and calls the alternative *"exactly the
+optional-method design this family exists to refuse"*. `MetadataFilter` was corrected into that
+shape at task 2.6 and says so. I did not read either before writing the brief, and the implementer
+correctly built what it was told.
+
+**What caught it was the version, not the design review.** Growing an already-published Protocol is
+a **major** under `09`'s two-audience table, which cascades to `weft-rag`'s own version through
+fitness function 6 and to a pinned literal in a test the implementer may not edit. It declined to
+make that bump unilaterally and recorded the cascade — and that refusal is what sent the design back
+to the family's rule. Rebuilt as `NodeSupersedable`, the bump is a **minor**.
+
+**Generalises to, in two parts.** *Before adding a member to a published contract, read the
+docstrings of its siblings in the same file: a family's design rule lives in the class that last
+applied it, not in a document, and grep will not find a rule stated as prose about a different
+class.* And the sharper half, which is reusable well beyond this family: **a change that costs a
+major where every comparable change in the same family was a minor is evidence about the shape, not
+just a bill.** Four new Protocols in this family (`TextSearch` 2.5, `MetadataFilter` 2.6,
+`SourceDeletable` 5.1a, `Reconcilable` 5.1b) were each a minor; a fifth capability that suddenly
+costs a major was mis-shaped, and the version arithmetic said so before any reviewer did.
+
+**Candidate home.** `phase-step` → *Orient*, beside *"read what constrains it"*, which currently
+sends you to the settled documents and not to the neighbours of the class you are about to change.
+Possibly also `weft-qualities` lens 4, which asks what a built-in uses that a third party could
+not, and could ask the version question directly: *does this change cost more than its siblings
+did, and if so why?*
+
+### L10.36 — retrying a command the harness had auto-backgrounded started a second copy of it
+
+**What happened.** Reported by task 10.24's implementer. A long architecture run exceeded its
+per-call timeout, the harness moved it to the background — **still running** — and the agent, seeing
+no result, ran it again. Several `pytest` processes then competed for one machine and one pair of
+containers, and `test_ff9c_every_contract_has_a_stranger` failed twice with `TimeoutExpired` on a
+180-second subprocess budget. Both failures vanished on a single uncontended run: 9 passed. Two
+spurious red results, in the check that builds four throwaway virtualenvs and is the slowest in the
+tree.
+
+**Generalises to.** *A command the harness backgrounds for exceeding its timeout has not stopped —
+it has moved. Wait on it or kill it; never re-issue it.* This is `L6.22`'s finding (two concurrent
+suites truncate each other and produce a result about neither) reached by a new route: not two
+agents, but one agent and its own earlier self. And the failure it produces is the expensive kind —
+a timeout, which reads exactly like a real regression in a slow check.
+
+**Candidate home.** `.claude/agents/weft-implementer.md`, which tells an agent to run the gate and
+says nothing about what an auto-backgrounded command is still doing. `phase-step` → *Green*'s
+"keep off the tree" paragraph is the same subject from the dispatcher's side and could carry both.
 
 ## When the queue is empty
 

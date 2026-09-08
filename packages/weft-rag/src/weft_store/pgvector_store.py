@@ -111,6 +111,7 @@ from weft_store.contract import (
     Scored,
     SourceRecord,
     SourceStatus,
+    SupersedeNarrowsSourcesError,
     UnhandledFilterOpError,
 )
 from weft_store.fields import FieldKind, FieldPath, NodeField, field_for
@@ -782,6 +783,46 @@ class PgVectorStore:
             node_count = cur.rowcount
             await cur.execute("DELETE FROM weft_sources WHERE id = %s", (source_id,))
         return Removed(source_id=source_id, node_count=node_count)
+
+    async def supersede(self, old: NodeId, new: Node) -> None:
+        """Replace `old` with `new` — `NodeStore.supersede`, ledger task **10.24**.
+
+        **Write `new` first, delete `old` second — the whole of the design, and this
+        ordering must not be reversed.** An interruption between the two statements then
+        leaves a *duplicate*, which `reconcile` can find, and never a *hole*, which
+        nothing can and which `docs/04-*`'s category A records as staying retrievable
+        forever describing content that is gone. No transaction spans the two: Qdrant has
+        no cross-operation transaction either, and a promise only one backend keeps is
+        worse than the honest one both keep.
+
+        **Refuses first, changing nothing, when `new` covers fewer sources than `old`
+        does** — see `SupersedeNarrowsSourcesError`. The comparison reads `old` as
+        currently stored, so a retry after an interrupted call — where `old` is already
+        gone — has nothing to compare against and falls straight through to the
+        idempotent write-then-delete below, which is what makes the retry safe.
+
+        **`old == new.id` is a no-op that must not delete the node.** Superseding a node
+        with itself shares one primary key between the write and the delete; without this
+        guard the delete below would remove the row this call just wrote.
+        """
+        existing = await self.get([old])
+        if existing:
+            missing = existing[0].lineage.sources - new.lineage.sources
+            if missing:
+                dropped = ", ".join(f"'{source}'" for source in sorted(missing))
+                raise SupersedeNarrowsSourcesError(
+                    f"cannot supersede node {old} with a replacement that drops "
+                    f"source(s) {dropped}. A superseding node must carry at least the "
+                    f"sources of the node it replaces, or the last node carrying a "
+                    f"source disappears while that source's documents remain.",
+                    pack="weft-store",
+                )
+        await self.add([new])
+        if old == new.id:
+            return
+        conn = await self._connection()
+        async with conn.cursor() as cur:
+            await cur.execute("DELETE FROM weft_nodes WHERE id = %s", (old,))
 
     async def reconcile(self, ctx: Context, mode: ReconcileMode) -> ReconcileReport:
         """Finish every deletion that was interrupted — `Reconcilable`, task **5.1b**.

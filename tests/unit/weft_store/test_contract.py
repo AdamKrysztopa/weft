@@ -324,7 +324,15 @@ def test_the_family_version_moved_when_the_family_grew_a_capability() -> None:
     # Task **9.17** moves it again to `2.2.0`, another minor and for the identical reason:
     # `SourceRecord` gains `pipeline_identity`, an optional field defaulting empty, so every
     # existing writer and reader is untouched.
-    assert STORE_CONTRACT_VERSION == "2.2.0"
+    # Task **10.24** moves it to `2.3.0`, a minor by the same rule the four capability
+    # additions above establish: the family gains `NodeSupersedable`, a *new* one-member
+    # Protocol, and nothing already satisfying any member of the family is asked for anything.
+    # It was nearly a major — `supersede` was first written onto `NodeStore` itself, which
+    # G9's table makes major for an implementer and which fitness function 6 would then have
+    # bound to a major of `weft-rag` — and the correction came from the family's own rule,
+    # `SourceDeletable`'s "a separate Protocol... exactly the optional-method design this
+    # family exists to refuse". The cheap version and the right shape were the same answer.
+    assert STORE_CONTRACT_VERSION == "2.3.0"
 
 
 def test_the_filter_ast_version_moved_when_the_operator_set_narrowed() -> None:

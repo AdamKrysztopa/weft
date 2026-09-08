@@ -7168,9 +7168,9 @@ extractors and **both branches of 10.9**, so no branch of this phase ships havin
   check on — requirement 1's failure shape. **Not a member of the store contract family**, so G4's
   two-backend bar does not apply here; it is satisfied by plugins and the store implements nothing
 
-- [ ] **10.24** a superseded node is replaced rather than deleted, so the store can never hold a
+- [x] **10.24** a superseded node is replaced rather than deleted, so the store can never hold a
   summary whose members are gone · owner `02` §1 → *The store contract family*; `04` category A;
-  `05` → G15's *Remove* face · turns on — · sha — · **G15's Face B, and the ordering is the whole
+  `05` → G15's *Remove* face · turns on — · sha `PENDING` · **G15's Face B, and the ordering is the whole
   design.** `NodeStore.supersede(old: NodeId, new: Node)` writes `new` **first** and deletes `old`
   **second**, so a crash leaves a **duplicate**, which `reconcile` exists to find, and never a
   **hole**, which nothing finds and which `04` category A records as staying retrievable forever
@@ -7182,15 +7182,36 @@ extractors and **both branches of 10.9**, so no branch of this phase ships havin
   the shape that decays, and `10` §2.1 rule 4 forbids a member promising more than the code does.
   **This one does take G4's bar** — both backends, no stub methods — and the conformance suite plus
   the doubles in five test modules are part of the task, not follow-up
+  · **Shipped as `NodeSupersedable`, a new one-member Protocol — *not* as a method on
+  `NodeStore`, which is what my brief specified and what the family's own rule forbids.**
+  `SourceDeletable`'s docstring, twelve classes down the same file, states it: *"A separate
+  Protocol rather than a reuse of `NodeStore`, deliberately... One member, and that member **is**
+  the capability"*, and calls the alternative *"exactly the optional-method design this family
+  exists to refuse"*; `MetadataFilter` was corrected into the same shape at task 2.6. **The version
+  is what caught it.** Growing `NodeStore` is *major* by `09`'s table, and the dispatched
+  implementer declined to make that bump unilaterally because it cascades to `weft-rag`'s own
+  version (fitness function 6 binds them) and to a pinned literal in a test it may not edit — so it
+  recorded the cascade instead. That refusal is what sent the design back to the family rule. **A
+  change that costs a major where every comparable change in the same family was a minor is
+  evidence about the shape, not just a bill**: `TextSearch` (2.5), `MetadataFilter` (2.6),
+  `SourceDeletable` (5.1a) and `Reconcilable` (5.1b) were each a new Protocol and each a minor, and
+  this is the fifth. `2.2.0` → **`2.3.0`**, with `weft-rag` following it. `L10.35`
 
-- [ ] **10.25** `10.5`'s property says which contract it is about, in all three places that state it
-  · owner ledger `10.5`; `10` §1.2 → the `raptor` row; `weft_index/raptor.py`;
-  `index-with-raptor.yaml` · turns on — · sha — · **The cost G15's Face A stated rather than hid.**
-  Three shipped artefacts say *`raptor` performs no store read*, and that is exactly why `D2` went
-  unreached for two phases. After 10.23 the true statement is narrower: **`raptor` the `Expander`
-  reads no store; `adrap` the `Revisable` does.** The property survives, narrowed to the contract it
-  was always about — and a task that changes what three documents assert is a task, not a tidy-up,
-  because `10.1` is this phase's own record of what happens when four artefacts drift apart
+  **What the fitness functions then charged, all of it requirement 4's machinery working.** FF6
+  refused a contract minor without a distribution minor. FF9c refused an exported `Protocol` that
+  neither carries `.version` nor is named a service — so it carries one, like its six siblings, at
+  which point clause (c) refused a *published contract with no out-of-tree stranger* and
+  `examples/weft-example-ingest` gained `supersede` too. A capability the first-party backends have
+  and a stranger cannot reach is exactly the privileged path requirement 4 forbids, and nothing but
+  that check would have said so. `manual/contract-reference.md` was then regenerated, because it
+  publishes this family's version to operators.
+
+  **Conformance: 6 passed across both backends, no skips** — replacement, idempotent retry, and the
+  narrowing refusal, each asked of pgvector and Qdrant by a fixture that cannot tell them apart,
+  plus an `isinstance(store, NodeSupersedable)` assertion so the capability is *derived* rather than
+  declared (G4). One error of mine on the way: I inserted the new class between `@runtime_checkable`
+  and `SourceDeletable`, stealing its decorator — caught by pyright, in three files I had not
+  touched
 
 - [x] **10.22** a persisted `weft eval` run states how long it took, so a cost question can be
   answered from the record rather than from a stopwatch · owner `weft_eval`; `05` → G15's *Bring* ·
@@ -7249,7 +7270,7 @@ extractors and **both branches of 10.9**, so no branch of this phase ships havin
 
 - [ ] **10.14 ⚠ D2** a newly indexed document joins the existing tree rather than founding a second
   one, and no query ever returns both the old and the new summary of one cluster · owner `01` → Phase
-  11 → D2; `02` §1 → *The store contract family*; `05` → **G15** · turns on — · sha — · **Unblocked 2026-09-08: G15 settled, `D2` settled with it, and the ⛔ is discharged.** This is now the `adrap` *plugin* alone — a `Revisable` (task 10.23) that reads the corpus through `ctx.require(NodeStore)`, assigns each new leaf to the nearest existing cluster by a centroid recomputed from that cluster's stored members, and replaces each affected summary and every ancestor above it through `supersede` (task 10.24). **It needs no persisted state that is not a node**, which is the finding that made `D2` cheap: Chucri §4.2 stores fitted UMAP and GMM instances with the tree and Weft's clusterer fits no model, so a cluster's entire state is a centroid derivable from nodes already stored. Depends on 10.23, 10.24 and 10.25. **State the cost honestly in the row**: Chucri §6.5 measures adRAP below a full rebuild on two of three datasets, so this technique's value is operational — not paying to rebuild — and not quality, and `10.22`'s number is what says whether that trade is worth taking on a real corpus Chucri §4 (adRAP) is the paper on this, and its own §6.5 (p.9) reports that adRAP
+  11 → D2; `02` §1 → *The store contract family*; `05` → **G15** · turns on — · sha — · **Unblocked 2026-09-08: G15 settled, `D2` settled with it, and the ⛔ is discharged.** This is now the `adrap` *plugin* alone — a `Revisable` (task 10.23) that reads the corpus through `ctx.require(NodeStore)`, assigns each new leaf to the nearest existing cluster by a centroid recomputed from that cluster's stored members, and replaces each affected summary and every ancestor above it through `supersede` (task 10.24). **It needs no persisted state that is not a node**, which is the finding that made `D2` cheap: Chucri §4.2 stores fitted UMAP and GMM instances with the tree and Weft's clusterer fits no model, so a cluster's entire state is a centroid derivable from nodes already stored. Depends on 10.23 and 10.24. **What was filed as `10.25` is folded in here rather than standing alone** — the owner's call, 2026-09-08, and it was a documentation edit wearing a task line: after 10.23 the true statement is *`raptor` the `Expander` reads no store; `adrap` the `Revisable` does*, and the three artefacts that say the shorter thing (`10` §1.2's row, `weft_index/raptor.py`'s module docstring, `index-with-raptor.yaml`) are corrected in this task's own commit. `10.1` is this phase's record of what happens when artefacts drift apart, so it is checked rather than assumed. **State the cost honestly in the row**: Chucri §6.5 measures adRAP below a full rebuild on two of three datasets, so this technique's value is operational — not paying to rebuild — and not quality, and `10.22`'s number is what says whether that trade is worth taking on a real corpus Chucri §4 (adRAP) is the paper on this, and its own §6.5 (p.9) reports that adRAP
   *"falls short by at least 3%"* on context relevance and *"underperforms compared to RAPTOR in the
   MultiHop and QASPER datasets"* — the full rebuild is the strong baseline, and *rebuilding twice may
   cost less than `01`'s ordering sentence assumed*. What it needs: persisted per-cluster state that is

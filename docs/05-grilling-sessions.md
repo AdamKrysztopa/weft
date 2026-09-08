@@ -1107,12 +1107,17 @@ number anyone has for what reading a tree costs; `weft_store/contract.py`'s ten 
 and Chucri, arXiv:2410.01736 — §4 and §4.2 for adRAP's persisted state, §5 for postQFRAP, §6.4 for
 the greedy variant, §6.5 for the measurement that favours the rebuild — on disk and read at source.
 
-**And one number, which this repository cannot currently produce — its role changed during the
-session and the change is recorded rather than quietly made.** It was written here as a bar on
-opening: do not sit down without the rebuild cost. That bar was for the question *whether* to build
-`10.14`, and **the owner had already answered that**, so holding the session hostage to it would
-have been a proviso invented after the fact (`L5.32`'s shape). The number is still owed — it now
-records what the decision cost rather than deciding it, and `10.22` carries it. `10.14`'s line names
+**And one number, whose role changed during the session — recorded rather than quietly made.** It
+was written here as a bar on opening: do not sit down without the rebuild cost. That bar was for the
+question *whether* to build `10.14`, and **the owner had already answered that**, so holding the
+session hostage to it would have been a proviso invented after the fact (`L5.32`'s shape).
+**`10.22` took the number the same day**, and it records what the decision cost rather than deciding
+it: over the ten `fetch`-tier PDFs, against a real embedder and a real summarising model, a full
+rebuild is **`ingest_seconds` 61.05** against **`query_seconds` 12.78**, persisted on the run record
+and asserted against 0 rows before and 945 after. **Sixty-one seconds for ten documents** — about
+six per document — is the quantity every position in *Remove* above proposes paying a change to a
+published contract family to avoid, and it is the number to hold beside Chucri §6.5's finding that
+the thing being avoided also scores better. `10.14`'s line names
 what schedules it — a rebuild cost the Exit measurement could state — and **`10.13` is ticked
 without that number because the eval record has nowhere to put it.** A persisted `RunRecord` carries
 `metrics`, `corpus`, `resolved_pipeline`, `model_versions` and `recorded_at`: retrieval quality and

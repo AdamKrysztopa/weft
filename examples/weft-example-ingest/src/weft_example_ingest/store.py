@@ -44,6 +44,7 @@ from weft_store.contract import (
     Scored,
     SourceRecord,
     SourceStatus,
+    SupersedeNarrowsSourcesError,
 )
 from weft_store.fields import FieldKind, FieldPath, field_for
 
@@ -94,6 +95,30 @@ class InMemoryNodeStore:
             del self._nodes[node_id]
         self._sources.pop(source_id, None)
         return Removed(source_id=source_id, node_count=len(removed))
+
+    async def supersede(self, old: NodeId, new: Node) -> None:
+        """`NodeSupersedable` — replace one node with another, written from outside the workspace.
+
+        Fitness function 9 clause (c) is why this method is here rather than only on the two
+        first-party backends: a capability the built-ins have and a stranger cannot reach is
+        requirement 4's failure, and this pack is the stranger.
+
+        The ordering is the contract and is what a real backend must also do — **write `new`
+        first, delete `old` second** — so an interruption leaves a duplicate, which `reconcile`
+        can find, and never a hole, which nothing can. Refuse first, changing nothing, when the
+        replacement covers fewer sources than the node it replaces.
+        """
+        stored = self._nodes.get(old)
+        if stored is not None and not stored.lineage.sources <= new.lineage.sources:
+            dropped = ", ".join(sorted(stored.lineage.sources - new.lineage.sources))
+            raise SupersedeNarrowsSourcesError(
+                f"cannot supersede node {old} with a replacement that drops source(s) "
+                f"{dropped}. A superseding node must carry at least the sources of the node "
+                f"it replaces."
+            )
+        self._nodes[new.id] = new
+        if old != new.id:
+            self._nodes.pop(old, None)
 
     async def reconcile(self, ctx: Context, mode: ReconcileMode) -> ReconcileReport:
         """`Reconcilable` — finish every deletion this store started and did not end.

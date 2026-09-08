@@ -71,10 +71,12 @@ from weft_store.contract import (
     FilterOp,
     MetadataFilter,
     NodeStore,
+    NodeSupersedable,
     Page,
     ReconcileMode,
     SourceRecord,
     SourceStatus,
+    SupersedeNarrowsSourcesError,
     TextSearch,
     VectorSearch,
 )
@@ -335,6 +337,102 @@ async def test_delete_source_removes_exactly_the_nodes_carrying_it(store: Confor
     assert removed.node_count == 2
     assert frozenset(node.content for node in (await store.scan()).items) == frozenset({"alpha"})
     assert await store.get_source(_SOURCE_B) is None
+
+
+# --- Ledger task 10.24 — a superseded node is replaced, never merely deleted.
+
+
+async def test_supersede_replaces_a_node_and_leaves_its_neighbours_alone(
+    store: ConformanceStore,
+) -> None:
+    """G15's *Remove* face, on both real backends.
+
+    `NodeStore`'s only removal before this was `delete_source`, keyed on a *source*. A summary's
+    relationship to a source is many-to-many — `Lineage.sources` is the union of its members' — so
+    *"this node is out of date"* had no expression at all, and an incremental tree could not
+    replace what it superseded.
+    """
+    # Arrange
+    corpus = _corpus()
+    await store.add(corpus)
+    old = corpus[1]
+    new = _node("beta, revised", sources=old.lineage.sources)
+
+    # Act
+    assert isinstance(store, NodeSupersedable), (
+        "the capability is derived from the methods a store implements and never declared "
+        "(G4), so a real backend must satisfy this Protocol without saying anything"
+    )
+    await store.supersede(old.id, new)
+    await store.flush()
+
+    # Assert
+    assert [node.id for node in await store.get([old.id])] == [], "the superseded node survived"
+    assert [node.content for node in await store.get([new.id])] == ["beta, revised"]
+    assert frozenset(node.content for node in (await store.scan()).items) == frozenset(
+        {"alpha", "beta, revised", "gamma"}
+    ), "supersede touched a node it was not given"
+
+
+async def test_supersede_is_idempotent_so_an_interrupted_one_can_be_retried(
+    store: ConformanceStore,
+) -> None:
+    """The half that makes write-then-delete safe rather than merely ordered.
+
+    `supersede` writes `new` first and deletes `old` second, so a crash between the two leaves a
+    **duplicate** — which `reconcile` can find — and never a **hole**, which nothing can find and
+    which `04` category A records as staying retrievable forever describing content that is gone.
+    That ordering is only useful if the operation can then be *run again*: a retry arrives with
+    `old` already gone, and must succeed rather than refuse. The store family already works this
+    way — `weft_qdrant.delete_source`'s own docstring calls itself *"`02`'s idempotent, resumable
+    deletion"* — and this pins the same property one member over.
+    """
+    # Arrange
+    corpus = _corpus()
+    await store.add(corpus)
+    old = corpus[1]
+    new = _node("beta, revised", sources=old.lineage.sources)
+    await store.supersede(old.id, new)
+    await store.flush()
+
+    # Act — the retry an interrupted run would make.
+    await store.supersede(old.id, new)
+    await store.flush()
+
+    # Assert
+    assert frozenset(node.content for node in (await store.scan()).items) == frozenset(
+        {"alpha", "beta, revised", "gamma"}
+    ), "the retry changed the store, so an interrupted supersede cannot safely be repeated"
+
+
+async def test_supersede_refuses_a_replacement_that_drops_a_source(
+    store: ConformanceStore,
+) -> None:
+    """The invariant, enforced by the contract rather than remembered by its callers.
+
+    Write-then-delete stops a *crash* leaving a hole. It does nothing about a caller that hands
+    over a replacement covering fewer sources than the node it replaces — that removes the last
+    node carrying a source while the source's documents remain, which is `04` category A's scar
+    approached from the other end: the store keeps content whose provenance is gone, or loses
+    content a cascade delete would have been responsible for. `Node.combine` already refuses an
+    empty member set by construction for this reason; this is the same refusal one level up.
+    """
+    # Arrange — `beta` carries both sources; the replacement carries only one.
+    corpus = _corpus()
+    await store.add(corpus)
+    old = corpus[1]
+    narrowed = _node("beta, narrowed", sources=frozenset({_SOURCE_A}))
+
+    # Act & Assert
+    with pytest.raises(SupersedeNarrowsSourcesError) as caught:
+        await store.supersede(old.id, narrowed)
+    message = str(caught.value)
+    assert _SOURCE_B in message, (
+        f"the refusal must name the source that would be dropped: {message!r}"
+    )
+    assert frozenset(node.content for node in (await store.scan()).items) == frozenset(
+        {"alpha", "beta", "gamma"}
+    ), "a refused supersede must change nothing at all"
 
 
 async def test_reconcile_finishes_a_deletion_that_was_interrupted(

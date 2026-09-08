@@ -83,6 +83,7 @@ from weft_store.contract import (
     Scored,
     SourceRecord,
     SourceStatus,
+    SupersedeNarrowsSourcesError,
     UnhandledFilterOpError,
 )
 from weft_store.fields import field_for
@@ -284,6 +285,41 @@ class QdrantStore:
             wait=True,
         )
         return Removed(source_id=source_id, node_count=counted.count)
+
+    async def supersede(self, old: NodeId, new: Node) -> None:
+        """Replace `old` with `new` — `NodeStore.supersede`, ledger task **10.24**.
+
+        The same design `weft_store.pgvector_store.PgVectorStore.supersede` implements,
+        over this backend's own points rather than rows — see that method's docstring,
+        which owns the reasoning for both: write `new` first, delete `old` second, so an
+        interruption leaves a duplicate rather than a hole; refuse first, changing
+        nothing, when `new` covers fewer sources than `old` does; and guard
+        `old == new.id` so superseding a node with itself never deletes the point this
+        call just wrote to. No transaction spans the write and the delete — Qdrant has
+        none to open, and this store keeps the identical, honest ordering-only guarantee
+        pgvector does rather than a stronger one only it could keep.
+        """
+        existing = await self.get([old])
+        if existing:
+            missing = existing[0].lineage.sources - new.lineage.sources
+            if missing:
+                dropped = ", ".join(f"'{source}'" for source in sorted(missing))
+                raise SupersedeNarrowsSourcesError(
+                    f"cannot supersede node {old} with a replacement that drops "
+                    f"source(s) {dropped}. A superseding node must carry at least the "
+                    f"sources of the node it replaces, or the last node carrying a "
+                    f"source disappears while that source's documents remain.",
+                    pack="weft-qdrant",
+                )
+        await self.add([new])
+        if old == new.id:
+            return
+        client = await self._connection()
+        await client.delete(
+            self._nodes,
+            points_selector=models.PointIdsList(points=[str(_point_id(old))]),
+            wait=True,
+        )
 
     async def reconcile(self, ctx: Context, mode: ReconcileMode) -> ReconcileReport:
         """Finish every deletion that was interrupted — `Reconcilable`, task **5.1b**.
