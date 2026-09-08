@@ -23,7 +23,12 @@ stand in for a cluster of them.
 
 from pydantic import BaseModel, ConfigDict
 
-from weft_index.contract import EXPANDER_CONTRACT_VERSION, Expander
+from weft_index.contract import (
+    EXPANDER_CONTRACT_VERSION,
+    REVISABLE_CONTRACT_VERSION,
+    Expander,
+    Revisable,
+)
 from weft_index.hypothetical_questions import (
     NAME as HYPOTHETICAL_QUESTIONS_NAME,
 )
@@ -68,12 +73,14 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
 
 __all__ = [
     "EXPANDER_CONTRACT_VERSION",
+    "REVISABLE_CONTRACT_VERSION",
     "GENERATE_QUESTIONS_NAME",
     "HYPOTHETICAL_QUESTIONS_NAME",
     "RAPTOR_NAME",
     "SUMMARIZE_CLUSTER_NAME",
     "Auto",
     "Expander",
+    "Revisable",
     "GenerateQuestionsPrompt",
     "GenerateQuestionsRequest",
     "HypotheticalQuestionGenerator",

@@ -7156,9 +7156,9 @@ extractors and **both branches of 10.9**, so no branch of this phase ships havin
   `over_level: 1`, which consumes nothing and must run. Green by a dispatched `weft-implementer`;
   `run` did not need extraction this time
 
-- [ ] **10.23** a stage may state that it revises what is already stored, and the resolver can tell
-  such a stage from one that cannot · owner `02` §1 → *Who publishes a contract*; `05` → G15's
-  *Read* face · turns on — · sha — · **G15's Face A.** `Revisable` is published by `weft-index`
+- [x] **10.23** a stage may state that it revises what is already stored, and a resolved document
+  shows which stages read the corpus · owner `02` §1 → *Who publishes a contract*; `05` → G15's
+  *Read* face · turns on — · sha `PENDING` · **G15's Face A.** `Revisable` is published by `weft-index`
   beside `Expander`, and reaches the corpus through `ctx.require(NodeStore)` — **not** through a new
   corpus-view type, because `NodeStore` already answers *what exists* (`scan`, `count`, `matching`,
   `get`) and G13 settled that exact move for `reconcile` at zero kernel lines. **The type is the
@@ -7167,6 +7167,31 @@ extractors and **both branches of 10.9**, so no branch of this phase ships havin
   per-plugin habit, so the next expander anyone writes acquires corpus access with nothing to key a
   check on — requirement 1's failure shape. **Not a member of the store contract family**, so G4's
   two-backend bar does not apply here; it is satisfied by plugins and the store implements nothing
+  · **Published — and this line's own second clause was wrong, corrected above rather than quietly
+  met.** It read *"the resolver can tell such a stage from one that cannot"*, from G15's argument
+  that a `Revisable` placed before a document's `store` stage reads a stale corpus and should be
+  refused at resolution. Against a real document that is false: `adrap` reads what *previous* runs
+  stored, clusters this run's payload into it, and `store` then writes — `embed, adrap, store` is
+  the natural order and nothing is stale. The kernel could not have expressed such a refusal anyway
+  without naming a capability. What the contract does deliver is the clause now written above:
+  `weft pipeline show` prints `Expander:raptor` beside `Revisable:adrap`, so a reader of a resolved
+  document can see which stages read the corpus.
+
+  **`Revisable` and `Expander` are structurally identical, and a test pins that rather than hiding
+  it.** Both are `Stage[Sequence[Node], Sequence[Node]]` with `run` alone, so `isinstance` cannot
+  separate them; what separates them is the contract a pack *registers* under. The test asserts the
+  identity **on purpose**, so nobody later "fixes" the ambiguity with a marker attribute — that
+  would make capability declared rather than derived, which `02` §1 refuses because a pack can
+  write a false declaration.
+
+  **The stranger came with the task rather than after it**, known before the gate charged for it
+  this time: `Revisable` carries `.version`, so FF9c clause (c) demands an out-of-tree
+  implementation the moment `adrap` registers under it. `examples/weft-example-ingest` gained
+  `ExampleStoredCountReviser`, which reads the corpus through `ctx.require(NodeStore)` and states
+  what it found — the smallest honest thing, because what a stranger must prove is that the read is
+  *reachable*, not that it is clever. `manual/pack-author-guide.md` quotes that pack's `register()`
+  byte-for-byte and had to move with it, caught by `tests/docs/test_pack_guide_samples.py` —
+  `phase-step`'s own *"look up who quotes it"* rule earning its place again
 
 - [x] **10.24** a superseded node is replaced rather than deleted, so the store can never hold a
   summary whose members are gone · owner `02` §1 → *The store contract family*; `04` category A;

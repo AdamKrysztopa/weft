@@ -31,9 +31,11 @@ from weft_example_ingest.expander import NAME as EXPANDER_NAME
 from weft_example_ingest.expander import ExampleFirstSentenceExpander
 from weft_example_ingest.extractor import ExampleExtractor
 from weft_example_ingest.renderer import ExamplePlainRenderer
+from weft_example_ingest.reviser import NAME as REVISER_NAME
+from weft_example_ingest.reviser import ExampleStoredCountReviser, StoredCount
 from weft_example_ingest.store import InMemoryNodeStore
 from weft_extract.contract import Extractor, Renderer
-from weft_index.contract import Expander
+from weft_index.contract import Expander, Revisable
 from weft_kernel.discovery import PackRegistrar
 from weft_kernel.pipeline import StageDeclaration
 from weft_store.contract import NodeStore
@@ -74,6 +76,10 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(Enhancer, "example-enhancer", ExampleWordCountEnhancer)
     registrar.add(Embedder, "example-embedder", ExampleChecksumEmbedder)
     registrar.add(Expander, EXPANDER_NAME, ExampleFirstSentenceExpander)
+    # Ledger task 10.23 — fitness function 9 clause (c): a published contract needs an
+    # implementation living outside the workspace, or the capability is first-party only.
+    registrar.add(Revisable, REVISER_NAME, ExampleStoredCountReviser)
+    registrar.add_ext_model(StoredCount)
     registrar.add(NodeStore, "example-store", InMemoryNodeStore)
     registrar.add_ext_model(WordCount)
     registrar.add_contribution(
