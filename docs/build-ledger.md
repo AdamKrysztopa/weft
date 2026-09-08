@@ -5704,7 +5704,16 @@ it had read one failure (`L7.1`).
   by design, before `weft_chunk.carry.carry_forward` can restore it. `PdfPages` is the fact that
   goes, and `weft_generate.page.page_for` is what stops answering, so a citation loses its page
   number on every text pipeline. The ledger already said *"it owes a task"* and none was filed
-- [ ] **R9.2** every field a persisted `Citation` carries reaches some rendering, and `weft --json`
+  · ⛔ **G17, opened 2026-09-08 by this repair** — measured against the tree, *both* available
+  remedies fail and the choice between the remaining four is a design decision this repair may not
+  take. Carrying `ext` forward verbatim mis-states the page by up to **3 pages** across the nine
+  papers in `corpus/mrmr/`, because `PdfPages.starts` index extraction's text while the chunker's
+  offsets index the *cleaned* text — `CLAUDE.md`'s own "plausible answer against the wrong data".
+  Carrying everything *except* offset-indexed facts carries **nothing** on every pipeline, since
+  `PdfPages` is the only `ExtModel` any extractor attaches to a `TEXT` root node
+  (`IMAGE`/`TABLE` facts route past the cleaners already) — machinery that cannot fire, which is
+  `L5.19`'s own shape. `05` → G17 has the four positions and the measurement to re-take
+- [x] **R9.2** every field a persisted `Citation` carries reaches some rendering, and `weft --json`
   emits only JSON on stdout on every code path · owner `03` → *Output*; `08` §1 · `L9.88` · two
   halves of one surface. `weft_generate.payload.Citation` carries `node_id`, `source_id`, `uri`,
   `quote` and `page`; `packages/weft-rag/src/weft_cli/render.py:520` renders `[marker] uri` alone,
@@ -5720,6 +5729,24 @@ it had read one failure (`L7.1`).
   marker and a `uri` with no node id, so **whether the node that answered was a `raptor` summary
   is unobservable**, which is exactly what 10.16 was asked to show and could not. Second
   independent finding, the first being Phase 9's own exit demonstration
+  · **done 2026-09-08**, both halves, in one change. *The machine half*: the global `--json` never
+  reached `weft_cli.render._render_ask` at all — it guarded on `AskCommandResult.format`, which is
+  `weft ask --format json`'s own per-command flag and says nothing about the global one, so the
+  answer branch printed prose while `render_refusal` two functions away had read
+  `isinstance(deps.token_sink, JsonSink)` since task 5.2d. `render_outcome` now takes `as_json` on
+  the same keyword `render_refusal` already had, `run_command` supplies it from the same fact, and
+  a routed answer emits one `weft_cli.answer_envelope.AnswerEnvelope` line carrying every
+  `Citation` whole. It joins `weft_cli.sinks.LineKind` as `ANSWER_ENVELOPE` rather than arriving
+  beside it, because task **6.16** ended key-sniffing on that descriptor and a third shape outside
+  the vocabulary would reopen it. `text` is present whether or not the answer streamed — the prose
+  branch omits it so a human does not read a paragraph twice, and a field whose presence depends
+  on which sink ran is the state `ErrorEnvelope`'s own docstring refuses. *The human half*:
+  `_citation_line` prints the page when there is one and the node id **whole**, on
+  `_render_reconcile`'s own precedent, because a truncated digest is not something a reader can
+  look anything up by and unnameability was the complaint. `quote` reaches the envelope and not
+  the line, deliberately. **The wire is tested along its length** (`L9.79`): one test runs a
+  routed answer through `run_command` with a real `JsonSink` and parses every line of stdout —
+  the journey no test made, which is why this shipped
 - [ ] **R9.3** a distribution that registers a pipeline position and ships no pipeline document is
   held by fitness function 16, or the position is in a pinned waiver naming why it is genuinely
   unplaceable · owner `01` → *Fitness functions* 16 · `L9.85` · FF16's scope rule
@@ -5781,7 +5808,7 @@ it had read one failure (`L7.1`).
   Phase 10's content: this is the observability seam, and widening a phase to swallow a finding is
   how a carried repair stops being countable
 
-- [ ] **R10.2** the rules this loop keeps re-learning live somewhere that makes them bite. Run
+- [x] **R10.2** the rules this loop keeps re-learning live somewhere that makes them bite. Run
   `python3 scripts/lessons_graph.py` and read its own verdict rather than a count copied from here:
   on 2026-09-08, after Phase 10's edges were written, it put **five** rules over its `MOVE IT`
   threshold — `L6.4` (read the population, not the declaration) at 5, `L5.6` (a comparison whose two
@@ -5797,6 +5824,31 @@ it had read one failure (`L7.1`).
   rather than wrong. Filed rather than repaired at the drain that found it, because relocating
   long-standing rules is its own piece of work and doing it inside a phase close is the
   "implemented in isolation" failure the `lessons` skill warns about
+  · **done 2026-09-08, together with `R9.13`, which states the identical property and was filed a
+  phase earlier in this same section** — the duplicate is itself the finding, filed as `L11.4`.
+  `R9.13`'s wording is the one that got it right: *"has moved to an artefact that executes, **or
+  has a recorded decision that it cannot**"*. The answer went **four-to-one against mechanising**,
+  and every number below is why. *Moved*: `L5.15` had a concrete detectable act behind its
+  recurrences — a shipped pipeline document nothing registered — and is now **fitness function
+  27**, 35 sites walked, 0 failing, waiver pinned empty, with a failure self-test driving the
+  identical comparison. *Recorded as not mechanisable, with the measurement*: `L5.6` and `L5.19`
+  most recently recurred in a **dispatch brief** (`L10.37`) and a **resolver's diagnosis**
+  (`L10.27`), neither of which any checker reaches — **and the check for their test-shaped case
+  already exists**: `tests/architecture/test_ff0b_checks_are_real.py` clause (b) has required every
+  check in that directory to carry a `test_the_check_can_actually_fail` since Phase 5's drain,
+  written from `L5.6` and `L5.19` by name, and it works — it failed FF27 the moment FF27 arrived,
+  in this very gate run. A replacement for it was designed and sized at 9 of 31 modules before
+  anybody grepped for it (`L11.2`), which is `L5.4`'s own shape inverted: not a mechanism believed
+  to run that does not, but one that runs and was not believed to exist. `L6.4`'s form was sized at **152** enum
+  members across 49 enums, would fail **14**, and `PermissionClass.OVERWRITE` — the one real
+  instance the rule was written from (`L8.34`) — is **not among the 14**, so the check would fail
+  fourteen correct sites and miss the one it was for. `L6.10` is declined outright: its whole
+  content is *which* literals the settled documents would have written, which nothing that has not
+  read them can decide. **And the instrument was repaired rather than obeyed**:
+  `scripts/lessons_graph.py` printed `MOVE IT`, an instruction, on a count that cannot distinguish
+  misplacement from difficulty. It now prints *read its instances* and says what R10.2 found;
+  `implement-ll` → *Recurrence* carries the same correction with the numbers. That verdict was a
+  claim with nothing left to check it, which is `L10.1`'s own lens turned on the loop's own tool
 - [ ] **R10.3** the comparability guard can see the model that actually did the work, so two eval
   arms differing only by their summarising model do not compare as identical · owner
   `weft_eval`; `weft_cli.llm_roles` · `L10.5` · the model is named in `[llm.roles]` and never in a
@@ -5817,7 +5869,7 @@ it had read one failure (`L7.1`).
   venv holds Pillow transitively. **Size it before adopting it** — 18 distributions, each a venv
   creation, is a real cost against `ci-checks`, and the two numbers this check owes are how many it
   walks and how many it fails today
-- [ ] **R9.13** `L5.15`, `L6.4` and `L5.6` are held by an artefact that makes them bite · owner this
+- [x] **R9.13** `L5.15`, `L6.4` and `L5.6` are held by an artefact that makes them bite · owner this
   repository's own loop; `docs/lessons-archive.md`'s edge vocabulary · with the Phase 9 edges
   written, `scripts/lessons_graph.py` returns **MOVE IT** for all three — re-learned four, four and
   three times. Phase 9's drain answered each with another sentence in the same skill, which is what
@@ -5827,6 +5879,9 @@ it had read one failure (`L7.1`).
   recorded decision that it cannot. `R9.10` and `R9.11` are two of `L5.15`'s instances already
   filed as individually checkable, which is evidence the move may be mechanical rather than
   editorial — but that is a finding to test, not the remedy
+  · **done 2026-09-08 with `R10.2`, which is this repair filed a second time under a new id**
+  a phase later. The finding was tested and came back **four-to-one against mechanical**;
+  see `R10.2` for the measurement behind each, and `L11.4` for the duplicate filing
 
 - [ ] **R9.12** `scripts/lessons_graph.py` reads `docs/lessons.md`'s open Queue as well as the
   archive · owner this repository's own loop · `L9.91` · a recurrence is visible only once archived,

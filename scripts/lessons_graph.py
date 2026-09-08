@@ -105,19 +105,39 @@ def _report_oscillation(reverses: dict[str, list[str]]) -> int:
 
 
 def _report_recurrence(recurs: dict[str, list[str]]) -> int:
-    """A rule that was applied and re-learned anyway is in the wrong artefact."""
+    """A rule that was applied and re-learned anyway *may* be in the wrong artefact.
+
+    **The verdict below is a question, not an instruction, and that wording is carried repair
+    `R10.2`'s own finding.** This script counted five rules past its threshold at Phase 10's
+    close and the drain that acted on them found only one it could mechanise: `L5.15`, whose
+    recurrences were a concrete, detectable act (a shipped pipeline document nothing
+    registered), now fitness function 27. The other four were not misplaced. `L5.6` and
+    `L5.19` most recently recurred in a *dispatch brief* and a *resolver's diagnosis*, neither
+    of which any checker reaches; `L6.4`'s mechanical form was sized at 152 enum members, 14 of
+    which it would fail, and the one real instance the rule was written from
+    (`PermissionClass.OVERWRITE`) was not among the 14; `L6.10`'s whole content is *which*
+    literals the settled documents would have written, which nothing that has not read them can
+    decide.
+
+    So a high count means one of two things and this script cannot tell them apart: the rule is
+    in the wrong artefact, or the rule is a general judgement that will keep costing and the
+    count is measuring its difficulty. **Read the recurrences themselves before routing.** A
+    count is evidence; it is not a verdict, and treating it as one is how a repository grows
+    machinery that fails on correct work.
+    """
     problems = 0
     for target, sources in sorted(recurs.items()):
         count = len(sources)
         if count >= 2:
             problems += 1
-        verdict = "MOVE IT" if count >= 2 else "check where it landed"
+        verdict = "read its instances" if count >= 2 else "check where it landed"
         print(
             f"RECURRENCE — {target} re-learned {count}x "
             f"(by {', '.join(sorted(sources))}): {verdict}."
         )
-        print("  A rule that was applied and did not bite is in the wrong artefact.")
-        print("  The repair is `moves`, not a second rule saying the same thing louder.\n")
+        print("  Either the rule is in the wrong artefact, or it is general judgement whose")
+        print("  count measures difficulty. This script cannot tell those apart — R10.2 found")
+        print("  four of five were the second kind. Read the instances, then route.\n")
     return problems
 
 

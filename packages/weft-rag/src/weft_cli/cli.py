@@ -599,7 +599,15 @@ async def run_command(command_name: str, args: argparse.Namespace, deps: Depende
     # would actually see was ever written, `getattr`-read with a `False` default so `NullSink`
     # (which carries no such attribute) always answers "nothing streamed", the correct reading
     # for `--quiet`. `weft_cli.render._render_ask` is the one renderer that reads it.
-    return render_outcome(outcome, streamed=getattr(deps.token_sink, "wrote_anything", False))
+    # `as_json` is carried repair **R9.2**: the same `isinstance(deps.token_sink, JsonSink)`
+    # this function already reads for `render_refusal` above, now asked on the success path too.
+    # It was asked for a refusal and not for an answer, so `docs/03-cli.md` -> *Output*'s "no
+    # parsing of prose" held for one and not the other.
+    return render_outcome(
+        outcome,
+        streamed=getattr(deps.token_sink, "wrote_anything", False),
+        as_json=isinstance(deps.token_sink, JsonSink),
+    )
 
 
 class OwnDistributionError(WeftError):

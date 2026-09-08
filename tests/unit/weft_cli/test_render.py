@@ -141,7 +141,9 @@ def _routed_answer() -> tuple[Query, Answer]:
         origin=query,
         text="the answer",
         stance=AnswerStance.ANSWERED,
-        citations=(Citation(marker="1", node_id=node.id, uri="doc://a"),),
+        citations=(
+            Citation(marker="1", node_id=node.id, uri="doc://a", quote="a passage", page=7),
+        ),
         used=(passage,),
         answered_by="scripted",
     )
@@ -162,7 +164,19 @@ def test_render_ask_prints_the_routed_answer_and_its_citations_when_nothing_stre
     rendered = render.render_outcome(Produced(value=result))
 
     # Assert
-    assert rendered.stdout == "routed to: specific\nthe answer\n  [1] doc://a"
+    assert rendered.stdout is not None
+    lines = rendered.stdout.splitlines()
+    assert lines[0] == "routed to: specific"
+    assert lines[1] == "the answer"
+    # R9.2's human half: the marker and the uri alone made several nodes of one document cite
+    # identically. The node id is what makes the node that answered nameable, and the page is
+    # what stops a reader searching a whole document for one claim.
+    _query_again, answer_again = _routed_answer()
+    citation = answer_again.citations[0]
+    assert citation.uri in lines[2]
+    assert "[1]" in lines[2]
+    assert str(citation.node_id) in lines[2]
+    assert "7" in lines[2]
 
 
 def test_render_ask_omits_the_answer_text_when_it_already_streamed() -> None:
@@ -179,8 +193,105 @@ def test_render_ask_omits_the_answer_text_when_it_already_streamed() -> None:
     rendered = render.render_outcome(Produced(value=result), streamed=True)
 
     # Assert
-    assert rendered.stdout == "routed to: specific\n  [1] doc://a"
+    assert rendered.stdout is not None
+    lines = rendered.stdout.splitlines()
+    assert lines[0] == "routed to: specific"
+    assert "doc://a" in lines[1]
     assert "the answer" not in rendered.stdout
+
+
+def test_render_ask_under_global_json_emits_only_json_on_stdout() -> None:
+    # Arrange — carried repair **R9.2**, second half. `docs/03-cli.md` -> *Output*: "`--json`
+    # switches to newline-delimited JSON events and disables every decoration... That is the
+    # scripting contract: same events, no parsing of prose." `_render_ask`'s JSON guard read
+    # `result.format`, which is `weft ask --format json`'s per-command choice and is `TEXT`
+    # here — the *global* `--json` never reached this function at all, so a routed answer
+    # printed `routed to: ...` and its citations as prose after the event stream. Confirmed
+    # live at task 10.16 from outside this repository: five lines of prose on stdout.
+    _query, answer = _routed_answer()
+    result = AskCommandResult(
+        question="q", top_k=5, format=AskFormat.TEXT, pipeline_name="specific", answer=answer
+    )
+
+    # Act
+    rendered = render.render_outcome(Produced(value=result), as_json=True)
+
+    # Assert — every line on stdout parses, which is the property a consumer needs; asserting
+    # "no prose" by absence of one phrase would pass for prose nobody thought to name.
+    assert rendered.stdout is not None
+    for line in rendered.stdout.splitlines():
+        json.loads(line)
+
+
+def test_the_answer_envelope_carries_every_field_a_citation_holds() -> None:
+    # Arrange — carried repair **R9.2**, first half, stated as *every field a persisted
+    # `Citation` carries reaches some rendering*. `weft_generate.payload.Citation` holds five
+    # fields and the human line rendered two of them, so whether the node that answered was a
+    # `raptor` summary was unobservable — which is what task 10.16 was asked to show and could
+    # not.
+    _query, answer = _routed_answer()
+    citation = answer.citations[0]
+    result = AskCommandResult(
+        question="q", top_k=5, format=AskFormat.TEXT, pipeline_name="specific", answer=answer
+    )
+
+    # Act
+    rendered = render.render_outcome(Produced(value=result), as_json=True)
+
+    # Assert
+    assert rendered.stdout is not None
+    envelope = json.loads(rendered.stdout.splitlines()[-1])
+    emitted = envelope["citations"][0]
+    assert emitted["marker"] == citation.marker
+    assert emitted["node_id"] == str(citation.node_id)
+    assert emitted["source_id"] == citation.source_id
+    assert emitted["uri"] == citation.uri
+    assert emitted["quote"] == citation.quote
+    assert emitted["page"] == citation.page
+
+
+def test_the_answer_envelope_is_discriminated_by_kind_like_the_error_envelope() -> None:
+    # Arrange — `weft_cli.sinks.LineKind`, ledger task **6.16**: `weft --json` writes more than
+    # one line shape on one descriptor and "a consumer must not have to tell them apart by
+    # which keys are present". A third shape arriving without joining that vocabulary would
+    # reopen exactly the key-sniffing this enum ended.
+    from weft_cli.sinks import LineKind
+
+    _query, answer = _routed_answer()
+    result = AskCommandResult(
+        question="q", top_k=5, format=AskFormat.TEXT, pipeline_name="specific", answer=answer
+    )
+
+    # Act
+    rendered = render.render_outcome(Produced(value=result), as_json=True)
+
+    # Assert
+    assert rendered.stdout is not None
+    envelope = json.loads(rendered.stdout.splitlines()[-1])
+    assert envelope["kind"] == LineKind.ANSWER_ENVELOPE.value
+    assert envelope["kind"] not in {LineKind.STREAM_EVENT.value, LineKind.ERROR_ENVELOPE.value}
+    assert envelope["envelope_version"]
+
+
+def test_the_answer_envelope_carries_the_text_even_when_it_already_streamed() -> None:
+    # Arrange — the prose branch omits an answer that `PrintingSink`/`JsonSink` already showed,
+    # so a human does not read the same paragraph twice (task 3.11). That reasoning does not
+    # cross to a machine: a field present or absent depending on which sink ran is the state
+    # `ErrorEnvelope`'s own docstring refuses for `valid_options` — "indistinguishable from
+    # 'there really were no alternatives'". The envelope is self-contained either way.
+    _query, answer = _routed_answer()
+    result = AskCommandResult(
+        question="q", top_k=5, format=AskFormat.TEXT, pipeline_name="specific", answer=answer
+    )
+
+    # Act
+    rendered = render.render_outcome(Produced(value=result), as_json=True, streamed=True)
+
+    # Assert
+    assert rendered.stdout is not None
+    envelope = json.loads(rendered.stdout.splitlines()[-1])
+    assert envelope["text"] == answer.text
+    assert envelope["pipeline_name"] == "specific"
 
 
 def test_render_plugins_list_delegates_to_the_shared_renderer() -> None:

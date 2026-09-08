@@ -98,6 +98,11 @@ class LineKind(StrEnum):
 
     STREAM_EVENT = "stream-event"
     ERROR_ENVELOPE = "error-envelope"
+    #: Carried repair **R9.2**. The third shape on this descriptor: what a routed `weft ask`
+    #: produced, once `weft_cli.render._render_ask` stopped printing it as prose under the
+    #: global `--json`. It joins the vocabulary rather than arriving beside it, for the reason
+    #: this enum exists — a consumer reads `kind`, never which keys happen to be set.
+    ANSWER_ENVELOPE = "answer-envelope"
 
 
 class StreamEvent(BaseModel):

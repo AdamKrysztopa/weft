@@ -1307,3 +1307,108 @@ suite of a `poe ci-checks` run against the same container, and the join then rep
 against an almost-empty corpus. `L8.30` is the rule and this is its recurrence: a measurement
 against `compose.yaml` asserts its own row count immediately before *and* after, and nothing else
 touches that container while it runs.
+
+---
+
+## G17 — What happens to a fact indexed by character offset when a cleaner rewrites the text?
+
+**Opened 2026-09-08 by carried repair `R9.1`, which cannot be closed without it.** `R9.1` states
+the property plainly: *a `TEXT` node's own extraction-time `ext` facts survive every cleaner an
+ingest document extending `index-text` runs, on the same footing `TABLE` and `IMAGE` nodes already
+have.* Every cleaner in `weft_clean` rebuilds its node with `Node.derive`, which drops `ext` by
+design, and none of them calls `weft_chunk.carry.carry_forward` afterwards. So `weft_pdf.PdfPages`
+dies at the first cleaner, `weft_generate.page.page_for` returns `None`, and **a citation loses its
+page number on every text pipeline**. `TABLE` and `IMAGE` nodes keep theirs only because task
+`9.8`'s `applies_to = (Applies(media_type=MediaType.TEXT),)` routes them past the cleaners
+entirely — they are not repaired, they are excused.
+
+**Both obvious repairs were tried against the tree and both fail, which is why this is a session
+rather than a task.** The measurement is 9 real papers under `corpus/mrmr/`, extracted with
+`PdfTextExtractor` and cleaned with the two cleaners `index-text` actually names:
+
+- **Carry `ext` forward verbatim.** `PdfPages.starts` are offsets into *extraction's* output;
+  `ChunkOffset.start` is an offset into the *chunker's input*, which after cleaning is different
+  text. Carrying the locator across that boundary silently changes what it means. Measured worst
+  page error across the corpus: **3 pages** (`index-text`'s `unicode-normalize` + `whitespace`),
+  still **3** with `hyphenation` and `artifact-remover` added, and **0–1** typically. A citation
+  that says p.7 for a passage on p.10 is `CLAUDE.md`'s own refusal, verbatim: *a silent fallback is
+  worse than a failure — it does not crash, it produces a plausible answer against the wrong
+  data.*
+- **Carry `ext` forward except facts indexed by offset.** Honest, mechanical, and **vacuous in this
+  tree**: measured 2026-09-08, the only `ExtModel` any extractor attaches to a `TEXT` root node is
+  `PdfPages` itself (`weft_pdf/document.py:486`; `BlobRef`, `PageSpan` and `TableGrid` attach to
+  `IMAGE`/`TABLE` nodes, which never reach a cleaner). So this repair carries **nothing**, on
+  **every** pipeline, and ships machinery that cannot fire — which is `L5.19`'s own shape,
+  committed inside the phase that was supposed to be repairing it.
+
+**And the first probe said the opposite, which is worth recording.** Drift measured at the *end of
+the document* is 0.1–0.3% and the end-of-document page error is **0** on all nine papers; that
+reading would have shipped the verbatim carry. `page_at` is a step function, so what matters is
+whether accumulated drift crosses a *page boundary*, not how large it is in total — the worst error
+is mid-document. A one-point probe of a step function measures that point. Filed as `L11.3`.
+
+---
+
+### The question
+
+When a stage rewrites a node's content, what happens to an `ext` fact whose meaning is a position
+in the old content — and whose job is it to say so?
+
+### Positions, strongest first
+
+1. **An `ExtModel` declares whether its meaning depends on the content being unchanged, and the
+   registration seam drops such a fact when a stage rewrote the content.** *The heaviest and the
+   most general.* `Cleaner` already publishes exactly this vocabulary for text —
+   `weft_clean.property.Verbatim` is *"A node's text is still, character for character, what
+   extraction handed over"* — and every cleaner already declares `destroys = (Verbatim,)`. The
+   missing half is on the other side: nothing lets `PdfPages` say *I mean nothing without
+   `Verbatim`*. It is cross-cutting and belongs at the seam, per `CLAUDE.md`. **Attack it on:** it
+   widens `ExtModel`, which `02` §1 owns and `09` §3 versions; and it makes a pack's ext model
+   depend on a property vocabulary a *different* pack publishes, which may be a layering the
+   extension model does not permit. Attack it also on scope — it repairs the general case and
+   still leaves the page number dead.
+2. **Cleaning moves after chunking in the shipped ingest documents, so offsets are frozen before
+   any content is rewritten.** No contract changes at all: `ChunkOffset` and `PdfPages` would then
+   both be in extraction's coordinates and `page_for` would be exactly right. `02` §2's *No
+   canonical ingest order* already says cleaning order is per-pipeline — *"hyphenation repair wants
+   to precede chunking... while whitespace normalization must follow a structure-aware chunker."*
+   **Attack it on:** hyphenation repair across a line break is the case that must precede chunking,
+   and chunk boundaries drawn on uncleaned text are different boundaries — so this changes what
+   every text pipeline retrieves, and no measurement of that cost exists. Attack it also on
+   generality: it fixes the shipped documents and says nothing about the one a stranger writes.
+3. **A stage that rewrites content emits its own remap, and offset-bearing facts are re-based
+   through it.** The only repair that keeps both the cleaning order and the page number.
+   **Attack it on:** cost and blast radius — every `Cleaner` grows an obligation, and a generic
+   alignment (`difflib` over 80k characters a document) is a real per-document price for a field
+   that is `None` today. Attack it on necessity too: nothing has shown a *reader* needs the page
+   badly enough to pay this.
+4. **Withdraw the property: a cleaned node's page number is not recoverable, `page_for` correctly
+   returns `None`, and `R9.1` narrows to "facts that do not depend on position survive".** The
+   cheapest, and it is honest rather than lazy — `Citation.page`'s own docstring already says
+   `None` means *"nothing in the pipeline attached either fact"*. **Attack it on:** it makes
+   `Citation.page` dead on every shipped text pipeline while the quickstart promises "a real answer
+   with citations", and it leaves `R9.1` discharged by redefinition, which is the move
+   `docs/lessons.md` `L6.3` names — a rewrite that keeps the rule and drops the case it qualified.
+
+### Bring
+
+The measurement above, re-taken rather than quoted — `corpus/mrmr/`, the two `_normalize`
+functions, `PdfPages.page_at` at every page boundary in cleaned coordinates; `weft_clean/property.py`
+and `weft_clean/contract.py`'s `destroys`/`intact` paragraph, which is position 1's whole
+foundation; `weft_chunk/carry.py`, whose docstring already argues that two private copies of this
+function are a drift risk **and which is presently at three** — `weft_vision.describe_figure` holds
+a private `_carry_forward` of its own; `weft_generate/page.py`'s two structural protocols, which are
+the existing precedent for naming a shape without importing a capability; `02` §1 *The payload
+model* and `02` §2 *No canonical ingest order*, which own the two halves; and `01` → requirement 3,
+because position 2 is a claim about what a pipeline document may be derived into.
+
+### Done when
+
+The decision log records it, and whichever position wins is **demonstrated by running the binary
+from outside this repository** on a real PDF, printing a citation and its page — not by a unit test,
+because the two facts that have to agree are attached by two packs in two stages and a hand-written
+double populates whichever one the test author had in mind (`L6.14`). If the winning position leaves
+`page` `None`, that is a result and the demonstration is the same run showing it, with `R9.1`
+rewritten to the property that actually holds rather than ticked against the one that does not.
+Whatever wins, `weft_chunk.carry.carry_forward`'s third copy is resolved in the same work: the
+docstring saying two copies would drift is currently false about its own tree.

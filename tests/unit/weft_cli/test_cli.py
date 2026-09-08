@@ -421,6 +421,64 @@ async def test_run_command_emits_a_structured_envelope_when_the_real_sink_is_jso
     assert dumped["rendered"] == "something in the library refused"
 
 
+async def test_run_command_hands_the_json_sink_down_to_a_successful_render() -> None:
+    # Arrange — carried repair **R9.2**, the wire. `run_command` already reads
+    # `isinstance(deps.token_sink, JsonSink)` for `render_refusal`'s `as_json` on the *failure*
+    # path (the test above); the success path never asked, so `docs/03-cli.md` -> *Output*'s
+    # "no parsing of prose" held for a refusal and not for an answer. `docs/lessons.md` L9.79:
+    # where a value's whole job is to travel from configuration to a call, one test must make
+    # that journey, or the wire is untested along its length.
+    from weft_cli.commands import AskCommandResult
+    from weft_cli.output import AskFormat
+    from weft_cli.sinks import JsonSink
+    from weft_generate.payload import Answer, AnswerStance, Citation
+    from weft_kernel.payload import MediaType, Node
+    from weft_retrieve.payload import Passage, Query
+    from weft_store import Scored
+
+    node = Node.synthetic(content="a passage", media_type=MediaType.TEXT, reason="test")
+    passage = Passage(scored=Scored(value=node, score=0.9), rank=0, retrieved_by="t", label="1")
+    answer = Answer(
+        origin=Query(text="q"),
+        text="the answer",
+        stance=AnswerStance.ANSWERED,
+        citations=(Citation(marker="1", node_id=node.id, uri="doc://a", page=7),),
+        used=(passage,),
+        answered_by="scripted",
+    )
+
+    class _AnsweringCommand(_EchoCommand):
+        async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+            del args, ctx
+            return Produced(
+                value=AskCommandResult(
+                    question="q",
+                    top_k=5,
+                    format=AskFormat.TEXT,
+                    pipeline_name="specific",
+                    answer=answer,
+                )
+            )
+
+    registry = Registry()
+    registry.add(Command, "answer", _AnsweringCommand, distribution="acme-cmd")
+    deps = Dependencies(
+        registry=registry,
+        reports=(),
+        services=ServiceSelection(),
+        token_sink=JsonSink(stream=io.StringIO()),
+    )
+    args = argparse.Namespace(text="ignored")
+
+    # Act
+    rendered = await cli.run_command("answer", args, deps)
+
+    # Assert
+    assert rendered.stdout is not None
+    for line in rendered.stdout.splitlines():
+        json.loads(line)
+
+
 async def test_run_command_attributes_an_error_through_the_seam(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -1911,6 +1911,27 @@ All checks run in CI, before tests.
     *looked at nothing* would otherwise read the same.
     `tests/architecture/test_ff26_catalogue_claims_are_carried.py`.
 
+27. **Every pipeline document a distribution ships is contributed by its pack.** Added 2026-09-08
+    by carried repair `R10.2`, and it is `docs/lessons.md` `L5.15` — *an extension point has a
+    producing side and a consuming side* — becoming mechanical after five recurrences across four
+    phases. A `pipelines/*.yaml` file inside a package is the producing side; a
+    `registrar.add_pipeline_resource` call reaching the discovery reports is the consuming side,
+    and the two are written by two different acts in two different files. Phase 10's `10.14`
+    shipped `index-with-adrap.yaml` with no registration: the document parsed, resolved, and was
+    reachable by nobody — not `weft pipeline list`, not the route catalogue, not
+    `weft index --pipeline`. **Fitness function 16 stayed green, correctly**, because its subject
+    is the *contributed* catalogue by design, so a document nobody contributed is outside what it
+    asks. This is 16's complement and the two can disagree: 16 asks whether every placeable plugin
+    is named by some document, this asks whether every shipped document reaches the catalogue at
+    all. The two sides are read from places that can genuinely disagree (`L5.6`) — the filesystem
+    on one, a real `discover()` pass on the other — rather than by grepping for the call, which
+    would pass for a call whose arguments are wrong (`L5.23`). Both directions are checked: a
+    document nothing registers, and a registration naming a document that does not exist. Waiver
+    `UNREGISTERED_DOCUMENTS_WAIVED` pinned empty, with a failure self-test driving the identical
+    comparison so the check is proven able to fail (`L5.19`). Sized before adopting, per
+    `implement-ll`: **35** documents walked, **0** failing.
+    `tests/architecture/test_ff27_every_shipped_rung_is_registered.py`.
+
 > **Corrected 2026-08-10 — fitness function 1, and the preamble.** This section previously opened
 > *"the single best thing in a codebase examined during design is its AST boundary checker"* and
 > specified FF1 as *"lifted almost verbatim from it."* It is not the best thing there and it must

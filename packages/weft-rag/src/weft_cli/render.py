@@ -113,13 +113,16 @@ from weft_command.contract import CommandResult
 from weft_eval.contract import MetricKind
 from weft_eval.falsify import BaselineSpread, DifferenceJudgement
 from weft_eval.run_record import MetricRunResult
+from weft_generate.payload import Citation
 from weft_kernel.discovery import PackRegistrar, PackReport, PackStatus, RendererOffer
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import NothingToProduce, Outcome, Produced
 from weft_kernel.registry import Registry, UnknownPluginError
 
 
-def render_outcome(outcome: Outcome[CommandResult], *, streamed: bool = False) -> Rendered:
+def render_outcome(
+    outcome: Outcome[CommandResult], *, streamed: bool = False, as_json: bool = False
+) -> Rendered:
     """A successfully-run command's `Outcome`, rendered — the `Produced`/`NothingToProduce`/
     `Failed` vocabulary every contract answers in, `02` §1's own three-way decision applied to
     a `Command`'s own result.
@@ -134,9 +137,18 @@ def render_outcome(outcome: Outcome[CommandResult], *, streamed: bool = False) -
     safe reading for every caller that does not pass it (every existing test included): "assume
     nothing streamed, so show the full result" is the failure mode that loses no text, where the
     opposite default would risk silently dropping an answer a caller forgot to report as shown.
+
+    **`as_json`, carried repair R9.2**, and it is `render_refusal`'s own keyword arriving on the
+    success path. `weft_cli.cli.run_command` reads `isinstance(deps.token_sink, JsonSink)` for
+    both — the identical global `--json` flag `docs/03-cli.md` -> *Output* already used to build
+    that sink, never a second flag the two could disagree about. Before this, a refusal honoured
+    "no parsing of prose" and an *answer* did not: `_render_ask` guarded on `AskCommandResult.
+    format`, which is `weft ask --format json`'s own per-command choice and says nothing about
+    the global flag. Defaults to `False`, the human reading, for every caller that does not pass
+    it.
     """
     if isinstance(outcome, Produced):
-        return _render_result(outcome.value, streamed=streamed)
+        return _render_result(outcome.value, streamed=streamed, as_json=as_json)
     if isinstance(outcome, NothingToProduce):
         return Rendered(stdout=outcome.reason, stderr=None, exit_code=ExitCode.SUCCESS)
     return Rendered(stdout=None, stderr=outcome.reason, exit_code=ExitCode.OPERATION_FAILED)
@@ -427,14 +439,14 @@ def _lookup_renderer(result: CommandResult) -> Callable[[object], object] | None
     return None
 
 
-def _render_result(result: CommandResult, *, streamed: bool) -> Rendered:
+def _render_result(result: CommandResult, *, streamed: bool, as_json: bool = False) -> Rendered:
     # `AskCommandResult` is the one result type `streamed` matters for — call-specific state
     # no registered `(result type, renderer)` pair carries — so it is special-cased ahead of
     # the registered dispatch rather than the dispatch widening every renderer to a parameter
     # only one of them would ever use. It is still registered (see `register_renderers`,
     # bound with `streamed=False`) so the built-in count stays honest.
     if isinstance(result, AskCommandResult):
-        return _render_ask(result, streamed=streamed)
+        return _render_ask(result, streamed=streamed, as_json=as_json)
     renderer = _lookup_renderer(result)
     if renderer is not None:
         return cast(Rendered, renderer(result))
@@ -501,10 +513,39 @@ def _render_index(result: IndexCommandResult) -> Rendered:
     return Rendered(stdout=stdout, stderr=stderr, exit_code=exit_code)
 
 
-def _render_ask(result: AskCommandResult, *, streamed: bool) -> Rendered:
+def _citation_line(citation: Citation) -> str:
+    """One citation, for a human — carried repair **R9.2**, first half.
+
+    This rendered `  [marker] uri` alone, and `docs/build-ledger.md`'s R9.2 states what that
+    cost: several nodes cut from one document cite identically, so *which* node answered is
+    unnameable, and a `page` the pipeline worked to resolve
+    (`weft_generate.page.page_for`) never reached anybody. The node id is printed **whole**
+    rather than abbreviated — a truncated digest is not something a reader can look anything up
+    by, which is the entire complaint — on the precedent `_render_reconcile` already sets for
+    `SourceChange` items one screen up.
+
+    `page` is omitted rather than printed as a placeholder when it is `None`, because `None` is
+    a fact here and not a gap: `Citation`'s own docstring says it means the source is not
+    paginated, or nothing in the pipeline attached either fact. `quote` reaches
+    `weft_cli.answer_envelope.AnswerEnvelope` and deliberately not this line — it is a span of
+    the passage, often a paragraph, and a human already has the answer text above it.
+    """
+    page = f" p.{citation.page}" if citation.page is not None else ""
+    return f"  [{citation.marker}] {citation.uri}{page} — {citation.node_id}"
+
+
+def _render_ask(result: AskCommandResult, *, streamed: bool, as_json: bool = False) -> Rendered:
     """`weft ask`'s own two shapes — see `AskCommandResult`'s own docstring for why exactly
     one of `answer`/`hits` is ever populated, and this module's own task-3.11 paragraph for
     `streamed`, which only the `answer` branch reads.
+
+    **`as_json` is the *global* `--json`; `result.format` is `weft ask --format json`.** They
+    are two different flags (`weft_cli.output.AskFormat`'s own docstring says so, and neither
+    implies the other), and until carried repair **R9.2** only the second one was read here —
+    so the answer branch below printed prose on stdout under the global flag, after the event
+    stream had already closed. The guard is first in the branch rather than folded into the
+    `result.format` test further down, because that test is about the *retrieve-only* shape and
+    is unreachable whenever `answer` is set.
     """
     if result.answer is not None:
         # The routed/named-pipeline shape — task 3.11 folds `weft route`'s own retired
@@ -513,12 +554,21 @@ def _render_ask(result: AskCommandResult, *, streamed: bool) -> Rendered:
         # left out rather than printed a second time (`weft_cli.cli.run_command`'s own
         # `deps.token_sink.wrote_anything` is what decides). `--quiet`/a non-streaming sink
         # still gets the full text, because nothing showed it yet.
+        if as_json:
+            # Carried repair **R9.2**. One line, the run's last, on the same descriptor the
+            # `StreamEvent` lines used and discriminated the same way — see
+            # `weft_cli.answer_envelope` for what it carries and why `text` is present here
+            # even when `streamed` is `True`.
+            from weft_cli.answer_envelope import build_answer_envelope
+
+            envelope = build_answer_envelope(result.answer, pipeline_name=result.pipeline_name)
+            return Rendered(
+                stdout=envelope.model_dump_json(), stderr=None, exit_code=ExitCode.SUCCESS
+            )
         lines = [f"routed to: {result.pipeline_name}"]
         if not streamed:
             lines.append(result.answer.text)
-        lines.extend(
-            f"  [{citation.marker}] {citation.uri}" for citation in result.answer.citations
-        )
+        lines.extend(_citation_line(citation) for citation in result.answer.citations)
         return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
 
     if result.format is AskFormat.JSON:

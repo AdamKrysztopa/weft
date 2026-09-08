@@ -34,9 +34,35 @@ question answering badly, and it is worth a line in the phase's preamble.
   clothes, and it goes to a grilling session with the whole chain as its evidence. Do not apply
   either side again. The chain is the argument, which is why reversed entries are kept rather than
   deleted.
-- **Recurrence** — a rule that was applied and re-learned anyway. It did not bite, so it is in the
-  wrong artefact. The repair is a `moves` edge, almost always `CLAUDE.md` → a hook. **Do not write a
-  second rule saying the same thing louder** — that is how a `CLAUDE.md` grows until nobody reads it.
+- **Recurrence** — a rule that was applied and re-learned anyway. It did not bite, and that means
+  one of *two* things the script cannot tell apart: the rule is in the wrong artefact, or the rule is
+  a general judgement that will keep costing and the count is measuring its **difficulty**. **Read
+  the recurring entries themselves before routing** — a count is evidence, never a verdict.
+  Where it is misplacement, the repair is a `moves` edge, usually `CLAUDE.md` → a hook, and **do not
+  write a second rule saying the same thing louder**, which is how a `CLAUDE.md` grows until nobody
+  reads it. Where it is difficulty, say so in the archive with the measurement, and leave the rule
+  where it is.
+
+  **`R10.2` is the worked example, and it went four-to-one against mechanising.** Phase 10's close
+  put five rules past this threshold. Exactly one had a concrete, detectable act behind its
+  recurrences — `L5.15`, a shipped pipeline document nothing registered — and it became **fitness
+  function 27**, walking 35 sites and failing 0. The other four were not misplaced: `L5.6` and
+  `L5.19` had most recently recurred in a *dispatch brief* and a *resolver's diagnosis*, neither of
+  which any checker reaches; and `L6.4`'s mechanical form was sized at **152** enum members and
+  would fail **14**, while the one real instance the rule was written from
+  (`PermissionClass.OVERWRITE`) was **not among the 14** — a check that fails fourteen correct
+  sites and misses the one it was written for.
+
+  **And `L5.6`/`L5.19` turned out to be mechanised already, which is the sharpest form of the same
+  answer.** A check over the architecture checks themselves was designed, sized at 9 of 31 modules,
+  and only then found to exist: `tests/architecture/test_ff0b_checks_are_real.py` clause (b) has
+  required every check in that directory to carry a `test_the_check_can_actually_fail` since Phase
+  5's drain, written from `L5.6` and `L5.19` by name. It has held perfectly — it failed the new
+  fitness function 27 the moment it arrived. The rules recurred anyway, in a unit test's control, a
+  **dispatch brief** and a **resolver's diagnosis**, none of which that check reaches or could. So
+  the count was measuring reach, not misplacement. **Before concluding a rule needs machinery, grep
+  for the machinery it may already have** — the gate answered this in nine minutes what one search
+  would have answered in one.
 - **Dangling references** — an edge naming an id the archive does not hold.
 
 Then read the archive's entries for this phase's subject matter. Half of what a queue proposes has
