@@ -910,3 +910,161 @@ a question about *this* repository, since three checks other than FF17 walk the 
 **Not a blocker for Phase 10.** No task in Phase 10 or 11 depends on the answer; the three concrete
 repairs (`implementer-brief.md`'s corrected criterion, `phase-step`'s frozen-brief sentence, FF17's
 exclusion) are landed already and are correct under any of the three positions.
+
+## G15 — What may a summarising stage know, and change, beyond its own payload?
+
+**Opened 2026-09-08, at the owner's direction to build `10.14` and to settle `10.15`.** Both lines
+carried `⚠ D2` and a `⛔`, and both were recorded as not scheduled. The owner's decision removed the
+scheduling objection and left the design questions standing — which is what a gate is for. Two
+ledger lines, one subject, and the reason they are one session rather than two is that **decision
+`D2` runs through both**: *where a corpus-wide, revisable pass runs, and whether its output is
+durable*. Face A answers *where*, face B answers *durable how*, face C answers the *not stored*
+half. Settling one without the others leaves D2 half-taken, which is the state that has already
+cost this project two phases of ⚠ marks.
+
+**The question.** `Expander.run(payload, ctx)` receives a sequence of nodes and nothing else. Every
+technique this phase shipped fits inside that, and the next two do not: `adrap` must read a tree it
+did not build and remove what it supersedes, and `postqfrap` must know what was asked. So — what may
+a stage of this shape see, and what may it change, outside the payload it was handed?
+
+**Why it cannot be defaulted, and each reason is a fact rather than a worry.**
+
+- **Ledger `10.5` settled that `raptor` performs no store read**, and says so in three shipped
+  artefacts: the technique row in `10`, `weft_index.raptor`'s module docstring, and
+  `index-with-raptor.yaml`. That property is *why* `D2` was never reached. A default here does not
+  leave a settled task alone; it silently falsifies it in three places at once.
+- **`NodeStore` has ten members and `delete_source` is the only removal**, keyed on a *source*. A
+  summary's relationship to a source is many-to-many — `Lineage.sources` is the union of its
+  members' — so *"delete this node"* has no owner in the present model. The obvious default,
+  `delete_nodes(ids)`, quietly permits a node to be removed while its sources remain, which is the
+  exact inverse of the guarantee `04` category A exists to hold: **a summary with no derivable
+  sources stays retrievable forever, describing content that is gone.** `Node.combine` refuses an
+  empty member set by construction for this reason; a bare delete would reintroduce the scar from
+  the other end.
+- **A node id is a content digest** (`weft_kernel/payload/node.py`, `_content_digest` over media
+  type, content, parent ids and ordinal). A summary that gains one member is therefore a *new node*,
+  and so is every ancestor above it. There is no in-place update available and no default that
+  makes one appear.
+- **Putting the query in `Context` is not a small change and cannot be un-made.** It makes every
+  stage query-aware, on both paths, forever — and *"nothing it produces is stored"* becomes a rule
+  an author must remember rather than a property of a type, which this project has measured as the
+  shape that decays.
+
+---
+
+### Face A — **Read.** May a stage on the index path read the store it will write to?
+
+Positions, strongest first.
+
+1. **A new contract, `Revisable`, published by the pack that owns it, whose `run` receives a corpus
+   view alongside the payload.** *The heaviest and the most correct.* It leaves `Expander` untouched,
+   so `10.5`'s property stays true of `raptor` and of every third-party expander written against it;
+   it makes *"this stage revises what is already stored"* a **type** rather than a habit, which the
+   resolver can act on — a document that places a `Revisable` before its `store` stage is refusable
+   by name, and today nothing could notice. **Attack it on:** a second Expander-shaped contract
+   invites *"why not one?"*; it is a new member of the store contract family and therefore takes
+   G4's bar (two backends, no stub methods) and G9's rules for a contract major; and a corpus view
+   is a new type whose surface must be specified, not merely named.
+2. **`ctx.require(NodeStore)` inside an ordinary `Expander`.** Zero kernel lines and no contract
+   move, and **G13 already established exactly this move** for `reconcile`. **Attack it on:** G13's
+   case was `reconcile`, which is not a pipeline stage — the precedent does not transfer for free.
+   Store access becomes invisible in a resolved document: nothing tells a reader that this stage
+   reads the corpus, `requires`/`provides` cannot express it because it is not a data dependency,
+   and a stage that reads the store *before* the document's own `store` stage runs reads a stale
+   corpus with nothing to say so. That is `10.21`'s hazard again, one level up, and `10.21` could at
+   least see it in its own payload.
+3. **The join is a command, not a stage — `weft reindex --join`.** **Attack it on:** requirement 6
+   in the open. A technique in the CLI is one a third party can neither parameterise nor compose,
+   and `03`'s own rule is that a command returns a typed result while the technique lives in a pack.
+4. **Keep `raptor` store-free and express the join as a pipeline over existing positions.**
+   **Attack it on:** there is no existing position that reads the corpus and writes nodes. This is
+   the answer `10.15`'s line gives for `postqfrap`, and it is available there precisely because the
+   retrieval path already has the passages in hand.
+
+### Face B — **Remove.** What happens to a summary the join supersedes?
+
+Positions, strongest first.
+
+1. **`NodeStore.supersede(old: NodeId, new: Node) -> None` — one atomic replacement, and the name
+   states the invariant.** *The heaviest and the most correct.* The question is not *"can we delete a
+   node"* but *"can the store ever hold a hole"*, and an unconstrained delete makes the hole
+   reachable while a replacement makes it unreachable **by construction** — which is the same move
+   `Node.combine` already makes when it refuses an empty member set. `new` carries the union of
+   `old`'s sources or a superset of them, so `04` category A's guarantee is preserved by the
+   signature rather than by anyone remembering it. **Attack it on:** price. It is a new member of a
+   published family, so both backends must satisfy it without stubs (G4's *Done when*), it is a
+   contract major under G9's implementer rule, and there are ten sites in this tree — two real
+   backends, the conformance suite, and doubles in five test modules. Attack it also on generality:
+   a store may reasonably want removal for reasons that are not supersession, and this signature
+   refuses them.
+2. **`delete_nodes(ids: Sequence[NodeId]) -> Removed`.** Simpler, symmetrical with `delete_source`,
+   and useful beyond this technique. **Attack it on:** the invariant becomes a rule an author must
+   remember, and `CLAUDE.md`'s own measured finding is that *every concern the machinery applied
+   automatically held perfectly, and every concern an author had to remember decayed*. The first
+   caller that deletes a summary without replacing it reintroduces `04` category A's scar, and
+   nothing in the type says so.
+3. **No removal at all: the join marks the superseded summary in `ext` and retrievers filter it
+   out.** **Attack it on:** a filter every retriever must remember, including third-party ones that
+   have never heard of this marker — requirement 4 inverted, where the built-ins get a correctness
+   property strangers do not. And the store grows without bound over a corpus's life, which is the
+   cost the technique exists to avoid.
+4. **`delete_source` and re-add — that is, rebuild.** **Attack it on:** nothing, and that is the
+   point. This is 10.14's alternative, and **Chucri's own §6.5 measures it as the better one.** Any
+   position above has to be worth more than this, and the session should say in what.
+
+### Face C — **Know.** May a stage on the retrieval path receive the query?
+
+Positions, strongest first.
+
+1. **A new contract, Expander-shaped, that takes the query — published by the retrieval pack that
+   owns it.** *The heaviest and the most correct.* It names the thing, the resolver can place it,
+   `Expander` stays exactly what it is, and *"nothing it produces is stored"* is enforced by there
+   being no store stage after it rather than by a promise. **Attack it on:** two near-identical
+   contracts differing by one argument is the shape that later collapses into one with an optional
+   field, which is the narrowing-wearing-a-default this project has already paid for twice.
+2. **The query rides in `Context`, through the ambient-service seam task `9.0` already built.**
+   Cheapest, and the mechanism exists. **Attack it on:** it makes every stage on both paths
+   query-aware. An index-path stage reading it gets nothing and must handle that; a stage that
+   *should not* see the query now can; and the durability rule stops being expressible in a type.
+3. **`postqfrap` is a pipeline document over existing positions and not a plugin — which is what
+   `10.15`'s own line and `10` §4's reservation currently assert.** **Attack it on:** the positions
+   do not exist. `repack` reorders and `cited-answer` answers; neither summarises retrieved
+   passages into new ones. If this position holds, it holds only *after* something is built, and
+   the line should say what.
+4. **Do not build it.** **Attack it on:** it is the strongest measured result in all four of this
+   phase's papers (Chucri §5, §6.5, Figs. 6–9) — measured against post-retrieval baselines only,
+   never head-to-head with a persisted tree, which is itself worth stating.
+
+---
+
+**Bring.** `02` §1 → *Who publishes a contract* and → *The store contract family*, because this
+session either adds to that family or decides not to; `04` category A, the orphan-summary scar, read
+rather than recalled; **G4's own *Done when*** — two backends, no stub methods — which is the bar any
+new member of the family must clear, and **G9's implementer rule** for what a contract major costs
+outside this tree; `10` §4's reservations of `adrap` and `postqfrap`, both already written and both
+constraining what may be named; ledger `10.5`, whose stated property this session may falsify, and
+`10.8`, whose measured expansion walk (0.37 ms on pgvector, ~4 ms on Qdrant, per hop) is the only
+number anyone has for what reading a tree costs; `weft_store/contract.py`'s ten members, counted;
+and Chucri, arXiv:2410.01736 — §4 and §4.2 for adRAP's persisted state, §5 for postQFRAP, §6.4 for
+the greedy variant, §6.5 for the measurement that favours the rebuild — on disk and read at source.
+
+**And bring one number, which this repository cannot currently produce.** `10.14`'s line names
+what schedules it — a rebuild cost the Exit measurement could state — and **`10.13` is ticked
+without that number because the eval record has nowhere to put it.** A persisted `RunRecord` carries
+`metrics`, `corpus`, `resolved_pipeline`, `model_versions` and `recorded_at`: retrieval quality and
+provenance, and **no duration of any kind** — checked against the fifteen records under
+`eval/raptor-baseline/exit/`. So the shortfall is in the shape of the record, not in anything
+`10.13` left undone, and giving the record a duration is a task of its own that comes before this
+session. It matters because every position in Face B is an argument about paying to avoid a number
+nobody has taken, while Chucri's own measurement says the thing being avoided is also the thing that
+scores better. One `weft index` of the ten-document corpus, timed, against one incremental join of a
+single added document, timed — on the rig `10.0` and `10.13` already built.
+
+**Done when.** A stated answer to each of the three faces, each specified in the document that owns
+it (`02` §1 for the contract family, `02` §3 for what a stage may receive, `10` §4 for the names),
+each with a task line in the ledger; **`D2` moved to Settled in the decision log**, since between
+them the three faces answer it entirely; and the rebuild-versus-join cost recorded whatever the
+session decides, because a position that loses on evidence should lose in writing. **Not** a
+declared flag — capability is derived, never declared, so nobody can write a false one (`02` §1) —
+and **not** a first-party shortcut: whatever a `raptor`-family stage may do, a stranger's pack must
+reach the same way (requirement 4).

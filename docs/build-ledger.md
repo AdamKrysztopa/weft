@@ -7145,12 +7145,29 @@ extractors and **both branches of 10.9**, so no branch of this phase ships havin
   `over_level: 1`, which consumes nothing and must run. Green by a dispatched `weft-implementer`;
   `run` did not need extraction this time
 
-**Conditional — recorded with what would schedule them, and not scheduled.**
+- [ ] **10.22** a persisted `weft eval` run states how long it took, so a cost question can be
+  answered from the record rather than from a stopwatch · owner `weft_eval`; `05` → G15's *Bring* ·
+  turns on — · sha — · **G15 cannot open without this and `10.13` could not have supplied it.**
+  `10.14`'s line names *a rebuild cost on the corpus that `10.13` can state* as the thing that
+  schedules the task, and `10.13` is ticked without ever stating one — not an omission, but because
+  a `RunRecord` has nowhere to put it: the fifteen records under `eval/raptor-baseline/exit/` carry
+  `metrics`, `corpus`, `resolved_pipeline`, `model_versions` and `recorded_at`, which is retrieval
+  quality and provenance and **no duration of any kind**. So every argument in G15's *Remove* face —
+  each of them a case for paying a contract change to avoid a rebuild — is an argument about a
+  number nobody has taken, against a paper (Chucri §6.5) that measures the rebuild as the better
+  outcome anyway. What this makes true is narrow and deliberately so: the record states its own
+  wall-clock, ingest and query separately, so *"is the rebuild too expensive"* becomes a question
+  the persisted evidence answers. **Not** a benchmark suite, **not** per-stage profiling — `01`'s
+  observability seam already owns spans, and a duration on the record is the smallest thing that
+  turns G15's central trade-off from an intuition into a comparison
+
+**Gated on G15, and scheduled by the owner 2026-09-08.** These two lines were *conditional and unscheduled* until then, on two grounds: the phase brief said not to build them, and each carried a design question no task may default. **The first ground is gone — the owner directed `10.14` and asked for `10.15` to be settled** — and the second became `05` → **G15**, which takes all three of their open questions as one session because `D2` runs through every one of them. Neither line is ticked here and neither is abandoned: each is now waiting on a gate with a date rather than on nobody.
+
+**One thing to do before that session opens, and it is not a design question.** `10.14`'s own line names what schedules it — *a rebuild cost on the corpus that `10.13` can state* — and **that cost has never been measured**. Every position in G15's *Remove* face is an argument about paying to avoid a number nobody has taken, while Chucri §6.5 measures the thing being avoided as the one that scores better. The rig exists: `10.0` and `10.13` built it.
 
 - [ ] **10.14 ⚠ D2** a newly indexed document joins the existing tree rather than founding a second
   one, and no query ever returns both the old and the new summary of one cluster · owner `01` → Phase
-  11 → D2; `02` §1 → *The store contract family* · turns on — · sha — · **⛔ as well, and not
-  scheduled.** Chucri §4 (adRAP) is the paper on this, and its own §6.5 (p.9) reports that adRAP
+  11 → D2; `02` §1 → *The store contract family*; `05` → **G15** · turns on — · sha — · **Scheduled 2026-09-08 by the owner; the ⛔ is now G15's *Remove* face rather than a refusal.** Chucri §4 (adRAP) is the paper on this, and its own §6.5 (p.9) reports that adRAP
   *"falls short by at least 3%"* on context relevance and *"underperforms compared to RAPTOR in the
   MultiHop and QASPER datasets"* — the full rebuild is the strong baseline, and *rebuilding twice may
   cost less than `01`'s ordering sentence assumed*. What it needs: persisted per-cluster state that is
@@ -7165,7 +7182,7 @@ extractors and **both branches of 10.9**, so no branch of this phase ships havin
   as the worse of its two
 - [ ] **10.15 ⚠ D2** a query-time recursive summariser, if it ships, is a pipeline document over
   existing positions and not a plugin named for the paper, and nothing it produces is stored · owner
-  `02` §3; `weft_index/contract.py` · turns on — · sha — · **not scheduled.** Chucri §5 (postQFRAP)
+  `02` §3; `weft_index/contract.py`; `05` → **G15** · turns on — · sha — · **Gated on G15's *Know* face, 2026-09-08.** Chucri §5 (postQFRAP)
   is the strongest measured result in the four (§6.5, Figs. 6–9), against post-retrieval baselines
   only and never head-to-head with a persisted tree. `Expander.run` takes `(payload, ctx)` and no
   query (`weft_index/contract.py:64`), so how a query reaches a summarising stage on the retrieval
