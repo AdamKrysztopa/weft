@@ -7158,7 +7158,7 @@ extractors and **both branches of 10.9**, so no branch of this phase ships havin
 
 - [x] **10.23** a stage may state that it revises what is already stored, and a resolved document
   shows which stages read the corpus · owner `02` §1 → *Who publishes a contract*; `05` → G15's
-  *Read* face · turns on — · sha `PENDING` · **G15's Face A.** `Revisable` is published by `weft-index`
+  *Read* face · turns on — · sha `7976e97` · **G15's Face A.** `Revisable` is published by `weft-index`
   beside `Expander`, and reaches the corpus through `ctx.require(NodeStore)` — **not** through a new
   corpus-view type, because `NodeStore` already answers *what exists* (`scan`, `count`, `matching`,
   `get`) and G13 settled that exact move for `reconcile` at zero kernel lines. **The type is the
