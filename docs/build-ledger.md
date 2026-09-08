@@ -7122,8 +7122,19 @@ extractors and **both branches of 10.9**, so no branch of this phase ships havin
   `lineage.parents`, and refuse by name. *The sibling hazard is not plugin-local and is recorded
   rather than fixed here* — a second `embed` between two `raptor` rungs silently re-bills every
   leaf and every level-1 summary, undoing exactly what 10.4 saved, and only prose in
-  `index-with-deep-raptor.yaml` stands against it. A pack has no way to validate a resolved
-  document's stage arrangement; that absence is the finding, and it is bigger than this task
+  `index-with-deep-raptor.yaml` stands against it.
+  **Corrected 2026-09-08 at G15, and the correction is the more interesting finding.** This line
+  said *"a pack has no way to validate a resolved document's stage arrangement"*. **That is false.**
+  `weft_kernel.payload.property.Property` is a kernel marker a *pack* subclasses, stages declare
+  `intact` and `destroys` over it, and `weft_kernel.runner` raises `IntactViolationError` at
+  **resolution** when a stage needs a property an earlier stage already destroyed — `02` §3 →
+  *Ordering constraints*, task 1.2, live today in `weft_chunk/property.py`'s `WordBoundaries`. The
+  mechanism exists and is pack-extensible; I asserted its absence without grepping for it
+  (`L10.33`). What is true, and narrower, is that **the mechanism is shaped for correctness and the
+  doubled-`embed` hazard is economic**: re-embedding destroys no property and provides no fact, so
+  there is nothing for `intact`/`destroys` or `requires`/`provides` to name. A stage that costs
+  money twice while breaking nothing is invisible to both, and that — not the absence of a seam —
+  is the gap
   · **Refused, and read back through the shipped binary from `<scratch>/ex1018`** — a document
   deriving the two-rung one and inserting a third rung at the level the first already took:
 
@@ -7144,6 +7155,42 @@ extractors and **both branches of 10.9**, so no branch of this phase ships havin
   green before the change and had to stay green — the shipped deep document's own second rung at
   `over_level: 1`, which consumes nothing and must run. Green by a dispatched `weft-implementer`;
   `run` did not need extraction this time
+
+- [ ] **10.23** a stage may state that it revises what is already stored, and the resolver can tell
+  such a stage from one that cannot · owner `02` §1 → *Who publishes a contract*; `05` → G15's
+  *Read* face · turns on — · sha — · **G15's Face A.** `Revisable` is published by `weft-index`
+  beside `Expander`, and reaches the corpus through `ctx.require(NodeStore)` — **not** through a new
+  corpus-view type, because `NodeStore` already answers *what exists* (`scan`, `count`, `matching`,
+  `get`) and G13 settled that exact move for `reconcile` at zero kernel lines. **The type is the
+  point, not the plumbing.** Letting any `Expander` call `ctx.require(NodeStore)` was the cheaper
+  option and was refused: it turns `10.5`'s property from a fact about a *kind* of stage into a
+  per-plugin habit, so the next expander anyone writes acquires corpus access with nothing to key a
+  check on — requirement 1's failure shape. **Not a member of the store contract family**, so G4's
+  two-backend bar does not apply here; it is satisfied by plugins and the store implements nothing
+
+- [ ] **10.24** a superseded node is replaced rather than deleted, so the store can never hold a
+  summary whose members are gone · owner `02` §1 → *The store contract family*; `04` category A;
+  `05` → G15's *Remove* face · turns on — · sha — · **G15's Face B, and the ordering is the whole
+  design.** `NodeStore.supersede(old: NodeId, new: Node)` writes `new` **first** and deletes `old`
+  **second**, so a crash leaves a **duplicate**, which `reconcile` exists to find, and never a
+  **hole**, which nothing finds and which `04` category A records as staying retrievable forever
+  describing content that is gone. Atomicity was considered and refused **by the tree**: Qdrant has
+  no cross-operation transaction and `weft_qdrant.delete_source` is already a non-atomic
+  tombstone → delete-by-filter → clear that its own docstring calls *"`02`'s idempotent, resumable
+  deletion"*, so the family had already decided removal is ordered and resumable. `delete_nodes(ids)`
+  lost: it makes the invariant a rule an author must remember, which this project has *measured* as
+  the shape that decays, and `10` §2.1 rule 4 forbids a member promising more than the code does.
+  **This one does take G4's bar** — both backends, no stub methods — and the conformance suite plus
+  the doubles in five test modules are part of the task, not follow-up
+
+- [ ] **10.25** `10.5`'s property says which contract it is about, in all three places that state it
+  · owner ledger `10.5`; `10` §1.2 → the `raptor` row; `weft_index/raptor.py`;
+  `index-with-raptor.yaml` · turns on — · sha — · **The cost G15's Face A stated rather than hid.**
+  Three shipped artefacts say *`raptor` performs no store read*, and that is exactly why `D2` went
+  unreached for two phases. After 10.23 the true statement is narrower: **`raptor` the `Expander`
+  reads no store; `adrap` the `Revisable` does.** The property survives, narrowed to the contract it
+  was always about — and a task that changes what three documents assert is a task, not a tidy-up,
+  because `10.1` is this phase's own record of what happens when four artefacts drift apart
 
 - [ ] **10.22** a persisted `weft eval` run states how long it took, so a cost question can be
   answered from the record rather than from a stopwatch · owner `weft_eval`; `05` → G15's *Bring* ·
@@ -7167,7 +7214,7 @@ extractors and **both branches of 10.9**, so no branch of this phase ships havin
 
 - [ ] **10.14 ⚠ D2** a newly indexed document joins the existing tree rather than founding a second
   one, and no query ever returns both the old and the new summary of one cluster · owner `01` → Phase
-  11 → D2; `02` §1 → *The store contract family*; `05` → **G15** · turns on — · sha — · **Scheduled 2026-09-08 by the owner; the ⛔ is now G15's *Remove* face rather than a refusal.** Chucri §4 (adRAP) is the paper on this, and its own §6.5 (p.9) reports that adRAP
+  11 → D2; `02` §1 → *The store contract family*; `05` → **G15** · turns on — · sha — · **Unblocked 2026-09-08: G15 settled, `D2` settled with it, and the ⛔ is discharged.** This is now the `adrap` *plugin* alone — a `Revisable` (task 10.23) that reads the corpus through `ctx.require(NodeStore)`, assigns each new leaf to the nearest existing cluster by a centroid recomputed from that cluster's stored members, and replaces each affected summary and every ancestor above it through `supersede` (task 10.24). **It needs no persisted state that is not a node**, which is the finding that made `D2` cheap: Chucri §4.2 stores fitted UMAP and GMM instances with the tree and Weft's clusterer fits no model, so a cluster's entire state is a centroid derivable from nodes already stored. Depends on 10.23, 10.24 and 10.25. **State the cost honestly in the row**: Chucri §6.5 measures adRAP below a full rebuild on two of three datasets, so this technique's value is operational — not paying to rebuild — and not quality, and `10.22`'s number is what says whether that trade is worth taking on a real corpus Chucri §4 (adRAP) is the paper on this, and its own §6.5 (p.9) reports that adRAP
   *"falls short by at least 3%"* on context relevance and *"underperforms compared to RAPTOR in the
   MultiHop and QASPER datasets"* — the full rebuild is the strong baseline, and *rebuilding twice may
   cost less than `01`'s ordering sentence assumed*. What it needs: persisted per-cluster state that is
@@ -7182,7 +7229,7 @@ extractors and **both branches of 10.9**, so no branch of this phase ships havin
   as the worse of its two
 - [ ] **10.15 ⚠ D2** a query-time recursive summariser, if it ships, is a pipeline document over
   existing positions and not a plugin named for the paper, and nothing it produces is stored · owner
-  `02` §3; `weft_index/contract.py`; `05` → **G15** · turns on — · sha — · **Gated on G15's *Know* face, 2026-09-08.** Chucri §5 (postQFRAP)
+  `02` §3; `weft_index/contract.py`; `weft_retrieve/contract.py`; `05` → **G15** · turns on — · sha — · **Unblocked 2026-09-08, and it is far smaller than this line assumed. The ⛔ is withdrawn.** The line said *how a query reaches a summarising stage on the retrieval path is a contract question* because `Expander.run` takes `(payload, ctx)` and no query. True, and beside the point: **a query-time recursive summariser is not an `Expander`.** `Candidates`, `Ranking` and `Passages` each carry `origin: Query` as a typed field, and `Packer` is `Ranking -> Passages` — cluster the hits, summarise each cluster, emit the summaries as passages, with the question already in hand. **No contract change, no ambient query, nothing stored** (the retrieval path has no `store` stage, so `D2`'s durability clause never reaches it). This line's other half needs correcting too: *not a plugin* is wrong — the *position* exists, but something must summarise, so `postqfrap` is **a plugin at an existing position**, and `10` §4's reservation of the name applies to it rather than releasing it. It is also, on the evidence, the strongest technique in the four papers (Chucri §5, §6.5, Figs. 6–9), measured against post-retrieval baselines only Chucri §5 (postQFRAP)
   is the strongest measured result in the four (§6.5, Figs. 6–9), against post-retrieval baselines
   only and never head-to-head with a persisted tree. `Expander.run` takes `(payload, ctx)` and no
   query (`weft_index/contract.py:64`), so how a query reaches a summarising stage on the retrieval

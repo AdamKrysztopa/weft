@@ -910,6 +910,36 @@ one branch or less, the brief must say which move is wanted.
 line in `references/implementer-brief.md`'s template — *"if this adds a branch, say whether a
 refactor or a suppression is acceptable, because the agent will otherwise pick"*.
 
+### L10.33 — I asserted that the tree had no mechanism for something, without grepping for the mechanism
+
+**What happened.** Task 10.21's ledger entry, written and committed, closed with *"A pack has no way
+to validate a resolved document's stage arrangement; that absence is the finding, and it is bigger
+than this task."* It is false. `weft_kernel.payload.property.Property` is a kernel marker class a
+**pack** subclasses; stages declare `intact` and `destroys` over it; `weft_kernel.runner` raises
+`IntactViolationError` **at resolution** when a stage needs a property an earlier stage destroyed.
+It is task 1.2's, specified in `02` §3 → *Ordering constraints*, and live in the tree today —
+`weft_chunk/property.py` defines `WordBoundaries` and `FixedSizeChunker` declares it destroyed. One
+`grep -rn destroys packages/` would have found it. The claim reached a commit, and G15 found it two
+hours later only because the session's *Bring* forced me to read the resolver.
+
+**Generalises to.** *An assertion that the tree has **no** mechanism for something is a claim about
+the whole tree, and needs a search exactly as an assertion that it **does** would.* `CLAUDE.md`
+already requires evidence for a count and for a "nothing calls this"; the absence of a *capability*
+is the same class of claim and is easier to get wrong, because nothing fails when you are wrong —
+the reader simply believes there is no seam and builds a second one.
+
+**And the correction was worth more than the claim.** The true statement is narrower and sharper:
+the ordering mechanism is shaped for **correctness** — a property destroyed, a fact required — and
+the doubled-`embed` hazard is **economic**. Re-embedding destroys no property and provides no fact,
+so it is invisible to `intact`/`destroys` and to `requires`/`provides` alike. A stage that costs
+money twice while breaking nothing has nothing for either mechanism to name. That is a real gap and
+it is not the one I recorded.
+
+**Candidate home.** `CLAUDE.md` → *Claims need evidence*, which lists a count and a "nothing calls
+this" and should list "no mechanism exists for this" beside them. Possibly also `weft-qualities`,
+whose *"before you accept a mechanism as this change's escape hatch, run it"* covers the presence
+case and says nothing about the absence case.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

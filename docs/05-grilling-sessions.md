@@ -913,7 +913,7 @@ exclusion) are landed already and are correct under any of the three positions.
 
 ## G15 — What may a summarising stage know, and change, beyond its own payload?
 
-**Opened 2026-09-08, at the owner's direction to build `10.14` and to settle `10.15`.** Both lines
+**Settled 2026-09-08, opened and run the same day, at the owner's direction to build `10.14` and to settle `10.15`.** Both lines
 carried `⚠ D2` and a `⛔`, and both were recorded as not scheduled. The owner's decision removed the
 scheduling objection and left the design questions standing — which is what a gate is for. Two
 ledger lines, one subject, and the reason they are one session rather than two is that **decision
@@ -1037,6 +1037,65 @@ Positions, strongest first.
 
 ---
 
+---
+
+**Positions attacked, and what held — session run 2026-09-08.** Every face was decided against the
+tree rather than against the argument, and **two of the three came out somewhere none of the
+positions above had put them.**
+
+- **Read: a new contract, `Revisable`, published by `weft-index`, reaching the corpus through
+  `ctx.require(NodeStore)`.** Position 1's *type* and position 2's *plumbing* — and position 1 as
+  written was **over-built**. It proposed a new "corpus view"; there is no need for one, because
+  `NodeStore` already answers *what exists* through `scan`, `count`, `matching` and `get`, and
+  **G13 settled this exact move**: the primary store reached by `ctx.require`, zero kernel lines,
+  no contract move. Position 2 *alone* was attacked and failed on one point that decides it: if any
+  `Expander` may reach the store, then `10.5`'s property stops being a fact about a **kind** of
+  stage and becomes a per-plugin habit with nothing to key a check on — the next expander anyone
+  writes acquires corpus access silently, which is requirement 1's failure shape exactly.
+  **G13's precedent points here rather than at position 2, which is the opposite of how it first
+  reads**: `Reconcilable` is itself a distinct contract, and `ctx.require` is what a *declared*
+  participant then used. The type came first there too. *Correction to this session's own Bring,
+  made in the session:* `Revisable` is **not** a member of the store contract family and does not
+  take G4's bar — it is published by `weft-index` and satisfied by plugins, and the store
+  implements nothing. G4's bar belongs to Face B alone. *The cost, stated:* `10.5`'s three
+  artefacts must be edited to say `raptor` **the `Expander`** reads no store while `adrap` **the
+  `Revisable`** does. The property survives, narrowed to the contract it was always about.
+
+- **Remove: `NodeStore.supersede(old, new)`, ordered write-new-then-delete-old.** The atomicity
+  objection was raised — Qdrant has no cross-operation transaction, so a signature promising
+  atomicity promises what a shipped backend cannot deliver — and it was **answered by the tree
+  rather than by argument**: `weft_qdrant`'s `delete_source` is *already* a non-atomic three-step
+  sequence, tombstone → delete-by-filter → clear, and its own docstring calls it *"`02`'s
+  idempotent, resumable deletion"*. The family decided years-equivalent ago that removal is
+  **ordered and resumable, not atomic**. So `supersede` inherits that shape, and the ordering is
+  the whole design: **writing the new node first means a crash leaves a duplicate, never a hole.**
+  A duplicate is what `reconcile` exists to find; a hole is `04` category A's scar, which nothing
+  can find and which stays retrievable forever describing content that is gone. Position 2
+  (`delete_nodes(ids)`) lost on the rule this project has measured rather than assumed — the
+  invariant would become a thing an author must remember — and on `10` §2.1 rule 4, which forbids
+  promising more than the code does and applies to a contract member as much as to a name. This is
+  the one face where G4's bar applies in full: both backends, no stub methods.
+
+- **Know: nothing. No contract change, no ambient query, and `10.15`'s ⛔ is withdrawn.** The whole
+  premise collapsed on reading. `Expander.run` has no query — true, and irrelevant, because **a
+  query-time recursive summariser is not an `Expander`.** Every payload on the retrieval path
+  already carries the query as a typed field: `Candidates.origin`, `Ranking.origin` and
+  `Passages.origin` are each a `Query`. `Packer` is `Ranking -> Passages`, which is precisely
+  postQFRAP's shape — cluster the hits, summarise each cluster, emit the summaries as passages —
+  and its input carries the question by construction. All four positions were answers to a question
+  the tree had already answered; position 3 was **half** right, in the half that matters least: the
+  *position* exists, but something must still summarise, so this is a **plugin at an existing
+  position**, not a document alone. *And `D2`'s durability clause never reaches here*: the
+  retrieval path has no `store` stage, so *"nothing it produces is stored"* needs no ruling.
+
+**`D2` is settled by the three together.** *Where a corpus-wide, revisable pass runs*: an index-path
+stage of a new contract, placed after `store`. *Whether its output is durable*: **yes, as nodes, and
+only as nodes.** Chucri §4.2 persists fitted UMAP and GMM instances with the tree, which is what made
+this clause look expensive — and **Weft's clusterer fits no model.** Greedy cosine's entire
+per-cluster state is a centroid, derivable from the members already stored, by a `get` whose cost
+`10.8` measured at 0.37 ms per hop on pgvector. So the *"expensive output may be durable"* clause
+turns out not to bite at all: there is no expensive output. **No rows that are not nodes.**
+
 **Bring.** `02` §1 → *Who publishes a contract* and → *The store contract family*, because this
 session either adds to that family or decides not to; `04` category A, the orphan-summary scar, read
 rather than recalled; **G4's own *Done when*** — two backends, no stub methods — which is the bar any
@@ -1048,7 +1107,12 @@ number anyone has for what reading a tree costs; `weft_store/contract.py`'s ten 
 and Chucri, arXiv:2410.01736 — §4 and §4.2 for adRAP's persisted state, §5 for postQFRAP, §6.4 for
 the greedy variant, §6.5 for the measurement that favours the rebuild — on disk and read at source.
 
-**And bring one number, which this repository cannot currently produce.** `10.14`'s line names
+**And one number, which this repository cannot currently produce — its role changed during the
+session and the change is recorded rather than quietly made.** It was written here as a bar on
+opening: do not sit down without the rebuild cost. That bar was for the question *whether* to build
+`10.14`, and **the owner had already answered that**, so holding the session hostage to it would
+have been a proviso invented after the fact (`L5.32`'s shape). The number is still owed — it now
+records what the decision cost rather than deciding it, and `10.22` carries it. `10.14`'s line names
 what schedules it — a rebuild cost the Exit measurement could state — and **`10.13` is ticked
 without that number because the eval record has nowhere to put it.** A persisted `RunRecord` carries
 `metrics`, `corpus`, `resolved_pipeline`, `model_versions` and `recorded_at`: retrieval quality and
