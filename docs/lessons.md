@@ -691,6 +691,15 @@ background**, and the tool returned the launch notice instead of the command's o
 gate ran, went green, and the task was committed (`85063fd`) with **no ledger entry at all** —
 found two steps later by grepping for a string the entry should have contained.
 
+**Recurred 2026-09-08, at task 10.19/10.20's tick, in a second form.** The guarded `python3 -
+<<'PY'` edit raised `AssertionError` on its first anchor — so *no* ledger edit was applied — and the
+`git add -A && git commit` on the following line ran regardless, because the two were separate
+commands rather than a chain. The commit landed the code with no ledger entry and no tick, exactly
+as before; it was caught only because the traceback and the commit sha printed together in one
+result. The first instance was a background launch swallowing the message; this one is a newline.
+**One assertion failing must stop the sequence, and `&&` between the edit and the commit is what
+does it** — a guarded edit followed by an unconditional commit is not a guard.
+
 **Generalises to.** *A command whose output is a background-launch notice has no room for any
 other command's output, so a guarded edit chained with one is a guard whose alarm is muted —
 never put an assertion and a `&` in the same invocation.* The wider shape is this repository's own

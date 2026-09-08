@@ -7035,10 +7035,10 @@ extractors and **both branches of 10.9**, so no branch of this phase ships havin
   before the wording was accepted, since a message naming a command that does not exist is this
   same defect a third time (`L8.14` is the second)
 
-- [ ] **10.19** a configuration that can never produce a summary is refused rather than producing
+- [x] **10.19** a configuration that can never produce a summary is refused rather than producing
   nothing: the `min_cluster_size` ≤ `cluster_size` rule holds against the **resolved** value and not
   only the typed one, and a level that holds no node at all is distinguished from a level that holds
-  too few · owner `weft_index/raptor.py`; `01` → requirement 5 · turns on — · sha — · **Found at the
+  too few · owner `weft_index/raptor.py`; `01` → requirement 5 · turns on — · sha `cebd62b` · **Found at the
   phase's `weft-qualities` review and verified by construction.** `RaptorConfig(min_cluster_size=4,
   cluster_size=2)` is refused by name, quoting both numbers; `RaptorConfig(min_cluster_size=4)` with
   `cluster_size` left at `auto` is **accepted**, and `auto` then resolves to `2` on 5000-character
@@ -7058,10 +7058,32 @@ extractors and **both branches of 10.9**, so no branch of this phase ships havin
   of rungs in this run could have produced it, whatever the corpus did. With no `RaptorFacts` in
   the payload the deepest level present is 0, so `over_level: 1` stays allowed — the stop-rule case
   — and `over_level: 5` is refused. `L10.30`
+  · **Both refused, and both read back through the shipped binary from `<scratch>/ex1018`**, a
+  directory that is not this repository:
 
-- [ ] **10.20** a run-level tally is absent rather than plausibly wrong when it was not computed:
+  ```text
+  $ weft index . --pipeline bad-level     # set: {id: summarise, with: {over_level: 5}}
+  failed: 'raptor': over_level=5 is more than one level above the deepest level actually present
+  in this payload (0) — no chain of rungs in this run could have produced it, however well each
+  one had done
+
+  $ weft index . --pipeline bad-min       # set: {id: summarise, with: {min_cluster_size: 40}}
+  failed: 'raptor': min_cluster_size (40) cannot exceed cluster_size (24), which cluster_size:
+  auto resolved to for this run — no cluster could ever reach the minimum needed to be summarised
+  ```
+
+  The second names the number `auto` actually reached on that corpus and says where it came from,
+  which is the half the typed validator never has to explain. **The control is a test that passes
+  rather than one that fails**: `test_a_thin_level_is_still_passed_through_rather_than_refused` was
+  green before the change and had to stay green, because a refusal widened one step further would
+  take the batch down whenever a corpus was merely small. Green by a dispatched `weft-implementer`,
+  which also extracted `_resolve_auto_parameters` out of `run` — a design decision my brief did not
+  scope, forced by ruff's complexity ceiling, reported honestly, and filed as `L10.32`. Verified as
+  a pure extraction by reading the diff: the degeneracy branch moved verbatim
+
+- [x] **10.20** a run-level tally is absent rather than plausibly wrong when it was not computed:
   `RaptorFacts.clusters_found`/`clusters_summarised` carry no default that could be mistaken for a
-  real count · owner `weft_index/payload.py`; `01` → requirement 5 · turns on — · sha — · **The
+  real count · owner `weft_index/payload.py`; `01` → requirement 5 · turns on — · sha `cebd62b` · **The
   field the phase flagged, and the review found the argument for it inverted.** Both are
   `Field(default=1, ge=1)`. Measured: **one** shipped construction site (`raptor.py`) against
   **three** in one test file, and `_with_run_counts` overwrites both on every node `run` returns —
@@ -7081,6 +7103,12 @@ extractors and **both branches of 10.9**, so no branch of this phase ships havin
   `_with_run_counts` — on the only path by which a node leaves this plugin — replaces them with the
   run's real tally. An absent tally then reads as absent, and a stored summary carrying `None` is a
   bug that announces itself instead of a plausible `1`
+  · **Done by me rather than dispatched — the change is two field declarations and smaller than
+  its brief.** No test fixture needed touching: all three direct constructions already omit both
+  fields, which is precisely why the default was reachable. `__schema_version__` goes to `1.4.0`
+  **even though the change only widens two fields and every `1.3.0` row still validates** — a
+  stored `clusters_found: 1` written under `1.3.0` cannot be told from a default, so the version is
+  what says which reading applies
 
 - [ ] **10.21** a `raptor` rung refuses a level a prior rung in the same run already consumed,
   rather than building a second parallel set of summaries over it · owner `weft_index/raptor.py`;
