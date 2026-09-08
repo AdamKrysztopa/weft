@@ -114,6 +114,28 @@ condition under which nobody remembers whether it was filed before.
 is instructed and no lookup is asked for. `L5.14`'s rule reached from a new direction: a list in a
 document is where to start looking, and the carried-repairs list is one nobody re-reads.
 
+### L11.5 — the check written to stop an artefact rotting checks a property the artefact does not have
+
+**What happened.** `CHANGELOG.md` was brought current by task 5.2f *because* `L5.8` recorded that it
+had gone stale for five phases, and the same task added
+`tests/docs/test_changelog_deprecation_coverage.py` so it would not happen again. It happened again
+immediately: last touched at Phase 5's close (`4230057`), untouched through Phases 6, 7, 8, 9 and
+10, and found only when a release was being prepared. **The check never failed and is not broken.**
+Its subject is *deprecated surfaces*, this tree has zero, and its own waiver docstring says so
+honestly — so it passes by asking nothing about whether the file describes the current software. The
+artefact rotted underneath a green check written to protect it.
+
+**Generalises to.** When a check is added to stop an artefact going stale, ask what it asserts when
+the artefact *is* stale. If the answer is "nothing, because its subject is empty", the check
+protects a property the artefact happens to have and not the one it was written for — and its green
+is now positive evidence to a later reader that the artefact is fine.
+
+**Candidate home.** `weft-qualities` → *a claim with nothing left to check it*, which holds the
+claim-side cases; this is the check-side one. Possibly a `tests/docs` clause instead: a document
+that names phases has an entry for every phase the ledger records as closed — a real population
+(11 phases), computable, and it would have failed for five phases running. Size it before adopting
+it. `recurs L5.8`, `recurs L5.19`.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in
