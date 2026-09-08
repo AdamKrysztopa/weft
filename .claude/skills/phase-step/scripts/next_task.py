@@ -116,7 +116,18 @@ def parse(ledger: str) -> tuple[list[Task], dict[str, Phase]]:
             continue
 
         stripped = raw.strip()
-        is_continuation = bool(stripped) and not stripped.startswith(("#", ">", "|", "-", "*"))
+        # **A list marker is the character *plus a space*; `-` and `*` alone are not.** A
+        # continuation line opening with emphasis — `*Read* face · ... · sha \`7976e97\` · ...`,
+        # which is exactly how task 10.23's own line wraps — was read as a new block, so the
+        # task closed early and every field on that line, the sha among them, went missing.
+        # `tests/docs/test_ledger_records_a_sha.py` saw the sha because it parses the whole
+        # entry; this parser did not, and the two disagreeing about one field is the defect
+        # (`docs/lessons.md` L10.38).
+        is_continuation = bool(stripped) and not (
+            stripped.startswith(("#", ">", "|"))
+            or stripped[:2] in ("- ", "* ")
+            or stripped in ("-", "*")
+        )
         if open_task is not None and is_continuation:
             open_task.text = f"{open_task.text} {stripped}"
             open_task.fields = _split_fields(open_task.text)

@@ -1074,6 +1074,35 @@ template: state that each named type or field is quoted from the artefact, and t
 not an acceptable source for it. Sits directly beside `L10.29` and `L10.34`, which are the same
 dispatch seam failing in two other ways.
 
+### L10.38 — two parsers read one ledger field and only one of them found it
+
+**What happened.** `docs/build-ledger.md`'s task 10.23 carries `· sha \`7976e97\` ·` on its third
+line. `tests/docs/test_ledger_records_a_sha.py` found it and passed; the shared parser behind
+`phase-step`'s `next_task.py` and `implementation-status`'s `phase_tasks.py` did not, and printed
+`sha —`. A status table given to the owner was wrong because of it.
+
+The cause is one line: `is_continuation` treated any line starting with `-` or `*` as a new block.
+That line begins `*Read* face · turns on — · sha ...` — **emphasis, not a list marker**. A markdown
+list item is the character *plus a space*; `*Read*` is not one. So the task closed early and every
+field on its wrapped line was lost. Repaired by requiring `"- "` / `"* "`.
+
+**The script's own `--self-test` still passes, before and after.** It runs against a fixture, and
+the fixture has no continuation line that opens with emphasis — which is `L6.4`'s rule arriving for
+the third time: *a parser's fixture cannot contain the input nobody thought of*. `live_checks`
+exists precisely because of that and did not catch this either, because it checks the Status block
+against the ledger and never asks whether a *field* was read.
+
+**Generalises to.** *When two artefacts parse the same file for the same fact, the one that is
+wrong is invisible until they are compared — so a field a check depends on should have exactly one
+reader, or the readers should be asked to agree.* The narrower and immediately actionable form:
+**a markdown parser that classifies lines by their first character must match the marker's full
+syntax**, because prose legitimately begins with every character a marker uses.
+
+**Candidate home.** `live_checks` in `next_task.py` — the natural assertion is that every *ticked*
+task line yields a sha under this parser, which is the same property `tests/docs` already checks
+under its own, and the disagreement is the bug. That turns two independent readers into one
+compared pair at no cost, and it is the check that would have caught this the moment it appeared.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in
