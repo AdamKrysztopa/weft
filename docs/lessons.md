@@ -879,6 +879,28 @@ arguments, which is shorter than the paragraph defending it.
 unnecessary?"* of waivers; it does not ask it of defaults, and a default is the same bargain with no
 diff to make it visible. Worth adding to lens 5 alongside the waiver question.
 
+### L10.32 — the brief added a branch to a method already near the complexity ceiling, and silently authorised whatever the agent chose
+
+**What happened.** Task 10.19's brief named two new `Failed` branches inside
+`RaptorSummarizer.run` and specified both messages exactly. It did not mention that `run` was at
+cyclomatic complexity 11 against ruff's C901 ceiling of 12, so adding two branches put it at 13.
+The implementer discovered this only when the lint gate failed, and resolved it by extracting the
+whole `auto`-resolution block into a new method — a **design decision the brief did not scope**,
+which it reported honestly and which turned a ~20-line change into 146 insertions. It happened to
+choose well. The other available move was `# noqa: C901`, which would have passed the same gate,
+been invisible in review, and permanently retired a check on the phase's most branch-heavy method.
+
+**Generalises to.** *Before dispatching a brief that adds a branch to an existing method, measure
+that method's distance from the complexity ceiling. A brief that does not mention it is a brief
+that silently delegates the choice between a refactor and a suppression to something that has not
+read the documents — and only one of those two choices is visible in a diff.* Where the headroom is
+one branch or less, the brief must say which move is wanted.
+
+**Candidate home.** `phase-step` → *Green*, in the dispatch checklist beside `ci-no-tests`: one
+`ruff check --select C901` on the target method before writing the brief. Possibly cheaper as a
+line in `references/implementer-brief.md`'s template — *"if this adds a branch, say whether a
+refactor or a suppression is acceptable, because the agent will otherwise pick"*.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

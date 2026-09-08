@@ -7048,8 +7048,16 @@ extractors and **both branches of 10.9**, so no branch of this phase ships havin
   this run's clusters were merely too loose. The validator's own comment states the hole
   (*"Only checkable against a typed `cluster_size`"*) and nothing re-checks after resolution. Second
   half: `RaptorConfig(over_level=5)` is accepted against a two-level tree, `selected` is empty, and
-  the same branch fires — *no node at this level at all* is always a misconfiguration, *fewer than
-  `min_cluster_size`* can be data, and one branch conflates them. `L10.30`
+  the same branch fires, so an operator's typo and a legitimately thin level are indistinguishable.
+  **The obvious rule for that half is wrong and the right one is narrower** — caught while writing
+  the test, not after. *"No node at this level is always a misconfiguration"* is false: the shipped
+  `index-with-deep-raptor`'s second rung finds level 1 empty exactly when the first rung built
+  fewer than `min_cluster_size` summaries, which is the stop rule working, and
+  `tests/integration/test_raptor_depth.py` asserts that in its own failure message. The sound rule
+  is **`over_level` greater than one more than the deepest level present in the payload**: no chain
+  of rungs in this run could have produced it, whatever the corpus did. With no `RaptorFacts` in
+  the payload the deepest level present is 0, so `over_level: 1` stays allowed — the stop-rule case
+  — and `over_level: 5` is refused. `L10.30`
 
 - [ ] **10.20** a run-level tally is absent rather than plausibly wrong when it was not computed:
   `RaptorFacts.clusters_found`/`clusters_summarised` carry no default that could be mistaken for a
@@ -7063,7 +7071,16 @@ extractors and **both branches of 10.9**, so no branch of this phase ships havin
   `1`/`1` reads as a coherent claim — *this run found one cluster and summarised it* — on a model
   that is **frozen and persisted**, so any path that skips the computation writes a false fact into
   a store that no reader can tell from a true one. The waiver question answers itself: making the
-  default unnecessary costs six keyword arguments, which is shorter than the paragraph. `L10.31`
+  default unnecessary is cheaper than the paragraph defending it. `L10.31`
+  · **The obvious fix is impossible and the right one is different** — found writing the test, and
+  recorded rather than quietly substituted. *Required, with no default* cannot work: `_summarize`
+  builds the `RaptorFacts` and by its own docstring *"sees a single cluster, never how many the run
+  had"*, so it has no true value to pass and would have to invent one, which is the defect moved
+  rather than removed. The shape is `int | None = None`, matching the two `resolved_*` fields
+  beside it: `_summarize` leaves both `None`, which states *this call could not know*, and
+  `_with_run_counts` — on the only path by which a node leaves this plugin — replaces them with the
+  run's real tally. An absent tally then reads as absent, and a stored summary carrying `None` is a
+  bug that announces itself instead of a plausible `1`
 
 - [ ] **10.21** a `raptor` rung refuses a level a prior rung in the same run already consumed,
   rather than building a second parallel set of summaries over it · owner `weft_index/raptor.py`;

@@ -476,6 +476,16 @@ class RaptorSummarizer:
         if not payload:
             return NothingToProduce(reason="no nodes to cluster into summaries")
 
+        # **Refusal B, task 10.19 — an `over_level` no chain of rungs could have produced.**
+        # See `_refuse_unreachable_over_level`'s own docstring for the argument; drawn this
+        # early, before selection or embedding checks even run, because it is entirely about
+        # the payload's own shape.
+        over_level_refusal = _refuse_unreachable_over_level(
+            payload, over_level=self._config.over_level
+        )
+        if over_level_refusal is not None:
+            return over_level_refusal
+
         # **Selection, not the whole payload.** The linear runner threads every stage's
         # whole output into the next stage's payload (`weft_kernel.runner._run_one_batch`),
         # so a second `raptor` stage in a document receives the leaves *and* whatever an
@@ -513,56 +523,12 @@ class RaptorSummarizer:
 
         embedded = tuple((node, node.embedding) for node in selected if node.embedding is not None)
 
-        # **`auto`, resolved once per run from this run's own payload — task 10.9.** See the
-        # module docstring's own section for why each is derived the way it is, and why
-        # neither is persisted anywhere: a value computed here lives only on the `RaptorFacts`
-        # of the summaries this call produces, never as configuration that must survive to a
-        # later run.
-        resolved_cluster_size: int | None = None
-        resolved_similarity_threshold: float | None = None
-        cluster_size = _typed_cluster_size(self._config.cluster_size)
-        similarity_threshold = _typed_similarity_threshold(self._config.similarity_threshold)
-        if cluster_size is Auto.AUTO:
-            resolved_cluster_size = _resolve_cluster_size(
-                selected, max_cluster_chars=self._config.max_cluster_chars
-            )
-            cluster_size = resolved_cluster_size
-        if similarity_threshold is Auto.AUTO:
-            threshold, median = _resolve_similarity_threshold(embedded)
-            if median <= 0.0:
-                # **The degeneracy check — measured, not intuited.** See the module
-                # docstring's *"The degeneracy check"* section for why the criterion is the
-                # median rather than the spread. Applies only here, because only here did
-                # `auto` do the resolving; a typed `similarity_threshold` never reaches this
-                # branch at all.
-                return Failed(
-                    reason=(
-                        f"'{NAME}': similarity_threshold: auto could not resolve a threshold "
-                        f"from this run's own embeddings — the median pairwise cosine "
-                        f"similarity is {median:.4f}, at or below zero, meaning the typical "
-                        f"pair here is orthogonal or worse and there is no relationship in "
-                        f"these vectors for a threshold to describe. "
-                        # **`[services] embed` does not apply here, and this message named it
-                        # until task 10.18.** This stage is reachable only from a pipeline
-                        # document, and a `--pipeline` run deliberately does not read
-                        # `[services]` — `weft_cli.run_services` says so in its own words
-                        # (*"On a `--pipeline` run `[services] embed` is deliberately not
-                        # read"*), and `index-text.yaml`'s *"What `--pipeline` costs you"*
-                        # paragraph already carried the real remedy. So the old wording sent
-                        # every operator who saw it to a setting their run ignores: a loud
-                        # failure naming an inert remedy, which is worse than the silence 10.9
-                        # replaced, because they cannot tell their fix from one that could never
-                        # work. Found by running the binary at Phase 10's close, from a
-                        # directory whose `weft.toml` had already set it.
-                        f"Derive this pipeline document using `weft pipeline derive` and "
-                        f"`replace:` its `embed` stage with an embedder whose vectors carry "
-                        f"semantic meaning, or type "
-                        f"a similarity_threshold yourself if you have a stated claim about "
-                        f"this corpus that auto should not second-guess"
-                    )
-                )
-            resolved_similarity_threshold = threshold
-            similarity_threshold = threshold
+        resolution = self._resolve_auto_parameters(selected, embedded)
+        if isinstance(resolution, Failed):
+            return resolution
+        cluster_size, similarity_threshold, resolved_cluster_size, resolved_similarity_threshold = (
+            resolution
+        )
 
         clusters = _cluster_by_similarity(
             embedded,
@@ -629,6 +595,83 @@ class RaptorSummarizer:
         if isinstance(embedded_derived, Failed):
             return embedded_derived
         return Produced(value=(*payload, *embedded_derived.value))
+
+    def _resolve_auto_parameters(
+        self, selected: Sequence[Node], embedded: Sequence[tuple[Node, Vector]]
+    ) -> tuple[int, float, int | None, float | None] | Failed:
+        """`cluster_size`/`similarity_threshold`, each either the operator's own typed value or
+        this run's own `auto` resolution over `selected`/`embedded` — task **10.9** — alongside
+        the resolved numbers themselves (`None` for a field the operator typed), or `Failed`
+        when resolution finds a configuration that could never have produced a summary.
+
+        See the module docstring's own *"`cluster_size` and `similarity_threshold` are typed by
+        an operator or resolved by `auto`"* section for why each is derived the way it is, and
+        why neither is persisted anywhere: a value computed here lives only on the
+        `RaptorFacts` of the summaries `run` produces, never as configuration that must survive
+        to a later run. Pulled out of `run` itself, task **10.19**, once refusing a resolved
+        `cluster_size` below `min_cluster_size` gave this method a second way to fail and pushed
+        `run`'s own branching over this pack's complexity ceiling.
+        """
+        resolved_cluster_size: int | None = None
+        resolved_similarity_threshold: float | None = None
+        cluster_size = _typed_cluster_size(self._config.cluster_size)
+        similarity_threshold = _typed_similarity_threshold(self._config.similarity_threshold)
+        if cluster_size is Auto.AUTO:
+            resolved_cluster_size = _resolve_cluster_size(
+                selected, max_cluster_chars=self._config.max_cluster_chars
+            )
+            cluster_size = resolved_cluster_size
+            # **Refusal A, task 10.19 — the resolved rule must survive `auto`, or `auto` is an
+            # exemption from it.** See `_refuse_cluster_size_below_minimum`'s own docstring for
+            # the argument.
+            cluster_size_refusal = _refuse_cluster_size_below_minimum(
+                min_cluster_size=self._config.min_cluster_size,
+                resolved_cluster_size=resolved_cluster_size,
+            )
+            if cluster_size_refusal is not None:
+                return cluster_size_refusal
+        if similarity_threshold is Auto.AUTO:
+            threshold, median = _resolve_similarity_threshold(embedded)
+            if median <= 0.0:
+                # **The degeneracy check — measured, not intuited.** See the module
+                # docstring's *"The degeneracy check"* section for why the criterion is the
+                # median rather than the spread. Applies only here, because only here did
+                # `auto` do the resolving; a typed `similarity_threshold` never reaches this
+                # branch at all.
+                return Failed(
+                    reason=(
+                        f"'{NAME}': similarity_threshold: auto could not resolve a threshold "
+                        f"from this run's own embeddings — the median pairwise cosine "
+                        f"similarity is {median:.4f}, at or below zero, meaning the typical "
+                        f"pair here is orthogonal or worse and there is no relationship in "
+                        f"these vectors for a threshold to describe. "
+                        # **`[services] embed` does not apply here, and this message named it
+                        # until task 10.18.** This stage is reachable only from a pipeline
+                        # document, and a `--pipeline` run deliberately does not read
+                        # `[services]` — `weft_cli.run_services` says so in its own words
+                        # (*"On a `--pipeline` run `[services] embed` is deliberately not
+                        # read"*), and `index-text.yaml`'s *"What `--pipeline` costs you"*
+                        # paragraph already carried the real remedy. So the old wording sent
+                        # every operator who saw it to a setting their run ignores: a loud
+                        # failure naming an inert remedy, which is worse than the silence 10.9
+                        # replaced, because they cannot tell their fix from one that could never
+                        # work. Found by running the binary at Phase 10's close, from a
+                        # directory whose `weft.toml` had already set it.
+                        f"Derive this pipeline document using `weft pipeline derive` and "
+                        f"`replace:` its `embed` stage with an embedder whose vectors carry "
+                        f"semantic meaning, or type "
+                        f"a similarity_threshold yourself if you have a stated claim about "
+                        f"this corpus that auto should not second-guess"
+                    )
+                )
+            resolved_similarity_threshold = threshold
+            similarity_threshold = threshold
+        return (
+            cluster_size,
+            similarity_threshold,
+            resolved_cluster_size,
+            resolved_similarity_threshold,
+        )
 
     async def _embed_summaries(
         self, summaries: Sequence[Node], *, ctx: Context
@@ -780,6 +823,59 @@ def _node_level(node: Node) -> int:
     """
     facts = node.ext_as(RaptorFacts)
     return facts.level if facts is not None else 0
+
+
+def _refuse_unreachable_over_level(payload: Sequence[Node], *, over_level: int) -> Failed | None:
+    """`None` when `over_level` is reachable by some chain of rungs over `payload`; `Failed`
+    naming the field, the value it was given and the deepest level actually present when it
+    is not — task **10.19**.
+
+    `over_level: 5` over a payload whose deepest level is 0 is a typo, not an outcome of the
+    data: no arrangement of `raptor` rungs in this run could ever reach it, however well each
+    one had done. The `+ 1` is the whole point and must not be dropped —
+    `over_level == deepest_present + 1` is the shipped `index-with-deep-raptor`'s own
+    second-rung case, where the first rung built fewer than `min_cluster_size` summaries and
+    the next rung's job is to find that level empty and pass the payload through unchanged
+    (`run`'s own thin-level branch, below this call); `tests/integration/test_raptor_depth.py`
+    asserts that exact shape in its own failure message. Only a gap of *more* than one is
+    unreachable by any chain of rungs, so that is the line drawn here.
+    """
+    deepest_present = max((_node_level(node) for node in payload), default=0)
+    if over_level > deepest_present + 1:
+        return Failed(
+            reason=(
+                f"'{NAME}': over_level={over_level} is more than one level above the deepest "
+                f"level actually present in this payload ({deepest_present}) — no chain of "
+                f"rungs in this run could have produced it, however well each one had done"
+            )
+        )
+    return None
+
+
+def _refuse_cluster_size_below_minimum(
+    *, min_cluster_size: int, resolved_cluster_size: int
+) -> Failed | None:
+    """`None` when `resolved_cluster_size` can satisfy `min_cluster_size`; `Failed` when it
+    cannot — task **10.19**, the resolved twin of `RaptorConfig.
+    _min_cluster_size_within_cluster_size`.
+
+    That validator already refuses `min_cluster_size > cluster_size` when `cluster_size` is a
+    typed `int`, by its own comment because `Auto.AUTO` is not resolved until `run` sees the
+    payload. Now that it has been, the identical comparison against the number it actually
+    resolved to must hold too — otherwise the same effective configuration is loud when typed
+    and silent when reached through `auto`: every cluster capped below the minimum,
+    `summarizable` permanently empty, and a `Produced` with the payload unchanged that is
+    indistinguishable from an honestly-too-loose corpus.
+    """
+    if min_cluster_size > resolved_cluster_size:
+        return Failed(
+            reason=(
+                f"'{NAME}': min_cluster_size ({min_cluster_size}) cannot exceed cluster_size "
+                f"({resolved_cluster_size}), which cluster_size: auto resolved to for this "
+                f"run — no cluster could ever reach the minimum needed to be summarised"
+            )
+        )
+    return None
 
 
 def _typed_cluster_size(value: int | Auto | str) -> int | Auto:

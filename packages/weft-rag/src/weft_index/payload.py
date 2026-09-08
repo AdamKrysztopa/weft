@@ -109,11 +109,14 @@ class RaptorFacts(ExtModel):
     ride, and a reader who finds any one summary from the run finds the whole run's tally
     beside it. `clusters_summarised` is `Field(ge=1)` rather than `ge=0` because a run that
     summarised none of its clusters already answers `Failed` and produces no node to carry a
-    zero — see `raptor.RaptorSummarizer.run`'s own "every cluster degraded" branch.
+    zero — see `raptor.RaptorSummarizer.run`'s own "every cluster degraded" branch. Both are
+    `None` until `_with_run_counts` fills them, task **10.20**: an uncomputed tally states that
+    it is uncomputed rather than defaulting to `1`, which is a number the run might genuinely
+    have produced and which no reader could tell from one that had.
     """
 
     __namespace__ = "weft-index-raptor"
-    __schema_version__ = "1.3.0"
+    __schema_version__ = "1.4.0"
 
     #: How many nodes the cluster held.
     members: int = Field(ge=1)
@@ -132,7 +135,10 @@ class RaptorFacts(ExtModel):
     #: row raises `SchemaVersionRefusedError` naming the namespace and both versions, rather
     #: than inventing a level for a row written before this field existed. That is correct
     #: rather than unfortunate — the only rows that could carry `1.0.0` were written by a
-    #: development build inside this same unreleased phase.
+    #: development build inside this same unreleased phase. `1.4.0` is task 10.20's, and it is
+    #: bumped even though the change *widens* two fields and every `1.3.0` row still validates:
+    #: a stored `clusters_found: 1` written under `1.3.0` cannot be told from a default, so the
+    #: version is what says which reading applies.
     level: int = Field(ge=1)
     #: What `similarity_threshold: auto` resolved to for this run, or `None` when the
     #: operator typed the value themselves — task **10.9**. See the class docstring's own
@@ -146,15 +152,19 @@ class RaptorFacts(ExtModel):
     #: eligible to be summarised — a run-level fact, task **10.10**. See the class docstring's
     #: own paragraph for why this and `clusters_summarised` are carried on every summary the
     #: run produced rather than only on the ones that were part of a degraded cluster.
-    #: Defaults to `1` for the same reason `resolved_similarity_threshold`/
-    #: `resolved_cluster_size` default rather than requiring every constructor to state them:
-    #: a fixture standing in for a node a *prior* `raptor` stage already wrote (10.6's and
-    #: 10.7's own tests build these directly) predates this field's existence in exactly the
-    #: same sense. Every node this plugin's own `run` actually returns has this overwritten
-    #: with the real tally, in `_with_run_counts`, before it is ever handed back.
-    clusters_found: int = Field(default=1, ge=1)
+    #:
+    #: **`None`, never a number, when it was not computed — task 10.20.** This defaulted to `1`
+    #: until then, and `1`/`1` is a coherent claim: *this run found one cluster and summarised
+    #: it.* On a frozen, persisted model that is a false fact indistinguishable from a true one,
+    #: and it outlives the run. `None` is what the two `resolved_*` fields above already say for
+    #: *not stated*, and it is what `_summarize` actually knows — that method sees one cluster
+    #: and never how many the run had, so requiring a value would move the invention rather than
+    #: remove it. Every node this plugin's own `run` returns has this replaced with the real
+    #: tally, in `_with_run_counts`, before it is ever handed back; a stored summary carrying
+    #: `None` is therefore a bug that announces itself.
+    clusters_found: int | None = Field(default=None, ge=1)
     #: How many of those eligible clusters actually produced a summary. `ge=1`, never `ge=0`
     #: — see the class docstring's own paragraph for why a run that summarised none of its
-    #: clusters never reaches this model at all. Defaults to `1` for the same reason
-    #: `clusters_found` does, immediately above.
-    clusters_summarised: int = Field(default=1, ge=1)
+    #: clusters never reaches this model at all. `None` when it was not computed, for the same
+    #: reason `clusters_found` is, immediately above — task 10.20.
+    clusters_summarised: int | None = Field(default=None, ge=1)

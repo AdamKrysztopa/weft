@@ -1398,6 +1398,123 @@ async def test_the_refusal_names_a_remedy_that_applies_to_a_pipeline_document() 
     )
 
 
+# --- Ledger task 10.19 — a configuration that can never summarise anything is refused.
+
+
+async def test_a_resolved_cluster_size_below_min_cluster_size_is_refused() -> None:
+    """The rule the validator states must survive `auto`, or `auto` is an exemption from it.
+
+    `RaptorConfig._min_cluster_size_within_cluster_size` refuses `min_cluster_size` above a typed
+    `cluster_size`, quoting both numbers, *"no cluster could ever reach the minimum needed to be
+    summarised"*. Its own comment records that it cannot check `Auto.AUTO`, because that value is
+    not resolved until `run` sees the payload — and nothing re-checked it afterwards. So the
+    identical effective configuration was **loud one way and silent the other**: every cluster
+    capped below the minimum, `summarizable` permanently empty, and `Produced` with the payload
+    unchanged, indistinguishable from the honest case where this run's clusters were merely too
+    loose (`docs/lessons.md` L10.30).
+
+    The nodes here are long on purpose: `_resolve_cluster_size` is
+    `max(2, max_cluster_chars // mean_chars)`, so content well over half the budget forces the
+    floor of 2, which is the value an operator asking for `min_cluster_size: 4` can never satisfy.
+    """
+    # Arrange — four long nodes, `cluster_size` left at `auto`, `min_cluster_size` above what
+    # `auto` can possibly resolve to on content this size.
+    table = {f"chunk {index}": Vector(values=(1.0, 0.0)) for index in range(4)}
+    nodes = _embedded(tuple(_node(f"chunk {index}") for index in range(4)), table)
+    long_nodes = tuple(
+        node.model_copy(update={"content": node.content + "x" * 7000}) for node in nodes
+    )
+    config = RaptorConfig(min_cluster_size=4, similarity_threshold=0.5)
+
+    # Act
+    outcome = await RaptorSummarizer(config).run(
+        long_nodes, _ctx(embedder=_StubEmbedder(table), llm=_ScriptedLLM([]))
+    )
+
+    # Assert
+    assert isinstance(outcome, Failed), (
+        "a configuration that can never produce a summary reported success and produced nothing. "
+        "The typed form of this exact configuration is refused by name; reaching it through `auto` "
+        "must not be an exemption from the rule."
+    )
+    assert "4" in outcome.reason and "2" in outcome.reason, (
+        f"the refusal must quote both numbers, as the typed one does: {outcome.reason!r}"
+    )
+    assert "min_cluster_size" in outcome.reason and "cluster_size" in outcome.reason, (
+        "the refusal must name both fields so the operator knows which to change: "
+        f"{outcome.reason!r}"
+    )
+
+
+async def test_a_thin_level_is_still_passed_through_rather_than_refused() -> None:
+    """The control for the test above, and the reason its rule had to be narrowed.
+
+    A level holding *fewer than `min_cluster_size`* nodes is the **stop rule working**, not a
+    misconfiguration — `weft_index.raptor`'s own *"The stop criterion"* section, and the shipped
+    `index-with-deep-raptor` relies on it. Refusing that case would take the batch down whenever a
+    corpus was merely small. What 10.19 refuses is the configuration that can never summarise
+    *anything*, whatever the corpus; this test pins the boundary between the two, so a future
+    widening of the refusal fails here rather than in an operator's run.
+    """
+    # Arrange — a typed `cluster_size` well above `min_cluster_size`, so the configuration is
+    # satisfiable in principle; the payload simply has too few nodes at this level.
+    table = {"chunk 0": Vector(values=(1.0, 0.0))}
+    nodes = _embedded((_node("chunk 0"),), table)
+    config = RaptorConfig(cluster_size=4, min_cluster_size=2, similarity_threshold=0.5)
+
+    # Act
+    outcome = await RaptorSummarizer(config).run(
+        nodes, _ctx(embedder=_StubEmbedder(table), llm=_ScriptedLLM([]))
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced), (
+        f"a thin level must pass through, not fail — that is the stop rule: {outcome!r}"
+    )
+    assert tuple(outcome.value) == nodes, "the payload must continue unchanged"
+
+
+async def test_an_over_level_no_chain_of_rungs_could_have_produced_is_refused() -> None:
+    """`over_level: 5` against a payload of leaves is a typo, and it used to be a silent no-op.
+
+    **The rule is narrower than the obvious one, deliberately.** *"No node at this level"* is not
+    a misconfiguration: `index-with-deep-raptor`'s second rung finds level 1 empty exactly when the
+    first rung built fewer than `min_cluster_size` summaries, and
+    `tests/integration/test_raptor_depth.py` asserts that in its own failure message. What no
+    corpus can excuse is an `over_level` **more than one above the deepest level present** — no
+    chain of rungs in this run could have reached it, however well each one had done.
+
+    So this test asserts both halves: `over_level: 5` over leaves is refused, and `over_level: 1`
+    over leaves is not.
+    """
+    # Arrange — three leaves, nothing carrying `RaptorFacts`, so the deepest level present is 0.
+    table = {f"chunk {index}": Vector(values=(1.0, 0.0)) for index in range(3)}
+    nodes = _embedded(tuple(_node(f"chunk {index}") for index in range(3)), table)
+
+    # Act
+    unreachable = await RaptorSummarizer(RaptorConfig(over_level=5)).run(
+        nodes, _ctx(embedder=_StubEmbedder(table), llm=_ScriptedLLM([]))
+    )
+    next_level_up = await RaptorSummarizer(RaptorConfig(over_level=1)).run(
+        nodes, _ctx(embedder=_StubEmbedder(table), llm=_ScriptedLLM([]))
+    )
+
+    # Assert
+    assert isinstance(unreachable, Failed), (
+        "`over_level: 5` over a payload whose deepest level is 0 did nothing and reported "
+        "success. No arrangement of rungs in this run could have produced level 5, so this is a "
+        "configuration error rather than an outcome of the data."
+    )
+    assert "5" in unreachable.reason and "over_level" in unreachable.reason, (
+        f"the refusal must name the field and the value it was given: {unreachable.reason!r}"
+    )
+    assert isinstance(next_level_up, Produced), (
+        "`over_level: 1` over leaves must NOT be refused — that is the shipped deep document's "
+        "own stop-rule case, where an earlier rung built nothing and the next rung passes the "
+        f"payload through: {next_level_up!r}"
+    )
+
+
 async def test_a_typed_threshold_is_never_refused_for_a_flat_distribution() -> None:
     """The degeneracy check belongs to `auto` alone.
 
@@ -1522,6 +1639,40 @@ async def test_a_complete_run_says_it_summarised_every_cluster() -> None:
         assert facts is not None
         assert facts.clusters_found == 2
         assert facts.clusters_summarised == 2
+
+
+# --- Ledger task 10.20 — an uncomputed tally is absent, never a plausible number.
+
+
+def test_a_run_tally_that_was_never_computed_reads_as_absent_not_as_one() -> None:
+    """A default must not be mistakable for a value the system could legitimately have computed.
+
+    `clusters_found`/`clusters_summarised` defaulted to `1` until task 10.20, and `1`/`1` is a
+    perfectly coherent claim — *this run found one cluster and summarised it*. On a **frozen,
+    persisted** model that is a false fact no reader can tell from a true one, and it outlives the
+    process (`docs/lessons.md` L10.31). The two `resolved_*` fields beside them already do it the
+    honest way, with `None` for *not stated*.
+
+    **Required-with-no-default is not the fix and was tried first**: `_summarize` builds this model
+    and, by its own docstring, *"sees a single cluster, never how many the run had"* — it has no
+    true value to pass, so requiring one would move the invention rather than remove it. `None` is
+    what that call actually knows, and `_with_run_counts` — on the only path by which a node leaves
+    this plugin — replaces it with the run's real tally.
+    """
+    # Arrange & Act — the shape a fixture standing in for a prior stage's node builds, and the
+    # shape `_summarize` builds before `run` fills the tally in.
+    facts = RaptorFacts(
+        members=2, members_truncated=0, characters_held=10, characters_shown=10, level=1
+    )
+
+    # Assert
+    assert facts.clusters_found is None, (
+        "an uncomputed run tally must read as absent. `1` is a claim this object is not entitled "
+        "to make: it says the run found exactly one cluster, which no caller has established."
+    )
+    assert facts.clusters_summarised is None, (
+        "an uncomputed run tally must read as absent, for the same reason as `clusters_found`."
+    )
 
 
 # --- Ledger task 10.11 — a cluster holding a node that is not text.
