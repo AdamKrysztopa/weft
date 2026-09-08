@@ -159,6 +159,23 @@ def _as_run_result(outcome: Outcome[MetricAggregate]) -> MetricRunResult:
             return NotAggregated(reason=reason)
 
 
+class RunDurations(BaseModel):
+    """Ledger task 10.22 — how long the two halves of a run took, kept apart on purpose.
+
+    `ingest_seconds` is the rebuild cost; `query_seconds` is the scoring cost. G15's *Remove*
+    face turns on whether avoiding a rebuild is worth a change to a published contract family,
+    and a rebuild is **ingest** — folding scoring's cost into one total would corrupt that
+    comparison with a number the technique under discussion does not move at all. Both fields
+    are required: a caller that measured one half and not the other has not measured the run,
+    and there is no default that would not be mistaken for a measurement.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    ingest_seconds: float = Field(ge=0.0)
+    query_seconds: float = Field(ge=0.0)
+
+
 class RunRecord(BaseModel):
     """One persisted run — `01` -> Phase 4 *Exit*, `09` §4 **V6**. See the module docstring for
     what each field is and why it is here rather than derived or omitted.
@@ -171,6 +188,10 @@ class RunRecord(BaseModel):
     corpus: CorpusIdentity
     model_versions: Mapping[str, str] = Field(default_factory=dict)
     active_distributions: tuple[str, ...] = ()
+    #: Task 10.22. `None` means *not measured*, never `0.0` — task 10.20's rule one module
+    #: over: a default must not be mistakable for a value the system could legitimately have
+    #: computed, and a persisted `0.0` cannot be told from a run that was instant.
+    durations: RunDurations | None = None
     #: Task 4.9 — see the module docstring's own paragraph. `{}` for a run that scored nothing.
     metrics: Mapping[str, MetricRunResult] = Field(default_factory=dict)
 
@@ -183,6 +204,7 @@ def build_run_record(
     model_versions: Mapping[str, str] = _NO_MODEL_VERSIONS,
     reports: Iterable[PackReport] = _NO_REPORTS,
     metrics: Mapping[str, Outcome[MetricAggregate]] = _NO_METRICS,
+    durations: RunDurations | None = None,
 ) -> RunRecord:
     """Assemble one `RunRecord`. `active_distributions` is always derived from `reports`
     through `active_distribution_set` — never accepted directly — so there is no second,
@@ -192,6 +214,9 @@ def build_run_record(
     itself returns — a caller (`weft_cli.eval_scoring`, task 4.9) hands back exactly what it
     measured, keyed by the name the metric itself computed, and this function is what narrows
     each entry to the two-state `MetricRunResult` a `RunRecord` actually persists.
+
+    `durations` is passed straight through, never derived here — this function has no clock of
+    its own and inventing one would mean guessing at a fact only the caller observed.
     """
     return RunRecord(
         recorded_at=recorded_at,
@@ -199,6 +224,7 @@ def build_run_record(
         corpus=corpus,
         model_versions=model_versions,
         active_distributions=active_distribution_set(reports),
+        durations=durations,
         metrics={name: _as_run_result(outcome) for name, outcome in metrics.items()},
     )
 

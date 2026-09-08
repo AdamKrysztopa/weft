@@ -18,6 +18,7 @@ from weft_eval.aggregate import MetricAggregate
 from weft_eval.run_record import (
     CorpusIdentity,
     NotAggregated,
+    RunDurations,
     build_run_record,
     corpus_identity,
     load_run_record,
@@ -182,3 +183,64 @@ def test_corpus_identity_digest_is_order_independent_and_content_derived() -> No
     # Assert — layout never moves the digest, content always does.
     assert forward.digest == reversed_order.digest
     assert forward.digest != different.digest
+
+
+# --- Ledger task 10.22 — a run states how long it took, so a cost question has an answer.
+
+
+def test_a_record_built_without_timing_states_no_duration_rather_than_zero() -> None:
+    """`0.0` is a number a run could genuinely have produced; absence is not.
+
+    This is task 10.20's rule one module over, and it matters more here: a duration is the field a
+    cost comparison reads, so a zero that means *"nobody measured"* is indistinguishable from a
+    zero that means *"this was instant"*, and the reader cannot tell an unmeasured run from a fast
+    one. `None` says which.
+    """
+    # Arrange & Act
+    record = build_run_record(
+        recorded_at="2026-09-08T00:00:00Z",
+        resolved_pipeline=_resolved_pipeline(),
+        corpus=CorpusIdentity(name="c", digest="d"),
+    )
+
+    # Assert
+    assert record.durations is None, (
+        "a record built without timing must state no duration at all. A zero here is a claim the "
+        "run took no time, which is a thing a run could genuinely do."
+    )
+
+
+def test_a_record_carries_ingest_and_query_apart_and_round_trips(tmp_path: Path) -> None:
+    """The two halves are separate because the question they answer is a comparison.
+
+    G15's *Remove* face turns on whether avoiding a rebuild is worth a change to a published
+    contract family, and a rebuild is **ingest**. A single total would fold the cost of scoring
+    the run — which `adrap` changes not at all — into the number that decides it.
+    """
+    # Arrange
+    record = build_run_record(
+        recorded_at="2026-09-08T00:00:00Z",
+        resolved_pipeline=_resolved_pipeline(),
+        corpus=CorpusIdentity(name="c", digest="d"),
+        durations=RunDurations(ingest_seconds=12.5, query_seconds=0.25),
+    )
+
+    # Act
+    written = write_run_record(record, tmp_path / "r.json")
+
+    # Assert
+    assert record.durations is not None
+    assert record.durations.ingest_seconds == 12.5
+    assert record.durations.query_seconds == 0.25
+    assert load_run_record(written) == record, "durations must survive the round trip"
+
+
+def test_a_negative_duration_is_refused() -> None:
+    """A monotonic clock cannot run backwards, so a negative value is a bug in the caller.
+
+    Refused at construction rather than stored and puzzled over later — the same posture every
+    other numeric field on this record's neighbours takes.
+    """
+    # Arrange & Act & Assert
+    with pytest.raises(ValidationError):
+        RunDurations(ingest_seconds=-1.0, query_seconds=0.0)

@@ -259,6 +259,62 @@ async def test_eval_run_persists_a_run_record_that_round_trips(
     assert load_run_record(written) == result.record
 
 
+async def test_eval_run_persists_both_durations_and_reports_one_of_them_from_the_record(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Task 10.22 — the timing already existed and did not survive persistence.
+
+    `eval_commands` has wrapped `run_index` in `time.monotonic()` since task 4.7 and shown the
+    result to the operator as `wall_clock_seconds`. That number never reached the `RunRecord`, so
+    a cost question could be answered about the run in front of you and never about a run recorded
+    last week — which is the question G15's *Remove* face actually turns on. The scoring half was
+    not measured at all.
+
+    **And the operator-facing field must read from the record rather than call the clock a second
+    time.** Two measurements of one quantity is `L7.4`'s shape: they agree until they do not, and
+    nothing says which is authoritative. This test pins them to one source by asserting identity,
+    not approximate equality.
+    """
+    # Arrange
+    (tmp_path / "one.txt").write_text("hello weft")
+    monkeypatch.setattr(
+        ingest_module, "full_catalogue", _stub_catalogue({"index": _document("index")})
+    )
+    deps = _deps(
+        (
+            PackReport(
+                pack="eval", distribution="weft-eval", status=PackStatus.ACTIVE, contributed=1
+            ),
+        )
+    )
+
+    # Act
+    outcome = await EvalRunCommand().run(
+        EvalRunArgs(path=str(tmp_path), pipeline="index"), _ctx(deps)
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = outcome.value
+    assert isinstance(result, EvalRunCommandResult)
+    durations = result.record.durations
+    assert durations is not None, (
+        "the persisted record carries no duration, so the cost of this run is knowable only while "
+        "the command's own result is still in hand"
+    )
+    assert durations.ingest_seconds > 0.0, "ingest was measured but recorded as no time at all"
+    assert durations.query_seconds >= 0.0
+    assert result.wall_clock_seconds == durations.ingest_seconds, (
+        "the operator-facing number and the recorded one must be the same measurement, not two. "
+        f"Got {result.wall_clock_seconds!r} against {durations.ingest_seconds!r}"
+    )
+    # And it survives the file, which is the whole point of putting it on the record.
+    from weft_eval.run_record import load_run_record
+
+    reloaded = load_run_record(tmp_path / "runs" / f"{result.run_id}.json")
+    assert reloaded.durations == durations
+
+
 async def test_eval_run_refuses_an_empty_corpus(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

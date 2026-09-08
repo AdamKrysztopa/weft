@@ -7192,14 +7192,22 @@ extractors and **both branches of 10.9**, so no branch of this phase ships havin
   was always about — and a task that changes what three documents assert is a task, not a tidy-up,
   because `10.1` is this phase's own record of what happens when four artefacts drift apart
 
-- [ ] **10.22** a persisted `weft eval` run states how long it took, so a cost question can be
+- [x] **10.22** a persisted `weft eval` run states how long it took, so a cost question can be
   answered from the record rather than from a stopwatch · owner `weft_eval`; `05` → G15's *Bring* ·
-  turns on — · sha — · **G15 cannot open without this and `10.13` could not have supplied it.**
+  turns on — · sha `PENDING` · **G15 cannot open without this and `10.13` could not have supplied it.**
   `10.14`'s line names *a rebuild cost on the corpus that `10.13` can state* as the thing that
   schedules the task, and `10.13` is ticked without ever stating one — not an omission, but because
   a `RunRecord` has nowhere to put it: the fifteen records under `eval/raptor-baseline/exit/` carry
   `metrics`, `corpus`, `resolved_pipeline`, `model_versions` and `recorded_at`, which is retrieval
-  quality and provenance and **no duration of any kind**. So every argument in G15's *Remove* face —
+  quality and provenance and **no duration of any kind**. *And the timing already exists* — read
+  2026-09-08, before building: `weft_cli/eval_commands.py:593-618` wraps `run_index` in
+  `time.monotonic()` and surfaces the result as `EvalRunCommandResult.wall_clock_seconds`, task
+  4.7's own V5 half. So the ingest is measured, shown to the operator once, and **discarded at
+  persistence**; the query and scoring phase after line 625 is not measured at all. This task is
+  therefore smaller and more precise than *"add timing"*: carry the number that already exists into
+  the record, measure the half that is missing, and let the operator-facing field read from the
+  record rather than from a second `monotonic()` call, so there is one source and nothing to drift
+  (`L7.4`). So every argument in G15's *Remove* face —
   each of them a case for paying a contract change to avoid a rebuild — is an argument about a
   number nobody has taken, against a paper (Chucri §6.5) that measures the rebuild as the better
   outcome anyway. What this makes true is narrow and deliberately so: the record states its own
@@ -7207,6 +7215,33 @@ extractors and **both branches of 10.9**, so no branch of this phase ships havin
   the persisted evidence answers. **Not** a benchmark suite, **not** per-stage profiling — `01`'s
   observability seam already owns spans, and a duration on the record is the smallest thing that
   turns G15's central trade-off from an intuition into a comparison
+  · **Done, and the number G15 needed now exists in a persisted record.** Taken 2026-09-08 from
+  `<scratch>/run10.0` — 10.0's own rig, outside this repository — over the ten `fetch`-tier PDFs,
+  through `exit-one` (`index-with-raptor` with `pdf-text` and `openai-embeddings`), against a real
+  embedder and a real summarising model. Rows asserted either side per `L8.30`: **0 before, 945
+  after**.
+
+  ```text
+  $ weft eval run corpus exit-one --questions questions.json --top-k 3 --yes
+  run 45f62bb9… persisted. produced 1 … nodes now stored: 945. wall clock: 61.05s.
+
+  "durations": {"ingest_seconds": 61.05002266692463, "query_seconds": 12.784932082984596}
+  ```
+
+  **Sixty-one seconds to rebuild ten documents**, and that is the quantity every position in G15's
+  *Remove* face proposes paying a published-contract change to avoid — about six seconds per
+  document, on a corpus where the summarising model is doing most of the work. The two halves are
+  apart, which is the point: `adrap` moves the 61 and does not touch the 12.8, and a single total
+  would have hidden that. **The operator-facing `wall clock: 61.05s` is bit-identical to
+  `durations.ingest_seconds`**, which is the one-source property the test pins by exact equality
+  rather than approximately (`L7.4`).
+
+  **The dispatch blocked, correctly, and the block was mine.** My Red test invented a
+  `document_count` field on `CorpusIdentity`, which carries `name` and `digest` and forbids extras;
+  the implementer stopped and reported rather than inventing the field, which is what the Red/Green
+  split is for. Worse, my brief asserted **in bold** that all 23 pre-existing type errors were the
+  task's own missing type — checked with an inverted `grep` piped through `head -3`, which cannot
+  prove an absence. Filed as `L10.34`
 
 **Gated on G15, and scheduled by the owner 2026-09-08.** These two lines were *conditional and unscheduled* until then, on two grounds: the phase brief said not to build them, and each carried a design question no task may default. **The first ground is gone — the owner directed `10.14` and asked for `10.15` to be settled** — and the second became `05` → **G15**, which takes all three of their open questions as one session because `D2` runs through every one of them. Neither line is ticked here and neither is abandoned: each is now waiting on a gate with a date rather than on nobody.
 

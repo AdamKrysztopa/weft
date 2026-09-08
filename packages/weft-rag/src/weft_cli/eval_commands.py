@@ -183,6 +183,7 @@ from weft_eval.offline import GateSubset, gate_subset, require_gate_safe
 from weft_eval.run_record import (
     MetricRunResult,
     NotAggregated,
+    RunDurations,
     RunRecord,
     build_run_record,
     corpus_identity,
@@ -631,6 +632,10 @@ class EvalRunCommand:
 
         # Task 4.9's own gap to fill — see the module docstring's paragraph on `--questions`.
         # `{}` with no `--questions`, the same honesty `model_versions` had before task 4.7.
+        # Task 10.22: timed separately from ingest above, on the same clock, so a rebuild's
+        # cost and a scoring run's cost never collapse into one number — see `RunDurations`'
+        # own docstring for why that split is what G15's *Remove* face actually needs.
+        query_started = time.monotonic()
         metrics: Mapping[str, Outcome[MetricAggregate]] = {}
         if run_args.questions is not None:
             questions = load_questions(Path(run_args.questions))
@@ -648,6 +653,7 @@ class EvalRunCommand:
                 sink=deps.token_sink,
                 contributions=deps.contributions,
             )
+        query_seconds = time.monotonic() - query_started
 
         corpus_name = run_args.corpus_name if run_args.corpus_name is not None else run_args.path
         corpus = corpus_identity(corpus_name, result.document_ids)
@@ -660,6 +666,7 @@ class EvalRunCommand:
             model_versions=_model_versions(resolved_pipeline),
             reports=deps.reports,
             metrics=metrics,
+            durations=RunDurations(ingest_seconds=wall_clock_seconds, query_seconds=query_seconds),
         )
         run_id = str(uuid.uuid4())
         write_run_record(record, DEFAULT_RUNS_DIR / f"{run_id}.json")
@@ -671,6 +678,9 @@ class EvalRunCommand:
                 summary=result.summary,
                 stored_count=result.stored_count,
                 record=record,
+                # The same measurement that went onto `record.durations.ingest_seconds`, never
+                # a second read of the clock — `L7.4`: two measurements of one quantity agree
+                # until they do not, and nothing then says which is authoritative.
                 wall_clock_seconds=wall_clock_seconds,
             )
         )

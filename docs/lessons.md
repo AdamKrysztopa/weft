@@ -826,6 +826,16 @@ its `## Noticed` section — in all four of its reports — explaining that it c
 line and had not caused it. It reasoned correctly and still had to burn the one channel it has for
 telling me something I did not know.
 
+**Second instance, 2026-09-08 at task 10.22, on the dispatcher's side of the same seam.**
+`phase-step` → *Green* says *"run `ci-no-tests` before you dispatch"*, so that the brief's *done
+when* reports on the agent's diff and nothing else. **That cannot be green for any task whose Red
+test names a type that does not exist yet** — 10.22's two test files produced 23 pyright errors,
+every one of them `RunDurations`/`durations` is unknown, which is precisely the task. The rule is
+right and its precondition is unstateable for a whole class of task: a new model, a new contract, a
+new exception. What the dispatcher actually owes is not *green* but **accounted for** — every
+failure in the pre-dispatch run traced to the task itself, and the brief saying so, or the agent
+spends its report explaining a red tree it did not cause.
+
 **Generalises to.** *Every clause under **Done when** must be one the agent can evaluate about its
 own diff. A condition about the dispatcher's working tree belongs in Verify, where the dispatcher
 reads it — and if it must appear in the brief at all, it is phrased as a prohibition ("do not edit
@@ -939,6 +949,36 @@ it is not the one I recorded.
 this" and should list "no mechanism exists for this" beside them. Possibly also `weft-qualities`,
 whose *"before you accept a mechanism as this change's escape hatch, run it"* covers the presence
 case and says nothing about the absence case.
+
+### L10.34 — I proved a negative with a truncated search, and the dispatch inherited the false claim
+
+**What happened.** Task 10.22's Red tests left the tree with 23 pyright errors. Before dispatching I
+checked they were all the task's own missing type, with:
+
+    grep -E " - error" pre1022.log | grep -viE "duration|RunDurations" | head -3
+
+and wrote into the brief, in bold, that **every one** of the 23 was `RunDurations`/`durations`. Two
+were not: my own test fixture called `CorpusIdentity(name="c", document_count=1, digest="d")` and
+that model has exactly `name` and `digest`. **The command could not have shown me.** Its inverted
+filter still matched lines naming `ingest_seconds` and `query_seconds` — duration fields whose text
+does not contain the word *duration* — so the three lines it printed were noise that looked like
+confirmation, and `head -3` then discarded whatever came after. A search for *"is there anything
+that is not X"* truncated to three results cannot answer the question it was asked.
+
+The implementer stopped and reported rather than inventing a `document_count` field, which is the
+dispatch split working exactly as designed — and it also had to spend its report correcting a claim
+the brief had asserted in bold.
+
+**Generalises to.** *A search run to prove an absence must be counted, not sampled: no `head`, and
+the answer is the count rather than the lines.* `grep -c` and an assertion that it is zero says the
+thing; `grep | head -3` says only what three arbitrary lines happen to be. And an inverted filter is
+twice as easy to get wrong as a positive one, because its output looks like evidence either way —
+so pair it with the positive count and check the two sum to the total.
+
+**Candidate home.** `phase-step` → *Green*, where "run `ci-no-tests` before you dispatch" already
+lives and where L10.29's second instance now says the dispatcher owes *accounted for* rather than
+*green*. Accounting is a count. Worth stating that the brief may not assert completeness the
+dispatcher has not counted — the agent reads a bold claim as settled and reasons from it.
 
 ## When the queue is empty
 
