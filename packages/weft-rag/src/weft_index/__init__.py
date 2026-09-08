@@ -23,6 +23,8 @@ stand in for a cluster of them.
 
 from pydantic import BaseModel, ConfigDict
 
+from weft_index.adrap import NAME as ADRAP_NAME
+from weft_index.adrap import AdrapConfig, AdrapJoiner
 from weft_index.contract import (
     EXPANDER_CONTRACT_VERSION,
     REVISABLE_CONTRACT_VERSION,
@@ -67,6 +69,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(Prompt, GENERATE_QUESTIONS_NAME, GenerateQuestionsPrompt)
     registrar.add(Expander, RAPTOR_NAME, RaptorSummarizer)
     registrar.add(Prompt, SUMMARIZE_CLUSTER_NAME, SummarizeClusterPrompt)
+    registrar.add(Revisable, ADRAP_NAME, AdrapJoiner)
     registrar.add_ext_model(Representation)
     registrar.add_ext_model(RaptorFacts)
 
@@ -74,10 +77,13 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
 __all__ = [
     "EXPANDER_CONTRACT_VERSION",
     "REVISABLE_CONTRACT_VERSION",
+    "ADRAP_NAME",
     "GENERATE_QUESTIONS_NAME",
     "HYPOTHETICAL_QUESTIONS_NAME",
     "RAPTOR_NAME",
     "SUMMARIZE_CLUSTER_NAME",
+    "AdrapConfig",
+    "AdrapJoiner",
     "Auto",
     "Expander",
     "Revisable",

@@ -121,6 +121,7 @@ from weft_extract import (
     discover_source_docs,
     present_suffixes,
 )
+from weft_index.contract import Revisable
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackReport
 from weft_kernel.errors import UnresolvedNameError, WeftError
@@ -495,6 +496,7 @@ async def run_index(
             llm=llm if llm is not None else LLMSection(),
             sink=sink if sink is not None else NullSink(),
             embedder=_embedder_instance_of(specs, runnable),
+            store_for_revisable=_store_instance_for_revisable(specs, runnable),
             roles=roles,
             services=services,
             filled_by_stages=filled_by_stages,
@@ -648,6 +650,52 @@ def _embedder_instance_of(
     for spec in specs:
         if spec.contract is Embedder and spec.id in by_id:
             return cast(Embedder, by_id[spec.id])
+    return None
+
+
+def _store_instance_for_revisable(
+    specs: Sequence[StageSpec], runnable: RunnablePipeline
+) -> NodeStore | None:
+    """The **built instance** of this document's store stage, but only when the document also
+    contains a `Revisable` — grilling session **G16**, ledger task 10.14.
+
+    `_embedder_instance_of`'s exact shape one contract over, and that is the whole design:
+    `build_index_services` registers the embedder the *stage* built rather than resolving
+    `[services] embed` a second time, "precisely so a run has one embedder rather than two that
+    happen to agree". A store reached this way is the same object the `store` stage writes
+    through — one store, not two — which is what answers `build_index_services`' own stated
+    reason for excluding an ambient `NodeStore`: *"two paths to the same store with no ordering
+    between them."* There are not two paths to two stores; there is one store, and the ordering
+    is the `Revisable`'s declared position in the resolved document.
+
+    **Why the `Revisable` condition rather than registering a store unconditionally.** Not
+    because of the sentence above — that argument is answered by sharing the instance — but
+    because of G15's *Read* face: if every ingest stage could reach the corpus, `10.5`'s
+    property would stop being a fact about a **kind** of stage and become a per-plugin habit
+    with nothing to key a check on. The contract is what gates it, so a document earns an
+    ambient store by declaring a participant that needs one, and an ordinary ingest document
+    is unchanged — it still gets exactly the four services `build_index_services` documents.
+
+    **This does not contradict `filled_by_stages`,** which is the mechanism that keeps a
+    *role*-selected store from being registered beside a store stage. That mechanism exists to
+    stop a **second instance** arriving from configuration; this function supplies the **first
+    instance**, the stage's own. The two answer opposite questions and both remain true.
+
+    `None` when either half is absent — no `Revisable`, or no stage under `NodeStore` — on
+    `_embedder_instance_of`'s own footing: a stage that then reaches for `NodeStore` gets
+    `weft_kernel.context.UnresolvedServiceError` naming what the run does offer, which is
+    requirement 5 answered at the seam that already gives it.
+
+    **Found by running the binary, not by a test** (`docs/lessons.md` `L10.40`): `Revisable`,
+    `NodeSupersedable` and `adrap` all shipped green over a `ctx.require(NodeStore)` call that
+    could not resolve on this path.
+    """
+    if not any(spec.contract is Revisable for spec in specs):
+        return None
+    by_id = {stage.id: stage.instance for stage in runnable.stages}
+    for spec in specs:
+        if spec.contract is NodeStore and spec.id in by_id:
+            return cast(NodeStore, by_id[spec.id])
     return None
 
 

@@ -854,6 +854,81 @@ async def run(
 ) -> weft_kernel.payload.outcome.Outcome[weft_retrieve.payload.Candidates]: ...
 ```
 
+## `Revisable`
+
+**Module:** `weft_index.contract`  
+**Registered by:** `weft-rag`  
+**Version:** `1.0.0`
+
+A stage that revises what is **already stored**, not only the payload it was handed —
+grilling session **G15**'s *Read* face, ledger task **10.23**.
+
+Every other stage in an ingest document is a pure function of its payload. An incremental
+tree is not: `adrap` must read the summaries a previous run wrote in order to join a new
+document to them instead of founding a second tree beside it. Ledger `10.5` settled that
+`raptor` performs **no store read** and says so in three shipped artefacts, and that
+property is exactly why decision `D2` went unreached for two phases — so the capability
+needed somewhere to live that did not quietly make it true of every `Expander`.
+
+**The corpus is reached through `ctx.require(NodeStore)`, and there is no new type for it.**
+G13 settled that move for `reconcile`: the primary store, from the context, zero kernel
+lines, no contract change. `NodeStore` already answers *what exists* — `scan`, `count`,
+`matching`, `get` — so a "corpus view" would be a second way to ask the same questions.
+
+**Why a separate contract rather than letting an `Expander` do it.** Registering the
+capability is what makes it *visible*: `weft pipeline show` prints `Expander:raptor` beside
+`Revisable:adrap`, so a reader of a resolved document can see which stages read the corpus.
+Allowing any `Expander` to call `ctx.require(NodeStore)` would turn `10.5`'s property from a
+fact about a **kind** of stage into a per-plugin habit, with nothing to key a check on and
+nothing to tell a reader — requirement 1's failure shape, an extension point decaying into
+a convention.
+
+**Structurally identical to `Expander`, and that is stated rather than hidden.** Both are
+`Stage[Sequence[Node], Sequence[Node]]` with `run` alone, so `isinstance` cannot separate
+them and no marker attribute will be added to make it: capability is derived, never
+declared (`02` §1), and a declared marker is one a pack could write falsely. What separates
+them is the contract a pack registers under.
+`tests/unit/weft_index/test_contract.py` pins both halves.
+
+**Ordering is not this contract's problem, which the session initially got wrong.** G15's
+*Read* face argued that a `Revisable` placed before a document's own `store` stage would
+read a stale corpus and should be refusable at resolution. Re-read against a real document,
+that is not so: `adrap` reads what *previous* runs stored, clusters this run's payload into
+it, and the `store` stage then writes the result — `embed, adrap, store` is the natural
+order and nothing is stale. The refusal that seemed owed is not, and the kernel could not
+have expressed it anyway without naming a capability.
+
+**Corrected by G16 (2026-09-08): the conclusion holds and the reason above is incomplete.**
+It argues from `adrap`'s *natural* placement, which is a fact about one plugin rather than
+about this contract — and a contract's ordering rule may not rest on its only registration.
+The durable reason is the second clause: semantic order is not a data dependency, so
+`requires`/`provides` cannot express it and the resolver cannot see it. G16 therefore
+**permits** a `Revisable` after `store` rather than leaving it undecided, and states what
+differs: it then reads a corpus already containing this run's own leaves, so `adrap` finds
+them as existing members instead of as arrivals. Nothing breaks — `put` is keyed on a
+content digest and `supersede` is idempotent by contract. A second `Revisable` in one
+document is permitted too, and runs in its declared order like any other stage.
+
+**How a `Revisable` actually receives the store, which G15 settled and never ran.**
+`ctx.require(NodeStore)` resolves on the ingest path **only because** a document declaring
+a `Revisable` causes `weft_cli.ingest._store_instance_for_revisable` to hand the store
+*stage's own instance* to `build_index_services`. That plumbing is G16's, not G15's: G15
+cited G13's `reconcile` precedent, `reconcile` is not a pipeline stage, and this contract,
+`NodeSupersedable` and `adrap` all shipped green over a call that could not resolve
+(`docs/lessons.md` `L10.40`). An ordinary ingest document still gets no ambient store.
+
+### Methods
+
+```python
+async def run(
+    self,
+    payload: collections.abc.Sequence[weft_kernel.payload.node.Node],
+    ctx: weft_kernel.context.Context,
+) -> weft_kernel.payload.outcome.Outcome[
+    collections.abc.Sequence[weft_kernel.payload.node.Node]
+]: ...
+```
+
 ## `RoutingPolicy`
 
 **Module:** `weft_retrieve.contract`  

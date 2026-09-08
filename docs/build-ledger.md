@@ -7325,6 +7325,29 @@ extractors and **both branches of 10.9**, so no branch of this phase ships havin
   and the owner finds too high; until then the line is a record, and the cheapest form — Chucri's
   greedy variant, assign to the nearest cluster and never refit (§6.4) — is the one that paper measured
   as the worse of its two
+  · **Built 2026-09-08, and it opened and closed a gate on the way.** The plugin is
+  `weft_index/adrap.py`, twelve tests in `tests/unit/weft_index/test_adrap.py`, registered as a
+  `Revisable`, with `index-with-adrap.yaml` shipping and resolving (`join: Revisable:adrap` between
+  `embed` and `store`). The three folded-in 10.25 corrections are made: `10` §1.2's row, `raptor`'s
+  module docstring and `index-with-raptor.yaml` now all say **`raptor` the `Expander` reads no store;
+  `adrap` the `Revisable` does**, and `10` §4 releases the reserved name. **The first run through the
+  installed entry point refused** — `no service is registered for NodeStore on this run` — because G15
+  settled that a `Revisable` reaches the corpus via `ctx.require(NodeStore)` while
+  `weft_cli/run_services.py` excludes an ambient `NodeStore` from the ingest path, and G13's precedent
+  does not reach a pipeline stage. Three tasks and two contract versions had been built on a call
+  nothing executed (`L10.40`). **`05` → G16 settled it the same day**: register the store *stage's own
+  instance*, exactly as `Embedder` already is, gated on the document declaring a `Revisable` — the
+  hazard the exclusion named is two *instances*, and `run_index` was already a second *caller*.
+  **Demonstrated by the binary from outside this repository**, against a real embedder and a real
+  model: eight documents → 16 leaves and two level-1 summaries (12-member compiler, 4-member ocean),
+  rows asserted 2 before / 20 after; then a ninth document through `index-with-adrap` and the 4-member
+  summary is **gone**, replaced by a 5-member summary over ocean parts 1–5 with every parent still
+  stored, the compiler cluster untouched, and `ext.weft-index.technique` still `raptor`. Both halves of
+  this line's sentence, observed in the store rather than in a call log. Two further findings paid for
+  by the same run: `L10.41`, `weft-openai` installs and registers **zero** plugins for want of an
+  undeclared Pillow dependency; and the implementer had shipped `index-with-adrap.yaml` without its
+  `add_pipeline_resource` registration, so FF16 stayed green over an unreachable rung. The rig is left
+  at `/private/tmp/weft-adrap`
 - [x] **10.15 ⚠ D2** a query-time recursive summariser is a plugin at an existing position,
   reachable from a shipped document, and nothing it produces is stored · owner
   `02` §3; `weft_index/contract.py`; `weft_retrieve/contract.py`; `05` → **G15** · turns on — · sha `3de0214` · **Unblocked 2026-09-08, and it is far smaller than this line assumed. The ⛔ is withdrawn.** The line said *how a query reaches a summarising stage on the retrieval path is a contract question* because `Expander.run` takes `(payload, ctx)` and no query. True, and beside the point: **a query-time recursive summariser is not an `Expander`.** `Candidates`, `Ranking` and `Passages` each carry `origin: Query` as a typed field, and `Packer` is `Ranking -> Passages` — cluster the hits, summarise each cluster, emit the summaries as passages, with the question already in hand. **No contract change, no ambient query, nothing stored** (the retrieval path has no `store` stage, so `D2`'s durability clause never reaches it). This line's other half needs correcting too: *not a plugin* is wrong — the *position* exists, but something must summarise, so `postqfrap` is **a plugin at an existing position**, and `10` §4's reservation of the name applies to it rather than releasing it. It is also, on the evidence, the strongest technique in the four papers (Chucri §5, §6.5, Figs. 6–9), measured against post-retrieval baselines only

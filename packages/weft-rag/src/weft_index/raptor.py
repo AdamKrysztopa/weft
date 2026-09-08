@@ -147,15 +147,26 @@ recorded here, in `10` §1.2's row and in `index-with-raptor.yaml` so no reader 
 from behaviour.
 
 What it costs, stated because it is a property of this rung rather than a defect hidden in it:
-**this plugin performs no store read.** It clusters over the payload it was handed and nothing
-else, so *the collection is expected to be indexed in one run*. Index ten documents in one `weft
-index` and they share one tree; index them in two commands and the second batch **founds a second
-tree** rather than joining the first, and a re-indexed document leaves its old summaries standing.
-Reading the store back to avoid that is a corpus-wide revisable pass, which is `11` D2's open
-question about where such a pass runs and whether its output may be durable — not this plugin's to
-answer by default. Chucri §6.5 (p.9) is the only measurement of a tree over a changing corpus in
-the four papers and it favours the full rebuild, which is why the incremental join is filed and
-unscheduled rather than built.
+**`raptor` the `Expander` performs no store read.** It clusters over the payload it was handed
+and nothing else, so *the collection is expected to be indexed in one run*. Index ten documents in
+one `weft index` and they share one tree; index them in two commands and the second batch **founds
+a second tree** rather than joining the first, and a re-indexed document leaves its old summaries
+standing.
+
+**That property is narrowed to this contract rather than gone — the distinction is the whole of
+task 10.14.** Reading the store back is a corpus-wide revisable pass, which was `11` D2's open
+question about where such a pass runs and whether its output may be durable. Grilling session
+**G15** settled it on 2026-09-08: such a pass is a `weft_index.contract.Revisable`, a *different*
+contract, and `weft_index.adrap` is its first registration. So the sentence a reader needs is
+**`raptor` the `Expander` reads no store; `adrap` the `Revisable` does** — and the property stated
+above survives exactly as written for this plugin and for every third-party `Expander`, which is
+why G15 refused to let any `Expander` reach the store instead. `index-with-adrap.yaml` is the rung
+that joins a later batch into this one's tree.
+
+Chucri §6.5 (p.9) is still the only measurement of a tree over a changing corpus in the four
+papers and it still **favours the full rebuild** — so `adrap` existing is not a reason to prefer
+it. Its value is operational (not re-summarising a whole corpus to absorb one document, against
+the 61.05 s of ingest ledger 10.22 measured over ten PDFs), never qualitative.
 
 *(The scope this section used to leave unsaid was not corpus-wide either. `run` receives whatever
 one `weft index` invocation was handed, so the shipped behaviour was **batch-wide** — the same ten
@@ -399,7 +410,7 @@ class RaptorConfig(BaseModel):
     #: field's own comment.
     similarity_threshold: Annotated[float, Field(ge=-1.0, le=1.0)] | Auto | str = Auto.AUTO
     #: The most cluster text one summary request may carry. This plugin previously had no cap:
-    #: `_format_cluster` joined every member whole, so a single oversized
+    #: `format_cluster` joined every member whole, so a single oversized
     #: cluster could exceed a model's context and take its summary with it. A budget, shared
     #: evenly across the cluster's members, so no one member can crowd out the rest.
     max_cluster_chars: int = Field(default=12_000, ge=100)
@@ -759,9 +770,9 @@ class RaptorSummarizer:
         budget = self._config.max_cluster_chars
         characters_held = sum(len(member.content) for member in members)
         for attempt in range(2):
-            passages, characters_shown, members_truncated = _format_cluster(members, budget=budget)
+            passages, characters_shown, members_truncated = format_cluster(members, budget=budget)
             if attempt == 1:
-                passages, characters_shown, members_truncated = _format_cluster(
+                passages, characters_shown, members_truncated = format_cluster(
                     members, budget=max(1, len(passages) // 2)
                 )
             values = SummarizeClusterRequest(passages=passages)
@@ -1001,8 +1012,21 @@ def _resolve_similarity_threshold(embedded: Sequence[tuple[Node, Vector]]) -> tu
     return percentile_75, statistics.median(similarities)
 
 
-def _format_cluster(members: Sequence[Node], *, budget: int) -> tuple[str, int, int]:
+def format_cluster(members: Sequence[Node], *, budget: int) -> tuple[str, int, int]:
     """One cluster's members, numbered, alongside how much of them actually went in.
+
+    **Public rather than private, and shared with `adrap` inside this pack — task 10.14.**
+    The even-share truncation below is not an implementation detail: it is the divergence
+    from Sarthi et al. p.4 that `weft_index.payload.RaptorFacts` exists to record, and
+    `characters_held`/`characters_shown` are that record. A second copy of this arithmetic in
+    `adrap.py` could drift from this one, and `RaptorFacts` would then be describing only
+    whichever stage happened to build a given summary — a fact model that means two different
+    things depending on its writer. So the two stages share one implementation.
+
+    This does **not** contradict `_cosine`'s own note below about every pack writing its own:
+    that argument is about sharing *across* packs, where the kernel names no capability to
+    hang a shared helper off. `raptor` and `adrap` are two plugins in one pack, and an
+    internal surface shared between them is ordinary rather than a boundary crossing.
 
     `weft_retrieve.prompts.PassageGradeRequest`'s own precedent for a batch offered to a
     template: joining is the plugin's job, not the template's, because a template

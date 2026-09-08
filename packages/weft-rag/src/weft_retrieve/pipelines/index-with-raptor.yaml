@@ -49,12 +49,23 @@ extends: index-text
 # several levels; this rung builds the first. Ledger task **10.7** is where depth becomes real, and
 # it is demonstrated there by a new derived document rather than by restoring this sentence.
 #
-# **One tree, over the collection this run writes to — not one tree per document.** `raptor`
-# clusters whatever this invocation handed it and reads no store, so *the collection is expected to
-# be indexed in one run*. Index ten documents in one `weft index` and they share one tree; index
-# them in two commands and the second founds a second tree rather than joining the first. That is a
-# deliberate divergence from Sarthi et al., whose p.9 builds one tree per story, and it is stated
-# here rather than left to be discovered from a second ingest.
+# **One tree, over the collection this run writes to — not one tree per document.** `raptor` **the
+# `Expander`** clusters whatever this invocation handed it and reads no store, so *the collection is
+# expected to be indexed in one run*. Index ten documents in one `weft index` and they share one
+# tree; index them in two commands and the second founds a second tree rather than joining the
+# first. That is a deliberate divergence from Sarthi et al., whose p.9 builds one tree per story,
+# and it is stated here rather than left to be discovered from a second ingest.
+#
+# **Since ledger task 10.14 there is a rung for the second command: `index-with-adrap`.** It runs
+# `adrap`, a `Revisable` rather than an `Expander` — grilling session G15 settled that reading the
+# corpus is a different contract, precisely so the paragraph above stays true of `raptor` and of
+# every third-party `Expander`. Use this document to build a tree and that one to join a later
+# batch into it. **Build with this rung first**: `adrap` joins an existing tree and founds nothing,
+# so against an empty corpus it is a no-op. And it is not the better option merely because it is
+# the newer one — Chucri et al. §6.5 measures the incremental join *below* a full rebuild on two of
+# three datasets, so re-running this document over the whole corpus remains the higher-quality
+# answer, and the reason to reach for `index-with-adrap` is the ~61 s of ingest per ten PDFs
+# (ledger 10.22) that it does not spend.
 #
 # **With the default `hash` embedder this rung now refuses loudly, and that is the improvement
 # ledger task 10.9 is for.** `cluster_size` and `similarity_threshold` used to be typed here at

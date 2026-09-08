@@ -1,0 +1,42 @@
+name: index-with-adrap
+extends: index-text
+
+# **This rung is for indexing one more document into a corpus a *previous* run already grew a
+# RAPTOR tree over — never for building that tree in the first place.** `index-with-raptor` is
+# what builds it: run that document over a corpus once, and every document handed to it in that
+# one invocation shares one tree, per that document's own "one tree, not one per document"
+# paragraph. `adrap` reads what a previous run of `index-with-raptor` (or of this document) left
+# behind and joins this run's new leaves into it — it performs no clustering of its own kind, it
+# assigns each new leaf to whichever existing cluster's centroid it is nearest, then rewrites
+# only the summaries that actually gained a member. Run this document against a store with no
+# tree at all — the very first ingest — and `adrap` simply finds nothing to join and lets the
+# new leaves ride through untouched; it never founds a tree, because founding one is
+# `index-with-raptor`'s job and this document does not duplicate it.
+#
+# **`embed, adrap, store`, in that order, and nothing here is stale.** `adrap` clusters by the
+# vectors it is handed, exactly as `raptor` does, so it must run after `embed` has given this
+# run's own leaves an embedding — a leaf reaching it unembedded is refused by name, naming the
+# stage that has to move. And `adrap` reads *previous* runs' own stored summaries through
+# `ctx.require(NodeStore)`, not this run's payload, so running before this run's own `store`
+# stage costs nothing: the tree it joins was written by an earlier invocation, and this run's own
+# new leaves and rebuilt summaries are what `store` then writes. There is no ordering in which
+# `adrap` could read a corpus this run itself has not yet committed, because it never reads what
+# this run is about to write — only what a previous run already did.
+#
+# **What this buys is operational, not a better answer, and Chucri et al.'s own measurement says
+# so directly rather than leaving it to be assumed.** Chucri et al. (arXiv:2410.01736) §6.5
+# measures incremental joining (adRAP) *below* a full RAPTOR rebuild on two of the three datasets
+# they test it against — joining a tree does not produce a *better* tree than rebuilding one from
+# scratch, and this document does not claim otherwise. What it buys instead is not paying to
+# re-summarise a whole corpus every time one more document arrives: `docs/build-ledger.md`
+# ledger task 10.22 measured a full rebuild via `index-with-raptor` at **~61 seconds of ingest for
+# ten PDFs** on this project's own reference corpus — about six seconds per document, paid again,
+# in full, on every single new document under a full-rebuild policy. `adrap` instead touches only
+# the clusters a new document's own leaves actually land in and their ancestors above them.
+# Choose this rung when that operational saving is worth the quality Chucri's own numbers say it
+# costs; choose a scheduled full rebuild via `index-with-raptor` when it is not.
+insert:
+  - after: embed
+    stage:
+      id: join
+      use: adrap

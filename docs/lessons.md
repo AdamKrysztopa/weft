@@ -722,6 +722,8 @@ before anything else is started. The sharper form is that the ledger tick alread
 missing **entry** — a task line ticked with a sha whose body says nothing about what was built is
 a shape that check cannot see, and could.
 
+**Third instance, 2026-09-08 (G16's demonstration).** `uv run poe ci-checks > log 2>&1; echo "GATE EXIT=$?"` was auto-backgrounded by the harness before the `echo` ran, so the completion notification reported the *wrapper's* exit code — **0** — for a gate whose own log ended `Error: Sequence aborted after failed subtask 'test'` with two failures. The verdict was read from the log rather than from the status only because the log was opened out of suspicion about an earlier empty output file. Same rule, third genre: **a check's exit status must be the thing reported, never a later command's in the same chain — and a harness notification's exit code is a later command's.**
+
 ### L10.25 — the instrument for comparing two query rungs re-indexes the corpus every time
 
 **What happened.** 10.12 asks whether the `0.7` `raptor-and-leaves-rrf` fuses with is
@@ -1102,6 +1104,121 @@ syntax**, because prose legitimately begins with every character a marker uses.
 task line yields a sha under this parser, which is the same property `tests/docs` already checks
 under its own, and the disagreement is the bug. That turns two independent readers into one
 compared pair at no cost, and it is the check that would have caught this the moment it appeared.
+
+### L10.39 — a brief told the implementer to import a private helper, and the gate forbids exactly that
+
+**What happened.** My Green brief for 10.14 said, in as many words: *"You may import from it
+(`Auto`, `NAME`, `_cosine`, `_format_cluster`)... import it rather than copying it."* Pyright runs
+in **strict** mode here, and `reportPrivateUsage` refuses any cross-module access to a
+leading-underscore name — by `from ... import _cosine` and by `raptor._cosine(...)` attribute
+access alike. So the brief's one explicit instruction about how to reach shared code was an
+instruction the gate could not let succeed. The implementer got the named test green (11 passed),
+hit the two errors, and **blocked rather than duplicating the code or suppressing the check** —
+both of which the brief forbade — which is the Red/Green split working. It also reported that no
+file anywhere in `packages/*/src` imports a leading-underscore name across modules, so there was no
+precedent to read the instruction against either.
+
+**Generalises to.** *Before a brief tells an implementer to reach for a name, check what the gate
+says about that name's visibility — a helper's usefulness and a helper's reachability are decided by
+different files, and the brief's author is usually reading only the first.* The general form: a
+brief that names a mechanism has not thereby checked that the mechanism is permitted, which is
+`L5.1`'s rule ("naming a mechanism is not evidence that it works") arriving one layer down, in the
+dispatch rather than in the design. One `grep` for the underscore name across `packages/*/src`, or
+one look at the pyright config, would have answered it while the brief was being written.
+
+**Candidate home.** `phase-step` → *Green*, or its `references/implementer-brief.md`: the same
+place that already tells a brief's author to grep for a base class before writing *Already decided*
+(`L8.12`). This is that rule with "base class" widened to "any name the brief tells the implementer
+to reach for".
+
+### L10.40 — G15 settled a mechanism on the index path that the index path refuses, and nothing ran it
+
+**What happened.** Grilling session G15's *Read* face settled that a `Revisable` reaches the corpus
+through `ctx.require(NodeStore)`, on the explicit precedent that "**G13 settled this exact move**:
+the primary store reached by `ctx.require`, zero kernel lines, no contract change." Tasks 10.23
+(`Revisable`), 10.24 (`NodeSupersedable`) and 10.14 (`adrap`) were all built on it and all passed
+their tests. The first run of the shipped binary answered:
+
+> `no service is registered for NodeStore on this run. It is unavailable because nothing resolved
+> one before this stage ran. Services available on this run: Embedder, LLM, Prompts, TokenSink.`
+
+`weft_cli/run_services.py` excludes an ambient `NodeStore` from the ingest path **deliberately and
+with its argument written out** — "an ingest document already names a store *stage*, so an ambient
+one would give a single run two paths to the same store with no ordering between them. On the query
+path a store is a service because there is no store stage; here there is one, and it is the
+pipeline's business." G13's precedent does not transfer because `reconcile` is **not a pipeline
+stage**: it runs on a path where the store genuinely is a service. G15's own *Read* face even
+recorded "G13's case was `reconcile`, which is not a pipeline stage — the precedent does not
+transfer for free" as an *attack* on position 2, then adopted the same plumbing for position 1
+without re-testing whether the attack still applied. Three tasks and two contract versions were
+built before anything executed the call.
+
+**Generalises to.** *When a gate settles that a capability is reached through an existing seam, run
+one call through that seam on the path it will actually run on, in the session that settles it —
+a precedent from a different path is a hypothesis, not a mechanism.* This is `weft-qualities`'
+"before you accept a mechanism as this change's escape hatch, run it" applied to a **grilling
+session's own outcome** rather than to a code review, and it is the fourth instance of that shape
+(`L5.1` no-op tracer provider, `L5.4` fitness function with no file, `L5.8` stale CHANGELOG).
+The sharpened form: an argument that a precedent "does not transfer for free" is a finding to
+discharge, not a bullet to answer — if a session writes that sentence about a mechanism and then
+adopts the mechanism, that is the moment to execute it.
+
+**Candidate home.** `docs/README.md` → *Protocol* for closing a session, and/or `weft-qualities`:
+a gate whose outcome names a runtime seam does not close until one call has gone through that seam
+on the path in question. `05`'s per-session *Done when* is where it would bite.
+
+### L10.41 — a pack resolved, installed and could not import, and only `plugins doctor` said so
+
+**What happened.** Installing `weft-openai` into a clean out-of-repo venv and running the shipped
+binary registered **zero** of its three plugins. `weft plugins doctor` reported
+`openai (weft-openai) 0.1.0: failed (0 contributed) / reason: No module named 'PIL'` — the pack
+imports Pillow (task 9.9's figure path) and its distribution does not declare it. Every install
+"succeeded", `uv pip install` reported nothing, and the only symptom at the point of use was
+`openai-embeddings` missing from an otherwise complete plugin list, diagnosable only because
+`doctor` names the reason. The tree's own tests never see it: they run in a venv where Pillow is
+present as somebody else's transitive dependency.
+
+**Generalises to.** *A distribution's dependency list is a claim about a clean install, and only a
+clean install can falsify it — the development venv always has more in it than the wheel declares.*
+`L9.78`'s rule ("an extras list is a claim about an installation") for the required-dependency
+case, where there is no extra to name and so nothing prompts anyone to check.
+
+**Candidate home.** A fitness function is available and cheap: FF9c already builds throwaway venvs
+per published contract, so the same rig can install each distribution alone and assert its pack
+reports `active` rather than `failed`. That would have caught this at the gate rather than at a
+demonstration.
+
+### L10.42 — a grilling session run solo has its positions written and judged by the same party
+
+**What happened.** G16 was opened and settled on 2026-09-08 in one pass, by me, with the owner's
+instruction being the single word "fire". I drafted the four positions, ranked them heaviest-first,
+wrote the attacks on each, and then declared which survived. The owner asked afterwards: *"How you
+fired G16 not asking me a single question?"* — and the question is the finding. `05`'s sessions
+exist because *"a minimal reversible choice is not a substitute for reading what the gate actually
+requires"*, and their whole value is that somebody attacks the position the author is attached to.
+A session with one participant has an author's own list of objections standing in for an
+adversary's, and the objections that do not occur to the author are exactly the ones a gate is for.
+G15 was run the same way three tasks earlier, and **G16 exists because G15 got one wrong** — it
+adopted a mechanism after writing down the very objection that refuted it. That is the cost, and it
+is already paid rather than hypothetical.
+
+**What partly redeems G16 and does not redeem the method.** Every position lost to something
+checkable in the tree — `run_index`'s three existing store calls, `_embedder_instance_of`'s
+precedent, `01`'s kernel boundary — rather than to my judgement, and the outcome was demonstrated
+by the binary. Deciding against the tree is what keeps a solo session honest about *facts*. It does
+nothing about *missing positions*: nothing in the method would have surfaced a fifth option nobody
+listed.
+
+**Generalises to.** *A gate session settled by the same party that wrote its positions must say so
+in its own outcome, and name what would have been asked of an adversary — or the owner is asked
+before it closes, not after it is written.* The cheap version: a session drafted solo is **opened**
+solo and **closed** with the owner, because opening is where the positions get written and closing
+is where they get judged, and only the second needs a second party.
+
+**Candidate home.** `docs/README.md` → *Protocol* (the session-closing steps), and `05`'s own
+preamble on what a session is. Possibly a *Who attacked this* field on the session template, empty
+being a visible fact rather than an invisible one — the same move the fitness-function ratchets make
+with a waiver.
 
 ## When the queue is empty
 

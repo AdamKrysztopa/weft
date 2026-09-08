@@ -493,6 +493,7 @@ async def build_index_services(
     roles: RoleTable = _NO_ROLES,
     services: ServiceSelection = _NO_SELECTION,
     filled_by_stages: Sequence[type[object]] = (),
+    store_for_revisable: NodeStore | None = None,
 ) -> ServiceRegistry:
     """Assemble one **ingest** run's `ServiceRegistry` — task **8.10**.
 
@@ -523,6 +524,23 @@ async def build_index_services(
       *stage*, so an ambient one would give a single run two paths to the same store with no
       ordering between them. On the query path a store is a service because there is no store
       stage; here there is one, and it is the pipeline's business.
+
+      **Narrowed 2026-09-08 by grilling session G16, and the narrowing is one word: `two`.**
+      A document that declares a `weft_index.contract.Revisable` gets an ambient `NodeStore`,
+      and it is **the store stage's own built instance**, handed in by the caller — so the run
+      has one store reached two ways, never two stores. That distinction is what the paragraph
+      above was actually protecting, and the tree had already taken the same view twice:
+      `Embedder` right below is the *stage's* instance for exactly this reason, and
+      `weft_cli.ingest.run_index` already calls `list_sources`, `put_source` and `count` on the
+      store stage's instance around `runner.run`, ordered on purpose. What still holds without
+      exception is that no store arrives here **from configuration** on this path, which is
+      what the query path does and what `filled_by_stages` keeps out.
+
+      **The `Revisable` condition is G15's, not this paragraph's.** It is not needed to answer
+      the two-paths argument; it is there because an ambient store available to *every* ingest
+      stage would let any `Expander` read the corpus, turning ledger `10.5`'s property from a
+      fact about a kind of stage into a per-plugin habit with nothing to check. A document
+      earns the service by declaring a participant whose contract says it revises storage.
 
     A stage reaching for any of the three gets `weft_kernel.context.UnresolvedServiceError`
     naming what *is* available, which is requirement 5 and is also the seam where a third
@@ -571,6 +589,16 @@ async def build_index_services(
     registered.add(Prompts, prompts_service(registry))
     if embedder is not None:
         registered.add(Embedder, embedder)
+    if store_for_revisable is not None:
+        # **G16, ledger 10.14 — and note what is added: the store *stage's own instance*.**
+        # The `NodeStore` paragraph below still holds for every document that does not declare
+        # a `Revisable`, which is all of them but one rung. What it argued against was a run
+        # holding "two paths to the same store"; the caller supplies the object the `store`
+        # stage itself writes through (`weft_cli.ingest._store_instance_for_revisable`, the
+        # same walk `_embedder_instance_of` does one contract over), so there is one store and
+        # the ordering is the `Revisable`'s declared position. `filled_by_stages` is untouched
+        # and still filters *role*-selected stores, which is the second-instance case.
+        registered.add(NodeStore, store_for_revisable)
 
     selected = {
         key: instance

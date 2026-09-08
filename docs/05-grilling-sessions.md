@@ -1137,3 +1137,173 @@ session decides, because a position that loses on evidence should lose in writin
 declared flag — capability is derived, never declared, so nobody can write a false one (`02` §1) —
 and **not** a first-party shortcut: whatever a `raptor`-family stage may do, a stranger's pack must
 reach the same way (requirement 4).
+
+---
+
+## G16 — How does an index-path stage reach the corpus it is about to write to?
+
+**Opened 2026-09-08, at the owner's direction, by task `10.14` running the binary.** `Revisable`
+(10.23), `NodeSupersedable` (10.24) and `adrap` (10.14) all shipped green, and the first run of
+`weft index ... --pipeline join-tree` through the installed entry point answered:
+
+> `no service is registered for NodeStore on this run. It is unavailable because nothing resolved
+> one before this stage ran. Services available on this run: Embedder, LLM, Prompts, TokenSink.`
+
+**Two settled positions disagree, and neither is obviously wrong.** G15's *Read* face settled that
+a `Revisable` reaches the corpus through `ctx.require(NodeStore)`, on the precedent that "G13
+settled this exact move". `weft_cli/run_services.py` excludes an ambient `NodeStore` from the
+ingest path deliberately, and states why: *"an ingest document already names a store stage, so an
+ambient one would give a single run two paths to the same store with no ordering between them. On
+the query path a store is a service because there is no store stage; here there is one, and it is
+the pipeline's business."*
+
+**Why G15 did not catch it, recorded because it is the reusable part.** G15's own *Read* face wrote
+the refutation down as an attack on position 2 — *"G13's case was `reconcile`, which is not a
+pipeline stage — the precedent does not transfer for free"* — and then adopted the same plumbing
+for position 1 without discharging it. `reconcile` runs on a path where the store genuinely is a
+service; an ingest document is not that path. Nothing executed the call in the session, and three
+tasks were built on it. Filed as `L10.40`.
+
+**The hazard the exclusion names is real and this session may not wave it away.** `adrap` does not
+only read: it calls `supersede`, which writes and deletes. So a single ingest run would hold **two
+write paths to one store** — the `Revisable`'s supersede and the `store` stage's put — and the
+exclusion's sentence is about exactly that. What is genuinely new since it was written is that the
+ordering is no longer absent: a `Revisable` occupies a declared position in a resolved document,
+which is *why* G15 made it a distinct contract rather than letting any `Expander` reach the store.
+Whether a declared position is enough ordering is this session's question, not its premise.
+
+---
+
+### The question
+
+May a stage on the index path reach the store its own document also writes to — and if so, by what
+mechanism, and what stops a *second* such stage from being surprising?
+
+### Positions, strongest first
+
+1. **Register the store-stage instance as a `NodeStore` service exactly when the resolved pipeline
+   contains a stage whose contract is `Revisable`.** *The heaviest and the most correct.* It keeps
+   the exclusion's argument intact everywhere it was aimed — an ordinary ingest document still gets
+   no ambient store — and narrows it with the one fact that has changed: a `Revisable` is a
+   *declared* participant at a *known position*, so "no ordering between them" no longer describes
+   the case. It is the same instance the `store` stage holds, so there is one store and not two,
+   which answers "two paths" with "one object". **Attack it on:** `filled_by_stages` exists
+   precisely to express "this contract is already filled by a stage" as data rather than as a
+   hardcoded name, and this position *inverts* that rule for one contract — a reader of
+   `run_services.py` would find a general mechanism and one exception to it. Attack it also on
+   write ordering: sharing the instance makes the two paths the same object but not the same
+   sequence, and nothing yet says a `Revisable` may not run *after* `store`.
+2. **The runner hands a `Revisable` the store, because the resolved document already knows which
+   stage fills `NodeStore`.** No ambient service at all: the thing that resolved the pipeline is the
+   thing that knows, and it passes it where it is declared to be needed. **Attack it on:** it is a
+   kernel change and the kernel names no capability — the runner cannot say the word `NodeStore`,
+   which is exactly what `01`'s boundary forbids, so this needs a shape that is capability-blind
+   and nobody has drafted one. Attack it also on precedent: every other service in this tree
+   arrives through `Context`, and a second delivery mechanism is a second thing to learn.
+3. **`Revisable` stages run in their own pass, after the ingest run's `store` stage has finished.**
+   Ordering by construction rather than by declaration: the corpus a `Revisable` reads is then
+   unambiguously "everything, including this run". **Attack it on:** it makes a pipeline document
+   no longer a single ordered list, which is `03`'s model and `10.15`'s own finding about positions;
+   and it moves work out of the runner into whatever orchestrates the passes, where nothing else
+   lives.
+4. **Withdraw the mechanism: `adrap` is not an index-path stage at all, but a command
+   (`weft reindex --join`) or a `reconcile` participant, where a `NodeStore` service already
+   exists.** The cheapest thing that works today, and G13's precedent applies to it *properly*.
+   **Attack it on:** requirement 6 in the open — G15's own *Read* face position 3 was this, and it
+   lost on the grounds that a technique in the CLI is one a third party can neither parameterise
+   nor compose. If it wins now, the session should say what changed, because the argument against
+   it has not.
+
+### Bring
+
+`weft_cli/run_services.py`'s own docstring for the four-service set, read in full rather than
+quoted from here — it is the position being attacked and it argues itself; `filled_by_stages` and
+ledger task **9.0**, which generalised the `NodeStore` exclusion into data, because position 1
+proposes an exception to that generalisation and must say why it is not a regression of it;
+`weft_index/contract.py`'s `Revisable` docstring, whose *"Ordering is not this contract's problem"*
+paragraph was written before this was known and may need withdrawing; **G13** and G15's *Read*
+face, read together, since the whole defect is a precedent applied across a boundary it does not
+cross; `01` → *The kernel boundary* for position 2; and `docs/lessons.md` `L10.40`.
+
+### Done when
+
+The decision log records it; whichever position wins is implemented **and demonstrated by running
+the binary from outside this repository**, not by a unit test — this session exists because a unit
+test could not see the defect, and a session that closes on green tests would be repeating it. The
+`Revisable` docstring's ordering paragraph is corrected or withdrawn. And if a `Revisable` may run
+after `store`, or a second one may appear in one document, the refusal or the permission is written
+down — the population of that contract is one plugin today, which is the state in which such a rule
+is cheap to state and impossible to discover.
+
+---
+
+**Positions attacked, and what held — session run 2026-09-08, opened and settled the same day.**
+**Position 1 wins, sharpened by a distinction the session found in the tree rather than in the
+argument: the hazard is two *instances*, never two *callers*.**
+
+- **The exclusion's premise was already false, and `run_index` is what falsifies it.** The
+  paragraph refuses an ambient store because it "would give a single run two paths to the same
+  store with no ordering between them". `weft_cli/ingest.py` already finds the store stage **by
+  contract** (`_store_stage_id_of`) and calls three store methods on that stage's own instance —
+  `list_sources` via `_recorded_sources`, `put_source` via `_record_sources`, `count` via
+  `_stored_count` — sequenced deliberately around `runner.run`, with its own comment: *"Read
+  **before** the run writes over them."* A second caller on the store, explicitly ordered, is what
+  this path does today. So the sentence could not be the reason, and the session had to find what
+  the reason actually was.
+- **What it actually protects is a second *instance* arriving from configuration.** The query
+  path's `build_services` builds its store with `registry.entry(NodeStore, services.store).factory
+  (None)` — a genuinely different object from any stage. *That* is the thing with no ordering
+  against the stage, because it is not the same store. And the tree had already drawn this
+  distinction one contract over without naming it: `Embedder` is registered ambiently on the index
+  path as `_embedder_instance_of(specs, runnable)`, **the stage's own built instance**, whose
+  docstring says it is done that way "precisely so a run has one embedder rather than two that
+  happen to agree". Position 1 is that move for `NodeStore`, and its first attack — *"inverts
+  `filled_by_stages` for one contract"* — dissolves on the same distinction: `filled_by_stages`
+  keeps a **role-selected** store out, which is the second-instance case, while this supplies the
+  **first** instance, the stage's own. Both remain true and they answer opposite questions.
+- **The `Revisable` gate survives, for a reason that is not the exclusion's.** It is not needed to
+  answer "two paths" — sharing the instance does that. It is needed because an ambient store
+  available to every ingest stage would let any `Expander` reach the corpus, which is precisely
+  what G15's *Read* face refused: `10.5`'s property would stop being a fact about a **kind** of
+  stage and become a per-plugin habit with nothing to key a check on. So a document earns the
+  service by declaring a participant whose *contract* says it revises storage. Two objections, two
+  independent halves of the answer, and the session records that they are independent because a
+  later reader who removes the gate "since the instance is shared anyway" would be reintroducing
+  G15's failure while correctly quoting G16.
+- **Position 2 (the runner hands it over) lost on `01`'s kernel boundary**, immediately and without
+  needing the rest of its case: the runner cannot say the word `NodeStore`, and nobody has drafted
+  a capability-blind shape that would let it. **Position 3 (a separate pass after `store`) lost** on
+  `03`'s model — a pipeline document is one ordered list, and splitting it moves work into an
+  orchestrator nothing else lives in. **Position 4 (make it a command) lost exactly as it did in
+  G15**, on requirement 6, and the session notes that nothing had changed to revive it: it was
+  listed because a losing position should be attacked again when the ground moves, and the ground
+  had not.
+
+**Ordering, written down because the *Done when* demanded it rather than because a case arose.**
+A `Revisable` **may** be placed after `store`; it is not refused. What differs is stated instead:
+it then reads a corpus that already contains this run's own leaves, so `adrap` would find them as
+existing members rather than as arrivals. Nothing breaks — `put` is keyed on a content digest and
+is idempotent, and `supersede` is idempotent by contract — and the resolver could not express such
+a refusal without naming a capability. A second `Revisable` in one document is likewise permitted
+and runs in its declared order, like any other stage. `weft_index.contract.Revisable`'s *"Ordering
+is not this contract's problem"* paragraph is **kept and corrected**: its conclusion was right and
+its stated reason was incomplete, because it argued from `adrap`'s natural placement rather than
+from the resolver's inability to see semantic order.
+
+**Demonstrated by the binary, which is what this session's *Done when* required and what a unit
+test had already failed to do.** From `/private/tmp/weft-adrap`, against a real embedder and a real
+summarising model, on an installed non-editable entry point outside this repository: eight
+documents built a tree of 16 leaves and two level-1 summaries (a 12-member compiler cluster and a
+4-member ocean cluster), rows asserted **2 before and 20 after**. A ninth document, `ocean-5.txt`,
+was then indexed through `index-with-adrap` — and the 4-member summary was **gone**, replaced by a
+5-member summary whose members are ocean parts **1, 2, 3, 4 and 5**, every parent still stored, the
+12-member compiler cluster untouched, and `ext.weft-index.technique` still `raptor` so
+`raptor-and-leaves-rrf` still finds it. That is ledger `10.14`'s sentence, both halves, observed in
+the store rather than in a call log.
+
+**One thing the run cost, recorded because it is the second instance this phase.** The tree built
+for the first attempt was silently destroyed between the build and the join by the integration
+suite of a `poe ci-checks` run against the same container, and the join then reported success
+against an almost-empty corpus. `L8.30` is the rule and this is its recurrence: a measurement
+against `compose.yaml` asserts its own row count immediately before *and* after, and nothing else
+touches that container while it runs.

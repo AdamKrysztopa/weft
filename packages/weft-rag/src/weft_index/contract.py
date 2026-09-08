@@ -108,6 +108,25 @@ class Revisable(Stage[Sequence[Node], Sequence[Node]], Protocol):
     it, and the `store` stage then writes the result — `embed, adrap, store` is the natural
     order and nothing is stale. The refusal that seemed owed is not, and the kernel could not
     have expressed it anyway without naming a capability.
+
+    **Corrected by G16 (2026-09-08): the conclusion holds and the reason above is incomplete.**
+    It argues from `adrap`'s *natural* placement, which is a fact about one plugin rather than
+    about this contract — and a contract's ordering rule may not rest on its only registration.
+    The durable reason is the second clause: semantic order is not a data dependency, so
+    `requires`/`provides` cannot express it and the resolver cannot see it. G16 therefore
+    **permits** a `Revisable` after `store` rather than leaving it undecided, and states what
+    differs: it then reads a corpus already containing this run's own leaves, so `adrap` finds
+    them as existing members instead of as arrivals. Nothing breaks — `put` is keyed on a
+    content digest and `supersede` is idempotent by contract. A second `Revisable` in one
+    document is permitted too, and runs in its declared order like any other stage.
+
+    **How a `Revisable` actually receives the store, which G15 settled and never ran.**
+    `ctx.require(NodeStore)` resolves on the ingest path **only because** a document declaring
+    a `Revisable` causes `weft_cli.ingest._store_instance_for_revisable` to hand the store
+    *stage's own instance* to `build_index_services`. That plumbing is G16's, not G15's: G15
+    cited G13's `reconcile` precedent, `reconcile` is not a pipeline stage, and this contract,
+    `NodeSupersedable` and `adrap` all shipped green over a call that could not resolve
+    (`docs/lessons.md` `L10.40`). An ordinary ingest document still gets no ambient store.
     """
 
     if TYPE_CHECKING:
