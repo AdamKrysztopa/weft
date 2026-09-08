@@ -7170,7 +7170,7 @@ extractors and **both branches of 10.9**, so no branch of this phase ships havin
 
 - [x] **10.24** a superseded node is replaced rather than deleted, so the store can never hold a
   summary whose members are gone · owner `02` §1 → *The store contract family*; `04` category A;
-  `05` → G15's *Remove* face · turns on — · sha `PENDING` · **G15's Face B, and the ordering is the whole
+  `05` → G15's *Remove* face · turns on — · sha `86ce552` · **G15's Face B, and the ordering is the whole
   design.** `NodeStore.supersede(old: NodeId, new: Node)` writes `new` **first** and deletes `old`
   **second**, so a crash leaves a **duplicate**, which `reconcile` exists to find, and never a
   **hole**, which nothing finds and which `04` category A records as staying retrievable forever

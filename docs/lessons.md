@@ -700,6 +700,14 @@ result. The first instance was a background launch swallowing the message; this 
 **One assertion failing must stop the sequence, and `&&` between the edit and the commit is what
 does it** — a guarded edit followed by an unconditional commit is not a guard.
 
+**Third instance, 2026-09-08 at task 10.24's commit, and this one names the mechanism exactly.**
+The command was `uv run pytest tests/docs -q | tail -3 && git add -A && git commit ...`. **A
+pipeline's exit status is its last command's**, so `tail` succeeded, the `&&` was satisfied, and the
+commit landed on a tree where `test_every_ticked_task_records_a_sha` was failing — the tick carried
+the literal `PENDING` instead of a sha. The guard was not weak; it was measuring the wrong process.
+The rule that covers all three instances: **a check that gates a commit must be the last command in
+its own chain, never piped** — `set -o pipefail`, or run the check, read it, and commit separately.
+
 **Generalises to.** *A command whose output is a background-launch notice has no room for any
 other command's output, so a guarded edit chained with one is a guard whose alarm is muted —
 never put an assertion and a `&` in the same invocation.* The wider shape is this repository's own
