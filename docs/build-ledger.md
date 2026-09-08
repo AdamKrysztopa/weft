@@ -6988,7 +6988,7 @@ extractors and **both branches of 10.9**, so no branch of this phase ships havin
   embedder is changed by deriving the document and replacing its `embed` stage, and the degeneracy
   failure says so rather than naming `[services] embed`, which such a run deliberately does not
   read · owner `weft_index/raptor.py`; `weft_retrieve/pipelines/index-text.yaml`, which already
-  states it correctly · turns on — · sha — · **Found at the phase close by running the binary, and
+  states it correctly · turns on — · sha `4452bac` · **Found at the phase close by running the binary, and
   it is task 10.9's own message.** `weft index . --pipeline index-with-deep-raptor` from
   `<scratch>/ex1016`, whose `weft.toml` **already sets `[services] embed = "openai-embeddings"`**,
   resolves `embed` to `hash` (`weft pipeline show`), fails the degeneracy check at a median cosine
