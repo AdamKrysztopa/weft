@@ -1018,3 +1018,73 @@ class SufficiencyCheckPrompt(TypedPrompt):
             ),
         ),
     }
+
+
+#: The name this prompt is registered and selectable under, and `postqfrap`'s own default
+#: `prompt:` configuration.
+SUMMARIZE_FOR_QUERY_NAME = "summarize-for-query"
+
+
+class SummarizeForQueryRequest(BaseModel):
+    """What `summarize-for-query` renders: the question, and one cluster of passages already
+    numbered and joined into one string.
+
+    `passages: str`, not `tuple[str, ...]` — `weft_index.prompts.SummarizeClusterRequest`'s
+    own precedent for a batch offered to a template: joining is the plugin's own job
+    (`weft_retrieve.postqfrap._format_cluster`), because a template substitution has no loop
+    construct of its own to number and separate a variable-length sequence with.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    query: str
+    passages: str
+
+
+class SummarizeForQueryPrompt(TypedPrompt):
+    """Ask a model for the one summary of a cluster of passages that bears on one question.
+
+    Task **10.15**, `10` §4's `postqfrap` row, citing Chucri, Azouz & Ott, *Recursive
+    Abstractive Processing for Retrieval in Dynamic Datasets*, 2024, arXiv:2410.01736 §5.2 —
+    "the key modification is using query-focused summarization... summarizing information
+    relevant to q ensures that key details are preserved while recursively filtering out
+    irrelevant content." This is `weft_index.prompts.SummarizeClusterPrompt`'s own query-time
+    twin: the same shape, one field added, and the field is the whole point — a summary
+    written with no question in view would be `raptor` at query time, not this technique.
+    """
+
+    name: ClassVar[str] = SUMMARIZE_FOR_QUERY_NAME
+    input_model: ClassVar[type[BaseModel]] = SummarizeForQueryRequest
+    output_model: ClassVar[type[BaseModel] | None] = None
+    texts: ClassVar[Mapping[str, PromptText]] = {
+        "en": PromptText(
+            system=(
+                "You write a single summary of a cluster of passages, focused on one "
+                "question. Keep only what bears on answering the question; drop anything "
+                "in the passages that is irrelevant to it, even if it is the main subject "
+                "of one of the passages. Write in the passages' own language."
+            ),
+            user=(
+                "Question:\n${query}\n\n"
+                "Passages:\n${passages}\n\n"
+                "Write one summary of the passages above that retains only the content "
+                "relevant to answering the question, and drops the rest. Reply with the "
+                "summary alone, nothing else."
+            ),
+        ),
+        "pl": PromptText(
+            system=(
+                "Piszesz jedno streszczenie grupy fragmentów tekstu, skupione na jednym "
+                "pytaniu. Zachowaj tylko to, co ma znaczenie dla odpowiedzi na pytanie; "
+                "pomiń w fragmentach wszystko, co nie ma na nie wpływu, nawet jeśli jest "
+                "głównym tematem jednego z fragmentów. Pisz w języku fragmentów."
+            ),
+            user=(
+                "Pytanie:\n${query}\n\n"
+                "Fragmenty:\n${passages}\n\n"
+                "Napisz jedno streszczenie powyższych fragmentów, zachowujące wyłącznie "
+                "treść istotną dla odpowiedzi na pytanie, pomijając resztę. Odpowiedz "
+                "samym streszczeniem, nic więcej."
+            ),
+        ),
+    }

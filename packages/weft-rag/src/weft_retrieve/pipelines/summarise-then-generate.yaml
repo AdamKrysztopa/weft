@@ -1,0 +1,45 @@
+name: summarise-then-generate
+extends: retrieve-then-generate
+
+# **The rung that makes `postqfrap` reachable — ledger task 10.15.** Retrieve a wider set than a
+# prompt could hold, then replace it with one query-focused summary built over it, and answer from
+# that. Chucri, Azouz & Ott, *Recursive Abstractive Processing for Retrieval in Dynamic Datasets*,
+# 2024, arXiv:2410.01736 §5, Algorithm 3.
+#
+# **Why this is a step somebody would actually take**, which is fitness function 16's own bar for a
+# rung existing at all. A question whose answer is spread thinly across many passages is the case
+# `repack` serves worst: it can only choose *which* passages enter the prompt and *where* they sit,
+# so once the evidence is wider than the budget, something has to be dropped whole. This rung drops
+# nothing whole — it compresses, keeping what bears on the question from every retrieved passage
+# and discarding what does not. The paper's own §6.5 measures that as its strongest result.
+#
+# **`top_k: 20` rather than the inherited default, and the wider set is the point.** §5.3: "increasing
+# the hyperparameter k0 enables the model to handle broader questions without expanding the generated
+# context size, though it increases inference time." A summariser handed the same eight passages
+# `repack` would have packed has nothing to compress that the generator would not have seen anyway.
+#
+# **What it costs, stated because a query-time tree is not free.** One model call per cluster per
+# level, plus one final call — on twenty passages at `cluster_size: 4` that is five, then one, then
+# the answer: seven model calls against `retrieve-then-generate`'s one. `max_levels: 3` is the
+# plugin's own ceiling on the recursion and is left; the paper has no such ceiling, and Weft's rung
+# states one because these calls happen while somebody waits.
+#
+# **`postqfrap` replaces `repack` rather than sitting beside it.** Both are `ContextPacker`s at the
+# same position, and running two would mean packing an already-packed set: this rung `replace:`s the
+# stage the parent placed rather than inserting a second one. The answer that follows cites the one
+# summary, whose lineage names every passage it was built from — so a citation still reaches real
+# documents, one hop further than usual.
+vars:
+  route.summary: >-
+    One vector search over a wider set than the prompt could hold, compressed into a single
+    query-focused summary before the answer is written. For a broad question whose evidence is
+    spread thinly across many passages rather than concentrated in a few.
+  route.cost: >-
+    one embedding call, one search, several model calls to summarise the retrieved passages level
+    by level, and one model call to answer
+
+set:
+  - {id: retrieve, with: {top_k: 20}}
+
+replace:
+  - {id: pack, use: postqfrap}

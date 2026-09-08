@@ -81,6 +81,10 @@ reading `.phase2-findings.md` §11's closing note asks for. It groups a `Ranking
 parent — a `hypothetical-questions` (2.31) or `raptor` (2.32) derived node collapses into
 the one parent it stands in for — so a chunk indexed several ways cannot occupy several of
 a ranking's own slots, the measurement artefact `.phase2-findings.md` §11 names by name.
+**`postqfrap` (task 10.15) is the twenty-third**, a second `ContextPacker` beside `repack` —
+`weft_retrieve.postqfrap`'s own module docstring is why this registers into `ContextPacker`'s
+existing slot rather than the `Expander` position its ledger blocker first pointed at. The
+tenth registered `Prompt`, `summarize-for-query`, arrives with it.
 """
 
 from pydantic import BaseModel, ConfigDict
@@ -159,6 +163,8 @@ from weft_retrieve.payload import (
     Turn,
     TurnRole,
 )
+from weft_retrieve.postqfrap import NAME as POSTQFRAP_NAME
+from weft_retrieve.postqfrap import PostQfrapConfig, PostQfrapPacker
 from weft_retrieve.prompts import (
     BOOLEAN_PARSE_NAME,
     HYDE_DOCUMENT_NAME,
@@ -169,6 +175,7 @@ from weft_retrieve.prompts import (
     STANDALONE_QUESTION_NAME,
     STEP_BACK_QUESTION_NAME,
     SUFFICIENCY_CHECK_NAME,
+    SUMMARIZE_FOR_QUERY_NAME,
     BooleanParsePrompt,
     BooleanQueryRequest,
     BooleanToken,
@@ -203,6 +210,8 @@ from weft_retrieve.prompts import (
     SufficiencyCheckPrompt,
     SufficiencyCheckRequest,
     SufficiencyJudgement,
+    SummarizeForQueryPrompt,
+    SummarizeForQueryRequest,
 )
 from weft_retrieve.repack import NAME as REPACK_NAME
 from weft_retrieve.repack import Repack, RepackConfig, RepackMethod
@@ -311,6 +320,10 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     the module's own reasoning for reusing `Reranker`'s existing slot rather than growing a
     fifth query-path contract is on `weft_retrieve.collapse`, not repeated in this function.
 
+    `postqfrap` (task 10.15) is a second `ContextPacker` beside `repack`, registered here
+    exactly like every other position in this function — `weft_retrieve.postqfrap`'s own
+    module docstring carries the reasoning for the contract it registers into.
+
     Every `Prompt` goes through the same `registrar` as everything else. `weft-prompts`
     publishes that contract and registers nothing under it (its own `pyproject.toml` declares
     no `weft.packs` entry point), because a first-party prompt belongs to the pack whose
@@ -348,6 +361,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(Sufficiency, LLM_SUFFICIENCY_NAME, LlmSufficiency)
     registrar.add(Sufficiency, HEDGE_PHRASES_NAME, HedgePhrases)
     registrar.add(ContextPacker, REPACK_NAME, Repack)
+    registrar.add(ContextPacker, POSTQFRAP_NAME, PostQfrapPacker)
     registrar.add(QueryTransform, CONTEXTUAL_QUERY_REWRITE_NAME, ContextualQueryRewrite)
     registrar.add(QueryTransform, HYDE_NAME, Hyde)
     registrar.add(QueryTransform, STEP_BACK_NAME, StepBack)
@@ -361,6 +375,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(Prompt, RELEVANCE_GRADE_NAME, RelevanceGradePrompt)
     registrar.add(Prompt, BOOLEAN_PARSE_NAME, BooleanParsePrompt)
     registrar.add(Prompt, SUFFICIENCY_CHECK_NAME, SufficiencyCheckPrompt)
+    registrar.add(Prompt, SUMMARIZE_FOR_QUERY_NAME, SummarizeForQueryPrompt)
     registrar.add(QueryScorer, QUERY_SCORER_NAME, LlmQueryScorer)
     registrar.add(RoutingPolicy, THRESHOLD_LADDER_NAME, ThresholdLadder)
     registrar.add(RoutingPolicy, NEAREST_DESCRIPTION_NAME, NearestDescription)
@@ -401,6 +416,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/multi-query-then-retrieve.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/boolean-then-retrieve.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/rerank-then-generate.yaml")
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/summarise-then-generate.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/grade-then-generate.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/iterative-retrieve.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/corrective-retrieve.yaml")
@@ -491,6 +507,7 @@ __all__ = [
     "NEAREST_DESCRIPTION_NAME",
     "NO_RETRIEVAL_NAME",
     "PASSAGE_RELEVANCE_NAME",
+    "POSTQFRAP_NAME",
     "QUERY_SCORER_NAME",
     "RELEVANCE_GRADE_NAME",
     "REPACK_NAME",
@@ -502,6 +519,7 @@ __all__ = [
     "STEP_BACK_NAME",
     "STEP_BACK_QUESTION_NAME",
     "SUFFICIENCY_CHECK_NAME",
+    "SUMMARIZE_FOR_QUERY_NAME",
     "THRESHOLD_LADDER_NAME",
     "VECTOR_TOP_K_NAME",
     "Always",
@@ -574,6 +592,8 @@ __all__ = [
     "PassageRelevancePrompt",
     "PassageRelevanceRequest",
     "Passages",
+    "PostQfrapConfig",
+    "PostQfrapPacker",
     "Query",
     "QueryOrigin",
     "QueryScorer",
@@ -617,6 +637,8 @@ __all__ = [
     "SufficiencyCheckPrompt",
     "SufficiencyCheckRequest",
     "SufficiencyJudgement",
+    "SummarizeForQueryPrompt",
+    "SummarizeForQueryRequest",
     "ThresholdLadder",
     "ThresholdLadderConfig",
     "Turn",

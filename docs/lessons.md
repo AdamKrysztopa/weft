@@ -1046,6 +1046,34 @@ a timeout, which reads exactly like a real regression in a slow check.
 says nothing about what an auto-backgrounded command is still doing. `phase-step` → *Green*'s
 "keep off the tree" paragraph is the same subject from the dispatcher's side and could carry both.
 
+### L10.37 — the brief's *Already decided* was drafted from my own test, so the two could not disagree
+
+**What happened.** Task 10.15's brief spelled the output construction as
+`scored=Scored(node=final, score=...)`. `weft_store.contract.Scored[T]`'s field is **`value`**, has
+been since the class shipped, and every other caller in that pack already writes `Scored(value=...)`.
+My Red test's `_hit()` fixture had the same wrong keyword, and the brief had it because I wrote the
+brief *from the test I had just written* rather than from the contract. Two artefacts, one source,
+so nothing about the dispatch could catch it: the implementer copied the brief's wording into its
+own `run`, then found the truth by constructing `Scored(node=..., score=1.0)` in a shell and
+reading the `ValidationError`. It reported three defects in my test file, all real — that keyword, a
+`Completion(text=...)` missing its required `model`, and five unused imports failing lint.
+
+**Generalises to.** *`phase-step` already forbids a comparison whose two sides come from one source;
+a brief and the test it accompanies are exactly such a comparison, and the brief must be written
+against the artefacts it names.* Every type, field name and signature quoted in *Already decided* is
+a claim about code that already exists — so it is read out of that code at the moment of writing,
+not recalled from the test drafted five minutes earlier. The test and the brief are the two
+independent statements of the task; drafting one from the other collapses them into one.
+
+**And note which way the error travelled.** It reached the implementation, because the agent
+reasonably treats *Already decided* as settled — that is the section's whole purpose. A wrong fact
+there is more expensive than a wrong fact anywhere else in a brief.
+
+**Candidate home.** `phase-step` → `references/implementer-brief.md`, the *Already decided*
+template: state that each named type or field is quoted from the artefact, and that the Red test is
+not an acceptable source for it. Sits directly beside `L10.29` and `L10.34`, which are the same
+dispatch seam failing in two other ways.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

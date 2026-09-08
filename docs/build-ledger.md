@@ -5764,6 +5764,23 @@ it had read one failure (`L7.1`).
 - [ ] **R9.11** `Applies.__repr__` is reached by a command, or it is deleted · owner `03` ·
   `L9.45` · written for the one human audience there is and rendered nowhere:
   `weft pipeline show` dumps the model instead
+- [ ] **R10.1** a person reading a streamed answer sees the answer and not the stages that built
+  it · owner `weft_cli/sinks.py`; `weft_llm/payload.py`'s `TokenChunk` · filed 2026-09-08 at task
+  10.15, **found by running the binary** · `PrintingSink` decides what to show from
+  `TokenChunk.role` against `DEFAULT_DISPLAY_ROLES`, which is exactly `{"generate"}` — a role names
+  a *model mapping*, and nothing finer reaches the sink. That was sufficient while exactly one
+  stage per run called a model on the answering role. `postqfrap` is the first stage to make
+  **several concurrent** calls on the query path, and the first `weft ask` through it printed five
+  cluster summaries interleaving word by word above an answer that was itself correct — unreadable,
+  and produced by a rung whose own configuration was right. **10.15 worked around it** by defaulting
+  the plugin's `role` to `index`, which is honest (these are summarisation calls) and does not
+  address the general case: any future stage that is concurrent on a displayed role reproduces this,
+  and the operator who sets `role: generate` in a derived document meets it immediately. The
+  property that must hold is that a sink can tell the *answer* from an intermediate call — which is
+  a fact about the stage, not about the role, and `TokenChunk` does not currently carry it. Not
+  Phase 10's content: this is the observability seam, and widening a phase to swallow a finding is
+  how a carried repair stops being countable
+
 - [ ] **R9.13** `L5.15`, `L6.4` and `L5.6` are held by an artefact that makes them bite · owner this
   repository's own loop; `docs/lessons-archive.md`'s edge vocabulary · with the Phase 9 edges
   written, `scripts/lessons_graph.py` returns **MOVE IT** for all three — re-learned four, four and
@@ -7308,9 +7325,48 @@ extractors and **both branches of 10.9**, so no branch of this phase ships havin
   and the owner finds too high; until then the line is a record, and the cheapest form — Chucri's
   greedy variant, assign to the nearest cluster and never refit (§6.4) — is the one that paper measured
   as the worse of its two
-- [ ] **10.15 ⚠ D2** a query-time recursive summariser, if it ships, is a pipeline document over
-  existing positions and not a plugin named for the paper, and nothing it produces is stored · owner
-  `02` §3; `weft_index/contract.py`; `weft_retrieve/contract.py`; `05` → **G15** · turns on — · sha — · **Unblocked 2026-09-08, and it is far smaller than this line assumed. The ⛔ is withdrawn.** The line said *how a query reaches a summarising stage on the retrieval path is a contract question* because `Expander.run` takes `(payload, ctx)` and no query. True, and beside the point: **a query-time recursive summariser is not an `Expander`.** `Candidates`, `Ranking` and `Passages` each carry `origin: Query` as a typed field, and `Packer` is `Ranking -> Passages` — cluster the hits, summarise each cluster, emit the summaries as passages, with the question already in hand. **No contract change, no ambient query, nothing stored** (the retrieval path has no `store` stage, so `D2`'s durability clause never reaches it). This line's other half needs correcting too: *not a plugin* is wrong — the *position* exists, but something must summarise, so `postqfrap` is **a plugin at an existing position**, and `10` §4's reservation of the name applies to it rather than releasing it. It is also, on the evidence, the strongest technique in the four papers (Chucri §5, §6.5, Figs. 6–9), measured against post-retrieval baselines only Chucri §5 (postQFRAP)
+- [x] **10.15 ⚠ D2** a query-time recursive summariser is a plugin at an existing position,
+  reachable from a shipped document, and nothing it produces is stored · owner
+  `02` §3; `weft_index/contract.py`; `weft_retrieve/contract.py`; `05` → **G15** · turns on — · sha `PENDING` · **Unblocked 2026-09-08, and it is far smaller than this line assumed. The ⛔ is withdrawn.** The line said *how a query reaches a summarising stage on the retrieval path is a contract question* because `Expander.run` takes `(payload, ctx)` and no query. True, and beside the point: **a query-time recursive summariser is not an `Expander`.** `Candidates`, `Ranking` and `Passages` each carry `origin: Query` as a typed field, and `Packer` is `Ranking -> Passages` — cluster the hits, summarise each cluster, emit the summaries as passages, with the question already in hand. **No contract change, no ambient query, nothing stored** (the retrieval path has no `store` stage, so `D2`'s durability clause never reaches it). This line's other half needs correcting too: *not a plugin* is wrong — the *position* exists, but something must summarise, so `postqfrap` is **a plugin at an existing position**, and `10` §4's reservation of the name applies to it rather than releasing it. It is also, on the evidence, the strongest technique in the four papers (Chucri §5, §6.5, Figs. 6–9), measured against post-retrieval baselines only
+  · **Built as `postqfrap`, a `ContextPacker`, with the paper read at source before the name was
+  taken.** Algorithm 3 is not *"summarise the hits"*: retrieve `k0`, build a **query-focused** tree
+  over them with **one-step clustering**, then one final summary over the top layer *instead of* a
+  top-k list — §5.2's *"the key modification is using query-focused summarization"* is the clause
+  that makes this the technique and not `raptor` at query time, so a test asserts the question
+  reaches **every** summarising call. Two divergences, in the module docstring beside the name that
+  makes the claim: clustering above level 1 goes by **order** rather than similarity, because
+  summaries carry no vectors and requiring an `Embedder` on the query path would make the stage
+  unusable in pipelines that have none; and `max_levels` is a ceiling the paper does not have,
+  because each level is model calls made while somebody waits.
+
+  **`summarise-then-generate` ships with it, because a plugin no document reaches is what Phase 8
+  existed to stop.** Fitness function 16 refused the plugin outright until the rung existed, by
+  name. The rung widens `top_k` to 20 — §5.3: *"increasing k0 enables the model to handle broader
+  questions without expanding the generated context size"* — and `replace:`s `repack` rather than
+  sitting beside it, since both are `ContextPacker`s at one position.
+
+  **Run from outside this repository, and the first run was garbled.** Against the 945-node corpus
+  the answer was correct and carried its citation, above five concurrent cluster summaries
+  interleaving word by word: `weft_cli.sinks.DEFAULT_DISPLAY_ROLES` is exactly `{"generate"}`, and
+  this is the first stage to make several concurrent calls on the query path. Repaired here by
+  defaulting `role` to `index` — a role names a model mapping, not a pipeline path, and these are
+  the same summarisation calls `raptor` makes under `index`. The general case is **`R10.1`**, filed
+  rather than swallowed: a sink cannot tell the answer from an intermediate call, because
+  `TokenChunk` carries a role and nothing finer. After the repair:
+
+  ```text
+  $ weft ask "what do these papers measure about feature selection?" --pipeline summarise-then-generate
+  They measure feature selection by the quality of the selected features or subset—especially
+  relevance to the target and redundancy among features—and by the downstream predictive
+  performance of the selected subset, typically using metrics such as accuracy, AUC,
+  classification error, F1, or MSE. [1]
+  routed to: summarise-then-generate
+  ```
+
+  **The dispatch blocked once, correctly, and on my own fixture**: `Scored`'s field is `value`, not
+  `node`, and my brief carried the same wrong keyword because I drafted it from the Red test rather
+  than from the contract — two artefacts, one source, unable to disagree (`L10.37`)
+  · Chucri §5 (postQFRAP)
   is the strongest measured result in the four (§6.5, Figs. 6–9), against post-retrieval baselines
   only and never head-to-head with a persisted tree. `Expander.run` takes `(payload, ctx)` and no
   query (`weft_index/contract.py:64`), so how a query reaches a summarising stage on the retrieval
