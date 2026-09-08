@@ -7194,7 +7194,7 @@ extractors and **both branches of 10.9**, so no branch of this phase ships havin
 
 - [x] **10.22** a persisted `weft eval` run states how long it took, so a cost question can be
   answered from the record rather than from a stopwatch · owner `weft_eval`; `05` → G15's *Bring* ·
-  turns on — · sha `PENDING` · **G15 cannot open without this and `10.13` could not have supplied it.**
+  turns on — · sha `5d58fe4` · **G15 cannot open without this and `10.13` could not have supplied it.**
   `10.14`'s line names *a rebuild cost on the corpus that `10.13` can state* as the thing that
   schedules the task, and `10.13` is ticked without ever stating one — not an omission, but because
   a `RunRecord` has nowhere to put it: the fifteen records under `eval/raptor-baseline/exit/` carry
