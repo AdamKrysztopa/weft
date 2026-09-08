@@ -6984,6 +6984,57 @@ extractors and **both branches of 10.9**, so no branch of this phase ships havin
   threshold was lowered to construct a condition that was already happening four times over. The
   correct query found it immediately. Filed as `L10.26`
 
+- [x] **10.18** the remedy a failing `raptor` names is one that works: on a `--pipeline` run the
+  embedder is changed by deriving the document and replacing its `embed` stage, and the degeneracy
+  failure says so rather than naming `[services] embed`, which such a run deliberately does not
+  read · owner `weft_index/raptor.py`; `weft_retrieve/pipelines/index-text.yaml`, which already
+  states it correctly · turns on — · sha — · **Found at the phase close by running the binary, and
+  it is task 10.9's own message.** `weft index . --pipeline index-with-deep-raptor` from
+  `<scratch>/ex1016`, whose `weft.toml` **already sets `[services] embed = "openai-embeddings"`**,
+  resolves `embed` to `hash` (`weft pipeline show`), fails the degeneracy check at a median cosine
+  of −0.0031, and tells the operator to *"configure an embedder whose vectors carry semantic
+  meaning in `[services] embed`"* — the thing they have already done. Exit code 1, nothing
+  summarised, and following the message exactly reproduces it forever. **The tree already knew**:
+  `weft_cli/run_services.py:548` says *"On a `--pipeline` run `[services] embed` is deliberately
+  not read"* and `index-text.yaml`'s own *"What `--pipeline` costs you"* paragraph states the real
+  remedy — derive the document and `replace:` the `embed` stage — which is the parent
+  `index-with-raptor` extends and contradicts. Three sites say the wrong thing: the `Failed`
+  reason, `index-with-raptor.yaml`'s closing sentence, and `index-with-deep-raptor.yaml`'s. **A
+  loud failure naming an inert remedy is worse than the silence 10.9 replaced**, because the
+  operator cannot tell their fix from a fix that could never work — which is this project's own
+  argument against silent fallbacks, one layer up
+  · **Repaired, and the repair was checked by following it rather than by reading it.** The Red
+  test is `test_the_refusal_names_a_remedy_that_applies_to_a_pipeline_document`; the Green was a
+  dispatched `weft-implementer` at `haiku`, whose one-string change I then re-cited by sentence
+  rather than by the line number I had handed it (`L9.34`). The message now reads:
+
+  ```text
+  failed: 'raptor': similarity_threshold: auto could not resolve a threshold from this run's own
+  embeddings — the median pairwise cosine similarity is -0.0031, at or below zero, … Derive this
+  pipeline document using `weft pipeline derive` and `replace:` its `embed` stage with an embedder
+  whose vectors carry semantic meaning, or type a similarity_threshold yourself if you have a
+  stated claim about this corpus that auto should not second-guess
+  ```
+
+  **Then the message was obeyed, literally, from `<scratch>/ex1018`** — because a remedy that has
+  only been read is the same defect one wording over:
+
+  ```text
+  $ weft pipeline derive index-with-deep-raptor my-deep
+  wrote pipelines/my-deep.yaml — 'my-deep' extends 'index-with-deep-raptor'.
+  $ # add:  replace: [{id: embed, use: openai-embeddings}]
+  $ weft index . --pipeline my-deep
+  produced 1, nothing to produce 0, failed 0. nodes now stored: 113.   # exit 0
+    lvl | count      (107 leaves, 5 level-1, 1 level-2)
+  ```
+
+  **The neighbouring assertion is why this shipped.** The degeneracy test one function above
+  asserts `"embed" in outcome.reason`, which the broken message satisfied perfectly — an assertion
+  that cannot distinguish a working remedy from an inert one. The new test asserts the *act*:
+  `replace` present, `[services] embed` absent. `weft pipeline derive` was confirmed to exist
+  before the wording was accepted, since a message naming a command that does not exist is this
+  same defect a third time (`L8.14` is the second)
+
 **Conditional — recorded with what would schedule them, and not scheduled.**
 
 - [ ] **10.14 ⚠ D2** a newly indexed document joins the existing tree rather than founding a second

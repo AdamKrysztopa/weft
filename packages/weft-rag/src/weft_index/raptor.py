@@ -541,8 +541,22 @@ class RaptorSummarizer:
                         f"from this run's own embeddings — the median pairwise cosine "
                         f"similarity is {median:.4f}, at or below zero, meaning the typical "
                         f"pair here is orthogonal or worse and there is no relationship in "
-                        f"these vectors for a threshold to describe. Configure an embedder "
-                        f"whose vectors carry semantic meaning in '[services] embed', or type "
+                        f"these vectors for a threshold to describe. "
+                        # **`[services] embed` does not apply here, and this message named it
+                        # until task 10.18.** This stage is reachable only from a pipeline
+                        # document, and a `--pipeline` run deliberately does not read
+                        # `[services]` — `weft_cli.run_services` says so in its own words
+                        # (*"On a `--pipeline` run `[services] embed` is deliberately not
+                        # read"*), and `index-text.yaml`'s *"What `--pipeline` costs you"*
+                        # paragraph already carried the real remedy. So the old wording sent
+                        # every operator who saw it to a setting their run ignores: a loud
+                        # failure naming an inert remedy, which is worse than the silence 10.9
+                        # replaced, because they cannot tell their fix from one that could never
+                        # work. Found by running the binary at Phase 10's close, from a
+                        # directory whose `weft.toml` had already set it.
+                        f"Derive this pipeline document using `weft pipeline derive` and "
+                        f"`replace:` its `embed` stage with an embedder whose vectors carry "
+                        f"semantic meaning, or type "
                         f"a similarity_threshold yourself if you have a stated claim about "
                         f"this corpus that auto should not second-guess"
                     )

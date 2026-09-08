@@ -806,6 +806,28 @@ naming a `key: value` that its own resolved config contradicts is machine-checka
 phase's FF26 already reads resolved documents for exactly this class of claim.
 
 
+### L10.29 — the brief's done-condition was a check about the dispatcher's tree, not about the agent's work
+
+**What happened.** `phase-step`'s implementer brief carries *"`git diff -- tests/ docs/` is empty"*
+under **Done when**. That is the dispatcher's *Verify* check — it asks whether the **agent** touched
+tests or documents. Stated as the agent's own done-condition it is unsatisfiable by construction:
+the Red test is written and left uncommitted on purpose, so `git diff -- tests/` is never empty at
+the moment the agent runs. Task 10.18's implementer returned correct, minimal, green work and spent
+its `## Noticed` section — in all four of its reports — explaining that it could not satisfy that
+line and had not caused it. It reasoned correctly and still had to burn the one channel it has for
+telling me something I did not know.
+
+**Generalises to.** *Every clause under **Done when** must be one the agent can evaluate about its
+own diff. A condition about the dispatcher's working tree belongs in Verify, where the dispatcher
+reads it — and if it must appear in the brief at all, it is phrased as a prohibition ("do not edit
+tests or documents"), never as a state to reach.* The wider shape: **an unsatisfiable acceptance
+criterion is not merely noise — it consumes the agent's judgement and its report.**
+
+**Candidate home.** `.claude/skills/phase-step/references/implementer-brief.md`, the *Done when*
+template: move the `git diff` line out of the brief and into *Verify*, where `phase-step` already
+states it as the dispatcher's act. Worth checking the same template for other conditions phrased
+about the tree rather than about the diff.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

@@ -1338,6 +1338,66 @@ async def test_auto_refuses_a_distribution_with_no_structure_naming_the_embedder
     assert "auto" in outcome.reason
 
 
+# --- Ledger task 10.18 — the remedy the refusal names is one the operator can actually take.
+
+
+async def test_the_refusal_names_a_remedy_that_applies_to_a_pipeline_document() -> None:
+    """A loud failure naming an inert remedy is worse than the silence it replaced.
+
+    **Found by running the binary at Phase 10's close, not by this suite.** `weft index .
+    --pipeline index-with-deep-raptor`, from a directory whose `weft.toml` *already* set
+    `[services] embed = "openai-embeddings"`, resolved `embed` to `hash`, failed here at a median
+    cosine of −0.0031, and told the operator to configure an embedder in `[services] embed` — the
+    thing they had already done. Exit code 1, and following the message exactly reproduces it
+    forever.
+
+    **The tree already knew.** `weft_cli/run_services.py` states *"On a `--pipeline` run
+    `[services] embed` is deliberately not read"*, and `index-text.yaml` — the document
+    `index-with-raptor` extends — carries the real remedy in its *"What `--pipeline` costs you"*
+    paragraph: derive the document and `replace:` its `embed` stage. This stage is reachable
+    **only** from a pipeline document, so every reach of this message is a run that does not read
+    the setting it names.
+
+    The test asserts the *fact the message has to convey* — the act that changes the embedder on
+    this run — rather than a wording. The neighbouring test above asserts `"embed" in reason`,
+    which the broken message satisfied; an assertion that cannot tell the two apart is what let
+    this ship.
+    """
+    # Arrange — the same structureless vectors the degeneracy test uses: `hash`'s own shape.
+    table = {
+        f"chunk {index}": Vector(
+            values=(
+                math.cos(math.radians(60.0 * index)),
+                math.sin(math.radians(60.0 * index)),
+            )
+        )
+        for index in range(6)
+    }
+    nodes = _embedded(tuple(_node(f"chunk {index}") for index in range(6)), table)
+
+    # Act
+    outcome = await RaptorSummarizer().run(
+        nodes, _ctx(embedder=_StubEmbedder(table), llm=_ScriptedLLM([]))
+    )
+
+    # Assert
+    assert isinstance(outcome, Failed)
+    assert "[services] embed" not in outcome.reason, (
+        "the refusal names `[services] embed`, which a `--pipeline` run deliberately does not "
+        "read (`weft_cli/run_services.py`) — so an operator who follows this message exactly "
+        "gets the identical failure again, with no way to tell their fix from one that could "
+        f"never work: {outcome.reason!r}"
+    )
+    assert "replace" in outcome.reason, (
+        "the refusal must name the act that actually changes this run's embedder — deriving the "
+        "document and replacing its `embed` stage, which is what `index-text.yaml` already tells "
+        f"an operator: {outcome.reason!r}"
+    )
+    assert "embed" in outcome.reason and "auto" in outcome.reason, (
+        f"the refusal must still name the embedder and the setting that refused: {outcome.reason!r}"
+    )
+
+
 async def test_a_typed_threshold_is_never_refused_for_a_flat_distribution() -> None:
     """The degeneracy check belongs to `auto` alone.
 
