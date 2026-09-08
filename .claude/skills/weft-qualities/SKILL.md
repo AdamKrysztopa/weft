@@ -271,6 +271,75 @@ where the claim is about a path this tree does not exercise, ask whether `weft-c
 test-only distribution that exists to *be* the stranger — could take it instead. A claim only a
 stranger can falsify belongs where a stranger lives.
 
+## Lens: a claim with nothing left to check it
+
+Phase 10's queue was dominated by one shape — **a written claim that stayed true-sounding after the
+thing it described moved**. Nine entries, five genres, and none of them failed anything:
+
+- **A comment describing a *sibling file's* configuration.** `index-with-deep-raptor.yaml` explained
+  itself by quoting its parent's `similarity_threshold: 0.75` and promising it therefore "builds
+  nothing" under `hash`; task 10.9 deleted that number two tasks later. Both halves were false
+  through three green gates (`L10.28`). **A comment about another file has no callers, only
+  quoters, and nothing reads it.** Ask of any such sentence: what would fail if it were wrong?
+- **A contract docstring stating what its first implementation did.** `Expander`'s said every
+  derived node is `parent.derive(...)`; `raptor` has used `Node.combine` since it shipped, and the
+  docstring is published verbatim to operators through `manual/contract-reference.md` (`L10.13`).
+- **A citation that resolves, names the right file, and points at the wrong method** — the one form
+  fitness function 17 is designed not to see, because it proves a path exists and never that the
+  line says what the sentence claims (`L10.14`).
+- **A hand-counted total.** `manual/user-manual.md` stated nineteen, eleven and six against a
+  registry holding 31 documents of which 11 are ingest rungs — while the file next door had deleted
+  its own count for the same reason on the same day (`L10.18`). Prefer a pointer to a count.
+- **An assertion that a mechanism is *absent*.** Task 10.21 committed the claim that a pack has no
+  way to validate a resolved document's stage arrangement, when `Property` + `intact`/`destroys` +
+  `IntactViolationError` have done exactly that since task 1.2 (`L10.33`). **Nothing fails when this
+  is wrong** — the reader simply builds a second seam. An absence is a claim about the whole tree
+  and needs a counted search exactly as a presence does (`L10.34` for how not to count one).
+
+**And the same shape reaches a gate's own outcome.** G15 settled that a `Revisable` reaches the
+corpus through `ctx.require(NodeStore)`, having written down in its own *Read* face the objection
+that refuted it — *"G13's case was `reconcile`, which is not a pipeline stage — the precedent does
+not transfer for free"* — and adopted the mechanism anyway. Three tasks and two contract versions
+shipped green over a call nothing had executed, and the binary found it (`L10.40`). **An argument
+that a precedent "does not transfer for free" is a finding to discharge, not a bullet to answer.**
+
+*What to do with a hit:* re-derive the claim at the point of reasoning, correct the document in
+place, and ask whether the claim could be *stated where it is checked* instead — a number replaced
+by a pointer, a comment replaced by an assertion, a docstring sentence replaced by the test that
+would fail.
+
+## Lens: can the instrument see the thing being varied?
+
+Eight of Phase 10's entries are one question asked of a measurement rather than of a design, and
+every one of them produced a *plausible* number rather than an obviously broken one:
+
+- **The metric was at its ceiling before the technique ran**, because the default retrieval depth
+  equalled the corpus size (`L10.3`). A comparison cannot move what is already saturated.
+- **The comparability guard checks "model versions" and cannot see the model that did the work**,
+  because it lives in `[llm.roles]` and never in a resolved stage (`L10.5`) — so two arms that
+  differed by their summarising model compared as identical, and a diff line printed
+  `openai-embeddings -> openai-embeddings` for the same reason (`L10.6`).
+- **The interval was estimated from three runs and has more spread than the effect it estimates.**
+  Two triples of a *retrieval-identical* configuration spanned 0.0025 and 0.0215; pooled over six
+  the width is 0.0215, and the baseline's reported +0.0177 improvement is **inside it** (`L10.17`).
+  This corrected the phase's headline number after it had been quoted in three documents.
+- **The instrument mutates what it measures**: `weft eval run` always indexes, so comparing two
+  query rungs re-ingests and adds a fresh set of summaries beside the old, and the comparison spans
+  a store that grew between its arms (`L10.25`).
+- **The check can only see the typed form of a field**, so `min_cluster_size: 4` is refused by name
+  beside a typed `cluster_size: 2` and accepted in silence beside `cluster_size: auto` resolving to
+  2 — the same misconfiguration, loud one way and producing nothing the other (`L10.30`).
+- **The falsification verdict flips with which repetition is named on the command line** (`L10.4`).
+- **And the criterion itself can be backwards.** A degeneracy check was about to key on *narrow*
+  spread; measurement showed `hash`'s spread (0.325) is **wider** than a real embedder's (0.265),
+  because meaningless vectors are near-orthogonal and therefore spread out. What separates them is
+  the median (−0.003 against 0.433), which needs no tuned constant at all (`L10.22`).
+
+**The falsifying question:** *name the thing this measurement is supposed to distinguish, then find
+the field the instrument actually reads — and construct the case where they differ.* If you cannot
+construct it today, say so; that is the assumption, and it expires. Take the measurement before
+arguing from it, and **re-take it before arguing from it a second time**.
+
 ## What this is not
 
 - **Not a style review.** Ruff and Pyright run in `ci-checks` and are better at it.

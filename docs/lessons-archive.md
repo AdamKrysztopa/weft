@@ -45,6 +45,7 @@ One `##` section per drain, newest first, headed by the date and what closed. In
 per line:
 
 ```markdown
+
 ## 2026-09-14 — Phase 5 close
 
 - **L5.3** *measure before asserting applies to design proposals about this tree, not only to
@@ -62,6 +63,113 @@ what `.claude/hooks/lessons_context.py` injects into every session, so it is the
 loop. If it needs the original entry to make sense, it is not finished.
 
 ---
+
+## 2026-09-08 — Phase 10's close
+
+Forty-two entries, the second-largest drain this project has run. **The queue had one dominant
+shape and it is worth naming before the list:** a *claim with nothing left to check it* — a plan, a
+docstring, a comment about a sibling file, a hand-counted total, a citation, an assertion that a
+mechanism is absent, and finally a gate's own settled outcome. Nine entries, five genres, none of
+which failed anything. That group became a `weft-qualities` lens rather than nine edits, because
+what they share is a moment (reviewing a change) and not a location.
+
+**The loop's own check — which of this phase's defects would a rule already in *Applied* have
+caught?** Three, and each is recorded as a `recurs` edge below: `L10.9` is `L6.4`'s population rule,
+`L10.37` is `L5.6`'s two-sides-one-source rule, and the `index-with-adrap.yaml` rung shipped without
+its `add_pipeline_resource` registration, which is `L5.15`'s producing-side-without-a-consuming-side
+exactly. `L5.15` was already flagged **MOVE IT** by `scripts/lessons_graph.py` at four recurrences
+before this drain and is now at five; `L6.4` is at five and `L5.6` at four. All three are rules that
+live in prose and keep being re-learned, and the honest reading is that prose is the wrong artefact
+for them — recorded here rather than repaired, because moving three long-standing rules is its own
+piece of work and doing it inside a phase close would be the "implemented in isolation" failure the
+`lessons` skill warns about. **Filed as `R10.2`.**
+
+- **L10.1** Applied — `weft-qualities` → *a claim with nothing left to check it*: a plan asserting
+  shipped behaviour states where it was measured
+- **L10.2** Applied — the papers are kept on disk under `_external-src/`; every derived claim cites
+  a section a reader can open. Already bearing fruit: it is what caught `L10.15`
+- **L10.3** Applied — `weft-qualities` → *can the instrument see the thing being varied?*: a metric
+  at its ceiling before the technique runs measures nothing
+- **L10.4** Applied — same lens: a falsification verdict that changes with which repetition is named
+  is not a verdict
+- **L10.5** Applied — same lens; the comparability guard cannot see `[llm.roles]`. Defect filed as
+  **R10.3**
+- **L10.6** Applied — same lens: a diff line prints the field that changed, not the field it knows
+- **L10.7** Applied — `phase-step` → *Orient*, `--check-live`: a branch a comment calls "the whole
+  question" is asserted against the live document, never only a fixture. `refines L6.3`
+- **L10.8** Applied — the shared ledger parser; `supersedes` by `L10.38`, which found the same field
+  read two ways and fixed the parser
+- **L10.9** Applied — `weft-qualities`, and it is `L6.4` again: a glyph means what its live instances
+  say. `recurs L6.4`
+- **L10.10** Applied — `phase-step` → *Red*: assert the fact a field means, never an incidental
+  order. `recurs L6.10`
+- **L10.11** Applied — `phase-step` → *Verify*: an explanation that dismisses the evidence is the
+  first kind to re-derive
+- **L10.12** Filed as evidence on **G14** — a dispatch with no isolation, where the agent made its
+  own `git worktree` in the shared checkout. The gate is open and this is what it costs
+- **L10.13** Applied — `weft-qualities` → *a claim with nothing left to check it*: a contract
+  docstring states the contract, never what its first implementation did
+- **L10.14** Applied — same lens; a citation naming the right file and the wrong method is the one
+  form FF17 cannot see, said in FF17's own docstring. `refines L8.9`
+- **L10.15** Applied — same lens, and the first thing `L10.2`'s remedy caught. `caused-by L10.2`
+- **L10.16** Applied — `phase-step` → *Red*: a test double that runs out of script names the call it
+  could not answer. `recurs L6.13`
+- **L10.17** Applied — `weft-qualities` → *can the instrument see the thing being varied?*, and it
+  corrected this phase's headline number in three documents
+- **L10.18** Applied — same lens, the counts half: prefer a pointer to a count. `recurs L6.1`
+- **L10.19** **Declined** — ruff's `F811` is selected and applies to `tests/`; probed 2026-09-08 on a
+  two-function fixture and it reports the redefinition. The check exists and would have fired at the
+  next gate; the duplicate was simply noticed by hand first. Adding machinery for a rule the tree
+  already enforces is how a gate grows without getting stronger
+- **L10.20** Applied — `phase-step` → *Verify*: a suppression comment is read against the line it
+  silences and the line above it
+- **L10.21** Applied — `phase-step` → *Red*: a deterministic fixture that the loop guard refuses is a
+  fixture the run cannot use
+- **L10.22** Applied — `weft-qualities` → *can the instrument see the thing being varied?*: a
+  criterion is measured before it is written, and this one was backwards
+- **L10.23** Applied — `phase-step` → *Red*: a sentinel must be spellable in the file operators write
+- **L10.24** Applied — **`.claude/hooks/guard_unchecked_commit.py`**, a new `PreToolUse` Bash guard,
+  registered in `.claude/settings.json` and named in `CLAUDE.md` → *Automation*. Three instances in
+  one phase, the rule written after the first and broken twice more by its own author, which is this
+  skill's own criterion for moving a rule into machinery. The guard refused the very edit that
+  documented it — a false positive on heredoc *prose* — and strips heredoc bodies as a result
+- **L10.25** Filed as **R10.4** — `weft eval run` always indexes, so two query rungs cannot be
+  compared against one index
+- **L10.26** Applied — `weft-qualities`: a null reading is checked against the payload's real shape
+  before anything is written on the strength of it
+- **L10.27** Applied — the resolver's diagnosis names `[services]`, the table that supplies one.
+  `recurs L5.19`
+- **L10.28** Applied — `weft-qualities` → *a claim with nothing left to check it*, the sibling-file
+  case: a comment about another file has no callers, only quoters
+- **L10.29** Applied — `phase-step/references/implementer-brief.md` → *Before you send*, item 6: the
+  dispatcher's checks stay in *Verify* and out of the brief
+- **L10.30** Applied — `weft-qualities` → *can the instrument see the thing being varied?*: a
+  validator that sees only the typed form is silent on the resolved one. Defect filed as **R10.5**
+- **L10.31** Applied at task 10.20 — an absent tally states that it is uncomputed rather than
+  defaulting to a value a run might genuinely have produced
+- **L10.32** Applied — `implementer-brief.md` → *Before you send*, item 5
+- **L10.33** Applied — `weft-qualities` → *a claim with nothing left to check it*: asserting a
+  mechanism is **absent** is a claim about the whole tree
+- **L10.34** Applied — `implementer-brief.md` → *Before you send*, item 4: count a search that proves
+  an absence, never sample it
+- **L10.35** Applied — `implementer-brief.md` → *Before you send*, item 3: price a published-surface
+  change before writing the brief, because a sudden major is evidence about its shape
+- **L10.36** Applied — `CLAUDE.md` → *Automation* carries the backgrounding half of `L10.24`'s guard;
+  a command the harness auto-backgrounds is still running. `refines L10.24`
+- **L10.37** Applied — `implementer-brief.md` → *Before you send*, item 2, and it is `L5.6`'s rule
+  applied to the dispatch rather than to a test. `recurs L5.6`
+- **L10.38** Applied — the shared ledger parser now keeps continuation lines beginning `*`.
+  `supersedes L10.8`
+- **L10.39** Applied — `implementer-brief.md` → *Before you send*, item 1: check what the gate says
+  about a name's **visibility** before telling an agent to reach for it
+- **L10.40** Applied — `docs/README.md` → *Protocol*: a session runs the mechanism its outcome names,
+  on the path it will run on, before it closes. `refines L5.1`
+- **L10.41** Applied — `weft-openai` now declares `pillow`; the generalisation (a dependency list is
+  a claim only a clean install can falsify) is filed as **R10.6**, a fitness function using FF9c's
+  existing throwaway-venv rig, because sizing it against 18 distributions is its own measurement.
+  `recurs L9.78`
+- **L10.42** Applied — `docs/README.md` → *Protocol*: a session may be opened solo and is closed with
+  the owner; one settled solo says so in its own text rather than reading as consensus
 
 ## 2026-08-22 — Phase 6 midpoint
 

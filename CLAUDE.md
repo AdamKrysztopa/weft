@@ -211,6 +211,16 @@ Six live in `.claude/skills/`:
   both are recorded and recoverable, and a guard that fires on safe commands is one people learn to
   route around. Matched at a **command position** only, after the first version refused the very
   edit that documented it.
+- **A `git commit` chained onto a check in one command is refused** (`PreToolUse` on `Bash`,
+  `guard_unchecked_commit.py`). Three times in Phase 10 a verdict was swallowed and the wrong thing
+  committed: an assertion whose message went nowhere, so a task was committed with no ledger entry;
+  a check piped into `tail` before `&&`, where **a pipeline's exit status is its last command's**,
+  so the pipe succeeded while the tests failed; and a gate whose exit code was reported by the
+  wrapper that backgrounded it, saying `0` for a run that aborted. Run the check alone, as the last
+  command in its own chain; read the verdict; then commit — and where a run may be backgrounded,
+  write the verdict *into* its log rather than trusting a status. Staging followed by a commit is
+  untouched, and heredoc bodies are stripped before matching, because prose is not a command — a
+  lesson the guard taught by refusing the very edit that documented it. `docs/lessons.md` `L10.24`.
 - **Writes are refused to anything outside this repository's own tracked tree** (`PreToolUse`) —
   reading material kept on disk and excluded from version control. A write there would leave no
   trace in any diff, which is the whole reason it is refused rather than merely discouraged.

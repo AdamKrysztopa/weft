@@ -3443,6 +3443,7 @@ version = "0.1.0"
 source = { editable = "packages/weft-openai" }
 dependencies = [
     { name = "openai" },
+    { name = "pillow" },
     { name = "weft-kernel" },
     { name = "weft-rag" },
 ]
@@ -3450,6 +3451,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "openai", specifier = ">=3.1" },
+    { name = "pillow", specifier = ">=10.0" },
     { name = "weft-kernel", editable = "packages/weft-kernel" },
     { name = "weft-rag", editable = "packages/weft-rag" },
 ]

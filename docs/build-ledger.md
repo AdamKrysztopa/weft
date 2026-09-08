@@ -5781,6 +5781,37 @@ it had read one failure (`L7.1`).
   Phase 10's content: this is the observability seam, and widening a phase to swallow a finding is
   how a carried repair stops being countable
 
+- [ ] **R10.2** the three rules this loop keeps re-learning live somewhere that makes them bite:
+  `L5.15` (a producing side with no consuming side) stands at **five** recurrences, `L6.4` (read the
+  population, not the declaration) at **five**, `L5.6` (a comparison whose two sides come from one
+  source) at **four**, counted by `scripts/lessons_graph.py` after Phase 10's drain · owner
+  `implement-ll` → *Routing*; `docs/lessons-archive.md` → the edge vocabulary · `L10.9`, `L10.37`,
+  and Phase 10's own `index-with-adrap.yaml` shipping without its `add_pipeline_resource`
+  registration · **this is the loop's own closing question answering badly three times in one
+  phase**, and `implement-ll` says a rule that was applied and did not bite is in the wrong artefact
+  rather than wrong. Filed rather than repaired at the drain that found it, because relocating three
+  long-standing rules is its own piece of work and doing it inside a phase close is the
+  "implemented in isolation" failure the `lessons` skill warns about
+- [ ] **R10.3** the comparability guard can see the model that actually did the work, so two eval
+  arms differing only by their summarising model do not compare as identical · owner
+  `weft_eval`; `weft_cli.llm_roles` · `L10.5` · the model is named in `[llm.roles]` and never in a
+  resolved stage, so what the guard reads and what the run used are different facts
+- [ ] **R10.4** two query rungs can be compared against **one** index · owner `weft_eval`;
+  `weft_cli.eval_commands` · `L10.25` · `weft eval run` always indexes, so a second run re-ingests
+  and adds a fresh set of summaries beside the old, and the comparison silently spans a store that
+  grew between its arms — which makes every multi-arm number in this phase's baselines a measurement
+  of a moving corpus
+- [ ] **R10.5** a cross-field validator refuses the same misconfiguration whether the field it
+  depends on was typed or resolved · owner `weft_index.raptor.RaptorConfig` · `L10.30` ·
+  `min_cluster_size: 4` is refused by name beside a typed `cluster_size: 2` and accepted in silence
+  beside `cluster_size: auto` that resolves to 2
+- [ ] **R10.6** every published distribution installs alone into a clean environment and its pack
+  reports `active` rather than `failed` · owner `tests/architecture`; FF9c's throwaway-venv rig ·
+  `L10.41` · `weft-openai` imported Pillow without declaring it and registered **zero** of its three
+  plugins on a clean install, while every test in this tree stayed green because the development
+  venv holds Pillow transitively. **Size it before adopting it** — 18 distributions, each a venv
+  creation, is a real cost against `ci-checks`, and the two numbers this check owes are how many it
+  walks and how many it fails today
 - [ ] **R9.13** `L5.15`, `L6.4` and `L5.6` are held by an artefact that makes them bite · owner this
   repository's own loop; `docs/lessons-archive.md`'s edge vocabulary · with the Phase 9 edges
   written, `scripts/lessons_graph.py` returns **MOVE IT** for all three — re-learned four, four and
@@ -5799,6 +5830,30 @@ it had read one failure (`L7.1`).
   the script could not see, every one stated in the entries' own prose
 
 ## Phase 10 — RAPTOR, extended
+
+**Closed 2026-09-08. All twenty-five tasks are ticked, `01`'s Exit is met as a conjunction, and the
+lessons queue is drained to empty** — forty-two entries, archived with their edges at
+`docs/lessons-archive.md` → *2026-09-08*.
+
+**The loop's own closing question — which of this phase's defects would a rule already in *Applied*
+have caught? Three, and that is the phase's least comfortable number.** `L10.9` is `L6.4`'s
+population rule (a marker means what its live instances say); `L10.37` is `L5.6`'s (a comparison
+whose two sides come from one source cannot disagree); and `index-with-adrap.yaml` shipped without
+its `add_pipeline_resource` registration, which is `L5.15`'s producing-side-with-no-consuming-side
+exactly — so FF16 stayed green over a plugin no document could reach. By `implement-ll`'s own rule a
+rule that was applied and did not bite is in the wrong artefact rather than wrong, and all three now
+stand at four or five recurrences apiece in `scripts/lessons_graph.py`. They are **filed as `R10.2`
+and not repaired here**, deliberately: relocating three long-standing rules is its own piece of work,
+and doing it inside a phase close is the "implemented in isolation" failure the `lessons` skill
+warns about. What this phase did buy with machinery is `L10.24` — three instances in one phase, the
+rule written after the first and broken twice more by its own author — which became
+`.claude/hooks/guard_unchecked_commit.py` rather than a louder sentence.
+
+**And the phase's own shape, worth one line for whoever plans the next one:** four of its defects
+were found by *running the binary* and none by its 2,501 tests — the degeneracy remedy that named a
+table the run does not read (10.18), a garbled streamed answer (10.15), a rung no document could
+reach, and `adrap` unable to resolve `NodeStore` at all, which opened **G16**. That is Phase 3's
+finding recurring at four times the test count.
 
 **Added 2026-09-06 by the owner's roadmap decision; specified 2026-09-06, the day the papers arrived.**
 `01` → Phase 10 owns the content and the exit; this section owns the tasks. The ⛔ this section
@@ -7310,9 +7365,9 @@ extractors and **both branches of 10.9**, so no branch of this phase ships havin
 
 **One thing to do before that session opens, and it is not a design question.** `10.14`'s own line names what schedules it — *a rebuild cost on the corpus that `10.13` can state* — and **that cost has never been measured**. Every position in G15's *Remove* face is an argument about paying to avoid a number nobody has taken, while Chucri §6.5 measures the thing being avoided as the one that scores better. The rig exists: `10.0` and `10.13` built it.
 
-- [ ] **10.14 ⚠ D2** a newly indexed document joins the existing tree rather than founding a second
+- [x] **10.14 ⚠ D2** a newly indexed document joins the existing tree rather than founding a second
   one, and no query ever returns both the old and the new summary of one cluster · owner `01` → Phase
-  11 → D2; `02` §1 → *The store contract family*; `05` → **G15** · turns on — · sha — · **Unblocked 2026-09-08: G15 settled, `D2` settled with it, and the ⛔ is discharged.** This is now the `adrap` *plugin* alone — a `Revisable` (task 10.23) that reads the corpus through `ctx.require(NodeStore)`, assigns each new leaf to the nearest existing cluster by a centroid recomputed from that cluster's stored members, and replaces each affected summary and every ancestor above it through `supersede` (task 10.24). **It needs no persisted state that is not a node**, which is the finding that made `D2` cheap: Chucri §4.2 stores fitted UMAP and GMM instances with the tree and Weft's clusterer fits no model, so a cluster's entire state is a centroid derivable from nodes already stored. Depends on 10.23 and 10.24. **What was filed as `10.25` is folded in here rather than standing alone** — the owner's call, 2026-09-08, and it was a documentation edit wearing a task line: after 10.23 the true statement is *`raptor` the `Expander` reads no store; `adrap` the `Revisable` does*, and the three artefacts that say the shorter thing (`10` §1.2's row, `weft_index/raptor.py`'s module docstring, `index-with-raptor.yaml`) are corrected in this task's own commit. `10.1` is this phase's record of what happens when artefacts drift apart, so it is checked rather than assumed. **State the cost honestly in the row**: Chucri §6.5 measures adRAP below a full rebuild on two of three datasets, so this technique's value is operational — not paying to rebuild — and not quality, and `10.22`'s number is what says whether that trade is worth taking on a real corpus Chucri §4 (adRAP) is the paper on this, and its own §6.5 (p.9) reports that adRAP
+  11 → D2; `02` §1 → *The store contract family*; `05` → **G15**, **G16** · turns on — · sha `6af967f` · **Unblocked 2026-09-08: G15 settled, `D2` settled with it, and the ⛔ is discharged.** This is now the `adrap` *plugin* alone — a `Revisable` (task 10.23) that reads the corpus through `ctx.require(NodeStore)`, assigns each new leaf to the nearest existing cluster by a centroid recomputed from that cluster's stored members, and replaces each affected summary and every ancestor above it through `supersede` (task 10.24). **It needs no persisted state that is not a node**, which is the finding that made `D2` cheap: Chucri §4.2 stores fitted UMAP and GMM instances with the tree and Weft's clusterer fits no model, so a cluster's entire state is a centroid derivable from nodes already stored. Depends on 10.23 and 10.24. **What was filed as `10.25` is folded in here rather than standing alone** — the owner's call, 2026-09-08, and it was a documentation edit wearing a task line: after 10.23 the true statement is *`raptor` the `Expander` reads no store; `adrap` the `Revisable` does*, and the three artefacts that say the shorter thing (`10` §1.2's row, `weft_index/raptor.py`'s module docstring, `index-with-raptor.yaml`) are corrected in this task's own commit. `10.1` is this phase's record of what happens when artefacts drift apart, so it is checked rather than assumed. **State the cost honestly in the row**: Chucri §6.5 measures adRAP below a full rebuild on two of three datasets, so this technique's value is operational — not paying to rebuild — and not quality, and `10.22`'s number is what says whether that trade is worth taking on a real corpus Chucri §4 (adRAP) is the paper on this, and its own §6.5 (p.9) reports that adRAP
   *"falls short by at least 3%"* on context relevance and *"underperforms compared to RAPTOR in the
   MultiHop and QASPER datasets"* — the full rebuild is the strong baseline, and *rebuilding twice may
   cost less than `01`'s ordering sentence assumed*. What it needs: persisted per-cluster state that is

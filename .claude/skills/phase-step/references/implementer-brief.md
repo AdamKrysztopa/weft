@@ -139,3 +139,49 @@ branch, so the report was the only reason anyone looked.
 **Before dispatching, take each branch the brief constrains and name the value it should produce.**
 A branch with no nameable value is a decision still owed, not a constraint. *Already decided* is
 read once per constrained branch, never once per file.
+
+
+## Before you send: six checks a brief fails silently
+
+Phase 10 filed **six** entries that are one sentence — *the brief was wrong in a way the dispatcher
+could have checked before sending it*. That density is the finding: none of these is caught by the
+agent, by the gate, or by the tests, because each is a defect in the specification rather than in
+the work. Run these against the brief, not against the code.
+
+1. **Every name the brief tells the agent to reach for: does the gate permit reaching it?**
+   `L10.39`. A brief said *"you may import `_cosine`, `_format_cluster`... import it rather than
+   copying it"*, and pyright's strict `reportPrivateUsage` refuses cross-module access to any
+   leading-underscore name, by import and by attribute alike. The agent could not both obey and
+   pass, so it blocked — correctly, and after doing the whole task. *Usefulness and reachability
+   are decided by different files, and the brief's author is reading only the first.* One grep for
+   the name across `packages/*/src`, or one look at the lint configuration, answers it.
+
+2. **Is *Already decided* derived from the contract, or from your own test?** `L10.37`, and it is
+   `L5.6`'s rule — a comparison whose two sides come from one source cannot disagree. A brief
+   spelled a field `node` where the model calls it `value`; the Red test had the identical error
+   because the brief was written *from* the test. Read the field off the model, the method off the
+   Protocol, the enum member off the enum — not off the file you just wrote.
+
+3. **Does the brief grow a published surface, and does the family forbid it?** `L10.35`. A brief
+   added a method to `NodeStore`; `SourceDeletable`'s docstring, twelve classes down the same file,
+   forbids exactly that. What caught it was the **version arithmetic** — growing a base is a major
+   where four comparable additions were minors — so price the change before writing the brief: a
+   change that suddenly costs a major is evidence about its shape, not merely a bill.
+
+4. **Have you counted the search that proves an absence, or sampled it?** `L10.34`. A brief asserted
+   **in bold** that all 23 pre-existing type errors were the task's own missing import, checked with
+   an inverted `grep` piped through `head -3` — which cannot prove a negative. Two were an invented
+   field in the dispatcher's own fixture. Group and count by file; never `head` a search whose
+   conclusion is "there are no others".
+
+5. **Does the change land in a function already near a ceiling?** `L10.32`. A brief added two
+   branches to a method one below ruff's `max-complexity`, and said nothing — silently delegating
+   the choice between extracting a method and writing `# noqa: C901`, only one of which is visible
+   in a diff. If the brief adds branching, say which side of the ceiling it lands on.
+
+6. **Is every clause of *done when* something the agent can actually satisfy?** `L10.29`, reported
+   by the same agent in all four of its returns. `git diff -- tests/ docs/ is empty` is the
+   **dispatcher's** Verify step about the agent's diff, and is unsatisfiable as the agent's own
+   condition because the Red test is uncommitted by design, every time. It spent its one reporting
+   channel explaining a criterion that could never be met. Keep the dispatcher's checks in *Verify*
+   and out of the brief.

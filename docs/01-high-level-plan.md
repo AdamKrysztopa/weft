@@ -1027,7 +1027,31 @@ what the shipped `raptor` should already have done, and the Exit asks what the e
 does not. The stale-node re-index defect the ledger records is not this phase's either.
 
 **Tasks:** `build-ledger.md` → Phase 10 — 10.0 the baseline, 10.1–10.5 repairs, 10.6–10.13 the
-extension, 10.14–10.15 conditional and unscheduled.
+extension, 10.16–10.17 the worked examples, 10.18–10.24 the repairs and contracts those examples
+found, and **10.14–10.15 built rather than conditional**: the owner scheduled both on 2026-09-08 and
+`05` → **G15** settled the three design questions that had left them unscheduled. All twenty-five
+are ticked.
+
+**Exit met 2026-09-08, and it is a conjunction — read as one sentence, not three.** Clause by
+clause: `10.7` (`8df084f`) built **30 leaves → 14 level-1 → 6 level-2** from outside this repository
+against a real embedder, through the shipped `index-with-deep-raptor`, with **zero** level-2 nodes
+naming a parent that is not a level-1 node; `10.8` (`6e5772b`) walked a summary's members through
+the published `NodeStore.get` and measured the hop at **0.37 ms** on pgvector and ~4 ms on Qdrant;
+`10.13` (`e2e19db`) ran fifteen runs over three arms and **every one of the twelve differences fell
+inside the minimum detectable effect stated before the run**. The third clause's own escape applies
+and is taken deliberately rather than as a consolation: *a null result discharges it if it says so*,
+and `10.13` says so. What the conjunction adds that no clause states alone is that the same tree
+satisfies all three — the depth is real, its members are reachable through the contract a stranger
+would use, and it is not measurably better on this corpus.
+
+**One deliberate divergence from this Exit's own wording, stated rather than quietly satisfied.**
+"every node states its level" is true of every *abstraction* and false of every *leaf*, on purpose:
+a leaf carries no `RaptorFacts` at all and therefore states no level, because the filter
+`ext.weft-index-raptor.level` has to select exactly the abstractions and a leaf tagged `0` would
+need every reader to know that `0` means "not one of these". `RaptorFacts.level`'s own docstring
+carries the argument and `test_a_leaf_states_no_level_at_all` pins it, so the divergence is a
+checked property rather than a gap. Written here because an Exit that reads as satisfied while a
+shipped test asserts the opposite is exactly the drift `10.1` is this phase's own record of.
 
 ### Phase 11 — The graph pack
 
