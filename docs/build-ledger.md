@@ -7035,6 +7035,51 @@ extractors and **both branches of 10.9**, so no branch of this phase ships havin
   before the wording was accepted, since a message naming a command that does not exist is this
   same defect a third time (`L8.14` is the second)
 
+- [ ] **10.19** a configuration that can never produce a summary is refused rather than producing
+  nothing: the `min_cluster_size` ≤ `cluster_size` rule holds against the **resolved** value and not
+  only the typed one, and a level that holds no node at all is distinguished from a level that holds
+  too few · owner `weft_index/raptor.py`; `01` → requirement 5 · turns on — · sha — · **Found at the
+  phase's `weft-qualities` review and verified by construction.** `RaptorConfig(min_cluster_size=4,
+  cluster_size=2)` is refused by name, quoting both numbers; `RaptorConfig(min_cluster_size=4)` with
+  `cluster_size` left at `auto` is **accepted**, and `auto` then resolves to `2` on 5000-character
+  chunks (`_resolve_cluster_size` floors at 2). The identical effective configuration is loud one way
+  and silent the other: every cluster caps at 2, `summarizable` is permanently empty, and `run`
+  answers `Produced` with the payload unchanged — indistinguishable from the legitimate case where
+  this run's clusters were merely too loose. The validator's own comment states the hole
+  (*"Only checkable against a typed `cluster_size`"*) and nothing re-checks after resolution. Second
+  half: `RaptorConfig(over_level=5)` is accepted against a two-level tree, `selected` is empty, and
+  the same branch fires — *no node at this level at all* is always a misconfiguration, *fewer than
+  `min_cluster_size`* can be data, and one branch conflates them. `L10.30`
+
+- [ ] **10.20** a run-level tally is absent rather than plausibly wrong when it was not computed:
+  `RaptorFacts.clusters_found`/`clusters_summarised` carry no default that could be mistaken for a
+  real count · owner `weft_index/payload.py`; `01` → requirement 5 · turns on — · sha — · **The
+  field the phase flagged, and the review found the argument for it inverted.** Both are
+  `Field(default=1, ge=1)`. Measured: **one** shipped construction site (`raptor.py`) against
+  **three** in one test file, and `_with_run_counts` overwrites both on every node `run` returns —
+  so the default is *unreachable in production* and exists to save three test call sites two
+  keyword arguments each, defended by a ten-line docstring paragraph. Unlike its sibling
+  `resolved_similarity_threshold: float | None = None`, where `None` is unmistakably *not stated*,
+  `1`/`1` reads as a coherent claim — *this run found one cluster and summarised it* — on a model
+  that is **frozen and persisted**, so any path that skips the computation writes a false fact into
+  a store that no reader can tell from a true one. The waiver question answers itself: making the
+  default unnecessary costs six keyword arguments, which is shorter than the paragraph. `L10.31`
+
+- [ ] **10.21** a `raptor` rung refuses a level a prior rung in the same run already consumed,
+  rather than building a second parallel set of summaries over it · owner `weft_index/raptor.py`;
+  `01` → requirement 3 · turns on — · sha — · **Requirement 3's second question — *if someone
+  inserts a stage in the wrong place, what tells them?* — has no answer for this stage.** Two rungs
+  sharing an `over_level` each cluster that level's nodes and each writes summaries over them;
+  because the summary text comes from a model, the two sets differ in content and therefore in id,
+  so the store keeps both. Nothing warns. `requires`/`provides` cannot see it, since it is not a
+  data dependency. **This one is plugin-local and needs no new seam**: a rung can see, in the
+  payload it was handed, that some node already names a member at its own `over_level` among its
+  `lineage.parents`, and refuse by name. *The sibling hazard is not plugin-local and is recorded
+  rather than fixed here* — a second `embed` between two `raptor` rungs silently re-bills every
+  leaf and every level-1 summary, undoing exactly what 10.4 saved, and only prose in
+  `index-with-deep-raptor.yaml` stands against it. A pack has no way to validate a resolved
+  document's stage arrangement; that absence is the finding, and it is bigger than this task
+
 **Conditional — recorded with what would schedule them, and not scheduled.**
 
 - [ ] **10.14 ⚠ D2** a newly indexed document joins the existing tree rather than founding a second

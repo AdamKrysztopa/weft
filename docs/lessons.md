@@ -828,6 +828,57 @@ template: move the `git diff` line out of the brief and into *Verify*, where `ph
 states it as the dispatcher's act. Worth checking the same template for other conditions phrased
 about the tree rather than about the diff.
 
+### L10.30 — the validator could only check the typed form of the field, so the resolved form was exempt
+
+**What happened.** `RaptorConfig` has a cross-field rule: `min_cluster_size` may not exceed
+`cluster_size`, because no cluster could then ever reach the minimum needed to be summarised. The
+model validator states it and its own comment admits the hole — *"Only checkable against a typed
+`cluster_size` — `Auto.AUTO` is not resolved until `run` sees this run's own payload"*. Nothing
+re-checks after resolution. Verified by construction at Phase 10's qualities review:
+
+    RaptorConfig(min_cluster_size=4, cluster_size=2)   -> refused by name, both numbers quoted
+    RaptorConfig(min_cluster_size=4)                   -> accepted; `auto` then resolves
+                                                          cluster_size to 2 on 5000-char chunks
+
+**The identical effective configuration is loud one way and silent the other.** Under `auto` every
+cluster is capped at 2, `summarizable` is permanently empty, and the run answers `Produced` with the
+payload unchanged — indistinguishable from the legitimate case where this run's clusters happened to
+be too loose. A deterministic misconfiguration presenting as a data outcome.
+
+**Generalises to.** *When a field gains a computed mode, every cross-field rule that mentions it
+acquires a second, unchecked branch — so a constraint stated in a model validator must be re-asserted
+at the point of resolution, or the computed mode is an exemption from it.* A validator's own comment
+saying it cannot check a case is not a mitigation; it is the finding, written down and left.
+
+**Candidate home.** A repair in `weft_index/raptor.py` first — the check and its message already
+exist twelve lines away and can be re-run against the resolved value. Then a question worth asking
+once across the tree: **which other model validators are keyed on a field that can hold a sentinel?**
+`Auto` is Phase 10's first, so the answer today may be "one", and that is exactly when the rule is
+cheap to establish.
+
+### L10.31 — the default was a plausible value, where an absent one was the honest answer
+
+**What happened.** `RaptorFacts.clusters_found` and `.clusters_summarised` are `Field(default=1, ge=1)`.
+They are run-level tallies, and `1`/`1` reads as a perfectly coherent claim: *this run found one
+cluster and summarised it.* Their sibling fields do it the other way — `resolved_similarity_threshold:
+float | None = None`, where `None` is unmistakably "not stated". The model is **frozen and
+persisted**, so a value written from the default outlives the process as a fact in a store.
+
+Measured: **one** shipped construction site (`raptor.py`) and **three** in one test file. Every node
+the plugin actually returns has both fields overwritten by `_with_run_counts` before it is handed
+back, so the default is unreachable in production — it exists to save three test call sites two
+keyword arguments each, and is defended by a ten-line docstring paragraph.
+
+**Generalises to.** *A field's default must be distinguishable from a value the system could
+legitimately have computed. Where it is not, any path that skips the computation writes a false fact
+that no reader can tell from a true one — and on a persisted model that fact outlives the run.* The
+waiver test applies unchanged: **what would it cost to make this default unnecessary?** Six keyword
+arguments, which is shorter than the paragraph defending it.
+
+**Candidate home.** `weft-qualities` already asks *"what would it cost to make this entry
+unnecessary?"* of waivers; it does not ask it of defaults, and a default is the same bargain with no
+diff to make it visible. Worth adding to lens 5 alongside the waiver question.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in
