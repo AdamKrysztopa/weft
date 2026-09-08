@@ -27,8 +27,30 @@ otherwise paid for twice.
 
 ## Queue
 
-*(empty — drained 2026-09-08 at Phase 10's close; see
-`docs/lessons-archive.md` → 2026-09-08.)*
+### L11.1 — a count cited to a script that was not re-run after the commit that fed it
+
+**What happened.** Phase 10's drain filed `R10.2` saying `L5.15` "stands at **five** recurrences …
+counted by `scripts/lessons_graph.py` after Phase 10's drain". The script counts `recurs` edges in
+`docs/lessons-archive.md`, and it reports **four**. Two separate reasons, both invisible from the
+sentence: the count was formed while routing the queue, *before* the same commit wrote the edges the
+script reads — so "after Phase 10's drain" named a moment that had not happened when the number was
+taken; and the fifth instance was Phase 10's own `index-with-adrap.yaml` shipping without its
+`add_pipeline_resource` registration, **a defect caught in the tree, which carries no archive edge at
+all**. Found by running the script as `implement-ll`'s own first step, one turn later, against the
+entry the *Next action* row sends the next reader to first. The same drain had just routed `L10.18`
+— *prefer a pointer to a count* — into `weft-qualities`.
+
+**Generalises to.** When a document cites a script for a number, run the script *after* the edit is
+written and paste what it says; and before citing its total, ask what population it walks — a counter
+that reads one artefact is a floor for any class recorded somewhere else, so "N by the script" and
+"N in the project" are different claims and the document must say which.
+
+**Candidate home.** `weft-qualities` → *a claim with nothing left to check it* already holds the
+counts half (`L10.18`, `L6.1`); this adds the ordering (*the number was taken before the act it
+describes*) and the population question (*what can the counter not see?*). Possibly instead
+`scripts/lessons_graph.py` itself, printing the population it walked and what it structurally cannot
+count, so the floor is stated by the instrument rather than remembered by its reader. `recurs L6.1`,
+`recurs L10.18`.
 
 ## When the queue is empty
 

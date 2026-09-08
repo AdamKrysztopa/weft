@@ -5781,15 +5781,20 @@ it had read one failure (`L7.1`).
   Phase 10's content: this is the observability seam, and widening a phase to swallow a finding is
   how a carried repair stops being countable
 
-- [ ] **R10.2** the three rules this loop keeps re-learning live somewhere that makes them bite:
-  `L5.15` (a producing side with no consuming side) stands at **five** recurrences, `L6.4` (read the
-  population, not the declaration) at **five**, `L5.6` (a comparison whose two sides come from one
-  source) at **four**, counted by `scripts/lessons_graph.py` after Phase 10's drain · owner
+- [ ] **R10.2** the rules this loop keeps re-learning live somewhere that makes them bite. Run
+  `python3 scripts/lessons_graph.py` and read its own verdict rather than a count copied from here:
+  on 2026-09-08, after Phase 10's edges were written, it put **five** rules over its `MOVE IT`
+  threshold — `L6.4` (read the population, not the declaration) at 5, `L5.6` (a comparison whose two
+  sides come from one source) at 4, `L5.15` (a producing side with no consuming side) at 4, and
+  `L5.19` and `L6.10` at 2 each. **`L5.15`'s fifth instance is real and the script cannot see it**:
+  Phase 10's `index-with-adrap.yaml` shipped without its `add_pipeline_resource` registration, and a
+  defect caught in the tree carries no archive edge, so the script under-counts every rule whose
+  recurrence was a defect rather than a queue entry · owner
   `implement-ll` → *Routing*; `docs/lessons-archive.md` → the edge vocabulary · `L10.9`, `L10.37`,
   and Phase 10's own `index-with-adrap.yaml` shipping without its `add_pipeline_resource`
   registration · **this is the loop's own closing question answering badly three times in one
   phase**, and `implement-ll` says a rule that was applied and did not bite is in the wrong artefact
-  rather than wrong. Filed rather than repaired at the drain that found it, because relocating three
+  rather than wrong. Filed rather than repaired at the drain that found it, because relocating
   long-standing rules is its own piece of work and doing it inside a phase close is the
   "implemented in isolation" failure the `lessons` skill warns about
 - [ ] **R10.3** the comparability guard can see the model that actually did the work, so two eval
