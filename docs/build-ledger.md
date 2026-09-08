@@ -7112,7 +7112,7 @@ extractors and **both branches of 10.9**, so no branch of this phase ships havin
 
 - [x] **10.21** a `raptor` rung refuses a level a prior rung in the same run already consumed,
   rather than building a second parallel set of summaries over it · owner `weft_index/raptor.py`;
-  `01` → requirement 3 · turns on — · sha `PENDING` · **Requirement 3's second question — *if someone
+  `01` → requirement 3 · turns on — · sha `2119b83` · **Requirement 3's second question — *if someone
   inserts a stage in the wrong place, what tells them?* — has no answer for this stage.** Two rungs
   sharing an `over_level` each cluster that level's nodes and each writes summaries over them;
   because the summary text comes from a model, the two sets differ in content and therefore in id,
