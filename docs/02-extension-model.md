@@ -721,6 +721,17 @@ class MetadataFilter(Protocol): ...                # marker: supports the whole 
 > source methods to answer one question about deletion, which is the optional-method design this
 > family exists to refuse.
 >
+> **Amended 2026-09-09 by ledger task `11.4`, as `S12` requires: this is a sentence about
+> obligation, not a prohibition on being one.** Read as a prohibition it is contradicted by the
+> tree — `examples/weft-example-graph/src/weft_example_graph/store.py:145` *is* a `NodeStore`, and
+> §4's own add-on table lists a graph store under `Store`. What it actually says is narrower and
+> still true: **satisfying `SourceDeletable` must not require satisfying `NodeStore`**, because a
+> pack that only holds derived rows would then owe five methods to answer one question about
+> deletion. A graph store that happens to be a node store as well is welcome; one that is not
+> keeps its participation in `weft delete` regardless. The same reading governs the traversal
+> Protocol `weft_kg` publishes: it is separate from `NodeStore` so that satisfying it obliges
+> nothing else, not because the two may not meet in one class.
+>
 > **`Reconcilable` is the safety net, and it is why there is no bus.** A bus reaches only subscribers
 > live when the event fired; it cannot repair a pack installed *after* the corpus was built, a drain
 > killed mid-flight, or a second machine sharing one database. Convergence can, and it needs nothing
@@ -2042,10 +2053,19 @@ The graph pack, complete:
 Install:
 
 ```bash
-uv add weft-kg
+uv add 'weft-rag[graph]'
 weft pipeline derive kg --from base --insert-after chunk graph.entities
 weft index ./docs --pipeline kg
 ```
+
+> **This read `uv add weft-kg` until 2026-09-09, and the change is the wrapper rather than the
+> claim.** **G19** settled that Weft publishes under two names, so the graph pack's code ships
+> inside the `weft-rag` wheel and only `psycopg` — its outside library — is optional, behind the
+> `graph` extra. Everything this section demonstrates is unaffected: the pack still registers
+> through the one `weft.packs` entry point, still contributes into a slot, still changes no core
+> line, and a **third party** still publishes their own distribution and installs beside. That last
+> point is what made the fold safe — entry-point discovery has never asked which wheel a pack
+> arrived in, so this worked example is about a mechanism, not about a filename.
 
 Nothing in core changed. Nothing in core knows what a graph is. If the pack is uninstalled, the
 `kg` pipeline fails to resolve with a message naming the missing plugin and the pack that provides

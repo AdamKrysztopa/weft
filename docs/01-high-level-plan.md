@@ -382,6 +382,7 @@ carry now. Each has a named forcing function; nothing is deferred on vibes.
 | A model-written description of a table | **Measured, refused, and named.** A figure gets a describer because it has no structure to render; a table has one, and Weft renders it twice — index form and prompt form (`9.6`) — with rows as children carrying the header (`9.14`). That is where the gain is: row-level chunking moves BM25 Recall@1 **0.366 → 0.754** (arXiv:2605.00318), while an LLM pass over table chunks measures **+2.2 to +2.8pp Recall@5** (arXiv:2604.01733) for one model call per chunk at index time. **Reopen when** a measurement on Weft's own corpus shows a description beating the *serialised grid plus row children* — not beating raw extraction, which is the comparison that makes the technique look good — or when a corpus arrives whose tables have no recoverable grid, where there is no serialisation to lose to. The name `describe-table` is held in `10` §4 so the first implementation cannot take it; the contract needs no change, because `Describer` names the medium and not the model (`11` §2.2) and this would be a second stage naming it, exactly as `describe-figure` does |
 | Late-interaction (multi-vector) retrieval | A second backend beyond Qdrant holds a multi-vector type with a MaxSim operator, or the storage ratio `11` §3 D5 cites moves by an order of magnitude. `Node.embedding` is one `Vector` (G5) and `search_vector` takes one vector (G4); both would move. The names — `colpali`, `colqwen`, `late-interaction`, `maxsim`, `visual-citation`, `grounded-answer` — are held in `10` §4 against nothing built |
 | An object-store blob backend (S3, MinIO) | The first deployment whose blob root is not the host's disk. The filesystem implementation ships in Phase 9; its conformance kit and the FF9(c) stranger are what a third backend implements against |
+| Graph traversal as a member of the store contract family | A **second real backend** implements it — `weft-neo4j` behind a compose profile, on `qdrant`'s `conformance` precedent (`compose.yaml:44-58`). The in-memory store counts for nothing (`01` → *Runtime shape*: it "exists, and is not a backend") and Qdrant has no traversal primitive, so G4's two-backend bar is untouched and **G4 does not reopen**. Until then the Protocol ships from `weft_kg`, the pack that owns the capability, and a third-party backend depends on `weft-rag` for it — which such a backend already does. Promotion moves the Protocol into `weft_store.contract`: a **G9 major** for the pack's implementers, because a Protocol changes home, and a **minor** for `weft-store`, because a contract is added and none moves. `STORE_CONTRACT_VERSION` does not move when the Protocol is *published*, only when it is promoted. Added by ledger task `11.4`, 2026-09-09; `S12` is the decision and `docs/build-ledger.md` → Phase 11 the tasks |
 
 ## Phases
 
@@ -1106,9 +1107,12 @@ ways** in one run.
   **Prerequisite:** Phase 9's `9.0` is ticked; without it 11.10 cannot be demonstrated and this
   phase carries ⛔ on that one task.
 - **Read:** `02` §1 → *Who publishes a contract* (`02:97`) and *The store contract family*
-  (`02:516`), because the pack publishes one and satisfies four; `02` §4 in full (`02:1876`), which
-  was written with this pack as its driving use case and whose install sequence already begins
-  `uv add weft-kg` (`02:1893`); `03` → *Project context* (`03:909`) for the `[services]` role
+  (`02:567`), because the pack publishes one and satisfies four; `02` §4 in full (`02:2028`), which
+  was written with this pack as its driving use case and whose install sequence begins
+  `uv add 'weft-rag[graph]'` (`02:2056`) — it read `uv add weft-kg` until **G19** on 2026-09-09,
+  and the three citations in this bullet were each off by several hundred lines until the same day,
+  which is what fitness function 17 cannot catch: it proves a path resolves, never that the line
+  says what the sentence claims (`L9.34`); `03` → *Project context* (`03:909`) for the `[services]` role
   table `9.0` generalised from the refusal at `03:920`; `NOTICE`'s three cases, because this is the
   first phase that copies the owner's prior work and the obligation is *"in the same commit as the
   first copied line — not after"* (`product-direction.md:84`); and `10` §2.1, because every name

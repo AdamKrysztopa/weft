@@ -7909,7 +7909,7 @@ that assumed one was withdrawn from the plan before it reached this list.
   batch granularity — entities by name, entities in nodes, nearest entities to a vector,
   neighbourhood of entity ids bounded by hops — and never the donor's 33
   (the owner's `graph-study` ports layer, read and closed). A stated cost, recorded: until
-  promotion a third-party backend depends on `weft-kg` for the Protocol. `02:666-670`'s "a
+  promotion a third-party backend depends on `weft-kg` for the Protocol. `02:719-722`'s "a
   graph store is not a node store" is amended to what the code implements — a sentence about
   obligation, not a prohibition on being one*
   · **Rewritten 2026-09-09 by G19, and what changed is the wrapper rather than the property.**
@@ -7935,13 +7935,19 @@ that assumed one was withdrawn from the plan before it reached this list.
   absent** rather than taking the run down · owner `09` §1; `02` §4 · turns on FF1, FF10(a), FF24 · sha — ·
   *carries the example pack's Postgres store forward — Weft's own code, a move, not a copy — with
   `[packs.graph] dsn` optional and defaulting to the same `WEFT_DATABASE_URL` offer `store` takes,
-  so one container is still one. **Beside, and not for the dependency reason**: G10's
-  re-settlement criterion (`09:104-106`) would place a `psycopg`-only pack *inside* `weft-rag`;
-  it ships beside because `09:176` and `02:1893` already say so and because a pack that is the
-  permanent instrument of requirement 2 cannot live inside the thing it measures — the divergence
-  is on `S12` so G10 is not reopened by implication. Files that change: `release.yml:137` matrix,
-  `test_release_set.py:64-75` `_INSTALLS_BESIDE`, root `pyproject.toml:49`,
-  `scripts/check_isolated_installs.py`. On this tree `deletion.py`, `fanout.py` and
+  so one container is still one. **Inside, behind an extra — reversed by G19 on 2026-09-09, and
+  the paragraph it replaced is worth keeping in view.** This line used to argue the pack ships
+  *beside* `weft-rag`, against G10's own criterion, on the ground that "a pack that is the
+  permanent instrument of requirement 2 cannot live inside the thing it measures". G19 answered
+  that objection rather than overruling it: requirement 2's proof needs packages that are
+  **installable from outside the tree**, not ones that are **published**, and `testing/weft-canary`
+  and the five `examples/weft-example-*` packs carry it without ever reaching an index — while
+  fitness function 9c's stranger, which `11.4` turns on, is what proves the traversal Protocol is
+  satisfiable by somebody who did not write it. So the pack is `weft_kg` inside the wheel,
+  `psycopg` is the `graph` extra, and G10 is not diverged from but superseded. The files this line
+  named have already changed: the `release.yml` matrix is one entry, `_INSTALLS_BESIDE` is
+  `{weft-kernel, weft-rag}`, and `scripts/check_isolated_installs.py` grew the degradation probe
+  that makes "declinable" a measured fact rather than a claim. On this tree `deletion.py`, `fanout.py` and
   `reconcile.py` contain no `aclose` (`grep` → 0; only `ingest.py:412-414` and `ask.py:121-144`
   close anything) and the plan repaired that here as the first first-party participant to open
   its own connection — **Phase 9's blob store now opens one first**, so this clause is either
