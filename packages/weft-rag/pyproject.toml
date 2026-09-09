@@ -232,6 +232,7 @@ packages = [
     "src/weft_extract",
     "src/weft_generate",
     "src/weft_index",
+    "src/weft_kg",
     "src/weft_llm",
     "src/weft_openai",
     "src/weft_otel",

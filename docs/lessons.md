@@ -454,6 +454,21 @@ carried a correct builder for that model since Phase 4. The implementer came bac
 again correctly, and again the repair was to the test. **Two instances one task apart makes this a
 habit rather than a slip**, which is the argument for a mechanical home rather than a sentence.
 
+**Third instance, `11.4`, same author and same session.** That test asserted
+`issubclass(GraphTraversal, Stage)` — `Stage` is not `@runtime_checkable`, so that call raises
+`TypeError` for *every* class, `Extractor` included, which really is a `Stage`. It constructed
+`Vector((0.1, 0.2))` positionally where every one of the tree's call sites writes
+`Vector(values=(...))`. And it read `__protocol_attrs__` and `__mro__` directly where
+`tests/unit/weft_chunk/test_contract.py:163` has used `getattr(X, "__protocol_attrs__",
+frozenset[str]())` since Phase 1, precisely because a type checker cannot see those dunders on a
+Protocol. Three idioms, each with a live precedent in the tree, each written from what the API
+looked like it should be.
+
+**Three instances in one session, and what did not fail is the other half of the finding**: the
+implementer refused to edit the test every time and named the divergence precisely, so the split
+caught all three at the cost of a round trip each. The waste is real and bounded; the rule is what
+removes it.
+
 **Candidate home.** `phase-step` → *Red*, beside `L6.14`, whose rule this is one step more
 specific than: `L6.14` says a hand-written double populates whichever fact the author had in mind;
 this says the *shape* is guessed the same way, and unlike the fact, the shape has a checkable

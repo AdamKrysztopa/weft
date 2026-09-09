@@ -7893,7 +7893,7 @@ that assumed one was withdrawn from the plan before it reached this list.
   has no mark: `How to read a task line` gives ⛔ to a **phase header** against an open **gate**
   and nothing to this. `L11.18`, and `docs/README.md`'s Next-action row is what carries the order
   in the meantime, which is exactly what that row is for
-- [ ] **11.4** `weft_kg` publishes the traversal Protocol — versioned, `@runtime_checkable`,
+- [x] **11.4** `weft_kg` publishes the traversal Protocol — versioned, `@runtime_checkable`,
   not a `Stage`, satisfied structurally by its own store and by an out-of-tree stranger — and the
   condition under which it moves into the store family is a dated row in `01`'s deferred table
   with its reopen trigger, not an assumption · owner `02` §1 → *Who publishes a contract*; `01` →
@@ -7928,6 +7928,41 @@ that assumed one was withdrawn from the plan before it reached this list.
   "second paradigm" `S12` refused. `01` → *The least-architecture check* takes the deferral row
   with its reopen trigger unchanged: a second real backend, `weft-neo4j` on `qdrant`'s
   compose-profile precedent
+
+  · **done 2026-09-09. Written by me for the test, dispatched for the module, and the "turns on"
+  field is corrected here rather than claimed.** **FF6 is on**: `GRAPH_TRAVERSAL_CONTRACT_VERSION`
+  exists and is its subject. **FF9c is not, and cannot be yet** — measured rather than assumed:
+  that check's left side is `registry.contracts()` plus the siblings walked from a *registering*
+  pack's `__all__`, and `weft_kg` registers nothing at this task by design. The fifth probe fires
+  at `11.5`, the first task where the pack has an entry point, and that is where the example-pack
+  stranger belongs. Claiming FF9c here would have been a producing side with nothing consuming it.
+  **Three decisions the tree did not make, taken from the documents and written into the test's own
+  docstring rather than left implicit.** `EntityId` and `Entity` are **invented here** — measured
+  first: `EntityId` appears nowhere in the tree and the only `Entity` is the example pack's, whose
+  docstring calls it a *mention* rather than a resolved identity. `Entity` is **two fields**, `id`
+  and `name`: `S12` and `11.8` constrain how an id is *computed* and where a row is *kept* and
+  neither names a field, so two is what traversal answers with and the largest surface `11.8`
+  cannot be forced to change when it designs the table one task later. And **"entities in nodes" is
+  read as the entity→node direction** and named `nodes_for_entities`, because `11.10` walks *name →
+  entities → neighbourhood → nodes* and a members list that only went nodes→entities would leave it
+  unbuildable; `examples/weft-example-graph/src/weft_example_graph/store.py:526` already spells it
+  that way. The phrase admits both readings and only one can be built on, so the reading is
+  recorded. **The implementer came back blocked and was right three times** — my test called
+  `issubclass(x, Stage)` where `Stage` is not `@runtime_checkable` and that raises for *every*
+  class including `Extractor`; constructed `Vector` positionally where the whole tree writes
+  `Vector(values=...)`; and read `__protocol_attrs__` directly where
+  `tests/unit/weft_chunk/test_contract.py:163` has used `getattr(..., frozenset[str]())` since
+  Phase 1. Third instance of `L11.17` in one session. Repaired at the test, and the not-a-`Stage`
+  assertion now contrasts against `Extractor`, which *is* one, so it can fail. **The document half
+  landed first** (`5818e35`): the deferral row, `02`'s "a graph store is not a node store" amended
+  to the obligation it states, three citations that were each hundreds of lines out, and `02` §4's
+  install line, which still read `uv add weft-kg`. **Ran the binary from outside the repository**
+  against a built wheel: `GraphTraversal.version` reads `1.0.0` off the class, `GRAPH_ROLE` is
+  `graph`/`GraphTraversal`, a four-method outsider satisfies it and a one-method class does not,
+  and `weft plugins doctor` shows no graph row — which is the point, since nothing registers yet.
+  Gate `GATE_EXIT=0` read out of the run's own log: 269 architecture, 2284 passed, 9 skipped, 127
+  examples — nine more than `11.12`'s 2275, this task's nine tests and no shrink. The pinned
+  first-party package count moved 23 → 24, which is a ratchet reporting that a pack arrived
 - [ ] **11.5** `weft-rag[graph]` installs into an environment that has never seen this
   repository, registers under `NodeStore` and its own traversal Protocol, is reached by
   `weft delete` and `weft reconcile` because a document names it, closes its own connection when
