@@ -1,0 +1,26 @@
+name: graph-2hop-then-generate
+extends: graph-then-generate
+
+# **One number, changed — the demonstration that `hops` is a real parameter and not decoration.**
+# `set:` on the inherited `retrieve` stage, never `replace:`: this rung does not choose a
+# different plugin, it asks `graph-walk`'s own configuration model for a wider walk, and `02` §3's
+# operator table is exactly what makes that distinction checked rather than a naming convention —
+# a document that wrote `replace:` here with the same `use:` would resolve to the same plugin
+# under a different word, and `test_the_two_hop_rung_parameterises_rather_than_replaces` is the
+# check that a future edit does not quietly turn this into a copy of its parent.
+#
+# Reaching two hops widens both the recall and the risk in the same direction: a fact adjacent to
+# an adjacent entity is real signal for some questions and irrelevant fan-out for others, and
+# `1/(1 + hops)` is what keeps the second ring visibly less trusted than the first rather than
+# tied with it.
+vars:
+  route.summary: >-
+    `graph-then-generate`, walked two relation edges out instead of one — reaches a fact two steps
+    from the question's own named entities, at the cost of trusting a farther, noisier ring.
+  route.cost: >-
+    no embedding call and no model call to retrieve — one graph lookup, one two-hop walk (two
+    round trips to the graph), one node fetch — and one model call to generate
+
+set:
+  - id: retrieve
+    with: {hops: 2}

@@ -519,7 +519,7 @@ settled at **G18**; this entry keeps the old spelling because it is the record o
 
 **The rule worked. It fired three days late, and that is the finding.** `S12` chose that name on
 2026-09-06 as a **scope decision**, and the check lives in `phase-step`, which is read when a
-*task* is built. So between `S12` and the lookup, `01` → Phase 11's Exit, `02:1893`'s literal
+*task* is built. So between `S12` and the lookup, `01` → Phase 11's Exit, `02:2098`'s literal
 `uv add weft-graph`, `09` §1, `S12`'s own row and five ledger task lines all named a distribution
 that cannot be published, and every check in this repository stayed green because every one of them
 is a check *about this repository* — `L6.33`'s exact sentence, one instance later.
@@ -1118,6 +1118,91 @@ so in its report rather than quietly fixing it.
 mechanism the brief names as the reason a test will pass is a claim to verify before sending, not
 after. Possibly also `references/implementer-brief.md`'s *Before you send* checklist, which is
 where a one-line check would actually fire.
+
+### L11.39 — two paragraphs into `02` invalidated eight citations, and nothing could see it
+
+**What happened.** `11.9` added two blockquotes to `docs/02-extension-model.md`. Starting `11.10`
+I went to read its owner reference, `02:818`, and found a G13 note about `SourceDeletable`. Auditing
+every line-numbered citation into that one document turned up **seventeen**, of which **eight** had
+been shifted by my own insertions and **four more** (all spellings of `02:818`, in `01`, `docs/
+README.md` and the ledger, quoted as *"as `02:818` requires of every retriever"*) were wrong
+**before** I touched the file — the retriever rule has always been at what is now 981. Every one
+resolves now, checked by resolving each citation and printing the line it lands on.
+
+**Generalises to.** `L9.34` said a `path:line` an agent reports is a lead rather than evidence, and
+that fitness function 17 *"proves a path resolves, never that the line says what the sentence
+claims"*. This is the same gap from the other end: not a citation written wrong, but a correct
+citation **made** wrong by an edit somewhere else, in a file the editor never opened. The failure
+has no symptom at all — the path still resolves, FF17 stays green, and the number quietly points at
+a neighbouring paragraph that reads plausibly enough that nobody checks.
+
+The rule: **a line number into a living document is a dangling pointer with no compiler.** Editing
+a `docs/` file above line N invalidates every citation to a line below N, across every other
+document, silently — and the edit that does it is usually a two-line addition nobody would think of
+as a breaking change.
+
+Two mechanical repairs are available and the cheap one is worth more than it looks. **Cite the
+section, not the line** — `02` § *The store contract family* survives any edit above it, and every
+citation in this tree that names a heading (`02:97`, `02:567`, `02:2081`) was still correct after
+my insertions while every one naming a paragraph was not. **Or check them**: resolving a `NN:line`
+citation and asserting the target still contains a distinctive token from the citing sentence is a
+real check, and the audit above was fifteen lines of Python — the same fifteen lines, run in
+`tests/docs/`, would have failed on my own commit.
+
+**Candidate home.** `tests/docs/`, as a check with the shape `test_pack_guide_samples.py` already
+has for quoted code — a citation and the text it claims, compared. Failing that, `CLAUDE.md` →
+*Claims need evidence*, which currently says to measure before asserting and does not say that a
+measurement expires when somebody edits the file above it. The strong form is a convention change:
+new citations name sections, and line numbers are used only where a section would be too coarse.
+
+### L11.40 — every test helper in this repository is exempt from redefinition detection
+
+**What happened.** Writing `11.10`'s tests I added a module-level `def _services_registry()` to
+`tests/unit/weft_cli/test_run_services.py`. One already existed 155 lines above it. Python rebinds
+at module scope, so the three pre-existing tests that called the first one silently began calling
+mine, and failed with `UnknownPluginError: no 'fake' is registered for NodeStore` — a message about
+a registry, three files away from the cause. The implementer found it, could not fix it (it may not
+edit tests), and reported it, which is the only reason it did not reach a commit.
+
+**The part worth writing down is why lint was silent.** `F811` (redefinition of an unused name) is
+selected here and is *not* in `tests/**`'s per-file ignores, so it should have caught this. Measured
+against ruff 0.14, `--isolated --select F811`:
+
+| definition | F811 |
+|---|---|
+| `def helper()` twice | **fires** |
+| `def _helper()` twice | silent |
+| `def __helper()` twice | silent |
+
+**`F811` exempts any name matching `lint.dummy-variable-rgx`**, whose default matches every
+underscore-prefixed name. And every test helper in this tree is underscore-prefixed by
+convention — `_ctx`, `_node`, `_registry`, `_reply`, `_deps` — so **the entire population the rule
+would protect is exactly the population it exempts.** The check is selected, applies to the right
+directory, and can never fire on the code it would help.
+
+**Generalises to.** `L6.4` — read the population, not the declaration — aimed at a linter. "F811 is
+selected and applies to `tests/`" was true and was recorded as such (`L10.19`, where the rule was
+*declined* on that basis). What nobody asked was which names it actually inspects. A check whose
+scope is stated in a config file and whose *effective* scope is decided by a regex somewhere else is
+a check whose coverage has to be measured rather than read.
+
+**And there is a measured repair, which is why this is filed rather than merely noted.** One line:
+
+```toml
+[tool.ruff.lint]
+dummy-variable-rgx = "^_$"
+```
+
+It makes F811 fire on `_helper` while still exempting a bare `_`. Cost, measured over the whole
+tree with `ruff check --no-cache --statistics --config 'lint.dummy-variable-rgx="^_$"' .` against
+the same run without it: **two** new findings, both `B007` (unused loop control variable), and zero
+new `F811` or `F841`. Two lines to fix, for a defect class that is currently invisible in every
+test module in the repository.
+
+**Candidate home.** `pyproject.toml`'s ruff config, with the measurement above in the comment beside
+it — that file already carries argued comments for `per-file-ignores` and for the hooks directory,
+and this is the same genre. `L10.19` should be re-read at the same time: it declined a rule on the
+strength of F811 being selected, which turns out to have been true and inoperative.
 
 ## When the queue is empty
 

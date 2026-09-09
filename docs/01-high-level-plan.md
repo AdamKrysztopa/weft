@@ -1075,7 +1075,7 @@ stranger that owns a private store its retriever constructs directly
 (`examples/weft-example-graph/src/weft_example_graph/retriever.py:51-55`, `needs_store = ()`). An
 example may do that; a *shipped* retriever whose backend nobody can swap fails requirement 4 in
 the release set, and a rung whose `needs_store` the assembler cannot check turns a refusal by name
-at assembly (`02:818`, kept by `hybrid`, ledger 8.6) into a bare error mid-run. So this phase is
+at assembly (`02:981`, kept by `hybrid`, ledger 8.6) into a bare error mid-run. So this phase is
 the same proof Phase 7 was — a first-party pack built against nothing but the released API — with
 a harder twist: the pack publishes a contract of its own, persists rows that are not `Node`s, and
 is reached on the ingest path as a stage and on the query path as a service, and every one of
@@ -1089,7 +1089,7 @@ it was added, on Phase 8's precedent. Running third means three things are on th
 starts rather than owed by it: a project can name which registered plugin fills a role that is not
 `store` or `embed` (`9.0`), so the graph retriever declares `needs_store` against its own
 traversal Protocol and is refused by name at assembly against a store that lacks it, exactly as
-`02:818` requires of every retriever; a deletion participant can report what it removed by kind
+`02:981` requires of every retriever; a deletion participant can report what it removed by kind
 rather than folding entities into `node_count`; and the `02` §1 transient narrowing is in the text
 the payload tasks read. What this phase adds on top of those is the thing none of them needed: a
 pack that publishes a **contract**, persists **rows that are not nodes**, and is reached **two
@@ -1107,7 +1107,7 @@ ways** in one run.
   **Prerequisite:** Phase 9's `9.0` is ticked; without it 11.10 cannot be demonstrated and this
   phase carries ⛔ on that one task.
 - **Read:** `02` §1 → *Who publishes a contract* (`02:97`) and *The store contract family*
-  (`02:567`), because the pack publishes one and satisfies four; `02` §4 in full (`02:2028`), which
+  (`02:567`), because the pack publishes one and satisfies four; `02` §4 in full (`02:2081`), which
   was written with this pack as its driving use case and whose install sequence begins
   `uv add weft-rag` — *it read `uv add 'weft-rag[graph]'` for one day, and there is no `graph`
   extra: the pack's only outside library is `psycopg`, which `weft-rag` has declared among its

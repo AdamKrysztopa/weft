@@ -112,9 +112,18 @@ dsn = "${env:WEFT_DATABASE_URL}"
 # question asked of another returns nothing and reports no error. The default is
 # `pgvector`. Changing it means re-indexing — the corpus does not move with the key.
 #
+# `graph` is a **role a pack declared**, not a key `weft-cli` knows about — ledger task 9.0
+# generalised `[services]` so any installed pack can publish one, and `weft_kg` publishes
+# this one against its own `GraphTraversal` contract. It is what a graph retriever reaches
+# through `ctx.require`, and a rung that names one (`graph-then-generate` and the three
+# beside it) is refused **by name at assembly**, before any stage runs, when nothing is
+# selected for it. `weft plugins doctor` lists every role every installed pack declares,
+# which is the only honest list — this file cannot enumerate keys packs invent.
+#
 # [services]
 # embed = "openai-embeddings"
 # store = "qdrant"
+# graph = "pgvector-traversal"
 
 # --- Permissions ---------------------------------------------------------------
 # An operator's override of the two classes docs/03-cli.md -> Permissions defaults

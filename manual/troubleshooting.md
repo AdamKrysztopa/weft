@@ -1902,6 +1902,30 @@ capability Protocol written without `@runtime_checkable`, which `isinstance` ref
 **What to do:** report it to the pack the message names — `weft plugins list` shows which
 distribution contributed the plugin.
 
+### `MalformedNeedsServicesError`
+
+**What it looks like** — the sibling above, one attribute over. A plugin's `needs_services` is not
+a tuple of capability Protocols:
+
+```text
+plugin 'graph-walk' declares needs_services='GraphTraversal', which is not a tuple of capability
+Protocols. Declare the Protocols themselves — `needs_services: ClassVar[tuple[type, ...]] =
+(GraphTraversal,)` — importing them from the pack that publishes them.
+```
+
+**The two declarations, and which one a plugin wants.** `needs_store` says what the **configured
+store** must be, and is checked against the one instance `[services] store` names.
+`needs_services` (ledger task `11.10`) says what the **run** must offer through a `[services]`
+role — a capability no store provides and no `[services] store` could supply, like `weft_kg`'s
+`GraphTraversal`. Declaring the second kind under the first is the mistake worth knowing about,
+because it does not look like one: the run is refused on every invocation, and the remedy names
+`[services] store`, which the operator can change all day without helping.
+
+Like its sibling this is a plugin-authoring mistake rather than an operator one, and it fires even
+when a selected role would have satisfied the requirement — a declaration nobody can check is
+refused rather than skipped. **What to do:** report it to the pack the message names;
+`weft plugins list` shows which distribution contributed the plugin.
+
 ---
 
 ## Routing a query — `weft_cli.route_ask`

@@ -48,9 +48,11 @@ from weft_kg.payload import (
     MentionedEntity,
 )
 from weft_kg.prompts import ADJUDICATE_ENTITIES_NAME, EXTRACT_FACTS_NAME
+from weft_kg.retrieval import NAME as GRAPH_WALK_NAME
 from weft_kg.store import GraphDsnNotConfiguredError, GraphStore
 from weft_kg.traversal import GraphWalk
 from weft_prompts.contract import Prompt
+from weft_retrieve.contract import Retriever
 from weft_store.contract import NodeStore, Reconcilable, SourceDeletable
 
 
@@ -272,6 +274,10 @@ def test_the_pack_contributes_the_document_that_makes_its_store_reachable() -> N
         ("weft_kg", "pipelines/index-with-graph.yaml"),
         ("weft_kg", "pipelines/index-with-cooccurrence.yaml"),
         ("weft_kg", "pipelines/index-with-facts.yaml"),
+        ("weft_kg", "pipelines/graph-then-generate.yaml"),
+        ("weft_kg", "pipelines/graph-2hop-then-generate.yaml"),
+        ("weft_kg", "pipelines/graph-and-vector-rrf.yaml"),
+        ("weft_kg", "pipelines/graph-then-rerank.yaml"),
     ]
 
 
@@ -403,3 +409,77 @@ def test_the_model_calling_stage_is_inserted_before_the_embedder() -> None:
     assert child.extends == "index-with-graph"
     assert inserted.after is not None, "the stage is anchored to nothing, so it lands at the top"
     assert order.index(inserted.after) < order.index("embed")
+
+
+# --- ledger task 11.10: the query side, and the four rungs that make it reachable ---------
+
+
+def test_the_pack_registers_its_retriever_under_the_query_path_contract() -> None:
+    """`weft_kg` becomes a query-path pack here, and that is what widens fitness function 16's
+    scope over it: FF16's subject is every plugin a *pipeline-shipping* distribution registers
+    into a pipeline position, and `Retriever` is one. From this registration, a `graph-walk`
+    no shipped document names is a rung with no floor and FF16 goes red — which is exactly the
+    property `11.10`'s line asks for, so the four documents below are not decoration.
+    """
+    # Act
+    registry = _registered()
+
+    # Assert
+    entry = registry.entry(Retriever, GRAPH_WALK_NAME)
+    assert entry.distribution == "weft-rag"
+
+
+def test_every_rung_the_pack_ships_names_the_retriever_it_was_written_for() -> None:
+    """Read out of the shipped documents rather than asserted as a list here, so a rung renamed
+    or a `replace:` block edited fails at this test rather than at FF16's whole-tree sweep,
+    where the message names a pair and not a file.
+
+    `graph-2hop-then-generate` deliberately does **not** appear: it inherits the retriever from
+    its parent and changes one number, which is the whole demonstration of requirement 6 — a
+    rung that re-declared `use:` would be a copy of its parent rather than a parameterisation
+    of it.
+    """
+    # Arrange
+    from importlib import resources
+
+    from weft_cli.pipeline_catalogue import load_pipeline_document
+
+    # Act
+    named: dict[str, set[str]] = {}
+    for resource in ("graph-then-generate", "graph-and-vector-rrf", "graph-then-rerank"):
+        path = Path(str(resources.files("weft_kg").joinpath(f"pipelines/{resource}.yaml")))
+        document = load_pipeline_document(path)
+        named[resource] = {
+            *(stage.use for stage in document.stages),
+            *(operator.use for operator in document.replace),
+            *(inserted.stage.use for inserted in document.insert),
+        }
+
+    # Assert
+    assert GRAPH_WALK_NAME in named["graph-then-generate"]
+    assert "multi-retriever" in named["graph-and-vector-rrf"]
+    # `graph-then-rerank` names no retriever at all: it extends `graph-then-generate` and only
+    # inserts a reranker, which is `11.1`'s property read forwards — a fact is a node, so
+    # `llm-rerank` works on one with no new code.
+    assert "llm-rerank" in named["graph-then-rerank"]
+    assert GRAPH_WALK_NAME not in named["graph-then-rerank"]
+
+
+def test_the_two_hop_rung_parameterises_rather_than_replaces() -> None:
+    """Requirement 6, as a fact about the document: `set:` changes a number on an inherited
+    stage; `replace:` would change the plugin. The ledger line names `set:` for this rung, and
+    the difference is what makes the pair a demonstration rather than two similar files.
+    """
+    # Arrange
+    from importlib import resources
+
+    from weft_cli.pipeline_catalogue import load_pipeline_document
+
+    # Act
+    path = Path(str(resources.files("weft_kg").joinpath("pipelines/graph-2hop-then-generate.yaml")))
+    document = load_pipeline_document(path)
+
+    # Assert
+    assert document.extends == "graph-then-generate"
+    assert document.replace == ()
+    assert any(operator.id == "retrieve" for operator in document.set)

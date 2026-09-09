@@ -1,0 +1,25 @@
+name: graph-then-rerank
+extends: graph-then-generate
+
+# **Names no retriever at all — it inherits one.** `grade-then-generate`'s own shape: one
+# `insert:`, after `fuse`, and nothing else. `11.1`'s property read forwards is what makes this
+# rung possible with no new code: a fact `graph-walk` retrieves is a `Node` like any other, so
+# `llm-rerank` — written against `Ranking`, over `Passage`s wrapping `Node`s — rescores it with
+# no idea it came from a graph walk rather than a vector search.
+#
+# `graph-then-generate`'s own `hops: 1` walk can return several nodes at roughly the same hop
+# distance, all scored identically by `1/(1 + hops)` — a tie the walk itself has no way to break
+# by relevance, because distance is the only signal it has. A reranker breaks that tie against
+# the actual question, which a hop count alone cannot.
+vars:
+  route.summary: >-
+    `graph-then-generate`, with every retrieved node rescored against the question before the
+    answer is written — breaks the ties a hop-distance score alone cannot, among nodes the walk
+    found equally near.
+  route.cost: >-
+    no embedding call and no model call to retrieve — one graph lookup, one one-hop walk, one
+    node fetch — one model call to rerank, and one model call to generate
+
+insert:
+  - after: fuse
+    stage: {id: rerank, use: llm-rerank}

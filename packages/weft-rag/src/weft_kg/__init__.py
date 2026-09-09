@@ -16,6 +16,12 @@ implementation seizing a namespace more than one is meant to share. `GraphStore`
 are two classes, not one registered twice, because `weft_cli.fanout.participants_for` deduplicates
 its participants by class — see `store.py` and `traversal.py`'s own module docstrings for the
 failure a single class would reintroduce.
+
+**Ledger `11.10` makes this pack a query-path pack too.** `graph-walk` is a `Retriever`,
+registered under that contract exactly the way `vector-top-k` and `hybrid` are, from a different
+pack — and the four pipeline resources appended after it are what fitness function 16 needs to
+call it a rung rather than a dead registration: see `retrieval.py`'s own module docstring for the
+technique and the four `pipelines/graph-*.yaml` documents for the rungs.
 """
 
 from functools import partial
@@ -47,9 +53,12 @@ from weft_kg.prompts import (
     AdjudicateEntitiesPrompt,
     ExtractFactsPrompt,
 )
+from weft_kg.retrieval import NAME as GRAPH_WALK_NAME
+from weft_kg.retrieval import GraphWalkRetriever
 from weft_kg.store import GraphSettings, GraphStore
 from weft_kg.traversal import GraphWalk
 from weft_prompts.contract import Prompt
+from weft_retrieve.contract import Retriever
 from weft_store.contract import NodeStore
 
 #: Re-exported so a caller can write `from weft_kg import Settings`, the name every other pack in
@@ -73,7 +82,9 @@ DISCLOSURE = Disclosure(
         "selected provider, not of this pack, so no import rule can state it here. Under weft "
         "reconcile --mode full, the same provider is sent two entity names at a time, one "
         "ambiguous pair per call, so it can judge whether they name the same thing; weft "
-        "reconcile --mode repair sends nothing."
+        "reconcile --mode repair sends nothing. On the query side, graph-walk reads entity "
+        "and node rows back from the same PostgreSQL server and sends nothing anywhere — "
+        "seeding a question's entities is a regular expression, and the walk itself is SQL."
     ),
 )
 
@@ -112,6 +123,15 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add_ext_model(MentionedEntity)
     registrar.add_ext_model(ExtractionTally)
     registrar.add_pipeline_resource("weft_kg", "pipelines/index-with-facts.yaml")
+    # Ledger 11.10 — the query side. `graph-walk` registers as the bare class, exactly like
+    # `cooccurrence-graph` above: its constructor argument is a stage's `with:` config, not a
+    # pack-owned connection. The four documents below are what makes it reachable at all — a
+    # rung no shipped document names is a rung with no floor, fitness function 16's property.
+    registrar.add(Retriever, GRAPH_WALK_NAME, GraphWalkRetriever)
+    registrar.add_pipeline_resource("weft_kg", "pipelines/graph-then-generate.yaml")
+    registrar.add_pipeline_resource("weft_kg", "pipelines/graph-2hop-then-generate.yaml")
+    registrar.add_pipeline_resource("weft_kg", "pipelines/graph-and-vector-rrf.yaml")
+    registrar.add_pipeline_resource("weft_kg", "pipelines/graph-then-rerank.yaml")
 
 
 __all__ = [
@@ -120,6 +140,7 @@ __all__ = [
     "EXTRACT_FACTS_NAME",
     "GRAPH_ROLE",
     "GRAPH_TRAVERSAL_CONTRACT_VERSION",
+    "GRAPH_WALK_NAME",
     "LLM_FACTS_NAME",
     "SERVICE_ROLES",
     "AdjudicateEntitiesPrompt",
@@ -135,6 +156,7 @@ __all__ = [
     "ExtractionTally",
     "GraphSettings",
     "GraphTraversal",
+    "GraphWalkRetriever",
     "LlmFactExtractor",
     "LlmFactsConfig",
     "MentionedEntity",

@@ -882,6 +882,18 @@ things a store *advertises*, reached through `ctx.require(...)` and declared by 
 before any stage runs. `docs/02-extension-model.md` §1 → *The store contract family*
 is the owning text, narrowed in this task to say where the check happens.
 
+**`needs_services`, ledger task 11.10, sits beside `needs_store` for the capability no
+store provides.** `needs_store` says what the **configured `[services] store`** must be;
+`needs_services` says what the **run** must offer instead — a capability supplied by a
+`[services]` role and reached through `ctx.require(...)`, for a retriever whose need is
+not a store's business at all (a graph traversal, say). Declared the identical shape,
+`needs_services: ClassVar[tuple[type, ...]]`, and read off the factory by the same run
+assembler before any stage runs — `weft_cli.run_services.demanded_capabilities` builds the
+map, `check_selected_capabilities` checks it. Neither attribute is a member of this
+Protocol: `isinstance(plugin, Retriever)` is unaffected by either one, and no plugin that
+already satisfies this Protocol's `run` method is asked for anything new because one of
+its siblings declared a need it does not share.
+
 Producing `Candidates` rather than one list is the whole fan-out mechanism: k lists
 with the `Query` and `Channel` that produced each, so a fuser has something to weight
 and so hybrid retrieval and query fan-out arrive at the fuser in the same shape.

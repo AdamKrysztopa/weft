@@ -6073,6 +6073,36 @@ it had read one failure (`L7.1`).
   for that module's own stated reason: *a double is what hid the defect for a whole phase.* Written
   by me and implemented by me — smaller than its brief. Gate green, both containers up*
 
+- [ ] **R11.6** a generator's deliberate refusal reaches the person who asked, and the machine
+  consumer can read it — so *"the corpus does not answer this"* is never rendered as silence ·
+  owner `weft_cli.render`; `weft_generate.payload.Answer.stance`; `03` → *Output* · sha — ·
+  ***Found by running the binary at `11.10`.** `weft ask "What did Marie Curie discover?"
+  --pipeline graph-then-generate` against a corpus that holds nothing about her prints **one
+  line** — `routed to: graph-then-generate` — and exits **0**. Nothing else. Not a refusal, not
+  an empty-result notice; silence, and a success code.
+  **The model is not the problem — it is right.** `weft_generate.cited_answer` with its default
+  `when_no_evidence = REFUSE` returns `Answer(text="", citations=(), stance=
+  AnswerStance.NOT_IN_CORPUS)`, which is exactly the honest thing and carries the meaning in
+  `stance`. **Two consumers then throw it away.** The human renderer prints `text` and never
+  reads `stance`, so a deliberate refusal is indistinguishable from a crash that happened to
+  exit 0; and the `--json` answer envelope carries `pipeline_name`, `text` and `citations` and
+  **no `stance` at all**, so a scripted caller cannot recover it either — measured:
+  `{"kind":"answer-envelope","envelope_version":"1.0.0","pipeline_name":"graph-then-generate",
+  "text":"","citations":[]}`.
+  **Reachable before `11.10` and never reached.** Every shipped retriever until now always
+  returned something — `vector-top-k` returns top-k over the whole corpus whatever the question,
+  `no-retrieval` answers from memory — so `Passages` was never empty on any shipped rung.
+  `graph-walk` is the first retriever in this tree that can honestly return **nothing**: a
+  question naming no entity the graph holds walks nowhere. The same corpus and question through
+  `retrieve-then-generate` answers *"The passages do not mention Marie Curie…"*, which is why
+  this had no symptom for three phases.
+  **Not repaired at `11.10`, and the reason is the second half.** The renderer is a small fix;
+  the envelope is not. `envelope_version` is a persisted contract a scripted consumer parses, so
+  adding `stance` moves it, and whether the field is added or the refusal is carried some other
+  way is a decision rather than a repair. Both halves have to move together or the JSON consumer
+  keeps getting silence while the terminal stops. **This is `01` requirement 5's own failure
+  class arriving at the last seam before the operator** — not a crash, an answer that looks like
+  nothing happened*
 - [ ] **R11.5** a corpus indexed by a shipped graph rung carries vectors an entity-resolution pass
   can actually use, so the pass `11.8` and `11.9` build is not inert on the only rung that feeds
   it · owner `02` §3 → *Derivation*; `weft_retrieve/pipelines/index-text.yaml` · sha — ·
@@ -7796,7 +7826,7 @@ cannot offer. **It adds no mechanism**: 11.8 already builds pack-owned tables ca
 version row, under the narrowing this preamble records above, and this reuses them. **The cost,
 recorded rather than discovered at 11.11**: those tables now hold a row that is *configuration*
 rather than data, which is a real widening of what they are for. And under any of the three answers
-`02:1143`'s *"this installation of this pack"* was wrong — `weft.toml` is per **project**
+`02:1200`'s *"this installation of this pack"* was wrong — `weft.toml` is per **project**
 (`03:909`) — so that sentence is amended in the same commit.
 
 So 11.11 keeps its ⚠ as a record, on the convention this section's protocol repair settled, and
@@ -8282,8 +8312,8 @@ that assumed one was withdrawn from the plan before it reached this list.
   a property of the selected provider (`weft_llm/scripted.py:1-8` makes no call) and the import
   rule already catches the provider (`test_network_packs_disclose.py:40-42`). ⚠ because D2
   decided whether this per-chunk irreversible tier is the only one a stage may run and whether
-  its output is durable; the plan's position was that `02:1918-1921`'s `flush()` is the seam only
-  for a cheap idempotent pass, since `flush()` runs on cancellation (`02:877-890`) — **and G15 kept
+  its output is durable; the plan's position was that `02:1041-1046`'s `flush()` is the seam only
+  for a cheap idempotent pass, since `flush()` runs on cancellation (`02:1041`) — **and G15 kept
   it**: this `Expander`'s output is durable as nodes through the ordinary `store` stage, and the
   corpus-wide tier G15 licensed is a `Revisable` after `store`, which this task is not. Read the
   mark as the preamble's record, not as a block*
@@ -8416,7 +8446,7 @@ that assumed one was withdrawn from the plan before it reached this list.
   spending, abstains inside a stated band, and a bridge-merge re-points aliases so the evidence
   for the judgement survives the judgement · owner `02` §1, §4; `03` → *Permissions* · turns on
   FF29 · sha — · *`Reconcilable.full` is already the consented, cost-stated, cursored, resumable pass
-  (`02:686-694`; `ReconcileEstimate.model_calls`), and G12 makes a non-TTY caller able only to
+  (`02:751-756`; `ReconcileEstimate.model_calls`), and G12 makes a non-TTY caller able only to
   propose it (`README.md:147`) — the spend axis answered by reuse, not a sixth permission class.
   The adjudicator is three-valued with first-non-`None`-wins; "abstain" is never a kernel
   `Outcome` member, and the trap is `weft_kernel.fallback.try_in_order`, whose `NothingToProduce`
@@ -8500,18 +8530,85 @@ that assumed one was withdrawn from the plan before it reached this list.
   `weft-implementer`, the contract, renderer and CLI half by a second, `store.py` by a third; the
   fitness function, the revert and every document edit mine. Gate `GATE_EXIT=0` read out of the
   run's own log, both containers up: 276 architecture, 2447 passed, 9 skipped, 128 examples*
-- [ ] **11.10** a question naming an entity is answered from nodes reached by a bounded walk,
+- [x] **11.10** a question naming an entity is answered from nodes reached by a bounded walk,
   through a retriever that declares what it needs of the store and is refused **by name at
   assembly** against a store that lacks it; and the same question is answered by vector and graph
   **fused**, the fuser asking neither list where it came from · owner `02` §1; `10` §1.5 · turns
   on FF16 · sha — · ***depends on `9.0`** — the retriever reaches the traversal store through
-  `ctx.require` and a `[services]` role, as `02:818` requires of every retriever; on this tree it
+  `ctx.require` and a `[services]` role, as `02:981` requires of every retriever; on this tree it
   is refused before any aliasing could help (`run_services.py:186-199`) and ⛔ until `9.0` ticks —
   and on 11.2. Documents: `graph-then-generate` (`replace retrieve`), `graph-2hop-then-generate`
   (`set retrieve: {hops: 2}` — the parameterisation rung, requirement 6), `graph-and-vector-rrf`
   (11.2's fan-out plus `reciprocal-rank-fusion`), `graph-then-rerank` (`llm-rerank` on facts,
   which works with no new code because facts are nodes — 11.1). Four plugins in pipeline
-  positions, each named by a document, FF16's waiver still empty*
+  positions, each named by a document, FF16's waiver still empty. **Built, and the shape of it changed once the tree
+  was read rather than the plan.** `needs_store` is the **only** capability-demand mechanism
+  there was, and it is compared against exactly one object — the instance `[services] store`
+  names. A retriever declaring `GraphTraversal` there is checked as `isinstance(pgvector_store,
+  GraphTraversal)`, refuses every run, and prints a remedy naming a setting the operator can
+  change all day without helping. `9.0` built `check_selected_capabilities` for precisely this
+  and **it had never had a production caller**: nothing in the tree constructed the
+  `Mapping[capability, stage_id]` it takes. So `11.10` is where 9.0's property (iii) becomes
+  real. Settled with the owner: a **second declaration**, `needs_services`, read off the factory
+  through `unwrap_factory` the way `needs_store` is, turned into that map by
+  `demanded_capabilities` over the whole chain — fallbacks included, because a `fallback:` name
+  is a candidate the runner will actually construct — and checked in `route_ask._run_pipeline`
+  immediately beside the store check, before `runner.resolve`. `RoleTable` and the built role
+  instances are threaded out of `_prepared_runner` rather than rebuilt, because constructing a
+  role's plugin twice per run could answer about a different object than the one the
+  `ServiceRegistry` holds. **`L9.26`'s live defect is repaired in the same call**: that site
+  passed `store_name=type(store).__name__`, so a real refusal read *the configured store
+  'PgVectorStore'* while `[services] store` accepts `pgvector`.
+
+  **`graph-walk`, named before it was written.** `10` §4 reserves `grag`, `g-retriever`,
+  `hipporag` and `archrag`; none is a bounded neighbourhood walk, and taking one would be rule
+  4's overclaim. The name states the mechanism and is qualified per rule 6 so `graph-ppr` and
+  `graph-community` stay free. Seeding is **capitalisation, not a model** (owner's decision), so
+  `cost_bound = (0, 0)` and a graph question needs no credential — `11.6`'s laptop property
+  carried to the query side. `11.6`'s Title-Case rule moves into `weft_kg.names` and both
+  callers import it, because a question's notion of a name drifting from the corpus's fails as a
+  query that matches nothing and reads like a corpus with no answer; `test_cooccurrence.py`
+  passes unchanged, which is what says the move was a move. `with_subspans` is the retriever's
+  half alone: a question says *Dostoevsky* where the corpus stored *Fyodor Dostoevsky*, and it
+  is still one round trip because `entities_by_name` takes the whole sequence. The score decays
+  `1/(1 + hops)` (owner's decision) rather than flattening to `1.0`, because a flat score makes
+  every hit tie and `reciprocal-rank-fusion` turns an arbitrary tie-break into an arbitrary
+  weight with nothing saying so.
+
+  **Run through the shipped binary from a clean venv outside this repository**, on a bilingual
+  Dostoevsky corpus indexed through a rung naming a real embedder (`R11.5`). With no
+  `[services] graph` selected, `weft ask --pipeline graph-then-generate` exits **4** with
+  *"stage 'retrieve' needs GraphTraversal from a run-wide service, and nothing is selected for
+  [services] graph"* — refused **by name at assembly**, naming the stage and the key, which is
+  this line's own sentence read back. With the role selected, all four rungs answer with a
+  citation, including a question asked under the **Polish** alias whose answer lives only in the
+  English document — the merge `11.9` made is what carries it. **Said plainly rather than
+  dressed up: this corpus is too small to show the graph beating the vector baseline**, which
+  answered the same question correctly; `11.13` is the task that manufactures the questions on
+  which vector retrieval must fail, and it exists for this reason.
+
+  **Two findings the tests could not have produced, and one the check caught.** `weft ask` on a
+  question the graph cannot answer prints **one routing line and exits 0** — `cited-answer`
+  refuses honestly with `stance=NOT_IN_CORPUS` and both the renderer and the `--json` envelope
+  throw the stance away. Reachable for three phases and never reached, because `graph-walk` is
+  the first shipped retriever that can return genuinely nothing; filed as **`R11.6`**. And
+  `tests/docs/test_manual_config_keys.py` refused `[services] graph` as a key `weft.toml` does
+  not accept — true of `ServiceSelection.model_fields` and false of `weft.toml` since `9.0`,
+  which made the accepted set `set(table.declared) | {"route"}`. The check has been stale for
+  two phases and now reads the live role table the way the production code does: `L6.4` aimed at
+  a check rather than a marker. **FF28(c) earned its keep**: my own brief told an implementer to
+  name `weft_kg` in a `weft_cli` docstring, and the check refused the commit — nothing in the
+  wheel outside the graph pack may know it exists.
+
+  `L11.38`, `L11.39` and `L11.40` are this task's queue entries. The third is measured and
+  actionable: **`F811` exempts every underscore-prefixed name**, and every test helper in this
+  repository is underscore-prefixed, so redefining one is invisible — which is how a
+  `_services_registry` I added silently rebound the one 155 lines above it and broke three
+  unrelated tests. One config line fixes it at a measured cost of two `B007` findings tree-wide.
+  Tests mine; the seam by one dispatched `weft-implementer`, the retriever, the name rule and
+  the four rungs by a second; the fitness-function-driven repairs, the citation audit and every
+  document edit mine. Gate `GATE_EXIT=0` read out of the run's own log, both containers up: 286
+  architecture, 2471 passed, 9 skipped, 128 examples*
 - [ ] **11.11 ⚠ D3** an operator curates a schema the corpus proposed, activates it from a file,
   and every fact extracted under it carries which schema it was extracted under — so a corpus
   holding two schemas is a fact `weft graph show` prints, never a silence · owner `02` §2 → *Pack
@@ -8528,7 +8625,7 @@ that assumed one was withdrawn from the plan before it reached this list.
   identity into **the pack's own tables, keyed by collection**, so *which schema is this corpus
   under* is a fact about the corpus rather than about whichever operator's `weft.toml` was on disk.
   Without that row two checkouts disagree about one database and nothing notices, which is this
-  line's own forbidden silence. The `02:1143` per-installation wording is amended. Read the mark as
+  line's own forbidden silence. The `02:1200` per-installation wording is amended. Read the mark as
   the preamble's record, not as a block*
 - [x] **11.12** `weft eval` reports every metric per question `kind`, and a comparison can be
   asked for one `kind` alone, so a rung's claim about one class of question is a number over that

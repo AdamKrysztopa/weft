@@ -18,6 +18,21 @@ is the point of deriving the accepted set from the model instead of listing it h
 `ServiceSelection` needs no edit here and a key removed from it fails this test rather than
 rotting in a manual. Both spellings the documents use are read: the inline `` `[services] embed` ``
 prose form, and a `[services]` table inside a fenced block.
+
+**Widened at ledger 11.10, because the model stopped being the whole answer at ledger 9.0.**
+`[services]` has not accepted only `ServiceSelection`'s own fields since `9.0`: any installed pack
+may declare a **role**, and `weft_cli.services.service_selection_from_config` builds its accepted
+key set as `set(table.declared) | {"route"}` — the fields *plus* every role every installed pack
+publishes. So a document naming a real, pack-declared key was refused here while `weft.toml`
+accepted it, which inverts what this test is for: it existed to stop a manual promising a key that
+does not exist, and it had begun refusing keys that do. Found by `weft.toml.example` documenting
+`[services] graph`, the role `weft_kg` declares against its own traversal contract.
+
+This is `docs/lessons.md` `L6.4` aimed at a check rather than at a marker: the accepted set is
+whatever the **live population** of installed packs declares, not what one model states, and
+reading the declaration was right until a task made the population bigger than it. The set is now
+read the way the production code reads it — through a real `discover()` pass and
+`role_table_from_reports` — so a pack that adds a role needs no edit here either.
 """
 
 from __future__ import annotations
@@ -26,7 +41,11 @@ import re
 from pathlib import Path
 from typing import Final
 
+from tests.discovery import installed_packs_except_the_canary
+from weft_cli.service_roles import role_table_from_reports
 from weft_cli.services import ServiceSelection
+from weft_kernel.discovery import discover
+from weft_kernel.registry import Registry
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 MANUAL_DIR: Final[Path] = REPO_ROOT / "manual"
@@ -36,6 +55,34 @@ CONFIG_EXAMPLE: Final[Path] = REPO_ROOT / "weft.toml.example"
 #: while it is not yet a field. **Pinned empty** — a key that does not exist is not a remedy, and
 #: documenting one ahead of the task that builds it is the drift this test was written for.
 SERVICES_KEYS_DOCUMENTED_BEFORE_THEY_EXIST: Final[frozenset[str]] = frozenset()
+
+#: The never-dialled DSN `tests/discovery.py` and fitness functions 11 and 16 all use, for the
+#: reason all three state: a store's `__init__` opens no connection, so `register()` runs without
+#: a container and every pack's role declaration is a real one here.
+_PLACEHOLDER_PACK_SETTINGS: Final[dict[str, dict[str, object]]] = {
+    "store": {"dsn": "postgresql://config-keys-placeholder/placeholder"},
+    "graph": {"dsn": "postgresql://config-keys-placeholder/placeholder"},
+    "blob": {"root": "/nonexistent-blob-root"},
+}
+
+
+def _role_keys() -> frozenset[str]:
+    """Every `[services]` role key an installed pack declares — read through a real `discover()`
+    pass, the same source `weft_cli.registry_bootstrap` reads it from.
+
+    A pack whose settings fail to validate still declares its roles: `weft_kernel.discovery`
+    reads `SERVICE_ROLES` off the imported module *before* settings validate, precisely so a
+    `FAILED` pack does not silently take its key out of the accepted set. The placeholder
+    settings above therefore change nothing about the answer and are here only to keep the pass
+    quiet.
+    """
+    reports = discover(
+        Registry(),
+        allow=installed_packs_except_the_canary(),
+        pack_settings=_PLACEHOLDER_PACK_SETTINGS,
+    )
+    return frozenset(role_table_from_reports(reports).declared)
+
 
 #: `[services] embed` written inline in prose, the form a remedy sentence uses.
 _INLINE = re.compile(r"\[services\][ \t]+([A-Za-z_][A-Za-z0-9_]*)")
@@ -80,7 +127,11 @@ def test_at_least_one_services_key_is_found_in_the_documents() -> None:
 def test_every_documented_services_key_is_one_weft_toml_accepts() -> None:
     """A remedy naming a key `weft.toml` refuses is a remedy that fails on the operator."""
     # Arrange
-    accepted = frozenset(ServiceSelection.model_fields) | SERVICES_KEYS_DOCUMENTED_BEFORE_THEY_EXIST
+    accepted = (
+        frozenset(ServiceSelection.model_fields)
+        | _role_keys()
+        | SERVICES_KEYS_DOCUMENTED_BEFORE_THEY_EXIST
+    )
 
     # Act
     unknown = {

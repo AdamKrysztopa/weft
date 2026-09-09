@@ -1,0 +1,38 @@
+name: graph-and-vector-rrf
+extends: retrieve-then-generate
+
+# **`hybrid-then-generate`'s own shape, over two retrievers instead of two arms of one store.**
+# `hybrid` searches one store two ways; this document fans out over two *retrievers* — `vector-
+# top-k` and `graph-walk` — through `multi-retriever`, because the two do not compose in
+# sequence: `Retriever` is `Stage[QuerySet, Candidates]`, so a second retriever placed after the
+# first would be handed a `Candidates` it cannot read. Two `replace`s at two different ids, on
+# `hybrid-then-generate`'s own footing.
+#
+# **The whole point of this rung is that `fuse` cannot tell the two lists apart.** Both arms hand
+# `reciprocal-rank-fusion` an ordinary `RankedList` of `Passage`s over `Node`s — one arm's nodes
+# came from a vector search, the other's from a graph walk, and nothing about the type says
+# which. `weights` is what lets an operator lean on one arm over the other without either
+# retriever knowing the other exists; the split below is a starting position, not a measured
+# optimum, on `hybrid-then-generate`'s own admission — retune it with `weft eval`.
+vars:
+  route.summary: >-
+    Searches the corpus by meaning and walks its graph from the question's own named entities, at
+    the same time, and fuses the two rankings by reciprocal rank. The rung to reach for when a
+    question may be answered by a passage that reads like it or by a fact one hop from an entity
+    it names, and you do not know which in advance.
+  route.cost: >-
+    one embedding call and one vector search, plus one graph lookup and a one-hop walk, then one
+    model call to generate
+
+replace:
+  - id: retrieve
+    use: multi-retriever
+    with:
+      arms:
+        - {name: vector, use: vector-top-k, config: {top_k: 20}}
+        - {name: graph,  use: graph-walk,   config: {hops: 1}}
+  - id: fuse
+    use: reciprocal-rank-fusion
+    with:
+      k: 60
+      weights: {"multi-retriever:vector": 1.0, "multi-retriever:graph": 0.8}

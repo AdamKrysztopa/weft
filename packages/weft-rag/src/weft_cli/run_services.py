@@ -275,6 +275,82 @@ def _needs_store_of(
     return tuple(item for item in items if isinstance(item, type))
 
 
+class MalformedNeedsServicesError(WeftError):
+    """A plugin's `needs_services` is not a tuple of `@runtime_checkable` capability Protocols.
+
+    `MalformedNeedsStoreError`'s own rule, one attribute over: a declaration nobody can check
+    is not skipped, because skipping it would run the pipeline the declaration existed to
+    stop, and the operator would learn about it from a run-wide service silently missing a
+    method it was never told to advertise. Plain `WeftError` rather than
+    `PipelineResolutionError` — unlike `_needs_store_of`, this is read by `demanded_capabilities`
+    from a bare `StageSpec` list with no `pipeline`/`stage` in hand at the point the factory is
+    read, so the one thing this can name is the plugin that declared it.
+    """
+
+
+def _needs_services_of(factory: Callable[..., object], *, plugin: str) -> tuple[type[object], ...]:
+    """The capabilities `plugin` declared it needs from a run-wide `[services]` role —
+    `()` if it declared none.
+
+    `_needs_store_of`'s own read, one attribute over: `getattr(unwrap_factory(factory), ...)`
+    rather than `getattr(factory, ...)` for the identical reason that function states —
+    `functools.partial` does not proxy attribute access, and a pack that binds this run's
+    settings into its factory — the ordinary shape for a plugin holding a connection — would be
+    invisible to a direct `getattr`.
+    """
+    declared: object = getattr(unwrap_factory(factory), "needs_services", ())
+    items: tuple[object, ...] = (
+        cast("tuple[object, ...]", declared) if isinstance(declared, tuple) else ()
+    )
+    if not isinstance(declared, tuple) or not all(isinstance(item, type) for item in items):
+        raise MalformedNeedsServicesError(
+            f"plugin '{plugin}' declares needs_services={declared!r}, which is not a tuple of "
+            f"capability Protocols. Declare the Protocols themselves — "
+            f"`needs_services: ClassVar[tuple[type, ...]] = (GraphTraversal,)` — importing "
+            f"them from the pack that publishes them.",
+            plugin=plugin,
+        )
+    return tuple(item for item in items if isinstance(item, type))
+
+
+def demanded_capabilities(
+    specs: Sequence[StageSpec], *, registry: Registry
+) -> dict[type[object], str]:
+    """Every capability some stage's plugin declared under `needs_services`, mapped to the
+    `spec.id` that demanded it.
+
+    Ledger task **11.10**. `check_selected_capabilities` (below) takes exactly this shape and
+    had no caller until this task built it — nothing else in the tree walked a resolved
+    `StageSpec` list looking for `needs_services`. This function only reads the declaration;
+    deciding what to do about it is `check_selected_capabilities`'s job, the identical split
+    `_needs_store_of`/`check_store_capabilities` already draw for `needs_store`.
+
+    **The whole chain, not the primary alone** — `_chain_of(spec)`, the same helper
+    `check_store_capabilities` walks, for the same reason: a `fallback:` name is a candidate
+    `weft_kernel.fallback.try_in_order` will actually construct and run, so a service demand
+    declared only on a fallback is checked, not skipped because the primary never mentioned it.
+    A candidate name nothing registered is skipped here, exactly as `_entry_or_none` already
+    documents for the store check — existence is the runner's own refusal, not this one's.
+
+    **First stage wins when two demand the same capability.** This maps a capability to *a*
+    stage, not to every stage that named it, because the mapping exists only to put a
+    nameable stage in `check_selected_capabilities`'s refusal — the refusal reads identically
+    whichever demanding stage is named, so naming the one `specs` lists first is a
+    deterministic choice rather than an arbitrary one, and it is why the walk below is a
+    single pass over `specs` in order rather than a dict comprehension that would let a later
+    stage overwrite an earlier one.
+    """
+    demanded: dict[type[object], str] = {}
+    for spec in specs:
+        for position, (candidate, _where) in enumerate(_chain_of(spec)):
+            entry = _entry_or_none(registry, spec, candidate, primary=position == 0)
+            if entry is None:
+                continue
+            for capability in _needs_services_of(entry.factory, plugin=candidate):
+                demanded.setdefault(capability, spec.id)
+    return demanded
+
+
 def _satisfies(
     store: object, capability: type[object], *, plugin: str, stage: str, pipeline: str | None
 ) -> bool:
@@ -415,6 +491,7 @@ async def build_services(
     services: ServiceSelection,
     sink: TokenSink,
     roles: RoleTable = _NO_ROLES,
+    role_instances: Mapping[str, object] | None = None,
 ) -> ServiceRegistry:
     """Assemble one run's `ServiceRegistry` — every service a query-path stage may reach
     through `ctx.require(...)`. See the module docstring's *"`build_services` — task 2.8's
@@ -458,6 +535,16 @@ async def build_services(
     `_contract_registered`, rather than left to `register_selected_roles`' own `add` raise
     `weft_kernel.context.DuplicateServiceError` at whichever registration happens to run
     second — the same store/embedder contracts, never a second capability name.
+
+    **`role_instances` — ledger task 11.10's own addition.** `weft_cli.route_ask.
+    _prepared_runner` needs the same raw `selected_role_instances` mapping this function builds,
+    to hand `check_selected_capabilities` the instances a demand is checked against — and it
+    needs the *one* the `ServiceRegistry` this function returns actually holds, not a second
+    build that could disagree with it. `None` (the default) keeps every other caller's
+    behaviour exactly as it was: this function builds the mapping itself, the identical call it
+    always made. A caller that already built it — `_prepared_runner`, so the plugin behind
+    each selected role is constructed once per run rather than twice — passes it here instead,
+    and this function trusts it rather than calling `selected_role_instances` a second time.
     """
     registered = ServiceRegistry()
     registered.add(
@@ -473,11 +560,14 @@ async def build_services(
     registered.add(StageLookup, stage_lookup(registry))
     registered.add(RouteCatalogue, route_catalogue(catalogue))
 
+    role_map = (
+        role_instances
+        if role_instances is not None
+        else selected_role_instances(registry=registry, services=services, table=roles)
+    )
     selected = {
         key: instance
-        for key, instance in selected_role_instances(
-            registry=registry, services=services, table=roles
-        ).items()
+        for key, instance in role_map.items()
         if not _contract_registered(registered, roles.roles[key].contract)
     }
     register_selected_roles(registered, selected=selected, table=roles, demanded=())
@@ -646,11 +736,14 @@ class SelectedCapabilityMissingError(PipelineResolutionError, UnresolvedNameErro
     `docs/03-cli.md`'s exit-code split puts at 4.
 
     **The remedy names a plugin name, never a Python class.** `docs/lessons.md` `L9.26`: the
-    one production caller of the older check passed `store_name=type(store).__name__`
-    (`weft_cli/route_ask.py:513`), so a live refusal read *the configured store
-    'PgVectorStore'* while `[services] store` accepts `pgvector` — a remedy nobody could carry
-    out. Every other call site was a test supplying that name by hand, which is exactly why
-    none of them could catch it.
+    one production caller of the older check used to pass `store_name=type(store).__name__`,
+    so a live refusal read *the configured store 'PgVectorStore'* while `[services] store`
+    accepts `pgvector` — a remedy nobody could carry out. Every other call site was a test
+    supplying that name by hand, which is exactly why none of them could catch it. Repaired at
+    ledger task **11.10**: `weft_cli.route_ask._run_pipeline`'s own `check_store_capabilities`
+    call (`weft_cli/route_ask.py:605`) now takes `store_name` as a parameter fed from
+    `[services] store` itself, threaded down from each of that module's three call sites,
+    rather than deriving one from the instance.
 
     Fitness function 12's family: `valid_options` is every role key whose declared contract
     publishes the missing capability.

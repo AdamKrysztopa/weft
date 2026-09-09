@@ -22,6 +22,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Protocol
 
 import pytest
 import yaml
@@ -35,6 +36,7 @@ from weft_cli.route_ask import (
     run_named_ask,
     run_routed_ask,
 )
+from weft_cli.run_services import SelectedCapabilityMissingError
 from weft_cli.services import ServiceSelection
 from weft_embed import Embedder
 from weft_embed.hash_embedder import HashEmbedder
@@ -69,6 +71,7 @@ from weft_retrieve import (
     SingleList,
 )
 from weft_retrieve.contract import QueryTransform
+from weft_retrieve.payload import Candidates, QuerySet
 from weft_store import NodeStore
 
 #: `LlmQueryScorer`'s own JSON contract — `RouteQueryScores` — with every one of the
@@ -584,3 +587,81 @@ async def test_a_router_that_cannot_accept_a_query_is_refused_by_name(
     assert "route" in message
     assert "Scorecard" in message
     assert "has no attribute" not in message
+
+
+# --- ledger task 11.10: a service demand is refused at assembly, not discovered mid-run ---
+
+
+async def test_a_stage_needing_a_service_no_role_provides_is_refused_before_anything_runs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The property `11.10`'s line names — *refused by name at assembly* — through the seam a
+    caller actually uses, rather than by calling the checker directly.
+
+    `check_store_capabilities` cannot express this: it compares a declaration against the one
+    configured `[services] store`, so a retriever needing a traversal capability would be
+    refused with a remedy naming the wrong setting. `check_selected_capabilities` was written
+    for exactly this at task **9.0** and had no production caller at all until this task — the
+    map it takes is built here, from the resolved stage list, and the refusal names the
+    `[services]` key an operator can actually edit.
+
+    **The assertion is that nothing ran.** A refusal that arrived after the retriever executed
+    would still raise and still read correctly in a terminal, and would have already spent
+    whatever the stage spends — so the recording stage below is what separates "refused" from
+    "refused in time".
+    """
+    # Arrange
+    monkeypatch.chdir(tmp_path)
+    ran: list[str] = []
+
+    class _Traversal(Protocol):
+        async def neighbourhood(self, entity_ids: Sequence[str], *, hops: int) -> object: ...
+
+    class _NeedsATraversal:
+        needs_services: tuple[type, ...] = (_Traversal,)
+
+        def __init__(self, config: object = None) -> None:
+            del config
+
+        async def run(self, payload: QuerySet, ctx: Context) -> Outcome[Candidates]:
+            del ctx
+            ran.append("retrieve")
+            return Produced(value=Candidates(origin=payload.origin))
+
+    registry = _registry()
+    registry.add(Retriever, "graph-walk", _NeedsATraversal, distribution="weft-rag")
+    pipelines = tmp_path / "pipelines"
+    pipelines.mkdir()
+    (pipelines / "graph.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "name": "graph",
+                "stages": [
+                    {"id": "retrieve", "use": "graph-walk"},
+                    {"id": "fuse", "use": "single-list"},
+                    {"id": "pack", "use": "repack"},
+                    {
+                        "id": "generate",
+                        "use": "cited-answer",
+                        "with": {"when_no_evidence": "answer_from_memory"},
+                    },
+                ],
+            },
+            sort_keys=False,
+        )
+    )
+
+    # Act / Assert
+    with pytest.raises(SelectedCapabilityMissingError) as caught:
+        await run_named_ask(
+            "which entity does this question name?",
+            pipeline_name="graph",
+            registry=registry,
+            reports=(),
+            ctx=_ctx(),
+            llm=_llm(),
+            services=ServiceSelection(embed="fake-embed", store="fake-store"),
+            sink=NullSink(),
+        )
+    assert "retrieve" in str(caught.value), "the refusal does not name the stage that demanded it"
+    assert ran == [], "the run reached the retriever before refusing"

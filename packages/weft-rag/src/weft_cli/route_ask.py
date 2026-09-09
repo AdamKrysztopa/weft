@@ -33,6 +33,16 @@ policies that were unreachable because of it are the evidence.
 `weft_cli.run_services.check_store_capabilities` runs once per resolved pipeline,
 immediately before that pipeline's own `run_once` call — see `weft_cli.run_services`'s
 own module docstring for why that check is not inside `build_services` itself.
+`check_selected_capabilities` — ledger task **11.10** — runs immediately after it, in the
+same window: `needs_store` is answered against the one configured `[services] store`, but a
+retriever needing a capability *no store advertises* — a traversal, say — can only be answered
+against the whole selected `[services]` set, and
+had no caller until this task built `weft_cli.run_services.demanded_capabilities`, the map from
+the resolved `StageSpec` list this check needs. Both checks need the identical two things
+`build_services` already builds and this module used to drop: the `RoleTable` and the raw
+`selected_role_instances` mapping, which `_prepared_runner` now threads out to `_run_pipeline`
+rather than a second call rebuilding either — building a selected role's plugin twice per run
+could disagree with the one instance the `ServiceRegistry` actually holds.
 
 **`run_named_ask`, task 3.11 — the same walk, minus the router.** `weft ask <question>
 --pipeline <name>` is what a caller who wants a *specific* pipeline uses now that `weft
@@ -62,7 +72,13 @@ from weft_cli.pipeline_catalogue import (
     UnknownPipelineNameError,
     full_catalogue,
 )
-from weft_cli.run_services import build_services, check_store_capabilities
+from weft_cli.run_services import (
+    build_services,
+    check_selected_capabilities,
+    check_store_capabilities,
+    demanded_capabilities,
+    selected_role_instances,
+)
 from weft_cli.service_roles import RoleTable
 from weft_cli.services import DEFAULT_ROUTER, ServiceSelection
 from weft_generate.contract import Generator
@@ -212,7 +228,7 @@ async def run_routed_ask(
             ),
         )
 
-    runner, routed_ctx, store = await _prepared_runner(
+    runner, routed_ctx, store, table, selected_services = await _prepared_runner(
         registry=registry,
         catalogue=catalogue,
         ctx=ctx,
@@ -230,6 +246,10 @@ async def run_routed_ask(
         runner=runner,
         ctx=routed_ctx,
         store=store,
+        store_name=services.store,
+        table=table,
+        selected=selected_services,
+        names=services.roles,
         catalogue=catalogue,
         contributions=contributions,
         entry_type=Query,
@@ -259,6 +279,10 @@ async def run_routed_ask(
         runner=runner,
         ctx=routed_ctx,
         store=store,
+        store_name=services.store,
+        table=table,
+        selected=selected_services,
+        names=services.roles,
         catalogue=catalogue,
         contributions=contributions,
     )
@@ -426,7 +450,7 @@ async def run_named_ask(
             remedy=f"use one of: {', '.join(options) or '(none — no pipeline is known yet)'}.",
         )
 
-    runner, routed_ctx, store = await _prepared_runner(
+    runner, routed_ctx, store, table, selected_services = await _prepared_runner(
         registry=registry,
         catalogue=catalogue,
         ctx=ctx,
@@ -445,6 +469,10 @@ async def run_named_ask(
         runner=runner,
         ctx=routed_ctx,
         store=store,
+        store_name=services.store,
+        table=table,
+        selected=selected_services,
+        names=services.roles,
         catalogue=catalogue,
         contributions=contributions,
     )
@@ -466,7 +494,7 @@ async def _prepared_runner(
     services: ServiceSelection,
     sink: TokenSink,
     roles: RoleTable = _NO_ROLES,
-) -> tuple[Runner, Context, object]:
+) -> tuple[Runner, Context, object, RoleTable, Mapping[str, object]]:
     """The setup `run_routed_ask` and `run_named_ask` share: the assembled service
     registry, a `Context` carrying it, a `Runner`, and the resolved `NodeStore` both
     functions' own two `_run_pipeline` calls need. Factored out once a second caller
@@ -475,14 +503,32 @@ async def _prepared_runner(
 
     `roles` — ledger task **9.0** — reaches `build_services` unchanged; both callers document
     it for themselves.
+
+    **The last two — ledger task 11.10.** `roles` itself, and the raw `selected_role_instances`
+    mapping, both used to be received here and dropped: nothing downstream of this function
+    needed either before `check_selected_capabilities` existed. Now both do — `_run_pipeline`
+    needs the `RoleTable` to turn a demanded capability back into role keys a caller could
+    select, and the selected instances to ask whether one of them actually provides it. The
+    mapping is built **once**, here, before `build_services` is called, and handed into it as
+    `role_instances` rather than left for `build_services` to build its own copy: constructing
+    a selected role's plugin twice per run is not acceptable, and a second construction could
+    disagree with the one instance the `ServiceRegistry` this function returns actually holds
+    — which would make the capability check answer about a different object than the run uses.
     """
+    role_instances = selected_role_instances(registry=registry, services=services, table=roles)
     service_registry = await build_services(
-        registry=registry, catalogue=catalogue, llm=llm, services=services, sink=sink, roles=roles
+        registry=registry,
+        catalogue=catalogue,
+        llm=llm,
+        services=services,
+        sink=sink,
+        roles=roles,
+        role_instances=role_instances,
     )
     routed_ctx = replace(ctx, services=service_registry)
     runner = Runner(registry)
     store = service_registry.resolve(NodeStore)
-    return runner, routed_ctx, store
+    return runner, routed_ctx, store, roles, role_instances
 
 
 async def _run_pipeline(
@@ -493,6 +539,10 @@ async def _run_pipeline(
     runner: Runner,
     ctx: Context,
     store: object,
+    store_name: str,
+    table: RoleTable,
+    selected: Mapping[str, object],
+    names: Mapping[str, str],
     catalogue: Mapping[str, Pipeline],
     contributions: tuple[Contribution, ...] = (),
     entry_type: type[object] | None = None,
@@ -528,6 +578,18 @@ async def _run_pipeline(
     `'QuerySet' object has no attribute 'text'` and exit `1`, while the routed path refused the
     same mistake by name at exit `4`. The default stays for a genuine stranger; it is no longer
     the answer any first-party caller gives.
+
+    **`store_name`, `table`, `selected`, `names` — ledger task 11.10.** `store_name` is the
+    configured `[services] store` plugin name, not `type(store).__name__` — this call used to
+    pass the latter, which is the live defect `weft_cli.run_services.
+    SelectedCapabilityMissingError`'s own docstring names as `L9.26`: a refusal read *the
+    configured store 'PgVectorStore'* while `[services] store` accepts `pgvector`, a remedy
+    nobody could carry out. `table` and `selected` are `_prepared_runner`'s own `RoleTable` and
+    raw `selected_role_instances` mapping, threaded through rather than rebuilt — see that
+    function's own docstring for why a second build is not acceptable here. `names` is
+    `services.roles`, the `[services]` key → configured plugin name mapping, so
+    `check_selected_capabilities`'s own refusal can say what was configured rather than what
+    class it turned into, the identical `L9.26` argument one layer over.
     """
     contracts = contracts_for(
         pipeline, registry=registry, parents=catalogue, contributions=contributions
@@ -545,8 +607,14 @@ async def _run_pipeline(
         registry=registry,
         store=store,
         store_contract=NodeStore,
-        store_name=type(store).__name__,
+        store_name=store_name,
         pipeline=pipeline.name,
+    )
+    check_selected_capabilities(
+        demanded=demanded_capabilities(specs, registry=registry),
+        selected=selected,
+        table=table,
+        names=names,
     )
     runnable = runner.resolve(specs, tenant_id=ctx.tenant_id, entry_type=entry_type)
     outcome = await runner.run_once(runnable, payload, ctx)

@@ -11,30 +11,24 @@ stage's whole point is that the mechanism is honest and reproducible, not that i
 split is what lets `cooccurrence-graph` sit in a pipeline with no graph store configured at all
 — it simply attaches a fact nothing reads. `weft_kg.store.GraphStore.add` is the other half: it
 reads `CooccurrenceGraph` off a node's `ext` and derives the entity and relation rows.
+
+**The heuristic itself — the stopword list, the leading-stopword strip and the Title-Case-run
+regex — lives in `weft_kg.names` now, not here.** Ledger `11.10` moved it once `graph-walk`
+needed the identical rule to match a name in a *question* rather than a *chunk*: one notion of
+what a name looks like, imported by both callers, rather than two copies free to drift apart.
+`candidate_names` is that moved rule; `_graph_for` below still does its own counting over what
+it returns, exactly as it always has.
 """
 
 import itertools
-import re
 from collections.abc import Sequence
-from typing import Final
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from weft_kernel.context import Context
 from weft_kernel.payload import Node, NothingToProduce, Outcome, Produced
+from weft_kg.names import candidate_names
 from weft_kg.payload import CooccurrenceEdge, CooccurrenceGraph, EntityMention
-
-#: Words that are capitalised only because they open a sentence, not because they name
-#: anything — filtered so a determiner does not become this stage's densest entity in every
-#: node. Written fresh for this pack, not carried from any other module in this tree.
-_STOPWORDS: Final[frozenset[str]] = frozenset(
-    {
-        "A", "An", "And", "As", "At", "Because", "But", "By", "For", "From", "He", "How",
-        "I", "If", "In", "Is", "It", "Its", "Of", "On", "Or", "She", "So", "Some", "That",
-        "The", "There", "These", "They", "This", "Those", "To", "Was", "We", "Were",
-        "What", "When", "Where", "Which", "Who", "Why", "With",
-    }
-)  # fmt: skip
 
 
 class CooccurrenceSettings(BaseModel):
@@ -55,19 +49,6 @@ class CooccurrenceSettings(BaseModel):
     min_mentions: int = Field(ge=1, default=1)
 
 
-def _cleaned(raw: str) -> str | None:
-    """`raw`, whitespace-normalised, with every *leading* stopword stripped — `None` if nothing
-    is left. A multi-word match starting a sentence ("The Board met...") would otherwise carry
-    its sentence-initial stopword into the name ("The Board"); stripped only from the front,
-    since a stopword is a sentence-initial artefact and the pattern below only ever matches a
-    run starting where a capital letter begins.
-    """
-    words = raw.split()
-    while words and words[0] in _STOPWORDS:
-        words.pop(0)
-    return " ".join(words) if words else None
-
-
 class CooccurrenceGraphBuilder:
     """Attaches a `CooccurrenceGraph` to every node in a non-empty batch — never rewrites
     `content`, so node identity (`node.id`) is untouched.
@@ -78,10 +59,6 @@ class CooccurrenceGraphBuilder:
 
     def __init__(self, config: CooccurrenceSettings | None = None) -> None:
         self._config = config if config is not None else CooccurrenceSettings()
-        # `{0, n-1}` additional words beyond the first — `max_name_words` total.
-        self._pattern = re.compile(
-            rf"\b[A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*){{0,{self._config.max_name_words - 1}}}\b"
-        )
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
         del ctx  # no service or locale this stage needs
@@ -92,10 +69,7 @@ class CooccurrenceGraphBuilder:
 
     def _graph_for(self, content: str) -> CooccurrenceGraph:
         counts: dict[str, int] = {}
-        for match in self._pattern.finditer(content):
-            name = _cleaned(match.group())
-            if name is None:
-                continue
+        for name in candidate_names(content, max_words=self._config.max_name_words):
             counts[name] = counts.get(name, 0) + 1
         names = tuple(name for name, count in counts.items() if count >= self._config.min_mentions)
         entities = tuple(EntityMention(name=name, count=counts[name]) for name in names)

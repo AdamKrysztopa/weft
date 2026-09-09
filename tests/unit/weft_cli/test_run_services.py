@@ -21,16 +21,19 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from functools import partial
+from typing import Protocol, runtime_checkable
 
 import pytest
 from pydantic import SecretStr
 
 from weft_cli.llm_roles import LLMSection
 from weft_cli.run_services import (
+    MalformedNeedsServicesError,
     MalformedNeedsStoreError,
     StoreCapabilityMissingError,
     build_services,
     check_store_capabilities,
+    demanded_capabilities,
 )
 from weft_cli.services import ServiceSelection
 from weft_embed import Embedder
@@ -379,3 +382,122 @@ async def test_build_services_raises_for_a_service_selection_naming_an_unregiste
             services=ServiceSelection(embed="fake", store="ghost"),
             sink=NullSink(),
         )
+
+
+# --- ledger task 11.10: the second declaration, and the map that carries it to the check ---
+#
+# `needs_store` says what the **configured store** must be, and is compared against exactly one
+# object. `needs_services` — new here — says what the **run** must offer: a capability no store
+# provides, supplied by a `[services]` role, reached through `ctx.require`. The graph retriever is
+# the first plugin that needs the second kind, and `check_selected_capabilities` (task 9.0,
+# property iii) is the check that was written for it and had no caller until now: nothing in the
+# tree built the `Mapping[capability, stage_id]` it takes. `demanded_capabilities` is that builder,
+# and it is separate from the check for the reason `check_store_capabilities` is separate from
+# `_needs_store_of` — one reads a declaration off a factory, the other decides what to do about it.
+
+
+@runtime_checkable
+class _Traversal(Protocol):
+    """A capability no store in this tree provides — the shape `weft_kg.contract.GraphTraversal`
+    has, declared here rather than imported so this module keeps testing the seam and not the
+    graph pack.
+    """
+
+    async def neighbourhood(self, entity_ids: Sequence[str], *, hops: int) -> object: ...
+
+
+class _NeedsATraversal:
+    """A retriever demanding a capability no store in this tree provides.
+
+    Stands in for `weft_kg.retrieval.GraphWalkRetriever` so this module keeps testing the seam
+    rather than the graph pack — the identical reason `_HybridStore` above stands in for a
+    backend instead of importing one.
+    """
+
+    needs_services: tuple[type, ...] = (_Traversal,)
+
+    def __init__(self, config: object = None) -> None:
+        del config
+
+
+class _MisdeclaringServices:
+    """`needs_services` that is not a tuple of types — the malformed case, one attribute over."""
+
+    needs_services: object = "GraphTraversal"
+
+    def __init__(self, config: object = None) -> None:
+        del config
+
+
+def _service_demand_registry() -> Registry:
+    registry = Registry()
+    registry.add(Retriever, "needs-traversal", _NeedsATraversal, distribution="weft-test-pack")
+    registry.add(Retriever, "misdeclares", _MisdeclaringServices, distribution="weft-test-pack")
+    registry.add(Retriever, "vector-top-k", _DenseRetriever, distribution="weft-test-pack")
+    return registry
+
+
+def test_a_stage_that_declares_a_service_need_is_mapped_to_its_own_stage_id() -> None:
+    """The stage id is the whole reason this is a mapping rather than a set: *"something needs
+    this"* is not a thing an operator can act on, and `check_selected_capabilities`'s message
+    puts the stage in the refusal.
+    """
+    # Arrange
+    specs = (
+        StageSpec(id="retrieve", contract=Retriever, name="needs-traversal"),
+        StageSpec(id="second", contract=Retriever, name="vector-top-k"),
+    )
+
+    # Act
+    demanded = demanded_capabilities(specs, registry=_service_demand_registry())
+
+    # Assert
+    assert demanded == {_Traversal: "retrieve"}
+
+
+def test_a_stage_declaring_nothing_demands_nothing() -> None:
+    """Most stages never reach a run-wide service, and requiring every plugin author to declare
+    an empty tuple would be a registration tax with no failure behind it — the identical
+    argument `check_store_capabilities` already makes for `needs_store`.
+    """
+    # Act
+    demanded = demanded_capabilities(
+        (StageSpec(id="retrieve", contract=Retriever, name="vector-top-k"),),
+        registry=_service_demand_registry(),
+    )
+
+    # Assert
+    assert demanded == {}
+
+
+def test_a_fallback_in_the_chain_declares_for_itself() -> None:
+    """`check_store_capabilities` checks the whole chain because a `fallback:` name is a
+    candidate the runner will actually construct and run. A service demand is no different, and
+    the failure a chain-blind check lets through is the same one: reaching a fallback that calls
+    a service nothing registered, mid-batch, as a bare `UnresolvedServiceError`.
+    """
+    # Arrange
+    specs = (
+        StageSpec(
+            id="retrieve", contract=Retriever, name="vector-top-k", fallback=("needs-traversal",)
+        ),
+    )
+
+    # Act
+    demanded = demanded_capabilities(specs, registry=_service_demand_registry())
+
+    # Assert
+    assert demanded == {_Traversal: "retrieve"}
+
+
+def test_a_needs_services_that_is_not_a_tuple_of_capabilities_is_refused_by_name() -> None:
+    """A declaration nobody can check is not quietly skipped — skipping it would run the
+    pipeline the declaration existed to stop. `needs_store`'s own rule, one attribute over.
+    """
+    # Arrange
+    specs = (StageSpec(id="retrieve", contract=Retriever, name="misdeclares"),)
+
+    # Act / Assert
+    with pytest.raises(MalformedNeedsServicesError) as caught:
+        demanded_capabilities(specs, registry=_service_demand_registry())
+    assert "misdeclares" in str(caught.value)

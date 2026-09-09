@@ -1,0 +1,28 @@
+name: graph-then-generate
+extends: retrieve-then-generate
+
+# **The floor of the graph family — one replace, at the one position that changes.** Everything
+# else about `retrieve-then-generate` (fuse, pack, generate) is untouched: `graph-walk` produces
+# `Candidates` in exactly the shape `vector-top-k` does, so nothing downstream of `retrieve` has
+# to know which one ran. `hybrid-then-generate`'s own comment records the rule this document
+# follows — swapping a plugin at an id needs `replace:`, never `set:`, because the inherited
+# plugin at `retrieve` (`vector-top-k`) publishes a different configuration model entirely.
+#
+# `hops: 1` walks one relation edge out from every entity the question names, so a question
+# naming `adRAP` also reaches whatever `adRAP` co-occurs with in the corpus — the property a
+# plain vector search over the same corpus cannot offer, because a fact three hops from the
+# nearest matching passage need not be textually similar to the question at all.
+vars:
+  route.summary: >-
+    Matches the question's own capitalised names against the graph, walks one relation edge out
+    from each, and answers from the nodes that anchor what it reached. The rung to reach for when
+    the answer is a fact connected to a named entity rather than a passage that reads like the
+    question.
+  route.cost: >-
+    no embedding call and no model call to retrieve — one graph lookup, one one-hop walk, one
+    node fetch — and one model call to generate
+
+replace:
+  - id: retrieve
+    use: graph-walk
+    with: {hops: 1}
