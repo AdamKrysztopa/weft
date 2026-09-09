@@ -7,7 +7,7 @@ extends: retrieve-then-generate
 # pipeline position is named by one, because the distance between "the engine can express this"
 # and "a user can run this" is one YAML file and that is exactly the distance nobody notices
 # growing. `weft-rag` registers `multi-retriever` at ledger 11.2; the *motivated* first document
-# is `graph-and-vector-rrf` at 11.10, and it belongs to `weft-graph`, a distribution that does
+# is `graph-and-vector-rrf` at 11.10, and it belongs to `weft-kg`, a distribution that does
 # not exist yet. So this one exists to keep the new rung reachable from the set that registers
 # it, and the pairing below is the honest one available inside `weft-rag` rather than a
 # technique claim.

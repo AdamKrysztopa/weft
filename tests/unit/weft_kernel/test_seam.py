@@ -126,7 +126,7 @@ async def test_wrap_strips_transient_ext_from_a_produced_node(tracer: _Recording
     async def run() -> Outcome[Node]:
         return Produced(value=node)
 
-    wrapped = seam.wrap(run, distribution="weft-graph", contract="Extractor", plugin="demo")
+    wrapped = seam.wrap(run, distribution="weft-kg", contract="Extractor", plugin="demo")
 
     # Act
     outcome = await wrapped()

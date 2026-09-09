@@ -156,7 +156,7 @@ class _NameCapturingRegistrar:
         """A no-op stand-in for `PackRegistrar.add_pipeline_resource` (task 1.11).
 
         The oldest of the three non-plugin contributions and the last to be stubbed here,
-        because no example pack shipped a pipeline until `examples/weft-graph` did at task
+        because no example pack shipped a pipeline until `examples/weft-kg` did at task
         5.5 — which is exactly how a hand-maintained double drifts: it grows a method when
         something calls it, so the gap is invisible for as long as nothing does.
         `test_the_double_carries_every_registrar_method` below is what stops the fourth
@@ -478,9 +478,9 @@ def structurally_naming(names: Iterable[str], *, within: Iterable[Path]) -> list
     directions, which is the half a repair specified from one instance misses (`L6.13`).
 
     **Where the text scan over-fires**, a name assembled or discussed rather than used: `02` §4
-    quotes `weft-graph` as a hypothetical throughout, and a real pack taking that name would turn
+    quotes `weft-kg` as a hypothetical throughout, and a real pack taking that name would turn
     every legitimate quotation into a violation — the second half of L5.28, and the reason
-    `examples/weft-example-graph` is *not* called `weft-graph`.
+    `examples/weft-example-graph` is *not* called `weft-kg`.
 
     **Where the text scan under-fires**, and this is the one that matters: a reference the text
     never spells. `import weft_example_graph as g` is caught by both; `importlib.import_module(

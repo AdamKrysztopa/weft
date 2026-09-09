@@ -132,10 +132,10 @@ async def test_pipeline_show_places_a_contribution_in_a_pipeline_that_declares_i
         },
     )
     registry = _registry()
-    registry.add(_StageContract, "entity-extractor", _factory, distribution="weft-graph")
+    registry.add(_StageContract, "entity-extractor", _factory, distribution="weft-kg")
     contribution = Contribution(
         slot="enrich",
-        distribution="weft-graph",
+        distribution="weft-kg",
         stage=StageDeclaration(id="entities", use="entity-extractor"),
     )
     deps = Dependencies(
@@ -152,9 +152,9 @@ async def test_pipeline_show_places_a_contribution_in_a_pipeline_that_declares_i
     result = outcome.value
     assert isinstance(result, pipeline_commands.PipelineShowCommandResult)
     resolved = result.resolved
-    assert [stage.id for stage in resolved.stages] == ["chunk", "weft-graph:entities"]
-    assert resolved.stages[1].provenance == "weft-graph"
-    assert resolved.stages[1].distribution == "weft-graph"
+    assert [stage.id for stage in resolved.stages] == ["chunk", "weft-kg:entities"]
+    assert resolved.stages[1].provenance == "weft-kg"
+    assert resolved.stages[1].distribution == "weft-kg"
     assert resolved.unplaced_contributions == ()
 
 
@@ -169,10 +169,10 @@ async def test_pipeline_show_records_a_contribution_unplaced_against_a_pipeline_
         tmp_path, "base.yaml", {"name": "base", "stages": [{"id": "chunk", "use": "fixed-size"}]}
     )
     registry = _registry()
-    registry.add(_StageContract, "entity-extractor", _factory, distribution="weft-graph")
+    registry.add(_StageContract, "entity-extractor", _factory, distribution="weft-kg")
     contribution = Contribution(
         slot="enrich",
-        distribution="weft-graph",
+        distribution="weft-kg",
         stage=StageDeclaration(id="entities", use="entity-extractor"),
     )
     deps = Dependencies(
@@ -191,7 +191,7 @@ async def test_pipeline_show_records_a_contribution_unplaced_against_a_pipeline_
     resolved = result.resolved
     assert [stage.id for stage in resolved.stages] == ["chunk"]
     assert len(resolved.unplaced_contributions) == 1
-    assert "weft-graph:entities" in resolved.unplaced_contributions[0]
+    assert "weft-kg:entities" in resolved.unplaced_contributions[0]
     assert "enrich" in resolved.unplaced_contributions[0]
 
 

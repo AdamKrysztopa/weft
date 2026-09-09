@@ -821,7 +821,7 @@ def test_delete_names_every_participant_and_fails_when_one_did() -> None:
             ParticipantOutcome(
                 contract="GraphStore",
                 plugin="graph",
-                distribution="weft-graph",
+                distribution="weft-kg",
                 error="RuntimeError: connection refused",
             ),
         ),
@@ -833,7 +833,7 @@ def test_delete_names_every_participant_and_fails_when_one_did() -> None:
     # Assert
     assert rendered.exit_code is ExitCode.OPERATION_FAILED
     assert "pgvector (weft-store): 7 node(s) removed" in (rendered.stdout or "")
-    assert "graph (weft-graph) — RuntimeError: connection refused" in (rendered.stderr or "")
+    assert "graph (weft-kg) — RuntimeError: connection refused" in (rendered.stderr or "")
 
 
 def test_delete_with_no_participant_says_so_and_succeeds() -> None:
@@ -857,7 +857,7 @@ def test_reconcile_reports_an_interrupted_pass_as_unfinished_rather_than_as_a_fa
             ReconcileOutcome(
                 contract="GraphStore",
                 plugin="graph",
-                distribution="weft-graph",
+                distribution="weft-kg",
                 report=ReconcileReport(
                     mode=ReconcileMode.REPAIR, examined=2, removed=2, remaining=3
                 ),
@@ -880,7 +880,7 @@ def test_reconcile_dry_run_names_the_participants_and_asks_none_of_them() -> Non
         mode=ReconcileMode.FULL,
         dry_run=True,
         participants=(),
-        would_ask=("graph (weft-graph)",),
+        would_ask=("graph (weft-kg)",),
     )
 
     # Act
@@ -888,7 +888,7 @@ def test_reconcile_dry_run_names_the_participants_and_asks_none_of_them() -> Non
 
     # Assert
     assert rendered.exit_code is ExitCode.SUCCESS
-    assert "would run against 1 participant(s):\n  graph (weft-graph)" in (rendered.stdout or "")
+    assert "would run against 1 participant(s):\n  graph (weft-kg)" in (rendered.stdout or "")
 
 
 def test_reconcile_full_states_its_cost_before_the_outcome_lines() -> None:
@@ -901,7 +901,7 @@ def test_reconcile_full_states_its_cost_before_the_outcome_lines() -> None:
             ReconcileOutcome(
                 contract="GraphStore",
                 plugin="graph",
-                distribution="weft-graph",
+                distribution="weft-kg",
                 report=ReconcileReport(mode=ReconcileMode.FULL, examined=1, removed=0),
             ),
         ),
@@ -909,7 +909,7 @@ def test_reconcile_full_states_its_cost_before_the_outcome_lines() -> None:
             ReconcileEstimateOutcome(
                 contract="GraphStore",
                 plugin="graph",
-                distribution="weft-graph",
+                distribution="weft-kg",
                 estimate=ReconcileEstimate(
                     mode=ReconcileMode.FULL,
                     pending=4312,
@@ -971,12 +971,12 @@ def test_reconcile_a_failing_estimate_is_named_rather_than_silently_dropped() ->
         mode=ReconcileMode.FULL,
         dry_run=True,
         participants=(),
-        would_ask=("graph (weft-graph)",),
+        would_ask=("graph (weft-kg)",),
         estimates=(
             ReconcileEstimateOutcome(
                 contract="GraphStore",
                 plugin="graph",
-                distribution="weft-graph",
+                distribution="weft-kg",
                 error="RuntimeError: graph index unavailable",
             ),
         ),
@@ -1033,7 +1033,7 @@ def test_index_reports_failure_when_its_own_automatic_reconcile_pass_fails() -> 
                 ReconcileOutcome(
                     contract="GraphStore",
                     plugin="graph",
-                    distribution="weft-graph",
+                    distribution="weft-kg",
                     error="RuntimeError: connection refused",
                 ),
             ),
@@ -1045,9 +1045,7 @@ def test_index_reports_failure_when_its_own_automatic_reconcile_pass_fails() -> 
 
     # Assert
     assert rendered.exit_code is ExitCode.OPERATION_FAILED
-    assert "failed: graph (weft-graph) — RuntimeError: connection refused" in (
-        rendered.stderr or ""
-    )
+    assert "failed: graph (weft-kg) — RuntimeError: connection refused" in (rendered.stderr or "")
 
 
 # --- the dispatch is registered, not written down here (task 6.20, G13) ------------------

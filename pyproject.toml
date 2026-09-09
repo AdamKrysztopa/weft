@@ -226,9 +226,12 @@ extraPaths = [
     # weft-example-graph (task 5.4): the graph add-on docs/02-extension-model.md section 4
     # specifies, built by a pack author who never touched packages/ — same reason as every
     # entry above. Named `weft-example-*` like every other example pack, and deliberately not
-    # `weft-graph`: that is the name the design documents use for this pack as a *hypothetical*,
+    # `weft-kg`: that is the name the design documents use for this pack as a *hypothetical*,
     # quoted verbatim in several first-party docstrings, so a real pack taking it turns every
     # legitimate quotation into a fitness-function-9(b) violation (docs/lessons.md L5.28).
+    # That reserved name was `weft-graph` until 2026-09-09, when G18 changed it: `weft-graph`
+    # is another project's on PyPI, and this repository's own hypothetical could not keep a
+    # name a real install would collide with.
     "examples/weft-example-graph/src",
 ]
 

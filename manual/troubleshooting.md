@@ -195,7 +195,7 @@ say — `docs/03-cli.md` → *Permissions*) without stating it at all, reproduce
 
 ```text
 MissingRequiredDeclarationError: 'graph-build' registers for Command (distribution
-'weft-graph') without declaring `permission_class`. Command.required_declarations names it as
+'weft-kg') without declaring `permission_class`. Command.required_declarations names it as
 mandatory, with no default silently assumed — see the contract's own docstring for what it
 means and what value to give it. Add `permission_class = ...` to the plugin class.
 ```

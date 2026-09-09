@@ -95,13 +95,11 @@ def test_duplicate_registration_is_refused_naming_both_distributions() -> None:
 
     # Act / Assert
     with pytest.raises(DuplicateRegistrationError) as excinfo:
-        registry.add(
-            _Chunker, "semantic", lambda: "the refused second one", distribution="weft-graph"
-        )
+        registry.add(_Chunker, "semantic", lambda: "the refused second one", distribution="weft-kg")
 
     message = str(excinfo.value)
     assert "weft-chunk" in message
-    assert "weft-graph" in message
+    assert "weft-kg" in message
     assert "semantic" in message
     assert registry.lookup(_Chunker, "semantic") is first_factory
 
@@ -179,7 +177,7 @@ def test_add_many_rejects_a_collision_against_an_existing_entry_and_writes_nothi
                 (_Chunker, "new", lambda: "new"),
                 (_Chunker, "taken", lambda: "second"),
             ],
-            distribution="weft-graph",
+            distribution="weft-kg",
         )
 
     assert "weft-chunk" in str(excinfo.value)
@@ -199,7 +197,7 @@ def test_contracts_returns_every_distinct_contract_with_at_least_one_registratio
     # Arrange
     registry = Registry()
     registry.add(_Chunker, "fixed-size", lambda: None, distribution="weft-chunk")
-    registry.add(_Chunker, "semantic", lambda: None, distribution="weft-graph")
+    registry.add(_Chunker, "semantic", lambda: None, distribution="weft-kg")
     registry.add(_Extractor, "pdf", lambda: None, distribution="weft-extract")
 
     # Act
@@ -213,13 +211,13 @@ def test_distributions_for_returns_every_distribution_that_registered_the_contra
     # Arrange
     registry = Registry()
     registry.add(_Chunker, "fixed-size", lambda: None, distribution="weft-chunk")
-    registry.add(_Chunker, "semantic", lambda: None, distribution="weft-graph")
+    registry.add(_Chunker, "semantic", lambda: None, distribution="weft-kg")
 
     # Act
     distributions = registry.distributions_for(_Chunker)
 
     # Assert
-    assert distributions == frozenset({"weft-chunk", "weft-graph"})
+    assert distributions == frozenset({"weft-chunk", "weft-kg"})
 
 
 def test_distributions_for_an_unregistered_contract_is_empty() -> None:
@@ -510,7 +508,7 @@ def test_duplicate_registration_with_no_pin_prints_the_toml_shape_that_would_res
 
     # Act / Assert
     with pytest.raises(DuplicateRegistrationError) as excinfo:
-        registry.add(_Chunker, "semantic", lambda: "second", distribution="weft-graph")
+        registry.add(_Chunker, "semantic", lambda: "second", distribution="weft-kg")
 
     message = str(excinfo.value)
     assert "[plugins]" in message
@@ -598,7 +596,7 @@ def test_unconsulted_pins_is_empty_once_a_pin_actually_resolves_a_collision() ->
 def test_add_many_commits_the_rest_of_a_batch_around_a_pinned_collision() -> None:
     # Arrange — a pinned collision must not fail the whole batch the way an unpinned one
     # does: `docs/03-cli.md` describes the losing pack as "installed, active", not failed.
-    registry = Registry(plugin_pins={"_Chunker:shared": "weft-graph"})
+    registry = Registry(plugin_pins={"_Chunker:shared": "weft-kg"})
     registry.add(_Chunker, "shared", lambda: "first", distribution="weft-chunk")
 
     # Act
@@ -607,7 +605,7 @@ def test_add_many_commits_the_rest_of_a_batch_around_a_pinned_collision() -> Non
             (_Chunker, "shared", lambda: "second"),
             (_Chunker, "extra", lambda: "extra"),
         ],
-        distribution="weft-graph",
+        distribution="weft-kg",
     )
 
     # Assert

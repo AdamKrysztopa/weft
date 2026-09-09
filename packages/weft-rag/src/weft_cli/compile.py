@@ -161,7 +161,7 @@ def contracts_for(
     can never place (`weft_kernel.resolution._fill_slots` never touches the registry for
     it either), and adding a contract entry for it anyway would mean one unrelated pack's
     broken `use:` failing every *other* pipeline's own resolution — the loud-failure rule
-    applied to the wrong subject. A qualified id (`weft-graph:entities`, `weft_kernel.
+    applied to the wrong subject. A qualified id (`weft-kg:entities`, `weft_kernel.
     resolution._qualify`'s own spelling, duplicated here on the identical footing that
     function's own docstring already states for `_QUALIFIER`) is added for every
     contribution whose `slot` a declared slot in the chain actually names.

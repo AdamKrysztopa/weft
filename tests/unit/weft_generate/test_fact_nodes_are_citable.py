@@ -4,7 +4,7 @@ Phase 11's `D1` is that a graph fact is a `Node` derived from the chunk it was r
 rather than a row of the graph pack's own tables. This file is the proof that decision rests
 on, and it is written **before** any fact payload is fixed because it is cheap to prove now
 and expensive to be wrong about later: everything below uses the shipped payload model and
-the shipped query path, and `weft-graph` does not exist yet.
+the shipped query path, and `weft-kg` does not exist yet.
 
 **The two halves are not the same claim, and only one of them is free.** *Provenance* is one
 `NodeStore.get` away through `lineage.parents`, so a fact that says nothing about where it
@@ -193,7 +193,7 @@ async def _evidence() -> Node:
 
 
 def _fact(evidence: Node) -> Node:
-    """A fact node as `weft-graph`'s extractor will build one: derived from the chunk it was
+    """A fact node as `weft-kg`'s extractor will build one: derived from the chunk it was
     read out of, carrying every fact that chunk's `ext` held."""
     return carry_forward(evidence.derive(content=_STATEMENT), parent=evidence)
 

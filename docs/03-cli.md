@@ -182,7 +182,7 @@ Two of these carry weight beyond their size:
   >
   > ```text
   >   blobfs (weft-blob): 0 node(s), 40 blob(s) removed
-  >   graph (weft-graph): 0 node(s), 12 entity(s), 30 relation(s) removed
+  >   graph (weft-kg): 0 node(s), 12 entity(s), 30 relation(s) removed
   > ```
   >
   > `entity(s)` is not English and is deliberate: `(s)` is this surface's existing convention
@@ -232,7 +232,7 @@ Two of these carry weight beyond their size:
 
 ```
 $ weft reconcile
-weft-graph: 4,312 nodes have no graph data
+weft-kg: 4,312 nodes have no graph data
             backfill will make ~4,312 model calls
 reconciling... 4,312/4,312 ✓  removed 118 orphaned entities
 ```
@@ -256,7 +256,7 @@ below.
 > real number, the tombstone backlog `reconcile` itself converges, so `weft reconcile`'s own
 > printed line reads `pgvector (weft-store): 3 source(s) have an unfinished deletion to finish`
 > with no second, model-call line — `weft_cli.render._estimate_lines` omits it rather than
-> print a vacuous "~0 model calls". The worked example above is `weft-graph`'s, a pack this
+> print a vacuous "~0 model calls". The worked example above is `weft-kg`'s, a pack this
 > phase does not ship; nothing here can print a nonzero number until one does.
 
 `weft pipeline show` prints the **resolved** form, which after G2 carries more than stages: each

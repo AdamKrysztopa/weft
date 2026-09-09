@@ -442,7 +442,7 @@ async def test_run_index_with_pipeline_runs_a_contribution_placed_in_its_declare
             ran.append("enrich")
             return Produced(value=payload)
 
-    registry.add(Enhancer, "wordcount", _Enrich, distribution="weft-graph")
+    registry.add(Enhancer, "wordcount", _Enrich, distribution="weft-kg")
     document = Pipeline(
         name="custom",
         stages=(
@@ -456,7 +456,7 @@ async def test_run_index_with_pipeline_runs_a_contribution_placed_in_its_declare
     monkeypatch.setattr(ingest_module, "full_catalogue", _stub_catalogue({"custom": document}))
     contribution = Contribution(
         slot="enrich",
-        distribution="weft-graph",
+        distribution="weft-kg",
         stage=StageDeclaration(id="wordcount", use="wordcount"),
     )
 
@@ -474,7 +474,7 @@ async def test_run_index_with_pipeline_runs_a_contribution_placed_in_its_declare
     assert [stage.id for stage in result.resolved_pipeline.stages] == [
         "extract",
         "chunk",
-        "weft-graph:wordcount",
+        "weft-kg:wordcount",
         "embed",
         "store",
     ]

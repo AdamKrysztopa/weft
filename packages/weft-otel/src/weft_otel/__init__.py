@@ -49,7 +49,7 @@ NAME = "otel"
 #: `docs/02-extension-model.md` §2 -> *The trust model*: "concrete strings, not booleans."
 #: `network`/`filesystem`/`subprocess` are genuinely empty — an OTLP export is a real network
 #: call this pack can make, but only once an operator sets `endpoint`, so there is no fixed
-#: address to disclose in advance the way `weft-graph`'s worked example discloses a
+#: address to disclose in advance the way `weft-kg`'s worked example discloses a
 #: configured Neo4j URL; `note` says so instead, in prose, since that is exactly what the
 #: asymmetry in `02` §2 exists for — a disclosure is informational, never a claim weft checks.
 DISCLOSURE = Disclosure(

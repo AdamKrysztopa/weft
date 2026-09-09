@@ -23,7 +23,7 @@ def test_attribution_fields_are_settable_at_construction() -> None:
     error = WeftError(
         "the graph store rejected the write",
         transient=True,
-        pack="weft-graph",
+        pack="weft-kg",
         contract="Store",
         plugin="neo4j",
         stage="persist",
@@ -32,7 +32,7 @@ def test_attribution_fields_are_settable_at_construction() -> None:
     # Assert
     assert error.transient is True
     assert (error.pack, error.contract, error.plugin, error.stage) == (
-        "weft-graph",
+        "weft-kg",
         "Store",
         "neo4j",
         "persist",

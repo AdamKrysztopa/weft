@@ -17,7 +17,7 @@ from weft_kernel.payload.ext import ExtModel, SchemaVersionRefusedError
 def test_a_declared_namespace_and_transience_are_readable_as_class_attributes() -> None:
     # Arrange
     class GraphData(ExtModel):
-        __namespace__ = "weft-graph"
+        __namespace__ = "weft-kg"
         __schema_version__ = "1.0.0"
         __transient__ = True
 
@@ -27,7 +27,7 @@ def test_a_declared_namespace_and_transience_are_readable_as_class_attributes() 
     instance = GraphData(entities=("Acme",))
 
     # Assert
-    assert type(instance).__namespace__ == "weft-graph"
+    assert type(instance).__namespace__ == "weft-kg"
     assert type(instance).__transient__ is True
 
 
@@ -75,7 +75,7 @@ def test_declaring_a_subclass_with_no_schema_version_raises_at_class_definition(
 def test_an_ext_model_instance_is_frozen() -> None:
     # Arrange
     class GraphData(ExtModel):
-        __namespace__ = "weft-graph"
+        __namespace__ = "weft-kg"
         __schema_version__ = "1.0.0"
 
         entities: tuple[str, ...] = ()

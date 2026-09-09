@@ -63,9 +63,9 @@ def test_render_doctor_includes_reason_and_disclosure() -> None:
     reports = (
         PackReport(
             pack="graph",
-            distribution="weft-graph",
+            distribution="weft-kg",
             status=PackStatus.REFUSED,
-            reason="'weft-graph' is not listed in [packs] allow.",
+            reason="'weft-kg' is not listed in [packs] allow.",
             disclosure=Disclosure(network=("bolt://localhost:7687",), note="reads a graph db"),
         ),
     )
@@ -74,7 +74,7 @@ def test_render_doctor_includes_reason_and_disclosure() -> None:
     output = render_doctor(reports)
 
     # Assert
-    assert "never imported — 'weft-graph' is not listed in [packs] allow." in output
+    assert "never imported — 'weft-kg' is not listed in [packs] allow." in output
     assert "network=['bolt://localhost:7687']" in output
     assert "note='reads a graph db'" in output
 
@@ -287,9 +287,7 @@ def test_render_doctor_flags_a_contribution_that_lands_in_no_pipeline_at_all() -
     # Arrange — task 5.3a (S8), `02` §3 → *Slots*: "`weft plugins doctor` flags a pack whose
     # contributions land in *no* pipeline at all."
     reports = (
-        PackReport(
-            pack="graph", distribution="weft-graph", status=PackStatus.ACTIVE, contributed=1
-        ),
+        PackReport(pack="graph", distribution="weft-kg", status=PackStatus.ACTIVE, contributed=1),
         PackReport(
             pack="store", distribution="weft-store", status=PackStatus.ACTIVE, contributed=1
         ),
@@ -297,7 +295,7 @@ def test_render_doctor_flags_a_contribution_that_lands_in_no_pipeline_at_all() -
     unreachable = (
         Contribution(
             slot="never-declared",
-            distribution="weft-graph",
+            distribution="weft-kg",
             stage=StageDeclaration(id="entities", use="entity-extractor"),
         ),
     )
@@ -305,7 +303,7 @@ def test_render_doctor_flags_a_contribution_that_lands_in_no_pipeline_at_all() -
     # Act
     output = render_doctor(reports, (), (), None, (), unreachable)
     blocks = output.split("\n\n")
-    graph_block = next(block for block in blocks if block.startswith("graph (weft-graph)"))
+    graph_block = next(block for block in blocks if block.startswith("graph (weft-kg)"))
     store_block = next(block for block in blocks if block.startswith("store (weft-store)"))
 
     # Assert — the offering distribution's own block names it; an unrelated one does not.

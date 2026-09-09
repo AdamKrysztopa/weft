@@ -343,7 +343,7 @@ def _estimate_lines(outcome: ReconcileEstimateOutcome) -> tuple[str, ...]:
     """One participant's own cost, in `docs/03-cli.md`'s own worked-example shape:
 
     ```
-    weft-graph: 4,312 nodes have no graph data
+    weft-kg: 4,312 nodes have no graph data
                 backfill will make ~4,312 model calls
     ```
 

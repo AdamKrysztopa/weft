@@ -129,7 +129,7 @@ async def test_a_converged_pass_reports_nothing_remaining() -> None:
     # Arrange
     _DurableBacklog.backlog = ["a", "b"]
     registry = Registry()
-    registry.add(_GraphStore, "graph", _DurableBacklog, distribution="weft-graph")
+    registry.add(_GraphStore, "graph", _DurableBacklog, distribution="weft-kg")
     targets = participants(registry=registry, store_names=frozenset({"pgvector"}))
 
     # Act
@@ -143,7 +143,7 @@ async def test_an_interrupted_pass_resumes_rather_than_restarting() -> None:
     # Arrange — five items, two per pass: the first pass cannot finish.
     _DurableBacklog.backlog = ["a", "b", "c", "d", "e"]
     registry = Registry()
-    registry.add(_GraphStore, "graph", _DurableBacklog, distribution="weft-graph")
+    registry.add(_GraphStore, "graph", _DurableBacklog, distribution="weft-kg")
     targets = participants(registry=registry, store_names=frozenset({"pgvector"}))
 
     # Act — three passes, each one a fresh instance built from the registry.
@@ -165,7 +165,7 @@ async def test_a_failing_participant_is_named_and_the_rest_are_still_asked() -> 
     _DurableBacklog.backlog = ["a"]
     registry = Registry()
     registry.add(_GraphStore, "broken", _Failing, distribution="weft-broken")
-    registry.add(_GraphStore, "graph", _DurableBacklog, distribution="weft-graph")
+    registry.add(_GraphStore, "graph", _DurableBacklog, distribution="weft-kg")
     targets = participants(registry=registry, store_names=frozenset({"pgvector"}))
 
     # Act
@@ -181,7 +181,7 @@ async def test_a_failing_participant_is_named_and_the_rest_are_still_asked() -> 
 async def test_cancellation_propagates_rather_than_becoming_a_named_failure() -> None:
     # Arrange
     registry = Registry()
-    registry.add(_GraphStore, "cancels", _Cancelling, distribution="weft-graph")
+    registry.add(_GraphStore, "cancels", _Cancelling, distribution="weft-kg")
     targets = participants(registry=registry, store_names=frozenset({"pgvector"}))
 
     # Act / Assert
@@ -194,7 +194,7 @@ async def test_estimate_everywhere_reports_each_participant_s_own_cost() -> None
     # `reconcile_everywhere` already carries `ReconcileReport` in.
     _DurableBacklog.backlog = ["a", "b", "c"]
     registry = Registry()
-    registry.add(_GraphStore, "graph", _DurableBacklog, distribution="weft-graph")
+    registry.add(_GraphStore, "graph", _DurableBacklog, distribution="weft-kg")
     targets = participants(registry=registry, store_names=frozenset({"pgvector"}))
 
     # Act
@@ -225,7 +225,7 @@ async def test_estimate_everywhere_names_a_failing_participant_rather_than_raisi
 async def test_estimate_everywhere_propagates_cancellation() -> None:
     # Arrange
     registry = Registry()
-    registry.add(_GraphStore, "cancels", _Cancelling, distribution="weft-graph")
+    registry.add(_GraphStore, "cancels", _Cancelling, distribution="weft-kg")
     targets = participants(registry=registry, store_names=frozenset({"pgvector"}))
 
     # Act / Assert

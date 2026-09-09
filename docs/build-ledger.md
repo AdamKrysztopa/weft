@@ -1282,7 +1282,7 @@ possible rather than adding a feature.
   the *class* (never the instance) can be added without being dropped the way `Filter.version`, a
   bare `ClassVar`, always was. Proven by `tests/unit/weft_kernel/payload/test_node.py`'s own
   `test_ext_survives_model_dump_and_json_with_subclass_fields_intact`, extended to assert
-  `dumped["ext"]["weft-graph"][SCHEMA_VERSION_KEY]` on a real `Node`, through both `model_dump()`
+  `dumped["ext"]["weft-kg"][SCHEMA_VERSION_KEY]` on a real `Node`, through both `model_dump()`
   and `model_dump_json()`.
 
   **The read path.** `weft_store.rehydrate.rehydrate_ext` pops `SCHEMA_VERSION_KEY` off the stored
@@ -2052,7 +2052,7 @@ possible rather than adding a feature.
   distribution name, module name, and every registered plugin name across every file under
   `packages/`/`testing/`. `weft-example-graph`'s own plugin names (`graph`, `graph build`, `graph show`)
   are ordinary English words already present, as unrelated prose, in dozens of first-party files —
-  and the literal string `'weft-graph'` itself already appears verbatim in five first-party
+  and the literal string `'weft-kg'` itself already appears verbatim in five first-party
   files (`packages/weft-otel/src/weft_otel/__init__.py` among them), because they quote `docs/
   02-extension-model.md` §4's own worked example by its planned name. Not a defect in this pack —
   renaming away from the name every design document already uses would be optimizing for a check
@@ -2090,11 +2090,11 @@ possible rather than adding a feature.
   see "what should exist" in the primary corpus at all.
 
   **The binary, run for real, outside the repository** (`WEFT_DATABASE_URL` pointed at the
-  `compose.yaml` container, `[packs.weft-graph] dsn = "${env:WEFT_DATABASE_URL}"` in `weft.toml`):
+  `compose.yaml` container, `[packs.weft-kg] dsn = "${env:WEFT_DATABASE_URL}"` in `weft.toml`):
 
   ```
   $ weft plugins doctor
-  weft-graph: active (5 contributed)
+  weft-kg: active (5 contributed)
     disclosure: not disclosed
   [... every other installed pack, unchanged ...]
 
@@ -2102,12 +2102,12 @@ possible rather than adding a feature.
   usage: weft graph [-h] command ...
   positional arguments:
     command
-      build     recompute weft-graph's entities and relations from stored content
-      show      show weft-graph's corpus-wide summary, or one entity's neighbours
+      build     recompute weft-kg's entities and relations from stored content
+      show      show weft-kg's corpus-wide summary, or one entity's neighbours
 
   $ weft graph show                       # before weft.toml carried a dsn
-  weft-graph has no database to talk to: [packs.weft-graph] dsn is unset. Add
-  `[packs.weft-graph]\ndsn = "${env:WEFT_DATABASE_URL}"` (or a literal DSN) to weft.toml.
+  weft-kg has no database to talk to: [packs.weft-kg] dsn is unset. Add
+  `[packs.weft-kg]\ndsn = "${env:WEFT_DATABASE_URL}"` (or a literal DSN) to weft.toml.
   exit=1
 
   $ weft graph build                      # overwrite-class, no TTY, no --yes
@@ -2164,11 +2164,11 @@ possible rather than adding a feature.
   stages:
     extract: Extractor:text (distribution: weft-extract, provenance: kg)
     chunk: Chunker:fixed-size (distribution: weft-chunk, provenance: kg)
-    entities: Enhancer:graph-entities (distribution: weft-graph, provenance: kg)
+    entities: Enhancer:graph-entities (distribution: weft-kg, provenance: kg)
     embed: Embedder:hash (distribution: weft-embed, provenance: kg)
     store: NodeStore:pgvector (distribution: weft-store, provenance: kg)
-    graph-store: NodeStore:graph (distribution: weft-graph, provenance: kg)
-  unplaced contributions: weft-graph:entities -> slot 'enrich' (pipeline 'kg' declares no such slot)
+    graph-store: NodeStore:graph (distribution: weft-kg, provenance: kg)
+  unplaced contributions: weft-kg:entities -> slot 'enrich' (pipeline 'kg' declares no such slot)
 
   $ weft index corpus --pipeline kg
   produced 1, nothing to produce 0, failed 0. nodes now stored: 2.
@@ -2198,13 +2198,13 @@ possible rather than adding a feature.
   stages:
     extract: Extractor:text (distribution: weft-extract, provenance: kg-slotted)
     chunk: Chunker:fixed-size (distribution: weft-chunk, provenance: kg-slotted)
-    weft-graph:entities: Enhancer:graph-entities (distribution: weft-graph, provenance: weft-graph)
+    weft-kg:entities: Enhancer:graph-entities (distribution: weft-kg, provenance: weft-kg)
     embed: Embedder:hash (distribution: weft-embed, provenance: kg-slotted)
     store: NodeStore:pgvector (distribution: weft-store, provenance: kg-slotted)
   unplaced contributions: (none)
   ```
 
-  The contribution places automatically, qualified `weft-graph:entities`, exactly where `02`
+  The contribution places automatically, qualified `weft-kg:entities`, exactly where `02`
   §3 specifies — no core edit, no pack-author intervention beyond the one `register()` line.
 
   **The same design finding, now with real data rather than an empty store**: `weft delete
@@ -2262,22 +2262,22 @@ possible rather than adding a feature.
   shape a user's own `weft pipeline derive` output would have:
 
   ```
-  $ weft pipeline show mykg               # weft-graph installed
+  $ weft pipeline show mykg               # weft-kg installed
   pipeline: mykg
   stages:
-    entities: Enhancer:graph-entities (distribution: weft-graph, provenance: mykg)
-    graph-store: NodeStore:graph (distribution: weft-graph, provenance: mykg)
+    entities: Enhancer:graph-entities (distribution: weft-kg, provenance: mykg)
+    graph-store: NodeStore:graph (distribution: weft-kg, provenance: mykg)
     [... other stages unchanged ...]
   exit=0
 
-  $ uv pip uninstall --python .venv/bin/python weft-graph
+  $ uv pip uninstall --python .venv/bin/python weft-kg
   Uninstalled 1 package
 
-  $ weft plugins doctor                   # weft-graph: no trace at all, nothing crashes
+  $ weft plugins doctor                   # weft-kg: no trace at all, nothing crashes
   weft-canary: active (0 contributed)
-  [... every other installed pack, unchanged, weft-graph simply absent ...]
+  [... every other installed pack, unchanged, weft-kg simply absent ...]
 
-  $ weft pipeline show mykg               # weft-graph uninstalled
+  $ weft pipeline show mykg               # weft-kg uninstalled
   stage 'entities' names plugin 'graph-entities', which no installed distribution registered
   under any contract. Installed plugin names: accuracy, always, ..., text, threshold-ladder,
   token-overlap, token-recall, trace, unicode-normalize, vector-top-k, whitespace.
@@ -2353,7 +2353,8 @@ possible rather than adding a feature.
   **Also found, and repaired here rather than deferred:** L5.26/L5.27 (two core test fixtures that
   could not accommodate any example pack shipping a pipeline), L5.28 (a name-collision check
   false-positiving on ordinary English — the pack had also taken `weft-graph`, the name the design
-  documents reserve for this pack as a *hypothetical*, and was renamed), L5.29 (`02` §4's own
+  documents then reserved for this pack as a *hypothetical*, and was renamed; that reservation is
+  now `weft-kg`, **G18**), L5.29 (`02` §4's own
   uninstall transcript overclaims what the refusal can say), L5.31 (the binary-run step and the gate
   step want opposite venv states and nothing enforces the handover).
 
@@ -3356,9 +3357,9 @@ gate, which is the point of deriving it.
   named by file and by literal.
 
   **Both directions of the unsoundness, which is what `L6.13` asks a repair to cover.** The text
-  scan **over**-fires on a name discussed rather than used — `02` §4 quotes `weft-graph` as a
+  scan **over**-fires on a name discussed rather than used — `02` §4 quotes `weft-kg` as a
   hypothetical throughout, and a real pack taking that name would turn every legitimate quotation
-  into a violation, which is why `examples/weft-example-graph` is not called `weft-graph`. It
+  into a violation, which is why `examples/weft-example-graph` is not called `weft-kg`. It
   **under**-fires on a reference the text never spells the same way. The self-test is built on
   exactly that pair, per this task's own line: a file that *imports and registers* is caught
   structurally, a file that only mentions the name in a docstring is not — **and the substring
@@ -7584,7 +7585,7 @@ was ⛔ until it ticked; nothing else here waits on it. Two plans once numbered 
 `9.0` is ticked at sha `a9a2ca6` and names `GraphTraversal` (Phase 11) as one of its three
 consumers by name. A tick is not a capability, so all three properties 11.10 needs were read in the
 tree: a pack declares its own contract selectable through `weft_kernel.context.ServiceRole`, whose
-`contract` field is a bare `type` the kernel never names — so `weft-graph`'s traversal Protocol is
+`contract` field is a bare `type` the kernel never names — so `weft-kg`'s traversal Protocol is
 declarable without a kernel line (`weft_kernel/context.py:107-138`); `weft_cli.service_roles.
 RoleTable` gathers every installed pack's declaration into the one table `weft_cli.services` reads
 instead of stating the key set itself, refusing two packs that claim one key rather than picking by
@@ -7614,7 +7615,7 @@ what was once undecided**, and what follows is the answer they are read against.
 aliases to be **the pack's own tables**, carrying their own version row — and a canonical id is a
 function of the whole mention set, so it is *not* derivable from the nodes by a `get` the way a
 centroid is. The narrowing: G15's clause governs **what a stage persists outside the node model**,
-and `weft-graph`'s entity and alias tables are not that — they are a `NodeStore` **backend's own
+and `weft-kg`'s entity and alias tables are not that — they are a `NodeStore` **backend's own
 internal schema**, on the footing `weft_store`'s and `weft_qdrant`'s own tables already have, and
 they cascade from mention node ids so no row outlives the nodes that support it. Facts and mentions
 are nodes (11.1, 11.7); entities are rows of the store that holds those nodes. This is a
@@ -7645,22 +7646,30 @@ So 11.11 keeps its ⚠ as a record, on the convention this section's protocol re
 **no decision this phase needs is open.** Nothing else below is ⚠: D1 is `S12`, D4 is a proof
 rather than a decision and 11.1 is that proof.
 
-**⛔ G18, opened 2026-09-09 at task `11.4`: this phase cannot write its own package name down.**
-The first task obliged to name the distribution ran `phase-step` → *Orient*'s namespace rule and
-found **`weft-graph` taken on PyPI** — `1.3.0`, seven releases from 2026-01-02 to 2026-03-02, MIT,
-another author, *a project also called Weft and also about knowledge graphs*, shipping a top-level
-module `weft` and the console script `weft = weft.cli:main`, which is this repository's own binary
-name (`packages/weft-rag/pyproject.toml:132`). `weft` itself has been taken since before `L6.33`
-and is at 101 releases, last uploaded 2026-08-31. The eight release names and `weft-canary`/
-`weft-neo4j` are free, so the module namespace does not collide and this is a contested *prefix*
-rather than a lost set. `weft-graph` appears in **42 tracked files, 185 times**, counted rather
-than estimated. **`S12` fixed this name on 2026-09-06 without the lookup the rule already
-required** — three days in which `01`, `02` §4, `09` §1 and five task lines named a distribution
-that cannot be published, with every check green because every check here is a check *about this
-repository*; that is `L11.19`, and `L6.33` is its first instance. `11.4` and `11.5` carry ⛔ and
-**Phase 11's Exit is unreachable while it is open**, since that Exit *is* an install into a clean
-environment. **`11.12` names no part of the pack and is buildable meanwhile.** Four positions,
-heaviest first, in `05` → G18; **opened, not settled, and it closes with the owner** (`L10.42`).
+**G18, opened and settled 2026-09-09: this pack is `weft-kg`, and it was called `weft-graph`
+until then.** The first task obliged to name the distribution ran `phase-step` → *Orient*'s
+namespace rule and found **`weft-graph` taken on PyPI** — `1.3.0`, seven releases, MIT, another
+author, *a project also called Weft and also about knowledge graphs*, shipping a top-level module
+`weft` and the console script `weft = weft.cli:main`, which is this repository's own binary name
+(`packages/weft-rag/pyproject.toml:132`). `weft` itself has been taken since before `L6.33`, at 101
+releases, last uploaded 2026-08-31.
+
+**The outcome is one rename and two recorded risks.** The pack is `weft-kg`, module `weft_kg`,
+re-checked free at the moment of settling. The eight release names stay `weft-*` — they are free,
+and renaming them buys nothing until a third collision. The binary stays `weft`, because the only
+silent breakage is the console script and it is also the most expensive thing to change, at 92
+printed commands in `03` alone for a failure that reaches only somebody who installs two different
+Wefts; it is carried as a known risk against the standing publish debt. **`S12` fixed the old name
+on 2026-09-06 without the lookup the rule already required** — three days in which `01`, `02` §4,
+`09` §1 and five task lines named a distribution that cannot be published, every check green
+because every check here is a check *about this repository*. That is `L11.19`, and `L6.33` is its
+first instance. `05` → G18 owns the reasoning.
+
+**And four distributions the plan believed were unpublished, are.** Shown from the owner's own PyPI
+account: `weft-generate`, `weft-embed`, `weft-command` and `weft-llm` went out on **2026-09-05**,
+the day `G10` consolidated twenty names into seven, so they are the pre-consolidation layout still
+installable under names this tree no longer builds. They are the owner's to yank. `docs/README.md`
+said the index was *"proved by nothing"*; it had been proved four times.
 
 **Recorded rather than decided — a slot finding.** No shipped document declares a `slots:` block
 (`grep -rn 'slots' packages/weft-rag/src/*/pipelines/*.yaml` → two comments, no declaration), so
@@ -7668,7 +7677,7 @@ heaviest first, in `05` → G18; **opened, not settled, and it closes with the o
 …)` (`examples/weft-example-graph/src/weft_example_graph/__init__.py:107-109`) reaches no shipped
 ladder. Whether `index-text` should declare one is a `02` §3 question for the owner — declaring it
 would let an *installed* pack change what `weft index` costs without a document edit, G3's
-installed-and-ambient threat applied to money. Until it is answered, `weft-graph` contributes into
+installed-and-ambient threat applied to money. Until it is answered, `weft-kg` contributes into
 no slot and every stage it ships is an explicit rung. `Contribution` is `slot`, `distribution`,
 `stage` (`weft_kernel/resolution.py:251-285`) and can express no "no-model-only" filter, so a task
 that assumed one was withdrawn from the plan before it reached this list.
@@ -7804,7 +7813,7 @@ that assumed one was withdrawn from the plan before it reached this list.
   `graph-then-generate` naming it at the top level and does **not** hold for a
   `graph-and-vector-rrf` that nests it inside an arm. **A shipped document was needed and is
   written here rather than at 11.10**: FF16 is categorical about a registered rung being named by a
-  document of its own distribution, and `weft-graph` does not exist yet, so `weft-rag` ships
+  document of its own distribution, and `weft-kg` does not exist yet, so `weft-rag` ships
   `broad-and-refined-rrf` — two operators off `retrieve-then-generate`, fusing `vector-top-k` with
   `iterative-retrieval` — and the document's own comment says outright that the motivated first
   instance is 11.10's. Registration was owed too and FF27 said so before I did. No `weights:`
@@ -7839,14 +7848,14 @@ that assumed one was withdrawn from the plan before it reached this list.
   Every first-party half of this line landed at `9.3`: the field (`Removed.removed`), the fan-out
   carrying it (`weft_cli/deletion.py:120`) and the per-kind rendering
   (`weft_cli/render.py:233`, `f"{count} {kind}(s)"` over `outcome.removed`). What is left is
-  **only** the graph pack's own participant, which needs `weft-graph` to exist (`11.4`, `11.5`),
+  **only** the graph pack's own participant, which needs `weft-kg` to exist (`11.4`, `11.5`),
   facts and mentions to be `Node`s (`11.7`) and entities to be rows (`11.8`) before any of its
   three kinds can be counted. The line's own prose already said this — *"this line is the graph's
   use of it"* — and it sat third regardless, because a dependency between tasks inside one phase
   has no mark: `How to read a task line` gives ⛔ to a **phase header** against an open **gate**
   and nothing to this. `L11.18`, and `docs/README.md`'s Next-action row is what carries the order
   in the meantime, which is exactly what that row is for
-- [ ] **11.4 ⛔ G18** `weft-graph` publishes the traversal Protocol — versioned, `@runtime_checkable`,
+- [ ] **11.4** `weft-kg` publishes the traversal Protocol — versioned, `@runtime_checkable`,
   not a `Stage`, satisfied structurally by its own store and by an out-of-tree stranger — and the
   condition under which it moves into the store family is a dated row in `01`'s deferred table
   with its reopen trigger, not an assumption · owner `02` §1 → *Who publishes a contract*; `01` →
@@ -7862,10 +7871,10 @@ that assumed one was withdrawn from the plan before it reached this list.
   batch granularity — entities by name, entities in nodes, nearest entities to a vector,
   neighbourhood of entity ids bounded by hops — and never the donor's 33
   (the owner's `graph-study` ports layer, read and closed). A stated cost, recorded: until
-  promotion a third-party backend depends on `weft-graph` for the Protocol. `02:666-670`'s "a
+  promotion a third-party backend depends on `weft-kg` for the Protocol. `02:666-670`'s "a
   graph store is not a node store" is amended to what the code implements — a sentence about
   obligation, not a prohibition on being one*
-- [ ] **11.5 ⛔ G18** `weft-graph` installs beside `weft-rag` by name into an environment that has never
+- [ ] **11.5** `weft-kg` installs beside `weft-rag` by name into an environment that has never
   seen this repository, registers under `NodeStore` and its own traversal Protocol, is reached by
   `weft delete` and `weft reconcile` because a document names it, and closes its own connection when
   a fan-out constructed it · owner `09` §1; `02` §4 · turns on FF1, FF10(a), FF24 · sha — ·
@@ -7885,7 +7894,7 @@ that assumed one was withdrawn from the plan before it reached this list.
   ticks. An eighth PyPI name; first publish is rate-limited (`L7.3`)*
 - [ ] **11.6** a corpus indexed with no model and no credential carries co-occurrence entities,
   and `index-with-cooccurrence` is a rung `weft index --pipeline` runs from outside the repository
-  · owner `01` → Phase 11; `10` · turns on FF16 (scope now includes `weft-graph`) · sha — · *on
+  · owner `01` → Phase 11; `10` · turns on FF16 (scope now includes `weft-kg`) · sha — · *on
   this tree the one advanced rung a laptop can climb under `hash` — `index-with-raptor` produces
   nothing without a model (its own comment) — **re-measure after Phase 10**, which extends RAPTOR
   and may change that. `extends: index-text`, two operator blocks: a no-model `Enhancer` after
@@ -8040,7 +8049,7 @@ that assumed one was withdrawn from the plan before it reached this list.
   base to derive from, stale since 8.2, and is corrected in the same commit*
 
 **Exit** — `01` → Phase 11 owns it; restated here so the demonstration is on the same page as the
-tasks: from a directory that is not this repository, against installed `weft-rag` and `weft-graph`
+tasks: from a directory that is not this repository, against installed `weft-rag` and `weft-kg`
 and the one container, a corpus is indexed through `index-with-facts`; the same question is
 answered through `retrieve-then-generate`, `graph-then-generate` and `graph-and-vector-rrf`;
 `weft delete` of one source leaves no fact, mention or entity only it supported and reports the

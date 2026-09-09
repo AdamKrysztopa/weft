@@ -256,14 +256,14 @@ def test_an_author_may_not_write_a_stage_id_a_pack_would_contribute() -> None:
     # Arrange
     document: dict[str, object] = {
         "name": "squatting",
-        "stages": [{"id": "weft-graph:entities", "use": "sentence"}],
+        "stages": [{"id": "weft-kg:entities", "use": "sentence"}],
     }
 
     # Act / Assert
     with pytest.raises(ValidationError) as excinfo:
         Pipeline.model_validate(document)
 
-    assert "weft-graph:entities" in str(excinfo.value)
+    assert "weft-kg:entities" in str(excinfo.value)
 
 
 def test_a_frozen_pipeline_is_frozen_all_the_way_down() -> None:
@@ -345,14 +345,14 @@ def test_a_slot_id_may_not_carry_a_packs_qualifier() -> None:
     document: dict[str, object] = {
         "name": "confused-slot",
         "stages": [{"id": "chunk", "use": "sentence"}],
-        "slots": [{"id": "weft-graph:enrich", "after": "chunk"}],
+        "slots": [{"id": "weft-kg:enrich", "after": "chunk"}],
     }
 
     # Act / Assert
     with pytest.raises(ValidationError) as excinfo:
         Pipeline.model_validate(document)
 
-    assert "weft-graph:enrich" in str(excinfo.value)
+    assert "weft-kg:enrich" in str(excinfo.value)
 
 
 def test_a_slot_id_colliding_with_a_stage_id_is_refused() -> None:
@@ -397,11 +397,11 @@ def test_remove_may_not_name_a_contributed_stage_id() -> None:
     document: dict[str, object] = {
         "name": "reaching-into-a-pack",
         "extends": "base",
-        "remove": ["weft-graph:entities"],
+        "remove": ["weft-kg:entities"],
     }
 
     # Act / Assert
     with pytest.raises(ValidationError) as excinfo:
         Pipeline.model_validate(document)
 
-    assert "weft-graph:entities" in str(excinfo.value)
+    assert "weft-kg:entities" in str(excinfo.value)

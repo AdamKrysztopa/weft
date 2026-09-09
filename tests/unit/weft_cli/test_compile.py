@@ -221,7 +221,7 @@ def test_contracts_for_adds_an_entry_for_a_contribution_whose_slot_this_pipeline
     # contribution's contract off the registry exactly as it does for an authored stage.
     registry = _registry()
     contribution = Contribution(
-        slot="enrich", distribution="weft-graph", stage=StageDeclaration(id="extra", use="hyde")
+        slot="enrich", distribution="weft-kg", stage=StageDeclaration(id="extra", use="hyde")
     )
 
     # Act
@@ -230,7 +230,7 @@ def test_contracts_for_adds_an_entry_for_a_contribution_whose_slot_this_pipeline
     )
 
     # Assert
-    assert contracts["weft-graph:extra"] is QueryTransform
+    assert contracts["weft-kg:extra"] is QueryTransform
 
 
 def test_contracts_for_ignores_a_contribution_whose_slot_no_ancestor_declares() -> None:
@@ -240,7 +240,7 @@ def test_contracts_for_ignores_a_contribution_whose_slot_no_ancestor_declares() 
     registry = _registry()
     contribution = Contribution(
         slot="not-declared-anywhere",
-        distribution="weft-graph",
+        distribution="weft-kg",
         stage=StageDeclaration(id="extra", use="plugin-nobody-registered"),
     )
 
@@ -250,7 +250,7 @@ def test_contracts_for_ignores_a_contribution_whose_slot_no_ancestor_declares() 
     )
 
     # Assert
-    assert "weft-graph:extra" not in contracts
+    assert "weft-kg:extra" not in contracts
 
 
 def _document(name: str, *stages: tuple[str, str]) -> Pipeline:

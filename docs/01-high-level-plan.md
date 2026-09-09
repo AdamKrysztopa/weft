@@ -1095,7 +1095,7 @@ pack that publishes a **contract**, persists **rows that are not nodes**, and is
 ways** in one run.
 
 - **Gate:** no `05` session. G4 does not reopen — the traversal Protocol is published by
-  `weft-graph`, not by `weft-store`, so the family's two-backend bar (`05:340-344`) is untouched
+  `weft-kg`, not by `weft-store`, so the family's two-backend bar (`05:340-344`) is untouched
   until the trigger fires. Both scope decisions this phase named are now **taken**, each with its own
   row under `09` §6.4: **D2**, where a corpus-wide revisable pass runs and whether its output is
   durable (tasks 11.7–11.9), settled by **G15** on 2026-09-08 — an index-path stage of a new
@@ -1108,7 +1108,7 @@ ways** in one run.
 - **Read:** `02` §1 → *Who publishes a contract* (`02:97`) and *The store contract family*
   (`02:516`), because the pack publishes one and satisfies four; `02` §4 in full (`02:1876`), which
   was written with this pack as its driving use case and whose install sequence already begins
-  `uv add weft-graph` (`02:1893`); `03` → *Project context* (`03:909`) for the `[services]` role
+  `uv add weft-kg` (`02:1893`); `03` → *Project context* (`03:909`) for the `[services]` role
   table `9.0` generalised from the refusal at `03:920`; `NOTICE`'s three cases, because this is the
   first phase that copies the owner's prior work and the obligation is *"in the same commit as the
   first copied line — not after"* (`product-direction.md:84`); and `10` §2.1, because every name
@@ -1122,7 +1122,7 @@ ways** in one run.
   prohibitions failed as prose and had to become code; the 33-method port; and any `seal`/`lock`
   lifecycle method.
 - **Exit:** on a machine that is not this repository, against an installed `weft-rag`, an installed
-  `weft-graph`, and the one container: a corpus is indexed through **`index-with-facts`**; the same
+  `weft-kg`, and the one container: a corpus is indexed through **`index-with-facts`**; the same
   question is answered through **`retrieve-then-generate`, `graph-then-generate` and
   `graph-and-vector-rrf`**, the third fusing a vector list and a graph list the fuser cannot tell
   apart; **`weft delete` of one source leaves no fact, mention or entity that only it supported,
@@ -1136,7 +1136,7 @@ ways** in one run.
   (`01:802-812`).
 
 **Why the exit names fitness function 16 as well as its own.** 16 is Phase 8's and this phase
-widens its scope — the moment `weft-graph` ships a document, every plugin it registers into a
+widens its scope — the moment `weft-kg` ships a document, every plugin it registers into a
 pipeline position is one that check must find named
 (`tests/architecture/test_ff16_ladder_reachability.py:64-70` reads scope off which distributions
 contribute a document). 24 is the pack's own ordinariness, the FF21 shape with the one exception a
@@ -1150,13 +1150,13 @@ second consumer rather than its author — which is the whole point of a check w
 **Fitness function this phase turns on.** Stated as a property; numbered and filed by the task that makes it true, per FF0(b) and `lessons.md` L9.15.
 
 - **The graph pack is an ordinary pack.** Added 2026-09-06, ledger task 11.5. Fitness function
-      21's three clauses applied to `weft-graph`, each able to fail alone: it is its **own
+      21's three clauses applied to `weft-kg`, each able to fail alone: it is its **own
       distribution**, installed beside `weft-rag` by name with its own licence files and a single
       `weft.packs` entry point, never bundled into the `weft-rag` wheel; **every contract it
       registers under is published by some other distribution** — read off the registry it
       populates, not textually — *except* the traversal Protocol it publishes itself, which is
       admitted only while fitness function 9c holds an out-of-tree stranger implementing it; and no
-      module of `weft-kernel`, `weft-cli` or any pack inside `weft-rag` imports from `weft_graph` or
+      module of `weft-kernel`, `weft-cli` or any pack inside `weft-rag` imports from `weft_kg` or
       names a plugin it registers. The second clause's exception is the one to watch: a pack that
       publishes a contract and is its only implementer has built the "second paradigm" `S12` refused
       — a retriever bound to one class — and the stranger is what keeps the claim true.

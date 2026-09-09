@@ -125,7 +125,7 @@ def test_several_kinds_all_reach_the_reader() -> None:
     outcome = ParticipantOutcome(
         contract="SourceDeletable",
         plugin="graph",
-        distribution="weft-graph",
+        distribution="weft-kg",
         node_count=0,
         removed={"entity": 12, "relation": 30},
     )

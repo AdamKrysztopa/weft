@@ -787,7 +787,7 @@ def test_a_committed_pack_reports_the_renderer_it_buffered_with_its_own_attribut
 
     _install_fake_module("_weft_test_rendering_pack")
     entry_point = _FakeEntryPoint(
-        distribution="weft-graph", module="_weft_test_rendering_pack", target=register
+        distribution="weft-kg", module="_weft_test_rendering_pack", target=register
     )
 
     # Act
@@ -797,7 +797,7 @@ def test_a_committed_pack_reports_the_renderer_it_buffered_with_its_own_attribut
     [report] = reports
     assert report.status == PackStatus.ACTIVE
     [offer] = report.renderers
-    assert offer.distribution == "weft-graph"
+    assert offer.distribution == "weft-kg"
     assert offer.result_type is _Result
     assert offer.render is _render
 
@@ -850,7 +850,7 @@ def test_a_committed_pack_reports_the_contribution_it_buffered_with_its_own_attr
 
     _install_fake_module("_weft_test_contributing_pack")
     entry_point = _FakeEntryPoint(
-        distribution="weft-graph", module="_weft_test_contributing_pack", target=register
+        distribution="weft-kg", module="_weft_test_contributing_pack", target=register
     )
 
     # Act
@@ -861,7 +861,7 @@ def test_a_committed_pack_reports_the_contribution_it_buffered_with_its_own_attr
     assert report.status == PackStatus.ACTIVE
     [contribution] = report.contributions
     assert contribution.slot == "enrich"
-    assert contribution.distribution == "weft-graph"
+    assert contribution.distribution == "weft-kg"
     assert contribution.stage.id == "entities"  # local, unqualified — see Contribution's docstring
     assert contribution.stage.use == "entity-extractor"
 

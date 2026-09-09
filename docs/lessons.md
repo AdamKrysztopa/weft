@@ -465,7 +465,7 @@ than a phase, which is the split earning its keep. `recurs L6.14`
 ### L11.18 — a task whose content needs five later tasks sat third, and nothing could see it
 
 **What happened.** `next_task.py` routed at `11.3` — *"`weft delete` of one source reports the graph
-pack's removals by kind — facts, mentions, entities"* — with `weft-graph` not existing until `11.4`
+pack's removals by kind — facts, mentions, entities"* — with `weft-kg` not existing until `11.4`
 and `11.5`, facts and mentions not being `Node`s until `11.7`, and entities not being rows until
 `11.8`. Measured before concluding it: `Removed.removed` (the field), `weft_cli/deletion.py:120`
 (the fan-out carrying it) and `weft_cli/render.py:233` (the per-kind rendering) all landed at task
@@ -492,22 +492,31 @@ nobody can tick it.
 
 ### L11.19 — the namespace rule fired at the moment of building, and the name was chosen at the moment of deciding
 
-**What happened.** Task `11.4` names the distribution `weft-graph`, so `phase-step` → *Orient*'s
-rule ran — *"when a decision names something that will be published, check the namespace it will be
-published into, in the session that decides it"* — and **`weft-graph` is taken on PyPI**: version
-`1.3.0`, seven releases from 2026-01-02 to 2026-03-02, MIT, by another author, and it is a project
-*also called Weft* in the *knowledge-graph* space. Its wheel installs a top-level module `weft` and
-a console script `weft = weft.cli:main`, which is this project's own binary name. Re-measured the
-whole set in the same call: the eight release names are still 404, and `weft-canary` and
-`weft-neo4j` are free, so this is one name and not a general loss.
+**What happened.** Task `11.4` named the distribution **`weft-graph`**, so `phase-step` →
+*Orient*'s rule ran — *"when a decision names something that will be published, check the namespace
+it will be published into, in the session that decides it"* — and **`weft-graph` is taken on
+PyPI**: version `1.3.0`, seven releases from 2026-01-02 to 2026-03-02, MIT, by another author, and
+it is a project *also called Weft* in the *knowledge-graph* space. Its wheel installs a top-level
+module `weft` and a console script `weft = weft.cli:main`, which is this project's own binary name.
+Re-measured the whole set in the same call: the eight release names were 404, and `weft-canary` and
+`weft-neo4j` free, so this was one name and not a general loss. *(The pack is now named `weft-kg`,
+settled at **G18**; this entry keeps the old spelling because it is the record of what was found.)*
 
-**The rule worked. It fired three days late, and that is the finding.** `S12` chose this name on
+**The rule worked. It fired three days late, and that is the finding.** `S12` chose that name on
 2026-09-06 as a **scope decision**, and the check lives in `phase-step`, which is read when a
-*task* is built. So between `S12` and now, `01` → Phase 11's Exit, `02:1893`'s literal
-`uv add weft-graph`, `09` §1, `S12`'s own row and five ledger task lines have all named a
-distribution that cannot be published, and every check in this repository stayed green because
-every one of them is a check *about this repository* — `L6.33`'s exact sentence, one instance
-later.
+*task* is built. So between `S12` and the lookup, `01` → Phase 11's Exit, `02:1893`'s literal
+`uv add weft-graph`, `09` §1, `S12`'s own row and five ledger task lines all named a distribution
+that cannot be published, and every check in this repository stayed green because every one of them
+is a check *about this repository* — `L6.33`'s exact sentence, one instance later.
+
+**And the owner's own PyPI account then falsified a second claim, 2026-09-09.** `docs/README.md`
+said *"all eight release names return 404 on PyPI… the index is proved by nothing"* and called one
+publish the standing debt. Four distributions — `weft-generate`, `weft-embed`, `weft-command`,
+`weft-llm` — were **already published on 2026-09-05**, the same day `G10` consolidated twenty
+distribution names into seven, so the index had been proved four times under names this layout no
+longer builds. The 404 measurement was correct and the *sentence* it supported was not: it asked
+about the names the plan currently uses, and concluded about the project's history. Nobody in this
+repository could have seen it; the account page could.
 
 **Generalises to.** A check attached to the moment of *building* does not run at the moment of
 *deciding*, and names are decided in sessions that build nothing. Any protocol that can settle a

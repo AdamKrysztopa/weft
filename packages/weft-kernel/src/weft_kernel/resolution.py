@@ -257,7 +257,7 @@ class Contribution(BaseModel):
     reuses `StageDeclaration` for exactly that reason — the plugin name and its own
     `with:` block are the same shape a pipeline's own stages already have — but
     `stage.id` here is the pack's own **local**, unqualified name (`entities`, not
-    `weft-graph:entities`): `StageDeclaration.id`'s own reserved-qualifier check already
+    `weft-kg:entities`): `StageDeclaration.id`'s own reserved-qualifier check already
     refuses a colon there, and there is no reason to give the same thing a second name.
     `_qualify` below is what prefixes it with `distribution` once — and only once — a
     contribution actually gets placed: an id only needs to be globally unique from the
@@ -290,7 +290,7 @@ class Contribution(BaseModel):
 
 def _qualify(contribution: Contribution) -> str:
     """The id a placed contribution wears in the resolved stage list — `02` §3 → *Slots*:
-    "Contributed stage ids are qualified by distribution (`weft-graph:entities`)."
+    "Contributed stage ids are qualified by distribution (`weft-kg:entities`)."
     """
     return f"{contribution.distribution}{_QUALIFIER}{contribution.stage.id}"
 
@@ -1398,7 +1398,7 @@ def _apply_deferred_sets(
     """Apply every `set` operator that targeted a pack's qualified id, once slots are filled.
 
     `02` §3 → *Slots*: "Installation-dependent targets are recorded, never fatal... `set:
-    weft-graph:entities` where that pack is absent is an unapplied operator in the
+    weft-kg:entities` where that pack is absent is an unapplied operator in the
     resolved form, not a resolution failure." `_apply_sets` deferred these rather than
     applying or refusing them, because a qualified id cannot exist until `_fill_slots`
     has had its chance to place it — checked here, against the *filled* `stages`, so a

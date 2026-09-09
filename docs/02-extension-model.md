@@ -323,7 +323,7 @@ kernel validates on write:
 
 ```python
 class GraphData(ExtModel):
-    __namespace__ = 'weft-graph'          # the distribution name — collision-free by construction
+    __namespace__ = 'weft-kg'          # the distribution name — collision-free by construction
     entities: list[Entity]
     relations: list[Relation]
 
@@ -977,7 +977,7 @@ concept inside the storage port.
 
 **Filters are data.** A serialisable Pydantic AST — `eq ne in lt lte gt gte exists contains and or
 not` — with field paths as strings **validated at pipeline load** against the registered ext models,
-so `weft-graph.knd` fails at resolution naming `GraphData`'s real fields rather than matching
+so `weft-kg.knd` fails at resolution naming `GraphData`'s real fields rather than matching
 nothing at query time. One representation serves YAML and Python, which is also what makes a
 resolved pipeline diffable. `contains` is not optional: cascade delete is a filter over
 `lineage.sources`.
@@ -1024,7 +1024,7 @@ A pack declares one entry point. That is the entire integration surface:
 ```toml
 # in the graph add-on's own pyproject.toml — nothing in weft changes
 [project.entry-points."weft.packs"]
-graph = "weft_graph:register"
+graph = "weft_kg:register"
 ```
 
 `register` receives the registry and adds whatever the pack provides. One call site, many
@@ -1088,7 +1088,7 @@ Eager discovery is paid for at the registration seam rather than by asking autho
 
 Two things this buys immediately that a hand-wired bootstrap could not do at all:
 
-- `uv add weft-graph` adds a capability. `uv remove weft-graph` removes it. Core is untouched both
+- `uv add weft-kg` adds a capability. `uv remove weft-kg` removes it. Core is untouched both
   times.
 - A private, unpublishable, customer-specific pack works exactly like a public one.
 
@@ -1162,7 +1162,7 @@ packs:
 ```
 
 ```python
-# weft_graph/__init__.py
+# weft_kg/__init__.py
 class Settings(BaseModel):
     endpoint: str
     api_key: SecretStr
@@ -1170,10 +1170,10 @@ class Settings(BaseModel):
 
 def register(registry: Registry, settings: Settings) -> None:
     registry.add(Retriever, "graph", partial(GraphRetriever, settings))
-    registry.add_messages(ns="graph", resources=files("weft_graph") / "locales")
+    registry.add_messages(ns="graph", resources=files("weft_kg") / "locales")
 ```
 
-- **Keyed by pack name — the `weft.packs` entry-point name.** `graph`, not `weft-graph`.
+- **Keyed by pack name — the `weft.packs` entry-point name.** `graph`, not `weft-kg`.
 
   **This reverses what G1 settled, and the reason G1 gave is what stopped being true.** G1 chose the
   distribution name because "entry-point aliases can collide between two packs; distribution names
@@ -1283,7 +1283,7 @@ installing is trusting.**
 ```toml
 # weft.toml — optional. Absent means open.
 [packs]
-allow = ["weft-extract", "weft-chunk", "weft-store", "weft-graph"]
+allow = ["weft-extract", "weft-chunk", "weft-store", "weft-kg"]
 ```
 
 - **Exhaustive when present.** Everything unlisted is refused. A list that only adds is not a
@@ -1376,7 +1376,7 @@ a module-level `DISCLOSURE` immediately after import and before calling `registe
 ```python
 DISCLOSURE = Disclosure(
     network=("bolt://localhost:7687",),
-    filesystem=("~/.cache/weft-graph",),
+    filesystem=("~/.cache/weft-kg",),
     subprocess=(),
     note="Reads and writes the configured Neo4j database.",
 )
@@ -1823,12 +1823,12 @@ ambient* threat applied to your data.
   slots; `remove: enrich` drops the slot itself, which is how a pipeline refuses contributions without
   naming any pack. A contributed stage may be **`set` but never `replaced` or `removed`**, and its
   configuration otherwise comes from the pack's own `packs:` settings namespace (§2).
-- Contributed stage ids are qualified by distribution (`weft-graph:entities`) so they cannot collide
+- Contributed stage ids are qualified by distribution (`weft-kg:entities`) so they cannot collide
   with the author's — which holds because the qualified spelling is **reserved**: an authored
-  document naming a stage `weft-graph:entities` is refused where it is read, with no registry
+  document naming a stage `weft-kg:entities` is refused where it is read, with no registry
   consulted, rather than colliding later when that pack happens to be installed. That is a *stage
   id*, not a plugin name, so G3's ruling that pipelines keep bare names in `use:` is untouched.
-- **Installation-dependent targets are recorded, never fatal.** `set: weft-graph:entities` where that
+- **Installation-dependent targets are recorded, never fatal.** `set: weft-kg:entities` where that
   pack is absent is an unapplied operator in the resolved form, not a resolution failure — the same
   reasoning as an unplaced contribution, and it keeps a tuned pipeline portable. Strictness governs
   targets the pipeline's own extends chain defines.
@@ -1860,7 +1860,7 @@ ambient* threat applied to your data.
 > exist before this task, because there was no contribution for either to have anything to say
 > about. `examples/weft-example-ingest` — installed rather than linked, per fitness function 9(a)
 > — is the pack that contributes: it offers its own already-registered `Enhancer` plugin into a
-> slot named `enrich`, the same name this section's own worked example (`weft-graph:entities`)
+> slot named `enrich`, the same name this section's own worked example (`weft-kg:entities`)
 > already uses for the identical kind of position.
 
 ### Language, and what a var is for
@@ -2042,7 +2042,7 @@ The graph pack, complete:
 Install:
 
 ```bash
-uv add weft-graph
+uv add weft-kg
 weft pipeline derive kg --from base --insert-after chunk graph.entities
 weft index ./docs --pipeline kg
 ```
@@ -2141,7 +2141,7 @@ and it is Phase 5's exit criterion met early, on the hardest example available.
 > test-suite accommodation: a pack that silently redirected a process-global provider the moment it
 > was installed is exactly §3's *slot* rule broken by a quieter route — a contribution reaching
 > somewhere without anyone opting in — and G3's *installed-and-ambient* threat in miniature, the gap
-> between "a pack you chose" and "a pack whose effect you did not." `weft-graph`'s own `endpoint`
+> between "a pack you chose" and "a pack whose effect you did not." `weft-kg`'s own `endpoint`
 > needing a `weft.toml` entry before it dials a real Neo4j instance is the identical shape one layer
 > down; `weft-otel` needing one before it touches a process-wide singleton is the same shape at the
 > layer this session's audit-log question was actually about.

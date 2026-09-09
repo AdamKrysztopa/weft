@@ -561,17 +561,17 @@ def test_contributions_from_concatenates_every_reports_own_tuple() -> None:
     from weft_kernel.resolution import Contribution
 
     first = Contribution(
-        slot="enrich", distribution="weft-graph", stage=StageDeclaration(id="entities", use="ner")
+        slot="enrich", distribution="weft-kg", stage=StageDeclaration(id="entities", use="ner")
     )
     second = Contribution(
         slot="enrich",
-        distribution="weft-graph",
+        distribution="weft-kg",
         stage=StageDeclaration(id="relations", use="rel-extract"),
     )
     reports = (
         PackReport(
             pack="graph",
-            distribution="weft-graph",
+            distribution="weft-kg",
             status=PackStatus.ACTIVE,
             contributions=(first, second),
         ),

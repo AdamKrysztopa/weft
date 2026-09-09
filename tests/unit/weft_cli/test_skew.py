@@ -94,7 +94,7 @@ def test_detect_skew_skips_a_required_distribution_that_is_not_installed() -> No
     # unlabelled row), not skew: this function reports a version disagreement, not an
     # absence.
     def requires(name: str) -> list[str] | None:
-        return ["weft-graph>=1.0.0,<2.0.0"]
+        return ["weft-kg>=1.0.0,<2.0.0"]
 
     def version(name: str) -> str:
         raise metadata.PackageNotFoundError(name)

@@ -335,10 +335,10 @@ async def test_run_named_ask_places_a_contribution_in_a_declared_slot(
             return Produced(value=payload)
 
     registry = _registry()
-    registry.add(QueryTransform, "noop-transform", _NoOpTransform, distribution="weft-graph")
+    registry.add(QueryTransform, "noop-transform", _NoOpTransform, distribution="weft-kg")
     contribution = Contribution(
         slot="enrich",
-        distribution="weft-graph",
+        distribution="weft-kg",
         stage=StageDeclaration(id="noop", use="noop-transform"),
     )
 

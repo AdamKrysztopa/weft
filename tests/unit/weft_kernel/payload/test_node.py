@@ -21,14 +21,14 @@ from weft_kernel.payload.vector import Vector
 
 
 class _GraphData(ExtModel):
-    __namespace__ = "weft-graph"
+    __namespace__ = "weft-kg"
     __schema_version__ = "1.0.0"
 
     entities: tuple[str, ...] = ()
 
 
 class _OtherData(ExtModel):
-    __namespace__ = "weft-graph"
+    __namespace__ = "weft-kg"
     __schema_version__ = "1.0.0"
 
     label: str = ""
@@ -168,7 +168,7 @@ def test_mutating_ext_in_place_raises() -> None:
 
     # Act / Assert
     with pytest.raises(TypeError):
-        root.ext["weft-graph"] = _GraphData(entities=("Acme",))  # type: ignore[index]
+        root.ext["weft-kg"] = _GraphData(entities=("Acme",))  # type: ignore[index]
 
 
 def test_ext_survives_model_dump_and_json_with_subclass_fields_intact() -> None:
@@ -201,7 +201,7 @@ def test_ext_survives_model_dump_and_json_with_subclass_fields_intact() -> None:
     parsed_json = json.loads(tagged.model_dump_json())
 
     # Assert
-    assert dumped["ext"]["weft-graph"]["entities"] == ("Acme", "Widgets Inc")
-    assert parsed_json["ext"]["weft-graph"]["entities"] == ["Acme", "Widgets Inc"]
-    assert dumped["ext"]["weft-graph"][SCHEMA_VERSION_KEY] == _GraphData.__schema_version__
-    assert parsed_json["ext"]["weft-graph"][SCHEMA_VERSION_KEY] == _GraphData.__schema_version__
+    assert dumped["ext"]["weft-kg"]["entities"] == ("Acme", "Widgets Inc")
+    assert parsed_json["ext"]["weft-kg"]["entities"] == ["Acme", "Widgets Inc"]
+    assert dumped["ext"]["weft-kg"][SCHEMA_VERSION_KEY] == _GraphData.__schema_version__
+    assert parsed_json["ext"]["weft-kg"][SCHEMA_VERSION_KEY] == _GraphData.__schema_version__

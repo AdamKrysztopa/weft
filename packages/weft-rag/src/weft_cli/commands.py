@@ -1284,7 +1284,7 @@ class Settings(BaseModel):
 
 def register(registrar: PackRegistrar, settings: Settings) -> None:
     """Register every built-in command — the whole of what `weft_cli.cli.COMMANDS` used
-    to declare by hand, now through the identical seam `weft-graph` or any other pack would
+    to declare by hand, now through the identical seam `weft-kg` or any other pack would
     use. Task **3.7** adds `init` here directly, and delegates `pipeline ...`/`config ...`
     to their own modules' `register_pipeline_commands`/`register_config_commands` — one
     entry point still (`weft-cli`'s own `[project.entry-points."weft.packs"]` line is

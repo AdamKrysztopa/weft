@@ -637,13 +637,11 @@ async def test_plugins_doctor_command_flags_a_contribution_that_lands_nowhere() 
     """
     # Arrange
     reports = (
-        PackReport(
-            pack="graph", distribution="weft-graph", status=PackStatus.ACTIVE, contributed=1
-        ),
+        PackReport(pack="graph", distribution="weft-kg", status=PackStatus.ACTIVE, contributed=1),
     )
     contribution = Contribution(
         slot="enrich",
-        distribution="weft-graph",
+        distribution="weft-kg",
         stage=StageDeclaration(id="entities", use="entity-extractor"),
     )
     deps = Dependencies(

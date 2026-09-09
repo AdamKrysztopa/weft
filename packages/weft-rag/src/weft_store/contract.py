@@ -856,7 +856,7 @@ class ReconcileEstimate(BaseModel):
     """What converging would cost, asked *before* anything is spent — task **5.1c**.
 
     `docs/03-cli.md` -> *Command surface*: "`full` states its cost before it spends it" —
-    `weft-graph: 4,312 nodes have no graph data / backfill will make ~4,312 model calls" is
+    `weft-kg: 4,312 nodes have no graph data / backfill will make ~4,312 model calls" is
     the worked example. A caller cannot be told that without asking the participant itself —
     `list_sources`/`scan`/`count` answer *what should exist*, never *what converging one of
     them would cost* — so this is the shape `Reconcilable.estimate` returns.

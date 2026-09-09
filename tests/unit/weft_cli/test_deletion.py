@@ -116,7 +116,7 @@ def _registry_with_everything() -> Registry:
     registry = Registry()
     registry.add(NodeStore, "pgvector", _RecordingStore, distribution="weft-store")
     registry.add(NodeStore, "qdrant", _SecondStore, distribution="weft-qdrant")
-    registry.add(_GraphStore, "graph", _DerivedHolder, distribution="weft-graph")
+    registry.add(_GraphStore, "graph", _DerivedHolder, distribution="weft-kg")
     return registry
 
 
@@ -130,7 +130,7 @@ def test_the_fan_out_finds_a_pack_registered_under_a_contract_it_never_heard_of(
     # Assert
     assert [(target.name, target.distribution) for target in found] == [
         ("pgvector", "weft-store"),
-        ("graph", "weft-graph"),
+        ("graph", "weft-kg"),
     ]
 
 
@@ -166,7 +166,7 @@ async def test_every_participant_is_asked_and_the_failing_one_is_named() -> None
     registry = Registry()
     registry.add(NodeStore, "pgvector", _RecordingStore, distribution="weft-store")
     registry.add(_GraphStore, "broken", _BrokenHolder, distribution="weft-broken")
-    registry.add(_GraphStore, "graph", _DerivedHolder, distribution="weft-graph")
+    registry.add(_GraphStore, "graph", _DerivedHolder, distribution="weft-kg")
     targets = participants(registry=registry, store_names=frozenset({"pgvector"}))
 
     # Act
@@ -205,7 +205,7 @@ async def test_cancellation_propagates_rather_than_becoming_a_named_failure() ->
             raise asyncio.CancelledError
 
     registry = Registry()
-    registry.add(_GraphStore, "cancels", _Cancelling, distribution="weft-graph")
+    registry.add(_GraphStore, "cancels", _Cancelling, distribution="weft-kg")
 
     # Act / Assert
     with pytest.raises(asyncio.CancelledError):

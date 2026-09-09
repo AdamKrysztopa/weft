@@ -1651,7 +1651,7 @@ def test_set_targeting_a_contributed_id_is_recorded_unapplied_when_the_pack_is_n
     None
 ):
     # Arrange — `02` §3: "Installation-dependent targets are recorded, never fatal... `set:
-    # weft-graph:entities` where that pack is absent is an unapplied operator in the
+    # weft-kg:entities` where that pack is absent is an unapplied operator in the
     # resolved form, not a resolution failure." No contribution at all is supplied here.
     specific = Pipeline(
         name="specific",

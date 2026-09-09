@@ -46,7 +46,7 @@ from weft_store.contract import NodeStore
 _ENRICH_STAGE_ID = "wordcount"
 
 #: The slot name this pack offers into — `02` §3 → *Slots*' own worked example
-#: (`weft-graph:entities`) targets a slot named `enrich`; this pack reuses that name
+#: (`weft-kg:entities`) targets a slot named `enrich`; this pack reuses that name
 #: rather than inventing a second convention for the identical kind of position.
 ENRICH_SLOT = "enrich"
 

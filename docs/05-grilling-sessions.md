@@ -254,7 +254,7 @@ on whether `weft plugins doctor` shows packs it refused to load — it should.
 > boundary that constrains `open`, `socket` or `subprocess`, so any grant is a declaration a pack
 > makes about itself. It survives only as unenforced **disclosure**, worded so it cannot be mistaken
 > for a control. *Allow-listing as the default* was rejected on cost — it breaks the stated property
-> that `uv add weft-graph` alone adds a capability, and a posture demanding a manual step per install
+> that `uv add weft-kg` alone adds a capability, and a posture demanding a manual step per install
 > gets disabled wholesale — so it ships as an **exhaustive opt-in pin** instead, with the always-on
 > protections carried by the recorded pack set and by doctor's ambient flag.
 >
@@ -518,7 +518,7 @@ touched — so a pack that adds a required field, renames one, or changes a type
 stored, and does it to *users' indexes*, not to its own test fixtures. Contract versioning that
 covers only call signatures misses this entirely. A V1→V2 schema-migration validator found
 elsewhere is the salvage item, and this is now the first-party case rather than a
-hypothetical: `weft-graph` 1.1 must be able to read what `weft-graph` 1.0 wrote, or say precisely
+hypothetical: `weft-kg` 1.1 must be able to read what `weft-kg` 1.0 wrote, or say precisely
 why it cannot.
 
 **Two more from G4.** The store is a *family* of protocols, so adding a method to `VectorSearch`
@@ -1414,110 +1414,107 @@ Whatever wins, `weft_chunk.carry.carry_forward`'s third copy is resolved in the 
 docstring saying two copies would drift is currently false about its own tree.
 
 ---
-
 ## G18 — Under what names does this project publish, when two live projects already answer to them?
 
-**Opened 2026-09-09 by task `11.4`, which is the first task that has to write the name down.**
-`phase-step` → *Orient* requires the namespace lookup in the session that decides a published name;
-`S12` fixed `weft-graph` on 2026-09-06 without one, and the lookup at `11.4` found the name taken.
-`L11.19` is that three-day gap. The owner chose to open this rather than rename one package,
-because two collisions in nine months is evidence about the prefix and not about one name, and the
-class is at its cheapest to settle while eight of the release names are still free.
+**Opened 2026-09-09 by task `11.4` and settled the same day with the owner.** The first task
+obliged to write the distribution name down ran `phase-step` → *Orient*'s namespace rule; `S12` had
+fixed `weft-graph` on 2026-09-06 without one, and the lookup found the name taken. `L11.19` is that
+three-day gap.
 
-**Measured 2026-09-09, against the live index rather than recalled** — every lookup below is one
-`GET https://pypi.org/pypi/<name>/json`, and a name free today is not free tomorrow, which is why
-the *Done when* re-takes them:
+**Outcome: the graph pack is `weft-kg`. Nothing else moves.** The eight release names stay, and the
+console script stays `weft`. Reasoning, and the narrowing the owner took against the wider option
+first chosen, are under *The answer* below.
 
-- **`weft` — taken.** `0.9.99`, **101 releases**, last upload **2026-08-31** (nine days before this
-  session), *"The durable task substrate for agent systems"*, `github.com/VanL/weft`. Ships a
-  top-level module `weft` and the console script **`weft = weft.bootstrap:main`**. This is the
-  collision `L6.33` recorded and the project's standing debt already names.
+**Measured 2026-09-09 against the live index rather than recalled** — each lookup one
+`GET https://pypi.org/pypi/<name>/json`:
+
+- **`weft` — taken.** `0.9.99`, **101 releases**, last upload **2026-08-31**, *"The durable task
+  substrate for agent systems"*, `github.com/VanL/weft`. Ships a top-level module `weft` and the
+  console script **`weft = weft.bootstrap:main`**. This is `L6.33`'s collision, still standing.
 - **`weft-graph` — taken.** `1.3.0`, **7 releases**, 2026-01-02 to 2026-03-02, MIT, Avi Solanki,
-  *"Local-first knowledge graph for browsing — Louvain clustering, PageRank, Chrome extension, CLI,
-  MCP server"*, `github.com/Avi-141/weft`. **A project also called Weft, also about knowledge
-  graphs.** Ships a top-level module `weft` and the console script **`weft = weft.cli:main`**.
-- **Free:** `weft-kernel`, `weft-rag`, `weft-agent`, `weft-openai`, `weft-pdf`, `weft-qdrant`,
-  `weft-otel`, `weft-docling`, `weft-canary`, `weft-neo4j` — the eight release names and the two
-  the plan has not needed yet. Also free at the same moment: `weft-kg`, `weft-graphstore`,
-  `weft-traversal`, `weft-knowledge-graph`, `weftgraph`, `weft-graphs`, `weft-entity`,
-  `weft-rag-graph`, `weftrag`, `weftrag-graph`, `weft-engine`.
+  *"Local-first knowledge graph for browsing"*, `github.com/Avi-141/weft`. **A project also called
+  Weft, also about knowledge graphs.** Ships a top-level module `weft` and the console script
+  **`weft = weft.cli:main`**.
+- **`weft-kg` — free**, re-checked at 10:00 UTC on the day it was settled, which is this gate's own
+  *Done when* applied to itself.
+- **Free:** the eight release names, plus `weft-canary` and `weft-neo4j`.
 
-**Three namespaces, not one, and the tree collides on exactly two of them.** The *module* namespace
-does not collide: this project's top-level modules are `weft_kernel`, `weft_rag`, `weft_cli` and
-their siblings, and neither live project installs any of those. What collides is the **distribution
-name** (`weft`, `weft-graph`) and the **console script** — `packages/weft-rag/pyproject.toml:132`
-declares `weft = "weft_cli.cli:main"`, which is the same binary name both live projects install, so
-whichever wheel pip writes last owns `weft` on a machine that has two of them.
+**And four names the plan believed were unpublished, are.** Shown by the owner from their own PyPI
+account the same day: **`weft-generate`, `weft-embed`, `weft-command` and `weft-llm` were published
+on 2026-09-05** — `weft-command` at `2.1.0`, the rest at `1.0.0` — which is the day `G10`
+consolidated twenty distribution names into seven. They are the pre-consolidation layout, still
+installable, and `weft_generate` and its three siblings are *packs inside `weft-rag`* now rather
+than distributions of their own. `docs/README.md` said *"the index is proved by nothing"*; it had
+been proved four times. The 404 measurement was right and the sentence built on it was not.
 
-**Blast radius, counted rather than estimated.** `weft-graph`/`weft_graph` appears in **42 tracked
-files, 185 times** — 22 under `tests/`, 8 under `packages/`, 8 under `docs/`, 2 under `manual/`, one
-in the root `pyproject.toml`, one in `examples/`. The binary name is one declaration and a great
-many transcripts: `docs/03-cli.md` alone prints a `weft …` command 92 times, `docs/02` 49 and
-`docs/09` 14, and the six files under `manual/` are the ones some of which `tests/docs` executes —
-`L6.19`'s rule is that only the *executed* transcripts fail the gate, so the rest have to be found
-by search rather than by a red run.
+**Three namespaces, and the tree collided on two.** The *module* namespace never collided: this
+project's top-level modules are `weft_kernel`, `weft_rag`, `weft_cli` and their siblings, and
+neither live project installs any of those. What collided is the **distribution name** and the
+**console script** — `packages/weft-rag/pyproject.toml:132` declares `weft = "weft_cli.cli:main"`,
+the same binary name both live projects install, so whichever wheel pip writes last owns `weft` on
+a machine holding two of them.
+
+**Blast radius, counted rather than estimated.** The old name appeared in **42 tracked files, 200
+times** — 22 under `tests/`, 8 under `packages/`, 8 under `docs/`, 2 under `manual/`, one in the
+root `pyproject.toml`, one in `examples/`. The binary is one declaration and a great many
+transcripts: `docs/03-cli.md` alone prints a `weft …` command 92 times.
 
 ---
 
 ### The question
 
-The project is called Weft, `weft` on PyPI is somebody else's active project, and now so is
+The project is called Weft, `weft` on PyPI is somebody else's active project, and so is
 `weft-graph`. Under what distribution names does this repository publish, under what name does its
 binary install, and is that one decision or two?
 
 ### Positions, strongest first
 
 1. **Move the distribution prefix, keep the project's name and its modules.** Publish the whole set
-   under a free prefix — `weftrag-*` is free today, as is `weft-engine` as a single umbrella — with
-   modules unchanged (`weft_kernel`, `weft_rag`, …) and the binary renamed to something free. *The
-   heaviest and the only one that settles the class.* It is the cheapest it will ever be: eight of
-   the names are still unclaimed, so the cost is a rename of things nobody has installed, and no
-   future `weft-*` addition can be pre-empted by a third party again. **Attack it on:** it changes
-   eight published names across `09`'s release table, `02` §4's install sequence (`02:1893` reads
-   `uv add weft-graph` literally), `12`'s positioning, `CHANGELOG.md` and every transcript that
-   installs anything; the identity of a project is partly its name, and a prefix a user never types
-   buys nothing a rename of one package would not; and it is a scope change under `09` §6.4 with
-   everything that obliges. Attack it hardest on *evidence*: two collisions is a small sample, and
-   "the prefix is contested" may be a story told about two data points.
-2. **Keep `weft-*`, rename only what is actually taken.** `weft-graph` becomes one of the free names
-   (`weft-kg`, `weft-graphstore`, `weft-traversal`, …) and the binary becomes something free;
-   nothing else moves. Cheapest correct fix, and it is what the *measurement* supports rather than
-   the inference. **Attack it on:** it leaves a `weft-*` set whose head name `weft` belongs to
-   somebody else, which is the confusion a rename is for; and it accepts a per-collision cost —
-   this session again, next time — in exchange for not paying once.
-3. **Rename the distribution and keep the binary `weft`.** Treats the console script as first-come
-   and the collision as the user's problem. **Attack it on:** the tree's own rule is that a silent
-   wrong answer is worse than a failure, and two `weft` binaries on one PATH is exactly that — the
-   user gets whichever pip wrote last, with no error; and `03`'s 92 printed commands become
-   ambiguous documentation for anyone who has either other project.
-4. **Publish nothing under a contested name and take the index out of scope.** **Attack it on:**
-   `01` → Phase 11's Exit *is* an install into an environment that has never seen this repository,
-   Phase 7's fourth exit clause is *installed from the index* and is the project's one standing
-   debt, and `12` rests the positioning on it. Discharging an obligation by redefining it is the
-   move `L6.3` names.
+   under a free prefix, modules unchanged, binary renamed. The only position that settles the
+   class, and the cheapest it would ever be while eight names are unclaimed. **Attacked on:** it
+   changes eight names across `09`'s release table, `02` §4's install sequence, `12`'s positioning
+   and `CHANGELOG.md`; and hardest on *evidence* — two collisions is a small sample, and "the prefix
+   is contested" may be a story told about two data points.
+2. **Keep `weft-*`, rename only what is actually taken.** **Attacked on:** it leaves a set whose
+   head name belongs to somebody else, and accepts a per-collision cost rather than paying once.
+3. **Rename the distribution and keep the binary `weft`.** **Attacked on:** two `weft` binaries on
+   one PATH is a silent wrong answer, which this project refuses everywhere else.
+4. **Publish nothing under a contested name and take the index out of scope.** **Attacked on:**
+   `01` → Phase 11's Exit *is* an install into a clean environment, and discharging an obligation by
+   redefining it is `L6.3`'s move.
 
-### Bring
+### The answer
 
-The lookups above **re-taken**, not quoted — including whichever names the winning position
-proposes, because that is the whole lesson `L11.19` filed. `09` §1 and §6.4, for what a scope change
-obliges and what the release table has to say afterwards. `02` §4's install sequence and `02:1893`.
-`12`'s positioning claims, which are what a name is *for*. `01` → Phase 11's Exit and Phase 7's
-fourth exit clause. `packages/weft-rag/pyproject.toml:132`, the one console-script declaration.
-`tests/docs`, to know which transcripts are executed and which are only prose (`L6.19`). And
-`L6.33` beside `L11.19`, because this is one lesson at two instances and the second one is why the
-rule is being moved rather than repeated.
+**Position 2, taken deliberately over position 1, which the owner had chosen first.** The graph pack
+becomes **`weft-kg`** — module `weft_kg` — and nothing else changes.
 
-### Done when
+**What decided it was the binary, and it decided the opposite way to the intuition.** Position 1 was
+chosen on the reading that the *prefix* was the exposure. Measured, it is not: eight of the ten
+`weft-*` names this project needs are free, and the module namespace never collided at all. The one
+thing that breaks a user **silently** is the console script — and that is also the single most
+expensive thing on the table to change, at 92 printed commands in `03` alone plus every reader's
+muscle memory, for a failure that only reaches somebody who installs two different Wefts. So the
+cheap half of position 1 buys nothing and the expensive half is the wrong trade today.
 
-The decision log records it, and **every name the outcome fixes carries its own lookup date on the
-row** — this gate's own finding, applied to itself, so the next session does not re-derive it. The
-outcome is then **demonstrated by the binary from outside this repository**: the set installed into
-a clean environment under whatever names win, the CLI invoked under whatever the console script is
-now called, including a failure path, because a rename that leaves an entry point unreachable is
-exactly the defect `weft --help` entering the REPL was. `09`'s release table, `02` §4, `12`,
-`CHANGELOG.md` and every executed manual transcript agree in the same commit; the ones that are not
-executed are found by search and the search is recorded, not assumed.
+**`weft-kg`, and not the alternatives, for reasons that are `10` §2.1's own rules.** Not
+`weft-graphs` or `weftgraph`, which read as an imitation of the project that holds the name. Not
+`weft-graphstore`, because the pack is a retriever and an extractor as well as a store. Not
+`weft-knowledge-graph`, which makes `02` §4's install line unreadable. `kg` is the ordinary
+abbreviation and claims nothing the pack does not do.
 
-**Opened, not settled: this one closes with the owner** (`L10.42`). Positions 1 and 2 are a
-judgement about how much evidence two collisions are, and that is not a judgement the tree can
-settle against itself.
+**Two things recorded rather than fixed here.** The console-script collision is a **known risk**
+carried against the standing publish debt, to be revisited at first publish when the index is being
+looked at anyway. And the four already-published pre-consolidation distributions are the owner's to
+**yank** — not delete, which would free the names for somebody else.
+
+### Done when — met 2026-09-09
+
+`weft-kg` was re-checked free at the moment of settling, which is this gate's own finding applied to
+itself, and the date is on the decision-log row. The rename is one commit across 42 files. The
+demonstration the *Done when* asked for is task **11.5**'s, which installs the pack into an
+environment that has never seen this repository and is where a name that cannot be published would
+show; until then the claim is that the name is *available*, which is what was measured, and not that
+it is *taken by us*, which nothing yet proves.
+
+**Settled with the owner, not solo** (`L10.42`) — and against the position they had chosen an hour
+earlier, on a measurement neither of us had when they chose it.

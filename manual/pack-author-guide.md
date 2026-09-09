@@ -423,7 +423,7 @@ from weft_store.contract import NodeStore
 _ENRICH_STAGE_ID = "wordcount"
 
 #: The slot name this pack offers into — `02` §3 → *Slots*' own worked example
-#: (`weft-graph:entities`) targets a slot named `enrich`; this pack reuses that name
+#: (`weft-kg:entities`) targets a slot named `enrich`; this pack reuses that name
 #: rather than inventing a second convention for the identical kind of position.
 ENRICH_SLOT = "enrich"
 
@@ -514,7 +514,7 @@ from weft_store.contract import NodeStore
 _ENRICH_STAGE_ID = "wordcount"
 
 #: The slot name this pack offers into — `02` §3 → *Slots*' own worked example
-#: (`weft-graph:entities`) targets a slot named `enrich`; this pack reuses that name
+#: (`weft-kg:entities`) targets a slot named `enrich`; this pack reuses that name
 #: rather than inventing a second convention for the identical kind of position.
 ENRICH_SLOT = "enrich"
 
@@ -866,7 +866,7 @@ registrar.add_contribution(ENRICH_SLOT, StageDeclaration(id=_ENRICH_STAGE_ID, us
 pipeline document opted into and a `weft_kernel.pipeline.StageDeclaration` naming your plugin.
 `stage.id` is your **local**, unqualified name — never write the `distribution:` prefix yourself;
 attribution is filled in for you the identical way `add`'s own `distribution` argument is, and
-`resolve()` prefixes it only once the contribution is actually placed (`weft-graph:entities`, `02`
+`resolve()` prefixes it only once the contribution is actually placed (`weft-kg:entities`, `02`
 §3's own worked example spelling). Buffered, not written through immediately — a `register()` that
 raises after calling this leaves no slot looking filled that was never actually committed, the same
 atomicity `add_pipeline_resource`/`add_ext_model`/`deprecate` already give you.

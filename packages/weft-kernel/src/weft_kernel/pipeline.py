@@ -133,7 +133,7 @@ def _refuse_qualified_id(value: str, *, subject: str) -> str:
     Shared by every place task 1.11 draws the same line: a stage id
     (`StageDeclaration.id`), a slot id (`SlotDeclaration.id`), and a `remove` target
     (`Pipeline._remove_targets_are_not_a_packs_to_name`). All three read the identical
-    reserved spelling `weft-graph:entities` and refuse it for the identical reason — the
+    reserved spelling `weft-kg:entities` and refuse it for the identical reason — the
     qualifier belongs to a pack's contribution, never to anything an author writes,
     including the string an author writes to *remove* one. `subject` only changes the
     message's noun, never the check.
@@ -142,7 +142,7 @@ def _refuse_qualified_id(value: str, *, subject: str) -> str:
         raise ValueError(
             f"{subject} '{value}' contains '{_QUALIFIER}', which is reserved: a pack's "
             f"contribution into a slot is qualified by its distribution name "
-            f"(weft-graph{_QUALIFIER}entities) so that it can never collide with anything "
+            f"(weft-kg{_QUALIFIER}entities) so that it can never collide with anything "
             f"you write. Name this {subject} without it."
         )
     return value
@@ -215,10 +215,10 @@ class StageDeclaration(BaseModel):
     @field_validator("id", mode="after")
     @classmethod
     def _id_is_not_a_pack_s_to_give(cls, value: str) -> str:
-        """`weft-graph:entities` is a contributed id, and an author may not write one.
+        """`weft-kg:entities` is a contributed id, and an author may not write one.
 
         `02` §3 → *Slots*: a contributed stage id "is qualified by
-        distribution (`weft-graph:entities`) so they cannot collide with the
+        distribution (`weft-kg:entities`) so they cannot collide with the
         author's". Nothing makes that true unless the qualified spelling is
         reserved — an author free to use it could collide with a pack that is
         not installed yet, and the collision would arrive with the
@@ -317,7 +317,7 @@ class SlotDeclaration(BaseModel):
 
     `id` is checked against the same reserved-qualifier rule `StageDeclaration.id` already
     carries: a slot is the *author's* name for a position, so the qualified spelling a
-    pack's contribution wears (`weft-graph:entities`) can never be it — the two vocabularies
+    pack's contribution wears (`weft-kg:entities`) can never be it — the two vocabularies
     (an author's slot names, a pack's contributed ids) must never collide, or a document
     could accidentally "declare" a slot that is actually the ghost of some other pack's
     contribution.
@@ -608,7 +608,7 @@ class Pipeline(BaseModel):
         """`02` §3 → *Slots*: a contributed stage "may be `set` but never `replaced` or
         `removed`". `remove`'s targets are a bare `tuple[str, ...]` — unlike `replace`'s
         (`StageDeclaration.id`, already refused by `_id_is_not_a_pack_s_to_give`) — so
-        without this, `remove: [weft-graph:entities]` would validate as a document today
+        without this, `remove: [weft-kg:entities]` would validate as a document today
         and only fail later, as an ordinary `StaleOperatorTargetError`, indistinguishable
         from a typo. Refusing it here says what it actually is: a pack's contribution can
         never be named away, only the slot that admits it — `remove: <slot-id>` is the
