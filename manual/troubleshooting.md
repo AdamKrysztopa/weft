@@ -3166,6 +3166,58 @@ and an agent passing it on every call is that sentence with the human removed.
   [`manual/operations-guide.md`](operations-guide.md).
 - **Writing a pack of your own?** [`manual/pack-author-guide.md`](pack-author-guide.md).
 
+### `GraphSchemaVersionRefusedError`
+
+**What it looks like** — two different sentences, because there are two different mistakes behind
+them. The first, against a database whose `kg_*` tables were written before ledger task `11.8`:
+
+```text
+$ weft index corpus --pipeline index-with-facts
+weft_kg found an existing kg_nodes table with no kg_schema row — the layout these tables had
+before ledger task 11.8, where kg_entities and kg_relations keyed on entity ids directly rather
+than on an alias. Those rows are an operator's own data, and this pack refuses to guess at their
+shape rather than silently reading or rewriting them: drop kg_nodes, kg_sources, kg_entities,
+kg_entity_nodes and kg_relations (they hold only state this pack can rebuild by re-indexing) and
+let it recreate them at '2.0.0', or migrate them to that layout by hand before running weft again.
+$ echo $?
+1
+```
+
+The second, against a database a **newer** `weft-rag` has already written to:
+
+```text
+weft_kg's kg_schema row for surface 'tables' is at version '3.0.0', but this installed pack knows
+'2.0.0'. Refusing to read kg_* tables written by a different schema version rather than guessing
+at their shape: install the version of weft-rag that wrote '3.0.0', or migrate the tables to
+'2.0.0' and update the kg_schema row yourself.
+```
+
+**What to do.** Either do what the message says, or — if the graph is one you can rebuild — drop
+the pack's five tables and re-index. Nothing in `kg_*` is a source of truth: every row in them is
+derived from documents you still have, which is why dropping and re-indexing is offered first
+rather than as a last resort.
+
+```sql
+DROP TABLE IF EXISTS kg_relations, kg_entity_nodes, kg_aliases, kg_entities,
+                     kg_sources, kg_nodes, kg_schema CASCADE;
+```
+
+Your vector store is untouched by that: `weft_store`'s tables are `weft_nodes` and `weft_sources`,
+and the graph pack owns only the `kg_` prefix even when both point at one container.
+
+**Why it refuses instead of migrating.** `S5` — a persisted schema carries its version in the
+stored bytes, because at the read site the pack that wrote them may not be the one installed. The
+base rule this follows is `weft_kernel.payload.ExtModel.upgrade`'s, one surface over: refuse by
+default, and let a pack that can genuinely reconcile an older shape override it. Guessing is the
+one option not on the table, because a wrong guess does not crash — it reads a user's own rows
+under the wrong column meanings and produces a plausible graph over the wrong entities.
+
+**Why the missing-row case is a separate sentence.** A `kg_nodes` table with no `kg_schema` row is
+not an unknown version, it is the layout that predates versioning, and an operator hitting it has
+a concrete list of five tables to deal with rather than a version number to hunt for. The check
+runs **before** anything is created, because every `CREATE TABLE IF NOT EXISTS` below it would
+otherwise adopt those pre-`11.8` rows into the new layout's columns without a word.
+
 ### `GraphDsnNotConfiguredError`
 
 **What it looks like** — reproduced against a real checkout, with `WEFT_DATABASE_URL` exported and

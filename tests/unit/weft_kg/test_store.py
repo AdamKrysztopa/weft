@@ -67,7 +67,12 @@ from weft_kg.payload import (
     ExtractedFact,
     MentionedEntity,
 )
-from weft_kg.store import GraphSettings, GraphStore
+from weft_kg.store import (
+    KG_SCHEMA_VERSION,
+    GraphSchemaVersionRefusedError,
+    GraphSettings,
+    GraphStore,
+)
 from weft_kg.traversal import GraphWalk
 from weft_store.contract import ReconcileMode
 
@@ -123,6 +128,20 @@ async def walk(store: GraphStore) -> AsyncIterator[GraphWalk]:
     await instance.aclose()
 
 
+async def _entity_of(walk: GraphWalk, name: str) -> EntityId:
+    """The canonical entity a surface form resolves to — the id `GraphTraversal` speaks in.
+
+    Added at `11.8`, when `put_entity` began returning an **alias** id: `kg_entity_nodes` and
+    `kg_relations` key on the alias so that re-pointing one moves its evidence in a single
+    `UPDATE`, which is what `11.9`'s bridge-merge is. The two ids were the same thing until this
+    task split them, and the tests below that pass an id to `neighbourhood` or
+    `nodes_for_entities` want the canonical one, because that is what the contract's own members
+    take.
+    """
+    [entity] = await walk.entities_by_name([name])
+    return entity.id
+
+
 async def test_a_node_round_trips_through_add_and_get(store: GraphStore) -> None:
     # Arrange
     node = _node("Reciprocal rank fusion merges ranked lists.", source="doc-a")
@@ -172,7 +191,7 @@ async def test_entities_are_found_by_name(store: GraphStore, walk: GraphWalk) ->
     # Arrange
     node = _node("Chucri and Azouz wrote about adRAP.", source="doc-a")
     await store.add([node])
-    chucri = await store.put_entity(name="Chucri", nodes=[node.id])
+    await store.put_entity(name="Chucri", nodes=[node.id])
     await store.put_entity(name="Azouz", nodes=[node.id])
 
     # Act
@@ -180,7 +199,12 @@ async def test_entities_are_found_by_name(store: GraphStore, walk: GraphWalk) ->
 
     # Assert — the name that exists comes back, the one that does not simply is not there.
     assert [entity.name for entity in found] == ["Chucri"]
-    assert found[0].id == chucri
+    # Two aliases nothing has merged are two entities. Asserted against `Azouz` rather than
+    # against an id this test computed, because `_entity_of` asks `entities_by_name` — the
+    # function under test — so comparing the two would be one source on both sides of a
+    # comparison that then cannot disagree (`docs/lessons.md` L5.6).
+    [azouz] = await walk.entities_by_name(["Azouz"])
+    assert found[0].id != azouz.id
 
 
 async def test_nodes_for_entities_omits_an_id_the_store_does_not_hold(
@@ -194,7 +218,8 @@ async def test_nodes_for_entities_omits_an_id_the_store_does_not_hold(
     # Arrange
     node = _node("Chucri and Azouz wrote about adRAP.", source="doc-a")
     await store.add([node])
-    chucri = await store.put_entity(name="Chucri", nodes=[node.id])
+    await store.put_entity(name="Chucri", nodes=[node.id])
+    chucri = await _entity_of(walk, "Chucri")
 
     # Act
     found = await walk.nodes_for_entities([chucri, EntityId("never-stored")])
@@ -221,14 +246,15 @@ async def test_the_neighbourhood_walks_relations_in_both_directions(
     c = await store.put_entity(name="c", nodes=[node.id])
     await store.put_relation(source=a, target=b, predicate="relates-to")
     await store.put_relation(source=b, target=c, predicate="relates-to")
+    seed_a, seed_b = await _entity_of(walk, "a"), await _entity_of(walk, "b")
 
     # Act
-    one_hop = await walk.neighbourhood([b], hops=1)
-    two_hops = await walk.neighbourhood([a], hops=2)
+    one_hop = await walk.neighbourhood([seed_b], hops=1)
+    two_hops = await walk.neighbourhood([seed_a], hops=2)
 
     # Assert — both neighbours at one hop, and the seed is never in its own neighbourhood.
-    assert {entity.name for entity in one_hop[b]} == {"a", "c"}
-    assert {entity.name for entity in two_hops[a]} == {"b", "c"}
+    assert {entity.name for entity in one_hop[seed_b]} == {"a", "c"}
+    assert {entity.name for entity in two_hops[seed_a]} == {"b", "c"}
 
 
 async def test_the_neighbourhood_is_bounded_by_hops(store: GraphStore, walk: GraphWalk) -> None:
@@ -241,12 +267,13 @@ async def test_the_neighbourhood_is_bounded_by_hops(store: GraphStore, walk: Gra
     c = await store.put_entity(name="c", nodes=[node.id])
     await store.put_relation(source=a, target=b, predicate="relates-to")
     await store.put_relation(source=b, target=c, predicate="relates-to")
+    seed = await _entity_of(walk, "a")
 
     # Act
-    one_hop = await walk.neighbourhood([a], hops=1)
+    one_hop = await walk.neighbourhood([seed], hops=1)
 
     # Assert
-    assert {entity.name for entity in one_hop[a]} == {"b"}
+    assert {entity.name for entity in one_hop[seed]} == {"b"}
 
 
 async def test_an_entity_can_carry_a_vector_the_traversal_does_not_yet_read(
@@ -289,8 +316,8 @@ async def test_an_entity_row_dies_with_the_nodes_that_supported_it(
     # Arrange
     node = _node("Chucri wrote about adRAP.", source="doc-a")
     await store.add([node])
-    chucri = await store.put_entity(name="Chucri", nodes=[node.id])
-    assert await walk.entities_by_name(["Chucri"]) != ()
+    await store.put_entity(name="Chucri", nodes=[node.id])
+    chucri = await _entity_of(walk, "Chucri")
 
     # Act
     await store.delete_source(SourceId("doc-a"))
@@ -310,7 +337,8 @@ async def test_node_ids_come_back_ready_for_the_corpus(store: GraphStore, walk: 
     # Arrange
     node = _node("Chucri wrote about adRAP.", source="doc-a")
     await store.add([node])
-    chucri = await store.put_entity(name="Chucri", nodes=[node.id])
+    await store.put_entity(name="Chucri", nodes=[node.id])
+    chucri = await _entity_of(walk, "Chucri")
 
     # Act
     found = await walk.nodes_for_entities([chucri])
@@ -451,3 +479,253 @@ async def test_an_entity_a_fact_named_dies_with_the_fact_node(
 
     # Assert
     assert await walk.entities_by_name(["Chucri", "adRAP"]) == ()
+
+
+# --- ledger task 11.8: aliases, canonical entities, and a schema that says which it is -----
+
+
+async def test_a_surface_form_is_an_alias_and_an_entity_is_what_aliases_point_at(
+    store: GraphStore, walk: GraphWalk
+) -> None:
+    """The table split `11.8` asks for, asserted through the traversal rather than the tables.
+
+    Before any resolution runs every alias points at a canonical entity of its own, so the graph
+    reads exactly as it did at `11.7` — which is what makes resolution an improvement to an
+    existing answer rather than a precondition for having one.
+    """
+    # Arrange / Act
+    await store.put_entity(name="Chucri", nodes=[])
+    await store.put_entity(name="Azouz", nodes=[])
+
+    # Assert
+    found = await walk.entities_by_name(["Chucri", "Azouz"])
+    assert {entity.name for entity in found} == {"Chucri", "Azouz"}
+    assert len({entity.id for entity in found}) == 2
+
+
+async def test_two_spellings_of_one_name_become_one_entity_both_are_found_by(
+    store: GraphStore, walk: GraphWalk
+) -> None:
+    """The headline property. Both surface forms survive as aliases — the corpus said both — and
+    both resolve to one canonical entity, so a question naming either reaches the same nodes.
+    """
+    # Arrange — two aliases a trigram score and a shared vector will merge.
+    vector = Vector(values=(1.0, 0.0, 0.0, 0.0))
+    await store.put_entity(name="Reciprocal Rank Fusion", nodes=[], embedding=vector)
+    await store.put_entity(name="Reciprocal Rank Fusion.", nodes=[], embedding=vector)
+
+    # Act
+    report = await store.reconcile(_ctx(), ReconcileMode.REPAIR)
+
+    # Assert — one entity, reachable under either spelling, and the pass says what it did.
+    first = await walk.entities_by_name(["Reciprocal Rank Fusion"])
+    second = await walk.entities_by_name(["Reciprocal Rank Fusion."])
+    assert len(first) == 1
+    assert {entity.id for entity in first} == {entity.id for entity in second}
+    assert report.backfilled >= 1
+
+
+async def test_the_canonical_name_is_the_smallest_member_not_the_first_written(
+    store: GraphStore, walk: GraphWalk
+) -> None:
+    """*A function of the set, not of arrival order.* Written in one order and asserted against
+    the order-independent answer, so a pass that kept whichever row it saw first fails here.
+    """
+    # Arrange — `ADRAP` sorts before `adRAP`, and is written second.
+    vector = Vector(values=(0.0, 1.0, 0.0, 0.0))
+    await store.put_entity(name="adRAP", nodes=[], embedding=vector)
+    await store.put_entity(name="ADRAP", nodes=[], embedding=vector)
+
+    # Act
+    await store.reconcile(_ctx(), ReconcileMode.REPAIR)
+
+    # Assert
+    [entity] = await walk.entities_by_name(["adRAP"])
+    assert entity.name == "ADRAP"
+
+
+async def test_a_second_pass_changes_nothing_a_first_pass_decided(
+    store: GraphStore, walk: GraphWalk
+) -> None:
+    """Idempotence against the database, not against the pure function — the pass runs on every
+    `weft reconcile`, so a canonical id that moved would re-point every alias each time and make
+    the entity's identity a fact about how often somebody ran the command.
+    """
+    # Arrange
+    vector = Vector(values=(0.0, 0.0, 1.0, 0.0))
+    await store.put_entity(name="Reciprocal Rank Fusion", nodes=[], embedding=vector)
+    await store.put_entity(name="Reciprocal Rank Fusion.", nodes=[], embedding=vector)
+    await store.reconcile(_ctx(), ReconcileMode.REPAIR)
+    [before] = await walk.entities_by_name(["Reciprocal Rank Fusion"])
+
+    # Act
+    second = await store.reconcile(_ctx(), ReconcileMode.REPAIR)
+
+    # Assert
+    [after] = await walk.entities_by_name(["Reciprocal Rank Fusion"])
+    assert after.id == before.id
+    assert after.name == before.name
+    assert second.backfilled == 0, (
+        "a second pass re-pointed an alias, so the canonical id is a function of how many times "
+        "the pass has run rather than of the mention set"
+    )
+
+
+async def test_merging_two_aliases_merges_the_nodes_they_anchor(
+    store: GraphStore, walk: GraphWalk
+) -> None:
+    """Why `kg_entity_nodes` keys on the **alias**: re-pointing the alias moves its evidence with
+    it, in one `UPDATE`, and nothing is deleted. `11.9`'s bridge-merge is the same operation.
+    """
+    # Arrange
+    first = _node("Reciprocal Rank Fusion", source="doc-a")
+    second = _node("Reciprocal Rank Fusion.", source="doc-a")
+    await store.add([first, second])
+    vector = Vector(values=(0.0, 0.0, 0.0, 1.0))
+    await store.put_entity(name="Reciprocal Rank Fusion", nodes=[first.id], embedding=vector)
+    await store.put_entity(name="Reciprocal Rank Fusion.", nodes=[second.id], embedding=vector)
+
+    # Act
+    await store.reconcile(_ctx(), ReconcileMode.REPAIR)
+
+    # Assert — one entity, and both mention nodes hang off it.
+    [entity] = await walk.entities_by_name(["Reciprocal Rank Fusion"])
+    assert set((await walk.nodes_for_entities([entity.id]))[entity.id]) == {first.id, second.id}
+
+
+async def test_an_edge_written_against_a_merged_alias_still_walks(
+    store: GraphStore, walk: GraphWalk
+) -> None:
+    """Relations key on aliases too, so a merge re-points both endpoints for free. Without this
+    the graph silently loses an edge the moment its endpoint is canonicalised.
+    """
+    # Arrange
+    vector = Vector(values=(1.0, 1.0, 0.0, 0.0))
+    left = await store.put_entity(name="adRAP", nodes=[], embedding=vector)
+    right = await store.put_entity(name="ADRAP", nodes=[], embedding=vector)
+    other = await store.put_entity(
+        name="RAPTOR", nodes=[], embedding=Vector(values=(0.0, 0.0, 1.0, 1.0))
+    )
+    await store.put_relation(source=right, target=other, predicate="extends")
+    del left
+
+    # Act
+    await store.reconcile(_ctx(), ReconcileMode.REPAIR)
+
+    # Assert — the edge is reachable from the canonical entity, under either spelling's name.
+    [entity] = await walk.entities_by_name(["adRAP"])
+    neighbours = await walk.neighbourhood([entity.id], hops=1)
+    assert {found.name for found in neighbours[entity.id]} == {"RAPTOR"}
+
+
+async def test_a_definition_the_corpus_stated_merges_without_any_vector(
+    store: GraphStore, walk: GraphWalk
+) -> None:
+    """Signal 2 reaching the database. The chunk text is read from the nodes this store holds —
+    the corpus is the evidence, so a pack that asked anywhere else would be guessing.
+
+    No embedding on either alias, deliberately: this signal is exact and carries no threshold, so
+    it must fire where the blended one cannot.
+    """
+    # Arrange — the chunk that defines the pair, stored as an ordinary node.
+    await store.add(
+        [_node("We use Reciprocal Rank Fusion (RRF) to merge the lists.", source="doc-a")]
+    )
+    await store.put_entity(name="RRF", nodes=[])
+    await store.put_entity(name="Reciprocal Rank Fusion", nodes=[])
+
+    # Act
+    await store.reconcile(_ctx(), ReconcileMode.REPAIR)
+
+    # Assert
+    [short] = await walk.entities_by_name(["RRF"])
+    [long_form] = await walk.entities_by_name(["Reciprocal Rank Fusion"])
+    assert short.id == long_form.id
+
+
+async def test_names_the_corpus_never_equated_stay_two_entities(
+    store: GraphStore, walk: GraphWalk
+) -> None:
+    """The floor under every assertion above, and the failure this pass is most likely to have.
+
+    Two techniques whose names differ by one character, with vectors that disagree. A pass that
+    merged them would produce a graph that is smaller, tidier and wrong — and nothing downstream
+    would report it.
+    """
+    # Arrange
+    await store.put_entity(name="adRAP", nodes=[], embedding=Vector(values=(1.0, 0.0, 0.0, 0.0)))
+    await store.put_entity(name="adRAG", nodes=[], embedding=Vector(values=(0.0, 1.0, 0.0, 0.0)))
+
+    # Act
+    await store.reconcile(_ctx(), ReconcileMode.REPAIR)
+
+    # Assert
+    first = await walk.entities_by_name(["adRAP"])
+    second = await walk.entities_by_name(["adRAG"])
+    assert {entity.id for entity in first} != {entity.id for entity in second}
+
+
+async def test_the_pass_runs_under_repair_as_well_as_full(
+    store: GraphStore, walk: GraphWalk
+) -> None:
+    """Settled with the owner 2026-09-09, against `ReconcileMode`'s own wording.
+
+    That docstring calls `full` the mode that *"also backfills state that was never built"*, and
+    a canonical id is state that was never built — but its own reason for the split is **consent**,
+    *"because backfill runs model calls and writes"*. This pass makes no model call, so
+    `ReconcileEstimate.model_calls` stays `0` and nothing is spent without asking. `11.9`'s
+    model-calling half is what `full` gates, and that distinction only means something if this
+    half runs more widely — including in the automatic post-index pass, which is hardcoded
+    `repair`.
+    """
+    # Arrange
+    vector = Vector(values=(1.0, 1.0, 1.0, 0.0))
+    await store.put_entity(name="Reciprocal Rank Fusion", nodes=[], embedding=vector)
+    await store.put_entity(name="Reciprocal Rank Fusion.", nodes=[], embedding=vector)
+
+    # Act
+    await store.reconcile(_ctx(), ReconcileMode.REPAIR)
+
+    # Assert
+    assert len(await walk.entities_by_name(["Reciprocal Rank Fusion"])) == 1
+    estimate = await store.estimate(_ctx(), ReconcileMode.REPAIR)
+    assert estimate.model_calls == 0
+
+
+async def test_the_schema_carries_its_own_version(store: GraphStore) -> None:
+    """`S5`, per surface: a persisted schema carries a version in the stored bytes, because at
+    the read site the pack that wrote it may not be the one installed.
+    """
+    # Assert
+    assert await store.schema_version() == KG_SCHEMA_VERSION
+
+
+async def test_a_schema_version_this_pack_does_not_know_is_refused(store: GraphStore) -> None:
+    """Upgrade-or-refuse, and refuse is the whole of it today.
+
+    A newer `weft-kg` writing a layout this one cannot read must not be quietly written over: the
+    rows are an operator's data, and guessing at a shape means silently misreading it. The
+    refusal names both versions and what to do, because an operator who cannot act on it has
+    been given a crash with better manners.
+    """
+    # Arrange — a version from the future, written directly into the surface's own row.
+    conn = await psycopg.AsyncConnection.connect(_DSN, autocommit=True)
+    async with conn.cursor() as cur:
+        await cur.execute("UPDATE kg_schema SET version = %s", ("999.0.0",))
+    await conn.close()
+
+    # Act / Assert — restored in `finally`, because the `store` fixture truncates rows and this
+    # test edits the one row that says how to read them: leaving it would make every later test
+    # in this module depend on collection order.
+    stranger = GraphStore(GraphSettings(dsn=SecretStr(_DSN)))
+    try:
+        with pytest.raises(GraphSchemaVersionRefusedError) as raised:
+            await stranger.count()
+        assert "999.0.0" in str(raised.value)
+        assert KG_SCHEMA_VERSION in str(raised.value)
+    finally:
+        await stranger.aclose()
+        conn = await psycopg.AsyncConnection.connect(_DSN, autocommit=True)
+        async with conn.cursor() as cur:
+            await cur.execute("UPDATE kg_schema SET version = %s", (KG_SCHEMA_VERSION,))
+        await conn.close()

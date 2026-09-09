@@ -976,6 +976,41 @@ content and makes the population the author's tree — or, failing that, `tracke
 when the working tree holds an untracked file matching a suffix it sweeps, so the check says
 *"stage this"* rather than *"this file is missing"*.
 
+### L11.35 — I rewrote six assertions with find-and-replace, and lint caught the harmless one
+
+**What happened.** `11.8` changed `put_entity`'s return from an entity id to an alias id, so six
+tests that had passed that return into `neighbourhood` or `nodes_for_entities` needed the canonical
+id looked up instead. I patched them with a scripted find-and-replace. One left a dead assignment,
+which `ruff`'s `F841` caught and the implementer reported. Fixing *that* line is what made me read
+the assertion under it — `assert found[0].id == await _entity_of(walk, "Chucri")` — where
+`_entity_of` calls `entities_by_name`, the function that test exists to check. **A comparison whose
+two sides are the same call.** It passed, it would have passed against any implementation, and
+nothing in the gate could ever have failed it.
+
+**Generalises to.** `L5.6` and `L9.28` — a comparison whose two sides come from one source cannot
+disagree — arriving through a door neither of them names. Both are written as rules about *writing*
+a test. This one was not written; it was **transformed**, and the transformation was mechanical and
+correct at the level it operated on (every use of the changed value now fetches the right kind of
+id). What a find-and-replace cannot see is that substituting a helper into an assertion can make
+that assertion tautological, because the property being asserted lives in the relationship between
+the two sides and a text edit does not know there is one.
+
+The rule: **a bulk edit across assertions is not a refactor, it is re-authoring every one of them,
+and each has to be re-read as an assertion afterwards.** The sharper form, because it names what to
+look for: after substituting a helper into a comparison, ask where each side now comes from — if
+the answer is the same function, the test is gone whether or not it is green.
+
+And the asymmetry is the part worth keeping: **lint caught the line that was merely dead, and
+nothing at all caught the line that had stopped testing.** The two defects were three lines apart
+and came from one edit.
+
+**Candidate home.** `phase-step` → *Red*, beside the existing two-sides rule, as the case that rule
+does not currently cover: when a task changes a published return type, the tests that consumed it
+are rewritten, and a rewritten assertion is a new assertion. The mechanical form worth considering
+is narrower than a rule and might actually fire: a check that flags an assertion whose two sides
+resolve to the same first-party call — cheap to state, hard to write well, and worth a note rather
+than a task until a third instance arrives.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

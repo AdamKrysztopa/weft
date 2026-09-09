@@ -1,5 +1,5 @@
 """`GraphWalk` — the `GraphTraversal` implementation over `weft_kg.store`'s own Postgres schema.
-Ledger **11.5**.
+Ledger **11.5**, rejoined through aliases at **11.8**.
 
 **A second class over the same schema `GraphStore` provisions, and that is a finding rather than a
 style — `docs/lessons.md` `L11.23`.** `weft_cli.fanout.participants_for` narrows `NodeStore` to
@@ -18,6 +18,16 @@ one round trip for the whole sequence handed in, never one per element.** `entit
 `neighbourhood` needs more than one round trip — one *per hop*, not one per `(entity_id, hop)` pair
 — because a bounded walk genuinely cannot know hop `n`'s frontier before hop `n-1` has answered;
 what stays batched is every requested seed answered together, in that one query per hop.
+
+**Ledger `11.8` — every member now reads through `kg_aliases`, not `kg_entities` alone.**
+`kg_entities.name` is the canonical, resolved name; a caller asks by *surface form*, which is an
+alias's name, and the two can disagree the moment a resolution pass has merged anything. So
+`entities_by_name` joins `kg_aliases` to `kg_entities` on `entity_id` and answers with the
+canonical row, and `neighbourhood` maps a relation's alias endpoints to their canonical entity
+before it ever compares one seed's reach to another's. Every one of those joins is
+**in SQL**: the obvious alternative — read `kg_aliases` whole once and map in Python — is
+`O(corpus)` per call whatever `hops` is, which would take the bound off exactly the member whose
+entire argument is that a walk over a real corpus must not return the corpus.
 """
 
 from collections.abc import Mapping, Sequence
@@ -64,12 +74,21 @@ class GraphWalk:
             self._conn = None
 
     async def entities_by_name(self, names: Sequence[str]) -> tuple[Entity, ...]:
+        """The distinct canonical entities the named aliases currently point at.
+
+        Joined through `kg_aliases`, not read off `kg_entities.name` directly: a resolved
+        entity's own `name` is its cluster's representative, which may not be the surface form a
+        caller asked by at all.
+        """
         if not names:
             return ()
         conn = await self._connection()
         async with conn.cursor() as cur:
             await cur.execute(
-                "SELECT id, name FROM kg_entities WHERE name = ANY(%s) ORDER BY name",
+                "SELECT DISTINCT e.id AS id, e.name AS name "
+                "FROM kg_aliases a JOIN kg_entities e ON e.id = a.entity_id "
+                "WHERE a.name = ANY(%s) "
+                "ORDER BY e.name",
                 (list(names),),
             )
             rows = await cur.fetchall()
@@ -79,11 +98,9 @@ class GraphWalk:
         self, entity_ids: Sequence[EntityId]
     ) -> Mapping[EntityId, tuple[NodeId, ...]]:
         """Keys are exactly the requested ids this store holds an entity row for — an id it does
-        not hold is absent, never a key mapping to `()`. Read against `kg_entities` with a `LEFT
-        JOIN` onto `kg_entity_nodes`, deliberately, rather than the join table alone: what decides
-        presence is whether the *entity* exists, not whether it currently has a node attached —
-        the two happen to coincide under this store's own G15 invariant (an entity with no nodes
-        is dropped), but the query states the actual rule rather than leaning on that invariant.
+        not hold is absent, never a key mapping to `()`. Read against `kg_entities`, `LEFT JOIN`ed
+        through every alias currently pointing at it onto that alias's own nodes: what decides
+        presence is whether the *entity* row exists, not whether it currently has a node attached.
         """
         if not entity_ids:
             return {}
@@ -91,7 +108,9 @@ class GraphWalk:
         async with conn.cursor() as cur:
             await cur.execute(
                 "SELECT e.id AS entity_id, en.node_id AS node_id "
-                "FROM kg_entities e LEFT JOIN kg_entity_nodes en ON en.entity_id = e.id "
+                "FROM kg_entities e "
+                "LEFT JOIN kg_aliases a ON a.entity_id = e.id "
+                "LEFT JOIN kg_entity_nodes en ON en.alias_id = a.id "
                 "WHERE e.id = ANY(%s)",
                 (list(entity_ids),),
             )
@@ -113,33 +132,44 @@ class GraphWalk:
         only followed `source -> target` would lose the half of the graph pointing at its own
         seed. The seed is excluded from its own neighbourhood.
 
+        `kg_relations` is alias-to-alias, and **each hop's query does the alias→entity mapping
+        itself, in SQL, joined against the frontier.** Reading `kg_aliases` whole and mapping in
+        Python is the obvious alternative and it is wrong for one reason: it is `O(corpus)` on
+        every call, whatever `hops` is, so the bound this member exists to offer would stop
+        bounding the work at exactly the corpus size where it starts to matter. What the join
+        touches is the frontier's own edges and nothing else.
+
         One query per hop, covering every seed's current frontier together — see the module
         docstring for why that is the batch granularity a bounded walk can actually offer.
         """
         if not entity_ids:
             return {}
         seeds = list(dict.fromkeys(entity_ids))
-        visited: dict[EntityId, set[EntityId]] = {seed: {seed} for seed in seeds}
-        frontier: dict[EntityId, set[EntityId]] = {seed: {seed} for seed in seeds}
-        reached: dict[EntityId, set[EntityId]] = {seed: set() for seed in seeds}
         conn = await self._connection()
         async with conn.cursor() as cur:
+            visited: dict[EntityId, set[EntityId]] = {seed: {seed} for seed in seeds}
+            frontier: dict[EntityId, set[EntityId]] = {seed: {seed} for seed in seeds}
+            reached: dict[EntityId, set[EntityId]] = {seed: set() for seed in seeds}
+
             for _ in range(hops):
                 combined = sorted({node for nodes in frontier.values() for node in nodes})
                 if not combined:
                     break
                 await cur.execute(
-                    "SELECT source_entity, target_entity FROM kg_relations "
-                    "WHERE source_entity = ANY(%s) OR target_entity = ANY(%s)",
+                    "SELECT sa.entity_id AS source_entity, ta.entity_id AS target_entity "
+                    "FROM kg_relations r "
+                    "JOIN kg_aliases sa ON sa.id = r.source_alias "
+                    "JOIN kg_aliases ta ON ta.id = r.target_alias "
+                    "WHERE sa.entity_id = ANY(%s) OR ta.entity_id = ANY(%s)",
                     (combined, combined),
                 )
                 rows = await cur.fetchall()
                 edges: dict[EntityId, set[EntityId]] = {}
                 for row in rows:
-                    source = EntityId(cast(str, row["source_entity"]))
-                    target = EntityId(cast(str, row["target_entity"]))
-                    edges.setdefault(source, set()).add(target)
-                    edges.setdefault(target, set()).add(source)
+                    source_entity = EntityId(cast(str, row["source_entity"]))
+                    target_entity = EntityId(cast(str, row["target_entity"]))
+                    edges.setdefault(source_entity, set()).add(target_entity)
+                    edges.setdefault(target_entity, set()).add(source_entity)
                 next_frontier: dict[EntityId, set[EntityId]] = {}
                 for seed in seeds:
                     candidates: set[EntityId] = set()

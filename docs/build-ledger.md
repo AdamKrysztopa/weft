@@ -8290,7 +8290,7 @@ that assumed one was withdrawn from the plan before it reached this list.
   document by a dispatched `weft-implementer`; `atomicity.py`, `prompts.py` and every document
   edit mine. Gate `GATE_EXIT=0` read out of the run's own log, both containers up: 276
   architecture, 2386 passed, 9 skipped, 128 examples*
-- [ ] **11.8 ⚠ D2** two mentions of one thing become one entity by a deterministic, idempotent
+- [x] **11.8 ⚠ D2** two mentions of one thing become one entity by a deterministic, idempotent
   pass a second run cannot change, and the canonical id is a function of the set, not of arrival
   order · owner `02` §1 → `Reconcilable`; `NOTICE` case 2 · turns on — · sha — · *blended
   similarity with both failure modes in the docstring, both acronym signals with their opposite
@@ -8308,6 +8308,63 @@ that assumed one was withdrawn from the plan before it reached this list.
   rows are the backend's own schema rather than *"rows that are not nodes"* written by a stage. The
   preamble carries that narrowing and the owner took it on 2026-09-09; a reader who reaches this
   line from G15's text alone will think it forbidden, which is why it is written down*
+  · **Built.** `weft_kg/resolution.py` — the pure half — plus an alias/canonical split in the
+  pack's own tables, a schema version row, and the pass itself in `GraphStore.reconcile`.
+  **Two decisions taken with the owner rather than defaulted.** *(1) What the join keys on*: a
+  surface form is an **alias row**, an entity is what aliases point at, and `kg_entity_nodes` and
+  `kg_relations` key on the **alias** — so a merge is one `UPDATE` that carries a name's nodes and
+  edges with it and deletes nothing. That is `11.9`'s own line read forwards: *a bridge-merge
+  re-points aliases so the evidence for the judgement survives the judgement*. The two rejected
+  shapes are recorded because each fails a clause: rewriting `kg_entities` and deleting the losers
+  makes a wrong merge unrecoverable, and one table with a self-referencing `canonical_id` leaves
+  *is this row a thing or a name for a thing* answerable two ways. *(2) Which `ReconcileMode`*: the
+  cheap pass runs in **every** mode, `repair` included. **The plan said two things here and they
+  did not agree** — this line says `Reconcilable.repair` over everything, while `ReconcileMode`'s
+  own docstring defines `full` as the mode that *"also backfills state that was never built"*, and
+  a canonical id is exactly that. Settled against the contract's **reasoning** rather than its
+  wording: that docstring's stated ground for the split is *consent*, "because backfill runs model
+  calls and writes", and this pass makes none — `ReconcileEstimate.model_calls` stays `0`. Which is
+  also what makes `11.9`'s *only under `full`* a real distinction rather than a restatement.
+  Written into `reconcile`'s docstring, because a reader comparing it to the contract's wording
+  will otherwise think it wrong. **Where each signal is scored, and the split is the point.** The
+  donor loads every embedding and builds an n×n cosine matrix with `rapidfuzz`; this ships neither
+  — `pg_trgm` scores the lexical term and pgvector the cosine in one query, so **no dependency is
+  added** and the blend never materialises. What is left in Python is what SQL cannot do: the
+  transitive closure and the choice of representative. **The vector the blend needs was already
+  there and nothing had asked for it**: a mention node's content *is* an entity name and it went
+  through the pipeline's own `embed` stage, so `_derive_graph_rows` now carries `node.embedding`
+  into `put_entity` — `11.6` recorded `kg_entities.embedding` as unwritten *"until a rung asks"*,
+  and this is the rung. No embedder is needed at reconcile time, which matters because
+  `_register_corpus` puts only the configured `NodeStore` on that `Context`. **Both failure modes
+  are stated where a reader changing a weight meets them**: a degenerate embedder pushes every
+  cosine towards 1.0 and a vector-only rule merges the corpus, which the lexical term vetoes; and
+  lexical similarity alone merges `adRAP` with `adRAG`, which the vector term vetoes. Both have a
+  test. Signal 3 is gated twice, and **the collision guard abstains rather than picking** — two
+  long forms for one short form leaves two entities, wrong in a way a reader can see, where
+  choosing by iteration order would be wrong in a way that reads as a finding and would break this
+  task's own line. `S5`: `kg_schema` carries the layout's version in the stored bytes and
+  `provision_schema` **refuses** — separately for a `kg_nodes` with no version row, which is the
+  pre-`11.8` layout and gets its own sentence and a concrete list of tables. `manual/
+  troubleshooting.md` has the entry the coverage ratchet requires. **A defect I repaired in the
+  returned diff**: `neighbourhood` read `kg_aliases` whole on every call and mapped in Python,
+  which is `O(corpus)` whatever `hops` is — the bound taken off the one member whose entire
+  argument is that a walk over a real corpus must not return the corpus. Each hop now joins
+  alias→entity in SQL against its own frontier. The pass's two remaining `O(corpus)` **memory**
+  costs are stated on it rather than left to be found, and belong with `11.9`'s cursored rewrite.
+  **Run through the shipped binary from outside this repository**, on a corpus that defines its own
+  acronym: `weft index --pipeline index-with-facts` reported `pgvector-graph … backfilled 1` from
+  the **automatic post-index pass, in `repair`** — the mode decision proven where it matters — and
+  the two surface forms *Reciprocal Rank Fusion* and *RRF* became one entity named `RRF`, the
+  lexicographically smaller. A second `weft reconcile` reported `backfilled 0`: idempotent against
+  the database, not merely against the pure function. With the version row set to `3.0.0` the graph
+  participant failed by name, the *other* participant still converged, and the command exited 1.
+  `weft delete` then removed 16 nodes and left `aliases=0 entities=0 relations=0` — the cascade
+  holds through the new alias layer. `L11.35` is this task's queue entry and it is mine: a
+  find-and-replace across six assertions left a dead assignment that lint caught, three lines above
+  an assertion it had made tautological that nothing caught. Tests mine; the store and traversal
+  halves by a dispatched `weft-implementer`; `resolution.py`, the traversal repair and every
+  document edit mine. Gate `GATE_EXIT=0` read out of the run's own log, both containers up: 276
+  architecture, 2414 passed, 9 skipped, 128 examples*
 - [ ] **11.9 ⚠ D2** the expensive pass runs only under `full`, states `model_calls` before
   spending, abstains inside a stated band, and a bridge-merge re-points aliases so the evidence
   for the judgement survives the judgement · owner `02` §1, §4; `03` → *Permissions* · turns on —
