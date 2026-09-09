@@ -30,9 +30,45 @@ _TASK_LINE: Final[re.Pattern[str]] = re.compile(
 #: `· sha \\`abc1234\\`` or `· sha —`, wrapped across a line or not.
 _SHA: Final[re.Pattern[str]] = re.compile(r"·\s+sha\s+(?:`(?P<sha>[0-9a-f]{7,40})`|(?P<dash>—))")
 
-#: Ticked tasks allowed to carry no sha. **Pinned empty.** A task built across several commits
-#: names the one that made its property true, which is what the ledger asks for.
+#: Ticked tasks allowed to carry no sha. **No longer pinned empty, and that is the point** —
+#: `sha` became optional on 2026-09-09 and this constant is now a *record* of the lines written
+#: before that, not a waiver anybody may add to. Nothing is checked against it; `git blame` is the
+#: check. It stays only so a reader of an old line knows the field was once required.
 TASKS_WITHOUT_A_SHA: Final[frozenset[str]] = frozenset()
+
+
+def _blame_of_ticked_boxes() -> dict[str, str]:
+    """Every ticked task id mapped to the commit that ticked its line, from `git blame`.
+
+    **This replaces the `sha` field, and the reason is in this file's own docstring.** A commit
+    cannot contain its own hash, so the protocol asked for commit-then-amend, which records a hash
+    naming an object one generation behind — and then the phase is squashed and the object is gone.
+    `test_every_recorded_sha_names_a_commit` below measured that: **37 recorded shas name nothing**,
+    every per-task sha in Phases 3, 4 and 5, and it had to narrow its own scope to stay honest. A
+    column that answers nothing for seven of eight phases was not a record, it was a ritual.
+
+    `git blame` needs no amend, no placeholder and no ceremony: the commit that changed `- [ ]` to
+    `- [x]` *is* the answer, it is exact, and `--follow`-style history means the squash commit is
+    what a reader lands on rather than a dangling hash. `-w` ignores whitespace-only rewrapping so
+    a reflowed paragraph does not re-attribute a tick nobody touched.
+    """
+    blame = subprocess.run(  # noqa: S603
+        ["git", "blame", "-w", "--line-porcelain", "--", str(LEDGER)],  # noqa: S607
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    ticked: dict[str, str] = {}
+    commit = ""
+    for line in blame.splitlines():
+        if len(line) >= 40 and line[:40].isalnum() and " " in line and not line.startswith("\t"):
+            commit = line.split()[0]
+        elif line.startswith("\t"):
+            match = _TASK_LINE.match(line[1:])
+            if match is not None and match.group("box") == "x":
+                ticked[match.group("id")] = commit
+    return ticked
 
 
 def _task_blocks() -> list[tuple[str, bool, str]]:
@@ -89,22 +125,31 @@ def test_the_ledger_parses_into_something_worth_checking() -> None:
     assert "N.M" not in {identifier for identifier, _, _ in blocks}
 
 
-def test_every_ticked_task_records_a_sha() -> None:
+def test_every_ticked_box_is_attributable_to_a_commit() -> None:
+    """The property the `sha` field was reaching for, asked of something that can answer it.
+
+    Retired `test_every_ticked_task_records_a_sha` on 2026-09-09. That test enforced a field a
+    commit cannot contain — hence commit-then-amend, hence a hash one generation stale, hence 37
+    of them naming nothing once their phase was squashed. `git blame` answers *what made this
+    true* directly, for every ticked box including the ones whose phase was squashed years of
+    commits ago, and it cannot go stale because it is derived rather than written.
+    """
     # Arrange
-    recorded = shas_in_the_ledger()
+    ticked = {identifier for identifier, is_ticked, _ in _task_blocks() if is_ticked}
 
     # Act
-    missing = sorted(
-        identifier
-        for identifier, ticked, _ in _task_blocks()
-        if ticked and identifier not in recorded and identifier not in TASKS_WITHOUT_A_SHA
-    )
+    attributed = _blame_of_ticked_boxes()
+    unattributed = sorted(identifier for identifier in ticked if not attributed.get(identifier))
 
     # Assert
-    assert not missing, (
-        f"these tasks are ticked and record no sha: {missing}. The phases are squashed onto main, "
-        f"so the per-task commit is the only thing that can still answer what made this true — "
-        f"which is what build-ledger.md → 'Why the sha column is not optional' already argues."
+    assert len(attributed) > 100, (
+        f"blame attributed only {len(attributed)} ticked boxes — the porcelain walk is not reading "
+        f"the ledger, so an empty `unattributed` below would mean nothing was looked at"
+    )
+    assert not unattributed, (
+        f"these ticked boxes are attributable to no commit: {unattributed}. A tick with no commit "
+        f"behind it is the claim `build-ledger.md` refuses — but the record is `git blame` on the "
+        f"line, not a hash written into it, because a commit cannot carry its own."
     )
 
 

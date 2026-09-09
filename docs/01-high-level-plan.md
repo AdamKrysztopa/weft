@@ -1094,10 +1094,13 @@ ways** in one run.
 
 - **Gate:** no `05` session. G4 does not reopen — the traversal Protocol is published by
   `weft-graph`, not by `weft-store`, so the family's two-backend bar (`05:340-344`) is untouched
-  until the trigger fires. Two scope decisions are **open** and named on the tasks they shape,
-  each a further row under `09` §6.4 when taken: **D2**, where a corpus-wide revisable pass runs and
-  whether its output is durable (tasks 11.7–11.9); **D3**, where per-corpus, operator-curated
-  configuration lives (task 11.11). Tasks 11.0–11.6, 11.10 and 11.12–11.14 need neither.
+  until the trigger fires. Both scope decisions this phase named are now **taken**, each with its own
+  row under `09` §6.4: **D2**, where a corpus-wide revisable pass runs and whether its output is
+  durable (tasks 11.7–11.9), settled by **G15** on 2026-09-08 — an index-path stage of a new
+  contract after `store`, durable as nodes and only as nodes; and **D3**, where per-corpus,
+  operator-curated configuration lives (task 11.11), taken 2026-09-09 as **`S13`** — the curated
+  schema is a project file, its activation a row in the pack's own tables keyed by collection.
+  **No decision this phase needs is open.** Tasks 11.0–11.6, 11.10 and 11.12–11.14 needed neither.
   **Prerequisite:** Phase 9's `9.0` is ticked; without it 11.10 cannot be demonstrated and this
   phase carries ⛔ on that one task.
 - **Read:** `02` §1 → *Who publishes a contract* (`02:97`) and *The store contract family*

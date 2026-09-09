@@ -327,6 +327,28 @@ module's own source rather than from a path — so this half may be `declined �
 drain, with the general rule surviving. `recurs L9.56` — a project prohibition needs a mechanism,
 here arriving as a mechanism that outgrew its prohibition.
 
+### L11.13 — a refused command was split, and the half that mattered was dropped
+
+**What happened.** `guard_unchecked_commit.py` correctly refused `python3 - <<PY … PY; git add …
+&& git commit --amend; uv run pytest … | tail -3` — a check chained to a commit, `L10.24`'s own
+shape. The refusal names the fix: *"split it into two turns"*. I split it and re-ran **only the
+git half**, so the heredoc that ticked task `11.0`'s ledger box never executed; the amend then
+committed nothing and `70bda15` shipped 11.0's work with its box still unticked. That is precisely
+the first of `L10.24`'s three instances — *"an assertion whose message went nowhere, so a task was
+committed with no ledger entry"* — reproduced one turn after the guard that exists for it fired
+correctly and was read. Caught only because the `git blame` check written minutes later reported
+`11.0 -> None` while claiming zero unattributed, a contradiction that had to be chased.
+
+**Generalises to.** A hook refusal rejects the **whole** call, so every side effect in it is
+un-run, including the ones that were never the problem — re-issue *all* the parts, not the one the
+refusal was about. The tell is that a guard's message describes what was wrong, never what was
+lost, and the eye follows the description.
+
+**Candidate home.** `guard_unchecked_commit.py`'s own refusal text: after *"split it into two
+turns"*, one line saying that nothing in the refused command ran, including any file edit in it, so
+every part must be re-issued. The guard is the only thing that knows what it just discarded, and it
+is already speaking at exactly the right moment. `recurs L10.24`
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

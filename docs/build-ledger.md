@@ -38,20 +38,26 @@ One task at a time. This is the whole loop.
 5. **Tick the box and record the sha**, and edit any document whose content the work changed. The
    plan and the code are meant to be true about each other.
 
-   **The recorded sha is the pre-amend object, and that is the best this can be.** This step used
-   to ask for "the hash of the commit that carries the line", reachable "by committing and then
-   amending" — which is not achievable by anything: a commit cannot contain its own hash, and the
-   amend that writes the sha in changes the hash again. The rule was corrected on **2026-08-20**,
-   after every task in Phase 3 rediscovered the contradiction independently and wrote a paragraph
-   explaining it. What 2.4 and 2.29 were "corrected" for was therefore not a mistake either.
+   **The sha field is optional as of 2026-09-09, and `git blame` is the record.** For a year this
+   step asked for "the hash of the commit that carries the line", by committing and then amending —
+   which nothing can achieve, because a commit cannot contain its own hash and the amend that
+   writes one in changes the hash again. The 2026-08-20 correction accepted a hash *one generation
+   behind* `HEAD` and told readers not to close the gap. Then the phase is squashed and even that
+   object is discarded: `tests/docs/test_ledger_records_a_sha.py` measured **37 recorded shas that
+   name nothing** — every per-task sha in Phases 3, 4 and 5 — and had to narrow its own assertion
+   to stay honest about it. A column that answers nothing for seven of eight phases was a ritual,
+   not a record, and it cost a placeholder, an amend and a red gate every time a box was ticked.
 
-   So: commit, then amend the ledger line with the sha the first commit produced, and understand
-   that the recorded hash names an object one generation behind `HEAD`. Do not spend time trying
-   to close the gap. **Do not run `git merge-base --is-ancestor` against it** — it will fail
-   correctly, which is not information. The per-task sha's real audience is a reader tracing the
-   work inside a live branch; once the phase is squashed onto `main` every one of them dangles
-   anyway, which is why **the phase's squash commit carries the true per-task hashes in its
-   message** — that, not the ledger field, is where they survive.
+   So: **tick the box in the commit that closes the task.** The commit that changed `- [ ]` to
+   `- [x]` is the answer, `git blame -w` on the line gives it exactly, it needs no amend and no
+   placeholder, and it keeps answering after the squash — blame lands a reader on the squash commit
+   rather than on a dangling hash. `test_every_ticked_box_is_attributable_to_a_commit` checks that
+   and attributes all 209 ticked boxes today, including Phase 3's, which the sha column could not.
+
+   Recording a sha in the line is still **welcome and no longer required**: with the amend gone you
+   can name the commit that genuinely holds the work — task `11.0` names `70bda15` — rather than a
+   pre-amend object that was never reachable. Existing sha fields stay as history. **The phase's
+   squash commit still carries the true per-task hashes in its message.**
 
 6. **One commit per task.** The subject names the task id and what it makes true; the body says why.
    The diff already says what.
@@ -7586,10 +7592,28 @@ phase-content narrowing under `09` §6.4 item 1 and takes no log row; it is writ
 phase whose task it bites, rather than into G15, because amending a closed session's text is how a
 proviso invented afterwards becomes indistinguishable from one that was argued (`L5.32`).
 
-**D3 — where a pack persists per-corpus, operator-curated configuration — is open**, is a scope row
-under `09` §6.4 when the owner takes it, and shapes 11.11 alone; that task is real and its content
-is a hypothesis until then. Nothing else below is ⚠: D1 is `S12`, D4 is a proof rather than a
-decision and 11.1 is that proof.
+**D3 — where a pack persists per-corpus, operator-curated configuration — was taken by the owner
+2026-09-09, and logged as `S13`.** *The file is the truth; the activation is a row.* The curated
+schema is a **project file** named from `[packs.graph]`, edited and reviewed through the same
+text-edit surface `03:963-975` already defines, so what an operator approves is a diffable artefact
+a pull request can show. `activate` writes that schema's **identity into the pack's own tables,
+keyed by collection**, and every fact carries the schema id it was extracted under. The reasoning,
+short: D3 is two questions, and each half belongs somewhere different. *Which schema was this fact
+extracted under?* is a property of the fact and goes on the node. *Which schema is this corpus
+under?* is a property of the **corpus** — answered from `weft.toml` it is a property of whichever
+operator's disk you asked, and two checkouts then hold contradictory beliefs about one database
+with nothing able to notice, which is the silence 11.11's own sentence forbids. *What did the
+operator approve?* is a property of the **project** and must be diffable, which a store-only design
+cannot offer. **It adds no mechanism**: 11.8 already builds pack-owned tables carrying their own
+version row, under the narrowing this preamble records above, and this reuses them. **The cost,
+recorded rather than discovered at 11.11**: those tables now hold a row that is *configuration*
+rather than data, which is a real widening of what they are for. And under any of the three answers
+`02:1143`'s *"this installation of this pack"* was wrong — `weft.toml` is per **project**
+(`03:909`) — so that sentence is amended in the same commit.
+
+So 11.11 keeps its ⚠ as a record, on the convention this section's protocol repair settled, and
+**no decision this phase needs is open.** Nothing else below is ⚠: D1 is `S12`, D4 is a proof
+rather than a decision and 11.1 is that proof.
 
 **Recorded rather than decided — a slot finding.** No shipped document declares a `slots:` block
 (`grep -rn 'slots' packages/weft-rag/src/*/pipelines/*.yaml` → two comments, no declaration), so
@@ -7602,10 +7626,10 @@ no slot and every stage it ships is an explicit rung. `Contribution` is `slot`, 
 `stage` (`weft_kernel/resolution.py:251-285`) and can express no "no-model-only" filter, so a task
 that assumed one was withdrawn from the plan before it reached this list.
 
-- [ ] **11.0** a file carrying the owner's prior work is detectable by a check that reads the
+- [x] **11.0** a file carrying the owner's prior work is detectable by a check that reads the
   marker `NOTICE` case 2 names, and the gate fails when `NOTICE`, the repository `README.md` and
   the carrying files disagree about which lines are that work · owner `NOTICE`;
-  `tests/architecture/test_release_licensing.py` · turns on — · sha — · **verified first,
+  `tests/architecture/test_release_licensing.py` · turns on — · sha `70bda15` · **verified first,
   as the line asked: no marker exists anywhere in the tree** (`grep` over `packages/`, `testing/`,
   `examples/` → nothing), so Phase 9 copied nothing from the donor under case 2 and this is the
   first check rather than an extension of one. **Written by me, not dispatched** — the task's whole
@@ -7808,10 +7832,15 @@ that assumed one was withdrawn from the plan before it reached this list.
   (`03:963-975`); the lifecycle state is set by the event, never inferred from fact presence. The
   constrain-and-verify third layer counts `off_schema_dropped`, with the honest note that the
   prior art's only evidence for that layer being live came from a stubbed provider in its own test
-  suite rather than from a real one, so the counter is unproven against a vendor. ⚠ because D3 decides where the
-  document lives: the plan's position is a project-local file named from `[packs.graph]` — the
-  diffable artefact a human approves — resting on `weft.toml` being per project (`03:911`) while
-  `02:1032-1034` still says per installation, a wording amendment D3's row carries*
+  suite rather than from a real one, so the counter is unproven against a vendor. ⚠ because D3 decided where the
+  document lives, and **it went the plan's way with one addition** (`S13`, 2026-09-09): a
+  project-local file named from `[packs.graph]` is the diffable artefact a human approves, resting
+  on `weft.toml` being per project (`03:909`) — and `activate` additionally writes the schema's
+  identity into **the pack's own tables, keyed by collection**, so *which schema is this corpus
+  under* is a fact about the corpus rather than about whichever operator's `weft.toml` was on disk.
+  Without that row two checkouts disagree about one database and nothing notices, which is this
+  line's own forbidden silence. The `02:1143` per-installation wording is amended. Read the mark as
+  the preamble's record, not as a block*
 - [ ] **11.12** `weft eval` reports every metric per question `kind`, and a comparison can be
   asked for one `kind` alone, so a rung's claim about one class of question is a number over that
   class · owner `09` §4; `weft_eval/aggregate.py:107` · turns on — · sha — · *`weft-eval`, no
@@ -7847,9 +7876,15 @@ with the graph retriever's demand in the tree; the deferral row is dated in `01`
 compare` restricted to `kind = requires-graph-hop` reports whether the difference lies outside the
 baseline's interval — either answer discharges it.
 
-## Why the sha column is not optional
+## Why a ticked box must be attributable — and why the sha column is no longer how
 
-A ticked box with no sha is a claim; a ticked box with a sha is a fact someone else can check. The
+*(Retitled 2026-09-09. This section argued the sha column was mandatory; the argument was right
+about the property and wrong about the mechanism, and `git blame` is the mechanism. The working
+protocol above carries the change; the paragraph below is kept because its reasoning about
+unenforced discipline is what still holds.)*
+
+A ticked box with nothing behind it is a claim; a ticked box a reader can trace to a commit is a
+fact someone else can check. The
 shape being refused is a key-parity test elsewhere, which computes a difference and then reports
 it through `pytest.warns(...)` called as a bare statement, so it does nothing and **cannot fail** —
 "the 195/195 parity holds today by discipline, not by enforcement." A ledger whose ticks cite nothing is that test with a

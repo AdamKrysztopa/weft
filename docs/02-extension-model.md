@@ -1141,8 +1141,15 @@ and what a refused pack does are specified in *The trust model* at the end of th
 
 **Settled in G1** — this is the answer to item 3 above. Per-stage `with:` config and per-pack
 settings are different lifetimes: `with:` is *this stage in this pipeline*, pack settings are *this
-installation of this pack* — credentials, an endpoint, a cache directory, a default model — shared
-across every plugin it registers. A codebase with nowhere at all for the second kind forces a pack
+**project's** use of this pack* — credentials, an endpoint, a cache directory, a default model —
+shared across every plugin it registers.
+
+> **Amended 2026-09-09 by `S13`.** This read *"this installation of this pack"*, which was written
+> when a project and an installation were assumed to be the same thing and has been false since
+> `03:909` put `weft.toml` at the **project** root: two projects sharing one virtualenv have always
+> had separate `[packs.*]` blocks. Phase 11 D3 is what forced the reading — an operator-curated
+> schema is per project, so the block it is named from had to be per project too. The lifetime
+> distinction against `with:` is unchanged and is the point of the paragraph. A codebase with nowhere at all for the second kind forces a pack
 contributing an enhancer, a retriever and a store to repeat its connection details three times and
 hope they stay in sync.
 
