@@ -59,7 +59,7 @@ def _load_toml(path: Path) -> dict[str, Any]:
         return tomllib.load(handle)
 
 
-def publishing_members(repo_root: Path = REPO_ROOT) -> tuple[Member, ...]:
+def _all_members(repo_root: Path, *, publishing_only: bool) -> tuple[Member, ...]:
     """Every workspace member that publishes, sorted by name.
 
     Raises `PublishSetUnreadableError` if the member globs match no directory containing a
@@ -93,7 +93,7 @@ def publishing_members(repo_root: Path = REPO_ROOT) -> tuple[Member, ...]:
 
             config = _load_toml(manifest)
             opt_out = config.get("tool", {}).get(_OPT_OUT_TABLE, {}).get(_OPT_OUT_KEY, True)
-            if opt_out is False:
+            if publishing_only and opt_out is False:
                 continue
 
             name = cast("str", config["project"]["name"])
@@ -114,3 +114,35 @@ def publishing_members(repo_root: Path = REPO_ROOT) -> tuple[Member, ...]:
         )
 
     return tuple(sorted(found, key=lambda member: member.name))
+
+
+def publishing_members(repo_root: Path = REPO_ROOT) -> tuple[Member, ...]:
+    """Every workspace member that publishes, sorted by name — the release set's own subject.
+
+    A member opts out with `[tool.weft] publish = false`. Since G19 (2026-09-09) that is six
+    add-ons as well as `testing/weft-canary`: Weft publishes under two names, and the add-ons'
+    code ships inside the `weft-rag` wheel. For a property of the *code* rather than of the index,
+    use `members_shipping_source` — see its own docstring for why the distinction started to
+    matter.
+    """
+    return _all_members(repo_root, publishing_only=True)
+
+
+def members_shipping_source(repo_root: Path = REPO_ROOT) -> tuple[Member, ...]:
+    """Every workspace member that ships code, whether or not it publishes, sorted by name.
+
+    **Why this exists beside `publishing_members`, since G19 on 2026-09-09.** That function
+    answers "what reaches an index", which is the right subject for the release set and the wrong
+    one for any property of the *code*. G19 settled that Weft publishes under two names and that a
+    pack's code ships inside the `weft-rag` wheel, so six distributions that used to publish now
+    carry `[tool.weft] publish = false` — and a check walking the publishing set stopped being able
+    to see them. `weft-openai` reaching the network is a fact about its source, not about which
+    wheel carries it, and it became *more* important to see once the code ships to everybody rather
+    than only to whoever asked for it.
+
+    So: same walk, same refusal on an empty read, and the publish flag ignored.
+    """
+    return _all_members(repo_root, publishing_only=False)
+
+
+__all__ = ["Member", "PublishSetUnreadableError", "members_shipping_source", "publishing_members"]

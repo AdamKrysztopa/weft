@@ -62,6 +62,22 @@ than a script.
 These came out of grilling sessions G1 and G3–G6. They are not preferences; each is recorded in
 `docs/` with the argument that produced it, and changing one means reopening its gate.
 
+- **Two published names, and only two: `weft-kernel` and `weft-rag`. This is closed.** Settled by
+  the owner as **G19** on 2026-09-09, after `weft-graph` was found to be another project's on PyPI
+  (**G18**) and the whole nine-distribution split was re-examined. Every first-party pack's code
+  ships inside the `weft-rag` wheel; anything needing an outside library is an **extra** —
+  `pip install weft-rag[pdf]`, `[graph]`, `[docling]`, `[all]` — so the dependency is declinable
+  while the code costs kilobytes. `weft-kernel` stays separate for one reason only: fitness
+  function 1 installs it alone and imports it, which is what proves the kernel names no capability.
+  **A new capability never adds a third name** — it is a module, an entry point, and an extra if it
+  needs a library. `weft-pdf`, `weft-openai`, `weft-qdrant`, `weft-otel`, `weft-docling`,
+  `weft-agent` and `weft-kg` are **not** distributions and must not be published. The four
+  pre-consolidation names published on 2026-09-05 — `weft-generate`, `weft-embed`, `weft-command`,
+  `weft-llm` — are yanked. *Requirement 1's proof does not need published packages, only installable
+  ones, and `testing/weft-canary` and `examples/weft-example-*` already carry it from outside the
+  tree — that is what unblocked this, and it is why folding the add-ons in costs the project
+  nothing it was relying on.* **Do not reopen this to save a wheel or to restore symmetry.**
+
 - **Weft carries no third party's source text.** Not a file, a function body, a docstring, a
   comment, a prompt string, a word list or a test fixture. Another codebase is read to
   *understand*, then closed; every line here is written for Weft. The test: *if you could not have

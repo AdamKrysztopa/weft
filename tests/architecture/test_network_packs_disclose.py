@@ -1,4 +1,13 @@
-"""A distribution that reaches the network says so — ledger task **6.31**.
+"""Shipped source that reaches the network says so — ledger task **6.31**.
+
+**The subject is every workspace member that ships code, not every one that publishes — widened
+2026-09-09 by G19.** That gate settled two published names, so six add-ons stopped publishing and
+their code moved inside the `weft-rag` wheel. Walking the *publishing* set, this check promptly
+went red saying it could no longer see `weft-openai`, which was the check telling the truth: its
+subject had become the wrong one. Whether a pack reaches the network is a fact about its source,
+and it matters *more* once that source ships to everybody rather than only to whoever asked for
+the add-on. `publish_set.members_shipping_source` is the reader; `publishing_members` still
+answers the release set's own question, one file over.
 
 `docs/02-extension-model.md` §2 → *The trust model* states the posture Weft can actually keep: a
 pack runs with your full privileges and installing is trusting, because signature verification and
@@ -33,7 +42,7 @@ import re
 from pathlib import Path
 from typing import Final
 
-from publish_set import publishing_members
+from publish_set import members_shipping_source
 
 #: Modules whose presence in a distribution's own source means it can reach outside the process.
 #: A prefix match on the imported root, so `psycopg.rows` counts as `psycopg`.
@@ -77,7 +86,7 @@ def declares_a_disclosure(source_dir: Path) -> bool:
 def network_reaching_members() -> list[tuple[str, frozenset[str]]]:
     """`(distribution, clients)` for every published member whose source reaches outward."""
     found: list[tuple[str, frozenset[str]]] = []
-    for member in publishing_members():
+    for member in members_shipping_source():
         if not member.modules:
             continue
         clients = reaches_the_network(member.directory / "src")
@@ -104,7 +113,7 @@ def test_every_distribution_that_reaches_the_network_declares_a_disclosure() -> 
     """The property. `02` §2's one real control, applied to built-ins too."""
     # Arrange
     reaching = network_reaching_members()
-    by_name = {member.name: member for member in publishing_members()}
+    by_name = {member.name: member for member in members_shipping_source()}
 
     # Act
     silent = sorted(

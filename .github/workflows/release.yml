@@ -23,7 +23,12 @@ name: Release
 # by dependency. It stays a second job for one further reason: the check reads the `distribution`
 # matrix of *every* job, so a third job cannot quietly publish something outside the comparison.
 #
-# **Eight names, and fourteen left this list on 2026-09-05.** `weft-command`, `weft-extract`,
+# **Two names, since G19 on 2026-09-09** — `weft-kernel` and `weft-rag`, and no capability added
+# later makes a third. Six add-ons left this list that day (`weft-qdrant`, `weft-openai`,
+# `weft-pdf`, `weft-otel`, `weft-agent`, `weft-docling`), each now carrying
+# `[tool.weft] publish = false`; their code moves inside the `weft-rag` wheel behind extras.
+#
+# **Fourteen more left it on 2026-09-05.** `weft-command`, `weft-extract`,
 # `weft-chunk`, `weft-clean`, `weft-embed`, `weft-enhance`, `weft-index`, `weft-store`,
 # `weft-retrieve`, `weft-generate`, `weft-llm`, `weft-prompts`, `weft-eval` and `weft-cli` ship
 # inside `weft-rag` and are no longer published from this repository. Four of them
@@ -133,23 +138,19 @@ jobs:
       max-parallel: 1
       matrix:
         distribution:
+          # **One name, since G19 on 2026-09-09.** The owner settled that Weft ships under
+          # exactly two names — this one and `weft-rag`, published by the job below — and that a
+          # new capability never adds a third: a pack's code goes inside the `weft-rag` wheel and
+          # its outside library becomes an extra, so the dependency stays declinable while the
+          # code costs kilobytes. `weft-qdrant`, `weft-openai`, `weft-pdf`, `weft-otel`,
+          # `weft-agent` and `weft-docling` each carry `[tool.weft] publish = false` now, so
+          # fitness function 10(a)'s two sides still agree and this list still cannot drift from
+          # them silently. `CLAUDE.md` carries the rule; `05` -> G19 the reasoning.
+          #
+          # **`weft-kernel` stays its own distribution for one reason only**, and it is not
+          # symmetry: fitness function 1 installs it alone into a clean environment and imports
+          # it, which is what makes "the kernel names no capability" a fact rather than a claim.
           - weft-kernel
-          - weft-qdrant
-          - weft-openai
-          - weft-pdf
-          - weft-otel
-          # Task 7.1. The seventh, and the first added since G10's re-settlement:
-          # Phase 7's exit is that the agent pack installs *from the index* alongside the
-          # release, which is only a real claim if it is published like every other add-on.
-          - weft-agent
-          # Ledger task 9.13. The eighth, and the heaviest by three orders of magnitude:
-          # `docling-slim[convert-core,format-pdf,models-local]` installs 897 MB (torch,
-          # torchvision, transformers), measured 2026-09-06 on Python 3.12. That weight is the
-          # whole reason it is a distribution rather than a module inside `weft-pdf`, and it is
-          # published like every other add-on for the same reason `weft-agent` is: an operator
-          # who wants a learned layout rung has to be able to install one, and one who does not
-          # must never pay for it.
-          - weft-docling
     steps:
       - uses: actions/checkout@v4
 

@@ -47,3 +47,13 @@ docling = "weft_docling:register"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.weft]
+# **G19, 2026-09-09: this distribution is never published.** The owner settled that Weft ships
+# under exactly two names, `weft-kernel` and `weft-rag`, and that a new capability never adds a
+# third. This pack's code moves inside the `weft-rag` wheel and its outside library becomes an
+# extra, so the dependency stays declinable while the code costs kilobytes. The marker goes on
+# first, before the code moves, so `release.yml` can never create a name G19 forbids — the six
+# names this repository was one tagged release away from claiming. `CLAUDE.md` carries the rule
+# and `05` -> G19 the reasoning.
+publish = false
