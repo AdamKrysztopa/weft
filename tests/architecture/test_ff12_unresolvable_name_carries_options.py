@@ -100,6 +100,7 @@ NAME_RESOLUTION_FAMILY: Final[frozenset[str]] = frozenset(
         "weft_cli.reconcile_policy.UnknownReconcileKeyError",
         "weft_cli.eval_commands.UnknownRunIdError",
         "weft_cli.eval_commands.NoBaselineRunsError",
+        "weft_cli.eval_commands.UnknownQuestionKindError",
         "weft_cli.pipeline_catalogue.UnknownPipelineNameError",
         "weft_eval.offline.UnknownMetricNameError",
         "weft_cli.services.UnknownServiceKeyError",

@@ -7973,7 +7973,7 @@ that assumed one was withdrawn from the plan before it reached this list.
   Without that row two checkouts disagree about one database and nothing notices, which is this
   line's own forbidden silence. The `02:1143` per-installation wording is amended. Read the mark as
   the preamble's record, not as a block*
-- [ ] **11.12** `weft eval` reports every metric per question `kind`, and a comparison can be
+- [x] **11.12** `weft eval` reports every metric per question `kind`, and a comparison can be
   asked for one `kind` alone, so a rung's claim about one class of question is a number over that
   class · owner `09` §4; `weft_eval/aggregate.py:107` · turns on — · sha — · *`weft-eval`, no
   gate. `eval/questions/*.toml` already carries `kind` per question; `MetricAggregate` is `mean`,
@@ -7981,7 +7981,48 @@ that assumed one was withdrawn from the plan before it reached this list.
   the one thing the owner's `graph-study` evaluation layer contributes, and the shape is not
   carried: an empty subset there is `0.0`, here it stays `NothingToProduce`. Phase 9's evaluation
   prerequisite (its D8) may want the same partition for `image-only` questions first; if it built
-  it, this line is struck and 11.13 cites the `9.x` that did*
+  it, this line is struck and 11.13 cites the `9.x` that did* · **the struck-out clause was
+  checked and does not apply.** Phase 9's `9.12` built the partition for **modality** —
+  `by_modality`, `ModalitySlice`, a partition with no observations absent rather than zero-`n` —
+  and `MetricAggregate.kind` means which *contract* produced the observations. Neither is a
+  question kind, and the seven kinds `eval/questions/*.toml` has carried since V2 (136 questions,
+  counted) were read by nothing in the shipped tree: `L5.15`'s producing-side-with-no-consuming-
+  side, sitting in a data file. **So the shape is 9.12's, reused rather than re-invented**
+  (`L9.17`): `ModalitySlice` is **renamed to `PartitionSlice` with no alias left behind**, because
+  the type is three numbers describing a partition and two names for one shape is how a second,
+  subtly different copy starts; 19 references across four files. **`by_question_kind`, never
+  `by_kind`**, since `kind` on that model already means `MetricKind`. **`kind` is a `str` and an
+  open vocabulary, which is a decision**: `eval/check_questions.py` pins a seven-member StrEnum,
+  but that script is *this* question set's schema and ships nothing, while the model is loaded from
+  a file a third party writes about their own corpus — `Channel` ("a vocabulary, not a field type")
+  and `Removed.removed` ("an open vocabulary the participant owns") are the two settled precedents,
+  and 11.13's own `requires-graph-hop` would otherwise be a core edit for a question somebody
+  wrote. A sample whose `kind` is `""` contributes to the mean and to no slice. **Where it diverges
+  from the work that contributed the idea, said at the point of use**: the owner's `graph-study`
+  evaluation layer reports `0.0` for an empty subset; here an absent partition stays absent and a
+  comparison restricted to a kind neither run recorded **refuses** — a verdict from two numbers
+  nobody measured is one a reader cannot tell from a real one. No line is carried, so `NOTICE`
+  case 2 is not engaged. **Dispatched to a `weft-implementer`**, which came back blocked on my own
+  fixture again: `_record()` built `RunRecord(run_id=…, pipeline=…, corpus_hash=…)` and that model
+  has never had any of those fields, while `test_render.py` has carried a correct builder since
+  Phase 4. Second instance of `L11.17` one task apart, which is what turns it from a slip into a
+  habit and argues for a mechanical home. **`UnknownQuestionKindError` joining the
+  `UnresolvedNameError` family owed four edits and the brief's grep found three** — FF12's pinned
+  frozenset, `exit_codes.py`'s dispatch branch, `manual/troubleshooting.md`'s required heading —
+  with the fourth, `_LOCAL_IMPORT_MEMBERS`, found only by a red gate, which is `L8.12` recurring
+  one mechanism further. **That fourth site was itself a defect**: the ratchet read imports as
+  `line.split(" import ", 1)`, so a fifth member pushing the line past 100 characters made
+  `ruff format` wrap it and the check reported `imports ['(']` — a red gate on formatter-produced
+  code, repaired to `ast` and **watched failing first on the real omission**, `L11.20`. **Ran the
+  binary from outside the repository on an isolated database**: two persisted runs over a corpus
+  whose questions carry kinds, then `weft eval compare … --kind methodological` at exit 0 reporting
+  every metric at **n=1** where the unrestricted comparison reports n=2 — the restriction firing
+  rather than the flag merely being accepted (`L9.45`) — and `--kind requires-graph-hop` at exit
+  **4**: *"'requires-graph-hop' is not a question kind either run recorded. Kinds recorded:
+  definitional, methodological."* That transcript is the one `manual/troubleshooting.md` now
+  carries. Gate `GATE_EXIT=0` read out of the run's own log: 270 architecture, 2274 passed, 9
+  skipped, 127 examples — fourteen more than 11.2's 2260, which is this task's fourteen tests and
+  no shrink*
 - [ ] **11.13** a corpus's own facts yield the questions on which vector retrieval must fail: a
   `weft graph bridges` command lists two-hop paths whose endpoints share no chunk, each hop with
   its own citation, and prints the vector ceiling on the same question first · owner `09` §4.3 ·

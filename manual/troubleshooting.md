@@ -2496,6 +2496,35 @@ the same footing an unknown run id already has. **What to do:** the message list
 that has actually been run. Run the baseline pipeline at least twice — `weft eval run <corpus>
 <baseline-pipeline> --questions <file>` — before asking for a verdict against it.
 
+### `UnknownQuestionKindError`
+
+**What it looks like** — `weft eval compare --kind` naming a question kind neither run recorded,
+reproduced from outside the repository against an installed `weft-rag`:
+
+```text
+$ weft eval compare 50c889b0-...-77068cc3637f 6f96e716-...-f7715d321e --kind requires-graph-hop
+'requires-graph-hop' is not a question kind either run recorded. Kinds recorded: definitional,
+methodological.
+$ echo $?
+4
+```
+
+`--kind` restricts a comparison to one class of question, reading each run's own per-kind slice
+instead of its whole-run mean — so a rung that is better at one class and worse at another reports
+two numbers rather than one in which they cancel. A kind reaches a run from the `kind` field of the
+questions file that run was scored against; a question with no `kind` contributes to the mean and
+to no slice, because an unclassified question is not a class.
+
+Exit `4`, not `1`: this is fitness function 12's family, "fix what you typed", the same footing an
+unknown run id and an unknown baseline pipeline already have. It is deliberately a **refusal**
+rather than a comparison of two absent slices — a verdict computed from two numbers nobody measured
+is one a reader cannot tell from a real one.
+
+**What to do:** the message lists every kind either run actually recorded. Either name one of
+those, or re-run with a questions file whose entries carry the `kind` you want to compare —
+`{"query": ..., "relevant_documents": [...], "kind": "methodological"}` — and compare the new runs.
+Dropping `--kind` compares the whole run, which is what this command did before the flag existed.
+
 ### `TooFewRepetitionsError`
 
 **What it looks like** — a baseline that exists but was run only once, reproduced the same way:

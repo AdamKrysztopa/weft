@@ -445,11 +445,22 @@ double says what shape actually arrives. Where two test files already stub one s
 stubs it differently is the one that is wrong. Cheapest check before dispatching: grep for the
 other stubs of the same protocol method and diff their return statements against yours.
 
+**Second instance, same session, same author — `11.12`.** `tests/unit/weft_cli/
+test_eval_compare_kind.py`'s `_record()` built `RunRecord(run_id=…, pipeline=…, corpus_hash=…)`,
+and that model has never had any of those three fields — its real shape, fixed at task `4.4`, is
+`recorded_at`/`resolved_pipeline`/`corpus` with `extra="forbid"`. Four of five tests failed at
+fixture construction before reaching an assertion, and `tests/unit/weft_cli/test_render.py` has
+carried a correct builder for that model since Phase 4. The implementer came back blocked on it,
+again correctly, and again the repair was to the test. **Two instances one task apart makes this a
+habit rather than a slip**, which is the argument for a mechanical home rather than a sentence.
+
 **Candidate home.** `phase-step` → *Red*, beside `L6.14`, whose rule this is one step more
 specific than: `L6.14` says a hand-written double populates whichever fact the author had in mind;
 this says the *shape* is guessed the same way, and unlike the fact, the shape has a checkable
-precedent in the tree. It cost a dispatch rather than a phase, which is the split earning its
-keep. `recurs L6.14`
+precedent in the tree. Given the second instance, prefer something mechanical to a sentence — the
+cheapest is a *Before you send* line requiring `git grep -n '<TypeName>('  tests/` for every model
+and protocol a new test constructs, with the first hit read. It cost a dispatch each time rather
+than a phase, which is the split earning its keep. `recurs L6.14`
 
 ### L11.18 — a task whose content needs five later tasks sat third, and nothing could see it
 
@@ -511,6 +522,37 @@ on the log row, exactly as this project already requires evidence for a count. P
 `tests/docs` check that every distribution name in `09`'s release table has a recorded lookup date
 — though that one is a check about this repository again, which is the trap `L6.33` named, so the
 drain should weigh it. `recurs L6.33`
+
+### L11.20 — the check read imports with a string split, and ruff's own formatter broke it
+
+**What happened.** `test_exit_code_tables_are_live.py`'s second ratchet reads the imports inside
+`exit_code_for` to prove no branch member was added without being pinned, and it read them as
+`line.split(" import ", 1)[1].split(",")` over the raw source. Adding a fifth member pushed the
+`from weft_cli.eval_commands import …` line past 100 characters, `ruff format` wrapped it in
+parentheses, and the check reported `exit_code_for imports ['(']` — a red gate on correct,
+formatter-produced code, with a message that names a bracket. The one-line assumption was true of
+every local import in that function on the day it was written and is not a property of anything.
+Repaired by parsing the function body with `ast` and walking `ImportFrom.names`; watched failing
+first, on the real omission (`imports ['UnknownQuestionKindError'], which _LOCAL_IMPORT_MEMBERS
+does not name`), so the new parser is known to still catch what the old one was for.
+
+**Generalises to.** A check that reads this repository's own source as text is a check against a
+formatting the formatter is free to change: parse Python with `ast`, not with `str.split`, and
+where a check must read source, ask what `ruff format` would do to the longest form of the thing it
+is reading. The tell is a check whose failure message can contain a punctuation mark.
+
+**And it was the fourth site of one family edit, found by a fifth mechanism.** `L8.12`'s shape,
+recurring exactly: adding `UnknownQuestionKindError` to the `UnresolvedNameError` family owed edits
+at four places, and the dispatch brief's own grep — written because `L8.12` says to write it —
+named three (FF12's pinned frozenset, `exit_codes.py`'s dispatch branch, `manual/
+troubleshooting.md`'s required heading). The fourth, `_LOCAL_IMPORT_MEMBERS`, was found only by the
+red gate above. A brief's grep is better than memory and is still not the population.
+
+**Candidate home.** An `implement-ll` sweep rather than a new mechanism: `git grep -n 'split(" import'`
+and its neighbours across `tests/architecture/` and `tests/docs/`, converting each source-reading
+check to `ast` where it parses Python. `recurs L11.12` — that entry is a guard refusing this
+repository's own settled idiom, and this is the same shape with the formatter rather than the linter
+on the other side.
 
 ## When the queue is empty
 

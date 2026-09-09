@@ -32,7 +32,9 @@ does anything, which is how a table quietly becomes decoration.
 
 from __future__ import annotations
 
+import ast
 import inspect
+import textwrap
 from typing import Final
 
 from weft_cli.exit_codes import ExitCode, exit_code_for
@@ -54,6 +56,7 @@ _LOCAL_IMPORT_MEMBERS: Final[tuple[str, ...]] = (
     "NoRouterPipelineError",
     "UnknownRunIdError",
     "NoBaselineRunsError",
+    "UnknownQuestionKindError",
     "UnknownMetricNameError",
 )
 
@@ -73,11 +76,21 @@ def _also_resolution_failed() -> tuple[object, ...]:
 
 
 def _local_import_classes() -> tuple[object, ...]:
-    from weft_cli.eval_commands import NoBaselineRunsError, UnknownRunIdError
+    from weft_cli.eval_commands import (
+        NoBaselineRunsError,
+        UnknownQuestionKindError,
+        UnknownRunIdError,
+    )
     from weft_cli.route_ask import NoRouterPipelineError
     from weft_eval.offline import UnknownMetricNameError
 
-    return (NoRouterPipelineError, UnknownRunIdError, NoBaselineRunsError, UnknownMetricNameError)
+    return (
+        NoRouterPipelineError,
+        UnknownRunIdError,
+        NoBaselineRunsError,
+        UnknownQuestionKindError,
+        UnknownMetricNameError,
+    )
 
 
 def _raised(error_class: type[WeftError]) -> WeftError:
@@ -161,12 +174,20 @@ def test_the_named_local_import_members_are_the_ones_the_module_actually_branche
     )
 
     # And the other direction: a class imported inside `exit_code_for` and not named here.
+    #
+    # Read with `ast`, not by splitting on `" import "`. The string version was written when
+    # every local import here fitted on one line, and it reported `['(']` the moment a fifth
+    # member pushed one past the formatter's width and ruff wrapped it in parentheses — a check
+    # failing on the shape this repository's own formatter produces, which is `L11.20`. The
+    # function body is re-parsed rather than the module, so an import anywhere else in the file
+    # still cannot satisfy this.
     body = source[source.index("def exit_code_for") :]
+    tree = ast.parse(textwrap.dedent(body))
     imported = {
-        part.strip()
-        for line in body.splitlines()
-        if line.strip().startswith("from ") and " import " in line
-        for part in line.split(" import ", 1)[1].split(",")
+        alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom)
+        for alias in node.names
     }
     unnamed = sorted(imported - set(_LOCAL_IMPORT_MEMBERS))
     assert not unnamed, (

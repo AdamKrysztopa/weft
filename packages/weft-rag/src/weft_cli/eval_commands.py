@@ -158,6 +158,23 @@ run scored never appears at all — nothing invented where there is nothing to r
 what closes Phase 4's own exit criterion: two derived pipelines that genuinely differ in what
 they retrieve now produce a comparison naming the difference in scores, not only in
 stage-by-stage structure.
+
+**`weft eval compare --kind <kind>` — task 11.12, `_metrics_comparison`'s restriction to one
+class of question.** `09` §4 asks that a rung's claim about one class of question be a number
+over that class, and a per-`kind` slice on `MetricAggregate` (`weft_eval.aggregate.
+MetricAggregate.by_question_kind`, ledger task 11.12's other half) only becomes that claim once a
+comparison can be asked for the slice instead of the mean. `metrics_comparison_for_kind` is
+`_metrics_comparison` with one more parameter: `kind=None` returns exactly what `_metrics_
+comparison` already returns; a named `kind` replaces each side's `Produced[MetricAggregate]`
+with one restricted to that kind's own slice — same `reported_name`, `mean`/`n`/`stdev` taken
+from the slice — and a side that never recorded that kind (no `--questions` scored it, or its
+`by_question_kind` simply has no entry for it) becomes `_NOT_MEASURED`, the identical value a
+side that never scored a metric at all already gets. A `kind` **neither** run recorded raises
+`UnknownQuestionKindError`, naming every kind either run actually did record — `01` requirement
+5's rule, FF12's family — rather than reporting `0.0` for an empty subset nobody measured, the
+deliberate divergence from the evaluation layer that contributed the idea (`weft_eval.aggregate`'s
+own module docstring on `by_question_kind`, and `tests/unit/weft_eval/test_question_kind.py`'s
+own module docstring, record the same divergence one layer down).
 """
 
 from __future__ import annotations
@@ -177,7 +194,7 @@ from weft_cli.pipeline_diff import PipelineDiff, diff_resolved
 from weft_cli.registry_bootstrap import Dependencies
 from weft_command.contract import Command, CommandResult
 from weft_command.permission import PermissionClass
-from weft_eval.aggregate import MetricAggregate
+from weft_eval.aggregate import MetricAggregate, PartitionSlice
 from weft_eval.falsify import DifferenceJudgement, baseline_spreads, judge_differences
 from weft_eval.offline import GateSubset, gate_subset, require_gate_safe
 from weft_eval.run_record import (
@@ -302,6 +319,22 @@ class NoBaselineRunsError(WeftError, UnresolvedNameError):
         self.baseline = baseline
 
 
+class UnknownQuestionKindError(WeftError, UnresolvedNameError):
+    """`weft eval compare --kind <kind>` named a question kind neither compared run recorded.
+
+    Fitness function 12's family, on `UnknownRunIdError`/`UnknownMetricNameError`'s own footing:
+    `valid_options` is every kind either run's own `MetricAggregate.by_question_kind` actually
+    carries, sorted — task 11.12's own "list what does exist" rather than the `0.0` the
+    evaluation layer that contributed this idea reports for an empty subset (see the module
+    docstring's own paragraph).
+    """
+
+    def __init__(self, message: str, *, valid_options: tuple[str, ...], kind: str) -> None:
+        super().__init__(message)
+        self.valid_options = valid_options
+        self.kind = kind
+
+
 class EvalRunArgs(BaseModel):
     """`weft eval run <path> <pipeline> [--corpus-name NAME]` — see the module docstring for
     why `pipeline` is a second required positional rather than `weft index`'s optional flag.
@@ -370,6 +403,15 @@ class EvalCompareArgs(BaseModel):
             "a later difference can be judged against. When given, every metric the baseline "
             "measured gets a verdict: whether --a and --b's own difference is outside the "
             "width the baseline's own repetitions spanned by doing nothing at all."
+        ),
+    )
+    kind: str | None = Field(
+        default=None,
+        description=(
+            "restrict metrics_comparison to one question kind's own slice (ledger task 11.12) "
+            "instead of the whole-run mean — e.g. 'cross-document', 'definitional'. Refuses, "
+            "naming every kind either run actually recorded, for a kind neither run did. "
+            "Omitted, this compares the whole-run mean exactly as it always has."
         ),
     )
 
@@ -443,6 +485,73 @@ def _metrics_comparison(a: RunRecord, b: RunRecord) -> Mapping[str, MetricCompar
     return {
         name: MetricComparison(
             a=a.metrics.get(name, _NOT_MEASURED), b=b.metrics.get(name, _NOT_MEASURED)
+        )
+        for name in names
+    }
+
+
+def _recorded_kinds(a: RunRecord, b: RunRecord) -> frozenset[str]:
+    """Every question kind either run's own metrics actually recorded a slice for."""
+    kinds: set[str] = set()
+    for record in (a, b):
+        for result in record.metrics.values():
+            if isinstance(result, Produced):
+                kinds.update(result.value.by_question_kind)
+    return frozenset(kinds)
+
+
+def _restricted_to_kind(result: MetricRunResult | None, *, kind: str) -> MetricRunResult:
+    """`result`, restricted to `kind`'s own slice — see the module docstring's own `--kind`
+    paragraph. `_NOT_MEASURED` for a result this run never produced, or whose `by_question_kind`
+    carries no entry for `kind` — the identical value a metric a run never scored at all gets.
+    """
+    if not isinstance(result, Produced):
+        return _NOT_MEASURED
+    slice_: PartitionSlice | None = result.value.by_question_kind.get(kind)
+    if slice_ is None:
+        return _NOT_MEASURED
+    return Produced(
+        value=MetricAggregate(
+            reported_name=result.value.reported_name,
+            mean=slice_.mean,
+            n=slice_.n,
+            stdev=slice_.stdev,
+            excluded=0,
+            nothing_to_produce=0,
+            kind=result.value.kind,
+        )
+    )
+
+
+def metrics_comparison_for_kind(
+    a: RunRecord, b: RunRecord, *, kind: str | None
+) -> Mapping[str, MetricComparison]:
+    """`_metrics_comparison(a, b)`, restricted to one question `kind`'s own slice — see the
+    module docstring's own `--kind` paragraph.
+
+    `kind=None` returns exactly `_metrics_comparison(a, b)`. A named `kind` replaces each side's
+    `Produced[MetricAggregate]` with one restricted to that kind's own slice (see `_restricted_
+    to_kind`); a `kind` **neither** run recorded for **any** metric raises
+    `UnknownQuestionKindError` rather than comparing two `0.0`s nobody measured.
+    """
+    if kind is None:
+        return _metrics_comparison(a, b)
+
+    recorded = _recorded_kinds(a, b)
+    if kind not in recorded:
+        options = tuple(sorted(recorded))
+        raise UnknownQuestionKindError(
+            f"'{kind}' is not a question kind either run recorded. Kinds recorded: "
+            f"{', '.join(options) or '(none)'}.",
+            valid_options=options,
+            kind=kind,
+        )
+
+    names = sorted(set(a.metrics) | set(b.metrics))
+    return {
+        name: MetricComparison(
+            a=_restricted_to_kind(a.metrics.get(name), kind=kind),
+            b=_restricted_to_kind(b.metrics.get(name), kind=kind),
         )
         for name in names
     }
@@ -796,7 +905,9 @@ class EvalCompareCommand:
                 model_versions_match=True,
                 active_distributions_match=True,
                 pipeline_diff=diff,
-                metrics_comparison=_metrics_comparison(record_a, record_b),
+                metrics_comparison=metrics_comparison_for_kind(
+                    record_a, record_b, kind=compare_args.kind
+                ),
                 baseline_pipeline=baseline_pipeline,
                 baseline_runs=baseline_runs,
                 falsification=falsification,
@@ -881,6 +992,8 @@ __all__ = [
     "TraceArgs",
     "TraceCommand",
     "TraceCommandResult",
+    "UnknownQuestionKindError",
     "UnknownRunIdError",
+    "metrics_comparison_for_kind",
     "register_eval_commands",
 ]

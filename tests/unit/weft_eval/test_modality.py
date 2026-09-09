@@ -24,7 +24,7 @@ run, on the machine reading it, which is exactly the reach-through `RunRecord` e
 import pytest
 from pydantic import ValidationError
 
-from weft_eval.aggregate import MetricAggregate, ModalitySlice, aggregate
+from weft_eval.aggregate import MetricAggregate, PartitionSlice, aggregate
 from weft_eval.contract import (
     GenerationSample,
     MetricKind,
@@ -68,8 +68,8 @@ def test_an_aggregate_slices_by_modality() -> None:
     """
     # Arrange
     slices = {
-        QueryModality.TEXT: ModalitySlice(mean=0.9, n=9, stdev=0.05),
-        QueryModality.IMAGE: ModalitySlice(mean=0.1, n=1, stdev=None),
+        QueryModality.TEXT: PartitionSlice(mean=0.9, n=9, stdev=0.05),
+        QueryModality.IMAGE: PartitionSlice(mean=0.1, n=1, stdev=None),
     }
 
     # Act
@@ -95,8 +95,8 @@ def test_a_regression_in_one_modality_is_visible_beside_a_mean_that_hides_it() -
         [_scored(0.9)] * 9 + [_scored(0.1)],
         kind=MetricKind.RETRIEVAL,
         by_modality={
-            QueryModality.TEXT: ModalitySlice(mean=0.9, n=9, stdev=0.0),
-            QueryModality.IMAGE: ModalitySlice(mean=0.1, n=1, stdev=None),
+            QueryModality.TEXT: PartitionSlice(mean=0.9, n=9, stdev=0.0),
+            QueryModality.IMAGE: PartitionSlice(mean=0.1, n=1, stdev=None),
         },
     )
 
@@ -125,7 +125,7 @@ def test_a_run_that_scored_one_modality_slices_into_one() -> None:
     result = aggregate(
         [_scored(0.5)],
         kind=MetricKind.RETRIEVAL,
-        by_modality={QueryModality.TEXT: ModalitySlice(mean=0.5, n=1, stdev=None)},
+        by_modality={QueryModality.TEXT: PartitionSlice(mean=0.5, n=1, stdev=None)},
     )
 
     # Assert
@@ -149,7 +149,7 @@ def test_a_slice_carrying_no_observations_is_refused() -> None:
     nothing to average over zero observations. A slice is the same quantity one level down."""
     # Act / Assert
     with pytest.raises(ValidationError):
-        ModalitySlice(mean=0.0, n=0, stdev=None)
+        PartitionSlice(mean=0.0, n=0, stdev=None)
 
 
 def test_a_failed_observation_still_excludes_rather_than_scoring_zero() -> None:
@@ -170,7 +170,7 @@ def test_the_aggregate_round_trips_with_its_slices_through_json() -> None:
     result = aggregate(
         [_scored(0.9)],
         kind=MetricKind.RETRIEVAL,
-        by_modality={QueryModality.TEXT: ModalitySlice(mean=0.9, n=1, stdev=None)},
+        by_modality={QueryModality.TEXT: PartitionSlice(mean=0.9, n=1, stdev=None)},
     )
     assert isinstance(result, Produced)
 

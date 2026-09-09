@@ -125,6 +125,14 @@ def exit_code_for(exc: WeftError) -> ExitCode:
     name, both report that the runs on disk cannot answer the question, which is "something
     failed" — the identical footing `EmptyCorpusError` already has.
 
+    **`weft_cli.eval_commands.UnknownQuestionKindError`, task 11.12 — the same family, riding
+    the same import.** `weft eval compare --kind <kind>` naming a question kind neither run
+    recorded is "fix what you typed", and it carries `valid_options` naming every kind that
+    *was* recorded. It is deliberately a refusal rather than a comparison of two absent slices:
+    the evaluation layer this partition's idea came from reports `0.0` for an empty subset, and
+    a verdict computed from two numbers nobody measured is one a reader cannot tell from a real
+    one.
+
     **`weft_eval.offline.UnknownMetricNameError`, task 4.7 — the identical shape again.**
     `weft eval metrics <name>` naming a metric neither `GenerationMetric` nor `RetrievalMetric`
     registered is "fix what you typed", FF12's family, exactly as an unknown run id is —
@@ -135,13 +143,23 @@ def exit_code_for(exc: WeftError) -> ExitCode:
     """
     if isinstance(exc, (PipelineResolutionError, *_ALSO_RESOLUTION_FAILED)):
         return ExitCode.RESOLUTION_FAILED
-    from weft_cli.eval_commands import NoBaselineRunsError, UnknownRunIdError
+    from weft_cli.eval_commands import (
+        NoBaselineRunsError,
+        UnknownQuestionKindError,
+        UnknownRunIdError,
+    )
     from weft_cli.route_ask import NoRouterPipelineError
     from weft_eval.offline import UnknownMetricNameError
 
     if isinstance(
         exc,
-        (NoRouterPipelineError, UnknownRunIdError, NoBaselineRunsError, UnknownMetricNameError),
+        (
+            NoRouterPipelineError,
+            UnknownRunIdError,
+            NoBaselineRunsError,
+            UnknownQuestionKindError,
+            UnknownMetricNameError,
+        ),
     ):
         return ExitCode.RESOLUTION_FAILED
     return ExitCode.OPERATION_FAILED

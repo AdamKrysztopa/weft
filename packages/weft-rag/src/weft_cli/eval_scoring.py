@@ -152,6 +152,10 @@ class Question(BaseModel):
     #: before this task keeps loading unchanged; `load_questions` needs no edit beyond this model
     #: accepting the key.
     modality: QueryModality = QueryModality.TEXT
+    #: This question's own `kind` — task 11.12. An open `str`, never an enum (see `weft_eval.
+    #: contract`'s own module docstring), defaulted to `""` so a questions file written before
+    #: this task keeps loading unchanged, `modality`'s own reasoning one field over.
+    kind: str = ""
 
 
 def load_questions(path: Path) -> tuple[Question, ...]:
@@ -335,6 +339,7 @@ async def score_pipeline(
                 retrieved=_deduplicated_by_document(hits, top_k=top_k),
                 relevant_ids=frozenset(question.relevant_documents),
                 modality=question.modality,
+                kind=question.kind,
             )
         )
 

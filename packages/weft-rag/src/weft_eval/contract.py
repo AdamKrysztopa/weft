@@ -69,6 +69,18 @@ question written before this task is a text question and stays one with no edit 
 given score; it travels on `MetricAggregate`, not looked up at report time, for the reason that
 module's docstring gives.
 
+**`kind` — ledger task 11.12, `modality`'s twin.** `eval/questions/*.toml` has carried a `kind`
+per question since V2 — `definitional`, `cross-document` and five more, measured 2026-09-09 — and
+this is where it is finally read. `kind` is a `str`, an open vocabulary, never an `Enum`: this
+repository's own question set has a closed seven-member schema (`eval/check_questions.py`'s own
+`Kind` `StrEnum`), but that script owns *this repository's* corpus, and the model here is loaded
+from a file a third party writes about their own — `Channel`'s own settled reasoning applies
+unchanged: "a vocabulary, not a field type — a closed enum would force a core edit every time
+somebody added a base." Both `GenerationSample` and `RetrievalSample` default `kind` to `""`,
+`modality`'s own reasoning one field over: every sample built before this task carries no kind
+and keeps loading unchanged. See `weft_eval.aggregate`'s own module docstring for `by_question_
+kind`, the slice built from this field, and why a `""` kind contributes no slice.
+
 **Every metric's own `evaluate` decides `NothingToProduce` vs `Failed` for its own missing input,
 consistently applied across the suite** — the one place 4.2 makes a rule of what could otherwise
 drift metric by metric: an empty reference (or an empty relevant-id set, its retrieval-side
@@ -145,6 +157,10 @@ class GenerationSample(BaseModel):
     #: What kind of query produced this sample — task 9.12. Defaulted to `TEXT` because every
     #: question written before this task is one, and stays one with no edit anywhere.
     modality: QueryModality = QueryModality.TEXT
+    #: The question's own `kind` — task 11.12, an open vocabulary (`str`, never an enum: see the
+    #: module docstring's own paragraph). Defaulted to `""` so a sample built before this task is
+    #: unchanged, the identical reasoning `modality`'s own default carries above, one field over.
+    kind: str = ""
 
 
 class RetrievedPassage(BaseModel):
@@ -180,6 +196,10 @@ class RetrievalSample(BaseModel):
     #: What kind of query produced this sample — task 9.12. Defaulted to `TEXT` because every
     #: question written before this task is one, and stays one with no edit anywhere.
     modality: QueryModality = QueryModality.TEXT
+    #: The question's own `kind` — task 11.12, an open vocabulary (`str`, never an enum: see the
+    #: module docstring's own paragraph). Defaulted to `""` so a sample built before this task is
+    #: unchanged, the identical reasoning `modality`'s own default carries above, one field over.
+    kind: str = ""
 
 
 class MetricScore(BaseModel):

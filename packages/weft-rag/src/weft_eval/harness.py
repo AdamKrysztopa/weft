@@ -38,6 +38,13 @@ a guess from the metric's own name. `_modality_slices` partitions each metric's 
 that actually produced a mean — see `weft_eval.aggregate`'s own module docstring for why the
 partitioning happens here rather than inside `aggregate()` itself: only the caller that paired
 samples to outcomes can make that link.
+
+**And which question `kind` it came from — ledger task 11.12, `_modality_slices`'s twin.**
+`_question_kind_slices` partitions the identical `samples`/`outcomes` pairing by `sample.kind`
+instead of `sample.modality`, folds each partition with `aggregate()` and keeps only the
+partitions that produced a mean, on the identical footing. A sample whose `kind` is `""` —
+unclassified — contributes no slice: an unclassified question is not a kind, and a `""` key in
+`by_question_kind` would be a partition nobody could ask for by name.
 """
 
 from __future__ import annotations
@@ -47,7 +54,7 @@ from typing import cast
 
 from pydantic import BaseModel, ValidationError
 
-from weft_eval.aggregate import MetricAggregate, ModalitySlice, aggregate
+from weft_eval.aggregate import MetricAggregate, PartitionSlice, aggregate
 from weft_eval.contract import (
     MetricKind,
     MetricScore,
@@ -81,7 +88,7 @@ def _metric_config(config_model: type[BaseModel] | None, *, top_k: int) -> BaseM
 
 def _modality_slices(
     samples: Sequence[RetrievalSample], outcomes: Sequence[Outcome[MetricScore]]
-) -> Mapping[QueryModality, ModalitySlice]:
+) -> Mapping[QueryModality, PartitionSlice]:
     """Partition `outcomes` by the `modality` of the `RetrievalSample` that produced each, fold
     each partition with `aggregate()`, and keep only the partitions that produced a mean.
 
@@ -93,11 +100,40 @@ def _modality_slices(
     for sample, outcome in zip(samples, outcomes, strict=True):
         by_modality.setdefault(sample.modality, []).append(outcome)
 
-    slices: dict[QueryModality, ModalitySlice] = {}
+    slices: dict[QueryModality, PartitionSlice] = {}
     for modality, modality_outcomes in by_modality.items():
         partition = aggregate(modality_outcomes)
         if isinstance(partition, Produced):
-            slices[modality] = ModalitySlice(
+            slices[modality] = PartitionSlice(
+                mean=partition.value.mean,
+                n=partition.value.n,
+                stdev=partition.value.stdev,
+            )
+    return slices
+
+
+def _question_kind_slices(
+    samples: Sequence[RetrievalSample], outcomes: Sequence[Outcome[MetricScore]]
+) -> Mapping[str, PartitionSlice]:
+    """Partition `outcomes` by the `kind` of the `RetrievalSample` that produced each, fold each
+    partition with `aggregate()`, and keep only the partitions that produced a mean.
+
+    `_modality_slices`'s twin, sliced by `kind` instead — see the module docstring's own
+    paragraph. A sample whose `kind` is `""` — unclassified — contributes no slice: an
+    unclassified question is not a kind, and a `""` key in `by_question_kind` would be a
+    partition nobody could ask for by name.
+    """
+    by_kind: dict[str, list[Outcome[MetricScore]]] = {}
+    for sample, outcome in zip(samples, outcomes, strict=True):
+        if sample.kind == "":
+            continue
+        by_kind.setdefault(sample.kind, []).append(outcome)
+
+    slices: dict[str, PartitionSlice] = {}
+    for kind, kind_outcomes in by_kind.items():
+        partition = aggregate(kind_outcomes)
+        if isinstance(partition, Produced):
+            slices[kind] = PartitionSlice(
                 mean=partition.value.mean,
                 n=partition.value.n,
                 stdev=partition.value.stdev,
@@ -134,6 +170,7 @@ async def score_retrieval_gate_subset(
             outcomes,
             kind=MetricKind.RETRIEVAL,
             by_modality=_modality_slices(samples, outcomes),
+            by_question_kind=_question_kind_slices(samples, outcomes),
         )
         key = outcome.value.reported_name if isinstance(outcome, Produced) else name
         report[key] = outcome

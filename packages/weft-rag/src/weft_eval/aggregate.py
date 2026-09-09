@@ -53,13 +53,23 @@ tag and never sliced by it at aggregation time, so a multimodal regression hid i
 repeated-baseline interval would never flag. `MetricAggregate.kind` records which contract —
 `RetrievalMetric` or `GenerationMetric` — produced the observations, so `weft trace` can group by
 it with no registry to ask; `MetricAggregate.by_modality` carries each modality's own `mean`/`n`/
-`stdev` as a `ModalitySlice`, beside the whole-run mean rather than instead of it. **`aggregate()`
+`stdev` as a `PartitionSlice`, beside the whole-run mean rather than instead of it. **`aggregate()`
 does not compute the slices itself** — it receives a bare `Sequence[Outcome[MetricScore]]`, and
 `MetricScore` carries only `metric_name` and `value` (verified against `weft_eval.contract`), with
 no link back to the `RetrievalSample`/`GenerationSample` whose `modality` produced each score. Only
 the caller that zipped samples to outcomes in the first place — `weft_eval.harness`, for the one
 partition this pack computes today — can partition by modality, so `by_modality` is a parameter
 `aggregate()` passes straight into the `MetricAggregate` it builds, never a computation it performs.
+
+**`by_question_kind` — ledger task 11.12, the identical shape one axis over.** `eval/questions/
+*.toml` has carried a `kind` per question since V2, unread by anything shipped; a rung that is
+better at cross-document questions and worse at definitional ones reported one mean in which the
+two cancel. `by_question_kind` is `by_modality`'s twin, sliced by `RetrievalSample.kind`/
+`GenerationSample.kind` instead of `modality`, and reuses `PartitionSlice` — the exact type,
+renamed off `ModalitySlice` to what it actually is (three numbers describing a partition, not a
+fact about modality) rather than a second, differently-shaped copy beside it (`L9.17`'s
+convergence failure). `kind` is an open `str`, never an enum — see `weft_eval.contract`'s own
+module docstring for why — so `by_question_kind` is keyed by `str`, not by a closed vocabulary.
 """
 
 import statistics
@@ -119,14 +129,16 @@ class ReportedNameMismatchError(WeftError):
         self.computed_name = computed_name
 
 
-class ModalitySlice(BaseModel):
-    """One modality's own `mean`/`n`/`stdev` within a `MetricAggregate.by_modality` mapping.
+class PartitionSlice(BaseModel):
+    """One partition's own `mean`/`n`/`stdev` — used by both `MetricAggregate.by_modality` and
+    `MetricAggregate.by_question_kind`.
 
     The same three quantities `MetricAggregate` carries for the whole run, one level down, and
     the same reasons: `n` is `ge=1` because there is nothing to average over zero observations —
-    a partition with none is absent from `by_modality` entirely, never a zero-`n` entry — and
+    a partition with none is absent from the mapping entirely, never a zero-`n` entry — and
     `stdev` is `None` rather than `0.0` at `n == 1`, since a standard deviation of one observation
-    is not a real quantity to claim.
+    is not a real quantity to claim. One shape for one concept, under one name — see the module
+    docstring's own `by_question_kind` paragraph for why this used to be `ModalitySlice`.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -176,8 +188,16 @@ class MetricAggregate(BaseModel):
     #: Each modality's own `mean`/`n`/`stdev`, sliced from the same observations `mean`/`stdev`
     #: were folded from as a whole. `{}` is the honest answer for a caller that did not partition
     #: by modality — every caller before task 9.12 — never one slice fabricated from the whole.
-    by_modality: Mapping[QueryModality, ModalitySlice] = Field(
-        default_factory=lambda: cast("Mapping[QueryModality, ModalitySlice]", {})
+    by_modality: Mapping[QueryModality, PartitionSlice] = Field(
+        default_factory=lambda: cast("Mapping[QueryModality, PartitionSlice]", {})
+    )
+    #: Each question `kind`'s own `mean`/`n`/`stdev` — task 11.12, `by_modality`'s twin sliced by
+    #: `RetrievalSample.kind`/`GenerationSample.kind` instead. `{}` is the honest answer for a
+    #: caller that did not partition by kind, or whose samples carried no kind at all — a `""`
+    #: kind contributes no slice (see `weft_eval.harness._question_kind_slices`), so a `""` key
+    #: never appears here: an unclassified question is not a kind a caller can ask for by name.
+    by_question_kind: Mapping[str, PartitionSlice] = Field(
+        default_factory=lambda: cast("Mapping[str, PartitionSlice]", {})
     )
 
 
@@ -185,7 +205,8 @@ def aggregate(
     outcomes: Sequence[Outcome[MetricScore]],
     *,
     kind: MetricKind = MetricKind.RETRIEVAL,
-    by_modality: Mapping[QueryModality, ModalitySlice] | None = None,
+    by_modality: Mapping[QueryModality, PartitionSlice] | None = None,
+    by_question_kind: Mapping[str, PartitionSlice] | None = None,
 ) -> Outcome[MetricAggregate]:
     """Fold many observations of *one* metric into `Produced[MetricAggregate]`, or say why not.
 
@@ -202,11 +223,12 @@ def aggregate(
     `metric_name`s — mixing two metric configurations into one aggregate is a caller error this
     function refuses rather than silently averaging together.
 
-    `kind` and `by_modality` are passed straight through onto the `MetricAggregate` this builds,
-    never computed here — see the module docstring's own paragraph for why: this function receives
-    a bare sequence of scores with no link back to the sample that produced each, so only the
-    caller that paired samples to outcomes (`weft_eval.harness`, today) can partition by modality.
-    `by_modality` defaults to `{}`, the honest answer for a caller that did not partition.
+    `kind`, `by_modality` and `by_question_kind` are passed straight through onto the
+    `MetricAggregate` this builds, never computed here — see the module docstring's own paragraph
+    for why: this function receives a bare sequence of scores with no link back to the sample that
+    produced each, so only the caller that paired samples to outcomes (`weft_eval.harness`, today)
+    can partition by modality or by question kind. Both default to `{}`, the honest answer for a
+    caller that did not partition.
     """
     scored: list[float] = []
     reported_name: str | None = None
@@ -253,6 +275,7 @@ def aggregate(
             nothing_to_produce=nothing_to_produce,
             kind=kind,
             by_modality=by_modality or {},
+            by_question_kind=by_question_kind or {},
         )
     )
 
