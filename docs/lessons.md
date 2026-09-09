@@ -165,6 +165,168 @@ tree. Scope it to the routed phase as well as the ledger-order one. `recurs L6.4
 bought the mention-check this entry finds insufficient; `recurs L5.6` on the two-sides-one-source
 half. `caused-by L6.4`
 
+### L11.7 — a protocol sentence about a glyph, with thirteen live counter-examples and zero instances of compliance
+
+**What happened.** `docs/build-ledger.md` → *The working protocol* said that when a gate closes,
+every ⚠ task downstream is re-derived *"and drop the ⚠"*, and `How to read a task line` defines ⚠
+as *"An open gate could change this task's shape"* — so by both sentences a ⚠ on a closed gate is a
+notation error. `phase-step` → *Orient* says the opposite in as many words: *"A ⚠ whose gate has
+since closed is a record, not a block. The mark is kept on the line as history."* Settling `11` D2
+made this a live question about three task lines, and it was nearly resolved by reading the two
+documents and picking the one that owns the notation. Counting instead settled it in one command:
+**thirteen ticked task lines carry ⚠ against closed gates — `0.2`, `0.6`, `0.8`, `6.1`, `6.4`,
+`6.5`, `6.13`, `7.1`–`7.4`, `10.4`, `10.10` — across four phases, and not one task in eleven phases
+has ever dropped the mark.** The ledger's sentence had never once been executed.
+
+**Generalises to.** Where two artefacts state a convention differently, the tie is broken by
+counting live instances, not by deciding which document owns the notation — a rule with zero
+instances of compliance and thirteen of violation is prose, whatever its provenance, and the
+practice is the convention. This is `phase-step`'s *read the population, not the declaration*, and
+its second instance on this same glyph: `next_task.py` was written against ⚠'s definition and every
+live ⚠ meant something the definition did not cover.
+
+**Candidate home.** Applied here as the ledger repair itself, so this entry may be a `declined —
+already fixed` at the drain. What is *not* fixed and may deserve a check: nothing computes the
+agreement between a glyph's definition, the protocol's rule for it and its live instances, and this
+is now the second glyph-semantics defect (`L6.4` was the first, `L11.6` the third in the same
+family — a preamble that misstates a gate's status). Three in one family is `L10.24`'s threshold
+shape. Size it against the two other entries at the drain rather than alone. `recurs L6.4`,
+`caused-by L6.12` — a documented rule that turned out to be prose.
+
+### L11.8 — two licensing checks are green on a layout whose wheels carry no licence at all
+
+**What happened.** Task 11.0 edits the root `NOTICE`, which has **eight byte-identical copies**
+under `packages/*/`, so a one-sentence change is a nine-file edit maintained by hand. The obvious
+repair — make the copies symlinks to the root, so the nine files become one — was **measured before
+adopting it, and it fails, silently**. Built in a throwaway hatchling package on 2026-09-09 with
+`LICENSE`/`NOTICE` as symlinks and `license-files` declaring both: the sdist carries them as
+symlinks of **size 0**, and the wheel — which `uv build` produces *from* the sdist — carries
+**no licence entries at all** (`wheel entries: []`). That is the exact state
+`test_release_licensing.py`'s own docstring records the tree being found in: *"not one built
+artefact carried either file"*. And both shipped checks pass on it, measured the same day:
+`(member.directory / name).is_file()` follows a symlink and returns `True`, and
+`read_bytes() != originals[name]` reads through the link and reports no drift. So the two checks
+written to keep the licence in the artefact are green on the one configuration that removes it.
+
+**Generalises to.** A check that asks whether a path *resolves* has not asked what the build will
+*package*: where the property is "this file's bytes are inside the artefact", `is_file()` and a
+content comparison both pass for a link, a hardlink and anything else the filesystem will follow,
+so the check must assert the file kind it actually needs. More generally, a deduplication that
+removes N-1 copies of a file the build machinery copies must be measured against the build, not
+against the checkout — the checkout is where it looks correct.
+
+**Candidate home.** Half of it is applied at 11.0: the licensing check now refuses a carried
+licence that is not a regular file, and `poe licence-sync` makes the propagation one command
+instead of nine edits, so the drift check stays the enforcement rather than becoming the workflow.
+What is not applied: nothing anywhere asserts a property of a **built** artefact except
+`scripts/check_sdists.py`, and it was not consulted before this repair was designed — the same
+"which artefact is the subject" question `L6.25` raised for `tests/architecture` against installed
+distributions. Consider at the drain whether the licensing file's population should be the wheel
+rather than the directory. `recurs L5.19` — a check that cannot fail on the case it exists for.
+
+### L11.9 — the brief attributed a cost it had not profiled, and every remedy it listed was wrong
+
+**What happened.** A dispatch brief to speed up `ci-checks` stated as fact that
+`test_ff9c_every_contract_has_a_stranger`'s 451 seconds went on *"throwaway virtualenvs built
+serially, one per distribution, each installing every first-party wheel"* — read off the test's own
+source (`:334-364`, a `uv venv` / `uv pip install` / probe loop) and from `--durations`, which names
+the slow test and says nothing about what is slow *inside* it. Measured by the implementer: building
+all eight wheels takes **2 s**, `uv venv` **0 s**, installing all eight **1 s**. The 451 s was
+`discover()` importing `torch` and `transformers` from **nine physically distinct copies of the same
+gigabyte** — macOS's default `uv` link mode copies rather than hardlinks, so the OS page cache was
+cold nine times over. Every remedy the brief proposed (shared wheel dir, warm `UV_CACHE_DIR`,
+`--offline`, parallelise the loop) targeted the 3 seconds; parallelising nine-wide made it *worse*
+and tripped a 180 s subprocess guard. The actual fix was one flag nobody had proposed,
+`--link-mode=hardlink`, and a profile of the inner probe would have found it in ninety seconds.
+
+**Generalises to.** `--durations` identifies *which* test is slow and is not evidence about *why*;
+a brief that names a cause has made a claim, and a claim about where time goes is measured by
+profiling the inner call, never by reading the loop that surrounds it. State the symptom and the
+budget in a brief; leave the cause to whoever profiles it, or profile it first.
+
+**Candidate home.** `phase-step` → *Green* / `implementer-brief.md`: a brief may state what was
+measured and must not state an unprofiled cause as fact — the *Already decided* section is for
+decisions, and a diagnosis is a hypothesis wearing one. This is `L7.1`'s rule (a task names the
+property and no remedy) arriving in the dispatch brief rather than in the ledger line.
+`recurs L7.1`
+
+### L11.10 — `--dist=loadgroup` silently ignored every group mark, and the win looked like a win
+
+**What happened.** `tests/conftest.py` marks every container-touching test with one
+`xdist_group("weft-container")` so `--dist=loadgroup` pins them to a single worker — the whole
+reason parallelising the suite is safe. It did nothing. `xdist.remote.WorkerInteractor.
+pytest_collection_modifyitems` rewrites each marked item's nodeid to end in `@<group>`, and *that
+suffix* is what the scheduler groups on; a conftest hook without `@pytest.hookimpl(tryfirst=True)`
+runs **after** xdist's, so the marks were applied to items whose nodeids were already fixed, no
+nodeid got a suffix, and the grouping was inert. The first parallel run looked like a three-second
+win and was **17 failures — `L8.30` reproduced exactly, by the machinery installed to prevent it**:
+`different vector dimensions 3 and 64`, `supersede touched a node it was not given`, `two files were
+indexed and list_sources() returned 4`. It was caught only because the implementer read the exit
+code and the row counts instead of the wall time.
+
+**Generalises to.** A marker only means something to the component that reads it, and hook ordering
+decides whether it is there when that read happens — so a scheduling mark is verified by observing
+the *scheduler's* view (grep the output for `@<group>`), never by observing that the mark was
+applied. More generally: a parallelisation whose only evidence is a shorter wall time has no
+evidence, because the failure mode of a broken one is *also* a shorter wall time.
+
+**Candidate home.** `CLAUDE.md` → the container paragraph that already carries `L8.30`: anything
+that changes how tests are scheduled against the one container is proved by row counts and exit
+code before wall time is quoted. Possibly a check: assert at collection that every
+`_reaches_a_container` item's nodeid carries the group suffix when `--dist=loadgroup` is active —
+a real population, computable, and it would have failed here. `recurs L8.30`, `recurs L6.22`
+
+### L11.11 — the detector for "the suite quietly shrank" is covered by no test of its own
+
+**What happened.** `tests/conftest.py` carries `L7.8`'s guard: a run whose `WEFT_DATABASE_URL`
+claims a database that turns out unreachable fails rather than passing with 51 fewer tests. While
+adding xdist, the implementer wrote into its docstring that xdist round-trips a skip's `longrepr`
+through JSON, turning the `(path, lineno, reason)` tuple into a list and silently disabling the
+guard — a claim from intuition, defended at length in prose. Measured: false. `execnet` preserves
+tuples and the detector fires identically under `-n 2`. The claim was reverted rather than left
+standing. **The residue is the real finding**: nobody could tell from the tree whether that guard
+still worked under xdist, because *nothing tests the detector itself*. It was argued from first
+principles in both directions and settled only by someone running it on purpose.
+
+**Generalises to.** A guard whose whole purpose is to notice a silent shrink is the guard whose own
+failure is silent; when the machinery underneath it changes — a runner, a serialisation, a
+scheduler — it must be *exercised*, not reasoned about. Any check that exists to detect an absence
+needs a test that produces the absence.
+
+**Candidate home.** A test that runs a tiny session with an unreachable `WEFT_DATABASE_URL`, serial
+and under `-n 2`, and asserts the banner fires in both. `recurs L7.8`, `recurs L5.19` — a check
+that is never seen failing.
+
+### L11.12 — the `# noqa` guard refuses the repository's own settled idiom, and the container set is not a directory
+
+**What happened.** Two findings from one dispatch, kept together because both are *"the tree's own
+convention is not where you would look for it"*. **(a)** Five scripts under `scripts/` carry
+`# noqa: S603` on literal-argv, no-shell `subprocess.run` calls, with the justification written into
+`check_isolated_installs.py`'s docstring — a settled, argued idiom. A new script cannot follow it:
+`.claude`'s quality-gate guard refuses any added `# noqa` outright. The implementer restructured
+`scripts/impacted_tests.py` to spawn nothing at all, which is arguably better and was **forced by
+the tool rather than chosen**. Related and worth knowing: `scripts/` is not in ruff's `S101`
+per-file-ignores, so `assert` is a lint error there — the `tests/`-shaped habit does not transfer;
+and `S603` does not fire on a fully literal argv at all, so `subprocess.run(["git", "diff"])` never
+needed the annotation while `subprocess.run([which("git"), *args])` does. **(b)** The set of tests
+that reach the one container is **not** `tests/integration/`: `tests/unit/weft_store/
+test_pgvector_store.py`, `tests/unit/weft_qdrant/test_store.py`, `tests/docs/test_quickstart.py` and
+`tests/docs/test_readme_is_enough.py` all talk to the real Postgres or Qdrant. A design that
+serialised only `tests/integration/` would have broken the gate silently.
+
+**Generalises to.** A guard that forbids a category cannot distinguish the repository's own argued
+exception from the abuse it was built to stop, so a blanket refusal quietly outlaws settled practice
+— either the guard learns the exception or the convention is retired, but it cannot be both. And a
+property of a test (*it needs the container*) is derived from what the test does, never from which
+directory it sits in.
+
+**Candidate home.** For (a): decide whether the `# noqa: S603` idiom is retired or whether the guard
+gains the exception, and say which in `CLAUDE.md` → *Automation*; it currently reads as though the
+idiom is live. For (b): applied already — `tests/conftest.py` derives the container set from each
+module's own source rather than from a path — so this half may be `declined — already fixed` at the
+drain, with the general rule surviving. `recurs L9.56` — a project prohibition needs a mechanism,
+here arriving as a mechanism that outgrew its prohibition.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

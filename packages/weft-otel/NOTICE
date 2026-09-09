@@ -45,6 +45,19 @@ almost true is worse than a narrower one that is exactly true.
    material is carried across, the file carrying it says so, naming the source
    work — so a reader can always tell the two origins apart without asking.
 
+   **How it says so, because "says so" was a sentence and not a convention until
+   2026-09-09.** The carried lines are delimited in place, by a comment in
+   whatever syntax the file is written in: `weft-prior-work begin: <source work>`
+   opens the span and names the source work it came from, and
+   `weft-prior-work end` closes it and takes no argument. Spans do not nest — a
+   span inside a span makes *which lines are that work* answerable two ways,
+   which is the one question this convention exists to answer. Every source work
+   carried this way is enumerated on the repository's own README.md, where a
+   reader looks first, and tests/architecture/test_release_licensing.py fails
+   the build when the marked spans and that enumeration disagree. The obligation
+   falls in the same commit as the copied line and never after it, which is why
+   the check exists before the first copy rather than behind it.
+
 3. **Short attributed quotation of a stated rationale — permitted, and bounded.**
    A handful of docstrings in this repository quote a sentence of a third party's
    *reasoning* — why one cleaning stage must run before another — attributed with

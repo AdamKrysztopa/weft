@@ -107,6 +107,10 @@ cmd = "python scripts/check_kernel_isolated.py"
 help = "Task 6.6: install every published distribution alone in a clean env and import it."
 cmd = "python scripts/check_isolated_installs.py"
 
+[tool.poe.tasks.licence-sync]
+help = "Task 11.0: copy the root LICENSE and NOTICE into every publishing distribution."
+cmd = "python scripts/sync_licence_files.py"
+
 [tool.poe.tasks.sdists]
 help = "Task 6.7: every sdist carries what the checkout has, and the suite passes from them."
 cmd = "python scripts/check_sdists.py"

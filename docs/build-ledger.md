@@ -62,11 +62,25 @@ One task at a time. This is the whole loop.
 > settled it, so no session has to be reopened to change it.
 
 **When a gate closes.** Every **⚠** task downstream of it is **re-derived from the reference document
-the gate changed, never assumed**: un-tick anything the outcome invalidates, rewrite the task lines
-that no longer state a true property, and drop the ⚠. This is `README.md` → *Protocol* → *When a
+the gate changed, never assumed**: un-tick anything the outcome invalidates, and rewrite the task
+lines that no longer state a true property. This is `README.md` → *Protocol* → *When a
 decision reopens* applied forward instead of backward — that rule already requires re-checking every
 phase after a changed decision, and a gate closing changes a decision from *undecided* to *decided*,
-which is the same cascade. (If `09-release.md` §6 takes ownership of that protocol, follow it there;
+which is the same cascade.
+
+**The mark itself stays, and the phase preamble names the answer.** This clause read *"and drop the
+⚠"* until 2026-09-09, and it was prose: measured that day, **thirteen ticked task lines across Phase
+0, 6, 7 and 10 carry ⚠ against gates that have closed**, and no task in the project's history has
+ever dropped one. So the tree has a convention and this sentence was not it — which is
+`phase-step`'s own *read the population, not the declaration* rule, biting on this exact glyph for
+the second time (`next_task.py` was first written against ⚠'s *definition*, and every live ⚠ meant
+something the definition did not cover). The live convention is the better one and is now what this
+says: a ⚠ on a closed gate is **a record that the task's shape was once undecided**, kept because a
+reader who cannot see that a line was contested cannot tell an argued design from a default; what
+discharges it is the phase preamble stating the outcome, which is where a reader arrives before any
+task line and what `next_task.py`'s live check reads. `⚠` therefore means *this line's shape was
+settled by a gate* — open, and the preamble says so; closed, and the preamble says what it decided.
+`docs/lessons.md` `L11.7`. (If `09-release.md` §6 takes ownership of that protocol, follow it there;
 the owner moves, the rule does not.)
 
 **When a task turns out to be wrong.** Rewrite the line, do not silently work something else. A task
@@ -7527,8 +7541,24 @@ is its second consumer: it declares `needs_store` against a Protocol `weft-store
 and reaches the store through `ctx.require`, which on this tree is refused before any aliasing
 could help (`weft_cli/run_services.py:127-202`, remedy at `:186-199` naming `[services] store`)
 and keyed by exact type (`weft_kernel/context.py:133-142`). Task 11.10 cites `9.0` on its line and
-is ⛔ until it ticks; nothing else here waits on it. Two plans once numbered this seam the same
+was ⛔ until it ticked; nothing else here waits on it. Two plans once numbered this seam the same
 `9.2` from opposite sides (`L9.15`); the id is now Phase 9's and this section uses no other.
+
+**That ⛔ is discharged, and read against the seam rather than against the tick** (2026-09-09).
+`9.0` is ticked at sha `a9a2ca6` and names `GraphTraversal` (Phase 11) as one of its three
+consumers by name. A tick is not a capability, so all three properties 11.10 needs were read in the
+tree: a pack declares its own contract selectable through `weft_kernel.context.ServiceRole`, whose
+`contract` field is a bare `type` the kernel never names — so `weft-graph`'s traversal Protocol is
+declarable without a kernel line (`weft_kernel/context.py:107-138`); `weft_cli.service_roles.
+RoleTable` gathers every installed pack's declaration into the one table `weft_cli.services` reads
+instead of stating the key set itself, refusing two packs that claim one key rather than picking by
+import order; and property (iii) is `run_services.py:753-820`, which checks a stage's demanded
+capability against **the instances the role table resolved** and refuses naming the role key to set
+— `f"name a plugin that provides {capability.__name__} in {keys}"`, where `keys` is
+`[services] <role>`. That last one is exactly 11.10's *"refused by name at assembly against a store
+that lacks it"*, so the clause is met by a seam that exists rather than by one this line assumed.
+`check_store_capabilities` at `:139` is unchanged and still speaks for the single configured
+`store`; the two enforcement points are separate on purpose and 11.10 uses the second.
 
 **⚠ means what *How to read a task line* says, and three of the four marks below are now a
 record rather than a block.** **D2 — where a corpus-wide, revisable pass runs, and whether its
@@ -7575,7 +7605,44 @@ that assumed one was withdrawn from the plan before it reached this list.
 - [ ] **11.0** a file carrying the owner's prior work is detectable by a check that reads the
   marker `NOTICE` case 2 names, and the gate fails when `NOTICE`, the repository `README.md` and
   the carrying files disagree about which lines are that work · owner `NOTICE`;
-  `tests/architecture/test_release_licensing.py` · turns on — · sha — · *before 11.7, because the
+  `tests/architecture/test_release_licensing.py` · turns on — · sha — · **verified first,
+  as the line asked: no marker exists anywhere in the tree** (`grep` over `packages/`, `testing/`,
+  `examples/` → nothing), so Phase 9 copied nothing from the donor under case 2 and this is the
+  first check rather than an extension of one. **Written by me, not dispatched** — the task's whole
+  content is a test and two documents, and all three are on `phase-step`'s never-delegated list, so
+  there was no green phase to hand over. **Three sources that can genuinely disagree** (`L5.6`):
+  `NOTICE` case 2 owns the spelling — `weft-prior-work begin: <source work>` … `weft-prior-work
+  end`, spans not nesting — and the sweep **reads its marks out of `NOTICE`** rather than
+  hardcoding them, so the module never writes the token literally and needs no self-excluding path
+  list; `README.md` owns the enumeration, under a `<!-- weft-prior-work-sources -->` anchor, empty
+  today and *absent* being a failure rather than an empty list; the files own the spans. **The
+  comparison is empty against empty on this commit and the docstring says so** rather than letting a
+  green imply otherwise — `L11.5`'s shape, one turn after writing it — and it arms for the commit
+  that adds the first marker, which is the commit `product-direction.md:84` says owes it.
+  **Two defects in my own check that passing did not find, both caught by watching it fail.**
+  `_case_two` sliced `NOTICE` with `str.partition`, and **a `partition` whose separator is absent
+  succeeds with everything on one side** — rewording case 3's heading silently ran the slice to
+  end-of-file, so *declared inside case 2* became *declared anywhere below case 2*; it now asserts
+  the terminator was found. And the sweep reading its token from `NOTICE` means a **rename** there
+  aims it at a token no file uses, whereupon it finds nothing and reads exactly like a clean tree —
+  nothing caught that while the enumeration is empty, so the check now asserts the convention
+  `README.md` shows equals the one `NOTICE` declares, two independently edited documents. A third
+  vacuity closed a level down: the real-tree sweep returned *0 spans* with nothing asserting it had
+  read anything, so it returns `files_read` and asserts it (**694 markable files**; the plant
+  asserts 5 of 6, `prose.md` skipped). Six directions watched red: convention removed, the two
+  spellings disagreeing, case 3's heading reworded, the anchor gone, a rename in either document,
+  and a marked span the enumeration omits. **`NOTICE` has eight byte-identical copies, so this was
+  a ten-file edit, and the obvious economy was measured rather than adopted** — symlinking them
+  makes the sdist carry size-0 entries and the wheel carry **no licence at all**, while `is_file()`
+  and `read_bytes()` both follow the link and stay green, so two checks written to keep the licence
+  in the artefact passed on the one layout that removes it (`L11.8`). Bought a third clause
+  refusing a non-regular carried licence, watched failing, and `poe licence-sync` so the nine
+  copies cost one command instead of nine edits — deliberately **not** in `ci-checks`, because a
+  gate that repairs drift stops showing it in a diff. **Ran the binary from outside the
+  repository**: `weft --help` at exit 0 and an unknown `--pipeline` naming all 34 known rungs, and —
+  since what this task actually changes is a *packaged* file — asserted the convention reaches a
+  built wheel at `weft_kernel-0.1.0.dist-info/licenses/NOTICE`. Gate `GATE_EXIT=0` read out of the
+  run's own log, 270 architecture (+5) and 2516 passed, 9 skipped · *before 11.7, because the
   obligation is "in the same commit as the first copied line — not after" (`product-direction.md:84`)
   and a check that exists only after the first copy is the prose-check shape `L6.12` forbids.
   `NOTICE:41` already states the case — "permitted, and marked" — and what this task owes is the

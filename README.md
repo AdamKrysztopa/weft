@@ -177,3 +177,15 @@ Weft carries no third party's source text — see [`NOTICE`](NOTICE), which stat
 precisely. Where a prior system informed a design, what was carried across is understanding: an
 approach, an ordering, a measurement, the reason a guard exists. That is restated in this project's
 own words and implemented fresh, which is why no third-party licence attaches to anything here.
+
+One body of material is carried across as text, and it is nobody else's to license: `NOTICE` case 2
+permits work **this project's own author wrote before this project began**. Where that happens the
+lines are marked in place — `weft-prior-work begin: <source work>` opens the span and names where it
+came from, `weft-prior-work end` closes it — so you can always tell the two origins apart without
+asking anyone. Every source work carried that way is listed here, and
+[`tests/architecture/test_release_licensing.py`](tests/architecture/test_release_licensing.py) fails
+the build when this list and the markers in the tree disagree:
+
+<!-- weft-prior-work-sources -->
+
+- *(none — no file in this repository carries the owner's own prior work yet)*
