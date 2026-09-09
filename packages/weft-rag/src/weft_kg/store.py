@@ -46,6 +46,7 @@ from weft_kernel.context import Context
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import Node, NodeId, Outcome, Produced, SourceId, Vector
 from weft_kg.contract import EntityId
+from weft_kg.payload import CooccurrenceGraph
 from weft_store.contract import (
     Cursor,
     Page,
@@ -257,6 +258,30 @@ class GraphStore:
                     ext = EXCLUDED.ext
                 """,
                 rows,
+            )
+        for node in nodes:
+            await self._derive_graph_rows(node)
+
+    async def _derive_graph_rows(self, node: Node) -> None:
+        """Ledger `11.6`'s other half: `cooccurrence-graph` attaches ext data and writes no
+        row, so this is where the entity and relation rows this pack's traversal reads
+        actually come from. A node carrying no `CooccurrenceGraph` derives no rows and is
+        stored normally — a store that refused it would make its own optional stage mandatory.
+
+        Reuses `put_entity`/`put_relation` rather than a third SQL path; `entity.count` is not
+        persisted here — it is a fact about this node's own content, and `kg_entities` carries
+        no per-node column to hold it in.
+        """
+        graph = node.ext_as(CooccurrenceGraph)
+        if graph is None:
+            return
+        for entity in graph.entities:
+            await self.put_entity(name=entity.name, nodes=[node.id])
+        for edge in graph.relations:
+            await self.put_relation(
+                source=_entity_id_for(edge.source),
+                target=_entity_id_for(edge.target),
+                predicate=edge.predicate,
             )
 
     async def flush(self) -> None:

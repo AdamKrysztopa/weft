@@ -1,0 +1,15 @@
+name: index-with-cooccurrence
+extends: index-with-graph
+
+# The one advanced rung a laptop can climb: no model, no credential. `cooccurrence-graph` is an
+# `Enhancer` — it attaches a fact and writes no row — so this document is one operator block on
+# top of `index-with-graph`, which already carries the store that turns that fact into entity
+# and relation rows on `store: graph`'s next call to `add`. `02` §3's derivation model doing its
+# job: this rung is one insert away from a rung that already exists, not a fresh document.
+#
+# Placed after `chunk`, alongside `keybert` — extracted per chunk, before `embed` and before
+# either store, so both `pgvector-graph`'s `add` and this stage's own ext data reach the store in
+# the same batch.
+insert:
+  - after: chunk
+    stage: {id: entities, use: cooccurrence-graph}

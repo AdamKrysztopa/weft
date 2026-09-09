@@ -851,6 +851,38 @@ failure in the brief. `recurs L5.14`, `recurs L11.27` — that entry is this one
 bought by the same two dispatches: there I described the red state from a truncated read, here I
 did not produce it at all.
 
+### L11.31 — the check written to prove a credential was absent printed it
+
+**What happened.** `11.6`'s property is *"a corpus indexed with **no model and no credential**"*, so
+while running the binary I went to show the credential was not there:
+`echo "OPENAI_API_KEY=${OPENAI_API_KEY:-<unset>}"`. It **was** there — exported in the session's
+environment — so the shell substituted the real key and printed it in full into the transcript and
+the job log. The run that followed was still a valid demonstration (`index-with-cooccurrence` has no
+model-calling stage and cannot reach a provider), but the owner's key had to be rotated because of
+a line whose only purpose was to prove a negative.
+
+**Generalises to.** `${VAR:-fallback}` renders the *value* and shows the fallback only in the case
+you were not worried about — so as a check for absence it is silent exactly when it is right and
+loud exactly when it is wrong, which is the inverse of what any assertion should do. The general
+rule: **a check for the absence of a secret must never be able to render the secret.** Ask the
+question about the *name*, not the value — `[ -n "${VAR+x}" ]`, or `env | cut -d= -f1 | grep -x`.
+This is `L9.28`'s shape moved from data to secrets: an assertion whose two sides come from one
+source, where one of those sides is a credential.
+
+And the second half, which is about where it was printed rather than what: a terminal transcript is
+**append-only and forwarded**. There is no redaction after the fact, so the cost of this mistake is
+paid entirely at the moment the command is typed. `weft_store`'s `dsn` is a `SecretStr` and
+`weft_kg`'s refusal deliberately names the setting rather than its value — the code already knows
+this rule and the shell around it did not.
+
+**Candidate home.** `phase-step` → *Finish*, item 4, beside "run the thing … including its failure
+path": when a task's property is the **absence** of a credential, prove it by the name being unset
+or by the run succeeding where a provider is unreachable — never by rendering the variable. The
+mechanical form is a `PreToolUse` guard on `Bash` refusing a command that expands a variable whose
+name matches `*_API_KEY|*_TOKEN|*_SECRET|*PASSWORD*` into stdout, which is the same
+shape as the four destructive-git refusals: a prohibition that needs a mechanism rather than a
+stronger sentence (`L9.56`).
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

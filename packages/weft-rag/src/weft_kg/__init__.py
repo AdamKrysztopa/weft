@@ -20,6 +20,7 @@ failure a single class would reintroduce.
 
 from functools import partial
 
+from weft_enhance.contract import Enhancer
 from weft_kernel.discovery import Disclosure, PackRegistrar
 from weft_kg.contract import (
     GRAPH_ROLE,
@@ -28,6 +29,8 @@ from weft_kg.contract import (
     EntityId,
     GraphTraversal,
 )
+from weft_kg.cooccurrence import CooccurrenceGraphBuilder, CooccurrenceSettings
+from weft_kg.payload import CooccurrenceEdge, CooccurrenceGraph, EntityMention
 from weft_kg.store import GraphSettings, GraphStore
 from weft_kg.traversal import GraphWalk
 from weft_store.contract import NodeStore
@@ -66,7 +69,13 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     """
     registrar.add(NodeStore, "pgvector-graph", partial(GraphStore, settings))
     registrar.add(GraphTraversal, "pgvector-traversal", partial(GraphWalk, settings))
+    # No pack settings of its own — the enhancer's constructor argument is a stage's `with:`
+    # config, exactly `CooccurrenceSettings`, so it registers as the bare class rather than a
+    # `partial`, unlike the two above which close over this run's connection settings.
+    registrar.add(Enhancer, "cooccurrence-graph", CooccurrenceGraphBuilder)
+    registrar.add_ext_model(CooccurrenceGraph)
     registrar.add_pipeline_resource("weft_kg", "pipelines/index-with-graph.yaml")
+    registrar.add_pipeline_resource("weft_kg", "pipelines/index-with-cooccurrence.yaml")
 
 
 __all__ = [
@@ -74,8 +83,13 @@ __all__ = [
     "GRAPH_ROLE",
     "GRAPH_TRAVERSAL_CONTRACT_VERSION",
     "SERVICE_ROLES",
+    "CooccurrenceEdge",
+    "CooccurrenceGraph",
+    "CooccurrenceGraphBuilder",
+    "CooccurrenceSettings",
     "Entity",
     "EntityId",
+    "EntityMention",
     "GraphSettings",
     "GraphTraversal",
     "Settings",

@@ -60,6 +60,7 @@ from pydantic import SecretStr
 from weft_kernel.context import Context
 from weft_kernel.payload import MediaType, Node, NodeId, SourceId, Vector
 from weft_kg.contract import EntityId
+from weft_kg.payload import CooccurrenceEdge, CooccurrenceGraph, EntityMention
 from weft_kg.store import GraphSettings, GraphStore
 from weft_kg.traversal import GraphWalk
 from weft_store.contract import ReconcileMode
@@ -312,3 +313,50 @@ async def test_node_ids_come_back_ready_for_the_corpus(store: GraphStore, walk: 
     # Assert
     assert found[chucri] == (NodeId(str(node.id)),)
     assert read.id == node.id
+
+
+async def test_storing_a_node_derives_its_entity_and_relation_rows(
+    store: GraphStore, walk: GraphWalk
+) -> None:
+    """**Ledger `11.6`'s other half, and the seam that keeps the enhancer store-free.**
+
+    `cooccurrence-graph` attaches ext data and writes no rows; `add` reads that ext and derives
+    them. That split is what lets the stage run in a pipeline with no graph store configured —
+    it attaches a fact nothing reads — and it is why no index-path stage in this pack ever needs
+    `ctx.require(NodeStore)`, which is the access G15 and G16 spent a session settling.
+    """
+    # Arrange
+    node = _node("Chucri and Azouz wrote about adRAP.", source="doc-a").with_ext(
+        CooccurrenceGraph(
+            entities=(EntityMention(name="Chucri"), EntityMention(name="Azouz")),
+            relations=(CooccurrenceEdge(source="Azouz", target="Chucri"),),
+        )
+    )
+
+    # Act — the ordinary store call a pipeline's `store` stage makes, nothing else.
+    await store.add([node])
+
+    # Assert — both names are entities the walk can find, and they are neighbours.
+    found = await walk.entities_by_name(["Chucri", "Azouz"])
+    assert {entity.name for entity in found} == {"Chucri", "Azouz"}
+    [chucri] = [entity for entity in found if entity.name == "Chucri"]
+    neighbours = await walk.neighbourhood([chucri.id], hops=1)
+    assert {entity.name for entity in neighbours[chucri.id]} == {"Azouz"}
+    assert (await walk.nodes_for_entities([chucri.id]))[chucri.id] == (node.id,)
+
+
+async def test_a_node_carrying_no_graph_ext_derives_no_rows(
+    store: GraphStore, walk: GraphWalk
+) -> None:
+    """A pipeline with the graph store and no enhancer stores nodes and builds no graph.
+
+    That is the honest outcome rather than a failure: `index-with-graph` is a real rung on its
+    own, and a store that refused a node without this pack's ext would make its own optional
+    stage mandatory.
+    """
+    # Arrange / Act
+    await store.add([_node("Chucri wrote about adRAP.", source="doc-a")])
+
+    # Assert
+    assert await store.count() == 1
+    assert await walk.entities_by_name(["Chucri"]) == ()

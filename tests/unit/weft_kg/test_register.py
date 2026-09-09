@@ -31,10 +31,12 @@ import pytest
 from pydantic import ValidationError
 
 from weft_cli.run_services import class_provides
+from weft_enhance.contract import Enhancer
 from weft_kernel.discovery import PackRegistrar
 from weft_kernel.registry import Registry
 from weft_kg import GRAPH_ROLE, Settings, register
 from weft_kg.contract import Entity, EntityId, GraphTraversal
+from weft_kg.payload import CooccurrenceGraph
 from weft_kg.store import GraphDsnNotConfiguredError, GraphStore
 from weft_kg.traversal import GraphWalk
 from weft_store.contract import NodeStore, Reconcilable, SourceDeletable
@@ -209,6 +211,34 @@ async def test_a_call_needing_a_connection_names_the_setting_when_the_dsn_is_uns
     assert "WEFT_DATABASE_URL" in str(raised.value)
 
 
+def test_register_adds_the_cooccurrence_builder_under_enhancer() -> None:
+    """Ledger `11.6` — the no-model rung's one new stage, registered like any other."""
+    # Act
+    registry = _registered()
+
+    # Assert
+    entry = registry.entry(Enhancer, "cooccurrence-graph")
+    assert entry.distribution == "weft-rag"
+
+
+def test_the_pack_declares_its_ext_model_for_rehydration() -> None:
+    """Fitness function 14's property, asserted at the pack: a node carrying this pack's ext data
+    survives a round trip through *any* store, because `register()` told the shared registry the
+    namespace exists. A model declared and never registered comes back as a bare mapping and the
+    only symptom is a downstream `AttributeError`.
+    """
+    # Arrange
+    registry = Registry()
+    registrar = PackRegistrar(registry, distribution="weft-rag")
+
+    # Act
+    register(registrar, Settings())
+    registrar.commit()
+
+    # Assert
+    assert CooccurrenceGraph in registrar.ext_models
+
+
 def test_the_pack_contributes_the_document_that_makes_its_store_reachable() -> None:
     """Fitness function 16's subject: `NodeStore` inherits `Stage`, so a registered store is a
     pipeline position, and a position no shipped document names is a rung with no floor.
@@ -226,6 +256,7 @@ def test_the_pack_contributes_the_document_that_makes_its_store_reachable() -> N
     registrar.commit()
 
     # Assert
-    [resource] = registrar.pipeline_resources
-    assert resource.package == "weft_kg"
-    assert resource.resource == "pipelines/index-with-graph.yaml"
+    assert [(r.package, r.resource) for r in registrar.pipeline_resources] == [
+        ("weft_kg", "pipelines/index-with-graph.yaml"),
+        ("weft_kg", "pipelines/index-with-cooccurrence.yaml"),
+    ]

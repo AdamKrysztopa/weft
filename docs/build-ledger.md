@@ -6039,8 +6039,12 @@ it had read one failure (`L7.1`).
   `PackReport` that `weft_kernel.registry` cannot see without the kernel learning about packs, so
   it is either a translation at the `weft-cli` seam that catches `UnknownPluginError` on the
   document path, or `require_plugin`'s check extended to every name a resolved document uses.
-  **It reaches `11.6` directly**: that task ships the first rung naming a plugin from a pack an
-  operator may not have installed
+  **It bites rungs that already ship**, which is sharper than the phase task it was first filed
+  against: `index-qdrant` names `qdrant`, and `index-pdf`/`index-pdf-text`/`index-pdf-rows` name
+  `pdf-text` and `pdf-layout` — four shipped documents whose plugins come from packs that report
+  `failed` on any machine without the matching extra. *This line said it reached `11.6` until that
+  was checked: every plugin in `index-with-cooccurrence`'s chain comes from a pack with no optional
+  import, so 11.6 has no such plugin at all* (`L11.6`'s shape, caught before it was acted on)
 
 ## Phase 10 — RAPTOR, extended
 
@@ -8133,15 +8137,58 @@ that assumed one was withdrawn from the plan before it reached this list.
   clause observed rather than asserted. Gate `GATE_EXIT=0` read out of the run's own log: 276
   architecture (+7, this task's fitness function), 2322 passed, 9 skipped, 128 examples — thirty
   more than `R11.2`'s 2292 and no shrink*
-- [ ] **11.6** a corpus indexed with no model and no credential carries co-occurrence entities,
+- [x] **11.6** a corpus indexed with no model and no credential carries co-occurrence entities,
   and `index-with-cooccurrence` is a rung `weft index --pipeline` runs from outside the repository
   · owner `01` → Phase 11; `10` · turns on FF16 (scope now includes `weft-kg`) · sha — · *on
   this tree the one advanced rung a laptop can climb under `hash` — `index-with-raptor` produces
   nothing without a model (its own comment) — **re-measure after Phase 10**, which extends RAPTOR
-  and may change that. `extends: index-text`, two operator blocks: a no-model `Enhancer` after
-  `chunk` and the `graph` store stage after `store`; restates its own `route.summary`/`route.cost`
-  (8.1's rule, task 8.1). Entity-name vectors, where a rung wants them, are
-  written by the pipeline's embedder and only held by the store (G4)*
+  and may change that. ~~`extends: index-text`, two operator blocks: a no-model `Enhancer` after
+  `chunk` and the `graph` store stage after `store`~~ — **`extends: index-with-graph`, one operator
+  block**, because `11.5` shipped that document and the store stage is already one derivation down;
+  a second copy of it here is exactly what `02` §3's derivation model exists to avoid.
+  ~~restates its own `route.summary`/`route.cost` (8.1's rule, task 8.1)~~ — **it restates neither,
+  and the population says why**: `route.summary` is what `RouteCatalogue` reads to route a
+  `weft ask`, an index document is not routable, and **no shipped index document carries a `route:`
+  block at all** (`grep` over `pipelines/index-*.yaml` → 0). 8.1's rule is about query rungs.
+  Entity-name vectors, where a rung wants them, are
+  written by the pipeline's embedder and only held by the store (G4) — **and this rung does not
+  want them**: the `hash` embedder embeds nodes rather than entity names, and giving the one rung a
+  laptop can climb an embedder it is defined by not needing would be the wrong trade. `kg_entities.
+  embedding` stays unwritten until a rung asks*
+  · **done 2026-09-09. Written by me for the tests, the name and the documents; dispatched for the
+  three modules.** `cooccurrence-graph`, an `Enhancer`: Title-Case runs are name candidates, every
+  pair in one chunk co-occurs, and `index-with-cooccurrence` is one operator block over
+  `index-with-graph`.
+  **The name was settled before any code, through `paper-to-plugin`, and the search for an origin
+  was made rather than skipped.** There is **no paper**: co-occurrence networks and graph
+  construction for retrieval both have large literatures and **no work introduced or named this
+  mechanism**, which is a crude candidate rule chosen because it needs no model — so `10` §5 records
+  the gap beside `hybrid`'s rather than leaving an Origin column a reader would take for an
+  oversight. It is deliberately **not** `ner` or `named-entities`: this is a regular expression over
+  capitalisation, and a practitioner who searched for named-entity recognition and landed here would
+  have been misled, which is §2.1 rule 4 with teeth. None of §4's reserved graph names — `grag`,
+  `hipporag`, `g-retriever`, `t-retriever`, `archrag` — is touched.
+  **The split that keeps the stage store-free**: the enhancer attaches ext data and writes no row;
+  `GraphStore.add` reads `CooccurrenceGraph` off a node and derives the entity and relation rows.
+  So the rung runs in a pipeline with no graph store configured — it attaches a fact nothing reads —
+  and **no index-path stage in this pack ever needs `ctx.require(NodeStore)`**, which is the access
+  G15 and G16 spent a session settling.
+  **Ran the binary from outside the repository against built wheels**, row counts read straight from
+  the container: two chunks in, `weft_nodes=2 kg_nodes=2 kg_entities=5 kg_relations=6`, exit 0, and
+  the six edges are the two chunks' three-pairs-each with `Azouz` correctly bridging both — which is
+  the structure `11.13` will hunt for. **Two false alarms of my own, both checked before being
+  claimed**: `weft pipeline list | grep cooccurrence` found nothing because that shell had not
+  exported `WEFT_DATABASE_URL`, so the command exited on the failed store pack before listing; and
+  `Reciprocal Rank Fusion` read back as one word because my own `psql` helper piped through
+  `tr -d ' '`. Neither was a defect and neither reached a report.
+  **The most expensive thing this task bought is `L11.31`**: the line written to *prove* no
+  credential was present used `${OPENAI_API_KEY:-<unset>}`, which renders the value and shows the
+  fallback only when the check is unnecessary — the owner's key went into a transcript and had to be
+  rotated. A check for the absence of a secret must never be able to render the secret.
+  Gate `GATE_EXIT=0` read out of the run's own log, both containers up: 276 architecture, 2340
+  passed, 9 skipped, 128 examples — eighteen more than `11.5`'s 2322 and no shrink. **The cold-cache
+  lint caught an import order three warm `ruff check` runs had passed**, which is `L9.1` doing its
+  job rather than a new finding*
 - [ ] **11.7 ⚠ D2** extraction is paid once: a chunk's facts and mentions are `Node`s derived
   from it, persisted through the ordinary store stage, never recomputed by any later pass; the
   stage holds a concurrency cap; and every dropped candidate is counted **per reason**, never
