@@ -5732,7 +5732,16 @@ it had read one failure (`L7.1`).
   Carrying everything *except* offset-indexed facts carries **nothing** on every pipeline, since
   `PdfPages` is the only `ExtModel` any extractor attaches to a `TEXT` root node
   (`IMAGE`/`TABLE` facts route past the cleaners already) — machinery that cannot fire, which is
-  `L5.19`'s own shape. `05` → G17 has the four positions and the measurement to re-take
+  `L5.19`'s own shape. `05` → G17 has the four positions and
+  the measurement to re-take.
+  **Confirmed live 2026-09-09 at task `11.1`, from outside this repository, through the shipped
+  binary** — a second independent finding, the first being the read of the cleaners. A real paper
+  indexed with `weft index corpus --pipeline index-pdf` stored **70 nodes**, row count asserted at
+  70 immediately before and after the read (`L8.30`), and the only `ext` namespaces on any of them
+  are `weft-chunk` (57 nodes) and `weft-extract-table` (13). **`weft-pdf` is on none**, so
+  `PdfPages` does not reach the store on the shipped PDF ladder and `page_for` can answer nothing
+  there — which is what makes `11.1`'s page clause a payload-level property with no live instance
+  until this repair lands
 - [x] **R9.2** every field a persisted `Citation` carries reaches some rendering, and `weft --json`
   emits only JSON on stdout on every code path · owner `03` → *Output*; `08` §1 · `L9.88` · two
   halves of one surface. `weft_generate.payload.Citation` carries `node_id`, `source_id`, `uri`,
@@ -5908,6 +5917,27 @@ it had read one failure (`L7.1`).
   which happens *after* the drain — so the phase whose queue is densest with recurrences is the one
   the detector can say least about. Phase 9's drain found **six** recurrences inside Phase 9 that
   the script could not see, every one stated in the entries' own prose
+
+- [ ] **R11.1** one unreadable figure in one document does not fail the run that was indexing a
+  corpus, and whatever is refused says which document and which page it was in · owner
+  `weft_pdf.pdf_layout.PdfLayoutExtractor._read_figures`; `weft_pdf.document.ExtractedTable`, whose
+  docstring already states the policy for the sibling path · `L11.15`, `L11.16` · **found by
+  running the shipped binary from outside this repository at task 11.1, on this project's own
+  corpus**. `weft index corpus --pipeline index-pdf` over `corpus/mrmr/Ding i Peng - 2005 - MINIMUM
+  REDUNDANCY FEATURE SELECTION FROM MICROARR.pdf` exits **1** printing exactly one line —
+  `'extract' failed: cannot write empty image` — which names neither the document nor the page, and
+  the same paper kills `index-pdf-undescribed` and `index-pdf-rows` identically while a second
+  paper from the same directory indexes to 70 nodes at exit 0. **Measured, not inferred**:
+  `pdfplumber` reports **67** image boxes on that paper's 21 pages whose rounded width is `0` — two
+  per page at `x0 == x1 == 72`, a rule or an invisible mark rather than a figure — and
+  `pdf_layout.py:344` calls `rendered.crop(box).save(buffer, format="PNG")` with no guard, which is
+  a `SystemError` out of PIL for a zero-area crop. **The policy is already settled one path over
+  and was not applied here**: `ExtractedTable`'s own docstring says a backend's ragged reading
+  "must skip the one table rather than fail the document", and `extract_documents` already carries
+  an `unreadable` channel for saying so. Two properties, and they can fail separately: the run
+  survives, and the refusal is attributable. Filed rather than fixed inside `11.1` because it is
+  not that task's content and because *how* a skipped figure is reported — silently, counted, or
+  named — is a choice `9.7`'s author should make
 
 ## Phase 10 — RAPTOR, extended
 
@@ -7675,7 +7705,7 @@ that assumed one was withdrawn from the plan before it reached this list.
   copied from `graph-study` first** (its plan names the same donor for figures and tables), the
   check may already exist and this line is its extension to the graph's files — verify before
   writing a second one*
-- [ ] **11.1** a `Node` carrying a fact is offered as a passage, labelled, cited, and
+- [x] **11.1** a `Node` carrying a fact is offered as a passage, labelled, cited, and
   `Answer._citations_resolve` and FF17 both hold unchanged — **and a fact node carries in its own
   `ext` the page-bearing model its parent carried**, so its citation resolves to a page and not only
   to a parent id · owner `02` §1 → *The payload model*; `weft_generate/payload.py:102` · turns on —
@@ -7689,7 +7719,40 @@ that assumed one was withdrawn from the plan before it reached this list.
   it, but the sentence that says where transients strip is the one this task's ext copying must
   not contradict. A fact's content is readable prose, because that is what the generator sees and
   a reader follows; its citation is one hop shallower than its evidence, and the manual says so
-  (11.14)*
+  (11.14)* · **the proof came back green on the shipped tree, and
+  that is the result**: no source line changed. Five tests in
+  `tests/unit/weft_generate/test_fact_nodes_are_citable.py`. **Written by me, not dispatched** —
+  the task's whole content is a test, which is on `phase-step`'s never-delegated list, so there was
+  no green phase to hand over. **The parent chunk is the real `FixedSizeChunker`'s output over a
+  root carrying a real `PdfPages`**, so only the fact node is hand-built, that being the part under
+  proof — `L6.14`'s trap is that the two facts `page_for` needs are attached by two packs in two
+  stages and a double populates whichever one the author had in mind. **Watched red in the one
+  direction that matters**: `carry_forward` planted to skip the `weft-pdf` namespace turns all five
+  red, and the fixture's own guard fires first, naming why (*"no chunk of the fixture resolved past
+  page 1"*) rather than failing on an equality. Page assertions are `> 1`, never *not None*: a
+  locator that had lost its offset answers page 1 and would satisfy an equality read through the
+  same call (`L9.28`). **Three decisions taken from the documents rather than by the code**: the
+  parent's `ChunkOffset` travels with `PdfPages` because both index the *root's* text and splitting
+  the pair loses the coordinate system, and a *fresh* offset has no referent since a fact's prose is
+  generated rather than sliced; `G17` does not bite here, because that gate is about a locator whose
+  content is **rewritten** and a fact extractor rewrites nothing; and a `combine`d fact carries no
+  page at all, because its two members can sit on different pages and there is nothing to infer —
+  asserted, with the two members' pages shown unequal first. **A constraint this hands to 11.7**:
+  `weft_generate.representation.citable_nodes` cites a single-parent node carrying an `ext` model
+  with a `technique: str` attribute *as its parent*, so a fact ext model naming a field `technique`
+  would make every fact cite its chunk and nothing would report it; the test asserts
+  `citation.node_id == fact.id` and `!= evidence.id` for exactly that reason. **Ran the binary from
+  outside the repository and it found two defects, filed as `R11.1`** — `weft index corpus
+  --pipeline index-pdf` exits 1 on one of this project's own nine papers with a single line naming
+  neither document nor page, reproducibly across three PDF ladders, from 67 zero-width image boxes
+  and an unguarded PIL crop; `L11.15` and `L11.16`. The same run **confirmed `R9.1` live and
+  independently**: 70 stored nodes carry `weft-chunk` and `weft-extract-table` and **no**
+  `weft-pdf`, so this task's page clause is a payload-level property with no live instance until
+  `R9.1` lands — recorded in the test's own docstring rather than left for a green run to imply.
+  Gate `GATE_EXIT=0` read out of the run's own log, never from a wrapper's status: 270
+  architecture, 2251 passed and 9 skipped, 127 examples — 2521 passed against `11.0`'s 2516,
+  which is this task's five tests and no shrink (`L7.8`). No sha: `git blame -w` on the ticked
+  box is the record as of 2026-09-09
 - [ ] **11.2** a retriever fans out over *retrievers* resolved by name, returns every list labelled
   by the arm that produced it, and refuses a name that is not a `Retriever` before any stage runs ·
   owner `02` §3; `10` §1.5 · turns on — · sha — · *`weft-retrieve`, no gate, and independent of the

@@ -378,6 +378,53 @@ with `L11.6` — both are the same routing row, both passed a green live check, 
 assertions land in the same function. `recurs L11.6`
 
 
+### L11.15 — the nine papers this project measures against have never been through its own ingest ladder
+
+**What happened.** Running the shipped binary from outside the repository at task `11.1`,
+`weft index corpus --pipeline index-pdf` over `corpus/mrmr/Ding i Peng - 2005 - MINIMUM REDUNDANCY
+FEATURE SELECTION FROM MICROARR.pdf` exited **1** on `'extract' failed: cannot write empty image`,
+and so did `index-pdf-undescribed` and `index-pdf-rows`. `corpus/mrmr/` is this project's own
+measurement fixture — `05` → G17's *Bring* names it, and its whole four-position argument rests on
+numbers taken from it — and `grep -rn mrmr tests/ scripts/` returns **four files, none of which
+opens a single one of those PDFs**: three are the string `corpus/mrmr.pdf` used as a stub `uri`,
+the fourth is a fitness function. G17's own measurement reached the papers through
+`PdfTextExtractor` directly, which is the one path that reads no figures. So the corpus the project
+argues from has been read by an extractor and never by a pipeline, and 2,516 green tests say
+nothing about whether `weft index` can ingest it.
+
+**Generalises to.** A fixture a document argues from is only evidence for the path that actually
+opened it: before quoting a measurement over a corpus, check which entry point produced it, and run
+that corpus through the shipped ladder at least once. A directory of real inputs kept in the tree
+and never handed to the binary is a fixture for the reading, not for the product.
+
+**Candidate home.** An integration test, or a `poe` task, that indexes `corpus/mrmr/` through
+`index-pdf` end to end and asserts every document reaches the store — the population is nine files
+and it fails on this tree today. `recurs L9.87` (a capability whose every test injected a double
+and shipped dead), and it is the *fifth* consecutive phase where the binary found what the suite
+did not.
+
+### L11.16 — a policy stated in one path's docstring was never applied to its sibling
+
+**What happened.** `weft_pdf.document.ExtractedTable`'s docstring settles the policy for a
+backend's bad reading: refusing a malformed grid "must skip the one table rather than fail the
+document", and `extract_documents` carries an `unreadable` channel for reporting it. The figure
+path in the same distribution has neither: `pdf_layout.py:344` is a bare
+`rendered.crop(box).save(buffer, format="PNG")`, so one zero-area crop raises out of PIL and takes
+the whole run with it — measured, 67 zero-width image boxes on one real paper's 21 pages. Both
+paths were built by the same phase (`9.6` tables, `9.7` figures) and only one of them carries the
+rule, which is why it read as settled while being true of half the pack.
+
+**Generalises to.** A policy written into one docstring is a policy for that call site until
+somebody greps for the siblings it names — so when a task states how a bad input is handled, list
+the other paths in that distribution that take bad input and say, in the same commit, whether each
+one does it. A rule with one instance and one counter-instance looks exactly like a rule with two
+instances from inside either file.
+
+**Candidate home.** Grouped with `L11.15` under carried repair `R11.1`, whose two properties are
+this entry's and that one's. If it wants a check rather than a repair: every `Extractor` in the
+tree that opens a third-party library has a path where that library's failure on one element is
+contained, and `ci-checks` has no way to ask that today. `recurs L6.12` on the prose-check half.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in
