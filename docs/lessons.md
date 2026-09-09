@@ -816,6 +816,41 @@ serves (a built-in gets no privileged path, and a first implementation must not 
 around itself). `recurs L5.32`, which is the same failure at the level of a proviso rather than a
 member set.
 
+### L11.30 — the brief mandated two changes and traced what neither of them falsified
+
+**What happened.** `11.5`'s brief told the implementer to make
+`pack_settings_from_environment` offer `${env:WEFT_DATABASE_URL}` to a second pack, and to register
+a plugin under `GraphTraversal`. It did exactly that and came back green on its own three files
+with three *other* tests red, none of them in its write scope and none named in the brief:
+`test_registry_bootstrap.py` asserts that function's return value **exactly**, twice; and
+registering under `GraphTraversal` put that contract on fitness function 9c's left side, where it
+had no out-of-tree stranger — while the brief's own *Not in scope* section said the stranger was
+"a later step of this task and not yours". So the brief's *Done when* and its *Not in scope*
+contradicted each other, and the implementer was the one who had to notice.
+
+**And the rule was already written, in the file the brief was copied from.**
+`implementer-brief.md`'s *On the failing test* paragraph says: *"If the brief mandates a signature
+change, grep for every caller of the old signature — tests included — and either update them in
+Red or name them here"*, and it records task 6.18 doing precisely this and getting precisely this
+result. I read that paragraph, applied it to nothing, and reproduced the instance it documents.
+
+**Generalises to.** The rule is written about a *signature* change and both of these were **behaviour**
+changes — a return value's contents, and a registry gaining a key. That narrowness is what let me
+read the paragraph and not see myself in it. The general form is: **a brief mandates a change to a
+value some test asserts, and the author owes the grep for that value, not for that name.** For a
+registry it is stronger still, because there is no name to grep at all: what changed was a *set*,
+and the checks over that set are architecture tests nobody would think to look for from inside one
+module. The cheap version is a full gate run before the dispatch rather than after — which the same
+brief already promises and which would have shown all three.
+
+**Candidate home.** `implementer-brief.md`'s *Before you send* checklist: widen the signature clause
+to *any value a brief changes* — return contents, a registered set, a version constant — and add
+the one mechanical step that catches all of them without foresight: run `uv run poe ci-checks` (not
+`ci-no-tests`) once before dispatching, and either fix what the change already broke or name every
+failure in the brief. `recurs L5.14`, `recurs L11.27` — that entry is this one's other half, both
+bought by the same two dispatches: there I described the red state from a truncated read, here I
+did not produce it at all.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in
