@@ -136,6 +136,35 @@ that names phases has an entry for every phase the ledger records as closed — 
 (11 phases), computable, and it would have failed for five phases running. Size it before adopting
 it. `recurs L5.8`, `recurs L5.19`.
 
+### L11.6 — the check that reads a preamble for a gate mark never asks whether the preamble is right
+
+**What happened.** `docs/README.md`'s **Next action** row said *"Phase 11's own D2 was settled by
+**G15**"* while its **Open decisions** row said *"**2, both Phase 11's** … `11` D2"* and
+`docs/build-ledger.md:7532` said *"Two scope decisions are open. **D2** …"*. The decision log's own
+G15 row and `docs/05-grilling-sessions.md:1092` both say *"**`D2` is settled by the three
+together**"*, quoting D2's exact wording, and G15's *Done when* required *"`D2` moved to Settled in
+the decision log"*. So one document was right and two were stale, in the file whose stated rule is
+that it holds *"state and pointers only"*. `next_task.py`'s live checks were green through all of
+it. Two reasons, both structural: `next_task.py:406-415` asserts only that the phase preamble
+**contains the ⚠ glyph** — never that what it says about a gate agrees with the decision log's
+status for that gate — and it scopes that assertion to `task.phase`, which was Phase 9, so Phase
+11's preamble was not opened at all. Caught by the owner reading three sentences by hand and
+telling the session to settle it before 11.7.
+
+**Generalises to.** A check that a document *mentions* a cross-reference is not a check that the
+document *agrees* with it; where two files hold the same fact under different ids, assert the
+values equal, not that both are non-empty. And a live check scoped to the current task's phase
+cannot see the phase the project's own Next-action row is routing to — a check whose subject is
+chosen by ledger order inherits ledger order's blind spot.
+
+**Candidate home.** `next_task.py` → `live_checks`: for every ⚠ task in the phase, parse the gate
+ids the preamble names and compare each against that gate's Status cell in `docs/README.md`'s
+decision log, failing when a preamble calls open what the log calls Settled. The population is
+real and computable (17 gate rows, 4 ⚠ lines in Phase 11 alone) and it would have failed on this
+tree. Scope it to the routed phase as well as the ledger-order one. `recurs L6.4` — that entry
+bought the mention-check this entry finds insufficient; `recurs L5.6` on the two-sides-one-source
+half. `caused-by L6.4`
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

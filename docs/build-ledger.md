@@ -7530,12 +7530,36 @@ and keyed by exact type (`weft_kernel/context.py:133-142`). Task 11.10 cites `9.
 is ⛔ until it ticks; nothing else here waits on it. Two plans once numbered this seam the same
 `9.2` from opposite sides (`L9.15`); the id is now Phase 9's and this section uses no other.
 
-**⚠ means what *How to read a task line* says.** Two scope decisions are open. **D2** — where a
-corpus-wide, revisable pass runs, and whether its output may be durable — shapes 11.7, 11.8 and
-11.9; **D3** — where a pack persists per-corpus, operator-curated configuration — shapes 11.11.
-Each is a scope row under `09` §6.4 when the owner takes it; the four tasks are real and their
-content is a hypothesis until then. Nothing else below is ⚠: D1 is `S12`, D4 is a proof rather
-than a decision and 11.1 is that proof.
+**⚠ means what *How to read a task line* says, and three of the four marks below are now a
+record rather than a block.** **D2 — where a corpus-wide, revisable pass runs, and whether its
+output may be durable — was settled by G15 on 2026-09-08**, in D2's own words: *where* is an
+index-path stage of a new contract (`Revisable`, published by `weft-index`, reaching the corpus
+through `ctx.require(NodeStore)`) placed **after** `store`, and *durable* is **yes, as nodes, and
+only as nodes** — the expensive-output clause turning out not to bite, because Weft's clusterer
+fits no model and a cluster's whole state is a centroid derivable by a `get`. G16 then settled how
+that stage reaches the corpus. `05` → G15 and G16 own the reasoning; the decision log carries both
+rows. **This paragraph said D2 was open until 2026-09-09**, as did `docs/README.md`'s Open-decisions
+cell, four months of gate record notwithstanding — `L11.6` is that failure and names why
+`next_task.py`'s live checks could not see it. So **11.7, 11.8 and 11.9 keep their ⚠ as history of
+what was once undecided**, and what follows is the answer they are read against.
+
+**One narrowing, taken by the owner 2026-09-09 rather than assumed, because G15's own words refuse
+11.8 as planned.** G15 ends *"**No rows that are not nodes.**"* Task 11.8 requires entities and
+aliases to be **the pack's own tables**, carrying their own version row — and a canonical id is a
+function of the whole mention set, so it is *not* derivable from the nodes by a `get` the way a
+centroid is. The narrowing: G15's clause governs **what a stage persists outside the node model**,
+and `weft-graph`'s entity and alias tables are not that — they are a `NodeStore` **backend's own
+internal schema**, on the footing `weft_store`'s and `weft_qdrant`'s own tables already have, and
+they cascade from mention node ids so no row outlives the nodes that support it. Facts and mentions
+are nodes (11.1, 11.7); entities are rows of the store that holds those nodes. This is a
+phase-content narrowing under `09` §6.4 item 1 and takes no log row; it is written here, on the
+phase whose task it bites, rather than into G15, because amending a closed session's text is how a
+proviso invented afterwards becomes indistinguishable from one that was argued (`L5.32`).
+
+**D3 — where a pack persists per-corpus, operator-curated configuration — is open**, is a scope row
+under `09` §6.4 when the owner takes it, and shapes 11.11 alone; that task is real and its content
+is a hypothesis until then. Nothing else below is ⚠: D1 is `S12`, D4 is a proof rather than a
+decision and 11.1 is that proof.
 
 **Recorded rather than decided — a slot finding.** No shipped document declares a `slots:` block
 (`grep -rn 'slots' packages/weft-rag/src/*/pipelines/*.yaml` → two comments, no declaration), so
@@ -7660,9 +7684,12 @@ that assumed one was withdrawn from the plan before it reached this list.
   through whichever provider the `LLM` role names — documented, never derived, because egress is
   a property of the selected provider (`weft_llm/scripted.py:1-8` makes no call) and the import
   rule already catches the provider (`test_network_packs_disclose.py:40-42`). ⚠ because D2
-  decides whether this per-chunk irreversible tier is the only one a stage may run and whether
-  its output is durable; the plan's position is that `02:1918-1921`'s `flush()` is the seam only
-  for a cheap idempotent pass, since `flush()` runs on cancellation (`02:877-890`)*
+  decided whether this per-chunk irreversible tier is the only one a stage may run and whether
+  its output is durable; the plan's position was that `02:1918-1921`'s `flush()` is the seam only
+  for a cheap idempotent pass, since `flush()` runs on cancellation (`02:877-890`) — **and G15 kept
+  it**: this `Expander`'s output is durable as nodes through the ordinary `store` stage, and the
+  corpus-wide tier G15 licensed is a `Revisable` after `store`, which this task is not. Read the
+  mark as the preamble's record, not as a block*
 - [ ] **11.8 ⚠ D2** two mentions of one thing become one entity by a deterministic, idempotent
   pass a second run cannot change, and the canonical id is a function of the set, not of arrival
   order · owner `02` §1 → `Reconcilable`; `NOTICE` case 2 · turns on — · sha — · *blended
@@ -7674,9 +7701,13 @@ that assumed one was withdrawn from the plan before it reached this list.
   tables, `ON DELETE CASCADE` from mention node ids as the example already does
   (`examples/weft-example-graph/src/weft_example_graph/store.py:82-93`), carrying their own
   version row (`S5`, per surface) and refusing one they do not know — the same
-  upgrade-or-refuse case Phase 9's blob-key layout owes, run by both packs. ⚠ because D2 decides
+  upgrade-or-refuse case Phase 9's blob-key layout owes, run by both packs. ⚠ because D2 decided
   whether this runs in the store stage's `flush()` for its batch and in `Reconcilable.repair` over
-  everything, or somewhere else*
+  everything, or somewhere else — **G15 answers it and one clause of G15 had to be narrowed to let
+  this line stand**: the pass is `Reconcilable`, not a `Revisable` stage, and its entity and alias
+  rows are the backend's own schema rather than *"rows that are not nodes"* written by a stage. The
+  preamble carries that narrowing and the owner took it on 2026-09-09; a reader who reaches this
+  line from G15's text alone will think it forbidden, which is why it is written down*
 - [ ] **11.9 ⚠ D2** the expensive pass runs only under `full`, states `model_calls` before
   spending, abstains inside a stated band, and a bridge-merge re-points aliases so the evidence
   for the judgement survives the judgement · owner `02` §1, §4; `03` → *Permissions* · turns on —
@@ -7686,7 +7717,9 @@ that assumed one was withdrawn from the plan before it reached this list.
   The adjudicator is three-valued with first-non-`None`-wins; "abstain" is never a kernel
   `Outcome` member, and the trap is `weft_kernel.fallback.try_in_order`, whose `NothingToProduce`
   stops a chain rather than deferring. No third `ReconcileMode` member (`05:544-547`: breaking for
-  implementers). ⚠ because D2 owns the tier boundary this line assumes*
+  implementers). ⚠ because D2 owned the tier boundary this line assumes, and **G15 settled it in
+  this line's favour** — a corpus-wide revisable pass is licensed and its output is durable as
+  nodes, so `full` stays the consented tier and no sixth permission class is owed*
 - [ ] **11.10** a question naming an entity is answered from nodes reached by a bounded walk,
   through a retriever that declares what it needs of the store and is refused **by name at
   assembly** against a store that lacks it; and the same question is answered by vector and graph
