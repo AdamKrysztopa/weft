@@ -7961,7 +7961,7 @@ that assumed one was withdrawn from the plan before it reached this list.
   where the bare rung names nothing. Gate `GATE_EXIT=0` read out of the run's own log: 270
   architecture, 2260 passed, 9 skipped, 127 examples — nine more than 11.1's 2251, which is this
   task's nine tests and no shrink*
-- [ ] **11.3** `weft delete` of one source reports the graph pack's removals **by kind** —
+- [x] **11.3** `weft delete` of one source reports the graph pack's removals **by kind** —
   facts, mentions, entities — beside `node_count`, so a store that reaped forty of its own rows
   never answers with `node_count=0` as its whole account · owner `02` §1 → *The store contract
   family*; `09` §2 · turns on — · sha — · *on this tree `Removed` is `source_id`, `node_count`,
@@ -7988,6 +7988,29 @@ that assumed one was withdrawn from the plan before it reached this list.
   has no mark: `How to read a task line` gives ⛔ to a **phase header** against an open **gate**
   and nothing to this. `L11.18`, and `docs/README.md`'s Next-action row is what carries the order
   in the meantime, which is exactly what that row is for
+  · **Built, and it is the smallest task in the phase because `9.3` had already built everything
+  else.** The field, the fan-out carrying it and `weft_cli.render`'s `f"{count} {kind}(s)"` all
+  landed there; what was missing was three kinds to count, which is why the deferral was right —
+  a fact and a mention became `Node`s at `11.7`, an entity a row reached through an alias at
+  `11.8`. This line adds the participant's own half and nothing outside the pack. **Five kinds,
+  not three.** The line names facts, mentions and entities; `Removed.removed` is an open
+  vocabulary the participant owns, and `alias` and `relation` are rows this deletion also reaps —
+  a store that reaped them silently is the same complaint the line makes, one row-type over.
+  **`fact` and `mention` sit beside `node_count` rather than instead of it**, which is what makes
+  `"node"` a reserved key: both are nodes and already inside that total, and a second spelling of
+  it would be the two-lists shape inside one model. **Absent means none, never zero** — a kind
+  this deletion did not touch is left out, because a column of zeroes reads the same whether the
+  participant looked and found nothing or does not count that kind at all (`L5.9`). **Counted as
+  a difference across the deletion, not read off the tables afterwards**: an entity two sources
+  both mention survives the first of them, and a census taken after would call it removed. That
+  is the third test, and it is the one that would have passed by accident on a single-source
+  fixture. Written and implemented by me — smaller than its brief. **Run through the shipped
+  binary from outside this repository, and offline**: `index-with-cooccurrence` needs no model,
+  so the demonstration costs nothing and still exercises the whole path. `weft delete` printed
+  *"pgvector-graph (weft-rag): 1 node(s), 2 alias(s), 2 entity(s), 5 relation(s) removed"* beside
+  *"pgvector (weft-rag): 1 node(s) removed"* — which is this line's own sentence, rendered. Gate
+  `GATE_EXIT=0` read out of the run's own log, both containers up: 276 architecture, 2417 passed,
+  9 skipped, 128 examples*
 - [x] **11.4** `weft_kg` publishes the traversal Protocol — versioned, `@runtime_checkable`,
   not a `Stage`, satisfied structurally by its own store and by an out-of-tree stranger — and the
   condition under which it moves into the store family is a dated row in `01`'s deferred table

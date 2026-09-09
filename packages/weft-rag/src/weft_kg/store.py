@@ -324,6 +324,25 @@ async def _drop_orphaned_entities(cur: "psycopg.AsyncCursor[dict[str, Any]]") ->
     )
 
 
+async def _row_census(cur: "psycopg.AsyncCursor[dict[str, Any]]") -> dict[str, int]:
+    """How many alias, entity and relation rows this store holds right now — ledger **11.3**.
+
+    Taken immediately before and after a deletion, so the counts reported are of rows **this
+    deletion removed** rather than of rows the table happens not to hold. The difference matters
+    the moment two sources share an entity, which is the ordinary case in any real corpus: a
+    count read off the table afterwards would call a surviving entity removed.
+    """
+    await cur.execute(
+        "SELECT (SELECT count(*) FROM kg_aliases) AS alias, "
+        "(SELECT count(*) FROM kg_entities) AS entity, "
+        "(SELECT count(*) FROM kg_relations) AS relation"
+    )
+    row = await cur.fetchone()
+    if row is None:  # pragma: no cover — a scalar aggregate always returns a row
+        return {"alias": 0, "entity": 0, "relation": 0}
+    return {kind: cast(int, row[kind]) for kind in ("alias", "entity", "relation")}
+
+
 async def _run_resolution_pass(cur: "psycopg.AsyncCursor[dict[str, Any]]") -> int:
     """Which surface forms are one entity, decided by `weft_kg.resolution` and applied here.
 
@@ -639,17 +658,60 @@ class GraphStore:
     # -- SourceDeletable -------------------------------------------------------------------
 
     async def delete_source(self, source_id: SourceId) -> Removed:
+        """Every node this source supported, and **an account of what went with them** — `11.3`.
+
+        `Removed.node_count` alone was this participant's whole answer until now, and `11.3`'s
+        own line is why that is not good enough: a store that reaped forty of its own rows
+        answering `node_count=0` has told an operator nothing about the forty. `Removed.removed`
+        is task `9.3`'s open, participant-owned vocabulary and this pack names five kinds in it.
+
+        **`fact` and `mention` sit *beside* `node_count`, never instead of it.** Both are nodes,
+        so both are already inside that total; what these add is the breakdown, which is exactly
+        why `"node"` is a reserved key — a second spelling of the total would be the two-lists
+        shape `docs/README.md` opens with, reproduced inside one model.
+
+        **Absent means none, never zero.** A kind this deletion did not touch is left out rather
+        than reported as `0`: a column of zeroes reads identically whether the participant looked
+        and found nothing or does not count that kind at all (`docs/lessons.md` L5.9).
+
+        **Counted as a difference across the deletion, not read off the tables afterwards.** An
+        entity two sources both mention survives the first of them, and a count taken from the
+        table would call it removed.
+        """
         conn = await self._connection()
         async with conn.cursor() as cur:
             await cur.execute(
                 "UPDATE kg_sources SET status = %s WHERE id = %s",
                 (SourceStatus.DELETING.value, source_id),
             )
+            await cur.execute(
+                "SELECT count(*) FILTER (WHERE ext ? %(fact)s) AS fact, "
+                "count(*) FILTER (WHERE ext ? %(mention)s) AS mention "
+                "FROM kg_nodes WHERE %(source)s = ANY(sources)",
+                {
+                    "fact": ExtractedFact.__namespace__,
+                    "mention": MentionedEntity.__namespace__,
+                    "source": source_id,
+                },
+            )
+            derived_row = await cur.fetchone()
+            derived = (
+                {kind: cast(int, derived_row[kind]) for kind in ("fact", "mention")}
+                if derived_row is not None
+                else {}
+            )
+            before = await _row_census(cur)
             await cur.execute("DELETE FROM kg_nodes WHERE %s = ANY(sources)", (source_id,))
             node_count = cur.rowcount
             await _drop_orphaned_entities(cur)
+            after = await _row_census(cur)
             await cur.execute("DELETE FROM kg_sources WHERE id = %s", (source_id,))
-        return Removed(source_id=source_id, node_count=node_count)
+        counts = {**derived, **{kind: before[kind] - after[kind] for kind in before}}
+        return Removed(
+            source_id=source_id,
+            node_count=node_count,
+            removed={kind: count for kind, count in counts.items() if count},
+        )
 
     # -- Reconcilable ----------------------------------------------------------------------
 

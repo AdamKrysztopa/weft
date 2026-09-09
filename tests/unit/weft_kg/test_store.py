@@ -729,3 +729,99 @@ async def test_a_schema_version_this_pack_does_not_know_is_refused(store: GraphS
         async with conn.cursor() as cur:
             await cur.execute("UPDATE kg_schema SET version = %s", (KG_SCHEMA_VERSION,))
         await conn.close()
+
+
+# --- ledger task 11.3: the deletion says what it actually reaped ---------------------------
+
+
+async def test_deleting_a_source_reports_what_it_removed_by_kind(store: GraphStore) -> None:
+    """`11.3`'s own line: a store that reaped forty of its own rows never answers with
+    `node_count=0` as its whole account.
+
+    Every non-graph half of this landed at `9.3` — `Removed.removed`, the fan-out carrying it,
+    and `weft_cli.render`'s `f"{count} {kind}(s)"`. What was missing until `11.7` and `11.8` is
+    that this pack had no three kinds to count: a fact and a mention became `Node`s at `11.7`,
+    and an entity became a row reached through an alias at `11.8`. This is the participant's own
+    half, and nothing else.
+
+    **`fact` and `mention` are counted *beside* `node_count`, not instead of it.** Both are
+    nodes, so both are already inside that total; what `removed` adds is the breakdown, which is
+    the whole reason `"node"` is a reserved key — a second spelling of the total would be two
+    lists that can drift, inside one model.
+    """
+    # Arrange — one chunk, one fact derived from it, one mention, and the rows they anchor.
+    chunk = _node("Chucri wrote adRAP.", source="doc-a")
+    fact = _node("Chucri wrote adRAP", source="doc-a").with_ext(
+        ExtractedFact(
+            source="Chucri",
+            source_type="person",
+            predicate="wrote",
+            target="adRAP",
+            target_type="method",
+        )
+    )
+    mention = _node("Chucri", source="doc-a").with_ext(
+        MentionedEntity(name="Chucri", entity_type="person")
+    )
+    await store.add([chunk, fact, mention])
+
+    # Act
+    removed = await store.delete_source(SourceId("doc-a"))
+
+    # Assert — the total, and the account of it.
+    assert removed.node_count == 3
+    assert removed.removed["fact"] == 1
+    assert removed.removed["mention"] == 1
+    assert removed.removed["entity"] == 2, "both endpoints of the fact were entities"
+    assert removed.removed["relation"] == 1
+    assert "node" not in removed.removed
+
+
+async def test_a_source_with_nothing_of_this_pack_s_own_reports_no_kinds(
+    store: GraphStore,
+) -> None:
+    """An empty account is a fact, and it must be *empty* rather than zeroed.
+
+    A participant reporting `fact: 0, mention: 0, entity: 0` says *"I looked and found none"* in
+    a shape indistinguishable from *"I do not count these"* once a reader is scanning a column of
+    numbers. Absent kinds are how `Removed`'s own open vocabulary says nothing of that kind was
+    there — `docs/lessons.md` L5.9, one model over.
+    """
+    # Arrange — an ordinary chunk carrying none of this pack's ext.
+    await store.add([_node("nothing derived from this", source="doc-b")])
+
+    # Act
+    removed = await store.delete_source(SourceId("doc-b"))
+
+    # Assert
+    assert removed.node_count == 1
+    assert removed.removed == {}
+
+
+async def test_the_counts_are_of_rows_this_deletion_actually_removed(store: GraphStore) -> None:
+    """Counted against what went, not against what the table held.
+
+    Two sources, one deleted: a count taken as *"how many entity rows are gone from the table"*
+    would be right here by accident and wrong the moment a second source shared an entity, which
+    is the ordinary case in any real corpus. So the arrangement is exactly that — `Chucri` is
+    mentioned by both sources and survives the first deletion.
+    """
+    # Arrange
+    shared_a = _node("Chucri", source="doc-a").with_ext(
+        MentionedEntity(name="Chucri", entity_type="person")
+    )
+    shared_b = _node("Chucri.", source="doc-b").with_ext(
+        MentionedEntity(name="Chucri", entity_type="person")
+    )
+    only_b = _node("Azouz", source="doc-b").with_ext(
+        MentionedEntity(name="Azouz", entity_type="person")
+    )
+    await store.add([shared_a, shared_b, only_b])
+
+    # Act — `doc-a` goes; `Chucri` is still supported by `doc-b`'s own mention node.
+    removed = await store.delete_source(SourceId("doc-a"))
+
+    # Assert — one mention node, and no entity, because none was orphaned.
+    assert removed.node_count == 1
+    assert removed.removed["mention"] == 1
+    assert "entity" not in removed.removed
