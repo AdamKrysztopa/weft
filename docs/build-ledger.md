@@ -6045,6 +6045,33 @@ it had read one failure (`L7.1`).
   `failed` on any machine without the matching extra. *This line said it reached `11.6` until that
   was checked: every plugin in `index-with-cooccurrence`'s chain comes from a pack with no optional
   import, so 11.6 has no such plugin at all* (`L11.6`'s shape, caught before it was acted on)
+- [x] **R11.4** every store a document names records the sources that run wrote to it, so no
+  store holds a corpus it cannot enumerate · owner `02` §1 → `SourceRecord`; `weft_cli.ingest.
+  _record_sources` · sha — · *`_store_stage_id_of` answers with the **first** stage whose contract
+  is `NodeStore`, and its own docstring called that "the one stage" — true of every document in
+  the tree until `11.5` shipped `index-with-graph`, which names two and hands each the identical
+  batch (`02` §4's *"sits beside the vector store"*, written as data). From that commit the second
+  store's `put_source` was never called on any ingest run: its nodes were written and its ledger
+  was not, so `list_sources()` answered `()` about a corpus it was holding, `reconcile` had
+  nothing to converge, and `delete_source`'s tombstone `UPDATE` touched no row. **This is ledger
+  6.24's own repaired defect, reintroduced by a document rather than by a code change** — which is
+  why no test saw it: `L6.15`'s rule is that a claim quantifying over documents anyone may write
+  is checked against the documents, and this one was checked against its own sentence.
+  **Found by running the binary at `11.7`**, from a directory that is not this repository, against
+  a real corpus and a real model, with 2,385 tests green — `kg_sources` empty, `kg_nodes` holding
+  nineteen. Node deletion still worked throughout (it matches the `sources` array, not the source
+  table), which is why the delete demonstration in the same session passed and hid it one step
+  further. **Repaired here rather than filed**, at the owner's decision and on `R11.2`'s
+  precedent, as its own commit ahead of `11.7`'s tick: it is live on `main`, it silently disarms
+  `weft reconcile` for every graph project, and `11.3` is built directly on this path.
+  `_store_stage_ids_of` is the new derivation and `_record_sources` loops over it; the singular
+  selector stays for the two callers that correctly want the primary — `_stored_count` reports one
+  number to an operator and summing two stores holding the same nodes would double it, and
+  `_recorded_sources` needs one authority for change detection rather than a merge. One
+  `indexed_at` is shared across stores so two ledgers cannot disagree by microseconds about one
+  document. The test is an **integration** test against both real stores, in the module 6.24 wrote,
+  for that module's own stated reason: *a double is what hid the defect for a whole phase.* Written
+  by me and implemented by me — smaller than its brief. Gate green, both containers up*
 
 ## Phase 10 — RAPTOR, extended
 

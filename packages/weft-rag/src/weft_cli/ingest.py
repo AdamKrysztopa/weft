@@ -449,9 +449,15 @@ async def run_index(
 
     claims = claimed_extensions(registry)
     #: `"store"`, `index_specs`'s own literal id, matches the default path unchanged; the
-    #: pipeline path below derives whichever id its document gave the one stage registered
+    #: pipeline path below derives whichever id its document gave the **first** stage registered
     #: under the `NodeStore` contract — see `_store_stage_id_of`.
     store_stage_id: str | None = "store"
+    #: **Every** store the document names, not just the first — carried repair `R11.4`. The two
+    #: are deliberately separate: reading back and counting want the primary (one authority for
+    #: change detection, one number for the operator), and *writing* the source record wants all
+    #: of them, because a store holding a corpus and no record of it is what ledger 6.24 exists
+    #: to prevent. See `_store_stage_ids_of`.
+    store_stage_ids: tuple[str, ...] = ("store",)
     resolved_pipeline: ResolvedPipeline | None = None
     if pipeline is not None:
         resolved_pipeline, specs = _specs_from_document(
@@ -459,6 +465,7 @@ async def run_index(
         )
         name = _extractor_name_of(specs, pipeline=pipeline)
         store_stage_id = _store_stage_id_of(specs)
+        store_stage_ids = _store_stage_ids_of(specs)
         accepted = _accepted_extensions(claims, registry=registry, extractor=name)
     else:
         accepted = _accepted_extensions(claims, registry=registry, extractor=extractor)
@@ -519,7 +526,7 @@ async def run_index(
         summary = await runner.run(runnable, batches(), indexing_ctx)
         await _record_sources(
             runnable,
-            store_stage_id=store_stage_id,
+            store_stage_ids=store_stage_ids,
             docs=docs,
             pipeline=pipeline,
             identity=identity,
@@ -700,18 +707,44 @@ def _store_instance_for_revisable(
 
 
 def _store_stage_id_of(specs: tuple[StageSpec, ...]) -> str | None:
-    """The id of the one stage in `specs` registered under the `NodeStore` contract, or
+    """The id of the **first** stage in `specs` registered under the `NodeStore` contract, or
     `None` if no stage is.
 
     Not mandatory the way `_extractor_name_of` is: a document that stores nowhere still
     resolves and runs, it simply has nothing for `_stored_count` to report — the identical
     "`None` only defensively" spirit `IndexResult.stored_count`'s own docstring already
     states for a store with no callable `count`.
+
+    **This said "the one stage" until carried repair `R11.4`, and a document falsified it.**
+    `index-with-graph` (ledger 11.5) names two stores, and every rung derived from it names two
+    or more; `L6.15`'s rule is that a claim quantifying over documents anyone may write is
+    checked against the documents, not against the sentence. What survives the correction is
+    that *first* is the right answer for the two callers left here — `_stored_count` reports one
+    number to an operator, and summing two stores holding the same nodes would double it, while
+    `_recorded_sources` needs one authority for change detection rather than a merge of several.
+    Writing the record is the caller that needed all of them: `_store_stage_ids_of`, below.
     """
     for spec in specs:
         if spec.contract is NodeStore:
             return spec.id
     return None
+
+
+def _store_stage_ids_of(specs: tuple[StageSpec, ...]) -> tuple[str, ...]:
+    """Every stage id in `specs` registered under the `NodeStore` contract, in document order.
+
+    Carried repair **R11.4**. `02` §4's *"sits beside the vector store"* is a document naming
+    two stores and handing each the identical batch, and from `index-with-graph` onward that is
+    a shipped arrangement rather than a hypothetical one. A source record written to only the
+    first of them leaves the second holding a corpus it cannot enumerate — `list_sources()`
+    answering `()` about nodes it is storing, which is the state ledger 6.24 repaired for the
+    one-store case and which a second store silently reopened.
+
+    Empty when no stage stores, which `_record_sources` treats exactly as `None` was treated
+    before: nothing to record, and no error, because a document that stores nowhere is a
+    document that runs.
+    """
+    return tuple(spec.id for spec in specs if spec.contract is NodeStore)
 
 
 def _accepted_extensions(
@@ -912,38 +945,58 @@ def changes_against_records(
 async def _record_sources(
     runnable: RunnablePipeline,
     *,
-    store_stage_id: str | None,
+    store_stage_ids: Sequence[str],
     docs: Sequence[SourceDoc],
     pipeline: str | None,
     identity: str = "",
 ) -> None:
-    """One `SourceRecord` per `SourceDoc` this run indexed — ledger task **6.24**'s repair of
-    the defect `02` §1 documents: nothing on the ingest path ever called `put_source`, so
+    """One `SourceRecord` per `SourceDoc` this run indexed, in **every** store it was written
+    to — ledger task **6.24**'s repair of the defect `02` §1 documents, widened by carried
+    repair **R11.4**.
+
+    6.24's own finding: nothing on the ingest path ever called `put_source`, so
     `list_sources()` answered `()` after a real `weft index` and a `reconcile --mode repair`
     pass built on it deleted a corpus it had no record of just writing.
 
-    Found the same way `_stored_count` finds the store: by the stage id `_store_stage_id_of`
-    already derived from the resolved specs' own `contract`, never by the literal `"store"`
-    id — a `--pipeline` document owes this module no naming convention. `content_hash` is over
+    **R11.4 is that finding a second time, one store over.** This took a single
+    `store_stage_id` and stopped at the first match, which was every document in the tree until
+    `index-with-graph` (ledger 11.5) named two stores and handed each the identical batch.
+    From that commit the graph store's `put_source` was never called on any ingest run: its
+    nodes were written and its ledger was not. Measured through the shipped binary on
+    2026-09-09 against a real corpus, with 2,385 tests green — the doubles in the unit suite
+    answer a question the running system could not, which is this module's own recurring
+    lesson (`docs/lessons.md` L6.14).
+
+    Found the same way `_stored_count` finds the store: by stage ids `_store_stage_ids_of`
+    derived from the resolved specs' own `contract`, never by the literal `"store"` id — a
+    `--pipeline` document owes this module no naming convention. `content_hash` is over
     `doc.content` itself, because `02` §1's purpose for the field is change detection, which a
     hash of anything else could not serve. `pipeline` is `run_index`'s own parameter — the
     name the caller gave, not a value re-derived from `resolved_pipeline` — falling back to
     `BUILT_IN_PIPELINE_NAME` on the default four-stage path, which resolves no
     `ResolvedPipeline` at all and so has no name of its own to read.
 
-    Raises whatever `put_source` raises: a source that was indexed and not recorded is the
-    exact state this task exists to end, so a failure here is not caught and continued past.
+    **One `indexed_at` for the whole run, shared across stores**, so two stores never disagree
+    by microseconds about when the same document was indexed — a difference nothing could
+    interpret and a comparison could act on.
+
+    A store with no callable `put_source` is skipped rather than fatal, and only that one: it is
+    a fact about that backend, and refusing the run because one store of several keeps no ledger
+    would make an optional capability mandatory. Otherwise this raises whatever `put_source`
+    raises — a source that was indexed and not recorded is the exact state 6.24 exists to end,
+    so a failure is not caught and continued past.
     """
-    if store_stage_id is None:
+    wanted = set(store_stage_ids)
+    if not wanted:
         return
+    name = pipeline if pipeline is not None else BUILT_IN_PIPELINE_NAME
+    indexed_at = datetime.now(UTC)
     for stage in runnable.stages:
-        if stage.id != store_stage_id:
+        if stage.id not in wanted:
             continue
         put_source = _put_source_of(stage.instance)
         if put_source is None:
-            return
-        name = pipeline if pipeline is not None else BUILT_IN_PIPELINE_NAME
-        indexed_at = datetime.now(UTC)
+            continue
         for doc in docs:
             await put_source(
                 SourceRecord(
@@ -955,7 +1008,6 @@ async def _record_sources(
                     pipeline_identity=identity,
                 )
             )
-        return
 
 
 def _aclose_of(instance: object) -> Callable[[], Awaitable[None]] | None:

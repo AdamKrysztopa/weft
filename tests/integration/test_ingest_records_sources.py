@@ -42,6 +42,7 @@ from pydantic import SecretStr
 from weft_cli.ingest import run_index
 from weft_cli.registry_bootstrap import build_dependencies
 from weft_kernel.context import Context
+from weft_kg.store import GraphSettings, GraphStore
 from weft_store.contract import SourceStatus
 from weft_store.pgvector_store import PgVectorSettings, PgVectorStore
 
@@ -196,3 +197,82 @@ async def test_a_recorded_source_names_the_pipeline_that_indexed_it(
 
     # Assert
     assert record.pipeline, "a source record with no pipeline cannot answer 'by which pipeline'"
+
+
+# --- carried repair R11.4: a document may name more than one store ------------------------
+
+
+@pytest.fixture
+async def graph_store() -> AsyncIterator[GraphStore]:
+    """The second `NodeStore` a graph document names, over its own `kg_*` schema."""
+    instance = GraphStore(GraphSettings(dsn=SecretStr(_DSN)))
+    await instance.count()  # forces schema creation through the public API
+    conn = await psycopg.AsyncConnection.connect(_DSN, autocommit=True)
+    async with conn.cursor() as cur:
+        await cur.execute("TRUNCATE kg_nodes, kg_sources, kg_entities CASCADE")
+    await conn.close()
+    yield instance
+    await instance.aclose()
+
+
+async def test_every_store_a_document_names_records_the_sources_it_was_given(
+    clean_database: None,
+    store: PgVectorStore,
+    graph_store: GraphStore,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Carried repair **R11.4**, and it is ledger 6.24's own defect reintroduced by a document.
+
+    `_store_stage_id_of` answers with the **first** stage whose contract is `NodeStore`, and its
+    docstring called that "the one stage" — true of every document in the tree until `11.5`
+    shipped `index-with-graph`, which names two. From that commit on, the second store's
+    `put_source` was never called on any ingest run: `kg_sources` stayed empty after a real
+    `weft index`, `list_sources()` answered `()`, and `reconcile` had nothing to converge — the
+    precise state `docs/lessons.md` L6.14 records a `reconcile --mode repair` pass deleting a
+    corpus from. Measured through the shipped binary on 2026-09-09, on a real corpus, with
+    2,385 tests green.
+
+    **An integration test against both real stores, deliberately** — this module's own docstring
+    gives the reason and it is the reason again: *"a double is what hid the defect for a whole
+    phase; it answered a question the running system could not."* A unit test with two store
+    doubles would have passed against a `_record_sources` that wrote to neither.
+
+    **Asserted through `list_sources()` on each store, not by counting `put_source` calls.**
+    What a caller needs is that each store can answer *what should exist*; how many times a
+    method was called is a fact about this implementation, and `L9.39`'s rule is that a
+    behavioural property is asserted through the seam a caller uses.
+    """
+    # Arrange — `[packs.graph] dsn` is written rather than exported: this pack is offered no
+    # ambient setting, which is what its own refusal message says.
+    del clean_database
+    monkeypatch.setenv("WEFT_DATABASE_URL", _DSN)
+    (tmp_path / "weft.toml").write_text(
+        '[packs.store]\ndsn = "${env:WEFT_DATABASE_URL}"\n\n'
+        '[packs.graph]\ndsn = "${env:WEFT_DATABASE_URL}"\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "fox.txt").write_text("The quick brown fox jumps over the lazy dog.")
+    deps = build_dependencies(config_path=tmp_path / "weft.toml")
+
+    # Act — `index-with-graph`, the first shipped document to name two stores.
+    await run_index(
+        tmp_path,
+        registry=deps.registry,
+        ctx=_ctx(),
+        pipeline="index-with-graph",
+        reports=deps.reports,
+    )
+
+    # Assert — both stores hold the run's own record, and they agree about which source it was.
+    primary = await store.list_sources()
+    secondary = await graph_store.list_sources()
+    assert len(primary) == 1, "the primary store's own record is 6.24's property, unchanged"
+    assert len(secondary) == 1, (
+        "the second store a document named holds no source record. Its nodes were written and "
+        "its ledger was not, so `list_sources()` answers `()` about a corpus it is holding — "
+        "which is exactly the state ledger 6.24 repaired for the one-store case."
+    )
+    assert {record.id for record in secondary} == {record.id for record in primary}
+    assert secondary[0].pipeline == "index-with-graph"
+    assert secondary[0].status is SourceStatus.ACTIVE
