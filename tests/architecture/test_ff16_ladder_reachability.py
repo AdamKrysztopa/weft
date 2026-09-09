@@ -120,9 +120,7 @@ _PLACEHOLDER_STORE_SETTINGS: Final[Mapping[str, Mapping[str, object]]] = {
 #: and that inference held only while installing a store pack was a deliberate act. G19 ended
 #: that premise. Filed as a carried repair; when it lands, this entry goes and `index-qdrant`
 #: comes back.
-POSITIONS_WAIVED_FROM_THE_LADDER: Final[frozenset[tuple[str, str]]] = frozenset(
-    {("NodeStore", "qdrant")}
-)
+POSITIONS_WAIVED_FROM_THE_LADDER: Final[frozenset[tuple[str, str]]] = frozenset()
 
 
 def _reports() -> tuple[PackReport, ...]:
@@ -216,23 +214,27 @@ def _unreachable(
 
 #: What the waiver is allowed to hold, written out separately so the ratchet compares two sets
 #: rather than asserting a size. Adding a pair to the waiver without adding it here fails.
-_DOCUMENTED_WAIVER: Final[frozenset[tuple[str, str]]] = frozenset({("NodeStore", "qdrant")})
+_DOCUMENTED_WAIVER: Final[frozenset[tuple[str, str]]] = frozenset()
 
 
 def test_the_waiver_names_only_what_it_documents() -> None:
-    """**Was pinned empty until 2026-09-09**, and the one entry it now holds arrived the way this
-    ratchet is written to make an entry arrive: as a fact about what can be run, measured, with
-    the repair that deletes it filed.
+    """**Empty again as of 2026-09-09, and the one entry it ever held is gone the way a waiver is
+    supposed to go — by the repair that was filed against it landing.**
 
-    `("NodeStore", "qdrant")` is waived because a shipped pipeline naming a store enters
-    `weft_cli.participation.stores_in_use`, which reads the whole contributed catalogue — so the
-    rung that would satisfy this check for `qdrant` also makes every unrelated project connect to
-    Qdrant on `weft delete` and on `weft index`'s repair pass. That is not a hypothesis: the rung
-    was written, registered, and reverted when CI failed with *"failed: qdrant (weft-rag) —
+    `("NodeStore", "qdrant")` was waived on 2026-09-09 because a shipped pipeline naming a store
+    entered `weft_cli.participation.stores_in_use`, which read the whole contributed catalogue —
+    so the rung that satisfied this check for `qdrant` also made every unrelated project connect
+    to Qdrant on `weft delete` and on `weft index`'s repair pass. That was never a hypothesis: the
+    rung was written, registered, and reverted when CI failed with *"failed: qdrant (weft-rag) —
     ResponseHandlingException: All connection attempts failed"* and the README's own quickstart
-    stopped working. **Carried repair `R11.2` deletes this entry**, by narrowing `stores_in_use`
-    to the stores a project actually uses rather than every store a shipped document names — an
-    inference that held only while installing a store pack was a deliberate act, which `G19` ended.
+    stopped working (`docs/lessons.md` `L11.21`).
+
+    **Carried repair `R11.2` deleted it the same day.** `stores_in_use`'s subject is now the
+    project's *own* documents and the ancestors they derive from, never every document the
+    installed set contributes, so `index-qdrant` is shipped and routable again and names a store
+    nobody who has not asked for it will ever be connected to. The entry is removed rather than
+    renewed; `test_the_waiver_is_live_rather_than_decorative` below is what proves the sweep
+    genuinely reports nothing now, rather than having stopped looking.
     """
     assert _DOCUMENTED_WAIVER == POSITIONS_WAIVED_FROM_THE_LADDER, (
         "POSITIONS_WAIVED_FROM_THE_LADDER no longer matches what is documented above. A waiver "

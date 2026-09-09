@@ -628,6 +628,138 @@ markers skip on which service (`WEFT_QDRANT_URL` is named there), so the expecte
 derivable rather than pinned by hand. `recurs L7.8`; `recurs L11.11`, which is this file already
 recording that the shrink detector is covered by no test of its own.
 
+### L11.23 — the fan-out's store filter keys on one contract, and a class under two escapes it
+
+**What happened.** `weft_cli.fanout.participants_for` narrows `NodeStore` to `store_names` with
+`if contract is NodeStore:` and nothing else. It walks contracts in `__qualname__` order and
+deduplicates participants **by class**. So a class registered under `GraphTraversal` *and* under
+`NodeStore` is reached first as a `GraphTraversal` — `G` sorts before `N` — joins the fan-out
+there, and the `NodeStore` registration that would have met the filter is then dropped as a
+duplicate. The store filter is never consulted at all, and the pack is a participant in every
+project whether or not anything names it. Found while deciding whether `weft_kg` registers one
+class under two contracts or two classes under one each, which is a choice nothing in the tree had
+had to make before: no first-party class is registered under two contracts today, so the check that
+would have caught it has never had a subject.
+
+**Generalises to.** A filter written as *"this contract is special"* is a claim about the
+**participant**, enforced against the **contract it happened to be found under**. The two come
+apart the moment one plugin answers to more than one contract — and fitness function 18 forbids one
+*name* under two contracts while saying nothing about one *class* under two names, which is exactly
+the gap. The narrowing G13 argued for is about which backends a project connects to; deciding it
+from whichever contract sorted first is deciding it by alphabet.
+
+**Candidate home.** `weft_cli.fanout.participants_for`: apply `store_names` to the participant
+rather than to the contract — if the class is registered under `NodeStore` at all, every name it
+holds there must be in `store_names` for it to join, whatever contract found it first. A fitness
+function is the alternative and is weaker: it would assert that no class is registered under two
+contracts, which is a rule this project has no reason to want. `recurs L6.4` — a filter means what
+its live population says, and this one has had a population of zero since it was written.
+
+### L11.24 — the plan allocated a fitness-function numeral three phases before the file, and a phase in between took it
+
+**What happened.** `01` → Phase 11's *Fitness function this phase turns on* bullet says *"Fitness
+function **21**'s three clauses applied to `weft-kg` … `tests/architecture/
+test_ff24_graph_is_an_ordinary_pack.py`"*, and ledger `11.5`'s *turns on* field says `FF24`. But
+`tests/architecture/test_ff24_no_bytes_in_a_node.py` has held that numeral since **task 9.5**, and
+`01`'s own numbered list at item 24 reads *"Bytes never enter a node"*. Two documents disagree
+about what 24 is, and the one that is wrong is the one that wrote the numeral down in **2026-09-06**
+for a task nobody would reach until three phases later. FF0(b)'s rule — *"numbered and filed by the
+task that makes it true"* — is precisely the rule that would have prevented it, and the Phase 11
+bullet quotes that rule directly above the numeral it then hard-codes anyway.
+
+**Generalises to.** A numeral is a claim on a shared namespace, and the moment of *planning* is not
+the moment of *claiming* — the namespace keeps being allocated in between. This is `L11.19`'s
+namespace rule one register down: there the registry was PyPI and the gap was three days; here it
+is this repository's own `tests/architecture/` and the gap is three phases. Both were checkable
+with one lookup at the moment of writing, and neither was checked because a plan feels like a place
+where nothing is being taken yet.
+
+**Candidate home.** A fitness function's own territory: assert that every numeral `01` → *Phases*
+attributes to a named future file agrees with the numeral that file's own directory holds, so a
+plan cannot name a numeral a shipped check already has. The cheaper half is a sentence in
+`phase-step` → *Orient* — a phase bullet naming an unallocated FF number states a **property** and
+the numeral is filled in by the task that files it — but `L9.15` already says that in `01` and it
+did not bite, so a prose repair is the weaker answer here. `recurs L9.15`; `recurs L11.19`.
+
+### L11.25 — the session that changed the install wrote down what the install now does, without resolving it
+
+**What happened.** `G19` folded the six add-on distributions into the `weft-rag` wheel behind
+extras, and wrote the consequence into `02` §4 the same day: *"the graph pack's code ships inside
+the `weft-rag` wheel and only `psycopg` — its outside library — is optional, behind the `graph`
+extra."* `weft-rag` has declared `psycopg[binary]>=3.2` and `pgvector>=0.3` among its **core**
+`dependencies` since that same session — they are `weft_store`'s pgvector backend, and the file's
+own comment argues at length that they must never be an extra, because *"an extra that everything
+defaults to needing is a footgun with a flag on it."* So `weft-rag[graph]` would install nothing
+that `weft-rag` does not, ledger `11.5`'s clause *"reports `failed` naming its missing library when
+the extra is absent"* has no absent case to construct, and `01` → Phase 11's *Read* bullet points
+at an install line that cannot mean what it says. Found at the first task obliged to actually build
+the extra, three commits later.
+
+**Generalises to.** `phase-step` → *Orient* already says *"when a decision names something that will
+be installed, install it and run one real input through it"*, and every instance recorded under it
+is about a **third party's** library. This is the same rule turned inward: an extra of one's own is
+also an installation, and `weft-rag[graph]` resolving to exactly `weft-rag` is a fact one
+`uv pip install` — or one read of the `dependencies` list eleven lines up — would have produced. A
+session that changes packaging is the session least able to check its own claims about packaging
+from memory, because the memory is of the layout it just replaced.
+
+**Candidate home.** `phase-step` → *Orient*'s installation rule, widened by one clause: an **extra
+this repository declares** is checked against this repository's own core dependency list at the
+moment it is named, because an extra whose contents are already unconditional is a knob that does
+nothing — which `packages/weft-rag/pyproject.toml`'s own comment already refuses for `agent`, in
+those words, in the same file. `recurs L6.33`; `recurs L11.19`.
+
+### L11.26 — `plugins doctor` holds the reason and the refusal that needs it never asks
+
+**What happened.** `02` §2 → *The trust model* promises that a pipeline naming a plugin from a pack
+that failed is refused *"with its reason attached"*. Measured from outside this repository, in one
+project, one process: `weft plugins doctor` prints *"qdrant (weft-rag) 2.3.0: failed (0
+contributed) / reason: No module named 'qdrant_client'"*, and `weft index corpus --pipeline
+index-qdrant` prints *"stage 'store' names plugin 'qdrant', which no installed distribution
+registered under any contract"* followed by all 110 names that **are** registered. The reason is
+sitting on a `PackReport` the process already built; the message that needed it lists everything
+except it, and the one action an operator could take — install the extra — is the one thing not
+said. `weft_cli.registry_bootstrap.require_plugin` does attach it, and only for a name in
+`[services]`: the promise was built on that path and reads as if it covered both.
+
+**Generalises to.** A guarantee written once over *"a pipeline naming a plugin"* has as many
+implementations as there are paths that resolve a name, and only the path the author had in mind
+gets it. This is `phase-step`'s own rule — *a claim about what code does is checked against its
+callers* — applied to a claim in a **document** about a class of call sites rather than to one
+function: `require_plugin` genuinely does what `02` says, and `02` says it about a population
+`require_plugin` does not cover. The document was true of its first instance and never re-read
+against its second.
+
+**Candidate home.** Filed as carried repair `R11.3`, which is where the fix goes. The *lesson's*
+home is `weft-qualities` → the loud-failure lens: when a document promises a refusal carries a
+fact, enumerate the paths that raise that refusal and check each one, because "unresolvable" has
+more than one raise site and only one of them was built against the sentence. `recurs L5.15` — the
+producing side (`PackReport.reason`) exists and one of its two consuming sides was never wired.
+
+### L11.27 — I told the implementer the gate was red "only on those two files" from a truncated read
+
+**What happened.** The brief for `R11.2`'s green phase said *"`uv run poe ci-no-tests` is currently
+RED, and only on those two test files — 26 pyright errors, every one of them `No parameter named
+"project"` / `Argument type is unknown` against the API you are about to write."* I had run the
+gate, and I had read its output through `tail -25`. The 27th error was a
+`reportPrivateUsage` on an import **I** had written, it was above the fold, and it was orthogonal
+to everything the brief described. The implementer implemented the brief exactly, could not get
+green, and came back blocked — correctly — having spent a dispatch discovering a fact I had told it
+was not there. Its `## Noticed` section is what surfaced it.
+
+**Generalises to.** A count is evidence; a count plus the word *"every"* is a claim about the part
+of the output you did not read. `tail -n` on a gate run is a sampling decision, and the failure it
+hides is by construction the *first* one — which, for a checker that stops at the first subtask,
+is often the only one that is not a consequence of the others. `CLAUDE.md`'s standing rule is
+*measure before asserting*; the sharper form is that a quantified claim needs the whole population
+in view, and a pager is not the whole population.
+
+**Candidate home.** `implementer-brief.md`'s *Before you send* checklist, one line: the red state a
+brief describes is quoted from a **complete** gate run, not from its tail — and where the brief
+says "only", the count in the brief and the count in the log must be the same number, read from the
+log. `recurs L10.24`, whose whole shape is a verdict swallowed by how it was read; `recurs L5.6`
+one level out — here the two sides were my summary and the log, and only one was consulted.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

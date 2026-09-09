@@ -80,7 +80,9 @@ named document has made.
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import Mapping
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import ClassVar, Final, cast
 
@@ -96,8 +98,13 @@ from weft_cli.fanout import Participant
 from weft_cli.ingest import INDEX_PACKS, SourceChange, run_index
 from weft_cli.installed_versions import installed_versions
 from weft_cli.output import AskFormat
-from weft_cli.participation import load_run_records, stores_in_use
-from weft_cli.pipeline_catalogue import declared_slot_ids, full_catalogue
+from weft_cli.participation import DEFAULT_INDEX_RUNS_DIR, load_run_records, stores_in_use
+from weft_cli.pipeline_catalogue import (
+    DEFAULT_PIPELINES_DIR,
+    declared_slot_ids,
+    full_catalogue,
+    load_pipeline_catalogue,
+)
 from weft_cli.pipeline_commands import register_pipeline_commands
 from weft_cli.preview import run_render
 from weft_cli.reconcile import (
@@ -120,6 +127,7 @@ from weft_cli.tracing_status import describe_tracing
 from weft_command.contract import Command, CommandResult
 from weft_command.permission import PermissionClass
 from weft_embed import Embedder
+from weft_eval.run_record import build_run_record, corpus_identity, write_run_record
 from weft_extract import Extractor
 from weft_extract.payload import Rendition
 from weft_generate.payload import Answer
@@ -293,17 +301,20 @@ def _raise_for_plugin_refusal(refusal: PluginRefusal | None) -> None:
 
 def _stores_in_use(deps: Dependencies) -> frozenset[str]:
     """Every `NodeStore` name `weft delete`/`weft reconcile` must reach — task **6.18**, G13's
-    first repair (`docs/02-extension-model.md` §1 → *Extended by G13*): the configured
-    `[services] store`, plus every `NodeStore` named by a pipeline in the project's catalogue or
-    by a persisted run record. One helper for all three call sites — `DeleteCommand._targets`,
-    `ReconcileCommand._targets` and `IndexCommand._auto_reconcile` — so the prompt, the run and
-    the automatic post-index pass cannot disagree about who participates.
+    first repair (`docs/02-extension-model.md` §1 → *Extended by G13*), narrowed by carried
+    repair **R11.2**: the configured `[services] store`, plus every `NodeStore` reachable from a
+    project's *own* pipeline documents — including through their `extends:` chains — or named by
+    a persisted run record, from either `weft eval run` or `weft index`. One helper for all
+    three call sites — `DeleteCommand._targets`, `ReconcileCommand._targets` and
+    `IndexCommand._auto_reconcile` — so the prompt, the run and the automatic post-index pass
+    cannot disagree about who participates.
     """
     return stores_in_use(
         configured=deps.services.store,
         registry=deps.registry,
+        project=load_pipeline_catalogue(DEFAULT_PIPELINES_DIR),
         catalogue=full_catalogue(reports=deps.reports),
-        records=load_run_records(DEFAULT_RUNS_DIR),
+        records=load_run_records(DEFAULT_RUNS_DIR) + load_run_records(DEFAULT_INDEX_RUNS_DIR),
     )
 
 
@@ -707,6 +718,23 @@ class IndexCommand:
             services=deps.services,
             roles=deps.roles,
         )
+        if result.resolved_pipeline is not None:
+            # Carried repair R11.2's second half: `stores_in_use`'s run-record source only ever
+            # sees a store a `--pipeline` run named if this run wrote one down. `model_versions`
+            # is deliberately left at its default — the derivation lives in
+            # `weft_cli.eval_commands._model_versions`, is private to that module, and reaches
+            # only `_incomparable_reasons`, which an index record never does; copying it here
+            # to fill a field nothing reads would be a second implementation of it. The default
+            # four-stage path resolves no document, so it writes nothing: `RunRecord.
+            # resolved_pipeline` is mandatory, and the only store that path writes to is
+            # `[services] store`, which `stores_in_use` already counts unconditionally.
+            record = build_run_record(
+                recorded_at=datetime.now(UTC).isoformat(),
+                resolved_pipeline=result.resolved_pipeline,
+                corpus=corpus_identity(index_args.path, result.document_ids),
+                reports=deps.reports,
+            )
+            write_run_record(record, DEFAULT_INDEX_RUNS_DIR / f"{uuid.uuid4()}.json")
         reconcile_result = await self._auto_reconcile(index_args.reconcile, deps=deps, ctx=ctx)
         return Produced(
             value=IndexCommandResult(

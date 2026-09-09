@@ -404,6 +404,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     # no document did, so nobody arriving at Weft could see that it could.
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/raptor-and-leaves-rrf.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/broad-and-refined-rrf.yaml")
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-qdrant.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-pdf-text.yaml")
 
     # **Phase 8 — the ladder.** Everything below this line is the same one-line contribution

@@ -5958,7 +5958,7 @@ it had read one failure (`L7.1`).
   If a *real* figure ever fails to crop, that is a different case and it will raise as it always
   did
 
-- [ ] **R11.2** the stores a `weft delete` or a repair pass connects to are the stores the project
+- [x] **R11.2** the stores a `weft delete` or a repair pass connects to are the stores the project
   **uses**, not every store some shipped pipeline names · owner `weft_cli.participation.
   stores_in_use`; `02` §1 → *Extended by G13* (task 6.18) · `L11.21` · **found by CI at G19's fold,
   after a local gate had been green on it.** `stores_in_use` widens the participant set from the
@@ -5977,6 +5977,70 @@ it had read one failure (`L7.1`).
   project's* pipelines — its default, and what its own documents derive from — rather than every
   document the installed set contributes; that is a design question, which is why this is a repair
   and not an edit
+  · **done 2026-09-09, before `11.5` rather than after it, because it turned out to be blocking.**
+  `weft_store.contract.NodeStore` inherits `Stage`, so fitness function 16 counts a registered
+  store as a **pipeline position** and requires a shipped document to name it — which means the
+  graph pack cannot register a `NodeStore` at `11.5` without either shipping the document that
+  breaks every project or growing the waiver this repair exists to delete. The design question was
+  put to the owner rather than defaulted, and both halves were answered there: the narrowing is
+  *the project's own documents plus the ancestors they derive from*, and the hole that leaves is
+  closed by `weft index` writing a run record of its own. **The narrowing.** `stores_in_use` gains
+  a `project` parameter and that is now its subject; `catalogue` survives for exactly one purpose,
+  resolving a parent's name while `_stage_names_from_ancestors` walks an `extends:` chain. A parent
+  name neither mapping holds **stops that branch rather than raising** — a document whose `extends:`
+  names nothing cannot resolve at all, `UnknownParentPipelineError` refuses it by name on every
+  command that resolves one, `weft delete` resolves none, and refusing a deletion over an unrelated
+  broken document would reap *nothing* rather than too little. Visited names are tracked, because a
+  cycle is refused by everything that *resolves* a document and this walk resolves none.
+  **The hole, and it was a measurement rather than a worry**: the run-history source was read by
+  two commands and written by exactly one, `weft eval run` — `L5.15`'s producing-side/consuming-side
+  shape with the sides swapped — so a project that ran a contributed rung and wrote no document of
+  its own had no evidence it used that rung's store at all. `weft index` now writes a `RunRecord`
+  under **`runs/index/`**, a directory `runs/*.json` cannot see: `weft eval compare` selects a
+  baseline's repetitions as every run whose `resolved_pipeline.name` matches and then asks
+  `baseline_spreads` for their spreads, and an index run measures nothing, so beside the eval
+  records it would have been selected as a repetition that cannot answer. `model_versions` is
+  deliberately unfilled and the call site says why; the default four-stage path writes nothing,
+  because it resolves no document and its only store is `[services] store`, counted
+  unconditionally. **`_all_run_records` became public** so the check that an index record is
+  invisible asks `weft eval compare`'s own reader rather than a second `*.json` glob written beside
+  it — `capability_siblings`' stated precedent, *"public since a second caller arrived"*.
+  **Written by me for the tests and the FF16 half, dispatched for the two modules**; the
+  implementer came back **blocked and was right** — my own test imported `_all_run_records`, and
+  pyright's `reportPrivateUsage` refuses that under `strict`, which is what forced the visibility
+  question into the open instead of leaving it as a test-only reach-in.
+  **Ran the binary from outside the repository, against built wheels, with Qdrant stopped and
+  `qdrant-client` installed — the exact CI condition, not a weaker one.** My first attempt *was*
+  the weaker one and it proved nothing: without the extra, `qdrant` never registers, so
+  `stores_in_use ∩ names_for(NodeStore)` excludes it whatever this repair does. With the pack
+  `active` and the service down: `weft pipeline list` shows `index-qdrant`, `weft index corpus`
+  exits **0** naming **one** participant, and `weft delete <source>` exits **0** naming one — where
+  before both exited 1. The control disagrees for the right reason: drop
+  `pipelines/mine.yaml` carrying `extends: index-qdrant` into the project and the same
+  `weft delete` names **two**, *"qdrant (weft-rag): failed"*, exit 1 — which is correct, because
+  that project asked for it. `runs/index/` holds one record after `--pipeline` and none after the
+  default path, and `runs/*.json` is empty. Gate `GATE_EXIT=0` read out of the run's own log with
+  both containers up: 269 architecture, 2292 passed, 9 skipped, 127 examples — eight more than
+  `11.4`'s 2284, which is this repair's eight tests and no shrink
+- [ ] **R11.3** a pipeline document naming a plugin whose pack **failed** is refused with that
+  pack's reason attached · owner `02` §2 → *The trust model*; `weft_kernel.registry.
+  UnknownPluginError`; `weft_cli.registry_bootstrap.require_plugin` · `L11.26` · `02` promises it
+  in as many words — *"A pipeline naming a plugin from a `refused` pack exits 3... A name provided
+  by no pack at all stays 4... with its reason attached"* — and `require_plugin` delivers it for a
+  name in `[services]`, which is the path that promise was built on. A name inside a **document**
+  reaches `weft_kernel.registry` instead and gets none of it. **Measured 2026-09-09 from outside
+  this repository, on one process**: `weft plugins doctor` prints *"qdrant (weft-rag) 2.3.0:
+  failed (0 contributed) / reason: No module named 'qdrant_client'"*, and
+  `weft index corpus --pipeline index-qdrant` in the same project prints *"stage 'store' names
+  plugin 'qdrant', which no installed distribution registered under any contract"* followed by all
+  110 other names — the reason `doctor` is holding is not attached, and the one thing an operator
+  can act on (install the extra) is the one thing the message does not say. **Filed rather than
+  fixed here** because the remedy is a choice this repair may not take: the reason lives on a
+  `PackReport` that `weft_kernel.registry` cannot see without the kernel learning about packs, so
+  it is either a translation at the `weft-cli` seam that catches `UnknownPluginError` on the
+  document path, or `require_plugin`'s check extended to every name a resolved document uses.
+  **It reaches `11.6` directly**: that task ships the first rung naming a plugin from a pack an
+  operator may not have installed
 
 ## Phase 10 — RAPTOR, extended
 

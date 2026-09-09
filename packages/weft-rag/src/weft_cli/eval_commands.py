@@ -605,11 +605,19 @@ def _run_ids(directory: Path) -> tuple[str, ...]:
     return tuple(sorted(path.stem for path in directory.glob("*.json")))
 
 
-def _all_run_records(directory: Path = DEFAULT_RUNS_DIR) -> tuple[tuple[str, RunRecord], ...]:
+def all_run_records(directory: Path = DEFAULT_RUNS_DIR) -> tuple[tuple[str, RunRecord], ...]:
     """Every run id and the `RunRecord` it holds, under `directory` — sorted by run id.
 
     Task 8.8's own reader: `weft eval compare --baseline` finds a baseline's repetitions among
     exactly the ordinary runs `weft eval run` already writes, no second file format.
+
+    **Public since carried repair R11.2, when a second caller arrived** — `weft_cli.
+    capability_siblings`' own precedent, for the identical reason. `weft index` now persists a
+    run record of its own, and it must never be selectable as a baseline repetition: it
+    measures nothing, so `metrics` is `{}` and `weft_eval.falsify.baseline_spreads` would have
+    no spread to read. The check that it is invisible has to ask *this* function which runs
+    `weft eval compare` considers; a second `*.json` glob written beside it could come to
+    disagree, and the check would then be reporting on the wrong set.
     """
     if not directory.is_dir():
         return ()
@@ -813,7 +821,7 @@ def _falsify_against_baseline(
     by construction), and lets `weft_eval.falsify.baseline_spreads`'s own
     `TooFewRepetitionsError` propagate unchanged for a baseline run only once.
     """
-    all_records = _all_run_records()
+    all_records = all_run_records()
     repetitions = tuple(
         (run_id, record)
         for run_id, record in all_records

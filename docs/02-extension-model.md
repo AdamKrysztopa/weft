@@ -832,9 +832,35 @@ class MetadataFilter(Protocol): ...                # marker: supports the whole 
 > from every document that also never ran is out of the fan-out — visible in `weft delete`'s own
 > participant list, which names who was asked.
 >
-> **Built at task 6.18 (2026-08-22).** `weft_cli.participation.stores_in_use` computes the set —
-> the configured name, plus every stage name in `full_catalogue` or in a persisted `RunRecord`
-> that is registered under `NodeStore` — and `weft_cli.fanout.participants_for` filters
+> > **Narrowed again by carried repair `R11.2` (2026-09-09), and the phrase that moved is *"in the
+> > project's catalogue"*.** It meant `weft_cli.pipeline_catalogue.full_catalogue` — every
+> > project-local document **plus every document every installed pack contributes** — which rested
+> > on an inference the sentence never stated: that a store named by a shipped pipeline is a store
+> > this project uses. That held only while installing a store pack was a deliberate act. **G19**
+> > folded `weft-qdrant` into the `weft-rag` wheel, so every install now carries it, and the moment
+> > a shipped `index-qdrant` document named `qdrant` every unrelated project acquired a Qdrant
+> > participant: `weft index corpus` exited **1** on a clean machine with *"failed: qdrant
+> > (weft-rag) — ResponseHandlingException"*, and the README's own quickstart stopped working
+> > (`docs/lessons.md` `L11.21`). **The rule reads: the configured `[services] store`, plus every
+> > `NodeStore` named by one of the project's *own* documents or by any ancestor those documents
+> > derive from, plus every `NodeStore` a persisted run record resolved.** A rung an installed pack
+> > contributes and nothing in the project derives from names no store this project uses. The
+> > `extends:` clause is what keeps the narrowing honest: a project document may add one stage and
+> > inherit its store from the shipped rung above it, and missing that store is the silent orphan
+> > this whole extension exists to prevent.
+> >
+> > **And the run history gained the writer it always needed.** The third source was read by two
+> > commands and written by exactly one — `weft eval run` — so a project that indexed with
+> > `weft index --pipeline <a contributed rung>` and wrote no document of its own had no evidence
+> > at all that it used that rung's store. `weft index` now persists a `RunRecord` of its own under
+> > `runs/index/`, a directory `runs/*.json` cannot see, because an index run measures nothing and
+> > must never be selected as a baseline repetition by `weft eval compare`.
+>
+> **Built at task 6.18 (2026-08-22), narrowed at `R11.2` (2026-09-09).**
+> `weft_cli.participation.stores_in_use` computes the set — the configured name, plus every stage
+> name in one of the project's own documents, in an ancestor those documents derive from, or in a
+> persisted `RunRecord`, that is registered under `NodeStore` — and
+> `weft_cli.fanout.participants_for` filters
 > `NodeStore` down to that set rather than to one name, for `weft delete` and `weft reconcile`
 > alike, since both read the same walk and must not disagree about who participates. The set is
 > unordered and nothing here makes the configured store lead the list: `[services]` chooses

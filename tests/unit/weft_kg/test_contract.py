@@ -140,7 +140,11 @@ def test_the_contract_is_not_a_stage_where_an_extractor_is() -> None:
     other side is what makes this non-vacuous: the two answers differ, so the check can fail.
     """
     # Arrange — `getattr` with a default is this tree's settled way to read a Protocol's own
-    # dunders under a type checker; `tests/unit/weft_chunk/test_contract.py:163` is the precedent.
+    # dunders under a type checker. The precedent is `weft_chunk`'s own
+    # `test_chunker_publishes_a_property_vocabulary`, which has read `__protocol_attrs__` that
+    # way since Phase 1 — named by its function rather than by a `path:line`, because a line
+    # number in a file called `test_contract.py`, cited from a file also called
+    # `test_contract.py`, is the ambiguous pointer fitness function 17 clause (b) refuses.
     from weft_extract.contract import Extractor
 
     # Act
