@@ -1,0 +1,20 @@
+name: index-with-graph
+extends: index-text
+
+# `docs/02-extension-model.md` §4's own table, written as data: "Graph store | NodeStore | ...
+# Sits beside the vector store." `pgvector-graph` is inserted right after the ordinary store
+# stage, so the identical batch `index-text` hands `store` reaches this one too — a document
+# naming both is what makes them two ordinary stages over the same nodes, never one store
+# quietly standing in for the other.
+#
+# **This is also the document that makes `weft delete` and `weft reconcile` reach `weft_kg` at
+# all** — fitness function 16: a registered `NodeStore` is a pipeline position, and a position
+# no shipped document names is a rung with no floor. Participation in the fan-out follows use:
+# nothing runs `pgvector-graph` until a document like this one names it.
+#
+# **Shipped by `weft_kg` and not by `weft_retrieve`, deliberately** — fitness function 28(c)
+# forbids any other pack in the wheel naming a plugin this one registers, and `weft_retrieve`
+# shipping this document would be exactly that.
+insert:
+  - after: store
+    stage: {id: graph-store, use: pgvector-graph}

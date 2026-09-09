@@ -13,6 +13,7 @@ from weft_command.contract import Command, Rendered
 from weft_enhance.contract import Enhancer
 from weft_kernel.discovery import PackRegistrar
 from weft_kernel.registry import DuplicateRegistrationError, Registry, unwrap_factory
+from weft_kg.contract import GraphTraversal
 from weft_retrieve.contract import Retriever
 from weft_store.contract import NodeStore, Reconcilable, SourceDeletable
 
@@ -24,7 +25,7 @@ def test_settings_construct_with_zero_arguments() -> None:
     weft_example_graph.Settings()
 
 
-def test_register_contributes_five_plugins_across_four_contracts() -> None:
+def test_register_contributes_six_plugins_across_five_contracts() -> None:
     # Arrange
     registry = Registry()
     registrar = PackRegistrar(registry, distribution="weft-example-graph")
@@ -33,13 +34,48 @@ def test_register_contributes_five_plugins_across_four_contracts() -> None:
     weft_example_graph.register(registrar, weft_example_graph.Settings())
     registrar.commit()
 
-    # Assert — four contracts named directly by an `.add()` call: Enhancer, NodeStore,
-    # Retriever, and Command (twice, for "example-graph build"/"example-graph show").
-    assert registrar.contributed == 5
+    # Assert — five contracts named directly by an `.add()` call: Enhancer, NodeStore,
+    # Retriever, GraphTraversal, and Command (twice, for "example-graph build"/"example-graph
+    # show"). **GraphTraversal is the fifth and it arrived at weft's ledger task 11.5**: that
+    # contract is published by `weft_kg` and implemented first-party by exactly one class, which
+    # is the shape a stranger has to disprove — fitness function 9(c) requires every published
+    # contract to have an implementation living outside the repository that published it, and
+    # this pack is it. `ExampleGraphWalk` reaches the same contract over a different data model,
+    # its entities being names rather than rows, which is what makes it evidence rather than a
+    # second copy.
+    assert registrar.contributed == 6
     assert set(registry.names_for(Enhancer)) == {"example-graph-entities"}
     assert set(registry.names_for(NodeStore)) == {"example-graph"}
     assert set(registry.names_for(Retriever)) == {"example-graph-walk"}
+    assert set(registry.names_for(GraphTraversal)) == {"example-graph-traversal"}
     assert set(registry.names_for(Command)) == {"example-graph build", "example-graph show"}
+
+
+def test_the_traversal_is_not_registered_as_a_store() -> None:
+    """The walk is its own class and answers to `GraphTraversal` alone.
+
+    `weft_cli.fanout.participants_for` deduplicates participants by class and applies its
+    `NodeStore` narrowing only to the `NodeStore` contract, so a class answering to both would
+    join every project's deletion fan-out through whichever contract sorted first, with the
+    store filter never consulted. Weft's own graph pack keeps two classes for this reason; a
+    stranger that collapsed them would be demonstrating the defect rather than the contract.
+    """
+    # Arrange
+    registry = Registry()
+    registrar = PackRegistrar(registry, distribution="weft-example-graph")
+    weft_example_graph.register(registrar, weft_example_graph.Settings())
+    registrar.commit()
+
+    # Act
+    walk = unwrap_factory(registry.entry(GraphTraversal, "example-graph-traversal").factory)
+    store = unwrap_factory(registry.entry(NodeStore, "example-graph").factory)
+
+    # Assert — asked as `hasattr` on the class rather than `issubclass` against the Protocol:
+    # `SourceDeletable` carries a non-method `version`, which a type checker refuses in an
+    # `issubclass` call, and the fact under test is simply that the walk has no `delete_source`
+    # for a deletion fan-out to find.
+    assert walk is not store
+    assert not hasattr(walk, "delete_source")
 
 
 def test_source_deletable_and_reconcilable_arrive_with_no_extra_add_call() -> None:

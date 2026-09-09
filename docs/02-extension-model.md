@@ -2079,19 +2079,33 @@ The graph pack, complete:
 Install:
 
 ```bash
-uv add 'weft-rag[graph]'
+uv add weft-rag
 weft pipeline derive kg --from base --insert-after chunk graph.entities
 weft index ./docs --pipeline kg
 ```
 
 > **This read `uv add weft-kg` until 2026-09-09, and the change is the wrapper rather than the
 > claim.** **G19** settled that Weft publishes under two names, so the graph pack's code ships
-> inside the `weft-rag` wheel and only `psycopg` — its outside library — is optional, behind the
-> `graph` extra. Everything this section demonstrates is unaffected: the pack still registers
-> through the one `weft.packs` entry point, still contributes into a slot, still changes no core
-> line, and a **third party** still publishes their own distribution and installs beside. That last
-> point is what made the fold safe — entry-point discovery has never asked which wheel a pack
-> arrived in, so this worked example is about a mechanism, not about a filename.
+> inside the `weft-rag` wheel. Everything this section demonstrates is unaffected: the pack still
+> registers through the one `weft.packs` entry point, still contributes into a slot, still changes
+> no core line, and a **third party** still publishes their own distribution and installs beside.
+> That last point is what made the fold safe — entry-point discovery has never asked which wheel a
+> pack arrived in, so this worked example is about a mechanism, not about a filename.
+>
+> > **And it read `uv add 'weft-rag[graph]'` for one day, on a claim that was never true of this
+> > tree.** The sentence above went on to say *"only `psycopg` — its outside library — is optional,
+> > behind the `graph` extra"*, written by the session that changed the dependency list, without
+> > reading it. `weft-rag` declares `psycopg[binary]>=3.2` and `pgvector>=0.3` among its **core**
+> > `dependencies` and the same file argues at length that they must stay there, because
+> > `weft_store`'s pgvector backend is what every quickstart, every fixture and the one
+> > `compose.yaml` container assume — *"an extra that everything defaults to needing is a footgun
+> > with a flag on it."* So `weft-rag[graph]` would install nothing `weft-rag` does not. **There is
+> > no `graph` extra**: the pack is unconditional, exactly like `agent`, whose own entry in that
+> > file says an empty extra "would be a knob that does nothing". Settled with the owner
+> > 2026-09-09; `docs/lessons.md` `L11.25`. The property the vanished clause was protecting — a
+> > pack whose library is missing reports `failed` and names it rather than taking the run down —
+> > is unaffected and still proven, by `pdf`, `qdrant`, `docling` and `openai`, which have an
+> > absent case to report.
 
 Nothing in core changed. Nothing in core knows what a graph is. If the pack is uninstalled, the
 `kg` pipeline fails to resolve with a message naming the missing plugin and the pack that provides

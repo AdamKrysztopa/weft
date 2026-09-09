@@ -1109,7 +1109,12 @@ ways** in one run.
 - **Read:** `02` §1 → *Who publishes a contract* (`02:97`) and *The store contract family*
   (`02:567`), because the pack publishes one and satisfies four; `02` §4 in full (`02:2028`), which
   was written with this pack as its driving use case and whose install sequence begins
-  `uv add 'weft-rag[graph]'` (`02:2056`) — it read `uv add weft-kg` until **G19** on 2026-09-09,
+  `uv add weft-rag` — *it read `uv add 'weft-rag[graph]'` for one day, and there is no `graph`
+  extra: the pack's only outside library is `psycopg`, which `weft-rag` has declared among its
+  **core** dependencies since G19 because `weft_store`'s pgvector backend is what every quickstart
+  and the one `compose.yaml` container assume. An extra that installs nothing is the knob that does
+  nothing the same `pyproject.toml` already refuses for `agent`, so the pack is unconditional, like
+  `agent`; settled with the owner 2026-09-09, `L11.25`* — it read `uv add weft-kg` until **G19** on 2026-09-09,
   and the three citations in this bullet were each off by several hundred lines until the same day,
   which is what fitness function 17 cannot catch: it proves a path resolves, never that the line
   says what the sentence claims (`L9.34`); `03` → *Project context* (`03:909`) for the `[services]` role
@@ -1125,14 +1130,19 @@ ways** in one run.
   `CLAUDE.md`'s recoverability test decides it, and the donor's own finding was that the prompt's
   prohibitions failed as prose and had to become code; the 33-method port; and any `seal`/`lock`
   lifecycle method.
-- **Exit:** on a machine that is not this repository, against an installed `weft-rag`, an installed
-  `weft-kg`, and the one container: a corpus is indexed through **`index-with-facts`**; the same
+- **Exit:** on a machine that is not this repository, against an installed `weft-rag` and the one
+  container — *this read "an installed `weft-rag`, an installed `weft-kg`" until 2026-09-09, and
+  **G19** left the graph pack inside the release wheel, so there is no second thing to install*: a
+  corpus is indexed through **`index-with-facts`**; the same
   question is answered through **`retrieve-then-generate`, `graph-then-generate` and
   `graph-and-vector-rrf`**, the third fusing a vector list and a graph list the fuser cannot tell
   apart; **`weft delete` of one source leaves no fact, mention or entity that only it supported,
-  and reports what it removed by kind**; **fitness functions 16 and 24 are wired and green with
+  and reports what it removed by kind**; **fitness functions 16 and 28 are wired and green with
   their waivers empty, and the fitness function `9.0` turned on stays green with the graph
-  retriever's demand in the tree**; the family-membership deferral is a dated row in *The
+  retriever's demand in the tree** — *this read "16 and 24" until 2026-09-09; 24 is task `9.5`'s
+  and always was, and the graph pack's own function is **28** (`L11.24`). FF16's waiver reached
+  empty at carried repair `R11.2` and this clause is what keeps it there*; the family-membership
+  deferral is a dated row in *The
   least-architecture check* above with its reopen trigger; and `weft eval compare
   graph-then-generate retrieve-then-generate --baseline retrieve-then-generate`, restricted to
   questions of `kind = requires-graph-hop`, reports whether the difference lies outside the
@@ -1154,17 +1164,45 @@ second consumer rather than its author — which is the whole point of a check w
 **Fitness function this phase turns on.** Stated as a property; numbered and filed by the task that makes it true, per FF0(b) and `lessons.md` L9.15.
 
 - **The graph pack is an ordinary pack.** Added 2026-09-06, ledger task 11.5. Fitness function
-      21's three clauses applied to `weft-kg`, each able to fail alone: it is its **own
-      distribution**, installed beside `weft-rag` by name with its own licence files and a single
-      `weft.packs` entry point, never bundled into the `weft-rag` wheel; **every contract it
-      registers under is published by some other distribution** — read off the registry it
-      populates, not textually — *except* the traversal Protocol it publishes itself, which is
-      admitted only while fitness function 9c holds an out-of-tree stranger implementing it; and no
-      module of `weft-kernel`, `weft-cli` or any pack inside `weft-rag` imports from `weft_kg` or
-      names a plugin it registers. The second clause's exception is the one to watch: a pack that
-      publishes a contract and is its only implementer has built the "second paradigm" `S12` refused
-      — a retriever bound to one class — and the stranger is what keeps the claim true.
-      `tests/architecture/test_ff24_graph_is_an_ordinary_pack.py`.
+      21's three clauses applied to `weft_kg`, each able to fail alone.
+      `tests/architecture/test_ff28_graph_is_an_ordinary_pack.py`.
+
+      > **This bullet said *fitness function 24* until 2026-09-09, and 24 was already taken.**
+      > `tests/architecture/test_ff24_no_bytes_in_a_node.py` has held that numeral since task
+      > **9.5**, and item 24 in the numbered list below reads *"Bytes never enter a node"*. The
+      > numeral was written down here on 2026-09-06, for a task three phases out, directly beneath
+      > this section's own quotation of the rule that forbids exactly that — *"numbered and filed
+      > **by the task that makes it true**"*. A numeral is a claim on a shared namespace and
+      > planning is not claiming; the namespace kept being allocated in between. `docs/lessons.md`
+      > `L11.24`, and it is `L9.15` with `L11.19`'s shape.
+
+      > **And clause (a) said *"its own distribution … never bundled into the `weft-rag` wheel"*
+      > until the same day.** **G19** settled that Weft publishes two names and a new capability
+      > never adds a third, so that clause now asserts the opposite of what the project has
+      > decided. What it was *for* survives intact, because a pack's identity was never its
+      > distribution: the property is that `weft_kg` reaches the registry through **one ordinary
+      > `weft.packs` entry point**, configured under its own `[packs.graph]` namespace and shown as
+      > its own `weft plugins doctor` row, with nothing it receives that a third party's pack does
+      > not. That is requirement 4 stated about the pack rather than about the wheel, and it is the
+      > clause that can still fail — by `weft_kg` being reached any way other than through
+      > discovery.
+
+      The three clauses, restated post-G19:
+
+      **(a)** `weft_kg` registers through **one `weft.packs` entry point** and is reached no other
+      way — its own pack name, its own settings namespace, its own report row, and no privileged
+      path. **(b)** **Every contract it registers under is published by some other pack** — read
+      off the registry it populates, not textually — *except* the traversal Protocol it publishes
+      itself, which is admitted only while fitness function 9c holds an out-of-tree stranger
+      implementing it. **(c)** No module of `weft-kernel`, of `weft_cli`, or of any other pack in
+      the `weft-rag` wheel imports from `weft_kg` or names a plugin it registers.
+
+      **(b)'s exception is the one to watch**: a pack that publishes a contract and is its only
+      implementer has built the "second paradigm" `S12` refused — a retriever bound to one class —
+      and the stranger is what keeps the claim true. **(c) is the clause G19 made sharper rather
+      than weaker**: `weft_kg` now sits in the same wheel as `weft_cli`, so an import that used to
+      be impossible without a dependency edit is now one line away and nothing but this check
+      stands between.
   
   *(Fitness function 25 is not allocated by this phase.)*
 

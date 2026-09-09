@@ -60,8 +60,10 @@ from weft_example_graph.enhancer import GraphEntityEnhancer
 from weft_example_graph.payload import GraphData
 from weft_example_graph.retriever import GraphWalkRetriever
 from weft_example_graph.store import GraphSettings, GraphStore
+from weft_example_graph.traversal import ExampleGraphWalk
 from weft_kernel.discovery import PackRegistrar
 from weft_kernel.pipeline import StageDeclaration
+from weft_kg.contract import GraphTraversal
 from weft_retrieve.contract import Retriever
 from weft_store.contract import NodeStore
 
@@ -97,6 +99,13 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(Enhancer, "example-graph-entities", GraphEntityEnhancer)
     registrar.add(NodeStore, "example-graph", partial(GraphStore, settings))
     registrar.add(Retriever, "example-graph-walk", partial(GraphWalkRetriever, settings))
+    # The seventh extension point, and the one that keeps a first-party contract honest:
+    # `weft_kg` publishes `GraphTraversal` and is its only first-party implementer, which is
+    # the "second paradigm" `S12` refused. Fitness function 9(c) requires an implementation
+    # living outside the repository that published it, and this is it — a graph whose
+    # entities are names rather than rows, which is a different model reaching the same
+    # contract.
+    registrar.add(GraphTraversal, "example-graph-traversal", partial(ExampleGraphWalk, settings))
     registrar.add(Command, "example-graph build", partial(GraphBuildCommand, settings))
     registrar.add(Command, "example-graph show", partial(GraphShowCommand, settings))
     registrar.add_renderer(GraphShowResult, render_graph_show)

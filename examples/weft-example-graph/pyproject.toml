@@ -14,14 +14,14 @@ requires-python = ">=3.12"
 # 2026-09-05 fourteen of those became one wheel — so the names changed and the imports
 # did not. This file is what a stranger writes, so it is what a stranger would have to
 # write today.
-dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-rag>=2.2.0,<3.0.0", "psycopg[binary]>=3.2"]
+dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-rag>=2.4.0,<3.0.0", "psycopg[binary]>=3.2"]
 
 # The one entry point a pack declares (docs/02-extension-model.md section 2). Nothing under
 # weft's own packages/ or testing/ names this distribution, this module, or any plugin name
 # registered below — fitness function 9(b), asserted from the weft repository's own
 # tests/architecture/.
 [project.entry-points."weft.packs"]
-graph = "weft_example_graph:register"
+example-graph = "weft_example_graph:register"
 
 # This pack's own dev tooling — a stranger's `uv run pytest` must work from this pyproject
 # alone, nothing borrowed from the workspace it is not a member of.

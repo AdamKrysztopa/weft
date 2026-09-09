@@ -18,7 +18,7 @@ rung — so `GraphTraversal` declares no `Stage[In, Out]` base and the runner ne
 unchanged. `typing.Protocol` computes `__protocol_attrs__` once, by walking every attribute (and
 bare annotation) present in the class's own body when the class statement closes. Declared
 directly in the body, `version` would become a *required* structural member, and a stranger that
-implements all four methods below and never restates `version` would fail a capability check that
+implements every method below and never restates `version` would fail a capability check that
 has nothing to do with capability. So it is declared only under `if TYPE_CHECKING:` and assigned
 for real once the class body has already closed.
 
@@ -47,6 +47,15 @@ because the ledger's own phrase admits both directions.
 **Every member answers in batch.** `entities_by_name`, `nodes_for_entities` and `neighbourhood`
 each take a sequence and answer for every element of it in one call, not one round trip per name —
 the property that keeps a bounded walk from becoming N round trips against whatever backs it.
+
+**Three members, not the four `11.4` fixed — narrowed at ledger task `11.5` and versioned `2.0.0`
+for it.** The first out-of-tree implementation was a graph over ordinary tables with no vector
+column anywhere in it, and it could satisfy three members honestly and `nearest_entities` not at
+all — so the bundle made a complete graph backend into a three-quarters implementer of a capability
+it fully had. `weft_store.contract` already answers exactly this shape, one level up, by publishing
+`VectorSearch` beside `NodeStore` rather than folding search into the base. The same answer applies
+here, and the constant below records the Protocol it would take and what would trigger writing it —
+which is deliberately **not now**, because nothing consumes it. `docs/lessons.md` `L11.29`.
 """
 
 from collections.abc import Mapping, Sequence
@@ -55,13 +64,25 @@ from typing import TYPE_CHECKING, ClassVar, NewType, Protocol, runtime_checkable
 from pydantic import BaseModel, ConfigDict, Field
 
 from weft_kernel.context import ServiceRole
-from weft_kernel.payload import NodeId, Vector
+from weft_kernel.payload import NodeId
 
 #: Fitness function 6's subject for this contract — see the module docstring. Deliberately its
 #: own constant rather than a move of `weft_store.contract.STORE_CONTRACT_VERSION`: this Protocol
 #: is not a member of the store family unless and until it is promoted into it, which is that
 #: constant's own deferral row, not this task.
-GRAPH_TRAVERSAL_CONTRACT_VERSION = "1.0.0"
+#:
+#: **It versions the whole family this module publishes, not one Protocol** —
+#: `STORE_CONTRACT_VERSION`'s own arrangement, where one constant is assigned to `NodeStore` and
+#: to each of the six capabilities beside it. The name is `GraphTraversal`'s because that Protocol
+#: anchors the family, exactly as `NodeStore` anchors the store's.
+#:
+#: **`1.0.0` → `2.0.0` at ledger task 11.5, and it is a break for callers rather than for
+#: implementers.** `nearest_entities` left `GraphTraversal` for `EntityVectorSearch` below. Under
+#: G9's two-audience rule that is *additive* for an implementer — a class that still has the method
+#: satisfies both Protocols — and **breaking for a caller**, because `ctx.require(GraphTraversal)`
+#: no longer answers something with a `nearest_entities` on it. The louder of the two audiences
+#: decides, so: major.
+GRAPH_TRAVERSAL_CONTRACT_VERSION = "2.0.0"
 
 #: A resolved entity's identity — a `NewType` over `str`, the same shape
 #: `weft_kernel.payload.ids.NodeId` takes for a node, and deliberately not a content digest: see
@@ -91,9 +112,10 @@ class GraphTraversal(Protocol):
     Not a `Stage` — see the module docstring. Reached through `ctx.require`, never run as a
     pipeline rung, so it carries no `run` and no `Stage[In, Out]` base.
 
-    Four members, every one `async def` and every one at batch granularity: a caller asking about
+    Three members, every one `async def` and every one at batch granularity: a caller asking about
     several names, several entity ids, or several hops gets one answer for all of them, never one
-    round trip per element.
+    round trip per element. Ranking entities by a vector is `EntityVectorSearch`'s, below — a
+    capability a graph backend may or may not also have, never a member this one requires.
     """
 
     if TYPE_CHECKING:
@@ -107,14 +129,30 @@ class GraphTraversal(Protocol):
         self, entity_ids: Sequence[EntityId]
     ) -> Mapping[EntityId, tuple[NodeId, ...]]: ...
 
-    async def nearest_entities(self, vector: Vector, *, limit: int) -> tuple[Entity, ...]: ...
-
     async def neighbourhood(
         self, entity_ids: Sequence[EntityId], *, hops: int
     ) -> Mapping[EntityId, tuple[Entity, ...]]: ...
 
 
 GraphTraversal.version = GRAPH_TRAVERSAL_CONTRACT_VERSION
+
+
+#: **`nearest_entities` is not published, and that is the decision rather than the omission.**
+#: Ledger `11.4` fixed four members and `11.5` removed the fourth. It belongs on a Protocol of its
+#: own — `EntityVectorSearch`, beside this one, exactly as `weft_store.contract` publishes
+#: `VectorSearch` beside `NodeStore` rather than folding search into the base — and that Protocol
+#: is **not written yet**, because nothing consumes it. `11.10`'s walk is *name → entities →
+#: neighbourhood → nodes* and never starts from a vector, so publishing the capability now would
+#: be a producing side with no consuming side, which is `docs/lessons.md` `L5.15`'s shape and the
+#: rule this project has paid for five times. **The trigger**: the first task that needs an entity
+#: ranked by an embedding writes `EntityVectorSearch` then, `@runtime_checkable`, carrying
+#: `GRAPH_TRAVERSAL_CONTRACT_VERSION` like every member of this family, with one member —
+#: `async def nearest_entities(self, vector: Vector, *, limit: int) -> tuple[Entity, ...]` — and
+#: never embedding for itself (G4). It is additive for a caller and additive for an implementer,
+#: so a **minor** when it lands.
+#:
+#: Recorded here rather than left implicit because the reason it is absent is not that nobody
+#: thought of it: `docs/lessons.md` `L11.29` is the measurement that removed it.
 
 #: Selectable without a kernel line — see the module docstring's note on ledger task `9.0`'s
 #: form. A plain module-level constant beside the Protocol, never a `ClassVar` on it: placed in

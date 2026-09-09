@@ -1,15 +1,26 @@
-"""`weft_kg` — publishes the graph traversal contract. Ledger task **11.4**.
+"""`weft_kg` — publishes the graph traversal contract and registers a Postgres-backed
+implementation of it. Ledger tasks **11.4** (the contract) and **11.5** (this file).
 
-Publishes `GraphTraversal`, in `contract.py`, and nothing else: no store, no retriever, no
-registration, no pipeline. Those are later tasks — 11.5 registers a `GraphTraversal`
-implementation, 11.8 designs the table an `Entity` is actually kept in.
+**Registers now, and that is this task's whole point.** `11.4` published `GraphTraversal` and
+deliberately registered nothing — "a `register()` here, with nothing yet to register, would be a
+producing side with no consuming side." `store.py` and `traversal.py` are that consuming side:
+`GraphStore` (`NodeStore`, `SourceDeletable`, `Reconcilable`, structurally) and `GraphWalk`
+(`GraphTraversal`), both over one Postgres schema, both reached through the one `weft.packs = graph
+= "weft_kg:register"` entry point below and nothing else.
 
-**Declares no `register()` and no entry point.** A `register()` here, with nothing yet to
-register, would be a producing side with no consuming side — `docs/lessons.md` L5.15's shape.
-This module exists so that a pack implementing `GraphTraversal` — first-party or a stranger —
-depends on the pack that publishes the contract it implements, exactly as `02` §1 requires.
+**Two plugin names for the two contracts, and two classes behind them — `docs/lessons.md`
+`L11.23`.** `pgvector-graph` (`NodeStore`) and `pgvector-traversal` (`GraphTraversal`) are
+qualified rather than bare, per `10` §2.1 rule 6: `01`'s family-membership deferral names
+`weft-neo4j` as the sibling this pack is waiting for, so an unqualified `graph` would be the first
+implementation seizing a namespace more than one is meant to share. `GraphStore` and `GraphWalk`
+are two classes, not one registered twice, because `weft_cli.fanout.participants_for` deduplicates
+its participants by class — see `store.py` and `traversal.py`'s own module docstrings for the
+failure a single class would reintroduce.
 """
 
+from functools import partial
+
+from weft_kernel.discovery import Disclosure, PackRegistrar
 from weft_kg.contract import (
     GRAPH_ROLE,
     GRAPH_TRAVERSAL_CONTRACT_VERSION,
@@ -17,11 +28,56 @@ from weft_kg.contract import (
     EntityId,
     GraphTraversal,
 )
+from weft_kg.store import GraphSettings, GraphStore
+from weft_kg.traversal import GraphWalk
+from weft_store.contract import NodeStore
+
+#: Re-exported so a caller can write `from weft_kg import Settings`, the name every other pack in
+#: this tree's own guide uses — `GraphSettings` (declared in `store.py`, beside the connection
+#: logic it configures) is the same class.
+Settings = GraphSettings
+
+#: What this pack touches — `docs/02-extension-model.md` §2 → *The trust model*. The setting is
+#: named, never its value: `dsn` is a `SecretStr` and the credential inside it is not this pack's
+#: to print.
+DISCLOSURE = Disclosure(
+    network=("the PostgreSQL server [packs.graph] dsn names (WEFT_DATABASE_URL by default)",),
+    filesystem=(),
+    subprocess=(),
+    note=(
+        "Reads and writes node, entity and relation rows in PostgreSQL with pgvector, "
+        "creating its own tables on first use. Sits beside the vector store: a document naming "
+        "both store: pgvector and store: graph hands the identical batch to each."
+    ),
+)
+
+#: Ledger task **9.0**'s form — read by `weft_kernel.discovery._read_service_roles` at import
+#: time, before settings are validated, exactly where `DISCLOSURE` above is read. This is what
+#: makes `[services] graph` exist at all, with no kernel line naming it.
+SERVICE_ROLES = (GRAPH_ROLE,)
+
+
+def register(registrar: PackRegistrar, settings: Settings) -> None:
+    """Register this pack's two capabilities and the document that makes the store reachable.
+
+    Every factory is `functools.partial`-bound to this run's `settings` — a database connection is
+    a pack-owned resource shared by everything this pack registers, never a per-stage `with:`
+    tuning knob (`docs/02-extension-model.md` §2's own distinction).
+    """
+    registrar.add(NodeStore, "pgvector-graph", partial(GraphStore, settings))
+    registrar.add(GraphTraversal, "pgvector-traversal", partial(GraphWalk, settings))
+    registrar.add_pipeline_resource("weft_kg", "pipelines/index-with-graph.yaml")
+
 
 __all__ = [
+    "DISCLOSURE",
     "GRAPH_ROLE",
     "GRAPH_TRAVERSAL_CONTRACT_VERSION",
+    "SERVICE_ROLES",
     "Entity",
     "EntityId",
+    "GraphSettings",
     "GraphTraversal",
+    "Settings",
+    "register",
 ]

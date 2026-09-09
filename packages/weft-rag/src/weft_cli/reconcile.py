@@ -33,7 +33,7 @@ import asyncio
 
 from pydantic import BaseModel, ConfigDict
 
-from weft_cli.fanout import Participant, participants_for
+from weft_cli.fanout import Participant, built, participants_for
 from weft_kernel.context import Context
 from weft_kernel.registry import Registry
 from weft_store import Reconcilable, ReconcileEstimate, ReconcileMode, ReconcileReport
@@ -114,8 +114,8 @@ async def _ask(target: Participant, mode: ReconcileMode, ctx: Context) -> Reconc
     module docstring for why a cancelled pass needs nothing saved here.
     """
     try:
-        instance = target.build(None)
-        report = await _converge(instance, mode, ctx)
+        async with built(target) as instance:
+            report = await _converge(instance, mode, ctx)
     except asyncio.CancelledError:
         raise
     except Exception as exc:
@@ -172,8 +172,8 @@ async def _ask_estimate(
     into a fatal error for a caller that only wanted a number to print.
     """
     try:
-        instance = target.build(None)
-        estimate = await _estimate_of(instance, mode, ctx)
+        async with built(target) as instance:
+            estimate = await _estimate_of(instance, mode, ctx)
     except asyncio.CancelledError:
         raise
     except Exception as exc:

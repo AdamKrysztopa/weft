@@ -8027,11 +8027,25 @@ that assumed one was withdrawn from the plan before it reached this list.
   Gate `GATE_EXIT=0` read out of the run's own log: 269 architecture, 2284 passed, 9 skipped, 127
   examples — nine more than `11.12`'s 2275, this task's nine tests and no shrink. The pinned
   first-party package count moved 23 → 24, which is a ratchet reporting that a pack arrived
-- [ ] **11.5** `weft-rag[graph]` installs into an environment that has never seen this
+- [x] **11.5** `weft-rag[graph]` installs into an environment that has never seen this
   repository, registers under `NodeStore` and its own traversal Protocol, is reached by
   `weft delete` and `weft reconcile` because a document names it, closes its own connection when
-  a fan-out constructed it, and **reports `failed` naming its missing library when the extra is
-  absent** rather than taking the run down · owner `09` §1; `02` §4 · turns on FF1, FF10(a), FF24 · sha — ·
+  a fan-out constructed it, and ~~**reports `failed` naming its missing library when the extra is
+  absent** rather than taking the run down~~ · owner `09` §1; `02` §4 · turns on FF28, FF9c's fifth probe · sha — ·
+  **Three fields corrected 2026-09-09, before a line of this task was written, and each is a
+  document that outlived what G19 did to it.** *turns on* read `FF1, FF10(a), FF24`. **FF1** and
+  **FF10(a)** are both about a **new distribution** — installing one alone and importing it, and
+  the publish set agreeing with the workspace — and G19 left no new distribution to install or to
+  publish, so neither is turned on by this task and both stay exactly as green as they were.
+  **FF24** was never this task's numeral at all: `test_ff24_no_bytes_in_a_node.py` has held it
+  since `9.5`, and the graph pack's own function is **28** (`L11.24`). What this task genuinely
+  turns on is **FF28** and **fitness function 9c's fifth probe**, which `11.4` correctly declined
+  to claim because the pack registered nothing yet. And the struck clause has **no subject**: the
+  `graph` extra's only candidate library is `psycopg`, which `weft-rag` declares among its core
+  dependencies, so `weft-rag[graph]` installs nothing and no absent case can be constructed
+  (`L11.25`, settled with the owner — no extra; the pack is unconditional like `agent`). The
+  property that clause protected is untouched and still proven by `pdf`, `qdrant`, `docling` and
+  `openai`, each of which has an absent case to report ·
   *carries the example pack's Postgres store forward — Weft's own code, a move, not a copy — with
   `[packs.graph] dsn` optional and defaulting to the same `WEFT_DATABASE_URL` offer `store` takes,
   so one container is still one. **Inside, behind an extra — reversed by G19 on 2026-09-09, and
@@ -8043,7 +8057,8 @@ that assumed one was withdrawn from the plan before it reached this list.
   and the five `examples/weft-example-*` packs carry it without ever reaching an index — while
   fitness function 9c's stranger, which `11.4` turns on, is what proves the traversal Protocol is
   satisfiable by somebody who did not write it. So the pack is `weft_kg` inside the wheel,
-  `psycopg` is the `graph` extra, and G10 is not diverged from but superseded. The files this line
+  `psycopg` is the `graph` extra — *and there is no such extra; see the corrected fields above and
+  `L11.25`* — and G10 is not diverged from but superseded. The files this line
   named have already changed: the `release.yml` matrix is one entry, `_INSTALLS_BESIDE` is
   `{weft-kernel, weft-rag}`, and `scripts/check_isolated_installs.py` grew the degradation probe
   that makes "declinable" a measured fact rather than a claim. On this tree `deletion.py`, `fanout.py` and
@@ -8051,7 +8066,73 @@ that assumed one was withdrawn from the plan before it reached this list.
   close anything) and the plan repaired that here as the first first-party participant to open
   its own connection — **Phase 9's blob store now opens one first**, so this clause is either
   verification of a repair already landed or the repair itself, and the line says which when it
-  ticks. An eighth PyPI name; first publish is rate-limited (`L7.3`)*
+  ticks. ~~An eighth PyPI name; first publish is rate-limited (`L7.3`)~~ — **G19 left no eighth
+  name**, so nothing here reaches an index and `L7.3`'s rate limit is not in this task's path*
+  · **done 2026-09-09. Written by me for the tests, the contract change, the fan-out repair and
+  the stranger; dispatched for the pack's two modules.** The pack is `pgvector-graph` under
+  `NodeStore` and `pgvector-traversal` under `GraphTraversal`, reached by one `weft.packs` entry
+  point named `graph`, shipping `index-with-graph` — `index-text` with the graph store inserted
+  after the ordinary one, which is `02` §4's *"sits beside the vector store"* written as data and
+  the document that makes participation follow use.
+  **Two names because two rules pull against each other**, and two *classes* because of a defect
+  neither rule names: fitness function 18 forbids one name under two contracts, `[services] graph`
+  resolves through `registry.entry(GraphTraversal, <name>)` so the role needs a registration under
+  its own contract — and `weft_cli.fanout.participants_for` narrows `NodeStore` with
+  `if contract is NodeStore`, walks contracts in `__qualname__` order and deduplicates **by
+  class**, so one class under both would have been reached as a `GraphTraversal` first, joined the
+  fan-out there, and had its `NodeStore` registration dropped as a duplicate — the store filter
+  never consulted, the pack a participant in every project on earth. Found by reading the fan-out
+  before choosing, not by a check; `L11.23`.
+  **Three fields of this line were corrected before a line of code was written** — see the
+  paragraph above — and **two decisions went to the owner rather than being defaulted.**
+  *One:* the line's *"`[packs.graph] dsn` … defaulting to the same `WEFT_DATABASE_URL` offer
+  `store` takes"* turned out to mean `weft_cli` naming this pack in a hard-coded literal, which is
+  the anticipation this phase exists to prove unnecessary — `weft_agent` needed no such line.
+  **Reverted; the pack costs zero lines outside itself** and an operator writes the one line the
+  refusal already prints. *Two:* `GraphTraversal`'s fourth member. The first out-of-tree
+  implementation is a graph over ordinary tables with **no vector column in it**, so it satisfies
+  three members completely and `nearest_entities` not at all — a whole graph backend made a
+  three-quarters implementer by the contract's own shape, when `weft_store` has published
+  `VectorSearch` beside `NodeStore` for exactly that reason since Phase 0. `GRAPH_TRAVERSAL_
+  CONTRACT_VERSION` is `2.0.0`, the member is gone, and the `EntityVectorSearch` it belongs on is
+  **recorded and deliberately unwritten**: nothing consumes it — `11.10` walks *name → entities →
+  neighbourhood → nodes* and never starts from a vector — and publishing it would put a contract on
+  fitness function 9c's left side with nothing out of tree on the right, which is `L5.15` bought
+  twice. `GraphWalk.nearest_entities` went with it for the same reason; `kg_entities.embedding`
+  stays, because `11.6` writes entity-name vectors and an unused column has its writer one task
+  away. `L11.29`.
+  **Turns on FF28** — `test_ff28_graph_is_an_ordinary_pack.py`, FF21's three clauses restated for a
+  pack that is no longer its own distribution, with clause (c) sweeping the kernel and every
+  *other* package in the wheel for an import or a plugin name, and clause (b)'s exception **wired
+  to what earns it** rather than asserted beside it: it reads `CONTRACTS_WITHOUT_AN_EXAMPLE_PACK`
+  out of fitness function 9c, so waiving the traversal contract there fails here.
+  **And FF9c's fifth probe**, which `11.4` correctly declined to claim: `weft-example-graph`
+  registers `ExampleGraphWalk` under `GraphTraversal` — a *different data model*, entities being
+  names rather than rows, which is what makes it evidence rather than a second copy. Its
+  entry-point key moved `graph` → `example-graph`, since `weft_kg` now claims the first.
+  **The fan-out closes what it built** — `weft_cli.fanout.built`, one async context manager for the
+  three frames that ever hold a participant (`deletion._ask`, `reconcile._ask`, `._ask_estimate`);
+  `deletion.py`, `fanout.py` and `reconcile.py` held no `aclose` at all before it, which was
+  harmless only while every participant was a store some other path had opened. The close is inside
+  the block, so a close that fails is one reported participant failure rather than a swallowed one.
+  **Five documentation checks failed at the first full gate and every one was a real obligation** —
+  the generated contract reference, `10`'s rows for both names, a `troubleshooting.md` entry for
+  `GraphDsnNotConfiguredError`, the `[services]` valid-options tuple that gained `graph`, and two
+  lesson ids cited before they were written. **Running the binary found a sixth**: the refusal's
+  own remedy still said *"or export WEFT_DATABASE_URL"*, which the revert above had made false —
+  a message written under a brief that no longer held.
+  **Ran the binary from outside the repository against built wheels**, row counts asserted
+  immediately before and after (`L8.30`): `plugins doctor` shows `graph (weft-rag) 2.4.0: active
+  (2 contributed)` with **no configuration at all**, where `store` shows `failed` — which is the
+  optional-`dsn` decision visible in one screen; `weft pipeline list` shows the rung; the rung with
+  no `[packs.graph] dsn` exits **1** naming the setting and the two lines to write; **the default
+  flagless `weft index corpus` reaches one participant**, which is `R11.2` holding on the real
+  binary with this pack installed; configured, the same rung reaches **two**, and `weft delete`
+  removes from both — `kg_nodes` 3 → 2 — and `weft reconcile --yes` converges both. Idle
+  connections on the container: **0 before three deletions and 0 after**, which is the closing
+  clause observed rather than asserted. Gate `GATE_EXIT=0` read out of the run's own log: 276
+  architecture (+7, this task's fitness function), 2322 passed, 9 skipped, 128 examples — thirty
+  more than `R11.2`'s 2292 and no shrink*
 - [ ] **11.6** a corpus indexed with no model and no credential carries co-occurrence entities,
   and `index-with-cooccurrence` is a rung `weft index --pipeline` runs from outside the repository
   · owner `01` → Phase 11; `10` · turns on FF16 (scope now includes `weft-kg`) · sha — · *on

@@ -384,6 +384,46 @@ async def run(
 ) -> weft_kernel.payload.outcome.Outcome[weft_generate.payload.Answer]: ...
 ```
 
+## `GraphTraversal`
+
+**Module:** `weft_kg.contract`  
+**Registered by:** `weft-rag`  
+**Version:** `2.0.0`
+
+A bounded walk over resolved entities and the nodes and neighbours around them.
+
+Not a `Stage` — see the module docstring. Reached through `ctx.require`, never run as a
+pipeline rung, so it carries no `run` and no `Stage[In, Out]` base.
+
+Three members, every one `async def` and every one at batch granularity: a caller asking about
+several names, several entity ids, or several hops gets one answer for all of them, never one
+round trip per element. Ranking entities by a vector is `EntityVectorSearch`'s, below — a
+capability a graph backend may or may not also have, never a member this one requires.
+
+### Methods
+
+```python
+async def entities_by_name(
+    self, names: collections.abc.Sequence[str]
+) -> tuple[weft_kg.contract.Entity, Ellipsis]: ...
+```
+
+```python
+async def neighbourhood(
+    self, entity_ids: collections.abc.Sequence[weft_kg.contract.EntityId], *, hops: int
+) -> collections.abc.Mapping[
+    weft_kg.contract.EntityId, tuple[weft_kg.contract.Entity, Ellipsis]
+]: ...
+```
+
+```python
+async def nodes_for_entities(
+    self, entity_ids: collections.abc.Sequence[weft_kg.contract.EntityId]
+) -> collections.abc.Mapping[
+    weft_kg.contract.EntityId, tuple[weft_kernel.payload.ids.NodeId, Ellipsis]
+]: ...
+```
+
 ## `LLMProvider`
 
 **Module:** `weft_llm.contract`  

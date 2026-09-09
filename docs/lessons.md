@@ -760,6 +760,62 @@ says "only", the count in the brief and the count in the log must be the same nu
 log. `recurs L10.24`, whose whole shape is a verdict swallowed by how it was read; `recurs L5.6`
 one level out — here the two sides were my summary and the log, and only one was consulted.
 
+### L11.28 — the guard refuses `git checkout --` and waves `git checkout HEAD --` through
+
+**What happened.** `.claude/hooks/guard_history_rewrites.py` refuses the four git commands that
+discard unrecoverable work, and its pattern for one of them is
+`_AT_COMMAND_POSITION + r"git\s+checkout\s+--"`. I needed to revert one file to `HEAD` after the
+owner decided a core edit should not stand, typed `git checkout HEAD -- <path>`, and the guard did
+not fire. The command did exactly what the guard's own message describes — *"overwrites files from
+the index, silently and unrecoverably"* — and the naming form that carries a commit-ish is if
+anything the more destructive of the two, because it reaches past the index to a commit.
+
+**Generalises to.** A guard written against the *spelling* of a command guards that spelling. `git
+checkout -- x` and `git checkout HEAD -- x` are one operation with two syntaxes, and the pattern
+was derived from whichever one the author had typed the day they wrote it — which is `L6.4`'s
+population rule again: a matcher means what its live inputs say, and a matcher tested against one
+input is a matcher about that input. The same gap is open for `git restore`, which is the modern
+spelling of the whole family and appears in the guard nowhere at all.
+
+**Candidate home.** `.claude/hooks/guard_history_rewrites.py`: match `git checkout` followed by
+anything and then `--`, and add `git restore` beside it. Then run the hook against both spellings —
+the guard's own history says a pattern here is believed rather than exercised, and this repository
+has already paid twice for a hook that was not run (`CLAUDE.md`: "one that fails to import is
+silently a hook that does not exist"). `recurs L6.4`.
+
+### L11.29 — the contract bundled a capability its first outside implementer could not have
+
+**What happened.** `11.4` published `GraphTraversal` with four members, `nearest_entities` among
+them — entities ranked by cosine distance over a vector. At `11.5` the first out-of-tree
+implementation was written: `examples/weft-example-graph`, a graph over ordinary Postgres tables
+with **no vector column anywhere in it** and no embedder in the pack. It satisfies three members
+completely and the fourth not at all. So a graph backend that walks entities and relations exactly
+as the contract describes was, by the contract's own shape, a three-quarters implementer of a
+capability it fully had — and fitness function 9(c)'s stranger, which is the only thing keeping
+`weft_kg` from being a contract with one implementer, could only be produced by giving a worked
+example a vector store it has no reason to own.
+
+**And the tree already had the answer, one level up.** `weft_store.contract` publishes
+`VectorSearch` **beside** `NodeStore` rather than folding `search_vector` into the base, for this
+exact reason: a store that persists nodes need not be able to rank them, and `weft-qdrant`,
+`pgvector` and an in-memory store are all whole `NodeStore`s with different capability sets around
+them. The graph family is the same shape and was published without the same split.
+
+**Generalises to.** When a contract is written before any implementation but the author's own, the
+member set is a description of *that* implementation. The question that separates a contract from a
+description is not "what can my backend do" but **"what is the smallest thing that is still this
+capability, and what is merely something a backend might also have?"** — and a family that answers
+it wrongly does not fail loudly: it fails as a partial implementer, which reads like a deficiency in
+the *backend*. `weft_store`'s split is prior art the graph contract could have been checked against
+before it shipped, and one grep for `class VectorSearch` would have found it.
+
+**Candidate home.** `weft-qualities` gains a lens for publishing a contract: *before a Protocol
+ships, name one plausible backend that has the capability the Protocol is for and lacks one of its
+members — if you can, that member is a sibling, not a member.* `01`'s requirement 4 is what it
+serves (a built-in gets no privileged path, and a first implementation must not shape the contract
+around itself). `recurs L5.32`, which is the same failure at the level of a proviso rather than a
+member set.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

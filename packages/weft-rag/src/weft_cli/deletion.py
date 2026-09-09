@@ -27,7 +27,7 @@ import asyncio
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from weft_cli.fanout import Participant, participants_for
+from weft_cli.fanout import Participant, built, participants_for
 from weft_kernel.payload import SourceId
 from weft_kernel.registry import Registry
 from weft_store import SourceDeletable
@@ -101,8 +101,8 @@ async def _ask(target: Participant, source_id: SourceId) -> ParticipantOutcome:
     is not an exception about this participant at all.
     """
     try:
-        instance = target.build(None)
-        removed = await _delete_from(instance, source_id)
+        async with built(target) as instance:
+            removed = await _delete_from(instance, source_id)
     except asyncio.CancelledError:
         raise
     except Exception as exc:

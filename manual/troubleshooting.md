@@ -1071,8 +1071,8 @@ $ printf '[services]\nembedd = "openai"\n' > weft.toml
 $ weft plugins list
 unknown [services]
 key(s) in weft.toml: 'embedd'. [services]
-accepts blob, describe, embed, route, store. A key nothing reads is refused rather than ignored — a service
-Weft did not select is one you would have to notice by the answers being wrong.
+accepts blob, describe, embed, graph, route, store. A key nothing reads is refused rather than
+ignored — a service Weft did not select is one you would have to notice by the answers being wrong.
 $ echo $?
 4
 ```
@@ -1087,7 +1087,7 @@ $ echo $?
 Before this repair the class was a bare `WeftError` — the message already named the keys, but only
 inside the string, invisible to fitness function 12's family walk, which looks for a typed
 `valid_options` field. `UnknownConfigKeyError` above is the same-phase precedent this now matches;
-`(exc.valid_options == ("blob", "describe", "embed", "route", "store"))` for any raise site. `weft plugins list`'s exit `4`
+`(exc.valid_options == ("blob", "describe", "embed", "graph", "route", "store"))` for any raise site. `weft plugins list`'s exit `4`
 comes from `weft_cli.cli.main`'s own fixed code for any `WeftError` raised while `build_
 dependencies` is still assembling the registry — see that function's own comment — not from
 `weft_cli.exit_codes.exit_code_for`'s per-exception mapping. **What to do:** use one of the keys
@@ -3165,3 +3165,41 @@ and an agent passing it on every call is that sentence with the human removed.
 - **Bringing the container up, `weft.toml`, exit codes in full** —
   [`manual/operations-guide.md`](operations-guide.md).
 - **Writing a pack of your own?** [`manual/pack-author-guide.md`](pack-author-guide.md).
+
+### `GraphDsnNotConfiguredError`
+
+**What it looks like** — reproduced against a real checkout, with `WEFT_DATABASE_URL` exported and
+no `[packs.graph]` table in `weft.toml`:
+
+```text
+$ weft index corpus --pipeline index-with-graph
+weft_kg has no database to talk to: [packs.graph] dsn is unset. Add `[packs.graph]
+dsn = "${env:WEFT_DATABASE_URL}"` (or a literal DSN) to weft.toml. Exporting WEFT_DATABASE_URL
+alone is not enough: this pack is offered no ambient setting, so the one line above is what points
+it at the container [packs.store] already uses.
+$ echo $?
+1
+```
+
+**What to do.** Add the two lines the message prints:
+
+```toml
+[packs.graph]
+dsn = "${env:WEFT_DATABASE_URL}"
+```
+
+**Why exporting the variable is not enough, when it is enough for the node store.**
+`weft_cli.registry_bootstrap.pack_settings_from_environment` offers `${env:WEFT_DATABASE_URL}` to
+the `store` pack and to nothing else. Extending that offer to the graph pack was written and then
+reverted at ledger task `11.5`: it would mean `weft-cli` naming a specific capability pack in a
+hard-coded literal, which is the anticipation the graph pack exists to prove unnecessary — the
+whole point of that phase is a pack built against nothing but the released API, costing zero lines
+anywhere else. So the convenience is one line in your own file rather than a name in somebody
+else's code.
+
+**Why the pack still reports `active` with nothing configured.** `[packs.graph] dsn` defaults to
+empty on purpose. `weft-store`'s is mandatory, so that pack reports `failed` where none is set —
+correct, because every project needs a node store. A project that never names the graph store
+should not have to read past a failure for a pack it is not using, so this one registers cleanly
+and refuses at the first call that genuinely needs a connection. `weft plugins doctor` will show
+`graph (weft-rag): active` on a machine where this error is one command away, and both are true.

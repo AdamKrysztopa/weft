@@ -16,7 +16,7 @@ through the runner's stage machinery."* Traversal is the same shape: it is reach
 **`version` is declared the way `weft_extract.contract` argues for and every contract in this tree
 copies** — under `if TYPE_CHECKING:` inside the body, assigned for real after the class statement
 closes. Written directly in the body it would join `__protocol_attrs__` and become a *required*
-`isinstance` member, so a stranger implementing all four methods and never restating `version`
+`isinstance` member, so a stranger implementing every method and never restating `version`
 would fail a capability check that has nothing to do with capability.
 
 **Selectable through one constant beside the Protocol**, never a `ClassVar` on it, which is the
@@ -32,7 +32,7 @@ line.
 nowhere in the tree, `weft_kg` does not exist, and the only `Entity` is
 `examples/weft-example-graph/src/weft_example_graph/payload.py`'s — whose own docstring calls it
 "one entity **mention** … in a single node's content", a mention rather than a resolved identity.
-So this task fixes the type its four members return.
+So this task fixes the type its members return.
 
 *Two.* **It is deliberately two fields.** `S12`: entities are pack rows "because an identity a merge
 revises cannot carry a content-digest id", and `11.8` adds that "the canonical id is a function of
@@ -109,7 +109,9 @@ def test_a_class_that_never_imported_the_protocol_satisfies_it() -> None:
 def test_a_class_missing_one_member_does_not_satisfy_it() -> None:
     """The floor. A Protocol every object satisfies would make the test above vacuous."""
 
-    # Arrange — three of the four.
+    # Arrange — two of the three `GraphTraversal` members, plus one that is no longer
+    # on it at all: `nearest_entities` moved to `EntityVectorSearch` at ledger `11.5`, so having
+    # it buys nothing here, which is itself the split working.
     class _Partial:
         async def entities_by_name(self, names: Sequence[str]) -> tuple[Entity, ...]:
             del names
@@ -174,13 +176,62 @@ def test_the_version_is_readable_off_the_class_and_carries_no_isinstance_weight(
 def test_the_contract_version_is_its_own_and_moves_nothing_in_the_store_family() -> None:
     """`11.4`'s line: `STORE_CONTRACT_VERSION` does **not** move when this Protocol is published.
     It moves if the Protocol is ever *promoted* into the family, which is the deferral row's own
-    trigger and not this task."""
+    trigger and not this task.
+
+    **`1.0.0` → `2.0.0` at ledger `11.5`**, and the store family still does not move — which is
+    the half of this assertion that matters. `nearest_entities` left `GraphTraversal` for
+    `EntityVectorSearch`: additive for an implementer, breaking for a caller, so a major under
+    G9's two-audience rule.
+    """
     # Arrange
     from weft_store.contract import STORE_CONTRACT_VERSION
 
     # Act / Assert
-    assert GRAPH_TRAVERSAL_CONTRACT_VERSION == "1.0.0"
+    assert GRAPH_TRAVERSAL_CONTRACT_VERSION == "2.0.0"
     assert STORE_CONTRACT_VERSION == "2.3.0"
+
+
+def test_a_graph_backend_with_no_vectors_is_a_whole_graph_traversal() -> None:
+    """**The narrowing's whole point, and the case that bought it** — ledger `11.5`, `L11.29`.
+
+    A graph over ordinary tables, with no vector column anywhere in it, satisfies
+    `GraphTraversal` completely. While `nearest_entities` was a fourth member such a backend was
+    a three-quarters implementer of a capability it fully had, which is the shape
+    `weft_store.contract` already refuses one level up by publishing `VectorSearch` beside
+    `NodeStore` rather than inside it. The Protocol that member will move to is recorded in
+    `weft_kg.contract` and deliberately not written, because nothing consumes it yet.
+    """
+
+    class _VectorlessGraph:
+        """Three members and no vectors — the out-of-tree implementation that forced the split."""
+
+        async def entities_by_name(self, names: object) -> tuple[object, ...]:
+            del names
+            return ()
+
+        async def nodes_for_entities(self, entity_ids: object) -> dict[object, object]:
+            del entity_ids
+            return {}
+
+        async def neighbourhood(self, entity_ids: object, *, hops: int) -> dict[object, object]:
+            del entity_ids, hops
+            return {}
+
+    # Act / Assert — and the contrast is what makes this able to fail: were the member still on
+    # the base Protocol, the first assertion would be false.
+    assert isinstance(_VectorlessGraph(), GraphTraversal)
+    assert not hasattr(_VectorlessGraph, "nearest_entities")
+
+
+def test_the_contract_no_longer_declares_the_member_that_moved() -> None:
+    """`nearest_entities` is gone from the Protocol, and a reader can check that rather than
+    take the docstring's word — `__protocol_attrs__` is what `isinstance` actually consults.
+    """
+    # Act
+    members = getattr(GraphTraversal, "__protocol_attrs__", frozenset[str]())
+
+    # Assert
+    assert members == {"entities_by_name", "nodes_for_entities", "neighbourhood"}
 
 
 def test_the_pack_declares_the_protocol_selectable_without_a_kernel_line() -> None:

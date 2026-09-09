@@ -77,7 +77,10 @@ name = "weft-rag"
 # distribution that cannot satisfy `from weft_command.invocation import invoke`. **Minor, per
 # G9's two-audience rule**: a new module is additive for a caller and changes no Protocol, so an
 # implementer owes nothing. Found by Phase 7's close review; `docs/lessons.md` `L8.40`.
-version = "2.3.0"
+# **2.3.0 → 2.4.0 at ledger task 11.5** — `weft_kg` gained a `register()`, a new `weft.packs`
+# entry point (`graph`) and two new plugin names. Minor, per the identical G9 rule immediately
+# above: additive for a caller, no Protocol changed.
+version = "2.4.0"
 description = "Weft — a RAG engine built as a microkernel. The default install: the kernel's packs, and the weft command."
 requires-python = ">=3.12"
 license = "MIT"
@@ -201,6 +204,9 @@ openai = "weft_openai:register"
 otel = "weft_otel:register"
 pdf = "weft_pdf:register"
 qdrant = "weft_qdrant:register"
+# Ledger task 11.5 — `weft_kg` was already carried in this wheel's own package list (11.4
+# published its contract with no entry point at all); this is the line that makes it reachable.
+graph = "weft_kg:register"
 
 [build-system]
 requires = ["hatchling"]
