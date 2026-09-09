@@ -7645,6 +7645,23 @@ So 11.11 keeps its ⚠ as a record, on the convention this section's protocol re
 **no decision this phase needs is open.** Nothing else below is ⚠: D1 is `S12`, D4 is a proof
 rather than a decision and 11.1 is that proof.
 
+**⛔ G18, opened 2026-09-09 at task `11.4`: this phase cannot write its own package name down.**
+The first task obliged to name the distribution ran `phase-step` → *Orient*'s namespace rule and
+found **`weft-graph` taken on PyPI** — `1.3.0`, seven releases from 2026-01-02 to 2026-03-02, MIT,
+another author, *a project also called Weft and also about knowledge graphs*, shipping a top-level
+module `weft` and the console script `weft = weft.cli:main`, which is this repository's own binary
+name (`packages/weft-rag/pyproject.toml:132`). `weft` itself has been taken since before `L6.33`
+and is at 101 releases, last uploaded 2026-08-31. The eight release names and `weft-canary`/
+`weft-neo4j` are free, so the module namespace does not collide and this is a contested *prefix*
+rather than a lost set. `weft-graph` appears in **42 tracked files, 185 times**, counted rather
+than estimated. **`S12` fixed this name on 2026-09-06 without the lookup the rule already
+required** — three days in which `01`, `02` §4, `09` §1 and five task lines named a distribution
+that cannot be published, with every check green because every check here is a check *about this
+repository*; that is `L11.19`, and `L6.33` is its first instance. `11.4` and `11.5` carry ⛔ and
+**Phase 11's Exit is unreachable while it is open**, since that Exit *is* an install into a clean
+environment. **`11.12` names no part of the pack and is buildable meanwhile.** Four positions,
+heaviest first, in `05` → G18; **opened, not settled, and it closes with the owner** (`L10.42`).
+
 **Recorded rather than decided — a slot finding.** No shipped document declares a `slots:` block
 (`grep -rn 'slots' packages/weft-rag/src/*/pipelines/*.yaml` → two comments, no declaration), so
 `S8`'s producing side lands nowhere a user can run and the example pack's `add_contribution("enrich",
@@ -7829,7 +7846,7 @@ that assumed one was withdrawn from the plan before it reached this list.
   has no mark: `How to read a task line` gives ⛔ to a **phase header** against an open **gate**
   and nothing to this. `L11.18`, and `docs/README.md`'s Next-action row is what carries the order
   in the meantime, which is exactly what that row is for
-- [ ] **11.4** `weft-graph` publishes the traversal Protocol — versioned, `@runtime_checkable`,
+- [ ] **11.4 ⛔ G18** `weft-graph` publishes the traversal Protocol — versioned, `@runtime_checkable`,
   not a `Stage`, satisfied structurally by its own store and by an out-of-tree stranger — and the
   condition under which it moves into the store family is a dated row in `01`'s deferred table
   with its reopen trigger, not an assumption · owner `02` §1 → *Who publishes a contract*; `01` →
@@ -7848,7 +7865,7 @@ that assumed one was withdrawn from the plan before it reached this list.
   promotion a third-party backend depends on `weft-graph` for the Protocol. `02:666-670`'s "a
   graph store is not a node store" is amended to what the code implements — a sentence about
   obligation, not a prohibition on being one*
-- [ ] **11.5** `weft-graph` installs beside `weft-rag` by name into an environment that has never
+- [ ] **11.5 ⛔ G18** `weft-graph` installs beside `weft-rag` by name into an environment that has never
   seen this repository, registers under `NodeStore` and its own traversal Protocol, is reached by
   `weft delete` and `weft reconcile` because a document names it, and closes its own connection when
   a fan-out constructed it · owner `09` §1; `02` §4 · turns on FF1, FF10(a), FF24 · sha — ·

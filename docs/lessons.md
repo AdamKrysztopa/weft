@@ -479,6 +479,39 @@ one it would sit next to. The first is a check and the second is a convention; `
 that the convention alone is prose. `recurs L9.15` on the half about a dependency filed where
 nobody can tick it.
 
+### L11.19 — the namespace rule fired at the moment of building, and the name was chosen at the moment of deciding
+
+**What happened.** Task `11.4` names the distribution `weft-graph`, so `phase-step` → *Orient*'s
+rule ran — *"when a decision names something that will be published, check the namespace it will be
+published into, in the session that decides it"* — and **`weft-graph` is taken on PyPI**: version
+`1.3.0`, seven releases from 2026-01-02 to 2026-03-02, MIT, by another author, and it is a project
+*also called Weft* in the *knowledge-graph* space. Its wheel installs a top-level module `weft` and
+a console script `weft = weft.cli:main`, which is this project's own binary name. Re-measured the
+whole set in the same call: the eight release names are still 404, and `weft-canary` and
+`weft-neo4j` are free, so this is one name and not a general loss.
+
+**The rule worked. It fired three days late, and that is the finding.** `S12` chose this name on
+2026-09-06 as a **scope decision**, and the check lives in `phase-step`, which is read when a
+*task* is built. So between `S12` and now, `01` → Phase 11's Exit, `02:1893`'s literal
+`uv add weft-graph`, `09` §1, `S12`'s own row and five ledger task lines have all named a
+distribution that cannot be published, and every check in this repository stayed green because
+every one of them is a check *about this repository* — `L6.33`'s exact sentence, one instance
+later.
+
+**Generalises to.** A check attached to the moment of *building* does not run at the moment of
+*deciding*, and names are decided in sessions that build nothing. Any protocol that can settle a
+name — a `05` grilling session, an `S` scope row — owes the namespace lookup in its own *Done
+when*, not by reference to a skill nobody invokes there. And the lookup is not "is the name free":
+it is the registry name, the import name, and the console-script name, because a collision on any
+of the three reaches a user who installs both.
+
+**Candidate home.** `docs/README.md` → *Protocol* and `05`'s session template: a *Done when* clause
+requiring the namespace lookup for every name the decision fixes, with its date and result recorded
+on the log row, exactly as this project already requires evidence for a count. Possibly also a
+`tests/docs` check that every distribution name in `09`'s release table has a recorded lookup date
+— though that one is a check about this repository again, which is the trap `L6.33` named, so the
+drain should weigh it. `recurs L6.33`
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in
