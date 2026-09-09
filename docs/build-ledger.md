@@ -7893,7 +7893,7 @@ that assumed one was withdrawn from the plan before it reached this list.
   has no mark: `How to read a task line` gives ⛔ to a **phase header** against an open **gate**
   and nothing to this. `L11.18`, and `docs/README.md`'s Next-action row is what carries the order
   in the meantime, which is exactly what that row is for
-- [ ] **11.4** `weft-kg` publishes the traversal Protocol — versioned, `@runtime_checkable`,
+- [ ] **11.4** `weft_kg` publishes the traversal Protocol — versioned, `@runtime_checkable`,
   not a `Stage`, satisfied structurally by its own store and by an out-of-tree stranger — and the
   condition under which it moves into the store family is a dated row in `01`'s deferred table
   with its reopen trigger, not an assumption · owner `02` §1 → *Who publishes a contract*; `01` →
@@ -7912,10 +7912,27 @@ that assumed one was withdrawn from the plan before it reached this list.
   promotion a third-party backend depends on `weft-kg` for the Protocol. `02:666-670`'s "a
   graph store is not a node store" is amended to what the code implements — a sentence about
   obligation, not a prohibition on being one*
-- [ ] **11.5** `weft-kg` installs beside `weft-rag` by name into an environment that has never
-  seen this repository, registers under `NodeStore` and its own traversal Protocol, is reached by
-  `weft delete` and `weft reconcile` because a document names it, and closes its own connection when
-  a fan-out constructed it · owner `09` §1; `02` §4 · turns on FF1, FF10(a), FF24 · sha — ·
+  · **Rewritten 2026-09-09 by G19, and what changed is the wrapper rather than the property.**
+  This line said *"`weft-kg` publishes"*, meaning a ninth PyPI distribution. Weft publishes two
+  names now, so the pack is `packages/weft-rag/src/weft_kg/` and its outside library is the
+  `graph` extra. **Every clause survives unchanged**: a Protocol still ships from the pack that
+  owns the capability rather than from `weft-store`, still versioned, still `@runtime_checkable`,
+  still not a `Stage`, still satisfied structurally by its own store and by an out-of-tree
+  stranger — and G4 still does not reopen, because who *publishes* a contract is a question about
+  the pack, and `weft.packs` discovery has never asked which wheel a pack arrived in. **One clause
+  is now cheaper and one is now sharper.** Cheaper: the stated cost *"until promotion a
+  third-party backend depends on `weft-kg` for the Protocol"* becomes a dependency on `weft-rag`,
+  which such a backend already has. Sharper: fitness function 9c's stranger is no longer optional
+  scenery — with the pack inside the release wheel, an out-of-tree implementer is the *only* thing
+  left proving the Protocol is satisfiable by somebody who did not write it, which is exactly the
+  "second paradigm" `S12` refused. `01` → *The least-architecture check* takes the deferral row
+  with its reopen trigger unchanged: a second real backend, `weft-neo4j` on `qdrant`'s
+  compose-profile precedent
+- [ ] **11.5** `weft-rag[graph]` installs into an environment that has never seen this
+  repository, registers under `NodeStore` and its own traversal Protocol, is reached by
+  `weft delete` and `weft reconcile` because a document names it, closes its own connection when
+  a fan-out constructed it, and **reports `failed` naming its missing library when the extra is
+  absent** rather than taking the run down · owner `09` §1; `02` §4 · turns on FF1, FF10(a), FF24 · sha — ·
   *carries the example pack's Postgres store forward — Weft's own code, a move, not a copy — with
   `[packs.graph] dsn` optional and defaulting to the same `WEFT_DATABASE_URL` offer `store` takes,
   so one container is still one. **Beside, and not for the dependency reason**: G10's
