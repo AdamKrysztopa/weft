@@ -60,7 +60,13 @@ from pydantic import SecretStr
 from weft_kernel.context import Context
 from weft_kernel.payload import MediaType, Node, NodeId, SourceId, Vector
 from weft_kg.contract import EntityId
-from weft_kg.payload import CooccurrenceEdge, CooccurrenceGraph, EntityMention
+from weft_kg.payload import (
+    CooccurrenceEdge,
+    CooccurrenceGraph,
+    EntityMention,
+    ExtractedFact,
+    MentionedEntity,
+)
 from weft_kg.store import GraphSettings, GraphStore
 from weft_kg.traversal import GraphWalk
 from weft_store.contract import ReconcileMode
@@ -360,3 +366,88 @@ async def test_a_node_carrying_no_graph_ext_derives_no_rows(
     # Assert
     assert await store.count() == 1
     assert await walk.entities_by_name(["Chucri"]) == ()
+
+
+# --- ledger task 11.7: the model-extracted rung's own rows --------------------------------
+
+
+async def test_storing_a_mention_node_derives_the_entity_row_it_anchors(
+    store: GraphStore, walk: GraphWalk
+) -> None:
+    """`11.6`'s split, applied to `llm-facts`: the stage attaches ext, `add` writes the rows.
+
+    A mention node is what an entity row hangs off — `11.8` cascades its entity and alias tables
+    from mention node ids — so the anchoring is asserted through `nodes_for_entities` rather than
+    through the entity's mere existence: an entity with no node behind it is one no deletion can
+    ever reach.
+    """
+    # Arrange
+    mention = _node("Chucri", source="doc-a").with_ext(
+        MentionedEntity(name="Chucri", entity_type="person")
+    )
+
+    # Act — the ordinary store call a pipeline's `store` stage makes, nothing else.
+    await store.add([mention])
+
+    # Assert
+    [entity] = await walk.entities_by_name(["Chucri"])
+    assert (await walk.nodes_for_entities([entity.id]))[entity.id] == (mention.id,)
+
+
+async def test_storing_a_fact_node_derives_the_relation_between_its_two_entities(
+    store: GraphStore, walk: GraphWalk
+) -> None:
+    """The edge a model-extracted fact contributes, walkable by the traversal `11.10` uses.
+
+    The predicate is the model's own word rather than `co-occurs-with`, which is the whole
+    difference between this rung and `index-with-cooccurrence`: a co-occurrence edge says two
+    names shared a chunk, and this one says what the text claimed about them.
+    """
+    # Arrange
+    fact = _node("Chucri wrote adRAP", source="doc-a").with_ext(
+        ExtractedFact(
+            source="Chucri",
+            source_type="person",
+            predicate="wrote",
+            target="adRAP",
+            target_type="method",
+        )
+    )
+
+    # Act
+    await store.add([fact])
+
+    # Assert — both endpoints exist and each reaches the other, the walk being undirected.
+    found = await walk.entities_by_name(["Chucri", "adRAP"])
+    assert {entity.name for entity in found} == {"Chucri", "adRAP"}
+    [chucri] = [entity for entity in found if entity.name == "Chucri"]
+    neighbours = await walk.neighbourhood([chucri.id], hops=1)
+    assert {entity.name for entity in neighbours[chucri.id]} == {"adRAP"}
+
+
+async def test_an_entity_a_fact_named_dies_with_the_fact_node(
+    store: GraphStore, walk: GraphWalk
+) -> None:
+    """The G15 narrowing this pack stands on: no row outlives the nodes that support it.
+
+    Asserted for the fact path as well as the co-occurrence one, because the two reach
+    `put_entity` by different routes and only the call sites say whether both attach.
+    """
+    # Arrange
+    fact = _node("Chucri wrote adRAP", source="doc-b").with_ext(
+        ExtractedFact(
+            source="Chucri",
+            source_type="person",
+            predicate="wrote",
+            target="adRAP",
+            target_type="method",
+        )
+    )
+    await store.add([fact])
+    assert await walk.entities_by_name(["Chucri"]) != ()
+
+    # Act
+    await store.delete_source(SourceId("doc-b"))
+
+    # Assert
+    assert await walk.entities_by_name(["Chucri", "adRAP"]) == ()

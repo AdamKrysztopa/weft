@@ -21,6 +21,7 @@ failure a single class would reintroduce.
 from functools import partial
 
 from weft_enhance.contract import Enhancer
+from weft_index.contract import Expander
 from weft_kernel.discovery import Disclosure, PackRegistrar
 from weft_kg.contract import (
     GRAPH_ROLE,
@@ -30,9 +31,20 @@ from weft_kg.contract import (
     GraphTraversal,
 )
 from weft_kg.cooccurrence import CooccurrenceGraphBuilder, CooccurrenceSettings
-from weft_kg.payload import CooccurrenceEdge, CooccurrenceGraph, EntityMention
+from weft_kg.extraction import NAME as LLM_FACTS_NAME
+from weft_kg.extraction import LlmFactExtractor, LlmFactsConfig
+from weft_kg.payload import (
+    CooccurrenceEdge,
+    CooccurrenceGraph,
+    EntityMention,
+    ExtractedFact,
+    ExtractionTally,
+    MentionedEntity,
+)
+from weft_kg.prompts import EXTRACT_FACTS_NAME, ExtractFactsPrompt
 from weft_kg.store import GraphSettings, GraphStore
 from weft_kg.traversal import GraphWalk
+from weft_prompts.contract import Prompt
 from weft_store.contract import NodeStore
 
 #: Re-exported so a caller can write `from weft_kg import Settings`, the name every other pack in
@@ -50,7 +62,10 @@ DISCLOSURE = Disclosure(
     note=(
         "Reads and writes node, entity and relation rows in PostgreSQL with pgvector, "
         "creating its own tables on first use. Sits beside the vector store: a document naming "
-        "both store: pgvector and store: graph hands the identical batch to each."
+        "both store: pgvector and store: graph hands the identical batch to each. The "
+        "llm-facts stage sends a chunk's own text to whichever provider the LLM role it is "
+        "configured with (role: index by default) resolves to — egress is a property of that "
+        "selected provider, not of this pack, so no import rule can state it here."
     ),
 )
 
@@ -76,12 +91,23 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add_ext_model(CooccurrenceGraph)
     registrar.add_pipeline_resource("weft_kg", "pipelines/index-with-graph.yaml")
     registrar.add_pipeline_resource("weft_kg", "pipelines/index-with-cooccurrence.yaml")
+    # Ledger 11.7 — the model-calling rung. `add_pipeline_resource` for this document comes
+    # last: `test_register.py` asserts the exact resource order, and this is the rung that
+    # builds on `index-with-graph`, which must already be registered above it.
+    registrar.add(Expander, LLM_FACTS_NAME, LlmFactExtractor)
+    registrar.add(Prompt, EXTRACT_FACTS_NAME, ExtractFactsPrompt)
+    registrar.add_ext_model(ExtractedFact)
+    registrar.add_ext_model(MentionedEntity)
+    registrar.add_ext_model(ExtractionTally)
+    registrar.add_pipeline_resource("weft_kg", "pipelines/index-with-facts.yaml")
 
 
 __all__ = [
     "DISCLOSURE",
+    "EXTRACT_FACTS_NAME",
     "GRAPH_ROLE",
     "GRAPH_TRAVERSAL_CONTRACT_VERSION",
+    "LLM_FACTS_NAME",
     "SERVICE_ROLES",
     "CooccurrenceEdge",
     "CooccurrenceGraph",
@@ -90,8 +116,14 @@ __all__ = [
     "Entity",
     "EntityId",
     "EntityMention",
+    "ExtractFactsPrompt",
+    "ExtractedFact",
+    "ExtractionTally",
     "GraphSettings",
     "GraphTraversal",
+    "LlmFactExtractor",
+    "LlmFactsConfig",
+    "MentionedEntity",
     "Settings",
     "register",
 ]

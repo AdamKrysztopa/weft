@@ -188,4 +188,11 @@ the build when this list and the markers in the tree disagree:
 
 <!-- weft-prior-work-sources -->
 
-- *(none — no file in this repository carries the owner's own prior work yet)*
+- `graph-study` — a private knowledge-graph project of the same author's, predating Weft. What is
+  carried is the entity-atomicity filter it developed against real papers: five rules that refuse a
+  name for being a clause, an equation, a citation or a pointer to a document's own sections, plus
+  the label-token guard that keeps *"table tennis"* out of the fourth rule. It lives in
+  [`packages/weft-rag/src/weft_kg/atomicity.py`](packages/weft-rag/src/weft_kg/atomicity.py), inside
+  the marked span; the dispatch around it, which answers *which* rule fired so every drop is counted
+  under its own reason, is Weft's own. Nothing else from that project is here — not its prompts, not
+  its store, not its pipeline.

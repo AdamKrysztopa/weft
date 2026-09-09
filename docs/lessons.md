@@ -883,6 +883,99 @@ name matches `*_API_KEY|*_TOKEN|*_SECRET|*PASSWORD*` into stdout, which is the s
 shape as the four destructive-git refusals: a prohibition that needs a mechanism rather than a
 stronger sentence (`L9.56`).
 
+### L11.32 — every prompt in this tree fails `Prompt`, and one generic hid it from four packs
+
+**What happened.** `11.7`'s stage is the first in the tree to hand a concrete `TypedPrompt`
+subclass to `weft_prompts.cascade.execute` directly, because `weft_cli.run_services.
+build_index_services` deliberately publishes no `StageLookup` on the ingest path. pyright refused
+it: *"`ExtractFactsPrompt` is incompatible with protocol `Prompt` — `version` is not present."*
+I measured rather than assumed it was this class's fault, on a prompt nobody had touched:
+`_: Prompt = PassageRelevancePrompt()` fails identically. **No registered prompt in this
+repository satisfies its own contract to a type checker**, and none ever has.
+
+**Generalises to.** The two-audience versioning pattern every contract here shares — `version`
+declared under `if TYPE_CHECKING:` and assigned to the Protocol object after its class body — is
+what keeps `version` out of `__protocol_attrs__` so `isinstance` stays honest about *behaviour*.
+The cost, never written down, is that the same declaration makes the Protocol **unsatisfiable by
+assignment**: a checker requires a member no implementer carries. Nothing noticed for four packs
+and three phases because exactly one function stands between every caller and the check —
+`StageLookup.build_capability[T](Prompt, name) -> T` infers `T = Prompt` from the call site and
+never looks at the concrete class. So the tree has a contract whose implementers all fail it,
+proved satisfiable only by a generic that declines to ask.
+
+The general rule: **a generic that infers its return type from the call site is not a check, and a
+population validated only through one is unvalidated.** This is `L6.4`'s population rule in a type
+system — a marker means what its live instances say — and `L5.19`'s vacuity rule at the same time:
+a check nothing has been seen failing may be a check nothing can fail.
+
+**Candidate home.** Two, and they answer different halves. *(a)* `phase-step` → *Red*: when a task
+first uses an existing contract in a new way, assert the concrete class against the contract in
+that pack's own `test_contract.py` — `assert_type` or a bare annotated assignment — so the
+population is checked where the generic is not standing. *(b)* Whether the pattern itself should
+change is a question about **every** contract in the tree, not about this stage, and it belongs to
+**G9**, which already owns contract versioning and the two audiences. Filed there rather than
+repaired here; `11.7` uses `cast(Prompt, ...)` with the measurement written at the call site, which
+is a statement of a true fact (the runtime `isinstance` passes) rather than a suppression.
+
+### L11.33 — 6.24's defect came back, and no code changed to bring it
+
+**What happened.** `_record_sources` records a `SourceRecord` in the store `_store_stage_id_of`
+names, whose docstring said *"the one stage registered under the `NodeStore` contract"*. That was
+true when 6.24 wrote it. `11.5` then shipped `index-with-graph`, a document naming **two** stores,
+and from that commit the second store's `put_source` was never called: `kg_sources` empty after a
+real `weft index`, `list_sources()` answering `()` about nineteen nodes it was holding, `reconcile`
+with nothing to converge. Found at `11.7` by running the binary from outside the repository, with
+2,385 tests green. Repaired as `R11.4`.
+
+**Generalises to.** `L6.15` exactly — *a code invariant asserting "every shipped pipeline" over
+documents anyone may write* — and this is its second instance, so the recurrence is the finding
+rather than the defect. What is new is the **trigger**: no line of `ingest.py` changed. A YAML file
+in a different distribution falsified a sentence in a Python docstring, and nothing in this
+repository connects those two facts. That is why the usual defences all missed it: review saw no
+diff, the type checker saw no type change, and the unit suite's store doubles answered the question
+the running system could not — which is the *same* module's own recorded lesson (`L6.14`), now
+twice.
+
+The general rule: **when a document becomes able to name two of something, every "the one" in the
+code that reads that document is a claim that just expired.** The moment to look is the commit that
+ships the *document*, not the commit that changes the code — because there will not be one.
+
+**Candidate home.** `phase-step` → *Verify*, beside the `path:line` rule: a task shipping a pipeline
+document that names two stages of one contract greps for the singular derivations of that contract
+(`_store_stage_id_of`, `_extractor_name_of` and their kin) before it ticks. The mechanical form, and
+the better one, is a **fitness function**: for each contract a shipped document names more than once,
+assert that no first-party derivation of that contract returns a single id — which is checkable
+because both sides are in this tree, and which would have fired at `11.5` rather than at `11.7`.
+
+### L11.34 — the architecture suite reads `git ls-files`, so a new file is invisible until it is staged
+
+**What happened.** `11.7`'s implementer reported `test_release_licensing.py::
+test_every_enumerated_source_work_is_actually_carried` as failing and correctly diagnosed it as
+untracked-file noise: the sweep walks `tracked_files()`, so `weft_kg/atomicity.py` — which carries
+the repository's first `weft-prior-work` span — did not exist as far as the check was concerned,
+while `README.md` enumerated the source work it was supposed to match. `git add` turned it green
+with no edit to anything.
+
+**Generalises to.** `L8.10` twice already: FF17 read `git ls-files` and could not see a file written
+in the same task (Phase 8, then again at `11.4`). This is the third instance and the first in a
+different check, which is the part that makes it a class rather than a bug — *any* architecture
+check whose population is `tracked_files()` reports on the last commit plus whatever was staged,
+never on the tree the author is looking at. So a test-first task's gate is red for a reason the diff
+does not contain, and the failure names a file rather than the staging.
+
+The rule: **a check that walks `git ls-files` is asking about the index, not about the working tree,
+and a task that adds a file must stage it before that check means anything.** It is not a defect in
+the checks — `tracked_files()` is what makes them checks about the *repository* rather than about a
+scratch directory — it is a precondition nothing states.
+
+**Candidate home.** `phase-step` → *Finish*, item 1, beside the environment preconditions
+`CLAUDE.md` already lists for a meaningful gate (committed lockfile, container up, expected skip
+count, cold lint cache): **new files staged**. The mechanical form is a line in the gate task itself
+— `git add -N` on untracked, non-ignored files before the architecture suite runs, which changes no
+content and makes the population the author's tree — or, failing that, `tracked_files()` raising
+when the working tree holds an untracked file matching a suffix it sweeps, so the check says
+*"stage this"* rather than *"this file is missing"*.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

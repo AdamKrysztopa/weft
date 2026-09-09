@@ -8216,11 +8216,14 @@ that assumed one was withdrawn from the plan before it reached this list.
   passed, 9 skipped, 128 examples — eighteen more than `11.5`'s 2322 and no shrink. **The cold-cache
   lint caught an import order three warm `ruff check` runs had passed**, which is `L9.1` doing its
   job rather than a new finding*
-- [ ] **11.7 ⚠ D2** extraction is paid once: a chunk's facts and mentions are `Node`s derived
+- [x] **11.7 ⚠ D2** extraction is paid once: a chunk's facts and mentions are `Node`s derived
   from it, persisted through the ordinary store stage, never recomputed by any later pass; the
   stage holds a concurrency cap; and every dropped candidate is counted **per reason**, never
   summed · owner `02` §1; `NOTICE` case 2 · turns on FF14, FF19 · sha — · *`index-with-facts`,
-  `extends: index-text`, one `Expander` before `embed` (8.2/8.10's rule: a model-calling stage
+  ~~`extends: index-text`~~ — **`extends: index-with-graph`**, because that rung already carries
+  the store this stage's ext data needs and `02` §3's derivation model is that a rung is one
+  operator block on top of one that exists, never a fresh copy of its ancestor's stage list; the
+  same correction `11.6` took for `index-with-cooccurrence` — one `Expander` before `embed` (8.2/8.10's rule: a model-calling stage
   after `embed` is stored unsearchable) plus the `graph` store stage; the cap takes the field name
   8.7 gave `raptor` and `hypothetical-questions` — or whatever Phase 10 renamed it to. The
   five-rule non-atomic filter and the LABEL-token guard are carried from the owner's
@@ -8237,6 +8240,56 @@ that assumed one was withdrawn from the plan before it reached this list.
   it**: this `Expander`'s output is durable as nodes through the ordinary `store` stage, and the
   corpus-wide tier G15 licensed is a `Revisable` after `store`, which this task is not. Read the
   mark as the preamble's record, not as a block*
+  · **Built.** `llm-facts` (`Expander`), `extract-facts` (`Prompt`), three ext models
+  (`ExtractedFact`, `MentionedEntity`, `ExtractionTally`), the carried atomicity filter, and
+  `index-with-facts`. **Three decisions taken with the owner rather than defaulted.** *(1) The
+  name*: `llm-facts`, stating the mechanism (`10` §2.1 rule 2) and qualified against the sibling
+  this pack already ships (rule 6) — `cooccurrence-graph` builds the same shape with no model, so
+  an unqualified `facts` would be the first of two implementations seizing a shared namespace;
+  `llm-` is rule 6's own worked example (`llm-rerank`). Rows in `10` §1.2, §1.5 and a §5
+  no-origin finding. *(2) How the stage reaches a typed answer*: `weft_prompts.cascade.execute`
+  with the pack's own `Prompt` **object**, because `build_index_services` deliberately publishes
+  no `StageLookup` on the ingest path — *"an ingest stage able to reach them would be an ingest
+  plugin depending on the query path"* — so a name cannot be resolved here the way `llm-rerank`
+  resolves one. That buys all three tiers, which is what makes the rung work on the offline
+  `scripted` provider and on a vendor that checks a JSON schema. **The cost is stated in three
+  places rather than hidden**: a `[plugins]` pin on `extract-facts` changes what
+  `weft plugins list` shows and does not change what the stage asks; closing it needs an
+  ingest-path `build_capability`, which is a `weft_cli` change `11.5` settled this pack may not
+  make. *(3) Where the per-reason tally rides*: the **run's**, on every derived node —
+  `RaptorFacts.clusters_found`'s precedent, and it closes the hole a per-chunk tally has, since a
+  chunk whose every candidate was dropped derives no node for the tally to ride on.
+  **`ExtractionTally` makes *"every dropped candidate is counted"* a property of the type**: no
+  total field, a repeated `DropReason` refused, and `kept` plus every count asserted equal to
+  `candidates`, so a rule added later that forgets to count fails at construction. Eight reasons
+  — the filter's five, plus `incomplete-row`, `duplicate` and `over-limit`. The donor skipped a
+  malformed row *silently* (its own comment: "not counted as dropped") and folded five rules into
+  one integer; both are repaired here and both have a test. **`NOTICE` case 2 fires for the first
+  time in this repository**: the five-rule filter and its LABEL-token guard are carried from the
+  owner's `graph-study`, delimited in `weft_kg/atomicity.py` with the convention `NOTICE` spells
+  and enumerated on `README.md`, which arms `11.0`'s check — empty-against-empty until this
+  commit, live from it. The **prompt is authored fresh**, per `01` → Phase 11's *Not lifted*.
+  **Run through the shipped binary from outside this repository, four ways.** Offline
+  (`scripted`): the rung resolves, runs, stores, and degrades to zero facts because an echo
+  cannot be parsed into the output model — the `Expander` posture proven, not asserted. No
+  `[llm.roles] index`: refused loudly, naming every mapped role and printing the two lines to
+  add. **With a real model** (owner's decision, `gpt-5.6-luna`, three sentences): 8 facts, 10
+  mentions, 10 entities, 8 relations, tally `candidates=8 kept=8 dropped=[]`, counted in the
+  container immediately before and after (`L8.30`). Then `weft delete` of that source: 19 nodes
+  removed and `entities=0 relations=0 entity_nodes=0` — the G15 narrowing this pack stands on,
+  proven rather than argued. **Two findings the tests could not have produced.** The filter
+  refuses a name that *ends* in a function word and says nothing about one that *begins* with a
+  determiner, so `the work` and `an existing tree` became entities beside `adRAP`; recorded on
+  the class and in `10`'s row rather than repaired, because a sixth rule is not carried work and
+  the judgement belongs against a real corpus's mention sets, which `11.8` is the first pass to
+  see. And `kg_sources` was **empty** after a real index — filed, repaired and committed
+  separately as **`R11.4`** at the owner's decision, on `R11.2`'s precedent. `L11.32` (no prompt
+  in this tree satisfies `Prompt` to a type checker; one generic hid it from four packs) and
+  `L11.33` (`6.24`'s defect returned with no code change to bring it) are this task's queue
+  entries. Tests mine; `payload`, `extraction`, the store's derivation, registration and the
+  document by a dispatched `weft-implementer`; `atomicity.py`, `prompts.py` and every document
+  edit mine. Gate `GATE_EXIT=0` read out of the run's own log, both containers up: 276
+  architecture, 2386 passed, 9 skipped, 128 examples*
 - [ ] **11.8 ⚠ D2** two mentions of one thing become one entity by a deterministic, idempotent
   pass a second run cannot change, and the canonical id is a function of the set, not of arrival
   order · owner `02` §1 → `Reconcilable`; `NOTICE` case 2 · turns on — · sha — · *blended

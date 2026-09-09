@@ -1,0 +1,19 @@
+name: index-with-facts
+extends: index-with-graph
+
+# `extends: index-with-graph`, not `index-text` — `02` §3's derivation model: a rung is one
+# operator block on top of a rung that already exists, never a fresh copy of its ancestor's
+# stage list. `index-with-graph` already carries the store (`pgvector-graph`) that turns this
+# stage's `ExtractedFact`/`MentionedEntity` ext data into entity and relation rows on its next
+# call to `add` — see `weft_kg.store.GraphStore._derive_graph_rows` — so this document costs one
+# insert, not a second store.
+#
+# Anchored **after `chunk`**, never after `embed`: ledger `8.2`/`8.10`'s rule is that a
+# model-calling stage placed after `embed` produces nodes that are stored unsearchable, because
+# an embedder that already ran cannot reach back and embed what a later stage derives. `chunk`
+# sits before `embed` in `index-text`, the document `index-with-graph` itself extends, so
+# anchoring here is what puts every fact and mention node this stage derives through the same
+# `embed` and `store` stages every ordinary chunk goes through.
+insert:
+  - after: chunk
+    stage: {id: facts, use: llm-facts}

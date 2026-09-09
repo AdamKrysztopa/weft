@@ -27,18 +27,30 @@ classes over one schema, which keeps that shape out of the tree.
 
 from __future__ import annotations
 
+from importlib import resources
+from pathlib import Path
+
 import pytest
 from pydantic import ValidationError
 
+from weft_cli.pipeline_catalogue import load_pipeline_document
 from weft_cli.run_services import class_provides
 from weft_enhance.contract import Enhancer
+from weft_index.contract import Expander
 from weft_kernel.discovery import PackRegistrar
 from weft_kernel.registry import Registry
 from weft_kg import GRAPH_ROLE, Settings, register
 from weft_kg.contract import Entity, EntityId, GraphTraversal
-from weft_kg.payload import CooccurrenceGraph
+from weft_kg.payload import (
+    CooccurrenceGraph,
+    ExtractedFact,
+    ExtractionTally,
+    MentionedEntity,
+)
+from weft_kg.prompts import EXTRACT_FACTS_NAME
 from weft_kg.store import GraphDsnNotConfiguredError, GraphStore
 from weft_kg.traversal import GraphWalk
+from weft_prompts.contract import Prompt
 from weft_store.contract import NodeStore, Reconcilable, SourceDeletable
 
 
@@ -259,4 +271,114 @@ def test_the_pack_contributes_the_document_that_makes_its_store_reachable() -> N
     assert [(r.package, r.resource) for r in registrar.pipeline_resources] == [
         ("weft_kg", "pipelines/index-with-graph.yaml"),
         ("weft_kg", "pipelines/index-with-cooccurrence.yaml"),
+        ("weft_kg", "pipelines/index-with-facts.yaml"),
     ]
+
+
+# --- ledger task 11.7: the model-calling rung --------------------------------------------
+
+
+def test_register_adds_the_fact_extractor_under_expander() -> None:
+    """`llm-facts` is an `Expander` — every node handed in continues and facts are added beside
+    it — registered exactly the way `weft_index`'s two already are, from a different pack.
+    """
+    # Act
+    registry = _registered()
+
+    # Assert
+    entry = registry.entry(Expander, "llm-facts")
+    assert entry.distribution == "weft-rag"
+
+
+def test_register_adds_the_extraction_prompt_under_its_own_name() -> None:
+    """The text this pack sends to a provider is a listed, versioned, translatable plugin.
+
+    It is registered even though `weft_kg.extraction` constructs the class directly: this is the
+    stage whose `Disclosure` says chunk content leaves the machine, and the prompt is the only
+    artefact that says *what leaves*. Hiding it from `weft plugins list` and from
+    `manual/contract-reference.md` to avoid one wart would trade a documented limitation for an
+    undocumented one. The wart, stated where a reader meets it: a `[plugins]` pin on this name
+    changes the listing and does not change what the stage asks, because the ingest path
+    publishes no by-name capability lookup (`weft_cli.run_services.build_index_services`).
+    """
+    # Act
+    registry = _registered()
+
+    # Assert
+    entry = registry.entry(Prompt, EXTRACT_FACTS_NAME)
+    assert entry.distribution == "weft-rag"
+
+
+def test_the_pack_declares_every_ext_model_it_writes() -> None:
+    """Fitness function 14's property at the pack: a model declared and never registered comes
+    back off a store as a bare mapping, and the only symptom is a downstream `AttributeError`.
+
+    All four, in one assertion, so a fifth model added without its registration fails here —
+    which is the shape a per-model test cannot have.
+    """
+    # Arrange
+    registry = Registry()
+    registrar = PackRegistrar(registry, distribution="weft-rag")
+
+    # Act
+    register(registrar, Settings())
+    registrar.commit()
+
+    # Assert
+    assert set(registrar.ext_models) >= {
+        CooccurrenceGraph,
+        ExtractedFact,
+        MentionedEntity,
+        ExtractionTally,
+    }
+
+
+def test_the_pack_discloses_that_chunk_content_leaves_through_the_configured_provider() -> None:
+    """`11.7`'s own line: documented, never derived.
+
+    Egress is a property of the *selected provider*, not of this pack — `weft_llm/scripted.py`
+    makes no call at all — so no import rule and no static check can answer it here. The import
+    rule already catches a provider pack (`tests/architecture/test_network_packs_disclose.py`);
+    what it cannot say is that a stage in *this* pack hands a chunk's text to whichever provider
+    `[llm.roles]` names. A `Disclosure.note` is exactly the seam `02` §2 provides for a fact an
+    operator must be told and the kernel cannot check.
+    """
+    # Arrange
+    import weft_kg
+
+    # Assert
+    note = weft_kg.DISCLOSURE.note
+    assert "llm-facts" in note
+    assert "provider" in note
+
+
+def test_the_model_calling_stage_is_inserted_before_the_embedder() -> None:
+    """Ledger `8.2`/`8.10`'s rule, and the one arrangement fact this document has to get right:
+    **a model-calling stage placed after `embed` produces nodes that are stored unsearchable.**
+
+    Checked from two independently edited sources, so the comparison can actually disagree
+    (`docs/lessons.md` L5.6): the child says which stage id it anchors to, and `index-text` —
+    a different pack's document — says where that id sits relative to `embed`. Asserting the
+    anchor alone would pass on a parent that had since moved `chunk` after `embed`.
+
+    `extends: index-with-graph` rather than `index-text`, on `index-with-cooccurrence`'s own
+    footing: the graph store stage this rung needs already exists one document down, and `02` §3's
+    derivation model is that a rung is one operator block on top of a rung that already exists,
+    never a fresh copy of its ancestor's stage list.
+    """
+    # Arrange — the shipped resources, read through the real parser.
+    child = load_pipeline_document(
+        Path(str(resources.files("weft_kg").joinpath("pipelines/index-with-facts.yaml")))
+    )
+    root = load_pipeline_document(
+        Path(str(resources.files("weft_retrieve").joinpath("pipelines/index-text.yaml")))
+    )
+
+    # Act
+    [inserted] = [operator for operator in child.insert if operator.stage.use == "llm-facts"]
+    order = [stage.id for stage in root.stages]
+
+    # Assert
+    assert child.extends == "index-with-graph"
+    assert inserted.after is not None, "the stage is anchored to nothing, so it lands at the top"
+    assert order.index(inserted.after) < order.index("embed")
