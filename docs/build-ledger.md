@@ -7753,14 +7753,55 @@ that assumed one was withdrawn from the plan before it reached this list.
   architecture, 2251 passed and 9 skipped, 127 examples — 2521 passed against `11.0`'s 2516,
   which is this task's five tests and no shrink (`L7.8`). No sha: `git blame -w` on the ticked
   box is the record as of 2026-09-09
-- [ ] **11.2** a retriever fans out over *retrievers* resolved by name, returns every list labelled
+- [x] **11.2** a retriever fans out over *retrievers* resolved by name, returns every list labelled
   by the arm that produced it, and refuses a name that is not a `Retriever` before any stage runs ·
   owner `02` §3; `10` §1.5 · turns on — · sha — · *`weft-retrieve`, no gate, and independent of the
   graph: "several bases at once" (`product-direction.md:16-17`) has no plugin — `multi-arm` fans out
   over **filters** on one store (`weft_retrieve/multi_arm.py:64-79`, `Arm.filter`) and `corrective`
   resolves exactly one sibling through `StageLookup` (`weft_retrieve/corrective.py:53`). 11.10's
   `graph-and-vector-rrf` is the first document to need it — unless Phase 9's visual-retrieval rung
-  needed it first, in which case this line is already ticked under a `9.x` id and is struck here*
+  needed it first, in which case this line is already ticked under a `9.x` id and is struck here* · **the struck-out clause was checked and does not
+  apply**: the tree registers six `Retriever`s (`no-retrieval`, `vector-top-k`, `multi-arm`,
+  `hybrid`, `iterative-retrieval`, `corrective`) and no Phase 9 rung added a seventh, so nothing
+  was already ticked. `multi-retriever` is the seventh. **Dispatched to a `weft-implementer`**,
+  which came back **blocked** — correctly, and on my error: my `_StubLookup.build` returned the
+  stub retriever while the real `RegistryStageLookup.build` returns `wrap(instance.run, …)`, a
+  plain callable with no `.run`, which both existing doubles of that seam already model. Passing
+  my test would have needed an implementation that could not run against the registry at all. The
+  test was repaired, not the implementation; `L11.17`. **One thing the implementer decided that
+  the brief had not**: it folded `NothingToProduce` into `Failed`, so one arm finding nothing would
+  have failed the whole fan-out — and `Candidates`' own emptiness rule
+  (`weft_retrieve/payload.py:251-262`) settles it the other way, because `NothingToProduce` "stops
+  the pipeline, which on a query path would mean no `Answer` at all", which `09` §4's V2 forbids.
+  Two tests written for it and **the one-branch repair made by me rather than re-dispatched**,
+  the change being smaller than its brief. **The name is a claim and was settled before the code**:
+  not `fan-out`, which `multi-arm` and `hybrid` also do and which a first implementation may not
+  seize from its siblings (§2.1 rule 6); not `federated`, an overclaim under rule 4; not
+  `multi-source`, because a *source* is already a document here. `10` §1.5 carries the row.
+  **`needs_store` is not declared, on `iterative`'s stated precedent**, and the reason was measured
+  rather than quoted: `run_services._chain_of` walks a `StageSpec`'s `use:` and `fallback:` names
+  and nothing else, so a plugin named inside a `with:` block is invisible to
+  `check_store_capabilities` exactly as FF16's docstring says it is invisible to reachability.
+  **That is a live constraint on 11.10**: `01` → Phase 11 requires the graph retriever to be
+  "refused by name at assembly against a store that lacks it", which holds for
+  `graph-then-generate` naming it at the top level and does **not** hold for a
+  `graph-and-vector-rrf` that nests it inside an arm. **A shipped document was needed and is
+  written here rather than at 11.10**: FF16 is categorical about a registered rung being named by a
+  document of its own distribution, and `weft-graph` does not exist yet, so `weft-rag` ships
+  `broad-and-refined-rrf` — two operators off `retrieve-then-generate`, fusing `vector-top-k` with
+  `iterative-retrieval` — and the document's own comment says outright that the motivated first
+  instance is 11.10's. Registration was owed too and FF27 said so before I did. No `weights:`
+  block: `raptor-and-leaves-rrf` writes equal weights out because they were *measured*, and
+  nothing here was, so the absence is the honest signal. **Ran the binary from outside the
+  repository**, on an isolated database with rows asserted 2 before and 2 after: the new rung is
+  listed, `weft pipeline show` resolves it whole, an arm name nothing registered exits **4** naming
+  the contract and all seven valid options, and a two-armed fan-out answered end to end at exit 0
+  with two resolved citations. `broad-and-refined-rrf` itself cannot complete against the offline
+  `scripted` provider, which its sibling `iterative-retrieve` was measured doing identically — and
+  the fan-out's refusal is the better of the two, naming `arm 'refined' ('iterative-retrieval')`
+  where the bare rung names nothing. Gate `GATE_EXIT=0` read out of the run's own log: 270
+  architecture, 2260 passed, 9 skipped, 127 examples — nine more than 11.1's 2251, which is this
+  task's nine tests and no shrink*
 - [ ] **11.3** `weft delete` of one source reports the graph pack's removals **by kind** —
   facts, mentions, entities — beside `node_count`, so a store that reaped forty of its own rows
   never answers with `node_count=0` as its whole account · owner `02` §1 → *The store contract

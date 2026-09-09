@@ -1,0 +1,66 @@
+name: broad-and-refined-rrf
+extends: retrieve-then-generate
+
+# **The rung that makes `multi-retriever` runnable, and it says so rather than implying a
+# motivation it does not have.** Fitness function 16 is categorical: a distribution shipping any
+# pipeline document at all must ship enough of them that every plugin it registers into a
+# pipeline position is named by one, because the distance between "the engine can express this"
+# and "a user can run this" is one YAML file and that is exactly the distance nobody notices
+# growing. `weft-rag` registers `multi-retriever` at ledger 11.2; the *motivated* first document
+# is `graph-and-vector-rrf` at 11.10, and it belongs to `weft-graph`, a distribution that does
+# not exist yet. So this one exists to keep the new rung reachable from the set that registers
+# it, and the pairing below is the honest one available inside `weft-rag` rather than a
+# technique claim.
+#
+# **Why these two arms and not two filters.** `multi-arm` already fans out over slices of one
+# index and `hybrid` over the two arms of one store; neither reaches a second retrieval
+# *strategy*, which is the whole of what this plugin adds. Inside `weft-rag` the only pair that
+# genuinely cannot be written as arms of one store is a pair that differs in how it searches:
+# `vector-top-k` casts one wide net in one shot, and `iterative-retrieval` narrows over up to
+# three rounds against a critic that says what is still missing. Fusing them gives a reader the
+# breadth of the first and the precision of the second without a router deciding in advance
+# which the question needed — the same argument `raptor-and-leaves-rrf` makes for its two arms,
+# over strategies instead of over slices.
+#
+# **No `weights:` block, and that is the finding rather than an omission.** `raptor-and-leaves-
+# rrf` carries equal weights *written out* because they were measured (ledger 10.12) and a
+# reader who sees no mapping cannot tell a measured 1.0 from a default nobody examined. Nothing
+# has been measured here, so nothing is written: the absence is the honest signal, and
+# `weft eval compare --baseline retrieve-then-generate` is how an operator would find out
+# whether either arm deserves more.
+#
+# **And no `collapse-to-parent`, unlike its sibling.** That stage is in `raptor-and-leaves-rrf`
+# because a leaf and the RAPTOR summary over it are two nodes standing for one piece of content,
+# and one chunk indexed several ways must not occupy several slots. Both arms here search the
+# same nodes, so a chunk both arms find is two independent pieces of evidence for it and reciprocal
+# rank fusion is meant to reward exactly that.
+vars:
+  route.summary: >-
+    Searches the corpus once, broadly, and again through a critic-guided loop that goes back for
+    what is still missing — then fuses the two rankings by reciprocal rank before answering. For
+    a question where a wide net and a careful one disagree about what matters.
+  route.cost: >-
+    one embedding call per search, one model call to judge sufficiency per refinement round up to
+    three rounds, and one model call to answer
+
+replace:
+  - id: retrieve
+    use: multi-retriever
+    with:
+      arms:
+        - name: broad
+          use: vector-top-k
+          config: {top_k: 20}
+        - name: refined
+          use: iterative-retrieval
+          config:
+            max_rounds: 3
+            sufficiency: llm-sufficiency
+            leaf: vector-top-k
+            leaf_config: {top_k: 20}
+
+  # `k=60` is the paper's own default (Cormack, Clarke & Buttcher, SIGIR 2009), the same value
+  # every other fusing rung in this set uses.
+  - id: fuse
+    use: reciprocal-rank-fusion
+    with: {k: 60}

@@ -85,6 +85,11 @@ a ranking's own slots, the measurement artefact `.phase2-findings.md` §11 names
 `weft_retrieve.postqfrap`'s own module docstring is why this registers into `ContextPacker`'s
 existing slot rather than the `Expander` position its ledger blocker first pointed at. The
 tenth registered `Prompt`, `summarize-for-query`, arrives with it.
+**`multi-retriever` (task 11.2) is the twenty-fourth**, a fourth `Retriever` beside
+`vector-top-k`, `multi-arm` and `hybrid` — the third documented exception to `10` §2.1 rule
+5, fanning out over *retrievers* resolved by name through `StageLookup` rather than over
+filters (`multi-arm`) or one store's two arms (`hybrid`). `weft_retrieve.multi_retriever`'s
+own module docstring carries the reasoning.
 """
 
 from pydantic import BaseModel, ConfigDict
@@ -143,6 +148,8 @@ from weft_retrieve.iterative import (
 )
 from weft_retrieve.multi_arm import NAME as MULTI_ARM_NAME
 from weft_retrieve.multi_arm import MultiArm
+from weft_retrieve.multi_retriever import NAME as MULTI_RETRIEVER_NAME
+from weft_retrieve.multi_retriever import MultiRetriever, MultiRetrieverConfig, RetrieverArm
 from weft_retrieve.no_retrieval import NAME as NO_RETRIEVAL_NAME
 from weft_retrieve.no_retrieval import NoRetrieval
 from weft_retrieve.payload import (
@@ -350,6 +357,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(Retriever, VECTOR_TOP_K_NAME, VectorTopK)
     registrar.add(Retriever, MULTI_ARM_NAME, MultiArm)
     registrar.add(Retriever, HYBRID_NAME, Hybrid)
+    registrar.add(Retriever, MULTI_RETRIEVER_NAME, MultiRetriever)
     registrar.add(Retriever, ITERATIVE_RETRIEVAL_NAME, IterativeRetrieval)
     registrar.add(Retriever, CORRECTIVE_NAME, Corrective)
     registrar.add(Fuser, SINGLE_LIST_NAME, SingleList)
@@ -395,6 +403,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     # ladder from naive to advanced is the product: the engine could already express this and
     # no document did, so nobody arriving at Weft could see that it could.
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/raptor-and-leaves-rrf.yaml")
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/broad-and-refined-rrf.yaml")
 
     # **Phase 8 — the ladder.** Everything below this line is the same one-line contribution
     # every document above it makes, and that is the whole of the Python this phase needed: a
@@ -505,6 +514,7 @@ __all__ = [
     "LLM_SUFFICIENCY_NAME",
     "MULTI_QUERY_NAME",
     "MULTI_QUERY_VARIANTS_NAME",
+    "MULTI_RETRIEVER_NAME",
     "NEAREST_DESCRIPTION_NAME",
     "NO_RETRIEVAL_NAME",
     "PASSAGE_RELEVANCE_NAME",
@@ -582,6 +592,8 @@ __all__ = [
     "MultiQueryVariants",
     "MultiQueryVariantsPrompt",
     "MultiQueryVariantsRequest",
+    "MultiRetriever",
+    "MultiRetrieverConfig",
     "NearestDescription",
     "NearestDescriptionConfig",
     "NoRetrieval",
@@ -611,6 +623,7 @@ __all__ = [
     "RepackMethod",
     "Reranker",
     "Retriever",
+    "RetrieverArm",
     "Route",
     "RouteCandidate",
     "RouteCatalogue",

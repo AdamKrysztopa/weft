@@ -425,6 +425,32 @@ this entry's and that one's. If it wants a check rather than a repair: every `Ex
 tree that opens a third-party library has a path where that library's failure on one element is
 contained, and `ci-checks` has no way to ask that today. `recurs L6.12` on the prose-check half.
 
+### L11.17 — the double was written from the contract's docstring, and the seam returns something else
+
+**What happened.** Writing `11.2`'s test I gave `_StubLookup.build` a body returning the stub
+retriever itself, with a docstring saying "here it hands back the stub itself, which is what the
+plugin under test calls". `StageLookup.build`'s own docstring says it returns "a callable already
+through `weft_kernel.seam.wrap`", and the real `weft_retrieve.engine.RegistryStageLookup.build`
+returns `wrap(instance.run, ...)` — a plain function with no `.run` attribute. Both existing
+doubles for that seam, in `test_iterative.py` and `test_corrective.py`, return `self._leaf.run`
+and `self._primary.run`. Mine did not, so three of seven tests could only be passed by an
+implementation that calls `retriever.run(...)`, which would have needed a second `cast` and would
+have failed against the registry everywhere else in the pack calls it. The implementer refused to
+edit the test, said exactly that, and came back blocked — which is the split working, at the cost
+of one dispatch round trip.
+
+**Generalises to.** A double for a seam is copied from an existing double of *that same seam*,
+never written from the contract's prose: the prose says what the value *is for* and the existing
+double says what shape actually arrives. Where two test files already stub one seam, a third that
+stubs it differently is the one that is wrong. Cheapest check before dispatching: grep for the
+other stubs of the same protocol method and diff their return statements against yours.
+
+**Candidate home.** `phase-step` → *Red*, beside `L6.14`, whose rule this is one step more
+specific than: `L6.14` says a hand-written double populates whichever fact the author had in mind;
+this says the *shape* is guessed the same way, and unlike the fact, the shape has a checkable
+precedent in the tree. It cost a dispatch rather than a phase, which is the split earning its
+keep. `recurs L6.14`
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in
