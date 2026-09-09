@@ -24,7 +24,11 @@ figure *is*, not from how many came before it.
 
 from collections.abc import Sequence
 
-from tests.unit.weft_pdf.minimal_pdf import figure_with_caption, text_pages
+from tests.unit.weft_pdf.minimal_pdf import (
+    figure_beside_a_zero_width_image,
+    figure_with_caption,
+    text_pages,
+)
 from weft_blob.contract import BlobStore
 from weft_blob.filesystem_store import FilesystemBlobSettings, FilesystemBlobStore
 from weft_blob.payload import BlobRef
@@ -210,3 +214,32 @@ async def test_an_extractor_with_no_blob_store_configured_refuses_by_name(
 
     with pytest.raises(UnresolvedServiceError):
         await PdfLayoutExtractor().run([_doc(figure_with_caption(_CAPTION))], bare)
+
+
+async def test_an_image_with_no_area_is_skipped_and_the_real_figure_still_arrives(
+    tmp_path: object,
+) -> None:
+    """Carried repair `R11.1`, and it is a defect found by running the binary, not by these tests.
+
+    `weft index corpus --pipeline index-pdf` exited **1** on a real paper from this project's own
+    `corpus/mrmr/` with a single line — `'extract' failed: cannot write empty image` — naming
+    neither the document nor the page, and it did the same on `index-pdf-undescribed` and
+    `index-pdf-rows`. The cause, measured: `pdfplumber` reports 67 image boxes of zero rounded
+    width across that paper's 21 pages, and cropping a zero-area box gives PIL an empty image that
+    `save` refuses.
+
+    **The policy this restores is already settled one path over**, in `weft_pdf.document.
+    ExtractedTable`'s own docstring: a backend's unusable reading "must skip the one table rather
+    than fail the document." A box with no area holds no pixels, so nothing is lost by skipping it
+    — which is why this is silent, exactly as `_table_node`'s refusal is, rather than reported.
+
+    One document, two images: the assertion is that the good one survives, because a document
+    holding only the bad image could not tell "skipped it" from "found no figures at all."
+    """
+    # Act
+    nodes = await _nodes(figure_beside_a_zero_width_image(_CAPTION), tmp_path)
+
+    # Assert
+    figures = _figures(nodes)
+    assert len(figures) == 1
+    assert figures[0].content == _CAPTION

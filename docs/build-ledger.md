@@ -5919,7 +5919,7 @@ it had read one failure (`L7.1`).
   the detector can say least about. Phase 9's drain found **six** recurrences inside Phase 9 that
   the script could not see, every one stated in the entries' own prose
 
-- [ ] **R11.1** one unreadable figure in one document does not fail the run that was indexing a
+- [x] **R11.1** one unreadable figure in one document does not fail the run that was indexing a
   corpus, and whatever is refused says which document and which page it was in · owner
   `weft_pdf.pdf_layout.PdfLayoutExtractor._read_figures`; `weft_pdf.document.ExtractedTable`, whose
   docstring already states the policy for the sibling path · `L11.15`, `L11.16` · **found by
@@ -5938,7 +5938,25 @@ it had read one failure (`L7.1`).
   an `unreadable` channel for saying so. Two properties, and they can fail separately: the run
   survives, and the refusal is attributable. Filed rather than fixed inside `11.1` because it is
   not that task's content and because *how* a skipped figure is reported — silently, counted, or
-  named — is a choice `9.7`'s author should make
+  named — is a choice `9.7`'s author should make · **done 2026-09-09, and the reporting question
+  answered by reading the sibling rather than by choosing.** `_table_node` skips a refused grid
+  **silently** and its docstring says why: one unreadable table "is not a reason to fail the
+  document". A box with no area is the same case one path over and weaker still — it holds no
+  pixels, so nothing is lost to report — and a zero-area crop is what hands PIL an empty image.
+  The guard is `if box[2] <= box[0] or box[3] <= box[1]: continue`, placed before the crop, and it
+  covers the reversed and out-of-order boxes as well as the flat ones. **Written by me, not
+  dispatched** — three lines and a fixture. The fixture is the real document's shape rather than an
+  invented one: one page carrying a good captioned figure *and* a zero-width image, because a page
+  holding only the bad one could not tell "skipped it" from "found no figures". Watched red first,
+  with the binary's own message — `ValueError: cannot write empty image`. **Ran the binary from
+  outside the repository on the paper that broke it**: `weft index corpus --pipeline index-pdf`
+  now reaches `index-pdf`'s own documented refusal (*"no service is registered for BlobStore"*),
+  and with `[services] blob` configured it indexes to **142 nodes at exit 0**, where before it
+  exited 1 on every PDF ladder. The second half of the line — that a refusal names its document
+  and page — is **not** met and is not owed: nothing is refused any more on this input, and a
+  guard that reported every rule and invisible mark in a 21-page paper would be 67 lines of noise.
+  If a *real* figure ever fails to crop, that is a different case and it will raise as it always
+  did
 
 ## Phase 10 — RAPTOR, extended
 

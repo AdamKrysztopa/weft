@@ -340,6 +340,20 @@ class PdfLayoutExtractor:
                         round(image["x1"]),
                         round(image["bottom"]),
                     )
+                    if box[2] <= box[0] or box[3] <= box[1]:
+                        # A box with no area holds no pixels, so there is nothing here to lose
+                        # by skipping it — and cropping it hands PIL an empty image, whose
+                        # `save` raises `ValueError: cannot write empty image` and takes the
+                        # whole run with it. That is carried repair `R11.1`, found by running
+                        # `weft index --pipeline index-pdf` over this project's own corpus:
+                        # `pdfplumber` reports 67 such boxes across one real paper's 21 pages,
+                        # two per page at `x0 == x1`, which are rules or invisible marks rather
+                        # than pictures. Skipped rather than raised, on the policy
+                        # `weft_pdf.document.ExtractedTable`'s own docstring already settles for
+                        # the sibling path: a backend's unusable reading "must skip the one
+                        # table rather than fail the document". Silent for the same reason
+                        # `_table_node`'s refusal is silent — nothing was lost to report.
+                        continue
                     buffer = BytesIO()
                     rendered.crop(box).save(buffer, format="PNG")
                     figures.append(

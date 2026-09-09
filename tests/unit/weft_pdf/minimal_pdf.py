@@ -157,6 +157,42 @@ def figure_with_caption(caption: str | None, prose: str = "Some body text above.
     return _assemble(objects)
 
 
+def figure_beside_a_zero_width_image(caption: str) -> bytes:
+    """One page holding a real captioned figure **and** a zero-width image above it.
+
+    Carried repair `R11.1`'s fixture, and it is a shape from a real document rather than an
+    invented one: `pdfplumber` reports **67** image boxes of zero rounded width across the 21
+    pages of `corpus/mrmr/Ding i Peng - 2005 - MINIMUM REDUNDANCY FEATURE SELECTION FROM
+    MICROARR.pdf`, two per page at `x0 == x1 == 72` — a rule or an invisible mark, not a picture.
+    The `cm` matrix below scales the image to width `0` and height `24`, which is what produces
+    such a box.
+
+    The page carries a *good* figure as well, on purpose: the property under test is that the
+    degenerate one is skipped **and the real one still arrives**, which a document holding only
+    the bad image could not tell apart from a document holding no figures.
+    """
+    operations = [
+        b"q 0 0 0 24 72 739 cm /Im1 Do Q",
+        b"BT /F1 10 Tf 72 720 Td (" + _literal("Some body text above.") + b") Tj ET",
+        b"q 100 0 0 60 72 640 cm /Im1 Do Q",
+        b"BT /F1 9 Tf 72 626 Td (" + _literal(caption) + b") Tj ET",
+    ]
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R "
+        b"/Resources << /Font << /F1 5 0 R >> /XObject << /Im1 6 0 R >> >> >>",
+        _stream(b"", b"\n".join(operations)),
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        _stream(
+            b"/Type /XObject /Subtype /Image /Width 1 /Height 1 "
+            b"/ColorSpace /DeviceGray /BitsPerComponent 8",
+            _ONE_PIXEL,
+        ),
+    ]
+    return _assemble(objects)
+
+
 def figures_on_two_pages(first: str | None, second: str | None) -> bytes:
     """Two pages, each drawing an image and optionally a caption beneath it.
 
