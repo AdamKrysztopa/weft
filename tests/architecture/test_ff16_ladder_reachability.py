@@ -102,7 +102,27 @@ _PLACEHOLDER_STORE_SETTINGS: Final[Mapping[str, Mapping[str, object]]] = {
 #: Adding a pair here is a visible act in a diff and needs a reason of the same kind: a fact
 #: about what can be run, never "no rung was written for it yet" — and it needs the task that
 #: will delete it again, because both entries this constant ever held named one.
-POSITIONS_WAIVED_FROM_THE_LADDER: Final[frozenset[tuple[str, str]]] = frozenset()
+#: **One entry, added 2026-09-09, and it was measured before it was written.** `G19` folded
+#: `weft_qdrant` into the `weft-rag` wheel, which brought `qdrant` into this check's scope for the
+#: first time — it had been out of scope for as long as `weft-qdrant` shipped no pipeline document
+#: of its own. The obvious answer was a one-operator rung, `index-qdrant`, and it was written,
+#: registered, and **reverted on the evidence**: a shipped document naming a store puts that store
+#: into `weft_cli.participation.stores_in_use`, which reads the whole contributed catalogue, so
+#: every project on earth acquired Qdrant as a `weft delete`/repair participant. CI found it
+#: immediately — `weft index corpus` exited 1 with *"failed: qdrant (weft-rag) —
+#: ResponseHandlingException: All connection attempts failed"* against a server nobody had asked
+#: for, and the quickstart the README promises stopped working.
+#:
+#: So the waiver is not "this rung is not worth writing". It is that **the ladder cannot currently
+#: reach a store rung without changing what every unrelated project connects to**, which is a
+#: defect in `stores_in_use`'s subject rather than a gap in the catalogue: that rule (task 6.18,
+#: G13's first repair) treated "named by a shipped pipeline" as evidence the project uses a store,
+#: and that inference held only while installing a store pack was a deliberate act. G19 ended
+#: that premise. Filed as a carried repair; when it lands, this entry goes and `index-qdrant`
+#: comes back.
+POSITIONS_WAIVED_FROM_THE_LADDER: Final[frozenset[tuple[str, str]]] = frozenset(
+    {("NodeStore", "qdrant")}
+)
 
 
 def _reports() -> tuple[PackReport, ...]:
@@ -194,13 +214,30 @@ def _unreachable(
     )
 
 
+#: What the waiver is allowed to hold, written out separately so the ratchet compares two sets
+#: rather than asserting a size. Adding a pair to the waiver without adding it here fails.
+_DOCUMENTED_WAIVER: Final[frozenset[tuple[str, str]]] = frozenset({("NodeStore", "qdrant")})
+
+
 def test_the_waiver_names_only_what_it_documents() -> None:
-    """**Pinned empty**, the shape every other ratchet in this suite holds. A pair added here
-    changes this line, in a diff, on purpose."""
-    assert frozenset() == POSITIONS_WAIVED_FROM_THE_LADDER, (
-        "POSITIONS_WAIVED_FROM_THE_LADDER is no longer empty. A waiver here states a fact "
-        "about what can be run — never 'no rung was written for it yet' — and it needs the "
-        "task that will delete it again. Record both in its own docstring and in "
+    """**Was pinned empty until 2026-09-09**, and the one entry it now holds arrived the way this
+    ratchet is written to make an entry arrive: as a fact about what can be run, measured, with
+    the repair that deletes it filed.
+
+    `("NodeStore", "qdrant")` is waived because a shipped pipeline naming a store enters
+    `weft_cli.participation.stores_in_use`, which reads the whole contributed catalogue — so the
+    rung that would satisfy this check for `qdrant` also makes every unrelated project connect to
+    Qdrant on `weft delete` and on `weft index`'s repair pass. That is not a hypothesis: the rung
+    was written, registered, and reverted when CI failed with *"failed: qdrant (weft-rag) —
+    ResponseHandlingException: All connection attempts failed"* and the README's own quickstart
+    stopped working. **Carried repair `R11.2` deletes this entry**, by narrowing `stores_in_use`
+    to the stores a project actually uses rather than every store a shipped document names — an
+    inference that held only while installing a store pack was a deliberate act, which `G19` ended.
+    """
+    assert _DOCUMENTED_WAIVER == POSITIONS_WAIVED_FROM_THE_LADDER, (
+        "POSITIONS_WAIVED_FROM_THE_LADDER no longer matches what is documented above. A waiver "
+        "here states a fact about what can be run — never 'no rung was written for it yet' — and "
+        "it needs the task that will delete it again. Record both in its own docstring and in "
         "docs/README.md's decision log, or write the rung."
     )
 

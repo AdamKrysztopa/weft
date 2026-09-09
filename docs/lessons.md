@@ -563,6 +563,56 @@ check to `ast` where it parses Python. `recurs L11.12` — that entry is a guard
 repository's own settled idiom, and this is the same shape with the formatter rather than the linter
 on the other side.
 
+### L11.21 — a service running on my machine hid the defect from every local gate
+
+**What happened.** `G19`'s fold made `weft_qdrant` part of the default wheel, and the rung written
+to satisfy fitness function 16 for it — a one-operator `index-qdrant` document — put `qdrant` into
+`weft_cli.participation.stores_in_use`, which reads the whole contributed catalogue. Every project
+therefore acquired Qdrant as a `weft delete`/repair participant. `uv run poe ci-checks` was **green
+on it**, twice, because `compose.yaml`'s Qdrant is up on this machine and has been all session, so
+the participant connected and the fan-out succeeded. CI has no Qdrant service, and it failed
+immediately: `weft index corpus` exited 1 with *"failed: qdrant (weft-rag) —
+ResponseHandlingException: All connection attempts failed"*, taking the README's own quickstart
+with it. The owner saw it as a failure email before I saw it at all.
+
+**Generalises to.** A local gate runs against whatever happens to be listening on this machine, and
+every running service is an assumption the gate cannot see itself making. So: when a change alters
+**which** backends a run touches — not how it touches them — the local green is evidence about one
+machine's docker state and nothing else. The cheap discipline is to name the services a change
+newly reaches and ask what a machine without them would do; the mechanical one is to run that path
+with the container stopped, which `CLAUDE.md` already demands for the *opposite* failure (`L7.8`, a
+container that went down and silently dropped 51 tests). This is that lesson's mirror image: there,
+an absent service hid tests; here, a **present** one hid a defect.
+
+**Candidate home.** `phase-step` → *Finish*, beside the binary-run step: a change that alters the
+set of services a run touches is verified once against a machine that has none of them. A hook
+cannot see this and a fitness function cannot either — both run where the services are — so the
+honest home is the step that already says "run the thing, from a directory that is not this
+repository", extended by "and with the container down, if what you changed is *which* services get
+reached". `recurs L7.8`, inverted; `recurs L7.2` on the environment half.
+
+### L11.22 — the shrink guard watches Postgres and Qdrant is the other half of the container
+
+**What happened.** With `weft-qdrant-1` stopped, `uv run poe ci-checks` reported **`GATE_EXIT=0`,
+2240 passed, 44 skipped**. The expected skip count is **9**, so thirty-five tests had moved from
+passed to skipped and the gate said nothing: `CLAUDE.md` records that `ci-checks` "now fails a run
+whose `WEFT_DATABASE_URL` claims a database that then turns out to be unreachable", and that guard
+is about Postgres. `compose.yaml` brings up two services. Caught only because the brief for this
+session named the expected skip count and I compared, which is a human comparison standing where a
+check should be — the exact shape `L7.8` was written about, one service over.
+
+**Generalises to.** A guard against "the suite quietly shrank" has to cover every service the suite
+can skip on, not the one that was down the day it was written; and the durable form is a floor on
+the skip count rather than a reachability probe per backend, because the count is the thing that
+actually goes wrong and it needs no new knowledge when a third service arrives.
+
+**Candidate home.** `pyproject.toml`'s `ci-checks` composite, beside the existing database probe:
+assert the skip count is exactly what the suite expects and fail naming the difference, so the
+number lives in the gate rather than in a session brief. `tests/conftest.py` already knows which
+markers skip on which service (`WEFT_QDRANT_URL` is named there), so the expected count is
+derivable rather than pinned by hand. `recurs L7.8`; `recurs L11.11`, which is this file already
+recording that the shrink detector is covered by no test of its own.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

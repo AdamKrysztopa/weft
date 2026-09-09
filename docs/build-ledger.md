@@ -5958,6 +5958,26 @@ it had read one failure (`L7.1`).
   If a *real* figure ever fails to crop, that is a different case and it will raise as it always
   did
 
+- [ ] **R11.2** the stores a `weft delete` or a repair pass connects to are the stores the project
+  **uses**, not every store some shipped pipeline names · owner `weft_cli.participation.
+  stores_in_use`; `02` §1 → *Extended by G13* (task 6.18) · `L11.21` · **found by CI at G19's fold,
+  after a local gate had been green on it.** `stores_in_use` widens the participant set from the
+  one `[services] store` names to *"every `NodeStore` named by a pipeline in the catalogue or a
+  persisted run record"*, which task 6.18 settled for a good reason — a graph store is written by
+  a pipeline `[services] store` never mentions and must still be reaped. The inference it rests on
+  is that a store named by a shipped document is one the project uses, **and that held only while
+  installing a store pack was a deliberate act**. `G19` folded `weft_qdrant` into the `weft-rag`
+  wheel, so every install now carries it; the moment a shipped `index-qdrant` document named it,
+  `weft index corpus` exited **1** on a clean project with *"failed: qdrant (weft-rag) —
+  ResponseHandlingException: All connection attempts failed"*, and the quickstart the README
+  promises stopped working. The document was reverted and `("NodeStore", "qdrant")` waived out of
+  fitness function 16 instead — **the first entry that waiver has ever held**. Until this lands,
+  the ladder cannot reach a store rung without changing what every unrelated project connects to.
+  Landing it deletes the waiver and restores `index-qdrant`. The narrowing wanted is *the
+  project's* pipelines — its default, and what its own documents derive from — rather than every
+  document the installed set contributes; that is a design question, which is why this is a repair
+  and not an edit
+
 ## Phase 10 — RAPTOR, extended
 
 **Closed 2026-09-08. All twenty-five tasks are ticked, `01`'s Exit is met as a conjunction, and the
