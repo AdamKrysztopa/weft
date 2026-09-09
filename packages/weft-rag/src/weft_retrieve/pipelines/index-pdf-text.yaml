@@ -1,0 +1,20 @@
+name: index-pdf-text
+extends: index-pdf
+
+# **The cheap PDF path: a text layer read by `pypdf`, and no page rendering at all.**
+# `index-pdf` names `pdf-layout`, which opens `pdfplumber` *and* `pypdfium2` on the same bytes
+# because it recovers tables and crops figures. A born-digital paper whose tables and figures you
+# do not need costs two libraries and a page render per page for nothing, and `pdf-text` is the
+# backend that does not do any of it.
+#
+# **What you give up, stated rather than implied.** No `TABLE` nodes (`pdf-layout` is the only
+# shipped extractor that finds one) and no `IMAGE` nodes, so no `[services] blob` is needed either.
+# Page boundaries survive: `pdf-text` attaches `PdfPages` exactly as `pdf-layout` does.
+#
+# **Why this document exists now.** Like `index-qdrant` beside it, `pdf-text` had no shipped
+# document naming it until 2026-09-09, and could not have had one while `weft-pdf` shipped no
+# pipeline documents and sat outside fitness function 16's scope. G19 folded the pack into this
+# wheel and the check saw the plugin for the first time.
+replace:
+  - id: extract
+    use: pdf-text

@@ -37,7 +37,10 @@ from pathlib import Path
 from typing import Any, Final
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
-AGENT_ROOT: Final[Path] = REPO_ROOT / "packages" / "weft-agent"
+#: Where `weft_agent` lives. **Inside the `weft-rag` wheel since G19 (2026-09-09)**, which is the
+#: one clause of this fitness function that moved: it was its own distribution until then.
+AGENT_ROOT: Final[Path] = REPO_ROOT / "packages" / "weft-rag"
+AGENT_MODULE: Final[Path] = AGENT_ROOT / "src" / "weft_agent"
 KERNEL_ROOT: Final[Path] = REPO_ROOT / "packages" / "weft-kernel"
 
 #: The entry-point group every pack declares — `docs/02-extension-model.md` §2.
@@ -58,24 +61,44 @@ def _pack_entry_points(distribution: Path) -> Mapping[str, str]:
     return declared
 
 
-def test_the_agent_is_its_own_distribution() -> None:
-    # (a) — and the licence files are part of it, per task 6.11: an artefact that ships without
-    # them is one a downstream cannot legally redistribute, which is not a smaller failure.
-    assert AGENT_ROOT.is_dir(), (
-        "packages/weft-agent/ does not exist. Phase 7's claim is a pack built on a stranger's "
-        "terms, and a stranger cannot add a package to somebody else's wheel."
+def test_the_agent_is_an_ordinary_pack_module() -> None:
+    """(a) — and this clause was rewritten by **G19** on 2026-09-09, deliberately and at a cost.
+
+    It read *"the agent is its own distribution"*, asserting `packages/weft-agent/` and its licence
+    files, on Phase 7's claim that a stranger "cannot add a package to somebody else's wheel".
+    G19 settled two published names, so `weft_agent` moved inside the `weft-rag` wheel and that
+    assertion became a check on the opposite of what was decided.
+
+    **What was actually lost, said plainly:** the agent no longer demonstrates the stranger's
+    position by *being* a separate artefact. What is not lost is the property Phase 7 was proving —
+    that the pack was built against nothing but the released API — which clauses (b), (c) and (d)
+    below assert directly from the code and which no packaging arrangement can fake. The continuous
+    demonstration moved to `testing/weft-canary` and the five `examples/weft-example-*` packs:
+    separate distributions, discovered from outside the tree, none of them ever published. That
+    substitution is G19's own reasoning and its weakest point; it is recorded here rather than in a
+    commit message so the next reader meets it at the check it changed.
+    """
+    assert AGENT_MODULE.is_dir(), (
+        "packages/weft-rag/src/weft_agent/ does not exist. The agent is a pack like any other and "
+        "has to be somewhere a pack lives."
     )
     for required in ("pyproject.toml", "LICENSE", "NOTICE"):
-        assert (AGENT_ROOT / required).is_file(), f"packages/weft-agent/{required} is missing"
+        assert (AGENT_ROOT / required).is_file(), f"packages/weft-rag/{required} is missing"
 
 
 def test_the_agent_declares_one_pack_entry_point() -> None:
-    # The same single entry point a third party declares — no second mechanism, no extra hook.
-    packs = _pack_entry_points(AGENT_ROOT)
+    """The same single entry point a third party declares — no second mechanism, no extra hook.
 
-    assert len(packs) == 1, (
-        f"weft-agent must declare exactly one `{_PACK_GROUP}` entry point, like every other pack; "
-        f"found {dict(packs)!r}"
+    Read out of the wheel that now carries it, and narrowed to the agent's own row: `weft-rag`
+    declares twenty, one per pack, and what this asserts is that exactly one of them is the
+    agent's and that it points at `weft_agent`.
+    """
+    packs = dict(_pack_entry_points(AGENT_ROOT))
+    agent_rows = {name: target for name, target in packs.items() if target.startswith("weft_agent")}
+
+    assert list(agent_rows) == ["agent"], (
+        f"weft_agent must be reached by exactly one `{_PACK_GROUP}` entry point named `agent`, "
+        f"like every other pack in this wheel; found {agent_rows!r} among {sorted(packs)}"
     )
 
 

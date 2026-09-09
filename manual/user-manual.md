@@ -523,7 +523,7 @@ added, removed or reworded without this table noticing fails the build before it
 <!-- weft-cli:generated:command-table:begin -->
 | Command | Permission | Registered by | Summary |
 |---|---|---|---|
-| `weft agent` | `write` | `weft-agent` | drive a goal to an answer, calling the run's published commands as tools (docs/01-high-level-plan.md -> Phase 7) |
+| `weft agent` | `write` | `weft-rag` | drive a goal to an answer, calling the run's published commands as tools (docs/01-high-level-plan.md -> Phase 7) |
 | `weft ask` | `read` | `weft-rag` | ask a question. Routes through the installed router by default — a QueryScorer and a RoutingPolicy discovered from the registry, never a fixed list here — and prints the generated, cited answer. --pipeline names one directly, skipping the router; --retrieve-only runs no pipeline at all and prints the nearest passages instead, with no generation and no model call (Phase 0's own contract, kept for scripts). |
 | `weft config get` | `read` | `weft-rag` | the project's effective configuration — one key with --key, or every key CONFIG_KEYS names; --origin says whether each value is set in weft.toml or defaulted |
 | `weft config set` | `write` | `weft-rag` | set one key in weft.toml, preserving every comment and every other key untouched |

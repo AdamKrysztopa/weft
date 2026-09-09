@@ -40,7 +40,17 @@ jobs:
           --health-timeout 3s
           --health-retries 20
     steps:
+      # `fetch-depth: 0` because part of this gate's subject **is** the git history.
+      # `tests/docs/test_ledger_records_a_sha.py` asks whether the shas the ledger records name
+      # commits still reachable from HEAD, and a depth-1 checkout can reach none of them — so the
+      # job failed from 2026-09-07 with "not one recorded sha names a commit still reachable",
+      # which is that check being asked its question in an environment that cannot answer it.
+      # Green locally the whole time, because a developer's clone has the history. `docs/lessons.md`
+      # `L7.2` and `L7.6` are the same shape twice over: the gate you ran is only the gate if the
+      # environment is.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5

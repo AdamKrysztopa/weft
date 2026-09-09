@@ -83,44 +83,60 @@ def declares_a_disclosure(source_dir: Path) -> bool:
     )
 
 
-def network_reaching_members() -> list[tuple[str, frozenset[str]]]:
-    """`(distribution, clients)` for every published member whose source reaches outward."""
+def pack_source_dirs() -> dict[str, Path]:
+    """Every shipped pack module, by module name, wherever its distribution puts it.
+
+    **The subject is a module, not a distribution, since G19 (2026-09-09).** A `DISCLOSURE` is a
+    module-level value the kernel reads per pack, so the pack was always the real unit; while each
+    add-on had a wheel to itself the two happened to coincide, and G19 ended that by moving twenty
+    packs into one wheel. Walking distributions after the move would ask whether *`weft-rag`*
+    reaches the network — true, useless, and it would let a silent pack hide behind a talkative
+    neighbour. Walking modules is strictly stronger: the fourteen packs that were already sharing
+    a wheel had never been asked individually.
+    """
+    return {
+        module: member.directory / "src" / module
+        for member in members_shipping_source()
+        for module in member.modules
+    }
+
+
+def network_reaching_packs() -> list[tuple[str, frozenset[str]]]:
+    """`(pack module, clients)` for every shipped pack whose own source reaches outward."""
     found: list[tuple[str, frozenset[str]]] = []
-    for member in members_shipping_source():
-        if not member.modules:
-            continue
-        clients = reaches_the_network(member.directory / "src")
+    for module, source_dir in sorted(pack_source_dirs().items()):
+        clients = reaches_the_network(source_dir)
         if clients:
-            found.append((member.name, clients))
+            found.append((module, clients))
     return found
 
 
-def test_the_sweep_finds_the_distributions_that_reach_the_network() -> None:
+def test_the_sweep_finds_the_packs_that_reach_the_network() -> None:
     """The floor. A matcher that found none would report none undisclosed."""
     # Act
-    reaching = dict(network_reaching_members())
+    reaching = dict(network_reaching_packs())
 
     # Assert
-    assert reaching, "no published distribution was found importing a network client"
-    assert "weft-openai" in reaching, (
-        "`weft-openai` is a credentialed provider and must read as reaching the network; a sweep "
+    assert reaching, "no shipped pack was found importing a network client"
+    assert "weft_openai" in reaching, (
+        "`weft_openai` is a credentialed provider and must read as reaching the network; a sweep "
         "that cannot see it is not reading imports"
     )
-    assert "weft-qdrant" in reaching
+    assert "weft_qdrant" in reaching
 
 
-def test_every_distribution_that_reaches_the_network_declares_a_disclosure() -> None:
+def test_every_pack_that_reaches_the_network_declares_a_disclosure() -> None:
     """The property. `02` §2's one real control, applied to built-ins too."""
     # Arrange
-    reaching = network_reaching_members()
-    by_name = {member.name: member for member in members_shipping_source()}
+    reaching = network_reaching_packs()
+    by_module = pack_source_dirs()
 
     # Act
     silent = sorted(
-        f"{name} (imports {', '.join(sorted(clients))})"
-        for name, clients in reaching
-        if not declares_a_disclosure(by_name[name].directory / "src")
-        and name not in NETWORK_PACKS_WITHOUT_A_DISCLOSURE
+        f"{module} (imports {', '.join(sorted(clients))})"
+        for module, clients in reaching
+        if not declares_a_disclosure(by_module[module])
+        and module not in NETWORK_PACKS_WITHOUT_A_DISCLOSURE
     )
 
     # Assert

@@ -25,6 +25,20 @@ from pathlib import Path
 
 from publish_set import Member, PublishSetUnreadableError, publishing_members
 
+#: Packs whose module cannot import without an extra, and the extra that supplies it — **G19,
+#: 2026-09-09**. Each was its own distribution until that session, so importing it bare worked
+#: because the distribution declared its own library. They ship inside `weft-rag` now with the
+#: library behind an extra, so importing one from a bare install is *supposed* to fail. Written out
+#: rather than derived: this list is what the check compares the tree against, and a list derived
+#: from the tree could not disagree with it (`docs/lessons.md` `L5.6`).
+EXTRA_BACKED_MODULES: dict[str, str] = {
+    "weft_docling": "docling",
+    "weft_openai": "openai",
+    "weft_otel": "otel",
+    "weft_pdf": "pdf",
+    "weft_qdrant": "qdrant",
+}
+
 
 def _build(name: str, out_dir: Path) -> subprocess.CompletedProcess[str]:
     command = ["uv", "build", "--package", name, "--out-dir", str(out_dir)]
@@ -46,11 +60,12 @@ def _install_and_check(member: Member, wheelhouse: Path) -> subprocess.Completed
     intra-wheel import and always resolves. That is a real loss of coverage and it is stated
     here rather than counted as the same check.
     """
+    bare = [module for module in member.modules if module not in EXTRA_BACKED_MODULES]
     if not member.modules:
         probe = "print('no module to import — ships no code')"
     else:
-        imports = "; ".join(f"import {module}" for module in member.modules)
-        probe = f"{imports}; print('{member.name} imports standalone ({len(member.modules)})')"
+        imports = "; ".join(f"import {module}" for module in bare)
+        probe = f"{imports}; print('{member.name} imports standalone ({len(bare)})')"
 
     command = [
         "uv",
@@ -68,6 +83,60 @@ def _install_and_check(member: Member, wheelhouse: Path) -> subprocess.Completed
 
     # Fixed argv, no shell, nothing user-controlled.
     return subprocess.run(command, capture_output=True, text=True, check=False)  # noqa: S603
+
+
+def _degradation_probe(member: Member, wheelhouse: Path) -> subprocess.CompletedProcess[str] | None:
+    """Install `member` bare and check every extra-backed pack it ships reports `FAILED`.
+
+    **The clause G19 turns on, checked rather than argued.** That session folded six add-ons into
+    this wheel on the reading that an extra makes a dependency declinable just as a separate
+    distribution did. That is only true if a pack whose library is absent *degrades* — names itself
+    and what is missing through `weft plugins doctor` — rather than crashing the run. The mechanism
+    exists by design (`weft_kernel.discovery`: "a pack's import can raise anything; that is FAILED,
+    not a crash"), and a mechanism that exists is not one that fired (`L5.15`), so this runs it.
+
+    Returns `None` for a distribution shipping no extra-backed pack, which is every one but
+    `weft-rag`.
+    """
+    expected = sorted(m for m in member.modules if m in EXTRA_BACKED_MODULES)
+    if not expected:
+        return None
+
+    packs = ", ".join(repr(EXTRA_BACKED_MODULES[m]) for m in expected)
+    probe = (
+        "from weft_kernel.discovery import discover, PackStatus\n"
+        "from weft_kernel.registry import Registry\n"
+        f"expected = {{{packs}}}\n"
+        "reports = {r.pack: r for r in discover(Registry())}\n"
+        "missing = sorted(expected - set(reports))\n"
+        "assert not missing, f'no report at all for {missing} — the pack vanished rather than "
+        "failing'\n"
+        "wrong = sorted(p for p in expected if reports[p].status is not PackStatus.FAILED)\n"
+        "assert not wrong, f'{wrong} did not report FAILED without their extra'\n"
+        "silent = sorted(p for p in expected if not (reports[p].reason or '').strip())\n"
+        "assert not silent, f'{silent} reported FAILED with no reason — an operator reading "
+        "doctor learns nothing'\n"
+        "print(f'degraded correctly, naming what is missing: {sorted(expected)}')\n"
+    )
+    command = [
+        "uv",
+        "run",
+        "--isolated",
+        "--no-project",
+        "--find-links",
+        str(wheelhouse),
+        "--with",
+        member.name,
+        "python",
+        "-c",
+        probe,
+    ]
+    # Fixed argv, no shell, nothing user-controlled. No `--no-index`: the wheelhouse holds this
+    # repository's own wheels and nothing else, so blocking the index would fail on `ftfy` long
+    # before reaching the question this probe asks.
+    return subprocess.run(  # noqa: S603
+        command, capture_output=True, text=True, check=False
+    )
 
 
 def main() -> int:
@@ -112,8 +181,21 @@ def main() -> int:
                         f"{member.name}: installed alone, ships no code — nothing to import.\n"
                     )
                 else:
-                    named = ", ".join(member.modules)
-                    sys.stdout.write(f"{member.name}: installs alone and imports {named}.\n")
+                    bare = [m for m in member.modules if m not in EXTRA_BACKED_MODULES]
+                    deferred = [m for m in member.modules if m in EXTRA_BACKED_MODULES]
+                    sys.stdout.write(
+                        f"{member.name}: installs alone and imports {', '.join(bare)}.\n"
+                    )
+                    if deferred:
+                        extras = ", ".join(
+                            f"{m} (needs [{EXTRA_BACKED_MODULES[m]}])" for m in deferred
+                        )
+                        sys.stdout.write(
+                            f"{member.name}: not imported bare, by design — {extras}. A bare "
+                            f"install leaves each present and unimportable, and discovery folds "
+                            f"that into a FAILED pack report rather than a crash; the probe below "
+                            f"is what checks it rather than assuming it.\n"
+                        )
             else:
                 sys.stderr.write(
                     f"\n{member.name} does not install and import in a clean environment. It "
@@ -121,6 +203,21 @@ def main() -> int:
                     f"import — see G1, The kernel boundary.\n"
                 )
                 failures.append(member.name)
+
+        for member in built_ok:
+            degraded = _degradation_probe(member, wheelhouse)
+            if degraded is None:
+                continue
+            sys.stdout.write(degraded.stdout)
+            sys.stderr.write(degraded.stderr)
+            if degraded.returncode != 0:
+                sys.stderr.write(
+                    f"\n{member.name}: a pack whose extra is absent did not degrade. G19 turns on "
+                    f"this being true — the code ships and only the library is optional — so a "
+                    f"pack that crashes discovery instead of reporting FAILED takes the whole run "
+                    f"down for a capability the operator never asked for.\n"
+                )
+                failures.append(f"{member.name} (degradation)")
 
     if failures:
         sys.stderr.write(f"\nfailed: {', '.join(sorted(failures))}\n")

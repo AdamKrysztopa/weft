@@ -59,7 +59,11 @@ def test_published_contracts_includes_vectorsearch_beside_nodestore() -> None:
     # manual declared a capability the code refuses.
     assert NodeStore in contracts
     assert VectorSearch in contracts
-    assert contracts[VectorSearch] == contracts[NodeStore] == frozenset({"weft-rag", "weft-qdrant"})
+    # One distribution since G19 (2026-09-09): `weft_qdrant` is a pack inside the `weft-rag`
+    # wheel behind the `qdrant` extra, so both backends are published from one name. The
+    # asymmetry this test is about is unchanged and is now *within* that name — `pgvector`
+    # satisfies `TextSearch` and `qdrant` does not.
+    assert contracts[VectorSearch] == contracts[NodeStore] == frozenset({"weft-rag"})
     assert contracts[TextSearch] == frozenset({"weft-rag"})
 
 

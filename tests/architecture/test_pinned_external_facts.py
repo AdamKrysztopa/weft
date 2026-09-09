@@ -24,8 +24,11 @@ attached. What the age *should* be is a policy question, filed for `implement-ll
 settled here by implication. The two properties below are the ones that can be checked without
 choosing anything: **the pin is priced**, and **the pin is not copied**.
 
-Both are whole-tree properties across two distributions (`weft-openai` publishes the model,
-`weft-rag` publishes the rates), and `weft-rag` must never import `weft-openai` — so this can only
+Both were whole-tree properties across two distributions until **G19** (2026-09-09) folded
+`weft_openai` into the `weft-rag` wheel behind the `openai` extra. The property is unchanged and
+so is the direction of the ban — `weft_openai` publishes the model, the rates live elsewhere, and
+no pack may import another's constants across that line — but the two now share a wheel, so this
+can only
 live in a test, never in either package's own code.
 """
 
@@ -113,7 +116,7 @@ def test_both_pinned_external_facts_carry_a_date() -> None:
 def test_no_tracked_file_copies_the_pinned_model_as_a_literal() -> None:
     # Arrange — the copied-constant half of L8.13. `weft_openai/llm.py` is where the pin lives,
     # so it is the one file that must name it; every other caller imports it.
-    home = REPO_ROOT / "packages" / "weft-openai" / "src" / "weft_openai" / "llm.py"
+    home = REPO_ROOT / "packages" / "weft-rag" / "src" / "weft_openai" / "llm.py"
     literal = f'"{DEFAULT_MODEL}"'
     alt_literal = f"'{DEFAULT_MODEL}'"
 

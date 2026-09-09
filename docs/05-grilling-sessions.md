@@ -1518,3 +1518,83 @@ it is *taken by us*, which nothing yet proves.
 
 **Settled with the owner, not solo** (`L10.42`) — and against the position they had chosen an hour
 earlier, on a measurement neither of us had when they chose it.
+
+---
+
+## G19 — How many distributions does Weft publish?
+
+**Opened and settled 2026-09-09 by the owner, out of G18.** G18 renamed one pack because its name
+was taken; the owner then asked the larger question that rename exposed — *"can we not have nine of
+these? Only `weft-kernel` and `weft-rag`?"* — and answered it. This session is the record.
+
+**The answer: two names, `weft-kernel` and `weft-rag`, and a new capability never adds a third.**
+Every first-party pack's code ships inside the `weft-rag` wheel. A pack needing an outside library
+declares an **extra** — `pip install weft-rag[pdf]`, `[graph]`, `[docling]`, `[all]` — so the
+dependency stays declinable while the code costs kilobytes. `weft-kernel` stays separate for one
+reason and it is not symmetry: fitness function 1 installs it alone into a clean environment and
+imports it, which is what makes *"the kernel names no capability"* a fact rather than a claim.
+
+### The question
+
+`09` §1, settled by **G10** on 2026-08-22, says an add-on is its own distribution when it *"carries
+a dependency somebody may decline"* — which produced eight published names and would have produced
+a ninth at task `11.5`. Is a separate *distribution* what makes a dependency declinable, or is an
+*extra* enough?
+
+### What unblocked it, and it is a correction
+
+**An extra is enough, and the objection I raised against this was wrong.** I first argued that the
+separate add-ons are what prove requirement 1 — *a capability is one package with zero edits to
+core* — so folding them in would make the claim untestable. That is false, and the tree says so:
+the proof needs packages that are **installable from outside the tree**, not packages that are
+**published**. `testing/weft-canary` is a distribution built precisely to be discovered from
+outside and it is never published (`[tool.weft] publish = false`); the five `examples/weft-example-*`
+packs are separate distributions written, in `09`'s own words, by an author who never touched
+`packages/`; and fitness function 9(c) already requires an out-of-tree stranger for every published
+contract. None of those needs an index. So the property survives the fold intact, carried by
+artefacts that were already carrying it.
+
+**Third parties are untouched, which is the claim that actually matters.** A stranger still
+publishes their own distribution and registers through the same `weft.packs` entry point. The
+mechanism does not ask which wheel a pack arrived in — that is the whole point of discovery by
+entry point — so requirement 4 holds at the packaging layer exactly as `09` §1 says it must.
+
+### Positions, strongest first
+
+1. **Two names, add-ons as extras.** *Taken.* One wheel to reason about, one version to bump, and
+   the number of published names is now independent of how many capabilities Weft grows — which is
+   the property the owner asked for and the one that keeps being paid for otherwise. **Attacked
+   on:** it reopens `09` §1's G10 criterion and one clause of `S12`; a user installing `weft-rag`
+   downloads code for capabilities they will never use; and a pack whose optional library is absent
+   must degrade rather than crash, which is now load-bearing for every add-on rather than for none.
+   That last one is a real risk and is discharged by measurement in *Done when*, not by argument.
+2. **Keep G10's criterion: a declinable dependency ships as its own distribution.** The status quo,
+   and it is not wrong — it was the right answer to *"how do we stop somebody paying 897 MB for a
+   layout model they do not want"*. **Attacked on:** an extra answers that question too, at a
+   fraction of the cost, and G10 was decided before extras were considered. Eight names is eight
+   PyPI projects, eight release-matrix rows, eight sets of licence files and — measured twice in
+   nine months, `L6.33` and `L11.19` — eight chances for somebody else to take one first.
+3. **One name: fold the kernel in too.** **Attacked on:** fitness function 1 installs `weft-kernel`
+   alone and imports it, and there is no way to ask that question of a package that is not a package.
+   The check is the argument.
+4. **Keep nine and add extras as convenience aliases on top.** **Attacked on:** it is position 2
+   with more moving parts — the names still exist, still need publishing, and still get taken.
+
+### Done when
+
+- The six add-ons carry `[tool.weft] publish = false`, `release.yml` publishes two names, and
+  fitness function 10(a)'s two sides agree. **Done, `ec83adb`** — landed first, deliberately, so a
+  tagged release could not create a name this session forbids while the code move was still in
+  progress.
+- The add-on code lives under `packages/weft-rag/src/`, its outside libraries are extras, and
+  `09` §1's release table, `02` §4's install sequence, `CLAUDE.md`'s tree and `release.yml`'s
+  second job all say so.
+- **The degradation path is measured, not assumed**: `weft-rag` installed *without* an extra, and
+  the pack that needs it reporting `failed` at discovery with a message naming what is missing —
+  never a crash, and never a silent absence. This is the one clause that could sink the position,
+  so it is demonstrated by the binary from outside the repository rather than by a unit test.
+- `11.4` and `11.5` are rewritten: the graph pack is a module and `weft-rag[graph]`, not a ninth
+  name.
+
+**Settled with the owner, and recorded in `CLAUDE.md` at their request** — first in the settled
+rules, so a later session cannot reopen it to save a wheel or restore symmetry.

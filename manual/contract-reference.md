@@ -130,7 +130,7 @@ async def run(
 ## `Command`
 
 **Module:** `weft_command.contract`  
-**Registered by:** `weft-agent`, `weft-rag`  
+**Registered by:** `weft-rag`  
 **Version:** `2.1.0`
 
 One CLI-invoked action a pack contributes, registered exactly as it registers a retriever.
@@ -182,7 +182,7 @@ async def run(
 ## `Describer`
 
 **Module:** `weft_vision.contract`  
-**Registered by:** `weft-openai`  
+**Registered by:** `weft-rag`  
 **Version:** `1.0.0`
 
 Says what an image (or, later, some other medium) contains, in words.
@@ -208,7 +208,7 @@ async def describe(
 ## `Embedder`
 
 **Module:** `weft_embed.contract`  
-**Registered by:** `weft-openai`, `weft-rag`  
+**Registered by:** `weft-rag`  
 **Version:** `1.0.0`
 
 Attaches an embedding to each `Node` it is handed.
@@ -291,7 +291,7 @@ async def run(
 ## `Extractor`
 
 **Module:** `weft_extract.contract`  
-**Registered by:** `weft-docling`, `weft-pdf`, `weft-rag`  
+**Registered by:** `weft-rag`  
 **Version:** `1.0.0`
 
 Turns source documents into the first `Node`s of an ingest pipeline.
@@ -387,7 +387,7 @@ async def run(
 ## `LLMProvider`
 
 **Module:** `weft_llm.contract`  
-**Registered by:** `weft-openai`, `weft-rag`  
+**Registered by:** `weft-rag`  
 **Version:** `1.0.0`
 
 One vendor's (or one deterministic offline) answer to "continue this conversation".
@@ -422,7 +422,7 @@ async def stream(
 ## `MetadataFilter`
 
 **Module:** `weft_store.contract`  
-**Registered by:** `weft-qdrant`, `weft-rag`  
+**Registered by:** `weft-rag`  
 **Version:** `2.3.0`
 
 A store that can evaluate a whole `Filter` against what it holds.
@@ -503,7 +503,7 @@ async def complete_structured(
 ## `NodeStore`
 
 **Module:** `weft_store.contract`  
-**Registered by:** `weft-qdrant`, `weft-rag`  
+**Registered by:** `weft-rag`  
 **Version:** `2.3.0`
 
 The base every store implements all of — see the module docstring for `run`.
@@ -581,7 +581,7 @@ async def scan(
 ## `NodeSupersedable`
 
 **Module:** `weft_store.contract`  
-**Registered by:** `weft-qdrant`, `weft-rag`  
+**Registered by:** `weft-rag`  
 **Version:** `2.3.0`
 
 A store that can replace one node with another — ledger task **10.24**, G15's *Remove*.
@@ -625,7 +625,7 @@ async def supersede(
 ## `Prompt`
 
 **Module:** `weft_prompts.contract`  
-**Registered by:** `weft-agent`, `weft-rag`  
+**Registered by:** `weft-rag`  
 **Version:** `1.0.0`
 
 One named, versioned, translatable question a model can be asked.
@@ -701,7 +701,7 @@ async def run(
 ## `Reconcilable`
 
 **Module:** `weft_store.contract`  
-**Registered by:** `weft-qdrant`, `weft-rag`  
+**Registered by:** `weft-rag`  
 **Version:** `2.3.0`
 
 Anything whose state can be made to agree with what the corpus actually holds — G7.
@@ -969,7 +969,7 @@ async def run(
 ## `SourceDeletable`
 
 **Module:** `weft_store.contract`  
-**Registered by:** `weft-qdrant`, `weft-rag`  
+**Registered by:** `weft-rag`  
 **Version:** `2.3.0`
 
 Anything holding data that a source's deletion must reach — G7 (2026-08-21).
@@ -1085,7 +1085,7 @@ async def search_text(
 ## `VectorSearch`
 
 **Module:** `weft_store.contract`  
-**Registered by:** `weft-qdrant`, `weft-rag`  
+**Registered by:** `weft-rag`  
 **Version:** `2.3.0`
 
 A store that can rank `Node`s by vector similarity. Never embeds — `02`: "stores never

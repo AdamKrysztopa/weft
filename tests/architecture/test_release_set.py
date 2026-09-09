@@ -24,14 +24,20 @@ walked from the filesystem. The second is the `packages = [...]` list a person t
 Neither is derived from the other. A check that computed the list from the directory it compares it
 to could not fail at all, which is the whole reason the list is not a glob.
 
-**What is deliberately not here.** `09` §1's own worked example: a third-party pack "would not be in
-the release set and would install beside it, exactly as `weft-store-qdrant` does". The first-party
-distributions that are the same kind of thing install beside it too — `weft-qdrant` (an alternative
-backend), `weft-openai` (a credentialed provider), `weft-pdf` (an optional file format), `weft-otel`
-(an observability add-on), and `weft-kernel`, which stays separate because fitness function 1
-installs it alone and imports it. None of the four add-ons is needed to index a directory and query
-it, which is what the default install has to be able to promise. `testing/weft-canary` exists to be
-*refused* by discovery (fitness function 8) and must never reach an index at all.
+**What is deliberately not here — rewritten by G19 on 2026-09-09.** This paragraph used to list
+six first-party add-ons that installed *beside* the release set, on G10's criterion that a pack
+carrying a declinable dependency ships as its own distribution. G19 replaced that criterion with an
+**extra**: the code ships in this wheel and only the outside library is optional, so
+`pip install weft-rag` still installs nothing a corpus does not need while `weft-rag[docling]` is
+the 897 MB decision it always was. Two distributions remain. `weft-kernel` installs beside because
+fitness function 1 installs it alone and imports it, which is what proves the kernel names no
+capability — there is no way to ask that of a package that is not a package. And
+`testing/weft-canary` exists to be *refused* by discovery (fitness function 8), must never reach an
+index, and must never ship inside this wheel either; it is the one standing exclusion left.
+
+`09` §1's own worked example is untouched: a third-party pack "would not be in the release set and
+would install beside it". Discovery by entry point does not ask which wheel a pack arrived in, so
+that claim survives the fold whole — which is the finding that let G19 be taken at all.
 """
 
 from __future__ import annotations
@@ -61,31 +67,12 @@ _PLACEHOLDER_DSN = "postgresql://release-set-check/placeholder"
 
 #: Distributions that install *beside* the default install rather than inside it — see the module
 #: docstring. `weft-rag` itself is here so the set can be subtracted from `packages/*` in one step.
-_INSTALLS_BESIDE: Final[frozenset[str]] = frozenset(
-    {
-        "weft-kernel",
-        "weft-qdrant",
-        "weft-openai",
-        "weft-pdf",
-        "weft-otel",
-        "weft-rag",
-        # Task 7.1, and the first name added since G10's re-settlement. `weft-agent` installs
-        # *beside* `weft-rag` rather than inside it, which is Phase 7's own claim rather than a
-        # packaging preference: `01` → Phase 7 asks for "a first-party pack built against nothing
-        # but the released API, on the same terms a stranger has", and a stranger cannot add a
-        # package to somebody else's wheel. Bundling it would leave every registry-reading check
-        # green while the claim quietly stopped being true — fitness function 21 is what asserts
-        # the distinction directly.
-        "weft-agent",
-        # Ledger task 9.13, and the clearest instance this set has of the property it exists to
-        # protect. `weft-docling` pulls `torch`, `torchvision` and `transformers` — 897 MB
-        # measured on 2026-09-06 against Python 3.12, against `weft-pdf`'s few megabytes for the
-        # same capability on born-digital input. Inside the default install that is a cost every
-        # `pip install weft-rag` pays for a model most corpora never need; beside it, it is a
-        # decision. `weft_pdf/__init__.py`'s dependency argument, one order of magnitude louder.
-        "weft-docling",
-    }
-)
+#: Distributions that install *beside* the default install rather than inside it — see the module
+#: docstring. `weft-rag` itself is here so the set can be subtracted from `packages/*` in one step.
+#: **Two, since G19 (2026-09-09)**; the six add-ons that used to be here now ship inside this wheel
+#: behind extras, and `testing/weft-canary` is excluded by the standing-exclusion test below rather
+#: than by this set, because it is not under `packages/`.
+_INSTALLS_BESIDE: Final[frozenset[str]] = frozenset({"weft-kernel", "weft-rag"})
 
 
 def _toml(path: Path) -> dict[str, Any]:
@@ -243,8 +230,14 @@ def test_the_kernel_is_depended_on_with_a_major_bound() -> None:
 
 
 def test_nothing_that_installs_beside_it_is_shipped_inside_it() -> None:
-    """The add-ons exist to be declinable. One of their modules inside this wheel would install
-    `openai` or `qdrant-client` for everybody, which is exactly what keeping them separate buys.
+    """What installs beside must not also ship inside — one name, and it is the kernel.
+
+    **This test asserted the six add-ons until G19 (2026-09-09)**, on the reading that a module
+    inside this wheel would install `openai` or `qdrant-client` for everybody. That is no longer
+    what shipping the module costs: the extras carry the libraries, so the code ships and the
+    dependency stays declinable. What remains is the kernel, and its reason is unchanged and
+    stronger — fitness function 1 installs `weft-kernel` alone and imports it, and a copy of
+    `weft_kernel` inside this wheel would make that question unanswerable.
     """
     # Act
     shipped = frozenset(_shipped_packages())
@@ -276,12 +269,17 @@ def test_every_first_party_distribution_is_either_the_default_install_or_beside_
     )
 
 
-@pytest.mark.parametrize("excluded", ["weft-canary", "weft-qdrant"])
+@pytest.mark.parametrize("excluded", ["weft-canary"])
 def test_the_standing_exclusions_stay_excluded(excluded: str) -> None:
     """`weft-canary` exists to be *refused* by discovery (fitness function 8) and must never be
-    shipped; `weft-qdrant` is `09` §1's own named example of a backend that installs beside.
-    Named individually as well as by the set above, so deleting a name from `_INSTALLS_BESIDE`
-    does not quietly delete the assertion with it.
+    shipped. Named individually as well as by the set above, so deleting a name from
+    `_INSTALLS_BESIDE` does not quietly delete the assertion with it.
+
+    **`weft-qdrant` was the second name here until G19 (2026-09-09)**, as `09` §1's own example of
+    a backend that installs beside. It ships inside this wheel now, behind the `qdrant` extra, so
+    asserting it does *not* would be asserting the opposite of what was decided. The canary is the
+    one exclusion that is about the code rather than about packaging, which is why it is the one
+    that survived.
     """
     # Act
     shipped = frozenset(_shipped_packages())

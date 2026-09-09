@@ -686,55 +686,47 @@ makes any two packs jointly unresolvable"* (`docs/09-release.md` §2.3, answer 5
 `dependencies = ["weft-rag"]` — is not a specifier at all: it tells the resolver "any version,
 including one whose contract has moved out from under you since you wrote this line," which is
 exactly the silent incompatibility a semver policy exists to prevent. Task **5.2a** made this real for
-every first-party distribution; the shape to copy is any of them, unchanged since:
+every first-party distribution; the shape to copy is an example pack's, and that is a better
+subject than a first-party one for a guide a stranger reads — `examples/weft-example-query` is
+written by an author who never touched `packages/`, which is exactly the position you are in.
 
-```toml path=packages/weft-qdrant/pyproject.toml
+*(This quoted a first-party add-on's manifest until 2026-09-09. **G19** settled that Weft publishes
+under two names, so the six add-ons became packs inside the `weft-rag` wheel and the file this
+section pointed at stopped existing. Nothing about the specifier changed — a pack you publish still
+declares `weft-rag>=X,<MAJOR+1`, exactly as below.)*
+
+```toml path=examples/weft-example-query/pyproject.toml
 [project]
-name = "weft-qdrant"
-version = "0.1.0"
-description = "First-party Qdrant store pack. Registers under the store contract family weft_store publishes."
+name = "weft-example-query"
+version = "0.0.0"
+description = "A stranger's whole query path — transform through generation, nine contracts."
 requires-python = ">=3.12"
-license = "MIT"
-license-files = ["LICENSE", "NOTICE"]
-# `qdrant-client` is Apache-2.0, so it widens nothing an MIT library asks of the people
-# who install it. The floor is the version this pack's behaviour was measured against; a
-# claim about an older release would be a claim nobody here has checked.
-#
-# **No ceiling, and that is a repair.** This read `<1.14` so that resolution would not
-# outrun `compose.yaml`'s pinned `qdrant/qdrant:v1.12.4` and make the conformance kit emit
-# the client's own version warning. That put a *test fixture's* concern into the dependency
-# range every downstream install resolves against, and the client's rule is symmetric —
-# "major versions should match and minor version difference must not exceed 1" — so a
-# client capped at 1.13 is out of its supported window against any server at 1.15 or later.
-# An operator pointing this pack at a current deployment could not widen the range without
-# editing a file in this repository, which is the one cost this project will not pay. The
-# warning itself is something they *can* act on: align the server and the client. The dev
-# environment's own alignment with `compose.yaml` lives in the workspace root's
-# `[tool.uv] constraint-dependencies`, where a fixture pin belongs.
-# `weft-rag` replaces the `weft-store` pin this used to carry: `weft_store` — the module whose
-# store contract family this pack registers against — now ships inside that one wheel. The
-# import is unchanged; only the name that delivers it is. Note the cost this makes visible:
-# an operator who wants Qdrant and not Postgres still gets `psycopg`, because `weft-rag`
-# declares it. That is the honest price of one wheel, recorded rather than hidden.
-dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-rag>=2.2.0,<3.0.0", "qdrant-client>=1.12"]
+# Both deps are published packages any third party would `pip install` — the identical
+# relationship `examples/weft-example-chunker/pyproject.toml` states for `weft-chunk`.
+# `weft-generate` alone pulls in `weft-retrieve` transitively (the design record's own
+# one-way DAG rule), but both are named explicitly rather than relied upon.
+# The `weft-rag` pin replaces the individual pins this used to carry. A third-party pack
+# depends on whichever distribution publishes the contract it registers against, and on
+# 2026-09-05 fourteen of those became one wheel — so the names changed and the imports
+# did not. This file is what a stranger writes, so it is what a stranger would have to
+# write today.
+dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-rag>=2.2.0,<3.0.0"]
 
-# The one entry point a pack declares (`docs/02-extension-model.md` section 2).
+# One entry point (weft's docs/02-extension-model.md section 2). Nothing under weft's own
+# packages/ or testing/ names this distribution, this module, or any plugin name below —
+# fitness function 9(b) and 9(c), asserted from the weft repository's own tests/architecture/.
 [project.entry-points."weft.packs"]
-qdrant = "weft_qdrant:register"
+example-query = "weft_example_query:register"
+
+[dependency-groups]
+dev = ["pytest>=8.3", "pytest-asyncio>=0.24"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-[tool.weft]
-# **G19, 2026-09-09: this distribution is never published.** The owner settled that Weft ships
-# under exactly two names, `weft-kernel` and `weft-rag`, and that a new capability never adds a
-# third. This pack's code moves inside the `weft-rag` wheel and its outside library becomes an
-# extra, so the dependency stays declinable while the code costs kilobytes. The marker goes on
-# first, before the code moves, so `release.yml` can never create a name G19 forbids — the six
-# names this repository was one tagged release away from claiming. `CLAUDE.md` carries the rule
-# and `05` -> G19 the reasoning.
-publish = false
 ```
 
 Two different shapes appear on that one line, and both are correct for what they name:

@@ -3,6 +3,13 @@ members = ["packages/*", "testing/*"]
 
 [dependency-groups]
 dev = [
+    # **G19, 2026-09-09.** The six add-ons were workspace members until that session, so `uv sync`
+    # installed each with its own dependencies. Their code is inside `weft-rag` now and only the
+    # outside libraries are optional, so the development environment asks for all of them by name
+    # — otherwise every test for `weft_pdf`, `weft_openai`, `weft_qdrant`, `weft_otel` and
+    # `weft_docling` would be collecting against a pack that reports `failed`. This costs the
+    # environment nothing it was not already carrying, `docling-slim`'s 897 MB included.
+    "weft-rag[all]",
     "poethepoet>=0.30",
     "pyright>=1.1.390",
     "pytest>=8.3",
@@ -45,19 +52,14 @@ dev = [
 [tool.uv]
 constraint-dependencies = ["qdrant-client<1.14"]
 
-# Eight published distributions, and the workspace resolves every one of them from this
-# checkout rather than from an index. Fourteen names left this list on 2026-09-05: their code
-# ships inside `weft-rag` now (`packages/weft-rag/pyproject.toml` carries the argument), so
-# there is nothing left for `uv` to resolve under those names.
+# **Two distributions, and the workspace resolves both from this checkout rather than from an
+# index.** Fourteen names left this list on 2026-09-05 and six more on 2026-09-09 (**G19**): all
+# twenty ship inside `weft-rag` now, the last six behind extras, so there is nothing left for
+# `uv` to resolve under those names. `packages/weft-rag/pyproject.toml` carries the extras and
+# the argument; `05` -> G19 the reasoning; `CLAUDE.md` the rule.
 [tool.uv.sources]
 weft-kernel = { workspace = true }
 weft-rag = { workspace = true }
-weft-pdf = { workspace = true }
-weft-openai = { workspace = true }
-weft-qdrant = { workspace = true }
-weft-otel = { workspace = true }
-weft-agent = { workspace = true }
-weft-docling = { workspace = true }
 
 # ---------------------------------------------------------------------------
 # Tasks

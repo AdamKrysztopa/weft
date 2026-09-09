@@ -128,6 +128,40 @@ dependencies = [
 bertscore = ["bert-score>=0.3"]
 reference = ["ruff>=0.16.0"]
 
+# **The six capability extras — G19, 2026-09-09.** Each was its own published distribution until
+# that session, on G10's criterion that a pack "carrying a dependency somebody may decline" ships
+# separately. An extra makes the dependency declinable at a fraction of the cost, so the code now
+# ships in this wheel and only the outside library is optional. What a user declines is what they
+# were ever declining: `docling-slim` is 897 MB and `weft_docling` is a few kilobytes.
+#
+# **A pack whose extra is not installed reports `failed`, and that is by design rather than by
+# luck.** `weft_kernel.discovery` folds any import error into a `FAILED` report — its own comment:
+# "a pack's import can raise anything; that is FAILED, not a crash" — so `weft plugins doctor`
+# names the pack and what is missing, and the run continues without it.
+#
+# `agent` has no extra and needs none: `weft_agent` imports nothing outside this wheel, so it is
+# always available. It is listed here in the comment rather than in the table because an empty
+# extra would be a knob that does nothing.
+pdf = ["pypdf>=6.16", "pdfplumber>=0.11.10"]
+openai = ["openai>=3.1", "pillow>=10.0"]
+qdrant = ["qdrant-client>=1.12"]
+otel = ["opentelemetry-sdk>=1.28"]
+docling = ["docling-slim[convert-core,format-pdf,models-local,feat-ocr-rapidocr-onnx]>=2.55"]
+# `all` lists the libraries rather than referring to this distribution's own extras. A
+# self-reference (`weft-rag[pdf,openai,...]`) is a requirement on a sibling with no version
+# bound, which fitness function 10(b) refuses for the reason it refuses every other one: an
+# unbounded requirement permits any pack against any kernel. Listing them is also the honest
+# form — a reader sees what `all` costs without resolving anything.
+all = [
+    "pypdf>=6.16",
+    "pdfplumber>=0.11.10",
+    "openai>=3.1",
+    "pillow>=10.0",
+    "qdrant-client>=1.12",
+    "opentelemetry-sdk>=1.28",
+    "docling-slim[convert-core,format-pdf,models-local,feat-ocr-rapidocr-onnx]>=2.55",
+]
+
 [project.scripts]
 weft = "weft_cli.cli:main"
 
@@ -156,6 +190,18 @@ retrieve = "weft_retrieve:register"
 store = "weft_store:register"
 vision = "weft_vision:register"
 
+# The six that arrived with G19 (2026-09-09), each formerly its own distribution. A pack's
+# identity is its name on the left, and those names are unchanged — `pdf`, `openai`, `qdrant`,
+# `otel`, `agent`, `docling` are what an operator already writes in `weft.toml`, so no
+# `[packs.*]` block, no `[services]` selection and no `plugins doctor` row moves. Only the wheel
+# they arrive in changed.
+agent = "weft_agent:register"
+docling = "weft_docling:register"
+openai = "weft_openai:register"
+otel = "weft_otel:register"
+pdf = "weft_pdf:register"
+qdrant = "weft_qdrant:register"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -173,11 +219,13 @@ build-backend = "hatchling.build"
 # top-level module names are unchanged, so no import in the tree, and no test, changed.
 [tool.hatch.build.targets.wheel]
 packages = [
+    "src/weft_agent",
     "src/weft_blob",
     "src/weft_chunk",
     "src/weft_clean",
     "src/weft_cli",
     "src/weft_command",
+    "src/weft_docling",
     "src/weft_embed",
     "src/weft_enhance",
     "src/weft_eval",
@@ -185,7 +233,11 @@ packages = [
     "src/weft_generate",
     "src/weft_index",
     "src/weft_llm",
+    "src/weft_openai",
+    "src/weft_otel",
+    "src/weft_pdf",
     "src/weft_prompts",
+    "src/weft_qdrant",
     "src/weft_retrieve",
     "src/weft_store",
     "src/weft_vision",

@@ -203,13 +203,17 @@ def registered_names() -> frozenset[str]:
 #: `_CITED_TECHNIQUES` below is a hand-kept tuple rather than something read off the
 #: registry. Extending it to an eighth distribution is a decision this file should make
 #: visibly, in the same commit that adds that distribution's own rows to `10`.
-_AUDITED_DISTRIBUTIONS: Final[tuple[str, ...]] = (
-    "weft-rag",
-    "weft-pdf",
-    "weft-qdrant",
-    "weft-openai",
-)
-"""**Corrected 2026-09-06 at Phase 8's close review, and the failure was silent.**
+_AUDITED_DISTRIBUTIONS: Final[tuple[str, ...]] = ("weft-rag",)
+"""**One name since G19 (2026-09-09), and the scope grew rather than shrank.**
+
+`weft-pdf`, `weft-qdrant` and `weft-openai` left this tuple that day because they stopped being
+distributions: G19 settled two published names and their packs moved inside the `weft-rag` wheel
+behind extras. Every plugin they register is still audited — it is reached through `weft-rag` now —
+and three more packs came into scope with them, `weft_agent`, `weft_otel` and `weft_docling`, which
+were never in this tuple at all. The paragraph below is the reason this correction is written out
+rather than made quietly.
+
+**Corrected 2026-09-06 at Phase 8's close review, and the failure was silent.**
 
 This tuple used to name `weft-retrieve`, `weft-generate`, `weft-llm` and `weft-prompts`. Those
 were distributions when it was written and stopped being any at **G10's re-settlement**, which
