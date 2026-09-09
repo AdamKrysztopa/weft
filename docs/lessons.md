@@ -451,6 +451,34 @@ this says the *shape* is guessed the same way, and unlike the fact, the shape ha
 precedent in the tree. It cost a dispatch rather than a phase, which is the split earning its
 keep. `recurs L6.14`
 
+### L11.18 — a task whose content needs five later tasks sat third, and nothing could see it
+
+**What happened.** `next_task.py` routed at `11.3` — *"`weft delete` of one source reports the graph
+pack's removals by kind — facts, mentions, entities"* — with `weft-graph` not existing until `11.4`
+and `11.5`, facts and mentions not being `Node`s until `11.7`, and entities not being rows until
+`11.8`. Measured before concluding it: `Removed.removed` (the field), `weft_cli/deletion.py:120`
+(the fan-out carrying it) and `weft_cli/render.py:233` (the per-kind rendering) all landed at task
+`9.3`, so **nothing whatever of `11.3` is left that does not require the pack**. The line itself
+says so in its own prose — *"this line is the graph's use of it"* — and still sits third. Nothing
+in the plan or the tooling could report it: `build-ledger.md` → *How to read a task line* documents
+⛔ for a **phase header** against an open **gate**, and there is no mark, field or check for one
+task in a phase depending on a later one. `--check-live` was green, and correctly so; the ordering
+is not a claim either of its two files makes.
+
+**Generalises to.** A dependency stated only in a task's prose is invisible to the thing that
+routes the work, so at a phase's start read every task line for the artefacts it names and check
+that each is built by an earlier id — the ledger's number is a stable identifier, never a
+derivation of order. Corollary for writing them: a task that names an artefact a later task in the
+same phase creates needs a mark, not a sentence.
+
+**Candidate home.** Two candidates and the drain should pick one. Either a `next_task.py` live
+check — for the routed phase, flag a task whose sentence names a distribution or module that no
+earlier task's sentence introduces (cheap, textual, and would have fired here) — or a ⛔-shaped
+mark for an intra-phase dependency, documented in *How to read a task line* beside the phase-header
+one it would sit next to. The first is a check and the second is a convention; `L6.12`'s rule is
+that the convention alone is prose. `recurs L9.15` on the half about a dependency filed where
+nobody can tick it.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

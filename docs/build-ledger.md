@@ -7818,6 +7818,17 @@ that assumed one was withdrawn from the plan before it reached this list.
   from a settled position on a question another task owns. `11` §3's revision log had already
   recorded that the `Mapping` won; `L9.17` is the convergence failure behind the two shapes and
   `L9.47` is this line's own half of it*
+  · **⤓ deferred until after `11.8`, 2026-09-09, and the reason was measured rather than read.**
+  Every first-party half of this line landed at `9.3`: the field (`Removed.removed`), the fan-out
+  carrying it (`weft_cli/deletion.py:120`) and the per-kind rendering
+  (`weft_cli/render.py:233`, `f"{count} {kind}(s)"` over `outcome.removed`). What is left is
+  **only** the graph pack's own participant, which needs `weft-graph` to exist (`11.4`, `11.5`),
+  facts and mentions to be `Node`s (`11.7`) and entities to be rows (`11.8`) before any of its
+  three kinds can be counted. The line's own prose already said this — *"this line is the graph's
+  use of it"* — and it sat third regardless, because a dependency between tasks inside one phase
+  has no mark: `How to read a task line` gives ⛔ to a **phase header** against an open **gate**
+  and nothing to this. `L11.18`, and `docs/README.md`'s Next-action row is what carries the order
+  in the meantime, which is exactly what that row is for
 - [ ] **11.4** `weft-graph` publishes the traversal Protocol — versioned, `@runtime_checkable`,
   not a `Stage`, satisfied structurally by its own store and by an out-of-tree stranger — and the
   condition under which it moves into the store family is a dated row in `01`'s deferred table
