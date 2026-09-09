@@ -6073,6 +6073,30 @@ it had read one failure (`L7.1`).
   for that module's own stated reason: *a double is what hid the defect for a whole phase.* Written
   by me and implemented by me — smaller than its brief. Gate green, both containers up*
 
+- [ ] **R11.5** a corpus indexed by a shipped graph rung carries vectors an entity-resolution pass
+  can actually use, so the pass `11.8` and `11.9` build is not inert on the only rung that feeds
+  it · owner `02` §3 → *Derivation*; `weft_retrieve/pipelines/index-text.yaml` · sha — ·
+  ***Found by running the binary at `11.9`**, from an installed wheel outside this repository.
+  `index-with-facts` extends `index-with-graph` extends `index-text`, and `index-text` names
+  `embed: hash`. A `--pipeline` run deliberately does not read `[services] embed` — `run_index`'s
+  own *"Q3, settled"*, and the right rule, because a document that says `hash` must not silently
+  become `openai` because a config file elsewhere said so. The consequence nobody had connected:
+  **every alias vector on the shipped rung is a content hash**, so the blended score collapses to
+  its lexical third and `11.8`'s cosine floor can never be cleared except by accident. Measured on
+  a real two-document corpus through `index-with-facts`: every pair scored between `0.105` and
+  `0.165`, `Reciprocal Rank Fusion` against `RRF` included. The identical corpus through a child
+  rung that `replace:`s the embed stage with `openai-embeddings` put `Warsaw Institute` against
+  `Warszawski Instytut` at `0.647`, inside the band, and the expensive pass asked about it. So the
+  pass is correct and has no shipped rung on which its vector signal means anything.
+  `index-text`'s own comment predicts exactly this situation and tells an operator to derive a
+  child; what it does not say is that two rungs shipped *since* depend on the vector term for
+  their whole behaviour. **Not repaired at `11.9`**, because the fix is a rung decision rather
+  than a defect: shipping `index-with-facts-openai` adds a rung with a credential requirement to
+  the release set, and changing `index-text`'s own embedder changes what every derived rung does.
+  Both are the owner's call. What `11.9` did instead is record it here, on the `llm-facts` and
+  `cooccurrence-graph` rows in `10`, and in `weft_kg.resolution`'s own docstring, where a reader
+  choosing a rung meets it*
+
 ## Phase 10 — RAPTOR, extended
 
 **Closed 2026-09-08. All twenty-five tasks are ticked, `01`'s Exit is met as a conjunction, and the
@@ -8388,10 +8412,10 @@ that assumed one was withdrawn from the plan before it reached this list.
   halves by a dispatched `weft-implementer`; `resolution.py`, the traversal repair and every
   document edit mine. Gate `GATE_EXIT=0` read out of the run's own log, both containers up: 276
   architecture, 2414 passed, 9 skipped, 128 examples*
-- [ ] **11.9 ⚠ D2** the expensive pass runs only under `full`, states `model_calls` before
+- [x] **11.9 ⚠ D2** the expensive pass runs only under `full`, states `model_calls` before
   spending, abstains inside a stated band, and a bridge-merge re-points aliases so the evidence
-  for the judgement survives the judgement · owner `02` §1, §4; `03` → *Permissions* · turns on —
-  · sha — · *`Reconcilable.full` is already the consented, cost-stated, cursored, resumable pass
+  for the judgement survives the judgement · owner `02` §1, §4; `03` → *Permissions* · turns on
+  FF29 · sha — · *`Reconcilable.full` is already the consented, cost-stated, cursored, resumable pass
   (`02:686-694`; `ReconcileEstimate.model_calls`), and G12 makes a non-TTY caller able only to
   propose it (`README.md:147`) — the spend axis answered by reuse, not a sixth permission class.
   The adjudicator is three-valued with first-non-`None`-wins; "abstain" is never a kernel
@@ -8399,7 +8423,83 @@ that assumed one was withdrawn from the plan before it reached this list.
   stops a chain rather than deferring. No third `ReconcileMode` member (`05:544-547`: breaking for
   implementers). ⚠ because D2 owned the tier boundary this line assumes, and **G15 settled it in
   this line's favour** — a corpus-wide revisable pass is licensed and its output is durable as
-  nodes, so `full` stays the consented tier and no sixth permission class is owed*
+  nodes, so `full` stays the consented tier and no sixth permission class is owed. **Built.** `weft_kg.adjudication` carries the donor's three-valued band and
+  first-non-`None` chain under `NOTICE` case 2 — the third marked span in this repository, and
+  `README.md`'s enumeration is rewritten from one bullet naming `atomicity.py` into three naming
+  what each file actually carries, a claim that had been incomplete since `11.8`. The band's
+  ceiling is **imported** from `resolution.DEFAULT_SIMILARITY_THRESHOLD` rather than re-spelled,
+  so the cheap pass's merge threshold and the band's upper edge cannot drift apart;
+  `DEFAULT_ADJUDICATION_FLOOR` is `0.60` and is a `[packs.graph]` field, because a reconcile pass
+  is not a stage and has no `with:` block. `adjudicate-entities` is authored fresh, three-valued
+  (`yes`/`no`/**`unsure`**), and dispatched with an exhaustive `match`/`case` that *raises* on a
+  member it does not know — `UnhandledFilterOpError`'s closed-vocabulary rule one contract over,
+  because falling through to `False` would be exactly the guess a three-valued vote exists to
+  forbid.
+
+  **Three decisions taken with the owner, and the first one was taken twice.** The alias join
+  carries a merge, so a bridge-merge is one `UPDATE` and deletes nothing. `ReconcileReport` gains
+  `abstained` — a fifth number rather than a fourth meaning, because an abstention is not
+  `remaining`: `remaining` means *resumable*, and re-running asks the same question of the same
+  evidence. One model call per **pair** rather than per name against a candidate list, so
+  `estimate`'s number and `reconcile`'s spend come from one query. **And the consent seam moved,
+  because running the binary falsified its premise.** The plan was to register `LLM`/`Prompts`/
+  `TokenSink` onto the reconcile `Context` only under `full`, making the boundary structural. It
+  was built, it passed 2447 tests, and `weft reconcile --mode full` exited **1** with
+  `DuplicateServiceError`: `weft_cli.run_services.command_path_services` has put those three on
+  **every** command's `Context` since task 7.4, so a `repair` pass could already reach a model
+  before this task existed and the new registration was a second one. Narrowing that seam partly
+  reverses 7.4; removing a service from a built registry needs a kernel line this phase's exit
+  forbids. Re-decided with the owner: the boundary stays inside the participant, on the mode it is
+  handed, and **fitness function 29** is what stops it being a rule somebody has to remember — an
+  AST walk over every first-party `Reconcilable`, with two floors, a named blind spot and two
+  planted counter-examples. `01`'s numbered list gained item **28** in the same edit; FF28's own
+  docstring had cited an entry that was never written.
+
+  **Three `O(corpus)` memory costs `11.8` recorded for this task were removed rather than paged.**
+  The alias-embedding dict became a correlated subquery in the `kg_entities` upsert; the
+  all-pairs cosine fetch became a fetch over `resolution.initialism_candidates(names)` alone,
+  which is a function of the names and needs no database to compute; the corpus-content read
+  became keyset paging by `id`. A fourth thing had to be added that no brief named and the
+  implementer found: the cheap pass, run unconditionally, **undid** every bridge-merge on its next
+  run, because a singleton cluster re-points its alias to its own canonical id — so each alias's
+  current entity-mates are fed back in as extra `similar_pairs`, and the pass can now only ever
+  merge, never split. Without it a model's judgement survived exactly one pass and the next `full`
+  paid for the same question again.
+
+  **Run through the shipped binary from outside this repository, against wheels installed into a
+  clean venv.** The no-TTY refusal is exit **3**, naming `--yes`. `--mode full --dry-run --yes`
+  prints `1 ambiguous name pair(s) to put to a model / backfill will make ~1 model calls` — the
+  first non-zero `model_calls` any participant in this tree has ever printed, which retires a
+  paragraph in `03` that said none could. On a two-document bilingual corpus (Dostoevsky in
+  English and Polish): `3 ambiguous name pair(s)`, then `backfilled 1, abstained 2` — `Fyodor
+  Dostoevsky` and `Fiodor Dostojewski` became one entity named for the lexicographically smaller
+  form, **holding 2 aliases and 4 nodes**, with aliases 15 → 15 and entities 15 → 14: the evidence
+  survived the judgement, counted in the container immediately before and after (`L8.30`). A
+  second `full` stated `~2 model calls` rather than 3, because the merged pair leaves the band by
+  construction. `repair` on the same corpus made no call and changed nothing.
+
+  **Two findings the tests could not have produced, both recorded rather than repaired.** The
+  shipped `index-with-facts` rung embeds with `hash`, since `index-text` names it and a
+  `--pipeline` run deliberately does not read `[services] embed` — so **the entire resolution
+  pass is inert on the rung that produces the facts it resolves**, every cosine noise and every
+  blend under 0.17. `index-text`'s own comment predicts exactly this and tells an operator to
+  derive a child rung; that is what the measured run does, and it is why there is no shipped rung
+  on which `11.8`'s vector signal means anything. That is a rung question, filed as **`R11.5`**.
+  And the adjudicator is shown **two bare names and nothing else** — `AdjudicateEntitiesRequest`
+  argues correctly for withholding the *score*, but withholding all corpus context is a different
+  choice, and it is why the model returned `unsure` for `Petersburga`/`Saint Petersburg` and for
+  `1866`/`1866 roku`. Passing each name's own mention sentences is the obvious next rung and
+  belongs against a real corpus rather than against this demonstration.
+
+  `L11.36` and `L11.37` are this task's queue entries and both are mine: a subagent's completion
+  is the notification and not the absence of a process, and I ran a full gate against a
+  mid-edit tree because I used `pgrep` as the done signal; and I diagnosed a defect against a
+  `unzip -p` of a freshly built wheel while `uv run --with` was serving a stale extracted archive
+  of the same filename, which sent me to revert code that was already reverted. Tests mine;
+  `adjudication.py`, `prompts.py`, `resolution.py` and the registration by one dispatched
+  `weft-implementer`, the contract, renderer and CLI half by a second, `store.py` by a third; the
+  fitness function, the revert and every document edit mine. Gate `GATE_EXIT=0` read out of the
+  run's own log, both containers up: 276 architecture, 2447 passed, 9 skipped, 128 examples*
 - [ ] **11.10** a question naming an entity is answered from nodes reached by a bounded walk,
   through a retriever that declares what it needs of the store and is refused **by name at
   assembly** against a store that lacks it; and the same question is answered by vector and graph

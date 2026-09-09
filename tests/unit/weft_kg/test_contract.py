@@ -188,7 +188,12 @@ def test_the_contract_version_is_its_own_and_moves_nothing_in_the_store_family()
 
     # Act / Assert
     assert GRAPH_TRAVERSAL_CONTRACT_VERSION == "2.0.0"
-    assert STORE_CONTRACT_VERSION == "2.3.0"
+    # The store family's own literal is `tests/unit/weft_store/test_contract.py`'s to pin and
+    # this line only records that no *graph* change has ever moved it. It reads `2.4.0` because
+    # ledger `11.9` added `ReconcileReport.abstained` — a change to the store family made by a
+    # task of this pack's, through the family's own contract, which is exactly the direction
+    # `11.4`'s deferral row says is allowed while promotion is not.
+    assert STORE_CONTRACT_VERSION == "2.4.0"
 
 
 def test_a_graph_backend_with_no_vectors_is_a_whole_graph_traversal() -> None:

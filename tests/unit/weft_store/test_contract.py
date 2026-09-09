@@ -28,6 +28,7 @@ from weft_kernel.registry import Registry
 from weft_kernel.runner import Lifetime, Runner, StageSpec
 from weft_store.contract import (
     FILTER_AST_VERSION,
+    RECONCILE_REPORT_SCHEMA_VERSION,
     STORE_CONTRACT_VERSION,
     Cursor,
     Filter,
@@ -332,7 +333,47 @@ def test_the_family_version_moved_when_the_family_grew_a_capability() -> None:
     # bound to a major of `weft-rag` — and the correction came from the family's own rule,
     # `SourceDeletable`'s "a separate Protocol... exactly the optional-method design this
     # family exists to refuse". The cheap version and the right shape were the same answer.
-    assert STORE_CONTRACT_VERSION == "2.3.0"
+    # Task **11.9** moves it to `2.4.0`, a minor on the identical footing as 9.3 and 9.17:
+    # `ReconcileReport` gains `abstained`, an optional integer defaulting to `0`, so every
+    # participant already building a report keeps satisfying the family untouched and every
+    # caller reading one is unaffected. Minor for both of G9's audiences, so the maximum is
+    # a minor.
+    assert STORE_CONTRACT_VERSION == "2.4.0"
+
+
+def test_a_report_can_say_a_pair_was_asked_about_and_nobody_decided() -> None:
+    """Ledger **11.9** — `abstained` exists because an abstention is not any of the other four.
+
+    It is not `backfilled` (nothing was written), not `removed` (nothing went), and above all
+    not `remaining`: `remaining` means *resumable* — run the pass again and it converges — while
+    an abstention means the pass reached the end of its chain with no opinion, and running it
+    again asks the same question of the same evidence. Folding one into the other would make
+    `converged` permanently `False` on any corpus holding one genuinely ambiguous name pair.
+    """
+    # Arrange / Act
+    report = ReconcileReport(mode=ReconcileMode.FULL, examined=3, abstained=2)
+
+    # Assert
+    assert report.abstained == 2
+    assert report.converged, "an abstention is a finished decision, not outstanding work"
+
+
+def test_a_report_that_says_nothing_about_abstentions_reports_none() -> None:
+    """The default every existing `Reconcilable` in and out of this tree keeps getting — which
+    is what makes the field's addition a minor for an implementer rather than a major.
+    """
+    # Act / Assert
+    assert ReconcileReport(mode=ReconcileMode.REPAIR).abstained == 0
+
+
+def test_the_reconcile_report_schema_version_moved_with_the_field() -> None:
+    """`S5`: the version travels **in the stored bytes**, because at the read site the pack that
+    wrote the report may not be the one installed. A field added with the constant left alone is
+    a persisted shape that changed with nothing in the data recording it.
+    """
+    # Act / Assert
+    assert RECONCILE_REPORT_SCHEMA_VERSION == "1.1.0"
+    assert ReconcileReport(mode=ReconcileMode.FULL).schema_version == "1.1.0"
 
 
 def test_the_filter_ast_version_moved_when_the_operator_set_narrowed() -> None:

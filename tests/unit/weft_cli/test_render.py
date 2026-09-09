@@ -1416,3 +1416,62 @@ def test_render_eval_compare_says_when_a_baseline_spread_is_zero_width() -> None
     # can act on beyond the bare bounds — an assertion on exact prose would be a test of
     # wording rather than of the claim.
     assert "zero-width" in rendered.stdout.lower()
+
+
+def test_reconcile_prints_what_nobody_could_decide_beside_what_it_did() -> None:
+    """Ledger **11.9** — an abstention reaches the operator or it did not happen.
+
+    The failure this forbids is quiet and expensive: `full` spends a model call on a pair, the
+    chain reaches its end with no opinion, and the line reads `backfilled 0` — indistinguishable
+    from a corpus with nothing ambiguous in it. `converged` stays true, because running the pass
+    again asks the same question of the same evidence, so the exit code is `SUCCESS` and the
+    count is the only thing that says anything happened.
+    """
+    # Arrange
+    result = ReconcileCommandResult(
+        mode=ReconcileMode.FULL,
+        dry_run=False,
+        participants=(
+            ReconcileOutcome(
+                contract="NodeStore",
+                plugin="pgvector-graph",
+                distribution="weft-rag",
+                report=ReconcileReport(
+                    mode=ReconcileMode.FULL, examined=0, backfilled=3, abstained=2
+                ),
+            ),
+        ),
+    )
+
+    # Act
+    rendered = render.render_outcome(Produced(value=result))
+
+    # Assert
+    assert rendered.exit_code is ExitCode.SUCCESS
+    assert "abstained 2" in (rendered.stdout or "")
+
+
+def test_reconcile_says_nothing_about_abstentions_when_there_were_none() -> None:
+    """The clause is conditional, on `_reconcile_line`'s own precedent for `remaining`: a count
+    printed as `abstained 0` on every `repair` line is noise that trains a reader to skip the
+    line the one time it says something.
+    """
+    # Arrange
+    result = ReconcileCommandResult(
+        mode=ReconcileMode.REPAIR,
+        dry_run=False,
+        participants=(
+            ReconcileOutcome(
+                contract="NodeStore",
+                plugin="pgvector-graph",
+                distribution="weft-rag",
+                report=ReconcileReport(mode=ReconcileMode.REPAIR, examined=1, backfilled=1),
+            ),
+        ),
+    )
+
+    # Act
+    rendered = render.render_outcome(Produced(value=result))
+
+    # Assert
+    assert "abstained" not in (rendered.stdout or "")

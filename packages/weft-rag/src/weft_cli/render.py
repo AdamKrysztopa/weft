@@ -330,10 +330,21 @@ def _render_reconcile(result: ReconcileCommandResult) -> Rendered:
 
 
 def _reconcile_line(outcome: ReconcileOutcome) -> str:
+    """One participant's own line — see `_render_reconcile`'s docstring for the three facts a
+    summary must not lose. `abstained` (ledger **11.9**) is appended to the same
+    comma-separated run, ahead of the interrupted clause, and **only when non-zero**: printed
+    unconditionally as `abstained 0` on every `repair` line it would be noise that trains a
+    reader to skip the line the one time it says something — the same argument that already
+    makes the `remaining`/interrupted clause beside it conditional. An abstention is a
+    finished decision, not outstanding work, so its presence never changes `converged` or the
+    exit code this line's own outcome contributes to.
+    """
     if outcome.report is None:
         return "failed"
     report = outcome.report
     counts = f"examined {report.examined}, removed {report.removed}, backfilled {report.backfilled}"
+    if report.abstained:
+        counts += f", abstained {report.abstained}"
     if report.converged:
         return counts
     return f"{counts} — interrupted, {report.remaining} left; run again"

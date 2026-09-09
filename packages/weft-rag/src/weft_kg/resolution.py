@@ -48,6 +48,18 @@ clear the floor. Treating an absent number as passing would make signal 3 fire h
 where there is least evidence, which is the inverse of what a gate is for — `docs/lessons.md`
 L5.9's rule for an empty collection, applied to a missing number.
 
+**The signal this pass leans hardest on is the one the shipped rung does not supply — carried
+repair `R11.5`, measured at `11.9`.** `index-text` names `embed: hash`, and every rung that
+derives from it inherits that, `index-with-graph` and `index-with-facts` included; a `--pipeline`
+run deliberately does not read `[services] embed`. A content-hash vector has no semantic geometry,
+so signal 1's blend collapses to its lexical third and signal 3's cosine floor is unreachable
+except by accident. Measured through the shipped binary on a real two-document corpus: every alias
+pair scored between `0.105` and `0.165`, *Reciprocal Rank Fusion* against *RRF* included. The same
+corpus through a child rung that `replace:`s the embed stage with `openai-embeddings` put *Warsaw
+Institute* against *Warszawski Instytut* at `0.647`. Nothing in this module is wrong; it simply has
+no shipped rung on which its vector term means anything, and a reader pointing it at a corpus
+should derive one first.
+
 **Carried prior work — `NOTICE` case 2.** The initialism rule and its stopword set, the
 short-form shape test, the Schwartz–Hearst patterns and their initialism validation, the
 acronym-collision guard and the path-compressed union-find come from the project owner's own
@@ -273,19 +285,12 @@ def _apply_initialisms(
     """Signal 3, with both gates. See the module docstring for why each one is worth its cost."""
     expansions: dict[str, set[str]] = {}
     pairs: dict[str, list[tuple[str, str]]] = {}
-    for index, one in enumerate(names):
-        for other in names[index + 1 :]:
-            candidate = _short_and_long(one, other)
-            if candidate is None:
-                continue
-            short, long_form = candidate
-            if initialism(long_form).upper() != short.upper():
-                continue
-            cosine = cosines.get((short, long_form), cosines.get((long_form, short)))
-            if cosine is None or cosine < floor:
-                continue
-            expansions.setdefault(short.upper(), set()).add(long_form.casefold())
-            pairs.setdefault(short.upper(), []).append((short, long_form))
+    for short, long_form in initialism_candidates(names):
+        cosine = cosines.get((short, long_form), cosines.get((long_form, short)))
+        if cosine is None or cosine < floor:
+            continue
+        expansions.setdefault(short.upper(), set()).add(long_form.casefold())
+        pairs.setdefault(short.upper(), []).append((short, long_form))
 
     for key, seen in expansions.items():
         if len(seen) != 1:
@@ -305,12 +310,46 @@ def _short_and_long(one: str, other: str) -> tuple[str, str] | None:
     return None
 
 
+def initialism_candidates(names: Sequence[str]) -> tuple[tuple[str, str], ...]:
+    """Every `(short, long)` pair from `names` that signal 3 could possibly merge on.
+
+    **Why this is published rather than left inline.** `11.8` had `weft_kg.store` fetch every
+    alias pair's cosine and hand the whole map to `resolve_clusters` — `O(corpus²)` in memory, and
+    recorded on `GraphStore`'s own resolution pass as a cost belonging to this task rather than
+    ahead of it. But the set of pairs signal 3 can possibly act on is a function of the *names*
+    alone: it only ever looks up a pair where one name has a short form's shape and the other's
+    initials spell it, and that shape test needs no database at all. Computing it first lets the
+    store ask pgvector for exactly those pairs' cosines instead of every pair in the corpus, and
+    publishing it is what lets `_apply_initialisms` and `weft_kg.store` ask the identical question
+    rather than one of them silently drifting from the other.
+
+    **The narrowing must be exact, never merely smaller.** A pair signal 3 would have consulted
+    that this function omits is a merge that silently stops happening — so the two gates below are
+    exactly `_apply_initialisms`'s own: `_short_and_long` for the shape, and `initialism` uppercased
+    against the short form for the spelling. Order matches the nested loop that check replaces —
+    outer index ascending, inner over `names[index + 1 :]` — so a caller consuming this in order
+    sees exactly what the inline loop used to produce.
+    """
+    candidates: list[tuple[str, str]] = []
+    for index, one in enumerate(names):
+        for other in names[index + 1 :]:
+            candidate = _short_and_long(one, other)
+            if candidate is None:
+                continue
+            short, long_form = candidate
+            if initialism(long_form).upper() != short.upper():
+                continue
+            candidates.append((short, long_form))
+    return tuple(candidates)
+
+
 __all__ = [
     "DEFAULT_COSINE_FLOOR",
     "DEFAULT_SIMILARITY_THRESHOLD",
     "DEFAULT_VECTOR_WEIGHT",
     "acronym_definitions",
     "initialism",
+    "initialism_candidates",
     "is_short_form",
     "resolve_clusters",
 ]

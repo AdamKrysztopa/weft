@@ -188,11 +188,25 @@ the build when this list and the markers in the tree disagree:
 
 <!-- weft-prior-work-sources -->
 
-- `graph-study` — a private knowledge-graph project of the same author's, predating Weft. What is
-  carried is the entity-atomicity filter it developed against real papers: five rules that refuse a
-  name for being a clause, an equation, a citation or a pointer to a document's own sections, plus
-  the label-token guard that keeps *"table tennis"* out of the fourth rule. It lives in
-  [`packages/weft-rag/src/weft_kg/atomicity.py`](packages/weft-rag/src/weft_kg/atomicity.py), inside
-  the marked span; the dispatch around it, which answers *which* rule fired so every drop is counted
-  under its own reason, is Weft's own. Nothing else from that project is here — not its prompts, not
-  its store, not its pipeline.
+- `graph-study` — a private knowledge-graph project of the same author's, predating Weft. **Three
+  things are carried, each inside a marked span in the one file that uses it**, and around every one
+  of them the dispatch, the persistence and the reasoning are Weft's own:
+
+  - the **entity-atomicity filter** it developed against real papers — five rules that refuse a name
+    for being a clause, an equation, a citation or a pointer to a document's own sections, plus the
+    label-token guard that keeps *"table tennis"* out of the fourth rule — in
+    [`weft_kg/atomicity.py`](packages/weft-rag/src/weft_kg/atomicity.py). What answers *which* rule
+    fired, so every dropped candidate is counted under its own reason rather than summed, is Weft's;
+  - the **acronym signals and the union-find** an entity-resolution pass closes its clusters with —
+    the initialism rule and its stopword set, the short-form shape test, the Schwartz–Hearst
+    definition patterns and the acronym-collision guard — in
+    [`weft_kg/resolution.py`](packages/weft-rag/src/weft_kg/resolution.py). The donor computes
+    similarity itself over a loaded matrix; Weft scores it in the database and keeps only the part
+    SQL cannot do;
+  - the **three-valued adjudication band** and the first-non-`None` chain that reads it — a ceiling,
+    a floor, and an uncertain interval that abstains rather than guessing — in
+    [`weft_kg/adjudication.py`](packages/weft-rag/src/weft_kg/adjudication.py). The donor asks about
+    one name against a ranked candidate list and answers with an index into it; Weft asks a single
+    question about one pair, and what a merge then does to the tables is its own.
+
+  Nothing else from that project is here — not its prompts, not its store, not its pipeline.

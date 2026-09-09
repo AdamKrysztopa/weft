@@ -47,7 +47,7 @@ from weft_kg.payload import (
     ExtractionTally,
     MentionedEntity,
 )
-from weft_kg.prompts import EXTRACT_FACTS_NAME
+from weft_kg.prompts import ADJUDICATE_ENTITIES_NAME, EXTRACT_FACTS_NAME
 from weft_kg.store import GraphDsnNotConfiguredError, GraphStore
 from weft_kg.traversal import GraphWalk
 from weft_prompts.contract import Prompt
@@ -306,6 +306,27 @@ def test_register_adds_the_extraction_prompt_under_its_own_name() -> None:
 
     # Assert
     entry = registry.entry(Prompt, EXTRACT_FACTS_NAME)
+    assert entry.distribution == "weft-rag"
+
+
+def test_the_question_the_expensive_pass_asks_is_registered_under_its_own_name() -> None:
+    """Ledger **11.9** — the same argument `extract-facts` makes one task over, for the second
+    text this pack sends to a provider.
+
+    `GraphStore.reconcile` constructs `AdjudicateEntitiesPrompt` directly, for the identical
+    reason `llm-facts` constructs its own: a reconcile pass is not a pipeline stage and reaches
+    no `StageLookup`. It is registered anyway, because this pack's `Disclosure` says two surface
+    forms leave the machine under `full` and this class is the only artefact that says *how they
+    are asked about* — an unregistered prompt would put that text out of reach of
+    `weft plugins list` and of `manual/contract-reference.md` alike. The same wart applies and
+    is stated in `weft_kg.prompts`: a `[plugins]` pin on this name changes the listing and does
+    not change what the pass asks.
+    """
+    # Act
+    registry = _registered()
+
+    # Assert
+    entry = registry.entry(Prompt, ADJUDICATE_ENTITIES_NAME)
     assert entry.distribution == "weft-rag"
 
 

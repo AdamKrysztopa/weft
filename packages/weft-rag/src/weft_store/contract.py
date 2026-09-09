@@ -143,7 +143,14 @@ from weft_kernel.runner import Stage
 #: which is what sent the design back to this family's own rule — `SourceDeletable`'s *"a
 #: separate Protocol... exactly the optional-method design this family exists to refuse"*. The
 #: correct shape and the cheap version turn out to be the same answer.
-STORE_CONTRACT_VERSION = "2.3.0"
+#:
+#: **`2.3.0` → `2.4.0` at task 11.9 — a minor, on the identical footing as 9.3 and 9.17.**
+#: `ReconcileReport` gains `abstained`, an optional integer defaulting to `0`. G9's
+#: two-audience table classifies this minor for the caller (every existing field is
+#: untouched, so nothing that reads a report breaks) and minor for the implementer (nothing
+#: that already builds a report is asked for a new value) — the maximum of two minors is a
+#: minor.
+STORE_CONTRACT_VERSION = "2.4.0"
 
 #: Versioned separately from `STORE_CONTRACT_VERSION`: a `Filter` is data that
 #: outlives any one store, serialised into a resolved, stored pipeline. Moved `1.0.0` →
@@ -157,7 +164,15 @@ FILTER_AST_VERSION = "1.1.0"
 #: Versioned separately from `STORE_CONTRACT_VERSION` for the same reason `FILTER_AST_VERSION`
 #: is: a report a pack persisted outlives the contract version of whatever is installed when
 #: it is read back, and the contract version is not available at the read site at all.
-RECONCILE_REPORT_SCHEMA_VERSION = "1.0.0"
+#:
+#: Moved `1.0.0` → `1.1.0` at task 11.9, when `ReconcileReport` gained `abstained`: this
+#: constant tracks the *persisted shape*, not the family's Protocol surface, so a field
+#: added to what gets written to disk moves this number even though it left
+#: `STORE_CONTRACT_VERSION`'s reasoning (a minor, either way) alone. Fitness function 6
+#: deliberately does not bind `*_SCHEMA_VERSION` constants to any distribution version —
+#: `tests/architecture/test_ff6_contract_version_binding.py` says why — so this move
+#: publishes nothing there.
+RECONCILE_REPORT_SCHEMA_VERSION = "1.1.0"
 
 #: An opaque pagination token. Never constructed by a caller — only ever a
 #: value a store previously handed back through `Page.next_cursor`.
@@ -835,6 +850,19 @@ class ReconcileReport(BaseModel):
     whatever durable form the participant reads its own backlog from. `remaining == 0` means
     converged; anything else means run it again, and running it again is safe because
     `reconcile` is idempotent.
+
+    **`abstained`, task 11.9, is a fifth number because it is none of the other four.** It is
+    not `backfilled` — nothing was written for the pair in question. It is not `removed` —
+    nothing went. And it is emphatically not `remaining`: `remaining` means *resumable* — run
+    the pass again over the same corpus and it converges — while an abstention means the pass
+    reached the end of its adjudication chain and returned with no opinion, so running it
+    again asks the same question of the same evidence and gets the same silence. Folding an
+    abstention into `remaining` would make `converged` permanently `False` on any corpus
+    holding a single genuinely ambiguous pair, forever asking to be re-run for work that will
+    never resolve. It exists at all because the alternative is silent: a participant that
+    spent a model call on a pair and reached no decision, reported as a clean `backfilled 0`,
+    is indistinguishable from a corpus with nothing ambiguous in it at all — exactly the
+    plausible-looking wrong answer requirement 5 exists to forbid.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -845,6 +873,11 @@ class ReconcileReport(BaseModel):
     removed: int = 0
     backfilled: int = 0
     remaining: int = 0
+    #: A pair asked about and left undecided — see the class docstring's paragraph above for
+    #: why this is not folded into `backfilled`, `removed` or `remaining`. Defaults to `0`, the
+    #: value every `Reconcilable` already shipping keeps returning, which is what makes this
+    #: field's addition minor for an implementer rather than major.
+    abstained: int = 0
 
     @property
     def converged(self) -> bool:

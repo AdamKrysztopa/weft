@@ -1011,6 +1011,74 @@ is narrower than a rule and might actually fire: a check that flags an assertion
 resolve to the same first-party call — cheap to state, hard to write well, and worth a note rather
 than a task until a third instance arrives.
 
+### L11.36 — I used `pgrep` as a subagent's done signal and gated a mid-edit tree
+
+**What happened.** Three implementers ran for `11.9`. For the third I wanted to know when it had
+finished so I could run the gate, and rather than wait for the completion notification I watched
+the tree: I polled `git diff --stat` until the file stopped changing, then polled `pgrep` for
+`pytest` and `pyright` until neither was running, and concluded it was done. It was not. The agent
+was between commands. I staged the tree and ran the full gate against a half-written `store.py`,
+got four failures, and spent a diagnosis cycle on one of them — a second `full` pass asking the
+model a question it had already answered — which the agent had *already fixed* in the edit it made
+after my gate started. My own reproduction against the container then showed the behaviour was
+correct, which is when the timeline became obvious.
+
+**Generalises to.** The harness states this plainly — *"you will be notified automatically when it
+completes"* — and I substituted an inference for a fact that was going to be handed to me. Every
+proxy I picked is a real signal of *something*: a quiet file means no write is in flight this
+instant, an absent `pytest` means no test is running this instant. Neither is a statement about
+whether the agent has more work to do, and a heuristic that answers a narrower question than the
+one asked is `L6.4`'s shape — reading a marker's definition rather than its population — in the
+domain of process state.
+
+The rule: **a subagent is finished when its completion notification arrives, and at no other
+moment.** There is no tree-shaped or process-shaped substitute, because the agent's own plan is not
+observable from outside it. If waiting is genuinely wrong, the fix is to send it a message, not to
+guess from `pgrep`.
+
+The cost was small and the shape is not: **a gate run against a tree somebody else is still
+editing is not a gate**, which is `L6.22`'s rule stated for a different overlap than the one it was
+written for — that one is about two suites sharing a container, this one is about one suite and one
+author sharing a working tree.
+
+**Candidate home.** `phase-step` → *Green*, beside the existing "keep off the tree until the agent
+returns" paragraph, which currently says what not to *do* and does not say how you know it has
+returned. One sentence: the notification, and nothing else.
+
+### L11.37 — I diagnosed against a wheel `uv` was not running
+
+**What happened.** After reverting a defect found by the binary, I rebuilt the wheel, confirmed the
+revert with `unzip -p <wheel> weft_cli/commands.py | grep -c`, ran the binary again, and got the
+identical `DuplicateServiceError`. I concluded the defect was **not** mine — it had to be somewhere
+else in the tree — and said so, twice, before a stack trace showed the running code was
+`.cache/uv/archive-v0/JK1-.../weft_cli/commands.py`, at a line number that only existed in the
+version I had just deleted. `uv run --with <path.whl>` was serving a previously extracted archive
+for a wheel of the same name; `uv cache clean weft-rag` did not evict it either. The wheel I
+inspected and the code that ran were two different files, and every check I made was of the first.
+
+**Generalises to.** `L7.6` — a metadata API answered one way under an editable install and another
+under a real one — and `L9.1`, ruff's per-file cache holding a verdict about a tree that had
+changed. Same shape a third time: **an artefact and the thing that runs it are two facts, and a
+build step is not a guarantee that the second one moved.** What makes this instance worth writing
+down separately is where it sent me: not to a wrong answer about the code, but to a wrong answer
+about *whose* code, which is the most expensive kind — I was one step from re-opening a settled
+seam in `weft_cli` to fix a defect that no longer existed.
+
+The rule: **verify the environment by asking the environment, never by asking the artefact you
+handed it.** One line of the running module's `__file__` and a `grep` of *that* path would have
+ended it immediately. The cheap general form: when a rebuild does not change the behaviour, the
+first hypothesis is that the rebuild did not reach the runtime, and it is falsifiable in one
+command.
+
+And the structural repair, because "remember to check" is not one: **an installed-artefact run gets
+a fresh, explicitly-pathed environment**, not a cache-mediated one. `uv venv` plus
+`uv pip install <wheel>` into a directory this session owns costs seconds, has a `site-packages` you
+can `grep`, and cannot serve you something else. That is what the measured `11.9` run finally used.
+
+**Candidate home.** `phase-step` → *Finish*, item on running the binary, which says to run it from
+a directory that is not this repository and does not say how to be sure the binary is the one you
+just built. The concrete form is short enough to be a command rather than a rule.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

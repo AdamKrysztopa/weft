@@ -41,7 +41,12 @@ from weft_kg.payload import (
     ExtractionTally,
     MentionedEntity,
 )
-from weft_kg.prompts import EXTRACT_FACTS_NAME, ExtractFactsPrompt
+from weft_kg.prompts import (
+    ADJUDICATE_ENTITIES_NAME,
+    EXTRACT_FACTS_NAME,
+    AdjudicateEntitiesPrompt,
+    ExtractFactsPrompt,
+)
 from weft_kg.store import GraphSettings, GraphStore
 from weft_kg.traversal import GraphWalk
 from weft_prompts.contract import Prompt
@@ -65,7 +70,10 @@ DISCLOSURE = Disclosure(
         "both store: pgvector and store: graph hands the identical batch to each. The "
         "llm-facts stage sends a chunk's own text to whichever provider the LLM role it is "
         "configured with (role: index by default) resolves to — egress is a property of that "
-        "selected provider, not of this pack, so no import rule can state it here."
+        "selected provider, not of this pack, so no import rule can state it here. Under weft "
+        "reconcile --mode full, the same provider is sent two entity names at a time, one "
+        "ambiguous pair per call, so it can judge whether they name the same thing; weft "
+        "reconcile --mode repair sends nothing."
     ),
 )
 
@@ -96,6 +104,10 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     # builds on `index-with-graph`, which must already be registered above it.
     registrar.add(Expander, LLM_FACTS_NAME, LlmFactExtractor)
     registrar.add(Prompt, EXTRACT_FACTS_NAME, ExtractFactsPrompt)
+    # Ledger 11.9 — the reconcile pass's own prompt, registered beside the ingest one it sits
+    # next to in `weft_kg.prompts`, and before the `add_ext_model` calls that follow so the
+    # pipeline-resource ordering `test_register.py` asserts stays untouched.
+    registrar.add(Prompt, ADJUDICATE_ENTITIES_NAME, AdjudicateEntitiesPrompt)
     registrar.add_ext_model(ExtractedFact)
     registrar.add_ext_model(MentionedEntity)
     registrar.add_ext_model(ExtractionTally)
@@ -103,12 +115,14 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
 
 
 __all__ = [
+    "ADJUDICATE_ENTITIES_NAME",
     "DISCLOSURE",
     "EXTRACT_FACTS_NAME",
     "GRAPH_ROLE",
     "GRAPH_TRAVERSAL_CONTRACT_VERSION",
     "LLM_FACTS_NAME",
     "SERVICE_ROLES",
+    "AdjudicateEntitiesPrompt",
     "CooccurrenceEdge",
     "CooccurrenceGraph",
     "CooccurrenceGraphBuilder",

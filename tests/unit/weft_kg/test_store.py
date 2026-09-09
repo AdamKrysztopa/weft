@@ -50,15 +50,16 @@ it. `weft_kg.contract` records what it takes and what triggers writing it; `L11.
 
 from __future__ import annotations
 
+import json
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 
 import psycopg
 import pytest
 from pydantic import SecretStr
 
-from weft_kernel.context import Context
-from weft_kernel.payload import MediaType, Node, NodeId, SourceId, Vector
+from weft_kernel.context import Context, ServiceRegistry
+from weft_kernel.payload import MediaType, Node, NodeId, Outcome, Produced, SourceId, Vector
 from weft_kg.contract import EntityId
 from weft_kg.payload import (
     CooccurrenceEdge,
@@ -74,6 +75,8 @@ from weft_kg.store import (
     GraphStore,
 )
 from weft_kg.traversal import GraphWalk
+from weft_llm.contract import LLM
+from weft_llm.payload import Completion, Rendered
 from weft_store.contract import ReconcileMode
 
 _DSN = os.environ.get("WEFT_DATABASE_URL", "postgresql://weft:weft@localhost:5433/weft")
@@ -825,3 +828,295 @@ async def test_the_counts_are_of_rows_this_deletion_actually_removed(store: Grap
     assert removed.node_count == 1
     assert removed.removed["mention"] == 1
     assert "entity" not in removed.removed
+
+
+# --- ledger task 11.9: the expensive pass asks before it spends, and abstains out loud ---
+#
+# Everything above this line runs with no model and no credential. What follows is the half
+# `full` gates: pairs the cheap blend could neither merge nor refuse are put to a model, one call
+# per pair, and the number of those calls is stated by `estimate` before `reconcile` spends them.
+#
+# **How a pair is put *into* the band, and why these particular names.** The blend is
+# `0.7 * cosine + 0.3 * trigram similarity`. `Chucri` and `Azouz` share no trigram, so the lexical
+# term is `0` and the blend is exactly `0.7 * cosine` — which puts the pair wherever the fixture's
+# vectors put it, with no dependence on how `pg_trgm` scores anything. Identical vectors give
+# `0.7`, inside the band `[0.60, 0.83)`; orthogonal ones give `0`, below its floor. Neither name
+# has a short form's shape, so signal 3 never looks at them, and no node defines one as the other,
+# so signal 2 does not either: the only thing that can merge this pair is the model.
+
+
+class _StubAdjudicator:
+    """An `LLM` answering the adjudication prompt from a script keyed by what it was shown.
+
+    Copied in shape from `tests/unit/weft_kg/test_extraction.py`'s own `_StubLLM`, which is this
+    pack's existing double for a plugin that reaches a model through `weft_prompts.cascade`.
+    `native_structured_available` is `False`, so tier 1 is skipped structurally rather than by a
+    flag — the same derived-capability check a real provider is subject to — and the cascade
+    itself is real, because a pass that agreed with a stubbed cascade and disagreed with the one
+    `weft_cli` builds would be tested against the wrong thing.
+
+    `calls` is the assertion subject for every *"no model call"* test here: the property `full`
+    gates is that nothing is spent, and a count is the only way to see it.
+    """
+
+    def __init__(self, replies: Mapping[str, str], *, fallback: str = "") -> None:
+        self._replies = replies
+        self._fallback = fallback if fallback else _verdict("unsure")
+        self.calls = 0
+
+    async def native_structured_available(self, role: str) -> bool:
+        del role
+        return False
+
+    async def complete_structured(
+        self, rendered: Rendered, schema: Mapping[str, object], *, role: str, ctx: Context
+    ) -> Outcome[Completion]:
+        raise AssertionError("tier 1 is unavailable on this stub and must not be reached")
+
+    async def complete(self, rendered: Rendered, *, role: str, ctx: Context) -> Outcome[Completion]:
+        del role, ctx
+        self.calls += 1
+        shown = "\n".join(message.content for message in rendered.conversation.messages)
+        for marker, reply in self._replies.items():
+            if marker in shown:
+                return Produced(value=Completion(text=reply, model="stub-model"))
+        return Produced(value=Completion(text=self._fallback, model="stub-model"))
+
+    async def close(self) -> None: ...
+
+
+def _verdict(answer: str, *, reason: str = "the stub said so") -> str:
+    """The JSON a model answers tier 2 of the adjudication cascade with."""
+    return json.dumps({"verdict": answer, "reason": reason})
+
+
+def _model_ctx(llm: object) -> Context:
+    """The `Context` `weft reconcile --mode full` carries — `_ctx()` above plus the one service
+    the expensive pass reaches for. `weft_cli.commands._register_model_services` is what puts it
+    there in a real run, and only when the mode is `full`.
+    """
+    services = ServiceRegistry()
+    services.add(LLM, llm)
+    return Context(
+        tenant_id="tenant-a", run_id="run-1", trace_id="trace-1", locale="en", services=services
+    )
+
+
+async def _banded_pair(store: GraphStore) -> None:
+    """Two aliases whose blended score lands inside the band — see the note above for why."""
+    vector = Vector(values=(1.0, 0.0, 0.0, 0.0))
+    await store.put_entity(name="Chucri", nodes=[], embedding=vector)
+    await store.put_entity(name="Azouz", nodes=[], embedding=vector)
+
+
+async def test_a_pair_in_the_band_reaches_no_model_under_repair(
+    store: GraphStore, walk: GraphWalk
+) -> None:
+    """`repair` is the mode the automatic post-index pass runs in, unasked, after every
+    `weft index`. A model call there would be spend nobody consented to — G3's
+    installed-and-ambient threat wearing the shape of a convergence pass.
+    """
+    # Arrange
+    await _banded_pair(store)
+    llm = _StubAdjudicator({"Chucri": _verdict("yes")})
+
+    # Act
+    report = await store.reconcile(_model_ctx(llm), ReconcileMode.REPAIR)
+
+    # Assert
+    assert llm.calls == 0
+    assert report.abstained == 0
+    assert len(await walk.entities_by_name(["Chucri", "Azouz"])) == 2
+
+
+async def test_full_states_its_model_calls_before_it_spends_any(store: GraphStore) -> None:
+    """`docs/03-cli.md`: *"full states its cost before it spends it."* The number has to come
+    from the same query `reconcile` then runs, or the stated cost and the spent cost are two
+    facts that can disagree — which is why the second assertion counts the calls the estimate
+    itself made.
+    """
+    # Arrange
+    await _banded_pair(store)
+    llm = _StubAdjudicator({"Chucri": _verdict("yes")})
+
+    # Act
+    estimate = await store.estimate(_model_ctx(llm), ReconcileMode.FULL)
+
+    # Assert
+    assert estimate.model_calls == 1
+    assert "1" in estimate.description
+    assert llm.calls == 0, "the estimate spent what it was supposed to be estimating"
+
+
+async def test_repair_estimates_no_model_calls_however_much_is_in_the_band(
+    store: GraphStore,
+) -> None:
+    """`ReconcileEstimate`'s own docstring: *"`repair` never backfills, so its own honest
+    `model_calls` is always `0`."* Asserted with a full band, so a `model_calls` computed
+    without reading the mode fails here rather than passing on an empty corpus.
+    """
+    # Arrange
+    await _banded_pair(store)
+
+    # Act
+    estimate = await store.estimate(_ctx(), ReconcileMode.REPAIR)
+
+    # Assert
+    assert estimate.model_calls == 0
+
+
+async def test_a_model_saying_yes_merges_the_two_and_moves_their_evidence(
+    store: GraphStore, walk: GraphWalk
+) -> None:
+    """The headline property, and the reason `11.8` put the join on the alias: a bridge-merge is
+    one `UPDATE` of `kg_aliases.entity_id`, so both surface forms, both their nodes and every
+    edge written against either endpoint arrive under the winner without anything being deleted.
+    *The evidence for the judgement survives the judgement* is that sentence read as an
+    assertion — a merge that dropped the loser's alias would erase the very mention the model
+    was shown.
+    """
+    # Arrange
+    first = _node("Chucri wrote adRAP.", source="doc-a")
+    second = _node("Azouz reviewed adRAP.", source="doc-a")
+    await store.add([first, second])
+    vector = Vector(values=(1.0, 0.0, 0.0, 0.0))
+    left = await store.put_entity(name="Chucri", nodes=[first.id], embedding=vector)
+    await store.put_entity(name="Azouz", nodes=[second.id], embedding=vector)
+    other = await store.put_entity(
+        name="adRAP", nodes=[], embedding=Vector(values=(0.0, 0.0, 1.0, 0.0))
+    )
+    await store.put_relation(source=left, target=other, predicate="wrote")
+    llm = _StubAdjudicator({"Chucri": _verdict("yes")})
+
+    # Act
+    report = await store.reconcile(_model_ctx(llm), ReconcileMode.FULL)
+
+    # Assert — one entity under either spelling, holding both mentions and still walking.
+    [merged] = await walk.entities_by_name(["Chucri"])
+    assert {entity.id for entity in await walk.entities_by_name(["Azouz"])} == {merged.id}
+    assert set((await walk.nodes_for_entities([merged.id]))[merged.id]) == {first.id, second.id}
+    neighbours = await walk.neighbourhood([merged.id], hops=1)
+    assert {found.name for found in neighbours[merged.id]} == {"adRAP"}
+    assert llm.calls == 1
+    assert report.backfilled >= 1
+    assert report.abstained == 0
+
+
+async def test_a_model_saying_no_leaves_two_entities(store: GraphStore, walk: GraphWalk) -> None:
+    """The refusal path, and the one that costs most if it is wrong: a merge cannot be undone by
+    a later pass, because the losing entity's id is gone from every row that pointed at it.
+    """
+    # Arrange
+    await _banded_pair(store)
+    llm = _StubAdjudicator({"Chucri": _verdict("no")})
+
+    # Act
+    report = await store.reconcile(_model_ctx(llm), ReconcileMode.FULL)
+
+    # Assert
+    assert len({entity.id for entity in await walk.entities_by_name(["Chucri", "Azouz"])}) == 2
+    assert llm.calls == 1
+    assert report.abstained == 0, "a refusal is a decision, not an abstention"
+
+
+async def test_a_model_that_is_unsure_abstains_and_the_pass_says_so(
+    store: GraphStore, walk: GraphWalk
+) -> None:
+    """The third value reaching the report. Two entities that may be one is a state a reader can
+    act on; the same state reported as a clean `backfilled 0` is the plausible-looking wrong
+    answer requirement 5 exists to forbid.
+    """
+    # Arrange
+    await _banded_pair(store)
+    llm = _StubAdjudicator({"Chucri": _verdict("unsure")})
+
+    # Act
+    report = await store.reconcile(_model_ctx(llm), ReconcileMode.FULL)
+
+    # Assert
+    assert report.abstained == 1
+    assert report.converged, "an abstention is a finished decision, not outstanding work"
+    assert len({entity.id for entity in await walk.entities_by_name(["Chucri", "Azouz"])}) == 2
+
+
+async def test_a_pair_below_the_floor_is_never_put_to_a_model(
+    store: GraphStore, walk: GraphWalk
+) -> None:
+    """The floor is what keeps `model_calls` proportional to genuine ambiguity rather than to
+    the square of the corpus. Orthogonal vectors and no shared trigram put this pair at `0.0`.
+    """
+    # Arrange
+    await store.put_entity(name="Chucri", nodes=[], embedding=Vector(values=(1.0, 0.0, 0.0, 0.0)))
+    await store.put_entity(name="Azouz", nodes=[], embedding=Vector(values=(0.0, 1.0, 0.0, 0.0)))
+    llm = _StubAdjudicator({"Chucri": _verdict("yes")})
+
+    # Act
+    report = await store.reconcile(_model_ctx(llm), ReconcileMode.FULL)
+
+    # Assert
+    assert llm.calls == 0
+    assert report.abstained == 0
+    assert len({entity.id for entity in await walk.entities_by_name(["Chucri", "Azouz"])}) == 2
+
+
+async def test_the_winner_of_a_bridge_merge_is_the_smaller_name(
+    store: GraphStore, walk: GraphWalk
+) -> None:
+    """`11.8`'s rule, extended to the merge a model licenses: the canonical name is a function of
+    the **set**, not of arrival order. Written in the order that would give the wrong answer to a
+    pass that kept whichever entity it read first.
+    """
+    # Arrange — `Chucri` is written first and `Azouz` sorts before it.
+    await _banded_pair(store)
+    llm = _StubAdjudicator({"Chucri": _verdict("yes")})
+
+    # Act
+    await store.reconcile(_model_ctx(llm), ReconcileMode.FULL)
+
+    # Assert
+    [entity] = await walk.entities_by_name(["Chucri"])
+    assert entity.name == "Azouz"
+
+
+async def test_a_second_full_pass_asks_nothing_and_changes_nothing(
+    store: GraphStore, walk: GraphWalk
+) -> None:
+    """Idempotence against the database with a model in the loop — the property that makes
+    `weft reconcile --mode full` safe to run twice. Once the pair is one entity it leaves the
+    band by construction, because the band only ever holds pairs whose aliases currently point
+    at *different* entities, so the second pass spends nothing.
+    """
+    # Arrange
+    await _banded_pair(store)
+    llm = _StubAdjudicator({"Chucri": _verdict("yes")})
+    await store.reconcile(_model_ctx(llm), ReconcileMode.FULL)
+    [before] = await walk.entities_by_name(["Chucri"])
+
+    # Act
+    second = await store.reconcile(_model_ctx(llm), ReconcileMode.FULL)
+
+    # Assert
+    assert llm.calls == 1, "the second pass asked the model a question it had already answered"
+    assert second.backfilled == 0
+    assert second.abstained == 0
+    [after] = await walk.entities_by_name(["Chucri"])
+    assert after.id == before.id
+
+
+async def test_a_full_pass_with_nothing_in_the_band_needs_no_model_at_all(
+    store: GraphStore,
+) -> None:
+    """A `full` run on a project that never configured a provider must converge, not fail: the
+    service is reached only where a pair actually has to be judged. `_ctx()` here is the bare
+    context every test above this section uses — no `LLM` registered — so a `ctx.require(LLM)`
+    hoisted to the top of the pass raises `UnresolvedServiceError` and fails this test.
+    """
+    # Arrange
+    await store.put_entity(name="Chucri", nodes=[], embedding=Vector(values=(1.0, 0.0, 0.0, 0.0)))
+
+    # Act
+    report = await store.reconcile(_ctx(), ReconcileMode.FULL)
+
+    # Assert
+    assert report.abstained == 0
+    assert report.converged

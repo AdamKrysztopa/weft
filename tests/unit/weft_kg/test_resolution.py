@@ -35,6 +35,7 @@ import pytest
 from weft_kg.resolution import (
     acronym_definitions,
     initialism,
+    initialism_candidates,
     is_short_form,
     resolve_clusters,
 )
@@ -304,3 +305,65 @@ def test_a_pair_naming_something_absent_is_refused_rather_than_invented() -> Non
     # Act / Assert
     with pytest.raises(ValueError, match="ghost"):
         resolve_clusters(["adRAP"], similar_pairs=[("adRAP", "ghost")])
+
+
+# --- ledger task 11.9: the cosines signal 3 needs, without the corpus-sized fetch ---
+#
+# `11.8` fetched **every** alias pair's cosine and handed the whole map to `resolve_clusters`,
+# which is `O(corpus²)` in memory and was recorded on `_run_resolution_pass`'s own docstring as a
+# cost belonging to this task rather than ahead of it. Signal 3 only ever looks up the pairs where
+# one name has a short form's shape and the other's initials spell it, and that set is a function
+# of the names alone — so it can be computed first and the database asked for exactly those.
+# `initialism_candidates` is that function, published so the store can ask the narrow question and
+# `_apply_initialisms` can keep asking the same one.
+
+
+def test_the_candidate_pairs_are_the_ones_whose_initials_actually_spell_the_short_form() -> None:
+    """The narrowing has to be *exact*, not merely smaller: a pair signal 3 would have consulted
+    and this function omits is a merge that silently stops happening.
+    """
+    # Arrange — one real pair, one short form whose letters match nothing, one ordinary name.
+    names = ["RRF", "Reciprocal Rank Fusion", "adRAP", "DHHS"]
+
+    # Act
+    candidates = initialism_candidates(names)
+
+    # Assert
+    assert candidates == (("RRF", "Reciprocal Rank Fusion"),)
+
+
+def test_two_names_of_the_same_shape_are_never_a_candidate_pair() -> None:
+    """Signal 3 is *short form and its expansion*; two acronyms, or two ordinary names, offer it
+    nothing to gate and would only widen the fetch this function exists to narrow.
+    """
+    # Act / Assert
+    assert initialism_candidates(["RRF", "DHHS"]) == ()
+    assert initialism_candidates(["Reciprocal Rank Fusion", "Rapid Response Force"]) == ()
+
+
+def test_resolving_with_only_the_candidate_cosines_matches_resolving_with_every_pair() -> None:
+    """The property that licenses the store to stop fetching the whole matrix — asserted as an
+    equality between two resolutions rather than as a claim about which lookups happen, because
+    what matters is the clustering, not the map.
+
+    The wide map deliberately carries a high cosine for a pair signal 3 has no interest in, so a
+    `resolve_clusters` that consulted cosines anywhere else would make the two sides disagree.
+    """
+    # Arrange
+    names = ["RRF", "Reciprocal Rank Fusion", "adRAP", "adRAG"]
+    every_pair = {
+        ("RRF", "Reciprocal Rank Fusion"): 0.9,
+        ("adRAP", "adRAG"): 0.99,
+        ("RRF", "adRAP"): 0.95,
+        ("Reciprocal Rank Fusion", "adRAG"): 0.95,
+    }
+    narrow = {pair: every_pair[pair] for pair in initialism_candidates(names)}
+
+    # Act
+    wide_result = resolve_clusters(names, similar_pairs=(), cosines=every_pair)
+    narrow_result = resolve_clusters(names, similar_pairs=(), cosines=narrow)
+
+    # Assert
+    assert narrow_result == wide_result
+    assert narrow_result["RRF"] == narrow_result["Reciprocal Rank Fusion"]
+    assert narrow_result["adRAP"] != narrow_result["adRAG"]

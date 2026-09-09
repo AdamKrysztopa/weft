@@ -1161,7 +1161,21 @@ second consumer rather than its author — which is the whole point of a check w
 ---
 
 
-**Fitness function this phase turns on.** Stated as a property; numbered and filed by the task that makes it true, per FF0(b) and `lessons.md` L9.15.
+**Fitness functions this phase turns on.** Stated as properties; numbered and filed by the task that makes each true, per FF0(b) and `lessons.md` L9.15.
+
+- **A reconcile pass reaches a model only under `full`.** Added 2026-09-09, ledger task 11.9.
+      `weft_store.contract.ReconcileMode` has two members and no third because the split is about
+      **consent** — `repair` runs unasked after every `weft index`, so spending there is spending
+      nobody agreed to — and until this check that boundary was a sentence in a docstring. It was
+      very nearly a registration seam instead, which would have been the stronger answer; running
+      the binary falsified the premise, because
+      `weft_cli.run_services.command_path_services` already puts `LLM`, `Prompts` and `TokenSink`
+      on **every** command's `Context` and has since task 7.4, so a `repair` pass could reach a
+      model before `11.9` existed and a second registration merely raised `DuplicateServiceError`.
+      Narrowing that seam would partly reverse 7.4; removing a service from a built registry needs
+      a kernel line this phase's own exit forbids. So the boundary stays inside each participant,
+      on the mode it was handed, and the check is what stops it being a rule somebody has to
+      remember. `tests/architecture/test_ff29_reconcile_spends_only_under_full.py`.
 
 - **The graph pack is an ordinary pack.** Added 2026-09-06, ledger task 11.5. Fitness function
       21's three clauses applied to `weft_kg`, each able to fail alone.
@@ -1978,6 +1992,28 @@ All checks run in CI, before tests.
     comparison so the check is proven able to fail (`L5.19`). Sized before adopting, per
     `implement-ll`: **35** documents walked, **0** failing.
     `tests/architecture/test_ff27_every_shipped_rung_is_registered.py`.
+
+28. **The graph pack is an ordinary pack.** Filed 2026-09-06 as this phase's own check and
+    numbered 28 on 2026-09-09 — see the Phase 11 section above for the three days it spent
+    claiming 24, a numeral `test_ff24_no_bytes_in_a_node.py` had held since task 9.5.
+    `tests/architecture/test_ff28_graph_is_an_ordinary_pack.py`.
+
+29. **A reconcile pass reaches a model only under `full`.** Added 2026-09-09, ledger task 11.9.
+    `ReconcileMode`'s two members are a consent boundary, not a thoroughness dial: `repair` is the
+    mode `weft index` runs unasked at the end of every ingest, so a participant reaching an `LLM`,
+    `Prompts`, `TokenSink` or `Embedder` there spends money nobody agreed to and the only symptom
+    is a bill. The check reads the source of every first-party class satisfying `Reconcilable`
+    structurally — both members present, the same derived-capability test the rest of the tree
+    uses — and asserts that every `.require(<model contract>)` inside `reconcile` sits under a
+    branch testing `ReconcileMode.FULL`. **Two floors and a named blind spot**, because an AST
+    walk is exactly the kind of check that stops matching in silence: one test fails if no
+    participant is found at all, a second fails if *no* participant reaches a model under a guard
+    (which would make the rule vacuous), and a third fails if a participant ever reaches a model
+    both inside and outside a guard in one method. What it cannot see is stated on the module: a
+    pack outside this repository, and a model reached through a helper rather than through
+    `require` in the method's own body. Waiver `WAIVED_RECONCILABLES` pinned empty, with two
+    planted counter-examples — no guard at all, and a guard testing the *other* mode — proving the
+    walk can fail. `tests/architecture/test_ff29_reconcile_spends_only_under_full.py`.
 
 > **Corrected 2026-08-10 — fitness function 1, and the preamble.** This section previously opened
 > *"the single best thing in a codebase examined during design is its AST boundary checker"* and

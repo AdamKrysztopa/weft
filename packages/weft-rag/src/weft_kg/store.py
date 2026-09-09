@@ -35,6 +35,7 @@ alias id it upserted, not the entity id — `weft_kg.traversal.GraphWalk` is wha
 to the canonical entity a caller asks about.
 """
 
+import asyncio
 from collections.abc import Mapping, Sequence
 from hashlib import sha256
 from typing import Any, Final, NewType, cast
@@ -44,14 +45,24 @@ from pgvector import Vector as PgVector
 from pgvector.psycopg import register_vector_async
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
-from pydantic import BaseModel, ConfigDict, SecretStr
+from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 from weft_kernel.context import Context
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import Node, NodeId, Outcome, Produced, SourceId, Vector
 from weft_kg import resolution
+from weft_kg.adjudication import DEFAULT_ADJUDICATION_FLOOR, first_verdict, threshold_adjudicator
 from weft_kg.contract import EntityId
 from weft_kg.payload import CooccurrenceGraph, ExtractedFact, MentionedEntity
+from weft_kg.prompts import (
+    AdjudicateEntitiesPrompt,
+    AdjudicateEntitiesRequest,
+    EntityVerdict,
+    SameEntity,
+)
+from weft_llm.contract import LLM
+from weft_prompts.cascade import execute as cascade_execute
+from weft_prompts.contract import Prompt
 from weft_store.contract import (
     Cursor,
     Page,
@@ -65,6 +76,13 @@ from weft_store.contract import (
 from weft_store.rehydrate import rehydrate_ext
 
 _PAGE_SIZE = 100
+
+#: A memory bound on `_run_resolution_pass`'s own corpus-content read, never a tuning knob
+#: anyone has measured — the identical caveat `weft_index`'s own paged reads carry, restated
+#: here because this is the first read in this pack that needed one. At most this many
+#: `kg_nodes` rows' content is held at once while signal 2 scans for definitions; the resolution
+#: pass carries no state that would make a larger or smaller page change what it decides.
+_RESOLUTION_CONTENT_PAGE_SIZE: Final[int] = 500
 
 #: `S5`, per surface: a persisted schema carries its own version in the stored bytes, because at
 #: the read site the pack that wrote it may not be the one installed. `KG_SCHEMA_SURFACE` is the
@@ -193,11 +211,31 @@ class GraphSettings(BaseModel):
     store's connection is opened lazily (`_connection`, never from `__init__` or `register()`), so
     an empty default costs nothing at registration time and the refusal moves to the first call
     that genuinely needs one — `require_dsn` below.
+
+    **`adjudication_floor`, `adjudication_role` and `max_concurrent_adjudications`, ledger
+    `11.9` — pack settings, not stage config.** The expensive resolution pass they configure
+    runs from `Reconcilable.reconcile`, never from a pipeline's `with:` block — a reconcile pass
+    is not a pipeline stage, so there is no per-stage config object for it to read, and these
+    three live under `[packs.graph]` beside `dsn` for that reason rather than as an oversight.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     dsn: SecretStr = SecretStr("")
+    #: The band's own lower edge, restated as an operator's field rather than left as merely
+    #: `weft_kg.adjudication.threshold_adjudicator`'s default — requirement 6's rule that the
+    #: one number a filter turns on is an operator's, not a constant baked into the pack. Below
+    #: this score `_banded_pairs` never puts a pair to a model at all.
+    adjudication_floor: float = Field(default=DEFAULT_ADJUDICATION_FLOOR, ge=0.0, le=1.0)
+    #: The `[llm.roles]` key the expensive pass resolves a provider through. Defaults to
+    #: `"index"`, exactly as `weft_kg.extraction.LlmFactsConfig.role` does, because a reconcile
+    #: pass over this store's own aliases is index-side work, not query-time work.
+    adjudication_role: str = Field(default="index", min_length=1)
+    #: The fan-out bound for the expensive pass's model calls — the identical argument
+    #: `weft_kg.extraction.LlmFactsConfig.max_concurrent_nodes` makes one call-site over: what a
+    #: configured provider tolerates is an operator's fact, not this pack's, and this pass
+    #: should not disagree with the extraction stage's own bound by accident.
+    max_concurrent_adjudications: int = Field(default=8, ge=1)
 
 
 class GraphDsnNotConfiguredError(WeftError):
@@ -207,6 +245,20 @@ class GraphDsnNotConfiguredError(WeftError):
     `_connection` — so a pack installed with no settings still registers cleanly and fails exactly
     where an operator's mistake becomes consequential.
     """
+
+
+class UnhandledSameEntityVerdictError(WeftError):
+    """A `SameEntity` member the expensive pass's `match`/`case` has not been taught to map to
+    a `Verdict` — `weft_store.contract.UnhandledFilterOpError`'s own closed-vocabulary rule, one
+    contract over. `SameEntity` is a closed, three-member enum today, but a fourth member added
+    to it later must be a refusal here rather than a silent "different": this pass's whole
+    argument for a three-valued vote is that guessing is worse than abstaining, and falling
+    through an `if`/`elif` to a default `False` would be exactly the guess it exists to forbid.
+    """
+
+    def __init__(self, message: str, *, valid_options: tuple[str, ...], pack: str) -> None:
+        super().__init__(message, pack=pack)
+        self.valid_options = valid_options
 
 
 def require_dsn(settings: GraphSettings) -> str:
@@ -359,30 +411,35 @@ async def _run_resolution_pass(cur: "psycopg.AsyncCursor[dict[str, Any]]") -> in
     representative — is `resolution.resolve_clusters`, pure and untouched here.
 
     **What this pass costs, stated rather than left to be discovered.** `reconcile` is documented
-    as `O(corpus)` in *time* and interruptible, and this is within that. It is also `O(corpus)` in
-    **memory**, in two places a reader should know about before pointing it at a large corpus: the
-    cosine map is one entry per alias *pair*, and signal 2 reads every non-derived node's content
-    in one fetch rather than through `scan`'s own paging. Both are the donor's shape and both are
-    honest at the sizes this task was built and measured against. Neither is a bound this pack
-    should keep once the pass grows a model call — `11.9` makes it expensive and cursored, and
-    paging these two reads belongs with that change rather than ahead of it, where it would be a
-    complication with no consumer.
+    as `O(corpus)` in *time* and interruptible, and this is within that. Three `O(corpus)`
+    **memory** costs used to belong to this task and ledger `11.9` removed all three rather than
+    merely paging them. The `kg_entities` upsert used to hold one full vector per alias in an
+    `embeddings` dict for a value it now reads straight out of `kg_aliases` in the `INSERT`
+    itself, via a correlated subquery — `COALESCE` already meant "keep what is there when the new
+    one is null", so nothing about what gets written changed. The cosine fetch used to build one
+    map entry per alias *pair* with no threshold at all; it now asks pgvector for cosines only on
+    the pairs `weft_kg.resolution.initialism_candidates` says signal 3 could possibly act on,
+    which is a function of the alias *names* alone and needs no database to compute first. And the
+    corpus-content read that feeds signal 2 used to fetch every non-derived node's content in one
+    round trip; it is now paged by `id`, `_RESOLUTION_CONTENT_PAGE_SIZE` rows at a time, so at most
+    one page of node content is held at once rather than the whole non-derived corpus.
+
+    What genuinely remains `O(corpus)` in memory: the alias name list itself (`names`), the
+    similar-pairs list SQL narrows to whatever clears the blended threshold, the acronym
+    definitions the corpus actually states, and `resolution.resolve_clusters`'s own union-find —
+    each is bounded by the number of aliases, pairs or definitions the corpus produces, never by
+    its content, and none of them is a cost this task introduced.
 
     Returns the number of `kg_aliases` rows whose `entity_id` this pass actually changed, via
     `IS DISTINCT FROM` in the closing `UPDATE` — the count `ReconcileReport.backfilled` reports,
     and the reason a second pass over an already-resolved graph reports zero rather than
     re-writing every row it touches nothing new about.
     """
-    await cur.execute("SELECT name, embedding FROM kg_aliases ORDER BY name")
+    await cur.execute("SELECT name, entity_id FROM kg_aliases ORDER BY name")
     alias_rows = await cur.fetchall()
     names = [cast(str, row["name"]) for row in alias_rows]
     if not names:
         return 0
-    embeddings = {
-        cast(str, row["name"]): row["embedding"]
-        for row in alias_rows
-        if row["embedding"] is not None
-    }
 
     await cur.execute(
         """
@@ -399,28 +456,76 @@ async def _run_resolution_pass(cur: "psycopg.AsyncCursor[dict[str, Any]]") -> in
         (cast(str, row["left_name"]), cast(str, row["right_name"])) for row in similar_rows
     ]
 
-    await cur.execute(
-        "SELECT content FROM kg_nodes WHERE NOT (ext ? %s) AND NOT (ext ? %s)",
-        (MentionedEntity.__namespace__, ExtractedFact.__namespace__),
-    )
-    node_rows = await cur.fetchall()
-    definitions: list[tuple[str, str]] = []
-    for node_row in node_rows:
-        definitions.extend(resolution.acronym_definitions(cast(str, node_row["content"])))
+    # `11.9`'s own addition, not a fourth signal: two aliases a *model* already put under one
+    # entity — `_bridge_merge`, in an earlier `full` pass — are fed in here as extra similar
+    # pairs, on the identical footing the SQL-scored ones above sit on. Without this, this
+    # unconditional pass would see two names its own three signals never merge, reset each back
+    # to its own solo cluster the moment it next ran, and the very next `full` pass would find
+    # the pair back in the band and put it to the model again — the question `_banded_pairs`'s
+    # own `entity_id IS DISTINCT FROM` clause is supposed to have already answered. That would
+    # be this pass re-guessing at a decision a later, better-informed one already made, exactly
+    # what `put_entity`'s own docstring refuses for the identical reason ("a resolution pass may
+    # have moved it, and re-pointing it back ... would undo that pass on every index run"). A
+    # star of edges within each current entity group is enough to union the whole group — the
+    # transitive closure below does the rest — and a fresh alias, still pointing at itself, sits
+    # in a group of one and contributes no edge at all.
+    current_groups: dict[str, list[str]] = {}
+    for row in alias_rows:
+        current_groups.setdefault(cast(str, row["entity_id"]), []).append(cast(str, row["name"]))
+    for members in current_groups.values():
+        similar_pairs.extend((members[0], other) for other in members[1:])
 
-    await cur.execute(
-        """
-        SELECT a.name AS left_name, b.name AS right_name,
-               1 - (a.embedding <=> b.embedding) AS cosine
-        FROM kg_aliases a JOIN kg_aliases b ON a.name < b.name
-        WHERE a.embedding IS NOT NULL AND b.embedding IS NOT NULL
-        """
-    )
-    cosine_rows = await cur.fetchall()
-    cosines = {
-        (cast(str, row["left_name"]), cast(str, row["right_name"])): cast(float, row["cosine"])
-        for row in cosine_rows
-    }
+    definitions: list[tuple[str, str]] = []
+    after = ""
+    while True:
+        await cur.execute(
+            """
+            SELECT id, content FROM kg_nodes
+            WHERE NOT (ext ? %(fact)s) AND NOT (ext ? %(mention)s) AND id > %(after)s
+            ORDER BY id
+            LIMIT %(page)s
+            """,
+            {
+                "fact": ExtractedFact.__namespace__,
+                "mention": MentionedEntity.__namespace__,
+                "after": after,
+                "page": _RESOLUTION_CONTENT_PAGE_SIZE,
+            },
+        )
+        node_rows = await cur.fetchall()
+        if not node_rows:
+            break
+        for node_row in node_rows:
+            definitions.extend(resolution.acronym_definitions(cast(str, node_row["content"])))
+        after = cast(str, node_rows[-1]["id"])
+        if len(node_rows) < _RESOLUTION_CONTENT_PAGE_SIZE:
+            break
+
+    # Signal 3's own gate, fetched only for the pairs the shape test could possibly act on —
+    # see `weft_kg.resolution.initialism_candidates`'s own docstring for why this is a function
+    # of the names alone and safe to compute before touching the database at all.
+    candidates = resolution.initialism_candidates(names)
+    cosines: dict[tuple[str, str], float] = {}
+    if candidates:
+        await cur.execute(
+            """
+            SELECT s.short AS left_name, s.long AS long_name,
+                   1 - (a.embedding <=> b.embedding) AS cosine
+            FROM unnest(%(shorts)s::text[], %(longs)s::text[]) AS s(short, long)
+            JOIN kg_aliases a ON a.name = s.short
+            JOIN kg_aliases b ON b.name = s.long
+            WHERE a.embedding IS NOT NULL AND b.embedding IS NOT NULL
+            """,
+            {
+                "shorts": [short for short, _ in candidates],
+                "longs": [long_form for _, long_form in candidates],
+            },
+        )
+        cosine_rows = await cur.fetchall()
+        cosines = {
+            (cast(str, row["left_name"]), cast(str, row["long_name"])): cast(float, row["cosine"])
+            for row in cosine_rows
+        }
 
     clusters = resolution.resolve_clusters(
         names,
@@ -439,16 +544,12 @@ async def _run_resolution_pass(cur: "psycopg.AsyncCursor[dict[str, Any]]") -> in
         await cur.execute(
             """
             INSERT INTO kg_entities (id, name, embedding)
-            VALUES (%(id)s, %(name)s, %(embedding)s)
+            VALUES (%(id)s, %(name)s, (SELECT embedding FROM kg_aliases WHERE name = %(name)s))
             ON CONFLICT (id) DO UPDATE SET
                 name = EXCLUDED.name,
                 embedding = COALESCE(EXCLUDED.embedding, kg_entities.embedding)
             """,
-            {
-                "id": canonical_id,
-                "name": representative,
-                "embedding": embeddings.get(representative),
-            },
+            {"id": canonical_id, "name": representative},
         )
         await cur.execute(
             """
@@ -464,6 +565,210 @@ async def _run_resolution_pass(cur: "psycopg.AsyncCursor[dict[str, Any]]") -> in
         "(SELECT 1 FROM kg_aliases a WHERE a.entity_id = e.id)"
     )
     return backfilled
+
+
+async def _banded_pairs(
+    cur: "psycopg.AsyncCursor[dict[str, Any]]", *, floor: float, ceiling: float
+) -> tuple[tuple[str, str, float], ...]:
+    """The pairs the expensive pass has to put to a model — ledger `11.9`.
+
+    Scores the identical blend `_run_resolution_pass`'s own signal 1 scores — the same
+    `resolution.DEFAULT_VECTOR_WEIGHT`, the same `1 - (a.embedding <=> b.embedding)`, the same
+    `similarity(a.name, b.name)` — over the identical join, `kg_aliases a JOIN kg_aliases b ON
+    a.name < b.name`, both embeddings `NOT NULL`. Two clauses signal 1 alone does not need:
+
+    `a.entity_id IS DISTINCT FROM b.entity_id` — a pair whose two aliases already point at one
+    entity needs no judgement, whether a cheap merge or an earlier model call put them there.
+    This is exactly what makes a second `full` pass over an already-decided pair ask nothing:
+    the pair simply leaves the band the moment it stops being two entities
+    (`test_a_second_full_pass_asks_nothing_and_changes_nothing`).
+
+    The blend in `[floor, ceiling)` — closed at the bottom, open at the top, the identical
+    half-open band `weft_kg.adjudication.threshold_adjudicator` uses, so this query and that
+    adjudicator can never disagree about where the band's own edges are.
+
+    `ORDER BY a.name, b.name`, so the pairs one run asks about are a function of the corpus
+    alone, never of a plan's own row order.
+    """
+    await cur.execute(
+        """
+        SELECT a.name AS left_name, b.name AS right_name,
+               (%(w)s * (1 - (a.embedding <=> b.embedding))
+                + (1 - %(w)s) * similarity(a.name, b.name)) AS score
+        FROM kg_aliases a JOIN kg_aliases b ON a.name < b.name
+        WHERE a.embedding IS NOT NULL AND b.embedding IS NOT NULL
+        AND a.entity_id IS DISTINCT FROM b.entity_id
+        AND (%(w)s * (1 - (a.embedding <=> b.embedding))
+             + (1 - %(w)s) * similarity(a.name, b.name)) >= %(floor)s
+        AND (%(w)s * (1 - (a.embedding <=> b.embedding))
+             + (1 - %(w)s) * similarity(a.name, b.name)) < %(ceiling)s
+        ORDER BY a.name, b.name
+        """,
+        {"w": resolution.DEFAULT_VECTOR_WEIGHT, "floor": floor, "ceiling": ceiling},
+    )
+    rows = await cur.fetchall()
+    return tuple(
+        (cast(str, row["left_name"]), cast(str, row["right_name"]), cast(float, row["score"]))
+        for row in rows
+    )
+
+
+async def _adjudicate_pairs(
+    pairs: tuple[tuple[str, str, float], ...],
+    *,
+    llm: LLM,
+    prompt: Prompt,
+    settings: GraphSettings,
+    ctx: Context,
+) -> tuple[tuple[tuple[str, str], ...], int]:
+    """Put every pair in `pairs` to the adjudication chain, and report what the model decided.
+
+    Fanned out with `asyncio.gather` under a single `asyncio.Semaphore(
+    settings.max_concurrent_adjudications)` held across the whole call — copied in shape from
+    `weft_kg.extraction.LlmFactExtractor.run`, which is where the argument for a semaphore
+    rather than chunked waves already lives: chunking would run the whole batch in lockstep and
+    let one slow completion idle every other permit until its own wave finished.
+
+    **The threshold adjudicator goes first in the chain, deliberately, even though it is
+    guaranteed to abstain on every pair here.** `_banded_pairs` only ever selects scores inside
+    `[floor, ceiling)`, so `weft_kg.adjudication.threshold_adjudicator` can never return
+    anything but `None` for one of them — it is in the chain anyway because it is the seam a
+    cheaper future adjudicator slots into ahead of the model, and keeping the band's own
+    definition inside `first_verdict`'s own chain is what keeps the chain and the query that
+    feeds it from ever being able to disagree about where the band actually is. Read this as
+    that seam, not as dead code.
+
+    Returns the pairs the model said `YES` to (the merge list) and the number it could not
+    decide (the abstention count); a `NO` is a decision and is neither.
+    """
+    limit = asyncio.Semaphore(settings.max_concurrent_adjudications)
+
+    async def _model_adjudicator(left: str, right: str, score: float) -> bool | None:
+        del score  # the model is shown the two names, never the score that put them here —
+        # `AdjudicateEntitiesRequest`'s own docstring: showing it invites deferring to a signal
+        # the model cannot see the reasoning behind, rather than looking at the two names.
+        answered = await cascade_execute(
+            llm=llm,
+            prompt=prompt,
+            values=AdjudicateEntitiesRequest(left=left, right=right),
+            output=EntityVerdict,
+            role=settings.adjudication_role,
+            ctx=ctx,
+        )
+        if not isinstance(answered, Produced):
+            # A model in a bad mood is not a judgement — `weft_kg.extraction._facts_for` takes
+            # the identical view of a cascade that could not produce a typed answer.
+            return None
+        match answered.value.value.verdict:
+            case SameEntity.YES:
+                return True
+            case SameEntity.NO:
+                return False
+            case SameEntity.UNSURE:
+                return None
+            case _:  # pragma: no cover — exhaustive by construction; see the error's own note
+                raise UnhandledSameEntityVerdictError(
+                    f"weft_kg's adjudication pass received a SameEntity verdict of "
+                    f"{answered.value.value.verdict!r}, which its match/case has not been "
+                    f"taught to map to a Verdict. Known members: "
+                    f"{[member.value for member in SameEntity]}.",
+                    valid_options=tuple(member.value for member in SameEntity),
+                    pack="weft-rag",
+                )
+
+    async def _bounded(left: str, right: str, score: float) -> bool | None:
+        async with limit:
+            return await first_verdict(
+                left,
+                right,
+                score,
+                adjudicators=(
+                    threshold_adjudicator(
+                        floor=settings.adjudication_floor,
+                        ceiling=resolution.DEFAULT_SIMILARITY_THRESHOLD,
+                    ),
+                    _model_adjudicator,
+                ),
+            )
+
+    verdicts = await asyncio.gather(*(_bounded(left, right, score) for left, right, score in pairs))
+
+    merges: list[tuple[str, str]] = []
+    abstained = 0
+    for (left, right, _), verdict in zip(pairs, verdicts, strict=True):
+        if verdict is True:
+            merges.append((left, right))
+        elif verdict is None:
+            abstained += 1
+    return tuple(merges), abstained
+
+
+async def _bridge_merge(
+    cur: "psycopg.AsyncCursor[dict[str, Any]]", pairs: Sequence[tuple[str, str]]
+) -> int:
+    """Re-point every alias in the losing entity of each pair onto the winning entity's id.
+
+    **A bridge-merge re-points aliases so the evidence for the judgement survives the
+    judgement.** `kg_entity_nodes` and `kg_relations` key on the *alias* — `11.8`'s decision —
+    so re-pointing one alias's `entity_id` carries every node it anchors and every edge naming
+    it along with it, in this one `UPDATE`, and nothing is deleted. The surface form the model
+    was actually shown stays in the table as an alias row, so a person can later see what was
+    merged and on what evidence.
+
+    **The winner is the entity whose *name* is lexicographically smaller — `11.8`'s own rule,
+    extended to a merge a model licenses.** The canonical id is a function of the set, not of
+    arrival order, and `min` is associative: a batch of pairs merged in any order ends at the
+    same winner, so this is order-independent under transitive closure even though it is
+    applied pair-by-pair rather than as one closure computation.
+
+    **Divergence from the donor this pattern is carried from:** that implementation deletes the
+    losing entity outright and re-points three relationship types by hand. Here the alias layer
+    already carries the join, so a merge is one `UPDATE` and the losing entity row simply
+    becomes an orphan the existing sweep at the end of `_run_resolution_pass` already collects —
+    reused directly below rather than through `_drop_orphaned_entities`, because that helper's
+    first step (dropping aliases with no `kg_entity_nodes` row) has nothing to do here: a
+    bridge-merge never removes a node-to-alias attachment, only which entity an alias points at.
+
+    Returns the total number of `kg_aliases` rows this call re-pointed.
+    """
+    total = 0
+    for left_name, right_name in pairs:
+        await cur.execute(
+            """
+            SELECT a.entity_id AS left_entity, ea.name AS left_entity_name,
+                   b.entity_id AS right_entity, eb.name AS right_entity_name
+            FROM kg_aliases a
+            JOIN kg_entities ea ON ea.id = a.entity_id
+            JOIN kg_aliases b ON b.name = %(right)s
+            JOIN kg_entities eb ON eb.id = b.entity_id
+            WHERE a.name = %(left)s
+            """,
+            {"left": left_name, "right": right_name},
+        )
+        row = await cur.fetchone()
+        if row is None:  # pragma: no cover — both names come from `_banded_pairs`'s own query
+            continue
+        left_entity = cast(str, row["left_entity"])
+        right_entity = cast(str, row["right_entity"])
+        if left_entity == right_entity:
+            # An earlier pair in this same batch may already have merged them transitively —
+            # re-merging is a no-op that would otherwise be double-counted.
+            continue
+        if cast(str, row["left_entity_name"]) <= cast(str, row["right_entity_name"]):
+            winner, loser = left_entity, right_entity
+        else:
+            winner, loser = right_entity, left_entity
+        await cur.execute(
+            "UPDATE kg_aliases SET entity_id = %(winner)s WHERE entity_id = %(loser)s",
+            {"winner": winner, "loser": loser},
+        )
+        total += cur.rowcount
+
+    await cur.execute(
+        "DELETE FROM kg_entities e WHERE NOT EXISTS "
+        "(SELECT 1 FROM kg_aliases a WHERE a.entity_id = e.id)"
+    )
+    return total
 
 
 class GraphStore:
@@ -719,7 +1024,8 @@ class GraphStore:
         """Finish every deletion that was interrupted — the identical tombstone convergence
         `PgVectorStore.reconcile` carries out, over this store's own `kg_sources`/`kg_nodes`, with
         orphaned aliases and entities dropped alongside each node deletion — then run the
-        resolution pass over `kg_aliases`, in **every** mode.
+        resolution pass over `kg_aliases`, in **every** mode — then, only under `full`, the
+        expensive pass ledger `11.9` adds.
 
         **Why the resolution pass runs under `repair` as well as `full`, against
         `ReconcileMode`'s own "backfills state that was never built" line for `full` alone.**
@@ -728,8 +1034,18 @@ class GraphStore:
         `model_calls=0` for it — so the consent boundary the split exists to enforce has nothing
         to gate here, and running it only under `full` would mean the automatic post-index pass
         (hardcoded `repair`) never resolves an alias at all.
+
+        **What `full` now buys, and why the model is reached only when there is something to ask
+        it.** `_banded_pairs` runs after the cheap resolution pass above, over whatever it left
+        behind, and asks a strictly narrower question than that pass does: pairs the blend could
+        neither merge nor refuse outright. When that query comes back empty this method reaches
+        for no service at all — a `full` run on a project that never configured a provider must
+        converge, not fail (`test_a_full_pass_with_nothing_in_the_band_needs_no_model_at_all`).
+        Only when there is at least one such pair does it call `ctx.require(LLM)`;
+        `weft_cli.commands._register_model_services` is what puts an `LLM` on the `Context` in a
+        real run, and only under `full`, so a `repair` pass could not reach one even if this
+        method tried — the mode is the gate, not a rule this method has to remember.
         """
-        del ctx
         conn = await self._connection()
         examined = 0
         removed = 0
@@ -742,28 +1058,74 @@ class GraphStore:
             examined += 1
         async with conn.cursor() as cur:
             backfilled = await _run_resolution_pass(cur)
+
+        abstained = 0
+        if mode is ReconcileMode.FULL:
+            async with conn.cursor() as cur:
+                pairs = await _banded_pairs(
+                    cur,
+                    floor=self._settings.adjudication_floor,
+                    ceiling=resolution.DEFAULT_SIMILARITY_THRESHOLD,
+                )
+            if pairs:
+                llm = ctx.require(LLM)
+                # Constructed directly rather than resolved through `StageLookup`, for the
+                # identical reason `weft_kg.extraction.LlmFactExtractor.run` casts
+                # `ExtractFactsPrompt` the same way — see that call site's own long comment for
+                # why the cast stands in for a runtime check that does pass, rather than for a
+                # gap in this class.
+                prompt = cast(Prompt, AdjudicateEntitiesPrompt())
+                merges, abstained = await _adjudicate_pairs(
+                    pairs, llm=llm, prompt=prompt, settings=self._settings, ctx=ctx
+                )
+                async with conn.cursor() as cur:
+                    backfilled += await _bridge_merge(cur, merges)
+
         return ReconcileReport(
             mode=mode,
             examined=examined,
             removed=removed,
             backfilled=backfilled,
             remaining=len(await self._tombstoned()),
+            abstained=abstained,
         )
 
     async def estimate(self, ctx: Context, mode: ReconcileMode) -> ReconcileEstimate:
-        """The honest cost of `reconcile` — see its own docstring. `model_calls` is always `0`:
-        this store backfills nothing that costs a model call — the resolution pass reads
-        `kg_aliases` and `kg_nodes` it already holds and calls no provider, and the tombstone
-        convergence only finishes deletions already in flight.
+        """The honest cost of `reconcile` — see its own docstring.
+
+        `pending` and the tombstone half of `description` are as they were: nothing about the
+        expensive pass changes what convergence itself costs. `model_calls` does change — this
+        is the first participant in this tree whose `full` states a real number rather than an
+        honest `0`. The count comes from `_banded_pairs`, the identical query `reconcile` then
+        runs under `full`, so the cost stated here and the cost `reconcile` actually spends
+        cannot disagree; this method makes no model call itself
+        (`test_full_states_its_model_calls_before_it_spends_any`). Under any other mode no band
+        query runs at all and `model_calls` stays `0` — `repair` never backfills, so its own
+        honest `model_calls` is always `0`, and that is still true of `repair` here: it is
+        `reconcile`'s own resolution pass, run under every mode, that spends nothing; it is
+        `repair` never reaching the band at all that keeps this estimate honest for it.
         """
-        del ctx
+        del ctx  # `estimate` makes no model call itself — see the docstring above
         pending = len(await self._tombstoned())
         description = (
             f"{pending} source(s) have an unfinished deletion to finish"
             if pending
             else "no unfinished deletions; nothing to converge"
         )
-        return ReconcileEstimate(mode=mode, pending=pending, description=description)
+        model_calls = 0
+        if mode is ReconcileMode.FULL:
+            conn = await self._connection()
+            async with conn.cursor() as cur:
+                pairs = await _banded_pairs(
+                    cur,
+                    floor=self._settings.adjudication_floor,
+                    ceiling=resolution.DEFAULT_SIMILARITY_THRESHOLD,
+                )
+            model_calls = len(pairs)
+            description += f"; {model_calls} ambiguous name pair(s) to put to a model"
+        return ReconcileEstimate(
+            mode=mode, pending=pending, description=description, model_calls=model_calls
+        )
 
     async def _tombstoned(self) -> tuple[str, ...]:
         conn = await self._connection()
@@ -950,4 +1312,5 @@ __all__ = [
     "GraphSchemaVersionRefusedError",
     "GraphSettings",
     "GraphStore",
+    "UnhandledSameEntityVerdictError",
 ]

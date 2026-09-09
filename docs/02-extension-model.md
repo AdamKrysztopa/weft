@@ -812,6 +812,22 @@ class MetadataFilter(Protocol): ...                # marker: supports the whole 
 > both real backends by the conformance kit and by the stranger's own pack, exactly as
 > `reconcile` itself already is.
 
+> **Task 11.9 moves it `2.3.0` → `2.4.0` — a minor, and the first time this family grew a number
+> rather than a capability.** `ReconcileReport` gains `abstained`: a pair a participant put to a
+> model and nobody decided. G9's two-audience table makes it minor for a caller (every existing
+> field is untouched) and minor for an implementer (nothing already building a report is asked for
+> a new value), so the maximum of the two is a minor — the same classification `Removed.removed`
+> (9.3) and `SourceRecord.pipeline_identity` (9.17) already carry. `RECONCILE_REPORT_SCHEMA_VERSION`
+> moves `1.0.0` → `1.1.0` for a different reason and on a different axis: that constant tracks the
+> **persisted** shape under `S5`, because at the read site the pack that wrote a report may not be
+> the one installed, and fitness function 6 deliberately binds no distribution version to it.
+> **Why a fifth number rather than a fourth meaning.** An abstention is not `backfilled` (nothing
+> was written), not `removed` (nothing went), and above all not `remaining` — `remaining` means
+> *resumable*, and running the pass again asks the same question of the same evidence. The
+> alternative was silence, and silence here is the plausible-looking wrong answer requirement 5
+> forbids: a participant that spent a model call and reached no decision would report a clean
+> `backfilled 0`, indistinguishable from a corpus with nothing ambiguous in it.
+
 > **Extended by G13 (settled 2026-08-22) — who a fan-out reaches, and what a participant that is not
 > the primary store may ask for.** Phase 5's independence test ran and found the two clauses above
 > both untrue in practice for the one pack they were written for. This is the correction, and it is
@@ -2121,6 +2137,17 @@ both narrow store-family Protocols (§1), and neither of them a new concept:
 |---|---|---|
 | The graph store, again | `SourceDeletable` | `weft delete` fans out to it in-command, so the graph loses what the corpus lost — because the `kg` pipeline names it, per §1's *participation follows use* |
 | The graph store, again | `Reconcilable` | `repair` drops orphans left by anything the fan-out missed; `full` backfills entities for nodes indexed by a pipeline that had no graph stage, reading the corpus through `ctx.require(NodeStore)` (§1) |
+
+> **What `full` actually became, at ledger `11.9` (2026-09-09).** The row above describes the
+> backfill G7 designed and it is still true; what it could not anticipate is that `full` is also
+> where the pack's **expensive** work lives. The cheap entity-resolution pass (`11.8`) runs in
+> *every* mode, because it spends nothing and the split `ReconcileMode` draws is about consent
+> rather than thoroughness. `full` alone reaches a model — one call per name pair the cheap blend
+> could neither merge nor refuse — and states how many such calls it will make before making any
+> of them. That boundary is enforced inside the participant, on the mode it is handed, and
+> checked for every participant by **fitness function 29**: it could not be enforced at the
+> registration seam, because `weft_cli.run_services.command_path_services` has put an `LLM` on
+> every command's `Context` since task 7.4 so that a third party's `Command` can reach one.
 
 ```bash
 weft reconcile                       # repair and backfill — a person asked for it

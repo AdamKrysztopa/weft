@@ -3218,6 +3218,35 @@ a concrete list of five tables to deal with rather than a version number to hunt
 runs **before** anything is created, because every `CREATE TABLE IF NOT EXISTS` below it would
 otherwise adopt those pre-`11.8` rows into the new layout's columns without a word.
 
+### `UnhandledSameEntityVerdictError`
+
+**What it looks like.** You will almost certainly never see this, and that is the point of writing
+it down. `weft reconcile --mode full` puts each ambiguous name pair to a model and reads back a
+three-member verdict — `yes`, `no`, `unsure`. If a later version of the graph pack adds a fourth
+member and forgets to teach the pass what it means, the pass refuses rather than guessing:
+
+```text
+$ weft reconcile --mode full
+weft_kg's adjudication pass received a SameEntity verdict of 'probably', which its match/case has
+not been taught to map to a Verdict. Known members: ['yes', 'no', 'unsure'].
+$ echo $?
+1
+```
+
+**What to do.** Nothing an operator can configure — this is a defect in the installed `weft-rag`,
+not in your project, and the remedy is to install a version whose adjudication pass knows every
+member of its own enum. In the meantime `weft reconcile --mode repair` converges everything except
+the model-driven merges, because the expensive pass is the only thing that reads a verdict at all.
+
+**Why it refuses instead of treating the unknown answer as "different".** The whole argument for a
+three-valued vote is that guessing is worse than abstaining: a wrong merge is irreversible and a
+wrong refusal leaves a graph quietly split. Falling through to a default `False` would be exactly
+the guess the design exists to forbid, made silently, on every pair — and the graph it produced
+would look entirely reasonable. This is `weft_store.contract.UnhandledFilterOpError`'s rule one
+contract over: `docs/09-release.md` §2.3's *"a version bump does not fix silence, so silence is a
+separate defect."* Adding a member to a closed vocabulary is additive everywhere it is *declared*
+and wrong at every site that dispatches on it, so every such site raises rather than defaulting.
+
 ### `GraphDsnNotConfiguredError`
 
 **What it looks like** — reproduced against a real checkout, with `WEFT_DATABASE_URL` exported and

@@ -259,6 +259,36 @@ below.
 > print a vacuous "~0 model calls". The worked example above is `weft-kg`'s, a pack this
 > phase does not ship; nothing here can print a nonzero number until one does.
 
+> **One does, from ledger task `11.9` (2026-09-09) — the sentence above expired the moment the
+> graph pack shipped an expensive pass, and this is what replaced it.** `weft_kg.store.
+> GraphStore` is the first participant in this tree whose `full` states a real number. Run
+> against a two-document bilingual corpus, from an installed wheel outside this repository:
+>
+> ```
+> $ weft reconcile --mode full --yes
+> mode 'full' — 2 participant(s):
+>   pgvector (weft-rag): no unfinished deletions; nothing to converge
+>   pgvector-graph (weft-rag): no unfinished deletions; nothing to converge; 3 ambiguous name
+>                              pair(s) to put to a model
+>                              backfill will make ~3 model calls
+>   pgvector (weft-rag): examined 0, removed 0, backfilled 0
+>   pgvector-graph (weft-rag): examined 0, removed 0, backfilled 1, abstained 2
+> ```
+>
+> Three things the worked example at the top of this section could not show, because nothing
+> could print them yet. **The count is the participant's own query, not an estimate of it** —
+> `_banded_pairs` is the identical statement `reconcile` then runs, so the stated cost and the
+> spent cost are one fact rather than two that can drift. **`abstained` is a fifth number**
+> (`ReconcileReport.abstained`, `STORE_CONTRACT_VERSION` 2.4.0): the model was asked and
+> declined, which is neither a backfill nor outstanding work, and folding it into `remaining`
+> would leave `converged` permanently false on any corpus holding one genuinely ambiguous pair.
+> **And the cost falls as the graph converges** — a second `full` on the same corpus stated
+> `~2 model calls`, because the pair the first one merged is no longer two entities and leaves
+> the band by construction. `repair` is unchanged and still states `0`: it never reaches the
+> band at all, which is what makes *only under `full`* a real distinction rather than a
+> restatement. Fitness function **29** is what keeps that true for participants nobody has
+> written yet.
+
 `weft pipeline show` prints the **resolved** form, which after G2 carries more than stages: each
 stage's provenance (which pipeline or pack put it there), every var's final value, contributions that
 found no slot, and operators that went unapplied because the pack they name is not installed. Those

@@ -1,4 +1,10 @@
-"""The one question `llm-facts` asks a model, and the shape it asks for back. Ledger **11.7**.
+"""The two questions this pack asks a model, and the shape each asks for back.
+
+Ledger **11.7** wrote the first: the one `llm-facts` asks per chunk, about a passage's own text.
+Ledger **11.9** adds the second: the one `GraphStore.reconcile` asks per ambiguous pair, when
+`weft_kg.adjudication`'s cheap band abstains and the expensive pass has to actually decide. Both
+are reached the same way and carry the same stated wart — see `AdjudicateEntitiesPrompt`'s own
+docstring below for it stated where a reader of *that* class meets it.
 
 **Authored for Weft, and deliberately not carried.** `01` → Phase 11's *Lift* bullet lists what
 this task takes from the owner's own `graph-study` under `NOTICE` case 2 — the non-atomic filter,
@@ -43,6 +49,7 @@ therefore not this pack's to make — `11.5` settled that `weft_kg` costs zero l
 """
 
 from collections.abc import Mapping
+from enum import StrEnum
 from typing import ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -51,6 +58,10 @@ from weft_prompts.typed_prompt import PromptText, TypedPrompt
 
 #: The name this prompt is registered and selectable under — see `weft_kg.register`.
 EXTRACT_FACTS_NAME = "extract-facts"
+
+#: The name the reconcile pass's prompt is registered and selectable under — see
+#: `AdjudicateEntitiesPrompt`'s own docstring for how it is reached and the wart it carries.
+ADJUDICATE_ENTITIES_NAME = "adjudicate-entities"
 
 
 class ExtractFactsRequest(BaseModel):
@@ -161,10 +172,120 @@ class ExtractFactsPrompt(TypedPrompt):
     }
 
 
+class SameEntity(StrEnum):
+    """A model's verdict on one pair of surface forms — `Enum` over `Literal`, this project's rule
+    for a string constant, and the third member is the one the whole prompt exists to make safe to
+    give: a wrong `YES` merges two entities irreversibly, and a wrong `NO` is a graph that quietly
+    stays split, so `UNSURE` is a real answer rather than a state the schema merely tolerates.
+    """
+
+    YES = "yes"
+    NO = "no"
+    UNSURE = "unsure"
+
+
+class AdjudicateEntitiesRequest(BaseModel):
+    """What `adjudicate-entities` renders: the two surface forms in question, nothing else.
+
+    No score, no corpus context — the cheap pass's own number already decided this pair is worth
+    asking about at all, and handing the score to the model would invite it to defer to a signal
+    it cannot see the reasoning behind rather than to actually look at the two names.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    left: str
+    right: str
+
+
+class EntityVerdict(BaseModel):
+    """One model's answer: the verdict, and a one-line reason in the passage's own language.
+
+    The reason is not enforced or parsed by anything downstream — `weft_kg.adjudication` reads
+    only `verdict` — it exists so a person reviewing a merge later can see what the model thought
+    it was doing, the same argument `weft_kg.extraction` makes for storing a fact's own predicate
+    rather than a bare boolean.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    verdict: SameEntity
+    reason: str = ""
+
+
+class AdjudicateEntitiesPrompt(TypedPrompt):
+    """Ask a model whether two surface forms name the same real-world thing.
+
+    **How this prompt is reached, and the wart it carries — the same one `ExtractFactsPrompt`
+    states above, one task later.** `GraphStore.reconcile` is not a pipeline stage and resolves no
+    `StageLookup`, so it constructs `AdjudicateEntitiesPrompt` directly rather than looking it up by
+    name, exactly the reason `LlmFactExtractor` constructs `ExtractFactsPrompt` directly. It is
+    registered anyway: this pack's `Disclosure` says that under `weft reconcile --mode full` two
+    entity names leave the machine, one pair per ambiguous pair, and this class is the only
+    artefact that says *how* they are asked about — hiding it from `weft plugins list` and from
+    `manual/contract-reference.md` would trade a documented limitation for an undocumented one.
+    The limitation itself: **a `[plugins]` pin on `adjudicate-entities` changes the listing and
+    does not change what the reconcile pass asks**, because neither the ingest path nor a
+    reconcile pass publishes a by-name capability lookup.
+
+    The English text is the fallback every locale degrades to; the Polish one exists for the same
+    reason `ExtractFactsPrompt`'s does — the measured corpus has a Polish subset (`09` §4) — and is
+    written as Polish prose, not as a transliteration of the English.
+    """
+
+    name: ClassVar[str] = ADJUDICATE_ENTITIES_NAME
+    input_model: ClassVar[type[BaseModel]] = AdjudicateEntitiesRequest
+    output_model: ClassVar[type[BaseModel] | None] = EntityVerdict
+    texts: ClassVar[Mapping[str, PromptText]] = {
+        "en": PromptText(
+            system=(
+                "You are shown two names that a corpus used, and asked whether they name the "
+                "same real-world thing — the same person, organisation, place, method, dataset "
+                "or other entity, rather than two things that merely look alike. Three answers "
+                "are possible: yes, no, and unsure. Unsure is a real answer, and it is the "
+                "right one whenever the two names alone do not settle the question — prefer it "
+                "to a guess. A wrong yes merges two entities into one with no way back; a wrong "
+                "no leaves a graph that quietly stays split when it should not have."
+            ),
+            user=(
+                "First name: ${left}\n"
+                "Second name: ${right}\n\n"
+                "Do these two names refer to the same real-world thing? Answer yes, no, or "
+                "unsure. Give a one-line reason for your answer, in the same language as the "
+                "names, so someone reviewing this later can see what you based it on."
+            ),
+        ),
+        "pl": PromptText(
+            system=(
+                "Pokazano Ci dwie nazwy użyte w pewnym korpusie tekstów i pytamy, czy nazywają "
+                "tę samą rzeczywistą rzecz — tę samą osobę, organizację, miejsce, metodę, zbiór "
+                "danych lub inny byt, a nie dwie rzeczy, które tylko wyglądają podobnie. Możliwe "
+                "są trzy odpowiedzi: tak, nie i nie wiem. Odpowiedź „nie wiem” jest odpowiedzią "
+                "jak każda inna i należy jej udzielić, gdy same nazwy nie rozstrzygają pytania — "
+                "lepiej ją wybrać niż zgadywać. Błędne „tak” scala dwa byty w jeden bez możliwości "
+                "powrotu; błędne „nie” pozostawia graf podzielony tam, gdzie nie powinien być."
+            ),
+            user=(
+                "Pierwsza nazwa: ${left}\n"
+                "Druga nazwa: ${right}\n\n"
+                "Czy te dwie nazwy odnoszą się do tej samej rzeczywistej rzeczy? Odpowiedz tak, "
+                "nie albo nie wiem. Podaj jednolinijkowy powód swojej odpowiedzi, w tym samym "
+                "języku co nazwy, aby osoba przeglądająca to później mogła zobaczyć, na czym "
+                "oparłeś swoją ocenę."
+            ),
+        ),
+    }
+
+
 __all__ = [
+    "ADJUDICATE_ENTITIES_NAME",
     "EXTRACT_FACTS_NAME",
+    "AdjudicateEntitiesPrompt",
+    "AdjudicateEntitiesRequest",
+    "EntityVerdict",
     "ExtractFactsPrompt",
     "ExtractFactsRequest",
     "ProposedFact",
     "ProposedFacts",
+    "SameEntity",
 ]
