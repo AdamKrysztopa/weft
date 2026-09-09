@@ -1079,6 +1079,46 @@ can `grep`, and cannot serve you something else. That is what the measured `11.9
 a directory that is not this repository and does not say how to be sure the binary is the one you
 just built. The concrete form is short enough to be a command rather than a rule.
 
+### L11.38 — my brief named the mechanism, and the mechanism was not sufficient
+
+**What happened.** `11.9`'s brief told the implementer to put `a.entity_id IS DISTINCT FROM
+b.entity_id` in the band query and said, in the docstring text it dictated, that this clause is
+*"exactly what makes a second `full` pass ask nothing after the first merged the pair."* I derived
+that by reading the query. It is false. The cheap resolution pass runs before the expensive one, in
+**every** mode, and it re-points every alias to its own cluster's representative — so a pair the
+model had merged was split again by the very next pass, landed back in the band, and was paid for a
+second time. The implementer found it by writing the test the brief required, watching it fail, and
+probing the real container; the repair it made — feeding each alias's current entity-mates back in
+as extra similar pairs, so the pass can only ever merge and never split — appears nowhere in the
+brief. It reported that clearly, which is the only reason the interaction is written down rather
+than discovered later by somebody wondering why a bill kept arriving.
+
+**Generalises to.** `CLAUDE.md`'s own rule: *a claim about what code does is checked against its
+callers, never against its name, its docstring, or a comment's stated scope.* The instance it does
+not currently name is **a brief**. A brief's *Already decided* section is where the author is most
+confident and least checked: it is written from reading, it is handed to something that cannot
+argue with it about design, and its sentences become docstrings in the tree verbatim. This one
+would have shipped as a comment stating a guarantee the code did not provide. `L11.30` is the
+neighbour — a brief that mandated two behaviour changes and traced what neither falsified — but
+that one over-specified an outcome; this one **under-specified an interaction** and then asserted
+the gap shut.
+
+The rule: **a mechanism named in a brief is a claim about the tree and gets checked like one — by
+reading what runs before and after it, not by reading it.** The sharper form, because it names
+where to look: when a brief says *"X is what makes Y true"*, find the other things that touch Y. If
+any of them runs unconditionally, X is at best half the answer.
+
+And the part worth keeping about the loop: **the split did its job.** A test I wrote from the
+documents demanded an outcome; an agent that could not edit that test had to make the outcome real
+and could not make it real by narrowing the assertion. That is exactly what `phase-step` says the
+split buys, working on the case it was designed for — and it only reached me because the agent said
+so in its report rather than quietly fixing it.
+
+**Candidate home.** `phase-step` → *Red*, in the paragraph on writing *Already decided*: a
+mechanism the brief names as the reason a test will pass is a claim to verify before sending, not
+after. Possibly also `references/implementer-brief.md`'s *Before you send* checklist, which is
+where a one-line check would actually fire.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in
