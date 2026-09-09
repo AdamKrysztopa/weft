@@ -349,6 +349,35 @@ turns"*, one line saying that nothing in the refused command ran, including any 
 every part must be re-issued. The guard is the only thing that knows what it just discarded, and it
 is already speaking at exactly the right moment. `recurs L10.24`
 
+### L11.14 — the routing row named a task that was already done, and the live check confirmed it
+
+**What happened.** `docs/README.md`'s **Next action** row still read *"**Begin Phase 11 — the graph
+pack**, at task `11.0`"* and *"its D3 … is still open"* after the commit that ticked `11.0`
+(`70bda15`) and after the commit that settled D3 as `S13` (`d88fc32`) — which is the same commit
+that edited the **Open decisions** row two cells below to *"**None.**"*. So a session opening on
+this tree was routed at a finished task by the one row documented as outranking ledger order, and
+`python3 .claude/skills/phase-step/scripts/next_task.py --check-live` printed *"live check ok —
+Status block read, its phase agrees with 11.0 (the task its own Next action row names)"* and exited
+`0`. The check is not blind here the way `L11.6`'s was: `_phase_agreement_failures`
+(`next_task.py:306-316`) **does** parse the identifier out of the row, **does** find that task in
+the ledger, and fails when it is in no phase at all — and then compares only the two phase
+*numbers* (`:317-325`). Whether the task it just resolved still has an unticked box is a field the
+`Task` record already carries and nothing asks for. Caught by reading the ledger by hand after the
+script's own output disagreed with the ticked box directly above it.
+
+**Generalises to.** When a check has already resolved a pointer to the object it names, assert the
+object is in the state the pointer *claims* for it, not merely that it exists — a router that names
+a completed step reads exactly like one that names the right step, and the field that separates
+them is the one already in hand. Corollary for this repository's Status block: a row that names a
+task id is stale the moment that box is ticked, so the commit that ticks a box owns that row.
+
+**Candidate home.** `next_task.py` → `_phase_agreement_failures`: where `named` is resolved, fail
+when `named.done`, saying which task the row points at and which one is actually first unticked.
+The population is real and computable and it would have failed on this tree at `d88fc32`. Group it
+with `L11.6` — both are the same routing row, both passed a green live check, and the two
+assertions land in the same function. `recurs L11.6`
+
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

@@ -978,8 +978,8 @@ records, and its row now claims what ships; eight names the literature has fixed
 `10` §4, and one coinage, `colvbert`, is neither taken nor reserved. Two of Phase 11's open
 decisions reached in — **D2** (where a corpus-wide, revisable pass runs, and whether its expensive
 output may be durable) and **D3** (where a pack persists per-corpus curated configuration) — and
-**neither does any more, as of 2026-09-07: both stay open and no task in this phase depends on
-either.** The owner named the tree's scope as **the one collection**, meaning the configured store,
+**neither does any more, as of 2026-09-07: no task in this phase depends on
+either, and both have since been taken — D2 by G15 on 2026-09-08, D3 as `S13` on 2026-09-09.** The owner named the tree's scope as **the one collection**, meaning the configured store,
 without building the corpus-wide *read* that is D2's expensive clause; and the clustering thresholds
 take an operator's typed value or `auto`, where `auto` is recomputed from the run's payload every
 run and persisted nowhere, which is what keeps D3 unreached. Two further questions the ledger marked
@@ -1062,8 +1062,10 @@ that owns the capability without G4's second backend, with family membership def
 trigger; and the seam through which a pack's store is named for a run is built once, as Phase 9's
 task **9.0**, from two consumers and the failing instance Phase 7's close filed
 (`build-ledger.md:4355-4359`) — **this phase inherits it and does not build it.** The third — where
-a corpus-wide, revisable pass runs — is still the owner's, and the tasks that depend on it say so
-rather than defaulting it.
+a corpus-wide, revisable pass runs — **was settled by G15 on 2026-09-08**, and the tasks that
+depend on it keep their ⚠ as a record of what was once undecided rather than as a block; this
+sentence called it open until 2026-09-09, which is the Gate bullet below it saying the opposite
+in the same section (`L11.6`'s shape, one document over).
 
 **What the phase is for.** Requirement 2 in this document — *"a capability that spans several
 extension points is still one package"* — names the graph add-on as its own worked example
