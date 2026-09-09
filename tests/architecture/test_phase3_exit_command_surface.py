@@ -122,6 +122,7 @@ from .test_ff9c_every_contract_has_a_stranger import (
     FIRST_PARTY_DISTRIBUTIONS,
     PACKAGES_ROOT,
     build_wheel,
+    build_wheels,
     run_subprocess,
 )
 
@@ -173,9 +174,9 @@ def test_the_strangers_command_reaches_help_and_completion_without_core_naming_i
     # below — `test_ff9c`'s own "install everything" shape (see the module docstring).
     wheel_dir = tmp_path / "wheels"
     wheel_dir.mkdir()
-    first_party_wheels = [
-        build_wheel(PACKAGES_ROOT / dist, out_dir=wheel_dir) for dist in FIRST_PARTY_DISTRIBUTIONS
-    ]
+    first_party_wheels = build_wheels(
+        [PACKAGES_ROOT / dist for dist in FIRST_PARTY_DISTRIBUTIONS], out_dir=wheel_dir
+    )
     example_wheel = build_wheel(EXAMPLE_DIR, out_dir=wheel_dir)
 
     project_dir = tmp_path / "throwaway-project"
@@ -191,6 +192,11 @@ def test_the_strangers_command_reaches_help_and_completion_without_core_naming_i
             "uv",
             "pip",
             "install",
+            # Hardlinked rather than copied, for the reason `test_ff9c_every_contract_has_a_
+            # stranger.py`'s own install call spells out: the environment is identical file for
+            # file, and the pack `docling` pulls in is a gigabyte the operating system then only
+            # has to read once across every throwaway environment a run builds.
+            "--link-mode=hardlink",
             "--python",
             str(python),
             *(str(wheel) for wheel in first_party_wheels),

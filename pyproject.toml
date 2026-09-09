@@ -8,6 +8,14 @@ dev = [
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
     "pytest-timeout>=2.3",
+    # The suite outside `tests/architecture` is ~2,250 tests that share nothing, and it was run
+    # in one process. `test` now spreads it across the machine — with one exception the whole
+    # arrangement turns on: every test that reaches Postgres or Qdrant carries an `xdist_group`
+    # (see `tests/conftest.py`), so `--dist=loadgroup` puts all of them on a single worker and
+    # they still run one after another. `docs/lessons-archive.md` `L8.30` and `L6.22` are what
+    # two suites sharing the one container cost: a truncated table under a running measurement,
+    # and a result about neither half.
+    "pytest-xdist>=3.6",
     # >=0.16.0: the first release that formats Python code blocks fenced in Markdown by
     # default (changelog: "Ruff can now format Python code blocks in Markdown files and
     # will do this by default"). `weft_cli.contract_reference` pipes its generated
@@ -70,7 +78,18 @@ lint = "ruff check ."
 cold-lint-cache = "ruff clean"
 types = "pyright"
 arch = "pytest tests/architecture -q"
-test = "pytest tests -q"
+# **`tests/architecture` is excluded here because `arch` above already ran it.** `pytest tests`
+# collected 2,525 tests and 270 of them were the architecture suite, so every `ci-checks` ran that
+# suite twice — 601 seconds of it, paid for a second time to learn nothing new. Fitness function 0
+# still sees full coverage: `_covered_roots` reads every pytest step of the gate, `arch` supplies
+# `tests/architecture` and this step supplies `tests`, and a new suite added anywhere under
+# `tests/` is picked up by this step without an edit.
+#
+# `--numprocesses=` and `--dist=` rather than `-n auto` / `--dist loadgroup`: fitness function 0's
+# `_covered_roots` treats any bare word that is not a flag as a path handed to pytest, so the
+# `auto` in `-n auto` would read as a test root. The `=` forms are the same instruction with
+# nothing for that walk to misread.
+test = "pytest tests --ignore=tests/architecture -q --numprocesses=auto --dist=loadgroup"
 
 [tool.poe.tasks.ci-no-tests]
 sequence = ["fmt", "lint", "types", "arch"]
@@ -94,6 +113,34 @@ cmd = "pytest examples -q --import-mode=importlib"
 
 [tool.poe.tasks.examples-tests.env]
 PYTHONPATH = "examples/weft-example-blob/src:examples/weft-example-describer/src:examples/weft-example-chunker/src:examples/weft-example-command/src:examples/weft-example-graph/src:examples/weft-example-ingest/src:examples/weft-example-llm/src:examples/weft-example-metric/src:examples/weft-example-query/src"
+
+# **A fast signal, and never the gate.** `ci-checks` above is the canonical full gate and this is
+# not a smaller version of it — it runs the tests a diff *can* have affected, which is a guess,
+# and a guess is exactly what a gate may not be. `scripts/impacted_tests.py` carries the whole
+# argument, including why `pytest-testmon` was not used.
+#
+# A `shell` task rather than a `cmd` one because the change set is computed by `git` and piped in:
+# a script under `scripts/` is shipped-shaped code that `ruff`'s `S` rules apply to in full, so
+# every `subprocess.run` in this tree carries a `# noqa: S603`, and a script that spawns nothing
+# needs none.
+[tool.poe.tasks.test-impacted]
+help = "Only the tests a diff can have affected. A fast local/PR signal, never the gate."
+shell = """
+git rev-parse --verify --quiet "$base" > /dev/null 2>&1 || base=HEAD
+against=$(git merge-base "$base" HEAD 2> /dev/null) || against="$base"
+{ git diff --name-only "$against"; git ls-files --others --exclude-standard; } \
+  | python scripts/impacted_tests.py $extra
+"""
+
+[[tool.poe.tasks.test-impacted.args]]
+name = "base"
+default = "origin/main"
+help = "The ref to diff against. Falls back to HEAD when it does not resolve."
+
+[[tool.poe.tasks.test-impacted.args]]
+name = "extra"
+default = ""
+help = "Extra arguments forwarded to pytest, as one string."
 
 [tool.poe.tasks.ci-checks]
 sequence = ["cold-lint-cache", "fmt", "lint", "types", "arch", "test", "examples-tests"]

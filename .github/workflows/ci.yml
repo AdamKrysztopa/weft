@@ -58,6 +58,55 @@ jobs:
         env:
           WEFT_DATABASE_URL: postgresql://weft:weft@localhost:5433/weft
 
+  # Fast feedback on a pull request, and **not a gate**. The `gate` job above is the canonical
+  # full run and this job cannot stand in for it: it runs only the tests the diff can have
+  # affected, which is a guess about impact, and fitness function 0's whole subject is that a
+  # check outside the canonical task does not run. It exists so a broken unit test is visible in
+  # a minute or two rather than after the full gate, and it is deliberately allowed to be
+  # narrower than the truth. Nothing here may ever be cited as evidence that a branch is green.
+  #
+  # `fetch-depth: 0` because the selection is computed against the pull request's base commit,
+  # which a shallow clone does not carry. It needs the same container the gate does, because a
+  # change under `packages/` selects `tests/integration`.
+  impacted:
+    name: impacted tests (fast feedback, not a gate)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: weft
+          POSTGRES_PASSWORD: weft
+          POSTGRES_DB: weft
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U weft -d weft"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Sync
+        run: uv sync --frozen
+
+      - name: Run only the tests this pull request can have affected
+        run: uv run poe test-impacted --base ${{ github.event.pull_request.base.sha }}
+        env:
+          WEFT_DATABASE_URL: postgresql://weft:weft@localhost:5433/weft
+
   # Fitness function 1, primary half. Separate because it needs a clean environment
   # this repository's own virtualenv cannot provide: the kernel is installed alone,
   # and if anything it does not ship is reachable, the import fails.

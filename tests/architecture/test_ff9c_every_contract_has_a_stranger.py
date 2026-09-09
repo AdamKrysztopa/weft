@@ -44,11 +44,16 @@ and changeable only by a dated decision-log entry, in item 0's own style.
 
 from __future__ import annotations
 
+import atexit
 import os
+import shutil
 import subprocess
+import tempfile
+import threading
 import tomllib
 import typing
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from importlib import import_module
 from pathlib import Path
 from typing import Final
@@ -173,17 +178,86 @@ def run_subprocess(command: list[str], *, cwd: Path) -> subprocess.CompletedProc
     )
 
 
-def build_wheel(source_dir: Path, *, out_dir: Path) -> Path:
+#: Where a wheel is actually built, once per process, whatever `out_dir` a caller asks for. A
+#: wheel is an **input** to the probes below — never a side of the comparison — and `uv build`
+#: run twice on the same unchanged source directory inside one pytest session produces the same
+#: artefact both times. Three test files ask for the same eight first-party wheels
+#: (`test_phase3_exit_command_surface.py` imports `build_wheel` from here, for the reason its own
+#: docstring gives), and before this directory existed each of them paid for its own build.
+_SHARED_WHEEL_DIR: Final[Path] = Path(tempfile.mkdtemp(prefix="weft-first-party-wheels-"))
+atexit.register(shutil.rmtree, _SHARED_WHEEL_DIR, True)
+
+#: Every wheel already built in this process, keyed by the source directory that produced it.
+_WHEEL_CACHE: Final[dict[Path, Path]] = {}
+
+#: One lock per source directory: two threads asking for the *same* wheel wait for a single
+#: `uv build` rather than racing two of them onto one output filename, while two threads asking
+#: for *different* wheels still build at the same time.
+_WHEEL_LOCKS: Final[dict[Path, threading.Lock]] = {}
+_WHEEL_LOCKS_GUARD: Final[threading.Lock] = threading.Lock()
+
+
+def _wheel_lock(source_dir: Path) -> threading.Lock:
+    with _WHEEL_LOCKS_GUARD:
+        return _WHEEL_LOCKS.setdefault(source_dir, threading.Lock())
+
+
+def _build_wheel_once(source_dir: Path) -> Path:
     result = run_subprocess(
-        ["uv", "build", "--wheel", "--out-dir", str(out_dir), str(source_dir)], cwd=out_dir
+        ["uv", "build", "--wheel", "--out-dir", str(_SHARED_WHEEL_DIR), str(source_dir)],
+        cwd=_SHARED_WHEEL_DIR,
     )
     assert result.returncode == 0, (
         f"building a wheel for {source_dir} failed:\nstdout:\n{result.stdout}\n"
         f"stderr:\n{result.stderr}"
     )
-    wheels = sorted(out_dir.glob(f"{source_dir.name.replace('-', '_')}-*.whl"))
+    wheels = sorted(_SHARED_WHEEL_DIR.glob(f"{source_dir.name.replace('-', '_')}-*.whl"))
     assert wheels, f"uv build reported success but no wheel matching {source_dir.name} appeared"
     return wheels[-1]
+
+
+def build_wheel(source_dir: Path, *, out_dir: Path) -> Path:
+    """`source_dir`'s wheel, present in `out_dir` — built at most once per pytest process."""
+    with _wheel_lock(source_dir):
+        built = _WHEEL_CACHE.get(source_dir)
+        if built is None:
+            built = _build_wheel_once(source_dir)
+            _WHEEL_CACHE[source_dir] = built
+    destination = out_dir / built.name
+    if destination != built and not destination.exists():
+        shutil.copy2(built, destination)
+    return destination
+
+
+#: How many throwaway environments (or wheel builds) run at once. **Four, and the number was
+#: measured rather than chosen.** At one-per-example — nine — a probe that normally finishes in
+#: seconds blew `run_subprocess`'s own 180-second guard: nine `uv pip install`s contend on one
+#: `uv` cache and nine `discover()` probes then import every first-party pack at the same time,
+#: and the machine spends its time context-switching rather than installing. Four keeps every
+#: subprocess far inside that guard while still turning a nine-deep queue into three rounds, and
+#: six was measured too — 109s against four's 117s, which is not worth the extra pressure on a
+#: machine that is also running the rest of the gate.
+_CONCURRENCY: Final[int] = 4
+
+
+def _pool_size(jobs: int) -> int:
+    return max(1, min(jobs, _CONCURRENCY))
+
+
+def build_wheels(source_dirs: Sequence[Path], *, out_dir: Path) -> list[Path]:
+    """Every one of `source_dirs`' wheels, in the order given, built concurrently.
+
+    `uv build` spends its time in a subprocess, so the builds are independent I/O-bound jobs and
+    the comprehension that ran them one after another was serialising things that share nothing.
+    """
+    if not source_dirs:
+        return []
+
+    def build(source: Path) -> Path:
+        return build_wheel(source, out_dir=out_dir)
+
+    with ThreadPoolExecutor(max_workers=_pool_size(len(source_dirs))) as pool:
+        return list(pool.map(build, source_dirs))
 
 
 def missing_strangers(
@@ -309,6 +383,83 @@ def test_every_named_service_protocol_genuinely_has_no_registrations() -> None:
         )
 
 
+def _probe_one_example(
+    example_dir: Path, *, tmp_path: Path, wheel_dir: Path, first_party_wheels: Sequence[Path]
+) -> list[str]:
+    """One example pack's own contribution to the right side, from its own throwaway venv.
+
+    The body of what used to be a `for` loop, lifted out unchanged so the nine packs can be
+    probed at the same time. Each call still builds **its own** venv, installs every first-party
+    wheel plus that one example's, and runs the probe there — the isolation the module docstring
+    describes is per-pack and is untouched by running nine of them at once; nothing here reads or
+    writes anything another call can see, `project_dir` being named after the distribution.
+    """
+    distribution = _example_identity(example_dir)
+    example_wheel = build_wheel(example_dir, out_dir=wheel_dir)
+
+    project_dir = tmp_path / f"throwaway-{distribution}"
+    project_dir.mkdir()
+    venv_dir = project_dir / ".venv"
+    created = run_subprocess(["uv", "venv", str(venv_dir), "--python", "3.12"], cwd=project_dir)
+    assert created.returncode == 0, f"uv venv failed for {distribution}:\n{created.stderr}"
+    python = venv_dir / "bin" / "python"
+
+    installed = run_subprocess(
+        [
+            "uv",
+            "pip",
+            "install",
+            # **`--link-mode=hardlink`, and it is the single biggest thing in this file.**
+            # Discovery is eager (G3), so every probe imports every installed pack, and one of
+            # them reaches `torch` and `transformers` through `docling` — a gigabyte of shared
+            # objects. macOS's default link mode gives each venv its own *copy* of those files:
+            # same bytes, different inodes, so the operating system's page cache is cold for
+            # every venv and each probe spent ~50 seconds reading a gigabyte off disk before it
+            # could answer. Hardlinked from `uv`'s own cache they are the same inodes, the cache
+            # is warm from the second environment onward, and the probe drops to ~12 seconds
+            # (measured: 51.5s/49.5s copied, 55.7s/13.0s/12.9s hardlinked). It is the link
+            # strategy that changes and nothing else — the installed environment is identical
+            # file for file, which is why this is a speed change and not a weaker check. It is
+            # already `uv`'s default on Linux, so CI has always had it.
+            "--link-mode=hardlink",
+            "--python",
+            str(python),
+            *(str(wheel) for wheel in first_party_wheels),
+            str(example_wheel),
+        ],
+        cwd=project_dir,
+    )
+    assert installed.returncode == 0, (
+        f"uv pip install failed for {distribution}:\n{installed.stderr}"
+    )
+
+    probe = project_dir / "probe.py"
+    probe.write_text(
+        _PROBE_SCRIPT.format(
+            repo_root=str(REPO_ROOT), dsn=_PLACEHOLDER_DSN, distribution=distribution
+        ),
+        encoding="utf-8",
+    )
+
+    # Act
+    ran = run_subprocess([str(python), str(probe)], cwd=project_dir)
+
+    # Assert — this one pack's own contribution to the right side.
+    assert ran.returncode == 0, f"{distribution}'s probe crashed:\n{ran.stdout}\n{ran.stderr}"
+    lines = ran.stdout.strip().splitlines()
+    assert lines and lines[0] != "LEAKED", (
+        f"a path back into this repository is on sys.path inside {distribution}'s throwaway "
+        f"environment: {lines[1] if len(lines) > 1 else '?'}"
+    )
+    assert lines[:1] == ["OK"], f"{distribution}'s probe did not discover cleanly: {lines}"
+    registered = lines[1:]
+    assert registered, (
+        f"{distribution} registered nothing under its own name — a stranger implementing no "
+        f"contract proves nothing about clause (c)"
+    )
+    return registered
+
+
 @pytest.mark.timeout(900)
 def test_every_published_contract_has_a_stranger(tmp_path: Path) -> None:
     # Arrange — the left side, from this repository's own registrations, never from a wheel.
@@ -316,67 +467,29 @@ def test_every_published_contract_has_a_stranger(tmp_path: Path) -> None:
         _qualname(published.contract) for published in published_contracts(discover_for_reference())
     )
 
-    # Arrange — every first-party wheel, built once and shared across all four probes below.
+    # Arrange — every first-party wheel, built once and shared across all nine probes below.
     wheel_dir = tmp_path / "wheels"
     wheel_dir.mkdir()
-    first_party_wheels = [
-        build_wheel(PACKAGES_ROOT / distribution, out_dir=wheel_dir)
-        for distribution in FIRST_PARTY_DISTRIBUTIONS
-    ]
+    first_party_wheels = build_wheels(
+        [PACKAGES_ROOT / distribution for distribution in FIRST_PARTY_DISTRIBUTIONS],
+        out_dir=wheel_dir,
+    )
+
+    # Act — one throwaway environment per example pack, several at a time rather than one after
+    # another. `pool.map` re-raises the first failing probe's own `AssertionError` here, so a
+    # broken pack still fails this test with the message `_probe_one_example` wrote.
+    def probe(example_dir: Path) -> list[str]:
+        return _probe_one_example(
+            example_dir,
+            tmp_path=tmp_path,
+            wheel_dir=wheel_dir,
+            first_party_wheels=first_party_wheels,
+        )
 
     right: set[str] = set()
-    for example_dir in _EXAMPLE_DIRS:
-        distribution = _example_identity(example_dir)
-        example_wheel = build_wheel(example_dir, out_dir=wheel_dir)
-
-        project_dir = tmp_path / f"throwaway-{distribution}"
-        project_dir.mkdir()
-        venv_dir = project_dir / ".venv"
-        created = run_subprocess(["uv", "venv", str(venv_dir), "--python", "3.12"], cwd=project_dir)
-        assert created.returncode == 0, f"uv venv failed for {distribution}:\n{created.stderr}"
-        python = venv_dir / "bin" / "python"
-
-        installed = run_subprocess(
-            [
-                "uv",
-                "pip",
-                "install",
-                "--python",
-                str(python),
-                *(str(wheel) for wheel in first_party_wheels),
-                str(example_wheel),
-            ],
-            cwd=project_dir,
-        )
-        assert installed.returncode == 0, (
-            f"uv pip install failed for {distribution}:\n{installed.stderr}"
-        )
-
-        probe = project_dir / "probe.py"
-        probe.write_text(
-            _PROBE_SCRIPT.format(
-                repo_root=str(REPO_ROOT), dsn=_PLACEHOLDER_DSN, distribution=distribution
-            ),
-            encoding="utf-8",
-        )
-
-        # Act
-        ran = run_subprocess([str(python), str(probe)], cwd=project_dir)
-
-        # Assert — this one pack's own contribution to the right side.
-        assert ran.returncode == 0, f"{distribution}'s probe crashed:\n{ran.stdout}\n{ran.stderr}"
-        lines = ran.stdout.strip().splitlines()
-        assert lines and lines[0] != "LEAKED", (
-            f"a path back into this repository is on sys.path inside {distribution}'s throwaway "
-            f"environment: {lines[1] if len(lines) > 1 else '?'}"
-        )
-        assert lines[:1] == ["OK"], f"{distribution}'s probe did not discover cleanly: {lines}"
-        registered = lines[1:]
-        assert registered, (
-            f"{distribution} registered nothing under its own name — a stranger implementing no "
-            f"contract proves nothing about clause (c)"
-        )
-        right.update(registered)
+    with ThreadPoolExecutor(max_workers=_pool_size(len(_EXAMPLE_DIRS))) as pool:
+        for registered in pool.map(probe, _EXAMPLE_DIRS):
+            right.update(registered)
 
     # Assert — the property clause (c) states, computed with neither side derived from the
     # other: every contract the first-party packs publish has an out-of-tree counterpart.
