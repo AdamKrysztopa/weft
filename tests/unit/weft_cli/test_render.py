@@ -297,7 +297,7 @@ def test_the_answer_envelope_carries_the_text_even_when_it_already_streamed() ->
 def _refused_answer() -> tuple[Query, Answer]:
     """The shape `weft_generate.cited_answer` actually returns when `when_no_evidence` is
     `REFUSE` and `Passages` is empty — copied from that call site
-    (`cited_answer.py:130-139`) rather than written from its prose, so this double cannot
+    (`cited_answer.py:130-139 'if self.'`) rather than written from its prose, so this double cannot
     encode a belief about the seam the seam does not hold (`L11.17`).
 
     The dimension these tests vary is **`stance`**, and this differs from `_routed_answer`
@@ -425,7 +425,7 @@ def test_the_answer_envelope_carries_the_stance_on_an_ordinary_answer_too() -> N
 
 def test_the_third_stance_reaches_a_script_without_the_human_path_growing_a_line() -> None:
     # Arrange — `contradiction-check` sets `UNDETERMINED` on an answer that *has* text
-    # (`contradiction.py:195-206`), so it is not the silence R11.6 is about and the human
+    # (`contradiction.py:195-206 'stance ='`), so it is not the silence R11.6 is about and the human
     # path is unchanged. The machine path carries it regardless: which of the three a
     # generator claimed is exactly what the envelope now exists to relay, and asserting
     # only the two stances the repair names would leave the field meaning "answered or

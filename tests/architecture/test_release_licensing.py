@@ -212,7 +212,8 @@ def test_the_check_can_actually_fail(tmp_path: Path) -> None:
 # that "the file carrying it says so, naming the source work — so a reader can always tell the two
 # origins apart without asking". Until this task that requirement was a sentence: there was no
 # spelling for the marker and nothing read a source file looking for one. The obligation is dated
-# and it is *before* the first copy, not after — `docs/product-direction.md:83-84`: `NOTICE` "must
+# and it is *before* the first copy, not after — `docs/product-direction.md:83-84 'must be amende'`:
+# `NOTICE` "must
 # be amended to distinguish the third-party source from the owner's own prior work, **in the same
 # commit as the first copied line — not after**". A check that only exists after the first copy is
 # the prose-check shape `docs/lessons.md` L6.12 forbids, so it is built here, before task 11.7
@@ -496,7 +497,8 @@ def test_every_marked_span_is_well_formed_and_names_an_enumerated_source_work() 
     """The tree agrees with the front page about which lines are the owner's prior work.
 
     **Empty against empty on the commit that adds this**, and armed for the one that adds the
-    first marker — which is the commit `docs/product-direction.md:84` says owes it. The direction
+    first marker — which is the commit `docs/product-direction.md:84 's own prior's own prior work,
+    in"` says owes it. The direction
     that bites first is a file marked and never enumerated: that is what a hurried copy looks like.
     """
     # Arrange

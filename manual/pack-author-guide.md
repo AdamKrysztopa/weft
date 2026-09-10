@@ -629,12 +629,12 @@ class GreetCommand:
 ```
 
 `weft_command.contract.Command.required_declarations = ("permission_class", "help")`
-(`packages/weft-rag/src/weft_command/contract.py:196`) — the identical mechanism `Chunker`'s
+(`packages/weft-rag/src/weft_command/contract.py:196 "/ assign"`) — the identical mechanism `Chunker`'s
 `destroys` already uses in §4 above, applied to a second contract. Omit either and your pack's own
 `register()` raises at the point it calls `registrar.add(Command, ...)`, naming your class and the
 missing declaration, never a stack trace three layers into `weft-cli`. There is **no default**:
 `PermissionClass` has five members (`read`, `write`, `overwrite`, `destroy`, `network`,
-`packages/weft-rag/src/weft_command/permission.py:30-44`) and falling back to `read` would
+`packages/weft-rag/src/weft_command/permission.py:30-44 "class Pe"`) and falling back to `read` would
 silently under-protect a destructive command, so silence is refused rather than defaulted.
 
 ```python path=examples/weft-example-command/src/weft_example_command/__init__.py
@@ -791,7 +791,7 @@ class ExampleWordCountEnhancer:
 ```
 
 **Both class-level declarations are mandatory**, checked at class *definition*, before your pack ever
-runs (`packages/weft-kernel/src/weft_kernel/payload/ext.py:88-101`,
+runs (`packages/weft-kernel/src/weft_kernel/payload/ext.py:88-101 "@classmethod"`,
 `ExtModel.__pydantic_init_subclass__`): omit `__namespace__` or `__schema_version__` and `TypeError`
 raises the moment Python finishes building your class — at import time, not at the first `with_ext`
 call or the first read off a store. `__schema_version__` is G9's own addition (task 5.2c) beside the
@@ -803,7 +803,7 @@ serialises carries its own `__schema_version__` key alongside its fields
 (`weft_kernel.payload.ext._dump`, same file, lines 131-164).
 
 **A reader upgrades or refuses, and the default refuses.** `ExtModel.upgrade(data, from_version)`
-(`ext.py:103-116`) raises `SchemaVersionRefusedError`, naming your namespace, the version the row was
+(`ext.py:104-116 "@classme"`) raises `SchemaVersionRefusedError`, naming your namespace, the version the row was
 stored at and the version your installed class declares, unless you override it. You override
 `upgrade` the day you actually change `WordCount`'s shape — add a field, rename one, change a type —
 and need to reconcile a row a user's store already holds; until then, the default is correct and
@@ -817,7 +817,7 @@ seven `registrar.add` calls. **This is not optional if you want a node carrying 
 survive a round trip through a store.** Task 5.2g closed a real gap here — before it, a pack's
 `register()` did not contribute its `ExtModel`s automatically at all, and a namespace nobody
 registered raised `UnknownPluginError` the moment a store tried to rehydrate it. The kernel itself
-stays capability-blind: `registrar.add_ext_model` (`packages/weft-kernel/src/weft_kernel/discovery.py:392-405`)
+stays capability-blind: `registrar.add_ext_model` (`packages/weft-kernel/src/weft_kernel/discovery.py:392-405 "naming a"`)
 buffers a bare class reference — no validation, no instantiation — exactly like `add_pipeline_resource`
 and `deprecate` below; turning that buffer into something a store can actually use is
 `weft_store.rehydrate.register_from_reports`'s job, called once by whatever already calls `discover()`,
@@ -844,7 +844,7 @@ without raising. `weft-retrieve` ships three this way:
 registrar.add_pipeline_resource("weft_retrieve", "pipelines/route.yaml")
 registrar.add_pipeline_resource("weft_retrieve", "pipelines/no-retrieval.yaml")
 registrar.add_pipeline_resource("weft_retrieve", "pipelines/retrieve-then-generate.yaml")
-# packages/weft-rag/src/weft_retrieve/__init__.py:369-371
+# packages/weft-rag/src/weft_retrieve/__init__.py:369-371 "registrar.add(Sufficiency,"
 ```
 
 `package` and `resource` are read together as an `importlib.resources` path inside your own installed
@@ -861,7 +861,7 @@ identical way you already buffer a pipeline resource or an `ExtModel`:
 
 ```text
 registrar.add_contribution(ENRICH_SLOT, StageDeclaration(id=_ENRICH_STAGE_ID, use="example-enhancer"))
-# examples/weft-example-ingest/src/weft_example_ingest/__init__.py:79-81
+# examples/weft-example-ingest/src/weft_example_ingest/__init__.py:79-81 "Ledger task 10.23 —"
 ```
 
 `add_contribution(slot, stage)` — `discovery.py`'s own `PackRegistrar` — takes the slot name a
@@ -894,10 +894,10 @@ plugin into a slot named `enrich` this exact way; read its `register()` for the 
 
 ### 9.8 A deprecation warning obliges a changelog entry
 
-`registrar.deprecate(surface, reason=...)` (`discovery.py:376-390`) buffers a notice — a plugin name,
+`registrar.deprecate(surface, reason=...)` (`discovery.py:376-390 ", the on"`) buffers a notice — a plugin name,
 a `"Contract:name"` pair, or your pack itself — attributed to your distribution and committed with
 everything else `register()` buffers. Once committed, `weft_kernel.seam.warn_deprecated`
-(`packages/weft-kernel/src/weft_kernel/seam.py:211-229`) emits one `DeprecationWarning` per notice,
+(`packages/weft-kernel/src/weft_kernel/seam.py:349-361 "Emit one"`) emits one `DeprecationWarning` per notice,
 automatically, the moment discovery activates your pack — you state the fact once and never write the
 warning by hand, and `weft plugins doctor` surfaces it as a flag beside your pack's ordinary status.
 

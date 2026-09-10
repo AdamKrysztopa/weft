@@ -741,7 +741,7 @@ class SelectedCapabilityMissingError(PipelineResolutionError, UnresolvedNameErro
     accepts `pgvector` — a remedy nobody could carry out. Every other call site was a test
     supplying that name by hand, which is exactly why none of them could catch it. Repaired at
     ledger task **11.10**: `weft_cli.route_ask._run_pipeline`'s own `check_store_capabilities`
-    call (`weft_cli/route_ask.py:605`) now takes `store_name` as a parameter fed from
+    call (`weft_cli/route_ask.py:605 'contracts ='`) now takes `store_name` as a parameter fed from
     `[services] store` itself, threaded down from each of that module's three call sites,
     rather than deriving one from the instance.
 
@@ -790,13 +790,16 @@ def register_selected_roles(
     capability the resolved pipeline actually demands of it.
 
     Ledger task **9.0**, property (ii). `ServiceRegistry` keys by **exact type**
-    (`weft_kernel/context.py:105`), so an instance registered under its role's contract answers
+    (`weft_kernel/context.py:244 'def require'`), so an instance registered under its role's
+    contract
+    answers
     no `ctx.require` for anything else it satisfies. Aliasing is what makes a second capability
     reachable at all.
 
     **By demand, never by satisfaction**, and the deletion fan-out is why. `SourceDeletable` is
     a fan-out capability — many participants satisfy it at once, discovered by walking the
-    factory registry (`weft_cli/fanout.py:59`, `deletion.py:67`) and never through this
+    factory registry (`weft_cli/fanout.py:60-61 '@datacla'`, `deletion.py:67 'Every re'`) and never
+    through this
     registry. A single-valued `ctx.require(SourceDeletable)` could only answer with one
     arbitrary participant, which is a wrong answer wearing a type. Nothing demands it, so
     nothing aliases it, and a stage reaching for it gets `UnresolvedServiceError` naming what

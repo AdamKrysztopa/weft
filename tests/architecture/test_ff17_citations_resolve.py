@@ -22,7 +22,8 @@ search cannot report what its own pattern excludes, which is why the durable for
 a property rather than a better grep.**
 
 **Clause (a): the citation resolves.** Matched on *basename*, not full path, because this
-codebase abbreviates — `runner.py:167` and `packages/weft-kernel/src/weft_kernel/runner.py:167`
+codebase abbreviates — `runner.py` at line 167 and `packages/weft-kernel/src/weft_kernel/runner.py`
+at the same line
 are the same claim and both are written. Basename matching is therefore deliberately generous:
 it accepts a citation this project could plausibly mean, and refuses only one that names a file
 nothing here has. That is the whole of what it can honestly check, and the docstring says so
@@ -33,15 +34,27 @@ written in is
 either redundant — it is pointing at code the reader is already looking at, and should name the
 constant — or it is wrong, because it is quoting somebody else's file that happens to share the
 name. The second is not hypothetical: three were found in this tree, including
-`unicode_normalizer.py`'s **"Verified at source: `unicode_normalizer.py:12-37`'s `process`
+`unicode_normalizer.py`'s **"Verified at source: `unicode_normalizer.py` lines 12-37's `process`
 calls…"**, describing a `process` method this file has never had (`docs/lessons.md` L8.9). It
 read for three phases as an ordinary self-reference, and **it is the one form clause (a) is
 structurally blind to** — the path resolves, precisely because the basename collides. Clause (b)
 exists because clause (a) would have waved all three through.
 
-**What this cannot check.** Whether the cited *line* says what the citing comment claims. That is
-a judgement no walk can make; what it can do is refuse a pointer that goes nowhere and a pointer
-that goes in a circle, which together are every mechanically detectable form the defect took here.
+**What this cannot check, and what carried repair `R11.8` changed about that.** Whether the cited
+*line* says what the citing comment **claims** is a judgement no walk can make, and that is still
+true. What a walk *can* do is verify that the line still says what the person citing it **read** —
+so clauses (c) and (d) below require every citation outside an append-only record to carry a short
+quoted fragment of the line it names, and refuse it when the fragment is no longer there. An
+unjudgeable claim becomes a refusable one: a citation that drifts stops being silently wrong and
+becomes loudly wrong.
+
+**Every line number written in this docstring is spelled out in words rather than as `path:line`,
+and that is not a style choice.** `docs/lessons.md` `L12.8`: the paragraph that documents a
+document-reading check is the most dangerous line on the page, because it is where the convention's
+own syntax appears in illustration — written by whoever knows the parser and is therefore least
+likely to reread it as input. One of the examples below is a citation this project *knows to be
+wrong*, quoted as an anecdote; annotating it with a fragment that is currently true would falsify
+the very story it is told to carry.
 """
 
 from __future__ import annotations
@@ -58,6 +71,44 @@ from .conftest import REPO_ROOT
 #: A `path:line` citation: a filename with a known text extension, a colon, a line number.
 #: Ranges (`:12-37`) match on their first number, which is all this check needs.
 _CITATION: Final[re.Pattern[str]] = re.compile(r"([A-Za-z0-9_./-]+\.(?:py|md|toml|yaml|yml)):(\d+)")
+
+#: A citation with the quoted fragment carried repair **R11.8** requires: `path:line "text"`.
+#: The fragment sits inside the same backtick span in every site this repository writes, which
+#: is what keeps it from being separated by a line wrap.
+#:
+#: **Either quote, and the choice is not cosmetic.** A citation inside a Python file very often
+#: sits inside a string — an assertion message, an f-string — and a `"` fragment closes it. The
+#: first retrofit did exactly that to **29 files**, all of which stopped parsing and were caught
+#: by `ruff format` in the same minute. So `.py` sites are written with `'` and everything else
+#: with `"`, and the check accepts both rather than making authors remember which: the rule an
+#: author has to hold is "use the quote your file is not already using", and the rule the check
+#: holds is "either". A fragment never contains its own delimiter, which is what keeps the
+#: pattern unambiguous without an escape nobody would remember.
+_CITATION_WITH_FRAGMENT: Final[re.Pattern[str]] = re.compile(
+    r"([A-Za-z0-9_./-]+\.(?:py|md|toml|yaml|yml)):(\d+)(?:-\d+)?"
+    r"(?: (?:\"([^\"]{8,})\"|'([^']{8,})'))?"
+)
+
+#: How far from the cited line the fragment may sit before the citation counts as stale.
+#: **Five**, and the number is a judgement about maintenance rather than about correctness: at
+#: zero, any insertion above a cited line breaks every citation below it in that file and the
+#: check becomes a tax people route around (`CLAUDE.md`: "a guard that fires on safe commands is
+#: one people learn to route around"); unbounded, the line number stops being checked at all and
+#: the claim reverts to the one clause (a) already makes. Five absorbs an ordinary edit and
+#: refuses a move into a different construct — and when it does fire, the message says which line
+#: the fragment is actually on, so the repair is the one-number edit the failure hands you.
+_FRAGMENT_WINDOW: Final[int] = 5
+
+#: Files whose citations are **records rather than claims about the current tree**, and so carry
+#: no fragment. A ledger entry cites the code as it stood at the commit that wrote the entry, and
+#: `git blame` on the ticked box is what resolves it — re-pointing those at today's lines would
+#: falsify the record it exists to keep. The same for a drained lesson and for the archive.
+#: This is a **scope**, not a waiver: nothing here is exempted from a rule it should meet, and
+#: adding a fourth name means arguing that a whole document has stopped making claims about the
+#: tree, which is a much louder act than adding one path to a list.
+_APPEND_ONLY_RECORDS: Final[frozenset[str]] = frozenset(
+    {"docs/build-ledger.md", "docs/lessons.md", "docs/lessons-archive.md"}
+)
 
 #: Directories excluded from the search for a cited basename: reading material kept on disk and
 #: out of version control. A citation that resolves only inside one of these is exactly the
@@ -169,6 +220,148 @@ def _violations() -> tuple[list[str], list[str]]:
     return dangling, self_citing
 
 
+@cache
+def _paths_by_basename() -> dict[str, tuple[Path, ...]]:
+    """Every owned file, indexed by basename — clause (c)/(d) needs the *file*, not a yes/no.
+
+    Cached for `_basenames_present`'s own reason: the naive form re-walked the tree once per
+    citation and cost 25 seconds of every gate run.
+    """
+    index: dict[str, list[Path]] = {}
+    for path in REPO_ROOT.rglob("*"):
+        if path.is_file() and _owned_by_this_repo(path):
+            index.setdefault(path.name, []).append(path)
+    return {name: tuple(paths) for name, paths in index.items()}
+
+
+def _targets_of(cited: str) -> tuple[Path, ...]:
+    """Every file a citation could name — the exact path first, then the basename's others.
+
+    **Plural, and for clause (a)'s own reason.** This codebase abbreviates: `runner.py` at line
+    167 and the full path are the same claim, and clause (a) is deliberately generous about
+    which. Clause (d) has to be generous in exactly the same way or the two clauses disagree
+    about what a citation means — a file whose basename is shared (`__init__.py` is shared
+    thirty ways here) would resolve to whichever path the walk happened to reach first, and the
+    fragment would be looked for in a file the citer never opened. The path that literally ends
+    with what was written is tried first, so a citation that spelled out its directory is
+    answered by that file and not by a namesake.
+    """
+    candidates = _paths_by_basename().get(Path(cited).name, ())
+    exact = tuple(p for p in candidates if str(p).endswith(cited))
+    return exact + tuple(p for p in candidates if p not in exact)
+
+
+def _without_quotes(text: str) -> str:
+    """Both sides of the fragment comparison, with `"` removed.
+
+    A cited line is very often a string literal, and a fragment delimited by `"` cannot carry
+    one. Rather than invent an escape nobody would remember, the comparison simply ignores the
+    character on both sides: `TABLE = table` matches `    TABLE = "table"`. Stated here because
+    it is the one non-obvious thing about writing a fragment by hand.
+    """
+    return text.replace('"', "")
+
+
+def _fragment_violations() -> tuple[list[str], list[str]]:
+    """`(missing, stale)` — clauses (c) and (d), carried repair **R11.8**.
+
+    **(c) every citation outside an append-only record carries a fragment.** Categorical, with no
+    grandfathering ratchet: the population was measured at **160** and retrofitted in one commit,
+    which is affordable exactly once and is why it was done rather than pinned. A waiver constant
+    holding 160 entries is a table nobody reads, which is the failure a ratchet is meant to
+    prevent.
+
+    **(d) the fragment is still there.** This is the clause `L11.39` bought and the one this
+    file's own docstring said could not exist — *"whether the cited line says what the citing
+    comment claims... is a judgement no walk can make"*. That remains true, and it is not what
+    this checks. What a walk **can** do is verify that the line still says what the person citing
+    it read, which turns an unjudgeable claim into a refusable one: the citation stops being
+    silently wrong and starts being loudly wrong.
+
+    **Measured when this was written**: of the 160, **24** already pointed at a blank or missing
+    line and **six more** at a line that could yield no fragment at all — a closing `\"\"\"`, an
+    import continuation, a `del ctx`, a ``` fence opener. Thirty stale citations, under a
+    fitness function that had been green on every run, and two of them (`seam.py` at lines
+    211-229 for a claim about emitting `DeprecationWarning`, `context.py` at line 105 for one
+    about exact-type lookup)
+    were not off by two lines but pointing at an unrelated class more than a hundred lines away.
+    `docs/lessons.md` `L9.34` measured the same drift from the other end: three agents citing one
+    paragraph at three different line numbers on one day.
+    """
+    missing: list[str] = []
+    stale: list[str] = []
+    for path in _tracked_text_files():
+        relative = str(path.relative_to(REPO_ROOT))
+        if relative in _APPEND_ONLY_RECORDS:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            continue
+        for match in _CITATION_WITH_FRAGMENT.finditer(text):
+            cited, line_no = match.group(1), int(match.group(2))
+            fragment = match.group(3) if match.group(3) is not None else match.group(4)
+            if Path(cited).name == path.name:
+                continue  # clause (b) already refuses this, and says so better
+            if fragment is None:
+                missing.append(
+                    f"{relative}: cites '{cited}:{line_no}' with no quoted fragment. Write it as "
+                    f'`{cited}:{line_no} "<text from that line>"` so the citation can be refused '
+                    f"when what it points at changes."
+                )
+                continue
+            targets = _targets_of(cited)
+            if not targets:
+                continue  # clause (a) already refuses this
+            wanted = _without_quotes(fragment)
+            elsewhere: list[int] = []
+            satisfied = False
+            for target in targets:
+                lines = target.read_text(encoding="utf-8").split("\n")
+                found = [
+                    n for n, body in enumerate(lines, start=1) if wanted in _without_quotes(body)
+                ]
+                if any(abs(n - line_no) <= _FRAGMENT_WINDOW for n in found):
+                    satisfied = True
+                    break
+                elsewhere.extend(found)
+            if satisfied:
+                continue
+            where = (
+                f"it is at line(s) {sorted(set(elsewhere))[:3]}"
+                if elsewhere
+                else "it is in no file of that name"
+            )
+            stale.append(
+                f"{relative}: cites '{cited}:{line_no}' quoting {fragment!r}, and {where}."
+            )
+    return missing, stale
+
+
+def test_every_citation_carries_the_fragment_that_makes_it_checkable() -> None:
+    # Clause (c), carried repair **R11.8**. `L11.39`, declined at Phase 11's drain to be designed
+    # beside `R11.7` — both are the same idea, a claim written in a shape a checker can refuse,
+    # one about a section and one about a line.
+    missing, _stale = _fragment_violations()
+    assert not missing, (
+        "a citation names a line and gives nothing that can be checked against it:\n  "
+        + "\n  ".join(sorted(missing))
+    )
+
+
+def test_every_cited_line_still_says_what_the_citation_quotes() -> None:
+    # Clause (d) — the one this file's docstring said could not exist. It still cannot judge
+    # whether the line *supports* the claim; it refuses a citation whose line no longer says what
+    # the person writing it read, which is every mechanically detectable form of the drift.
+    _missing, stale = _fragment_violations()
+    assert not stale, (
+        "a citation quotes a line that has moved or gone:\n  "
+        + "\n  ".join(sorted(stale))
+        + f"\nThe window is ±{_FRAGMENT_WINDOW} lines; where the message names the line the "
+        "fragment is actually on, correcting the citation is that one number."
+    )
+
+
 def test_a_second_checkout_under_this_root_does_not_answer_for_this_repository() -> None:
     """The exclusion `L9.90` bought, driven through the predicate the walk actually uses.
 
@@ -275,3 +468,45 @@ def test_a_self_citation_would_be_caught() -> None:
     basename = Path(match.group(1)).name
     assert basename == Path(__file__).name, "clause (b) sees it"
     assert _basename_exists(basename), "clause (a) does not — the path resolves"
+
+
+def test_the_check_can_actually_fail() -> None:
+    """Clauses (c) and (d), driven through the same comparison the walk uses.
+
+    Both are set-difference-shaped and both would pass on an empty subject, so the floor is two:
+    the population is non-empty, and a disagreeing input is refused. **Watched red before this
+    was written** — clause (c) named seven citations with no fragment, and clause (d) named the
+    one whose fragment had been generated against a namesake file.
+    """
+    annotated = 0
+    for path in _tracked_text_files():
+        if str(path.relative_to(REPO_ROOT)) in _APPEND_ONLY_RECORDS:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            continue
+        annotated += sum(
+            1
+            for m in _CITATION_WITH_FRAGMENT.finditer(text)
+            if m.group(3) is not None or m.group(4) is not None
+        )
+    assert annotated > 100, (
+        f"only {annotated} citations carry a fragment. The retrofit landed 160; a number this "
+        f"low means the pattern stopped matching, not that the citations went away."
+    )
+
+    # A fragment that is not on the cited line, in a file that genuinely has that line.
+    target = REPO_ROOT / "tests" / "architecture" / "test_ff17_citations_resolve.py"
+    lines = target.read_text(encoding="utf-8").split("\n")
+    # Assembled at run time rather than written out: a literal plant string is, by the act of
+    # writing it, present in this very file — which is `L12.8` in miniature and cost one red run.
+    absent = "-".join(("nowhere", "in", "this", "tree", "at", "all", "\u00a7\u00b6"))
+    assert not any(absent in line for line in lines), "the plant is not a plant"
+    found = [n for n, body in enumerate(lines, start=1) if _without_quotes(absent) in body]
+    assert not found, "clause (d) would have nothing to refuse"
+
+    # And the quote-insensitive comparison is doing real work rather than matching everything.
+    assert _without_quotes('TABLE = "table"') == "TABLE = table"
+    assert _without_quotes("TABLE = table") in _without_quotes('    TABLE = "table"')
+    assert "definitely-not-here" not in _without_quotes('    TABLE = "table"')

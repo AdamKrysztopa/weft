@@ -207,11 +207,11 @@ it.
 must not settle it by demonstrating one answer.
 
 **The discrepancy, verified.** `02` §2 → *Pack settings* shows the `packs:` block in **`weft.yaml`**
-(`02-extension-model.md:513`), while `02` §2 → *The trust model* shows `[packs] allow` in
+(`02-extension-model.md:513 "supplied"`), while `02` §2 → *The trust model* shows `[packs] allow` in
 **`weft.toml`** (`:586`). `03` → *Project context* describes `weft.toml` as the file holding the
 project's default pipeline, collection, model profile and permission defaults
-(`03-cli.md:164-169`), and `03` → *Command surface* has `weft init` scaffold `weft.toml`
-(`03-cli.md:54`). Nothing anywhere states whether these are one file or two, or which one an
+(`03-cli.md:164-169 "Built in"`), and `03` → *Command surface* has `weft init` scaffold `weft.toml`
+(`03-cli.md:54 "— the sa"`). Nothing anywhere states whether these are one file or two, or which one an
 operator edits for what.
 
 **Why it cannot be left.** Both files are things a pack author is told to write into, and a manual

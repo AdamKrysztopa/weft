@@ -19,7 +19,8 @@ is nothing there to disagree with itself. The declaration FF5 is actually about 
 That is the accept-then-fail bug `docs/README.md` opens by describing — "the same file format was
 accepted at upload and had no extractor at extraction time" — and **it happened here**, predicted by
 line
-number before it did. `docs/11-multimodal.md:205` said `discover_source_docs` filtering on one
+number before it did. `docs/11-multimodal.md:206-208 'weft-vision — a'` said `discover_source_docs`
+filtering on one
 pack's module constant would make `.pdf` "silently invisible to ingest" the moment a second
 extractor pack shipped; `weft-pdf` shipped at ledger 2.27 and `weft index corpus/mrmr` walked nine
 PDFs, matched none, handed an empty batch to a text extractor and **exited 0 reporting success**.

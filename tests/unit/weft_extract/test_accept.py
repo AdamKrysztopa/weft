@@ -5,7 +5,7 @@ reviewer finding, and the shape of the defect matters more than the function:
 ingest used to filter on `weft_extract.text.EXTENSIONS`, one pack's module
 constant, so shipping `weft-pdf` left `.pdf` **silently invisible** to
 `weft index` — a run over nine PDFs that discovered nothing and exited 0.
-`docs/11-multimodal.md:205` predicted it by line number.
+`docs/11-multimodal.md:206-208 'weft-vision — a service, not a'` predicted it by line number.
 
 The fix is `docs/02-extension-model.md` §1's own rule applied — capability is
 derived, never declared — so these tests are all one assertion in different

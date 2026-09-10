@@ -7,15 +7,16 @@ requires each to be tested without the others standing in for it.
 
 What this file is about is a **key space that no longer lives in `weft-cli`**. Until 9.0 the
 `[services]` keys were three fixed fields on `ServiceSelection`
-(`packages/weft-rag/src/weft_cli/services.py:109`), so a pack publishing a new run-wide
+(`packages/weft-rag/src/weft_cli/services.py:111 'class Serv'`), so a pack publishing a new run-wide
 service had no way to be selected without an edit to this distribution — requirement 1
 failing for the next pack, which is what Phase 7's close filed rather than fixed
-(`docs/build-ledger.md:4358-4366`, finding *(a)*). Here the set is contributed: a pack
+(`docs/build-ledger.md:4358-4366 'emits prose'`, finding *(a)*). Here the set is contributed: a pack
 declares a `ServiceRole` beside the contract it publishes, discovery carries it on the pack's
 own report, and `weft-cli` reads the set rather than stating it.
 
 **`route` is deliberately not a role.** It names a *pipeline document* resolved in the
-contributed catalogue, not a plugin resolved in the registry (`docs/03-cli.md:925-930`), so it
+contributed catalogue, not a plugin resolved in the registry
+(`docs/03-cli.md:925-930 'weft_cli.commands.CommandRefusalError'`), so it
 stays a field of its own. `embed` and `store` are roles whose names predate the mechanism, and
 the tests below assert they came through it rather than being special-cased.
 """
@@ -62,7 +63,8 @@ def _report(
 def test_a_role_a_stranger_pack_declared_joins_the_selectable_set() -> None:
     """Requirement 1, for the next pack: a run-wide service becomes selectable on install.
 
-    `docs/build-ledger.md:5024-5027` — "`[services].<role>` names one plugin for a role the
+    `docs/build-ledger.md:5024-5027 'is the d'` — "`[services].<role>` names one plugin for a role
+    the
     contract-publishing pack declares selectable". Nothing in this distribution names
     `"blobs"`; it is reachable because a pack said so.
     """
@@ -138,7 +140,8 @@ def test_two_packs_declaring_one_role_key_are_refused_naming_both() -> None:
 def test_the_two_roles_whose_names_predate_the_mechanism_arrive_through_it() -> None:
     """`embed` and `store` are declared, not special-cased.
 
-    `docs/build-ledger.md:5028-5030`: "`embed` and `store` stay as the two roles whose names
+    `docs/build-ledger.md:5028-5030 's ticked'`: "`embed` and `store` stay as the two roles whose
+    names
     predate the mechanism". *Stay as* is the whole point — if `weft-cli` kept naming them
     itself, the mechanism would have one exception and requirement 1 would still fail for the
     pack that needed the exception. Read off real discovery rather than a double, per
@@ -156,7 +159,8 @@ def test_the_two_roles_whose_names_predate_the_mechanism_arrive_through_it() -> 
     assert "embed" in declared
     assert "store" in declared
     assert "route" not in declared, (
-        "route names a pipeline document, not a plugin, so it is not a role — docs/03-cli.md:925"
+        "route names a pipeline document, not a plugin, so it is not a role — "
+        "docs/03-cli.md:925 'weft_cli.commands.CommandRefusalError'"
     )
 
 
@@ -185,7 +189,8 @@ def test_a_declared_role_nothing_selected_is_absent_rather_than_guessed() -> Non
 
     A role carries no default of its own — `01`'s least-architecture check, and `L6.14`: a
     field no shipped pack writes answers emptily rather than usefully. `embed` and `store`
-    keep defaults because their names predate the mechanism (`docs/build-ledger.md:5028`),
+    keep defaults because their names predate the mechanism
+    (`docs/build-ledger.md:5028 's ticked'`),
     and those two defaults live in `weft_cli.services` where they always have.
 
     `CLAUDE.md`: a silent fallback is worse than a failure — it produces a plausible answer
@@ -227,7 +232,8 @@ def test_an_undeclared_role_key_is_refused_naming_the_declared_set() -> None:
 def test_route_is_accepted_as_a_key_while_never_being_a_role() -> None:
     """The one `[services]` key that names a pipeline rather than a plugin.
 
-    `docs/03-cli.md:925-930`. It shares the block because the question it answers is the same
+    `docs/03-cli.md:925-930 'weft_cli.commands.Comman'`. It shares the block because the question it
+    answers is the same
     one — which of the installed things fills this role for this project — and splitting the
     block by how the lookup happens would put an implementation detail in a user's file.
     """

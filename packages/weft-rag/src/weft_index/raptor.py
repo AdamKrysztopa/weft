@@ -252,7 +252,8 @@ test asserts their absence from the context before running rather than asserting
 
 **The retry halves what was sent, and that is the whole point of it.** `weft_llm.retry` already
 owns retrying the same request, and `LLMContextLengthError` is classed *permanent*
-(`weft_llm/errors.py:160`) precisely because re-sending an overflowing prompt fails identically
+(`weft_llm/errors.py:160 'class LLMConte'`) precisely because re-sending an overflowing prompt fails
+identically
 forever. So the only useful second attempt is a smaller one. It halves the rendered cluster
 text rather than the configured budget, because a cluster already under `max_cluster_chars`
 would otherwise be re-sent byte-identical — a call that cannot succeed where the first failed.

@@ -186,7 +186,8 @@ async def test_an_unmapped_prompt_name_propagates_rather_than_degrading() -> Non
 
 async def test_hypothetical_questions_runs_through_the_seam() -> None:
     """FF7(b) shape: driven through `weft_kernel.seam.wrap`, not around it — the failure
-    mode `tests/unit/weft_retrieve/test_vector_top_k.py:198`'s own module docstring names:
+    mode `tests/unit/weft_retrieve/test_vector_top_k.py:198 'services ='`'s own module docstring
+    names:
     a plugin whose entire suite calls its methods directly never notices a
     `BlockingCallError` it would raise the first time a real run reaches it.
     """

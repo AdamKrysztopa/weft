@@ -4,7 +4,8 @@ Properties (i), (ii) and (iii) each hold in isolation in their own files. This o
 sentence the task line actually makes: *a pack that publishes a run-wide service is reachable by
 `ctx.require` on every path — command, query, ingest — with no edit to `weft-cli`.* Each of the
 three assemblers is a separate opportunity to leave a path out, and leaving one out is exactly the
-failure this task exists to close: `docs/build-ledger.md:4358-4366` records Phase 7's close finding
+failure this task exists to close: `docs/build-ledger.md:4358-4366 'emits prose'` records Phase 7's
+close finding
 that `run_command` registers four contracts and a pack needing the configured store or embedder
 "still cannot reach one". The seam was repaired for the four contracts the agent happened to need.
 
@@ -42,8 +43,9 @@ class _FsBlobs:
     """The plugin an operator selects for the `blobs` role.
 
     Takes a `config` argument because every real plugin in this tree does — `HashEmbedder`
-    (`packages/weft-rag/src/weft_embed/hash_embedder.py:75`) and `PgVectorStore`
-    (`packages/weft-rag/src/weft_store/pgvector_store.py:605`) both declare one with a default,
+    (`packages/weft-rag/src/weft_embed/hash_embedder.py:75 'def __init__(self'`) and `PgVectorStore`
+    (`packages/weft-rag/src/weft_store/pgvector_store.py:605 'def _predic'`) both declare one with a
+    default,
     and every assembler builds a plugin as `registry.entry(...).factory(None)`. A fixture
     without it would make the production call look wrong when it is the fixture that is.
     """

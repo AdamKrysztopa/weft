@@ -35,9 +35,9 @@ corrects an earlier assumption in the same conversation that it was not.
 
 | Capability | Where it is |
 |---|---|
-| No retrieval at all — the naive floor | `no-retrieval` registered as a `Retriever`, `weft_retrieve/__init__.py:332`, with `pipelines/no-retrieval.yaml` |
+| No retrieval at all — the naive floor | `no-retrieval` registered as a `Retriever`, `weft_retrieve/__init__.py:332 "module d"`, with `pipelines/no-retrieval.yaml` |
 | Vector search | `vector-top-k` (`:333`), plus `iterative-retrieval` (`:334`) and `corrective` (`:335`) |
-| RAPTOR | **already built** — `RaptorSummarizer` registered as an `Expander`, `weft_index/__init__.py:63`, with its `summarize-cluster` `Prompt` at `:64` |
+| RAPTOR | **already built** — `RaptorSummarizer` registered as an `Expander`, `weft_index/__init__.py:63 "s this p"`, with its `summarize-cluster` `Prompt` at `:64` |
 | Query fan-out | `multi-query`, the fourth `QueryTransform` — ledger **2.18** |
 | Fusion across bases | `reciprocal-rank-fusion` (`weft_retrieve/fusion.py`) — ledger **2.18** |
 | Not double-counting one chunk indexed several ways | `collapse-to-parent` — ledger **2.33**, which already names `raptor` representations as a case it handles |
@@ -49,7 +49,7 @@ test fuses one of each shape in the same `Candidates` to prove the arithmetic is
 than merely that both compile.
 
 **And the seam for a new base was deliberately left open.** `Channel`
-(`weft_retrieve/payload.py:64`) is a *vocabulary, not a field type* — `Query.channels` and
+(`weft_retrieve/payload.py:64 "class Ch"`) is a *vocabulary, not a field type* — `Query.channels` and
 `RankedList.channel` are `str`. Its own docstring gives the reason: `02` names "hybrid search,
 filtering, full text, **graph traversal**" as the ways backends genuinely differ, so a closed enum
 would force a core edit every time somebody added a base.
@@ -132,14 +132,25 @@ ahead of everything graph-shaped, and nothing contradicts that.
 
 Not features, not lifts — things that are wrong now, none needing a gate or a kernel line:
 
-- **Unbounded `asyncio.gather`** at `weft_index/raptor.py:191` and `hypothetical_questions.py:93`.
-  A 700-node corpus through `hypothetical-questions` is 700 concurrent LLM calls today.
+- ~~**Unbounded `asyncio.gather`**~~ — **repaired since this brief was written.** It read: *"at
+  `weft_index/raptor.py` line 191 and `hypothetical_questions.py` line 93. A 700-node corpus
+  through `hypothetical-questions` is 700 concurrent LLM calls today."* — the two line numbers
+  spelled out rather than written `path:line`, because inside a quotation of a **superseded**
+  finding they are not claims about this tree and must not be read as any. That is the same repair
+  `tests/architecture/test_ff17_citations_resolve.py`'s own waiver docstring records making once
+  before: "one example rewritten so it no longer looks like a citation". Both fan-outs are bounded now, by a
+  configured ceiling rather than by a chunked loop — `raptor.py:417 "max_cluster_chars: int ="` and
+  `hypothetical_questions.py:69 "over eve"` carry the settings and the reasoning, and both gathers run over a
+  `_bounded(...)` wrapper. *Struck rather than deleted, and repointed at the fix rather than at
+  where the defect was, because the old line numbers named blank lines: carried repair `R11.8`
+  found this by asking, for the first time, whether a citation's **line** still holds anything —
+  and a finding whose evidence has evaporated reads as an open defect forever.*
 - **RAPTOR degrades silently** — no input cap, no overflow retry, no degradation record. A run that
   dropped every overflowing cluster returns `Produced` and looks identical to a complete one.
-- **`weft ask` bypasses the seam.** `ask.py:106-113` hand-writes `wrap(...)` for the embedder;
+- **`weft ask` bypasses the seam.** `ask.py:106-113 "instance"` hand-writes `wrap(...)` for the embedder;
   `:133-140` awaits the store unwrapped. The author-must-remember failure the seam abolishes,
   failing twice inside one function, with no coverage check.
-- **`bert_score(lang="en")` hardcoded** at `weft_eval/embedding_metrics.py:119` — silently mis-scores
+- **`bert_score(lang="en")` hardcoded** at `weft_eval/embedding_metrics.py:119 "[payload"` — silently mis-scores
   a Polish corpus, and fails quality requirement 6.
 - **`MetricScore.value` unbounded**; `cosine_similarity` does not clamp, so `embedding-similarity`
   can return a negative score that propagates into `answer_correctness`.
@@ -164,7 +175,7 @@ repository is named for.
 One amendment covers all three, and it is cheap to get wrong: it must distinguish a third-party
 source (write fresh, always) from the owner's own prior work (copyable) from short attributed
 quotation of a cited rationale. There is also a **live rule conflict** to settle in the same act:
-`weft_clean/artifact_remover.py:63,67` carries a transcribed regex under a "facts, not text" exception
+`weft_clean/artifact_remover.py:63 "Property",67` carries a transcribed regex under a "facts, not text" exception
 while the rule stated elsewhere for regexes says they specifically must be authored fresh.
 
 ## 7. Release state, 2026-09-05

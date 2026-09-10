@@ -4,7 +4,8 @@
 that lives in the CLI, because a field a participant fills and nothing reads is `L6.14`'s shape
 with the sides swapped. Measured 2026-09-06 before this task:
 `weft_cli.deletion._delete_from` ended `return removed.node_count`
-(`packages/weft-rag/src/weft_cli/deletion.py:129`), so the `Removed` a participant answered with
+(`packages/weft-rag/src/weft_cli/deletion.py:129 'not what it'`), so the `Removed` a participant
+answered with
 was discarded at the first frame that saw it, and no field added to that model could reach an
 operator at all.
 

@@ -445,8 +445,8 @@ whether or not the producing stage ever ran.
 > **Narrowed in Phase 9 task 9.1 (2026-09-06).** *"Before any `Store` sees the node"* is true and
 > weaker than what the seam does: `weft_kernel.seam.wrap` strips every transient namespace from a
 > produced `Node` before the result leaves **any** stage
-> (`packages/weft-kernel/src/weft_kernel/seam.py:36-39`, the call at `:421`, `_strip_transient` at
-> `:492-524`), and `payload/ext.py:9-10` has said so since Phase 0 — so a transient namespace never
+> (`packages/weft-kernel/src/weft_kernel/seam.py:36-39 "strippin"`, the call at `:421`, `_strip_transient` at
+> `:492-524`), and `payload/ext.py:9-10 "marks a "` has said so since Phase 0 — so a transient namespace never
 > survives the stage that wrote it, and no later stage can read one. **The example above is
 > withdrawn.** *"Multi-MB base64 blobs serialised into a JSONB column when a vision enhancer is absent
 > or fails"* presumes the blob rides in a transient namespace *from* an extractor *to* an enhancer,
@@ -458,10 +458,10 @@ whether or not the producing stage ever ran.
 > describer, the embedder and a vision-capable generator each open the same bytes and none of them
 > receives a copy. **`__transient__` is a guard, never a transport** — it exists so that bytes cannot
 > reach a JSONB column, and under this design that guard is never exercised by a figure, which is the
-> point. G5's row (`README.md:141`) states what transience *is* and never where it is applied, which is
+> point. G5's row (`README.md:141 "python3 "`) states what transience *is* and never where it is applied, which is
 > why this is a narrowing under `09` §6.2 and not a Reopened row; the alternative — moving the strip
 > to the store boundary so a namespace could carry bytes between stages — would have been a kernel
-> change at `seam.py:421`, would reinstate the N-strategies-N-copies cost `11` §1.4 measures, and would
+> change at `seam.py:421 "stage=st"`, would reinstate the N-strategies-N-copies cost `11` §1.4 measures, and would
 > still leave nothing readable at query time. `11` §3 D1 is settled by this block.
 
 **Stages declare what they read and write.** `requires` and `provides` name ext models, and the
@@ -723,7 +723,7 @@ class MetadataFilter(Protocol): ...                # marker: supports the whole 
 >
 > **Amended 2026-09-09 by ledger task `11.4`, as `S12` requires: this is a sentence about
 > obligation, not a prohibition on being one.** Read as a prohibition it is contradicted by the
-> tree — `examples/weft-example-graph/src/weft_example_graph/store.py:145` *is* a `NodeStore`, and
+> tree — `examples/weft-example-graph/src/weft_example_graph/store.py:145 "class Gr"` *is* a `NodeStore`, and
 > §4's own add-on table lists a graph store under `Store`. What it actually says is narrower and
 > still true: **satisfying `SourceDeletable` must not require satisfying `NodeStore`**, because a
 > pack that only holds derived rows would then owe five methods to answer one question about

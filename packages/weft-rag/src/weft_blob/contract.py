@@ -1,7 +1,8 @@
 """The `BlobStore` contract — published here, never by the kernel. Ledger task `9.4`.
 
 A **service, not a stage**: no pipeline position, no `run`, no `Stage[In, Out]` base
-(`docs/11-multimodal.md:198-205`). `weft_kernel.seam` wraps stages and `flush` and nothing
+(`docs/11-multimodal.md:199-203 'weft-blob — a'`). `weft_kernel.seam` wraps stages and `flush` and
+nothing
 else, which is why nothing on this contract ever produces a `Node` and why the bytes reaching
 it never enter the payload — a `weft_vision.Describer` reads them, a chunker or renderer never
 does.

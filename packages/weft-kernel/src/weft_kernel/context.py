@@ -112,7 +112,8 @@ class ServiceRole(BaseModel):
     Phase 0 narrowing: a service is populated into a `ServiceRegistry` by whatever assembles
     a run, but nothing let a pack *name* which of its contracts is selectable that way, or
     under what `[services]` key. `ServiceRole` is that declaration — "one constant beside the
-    Protocol" (`docs/build-ledger.md:5026`, `:5370`), never a member on the Protocol itself.
+    Protocol" (`docs/build-ledger.md:5026 'exists becaus'`, `:5370`), never a member on the Protocol
+    itself.
 
     It is a plain constant rather than a `ClassVar` written into the contract's own body,
     for the reason `weft_extract.contract` (`:44-56`) already states for `Extractor.version`:

@@ -165,17 +165,17 @@ can watch HyDE lose, which is what `11` §6 measures it doing.
 ## 5 · Phase 27 — node identity, and the bug hiding behind the tenant question
 
 **`NodeId` is a content digest over `media_type`, `content`, sorted `parent_ids` and `ordinal`
-(`weft_kernel/payload/node.py:245-260`). It excludes the tenant — and it excludes the source.**
+(`weft_kernel/payload/node.py:245-260 "byte-ide"`). It excludes the tenant — and it excludes the source.**
 
 The tenant half is the one an outside review raised, and it is real: two tenants indexing the same
 document derive the same id, `weft_nodes.id` is the primary key, and `ON CONFLICT (id) DO UPDATE SET
-… sources = EXCLUDED.sources` (`weft_store/pgvector_store.py:750-756`) is a wholesale *replace*
+… sources = EXCLUDED.sources` (`weft_store/pgvector_store.py:750-756 "%(embedd"`) is a wholesale *replace*
 rather than a merge. But `tenant_id` is the constant `"default"` and there is no network listener
 anywhere in `packages/`, so that half was filed as latent.
 
 **Filing it as latent was wrong, and running it is what showed why.** The same mechanism fires inside
 a single tenant, today, with no second tenant and no attacker. Two files with identical bytes in one
-corpus produce identical node ids — `weft_extract/text.py:93-96` documents that collision as
+corpus produce identical node ids — `weft_extract/text.py:93-96 "is the f"s resolved path — stable across"s resolved path — stable across"` documents that collision as
 *intended* — while their `SourceId`s differ, because a source id is the resolved path. So the second
 ingest's `ON CONFLICT` overwrites `sources` with its own id alone, and the first document's nodes
 silently become the second's. Measured against the live pgvector store, on a throwaway database:

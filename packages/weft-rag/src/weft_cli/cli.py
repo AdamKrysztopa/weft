@@ -545,7 +545,8 @@ async def run_command(command_name: str, args: argparse.Namespace, deps: Depende
     # `Prompts`, `TokenSink`, `Registry`, and every `[services]` role this run selected — used
     # to be built here, five `ctx.services.add` calls in a row with no counterpart the query
     # and ingest assemblers could be checked against for the identical gap Phase 7's close
-    # found (`docs/build-ledger.md:4358-4366`): "`run_command` registers four contracts and a
+    # found (`docs/build-ledger.md:4358-4366 'emits pros'`): "`run_command` registers four contracts
+    # and a
     # pack needing the configured store or embedder... still cannot reach one." Moved into
     # `weft_cli.run_services.command_path_services` — see that function's own docstring for
     # each service and why it is there — so the three assemblers are one list written thrice

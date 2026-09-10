@@ -434,7 +434,7 @@ async def test_a_failed_completion_is_retried_once_with_the_cluster_halved() -> 
     """The specific branch that made small-context models usable, and the one thing
     `weft_llm.retry` structurally cannot do: it retries the same request, and an overflow
     fails identically every time. `LLMContextLengthError` is classed *permanent* for exactly
-    that reason (`weft_llm/errors.py:160`), so halving is the only move left.
+    that reason (`weft_llm/errors.py:160 'class LLMContextLeng'`), so halving is the only move left.
     """
     # Arrange — the first attempt fails; the second must be strictly smaller.
     a, b = _node("a" * 200), _node("b" * 200)

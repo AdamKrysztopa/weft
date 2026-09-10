@@ -21,20 +21,23 @@ declaration nobody makes is indistinguishable from a declaration nobody needs.
 
 **Read off the registered plugin, never off source text.** `applies_to` is read here the way
 `weft_kernel.runner._applies_to_of` reads it — `getattr(instance, "applies_to", ())` on the object
-the registered factory builds (`packages/weft-kernel/src/weft_kernel/runner.py:1240-1249`) — so a
+the registered factory builds
+(`packages/weft-kernel/src/weft_kernel/runner.py:1240-1249 'def _app'`) — so a
 chunker that inherits its declaration, or that a factory rather than a class supplies, answers this
 check exactly as it would answer the runner. A grep for the string would answer for neither.
 
 **The population is `packages/` and `examples/`, and `testing/` is structurally empty.**
 `testing/weft-canary` registers nothing at all: its `register()` deletes both arguments and never
 runs, because every test session refuses it by allow-list and fitness function 8(a) fails if it
-ever executes (`testing/weft-canary/src/weft_canary/__init__.py:47-56`). Sweeping it would add a
+ever executes (`testing/weft-canary/src/weft_canary/__init__.py:47-56 'def register('`). Sweeping it
+would add a
 directory to the prose and no subject to the check.
 
 **What this cannot check, stated rather than implied.** `Chunker` already forces one declaration at
 registration — `publishes_property_vocabulary = True` makes `destroys` mandatory, and
 `weft_kernel.registry` refuses a plugin without it naming what is missing
-(`packages/weft-rag/src/weft_chunk/contract.py:81`). `applies_to` is *not* on that footing, so a
+(`packages/weft-rag/src/weft_chunk/contract.py:81 'Chunker.publish'`). `applies_to` is *not* on that
+footing, so a
 third party's chunker that declares none registers fine and is refused by nothing: this check's
 subject is the chunkers *this tree* ships. Putting `applies_to` beside `destroys` in
 `required_declarations` is the stronger answer and is deliberately not taken here — `02` §3 settles

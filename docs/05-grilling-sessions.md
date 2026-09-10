@@ -190,7 +190,7 @@ worse design:
   with the rule that **vars never participate in applicability** so the two can never disagree.
 - **A subclass per failure kind, not one class with a `kind` field.** Decided on evidence: task
   0.14's ratchet derives its documented set from `WeftError` subclass *names*
-  (`tests/docs/test_troubleshooting_coverage.py:87-119`), so a fat class would present one
+  (`tests/docs/test_troubleshooting_coverage.py:87-119 "Import e"`), so a fat class would present one
   already-documented name and let a dozen new failure modes ship undocumented — the exact hole that
   ratchet was built to close.
 
@@ -806,7 +806,7 @@ question.** The graph pack was built with zero edits under `packages/` and then 
 it? Three symptoms, one subject:
 
 - **Reach.** `02` §1 settles that deletion fans out *"across **every** registered plugin that
-  satisfies `SourceDeletable`"*. Task 5.1a narrowed that at `weft_cli/fanout.py:71`, keeping only the
+  satisfies `SourceDeletable`"*. Task 5.1a narrowed that at `weft_cli/fanout.py:71 "How this"`, keeping only the
   `NodeStore` that `[services] store` names, so pgvector and Qdrant are not both connected to. The
   graph store registers under `NodeStore` (`02` §4's table), so the narrowing excludes it and derived
   graph data outlives its source — the same RAPTOR scar seen elsewhere, now first-party
@@ -838,7 +838,7 @@ nobody can write a false one.
   under G9's implementer rule, changing every implementation in and out of this tree, to hand over
   something the passport already carries. *Withdraw the promise* was attacked as requirement 4 in the
   open: `full` would keep a capability only first-party stores can use. **What held: the primary
-  store through `ctx.require(NodeStore)`.** `Context.require` exists (`context.py:208`) and
+  store through `ctx.require(NodeStore)`.** `Context.require` exists (`context.py:208 "today is"`) and
   `NodeStore` already answers *what should exist* with `scan`, `count` and `list_sources`; the gap was
   only that nothing puts the store in the reconcile `Context`'s services. Zero kernel lines, no
   contract move.
@@ -1336,7 +1336,7 @@ rather than a task.** The measurement is 9 real papers under `corpus/mrmr/`, ext
   data.*
 - **Carry `ext` forward except facts indexed by offset.** Honest, mechanical, and **vacuous in this
   tree**: measured 2026-09-08, the only `ExtModel` any extractor attaches to a `TEXT` root node is
-  `PdfPages` itself (`weft_pdf/document.py:486`; `BlobRef`, `PageSpan` and `TableGrid` attach to
+  `PdfPages` itself (`weft_pdf/document.py:486 ").with_e"`; `BlobRef`, `PageSpan` and `TableGrid` attach to
   `IMAGE`/`TABLE` nodes, which never reach a cleaner). So this repair carries **nothing**, on
   **every** pipeline, and ships machinery that cannot fire — which is `L5.19`'s own shape,
   committed inside the phase that was supposed to be repairing it.
@@ -1450,7 +1450,7 @@ been proved four times. The 404 measurement was right and the sentence built on 
 **Three namespaces, and the tree collided on two.** The *module* namespace never collided: this
 project's top-level modules are `weft_kernel`, `weft_rag`, `weft_cli` and their siblings, and
 neither live project installs any of those. What collided is the **distribution name** and the
-**console script** — `packages/weft-rag/pyproject.toml:132` declares `weft = "weft_cli.cli:main"`,
+**console script** — `packages/weft-rag/pyproject.toml:132 "referenc"` declares `weft = "weft_cli.cli:main"`,
 the same binary name both live projects install, so whichever wheel pip writes last owns `weft` on
 a machine holding two of them.
 

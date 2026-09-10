@@ -382,7 +382,7 @@ carry now. Each has a named forcing function; nothing is deferred on vibes.
 | A model-written description of a table | **Measured, refused, and named.** A figure gets a describer because it has no structure to render; a table has one, and Weft renders it twice — index form and prompt form (`9.6`) — with rows as children carrying the header (`9.14`). That is where the gain is: row-level chunking moves BM25 Recall@1 **0.366 → 0.754** (arXiv:2605.00318), while an LLM pass over table chunks measures **+2.2 to +2.8pp Recall@5** (arXiv:2604.01733) for one model call per chunk at index time. **Reopen when** a measurement on Weft's own corpus shows a description beating the *serialised grid plus row children* — not beating raw extraction, which is the comparison that makes the technique look good — or when a corpus arrives whose tables have no recoverable grid, where there is no serialisation to lose to. The name `describe-table` is held in `10` §4 so the first implementation cannot take it; the contract needs no change, because `Describer` names the medium and not the model (`11` §2.2) and this would be a second stage naming it, exactly as `describe-figure` does |
 | Late-interaction (multi-vector) retrieval | A second backend beyond Qdrant holds a multi-vector type with a MaxSim operator, or the storage ratio `11` §3 D5 cites moves by an order of magnitude. `Node.embedding` is one `Vector` (G5) and `search_vector` takes one vector (G4); both would move. The names — `colpali`, `colqwen`, `late-interaction`, `maxsim`, `visual-citation`, `grounded-answer` — are held in `10` §4 against nothing built |
 | An object-store blob backend (S3, MinIO) | The first deployment whose blob root is not the host's disk. The filesystem implementation ships in Phase 9; its conformance kit and the FF9(c) stranger are what a third backend implements against |
-| Graph traversal as a member of the store contract family | A **second real backend** implements it — `weft-neo4j` behind a compose profile, on `qdrant`'s `conformance` precedent (`compose.yaml:44-58`). The in-memory store counts for nothing (`01` → *Runtime shape*: it "exists, and is not a backend") and Qdrant has no traversal primitive, so G4's two-backend bar is untouched and **G4 does not reopen**. Until then the Protocol ships from `weft_kg`, the pack that owns the capability, and a third-party backend depends on `weft-rag` for it — which such a backend already does. Promotion moves the Protocol into `weft_store.contract`: a **G9 major** for the pack's implementers, because a Protocol changes home, and a **minor** for `weft-store`, because a contract is added and none moves. `STORE_CONTRACT_VERSION` does not move when the Protocol is *published*, only when it is promoted. Added by ledger task `11.4`, 2026-09-09; `S12` is the decision and `docs/build-ledger.md` → Phase 11 the tasks |
+| Graph traversal as a member of the store contract family | A **second real backend** implements it — `weft-neo4j` behind a compose profile, on `qdrant`'s `conformance` precedent (`compose.yaml:44-58 "So this "`). The in-memory store counts for nothing (`01` → *Runtime shape*: it "exists, and is not a backend") and Qdrant has no traversal primitive, so G4's two-backend bar is untouched and **G4 does not reopen**. Until then the Protocol ships from `weft_kg`, the pack that owns the capability, and a third-party backend depends on `weft-rag` for it — which such a backend already does. Promotion moves the Protocol into `weft_store.contract`: a **G9 major** for the pack's implementers, because a Protocol changes home, and a **minor** for `weft-store`, because a contract is added and none moves. `STORE_CONTRACT_VERSION` does not move when the Protocol is *published*, only when it is promoted. Added by ledger task `11.4`, 2026-09-09; `S12` is the decision and `docs/build-ledger.md` → Phase 11 the tasks |
 
 ## Phases
 
@@ -540,9 +540,9 @@ observed elsewhere: an LLM scores dimensions, a deterministic ladder decides.
 > (NUL → **space** rather than deletion, counted and logged before stripping). `04`
 > lists it among the six highly-ranked Tier 1 items its own tables do not name, and no phase Lift line
 > ever claimed it. Measured 2026-08-18, end to end: `corpus/arxiv/2508.18901v1.pdf` — a document
-> declared at `corpus/manifest.toml:122-129` — extracts through Weft's own `pdf-text` to a `Produced`
+> declared at `corpus/manifest.toml:122-129 "source ="` — extracts through Weft's own `pdf-text` to a `Produced`
 > `Node` whose `content` carries **65 NUL bytes**; `weft-store`'s schema is `content TEXT NOT NULL`
-> (`weft_store/pgvector_store.py:138`); psycopg against the live pgvector container answers
+> (`weft_store/pgvector_store.py:138 "was decl"`); psycopg against the live pgvector container answers
 > `DataError: PostgreSQL text fields cannot contain NUL (0x00) bytes`. Two of the corpus's nineteen
 > PDFs do this, both in the `fetch` tier, which is why the gate is green — the publishable baseline
 > rests only on the reproducible tiers.
@@ -551,9 +551,9 @@ observed elsewhere: an LLM scores dimensions, a deterministic ladder decides.
 > *(`weft_kernel.seam._sanitize_control_bytes`), riding the same `Produced` → `Node` / `tuple` / `list`*
 > *walk `_strip_transient` already performs, immediately after it — never `weft-extract`, never a*
 > *store. Not `weft-extract`: eight sites across `packages/` build a `Node` from text that came from*
-> *outside the process (`weft_extract/text.py:80`, `weft_pdf/document.py:205`, `weft_chunk/*
-> *fixed_size.py:145`, `weft_clean/dictionary_spacing.py:117`, `weft_clean/hyphenation.py:70`,*
-> *`weft_clean/whitespace.py:63`, `weft_clean/table_linearizer.py:79`, `weft_index/raptor.py:254`) —*
+> *outside the process (`weft_extract/text.py:80 "Node.syn"`, `weft_pdf/document.py:205 "rows: tu"`, `weft_chunk/*
+> *fixed_size.py:117 "destroys"`, `weft_clean/dictionary_spacing.py:108-109 "intact: "`, `weft_clean/hyphenation.py:71-72 "intact: "`,*
+> *`weft_clean/whitespace.py:64-65 "intact: "`, `weft_clean/table_linearizer.py:79 "destroys"`, `weft_index/raptor.py:254 "owns ret"`) —*
 > *a smaller-scale reproduction of the same twelve-call-site fragility observed elsewhere. Not a*
 > *store: pgvector's* *`content` column is `TEXT NOT NULL` and refuses a NUL byte; `weft_qdrant/store.py` sends*
 > *`model_dump(mode="json")` over its own wire protocol and does not, so fixing this at a store means*
@@ -570,7 +570,7 @@ observed elsewhere: an LLM scores dimensions, a deterministic ladder decides.
 > *carries, walked by `model_fields` introspection rather than a maintained list — the same lesson*
 > *about the transient scrub applies unchanged. Measured directly: no first-party `ExtModel`*
 > *shipped as of this task carries verbatim extractor text — `weft_pdf.PdfPages` (`weft_pdf/*
-> *document.py:94-131`), the one built straight from what a PDF backend reads, has only `backend: str`*
+> *document.py:94-131 "ExtModel"`), the one built straight from what a PDF backend reads, has only `backend: str`*
 > *(a plugin name) and `starts: tuple[int, ...]` (offsets) — so today's corpus exercises `content`*
 > *only; the `ext` walk covers the column-level fact (pgvector's `ext JSONB NOT NULL` refuses a NUL*
 > *byte exactly as `TEXT` does) rather than a currently-populated field, and costs one `isinstance`*
@@ -826,7 +826,7 @@ of it, because the ordering table in `05` exists precisely because these decisio
 ### Phase 9 — Figures and tables as nodes
 
 **Added 2026-09-06, logged as scope decision `S11`.** The payload model has named `IMAGE` and `TABLE`
-since Phase 0 (`packages/weft-kernel/src/weft_kernel/payload/media_type.py:17-18`) and nothing in
+since Phase 0 (`packages/weft-kernel/src/weft_kernel/payload/media_type.py:17-18 "IMAGE = "`) and nothing in
 `packages/` has ever produced either — a closed core vocabulary two members wide with no producer,
 found by grep rather than by reading. `11` is this phase's design, written 2026-08-18 and re-verified
 against the tree on 2026-09-06; the design survived, the citations did not, and `11` §3 D1 — the one
@@ -837,10 +837,10 @@ expensive architecture is measured before it is built.
 
 **It runs first, and its first task is not multimodal.** Two of its tasks reach a run-wide service on
 the ingest path — a blob store and a describer — and today every path assembles its services from a
-hand-written list (`weft_cli/run_services.py:345`, `:399`; the command path in `weft_cli.cli`) against
-three fixed keys (`weft_cli/services.py:109`), which is the requirement-1 failure Phase 7's close filed
+hand-written list (`weft_cli/run_services.py:345 "for posi"`, `:399`; the command path in `weft_cli.cli`) against
+three fixed keys (`weft_cli/services.py:111 "class Se"`), which is the requirement-1 failure Phase 7's close filed
 as design question *(a)* and said must not be settled from one instance
-(`docs/build-ledger.md:4352-4360`). Task **9.0** is that repair. It has three consumers — the failing
+(`docs/build-ledger.md:4352-4360 ". **And "`). Task **9.0** is that repair. It has three consumers — the failing
 instance Phase 7 measured, this phase's two services, and Phase 11's traversal contract on the query
 path — and it sits here only because this phase is the first in the owner's order of 2026-09-06 to
 need it. Phase 10 (RAPTOR) builds directly on the nodes this phase produces: a table's index text and a
@@ -860,7 +860,7 @@ poisoning (`11` §2.4).
 
 - **Gate:** none. D1 settled 2026-09-06 as a narrowing under `02` §1 (task 9.1 is the paste); G2 gave
   applicability, G4 `SourceDeletable`, G5 the payload, G6 the thread-offload precedent
-  (`packages/weft-pdf/src/weft_pdf/pdf_layout.py:25-29`), G7 no bus, G9 the two-audience version rule,
+  (`packages/weft-pdf/src/weft_pdf/pdf_layout.py:25-29 "offloads"`), G7 no bus, G9 the two-audience version rule,
   G13 participation that follows use. Two lines carry a `⚠` that is a **question label** from `11` §4
   — `G4-b`, `G4-c` — each an amendment to `02` §1 the owner accepts or refuses under `09` §6.2's
   widening test, never a gate reopened by a marker.
@@ -870,7 +870,7 @@ poisoning (`11` §2.4).
   stated weakening.
 - **Lift:** design, never code. From the third party, read and closed: the four converter flags and
   their reason, the chars-per-page OCR heuristic, the caption ladder minus its synthesised third rung,
-  the non-AGPL decision already recorded at `packages/weft-pdf/pyproject.toml:10-11`, the three render
+  the non-AGPL decision already recorded at `packages/weft-pdf/pyproject.toml:10-11 "answers "`, the three render
   constants. From the owner's own prior work: bytes-to-disk-with-a-reference and a bounded fan-out.
   Its scars travel too — a one-bit `supports_native_image` flag on a port, a document parsed twice, a
   prompt pinned by a test as a literal, a cache hit that rebinds a figure to a blob by positional index
@@ -909,7 +909,7 @@ figure in the same run:
   document's text, its table, or the figure's caption, and present only in what the describer
   wrote. **The clause's own wording — *"citing the `IMAGE` node"* — is satisfied in substance and
   is not observable**: `weft_generate.payload.Citation` carries `node_id`, and
-  `packages/weft-rag/src/weft_cli/render.py:520` renders `[marker] uri` alone, so with three nodes from one source the
+  `packages/weft-rag/src/weft_cli/render.py:520 "if recon"` renders `[marker] uri` alone, so with three nodes from one source the
   rendered citation cannot name which answered. Recorded as `lessons.md` `L9.88` rather than
   waved through; it is a renderer gap, not a provenance gap, and Phase 9 did not create it.
 - **`weft delete` takes both counts to zero** — `3 → 0` nodes, `1 → 0` blobs, asserted either
@@ -961,7 +961,7 @@ the finding.
 
 **Added 2026-09-06 by the owner's roadmap decision; specified the same day, when its four source
 papers arrived.** RAPTOR is not new here — `RaptorSummarizer` has shipped as a registered `Expander`
-since Phase 2 task 2.32 (`weft_index/__init__.py:63`) with its `summarize-cluster` `Prompt` beside it
+since Phase 2 task 2.32 (`weft_index/__init__.py:63 "s this p"`) with its `summarize-cluster` `Prompt` beside it
 — so this phase is an **extension of a shipped plugin**, not a new capability. The papers, read at
 source and adversarially peer-reviewed before the plan was written: Parth Sarthi, Salman Abdullah,
 Aditi Tuli, Shubh Khanna, Anna Goldie, Christopher D. Manning, *RAPTOR: Recursive Abstractive
@@ -1062,7 +1062,7 @@ the graph as a shipped pack, is deliberately not here: it is blocked on three de
 that owns the capability without G4's second backend, with family membership deferred on a named
 trigger; and the seam through which a pack's store is named for a run is built once, as Phase 9's
 task **9.0**, from two consumers and the failing instance Phase 7's close filed
-(`build-ledger.md:4355-4359`) — **this phase inherits it and does not build it.** The third — where
+(`build-ledger.md:4355-4359 "the clos"`) — **this phase inherits it and does not build it.** The third — where
 a corpus-wide, revisable pass runs — **was settled by G15 on 2026-09-08**, and the tasks that
 depend on it keep their ⚠ as a record of what was once undecided rather than as a block; this
 sentence called it open until 2026-09-09, which is the Gate bullet below it saying the opposite
@@ -1072,7 +1072,7 @@ in the same section (`L11.6`'s shape, one document over).
 extension points is still one package"* — names the graph add-on as its own worked example
 (`01:97-98`), and until now the only instance in the tree was `examples/weft-example-graph`, a
 stranger that owns a private store its retriever constructs directly
-(`examples/weft-example-graph/src/weft_example_graph/retriever.py:51-55`, `needs_store = ()`). An
+(`examples/weft-example-graph/src/weft_example_graph/retriever.py:51-55 "needs_st"`, `needs_store = ()`). An
 example may do that; a *shipped* retriever whose backend nobody can swap fails requirement 4 in
 the release set, and a rung whose `needs_store` the assembler cannot check turns a refusal by name
 at assembly (`02:981`, kept by `hybrid`, ledger 8.6) into a bare error mid-run. So this phase is
@@ -1120,7 +1120,7 @@ ways** in one run.
   says what the sentence claims (`L9.34`); `03` → *Project context* (`03:909`) for the `[services]` role
   table `9.0` generalised from the refusal at `03:920`; `NOTICE`'s three cases, because this is the
   first phase that copies the owner's prior work and the obligation is *"in the same commit as the
-  first copied line — not after"* (`product-direction.md:84`); and `10` §2.1, because every name
+  first copied line — not after"* (`product-direction.md:84 "source f"s own prior work, in"s own prior work, in"`); and `10` §2.1, because every name
   below is a published claim.
 - **Lift:** the example pack's Postgres store — Weft's own code, a move rather than a copy — and,
   under `NOTICE` case 2, the pure functions of the owner's `graph-study` domain layer: the
@@ -1164,7 +1164,7 @@ ways** in one run.
 **Why the exit names fitness function 16 as well as its own.** 16 is Phase 8's and this phase
 widens its scope — the moment `weft-kg` ships a document, every plugin it registers into a
 pipeline position is one that check must find named
-(`tests/architecture/test_ff16_ladder_reachability.py:64-70` reads scope off which distributions
+(`tests/architecture/test_ff16_ladder_reachability.py:64-70 "from wef"` reads scope off which distributions
 contribute a document). 24 is the pack's own ordinariness, the FF21 shape with the one exception a
 contract-publishing pack forces. The seam's fitness function is Phase 9's, and this phase is its
 second consumer rather than its author — which is the whole point of a check with two consumers
@@ -1784,7 +1784,7 @@ All checks run in CI, before tests.
     file's own. Matching is on **basename**, deliberately generous, because this codebase
     abbreviates its own paths — it refuses a pointer that goes nowhere, not one that is merely
     short. **Clause (b) exists because clause (a) is blind to it:** a comment citing
-    `unicode_normalizer.py:12-37` *inside* `unicode_normalizer.py`, describing a method that file
+    `unicode_normalizer.py:12-37 "construc"` *inside* `unicode_normalizer.py`, describing a method that file
     never had, resolves perfectly — the basename collides. Three of those were found here, one
     carrying the words "verified at source".
 

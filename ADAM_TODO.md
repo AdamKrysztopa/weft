@@ -79,8 +79,8 @@ is still a number you can never reuse, so it is worth one deliberate look.
 made that sentence false, and one amendment covers both:
 
 1. **Five to eight sites quote third-party docstrings verbatim, attributed** — `weft_clean/
-   table_linearizer.py:6-7`, `whitespace.py:6`, `hyphenation.py:7`, `unicode_normalizer.py:5`
-   (which labels its own quotation "verbatim"), `weft_llm/loop_guard.py:50`. Nothing executable was
+   table_linearizer.py:3-5 "Task **1"s second worked example —"s second worked example —"`, `whitespace.py:3-5 "Task **1"s third worked example —"s third worked example —"`, `hyphenation.py:3-5 "Task **1"s worked example, and"s worked example, and"`, `unicode_normalizer.py:5 "encoding"`
+   (which labels its own quotation "verbatim"), `weft_llm/loop_guard.py:50 "internal"`. Nothing executable was
    carried and every fragment is attributed ordering rationale — this is a **claim-accuracy**
    defect, not a plagiarism one.
 2. **You decided on 2026-09-05 that `graph-study-main` may be copied as-is**, because it is your own
@@ -93,7 +93,7 @@ quotation of a cited rationale.
 
 **I have drafted it** — see the commit that lands with this file. Read the wording; the substance
 is yours to accept or change. There is also a live rule conflict settled in the same act:
-`weft_clean/artifact_remover.py:63,67` carries a regex under a "facts, not text" exception
+`weft_clean/artifact_remover.py:63 "Property",67` carries a regex under a "facts, not text" exception
 while the project's own rule is that regexes specifically must be authored fresh.
 
 ---

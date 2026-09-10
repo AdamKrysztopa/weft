@@ -1,10 +1,10 @@
 """`docs/build-ledger.md` **2.34**: every document `corpus/manifest.toml` names indexes.
 
 Before this task, `corpus/arxiv/2508.18901v1.pdf` — declared at
-`corpus/manifest.toml:122-129` — extracted through `weft-pdf`'s `pdf-text`
+`corpus/manifest.toml:122-129 'source ='` — extracted through `weft-pdf`'s `pdf-text`
 backend to a `Produced` `Node` whose `content` carried 65 NUL bytes (measured
 directly against `PdfTextExtractor.run`, 2026-08-18), and `weft-store`'s
-`weft_nodes.content` column (`weft_store/pgvector_store.py:138`) is `TEXT
+`weft_nodes.content` column (`weft_store/pgvector_store.py:138 'was declared, which is'`) is `TEXT
 NOT NULL` — Postgres refuses a NUL byte in a `TEXT` value, so the real
 `PgVectorStore` against the real container answered `DataError: PostgreSQL
 text fields cannot contain NUL (0x00) bytes` for this document specifically.
@@ -14,7 +14,7 @@ document, run through the ordinary ingest pipeline — `pdf-text` → `fixed-
 size` → `hash` → `pgvector`, composed by `weft_kernel.runner.Runner` exactly
 as `tests/integration/test_ingest_pipeline.py` composes the built-in four —
 now reaches the real container and is stored, because `weft_kernel.seam.wrap`
-(every stage call in this pipeline goes through it — `runner.py:210`)
+(every stage call in this pipeline goes through it — `runner.py:210 'from weft_kernel.seam'`)
 replaces every NUL byte with a space and counts them before a `Produced`
 `Node` ever reaches `PgVectorStore.upsert`.
 
@@ -43,7 +43,7 @@ from weft_store.pgvector_store import PgVectorSettings, PgVectorStore
 
 _DSN = os.environ.get("WEFT_DATABASE_URL", "postgresql://weft:weft@localhost:5433/weft")
 
-#: `corpus/manifest.toml:122-129` — one of the two `fetch`-tier PDFs 2.34's own note
+#: `corpus/manifest.toml:122-129 'source ='` — one of the two `fetch`-tier PDFs 2.34's own note
 #: names as carrying NUL bytes in its extracted text.
 _PDF_PATH = Path(__file__).resolve().parents[2] / "corpus" / "arxiv" / "2508.18901v1.pdf"
 

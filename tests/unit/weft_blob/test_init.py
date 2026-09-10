@@ -57,7 +57,8 @@ def test_the_registered_factory_is_one_the_fan_out_can_inspect() -> None:
     constructs `FilesystemBlobStore` directly, so all of them passed while `weft delete` reported
     one participant instead of two. `weft_cli.fanout.participants_for` asks
     `class_provides(unwrap_factory(entry.factory), SourceDeletable)`, and `unwrap_factory` peels
-    `functools.partial` and nothing else (`weft_kernel/registry.py:594-614`) — so a pack that binds
+    `functools.partial` and nothing else (`weft_kernel/registry.py:594-614 'def unwra'`) — so a pack
+    that binds
     its settings in a closure is invisible to every reader that inspects a class attribute rather
     than a constructed instance. `weft_store`'s `register()` is the shape that works.
 

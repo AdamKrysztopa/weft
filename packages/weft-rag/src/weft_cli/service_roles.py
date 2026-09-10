@@ -3,7 +3,8 @@
 Until this task the `[services]` keys were three fixed fields on
 `weft_cli.services.ServiceSelection`, so a pack publishing a new run-wide service had no way
 to be selected without an edit to `weft-cli` itself — Phase 7's close, finding *(a)*
-(`docs/build-ledger.md:4358-4366`). `weft_kernel.discovery.ServiceRoleOffer` already carries a
+(`docs/build-ledger.md:4358-4366 'emits prose'`). `weft_kernel.discovery.ServiceRoleOffer` already
+carries a
 pack's own declaration on its `PackReport`; this module is where every report's declarations
 are gathered into the one table `weft_cli.services` reads instead of stating the set itself.
 

@@ -1,6 +1,6 @@
 """Blob keys are derived, and derived from something safe to derive from — ledger task `9.4`.
 
-`docs/11-multimodal.md:213-217` settles that keys are **derived, never allocated**:
+`docs/11-multimodal.md:213-217 'packages/weft-'` settles that keys are **derived, never allocated**:
 `{tenant_id}/{source_id}/{ordinal}.{ext}`, so a cascade delete is one prefix and no ledger table
 exists to drift. That argument is what removes a whole component from this phase, and it survives
 here unchanged.

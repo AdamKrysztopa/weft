@@ -18,7 +18,7 @@ correctly split and that judgement holds"*), `02`:326, `02`:848, `05`:47, `05`:4
 That is an **omission, not a decision**, and the plan says so in three places without noticing:
 
 - `weft-kernel` already ships `MediaType.IMAGE` and `MediaType.TABLE`
-  (`packages/weft-kernel/src/weft_kernel/payload/media_type.py:17-18`) — a closed core vocabulary
+  (`packages/weft-kernel/src/weft_kernel/payload/media_type.py:17-18 "IMAGE = "`) — a closed core vocabulary
   naming two things nothing in the tree can produce.
 - G5 built `__transient__` *because of* a real scar: a base64-encoded image blob riding on every node
   through several processing stages until an explicit scrub step removed it (`02` §1 → *The payload
@@ -177,11 +177,11 @@ comparable design put two of ten passport fields there and one of them had zero 
 
 | Pack | Contract | Exists? | What it is |
 |---|---|---|---|
-| **`weft-extract`** | publishes `Extractor` | **Contract exists, shipped** | Unchanged. A figure is a `Node` with `media_type=IMAGE`; a table is a `Node` with `media_type=TABLE`. **No new contract is needed for either.** What must grow is the *accept set*: `discover_source_docs` filters on one pack's module constant `EXTENSIONS` (`packages/weft-rag/src/weft_extract/text.py:40`, read at `:98`) and `weft-cli` imports that function by name (`packages/weft-rag/src/weft_cli/ingest.py:36,80`). Correct and Phase-0-scoped when this was written; the moment a second extractor pack ships, `.pdf` becomes **silently invisible to ingest**. Fail-closed, so better than a fail-open default — the same missing derivation, and exactly what fitness function 5 exists to hold. **This happened, exactly as predicted, when `weft-pdf` shipped at ledger 2.27, and the derivation was built as part of repairing it** — `weft_extract.accept.claimed_extensions` over `weft_kernel.registry.Registry.names_for`, read by `weft_cli.ingest.run_index`. The line numbers cited above are the ones as of writing and have since moved |
+| **`weft-extract`** | publishes `Extractor` | **Contract exists, shipped** | Unchanged. A figure is a `Node` with `media_type=IMAGE`; a table is a `Node` with `media_type=TABLE`. **No new contract is needed for either.** What must grow is the *accept set*: `discover_source_docs` filters on one pack's module constant `EXTENSIONS` (`packages/weft-rag/src/weft_extract/text.py:43 "EXTENSIO"`, read at `:98`) and `weft-cli` imports that function by name (`packages/weft-rag/src/weft_cli/ingest.py:36 "), just ",80`). Correct and Phase-0-scoped when this was written; the moment a second extractor pack ships, `.pdf` becomes **silently invisible to ingest**. Fail-closed, so better than a fail-open default — the same missing derivation, and exactly what fitness function 5 exists to hold. **This happened, exactly as predicted, when `weft-pdf` shipped at ledger 2.27, and the derivation was built as part of repairing it** — `weft_extract.accept.claimed_extensions` over `weft_kernel.registry.Registry.names_for`, read by `weft_cli.ingest.run_index`. The line numbers cited above are the ones as of writing and have since moved |
 | **`weft-extract-pdf`** | implements `Extractor`; publishes a `TableGrid` and a `BlobRef` ext model, and the **one** table→text serialiser | **New pack, existing contract** | Three plugins against one contract: `pdf-text`, `pdf-layout`, `vlm-parse`. See D3 |
 | **`weft-blob`** | publishes **`BlobStore`** | **New pack, new contract — and the contract is a decision, not an implementation detail** | Weft's first non-`Stage` service contract, reached through the passport's `require()` like `TokenSink`. It becomes a **hard prerequisite for the whole design** under D1's recommendation, which is why it gets the same "argue it, do not commit it" treatment `RowStore` gets below. See §4, G1-a |
 | **`weft-vision`** | publishes **`Describer`** | **New pack, new contract** | One async method: bytes + media type + instruction → text. Named for the medium, not the model class — the same contract covers audio transcription later. Two stages consume it at opposite ends of the pipeline, which is the argument for one service contract rather than an indexing-only enhancer. `02` §1 already endorses the split from the text LLM port (`:60`), for a contract nobody is scheduled to publish. **Depends on an LLM pack existing** — ledger **2.10** places the prompt layer, the cascade, model strings and the `LLMError` taxonomy in Phase 2; it names **no distributions**, so this document invents none |
-| **`weft-embed`** | publishes `Embedder` | **Contract exists, shipped** | A page-image or figure embedder is a **plugin under the shipped contract**, not a new contract. `Embedder` is `Stage[Sequence[Node], Sequence[Node]]` (`packages/weft-rag/src/weft_embed/contract.py:49`) and says nothing about text. Publishing a `MultimodalEmbedder` would be a second way to do what one contract already does — `01` requirement 1 failing on its own terms |
+| **`weft-embed`** | publishes `Embedder` | **Contract exists, shipped** | A page-image or figure embedder is a **plugin under the shipped contract**, not a new contract. `Embedder` is `Stage[Sequence[Node], Sequence[Node]]` (`packages/weft-rag/src/weft_embed/contract.py:49 "class Em"`) and says nothing about text. Publishing a `MultimodalEmbedder` would be a second way to do what one contract already does — `01` requirement 1 failing on its own terms |
 | **`weft-tables`** | publishes `SchemaResolver`; consumes `RowStore` / `StructuredSearch` | **Deferred behind a new gate** | D9. One of its four blockers is still an open gate (G7); the G2 one cleared 2026-08-16 |
 
 **Contracts deliberately not published**, each with its reason: no `MultimodalEmbedder` (above); no
@@ -210,11 +210,11 @@ class Describer(Protocol):
 
 **Blob keys are derived, never allocated:** `{tenant_id}/{source_id}/{ordinal}.{ext}`. `tenant_id` is
 on the passport (`packages/weft-kernel/src/weft_kernel/context.py`), `source_id` is on `SourceDoc`
-(`packages/weft-rag/src/weft_extract/contract.py:89`), and `ordinal` is the same one the G5 digest
+(`packages/weft-rag/src/weft_extract/contract.py:89 "bytes me"`), and `ordinal` is the same one the G5 digest
 already requires an extractor to assign distinctly. Cascade delete is then
 `delete_prefix(f"{tenant_id}/{source_id}/")` — one call, no ledger, no dedup table. This is forced
 rather than chosen: G4's `delete_source` returns `Removed` **counts** and deliberately never a
-materialised cascade (`packages/weft-rag/src/weft_store/contract.py:150-158`), so a figure pack
+materialised cascade (`packages/weft-rag/src/weft_store/contract.py:150-158 "untouche"`), so a figure pack
 cannot learn URIs after the fact. **Derivable keys are the only design the settled contract admits**,
 and they delete the whole `FigureAssetsRepository` component.
 
@@ -329,14 +329,14 @@ Nothing survives its document.
 
 Each is a question, **one** recommendation, and what it costs. None is a menu.
 
-### D1 — Where does `__transient__` strip? *(Settled 2026-09-06 as a narrowing of `02` §1 → *The payload model* — the block under `docs/02-extension-model.md:409`; Phase 9 task 9.1. The citations below are as written on 2026-08-18: the strip is now the call at `seam.py:421` and the walk at `:492-524`, and the prose it corrects is at `02:409-414`.)*
+### D1 — Where does `__transient__` strip? *(Settled 2026-09-06 as a narrowing of `02` §1 → *The payload model* — the block under `docs/02-extension-model.md:409 "Built in"`; Phase 9 task 9.1. The citations below are as written on 2026-08-18: the strip is now the call at `seam.py:421 "stage=st"` and the walk at `:492-524`, and the prose it corrects is at `02:409-414`.)*
 
 ---
 
 ## What did not survive being written as a task
 
 - **`service_key: ClassVar` on the contract** — withdrawn in the plan's §11 after the Codex review
-  (`weft_extract/contract.py:44-52` is why); 9.0's role set is declared by the publishing pack.
+  (`weft_extract/contract.py:44-52 "inside t"` is why); 9.0's role set is declared by the publishing pack.
 - **"Derived, not declared" for the role set** — the plan's §11 said the two plans agreed on it; the
   graph plan's own review then showed singleton-ness is not derivable from a Protocol, and 9.0
   carries the declared form. Structural satisfaction stays derived.
@@ -662,7 +662,7 @@ gate would have to reopen for. Where the recommendation is *do not reopen*, that
 ### G5 — settled
 
 **G5-a.** *"Does `__transient__` mean 'stripped before any `Store` sees the node' (`02` §1's prose) or
-'stripped at every stage seam' (`seam.py:202-234`)? A multimodal pipeline needs the difference,
+'stripped at every stage seam' (`seam.py:36-39 "strippin"`)? A multimodal pipeline needs the difference,
 because a describer must read what an extractor produced."*
 → **Recommend: not a reopen.** D1's answer needs no change to the seam and no change to what
 `__transient__` guarantees; it needs one sentence in `02` §1 stating what the seam already does — a
@@ -727,7 +727,7 @@ assert.** G4 requires a retriever's missing capability to fail at resolution nam
 capability and the backends that provide it; a 3,072-dim vector discovering at `INSERT` time that the
 index refuses it is the same defect class. **Where the check lives matters and must be named:** in the
 store pack's `register()` probe and a pack-side resolution validator — **never** in
-`weft_kernel.runner.resolve` (`packages/weft-kernel/src/weft_kernel/runner.py:275`), which is the only
+`weft_kernel.runner.resolve` (`packages/weft-kernel/src/weft_kernel/runner.py:275 "def __in"`), which is the only
 "pipeline load" in the tree today and which must not learn the words *embedding dimension*. Ledger
 **2.32**. Numbers that will bite: Gemini Embedding 2 defaults to 3072, Qwen3-VL-Embedding-8B to 4096,
 jina-embeddings-v4 to 2048 (right at the edge), Cohere Embed 4 to 1536, voyage-multimodal-3.5 to 1024,

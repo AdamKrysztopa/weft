@@ -6264,7 +6264,7 @@ it had read one failure (`L7.1`).
   **`L11.39` is designed with this and ships beside it** rather than inside it — a citation carrying
   a verifiable fragment is the same idea (a claim written in a shape a checker can refuse) applied
   to a line rather than to a section, and it has its own population and its own ratchet
-- [ ] **R11.8** a citation is checkable as a claim about the **line** it names, not only about the
+- [x] **R11.8** a citation is checkable as a claim about the **line** it names, not only about the
   path · owner `01` → *Fitness functions* 17; `tests/architecture/test_ff17_citations_resolve.py` ·
   `L11.39` (archived Declined 2026-09-10 — *"the check is real work and belongs beside `R11.7`…
   both are `tests/docs/` and should be designed together"*), `refines L9.34` · **filed as a repair
@@ -6288,6 +6288,83 @@ it had read one failure (`L7.1`).
   unverified citations that may only decrease is what stops the population growing. What remains to
   decide inside the repair is the window and whether `build-ledger.md`'s 177 — an append-only record
   of work already done — are in scope or waived as history
+
+  **Closed 2026-09-10, the same day it was filed, and the population moved twice before it
+  settled.** I put **261** to the owner; that counted `docs/_external-reading/`, which is
+  **untracked** — reading material excluded from version control and the one place a citation must
+  never be checked. I then put **88**; that was `.md` only, and FF17 walks **every tracked file**.
+  The number that held is **160** — 88 in `.md`, **72 in `.py`** across 46 files — plus **189** in
+  append-only records, which are out of scope. Both corrections were reported before the owner
+  acted on them, and the second one changed the decision: at 261 a forward-only ratchet was the
+  affordable shape, at 160 **retrofitting outright** was, and that is what was chosen. A waiver
+  constant holding 160 entries is a table nobody reads, which is the failure a ratchet exists to
+  prevent.
+
+  **Thirty of the 160 were already broken, under a fitness function green on every run.**
+  Twenty-four pointed at a line that was **blank or past the end of the file**. Six more pointed at
+  a line that exists and says nothing — a closing `"""`, an import continuation reading
+  `Property,`, a bare `del ctx`, a ` ```python ` fence opener — which the blank-line test cannot
+  see and the fragment requirement exposes, because there is nothing there to quote. **Two were not
+  off by two lines**: `manual/pack-author-guide.md` cited `seam.py` at lines 211-229 for a claim
+  about emitting `DeprecationWarning`, which is at 349; `run_services.py` and a test both cited
+  `context.py` at line 105 for one about exact-type lookup, which is `require` at 244. Each named
+  an unrelated class more than a hundred lines away and read as diligence. `L9.34` measured the
+  same drift from the other end — three agents citing one paragraph at three different line numbers
+  in a day.
+
+  **The two that could not be repaired were repaired differently.** `docs/product-direction.md`
+  named an unbounded `asyncio.gather` at two sites; both are bounded now, so re-pointing them at
+  the fix would have falsified the finding. The finding is struck, quoted, and pointed at the
+  bound — and the two line numbers inside the quotation are **spelled out in words** rather than
+  written `path:line`, because inside a quotation of a superseded finding they are not claims about
+  this tree. `test_ff17_citations_resolve.py`'s own waiver docstring records making exactly that
+  repair once before: *"one example rewritten so it no longer looks like a citation"*.
+
+  **The convention.** A citation carries a short quoted fragment of the line it names, inside the
+  same backtick span: `` `path:line "text"` ``. Clause **(c)** requires one on every citation
+  outside an append-only record — categorical, no waiver. Clause **(d)** requires the fragment to
+  be within **±5** lines of the cited line, and the failure message says which line it is actually
+  on, so the repair is the one-number edit the failure hands you. Five is a judgement about
+  maintenance: at zero, any insertion above a cited line breaks every citation below it and the
+  check becomes a tax people route around; unbounded, the line number stops being checked at all.
+  Comparison ignores `"` on both sides, so a fragment never has to reproduce a string literal —
+  `TABLE = table` matches `TABLE = "table"`. `.py` sites use `'` and everything else `"`, which is
+  not cosmetic: see below.
+
+  **This file's own docstring said clause (d) could not exist** — *"whether the cited line says
+  what the citing comment claims... is a judgement no walk can make"*. That is still true and is
+  not what (d) checks. What a walk **can** verify is that the line still says what the person
+  citing it *read*, which turns an unjudgeable claim into a refusable one. The docstring now says
+  so, and every line number in it is spelled out in words, because one of its examples is a
+  citation this project *knows to be wrong*, quoted as an anecdote — annotating that with a
+  currently-true fragment would falsify the story it is told to carry (`L12.8`).
+
+  **The retrofit broke the tree once, and that is `L12.9`.** The script reported
+  `annotate: 160, skipped: 0` and I read it as done; it was the tool counting its own output. A
+  `"` fragment closes a Python string, and **29 files stopped parsing** — caught by `ruff format`,
+  the gate's first step, inside a minute. The recovery's own verification then reported 28 files
+  still broken at lines like `def add[T](...)`, which is PEP 695 and a syntax error under **3.9**,
+  which is what bare `python3` is here; `uv run python` said zero. Two corrections in one repair,
+  both of a check that was right about its own question and wrong about the one being asked.
+
+  **The non-vacuity exercise cost its own red run.** `test_the_check_can_actually_fail` asserts a
+  planted string is absent from the file — and the plant, written as a literal, was present *by
+  having been written there*. It is assembled at run time now. That is `L12.8` in miniature, in the
+  test written to prove the check that `L12.8` came from.
+
+  **Watched red on both clauses against the live tree**: a fragment removed from
+  `docs/02-extension-model.md`'s `seam.py:421` citation (clause (c) named it), and the same
+  citation's fragment altered to text that is on no line (clause (d): *"quoting 'outcome, nul_count
+  was here once', and it is in no file of that name"*). Both reverted.
+
+  **Built by me, not dispatched** — 160 sites across `docs/`, `manual/`, `tests/` and package
+  docstrings, and every one of those is on the never-delegated list. **Run from the shipped
+  binary** because the reflow edited docstrings in 44 packaged files: wheels built and installed
+  into an explicit venv invoked by path, from a directory that is not this repository —
+  `weft --version` → `weft 2.4.0`, `weft --help` printing usage rather than entering the REPL (the
+  branch `L9.64` and Phase 3's own Exit criterion both name), and `weft ask "x" --pipeline nope`
+  naming all 45 known pipelines at exit **4**. No corpus and no database: this repair changes no
+  runtime behaviour, and saying that is different from skipping the step
 - [x] **R11.6** a generator's deliberate refusal reaches the person who asked, and the machine
   consumer can read it — so *"the corpus does not answer this"* is never rendered as silence ·
   owner `weft_cli.render`; `weft_generate.payload.Answer.stance`; `03` → *Output* · sha — ·

@@ -321,6 +321,71 @@ requiring the convention's own prose to be fenced or by excluding lines that are
 which is what the R11.7 design ended up doing for a different reason, and it is why the phantom
 disappeared rather than needing a waiver.
 
+### L12.9 — the tool said it edited 160 sites; nothing had asked whether the tree still parsed
+
+**What happened.** `R11.8` retrofits a quoted fragment onto every citation in the tree — a
+mechanical edit at **160 sites across 46 files**, written by a script. The script reported
+`would annotate: 160 … skipped: 0`, then `already carrying one: 160` on a second pass, and I read
+that as done. It was the tool agreeing with itself: both numbers are its own regex counting its own
+output. The fragment is delimited with `"`, and a citation inside a Python file very often sits
+inside a **string** — an assertion message, an f-string — where a bare `"` closes it. **Twenty-nine
+files stopped parsing.** Found by `ruff format`, the first step of the gate, in about a minute:
+*"Failed to parse tests/unit/weft_cli/test_service_roles.py:159:99: Expected `)`, found name"*.
+
+**Then the recovery's own check lied in the other direction.** The repair de-annotates and
+re-annotates with `'` inside `.py` files, and I verified it by `ast.parse`-ing every tracked Python
+file — which reported **28 still broken**, at lines like `def add[T](self, ...)`. That is PEP 695
+generic syntax, valid 3.12 and a syntax error in **3.9**, which is what bare `python3` is on this
+machine. `CLAUDE.md` states that fact, scoped to `.claude/hooks/`; an ad-hoc verification script is
+not a hook and inherits the same interpreter and none of the warning. `uv run python` said zero.
+
+**Generalises to.** Two halves of one rule about bulk edits. **(a) A mechanical edit is verified by
+something that did not perform it** — a tool's own count of its own output is the
+`L5.6`/`L9.28` shape (both sides from one source) wearing the clothes of a progress report, and the
+cheap independent check here was *does the file still parse*, which costs a second and covers every
+site at once. Run the cheapest whole-tree validity check immediately after a bulk edit, before the
+expensive gate and before reading the tool's summary as a result. **(b) An ad-hoc script that
+inspects this tree runs under the same bare `python3` the hooks do**, so it cannot parse the
+3.12 idiom the packages are written in — `uv run python` is the interpreter that can, and a
+verification script reporting failures at `def name[T]` is reporting its own version, not the tree's.
+
+**Candidate home.** (a) belongs in `phase-step` → *Verify*, beside `L11.35`'s "after a bulk edit,
+re-read every assertion it touched" — same trigger, one level coarser: that rule is about *meaning*
+after a bulk edit and this one is about *validity*, and validity is the one a machine can answer
+for free. (b) belongs in `CLAUDE.md` → *Automation*, whose "Hooks are not project Python" paragraph
+already carries the 3.9 fact and scopes it to hooks alone; the sentence to widen is which code that
+covers. Note for the drain: this is the third entry in this queue produced by a check that was
+right about its own question and wrong about the one being asked (`L12.7`, `L12.8`, this).
+
+### L12.10 — the plan's next action is a group of repairs and the router can only name one
+
+**What happened.** Closing `R11.3` made the remaining backlog legible as **four groups**, not
+fourteen items: documents making a claim no checker can verify (`R11.7`, `R11.8`); a check deriving
+its expected set from a proxy (`R9.4`, `R9.6`); the observability seam (`R10.1`, `R10.3`, `R9.8`,
+`R9.5`); a fitness function whose population is narrower than its claim (`R9.3`, `R9.7`, `R9.9`,
+`R10.6`). Several are one hole seen from three call sites, and `R10.1`'s own entry already says its
+group is *one design rather than four repairs*. Writing that into `docs/README.md`'s **Next action**
+row as *"Carried repairs `R9.4` and `R9.6` together"* failed `next_task.py --check-live`:
+`NEXT_ACTION_REPAIR` is `[Rr]epair\s+[*\`]{0,2}(R\d+\.\d+)`, singular, so the plural sentence
+matched nothing and the check fell back to the first unticked task — Phase 9's `9.15` — and reported
+the Status block as disagreeing with the ledger. Reworded to *"Carried repair `R9.4`, taken together
+with `R9.6`"*, which routes.
+
+**Generalises to.** The reword is correct and the gap is real: **the routing vocabulary can say
+"next task" and "next repair" and cannot say "next group", at exactly the point where the project's
+own remaining work stopped being a list and became four.** A grammar that only expresses one unit
+quietly pushes the author toward writing one unit — which is how a group gets started one item at a
+time, and how `R9.4`'s four lessons came to be four lessons about one cause in the first place. The
+rule: *when a plan's own vocabulary cannot express the shape the work has taken, widen the
+vocabulary rather than reshaping the work to fit it.*
+
+**Candidate home.** `next_task.py` — `NEXT_ACTION_REPAIR` widened to `[Rr]epairs?` and to collect
+**every** `R\d+\.\d+` in the row, with `_repair_failures` run over each, so a row naming a group is
+routed and each member checked for being open. That is a few lines and it makes the check say more,
+not less. Note for the drain: this is small and only bites while the backlog is grouped — but the
+next three Next action rows are all groups, so it bites three more times before the queue is next
+drained.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

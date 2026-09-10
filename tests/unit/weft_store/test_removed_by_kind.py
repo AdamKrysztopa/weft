@@ -1,7 +1,8 @@
 """`Removed` reports what a participant removed, by kind — ledger task `9.3`.
 
 `Removed` has carried `node_count` and nothing else since G4
-(`packages/weft-rag/src/weft_store/contract.py:195-209`), and G7 then made the fan-out reach
+(`packages/weft-rag/src/weft_store/contract.py:195-209 'class Score'`), and G7 then made the fan-out
+reach
 *every* plugin satisfying `SourceDeletable`, not only node stores
 (`docs/02-extension-model.md` → *Extended by G7*). A participant that removes something which is
 not a node therefore reports `node_count=0` — the exact inverse of the promise `SourceDeletable`'s
@@ -75,7 +76,7 @@ def test_what_a_participant_reported_cannot_be_edited_afterwards() -> None:
     """`Removed` is frozen, and a plain `dict` field would leave one hole in that.
 
     `Node.ext` closed the identical hole with the identical mechanism
-    (`packages/weft-kernel/src/weft_kernel/payload/ext.py:168-172`).
+    (`packages/weft-kernel/src/weft_kernel/payload/ext.py:168-172 'type ExtMap = Annotated['`).
     """
     # Arrange
     removed = Removed(source_id=SourceId("src-1"), node_count=0, removed={"blob": 40})

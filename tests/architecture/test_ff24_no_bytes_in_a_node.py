@@ -16,7 +16,8 @@ rendering of the bytes it was handed. **Clause (a) structurally cannot see this*
 there are two: base64 of a megabyte of pixels is a `str`, so it satisfies every type this file
 checks and lands in the same JSONB column by a different door. `11` §1's account of the
 anti-pattern names the encoded form, not the Python type — *"a multi-MB base64 blob reaching
-JSONB"* — and `tests/unit/weft_kernel/payload/test_node.py:37` already carries a fixture called
+JSONB"* — and `tests/unit/weft_kernel/payload/test_node.py:37 'class _Tr'` already carries a fixture
+called
 `_TransientBlob` whose field is `payload_b64: str`, which is the shape drawn from life. The honest
 answer for an input an extractor cannot read is `Failed` or `NothingToProduce`, never the input
 back in another alphabet.

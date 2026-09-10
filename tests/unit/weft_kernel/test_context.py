@@ -147,7 +147,7 @@ def test_a_service_role_carries_the_key_and_the_contract_it_selects_for() -> Non
 
     Ledger task **9.0**: `[services].<role>` names one plugin for a role the
     contract-publishing pack declares selectable, and the declaration is "one constant
-    beside the Protocol" (`docs/build-ledger.md:5026`, `:5370`). This is the type of that
+    beside the Protocol" (`docs/build-ledger.md:5026 'exists b'`, `:5370`). This is the type of that
     constant. The kernel holds a key and a contract and names neither — the same restraint
     `weft_kernel.discovery.RendererOffer` already keeps for a result type it never names.
     """
@@ -186,9 +186,10 @@ def test_a_service_role_is_frozen_so_a_pack_cannot_be_repointed_after_it_declare
 def test_declaring_a_role_leaves_the_contracts_own_isinstance_behaviour_untouched() -> None:
     """The role is a constant beside the Protocol, never a member on it.
 
-    This is the trap `docs/build-ledger.md:5057-5058` names — "**No `service_key` ClassVar**
+    This is the trap `docs/build-ledger.md:5057-5058 'phase and'` names — "**No `service_key`
+    ClassVar**
     on any contract" — with the mechanism at
-    `packages/weft-rag/src/weft_extract/contract.py:44-56`: `typing.Protocol` computes
+    `packages/weft-rag/src/weft_extract/contract.py:44-56 'inside the'`: `typing.Protocol` computes
     `__protocol_attrs__` once from the class body, so a marker written into the body would
     become a *required* structural member and a third-party implementor that implements the
     real method but never restates the marker would fail a capability check that has nothing

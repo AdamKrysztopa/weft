@@ -6,7 +6,7 @@ module constant, and select the `"text"` extractor by name. That was correct
 while `weft-extract` was the only extractor pack and became silently wrong the
 moment `weft-pdf` shipped: `weft index corpus/mrmr` walked nine PDFs, matched
 none of them, handed an empty batch to a text extractor and exited 0 reporting
-success. `docs/11-multimodal.md:205` predicted it by line number before the pack
+success. `docs/11-multimodal.md:206-208 'weft-vision'` predicted it by line number before the pack
 existed. That silent success is exactly the failure mode this project refuses:
 a run whose failure path and success path are indistinguishable.
 

@@ -7,7 +7,8 @@ and still be unreachable, and it can be reachable under one contract and refused
 capability a stage actually demands of it.
 
 **What makes this property necessary at all.** `weft_kernel.context.ServiceRegistry` keys by
-**exact type** (`packages/weft-kernel/src/weft_kernel/context.py:105`; `add` at `:119`,
+**exact type** (`packages/weft-kernel/src/weft_kernel/context.py:244 'def require'`;
+`add` at `:155`,
 `resolve` at `:133`), so an instance registered under `NodeStore` answers no `ctx.require` for
 anything else it happens to satisfy. Selecting a role therefore makes its instance reachable
 under exactly one name, and every other capability that instance really does provide stays
@@ -17,7 +18,8 @@ invisible. Aliasing is what closes that gap.
 capability *because a stage in the resolved pipeline declared it needs it* — not because the
 instance happens to satisfy it. The deletion fan-out is why: `SourceDeletable` is a **fan-out**
 capability, satisfied by many participants at once, discovered by walking the factory registry
-(`packages/weft-rag/src/weft_cli/fanout.py:59`, `deletion.py:67`) and never through
+(`packages/weft-rag/src/weft_cli/fanout.py:60-61 '@dataclass('`, `deletion.py:67 'Every regis'`) and
+never through
 `ServiceRegistry`. A single-valued `ctx.require(SourceDeletable)` could only answer with one
 arbitrary participant, which is a wrong answer wearing a type. Nothing demands it, so nothing
 aliases it.
@@ -117,7 +119,8 @@ def test_a_capability_the_instance_satisfies_but_nothing_demands_is_not_reachabl
     `_FsBlobs` really does satisfy `_Reapable`, and it is still not resolvable, because no
     stage asked for it. This is the fan-out case: `SourceDeletable` is satisfied by many
     participants at once and is discovered by walking the factory registry
-    (`weft_cli/fanout.py:59`), so a single-valued answer would be one arbitrary participant
+    (`weft_cli/fanout.py:60-61 '@dataclass(froz'`), so a single-valued answer would be one arbitrary
+    participant
     presented as *the* answer. An `UnresolvedServiceError` naming what the run does offer is
     the honest reply.
     """

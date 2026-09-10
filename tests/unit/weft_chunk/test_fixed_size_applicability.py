@@ -1,7 +1,7 @@
 """The shipped chunker declares what it splits — ledger task `9.2`'s product half.
 
 Task `1.6` ticked *"an atomic node passes the chunker unsplit"* against a fixture
-(`tests/unit/weft_kernel/test_runner.py:822`, `_NaiveSplitter`), and on 2026-09-06 that
+(`tests/unit/weft_kernel/test_runner.py:822 'async def'`, `_NaiveSplitter`), and on 2026-09-06 that
 property was measured against the *product* and did not hold: `FixedSizeChunker`
 (`packages/weft-rag/src/weft_chunk/fixed_size.py`) declared no `applies_to` at all and split a
 `MediaType.TABLE` node into two chunks. `L9.6` is that lesson — *a ticked ledger property held

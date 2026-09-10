@@ -247,7 +247,8 @@ def _freeze_removed(value: Mapping[str, int]) -> Mapping[str, int]:
     """Wrap a validated `removed` mapping in an immutable view.
 
     The identical mechanism `weft_kernel.payload.ext._freeze` uses for
-    `Node.ext` (`packages/weft-kernel/src/weft_kernel/payload/ext.py:120-129`), copied rather
+    `Node.ext` (`packages/weft-kernel/src/weft_kernel/payload/ext.py:120-129 'def _freeze'`), copied
+    rather
     than imported because it is a private name of another distribution's module, not a
     published one — this module owns its own small equivalent instead.
     """

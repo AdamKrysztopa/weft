@@ -48,10 +48,14 @@ The four concerns:
 
    - **Not in an extractor pack.** Eight sites across `packages/` build a
      `Node` from text that came from outside the process — `weft_extract/
-     text.py:80`, `weft_pdf/document.py:205`, `weft_chunk/fixed_size.py:145`,
-     `weft_clean/dictionary_spacing.py:117`, `weft_clean/hyphenation.py:70`,
-     `weft_clean/whitespace.py:63`, `weft_clean/table_linearizer.py:79`,
-     `weft_index/raptor.py:254`. A fix in one extractor covers two of the
+     text.py:80 'Node.syn'`, `weft_pdf/document.py:205 'rows: tu'`,
+     `weft_chunk/fixed_size.py:117 'destroys'
+     'destroys'`,
+     `weft_clean/dictionary_spacing.py:108-109 'intact: '`,
+     `weft_clean/hyphenation.py:71-72 'intact: '
+     'intact:'`,
+     `weft_clean/whitespace.py:64-65 'intact: t'`, `weft_clean/table_linearizer.py:79 'destroys:'`,
+     `weft_index/raptor.py:254 'owns retrying the same'`. A fix in one extractor covers two of the
      eight — the same fragility shape at a smaller scale: a new construction
      path that forgets the call reaches storage uncleaned.
    - **Not in a store.** `weft_store/pgvector_store.py`'s `weft_nodes.content`
@@ -82,7 +86,7 @@ The four concerns:
    NUL byte in a string value exactly as `TEXT` does, so an extension model
    that ever carries verbatim extractor output is `content`'s twin, not a
    narrower case. No current first-party `ExtModel` does — `weft_pdf.
-   PdfPages` (`weft_pdf/document.py:94-131`) is the one built directly from
+   PdfPages` (`weft_pdf/document.py:94-131 'ExtModel,'`) is the one built directly from
    what a PDF backend reads, and its two fields are `backend: str` (a
    plugin name, never extractor output) and `starts: tuple[int, ...]`
    (offsets, not text) — so today's corpus exercises `content` only. The

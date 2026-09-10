@@ -45,7 +45,7 @@ the largest surface `11.8` cannot be forced to change: it may add columns freely
 walks it**, and named `nodes_for_entities` for that reason. `11.10` needs *name → entities →
 neighbourhood → nodes*, so a member returning node ids is what closes that loop; a members list
 that only ever went nodes→entities would leave `11.10` unbuildable. The tree's only prior art agrees
-— `examples/weft-example-graph/src/weft_example_graph/store.py:526` is
+— `examples/weft-example-graph/src/weft_example_graph/store.py:526 'async def'` is
 `node_ids_for_entities(names)`. Recorded rather than assumed, because the ledger's phrase admits
 both readings and only one of them can be built on.
 """
