@@ -94,20 +94,24 @@ arch = "pytest tests/architecture -q"
 [tool.poe.tasks.test]
 cmd = "pytest tests --ignore=tests/architecture -q --numprocesses=auto --dist=loadgroup"
 
-# **`docs/lessons.md` `L11.22`.** With Qdrant stopped, a gate run reported 44 skips against an
-# expected 9 and still exited `0`: the shrink guard in `tests/conftest.py` fires only when a skip
-# contradicts a container the operator *named*, and both container variables have working
-# defaults, so a machine that exports neither claims nothing and a stopped container is invisible.
-# `CLAUDE.md` has carried the expected count in **prose** — "Expected skip count is 9" — which is
-# this repository's own recurring discovery about prose.
+# **No `WEFT_EXPECTED_SKIPS` here, and that is the correction rather than the omission.**
+# `docs/lessons.md` `L11.22` bought the check in `tests/conftest.py` that compares a run's skip
+# count against a number the operator states. This task set that number to **9** — and 9 was a
+# fact about the machine it was measured on, which had Qdrant running. CI, whose `compose.yaml`
+# counterpart keeps Qdrant behind a `conformance` profile that `docker compose up -d` does not
+# start, produced **48** and went red on the first push. The same tree with Qdrant unreachable
+# locally produces **44**, so the two environments differ in more than one way: optional extras
+# are installed here and not there.
 #
-# Stated here, it becomes a claim the run contradicts. This is deliberately *not* the invented
-# threshold `tests/conftest.py`'s docstring refuses: the operator chooses the number, in the same
-# breath as the DSN, and a run that produces a different one fails and says which direction. When
-# a test legitimately starts or stops skipping, this number moves **in that commit** — a visible
-# act in a diff, the same ratchet discipline every waiver constant in `tests/architecture/` uses.
-[tool.poe.tasks.test.env]
-WEFT_EXPECTED_SKIPS = "9"
+# **A skip count is a fact about an environment, so it belongs where the environment is
+# declared.** `.github/workflows/ci.yml` names every service and every install step its run gets,
+# and states its own expected count beside them. A developer's laptop declares nothing — whatever
+# happens to be listening is the environment, which is exactly what `L11.21` says cannot be
+# assumed — so a default pinned here would be red for whoever's machine differs from the author's,
+# which is the guard people learn to route around.
+#
+# Local runs therefore make no claim and nothing fires; the container-claim half of the guard
+# still speaks whenever `WEFT_DATABASE_URL` or `WEFT_QDRANT_URL` is set and its service is down.
 
 [tool.poe.tasks.ci-no-tests]
 sequence = ["fmt", "lint", "types", "arch"]

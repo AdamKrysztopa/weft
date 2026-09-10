@@ -56,8 +56,18 @@ _CLAIM_ENVS: Final[tuple[str, ...]] = ("WEFT_DATABASE_URL", "WEFT_QDRANT_URL")
 #: **This is not the invented threshold the module docstring refuses**, and the difference is who
 #: chooses the number. *"More than N skips is suspicious"* is a constant nobody can defend. A count
 #: the **operator states**, in the same breath as the DSN, is a claim the run can contradict — the
-#: identical mechanism one variable over. `ci-checks` sets it, so the canonical gate always carries
-#: the claim; a bare `pytest` run does not, and nothing fires.
+#: identical mechanism one variable over.
+#:
+#: **And it is set by `.github/workflows/ci.yml`, not by `pyproject.toml`, because a skip count is
+#: a fact about an *environment*.** The first version of this check pinned `9` in the `test` task;
+#: 9 was a fact about the machine it was measured on, which had Qdrant running. CI — which
+#: provisions Postgres alone, matching what `docker compose up -d` starts — produced **48** and
+#: went red on the first push. The same tree with Qdrant unreachable locally produces **44**. Three
+#: numbers, three environments, and only one of them is declared in a file. So the claim lives
+#: beside the services that determine it, and a local run makes none: nothing here fires unless
+#: someone states a number, and the container half above still speaks whenever a named service is
+#: down. `L11.21`'s rule — every running service is an assumption the local gate is making —
+#: arriving in the check written to answer its sibling.
 _EXPECTED_SKIPS_ENV: Final[str] = "WEFT_EXPECTED_SKIPS"
 
 _container_skips: list[str] = []

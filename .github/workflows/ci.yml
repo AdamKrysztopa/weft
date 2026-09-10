@@ -19,12 +19,24 @@ jobs:
   gate:
     name: ci-checks
     runs-on: ubuntu-latest
-    # Same image, credentials, port and health check as `compose.yaml` — the container a
-    # developer brings up by hand and the one this job provisions are the same container,
-    # not two descriptions of it that could drift apart. This is provisioning the
-    # environment `ci-checks` runs in, not enumerating the gate's steps: the gate step
-    # below is still the single `uv run poe ci-checks` invocation fitness function 0
+    # Same image, credentials, port and health check as `compose.yaml`'s **postgres** service —
+    # the container a developer brings up with `docker compose up -d` and the one this job
+    # provisions are the same container, not two descriptions of it that could drift apart. This
+    # is provisioning the environment `ci-checks` runs in, not enumerating the gate's steps: the
+    # gate step below is still the single `uv run poe ci-checks` invocation fitness function 0
     # requires.
+    #
+    # **This comment said "as `compose.yaml`" without naming the service, and that stopped being
+    # true when Qdrant was added** — `compose.yaml` describes two services and this job provisions
+    # one. That is not drift: Qdrant sits behind a `conformance` profile precisely so that
+    # `docker compose up -d` still means "the one container, and it is the database", and this job
+    # matches that default deliberately. What was wrong was a sentence claiming parity with a file
+    # that had grown a second service. Corrected 2026-09-10, when `WEFT_EXPECTED_SKIPS` below made
+    # the difference between the two environments a number for the first time.
+    #
+    # **Whether this job should also run the conformance backend is a real question and not one
+    # this comment settles.** G4's two-backend proof is what `compose.yaml`'s qdrant service
+    # exists for, and today it is proven on a developer's machine and never here.
     services:
       postgres:
         image: pgvector/pgvector:pg16
@@ -67,6 +79,24 @@ jobs:
         run: uv run poe ci-checks
         env:
           WEFT_DATABASE_URL: postgresql://weft:weft@localhost:5433/weft
+          # **The operator's claim about how many tests should skip — `docs/lessons.md` `L11.22`,
+          # and it lives here rather than in `pyproject.toml` because a skip count is a fact about
+          # an *environment*.** This job declares its services and its install steps above, so it
+          # is the one environment in this project that can honestly state the number. A
+          # developer's machine declares nothing: measured on the author's, with Qdrant running,
+          # the same tree skips 9; with Qdrant unreachable, 44; here, 48. A default pinned in
+          # `pyproject.toml` would be red for everyone whose machine differs from whoever set it.
+          #
+          # `tests/conftest.py` fails the run when the count disagrees and says which direction.
+          # **More** usually means a service this job provisions did not come up. **Fewer** means a
+          # test that used to skip now runs, which is good news that has to be recorded — move this
+          # number in the commit that changed it, the same ratchet discipline every waiver constant
+          # in `tests/architecture/` uses.
+          #
+          # Before this existed, this job ran **39 fewer tests than a local gate** and reported
+          # green on every push since Qdrant was added, which is `docs/lessons-archive.md` `L7.8`
+          # living in CI rather than on a laptop.
+          WEFT_EXPECTED_SKIPS: "48"
 
   # Fast feedback on a pull request, and **not a gate**. The `gate` job above is the canonical
   # full run and this job cannot stand in for it: it runs only the tests the diff can have

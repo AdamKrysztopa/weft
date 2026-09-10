@@ -137,7 +137,7 @@ place.
 
 - **L11.21** Applied — `phase-step` → *Finish*, item 4b: Every service running on the machine is an assumption the local gate is making. `refines L7.8`
 
-- **L11.22** Applied — `tests/conftest.py` + `pyproject.toml`'s `test` task (`WEFT_EXPECTED_SKIPS`): A shrink guard covers every service the suite can skip on, and the expected count is the operator's claim rather than an invented threshold. `refines L7.8`
+- **L11.22** Applied — `tests/conftest.py`, plus `WEFT_EXPECTED_SKIPS` set in `.github/workflows/ci.yml` beside the services that determine it. *Its first version pinned the number in `pyproject.toml` and CI went red on the first push: the count was measured on a machine with Qdrant running and is a fact about an environment, not about the repository — see `L12.1`, which that push bought*: A shrink guard covers every service the suite can skip on, and the expected count is the operator's claim rather than an invented threshold. `refines L7.8`
 
 - **L11.23** Applied — **Applied as carried repair `R11.2`**: A filter written as *"this contract is special"* is a claim about the participant, enforced against the contract.
 

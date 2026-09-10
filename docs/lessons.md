@@ -27,8 +27,47 @@ otherwise paid for twice.
 
 ## Queue
 
-Empty. Drained at Phase 11's close, 2026-09-10 — forty-six entries, the largest drain this
-project has run; `docs/lessons-archive.md` → *2026-09-10* carries every one with its edges.
+Opened by `L12.1`, one push after the drain that emptied it — the same shape `L11.1` had at Phase
+11's opening. `docs/lessons-archive.md` → *2026-09-10* carries Phase 11's forty-six entries with
+their edges.
+
+### L12.1 — I pinned a skip count measured on my own machine, and CI is a different machine
+
+**What happened.** Phase 11's drain routed `L11.22` — *a gate run that silently shrank is not a
+green* — into a real mechanism: `tests/conftest.py` now fails a run whose skip count disagrees with
+a number the operator states, and I set that number in `pyproject.toml`'s `test` task to **9**. It
+was green locally, four times, including the full gate immediately before the push. **CI went red
+on the first run**: *"This run claimed 9 skip(s) via WEFT_EXPECTED_SKIPS and produced 48."*
+
+**Nine was a fact about this laptop.** `compose.yaml` keeps Qdrant behind a `conformance` profile
+precisely so that `docker compose up -d` means *the one container, and it is the database* — and
+CI provisions exactly that, Postgres alone. A Qdrant has been running on the development machine
+for days. Measured three ways on one tree: **9** with Qdrant up, **44** with `WEFT_QDRANT_URL`
+pointed at a dead port, **48** in CI, which additionally lacks optional extras installed here.
+Three environments, three numbers, and I pinned one of them as though it were a property of the
+repository.
+
+**The finding underneath is worth more than the mistake.** CI was running **39 fewer tests than a
+local gate** and reporting green on every push since Qdrant was added, and nothing could see it —
+which is `lessons-archive` `L7.8` living in CI rather than on a laptop, invisible for exactly the
+reason `L7.8` was invisible. The check found it on its first run, which is the check working; what
+failed is where I put its input.
+
+**Generalises to.** `L11.21` says every running service is an assumption the local gate is making.
+The sharper form, which is what this cost: **a constant derived from an environment belongs where
+that environment is declared, and a developer's machine declares nothing.** `.github/workflows/
+ci.yml` names its services and its install steps, so it can honestly state a skip count;
+`pyproject.toml` is read by every machine and can state only what is true of all of them, which for
+an environment-derived number is nothing. So: *before pinning a measured constant, ask which file
+declares the thing it was measured against — and if the answer is "no file", the constant does not
+have a home yet.*
+
+**Candidate home.** `implement-ll` → *Routing*, item 2, which already requires two numbers for a
+proposed check (how many sites it walks, how many it fails today) and does not ask **where the
+check's own inputs come from**. A drain is exactly when this goes wrong: the router is measuring on
+one machine and writing a rule for every machine. Alternatively `phase-step` → *Finish*, beside the
+environment preconditions — but the mistake was made while routing, not while finishing.
+
 
 ## When the queue is empty
 
