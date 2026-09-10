@@ -114,15 +114,24 @@ matching nothing — fails resolution by name rather than silently doing nothing
 for why written order, rather than a fixed evaluation order, is `02` §3's own; §5 below shows what
 one of these failures actually looks like.
 
-### The shipped ladder — nineteen rungs, and every one of them is a derivation
+### The shipped ladder — every rung on it is a derivation
 
-You do not have to start from a blank document. `weft pipeline list` prints twenty-three, and all
-but the four originals are **one operator block away from something simpler**. That is the fastest
-way to read the whole set: pick the rung nearest what you want, run `weft pipeline show <name>` to
-see the resolved stages with the pipeline each one came from in brackets, and `weft pipeline diff`
-it against its parent to see the delta by itself.
+You do not have to start from a blank document. `weft pipeline list` prints every document the packs
+you have installed contribute, and all but the four originals are **one operator block away from
+something simpler**. That is the fastest way to read the whole set: pick the rung nearest what you
+want, run `weft pipeline show <name>` to see the resolved stages with the pipeline each one came
+from in brackets, and `weft pipeline diff` it against its parent to see the delta by itself.
 
-**Eleven query rungs, all `extends: retrieve-then-generate`.** Four insert a `QueryTransform` ahead
+**The number moves with your extras, not with the release, and that is worth knowing before you go
+looking for a rung somebody mentioned.** Measured on a fresh install of `weft-rag[openai]` with no
+`docling`: **45 documents**, of which 19 are ingest rungs. The twentieth ingest rung,
+`index-pdf-learned`, is `weft_docling`'s and does not appear at all until `weft-rag[docling]` is
+installed — the pack reports `failed` at discovery and contributes nothing, which `weft plugins
+doctor` will tell you by name. A rung you cannot see is a pack you have not installed, never a
+missing feature.
+
+**Twenty-one query rungs, all `extends: retrieve-then-generate`.** Five insert a `QueryTransform`
+ahead
 of the search — `rewrite-then-retrieve` (a follow-up made standalone), `hyde-then-retrieve`,
 `step-back-then-retrieve`, `multi-query-then-retrieve`. Three of those also swap the fuser, and the
 reason is worth internalising because it is the one rule the operators will not let you break: a
@@ -131,9 +140,22 @@ transform that turns one query into several leaves `fuse` holding several ranked
 reorders what was retrieved, `grade-then-generate` discards the parts that fail a relevance grade.
 `boolean-then-retrieve` combines result **sets** by algebra rather than by score. **`hybrid-then-generate` is the one whose delta changes what is *searched*** rather than how the question is asked or what becomes of the answer: `hybrid` asks the same store by meaning and by the literal words and hands back both rankings, and the `fuse` stage merges them by rank. Reach for it when a question turns on an exact token a vector search blurs away — a name, an identifier, an error code, a number. It needs a store that does both: `pgvector` does, `qdrant` deliberately does not, and a run against one that cannot is refused by name before any stage runs.
 `iterative-retrieve` and `corrective-retrieve` replace the retriever with one that owns a loop or a
-fallback of its own. `contradiction-aware` and `draft-then-refine` replace the generator.
+fallback of its own. `contradiction-aware`, `draft-then-refine` and `summarise-then-generate`
+replace the generator. `broad-and-refined-rrf` and `raptor-and-leaves-rrf` search twice at
+different granularities and fuse the two lists by rank. `no-retrieval` answers from the model
+alone, which is the control every other rung on this list is measured against.
 
-**Six ingest rungs**, for `weft index --pipeline`. `index-text` is the root — extract, normalise
+**Four graph query rungs, and they are the ones that answer a question no single passage can.**
+`graph-then-generate` matches the entities a question names against the graph, walks one hop out
+and returns the nodes those entities anchor; `graph-2hop-then-generate` walks two, which is what a
+question spanning two documents needs; `graph-then-rerank` puts a reranker after the walk;
+`graph-and-vector-rrf` runs the walk and an ordinary vector search side by side and fuses the two
+lists with a fuser that cannot tell them apart. All four need `[services] graph` pointed at a
+registered traversal — `graph = "pgvector-traversal"` — and refuse **by name at assembly** when
+nothing is selected for it, before any stage runs. See `manual/operations-guide.md` → *Choosing an
+embedder* for why the corpus has to have been indexed through a graph rung first.
+
+**Twenty ingest rungs**, for `weft index --pipeline`. `index-text` is the root — extract, normalise
 whitespace, chunk, embed, store. `index-messy-text` adds the three cleaners that repair converter
 damage; `index-polish` adds a Polish-specific one on top of that. `index-with-keywords`,
 `index-with-questions` and `index-with-raptor` each insert one enrichment stage, and **where it goes
@@ -144,6 +166,33 @@ plugin embeds anything, so a node they create after the embed stage would be sto
 and embeds its own summaries — the order its source paper specifies, and the one that stops every
 leaf being embedded twice per ingest. Put it back before `embed` in a derived document and it
 refuses by name rather than silently clustering nothing.
+
+**Six PDF rungs** — `index-pdf` and its five siblings — differ in what they do with what is not
+text: the tables, the figures and the captions. `index-pdf-learned` is the one behind the `docling`
+extra.
+
+**Four graph ingest rungs, in increasing order of what they cost you.**
+`index-with-graph` is `index-text` with a second store inserted after the first, so the same batch
+of nodes is written to the ordinary vector store *and* to the graph store — `02` §4's "sits beside
+the vector store", written as data rather than as a special case. `index-with-cooccurrence` adds
+one enrichment stage that needs **no model and no credential**: capitalised name candidates and an
+edge between every pair of them in a chunk. It is the one advanced rung a laptop can climb, and it
+is honest about being crude — a Title-Case run is the whole candidate rule. `index-with-facts`
+replaces that guess with a model, asking once per chunk for the relations that chunk states, and
+turning each survivor into nodes of its own. `index-with-facts-openai` is that rung with the
+embedder replaced, and it is the one to reach for when two spellings of one thing have to become
+one entity: entity resolution blends a lexical score with a vector score, and every rung above it
+inherits `embed: hash` from `index-text`, whose vectors have no semantic geometry for the second
+term to read. It needs a credential; the other three do not.
+
+**What a citation on a graph answer actually points at, because it is not what the other rungs
+cite.** An ordinary rung cites a chunk, and the words in that chunk are the document's own. A graph
+rung may cite a **fact node**: a claim `index-with-facts` *derived from* a chunk by asking a model
+what relations that chunk stated. It carries the chunk's lineage, so `weft delete` of the source
+removes it and the answer stops resting on it — but its text is the model's rendering of a triple,
+not a span you will find in the paper. Read a graph citation as *this claim was derived from that
+chunk*, and follow it to the chunk when the wording matters. `weft graph bridges` will not write a
+`quote` for exactly this reason, and says so where it prints.
 
 **Two alternative routers**, selected with `[services] route` — see
 `manual/operations-guide.md` → *Choosing which router decides*.
@@ -156,11 +205,12 @@ Three things to know before you run one:
   A rung you derive inherits its parent's `vars` unless it restates them — **restate both**, or your
   rung advertises itself in its parent's words.
 - **A rung may ask a model under a role you have not mapped.** `[llm.roles]` is per role, and the
-  ladder uses `rewrite`, `hyde`, `stepback`, `fanout`, `parse`, `rerank`, `grade`, `generate` and
-  `route`. An unmapped one refuses by name and prints the line to add.
+  ladder uses `rewrite`, `hyde`, `stepback`, `fanout`, `parse`, `rerank`, `grade`, `generate`,
+  `route` and — on the graph rungs that extract facts — `index`. An unmapped one refuses by name
+  and prints the line to add.
 - **The ingest rungs all name `pgvector`**, so `weft pipeline show index-text` needs `[packs.store]
-  dsn` set before it can resolve. All of them run: `index-with-questions` and `index-with-raptor`
-  resolved but died mid-run before ledger task 8.10 built the index services they name.
+  dsn` set before it can resolve; the four graph rungs additionally need `[packs.graph] dsn`, and
+  say so by name when it is unset. All of them run.
 
 ### Running it
 

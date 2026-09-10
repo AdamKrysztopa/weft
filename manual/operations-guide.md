@@ -299,6 +299,49 @@ would be worse than one that says no. A pipeline whose retriever needs `TextSear
 advertise, and which registered stores provide the rest. `manual/contract-reference.md` lists which
 distribution satisfies which capability, derived from the code rather than typed by hand.
 
+## Wiring the graph pack
+
+The graph rungs — `index-with-graph`, `index-with-cooccurrence`, `index-with-facts`,
+`index-with-facts-openai` on the ingest side, `graph-then-generate`, `graph-2hop-then-generate`,
+`graph-then-rerank` and `graph-and-vector-rrf` on the query side — need **two** things wired, and
+they are wired in different places because they are different kinds of fact.
+
+```toml
+[packs.graph]
+dsn = "${env:WEFT_DATABASE_URL}"
+
+[services]
+graph = "pgvector-traversal"
+```
+
+**`[packs.graph] dsn` is where the pack's tables live**, and it is the same container
+`[packs.store]` already uses — the pack creates its own `kg_*` tables in that database on first
+use and sits *beside* the vector store rather than replacing it. **Exporting `WEFT_DATABASE_URL`
+is not enough here, and it is enough for the node store.** That offer is made to the `store` pack
+and to nothing else, deliberately: extending it would mean the CLI naming one capability pack in a
+hard-coded literal, which is precisely what a pack built against nothing but the public API is
+supposed to make unnecessary. So the convenience is one line in your own file. Unset, the first
+call that genuinely needs a connection refuses at exit `1` and prints the two lines above.
+
+**`[services] graph` is a different question — *which* registered traversal a run may use.** The
+query rungs declare that they need a `GraphTraversal` from a run-wide service, and a run that asked
+for a capability nothing was selected for is refused **by name at assembly**, before any stage
+runs: *"stage 'retrieve' needs GraphTraversal from a run-wide service, and nothing is selected for
+[services] graph. Nothing here adapts or degrades."* That is the posture everywhere in this
+project — a missing capability is a refusal, never a quiet fallback to a lesser answer.
+
+**The pack reports `active` with nothing configured, and that is correct.** `[packs.graph] dsn`
+defaults to empty on purpose, where `weft-store`'s is mandatory: every project needs a node store,
+and a project that never names the graph store should not have to read past a failure for a pack
+it is not using. So `weft plugins doctor` can show `graph (weft-rag): active` on a machine where
+the refusal above is one command away, and both statements are true.
+
+**Order matters between the two sides.** A graph query rung answers from rows an *ingest* graph
+rung wrote; pointing `graph-then-generate` at a corpus indexed through plain `index-text` walks an
+empty graph and honestly returns nothing. `weft graph show` reports what the corpus actually holds,
+and `weft graph bridges` will tell you outright when a corpus is too small to hold a question the
+graph could answer and a single passage could not.
+
 ## Choosing which router decides
 
 `weft ask` with no `--pipeline` runs a **router** — a pipeline document that scores the question and

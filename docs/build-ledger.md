@@ -8873,23 +8873,91 @@ that assumed one was withdrawn from the plan before it reached this list.
   at all (seven keys, none of them one). `--baseline retrieve-then-generate` refuses at exit `4`,
   correctly and loudly, naming the pipelines actually run. Corrected in `01` at `11.14`.
   Gate `GATE_EXIT=0` read out of the run's own log, both containers up*
-- [ ] **11.14** every name this pack registers has its row in `10` — origin, whether the name is
+- [x] **11.14** every name this pack registers has its row in `10` — origin, whether the name is
   earned, what the shipped implementation is faithful to — and the manuals name each rung where a
   reader looks, including that a citation on a fact is a citation on a claim *derived from* a
   chunk · owner `10`; `08` · turns on `tests/docs/test_technique_naming.py` · sha — · *Microsoft's
   *GraphRAG* is community-summary retrieval and no name here claims it; `10` §2.1 decides each.
   `examples/weft-example-graph/pipelines/kg.yaml:4-7` still says the repository ships no ingest
-  base to derive from, stale since 8.2, and is corrected in the same commit*
+  base to derive from, stale since 8.2, and is corrected in the same commit — **the path in that
+  sentence is itself wrong**: the file is at `examples/weft-example-graph/src/weft_example_graph/
+  pipelines/kg.yaml` and the claim spans lines 4-10*
+  · **Done, all of it mine — this task is documents and there is nothing here to dispatch.**
+  **`10` was already complete for this pack's names**, which is worth recording as a measurement
+  rather than assumed: `pgvector-graph`, `pgvector-traversal` (§2.2), `cooccurrence-graph`,
+  `llm-facts`, `graph-walk` (§1.2), `extract-facts`, `adjudicate-entities` (§1.5) each carry a row
+  with origin, whether the name is earned and what the implementation is faithful to, and four
+  §5 *no origin found* findings record the searches that came back empty. `graph propose|activate|
+  show|bridges` are `Command`s and are outside the catalogue by
+  `_CONTRACTS_OUTSIDE_THE_CATALOGUE`'s own stated boundary — `10` catalogues *techniques*, and a
+  command makes no technique claim.
+  **`graphrag` is now reserved rather than merely unclaimed.** Microsoft's system is
+  community-summary retrieval — build a graph, detect communities, summarise each with a model,
+  map-reduce over the summaries for a global question — and this pack ships none of it. Reserving
+  it makes property 1 of `test_technique_naming.py` refuse it mechanically instead of leaving the
+  sentence to be read.
+  **And asking whether the reservation was real found that five were not — `L11.44`.** The parser
+  returned **21** names where `10` §4 reads as reserving 26: `reserved_names()` splits on `·` and
+  keeps only backtick tokens *before* the first `(` in each segment, so a reservation that does not
+  lead its own segment falls behind an earlier item's citation and is discarded. `t-retriever`,
+  `grag`, `archrag` and `colpali` were in that state already, and the `graphrag` this task wrote
+  landed in it immediately. Repaired by giving each its own `·`; the parser now sees **26**, and a
+  check that could refuse none of the five can refuse all of them. Filed rather than
+  over-repaired: whether §4 becomes a table — one name per row, the shape `_TABLE_ROW` already
+  parses for §1.4 and §1.5, with no positional cleverness at all — is a question for the drain.
+  **The manuals.** `manual/user-manual.md`'s ladder section claimed *"nineteen rungs"* and
+  *"prints twenty-three"* against **45** documents on a real installation, and named **no graph
+  rung at all**. Rewritten from measurement: 21 query rungs, 20 ingest rungs, both graph families
+  named with what each costs, and — the clause this task exists for — **what a citation on a graph
+  answer actually points at**: an ordinary rung cites a chunk whose words are the document's own; a
+  graph rung may cite a fact node, a claim *derived from* a chunk by asking a model what relations
+  it stated, carrying the chunk's lineage but not its wording. `manual/operations-guide.md` gained
+  *Wiring the graph pack*, which it had nothing on: `[packs.graph] dsn`, why exporting
+  `WEFT_DATABASE_URL` is enough for the node store and not for this one, `[services] graph` and the
+  by-name refusal at assembly when it is unset, and that a graph query rung answers from rows an
+  ingest graph rung wrote. Every quoted refusal in both is copied from a run (`L11.41`).
+  **The number that moves with the reader's machine, said out loud.** `weft pipeline list` printed
+  45 here and the twentieth ingest rung, `index-pdf-learned`, was absent — it is `weft_docling`'s
+  and that extra was not installed. A reader who cannot find a rung has not installed a pack, and
+  the manual now says so instead of printing a count that is true on one laptop.
+  **Two stale claims in this file's own Exit block, repaired here as the task line asked**: it
+  said *"installed `weft-rag` and `weft-kg`"* when G19 left one thing to install, and *"fitness
+  functions 16 and 24"* when the graph pack's own function is **28** (`L11.24`). `01` had taken
+  both corrections on 2026-09-09 and this restatement had not — one fact in two places, drifting,
+  which is the failure `docs/README.md`'s opening rule is about. `01`'s Exit also gained the
+  `L11.43` correction to its own invocation string.
+  **The example pipeline's comment.** It said the repository ships no named ingest base a stranger
+  could derive from; it ships twenty. Rewritten with the reason that is actually true — an example
+  pack's document exists to show a stranger's whole YAML, so inheriting a first-party stage list
+  would demonstrate nothing and couple the proof of independence to a document free to change.
+  Gate `GATE_EXIT=0` read out of the run's own log, both containers up*
 
 **Exit** — `01` → Phase 11 owns it; restated here so the demonstration is on the same page as the
-tasks: from a directory that is not this repository, against installed `weft-rag` and `weft-kg`
-and the one container, a corpus is indexed through `index-with-facts`; the same question is
-answered through `retrieve-then-generate`, `graph-then-generate` and `graph-and-vector-rrf`;
-`weft delete` of one source leaves no fact, mention or entity only it supported and reports the
-counts by kind; fitness functions 16 and 24 are green with empty waivers and `9.0`'s stays green
-with the graph retriever's demand in the tree; the deferral row is dated in `01`; and `weft eval
-compare` restricted to `kind = requires-graph-hop` reports whether the difference lies outside the
-baseline's interval — either answer discharges it.
+tasks: from a directory that is not this repository, against an installed `weft-rag` and the one
+container — *this said "installed `weft-rag` and `weft-kg`" until 2026-09-10, and **G19** folded
+the graph pack into the release wheel, so there is no second thing to install; `01`'s own copy was
+corrected on 2026-09-09 and this one was not, which is one fact in two places drifting exactly as
+`docs/README.md`'s opening rule predicts* — a corpus is indexed through `index-with-facts`; the
+same question is answered through `retrieve-then-generate`, `graph-then-generate` and
+`graph-and-vector-rrf`; `weft delete` of one source leaves no fact, mention or entity only it
+supported and reports the counts by kind; fitness functions **16 and 28** are green with empty
+waivers and `9.0`'s stays green with the graph retriever's demand in the tree — *this said "16 and
+24" until 2026-09-10; **24** is task `9.5`'s `no bytes in a node` and always was, and the graph
+pack's own function is 28 (`L11.24`), the same correction `01` took on 2026-09-09*; the deferral
+row is dated in `01`; and `weft eval compare` restricted to `kind = requires-graph-hop` reports
+whether the difference lies outside the baseline's interval — either answer discharges it.
+
+**How that last clause is actually run, corrected 2026-09-10 at `11.13` by running it — `L11.43`.**
+`01` states it as `weft eval compare graph-then-generate retrieve-then-generate --baseline
+retrieve-then-generate`, and **no part of that invocation is how the command works**: `<a>` and
+`<b>` are **run ids** (`runs/<uuid4>.json` filename stems), and `--baseline` is matched against
+`RunRecord.resolved_pipeline`, which is the **ingest** pipeline — a run record persists no query
+pipeline at all. `--baseline retrieve-then-generate` refuses at exit **4**, correctly, naming the
+pipelines actually run. What discharges the clause is two `weft eval run` invocations differing
+only in `--query-pipeline`, two more as the baseline's repetitions, and `--baseline` naming the
+ingest rung all four share. Measured 2026-09-10 on a twelve-document corpus: **outside-baseline-
+spread on every metric, `Δ-1.000`, baseline spread `0.000-0.000`**, graph `1.000` against vector
+`0.000`.
 
 ## Why a ticked box must be attributable — and why the sha column is no longer how
 

@@ -1143,11 +1143,23 @@ ways** in one run.
   and always was, and the graph pack's own function is **28** (`L11.24`). FF16's waiver reached
   empty at carried repair `R11.2` and this clause is what keeps it there*; the family-membership
   deferral is a dated row in *The
-  least-architecture check* above with its reopen trigger; and `weft eval compare
-  graph-then-generate retrieve-then-generate --baseline retrieve-then-generate`, restricted to
+  least-architecture check* above with its reopen trigger; and **`weft eval compare`, restricted to
   questions of `kind = requires-graph-hop`, reports whether the difference lies outside the
-  baseline's own interval — **either answer discharges it**, on Phase 8's own argument
+  baseline's own interval** — **either answer discharges it**, on Phase 8's own argument
   (`01:802-812`).
+  *This clause read `weft eval compare graph-then-generate retrieve-then-generate --baseline
+  retrieve-then-generate` until 2026-09-10, when task `11.13` ran it: **no part of that invocation
+  is the command** (`L11.43`). `<a>` and `<b>` are **run ids** — `runs/<uuid4>.json` filename stems
+  — and `--baseline` is matched against `RunRecord.resolved_pipeline`, the **ingest** pipeline,
+  because a run record persists no query pipeline at all; `--baseline retrieve-then-generate`
+  refuses at exit `4` naming the pipelines actually run. The clause is discharged by two
+  `weft eval run` invocations differing only in `--query-pipeline`, two more as the baseline's
+  repetitions, and `--baseline` naming the ingest rung all four share. **Measured 2026-09-10**, on
+  a twelve-document corpus and questions `weft graph bridges` generated from it:
+  `outside-baseline-spread` on every metric, `Δ-1.000` against a baseline spread of `0.000-0.000`,
+  the graph rung at `1.000` and the vector baseline at `0.000`. An exit criterion written as a
+  command line is a claim about a CLI surface, and this project checks worked transcripts and does
+  not check these.*
 
 **Why the exit names fitness function 16 as well as its own.** 16 is Phase 8's and this phase
 widens its scope — the moment `weft-kg` ships a document, every plugin it registers into a

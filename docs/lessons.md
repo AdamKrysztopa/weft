@@ -1327,6 +1327,45 @@ that a clause containing a command line is re-checked *by running it*. The mecha
 invocation in `docs/` is either parseable by the shipped argparse tree or it is fiction, and the
 argparse tree is already built from the registry by `weft_cli.cli._add_command_level`.
 
+### L11.44 — five of `10` §4's reserved names were prose, and the check that refuses them could not see them
+
+**What happened.** Task `11.14` reserved `graphrag` in `10` §4 — Microsoft's system is
+community-summary retrieval and nothing this pack ships claims it — and then, instead of trusting
+the sentence, asked the parser: `reserved_names()` returned **21** names and `graphrag` was not one
+of them. Widening the question found four more already in that state: **`t-retriever`, `grag`,
+`archrag` and `colpali`** are reserved in `10` §4 in as many words, and
+`tests/docs/test_technique_naming.py`'s property 1 — *no registered name claims a reserved
+technique* — **could not refuse any of them.** After the repair the parser sees 26.
+
+**The mechanism, and it is worth stating because it is not a typo.** `reserved_names()` splits §4's
+list on `·` and, per its own docstring, takes *"every backtick token before the first `(` in each
+segment"* — so a citation can never be mistaken for a reservation. Correct, and it silently makes
+the reverse mistake: a reservation that does not lead its own `·` segment sits **after** some
+earlier item's citation parenthesis and is discarded. `t-retriever` was cut off by the parenthesis
+in its own paragraph's preamble; `grag` and `archrag` were written as *"`g-retriever` (He et al.
+2024), `grag` (Hu et al. 2024) and `archrag` (…)"* — one item, three names, one survivor; `colpali`
+was swallowed by the paragraph above it. Every one of those is ordinary, careful prose. **The
+document was right and the reservation was not real**, which is the exact distance between a rule
+and a check.
+
+**Generalises to.** A parser that reads meaning out of prose **layout** — a separator, a position,
+what comes before a bracket — turns every future edit that is stylistically free into an edit that
+is semantically load-bearing, with nothing to say so. The rule: *where a document's structure is
+the input to a check, assert the structure, not only the content* — the cheapest form being a
+count. `reserved_names()` returning 21 against a section a human reads as reserving 26 is a
+disagreement no test in this repository could have expressed, because both numbers were derived
+from the same file by the same function.
+
+**Candidate home, and this one has a real choice in it.** The narrow fix is a test in
+`tests/docs/test_technique_naming.py`: every `·`-separated item in §4's list paragraph must yield
+at least one parsed name. It would have caught `t-retriever` and `colpali` and **not** `grag` or
+`archrag`, which shared an item with a name that did parse. The fix that removes the class is to
+make §4 **a table**, one reserved name per row, exactly as §1.4 and §1.5 already are — `_TABLE_ROW`
+parses those with `^\| \`([^\`]+)\``, one name per line, no positional cleverness at all, and the
+citation goes in a cell where it cannot swallow its neighbour. That is a reformat of a section
+plus a rewrite of `reserved_names()`, which is why it is filed rather than done inside the task
+that found it (`lessons` → *Write the entry and stop*).
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

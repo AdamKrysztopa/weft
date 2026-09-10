@@ -505,16 +505,27 @@ al., ICLR 2023, arXiv:2203.11171) · `adaptive-rag` (Jeong et al., NAACL 2024, a
 `query2doc` · `ragas-*` (free for a pack that genuinely wraps the library).
 
 **Added 2026-09-06, from Phase 10's four papers** (`build-ledger.md` → Phase 10; each read at source):
-`t-retriever` (Chunyu Wei, Huaiyu Qin, Siyuan He, Yunhai Wang, Yueguo Chen, *T-Retriever: Tree-based
+· `t-retriever` (Chunyu Wei, Huaiyu Qin, Siyuan He, Yunhai Wang, Yueguo Chen, *T-Retriever: Tree-based
 Hierarchical Retrieval Augmented Generation for Textual Graphs*, 2026, arXiv:2601.04945 — cited as
 arXiv; the PDF carries an AAAI template block and no acceptance statement. **Must not be taken by
 anything that omits the GNN soft prompt of its eq. 14–16**, which every Weft plugin would: that path
 prepends a vector to an LLM's input embedding layer, and `LLM.complete` takes a rendered string) ·
 `structural-entropy` / `s2-entropy` (the same paper's criterion, eq. 5 — the criterion, not the
-system) · `g-retriever` (He et al. 2024), `grag` (Hu et al. 2024) and `archrag` (Wang et al. 2025 —
-the structure-first hierarchical baseline), all three as cited in T-Retriever's baselines, p.5, and
-none read at its own source · `hipporag` (Jimenez Gutierrez et al. 2024, as cited in T-Retriever's
-related work, p.2; PPR-based; not read at source). **`adrap` was reserved here and is now taken** — ledger `10.14`, 2026-09-08, and its row is in
+system) · `g-retriever` (He et al. 2024) ·
+`grag` (Hu et al. 2024) ·
+`archrag` (Wang et al. 2025 — the structure-first hierarchical baseline; these three as cited in
+T-Retriever's baselines, p.5, and none read at its own source) · `hipporag` (Jimenez Gutierrez et al. 2024, as cited in T-Retriever's
+related work, p.2; PPR-based; not read at source) ·
+`graphrag` (Microsoft Research, *From Local to Global: A Graph RAG Approach to Query-Focused
+Summarization*, 2024, arXiv:2404.16130 — **not read at its own source**, named on the strength of
+what it is widely known to be rather than on a reading, in the same posture as the three baselines
+above. Added 2026-09-10, ledger `11.14`, and it is the reservation this project had every
+opportunity to take and did not: GraphRAG is **community-summary retrieval** — build a graph,
+detect communities in it, have a model write a summary per community, answer a global question by
+map-reducing over those summaries. Phase 11 ships none of that; it extracts facts, resolves
+entities and walks a bounded neighbourhood. A name claiming that system would be §2.1 rule 4's
+overclaim at its most damaging, because a practitioner who searched for GraphRAG and landed here
+would be misled about the shape of the answer rather than merely about provenance). **`adrap` was reserved here and is now taken** — ledger `10.14`, 2026-09-08, and its row is in
 §1.1. The reservation described it as "the incremental tree, which the paper's own §6.5 measures
 below a full rebuild on two of three datasets", and **that caveat survived into the plugin rather
 than being dropped on the way**: it is in the module docstring, in `index-with-adrap.yaml`, and in
@@ -544,7 +555,7 @@ overclaim under §2.1 rule 4 to take. `late-interaction` and `maxsim` are alread
 not hold. The first six are the literature's, on this section's own rubric; the last three are
 **Weft's own names, held against nothing built**, which is a different reason and is stated as one:
 
-`colpali` · `colqwen` · `late-interaction` · `maxsim` (all four fixed by the late-interaction
+· `colpali` · `colqwen` · `late-interaction` · `maxsim` (all four fixed by the late-interaction
 literature; `11` §3 D5 has why none is built) · `visual-citation` · `grounded-answer` — the last two
 under §2.1 rule 4 rather than under provenance: ViDoRe V3 (arXiv:2601.08620) measures visual
 grounding F1 at **0.602 human, 0.089 Qwen3-VL, 0.065 Gemini 3 Pro**, so a plugin called

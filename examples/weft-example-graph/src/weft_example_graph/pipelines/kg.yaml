@@ -1,13 +1,22 @@
 # `kg` — weft-example-graph's own shipped, derived pipeline. `docs/02-extension-model.md` section 4:
 # "A named pipeline... ships a ready-made derived pipeline users can extend further."
 #
-# No `extends:` — this repository ships no named ingest "base" a stranger could derive from
-# (docs/02 section 3's own `base.yaml` is an illustrative example, never a document any
-# first-party pack actually ships; `weft index`'s default four-stage path is still built in
-# Python, per `weft_cli.ingest`'s own module docstring). So this pipeline states the whole
-# ingest path itself, using only registered, real plugin names — and is itself something a
-# user derives further with their own `extends: kg`, e.g. to swap the embedder or insert a
-# cleaning stage `docs/02` section 3's own "no canonical ingest order" leaves open.
+# No `extends:`, and the reason changed on 2026-09-10 (ledger 11.14) — the old one had been false
+# since task 8.2. This comment used to say the repository ships no named ingest base a stranger
+# could derive from. It ships **twenty**: `index-text` is the root, and `weft pipeline list` prints
+# the rest. So the honest reason is a different and better one.
+#
+# A first-party rung is a fine parent for a first-party rung, and this document is neither. It is
+# an *example pack's* pipeline, whose job is to show what a stranger's own YAML looks like end to
+# end — every stage visible, nothing inherited from a document the reader would have to go and
+# read. `extends: index-text` would make it one line long and demonstrate nothing, and it would
+# couple an example that exists to prove independence to a first-party document whose stage list
+# is free to change. Stating the whole path is the point here; deriving is what
+# `manual/user-manual.md` teaches for real work.
+#
+# This document is itself something a user derives further with their own `extends: kg`, e.g. to
+# swap the embedder or insert a cleaning stage `docs/02` section 3's own "no canonical ingest
+# order" leaves open.
 name: kg
 stages:
   - id: extract
