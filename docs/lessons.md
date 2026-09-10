@@ -559,6 +559,54 @@ against the ledger; asserting that **every `docs/NN-*.md` has a row in the Docum
 the same shape and would make the manifest's completeness a fact rather than a convention. It would
 not have caught this — the row was there — but it protects the router I should have used.
 
+### L12.15 — one value did selection *and* explanation, and the extraction only saw selection
+
+**What happened.** R10.4 made `weft_cli.ingest`'s corpus discovery public so `weft eval run
+--reuse-index` could reach the same derivation. `run_index`'s pipeline branch previously computed
+`accepted = _accepted_extensions(...)` and used it twice: once to select which files to read, and
+once — twenty lines later, in the empty-walk branch — as the set `_nothing_found` *names to the
+operator* (`"the installed extractors claim {options}"`). The extraction moved the selection use
+into `corpus_documents`, so I replaced the caller's binding with `accepted = frozenset()` and a
+comment saying the callee had already applied it. That was true of selection and false of the
+message: a directory holding only `.docx` would have been told the installed extractors claim
+nothing at all. It was caught by `ruff` reporting `F821 Undefined name 'present'` — the *adjacent*
+variable the same edit dropped — not by anything looking at `accepted`. Had the walk been one line
+shorter, a green gate would have shipped a lying error message.
+
+**Generalises to.** **Before replacing an extracted value with a sentinel, grep the caller for
+every remaining use of that name — a value that selects is often the same value that explains.**
+The two uses look nothing alike at the call site (one is a filter argument, one is a keyword to a
+message builder) and neither type-checks against the other, so `frozenset()` satisfied both. This
+is `L9.43`'s shape — *asserting a container rather than the fact it means* — arriving through
+extraction rather than through a test: a sentinel that is *structurally* correct for the use you
+removed and *semantically* wrong for the one you did not.
+
+**Candidate home.** `phase-step` → *Verify*, or its `references/evidence.md`. The mechanical form
+worth the drain's attention: the empty-walk branch had no test covering the pipeline path, which is
+why only lint spoke — a test asserting `UnclaimedFormatError` names a non-empty option set, on
+**both** the pipeline and the `--extract` paths, would have failed loudly. `refines L9.43`
+
+### L12.16 — I read a binary's exit code through a pipe, in the session that quotes the rule against it
+
+**What happened.** Verifying R10.4's failure path on the shipped wheel I ran
+`weft eval run empty index-text --reuse-index --yes 2>&1 | tail -8` followed by `echo "exit=$?"`,
+and read `exit=0` — `tail`'s status. The binary had in fact exited `1`. I noticed within the same
+turn and re-measured unpiped, so it cost nothing; but the number had already been written into a
+tool result as if it were the binary's, and the only reason it did not reach the ledger is that
+`exit=0` contradicted the message printed directly above it.
+
+**Generalises to.** **A verdict is read from the command that produced it, never from the end of a
+pipeline** — `a pipeline's exit status is its last command's` — and that applies to *running the
+binary* exactly as it applies to running a gate. Where the output needs trimming, redirect to a
+file, capture `$?` on the following line, then read the file.
+
+**Candidate home.** `.claude/hooks/guard_unchecked_commit.py` already refuses a check piped into
+`tail` before `&&  git commit`, from `L10.24` — the identical shape, one step earlier in the
+sequence, and the guard cannot see this one because no commit is chained to it. So either
+`phase-step` → *Finish* says it in words for the binary run, or the guard grows a second rule that
+refuses `| tail` (or any pipe) in a command whose next statement reads `$?`. The first is cheap and
+the second is the one that would actually have fired. `recurs L10.24`
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in
