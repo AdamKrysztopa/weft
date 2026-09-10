@@ -6195,7 +6195,7 @@ it had read one failure (`L7.1`).
   for that module's own stated reason: *a double is what hid the defect for a whole phase.* Written
   by me and implemented by me — smaller than its brief. Gate green, both containers up*
 
-- [ ] **R11.7** every name `10` §4 reserves is a reservation the check can refuse, not a sentence
+- [x] **R11.7** every name `10` §4 reserves is a reservation the check can refuse, not a sentence
   a reader can · owner `10` §4; `tests/docs/test_technique_naming.py` → `reserved_names` · `L11.44`
   · *filed 2026-09-10 at task `11.14`, which found five names in that state and repaired the
   instances without removing the class.* `reserved_names()` splits §4's list on `·` and keeps only
@@ -6213,6 +6213,81 @@ it had read one failure (`L7.1`).
   owes a check that the count the parser sees is the count the section states, because that
   disagreement is the one no test in this tree could express — both numbers came from the same file
   through the same function
+
+  **Closed 2026-09-10, and a sixth instance was live when it was taken.** The entry says `11.14`
+  repaired five names and left the class. Measuring the parser against the section found
+  `describe-query-image` reserved in the document and **invisible** — while `describe-table`, its
+  sibling on the same line, was read. The parser saw **26** where a reader counts **27**. Found by
+  running `reserved_names()` and reading its output, which is a thing nothing in this tree had ever
+  done: every test about §4 read §4 *through* that function, so it agreed with itself by
+  construction.
+
+  **The remedy is not a table, and the entry's own suggestion is what made room for a smaller
+  one.** Every reservation now begins its own line with a `·` and its backticked name, parsed by
+  `_RESERVATION_LINE = ^· \`([a-z][a-z0-9-]*\*?)\`` with `MULTILINE` — **`_TABLE_ROW`'s exact
+  shape one character over**, anchored at the line start, one name per line, nothing positional. A
+  table would have worked and would have destroyed the part of §4 worth having: `graphrag`'s
+  reservation is a twelve-line argument about GraphRAG being community-summary retrieval, and
+  `colvbert`'s refusal is a paragraph about a paper naming two different things. Prose survives on
+  the wrapped lines; only the name is structural. It also gets the old rule's *property* for free —
+  a backticked term inside a reservation's own reasoning is not at a line start, so
+  `decomposition`'s entry can go on naming `boolean-retrieval` without reserving it.
+
+  **`10` §4 now states its own count and a check refuses a disagreement** — the thing the entry
+  asks for and the reason it says no test in this tree could express it: both numbers came from one
+  file through one function. They now reach the assertion by different routes, a person counting
+  the page and a machine reading it, which is the only assertion in that file whose two sides are
+  independent. Planted by folding `grag` back onto the previous line and watched go red, naming the
+  reservation that vanished: *"says it reserves 27 names and 1 prefix; this file can read 26 and
+  1"*.
+
+  **`parse_reserved_names` was split out as a pure function over text**, which is the half of this
+  repair the entry does not name and is arguably the larger one. The old reading could only be
+  exercised against the live document, so the inputs it silently dropped were precisely the inputs
+  no fixture held — because the fixture *was* the file. Three of the four new tests hand it a
+  literal section, including one where a reservation arrives after a paragraph dense with
+  parenthetical citations: the exact input the old parser dropped, now stated as a property instead
+  of as the six instances found by eye.
+
+  **And the repair's own explanatory paragraph was parsed as an instance of it.** Writing the
+  convention down, I illustrated it as `` · \`name\` `` — `_BACKTICK_TOKEN` matched, `name` became
+  a twenty-seventh reservation, 26 real + 1 phantom = 27, and **the count check passed on two wrong
+  numbers that happened to agree** while the live defect stayed hidden. Caught only because four
+  other tests in the same commit were red and this one's absence from that list did not look right.
+  `L12.8`, and it is why the paragraph now says "a `·` and then its backticked name" in words
+  rather than in syntax.
+
+  **Nothing to run through the binary, and that is stated rather than skipped**: §4 reserves names
+  *against* code, so no reservation reaches `weft` at all — the surface this repair changes is
+  `paper-to-plugin`'s and the gate's. **Built by me, not dispatched**: the whole change is a
+  document, a test file and a regex, all three of which are on the never-delegated list.
+  **`L11.39` is designed with this and ships beside it** rather than inside it — a citation carrying
+  a verifiable fragment is the same idea (a claim written in a shape a checker can refuse) applied
+  to a line rather than to a section, and it has its own population and its own ratchet
+- [ ] **R11.8** a citation is checkable as a claim about the **line** it names, not only about the
+  path · owner `01` → *Fitness functions* 17; `tests/architecture/test_ff17_citations_resolve.py` ·
+  `L11.39` (archived Declined 2026-09-10 — *"the check is real work and belongs beside `R11.7`…
+  both are `tests/docs/` and should be designed together"*), `refines L9.34` · **filed as a repair
+  2026-09-10, at `R11.7`'s close, because a declined lesson in an archive is invisible to
+  `grep -c '^- \[ \] \*\*R'` and therefore to every count of what this project owes** — which is
+  `L12.2`'s own failure mode arriving through a different door. `R11.7` is closed and the thing it
+  was waiting to be designed with is this. **The gap**: FF17 asserts two things, both categorical
+  and both about *paths* — a `path:line` citation names a path that exists in this tree, and not
+  the file it appears in. It says nothing about the line. So a citation that drifted onto an
+  unrelated line after an edit above it, or that outlived the code it pointed at, passes as
+  diligence — and `L9.34` already measured the sharper version: **three agents reading one
+  paragraph on the same day cited it at three different line numbers.** `phase-step` states the
+  rule (*"a `path:line` an agent reports is a lead, not evidence"*) and names FF17 as unable to
+  help. **Measured 2026-09-10**: `docs/*.md` holds **261** `path:line` citations, **177** of them
+  in `build-ledger.md` alone, then `01` at 25 and `11` at 11. **The remedy is settled** — the owner
+  chose it the same day, over dropping the line number for a symbol and over checking only that the
+  line exists: *a citation carries a short quoted fragment, and the check asserts that fragment
+  appears at the cited line ± a small window, so ordinary drift above it does not break the
+  citation and a rewrite of what it points at does.* **Forward-only, with a ratchet**: retrofitting
+  261 sites is not a prerequisite for verifying the next one, and a pinned per-file count of
+  unverified citations that may only decrease is what stops the population growing. What remains to
+  decide inside the repair is the window and whether `build-ledger.md`'s 177 — an append-only record
+  of work already done — are in scope or waived as history
 - [x] **R11.6** a generator's deliberate refusal reaches the person who asked, and the machine
   consumer can read it — so *"the corpus does not answer this"* is never rendered as silence ·
   owner `weft_cli.render`; `weft_generate.payload.Answer.stance`; `03` → *Output* · sha — ·

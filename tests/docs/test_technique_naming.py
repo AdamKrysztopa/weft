@@ -107,13 +107,37 @@ def _section(text: str, *, start: str, end: str) -> str:
     return text.split(start, 1)[1].split(end, 1)[0]
 
 
-def _leading_backticks(segment: str) -> list[str]:
-    """Every backtick token in `segment` up to its first `(` — the reserved name(s) an item
-    states, never a token inside the citation that follows (an author list can itself contain
-    a backtick-quoted term, and the `decomposition` paragraph names `boolean-retrieval` in its
-    own explanation without reserving it)."""
-    before_paren = segment.split("(", 1)[0]
-    return _BACKTICK_TOKEN.findall(before_paren)
+#: One reservation, `10` §4 — a `·` at a line start and then the backticked name it reserves.
+#: Carried repair **R11.7**, and deliberately the same shape as `_TABLE_ROW` above: anchored at
+#: the line start, one name per line, nothing positional. A backticked term *inside* a
+#: reservation's reasoning is not at a line start and is therefore not a reservation, which is
+#: the property the old "everything before the first `(`" rule was protecting and this one gets
+#: for free — `decomposition`'s entry names `boolean-retrieval` in its explanation without
+#: reserving it, and an author list can itself carry a backtick-quoted term.
+_RESERVATION_LINE = re.compile(r"^· `([a-z][a-z0-9-]*\*?)`", re.MULTILINE)
+
+
+#: `10` §4's own statement of how many reservations it holds — the second, independent side of
+#: the count assertion, written by a person reading the page. Carried repair **R11.7**.
+_STATED_COUNTS = re.compile(r"\*\*This section reserves (\d+) names? and (\d+) prefix(?:es)?\.\*\*")
+
+
+def _stated_reservation_counts() -> tuple[int, int]:
+    """`(names, prefixes)` as `10` §4 states them in its own prose.
+
+    Refused rather than defaulted when the sentence is missing: a count check whose stated side
+    quietly becomes zero passes for a section that reserves nothing, which is the vacuous-green
+    this whole repair exists to end.
+    """
+    section = _section(_catalogue_text(), start="## 4. Reserved names", end="## 5. What is not")
+    match = _STATED_COUNTS.search(section)
+    assert match is not None, (
+        "`10` §4 no longer states how many names it reserves. That sentence is one of the two "
+        "sides of the count assertion below; without it there is nothing for the parser to "
+        "disagree with. Restore it in the form "
+        "'**This section reserves N names and M prefixes.**'"
+    )
+    return int(match.group(1)), int(match.group(2))
 
 
 def reserved_names() -> tuple[frozenset[str], frozenset[str]]:
@@ -132,12 +156,36 @@ def reserved_names() -> tuple[frozenset[str], frozenset[str]]:
     than compared for equality, so a future `ragas-context-relevance` is caught the same way
     a literal `ragas-*` never would be.
     """
-    section = _section(_catalogue_text(), start="## 4. Reserved names", end="## 5. What is not")
-    list_paragraph, _, decomposition_paragraph = section.partition("`decomposition` is reserved")
-    tokens: set[str] = set()
-    for item in list_paragraph.split("·"):
-        tokens.update(_leading_backticks(item))
-    tokens.update(_leading_backticks("`decomposition` is reserved" + decomposition_paragraph))
+    return parse_reserved_names(
+        _section(_catalogue_text(), start="## 4. Reserved names", end="## 5. What is not")
+    )
+
+
+def parse_reserved_names(section: str) -> tuple[frozenset[str], frozenset[str]]:
+    """`reserved_names()`'s reading, over text handed in — a pure function, so the property it
+    holds can be exercised on an input that is *not* the live document.
+
+    Split out at carried repair **R11.7**, and that is the half of the repair the entry does not
+    name. The old reading could only ever be tested by reading `10` §4 through it, which is a
+    check agreeing with itself: the inputs it silently dropped were exactly the inputs no
+    fixture contained, because the fixture *was* the file.
+    `tests/docs/test_troubleshooting_coverage.py` already keeps its parser separate from the
+    document for this reason.
+
+    **What changed, and why this shape.** The old reading split §4 on `·` and kept backtick
+    tokens *before the first `(`* in each segment — correct for the arrangement it was written
+    against, and silently wrong in reverse: a reservation that did not lead its own segment fell
+    behind an earlier item's citation paren and was discarded. Task `11.14` repaired five such
+    names and left the class; a sixth, `describe-query-image`, was still live when this ran.
+    `_RESERVATION_LINE` anchors at the line start instead, which is `_TABLE_ROW`'s own shape one
+    character over — no positional cleverness, one reservation per line, and a backticked term
+    inside a reservation's own reasoning cannot be mistaken for a second reservation because it
+    is not at a line start. **§4 states its own count and `test_the_count_the_parser_sees_is_
+    the_count_the_section_states` refuses a disagreement**, which is the part that makes a future
+    regression visible rather than silent — the two numbers now reach the assertion by different
+    routes.
+    """
+    tokens = set(_RESERVATION_LINE.findall(section))
     exact = frozenset(token for token in tokens if not token.endswith("*"))
     prefixes = frozenset(token[:-1] for token in tokens if token.endswith("*"))
     return exact, prefixes
@@ -685,4 +733,99 @@ def test_every_audited_distribution_resolves() -> None:
         f"distribution was renamed or consolidated — G10 folded fourteen packs into weft-rag once "
         f"already — or it is not installed. Until it is corrected, every name it was meant to "
         f"bring into scope is unaudited and nothing else says so."
+    )
+
+
+def test_the_count_the_parser_sees_is_the_count_the_section_states() -> None:
+    # Carried repair **R11.7**. `10` §4 reserved its names in flowing prose and
+    # `reserved_names()` read them by splitting on `·` and keeping backtick tokens *before the
+    # first `(`* in each segment — correct, and silently wrong in reverse: a reservation that
+    # did not lead its own segment fell behind an earlier item's citation paren and was
+    # discarded. Task `11.14` repaired five instances and left the class, and a sixth was live
+    # when this test was written: `describe-query-image` was reserved in the document and
+    # invisible here, while `describe-table` — its sibling on the same line — was not.
+    #
+    # **This is the only assertion in this file whose two sides are independent.** Every other
+    # question about §4 is answered by reading §4 through this same function, so the parser
+    # agrees with itself by construction. The stated count is written by a person counting the
+    # page; the parsed count is what a machine can actually reach. They differ exactly when a
+    # reservation has gone invisible, which is the one failure no test here could express.
+    exact, prefixes = reserved_names()
+    stated_names, stated_prefixes = _stated_reservation_counts()
+
+    assert (len(exact), len(prefixes)) == (stated_names, stated_prefixes), (
+        f"`10` §4 says it reserves {stated_names} names and {stated_prefixes} prefix(es); this "
+        f"file can read {len(exact)} and {len(prefixes)}. Either a reservation is written in a "
+        f"shape the parser cannot see — every one must begin its own line with `` · `name` `` — "
+        f"or the sentence stating the count was not updated with the list. Parsed: "
+        f"{sorted(exact)} + {sorted(prefixes)}."
+    )
+
+
+def test_a_reservation_is_found_wherever_it_sits_on_the_page() -> None:
+    # Arrange — the class R11.7 names, stated as a property rather than as the five (then six)
+    # instances that were found by eye. A reservation preceded by a paragraph dense with
+    # parenthetical citations is exactly the input the old positional parser dropped, and the
+    # line-anchored one cannot: `·` at a line start is not a token *inside* anything.
+    section = """
+· `already-taken` — this one leads a line and is a reservation (Someone et al., arXiv:1234.5678)
+  and its reasoning wraps onto a second line naming `not-a-reservation` in passing.
+
+Some prose about a name that was reserved and is now taken, citing `taken-elsewhere` (ledger
+`10.14`) at length, with several parentheses (like this one) and a `backticked-term`.
+
+· `found-anyway` — reserved, and it arrives after all of that
+"""
+
+    # Act
+    exact, prefixes = parse_reserved_names(section)
+
+    # Assert
+    assert exact == frozenset({"already-taken", "found-anyway"})
+    assert prefixes == frozenset()
+
+
+def test_a_backticked_name_inside_a_reservations_own_reasoning_is_not_a_reservation() -> None:
+    # Arrange — the property the old parser's "before the first `(`" rule was protecting, kept.
+    # `decomposition`'s entry names `boolean-retrieval` in its explanation without reserving it,
+    # and an author list can itself carry a backticked term.
+    section = "· `decomposition` — spoken for, and not the same thing as `boolean-retrieval`\n"
+
+    # Act
+    exact, _prefixes = parse_reserved_names(section)
+
+    # Assert
+    assert exact == frozenset({"decomposition"})
+
+
+def test_a_prefix_reservation_comes_back_as_a_prefix() -> None:
+    # Arrange — `ragas-*` means "this prefix", not this literal string, so a future
+    # `ragas-context-relevance` is caught the way the literal never would be.
+    section = "· `ragas-*` — free for a pack that genuinely wraps the library\n· `flare` — fixed\n"
+
+    # Act
+    exact, prefixes = parse_reserved_names(section)
+
+    # Assert
+    assert exact == frozenset({"flare"})
+    assert prefixes == frozenset({"ragas-"})
+
+
+def test_the_check_can_actually_fail() -> None:
+    # The count assertion above compares two numbers read from one file, and the whole reason it
+    # is worth anything is that they reach it by different routes. Both floors: the subject is
+    # non-empty, and the comparison refuses a disagreement.
+    exact, prefixes = reserved_names()
+    assert exact, "no reservation was parsed out of `10` §4 at all — the reader itself is broken."
+    assert prefixes, "no prefix reservation was parsed — `ragas-*` is the live instance."
+
+    stated_names, _ = _stated_reservation_counts()
+
+    # A section that states one count and carries another is what this refuses.
+    planted = "· `flare` — fixed\n"
+    planted_exact, _ = parse_reserved_names(planted)
+    assert len(planted_exact) == 1
+    assert len(planted_exact) != stated_names, (
+        "the planted disagreement happens to equal the real count, so this exercise proves "
+        "nothing — change the plant."
     )

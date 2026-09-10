@@ -285,6 +285,42 @@ claim about the environment had no code behind it (`L12.1`'s skip count, `L12.2`
 this) — the shape is *a fact `docs/` asserts that nothing re-derives*, and all three may route to
 the same place.
 
+### L12.8 — the paragraph explaining the convention was parsed as an instance of it
+
+**What happened.** R11.7's whole subject is that `10` §4 reserves technique names in prose a parser
+reads by positional cleverness. The repair adds a second, independent number — the section states
+how many names it reserves, and the check refuses a run where the parser reads a different count.
+Writing that sentence, I explained the new convention in the same section:
+
+> Every reservation below begins its own line with `` · `name` ``
+
+`_BACKTICK_TOKEN` is `` `([a-z][a-z0-9-]*\*?)` ``, so **`name` was parsed as a twenty-seventh
+reservation**. The section genuinely holds 26 readable reservations plus one the parser drops
+(`describe-query-image`, found by measurement the same hour), so 26 real + 1 phantom = 27, and the
+sentence I had just written said 27. **The count check passed**, on two wrong numbers that happened
+to agree, and the live defect it was written to expose stayed invisible. Caught only because four
+*other* tests in the same commit were red and the count test's absence from that list did not look
+right.
+
+**Generalises to.** **A check that reads a document is data for itself, and the paragraph
+explaining the check is the most dangerous line on the page** — it is where the convention's own
+syntax is most likely to appear in illustration, written by the person who knows the parser and is
+therefore least likely to reread it as input. Two consequences worth separating: *(a)* a documented
+convention is illustrated in a form the parser cannot match — here, line-anchoring the pattern is
+what made the mid-sentence example safe, which is a reason to prefer an anchored shape beyond the
+one R11.7 already had; *(b)* **two numbers agreeing is not two numbers being right**, and a
+count check earns nothing unless a deliberate disagreement has been watched — the plant this
+repository requires for a fitness function applies to any two-sided assertion, not only to a sweep
+that might match nothing.
+
+**Candidate home.** `phase-step` → *Finish* item 3, whose plant rule is written for a *check* and
+whose reasoning covers any assertion whose two sides could both be wrong the same way — this is
+that rule's second subject. There is also a mechanical half worth the drain's attention: a
+`tests/docs/` parser could refuse to read anything from the paragraph that *documents* it, by
+requiring the convention's own prose to be fenced or by excluding lines that are not anchored —
+which is what the R11.7 design ended up doing for a different reason, and it is why the phantom
+disappeared rather than needing a waiver.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

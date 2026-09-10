@@ -492,31 +492,54 @@ settled inside a document that does not own them.
 ## 4. Reserved names
 
 Part of what this document owns, and the cheapest thing in it. These names must stay free because the
-literature has already fixed them for techniques Weft does not implement:
+literature has already fixed them for techniques Weft does not implement.
 
-`self-rag` (Akari Asai, Zeqiu Wu, Yizhong Wang, Avirup Sil, Hannaneh Hajishirzi, *Self-RAG*, ICLR
-2024 oral, arXiv:2310.11511) · `flare` / `active-retrieval` (Jiang et al., EMNLP 2023,
-arXiv:2305.06983) · `ircot` (Harsh Trivedi, Niranjan Balasubramanian, Tushar Khot, Ashish Sabharwal,
-*Interleaving Retrieval with Chain-of-Thought Reasoning*, ACL 2023, arXiv:2212.10509) · `iter-retgen`
-(Zhihong Shao et al., Findings of EMNLP 2023, arXiv:2305.15294) · `self-ask` / `multi-hop` (Ofir
-Press, Muru Zhang, Sewon Min, Ludwig Schmidt, Noah A. Smith, Mike Lewis, *Measuring and Narrowing the
-Compositionality Gap*, Findings of EMNLP 2023, arXiv:2210.03350) · `self-consistency` (Xuezhi Wang et
-al., ICLR 2023, arXiv:2203.11171) · `adaptive-rag` (Jeong et al., NAACL 2024, arXiv:2403.14403) ·
-`query2doc` · `ragas-*` (free for a pack that genuinely wraps the library).
+**This section reserves 27 names and 1 prefix.** That sentence is the point of it and not
+decoration: `tests/docs/test_technique_naming.py` counts what it can actually read here and
+refuses a run where the two disagree. Before carried repair `R11.7` there was no second number to
+disagree with — the parser's count and the section's count were the same number arrived at by the
+same function, so a reservation the parser silently dropped looked exactly like a reservation
+nobody had written. **Every reservation below begins its own line with a `·` and then its backticked name**, anchored
+at the line start the way §1.4's and §1.5's tables already are, and its reasoning follows on that
+line and wraps freely. A name that is *not* a reservation — one already taken, one deliberately
+refused, one cited in passing — never starts a line that way, which is what makes the two facts
+independent. Do not fold a reservation into the middle of another one's sentence; that is exactly
+what this repair was filed for.
+
+
+· `self-rag` — Akari Asai, Zeqiu Wu, Yizhong Wang, Avirup Sil, Hannaneh Hajishirzi, *Self-RAG*,
+ICLR 2024 oral, arXiv:2310.11511
+· `flare` — Jiang et al., EMNLP 2023, arXiv:2305.06983
+· `active-retrieval` — the same paper's own term for what FLARE does; reserved beside it
+· `ircot` — Harsh Trivedi, Niranjan Balasubramanian, Tushar Khot, Ashish Sabharwal, *Interleaving
+Retrieval with Chain-of-Thought Reasoning*, ACL 2023, arXiv:2212.10509
+· `iter-retgen` — Zhihong Shao et al., Findings of EMNLP 2023, arXiv:2305.15294
+· `self-ask` — Ofir Press, Muru Zhang, Sewon Min, Ludwig Schmidt, Noah A. Smith, Mike Lewis,
+*Measuring and Narrowing the Compositionality Gap*, Findings of EMNLP 2023, arXiv:2210.03350
+· `multi-hop` — the same paper's framing, reserved beside it
+· `self-consistency` — Xuezhi Wang et al., ICLR 2023, arXiv:2203.11171
+· `adaptive-rag` — Jeong et al., NAACL 2024, arXiv:2403.14403
+· `query2doc`
+· `ragas-*` — free for a pack that genuinely wraps the library. The one entry that means *this
+prefix*, not this literal string, so a future `ragas-context-relevance` is caught the way the
+literal never would be.
 
 **Added 2026-09-06, from Phase 10's four papers** (`build-ledger.md` → Phase 10; each read at source):
-· `t-retriever` (Chunyu Wei, Huaiyu Qin, Siyuan He, Yunhai Wang, Yueguo Chen, *T-Retriever: Tree-based
-Hierarchical Retrieval Augmented Generation for Textual Graphs*, 2026, arXiv:2601.04945 — cited as
-arXiv; the PDF carries an AAAI template block and no acceptance statement. **Must not be taken by
-anything that omits the GNN soft prompt of its eq. 14–16**, which every Weft plugin would: that path
-prepends a vector to an LLM's input embedding layer, and `LLM.complete` takes a rendered string) ·
-`structural-entropy` / `s2-entropy` (the same paper's criterion, eq. 5 — the criterion, not the
-system) · `g-retriever` (He et al. 2024) ·
-`grag` (Hu et al. 2024) ·
-`archrag` (Wang et al. 2025 — the structure-first hierarchical baseline; these three as cited in
-T-Retriever's baselines, p.5, and none read at its own source) · `hipporag` (Jimenez Gutierrez et al. 2024, as cited in T-Retriever's
-related work, p.2; PPR-based; not read at source) ·
-`graphrag` (Microsoft Research, *From Local to Global: A Graph RAG Approach to Query-Focused
+· `t-retriever` — Chunyu Wei, Huaiyu Qin, Siyuan He, Yunhai Wang, Yueguo Chen, *T-Retriever:
+Tree-based Hierarchical Retrieval Augmented Generation for Textual Graphs*, 2026, arXiv:2601.04945
+— cited as arXiv; the PDF carries an AAAI template block and no acceptance statement. **Must not
+be taken by anything that omits the GNN soft prompt of its eq. 14–16**, which every Weft plugin
+would: that path prepends a vector to an LLM's input embedding layer, and `LLM.complete` takes a
+rendered string
+· `structural-entropy` — the same paper's criterion, eq. 5 — the criterion, not the system
+· `s2-entropy` — that criterion's own short name, reserved beside it
+· `g-retriever` — He et al. 2024
+· `grag` — Hu et al. 2024
+· `archrag` — Wang et al. 2025, the structure-first hierarchical baseline. These three as cited in
+T-Retriever's baselines, p.5, and none read at its own source
+· `hipporag` — Jimenez Gutierrez et al. 2024, as cited in T-Retriever's related work, p.2;
+PPR-based; not read at source
+· `graphrag` — Microsoft Research, *From Local to Global: A Graph RAG Approach to Query-Focused
 Summarization*, 2024, arXiv:2404.16130 — **not read at its own source**, named on the strength of
 what it is widely known to be rather than on a reading, in the same posture as the three baselines
 above. Added 2026-09-10, ledger `11.14`, and it is the reservation this project had every
@@ -525,7 +548,9 @@ detect communities in it, have a model write a summary per community, answer a g
 map-reducing over those summaries. Phase 11 ships none of that; it extracts facts, resolves
 entities and walks a bounded neighbourhood. A name claiming that system would be §2.1 rule 4's
 overclaim at its most damaging, because a practitioner who searched for GraphRAG and landed here
-would be misled about the shape of the answer rather than merely about provenance). **`adrap` was reserved here and is now taken** — ledger `10.14`, 2026-09-08, and its row is in
+would be misled about the shape of the answer rather than merely about provenance
+
+**`adrap` was reserved here and is now taken** — ledger `10.14`, 2026-09-08, and its row is in
 §1.1. The reservation described it as "the incremental tree, which the paper's own §6.5 measures
 below a full rebuild on two of three datasets", and **that caveat survived into the plugin rather
 than being dropped on the way**: it is in the module docstring, in `index-with-adrap.yaml`, and in
@@ -555,14 +580,20 @@ overclaim under §2.1 rule 4 to take. `late-interaction` and `maxsim` are alread
 not hold. The first six are the literature's, on this section's own rubric; the last three are
 **Weft's own names, held against nothing built**, which is a different reason and is stated as one:
 
-· `colpali` · `colqwen` · `late-interaction` · `maxsim` (all four fixed by the late-interaction
-literature; `11` §3 D5 has why none is built) · `visual-citation` · `grounded-answer` — the last two
-under §2.1 rule 4 rather than under provenance: ViDoRe V3 (arXiv:2601.08620) measures visual
-grounding F1 at **0.602 human, 0.089 Qwen3-VL, 0.065 Gemini 3 Pro**, so a plugin called
-`grounded-answer` today would claim a capability the field delivers at roughly one-seventh of human.
-
-`describe-query-image` · `describe-table` — Weft's own, reserved so that the
-first implementation cannot seize a name that will have siblings (§2.1 rule 6).
+· `colpali` — fixed by the late-interaction literature; `11` §3 D5 has why none of these is built
+· `colqwen` — the same
+· `late-interaction` — the same
+· `maxsim` — the same
+· `visual-citation` — under §2.1 rule 4 rather than under provenance
+· `grounded-answer` — the same rule: ViDoRe V3 (arXiv:2601.08620) measures visual grounding F1 at
+**0.602 human, 0.089 Qwen3-VL, 0.065 Gemini 3 Pro**, so a plugin called `grounded-answer` today
+would claim a capability the field delivers at roughly one-seventh of human
+· `describe-query-image` — Weft's own, reserved so that the first implementation cannot seize a
+name that will have siblings (§2.1 rule 6). **This one was invisible to the check until carried
+repair `R11.7`**: it led a paragraph rather than a `·`-separated segment, so the positional parser
+dropped it while `describe-table`, on the same line, survived — the sixth instance of that defect
+and the one that was still live when the repair was taken
+· `describe-table` — Weft's own, on the same rule (§2.1 rule 6)
 
 **`pdf-layout-model` was reserved here and is now shipped** — ledger `9.13`, 2026-09-06, and its row
 is in §1.5 beside the two `weft-pdf` rungs. The reservation did the job it exists to do: the name
@@ -582,7 +613,7 @@ with a figure is not an oversight: a figure has no structure to render, so a des
 thing standing between it and a caption or nothing. **Whoever builds this has to beat 0.754, not
 0.366.**
 
-`decomposition` is reserved too, for the opposite reason: it is spoken for by the *reasoning*
+· `decomposition` — reserved for the opposite reason: it is spoken for by the *reasoning*
 decomposition line (least-to-most — Denny Zhou et al., ICLR 2023, arXiv:2205.10625; decomposed
 prompting — Tushar Khot et al., ICLR 2023, arXiv:2210.02406), and using it for Boolean operand
 splitting would promise sequential dependent sub-answers that `boolean-retrieval` structurally cannot
