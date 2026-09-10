@@ -935,6 +935,53 @@ measured it — never silence, and never a fabricated number standing in for "un
 runs, and `weft trace`* above covers reading a single run's own `metrics:` block back, and what
 `weft trace` does not do.
 
+## Comparing two query rungs against one index
+
+Carried repair **R10.4**. Everything above compares two *runs*, and until now every run indexed
+first — so comparing two **query** rungs over one corpus meant ingesting it twice and the two arms
+were scored against two stores rather than one. On a deterministic ingest rung that is merely
+wasted minutes. On a rung that calls a model it is not: `L11.46` measured four runs taking a
+corpus from **23 nodes to 42**, and what read as a baseline *interval* was extraction drift, not
+retrieval noise. The comparison spanned a store that grew between its arms.
+
+`--reuse-index` scores against what is already stored:
+
+```bash
+$ weft eval run corpus index-text --yes
+run 98f28e0e-f29a-4ebd-8c1a-67c0b7c26e94 persisted (corpus -> pipeline 'index-text'). produced 1, nothing to produce 0, failed 0. nodes now stored: 3. corpus: 'corpus' (787558a2aee7…). wall clock: 0.07s.
+
+$ weft eval run corpus index-text --reuse-index --yes
+run a5626e43-3419-4d94-aa80-e663a55964d5 persisted (corpus -> pipeline 'index-text'). produced 0, nothing to produce 0, failed 0. nodes now stored: unknown. corpus: 'corpus' (787558a2aee7…). wall clock: 0.00s.
+```
+
+Three things in that second line are the repair. `produced 0` and `wall clock: 0.00s` say the
+ingest half did not run — not that it ran quickly. `nodes now stored: unknown` is honesty rather
+than a gap: this run stored nothing, so it has no count of its own to report, and printing the
+store's current size would be reporting somebody else's number. And the corpus digest is
+**identical** — `787558a2aee7…` both times — which is the part that makes the two records
+*comparable* rather than merely both present.
+
+That digest is identical by construction, not by luck. `corpus_identity` digests the sorted source
+ids a run discovered **on disk**, and both paths call one function — `weft_cli.ingest.
+corpus_documents` — to discover them. Reading the ids back out of the store instead would make the
+record depend on whatever a previous run happened to write, which is the moving corpus one layer
+down.
+
+A directory the pipeline cannot read refuses, rather than persisting a record with an empty
+corpus:
+
+```bash
+$ weft eval run empty index-text --reuse-index --yes ; echo "exit=$?"
+'empty' holds nothing pipeline 'index-text' can read, so there is no corpus identity for a run record to carry and nothing for a query rung to retrieve. --reuse-index scores against a corpus that is already stored; point --path at the directory that was indexed.
+exit=1
+```
+
+**`--reuse-index` does not check that the corpus was ever indexed** — nothing reads the store to
+confirm it. Point it at a directory whose documents were never ingested and it will score a query
+rung against an empty retrieval, honestly and uselessly. The corpus digest is what catches this
+after the fact: a run whose numbers are all zero, against a digest no earlier run carries, was
+scored against nothing.
+
 ## What this does not protect you from
 
 **A pack runs with your full privileges. Installing one is trusting it.** `[packs] allow` decides

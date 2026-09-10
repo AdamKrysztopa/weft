@@ -460,20 +460,36 @@ async def run_index(
     store_stage_ids: tuple[str, ...] = ("store",)
     resolved_pipeline: ResolvedPipeline | None = None
     if pipeline is not None:
-        resolved_pipeline, specs = _specs_from_document(
-            pipeline, registry=registry, reports=reports, contributions=contributions
+        # Carried repair **R10.4**: the same call `weft eval run --reuse-index` makes, so the
+        # corpus identity an indexing run records and the one a reusing run records cannot
+        # disagree. `accepted` is not recomputed here — `corpus_documents` already applied it.
+        resolved_pipeline, specs, pipeline_docs = corpus_documents(
+            directory,
+            pipeline=pipeline,
+            registry=registry,
+            reports=reports,
+            contributions=contributions,
         )
-        name = _extractor_name_of(specs, pipeline=pipeline)
         store_stage_id = _store_stage_id_of(specs)
         store_stage_ids = _store_stage_ids_of(specs)
-        accepted = _accepted_extensions(claims, registry=registry, extractor=name)
+        #: The same set `corpus_documents` applied, re-derived from the specs it handed back —
+        #: not to select the documents (it already did that) but because `_nothing_found` names
+        #: it to an operator whose directory held only formats nothing claims. Deriving it from
+        #: `frozenset()` instead made that message claim no extractor accepts anything.
+        accepted = _accepted_extensions(
+            claims, registry=registry, extractor=_extractor_name_of(specs, pipeline=pipeline)
+        )
     else:
+        pipeline_docs = None
         accepted = _accepted_extensions(claims, registry=registry, extractor=extractor)
         specs = None  # chosen below, once the sole claimant (or --extract) is known
 
     present = present_suffixes(directory)
     readable = present & accepted
-    docs = discover_source_docs(directory, extensions=readable)
+    if pipeline_docs is not None:
+        docs = pipeline_docs
+    else:
+        docs = discover_source_docs(directory, extensions=readable)
     if not docs:
         return IndexResult(
             summary=_nothing_found(directory, present=present, accepted=accepted),
@@ -545,6 +561,37 @@ async def run_index(
             aclose = _aclose_of(stage.instance)
             if aclose is not None:
                 await aclose()
+
+
+def corpus_documents(
+    directory: Path,
+    *,
+    pipeline: str,
+    registry: Registry,
+    reports: Sequence[PackReport],
+    contributions: tuple[Contribution, ...] = (),
+) -> tuple[ResolvedPipeline, tuple[StageSpec, ...], tuple[SourceDoc, ...]]:
+    """The resolved pipeline, its specs, and the documents under `directory` it can read.
+
+    **One derivation, and carried repair `R10.4` is why it is public.** `weft eval run --reuse-
+    index` scores a query rung against a corpus that is already stored, so it needs the corpus
+    *identity* without doing the ingest — and `corpus_identity` digests exactly the sorted source
+    ids this returns. A second way of arriving at that set is a second way of disagreeing with
+    the run that did index, and two arms that disagree about the corpus compare as incomparable,
+    which is the opposite of the repair. So `run_index` below and the evaluator call this one
+    function rather than each composing the same four steps.
+
+    Nothing here runs: resolving a document and reading a directory listing are the whole of it.
+    """
+    resolved, specs = _specs_from_document(
+        pipeline, registry=registry, reports=reports, contributions=contributions
+    )
+    extractor = _extractor_name_of(specs, pipeline=pipeline)
+    accepted = _accepted_extensions(
+        claimed_extensions(registry), registry=registry, extractor=extractor
+    )
+    readable = present_suffixes(directory) & accepted
+    return resolved, specs, discover_source_docs(directory, extensions=readable)
 
 
 def _specs_from_document(

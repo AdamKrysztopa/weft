@@ -189,7 +189,7 @@ from typing import ClassVar, Final, cast
 from pydantic import BaseModel, ConfigDict, Field
 
 from weft_cli.eval_scoring import load_questions, score_pipeline
-from weft_cli.ingest import run_index
+from weft_cli.ingest import corpus_documents, run_index
 from weft_cli.pipeline_diff import PipelineDiff, diff_resolved
 from weft_cli.registry_bootstrap import Dependencies
 from weft_command.contract import Command, CommandResult
@@ -344,6 +344,13 @@ class EvalRunArgs(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     path: str = Field(description="directory to index")
+    reuse_index: bool = Field(
+        default=False,
+        description=(
+            "score against what is already stored instead of indexing first — the way to "
+            "compare two query rungs against one index"
+        ),
+    )
     pipeline: str = Field(
         description=(
             "the pipeline document to run — the same set 'weft pipeline show' resolves names "
@@ -729,9 +736,101 @@ class EvalRunCommand:
     def __init__(self, config: object = None) -> None:
         del config
 
+    async def _score_the_stored_corpus(
+        self, run_args: EvalRunArgs, ctx: Context, deps: Dependencies
+    ) -> Outcome[CommandResult]:
+        """`--reuse-index` — carried repair **R10.4**. Score against what is already stored.
+
+        **Why this exists.** `weft eval run` always indexed, so comparing two *query* rungs meant
+        running it twice against one corpus and re-ingesting each time. Harmless for a
+        deterministic ingest rung; not at all harmless for one that calls a model. `L11.46`
+        measured it — four runs against a model-calling rung took a corpus from **23 nodes to
+        42**, and what read as a baseline *interval* was extraction drift rather than retrieval
+        noise. The comparison spanned a store that grew between its arms.
+
+        **The corpus identity comes from the same derivation, deliberately.** `corpus_identity`
+        digests the sorted source ids a run discovered *on disk*, so discovering them without
+        ingesting yields the identical digest and the two arms compare rather than merely both
+        existing. Reading the ids back out of the store instead would make this record depend on
+        what some previous run happened to write, which is the moving corpus one layer down.
+
+        **The ingest pipeline is still resolved and still recorded.** A query-rung comparison is
+        only meaningful against a stated ingest rung — `_incomparable_reasons` reads it — and
+        resolving a document costs nothing and runs nothing.
+
+        `ingest_seconds` is `0.0` and that is a measurement rather than a placeholder: this run
+        spent no time ingesting.
+        """
+        _resolved, _specs, documents = corpus_documents(
+            Path(run_args.path),
+            pipeline=run_args.pipeline,
+            registry=deps.registry,
+            reports=deps.reports,
+            contributions=deps.contributions,
+        )
+        del _specs
+        document_ids = tuple(str(doc.source_id) for doc in documents)
+        if not document_ids:
+            raise EmptyCorpusError(
+                f"'{run_args.path}' holds nothing pipeline '{run_args.pipeline}' can read, so "
+                f"there is no corpus identity for a run record to carry and nothing for a query "
+                f"rung to retrieve. --reuse-index scores against a corpus that is already "
+                f"stored; point --path at the directory that was indexed.",
+                path=run_args.path,
+                pipeline=run_args.pipeline,
+            )
+
+        query_started = time.monotonic()
+        metrics: Mapping[str, Outcome[MetricAggregate]] = {}
+        if run_args.questions is not None:
+            questions = load_questions(Path(run_args.questions))
+            metrics = await score_pipeline(
+                registry=deps.registry,
+                resolved_pipeline=_resolved,
+                questions=questions,
+                top_k=run_args.top_k,
+                ctx=ctx,
+                query_pipeline=run_args.query_pipeline,
+                reports=deps.reports,
+                llm=deps.llm,
+                services=deps.services,
+                roles=deps.roles,
+                sink=deps.token_sink,
+                contributions=deps.contributions,
+            )
+        query_seconds = time.monotonic() - query_started
+
+        corpus_name = run_args.corpus_name if run_args.corpus_name is not None else run_args.path
+        record = build_run_record(
+            recorded_at=datetime.now(UTC).isoformat(),
+            resolved_pipeline=_resolved,
+            corpus=corpus_identity(corpus_name, document_ids),
+            model_versions=_model_versions(_resolved, roles=deps.llm.roles),
+            reports=deps.reports,
+            metrics=metrics,
+            durations=RunDurations(ingest_seconds=0.0, query_seconds=query_seconds),
+        )
+        run_id = str(uuid.uuid4())
+        write_run_record(record, DEFAULT_RUNS_DIR / f"{run_id}.json")
+        return Produced(
+            value=EvalRunCommandResult(
+                run_id=run_id,
+                path=run_args.path,
+                # Nothing was produced, because nothing ran — a summary of an ingest that did
+                # not happen, said as zeroes rather than omitted.
+                summary=RunSummary(),
+                stored_count=None,
+                record=record,
+                wall_clock_seconds=0.0,
+            )
+        )
+
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
         run_args = cast(EvalRunArgs, args)
         deps = ctx.require(Dependencies)
+
+        if run_args.reuse_index:
+            return await self._score_the_stored_corpus(run_args, ctx, deps)
 
         # Task 4.7, V5's wall-clock half: measured around the real work, never estimated.
         started = time.monotonic()

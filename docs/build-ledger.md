@@ -6119,11 +6119,48 @@ it had read one failure (`L7.1`).
   lines and the decision in it (two sources, one dictionary, disjoint keys) was the whole of the
   work. `09` §4's V2 pins a comparison to *"a different corpus, pipeline or model version"*, and
   a role's model is a model version — it was simply the one the guard could not see
-- [ ] **R10.4** two query rungs can be compared against **one** index · owner `weft_eval`;
+- [x] **R10.4** two query rungs can be compared against **one** index · owner `weft_eval`;
   `weft_cli.eval_commands` · `L10.25` · `weft eval run` always indexes, so a second run re-ingests
   and adds a fresh set of summaries beside the old, and the comparison silently spans a store that
   grew between its arms — which makes every multi-arm number in this phase's baselines a measurement
   of a moving corpus
+
+  **Closed 2026-09-10.** `weft eval run --reuse-index` scores the query rung against what is
+  already stored. Written here rather than dispatched: two tests, a flag, and a method that
+  composes calls this module already makes — the brief would have been longer than the diff.
+
+  **The repair is one derivation, not one flag.** Two arms compare only when their corpus
+  identity agrees, and `corpus_identity` digests the sorted source ids a run discovered *on
+  disk*. So the reusing path could not re-derive that set its own way: `weft_cli.ingest.
+  corpus_documents` is now public and **both** `run_index` and `_score_the_stored_corpus` call
+  it. A second way of arriving at the set is a second way of disagreeing with the run that did
+  index, and two arms that disagree about the corpus compare as incomparable — the opposite of
+  the repair. Extracting it was forced rather than chosen: `pyright`'s `reportPrivateUsage`
+  refused `eval_commands` importing `_accepted_extensions`, `_extractor_name_of` and
+  `_specs_from_document`, which is the check naming the right seam.
+
+  **Reading the ids back out of the store was the tempting shape and is the bug one layer
+  down** — it would make the record depend on whatever a previous run happened to write, which
+  is the moving corpus this entry exists to stop.
+
+  **Verified on the shipped wheels**, installed into an explicit venv, run from outside this
+  repository against a database created for the purpose (`CREATE DATABASE r104`), row counts
+  read immediately before and after each run: index run `3` nodes, reuse run `3` → `3`,
+  `produced 0`, `wall clock: 0.00s`, and the corpus digest `787558a2aee7…` **identical** across
+  the two records. The failure path exits `1` naming the remedy. The transcripts are in
+  `manual/operations-guide.md` → *Comparing two query rungs against one index*, copied from
+  those runs.
+
+  **One thing it deliberately does not do**, and the guide says so: nothing reads the store to
+  confirm the corpus was ever indexed. Pointed at an un-ingested directory it scores against an
+  empty retrieval, honestly and uselessly; the corpus digest is what catches that afterwards.
+
+  **Repair found while wiring it.** `run_index`'s pipeline branch had been left deriving
+  `accepted = frozenset()`, on the reasoning that `corpus_documents` had already applied it —
+  true for *selecting* documents and false for the empty-walk message, where `_nothing_found`
+  names the accepted set to an operator. A directory of unreadable formats would have been told
+  the installed extractors claim nothing at all. Caught by `ruff` on an undefined `present`,
+  which is the adjacent line the same edit dropped
 - [x] **R10.5** a cross-field validator refuses the same misconfiguration whether the field it
   depends on was typed or resolved · owner `weft_index.raptor.RaptorConfig` · `L10.30` ·
   `min_cluster_size: 4` is refused by name beside a typed `cluster_size: 2` and accepted in silence

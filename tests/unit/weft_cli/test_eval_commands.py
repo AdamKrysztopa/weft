@@ -28,7 +28,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
 import pytest
 from pydantic import BaseModel, ConfigDict
@@ -898,3 +898,87 @@ def _private_member(module: object, name: str) -> Any:
     and there is no public seam that answers the narrower question this test asks.
     """
     return getattr(module, name)
+
+
+async def test_reuse_index_scores_against_what_is_already_stored(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Carried repair **R10.4** (`docs/lessons.md` `L10.25`, and `L11.46` from the other end).
+
+    `weft eval run` always indexes. Comparing two **query** rungs therefore means running it
+    twice against the same corpus, and each run re-ingests — which is harmless for a
+    deterministic ingest rung and not at all harmless for one that calls a model. `L11.46`
+    measured it: four runs against a model-calling rung took a corpus from **23 nodes to 42**,
+    and what read as a baseline *interval* was extraction drift rather than retrieval noise. So
+    the comparison spanned a store that grew between its arms, which makes every multi-arm number
+    in Phase 10's baselines a measurement of a moving corpus.
+
+    `--reuse-index` is the answer: score the query rung against what is already stored. The
+    ingest half does not run at all — asserted by a spy, because *not doing something* is the
+    kind of claim that passes by accident.
+
+    **The corpus identity still comes from the same derivation.** `corpus_identity` is a digest
+    over the sorted source ids a run discovered on disk, so discovering them without ingesting
+    yields the identical digest — which is exactly what makes two arms comparable rather than
+    merely both present. Reading it out of the store instead would make the record depend on
+    what a *previous* run happened to write.
+    """
+    (tmp_path / "one.txt").write_text("hello weft")
+    (tmp_path / "two.txt").write_text("weft again")
+    monkeypatch.setattr(
+        ingest_module, "full_catalogue", _stub_catalogue({"index": _document("index")})
+    )
+
+    indexed: list[str] = []
+
+    async def _spy(path: Path, **kwargs: object) -> object:
+        indexed.append(str(path))
+        raise AssertionError("run_index must not be called when --reuse-index is given")
+
+    # Arrange — one ordinary run first, to have something to compare the digest against.
+    baseline = await EvalRunCommand().run(
+        EvalRunArgs(path=str(tmp_path), pipeline="index"), _ctx(_deps())
+    )
+    assert isinstance(baseline, Produced)
+
+    # Act — the same directory, scored without ingesting.
+    monkeypatch.setattr(eval_commands_module, "run_index", _spy)
+    reused = await EvalRunCommand().run(
+        EvalRunArgs(path=str(tmp_path), pipeline="index", reuse_index=True), _ctx(_deps())
+    )
+
+    # Assert
+    assert indexed == [], "the ingest half ran; `--reuse-index` means it must not"
+    assert isinstance(reused, Produced)
+    assert _corpus_of(reused) == _corpus_of(baseline), (
+        "the reused run recorded a different corpus digest from the run that indexed the same "
+        "directory, so the two arms would compare as incomparable — the opposite of the repair."
+    )
+
+
+async def test_reuse_index_refuses_a_directory_with_nothing_to_score(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange — an empty directory has no source ids, so there is no corpus identity to record
+    # and nothing for a query rung to retrieve. The ordinary path already refuses this with
+    # `EmptyCorpusError`; the reuse path must refuse it too rather than writing a run record
+    # whose digest is the hash of an empty list — a digest that would silently match every other
+    # empty run.
+    monkeypatch.setattr(
+        ingest_module, "full_catalogue", _stub_catalogue({"index": _document("index")})
+    )
+    deps = _deps()
+
+    with pytest.raises(EmptyCorpusError):
+        await EvalRunCommand().run(
+            EvalRunArgs(path=str(tmp_path), pipeline="index", reuse_index=True), _ctx(deps)
+        )
+
+
+def _corpus_of(outcome: object) -> str:
+    """The corpus digest a completed  recorded — read back off the persisted
+    record rather than off the command's own return value, because the record is what a later
+     will actually read."""
+    result = cast("Any", outcome).value
+    digest: str = result.record.corpus.digest
+    return digest
