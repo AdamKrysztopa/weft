@@ -53,6 +53,13 @@ which is `lessons-archive` `L7.8` living in CI rather than on a laptop, invisibl
 reason `L7.8` was invisible. The check found it on its first run, which is the check working; what
 failed is where I put its input.
 
+**And the repair got it wrong a second time, in the other dimension.** Moving the number into the
+workflow's step `env` applies it to **every** task in the `ci-checks` sequence, so `arch` — 286
+tests, no skips — claimed 48 and killed the gate before the tests ran. A skip count is a fact
+about an environment *and* about a suite, and the two facts live in different files: the workflow
+supplies `WEFT_TEST_EXPECTED_SKIPS` (which environment), and `pyproject.toml`'s `test` task
+forwards it under the name the conftest reads (which suite). Two pushes to place one constant.
+
 **Generalises to.** `L11.21` says every running service is an assumption the local gate is making.
 The sharper form, which is what this cost: **a constant derived from an environment belongs where
 that environment is declared, and a developer's machine declares nothing.** `.github/workflows/

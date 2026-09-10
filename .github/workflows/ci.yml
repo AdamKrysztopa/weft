@@ -87,6 +87,14 @@ jobs:
           # the same tree skips 9; with Qdrant unreachable, 44; here, 48. A default pinned in
           # `pyproject.toml` would be red for everyone whose machine differs from whoever set it.
           #
+          # **Named `WEFT_TEST_EXPECTED_SKIPS`, not `WEFT_EXPECTED_SKIPS`, and the difference is
+          # the suite.** A step env applies to every task in the `ci-checks` sequence, and the
+          # first version of this set the count the conftest reads directly — so `arch`, which
+          # runs 286 tests and skips none, claimed 48 and killed the gate before the tests ran.
+          # `pyproject.toml`'s `test` task forwards this into `WEFT_EXPECTED_SKIPS`, which puts
+          # the suite boundary in the file that defines the suite and the environment's number
+          # here, where the services are declared.
+          #
           # `tests/conftest.py` fails the run when the count disagrees and says which direction.
           # **More** usually means a service this job provisions did not come up. **Fewer** means a
           # test that used to skip now runs, which is good news that has to be recorded — move this
@@ -96,7 +104,7 @@ jobs:
           # Before this existed, this job ran **39 fewer tests than a local gate** and reported
           # green on every push since Qdrant was added, which is `docs/lessons-archive.md` `L7.8`
           # living in CI rather than on a laptop.
-          WEFT_EXPECTED_SKIPS: "48"
+          WEFT_TEST_EXPECTED_SKIPS: "48"
 
   # Fast feedback on a pull request, and **not a gate**. The `gate` job above is the canonical
   # full run and this job cannot stand in for it: it runs only the tests the diff can have

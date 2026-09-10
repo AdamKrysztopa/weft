@@ -112,6 +112,17 @@ cmd = "pytest tests --ignore=tests/architecture -q --numprocesses=auto --dist=lo
 #
 # Local runs therefore make no claim and nothing fires; the container-claim half of the guard
 # still speaks whenever `WEFT_DATABASE_URL` or `WEFT_QDRANT_URL` is set and its service is down.
+#
+# **What *is* here is the scope, because only this file knows which suite the number is about.**
+# A skip count is a fact about an environment *and* about a suite: CI's 48 is the count for this
+# step, and `arch` runs 286 tests and skips none. The first attempt set `WEFT_EXPECTED_SKIPS`
+# directly in the workflow's step env, which applies it to **every** task in the `ci-checks`
+# sequence — `arch` claimed 48, produced 0, and the gate died before the tests ran. So the
+# workflow supplies `WEFT_TEST_EXPECTED_SKIPS` — a value with the environment in it — and this
+# task forwards it under the name `tests/conftest.py` reads, which puts the *suite* boundary in
+# the file that defines the suite. Unset, it forwards an empty string and no claim is made.
+[tool.poe.tasks.test.env]
+WEFT_EXPECTED_SKIPS = "${WEFT_TEST_EXPECTED_SKIPS}"
 
 [tool.poe.tasks.ci-no-tests]
 sequence = ["fmt", "lint", "types", "arch"]

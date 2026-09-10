@@ -141,11 +141,13 @@ def pytest_terminal_summary(terminalreporter: pytest.TerminalReporter) -> None:
             terminalreporter.section("gate shrank", red=True)
             terminalreporter.write_line(
                 f"This run claimed {expected} skip(s) via {_EXPECTED_SKIPS_ENV} and produced "
-                f"{actual}. More usually means a container is down — `docker compose up -d`, "
-                f"then run it again. Fewer means a test that used to skip now runs, which is "
-                f"good news that has to be recorded: update {_EXPECTED_SKIPS_ENV} in "
-                f"pyproject.toml's `test` task, in the commit that changed it "
-                f"(docs/lessons.md L11.22)."
+                f"{actual}. More usually means a service this environment provisions did not "
+                f"come up — `docker compose up -d`, then run it again. Fewer means a test that "
+                f"used to skip now runs, which is good news that has to be recorded. The number "
+                f"is a fact about an environment, so it lives where that environment is "
+                f"declared: `WEFT_TEST_EXPECTED_SKIPS` in .github/workflows/ci.yml, forwarded "
+                f"by pyproject.toml's `test` task. Move it in the commit that changed it "
+                f"(docs/lessons.md L11.22, L12.1)."
             )
 
     if not _claimed_containers() or not _container_skips:
