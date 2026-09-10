@@ -5777,13 +5777,28 @@ it had read one failure (`L7.1`).
   the line, deliberately. **The wire is tested along its length** (`L9.79`): one test runs a
   routed answer through `run_command` with a real `JsonSink` and parses every line of stdout —
   the journey no test made, which is why this shipped
-- [ ] **R9.3** a distribution that registers a pipeline position and ships no pipeline document is
+- [x] **R9.3** a distribution that registers a pipeline position and ships no pipeline document is
   held by fitness function 16, or the position is in a pinned waiver naming why it is genuinely
   unplaceable · owner `01` → *Fitness functions* 16 · `L9.85` · FF16's scope rule
   (`_distributions_shipping_a_pipeline`) holds only distributions that already contribute a
   document, on a sound argument — a document naming `qdrant` could not resolve without the pack —
   whose consequence is that **shipping no document is how a pack becomes exempt**. `weft-docling`
   shipped `pdf-layout-model` unreachable for the length of task `9.13` and FF16 stayed green
+
+  **Closed 2026-09-10, and G19 is what closed it.** Measured: exactly **one** distribution
+  registers anything at all — `weft-rag` — and it contributes pipeline documents, so
+  `_distributions_shipping_a_pipeline` now selects everything there is. The escape route this
+  entry names, *shipping no document is how a pack becomes exempt*, is unreachable for
+  first-party code: a pack does not own that question any more, its distribution does, and there
+  are two distributions and one of them registers nothing. The examples the scope rule's own
+  docstring gives — `weft-pdf`, `weft-qdrant`, `weft-openai` — are not distributions any more.
+
+  **So the repair is the assertion that keeps it dissolved**, not a widening:
+  `test_shipping_no_pipeline_document_is_not_a_way_to_become_exempt` refuses any distribution
+  that registers a pipeline position and is out of scope. That is the one thing the scope rule's
+  argument cannot say about itself, and if it ever stops holding the exemption is back silently
+  and the next `pdf-layout-model` goes unreachable under a green gate. Non-vacuity asserted in
+  the same test: the registering set is refused empty
 - [x] **R9.4** the `[services]` key vocabulary has one source that production code and every
   drift-check read · owner `02` §2; `03` → *Configuration* · `L9.27`, `L9.28`, `L9.52`, `L9.35` ·
   four entries, one cause: `tests/docs/test_manual_config_keys.py` derives the accepted set from
@@ -5870,18 +5885,43 @@ it had read one failure (`L7.1`).
   next `[` so a field named in a *later* block cannot answer for this one — the failure a
   whole-file substring test would have had, and its self-test exercises exactly that. Watched red
   on a planted removal of `[packs.openai] max_retries`
-- [ ] **R9.7** an intra-workspace dependency's declared floor equals that dependency's current
+- [x] **R9.7** an intra-workspace dependency's declared floor equals that dependency's current
   in-tree version · owner `01` → *Fitness functions* 10 · `L9.2` · FF10(b) asserts a bound *exists*
   and never that its floor is publishable; three siblings drifted once and were repaired by hand
+
+  **Closed 2026-09-10.** `test_a_siblings_declared_floor_is_that_siblings_current_in_tree_version`
+  compares each intra-workspace requirement's lower bound against the sibling's own `version`
+  field — two values read from **two different manifests**, so it is not the one-source-two-sides
+  shape `L9.28` refuses. Clause (b) asserts a bound *exists*; a `>=0.1.0` against a sibling now
+  at `2.4.0` satisfies it and permits exactly the pairing 10(b) was written to refuse.
+
+  **The population is one edge** — `weft-rag` → `weft-kernel` — because G19 leaves two published
+  names, and the test refuses an empty subject rather than passing quietly on it. Measured: no
+  drift today. Watched red on a planted `weft-kernel>=0.0.1`, and `uv.lock` checked back to the
+  committed one afterwards, which is `L12.7` applied in the session that learned it
 - [ ] **R9.8** a stage that computes something costly for its own internal decision and returns its
   input unchanged names what downstream recomputes · owner `weft_index.contract.Expander`'s
   docstring · `L9.33` · `RaptorSummarizer._embed` embeds every leaf to cluster it and returns the
   payload unmodified, and `index-with-raptor` places it before the base `embed` stage — so every
   leaf is embedded **twice per ingest** under a paid embedder, disclosed nowhere
-- [ ] **R9.9** `Applies` round-trips through fitness function 19 for every constraint kind its own
+- [x] **R9.9** `Applies` round-trips through fitness function 19 for every constraint kind its own
   fields can hold · owner `01` → *Fitness functions* 19 · `L9.43` · FF19 constructs one instance,
   `Applies(_Language, code="pl")`, and never a `media_type`-constrained one — which is precisely the
   shape that failed to read back and took three commands down with it
+
+  **Closed 2026-09-10.** `Applies` has three independent fields and FF19 built one instance of
+  it, so `media_type` was never dumped and never read back — under a fitness function whose
+  entire subject is persisted models surviving a round trip. The new test round-trips a `fact`
+  plus `constraints`, a single `media_type`, a tuple of them, and asserts the union of the
+  fields exercised **equals `Applies.model_fields`**, so a fourth constraint kind added tomorrow
+  fails this rather than quietly going uncovered.
+
+  Two shapes are deliberately absent and refuse rather than round-trip — `Applies()` with
+  nothing constrained, and a `fact` together with a `media_type` — and both refusals are now
+  asserted, because each is the reason the coverage union has to be assembled from separate
+  instances rather than from one all-fields instance. Measured first: the `media_type` case
+  round-trips correctly today, so this widens the check's population rather than repairing a
+  live break — which is the whole of what this repair asks for
 - [ ] **R9.10** a shipped pipeline document declares a `slots:` block, or the field is withdrawn ·
   owner `02` §3 · `L9.12` · `Pipeline.slots` is placed, id-qualified and recorded by resolution, and
   **no document in the tree declares one**, so the consuming half has never run against a real

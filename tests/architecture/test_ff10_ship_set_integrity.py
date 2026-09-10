@@ -370,3 +370,93 @@ def test_the_bound_check_can_actually_fail(tmp_path: Path) -> None:
     # Assert
     assert len(edges) == 3, "the reader missed a sibling edge it was handed"
     assert unbounded == {"weft-planted-bare", "weft-planted-ceiling"}
+
+
+def _workspace_versions(repo_root: Path = REPO_ROOT) -> dict[str, str]:
+    """`{distribution: version}` for every workspace member — carried repair **R9.7**.
+
+    The members are read the way `intra_repository_requirements` reads them, from
+    `[tool.uv.workspace] members`, so the two sides of the comparison walk the same tree and a
+    member added tomorrow is in both without an edit here.
+    """
+    members = cast(
+        "list[str]",
+        _toml(repo_root / "pyproject.toml")["tool"]["uv"]["workspace"]["members"],
+    )
+    versions: dict[str, str] = {}
+    for pattern in members:
+        for member in sorted(repo_root.glob(pattern)):
+            manifest = member / "pyproject.toml"
+            if manifest.is_file():
+                project = cast("dict[str, Any]", _toml(manifest)["project"])
+                versions[cast("str", project["name"])] = cast("str", project["version"])
+    return versions
+
+
+def test_a_siblings_declared_floor_is_that_siblings_current_in_tree_version() -> None:
+    """Carried repair **R9.7**. Clause (b) asserts a lower bound *exists*; this asserts it is
+    the right one.
+
+    `docs/lessons.md` `L9.2`: three siblings drifted once and were repaired by hand, which is
+    the shape a fitness function exists to stop being hand work. A bound of `>=0.1.0` against a
+    sibling that is now `2.4.0` is a bound — clause (b) is satisfied — and it permits an install
+    pairing today's wheel with a two-year-old one, which is precisely the pairing 10(b) exists to
+    refuse. The floor an intra-workspace dependency declares is the sibling's **current** version
+    or the check is asserting a shape rather than a fact.
+
+    **The population is one edge today**, `weft-rag` → `weft-kernel`, because G19 leaves two
+    published names. That is small and it is not vacuous — the assertion below refuses an empty
+    subject for the reason `08` §3 gives, and one edge is exactly the edge a release breaks.
+    """
+    versions = _workspace_versions()
+    edges = intra_repository_requirements()
+    drifted = [
+        f"{name} requires {requirement.name}{requirement.specifier} (in {field}), and "
+        f"{requirement.name} is {versions[requirement.name]} in this tree"
+        for name, field, requirement in edges
+        if (
+            floors := {
+                specifier.version
+                for specifier in requirement.specifier
+                if specifier.operator in LOWER_BOUND_OPERATORS
+            }
+        )
+        and versions[requirement.name] not in floors
+    ]
+
+    assert edges, (
+        "no distribution under packages/ depends on a sibling, so this compared nothing "
+        "against nothing. `weft-rag` depends on `weft-kernel`; a reading of zero means the "
+        "manifest walk broke, not that the dependency went away."
+    )
+    assert not drifted, (
+        "a declared floor is not the sibling's current in-tree version, so an install may "
+        "pair a new wheel with an old one — the pairing fitness function 10(b) exists to "
+        "refuse, passing 10(b) because a bound is present:\n  " + "\n  ".join(sorted(drifted))
+    )
+
+
+def test_the_floor_check_can_actually_fail() -> None:
+    """Both floors: the subject is non-empty, and a disagreeing floor is refused.
+
+    The comparison is a membership test between two values read from **different** manifests —
+    a declared specifier in one and a `version` field in another — so it is not the
+    one-source-two-sides shape `L9.28` refuses. The plant exercises the comparison itself.
+    """
+    versions = {"weft-kernel": "0.1.0"}
+    stale = Requirement("weft-kernel>=0.0.1")
+    floors = {
+        specifier.version
+        for specifier in stale.specifier
+        if specifier.operator in LOWER_BOUND_OPERATORS
+    }
+    assert floors == {"0.0.1"}
+    assert versions["weft-kernel"] not in floors, "the plant must disagree, or it proves nothing"
+
+    current = Requirement("weft-kernel>=0.1.0")
+    agreeing = {
+        specifier.version
+        for specifier in current.specifier
+        if specifier.operator in LOWER_BOUND_OPERATORS
+    }
+    assert versions["weft-kernel"] in agreeing

@@ -26,8 +26,10 @@ from __future__ import annotations
 
 from typing import Annotated, Final, get_args
 
+import pytest
 from pydantic import BaseModel, BeforeValidator
 
+from weft_kernel.payload import MediaType
 from weft_kernel.payload.applicability import Applies
 from weft_kernel.payload.ext import ExtModel
 
@@ -203,4 +205,53 @@ def test_the_check_can_actually_fail() -> None:
     assert not _customises_writing_without_reading(RoundTrips)
     assert not _customises_writing_without_reading(Applies), (
         "Applies is the model this check exists for, and it must pass now that it round-trips"
+    )
+
+
+def test_applies_round_trips_for_every_constraint_kind_its_own_fields_can_hold() -> None:
+    """Carried repair **R9.9**. One instance is not a round-trip check over a type with three
+    independent fields.
+
+    `test_applies_round_trips` above builds `Applies(_Language, code="pl")` — a `fact` plus a
+    `constraints` pair — and nothing else, so `media_type` was never dumped and never read back.
+    That is **precisely** the shape that failed: a `media_type`-constrained `Applies` did not
+    survive persistence and took three commands down with it (`docs/lessons.md` `L9.43`), under a
+    fitness function whose whole subject is persisted models surviving a round trip.
+
+    The population is derived from `Applies.model_fields` rather than listed here, so a fourth
+    constraint kind added tomorrow is covered without an edit — and asserted below, so this test
+    cannot quietly stop covering a field the class grew.
+    """
+    cases = {
+        "fact and constraints": Applies(_Language, code="pl"),
+        "media_type, one": Applies(media_type=MediaType.TABLE),
+        "media_type, several": Applies(media_type=(MediaType.TABLE, MediaType.IMAGE)),
+    }
+    # Two shapes are deliberately absent, and both refuse rather than round-trip — which is
+    # itself worth asserting, because each is a reason the coverage union below is assembled
+    # from separate instances rather than from one all-fields instance.
+    with pytest.raises(TypeError, match="no constraint at all"):
+        Applies()
+    # There is deliberately no "every field at once" case: `Applies` refuses a `fact` and a
+    # `media_type` together, so the union below is assembled from separate instances rather
+    # than one. Asserted rather than assumed, because it is why the coverage check underneath
+    # has to union across cases and would otherwise read as an odd way to write one dump.
+    with pytest.raises(ValueError, match="fact const"):
+        Applies(_Language, media_type=MediaType.TEXT, code="pl")
+
+    for label, original in cases.items():
+        dumped = original.model_dump(mode="json")
+        restored = Applies.model_validate(dumped)
+        assert restored == original, f"an Applies constrained by {label} did not survive {dumped}"
+
+    exercised = {
+        field
+        for original in cases.values()
+        for field, value in original.model_dump().items()
+        if value
+    }
+    assert exercised == set(Applies.model_fields), (
+        f"`Applies` carries {sorted(set(Applies.model_fields))} and these cases only exercise "
+        f"{sorted(exercised)} — the kind left out is the one this repair was filed about, and "
+        f"the reason this assertion is here rather than a comment saying the list is complete."
     )

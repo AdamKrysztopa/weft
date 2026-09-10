@@ -331,3 +331,48 @@ def test_the_waiver_is_live_rather_than_decorative() -> None:
         f"{sorted(POSITIONS_WAIVED_FROM_THE_LADDER)} — either a position lost its rung "
         "(fix the ladder) or a waived name gained one (delete its waiver entry)."
     )
+
+
+def test_shipping_no_pipeline_document_is_not_a_way_to_become_exempt() -> None:
+    """Carried repair **R9.3** — the scope rule cannot quietly become an exemption.
+
+    `_distributions_shipping_a_pipeline` holds only distributions that already contribute a
+    document, on a sound argument: a document naming `qdrant` could not resolve on an install
+    without `weft-qdrant`, so the pack owning the plugin is the only one that could ever place
+    it. The consequence nobody had stated is the reverse — **shipping no document was how a
+    distribution became exempt**, and `weft-docling` shipped `pdf-layout-model` unreachable for
+    the length of task `9.13` with this check green throughout (`docs/lessons.md` `L9.85`).
+
+    **G19 dissolved the escape route rather than this check closing it**, and saying so is the
+    honest close. Weft publishes two names: `weft-kernel`, which registers nothing, and
+    `weft-rag`, which ships every first-party pack *and* contributes documents. So the scope
+    rule now selects everything there is, and a pack cannot ship no document — it does not own
+    the question any more, its distribution does.
+
+    What this asserts is that the state stays that way: **every distribution that registers a
+    pipeline position at all is in scope**. If that ever stops being true, the exemption is
+    back, silently, and the next `pdf-layout-model` goes unreachable with a green gate. The
+    assertion is the one the scope rule's own argument cannot make about itself.
+    """
+    reports = _reports()
+    registry = discover_for_tests()
+
+    in_scope = _distributions_shipping_a_pipeline(reports)
+    registering = {
+        report.distribution
+        for report in reports
+        if _positions_shipped_by(registry, frozenset({report.distribution}))
+    }
+
+    exempt = sorted(registering - in_scope)
+    assert not exempt, (
+        f"{exempt} register a pipeline position and ship no pipeline document, so fitness "
+        f"function 16 does not hold them and a plugin of theirs can be unreachable with this "
+        f"gate green — which is exactly what happened to `pdf-layout-model` at task 9.13. "
+        f"Either ship a document that places it, or name the position in "
+        f"POSITIONS_WAIVED_FROM_THE_LADDER with the reason it is genuinely unplaceable."
+    )
+    assert registering, (
+        "no distribution registers a pipeline position at all, so the comparison above is "
+        "empty against empty and asserts nothing."
+    )
