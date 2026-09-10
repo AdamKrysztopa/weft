@@ -113,7 +113,7 @@ from weft_command.contract import CommandResult
 from weft_eval.contract import MetricKind
 from weft_eval.falsify import BaselineSpread, DifferenceJudgement
 from weft_eval.run_record import MetricRunResult
-from weft_generate.payload import Citation
+from weft_generate.payload import AnswerStance, Citation
 from weft_kernel.discovery import PackRegistrar, PackReport, PackStatus, RendererOffer
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import NothingToProduce, Outcome, Produced
@@ -577,7 +577,19 @@ def _render_ask(result: AskCommandResult, *, streamed: bool, as_json: bool = Fal
                 stdout=envelope.model_dump_json(), stderr=None, exit_code=ExitCode.SUCCESS
             )
         lines = [f"routed to: {result.pipeline_name}"]
-        if not streamed:
+        if result.answer.stance is AnswerStance.NOT_IN_CORPUS:
+            # Carried repair **R11.6**, found by running the binary at task 11.10. A generator
+            # that refuses honestly returns `Answer(text="", citations=(),
+            # stance=NOT_IN_CORPUS)`, and printing `text` alone rendered that deliberate
+            # refusal as the routing line and nothing else — indistinguishable from a crash
+            # that happened to exit 0. Unconditional on `streamed`, because a refusal is
+            # exactly the case where nothing was streamed: `cited-answer`'s `REFUSE` branch
+            # calls no model at all, so the omission below would restore the silence. The
+            # sentence itself is unpromised prose under G9 (`09` §3); the exit code is not,
+            # and stays `SUCCESS` — nothing failed, and both sibling empty paths in this same
+            # function ("no matching passages found.", `NothingToProduce`) already exit 0.
+            lines.append("the corpus does not answer this.")
+        elif not streamed:
             lines.append(result.answer.text)
         lines.extend(_citation_line(citation) for citation in result.answer.citations)
         return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)

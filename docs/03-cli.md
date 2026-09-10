@@ -822,6 +822,39 @@ one, which fitness function 7 asserts by path.
 spinners and colour. That is the scripting contract: same events, no parsing of prose. `--quiet`
 suppresses progress but keeps the result.
 
+**A generator that refuses says so, on both paths.** A `Generator` may answer that the corpus does
+not support an answer — `weft_generate.payload.AnswerStance.NOT_IN_CORPUS`, which `cited-answer`
+returns without calling a model at all when the retriever handed it nothing. That is a *result*,
+not a failure: the run exits `0`, the human path prints the refusal where the answer would have
+gone, and the `--json` answer envelope carries `stance` so a script reads the same fact without
+parsing the sentence. The sentence is prose and unpromised (`09` §3); `stance` is the promise.
+
+> **Carried repair `R11.6` (2026-09-10), and the decision inside it.** Neither consumer read the
+> field. The human renderer printed `Answer.text`, which a refusal leaves empty, so
+> `weft ask "…" --pipeline graph-then-generate` against a corpus holding nothing on the subject
+> printed `routed to: graph-then-generate` and exited `0` — one line, indistinguishable from a
+> crash that happened to succeed. The `--json` envelope carried `pipeline_name`, `text` and
+> `citations` and no `stance` at all, so a scripted caller could not recover it either. **Found by
+> running the binary at task `11.10`, by none of the suite**, and reachable for three phases
+> without being reached: every shipped retriever before `graph-walk` always returned something, so
+> `Passages` was never empty on any shipped rung and `cited-answer`'s `REFUSE` branch never ran.
+> **The decision was the envelope half.** `envelope_version` is a persisted contract a script
+> parses, and the repair as filed assumed a new field moves it. It does not, and that was already
+> settled twice: `09` §3 rules CLI machine-readable output *"Promised, additively — new fields may
+> be added; a consumer ignores what it does not recognise"*, and ledger task `6.16` added `kind` to
+> `ErrorEnvelope` on exactly that basis. So `stance` was added and `ANSWER_ENVELOPE_VERSION` stays
+> `1.0.0` — the version moves for a removal or a change of meaning, never an addition, which is
+> what makes an added field readable rather than a compatibility event. **The other two options
+> were refused on the record**: bumping to `1.1.0` would make the version mean *"a field was
+> added"*, the one thing a consumer must not have to track, and would desynchronise the two
+> envelopes for identical acts; making a refusal an error-shaped envelope with a non-zero exit
+> would break a surface `09` §3 marks **Promised** (exit codes), need a sixth `ExitCode` every
+> third-party renderer must then answer in (task `6.20`), and file a correct answer as a failure —
+> while `weft ask`'s own two sibling empty paths, `no matching passages found.` and
+> `NothingToProduce`, both already exit `0`. All three stances travel, not the two the repair
+> names: `contradiction-check` sets `UNDETERMINED` on an answer that does have text, and a field
+> meaning *"answered or not-in-corpus"* would be wrong the day it arrives.
+
 > **Built in Phase 3 task 3.6 (2026-08-20).** `weft_cli.sinks.PrintingSink` is the default
 > `TokenSink` — writes a chunk's text to the terminal the instant it arrives, unbuffered, then a
 > single newline on `close()`; `weft_cli.sinks.JsonSink` is `--json`'s own, one `StreamEvent` per

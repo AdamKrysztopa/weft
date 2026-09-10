@@ -6094,7 +6094,7 @@ it had read one failure (`L7.1`).
   owes a check that the count the parser sees is the count the section states, because that
   disagreement is the one no test in this tree could express — both numbers came from the same file
   through the same function
-- [ ] **R11.6** a generator's deliberate refusal reaches the person who asked, and the machine
+- [x] **R11.6** a generator's deliberate refusal reaches the person who asked, and the machine
   consumer can read it — so *"the corpus does not answer this"* is never rendered as silence ·
   owner `weft_cli.render`; `weft_generate.payload.Answer.stance`; `03` → *Output* · sha — ·
   ***Found by running the binary at `11.10`.** `weft ask "What did Marie Curie discover?"
@@ -6124,6 +6124,80 @@ it had read one failure (`L7.1`).
   keeps getting silence while the terminal stops. **This is `01` requirement 5's own failure
   class arriving at the last seam before the operator** — not a crash, an answer that looks like
   nothing happened*
+  **Closed 2026-09-10, and the decision it was waiting on went the other way from how it was
+  filed.** The premise above — *"`envelope_version` is a persisted contract a scripted consumer
+  parses, so adding `stance` **moves it**"* — is false against settled text that predates this
+  repair. `09` §3's support table rules CLI machine-readable output **"Promised, additively. New
+  fields may be added; a consumer ignores what it does not recognise. Never frozen"**, and ledger
+  task `6.16` — the task that added a field, `kind`, to `ErrorEnvelope`, which is this envelope's
+  own stated precedent — records that **"`envelope_version` does not move for a new field"**, a
+  sentence carried in code at `weft_cli/error_envelope.py:81`. One grep for `envelope_version`
+  across the tree, before the options were put, is what found it; the repair had been filed, read
+  into `docs/README.md`'s **Next action** row and routed by `next_task.py` for a day with the
+  premise unexamined. `docs/lessons.md` `L12.3`.
+
+  **So the owner's decision, taken on that evidence: add `stance`, and `ANSWER_ENVELOPE_VERSION`
+  stays `1.0.0`.** The version moves for a removal or a change of meaning, never an addition —
+  which is what makes an added field readable rather than a compatibility event. The two rejected
+  options are recorded in `03` → *Output* with why: bumping to `1.1.0` would make the version mean
+  *"a field was added"*, the one thing a consumer must not have to track, and would desynchronise
+  the two envelopes for identical acts; an error-shaped envelope with a non-zero exit would break a
+  surface `09` §3 marks **Promised** (exit codes), need a sixth `ExitCode` every third-party
+  renderer must then answer in (task `6.20`), and file a correct answer as a failure — while
+  `weft ask`'s own two sibling empty paths, `no matching passages found.` and `NothingToProduce`,
+  both already exit `0`.
+
+  **All three stances travel, not the two this repair names.** `contradiction-check` sets
+  `UNDETERMINED` on an answer that *does* have text (`contradiction.py:195-206`), so it is not the
+  silence this repair is about and the human path is unchanged for it — but a field meaning
+  *"answered or not-in-corpus"* would have been wrong the day it arrived, so the envelope carries
+  whichever of the three the generator claimed.
+
+  **Built by me rather than dispatched** — two edits and a docstring, smaller than the brief that
+  would have described them. Seven tests in `tests/unit/weft_cli/test_render.py`, written first and
+  watched red for the right reason: the human pair reproduced the transcript above exactly (*"Right
+  contains one more item"*, the refusal line missing from a one-line stdout) and the envelope trio
+  raised `KeyError: 'stance'`. The control, `test_an_ordinary_answer_gains_no_refusal_line`, is
+  what stops the pair being vacuous — `_refused_answer` differs from `_routed_answer` in `stance`
+  and in what a refusal necessarily carries with it, and if the renderer ignored the field both
+  sides would render identically. `_refused_answer` is copied from `cited_answer.py:130-139`
+  rather than written from its prose (`L11.17`).
+
+  **Confirmed from the shipped binary**, wheels built and `uv pip install`ed into an explicit venv
+  invoked by path (`L11.37`), from a directory that is not this repository, against a
+  `CREATE DATABASE weft_r116` of its own — `weft_nodes` held **1** row immediately before the runs
+  and **1** immediately after, and nothing else touched that database (`L8.30`). The **default,
+  flagless** invocation is the first of the two, which is the branch `L9.64` says an author is
+  least likely to reach for:
+
+  ```
+  $ weft ask "What did Marie Curie discover?" --pipeline graph-then-generate
+  routed to: graph-then-generate
+  the corpus does not answer this.
+  $ echo $?
+  0
+
+  $ weft --json ask "What did Marie Curie discover?" --pipeline graph-then-generate
+  {"kind":"stream-event","type":"done","role":"","text":"","message":""}
+  {"kind":"answer-envelope","envelope_version":"1.0.0","pipeline_name":"graph-then-generate","text":"","citations":[],"stance":"not-in-corpus"}
+  $ echo $?
+  0
+  ```
+
+  and the answered path, unchanged in its prose and now carrying its own stance:
+
+  ```
+  $ weft --json ask "What does chlorophyll absorb?" --pipeline retrieve-then-generate
+  ...
+  {"kind":"answer-envelope","envelope_version":"1.0.0","pipeline_name":"retrieve-then-generate","text":"[scripted] Question: ...","citations":[{"marker":"1",...}],"stance":"answered"}
+  ```
+
+  **One thing the run showed that no test could.** The refusal above was produced with **no
+  `[llm.roles]` entry configured at all** — the same corpus and question through
+  `retrieve-then-generate` fails at exit `1` naming the missing role. `cited-answer`'s `REFUSE`
+  branch calls no model, so an operator can reach this silence on a machine with no credential and
+  nothing to suggest a model had been involved, which is exactly why one routing line and a `0`
+  read as a crash rather than as an answer
 - [x] **R11.5** a corpus indexed by a shipped graph rung carries vectors an entity-resolution pass
   can actually use, so the pass `11.8` and `11.9` build is not inert on the only rung that feeds
   it · owner `02` §3 → *Derivation*; `weft_retrieve/pipelines/index-text.yaml` · sha — ·

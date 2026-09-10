@@ -294,6 +294,183 @@ def test_the_answer_envelope_carries_the_text_even_when_it_already_streamed() ->
     assert envelope["pipeline_name"] == "specific"
 
 
+def _refused_answer() -> tuple[Query, Answer]:
+    """The shape `weft_generate.cited_answer` actually returns when `when_no_evidence` is
+    `REFUSE` and `Passages` is empty — copied from that call site
+    (`cited_answer.py:130-139`) rather than written from its prose, so this double cannot
+    encode a belief about the seam the seam does not hold (`L11.17`).
+
+    The dimension these tests vary is **`stance`**, and this differs from `_routed_answer`
+    above in exactly that dimension plus what a refusal necessarily carries with it: no
+    text, no citations, no passages. Nothing streamed either — `REFUSE` calls no model at
+    all, which is why a refusal reaching the renderer with `streamed=True` still has
+    nothing already on screen.
+    """
+    query = Query(text="q")
+    answer = Answer(
+        origin=query,
+        text="",
+        citations=(),
+        used=(),
+        stance=AnswerStance.NOT_IN_CORPUS,
+        answered_by="cited-answer",
+    )
+    return query, answer
+
+
+def _refusal_result(answer: Answer) -> AskCommandResult:
+    return AskCommandResult(
+        question="q",
+        top_k=5,
+        format=AskFormat.TEXT,
+        pipeline_name="graph-then-generate",
+        answer=answer,
+    )
+
+
+def test_a_refusal_reaches_the_person_who_asked_instead_of_rendering_as_silence() -> None:
+    # Arrange — carried repair **R11.6**, found by running the binary at task 11.10 and by
+    # none of the suite: `weft ask` on a question the corpus cannot answer printed one
+    # routing line and exited 0. `cited-answer` is right — it returns
+    # `Answer(stance=NOT_IN_CORPUS)`, the honest claim — and the renderer threw the stance
+    # away, printing `text` alone, so a deliberate refusal was indistinguishable from a
+    # crash that happened to exit 0.
+    _query, answer = _refused_answer()
+
+    # Act
+    rendered = render.render_outcome(Produced(value=_refusal_result(answer)))
+
+    # Assert — the routing line is kept (it is still true, and it is what tells the asker
+    # which rung refused), and the refusal is stated after it in place of the empty text.
+    # The prose itself is unpromised under G9 (`09` §3: "CLI error and diagnostic prose —
+    # Not promised"); what is asserted is that the line is there and says the corpus did
+    # not answer, and the literal is pinned so it is not invented twice in two places.
+    assert rendered.stdout is not None
+    lines = rendered.stdout.splitlines()
+    assert lines == ["routed to: graph-then-generate", "the corpus does not answer this."]
+    assert rendered.exit_code is ExitCode.SUCCESS
+
+
+def test_a_refusal_still_says_so_when_the_sink_had_already_streamed() -> None:
+    # Arrange — the `streamed` branch omits text a sink already showed live (task 3.11).
+    # A refusal has no such text: `REFUSE` calls no model, so nothing was streamed and the
+    # omission would restore the exact silence R11.6 is about. This is the branch that
+    # only fires sometimes, constructed rather than hoped for.
+    _query, answer = _refused_answer()
+
+    # Act
+    rendered = render.render_outcome(Produced(value=_refusal_result(answer)), streamed=True)
+
+    # Assert
+    assert rendered.stdout is not None
+    assert "the corpus does not answer this." in rendered.stdout.splitlines()
+
+
+def test_an_ordinary_answer_gains_no_refusal_line() -> None:
+    # Arrange — the control for the two above. `_routed_answer` differs from
+    # `_refused_answer` in `stance`, so if the renderer ignored the field entirely both
+    # sides would render identically and every assertion above would be vacuous.
+    _query, answer = _routed_answer()
+    result = AskCommandResult(
+        question="q", top_k=5, format=AskFormat.TEXT, pipeline_name="specific", answer=answer
+    )
+
+    # Act
+    rendered = render.render_outcome(Produced(value=result))
+
+    # Assert
+    assert rendered.stdout is not None
+    assert "the corpus does not answer this." not in rendered.stdout
+    assert answer.text in rendered.stdout
+
+
+def test_the_answer_envelope_carries_the_stance_so_a_script_can_read_the_refusal() -> None:
+    # Arrange — R11.6's second half, and the one the repair could not take on its own
+    # authority. The envelope carried `pipeline_name`, `text` and `citations` and no
+    # `stance`, so a scripted caller received `{"text":"","citations":[]}` and could not
+    # tell a refusal from an empty answer. `answer_envelope`'s own docstring named this
+    # exact deferral at R9.2 — "widening it to `Answer.used`, `stance` or the retrieval
+    # ranking would be this repair deciding what a machine reader wants, which is a
+    # different question from the one R9.2 states". R11.6 is that different question.
+    _query, answer = _refused_answer()
+
+    # Act
+    rendered = render.render_outcome(Produced(value=_refusal_result(answer)), as_json=True)
+
+    # Assert — the enum's own wire value, which is what `AnswerStance` being a `StrEnum`
+    # already promises to a `model_dump_json`; asserted as the meaning, not as a literal
+    # this test chose.
+    assert rendered.stdout is not None
+    envelope = json.loads(rendered.stdout.splitlines()[-1])
+    assert envelope["stance"] == AnswerStance.NOT_IN_CORPUS.value
+
+
+def test_the_answer_envelope_carries_the_stance_on_an_ordinary_answer_too() -> None:
+    # Arrange — always present, never conditional. A field whose presence depended on the
+    # stance would be the state `ErrorEnvelope`'s docstring refuses for `valid_options`:
+    # a consumer could not tell "this answered" from "this build is older than the field".
+    _query, answer = _routed_answer()
+    result = AskCommandResult(
+        question="q", top_k=5, format=AskFormat.TEXT, pipeline_name="specific", answer=answer
+    )
+
+    # Act
+    rendered = render.render_outcome(Produced(value=result), as_json=True)
+
+    # Assert
+    assert rendered.stdout is not None
+    envelope = json.loads(rendered.stdout.splitlines()[-1])
+    assert envelope["stance"] == AnswerStance.ANSWERED.value
+
+
+def test_the_third_stance_reaches_a_script_without_the_human_path_growing_a_line() -> None:
+    # Arrange — `contradiction-check` sets `UNDETERMINED` on an answer that *has* text
+    # (`contradiction.py:195-206`), so it is not the silence R11.6 is about and the human
+    # path is unchanged. The machine path carries it regardless: which of the three a
+    # generator claimed is exactly what the envelope now exists to relay, and asserting
+    # only the two stances the repair names would leave the field meaning "answered or
+    # not-in-corpus" the day a third arrives.
+    _query, answered = _routed_answer()
+    answer = answered.model_copy(update={"stance": AnswerStance.UNDETERMINED})
+    result = AskCommandResult(
+        question="q", top_k=5, format=AskFormat.TEXT, pipeline_name="specific", answer=answer
+    )
+
+    # Act
+    prose = render.render_outcome(Produced(value=result))
+    machine = render.render_outcome(Produced(value=result), as_json=True)
+
+    # Assert
+    assert prose.stdout is not None and machine.stdout is not None
+    assert "the corpus does not answer this." not in prose.stdout
+    assert answer.text in prose.stdout
+    envelope = json.loads(machine.stdout.splitlines()[-1])
+    assert envelope["stance"] == AnswerStance.UNDETERMINED.value
+
+
+def test_adding_the_stance_field_does_not_move_the_answer_envelope_version() -> None:
+    # Arrange — the decision R11.6 asked for, written down where it can fail. `09` §3's
+    # support table rules CLI machine-readable output "Promised, additively. New fields may
+    # be added; a consumer ignores what it does not recognise. Never frozen", and ledger
+    # task **6.16** — the task that added `kind` to `ErrorEnvelope`, this envelope's own
+    # stated precedent — records that "`envelope_version` does not move for a new field".
+    # R11.6's filed text asserted the opposite ("adding `stance` moves it"); the settled
+    # documents were already the other way (`L12.3`). The literal is the point of this
+    # test: a comparison against the constant alone has one source and cannot fail.
+    from weft_cli.answer_envelope import ANSWER_ENVELOPE_VERSION
+
+    _query, answer = _refused_answer()
+
+    # Act
+    rendered = render.render_outcome(Produced(value=_refusal_result(answer)), as_json=True)
+
+    # Assert
+    assert ANSWER_ENVELOPE_VERSION == "1.0.0"
+    assert rendered.stdout is not None
+    envelope = json.loads(rendered.stdout.splitlines()[-1])
+    assert envelope["envelope_version"] == ANSWER_ENVELOPE_VERSION
+
+
 def test_render_plugins_list_delegates_to_the_shared_renderer() -> None:
     # Arrange
     reports = (PackReport(pack="chunk", distribution="weft-chunk", status=PackStatus.ACTIVE),)

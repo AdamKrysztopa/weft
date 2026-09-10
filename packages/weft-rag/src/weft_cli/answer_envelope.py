@@ -16,8 +16,20 @@ so nothing downstream could parse that output at all.
 
 **What travels, and why exactly this.** The envelope carries what the prose carried and nothing
 more — `pipeline_name` (the router's choice or the name `--pipeline` gave), `text`, and
-`citations`. Widening it to `Answer.used`, `stance` or the retrieval ranking would be this repair
-deciding what a machine reader wants, which is a different question from the one R9.2 states.
+`citations`. Widening it to `Answer.used` or the retrieval ranking would be this repair deciding
+what a machine reader wants, which is a different question from the one R9.2 states.
+
+**`stance` joined them at carried repair `R11.6`, which is that different question asked.** R9.2
+deferred it correctly and the deferral held until `graph-walk` shipped — the first retriever in
+this tree that can honestly return nothing, so `cited-answer`'s `REFUSE` branch became reachable
+and `Answer(text="", citations=(), stance=NOT_IN_CORPUS)` arrived here for the first time. Without
+the field a script read `{"text":"","citations":[]}` and could not tell a deliberate refusal from
+an empty answer or from a crash that happened to exit `0`. **The version does not move for it**,
+and that is the settled rule rather than this module's own choice: `09` §3 rules CLI
+machine-readable output "Promised, additively — new fields may be added; a consumer ignores what
+it does not recognise", and ledger task `6.16` added `kind` to `ErrorEnvelope` on exactly that
+basis, recording that "`envelope_version` does not move for a new field". `R11.6`'s own filed text
+claimed the opposite and was wrong against both (`docs/lessons.md` `L12.3`).
 
 **`text` is present whether or not the answer already streamed, and that is a deliberate
 divergence from the prose branch.** `weft_cli.render._render_ask` omits an answer a sink already
@@ -48,7 +60,7 @@ from typing import Final
 from pydantic import BaseModel, ConfigDict
 
 from weft_cli.sinks import LineKind
-from weft_generate.payload import Answer, Citation
+from weft_generate.payload import Answer, AnswerStance, Citation
 
 #: `09` §3's additive promise, carried in the data — see the module docstring.
 ANSWER_ENVELOPE_VERSION: Final[str] = "1.0.0"
@@ -72,6 +84,14 @@ class AnswerEnvelope(BaseModel):
     pipeline_name: str | None = None
     text: str
     citations: tuple[Citation, ...] = ()
+    #: What the generator claims this answer *is* — carried repair **R11.6**. Always present,
+    #: never conditional on which stance it holds: a field that appeared only on a refusal
+    #: would leave a consumer unable to tell "this answered" from "this build predates the
+    #: field", which is the state this module's own `text` paragraph above and
+    #: `ErrorEnvelope`'s `valid_options` both refuse. All three members travel, not the two
+    #: `R11.6` names — `contradiction-check` sets `UNDETERMINED` on an answer that does have
+    #: text, and a field meaning "answered or not-in-corpus" would be wrong the day it arrives.
+    stance: AnswerStance = AnswerStance.ANSWERED
 
 
 def build_answer_envelope(answer: Answer, *, pipeline_name: str | None) -> AnswerEnvelope:
@@ -85,6 +105,7 @@ def build_answer_envelope(answer: Answer, *, pipeline_name: str | None) -> Answe
         pipeline_name=pipeline_name,
         text=answer.text,
         citations=tuple(answer.citations),
+        stance=answer.stance,
     )
 
 

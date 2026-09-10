@@ -111,6 +111,38 @@ find the digit in the Blocked-by row, and fail when they differ. Failing that, `
 own **Protocol** section, which tells a closing session which rows to edit and does not say that a
 number in one of them is a measurement.
 
+### L12.3 — a filed repair carried a claim about a versioning policy the tree had already settled
+
+**What happened.** Carried repair `R11.6` (`docs/build-ledger.md:6119-6122`) states the envelope
+half of its own remedy as a decision, on the premise that *"`envelope_version` is a persisted
+contract a scripted consumer parses, so adding `stance` **moves it**"*. That premise is false
+against settled text, in two places written before the repair was filed. `docs/09-release.md` §3's
+support table rules CLI machine-readable output **"Promised, additively. New fields may be added; a
+consumer ignores what it does not recognise. Never frozen"**; and ledger task `6.16` — the task
+that added a field, `kind`, to `ErrorEnvelope` — records *"Additive, which is what makes it
+permissible at all… and `envelope_version` does not move for a new field"*, a sentence carried in
+code at `packages/weft-rag/src/weft_cli/error_envelope.py:81`. `AnswerEnvelope` is explicitly built
+on `ErrorEnvelope`'s reasoning (`answer_envelope.py`'s module docstring), so the precedent is on
+its sibling, one module over. Caught by grepping `envelope_version` across the tree before
+presenting the options — the repair had been filed, read into `docs/README.md`'s **Next action**
+row, and routed by `next_task.py` for a day with the premise unexamined.
+
+**Generalises to.** **A repair that files a decision states which settled text leaves it open,
+and the grep that shows it does** — because the reason a question looks open is often that its
+answer is in a document the filer had not opened. This is `L5.32`'s neighbour from the other side:
+that rule stops a task inventing a narrowing rather than reopening a gate; this one stops a task
+*opening* a gate the project already closed. Filing a decision is as much a claim about the settled
+documents as taking one is, and it is cheaper to check — one grep for the identifier the claim
+turns on, at the moment of filing.
+
+**Candidate home.** `phase-step` → *When to stop instead of continuing*, which currently carries
+only the converse ("Settled text says *every X* and you have found an X it should not cover" →
+reopen the gate) and has no clause for "you are about to declare something undecided". The Orient
+step's *"before recommending where a thing should live, grep the settled documents for a rule about
+that location"* is the identical act one subject over and is the sentence to extend. Note for the
+drain: `L12.2` and this entry are both a **claim written into a routing document without the
+measurement that would have checked it** — one a count, one a policy — and may route together.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in
