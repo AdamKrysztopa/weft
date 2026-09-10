@@ -62,6 +62,7 @@ from pydantic import BaseModel, ConfigDict
 from weft_cli.permission_policy import PermissionAction
 from weft_cli.permission_policy import permission_policy_from_config as _permission_policy
 from weft_cli.service_roles import RoleTable
+from weft_cli.services import accepted_service_keys
 from weft_cli.services import service_selection_from_config as _service_selection
 from weft_kernel.errors import UnresolvedNameError, WeftError
 
@@ -109,9 +110,15 @@ def config_keys_for(table: RoleTable) -> tuple[str, ...]:
     task 8.3 added. This is the one derivation both `effective_config` and (eventually)
     `config get|set`'s own `--key` grammar read, rather than a second copy hand-maintained
     beside it.
+
+    **Carried repair `R9.4` moved the derivation itself one module over.** This function built
+    `services.<role>` from `table.declared` and then added `"services.route"` on a line of its
+    own — the same forgettable act `_KEY_FIELDS` had already failed at once, one refactor later.
+    `weft_cli.services.accepted_service_keys` is now the single answer to *which `[services]`
+    keys exist*, and what is left here is the `services.` prefix and the two blocks that name no
+    role at all.
     """
-    keys = {f"services.{role}" for role in table.declared}
-    keys.add("services.route")
+    keys = {f"services.{role}" for role in accepted_service_keys(table)}
     keys.update(_STATIC_KEYS)
     return tuple(sorted(keys))
 
@@ -241,7 +248,27 @@ def effective_config(
     for key in config_keys_for(table):
         section, field = key.split(".", 1)
         if section == "services":
-            value = selection.route if field == "route" else selection.plugin_for(field)
+            if field == "route":
+                value = selection.route
+            else:
+                selected = selection.selection_for(field)
+                if selected is None:
+                    # Carried repair **R9.4**, found by running the binary. A declared role
+                    # nothing selects has no effective value, and `ServiceSelection.roles`' own
+                    # comment already says what to do about it: "a key with nothing selected for
+                    # it is simply absent, never guessed". So it is omitted here rather than
+                    # printed as a guess or raised over — an effective configuration lists what
+                    # is *in effect*. The key itself stays in `config_keys_for`, because
+                    # `weft config set services.<role>` is exactly how an operator selects one,
+                    # and asking for it by name still gets `plugin_for`'s own message saying
+                    # what is selected instead of a false "unknown key".
+                    #
+                    # Before this, `weft config get` with no arguments exited 1 on any project
+                    # that had not selected every declared role — which is every project, since
+                    # a real installation declares `blob`, `graph` and `describe` and
+                    # `ServiceSelection` has a field for none of them.
+                    continue
+                value = selected
             written = services_written
         elif section == "permissions":
             action = policy.overwrite if field == "overwrite" else policy.destroy
@@ -270,7 +297,21 @@ def config_entry(document: dict[str, object] | None, key: str, *, table: RoleTab
     for entry in effective_config(document, table=table):
         if entry.key == key:
             return entry
-    raise UnknownConfigKeyError(  # pragma: no cover - `_refuse_unknown_key` has already run
+
+    # The key is one this run reads and has **no effective value** — a declared role nothing
+    # selects, which `effective_config` above omits (carried repair **R9.4**). Answering
+    # `UnknownConfigKeyError` here would be false in a way an operator acts on: `weft config set
+    # services.<role>` writes that very key, so *"is not a key weft config reads or writes"*
+    # sends them looking for a typo in a key they can legitimately set. Found by running the
+    # binary — `set` succeeded and `get --key` refused, on the same key, in the same project.
+    #
+    # `plugin_for` is asked deliberately for the refusal it already composes: it names the role
+    # and what *is* selected, and reaching it here is what keeps the single-key path and the
+    # `[services]` resolver from growing two messages for one fact.
+    section, field = key.split(".", 1)
+    if section == "services":
+        _service_selection(document, table=table).plugin_for(field)
+    raise UnknownConfigKeyError(  # pragma: no cover - every reachable key is answered above
         f"'{key}' is not a key weft config reads or writes.",
         valid_options=config_keys_for(table),
     )

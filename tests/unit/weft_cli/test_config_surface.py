@@ -25,6 +25,7 @@ from weft_cli.config_surface import (
     validate_set_value,
 )
 from weft_cli.service_roles import RoleTable
+from weft_cli.services import UnknownServiceKeyError
 from weft_kernel.context import ServiceRole
 from weft_kernel.errors import WeftError
 
@@ -185,3 +186,68 @@ def test_set_config_text_never_matches_a_commented_out_key() -> None:
     # the comment survives untouched, and the real key is inserted freshly
     assert '# embed = "openai"' in result
     assert tomllib.loads(result)["services"]["embed"] == "hash"
+
+
+#: A role a pack declares and `ServiceSelection` has no field for — `blob`, `graph` and
+#: `describe` are all this shape in a real installation. `_INSTALLED` above holds only `embed`
+#: and `store`, which have defaults, so `plugin_for` can never fail against it: the fixture is
+#: symmetric in exactly the dimension the two tests below vary (`docs/lessons.md` `L12.6`).
+_WITH_AN_UNSELECTED_ROLE = RoleTable(
+    roles={
+        "embed": ServiceRole(key="embed", contract=object),
+        "store": ServiceRole(key="store", contract=object),
+        "blob": ServiceRole(key="blob", contract=object),
+    }
+)
+
+
+def test_a_declared_role_nothing_selects_is_absent_rather_than_a_crash() -> None:
+    # Carried repair **R9.4**, and this is the half no test could see and the binary showed in
+    # one command. `weft config get` with no arguments — its default, flagless invocation, on a
+    # project with no `weft.toml` at all — exited **1** with
+    # `[services] holds no selection for 'blob'. Selected: (none).` Every real installation
+    # declares `blob`, `graph` and `describe`, none of which `ServiceSelection` has a field for,
+    # so this was every project that had not selected all three: the command was unusable and
+    # 2,543 tests were green, because every fixture declared only the two roles that default.
+    #
+    # `ServiceSelection.roles`' own comment already states the answer — "a key with nothing
+    # selected for it is simply absent, never guessed" — so an effective-config listing omits it.
+    # An effective configuration is what is *in effect*, and nothing is in effect for that role.
+    entries = effective_config(None, table=_WITH_AN_UNSELECTED_ROLE)
+
+    keys = {entry.key for entry in entries}
+    assert "services.blob" not in keys
+    assert {"services.embed", "services.store", "services.route"} <= keys, (
+        "omitting the unselected role took the selected ones with it."
+    )
+    assert "permissions.overwrite" in keys, "the blocks that name no role are untouched."
+
+
+def test_asking_for_that_role_by_name_still_says_why_rather_than_unknown_key() -> None:
+    # The other side of the same repair, and the reason the listing omits rather than prints a
+    # placeholder: `services.blob` **is** a key this run reads — it is in `config_keys_for` and
+    # `weft config set` writes it — so answering `UnknownConfigKeyError` would be false. What is
+    # missing is a selection, and `ServiceSelection.plugin_for`'s own message names the key and
+    # what *is* selected, which is the loud failure correctly located.
+    # **Asserted as the exact class, not as the family.** The first version of this test said
+    # `pytest.raises(WeftError)` and looked for `"blob"` in the message — and passed against a
+    # build where `weft config get --key services.blob` answered *"is not a key weft config
+    # reads or writes"* while `weft config set services.blob filesystem` wrote it happily.
+    # `UnknownConfigKeyError` is a `WeftError` and its message contains the key, so the loose
+    # assertion accepted the sibling error that says the opposite of the truth. The binary
+    # found it in one command pair.
+    with pytest.raises(UnknownServiceKeyError) as caught:
+        config_entry(None, "services.blob", table=_WITH_AN_UNSELECTED_ROLE)
+
+    message = str(caught.value)
+    assert "holds no selection" in message, (
+        "the refusal must say a *selection* is missing. Saying the key is unknown is false — "
+        "`weft config set` writes it — and sends an operator looking for a typo."
+    )
+    assert not isinstance(caught.value, UnknownConfigKeyError), (
+        "`services.blob` is a key this run reads; only its selection is absent."
+    )
+    assert "services.blob" in config_keys_for(_WITH_AN_UNSELECTED_ROLE), (
+        "the key vanished from the vocabulary as well, which would make `weft config set "
+        "services.blob` refuse a key an operator is entitled to write."
+    )

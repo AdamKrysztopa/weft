@@ -386,6 +386,90 @@ not less. Note for the drain: this is small and only bites while the backlog is 
 next three Next action rows are all groups, so it bites three more times before the queue is next
 drained.
 
+### L12.11 — the fixture said "the roles a real installation declares" and named two of five
+
+**What happened.** `weft config get`, with no arguments, on a project with no `weft.toml` at all —
+the default flagless invocation of a shipped command — exited **1**:
+
+```
+$ weft config get
+[services] holds no selection for 'blob'. Selected: (none).
+```
+
+`effective_config` lists every key `config_keys_for` names and reads each through
+`ServiceSelection.plugin_for`, which *refuses* a role nothing selects. A real installation declares
+five roles — `blob`, `describe`, `embed`, `graph`, `store` — and `ServiceSelection` has a field
+with a default for only two of them. So the command was broken for every project that had not
+selected all five, which is every project, and **2,543 tests were green**. Found in the first
+minute of running the binary for a repair about a different half of the same surface.
+
+The reason no test could see it is one line of `tests/unit/weft_cli/test_config_surface.py`:
+
+> `#: The roles a real installation declares.` — `_INSTALLED = RoleTable(roles={"embed": …,
+> "store": …})`
+
+Two roles, both of them the ones that default. The failing branch was **unreachable from the
+fixture**, and the fixture's own comment asserted it was reality.
+
+**Generalises to.** `L12.6` is the neighbouring rule — a fixture symmetric in the dimension under
+test — and it does not quite cover this: the defect here is not that the fixture had one entry, it
+is that the fixture **claimed to be representative and was not**. So: **a fixture whose name or
+comment says it is "what a real X looks like" is checked against a real X, once, in the commit that
+makes the claim.** One `discover()` and a `sorted(table.declared)` would have printed five names
+next to a literal holding two. The claim is the trigger — an ordinary fixture invents whatever the
+test needs and owes nothing; the moment it says *real*, it has made an assertion about the world
+with nothing checking it, which is `docs/README.md`'s own "claims need evidence" one layer down.
+
+**Candidate home.** `phase-step` → *Red*, in the fixture paragraph that already carries `L11.42`,
+`L11.45` and (pending) `L12.6` — this is that paragraph's next sentence and shares its trigger.
+There is also a mechanical form worth the drain's attention, cheaper than it looks: a `tests/`
+check that a fixture named `_INSTALLED`, `_REAL`, `_SHIPPED` or the like agrees with a live
+derivation is not writable in general, but *this* one is — `RoleTable` fixtures could be built
+from `role_table_from_reports(discover(...))` and narrowed, rather than written out, which is
+`L11.17`'s "copy the existing double" applied to a fixture that has a real source available.
+
+### L12.12 — `pytest.raises(WeftError)` plus a substring accepted the error that said the opposite
+
+**What happened.** Repairing `R9.4` I made `effective_config` omit a declared role nothing selects,
+and wrote a test for the other half — that asking for such a key *by name* still explains itself:
+
+```python
+with pytest.raises(WeftError) as caught:
+    config_entry(None, "services.blob", table=...)
+assert "blob" in str(caught.value)
+```
+
+It passed. It passed against a build where the shipped binary did this:
+
+```
+$ weft config set services.blob filesystem   →  set services.blob = filesystem in weft.toml.   (0)
+$ weft config get --key services.blob        →  'services.blob' is not a key weft config
+                                                 reads or writes.                              (4)
+```
+
+Writable and unreadable, same key, same project. `config_entry` fell through my new omission into
+its own `# pragma: no cover` branch and raised `UnknownConfigKeyError` — which **is** a `WeftError`,
+and whose message **does** contain `blob`. Both halves of the assertion were satisfied by the
+sibling error that says the opposite of the truth: it tells an operator to look for a typo in a key
+they are entitled to set. Found by running the binary, in the pair of commands either one of which
+alone looks fine.
+
+**Generalises to.** **Assert the exception the code should raise, not the family it belongs to** —
+and where a family exists precisely so that several failures share a base, `pytest.raises(<base>)`
+asserts almost nothing. The substring made it worse rather than better: a key name appears in every
+message *about* that key, so matching on it distinguishes none of them. Two cheap habits close it:
+name the leaf class, and match a fragment of the sentence's **claim** (`"holds no selection"`)
+rather than of its subject. This is `L9.43`'s rule — asserting a container shape instead of the
+fact a field means — arriving at an exception instead of at a tuple, and `L5.6`'s comparison rule
+arriving at a type instead of a value.
+
+**Candidate home.** `phase-step` → *Red*, in the paragraph that already says "assert the fact a
+field means, never its literal shape" — this is that sentence for `pytest.raises`, and the
+mechanical form is worth the drain's attention: a `tests/` check that every `pytest.raises` naming
+`WeftError` itself (rather than a subclass) carries a reason, in the shape of the waiver constants
+this project already uses. `WeftError` has enough subclasses that catching the base in a test is
+almost always a widening nobody intended.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

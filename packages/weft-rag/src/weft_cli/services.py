@@ -93,6 +93,10 @@ DEFAULT_STORE: Final[str] = "pgvector"
 #: is a name resolved by the same mechanism `embed` and `store` already use.
 DEFAULT_ROUTER: Final[str] = "route"
 
+#: The `[services]` key that names the router — the one accepted key no pack declares, named
+#: once here so `accepted_service_keys` is the only place it is added. Carried repair **R9.4**.
+DEFAULT_ROUTER_KEY: Final[str] = "route"
+
 
 class UnknownServiceKeyError(WeftError, UnresolvedNameError):
     """`[services]` names a key this module does not read.
@@ -106,6 +110,32 @@ class UnknownServiceKeyError(WeftError, UnresolvedNameError):
     def __init__(self, message: str, *, valid_options: tuple[str, ...]) -> None:
         super().__init__(message)
         self.valid_options = valid_options
+
+
+def accepted_service_keys(table: RoleTable) -> frozenset[str]:
+    """Every key a `weft.toml` may write under `[services]` — **the one derivation**.
+
+    Carried repair **R9.4**, whose four lessons (`L9.27`, `L9.28`, `L9.52`, `L9.35`) share one
+    cause: this vocabulary had three expressions of itself and no reason for them to stay in
+    step. `service_selection_from_config` below validated against `set(table.declared) |
+    {"route"}`; `weft_cli.config_surface.config_keys_for` derived `services.<role>` and then
+    hand-added `"services.route"` a second time; and `tests/docs/test_manual_config_keys.py`
+    combined `ServiceSelection.model_fields` with a discovered role set. They agreed on the day
+    each was written, which is exactly the state in which drift is invisible — and
+    `config_keys_for`'s own docstring records that its predecessor `_KEY_FIELDS` had already
+    drifted once, by never growing `services.route` when task 8.3 added it.
+
+    **`route` is the one member no pack declares**, and it is here rather than at each caller
+    because that is what made it possible to forget. It names a *pipeline document* resolved in
+    the contributed catalogue, not a plugin resolved in the registry — `ServiceSelection.route`'s
+    own field comment has the distinction — so no `ServiceRole` is published for it and
+    `table.declared` cannot contain it.
+
+    **Not `ServiceSelection.model_fields`.** That set is closed to `embed`, `store`, `route` and
+    the `roles` mapping itself; the accepted vocabulary is open by construction, because a pack
+    nobody in this repository wrote may publish a role and a project may then name it.
+    """
+    return frozenset(table.declared) | {DEFAULT_ROUTER_KEY}
 
 
 class ServiceSelection(BaseModel):
@@ -151,6 +181,23 @@ class ServiceSelection(BaseModel):
     #: (`weft_cli.service_roles.RoleTable`'s own module docstring).
     roles: Mapping[str, str] = {}
 
+    def selection_for(self, key: str) -> str | None:
+        """The plugin name selected for role `key`, or `None` where nothing is.
+
+        `plugin_for` below is the *resolving* reader — it refuses, because a run that needs a
+        role and has none must stop. This one is the *reporting* reader, added by carried repair
+        **R9.4** for `weft_cli.config_surface.effective_config`, which lists every key a run
+        reads and must be able to say "nothing here" about a role an operator has not selected.
+        Two readers, one lookup: the alternative was `effective_config` catching
+        `UnknownServiceKeyError` for control flow, which turns a refusal into a branch and makes
+        the two surfaces disagree the day the message changes.
+        """
+        if key == "embed":
+            return self.embed
+        if key == "store":
+            return self.store
+        return self.roles.get(key)
+
     def plugin_for(self, key: str) -> str:
         """The plugin name selected for role `key`.
 
@@ -177,7 +224,7 @@ def service_selection_from_config(
 ) -> ServiceSelection:
     """`[services]` from a parsed `weft.toml`, or every default if it says nothing.
 
-    The key set this validates against is `set(table.declared) | {"route"}` — every role a
+    The key set this validates against is `accepted_service_keys` above — every role a
     trusted, installed pack declared, plus `route`, which names a pipeline rather than a
     plugin and so is never a role (`docs/03-cli.md:925-930 'weft_cli.co'`). Never `ServiceSelection.
     model_fields`: that set is closed to `embed`, `store` and `route`, which is exactly the
@@ -197,7 +244,7 @@ def service_selection_from_config(
     refuses a malformed `[packs]`: two readers of one file must not disagree
     about what a broken block means.
     """
-    known = tuple(sorted(set(table.declared) | {"route"}))
+    known = tuple(sorted(accepted_service_keys(table)))
     if document is None or "services" not in document:
         return ServiceSelection()
     services = document["services"]

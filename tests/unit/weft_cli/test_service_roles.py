@@ -7,7 +7,7 @@ requires each to be tested without the others standing in for it.
 
 What this file is about is a **key space that no longer lives in `weft-cli`**. Until 9.0 the
 `[services]` keys were three fixed fields on `ServiceSelection`
-(`packages/weft-rag/src/weft_cli/services.py:111 'class Serv'`), so a pack publishing a new run-wide
+(`packages/weft-rag/src/weft_cli/services.py:141 'class Serv'`), so a pack publishing a new run-wide
 service had no way to be selected without an edit to this distribution — requirement 1
 failing for the next pack, which is what Phase 7's close filed rather than fixed
 (`docs/build-ledger.md:4358-4366 'emits prose'`, finding *(a)*). Here the set is contributed: a pack

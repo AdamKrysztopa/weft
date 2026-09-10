@@ -5784,24 +5784,92 @@ it had read one failure (`L7.1`).
   document, on a sound argument — a document naming `qdrant` could not resolve without the pack —
   whose consequence is that **shipping no document is how a pack becomes exempt**. `weft-docling`
   shipped `pdf-layout-model` unreachable for the length of task `9.13` and FF16 stayed green
-- [ ] **R9.4** the `[services]` key vocabulary has one source that production code and every
+- [x] **R9.4** the `[services]` key vocabulary has one source that production code and every
   drift-check read · owner `02` §2; `03` → *Configuration* · `L9.27`, `L9.28`, `L9.52`, `L9.35` ·
   four entries, one cause: `tests/docs/test_manual_config_keys.py` derives the accepted set from
   `ServiceSelection.model_fields`, `weft_cli.config_surface` hand-patches `_KEY_FIELDS` the same
   way, and neither reads the roles a pack declares at registration — so a check globbed `manual/*`
   while `03` is the document that defines the set, a test compared a literal against itself, and an
   error message was reworded to satisfy a scraper that had mistaken prose for a key
+
+  **Closed 2026-09-10. There were four expressions of this vocabulary, not three**, and the
+  fourth was the one the entry names as already-drifted: `weft_cli.config_surface._KEY_FIELDS`,
+  the hand-written five-key dict task `9.0`'s own docstring called *"a second, hand-written key
+  space… and it had already drifted"*. `9.0` added `config_keys_for` **beside** it rather than in
+  place of it, so the literal went on shipping and `CONFIG_KEYS` — derived from it — is what
+  `weft config`'s `--key` help still advertises. `weft_cli.services.accepted_service_keys` is now
+  the single derivation: `service_selection_from_config` validates against it,
+  `config_keys_for` prefixes it, and `tests/docs/test_manual_config_keys.py` reads it instead of
+  `ServiceSelection.model_fields | _role_keys()`. **That third set had a live gap this repair
+  closed**: `model_fields` carries `roles` — the mapping, not a writable key — so a manual
+  documenting `[services] roles` would have passed a check whose own docstring says *"a remedy
+  naming a key `weft.toml` refuses is a remedy that fails on the operator"*. The check also now
+  reads `docs/03-cli.md`, the document that **defines** the set and the one document it had never
+  opened (`L9.35`).
+
+  **Two defects the binary found and 2,543 tests could not.** `weft config get`, no arguments, on
+  a project with no `weft.toml` at all, exited **1**: `[services] holds no selection for 'blob'.`
+  A real installation declares five roles and `ServiceSelection` has a defaulted field for two,
+  so the command was broken for every project that had not selected all five — invisible because
+  `test_config_surface.py`'s fixture says in its own comment that it is *"the roles a real
+  installation declares"* and names two (`L12.11`). And the repair for it introduced the second:
+  `effective_config` omitting an unselected role made `config_entry` fall through to
+  `UnknownConfigKeyError`, so `weft config set services.blob filesystem` **succeeded** while
+  `weft config get --key services.blob` answered *"is not a key weft config reads or writes"*. My
+  test passed against that build, because `pytest.raises(WeftError)` plus a `"blob"` substring
+  accepts the sibling error that says the opposite (`L12.12`).
+
+  **Confirmed from the shipped binary**, wheels into an explicit venv, from a directory that is
+  not this repository:
+
+  ```
+  $ weft config get
+  permissions.destroy = ask
+  ...
+  services.route = route
+  services.store = pgvector
+  $ echo $?
+  0
+
+  $ weft config get --key services.blob
+  [services] holds no selection for 'blob'. Selected: (none).
+
+  $ weft config set services.blob filesystem && weft config get --key services.blob
+  services.blob = filesystem
+  ```
+
+  `ServiceSelection.selection_for` is the reporting reader added beside `plugin_for`, the
+  resolving one: two readers, one lookup, so `effective_config` never catches a refusal for
+  control flow. **Built by me, not dispatched** — every file is a test, a document or the seam
+  the repair is about
 - [ ] **R9.5** a run-time failure on a condition already reported `unavailable` at discovery
   carries the same remedy the discovery message gave · owner `02` §2 → *The trust model* · `L9.86` ·
   `weft plugins doctor` names the directory and two remedies; a run in the same state prints the
   vendor's own sentence and no remedy at all. The wide fix is at the registration seam, where
   `CLAUDE.md` says cross-cutting concerns attach; the narrow one is a string match on a vendor
   message, which is the shape `L9.80` warns goes stale silently
-- [ ] **R9.6** every field a shipped pack's `Settings` model exposes is named in
+- [x] **R9.6** every field a shipped pack's `Settings` model exposes is named in
   `weft.toml.example`, or its absence is stated as deliberate · owner `08` → the manuals ·
   `L9.77` · `[packs.openai]` documents `api_key` and not `base_url`, the field
   `weft_openai/settings.py`, `manual/troubleshooting.md` and `10` §4 all argue decides where every
   request goes — and whose entire point is that it lives in `weft.toml` rather than the environment
+
+  **Closed 2026-09-10, and it was worse than the one field.** Measured through
+  `entry_points(group="weft.packs")` against `weft.toml.example`: **thirteen of fourteen** fields
+  across five packs were undocumented — every one `weft_kg` shipped in Phase 11
+  (`dsn`, `adjudication_floor`, `adjudication_role`, `max_concurrent_adjudications`,
+  `schema_file`), five of six on `[packs.openai]` including the `base_url` this entry names,
+  `[packs.blob] root` (the one *required* field of any pack that has one), `[packs.docling]
+  artifacts_path` and `[packs.agent] max_steps`. All thirteen are now in the example with the
+  reasoning each field's own `#:` comment already carried — not invented here, carried across.
+
+  `tests/docs/test_pack_settings_documented.py` holds it, and reads the population from the
+  entry-point group rather than from a list, so a pack added tomorrow is checked with no edit
+  (`L8.8`). Its waiver `SETTINGS_FIELDS_DELIBERATELY_UNDOCUMENTED` is **pinned empty** and reached
+  empty by the thirteen being written rather than recorded. The block reader is bounded at the
+  next `[` so a field named in a *later* block cannot answer for this one — the failure a
+  whole-file substring test would have had, and its self-test exercises exactly that. Watched red
+  on a planted removal of `[packs.openai] max_retries`
 - [ ] **R9.7** an intra-workspace dependency's declared floor equals that dependency's current
   in-tree version · owner `01` → *Fitness functions* 10 · `L9.2` · FF10(b) asserts a bound *exists*
   and never that its floor is publishable; three siblings drifted once and were repaired by hand

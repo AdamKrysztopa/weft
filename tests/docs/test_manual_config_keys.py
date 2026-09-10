@@ -42,14 +42,21 @@ from pathlib import Path
 from typing import Final
 
 from tests.discovery import installed_packs_except_the_canary
-from weft_cli.service_roles import role_table_from_reports
-from weft_cli.services import ServiceSelection
+from weft_cli.config_surface import config_keys_for
+from weft_cli.service_roles import RoleTable, role_table_from_reports
+from weft_cli.services import ServiceSelection, accepted_service_keys
+from weft_kernel.context import ServiceRole
 from weft_kernel.discovery import discover
 from weft_kernel.registry import Registry
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 MANUAL_DIR: Final[Path] = REPO_ROOT / "manual"
 CONFIG_EXAMPLE: Final[Path] = REPO_ROOT / "weft.toml.example"
+#: **`03` is the document that defines this vocabulary**, and until carried repair `R9.4` this
+#: check globbed `manual/*.md` and never opened it — so the one document whose word is final on
+#: what `[services]` accepts was the one document not checked against the code. `docs/lessons.md`
+#: `L9.35`.
+CLI_DOCUMENT: Final[Path] = REPO_ROOT / "docs" / "03-cli.md"
 
 #: `08` §3's named-waiver convention for this check: a `[services]` key a manual names on purpose
 #: while it is not yet a field. **Pinned empty** — a key that does not exist is not a remedy, and
@@ -66,22 +73,19 @@ _PLACEHOLDER_PACK_SETTINGS: Final[dict[str, dict[str, object]]] = {
 }
 
 
-def _role_keys() -> frozenset[str]:
-    """Every `[services]` role key an installed pack declares — read through a real `discover()`
-    pass, the same source `weft_cli.registry_bootstrap` reads it from.
+def _live_role_table() -> RoleTable:
+    """The `RoleTable` a real run builds — `_role_keys`'s own pass, returned whole.
 
-    A pack whose settings fail to validate still declares its roles: `weft_kernel.discovery`
-    reads `SERVICE_ROLES` off the imported module *before* settings validate, precisely so a
-    `FAILED` pack does not silently take its key out of the accepted set. The placeholder
-    settings above therefore change nothing about the answer and are here only to keep the pass
-    quiet.
+    Carried repair **R9.4** needs the table itself rather than its key set: the property under
+    test is that two *surfaces* answer the same question from it, and handing each a different
+    table would compare two answers to two questions.
     """
     reports = discover(
         Registry(),
         allow=installed_packs_except_the_canary(),
         pack_settings=_PLACEHOLDER_PACK_SETTINGS,
     )
-    return frozenset(role_table_from_reports(reports).declared)
+    return role_table_from_reports(reports)
 
 
 #: `[services] embed` written inline in prose, the form a remedy sentence uses.
@@ -92,7 +96,7 @@ _ASSIGNMENT = re.compile(r"^#?\s*([A-Za-z_][A-Za-z0-9_]*)\s*=")
 
 
 def _documents() -> tuple[Path, ...]:
-    return (*sorted(MANUAL_DIR.glob("*.md")), CONFIG_EXAMPLE)
+    return (*sorted(MANUAL_DIR.glob("*.md")), CONFIG_EXAMPLE, CLI_DOCUMENT)
 
 
 def _keys_named_in(text: str) -> frozenset[str]:
@@ -125,12 +129,19 @@ def test_at_least_one_services_key_is_found_in_the_documents() -> None:
 
 
 def test_every_documented_services_key_is_one_weft_toml_accepts() -> None:
-    """A remedy naming a key `weft.toml` refuses is a remedy that fails on the operator."""
+    """A remedy naming a key `weft.toml` refuses is a remedy that fails on the operator.
+
+    **Read from `accepted_service_keys` since carried repair `R9.4`, and that closed a gap this
+    docstring already forbade.** The set was `ServiceSelection.model_fields | _role_keys()`, and
+    `model_fields` carries `roles` — the *mapping* every non-`embed`/`store` selection lives in,
+    not a key a `weft.toml` may write. So a manual documenting `[services] roles` would have
+    passed here and been refused by `service_selection_from_config` on the operator's machine,
+    which is the exact failure the sentence above names. Three expressions of one vocabulary is
+    what `R9.4` was filed for; this was the third.
+    """
     # Arrange
     accepted = (
-        frozenset(ServiceSelection.model_fields)
-        | _role_keys()
-        | SERVICES_KEYS_DOCUMENTED_BEFORE_THEY_EXIST
+        accepted_service_keys(_live_role_table()) | SERVICES_KEYS_DOCUMENTED_BEFORE_THEY_EXIST
     )
 
     # Act
@@ -158,3 +169,67 @@ def test_a_key_that_does_not_exist_would_be_caught() -> None:
     # Assert
     assert "nosuchkey" in named
     assert "nosuchkey" not in ServiceSelection.model_fields
+
+
+def test_one_derivation_answers_which_services_keys_exist() -> None:
+    # Carried repair **R9.4**, and the property its four lessons share: `[services]`'s key
+    # vocabulary had **three** expressions of itself. `weft_cli.services` validated a `weft.toml`
+    # against `set(table.declared) | {"route"}`; `weft_cli.config_surface.config_keys_for` built
+    # `services.<role>` from `table.declared` and then hand-added `"services.route"` a second
+    # time; and this file combined `ServiceSelection.model_fields` with a discovered role set.
+    # Three sets that agreed on the day each was written and had no reason to keep agreeing —
+    # `config_keys_for`'s own docstring records that `_KEY_FIELDS` had already drifted once, by
+    # never growing `services.route` when task 8.3 added it.
+    #
+    # The dimension this varies is **a role no expression hard-codes**: with only the shipped
+    # roles, a hand-written set and a derived one are indistinguishable.
+    class _AcmeContract:
+        """A contract no pack in this repository publishes — see the comment above."""
+
+    table = RoleTable(
+        roles={
+            "acme-thing": ServiceRole(key="acme-thing", contract=_AcmeContract),
+        }
+    )
+
+    # Act
+    accepted = accepted_service_keys(table)
+    addressable = {
+        key.removeprefix("services.")
+        for key in config_keys_for(table)
+        if key.startswith("services.")
+    }
+
+    # Assert — one derivation, so a stranger's role reaches both surfaces or neither.
+    assert accepted == addressable
+    assert "acme-thing" in accepted, (
+        "a role a third-party pack declared is not in the accepted set, so `weft.toml` would "
+        "refuse a key the pack itself published."
+    )
+    assert "route" in accepted, (
+        "`route` names a pipeline document rather than a plugin and is accepted anyway — that "
+        "is the one member no pack declares, and it belongs in the derivation rather than being "
+        "added again by every caller."
+    )
+
+
+def test_the_shipped_key_set_is_the_one_both_surfaces_answer_with() -> None:
+    # The live reading of the same property: whatever this installation actually declares, a
+    # `weft.toml` and `weft config get|set` agree about which keys exist. They agreed when this
+    # was written, which is the point — the check exists so that stays true rather than being
+    # rediscovered by an operator whose `weft config set services.graph` is refused for a key
+    # their `weft.toml` accepts.
+    table = _live_role_table()
+
+    accepted = accepted_service_keys(table)
+    addressable = {
+        key.removeprefix("services.")
+        for key in config_keys_for(table)
+        if key.startswith("services.")
+    }
+
+    assert accepted == addressable, (
+        f"`weft.toml` accepts {sorted(accepted)} and `weft config` addresses "
+        f"{sorted(addressable)}. One of the two is a second key space."
+    )
+    assert accepted, "no `[services]` key was derived at all — the discovery itself is broken."

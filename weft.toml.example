@@ -68,6 +68,26 @@ dsn = "${env:WEFT_DATABASE_URL}"
 # every machine. `${env:...}` keeps the secret in the environment all the same.
 #
 # api_key = "${env:OPENAI_API_KEY}"
+#
+# Where to reach it. Unset means the vendor's own address, passed explicitly — the SDK
+# reads `OPENAI_BASE_URL` for itself when handed nothing, and an endpoint this file did
+# not name is an endpoint this file cannot be trusted about. The same holds for the two
+# below and `OPENAI_ORG_ID` / `OPENAI_PROJECT_ID`. Any API speaking the same protocol
+# goes here: a gateway, a proxy, a compatible local server.
+#
+# base_url = "https://api.openai.com/v1"
+# organization = "org-..."
+# project = "proj_..."
+#
+# `timeout_seconds` unset leaves the SDK's own default in force, which is *not* the same
+# as passing it `None` — a value it honours as "no timeout at all".
+#
+# timeout_seconds = 30.0
+#
+# The SDK retries transient failures itself, at the transport, below anything Weft can
+# see. Zero turns that off for an operator who wants the failure immediately.
+#
+# max_retries = 2
 
 # [packs.qdrant]
 # Optional in the same way and for the same reason — every field has a default, so
@@ -234,3 +254,66 @@ dsn = "${env:WEFT_DATABASE_URL}"
 #
 # [plugins]
 # "Enhancer:keybert" = "weft-kw"
+
+
+# --- Packs with settings of their own -----------------------------------------
+# Everything below is optional; each block can be absent and its pack still
+# registers. Added 2026-09-10 by carried repair `R9.6`: these fields existed and
+# this file named none of them, so the only way to find one was to read the pack's
+# source. `tests/docs/test_pack_settings_documented.py` now refuses that state.
+
+# [packs.graph]
+# `weft-kg`'s own connection, and it is **not** inherited from `[packs.store]` or from
+# an exported `WEFT_DATABASE_URL`: this pack is offered no ambient setting, so the line
+# below is what points it at the container the store already uses. Empty is the default
+# and is deliberate — `register()` must succeed on a machine with no `weft.toml`, so a
+# project that never names this pack sees an ordinary `active` row rather than a `failed`
+# one it has to read past. The connection is opened lazily, so the refusal arrives at the
+# first call that genuinely needs one.
+#
+# dsn = "${env:WEFT_DATABASE_URL}"
+#
+# The three below configure the entity-resolution pass `weft reconcile` runs — pack
+# settings rather than stage `with:` config because that pass is not a pipeline stage,
+# so there is no per-stage config object for it to read.
+#
+# `adjudication_floor` is the band's lower edge: below this score a candidate pair is
+# never put to a model at all. `adjudication_role` is the `[llm.roles]` key the pass
+# resolves a provider through — index-side work, so it defaults to `index`.
+# `max_concurrent_adjudications` is what a configured provider tolerates, which is an
+# operator's fact rather than this pack's.
+#
+# adjudication_floor = 0.6
+# adjudication_role = "index"
+# max_concurrent_adjudications = 8
+#
+# The project-local curated schema a `weft graph activate` run wrote. Empty — the
+# default — means no schema is active: extraction constrains and stamps nothing. One
+# path per project, so every stage reads the schema the corpus is actually under rather
+# than a value some pipeline document happened to repeat.
+#
+# schema_file = "graph-schema.json"
+
+# [packs.blob]
+# The one required field of any pack that has one, following `[packs.store] dsn`'s
+# precedent: a pack cannot invent where an operator's bytes live, so `root` has no
+# default. Every blob a multimodal extractor produces is written under it, and the
+# directory and its layout marker are created on first use.
+#
+# root = "./blobs"
+
+# [packs.docling]
+# Where the layout model's weights live on disk. A *pack* setting rather than a stage
+# one because `register()` is what reads it, to decide whether the rung it is about to
+# register can actually run — and registration sees only pack settings. Unset means the
+# library's own default location.
+#
+# artifacts_path = "/path/to/docling/models"
+
+# [packs.agent]
+# The agent loop's step budget — an operator's decision rather than a number baked into
+# the pack. Ten is enough for a handful of tool calls plus a final answer on the kind of
+# multi-step question this pack exists for, without letting a model stuck in a loop run
+# away unbounded.
+#
+# max_steps = 10
