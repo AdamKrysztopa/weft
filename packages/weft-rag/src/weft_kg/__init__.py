@@ -31,6 +31,14 @@ and `weft_kg.schema`'s for the curated-schema model `propose`/`activate` read an
 once activated, constrains and stamps every fact `llm-facts` extracts — see that module's own
 docstring for the "constrain and verify" pair this task adds to its existing five-rule filter.
 
+**Carried repair `R11.5` adds an eighth document, `index-with-facts-openai`.** Every rung this
+pack ships inherits `embed: hash` from `index-text`, and a `--pipeline` run deliberately does not
+read `[services] embed` — so the entity-resolution pass `11.8` and `11.9` built had no shipped
+rung on which its vector term meant anything. That document is its child, and the credential it
+needs is the cost the owner weighed: `index-with-facts` and `index-with-cooccurrence` are
+untouched and still climb on a laptop with no account. The document itself carries the
+measurement.
+
 **Ledger `11.13` adds a fourth `Command`, `weft graph bridges` — the falsification instrument
 `11.10`'s own measured run argued for.** Registered last, after the three `11.11` shipped and
 their renderers, so `test_register.py`'s asserted pipeline-resource ordering is untouched — this
@@ -196,6 +204,10 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     # position here cannot disturb test_register.py's own asserted resource ordering above.
     registrar.add(Command, "graph bridges", partial(GraphBridgesCommand, settings))
     registrar.add_renderer(GraphBridgesResult, render_graph_bridges)
+    # Carried repair R11.5 — the rung whose entity vectors the resolution pass can actually use.
+    # Appended last, after every other resource, because `test_register.py` asserts the exact
+    # order and this document extends `index-with-facts`, which must already be registered above.
+    registrar.add_pipeline_resource("weft_kg", "pipelines/index-with-facts-openai.yaml")
 
 
 __all__ = [

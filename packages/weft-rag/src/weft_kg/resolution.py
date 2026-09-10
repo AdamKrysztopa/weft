@@ -48,17 +48,22 @@ clear the floor. Treating an absent number as passing would make signal 3 fire h
 where there is least evidence, which is the inverse of what a gate is for — `docs/lessons.md`
 L5.9's rule for an empty collection, applied to a missing number.
 
-**The signal this pass leans hardest on is the one the shipped rung does not supply — carried
-repair `R11.5`, measured at `11.9`.** `index-text` names `embed: hash`, and every rung that
-derives from it inherits that, `index-with-graph` and `index-with-facts` included; a `--pipeline`
-run deliberately does not read `[services] embed`. A content-hash vector has no semantic geometry,
-so signal 1's blend collapses to its lexical third and signal 3's cosine floor is unreachable
-except by accident. Measured through the shipped binary on a real two-document corpus: every alias
-pair scored between `0.105` and `0.165`, *Reciprocal Rank Fusion* against *RRF* included. The same
-corpus through a child rung that `replace:`s the embed stage with `openai-embeddings` put *Warsaw
-Institute* against *Warszawski Instytut* at `0.647`. Nothing in this module is wrong; it simply has
-no shipped rung on which its vector term means anything, and a reader pointing it at a corpus
-should derive one first.
+**The signal this pass leans hardest on has exactly one rung that supplies it — carried repair
+`R11.5`, measured at `11.9` and closed 2026-09-10.** `index-text` names `embed: hash`, and every
+rung that derives from it inherits that, `index-with-graph`, `index-with-cooccurrence` and
+`index-with-facts` included; a `--pipeline` run deliberately does not read `[services] embed`. A
+content-hash vector has no semantic geometry, so signal 1's blend collapses to its lexical third
+and signal 3's cosine floor is unreachable except by accident. Measured through the shipped binary
+on a real two-document corpus: every alias pair scored between `0.105` and `0.165`, *Reciprocal
+Rank Fusion* against *RRF* included. The same corpus with the embed stage replaced by
+`openai-embeddings` put *Warsaw Institute* against *Warszawski Instytut* at `0.647`.
+
+That replacement is now a **shipped document rather than an instruction** —
+`index-with-facts-openai`, one `replace:` block over `index-with-facts`, the owner's decision on
+2026-09-10 — so this pass has a rung on which its vector term means something and a reader no
+longer has to derive one before pointing it at a corpus. The cost is on that document's own face:
+it needs a credential. `index-with-facts` and `index-with-cooccurrence` are untouched and still
+climb on a machine with no account, where this pass is the lexical third of itself and says so.
 
 **Carried prior work — `NOTICE` case 2.** The initialism rule and its stopword set, the
 short-form shape test, the Schwartz–Hearst patterns and their initialism validation, the

@@ -278,6 +278,36 @@ def test_the_pack_contributes_the_document_that_makes_its_store_reachable() -> N
         ("weft_kg", "pipelines/graph-2hop-then-generate.yaml"),
         ("weft_kg", "pipelines/graph-and-vector-rrf.yaml"),
         ("weft_kg", "pipelines/graph-then-rerank.yaml"),
+        ("weft_kg", "pipelines/index-with-facts-openai.yaml"),
+    ]
+
+
+def test_the_pack_ships_a_rung_whose_entity_vectors_a_resolution_pass_can_use() -> None:
+    """Carried repair **`R11.5`**, and it is a rung decision rather than a defect.
+
+    `index-with-facts` extends `index-with-graph` extends `index-text`, and `index-text` names
+    `embed: hash`. A `--pipeline` run deliberately does not read `[services] embed` — `run_index`'s
+    own *"Q3, settled"*, and the right rule, because a document that says `hash` must not silently
+    become `openai` because a file elsewhere said so. The consequence measured at `11.9`: every
+    alias vector on the shipped rung is a content hash, so `11.8`'s blended score collapses to its
+    lexical third and the entity-resolution pass the phase built has no rung on which its vector
+    term means anything.
+
+    This rung is the other end of that: one `replace:` block naming a real embedder, so the pass
+    is reachable without an operator deriving a document by hand first. The credential requirement
+    is the cost, stated on the document itself — `index-openai`'s own precedent, one family over.
+    """
+    # Arrange
+    registry = Registry()
+    registrar = PackRegistrar(registry, distribution="weft-rag")
+
+    # Act
+    register(registrar, Settings())
+    registrar.commit()
+
+    # Assert
+    assert ("weft_kg", "pipelines/index-with-facts-openai.yaml") in [
+        (r.package, r.resource) for r in registrar.pipeline_resources
     ]
 
 

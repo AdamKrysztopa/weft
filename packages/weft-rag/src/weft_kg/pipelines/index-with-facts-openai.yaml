@@ -1,0 +1,47 @@
+name: index-with-facts-openai
+extends: index-with-facts
+
+# **Carried repair `R11.5`, and it is a rung decision rather than a defect.** `index-with-facts`
+# extends `index-with-graph` extends `index-text`, and `index-text` names `embed: hash`. A
+# `--pipeline` run deliberately does not read `[services] embed` — `weft_cli.ingest.run_index`'s
+# own "Q3, settled", and the right rule: a document that says `hash` must not silently become
+# something else because a file elsewhere said so.
+#
+# The consequence nobody had connected until it was measured at ledger `11.9`, from an installed
+# wheel outside the repository: **every alias vector on the shipped rung is a content hash**, so
+# the blended similarity `weft_kg.resolution` scores collapses to its lexical third and the cosine
+# floor can never be cleared except by accident. Measured on a real two-document corpus through
+# `index-with-facts`, every pair scored between 0.105 and 0.165 — `Reciprocal Rank Fusion` against
+# `RRF` included. The identical corpus through a child rung replacing the embed stage put
+# `Warsaw Institute` against `Warszawski Instytut` at 0.647, inside the band, and the expensive
+# pass asked about it.
+#
+# So the entity-resolution pass tasks `11.8` and `11.9` built was correct and had **no shipped
+# rung on which its vector signal meant anything**. `index-text`'s own comment already tells an
+# operator to derive a child; what it does not say is that two rungs shipped since depend on the
+# vector term for their whole behaviour. This document is that child, shipped rather than left as
+# an instruction, so `weft pipeline list` is where an operator finds it instead of a docstring.
+#
+# **It needs a credential, and that is the cost this rung was weighed against.** Add to
+# `weft.toml`:
+#
+#     [packs.openai]
+#     api_key = "${env:OPENAI_API_KEY}"
+#
+# With no credential the run fails at the embed stage naming the block to add — `weft-openai`
+# deliberately does not read `OPENAI_API_KEY` on its own, so a project that runs on one machine
+# runs on every machine. `index-with-facts` itself is untouched and still climbs on a laptop with
+# no account; `index-with-cooccurrence` needs no model at all. This is the rung for the corpus
+# where two spellings of one thing have to become one entity.
+#
+# **Changing the embedder means reindexing into a fresh collection.** `hash` is 64 dimensions and
+# `text-embedding-3-small` is 1536; a stored vector is only comparable to a question embedded by
+# the same model, and where the widths differ the store refuses outright rather than comparing two
+# unrelated spaces. See `manual/operations-guide.md` → *Choosing an embedder*.
+#
+# One `replace:` block is the whole diff, which is `02` §3's derivation model doing its job: the
+# day `index-with-facts` changes what it extracts, this rung changes with it.
+
+replace:
+  - id: embed
+    use: openai-embeddings

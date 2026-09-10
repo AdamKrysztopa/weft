@@ -6042,7 +6042,10 @@ it had read one failure (`L7.1`).
   **It bites rungs that already ship**, which is sharper than the phase task it was first filed
   against: `index-qdrant` names `qdrant`, and `index-pdf`/`index-pdf-text`/`index-pdf-rows` name
   `pdf-text` and `pdf-layout` — four shipped documents whose plugins come from packs that report
-  `failed` on any machine without the matching extra. *This line said it reached `11.6` until that
+  `failed` on any machine without the matching extra. **Five as of 2026-09-10**: `R11.5` shipped
+  `index-with-facts-openai`, which names `openai-embeddings`, and the session that shipped it met
+  this refusal immediately — exit `4`, **118** names listed, and no mention of the extra to
+  install. Filed by reading, met by running, one task apart. *This line said it reached `11.6` until that
   was checked: every plugin in `index-with-cooccurrence`'s chain comes from a pack with no optional
   import, so 11.6 has no such plugin at all* (`L11.6`'s shape, caught before it was acted on)
 - [x] **R11.4** every store a document names records the sources that run wrote to it, so no
@@ -6103,7 +6106,7 @@ it had read one failure (`L7.1`).
   keeps getting silence while the terminal stops. **This is `01` requirement 5's own failure
   class arriving at the last seam before the operator** — not a crash, an answer that looks like
   nothing happened*
-- [ ] **R11.5** a corpus indexed by a shipped graph rung carries vectors an entity-resolution pass
+- [x] **R11.5** a corpus indexed by a shipped graph rung carries vectors an entity-resolution pass
   can actually use, so the pass `11.8` and `11.9` build is not inert on the only rung that feeds
   it · owner `02` §3 → *Derivation*; `weft_retrieve/pipelines/index-text.yaml` · sha — ·
   ***Found by running the binary at `11.9`**, from an installed wheel outside this repository.
@@ -6126,6 +6129,38 @@ it had read one failure (`L7.1`).
   Both are the owner's call. What `11.9` did instead is record it here, on the `llm-facts` and
   `cooccurrence-graph` rows in `10`, and in `weft_kg.resolution`'s own docstring, where a reader
   choosing a rung meets it*
+  · **Closed 2026-09-10, by the owner's decision, as its own commit ahead of `11.14` on `R11.2`
+  and `R11.4`'s precedent.** The repair names no remedy, and the two available ones were put to
+  the owner rather than defaulted: **change `index-text`'s own embedder**, which fixes every
+  derived rung at once and destroys the property that the laptop-climbable ladder needs no
+  credential — `index-with-cooccurrence` exists precisely because it does not; or **ship the
+  child rung**, which adds one credential-requiring document to the release set and leaves every
+  existing rung alone. The owner took the second.
+  `index-with-facts-openai` is `index-with-facts` with one `replace:` block, registered last so
+  `test_register.py`'s asserted resource order is undisturbed. Written by me and implemented by
+  me — smaller than its brief.
+  **The measurement this closes is `11.9`'s and is not repeated here**: `0.105`–`0.165` for every
+  alias pair on the `hash` rung, `0.647` for *Warsaw Institute* against *Warszawski Instytut*
+  through a child rung naming a real embedder. What was missing was the *rung*, not the number,
+  and the fix is a document, so the proof is that the document resolves and refuses correctly.
+  **Ran the binary from outside this repository against a rebuilt wheel.** `weft pipeline list`
+  shows it among 45 documents. `weft pipeline show index-with-facts-openai` resolves to eight
+  stages with `embed: Embedder:openai-embeddings (provenance: index-with-facts-openai)` and every
+  other stage inherited — `facts` still ahead of `embed`, so `8.2`/`8.10`'s ordering rule survives
+  the derivation. With no `[llm.roles] index` it refuses at exit **1** naming the two lines to
+  add; with that mapped to `scripted` and **no** `[packs.openai]` block it reaches the embed stage
+  and refuses at exit **1**: *"no OpenAI credential is configured, so the 'openai' embedder has
+  nothing to authenticate with. Add `[packs.openai] api_key = "${env:OPENAI_API_KEY}"` to
+  weft.toml…"*. **No credential was spent**: the presence of `OPENAI_API_KEY` was tested by name
+  (`[ -n "${VAR+x}" ]`, never `${VAR:-…}` — `L11.31`) and every run above was made under
+  `env -u OPENAI_API_KEY`.
+  **And it walked straight into `R11.3`, which is the finding.** Before the `openai` extra was
+  installed, `weft pipeline show index-with-facts-openai` exited **4** listing **118** installed
+  plugin names and never saying the one actionable thing — *install `weft-rag[openai]`* — while
+  `weft plugins doctor` was holding that pack's reason all along. That repair's own line says it
+  bites four shipped documents; **this makes five**, and the fifth was shipped by the session that
+  read the line. Gate `GATE_EXIT=0` read out of the run's own log, both containers up: 286
+  architecture, 2516 passed, 9 skipped, 128 examples*
 
 ## Phase 10 — RAPTOR, extended
 
