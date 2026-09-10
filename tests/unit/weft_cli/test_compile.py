@@ -22,13 +22,16 @@ from pydantic import BaseModel, ConfigDict
 
 from weft_cli.compile import (
     AmbiguousStageContractError,
+    RefusedStagePluginError,
     UnknownStagePluginError,
     contracts_for,
     to_specs,
 )
+from weft_cli.exit_codes import ExitCode, exit_code_for
 from weft_generate.contract import Generator
 from weft_generate.payload import Answer
 from weft_kernel.context import Context
+from weft_kernel.discovery import PackReport, PackStatus
 from weft_kernel.payload import Outcome, Produced
 from weft_kernel.pipeline import InsertOperator, Pipeline, SlotDeclaration, StageDeclaration
 from weft_kernel.registry import Registry
@@ -151,9 +154,9 @@ def _derived() -> Pipeline:
 def _specs_for(
     pipeline: Pipeline, registry: Registry, parents: dict[str, Pipeline]
 ) -> tuple[StageSpec, ...]:
-    contracts = contracts_for(pipeline, registry=registry, parents=parents)
+    contracts = contracts_for(pipeline, registry=registry, reports=(), parents=parents)
     resolved = resolve(pipeline, registry=registry, contracts=contracts, parents=parents)
-    return to_specs(resolved, registry=registry)
+    return to_specs(resolved, registry=registry, reports=())
 
 
 async def test_the_baseline_pipeline_compiles_composes_and_runs() -> None:
@@ -226,7 +229,7 @@ def test_contracts_for_adds_an_entry_for_a_contribution_whose_slot_this_pipeline
 
     # Act
     contracts = contracts_for(
-        _with_slot(), registry=registry, parents={}, contributions=(contribution,)
+        _with_slot(), registry=registry, reports=(), parents={}, contributions=(contribution,)
     )
 
     # Assert
@@ -246,7 +249,7 @@ def test_contracts_for_ignores_a_contribution_whose_slot_no_ancestor_declares() 
 
     # Act
     contracts = contracts_for(
-        _baseline(), registry=registry, parents={}, contributions=(contribution,)
+        _baseline(), registry=registry, reports=(), parents={}, contributions=(contribution,)
     )
 
     # Assert
@@ -375,9 +378,10 @@ def test_a_validated_with_block_reaches_the_stage_spec_and_an_empty_one_becomes_
         resolve(
             _baseline(),
             registry=registry,
-            contracts=contracts_for(_baseline(), registry=registry, parents={}),
+            contracts=contracts_for(_baseline(), registry=registry, reports=(), parents={}),
         ),
         registry=registry,
+        reports=(),
     )
 
     # Assert
@@ -397,7 +401,7 @@ def test_a_plugin_name_two_contracts_register_is_refused_by_name() -> None:
 
     # Act / Assert
     with pytest.raises(AmbiguousStageContractError) as caught:
-        contracts_for(pipeline, registry=registry, parents={})
+        contracts_for(pipeline, registry=registry, reports=(), parents={})
     assert "Fuser" in str(caught.value)
     assert "Retriever" in str(caught.value)
 
@@ -412,7 +416,7 @@ def test_a_plugin_no_distribution_registered_is_refused_naming_what_is_installed
 
     # Act / Assert
     with pytest.raises(UnknownStagePluginError) as caught:
-        contracts_for(pipeline, registry=registry, parents={})
+        contracts_for(pipeline, registry=registry, reports=(), parents={})
     assert "vector-top-kk" in str(caught.value)
     assert "vector-top-k" in str(caught.value)
 
@@ -423,7 +427,169 @@ def test_an_inherited_stage_id_is_in_the_mapping_resolve_demands() -> None:
     parents = {"retrieve-then-generate": _baseline()}
 
     # Act
-    contracts = contracts_for(_derived(), registry=registry, parents=parents)
+    contracts = contracts_for(_derived(), registry=registry, reports=(), parents=parents)
 
     # Assert — every id the derived document inherits, not only the three it introduces
     assert set(contracts) == {"hyde", "fanout", "retrieve", "fuse", "rerank", "pack", "generate"}
+
+
+def _report(pack: str | None, status: PackStatus, *, reason: str = "") -> PackReport:
+    """One `weft plugins doctor` row, built the way discovery builds it.
+
+    `distribution` is `weft-rag` throughout because that is the fact the install line is
+    derived from — G19 leaves exactly two published names, so a capability that needs an
+    outside library is an **extra** of this distribution and never a distribution of its
+    own. `pack` is the `weft.packs` entry-point name, which is what a `[packs.<pack>]`
+    block keys on and what the extra is named after.
+    """
+    return PackReport(pack=pack, distribution="weft-rag", status=status, reason=reason)
+
+
+def test_a_plugin_from_a_failed_pack_is_refused_with_that_packs_own_reason() -> None:
+    # Arrange — carried repair **R11.3**, and `02` §2 promises it in as many words: "a name
+    # lost to `failed` or `partial` stays 4 with its reason attached". `weft plugins doctor`
+    # is already holding that reason; the document path threw it away and printed a bare
+    # list of every installed name instead. The dimension this varies against the control
+    # below is `reports` — the same registry, the same document, the same missing name.
+    registry = _registry()
+    reports = (
+        _report("qdrant", PackStatus.FAILED, reason="No module named 'qdrant_client'"),
+        _report("chunk", PackStatus.ACTIVE),
+    )
+    pipeline = Pipeline(name="q", stages=(StageDeclaration(id="store", use="qdrant"),))
+
+    # Act / Assert
+    with pytest.raises(UnknownStagePluginError) as caught:
+        contracts_for(pipeline, registry=registry, reports=reports, parents={})
+    message = str(caught.value)
+    assert "qdrant" in message
+    assert "No module named 'qdrant_client'" in message
+    assert exit_code_for(caught.value) is ExitCode.RESOLUTION_FAILED
+
+
+def test_the_refusal_names_the_extra_that_would_supply_the_missing_pack() -> None:
+    # Arrange — the half R11.3 opens by complaining about: "the one thing an operator can
+    # act on (install the extra) is the one thing the message does not say". The install
+    # line is derived from the distribution's **own** metadata (`Provides-Extra`), never
+    # from a table in this tree, so it cannot claim an extra that does not exist — and
+    # `weft-rag` genuinely declares `qdrant`, which is why this reads the real thing rather
+    # than a double (`L7.6`: a metadata API is asked where it actually runs).
+    registry = _registry()
+    reports = (_report("qdrant", PackStatus.FAILED, reason="No module named 'qdrant_client'"),)
+    pipeline = Pipeline(name="q", stages=(StageDeclaration(id="store", use="qdrant"),))
+
+    # Act / Assert
+    with pytest.raises(UnknownStagePluginError) as caught:
+        contracts_for(pipeline, registry=registry, reports=reports, parents={})
+    assert "weft-rag[qdrant]" in str(caught.value)
+
+
+def test_no_install_line_is_offered_for_a_pack_the_distribution_declares_no_extra_for() -> None:
+    # Arrange — `chunk` ships unconditionally in the same wheel and has no extra, so there
+    # is no `pip install` that would fix it and the message must not invent one. This is
+    # the branch that keeps the line above honest: an install line printed for every failed
+    # pack would be advice that is right five times and wrong the sixth.
+    registry = _registry()
+    reports = (_report("chunk", PackStatus.FAILED, reason="'chunk' settings failed validation"),)
+    pipeline = Pipeline(name="q", stages=(StageDeclaration(id="chunk", use="fixed-sizes"),))
+
+    # Act / Assert
+    with pytest.raises(UnknownStagePluginError) as caught:
+        contracts_for(pipeline, registry=registry, reports=reports, parents={})
+    message = str(caught.value)
+    assert "'chunk' settings failed validation" in message
+    assert "weft-rag[chunk]" not in message
+    assert "pip install" not in message
+
+
+def test_a_plugin_from_a_refused_pack_exits_three_naming_the_key_that_would_permit_it() -> None:
+    # Arrange — `02` §2's other clause, which the document path owed just as much: "A
+    # pipeline naming a plugin from a `refused` pack exits 3, refused, and names the config
+    # key that would permit it." A refused pack is never imported, so nothing here can
+    # prove it is the one that would have claimed the name — the message says that rather
+    # than asserting it, exactly as `require_plugin` already does for `[services]`.
+    registry = _registry()
+    reports = (_report(None, PackStatus.REFUSED),)
+    pipeline = Pipeline(name="q", stages=(StageDeclaration(id="store", use="qdrant"),))
+
+    # Act / Assert
+    with pytest.raises(RefusedStagePluginError) as caught:
+        contracts_for(pipeline, registry=registry, reports=reports, parents={})
+    message = str(caught.value)
+    assert "[packs] allow" in message
+    assert exit_code_for(caught.value) is ExitCode.POLICY_REFUSED
+
+
+def test_a_name_no_report_can_explain_is_unchanged_and_still_lists_what_is_installed() -> None:
+    # Arrange — the control. Every pack is `ACTIVE`, so no report explains anything and the
+    # message is what it was before this repair: a typo, answered with the names that do
+    # exist. Without this, a change that attached a reason unconditionally would pass every
+    # assertion above while making the ordinary typo worse.
+    registry = _registry()
+    reports = (_report("retrieve", PackStatus.ACTIVE),)
+    pipeline = Pipeline(name="typo", stages=(StageDeclaration(id="retrieve", use="vector-top-kk"),))
+
+    # Act / Assert
+    with pytest.raises(UnknownStagePluginError) as caught:
+        contracts_for(pipeline, registry=registry, reports=reports, parents={})
+    message = str(caught.value)
+    assert "vector-top-k" in message
+    assert "pip install" not in message
+    assert exit_code_for(caught.value) is ExitCode.RESOLUTION_FAILED
+
+
+def test_to_specs_attributes_a_failed_pack_the_same_way_contracts_for_does() -> None:
+    # Arrange — both seams call `_contract_for`, and a repair that fixed only the one the
+    # transcript came from would leave the other printing the bare list. `to_specs` is
+    # reached on every run that gets past `contracts_for`, so the two must not disagree.
+    registry = _registry()
+    reports = (_report("qdrant", PackStatus.FAILED, reason="No module named 'qdrant_client'"),)
+    resolved = resolve(
+        _baseline(),
+        registry=registry,
+        contracts=contracts_for(_baseline(), registry=registry, reports=(), parents={}),
+        parents={},
+    )
+    broken = resolved.model_copy(
+        update={
+            "stages": tuple(
+                stage.model_copy(update={"use": "qdrant"}) if stage.id == "retrieve" else stage
+                for stage in resolved.stages
+            )
+        }
+    )
+
+    # Act / Assert
+    with pytest.raises(UnknownStagePluginError) as caught:
+        to_specs(broken, registry=registry, reports=reports)
+    assert "No module named 'qdrant_client'" in str(caught.value)
+    assert "weft-rag[qdrant]" in str(caught.value)
+
+
+def test_two_failed_packs_in_one_distribution_are_told_apart_in_the_message() -> None:
+    # Arrange — **carried repair R11.3, second half, and this test exists because the binary
+    # found it and the six above did not.** The first real run of this repair printed
+    # `weft-rag (failed); weft-rag (failed); weft-rag (partial); ...` — seven rows keyed on a
+    # string that G19 made identical for every first-party pack, one of which was the answer.
+    # Every assertion above passed throughout, because each used one report and one report
+    # cannot collide with itself. The dimension this varies is the one that was missing:
+    # **two** reports, same distribution, different packs.
+    registry = _registry()
+    reports = (
+        _report("qdrant", PackStatus.FAILED, reason="No module named 'qdrant_client'"),
+        _report("pdf", PackStatus.FAILED, reason="No module named 'pdfplumber'"),
+    )
+    pipeline = Pipeline(name="q", stages=(StageDeclaration(id="store", use="qdrant"),))
+
+    # Act / Assert
+    with pytest.raises(UnknownStagePluginError) as caught:
+        contracts_for(pipeline, registry=registry, reports=reports, parents={})
+    message = str(caught.value)
+    assert "qdrant" in message
+    assert "pdf" in message
+    # The distribution alone would render both rows as the identical string, which is what
+    # `PackReport`'s own docstring says a report carrying only that fact can no longer do:
+    # "tell fourteen rows apart".
+    assert "weft-rag (failed); weft-rag (failed)" not in message
+    assert "weft-rag[qdrant]" in message
+    assert "weft-rag[pdf]" in message

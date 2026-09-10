@@ -143,6 +143,16 @@ def exit_code_for(exc: WeftError) -> ExitCode:
     """
     if isinstance(exc, (PipelineResolutionError, *_ALSO_RESOLUTION_FAILED)):
         return ExitCode.RESOLUTION_FAILED
+    # `weft_cli.compile.RefusedStagePluginError`, carried repair R11.3 — a local import,
+    # the identical shape `NoRouterPipelineError`/`UnknownRunIdError` already use below. A
+    # module-scope import of `weft_cli.compile` here would be a cycle: `compile` now imports
+    # `weft_cli.pack_attribution`, which imports this module for `ExitCode` itself. By the
+    # time this branch can run, whatever handler raised the error has already imported
+    # `weft_cli.compile`, so this import is a `sys.modules` lookup, not a fresh one.
+    from weft_cli.compile import RefusedStagePluginError
+
+    if isinstance(exc, RefusedStagePluginError):
+        return ExitCode.POLICY_REFUSED
     from weft_cli.eval_commands import (
         NoBaselineRunsError,
         UnknownQuestionKindError,

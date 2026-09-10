@@ -1817,8 +1817,46 @@ Usually a typo, sometimes a pack that is named in the document but not installed
 for a `fallback:` name — those are deliberately carried through unchecked, so a document may name a
 plugin nobody has shipped yet; making such a document runnable is refused later, by
 [`UnknownFallbackError`](#unknownfallbackerror). **What to do:** correct the `use:` field to one of
-the names listed, or install the distribution that ships the one you meant — `weft plugins list`
-shows what is registered and which distribution contributed it.
+the names listed — `weft plugins list` shows what is registered and which pack contributed it.
+
+**When a pack could explain the miss, this message says so and says what to install** — carried
+repair `R11.3`. `weft plugins doctor` already knows why a pack contributed nothing; until that
+repair, a document naming that pack's plugin printed the bare list above and none of it. Now the
+same `PackReport` reaches this message:
+
+```text
+stage 'store' names plugin 'qdrant', which no installed distribution registered under any
+contract. These packs contributed nothing, or only part of what they publish, and one of them
+may be the one that provides it: blob (failed); docling (failed); eval (partial);
+openai (failed); otel (failed); pdf (failed); qdrant (failed). Installed plugin names:
+accuracy, adjudicate-entities, ...
+
+Diagnostic detail:
+blob:
+    'blob' settings failed validation: 1 validation error for Settings
+    root
+      Field required [type=missing, input_value={}, input_type=dict]
+docling:
+    No module named 'docling'
+    pip install weft-rag[docling]
+...
+qdrant:
+    No module named 'qdrant_client'
+    pip install weft-rag[qdrant]
+```
+
+**Every pack that could explain the miss is listed, not just the one you named** — nothing here
+knows which of them would have registered `qdrant`, and guessing would be the silent-fallback this
+project refuses everywhere else. Each row is keyed on the **pack**, which since G19 is the only
+thing that tells them apart: all fourteen first-party packs ship in `weft-rag`, so a message keyed
+on the distribution printed the same string seven times. `weft plugins doctor` is the fuller view
+of the same facts.
+
+The install line is read from the distribution's own `Provides-Extra`, so it is offered only where
+an extra genuinely exists — `weft-rag` ships every first-party pack's code and makes the outside
+library declinable (**G19**), which is why the remedy is an extra rather than a second package to
+install. A pack with no extra — one whose settings are simply wrong — gets its reason and no
+install line, because there is no `pip install` that would fix it.
 
 ### `AmbiguousStageContractError`
 
@@ -1837,6 +1875,32 @@ runs, and produces a pipeline whose middle does something nobody asked for. `exc
 names both distributions, which is what tells you who to talk to. **What to do:** one of them must
 rename its plugin — a plugin name answers to exactly one contract. Until then, `weft plugins list`
 shows both registrations side by side.
+
+### `RefusedStagePluginError`
+
+**What it looks like** — a stage's `use:` names a plugin that no installed distribution registered,
+and `[packs] allow` is refusing a distribution that may be the one which would have:
+
+```text
+stage 'retrieve' names plugin 'example-fixed', which no installed distribution registered under
+any contract. These distributions are refused by [packs] allow in weft.toml and were never
+imported, so what they would have registered is unknown: weft-example-query. Add the one that
+provides 'example-fixed' to [packs] allow. Installed plugin names: accuracy, ...
+```
+
+**Exit `3`, not `4`, and that is the whole point of the class** —
+[`docs/02-extension-model.md`](../docs/02-extension-model.md) → *The trust model*: a pipeline naming
+a plugin from a `refused` pack "exits 3, refused, and names the config key that would permit it",
+while a name no pack provides at all stays `4`. The split is what lets a CI job tell *"fix the
+environment"* from *"fix the pipeline"*, and until carried repair `R11.3` the document path answered
+`4` to both. `[services]` had always answered correctly, which is exactly why this went unnoticed.
+
+Note what the message does **not** say: that the refused distribution is the one providing the name.
+A refused pack is never imported — that is what refusing means — so nothing here can know what it
+would have registered, and it says so rather than asserting it. **What to do:** add the distribution
+to `[packs] allow` in `weft.toml` if you trust it, or correct the `use:` field. `[packs] allow` is a
+list of *distributions*, not packs, which is why the message names one and the entry above names the
+other.
 
 ---
 

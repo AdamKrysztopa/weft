@@ -333,11 +333,13 @@ async def test_the_router_selects_and_executes_a_freshly_generated_pipeline_name
     assert route_outcome.value.outcome is RuleOutcome.NEAREST
 
     # Execute — resolve the selected pipeline against the real registry and run it.
-    contracts = contracts_for(stranger, registry=registry, parents={uuid_name: stranger})
+    contracts = contracts_for(
+        stranger, registry=registry, reports=(), parents={uuid_name: stranger}
+    )
     resolved = resolve(
         stranger, registry=registry, contracts=contracts, parents={uuid_name: stranger}
     )
-    specs = to_specs(resolved, registry=registry)
+    specs = to_specs(resolved, registry=registry, reports=())
     runner = Runner(registry)
     runnable = runner.resolve(specs, tenant_id="ff4")
     query = Query(text="what should I do?")

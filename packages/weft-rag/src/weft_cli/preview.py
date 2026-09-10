@@ -111,7 +111,7 @@ async def run_render(
             remedy=f"use one of: {', '.join(options) or '(none — no pipeline is known yet)'}.",
         )
     contracts = contracts_for(
-        document, registry=registry, parents=catalogue, contributions=contributions
+        document, registry=registry, parents=catalogue, reports=reports, contributions=contributions
     )
     resolved = resolve(
         document,
@@ -120,7 +120,7 @@ async def run_render(
         parents=catalogue,
         contributions=contributions,
     )
-    specs = to_specs(resolved, registry=registry)
+    specs = to_specs(resolved, registry=registry, reports=reports)
     _refuse_without_a_render_terminus(specs, pipeline=pipeline)
 
     # Written as three named steps, not one expression, and that is a property rather than a

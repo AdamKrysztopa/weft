@@ -54,6 +54,13 @@ _TABLE_ATTR: Final[str] = "_ALSO_RESOLUTION_FAILED"
 
 _LOCAL_IMPORT_MEMBERS: Final[tuple[str, ...]] = (
     "NoRouterPipelineError",
+    # Carried repair **R11.3**: `weft_cli.compile`'s own exit-3 refusal, the document path's
+    # half of `02` §2's "a pipeline naming a plugin from a refused pack exits 3". A module-scope
+    # import of `weft_cli.compile` in `exit_codes` would cycle — `compile` now imports
+    # `weft_cli.pack_attribution`, which imports `exit_codes` — so it joins this list rather
+    # than `_ALSO_RESOLUTION_FAILED`, and it is the first member here that is *not* a
+    # RESOLUTION_FAILED branch.
+    "RefusedStagePluginError",
     "UnknownRunIdError",
     "NoBaselineRunsError",
     "UnknownQuestionKindError",

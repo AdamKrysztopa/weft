@@ -251,6 +251,7 @@ async def run_routed_ask(
         selected=selected_services,
         names=services.roles,
         catalogue=catalogue,
+        reports=reports,
         contributions=contributions,
         entry_type=Query,
     )
@@ -284,6 +285,7 @@ async def run_routed_ask(
         selected=selected_services,
         names=services.roles,
         catalogue=catalogue,
+        reports=reports,
         contributions=contributions,
     )
     answer = _require(
@@ -474,6 +476,7 @@ async def run_named_ask(
         selected=selected_services,
         names=services.roles,
         catalogue=catalogue,
+        reports=reports,
         contributions=contributions,
     )
     return _require(
@@ -544,6 +547,7 @@ async def _run_pipeline(
     selected: Mapping[str, object],
     names: Mapping[str, str],
     catalogue: Mapping[str, Pipeline],
+    reports: Sequence[PackReport],
     contributions: tuple[Contribution, ...] = (),
     entry_type: type[object] | None = None,
 ) -> object:
@@ -590,9 +594,16 @@ async def _run_pipeline(
     `services.roles`, the `[services]` key → configured plugin name mapping, so
     `check_selected_capabilities`'s own refusal can say what was configured rather than what
     class it turned into, the identical `L9.26` argument one layer over.
+
+    `reports` — carried repair **R11.3**, required rather than defaulted — is threaded
+    straight through to `contracts_for`/`to_specs` so a `use:` field this pipeline names
+    that fails to resolve can be attributed to the pack that would have supplied it, the
+    same reason `weft plugins doctor` already gives. Both callers already hold it
+    (`run_routed_ask`, `run_named_ask`), so this costs nothing beyond passing it one call
+    further.
     """
     contracts = contracts_for(
-        pipeline, registry=registry, parents=catalogue, contributions=contributions
+        pipeline, registry=registry, parents=catalogue, reports=reports, contributions=contributions
     )
     resolved = resolve(
         pipeline,
@@ -601,7 +612,7 @@ async def _run_pipeline(
         parents=catalogue,
         contributions=contributions,
     )
-    specs = to_specs(resolved, registry=registry)
+    specs = to_specs(resolved, registry=registry, reports=reports)
     check_store_capabilities(
         specs,
         registry=registry,

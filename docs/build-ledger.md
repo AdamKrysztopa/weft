@@ -6022,7 +6022,7 @@ it had read one failure (`L7.1`).
   default path, and `runs/*.json` is empty. Gate `GATE_EXIT=0` read out of the run's own log with
   both containers up: 269 architecture, 2292 passed, 9 skipped, 127 examples — eight more than
   `11.4`'s 2284, which is this repair's eight tests and no shrink
-- [ ] **R11.3** a pipeline document naming a plugin whose pack **failed** is refused with that
+- [x] **R11.3** a pipeline document naming a plugin whose pack **failed** is refused with that
   pack's reason attached · owner `02` §2 → *The trust model*; `weft_kernel.registry.
   UnknownPluginError`; `weft_cli.registry_bootstrap.require_plugin` · `L11.26` · `02` promises it
   in as many words — *"A pipeline naming a plugin from a `refused` pack exits 3... A name provided
@@ -6048,6 +6048,125 @@ it had read one failure (`L7.1`).
   install. Filed by reading, met by running, one task apart. *This line said it reached `11.6` until that
   was checked: every plugin in `index-with-cooccurrence`'s chain comes from a pack with no optional
   import, so 11.6 has no such plugin at all* (`L11.6`'s shape, caught before it was acted on)
+
+  **Closed 2026-09-10, and the first thing the session did was falsify this entry's own diagnosis.**
+  The line above says a name inside a document *"reaches `weft_kernel.registry` instead"*, and names
+  `weft_kernel.registry.UnknownPluginError` in `owner`. It does not. One `--json` run from an
+  installed wheel says so outright — `{"error":"UnknownStagePluginError","exit_code":4}` — raised at
+  `weft_cli/compile.py` → `_contract_for`, **already inside `weft-cli` and already holding the
+  `registry`**; `_registers()` swallows the kernel's error internally while probing each contract
+  and none escapes. **The transcript this entry pastes was real and the cause beside it was never
+  checked** (`docs/lessons.md` `L12.4`). The name count had drifted too: **123**, not 118.
+
+  **That falsified one of the two remedies outright.** *"`require_plugin` extended to every name a
+  resolved document uses"* is **structurally impossible** on this path: `require_plugin` takes a
+  `contract: type[object]`, and on the document path the contract is *the thing being inferred* when
+  the inference fails — `UnknownStagePluginError`'s own docstring says so, *"here there is no
+  contract yet"*. A document names a plugin, never a contract. Recorded as refused-on-evidence
+  rather than left open.
+
+  **What the measurement did find** is that `_unresolved`'s reason-attaching half is entirely
+  contract-free: `contract` feeds two sentences, while the branches carrying the value read only
+  `reports`. And `reports` was already a parameter of `ingest._specs_from_document` and
+  `preview.run_render`, and already in scope at both `route_ask` entry points. **The owner's
+  decision, on that evidence: thread `reports` into the document seam and lift the contract-free
+  half into one attributor both callers share** — so `02` §2's promise is composed once rather than
+  twice, and the exit-3-versus-4 split is decided in one place. New leaf module
+  `weft_cli.pack_attribution` (`PluginRefusal` moved there, `attribute_to_packs`, `install_hint`),
+  `RefusedStagePluginError` in `compile` with a local-import branch in `exit_code_for`, and
+  `reports` as a **required keyword** — no default, because a default is exactly how a call site
+  abstains silently (`L6.21`). That choice paid for itself immediately: it surfaced a **sixth** call
+  site, `eval/run_baseline.py:386`, that my own grep over `packages/` and `tests/` had missed.
+
+  **The second decision: name the extra, and pin it with a check.** `install_hint` reads the
+  distribution's own `Provides-Extra` before offering `pip install <dist>[<pack>]`, so the sentence
+  can never claim an extra that does not exist; the new
+  `test_every_capability_extra_is_the_name_of_a_pack_in_the_same_distribution` in
+  `tests/architecture/test_distributions_declare_their_imports.py` guards the direction metadata
+  cannot — an extra declared as `pdf-support` beside a pack named `pdf` would make the one
+  actionable line vanish with nothing failing. Watched red on a planted `qdrant-support`, and again
+  on a planted `pdf-support` after the helper was refactored. Waiver `_EXTRAS_THAT_NAME_NO_PACK` is
+  three names, each with its reason in the constant's own comment. **`remedy=` was also wrong rather
+  than merely thin**: it said *"install the distribution that ships '<use>'"*, and since **G19**
+  there is no such distribution.
+
+  **Built by a dispatched `weft-implementer`** — eight modules and a signature threaded through six
+  call sites, well past the size where writing the brief costs less than the edit. It returned green
+  and blocked correctly on one thing it may not touch, which is the split working.
+
+  **Two sites my brief owed and did not name, both caught by this repository's own ratchets.**
+  `RefusedStagePluginError` is a new exception class, and `tests/architecture/
+  test_exit_code_tables_are_live.py`'s `_LOCAL_IMPORT_MEMBERS` and
+  `tests/docs/test_troubleshooting_coverage.py`'s coverage ratchet each demanded an entry. The first
+  one's assertion message names its own history: *"which is exactly the miss lessons-archive L8.12
+  records"*. `phase-step`'s rule for this is written for *"when a brief names a **base class**"*, and
+  this class deliberately joins no family — so the sentence did not apply and neither site was
+  looked for. `L12.5`.
+
+  **And the defect the tests could not have found, which is why the binary is run.** With the repair
+  green across 2,932 tests, the first real invocation printed:
+
+  ```
+  ... one of them may be the one that provides it: weft-rag (failed); weft-rag (failed);
+  weft-rag (partial); weft-rag (failed); weft-rag (failed); weft-rag (failed); weft-rag (failed).
+  ```
+
+  Seven rows an operator cannot tell apart, one of which was the answer. Both sentences were keyed
+  on `PackReport.distribution` — correct while every pack shipped in a distribution of its own, and
+  **G19 put fourteen of them in one wheel**. `PackReport`'s own docstring predicts it in as many
+  words: the two facts *"stopped being the same the moment one distribution shipped fourteen packs,
+  and a report that carried only the second could no longer tell fourteen rows apart."* Every one of
+  my six tests held exactly **one** report, and one report cannot collide with itself (`L12.6`).
+  Repaired to key on `pack`, with a two-row test that goes red against the old labelling — and the
+  sweep the lesson proposed was **run rather than filed**: `weft_cli.plugins_report` is the only
+  other operator-facing renderer of a `PackReport` and was **already correct**, which is why
+  `weft plugins doctor` printed `qdrant (weft-rag): failed` accurately in the very run where this
+  module printed seven identical names. The `refused` branch stays keyed on the distribution, and
+  that is not a third case: `[packs] allow` is a list of distributions.
+
+  **Confirmed from the shipped binary**, wheels installed into an explicit venv invoked by path
+  (`L11.37`) alongside `examples/weft-example-query` as a genuine third-party distribution, from a
+  directory that is not this repository, against a `CREATE DATABASE weft_r113` of its own — the
+  control run left `weft_nodes` at **1** row and the two refusals wrote nothing:
+
+  ```
+  $ weft index corpus --pipeline index-qdrant
+  stage 'store' names plugin 'qdrant', which no installed distribution registered under any
+  contract. These packs contributed nothing, or only part of what they publish, and one of them
+  may be the one that provides it: blob (failed); docling (failed); eval (partial);
+  openai (failed); otel (failed); pdf (failed); qdrant (failed). Installed plugin names: ...
+
+  Diagnostic detail:
+  ...
+  qdrant:
+      No module named 'qdrant_client'
+      pip install weft-rag[qdrant]
+  $ echo $?
+  4
+
+  $ weft pipeline validate uses-a-refused-pack
+  stage 'retrieve' names plugin 'example-fixed', which no installed distribution registered under
+  any contract. These distributions are refused by [packs] allow in weft.toml and were never
+  imported, so what they would have registered is unknown: weft-example-query. Add the one that
+  provides 'example-fixed' to [packs] allow. Installed plugin names: ...
+  $ echo $?
+  3
+
+  $ weft index corpus --pipeline index-text
+  mode 'repair' — 1 participant(s):
+    pgvector (weft-rag): examined 0, removed 0, backfilled 0
+  $ echo $?
+  0
+  ```
+
+  The exit `3` is `02` §2's other clause, which the document path owed just as much and had never
+  paid: *"A pipeline naming a plugin from a `refused` pack exits 3, refused, and names the config
+  key that would permit it."* `[services]` had always answered correctly, which is exactly why
+  nobody noticed. **A refused distribution is barely reachable with only two published names** —
+  refusing either `weft-rag` or `weft-kernel` refuses the CLI itself — so this branch needs a
+  third-party pack installed to exercise at all, which is what `examples/weft-example-query` is for.
+  `manual/troubleshooting.md` gains a `RefusedStagePluginError` entry and its `UnknownStagePluginError`
+  neighbour loses the same G19-stale *"install the distribution"* sentence the code just lost
 - [x] **R11.4** every store a document names records the sources that run wrote to it, so no
   store holds a corpus it cannot enumerate · owner `02` §1 → `SourceRecord`; `weft_cli.ingest.
   _record_sources` · sha — · *`_store_stage_id_of` answers with the **first** stage whose contract

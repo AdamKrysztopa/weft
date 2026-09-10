@@ -52,11 +52,14 @@ caller, is what must raise `UnknownParentPipelineError` and `PipelineCycleError`
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 
 from pydantic import BaseModel
 
-from weft_kernel.errors import UnresolvedNameError
+from weft_cli.exit_codes import ExitCode
+from weft_cli.pack_attribution import attribute_to_packs, install_hint
+from weft_kernel.discovery import PackReport
+from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_kernel.pipeline import Pipeline
 from weft_kernel.registry import Registry, UnknownPluginError
 from weft_kernel.resolution import Contribution, ResolvedPipeline
@@ -140,11 +143,43 @@ class UnknownStagePluginError(PipelineResolutionError, UnresolvedNameError):
         self.valid_options = valid_options
 
 
+class RefusedStagePluginError(WeftError):
+    """A document's `use:` names a plugin whose only candidate pack is `REFUSED` by
+    `[packs] allow` — carried repair **R11.3**.
+
+    **Not** a `PipelineResolutionError` subclass. `weft_cli.exit_codes.exit_code_for` maps
+    that whole family to `ExitCode.RESOLUTION_FAILED` by `isinstance`, and this is the other
+    half of `docs/02-extension-model.md` §2's own split: "A pipeline naming a plugin from a
+    `refused` pack exits 3, refused, and names the config key that would permit it" — that
+    promise arriving on the document path for the first time. `weft_cli.registry_bootstrap.
+    require_plugin` already gives `[services]` exit 3 for the identical reason
+    (`ExitCode.POLICY_REFUSED`); this is that same policy answer reaching a `use:` field,
+    both composed by `weft_cli.pack_attribution.attribute_to_packs` from the same `reports`
+    tuple, so the two messages cannot drift apart.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        valid_options: tuple[str, ...],
+        pipeline: str | None = None,
+        stages: tuple[str, ...] = (),
+        remedy: str = "",
+    ) -> None:
+        super().__init__(message)
+        self.valid_options = valid_options
+        self.pipeline = pipeline
+        self.stages = stages
+        self.remedy = remedy
+
+
 def contracts_for(
     pipeline: Pipeline,
     *,
     registry: Registry,
     parents: Mapping[str, Pipeline],
+    reports: Sequence[PackReport],
     contributions: tuple[Contribution, ...] = (),
 ) -> dict[str, type[object]]:
     """The `contracts` mapping `weft_kernel.resolution.resolve` demands for `pipeline`.
@@ -166,15 +201,25 @@ def contracts_for(
     function's own docstring already states for `_QUALIFIER`) is added for every
     contribution whose `slot` a declared slot in the chain actually names.
 
-    Raises `UnknownStagePluginError` for a name nothing registered and
-    `AmbiguousStageContractError` for a name two contracts answer to — both by name, both
-    naming the options, and neither guessed through.
+    Raises `UnknownStagePluginError` for a name nothing registered, `RefusedStagePluginError`
+    for a name only a `REFUSED` pack could have supplied, and `AmbiguousStageContractError`
+    for a name two contracts answer to — all three by name, naming the options where there
+    are any, and none guessed through.
+
+    **`reports`, carried repair R11.3, required rather than defaulted.** Every installed
+    pack's own `PackReport`, threaded straight through to `_contract_for` so an unresolved
+    `use:` can be attributed to the pack that would have supplied it, the same way `weft
+    plugins doctor` already can. Required and keyword-only, with no default: a default would
+    let a call site abstain silently, which is the exact defect this repair closes
+    (`docs/lessons.md` `L6.21`).
     """
     ancestry = _ancestors_first(pipeline, parents)
     contracts: dict[str, type[object]] = {}
     for document in ancestry:
         for stage_id, use in _stage_use_pairs(document):
-            contracts[stage_id] = _contract_for(registry, use, pipeline=pipeline, stage=stage_id)
+            contracts[stage_id] = _contract_for(
+                registry, use, pipeline=pipeline, stage=stage_id, reports=reports
+            )
 
     declared_slots = {slot.id for document in ancestry for slot in document.slots}
     for contribution in contributions:
@@ -182,12 +227,14 @@ def contracts_for(
             continue
         qualified_id = f"{contribution.distribution}{_SLOT_QUALIFIER}{contribution.stage.id}"
         contracts[qualified_id] = _contract_for(
-            registry, contribution.stage.use, pipeline=pipeline, stage=qualified_id
+            registry, contribution.stage.use, pipeline=pipeline, stage=qualified_id, reports=reports
         )
     return contracts
 
 
-def to_specs(resolved: ResolvedPipeline, *, registry: Registry) -> tuple[StageSpec, ...]:
+def to_specs(
+    resolved: ResolvedPipeline, *, registry: Registry, reports: Sequence[PackReport]
+) -> tuple[StageSpec, ...]:
     """Turn a resolved document into the `StageSpec` list `Runner.resolve` composes and runs.
 
     The contract comes from the same inference `contracts_for` performed, rather than from
@@ -207,7 +254,9 @@ def to_specs(resolved: ResolvedPipeline, *, registry: Registry) -> tuple[StageSp
     return tuple(
         StageSpec(
             id=stage.id,
-            contract=_contract_for(registry, stage.use, pipeline=None, stage=stage.id),
+            contract=_contract_for(
+                registry, stage.use, pipeline=None, stage=stage.id, reports=reports
+            ),
             name=stage.use,
             config=stage.config if isinstance(stage.config, BaseModel) else None,
             fallback=stage.fallback,
@@ -217,7 +266,12 @@ def to_specs(resolved: ResolvedPipeline, *, registry: Registry) -> tuple[StageSp
 
 
 def _contract_for(
-    registry: Registry, use: str, *, pipeline: Pipeline | None, stage: str
+    registry: Registry,
+    use: str,
+    *,
+    pipeline: Pipeline | None,
+    stage: str,
+    reports: Sequence[PackReport],
 ) -> type[object]:
     """Which registered contract answers for the bare plugin name `use` — exactly one, or refuse."""
     matches = sorted(
@@ -235,17 +289,31 @@ def _contract_for(
                 }
             )
         )
-        raise UnknownStagePluginError(
-            f"stage '{stage}' names plugin '{use}', which no installed distribution "
-            f"registered under any contract. Installed plugin names: "
-            f"{', '.join(installed) or '(none)'}.",
+        refusal = attribute_to_packs(
+            reports,
+            name=use,
+            wanted=(
+                f"stage '{stage}' names plugin '{use}', which no installed distribution "
+                f"registered under any contract."
+            ),
+            registered=f"Installed plugin names: {', '.join(installed) or '(none)'}.",
+            valid_options=installed,
+        )
+        remedy = _install_remedy(reports, use=use) or (
+            f"correct the 'use:' field on stage '{stage}' to one of: "
+            f"{', '.join(installed) or '(none installed)'}."
+        )
+        error_cls = (
+            RefusedStagePluginError
+            if refusal.exit_code is ExitCode.POLICY_REFUSED
+            else UnknownStagePluginError
+        )
+        raise error_cls(
+            refusal.message,
             valid_options=installed,
             pipeline=name,
             stages=(stage,),
-            remedy=(
-                f"install the distribution that ships '{use}', or correct the 'use:' field "
-                f"on stage '{stage}' to one of: {', '.join(installed) or '(none installed)'}."
-            ),
+            remedy=remedy,
         )
     if len(matches) > 1:
         contract_names = tuple(contract.__name__ for contract in matches)
@@ -266,6 +334,24 @@ def _contract_for(
             ),
         )
     return matches[0]
+
+
+def _install_remedy(reports: Sequence[PackReport], *, use: str) -> str | None:
+    """`install_hint` for whichever report's own `pack` matches `use` — `None` if no report
+    names that pack, or if that report's own distribution declares no extra for it.
+
+    Matched on `PackReport.pack`, this repository's built-in convention of a pack registering
+    its one plugin under its own entry-point name (`weft_qdrant`'s `NAME = "qdrant"`
+    registers `"qdrant"`) — the same convention the reproduction in `docs/build-ledger.md`
+    6025's own transcript relies on. A third-party pack whose plugin name differs from its
+    entry-point name gets the fallback remedy below instead of a wrong guess.
+    """
+    for report in reports:
+        if report.pack == use:
+            hint = install_hint(report)
+            if hint is not None:
+                return hint
+    return None
 
 
 def _registers(registry: Registry, contract: type[object], name: str) -> bool:

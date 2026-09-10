@@ -118,3 +118,95 @@ def _top_level_first_party_imports(path: Path) -> set[str]:
             modules.add(node.module.split(".")[0])
 
     return {m for m in modules if m.startswith("weft_") and m not in sys.stdlib_module_names}
+
+
+#: Extras that deliberately name no pack, and why each is here. This is a **ratchet**: a
+#: waiver is a visible act in a diff rather than a silent edit, and the check below is only
+#: worth running while this stays this short.
+#:
+#: - `all` is an aggregate of the capability extras, not a capability of its own.
+#: - `bertscore` and `reference` supply a *library* to code that already ships unconditionally
+#:   (`weft_eval`'s BERTScore metric, `weft_cli.contract_reference`'s formatter). Neither is a
+#:   pack whose registration can fail, so neither can ever appear in a `PackReport`, which is
+#:   the only place the install line below is composed from.
+_EXTRAS_THAT_NAME_NO_PACK: Final[frozenset[str]] = frozenset({"all", "bertscore", "reference"})
+
+
+def test_every_capability_extra_is_the_name_of_a_pack_in_the_same_distribution() -> None:
+    # Carried repair **R11.3**. `weft_cli.pack_attribution.install_hint` tells an operator
+    # whose pack reported `failed` to run `pip install <distribution>[<pack>]`, and it reads
+    # the distribution's own `Provides-Extra` before saying so — so the sentence is never
+    # *wrong*. What it can be is silently *absent*: declare the extra as `pdf-support` while
+    # the pack is `pdf` and the one actionable line disappears with nothing failing. G19 is
+    # what makes this the load-bearing direction — a capability needing an outside library
+    # is now an extra of `weft-rag` rather than a distribution of its own, so the extra name
+    # is the only handle an operator has.
+    violations: list[str] = []
+    for manifest in sorted(PACKAGES_ROOT.glob("*/pyproject.toml")):
+        extras = _capability_extras_of(manifest)
+        packs = set(_packs_declared_by(manifest))
+        for extra in sorted(extras - packs):
+            violations.append(
+                f"{manifest.relative_to(REPO_ROOT)} declares extra '{extra}', which is not "
+                f"a weft.packs entry-point name in that same distribution"
+            )
+
+    assert not violations, (
+        "a capability extra does not carry the name of the pack it supplies:\n  "
+        + "\n  ".join(violations)
+        + "\nweft_cli.pack_attribution.install_hint derives `pip install <dist>[<pack>]` "
+        "from the pack name, so an extra named anything else is an install line an "
+        "operator never sees — silently, because a missing sentence fails nothing."
+    )
+
+
+def test_the_check_can_actually_fail() -> None:
+    # The check above is a set difference, and a set difference over an empty left-hand side
+    # is green about nothing. Two floors: the subject is non-empty today, and a disagreeing
+    # input is refused. The first is the one that would rot — `weft-rag` is the only
+    # distribution declaring extras at all, so a layout change moving it would empty the
+    # walk with no assertion looking wrong.
+    surveyed = {
+        manifest.parent.name: _capability_extras_of(manifest)
+        for manifest in sorted(PACKAGES_ROOT.glob("*/pyproject.toml"))
+    }
+    assert any(surveyed.values()), (
+        "no distribution under packages/ declares a capability extra, so the check above "
+        f"compared nothing against nothing. Surveyed: {sorted(surveyed)}."
+    )
+
+    # A capability extra whose name is not a pack is exactly what the check refuses.
+    packs = {"pdf", "qdrant"}
+    planted = {"pdf", "qdrant", "pdf-support"}
+    assert planted - _EXTRAS_THAT_NAME_NO_PACK - packs == {"pdf-support"}
+
+
+def _capability_extras_of(manifest: Path) -> set[str]:
+    """Every extra a manifest declares that claims to supply a *capability* — the waived
+    three removed, so what is left is exactly the set whose names an install line is
+    derived from. Empty for a distribution declaring no extras at all.
+    """
+    return set(_optional_table(manifest, "optional-dependencies")) - _EXTRAS_THAT_NAME_NO_PACK
+
+
+def _packs_declared_by(manifest: Path) -> set[str]:
+    """Every `weft.packs` entry-point name a manifest declares — the pack identity a
+    `PackReport.pack` carries and a `[packs.<pack>]` settings block keys on.
+    """
+    return set(_optional_table(manifest, "entry-points", "weft.packs"))
+
+
+def _optional_table(manifest: Path, *path: str) -> dict[str, object]:
+    """`table_at` under `[project]`, answering `{}` for a table a manifest simply omits.
+
+    `table_at` refuses a missing path, which is right for the shapes these checks *require*
+    and wrong for these two: a distribution with no extras and a distribution with no packs
+    are both ordinary, and `weft-kernel` is each of them. Narrowed here rather than at the
+    call sites so the two helpers above stay `set[str]` rather than `set[Unknown]`.
+    """
+    with manifest.open("rb") as handle:
+        document = tomllib.load(handle)
+    try:
+        return table_at(document, "project", *path)
+    except KeyError:
+        return {}

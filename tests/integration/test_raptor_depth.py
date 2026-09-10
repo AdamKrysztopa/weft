@@ -203,6 +203,7 @@ def test_the_deep_document_resolves_to_two_raptor_rungs_and_one_embed(
         contracts=contracts_for(
             pipeline,
             registry=deps.registry,
+            reports=deps.reports,
             parents=catalogue,
             contributions=deps.contributions,
         ),

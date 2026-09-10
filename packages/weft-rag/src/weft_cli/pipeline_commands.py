@@ -248,7 +248,11 @@ def _resolved_or_refuse(
             remedy=f"use one of: {', '.join(options) or '(none — no pipeline is known yet)'}.",
         )
     contracts = contracts_for(
-        pipeline, registry=deps.registry, parents=catalogue, contributions=deps.contributions
+        pipeline,
+        registry=deps.registry,
+        parents=catalogue,
+        reports=deps.reports,
+        contributions=deps.contributions,
     )
     return resolve(
         pipeline,

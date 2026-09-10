@@ -601,3 +601,63 @@ def test_build_dependencies_carries_empty_contributions_when_no_pack_offers_one(
 
     # Assert
     assert deps.contributions == ()
+
+
+def test_require_plugin_names_the_extra_that_would_supply_a_failed_pack() -> None:
+    # Arrange — carried repair **R11.3**. The reason and the exit-code split were already
+    # right on this path; what neither path said was the one thing an operator can act on.
+    # Both paths now compose that sentence in `weft_cli.pack_attribution`, so the
+    # `[services]` message and a pipeline document's message cannot drift apart — which is
+    # the whole reason the repair threaded `reports` into the document seam rather than
+    # writing a second attribution beside this one.
+    registry = Registry()
+    registry.add(_Contract, "hash", _plugin, distribution="weft-rag")
+    reports = (
+        PackReport(
+            pack="qdrant",
+            distribution="weft-rag",
+            status=PackStatus.FAILED,
+            reason="No module named 'qdrant_client'",
+        ),
+    )
+
+    # Act
+    outcome = require_plugin(
+        reports, registry=registry, contract=_Contract, name="qdrant", setting="[services] store"
+    )
+
+    # Assert — `weft-rag` is installed in this environment and genuinely declares `qdrant`
+    # among its `Provides-Extra`, so this reads the distribution's own metadata rather than
+    # a table in this tree (`L7.6`: ask the metadata API where it actually runs).
+    assert outcome is not None
+    assert outcome.exit_code is ExitCode.RESOLUTION_FAILED
+    assert "No module named 'qdrant_client'" in outcome.message
+    assert "weft-rag[qdrant]" in outcome.message
+
+
+def test_no_install_line_is_offered_for_a_distribution_nothing_installed_claims() -> None:
+    # Arrange — `ALLOWED_NOT_INSTALLED` is exactly the row where `[packs] allow` named a
+    # distribution nothing installed claims, so there is no metadata to read and `pack` is
+    # `None`. An install line here would be a `pip install` for a name this process has no
+    # evidence exists; the reason is still reported, which is the honest half.
+    registry = Registry()
+    registry.add(_Contract, "hash", _plugin, distribution="weft-rag")
+    reports = (
+        PackReport(
+            pack=None,
+            distribution="acme-nowhere",
+            status=PackStatus.ALLOWED_NOT_INSTALLED,
+            reason="allowed by [packs] allow, but nothing installed claims it",
+        ),
+    )
+
+    # Act
+    outcome = require_plugin(
+        reports, registry=registry, contract=_Contract, name="ghost", setting="[services] store"
+    )
+
+    # Assert
+    assert outcome is not None
+    assert outcome.exit_code is ExitCode.RESOLUTION_FAILED
+    assert "acme-nowhere" in outcome.message
+    assert "pip install" not in outcome.message

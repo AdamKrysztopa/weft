@@ -595,7 +595,7 @@ def _specs_from_document(
             remedy=f"use one of: {', '.join(options) or '(none — no pipeline is known yet)'}.",
         )
     contracts = contracts_for(
-        document, registry=registry, parents=catalogue, contributions=contributions
+        document, registry=registry, parents=catalogue, reports=reports, contributions=contributions
     )
     resolved = resolve(
         document,
@@ -604,7 +604,7 @@ def _specs_from_document(
         parents=catalogue,
         contributions=contributions,
     )
-    return resolved, to_specs(resolved, registry=registry)
+    return resolved, to_specs(resolved, registry=registry, reports=reports)
 
 
 def _extractor_name_of(specs: tuple[StageSpec, ...], *, pipeline: str) -> str:

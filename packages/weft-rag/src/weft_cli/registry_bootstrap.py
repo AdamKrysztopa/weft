@@ -106,7 +106,6 @@ assembly path" true rather than aspirational.
 from __future__ import annotations
 
 import os
-import textwrap
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -114,6 +113,8 @@ from typing import TYPE_CHECKING, cast
 
 from weft_cli.exit_codes import ExitCode
 from weft_cli.llm_roles import LLMRoles, LLMSection, llm_section_from_config
+from weft_cli.pack_attribution import PluginRefusal as PluginRefusal
+from weft_cli.pack_attribution import attribute_to_packs
 from weft_cli.permission_policy import PermissionPolicy, permission_policy_from_config
 from weft_cli.service_roles import RoleTable, role_table_from_reports
 from weft_cli.services import ServiceSelection, service_selection_from_config
@@ -145,15 +146,6 @@ DEFAULT_CONFIG_PATH = Path("weft.toml")
 
 #: `.env.example`'s own name for the one connection string Phase 0 needs.
 _DATABASE_URL_VAR = "WEFT_DATABASE_URL"
-
-#: The statuses that mean a distribution is installed and permitted, and still did not put
-#: everything it publishes in the registry. `require_plugin` names these when a plugin name
-#: does not resolve, because one of them is the likeliest reason it did not.
-_CONTRIBUTED_INCOMPLETELY = (
-    PackStatus.FAILED,
-    PackStatus.PARTIAL,
-    PackStatus.ALLOWED_NOT_INSTALLED,
-)
 
 
 class ConfigFileError(WeftError):
@@ -481,32 +473,6 @@ def require_active(
     return None
 
 
-@dataclass(frozen=True, slots=True)
-class PluginRefusal:
-    """`require_plugin`'s answer once `name` fails to resolve for `contract`.
-
-    Repair, 2026-08-20 (finding 2, `docs/build-ledger.md` 3.2/3.3/3.7's dated paragraph): this
-    class replaces the bare `tuple[ExitCode, str]` `require_plugin` used to return, which had no
-    field left to carry `weft_kernel.registry.UnknownPluginError.valid_options` through — the
-    caller had already thrown it away into a string before `weft_cli.commands` ever saw it (a
-    second repair, open item O4, later stopped that string from quoting `UnknownPluginError`'s
-    own text verbatim at all — see `_unresolved`'s own docstring). `valid_options` is populated
-    **only** for the two branches inside `_unresolved` that are
-    genuinely a name-resolution failure (the `silent` and `nothing amiss` cases, both
-    `ExitCode.RESOLUTION_FAILED`) — carried from the caught `UnknownPluginError` itself, every
-    name actually registered for `contract` at the moment of the lookup. It stays `None` for the
-    `refused` branch (`ExitCode.POLICY_REFUSED`): a refused pack is never imported, so nothing
-    here can honestly claim to know what it would have registered — inventing a list there would
-    be worse than omitting one, and it is the identical distinction `docs/build-ledger.md` 3.3's
-    own paragraph already draws for why `weft_cli.commands.CommandRefusalError`'s no-TTY refusal
-    does not carry `valid_options` either: a policy decision is not a name failing to resolve.
-    """
-
-    exit_code: ExitCode
-    message: str
-    valid_options: tuple[str, ...] | None = None
-
-
 def require_plugin(
     reports: tuple[PackReport, ...],
     *,
@@ -583,46 +549,23 @@ def _unresolved(
     sentence rather than quoted. `exc` itself is kept only for that field; neither `exc` nor
     `weft_kernel.registry.UnknownPluginError.__init__` changed, and raising it directly (as
     `Registry.entry` still does for every other caller) reads exactly as it always has.
+
+    **Repair, carried R11.3.** The three branches this used to compute directly — refused,
+    silently incomplete, nothing amiss — now live in `weft_cli.pack_attribution.
+    attribute_to_packs`, which `weft_cli.compile._contract_for` calls too, so the document
+    path stops printing a bare list of every installed name and starts attaching the same
+    reason `weft plugins doctor` already holds. This function is left a thin caller: it still
+    builds the two sentences only it knows how to phrase — `wanted` in `[services]`
+    vocabulary, `registered` from `_registered_names_sentence` — and hands them, plus `name`
+    and `exc.valid_options`, to the one place that composes the rest.
     """
-    refused = tuple(report for report in reports if report.status is PackStatus.REFUSED)
-    silent = tuple(report for report in reports if report.status in _CONTRIBUTED_INCOMPLETELY)
     wanted = f"{setting} names '{name}', and no registered {contract.__name__} has that name."
     registered = _registered_names_sentence(contract, exc.valid_options)
-    if refused:
-        listed = ", ".join(sorted(report.distribution for report in refused))
-        return PluginRefusal(
-            exit_code=ExitCode.POLICY_REFUSED,
-            message=_compose(
-                wanted,
-                f"These distributions are refused by [packs] allow in {DEFAULT_CONFIG_PATH} "
-                f"and were never imported, so what they would have registered is unknown: "
-                f"{listed}. Add the one that provides '{name}' to [packs] allow.",
-                # `registered` names whatever is *currently* active despite the refusal — true
-                # and worth stating — but not `PluginRefusal.valid_options` itself: a refused
-                # pack is never imported, so this branch cannot honestly claim to know what it
-                # would have contributed — see that field's own docstring.
-                registered,
-            ),
-        )
-    if silent:
-        listed = "; ".join(
-            f"{report.distribution} ({report.status.value})"
-            for report in sorted(silent, key=lambda report: report.distribution)
-        )
-        return PluginRefusal(
-            exit_code=ExitCode.RESOLUTION_FAILED,
-            message=_compose(
-                wanted,
-                f"These distributions contributed nothing, or only part of what they publish, "
-                f"and one of them may be the one that provides it: {listed}.",
-                registered,
-                _diagnostic_detail(silent),
-            ),
-            valid_options=exc.valid_options,
-        )
-    return PluginRefusal(
-        exit_code=ExitCode.RESOLUTION_FAILED,
-        message=_compose(wanted, registered),
+    return attribute_to_packs(
+        reports,
+        name=name,
+        wanted=wanted,
+        registered=registered,
         valid_options=exc.valid_options,
     )
 
@@ -633,44 +576,6 @@ def _registered_names_sentence(contract: type[object], valid_options: tuple[str,
     """
     available = ", ".join(f"'{option}'" for option in valid_options) if valid_options else "none"
     return f"Registered {contract.__name__} names: {available}."
-
-
-def _diagnostic_detail(silent: tuple[PackReport, ...]) -> str:
-    """The raw reason each `silent` pack gave — a Pydantic validation dump, for `weft-store`'s
-    own `FAILED` case — as its own block, indented under the distribution it belongs to, rather
-    than spliced into the middle of `_unresolved`'s summary sentence. Empty for a `silent` tuple
-    where nothing carries a `reason` (`ALLOWED_NOT_INSTALLED` never does).
-    """
-    blocks = [
-        f"{report.distribution}:\n{textwrap.indent(report.reason, '    ')}"
-        for report in sorted(silent, key=lambda report: report.distribution)
-        if report.reason
-    ]
-    return "Diagnostic detail:\n" + "\n".join(blocks) if blocks else ""
-
-
-def _compose(*sentences: str) -> str:
-    """Join `_unresolved`'s pieces into one message, in the order given — the join this whole
-    repair is about.
-
-    Every argument is written by this module, in its own voice, capitalised and ending in a
-    full stop already, so a plain space between two single-line pieces reads as one paragraph.
-    A multi-line piece (`_diagnostic_detail`'s block) gets a blank line on either side instead,
-    so it reads as a distinct, clearly-delimited section rather than a continuation of the
-    sentence next to it. An empty piece (an empty `_diagnostic_detail`, or `_registered_names_
-    sentence` never is) contributes nothing, not even a stray separator.
-    """
-    parts: list[str] = []
-    previous_was_multiline = False
-    for sentence in sentences:
-        if not sentence:
-            continue
-        multiline = "\n" in sentence
-        if parts:
-            parts.append("\n\n" if multiline or previous_was_multiline else " ")
-        parts.append(sentence)
-        previous_was_multiline = multiline
-    return "".join(parts)
 
 
 def allow_list_from_file(config_path: Path) -> tuple[str, ...] | None:

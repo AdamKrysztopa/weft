@@ -383,7 +383,9 @@ def build_baseline_record(
             f"{sorted(catalogue)}"
         )
         raise BaselineError(message)
-    contracts = contracts_for(document, registry=deps.registry, parents=catalogue)
+    contracts = contracts_for(
+        document, registry=deps.registry, parents=catalogue, reports=deps.reports
+    )
     resolved: ResolvedPipeline = resolve(
         document, registry=deps.registry, contracts=contracts, parents=catalogue
     )
