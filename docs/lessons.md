@@ -1366,6 +1366,92 @@ citation goes in a cell where it cannot swallow its neighbour. That is a reforma
 plus a rewrite of `reserved_names()`, which is why it is filed rather than done inside the task
 that found it (`lessons` → *Write the entry and stop*).
 
+### L11.45 — the free rung anchors entities to the chunk, the model rung anchors them to what it derived, and the instrument believed the second
+
+**What happened.** `weft graph bridges` (`11.13`) prints, for each two-hop path, *"N chunk(s) hold
+both endpoints"*, and its whole claim is that N is `0` — no single passage answers this question,
+so no embedder can. Run at the phase close against a corpus indexed through **`index-with-facts`**
+with a real model, its first bridge was *"How is Azouz related to ranking?"*, ceiling
+`0 chunk(s) hold both endpoints`, and **both of its hops cited `a.txt`** — whose entire content is
+one sentence naming both. Checked in the database: every node anchoring either entity has the same
+`parents[0]`, chunk `ef6a8a52`. The claim was false, and it was false about the rung the phase's
+own Exit names.
+
+**The mechanism, and it is a difference between two rungs that nothing connects.**
+`cooccurrence-graph` attaches its entities to **the chunk node itself** — `put_entity(name=…,
+nodes=[node.id])` where `node` *is* the chunk — so "the nodes an entity is anchored to" and "the
+chunks it appears in" are the same set, and the query is right. `llm-facts` attaches them to the
+**fact and mention nodes it derived**, each a `parent.derive(...)` of that chunk, so two entities
+from one sentence land on two different `kg_nodes` rows and the intersection is empty. Both
+behaviours are correct and deliberate — `_derive_graph_rows`'s own docstring argues for the second,
+because a relation must not outlive the evidence for it. What is wrong is a query that read
+`kg_entity_nodes` as *"which chunk"* when it means *"which node"*.
+
+**Why no test could see it and the free rung could not either.** Every fixture in
+`test_graph_bridges.py` builds `Node.synthetic(...)` — a node with **no parent** — so node and
+chunk coincide and the two readings are indistinguishable. The whole `index-with-cooccurrence`
+demonstration has the same property for a different reason. **The defect needs a derived node to
+exist at all**, which is exactly the branch that only fires on the credential-requiring rung.
+
+**Generalises to.** Where two implementations of one contract populate the same table with
+different *meanings* of a column — here `kg_entity_nodes.node_id` meaning "the chunk" for one
+writer and "a node derived from the chunk" for the other — every reader of that table has silently
+chosen one of them, and the choice is invisible while only one writer has ever run in the reader's
+tests. The rule: *before reading a shared table, enumerate its writers and ask what the key means
+to each*; where they differ, the reader normalises (here: resolve a node to its chunk through
+`parents`) rather than picking. This is `L6.4`'s population rule — a marker means what its live
+instances say — aimed at a database column instead of a glyph, and `L11.33`'s shape (`_record_sources`
+wrote to *the* store until a document shipped a second) aimed at a meaning rather than a count.
+
+**Candidate home.** `weft-qualities` → *can the instrument see the thing being varied?*, whose
+falsifying question is already *"name the thing this measurement is supposed to distinguish, then
+find the field the instrument actually reads"* — the field here is `node_id` and the thing is a
+passage. Failing that, `phase-step` → *Verify*, which tells an author to construct the branch that
+has never executed and could say that **a second implementation of a contract is such a branch**:
+the graph pack has two writers of one table and the tests exercise one.
+
+### L11.46 — the baseline's interval measured the corpus growing, not retrieval varying
+
+**What happened.** Discharging Phase 11's Exit needs four `weft eval run` invocations: two to
+compare and two more as the baseline's repetitions. Run against `index-with-facts` — the rung the
+Exit names — the graph went **23 nodes and 5 relations before the four runs, 42 and 11 after**.
+`weft eval run` always indexes (`L10.25`), the ingest rung calls a model, and a node id is a
+content digest: the model phrased the same facts differently on each pass, so every rephrasing was
+a *new* node rather than an idempotent rewrite of an old one. The four runs measured four
+progressively larger graphs.
+
+**The number that comes out is still correct and is about something else than it appears.** The
+comparison reported `outside-baseline-spread` on every metric with a **non-zero** baseline interval
+— `mean_average_precision` spread `0.500-0.750`, `ndcg@2` `0.613-0.807` — where the same clause run
+against the credential-free `index-with-cooccurrence` rung two hours earlier recorded a zero-width
+interval. A reader of `09` §4.3 takes that interval to be *"a measurement of the system's own
+variability at the moment the baseline was taken"*, which is exactly what it is — of a system whose
+corpus is growing between repetitions. The width is extraction non-determinism, not retrieval
+noise, and nothing in the record says so.
+
+**Why this is not simply `L10.25` again.** That entry says the instrument mutates what it measures,
+and its instance was a deterministic ingest adding summaries beside old ones. Here the mutation is
+**non-deterministic**, which flips the sign of the consequence: a deterministic re-index makes the
+repetitions agree *too well* and understates the interval, and a model-calling one makes them
+disagree for a reason that has nothing to do with the thing under test and **overstates** it. The
+conservative direction reverses, and `09` §4.3's whole derived-tolerance argument rests on the
+interval being the baseline's own noise.
+
+**Generalises to.** *A repeated measurement is only a repetition if the thing measured did not
+change between passes* — so before reading an interval, name what the harness does to the corpus
+on each pass and whether that action is deterministic. Concretely for this tree: an interval taken
+over repetitions of a **model-calling ingest rung** is not comparable to one taken over a
+deterministic rung, and the run record carries nothing that distinguishes them.
+
+**Candidate home.** `09` §4.3, beside the zero-width caveat that is already there for the mirror
+case — that paragraph warns that correlated repetitions record noise they cannot see as zero, and
+this is the same paragraph's other end. A mechanical form exists and is worth costing: `RunRecord`
+already persists `corpus`, and a corpus identity that changed between two repetitions is checkable
+— `weft eval compare` could refuse, or annotate, an interval whose repetitions did not span one
+corpus, on the same footing `IncomparableRunsError` already refuses two runs from different
+corpora. Alternatively `weft-qualities` → *can the instrument see the thing being varied?*, whose
+list this is a new member of.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

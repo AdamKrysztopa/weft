@@ -8959,6 +8959,48 @@ ingest rung all four share. Measured 2026-09-10 on a twelve-document corpus: **o
 spread on every metric, `Δ-1.000`, baseline spread `0.000-0.000`**, graph `1.000` against vector
 `0.000`.
 
+**Phase 11's Exit, run whole, on one corpus, 2026-09-10 — and it found a defect in `11.13`
+first.** The owner authorised one credential-spending run so the Exit's conjunction could be
+discharged as a conjunction rather than clause by clause across two corpora (`L8.29`'s rule). From
+a directory that is not this repository, against wheels installed into an explicit venv and a
+database of its own (`weft_kg11exit`), twelve one-sentence documents through **`index-with-facts`**
+with a real model: 23 nodes, 5 entities, 5 relations, **12 `kg_sources` rows** (`R11.4` holding).
+
+**The defect, and it is `L11.45`.** `weft graph bridges` reported four bridges, the first being
+*"How is Azouz related to ranking?"* with the ceiling `0 chunk(s) hold both endpoints` — about two
+names in **one sentence**. `cooccurrence-graph` anchors an entity to the chunk node; `llm-facts`
+anchors it to the fact node it **derived**, so two entities from one chunk land on two `kg_nodes`
+rows and a query reading `node_id` as *"which chunk"* is wrong on the model rung and right on the
+free one. Every fixture in `test_graph_bridges.py` used `Node.synthetic`, which has no parent, so
+node and chunk coincided and no test could disagree. Repaired by normalising a node to its chunk
+(`coalesce(n.parents[1], n.id)`) on **both** sides of the comparison, with two new tests built on
+the only fixture in this tree where the two readings differ. On the real graph: **four bridges
+became two**, and both survivors span `a.txt` and `b.txt` genuinely. Row count 23 before and 23
+after that read (`L8.30`).
+
+**Then every clause, in order, on that one graph.** *The same question* — `"How is Azouz related to
+Feature Selection?"` — through the three rungs the Exit names: `retrieve-then-generate` cites
+**a.txt alone**; `graph-then-generate` cites **a.txt and b.txt**; `graph-and-vector-rrf` cites both,
+fusing two lists its fuser cannot tell apart. *`weft delete` of one source*, reporting **by kind**:
+`11 node(s), 3 alias(s), 3 entity(s), 4 fact(s), 6 mention(s), 4 relation(s) removed`, the container
+agreeing exactly (42→31 nodes, 8→5 entities, 11→7 relations) and `Feature Selection` gone while
+`Warsaw Institute` stays, because only b.txt supported the first. *Fitness functions 16 and 28
+green with empty waivers* — FF16's two `frozenset()` and FF28's exception reading FF9c's
+`CONTRACTS_WITHOUT_AN_EXAMPLE_PACK`, also empty — and `9.0`'s green with the graph retriever's
+demand in the tree. *The deferral row* is dated `2026-09-09` in `01` with its reopen trigger.
+*`weft eval compare … --kind requires-graph-hop --baseline index-with-facts`*:
+**`outside-baseline-spread` on every metric** — graph `1.000`, vector `0.375`–`0.500`,
+`Δ-0.625`/`Δ-0.500` against baseline spreads of `0.500-0.750` and `0.613-0.807`.
+
+**What that interval is actually of — `L11.46`, and it is why the number is recorded with a
+caveat rather than quoted.** `weft eval run` indexes on every pass, the rung calls a model, and a
+node id is a content digest, so four runs took the graph from **23 nodes and 5 relations to 42 and
+11**: the model rephrased the same facts and each rephrasing was a new node. The interval is
+therefore extraction drift, not retrieval noise — `L10.25` with its conservative direction
+reversed, since a deterministic re-index makes repetitions agree too well and a model-calling one
+makes them disagree for a reason unrelated to the thing under test. The verdict is unaffected
+(`Δ` is outside a spread that is if anything too wide), and the reading is not.
+
 ## Why a ticked box must be attributable — and why the sha column is no longer how
 
 *(Retitled 2026-09-09. This section argued the sha column was mandatory; the argument was right

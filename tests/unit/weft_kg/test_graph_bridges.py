@@ -287,6 +287,89 @@ async def test_a_corpus_with_no_relations_at_all_refuses_naming_the_rung_to_run(
     del store
 
 
+async def _one_chunk_two_derived_facts(store: GraphStore) -> Node:
+    """One chunk, two facts **derived from it** — the shape `llm-facts` writes and no other
+    fixture in this file has.
+
+    `cooccurrence-graph` anchors an entity to the chunk node itself, so for that rung "the nodes an
+    entity is anchored to" and "the chunks it appears in" are one set. `llm-facts` anchors an
+    entity to the fact node it derived, a `parent.derive(...)` of the chunk. Every other fixture
+    here uses `Node.synthetic`, which has no parent, so node and chunk coincide and the two
+    readings cannot disagree. This is the only fixture where they can — and the sentence below
+    names both `Azouz` and `ranking`, so a single passage answers a question about the pair.
+    """
+    chunk = Node.synthetic(
+        content="Azouz collaborated on early work about ranking.",
+        media_type=MediaType.TEXT,
+        reason="weft_kg's own bridges test",
+        sources=frozenset({SourceId("doc-a")}),
+    )
+    first = chunk.derive(content="Azouz collaborated-on early work", ordinal=1).with_ext(
+        ExtractedFact(
+            source="Azouz",
+            source_type="thing",
+            predicate="collaborated-on",
+            target="early work",
+            target_type="thing",
+        )
+    )
+    second = chunk.derive(content="early work about ranking", ordinal=2).with_ext(
+        ExtractedFact(
+            source="early work",
+            source_type="thing",
+            predicate="about",
+            target="ranking",
+            target_type="thing",
+        )
+    )
+    await store.add([chunk, first, second])
+    return chunk
+
+
+async def test_two_entities_one_sentence_names_are_not_a_bridge_however_they_were_derived(
+    store: GraphStore,
+) -> None:
+    """**The claim this command exists to make, on the rung the phase's Exit names.**
+
+    `Azouz` and `ranking` are both named in one sentence, so a single passage answers a question
+    about the pair and no ceiling of `0` is true about them. They are anchored to two *different*
+    `kg_nodes` rows only because `llm-facts` derives one fact node per triple — which is a fact
+    about extraction, not about what a retriever can return. A bridge keys on the **chunk**, and a
+    node that has a parent is not one.
+    """
+    # Arrange
+    await _one_chunk_two_derived_facts(store)
+
+    # Act
+    outcome = await GraphBridgesCommand(_SETTINGS).run(GraphBridgesArgs(), _ctx())
+
+    # Assert
+    assert [bridge.endpoints for bridge in _bridges_result(outcome).bridges] == []
+
+
+async def test_the_ceiling_counts_chunks_a_retriever_could_return_not_nodes_a_stage_derived(
+    store: GraphStore,
+) -> None:
+    """The same distinction read off the number rather than off the filter. One chunk holds every
+    entity here, so `chunks_holding_either` is **1** — not the three `kg_nodes` rows the extraction
+    happened to write, and not the two an entity is anchored to.
+    """
+    # Arrange
+    await _one_chunk_two_derived_facts(store)
+    # A second document, so a bridge survives for the ceiling to be measured on.
+    await store.add([_fact_node("ranking", "used-by", "NCI", document="doc-b")])
+
+    # Act
+    outcome = await GraphBridgesCommand(_SETTINGS).run(GraphBridgesArgs(), _ctx())
+
+    # Assert
+    bridges = _bridges_result(outcome).bridges
+    assert bridges, "expected the cross-document pair to remain a bridge"
+    for bridge in bridges:
+        assert bridge.ceiling.chunks_holding_both == 0
+        assert bridge.ceiling.chunks_holding_either <= 2
+
+
 # ------------------------------------------------------------- the ceiling ---
 
 

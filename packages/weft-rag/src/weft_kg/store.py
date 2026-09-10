@@ -1359,12 +1359,28 @@ class GraphStore:
         `kg_relations` row names, not just any alias of the resolved entity) — a node that
         anchors both is the fact (or co-occurrence edge) that stated that hop.
 
-        **The two-hop endpoints sharing no node is this walk's own filter** (`named`'s
-        `NOT EXISTS`), read over every alias of the two endpoint *entities* — this is what makes
-        a candidate a bridge in the first place, and it is checked against every alias, not only
-        the ones this particular path happened to use. `chunks_by_entity` is a second,
-        independent query over the identical fact and must never reuse this clause — see
+        **The two-hop endpoints sharing no *chunk* is this walk's own filter** (`named`'s
+        `NOT EXISTS` over `entity_chunks`), read over every alias of the two endpoint *entities* —
+        this is what makes a candidate a bridge in the first place, and it is checked against
+        every alias, not only the ones this particular path happened to use. `chunks_by_entity` is
+        a second, independent query over the identical fact and must never reuse this clause — see
         `weft_kg.bridges.bridges_from`.
+
+        **A chunk, and not a node, because this pack has two writers of `kg_entity_nodes` and
+        they mean different things by it — `docs/lessons.md` `L11.45`.** `cooccurrence-graph`
+        anchors an entity to *the chunk node itself*, so for that rung a node and a chunk are the
+        same row. `llm-facts` anchors it to the fact or mention node it **derived** from that
+        chunk, one per triple, so two entities named in one sentence land on two different
+        `kg_nodes` rows. Reading `node_id` directly answers *which node* when the question is
+        *which passage a retriever could return*, and it reported `0 chunk(s) hold both endpoints`
+        about two names in one sentence — measured through the binary at the phase close, on the
+        rung `01` → Phase 11's Exit names. `coalesce(n.parents[1], n.id)` is the normalisation: a
+        derived node resolves to its parent, a root node is its own chunk. **One level, and that
+        is an assumption with a name**: every stage in this pack derives graph-bearing nodes
+        directly from a chunk (`weft_kg.extraction` calls `node.derive(...)` on the chunk it was
+        handed), so no anchored node in this tree is a grandchild. A stage that derived from a
+        derived node would need a recursive resolution here, and would fail this docstring rather
+        than the query.
 
         **Deduplicated in two stages.** `named` keeps only the mirror where
         `source_name < target_name`, so `A-B-C` and `C-B-A` are the same bridge once; `deduped`'s
@@ -1414,6 +1430,13 @@ class GraphStore:
                       AND e2.from_entity <> e2.to_entity
                       AND e1.from_entity <> e2.to_entity
                 ),
+                entity_chunks AS (
+                    SELECT a.entity_id AS entity_id,
+                           coalesce(n.parents[1], n.id) AS chunk_id
+                    FROM kg_aliases a
+                    JOIN kg_entity_nodes en ON en.alias_id = a.id
+                    JOIN kg_nodes n ON n.id = en.node_id
+                ),
                 named AS (
                     SELECT p.*, se.name AS source_name, ve.name AS via_name,
                            te.name AS target_name
@@ -1424,12 +1447,10 @@ class GraphStore:
                     WHERE se.name < te.name
                       AND NOT EXISTS (
                           SELECT 1
-                          FROM kg_entity_nodes en_a
-                          JOIN kg_aliases aa ON aa.id = en_a.alias_id
-                          JOIN kg_entity_nodes en_c ON en_c.node_id = en_a.node_id
-                          JOIN kg_aliases ac ON ac.id = en_c.alias_id
-                          WHERE aa.entity_id = p.source_entity
-                            AND ac.entity_id = p.target_entity
+                          FROM entity_chunks x
+                          JOIN entity_chunks y ON y.chunk_id = x.chunk_id
+                          WHERE x.entity_id = p.source_entity
+                            AND y.entity_id = p.target_entity
                       )
                 ),
                 cited AS (
@@ -1476,10 +1497,14 @@ class GraphStore:
         return tuple(_bridge_candidate_of(row) for row in rows)
 
     async def chunks_by_entity(self, entity_ids: Sequence[str]) -> Mapping[str, frozenset[str]]:
-        """The frozenset of `kg_entity_nodes.node_id` reachable through each id in `entity_ids`'s
-        own aliases — `GraphBridgesCommand`'s independent second measurement of the vector
-        ceiling, see `weft_kg.bridges`'s module docstring for why it must never reuse
-        `two_hop_bridges`'s own `NOT EXISTS` clause.
+        """The frozenset of **chunks** reachable through each id in `entity_ids`'s own aliases —
+        `GraphBridgesCommand`'s independent second measurement of the vector ceiling, see
+        `weft_kg.bridges`'s module docstring for why it must never reuse `two_hop_bridges`'s own
+        `NOT EXISTS` clause.
+
+        A chunk, not a node: `coalesce(n.parents[1], n.id)`, for the reason `two_hop_bridges`'s
+        docstring gives at length (`L11.45`). The two queries stay independent and now answer the
+        same question, which is what makes their disagreement meaningful rather than guaranteed.
 
         Keys are exactly the requested ids this store holds an entity row for: an id with no
         nodes maps to an empty frozenset, an id not in `kg_entities` at all is **absent** —
@@ -1492,10 +1517,11 @@ class GraphStore:
         conn = await self._connection()
         async with conn.cursor() as cur:
             await cur.execute(
-                "SELECT e.id AS entity_id, en.node_id AS node_id "
+                "SELECT e.id AS entity_id, coalesce(n.parents[1], n.id) AS chunk_id "
                 "FROM kg_entities e "
                 "LEFT JOIN kg_aliases a ON a.entity_id = e.id "
                 "LEFT JOIN kg_entity_nodes en ON en.alias_id = a.id "
+                "LEFT JOIN kg_nodes n ON n.id = en.node_id "
                 "WHERE e.id = ANY(%s)",
                 (list(entity_ids),),
             )
@@ -1504,10 +1530,10 @@ class GraphStore:
         for row in rows:
             entity_id = cast(str, row["entity_id"])
             result.setdefault(entity_id, set())
-            node_id = row["node_id"]
-            if node_id is not None:
-                result[entity_id].add(cast(str, node_id))
-        return {entity_id: frozenset(nodes) for entity_id, nodes in result.items()}
+            chunk_id = row["chunk_id"]
+            if chunk_id is not None:
+                result[entity_id].add(cast(str, chunk_id))
+        return {entity_id: frozenset(chunks) for entity_id, chunks in result.items()}
 
     # -- This task's own addition — nothing on any contract; see the class docstring ------
 

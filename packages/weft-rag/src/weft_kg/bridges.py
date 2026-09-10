@@ -6,12 +6,17 @@ functions that turn what `GraphStore` measured into what a person or `weft eval 
 reads. No container and no model call here — `weft_kg.commands` is the half that talks to the
 store and prints; this module has no dependency capable of either.
 
-**Why a bridge is defined by "no single node names both endpoints", never by "no single
-document".** `01`'s falsification argument is about what a single-passage *retriever* can answer
-from, and the unit a retriever returns is a node — `weft_kg.store.GraphStore`'s own `kg_nodes`
-row, the same granularity `weft_store.pgvector_store.PgVectorStore` returns a hit at. A document
-spans many chunks; two facts that happen to sit in the same document but in different chunks are
-still a bridge by this test, exactly as they would be for a real vector search over that corpus.
+**Why a bridge is defined by "no single **chunk** names both endpoints" — not by a document, and
+not by a node.** `01`'s falsification argument is about what a single-passage *retriever* can
+answer from, so the unit is whatever one passage holds. A **document** is too coarse: it spans many
+chunks, and two facts in different chunks of one paper are a genuine bridge, exactly as they would
+be for a real vector search. A **node** is too fine, and that was a defect rather than a judgement
+(`docs/lessons.md` `L11.45`): `cooccurrence-graph` anchors an entity to the chunk node itself,
+while `llm-facts` anchors it to the fact node it *derived* from that chunk — so keying on the node
+made two entities named in one sentence look like a bridge, and the command printed *"0 chunk(s)
+hold both endpoints"* about a sentence holding both. `GraphStore` normalises a node to its chunk
+through `parents` before either side of the comparison is taken; see `two_hop_bridges`'s docstring
+for the one-level assumption that normalisation rests on.
 
 **The ceiling is measured twice on purpose, and `bridges_from` is where the two numbers are made
 to disagree or not — `docs/lessons.md` `L5.6`.** `GraphStore.two_hop_bridges`'s own `NOT EXISTS`
@@ -87,6 +92,12 @@ class VectorCeiling(BaseModel):
     """The best any single-passage retriever could reach on this bridge's own question — a fact
     about the corpus, never about an embedder. `chunks_holding_both` is always `0` here: it is
     what a `Bridge` exists to guarantee, restated as a number rather than trusted as a name.
+
+    **Every count here is over chunks, never over `kg_nodes` rows** — `weft_kg.store.GraphStore.
+    chunks_by_entity` resolves a derived node to the chunk it came from before counting. The
+    difference is not cosmetic: it is what makes `chunks_holding_both = 0` a claim about what a
+    retriever could return rather than about how many rows an extraction stage happened to write
+    (`docs/lessons.md` `L11.45`).
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
