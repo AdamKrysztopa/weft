@@ -607,6 +607,32 @@ sequence, and the guard cannot see this one because no commit is chained to it. 
 refuses `| tail` (or any pipe) in a command whose next statement reads `$?`. The first is cheap and
 the second is the one that would actually have fired. `recurs L10.24`
 
+### L12.17 — I wrote a measurement script three times because I never asked which checks walk `scripts/`
+
+**What happened.** G17's *Bring* asks for a measurement, so I wrote one. First against the
+cleaners' private `_normalize` helpers, which `pyright` refused (`reportPrivateUsage`). So I
+rewrote it to drive the real `UnicodeNormalizer`/`WhitespaceNormalizer`/`FixedSizeChunker`
+through their own `async def run()` — which meant `asyncio.run`, and **fitness function 7(a)
+failed the gate**: one bridge in the whole repository, at `weft_cli.cli`, by an AST walk that
+covers `scripts/` on purpose and has no waiver list. So I rewrote it a third time, back to the
+private helpers with the reach made explicit. `eval/run_baseline.py` already documents this exact
+fork and its answer — *"do the pure part in-process, shell out for anything that must be a
+process"* — in its own module docstring, three directories away from where I was typing.
+
+**Generalises to.** **Before writing a new file, ask which fitness functions walk the directory
+it is going into.** `phase-step` → *Orient* makes checking the gate and the fence a step for a
+*task*; a new script under `scripts/`, `eval/` or `examples/` is subject to whole-tree
+architecture checks that no task line mentions, and the cost of finding out afterwards is a
+rewrite rather than an edit. One `grep -l "scripts" tests/architecture/*.py` before the first
+line would have named 7(a).
+
+**Candidate home.** `phase-step` → *Orient*, beside the gate-and-fence step, or its
+`references/evidence.md`. The mechanical form worth the drain's attention: the constraint is
+discoverable — `tests/architecture/` is a fixed, small set of files and each says in its own
+docstring which roots it walks — so a one-line note in `CLAUDE.md` → *Quality gates* naming the
+three whole-tree checks (7(a)'s single bridge, 0's reachability, licensing) would put it where
+someone about to add a file is already looking. `recurs L5.14`
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

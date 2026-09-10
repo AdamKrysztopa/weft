@@ -1349,12 +1349,131 @@ is mid-document. A one-point probe of a step function measures that point. Filed
 
 ---
 
+### Re-measured 2026-09-11, and two of the numbers above are wrong
+
+This section's own *Bring* says the measurement is re-taken rather than quoted. It was, against the
+same nine papers, with a real `difflib` alignment between extracted and cleaned text rather than a
+length-of-prefix estimate — the estimate is itself a claim about how cleaning composes, and that
+claim is the thing under test.
+
+**`scripts/g17_measure.py` is the whole of it, and it is meant to be re-run rather than read.**
+Every figure below is one invocation of that file, at `index-text`'s own `{size: 512, overlap:
+50}`. The corpus is untracked reading material, so a run without it exits saying so rather than
+reporting zero.
+
+It calls the cleaners' private `_normalize` rather than their `run()`, and that is forced rather
+than lazy: every contract method is `async def` (G6) and **fitness function 7(a) permits
+`asyncio.run` exactly once in the whole repository**, by a walk that covers `scripts/`. A
+hand-run measurement is therefore synchronous or it is a second colour bridge —
+`eval/run_baseline.py` met the same fork and answered it the same way. The part measured here is
+pure: cleaning and chunking are string transformations over already-extracted text.
+
+**And the equivalence that makes that substitution safe is checked rather than asserted.**
+`_assert_the_wrapper_is_one_line` parses each cleaner's module and fails the run if `run()` calls
+anything beyond `_normalize`, `derive` and its two outcome constructors, or if the chunker stops
+advancing by `size - overlap`. It fired on its own first execution — `NothingToProduce` was not
+in the allowed set — which is the difference between a check and a sentence.
+
+**The worst page error is 2, not 3.** Per paper, at every page boundary in cleaned coordinates:
+
+```text
+Bouzgou i Gueymard - 2017    pages= 15  boundaries wrong=  0/15  worst= 0  drift=-0.20%
+Ding i Peng - 2005           pages= 21  boundaries wrong=  0/21  worst= 0  drift=-0.27%
+Lopez-Paz et al.             pages=  9  boundaries wrong=  0/9   worst= 0  drift=-0.21%
+Radovic et al. - 2017        pages= 14  boundaries wrong= 13/14  worst= 1  drift= 0.05%
+Radovic et al. - 2017 (dup)  pages= 14  boundaries wrong= 13/14  worst= 1  drift= 0.05%
+Ramírez-Gallego et al. 2017  pages= 19  boundaries wrong=  0/19  worst= 0  drift=-0.16%
+Senawi et al. - 2017         pages= 34  boundaries wrong= 32/34  worst= 2  drift= 2.69%
+Xie et al. - 2023            pages= 24  boundaries wrong= 23/24  worst= 1  drift= 0.74%
+Zhao et al. - 2019           pages= 11  boundaries wrong=  0/11  worst= 0  drift=-0.21%
+
+WORST PAGE ERROR ACROSS THE CORPUS: 2
+papers: 9, total pages: 161, boundaries wrong: 81
+```
+
+Two things the earlier reading did not say. **Drift is negative on five of the nine papers** —
+`ftfy` expands ligatures, so cleaned text is *longer* than extracted, and a magnitude-only reading
+of "drift" has the sign wrong for the majority of the corpus. And **half of every page boundary in
+the corpus is misplaced** (81 of 161), which is a far worse fact than a worst-case of two pages: it
+says the locator is wrong routinely rather than occasionally.
+
+**But a reader never asks about a page boundary — they follow a citation to a chunk.** Probing the
+chunk starts `FixedSizeChunker` actually produces at `index-text`'s own `{size: 512, overlap: 50}`:
+
+```text
+CHUNKS WITH THE WRONG PAGE: 72/1024 (7.0%), worst error 2 pages
+  Senawi et al. - 2017    48/143 (33.6%)
+  Xie et al. - 2023       15/123 (12.2%)
+  five papers              0–3%
+  two papers               0.0%
+```
+
+**7% of citations wrong, concentrated in the papers that clean the most.** That is the number the
+decision is against, and it is the shape `CLAUDE.md` refuses by name: not a crash, a plausible
+answer against the wrong data, on one document in five while the other four look fine.
+
+**The failure itself, re-measured rather than recalled** — extract, then each rung of the ladder in
+turn, printing which `ext` namespaces survive:
+
+```text
+after extract:           ext = ['weft-kernel', 'weft-pdf']
+after unicode-normalize: ext = []
+after whitespace:        ext = []
+after chunk (175 chunks):ext = ['weft-chunk']
+
+page_for(first chunk) = None
+page_for(first chunk, no cleaners) = 1
+```
+
+`PdfPages` dies at the **first** cleaner, not gradually, and the counterfactual on the last line is
+what shows the locator is otherwise correct. This agrees with `R9.1`'s live finding of 2026-09-09
+(70 stored nodes, `weft-pdf` on none of them) reached by a different route.
+
+**And `carry_forward` is at two copies, not three.** `git ls-files | xargs grep -l 'def
+_\?carry_forward'` returns exactly `weft_chunk/carry.py` and `weft_vision/describe_figure.py`.
+The drift the `carry.py` docstring predicted has nonetheless already happened, in the half nobody
+checks: `_carry_forward`'s docstring in `weft_vision` cites *"the same shape and the same exclusion
+`weft_chunk.fixed_size._carry_forward` uses"* — and `weft_chunk.fixed_size._carry_forward` has not
+existed since task `9.14` lifted it into `carry.py` and made it public. The bodies are still
+identical; the citation is already dead.
+
+---
+
 ### The question
 
 When a stage rewrites a node's content, what happens to an `ext` fact whose meaning is a position
 in the old content — and whose job is it to say so?
 
 ### Positions, strongest first
+
+**The numbering is chronological and the order is by merit, and after 2026-09-11 they disagree.**
+Position 5 was added when the measurement was re-taken and goes first on merit; 1–4 keep the
+numbers they were filed under, because `R9.1` and `docs/README.md` both cite them by number and a
+renumbering would silently redirect those citations.
+
+5. **The extractor emits one root node per page, and `PdfPages.starts` retires.** *Added
+   2026-09-11.* The premise every other position works around is that the page is stored as an
+   **offset**: `weft_pdf.document._joined` concatenates every page into one string and records
+   where each began, and `extract_documents` builds *"one root `Node` per document"* carrying that
+   table. An offset into text is exactly the kind of fact a cleaner invalidates. One root node per
+   page makes the page a **scalar fact about the node** — no offset, nothing for a rewrite to
+   invalidate, no remap to build, no new vocabulary at the seam, and cleaning order left entirely
+   free. It does not repair the locator; it removes the coordinate system the locator needed.
+   `carry_forward` then only ever carries facts that survive a rewrite by construction, which is
+   also the general case position 1 wants, reached without widening `ExtModel`.
+
+   **Priced, on the same nine papers.** The chunker runs per page instead of per document, so
+   chunks stop spanning page breaks: **1024 chunks today, 1098 with one node per page (+7.2%)**,
+   and **88 pages** end in a window shorter than half of `size`. That is the whole cost, and it
+   buys 72 wrong citations going to zero rather than being estimated better.
+
+   **Attack it on:** it changes what every PDF pipeline retrieves — a passage straddling a page
+   break is now two chunks that each see half of it, and no measurement of *retrieval* quality
+   exists, only of chunk counts. Attack it on scope: `PdfPages` becomes machinery to retire, and
+   something must then say what happens to a **table spanning two pages**, which the layout
+   backend already emits as one `TABLE` node. Attack it on generality too — like position 2 it
+   fixes the pack that ships and says nothing about an extractor a stranger writes that decides to
+   concatenate anyway.
 
 1. **An `ExtModel` declares whether its meaning depends on the content being unchanged, and the
    registration seam drops such a fact when a stage rewrote the content.** *The heaviest and the
