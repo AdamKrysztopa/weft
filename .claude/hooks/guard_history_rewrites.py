@@ -45,9 +45,18 @@ BLOCKED = (
         "have not committed survives it. If a commit is wrong, add one that corrects it.",
     ),
     (
-        re.compile(_AT_COMMAND_POSITION + r"git\s+checkout\s+--"),
-        "`git checkout --` overwrites files from the index, silently and unrecoverably. If a "
-        "file is in a state you did not intend, read it and say what is wrong with it.",
+        # **`docs/lessons.md` `L11.28`** — this pattern was `git\s+checkout\s+--` and waved
+        # `git checkout HEAD -- <path>` straight through: the same operation with a commit-ish in
+        # the middle, and the more destructive of the two, since it overwrites from a commit
+        # rather than from the index. A guard written against the *spelling* of a command guards
+        # that spelling. `[^-\s]\S*\s+` matches one non-flag word — a commit-ish — so
+        # `HEAD`, a sha, a branch or a tag are all covered, while `git checkout -b foo` and
+        # `git checkout foo` (no `--`) stay untouched: neither discards a working tree.
+        re.compile(_AT_COMMAND_POSITION + r"git\s+checkout\s+(?:[^-\s]\S*\s+)?--"),
+        "`git checkout --` overwrites files from the index, silently and unrecoverably — and "
+        "`git checkout <commit> -- <path>` overwrites them from that commit, which is the same "
+        "loss with a longer spelling. If a file is in a state you did not intend, read it and "
+        "say what is wrong with it.",
     ),
     (
         re.compile(_AT_COMMAND_POSITION + r"git\s+clean\b"),

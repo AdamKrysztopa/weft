@@ -573,6 +573,26 @@ the mistake runs in the over-confident direction, because every later difference
 outside. What produces the cross-session difference is not yet established and is deliberately not
 asserted here.
 
+**The mirror caveat, added 2026-09-10 and measured rather than reasoned (`lessons.md` `L11.46`).**
+The paragraph above is about repetitions that are *too* alike. The other end is repetitions taken
+over a corpus that **changed between them**, and this tree can produce it: `weft eval run` always
+indexes (`L10.25`), so four invocations needed to compare two rungs against a baseline re-run the
+ingest pipeline four times. Where that pipeline calls a **model**, it extracts differently on each
+pass, and a node id is a content digest — so every rephrasing is a *new* node rather than an
+idempotent rewrite. Measured on Phase 11's Exit run: **23 nodes and 5 relations before the four
+runs, 42 and 11 after**, and a baseline interval of `0.500-0.750` where the credential-free rung
+recorded a zero-width one hours earlier.
+
+That interval is a real measurement of a real variability, and it is **not the one V3 means**. V3's
+derived tolerance is *"a measurement of the system's own variability at the moment the baseline was
+taken"*, and the system whose variability this measures is one whose corpus is growing. The
+direction of the mistake is the opposite of the zero-width case: correlated repetitions record
+noise they cannot see as **zero** and make every later difference look real; a mutating corpus
+records drift as **spread** and makes a real difference look smaller than it is. So a reader should
+ask, of any interval: *what did the harness do to the corpus on each pass, and was it
+deterministic?* Nothing in a `RunRecord` distinguishes the two — `corpus` identity is persisted and
+is the obvious place a future check would look.
+
 Three properties follow, and they are why this is a real check rather than a soft one. A system that is
 deterministic records a zero-width interval and admits no drift at all, which is correct and strict. A
 system that is noisy records a wide interval and honestly says so, rather than being compared against a

@@ -125,6 +125,15 @@ success while removing the other's data (`docs/lessons.md` `L9.70`, `L9.37`). Of
 cleared on a safety argument, ask the separate question: *what does this do when nobody is
 attacking it?*
 
+**Publishing a contract: name one plausible backend that is not yours, and check it can satisfy
+every member.** `L11.29`. `GraphTraversal` shipped bundling `nearest_entities` with three graph
+members, so the first out-of-tree implementation — a graph over ordinary tables with **no vector
+column** — was a three-quarters implementer of a capability it fully had, when `weft_store` had
+published `VectorSearch` beside `NodeStore` for exactly that reason since Phase 0. A contract
+written before any implementation but the author's own is a description of *that* implementation
+wearing a Protocol's clothes. The member set is the question, and the falsifying move is to name
+the backend that has three of the four.
+
 ### 5. An unknown name fails loudly, naming the valid options
 
 **A waiver's reason being true is necessary and not sufficient.** The question after establishing
@@ -334,6 +343,27 @@ every one of them produced a *plausible* number rather than an obviously broken 
   spread; measurement showed `hash`'s spread (0.325) is **wider** than a real embedder's (0.265),
   because meaningless vectors are near-orthogonal and therefore spread out. What separates them is
   the median (−0.003 against 0.433), which needs no tuned constant at all (`L10.22`).
+
+**Phase 11 added three, and all three are the same question asked of a *database column* rather
+than of a metric.**
+
+- **One table, two writers, two meanings of one column.** `weft graph bridges` printed *"0 chunk(s)
+  hold both endpoints"* about two names in one sentence: `cooccurrence-graph` anchors an entity to
+  the chunk node, `llm-facts` anchors it to the fact node it *derived*, and the query read
+  `node_id` as *which chunk* (`L11.45`). **Before reading a shared table, enumerate its writers and
+  ask what the key means to each** — where they differ, the reader normalises rather than picking,
+  and the tests cannot tell you, because they exercise whichever writer they were written against.
+- **A repeated measurement is only a repetition if the thing measured did not change between
+  passes.** Four `weft eval run` invocations against a model-calling ingest rung took the corpus
+  from 23 nodes to 42, so the baseline's "interval" was extraction drift rather than retrieval
+  noise (`L11.46`). This is `L10.25` with its conservative direction **reversed**: a deterministic
+  re-index makes repetitions agree too well and understates the interval; a non-deterministic one
+  overstates it, and `09` §4.3's whole derived-tolerance argument rests on the interval being the
+  baseline's own noise.
+- **A staleness check that asserts the wrong property is green precisely when the artefact is
+  stale.** `L11.5`: ask what the check asserts when the thing it guards *is* out of date, and if
+  the answer is "the same thing", it is not a staleness check. Its sibling `L11.3`: a one-point
+  probe of a step function measures that point — probe a derivation where its answer *changes*.
 
 **The falsifying question:** *name the thing this measurement is supposed to distinguish, then find
 the field the instrument actually reads — and construct the case where they differ.* If you cannot

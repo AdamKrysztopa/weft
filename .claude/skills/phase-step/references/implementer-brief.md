@@ -141,7 +141,7 @@ A branch with no nameable value is a decision still owed, not a constraint. *Alr
 read once per constrained branch, never once per file.
 
 
-## Before you send: six checks a brief fails silently
+## Before you send: ten checks a brief fails silently
 
 Phase 10 filed **six** entries that are one sentence — *the brief was wrong in a way the dispatcher
 could have checked before sending it*. That density is the finding: none of these is caught by the
@@ -185,3 +185,32 @@ the work. Run these against the brief, not against the code.
    condition because the Red test is uncommitted by design, every time. It spent its one reporting
    channel explaining a criterion that could never be met. Keep the dispatcher's checks in *Verify*
    and out of the brief.
+
+**Phase 11 added four more, and every one of them is a claim the brief made about something its
+author had not read.** Six became ten, which is the density Phase 10 already called the finding.
+
+7. **Is the cause the brief names one you measured, or one you inferred?** `L11.9`. A brief
+   attributed a slow gate to a cause it had not profiled and listed remedies for it; the real cause
+   was elsewhere and every remedy was wasted work the agent dutifully did. `--durations` says
+   *which* test is slow and is not evidence about *why*. A brief may state **what was measured**;
+   it may not state an unprofiled cause, because the agent cannot tell your hypothesis from your
+   finding and will treat both as the brief.
+
+8. **Is the red state you describe quoted, or summarised from a truncated read?** `L11.27`. I told
+   an implementer the gate was red *"only on those two files"* from a `tail -25`. A count is
+   evidence; a count plus the word **every** is a claim about the part of the output you did not
+   read. Quote the failure, or say how much of it you read.
+
+9. **Does the brief mandate a *behaviour* change, and did you trace what that behaviour reaches?**
+   `L11.30`, which widens check 3 above from a *signature* to any value a brief changes. A brief
+   mandated a new return value that two tests assert exactly, and a registration that put a
+   contract on a fitness function's left side — neither is a signature, both are behaviour, and the
+   grep the signature rule prescribes was never run because the rule did not seem to apply. **The
+   rule is about any value, name or registration a brief changes**, not about parameter lists.
+
+10. **Is the mechanism the brief cites as sufficient one you checked against its callers?**
+    `L11.38`, and it is `CLAUDE.md`'s own rule arriving in a genre `phase-step` has no step for: a
+    claim about what code does is checked against its callers, never against its name, its
+    docstring, or a comment's stated scope — *including a claim your own brief makes to justify
+    the shape it asks for*. Naming a mechanism as the reason something is safe is exactly the
+    sentence to check before sending, because the agent will build on it.

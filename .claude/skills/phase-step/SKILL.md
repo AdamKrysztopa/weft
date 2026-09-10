@@ -120,12 +120,33 @@ direction (`build-ledger.md` → *The working protocol*), not a gate — it is n
 Shape: the mirroring path under `tests/`, happy path, one edge case, one error case, AAA with one
 block each, external services mocked. Assert the *fact a field means*, never its literal shape.
 
+**A fixture whose two sides cannot disagree is the same defect one level out, and Phase 11 met it
+three times.** The rule below is about a *comparison*; this is about the **inputs**. A fixture that
+is symmetric in the very dimension under test makes every assertion over that dimension vacuous
+without any assertion looking wrong. `weft graph bridges` prints a predicate over an undirected
+walk, and every fixture stored its relations in the direction the walk took, so a hop printed
+backwards — the corpus's own claim inverted — was invisible (`L11.42`). The same file's fixtures
+all used `Node.synthetic`, which has **no parent**, so "the node an entity is anchored to" and
+"the chunk it appears in" coincided and a query confusing the two passed everything (`L11.45`).
+And an assertion rewritten by find-and-replace ended up comparing a function's output against the
+same function's output — `L5.6` reached through a door it does not name, because that rule is about
+a comparison *written* and this one was *transformed* (`L11.35`). So: **name the dimension the test
+varies, then check the fixture actually varies it** — and after a bulk edit, re-read every
+assertion it touched rather than trusting that lint would have said something.
+
 **A comparison whose two sides come from one source cannot disagree, and this is not only a
 fitness-function rule.** *Finish* item 3 states it for checks; it applies identically to an ordinary
 unit test — an expected value read from the same literal as the value under test (`L9.28`), or a
 control built by transforming the input by a rule that can degenerate to identity, so one case
 becomes its own control (`L9.58`). Before comparing, ask where each side came from; for a
 parametrised control, assert the transform actually changed something.
+
+**A double for a seam is copied from an existing double of that seam, never written from the
+contract's prose.** `L11.17`, one step more specific than `L6.14`: a hand-written double
+populates what its author believed the seam returns, and the two doubles of that same seam already
+in the tree encode what it actually returns. The implementer caught this one by refusing to edit
+the test, which is the split working — but the cheaper catch is one grep for the existing doubles
+before writing a new one.
 
 **Assert a behavioural property through the seam a caller uses.** Parsing or grepping first-party
 source to check *where* code lives asserts the current arrangement and forbids the refactor that
@@ -183,6 +204,13 @@ Dispatch `weft-implementer` with a brief. Read `references/implementer-brief.md`
 the tier rule (`haiku` when the test fully specifies the artefact, `sonnet` otherwise) and what to
 check on return. The agent's standing prohibitions live in `.claude/agents/weft-implementer.md` and
 travel with every dispatch.
+
+**A subagent is finished when its completion notification arrives and at no other moment.**
+`L11.36`, twice in two consecutive tasks. The harness states it plainly — *"you will be notified
+automatically when it completes"* — and both times an inference was substituted for it: once a
+`pgrep` for the agent's process, once a file-hash that had stopped changing. Both said *done* while
+the agent was still editing, and the gate that followed was run against a tree mid-write. **No
+process-liveness probe, no file-hash poll, no "it looks done".** Wait.
 
 **Run `ci-no-tests` before you dispatch, and then keep off the tree until the agent returns.** Both
 halves cost seconds and both were paid for. The brief's *done when* names the gate, which is a
@@ -272,6 +300,12 @@ a task that fails review twice is a task whose test or brief is wrong, and that 
 
 A task is not done until all of these are true:
 
+0. **Stage first.** `git add -A` before the gate run, not only before planting a disagreeing case.
+   The architecture suite walks `git ls-files`, so an unstaged new file is invisible to every check
+   that reads the tree that way, and the green you get is about a population one file smaller than
+   you think — `L11.34`, which is `L8.10`'s **third** instance and its first outside the
+   plant-and-watch step the rule was written for.
+
 1. **`uv run poe ci-checks` is green, run by you, in the foreground** — and the whole suite, not the
    part you touched. **When it is red and you think you know why, re-run the command that failed,
    not a subset of it.** A green from a narrower scope confirms nothing about the change you just
@@ -334,6 +368,17 @@ crashes on the exact state its own non-vacuity exercise produces.
    them falsified that phase's own Exit criterion while the test written to prove that criterion
    passed. Paste the real output into the ledger entry; leave no artefacts behind.
    → `references/evidence.md`
+4b. **Install what you are about to run, and know which artefact answered.** `L11.37`: a
+   diagnosis was made against a wheel `uv` was not running — `uv run --with <wheel>` serves a
+   stale extracted archive — so the behaviour read was a previous build's. Build, `uv pip install`
+   into an explicit venv, and invoke that venv's own binary by path. And **point the run at a
+   database the test suite cannot touch** (`CREATE DATABASE <name>` on the same server): test rows
+   leaked into a measurement twice in one phase before that became a mechanism rather than care.
+   Every service running on the machine is an assumption the run is making — `L11.21`: a Qdrant
+   that happened to be up kept two green local gates over a defect that made `weft index` exit 1
+   on any machine without one, and CI found it in minutes. If a change alters the set of services
+   a run touches, stop the ones it should not need and run it again.
+
 5. **The ledger box is ticked with its commit sha**, `docs/README.md`'s Status block still reads
    true, and any document whose content the work changed is edited **in the same commit**. The plan
    and the code are meant to be true about each other.
@@ -376,6 +421,14 @@ first; a boundary skipped is a boundary skipped silently.
    halves were individually demonstrable, and `weft eval run` refuses a query rung outright because
    it has no `Extractor` stage. Reading clause by clause reproduces the division of labour that left
    the gap (`docs/lessons.md` `L8.29`).
+4b. **A clause of the Exit that contains a command line is re-checked by *running* it.**
+   `L11.43`: `01` → Phase 11's Exit named `weft eval compare <pipeline> <pipeline> --baseline
+   <pipeline>`, and no part of that invocation is the command — `<a>`/`<b>` are run ids and
+   `--baseline` matches the *ingest* pipeline, so the criterion as written refuses at exit `4`. An
+   exit criterion written as a command line is a claim about a CLI surface, and this project checks
+   worked transcripts in `manual/` and checks these not at all. Run it, then correct the document
+   in place.
+
 5. **`python3 .claude/skills/phase-step/scripts/next_task.py --check-live` is green**, before
    and after you edit the Status block. A stale Status block does its most damage exactly here,
    because the next phase is about to be routed off it.

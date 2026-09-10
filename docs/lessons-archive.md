@@ -64,6 +64,129 @@ loop. If it needs the original entry to make sense, it is not finished.
 
 ---
 
+## 2026-09-10 — Phase 11's close
+
+Forty-six entries, the largest drain this project has run. **Two shapes dominate and they are the
+same shape at two altitudes.** Ten entries are *a document says something a machine reading it
+would not say* — a count cited to a script nobody re-ran, a citation invalidated by two inserted
+paragraphs, a manual transcript written from a brief, an Exit criterion written as a command line
+that is not the command, and five reserved names a parser could not see. Six more are *a claim a
+dispatch brief made about something its author had not read*. The first group is why `10` §4 now
+owes a structural repair (`R11.7`); the second turned `implementer-brief.md`'s *Before you send*
+checklist from six checks into ten.
+
+**Four mechanisms were bought rather than four sentences**, and every one was triggered and watched
+before it was believed: the destructive-git guard now refuses `git checkout <commit> -- <path>`;
+a new `guard_secret_rendering.py` refuses any shell expansion that can print a credential's value;
+`ruff`'s `dummy-variable-rgx` is narrowed to `^_$`; and the shrink guard reads **both** container
+claims plus an operator-stated skip count.
+
+**The loop's own closing question — which of this phase's defects would a rule already in *Applied*
+have caught?** `L11.33` is `L6.15` exactly, `L11.34` is `L8.10`'s third instance, `L11.35` is
+`L5.6` through a door it does not name, `L11.40` is `L6.4` aimed at a linter, and `L11.45` is
+`L6.4` again aimed at a database column. **Five, and four of the five are the two rules `R10.2`
+already declined to mechanise** — which is `R10.2`'s own verdict holding rather than failing: those
+counts measure difficulty, and the fifth (`L8.10`) got the mechanical repair it was owed, a staging
+step in `phase-step` → *Finish*.
+
+**And the drain caught its own new check failing to fail.** The skip-count guard printed a correct
+red banner and exited `0`, because `pytest_sessionfinish` runs *before* `pytest_terminal_summary`
+and the flag it read was always empty. `L11.11` happening to the check written to answer `L11.11`,
+found only by planting a disagreeing case — which is `phase-step` → *Finish* item 3 earning its
+place.
+
+- **L11.1** Applied — `weft-qualities` → *a claim with nothing left to check it*: Run the script *after* the edit that feeds it, and paste what it says. `recurs L10.18`
+
+- **L11.2** Applied — `implement-ll` → *Routing* (already carries `R10.2`'s worked example): Before concluding a rule cannot be mechanised, grep for the machinery it may already have — by the lesson id. `refines L9.91`
+
+- **L11.3** Applied — `weft-qualities` → *can the instrument see the thing being varied?*: Probe a derivation where its answer *changes*, never at one point of a step function.
+
+- **L11.4** Declined — one instance, and the two ids were merged the same day; a lookup rule for a six-entry section costs more than it saves. The rule it would have stated: Grep the carried-repairs section for the identifiers a new repair names before filing it.
+
+- **L11.5** Applied — `weft-qualities` → *can the instrument see the thing being varied?*: Ask what a staleness check asserts when the artefact *is* stale; if it is the same thing, it is not a staleness check.
+
+- **L11.6** Declined — the repair is a `next_task.py` live check and the two stale sentences were fixed at `11.0`; filed nowhere because `live_checks` already grew the phase-agreement assertion `L11.14` bought. The rule it would have stated: A check that a document *mentions* a cross-reference is not a check that it *agrees*. `refines L11.14`
+
+- **L11.7** Applied — **Applied at task `11.0`** — the ⚠ protocol sentence was rewritten to what its thirteen instances say: A convention's tie is broken by counting live instances, never by deciding which text is right. `recurs L6.4`
+
+- **L11.8** Applied — **Applied at task `11.0`**, half — the licensing check now refuses a carried licence that is not a regular file: A check that a path *resolves* has not asked what the build will *package*.
+
+- **L11.9** Applied — `implementer-brief.md` → *Before you send*, check 7: A brief may state what was measured and may not state an unprofiled cause.
+
+- **L11.10** Applied — `CLAUDE.md`'s container paragraph (already carries `L8.30`): A marker means something only to the component that reads it; changing how tests are scheduled changes what the marks mean.
+
+- **L11.11** Applied — `tests/conftest.py` — the skip count is now counted where pytest counts it, after the first version printed red and exited `0`: A guard whose purpose is to notice a silent shrink is the guard whose own failure is silent.
+
+- **L11.12** Declined — the `# noqa: S603` idiom is settled and the guard is not this repository's; nothing here to change. The rule it would have stated: A guard that forbids a category cannot distinguish the repository's own argued exception from the abuse.
+
+- **L11.13** Applied — `guard_unchecked_commit.py`'s refusal text: A hook refusal rejects the **whole** call, so every side effect in it is un-run.
+
+- **L11.14** Applied — `next_task.py` → `_phase_agreement_failures`: Where a check has already resolved a pointer, assert the object is in the state the pointer claims.
+
+- **L11.15** Applied — **Applied as carried repair `R11.1`**: A fixture a document argues from is evidence only for the path that actually opened it.
+
+- **L11.16** Applied — **Applied as carried repair `R11.1`**: A policy in one docstring is a policy for that call site until somebody greps for its siblings. `refines L11.15`
+
+- **L11.17** Applied — `phase-step` → *Red*: A double is copied from an existing double of that same seam, never written from the contract's prose. `refines L6.14`
+
+- **L11.18** Declined — the Status block's Next-action row is exactly the artefact that carries such a dependency, and it did. The rule it would have stated: A dependency stated only in a task's prose is invisible to whatever routes the work.
+
+- **L11.19** Applied — `docs/README.md` → *Protocol*: a namespace lookup belongs in a session's *Done when*: A check attached to the moment of *building* does not run at the moment of *deciding*. `recurs L6.33`
+
+- **L11.20** Declined — one instance, repaired in place at `11.12`; a tree-wide grep for `split(" import` found no second. The rule it would have stated: A check that reads this repository's source as text is a check against a formatting the formatter may change.
+
+- **L11.21** Applied — `phase-step` → *Finish*, item 4b: Every service running on the machine is an assumption the local gate is making. `refines L7.8`
+
+- **L11.22** Applied — `tests/conftest.py` + `pyproject.toml`'s `test` task (`WEFT_EXPECTED_SKIPS`): A shrink guard covers every service the suite can skip on, and the expected count is the operator's claim rather than an invented threshold. `refines L7.8`
+
+- **L11.23** Applied — **Applied as carried repair `R11.2`**: A filter written as *"this contract is special"* is a claim about the participant, enforced against the contract.
+
+- **L11.24** Declined — the numeral was corrected in `01` and in this ledger; a check over a plan's future filenames walks one population and would fail on every honest allocation. The rule it would have stated: A numeral is a claim on a shared namespace, and planning is not claiming. `recurs L6.33`
+
+- **L11.25** Applied — `phase-step` → *Orient*'s installation rule: An extra this repository declares is checked by installing it, like any other declared dependency. `refines L9.75`
+
+- **L11.26** Applied — **Filed as carried repair `R11.3`**, still open, and it grew a fifth shipped document at `R11.5`: A guarantee written once over *"a pipeline naming a plugin"* has as many implementations as there are paths that resolve one.
+
+- **L11.27** Applied — `implementer-brief.md` → *Before you send*, check 8: A count is evidence; a count plus *"every"* is a claim about the part you did not read.
+
+- **L11.28** Applied — `guard_history_rewrites.py` — now matches `git checkout <commit> -- <path>`, triggered and watched: A guard written against a command's *spelling* guards that spelling.
+
+- **L11.29** Applied — `weft-qualities` → requirement 4, *publishing a contract*: A contract written before any implementation but the author's own describes that implementation.
+
+- **L11.30** Applied — `implementer-brief.md` → *Before you send*, check 9: The signature rule is about **any** value, name or registration a brief changes. `refines L6.18`
+
+- **L11.31** Applied — **`guard_secret_rendering.py`**, a new `PreToolUse` hook, triggered against the exact line that leaked the key and against its remedies: A check for the absence of a secret must never be able to render it. The `phase-step` sentence that already said this is now backed by machinery rather than replaced by it — the sentence explains, the hook enforces
+
+- **L11.32** Declined — the population is four packs and three phases, the shape is argued in `weft_prompts.contract`'s own docstring, and a check would need to model `__protocol_attrs__`; recorded here as the finding. The rule it would have stated: A `Protocol` whose members are declared under `if TYPE_CHECKING:` is unsatisfiable by assignment, and a generic that infers `T` from its call site never asks. `recurs L6.4`
+
+- **L11.33** Applied — **Applied as carried repair `R11.4`**; the rule stays in `phase-step` → *Verify*: A code invariant asserting *"every shipped pipeline"* is checked against the documents, not against its own sentence. `recurs L6.15`
+
+- **L11.34** Applied — `phase-step` → *Finish*, new item 0: Stage before the gate run, not only before planting: the architecture suite walks `git ls-files`. `recurs L8.10`
+
+- **L11.35** Applied — `phase-step` → *Red*, the fixture paragraph: After a bulk edit, re-read every assertion it touched — a transformed comparison can become its own control. `recurs L5.6`
+
+- **L11.36** Applied — `phase-step` → *Green*: A subagent is finished when its completion notification arrives and at no other moment.
+
+- **L11.37** Applied — `phase-step` → *Finish*, item 4b: Build, `uv pip install` into an explicit venv, and invoke that venv's binary by path. `recurs L7.6`
+
+- **L11.38** Applied — `implementer-brief.md` → *Before you send*, check 10: A mechanism a brief cites as sufficient is checked against its callers.
+
+- **L11.39** Declined — the check is real work and belongs beside `R11.7`, which is the same defect in a section rather than in a line; both are `tests/docs/` and should be designed together. The rule it would have stated: A citation is a claim about a line, and fitness function 17 proves only that the path resolves. `refines L9.34`
+
+- **L11.40** Applied — `pyproject.toml` → `dummy-variable-rgx = "^_$"`, measured cold at two sites, both real: `F811` exempts every underscore-prefixed name, and every test helper here is one. `recurs L6.4`
+
+- **L11.41** Applied — `phase-step` → *Finish*, and honoured in every transcript this phase added: A `$` block in a manual is output, and output is copied from a run. `refines L6.19`
+
+- **L11.42** Applied — `phase-step` → *Red*, the fixture paragraph: Before reusing an undirected traversal to print a directed statement, find the input where the two disagree.
+
+- **L11.43** Applied — `phase-step` → *Close the phase*, new item 4b: An exit criterion containing a command line is re-checked by running it. `refines L11.41`
+
+- **L11.44** Applied — **Instances repaired at `11.14`; the class filed as carried repair `R11.7`**: A parser that reads meaning out of prose *layout* makes every stylistically free edit semantically load-bearing.
+
+- **L11.45** Applied — `weft-qualities` → *can the instrument see the thing being varied?*: Before reading a shared table, enumerate its writers and ask what the key means to each. `recurs L6.4`
+
+- **L11.46** Applied — `09` §4.3, as the mirror of the zero-width caveat: A repeated measurement is a repetition only if the thing measured did not change between passes. `refines L10.25`
+
 ## 2026-09-08 — Phase 10's close
 
 Forty-two entries, the second-largest drain this project has run. **The queue had one dominant

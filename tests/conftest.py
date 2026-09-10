@@ -38,53 +38,132 @@ import pytest
 #: between versions, while the first half is written here.
 _UNREACHABLE: Final[str] = "is unreachable"
 
-#: The environment variable whose non-empty value is the operator's claim that a container is up.
-_DSN_ENV: Final[str] = "WEFT_DATABASE_URL"
+#: Every environment variable whose non-empty value is the operator's claim that a container is
+#: up. **Two, since `docs/lessons.md` `L11.22`** — this was `WEFT_DATABASE_URL` alone, and with
+#: Qdrant stopped a gate run reported 44 skips against an expected 9 and still exited `0`, because
+#: nothing here made a claim about the second container. The asymmetry was visible in this very
+#: file: `_CONTAINER_TOKENS` below has listed **both** variables since it was written, so the
+#: scheduling half knew about two containers while the shrink guard knew about one.
+_CLAIM_ENVS: Final[tuple[str, ...]] = ("WEFT_DATABASE_URL", "WEFT_QDRANT_URL")
+
+#: The operator's claim about how many tests *should* skip — `docs/lessons.md` `L11.22`, the other
+#: half. The two variables above only catch a container the operator explicitly named, and both
+#: have working defaults, so a laptop that never exports `WEFT_QDRANT_URL` claims nothing about
+#: Qdrant and a stopped container is invisible to them. `CLAUDE.md` has stated the expected count
+#: in **prose** — *"Expected skip count is 9; more means a container is down"* — which is exactly
+#: the shape this repository keeps discovering is not a check.
+#:
+#: **This is not the invented threshold the module docstring refuses**, and the difference is who
+#: chooses the number. *"More than N skips is suspicious"* is a constant nobody can defend. A count
+#: the **operator states**, in the same breath as the DSN, is a claim the run can contradict — the
+#: identical mechanism one variable over. `ci-checks` sets it, so the canonical gate always carries
+#: the claim; a bare `pytest` run does not, and nothing fires.
+_EXPECTED_SKIPS_ENV: Final[str] = "WEFT_EXPECTED_SKIPS"
 
 _container_skips: list[str] = []
 
+#: Every skip this run produced, counted where pytest itself counts them — in the per-report hook,
+#: which the controller runs for every worker's reports under `-n auto`.
+#:
+#: **Counted here rather than read off `TerminalReporter.stats`, and that was measured.** The first
+#: version of this check read `stats["skipped"]` inside `pytest_terminal_summary` and set a flag
+#: for `pytest_sessionfinish` to act on. It printed a correct, red "gate shrank" banner and the
+#: process exited **0**: `pytest_sessionfinish` runs *before* `pytest_terminal_summary`, so the
+#: flag was always empty when the exit status was decided. A guard against a silent shrink that
+#: silently could not fail — `docs/lessons.md` `L11.11` happening to the check written to answer
+#: `L11.11`, caught only because `phase-step` → *Finish* item 3 requires planting a disagreeing
+#: case and watching it go red.
+_skips_seen: list[str] = []
 
-def _claimed_a_database() -> bool:
-    return bool(os.environ.get(_DSN_ENV, "").strip())
+
+def _claimed_containers() -> tuple[str, ...]:
+    """Every claim variable the operator actually set to something."""
+    return tuple(env for env in _CLAIM_ENVS if os.environ.get(env, "").strip())
+
+
+def _expected_skips() -> int | None:
+    """The operator's stated skip count, or `None` when they stated none.
+
+    A value that is not an integer is treated as no claim rather than as a failure: this is a
+    guard against a silent shrink, and turning a typo in an environment variable into a red gate
+    would be a guard that fails runs for a reason unrelated to what it watches.
+    """
+    raw = os.environ.get(_EXPECTED_SKIPS_ENV, "").strip()
+    if not raw:
+        return None
+    try:
+        return int(raw)
+    except ValueError:
+        return None
 
 
 def pytest_runtest_logreport(report: pytest.TestReport) -> None:
     """Record every skip whose reason says the database was unreachable."""
     if report.skipped and isinstance(report.longrepr, tuple):
         reason = report.longrepr[2]
-        # **Both** halves, and the second was found by watching this fire on the wrong
-        # container: `tests/integration/test_store_conformance.py` skips when *qdrant* is
-        # down, and `WEFT_DATABASE_URL` makes no claim about qdrant. A skip only contradicts
-        # the operator's claim when it names the variable that carried it.
-        if _UNREACHABLE in reason and _DSN_ENV in reason:
+        # **A skip only contradicts the operator's claim when it names the variable that
+        # carried it**, which is why this matches the reason against the claim variables rather
+        # than against the word "container". That was found by watching an earlier version fire
+        # on the wrong one: `tests/integration/test_store_conformance.py` skips when *qdrant* is
+        # down, and `WEFT_DATABASE_URL` makes no claim about qdrant. `L11.22` is the same
+        # observation from the other side — qdrant carries its own claim, and it was not read.
+        claimed = _claimed_containers()
+        if _UNREACHABLE in reason and any(env in reason for env in claimed):
             _container_skips.append(f"{report.nodeid} — {reason.strip()}")
+    # `when != "teardown"` matches what pytest's own summary counts: a `skipif` reports at
+    # `setup` and a `pytest.skip()` call at `call`, and a teardown skip would double-count a
+    # test already tallied.
+    if report.skipped and report.when != "teardown":
+        _skips_seen.append(report.nodeid)
 
 
 def pytest_terminal_summary(terminalreporter: pytest.TerminalReporter) -> None:
-    """Say what shrank, through pytest's own reporting channel."""
-    if not _claimed_a_database() or not _container_skips:
+    """Say what shrank, through pytest's own reporting channel.
+
+    Two independent checks, reported together: a skip that contradicts a named container's own
+    claim, and a total skip count that contradicts the operator's stated one. Either alone is
+    enough to fail the run — see `pytest_sessionfinish`.
+    """
+    expected = _expected_skips()
+    if expected is not None:
+        actual = len(_skips_seen)
+        if actual != expected:
+            terminalreporter.section("gate shrank", red=True)
+            terminalreporter.write_line(
+                f"This run claimed {expected} skip(s) via {_EXPECTED_SKIPS_ENV} and produced "
+                f"{actual}. More usually means a container is down — `docker compose up -d`, "
+                f"then run it again. Fewer means a test that used to skip now runs, which is "
+                f"good news that has to be recorded: update {_EXPECTED_SKIPS_ENV} in "
+                f"pyproject.toml's `test` task, in the commit that changed it "
+                f"(docs/lessons.md L11.22)."
+            )
+
+    if not _claimed_containers() or not _container_skips:
         return
 
     terminalreporter.section("gate shrank", red=True)
     terminalreporter.write_line(
-        f"{_DSN_ENV} is set, so this run claimed a database — and {len(_container_skips)} "
-        f"test(s) skipped because it was unreachable. Those tests proved nothing, and the run "
-        f"would otherwise have reported green (lessons-archive L7.8, ledger 8.20)."
+        f"{', '.join(_claimed_containers())} is set, so this run claimed a container — and "
+        f"{len(_container_skips)} test(s) skipped because it was unreachable. Those tests proved "
+        f"nothing, and the run would otherwise have reported green (lessons-archive L7.8, "
+        f"ledger 8.20; L11.22 for the second container)."
     )
     for skipped in _container_skips[:5]:
         terminalreporter.write_line(f"  {skipped}")
     if len(_container_skips) > 5:
         terminalreporter.write_line(f"  … and {len(_container_skips) - 5} more")
     terminalreporter.write_line(
-        f"Start the container (`docker compose up -d`), or unset {_DSN_ENV} to run the offline "
-        f"suite deliberately."
+        "Start the container (`docker compose up -d`), or unset "
+        f"{' / '.join(_claimed_containers())} to run the offline suite deliberately."
     )
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     """Turn that contradiction into a non-zero exit, so the gate reports it as a failure."""
     del exitstatus
-    if _claimed_a_database() and _container_skips:
+    expected = _expected_skips()
+    shrank = expected is not None and len(_skips_seen) != expected
+    if (_claimed_containers() and _container_skips) or shrank:
         session.exitstatus = 1
 
 

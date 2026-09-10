@@ -342,7 +342,7 @@ def demanded_capabilities(
     """
     demanded: dict[type[object], str] = {}
     for spec in specs:
-        for position, (candidate, _where) in enumerate(_chain_of(spec)):
+        for position, (candidate, _) in enumerate(_chain_of(spec)):
             entry = _entry_or_none(registry, spec, candidate, primary=position == 0)
             if entry is None:
                 continue

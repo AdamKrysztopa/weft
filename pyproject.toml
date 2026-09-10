@@ -91,7 +91,23 @@ arch = "pytest tests/architecture -q"
 # `_covered_roots` treats any bare word that is not a flag as a path handed to pytest, so the
 # `auto` in `-n auto` would read as a test root. The `=` forms are the same instruction with
 # nothing for that walk to misread.
-test = "pytest tests --ignore=tests/architecture -q --numprocesses=auto --dist=loadgroup"
+[tool.poe.tasks.test]
+cmd = "pytest tests --ignore=tests/architecture -q --numprocesses=auto --dist=loadgroup"
+
+# **`docs/lessons.md` `L11.22`.** With Qdrant stopped, a gate run reported 44 skips against an
+# expected 9 and still exited `0`: the shrink guard in `tests/conftest.py` fires only when a skip
+# contradicts a container the operator *named*, and both container variables have working
+# defaults, so a machine that exports neither claims nothing and a stopped container is invisible.
+# `CLAUDE.md` has carried the expected count in **prose** — "Expected skip count is 9" — which is
+# this repository's own recurring discovery about prose.
+#
+# Stated here, it becomes a claim the run contradicts. This is deliberately *not* the invented
+# threshold `tests/conftest.py`'s docstring refuses: the operator chooses the number, in the same
+# breath as the DSN, and a run that produces a different one fails and says which direction. When
+# a test legitimately starts or stops skipping, this number moves **in that commit** — a visible
+# act in a diff, the same ratchet discipline every waiver constant in `tests/architecture/` uses.
+[tool.poe.tasks.test.env]
+WEFT_EXPECTED_SKIPS = "9"
 
 [tool.poe.tasks.ci-no-tests]
 sequence = ["fmt", "lint", "types", "arch"]
@@ -178,6 +194,17 @@ select = ["E", "F", "I", "N", "UP", "B", "C90", "S", "PTH", "RET", "SIM", "TID"]
 # not a check — this project has already been bitten by one claiming more than it could know
 # (`weft_cli.route_ask`'s, cited in `CLAUDE.md` and in `phase-step`).
 ignore = []
+
+# **`docs/lessons.md` `L11.40` — every test helper in this repository was exempt from redefinition
+# detection, and nothing said so.** `F811` is selected above and applies to `tests/`, which read as
+# "a redefined name is caught here". It is not: ruff exempts any name matching `dummy-variable-rgx`,
+# whose default is `^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$` — every leading-underscore name — and the
+# convention in this tree is that a test module's helpers are all underscore-prefixed. So
+# redefining `_fact_node` or `_ctx` in the same file was invisible, in the one directory where a
+# silently shadowed helper does the most damage: a fixture the reader believes is in force and is
+# not. Narrowed to `^_$`, which keeps the idiom the name is actually for — a throwaway loop or
+# unpack variable spelled `_` — and nothing else.
+dummy-variable-rgx = "^_$"
 
 [tool.ruff.lint.per-file-ignores]
 # **Assert is the point in a test** — it is the assertion mechanism, and a test never runs under

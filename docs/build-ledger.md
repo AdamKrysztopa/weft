@@ -6076,6 +6076,24 @@ it had read one failure (`L7.1`).
   for that module's own stated reason: *a double is what hid the defect for a whole phase.* Written
   by me and implemented by me — smaller than its brief. Gate green, both containers up*
 
+- [ ] **R11.7** every name `10` §4 reserves is a reservation the check can refuse, not a sentence
+  a reader can · owner `10` §4; `tests/docs/test_technique_naming.py` → `reserved_names` · `L11.44`
+  · *filed 2026-09-10 at task `11.14`, which found five names in that state and repaired the
+  instances without removing the class.* `reserved_names()` splits §4's list on `·` and keeps only
+  backtick tokens **before the first `(`** in each segment — correct, and it makes the reverse
+  mistake silently: a reservation that does not lead its own segment falls behind an earlier item's
+  citation parenthesis and is discarded. `t-retriever`, `grag`, `archrag` and `colpali` were
+  already invisible and the `graphrag` that task added landed in the same state immediately; the
+  parser read **21** where a person reads **26**. Repaired by giving each its own `·`, which fixes
+  five names and leaves the next careful sentence one paren away from the same fate.
+  **The property this owes**: §4's reservations are read by structure that a stylistically free
+  edit cannot break. `10` §1.4 and §1.5 are already tables and `_TABLE_ROW` parses them with
+  `^\| \`([^\`]+)\`` — one name per line, no positional cleverness — so a table is the obvious
+  shape, and it is **a suggestion rather than the remedy**: the person who implements this will
+  have read the section, and the person filing it read one failure (`L7.1`). Whatever the shape, it
+  owes a check that the count the parser sees is the count the section states, because that
+  disagreement is the one no test in this tree could express — both numbers came from the same file
+  through the same function
 - [ ] **R11.6** a generator's deliberate refusal reaches the person who asked, and the machine
   consumer can read it — so *"the corpus does not answer this"* is never rendered as silence ·
   owner `weft_cli.render`; `weft_generate.payload.Answer.stance`; `03` → *Output* · sha — ·

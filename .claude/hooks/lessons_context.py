@@ -69,7 +69,7 @@ def _sections(text: str) -> dict[str, str]:
     """Split on the three `## ` headings, ignoring anything before the first."""
     marks = [(m.group(1), m.end(), m.start()) for m in _SECTION.finditer(text)]
     out: dict[str, str] = {}
-    for i, (name, end, _start) in enumerate(marks):
+    for i, (name, end, _) in enumerate(marks):
         stop = marks[i + 1][2] if i + 1 < len(marks) else len(text)
         out[name] = text[end:stop]
     return out
