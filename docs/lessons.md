@@ -76,6 +76,41 @@ one machine and writing a rule for every machine. Alternatively `phase-step` →
 environment preconditions — but the mistake was made while routing, not while finishing.
 
 
+### L12.2 — I wrote "three carried repairs are open" about a section holding nineteen
+
+**What happened.** Closing Phase 11 I rewrote `docs/README.md`'s **Blocked by** row and put in it
+*"Three carried repairs are open and none is blocked"*, naming `R11.6`, `R11.3` and `R11.7`. Those
+are the three **this session had touched**. `grep -c '^- \[ \] \*\*R' docs/build-ledger.md`
+answers **19**, against 7 closed. The sixteen I did not name — `R9.3`–`R9.12`, `R10.1`,
+`R10.3`–`R10.6` — have been open since Phase 9's and Phase 10's drains, and `R9.1` is the one
+genuinely blocked, on **G17**. It was caught one turn later, when the owner asked for a handoff
+prompt and I went to list the remaining work from the tree instead of from the sentence I had
+just written.
+
+**The row it replaced was wrong in the same direction and by less.** It said *"Four things
+standing: `R9.1`, `R11.3`, `R11.5`, `R11.6`"* — also the ones the then-current session had in
+view. So this is not a slip in one edit; it is what this row does, and it has been quietly
+narrowing the project's own account of its debt for at least three phases. **The count was never
+measured by anyone. Each author listed what they were holding.**
+
+**Generalises to.** `L6.1` already says a present-tense count expires and must be re-taken before
+being argued from, and `L10.18` already says *prefer a pointer to a count*. Both were applied, and
+neither bit, because both are addressed to a reader **arguing from** a number and this was someone
+**writing one** — from working memory, about a section they had not opened, in the one file whose
+own opening rule is that it holds *state and pointers only*. The sharper rule: **a cardinality in
+`docs/README.md` is written by running the command that produces it, in the same turn, and the
+command goes in the cell beside the number.** A count with its own recipe next to it is the only
+kind the next author can cheaply re-take — and re-taking it is what they will not do if it looks
+authoritative.
+
+**Candidate home.** A check, and this one is cheap and non-vacuous: `next_task.py`'s `live_checks`
+already reads `docs/README.md` against `docs/build-ledger.md` and already asserts one cardinality
+this way — the lessons-queue depth, which is exactly why *that* number has never been wrong twice.
+The same shape for open carried repairs is a few lines: parse `^- \[ \] \*\*R` from the ledger,
+find the digit in the Blocked-by row, and fail when they differ. Failing that, `docs/README.md`'s
+own **Protocol** section, which tells a closing session which rows to edit and does not say that a
+number in one of them is a measurement.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in
