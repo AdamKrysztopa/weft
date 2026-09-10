@@ -433,8 +433,22 @@ first; a boundary skipped is a boundary skipped silently.
    and after you edit the Status block. A stale Status block does its most damage exactly here,
    because the next phase is about to be routed off it.
 6. **`docs/README.md`'s Status block is edited to the new position** — phase, blocked-by, next
-   action, open-decision count — and the phase's tasks are squashed onto `main` with the true
-   per-task shas in the squash message, per `build-ledger.md` → *Why the sha column is not optional*.
+   action, open-decision count.
+
+   **Do not squash the phase, and this instruction used to say the opposite.** It read *"the
+   phase's tasks are squashed onto `main` with the true per-task shas in the squash message, per
+   `build-ledger.md` → Why the sha column is not optional"* — and that section was **retitled on
+   2026-09-09** to *"…and why the sha column is no longer how"*, because the argument *"a ticked
+   box a reader can trace to a commit is a fact someone else can check"* was right about the
+   property and wrong about the mechanism. `git blame -w` on the ticked box is the mechanism now,
+   and **a squash is exactly what destroys it**: every box in the phase blames to one commit, and
+   the attributability the squash was performed to preserve is gone. Corrected 2026-09-10 at
+   Phase 11's close, where the instruction would additionally have rewritten thirteen
+   already-published commits to bundle them with two unpushed ones.
+
+   So: **one commit per task, pushed as they are.** A phase reaches `main` as the sequence of
+   commits that built it, each naming its own step, which is what makes the next reader's
+   `git blame` answer a question rather than name a phase.
 
 ## When to stop instead of continuing
 
