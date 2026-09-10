@@ -892,6 +892,41 @@ pipeline at all, so "installed and doing nothing" stays visible rather than sile
 guide's own §5 already runs from an empty directory — offers its own already-registered `Enhancer`
 plugin into a slot named `enrich` this exact way; read its `register()` for the real, working line.
 
+**The one slot `weft-rag` ships today is `enrich`, on `index-text`, positioned `after: chunk`** —
+carried repair `R9.10`, 2026-09-10. Until that date the paragraph above was true and useless: no
+shipped document declared a slot of any name, so every contribution a pack could offer was a
+recorded no-op against the pipelines a user actually has. `index-text` is the ingest root, so the
+eight documents deriving from it inherit the slot; a document that wants none of it writes
+`remove: enrich`, which drops the slot itself and names no pack.
+
+Target it and your `Enhancer` runs inside a real ingest — this is a transcript, not a sketch:
+
+```bash
+$ weft pipeline show index-text            # weft-rag alone
+  chunk: Chunker:fixed-size (distribution: weft-rag, provenance: index-text)
+  embed: Embedder:hash (distribution: weft-rag, provenance: index-text)
+unplaced contributions: (none)
+
+$ pip install weft-example-ingest ; weft pipeline show index-text
+  chunk: Chunker:fixed-size (distribution: weft-rag, provenance: index-text)
+  weft-example-ingest:wordcount: Enhancer:example-enhancer (distribution: weft-example-ingest, provenance: weft-example-ingest)
+  embed: Embedder:hash (distribution: weft-rag, provenance: index-text)
+unplaced contributions: (none)
+```
+
+and after `weft index corpus --pipeline index-text`, the stored node's own `ext` column carries
+what your stage attached, under your distribution's namespace and nobody else's:
+
+```json
+{"weft-chunk": {"start": 0, "__schema_version__": "1.0.0"}, "weft-example-ingest": {"count": 13, "__schema_version__": "1.0.0"}}
+```
+
+**A slot is not a promise that one exists for you.** `enrich` is the only one, it takes an
+`Enhancer`, and if what you offer is a `Chunker` or an `Expander` there is nowhere for it to land
+— ship a named pipeline instead (§9.6), which asks nobody's permission because a user chooses it
+by name. Adding a second slot is an edit to a shipped document, and `02` §3 is where the argument
+for one belongs.
+
 ### 9.8 A deprecation warning obliges a changelog entry
 
 `registrar.deprecate(surface, reason=...)` (`discovery.py:376-390 ", the on"`) buffers a notice — a plugin name,

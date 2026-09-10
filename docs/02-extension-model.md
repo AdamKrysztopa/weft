@@ -1931,6 +1931,32 @@ ambient* threat applied to your data.
 > slot named `enrich`, the same name this section's own worked example (`weft-kg:entities`)
 > already uses for the identical kind of position.
 
+> **Closed at carried repair `R9.10`, 2026-09-10: a document a user actually gets declares the
+> slot.** The paragraph above says the producing half was built at 5.3a, and that was true; what
+> stayed missing for two more phases is that **no shipped document declared a `slots:` block at
+> all**, so the placing, the id-qualification and the provenance recording had only ever run
+> against documents written under `tmp_path` to make them run. That is `docs/lessons.md` `L5.15`'s
+> shape arriving from the other side — a consuming half exercised only by its own fixtures — and
+> `L9.12` filed it.
+>
+> `index-text` now carries `slots: [{id: enrich, after: chunk}]`. It is the **ingest root**, and
+> only a root may carry `slots:`, so every ingest rung inherits the slot in one edit; a new root
+> written to hold a slot would have demonstrated the machinery against a document nobody uses.
+> The position is not a preference — `index-with-keywords` had already made the same choice by
+> hand and written down why (keywords are extracted per chunk, and the vector is computed from
+> content an `Enhancer` does not touch).
+>
+> Measured on the shipped wheels rather than in the suite. With no contributor installed,
+> `weft pipeline show index-text` prints the same six stages it printed before and
+> `unplaced contributions: (none)` — declaring a slot changed nothing. With
+> `weft-example-ingest` installed, `weft-example-ingest:wordcount` appears between `chunk` and
+> `embed`, and a real `weft index --pipeline index-text` stored a node whose `ext` column reads
+> `{"weft-example-ingest": {"count": 13, …}}` — the contributed stage ran on real data through a
+> real store, which no test had ever shown. A derived document carrying `remove: enrich` gets the
+> six stages back and the refusal *recorded* rather than silent:
+> `unplaced contributions: weft-example-ingest:wordcount -> slot 'enrich' (pipeline 'no-enrich'
+> declares no such slot)` — the opt-out this section promises, naming no pack.
+
 ### Language, and what a var is for
 
 Two different things wear the word *language*, and separating them is what fixes a real defect: a

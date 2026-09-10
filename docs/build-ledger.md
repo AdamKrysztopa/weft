@@ -5979,10 +5979,50 @@ it had read one failure (`L7.1`).
   instances rather than from one all-fields instance. Measured first: the `media_type` case
   round-trips correctly today, so this widens the check's population rather than repairing a
   live break — which is the whole of what this repair asks for
-- [ ] **R9.10** a shipped pipeline document declares a `slots:` block, or the field is withdrawn ·
+- [x] **R9.10** a shipped pipeline document declares a `slots:` block, or the field is withdrawn ·
   owner `02` §3 · `L9.12` · `Pipeline.slots` is placed, id-qualified and recorded by resolution, and
   **no document in the tree declares one**, so the consuming half has never run against a real
   producer
+
+  **Closed 2026-09-10 — declared, not withdrawn.** `index-text` carries
+  `slots: [{id: enrich, after: chunk}]`. Written here rather than dispatched: the change is two
+  lines of YAML and the whole of the work was deciding *which document* and *which position*,
+  which is not a thing a brief can hand over.
+
+  **Which document was the decision, and the tree answered it.** Only the root of an `extends`
+  chain may carry `slots:` (`weft_kernel.resolution._apply_ancestry_operators`), so a slot is
+  offered to a whole family or to nothing. `index-text` is the ingest root — eight documents
+  derive from it directly — so one edit reaches every ingest rung. **A new root written to hold a
+  slot was the safer-looking option and is the worse one**: it would have demonstrated the
+  machinery against a document nobody uses, which is the same derived-from-what-it-verifies shape
+  this entry exists to end. Withdrawing `Pipeline.slots` was the third option and reopens **G2**
+  for a mechanism `02` §3 spends a page arguing for.
+
+  **Which position was not a decision.** `index-with-keywords` had already placed `keybert`
+  *"after `chunk` and before `embed`, because keywords are extracted per chunk"* and written down
+  why; a slot for enrichment anywhere else would contradict the one shipped document that already
+  enriches.
+
+  **The test refuses to be symmetric with what it checks.** Every other slot test in
+  `test_pipeline_commands.py` writes its own document under `tmp_path` and constructs its own
+  `Contribution` — which is exactly how this field reached Phase 11 fully working and never once
+  exercised by a real producer. The two new tests read the **shipped** catalogue off the installed
+  package and take the slot name from `weft_example_ingest.ENRICH_SLOT`, the pack's own constant,
+  so the producing and consuming sides can genuinely disagree (`L5.6`). Watched red for the right
+  reason first: *"pipeline 'index-text' declares no such slot"*.
+
+  **Verified on the shipped wheels, from outside this repository, against `CREATE DATABASE r910`.**
+  With `weft-rag` alone, `weft pipeline show index-text` prints the same six stages as before and
+  `unplaced contributions: (none)` — declaring a slot changed nothing, which is the half that
+  decides whether declaring it was safe. With `weft-example-ingest` installed,
+  `weft-example-ingest:wordcount` appears between `chunk` and `embed`, qualified and with
+  provenance recorded. Then a real `weft index corpus --pipeline index-text` — rows `0` → `1` —
+  stored a node whose `ext` reads
+  `{"weft-chunk": {…}, "weft-example-ingest": {"count": 13, "__schema_version__": "1.0.0"}}`.
+  **The contributed stage ran on real data through a real store, which no test in this tree had
+  ever shown.** A derived document carrying `remove: enrich` gets the six stages back and the
+  refusal recorded rather than silent. Transcripts in `manual/pack-author-guide.md` §9.7, copied
+  from those runs; the argument is in `02` §3, which owns this entry
 - [x] **R9.11** `Applies.__repr__` is reached by a command, or it is deleted · owner `03` ·
   `L9.45` · written for the one human audience there is and rendered nowhere:
   `weft pipeline show` dumps the model instead

@@ -35,3 +35,30 @@ stages:
   - {id: chunk,      use: fixed-size, with: {size: 512, overlap: 50}}
   - {id: embed,      use: hash}
   - {id: store,      use: pgvector}
+
+# **The first `slots:` block any shipped document has carried** — carried repair `R9.10`.
+# `Pipeline.slots` was placed, id-qualified and recorded by resolution for two whole phases
+# with no document declaring one, so the consuming half had only ever run against producers
+# written to exercise it (`docs/lessons.md` L9.12, and L5.15's shape: an extension point with
+# a producing side and no consuming side).
+#
+# **Why this document and not a new one.** Only the root of an `extends` chain may carry
+# `slots:` (`weft_kernel.resolution._apply_ancestry_operators`), and this is the ingest root
+# — eight documents derive from it directly and more below them — so declaring it here is the
+# only edit that offers the slot to every ingest rung. A new root written to hold a slot would
+# demonstrate the machinery against a document nobody uses, which is the same
+# derived-from-what-it-verifies shape the repair exists to end.
+#
+# **Why after `chunk`.** `index-with-keywords` already made this choice by hand and stated it:
+# keybert is placed "after `chunk` and before `embed`, because keywords are extracted per
+# chunk, and because the vector is computed from content this stage does not touch". An
+# enrichment slot anywhere else would contradict the one shipped document that already
+# enriches.
+#
+# **Declaring a slot is an opt-in, not an invitation** — `02` §3 → *Slots*: installing a pack,
+# possibly as a transitive dependency, must never silently change what a pipeline does, so
+# this line is the deliberate statement that an `Enhancer` a pack offers may land here. It
+# adds nothing when nothing contributes, and a derived document refuses contributions
+# wholesale with `remove: enrich`, naming no pack.
+slots:
+  - {id: enrich, after: chunk}

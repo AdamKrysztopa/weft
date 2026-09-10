@@ -13,19 +13,23 @@ an unknown pipeline name naming the valid options.
 
 from __future__ import annotations
 
+import importlib
+from collections.abc import Callable
 from pathlib import Path
 from typing import Protocol
 
 import pytest
 import yaml
 
+import weft_retrieve
+from tests.discovery import discover_for_tests, register_out_of_tree_examples
 from weft_cli import pipeline_commands
-from weft_cli.pipeline_catalogue import UnknownPipelineNameError
+from weft_cli.pipeline_catalogue import UnknownPipelineNameError, load_pipeline_catalogue
 from weft_cli.registry_bootstrap import Dependencies
 from weft_cli.services import ServiceSelection
 from weft_kernel.context import Context
 from weft_kernel.payload import Produced
-from weft_kernel.pipeline import StageDeclaration
+from weft_kernel.pipeline import Pipeline, StageDeclaration
 from weft_kernel.registry import Registry
 from weft_kernel.resolution import Contribution
 from weft_kernel.runner import Stage
@@ -156,6 +160,135 @@ async def test_pipeline_show_places_a_contribution_in_a_pipeline_that_declares_i
     assert resolved.stages[1].provenance == "weft-kg"
     assert resolved.stages[1].distribution == "weft-kg"
     assert resolved.unplaced_contributions == ()
+
+
+def _catalogue_stub(catalogue: dict[str, Pipeline]) -> Callable[..., dict[str, Pipeline]]:
+    """`full_catalogue`'s shape, answering with `catalogue` whatever it is asked.
+
+    The two shipped-document tests below monkeypatch the catalogue rather than the
+    filesystem, so `PipelineShowCommand` runs its real `contracts_for`/`resolve` path against
+    the documents `weft-rag` ships while `monkeypatch.chdir` keeps a stray project-local
+    `pipelines/` directory out of the answer.
+    """
+
+    def _full_catalogue(**kwargs: object) -> dict[str, Pipeline]:
+        del kwargs
+        return catalogue
+
+    return _full_catalogue
+
+
+def _shipped_catalogue() -> dict[str, Pipeline]:
+    """The pipeline documents `weft-rag` actually ships, read off the installed package.
+
+    Carried repair **R9.10**: every other slot test in this file writes its own document
+    under `tmp_path`, which is how `Pipeline.slots` reached Phase 11 placed, id-qualified and
+    recorded by resolution with **no shipped document declaring one** — the consuming half
+    exercised only against producers written to exercise it. This helper is the fixture
+    refusing to be symmetric with the thing it checks: the document here is the one an
+    operator gets.
+    """
+    return load_pipeline_catalogue(Path(weft_retrieve.__file__).parent / "pipelines")
+
+
+def _registry_with_the_example_packs() -> Registry:
+    """A real registry — every installed pack's plugins, plus every `examples/*` pack's.
+
+    `_registry()` above holds one stand-in plugin, which is right for a document this file
+    wrote and wrong for a document `weft-rag` ships: `index-text` names `text`,
+    `unicode-normalize`, `whitespace`, `fixed-size`, `hash` and `pgvector`, and a stub
+    registry refuses it at the first stage before any slot is reached.
+    """
+    registry = discover_for_tests()
+    register_out_of_tree_examples(registry)
+    return registry
+
+
+def _the_example_packs_own_contribution() -> Contribution:
+    """The contribution `weft-example-ingest`'s own `register()` offers, read off the pack.
+
+    The slot name is the **pack's**, never this test's — `ENRICH_SLOT` and the stage
+    declaration come from the module, so the two sides of `R9.10` can genuinely disagree: if
+    the shipped document declares `enrich` and the pack contributes into something else, this
+    fails, which is exactly the producing-side/consuming-side gap `L5.15` names.
+    """
+    module = importlib.import_module("weft_example_ingest")
+    slot: str = module.ENRICH_SLOT
+    return Contribution(
+        slot=slot,
+        distribution="weft-example-ingest",
+        stage=StageDeclaration(id="wordcount", use="example-enhancer"),
+    )
+
+
+async def test_a_shipped_ingest_document_opens_the_enrich_slot_between_chunk_and_embed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Carried repair **R9.10**: `index-text` — the ingest root eight documents derive from
+    — declares `enrich`, so an installed pack's contribution lands in a real pipeline.
+
+    The position is not a preference. `index-with-keywords` already states the rule in its own
+    comment, having placed `keybert` *"after `chunk` and before `embed`, because keywords are
+    extracted per chunk"*; a slot for enrichment that sat anywhere else would contradict the
+    one shipped document that already does this by hand.
+    """
+    # Arrange — the shipped catalogue, plus a contribution of the shape a pack's own
+    # `register()` produces through `PackRegistrar.add_contribution`.
+    catalogue = _shipped_catalogue()
+    registry = _registry_with_the_example_packs()
+    contribution = _the_example_packs_own_contribution()
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(pipeline_commands, "full_catalogue", _catalogue_stub(catalogue))
+    deps = Dependencies(
+        registry=registry, reports=(), services=ServiceSelection(), contributions=(contribution,)
+    )
+
+    # Act
+    outcome = await pipeline_commands.PipelineShowCommand().run(
+        pipeline_commands.PipelineNameArgs(name="index-text"), _ctx(deps)
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = outcome.value
+    assert isinstance(result, pipeline_commands.PipelineShowCommandResult)
+    resolved = result.resolved
+    ids = [stage.id for stage in resolved.stages]
+    assert "weft-example-ingest:wordcount" in ids, (
+        f"the contribution did not land: {resolved.unplaced_contributions}"
+    )
+    assert ids.index("chunk") < ids.index("weft-example-ingest:wordcount") < ids.index("embed")
+    assert resolved.unplaced_contributions == ()
+
+
+async def test_the_shipped_enrich_slot_adds_nothing_when_no_pack_contributes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The other half of **R9.10**, and the half that decides whether declaring the slot was
+    safe: a slot nobody fills changes what `index-text` does by nothing at all.
+
+    Its control is the sibling above rather than a hand-written list — the same document,
+    resolved twice, differing only in whether a contribution was supplied.
+    """
+    # Arrange
+    catalogue = _shipped_catalogue()
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(pipeline_commands, "full_catalogue", _catalogue_stub(catalogue))
+    deps = Dependencies(
+        registry=_registry_with_the_example_packs(), reports=(), services=ServiceSelection()
+    )
+
+    # Act
+    outcome = await pipeline_commands.PipelineShowCommand().run(
+        pipeline_commands.PipelineNameArgs(name="index-text"), _ctx(deps)
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = outcome.value
+    assert isinstance(result, pipeline_commands.PipelineShowCommandResult)
+    ids = [stage.id for stage in result.resolved.stages]
+    assert ids == ["extract", "normalize", "whitespace", "chunk", "embed", "store"]
 
 
 async def test_pipeline_show_records_a_contribution_unplaced_against_a_pipeline_with_no_slot(
