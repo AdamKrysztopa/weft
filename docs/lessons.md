@@ -526,6 +526,39 @@ and would have fired.
 
 **Edges.** `refines L9.87` — stated in this entry's own prose above, written here in the form `scripts/lessons_graph.py` reads. Carried repair `R9.12` taught the script the open queue; an entry that names a recurrence only in a sentence is still invisible to it.
 
+### L12.14 — I answered "which phases exist" without opening the document that owns the answer
+
+**What happened.** Asked what phases the project has, I ran
+`grep "^### Phase" docs/01-high-level-plan.md` and `grep "^## Phase" docs/build-ledger.md`, found
+twelve, and said **"there is no Phase 12"** and *"`01`'s phase list ends at Phase 11"*. Both greps
+were correct. The answer was wrong: **`docs/12-roadmap.md` is tracked, 271 lines, and owns Phases
+16–27**, opening with the sentence I needed — *"`01` plans Phases 0–11 and stops there. This
+document owns everything after."* It also already held a nine-researcher, two-adversarial-reviewer
+check of the very roadmap the owner then pasted at me. I missed **Phase 27** entirely, which that
+document calls the sharpest defect the check found — a live data-loss defect in node identity.
+
+`docs/README.md` routes to it, correctly, at line 224 of its **Documents** manifest. I read the
+Status block — phase, blocked-by, next action, queue depth — and never the manifest below it, which
+is the half that answers *which document owns this question*. `CLAUDE.md`'s first line is "Read
+`docs/README.md` first. It is the single source of truth and **it routes everything else**", and I
+had been reading it all session for state while never once using it as a router.
+
+**Generalises to.** **A question about what the project *contains* is answered from the routing
+manifest, not from the files you happen to have open.** The failure is specific and seductive: I
+had genuinely measured, and the measurement was of the wrong population — `L5.14`'s "a list in a
+document is where to start looking, not a census", except the list here was my own memory of which
+documents exist. Two documents I had read forty times that session were not the two that owned the
+question. The rule: before answering *what is there*, read `README.md`'s Documents table and pick
+the row; a `grep` over files chosen from recall is a census of what you already knew.
+
+**Candidate home.** `CLAUDE.md` → *Working here*, whose opening already says `docs/README.md`
+routes everything and does not say that the **Documents manifest** is the routing half — the Status
+block is what everyone reads and it answers a different question. There is also a cheap mechanical
+form worth the drain's attention: `next_task.py --check-live` already asserts the Status block
+against the ledger; asserting that **every `docs/NN-*.md` has a row in the Documents manifest** is
+the same shape and would make the manifest's completeness a fact rather than a convention. It would
+not have caught this — the row was there — but it protects the router I should have used.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

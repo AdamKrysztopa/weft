@@ -28,7 +28,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import ClassVar
+from typing import Any, ClassVar
 
 import pytest
 from pydantic import BaseModel, ConfigDict
@@ -62,7 +62,13 @@ from weft_eval.aggregate import MetricAggregate
 from weft_eval.contract import GenerationMetric
 from weft_eval.falsify import BaselineSpread, TooFewRepetitionsError, Verdict
 from weft_eval.offline import MetricNeedsCredentialsError, UnknownMetricNameError
-from weft_eval.run_record import CorpusIdentity, NotAggregated, build_run_record, write_run_record
+from weft_eval.run_record import (
+    CorpusIdentity,
+    NotAggregated,
+    RunRecord,
+    build_run_record,
+    write_run_record,
+)
 from weft_extract import Extractor
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackReport, PackStatus
@@ -70,6 +76,7 @@ from weft_kernel.payload import Node, NothingToProduce, Outcome, Produced
 from weft_kernel.pipeline import Pipeline, StageDeclaration
 from weft_kernel.registry import Registry
 from weft_kernel.resolution import ResolvedPipeline, ResolvedStage
+from weft_llm.roles import LLMRoles, RoleMapping
 from weft_store import NodeStore
 
 
@@ -777,3 +784,117 @@ async def test_eval_compare_refuses_a_baseline_measured_against_a_different_corp
             EvalCompareArgs(a="run-a", b="run-b", baseline="vector-top-k"), _ctx(_deps())
         )
     assert "corpus" in str(caught.value)
+
+
+def _resolved_pipeline_with_a_model() -> ResolvedPipeline:
+    """A resolved pipeline one of whose stages carries a `model` in its own config.
+
+    Built rather than reused so this test's subject is exactly the two halves of the derivation:
+    a stage that contributes a model version, and (once `R10.3` lands) a role that does. The
+    stage's shape follows `_write_record`'s own `ResolvedStage` above.
+    """
+    return ResolvedPipeline(
+        name="index-openai",
+        stages=(
+            ResolvedStage(
+                id="embed",
+                contract="Embedder",
+                use="openai-embeddings",
+                distribution="weft-rag",
+                provenance="index-openai",
+                config={"model": "text-embedding-3-small"},
+            ),
+        ),
+    )
+
+
+def _run_record_with(*, model_versions: dict[str, str]) -> RunRecord:
+    """Two records that differ **only** in `model_versions` — same corpus, same pipeline.
+
+    That is the dimension `R10.3` is about, and holding the other two fixed is what makes the
+    assertion about this one: `_incomparable_reasons` reads three facts, and a fixture varying
+    more than one of them would pass whatever the repair did (`docs/lessons.md` `L12.6`).
+    """
+    return build_run_record(
+        recorded_at="2026-08-20T00:00:00+00:00",
+        resolved_pipeline=ResolvedPipeline(name="index-openai", stages=()),
+        corpus=CorpusIdentity(name="corpus", digest="a" * 64),
+        model_versions=model_versions,
+        metrics={},
+    )
+
+
+def test_model_versions_records_what_a_role_resolved_to_not_only_stage_config() -> None:
+    """Carried repair **R10.3** (`docs/lessons.md` `L10.5`).
+
+    `_model_versions` reads each resolved stage's own `config` for a `model` field, generically,
+    and that is right as far as it goes — `OpenAIEmbedderConfig.model` is pinned by it and
+    `hash`/`pgvector` contribute nothing without a table anywhere naming which stages carry a
+    model. **What it cannot see is a model named in `[llm.roles]`.** A summarising or judging
+    model is chosen there, per *role*, and no stage's config mentions it — so two eval arms
+    differing **only** by their summarising model produced byte-identical `model_versions`, and
+    `_incomparable_reasons` compared them as if the only difference were the pipeline.
+
+    That is the guard reading one fact and the run using another. `09` §4's V2 pins a comparison
+    to *"a baseline from a different corpus, pipeline or model version"*; a role's model **is** a
+    model version, and it was the one the guard was blind to.
+
+    **Both sources, and they cannot collide.** A stage entry is keyed by the stage's own id; a
+    role entry is keyed `role:<name>`, which no stage id can be — `weft_kernel.pipeline` refuses
+    a `:` in a stage id except as a slot qualifier, and a qualifier's left side is a
+    distribution. Asserted below rather than argued, because "these keys cannot collide" is the
+    kind of claim that is true until somebody widens one of the two namespaces.
+    """
+    resolved = _resolved_pipeline_with_a_model()
+    roles = LLMRoles(
+        roles={
+            "index": RoleMapping(provider="openai", model="gpt-4o-mini"),
+            "generate": RoleMapping(provider="openai", model="gpt-4o"),
+        }
+    )
+
+    # Act
+    versions = _private_member(eval_commands_module, "_model_versions")(resolved, roles=roles)
+
+    # Assert — the stage half is unchanged, and the role half is new.
+    assert versions["role:index"] == "openai:gpt-4o-mini"
+    assert versions["role:generate"] == "openai:gpt-4o"
+    assert any(not key.startswith("role:") for key in versions), (
+        "the stage-config half of this derivation disappeared — `OpenAIEmbedderConfig.model` "
+        "was pinned by it before this repair and must still be."
+    )
+    assert not {key for key in versions if key.startswith("role:")} & {
+        stage.id for stage in resolved.stages
+    }, "a role key collided with a stage id, so one reading is overwriting the other"
+
+
+def test_two_arms_differing_only_by_a_roles_model_are_refused_as_incomparable() -> None:
+    """The property `R10.3` states, at the seam that acts on it.
+
+    Without this the repair is a field nothing reads — `L5.15`'s shape, and the reason
+    `_incomparable_reasons` is driven here rather than `_model_versions` alone.
+    """
+    a = _run_record_with(model_versions={"role:index": "openai:gpt-4o-mini"})
+    b = _run_record_with(model_versions={"role:index": "openai:gpt-4o"})
+
+    # Act
+    reasons = _private_member(eval_commands_module, "_incomparable_reasons")(a, b)
+
+    # Assert
+    assert reasons, (
+        "two runs whose summarising model differs compared as identical, which is exactly the "
+        "state this repair was filed about."
+    )
+    assert any("model" in reason for reason in reasons)
+
+
+def _private_member(module: object, name: str) -> Any:
+    """One private module member, by name — the idiom
+    `tests/architecture/test_ff13_filter_op_dispatch_is_exhaustive.py` documents.
+
+    Importing a `_`-prefixed name trips pyright's `reportPrivateUsage`; a `getattr` with a
+    literal trips ruff's `B009`. Taking the name as a parameter is neither. The subject really is
+    the private function: `_model_versions` is where carried repair `R10.3`'s derivation lives,
+    and there is no public seam that answers the narrower question this test asks.
+    """
+    return getattr(module, name)

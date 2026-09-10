@@ -5935,11 +5935,32 @@ it had read one failure (`L7.1`).
   names, and the test refuses an empty subject rather than passing quietly on it. Measured: no
   drift today. Watched red on a planted `weft-kernel>=0.0.1`, and `uv.lock` checked back to the
   committed one afterwards, which is `L12.7` applied in the session that learned it
-- [ ] **R9.8** a stage that computes something costly for its own internal decision and returns its
+- [x] **R9.8** a stage that computes something costly for its own internal decision and returns its
   input unchanged names what downstream recomputes · owner `weft_index.contract.Expander`'s
   docstring · `L9.33` · `RaptorSummarizer._embed` embeds every leaf to cluster it and returns the
   payload unmodified, and `index-with-raptor` places it before the base `embed` stage — so every
   leaf is embedded **twice per ingest** under a paid embedder, disclosed nowhere
+
+  **Closed 2026-09-10, and it was repaired at tasks `10.4` and `10.7` — before this entry was
+  read — in the strongest available way: the stage no longer does the thing.** `RaptorSummarizer`
+  does not embed the leaves at all now. It **requires** them to arrive embedded — a declared
+  input precondition, the first any `Expander` in this pack has — reads the vectors that are
+  there, and calls the embedder exactly once, for the summaries it just wrote. A document that
+  puts `raptor` before `embed` no longer degrades silently to *"no clustering happened"*; it
+  fails, naming the stage that has to move.
+
+  So the property this entry asks for — *a stage that computes something costly for its own
+  internal decision and returns its input unchanged **names what downstream recomputes*** — is
+  satisfied by there being nothing left to name. `index-with-raptor.yaml` keeps the history in
+  the open: *"`raptor` embedded the whole payload itself in order to cluster it, returned the
+  leaves unembedded, and the `embed` stage below embedded every one of them a second time —
+  neither shipped `Embedder` skips a node that already carries a vector, so on a paid account
+  that was a doubled leaf bill on every ingest, disclosed nowhere including here."*
+
+  **And it is already tested**, which is why nothing was added here: `test_raptor.py` asserts the
+  embedder is called once and handed *exactly this run's summaries*, with the reason written into
+  the assertion — *"a leaf among them is the doubled bill this task exists to remove"*. Verified
+  by reading that assertion against the code it drives rather than by trusting the entry
 - [x] **R9.9** `Applies` round-trips through fitness function 19 for every constraint kind its own
   fields can hold · owner `01` → *Fitness functions* 19 · `L9.43` · FF19 constructs one instance,
   `Applies(_Language, code="pl")`, and never a `media_type`-constrained one — which is precisely the
@@ -6076,10 +6097,28 @@ it had read one failure (`L7.1`).
   misplacement from difficulty. It now prints *read its instances* and says what R10.2 found;
   `implement-ll` → *Recurrence* carries the same correction with the numbers. That verdict was a
   claim with nothing left to check it, which is `L10.1`'s own lens turned on the loop's own tool
-- [ ] **R10.3** the comparability guard can see the model that actually did the work, so two eval
+- [x] **R10.3** the comparability guard can see the model that actually did the work, so two eval
   arms differing only by their summarising model do not compare as identical · owner
   `weft_eval`; `weft_cli.llm_roles` · `L10.5` · the model is named in `[llm.roles]` and never in a
   resolved stage, so what the guard reads and what the run used are different facts
+
+  **Closed 2026-09-10.** `_model_versions` reads a second source: every `[llm.roles]` entry that
+  names a model, keyed `role:<name>` as `provider:model`. The stage half is untouched — a stage
+  whose own config carries a `model` still contributes `use:model`, derived rather than
+  table-driven — and the two key spaces cannot collide, because a stage id carrying a `:` is a
+  slot qualifier whose left side is a *distribution*, never the literal `role`. That disjointness
+  is **asserted** rather than rested on: it is the kind of claim that stays true until somebody
+  widens one of the two namespaces.
+
+  **`_incomparable_reasons` already refused on a `model_versions` difference**, which the second
+  test pins — so the repair is that the field finally *carries* the fact, not that a new guard
+  reads it. Written the other way round the change would have been a field nothing reads, which
+  is `L5.15`'s shape, and driving the guard is what rules it out.
+
+  **Smaller than its brief, so taken directly rather than dispatched** — the derivation is six
+  lines and the decision in it (two sources, one dictionary, disjoint keys) was the whole of the
+  work. `09` §4's V2 pins a comparison to *"a different corpus, pipeline or model version"*, and
+  a role's model is a model version — it was simply the one the guard could not see
 - [ ] **R10.4** two query rungs can be compared against **one** index · owner `weft_eval`;
   `weft_cli.eval_commands` · `L10.25` · `weft eval run` always indexes, so a second run re-ingests
   and adds a fresh set of summaries beside the old, and the comparison silently spans a store that

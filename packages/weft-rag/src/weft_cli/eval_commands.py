@@ -213,6 +213,7 @@ from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_kernel.payload import Outcome, Produced
 from weft_kernel.resolution import ResolvedPipeline, ResolvedStage
 from weft_kernel.runner import RunSummary
+from weft_llm.roles import LLMRoles
 
 #: `EvalRunArgs.top_k` default — `weft ask`'s own default depth, task 4.9's own retrieval
 #: scoring reuses it rather than inventing a second "how many results" default.
@@ -655,12 +656,34 @@ def _model_field(config: object) -> str | None:
     return None
 
 
-def _model_versions(resolved_pipeline: ResolvedPipeline) -> Mapping[str, str]:
-    """Every stage of `resolved_pipeline` whose own config names a `model`, as `use:model`.
+#: `_model_versions`' default when no caller supplies one — a run with no `[llm.roles]` block
+#: contributes no role entries, which is a fact rather than an omission. Module-level so the
+#: default is one shared instance rather than a mutable built per call.
+_NO_ROLES: Final[LLMRoles] = LLMRoles()
 
-    Never reads `[services]` (Q3, task 4.0) and never a table of "which stages carry a model" —
-    `hash`, `pgvector` and every plugin whose `config_model` has no `model` field simply
-    contribute nothing, derived rather than special-cased.
+
+def _model_versions(
+    resolved_pipeline: ResolvedPipeline, *, roles: LLMRoles = _NO_ROLES
+) -> Mapping[str, str]:
+    """Every model this run actually used — **two sources, carried repair `R10.3`.**
+
+    *Stage config*, unchanged: every stage of `resolved_pipeline` whose own config names a
+    `model`, as `use:model`. Never reads `[services]` (Q3, task 4.0) and never a table of "which
+    stages carry a model" — `hash`, `pgvector` and every plugin whose `config_model` has no
+    `model` field simply contribute nothing, derived rather than special-cased.
+
+    *`[llm.roles]`*, and this is what `R10.3` adds. A summarising or judging model is chosen per
+    **role**, and no stage's config mentions it — so two eval arms differing *only* by their
+    summarising model produced byte-identical `model_versions` and `_incomparable_reasons`
+    compared them as though the only difference were the pipeline (`docs/lessons.md` `L10.5`).
+    That is the guard reading one fact and the run using another, and `09` §4's V2 pins a
+    comparison to *"a different corpus, pipeline or model version"* — a role's model **is** a
+    model version.
+
+    **The two key spaces cannot collide**, which is why one dictionary is honest here. A stage
+    entry is keyed by the stage's own id; a role entry is keyed `role:<name>`, and a stage id
+    carrying a `:` is a slot qualifier whose left side is a *distribution*, never the literal
+    `role`. The test asserts the disjointness rather than resting on that sentence.
     """
     versions: dict[str, str] = {}
     stage: ResolvedStage
@@ -668,6 +691,9 @@ def _model_versions(resolved_pipeline: ResolvedPipeline) -> Mapping[str, str]:
         model = _model_field(stage.config)
         if model is not None:
             versions[stage.id] = f"{stage.use}:{model}"
+    for name, mapping in sorted(roles.roles.items()):
+        if mapping.model:
+            versions[f"role:{name}"] = f"{mapping.provider}:{mapping.model}"
     return versions
 
 
@@ -780,7 +806,7 @@ class EvalRunCommand:
             corpus=corpus,
             # Task 4.7's own gap to fill — see the module docstring's paragraph on
             # `_model_versions`. Derived from what actually ran, never from `[services]`.
-            model_versions=_model_versions(resolved_pipeline),
+            model_versions=_model_versions(resolved_pipeline, roles=deps.llm.roles),
             reports=deps.reports,
             metrics=metrics,
             durations=RunDurations(ingest_seconds=wall_clock_seconds, query_seconds=query_seconds),
