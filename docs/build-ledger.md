@@ -8609,7 +8609,7 @@ that assumed one was withdrawn from the plan before it reached this list.
   the four rungs by a second; the fitness-function-driven repairs, the citation audit and every
   document edit mine. Gate `GATE_EXIT=0` read out of the run's own log, both containers up: 286
   architecture, 2471 passed, 9 skipped, 128 examples*
-- [ ] **11.11 ⚠ D3** an operator curates a schema the corpus proposed, activates it from a file,
+- [x] **11.11 ⚠ D3** an operator curates a schema the corpus proposed, activates it from a file,
   and every fact extracted under it carries which schema it was extracted under — so a corpus
   holding two schemas is a fact `weft graph show` prints, never a silence · owner `02` §2 → *Pack
   settings* (amended); `03` → *Project context* · turns on — · sha — · *`propose` prints and never
@@ -8626,7 +8626,89 @@ that assumed one was withdrawn from the plan before it reached this list.
   under* is a fact about the corpus rather than about whichever operator's `weft.toml` was on disk.
   Without that row two checkouts disagree about one database and nothing notices, which is this
   line's own forbidden silence. The `02:1200` per-installation wording is amended. Read the mark as
-  the preamble's record, not as a block*
+  the preamble's record, not as a block. **Built.** Three decisions taken with the owner, and the
+  first was forced by reading the tree rather than the plan. **`S13` says the corpus's row is
+  *keyed by collection*, and there is no collection in this tree** — `03` defers the concept
+  explicitly and argues against building one, because no command accepts a collection argument and
+  nothing would consult it, which would be state that looks consulted and is not. The pack's tables
+  are already one namespace per `[packs.graph] dsn`, so today one database **is** one corpus: a
+  single row (`CHECK (id = 1)`) carries `S13`'s property in full, and the trigger is recorded —
+  when a collection concept ships, that row's key becomes the collection. **A schema is typed
+  relation rules**, `(source_type, predicate, target_type)`, not two flat lists: flat vocabularies
+  catch an invented word and admit any arrangement of approved ones, and `Method wrote Person` uses
+  nothing the operator did not approve while saying something impossible. Entity types and
+  predicates are **derived** from the rules, so a schema cannot contradict itself. **`propose` is a
+  measurement, never a model's opinion**: it aggregates the arrangements `llm-facts` already wrote,
+  ranked by frequency, so `cost_bound` stays zero and what an operator curates is the shape their
+  own corpus produced rather than a guess about it.
+
+  **Two things the tree made me name rather than choose.** A pydantic field called `schema` shadows
+  `BaseModel.schema`, so the fact carries `schema_id` and the result carries `proposed` — I caught
+  the first in the brief and missed the second, and the implementer reported it as blocking after
+  independently confirming no construct keeps the literal name. And **`KG_SCHEMA_VERSION` does not
+  move for the new table**, which is a decision rather than an omission: `_check_schema_version`
+  compares exactly, so bumping it for an additive table would refuse every database this pack wrote
+  yesterday, for a change that removes nothing and reinterprets nothing. Upgrade-or-refuse means
+  refuse when *meaning* changed.
+
+  **The third layer is constrain **and** verify, and both halves are asserted.** An active schema's
+  admissible arrangements are rendered into the prompt (`ExtractFactsRequest.allowed`, empty
+  rendering to nothing so the no-schema prompt is byte-identical to `11.7`'s), and a candidate the
+  schema does not admit is dropped under `DropReason.OFF_SCHEMA` and counted by the tally machinery
+  `11.7` already built — no new counter was needed, which is that task's per-reason design paying
+  off. `ExtractedFact` gains `schema_id` and `__schema_version__` moves `1.0.0` → `1.1.0`. The
+  ledger line's honest note holds and is now in `10`'s row too: the evidence that this layer is
+  live comes from a scripted stub, here as in the prior art, so what is proven is that *this pack*
+  drops and counts correctly, not that a real vendor's output is improved by the constraint.
+
+  **`DISCLOSURE.filesystem` was `()` and this task made that false** — the pack now reads a curated
+  schema file and reads and writes `weft.toml`. The implementer noticed and reported it; a
+  `Disclosure` that understates what a pack touches is worse than one that says nothing, because it
+  answers the operator's question wrongly rather than not at all. Fixed here, not filed.
+
+  **Run through the shipped binary from a clean venv outside this repository, on a database
+  nothing else touches** — a second Postgres database created for the run, after a test suite's
+  own rows twice leaked into a measurement on the shared one (`L8.30`, third instance this
+  session; the fixture now clears `kg_active_schema` on the way out as well as in). `propose` on
+  an empty corpus refuses at exit 1 naming the rung to run. **`propose` then refused a corpus that
+  had just been indexed**, because a two-document corpus states every arrangement once and the
+  default `min_count=2` hid all eleven — the message told an operator to index what they had
+  already indexed. Repaired here: two causes now carry two remedies, and the second names the flag
+  (`--min-count`) rather than the Python parameter. `propose --min-count 1` printed eleven rules
+  including Polish types (`osoba napisał powieść`) beside English ones, which is exactly what
+  curation is for. Piped to a file, `activate` reported `activated 'proposed'
+  (08cf5190314c7850154e39ce78724db2) / recorded in weft.toml and on the corpus`. A **second
+  checkout** — a different directory, `weft.toml` holding only a `dsn`, no schema file — printed
+  the same active schema, which is `S13`'s whole property proven rather than argued. A malformed
+  file exits 1 naming the file with **nothing written**. And after re-indexing under the schema,
+  `weft graph show` printed the task's own sentence:
+
+  ```text
+  schemas the corpus's facts carry:
+    (no schema): 11 fact(s)
+    08cf5190314c7850154e39ce78724db2: 3 fact(s)
+  ```
+
+  **The defect only the binary could find, and the tree caught it rather than a person**:
+  `llm-facts` loaded the curated schema with `open()` on the event loop thread, and the
+  registration seam refused the run — *"stage 'facts' made a blocking call (open()) on the event
+  loop thread"*, fitness function 7(b), naming the offload to use. Every unit test in this pack
+  constructs the stage directly and never crosses that seam, so 198 of them were green while it
+  was true. Repaired with `asyncio.to_thread`, which is what the message itself recommends.
+
+  `L11.36` gained a **second instance** rather than a new entry, and the recurrence is the finding:
+  I again started the gate before the agent's completion notification arrived — this time polling
+  for file stability and for no `pyright` process — and the two suites shared one container, which
+  surfaced as a README-path regression that did not exist. The proxies get better each time and
+  every one answers a narrower question than *has this agent finished*. Tests mine; `schema.py` by
+  one dispatched `weft-implementer`, the commands, the corpus row and the extractor's third layer
+  by a second; the two shadowing renames, the disclosure repair, the blocking-call repair, the
+  two-remedy refusal and every document edit mine. `L11.41` is this task's other queue entry and it
+  is mine: I wrote both troubleshooting transcripts from my brief before the code existed, and
+  **neither message matched what the binary prints** — while the coverage ratchet stayed green,
+  because it asserts a section exists and has no opinion about whether its transcript is real.
+  Gate `GATE_EXIT=0` read out of the run's own log, both containers up: 286 architecture, 2497
+  passed, 9 skipped, 128 examples*
 - [x] **11.12** `weft eval` reports every metric per question `kind`, and a comparison can be
   asked for one `kind` alone, so a rung's claim about one class of question is a number over that
   class · owner `09` §4; `weft_eval/aggregate.py:107` · turns on — · sha — · *`weft-eval`, no

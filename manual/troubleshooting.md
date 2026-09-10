@@ -3271,6 +3271,83 @@ contract over: `docs/09-release.md` §2.3's *"a version bump does not fix silenc
 separate defect."* Adding a member to a closed vocabulary is additive everywhere it is *declared*
 and wrong at every site that dispatches on it, so every such site raises rather than defaulting.
 
+### `MalformedSchemaFileError`
+
+**What it looks like** — `weft graph activate` was given a file it cannot read as a schema:
+
+```text
+$ weft graph activate ./broken.toml
+broken.toml does not hold a valid curated graph schema: 1 validation error for GraphSchema
+relations
+  Input should be a valid tuple [type=tuple_type, input_value='all of them', input_type=str]
+$ echo $?
+1
+```
+
+A curated schema is **hand-edited by design** — that is the point of it being a file a pull
+request can show — so a malformed one is the ordinary case rather than the exotic one. The message
+names the path, because a project may hold several and the operator needs to know which.
+
+**What to do.** `weft graph propose` prints a valid schema in exactly the shape this reads back,
+so the shortest route out is to propose, paste, and re-edit. A schema is a `name` and one or more
+`[[relations]]` tables, each with `source_type`, `predicate` and `target_type`:
+
+```toml
+name = "papers"
+
+[[relations]]
+source_type = "person"
+predicate = "wrote"
+target_type = "method"
+```
+
+**Nothing was written.** `activate` validates before it touches anything — not `weft.toml`, not
+the corpus — because a corpus recording that it is under a schema no file can produce is the state
+nothing could diagnose. Fix the file and run the same command again.
+
+### `EmptyCorpusError`
+
+**What it looks like** — `weft graph propose` was asked to propose from a corpus that holds no
+facts:
+
+**Two causes, two messages, and the second is the one a real corpus meets first.** Reproduced
+against a real checkout and a real corpus. An empty graph:
+
+```text
+$ weft graph propose
+weft_kg has no facts to propose a schema from: nothing in this corpus was extracted at or above
+min_count=2. Index a corpus through a rung that names the llm-facts stage — `weft index <path>
+--pipeline index-with-facts` is the shipped one — and run this again. A corpus built with
+`index-with-cooccurrence` reaches this too: a schema constrains (source_type, predicate,
+target_type), and a co-occurrence edge has none of the three.
+$ echo $?
+1
+```
+
+And a corpus that **did** produce facts, none of which recurred:
+
+```text
+$ weft graph propose
+weft_kg found 11 distinct arrangement(s) in this corpus and none of them was seen at least 2
+time(s), so there is nothing to propose at that threshold. Lower it — `weft graph propose
+--min-count 1` proposes from everything the corpus wrote — or index more of the corpus so the
+arrangements worth keeping recur.
+$ echo $?
+1
+```
+
+**What to do** — whichever the message says, and they are genuinely different problems. The first
+needs a corpus; `cooccurrence-graph` (the rung `index-with-cooccurrence` names) writes entities and
+edges but **not** typed facts, so a corpus built that way reaches it too. The second needs a lower
+threshold: a small corpus states most arrangements once, and `--min-count 2` hides all of them.
+**That second message exists because the first one used to serve both cases**, telling an operator
+who had just indexed to go and index — found by running the binary at ledger `11.11`, never by a
+test.
+
+The alternative — printing an empty schema — is what this refuses to do in either case. An operator
+who activated one would have a schema that admits nothing, and every fact the next index run
+extracted would be dropped as off-schema, correctly and catastrophically.
+
 ### `GraphDsnNotConfiguredError`
 
 **What it looks like** — reproduced against a real checkout, with `WEFT_DATABASE_URL` exported and

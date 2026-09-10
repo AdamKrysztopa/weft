@@ -29,6 +29,14 @@ other prompt in this tree states it: `09` §4's corpus has a Polish subset, and 
 read through an English instruction is the quiet quality loss locale-keyed prompts exist to
 prevent.
 
+**Ledger `11.11` adds a third, optional clause: `render_allowed` and `ExtractFactsRequest.allowed`,
+below.** When a curated schema is active, `weft_kg.extraction` hands this prompt the admitted
+`(source_type, predicate, target_type)` arrangements as well as constraining what it keeps — the
+"constrain and verify" pair that module's own docstring names, because verifying alone spends a
+call to throw most of a wrong answer away and constraining alone trusts a model that may not
+comply. The clause is data, not a rule this file states as prose, so it lives beside the templates
+that carry it rather than inside `weft_kg.schema`, which has no model call to shape.
+
 **No count of facts is demanded, only a ceiling.** `hypothetical-questions` asks for *exactly*
 `${count}` questions because a passage always answers some; a passage may genuinely assert no
 relation between two named things, and a prompt that demanded three would get three inventions.
@@ -50,10 +58,11 @@ therefore not this pack's to make — `11.5` settled that `weft_kg` costs zero l
 
 from collections.abc import Mapping
 from enum import StrEnum
-from typing import ClassVar
+from typing import ClassVar, Final
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from weft_kg.schema import GraphSchema
 from weft_prompts.typed_prompt import PromptText, TypedPrompt
 
 #: The name this prompt is registered and selectable under — see `weft_kg.register`.
@@ -70,12 +79,21 @@ class ExtractFactsRequest(BaseModel):
     One passage, never a numbered batch — `weft_index.hypothetical_questions`' own argument
     applies unchanged: batching chunks would make the model's attention to any one passage a
     function of how many chunks happened to land in this run.
+
+    **`allowed`, ledger `11.11` — the corpus's active curated schema, or nothing.** `render_allowed`
+    below builds the whole value, introductory clause included, in the caller's own language; the
+    templates append `${allowed}` directly onto their own closing sentence with no character
+    between them, so an empty value — no schema active, today's ordinary case — leaves the
+    rendered prompt byte-identical to what it was before this field existed. A fixed sentence
+    written into the template itself, present whether or not a schema is active, would not have
+    that property; putting the whole clause inside the value is what buys it.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     passage: str
     max_facts: int = Field(ge=1)
+    allowed: str = ""
 
 
 class ProposedFact(BaseModel):
@@ -146,7 +164,7 @@ class ExtractFactsPrompt(TypedPrompt):
                 "related, a short type for each of them, and the relation itself as the "
                 "passage puts it. Name each thing the way the passage names it, in the "
                 "passage's own language, in as few words as it takes. If the passage states "
-                "no relation between things it names, report none."
+                "no relation between things it names, report none.${allowed}"
             ),
         ),
         "pl": PromptText(
@@ -166,10 +184,55 @@ class ExtractFactsPrompt(TypedPrompt):
                 "dwie powiązane rzeczy, krótki typ każdej z nich oraz samą relację tak, jak "
                 "ujmuje ją fragment. Nazywaj każdą rzecz tak, jak nazywa ją fragment, w jego "
                 "własnym języku, możliwie najkrócej. Jeśli fragment nie stwierdza żadnej "
-                "relacji między nazwanymi rzeczami, nie wypisuj żadnej."
+                "relacji między nazwanymi rzeczami, nie wypisuj żadnej.${allowed}"
             ),
         ),
     }
+
+
+#: `render_allowed`'s own prose, per locale — the clause `ExtractFactsRequest.allowed` carries
+#: when a curated schema is active. `{listing}` is `str.format`-substituted (never `${...}`,
+#: which is `weft_prompts.template`'s own placeholder syntax and would collide with it), each
+#: line one admitted `(source_type, predicate, target_type)` arrangement. Written as real prose
+#: in both languages, on `ExtractFactsPrompt.texts`'s own register, rather than one English
+#: sentence reused for both — the same argument that text's own module docstring makes for
+#: `ExtractFactsPrompt` itself.
+_ALLOWED_CLAUSE: Final[Mapping[str, str]] = {
+    "en": (
+        "\n\nThis corpus admits only the following arrangements of two named things and the "
+        "relation between them. Report a relation only when its two types and its predicate "
+        "together match one of these exactly; say nothing about an arrangement this list does "
+        "not admit, even if the passage suggests one:\n{listing}"
+    ),
+    "pl": (
+        "\n\nTen korpus dopuszcza wyłącznie następujące układy dwóch nazwanych rzeczy i relacji "
+        "między nimi. Podawaj relację tylko wtedy, gdy jej oba typy i predykat razem dokładnie "
+        "odpowiadają jednemu z poniższych układów; nie pisz o układzie, którego ta lista nie "
+        "dopuszcza, nawet jeśli sugeruje go fragment:\n{listing}"
+    ),
+}
+
+
+def render_allowed(schema: GraphSchema | None, *, locale: str) -> str:
+    """`ExtractFactsRequest.allowed`'s value: `""` with no schema active, otherwise the schema's
+    admitted `(source_type, predicate, target_type)` arrangements as one locale-appropriate
+    clause, in `locale`'s own text — exact match, then its primary subtag, then `en`, the
+    identical three-step fallback `TypedPrompt._text_for` already uses for the surrounding
+    template, so the clause and the sentence it is appended to never disagree about which
+    language they are answering in.
+    """
+    if schema is None:
+        return ""
+    listing = "\n".join(
+        f"- {relation.source_type} {relation.predicate} {relation.target_type}"
+        for relation in schema.relations
+    )
+    text = (
+        _ALLOWED_CLAUSE.get(locale)
+        or _ALLOWED_CLAUSE.get(locale.partition("-")[0])
+        or _ALLOWED_CLAUSE["en"]
+    )
+    return text.format(listing=listing)
 
 
 class SameEntity(StrEnum):
@@ -288,4 +351,5 @@ __all__ = [
     "ProposedFact",
     "ProposedFacts",
     "SameEntity",
+    "render_allowed",
 ]

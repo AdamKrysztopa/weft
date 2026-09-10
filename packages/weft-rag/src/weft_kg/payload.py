@@ -71,7 +71,7 @@ class CooccurrenceGraph(ExtModel):
 
 
 class DropReason(Enum):
-    """Why one candidate triple's endpoint or row was refused. Ledger **11.7**.
+    """Why one candidate triple's endpoint or row was refused. Ledger **11.7**, extended **11.11**.
 
     `weft_kg.extraction`'s own line is *every dropped candidate is counted per reason, never
     summed* — so a verdict is one of these named members, never a boolean and never folded into
@@ -80,7 +80,11 @@ class DropReason(Enum):
     `DOCUMENT_REFERENCE` are that predicate's five rules, carried here as the vocabulary its
     return type names; `DUPLICATE` and `OVER_LIMIT` belong to `weft_kg.extraction` alone, because
     neither is a fact about one candidate's own shape — both are facts about the batch it arrived
-    in.
+    in. `OFF_SCHEMA` is `11.11`'s own addition: a candidate whose `(source_type, predicate,
+    target_type)` an active curated schema (`weft_kg.schema.GraphSchema`) does not `admit` — every
+    field well-shaped, the arrangement itself refused. It needs no new field on
+    `ExtractionTally`: that model already counts one entry per `DropReason` with nothing summed,
+    so a sixth reason is a sixth entry, not a new mechanism.
     """
 
     INCOMPLETE_ROW = "incomplete-row"
@@ -91,6 +95,7 @@ class DropReason(Enum):
     DOCUMENT_REFERENCE = "document-reference"
     DUPLICATE = "duplicate"
     OVER_LIMIT = "over-limit"
+    OFF_SCHEMA = "off-schema"
 
 
 class DroppedCandidates(BaseModel):
@@ -121,13 +126,22 @@ class ExtractedFact(ExtModel):
     """
 
     __namespace__ = "weft-kg-fact"
-    __schema_version__ = "1.0.0"
+    #: `S5`: `11.11` gave this model a field, which is a persisted shape gaining a field — the
+    #: rule this project follows for exactly that change, restated at `schema_id`'s own comment.
+    __schema_version__ = "1.1.0"
 
     source: str = Field(min_length=1)
     source_type: str = Field(min_length=1)
     predicate: str = Field(min_length=1)
     target: str = Field(min_length=1)
     target_type: str = Field(min_length=1)
+    #: The curated schema's **identity** (`weft_kg.schema.GraphSchema.identity`), never its
+    #: `name`, that this fact was extracted and verified under — ledger `11.11`. Two schemas an
+    #: operator called `papers` a month apart are one name and two different sets of admitted
+    #: arrangements, and only the identity says which constraint this fact actually satisfied.
+    #: Empty means *extracted under no schema*, which is a state `weft graph show` reports as its
+    #: own group, never a missing value silently read as "whichever schema is active now".
+    schema_id: str = ""
 
 
 class MentionedEntity(ExtModel):

@@ -1045,6 +1045,21 @@ author sharing a working tree.
 returns" paragraph, which currently says what not to *do* and does not say how you know it has
 returned. One sentence: the notification, and nothing else.
 
+**Second instance, 2026-09-10, one task later, and it is worth more than the first.** At `11.11` I
+again did not wait for the notification — this time polling for the source files to stop changing
+and for no `pyright` to be running, then starting the full gate. The agent was still in its own
+verification run. Two suites against one container is `L6.22` exactly, and it surfaced as
+`tests/docs/test_readme_is_enough.py` failing with *"`weft ask` returned no ranked result"* — a
+README-path regression that did not exist. It passed alone, and passed again in the next gate.
+
+**What makes the recurrence the finding**: I had written the rule the day before, in this file,
+and still substituted a cleverer proxy for it. The proxies get better each time — file hashes, then
+process liveness — and every one of them answers a narrower question than *has this agent finished*.
+The remedy is not a better proxy. There is a notification; nothing else is evidence. That is now
+two costs in two consecutive tasks, both paid in a diagnosis cycle chasing a defect that was never
+there, which is the shape `L10.24`'s hook exists for one genre over — a rule at three instances
+buys a mechanism rather than a louder sentence, and this is at two.
+
 ### L11.37 — I diagnosed against a wheel `uv` was not running
 
 **What happened.** After reverting a defect found by the binary, I rebuilt the wheel, confirmed the
@@ -1203,6 +1218,45 @@ test module in the repository.
 it — that file already carries argued comments for `per-file-ignores` and for the hooks directory,
 and this is the same genre. `L10.19` should be re-read at the same time: it declined a rule on the
 strength of F811 being selected, which turns out to have been true and inoperative.
+
+### L11.41 — I wrote two manual transcripts from a brief, and both were wrong
+
+**What happened.** `11.11` added two `manual/troubleshooting.md` entries, each with a `$ weft …`
+block showing what the operator sees. I wrote both from my own implementer brief, before the code
+existed. Then I ran the binary. **Neither message matched.** `EmptyCorpusError` actually said
+`propose_schema found no facts at or above min_count=2` — leaking a Python function name at an
+operator — and `MalformedSchemaFileError` said `broken.toml does not hold a valid curated graph
+schema`, not the sentence I had invented for it. Both entries were fixed against real output; the
+first message was itself repaired, because naming a function is not something an operator can act
+on.
+
+**And `tests/docs/test_troubleshooting_coverage.py` was green throughout.** That check asserts a
+`### \`ErrorName\`` **section exists** for every `WeftError` subclass in the tree. It has no
+opinion about what the section says, so a fabricated transcript passes it exactly as a real one
+does — and the ratchet's greenness reads, to whoever runs it, as the manual having been checked.
+
+**Generalises to.** `08` §3's rule is that a manual is **checked, not trusted**, and `L6.19` is the
+sharper version: a change to a command's output falsifies every worked transcript of it, and *only
+the executed ones fail the gate*. This is the same gap entered from the other end — not a transcript
+that rotted, but one that was never true, in a section a coverage check certifies as present. The
+common cause is that a transcript is the one part of a document that is a *measurement*, and I
+wrote it the way I write prose.
+
+The rule: **a `$` block in a manual is output, and output is copied from a run.** If the code does
+not exist yet, the entry is not ready to write — write it after the binary run, in the same pass
+that proves the command works at all.
+
+**A mechanical repair exists and is worth more than the rule.** `tests/docs/test_pack_guide_samples.py`
+already compares a tagged sample against the file it claims to quote, byte for byte; the same shape
+applied here would be a check that each troubleshooting block's *message text* appears in the raise
+site it documents. Not the whole block — prose around it is a person's judgement, and `09` §3 keeps
+CLI prose unpromised — but the quoted sentence is either in the tree or it is fiction. That would
+have failed on both of mine.
+
+**Candidate home.** `tests/docs/`, beside the coverage ratchet it complements: coverage asks
+*is there an entry*, this would ask *is the entry's transcript real*. Failing that, `phase-step`
+→ *Finish*, which already says to run the binary and read what it prints, and does not say that
+what it prints is what the manual must contain.
 
 ## When the queue is empty
 

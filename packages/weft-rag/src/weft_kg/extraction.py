@@ -47,11 +47,32 @@ rule is exactly the kind of judgement that should be made against a real corpus'
 rather than against one demonstration, which is what `11.8`'s resolution pass is the first thing
 in this pack to see. `10` §1.2's row for this plugin states the same limitation where a reader
 choosing a rung will meet it.
+
+**Ledger `11.11` adds a third layer, on top of the five-rule filter above: constrain, then
+verify, against a curated schema.** `11.7`'s filter refuses a candidate on *shape* — a name that
+is a clause, an equation, a citation. A curated schema (`weft_kg.schema.GraphSchema`) refuses on
+*structure*: an operator has said which `(source_type, predicate, target_type)` arrangements this
+corpus admits, and `Method wrote Person` uses nothing an operator did not approve while saying
+something impossible — that module's own docstring has the worked example. **Constrain** means
+`weft_kg.prompts.render_allowed` hands the model the admitted arrangements alongside the passage,
+so most of a wrong answer never gets typed at all; **verify** means `_verdict` below drops
+whatever the model returns anyway, under `DropReason.OFF_SCHEMA`, counted by the same
+`ExtractionTally` machinery every other rule already uses. Either half alone is weaker than both:
+constraining without verifying trusts a model that may not comply, and verifying without
+constraining spends a call to throw most of it away. When `[packs.graph] schema_file` is unset —
+still the ordinary case — this stage asks and keeps exactly as it did before this task: `schema`
+is `None`, `render_allowed` returns `""`, and `_verdict` never reaches the new check.
+
+**The schema is loaded once per `run`, never per node.** A curated schema file is read from disk
+and does not change between the first node this call examines and the last, so reading it once
+and passing the parsed `GraphSchema` down is the same amortisation `ExtractFactsPrompt` itself
+already gets from being constructed once outside the fan-out below.
 """
 
 import asyncio
 from collections.abc import Sequence
 from itertools import count
+from pathlib import Path
 from typing import ClassVar, NamedTuple, cast
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -66,7 +87,15 @@ from weft_kg.payload import (
     ExtractionTally,
     MentionedEntity,
 )
-from weft_kg.prompts import ExtractFactsPrompt, ExtractFactsRequest, ProposedFact, ProposedFacts
+from weft_kg.prompts import (
+    ExtractFactsPrompt,
+    ExtractFactsRequest,
+    ProposedFact,
+    ProposedFacts,
+    render_allowed,
+)
+from weft_kg.schema import GraphSchema, load_schema
+from weft_kg.store import GraphSettings
 from weft_llm.contract import LLM
 from weft_prompts.cascade import execute
 from weft_prompts.contract import Prompt
@@ -120,13 +149,32 @@ class LlmFactExtractor:
 
     config_model: ClassVar[type[LlmFactsConfig]] = LlmFactsConfig
 
-    def __init__(self, config: LlmFactsConfig | None = None) -> None:
+    def __init__(
+        self, config: LlmFactsConfig | None = None, *, settings: GraphSettings | None = None
+    ) -> None:
         self._config = config if config is not None else LlmFactsConfig()
+        # `settings` keyword-only and last — deliberately unlike `GraphStore(settings, config)`.
+        # `GraphStore` cannot exist without a DSN; this stage must stay constructible with
+        # nothing, because a document may name `llm-facts` in a project with no
+        # `[packs.graph] schema_file` — or no `[packs.graph]` table at all.
+        self._settings = settings if settings is not None else GraphSettings()
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
         if not payload:
             return NothingToProduce(reason="no nodes to extract facts from")
 
+        # Loaded once for the whole call, never per node — see the module docstring's own note —
+        # and **off the event loop**. `load_schema` opens a file, and every contract method here is
+        # `async`: reading it inline blocks the loop thread, which the registration seam detects
+        # and refuses (fitness function 7(b)). **Found by running the binary at `11.11`**, not by
+        # any test in this pack — the unit tests construct this class directly and never cross the
+        # seam that watches for it, which is the gap `CLAUDE.md`'s "a green gate is not a working
+        # binary" names. `asyncio.to_thread` is the offload that message itself recommends.
+        schema: GraphSchema | None = (
+            await asyncio.to_thread(load_schema, Path(self._settings.schema_file))
+            if self._settings.schema_file
+            else None
+        )
         llm = ctx.require(LLM)
         # `ExtractFactsPrompt` is constructed directly rather than resolved through
         # `StageLookup` — `weft_kg.prompts`' own module docstring has why the ingest path offers
@@ -150,7 +198,7 @@ class LlmFactExtractor:
 
         async def _bounded(node: Node) -> _NodeExtraction:
             async with limit:
-                return await self._facts_for(node, llm=llm, prompt=prompt, ctx=ctx)
+                return await self._facts_for(node, llm=llm, prompt=prompt, ctx=ctx, schema=schema)
 
         results = await asyncio.gather(*(_bounded(node) for node in payload))
 
@@ -177,7 +225,7 @@ class LlmFactExtractor:
         return Produced(value=(*payload, *derived))
 
     async def _facts_for(
-        self, node: Node, *, llm: LLM, prompt: Prompt, ctx: Context
+        self, node: Node, *, llm: LLM, prompt: Prompt, ctx: Context, schema: GraphSchema | None
     ) -> _NodeExtraction:
         """This one node's derived nodes, its candidate count, its kept-fact count and drops.
 
@@ -189,7 +237,9 @@ class LlmFactExtractor:
             llm=llm,
             prompt=prompt,
             values=ExtractFactsRequest(
-                passage=node.content, max_facts=self._config.max_facts_per_node
+                passage=node.content,
+                max_facts=self._config.max_facts_per_node,
+                allowed=render_allowed(schema, locale=ctx.locale),
             ),
             output=ProposedFacts,
             role=self._config.role,
@@ -209,6 +259,7 @@ class LlmFactExtractor:
                 max_words=self._config.max_entity_words,
                 limit=self._config.max_facts_per_node,
                 already_kept=len(kept),
+                schema=schema,
             )
             if verdict is not None:
                 reasons.append(verdict)
@@ -217,6 +268,7 @@ class LlmFactExtractor:
             seen.add(_key(stripped))
             kept.append(stripped)
 
+        schema_id = schema.identity if schema is not None else ""
         ordinal = count()
         fact_nodes = tuple(
             node.derive(
@@ -230,6 +282,7 @@ class LlmFactExtractor:
                     predicate=fact.predicate,
                     target=fact.target,
                     target_type=fact.target_type,
+                    schema_id=schema_id,
                 )
             )
             for fact in kept
@@ -261,8 +314,20 @@ def _verdict(
     max_words: int,
     limit: int,
     already_kept: int,
+    schema: GraphSchema | None,
 ) -> DropReason | None:
-    """The first rule this candidate fails, tried in the order `11.7`'s brief fixes."""
+    """The first rule this candidate fails, tried in the order `11.7`'s brief fixes, extended by
+    `11.11`'s schema check.
+
+    **Placed after the shape rules and before the batch-level ones, deliberately.** A schema
+    arrangement is only worth checking once both endpoints are known to be well-shaped rows
+    rather than a blank field or an unbounded fragment `non_atomic_reason` would refuse anyway —
+    checking it first would report `OFF_SCHEMA` for a candidate that was never going to survive
+    regardless. And it has to come *before* `DUPLICATE`/`OVER_LIMIT`: those two are facts about
+    the batch this candidate arrived in, and an off-schema candidate must consume neither the
+    duplicate set nor the per-node limit — dropping it after would let an arrangement the
+    operator refused still crowd out an admissible fact competing for the same ceiling.
+    """
     fields = (
         candidate.source,
         candidate.source_type,
@@ -276,6 +341,12 @@ def _verdict(
         reason = non_atomic_reason(endpoint, max_words=max_words)
         if reason is not None:
             return reason
+    if schema is not None and not schema.admits(
+        source_type=candidate.source_type,
+        predicate=candidate.predicate,
+        target_type=candidate.target_type,
+    ):
+        return DropReason.OFF_SCHEMA
     if _key(_stripped(candidate)) in kept:
         return DropReason.DUPLICATE
     if already_kept >= limit:

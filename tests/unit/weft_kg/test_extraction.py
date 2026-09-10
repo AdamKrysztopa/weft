@@ -41,6 +41,7 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
@@ -58,6 +59,8 @@ from weft_kernel.payload import (
 )
 from weft_kg.extraction import NAME, LlmFactExtractor, LlmFactsConfig
 from weft_kg.payload import DropReason, ExtractedFact, ExtractionTally, MentionedEntity
+from weft_kg.schema import load_schema
+from weft_kg.store import GraphSettings
 from weft_llm.contract import LLM
 from weft_llm.payload import Completion, Rendered
 
@@ -86,6 +89,10 @@ class _StubLLM:
         self._replies = replies
         self._fallback = fallback if fallback else _reply()
         self.calls = 0
+        #: Everything the last call actually put on the wire — `11.11` asserts that an active
+        #: schema reaches the model rather than only the filter, which is `L9.79`'s rule for a
+        #: value whose whole job is to travel from configuration to a call.
+        self.shown = ""
 
     async def native_structured_available(self, role: str) -> bool:
         del role
@@ -100,6 +107,7 @@ class _StubLLM:
         del role, ctx
         self.calls += 1
         shown = "\n".join(message.content for message in rendered.conversation.messages)
+        self.shown = shown
         for marker, reply in self._replies.items():
             if marker in shown:
                 return Produced(value=Completion(text=reply, model="stub-model"))
@@ -622,3 +630,135 @@ def test_the_config_refuses_an_unknown_field() -> None:
     # Act / Assert
     with pytest.raises(ValidationError):
         LlmFactsConfig.model_validate({"bogus": "x"})
+
+
+# --- ledger task 11.11: the third layer — constrain the ask, verify the answer ---
+#
+# `11.7` filters what a model returns on *shape* — a name that is a clause, an equation, a
+# citation. A curated schema filters it on *structure*: an operator has said which arrangements of
+# which types this corpus admits, and a triple outside that is dropped and counted, never quietly
+# kept. Both halves are here because either alone is weaker than it looks — constraining the prompt
+# without verifying the answer trusts the model, and verifying without constraining spends a call
+# to throw most of it away.
+#
+# **The honest note the ledger line asks for, carried into the tests rather than only the prose**:
+# the prior art's only evidence that this layer was live came from a stubbed provider in its own
+# test suite. So does this — `_StubAdjudicator`'s siblings above answer from a script. What that
+# proves is that *this pack* drops and counts correctly; what it does not prove is that a real
+# vendor's output is improved by the constraint. `10`'s row says so where an operator reads it.
+
+
+_SCHEMA_TOML = "\n".join(
+    [
+        'name = "papers"',
+        "",
+        "[[relations]]",
+        'source_type = "person"',
+        'predicate = "wrote"',
+        'target_type = "method"',
+        "",
+    ]
+)
+
+
+def _settings_with_schema(tmp_path: Path) -> GraphSettings:
+    path = tmp_path / "papers.toml"
+    path.write_text(_SCHEMA_TOML, encoding="utf-8")
+    return GraphSettings(schema_file=str(path))
+
+
+async def test_a_fact_outside_the_active_schema_is_dropped_and_counted(
+    tmp_path: Path,
+) -> None:
+    """The arrangement case, which is why the schema is rules rather than two word lists:
+    `adRAP wrote Chucri` uses only types and a predicate the operator approved, and says
+    something impossible. It is dropped under its own reason and the tally says so.
+    """
+    # Arrange
+    node = _node("chunk-a: Chucri wrote adRAP.")
+    llm = _StubLLM(
+        {
+            "chunk-a": _reply(
+                ("Chucri", "person", "wrote", "adRAP", "method"),
+                ("adRAP", "method", "wrote", "Chucri", "person"),
+            )
+        }
+    )
+
+    # Act
+    outcome = await LlmFactExtractor(settings=_settings_with_schema(tmp_path)).run(
+        [node], _ctx(llm)
+    )
+
+    # Assert
+    facts = _derived(outcome, ExtractedFact)
+    assert {found.content for found in facts} == {"Chucri wrote adRAP"}
+    tally = _tally_of(outcome)
+    assert dict((entry.reason, entry.count) for entry in tally.dropped) == {
+        DropReason.OFF_SCHEMA: 1
+    }
+
+
+async def test_every_kept_fact_carries_the_schema_it_was_extracted_under(
+    tmp_path: Path,
+) -> None:
+    """The task line's own clause. Read off the fact rather than off a run record, because
+    `weft graph show` answers *which schemas does this corpus hold* from the corpus, and a
+    history kept anywhere else is a history the next operator's checkout does not have.
+    """
+    # Arrange
+    settings = _settings_with_schema(tmp_path)
+    node = _node("chunk-a: Chucri wrote adRAP.")
+    llm = _StubLLM({"chunk-a": _reply(("Chucri", "person", "wrote", "adRAP", "method"))})
+
+    # Act
+    outcome = await LlmFactExtractor(settings=settings).run([node], _ctx(llm))
+
+    # Assert — the identity, not the name: two schemas an operator called `papers` a month apart
+    # are one name and two constraints, and the fact has to say which one it survived.
+    [fact] = [
+        found for node in _derived(outcome, ExtractedFact) if (found := node.ext_as(ExtractedFact))
+    ]
+    assert fact.schema_id == load_schema(Path(settings.schema_file)).identity
+
+
+async def test_a_fact_extracted_with_no_active_schema_says_so_rather_than_guessing(
+    tmp_path: Path,
+) -> None:
+    """The default, and the state most corpora are in. An empty identity means *extracted under
+    no schema*, which `weft graph show` reports as its own group — not as belonging to whichever
+    schema happens to be active when somebody later asks.
+    """
+    # Arrange
+    del tmp_path
+    node = _node("chunk-a: Chucri wrote adRAP.")
+    llm = _StubLLM({"chunk-a": _reply(("Chucri", "person", "wrote", "adRAP", "method"))})
+
+    # Act
+    outcome = await LlmFactExtractor().run([node], _ctx(llm))
+
+    # Assert
+    [fact] = [
+        found for node in _derived(outcome, ExtractedFact) if (found := node.ext_as(ExtractedFact))
+    ]
+    assert fact.schema_id == ""
+
+
+async def test_the_active_schema_reaches_the_model_as_well_as_the_filter(
+    tmp_path: Path,
+) -> None:
+    """**Constrain and verify, not verify alone.** Dropping off-schema facts after the fact is a
+    filter; telling the model what the corpus admits is what makes most of the call useful. Both,
+    because either alone is weaker — and this asserts the first half actually reaches the wire,
+    which is `L9.79`'s rule for a value whose whole job is to travel.
+    """
+    # Arrange
+    node = _node("chunk-a: Chucri wrote adRAP.")
+    llm = _StubLLM({"chunk-a": _reply(("Chucri", "person", "wrote", "adRAP", "method"))})
+
+    # Act
+    await LlmFactExtractor(settings=_settings_with_schema(tmp_path)).run([node], _ctx(llm))
+
+    # Assert
+    assert "wrote" in llm.shown
+    assert "person" in llm.shown

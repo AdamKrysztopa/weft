@@ -1206,6 +1206,21 @@ shared across every plugin it registers.
 contributing an enhancer, a retriever and a store to repeat its connection details three times and
 hope they stay in sync.
 
+> **And `11.11` built the instance, 2026-09-10.** `[packs.graph] schema_file` names a project-local
+> TOML file holding a curated schema; the pack reads it at extraction time and `weft graph activate`
+> writes the setting through `weft_cli.config_surface.set_config_text`, the same text-edit surface
+> `weft config set` uses, so an operator's own comments and ordering survive. It is the first pack
+> setting in this tree that **points at another file** rather than carrying a value, which is what
+> makes the per-project lifetime load-bearing rather than incidental: a path is meaningless outside
+> the project it is relative to. `S13`'s second half is why the setting is not the whole answer —
+> `activate` also writes the schema's identity into the pack's own tables, so *which schema is this
+> corpus under* is a fact about the corpus rather than about whichever operator's disk was asked.
+> **One narrowing recorded rather than discovered**: `S13` says that row is *keyed by collection*,
+> and there is no collection in this tree — `03` defers the concept explicitly and argues against
+> building one. The pack's tables are one namespace per `[packs.graph] dsn`, so today one database
+> **is** one corpus and a single row carries the property in full; when a collection concept ships,
+> that row's key becomes the collection.
+
 ```yaml
 # weft.yaml
 packs:

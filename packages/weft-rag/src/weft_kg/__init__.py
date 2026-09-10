@@ -22,13 +22,33 @@ registered under that contract exactly the way `vector-top-k` and `hybrid` are, 
 pack — and the four pipeline resources appended after it are what fitness function 16 needs to
 call it a rung rather than a dead registration: see `retrieval.py`'s own module docstring for the
 technique and the four `pipelines/graph-*.yaml` documents for the rungs.
+
+**Ledger `11.11` makes this pack a `Command`-contributing pack, its first.** `weft graph
+propose|activate|show` register against `weft_command.contract.Command` exactly as `weft config
+get|set` do from a different pack — see `weft_kg.commands`'s own module docstring for the three
+and `weft_kg.schema`'s for the curated-schema model `propose`/`activate` read and write.
+`LlmFactExtractor` also gains a `settings` binding here it did not need before: a curated schema,
+once activated, constrains and stamps every fact `llm-facts` extracts — see that module's own
+docstring for the "constrain and verify" pair this task adds to its existing five-rule filter.
 """
 
 from functools import partial
 
+from weft_command.contract import Command
 from weft_enhance.contract import Enhancer
 from weft_index.contract import Expander
 from weft_kernel.discovery import Disclosure, PackRegistrar
+from weft_kg.commands import (
+    GraphActivateCommand,
+    GraphActivateResult,
+    GraphProposeCommand,
+    GraphProposeResult,
+    GraphShowCommand,
+    GraphShowResult,
+    render_graph_activate,
+    render_graph_propose,
+    render_graph_show,
+)
 from weft_kg.contract import (
     GRAPH_ROLE,
     GRAPH_TRAVERSAL_CONTRACT_VERSION,
@@ -55,7 +75,7 @@ from weft_kg.prompts import (
 )
 from weft_kg.retrieval import NAME as GRAPH_WALK_NAME
 from weft_kg.retrieval import GraphWalkRetriever
-from weft_kg.store import GraphSettings, GraphStore
+from weft_kg.store import ActiveSchema, GraphSettings, GraphStore, SchemaPresence
 from weft_kg.traversal import GraphWalk
 from weft_prompts.contract import Prompt
 from weft_retrieve.contract import Retriever
@@ -71,7 +91,15 @@ Settings = GraphSettings
 #: to print.
 DISCLOSURE = Disclosure(
     network=("the PostgreSQL server [packs.graph] dsn names (WEFT_DATABASE_URL by default)",),
-    filesystem=(),
+    #: **Ledger `11.11`, and it was `()` until the task that made it false.** `02` §2 → *The
+    #: trust model*: a `Disclosure` an operator reads has to name what the pack actually touches,
+    #: and a pack that reads and writes files while declaring none is worse than one that
+    #: declares nothing — it answers the question wrongly rather than not at all. Both paths are
+    #: an operator's own project files, named as settings and paths rather than as contents.
+    filesystem=(
+        "the curated schema file [packs.graph] schema_file names, read at extraction time",
+        "weft.toml, read and written by `weft graph activate` to record the activated schema",
+    ),
     subprocess=(),
     note=(
         "Reads and writes node, entity and relation rows in PostgreSQL with pgvector, "
@@ -84,7 +112,11 @@ DISCLOSURE = Disclosure(
         "ambiguous pair per call, so it can judge whether they name the same thing; weft "
         "reconcile --mode repair sends nothing. On the query side, graph-walk reads entity "
         "and node rows back from the same PostgreSQL server and sends nothing anywhere — "
-        "seeding a question's entities is a regular expression, and the walk itself is SQL."
+        "seeding a question's entities is a regular expression, and the walk itself is SQL. "
+        "When [packs.graph] schema_file names an active curated schema, its admitted "
+        "arrangements travel to the same provider with every chunk llm-facts sends: the "
+        "vocabulary an operator curated leaves the machine beside the passage, not only the "
+        "passage itself."
     ),
 )
 
@@ -113,7 +145,12 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     # Ledger 11.7 — the model-calling rung. `add_pipeline_resource` for this document comes
     # last: `test_register.py` asserts the exact resource order, and this is the rung that
     # builds on `index-with-graph`, which must already be registered above it.
-    registrar.add(Expander, LLM_FACTS_NAME, LlmFactExtractor)
+    #
+    # `settings=settings`, ledger `11.11` — a `functools.keyword`-bound `partial`, unlike this
+    # module's other two `partial(..., settings)` calls: `LlmFactExtractor.__init__` takes
+    # `settings` keyword-only and last, deliberately unlike `GraphStore(settings, config)` — see
+    # that constructor's own comment for why.
+    registrar.add(Expander, LLM_FACTS_NAME, partial(LlmFactExtractor, settings=settings))
     registrar.add(Prompt, EXTRACT_FACTS_NAME, ExtractFactsPrompt)
     # Ledger 11.9 — the reconcile pass's own prompt, registered beside the ingest one it sits
     # next to in `weft_kg.prompts`, and before the `add_ext_model` calls that follow so the
@@ -132,6 +169,16 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add_pipeline_resource("weft_kg", "pipelines/graph-2hop-then-generate.yaml")
     registrar.add_pipeline_resource("weft_kg", "pipelines/graph-and-vector-rrf.yaml")
     registrar.add_pipeline_resource("weft_kg", "pipelines/graph-then-rerank.yaml")
+    # Ledger 11.11 — the first `Command`s this pack ships. Schema curation is a per-project
+    # decision an operator makes once in a while, not a pipeline position, so these register
+    # against `Command` rather than joining any stage list above; see `weft_kg.commands`'s own
+    # module docstring for why the three answer three different questions and only one writes.
+    registrar.add(Command, "graph propose", partial(GraphProposeCommand, settings))
+    registrar.add(Command, "graph activate", partial(GraphActivateCommand, settings))
+    registrar.add(Command, "graph show", partial(GraphShowCommand, settings))
+    registrar.add_renderer(GraphProposeResult, render_graph_propose)
+    registrar.add_renderer(GraphActivateResult, render_graph_activate)
+    registrar.add_renderer(GraphShowResult, render_graph_show)
 
 
 __all__ = [
@@ -148,18 +195,29 @@ __all__ = [
     "CooccurrenceGraph",
     "CooccurrenceGraphBuilder",
     "CooccurrenceSettings",
+    "ActiveSchema",
     "Entity",
     "EntityId",
     "EntityMention",
     "ExtractFactsPrompt",
     "ExtractedFact",
     "ExtractionTally",
+    "GraphActivateCommand",
+    "GraphActivateResult",
+    "GraphProposeCommand",
+    "GraphProposeResult",
     "GraphSettings",
+    "GraphShowCommand",
+    "GraphShowResult",
     "GraphTraversal",
     "GraphWalkRetriever",
     "LlmFactExtractor",
     "LlmFactsConfig",
     "MentionedEntity",
+    "SchemaPresence",
     "Settings",
     "register",
+    "render_graph_activate",
+    "render_graph_propose",
+    "render_graph_show",
 ]

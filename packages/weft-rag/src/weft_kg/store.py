@@ -1,5 +1,5 @@
 """`GraphStore` — `NodeStore`, `SourceDeletable` and `Reconcilable`, over Postgres. Ledger **11.5**,
-schema and resolution pass at **11.8**.
+schema and resolution pass at **11.8**, the curated-schema record at **11.11**.
 
 **Carries forward the design of the out-of-tree graph pack's own store module, one task earlier
 in this same project's own history.** That module is Weft's own code, written for the identical
@@ -37,6 +37,7 @@ to the canonical entity a caller asks about.
 
 import asyncio
 from collections.abc import Mapping, Sequence
+from datetime import datetime
 from hashlib import sha256
 from typing import Any, Final, NewType, cast
 
@@ -60,6 +61,7 @@ from weft_kg.prompts import (
     EntityVerdict,
     SameEntity,
 )
+from weft_kg.schema import GraphSchema, ObservedTriple
 from weft_llm.contract import LLM
 from weft_prompts.cascade import execute as cascade_execute
 from weft_prompts.contract import Prompt
@@ -89,6 +91,16 @@ _RESOLUTION_CONTENT_PAGE_SIZE: Final[int] = 500
 #: `kg_schema.surface` this pack's own tables answer under — a second surface (e.g. a future
 #: alternate storage engine for the same capability) would carry its own row and its own version,
 #: never share this one.
+#:
+#: **Ledger `11.11` adds `kg_active_schema` and deliberately does not bump this constant — a
+#: decision, not an omission.** `_check_schema_version` compares exactly, so bumping it for an
+#: additive table would refuse every database this pack itself wrote yesterday, for a change that
+#: removes nothing and reinterprets nothing already stored. Upgrade-or-refuse means *refuse when
+#: meaning changed*; `kg_active_schema` is created `IF NOT EXISTS` on every connection, alongside
+#: every other table `provision_schema` already creates the same way, and reads nothing that was
+#: there before. A change that would earn a bump is one that makes an *existing* row mean
+#: something different than it did — dropping a column, changing a type, re-purposing a key —
+#: which this is not.
 KG_SCHEMA_VERSION: Final[str] = "2.0.0"
 KG_SCHEMA_SURFACE: Final[str] = "tables"
 
@@ -199,6 +211,25 @@ _CREATE_ALIAS_TRGM_INDEX = (
     "ON kg_aliases USING gin (name gin_trgm_ops)"
 )
 
+#: The corpus's own record of which curated schema it is under — ledger `11.11`, `S13`'s corpus
+#: half (the file `GraphActivateCommand` writes is the operator's own half; see
+#: `weft_kg.commands`'s module docstring). **One row, keyed on nothing but `id = 1`.** This
+#: pack's tables are already one namespace per `[packs.graph] dsn`, so today one database *is*
+#: one corpus and a single row delivers "which schema is this corpus under" in full — `S13` says
+#: *keyed by collection*, and there is no collection in this tree (`03` defers the concept and
+#: argues against building one: no command accepts one, and nothing would consult it). When a
+#: collection concept ships, this row's key becomes the collection; inventing one now would be
+#: state that looks consulted and is not, exactly what `03` refused.
+_CREATE_ACTIVE_SCHEMA_TABLE = """
+CREATE TABLE IF NOT EXISTS kg_active_schema (
+    id integer PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+    name text NOT NULL,
+    identity text NOT NULL,
+    source_path text NOT NULL,
+    activated_at timestamptz NOT NULL DEFAULT now()
+)
+"""
+
 
 class GraphSettings(BaseModel):
     """This pack's one connection setting — `[packs.graph]` in `weft.toml`.
@@ -236,6 +267,13 @@ class GraphSettings(BaseModel):
     #: configured provider tolerates is an operator's fact, not this pack's, and this pass
     #: should not disagree with the extraction stage's own bound by accident.
     max_concurrent_adjudications: int = Field(default=8, ge=1)
+    #: The project-local curated schema a `weft graph activate` run wrote — ledger `11.11`.
+    #: Empty (the default) means *no schema is active*: `LlmFactExtractor` constrains and stamps
+    #: nothing, exactly today's behaviour. A pack setting rather than stage `with:` config for
+    #: the identical reason `dsn` is: `weft graph activate` writes this path once, per project,
+    #: and every stage that reads a curated schema should read the one the corpus is actually
+    #: under rather than a value some pipeline document happened to repeat.
+    schema_file: str = ""
 
 
 class GraphDsnNotConfiguredError(WeftError):
@@ -357,6 +395,11 @@ async def provision_schema(conn: "psycopg.AsyncConnection[dict[str, Any]]") -> N
         await cur.execute(_CREATE_ENTITY_NODES_TABLE)
         await cur.execute(_CREATE_RELATIONS_TABLE)
         await cur.execute(_CREATE_ALIAS_TRGM_INDEX)
+        # `kg_active_schema` carries no foreign key onto anything created above and nothing
+        # references it in turn — its own single row stands apart from the corpus it describes,
+        # so it needs no particular position in this list beyond "created before anything reads
+        # it", which every statement in this cursor block already satisfies for its own table.
+        await cur.execute(_CREATE_ACTIVE_SCHEMA_TABLE)
     await _check_schema_version(conn)
 
 
@@ -771,6 +814,36 @@ async def _bridge_merge(
     return total
 
 
+class ActiveSchema(BaseModel):
+    """The one row `kg_active_schema` holds — ledger `11.11`. `GraphStore`'s own return shape
+    rather than a `weft_kg.schema` data model, on `weft_store.contract.Removed`/`Page`'s own
+    footing: this is what the store's `active_schema` call answers with, never a value
+    `GraphSchema` itself constructs or a curated file parses into — see `weft_kg.commands`'s
+    module docstring for the file/row split this shape is one half of.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    name: str
+    identity: str
+    source_path: str
+    activated_at: datetime
+
+
+class SchemaPresence(BaseModel):
+    """One schema identity a corpus's own `ExtractedFact` nodes carry, and how many facts carry
+    it — ledger `11.11`, `weft graph show`'s evidence that a corpus indexed under two schemas
+    holds facts from both. `identity` empty is the untagged group: facts extracted with no schema
+    active, reported on the identical footing as any named schema rather than folded into
+    whichever one happens to be active now.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    identity: str
+    facts: int = Field(ge=1)
+
+
 class GraphStore:
     """`NodeStore`, `SourceDeletable` and `Reconcilable`, all three satisfied structurally — this
     class never imports one of the Protocols, the same path any third-party store pack takes.
@@ -1149,6 +1222,107 @@ class GraphStore:
             row = await cur.fetchone()
         return cast(str, row["version"]) if row is not None else KG_SCHEMA_VERSION
 
+    # -- Ledger `11.11` — the corpus's own record of which curated schema it is under ------
+
+    async def active_schema(self) -> ActiveSchema | None:
+        """The one row `kg_active_schema` holds, or `None` when `activate_schema` has never run
+        against this database — see `ActiveSchema`'s own docstring.
+        """
+        conn = await self._connection()
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "SELECT name, identity, source_path, activated_at FROM kg_active_schema "
+                "WHERE id = 1"
+            )
+            row = await cur.fetchone()
+        if row is None:
+            return None
+        return ActiveSchema(
+            name=cast(str, row["name"]),
+            identity=cast(str, row["identity"]),
+            source_path=cast(str, row["source_path"]),
+            activated_at=cast(datetime, row["activated_at"]),
+        )
+
+    async def activate_schema(self, schema: GraphSchema, *, source_path: str) -> None:
+        """Upsert the one `kg_active_schema` row — `S13`'s corpus half; see the module docstring
+        on `_CREATE_ACTIVE_SCHEMA_TABLE` for why a single row, keyed on nothing, delivers that
+        property in full today. `source_path` is recorded as given (a curated schema file's own
+        path), never resolved or validated here — that already happened at `weft_kg.schema.
+        load_schema`, which `weft_kg.commands.GraphActivateCommand` calls before this.
+        """
+        conn = await self._connection()
+        async with conn.cursor() as cur:
+            await cur.execute(
+                """
+                INSERT INTO kg_active_schema (id, name, identity, source_path, activated_at)
+                VALUES (1, %(name)s, %(identity)s, %(source_path)s, now())
+                ON CONFLICT (id) DO UPDATE SET
+                    name = EXCLUDED.name,
+                    identity = EXCLUDED.identity,
+                    source_path = EXCLUDED.source_path,
+                    activated_at = EXCLUDED.activated_at
+                """,
+                {"name": schema.name, "identity": schema.identity, "source_path": source_path},
+            )
+
+    async def observed_triples(self) -> tuple[ObservedTriple, ...]:
+        """Every distinct `(source_type, predicate, target_type)` this corpus's own
+        `ExtractedFact` nodes already produced, with counts — `weft_kg.schema.propose_schema`'s
+        only input. Grouped and ordered in SQL, count descending, over the same `ext ? %s` /
+        `->>` jsonb access `_run_resolution_pass` already established for this pack.
+        """
+        conn = await self._connection()
+        async with conn.cursor() as cur:
+            await cur.execute(
+                """
+                SELECT ext->%(fact)s->>'source_type' AS source_type,
+                       ext->%(fact)s->>'predicate' AS predicate,
+                       ext->%(fact)s->>'target_type' AS target_type,
+                       count(*) AS n
+                FROM kg_nodes
+                WHERE ext ? %(fact)s
+                GROUP BY 1, 2, 3
+                ORDER BY n DESC, 1, 2, 3
+                """,
+                {"fact": ExtractedFact.__namespace__},
+            )
+            rows = await cur.fetchall()
+        return tuple(
+            ObservedTriple(
+                source_type=cast(str, row["source_type"]),
+                predicate=cast(str, row["predicate"]),
+                target_type=cast(str, row["target_type"]),
+                count=cast(int, row["n"]),
+            )
+            for row in rows
+        )
+
+    async def schemas_in_corpus(self) -> tuple[SchemaPresence, ...]:
+        """Every distinct `schema_id` this corpus's own `ExtractedFact` nodes carry, with counts
+        — `weft graph show`'s evidence that a corpus indexed under two schemas holds facts from
+        both. The empty identity is included on the same footing as any other: `COALESCE` turns
+        a pre-`11.11` fact with no `schema_id` key at all into the identical empty group a fresh
+        no-schema extraction produces, rather than a third, unlabelled bucket.
+        """
+        conn = await self._connection()
+        async with conn.cursor() as cur:
+            await cur.execute(
+                """
+                SELECT COALESCE(ext->%(fact)s->>'schema_id', '') AS identity, count(*) AS n
+                FROM kg_nodes
+                WHERE ext ? %(fact)s
+                GROUP BY 1
+                ORDER BY n DESC, 1
+                """,
+                {"fact": ExtractedFact.__namespace__},
+            )
+            rows = await cur.fetchall()
+        return tuple(
+            SchemaPresence(identity=cast(str, row["identity"]), facts=cast(int, row["n"]))
+            for row in rows
+        )
+
     # -- This task's own addition — nothing on any contract; see the class docstring ------
 
     async def put_entity(
@@ -1307,10 +1481,12 @@ def _row_to_source_record(row: Mapping[str, object]) -> SourceRecord:
 __all__ = [
     "KG_SCHEMA_SURFACE",
     "KG_SCHEMA_VERSION",
+    "ActiveSchema",
     "AliasId",
     "GraphDsnNotConfiguredError",
     "GraphSchemaVersionRefusedError",
     "GraphSettings",
     "GraphStore",
+    "SchemaPresence",
     "UnhandledSameEntityVerdictError",
 ]
