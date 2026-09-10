@@ -201,6 +201,18 @@ QUEUE_DEPTH_IN_STATUS = re.compile(r"^(?P<count>\d+)\b")
 #: was in. A regex is a claim about a document's shape and is checked against the document.
 NEXT_ACTION_TASK = re.compile(r"[Tt]ask\s+[*`]{0,2}(?P<identifier>\d+\.\d+)")
 
+#: A **carried repair** the Next action row may point at instead of a task —
+#: `build-ledger.md` → *Carried repairs*, whose own heading says they are "owned by no phase's
+#: content". Added 2026-09-10 at Phase 11's close, the first time the project's position was a
+#: repair rather than a task: every phase in the plan was closed, and the check refused the
+#: Status block because it fell back to ledger order and found the first unticked box three
+#: phases behind. A routing target this ledger has always had, that this script could not name.
+NEXT_ACTION_REPAIR = re.compile(r"[Rr]epair\s+[*`]{0,2}(?P<identifier>R\d+\.\d+)")
+
+#: One carried-repair line, ticked or not — `- [ ] **R11.6** …`. `TASK_ID` deliberately does not
+#: match these (its id is `\d+(\.\d+)?`), so they are parsed here and nowhere else.
+REPAIR_LINE = re.compile(r"^- \[([ xX])\]\s+\*\*(?P<identifier>R\d+\.\d+)\*\*", re.MULTILINE)
+
 #: One `### L<id> — <title>` entry in `docs/lessons.md`'s own `## Queue` section — the identical
 #: shape `.claude/hooks/lessons_context.py` counts, so the two cannot disagree about what an
 #: entry is.
@@ -277,6 +289,29 @@ def find_ledger(explicit: str | None) -> Path:
     return Path("docs/build-ledger.md")
 
 
+def _repair_failures(identifier: str) -> list[str]:
+    """Does the carried repair the Next action names exist, and is it still open?
+
+    A Next action pointing at a repair that is already ticked is `L11.14`'s defect in the other
+    kind of target: the row names something done, and a reader routed by it starts on finished
+    work. A repair the ledger does not hold at all is a pointer nobody can follow.
+    """
+    text = find_ledger(None).read_text(encoding="utf-8")
+    for state, found in ((m.group(1), m.group("identifier")) for m in REPAIR_LINE.finditer(text)):
+        if found != identifier:
+            continue
+        if state.strip():
+            return [
+                f"the Status block's Next action row points at carried repair {identifier!r}, "
+                f"and that repair is already ticked in the ledger"
+            ]
+        return []
+    return [
+        f"the Status block's Next action row points at carried repair {identifier!r}, which "
+        f"appears in no carried-repair line of the ledger"
+    ]
+
+
 def _phase_agreement_failures(tasks: list[Task], task: Task, status: dict[str, str]) -> list[str]:
     """Does the Status block's declared phase agree with the task it points at?
 
@@ -303,7 +338,16 @@ def _phase_agreement_failures(tasks: list[Task], task: Task, status: dict[str, s
         # comparison against it fails on a correct tree, which is how a check earns a
         # loosening that then hides real drift. Compare against the task the Next action
         # row actually names, and fall back to ledger order only when it names none.
-        pointed = NEXT_ACTION_TASK.search(status.get("Next action", ""))
+        next_action = status.get("Next action", "")
+        # **A repair is a legitimate destination and belongs to no phase**, so naming one
+        # settles this question rather than deferring it: there is nothing to compare a phase
+        # against. What is checked instead is that the repair exists and is still open — the
+        # same property the task branch checks, asked of the other kind of target.
+        repair = NEXT_ACTION_REPAIR.search(next_action)
+        if repair is not None:
+            failures.extend(_repair_failures(repair.group("identifier")))
+            return failures
+        pointed = NEXT_ACTION_TASK.search(next_action)
         subject = task
         if pointed is not None:
             named = next((t for t in tasks if t.identifier == pointed.group("identifier")), None)
@@ -739,13 +783,32 @@ def check_live(path: Path) -> int:
     # this script did not make. `docs/lessons.md` L8.1 was a comparison that agreed for the wrong
     # reason; a success line that misreports its own subject is the same defect one layer out,
     # and it is the line a reader trusts when deciding not to look further.
-    pointed = NEXT_ACTION_TASK.search(status.get("Next action", ""))
-    compared = pointed.group("identifier") if pointed else tasks[index].identifier
+    # **And the message says which of the three subjects it actually used.** A Next action may
+    # name a task, a carried repair (which belongs to no phase, so there is no phase comparison
+    # to report), or nothing at all — and printing the task-shaped sentence for all three is the
+    # same defect this comment's own paragraph describes, one case wider. Added 2026-09-10 with
+    # the repair branch, after the first version of it printed "its phase agrees with 9.15 (the
+    # task its own Next action row names)" about a row naming `R11.6` and no task whatever.
+    next_action = status.get("Next action", "")
+    repair = NEXT_ACTION_REPAIR.search(next_action)
+    pointed = NEXT_ACTION_TASK.search(next_action)
     queue_depth = len(QUEUE_ENTRY.findall(queue_section(path.parent / "lessons.md")))
+    if repair is not None:
+        subject = (
+            f"its Next action row names carried repair {repair.group('identifier')}, which is "
+            f"open and belongs to no phase, so no phase comparison was owed"
+        )
+    elif pointed is not None:
+        subject = f"its phase agrees with {pointed.group('identifier')}, the task that row names"
+    else:
+        subject = (
+            f"its Next action row names neither a task nor a repair, so the phase was compared "
+            f"against ledger order — {tasks[index].identifier}"
+        )
     print(
-        f"live check ok — Status block read, its phase agrees with {compared} (the task its own "
-        f"Next action row names), the lessons queue holds {queue_depth}, and every provisional "
-        f"mark in that phase is accounted for in the preamble."
+        f"live check ok — Status block read, {subject}, the lessons queue holds "
+        f"{queue_depth}, and every provisional mark in that phase is accounted for in the "
+        f"preamble."
     )
     return 0
 
