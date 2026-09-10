@@ -30,6 +30,14 @@ and `weft_kg.schema`'s for the curated-schema model `propose`/`activate` read an
 `LlmFactExtractor` also gains a `settings` binding here it did not need before: a curated schema,
 once activated, constrains and stamps every fact `llm-facts` extracts — see that module's own
 docstring for the "constrain and verify" pair this task adds to its existing five-rule filter.
+
+**Ledger `11.13` adds a fourth `Command`, `weft graph bridges` — the falsification instrument
+`11.10`'s own measured run argued for.** Registered last, after the three `11.11` shipped and
+their renderers, so `test_register.py`'s asserted pipeline-resource ordering is untouched — this
+task adds no pipeline resource at all. See `weft_kg.commands`'s own module docstring for what the
+command does and `weft_kg.bridges`'s for the pure half: a bridge is a two-hop path whose endpoints
+share no chunk, so no single-passage retriever can ever answer the question it stands for,
+whatever its embedder.
 """
 
 from functools import partial
@@ -41,11 +49,14 @@ from weft_kernel.discovery import Disclosure, PackRegistrar
 from weft_kg.commands import (
     GraphActivateCommand,
     GraphActivateResult,
+    GraphBridgesCommand,
+    GraphBridgesResult,
     GraphProposeCommand,
     GraphProposeResult,
     GraphShowCommand,
     GraphShowResult,
     render_graph_activate,
+    render_graph_bridges,
     render_graph_propose,
     render_graph_show,
 )
@@ -99,6 +110,8 @@ DISCLOSURE = Disclosure(
     filesystem=(
         "the curated schema file [packs.graph] schema_file names, read at extraction time",
         "weft.toml, read and written by `weft graph activate` to record the activated schema",
+        "the path `weft graph bridges --write PATH` names, written with the JSON "
+        "`weft eval run --questions` reads",
     ),
     subprocess=(),
     note=(
@@ -179,6 +192,10 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add_renderer(GraphProposeResult, render_graph_propose)
     registrar.add_renderer(GraphActivateResult, render_graph_activate)
     registrar.add_renderer(GraphShowResult, render_graph_show)
+    # Ledger 11.13 — the fourth Command, registered last: it adds no pipeline resource, so its
+    # position here cannot disturb test_register.py's own asserted resource ordering above.
+    registrar.add(Command, "graph bridges", partial(GraphBridgesCommand, settings))
+    registrar.add_renderer(GraphBridgesResult, render_graph_bridges)
 
 
 __all__ = [
@@ -204,6 +221,8 @@ __all__ = [
     "ExtractionTally",
     "GraphActivateCommand",
     "GraphActivateResult",
+    "GraphBridgesCommand",
+    "GraphBridgesResult",
     "GraphProposeCommand",
     "GraphProposeResult",
     "GraphSettings",
@@ -218,6 +237,7 @@ __all__ = [
     "Settings",
     "register",
     "render_graph_activate",
+    "render_graph_bridges",
     "render_graph_propose",
     "render_graph_show",
 ]

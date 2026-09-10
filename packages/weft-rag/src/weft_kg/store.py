@@ -53,6 +53,7 @@ from weft_kernel.errors import WeftError
 from weft_kernel.payload import Node, NodeId, Outcome, Produced, SourceId, Vector
 from weft_kg import resolution
 from weft_kg.adjudication import DEFAULT_ADJUDICATION_FLOOR, first_verdict, threshold_adjudicator
+from weft_kg.bridges import BridgeCandidate, BridgeHop
 from weft_kg.contract import EntityId
 from weft_kg.payload import CooccurrenceGraph, ExtractedFact, MentionedEntity
 from weft_kg.prompts import (
@@ -1323,6 +1324,191 @@ class GraphStore:
             for row in rows
         )
 
+    # -- Ledger `11.13` — `weft graph bridges`'s own two reads --------------------------------
+
+    async def relation_count(self) -> int:
+        """How many `kg_relations` rows this corpus holds — `GraphBridgesCommand`'s own way of
+        telling "no relations at all" (index the corpus) from "relations, but no bridge among
+        them" (the corpus's own finding) apart, before it ever calls `two_hop_bridges`.
+        """
+        conn = await self._connection()
+        async with conn.cursor() as cur:
+            await cur.execute("SELECT count(*) AS n FROM kg_relations")
+            row = await cur.fetchone()
+        return cast(int, row["n"]) if row is not None else 0
+
+    async def two_hop_bridges(self, *, limit: int) -> tuple[BridgeCandidate, ...]:
+        """Every two-hop path `A --p1--> B --p2--> C` this corpus's own `kg_relations` rows
+        support, where no single `kg_nodes` row names both `A` and `C` — see `weft_kg.bridges`'s
+        module docstring for why that is the property a bridge exists to guarantee.
+
+        **Routed through `kg_aliases`, never through `kg_entities` directly** — `kg_relations`
+        and `kg_entity_nodes` both key on the alias, per the module docstring's ledger `11.8`
+        note, and `_refuse_pre_118_layout` is what rejects a database still keyed the old way.
+
+        **Walked undirected, and the stored direction survives the walk.** `edges` doubles every
+        `kg_relations` row into both directions, the identical shape `GraphWalk.neighbourhood`
+        walks — reach does not care which way a relation points. A *predicate* does, and that
+        walk states none while this one prints one, so each doubled row carries
+        `walked_backwards` and `_bridge_candidate_of` orients the hop by it. Without that column
+        a hop reached against its own direction prints the corpus's claim inverted, beside a
+        citation that is perfectly real.
+
+        **Each hop's citation is entirely its own**: `cited` joins `kg_entity_nodes` twice per
+        hop, once per that hop's own two endpoint aliases (the exact alias ids the underlying
+        `kg_relations` row names, not just any alias of the resolved entity) — a node that
+        anchors both is the fact (or co-occurrence edge) that stated that hop.
+
+        **The two-hop endpoints sharing no node is this walk's own filter** (`named`'s
+        `NOT EXISTS`), read over every alias of the two endpoint *entities* — this is what makes
+        a candidate a bridge in the first place, and it is checked against every alias, not only
+        the ones this particular path happened to use. `chunks_by_entity` is a second,
+        independent query over the identical fact and must never reuse this clause — see
+        `weft_kg.bridges.bridges_from`.
+
+        **Deduplicated in two stages.** `named` keeps only the mirror where
+        `source_name < target_name`, so `A-B-C` and `C-B-A` are the same bridge once; `deduped`'s
+        `DISTINCT ON (source_entity, via_entity, target_entity)` keeps exactly one citing node
+        pair per triple when several predicates or several fact nodes could evidence it, chosen
+        by an `ORDER BY` over the predicates and node ids so two runs over one corpus agree.
+
+        Final order is `source_name, via_name, target_name` — a function of the corpus alone,
+        never of a plan's own row order — and `limit` bounds it, the identical shape
+        `weft_kg.schema.propose_schema`'s own caller-supplied bound takes one level up.
+        """
+        conn = await self._connection()
+        async with conn.cursor() as cur:
+            await cur.execute(
+                """
+                WITH edges AS (
+                    SELECT r.source_alias AS from_alias, r.target_alias AS to_alias,
+                           r.predicate AS predicate, FALSE AS walked_backwards,
+                           sa.entity_id AS from_entity, ta.entity_id AS to_entity
+                    FROM kg_relations r
+                    JOIN kg_aliases sa ON sa.id = r.source_alias
+                    JOIN kg_aliases ta ON ta.id = r.target_alias
+                    UNION ALL
+                    SELECT r.target_alias AS from_alias, r.source_alias AS to_alias,
+                           r.predicate AS predicate, TRUE AS walked_backwards,
+                           ta.entity_id AS from_entity, sa.entity_id AS to_entity
+                    FROM kg_relations r
+                    JOIN kg_aliases sa ON sa.id = r.source_alias
+                    JOIN kg_aliases ta ON ta.id = r.target_alias
+                ),
+                paths AS (
+                    SELECT
+                        e1.from_entity AS source_entity,
+                        e1.to_entity AS via_entity,
+                        e2.to_entity AS target_entity,
+                        e1.from_alias AS source_alias,
+                        e1.to_alias AS first_via_alias,
+                        e1.predicate AS first_predicate,
+                        e1.walked_backwards AS first_walked_backwards,
+                        e2.from_alias AS second_via_alias,
+                        e2.to_alias AS target_alias,
+                        e2.predicate AS second_predicate,
+                        e2.walked_backwards AS second_walked_backwards
+                    FROM edges e1
+                    JOIN edges e2 ON e2.from_entity = e1.to_entity
+                    WHERE e1.from_entity <> e1.to_entity
+                      AND e2.from_entity <> e2.to_entity
+                      AND e1.from_entity <> e2.to_entity
+                ),
+                named AS (
+                    SELECT p.*, se.name AS source_name, ve.name AS via_name,
+                           te.name AS target_name
+                    FROM paths p
+                    JOIN kg_entities se ON se.id = p.source_entity
+                    JOIN kg_entities ve ON ve.id = p.via_entity
+                    JOIN kg_entities te ON te.id = p.target_entity
+                    WHERE se.name < te.name
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM kg_entity_nodes en_a
+                          JOIN kg_aliases aa ON aa.id = en_a.alias_id
+                          JOIN kg_entity_nodes en_c ON en_c.node_id = en_a.node_id
+                          JOIN kg_aliases ac ON ac.id = en_c.alias_id
+                          WHERE aa.entity_id = p.source_entity
+                            AND ac.entity_id = p.target_entity
+                      )
+                ),
+                cited AS (
+                    SELECT n.source_entity, n.source_name, n.via_entity, n.via_name,
+                           n.target_entity, n.target_name,
+                           n.first_predicate, n.first_walked_backwards,
+                           hop1.node_id AS first_node_id,
+                           n.second_predicate, n.second_walked_backwards,
+                           hop2.node_id AS second_node_id
+                    FROM named n
+                    JOIN kg_entity_nodes hop1a ON hop1a.alias_id = n.source_alias
+                    JOIN kg_entity_nodes hop1
+                        ON hop1.alias_id = n.first_via_alias
+                       AND hop1.node_id = hop1a.node_id
+                    JOIN kg_entity_nodes hop2 ON hop2.alias_id = n.second_via_alias
+                    JOIN kg_entity_nodes hop2b
+                        ON hop2b.alias_id = n.target_alias
+                       AND hop2b.node_id = hop2.node_id
+                ),
+                deduped AS (
+                    SELECT DISTINCT ON (source_entity, via_entity, target_entity)
+                        source_entity, source_name, via_name, target_entity, target_name,
+                        first_predicate, first_walked_backwards, first_node_id,
+                        second_predicate, second_walked_backwards, second_node_id
+                    FROM cited
+                    ORDER BY source_entity, via_entity, target_entity,
+                             first_predicate, second_predicate, first_node_id, second_node_id
+                )
+                SELECT d.source_entity, d.source_name, d.via_name,
+                       d.target_entity, d.target_name,
+                       d.first_predicate, d.first_walked_backwards,
+                       d.first_node_id, n1.sources AS first_sources,
+                       d.second_predicate, d.second_walked_backwards,
+                       d.second_node_id, n2.sources AS second_sources
+                FROM deduped d
+                JOIN kg_nodes n1 ON n1.id = d.first_node_id
+                JOIN kg_nodes n2 ON n2.id = d.second_node_id
+                ORDER BY d.source_name, d.via_name, d.target_name
+                LIMIT %(limit)s
+                """,
+                {"limit": limit},
+            )
+            rows = await cur.fetchall()
+        return tuple(_bridge_candidate_of(row) for row in rows)
+
+    async def chunks_by_entity(self, entity_ids: Sequence[str]) -> Mapping[str, frozenset[str]]:
+        """The frozenset of `kg_entity_nodes.node_id` reachable through each id in `entity_ids`'s
+        own aliases — `GraphBridgesCommand`'s independent second measurement of the vector
+        ceiling, see `weft_kg.bridges`'s module docstring for why it must never reuse
+        `two_hop_bridges`'s own `NOT EXISTS` clause.
+
+        Keys are exactly the requested ids this store holds an entity row for: an id with no
+        nodes maps to an empty frozenset, an id not in `kg_entities` at all is **absent** —
+        `GraphWalk.nodes_for_entities`'s own documented rule, restated here rather than
+        reinvented, because presence and "found nothing" must mean the same two different things
+        in both readers of this schema.
+        """
+        if not entity_ids:
+            return {}
+        conn = await self._connection()
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "SELECT e.id AS entity_id, en.node_id AS node_id "
+                "FROM kg_entities e "
+                "LEFT JOIN kg_aliases a ON a.entity_id = e.id "
+                "LEFT JOIN kg_entity_nodes en ON en.alias_id = a.id "
+                "WHERE e.id = ANY(%s)",
+                (list(entity_ids),),
+            )
+            rows = await cur.fetchall()
+        result: dict[str, set[str]] = {}
+        for row in rows:
+            entity_id = cast(str, row["entity_id"])
+            result.setdefault(entity_id, set())
+            node_id = row["node_id"]
+            if node_id is not None:
+                result[entity_id].add(cast(str, node_id))
+        return {entity_id: frozenset(nodes) for entity_id, nodes in result.items()}
+
     # -- This task's own addition — nothing on any contract; see the class docstring ------
 
     async def put_entity(
@@ -1475,6 +1661,44 @@ def _row_to_source_record(row: Mapping[str, object]) -> SourceRecord:
         pipeline=cast(str, row["pipeline"]),
         pipeline_identity=cast(str, row.get("pipeline_identity") or ""),
         status=SourceStatus(row["status"]),
+    )
+
+
+def _bridge_candidate_of(row: Mapping[str, object]) -> BridgeCandidate:
+    """One row of `two_hop_bridges`'s own final `SELECT` into a `BridgeCandidate`.
+
+    Hop endpoints are the **canonical entity names** either side of that hop, never the raw alias
+    names `kg_relations` stores, so a hop reads consistently with `source_name`/`via_name`/
+    `target_name` whichever surface form the underlying fact used — and they are ordered by
+    `walked_backwards`, so `source --predicate--> target` is the sentence the corpus actually
+    wrote rather than the direction this walk happened to arrive from. `BridgeHop`'s own
+    docstring carries why those are two different facts.
+    """
+    source_name = cast(str, row["source_name"])
+    via_name = cast(str, row["via_name"])
+    target_name = cast(str, row["target_name"])
+    first_backwards = cast(bool, row["first_walked_backwards"])
+    second_backwards = cast(bool, row["second_walked_backwards"])
+    return BridgeCandidate(
+        source_entity=cast(str, row["source_entity"]),
+        source_name=source_name,
+        via_name=via_name,
+        target_entity=cast(str, row["target_entity"]),
+        target_name=target_name,
+        first=BridgeHop(
+            source=via_name if first_backwards else source_name,
+            predicate=cast(str, row["first_predicate"]),
+            target=source_name if first_backwards else via_name,
+            node_id=cast(str, row["first_node_id"]),
+            documents=tuple(sorted(cast("list[str]", row["first_sources"]))),
+        ),
+        second=BridgeHop(
+            source=target_name if second_backwards else via_name,
+            predicate=cast(str, row["second_predicate"]),
+            target=via_name if second_backwards else target_name,
+            node_id=cast(str, row["second_node_id"]),
+            documents=tuple(sorted(cast("list[str]", row["second_sources"]))),
+        ),
     )
 
 

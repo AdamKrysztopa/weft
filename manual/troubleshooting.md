@@ -3385,3 +3385,66 @@ correct, because every project needs a node store. A project that never names th
 should not have to read past a failure for a pack it is not using, so this one registers cleanly
 and refuses at the first call that genuinely needs a connection. `weft plugins doctor` will show
 `graph (weft-rag): active` on a machine where this error is one command away, and both are true.
+
+### `NoRelationsToBridgeError`
+
+**What it looks like** — `weft graph bridges` was asked for two-hop paths in a corpus whose graph
+holds no relation at all. Reproduced from outside the repository, against installed wheels and a
+database of its own:
+
+```text
+$ weft graph bridges
+weft_kg has no relations to bridge: this corpus holds no kg_relations row at all. Index a corpus
+through a rung that names the llm-facts stage — `weft index <path> --pipeline index-with-facts` is
+the shipped one — and run this again. A corpus built with `index-with-cooccurrence` also produces
+relations, on a machine with no model configured.
+$ echo $?
+1
+```
+
+**What to do.** Index through a rung that builds a graph. `index-with-facts` asks a model for the
+relations each chunk states; `index-with-cooccurrence` needs no model and no credential, and is
+the one to reach for on a machine that has nothing but Postgres.
+
+**The other empty answer is not this error, and the difference is the whole point.** A corpus that
+*does* hold relations, none of which forms a bridge, is not a failure — it is the finding, and
+`bridges` prints it and exits `0`:
+
+```text
+$ weft graph bridges
+0 bridge(s) found among 1 relation(s)
+this corpus's relations are all answerable from a single chunk, so it holds no question on which a
+graph must beat a vector baseline. A larger corpus, or a rung that extracts more facts, is what
+produces one.
+$ echo $?
+0
+```
+
+That is `weft_kg.schema.propose_schema`'s own split between *nothing was extracted* and *nothing
+survived the bar*, one command over: telling an operator who has just indexed to go and index is
+advice for a problem they do not have.
+
+### `CeilingDisagreesError`
+
+**What it looks like.** Nothing, on any input — and that is what the entry has to say rather than
+show. **No transcript is printed here because none could be produced**: this error fires only when
+two independent queries over the same Postgres rows contradict each other, which no corpus, flag
+or configuration can arrange from outside. Every attempt to reproduce it through the binary at
+ledger `11.13` returned agreement, correctly. What it would print is the message
+`weft_kg.bridges._ceiling_disagreement_message` builds, naming the two endpoint entities, at exit
+`1`.
+
+**Why an error exists for a thing that cannot be made to happen.** `weft graph bridges` prints a
+*vector ceiling* — how many chunks in this corpus hold both endpoints of a question, which is `0`
+by the definition of a bridge. Reading that number off the same `NOT EXISTS` clause that selected
+the bridge would be a comparison whose two sides come from one source, and it could never disagree
+with itself (`docs/lessons.md` `L5.6`). So the ceiling is measured a second time, by
+`GraphStore.chunks_by_entity`, a different query with a different filter — and this error is what
+happens when the two answers differ. It is the seam that makes the printed number a measurement
+rather than a restatement.
+
+**What to do if you ever see it.** Nothing in your corpus caused it; report it. The two queries it
+names are `weft_kg.store.GraphStore.two_hop_bridges` and
+`weft_kg.store.GraphStore.chunks_by_entity`, and one of them is wrong about a database both can
+read. Neither number is printed, deliberately — printing either would be printing a measurement
+nothing checked.

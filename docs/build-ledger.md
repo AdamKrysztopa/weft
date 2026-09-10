@@ -8759,7 +8759,7 @@ that assumed one was withdrawn from the plan before it reached this list.
   carries. Gate `GATE_EXIT=0` read out of the run's own log: 270 architecture, 2274 passed, 9
   skipped, 127 examples — fourteen more than 11.2's 2260, which is this task's fourteen tests and
   no shrink*
-- [ ] **11.13** a corpus's own facts yield the questions on which vector retrieval must fail: a
+- [x] **11.13** a corpus's own facts yield the questions on which vector retrieval must fail: a
   `weft graph bridges` command lists two-hop paths whose endpoints share no chunk, each hop with
   its own citation, and prints the vector ceiling on the same question first · owner `09` §4.3 ·
   turns on — · sha — · *the graph-specific half of the falsification instrument; the general half
@@ -8767,6 +8767,77 @@ that assumed one was withdrawn from the plan before it reached this list.
   it. Generated questions are **diagnostic**, never V2 ground truth: the command writes them with
   `kind = "requires-graph-hop"` and an empty `reference_answer` that `eval/check_questions.py`
   refuses until a person fills it*
+  · **Done. Tests, documents and the direction repair mine; `weft_kg/bridges.py`, the two store
+  reads, the command and its renderer by a dispatched `weft-implementer`.** `weft graph bridges`
+  is the pack's fourth `Command`, registered at the same seam the three `11.11` shipped use and
+  needing no new mechanism, exactly as the Next-action row predicted.
+  **What a bridge is, and the one word that had to be argued.** `A --p1--> B --p2--> C` where **no
+  single `kg_nodes` row names both `A` and `C`** — a *chunk*, never a document, because `01`'s
+  falsification argument is about what a single-passage retriever can answer from, and the unit a
+  retriever returns is a node. Two facts in one document but different chunks are still a bridge,
+  exactly as they would be for a real vector search over that corpus.
+  **The ceiling is measured twice, and that is the task's own load-bearing design.** The walk's
+  `NOT EXISTS` clause is what *selects* a bridge, so reading the ceiling off it would be `L5.6`
+  exactly — a comparison whose two sides come from one source and can never fail.
+  `GraphStore.chunks_by_entity` is an independent second query, `bridges_from` compares the two,
+  and `CeilingDisagreesError` refuses to print either number when they differ. The check can fail
+  and was watched failing: `test_a_ceiling_that_disagreed_with_the_walk_is_refused` plants the
+  disagreement, and its twin one function up proves the comparison is not simply refusing
+  everything.
+  **The question artefact is two artefacts, and the owner settled which on 2026-09-10.** There are
+  two question shapes in this tree and they do not meet: V2's `eval/questions/*.toml`
+  (`reference_answer` required, `Kind` a closed enum) and the JSON `weft eval run --questions`
+  reads (`weft_cli.eval_scoring.Question`, `extra="forbid"`, no `reference_answer` field).
+  **Phase 11's Exit needs the JSON**, because `weft eval compare … --kind requires-graph-hop` can
+  only see a kind a *scored run* recorded. So `--write` emits the JSON, and the renderer prints the
+  V2 skeleton as pasteable TOML on `graph propose`'s own propose-edit-activate idiom.
+  **`eval/check_questions.py` is deliberately untouched**, and the option's stated cost turned out
+  to be avoidable: adding a `REQUIRES_GRAPH_HOP` member would have been refused anyway by that
+  file's own cross-document rule — *"'cross-document' means more than one and nothing else means
+  it"* — because a bridge question spans two documents by construction, and narrowing that rule is
+  settled text `phase-step` says to reopen rather than patch. Left alone, the skeleton is refused
+  on **both** the empty `reference_answer` and the kind, which is a stronger guard than the line
+  above claims; two tests assert it through the real V2 reader rather than against a copy of its
+  rules.
+  **No `quote` is written, and that is `11.14`'s own sentence arriving where it is first
+  load-bearing.** A hop's citation is the node whose `ExtractedFact` stated it, and a fact node's
+  content is the model's *rendering* of a triple — a claim derived from a chunk, not the chunk's
+  own words. V2 verifies a quote by finding it verbatim in the extracted document, so a span taken
+  off a fact node would be ground truth that is false about the corpus. The command cites the node
+  and leaves the quote to a person.
+  **A defect the implementer flagged and no test could see — `L11.42`.** The walk doubles every
+  `kg_relations` row into both directions, which is what `GraphWalk.neighbourhood` has always done
+  and is right for *reach*. This command prints a **predicate**, so a hop traversed backwards
+  printed the corpus's claim inverted — `Azouz --authored-by--> mRMR` where the corpus said the
+  reverse — beside a citation that was perfectly real. Every fixture in the test file happened to
+  store its relations in the direction the walk took, so none of them could disagree. Repaired by
+  me with a `walked_backwards` column carried through the query and a test built on the one input
+  where the two orientations differ; the renderer now prints the walk as `A — B — C` with a plain
+  dash and each fact with its own arrow, so a reader sees both facts rather than one standing in
+  for the other.
+  **Ran the binary from outside this repository against built wheels, in a database of its own
+  (`CREATE DATABASE weft_kg13m`), row counts asserted before and after (`L8.30`).** The **default,
+  flagless** `weft graph bridges` (`L9.64`) on a two-document corpus indexed with
+  `index-with-cooccurrence` — no model, no credential — found one bridge and printed
+  `vector ceiling: 0 chunk(s) hold both endpoints; best single chunk holds 1 of 2; 2 chunk(s) hold
+  either` **before** the path. Both refusal branches: no relations at all → exit `1` naming the
+  rung to run; relations but no bridge → the finding printed, exit `0`. `--write` produced a file
+  `weft eval run --questions` read back unchanged.
+  **And the instrument separates the two rungs, which is what the task exists for.** On a
+  twelve-document corpus (the bridge's two documents plus ten distractors carrying no name at all),
+  `weft eval compare <graph-run> <vector-run> --kind requires-graph-hop --baseline
+  index-with-cooccurrence` reports **`outside-baseline-spread` on every metric — `Δ-1.000`,
+  baseline spread `0.000-0.000`** — with `09` §4.3's zero-width caveat printed beside each. The
+  graph rung scores `1.000` on `recall@2`, `precision@2`, `ndcg@2` and MAP; the vector baseline
+  scores `0.000`. `11.10`'s measured finding was that the demonstration corpus was too small to
+  show a difference; this is that difference, on questions the corpus's own facts produced.
+  **`01` → Phase 11's Exit clause is discharged in substance and its own wording is wrong —
+  `L11.43`.** It reads `weft eval compare graph-then-generate retrieve-then-generate --baseline
+  retrieve-then-generate`; `<a>`/`<b>` are **run ids**, and `--baseline` matches
+  `RunRecord.resolved_pipeline`, the **ingest** pipeline — a run record persists no query pipeline
+  at all (seven keys, none of them one). `--baseline retrieve-then-generate` refuses at exit `4`,
+  correctly and loudly, naming the pipelines actually run. Corrected in `01` at `11.14`.
+  Gate `GATE_EXIT=0` read out of the run's own log, both containers up*
 - [ ] **11.14** every name this pack registers has its row in `10` — origin, whether the name is
   earned, what the shipped implementation is faithful to — and the manuals name each rung where a
   reader looks, including that a citation on a fact is a citation on a claim *derived from* a

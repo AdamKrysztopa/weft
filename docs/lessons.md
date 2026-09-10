@@ -1258,6 +1258,75 @@ have failed on both of mine.
 → *Finish*, which already says to run the binary and read what it prints, and does not say that
 what it prints is what the manual must contain.
 
+### L11.42 — a walk is undirected and a fact is not, and one column carried the difference
+
+**What happened.** `weft graph bridges` (task `11.13`) walks `kg_relations`, which stores a
+direction. Its SQL doubles every row into both directions — the identical thing
+`GraphWalk.neighbourhood` has always done, and right, because *reach* does not care which way a
+relation points. This command then **prints the predicate**, and the doubled row had lost which way
+the fact was written: a hop the walk traversed backwards printed `Azouz --authored-by--> mRMR`
+when the corpus had said *mRMR was authored-by Azouz*. A false claim, one arrowhead wide, standing
+beside a citation that was perfectly real — `CLAUDE.md`'s own "plausible answer against the wrong
+data", in the output of the command whose whole purpose is to be evidence.
+
+**How it was caught is the finding.** Not by a test — every test in `test_graph_bridges.py` used a
+fixture whose relations happened to run the same way as the walk, so none of them could see it. It
+was caught by the dispatched implementer **flagging its own decision** in its report: *"`BridgeHop.
+source`/`target` are the canonical entity names oriented to the overall path direction… none of the
+shipped tests exercise a relation stored in the reverse orientation."* It said so plainly, called
+it the only choice consistent with the properties as specified — which was true — and did not know
+that the properties as specified were what needed changing. `implementer-brief.md` § *Review what
+comes back* asks *did it decide something?*; this is the case where the answer arrived in writing
+and was still one read away from being missed.
+
+**Generalises to.** When a representation gains a field the source representation **ordered** — a
+predicate, a signature, a from/to, an actor — every place the old code was free to treat the two
+directions as interchangeable becomes a place that must now choose, and the choice is invisible in
+a fixture that is symmetric. So: *before reusing an undirected traversal to print a directed
+statement, find the one input where the two disagree, and make a test out of it.* The reused code
+being correct is not the question; what it was correct **about** is.
+
+**Candidate home.** `phase-step` → *Red*, beside the existing rule that a comparison whose two sides
+come from one source cannot disagree. This is its twin one level up: a *fixture* whose two sides
+cannot disagree — every relation in it stored in the direction the walk happens to take — makes a
+whole class of assertion vacuous without any assertion looking wrong. Alternatively `implementer-
+brief.md` → *Review what comes back*, whose item 2 could say that a decision the agent **volunteers**
+is the highest-value line in its report and is read before the diff, not after it.
+
+### L11.43 — the Exit criterion is a command line, and no part of it is the command
+
+**What happened.** `01` → Phase 11's Exit ends with `weft eval compare graph-then-generate
+retrieve-then-generate --baseline retrieve-then-generate`, restricted to `kind =
+requires-graph-hop`. Run from outside the repository against installed wheels, **none of that
+invocation is how the shipped command works.** `<a>` and `<b>` are **run ids** (`runs/<uuid4>.json`
+filename stems), not pipeline names. And `--baseline` is matched against
+`RunRecord.resolved_pipeline`, which is the **ingest** pipeline — a run record carries no query
+pipeline at all: its seven keys are `active_distributions`, `corpus`, `durations`, `metrics`,
+`model_versions`, `recorded_at`, `resolved_pipeline`. So a comparison of two *query rungs* can
+never be judged against a *query rung* baseline, because nothing persists which query rung a run
+used. `--baseline retrieve-then-generate` refuses at exit **4**, correctly and loudly: *"names no
+persisted baseline repetition under 'runs'… Pipelines actually run: index-with-cooccurrence."*
+
+**The exit is met in substance**, and that is what makes this a documentation defect rather than a
+gap: naming the ingest pipeline both runs share reports `outside-baseline-spread` on every metric,
+`Δ-1.000` against a baseline spread of `0.000-0.000`, with the zero-width caveat `09` §4.3 requires
+printed beside it. The instrument works. The sentence that specifies it does not run.
+
+**Generalises to.** An exit criterion, a manual, a docstring or a ledger line that states a
+**literal command line** is making a claim about a CLI surface, and this repository checks worked
+transcripts (`08` §3, `L6.19`, `L11.41`) while checking exit criteria not at all. `01`'s Exit
+clauses are the most load-bearing sentences in the plan and the least checked. The rule:
+*a command line written into a document is output-shaped, so it is run before it is written, on the
+same footing as a `$` block in `manual/`* — and where it cannot be run at the time the phase is
+planned, it names the property rather than the invocation.
+
+**Candidate home.** Two candidates and they are different sizes. The small one: `phase-step` →
+*Close the phase* item 4 already says to re-check the exit **against what exists**; it could say
+that a clause containing a command line is re-checked *by running it*. The mechanical one: extend
+`L11.41`'s proposed transcript checker to `01`'s Exit blocks — a fenced or backticked `weft …`
+invocation in `docs/` is either parseable by the shipped argparse tree or it is fiction, and the
+argparse tree is already built from the registry by `weft_cli.cli._add_command_level`.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in
