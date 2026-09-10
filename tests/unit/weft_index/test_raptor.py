@@ -21,9 +21,12 @@ import asyncio
 import math
 import re
 from collections.abc import Mapping, Sequence
+from typing import Any
 
 import pytest
+from pydantic import ValidationError
 
+import weft_index.raptor as raptor_module
 from weft_blob.contract import BlobStore
 from weft_embed.contract import Embedder
 from weft_index.contract import Expander
@@ -1899,3 +1902,59 @@ async def test_a_summary_over_a_non_text_member_needs_no_describer_or_blob_store
         f"{outcome}"
     )
     assert any(len(node.lineage.parents) > 1 for node in outcome.value)
+
+
+async def test_min_cluster_size_is_refused_whether_cluster_size_was_typed_or_resolved() -> None:
+    """Carried repair **R10.5** — the same misconfiguration, refused on both paths.
+
+    `min_cluster_size` cannot exceed `cluster_size`: no cluster could ever reach the minimum
+    needed to be summarised, so the run would silently summarise nothing. Typed, that is a
+    config-time `ValueError`. Resolved from `auto`, the number does not exist until `run` sees
+    this run's own payload — and `docs/lessons.md` `L10.30` is that the check was therefore
+    **absent** on that path, so `cluster_size: auto` was an exemption from a rule an operator
+    who typed the same number could not escape.
+
+    **Two vehicles, deliberately, and that is not the two disagreeing.** A typed value is wrong
+    when the document is read, so it raises where every other malformed `with:` block does. A
+    resolved value is wrong only for *this run's* payload, so it is a `Failed` outcome the run
+    reports — not an exception, because nothing was misconfigured until the data arrived. What
+    the repair asks is that both *refuse*, and that both say the same thing about why.
+    """
+    # Arrange / Act — the typed path, refused when the document is read.
+    with pytest.raises(ValidationError) as typed:
+        RaptorConfig(cluster_size=2, min_cluster_size=4)
+
+    # Assert
+    assert "cannot exceed cluster_size" in str(typed.value)
+
+    # Arrange — the resolved path. `auto` is accepted at config time, because there is nothing
+    # to compare against yet; the refusal has to survive as far as the resolution.
+    config = RaptorConfig(cluster_size="auto", min_cluster_size=4)
+    assert config.min_cluster_size == 4, "the config itself is legal — that is the whole point"
+
+    # Act
+    refuse = _private_member(raptor_module, "_refuse_cluster_size_below_minimum")
+    refusal = refuse(min_cluster_size=4, resolved_cluster_size=2)
+
+    # Assert — the same claim, worded for a run rather than for a document.
+    assert refusal is not None
+    assert "cannot exceed cluster_size" in refusal.reason
+    assert "auto resolved to" in refusal.reason, (
+        "the resolved refusal must say the number came from `auto`, or an operator reads it as "
+        "a complaint about a value they never wrote."
+    )
+
+    # And the rule is not fired when it should not be.
+    assert refuse(min_cluster_size=2, resolved_cluster_size=4) is None
+
+
+def _private_member(module: object, name: str) -> Any:
+    """One private module member, by name.
+
+    Importing a `_`-prefixed name trips pyright's `reportPrivateUsage` and a `getattr` with a
+    literal trips ruff's `B009`; taking the name as a *parameter* is neither. The idiom
+    `tests/architecture/test_ff13_filter_op_dispatch_is_exhaustive.py` documents, used here
+    because the subject genuinely is the private function — it is the one place the resolved
+    path's refusal is composed, and carried repair `R10.5` is about that refusal existing.
+    """
+    return getattr(module, name)

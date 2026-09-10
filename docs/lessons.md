@@ -111,6 +111,8 @@ find the digit in the Blocked-by row, and fail when they differ. Failing that, `
 own **Protocol** section, which tells a closing session which rows to edit and does not say that a
 number in one of them is a measurement.
 
+**Edges.** `refines L10.18` — stated in this entry's own prose above, written here in the form `scripts/lessons_graph.py` reads. Carried repair `R9.12` taught the script the open queue; an entry that names a recurrence only in a sentence is still invisible to it.
+
 ### L12.3 — a filed repair carried a claim about a versioning policy the tree had already settled
 
 **What happened.** Carried repair `R11.6` (`docs/build-ledger.md:6119-6122`) states the envelope
@@ -142,6 +144,8 @@ step's *"before recommending where a thing should live, grep the settled documen
 that location"* is the identical act one subject over and is the sentence to extend. Note for the
 drain: `L12.2` and this entry are both a **claim written into a routing document without the
 measurement that would have checked it** — one a count, one a policy — and may route together.
+
+**Edges.** `refines L5.32` — stated in this entry's own prose above, written here in the form `scripts/lessons_graph.py` reads. Carried repair `R9.12` taught the script the open queue; an entry that names a recurrence only in a sentence is still invisible to it.
 
 ### L12.4 — the transcript was real, the raise site it was blamed on was never opened
 
@@ -180,6 +184,8 @@ transcript**, and both were caught by one cheap probe in the session that finall
 one grep, one `--json`. They may route together, and if they do the rule is about the *filing* step
 rather than the acting step.
 
+**Edges.** `refines L9.34` — stated in this entry's own prose above, written here in the form `scripts/lessons_graph.py` reads. Carried repair `R9.12` taught the script the open queue; an entry that names a recurrence only in a sentence is still invisible to it.
+
 ### L12.5 — my brief introduced an exception class and named none of the sites keyed on one
 
 **What happened.** R11.3's brief mandated a new `weft_cli.compile.RefusedStagePluginError` and
@@ -209,6 +215,8 @@ what needs widening from "names a base class" to "introduces or re-parents an ex
 for the drain: this is `L8.12`'s **fifth** site found by a fifth mechanism, and the mechanisms are
 now good — both checks caught it in seconds and named the rule. What is left to fix is only the
 brief-writing step, which argues for a sentence rather than a new check.
+
+**Edges.** `recurs L8.12` — stated in this entry's own prose above, written here in the form `scripts/lessons_graph.py` reads. Carried repair `R9.12` taught the script the open queue; an entry that names a recurrence only in a sentence is still invisible to it.
 
 ### L12.6 — six tests, six single-row fixtures, and the defect was in the row *labels*
 
@@ -252,6 +260,8 @@ failed` accurately in the very run where the refusal one module over printed sev
 `weft-rag`s. That sharpens the routing: the convention existed, in this repository, one import away,
 and the new code did not go looking for it — which is `L11.2`'s rule (*grep for the machinery it may
 already have*) applied to a **convention** rather than to a mechanism.
+
+**Edges.** `refines L11.42` — stated in this entry's own prose above, written here in the form `scripts/lessons_graph.py` reads. Carried repair `R9.12` taught the script the open queue; an entry that names a recurrence only in a sentence is still invisible to it.
 
 ### L12.7 — I reverted the file I planted in, and the lockfile kept the plant
 
@@ -357,6 +367,8 @@ already carries the 3.9 fact and scopes it to hooks alone; the sentence to widen
 covers. Note for the drain: this is the third entry in this queue produced by a check that was
 right about its own question and wrong about the one being asked (`L12.7`, `L12.8`, this).
 
+**Edges.** `refines L11.35` — stated in this entry's own prose above, written here in the form `scripts/lessons_graph.py` reads. Carried repair `R9.12` taught the script the open queue; an entry that names a recurrence only in a sentence is still invisible to it.
+
 ### L12.10 — the plan's next action is a group of repairs and the router can only name one
 
 **What happened.** Closing `R11.3` made the remaining backlog legible as **four groups**, not
@@ -428,6 +440,8 @@ derivation is not writable in general, but *this* one is — `RoleTable` fixture
 from `role_table_from_reports(discover(...))` and narrowed, rather than written out, which is
 `L11.17`'s "copy the existing double" applied to a fixture that has a real source available.
 
+**Edges.** `refines L12.6` — stated in this entry's own prose above, written here in the form `scripts/lessons_graph.py` reads. Carried repair `R9.12` taught the script the open queue; an entry that names a recurrence only in a sentence is still invisible to it.
+
 ### L12.12 — `pytest.raises(WeftError)` plus a substring accepted the error that said the opposite
 
 **What happened.** Repairing `R9.4` I made `effective_config` omit a declared role nothing selects,
@@ -470,6 +484,8 @@ mechanical form is worth the drain's attention: a `tests/` check that every `pyt
 this project already uses. `WeftError` has enough subclasses that catching the base in a test is
 almost always a widening nobody intended.
 
+**Edges.** `refines L9.43` — stated in this entry's own prose above, written here in the form `scripts/lessons_graph.py` reads. Carried repair `R9.12` taught the script the open queue; an entry that names a recurrence only in a sentence is still invisible to it.
+
 ### L12.13 — the optional method was on the sink, the decorator, and nothing in between
 
 **What happened.** `R10.1` gives a sink an optional `show_only_stage`, reached by `getattr` so it
@@ -507,6 +523,8 @@ is narrower and cheap: a `tests/` check that every `getattr(x, "<name>", None)` 
 optional method has a test naming the decorator types that must forward it — this tree has exactly
 one such decorator today (`_EmissionTrackingSink`) and one such reach, so the check would be small
 and would have fired.
+
+**Edges.** `refines L9.87` — stated in this entry's own prose above, written here in the form `scripts/lessons_graph.py` reads. Carried repair `R9.12` taught the script the open queue; an entry that names a recurrence only in a sentence is still invisible to it.
 
 ## When the queue is empty
 

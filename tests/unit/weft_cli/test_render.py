@@ -36,6 +36,7 @@ from weft_cli.error_envelope import ENVELOPE_VERSION
 from weft_cli.exit_codes import ExitCode
 from weft_cli.output import AskFormat
 from weft_cli.reconcile import ReconcileEstimateOutcome, ReconcileOutcome
+from weft_cli.render import render_applies_to
 from weft_command.contract import CommandResult
 from weft_generate.payload import Answer, AnswerStance, Citation
 from weft_kernel.discovery import PackRegistrar, PackReport, PackStatus
@@ -1652,3 +1653,29 @@ def test_reconcile_says_nothing_about_abstentions_when_there_were_none() -> None
 
     # Assert
     assert "abstained" not in (rendered.stdout or "")
+
+
+def test_pipeline_show_renders_an_applies_to_the_way_applies_writes_itself() -> None:
+    # Arrange — carried repair **R9.11** (`docs/lessons.md` `L9.45`). `Applies.__repr__` was
+    # written for the one human audience there is — someone reading `weft pipeline show` — and
+    # was rendered nowhere: this renderer printed `dumped["applies_to"]`, the JSON dump, so an
+    # operator read `{'fact': 'weft_clean.property:Language', 'constraints': [['code', 'pl']]}`
+    # where the class already knows how to say `Applies(Language, code='pl')`.
+    #
+    # The entry offers two remedies — reach it or delete it. Reaching it is the one that keeps
+    # the work: the dump is a serialisation form, and this is the only place a person reads it.
+    from weft_kernel.payload import MediaType
+    from weft_kernel.payload.applicability import Applies
+
+    applies = Applies(media_type=MediaType.TABLE)
+
+    # Act
+    rendered = render_applies_to(applies)
+
+    # Assert — the class's own words, not the dump's.
+    assert rendered == repr(applies)
+    assert "Applies(" in rendered
+    assert "{" not in rendered, (
+        "a brace means the model dump leaked back into the human rendering, which is the "
+        "state this repair was filed about."
+    )

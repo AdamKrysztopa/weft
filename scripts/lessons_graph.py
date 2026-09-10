@@ -28,12 +28,21 @@ from collections import defaultdict
 from pathlib import Path
 
 ARCHIVE = Path(__file__).resolve().parents[1] / "docs" / "lessons-archive.md"
+QUEUE = Path(__file__).resolve().parents[1] / "docs" / "lessons.md"
 
 _DRAIN = re.compile(r"^## (\d{4}-\d{2}-\d{2}) — (.+)$")
 _ENTRY = re.compile(r"^- \*\*(L[\d.]+)\*\*\s+(.*)$")
 _EDGE = re.compile(r"`(refines|supersedes|moves|recurs|reverses|caused-by) (L[\d.]+)`")
 # The format block inside the prose uses the same shapes; skip the fenced example.
 _FENCE = re.compile(r"^```")
+# `docs/lessons.md`'s own open entries — `### L12.5 — a title`, a level-3 heading, where the
+# archive's drained entries are `- **L12.5** …` bullets (`_ENTRY` above). Two shapes for the
+# same fact because the queue is prose written before a title is settled, one entry per
+# heading, while the archive is a dense list a drain writes all at once.
+_QUEUE_ENTRY = re.compile(r"^### (L[\d.]+) — (.+)$")
+# Any level-2 heading — used only to find where `## Queue` starts and where it ends: the next
+# `## ` heading, whatever it is named. `_QUEUE_ENTRY`'s three hashes never match this.
+_SECTION = re.compile(r"^## (.+)$")
 
 EDGES = ("refines", "supersedes", "moves", "recurs", "reverses", "caused-by")
 
@@ -75,6 +84,55 @@ def parse(text: str) -> tuple[dict[str, str], list[tuple[str, str, str]]]:
             continue
         # Any other non-blank, non-indented line ends the entry it followed.
         current = None
+
+    return entries, edges
+
+
+def parse_queue(text: str) -> tuple[dict[str, str], list[tuple[str, str, str]]]:
+    """Return `{id: title}` and a list of `(source, edge, target)` for `docs/lessons.md`'s
+    open **Queue** section alone — carried repair **R9.12** (`docs/lessons.md` `L9.91`).
+
+    Bounded to the text between the `## Queue` heading and the next `## ` heading, whatever
+    it is named. `docs/lessons.md` also carries an *Applied* section and a closing note, both
+    of which mention lesson ids — reading either would report an already-applied rule as an
+    unresolved recurrence, the opposite of what this script is for.
+
+    An entry here is a level-3 heading, `### L12.5 — a title`, where the archive's own
+    entries are `- **L12.5** …` bullets (`_ENTRY`, read by `parse`). An edge may appear
+    anywhere in the entry's body, on any line up to the next entry or the end of the
+    section — the queue is prose written one entry at a time, not `parse`'s dense bulleted
+    list, so `parse`'s indentation-only continuation rule has nothing to match here and
+    every line belongs to whichever entry most recently opened.
+    """
+    entries: dict[str, str] = {}
+    edges: list[tuple[str, str, str]] = []
+    fenced = False
+    in_queue = False
+    current: str | None = None
+
+    for line in text.splitlines():
+        if _FENCE.match(line):
+            fenced = not fenced
+            continue
+        if fenced:
+            continue
+        if match := _SECTION.match(line):
+            if in_queue:
+                # Any other level-2 heading closes the Queue section.
+                break
+            if match.group(1).strip() == "Queue":
+                in_queue = True
+            continue
+        if not in_queue:
+            continue
+        if match := _QUEUE_ENTRY.match(line):
+            lesson_id: str = match.group(1)
+            entries[lesson_id] = match.group(2)
+            edges += [(lesson_id, kind, target) for kind, target in _EDGE.findall(line)]
+            current = lesson_id
+            continue
+        if current is not None:
+            edges += [(current, kind, target) for kind, target in _EDGE.findall(line)]
 
     return entries, edges
 
@@ -143,14 +201,25 @@ def _report_recurrence(recurs: dict[str, list[str]]) -> int:
 
 def main() -> int:
     try:
-        text = ARCHIVE.read_text(encoding="utf-8")
+        archive_text = ARCHIVE.read_text(encoding="utf-8")
     except OSError as exc:
         print(f"cannot read {ARCHIVE}: {exc}", file=sys.stderr)
         return 2
+    try:
+        queue_text = QUEUE.read_text(encoding="utf-8")
+    except OSError as exc:
+        print(f"cannot read {QUEUE}: {exc}", file=sys.stderr)
+        return 2
 
-    entries, edges = parse(text)
+    archive_entries, archive_edges = parse(archive_text)
+    queue_entries, queue_edges = parse_queue(queue_text)
+    # A union, not two separate checks: an edge from an open queue entry to an archived one
+    # must resolve, not read as dangling, and an edge the other way round (rare, but not
+    # forbidden) must resolve too — that is the whole point of reading both files here.
+    entries: dict[str, str] = {**archive_entries, **queue_entries}
+    edges = archive_edges + queue_edges
     if not entries:
-        print("archive holds no drained entries yet — nothing to check.")
+        print("archive and queue hold no entries yet — nothing to check.")
         return 0
 
     reverses: dict[str, list[str]] = defaultdict(list)
@@ -168,7 +237,10 @@ def main() -> int:
     problems = _report_oscillation(reverses) + _report_recurrence(recurs)
 
     for source, kind, target in sorted(dangling):
-        print(f"DANGLING — {source} `{kind} {target}` but {target} is not in the archive.")
+        print(
+            f"DANGLING — {source} `{kind} {target}` but {target} is not in the archive "
+            "or the queue."
+        )
 
     # `recurs` counts here even though a single recurrence is not yet a hard problem: the run
     # above prints "RECURRENCE — L5.32 re-learned 1x" and the clean summary used to follow it

@@ -57,7 +57,12 @@ from collections.abc import Mapping, Sequence
 from pydantic import BaseModel
 
 from weft_cli.exit_codes import ExitCode
-from weft_cli.pack_attribution import attribute_to_packs, install_hint
+from weft_cli.pack_attribution import (
+    attribute_to_packs,
+    install_hint,
+    unavailable_message,
+    unavailable_surface,
+)
 from weft_kernel.discovery import PackReport
 from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_kernel.pipeline import Pipeline
@@ -273,22 +278,33 @@ def _contract_for(
     stage: str,
     reports: Sequence[PackReport],
 ) -> type[object]:
-    """Which registered contract answers for the bare plugin name `use` — exactly one, or refuse."""
+    """Which registered contract answers for the bare plugin name `use` — exactly one, or refuse.
+
+    **Carried repair R9.5** (`docs/lessons.md` `L9.86`) checked first, before matches are
+    even computed: a pack may still register `use` — the entry point exists — while
+    discovery already declared that exact surface `unavailable`, with its own reason and
+    remedy. Left unchecked, such a document resolves, runs, and fails with only the vendor
+    library's own sentence, discarding the reason and remedy discovery already had. The
+    check is scoped to `use` itself (`unavailable_surface`'s own contract), so a pack that
+    declared one surface unavailable and is otherwise fine never refuses a document that
+    names something else it provides.
+    """
+    name = pipeline.name if pipeline is not None else None
+    unavailable = unavailable_surface(reports, use)
+    if unavailable is not None:
+        raise UnknownStagePluginError(
+            unavailable_message(unavailable, name=use, stage=stage),
+            valid_options=_installed_names(registry),
+            pipeline=name,
+            stages=(stage,),
+            remedy=unavailable.reason,
+        )
     matches = sorted(
         (contract for contract in registry.contracts() if _registers(registry, contract, use)),
         key=lambda contract: contract.__name__,
     )
-    name = pipeline.name if pipeline is not None else None
     if not matches:
-        installed = tuple(
-            sorted(
-                {
-                    plugin
-                    for contract in registry.contracts()
-                    for plugin in registry.names_for(contract)
-                }
-            )
-        )
+        installed = _installed_names(registry)
         refusal = attribute_to_packs(
             reports,
             name=use,
@@ -334,6 +350,18 @@ def _contract_for(
             ),
         )
     return matches[0]
+
+
+def _installed_names(registry: Registry) -> tuple[str, ...]:
+    """Every plugin name registered under any contract — the `valid_options` a `use:` that
+    failed to resolve is offered, computed once so the unavailable-surface branch and the
+    no-matches branch of `_contract_for` cannot answer the same question differently.
+    """
+    return tuple(
+        sorted(
+            {plugin for contract in registry.contracts() for plugin in registry.names_for(contract)}
+        )
+    )
 
 
 def _install_remedy(reports: Sequence[PackReport], *, use: str) -> str | None:

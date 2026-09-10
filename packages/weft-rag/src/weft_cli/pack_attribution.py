@@ -31,6 +31,7 @@ from dataclasses import dataclass
 
 from weft_cli.exit_codes import ExitCode
 from weft_kernel.discovery import PackReport, PackStatus
+from weft_kernel.seam import Unavailable
 
 #: The statuses that mean a distribution is installed and permitted, and still did not put
 #: everything it publishes in the registry. `attribute_to_packs` names these when a plugin
@@ -139,6 +140,44 @@ def attribute_to_packs(
         exit_code=ExitCode.RESOLUTION_FAILED,
         message=_compose(wanted, registered),
         valid_options=valid_options,
+    )
+
+
+def unavailable_surface(reports: Sequence[PackReport], name: str) -> Unavailable | None:
+    """The first `Unavailable` any report in `reports` declared for surface `name`, else
+    `None` — carried repair **R9.5** (`docs/lessons.md` `L9.86`).
+
+    An `unavailable` surface is a pack-level fact stated at discovery, exactly like a
+    `failed`/`partial` pack — but where those are keyed on the whole pack, this is keyed
+    on one surface a pack otherwise able to register may still not be able to provide
+    (`weft_kernel.discovery.PackReport.unavailable`). A caller scopes the refusal to the
+    surface actually named, never the whole pack: only a document naming *this* surface
+    is refused for it, so `unavailable_surface` answers the one question either seam
+    needs — "did discovery already say `name` cannot be provided, and why" — rather than
+    the caller re-walking `reports` and `report.unavailable` itself, the day a second
+    caller (`weft eval`) needs the identical lookup.
+    """
+    for report in reports:
+        for item in report.unavailable:
+            if item.surface == name:
+                return item
+    return None
+
+
+def unavailable_message(unavailable: Unavailable, *, name: str, stage: str) -> str:
+    """The refusal sentence for a `use:` naming a surface discovery already reported
+    unavailable — composed here, beside `attribute_to_packs`, so a document-path refusal
+    and `weft plugins doctor`'s own printing of the identical `Unavailable` cannot drift
+    into two different sentences for one fact.
+
+    `unavailable.reason` is carried **verbatim and whole**, never spliced from `str(exc)`
+    and never abridged: it is the pack's own words, and it is where the remedy lives — a
+    run that only repeats the vendor library's own failure, with no reason and no remedy
+    attached, is exactly the defect `L9.86` recorded.
+    """
+    return (
+        f"stage '{stage}' names plugin '{name}', which discovery already reported "
+        f"unavailable for {unavailable.distribution}: {unavailable.reason}"
     )
 
 

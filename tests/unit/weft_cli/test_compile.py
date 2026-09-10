@@ -37,6 +37,7 @@ from weft_kernel.pipeline import InsertOperator, Pipeline, SlotDeclaration, Stag
 from weft_kernel.registry import Registry
 from weft_kernel.resolution import Contribution, resolve
 from weft_kernel.runner import Runner, StageCompositionError, StageSpec
+from weft_kernel.seam import Unavailable
 from weft_retrieve.contract import (
     ContextPacker,
     Fuser,
@@ -593,3 +594,72 @@ def test_two_failed_packs_in_one_distribution_are_told_apart_in_the_message() ->
     assert "weft-rag (failed); weft-rag (failed)" not in message
     assert "weft-rag[qdrant]" in message
     assert "weft-rag[pdf]" in message
+
+
+def test_a_document_naming_an_unavailable_plugin_is_refused_with_the_reason_discovery_gave() -> (
+    None
+):
+    # Arrange — carried repair **R9.5** (`docs/lessons.md` `L9.86`). A pack that cannot provide
+    # a surface declares it `unavailable` at discovery and says why, and `weft plugins doctor`
+    # prints that reason with its remedies: *"weights not found under …: Either point the
+    # 'artifacts_path' pack setting at a directory that already holds them, or fetch them there
+    # with docling's own downloader"*. A run in that same state got none of it — the plugin was
+    # still registered, so a document naming it resolved, ran, and failed with the vendor's own
+    # sentence and no remedy at all.
+    #
+    # **The wide fix, at the seam, and not a string match on a vendor message** — which is what
+    # `L9.80` warns goes stale silently. An `unavailable` surface is a pack-level fact exactly
+    # like a failed pack, so it is refused where a failed pack's plugin already is, by the
+    # attributor carried repair `R11.3` built.
+    registry = _registry()
+    reports = (
+        PackReport(
+            pack="docling",
+            distribution="weft-rag",
+            status=PackStatus.PARTIAL,
+            unavailable=(
+                Unavailable(
+                    distribution="weft-rag",
+                    surface="pdf-layout-model",
+                    reason="weights not found under /models: fetch them with docling's downloader",
+                ),
+            ),
+        ),
+    )
+    pipeline = Pipeline(name="q", stages=(StageDeclaration(id="extract", use="pdf-layout-model"),))
+
+    # Act / Assert
+    with pytest.raises(UnknownStagePluginError) as caught:
+        contracts_for(pipeline, registry=registry, reports=reports, parents={})
+    message = str(caught.value)
+    assert "pdf-layout-model" in message
+    assert "weights not found under /models" in message, (
+        "the reason discovery already gave must reach the run — that is the whole repair."
+    )
+    assert "docling's downloader" in message, (
+        "and the remedy with it: a reason without its remedy is the vendor sentence again."
+    )
+
+
+def test_an_unavailable_surface_of_a_pack_a_document_does_not_name_is_not_mentioned() -> None:
+    # Arrange — the control. A pack may declare a surface unavailable and be otherwise fine;
+    # only a document that actually names *that surface* is refused for it. Without this, the
+    # repair would turn one pack's missing weights into a refusal of every unrelated pipeline.
+    registry = _registry()
+    reports = (
+        PackReport(
+            pack="docling",
+            distribution="weft-rag",
+            status=PackStatus.PARTIAL,
+            unavailable=(
+                Unavailable(
+                    distribution="weft-rag", surface="pdf-layout-model", reason="weights not found"
+                ),
+            ),
+        ),
+    )
+    pipeline = Pipeline(name="q", stages=(StageDeclaration(id="retrieve", use="vector-top-k"),))
+
+    # Act / Assert — resolves, because nothing it names is unavailable.
+    contracts = contracts_for(pipeline, registry=registry, reports=reports, parents={})
+    assert "retrieve" in contracts

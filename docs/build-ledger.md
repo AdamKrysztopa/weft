@@ -5857,12 +5857,48 @@ it had read one failure (`L7.1`).
   resolving one: two readers, one lookup, so `effective_config` never catches a refusal for
   control flow. **Built by me, not dispatched** — every file is a test, a document or the seam
   the repair is about
-- [ ] **R9.5** a run-time failure on a condition already reported `unavailable` at discovery
+- [x] **R9.5** a run-time failure on a condition already reported `unavailable` at discovery
   carries the same remedy the discovery message gave · owner `02` §2 → *The trust model* · `L9.86` ·
   `weft plugins doctor` names the directory and two remedies; a run in the same state prints the
   vendor's own sentence and no remedy at all. The wide fix is at the registration seam, where
   `CLAUDE.md` says cross-cutting concerns attach; the narrow one is a string match on a vendor
   message, which is the shape `L9.80` warns goes stale silently
+
+  **Closed 2026-09-10, and the wide fix is the one that was taken.** An `unavailable` surface is
+  a **pack-level fact exactly like a failed pack**, so it is refused where a failed pack's plugin
+  already is — `weft_cli.compile._contract_for`, through the `weft_cli.pack_attribution`
+  attributor carried repair `R11.3` built two commits earlier. No string match on a vendor
+  message; the pack already said why, in its own words, and the repair is that those words
+  survive as far as the run. `UnknownStagePluginError` at exit **4**, never
+  `RefusedStagePluginError` at 3: `02` §2 is explicit that a name lost to `failed` or `partial`
+  stays 4 *because neither is a policy decision*, and missing weights are not policy.
+
+  **Scoped to the surface named.** A pack may declare one surface unavailable and be otherwise
+  fine; only a document naming that surface is refused for it, which the second test pins —
+  without it the repair would turn one pack's missing weights into a refusal of every unrelated
+  pipeline.
+
+  **Confirmed from the shipped binary**, using `weft_eval`'s own declaration rather than
+  `weft_docling`'s: without its extra the docling pack cannot import at all, so it never reaches
+  `registrar.unavailable` and the branch is unreachable in a bare install — a thing worth knowing
+  about which declaration is testable and which is not.
+
+  ```
+  $ weft plugins doctor
+  eval (weft-rag) 2.4.0: partial (28 contributed)
+    unavailable: 'bertscore' — needs the optional 'bert_score' package, which is not
+    installed. Install weft-rag's 'bertscore' extra to run this metric.
+
+  $ weft pipeline validate scores-with-bertscore
+  stage 'score' names plugin 'bertscore', which discovery already reported unavailable for
+  weft-rag: needs the optional 'bert_score' package, which is not installed. Install
+  weft-rag's 'bertscore' extra to run this metric.
+  $ echo $?
+  4
+  ```
+
+  The remedy is carried **whole**: abridging it is the defect coming back one sentence shorter.
+  **Dispatched to a `weft-implementer`** with `R9.11` and `R9.12`, tests written first
 - [x] **R9.6** every field a shipped pack's `Settings` model exposes is named in
   `weft.toml.example`, or its absence is stated as deliberate · owner `08` → the manuals ·
   `L9.77` · `[packs.openai]` documents `api_key` and not `base_url`, the field
@@ -5926,9 +5962,22 @@ it had read one failure (`L7.1`).
   owner `02` §3 · `L9.12` · `Pipeline.slots` is placed, id-qualified and recorded by resolution, and
   **no document in the tree declares one**, so the consuming half has never run against a real
   producer
-- [ ] **R9.11** `Applies.__repr__` is reached by a command, or it is deleted · owner `03` ·
+- [x] **R9.11** `Applies.__repr__` is reached by a command, or it is deleted · owner `03` ·
   `L9.45` · written for the one human audience there is and rendered nowhere:
   `weft pipeline show` dumps the model instead
+
+  **Closed 2026-09-10 — reached, not deleted**, which is the remedy that keeps the work. The dump
+  is a serialisation form and `weft pipeline show` is the only place a person reads this, which is
+  exactly the audience `__repr__` was written for. `weft_cli.render.render_applies_to` is the
+  seam, so the *reason* the dump is not used here has somewhere to be written down.
+
+  ```
+  $ weft pipeline show index-polish
+    normalize: Cleaner:unicode-normalize (distribution: weft-rag, provenance: index-text)
+      applies_to: Applies(media_type=(text))
+  ```
+
+  Before, that line read `[{'fact': None, 'constraints': [], 'media_type': ['text']}]`
 - [x] **R10.1** a person reading a streamed answer sees the answer and not the stages that built
   it · owner `weft_cli/sinks.py`; `weft_llm/payload.py`'s `TokenChunk` · filed 2026-09-08 at task
   10.15, **found by running the binary** · `PrintingSink` decides what to show from
@@ -6036,10 +6085,24 @@ it had read one failure (`L7.1`).
   and adds a fresh set of summaries beside the old, and the comparison silently spans a store that
   grew between its arms — which makes every multi-arm number in this phase's baselines a measurement
   of a moving corpus
-- [ ] **R10.5** a cross-field validator refuses the same misconfiguration whether the field it
+- [x] **R10.5** a cross-field validator refuses the same misconfiguration whether the field it
   depends on was typed or resolved · owner `weft_index.raptor.RaptorConfig` · `L10.30` ·
   `min_cluster_size: 4` is refused by name beside a typed `cluster_size: 2` and accepted in silence
   beside `cluster_size: auto` that resolves to 2
+
+  **Closed 2026-09-10, and it was already repaired — at task `10.19`, before this entry was
+  read.** `_refuse_cluster_size_below_minimum` runs on the resolved path with the comment
+  *"Refusal A, task 10.19 — the resolved rule must survive `auto`, or `auto` is an exemption from
+  it"*, which is this repair's own sentence arrived at independently. Verified by running both
+  paths rather than by reading them, and pinned with a test so the entry cannot go stale again.
+
+  **Two vehicles, deliberately, and that is not the two disagreeing.** A typed `cluster_size: 2`
+  beside `min_cluster_size: 4` is wrong when the document is read, so it raises where every other
+  malformed `with:` block does. A resolved value is wrong only for *this run's* payload, so it is
+  a `Failed` outcome the run reports — nothing was misconfigured until the data arrived. What the
+  repair asks is that both **refuse** and both say the same thing about why, and the resolved one
+  adds *"which cluster_size: auto resolved to for this run"* so an operator is not shown a
+  complaint about a number they never wrote
 - [ ] **R10.6** every published distribution installs alone into a clean environment and its pack
   reports `active` rather than `failed` · owner `tests/architecture`; FF9c's throwaway-venv rig ·
   `L10.41` · `weft-openai` imported Pillow without declaring it and registered **zero** of its three
@@ -6061,11 +6124,34 @@ it had read one failure (`L7.1`).
   a phase later. The finding was tested and came back **four-to-one against mechanical**;
   see `R10.2` for the measurement behind each, and `L11.4` for the duplicate filing
 
-- [ ] **R9.12** `scripts/lessons_graph.py` reads `docs/lessons.md`'s open Queue as well as the
+- [x] **R9.12** `scripts/lessons_graph.py` reads `docs/lessons.md`'s open Queue as well as the
   archive · owner this repository's own loop · `L9.91` · a recurrence is visible only once archived,
   which happens *after* the drain — so the phase whose queue is densest with recurrences is the one
   the detector can say least about. Phase 9's drain found **six** recurrences inside Phase 9 that
   the script could not see, every one stated in the entries' own prose
+
+  **Closed 2026-09-10.** `parse_queue` reads `docs/lessons.md`'s `## Queue` section — `### Lx.y`
+  headings where the archive has `- **Lx.y**` bullets, one vocabulary in two shapes — and `main`
+  unions both files before building the graph, so an edge from an open entry to an archived one
+  resolves instead of reading as dangling. Bounded at the next `## `, because that file also
+  carries an *Applied* section and a closing note that mention lesson ids, and reading those
+  would report an applied rule as an unresolved recurrence.
+
+  **The machinery worked and its subject was empty, which is the more useful half of this.** The
+  parser read all thirteen open entries and **zero** edges: every recurrence in this queue was
+  stated in prose — *"`L8.12`'s fifth instance"* — and not in the `` `recurs L8.12` `` form the
+  detector reads. Nine entries were given the edge their own text already claimed, and the
+  detector immediately reported `L12.5` as a recurrence of `L8.12` **while still open**, which is
+  the whole property:
+
+  ```
+  $ python scripts/lessons_graph.py
+  RECURRENCE — L8.12 re-learned 2x (by L12.5, L9.29): read its instances.
+  307 entries, 118 edges — see the findings above.
+  ```
+
+  294 archived plus 13 open; 109 edges plus 9. Before this the second number in each pair was
+  invisible until a drain — and a drain is exactly when someone is deciding what a phase learned
 
 - [x] **R11.1** one unreadable figure in one document does not fail the run that was indexing a
   corpus, and whatever is refused says which document and which page it was in · owner

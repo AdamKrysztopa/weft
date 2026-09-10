@@ -117,6 +117,7 @@ from weft_generate.payload import AnswerStance, Citation
 from weft_kernel.discovery import PackRegistrar, PackReport, PackStatus, RendererOffer
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import NothingToProduce, Outcome, Produced
+from weft_kernel.payload.applicability import Applies
 from weft_kernel.registry import Registry, UnknownPluginError
 
 
@@ -617,6 +618,23 @@ def _render_ask(result: AskCommandResult, *, streamed: bool, as_json: bool = Fal
     return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
 
 
+def render_applies_to(applies: Applies) -> str:
+    """One `Applies` constraint, rendered the way `Applies` writes itself — carried repair
+    **R9.11** (`docs/lessons.md` `L9.45`).
+
+    `Applies.__repr__` was written for the one human audience there is: someone reading
+    `weft pipeline show`, e.g. `Applies(Language, code='pl')`. Before this repair,
+    `_render_pipeline_show` printed `dumped["applies_to"]` instead — the JSON dump `Applies`
+    itself is validated from, `{'fact': 'weft_clean.property:Language', 'constraints':
+    [['code', 'pl']]}` — because nothing called `repr()` on the value it already held. A
+    function rather than an inline `repr(...)` at the one call site, so a test can drive
+    this seam directly and so this docstring is where the next reader finds *why* the dump
+    is never used here: a serialisation form is not a rendering, and `weft pipeline show`
+    is the only place a person reads this value at all.
+    """
+    return repr(applies)
+
+
 def _render_pipeline_list(result: PipelineListCommandResult) -> Rendered:
     stdout = "\n".join(result.names) if result.names else "no pipelines known."
     return Rendered(stdout=stdout, stderr=None, exit_code=ExitCode.SUCCESS)
@@ -646,7 +664,8 @@ def _render_pipeline_show(result: PipelineShowCommandResult) -> Rendered:
         if dumped["config"]:
             lines.append(f"    with: {dumped['config']}")
         if stage.applies_to:
-            lines.append(f"    applies_to: {dumped['applies_to']}")
+            rendered_applies = ", ".join(render_applies_to(item) for item in stage.applies_to)
+            lines.append(f"    applies_to: {rendered_applies}")
         if stage.fallback:
             lines.append(f"    fallback: {', '.join(stage.fallback)}")
 
