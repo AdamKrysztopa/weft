@@ -329,7 +329,7 @@ Nothing survives its document.
 
 Each is a question, **one** recommendation, and what it costs. None is a menu.
 
-### D1 — Where does `__transient__` strip? *(Settled 2026-09-06 as a narrowing of `02` §1 → *The payload model* — the block under `docs/02-extension-model.md:409 "Built in"`; Phase 9 task 9.1. The citations below are as written on 2026-08-18: the strip is now the call at `seam.py:421 "stage=st"` and the walk at `:492-524`, and the prose it corrects is at `02:409-414`.)*
+### D1 — Where does `__transient__` strip? *(Settled 2026-09-06 as a narrowing of `02` §1 → *The payload model* — the block under `docs/02-extension-model.md:409 "Built in"`; Phase 9 task 9.1. The citations below are as written on 2026-08-18: the strip is now the call at `seam.py:460 "stage=stage_label,"` and the walk at `:492-524`, and the prose it corrects is at `02:409-414`.)*
 
 ---
 

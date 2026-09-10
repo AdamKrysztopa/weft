@@ -461,7 +461,7 @@ whether or not the producing stage ever ran.
 > point. G5's row (`README.md:141 "python3 "`) states what transience *is* and never where it is applied, which is
 > why this is a narrowing under `09` §6.2 and not a Reopened row; the alternative — moving the strip
 > to the store boundary so a namespace could carry bytes between stages — would have been a kernel
-> change at `seam.py:421 "stage=st"`, would reinstate the N-strategies-N-copies cost `11` §1.4 measures, and would
+> change at `seam.py:460 "stage=stage_label,"`, would reinstate the N-strategies-N-copies cost `11` §1.4 measures, and would
 > still leave nothing readable at query time. `11` §3 D1 is settled by this block.
 
 **Stages declare what they read and write.** `requires` and `provides` name ext models, and the

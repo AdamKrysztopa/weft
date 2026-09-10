@@ -90,7 +90,7 @@ from weft_kernel.payload import Produced
 from weft_kernel.pipeline import Pipeline
 from weft_kernel.registry import Registry
 from weft_kernel.resolution import Contribution, resolve
-from weft_kernel.runner import PipelineResolutionError, Runner
+from weft_kernel.runner import PipelineResolutionError, Runner, StageSpec
 from weft_llm.contract import TokenSink
 from weft_retrieve.contract import RoutingPolicy
 from weft_retrieve.payload import Query, QuerySet, Route
@@ -242,6 +242,7 @@ async def run_routed_ask(
     route = await _run_pipeline(
         router,
         query,
+        sink=sink,
         registry=registry,
         runner=runner,
         ctx=routed_ctx,
@@ -275,6 +276,7 @@ async def run_routed_ask(
     answer = await _run_pipeline(
         target,
         query_set,
+        sink=sink,
         entry_type=QuerySet,
         registry=registry,
         runner=runner,
@@ -466,6 +468,7 @@ async def run_named_ask(
     answer = await _run_pipeline(
         target,
         query_set,
+        sink=sink,
         entry_type=QuerySet,
         registry=registry,
         runner=runner,
@@ -534,10 +537,38 @@ async def _prepared_runner(
     return runner, routed_ctx, store, roles, role_instances
 
 
+def show_only_the_answering_stage(specs: Sequence[StageSpec], *, sink: TokenSink) -> None:
+    """Tell `sink` which stage produces the answer, so nothing else interleaves with it.
+
+    **Carried repair `R10.1`.** A sink filters on `TokenChunk.role`, and a role names a *model
+    mapping* — so two stages calling a model on the answering role are one thing to it. The
+    first pipeline with a concurrent query-time summariser printed five cluster summaries
+    interleaving word by word above an answer that was itself correct, on a run whose
+    configuration was right (`10.15`, found by running the binary). The last stage is the one
+    whose output is returned, so it is the one a reader is waiting for.
+
+    **Reached by `getattr`, deliberately.** `show_only_stage` is not on `weft_llm.contract.
+    TokenSink` and must not be: adding a method to a published contract breaks every
+    implementation at once, first- and third-party alike (`09` §3, G9's *Bring* list). This is a
+    convenience `weft-cli`'s own two sinks offer; a pack's own sink that does not is simply not
+    told, and behaves exactly as every sink did before this repair.
+
+    An empty `specs` tells the sink nothing rather than naming a stage that does not exist —
+    `Runner.resolve` already refuses to build a pipeline out of one, so this is defensive
+    rather than reachable, and *saying so* is cheaper than a reader wondering.
+    """
+    if not specs:
+        return
+    narrow = getattr(sink, "show_only_stage", None)
+    if narrow is not None:
+        narrow(specs[-1].id)
+
+
 async def _run_pipeline(
     pipeline: Pipeline,
     payload: object,
     *,
+    sink: TokenSink,
     registry: Registry,
     runner: Runner,
     ctx: Context,
@@ -613,6 +644,7 @@ async def _run_pipeline(
         contributions=contributions,
     )
     specs = to_specs(resolved, registry=registry, reports=reports)
+    show_only_the_answering_stage(specs, sink=sink)
     check_store_capabilities(
         specs,
         registry=registry,

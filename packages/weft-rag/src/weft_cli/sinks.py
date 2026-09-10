@@ -125,9 +125,28 @@ class StreamEvent(BaseModel):
     message: str = ""
 
 
-def _visible(chunk: TokenChunk, display_roles: Set[str]) -> bool:
-    """Whether `chunk` reaches a reader at all — see the module docstring's filtering rule."""
-    return chunk.role in display_roles
+def _visible(chunk: TokenChunk, display_roles: Set[str], display_stage: str | None) -> bool:
+    """Whether `chunk` reaches a reader at all — see the module docstring's filtering rule.
+
+    **Two independent filters since carried repair `R10.1`.** The role filter is unchanged: a
+    critic's or a grader's own role never reaches a reader. The stage filter is the new one, and
+    it exists because a role names a *model mapping* — so two stages calling a model on the
+    answering role are indistinguishable to a role filter, and the first pipeline to do that
+    concurrently printed its intermediate summaries interleaved with the answer.
+
+    `display_stage` is `None` until something tells the sink which stage produces the answer,
+    and `None` shows every stage. That is the honest default rather than a lax one: the sink is
+    built in `weft_cli.cli.main` before any pipeline is resolved, so at construction it does not
+    know, and filtering on a stage nobody named would suppress every chunk in the tree.
+
+    A chunk whose own `stage` is `""` is shown too. Empty means *nothing was in scope to stamp
+    it* — a provider called outside a wrapped stage — and reading that as "some other stage"
+    would swallow the only output such a caller produces. `TokenChunk.stage` carries the same
+    convention at the other end.
+    """
+    if chunk.role not in display_roles:
+        return False
+    return display_stage is None or chunk.stage in {"", display_stage}
 
 
 class PrintingSink:
@@ -168,10 +187,28 @@ class PrintingSink:
     ) -> None:
         self._stream: IO[str] = stream if stream is not None else sys.stdout
         self._display_roles = display_roles
+        self._display_stage: str | None = None
         self.wrote_anything = False
 
+    def show_only_stage(self, stage: str) -> None:
+        """Show chunks from `stage` alone (plus unstamped ones) — carried repair **R10.1**.
+
+        A *setter* rather than a constructor argument, because the answer's stage is not known
+        when the sink is built: `weft_cli.cli.main` chooses the sink from the global flags before
+        `build_dependencies` runs, and which stage ends the pipeline is decided later, by
+        whichever of the router or `--pipeline` picked one. Whoever resolves the pipeline tells
+        the sink; until then it shows everything, exactly as it always did.
+
+        Reached through `getattr` by its one caller rather than added to `weft_llm.contract.
+        TokenSink`: adding a method to a published contract breaks every implementation at once
+        (`09` §3, G9's *Bring* list), and this is a convenience the CLI's own two sinks offer,
+        not a promise every sink must keep. `weft_kernel.runner._flush_of`'s defensive
+        duck-typing is the same idiom, for the same reason.
+        """
+        self._display_stage = stage
+
     async def emit(self, chunk: TokenChunk) -> None:
-        if not _visible(chunk, self._display_roles):
+        if not _visible(chunk, self._display_roles, self._display_stage):
             return
         self._stream.write(chunk.text)
         self._stream.flush()
@@ -214,10 +251,28 @@ class JsonSink:
     ) -> None:
         self._stream: IO[str] = stream if stream is not None else sys.stdout
         self._display_roles = display_roles
+        self._display_stage: str | None = None
         self.wrote_anything = False
 
+    def show_only_stage(self, stage: str) -> None:
+        """Show chunks from `stage` alone (plus unstamped ones) — carried repair **R10.1**.
+
+        A *setter* rather than a constructor argument, because the answer's stage is not known
+        when the sink is built: `weft_cli.cli.main` chooses the sink from the global flags before
+        `build_dependencies` runs, and which stage ends the pipeline is decided later, by
+        whichever of the router or `--pipeline` picked one. Whoever resolves the pipeline tells
+        the sink; until then it shows everything, exactly as it always did.
+
+        Reached through `getattr` by its one caller rather than added to `weft_llm.contract.
+        TokenSink`: adding a method to a published contract breaks every implementation at once
+        (`09` §3, G9's *Bring* list), and this is a convenience the CLI's own two sinks offer,
+        not a promise every sink must keep. `weft_kernel.runner._flush_of`'s defensive
+        duck-typing is the same idiom, for the same reason.
+        """
+        self._display_stage = stage
+
     async def emit(self, chunk: TokenChunk) -> None:
-        if not _visible(chunk, self._display_roles):
+        if not _visible(chunk, self._display_roles, self._display_stage):
             return
         self.wrote_anything = True
         self._write(StreamEvent(type=StreamEventType.CHUNK, role=chunk.role, text=chunk.text))

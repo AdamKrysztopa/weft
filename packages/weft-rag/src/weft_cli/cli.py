@@ -377,6 +377,24 @@ class _EmissionTrackingSink:
     async def close(self, *, reason: str | None = None) -> None:
         await self._sink.close(reason=reason)
 
+    def show_only_stage(self, stage: str) -> None:
+        """Forward carried repair **R10.1**'s narrowing to the sink underneath.
+
+        **A decorator that forwards a contract's methods and not the optional one silently
+        drops it**, and this one did: `weft_cli.route_ask.show_only_the_answering_stage` reaches
+        for `show_only_stage` with `getattr`, found nothing on this wrapper, and did nothing —
+        so the whole repair was inert on every path the CLI actually runs, while its unit tests
+        passed against a hand-written double that had the method. Found by running the binary
+        (`docs/lessons.md` `L12.13`).
+
+        `getattr` on the wrapped sink for the same reason the caller uses it: this is a
+        convenience `weft-cli`'s own sinks offer, not something `weft_llm.contract.TokenSink`
+        requires, and a pack's own sink that lacks it is simply not narrowed.
+        """
+        narrow = getattr(self._sink, "show_only_stage", None)
+        if narrow is not None:
+            narrow(stage)
+
 
 @dataclasses.dataclass(frozen=True)
 class TtyConsent:

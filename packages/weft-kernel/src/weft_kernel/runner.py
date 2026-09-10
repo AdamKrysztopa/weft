@@ -965,6 +965,7 @@ class Runner:
                 contract=stage.contract_name,
                 plugin=stage.plugin_name,
                 stage=stage.id,
+                position=stage.id,
             )(payload, ctx)
         return await try_in_order(
             payload,
@@ -1037,15 +1038,30 @@ class Runner:
 
 
 def _wrapped_run(
-    instance: object, *, distribution: str, contract: str, plugin: str, stage: str
+    instance: object,
+    *,
+    distribution: str,
+    contract: str,
+    plugin: str,
+    stage: str,
+    position: str,
 ) -> Callable[[object, Context], Awaitable[Outcome[object]]]:
-    """`instance.run`, through the registration seam. The only place this module calls `wrap`."""
+    """`instance.run`, through the registration seam. The only place this module calls `wrap`.
+
+    `position` is `stage.id` and `stage` is the span's label — the same string on the ordinary
+    path and deliberately different on the fallback path, where the label carries the backend
+    that answered (`f"{stage.id}:{candidate.name}"`) so a trace says *which position, filled by
+    whom*. What travels on a `TokenChunk` is the **position**, because a reader asking "is this
+    the answer?" is asking about the pipeline, not about which candidate won. Carried repair
+    **R10.1**.
+    """
     return wrap(
         cast("Stage[object, object]", instance).run,
         distribution=distribution,
         contract=contract,
         plugin=plugin,
         stage=stage,
+        position=position,
     )
 
 
@@ -1067,6 +1083,7 @@ def _attempt(stage: _ResolvedStage, candidate: _Candidate) -> Attempt[object, ob
             contract=stage.contract_name,
             plugin=candidate.name,
             stage=f"{stage.id}:{candidate.name}",
+            position=stage.id,
         )(payload, ctx)
 
     return Attempt(name=candidate.name, run=_run)

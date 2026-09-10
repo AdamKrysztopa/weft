@@ -153,3 +153,17 @@ class TokenChunk(BaseModel):
 
     role: str
     text: str
+    #: Which pipeline position asked for this chunk — carried repair **R10.1**, found by
+    #: running the binary at task `10.15`. A `role` names a *model mapping*, and nothing
+    #: finer reached a sink; that was sufficient while exactly one stage per run called a
+    #: model on the answering role. The first stage to make **several concurrent** calls on
+    #: that role printed five cluster summaries interleaving word by word above an answer
+    #: that was itself correct, and the run's configuration was right. Whether a chunk is
+    #: *the answer* or an intermediate call is a fact about the **stage**, so the stage
+    #: travels with the chunk and the sink decides.
+    #:
+    #: `""` when nothing was in scope to stamp it — a provider called outside a wrapped
+    #: stage, or a pack driving `LLMClient` itself. Empty is a fact and not a placeholder:
+    #: `weft_cli.sinks` shows an unstamped chunk rather than reading it as "some other
+    #: stage" and swallowing the only output a caller produced.
+    stage: str = ""

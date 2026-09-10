@@ -665,3 +665,75 @@ async def test_a_stage_needing_a_service_no_role_provides_is_refused_before_anyt
         )
     assert "retrieve" in str(caught.value), "the refusal does not name the stage that demanded it"
     assert ran == [], "the run reached the retriever before refusing"
+
+
+class _StageNarrowingSink:
+    """A sink that records what it was told, and nothing else — `weft_llm.contract.TokenSink`
+    is satisfied structurally, the same path every plugin in this tree takes.
+    """
+
+    def __init__(self) -> None:
+        self.told: list[str] = []
+
+    def show_only_stage(self, stage: str) -> None:
+        self.told.append(stage)
+
+    async def emit(self, chunk: object) -> None:  # pragma: no cover - never called here
+        del chunk
+
+    async def close(self, *, reason: str | None = None) -> None:  # pragma: no cover
+        del reason
+
+
+class _PlainSink:
+    """A sink from a pack that never heard of `show_only_stage` — the case the `getattr` is for."""
+
+    async def emit(self, chunk: object) -> None:  # pragma: no cover - never called here
+        del chunk
+
+    async def close(self, *, reason: str | None = None) -> None:  # pragma: no cover
+        del reason
+
+
+def test_the_sink_is_told_which_stage_produces_the_answer() -> None:
+    # Arrange — carried repair **R10.1**. The value's whole job is to travel from the resolved
+    # pipeline to the sink, so this captures the call rather than trusting that both ends exist
+    # (`docs/lessons.md` `L9.79`, and `L5.15`'s "both halves of a seam existing is not either
+    # one being reached"). The **last** stage is the one whose output is returned.
+    from weft_cli.route_ask import show_only_the_answering_stage
+    from weft_kernel.runner import StageSpec
+    from weft_retrieve.contract import ContextPacker, Retriever
+
+    sink = _StageNarrowingSink()
+    specs = (
+        StageSpec(id="retrieve", contract=Retriever, name="vector-top-k"),
+        StageSpec(id="pack", contract=ContextPacker, name="top-n"),
+    )
+
+    # Act
+    show_only_the_answering_stage(specs, sink=sink)
+
+    # Assert
+    assert sink.told == ["pack"]
+
+
+def test_a_sink_that_offers_no_narrowing_is_left_alone() -> None:
+    # Arrange — `show_only_stage` is deliberately not on `weft_llm.contract.TokenSink`: adding a
+    # method to a published contract breaks every implementation at once (`09` §3, G9's *Bring*
+    # list). A third party's sink simply is not told, and behaves as every sink did before.
+    from weft_cli.route_ask import show_only_the_answering_stage
+    from weft_kernel.runner import StageSpec
+    from weft_retrieve.contract import Retriever
+
+    specs = (StageSpec(id="retrieve", contract=Retriever, name="vector-top-k"),)
+
+    # Act / Assert — the absence of a raise is the whole assertion.
+    show_only_the_answering_stage(specs, sink=_PlainSink())
+
+
+def test_no_stages_tells_the_sink_nothing_rather_than_naming_one_that_does_not_exist() -> None:
+    from weft_cli.route_ask import show_only_the_answering_stage
+
+    sink = _StageNarrowingSink()
+    show_only_the_answering_stage((), sink=sink)
+    assert sink.told == []

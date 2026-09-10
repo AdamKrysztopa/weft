@@ -5889,7 +5889,7 @@ it had read one failure (`L7.1`).
 - [ ] **R9.11** `Applies.__repr__` is reached by a command, or it is deleted · owner `03` ·
   `L9.45` · written for the one human audience there is and rendered nowhere:
   `weft pipeline show` dumps the model instead
-- [ ] **R10.1** a person reading a streamed answer sees the answer and not the stages that built
+- [x] **R10.1** a person reading a streamed answer sees the answer and not the stages that built
   it · owner `weft_cli/sinks.py`; `weft_llm/payload.py`'s `TokenChunk` · filed 2026-09-08 at task
   10.15, **found by running the binary** · `PrintingSink` decides what to show from
   `TokenChunk.role` against `DEFAULT_DISPLAY_ROLES`, which is exactly `{"generate"}` — a role names
@@ -5905,6 +5905,46 @@ it had read one failure (`L7.1`).
   a fact about the stage, not about the role, and `TokenChunk` does not currently carry it. Not
   Phase 10's content: this is the observability seam, and widening a phase to swallow a finding is
   how a carried repair stops being countable
+
+  **Closed 2026-09-10.** `TokenChunk` carries a `stage`; `weft_kernel.seam.wrap` publishes the
+  pipeline position it is running on a `ContextVar`, `weft_llm.client` stamps it, and the two CLI
+  sinks filter on `(role, stage)` where before they filtered on `role` alone. Whoever resolves the
+  pipeline tells the sink which position produces the answer — the **last** stage — through
+  `weft_cli.route_ask.show_only_the_answering_stage`. That is `10.15`'s general case: a stage
+  concurrent on a displayed role no longer interleaves, whatever role an operator writes into a
+  derived document.
+
+  **Set at the seam, not passed down**, which is `CLAUDE.md`'s measured rule and the reason spans,
+  error attribution and blocking detection already live there. Reached on the sink by `getattr`
+  rather than added to `weft_llm.contract.TokenSink`: adding a method to a published contract
+  breaks every implementation at once (`09` §3, G9's *Bring* list), and a pack's own sink that
+  lacks it is simply not narrowed.
+
+  **Three unit tests, a wiring test that captured the call, and the repair was inert on every path
+  the CLI runs.** Both halves were found by running the binary and measuring, not by the suite:
+  *(a)* every real run hands the caller `weft_cli.cli._EmissionTrackingSink`, a decorator that
+  forwards `emit` and `close` and nothing else, so `getattr` found `None` and did nothing — the
+  wiring test passed because it built its own double, which had the method; *(b)* the chunks were
+  stamped `llm:generate`, because `wrap` is called for services and providers too and
+  `weft_llm.client` wraps its own call as `stage=f"llm:{role}"`, so the innermost call won. Keying
+  on *"was `stage` passed"* did not fix that either — only an explicit `position` that
+  `weft_kernel.runner` alone supplies. `L12.13`.
+
+  **Measured on the shipped binary**, against a derived document putting the summariser on the
+  answering role — the case the entry says an operator meets immediately:
+
+  ```
+  $ weft ask "What does chlorophyll absorb?" --pipeline noisy
+  [scripted] Question: What does chlorophyll absorb?
+  ...
+  --- stages shown: ['generate']
+  --- stages suppressed: ['pack']
+  ```
+
+  Before the repair the same rung printed the summariser's output live above the answer. The
+  ordinary rung is byte-for-byte unchanged. **Built by me, not dispatched** — the change spans the
+  kernel seam, the runner, the payload, the client and both sinks, and every step of it was a
+  decision about what the fact *means*
 
 - [x] **R10.2** the rules this loop keeps re-learning live somewhere that makes them bite. Run
   `python3 scripts/lessons_graph.py` and read its own verdict rather than a count copied from here:

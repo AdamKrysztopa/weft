@@ -470,6 +470,44 @@ mechanical form is worth the drain's attention: a `tests/` check that every `pyt
 this project already uses. `WeftError` has enough subclasses that catching the base in a test is
 almost always a widening nobody intended.
 
+### L12.13 — the optional method was on the sink, the decorator, and nothing in between
+
+**What happened.** `R10.1` gives a sink an optional `show_only_stage`, reached by `getattr` so it
+need not join the published `TokenSink` contract. I wrote it on both sinks, wired the caller, and
+wrote **three** unit tests plus a wiring test that captured the call — `phase-step`'s own `L9.79`
+remedy. All passed. The repair was **inert on every path the CLI runs**, twice over:
+
+1. Every real run hands the caller `weft_cli.cli._EmissionTrackingSink`, a decorator that forwards
+   `emit` and `close` — the contract — and nothing else. `getattr(sink, "show_only_stage", None)`
+   found `None` and did nothing, silently. My wiring test passed because it constructed its own
+   double, which *had* the method.
+2. The stage stamped on each chunk came from a `ContextVar` the seam sets. `wrap` is called for
+   services and providers too, nested inside a stage, and `weft_llm.client` wraps its own call as
+   `stage=f"llm:{role}"` — so the innermost call won and every chunk was stamped `llm:generate`
+   instead of the pipeline position. Narrowing on "was `stage` passed" did not fix it either;
+   only an explicit `position` that just one caller supplies did.
+
+Both were found in the first two runs of the shipped binary, by measuring what the sink was told
+and what the chunks carried — `told: []`, then `chunk stages: ['llm:generate']`.
+
+**Generalises to.** Two rules, and the first is the sharper one. **A duck-typed optional method is
+a contract with no checker, so its test must drive the object the run actually hands over — not one
+the test built.** `L11.17` says to copy an existing double rather than write one from prose; this
+is the step past it: where a *decorator* stands between the caller and the object, no double is
+right, because what the run passes is the decorator. Ask *what type does the caller actually
+receive*, and construct that. The second: **a `ContextVar` set by a wrapper that wraps more than
+one kind of thing records the innermost, not the meaningful one** — if the value means "which X am
+I inside", only the code that knows it is an X may set it, and inferring that from another
+parameter's presence is a guess that holds until someone else passes it too.
+
+**Candidate home.** `phase-step` → *Verify*, beside the `L9.87` sentence about a plugin
+constructing its own dependency for real: same failure, opposite direction — there a double hid a
+dead capability, here a double hid a dead *wire*. The mechanical form worth the drain's attention
+is narrower and cheap: a `tests/` check that every `getattr(x, "<name>", None)` reaching for an
+optional method has a test naming the decorator types that must forward it — this tree has exactly
+one such decorator today (`_EmissionTrackingSink`) and one such reach, so the check would be small
+and would have fired.
+
 ## When the queue is empty
 
 That is the healthy state, and it means the last drain finished. What was learned lives in

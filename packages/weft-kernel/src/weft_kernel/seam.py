@@ -166,6 +166,7 @@ as a flag beside a pack's existing status, exactly as `ambient` already is one.
 import contextlib
 import warnings
 from collections.abc import Awaitable, Callable, Iterable, Sequence
+from contextvars import ContextVar
 from dataclasses import dataclass
 from enum import Enum
 from importlib import metadata
@@ -183,6 +184,26 @@ from weft_kernel.payload import ExtModel, Node, Outcome, Produced
 _NUL_BYTES_ATTRIBUTE = "weft.nul_bytes_removed"
 
 _tracer = trace.get_tracer("weft_kernel")
+
+#: The pipeline position currently executing, published by `wrap` for the length of each call.
+#:
+#: **Carried repair `R10.1`.** A `TokenChunk` carried a `role`, which names a *model mapping*,
+#: and nothing finer reached a sink — so a stage making several concurrent calls on the
+#: answering role interleaved its intermediate output with the answer, word by word, on a run
+#: whose own configuration was correct. Whether a chunk is the answer is a fact about the
+#: **stage**, and this is how that fact reaches code the seam wraps without every author having
+#: to thread it: the concern attaches at the registration seam, which is `CLAUDE.md`'s rule and
+#: the reason spans, error attribution and blocking detection all already live here.
+#:
+#: `""` outside any wrapped call, and readers are required to treat that as *unknown* rather
+#: than as a stage name — `weft_llm.payload.TokenChunk.stage` carries the same convention.
+_current_stage: ContextVar[str] = ContextVar("weft_current_stage", default="")
+
+
+def current_stage() -> str:
+    """The pipeline position executing on this task, or `""` outside any wrapped call."""
+    return _current_stage.get()
+
 
 _FlushFn = Callable[[], Awaitable[None]]
 
@@ -374,6 +395,7 @@ def wrap[**P, T](
     contract: str,
     plugin: str,
     stage: str | None = None,
+    position: str | None = None,
     guard_blocking_calls: bool = True,
 ) -> Callable[P, Awaitable[Outcome[T]]]:
     """Wrap `run` so every call through it carries spans, attribution, stripping and the guard.
@@ -381,6 +403,9 @@ def wrap[**P, T](
     `run` is any async callable returning an `Outcome` — a stage's `run`
     method, bound, is the intended shape, but this function never asserts
     that: it calls what it is given and reacts only to what comes back.
+    `position` is the pipeline position this call *is*, and only `weft_kernel.runner` passes
+    one — see the comment on `_current_stage` above for why it is separate from `stage`.
+
     `stage` names the pipeline position this call fills, when the caller has
     one to give — the runner (`06` step 6) always does. A caller with no
     pipeline concept (registration, step 3) may omit it and falls back to
@@ -392,39 +417,64 @@ def wrap[**P, T](
     stage_label = stage if stage is not None else f"{contract}:{plugin}"
 
     async def _wrapped(*args: P.args, **kwargs: P.kwargs) -> Outcome[T]:
-        with _tracer.start_as_current_span(stage_label, kind=SpanKind.INTERNAL) as span:
-            span.set_attribute("weft.pack", distribution)
-            span.set_attribute("weft.contract", contract)
-            span.set_attribute("weft.plugin", plugin)
-            # A fresh context manager per call, never hoisted above `_wrapped`: a
-            # `@contextmanager`-built one (`blocking.guard`) can only be entered once, and
-            # `_wrapped` itself is reusable across many invocations.
-            guard_cm = (
-                blocking.guard(stage_label) if guard_blocking_calls else contextlib.nullcontext()
-            )
-            with guard_cm:
-                try:
-                    outcome = await run(*args, **kwargs)
-                except WeftError as exc:
-                    _attribute(
-                        exc,
-                        distribution=distribution,
-                        contract=contract,
-                        plugin=plugin,
-                        stage=stage_label,
-                    )
-                    raise
-                except Exception as exc:
-                    raise WeftError(
-                        f"'{stage_label}' failed: {exc}",
-                        pack=distribution,
-                        contract=contract,
-                        plugin=plugin,
-                        stage=stage_label,
-                    ) from exc
-            outcome, nul_count = _sanitize_control_bytes(_strip_transient(outcome))
-            span.set_attribute(_NUL_BYTES_ATTRIBUTE, nul_count)
-        return outcome
+        # Carried repair **R10.1**. The stage this call is running, published for the length
+        # of the call so anything underneath can ask which pipeline position it is inside —
+        # `weft_llm.client.LLMClient.complete` stamps it onto every `TokenChunk`, so a sink
+        # can tell the answer from an intermediate call. Set here rather than passed down
+        # because that is `CLAUDE.md`'s own rule: a cross-cutting concern attaches at the
+        # registration seam, never in something an author has to remember. `reset` on the
+        # token rather than to a constant, so nested stages restore their parent's value.
+        # **`position`, never `stage_label`, and that distinction is `R10.1`'s second defect.**
+        # `wrap` is called for services and providers as well as stages, and those calls nest
+        # *inside* a stage: a stage asks an `LLM`, which asks a provider, each wrapped in turn.
+        # Keying on `stage_label` — or even on "was `stage` passed" — meant the innermost call
+        # won, and `weft_llm.client` wraps its own with `stage=f"llm:{role}"`, so every
+        # `TokenChunk` was stamped `llm:generate` rather than with the pipeline position that
+        # asked. Measured from the shipped binary: the sink's filter then matched nothing and
+        # the repair was inert. Only `weft_kernel.runner` passes `position`, and a call without
+        # one leaves its caller's in place — which is what makes this mean *which pipeline
+        # position am I inside*, rather than *what is the nearest wrapped call*.
+        token = _current_stage.set(position) if position is not None else None
+        try:
+            with _tracer.start_as_current_span(stage_label, kind=SpanKind.INTERNAL) as span:
+                span.set_attribute("weft.pack", distribution)
+                span.set_attribute("weft.contract", contract)
+                span.set_attribute("weft.plugin", plugin)
+                # A fresh context manager per call, never hoisted above `_wrapped`: a
+                # `@contextmanager`-built one (`blocking.guard`) can only be entered once, and
+                # `_wrapped` itself is reusable across many invocations.
+                guard_cm = (
+                    blocking.guard(stage_label)
+                    if guard_blocking_calls
+                    else contextlib.nullcontext()
+                )
+                with guard_cm:
+                    try:
+                        outcome = await run(*args, **kwargs)
+                    except WeftError as exc:
+                        _attribute(
+                            exc,
+                            distribution=distribution,
+                            contract=contract,
+                            plugin=plugin,
+                            stage=stage_label,
+                        )
+                        raise
+                    except Exception as exc:
+                        raise WeftError(
+                            f"'{stage_label}' failed: {exc}",
+                            pack=distribution,
+                            contract=contract,
+                            plugin=plugin,
+                            stage=stage_label,
+                        ) from exc
+                outcome, nul_count = _sanitize_control_bytes(_strip_transient(outcome))
+                span.set_attribute(_NUL_BYTES_ATTRIBUTE, nul_count)
+            return outcome
+
+        finally:
+            if token is not None:
+                _current_stage.reset(token)
 
     return _wrapped
 

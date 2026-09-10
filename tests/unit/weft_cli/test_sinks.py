@@ -282,3 +282,75 @@ async def test_json_sink_writes_the_discriminant_on_every_line() -> None:
     lines = [json.loads(line) for line in stream.getvalue().splitlines() if line.strip()]
     assert lines, "the sink wrote nothing to parse"
     assert all(line["kind"] == LineKind.STREAM_EVENT.value for line in lines)
+
+
+async def test_a_second_stage_on_a_displayed_role_does_not_interleave_with_the_answer() -> None:
+    # Arrange — carried repair **R10.1**, found by running the binary at task 10.15. A sink
+    # decides what a reader sees from `TokenChunk.role`, and a role names a *model mapping*.
+    # That was sufficient while exactly one stage per run called a model on the answering role.
+    # `postqfrap` is the first stage to make **several concurrent** calls on the query path, and
+    # the first `weft ask` through it printed five cluster summaries interleaving word by word
+    # above an answer that was itself correct. `10.15` worked around it by defaulting that
+    # plugin's role to `index` — honest, and no answer to the general case: any future stage
+    # concurrent on a displayed role reproduces it, and an operator who writes `role: generate`
+    # into a derived document meets it at once.
+    #
+    # The property is that a sink can tell the **answer** from an intermediate call, and that is
+    # a fact about the *stage*, which is why `TokenChunk` now carries one.
+    stream = io.StringIO()
+    sink = PrintingSink(stream=stream)
+    sink.show_only_stage("generate")
+
+    # Act — both on the displayed role, as `postqfrap` and the generator both were.
+    await sink.emit(TokenChunk(role="generate", stage="summarise", text="cluster summary "))
+    await sink.emit(TokenChunk(role="generate", stage="generate", text="the answer"))
+
+    # Assert
+    assert stream.getvalue() == "the answer"
+
+
+async def test_a_sink_told_nothing_about_stages_shows_every_stage() -> None:
+    # Arrange — the control, and the honest default. A sink is built in `weft_cli.cli.main`
+    # before any pipeline is resolved, so at construction it does not know which stage will
+    # produce the answer and must not pretend to: filtering on a stage nobody named would
+    # suppress every chunk in the tree, which is the opposite failure.
+    stream = io.StringIO()
+    sink = PrintingSink(stream=stream)
+
+    # Act
+    await sink.emit(TokenChunk(role="generate", stage="summarise", text="one "))
+    await sink.emit(TokenChunk(role="generate", stage="generate", text="two"))
+
+    # Assert
+    assert stream.getvalue() == "one two"
+
+
+async def test_a_chunk_with_no_stage_is_shown_rather_than_guessed_at() -> None:
+    # Arrange — `TokenChunk.stage` is `""` when nothing was in scope to stamp it: a provider
+    # called outside a wrapped stage, or a pack driving `LLMClient` directly. Empty is a fact,
+    # not a placeholder, and the sink must not read it as "some other stage" and swallow the
+    # only output a caller produced.
+    stream = io.StringIO()
+    sink = PrintingSink(stream=stream)
+    sink.show_only_stage("generate")
+
+    # Act
+    await sink.emit(TokenChunk(role="generate", text="unstamped"))
+
+    # Assert
+    assert stream.getvalue() == "unstamped"
+
+
+async def test_the_role_filter_still_applies_underneath_the_stage_filter() -> None:
+    # Arrange — the two filters are independent and both still run: a critic's own role never
+    # reached a reader before this repair and must not start to now.
+    stream = io.StringIO()
+    sink = PrintingSink(stream=stream)
+    sink.show_only_stage("generate")
+
+    # Act
+    await sink.emit(TokenChunk(role="critique", stage="generate", text="internal "))
+    await sink.emit(TokenChunk(role="generate", stage="generate", text="shown"))
+
+    # Assert
+    assert stream.getvalue() == "shown"

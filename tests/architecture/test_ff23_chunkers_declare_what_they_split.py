@@ -22,7 +22,7 @@ declaration nobody makes is indistinguishable from a declaration nobody needs.
 **Read off the registered plugin, never off source text.** `applies_to` is read here the way
 `weft_kernel.runner._applies_to_of` reads it — `getattr(instance, "applies_to", ())` on the object
 the registered factory builds
-(`packages/weft-kernel/src/weft_kernel/runner.py:1240-1249 'def _app'`) — so a
+(`packages/weft-kernel/src/weft_kernel/runner.py:1257-1266 'def _app'`) — so a
 chunker that inherits its declaration, or that a factory rather than a class supplies, answers this
 check exactly as it would answer the runner. A grep for the string would answer for neither.
 

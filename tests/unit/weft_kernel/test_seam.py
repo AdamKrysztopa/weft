@@ -657,3 +657,89 @@ def test_a_prerelease_major_still_reads_as_its_major() -> None:
     # Assert
     assert removal.clock is seam.RemovalClock.NEXT_MAJOR
     assert removal.release == "weft-example 3.0.0"
+
+
+async def test_the_seam_publishes_the_stage_it_is_running() -> None:
+    # Arrange — carried repair **R10.1**. Anything underneath a wrapped call can ask which
+    # pipeline position it is inside, which is how a `TokenChunk` comes to carry a stage
+    # without every plugin author threading one. Set at the seam rather than passed down
+    # because that is `CLAUDE.md`'s measured rule: every concern the machinery applies held,
+    # and every concern an author had to remember decayed.
+
+    seen: list[str] = []
+
+    async def run() -> Outcome[str]:
+        seen.append(seam.current_stage())
+        return Produced(value="done")
+
+    wrapped = seam.wrap(
+        run,
+        distribution="weft-rag",
+        contract="Generator",
+        plugin="cited-answer",
+        stage="generate",
+        position="generate",
+    )
+
+    # Act
+    assert seam.current_stage() == "", "a stage is in scope only inside a wrapped call"
+    await wrapped()
+
+    # Assert
+    assert seen == ["generate"]
+    assert seam.current_stage() == "", "the seam restores what it found, so a stage cannot leak out"
+
+
+async def test_a_call_with_no_pipeline_position_leaves_its_callers_stage_in_place() -> None:
+    # Arrange — **the second half of `R10.1`, and the binary is what found it.** `wrap` is
+    # called for services and providers as well as stages, and there `stage` is `None` and the
+    # label falls back to `contract:plugin`. Those calls *nest inside* a stage: a stage asks an
+    # `LLM`, which asks a provider, each wrapped in turn. Setting the variable unconditionally
+    # meant the innermost call won, and every `TokenChunk` was stamped `llm:generate` rather
+    # than with the pipeline position that asked — so the sink's filter matched nothing and the
+    # repair was inert on every real path while its own unit tests passed.
+    #
+    # The dimension this varies, and the one the first version of this test did not have: a
+    # wrapped call **inside** another wrapped call.
+    seen: list[str] = []
+
+    async def inner() -> Outcome[str]:
+        seen.append(seam.current_stage())
+        return Produced(value="done")
+
+    provider = seam.wrap(inner, distribution="weft-rag", contract="LLM", plugin="scripted")
+
+    async def outer() -> Outcome[str]:
+        return await provider()
+
+    stage = seam.wrap(
+        outer,
+        distribution="weft-rag",
+        contract="Generator",
+        plugin="cited-answer",
+        stage="generate",
+        position="generate",
+    )
+
+    # Act
+    await stage()
+
+    # Assert — the provider reports the stage that asked it, not itself.
+    assert seen == ["generate"]
+
+
+async def test_a_call_with_no_pipeline_position_and_no_caller_reports_nothing() -> None:
+    # And outside any stage there is no position to report. `""` means *unknown*, which
+    # `weft_llm.payload.TokenChunk.stage` and `weft_cli.sinks._visible` both honour by showing
+    # the chunk rather than reading it as some other stage.
+    seen: list[str] = []
+
+    async def run() -> Outcome[str]:
+        seen.append(seam.current_stage())
+        return Produced(value="done")
+
+    wrapped = seam.wrap(run, distribution="weft-rag", contract="Embedder", plugin="hash")
+
+    await wrapped()
+
+    assert seen == [""]

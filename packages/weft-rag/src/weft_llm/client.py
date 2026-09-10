@@ -51,7 +51,7 @@ from typing import cast
 from weft_kernel.context import Context
 from weft_kernel.payload import NothingToProduce, Outcome, Produced
 from weft_kernel.registry import Registry, unwrap_factory
-from weft_kernel.seam import wrap
+from weft_kernel.seam import current_stage, wrap
 from weft_llm.contract import LLM, LLMProvider, NativeStructured, TokenSink
 from weft_llm.errors import (
     LLMError,
@@ -141,7 +141,7 @@ class LLMClient:
                     rendered.conversation, model=bound.ref.model, ctx=ctx
                 ):
                     parts.append(chunk)
-                    await sink.emit(TokenChunk(role=role, text=chunk))
+                    await sink.emit(TokenChunk(role=role, stage=current_stage(), text=chunk))
                     # Task 3.10: `parts` already holds the whole answer accumulated so far —
                     # exactly the cumulative-text contract `weft_llm.loop_guard` requires — so
                     # this is where the guard attaches rather than inside a `TokenSink`, which

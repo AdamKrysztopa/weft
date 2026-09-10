@@ -31,9 +31,10 @@ import asyncio
 import io
 import json
 import sys
+from collections.abc import Callable
 from importlib import metadata
 from pathlib import Path
-from typing import ClassVar
+from typing import Any, ClassVar, Protocol, cast
 
 import pytest
 from pydantic import BaseModel, ConfigDict
@@ -1062,3 +1063,78 @@ def test_main_never_builds_a_registry_for_version(monkeypatch: pytest.MonkeyPatc
         cli.main()
 
     assert exit_info.value.code == int(ExitCode.SUCCESS)
+
+
+async def test_the_emission_tracking_wrapper_forwards_the_stage_narrowing() -> None:
+    # Arrange — carried repair **R10.1**, and the defect that made the whole repair inert.
+    # `weft_cli.route_ask.show_only_the_answering_stage` reaches for `show_only_stage` with
+    # `getattr`, and every real run hands it `_EmissionTrackingSink`, which wraps the sink the
+    # operator actually reads. The wrapper forwarded `emit` and `close` — the contract — and
+    # not the optional method, so the narrowing was dropped in silence on **every** path the
+    # CLI runs, while three unit tests passed against a hand-written double that had it.
+    #
+    # `L9.87`'s shape exactly: both halves of a seam existing is not either one being reached.
+    # This test drives the wrapper the run uses rather than a double of it.
+    # Reached by name rather than imported: `_EmissionTrackingSink` is private, and a
+    # `getattr` with a string literal types as `Any` instead of tripping pyright's
+    # `reportPrivateUsage` — the idiom `tests/architecture/
+    # test_ff13_filter_op_dispatch_is_exhaustive.py` already documents, and what keeps a
+    # suppression comment off this file. The subject *is* the private wrapper, because that is
+    # exactly what every real run hands the caller.
+    import weft_cli.cli as cli_module
+
+    tracking = cast("Callable[[object], _Narrowing]", _private(cli_module, "_EmissionTrackingSink"))
+
+    told: list[str] = []
+
+    class _Inner:
+        def show_only_stage(self, stage: str) -> None:
+            told.append(stage)
+
+        async def emit(self, chunk: object) -> None:  # pragma: no cover - not exercised here
+            del chunk
+
+        async def close(self, *, reason: str | None = None) -> None:  # pragma: no cover
+            del reason
+
+    wrapper = tracking(_Inner())
+
+    # Act
+    wrapper.show_only_stage("generate")
+
+    # Assert
+    assert told == ["generate"]
+
+
+async def test_the_wrapper_tolerates_a_sink_that_offers_no_narrowing() -> None:
+    # A pack's own sink need not have it — `show_only_stage` is deliberately not on
+    # `weft_llm.contract.TokenSink`, because adding a method to a published contract breaks
+    # every implementation at once (`09` §3, G9's *Bring* list).
+    import weft_cli.cli as cli_module
+
+    tracking = cast("Callable[[object], _Narrowing]", _private(cli_module, "_EmissionTrackingSink"))
+
+    class _Plain:
+        async def emit(self, chunk: object) -> None:  # pragma: no cover - not exercised here
+            del chunk
+
+        async def close(self, *, reason: str | None = None) -> None:  # pragma: no cover
+            del reason
+
+    tracking(_Plain()).show_only_stage("generate")
+
+
+class _Narrowing(Protocol):
+    """The one method carried repair `R10.1` asks an optional sink to offer."""
+
+    def show_only_stage(self, stage: str) -> None: ...
+
+
+def _private(module: object, name: str) -> Any:
+    """One private module member, by name — `tests/architecture/
+    test_ff13_filter_op_dispatch_is_exhaustive.py`'s own idiom, and it exists to satisfy two
+    checks that disagree. Importing a `_`-prefixed name trips pyright's `reportPrivateUsage`;
+    a `getattr` with a literal trips ruff's `B009`. Taking the name as a *parameter* is
+    neither, and costs one function rather than a suppression comment on every call site.
+    """
+    return getattr(module, name)
