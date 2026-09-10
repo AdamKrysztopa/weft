@@ -6142,13 +6142,48 @@ it had read one failure (`L7.1`).
   repair asks is that both **refuse** and both say the same thing about why, and the resolved one
   adds *"which cluster_size: auto resolved to for this run"* so an operator is not shown a
   complaint about a number they never wrote
-- [ ] **R10.6** every published distribution installs alone into a clean environment and its pack
+- [x] **R10.6** every published distribution installs alone into a clean environment and its pack
   reports `active` rather than `failed` · owner `tests/architecture`; FF9c's throwaway-venv rig ·
   `L10.41` · `weft-openai` imported Pillow without declaring it and registered **zero** of its three
   plugins on a clean install, while every test in this tree stayed green because the development
   venv holds Pillow transitively. **Size it before adopting it** — 18 distributions, each a venv
   creation, is a real cost against `ci-checks`, and the two numbers this check owes are how many it
   walks and how many it fails today
+
+  **Closed 2026-09-10, and the sizing this entry demanded is what dissolved it.** *"18
+  distributions, each a venv creation, is a real cost against `ci-checks`"* — **G19 leaves two**,
+  and `scripts/check_isolated_installs.py` has installed each alone and imported everything it
+  ships since task `6.6`. The venv cost was paid years ago in this project's terms; it is
+  `poe isolated-installs`, two environments, already in CI. The two numbers the entry owes:
+  **it walks 2 distributions and 19 modules, and it fails none today.**
+
+  **What was genuinely missing is one clause, and it is `L10.41` exactly.** The script already ran
+  `discover()` inside the isolated environment — but only to assert the five **extra-backed**
+  packs report `FAILED` with a reason. Nothing asserted the converse: that the rest *registered*.
+  `weft-openai` imported cleanly on a clean install and registered **zero** of its three plugins
+  because it used Pillow without declaring it; an import that succeeds is not a pack that
+  registered, and the check watched only the import.
+
+  **Measured on a bare `weft-rag` install: 13 of 21 packs active**, and the eight that are not
+  fall into three distinct and legitimate categories, each now a named constant with its reason —
+  a missing extra (5), a required setting absent (`blob`, `store`, which cannot invent where an
+  operator's data lives), and a surface the pack itself declared unavailable (`eval`'s
+  `bertscore`, which is fitness function 5's second half working as written). Every pack outside
+  those three must be `ACTIVE`:
+
+  ```
+  $ uv run python scripts/check_isolated_installs.py
+  weft-rag: installs alone and imports weft_agent, weft_blob, … weft_vision.
+  registered on a bare install: 13 pack(s); degraded by design: ['blob', 'docling', 'eval',
+  'openai', 'otel', 'pdf', 'qdrant', 'store']
+  ```
+
+  Watched red on a plant — `blob` removed from `SETTINGS_BACKED_PACKS` — which exits **1** naming
+  `['blob']` and *"an import that succeeds is not a pack that registered"*. The pytest half checks
+  what a pytest can see, which is this file's own standing division: every name in the three
+  constants is a pack the tree ships, no pack is claimed by two categories, and the expected-active
+  set is more than half the packs — so a category quietly growing to cover a real failure fails
+  here instead
 - [x] **R9.13** `L5.15`, `L6.4` and `L5.6` are held by an artefact that makes them bite · owner this
   repository's own loop; `docs/lessons-archive.md`'s edge vocabulary · with the Phase 9 edges
   written, `scripts/lessons_graph.py` returns **MOVE IT** for all three — re-learned four, four and

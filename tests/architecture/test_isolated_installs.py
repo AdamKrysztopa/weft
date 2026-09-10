@@ -25,8 +25,9 @@ from __future__ import annotations
 
 import tomllib
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, cast
 
+import check_isolated_installs
 import pytest
 from publish_set import Member, PublishSetUnreadableError, publishing_members
 
@@ -190,3 +191,82 @@ def test_the_check_can_actually_fail(tmp_path: Path) -> None:
     assert found["weft-planted-codefree"].modules == ()
     assert found["weft-planted-bundle"].modules == ("alpha_pack", "beta_pack")
     assert isinstance(found["weft-planted"], Member)
+
+
+def test_the_degradation_categories_name_packs_this_tree_actually_ships() -> None:
+    """Carried repair **R10.6**. The script's expectations are hand-written lists, and a
+    hand-written list about the tree is `L6.4`'s failure waiting to happen.
+
+    `scripts/check_isolated_installs.py` asserts that the five **extra-backed** packs report
+    `FAILED` without their extra. What it never asserted is the converse — that everything else
+    reports `ACTIVE` — which is exactly `docs/lessons.md` `L10.41`: `weft-openai` imported
+    cleanly on a clean install and registered **zero** of its three plugins, because it used
+    Pillow without declaring it. An import that succeeds is not a pack that registered, and the
+    check watched only the import.
+
+    Measured on a bare `weft-rag` install: **13 of 21 packs active**, and the eight that are not
+    fall into three distinct, legitimate categories — a missing extra, a required setting absent,
+    and a surface the pack itself declared unavailable. All three are named constants now, so the
+    script can assert the remaining thirteen are `ACTIVE` rather than inspecting five and
+    ignoring the rest.
+
+    **This test checks the half a pytest can see**, which is this file's own standing division:
+    that every pack a constant names is a pack this tree ships, and that no pack is claimed by
+    two categories. A stale name in either list would make the script excuse a pack that no
+    longer exists while a real regression walked past it.
+    """
+    shipped = _pack_names_in_the_tree()
+    categories = {
+        "EXTRA_BACKED_MODULES": {
+            _pack_of_module(module) for module in check_isolated_installs.EXTRA_BACKED_MODULES
+        },
+        "SETTINGS_BACKED_PACKS": set(check_isolated_installs.SETTINGS_BACKED_PACKS),
+        "UNAVAILABLE_SURFACE_PACKS": set(check_isolated_installs.UNAVAILABLE_SURFACE_PACKS),
+    }
+
+    for name, packs in categories.items():
+        assert packs, f"{name} is empty; the script would then expect every pack to be ACTIVE"
+        unknown = sorted(packs - shipped)
+        assert not unknown, (
+            f"{name} names {unknown}, which no `weft.packs` entry point in this tree declares. "
+            f"A category that excuses a pack that no longer exists is a hole a real regression "
+            f"walks through."
+        )
+
+    pairs = [
+        (a, b) for a in categories for b in categories if a < b and categories[a] & categories[b]
+    ]
+    assert not pairs, (
+        f"a pack is claimed by two degradation categories {pairs}; the script's partition must "
+        f"be disjoint or one clause silently masks the other."
+    )
+
+    expected_active = shipped - set().union(*categories.values())
+    assert len(expected_active) > len(shipped) // 2, (
+        f"only {len(expected_active)} of {len(shipped)} packs would be expected ACTIVE on a bare "
+        f"install. Measured when this was written: 13 of 21. A number this low means a category "
+        f"grew to cover a real failure instead of the failure being fixed."
+    )
+
+
+def _pack_names_in_the_tree() -> frozenset[str]:
+    """Every `weft.packs` entry-point name declared under `packages/` — read from the manifests
+    rather than from a running discovery, so this test says nothing about which extras happen to
+    be installed in the environment it runs in.
+    """
+    names: set[str] = set()
+    for manifest in sorted((REPO_ROOT / "packages").glob("*/pyproject.toml")):
+        with manifest.open("rb") as handle:
+            document = tomllib.load(handle)
+        project = cast("dict[str, Any]", document["project"])
+        groups = cast("dict[str, Any]", project.get("entry-points", {}))
+        names.update(cast("dict[str, str]", groups.get("weft.packs", {})))
+    return frozenset(names)
+
+
+def _pack_of_module(module: str) -> str:
+    """`weft_openai` -> `openai`. The convention every first-party pack follows, asserted by the
+    test above rather than assumed: a module whose pack name is not its suffix would show up as
+    an unknown name instead of silently excusing nothing.
+    """
+    return module.removeprefix("weft_")

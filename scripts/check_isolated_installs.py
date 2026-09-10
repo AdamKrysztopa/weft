@@ -40,6 +40,27 @@ EXTRA_BACKED_MODULES: dict[str, str] = {
 }
 
 
+#: Packs that report `FAILED` on a bare install because a **required setting** is absent, and
+#: the field that supplies it — carried repair **R10.6**. This is a different degradation from
+#: a missing extra and it is equally correct: `weft-store` and `weft-blob` cannot invent where an
+#: operator's data lives, so both refuse rather than guessing (`weft_blob.Settings.root`'s own
+#: docstring follows `[packs.store] dsn`'s precedent). Written out rather than derived, for
+#: `EXTRA_BACKED_MODULES`' reason: a list derived from the tree could not disagree with it.
+SETTINGS_BACKED_PACKS: dict[str, str] = {
+    "blob": "root",
+    "store": "dsn",
+}
+
+#: Packs that report `PARTIAL` on a bare install because they registered, and then declared one
+#: **surface** unavailable and said why — carried repair **R10.6**. `weft_eval` registers
+#: twenty-eight plugins and declares `bertscore` unavailable without the `bertscore` extra,
+#: which is fitness function 5's second half working exactly as written. A pack in this list is
+#: healthy; it is here so the check can tell it apart from one that failed.
+UNAVAILABLE_SURFACE_PACKS: dict[str, str] = {
+    "eval": "bertscore",
+}
+
+
 def _build(name: str, out_dir: Path) -> subprocess.CompletedProcess[str]:
     command = ["uv", "build", "--package", name, "--out-dir", str(out_dir)]
     # Fixed argv, no shell, nothing user-controlled.
@@ -116,7 +137,28 @@ def _degradation_probe(member: Member, wheelhouse: Path) -> subprocess.Completed
         "silent = sorted(p for p in expected if not (reports[p].reason or '').strip())\n"
         "assert not silent, f'{silent} reported FAILED with no reason — an operator reading "
         "doctor learns nothing'\n"
-        "print(f'degraded correctly, naming what is missing: {sorted(expected)}')\n"
+        # **Carried repair `R10.6`, and the clause that was missing.** Everything above inspects
+        # the five packs expected to fail. Nothing asserted the converse — that the rest
+        # *registered* — and `docs/lessons.md` `L10.41` is precisely that gap: `weft-openai`
+        # imported cleanly on a clean install and registered **zero** of its three plugins,
+        # because it used Pillow without declaring it. An import that succeeds is not a pack
+        # that registered, and until now this check watched only the import.
+        #
+        # Three categories of legitimate degradation, each named above with its reason; every
+        # pack outside them must be `ACTIVE`. Measured when this was written: 13 of 21.
+        "degraded = expected | "
+        + repr(set(SETTINGS_BACKED_PACKS))
+        + " | "
+        + repr(set(UNAVAILABLE_SURFACE_PACKS))
+        + "\n"
+        "should_run = sorted(p for p in reports if p not in degraded)\n"
+        "assert should_run, 'no pack was expected to be ACTIVE, so the clause below asserts "
+        "nothing'\n"
+        "inert = sorted(p for p in should_run if reports[p].status is not PackStatus.ACTIVE)\n"
+        "assert not inert, f'{inert} did not register on a bare install, and none of them is a "
+        "declared degradation — an import that succeeds is not a pack that registered'\n"
+        "print(f'registered on a bare install: {len(should_run)} pack(s); degraded by design: "
+        "{sorted(degraded)}')\n"
     )
     command = [
         "uv",
