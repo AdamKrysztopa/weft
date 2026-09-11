@@ -11,9 +11,12 @@ entries' own prose.
 
 from __future__ import annotations
 
+import importlib.util
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import Final
+from types import ModuleType
+from typing import Final, cast
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
@@ -79,14 +82,55 @@ A closing note naming `L9.91` again.
 
 
 def test_the_live_queue_is_readable_by_this_parser() -> None:
-    # The floor, and it is about the real file rather than a fixture: a parser that agrees with
-    # its own examples and not with `docs/lessons.md` is the shape `R11.7` was filed for one
-    # document over. An empty reading here means the queue's heading or entry form moved.
-    entries, _edges = lessons_graph.parse_queue(QUEUE.read_text(encoding="utf-8"))
+    """`lessons_graph` and the `SessionStart` hook read the same entries out of the same file.
 
-    assert entries, (
-        "no open entry was read out of docs/lessons.md. Either the queue is genuinely empty — "
-        "in which case this check has no subject and should be looked at — or the entry form "
-        "changed and the parser did not."
+    **This asserted `entries` was non-empty until 2026-09-11, which made it fail at the one
+    moment it mattered.** `implement-ll` drains the queue to empty and empty is the healthy
+    state, so the check went red on the commit that did the draining — and its own message had
+    predicted exactly that (*"either the queue is genuinely empty… or the entry form changed"*)
+    while leaving the two cases indistinguishable, which is the defect rather than a note about
+    it.
+
+    **The first repair was worse and is worth recording.** It compared the parser against a
+    "naive" scan written inside this test — which bounded the Queue section the same way the
+    parser does, so the two sides came from one source and a planted moved-heading changed both
+    at once and fired nothing. `L5.6`, in a test written during the drain that archived four
+    entries about `L5.6`.
+
+    The two sides here are two real implementations, in two files, written for different jobs:
+    `scripts/lessons_graph.py` builds the edge graph, and `.claude/hooks/lessons_context.py`
+    injects the queue into every session. `lessons_graph`'s own entry-regex comment already says
+    these two *"cannot disagree about what an entry is"* — this is what makes that a fact. Both
+    reading zero is a real agreement, not a vacuous one: either file's section logic could break
+    while the other's held, which is the drift this exists to catch.
+    """
+    # Arrange — load the hook by path. It runs under bare `python3` and is not importable as a
+    # package, which is why this goes through `importlib` rather than an import statement.
+    hook_path = Path(__file__).resolve().parents[3] / ".claude" / "hooks" / "lessons_context.py"
+    spec = importlib.util.spec_from_file_location("lessons_context_probe", hook_path)
+    assert spec is not None and spec.loader is not None, f"could not load {hook_path}"
+    hook = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(hook)
+    text = QUEUE.read_text(encoding="utf-8")
+
+    # Act
+    entries, _edges = lessons_graph.parse_queue(text)
+    by_the_hook = [identifier for identifier, _title in _queued_entries(hook)(text)]
+
+    # Assert
+    assert sorted(entries) == sorted(by_the_hook), (
+        f"scripts/lessons_graph.py read {sorted(entries)} out of docs/lessons.md's Queue and "
+        f".claude/hooks/lessons_context.py read {sorted(by_the_hook)} from the same file — one "
+        f"of the two followed a change to the queue's heading or entry form and the other did not"
     )
     assert all(identifier.startswith("L") for identifier in entries)
+
+
+def _queued_entries(hook: ModuleType) -> Callable[[str], list[tuple[str, str]]]:
+    """The hook's own `_queued_entries`, fetched with its name as a parameter.
+
+    A literal private attribute access trips `pyright`'s `reportPrivateUsage` and a literal
+    `getattr` trips `ruff`'s `B009`; passing the name through a variable satisfies both while
+    leaving the reach visible, which is this tree's idiom for reading into a module deliberately.
+    """
+    return cast("Callable[[str], list[tuple[str, str]]]", hook._queued_entries)

@@ -64,6 +64,93 @@ loop. If it needs the original entry to make sense, it is not finished.
 
 ---
 
+## 2026-09-11 — the carried-repair run's close
+
+Seventeen entries, from the twenty-six carried repairs closed across 2026-09-10 and -11. **Five of
+them reached a mechanism**, which is unusually high for this queue and is the point: `R10.2`'s
+verdict was four-to-one *against* mechanising, and that verdict was about rules whose recurrences
+lived in briefs and diagnoses no checker reaches. These five had a detectable moment.
+
+**The shape that dominates is one sentence: a claim this repository writes about itself, with
+nothing re-deriving it.** `L12.1` (a skip count measured on a laptop), `L12.2` (an open-repair
+count written from working memory against a section holding nineteen), `L12.7` (a lockfile that
+kept a plant a reverted manifest had dropped) are one question — *what re-derives this?* — and all
+three now have code behind them rather than a sentence. `L12.2`'s answer is the design that was
+already working one row over: the lessons-queue depth has its own Status row asserted by
+`--check-live`, and it is the only cardinality in `docs/README.md` that has never been wrong twice.
+
+**The second shape is a double narrower than the real thing in exactly the dimension under test** —
+`L12.6`, `L12.11`, `L12.12`, `L12.13` — four failure modes of one rule, routed as one paragraph in
+`phase-step` → *Red* rather than four sentences, because they are four ways of asking the same
+question of a fixture.
+
+**The loop's own closing question: three Applied rules did not bite, and all three were too narrow
+rather than misplaced.** `L8.12`'s trigger said *"names a base class"* and the fifth instance
+deliberately named none; `L10.24`'s hook watched for `&& git commit` and the recurrence had no
+commit in it; `L11.42`/`L11.45` were about a fixture's *values* and these four were about its
+*shape*. Each was widened where it already lived — no second rule saying the same thing louder,
+which is `implement-ll`'s own routing rule.
+
+- **L12.1** Applied — `implement-ll` → *Routing* item 2, which asked for a check's population and never for its inputs: A constant derived from an environment belongs where that environment is declared, and a developer's machine declares nothing — if no file declares what it was measured against, the constant has no home yet. `refines L11.21`
+
+- **L12.2** Applied — `docs/README.md`'s new **Carried repairs** row plus `_repair_count_failures` in `next_task.py`, planted both ways: A cardinality in `docs/README.md` is a count of another file — give it its own row and let `--check-live` assert it, never write it from what this session happened to be holding. `refines L10.18`
+
+- **L12.3** Applied — `phase-step` → *When to stop instead of continuing*: Filing something as *undecided* is as much a claim about the settled documents as deciding it would be, and cheaper to check — one grep for the identifier the claim turns on, at the moment of filing. `refines L5.32`
+
+- **L12.4** Applied — `phase-step` → *When to stop instead of continuing*, beside `L12.3`: A pasted transcript is evidence of the symptom and never of the cause; a named raise site, class or module is a second claim owing its own second measurement, and on this CLI `--json` answers it in one run. `refines L9.34`
+
+- **L12.5** Applied — `phase-step` → *Red*, the `L8.12` paragraph's trigger widened from "names a base class" to "introduces or re-parents an exception class": A brief that introduces an exception class greps every site keyed on its **identity**, and a class that deliberately joins no family owes that grep more, not less. `recurs L8.12`
+
+- **L12.6** Applied — `phase-step` → *Red*, first of four in the new *a double is narrower than the real thing* paragraph: Where the thing under test renders a collection, the fixture holds at least two entries, or whether two entries are distinguishable at all is untested. `refines L11.42`
+
+- **L12.7** Applied — `uv lock --check` as its own step in `.github/workflows/ci.yml` before `Sync`, and `phase-step` → *Finish* item 3: A plant-and-revert reverts the file you edited, never the state that file drives — and the same check behind `uv run` is vacuous, because `uv run` heals the lockfile before it runs. `refines L9.56`
+
+- **L12.8** Applied — `phase-step` → *Finish* item 3, beside the plant rule it extends: Two numbers agreeing is not two numbers being right, and the paragraph explaining a check is the line most likely to be parsed as an instance of it. `refines L6.29`
+
+- **L12.9** Applied — (a) `phase-step` → *Verify*; (b) `CLAUDE.md` → *Automation*, widened past hooks: A mechanical edit is verified by something that did not perform it — run the cheapest whole-tree validity check before reading the tool's own count of its own output; and an ad-hoc script inherits bare `python3`, which is 3.9 and cannot parse this tree. `refines L11.35`
+
+- **L12.10** Applied — `named_repairs` in `next_task.py`, which routes a group and ignores an id mentioned in passing: When a plan's own vocabulary cannot express the shape the work has taken, widen the vocabulary rather than reshaping the work to fit it.
+
+- **L12.11** Applied — `phase-step` → *Red*, second of four: A fixture whose name or comment says it is *what a real X looks like* is checked against a real X, once, in the commit that makes the claim. `refines L12.6`
+
+- **L12.12** Applied — `phase-step` → *Red*, fourth of four: Assert the exception the code should raise, not the family it belongs to — and match a fragment of the sentence's **claim**, never of its subject. `refines L9.43`
+
+- **L12.13** Applied — `phase-step` → *Red* (third of four) and → *Green*'s constraint list: Where a decorator stands between the caller and the object no hand-built double is right; and a `ContextVar` set by a wrapper that wraps several kinds of thing records the innermost, not the meaningful one. `refines L9.87`
+
+- **L12.14** Applied — `CLAUDE.md` → *Working here*, plus `_documents_manifest_failures` in `next_task.py` protecting the router it could not itself have caught: A question about what the project *contains* is answered from `docs/README.md`'s Documents manifest, never from the files you happen to have open. `recurs L5.14`
+
+- **L12.15** Applied — `phase-step` → *Verify*: Before replacing an extracted value with a sentinel, grep the caller for every remaining use of that name — a value that *selects* is often the same value that *explains*. `refines L9.43`
+
+- **L12.16** Applied — `.claude/hooks/guard_unchecked_commit.py`'s second rule, with `phase-step` → *Finish* item 3b carrying the reason: A verdict is read from the command that produced it, never from the end of a pipeline, because a pipeline's exit status is its last command's. `recurs L10.24`
+
+- **L12.17** Applied — `phase-step` → *Orient*, beside the gate-and-fence step: Before writing a new file, ask which whole-tree checks walk the directory it is going into. `recurs L5.14`
+
+**One check was repaired by the drain that broke it, and the repair was wrong once first.**
+`tests/unit/scripts/test_lessons_graph.py` asserted the live queue was **non-empty** — so it went
+red on the commit that emptied it, and its own message named both possibilities without being able
+to tell them apart. The first repair compared the parser against a "naive" scan written inside the
+test, which bounded the Queue section the same way the parser does: one source, two sides, and a
+planted moved heading changed both at once and fired nothing — `L5.6`, in a test written during the
+drain that archived four entries about `L5.6`. It now compares `scripts/lessons_graph.py` against
+`.claude/hooks/lessons_context.py`, two real implementations in two files, which is what makes
+`lessons_graph`'s own comment (*"the two cannot disagree about what an entry is"*) a fact rather
+than an intention. Both reading zero is a real agreement; a drift in either file's section logic
+fires it. No new queue entry: `phase-step` → *Finish* item 3 already carries this rule — *"a check
+whose subject is legitimately empty today passes vacuously"* — and this was that rule's mirror
+image, a check whose subject is legitimately empty and which therefore **fails**.
+
+**Two hooks were watched rather than believed, and both taught something in the watching.** The
+`uv lock --check` step was first wired into the `ci-checks` sequence and **passed green on a
+planted extra** — `uv run` re-resolves and rewrites `uv.lock` before poe starts, so the check was
+asserting against a lockfile it had just made agree, which is `L12.7`'s own defect one layer out.
+It moved to a clean checkout in CI, before `Sync`, where it was watched exiting 1. And the widened
+commit guard produced **two false positives within minutes**, on commands already following its own
+remedy: it now requires that nothing between the pipe and the `$?` be a redirect or a command
+substitution, since either means another command set the status being read. Eight probe cases,
+both instances, both false positives.
+
+---
+
 ## 2026-09-10 — Phase 11's close
 
 Forty-six entries, the largest drain this project has run. **Two shapes dominate and they are the

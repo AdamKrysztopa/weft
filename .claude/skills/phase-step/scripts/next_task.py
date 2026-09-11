@@ -172,7 +172,8 @@ def _split_fields(text: str) -> dict[str, str]:
 
 
 STATUS_ROW = re.compile(
-    r"^\|\s*\*\*(?P<key>Phase|Next action|Lessons queue)\*\*\s*\|\s*(?P<value>.+?)\s*\|\s*$"
+    r"^\|\s*\*\*(?P<key>Phase|Next action|Lessons queue|Carried repairs)\*\*\s*\|"
+    r"\s*(?P<value>.+?)\s*\|\s*$"
 )
 
 #: The phase a string *declares*, by its leading `Phase <n>`. `docs/lessons.md` L8.1: the Status
@@ -207,7 +208,34 @@ NEXT_ACTION_TASK = re.compile(r"[Tt]ask\s+[*`]{0,2}(?P<identifier>\d+\.\d+)")
 #: repair rather than a task: every phase in the plan was closed, and the check refused the
 #: Status block because it fell back to ledger order and found the first unticked box three
 #: phases behind. A routing target this ledger has always had, that this script could not name.
-NEXT_ACTION_REPAIR = re.compile(r"[Rr]epair\s+[*`]{0,2}(?P<identifier>R\d+\.\d+)")
+#: The carried repair — or **group** of them — a Next action row names. `docs/lessons.md`
+#: `L12.10`: the singular form matched nothing the day the remaining backlog stopped being a
+#: list and became four groups, so a row reading "Carried repairs `R9.4` and `R9.6` together"
+#: fell through to ledger order and reported the Status block as disagreeing with the ledger.
+#: The fix is to widen the vocabulary rather than to reword the plan to fit it.
+#:
+#: Anchored on the word and then consuming only a *run* of ids joined by punctuation and the
+#: words that join a list — never every `R\d+\.\d+` in the cell, which would collect one
+#: mentioned later in prose (this row routinely explains why some other repair is closed) and
+#: fail on a correct tree, the loosening `_phase_agreement_failures` above records as how a
+#: check earns the slack that then hides real drift.
+NEXT_ACTION_REPAIR = re.compile(r"[Rr]epairs?\s+[*`]{0,2}(?P<identifier>R\d+\.\d+)")
+
+#: One more id in the same named group: `, `R9.6`` / ` and `R9.6`` / ` together with `R9.6``.
+#: No `\G` — Python's `re` has none; `named_repairs` calls `.match(text, position)`, which
+#: anchors at exactly that offset and is what makes the run contiguous.
+NEXT_ACTION_REPAIR_MORE = re.compile(
+    r"[*`]{0,2}(?:\s*(?:,|and|together with|taken together with)\s*)+[*`]{0,2}"
+    r"(?P<identifier>R\d+\.\d+)"
+)
+
+#: The Status block's **Carried repairs** row must open with its two cardinalities.
+#: `docs/lessons.md` `L12.2`: the Blocked-by row said "three carried repairs are open" about a
+#: section holding nineteen, and the row it replaced was wrong the same way — each author
+#: listing what they happened to be holding. Nobody had ever measured it. A row of its own,
+#: opening with the numbers, is the shape the lessons-queue depth already uses, and that is the
+#: one cardinality in this file that has never been wrong twice.
+REPAIR_COUNTS_IN_STATUS = re.compile(r"^(?P<open>\d+)\s+open,\s*(?P<closed>\d+)\s+closed\b")
 
 #: One carried-repair line, ticked or not — `- [ ] **R11.6** …`. `TASK_ID` deliberately does not
 #: match these (its id is `\d+(\.\d+)?`), so they are parsed here and nowhere else.
@@ -289,6 +317,98 @@ def find_ledger(explicit: str | None) -> Path:
     return Path("docs/build-ledger.md")
 
 
+def named_repairs(next_action: str) -> list[str]:
+    """Every carried repair the Next action row names *as its subject* — `docs/lessons.md` L12.10.
+
+    One id, or a group: "Carried repairs `R9.4` and `R9.6` together", "Carried repair `R9.4`,
+    taken together with `R9.6`". The run is consumed from the anchor forward, so an id mentioned
+    later in the cell's prose — this row routinely explains why some *other* repair closed — is
+    not collected and cannot fail a correct tree.
+    """
+    first = NEXT_ACTION_REPAIR.search(next_action)
+    if first is None:
+        return []
+    found = [first.group("identifier")]
+    position = first.end()
+    while True:
+        more = NEXT_ACTION_REPAIR_MORE.match(next_action, position)
+        if more is None:
+            return found
+        found.append(more.group("identifier"))
+        position = more.end()
+
+
+def _repair_count_failures(path: Path, status: dict[str, str]) -> list[str]:
+    """Does the Status block's stated repair tally equal the ledger's own two counts?
+
+    `docs/lessons.md` `L12.2`. The Blocked-by row said *"three carried repairs are open"* about a
+    section holding **nineteen** — the three that session had touched — and the row it replaced
+    was wrong in the same direction. Each author listed what they were holding; nobody had ever
+    run the count. This is `_queue_depth_failures`'s shape applied to the other cardinality this
+    file states, and that one has never been wrong twice.
+    """
+    failures: list[str] = []
+    if "Carried repairs" not in status:
+        failures.append(
+            "the Status block has no 'Carried repairs' row — the open and closed counts are "
+            "counts of docs/build-ledger.md, and writing them into prose from memory is what "
+            "L12.2 was paid for"
+        )
+        return failures
+    declared = REPAIR_COUNTS_IN_STATUS.match(status["Carried repairs"].strip())
+    if declared is None:
+        failures.append(
+            f"the Status block's 'Carried repairs' row must open '<n> open, <n> closed', got "
+            f"{status['Carried repairs'][:60]!r}"
+        )
+        return failures
+    text = find_ledger(None).read_text(encoding="utf-8")
+    states = [match.group(1).strip() for match in REPAIR_LINE.finditer(text)]
+    counted_open = sum(1 for state in states if not state)
+    counted_closed = sum(1 for state in states if state)
+    if int(declared.group("open")) != counted_open:
+        failures.append(
+            f"Status says {declared.group('open')} carried repair(s) are open and the ledger "
+            f"holds {counted_open} unticked — the number is a count of that file (L12.2)"
+        )
+    if int(declared.group("closed")) != counted_closed:
+        failures.append(
+            f"Status says {declared.group('closed')} carried repair(s) are closed and the "
+            f"ledger holds {counted_closed} ticked — the number is a count of that file (L12.2)"
+        )
+    return failures
+
+
+def _documents_manifest_failures(path: Path) -> list[str]:
+    """Does `docs/README.md`'s Documents manifest name every numbered document on disk?
+
+    `docs/lessons.md` `L12.14`. Asked which phases the project has, I grepped two documents
+    chosen from memory, got a correct answer to the wrong question, and said there was no
+    roadmap past Phase 11 while `docs/12-roadmap.md` sat tracked and **routed from that very
+    manifest**. The manifest was right; I had read the Status block above it all session and
+    never the routing half below.
+
+    This could not have caught that — the row was there. What it protects is the router itself:
+    a manifest with a hole in it makes "read the manifest and pick the row" wrong advice, and
+    the hole is invisible to everyone who already knows what is missing.
+    """
+    docs = path.parent
+    try:
+        manifest = (docs / "README.md").read_text(encoding="utf-8")
+    except OSError:
+        return ["docs/README.md could not be read, so its Documents manifest was not checked"]
+    on_disk = {candidate.name for candidate in docs.glob("[0-9][0-9]-*.md")}
+    missing = sorted(name for name in on_disk if name not in manifest)
+    if missing:
+        return [
+            "docs/README.md's Documents manifest names no row for "
+            + ", ".join(missing)
+            + " — it is the half of that file that answers *which document owns this question*, "
+            "and a document absent from it is reachable only by recall (L12.14)"
+        ]
+    return []
+
+
 def _repair_failures(identifier: str) -> list[str]:
     """Does the carried repair the Next action names exist, and is it still open?
 
@@ -343,9 +463,10 @@ def _phase_agreement_failures(tasks: list[Task], task: Task, status: dict[str, s
         # settles this question rather than deferring it: there is nothing to compare a phase
         # against. What is checked instead is that the repair exists and is still open — the
         # same property the task branch checks, asked of the other kind of target.
-        repair = NEXT_ACTION_REPAIR.search(next_action)
-        if repair is not None:
-            failures.extend(_repair_failures(repair.group("identifier")))
+        repairs = named_repairs(next_action)
+        if repairs:
+            for identifier in repairs:
+                failures.extend(_repair_failures(identifier))
             return failures
         pointed = NEXT_ACTION_TASK.search(next_action)
         subject = task
@@ -443,6 +564,8 @@ def live_checks(
                 failures.append(f"the Status block has no {row!r} row — it may have been renamed")
         failures.extend(_phase_agreement_failures(tasks, task, status))
         failures.extend(_queue_depth_failures(path, status))
+        failures.extend(_repair_count_failures(path, status))
+    failures.extend(_documents_manifest_failures(path))
 
     # L6.4's own defect, made checkable. A mark is only readable when the phase preamble says
     # what happened to the gate behind it; without that, a reader can only guess whether a
@@ -656,10 +779,16 @@ def _live_check_failures(
     # that file currently holds — the assertion under test is *agreement*, not a number, and
     # hard-coding one here would be the second hand-written count `L8.15` is about.
     live_depth = len(QUEUE_ENTRY.findall(queue_section(path.parent / "lessons.md")))
+    #: Same reasoning one row over (`L12.2`): the clause reads the real ledger, so the fixture
+    #: states whatever that file currently holds and the assertion under test is agreement.
+    live_states = [m.group(1).strip() for m in REPAIR_LINE.finditer(path.read_text("utf-8"))]
+    live_open = sum(1 for state in live_states if not state)
+    live_closed = sum(1 for state in live_states if state)
     agreeing = {
         "Phase": first_unticked.phase,
         "Next action": f"carry on with task {first_unticked.identifier}",
         "Lessons queue": f"{live_depth} — counted, not stated",
+        "Carried repairs": f"{live_open} open, {live_closed} closed — counted, not stated",
     }
     phase = phases.get(first_unticked.phase)
     explained = dict(phases)
@@ -714,6 +843,54 @@ def _live_check_failures(
         failures.append(
             "live_checks stayed silent about a queue depth that disagrees with the file"
         )
+
+    failures.extend(_repair_clause_failures(path, tasks, explained, first_unticked, agreeing))
+    return failures
+
+
+def _repair_clause_failures(
+    path: Path,
+    tasks: list[Task],
+    explained: dict[str, Phase],
+    first_unticked: Task,
+    agreeing: dict[str, str],
+) -> list[str]:
+    """The two Phase 12 clauses, planted — `L12.2`'s tally and `L12.10`'s group.
+
+    Split out of `_live_check_failures` rather than appended to it, for the reason that
+    function's own header already gives: each clause is a whole question, and a function holding
+    every question this script asks is one nobody reads before adding the next. `ruff` said so
+    first, at complexity 13.
+    """
+    failures: list[str] = []
+    live_states = [m.group(1).strip() for m in REPAIR_LINE.finditer(path.read_text("utf-8"))]
+    live_open = sum(1 for state in live_states if not state)
+
+    # `docs/lessons.md` L12.2, planted both ways, exactly as L8.15 is planted above — the
+    # cardinality this file got wrong by sixteen, and the reason it now has a row of its own.
+    without_row = {k: v for k, v in agreeing.items() if k != "Carried repairs"}
+    no_repair_row = live_checks(path, tasks, explained, first_unticked, without_row)
+    if not any("Carried repairs" in f for f in no_repair_row):
+        failures.append("live_checks stayed silent about a Status block with no repair-count row")
+
+    disagreeing = dict(agreeing)
+    disagreeing["Carried repairs"] = re.sub(
+        r"^\d+", str(live_open + 5), disagreeing["Carried repairs"]
+    )
+    wrong_repairs = live_checks(path, tasks, explained, first_unticked, disagreeing)
+    if not any("carried repair(s) are open" in f for f in wrong_repairs):
+        failures.append(
+            "live_checks stayed silent about an open-repair count that disagrees with the ledger"
+        )
+
+    # `docs/lessons.md` L12.10: a Next action naming a *group* must route, and an id merely
+    # mentioned in the cell's prose must not be collected into it.
+    group = named_repairs("**Carried repairs `R9.4` and `R9.6` together** — one cause.")
+    if group != ["R9.4", "R9.6"]:
+        failures.append(f"a Next action naming a group of repairs parsed as {group}")
+    mentioned = named_repairs("**Carried repair `R9.1`.** Note `R11.6` closed, which is why.")
+    if mentioned != ["R9.1"]:
+        failures.append(f"a repair mentioned in passing was collected into the group: {mentioned}")
     return failures
 
 
@@ -790,13 +967,14 @@ def check_live(path: Path) -> int:
     # the repair branch, after the first version of it printed "its phase agrees with 9.15 (the
     # task its own Next action row names)" about a row naming `R11.6` and no task whatever.
     next_action = status.get("Next action", "")
-    repair = NEXT_ACTION_REPAIR.search(next_action)
+    repairs = named_repairs(next_action)
     pointed = NEXT_ACTION_TASK.search(next_action)
     queue_depth = len(QUEUE_ENTRY.findall(queue_section(path.parent / "lessons.md")))
-    if repair is not None:
+    if repairs:
         subject = (
-            f"its Next action row names carried repair {repair.group('identifier')}, which is "
-            f"open and belongs to no phase, so no phase comparison was owed"
+            f"its Next action row names carried repair{'s' if len(repairs) > 1 else ''} "
+            f"{', '.join(repairs)}, which belong{'' if len(repairs) > 1 else 's'} to no phase "
+            f"and {'are' if len(repairs) > 1 else 'is'} open, so no phase comparison was owed"
         )
     elif pointed is not None:
         subject = f"its phase agrees with {pointed.group('identifier')}, the task that row names"

@@ -110,6 +110,17 @@ gate is still open; it does not by itself stop the work.
 **The fence.** If the task seems to need something on the phase's scope fence, re-read the task: it
 usually needs something smaller.
 
+**And before writing a *new file*, ask which fitness functions walk the directory it is going
+into.** The gate-and-fence step above is about a task; a file added under `scripts/`, `eval/` or
+`examples/` is subject to whole-tree architecture checks no task line mentions, and the cost of
+finding out afterwards is a rewrite rather than an edit. A measurement script for G17 was written
+three times — private helpers refused by `reportPrivateUsage`, then the real async stages, which
+fitness function 7(a) failed because **`asyncio.run` may appear exactly once in the whole
+repository** and that walk covers `scripts/` deliberately — and `eval/run_baseline.py` had
+documented the identical fork and its answer in its own module docstring all along. The
+constraint is discoverable: `tests/architecture/` is a small fixed set and each file says in its
+docstring which roots it walks (`L12.17`).
+
 ## Red — you write the test
 
 **Write the test before the implementation, and watch it fail for the right reason.** A test that
@@ -133,6 +144,33 @@ same function's output — `L5.6` reached through a door it does not name, becau
 a comparison *written* and this one was *transformed* (`L11.35`). So: **name the dimension the test
 varies, then check the fixture actually varies it** — and after a bulk edit, re-read every
 assertion it touched rather than trusting that lint would have said something.
+
+**The general form, and Phase 12 paid for it four more times: a double is narrower than the real
+thing in exactly the dimension under test, and every assertion over that dimension is then
+vacuous.** Four shapes, all of them cheap to check once named:
+
+- **One row cannot collide with itself.** Six tests of an operator-facing message each held one
+  `PackReport`; the shipped binary printed seven rows reading `weft-rag (failed)` because the
+  message keyed on `distribution` and **G19** had put fourteen packs in one. Where the thing under
+  test renders a *collection*, the fixture holds at least two entries — or the separators, the
+  ordering, the deduplication and above all *whether two entries are distinguishable* are untested
+  (`L12.6`).
+- **A fixture that claims to be real is checked against the real thing, once.** `_INSTALLED` was
+  commented *"the roles a real installation declares"* and named two of five, so the branch that
+  refuses an unselected role was unreachable from it and `weft config get` exited 1 on every
+  project while 2,543 tests were green. An ordinary fixture invents whatever the test needs and
+  owes nothing; the moment its name or comment says *real*, it has asserted something about the
+  world with nothing checking it (`L12.11`).
+- **Where a decorator stands between the caller and the object, no hand-built double is right.**
+  An optional duck-typed method reached by `getattr` was written on both sinks and tested through
+  a double that had it — while every real run hands over a decorator that forwards the contract
+  and nothing else, so the feature was inert on every path. Ask *what type does the caller
+  actually receive*, and construct that (`L12.13`).
+- **Assert the exception the code should raise, not the family it belongs to.**
+  `pytest.raises(WeftError)` plus `"blob" in str(...)` passed against a build where the sibling
+  error said the opposite of the truth — the substring made it worse, because a key's name appears
+  in every message *about* that key. Name the leaf class, and match a fragment of the sentence's
+  **claim**, not of its subject (`L12.12`).
 
 **A comparison whose two sides come from one source cannot disagree, and this is not only a
 fitness-function rule.** *Finish* item 3 states it for checks; it applies identically to an ordinary
@@ -167,9 +205,15 @@ fluent docstring citing the section it was not in. It said so in its report, whi
 it was caught. Ask of every literal in an assertion: *would the documents have written this?*
 Where a task's evidence needs more than one test, the `test-patterns` skill owns suite discipline.
 
-**When a brief names a base class, grep for that base class before writing *Already decided*.**
-Putting a class into a marked family is not a base-class choice — it is an edit to every site
-keyed on that marker, and none of those sites is reachable from the new code. One error class
+**When a brief introduces or re-parents an exception class, grep for every site keyed on its
+identity before writing *Already decided*.** *(This said "names a base class" until Phase 12, and
+the narrower wording is what let the fifth instance through: that brief deliberately named **no**
+base class — the whole point of the new `RefusedStagePluginError` was that it joins no family —
+so the sentence did not apply and the sites went unlooked-for. What these sites key on is not
+inheritance but **identity**, and a class that joins no family owes the grep more, not less,
+because none of the inheritance-shaped searches will surface it: `L12.5`.)* Putting a class into a
+marked family is not a base-class choice — it is an edit to every site keyed on that marker, and
+none of those sites is reachable from the new code. One error class
 joining `UnresolvedNameError` owed edits to a pinned membership frozenset inside an architecture
 test, an exit-code dispatch branch, and a troubleshooting-coverage ratchet; a fourth site turned up
 in an unrelated task the same day, from a one-line "remove this entry" instruction. Four sites,
@@ -255,6 +299,14 @@ file, so the two copies are one rule crossing a context boundary, not a duplicat
 - **Frozen Pydantic returns.** No `dict[str, Any]`, `Enum` over `Literal`, native 3.12 hints.
 - **Nothing cross-cutting by hand.** Spans, error attribution, transient stripping and blocking
   detection attach at the registration seam. If you are writing a span, you are in the wrong file.
+- **A `ContextVar` set by a wrapper that wraps more than one kind of thing records the innermost,
+  not the meaningful one.** `wrap` is called for stages, for services and for providers, and
+  `weft_llm.client` wraps its own call as `stage=f"llm:{role}"` — so a variable meaning *which
+  pipeline position am I inside* was stamped `llm:generate` on every chunk. If the value means
+  "which X am I inside", only the code that knows it is an X may set it; inferring that from
+  another parameter's presence is a guess that holds until someone else passes it too, and
+  narrowing on *"was `stage` given"* did not fix it — an explicit `position` only the runner
+  supplies did (`L12.13`).
 - **Loud failure.** An unknown name says what was wanted, why it is unavailable, and what the valid
   options are. A silent fallback is worse than a crash: it produces a plausible answer.
 - **The kernel names no capability.** If it needs the word `Extractor`, `Chunker` or `Store`, it
@@ -282,6 +334,27 @@ was — so one command refused a bad pipeline by name at exit `4` and its neighb
 `llm=deps.llm` into `run_index` and `weft eval run` calls the identical function passing nothing,
 which put every model-calling ingest rung out of reach of the evaluator. Both were found by running
 the binary, neither by 2,012 tests (`docs/lessons.md` `L8.24`).
+
+**Before replacing an extracted value with a sentinel, grep the caller for every remaining use
+of that name.** Lifting a shared derivation out of one function leaves the caller's other uses
+behind, and a value that *selects* is often the same value that *explains*. `run_index` computed
+`accepted` twice — once to choose which files to read, and twenty lines later as the set the
+empty-walk message names to an operator; the extraction moved the first and replaced the binding
+with `frozenset()`, which is structurally correct for the use that moved and semantically wrong
+for the one that stayed. A directory of unreadable formats would have been told the installed
+extractors claim nothing at all. It was caught by `ruff` on the *adjacent* variable the same edit
+dropped — had the walk been one line shorter, a green gate would have shipped a lying message
+(`L12.15`).
+
+**A mechanical edit is verified by something that did not perform it.** A script reported
+`would annotate: 160 … skipped: 0` and then `already carrying one: 160`, and that was read as
+done — but both numbers are the tool's own regex counting its own output, which is `L5.6`'s
+one-source shape wearing a progress report's clothes. **Twenty-nine files had stopped parsing**,
+because the fragment was delimited with `"` and a citation inside a Python file very often sits
+inside a string. `ruff format` found it in about a minute. So after a bulk edit, run the cheapest
+whole-tree *validity* check before the expensive gate and before reading the tool's summary as a
+result — this is `L11.35`'s neighbour one level coarser: that rule is about **meaning** after a
+bulk edit, and this one is about **validity**, which a machine answers for free (`L12.9`).
 
 **A `path:line` an agent reports is a lead, not evidence.** Re-derive it as you land it: three
 agents reading one paragraph on the same day cited it at three different line numbers (`L9.34`), and
@@ -339,10 +412,40 @@ crashes on the exact state its own non-vacuity exercise produces.
    (`lessons.md` L6.29). A waiver-liveness test asserts the sweep fires; those differ exactly when
    the check is broken, which is the only case either test is for.
 
+   **Two numbers agreeing is not two numbers being right, and the paragraph explaining a check
+   is the most dangerous line on its page.** `R11.7` added a count check over a documented
+   convention: the section states how many names it reserves, and the parser refuses a run that
+   reads a different number. The sentence introducing the convention illustrated it —
+   `` Every reservation below begins its own line with `· `name`` `` — and **`name` was parsed as
+   a twenty-seventh reservation**, against a section holding 26 readable plus one the parser
+   drops. 26 + 1 phantom = 27, the prose said 27, the check passed, and the live defect it was
+   written to expose stayed invisible. Two consequences: illustrate a convention in a form the
+   parser cannot match (anchoring the pattern is what made a mid-sentence example safe), and
+   **watch a deliberate disagreement** — the plant this project requires for a sweep applies to
+   any two-sided assertion, not only to one that might match nothing (`L12.8`).
+
+   **A plant-and-revert reverts the file you edited, never the state that file drives.** Renaming
+   an extra in a `pyproject.toml` to watch a check go red is item 3 done correctly; the
+   `uv run pytest` in the middle re-resolved the workspace and rewrote **`uv.lock`**, and
+   reverting the manifest did not revert the lockfile. A full gate then passed against a lock
+   naming an extra that existed nowhere. So run `git status` after the revert rather than
+   re-reading the planted file — and `.github/workflows/ci.yml` now carries `uv lock --check` on
+   a clean checkout, because the same check inside `poe ci-checks` is vacuous: `uv run` heals the
+   lock before poe starts, which was watched passing green against a lockfile it had just made
+   agree (`L12.7`).
+
    **And where a change is made safe by a default, read every other caller.** "Existing callers are
    unchanged" is the right property for a signature and the wrong conclusion about a *check*: one
    that renders through a default stops describing the artefact the moment the artefact starts
    passing something else, and it goes on agreeing with the shape it produced itself (`L6.21`).
+3b. **Read the verdict from the command that produced it, never from the end of a pipeline.**
+   A pipeline's exit status is its **last** command's, so `weft … 2>&1 | tail -8` followed by
+   `echo "exit=$?"` reports `tail`'s success for a binary that exited 1 — measured, in the session
+   that quotes `L10.24` against exactly that shape. Redirect, capture, then look:
+   `cmd > out.log 2>&1; echo "EXIT=$?"; tail -8 out.log`.
+   `.claude/hooks/guard_unchecked_commit.py` refuses the pipe-then-`$?` form outright, which is
+   where this rule actually lives — this line exists so the reason is readable when it fires
+   (`L12.16`).
 4. **You have run the thing, through the shipped entry point, from a directory that is not this
    repository — including its failure path.** *And construct the condition for any branch that
    only fires sometimes.* **Three branches this step keeps missing, each named by a defect it
@@ -466,6 +569,27 @@ first; a boundary skipped is a boundary skipped silently.
   anyone may write — and it sat there through Phase 5 and most of Phase 6 failing with no message at
   all. A comment claiming universality over a population you do not control is the same defect as a
   document doing it, and it is harder to see because nobody reads a comment as settled text.
+- **You are about to file something as *undecided*.** That is as much a claim about the settled
+  documents as taking the decision would be, and it is cheaper to check — one grep for the
+  identifier the claim turns on, at the moment of filing. The clause above stops a task inventing
+  a narrowing rather than reopening a gate; this is the same rule from the other side, and both
+  halves cost Phase 12 a day. `R11.6` was filed on the premise that adding a field to an envelope
+  *"moves `envelope_version`"*, which `09` §3 rules **"Promised, additively… never frozen"** and
+  which the task that last added such a field had written into code one module over. It was read
+  into the Status block's **Next action** row and routed by `next_task.py` for a day before anyone
+  grepped the identifier (`L12.3`).
+
+  **And a pasted transcript is evidence of the symptom, never of the cause.** The moment a repair,
+  a lesson or a review names a *raise site*, a *class* or a *module* as the origin of output it
+  has quoted, that name is a second claim owing its own second measurement. `R11.3` pasted a real
+  operator transcript and blamed `weft_kernel.registry.UnknownPluginError`; one `--json` run named
+  `UnknownStagePluginError`, raised inside `weft-cli` and already holding the registry, and the
+  wrong cause carried a remedy that was **structurally impossible** — `require_plugin` takes a
+  contract, and the contract is the thing being inferred when the inference fails. Two modules
+  here compose deliberately similar sentences about an unresolvable plugin name, and only one of
+  them ran; `--json` puts the class in the error envelope, which is the field `09` §3 promises for
+  exactly this (`L12.4`). `L9.34` is the same rule for a *citation* and did not reach these,
+  because neither origin was written as a citation — both were written as a diagnosis.
 - **The kernel crosses 2,800 lines.** A review trigger rather than a failure, but it is a
   conversation about the boundary — and the budget is never edited in the pull request that grew it.
 - **A settled decision looks wrong.** Information, not failure, but a stop rather than a patch:

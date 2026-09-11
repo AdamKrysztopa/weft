@@ -213,10 +213,15 @@ Six live in `.claude/skills/`:
   instructions** — and never assumed exact: one side of that protocol is a language model, so the
   hook matches loosely and says so loudly when a loose match still misses, rather than returning
   nothing. An instruction to be precise is not an enforcement mechanism.
-- **Hooks are not project Python.** They run under bare `python3` — 3.9 on the development machine —
-  so the 3.12 idiom the packages are held to does not reach `.claude/hooks/`, and `ci-checks` does
-  not cover that directory. Run a hook to know it works; one that fails to import is silently a hook
-  that does not exist.
+- **Hooks are not project Python, and neither is a script you wrote to check something.** They run
+  under bare `python3` — 3.9 on the development machine — so the 3.12 idiom the packages are held
+  to does not reach `.claude/hooks/`, and `ci-checks` does not cover that directory. Run a hook to
+  know it works; one that fails to import is silently a hook that does not exist. **The same
+  interpreter catches an ad-hoc verification script and carries none of the warning**: one written
+  to confirm a 160-site mechanical edit `ast.parse`d every tracked file and reported **28 broken**,
+  at lines like `def add[T](self, …)` — PEP 695, valid 3.12, a syntax error in 3.9. It was
+  reporting its own version, not the tree's. `uv run python` is the interpreter that can read this
+  tree; bare `python3` is for the hooks alone (`docs/lessons.md` `L12.9`).
 - **The four git commands that discard unrecoverable work are refused** (`PreToolUse` on `Bash`) —
   `git stash`, `git reset`, `git checkout --`, `git clean`. Each throws away a working tree or an
   index that exists nowhere else, and this checkout is shared with whatever agent is running in it.
@@ -252,6 +257,15 @@ Six live in `.claude/skills/`:
   log records *that* it was decided and *what*, never the reasoning.
 - **`docs/README.md` holds state and pointers only, never definitions.** If you find yourself
   explaining *why* there, it belongs in `01` through `05`.
+- **The Status block answers *where are we*; the Documents manifest answers *which document owns
+  this question*, and it is the half nobody reads.** A question about what the project *contains*
+  — which phases exist, what plans what — is answered from that manifest, never from the files you
+  happen to have open. Asked which phases this project has, I grepped `01` and the ledger, found
+  twelve, and said there was no roadmap past Phase 11 — while `docs/12-roadmap.md` sat tracked,
+  271 lines, owning Phases 16–27, and **routed from that manifest**. Both greps were correct; the
+  population was wrong, and it was chosen from memory of which documents exist. `next_task.py
+  --check-live` now fails when a numbered document has no row there, which protects the router but
+  could not have caught this — the row was there, and I did not look (`docs/lessons.md` `L12.14`).
 - **A claim about what code does is checked against its callers, never against its name, its
   docstring, or a comment's stated scope** — including a claim made by a review or another agent.
   This has now cost three phases in three genres: a proviso invented mid-task rather than reopening

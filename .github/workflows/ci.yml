@@ -72,6 +72,27 @@ jobs:
       - name: Set up Python
         run: uv python install
 
+      # `docs/lessons.md` `L12.7`, and **it is here rather than in `poe ci-checks` for a reason
+      # the first attempt discovered by being vacuous.** A plant-and-revert reverted a
+      # `pyproject.toml` and left the planted extra in `uv.lock`; a full local gate then passed
+      # against it, because every check that reads extras reads the manifest and nothing asked
+      # whether the lockfile still agreed. `CLAUDE.md` already required *"the lockfile is the
+      # committed one"* and gave no way to check it.
+      #
+      # Wired into the `ci-checks` sequence it could never fail: the canonical invocation is
+      # `uv run poe ci-checks`, and `uv run` re-resolves and **rewrites `uv.lock` before poe
+      # starts** — watched, on a planted extra, passing green against a lockfile it had just
+      # made agree. That is the same defect one layer out, so the check has to run somewhere
+      # `uv run` has not already been: a clean checkout, before `Sync`, as a bare `uv lock
+      # --check`. Watched red there too, exit 1: *"The lockfile at `uv.lock` needs to be
+      # updated, but `--check` was provided."*
+      #
+      # Before `Sync` and not after, because `uv sync --frozen` installs from a stale lock
+      # without complaint — that is what `--frozen` means — so a run that synced first would
+      # test the lock against itself.
+      - name: The committed lockfile still agrees with the committed manifests
+        run: uv lock --check
+
       - name: Sync
         run: uv sync --frozen
 

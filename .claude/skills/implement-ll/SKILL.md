@@ -123,6 +123,20 @@ and every concern an author had to remember decayed.
    boundary checker that is not wired into its canonical task never runs, and FF0 exists to catch
    exactly that. Prefer a ratchet with a named waiver constant pinned empty, so a waiver
    is a visible act in a diff.
+
+   **And ask where the check's own *inputs* come from, which is the half this item did not have.**
+   A drain is exactly when this goes wrong: the router measures on one machine and writes a rule
+   for every machine. `L11.22`'s skip-count guard was routed correctly and then given the number
+   **9** — a fact about a laptop with Qdrant running. The same tree measures **44** with Qdrant
+   unreachable and **48** in CI, and CI went red on the first push. The finding underneath was
+   worth more than the mistake: CI had been running **39 fewer tests than a local gate**, green on
+   every push since Qdrant was added. Then the repair got it wrong in the other dimension — moving
+   the number into the workflow's step `env` applied it to every task in the sequence, so `arch`
+   claimed 48, produced 0, and killed the gate before the tests ran. So: **a constant derived from
+   an environment belongs where that environment is declared, and a developer's machine declares
+   nothing** — and one that is a fact about an environment *and* about a suite needs each half
+   stated in the file that owns it. If no file declares the thing a constant was measured against,
+   the constant does not have a home yet (`docs/lessons.md` `L12.1`).
 3. **A skill** (`.claude/skills/`). Use when it is judgement applied at a known moment — a step in
    `phase-step`, a lens in `weft-qualities`. **Amend an existing skill rather than writing a new one**
    unless the moment genuinely has no owner; a fifth skill nobody invokes is worse than a sixth
