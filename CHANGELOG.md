@@ -13,12 +13,13 @@ digits instead of prose — it records what changed, and why, for someone using 
 [`docs/README.md`](docs/README.md), which records what was decided, when, and where the reasoning is
 written down.
 
-**Nothing has been released to an index yet.** Measured 2026-09-08: all eight distribution names
-return 404 on PyPI. Every entry below is therefore `[Unreleased]` — not because nothing has shipped,
-but because nothing has been published for anyone outside this repository to pin against. Four
-retired names (`weft-command`, `weft-embed`, `weft-generate`, `weft-llm`) did reach PyPI at `0.1.0`
-before a rate limit stopped the rest; they ship inside `weft-rag` now, are vestigial, and receive no
-further versions.
+**First release: 2026-09-11, tag `v2.4.0`.** `weft-rag` and `weft-kernel` are the two names this
+project publishes (**G19**, 2026-09-09 — a new capability never adds a third; `docs/README.md`'s
+decision log owns the reasoning). Measured 2026-09-08, before that gate closed: all eight names G10
+had published under returned 404 on PyPI — this is the first index publication either successor name
+has ever had. Four retired, pre-consolidation names (`weft-command`, `weft-embed`, `weft-generate`,
+`weft-llm`) reached PyPI at `0.1.0` on 2026-09-05 before a rate limit stopped the rest; their code
+ships inside `weft-rag` now, and all four are **yanked** as of this release (see *Removed*, below).
 
 > **This file went stale again, and the way it did is worth more than the apology.** `docs/lessons.md`
 > L5.8 was written because this changelog was nineteen lines, touched once, and unmoved while five
@@ -32,8 +33,14 @@ further versions.
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-09-11
+
 ### Added
 
+- **The distribution is `weft-rag`; the command is `weft`.** `weft` itself is another project's
+  name on PyPI (101 releases, unrelated), so this project cannot publish under it — `weft-rag` is
+  what `pip install` names, and the console script the wheel places on your `PATH` is still `weft`
+  (**G18**, 2026-09-09; `docs/README.md`'s decision log owns the lookup that found the collision).
 - **Phase 0 — the walking skeleton.** The kernel (registry, discovery, the pipeline model, the
   payload types), `weft-cli` (the one driving adapter and the one `asyncio.run` in the tree), and
   the first capability packs — `weft-extract`, `weft-chunk`, `weft-store`, `weft-embed` — plus the
@@ -103,6 +110,20 @@ further versions.
   joins a newly indexed document into an *existing* tree rather than rebuilding it, shipped as
   `index-with-adrap`; and the `Revisable` and `NodeSupersedable` contracts behind it, so a plugin
   can replace a stored node with a differently-shaped successor through a published protocol.
+- **Phase 11 — the graph pack.** `weft_kg` — entities, aliases, facts, mentions and relations
+  extracted from a corpus and reachable from `weft ask`. `index-with-facts` builds the graph
+  alongside the ordinary vector index; `graph-then-generate` and `graph-and-vector-rrf` answer
+  through it, citing across both stores; `weft graph bridges` and `weft graph neighbours` inspect it
+  directly; and `weft delete`/`weft reconcile` reach its rows by kind (`node`, `alias`, `entity`,
+  `fact`, `mention`, `relation`) alongside the ordinary node store. Entity resolution has two rungs:
+  a free, co-occurrence pass with no model and no credential, and an opt-in `full` pass — `index-
+  with-facts-openai` — that merges duplicate entities with a real model and states its `model_calls`
+  before it spends one. An operator curates the extraction schema a corpus proposes and activates it
+  per collection from a project file, so what was approved is a diffable artefact. Ships as an
+  ordinary module inside `weft-rag`, needing no extra — its one dependency, `psycopg`, is already
+  part of the default install. On one twelve-document corpus, questions that require a graph hop
+  scored `1.000` through the graph compared to `0.375`–`0.500` through vector retrieval alone
+  (`weft eval compare --kind requires-graph-hop`).
 
 ### Changed
 
@@ -119,6 +140,15 @@ further versions.
   distribution** — each is still a pack with its own entry point, its own `[packs.*]` configuration
   namespace and its own `weft plugins doctor` row, so nothing about how you configure or refuse one
   changed. What changed is how many wheels you install to get them.
+- **Eight published names became two (G19, 2026-09-09), before any of the eight ever reached an
+  index.** `weft-pdf`, `weft-openai`, `weft-qdrant`, `weft-otel`, `weft-docling`, `weft-agent` and
+  `weft-kg` are not published distributions and never will be: their code ships inside `weft-rag`,
+  behind an extra where they carry an outside library a user may want to decline
+  (`weft-rag[pdf]`, `[openai]`, `[qdrant]`, `[otel]`, `[docling]`, or `[all]` for every one of them),
+  and unconditionally where they do not (`agent`, `graph` — `graph`'s one dependency, `psycopg`, is
+  already part of the default install). `weft-kernel` is the only distribution besides `weft-rag`
+  that this project publishes, kept separate solely so it can be installed alone and imported on its
+  own. This is the release-day state: install `weft-rag`, not any of the seven names above.
 - **`weft --json` now emits only JSON on stdout for a routed answer.** It previously wrote
   well-formed events and then printed the pipeline name and citations as prose, so nothing
   downstream could parse the output — the guard read `weft ask --format json`, a different flag. The
@@ -133,6 +163,14 @@ further versions.
 
 Nothing yet. The mechanism exists (5.2e) and this file's coverage of it is enforced (5.2f); no
 first-party surface has used it.
+
+### Removed
+
+- **`weft-command`, `weft-embed`, `weft-generate` and `weft-llm` are yanked from PyPI as of
+  2026-09-11.** These four reached the index at `0.1.0` on 2026-09-05, before G10's own
+  eight-distribution set was itself superseded by **G19**'s two. Yanked rather than deleted, so the
+  names stay reserved and cannot be picked up by an unrelated project — anyone who installed one of
+  them should install `weft-rag` instead; the code they carried ships there now.
 
 ### Known gaps
 

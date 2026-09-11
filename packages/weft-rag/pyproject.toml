@@ -12,8 +12,9 @@
 # ---------------------------------------------------------------------------------------------
 #
 # It was a meta-distribution: no code, fifteen exact pins, and one job — naming a tested
-# combination. It now **ships the fourteen packs' code and their twelve entry points in one
-# wheel**, and the fourteen are no longer distributions at all.
+# combination. It now **ships twenty-three packs' code and their twenty-one entry points in one
+# wheel** — the fourteen from G10, six more folded in by G19, and `graph` from ledger task
+# 11.5 — and none of them are separate distributions any longer.
 #
 # The measurement that decided it, taken from the twenty `pyproject.toml` files with a parser
 # rather than a regex: **ten of the twenty declared no external dependency whatsoever**.
@@ -23,11 +24,14 @@
 # `v0.1.0` asked PyPI to create nineteen projects, fifteen refusals with
 # `429 Too many new projects created` (`docs/lessons.md` L7.3).
 #
-# **Six distributions ship, and the other five each carry a dependency somebody may decline:**
-# `weft-kernel` (`pydantic`, `opentelemetry-api` — and separate for fitness function 1, which
-# installs it alone and imports it; bundling it would demote the check that proves the kernel
-# names no capability), `weft-openai` (`openai`), `weft-pdf` (`pypdf`, `pdfplumber`),
-# `weft-qdrant` (`qdrant-client`), `weft-otel` (`opentelemetry-sdk`).
+# **Two distributions ship, and that is G19's count (2026-09-09) — down from the six G10 first
+# left.** `weft-kernel` (`pydantic`, `opentelemetry-api` — and separate for fitness function 1,
+# which installs it alone and imports it; bundling it would demote the check that proves the
+# kernel names no capability) is the one distribution beside this wheel now. `weft-openai`,
+# `weft-pdf`, `weft-qdrant`, `weft-otel`, `weft-agent` and `weft-docling` each carried a
+# dependency somebody may decline as their own distribution; each is now an extra on this wheel
+# instead — `[openai]`, `[pdf]`, `[qdrant]`, `[otel]`, `[docling]` — except `agent`, which needs
+# none at all.
 #
 # **What was given up, stated because the argument is only honest with the cost on the table:**
 #
@@ -37,8 +41,9 @@
 #     skew stops existing. Contract versions (`STORE_CONTRACT_VERSION` and its siblings) are a
 #     separate axis and are **not** affected — a pack outside this wheel still checks them.
 #   * **Per-pack isolated-install proof.** Task 6.6 generalised fitness function 1 to every
-#     published distribution. Fourteen of them are no longer separately installable, so that
-#     check narrows to the six. What covers the fourteen instead is an import assertion against
+#     published distribution. Twenty of them are no longer separately installable — the fourteen
+#     G10 folded in, and the six more G19 folded in on top — so that check narrows to the two.
+#     What covers the twenty instead is an import assertion against
 #     the built wheel, which is **weaker**, and is labelled weaker in
 #     `scripts/check_isolated_installs.py` rather than counted as the same coverage.
 #   * **Four already-published names become vestigial.** `weft-command`, `weft-embed`,
@@ -49,13 +54,13 @@
 # **What did not change, and it is the point.** The Python packages did not move relative to
 # each other, no import changed, every pack still registers through the same public `weft.packs`
 # entry point a third party uses, and a third-party pack installs beside this wheel exactly as
-# `weft-qdrant` does. What changed is how the code is *wheeled*, not how it is written.
+# `weft-canary` does. What changed is how the code is *wheeled*, not how it is written.
 #
 # **A pack's identity is its entry-point name, not this distribution's name.** `weft plugins
-# list|doctor` prints twelve distinguishable rows, and `[packs.store]` configures the store and
-# nothing else — see `weft_kernel.discovery`'s own module docstring for where the two identities
-# part. That separation is what made this file possible; without it, bundling would have
-# collapsed twelve settings namespaces into one.
+# list|doctor` prints twenty-one distinguishable rows, and `[packs.store]` configures the store
+# and nothing else — see `weft_kernel.discovery`'s own module docstring for where the two
+# identities part. That separation is what made this file possible; without it, bundling would
+# have collapsed twenty-one settings namespaces into one.
 
 [project]
 name = "weft-rag"
@@ -168,11 +173,11 @@ all = [
 [project.scripts]
 weft = "weft_cli.cli:main"
 
-# The twelve packs this wheel registers. **The name on the left is the pack's identity** — the
+# The twenty-one packs this wheel registers. **The name on the left is the pack's identity** — the
 # row `weft plugins list|doctor` prints, and the key a `[packs.<pack>]` settings block uses — so
-# these twelve are what an operator writes in `weft.toml`, never `weft-rag`.
+# these twenty-one are what an operator writes in `weft.toml`, never `weft-rag`.
 #
-# Fourteen packages ship; twelve register. `weft_command` and `weft_prompts` deliberately declare
+# Twenty-three packages ship; twenty-one register. `weft_command` and `weft_prompts` deliberately declare
 # no entry point and register nothing: fitness function 2 requires a distribution declaring one
 # to be active *and contributing*, and every first-party prompt belongs to the plugin that asks
 # it a question. They are libraries other packs publish contracts from, which is a real thing to
@@ -212,7 +217,7 @@ graph = "weft_kg:register"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-# Fourteen top-level packages in one wheel, listed rather than globbed: a glob would silently
+# Twenty-three top-level packages in one wheel, listed rather than globbed: a glob would silently
 # ship whatever happened to be under `src/`, and what this distribution ships is a decision.
 #
 # **They live under this project's own `src/`, and that placement is load-bearing.** The first

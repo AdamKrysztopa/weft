@@ -458,7 +458,7 @@ whether or not the producing stage ever ran.
 > describer, the embedder and a vision-capable generator each open the same bytes and none of them
 > receives a copy. **`__transient__` is a guard, never a transport** — it exists so that bytes cannot
 > reach a JSONB column, and under this design that guard is never exercised by a figure, which is the
-> point. G5's row (`README.md:141 "python3 "`) states what transience *is* and never where it is applied, which is
+> point. G5's row (`README.md:150 "python3 "`) states what transience *is* and never where it is applied, which is
 > why this is a narrowing under `09` §6.2 and not a Reopened row; the alternative — moving the strip
 > to the store boundary so a namespace could carry bytes between stages — would have been a kernel
 > change at `seam.py:460 "stage=stage_label,"`, would reinstate the N-strategies-N-copies cost `11` §1.4 measures, and would

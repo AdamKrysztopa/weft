@@ -157,6 +157,16 @@ what is *compatible*, and only a pinned set says what was *tested together*.)*
 > which is the same demotion bundling `weft-kernel` would inflict on fitness function 1. Fitness
 > function 21 asserts the distinction rather than leaving it to this paragraph.
 
+> **Superseded four days later by G19, 2026-09-09, and the block above is kept as the record rather
+> than corrected in place.** Its *"What ships now"* was true when written and is not true now: six
+> distributions became **two**, `weft-kernel` and `weft-rag`, and a new capability never adds a
+> third. `weft-openai`, `weft-pdf`, `weft-qdrant`, `weft-otel`, `weft-docling` and `weft-agent` are
+> extras on `weft-rag` rather than distributions; each carries `[tool.weft] publish = false`.
+> The counts move with them — measured 2026-09-11 against `packages/weft-rag/pyproject.toml`:
+> **23 top-level packages, 21 `weft.packs` entry points** (`weft_command` and `weft_prompts`
+> register nothing), where the block above says fourteen and twelve. Task 6.6's isolated-install
+> check narrows to **two**, not six. `05` → G19 owns the reasoning; `CLAUDE.md` carries the rule so
+> it is not reopened to save a wheel.
 
 `01` → *The architecture stack*, Topology row, already records the cost this section pays: several
 distributions to version and release together, and skew between the kernel and a first-party pack. It
@@ -200,6 +210,54 @@ with; they are binding now.
   **Whether `doctor` also flags a mismatch, and what a mismatch does, are G9's** (§2.3, dependency 1)
   — the column exists under either answer, because `doctor` has to be able to *say* what is installed
   before any policy can act on it.
+
+### 1.1 Cutting a tag — the protocol nothing governed
+
+**Written 2026-09-11, because its absence had already been paid for once.** `README.md` →
+*Protocol* has governed closing a gate since Phase 0 and governs it well. Nothing governed cutting
+a tag, and `v2.1.0` went out on 2026-09-05 carrying a changelog frozen five phases earlier, **zero
+release assets**, a front page reading *"Status: Phase 0, not yet built"*, and an install line for
+names that answered 404. Every one of those facts was known to somebody that day. None of them was
+anybody's step.
+
+**A version number on PyPI is not reusable.** That is the asymmetry the whole protocol turns on: a
+wheel uploaded against a false README cannot be replaced, only superseded by a version that admits
+it, so the cheapest moment to find the falsehood is before the upload and there is no second
+cheapest. Closing a gate is reversible by reopening it; cutting a tag is not.
+
+Push a `v*` tag only when all eight hold. The first four are `scripts/release_preflight.py` and are
+run as one command — `uv run poe release-preflight vX.Y.Z` — because a list of checks somebody has
+to remember is prose, which is this repository's own most-repeated lesson. The last four are not
+facts about a file or the index, and the script says so rather than pretending to assert them.
+
+1. **No version about to be uploaded is already on the index.** Asked of the index, per publishing
+   member, immediately before the tag.
+2. **The tag names the release set's version.** `09` §1: a distribution may ship without a release
+   set, but the documentation, the baseline and the support window are stated against the set — so
+   `vX.Y.Z` is `weft-rag`'s number and never the kernel's.
+3. **`CHANGELOG.md` carries a dated section for this tag, and `[Unreleased]` is empty.** A release
+   whose changelog still says *unreleased* is `v2.1.0` again.
+4. **Every published distribution declares a `readme` that exists and is not empty.** Added the day
+   `weft-kernel` was found declaring none at all, four hours before it would have been published
+   with a one-line description as its whole project page — silent, because the wheel builds and the
+   upload succeeds and the defect is visible only on a page nobody in this repository reads.
+5. **`uv run poe ci-checks` is green in the environment the release runs in** — the committed
+   lockfile, the container up, the expected skip count, the lint cache cold. `CLAUDE.md` → *Quality
+   gates* owns why each of those four is named separately.
+6. **The working tree is committed.** A tag points at a commit; anything uncommitted is not in the
+   release, and the wheel is built from the tag rather than from the desk.
+7. **The binary has been run from outside this repository**, through its shipped entry point,
+   including a failure path, and what it printed has been read. All four of Phase 3's repairs were
+   found this way and none by its 1,513 tests.
+8. **PyPI's cooling window is clear.** `.github/workflows/release.yml`'s `cooling-off` job refuses
+   the run if a previous Release run failed inside twelve hours, because the project-creation
+   limiter counts **attempts** over a rolling window (`lessons.md` L7.3, L7.9). It is enforced
+   there rather than duplicated here — one rule, one implementation, at the point of action.
+
+**Then, and only then:** tag, push, and watch the run to completion. The release is not cut when
+the tag lands; it is cut when the index has the files and a clean environment installs from it.
+Phase 6's Exit is that install, performed by a stranger, and it is the last step of this protocol
+rather than a separate ambition.
 
 ---
 

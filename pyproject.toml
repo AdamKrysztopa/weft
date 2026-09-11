@@ -187,6 +187,11 @@ cmd = "python scripts/check_kernel_isolated.py"
 help = "Task 6.6: install every published distribution alone in a clean env and import it."
 cmd = "python scripts/check_isolated_installs.py"
 
+# Not in `ci-checks`: it asks the index what it holds, so it would go red after every release.
+[tool.poe.tasks.release-preflight]
+help = "09 §1.1: the four preconditions for a v* tag a machine can hold. Run before tagging."
+cmd = "python scripts/release_preflight.py"
+
 [tool.poe.tasks.licence-sync]
 help = "Task 11.0: copy the root LICENSE and NOTICE into every publishing distribution."
 cmd = "python scripts/sync_licence_files.py"

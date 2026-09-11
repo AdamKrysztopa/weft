@@ -117,6 +117,13 @@ These came out of grilling sessions G1 and G3–G6. They are not preferences; ea
 - **Catch specific exceptions.** A silent fallback is worse than a failure: it does not crash, it
   produces a plausible answer against the wrong data, and its success and failure paths become
   indistinguishable to the caller.
+- **Do not trash code with comments.** This tree keeps reasoning beside the code on purpose, and
+  that is not a licence to narrate: a comment earns its place by carrying what the code cannot — a
+  measured number, a constraint that is not local, why a wrong-looking choice is right. Never
+  restate the line below it, never write a paragraph where a clause works, and never argue a
+  decision to a reviewer in a comment; that belongs in the commit message or in the `docs/` file
+  that owns it. A stale comment is worse than none, and every line you write is one somebody has
+  to keep true.
 
 ---
 

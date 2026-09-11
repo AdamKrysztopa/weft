@@ -7,10 +7,17 @@ a third party writes.
 
 The warp is the fixed frame on a loom; the weft is every thread through it.
 
-> **Status: Phase 0, not yet built.** Six of ten architecture decisions are settled and the plan is
-> complete. What exists here is the repository skeleton and the fitness functions, wired before there
-> was anything to check — deliberately, because the project this one replaces shipped an
-> architecture checker that was never in its CI task.
+> **Status: built and running.** The walking skeleton (Phase 0) plus eleven further build phases —
+> Phases 1 through 11, retrieval, generation, the CLI, evaluation, release, the agent pack, the
+> product ladder, multimodal nodes, RAPTOR and the graph pack — are all closed. Indexing, retrieval,
+> generation, evaluation and a graph pack all run end to end, proven from outside this repository.
+> Of the decision log's thirty-three rows, thirty-one are settled; two gates are still open
+> (`G14`, `G17`) and neither blocks anything that ships today. **The one debt every closed phase
+> shared — a stranger installing the release from a real package index rather than a checkout — is
+> what today's release discharges:** `weft-kernel` and `weft-rag` are published for the first time
+> today, 2026-09-11. The four names published 2026-09-05 (`weft-generate`, `weft-embed`,
+> `weft-command`, `weft-llm`) are yanked as of the same day; the code they named ships inside
+> `weft-rag` now. `docs/README.md` carries the phase-by-phase record and the two open gates.
 
 ## Try it
 
@@ -27,8 +34,9 @@ pgvector store. There is nothing else to add. **The distribution is `weft-rag` a
 `weft`**: the name `weft` on PyPI belongs to an unrelated project, and the console script is this
 distribution's own.
 
-> Not on an index yet. Until the first release, install from a checkout with
-> `uv pip install -e packages/weft-rag`; everything below is unchanged.
+> Published for the first time today, 2026-09-11. To install an unreleased checkout instead —
+> testing a change before its own release, say — use `uv pip install -e packages/weft-rag`;
+> everything below is unchanged.
 
 You need Postgres with pgvector. `compose.yaml` in this repository brings one up with
 `docker compose up -d`, or point Weft at your own:
@@ -89,34 +97,35 @@ decisions, what to do next, and which document owns what. Everything else is rea
 | [`docs/01-high-level-plan.md`](docs/01-high-level-plan.md) | The kernel boundary, async colour, the phase script, the fitness functions |
 | [`docs/02-extension-model.md`](docs/02-extension-model.md) | Contracts, the payload model, the store family, discovery and the trust model |
 | [`docs/03-cli.md`](docs/03-cli.md) | The command line as the single driving adapter |
-| [`docs/05-grilling-sessions.md`](docs/05-grilling-sessions.md) | The ten decision gates, six closed |
+| [`docs/05-grilling-sessions.md`](docs/05-grilling-sessions.md) | Nineteen decision gates, seventeen settled, two open (`G14`, `G17`) |
 
 ## Layout
 
-One repository, several distributions. That is what lets the kernel be verified by installing it
+One repository, two distributions. That is what lets the kernel be verified by installing it
 alone and importing it, rather than by a script that walks the source.
 
 ```text
 packages/weft-kernel     registry, discovery, pipeline model, payload types
-packages/weft-rag        the default install: fourteen packs in one wheel, and the `weft` command
+packages/weft-rag        the release set: twenty-three top-level packages, twenty-one packs, one wheel
   src/weft_cli/          the only driving adapter, and the only asyncio.run in the tree
   src/weft_extract/      first-party pack: publishes the Extractor contract
   src/weft_chunk/        first-party pack: publishes the Chunker contract
   src/weft_store/        first-party pack: publishes the Store contract family
-packages/weft-openai     an add-on: needs `openai` and a credential
-packages/weft-pdf        an add-on: needs `pypdf` and `pdfplumber`
-packages/weft-qdrant     an add-on: needs `qdrant-client`
-packages/weft-otel       an add-on: needs `opentelemetry-sdk`
+  src/weft_kg/           first-party pack: the graph pack (Phase 11), behind no extra
 testing/weft-canary      test-only distribution, proves refused packs are never imported
 tests/architecture       the fitness functions
 ```
 
-**Six published names, and a pack is not a distribution.** `weft-rag` ships fourteen top-level
-packages and registers twelve of them as packs; each keeps its own identity — its `weft.packs`
-entry-point name — which is what `weft plugins list` prints and what a `[packs.store]` block in
-`weft.toml` configures. `weft-kernel` stays separate because installing it alone and importing it
-is what proves it names no capability; the four add-ons stay separate because each carries a
-dependency somebody may decline.
+**Two published names, and only two.** `weft-rag` ships twenty-three top-level packages and
+registers twenty-one of them as packs; each keeps its own identity — its `weft.packs` entry-point
+name — which is what `weft plugins list` prints and what a `[packs.store]` block in `weft.toml`
+configures. `weft-kernel` stays separate because installing it alone and importing it is what
+proves it names no capability. Six of the twenty-one packs carry a dependency somebody may
+decline: `pdf`, `openai`, `qdrant`, `otel` and `docling` are each behind an extra —
+`pip install weft-rag[pdf]`, `[openai]`, `[qdrant]`, `[otel]`, `[docling]`, or `[all]` for every one
+at once — and the sixth, `agent`, needs no extra because it imports nothing outside this wheel.
+`weft-openai`, `weft-pdf`, `weft-qdrant`, `weft-otel`, `weft-docling`, `weft-agent` and `weft-kg`
+are not distributions and are not published; the code they name ships inside `weft-rag`.
 
 ## Development
 
