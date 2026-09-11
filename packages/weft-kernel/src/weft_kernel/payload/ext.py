@@ -15,7 +15,7 @@ call site.
 
 **Built in Phase 5 task 5.2c.** `__schema_version__` is a second mandatory
 declaration, checked in the same `__pydantic_init_subclass__` seam as
-`__namespace__` and for the identical reason — G9's ruling (`docs/README.md`
+`__namespace__` and for the identical reason — G9's ruling (`docs/internal/README.md`
 decision log, `docs/02-extension-model.md` §1): a contract version cannot
 stand in for it because it is not available at the read site, so an
 `ExtModel` carries its own version, and a missing one fails loudly at class

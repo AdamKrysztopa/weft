@@ -68,7 +68,7 @@ _NEGATION: Final[re.Pattern[str]] = re.compile(
 #: Sentences that name an isolation word affirmatively and are **not** about pack execution —
 #: pinned, and each is checked against what the sweep actually produces so a reworded page stops
 #: being excused rather than silently continuing to excuse something else
-#: (`docs/lessons.md` L6.29).
+#: (`docs/internal/lessons.md` L6.29).
 ISOLATION_SENTENCES_WAIVED: Final[frozenset[str]] = frozenset()
 
 
@@ -196,8 +196,8 @@ def test_no_published_page_implies_isolation() -> None:
 
 def test_the_check_can_actually_fail() -> None:
     """Both clauses, planted through the real readers — the real pages agree, so this is the only
-    place either comparison is seen disagreeing (`docs/lessons.md` L5.19), and the sweep is shown
-    telling a claim from a denial rather than merely finding the word.
+    place either comparison is seen disagreeing (`docs/internal/lessons.md` L5.19), and the sweep is
+    shown telling a claim from a denial rather than merely finding the word.
     """
     # Arrange
     planted = [

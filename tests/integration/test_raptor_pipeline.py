@@ -1,6 +1,6 @@
 """Task 2.32's own exit demonstration, end to end, against the real corpus.
 
-`docs/build-ledger.md`: "a query no single chunk answers is answered from a summary node,
+`docs/internal/build-ledger.md`: "a query no single chunk answers is answered from a summary node,
 and a chunk whose summary could not be generated stays retrievable — the tree degrades
 rather than the run failing." Every service in this test is real: `weft-pdf` extracts a
 real paper from `corpus/arxiv/`, `weft-chunk` splits it, `weft-openai`'s embedder gives every
@@ -87,8 +87,8 @@ _API_KEY_VAR = "OPENAI_API_KEY"
 #: `OPENAI_API_KEY` says *"I could reach the network"*; this says *"I am asking to"*. A developer
 #: with a key exported for other work should get a deterministic `poe ci-checks`, because a gate
 #: whose green depends on what a live service answered teaches whoever runs it to re-run red tests
-#: until they pass (`docs/lessons.md` L6.27). Repeated in each module that reaches the network
-#: rather than shared, the same way each already repeats its own skip discipline;
+#: until they pass (`docs/internal/lessons.md` L6.27). Repeated in each module that reaches the
+#: network rather than shared, the same way each already repeats its own skip discipline;
 #: `tests/architecture/test_the_gate_is_decidable.py` keeps the copies honest.
 _LIVE_OPT_IN_VAR = "WEFT_LIVE_API_TESTS"
 

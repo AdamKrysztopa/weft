@@ -5,7 +5,7 @@ Mirrors `packages/weft-rag/src/weft_cli/registry_bootstrap.py`. Covers
 model*: refused is policy, 3; genuinely absent or failed is resolution, 4) and
 `build_dependencies` reading `[packs] allow` from an on-disk `weft.toml`, or
 treating its absence as open — the one file this distribution opens, per
-`docs/build-ledger.md` 0.9's note.
+`docs/internal/build-ledger.md` 0.9's note.
 
 **Task 1.12** adds `[plugins]` to what this module reads from `weft.toml`:
 `build_dependencies` parses it with `weft_kernel.discovery.plugin_pins_from_config`
@@ -157,9 +157,9 @@ def test_require_plugin_blames_policy_when_a_pack_was_refused_before_it_could_re
     assert "acme-openai" in outcome.message
     assert "[packs] allow" in outcome.message
     assert "'hash'" in outcome.message
-    # Repair, 2026-08-20 (finding 2): a refused pack is never imported, so nothing here can
-    # honestly claim to know what it would have registered — `valid_options` stays `None` rather
-    # than inventing a list, the same distinction `docs/build-ledger.md` 3.3's own paragraph
+    # Repair, 2026-08-20 (finding 2): a refused pack is never imported, so nothing here can honestly
+    # claim to know what it would have registered — `valid_options` stays `None` rather than
+    # inventing a list, the same distinction `docs/internal/build-ledger.md` 3.3's own paragraph
     # already draws for `CommandRefusalError`'s no-TTY refusal.
     assert outcome.valid_options is None
 

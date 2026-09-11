@@ -382,7 +382,7 @@ carry now. Each has a named forcing function; nothing is deferred on vibes.
 | A model-written description of a table | **Measured, refused, and named.** A figure gets a describer because it has no structure to render; a table has one, and Weft renders it twice — index form and prompt form (`9.6`) — with rows as children carrying the header (`9.14`). That is where the gain is: row-level chunking moves BM25 Recall@1 **0.366 → 0.754** (arXiv:2605.00318), while an LLM pass over table chunks measures **+2.2 to +2.8pp Recall@5** (arXiv:2604.01733) for one model call per chunk at index time. **Reopen when** a measurement on Weft's own corpus shows a description beating the *serialised grid plus row children* — not beating raw extraction, which is the comparison that makes the technique look good — or when a corpus arrives whose tables have no recoverable grid, where there is no serialisation to lose to. The name `describe-table` is held in `10` §4 so the first implementation cannot take it; the contract needs no change, because `Describer` names the medium and not the model (`11` §2.2) and this would be a second stage naming it, exactly as `describe-figure` does |
 | Late-interaction (multi-vector) retrieval | A second backend beyond Qdrant holds a multi-vector type with a MaxSim operator, or the storage ratio `11` §3 D5 cites moves by an order of magnitude. `Node.embedding` is one `Vector` (G5) and `search_vector` takes one vector (G4); both would move. The names — `colpali`, `colqwen`, `late-interaction`, `maxsim`, `visual-citation`, `grounded-answer` — are held in `10` §4 against nothing built |
 | An object-store blob backend (S3, MinIO) | The first deployment whose blob root is not the host's disk. The filesystem implementation ships in Phase 9; its conformance kit and the FF9(c) stranger are what a third backend implements against |
-| Graph traversal as a member of the store contract family | A **second real backend** implements it — `weft-neo4j` behind a compose profile, on `qdrant`'s `conformance` precedent (`compose.yaml:44-58 "So this "`). The in-memory store counts for nothing (`01` → *Runtime shape*: it "exists, and is not a backend") and Qdrant has no traversal primitive, so G4's two-backend bar is untouched and **G4 does not reopen**. Until then the Protocol ships from `weft_kg`, the pack that owns the capability, and a third-party backend depends on `weft-rag` for it — which such a backend already does. Promotion moves the Protocol into `weft_store.contract`: a **G9 major** for the pack's implementers, because a Protocol changes home, and a **minor** for `weft-store`, because a contract is added and none moves. `STORE_CONTRACT_VERSION` does not move when the Protocol is *published*, only when it is promoted. Added by ledger task `11.4`, 2026-09-09; `S12` is the decision and `docs/build-ledger.md` → Phase 11 the tasks |
+| Graph traversal as a member of the store contract family | A **second real backend** implements it — `weft-neo4j` behind a compose profile, on `qdrant`'s `conformance` precedent (`compose.yaml:44-58 "So this "`). The in-memory store counts for nothing (`01` → *Runtime shape*: it "exists, and is not a backend") and Qdrant has no traversal primitive, so G4's two-backend bar is untouched and **G4 does not reopen**. Until then the Protocol ships from `weft_kg`, the pack that owns the capability, and a third-party backend depends on `weft-rag` for it — which such a backend already does. Promotion moves the Protocol into `weft_store.contract`: a **G9 major** for the pack's implementers, because a Protocol changes home, and a **minor** for `weft-store`, because a contract is added and none moves. `STORE_CONTRACT_VERSION` does not move when the Protocol is *published*, only when it is promoted. Added by ledger task `11.4`, 2026-09-09; `S12` is the decision and `docs/internal/build-ledger.md` → Phase 11 the tasks |
 
 ## Phases
 
@@ -761,7 +761,7 @@ scratch to reach the rest.
 
 **It runs before Phase 7, and the numbering is deliberate rather than an accident.** Phase 7 is
 gated by **G12**, which is open; this phase has no gate at all. The number records where it was
-added to the plan, not where it sits in the queue — `docs/README.md`'s **Next action** row is the
+added to the plan, not where it sits in the queue — `docs/internal/README.md`'s **Next action** row is the
 mechanism that carries an ordering the ledger's own sequence does not express, and it is pointed
 here. `scripts/next_task.py` will still print `7.1` as the first unticked box, which is why that
 row outranks ledger order and why this paragraph exists rather than a silent renumbering of a
@@ -840,13 +840,13 @@ the ingest path — a blob store and a describer — and today every path assemb
 hand-written list (`weft_cli/run_services.py:345 "for posi"`, `:399`; the command path in `weft_cli.cli`) against
 three fixed keys (`weft_cli/services.py:141 "class Se"`), which is the requirement-1 failure Phase 7's close filed
 as design question *(a)* and said must not be settled from one instance
-(`docs/build-ledger.md:4352-4360 ". **And "`). Task **9.0** is that repair. It has three consumers — the failing
+(`docs/internal/build-ledger.md:4364-4360 ". **And "`). Task **9.0** is that repair. It has three consumers — the failing
 instance Phase 7 measured, this phase's two services, and Phase 11's traversal contract on the query
 path — and it sits here only because this phase is the first in the owner's order of 2026-09-06 to
 need it. Phase 10 (RAPTOR) builds directly on the nodes this phase produces: a table's index text and a
 figure's caption-plus-description are what a summariser sees, and the lines that produce them say so.
 `scripts/next_task.py` prints the first unticked box top to bottom, and for once the print and
-`docs/README.md`'s Next action row agree.
+`docs/internal/README.md`'s Next action row agree.
 
 **What this phase deliberately is not.** It ships no row store and no SQL-over-tables retriever, no
 late-interaction tier, no S3 backend and no query-side image enrichment; each of the first three is a
@@ -1062,7 +1062,7 @@ the graph as a shipped pack, is deliberately not here: it is blocked on three de
 that owns the capability without G4's second backend, with family membership deferred on a named
 trigger; and the seam through which a pack's store is named for a run is built once, as Phase 9's
 task **9.0**, from two consumers and the failing instance Phase 7's close filed
-(`build-ledger.md:4355-4359 "the clos"`) — **this phase inherits it and does not build it.** The third — where
+(`build-ledger.md:4367-4371 "the clos"`) — **this phase inherits it and does not build it.** The third — where
 a corpus-wide, revisable pass runs — **was settled by G15 on 2026-09-08**, and the tasks that
 depend on it keep their ⚠ as a record of what was once undecided rather than as a block; this
 sentence called it open until 2026-09-09, which is the Gate bullet below it saying the opposite
@@ -1083,7 +1083,7 @@ those has to happen with **zero kernel lines** (headroom on the tree this was wr
 `uv run pytest tests/architecture/test_ff3_kernel_budget.py -s` → 3,160 of 3,500; re-measure
 after Phases 9 and 10).
 
-**Where it sits, and what it finds already built.** `docs/README.md`'s Next-action row carries the
+**Where it sits, and what it finds already built.** `docs/internal/README.md`'s Next-action row carries the
 owner's order — multimodal, RAPTOR, graph, then publishing — and this phase's number records when
 it was added, on Phase 8's precedent. Running third means three things are on the floor when it
 starts rather than owed by it: a project can name which registered plugin fills a role that is not
@@ -1168,7 +1168,7 @@ pipeline position is one that check must find named
 contribute a document). 24 is the pack's own ordinariness, the FF21 shape with the one exception a
 contract-publishing pack forces. The seam's fitness function is Phase 9's, and this phase is its
 second consumer rather than its author — which is the whole point of a check with two consumers
-(`docs/lessons.md` `L6.13`).
+(`docs/internal/lessons.md` `L6.13`).
 
 ---
 
@@ -1199,7 +1199,7 @@ second consumer rather than its author — which is the whole point of a check w
       > numeral was written down here on 2026-09-06, for a task three phases out, directly beneath
       > this section's own quotation of the rule that forbids exactly that — *"numbered and filed
       > **by the task that makes it true**"*. A numeral is a claim on a shared namespace and
-      > planning is not claiming; the namespace kept being allocated in between. `docs/lessons.md`
+      > planning is not claiming; the namespace kept being allocated in between. `docs/internal/lessons.md`
       > `L11.24`, and it is `L9.15` with `L11.19`'s shape.
 
       > **And clause (a) said *"its own distribution … never bundled into the `weft-rag` wheel"*
@@ -1335,7 +1335,7 @@ All checks run in CI, before tests.
    implementation at discovery time, or the plugin must declare it unavailable and say why.
 
    **And where a stage has alternates, the capability derived from that stage is derived from the
-   union — or the alternates are decoration** (`docs/lessons.md` `L8.19`, Phase 8). Measured, not
+   union — or the alternates are decoration** (`docs/internal/lessons.md` `L8.19`, Phase 8). Measured, not
    reasoned: a document naming `use: pdf-text` with `fallback: [text]` resolves, and
    `weft pipeline show` prints `fallback: text` on the stage, so the chain *is* carried and
    `weft_kernel.fallback.try_in_order` would walk it. But `weft index` decides whether a directory is
@@ -1350,7 +1350,7 @@ All checks run in CI, before tests.
    rather than a second numbered function.
 6. **Contracts are versioned.** Every published contract carries a version, and a check fails on a
    changed contract whose version did not move. **Built at task 5.2a, sharpened against what a
-   working check can actually assert** (`docs/09-release.md` §2.3; `docs/lessons.md` L5.4, L5.6):
+   working check can actually assert** (`docs/09-release.md` §2.3; `docs/internal/lessons.md` L5.4, L5.6):
    nothing in this repository is tagged or released before Phase 6, so a diff against a stored
    snapshot would rot at the first accepted bump and catch nothing a reviewer had not already seen.
    What `tests/architecture/test_ff6_contract_version_binding.py` checks instead, from two
@@ -1607,7 +1607,7 @@ All checks run in CI, before tests.
     > line either repair. Reproduced against a real checkout in `manual/troubleshooting.md`'s own
     > entries for both classes.
 13. **Every dispatch over a published `Enum` is exhaustive by construction.** Added by task 5.2b
-    (`docs/build-ledger.md`), from `docs/09-release.md` §2.3: *"A version bump does not fix
+    (`docs/internal/build-ledger.md`), from `docs/09-release.md` §2.3: *"A version bump does not fix
     silence, so silence is a separate defect. Adding an `Enum` member is textbook-additive and, in
     this tree, makes a backend answer the wrong query without erroring... A published `Enum` must
     therefore be dispatched exhaustively by construction, with no fall-through default —
@@ -1646,7 +1646,7 @@ All checks run in CI, before tests.
     `weft_store.fields`'s derived permitted set. Task 5.2b's own audit found four more with the
     identical shape in `weft_store.pgvector_store` — `_predicate`, `_text_predicate`,
     `_text_set_predicate` and `_extension_predicate` — the SQL half of the same task 2.6
-    translation the five named sites cover only the Qdrant half of. `docs/lessons.md` L5.14 records
+    translation the five named sites cover only the Qdrant half of. `docs/internal/lessons.md` L5.14 records
     that a hand-enumerated "known sites" list undercounted by not auditing the sibling backend
     doing the identical job, the same "doing it by hand at nine sites is why three sites do
     not" lesson one level up from item 12's family.
@@ -1840,7 +1840,7 @@ All checks run in CI, before tests.
     Detection reads pydantic's **core schema**, never `field.metadata`: the first version of the
     check walked `metadata`, which is empty for a field annotated through a PEP 695 alias, so it
     passed on the very model it was written for and went on passing when the validator was deleted
-    to test it — proved against a planted removal instead (`docs/lessons.md` `L8.23`).
+    to test it — proved against a planted removal instead (`docs/internal/lessons.md` `L8.23`).
 
 20. **A `Command` is run from exactly one place.** Added 2026-09-06, ledger task 7.0, from G12.
     Every command run in this tree goes through `weft_kernel.seam.wrap(..., contract="Command")`,
@@ -1854,7 +1854,7 @@ All checks run in CI, before tests.
     `tests/architecture/test_ff20_one_command_invocation_path.py`, `INVOCATION_SITES` holding one
     entry. Asked at the seam rather than by sweeping `.run(` call sites, because `run` is an
     ordinary method name and a textual sweep would grow a waiver list under it
-    (`docs/lessons.md` `L8.31`).
+    (`docs/internal/lessons.md` `L8.31`).
 
 21. **The agent is an ordinary pack.** Added 2026-09-06, ledger task 7.1. Three clauses, each able
     to fail alone: `weft-agent` is its **own distribution** with its own licence files and a single
@@ -1876,7 +1876,7 @@ All checks run in CI, before tests.
     would reproduce the defect with every behavioural test still green**, because a test asserts
     the paths it knows about. So this one is deliberately about the text: nothing under
     `packages/*/src` may build a run's `ServiceRegistry` outside the named assemblers — the
-    legitimate case for a source-reading check that `docs/lessons.md` `L9.39` describes. Clause
+    legitimate case for a source-reading check that `docs/internal/lessons.md` `L9.39` describes. Clause
     *(b)* keeps it from passing vacuously by running each named assembler against a role no
     first-party pack declares and requiring the instance back, since clause *(a)* alone would pass
     against three assemblers that all forgot. Waiver `ASSEMBLERS_WAIVED_FROM_CARRYING_ROLES`
@@ -1985,7 +1985,7 @@ All checks run in CI, before tests.
     `tests/architecture/test_ff26_catalogue_claims_are_carried.py`.
 
 27. **Every pipeline document a distribution ships is contributed by its pack.** Added 2026-09-08
-    by carried repair `R10.2`, and it is `docs/lessons.md` `L5.15` — *an extension point has a
+    by carried repair `R10.2`, and it is `docs/internal/lessons.md` `L5.15` — *an extension point has a
     producing side and a consuming side* — becoming mechanical after five recurrences across four
     phases. A `pipelines/*.yaml` file inside a package is the producing side; a
     `registrar.add_pipeline_resource` call reaching the discovery reports is the consuming side,

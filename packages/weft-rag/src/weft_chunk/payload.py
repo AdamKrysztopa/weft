@@ -1,6 +1,6 @@
 """Where a chunk's content begins, inside the parent it was windowed from.
 
-`docs/build-ledger.md`'s **2.9** line names this the second half of the page-attribution
+`docs/internal/build-ledger.md`'s **2.9** line names this the second half of the page-attribution
 gap: `Node.derive` deliberately drops `ext` (`weft_kernel.payload.node`, *"Lineage is
 carried; `ext` and `embedding` are not"*), so a chunk built through it carries `ordinal` —
 which window this is — never *where* in the parent's content that window starts. A page

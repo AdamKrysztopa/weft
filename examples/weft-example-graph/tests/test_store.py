@@ -1,4 +1,4 @@
-"""`GraphStore` against a real Postgres — `docs/build-ledger.md` task 5.4/5.5's own
+"""`GraphStore` against a real Postgres — `docs/internal/build-ledger.md` task 5.4/5.5's own
 conformance-kit convention: this module is collected but every test in it is marked to be
 skipped, with a reason, when the container is not up, per `tests/integration/
 test_store_conformance.py`'s own precedent (there expressed the same way `pytest` itself
@@ -57,7 +57,7 @@ class _CorpusStore:
     Only the three methods `02` §1 names as answering *what should exist* are ever called:
     `scan`, `count` and `list_sources`. Every other `NodeStore` method is here because a
     hand-rolled double must carry every public method of the thing it doubles
-    (`docs/lessons.md` L5.26) — a partial double passes until the day the code under test
+    (`docs/internal/lessons.md` L5.26) — a partial double passes until the day the code under test
     reaches for the missing one.
     """
 
@@ -321,7 +321,7 @@ async def test_repair_drops_a_node_whose_source_the_corpus_no_longer_holds(
     await store.add([kept, orphaned])
     # The corpus holds the node and reports **no** source records — the shape a real
     # `weft index` actually leaves, since nothing on the ingest path calls `put_source`
-    # (`docs/lessons.md` L6.14). A double that populated both routes could not tell a
+    # (`docs/internal/lessons.md` L6.14). A double that populated both routes could not tell a
     # correct orphan rule from one reading the empty list, which is how the first draft of
     # this pack's rule passed here and then deleted every node when run for real.
     ctx = _ctx_with_corpus(_CorpusStore([kept], sources=()))

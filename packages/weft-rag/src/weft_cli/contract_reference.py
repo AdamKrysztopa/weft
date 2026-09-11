@@ -191,7 +191,7 @@ def discover_for_reference() -> Registry:
     never written to. Neither is touched by `register()` — see the module docstring — and a
     pack whose settings fail validation registers nothing, so a contract it publishes would
     silently vanish from the generated reference rather than fail loudly. `weft-blob` joining
-    this list is `docs/lessons.md` `L9.54`: the list is hand-written here and in nine test
+    this list is `docs/internal/lessons.md` `L9.54`: the list is hand-written here and in nine test
     modules, and a second pack with a required setting is what made that visible.
     """
     registry = Registry()
@@ -308,7 +308,7 @@ class ReferenceFormatterUnavailableError(WeftError):
     worked only because the *workspace root's* dev group carries `ruff`, which is invisible
     to an import probe: `import weft_cli` never reaches a subprocess call, so task 6.6's
     install-alone-and-import check was green on a module that could not run
-    (`docs/lessons.md` L6.24).
+    (`docs/internal/lessons.md` L6.24).
     """
 
 

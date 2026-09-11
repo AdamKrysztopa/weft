@@ -17,14 +17,14 @@ statement beside them to what they actually say.
 `eval/raptor-baseline/measurement.json` are a transcription of what `weft eval compare
 --baseline` printed at the terminal, and `test_the_stated_verdicts_are_the_ones_the_records_
 produce` recomputes them from the committed records through `weft_eval.falsify` — two genuinely
-different sources, which disagree if the transcription is wrong or the binary and the library
-have drifted apart. The **spreads, arm means and minimum detectable effect** are not: they are
-derived from the same records by the same functions the assertions call, because the terminal
-prints its bounds to three decimals and never prints an arm's full three-repetition spread at
-all. So those assertions catch a hand-edited number, a swapped record, and a repetition added
-or dropped without the statement being retaken — a staleness check, which is real and is not an
-independent measurement, and `docs/lessons.md` L9.28 is why that distinction is written down
-here instead of being left for a reader to assume the stronger one.
+different sources, which disagree if the transcription is wrong or the binary and the library have
+drifted apart. The **spreads, arm means and minimum detectable effect** are not: they are derived
+from the same records by the same functions the assertions call, because the terminal prints its
+bounds to three decimals and never prints an arm's full three-repetition spread at all. So those
+assertions catch a hand-edited number, a swapped record, and a repetition added or dropped without
+the statement being retaken — a staleness check, which is real and is not an independent
+measurement, and `docs/internal/lessons.md` L9.28 is why that distinction is written down here
+instead of being left for a reader to assume the stronger one.
 
 **Why the minimum detectable effect is the *wider* of the two arms' own spreads.** V3 derives a
 tolerance from a baseline repeating itself, and `weft_eval.falsify` judges one difference

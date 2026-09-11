@@ -48,7 +48,7 @@ runs, so `deps.services.embed` is not even the plugin this run actually used. St
 anyway would be exactly the wrong, misleading value V3's own failure clause warns about: "a
 baseline from a different corpus, pipeline or **model version**." Leaving the field empty and
 naming the gap is the honest choice; which providers and model versions a real run pins is
-`docs/build-ledger.md` task **4.7**'s own job (`09` §4, V5), not invented here to make this
+`docs/internal/build-ledger.md` task **4.7**'s own job (`09` §4, V5), not invented here to make this
 task's record look more complete than it is.
 
 **`weft eval compare <a> <b>` refuses outright, rather than answering, when the two runs are not
@@ -681,11 +681,10 @@ def _model_versions(
 
     *`[llm.roles]`*, and this is what `R10.3` adds. A summarising or judging model is chosen per
     **role**, and no stage's config mentions it — so two eval arms differing *only* by their
-    summarising model produced byte-identical `model_versions` and `_incomparable_reasons`
-    compared them as though the only difference were the pipeline (`docs/lessons.md` `L10.5`).
-    That is the guard reading one fact and the run using another, and `09` §4's V2 pins a
-    comparison to *"a different corpus, pipeline or model version"* — a role's model **is** a
-    model version.
+    summarising model produced byte-identical `model_versions` and `_incomparable_reasons` compared
+    them as though the only difference were the pipeline (`docs/internal/lessons.md` `L10.5`). That
+    is the guard reading one fact and the run using another, and `09` §4's V2 pins a comparison to
+    *"a different corpus, pipeline or model version"* — a role's model **is** a model version.
 
     **The two key spaces cannot collide**, which is why one dictionary is honest here. A stage
     entry is keyed by the stage's own id; a role entry is keyed `role:<name>`, and a stage id

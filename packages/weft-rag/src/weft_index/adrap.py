@@ -52,7 +52,7 @@ tree it grows incrementally; Weft's clusterer fits no model at all — greedy co
 against a running centroid, the same algorithm `raptor` uses — so a cluster's entire state
 is already derivable from nodes already stored. Storing a centroid as its own row would be
 new persisted state with no `Node` shape and no store method to hold it; recomputing it is
-free by comparison and was the finding that made this task cheap (`docs/build-ledger.md`
+free by comparison and was the finding that made this task cheap (`docs/internal/build-ledger.md`
 10.14's own unblocking note).
 
 **Write new, then delete old — `NodeSupersedable`'s own contract, not a choice this plugin

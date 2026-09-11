@@ -16,10 +16,10 @@ enough — the ceiling is a property of the corpus, not of the retriever.
 **The ceiling is measured by a second query and the two are made to disagree.** The bridge query's
 own `NOT EXISTS` clause is what selects a path in the first place, so reading the ceiling off that
 clause would be a comparison whose two sides come from one source and could not fail
-(`docs/lessons.md` `L5.6`). `GraphStore.chunks_by_entity` is a different query with a different
-filter, `weft_kg.bridges.bridges_from` compares the two, and `CeilingDisagreesError` is what
-happens when they differ — `test_a_ceiling_that_disagreed_with_the_walk_is_refused` plants exactly
-that disagreement rather than trusting the sentence.
+(`docs/internal/lessons.md` `L5.6`). `GraphStore.chunks_by_entity` is a different query with a
+different filter, `weft_kg.bridges.bridges_from` compares the two, and `CeilingDisagreesError` is
+what happens when they differ — `test_a_ceiling_that_disagreed_with_the_walk_is_refused` plants
+exactly that disagreement rather than trusting the sentence.
 
 **Generated questions are diagnostic and can never be V2 ground truth.** `--write` emits the JSON
 `weft eval run --questions` reads, carrying `kind = "requires-graph-hop"`, which is what makes

@@ -2,15 +2,15 @@
 Ledger **11.5**, rejoined through aliases at **11.8**.
 
 **A second class over the same schema `GraphStore` provisions, and that is a finding rather than a
-style — `docs/lessons.md` `L11.23`.** `weft_cli.fanout.participants_for` narrows `NodeStore` to
-`store_names` with `if contract is NodeStore` and then deduplicates the participants it finds **by
-class**, walking contracts in `__qualname__` order. `GraphTraversal` sorts before `NodeStore`
-alphabetically, so a single class registered under both would be reached as a `GraphTraversal`
-first, join the fan-out there, and have its `NodeStore` registration silently dropped as a
-duplicate — the store filter would never run and this pack would participate in every project on
-earth, named or not. `GraphWalk` therefore satisfies `GraphTraversal` alone and **must not** carry
-`add`/`get`/`run`: giving it those would make it satisfy `NodeStore` again structurally, which is
-exactly the shape this split exists to keep out of the tree.
+style — `docs/internal/lessons.md` `L11.23`.** `weft_cli.fanout.participants_for` narrows
+`NodeStore` to `store_names` with `if contract is NodeStore` and then deduplicates the participants
+it finds **by class**, walking contracts in `__qualname__` order. `GraphTraversal` sorts before
+`NodeStore` alphabetically, so a single class registered under both would be reached as a
+`GraphTraversal` first, join the fan-out there, and have its `NodeStore` registration silently
+dropped as a duplicate — the store filter would never run and this pack would participate in every
+project on earth, named or not. `GraphWalk` therefore satisfies `GraphTraversal` alone and **must
+not** carry `add`/`get`/`run`: giving it those would make it satisfy `NodeStore` again structurally,
+which is exactly the shape this split exists to keep out of the tree.
 
 **Every member answers in batch, at the granularity the contract's own module docstring states:
 one round trip for the whole sequence handed in, never one per element.** `entities_by_name` and
@@ -215,7 +215,7 @@ __all__ = ["GraphWalk"]
 #: Protocol of its own, and that Protocol is deliberately unwritten because nothing consumes it —
 #: `11.10`'s walk is *name → entities → neighbourhood → nodes* and never starts from a vector. A
 #: method here with no contract declaring it and no caller reaching it would be the producing side
-#: with no consuming side that `docs/lessons.md` `L5.15` is about, so the class stops where the
-#: contract does. **`kg_entities.embedding` stays**, because `11.6` writes entity-name vectors
+#: with no consuming side that `docs/internal/lessons.md` `L5.15` is about, so the class stops where
+#: the contract does. **`kg_entities.embedding` stays**, because `11.6` writes entity-name vectors
 #: through the pipeline's own embedder (`01` → Phase 11) — an unused column costs nothing and has
 #: its writer one task away; an unreachable method costs a reader's trust in every other one.

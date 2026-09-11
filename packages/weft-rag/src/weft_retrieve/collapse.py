@@ -1,7 +1,7 @@
 """`collapse-to-parent` — one `Ranking` slot per parent, never one per representation.
 `Reranker`.
 
-Task **2.33**, `docs/build-ledger.md`: "one passage cannot occupy several slots of a
+Task **2.33**, `docs/internal/build-ledger.md`: "one passage cannot occupy several slots of a
 ranking merely because it was indexed several ways, because collapsing a ranking to its
 parents is a named stage with a stated policy." `.phase2-findings.md` §11 (BINDING) is
 the reason this task exists at all: "when several derived nodes of one parent all match a

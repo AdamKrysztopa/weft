@@ -138,7 +138,7 @@ what is *compatible*, and only a pinned set says what was *tested together*.)*
 > Nothing else about G10's decision moves: the shape, the exact pins, the standing it gives a
 > third-party pack, and fitness function 10(a) are all unchanged, and **the command a user types is
 > still `weft`**, because that is `weft-cli`'s console script. Found by installing from a real
-> index rather than by reading the plan — `docs/lessons.md` **L6.33**, whose rule is that a name is
+> index rather than by reading the plan — `docs/internal/lessons.md` **L6.33**, whose rule is that a name is
 > a claim on a namespace somebody else owns, checked when it is chosen and not when it is
 > published.
 
@@ -531,12 +531,12 @@ produced through `PackRegistrar.deprecate` → `commit` rather than hand-built, 
 against the real file and cleared once an entry naming it is added
 (`test_the_comparison_can_actually_fail`, `08` §3's own table names it as clause (e)). `CHANGELOG.md`
 no longer reads "Phase 0... is not built" — it names what each of Phases 0–4 shipped and what Phase
-5 has shipped so far, derived from `docs/build-ledger.md`'s own ticked entries rather than invented.
+5 has shipped so far, derived from `docs/internal/build-ledger.md`'s own ticked entries rather than invented.
 **Whether `README.md` → *Protocol* should also gain a line requiring this on every phase close is a
-question this task leaves open, deliberately** — `docs/lessons.md` L5.8 named that as the other
+question this task leaves open, deliberately** — `docs/internal/lessons.md` L5.8 named that as the other
 candidate home, the ledger's own task line chose the check, and a check firing only on a
 *deprecation* leaves the rest of the changelog exactly as unmaintained as before. The task's own
-`docs/build-ledger.md` entry records this judgement for `implement-ll` to act on or decline.
+`docs/internal/build-ledger.md` entry records this judgement for `implement-ll` to act on or decline.
 
 **One thing the release must not soften.** `02` §2 → *The trust model* states the posture plainly: a
 pack runs with your full privileges, and installing is trusting; signature verification, sandboxing and

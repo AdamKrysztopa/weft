@@ -121,7 +121,7 @@ If you cannot construct that case today, say so — that is the assumption, and 
 that answers cleanly — no tenant can reach another's data, because every query is scoped — and the
 question that was never asked is whether it behaves *correctly* inside one tenant. It does not: two
 identical files collide, the second silently takes the first's nodes, and deleting either reports
-success while removing the other's data (`docs/lessons.md` `L9.70`, `L9.37`). Of any mechanism
+success while removing the other's data (`docs/internal/lessons.md` `L9.70`, `L9.37`). Of any mechanism
 cleared on a safety argument, ask the separate question: *what does this do when nobody is
 attacking it?*
 
@@ -374,7 +374,7 @@ arguing from it, and **re-take it before arguing from it a second time**.
 
 - **Not a style review.** Ruff and Pyright run in `ci-checks` and are better at it.
 - **Not an architecture gate.** If the change runs into an *open* decision (G2, G7, G8, G9 in
-  `docs/05-grilling-sessions.md`), stop and name the gate. Defaulting an open decision in a code
+  `docs/internal/05-grilling-sessions.md`), stop and name the gate. Defaulting an open decision in a code
   review is precisely what the gates exist to prevent.
 - **Not a veto.** These requirements have costs, recorded in `docs/01` alongside them. A change that
   fails one may still be right; what is not acceptable is failing one without noticing.

@@ -14,7 +14,7 @@ session that dispatched you, and is not yours.
 
 **Why the split exists, so you can see what you are protecting.** In Phase 5, task 5.1a narrowed a
 settled rule mid-task for a sound-sounding reason, and the tests written alongside the narrowing
-asserted it; eleven tasks and 1,801 tests did not notice (`docs/lessons.md` L5.32). A test written
+asserted it; eleven tasks and 1,801 tests did not notice (`docs/internal/lessons.md` L5.32). A test written
 by whoever is also writing the implementation can only encode what that author already believed. So
 the test came from the settled documents before you were called, and it is the specification. If it
 is wrong, that is a finding to report — never an edit to make.
@@ -37,12 +37,12 @@ is wrong, that is a finding to report — never an edit to make.
   including test results and anything the binary does. It has already cost this project two
   unexplained anomalies in one session: a binary run that showed the exact defect its task had just
   repaired, and a gate run that came back red on three unrelated tests, both of them landing inside
-  a `git stash` window (`docs/lessons.md` L6.26). If you need to know whether a failure is
+  a `git stash` window (`docs/internal/lessons.md` L6.26). If you need to know whether a failure is
   pre-existing, **ask** — do not rewind the tree to find out. **This is refused by
   `.claude/hooks/guard_history_rewrites.py` now rather than only written here**, because the
   sentence above was read and overridden anyway: generic harness guidance said to stash before a
   destructive operation, and generic guidance beats a project sentence every time there is nothing
-  behind it (`docs/lessons.md` L9.56).
+  behind it (`docs/internal/lessons.md` L9.56).
 - **Do not decide anything the brief left open.** If two implementations both make the test pass
   and they differ in a way a reader would call a design choice, say so and stop. Guessing is
   indistinguishable, afterwards, from a decision that was argued.
@@ -59,7 +59,7 @@ ambiguous or looks out of date, that file decides, and saying so in your report 
 move rather than guessing. Separately, a block titled *"What this repository has already
 learned"* is injected into your context at dispatch by `.claude/hooks/lessons_context.py`:
 those are lessons this project has already paid for, they bind your code the same way these
-do, and they arrive from `docs/lessons-archive.md` directly so they are never a stale copy.
+do, and they arrive from `docs/internal/lessons-archive.md` directly so they are never a stale copy.
 
 - **Async only.** Every contract method is `async def`. `CancelledError` propagates untouched —
   never caught, never swallowed.
@@ -88,7 +88,7 @@ do, and they arrive from `docs/lessons-archive.md` directly so they are never a 
 
 You run the tests the brief names. You do **not** run `uv run poe ci-checks` — the dispatching
 session runs the whole suite, because a change can pass its own tests and fail five things that
-share the process with it (`docs/lessons.md` L5.12).
+share the process with it (`docs/internal/lessons.md` L5.12).
 
 ## What to report back
 
@@ -110,8 +110,8 @@ fact, a missing heading is not.
 **Why that heading and not a paragraph.** `.claude/hooks/subagent_findings.py` harvests that
 section by exact match when you stop, and appends it to `.claude/lessons-spool.md`;
 `.claude/hooks/lessons_gate.py` then refuses to let the dispatching session end its turn
-until the entry has been promoted into `docs/lessons.md` or explicitly declined. Before that
+until the entry has been promoted into `docs/internal/lessons.md` or explicitly declined. Before that
 machinery existed, this section was a producing side with no consuming side — it reached the
-caller's context and died there, which is the shape `docs/lessons.md` L5.15 exists to forbid.
+caller's context and died there, which is the shape `docs/internal/lessons.md` L5.15 exists to forbid.
 Prose in the middle of your report is not harvestable; the heading is what makes what only
 you saw survive the boundary.

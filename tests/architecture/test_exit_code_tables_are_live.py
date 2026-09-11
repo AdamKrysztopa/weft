@@ -1,12 +1,11 @@
 """`exit_codes.py`'s two hand-maintained error tables name only live classes — ledger task **8.22**.
 
-`docs/lessons-archive.md` `L8.12`. Adding an error class turned out to owe edits to four sites
-keyed on error classes, none reachable from the new code. Two of those four live in
+`docs/internal/lessons-archive.md` `L8.12`. Adding an error class turned out to owe edits to four
+sites keyed on error classes, none reachable from the new code. Two of those four live in
 `weft_cli/exit_codes.py` and are the only ones with **no discovery walk behind them**:
-`_ALSO_RESOLUTION_FAILED`, a tuple of `WeftError` subclasses mapped to exit 4 despite not
-inheriting `PipelineResolutionError`, and the local-import `isinstance` branch inside
-`exit_code_for`. A miss in either does not fail the build — it silently exits `1` where `4` was
-meant, in production code.
+`_ALSO_RESOLUTION_FAILED`, a tuple of `WeftError` subclasses mapped to exit 4 despite not inheriting
+`PipelineResolutionError`, and the local-import `isinstance` branch inside `exit_code_for`. A miss
+in either does not fail the build — it silently exits `1` where `4` was meant, in production code.
 
 **What this file checks, and what it deliberately does not.**
 
@@ -206,7 +205,7 @@ def test_the_named_local_import_members_are_the_ones_the_module_actually_branche
 
 def test_the_check_can_actually_fail() -> None:
     # Plant the two shapes the checks above exist to catch: a table entry that is not an error
-    # class, and one that does not reach RESOLUTION_FAILED. `docs/lessons.md` L6.29 — the
+    # class, and one that does not reach RESOLUTION_FAILED. `docs/internal/lessons.md` L6.29 — the
     # question is whether the comparison fires, not whether the tree is currently clean.
     class _NotAnError:
         pass

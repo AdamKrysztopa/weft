@@ -6,11 +6,11 @@ service_selection_from_config` already reads `[services]`, and this file proves 
 shapes that module's own test file proves for it — the happy path, the default with no block at
 all, and the two refusals (an unknown key, a value that is not `"ask"`/`"allow"`).
 
-**Repair, 2026-08-20** (`docs/build-ledger.md` 3.3's own dated paragraph carries the argument):
-`test_an_unknown_permissions_key_carries_the_known_keys_as_a_typed_field` is the new failing-first
-test for finding 1 of that review — `permission_policy_from_config`'s unknown-key refusal used to
-raise a bare `WeftError` with the valid keys interpolated only into the message string, invisible
-to fitness function 12's family walk. `UnknownConfigKeyError`
+**Repair, 2026-08-20** (`docs/internal/build-ledger.md` 3.3's own dated paragraph carries the
+argument): `test_an_unknown_permissions_key_carries_the_known_keys_as_a_typed_field` is the new
+failing-first test for finding 1 of that review — `permission_policy_from_config`'s unknown-key
+refusal used to raise a bare `WeftError` with the valid keys interpolated only into the message
+string, invisible to fitness function 12's family walk. `UnknownConfigKeyError`
 (`weft_cli/config_surface.py:105-115 's own openi's own opening rule applied to"`) is the same-phase
 precedent this module now matches.
 """

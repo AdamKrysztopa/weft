@@ -10,8 +10,8 @@ cannot provide: a distribution installed on its own, with nothing of the workspa
 is what `scripts/check_kernel_isolated.py` has done for `weft-kernel` since Phase 0 and why it runs
 as `poe kernel-isolated` in its own CI job rather than inside `ci-checks`. Task 6.6 generalises it,
 and this file checks the parts a pytest *can* see: that the enumeration the script sweeps is right,
-that a distribution shipping no code is answered rather than skipped by name, and that the script
-is reachable from a task and from CI — because a check nobody runs is prose (`docs/lessons.md`
+that a distribution shipping no code is answered rather than skipped by name, and that the script is
+reachable from a task and from CI — because a check nobody runs is prose (`docs/internal/lessons.md`
 L6.12, and fitness function 0's whole reason for existing).
 
 **One reader for "which distributions, and what does each ship".** `scripts/publish_set.py` owns
@@ -68,7 +68,7 @@ def test_the_enumeration_covers_the_workspace_and_excludes_what_opts_out() -> No
 
 
 def test_a_distribution_shipping_many_modules_names_all_of_them() -> None:
-    """`docs/lessons.md` L5.27 — a sweep must answer the question for everything it sweeps.
+    """`docs/internal/lessons.md` L5.27 — a sweep must answer the question for everything it sweeps.
 
     **This test used to assert the opposite fact.** `packages/weft-rag` was code-free by design
     (`09` §1: "the meta-distribution ships **no code**"), and what was checked here was that its
@@ -120,7 +120,8 @@ def test_every_module_named_is_a_directory_that_exists() -> None:
 
 
 def test_a_workspace_that_reads_as_empty_is_refused(tmp_path: Path) -> None:
-    """`docs/lessons.md` L5.9 — an empty sweep means "I did not find it", never "there is none"."""
+    """`docs/internal/lessons.md` L5.9 — an empty sweep means "I did not find it", never "there is
+    none"."""
     # Arrange
     (tmp_path / "pyproject.toml").write_text(
         '[tool.uv.workspace]\nmembers = ["packages/*"]\n', encoding="utf-8"
@@ -157,10 +158,10 @@ def test_the_check_is_reachable_from_a_task_and_from_ci() -> None:
 def test_the_check_can_actually_fail(tmp_path: Path) -> None:
     """The module derivation, watched separating three planted distributions.
 
-    The real tree agrees, so this is the only place the distinctions are seen doing work —
-    without it, a reader that answered "no modules" for everything would sweep nothing and pass
-    (`docs/lessons.md` L5.19). Three plants rather than two since 2026-09-05: the third is a
-    distribution whose packages are **not** named after it, which is the shape the old
+    The real tree agrees, so this is the only place the distinctions are seen doing work — without
+    it, a reader that answered "no modules" for everything would sweep nothing and pass
+    (`docs/internal/lessons.md` L5.19). Three plants rather than two since 2026-09-05: the third is
+    a distribution whose packages are **not** named after it, which is the shape the old
     `name.replace("-", "_")` derivation got silently wrong.
     """
     # Arrange
@@ -199,7 +200,7 @@ def test_the_degradation_categories_name_packs_this_tree_actually_ships() -> Non
 
     `scripts/check_isolated_installs.py` asserts that the five **extra-backed** packs report
     `FAILED` without their extra. What it never asserted is the converse — that everything else
-    reports `ACTIVE` — which is exactly `docs/lessons.md` `L10.41`: `weft-openai` imported
+    reports `ACTIVE` — which is exactly `docs/internal/lessons.md` `L10.41`: `weft-openai` imported
     cleanly on a clean install and registered **zero** of its three plugins, because it used
     Pillow without declaring it. An import that succeeds is not a pack that registered, and the
     check watched only the import.

@@ -112,7 +112,7 @@ so a leaf's override reaches a var referenced in a `with:` block the root itself
 **Operators apply against the *running* stage list, never against the original root.**
 `02` §3: "Operators apply in written order, each validated against the running result."
 That is what makes `remove` followed by `insert` on one id a move rather than a
-collision — task 1.4 settles the question `docs/build-ledger.md` left open after 1.1:
+collision — task 1.4 settles the question `docs/internal/build-ledger.md` left open after 1.1:
 "the order in which those keys appear in the document is the order they apply."
 `weft_kernel.pipeline.Pipeline.operator_order` is read off the document (or the call)
 that built the pipeline, never assumed from field order, and `_apply_operators` below

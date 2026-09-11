@@ -1,6 +1,6 @@
 """Task 2.30's stated property: the generation pack names no vendor.
 
-`docs/build-ledger.md` 2.30: "the generation pack names no vendor, because a provider
+`docs/internal/build-ledger.md` 2.30: "the generation pack names no vendor, because a provider
 adapter is its own pack and the offline default is a deterministic scripted provider." No
 fitness function is named for this task; the property is checked directly, against the two
 places a dependency on a vendor could actually be introduced.

@@ -10,7 +10,7 @@ in its name column from task 2.32 until 2026-09-06 — a `mode:` field `RaptorCo
 had (`raptor.py`, seven fields, none of them it), advertising two values nothing could be
 configured with. A correction block four lines above the row had withdrawn the claim, and the
 row went on making it, because a correction that does not edit what it corrects leaves both
-readings standing (`docs/lessons.md` `L9.30`). An annotation naming a field is a promise an
+readings standing (`docs/internal/lessons.md` `L9.30`). An annotation naming a field is a promise an
 operator can act on: they will write it into a `with:` block.
 
 **The proof citation.** The same row's block said cascade delete was *"proven against a real
@@ -217,7 +217,8 @@ def test_every_proof_claim_says_what_to_grep_for() -> None:
         "the catalogue claims something is proven without saying what to grep for. Write it as "
         "`proven in `<path>` (`<needle>`)`, where the needle is a literal string the cited file "
         "contains — the strongest sentence in this document rested on a file that never deleted "
-        "anything, and nothing could see it (`docs/lessons.md` L9.38):\n  " + "\n  ".join(unchecked)
+        "anything, and nothing could see it (`docs/internal/lessons.md` L9.38):\n  "
+        + "\n  ".join(unchecked)
     )
 
 

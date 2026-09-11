@@ -10,16 +10,16 @@ result was hundreds of citations pointing at a tree that existed only behind one
 untracked symlink, **thirteen of them inside published wheels**, where a stranger who installed
 the package read a pointer to a repository they did not have. The rule that demanded the evidence
 is the same rule that spread it, and every individual citation looked like diligence because it
-*was* diligence. `docs/lessons.md` L8.7.
+*was* diligence. `docs/internal/lessons.md` L8.7.
 
 **Removing them took four agents and three failed scopings, and that is what this file prevents.**
 The searcher graded their own search three times, and missed three different ways
-(`docs/lessons.md` L8.8): a pattern requiring a two-segment path fragment when the question was
-the bare word (13 sites reported, 277 actual); a scope written as three directory names, missing
+(`docs/internal/lessons.md` L8.8): a pattern requiring a two-segment path fragment when the question
+was the bare word (13 sites reported, 277 actual); a scope written as three directory names, missing
 four more populations that only `git ls-files` could enumerate; and every grep case-sensitive, so
 six capitalised headings were invisible to all of them. Each miss was found by somebody else. **A
-search cannot report what its own pattern excludes, which is why the durable form of this rule is
-a property rather than a better grep.**
+search cannot report what its own pattern excludes, which is why the durable form of this rule is a
+property rather than a better grep.**
 
 **Clause (a): the citation resolves.** Matched on *basename*, not full path, because this
 codebase abbreviates — `runner.py` at line 167 and `packages/weft-kernel/src/weft_kernel/runner.py`
@@ -29,14 +29,13 @@ it accepts a citation this project could plausibly mean, and refuses only one th
 nothing here has. That is the whole of what it can honestly check, and the docstring says so
 rather than implying the line number was verified too.
 
-**Clause (b): a self-citation is refused.** A comment citing a line of the very file it is
-written in is
-either redundant — it is pointing at code the reader is already looking at, and should name the
-constant — or it is wrong, because it is quoting somebody else's file that happens to share the
+**Clause (b): a self-citation is refused.** A comment citing a line of the very file it is written
+in is either redundant — it is pointing at code the reader is already looking at, and should name
+the constant — or it is wrong, because it is quoting somebody else's file that happens to share the
 name. The second is not hypothetical: three were found in this tree, including
 `unicode_normalizer.py`'s **"Verified at source: `unicode_normalizer.py` lines 12-37's `process`
-calls…"**, describing a `process` method this file has never had (`docs/lessons.md` L8.9). It
-read for three phases as an ordinary self-reference, and **it is the one form clause (a) is
+calls…"**, describing a `process` method this file has never had (`docs/internal/lessons.md` L8.9).
+It read for three phases as an ordinary self-reference, and **it is the one form clause (a) is
 structurally blind to** — the path resolves, precisely because the basename collides. Clause (b)
 exists because clause (a) would have waved all three through.
 
@@ -49,7 +48,7 @@ unjudgeable claim becomes a refusable one: a citation that drifts stops being si
 becomes loudly wrong.
 
 **Every line number written in this docstring is spelled out in words rather than as `path:line`,
-and that is not a style choice.** `docs/lessons.md` `L12.8`: the paragraph that documents a
+and that is not a style choice.** `docs/internal/lessons.md` `L12.8`: the paragraph that documents a
 document-reading check is the most dangerous line on the page, because it is where the convention's
 own syntax appears in illustration — written by whoever knows the parser and is therefore least
 likely to reread it as input. One of the examples below is a citation this project *knows to be
@@ -65,6 +64,8 @@ import subprocess
 from functools import cache
 from pathlib import Path
 from typing import Final
+
+from tests.conftest import UNTRACKED_BY_DESIGN
 
 from .conftest import REPO_ROOT
 
@@ -107,24 +108,34 @@ _FRAGMENT_WINDOW: Final[int] = 5
 #: adding a fourth name means arguing that a whole document has stopped making claims about the
 #: tree, which is a much louder act than adding one path to a list.
 _APPEND_ONLY_RECORDS: Final[frozenset[str]] = frozenset(
-    {"docs/build-ledger.md", "docs/lessons.md", "docs/lessons-archive.md"}
+    {
+        "docs/internal/build-ledger.md",
+        "docs/internal/lessons.md",
+        "docs/internal/lessons-archive.md",
+    }
 )
 
-#: Directories excluded from the search for a cited basename: reading material kept on disk and
-#: out of version control. A citation that resolves only inside one of these is exactly the
-#: defect this check exists for, so they must not count as a hit.
-#:
-#: **`worktrees` joined this list at Phase 9's drain, and it was not a tidy-up** — `docs/lessons.md`
-#: `L9.90`. `git worktree add` puts a whole second checkout under `.claude/worktrees/`, and this
-#: repository had three, unmerged, carrying 174, 115 and 111 unique commits: **12,365 of the
-#: 12,976 Python files under the repository root lived inside them**. Because each worktree holds
-#: its own older copy of `_external-src` and `_external-reading`, the three names above were being
-#: smuggled straight back into the population they exclude — **39 basenames resolved only through
-#: a stale worktree**, among them `_BRIEFING.md`, `04-donor-inventory.md`, `08-salvage.md` and a
-#: dozen `ax-*.pdf`: reading material about somebody else's project. A citation naming one of them
-#: would have passed, which is the precise defect the sentence above says this list prevents.
-#: Measured the same day: **zero** tracked citations actually did, so this was a latent hole and
-#: not an active failure — recorded that way rather than dressed up as a catch.
+#: Basenames of `tests.conftest.UNTRACKED_BY_DESIGN` — the eight files under `docs/internal/`.
+#: **A named allowance for clause (a), not the scope above**: `_APPEND_ONLY_RECORDS` says a
+#: *source* file's own citations are records rather than live claims; this says a citation's
+#: *target* may resolve nowhere because the file is untracked by design. A citation to any other
+#: missing file still fails. Basenames, because clause (a) itself matches basenames.
+_UNTRACKED_TARGETS: Final[frozenset[str]] = frozenset(Path(p).name for p in UNTRACKED_BY_DESIGN)
+
+#: Directories excluded from the search for a cited basename: reading material kept on disk and out
+#: of version control. A citation that resolves only inside one of these is exactly the defect this
+#: check exists for, so they must not count as a hit. **`worktrees` joined this list at Phase 9's
+#: drain, and it was not a tidy-up** — `docs/internal/lessons.md` `L9.90`. `git worktree add` puts a
+#: whole second checkout under `.claude/worktrees/`, and this repository had three, unmerged,
+#: carrying 174, 115 and 111 unique commits: **12,365 of the 12,976 Python files under the
+#: repository root lived inside them**. Because each worktree holds its own older copy of
+#: `_external-src` and `_external-reading`, the three names above were being smuggled straight back
+#: into the population they exclude — **39 basenames resolved only through a stale worktree**, among
+#: them `_BRIEFING.md`, `04-donor-inventory.md`, `08-salvage.md` and a dozen `ax-*.pdf`: reading
+#: material about somebody else's project. A citation naming one of them would have passed, which is
+#: the precise defect the sentence above says this list prevents. Measured the same day: **zero**
+#: tracked citations actually did, so this was a latent hole and not an active failure — recorded
+#: that way rather than dressed up as a catch.
 _NOT_THIS_REPO: Final[tuple[str, ...]] = (
     ".venv",
     "_external-src",
@@ -213,7 +224,7 @@ def _violations() -> tuple[list[str], list[str]]:
             basename = Path(cited).name
             if basename == path.name:
                 self_citing.append(f"{relative}: cites itself as '{match.group(0)}'")
-            elif not _basename_exists(basename):
+            elif not _basename_exists(basename) and basename not in _UNTRACKED_TARGETS:
                 dangling.append(
                     f"{relative}: cites '{match.group(0)}', which is nowhere in this repo"
                 )
@@ -280,13 +291,12 @@ def _fragment_violations() -> tuple[list[str], list[str]]:
 
     **Measured when this was written**: of the 160, **24** already pointed at a blank or missing
     line and **six more** at a line that could yield no fragment at all — a closing `\"\"\"`, an
-    import continuation, a `del ctx`, a ``` fence opener. Thirty stale citations, under a
-    fitness function that had been green on every run, and two of them (`seam.py` at lines
-    211-229 for a claim about emitting `DeprecationWarning`, `context.py` at line 105 for one
-    about exact-type lookup)
-    were not off by two lines but pointing at an unrelated class more than a hundred lines away.
-    `docs/lessons.md` `L9.34` measured the same drift from the other end: three agents citing one
-    paragraph at three different line numbers on one day.
+    import continuation, a `del ctx`, a ``` fence opener. Thirty stale citations, under a fitness
+    function that had been green on every run, and two of them (`seam.py` at lines 211-229 for a
+    claim about emitting `DeprecationWarning`, `context.py` at line 105 for one about exact-type
+    lookup) were not off by two lines but pointing at an unrelated class more than a hundred lines
+    away. `docs/internal/lessons.md` `L9.34` measured the same drift from the other end: three
+    agents citing one paragraph at three different line numbers on one day.
     """
     missing: list[str] = []
     stale: list[str] = []
@@ -388,7 +398,7 @@ def test_the_waiver_is_empty() -> None:
         "CITATIONS_WAIVED is no longer empty. A citation that goes nowhere, or that goes in a "
         "circle, is a pointer a reader cannot follow — fix the citation rather than recording "
         "it here. If an entry is genuinely right, it needs the fact that makes it right, in "
-        "this constant's own docstring and in docs/README.md's decision log."
+        "this constant's own docstring and in docs/internal/README.md's decision log."
     )
 
 
@@ -418,6 +428,28 @@ def test_every_citation_resolves_to_a_path_this_repository_has() -> None:
     )
 
 
+def test_the_untracked_allowance_is_scoped_to_docs_internal_and_nothing_else() -> None:
+    """`_UNTRACKED_TARGETS` names exactly the basenames under `docs/internal/`, and a missing
+    basename outside that set still dangles — otherwise an allowance meant for one owner's
+    decision quietly covers every other broken citation too.
+
+    `README.md` is in the set and carries nothing, because clause (a) matches basenames and the
+    repository root has a `README.md` of its own: that citation resolves with or without this.
+    """
+    assert {
+        "README.md",
+        "build-ledger.md",
+        "lessons.md",
+        "lessons-archive.md",
+        "05-grilling-sessions.md",
+        "12-roadmap.md",
+        "product-direction.md",
+        "ADAM_TODO.md",
+    } == _UNTRACKED_TARGETS
+    assert "totally-fake-basename-nobody-cites.md" not in _UNTRACKED_TARGETS
+    assert not _basename_exists("totally-fake-basename-nobody-cites.md")
+
+
 def test_no_citation_names_the_file_it_appears_in() -> None:
     """Clause (b) — the form clause (a) is blind to, because the path resolves."""
     _, self_citing = _violations()
@@ -427,7 +459,7 @@ def test_no_citation_names_the_file_it_appears_in() -> None:
         + "\n\nThat is either redundant — name the constant or function instead of a line "
         "number the reader is already looking at — or it is quoting a different file that "
         "happens to share the name, which is how 'verified at source' ended up attached to a "
-        "method this tree never had (docs/lessons.md L8.9)."
+        "method this tree never had (docs/internal/lessons.md L8.9)."
     )
 
 

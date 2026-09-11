@@ -25,7 +25,7 @@ exercises the real `cli.main()` in a subprocess to prove it.
 
 **`prescan_command_name` is a second, smaller pre-scan, and it is not FF8(b)'s.** `weft plugins
 list`/`weft plugins doctor` still need `discover(strict_pins=False)` — the diagnostic exemption
-`docs/build-ledger.md` 0.9's own repair added, letting those two commands survive an inert
+`docs/internal/build-ledger.md` 0.9's own repair added, letting those two commands survive an inert
 `[plugins]` pin that would otherwise stop `build_dependencies` from returning a registry at all,
 before either command gets the chance to report on it. Which command is about to run has to be
 known *before* `build_dependencies` runs (it decides `strict_pins`), and the registry-driven
@@ -385,7 +385,7 @@ class _EmissionTrackingSink:
         for `show_only_stage` with `getattr`, found nothing on this wrapper, and did nothing —
         so the whole repair was inert on every path the CLI actually runs, while its unit tests
         passed against a hand-written double that had the method. Found by running the binary
-        (`docs/lessons.md` `L12.13`).
+        (`docs/internal/lessons.md` `L12.13`).
 
         `getattr` on the wrapped sink for the same reason the caller uses it: this is a
         convenience `weft-cli`'s own sinks offer, not something `weft_llm.contract.TokenSink`
@@ -524,7 +524,7 @@ async def run_command(command_name: str, args: argparse.Namespace, deps: Depende
     own separate double-print of a *successful* streamed answer (flagged in task 3.6's own
     report, assigned to task 3.11): that bug lives entirely in the `succeeded`-branch return
     value `_render_route` builds, on a `succeeded=True` exit this repair's `reason` branching
-    already forced to `None` before and after — see `docs/build-ledger.md`'s dated repair
+    already forced to `None` before and after — see `docs/internal/build-ledger.md`'s dated repair
     paragraph for the boundary stated explicitly.
 
     **Fixed by task 3.11**, on the identical shape this repair already established for the
@@ -558,20 +558,19 @@ async def run_command(command_name: str, args: argparse.Namespace, deps: Depende
     from weft_cli.run_services import command_path_services
 
     tracked_sink = _EmissionTrackingSink(deps.token_sink)
-    # **Ledger task 9.0.** This run's ambient services — `Dependencies` (with `token_sink`
-    # replaced by `tracked_sink`, per `_EmissionTrackingSink`'s own docstring), `LLM`,
-    # `Prompts`, `TokenSink`, `Registry`, and every `[services]` role this run selected — used
-    # to be built here, five `ctx.services.add` calls in a row with no counterpart the query
-    # and ingest assemblers could be checked against for the identical gap Phase 7's close
-    # found (`docs/build-ledger.md:4358-4366 'emits pros'`): "`run_command` registers four contracts
-    # and a
-    # pack needing the configured store or embedder... still cannot reach one." Moved into
-    # `weft_cli.run_services.command_path_services` — see that function's own docstring for
-    # each service and why it is there — so the three assemblers are one list written thrice
-    # in one module rather than three, one of them inline here where nothing else could see it
-    # drift. `Context` is built with `services` already populated rather than the empty default
-    # `_context()` gives, since `Context` is frozen and `ctx.services` is not reassignable
-    # after construction.
+    # **Ledger task 9.0.** This run's ambient services — `Dependencies` (with `token_sink` replaced
+    # by `tracked_sink`, per `_EmissionTrackingSink`'s own docstring), `LLM`, `Prompts`,
+    # `TokenSink`, `Registry`, and every `[services]` role this run selected — used to be built
+    # here, five `ctx.services.add` calls in a row with no counterpart the query and ingest
+    # assemblers could be checked against for the identical gap Phase 7's close found
+    # (`docs/internal/build-ledger.md:4370-4366 'emits pros'`): "`run_command` registers four
+    # contracts and a pack needing the configured store or embedder... still cannot reach one."
+    # Moved into `weft_cli.run_services.command_path_services` — see that function's own docstring
+    # for each service and why it is there — so the three assemblers are one list written thrice in
+    # one module rather than three, one of them inline here where nothing else could see it drift.
+    # `Context` is built with `services` already populated rather than the empty default
+    # `_context()` gives, since `Context` is frozen and `ctx.services` is not reassignable after
+    # construction.
     ctx = dataclasses.replace(_context(), services=command_path_services(deps, sink=tracked_sink))
 
     entry = deps.registry.entry(Command, command_name)
@@ -586,12 +585,11 @@ async def run_command(command_name: str, args: argparse.Namespace, deps: Depende
     try:
         # **Task 7.0.** The gate and the seam wrap used to be assembled here, and that was the
         # defect G12 found: this function was the *only* caller, so `weft_cli.confirm.gate` was
-        # documented as "the invocation seam" while `Command.run` itself was reachable —
-        # ungated — by anything holding a registry. Phase 7's pack is the first second caller.
-        # Both now live in `weft_command.invocation.invoke`, which takes the consent decision as
-        # a **required** argument, so a caller that has not decided cannot construct the call.
-        # This function's own answer is the TTY prompt it has always used (`docs/lessons.md`
-        # `L8.31`).
+        # documented as "the invocation seam" while `Command.run` itself was reachable — ungated —
+        # by anything holding a registry. Phase 7's pack is the first second caller. Both now live
+        # in `weft_command.invocation.invoke`, which takes the consent decision as a **required**
+        # argument, so a caller that has not decided cannot construct the call. This function's own
+        # answer is the TTY prompt it has always used (`docs/internal/lessons.md` `L8.31`).
         outcome = await invoke(
             command_name=command_name,
             instance=instance,

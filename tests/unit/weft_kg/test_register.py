@@ -19,9 +19,9 @@ family-membership deferral in `01` names `weft-neo4j` as the sibling this pack i
 participants_for` narrows `NodeStore` to `store_names` with `if contract is NodeStore` and then
 deduplicates participants **by class**, walking contracts in `__qualname__` order. One class
 registered under both `GraphTraversal` and `NodeStore` is therefore reached as a `GraphTraversal`
-first — `G` sorts before `N` — joins the fan-out there, and has its `NodeStore` registration
-dropped as a duplicate, so the store filter never runs and the pack participates in every project
-whether or not anything names it. `docs/lessons.md` `L11.23`. `GraphStore` and `GraphWalk` are two
+first — `G` sorts before `N` — joins the fan-out there, and has its `NodeStore` registration dropped
+as a duplicate, so the store filter never runs and the pack participates in every project whether or
+not anything names it. `docs/internal/lessons.md` `L11.23`. `GraphStore` and `GraphWalk` are two
 classes over one schema, which keeps that shape out of the tree.
 """
 
@@ -414,8 +414,8 @@ def test_the_model_calling_stage_is_inserted_before_the_embedder() -> None:
     **a model-calling stage placed after `embed` produces nodes that are stored unsearchable.**
 
     Checked from two independently edited sources, so the comparison can actually disagree
-    (`docs/lessons.md` L5.6): the child says which stage id it anchors to, and `index-text` —
-    a different pack's document — says where that id sits relative to `embed`. Asserting the
+    (`docs/internal/lessons.md` L5.6): the child says which stage id it anchors to, and `index-text`
+    — a different pack's document — says where that id sits relative to `embed`. Asserting the
     anchor alone would pass on a parent that had since moved `chunk` after `embed`.
 
     `extends: index-with-graph` rather than `index-text`, on `index-with-cooccurrence`'s own

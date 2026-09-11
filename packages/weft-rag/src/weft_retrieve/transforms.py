@@ -1,13 +1,13 @@
 """Query transforms — the position before retrieval. `contextual-query-rewrite` is the first.
 
-Task **2.15**, `docs/build-ledger.md`: "a query transform is a composable stage a caller can
-omit, so no strategy pays for a rewrite it did not ask for." `weft_retrieve.contract.
-QueryTransform` is `Stage[QuerySet, QuerySet]` — declared in task 2.4, not here — and that
-single fact is the whole mechanism: identical `In` and `Out` is what makes inserting or
-removing a transform a document edit that changes nothing about the seams either side of it.
-This module's job is not to invent that property; it is to ship the first plugin that stands
-on it without weakening it, because `hyde` (2.16) and `step-back` (2.17) register into this
-same position next and inherit whatever shape this module gets wrong.
+Task **2.15**, `docs/internal/build-ledger.md`: "a query transform is a composable stage a caller
+can omit, so no strategy pays for a rewrite it did not ask for." `weft_retrieve.contract.
+QueryTransform` is `Stage[QuerySet, QuerySet]` — declared in task 2.4, not here — and that single
+fact is the whole mechanism: identical `In` and `Out` is what makes inserting or removing a
+transform a document edit that changes nothing about the seams either side of it. This module's job
+is not to invent that property; it is to ship the first plugin that stands on it without weakening
+it, because `hyde` (2.16) and `step-back` (2.17) register into this same position next and inherit
+whatever shape this module gets wrong.
 
 **Omittable by construction, not by discipline.** A follow-up-question rewrite applied to
 every strategy including the baseline, unconditionally, is "un-nameable and

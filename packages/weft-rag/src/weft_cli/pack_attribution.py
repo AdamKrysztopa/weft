@@ -47,21 +47,21 @@ _CONTRIBUTED_INCOMPLETELY = (
 class PluginRefusal:
     """`require_plugin`'s answer once `name` fails to resolve for `contract`.
 
-    Repair, 2026-08-20 (finding 2, `docs/build-ledger.md` 3.2/3.3/3.7's dated paragraph): this
-    class replaces the bare `tuple[ExitCode, str]` `require_plugin` used to return, which had no
-    field left to carry `weft_kernel.registry.UnknownPluginError.valid_options` through — the
-    caller had already thrown it away into a string before `weft_cli.commands` ever saw it (a
-    second repair, open item O4, later stopped that string from quoting `UnknownPluginError`'s
-    own text verbatim at all — see `_unresolved`'s own docstring). `valid_options` is populated
-    **only** for the two branches inside `_unresolved` that are
-    genuinely a name-resolution failure (the `silent` and `nothing amiss` cases, both
-    `ExitCode.RESOLUTION_FAILED`) — carried from the caught `UnknownPluginError` itself, every
-    name actually registered for `contract` at the moment of the lookup. It stays `None` for the
-    `refused` branch (`ExitCode.POLICY_REFUSED`): a refused pack is never imported, so nothing
-    here can honestly claim to know what it would have registered — inventing a list there would
-    be worse than omitting one, and it is the identical distinction `docs/build-ledger.md` 3.3's
-    own paragraph already draws for why `weft_cli.commands.CommandRefusalError`'s no-TTY refusal
-    does not carry `valid_options` either: a policy decision is not a name failing to resolve.
+    Repair, 2026-08-20 (finding 2, `docs/internal/build-ledger.md` 3.2/3.3/3.7's dated paragraph):
+    this class replaces the bare `tuple[ExitCode, str]` `require_plugin` used to return, which had
+    no field left to carry `weft_kernel.registry.UnknownPluginError.valid_options` through — the
+    caller had already thrown it away into a string before `weft_cli.commands` ever saw it (a second
+    repair, open item O4, later stopped that string from quoting `UnknownPluginError`'s own text
+    verbatim at all — see `_unresolved`'s own docstring). `valid_options` is populated **only** for
+    the two branches inside `_unresolved` that are genuinely a name-resolution failure (the `silent`
+    and `nothing amiss` cases, both `ExitCode.RESOLUTION_FAILED`) — carried from the caught
+    `UnknownPluginError` itself, every name actually registered for `contract` at the moment of the
+    lookup. It stays `None` for the `refused` branch (`ExitCode.POLICY_REFUSED`): a refused pack is
+    never imported, so nothing here can honestly claim to know what it would have registered —
+    inventing a list there would be worse than omitting one, and it is the identical distinction
+    `docs/internal/build-ledger.md` 3.3's own paragraph already draws for why
+    `weft_cli.commands.CommandRefusalError`'s no-TTY refusal does not carry `valid_options` either:
+    a policy decision is not a name failing to resolve.
     """
 
     exit_code: ExitCode
@@ -145,7 +145,7 @@ def attribute_to_packs(
 
 def unavailable_surface(reports: Sequence[PackReport], name: str) -> Unavailable | None:
     """The first `Unavailable` any report in `reports` declared for surface `name`, else
-    `None` — carried repair **R9.5** (`docs/lessons.md` `L9.86`).
+    `None` — carried repair **R9.5** (`docs/internal/lessons.md` `L9.86`).
 
     An `unavailable` surface is a pack-level fact stated at discovery, exactly like a
     `failed`/`partial` pack — but where those are keyed on the whole pack, this is keyed
@@ -185,7 +185,7 @@ def install_hint(report: PackReport) -> str | None:
     """`pip install <report.distribution>[<report.pack>]`, when the distribution's own
     metadata says that extra genuinely exists — `None` otherwise.
 
-    Read from `importlib.metadata`, never from a table in this tree — `docs/lessons.md`
+    Read from `importlib.metadata`, never from a table in this tree — `docs/internal/lessons.md`
     `L7.6`: a claim about a distribution is asked of the distribution, not assumed from a
     name written down somewhere else. `None` for three distinct reasons, all of them a
     correct absence rather than a defect:

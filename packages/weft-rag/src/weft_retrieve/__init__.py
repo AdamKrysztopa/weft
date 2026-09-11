@@ -2,7 +2,7 @@
 
 Publishes the query-path contracts (`contract.py`) and the query vocabulary they are
 written in (`payload.py`). Task **2.4** left this distribution registering nothing,
-deliberately — `docs/build-ledger.md` calls that task "the mechanism", and says in the same
+deliberately — `docs/internal/build-ledger.md` calls that task "the mechanism", and says in the same
 breath that "without 2.13–2.26 the mechanism is empty." **`no-retrieval` (task 2.13) is the
 first plugin to arrive**, and it brings `Settings`, `register` and the `weft.packs` entry
 point together in the same commit, through the same public group any third-party pack uses —
@@ -348,7 +348,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     them are active together: all three declare `__namespace__ = "weft-retrieve"` (one
     namespace, three carriers, none of them a `Node`), so `weft_store.rehydrate.
     ext_models` — one class per namespace, globally, by design — would raise
-    `DuplicateRegistrationError` on the second registration. `docs/lessons.md` L5.20
+    `DuplicateRegistrationError` on the second registration. `docs/internal/lessons.md` L5.20
     records this as the reason `weft_kernel.discovery.PackRegistrar.add_ext_model` is for
     an `ExtModel` that reaches a `Node`, not for every `ExtModel` a pack happens to own.
     """
@@ -439,27 +439,23 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/hybrid-then-generate.yaml")
 
     # **The ingest rungs — listed below and deliberately not counted here — are contributed from
-    # this pack rather than from `weft-index` or `weft-clean` for one reason: a document has to
-    # name every plugin it places, and these place plugins from five distributions' worth of
-    # packs at once** — `weft_extract`'s `text`,
-    # `weft_clean`'s cleaners, `weft_chunk`'s `fixed-size`, `weft_index`'s expanders,
-    # `weft_enhance`'s `keybert`, `weft_embed`'s `hash` and `weft_store`'s `pgvector`. They all
-    # ship inside `weft-rag`, so any of those packs could hold the file; this one holds it
-    # because this is where the query ladder already lives and a ladder split across two
-    # `register()` functions is a ladder nobody can read end to end.
-    #
-    # *This comment opened with "Six ingest rungs" while the block below listed ten, and a
-    # dispatched agent adding the eleventh (ledger `9.14`) is what noticed. The first repair
-    # written here said "nine", counted by hand in the same edit that complained about counting
-    # by hand, and was also wrong. So the number is gone rather than corrected: a count beside
-    # the thing it counts has no reader who benefits and one who is misled, and
-    # `docs/README.md`'s rule that a count is read from the file rather than carried forward
-    # applies one level down to a comment. `lessons.md` L8.15.*
-    #
+    # this pack rather than from `weft-index` or `weft-clean` for one reason: a document has to name
+    # every plugin it places, and these place plugins from five distributions' worth of packs at
+    # once** — `weft_extract`'s `text`, `weft_clean`'s cleaners, `weft_chunk`'s `fixed-size`,
+    # `weft_index`'s expanders, `weft_enhance`'s `keybert`, `weft_embed`'s `hash` and `weft_store`'s
+    # `pgvector`. They all ship inside `weft-rag`, so any of those packs could hold the file; this
+    # one holds it because this is where the query ladder already lives and a ladder split across
+    # two `register()` functions is a ladder nobody can read end to end. *This comment opened with
+    # "Six ingest rungs" while the block below listed ten, and a dispatched agent adding the
+    # eleventh (ledger `9.14`) is what noticed. The first repair written here said "nine", counted
+    # by hand in the same edit that complained about counting by hand, and was also wrong. So the
+    # number is gone rather than corrected: a count beside the thing it counts has no reader who
+    # benefits and one who is misled, and `docs/internal/README.md`'s rule that a count is read from
+    # the file rather than carried forward applies one level down to a comment. `lessons.md` L8.15.*
     # **They carry no `route.summary` and must not.** An ingest document produces nodes, not an
-    # `Answer`; `PipelineRouteCatalogue` reads `route.summary` to build the router's candidate
-    # set, so an ingest rung that advertised one would be selectable by `weft ask` and would
-    # fail `weft_cli.route_ask._require` at the end of a run it should never have started.
+    # `Answer`; `PipelineRouteCatalogue` reads `route.summary` to build the router's candidate set,
+    # so an ingest rung that advertised one would be selectable by `weft ask` and would fail
+    # `weft_cli.route_ask._require` at the end of a run it should never have started.
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-text.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-messy-text.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-openai.yaml")

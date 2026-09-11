@@ -1047,11 +1047,11 @@ class GraphStore:
         **`fact` and `mention` sit *beside* `node_count`, never instead of it.** Both are nodes,
         so both are already inside that total; what these add is the breakdown, which is exactly
         why `"node"` is a reserved key — a second spelling of the total would be the two-lists
-        shape `docs/README.md` opens with, reproduced inside one model.
+        shape `docs/internal/README.md` opens with, reproduced inside one model.
 
         **Absent means none, never zero.** A kind this deletion did not touch is left out rather
         than reported as `0`: a column of zeroes reads identically whether the participant looked
-        and found nothing or does not count that kind at all (`docs/lessons.md` L5.9).
+        and found nothing or does not count that kind at all (`docs/internal/lessons.md` L5.9).
 
         **Counted as a difference across the deletion, not read off the tables afterwards.** An
         entity two sources both mention survives the first of them, and a count taken from the
@@ -1366,21 +1366,20 @@ class GraphStore:
         a second, independent query over the identical fact and must never reuse this clause — see
         `weft_kg.bridges.bridges_from`.
 
-        **A chunk, and not a node, because this pack has two writers of `kg_entity_nodes` and
-        they mean different things by it — `docs/lessons.md` `L11.45`.** `cooccurrence-graph`
+        **A chunk, and not a node, because this pack has two writers of `kg_entity_nodes` and they
+        mean different things by it — `docs/internal/lessons.md` `L11.45`.** `cooccurrence-graph`
         anchors an entity to *the chunk node itself*, so for that rung a node and a chunk are the
-        same row. `llm-facts` anchors it to the fact or mention node it **derived** from that
-        chunk, one per triple, so two entities named in one sentence land on two different
-        `kg_nodes` rows. Reading `node_id` directly answers *which node* when the question is
-        *which passage a retriever could return*, and it reported `0 chunk(s) hold both endpoints`
-        about two names in one sentence — measured through the binary at the phase close, on the
-        rung `01` → Phase 11's Exit names. `coalesce(n.parents[1], n.id)` is the normalisation: a
-        derived node resolves to its parent, a root node is its own chunk. **One level, and that
-        is an assumption with a name**: every stage in this pack derives graph-bearing nodes
-        directly from a chunk (`weft_kg.extraction` calls `node.derive(...)` on the chunk it was
-        handed), so no anchored node in this tree is a grandchild. A stage that derived from a
-        derived node would need a recursive resolution here, and would fail this docstring rather
-        than the query.
+        same row. `llm-facts` anchors it to the fact or mention node it **derived** from that chunk,
+        one per triple, so two entities named in one sentence land on two different `kg_nodes` rows.
+        Reading `node_id` directly answers *which node* when the question is *which passage a
+        retriever could return*, and it reported `0 chunk(s) hold both endpoints` about two names in
+        one sentence — measured through the binary at the phase close, on the rung `01` → Phase 11's
+        Exit names. `coalesce(n.parents[1], n.id)` is the normalisation: a derived node resolves to
+        its parent, a root node is its own chunk. **One level, and that is an assumption with a
+        name**: every stage in this pack derives graph-bearing nodes directly from a chunk
+        (`weft_kg.extraction` calls `node.derive(...)` on the chunk it was handed), so no anchored
+        node in this tree is a grandchild. A stage that derived from a derived node would need a
+        recursive resolution here, and would fail this docstring rather than the query.
 
         **Deduplicated in two stages.** `named` keeps only the mirror where
         `source_name < target_name`, so `A-B-C` and `C-B-A` are the same bridge once; `deduped`'s

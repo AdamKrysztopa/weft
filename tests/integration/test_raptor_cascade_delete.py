@@ -1,13 +1,13 @@
 """The proof `10` §1.2's own correction block said was owed — ledger task **10.1**.
 
-That block claims the defect task 2.32 closed: *"RAPTOR summaries built without genealogy
-tracking carried `relationships={}` and no deletion path could ever reach them"*, repaired by
-building every summary through `Node.combine`, whose `Lineage.sources` is the union of its
-members'. Until 2026-09-06 the block also said that was *"proven against a real corpus, real
-embeddings and a real store in `tests/integration/test_raptor_pipeline.py`, not merely asserted
-of the type"*. It was not: that file asserts the **precondition** — a summary's `sources` equals
-the union of its members' — and never deletes anything (`grep -c delete` over it → `0`). The
-overclaim was withdrawn (`docs/lessons.md` `L9.38`) and the proof was left owed. This file is it.
+That block claims the defect task 2.32 closed: *"RAPTOR summaries built without genealogy tracking
+carried `relationships={}` and no deletion path could ever reach them"*, repaired by building every
+summary through `Node.combine`, whose `Lineage.sources` is the union of its members'. Until
+2026-09-06 the block also said that was *"proven against a real corpus, real embeddings and a real
+store in `tests/integration/test_raptor_pipeline.py`, not merely asserted of the type"*. It was not:
+that file asserts the **precondition** — a summary's `sources` equals the union of its members' —
+and never deletes anything (`grep -c delete` over it → `0`). The overclaim was withdrawn
+(`docs/internal/lessons.md` `L9.38`) and the proof was left owed. This file is it.
 
 **Why a precondition is not the proof, said plainly.** *"A summary's `sources` is the union of
 its members'"* and *"deleting a member's source removes the summary"* are two claims joined by a

@@ -1,13 +1,13 @@
 """`llm-sufficiency` and `hedge-phrases` — two `Sufficiency` implementations.
 
-Task **2.24**, `docs/build-ledger.md`: "a draft's uncertainty is a replaceable, named signal
-rather than a phrase list, so the trigger cannot break silently under another language or
-model." `10` §1.1's own `refine-on-uncertainty` row states the exact failure this line exists
-to close: a nine-phrase localised list checked with `str.__contains__` is a mechanism that
-"fires on hedging, never on unsupportedness, and breaks silently under another language or
-system prompt." *Silently* is the load-bearing word: a hard-coded English phrase list that
-never matches a Polish hedge does not raise, does not log, and no test anywhere goes red — the
-refinement it was supposed to trigger simply never fires.
+Task **2.24**, `docs/internal/build-ledger.md`: "a draft's uncertainty is a replaceable, named
+signal rather than a phrase list, so the trigger cannot break silently under another language or
+model." `10` §1.1's own `refine-on-uncertainty` row states the exact failure this line exists to
+close: a nine-phrase localised list checked with `str.__contains__` is a mechanism that "fires on
+hedging, never on unsupportedness, and breaks silently under another language or system prompt."
+*Silently* is the load-bearing word: a hard-coded English phrase list that never matches a Polish
+hedge does not raise, does not log, and no test anywhere goes red — the refinement it was supposed
+to trigger simply never fires.
 
 **The fix is not a better phrase list — it is that no phrase list is hard-coded into a
 generator at all.** `weft_retrieve.contract.Sufficiency` (published at task 2.4) is a named,

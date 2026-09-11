@@ -13,7 +13,7 @@ module docstring for the batching question and why per-node calls, run concurren
 answer here.
 
 **"Must not quote the passage's own wording back verbatim" is not a politeness — it is the
-property task 2.31's own exit demonstration checks.** `docs/build-ledger.md`: "a question
+property task 2.31's own exit demonstration checks.** `docs/internal/build-ledger.md`: "a question
 whose wording appears nowhere in the corpus retrieves the chunk that answers it." A question
 built by lifting the passage's own sentence would retrieve by keyword overlap, which is the
 retrieval this technique exists to go *past* — doc2query's whole premise (Nogueira, Yang,

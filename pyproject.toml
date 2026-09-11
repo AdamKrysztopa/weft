@@ -19,7 +19,7 @@ dev = [
     # in one process. `test` now spreads it across the machine — with one exception the whole
     # arrangement turns on: every test that reaches Postgres or Qdrant carries an `xdist_group`
     # (see `tests/conftest.py`), so `--dist=loadgroup` puts all of them on a single worker and
-    # they still run one after another. `docs/lessons-archive.md` `L8.30` and `L6.22` are what
+    # they still run one after another. `docs/internal/lessons-archive.md` `L8.30` and `L6.22` are what
     # two suites sharing the one container cost: a truncated table under a running measurement,
     # and a result about neither half.
     "pytest-xdist>=3.6",
@@ -71,7 +71,7 @@ weft-rag = { workspace = true }
 [tool.poe.tasks]
 fmt = "ruff format ."
 lint = "ruff check ."
-# `docs/lessons.md` L9.1. Ruff caches a verdict **per file**, keyed on that file's own content —
+# `docs/internal/lessons.md` L9.1. Ruff caches a verdict **per file**, keyed on that file's own content —
 # but first-party/third-party import classification is a fact about the *tree*, so creating
 # `weft_eval/falsify.py` made a cached verdict wrong for a file that never changed, and nothing
 # invalidated it. Two real errors sat under a green gate across four runs. `ci-checks` is the
@@ -95,7 +95,7 @@ arch = "pytest tests/architecture -q"
 cmd = "pytest tests --ignore=tests/architecture -q --numprocesses=auto --dist=loadgroup"
 
 # **No `WEFT_EXPECTED_SKIPS` here, and that is the correction rather than the omission.**
-# `docs/lessons.md` `L11.22` bought the check in `tests/conftest.py` that compares a run's skip
+# `docs/internal/lessons.md` `L11.22` bought the check in `tests/conftest.py` that compares a run's skip
 # count against a number the operator states. This task set that number to **9** — and 9 was a
 # fact about the machine it was measured on, which had Qdrant running. CI, whose `compose.yaml`
 # counterpart keeps Qdrant behind a `conformance` profile that `docker compose up -d` does not
@@ -129,7 +129,7 @@ sequence = ["fmt", "lint", "types", "arch"]
 help = "Fast baseline: format, lint, types, architecture. No unit tests."
 
 # Ledger task 6.23. The seven out-of-tree example packs ship 116 tests between them and
-# `testpaths = ["tests"]` meant the gate had never run one — `docs/lessons.md` L6.12: a directory
+# `testpaths = ["tests"]` meant the gate had never run one — `docs/internal/lessons.md` L6.12: a directory
 # of tests no task runs is prose, exactly as a documented check no task runs is prose, one level
 # up from the check to the suite. Two of `weft-example-graph`'s were quietly red when somebody
 # finally looked.
@@ -207,7 +207,7 @@ src = ["packages/*/src", "testing/*/src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "B", "C90", "S", "PTH", "RET", "SIM", "TID"]
-# **`S101` is not ignored tree-wide any more** — `docs/lessons.md` `L8.37`. The reason written
+# **`S101` is not ignored tree-wide any more** — `docs/internal/lessons.md` `L8.37`. The reason written
 # beside it was always "assert is the point in tests", and the setting applied everywhere, so an
 # `assert` in shipped code passed lint under a justification about test files. It is scoped to the
 # directories the reason names, below. An `assert` is stripped under `-O`, so in shipped code it is
@@ -215,7 +215,7 @@ select = ["E", "F", "I", "N", "UP", "B", "C90", "S", "PTH", "RET", "SIM", "TID"]
 # (`weft_cli.route_ask`'s, cited in `CLAUDE.md` and in `phase-step`).
 ignore = []
 
-# **`docs/lessons.md` `L11.40` — every test helper in this repository was exempt from redefinition
+# **`docs/internal/lessons.md` `L11.40` — every test helper in this repository was exempt from redefinition
 # detection, and nothing said so.** `F811` is selected above and applies to `tests/`, which read as
 # "a redefined name is caught here". It is not: ruff exempts any name matching `dummy-variable-rgx`,
 # whose default is `^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$` — every leading-underscore name — and the
@@ -230,7 +230,7 @@ dummy-variable-rgx = "^_$"
 # **Assert is the point in a test** — it is the assertion mechanism, and a test never runs under
 # `-O`. That sentence used to sit beside a tree-wide `ignore = ["S101"]`, so it justified a
 # narrower thing than it permitted and an `assert` in shipped code passed lint under a reason about
-# test files (`docs/lessons.md` `L8.37`). Scoped here to the directories the reason names.
+# test files (`docs/internal/lessons.md` `L8.37`). Scoped here to the directories the reason names.
 "tests/**/*.py" = ["S101"]
 "testing/**/*.py" = ["S101"]
 "examples/**/*.py" = ["S101"]
@@ -241,7 +241,7 @@ dummy-variable-rgx = "^_$"
 # wrong for this one directory, and not harmlessly so: before this entry existed, ruff's `UP017`
 # *demanded* `datetime.UTC` in `.claude/hooks/subagent_findings.py`, which is 3.11+ and crashed
 # the hook on import. A hook that fails to import is silently a hook that does not exist, so the
-# gate was not merely blind to the defect — it required it (`docs/lessons.md` L6.6).
+# gate was not merely blind to the defect — it required it (`docs/internal/lessons.md` L6.6).
 # `UP` alone is suppressed: every other rule selected above is version-independent and these
 # files are worth linting, which is why the directory is not excluded outright.
 ".claude/hooks/*" = ["UP"]
@@ -277,7 +277,7 @@ extraPaths = [
     # entry above. Named `weft-example-*` like every other example pack, and deliberately not
     # `weft-kg`: that is the name the design documents use for this pack as a *hypothetical*,
     # quoted verbatim in several first-party docstrings, so a real pack taking it turns every
-    # legitimate quotation into a fitness-function-9(b) violation (docs/lessons.md L5.28).
+    # legitimate quotation into a fitness-function-9(b) violation (docs/internal/lessons.md L5.28).
     # That reserved name was `weft-graph` until 2026-09-09, when G18 changed it: `weft-graph`
     # is another project's on PyPI, and this repository's own hypothetical could not keep a
     # name a real install would collide with.

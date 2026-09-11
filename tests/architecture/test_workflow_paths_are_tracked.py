@@ -1,11 +1,11 @@
 """Every path a workflow file references is a tracked file — ledger task **8.19**.
 
-`docs/lessons-archive.md` `L7.2`. `uv.lock` sat in `.gitignore` for eight phases, so the gate a
-developer ran (against whatever their environment had resolved to) and the gate CI runs (against a
-clean checkout) were two different gates, and **nothing could have noticed** — CI passed, the local
-run passed, and neither was evidence about the other. The repair tracked the lockfile; this is the
-check that would have caught it, and that catches the next file a workflow depends on and this
-repository does not carry.
+`docs/internal/lessons-archive.md` `L7.2`. `uv.lock` sat in `.gitignore` for eight phases, so the
+gate a developer ran (against whatever their environment had resolved to) and the gate CI runs
+(against a clean checkout) were two different gates, and **nothing could have noticed** — CI passed,
+the local run passed, and neither was evidence about the other. The repair tracked the lockfile;
+this is the check that would have caught it, and that catches the next file a workflow depends on
+and this repository does not carry.
 
 **Why what already exists does not cover it.** `test_sdist_completeness.py` and
 `test_isolated_installs.py` both read `.github/workflows/ci.yml`, and both ask whether it *invokes*
@@ -20,9 +20,9 @@ with a suffix, minus URLs, action references (`owner/repo@ref`), globs, interpol
 directories the job creates rather than carries. Anything it cannot classify it skips — and
 `test_the_check_can_actually_fail` proves the classifier still fires on a real one.
 
-Tracked files come from `conftest.tracked_files()`, which is `git ls-files` and not a directory
-walk (`docs/lessons.md` L8.8). That helper was consolidated there when this check would otherwise
-have been the third copy of the same six lines.
+Tracked files come from `conftest.tracked_files()`, which is `git ls-files` and not a directory walk
+(`docs/internal/lessons.md` L8.8). That helper was consolidated there when this check would
+otherwise have been the third copy of the same six lines.
 """
 
 from __future__ import annotations
@@ -30,6 +30,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 from typing import Final
+
+from tests.conftest import UNTRACKED_BY_DESIGN
 
 from .conftest import REPO_ROOT, tracked_files
 
@@ -50,7 +52,7 @@ _NOT_A_REPO_PATH: Final[tuple[str, ...]] = ("${{", "://", "*", "$(", "~")
 #: nothing in the workflow text names them as created, so there is nothing to derive them from.
 #: Every *other* job-created directory is derived by `_job_created_prefixes` below rather than
 #: listed here, because a hand-maintained set of "ignore these" is the shape that silently grows
-#: until the check stops looking at anything (`docs/lessons.md` L8.12).
+#: until the check stops looking at anything (`docs/internal/lessons.md` L8.12).
 _BUILD_TOOL_OUTPUT: Final[tuple[str, ...]] = ("dist/", "site/")
 
 #: `mkdir -p reproduction` and friends — a directory the workflow states it is creating.
@@ -60,6 +62,13 @@ _MKDIR: Final[re.Pattern[str]] = re.compile(r"\bmkdir\s+(?:-p\s+)?(?P<dir>[\w./-
 #: on something this repository does not carry, which is `L7.2`'s defect written down rather than
 #: fixed — a visible act in a diff, never a silent edit.
 UNTRACKED_WORKFLOW_PATHS_WAIVED: Final[frozenset[str]] = frozenset()
+
+#: The eight files under `docs/internal/`. **An allowance, not a waiver**: `ci.yml` and
+#: `release.yml` name `docs/internal/lessons.md` and `docs/internal/lessons-archive.md`, and every
+#: occurrence — checked by hand, 2026-09-11 — is inside a `#` comment or an `echo` message citing a
+#: lesson id, never a `run:` step that reads the file. No workflow depends on any of the eight at
+#: runtime, so this is not `L7.2`'s defect. A path to any other untracked file still fails.
+_UNTRACKED_WORKFLOW_CITATIONS: Final[frozenset[str]] = UNTRACKED_BY_DESIGN
 
 
 def _job_created_prefixes(text: str) -> frozenset[str]:
@@ -84,7 +93,8 @@ def referenced_paths(text: str) -> frozenset[str]:
 
     Public rather than private so `test_the_check_can_actually_fail` can exercise the classifier
     directly on a planted line. The classifier is the part that can silently stop matching, and a
-    self-test that only ran the whole check would not see that happen (`docs/lessons.md` L6.29).
+    self-test that only ran the whole check would not see that happen (`docs/internal/lessons.md`
+    L6.29).
     """
     created = frozenset(_BUILD_TOOL_OUTPUT) | _job_created_prefixes(text)
     found: set[str] = set()
@@ -109,7 +119,9 @@ def test_every_path_a_workflow_names_is_tracked() -> None:
         absent = sorted(
             path
             for path in referenced_paths(workflow.read_text(encoding="utf-8"))
-            if path not in tracked and path not in UNTRACKED_WORKFLOW_PATHS_WAIVED
+            if path not in tracked
+            and path not in UNTRACKED_WORKFLOW_PATHS_WAIVED
+            and path not in _UNTRACKED_WORKFLOW_CITATIONS
         )
         if absent:
             missing[workflow.relative_to(REPO_ROOT).as_posix()] = absent
@@ -125,9 +137,9 @@ def test_every_path_a_workflow_names_is_tracked() -> None:
 
 
 def test_the_walk_found_the_workflows_and_read_paths_out_of_them() -> None:
-    # `docs/lessons.md` L5.19: a sweep over an empty population passes while looking at nothing,
-    # and the green is identical either way. Both halves: that there are workflow files, and that
-    # the classifier actually pulled paths out of them.
+    # `docs/internal/lessons.md` L5.19: a sweep over an empty population passes while looking at
+    # nothing, and the green is identical either way. Both halves: that there are workflow files,
+    # and that the classifier actually pulled paths out of them.
     workflows = _workflow_files()
     assert workflows, f"no workflow files found under {WORKFLOWS} — the check read nothing"
 

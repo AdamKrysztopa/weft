@@ -14,10 +14,10 @@ extension — and no more:**
 - `resolved_pipeline` — **what actually ran**, not the document that named it. Task 4.0 exists
   because of this task: before it, `weft index` named its four stages in Python and there was no
   resolved pipeline to persist. This is `weft_kernel.resolution.ResolvedPipeline` itself, reused
-  rather than a second, weft-eval-shaped copy of the same information — the kernel already
-  publishes the frozen, fully-explicit form a resolved document reduces to, and a run record that
-  re-derived its own summary of a pipeline would be the two-lists failure `docs/README.md` opens
-  by describing, aimed at pipelines instead of documentation.
+  rather than a second, weft-eval-shaped copy of the same information — the kernel already publishes
+  the frozen, fully-explicit form a resolved document reduces to, and a run record that re-derived
+  its own summary of a pipeline would be the two-lists failure `docs/internal/README.md` opens by
+  describing, aimed at pipelines instead of documentation.
 - `corpus` — **which corpus**, `CorpusIdentity`: a name and a content-derived digest, so "a
   different corpus" (V3's own failure clause, already proven at `eval/run_baseline.py`'s
   `corpus_id()`) is a comparison two runs can make, not a promise two operators have to trust.

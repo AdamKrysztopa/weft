@@ -4,7 +4,7 @@ Three async methods and no pipeline position, over a root an operator names in
 `[packs.blob] root`. What this module adds beyond the round trip:
 
 **A blob root carries its own layout version, checked at open and refused on mismatch.** `S11`
-(`docs/README.md`) names the blob root the *seventh persistence surface*: `ExtModel.
+(`docs/internal/README.md`) names the blob root the *seventh persistence surface*: `ExtModel.
 __schema_version__` versions the `BlobRef` a `Node` carries, and says nothing about the layout
 that reference resolves *through* on disk. The rule `S11` settles is one per persistence root a
 pack owns outside the node store — carried in the root itself, checked at every operation that

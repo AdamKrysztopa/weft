@@ -107,7 +107,7 @@ def test_every_example_pack_bounds_the_first_party_packages_it_depends_on() -> N
 
 
 def test_the_check_can_actually_fail() -> None:
-    """Planted, because the tree agrees once this task lands (`docs/lessons.md` L5.19).
+    """Planted, because the tree agrees once this task lands (`docs/internal/lessons.md` L5.19).
 
     Through the real predicate, on the two shapes that separate a bound from a specifier: a bare
     name, and a ceiling with no floor — which is a specifier and not a bound, since it still

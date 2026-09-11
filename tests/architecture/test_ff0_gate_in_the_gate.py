@@ -57,7 +57,7 @@ _NOT_OURS: Final[frozenset[str]] = frozenset(
 )
 
 #: Test suites permitted to sit outside the canonical gate — **the second ratchet**, added
-#: 2026-08-22 by the drain of `docs/lessons.md` L6.12.
+#: 2026-08-22 by the drain of `docs/internal/lessons.md` L6.12.
 #:
 #: A directory of tests no task runs is prose, exactly as a documented check no task runs is
 #: prose — this fitness function's own subject, one level up from the check to the suite. It was
@@ -79,10 +79,10 @@ SUITES_WAIVED_FROM_GATE: Final[frozenset[str]] = frozenset()
 def _suite_directories() -> frozenset[str]:
     """Every directory in this repository that actually holds tests, repo-relative.
 
-    Read off the filesystem rather than off any list, for the same reason the check above
-    reads the gate's own `sequence` rather than a second copy of it: the two sides have to be
-    able to disagree (`docs/lessons.md` L5.6). A suite added under a directory nobody thought
-    to list is exactly the failure this clause exists to catch.
+    Read off the filesystem rather than off any list, for the same reason the check above reads the
+    gate's own `sequence` rather than a second copy of it: the two sides have to be able to disagree
+    (`docs/internal/lessons.md` L5.6). A suite added under a directory nobody thought to list is
+    exactly the failure this clause exists to catch.
     """
     found: set[str] = set()
     for path in _REPO_ROOT.rglob("test_*.py"):
@@ -160,16 +160,16 @@ def test_every_architecture_check_runs_in_the_canonical_gate(
 def test_suite_waiver_list_is_declared_not_discovered() -> None:
     """Every waived suite must still be **found by the sweep** — not merely exist on disk.
 
-    A waiver naming a directory that is gone is a waiver nobody will ever remove, and it makes
-    the ratchet read shorter than it is. But that was the whole of this check until 2026-08-25,
-    and `docs/lessons.md` **L6.29** is why it is not enough: a waiver-liveness test that asks
-    whether the waived *thing* exists, rather than whether the *sweep finds it*, passes exactly
-    as happily when the sweep has stopped finding anything at all. That is not hypothetical —
-    task 6.9 shipped a check whose prose sweep matched nothing in the entire shipped
-    documentation set, with its own liveness test green, and it was found only by emptying the
-    waiver. `_suite_directories()` walks `rglob("test_*.py")` and prunes by name; a pruning list
-    that grew one entry too many would silently empty it, and every waived suite would still be
-    a directory on disk.
+    A waiver naming a directory that is gone is a waiver nobody will ever remove, and it makes the
+    ratchet read shorter than it is. But that was the whole of this check until 2026-08-25, and
+    `docs/internal/lessons.md` **L6.29** is why it is not enough: a waiver-liveness test that asks
+    whether the waived *thing* exists, rather than whether the *sweep finds it*, passes exactly as
+    happily when the sweep has stopped finding anything at all. That is not hypothetical — task 6.9
+    shipped a check whose prose sweep matched nothing in the entire shipped documentation set, with
+    its own liveness test green, and it was found only by emptying the waiver.
+    `_suite_directories()` walks `rglob("test_*.py")` and prunes by name; a pruning list that grew
+    one entry too many would silently empty it, and every waived suite would still be a directory on
+    disk.
     """
     # Act
     swept = _suite_directories()
@@ -189,7 +189,7 @@ def test_every_test_suite_in_the_tree_runs_in_the_canonical_gate(
     workspace_config: dict[str, object],
 ) -> None:
     """Fitness function 0, one level up: the gate must reach every *suite*, not only every
-    *check*. `docs/lessons.md` L6.12 — a directory of tests no task runs is prose.
+    *check*. `docs/internal/lessons.md` L6.12 — a directory of tests no task runs is prose.
     """
     # Act
     covered = _covered_roots(workspace_config)
@@ -211,11 +211,10 @@ def test_every_test_suite_in_the_tree_runs_in_the_canonical_gate(
 def test_the_check_can_actually_fail() -> None:
     """Fitness function 16 clause (b) — ledger task **6.15**.
 
-    This file predates FF16 and was one of the seven waived in `CHECKS_WITHOUT_A_SELF_TEST`.
-    Both of its comparisons pass against the real tree and have since Phase 0, so this is the
-    only place either is seen disagreeing — which is the whole point: a check that has never
-    been observed failing is indistinguishable from one that cannot (`docs/lessons.md` L5.6,
-    L5.19).
+    This file predates FF16 and was one of the seven waived in `CHECKS_WITHOUT_A_SELF_TEST`. Both of
+    its comparisons pass against the real tree and have since Phase 0, so this is the only place
+    either is seen disagreeing — which is the whole point: a check that has never been observed
+    failing is indistinguishable from one that cannot (`docs/internal/lessons.md` L5.6, L5.19).
 
     Planted through the **real helpers**, never against hand-written sets. A self-test that
     asserted `{"arch"} - set() == {"arch"}` would prove that `frozenset.__sub__` works.

@@ -58,16 +58,16 @@ returns it on success — only the exit code, a rendering-adjacent decision, mov
 process's own exit status.
 
 **Task 3.11 retires `route` as a separate registered name.** `AskCommand` below absorbs
-`RouteCommand`'s own body — the question a user asks now reaches the pipeline the router names
-with no second command to know about, `docs/03-cli.md`'s own already-published *Command surface*
-table read literally ("query, streaming the answer with citations" — no `route` entry ever
-existed in that table). `--pipeline` is what a caller naming a specific pipeline uses instead of
-the router's own choice; `--retrieve-only` is Phase 0's own contract, kept reachable rather than
-deleted, because `manual/quickstart.md`'s own zero-configuration walkthrough and `eval/
+`RouteCommand`'s own body — the question a user asks now reaches the pipeline the router names with
+no second command to know about, `docs/03-cli.md`'s own already-published *Command surface* table
+read literally ("query, streaming the answer with citations" — no `route` entry ever existed in that
+table). `--pipeline` is what a caller naming a specific pipeline uses instead of the router's own
+choice; `--retrieve-only` is Phase 0's own contract, kept reachable rather than deleted, because
+`manual/quickstart.md`'s own zero-configuration walkthrough and `eval/
 run_baseline.py`'s V3 baseline (`docs/09-release.md` §4.3) both depend on a deterministic,
-credential-free, network-free measurement that routing cannot honestly offer once generation is
-a real model call resolved from `[llm.roles]` — see `docs/build-ledger.md`'s 3.11 entry for the
-full argument.
+credential-free, network-free measurement that routing cannot honestly offer once generation is a
+real model call resolved from `[llm.roles]` — see `docs/internal/build-ledger.md`'s 3.11 entry for
+the full argument.
 
 **Task 4.0 gives `IndexCommand` the identical `--pipeline` surface `AskArgs` already has.**
 `weft_cli.ingest.run_index`'s own module docstring carries the argument (Q3, settled:
@@ -179,13 +179,13 @@ _PLUGINS_DOCTOR_HELP = "full status, reason and disclosure per discovered pack"
 class TargetAlreadyExistsError(WeftError):
     """`weft init` refused to overwrite a `weft.toml` that already exists.
 
-    **Repair, 2026-08-20** (`docs/build-ledger.md`'s dated paragraph for tasks 3.3/3.6/3.7 has
-    the argument in full, against `docs/03-cli.md` → *Permissions*'s own table): `weft init`
-    is `write`-class now, not `overwrite` — table row `write`'s own worked example is "index
-    into a new collection, write a derived pipeline", which is exactly what a first-run `weft
-    init` scaffolding a project's own `weft.toml` is. `write` is `allow` by default, so it
-    never reaches `weft_cli.confirm.gate` at all, which is the fix for the reported bug: a
-    first `weft init` in CI, where nothing is a TTY, no longer refuses.
+    **Repair, 2026-08-20** (`docs/internal/build-ledger.md`'s dated paragraph for tasks 3.3/3.6/3.7
+    has the argument in full, against `docs/03-cli.md` → *Permissions*'s own table): `weft init` is
+    `write`-class now, not `overwrite` — table row `write`'s own worked example is "index into a new
+    collection, write a derived pipeline", which is exactly what a first-run `weft
+    init` scaffolding a project's own `weft.toml` is. `write` is `allow` by default, so it never
+    reaches `weft_cli.confirm.gate` at all, which is the fix for the reported bug: a first
+    `weft init` in CI, where nothing is a TTY, no longer refuses.
 
     What `overwrite` bought instead — refusing to silently discard whatever the existing file
     held — is not given up; it moves from a TTY prompt to an unconditional, loud refusal:
@@ -331,7 +331,7 @@ def _register_corpus(ctx: Context, deps: Dependencies) -> None:
     `[services] store` into a diagnosable refusal; a participant that then reaches for a corpus
     with none registered gets `UnresolvedServiceError`, naming what it wanted and what is
     available, which is the loud failure, correctly located — a second translation here would
-    give one mistake two messages (`docs/lessons.md` L5.9).
+    give one mistake two messages (`docs/internal/lessons.md` L5.9).
 
     Called from exactly two places, both inside `run`, never inside `describe_impact` (a
     confirmation prompt must not open a connection to the corpus before consent), and both
@@ -409,12 +409,11 @@ class AskArgs(BaseModel):
     """`weft ask <question> [--pipeline NAME] [--retrieve-only] [--top-k N] [--format text|json]`.
 
     Task **3.11**: `ask` routes by default — see `AskCommand`'s own docstring for the surface
-    decision and `docs/build-ledger.md`'s 3.11 entry for the argument in full. `pipeline` and
-    `retrieve_only` are mutually exclusive (`AskCommand.run` refuses both together, loudly,
-    before either resolves a plugin); `top_k`/`format` only take effect with `--retrieve-only`
-    — a routed or named-pipeline answer has no `top_k` of its own to report (each pipeline
-    decides that internally) and is always rendered the same way `_render_ask` already renders
-    a routed answer.
+    decision and `docs/internal/build-ledger.md`'s 3.11 entry for the argument in full. `pipeline`
+    and `retrieve_only` are mutually exclusive (`AskCommand.run` refuses both together, loudly,
+    before either resolves a plugin); `top_k`/`format` only take effect with `--retrieve-only` — a
+    routed or named-pipeline answer has no `top_k` of its own to report (each pipeline decides that
+    internally) and is always rendered the same way `_render_ask` already renders a routed answer.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -794,7 +793,7 @@ class AskCommand:
     never lists `route` at all. This class makes that already-published surface real: `ask`
     absorbs `RouteCommand`'s own body verbatim (the only change is where it lives), and
     `route` is retired as a registered name rather than kept as a second spelling of the
-    same thing (`docs/build-ledger.md`'s 3.11 entry has the fuller argument).
+    same thing (`docs/internal/build-ledger.md`'s 3.11 entry has the fuller argument).
 
     **Naming a pipeline directly** (the capability the ledger's own note asked this task to
     make sure stayed reachable) is new, not a re-spelling of what `route` did: `route` never
@@ -1221,7 +1220,7 @@ class ReconcileCommand:
     `DeleteCommand`'s own footing, and it shares that command's `describe_impact` discipline —
     resolve `[services] store` before saying anything about participants, so an operator whose
     store failed to register reads that fact rather than a sentence about an empty fan-out
-    (`docs/lessons.md` L5.9).
+    (`docs/internal/lessons.md` L5.9).
 
     **`destroy`-class, which is the stricter of the two `03` names, and unchanged by 5.1c.**
     That section says "class `network` for `full`, `destroy` for `repair` — one command

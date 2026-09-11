@@ -90,7 +90,7 @@ NAME = "openai"
 #: against this exact model.
 #:
 #: **This is a pinned external fact, not a code constant** — ledger task **8.14**,
-#: `docs/lessons.md` L8.13. It names a model on somebody else's price list, and nothing in
+#: `docs/internal/lessons.md` L8.13. It names a model on somebody else's price list, and nothing in
 #: this repository can ever detect that the vendor moved on; only `MODEL_PINNED_AS_OF`,
 #: below, tells a reader when it was last checked. Every caller that needs the shipped
 #: default imports this constant rather than repeating the literal — a copy is a second pin

@@ -15,8 +15,8 @@ accident** — and that obligation lands one file over. `weft-rag`'s hand-writte
 `[tool.hatch.build.targets.wheel] packages` list is now the thing that can silently disagree with
 the source tree beside it: a module added under `packages/weft-rag/src/` and not listed there is not
 shipped, no import in this repository notices, and every other test goes on passing while an
-installed user gets `ModuleNotFoundError`. That is precisely the shape `docs/lessons.md` L5.6
-requires a check for, and that comparison is the core of this file now.
+installed user gets `ModuleNotFoundError`. That is precisely the shape `docs/internal/lessons.md`
+L5.6 requires a check for, and that comparison is the core of this file now.
 
 **The two sources, and why they can genuinely disagree.** The first is `packages/weft-rag/src/*`,
 walked from the filesystem. The second is the `packages = [...]` list a person typed into
@@ -320,7 +320,7 @@ def test_every_pack_the_default_install_declares_is_loaded_at_the_version_it_dec
     Which packs exist comes from `weft-rag`'s own entry-point table; `loaded` comes from running
     real discovery against the installed environment; the installed version comes from
     `importlib.metadata`. Nothing here is derived from anything else here, which is what
-    `docs/lessons.md` L5.6 requires of a check that is expected to pass.
+    `docs/internal/lessons.md` L5.6 requires of a check that is expected to pass.
 
     **Keyed on `PackReport.pack`, not on the distribution.** Twelve reports now carry the same
     distribution name, so a `{report.distribution: report}` index would keep whichever came last
@@ -363,7 +363,7 @@ def test_every_pack_the_default_install_declares_is_loaded_at_the_version_it_dec
 
 
 def test_the_shipped_package_read_can_actually_fail() -> None:
-    """`docs/lessons.md` L5.19 — the comparison this file leans on, watched separating.
+    """`docs/internal/lessons.md` L5.19 — the comparison this file leans on, watched separating.
 
     The real tree agrees, so the only place the source-tree-versus-declared-list distinction is
     seen doing work is here: a package that exists on disk and is absent from the declared list

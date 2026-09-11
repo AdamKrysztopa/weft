@@ -11,7 +11,7 @@ that reason: a `doctor` feature is the CLI's, and G9's own answer says the kerne
 zero lines for it.
 
 **Two independent sources, deliberately not derived from each other**
-(`docs/lessons.md` L5.6: a declaration derived from the thing it claims to verify proves
+(`docs/internal/lessons.md` L5.6: a declaration derived from the thing it claims to verify proves
 nothing). Source A is a distribution's own installed version —
 `importlib.metadata.version(name)`, read off its own `.dist-info/METADATA`. Source B is a
 *different*, already-installed distribution's own declared requirement on that name —
@@ -51,7 +51,7 @@ _RequiresFn = Callable[[str], "list[str] | None"]
 _VersionFn = Callable[[str], str]
 
 #: Every requirement this module reports skew against is on a distribution named with this
-#: prefix — `docs/build-ledger.md` task 5.2a's own intra-repo range applies to any
+#: prefix — `docs/internal/build-ledger.md` task 5.2a's own intra-repo range applies to any
 #: distribution named `weft-...`, first- or third-party alike, so the filter is a prefix
 #: test, never a maintained list of distribution names.
 _WEFT_PREFIX = "weft-"

@@ -12,14 +12,14 @@ operator policy stays TOML — `02` §3 states the split, this module is where i
 files.** `weft_kernel.resolution.resolve` was built at task 1.3 to take that lookup as a
 plain mapping precisely so nothing about *where* a pipeline's ancestors come from is
 baked into the kernel — a directory of `*.yaml` documents is one obvious way to supply
-it, not the only one a caller could choose. `docs/build-ledger.md` 1.9: "Keep it small and
+it, not the only one a caller could choose. `docs/internal/build-ledger.md` 1.9: "Keep it small and
 obvious; do not invent a package format" — so `load_pipeline_catalogue` does the one
 obvious thing: read every `*.yaml` file in a directory, non-recursively, and key each
 parsed `Pipeline` by its own `name:` field rather than by the filename it happened to be
 saved under, so a document renamed on disk keeps resolving under the name it declares —
 and so does the catalogue's caller, who names a pipeline, never a path.
 
-**The translation task 1.1 left open, closed here.** `docs/build-ledger.md`, right after
+**The translation task 1.1 left open, closed here.** `docs/internal/build-ledger.md`, right after
 1.1: "a malformed pipeline document has no exit code and no manual entry yet... nothing
 opens a pipeline file until 1.9. Whichever task first hands a document to the CLI owns the
 translation and the manual/troubleshooting.md entry — a note here rather than a fix at
@@ -101,7 +101,7 @@ class ContributedPipelineNameCollisionError(WeftError):
     Task **2.8**. `.phase2-design.md` §5 describes a wider guarantee than this class
     enforces: "a contributed name colliding with a project-local one is refused naming
     both — the same rule as a duplicate plugin name, resolvable by an operator pin."
-    **Narrowed on repair, 2.8's own line on `docs/build-ledger.md`:** `load_contributed`
+    **Narrowed on repair, 2.8's own line on `docs/internal/build-ledger.md`:** `load_contributed`
     below takes no project-local catalogue as input, so what this class actually refuses
     is two *contributed* resources, from any distributions, sharing one `name:` — a real
     check, just not the design record's fuller one. A separate class from
@@ -235,7 +235,7 @@ def load_contributed(reports: Sequence[PackReport]) -> dict[str, Pipeline]:
 def load_pipeline_catalogue(directory: Path) -> dict[str, Pipeline]:
     """Every `*.yaml` document directly under `directory`, keyed by its own `name:` field.
 
-    Not recursive — a catalogue is "small and obvious", per `docs/build-ledger.md` 1.9, and
+    Not recursive — a catalogue is "small and obvious", per `docs/internal/build-ledger.md` 1.9, and
     a directory tree invents exactly the package format that instruction rules out. Files
     are read in sorted order, so `DuplicatePipelineNameError` always blames the same file as
     "already read" across repeated runs. The returned mapping is `resolve()`'s own `parents`

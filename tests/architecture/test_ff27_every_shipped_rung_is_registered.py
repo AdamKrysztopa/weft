@@ -1,7 +1,7 @@
 """Fitness function 27 — every pipeline document a distribution ships is contributed.
 
 `01` -> *Fitness functions* item 27. **Carried repair `R10.2`, and the rule it makes
-mechanical is `docs/lessons.md` `L5.15`: an extension point has a producing side and a
+mechanical is `docs/internal/lessons.md` `L5.15`: an extension point has a producing side and a
 consuming side, and one of them is routinely built without the other.** That entry stands at
 five recurrences across four phases, four of them logged and the fifth caught in the tree
 rather than in a queue — which is why it arrives here as a check instead of as a sixth
@@ -26,7 +26,7 @@ about registration, over the shipped set. A tree can pass either and fail the ot
 adrap defect is the worked example: 16 green, this one red.
 
 **The two sides come from places that can genuinely disagree**, which is
-`docs/lessons.md` `L5.6`'s requirement and the reason this file does not grep for
+`docs/internal/lessons.md` `L5.6`'s requirement and the reason this file does not grep for
 `add_pipeline_resource`. One side is the filesystem — the `pipelines/*.yaml` files actually
 present under each first-party source root. The other is a real `discover()` pass, reading
 what each pack's `register()` actually did at run time. A textual check would compare a call
@@ -112,8 +112,9 @@ def _unregistered(
     shipped: frozenset[str], contributed: frozenset[str], waived: frozenset[str]
 ) -> frozenset[str]:
     """The comparison itself, factored out so the failure self-test drives the identical code —
-    fitness function 16's own convention, and `docs/lessons.md` `L5.19`'s floor: a check whose
-    real subject is legitimately empty needs a self-test proving the comparison is not vacuous.
+    fitness function 16's own convention, and `docs/internal/lessons.md` `L5.19`'s floor: a check
+    whose real subject is legitimately empty needs a self-test proving the comparison is not
+    vacuous.
     """
     return shipped - contributed - waived
 
@@ -140,7 +141,7 @@ def test_the_waiver_is_pinned_empty() -> None:
 
 
 def test_this_check_walks_a_real_population() -> None:
-    # `docs/lessons.md` `L5.19`: where a check compares two sets, a walk that finds nothing
+    # `docs/internal/lessons.md` `L5.19`: where a check compares two sets, a walk that finds nothing
     # compares empty against empty and passes by asking nothing. This is the floor that makes
     # the assertion below mean something — and it is the rule fitness function 28 generalises
     # to every check in this directory.

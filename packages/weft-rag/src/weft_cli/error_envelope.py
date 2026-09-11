@@ -1,13 +1,13 @@
 """The structured error envelope crossing the process boundary under `--json` — task 5.2d.
 
-`docs/README.md` decision log, **S6**: G9 ruled CLI error prose unpromised only because a
+`docs/internal/README.md` decision log, **S6**: G9 ruled CLI error prose unpromised only because a
 structured channel is promised in its place — *"the promise is the `WeftError` subclass name as
 failure identity plus a structured, additively versioned error envelope carrying the human string
 as a `rendered` field."* Before this task nothing built that channel: `weft_cli.render.
 render_refusal` returned `str(exc)` on every failure path, `--json` included, so of the 78 raise
 sites across `weft-cli` that compute `valid_options` (`docs/01-high-level-plan.md` -> *Fitness
 functions* item 12, `weft_kernel.errors.UnresolvedNameError`), **none reached a script except as a
-sentence** — the measurement S6 and this task's own `docs/build-ledger.md` line record.
+sentence** — the measurement S6 and this task's own `docs/internal/build-ledger.md` line record.
 
 **Why a new module rather than a field on `Rendered`.** `weft_cli.render.Rendered` is `stdout`/
 `stderr`/`exit_code` — three primitives, the shape every renderer already returns, human or

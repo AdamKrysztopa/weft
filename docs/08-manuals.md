@@ -57,10 +57,10 @@ build-order document for a phase that does not have one yet — see §2.
 ### Where these live
 
 None of the four settled rules say where shipped documentation goes, because none of `01`–`06` needed
-to. `docs/` is claimed as **the plan**: `docs/README.md`'s own Documents table gives `01` through `06`
+to. `docs/` is claimed as **the plan**: `docs/internal/README.md`'s own Documents table gives `01` through `06`
 each a **Reference** kind and an **Owns** line about design — contracts, the CLI surface, the build
 order — never about a reader outside the project, and `CLAUDE.md` routes readers
-to `docs/README.md` for *"project status, which phase is live, which decisions are settled, and which
+to `docs/internal/README.md` for *"project status, which phase is live, which decisions are settled, and which
 document owns what"* — again, project state, not product usage. Filing user-facing manuals into `docs/`
 would either dilute that claim or require a second "which half of `docs/` is this" rule nobody has
 asked for yet. The six documents above need a location that is obviously not the plan. They go in
@@ -81,14 +81,14 @@ re-derive it.
 walking the registered contracts, so its source of truth is a short generator plus each pack's own
 docstring, not a hand-maintained file — `manual/contract-reference.md` is the generator's *output*,
 checked in so it is readable without running anything, and regenerated in CI. If this is adopted, it is
-a one-line addition to `docs/README.md`'s existing *Documents* table — a pointer, not a definition,
+a one-line addition to `docs/internal/README.md`'s existing *Documents* table — a pointer, not a definition,
 exactly as that table's own rule requires.
 
 ---
 
 ## 2. When each is written, and why not at the end
 
-The argument is the same one `docs/README.md` already makes about itself, one level up: a document
+The argument is the same one `docs/internal/README.md` already makes about itself, one level up: a document
 written after the fact describes what got built and can drift from it forever after; a document that
 can only be written once its phase's mechanism is real is a design review that happens to leave prose
 behind, and it cannot describe something that does not exist yet. Applied here:
@@ -146,8 +146,8 @@ behind, and it cannot describe something that does not exist yet. Applied here:
   > **5.3a**, and every `examples/*/pyproject.toml` carries a `>=X,<MAJOR+1` specifier as of task
   > **6.26**, which added `tests/architecture/test_example_packs_are_exemplars.py` to keep it that
   > way. This correction is itself ledger task 8.21's subject: the gap outlived its own repair here
-  > by longer than it did in the guide, because the guide's copy was retired and this one was not. Both are recorded in task 5.3's own `docs/build-ledger.md` entry and in
-  > `docs/lessons.md` rather than papered over. §8's *Open gates you may hit* table is also corrected
+  > by longer than it did in the guide, because the guide's copy was retired and this one was not. Both are recorded in task 5.3's own `docs/internal/build-ledger.md` entry and in
+  > `docs/internal/lessons.md` rather than papered over. §8's *Open gates you may hit* table is also corrected
   > in this task, since G2, G7, G8 and G9 — all four gates that table had listed as open — had
   > settled by the time this task started and the table had not been updated to say so.
 
@@ -205,14 +205,14 @@ behind, and it cannot describe something that does not exist yet. Applied here:
 
 ## 3. The rule that keeps them true
 
-`docs/README.md` states its own version of this rule in its opening blockquote: a control file that
+`docs/internal/README.md` states its own version of this rule in its opening blockquote: a control file that
 paraphrases the plan risks the same two-lists bug at the level of the plan. That bug shows up one
 layer further out too, aimed at users instead of builders: a module docstring claiming strategies
 "can be added without modifying callers," refuted by the same file's own decorator signature. Nobody
 lied; nobody even checked. That is the failure mode this section exists to make structurally
 unlikely, not to police by discipline.
 
-**Single ownership among the six.** Exactly the same rule `docs/README.md`'s manifest already applies
+**Single ownership among the six.** Exactly the same rule `docs/internal/README.md`'s manifest already applies
 to `01` through `06` — restated here because it is easy to assume user docs are exempt, and they are
 the more tempting place to restate something for a reader's convenience:
 
@@ -243,7 +243,7 @@ the more tempting place to restate something for a reader's convenience:
 | **Troubleshooting's coverage** | Checked, not generated — the remedy is written by a person, but *completeness* is a ratchet, in the same style as the one `01` → *Fitness functions* item 0 already uses: a named waiver constant, pinned empty, so a gap is a visible act in a diff | A new failure mode landing in code with no matching entry — a *17 of 23 evaluators registered*-style gap, aimed at documentation coverage instead of registration |
 
 **A check over one field of a quoted block is a floor, and it must say so where it is read**
-(`docs/lessons.md` `L8.20`, Phase 8). The table above has an *Executed* row — the quickstart — and
+(`docs/internal/lessons.md` `L8.20`, Phase 8). The table above has an *Executed* row — the quickstart — and
 that category is the one the troubleshooting transcripts do **not** belong to: their fenced blocks
 are reproductions of real output, checked by nothing. Ledger task 8.16 built a check comparing a
 `valid_options` tuple quoted in `manual/troubleshooting.md` against the live one; it was red on its
@@ -306,8 +306,8 @@ floor is that test with a different subject.
 
 All five run inside `poe ci-checks` via the existing `test` step. None of them touches `poe
 ci-no-tests` or `tests/architecture/` — they are not architecture checks, and `01` item 0's membership
-assertion is unaffected and needs no widening. Clause (e) is task **5.2f** (`docs/build-ledger.md`),
-owed by `docs/09-release.md` §3's own block quote and `docs/lessons.md` L5.8.
+assertion is unaffected and needs no widening. Clause (e) is task **5.2f** (`docs/internal/build-ledger.md`),
+owed by `docs/09-release.md` §3's own block quote and `docs/internal/lessons.md` L5.8.
 
 ---
 

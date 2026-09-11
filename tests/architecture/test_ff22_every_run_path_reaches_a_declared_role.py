@@ -10,18 +10,18 @@ rather than made whole."*
 assembled in more than one place — the query path, the ingest path and the command path — and the
 three are one list written thrice. Every fix to that seam has so far landed in the assembler whose
 absence somebody happened to notice: task 8.10 built the ingest assembler because two registered
-`Expander` plugins had never run through the CLI at all (`docs/lessons.md` L8.4, found by running
-the binary and by none of the 1,929 tests then green), and task 7.4 repaired the command path for
-the four contracts one pack needed. **A fourth assembler added later, by anyone, would reproduce the
-defect exactly** — and every behavioural test in the tree would stay green, because a test asserts
-the paths it knows about.
+`Expander` plugins had never run through the CLI at all (`docs/internal/lessons.md` L8.4, found by
+running the binary and by none of the 1,929 tests then green), and task 7.4 repaired the command
+path for the four contracts one pack needed. **A fourth assembler added later, by anyone, would
+reproduce the defect exactly** — and every behavioural test in the tree would stay green, because a
+test asserts the paths it knows about.
 
 So the property here is deliberately about the *text*: no code in the shipped tree may build a run's
 `ServiceRegistry` except through the one function that registers the declared role set. That is a
-legitimate subject for a source-reading check in the way `docs/lessons.md` `L9.39` describes —
-"a check that greps or parses first-party source is reserved for properties that really are about
-the text" — and it is the opposite of the test `L9.39` was written about, which pinned *where* a
-registration was written while claiming to check that a command could reach a service.
+legitimate subject for a source-reading check in the way `docs/internal/lessons.md` `L9.39`
+describes — "a check that greps or parses first-party source is reserved for properties that really
+are about the text" — and it is the opposite of the test `L9.39` was written about, which pinned
+*where* a registration was written while claiming to check that a command could reach a service.
 
 **Two properties, each able to fail alone:**
 
@@ -67,8 +67,8 @@ ROLE_CARRYING_ASSEMBLERS: Final[frozenset[str]] = frozenset(
 )
 
 #: `01` item 0's own ratchet shape. **Pinned empty.** An assembler that deliberately carries no
-#: roles is an argument recorded in `docs/README.md`'s decision log and named here, never a name
-#: parked to make a red check green.
+#: roles is an argument recorded in `docs/internal/README.md`'s decision log and named here, never a
+#: name parked to make a red check green.
 ASSEMBLERS_WAIVED_FROM_CARRYING_ROLES: Final[frozenset[str]] = frozenset()
 
 
@@ -158,10 +158,12 @@ def test_the_pinned_assemblers_all_exist() -> None:
 
 
 def test_the_waiver_is_empty() -> None:
-    """`01` item 0's ratchet. Changed only by a dated entry in `docs/README.md`'s decision log."""
+    """`01` item 0's ratchet. Changed only by a dated entry in `docs/internal/README.md`'s decision
+    log."""
     assert frozenset() == ASSEMBLERS_WAIVED_FROM_CARRYING_ROLES, (
         "an assembler waived from carrying declared roles is a decision with an argument behind "
-        "it, recorded in docs/README.md's decision log, never an edit here to clear a red check."
+        "it, recorded in docs/internal/README.md's decision log, never an edit here to clear a red "
+        "check."
     )
 
 
@@ -243,7 +245,7 @@ def test_the_construction_walk_can_actually_find_something() -> None:
 
 def test_a_planted_stray_assembler_would_be_caught() -> None:
     """The plant. A check whose disagreeing case has never been watched fail is a check nobody
-    has evidence about — `01` item 0's own words, and `docs/lessons.md` L6.29's cost.
+    has evidence about — `01` item 0's own words, and `docs/internal/lessons.md` L6.29's cost.
     """
     # Arrange — the shape a fourth assembler would have, judged by the same predicate
     permitted = ROLE_CARRYING_ASSEMBLERS | ASSEMBLERS_WAIVED_FROM_CARRYING_ROLES

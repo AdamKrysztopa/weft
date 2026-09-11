@@ -1,7 +1,7 @@
 """Fitness function 9, clause (c) — every published contract has a stranger.
 
 Specified in `docs/07-extension-cost.md` §2 clause (c), and this file is what turns it on —
-`docs/build-ledger.md` 2.11: "turns on FF9(c)". Clauses (a) and (b) are
+`docs/internal/build-ledger.md` 2.11: "turns on FF9(c)". Clauses (a) and (b) are
 `test_ff9_extension_from_outside.py`'s, whose own docstring says clause (c) is not that
 file's — this is the file it is.
 

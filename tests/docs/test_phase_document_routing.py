@@ -1,12 +1,12 @@
 """A retired phase-build document stops being routed to — repair for a reviewer finding.
 
-`docs/README.md`'s own Documents table called `06-phase-0-build.md` "Reference — retire when
-Phase 0 exits" *after* Phase 0 had already exited (`7dae68b`, 2026-08-16) — its own retirement
+`docs/internal/README.md`'s own Documents table called `06-phase-0-build.md` "Reference — retire
+when Phase 0 exits" *after* Phase 0 had already exited (`7dae68b`, 2026-08-16) — its own retirement
 condition had fired and nothing acted on it. Three concrete places kept sending a reader or an
-operator to Phase 0's build order as if it were still the live guide: `phase-step`'s own
-`SKILL.md` — the skill `CLAUDE.md` names as "start here when writing code" — `CLAUDE.md` itself,
-and `weft_kernel.registry.DuplicateRegistrationError`'s raised message, which pointed an operator
-at Phase 0's build order for a duplicate-name trap G2 closed 2026-08-16, when
+operator to Phase 0's build order as if it were still the live guide: `phase-step`'s own `SKILL.md`
+— the skill `CLAUDE.md` names as "start here when writing code" — `CLAUDE.md` itself, and
+`weft_kernel.registry.DuplicateRegistrationError`'s raised message, which pointed an operator at
+Phase 0's build order for a duplicate-name trap G2 closed 2026-08-16, when
 `docs/02-extension-model.md` §3 alone now states it.
 
 **This file does not attempt the general sweep** — "does anything anywhere cite a retired phase
@@ -26,9 +26,17 @@ from typing import Final
 
 import pytest
 
+from tests.conftest import untracked_reason
 from weft_kernel.registry import DuplicateRegistrationError, Registry
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
+
+#: The control file moved under `docs/internal/` on 2026-09-11 and left version control with
+#: it, so one test below reads a file a clean checkout does not have.
+_MISSING_CONTROL: Final[str | None] = untracked_reason("docs/internal/README.md")
+_requires_control_file = pytest.mark.skipif(
+    _MISSING_CONTROL is not None, reason=_MISSING_CONTROL or ""
+)
 
 
 def _text(relative: str) -> str:
@@ -55,9 +63,10 @@ class _Stub:
     """A stand-in contract — this file only needs `Registry.add` to collide, not what it is for."""
 
 
+@_requires_control_file
 def test_readme_documents_table_no_longer_calls_06_a_live_reference() -> None:
     # Arrange
-    readme = _text("docs/README.md")
+    readme = _text("docs/internal/README.md")
 
     # Act — the Documents table row is the one that starts the line with the file's own name.
     row = next(line for line in readme.splitlines() if line.startswith("| `06-phase-0-build.md`"))
@@ -76,7 +85,7 @@ def test_phase_step_skill_starts_a_reader_at_the_ledger_not_at_06() -> None:
 
     # Assert
     assert "docs/06-phase-0-build.md" not in header
-    assert "docs/build-ledger.md" in header
+    assert "docs/internal/build-ledger.md" in header
 
 
 def test_phase_step_skill_no_longer_calls_g2_open() -> None:
@@ -100,7 +109,7 @@ def test_claude_md_phase_step_bullet_names_the_ledger_and_marks_06_retired() -> 
     # name the phase-agnostic ledger, not send a reader to Phase 0's build order as though
     # it were still current. Mentioning `06` at all is fine as long as it is marked retired
     # in the same breath, which is what distinguishes this from the original defect.
-    assert "docs/build-ledger.md" in bullet
+    assert "docs/internal/build-ledger.md" in bullet
     assert re.search(r"\bretired\b", bullet)
 
 

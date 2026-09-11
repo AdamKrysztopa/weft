@@ -2,7 +2,7 @@
 # settled by G10 (2026-08-22) and **re-settled 2026-09-05** after v0.1.0's first contact with a
 # real index. **Named `weft-rag` and not `weft` since ledger task 6.13**: `weft` is taken on PyPI
 # — "The durable task substrate for agent systems", 99 releases — so the name G10 chose is
-# unpublishable. `docs/lessons.md` L6.33.
+# unpublishable. `docs/internal/lessons.md` L6.33.
 #
 # **The command a user types is still `weft`.** It is this distribution's console script, so the
 # rename touches what you install and not what you run: `uvx --from weft-rag weft --help`.
@@ -22,7 +22,7 @@
 # architectural symmetry, and symmetry is not a user-visible benefit — while twenty names cost
 # twenty trusted-publisher forms, twenty version numbers to keep coherent, and, on the day
 # `v0.1.0` asked PyPI to create nineteen projects, fifteen refusals with
-# `429 Too many new projects created` (`docs/lessons.md` L7.3).
+# `429 Too many new projects created` (`docs/internal/lessons.md` L7.3).
 #
 # **Two distributions ship, and that is G19's count (2026-09-09) — down from the six G10 first
 # left.** `weft-kernel` (`pydantic`, `opentelemetry-api` — and separate for fitness function 1,
@@ -81,7 +81,7 @@ name = "weft-rag"
 # `weft-agent`'s own `weft-rag>=2.0.0` would have resolved, from an index, to a published
 # distribution that cannot satisfy `from weft_command.invocation import invoke`. **Minor, per
 # G9's two-audience rule**: a new module is additive for a caller and changes no Protocol, so an
-# implementer owes nothing. Found by Phase 7's close review; `docs/lessons.md` `L8.40`.
+# implementer owes nothing. Found by Phase 7's close review; `docs/internal/lessons.md` `L8.40`.
 # **2.3.0 → 2.4.0 at ledger task 11.5** — `weft_kg` gained a `register()`, a new `weft.packs`
 # entry point (`graph`) and two new plugin names. Minor, per the identical G9 rule immediately
 # above: additive for a caller, no Protocol changed.
@@ -131,7 +131,7 @@ dependencies = [
 #     step produces. The floor is >=0.16.0, the first release that formats Python code blocks in
 #     Markdown by default, which is the behaviour it relies on. **Declared at task 6.7 and
 #     declared nowhere before**: it worked only because the workspace root's dev group carries
-#     `ruff` (`docs/lessons.md` L6.24).
+#     `ruff` (`docs/internal/lessons.md` L6.24).
 [project.optional-dependencies]
 bertscore = ["bert-score>=0.3"]
 reference = ["ruff>=0.16.0"]

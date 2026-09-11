@@ -54,13 +54,13 @@ goes through `_register_if_new` and **skips** a namespace the same class already
 re-registration of that same class.
 
 So the choice matters exactly where the old sentence said it did not. **A caller outside full
-discovery — a test, or anything building a registry by hand — wants
-`register_from_reports`**: `register_ext_model` works when it runs alone and raises
-`DuplicateRegistrationError` the moment some earlier caller in the same process has already
-registered the class. Two tests hit precisely that in one phase (ledger 6.8 and 6.17), each
-passing on its own and failing in the full suite. `docs/lessons.md` **L6.28** is the general form:
-an equivalence stated in prose between two code paths is a missing test, and the more precisely it
-names the caller it is wrong about, the more expensive it is.
+discovery — a test, or anything building a registry by hand — wants `register_from_reports`**:
+`register_ext_model` works when it runs alone and raises `DuplicateRegistrationError` the moment
+some earlier caller in the same process has already registered the class. Two tests hit precisely
+that in one phase (ledger 6.8 and 6.17), each passing on its own and failing in the full suite.
+`docs/internal/lessons.md` **L6.28** is the general form: an equivalence stated in prose between two
+code paths is a missing test, and the more precisely it names the caller it is wrong about, the more
+expensive it is.
 
 **Built in Phase 5 task 5.2c.** This is also the read side of G9's persisted-
 schema axis: every namespace `_dump` writes carries `SCHEMA_VERSION_KEY`

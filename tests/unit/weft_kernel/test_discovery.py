@@ -693,7 +693,7 @@ def test_a_committed_pack_reports_the_deprecation_it_buffered_and_warns_once() -
     assert notice.reason == "superseded by 'fixed-size'"
     # Task 6.5 — the mark carries G9's clock, derived at registration and never declared by the
     # pack. `weft-old` is a fake distribution with no installed metadata, which is a state the
-    # record reports rather than hides (`docs/lessons.md` L5.9).
+    # record reports rather than hides (`docs/internal/lessons.md` L5.9).
     assert notice.removal.clock is RemovalClock.VERSION_UNREADABLE
     assert notice.removal.distribution == "weft-old"
 

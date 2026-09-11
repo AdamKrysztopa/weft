@@ -44,7 +44,7 @@ this surface instead of re-parsing its output. See *Is the REPL an agent?* below
 
 > **Built in Phase 3 task 3.4 (2026-08-19); the entry condition corrected by task 3.6
 > (2026-08-20), `docs/03-cli.md` → *Output*'s own blockquote carries why — and corrected again
-> by the repair recorded against 3.2/3.4/3.8 in `docs/build-ledger.md`, dated 2026-08-20.**
+> by the repair recorded against 3.2/3.4/3.8 in `docs/internal/build-ledger.md`, dated 2026-08-20.**
 > `weft` with no command named — no arguments at all, or only global flags such as
 > `--json`/`--quiet` — enters the session above; a lone `-h`/`--help` does not, and this
 > paragraph used to say it did, which was the defect the repair fixes (`weft_cli.cli.wants_help`
@@ -172,7 +172,7 @@ Two of these carry weight beyond their size:
   > `getattr`, so no command in this repository or out of it grows a method — which is what lets
   > the prompt name every participant by distribution while the *count* stays honestly
   > unavailable. It also resolves `[services] store` before it says anything about participants,
-  > which is a repair rather than a design: see `docs/lessons.md` L5.9.
+  > which is a repair rather than a design: see `docs/internal/lessons.md` L5.9.
 
   > **Task 9.3 (2026-09-06): a participant's line says *what* it removed, not only how much.**
   > `02` §1 gives `Removed` a per-kind count; this is what a person sees. A participant that
@@ -328,7 +328,7 @@ they are visible.
 >
 > **`init`, `pipeline derive` and `config set` were briefly `overwrite`-class, and are
 > `write`-class — corrected 2026-08-20, from a review of this task's own landed commit
-> (`docs/build-ledger.md`'s dated repair paragraph for tasks 3.3/3.6/3.7 has the argument in
+> (`docs/internal/build-ledger.md`'s dated repair paragraph for tasks 3.3/3.6/3.7 has the argument in
 > full).** The table below already places "write a derived pipeline" under `write` (allow),
 > and a first `weft init`/`weft pipeline derive` — the case the original "no upsert-safety"
 > argument was actually about, since nothing existed yet to lose — refused outright in CI,
@@ -432,7 +432,7 @@ they are visible.
 > which measured the population it was reasoning about: tasks 5.1a and 5.1b refilled the `destroy`
 > row the day after that repair emptied it, and `weft delete` and `weft reconcile` have declared it
 > ever since. Both statements were true when written and the later one was never re-measured, which
-> is `docs/lessons.md` `L6.4` in a document rather than in a marker — and it nearly settled a gate
+> is `docs/internal/lessons.md` `L6.4` in a document rather than in a marker — and it nearly settled a gate
 > on a false count.)*
 >
 > **A repair found by running the binary, not by the 1,616 tests this task's own gate ran
@@ -723,7 +723,7 @@ for why in-process enforcement is unavailable and what weft does instead. The cl
 > `write`-class instead (see the *Command surface* section above for the argument in full).
 > `test_cli.py`'s own hand-registered double (`_WipeCommand`) remains the only thing proving
 > the no-TTY refusal and `--yes` in this tree, exactly as it was before this task, which is
-> `docs/build-ledger.md`'s own recorded consequence, not an oversight. The `describe_impact`
+> `docs/internal/build-ledger.md`'s own recorded consequence, not an oversight. The `describe_impact`
 > gap above is still real and still unowned regardless of which command class first needs it.
 
 > **Task 5.1c does not move `weft reconcile`'s permission class, and says so rather than
@@ -935,7 +935,7 @@ tell *"fix the environment"* from *"fix the pipeline"*.
 > before this task — only the vehicle carrying them from "computed" to "printed" moved from a
 > return value to an exception, because `run()` cannot print.
 
-> **Built in Phase 5 task 5.2d (2026-08-22).** G9's ruling (`docs/README.md` decision log; `S6`)
+> **Built in Phase 5 task 5.2d (2026-08-22).** G9's ruling (`docs/internal/README.md` decision log; `S6`)
 > made CLI error prose unpromised only in exchange for a structured channel that did not yet
 > exist: `weft_cli.render.render_refusal` returned `str(exc)` on every failure path, `--json`
 > included, so of the 78 `valid_options` sites `weft-cli`'s own raise sites compute

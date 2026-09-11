@@ -545,7 +545,7 @@ async def test_a_source_record_round_trips_and_is_listed(store: ConformanceStore
     explicitly and the table had no column for it, so the value was written into a statement with
     nowhere to put it and read back as its own default — silently, and the default *means*
     something, so the feature reported a re-parse that had not happened. Twenty-one unit tests and
-    the whole gate passed; the binary found it (`docs/lessons.md` `L9.60`).
+    the whole gate passed; the binary found it (`docs/internal/lessons.md` `L9.60`).
 
     A field-by-field assertion can only check fields its author has heard of, which makes it exactly
     as complete as the day it was written. `==` on a frozen model is complete by construction and

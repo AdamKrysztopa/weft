@@ -375,7 +375,7 @@ def test_the_refusal_names_the_pipelines_that_do_produce_an_answer() -> None:
     that was missing. The first draft asked the registry for `Answer` — a payload type nothing
     is registered under — got `()` back, and printed a refusal with no alternatives at all. An
     empty answer read as "there are none" when it meant "I asked the wrong question"
-    (`docs/lessons.md` L5.9), and only running the binary showed it.
+    (`docs/internal/lessons.md` L5.9), and only running the binary showed it.
     """
     # Arrange — the real catalogue and the real registry, so a lookup asking the wrong
     # question cannot pass by having nothing to find.
@@ -420,7 +420,7 @@ async def test_the_router_resolves_a_project_local_document_named_by_services_ro
     `pipelines/my-router.yaml` resolved under `weft pipeline show` and ran under
     `weft ask --pipeline`, and naming it as the router was refused. That asymmetry is
     `01` requirement 1's producing/consuming test read against a *pack* author and never
-    against a *project* author (`docs/lessons.md` L8.6, L5.15).
+    against a *project* author (`docs/internal/lessons.md` L8.6, L5.15).
     """
     # Arrange — a project-local router, and a project-local pipeline for it to select.
     # Nothing is contributed by any pack: `reports=()` below is what makes the point.
@@ -518,7 +518,7 @@ async def test_the_router_refuses_a_name_a_project_and_a_pack_both_declare(
 async def test_a_router_that_cannot_accept_a_query_is_refused_by_name(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Ledger **8.18**, `docs/lessons.md` L8.16.
+    """Ledger **8.18**, `docs/internal/lessons.md` L8.16.
 
     `run_routed_ask` hands its router a bare `Query`. `nearest-description` reads
     `payload.query.text` off a `Scorecard`, so a router document without a `query-scorer`
@@ -698,8 +698,8 @@ class _PlainSink:
 def test_the_sink_is_told_which_stage_produces_the_answer() -> None:
     # Arrange — carried repair **R10.1**. The value's whole job is to travel from the resolved
     # pipeline to the sink, so this captures the call rather than trusting that both ends exist
-    # (`docs/lessons.md` `L9.79`, and `L5.15`'s "both halves of a seam existing is not either
-    # one being reached"). The **last** stage is the one whose output is returned.
+    # (`docs/internal/lessons.md` `L9.79`, and `L5.15`'s "both halves of a seam existing is not
+    # either one being reached"). The **last** stage is the one whose output is returned.
     from weft_cli.route_ask import show_only_the_answering_stage
     from weft_kernel.runner import StageSpec
     from weft_retrieve.contract import ContextPacker, Retriever

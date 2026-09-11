@@ -103,7 +103,7 @@ def config_keys_for(table: RoleTable) -> tuple[str, ...]:
     """Every dotted `[services]` key `weft config get|set` reads for *this* run, plus the
     two blocks that name no role — sorted.
 
-    Ledger task **9.0**, `docs/README.md`'s own opening rule applied to `config get|set`'s
+    Ledger task **9.0**, `docs/internal/README.md`'s own opening rule applied to `config get|set`'s
     vocabulary: `_KEY_FIELDS` above is a second, hand-written key space over the identical
     `[services]` block `weft_cli.services.service_selection_from_config` already derives
     from installed packs, and it had already drifted — it never grew `services.route`, which
@@ -289,7 +289,7 @@ def config_entry(document: dict[str, object] | None, key: str, *, table: RoleTab
     twice.** This used to compute the answer itself from a table of the five static keys, so
     `weft config get --key services.route` first refused a key the listing printed, and then,
     once the refusal was fixed, died with a raw `KeyError` inside the second implementation.
-    The first defect was hiding the second (`docs/lessons.md` `L8.11`). `effective_config`
+    The first defect was hiding the second (`docs/internal/lessons.md` `L8.11`). `effective_config`
     already answers every key this run reads; asking it and selecting is what makes the
     single-key path and the print-everything path incapable of disagreeing.
     """
@@ -333,12 +333,13 @@ def validate_set_value(key: str, value: str, *, table: RoleTable) -> None:
     _refuse_unknown_key(key, table=table)
     section, field = _section_and_field(key)
     if section == "permissions":
-        # Repair, 2026-08-20 (`docs/build-ledger.md` 3.3's dated paragraph): examined for FF12
-        # family membership and excluded, the identical reasoning `weft_cli.permission_policy`'s
-        # own raise site for this exact value now states in full. `PermissionAction` is a closed,
-        # two-member `StrEnum` fixed by the type itself, not a name resolved against a registry,
-        # catalogue or document whose membership could ever differ — a type mismatch with a
-        # friendlier message, not an unresolved name. Not brought into `NAME_RESOLUTION_FAMILY`.
+        # Repair, 2026-08-20 (`docs/internal/build-ledger.md` 3.3's dated paragraph): examined for
+        # FF12 family membership and excluded, the identical reasoning
+        # `weft_cli.permission_policy`'s own raise site for this exact value now states in full.
+        # `PermissionAction` is a closed, two-member `StrEnum` fixed by the type itself, not a name
+        # resolved against a registry, catalogue or document whose membership could ever differ — a
+        # type mismatch with a friendlier message, not an unresolved name. Not brought into
+        # `NAME_RESOLUTION_FAMILY`.
         valid = {member.value for member in PermissionAction}
         if value not in valid:
             raise WeftError(

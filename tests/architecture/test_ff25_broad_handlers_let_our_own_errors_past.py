@@ -1,13 +1,13 @@
 """Fitness function 25 — a handler that swallows an error into an `Outcome` lets ours past first.
 
-**This check exists because its absence cost a whole phase, silently.** `docs/lessons.md` `L9.87`:
-`openai-vision` built its SDK client on the event loop thread, so the registration seam's
+**This check exists because its absence cost a whole phase, silently.** `docs/internal/lessons.md`
+`L9.87`: `openai-vision` built its SDK client on the event loop thread, so the registration seam's
 blocking-call detector raised `BlockingCallError` — a `WeftError`, this project telling itself its
 own code is wrong. The plugin's broad `except Exception` caught it and returned
-`Failed(reason=...)`, and `describe-figure` then discarded that `Failed` as an ordinary absence.
-Net result: `weft index` through a shipped document stored a figure with no description, exit code
-`0`, nothing printed, `weft plugins doctor` reporting the pack `active`, and 2,395 tests green. It
-was found by running the binary at Phase 9's exit demonstration, not by any test.
+`Failed(reason=...)`, and `describe-figure` then discarded that `Failed` as an ordinary absence. Net
+result: `weft index` through a shipped document stored a figure with no description, exit code `0`,
+nothing printed, `weft plugins doctor` reporting the pack `active`, and 2,395 tests green. It was
+found by running the binary at Phase 9's exit demonstration, not by any test.
 
 **The rule this asserts, and the two it deliberately does not.** A broad handler is legitimate —
 `weft_kernel.seam`, `weft_kernel.discovery`, `weft_kernel.runner` and `weft_cli.cli` all catch
@@ -20,8 +20,8 @@ wearing a result, which `CLAUDE.md` ranks as worse than a crash for exactly the 
 it does not stop, it produces a plausible answer, and its success and failure paths become
 indistinguishable to the caller.
 
-**Population, measured before this check was written** (`docs/lessons.md` `L9.89`): of 15 `try`
-blocks under `packages/` carrying a broad handler, **13 raise** and are none of this check's
+**Population, measured before this check was written** (`docs/internal/lessons.md` `L9.89`): of 15
+`try` blocks under `packages/` carrying a broad handler, **13 raise** and are none of this check's
 business; **2 swallow into an `Outcome`** — `weft_openai.vision` and `weft_docling.pdf_layout_model`
 — and both guard correctly today. A first draft of this check asked the wider question ("is any
 narrower handler present?") and would have arrived red on six kernel boundary sites that are all
@@ -154,7 +154,8 @@ def test_a_handler_that_swallows_lets_our_own_errors_past_first() -> None:
         + "\n  ".join(offenders)
         + "\n\nA WeftError is a statement about the code and an Outcome is a statement about the "
         "data; reporting the first as the second is how `describe-figure` shipped dead and "
-        "silent for a phase (docs/lessons.md L9.87). Add `except CancelledError: raise` and "
+        "silent for a phase (docs/internal/lessons.md L9.87). Add `except CancelledError: raise` "
+        "and"
         "`except WeftError: raise` ahead of the broad handler."
     )
 

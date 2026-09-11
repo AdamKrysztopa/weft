@@ -57,7 +57,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     resolves fine, and is silently absent from `weft delete`'s fan-out, so a source's blobs are
     never reaped. Found by running the binary — `weft delete` named one participant where it
     should have named two — while forty-four unit tests that construct `FilesystemBlobStore`
-    directly all passed (`docs/lessons.md` `L9.55`).
+    directly all passed (`docs/internal/lessons.md` `L9.55`).
     """
     filesystem_settings = FilesystemBlobSettings(root=settings.root)
     registrar.add(BlobStore, "filesystem", partial(FilesystemBlobStore, filesystem_settings))

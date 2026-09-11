@@ -12,12 +12,12 @@ the line moved within the same phase when task 9.3 inserted a block earlier in t
 defect.
 
 **Why a fitness function and not a review note.** Ledger `1.6` is ticked — *an atomic node passes
-the chunker unsplit without the chunker knowing what atomic means* — and on 2026-09-06 that
-property was measured against the product and did not hold: `FixedSizeChunker` declared no
-`applies_to` and split a `MediaType.TABLE` node into two chunks. The mechanism had shipped, its
-worked example had shipped, its test fixture declared the thing, and the one chunker this project
-actually ships did not (`docs/lessons.md` `L9.6`). Nothing in a green gate said so, because a
-declaration nobody makes is indistinguishable from a declaration nobody needs.
+the chunker unsplit without the chunker knowing what atomic means* — and on 2026-09-06 that property
+was measured against the product and did not hold: `FixedSizeChunker` declared no `applies_to` and
+split a `MediaType.TABLE` node into two chunks. The mechanism had shipped, its worked example had
+shipped, its test fixture declared the thing, and the one chunker this project actually ships did
+not (`docs/internal/lessons.md` `L9.6`). Nothing in a green gate said so, because a declaration
+nobody makes is indistinguishable from a declaration nobody needs.
 
 **Read off the registered plugin, never off source text.** `applies_to` is read here the way
 `weft_kernel.runner._applies_to_of` reads it — `getattr(instance, "applies_to", ())` on the object
@@ -43,7 +43,7 @@ subject is the chunkers *this tree* ships. Putting `applies_to` beside `destroys
 `required_declarations` is the stronger answer and is deliberately not taken here — `02` §3 settles
 that a stage declaring nothing applies to everything, and narrowing that at the registration seam is
 an amendment to a settled rule rather than a repair, owed the argument `09` §6.2 asks of a widening.
-It is recorded in `docs/lessons.md` rather than decided in a test file.
+It is recorded in `docs/internal/lessons.md` rather than decided in a test file.
 
 **The waiver is pinned empty.** A chunker that genuinely splits everything is not a case this
 project has, and an entry here is a visible act in a diff, never a silent edit.
@@ -58,9 +58,9 @@ from tests.discovery import discover_for_tests, register_out_of_tree_examples
 from weft_chunk.contract import Chunker
 from weft_kernel.registry import Registry, unwrap_factory
 
-#: Plugin names permitted to split every node they are handed. **Pinned empty.** Widening this is
-#: an argument recorded in `docs/README.md`'s decision log and named here — never a name parked to
-#: make a red check green.
+#: Plugin names permitted to split every node they are handed. **Pinned empty.** Widening this is an
+#: argument recorded in `docs/internal/README.md`'s decision log and named here — never a name
+#: parked to make a red check green.
 CHUNKERS_APPLYING_TO_EVERYTHING: Final[frozenset[str]] = frozenset()
 
 

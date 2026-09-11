@@ -4,11 +4,11 @@
 ask from the README alone, without opening `docs/`."
 
 **Measured before it was fixed: they could not.** `README.md`'s *Start here* pointed at
-`docs/README.md` as "the single source of truth", its layout table listed five design documents,
-and every runnable block in it was a maintainer's command — `poe ci-checks`, `next_task.py`. There
-was no install, no index and no query anywhere on the page. Somebody arriving at the repository saw
-a plan, not a product, and the first thing the checklist promises them is the one thing the page
-did not do.
+`docs/internal/README.md` as "the single source of truth", its layout table listed five design
+documents, and every runnable block in it was a maintainer's command — `poe ci-checks`,
+`next_task.py`. There was no install, no index and no query anywhere on the page. Somebody arriving
+at the repository saw a plan, not a product, and the first thing the checklist promises them is the
+one thing the page did not do.
 
 **This is `08` §3 clause (a)'s harness aimed one page over.** `tests/docs/test_quickstart.py`
 executes `manual/quickstart.md`, which is the right check for that document and says nothing about

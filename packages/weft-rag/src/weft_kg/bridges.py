@@ -6,25 +6,25 @@ functions that turn what `GraphStore` measured into what a person or `weft eval 
 reads. No container and no model call here — `weft_kg.commands` is the half that talks to the
 store and prints; this module has no dependency capable of either.
 
-**Why a bridge is defined by "no single **chunk** names both endpoints" — not by a document, and
-not by a node.** `01`'s falsification argument is about what a single-passage *retriever* can
-answer from, so the unit is whatever one passage holds. A **document** is too coarse: it spans many
-chunks, and two facts in different chunks of one paper are a genuine bridge, exactly as they would
-be for a real vector search. A **node** is too fine, and that was a defect rather than a judgement
-(`docs/lessons.md` `L11.45`): `cooccurrence-graph` anchors an entity to the chunk node itself,
-while `llm-facts` anchors it to the fact node it *derived* from that chunk — so keying on the node
-made two entities named in one sentence look like a bridge, and the command printed *"0 chunk(s)
-hold both endpoints"* about a sentence holding both. `GraphStore` normalises a node to its chunk
-through `parents` before either side of the comparison is taken; see `two_hop_bridges`'s docstring
-for the one-level assumption that normalisation rests on.
+**Why a bridge is defined by "no single **chunk** names both endpoints" — not by a document, and not
+by a node.** `01`'s falsification argument is about what a single-passage *retriever* can answer
+from, so the unit is whatever one passage holds. A **document** is too coarse: it spans many chunks,
+and two facts in different chunks of one paper are a genuine bridge, exactly as they would be for a
+real vector search. A **node** is too fine, and that was a defect rather than a judgement
+(`docs/internal/lessons.md` `L11.45`): `cooccurrence-graph` anchors an entity to the chunk node
+itself, while `llm-facts` anchors it to the fact node it *derived* from that chunk — so keying on
+the node made two entities named in one sentence look like a bridge, and the command printed *"0
+chunk(s) hold both endpoints"* about a sentence holding both. `GraphStore` normalises a node to its
+chunk through `parents` before either side of the comparison is taken; see `two_hop_bridges`'s
+docstring for the one-level assumption that normalisation rests on.
 
-**The ceiling is measured twice on purpose, and `bridges_from` is where the two numbers are made
-to disagree or not — `docs/lessons.md` `L5.6`.** `GraphStore.two_hop_bridges`'s own `NOT EXISTS`
-clause is what *selects* a candidate in the first place; reading the ceiling off that same clause
-would be a comparison whose two sides come from one source and could never fail.
-`GraphStore.chunks_by_entity` is an independent second query, and `bridges_from` is the one place
-in this pack that compares its answer against the walk's own claim.  Agreement lets the ceiling
-be printed; disagreement raises `CeilingDisagreesError` rather than printing either number.
+**The ceiling is measured twice on purpose, and `bridges_from` is where the two numbers are made to
+disagree or not — `docs/internal/lessons.md` `L5.6`.** `GraphStore.two_hop_bridges`'s own
+`NOT EXISTS` clause is what *selects* a candidate in the first place; reading the ceiling off that
+same clause would be a comparison whose two sides come from one source and could never fail.
+`GraphStore.chunks_by_entity` is an independent second query, and `bridges_from` is the one place in
+this pack that compares its answer against the walk's own claim. Agreement lets the ceiling be
+printed; disagreement raises `CeilingDisagreesError` rather than printing either number.
 """
 
 from __future__ import annotations
@@ -97,7 +97,7 @@ class VectorCeiling(BaseModel):
     chunks_by_entity` resolves a derived node to the chunk it came from before counting. The
     difference is not cosmetic: it is what makes `chunks_holding_both = 0` a claim about what a
     retriever could return rather than about how many rows an extraction stage happened to write
-    (`docs/lessons.md` `L11.45`).
+    (`docs/internal/lessons.md` `L11.45`).
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -190,7 +190,7 @@ def bridges_from(
     directly rather than through `.get`: a missing key here is a caller's programming error
     (every endpoint this function is asked about came from a candidate `two_hop_bridges` itself
     produced), and `KeyError` says so rather than silently treating "not looked up" as "holds no
-    chunk" (`docs/lessons.md` L5.9's distinction, applied to a mapping instead of a count).
+    chunk" (`docs/internal/lessons.md` L5.9's distinction, applied to a mapping instead of a count).
     """
     bridges: list[Bridge] = []
     for candidate in candidates:

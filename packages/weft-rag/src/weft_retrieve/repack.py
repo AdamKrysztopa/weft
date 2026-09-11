@@ -1,6 +1,6 @@
 """`repack` — the one `ContextPacker` this task ships. `Stage[Ranking, Passages]`.
 
-Task **2.19**, `docs/build-ledger.md`: "context ordering is a named, parameterised stage
+Task **2.19**, `docs/internal/build-ledger.md`: "context ordering is a named, parameterised stage
 whose method does what the method is named after." `docs/10-technique-catalogue.md` §1.1's
 own row on this technique names exactly the failure that sentence exists to refuse: an
 implementation that emitted `[d0, d6, d1, d5, d2, d4, d3]` for n=7 — best at the head,

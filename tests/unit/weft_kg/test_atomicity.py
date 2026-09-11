@@ -123,7 +123,7 @@ def test_the_word_cap_is_a_parameter_and_the_control_disagrees() -> None:
     """Requirement 6: the one number this filter turns on is an operator's, not a constant.
 
     The control is asserted to disagree with the subject, so the parameter is proven to do
-    something rather than being read and ignored (`docs/lessons.md` L9.58).
+    something rather than being read and ignored (`docs/internal/lessons.md` L9.58).
     """
     # Arrange
     name = "one two three"

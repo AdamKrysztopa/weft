@@ -1,14 +1,13 @@
 """`refine-on-uncertainty` — the one `Generator` this task ships. `Stage[Passages, Answer]`.
 
-Task **2.24**, `docs/build-ledger.md`: "a draft's uncertainty is a replaceable, named signal
-rather than a phrase list, so the trigger cannot break silently under another language or
-model." `10` §1.1's own `refine-on-uncertainty` row states the defect this design closes,
-and it is precise about what fails, and how: a nine-phrase localised list tested against
-the draft with `str.__contains__` fires on *hedging*, never on *unsupportedness*, and
-breaks silently under another language or system prompt. Nothing about that failure
-raises, logs, or fails a test — a phrase list that does not match a Polish hedge simply
-never fires, which is exactly the property this task's own line names as the thing to
-close.
+Task **2.24**, `docs/internal/build-ledger.md`: "a draft's uncertainty is a replaceable, named
+signal rather than a phrase list, so the trigger cannot break silently under another language or
+model." `10` §1.1's own `refine-on-uncertainty` row states the defect this design closes, and it is
+precise about what fails, and how: a nine-phrase localised list tested against the draft with
+`str.__contains__` fires on *hedging*, never on *unsupportedness*, and breaks silently under another
+language or system prompt. Nothing about that failure raises, logs, or fails a test — a phrase list
+that does not match a Polish hedge simply never fires, which is exactly the property this task's own
+line names as the thing to close.
 
 **The fix is that there is no phrase list here at all.** `self._config.signal` names a
 `weft_retrieve.contract.Sufficiency` (task 2.4's contract; `weft_retrieve.sufficiency`, task

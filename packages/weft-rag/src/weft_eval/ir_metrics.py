@@ -1,6 +1,6 @@
 """The four IR metrics — precision@k, recall@k, mean average precision, NDCG@k.
 
-Task **4.2**, `docs/build-ledger.md`: a metric suite with every recorded defect fixed at
+Task **4.2**, `docs/internal/build-ledger.md`: a metric suite with every recorded defect fixed at
 the door. These four score a `RetrievalSample` — a ranked list of retrieved ids against a
 ground-truth relevance set — and never read a passage's text, which is exactly why they are
 `RetrievalMetric`s rather than `GenerationMetric`s under `weft_eval.contract`'s split.

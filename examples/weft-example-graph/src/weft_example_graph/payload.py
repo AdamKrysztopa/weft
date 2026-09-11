@@ -3,7 +3,7 @@ of them co-occur.
 
 Attaches to `Node.ext` (`weft_kernel.payload.ext.ExtModel`), never to a query-path payload's
 `ext` — so, per `docs/02-extension-model.md` section 1's own "Call it only for an `ExtModel`
-that attaches to `Node.ext`" rule (`docs/lessons.md` L5.20), this pack's `register()` calls
+that attaches to `Node.ext`" rule (`docs/internal/lessons.md` L5.20), this pack's `register()` calls
 `registrar.add_ext_model(GraphData)`. `Entity`/`Relation` are plain, unnamespaced value
 objects carried *inside* `GraphData` — only the outer model needs a namespace and a schema
 version, the same shape `weft_retrieve.payload.RankedList` carries plain `Passage` values

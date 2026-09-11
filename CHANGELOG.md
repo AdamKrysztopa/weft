@@ -4,24 +4,24 @@ All notable changes to this project are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) **per distribution** — `weft`
-ships as several packages (`docs/README.md` → *Where things are*), not one, and each carries its own
+ships as several packages (`docs/internal/README.md` → *Where things are*), not one, and each carries its own
 version, tracked in its own `pyproject.toml`. This file does not repeat those numbers — a second,
-hand-copied list of them is exactly the two-lists bug `docs/README.md` opens with, aimed at version
+hand-copied list of them is exactly the two-lists bug `docs/internal/README.md` opens with, aimed at version
 digits instead of prose — it records what changed, and why, for someone using the software.
 
 **Architecture decisions are not changelog entries.** They live in the decision log in
-[`docs/README.md`](docs/README.md), which records what was decided, when, and where the reasoning is
+[`docs/internal/README.md`](docs/internal/README.md), which records what was decided, when, and where the reasoning is
 written down.
 
 **First release: 2026-09-11, tag `v2.4.0`.** `weft-rag` and `weft-kernel` are the two names this
-project publishes (**G19**, 2026-09-09 — a new capability never adds a third; `docs/README.md`'s
+project publishes (**G19**, 2026-09-09 — a new capability never adds a third; `docs/internal/README.md`'s
 decision log owns the reasoning). Measured 2026-09-08, before that gate closed: all eight names G10
 had published under returned 404 on PyPI — this is the first index publication either successor name
 has ever had. Four retired, pre-consolidation names (`weft-command`, `weft-embed`, `weft-generate`,
 `weft-llm`) reached PyPI at `0.1.0` on 2026-09-05 before a rate limit stopped the rest; their code
 ships inside `weft-rag` now, and all four are **yanked** as of this release (see *Removed*, below).
 
-> **This file went stale again, and the way it did is worth more than the apology.** `docs/lessons.md`
+> **This file went stale again, and the way it did is worth more than the apology.** `docs/internal/lessons.md`
 > L5.8 was written because this changelog was nineteen lines, touched once, and unmoved while five
 > phases shipped around it. Task 5.2f brought it current and added a check
 > (`tests/docs/test_changelog_deprecation_coverage.py`) — and then it sat untouched through **five
@@ -40,7 +40,7 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 - **The distribution is `weft-rag`; the command is `weft`.** `weft` itself is another project's
   name on PyPI (101 releases, unrelated), so this project cannot publish under it — `weft-rag` is
   what `pip install` names, and the console script the wheel places on your `PATH` is still `weft`
-  (**G18**, 2026-09-09; `docs/README.md`'s decision log owns the lookup that found the collision).
+  (**G18**, 2026-09-09; `docs/internal/README.md`'s decision log owns the lookup that found the collision).
 - **Phase 0 — the walking skeleton.** The kernel (registry, discovery, the pipeline model, the
   payload types), `weft-cli` (the one driving adapter and the one `asyncio.run` in the tree), and
   the first capability packs — `weft-extract`, `weft-chunk`, `weft-store`, `weft-embed` — plus the

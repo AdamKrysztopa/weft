@@ -1,6 +1,6 @@
 """Building the registry a command needs, and the one place `weft-cli` opens a file.
 
-`docs/build-ledger.md` 0.9's own note on why discovery took no file format at
+`docs/internal/build-ledger.md` 0.9's own note on why discovery took no file format at
 step 5: *"the format question moves intact to 0.9, where the CLI is the only
 thing that opens a file."* This module is that file-opener, and it reads
 exactly one: `weft.toml`'s `[packs] allow` — `docs/02-extension-model.md` →
@@ -141,7 +141,7 @@ from weft_kernel.resolution import Contribution
 from weft_llm.client import NullSink
 from weft_llm.contract import TokenSink
 
-#: `docs/build-ledger.md` 0.9's own note — see the module docstring.
+#: `docs/internal/build-ledger.md` 0.9's own note — see the module docstring.
 DEFAULT_CONFIG_PATH = Path("weft.toml")
 
 #: `.env.example`'s own name for the one connection string Phase 0 needs.

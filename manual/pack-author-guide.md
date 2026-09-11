@@ -341,7 +341,7 @@ Two things you may optionally ship, and one you must:
 
 ## 8. Open gates you may hit
 
-A pointer to [`docs/05-grilling-sessions.md`](../docs/05-grilling-sessions.md), never a summary of
+A pointer to [`docs/internal/05-grilling-sessions.md`](../docs/internal/05-grilling-sessions.md), never a summary of
 it — when a gate closes, that document changes and this list does too.
 
 | Gate | Status | What it means for you |
@@ -353,7 +353,7 @@ it — when a gate closes, that document changes and this list does too.
 | **G10** — release and support policy | Open | Whether the surfaces you depend on (§3's `permission_class`, `[packs] allow`, the filter AST) carry a stability promise before Weft's own 1.0 |
 | **G12** — permissions when the caller is never a TTY | Open | Only if your command expects an interactive confirmation — what a non-TTY caller (a script, an agent) gets instead |
 
-`docs/README.md`'s own decision log is the current source, never this table restated from memory — it is what told this guide G2/G7/G8/G9 had closed since it was first written.
+`docs/internal/README.md`'s own decision log is the current source, never this table restated from memory — it is what told this guide G2/G7/G8/G9 had closed since it was first written.
 
 ## 9. A pack spanning several contracts, plus a command
 
@@ -368,7 +368,7 @@ the same case from what already does exist and is already checked: `examples/wef
 entry point) and `examples/weft-example-command/` (a contributed `Command`). Where a real, tested
 pack demonstrates a row, this section shows it, tagged the identical way §1–§7 already are. **Where
 none does yet, it says so rather than inventing a snippet no check would cover** — §9.8 below is
-exactly that, recorded in this phase's own ledger entry (task 5.3, `docs/build-ledger.md`) rather
+exactly that, recorded in this phase's own ledger entry (task 5.3, `docs/internal/build-ledger.md`) rather
 than papered over. §9.7 used to be the other one; task 5.3a closed that gap, and its own ledger
 entry says so.
 
@@ -680,7 +680,7 @@ model. Nothing about contributing a `Command` needs a second mechanism.
 
 ### 9.3 The dependency specifier: a version requirement, or it is not one
 
-**G9, settled 2026-08-21** (`docs/README.md` decision log): *"a version requirement **is** the
+**G9, settled 2026-08-21** (`docs/internal/README.md` decision log): *"a version requirement **is** the
 dependency specifier... ranges are `>=X,<MAJOR+1`, never an exact pin — a library that pins exactly
 makes any two packs jointly unresolvable"* (`docs/09-release.md` §2.3, answer 5). A bare name —
 `dependencies = ["weft-rag"]` — is not a specifier at all: it tells the resolver "any version,
@@ -824,7 +824,7 @@ and `deprecate` below; turning that buffer into something a store can actually u
 with no pack named at that call site (`docs/02-extension-model.md` §1's own "Built in Phase 5 task
 5.2g" block has the full mechanism).
 
-**Call it only for an `ExtModel` that attaches to `Node.ext`.** `docs/lessons.md` L5.20 is the
+**Call it only for an `ExtModel` that attaches to `Node.ext`.** `docs/internal/lessons.md` L5.20 is the
 measurement this rule rests on: several first-party `ExtModel`s (`weft_retrieve.boolean.BooleanPlan`,
 `weft_generate.contradiction.Agreement`, among others) attach to `QuerySet.ext`, `Candidates.ext` or
 `Answer.ext` instead — the query path's own extension points — and *none* of them calls

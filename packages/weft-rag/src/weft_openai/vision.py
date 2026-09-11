@@ -199,19 +199,17 @@ class _SdkClient:
 
         from weft_openai.embedder import build_client
 
-        # **Off the loop thread, and this was a defect for a whole phase.** Constructing the
-        # vendor client reaches httpx, which loads a CA bundle with a synchronous `open()` —
-        # so calling `build_client` here directly made the registration seam's blocking-call
-        # detector fire (fitness function 7(b)), and this module's own broad handler below
-        # turned that into a `Failed` about the image. Net effect: `openai-vision` could never
-        # describe anything inside a real pipeline, and said nothing.
-        #
-        # `build_client`'s two other callers already did this — `embedder.py`'s
-        # `_client = await asyncio.to_thread(build_client, settings)` and `llm.py`'s, whose
-        # docstring says *"The client is built off the event loop, for the same measured
-        # reason."* This was the third caller and the only one that had not read them
-        # (`docs/lessons.md` L8.24). Cached, because paying a thread hop per figure to rebuild
-        # an identical client is the other half of what `embedder.py` already avoids.
+        # **Off the loop thread, and this was a defect for a whole phase.** Constructing the vendor
+        # client reaches httpx, which loads a CA bundle with a synchronous `open()` — so calling
+        # `build_client` here directly made the registration seam's blocking-call detector fire
+        # (fitness function 7(b)), and this module's own broad handler below turned that into a
+        # `Failed` about the image. Net effect: `openai-vision` could never describe anything inside
+        # a real pipeline, and said nothing. `build_client`'s two other callers already did this —
+        # `embedder.py`'s `_client = await asyncio.to_thread(build_client, settings)` and
+        # `llm.py`'s, whose docstring says *"The client is built off the event loop, for the same
+        # measured reason."* This was the third caller and the only one that had not read them
+        # (`docs/internal/lessons.md` L8.24). Cached, because paying a thread hop per figure to
+        # rebuild an identical client is the other half of what `embedder.py` already avoids.
         if self._client is None:
             self._client = cast("Any", await asyncio.to_thread(build_client, self._settings))
         client = self._client

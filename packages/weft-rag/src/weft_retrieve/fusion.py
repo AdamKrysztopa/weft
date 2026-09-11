@@ -1,6 +1,6 @@
 """Fusers — the arity-reducing position, and the label every fuser weights on.
 
-Task **2.7**, `docs/build-ledger.md`: "fusion and reranking are composable plugins a third
+Task **2.7**, `docs/internal/build-ledger.md`: "fusion and reranking are composable plugins a third
 party can retune, not a fixed ladder." A fixed ladder risks exactly the failure this design
 avoids: one algorithm reimplemented at each call site that needs it, every copy carrying its
 own hardcoded top-k values and dead configuration, because fusion was something a strategy

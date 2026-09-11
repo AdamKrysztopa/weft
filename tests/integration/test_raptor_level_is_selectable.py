@@ -10,8 +10,8 @@ on to ask for abstractions and not passages.
 **Why this cannot be a unit test.** `ext` is written as JSONB and read back through
 `weft_store.rehydrate`, which reconstructs a pack's own model only if that pack registered it
 (`add_ext_model`). A stub store that hands the object back untouched proves nothing about either
-half, and `docs/lessons.md` L6.14 is this project's own worked example of a hand-written double
-answering a question the running system could not.
+half, and `docs/internal/lessons.md` L6.14 is this project's own worked example of a hand-written
+double answering a question the running system could not.
 
 **Container, no credential, no network** — `hash` and `scripted`, `similarity_threshold: 0.0` so
 one cluster forms deterministically, exactly as `test_raptor_cascade_delete.py` argues for its
@@ -176,7 +176,7 @@ async def test_the_level_comes_back_as_the_pack_s_own_model(store: PgVectorStore
     only for a namespace some pack registered through `add_ext_model`; without that registration
     the value returns as a plain mapping and every reader downstream has to know it. Asserting
     the *type* is what checks the registration, which is the half a write-only test misses
-    (`docs/lessons.md` L6.14's shape).
+    (`docs/internal/lessons.md` L6.14's shape).
     """
     # Arrange
     produced = await _indexed(store)

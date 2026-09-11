@@ -1,6 +1,6 @@
 """The live half of `weft-openai`: a vector that carries semantic meaning, measured.
 
-`docs/build-ledger.md` task 2.29 — "a vector carries semantic meaning when a
+`docs/internal/build-ledger.md` task 2.29 — "a vector carries semantic meaning when a
 model is configured, and the gate still runs with no credentials and no
 download because the deterministic embedder stays the offline default." The
 second clause is what every other test in this tree checks, by never needing
@@ -44,8 +44,8 @@ _API_KEY_VAR = "OPENAI_API_KEY"
 #: `OPENAI_API_KEY` says *"I could reach the network"*; this says *"I am asking to"*. A developer
 #: with a key exported for other work should get a deterministic `poe ci-checks`, because a gate
 #: whose green depends on what a live service answered teaches whoever runs it to re-run red tests
-#: until they pass (`docs/lessons.md` L6.27). Repeated in each module that reaches the network
-#: rather than shared, the same way each already repeats its own skip discipline;
+#: until they pass (`docs/internal/lessons.md` L6.27). Repeated in each module that reaches the
+#: network rather than shared, the same way each already repeats its own skip discipline;
 #: `tests/architecture/test_the_gate_is_decidable.py` keeps the copies honest.
 _LIVE_OPT_IN_VAR = "WEFT_LIVE_API_TESTS"
 

@@ -78,12 +78,12 @@ class StreamEventType(StrEnum):
 class LineKind(StrEnum):
     """Which **shape** a line on the `--json` stream is — ledger task **6.16**.
 
-    `docs/lessons.md` L5.16: a newline-delimited stream carrying two shapes needs a discriminant.
-    `weft --json ask` writes `StreamEvent` lines while a pipeline runs and an `ErrorEnvelope` when
-    the run refuses, on the same descriptor, and before this a consumer told them apart by
-    sniffing for keys. The ambiguous pair is not hypothetical: a `StreamEvent` whose `type` is
-    `ERROR` and an `ErrorEnvelope` are **both** "an error", in different shapes, so key-sniffing
-    had to get exactly that case right to be correct at all.
+    `docs/internal/lessons.md` L5.16: a newline-delimited stream carrying two shapes needs a
+    discriminant. `weft --json ask` writes `StreamEvent` lines while a pipeline runs and an
+    `ErrorEnvelope` when the run refuses, on the same descriptor, and before this a consumer told
+    them apart by sniffing for keys. The ambiguous pair is not hypothetical: a `StreamEvent` whose
+    `type` is `ERROR` and an `ErrorEnvelope` are **both** "an error", in different shapes, so
+    key-sniffing had to get exactly that case right to be correct at all.
 
     **`kind` is a second key rather than a widening of `type`.** `StreamEventType` answers *which
     event*; this answers *which line shape*. One key answering both would be the "one word

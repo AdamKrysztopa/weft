@@ -1,12 +1,12 @@
 """Unit tests for `scripts/lessons_graph.py` — carried repair **R9.12**.
 
-Mirrors the script. Its subject is the *edges between lessons*: `recurs`, `reverses`,
-`refines`. Until this repair it read `docs/lessons-archive.md` alone, so a recurrence became
-visible only once the entry stating it had been **drained** — and a drain is exactly when
-somebody is deciding what a phase learned. The phase whose queue is densest with recurrences is
-the one the detector could say least about (`docs/lessons.md` `L9.91`); Phase 9's own drain found
-**six** recurrences inside Phase 9 that the script could not see, every one stated in the
-entries' own prose.
+Mirrors the script. Its subject is the *edges between lessons*: `recurs`, `reverses`, `refines`.
+Until this repair it read `docs/internal/lessons-archive.md` alone, so a recurrence became visible
+only once the entry stating it had been **drained** — and a drain is exactly when somebody is
+deciding what a phase learned. The phase whose queue is densest with recurrences is the one the
+detector could say least about (`docs/internal/lessons.md` `L9.91`); Phase 9's own drain found
+**six** recurrences inside Phase 9 that the script could not see, every one stated in the entries'
+own prose.
 """
 
 from __future__ import annotations
@@ -18,12 +18,20 @@ from pathlib import Path
 from types import ModuleType
 from typing import Final, cast
 
+import pytest
+
+from tests.conftest import untracked_reason
+
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 import lessons_graph  # noqa: E402 — the script is not a package; the path above is how it loads
 
-QUEUE: Final[Path] = REPO_ROOT / "docs" / "lessons.md"
+QUEUE: Final[Path] = REPO_ROOT / "docs" / "internal" / "lessons.md"
+
+#: Untracked by design (`tests.conftest.UNTRACKED_BY_DESIGN`) — absent from a clean checkout.
+_MISSING_QUEUE: Final[str | None] = untracked_reason("docs/internal/lessons.md")
+_requires_queue = pytest.mark.skipif(_MISSING_QUEUE is not None, reason=_MISSING_QUEUE or "")
 
 
 def test_an_open_queue_entry_and_its_edges_are_read() -> None:
@@ -56,10 +64,10 @@ def test_an_open_queue_entry_and_its_edges_are_read() -> None:
 
 
 def test_nothing_after_the_queue_section_is_read_as_an_entry() -> None:
-    # Arrange — `docs/lessons.md` carries an *Applied* section and a closing note as well as the
-    # queue, and both mention lesson ids. Only the queue's own entries are open lessons; reading
-    # the rest would report an applied rule as an unresolved recurrence, which is the opposite
-    # of what this script is for.
+    # Arrange — `docs/internal/lessons.md` carries an *Applied* section and a closing note as well
+    # as the queue, and both mention lesson ids. Only the queue's own entries are open lessons;
+    # reading the rest would report an applied rule as an unresolved recurrence, which is the
+    # opposite of what this script is for.
     text = """## Applied
 
 - **L9.91** something already applied, mentioning `recurs L5.1`.
@@ -81,6 +89,7 @@ A closing note naming `L9.91` again.
     assert edges == [("L12.1", "refines", "L7.2")]
 
 
+@_requires_queue
 def test_the_live_queue_is_readable_by_this_parser() -> None:
     """`lessons_graph` and the `SessionStart` hook read the same entries out of the same file.
 
@@ -119,7 +128,8 @@ def test_the_live_queue_is_readable_by_this_parser() -> None:
 
     # Assert
     assert sorted(entries) == sorted(by_the_hook), (
-        f"scripts/lessons_graph.py read {sorted(entries)} out of docs/lessons.md's Queue and "
+        f"scripts/lessons_graph.py read {sorted(entries)} out of docs/internal/lessons.md's Queue "
+        f"and"
         f".claude/hooks/lessons_context.py read {sorted(by_the_hook)} from the same file — one "
         f"of the two followed a change to the queue's heading or entry form and the other did not"
     )

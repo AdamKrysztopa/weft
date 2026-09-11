@@ -3,7 +3,7 @@
 Carried repair **R11.2**'s second half. The first half narrows
 `weft_cli.participation.stores_in_use` to the project's *own* documents, which closes the
 hole `G19` opened — a shipped document naming a store made every unrelated project connect to
-it (`docs/lessons.md` `L11.21`). That narrowing leaves a hole of its own, and this file is
+it (`docs/internal/lessons.md` `L11.21`). That narrowing leaves a hole of its own, and this file is
 where it is closed.
 
 **The hole.** `stores_in_use`'s third source is the persisted run history, and until this
@@ -13,7 +13,7 @@ with no project-local document of its own — had *no* static evidence that it u
 store: not `[services] store`, not a project document, and not a run record. Its `weft delete`
 would then leave every graph row behind, which is precisely the silent orphan G7 built the
 fan-out to prevent, arriving from the other side. A reader with one writer is
-`docs/lessons.md` L5.15's producing-side/consuming-side shape with the two sides swapped.
+`docs/internal/lessons.md` L5.15's producing-side/consuming-side shape with the two sides swapped.
 
 **Where the record goes, and why not beside the eval ones.** `weft eval compare --baseline`
 selects a baseline's repetitions as *every* persisted run whose `resolved_pipeline.name`

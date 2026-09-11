@@ -1,6 +1,6 @@
 """`boolean-retrieval` — a Boolean query parsed to a typed expression tree, with precedence.
 
-Task **2.23**, `docs/build-ledger.md`: "a Boolean query is parsed to an operator expression
+Task **2.23**, `docs/internal/build-ledger.md`: "a Boolean query is parsed to an operator expression
 with precedence, and an empty conjunction is a visible outcome rather than a union."
 `docs/10-technique-catalogue.md` §1.1's own row names the defect precisely: a flat
 `(operator, list[str])` decomposition collapses any compound query to `MIXED`, and `MIXED` is

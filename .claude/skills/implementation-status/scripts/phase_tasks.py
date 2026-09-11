@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Print every task line of one phase of `docs/build-ledger.md`, with its tick state and its sha.
+"""Print every task line of one phase of `docs/internal/build-ledger.md`, with its tick state and
+its sha.
 
 This exists so a status answer is *read* rather than remembered, and so it is read without the
 trap that catches every hand-rolled grep: **`build-ledger.md` → *How to read a task line* contains
@@ -17,7 +18,7 @@ which is the other half of a status answer and the half `next_task.py` deliberat
     python3 .claude/skills/implementation-status/scripts/phase_tasks.py --json
 
 Exit codes: 0 the phase was found and printed · 2 no phase matched · 3 the ledger, or
-`docs/README.md`, could not be read.
+`docs/internal/README.md`, could not be read.
 """
 
 from __future__ import annotations
@@ -67,7 +68,7 @@ def phase_number(title: str) -> str:
 
 
 def live_phase(readme: Path) -> str:
-    """The phase number `docs/README.md`'s Status block declares, or `""`."""
+    """The phase number `docs/internal/README.md`'s Status block declares, or `""`."""
     status = status_block(readme)
     declared = PHASE_IN_STATUS.search(status.get("Phase", ""))
     return declared.group("number") if declared else ""
@@ -119,7 +120,7 @@ def collect(ledger: Path, wanted: str) -> dict:
 
 def render(report: dict, readme: Path) -> None:
     print(report["phase"])
-    print(f"live phase per docs/README.md Status: {live_phase(readme) or '(not stated)'}")
+    print(f"live phase per docs/internal/README.md Status: {live_phase(readme) or '(not stated)'}")
     print(f"Next action row points at task: {next_action_task(readme) or '(not stated)'}")
     blocked = report["preamble_blocked_lines"]
     if blocked:
@@ -143,7 +144,7 @@ def render(report: dict, readme: Path) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "phase", nargs="?", help="phase number (default: the live one per docs/README.md)"
+        "phase", nargs="?", help="phase number (default: the live one per docs/internal/README.md)"
     )
     parser.add_argument("--ledger", help="path to build-ledger.md (default: found from this file)")
     parser.add_argument("--json", action="store_true", help="machine-readable output")
@@ -153,7 +154,10 @@ def main() -> int:
     readme = ledger.parent / "README.md"
     wanted = args.phase or live_phase(readme)
     if not wanted:
-        print("no phase given and docs/README.md's Status block declares none", file=sys.stderr)
+        print(
+            "no phase given and docs/internal/README.md's Status block declares none",
+            file=sys.stderr,
+        )
         return 2
 
     report = collect(ledger, wanted)

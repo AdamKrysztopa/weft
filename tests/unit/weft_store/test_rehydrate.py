@@ -109,7 +109,7 @@ def test_rehydrate_ext_refuses_a_stored_version_older_than_the_current_one(
 
 # ---------------------------------------------------------------------------
 # Task 6.34 — the two registration paths do not behave identically, and this is
-# the test whose absence let a docstring say they did. `docs/lessons.md` L6.28.
+# the test whose absence let a docstring say they did. `docs/internal/lessons.md` L6.28.
 # ---------------------------------------------------------------------------
 
 

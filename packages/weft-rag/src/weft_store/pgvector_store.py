@@ -142,7 +142,7 @@ CREATE TABLE IF NOT EXISTS weft_sources (
 #: dropped the field: `put_source` names its columns explicitly, so a value with no column simply
 #: never arrives. A second index under the *same* pipeline then read back `pipeline_identity=""`
 #: and reported a re-parse that had not happened — a false positive in a change detector, which
-#: this task's own tests call worse than no detector (`docs/lessons.md` `L9.60`).
+#: this task's own tests call worse than no detector (`docs/internal/lessons.md` `L9.60`).
 _ADD_SOURCES_PIPELINE_IDENTITY = """
 ALTER TABLE weft_sources
     ADD COLUMN IF NOT EXISTS pipeline_identity TEXT NOT NULL DEFAULT ''

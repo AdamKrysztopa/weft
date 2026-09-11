@@ -4,13 +4,13 @@ Mirrors `packages/weft-rag/src/weft_kg/schema.py` — the pure half: the model a
 validates into, what it derives, what it admits, and the proposal built from what a corpus already
 produced. No container and no model; `test_graph_commands.py` is the half that reads and writes.
 
-**Typed relation rules, not two flat lists — settled with the owner 2026-09-10.** A schema of
-entity types and predicates catches an invented word and admits any arrangement of approved ones,
-which is most of what a wrong extraction looks like: `Method wrote Person` uses nothing an operator
-did not approve. A rule is the triple `(source_type, predicate, target_type)`, so the arrangement is
-the thing checked, and the vocabularies are **derived** from the rules rather than listed beside
-them — two lists that can disagree with the rules they describe is the shape `docs/README.md` opens
-by refusing.
+**Typed relation rules, not two flat lists — settled with the owner 2026-09-10.** A schema of entity
+types and predicates catches an invented word and admits any arrangement of approved ones, which is
+most of what a wrong extraction looks like: `Method wrote Person` uses nothing an operator did not
+approve. A rule is the triple `(source_type, predicate, target_type)`, so the arrangement is the
+thing checked, and the vocabularies are **derived** from the rules rather than listed beside them —
+two lists that can disagree with the rules they describe is the shape `docs/internal/README.md`
+opens by refusing.
 
 **The version is a field, never a `ClassVar`.** `S5`: a persisted schema carries its version in the
 stored bytes, because at the read site the pack that wrote it may not be the one installed. A

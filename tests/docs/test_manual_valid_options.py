@@ -1,11 +1,11 @@
 """A `valid_options` tuple quoted in a manual is the live one — ledger task **8.16**.
 
-`docs/lessons-archive.md` `L8.3`. `manual/troubleshooting.md` reproduces, for several errors, the
-exact typed field a caller would read off the exception — `exc.valid_options == ("embed",
-"store")` — and that transcript went stale when a third key was added. The whole gate was green:
-`docs/08-manuals.md` §3 says a manual is checked rather than trusted, and this was the one thing
-nothing checked, because a **tuple literal inside prose** is not a `[services]` key mention and
-`test_manual_config_keys.py` reads only the latter.
+`docs/internal/lessons-archive.md` `L8.3`. `manual/troubleshooting.md` reproduces, for several
+errors, the exact typed field a caller would read off the exception — `exc.valid_options ==
+("embed", "store")` — and that transcript went stale when a third key was added. The whole gate was
+green: `docs/08-manuals.md` §3 says a manual is checked rather than trusted, and this was the one
+thing nothing checked, because a **tuple literal inside prose** is not a `[services]` key mention
+and `test_manual_config_keys.py` reads only the latter.
 
 The distinction matters and is why that check does not cover this one. `test_manual_config_keys.py`
 asks *"is every key this page names one `weft.toml` accepts?"* — a subset question, which stays true
@@ -31,10 +31,10 @@ from typing import Final
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 TROUBLESHOOTING: Final[Path] = REPO_ROOT / "manual" / "troubleshooting.md"
 
-#: `exc.valid_options == ("a", "b")` as the manuals write it, wrapped or not. The page wraps at
-#: 100 columns and these transcripts routinely break across a line, so the body is matched with
-#: `re.DOTALL` over a whitespace-collapsed copy — `docs/lessons.md` L6.16's own correction, where
-#: a sweep that could not cross a line break had a false negative built into the house style.
+#: `exc.valid_options == ("a", "b")` as the manuals write it, wrapped or not. The page wraps at 100
+#: columns and these transcripts routinely break across a line, so the body is matched with
+#: `re.DOTALL` over a whitespace-collapsed copy — `docs/internal/lessons.md` L6.16's own correction,
+#: where a sweep that could not cross a line break had a false negative built into the house style.
 _QUOTED_TUPLE: Final[re.Pattern[str]] = re.compile(
     r"valid_options\s*==\s*\((?P<body>[^)]*)\)", re.DOTALL
 )
@@ -146,7 +146,7 @@ def test_every_quoted_tuple_has_a_live_source() -> None:
 
 
 def test_the_sweep_found_the_transcripts() -> None:
-    # `docs/lessons.md` L5.19: a sweep matching nothing passes identically to one finding
+    # `docs/internal/lessons.md` L5.19: a sweep matching nothing passes identically to one finding
     # nothing wrong. Both halves — that tuples were found, and that each source resolves to a
     # non-empty tuple, so an equality against `()` cannot pass vacuously.
     quoted = _quoted_tuples()

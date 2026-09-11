@@ -11,7 +11,7 @@ keep bytes that miss their digest.
 already answers "what can ingest read?" from the plugins that actually resolved, and asking it
 again here is the whole point: installing `weft-pdf` widened the requirement without anyone
 editing this file, and a hand-written `{".txt", ".md", ".pdf"}` would be the second copy
-`docs/README.md` opens by describing — right on the day it was typed and wrong on the day a
+`docs/internal/README.md` opens by describing — right on the day it was typed and wrong on the day a
 fourth extractor ships.
 
 **Nothing here can pass because a walk found nothing** (task 1.18). The corpus payload is
@@ -22,8 +22,8 @@ V1 as satisfied on a machine holding no documents at all. Every check therefore 
 carry a floor asserting they are non-empty before the comparison is allowed to mean anything.
 
 **The `operator` tier is outside V1's second clause and that is recorded, not assumed** —
-`docs/build-ledger.md` → task **2.1** states it, along with the fact that no waiver of V1 is
-taken: the reproducible tiers cover every claimed format and both languages on their own.
+`docs/internal/build-ledger.md` → task **2.1** states it, along with the fact that no waiver of V1
+is taken: the reproducible tiers cover every claimed format and both languages on their own.
 
 **A tier label is not evidence, and this file used to treat it as if it were.** `tier = "fetch"`
 is a word in a hand-edited TOML file; the coverage check below reads it and calls the result

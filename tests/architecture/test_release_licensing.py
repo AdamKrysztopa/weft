@@ -25,9 +25,9 @@ them at **size 0** and the wheel built from that sdist carries **no licence entr
 state the paragraph above records this tree being found in. Both checks below passed on it:
 `is_file()` follows a symlink and `read_bytes()` reads through one, so neither could see it. The
 `is_symlink()` refusal is therefore not tidiness; it is the only thing standing between a plausible
-simplification and twenty wheels with no licence. `docs/lessons.md` `L11.8`. The nine copies stay
-nine files, and `poe licence-sync` is what keeps a one-sentence edit from being a nine-file one —
-the check stays the enforcement rather than becoming the workflow.
+simplification and twenty wheels with no licence. `docs/internal/lessons.md` `L11.8`. The nine
+copies stay nine files, and `poe licence-sync` is what keeps a one-sentence edit from being a
+nine-file one — the check stays the enforcement rather than becoming the workflow.
 
 **The artefact half lives in `scripts/check_sdists.py`**, not here: `files_that_must_ship` requires
 both files of every distribution, so task 6.7's comparison against the real archive is what proves
@@ -162,7 +162,7 @@ def test_every_published_distribution_declares_its_licence() -> None:
 
 def test_the_check_can_actually_fail(tmp_path: Path) -> None:
     """Planted, because the real tree agrees once this task lands and the comparison is then
-    never seen disagreeing (`docs/lessons.md` L5.19). Both halves: a drifted copy and a
+    never seen disagreeing (`docs/internal/lessons.md` L5.19). Both halves: a drifted copy and a
     declaration that names a file nobody wrote.
     """
     # Arrange
@@ -204,47 +204,40 @@ def test_the_check_can_actually_fail(tmp_path: Path) -> None:
     )
 
 
-# ---------------------------------------------------------------------------
-# Ledger task **11.0** — the owner's own prior work is marked where it lands.
-# ---------------------------------------------------------------------------
-#
-# `NOTICE` case 2 permits material the project owner wrote before this project began, and requires
-# that "the file carrying it says so, naming the source work — so a reader can always tell the two
-# origins apart without asking". Until this task that requirement was a sentence: there was no
-# spelling for the marker and nothing read a source file looking for one. The obligation is dated
-# and it is *before* the first copy, not after — `docs/product-direction.md:83-84 'must be amende'`:
-# `NOTICE` "must
-# be amended to distinguish the third-party source from the owner's own prior work, **in the same
-# commit as the first copied line — not after**". A check that only exists after the first copy is
-# the prose-check shape `docs/lessons.md` L6.12 forbids, so it is built here, before task 11.7
-# carries the first line across.
-#
-# **Three sources, and they can genuinely disagree** (`docs/lessons.md` L5.6 — a check whose two
-# sides come from one source cannot fail):
-#
-#   1. `NOTICE` case 2 owns the **convention**: the two spellings, in backticks, and nothing else
-#      in this repository decides them. The sweep below does not hardcode them — it *reads* them
-#      out of `NOTICE` and greps with what it found, so a `NOTICE` edit that changes the convention
-#      changes what the check looks for rather than silently leaving it looking for the old thing.
-#   2. The repository `README.md` owns the **enumeration**: which source works are carried, in a
-#      list under a stable anchor, where a reader of the public front page finds it.
-#   3. The carrying files own the **spans**: which lines are that work, delimited in place.
-#
-# **What this asserts about the tree today, stated plainly, because it is not much.** No file in
-# this repository carries the owner's prior work yet, so the set comparison is empty against empty
-# and cannot fail on this commit. That is `docs/lessons.md` L11.5's shape and it is not hidden
-# here: the two assertions that *are* live today are that `NOTICE` still declares the convention
-# and that `README.md` still carries a parseable enumeration, and the comparison is **armed** for
-# the commit that adds the first marker — which is exactly the commit the obligation names. The
-# floor for the vacuous half is `test_the_prior_work_marking_check_can_actually_fail`, which plants
-# a fixture tree and watches every direction fire.
-#
-# **This module never writes the marker literally, and that is deliberate rather than clever.** A
-# check that greps the tree for a token it also contains finds itself, and the usual repair is an
-# exclusion list naming the checker — which then has to be maintained by whoever moves the file.
-# Instead every token used below, in the sweep *and* in the plant, is derived from the `NOTICE`
-# text at `_convention()`. The population is restricted to source extensions, which keeps `NOTICE`
-# (no extension) and every `.md` document out without naming any of them.
+# --------------------------------------------------------------------------- Ledger task **11.0** —
+# the owner's own prior work is marked where it lands.
+# --------------------------------------------------------------------------- `NOTICE` case 2
+# permits material the project owner wrote before this project began, and requires that "the file
+# carrying it says so, naming the source work — so a reader can always tell the two origins apart
+# without asking". Until this task that requirement was a sentence: there was no spelling for the
+# marker and nothing read a source file looking for one. The obligation is dated and it is *before*
+# the first copy, not after — `docs/internal/product-direction.md:83-84 'must be amende'`: `NOTICE`
+# "must be amended to distinguish the third-party source from the owner's own prior work, **in the
+# same commit as the first copied line — not after**". A check that only exists after the first copy
+# is the prose-check shape `docs/internal/lessons.md` L6.12 forbids, so it is built here, before
+# task 11.7 carries the first line across. **Three sources, and they can genuinely disagree**
+# (`docs/internal/lessons.md` L5.6 — a check whose two sides come from one source cannot fail): 1.
+# `NOTICE` case 2 owns the **convention**: the two spellings, in backticks, and nothing else in this
+# repository decides them. The sweep below does not hardcode them — it *reads* them out of `NOTICE`
+# and greps with what it found, so a `NOTICE` edit that changes the convention changes what the
+# check looks for rather than silently leaving it looking for the old thing. 2. The repository
+# `README.md` owns the **enumeration**: which source works are carried, in a list under a stable
+# anchor, where a reader of the public front page finds it. 3. The carrying files own the **spans**:
+# which lines are that work, delimited in place. **What this asserts about the tree today, stated
+# plainly, because it is not much.** No file in this repository carries the owner's prior work yet,
+# so the set comparison is empty against empty and cannot fail on this commit. That is
+# `docs/internal/lessons.md` L11.5's shape and it is not hidden here: the two assertions that *are*
+# live today are that `NOTICE` still declares the convention and that `README.md` still carries a
+# parseable enumeration, and the comparison is **armed** for the commit that adds the first marker —
+# which is exactly the commit the obligation names. The floor for the vacuous half is
+# `test_the_prior_work_marking_check_can_actually_fail`, which plants a fixture tree and watches
+# every direction fire. **This module never writes the marker literally, and that is deliberate
+# rather than clever.** A check that greps the tree for a token it also contains finds itself, and
+# the usual repair is an exclusion list naming the checker — which then has to be maintained by
+# whoever moves the file. Instead every token used below, in the sweep *and* in the plant, is
+# derived from the `NOTICE` text at `_convention()`. The population is restricted to source
+# extensions, which keeps `NOTICE` (no extension) and every `.md` document out without naming any of
+# them.
 
 #: Where `README.md` enumerates the source works carried. An HTML comment, so it renders as
 #: nothing and still gives the parser below a stable point to start from — a heading would be a
@@ -332,8 +325,9 @@ class PriorWorkSweep(NamedTuple):
     `spans` and `malformed` are both empty on this tree today, and they are *also* both empty when
     the sweep reads nothing at all: a wrong suffix allowlist, a `tracked_files()` that came back
     empty, a root pointing somewhere else. Those two states are indistinguishable from their
-    outputs, which is `docs/lessons.md` L5.19's shape exactly — so the count of files actually
-    opened is returned alongside them and asserted, rather than left as something a reader assumes.
+    outputs, which is `docs/internal/lessons.md` L5.19's shape exactly — so the count of files
+    actually opened is returned alongside them and asserted, rather than left as something a reader
+    assumes.
     """
 
     spans: tuple[PriorWorkSpan, ...]
@@ -496,10 +490,10 @@ def test_the_readme_enumerates_the_source_works_carried() -> None:
 def test_every_marked_span_is_well_formed_and_names_an_enumerated_source_work() -> None:
     """The tree agrees with the front page about which lines are the owner's prior work.
 
-    **Empty against empty on the commit that adds this**, and armed for the one that adds the
-    first marker — which is the commit `docs/product-direction.md:84 's own prior's own prior work,
-    in"` says owes it. The direction
-    that bites first is a file marked and never enumerated: that is what a hurried copy looks like.
+    **Empty against empty on the commit that adds this**, and armed for the one that adds the first
+    marker — which is the commit `docs/internal/product-direction.md:84 's own prior's own prior
+    work, in"` says owes it. The direction that bites first is a file marked and never enumerated:
+    that is what a hurried copy looks like.
     """
     # Arrange
     declared = set(_declared_source_works((REPO_ROOT / "README.md").read_text(encoding="utf-8")))
@@ -561,7 +555,7 @@ def test_every_enumerated_source_work_is_actually_carried() -> None:
 
 def test_the_prior_work_marking_check_can_actually_fail(tmp_path: Path) -> None:
     """Planted, because the real tree carries no marked span and the sweep above therefore
-    compares an empty set with an empty one (`docs/lessons.md` L5.19, L11.5).
+    compares an empty set with an empty one (`docs/internal/lessons.md` L5.19, L11.5).
 
     Every direction, on a fixture tree: a well-formed span **found** — the liveness half, without
     which the four assertions above are satisfied by a sweep that reads nothing — an unclosed span,

@@ -1,15 +1,15 @@
 """`docs/08-manuals.md` §3 clause (e) — the deprecation promise is written to, not hoped for.
 
-Task **5.2f** (`docs/build-ledger.md`), owed by `docs/09-release.md` §3's own block quote: *"a
-`tests/docs` check asserts that every surface marked deprecated at registration has a
-`CHANGELOG.md` entry naming it."* `docs/lessons.md` L5.8 is the finding this repairs — the file a
-document designates as where a promise is made had never been written to, and `README.md` →
-*Protocol* did not name it among what a phase close updates. The ledger's choice was a check
-rather than a protocol line; this module is that check.
+Task **5.2f** (`docs/internal/build-ledger.md`), owed by `docs/09-release.md` §3's own block quote:
+*"a `tests/docs` check asserts that every surface marked deprecated at registration has a
+`CHANGELOG.md` entry naming it."* `docs/internal/lessons.md` L5.8 is the finding this repairs — the
+file a document designates as where a promise is made had never been written to, and `README.md` →
+*Protocol* did not name it among what a phase close updates. The ledger's choice was a check rather
+than a protocol line; this module is that check.
 
-**Two independent sources, on purpose (`docs/lessons.md` L5.6).** L5.6 found a declaration that
-could never disagree with itself because it was derived from the very thing it verified. Here the
-two sources are genuinely separate: `_real_deprecations` asks the **installed tree** — real
+**Two independent sources, on purpose (`docs/internal/lessons.md` L5.6).** L5.6 found a declaration
+that could never disagree with itself because it was derived from the very thing it verified. Here
+the two sources are genuinely separate: `_real_deprecations` asks the **installed tree** — real
 `weft.packs` entry points, discovered exactly as `weft plugins doctor` discovers them
 (`weft_kernel.discovery.discover(Registry())`, the same bare call
 `tests/architecture/test_ff8_trust_model.py::test_run_record_active_distributions_equal_what_
@@ -31,7 +31,7 @@ hand-built dataclass standing in for it), proves the comparison reports it missi
 real `CHANGELOG.md` and clears once an entry naming it is added — `tests/architecture/
 test_ff9_extension_from_outside.py::test_the_grep_can_actually_fail`'s shape, applied to a
 changelog instead of a grep, and the third mechanism in one gate to need this proof
-(`docs/lessons.md` L5.1, L5.4, L5.8 name the first two).
+(`docs/internal/lessons.md` L5.1, L5.4, L5.8 name the first two).
 
 `DEPRECATIONS_WITHOUT_CHANGELOG_ENTRY` is this clause's ratchet, `08` §3's own naming convention:
 pinned empty, so excluding any surface from the requirement is a visible act in a diff.

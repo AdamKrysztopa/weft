@@ -227,7 +227,7 @@ def test_the_waiver_names_only_what_it_documents() -> None:
     to Qdrant on `weft delete` and on `weft index`'s repair pass. That was never a hypothesis: the
     rung was written, registered, and reverted when CI failed with *"failed: qdrant (weft-rag) —
     ResponseHandlingException: All connection attempts failed"* and the README's own quickstart
-    stopped working (`docs/lessons.md` `L11.21`).
+    stopped working (`docs/internal/lessons.md` `L11.21`).
 
     **Carried repair `R11.2` deleted it the same day.** `stores_in_use`'s subject is now the
     project's *own* documents and the ancestors they derive from, never every document the
@@ -240,7 +240,7 @@ def test_the_waiver_names_only_what_it_documents() -> None:
         "POSITIONS_WAIVED_FROM_THE_LADDER no longer matches what is documented above. A waiver "
         "here states a fact about what can be run — never 'no rung was written for it yet' — and "
         "it needs the task that will delete it again. Record both in its own docstring and in "
-        "docs/README.md's decision log, or write the rung."
+        "docs/internal/README.md's decision log, or write the rung."
     )
 
 
@@ -309,7 +309,7 @@ def test_the_check_can_actually_fail() -> None:
 def test_the_waiver_is_live_rather_than_decorative() -> None:
     """The waived pairs are pairs the sweep *fires on* — not pairs it never reaches.
 
-    `docs/lessons.md` L6.29: a waiver test that asks whether the waived thing is *present*
+    `docs/internal/lessons.md` L6.29: a waiver test that asks whether the waived thing is *present*
     passes just as happily when the check has stopped looking at all. This asks the only
     question that separates the two — drop the waiver, and does the check report these
     exact pairs? If `plain` and `markdown` ever land on a rung, this fails and the waiver
@@ -341,7 +341,7 @@ def test_shipping_no_pipeline_document_is_not_a_way_to_become_exempt() -> None:
     without `weft-qdrant`, so the pack owning the plugin is the only one that could ever place
     it. The consequence nobody had stated is the reverse — **shipping no document was how a
     distribution became exempt**, and `weft-docling` shipped `pdf-layout-model` unreachable for
-    the length of task `9.13` with this check green throughout (`docs/lessons.md` `L9.85`).
+    the length of task `9.13` with this check green throughout (`docs/internal/lessons.md` `L9.85`).
 
     **G19 dissolved the escape route rather than this check closing it**, and saying so is the
     honest close. Weft publishes two names: `weft-kernel`, which registers nothing, and

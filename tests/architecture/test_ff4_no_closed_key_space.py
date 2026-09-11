@@ -1,6 +1,6 @@
 """Fitness function 4 — no closed enumeration of registry keys, anywhere a name is decided.
 
-Task **2.8**, `docs/build-ledger.md`: "the router picks a strategy it was never told
+Task **2.8**, `docs/internal/build-ledger.md`: "the router picks a strategy it was never told
 about — discovered from the registry, with no enum, no if-chain and no closed key space
 anywhere a name is decided." `01` → *Fitness functions* item 4: "(a) No enum shadows a
 registry. (b) No literal enumeration of registry keys may appear in a dispatch, a
@@ -66,7 +66,7 @@ _PLACEHOLDER_STORE_SETTINGS: Final[dict[str, dict[str, object]]] = {
 }
 
 #: Every selection surface this function has been asked to waive, pinned empty. Adding a
-#: name here is a deliberate, dated act — see `docs/README.md`'s decision log — never a
+#: name here is a deliberate, dated act — see `docs/internal/README.md`'s decision log — never a
 #: place to quiet a real closed key space.
 SELECTION_SURFACES_WAIVED_FROM_FF4: Final[frozenset[str]] = frozenset()
 
@@ -76,7 +76,7 @@ def test_waiver_list_is_empty() -> None:
         "A selection surface has been waived out of fitness function 4. If a surface "
         "genuinely cannot be expressed as an open key space, that is a design finding, "
         "not a place to quiet the check — record it with a dated entry in "
-        "docs/README.md's decision log first."
+        "docs/internal/README.md's decision log first."
     )
 
 

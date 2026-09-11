@@ -19,10 +19,10 @@ the workspace side is expanded from the root `pyproject.toml`'s member globs. Ad
 forgetting the workflow fails here; publishing something that opted out fails here.
 
 **Neither side may answer emptily.** An empty collection means *"I did not find it"*, never *"it is
-not there"* (`docs/lessons.md` L5.9, L6.14) — and a comparison between two empty sets passes while
-checking nothing, which is exactly the vacuous pass L5.19 requires a floor against. Both readers
-therefore raise rather than return `frozenset()`, and the equality test asserts each side is
-non-empty before comparing them.
+not there"* (`docs/internal/lessons.md` L5.9, L6.14) — and a comparison between two empty sets
+passes while checking nothing, which is exactly the vacuous pass L5.19 requires a floor against.
+Both readers therefore raise rather than return `frozenset()`, and the equality test asserts each
+side is non-empty before comparing them.
 
 **Clause (b) — no distribution depends on a sibling without a version bound — is ledger task 6.3**,
 below. `01` states it as *"a property over the workspace rather than as a lint of one file"*, and it
@@ -33,9 +33,9 @@ any pack against any kernel and leaves **any** compatibility policy unenforceabl
 G9's enforcement rule landed in Phase 5, so every intra-repository requirement in the workspace
 already carries a bound — `09` §1 records G10's own *Bring* prediction of zero being falsified on
 the day, the answer being all of them. A check written against a set that already agrees passes
-whether or not it can read anything, so the floor here is `docs/lessons.md` L5.19's: the comparison
-is proved non-vacuous (the edge population is non-empty and the kernel is visible in it) and a
-planted bare requirement is watched going red.
+whether or not it can read anything, so the floor here is `docs/internal/lessons.md` L5.19's: the
+comparison is proved non-vacuous (the edge population is non-empty and the kernel is visible in it)
+and a planted bare requirement is watched going red.
 
 **What a bound means is not this clause's to choose.** `01`: *"a floor, a compatible range, or an
 exact pin — is G9's and this clause does not choose: a floor is the weakest of the three and is
@@ -66,7 +66,7 @@ RELEASE_WORKFLOW: Final[Path] = REPO_ROOT / ".github" / "workflows" / "release.y
 #: workflow is read, not one named job: the release set is published by a second job that `needs`
 #: the first, because `weft` pins exact versions that must reach the index before it does. A reader
 #: keyed to one job name would have gone blind to that second job's arguments the moment it was
-#: added, which is `docs/lessons.md` L6.4 — read the population, not a declaration.
+#: added, which is `docs/internal/lessons.md` L6.4 — read the population, not a declaration.
 PUBLISH_MATRIX_KEY: Final[str] = "distribution"
 
 #: `[tool.weft] publish = false` in a distribution's own `pyproject.toml`. `01` requires "an
@@ -130,12 +130,12 @@ def published_distributions(workflow: Path = RELEASE_WORKFLOW) -> frozenset[str]
 def workspace_distributions(repo_root: Path = REPO_ROOT) -> frozenset[str]:
     """Every workspace member that does not opt out — read through the one reader that owns it.
 
-    `scripts/publish_set.publishing_members` is that reader, built at ledger task **6.6**, and
-    it is called here rather than copied because "which members publish" is one fact: the
-    opt-out marker, the member globs and the skip rules would otherwise be spelled twice and
-    could disagree, which is the two-lists shape `docs/README.md`'s own opening rule is written
-    about. It changes nothing about clause (a)'s independence — the *other* side is parsed out
-    of `.github/workflows/release.yml`, which this reader never opens.
+    `scripts/publish_set.publishing_members` is that reader, built at ledger task **6.6**, and it is
+    called here rather than copied because "which members publish" is one fact: the opt-out marker,
+    the member globs and the skip rules would otherwise be spelled twice and could disagree, which
+    is the two-lists shape `docs/internal/README.md`'s own opening rule is written about. It changes
+    nothing about clause (a)'s independence — the *other* side is parsed out of
+    `.github/workflows/release.yml`, which this reader never opens.
     """
     try:
         return frozenset(member.name for member in publishing_members(repo_root))
@@ -189,7 +189,8 @@ def test_the_canary_opts_out_and_is_never_passed_to_an_index() -> None:
 
 
 def test_an_unreadable_publish_side_is_refused_rather_than_read_as_empty(tmp_path: Path) -> None:
-    """`docs/lessons.md` L5.9: an empty answer is "I did not find it", never "it is not there"."""
+    """`docs/internal/lessons.md` L5.9: an empty answer is "I did not find it", never "it is not
+    there"."""
     # Arrange
     workflow = tmp_path / "release.yml"
     workflow.write_text("jobs:\n  gate:\n    runs-on: ubuntu-latest\n", encoding="utf-8")
@@ -318,9 +319,9 @@ def test_no_distribution_depends_on_a_sibling_without_a_version_bound() -> None:
     ]
     depended_upon = {requirement.name for _, _, requirement in edges}
 
-    # Assert — non-vacuity first (`docs/lessons.md` L5.19): a check over a set that already agrees
-    # passes identically when the reader is broken, so the population is proved real before it is
-    # judged.
+    # Assert — non-vacuity first (`docs/internal/lessons.md` L5.19): a check over a set that already
+    # agrees passes identically when the reader is broken, so the population is proved real before
+    # it is judged.
     assert edges, "no intra-repository dependency was found at all — the reader is wrong"
     assert "weft-kernel" in depended_upon, (
         "no distribution was seen depending on `weft-kernel`. Every pack depends on the kernel by "
@@ -397,12 +398,12 @@ def test_a_siblings_declared_floor_is_that_siblings_current_in_tree_version() ->
     """Carried repair **R9.7**. Clause (b) asserts a lower bound *exists*; this asserts it is
     the right one.
 
-    `docs/lessons.md` `L9.2`: three siblings drifted once and were repaired by hand, which is
-    the shape a fitness function exists to stop being hand work. A bound of `>=0.1.0` against a
+    `docs/internal/lessons.md` `L9.2`: three siblings drifted once and were repaired by hand, which
+    is the shape a fitness function exists to stop being hand work. A bound of `>=0.1.0` against a
     sibling that is now `2.4.0` is a bound — clause (b) is satisfied — and it permits an install
     pairing today's wheel with a two-year-old one, which is precisely the pairing 10(b) exists to
-    refuse. The floor an intra-workspace dependency declares is the sibling's **current** version
-    or the check is asserting a shape rather than a fact.
+    refuse. The floor an intra-workspace dependency declares is the sibling's **current** version or
+    the check is asserting a shape rather than a fact.
 
     **The population is one edge today**, `weft-rag` → `weft-kernel`, because G19 leaves two
     published names. That is small and it is not vacuous — the assertion below refuses an empty

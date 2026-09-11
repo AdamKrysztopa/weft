@@ -6,17 +6,17 @@ doctor` gains one column, not a new command: the version of each active distribu
 either answer, because `doctor` has to be able to *say* what is installed before any policy can
 act on it."
 
-**A distribution with no recorded metadata is reported, never dropped.** `docs/lessons.md` L5.9:
-an absent answer means *"I did not find it"*, and the place that fact has to survive to is the
-operator's screen. So the reader omits the key and `weft_cli.plugins_report` renders the omission
-as *"version not recorded"* — a `doctor` that silently printed nothing for a distribution it
-could not measure would be the diagnostic command hiding the diagnosis.
+**A distribution with no recorded metadata is reported, never dropped.** `docs/internal/lessons.md`
+L5.9: an absent answer means *"I did not find it"*, and the place that fact has to survive to is the
+operator's screen. So the reader omits the key and `weft_cli.plugins_report` renders the omission as
+*"version not recorded"* — a `doctor` that silently printed nothing for a distribution it could not
+measure would be the diagnostic command hiding the diagnosis.
 
-**Why the assertion is against `pyproject.toml` and not against `importlib.metadata`.** Reading
-the same source the code under test reads would compare a function to itself (`docs/lessons.md`
+**Why the assertion is against `pyproject.toml` and not against `importlib.metadata`.** Reading the
+same source the code under test reads would compare a function to itself (`docs/internal/lessons.md`
 L5.6). The installed version of `weft-kernel` is checked against the number its own distribution
-declares, which is a second source and can genuinely disagree — a stale editable install is
-exactly the case `weft_cli.skew` exists for.
+declares, which is a second source and can genuinely disagree — a stale editable install is exactly
+the case `weft_cli.skew` exists for.
 """
 
 import tomllib

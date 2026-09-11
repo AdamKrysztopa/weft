@@ -88,7 +88,7 @@ itself.** `repl_completions(registry, prefix)` is a pure function: every `Comman
 commands*: "They appear in `weft --help`, in REPL completion" — a stranger's registered command
 appears in this function's output the moment it registers, with nothing here naming it, which is
 exactly the property `--help` already has. Task 3.8 is the *automated proof* that a real
-installed stranger's command shows up here (`docs/build-ledger.md`'s own line for it); this
+installed stranger's command shows up here (`docs/internal/build-ledger.md`'s own line for it); this
 module wires it into Python's `readline` for a real interactive session (`_install_completer`)
 but the pure function above is what a test — 3.8's, or this file's own — can call directly,
 without a pty or a keypress.

@@ -2,7 +2,7 @@ name: index-pdf
 # **The first shipped ingest document that reads a PDF**, and ledger task `9.8` needs it to exist:
 # that task's own clause is *"through a shipped ingest document"*, and measured 2026-09-06 no
 # document in this tree named a PDF extractor at all. `weft index --extract pdf-layout` reached one
-# by hand, which is exactly the gap `docs/build-ledger.md` 2.8 describes for stages generally — a
+# by hand, which is exactly the gap `docs/internal/build-ledger.md` 2.8 describes for stages generally — a
 # plugin registered, listed by `weft plugins list`, and placeable by nobody.
 #
 # **Derived rather than written out, because the difference is one stage.** Everything after

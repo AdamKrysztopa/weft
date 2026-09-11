@@ -4,7 +4,7 @@ Weft is pre-alpha: the architecture is settled, the code is not yet written. Tha
 moment to contribute and an unusually opinionated one to contribute to, because most of the design
 questions you might want to open have already been argued out and recorded.
 
-**Start with [`docs/README.md`](docs/README.md).** It holds the current phase, the decision log, and
+**Start with [`docs/internal/README.md`](docs/internal/README.md).** It holds the current phase, the decision log, and
 which document owns what. Nothing here repeats it.
 
 ---
@@ -12,7 +12,7 @@ which document owns what. Nothing here repeats it.
 ## Before you write code
 
 **Check whether your change touches an open decision.** There are ten architecture gates in
-[`docs/05-grilling-sessions.md`](docs/05-grilling-sessions.md); six are closed and four are not. Each
+[`docs/internal/05-grilling-sessions.md`](docs/internal/05-grilling-sessions.md); six are closed and four are not. Each
 records its question, the positions to attack, what evidence to bring, and what "done" looks like.
 
 - **Touches a closed gate?** The decision stands. If you think it's wrong, say so in an issue with

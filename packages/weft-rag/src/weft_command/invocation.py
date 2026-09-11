@@ -1,17 +1,17 @@
 """The command invocation seam — ledger task **7.0** — where consent is a required argument.
 
-`docs/05-grilling-sessions.md` → G12, settled 2026-09-06, and `docs/03-cli.md` → *Permissions* →
-*What a permission class means when the caller is never a TTY*. The gate G12 depends on
-(`weft_cli.confirm.gate`) was called from exactly one place — inside `weft_cli.cli.run_command`,
+`docs/internal/05-grilling-sessions.md` → G12, settled 2026-09-06, and `docs/03-cli.md` →
+*Permissions* → *What a permission class means when the caller is never a TTY*. The gate G12 depends
+on (`weft_cli.confirm.gate`) was called from exactly one place — inside `weft_cli.cli.run_command`,
 which takes an `argparse.Namespace` and returns a `Rendered`. The typed result task 7.3 requires
-comes from `Command.run`, and **nothing gated `Command.run`**. So the ceiling G12 settled was
-prose on the exact path Phase 7 is told to take: the *control that looks like enforcement and is
-not* which `02` §2 refuses.
+comes from `Command.run`, and **nothing gated `Command.run`**. So the ceiling G12 settled was prose
+on the exact path Phase 7 is told to take: the *control that looks like enforcement and is not*
+which `02` §2 refuses.
 
 **The repair is not "call the gate from a second place".** That reproduces the defect one caller
-later, and `docs/lessons.md` `L8.31` is the general form: placing a concern at *"the one place
-that calls X"* is a bet there will never be a second caller, and the bet's expiry is written down
-nowhere. What this module makes true is that **the invocation seam itself takes the consent
+later, and `docs/internal/lessons.md` `L8.31` is the general form: placing a concern at *"the one
+place that calls X"* is a bet there will never be a second caller, and the bet's expiry is written
+down nowhere. What this module makes true is that **the invocation seam itself takes the consent
 decision as a required argument**, so a caller that has not made one cannot construct the call at
 all. That is the same shape `CLAUDE.md` already requires of every other cross-cutting concern:
 attached at the seam, never left to a rule an author must remember.
@@ -67,8 +67,8 @@ async def invoke(
 ) -> Outcome[CommandResult]:
     """Ask `consent` first, then run `instance` through the kernel seam.
 
-    `consent` has no default — a caller that has not decided anything cannot construct this
-    call, which is the property `docs/lessons.md` `L8.24` names: a defaulted parameter with one
+    `consent` has no default — a caller that has not decided anything cannot construct this call,
+    which is the property `docs/internal/lessons.md` `L8.24` names: a defaulted parameter with one
     caller is a narrowing wearing a default. Consent is asked for every command, whatever its
     `permission_class`; this function never inspects that attribute itself.
     """

@@ -57,7 +57,7 @@ jobs:
       # commits still reachable from HEAD, and a depth-1 checkout can reach none of them — so the
       # job failed from 2026-09-07 with "not one recorded sha names a commit still reachable",
       # which is that check being asked its question in an environment that cannot answer it.
-      # Green locally the whole time, because a developer's clone has the history. `docs/lessons.md`
+      # Green locally the whole time, because a developer's clone has the history. `docs/internal/lessons.md`
       # `L7.2` and `L7.6` are the same shape twice over: the gate you ran is only the gate if the
       # environment is.
       - uses: actions/checkout@v4
@@ -72,7 +72,7 @@ jobs:
       - name: Set up Python
         run: uv python install
 
-      # `docs/lessons.md` `L12.7`, and **it is here rather than in `poe ci-checks` for a reason
+      # `docs/internal/lessons.md` `L12.7`, and **it is here rather than in `poe ci-checks` for a reason
       # the first attempt discovered by being vacuous.** A plant-and-revert reverted a
       # `pyproject.toml` and left the planted extra in `uv.lock`; a full local gate then passed
       # against it, because every check that reads extras reads the manifest and nothing asked
@@ -100,7 +100,7 @@ jobs:
         run: uv run poe ci-checks
         env:
           WEFT_DATABASE_URL: postgresql://weft:weft@localhost:5433/weft
-          # **The operator's claim about how many tests should skip — `docs/lessons.md` `L11.22`,
+          # **The operator's claim about how many tests should skip — `docs/internal/lessons.md` `L11.22`,
           # and it lives here rather than in `pyproject.toml` because a skip count is a fact about
           # an *environment*.** This job declares its services and its install steps above, so it
           # is the one environment in this project that can honestly state the number. A
@@ -123,9 +123,13 @@ jobs:
           # in `tests/architecture/` uses.
           #
           # Before this existed, this job ran **39 fewer tests than a local gate** and reported
-          # green on every push since Qdrant was added, which is `docs/lessons-archive.md` `L7.8`
+          # green on every push since Qdrant was added, which is `docs/internal/lessons-archive.md` `L7.8`
           # living in CI rather than on a laptop.
-          WEFT_TEST_EXPECTED_SKIPS: "48"
+          # **48 -> 66 on 2026-09-11**, when `docs/internal/` left version control. Measured
+          # rather than reasoned: the same suite locally skips 9 with those files present and
+          # 27 without them, so every environment gains exactly 18. A clean checkout is what
+          # this job is, which is why the number moves here and not in `pyproject.toml`.
+          WEFT_TEST_EXPECTED_SKIPS: "66"
 
   # Fast feedback on a pull request, and **not a gate**. The `gate` job above is the canonical
   # full run and this job cannot stand in for it: it runs only the tests the diff can have

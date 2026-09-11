@@ -12,27 +12,27 @@ of those outcomes, from many samples, are folded into one number a human reads.
 subtract it from the total by hand. `MetricAggregate.excluded` below is that count, on the type,
 not left to be reconstructed.
 
-**No bare mean, by construction.** `aggregate()` has exactly one success path, and its only
-output is `Produced[MetricAggregate]` — there is no function anywhere in this module, or in the
-public surface it exports, that hands back a bare `float`. `MetricAggregate.mean` and
+**No bare mean, by construction.** `aggregate()` has exactly one success path, and its only output
+is `Produced[MetricAggregate]` — there is no function anywhere in this module, or in the public
+surface it exports, that hands back a bare `float`. `MetricAggregate.mean` and
 `MetricAggregate.stdev`/`.n` are fields on the same frozen model; a caller who wants the mean
-receives the dispersion it was measured with in the same object, not a sibling value it could
-forget to read — the identical move 4.1 made for `MetricScore`/`error` (`docs/build-ledger.md`
+receives the dispersion it was measured with in the same object, not a sibling value it could forget
+to read — the identical move 4.1 made for `MetricScore`/`error` (`docs/internal/build-ledger.md`
 4.1: "there is no `float` field sitting beside an `error` string a caller could forget to check").
 
-**Dispersion, the choice and why.** Sample standard deviation, alongside `n`. Not an interval:
-`09` §4's own interval language belongs to V3 (a baseline's *repeat count* spans a range across
-repeated *runs* of the same pipeline — task 4.8's concern, over runs, not samples). V4's dispersion
-is over *samples within one run* — how spread out one metric's per-sample scores were — and
-standard deviation is the textbook measure of spread for a set of real-valued observations: it
-uses every observation, not just the two extremes a min/max range would keep, and it composes
-with `n` the way a reader needs to judge how much to trust it (`n=2` and `n=200` at the identical
-`stdev` are not equally trustworthy, and `n` travels on the same object). A single observation has
-no real spread to report — `docs/build-ledger.md` 4.1 already states this ("a standard deviation
-of one observation is not a real quantity, so this task carries none") for a single `MetricScore`;
-the aggregate honours the identical rule at `n == 1`, where `stdev` is `None` rather than `0.0` —
-`0.0` would silently claim measured, zero spread, which is a different, stronger and unearned
-claim for one data point.
+**Dispersion, the choice and why.** Sample standard deviation, alongside `n`. Not an interval: `09`
+§4's own interval language belongs to V3 (a baseline's *repeat count* spans a range across repeated
+*runs* of the same pipeline — task 4.8's concern, over runs, not samples). V4's dispersion is over
+*samples within one run* — how spread out one metric's per-sample scores were — and standard
+deviation is the textbook measure of spread for a set of real-valued observations: it uses every
+observation, not just the two extremes a min/max range would keep, and it composes with `n` the way
+a reader needs to judge how much to trust it (`n=2` and `n=200` at the identical `stdev` are not
+equally trustworthy, and `n` travels on the same object). A single observation has no real spread to
+report — `docs/internal/build-ledger.md` 4.1 already states this ("a standard deviation of one
+observation is not a real quantity, so this task carries none") for a single `MetricScore`; the
+aggregate honours the identical rule at `n == 1`, where `stdev` is `None` rather than `0.0` — `0.0`
+would silently claim measured, zero spread, which is a different, stronger and unearned claim for
+one data point.
 
 **The `k`-in-the-name check runs on the reported name, not the plugin's own property — R5.** A
 metric's own `metric_name` property can build the correct name from its own `k` and still not
@@ -156,7 +156,7 @@ class MetricAggregate(BaseModel):
     `Failed` observations this aggregate excluded from `mean`; `nothing_to_produce` counts the
     `NothingToProduce` observations, kept distinct from `excluded` because an absence and an error
     are not the same claim — conflating them is exactly the zero-vs-error accident this suite
-    refuses one level down, at the per-sample result (`docs/build-ledger.md` 4.1).
+    refuses one level down, at the per-sample result (`docs/internal/build-ledger.md` 4.1).
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")

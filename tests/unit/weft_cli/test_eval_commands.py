@@ -813,7 +813,7 @@ def _run_record_with(*, model_versions: dict[str, str]) -> RunRecord:
 
     That is the dimension `R10.3` is about, and holding the other two fixed is what makes the
     assertion about this one: `_incomparable_reasons` reads three facts, and a fixture varying
-    more than one of them would pass whatever the repair did (`docs/lessons.md` `L12.6`).
+    more than one of them would pass whatever the repair did (`docs/internal/lessons.md` `L12.6`).
     """
     return build_run_record(
         recorded_at="2026-08-20T00:00:00+00:00",
@@ -825,7 +825,7 @@ def _run_record_with(*, model_versions: dict[str, str]) -> RunRecord:
 
 
 def test_model_versions_records_what_a_role_resolved_to_not_only_stage_config() -> None:
-    """Carried repair **R10.3** (`docs/lessons.md` `L10.5`).
+    """Carried repair **R10.3** (`docs/internal/lessons.md` `L10.5`).
 
     `_model_versions` reads each resolved stage's own `config` for a `model` field, generically,
     and that is right as far as it goes — `OpenAIEmbedderConfig.model` is pinned by it and
@@ -903,7 +903,8 @@ def _private_member(module: object, name: str) -> Any:
 async def test_reuse_index_scores_against_what_is_already_stored(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Carried repair **R10.4** (`docs/lessons.md` `L10.25`, and `L11.46` from the other end).
+    """Carried repair **R10.4** (`docs/internal/lessons.md` `L10.25`, and `L11.46` from the other
+    end).
 
     `weft eval run` always indexes. Comparing two **query** rungs therefore means running it
     twice against the same corpus, and each run re-ingests — which is harmless for a

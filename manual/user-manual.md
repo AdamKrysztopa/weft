@@ -7,7 +7,7 @@ becomes a document, one you can derive from another without touching what it der
 
 **Every example below is Python, not the CLI, and that is honest rather than a choice.** There is
 no `weft pipeline derive` command yet — that is Phase 3's CLI surface
-(`docs/build-ledger.md` 3.7) — so today the only way to open a pipeline document and resolve it is
+(`docs/internal/build-ledger.md` 3.7) — so today the only way to open a pipeline document and resolve it is
 the same call a future command will make on your behalf: `weft_cli.pipeline_catalogue` to open the
 file, `weft_kernel.resolution.resolve` to derive it. Definitions link to
 [`docs/02-extension-model.md`](../docs/02-extension-model.md) §3 rather than restating them; this
@@ -44,7 +44,7 @@ in the document itself says "this is a chunker." The four fields on a stage:
 the stage — `weft pipeline show` prints it.** One gate in front of the runner still reads the
 primary alone: `weft index` decides whether a directory is readable from the formats the primary
 plugin claims, so a chain whose *fallback* claims the format is refused before the run it was
-written to survive. `docs/lessons.md` `L8.19` carries that measurement, and no ledger task owns the
+written to survive. `docs/internal/lessons.md` `L8.19` carries that measurement, and no ledger task owns the
 repair yet. Read the scope note at the end of this section before you rely on one. Where a chain
 does run, the names are tried in order until one answers, and what counts as an answer is the
 outcome the plugin returned, never a guess at its value:
@@ -88,7 +88,7 @@ carrying a `fallback` list. Nothing that opens a *pipeline document* does that y
 pins its own four stages and has no `--fallback` option, and `weft_kernel.resolution.resolve` — the
 call every example on this page makes — carries a `fallback:` list through into the resolved form
 and executes nothing. The missing link is `weft_cli/compile.py`, which turns a resolved document
-into `StageSpec`s (`docs/build-ledger.md` 2.4 and 2.8). So a `fallback:` you write today is stored,
+into `StageSpec`s (`docs/internal/build-ledger.md` 2.4 and 2.8). So a `fallback:` you write today is stored,
 derived and diffed exactly as described above — and until that task lands, no `weft` command tries a
 second backend on your behalf, and no `UnknownFallbackError` reaches you through one.
 

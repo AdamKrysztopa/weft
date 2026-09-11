@@ -3,7 +3,7 @@
 Mirrors `packages/weft-rag/src/weft_kg/resolution.py` — the **pure** half of the resolution pass:
 no I/O, no model, no async. The SQL half lives in `weft_kg.store` and is exercised against the
 real container in `test_store.py`, because a resolution that agrees with a double and disagrees
-with Postgres is the failure `docs/lessons.md` L6.14 records.
+with Postgres is the failure `docs/internal/lessons.md` L6.14 records.
 
 **Carried prior work, under `NOTICE` case 2.** The initialism rule, the Schwartz–Hearst
 definition patterns, the acronym-collision guard and the union-find are the project owner's own
@@ -266,10 +266,10 @@ def test_a_short_form_matching_two_long_forms_merges_with_neither() -> None:
 def test_an_initialism_with_no_cosine_at_all_is_not_merged() -> None:
     """A missing vector means *not known*, never *close enough*.
 
-    A pair whose alias rows carry no embedding cannot clear a floor, and treating an absent
-    cosine as passing would make signal 3 fire hardest exactly where there is least evidence —
-    the inverse of what a gate is for. `docs/lessons.md` L5.9's rule for an empty collection,
-    applied to a missing number.
+    A pair whose alias rows carry no embedding cannot clear a floor, and treating an absent cosine
+    as passing would make signal 3 fire hardest exactly where there is least evidence — the inverse
+    of what a gate is for. `docs/internal/lessons.md` L5.9's rule for an empty collection, applied
+    to a missing number.
     """
     # Act
     resolved = resolve_clusters(["RRF", "Reciprocal Rank Fusion"], similar_pairs=(), cosines={})

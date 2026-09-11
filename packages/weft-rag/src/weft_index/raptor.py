@@ -1,6 +1,6 @@
 """`raptor` — the second `Expander`. Task **2.32**.
 
-`docs/build-ledger.md`: "a query too broad for any one chunk is answerable, because
+`docs/internal/build-ledger.md`: "a query too broad for any one chunk is answerable, because
 summaries of clustered chunks are themselves retrievable nodes, and a summary that cannot
 be produced degrades the tree rather than failing the run." `10` §1.2's own row: Parth
 Sarthi, Salman Abdullah, Aditi Tuli, Shubh Khanna, Anna Goldie, Christopher D. Manning,
@@ -56,13 +56,13 @@ the property this sort restores — a stable ordering fixes the defect without a
 least-evidenced component of any of them, and the divergence from UMAP+GMM stated above still
 stands.
 
-**One level per invocation, and today that is all this plugin claims.** A summary
-`Node.combine` builds carries no embedding — `Node.combine`'s own docstring says only that
-its parents are explicit and never empty; it is `Node.derive`'s docstring that states the
-"embedding is not carried over" rule, corrected here after `docs/lessons.md` L10.14 found the
-attribution wrong. Either way, a freshly combined summary starts with no vector of its own.
-`max_levels` is still not a field on this plugin: chaining levels stays the caller's job
-(`Expander.run` does not loop internally), not this plugin's.
+**One level per invocation, and today that is all this plugin claims.** A summary `Node.combine`
+builds carries no embedding — `Node.combine`'s own docstring says only that its parents are explicit
+and never empty; it is `Node.derive`'s docstring that states the "embedding is not carried over"
+rule, corrected here after `docs/internal/lessons.md` L10.14 found the attribution wrong. Either
+way, a freshly combined summary starts with no vector of its own. `max_levels` is still not a field
+on this plugin: chaining levels stays the caller's job (`Expander.run` does not loop internally),
+not this plugin's.
 
 **Embedding order, corrected against the paper rather than around it (task 10.4).** RAPTOR §3
 (p.3): "The chunks and their corresponding SBERT embeddings form the leaf nodes of our tree
@@ -171,7 +171,7 @@ the 61.05 s of ingest ledger 10.22 measured over ten PDFs), never qualitative.
 *(The scope this section used to leave unsaid was not corpus-wide either. `run` receives whatever
 one `weft index` invocation was handed, so the shipped behaviour was **batch-wide** — the same ten
 documents in one command and in two built different trees, which is neither paper's scope and was
-nobody's decision. `docs/lessons.md` L10.1.)*
+nobody's decision. `docs/internal/lessons.md` L10.1.)*
 
 **Expanding a summary to its members, and what that walk costs (task 10.8).** A summary's
 `Lineage.parents` names **the level directly below it and nothing else** — that is what 10.7
@@ -310,7 +310,7 @@ never by `random`.
 always clears something, so a naive `auto` would turn today's honest silence under `hash`
 into confident summaries over meaningless groupings. The obvious candidate — refuse a
 distribution too *narrow* to threshold — is wrong and was falsified before it was written
-(`docs/lessons.md` L10.22): measured 2026-09-07 on 107 real chunks embedded both ways,
+(`docs/internal/lessons.md` L10.22): measured 2026-09-07 on 107 real chunks embedded both ways,
 `hash` gives min/p10/median/p75/p90/max **−0.4150 / −0.1638 / −0.0028 / 0.0834 / 0.1607 /
 0.4079** (spread p90−p10 **0.3245**) and `openai-embeddings` gives **0.0096 / 0.3114 /
 0.4328 / 0.4948 / 0.5765 / 0.8469** (spread **0.2651**). The *meaningless* vectors are the

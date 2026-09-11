@@ -55,7 +55,7 @@ all — so the bundle made a complete graph backend into a three-quarters implem
 it fully had. `weft_store.contract` already answers exactly this shape, one level up, by publishing
 `VectorSearch` beside `NodeStore` rather than folding search into the base. The same answer applies
 here, and the constant below records the Protocol it would take and what would trigger writing it —
-which is deliberately **not now**, because nothing consumes it. `docs/lessons.md` `L11.29`.
+which is deliberately **not now**, because nothing consumes it. `docs/internal/lessons.md` `L11.29`.
 """
 
 from collections.abc import Mapping, Sequence
@@ -140,19 +140,18 @@ GraphTraversal.version = GRAPH_TRAVERSAL_CONTRACT_VERSION
 #: **`nearest_entities` is not published, and that is the decision rather than the omission.**
 #: Ledger `11.4` fixed four members and `11.5` removed the fourth. It belongs on a Protocol of its
 #: own — `EntityVectorSearch`, beside this one, exactly as `weft_store.contract` publishes
-#: `VectorSearch` beside `NodeStore` rather than folding search into the base — and that Protocol
-#: is **not written yet**, because nothing consumes it. `11.10`'s walk is *name → entities →
-#: neighbourhood → nodes* and never starts from a vector, so publishing the capability now would
-#: be a producing side with no consuming side, which is `docs/lessons.md` `L5.15`'s shape and the
-#: rule this project has paid for five times. **The trigger**: the first task that needs an entity
-#: ranked by an embedding writes `EntityVectorSearch` then, `@runtime_checkable`, carrying
+#: `VectorSearch` beside `NodeStore` rather than folding search into the base — and that Protocol is
+#: **not written yet**, because nothing consumes it. `11.10`'s walk is *name → entities →
+#: neighbourhood → nodes* and never starts from a vector, so publishing the capability now would be
+#: a producing side with no consuming side, which is `docs/internal/lessons.md` `L5.15`'s shape and
+#: the rule this project has paid for five times. **The trigger**: the first task that needs an
+#: entity ranked by an embedding writes `EntityVectorSearch` then, `@runtime_checkable`, carrying
 #: `GRAPH_TRAVERSAL_CONTRACT_VERSION` like every member of this family, with one member —
 #: `async def nearest_entities(self, vector: Vector, *, limit: int) -> tuple[Entity, ...]` — and
-#: never embedding for itself (G4). It is additive for a caller and additive for an implementer,
-#: so a **minor** when it lands.
-#:
-#: Recorded here rather than left implicit because the reason it is absent is not that nobody
-#: thought of it: `docs/lessons.md` `L11.29` is the measurement that removed it.
+#: never embedding for itself (G4). It is additive for a caller and additive for an implementer, so
+#: a **minor** when it lands. Recorded here rather than left implicit because the reason it is
+#: absent is not that nobody thought of it: `docs/internal/lessons.md` `L11.29` is the measurement
+#: that removed it.
 
 #: Selectable without a kernel line — see the module docstring's note on ledger task `9.0`'s
 #: form. A plain module-level constant beside the Protocol, never a `ClassVar` on it: placed in

@@ -1,6 +1,6 @@
 """The agent's tool catalogue is derived, never written — ledger task **7.2a**.
 
-`docs/05-grilling-sessions.md` → G12, settled 2026-09-06: a caller with no TTY cannot reach
+`docs/internal/05-grilling-sessions.md` → G12, settled 2026-09-06: a caller with no TTY cannot reach
 `overwrite` or `destroy`, and its autonomous reach is `read`, `write` and `network`. That is a
 **ceiling**, and a ceiling enforced by a list somebody maintains is a ceiling that holds until
 somebody forgets. This task makes it mechanical.
@@ -8,9 +8,9 @@ somebody forgets. This task makes it mechanical.
 **The falsifiable claim, and it is the whole point of the task.** A third party ships a
 `destroy`-class command tomorrow; it is out of the agent's reach *that day*, with nobody editing
 `weft-agent` and nobody adding a name to anything. A deny-list cannot make that claim — it is
-exactly the shape that is one forgotten entry away from being wrong, and `docs/lessons.md` `L8.25`
-is what a hand-kept scope list does when the tree moves under it. The filter is the mechanism, which
-is the same *derived, never declared* discipline G4 already holds capability to.
+exactly the shape that is one forgotten entry away from being wrong, and `docs/internal/lessons.md`
+`L8.25` is what a hand-kept scope list does when the tree moves under it. The filter is the
+mechanism, which is the same *derived, never declared* discipline G4 already holds capability to.
 
 **Two commands are excluded by name, and each carries its reason in code rather than in a waiver.**
 
@@ -168,9 +168,9 @@ def test_the_live_catalogue_holds_the_commands_g12_reaches_and_no_others() -> No
 
 
 def test_the_check_can_actually_fail() -> None:
-    # `docs/lessons.md` L5.6 — planted through the same predicate, so a green here cannot mean the
-    # filter stopped looking. A read-class stranger is admitted and a destroy-class one is not,
-    # from the identical registry shape.
+    # `docs/internal/lessons.md` L5.6 — planted through the same predicate, so a green here cannot
+    # mean the filter stopped looking. A read-class stranger is admitted and a destroy-class one is
+    # not, from the identical registry shape.
     from weft_agent.tools import tool_catalogue
 
     admitted = tool_catalogue(_registry_with(thing=_Stranger))

@@ -5,7 +5,7 @@ labels: decision
 ---
 
 **Which gate**
-<!-- G0-G9, from docs/05-grilling-sessions.md -->
+<!-- G0-G9, from docs/internal/05-grilling-sessions.md -->
 
 **What the decision says, and where**
 

@@ -5,7 +5,7 @@ pipeline is a frozen Pydantic model the kernel publishes, which YAML
 deserialises into and Python constructs directly — one validator, one error
 set, no builder DSL* (`docs/02-extension-model.md` §3 → *One model, two
 directions*). Extended by task **1.4**, which settles the question
-`docs/build-ledger.md` left open after 1.1: the four derivation operators
+`docs/internal/build-ledger.md` left open after 1.1: the four derivation operators
 stay four keyed document blocks — `insert`, `replace`, `remove`, `set` — and
 the order those blocks appear in a document (or a Python call's keyword
 arguments) is the order they apply, read off the input rather than assumed

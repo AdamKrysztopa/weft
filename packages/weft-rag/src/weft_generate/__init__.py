@@ -68,7 +68,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     `__namespace__ = "weft-generate"`, so `weft_store.rehydrate.ext_models` — one class
     per namespace, globally — would raise `DuplicateRegistrationError` the moment both
     are active, which `contradiction-check` and `refine-on-uncertainty` together already
-    are in this pack's own default pipelines. `docs/lessons.md` L5.20 records this as the
+    are in this pack's own default pipelines. `docs/internal/lessons.md` L5.20 records this as the
     reason `add_ext_model` is for an `ExtModel` that reaches a `Node`, not for every
     `ExtModel` a pack happens to own — see `weft_retrieve.__init__`'s own module
     docstring for the identical finding against `BooleanPlan`/`CorrectiveTrace`/

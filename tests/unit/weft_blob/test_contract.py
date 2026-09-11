@@ -7,13 +7,12 @@ stage, and
 produces a `Node` and why bytes reaching it never enter the payload.
 
 **Published from its own pack, and deliberately not from `weft_store`.**
-`weft_cli.contract_reference.capability_siblings` enumerates a contract pack's public module,
-so a `BlobStore` exported from `weft_store` would be advertised as a store-family capability
-that no node store satisfies —
-`weft plugins doctor` would report every store as missing a capability it was never meant to have.
-`weft_blob` is a pack of its own inside the `weft-rag` distribution, which is the *module home the
-ledger leaves to the brief* (`docs/build-ledger.md` 9.4; `11` §3's revision log settles that it is
-not a separate wheel).
+`weft_cli.contract_reference.capability_siblings` enumerates a contract pack's public module, so a
+`BlobStore` exported from `weft_store` would be advertised as a store-family capability that no node
+store satisfies — `weft plugins doctor` would report every store as missing a capability it was
+never meant to have. `weft_blob` is a pack of its own inside the `weft-rag` distribution, which is
+the *module home the ledger leaves to the brief* (`docs/internal/build-ledger.md` 9.4; `11` §3's
+revision log settles that it is not a separate wheel).
 
 It joins `weft delete`'s fan-out by satisfying `SourceDeletable` structurally and declaring nothing
 — `weft_cli.fanout.participants_for` walks every registered contract and asks `issubclass`.

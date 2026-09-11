@@ -30,14 +30,14 @@ fields and the edges between them. **Nothing writes these rows yet**: `11.6` and
 tasks that produce entities, so the tests below seed them through the same public store the
 producers will, and the traversal's first real consumer is `11.10`.
 
-**Three traversal semantics decided here, from the documents, because the contract admits more
-than one reading and only one can be built on.** *(i)* `nodes_for_entities` keys the mapping on
-exactly the requested ids **the store holds a row for** — an id it does not hold is absent, never a
-key with an empty tuple, because `docs/lessons.md` L5.9's rule is that an empty collection means
-"I did not find it" and a caller must be able to tell that from "found it, it has nothing".
-*(ii)* `neighbourhood` walks relations **undirected**: a relation is stored with a direction because
-it has one, but *"the neighbourhood of an entity"* is a question about reach, and a retrieval walk
-that could only travel one way would miss the half of the graph pointing at its seed. The seed is
+**Three traversal semantics decided here, from the documents, because the contract admits more than
+one reading and only one can be built on.** *(i)* `nodes_for_entities` keys the mapping on exactly
+the requested ids **the store holds a row for** — an id it does not hold is absent, never a key with
+an empty tuple, because `docs/internal/lessons.md` L5.9's rule is that an empty collection means "I
+did not find it" and a caller must be able to tell that from "found it, it has nothing". *(ii)*
+`neighbourhood` walks relations **undirected**: a relation is stored with a direction because it has
+one, but *"the neighbourhood of an entity"* is a question about reach, and a retrieval walk that
+could only travel one way would miss the half of the graph pointing at its seed. The seed is
 excluded from its own neighbourhood.
 
 **A third semantic was decided here and then removed.** `nearest_entities` ranked entities by
@@ -205,7 +205,7 @@ async def test_entities_are_found_by_name(store: GraphStore, walk: GraphWalk) ->
     # Two aliases nothing has merged are two entities. Asserted against `Azouz` rather than
     # against an id this test computed, because `_entity_of` asks `entities_by_name` — the
     # function under test — so comparing the two would be one source on both sides of a
-    # comparison that then cannot disagree (`docs/lessons.md` L5.6).
+    # comparison that then cannot disagree (`docs/internal/lessons.md` L5.6).
     [azouz] = await walk.entities_by_name(["Azouz"])
     assert found[0].id != azouz.id
 
@@ -788,7 +788,7 @@ async def test_a_source_with_nothing_of_this_pack_s_own_reports_no_kinds(
     A participant reporting `fact: 0, mention: 0, entity: 0` says *"I looked and found none"* in
     a shape indistinguishable from *"I do not count these"* once a reader is scanning a column of
     numbers. Absent kinds are how `Removed`'s own open vocabulary says nothing of that kind was
-    there — `docs/lessons.md` L5.9, one model over.
+    there — `docs/internal/lessons.md` L5.9, one model over.
     """
     # Arrange — an ordinary chunk carrying none of this pack's ext.
     await store.add([_node("nothing derived from this", source="doc-b")])

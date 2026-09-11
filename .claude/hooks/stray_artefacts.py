@@ -9,7 +9,7 @@ afterwards, which is the whole reason this file exists.
 **It warns; it never deletes.** An artefact might be deliberate, and a hook that removed
 a file someone meant to keep would be worse than the mess it tidied. For the same
 reason `weft.toml` is deliberately *not* gitignored: making it invisible hides the
-mistake instead of surfacing it, which is the failure `docs/README.md` opens by
+mistake instead of surfacing it, which is the failure `docs/internal/README.md` opens by
 describing.
 
 Existence at the root is the whole test, and no `git` call is needed to decide it: this

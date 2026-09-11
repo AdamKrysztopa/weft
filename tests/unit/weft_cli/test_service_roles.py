@@ -8,11 +8,11 @@ requires each to be tested without the others standing in for it.
 What this file is about is a **key space that no longer lives in `weft-cli`**. Until 9.0 the
 `[services]` keys were three fixed fields on `ServiceSelection`
 (`packages/weft-rag/src/weft_cli/services.py:141 'class Serv'`), so a pack publishing a new run-wide
-service had no way to be selected without an edit to this distribution — requirement 1
-failing for the next pack, which is what Phase 7's close filed rather than fixed
-(`docs/build-ledger.md:4358-4366 'emits prose'`, finding *(a)*). Here the set is contributed: a pack
-declares a `ServiceRole` beside the contract it publishes, discovery carries it on the pack's
-own report, and `weft-cli` reads the set rather than stating it.
+service had no way to be selected without an edit to this distribution — requirement 1 failing for
+the next pack, which is what Phase 7's close filed rather than fixed
+(`docs/internal/build-ledger.md:4370-4366 'emits prose'`, finding *(a)*). Here the set is
+contributed: a pack declares a `ServiceRole` beside the contract it publishes, discovery carries it
+on the pack's own report, and `weft-cli` reads the set rather than stating it.
 
 **`route` is deliberately not a role.** It names a *pipeline document* resolved in the
 contributed catalogue, not a plugin resolved in the registry
@@ -63,9 +63,8 @@ def _report(
 def test_a_role_a_stranger_pack_declared_joins_the_selectable_set() -> None:
     """Requirement 1, for the next pack: a run-wide service becomes selectable on install.
 
-    `docs/build-ledger.md:5024-5027 'is the d'` — "`[services].<role>` names one plugin for a role
-    the
-    contract-publishing pack declares selectable". Nothing in this distribution names
+    `docs/internal/build-ledger.md:5036-5027 'is the d'` — "`[services].<role>` names one plugin for
+    a role the contract-publishing pack declares selectable". Nothing in this distribution names
     `"blobs"`; it is reachable because a pack said so.
     """
     # Arrange
@@ -140,12 +139,11 @@ def test_two_packs_declaring_one_role_key_are_refused_naming_both() -> None:
 def test_the_two_roles_whose_names_predate_the_mechanism_arrive_through_it() -> None:
     """`embed` and `store` are declared, not special-cased.
 
-    `docs/build-ledger.md:5028-5030 's ticked'`: "`embed` and `store` stay as the two roles whose
-    names
-    predate the mechanism". *Stay as* is the whole point — if `weft-cli` kept naming them
-    itself, the mechanism would have one exception and requirement 1 would still fail for the
+    `docs/internal/build-ledger.md:5040-5030 's ticked'`: "`embed` and `store` stay as the two roles
+    whose names predate the mechanism". *Stay as* is the whole point — if `weft-cli` kept naming
+    them itself, the mechanism would have one exception and requirement 1 would still fail for the
     pack that needed the exception. Read off real discovery rather than a double, per
-    `docs/lessons.md` L6.4: a marker means what its live instances say.
+    `docs/internal/lessons.md` L6.4: a marker means what its live instances say.
     """
     # Arrange
     from weft_cli import registry_bootstrap
@@ -190,7 +188,7 @@ def test_a_declared_role_nothing_selected_is_absent_rather_than_guessed() -> Non
     A role carries no default of its own — `01`'s least-architecture check, and `L6.14`: a
     field no shipped pack writes answers emptily rather than usefully. `embed` and `store`
     keep defaults because their names predate the mechanism
-    (`docs/build-ledger.md:5028 's ticked'`),
+    (`docs/internal/build-ledger.md:5040 's ticked'`),
     and those two defaults live in `weft_cli.services` where they always have.
 
     `CLAUDE.md`: a silent fallback is worse than a failure — it produces a plausible answer
@@ -256,9 +254,9 @@ def test_weft_config_offers_a_dotted_key_for_a_role_no_one_here_named() -> None:
     `[services]` block, and it had already drifted: it listed `services.embed` and
     `services.store` and never `services.route`, which task 8.3 added to `ServiceSelection`
     and wired into `route_ask`. Two key spaces over one block, derived from different
-    sources, is the failure `docs/README.md`'s own opening rule names — and the test that
+    sources, is the failure `docs/internal/README.md`'s own opening rule names — and the test that
     should have caught it asserted the five keys as a *literal*, so both sides of the
-    comparison came from the same hand and it could not fail (`docs/lessons.md` L9.28).
+    comparison came from the same hand and it could not fail (`docs/internal/lessons.md` L9.28).
 
     The stranger role here is the second source that makes this check non-vacuous: nothing in
     this distribution writes `"blobs"` anywhere.

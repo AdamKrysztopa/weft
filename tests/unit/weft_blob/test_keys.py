@@ -10,7 +10,7 @@ directory through the shipped binary and reading `weft_sources`: a real `SourceI
 `/private/tmp/.../corpus/doc.txt`. `SourceId` is `NewType("SourceId", str)` and constrains nothing,
 and the ingest path assigns the source's URI — so the layout as written puts a leading `/` and every
 interior separator into a storage key, and a source whose path contains `..` walks out of the
-configured root without anyone attacking anything (`docs/lessons.md` `L9.53`).
+configured root without anyone attacking anything (`docs/internal/lessons.md` `L9.53`).
 
 So the source segment is a **hex digest of the source id**. Every property the design argued for is
 kept: the key is derived, one function derives it, and `source_prefix` derives the same segment the

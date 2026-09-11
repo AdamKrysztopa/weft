@@ -545,7 +545,7 @@ async def test_every_cluster_degrading_fails_rather_than_looking_like_a_complete
 #: {60°,80°,100°} and leaves 120° alone; walked backwards it groups {120°,100°,80°},
 #: {60°,40°,20°} and leaves 0° alone. Seven rather than six because six is symmetric under
 #: reversal and would have produced the *same* two groups both ways — a control that cannot
-#: disagree, which is `docs/lessons.md` L9.58's shape exactly.
+#: disagree, which is `docs/internal/lessons.md` L9.58's shape exactly.
 _FAN = tuple(
     Vector(values=(math.cos(math.radians(20 * step)), math.sin(math.radians(20 * step))))
     for step in range(7)
@@ -638,7 +638,7 @@ def _passages_shown(rendered: str) -> list[str]:
     Read out of the rendered prompt rather than recomputed from the members and the budget.
     Recomputing the even share here would compare `_format_cluster`'s arithmetic against a
     second copy of itself, and a coverage record derived from the same division as the
-    truncation cannot disagree with it (`docs/lessons.md` L9.28). What this parses is the
+    truncation cannot disagree with it (`docs/internal/lessons.md` L9.28). What this parses is the
     request that left the plugin.
     """
     block = rendered.split("Passages:\n", 1)[1].split("\n\nWrite one summary", 1)[0]
@@ -1301,7 +1301,7 @@ async def test_auto_refuses_a_distribution_with_no_structure_naming_the_embedder
     the wrong data, which is the one failure `CLAUDE.md` names outright.
 
     The criterion is **the median observed pairwise similarity, refused at zero or below**, and
-    the obvious alternative was falsified before it was written (`docs/lessons.md` L10.22).
+    the obvious alternative was falsified before it was written (`docs/internal/lessons.md` L10.22).
     Measured on 107 real chunks embedded both ways: `hash` gives median **−0.0028** and spread
     (p90−p10) **0.3245**; `openai-embeddings` gives median **0.4328** and spread **0.2651**. The
     *meaningless* vectors are the more spread out — they are near-orthogonal random directions,
@@ -1414,7 +1414,7 @@ async def test_a_resolved_cluster_size_below_min_cluster_size_is_refused() -> No
     identical effective configuration was **loud one way and silent the other**: every cluster
     capped below the minimum, `summarizable` permanently empty, and `Produced` with the payload
     unchanged, indistinguishable from the honest case where this run's clusters were merely too
-    loose (`docs/lessons.md` L10.30).
+    loose (`docs/internal/lessons.md` L10.30).
 
     The nodes here are long on purpose: `_resolve_cluster_size` is
     `max(2, max_cluster_chars // mean_chars)`, so content well over half the budget forces the
@@ -1761,8 +1761,8 @@ def test_a_run_tally_that_was_never_computed_reads_as_absent_not_as_one() -> Non
     `clusters_found`/`clusters_summarised` defaulted to `1` until task 10.20, and `1`/`1` is a
     perfectly coherent claim — *this run found one cluster and summarised it*. On a **frozen,
     persisted** model that is a false fact no reader can tell from a true one, and it outlives the
-    process (`docs/lessons.md` L10.31). The two `resolved_*` fields beside them already do it the
-    honest way, with `None` for *not stated*.
+    process (`docs/internal/lessons.md` L10.31). The two `resolved_*` fields beside them already do
+    it the honest way, with `None` for *not stated*.
 
     **Required-with-no-default is not the fix and was tried first**: `_summarize` builds this model
     and, by its own docstring, *"sees a single cluster, never how many the run had"* — it has no
@@ -1910,7 +1910,7 @@ async def test_min_cluster_size_is_refused_whether_cluster_size_was_typed_or_res
     `min_cluster_size` cannot exceed `cluster_size`: no cluster could ever reach the minimum
     needed to be summarised, so the run would silently summarise nothing. Typed, that is a
     config-time `ValueError`. Resolved from `auto`, the number does not exist until `run` sees
-    this run's own payload — and `docs/lessons.md` `L10.30` is that the check was therefore
+    this run's own payload — and `docs/internal/lessons.md` `L10.30` is that the check was therefore
     **absent** on that path, so `cluster_size: auto` was an exemption from a rule an operator
     who typed the same number could not escape.
 

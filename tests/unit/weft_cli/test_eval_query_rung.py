@@ -4,7 +4,7 @@ Phase 8's Exit asks that `weft eval` report whether the difference between two o
 the query rungs of the clause above it — falls outside the interval a published baseline recorded.
 Re-checking that exit on a real wheel install found four clauses of five are facts and the fifth is
 not. Every box under Phase 8 was honestly ticked and both halves are individually demonstrable; the
-word that failed is the conjunction (`docs/lessons.md` `L8.29`).
+word that failed is the conjunction (`docs/internal/lessons.md` `L8.29`).
 
 **Two things blocked it, and only the second is interesting.** `weft eval run` refuses a query
 pipeline outright — *"has no stage registered under the Extractor contract"* — which is a

@@ -1,10 +1,10 @@
 """Run only the tests a diff can have affected — a fast local and pull-request signal.
 
-**This is not the gate and must never be wired in as one.** `uv run poe ci-checks` is the
-canonical full gate; fitness function 0 asserts every architecture check is reachable from it, and
-`docs/lessons-archive.md` `L7.8` is what a run that quietly stopped covering part of the tree
-costs. What this buys is the minutes between making an edit and finding out it broke something —
-nothing else. Every selection here is a *guess about impact*, and a guess is exactly what the gate
+**This is not the gate and must never be wired in as one.** `uv run poe ci-checks` is the canonical
+full gate; fitness function 0 asserts every architecture check is reachable from it, and
+`docs/internal/lessons-archive.md` `L7.8` is what a run that quietly stopped covering part of the
+tree costs. What this buys is the minutes between making an edit and finding out it broke something
+— nothing else. Every selection here is a *guess about impact*, and a guess is exactly what the gate
 is not allowed to be.
 
 **Reads a change set on stdin, one repository-relative path per line, and runs pytest in this
@@ -22,9 +22,10 @@ rejected on three counts, each about this tree specifically:
   where the gate a developer ran and the gate CI ran differ and nothing can notice.
 * It tracks *Python* dependencies, by coverage. The dominant genre of test here is not an
   import-shaped one: `tests/architecture` and `tests/docs` read `git ls-files`, parse
-  `pyproject.toml`, walk `docs/` and scan `.github/workflows/`. A change to `docs/README.md` or
-  `weft.toml.example` breaks tests that import nothing new, and coverage cannot see that edge.
-  The answer below is blunt and correct instead: those two suites run whenever anything does.
+  `pyproject.toml`, walk `docs/` and scan `.github/workflows/`. A change to
+  `docs/internal/README.md` or `weft.toml.example` breaks tests that import nothing new, and
+  coverage cannot see that edge. The answer below is blunt and correct instead: those two suites run
+  whenever anything does.
 * It does not run under `pytest-xdist`, which `poe test` now uses.
 
 **The graph is derived, never listed.** Modules come from `packages/*/src/*` and the edges between

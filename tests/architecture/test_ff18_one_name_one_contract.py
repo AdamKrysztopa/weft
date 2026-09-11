@@ -77,10 +77,10 @@ def test_no_registered_name_answers_to_more_than_one_contract() -> None:
 
 
 def test_the_registry_this_check_reads_is_the_populated_one() -> None:
-    # `docs/lessons.md` L5.19: a check whose subject is empty passes while looking at nothing.
-    # This one's subject is never legitimately empty — the tree registers a hundred-odd names —
-    # so the guard is that the inversion actually saw them, which is what separates "no name is
-    # ambiguous" from "no name was read".
+    # `docs/internal/lessons.md` L5.19: a check whose subject is empty passes while looking at
+    # nothing. This one's subject is never legitimately empty — the tree registers a hundred-odd
+    # names — so the guard is that the inversion actually saw them, which is what separates "no name
+    # is ambiguous" from "no name was read".
     by_name = _contracts_by_name(build_dependencies().registry)
 
     assert len(by_name) > 50, (
@@ -97,7 +97,7 @@ def test_the_registry_this_check_reads_is_the_populated_one() -> None:
 def test_the_check_can_actually_fail() -> None:
     # The non-vacuity question for this file is not "are there names" — it is "would the
     # inversion *notice* a name under two contracts", which is the only thing the real check
-    # depends on. `docs/lessons.md` L6.29: a green from a check that cannot fire is
+    # depends on. `docs/internal/lessons.md` L6.29: a green from a check that cannot fire is
     # indistinguishable from a green from a check with nothing to find. So this plants the exact
     # shape and asserts the inversion reports it.
     #

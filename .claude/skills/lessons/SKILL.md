@@ -1,11 +1,11 @@
 ---
 name: lessons
-description: Log a lesson into docs/lessons.md the moment it is paid for. Use when a mistake is caught, a documented check turns out to be prose rather than code, a claim made from intuition is falsified by measurement, a recommendation contradicts settled text, a defect is found by running the binary rather than by its tests, or any time someone says that was a lesson learned. Writing only — the queue is drained by the implement-ll skill at a phase close. A lesson not written while the reasoning is present is a lesson paid for twice.
+description: Log a lesson into docs/internal/lessons.md the moment it is paid for. Use when a mistake is caught, a documented check turns out to be prose rather than code, a claim made from intuition is falsified by measurement, a recommendation contradicts settled text, a defect is found by running the binary rather than by its tests, or any time someone says that was a lesson learned. Writing only — the queue is drained by the implement-ll skill at a phase close. A lesson not written while the reasoning is present is a lesson paid for twice.
 ---
 
 # Log a lesson
 
-`docs/lessons.md` is a **queue**. This skill writes to it; `implement-ll` drains it at a phase close.
+`docs/internal/lessons.md` is a **queue**. This skill writes to it; `implement-ll` drains it at a phase close.
 Empty is the healthy state, and an entry's job is to survive the few hours between the mistake and
 the drain — not to be permanent.
 

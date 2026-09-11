@@ -1,4 +1,4 @@
-"""`docs/build-ledger.md` 1.10 — the user manual's code and YAML is checked, not trusted.
+"""`docs/internal/build-ledger.md` 1.10 — the user manual's code and YAML is checked, not trusted.
 
 Task **1.10**: "someone using Weft day to day can derive a pipeline from the manual alone"
 (`docs/08-manuals.md` §1–§2, *User manual*). `08` §3's own rule for every shipped manual applies

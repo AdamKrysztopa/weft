@@ -1,7 +1,7 @@
 """Fitness function 9, clauses (a) and (b) — extension is proven from outside.
 
 Specified in `docs/07-extension-cost.md` section 2 and `docs/06-phase-0-build.md`
-step 10, and this file is what turns both on — `docs/build-ledger.md` 0.10:
+step 10, and this file is what turns both on — `docs/internal/build-ledger.md` 0.10:
 "turns on FF9(a), FF9(b)". Clause (c) is not this file's: `07` states it
 "active from Phase 2, the first phase that publishes a contract Phase 0 did
 not", so it has no subject yet.
@@ -160,7 +160,7 @@ class _NameCapturingRegistrar:
         5.5 — which is exactly how a hand-maintained double drifts: it grows a method when
         something calls it, so the gap is invisible for as long as nothing does.
         `test_the_double_carries_every_registrar_method` below is what stops the fourth
-        recurrence; see `docs/lessons.md` L5.26.
+        recurrence; see `docs/internal/lessons.md` L5.26.
         """
         del package, resource
 
@@ -176,9 +176,9 @@ class _NameCapturingRegistrar:
     def unavailable(self, surface: str, *, reason: str) -> None:
         """A no-op stand-in — ledger task **6.29** added this to `PackRegistrar`.
 
-        Same reason `deprecate` above is here: this double must carry every public method the
-        real registrar declares, or a pack's `register()` calling one raises `AttributeError`
-        inside whichever check happens to run it. `docs/lessons.md` **L5.26** is that rule, and
+        Same reason `deprecate` above is here: this double must carry every public method the real
+        registrar declares, or a pack's `register()` calling one raises `AttributeError` inside
+        whichever check happens to run it. `docs/internal/lessons.md` **L5.26** is that rule, and
         the completeness check enforcing it is what caught this within a minute of the method
         landing.
         """
@@ -207,16 +207,16 @@ class _NameCapturingRegistrar:
     def add_renderer(self, result_type: object, renderer: object) -> None:
         """A no-op stand-in for `PackRegistrar.add_renderer` (task 6.20, G13).
 
-        **The fourth recurrence, and the first one this file caught before a pack crashed on
-        it.** `add_pipeline_resource`'s own docstring above named the shape — a hand-maintained
-        double grows a method only when something calls it, so the gap is invisible for as long
-        as nothing does — and predicted that `test_the_double_carries_every_registrar_method`
-        below is "what stops the fourth recurrence". This is that fourth recurrence:
-        `examples/weft-example-graph`'s `register()` began calling `add_renderer` at task 6.20,
-        and the completeness test named the missing method rather than leaving clause (b)'s scan
-        to die of `AttributeError` inside whichever check happened to run it first
-        (`docs/lessons.md` L5.26). Clause (b) needs nothing from a renderer: it registers no
-        plugin name, only a way to format a result type already registered elsewhere.
+        **The fourth recurrence, and the first one this file caught before a pack crashed on it.**
+        `add_pipeline_resource`'s own docstring above named the shape — a hand-maintained double
+        grows a method only when something calls it, so the gap is invisible for as long as nothing
+        does — and predicted that `test_the_double_carries_every_registrar_method` below is "what
+        stops the fourth recurrence". This is that fourth recurrence:
+        `examples/weft-example-graph`'s `register()` began calling `add_renderer` at task 6.20, and
+        the completeness test named the missing method rather than leaving clause (b)'s scan to die
+        of `AttributeError` inside whichever check happened to run it first
+        (`docs/internal/lessons.md` L5.26). Clause (b) needs nothing from a renderer: it registers
+        no plugin name, only a way to format a result type already registered elsewhere.
         """
         del result_type, renderer
 
@@ -473,9 +473,9 @@ def structurally_naming(names: Iterable[str], *, within: Iterable[Path]) -> list
 
     Three sources, all read from the AST rather than from the text: an **import** of the pack's
     module, a string literal passed to a **registration call**, and a dotted prefix of either.
-    `docs/lessons.md` L5.28 is why this exists beside the substring scan rather than instead of
-    it: *"a name-collision check built as a substring search is unsound"* — unsound in both
-    directions, which is the half a repair specified from one instance misses (`L6.13`).
+    `docs/internal/lessons.md` L5.28 is why this exists beside the substring scan rather than
+    instead of it: *"a name-collision check built as a substring search is unsound"* — unsound in
+    both directions, which is the half a repair specified from one instance misses (`L6.13`).
 
     **Where the text scan over-fires**, a name assembled or discussed rather than used: `02` §4
     quotes `weft-kg` as a hypothetical throughout, and a real pack taking that name would turn
@@ -526,8 +526,8 @@ def _is_registration(call: ast.Call) -> bool:
 def test_no_first_party_file_names_the_example_pack_structurally() -> None:
     """Fitness function 9(b), read from the AST — ledger task **6.22**.
 
-    Runs **beside** the substring scan below, never instead of it: the two fail on different
-    things, and `docs/lessons.md` L5.28 recorded the AST half as owed while the text half was
+    Runs **beside** the substring scan below, never instead of it: the two fail on different things,
+    and `docs/internal/lessons.md` L5.28 recorded the AST half as owed while the text half was
     already in place.
     """
     # Arrange — every out-of-tree example pack's own identity, the same set clause (b) already
@@ -669,7 +669,7 @@ def test_the_double_carries_every_registrar_method() -> None:
     added to `PackRegistrar` and not to this double; the first two went unnoticed for months
     because no example pack called them, and `add_pipeline_resource` only surfaced when
     `examples/weft-example-graph` shipped a pipeline at task 5.5 — as a crash inside a check
-    about something else entirely (`docs/lessons.md` L5.26).
+    about something else entirely (`docs/internal/lessons.md` L5.26).
 
     A double is a second copy of a surface, so the only durable fix is to make the copy's
     incompleteness a failure *here*, where it is diagnosable, rather than wherever it happens
@@ -695,7 +695,8 @@ def test_the_double_carries_every_registrar_method() -> None:
 
 
 def test_no_out_of_workspace_pack_is_installed_in_the_development_environment() -> None:
-    """Clause (a)'s other half — the environment this suite runs in, `docs/lessons.md` L5.31.
+    """Clause (a)'s other half — the environment this suite runs in, `docs/internal/lessons.md`
+    L5.31.
 
     Clause (a) says an example pack is installed into a **throwaway** environment, never linked
     into this one, and `test_the_example_pack_is_outside_the_uv_workspace` above proves the
@@ -726,7 +727,8 @@ def test_no_out_of_workspace_pack_is_installed_in_the_development_environment() 
     assert not installed, (
         f"{installed} is installed into this repository's own `.venv`, and fitness function 9(a) "
         f"requires an example pack to be reachable only from a throwaway environment. It changes "
-        f"what `discover()` returns for every test in the tree (`docs/lessons.md` L5.31). Undo it "
+        f"what `discover()` returns for every test in the tree (`docs/internal/lessons.md` L5.31). "
+        f"Undo it"
         f"with `uv pip uninstall " + " ".join(installed) + "`."
     )
 

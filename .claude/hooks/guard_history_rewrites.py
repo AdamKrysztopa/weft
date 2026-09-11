@@ -2,10 +2,10 @@
 
 **This exists because the rule already existed and lost.** `.claude/agents/weft-implementer.md`
 forbids `git stash`, `git reset`, `git checkout --` and `git clean`, with the reasons, citing
-`docs/lessons.md` L6.26 — and a dispatched implementer ran `git stash` anyway, because generic
-harness guidance told it to stash before a destructive operation and the agent file's sentence
-had no mechanism behind it. That is `docs/lessons.md` L9.56: a project prohibition that
-contradicts generic tool guidance needs a mechanism, not a stronger sentence, because the
+`docs/internal/lessons.md` L6.26 — and a dispatched implementer ran `git stash` anyway, because
+generic harness guidance told it to stash before a destructive operation and the agent file's
+sentence had no mechanism behind it. That is `docs/internal/lessons.md` L9.56: a project prohibition
+that contradicts generic tool guidance needs a mechanism, not a stronger sentence, because the
 sentence already lost once while being read correctly. The agent file's own neighbouring bullet
 predicts this hook by name ("a PreToolUse hook will refuse most of these"); it did not exist.
 
@@ -45,7 +45,7 @@ BLOCKED = (
         "have not committed survives it. If a commit is wrong, add one that corrects it.",
     ),
     (
-        # **`docs/lessons.md` `L11.28`** — this pattern was `git\s+checkout\s+--` and waved
+        # **`docs/internal/lessons.md` `L11.28`** — this pattern was `git\s+checkout\s+--` and waved
         # `git checkout HEAD -- <path>` straight through: the same operation with a commit-ish in
         # the middle, and the more destructive of the two, since it overwrites from a commit
         # rather than from the index. A guard written against the *spelling* of a command guards
@@ -69,7 +69,8 @@ REASON = (
     "Refused: `{command}` is one of the four git commands this repository does not run.\n\n"
     "{advice}\n\n"
     "This is `.claude/agents/weft-implementer.md`'s standing prohibition, enforced rather than "
-    "stated: it was read and overridden once by generic tool guidance (`docs/lessons.md` L9.56, "
+    "stated: it was read and overridden once by generic tool guidance (`docs/internal/lessons.md` "
+    "L9.56,"
     "L6.26). If you genuinely need one of these, ask the person you are working with — that is "
     "the whole remedy, and it is cheap."
 )

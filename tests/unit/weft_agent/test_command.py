@@ -6,11 +6,11 @@ to core*, and `weft plugins doctor` reports it exactly as it reports any other p
 **Building this found the gap Phase 8's own close review predicted, one phase early.** That review
 recorded requirement 1 failing at the ambient-service seam: `ServiceRegistry` has a *consuming* side
 anyone can reach (`ctx.require`) and a *producing* side reachable only by editing `weft-cli`, which
-is `docs/lessons.md` `L5.15`'s shape. Phase 7 is where it stops being theoretical. An agent needs
-the run's `LLM`, `weft_cli` is the only thing that parses `[llm.roles]` out of `weft.toml`, and
-`weft_cli.cli.run_command` used to put exactly one thing into `ctx.services`: its own
-`Dependencies`, which a stranger's pack cannot import without depending on the driving adapter —
-the dependency `weft_command.contract`'s own placement argument forbids.
+is `docs/internal/lessons.md` `L5.15`'s shape. Phase 7 is where it stops being theoretical. An agent
+needs the run's `LLM`, `weft_cli` is the only thing that parses `[llm.roles]` out of `weft.toml`,
+and `weft_cli.cli.run_command` used to put exactly one thing into `ctx.services`: its own
+`Dependencies`, which a stranger's pack cannot import without depending on the driving adapter — the
+dependency `weft_command.contract`'s own placement argument forbids.
 
 **The repair is one edit to the adapter that opens the seam for everyone**, not one edit per
 capability: `run_command` now registers the run's ambient services by their *published contract
@@ -182,7 +182,7 @@ def test_the_ambient_services_reach_every_command_not_only_the_cli_s_own() -> No
     is the property its own docstring names. The moment 9.0 moved that construction into
     `weft_cli.run_services.command_path_services`, so the three assemblers stop being one list
     written thrice, a green test failed for a change that strictly improved the thing it guards.
-    An assertion is a specification including the parts you did not mean (`docs/lessons.md`
+    An assertion is a specification including the parts you did not mean (`docs/internal/lessons.md`
     `L9.39`). This version asks the question through the seam a command actually uses, so it
     survives the code moving and would still fail if the registration were dropped.
     """

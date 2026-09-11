@@ -4,10 +4,10 @@ Properties (i), (ii) and (iii) each hold in isolation in their own files. This o
 sentence the task line actually makes: *a pack that publishes a run-wide service is reachable by
 `ctx.require` on every path — command, query, ingest — with no edit to `weft-cli`.* Each of the
 three assemblers is a separate opportunity to leave a path out, and leaving one out is exactly the
-failure this task exists to close: `docs/build-ledger.md:4358-4366 'emits prose'` records Phase 7's
-close finding
-that `run_command` registers four contracts and a pack needing the configured store or embedder
-"still cannot reach one". The seam was repaired for the four contracts the agent happened to need.
+failure this task exists to close: `docs/internal/build-ledger.md:4370-4366 'emits prose'` records
+Phase 7's close finding that `run_command` registers four contracts and a pack needing the
+configured store or embedder "still cannot reach one". The seam was repaired for the four contracts
+the agent happened to need.
 
 **The three assemblers are one list written thrice** — `build_services` (query),
 `build_index_services` (ingest) and the inline block in `weft_cli.cli.run_command` (command). They
@@ -120,10 +120,10 @@ async def test_the_query_path_reaches_a_role_no_one_here_named() -> None:
 async def test_the_ingest_path_reaches_a_role_no_one_here_named() -> None:
     """`build_index_services` — the path `weft index` assembles.
 
-    Until task 8.10 this function registered nothing at all, and two registered `Expander`
-    plugins had consequently never run through the CLI — found by running the binary, not by
-    any of the 1,929 tests green at the time (`docs/lessons.md` L8.4). A role added here and
-    not there would reproduce that shape exactly.
+    Until task 8.10 this function registered nothing at all, and two registered `Expander` plugins
+    had consequently never run through the CLI — found by running the binary, not by any of the
+    1,929 tests green at the time (`docs/internal/lessons.md` L8.4). A role added here and not there
+    would reproduce that shape exactly.
     """
     # Arrange
     from weft_cli.llm_roles import LLMSection

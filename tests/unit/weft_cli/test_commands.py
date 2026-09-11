@@ -124,14 +124,14 @@ def test_register_wires_every_built_in_with_its_permission_class() -> None:
     commands.register(registrar, commands.Settings())
     registrar.commit()
 
-    # Assert — task 3.7 grew this from five names to thirteen; task 3.11 retires `route`
-    # (folded into `ask`, `docs/build-ledger.md`'s own 3.11 entry), back to twelve; task 4.6
-    # adds `eval run`/`eval compare`/`trace` (`weft_cli.eval_commands`), to fifteen; task 4.7
-    # adds `eval metrics`, to sixteen; task 5.1a adds `delete` — G7's fast path, and the
-    # first first-party `destroy`-class command — to seventeen, and task 5.1b adds
-    # `reconcile`, G7's safety net, to eighteen. Task 8.9 adds `render` — the first driver for
-    # the `Renderer` contract, which had two registered plugins and nothing that could take a
-    # `Rendition` out of a pipeline — to nineteen.
+    # Assert — task 3.7 grew this from five names to thirteen; task 3.11 retires `route` (folded
+    # into `ask`, `docs/internal/build-ledger.md`'s own 3.11 entry), back to twelve; task 4.6 adds
+    # `eval run`/`eval compare`/`trace` (`weft_cli.eval_commands`), to fifteen; task 4.7 adds
+    # `eval metrics`, to sixteen; task 5.1a adds `delete` — G7's fast path, and the first
+    # first-party `destroy`-class command — to seventeen, and task 5.1b adds `reconcile`, G7's
+    # safety net, to eighteen. Task 8.9 adds `render` — the first driver for the `Renderer`
+    # contract, which had two registered plugins and nothing that could take a `Rendition` out of a
+    # pipeline — to nineteen.
     assert registry.names_for(Command) == {
         "render",
         "delete",
@@ -161,8 +161,8 @@ def test_register_wires_every_built_in_with_its_permission_class() -> None:
         "plugins list": PermissionClass.READ,
         "plugins doctor": PermissionClass.READ,
         # `init`, `pipeline derive` and `config set` — `write`, not `overwrite`, since the
-        # 2026-08-20 repair (`docs/build-ledger.md`'s dated paragraph for 3.3/3.6/3.7): each
-        # is a *create*, `docs/03-cli.md`'s own `write`-row example, and refuses outright
+        # 2026-08-20 repair (`docs/internal/build-ledger.md`'s dated paragraph for 3.3/3.6/3.7):
+        # each is a *create*, `docs/03-cli.md`'s own `write`-row example, and refuses outright
         # (never asks) when the target already exists — see `test_init_command_refuses_to_
         # overwrite_an_existing_weft_toml`/`test_pipeline_derive_refuses_to_overwrite_an_
         # existing_document` below and `test_pipeline_commands.py`'s own derive coverage.
@@ -711,7 +711,8 @@ class _PrimaryNodeStore:
 async def test_delete_empties_a_graph_store_a_catalogue_pipeline_names(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Task **6.18**, G13's first repair, reproduced the way `docs/build-ledger.md` states it:
+    """Task **6.18**, G13's first repair, reproduced the way `docs/internal/build-ledger.md` states
+    it:
     a pipeline in the catalogue names a second `NodeStore`, a source is deleted, and that
     store must no longer hold it. Before this task the graph store was outside the fan-out
     entirely — `[services] store` chose one `NodeStore` and the rest were excluded — so its

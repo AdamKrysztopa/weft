@@ -270,7 +270,7 @@ def test_the_plugin_name_is_registered_under_the_describer_contract() -> None:
 # other call sites — `embedder.py:290 'self._cli'` and `llm.py:357 'client ='` — and `llm.py`'s own
 # docstring says
 # why: *"The client is built off the event loop, for the same measured reason."* This plugin
-# was the third caller and the only one that did not. `docs/lessons.md` L8.24.
+# was the third caller and the only one that did not. `docs/internal/lessons.md` L8.24.
 
 
 class _SdkShapedClient:

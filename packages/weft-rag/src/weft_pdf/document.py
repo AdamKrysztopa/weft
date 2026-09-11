@@ -541,7 +541,7 @@ def _first_unseen_page(pages: Sequence[PageText]) -> PageText | None:
     whenever a figure reader is configured *and the document holds any text* would pass a
     fifty-page scan whose first page carries a running header. Treating any page a figure reader
     touched as "seen" would pass a scanned page whose image the reader found and could not
-    caption — the same page, reported as read. `docs/lessons.md` `L9.62`.
+    caption — the same page, reported as read. `docs/internal/lessons.md` `L9.62`.
     """
     return next(
         (page for page in pages if not page.text.strip() and page.images > 0),

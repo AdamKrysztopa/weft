@@ -1,6 +1,6 @@
 """Fitness function 12, second clause — a catch site cannot discard what a raise site cannot
-omit. `01` -> *Fitness functions* item 12; `docs/build-ledger.md` 2.36 turns FF12 on; this file
-is the check the 2026-08-20 repair (`402a957`) asked for and did not itself add.
+omit. `01` -> *Fitness functions* item 12; `docs/internal/build-ledger.md` 2.36 turns FF12 on; this
+file is the check the 2026-08-20 repair (`402a957`) asked for and did not itself add.
 
 **Why FF12's structural check, on its own, missed two real Phase 3 defects.** `test_ff12_
 unresolvable_name_carries_options.py` proves every *named* family member carries `valid_options`

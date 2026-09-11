@@ -1,4 +1,4 @@
-"""`docs/build-ledger.md` **2.34**: every document `corpus/manifest.toml` names indexes.
+"""`docs/internal/build-ledger.md` **2.34**: every document `corpus/manifest.toml` names indexes.
 
 Before this task, `corpus/arxiv/2508.18901v1.pdf` — declared at
 `corpus/manifest.toml:122-129 'source ='` — extracted through `weft-pdf`'s `pdf-text`
@@ -9,7 +9,7 @@ NOT NULL` — Postgres refuses a NUL byte in a `TEXT` value, so the real
 `PgVectorStore` against the real container answered `DataError: PostgreSQL
 text fields cannot contain NUL (0x00) bytes` for this document specifically.
 
-This is the exit demonstration `docs/build-ledger.md` → 2.34 names: this same
+This is the exit demonstration `docs/internal/build-ledger.md` → 2.34 names: this same
 document, run through the ordinary ingest pipeline — `pdf-text` → `fixed-
 size` → `hash` → `pgvector`, composed by `weft_kernel.runner.Runner` exactly
 as `tests/integration/test_ingest_pipeline.py` composes the built-in four —

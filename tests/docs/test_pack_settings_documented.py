@@ -1,10 +1,10 @@
 """Every field a shipped pack's `Settings` model exposes is named in `weft.toml.example`.
 
-Carried repair **R9.6** (`docs/lessons.md` `L9.77`). A pack's settings block is the surface an
-operator configures the pack through, and `weft.toml.example` is the only place this project
-shows them one after another — `manual/operations-guide.md` explains *why* a few of them exist,
-and `weft plugins doctor` names one only once it has already failed. So a field absent from the
-example is a field an operator has no way to discover short of reading the pack's source.
+Carried repair **R9.6** (`docs/internal/lessons.md` `L9.77`). A pack's settings block is the surface
+an operator configures the pack through, and `weft.toml.example` is the only place this project
+shows them one after another — `manual/operations-guide.md` explains *why* a few of them exist, and
+`weft plugins doctor` names one only once it has already failed. So a field absent from the example
+is a field an operator has no way to discover short of reading the pack's source.
 
 **The instance that filed it**: `[packs.openai]` documented `api_key` and not `base_url` — the
 field `weft_openai.settings.Settings`, `manual/troubleshooting.md` and `10` §4 all argue decides

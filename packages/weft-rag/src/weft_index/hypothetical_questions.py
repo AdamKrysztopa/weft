@@ -1,6 +1,6 @@
 """`hypothetical-questions` — the first `Expander`. Task **2.31**.
 
-`docs/build-ledger.md`: "a chunk can be found by a question it answers rather than by the
+`docs/internal/build-ledger.md`: "a chunk can be found by a question it answers rather than by the
 words it contains, because a generated question is its own retrievable node." `10` §1.2's
 own row: doc2query (Rodrigo Nogueira, Wei Yang, Jimmy Lin, Kyunghyun Cho, *Document
 Expansion by Query Prediction*, arXiv:1904.08375, 2019) — "at index time, generates the

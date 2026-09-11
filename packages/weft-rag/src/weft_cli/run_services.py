@@ -587,21 +587,20 @@ async def build_index_services(
 ) -> ServiceRegistry:
     """Assemble one **ingest** run's `ServiceRegistry` — task **8.10**.
 
-    `build_services` above is the query path's, and this is deliberately not it. Until this
-    function existed `weft_cli.ingest.run_index` assembled no services at all, so a stage that
-    reached one through `ctx.require` failed at run time with *"no service is registered for
-    ... on this run"*. That was not a hypothetical: `raptor` and `hypothetical-questions` are
-    registered under `weft_index.contract.Expander`, an ingest-path contract, and **neither had
-    ever run through the CLI** — two phases, every gate green, because their exit
-    demonstrations were unit tests that constructed a `Context` themselves. Found by running
-    the binary (`docs/lessons.md` L8.4), not by any of the 1,929 tests that were green while it
-    was true.
+    `build_services` above is the query path's, and this is deliberately not it. Until this function
+    existed `weft_cli.ingest.run_index` assembled no services at all, so a stage that reached one
+    through `ctx.require` failed at run time with *"no service is registered for ... on this run"*.
+    That was not a hypothetical: `raptor` and `hypothetical-questions` are registered under
+    `weft_index.contract.Expander`, an ingest-path contract, and **neither had ever run through the
+    CLI** — two phases, every gate green, because their exit demonstrations were unit tests that
+    constructed a `Context` themselves. Found by running the binary (`docs/internal/lessons.md`
+    L8.4), not by any of the 1,929 tests that were green while it was true.
 
     **Four services, and the three that are missing are the argument.** The set is what the
     live population of `ctx.require` calls under `weft_index` actually asks for — `LLM`,
     `Prompts`, `Embedder`, plus `TokenSink` because `weft_llm.client` requires it to serve the
     first — read off the tree rather than off a contract's documentation, per
-    `docs/lessons.md` L6.4. What is **not** here:
+    `docs/internal/lessons.md` L6.4. What is **not** here:
 
     - **`StageLookup` and `RouteCatalogue`** are `weft-retrieve`'s, published for the query
       path. An ingest stage able to reach them would be an ingest plugin depending on the
@@ -735,15 +734,15 @@ class SelectedCapabilityMissingError(PipelineResolutionError, UnresolvedNameErro
     pipeline that cannot run against this configuration, decided before anything ran, which
     `docs/03-cli.md`'s exit-code split puts at 4.
 
-    **The remedy names a plugin name, never a Python class.** `docs/lessons.md` `L9.26`: the
-    one production caller of the older check used to pass `store_name=type(store).__name__`,
-    so a live refusal read *the configured store 'PgVectorStore'* while `[services] store`
-    accepts `pgvector` — a remedy nobody could carry out. Every other call site was a test
-    supplying that name by hand, which is exactly why none of them could catch it. Repaired at
-    ledger task **11.10**: `weft_cli.route_ask._run_pipeline`'s own `check_store_capabilities`
-    call (`weft_cli/route_ask.py:636 'contracts ='`) now takes `store_name` as a parameter fed from
-    `[services] store` itself, threaded down from each of that module's three call sites,
-    rather than deriving one from the instance.
+    **The remedy names a plugin name, never a Python class.** `docs/internal/lessons.md` `L9.26`:
+    the one production caller of the older check used to pass `store_name=type(store).__name__`, so
+    a live refusal read *the configured store 'PgVectorStore'* while `[services] store` accepts
+    `pgvector` — a remedy nobody could carry out. Every other call site was a test supplying that
+    name by hand, which is exactly why none of them could catch it. Repaired at ledger task
+    **11.10**: `weft_cli.route_ask._run_pipeline`'s own `check_store_capabilities` call
+    (`weft_cli/route_ask.py:636 'contracts ='`) now takes `store_name` as a parameter fed from
+    `[services] store` itself, threaded down from each of that module's three call sites, rather
+    than deriving one from the instance.
 
     Fitness function 12's family: `valid_options` is every role key whose declared contract
     publishes the missing capability.
@@ -864,10 +863,10 @@ def check_selected_capabilities(
     no adaptation, no degradation, a refusal naming the missing capability and where to get it
     — is unchanged by being asked of a set rather than of one store.
 
-    `demanded` maps a capability Protocol to the **stage id** that declared it needs one; the
-    stage is in the refusal because "something needs this" is not a thing an operator can act
-    on. `names` maps a role key to the plugin name written in `weft.toml`, so the message can
-    say what was configured rather than what class it turned into — `docs/lessons.md` `L9.26`.
+    `demanded` maps a capability Protocol to the **stage id** that declared it needs one; the stage
+    is in the refusal because "something needs this" is not a thing an operator can act on. `names`
+    maps a role key to the plugin name written in `weft.toml`, so the message can say what was
+    configured rather than what class it turned into — `docs/internal/lessons.md` `L9.26`.
     """
     for capability, stage in demanded.items():
         if any(
@@ -924,7 +923,7 @@ def command_path_services(deps: Dependencies, *, sink: TokenSink) -> ServiceRegi
     Moved here from `run_command`'s own body, which used to build this same set — `Dependencies`,
     `LLM`, `Prompts`, `TokenSink`, `Registry` — by calling `ctx.services.add` five times in a
     row with no counterpart this module's own `build_services`/`build_index_services` could be
-    checked against for the identical gap Phase 7's close found (`docs/build-ledger.md:
+    checked against for the identical gap Phase 7's close found (`docs/internal/build-ledger.md:
     4358-4366`): "`run_command` registers four contracts and a pack needing the configured
     store or embedder... still cannot reach one." The three assemblers are one list written
     thrice, and a fix landed in only two of them is exactly that defect, unrepaired, one
@@ -949,7 +948,7 @@ def command_path_services(deps: Dependencies, *, sink: TokenSink) -> ServiceRegi
     sentence was false for every caller it was written for. Found by running `weft agent` from
     outside this repository: the refusal named `Dependencies, LLM, Prompts, TokenSink` and no
     `Registry`, which is requirement 5 doing its job on a gap requirement 1 had left
-    (`docs/lessons.md` `L8.38`).
+    (`docs/internal/lessons.md` `L8.38`).
 
     **`roles` — this task's own addition, closing the sentence Phase 7's close actually
     measured as failing.** Built through `selected_role_instances`, the resolver every

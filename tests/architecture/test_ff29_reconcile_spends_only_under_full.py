@@ -27,10 +27,10 @@ first-party class that satisfies `Reconcilable` structurally, and asserts that a
 naming a model contract inside `reconcile` sits under a branch testing `ReconcileMode.FULL`. It
 therefore cannot see a pack outside this repository, and it cannot follow a model service reached
 through a helper the method calls rather than through `ctx.require` in its own body. Both are real
-limits; the second is why `test_the_model_seam_is_reached_directly_in_every_reconcile` exists —
-it fails if a participant ever stops naming the seam in the method this check reads, which is the
-point at which somebody has to come back here rather than the point at which the check goes quietly
-blind. This is `docs/lessons.md` L5.15's shape turned around: a check with a blind spot says where
+limits; the second is why `test_the_model_seam_is_reached_directly_in_every_reconcile` exists — it
+fails if a participant ever stops naming the seam in the method this check reads, which is the point
+at which somebody has to come back here rather than the point at which the check goes quietly blind.
+This is `docs/internal/lessons.md` L5.15's shape turned around: a check with a blind spot says where
 it is.
 
 **Two floors, because a check that matched nothing would pass by being blind.**
@@ -132,8 +132,8 @@ def _model_seams(body: ast.AST) -> Iterator[tuple[str, ast.Call]]:
 
     Matched on the method name and the argument rather than on the receiver being spelled `ctx`,
     because the receiver is the caller's own local and a rename of it is not a change to what the
-    call does — asserting the spelling would be asserting the arrangement (`docs/lessons.md`
-    `L9.39`) rather than the behaviour.
+    call does — asserting the spelling would be asserting the arrangement
+    (`docs/internal/lessons.md` `L9.39`) rather than the behaviour.
     """
     for node in ast.walk(body):
         if not isinstance(node, ast.Call):

@@ -20,7 +20,7 @@ name: index-text
 # `weft.toml` to apply. `weft pipeline derive index-text my-index` scaffolds the child, and a
 # `replace:` block naming `openai-embeddings` at the `embed` id is that edit. **This line used
 # to name a `--set` flag `weft pipeline derive` has never had, for a plugin name no document
-# could resolve** — both found by running the binary, neither by any test (`docs/lessons.md`
+# could resolve** — both found by running the binary, neither by any test (`docs/internal/lessons.md`
 # L8.14; ledger 8.15 split the name).
 #
 # Two cleaners only, and both are safe on any text in any language: `unicode-normalize` folds
@@ -39,7 +39,7 @@ stages:
 # **The first `slots:` block any shipped document has carried** — carried repair `R9.10`.
 # `Pipeline.slots` was placed, id-qualified and recorded by resolution for two whole phases
 # with no document declaring one, so the consuming half had only ever run against producers
-# written to exercise it (`docs/lessons.md` L9.12, and L5.15's shape: an extension point with
+# written to exercise it (`docs/internal/lessons.md` L9.12, and L5.15's shape: an extension point with
 # a producing side and no consuming side).
 #
 # **Why this document and not a new one.** Only the root of an `extends` chain may carry

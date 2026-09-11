@@ -48,19 +48,18 @@ _DSN = os.environ.get("WEFT_DATABASE_URL", "postgresql://weft:weft@localhost:543
 #: rather than silently testing whatever else happens to resolve.
 _DEEP = "index-with-deep-raptor"
 
-#: The document the *end-to-end* test actually runs — `_DEEP` derived, with thresholds widened
-#: so that `hash` vectors cluster at all.
-#:
-#: **The demonstration values live here and not in the shipped rung, on purpose.** `_DEEP`
-#: inherits `similarity_threshold: auto` from its parent, and `auto` under `hash` does not resolve
-#: at all: the median pairwise cosine of those vectors is at or below zero, so the rung returns
-#: `Failed` naming the embedder and the remedy rather than summarising nothing quietly
-#: (task 10.9; this comment said `0.75` and "builds nothing" until task 10.17 re-read the parent).
-#: Typing `0.0` makes everything cluster with everything, which is
-#: what this test needs and is the last thing a *shipped* rung should do by default: it would
-#: produce confident summaries over meaningless groupings the first time anyone ran it flagless
-#: (`docs/lessons.md` L9.64), which is the failure ledger task 10.9's degeneracy check exists to
-#: refuse. A derived document is exactly what an operator would write, so the test writes one.
+#: The document the *end-to-end* test actually runs — `_DEEP` derived, with thresholds widened so
+#: that `hash` vectors cluster at all. **The demonstration values live here and not in the shipped
+#: rung, on purpose.** `_DEEP` inherits `similarity_threshold: auto` from its parent, and `auto`
+#: under `hash` does not resolve at all: the median pairwise cosine of those vectors is at or below
+#: zero, so the rung returns `Failed` naming the embedder and the remedy rather than summarising
+#: nothing quietly (task 10.9; this comment said `0.75` and "builds nothing" until task 10.17
+#: re-read the parent). Typing `0.0` makes everything cluster with everything, which is what this
+#: test needs and is the last thing a *shipped* rung should do by default: it would produce
+#: confident summaries over meaningless groupings the first time anyone ran it flagless
+#: (`docs/internal/lessons.md` L9.64), which is the failure ledger task 10.9's degeneracy check
+#: exists to refuse. A derived document is exactly what an operator would write, so the test writes
+#: one.
 _DEMO = "deep-raptor-demonstration"
 _LEVEL_FIELD = f"ext.{RaptorFacts.__namespace__}.level"
 

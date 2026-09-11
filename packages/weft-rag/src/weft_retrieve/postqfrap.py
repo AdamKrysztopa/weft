@@ -1,6 +1,6 @@
 """`postqfrap` — the second `ContextPacker`. Ledger task **10.15**.
 
-`docs/build-ledger.md`'s own line for this task, and `10` §4's own row: Chucri, Azouz &
+`docs/internal/build-ledger.md`'s own line for this task, and `10` §4's own row: Chucri, Azouz &
 Ott, *Recursive Abstractive Processing for Retrieval in Dynamic Datasets*, 2024,
 arXiv:2410.01736 §5, Algorithm 3, read at source: retrieve `k0` chunks — upstream of this
 stage, arriving as `Ranking.hits` — build a **query-focused** recursive-abstractive tree

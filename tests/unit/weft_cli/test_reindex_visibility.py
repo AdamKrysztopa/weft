@@ -4,7 +4,7 @@
 says what they are for: *"`pipeline` is what lets `weft index` say 'already indexed, by a different
 pipeline' rather than silently skipping or silently duplicating."* Measured 2026-09-06: **nothing
 compares either one.** Every use in `packages/` is a write, a read-back into a model, or a copy —
-`docs/lessons.md` `L9.37`, confirmed independently by the survey for this task.
+`docs/internal/lessons.md` `L9.37`, confirmed independently by the survey for this task.
 
 **What the task's own framing gets slightly wrong, corrected here rather than inherited.** `9.17`
 says the risk is *"silently keeping whichever parse arrived first"*. It is not — node ids are
@@ -196,7 +196,7 @@ class _RecordingStore:
     Every test above this line hands `changes_against_records` a record mapping it built by hand.
     That proves the comparison and proves nothing about whether `run_index` ever computes an
     identity worth comparing — which is exactly where `9.17` was broken: verified through
-    `weft index --pipeline …`, dead on `weft index <dir>`. See `docs/lessons.md` `L9.64`.
+    `weft index --pipeline …`, dead on `weft index <dir>`. See `docs/internal/lessons.md` `L9.64`.
     """
 
     def __init__(self, config: object) -> None:

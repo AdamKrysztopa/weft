@@ -16,7 +16,7 @@ shipped distribution. Phase 4 builds no exporter pack: task 4.6's `weft trace` r
 record task 4.4 persists, not OTel spans (`.phase4-design.md` §3, Q2), so there is no pack home
 for a real, SDK-configured exporter yet. A test fixture standing in for whatever such a pack
 would one day do — `set_tracer_provider` — is therefore where this demonstration belongs; see
-`docs/build-ledger.md` 4.5 for the ledger entry this file backs.
+`docs/internal/build-ledger.md` 4.5 for the ledger entry this file backs.
 
 Every `run`/`flush` written below is what a pack actually writes: no `opentelemetry` import, no
 span, no attribute. Everything asserted about the exported spans is what `wrap`/`wrap_flush`

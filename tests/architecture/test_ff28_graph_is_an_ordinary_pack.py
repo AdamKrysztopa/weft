@@ -7,7 +7,7 @@
 this check on 2026-09-06, in the same paragraph that quotes FF0(b)'s rule — *"numbered and filed
 **by the task that makes it true**"* — and `tests/architecture/test_ff24_no_bytes_in_a_node.py` has
 held 24 since task **9.5**. A numeral is a claim on a shared namespace and planning is not
-claiming. `docs/lessons.md` `L11.24`.
+claiming. `docs/internal/lessons.md` `L11.24`.
 
 **And clause (a) asserts a pack, not a wheel.** It read *"its own distribution … never bundled into
 the `weft-rag` wheel"* until **G19** settled that Weft publishes two names and a new capability
@@ -215,7 +215,7 @@ def test_at_least_one_sibling_package_is_swept() -> None:
 
 
 def test_the_check_can_actually_fail(tmp_path: Path) -> None:
-    """Each half planted through the same predicate it guards — `docs/lessons.md` L5.6.
+    """Each half planted through the same predicate it guards — `docs/internal/lessons.md` L5.6.
 
     The plant for clause (c) is a **real** mention in a file the sweep would read, not a
     same-shaped string in a directory it never opens: a self-test that plants outside the swept

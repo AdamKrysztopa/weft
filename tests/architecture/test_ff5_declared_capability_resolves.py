@@ -4,32 +4,32 @@
 resolve to a live implementation at discovery time, or the plugin must declare it unavailable and
 say why."
 
-**Named on the project's first day and built five phases later**, which is `docs/lessons.md` L5.4
-exactly — and this file exists because FF16 clause (a) caught it, the check written *from* that
-lesson finding the lesson's own subject still open. FF16's waiver carried it with a warning worth
-repeating: *"building a fitness function hastily at a phase close is how a check that cannot fail
-gets written."* So what follows says plainly which of FF5's two halves it holds and which it does
-not.
+**Named on the project's first day and built five phases later**, which is
+`docs/internal/lessons.md` L5.4 exactly — and this file exists because FF16 clause (a) caught it,
+the check written *from* that lesson finding the lesson's own subject still open. FF16's waiver
+carried it with a warning worth repeating: *"building a fitness function hastily at a phase close is
+how a check that cannot fail gets written."* So what follows says plainly which of FF5's two halves
+it holds and which it does not.
 
 **What a "declared capability" is in Weft, and what it is not.** G4 settled that a *store*
 capability is derived, never declared — asked of the registered class with `issubclass`, so there
 is nothing there to disagree with itself. The declaration FF5 is actually about is an extractor's
 **accept set**: a pack says *"I handle `.pdf`"*, and the question is whether anything can.
 
-That is the accept-then-fail bug `docs/README.md` opens by describing — "the same file format was
-accepted at upload and had no extractor at extraction time" — and **it happened here**, predicted by
-line
-number before it did. `docs/11-multimodal.md:206-208 'weft-vision — a'` said `discover_source_docs`
-filtering on one
-pack's module constant would make `.pdf` "silently invisible to ingest" the moment a second
-extractor pack shipped; `weft-pdf` shipped at ledger 2.27 and `weft index corpus/mrmr` walked nine
-PDFs, matched none, handed an empty batch to a text extractor and **exited 0 reporting success**.
-The derivation was built repairing that. The check was not, until here.
+That is the accept-then-fail bug `docs/internal/README.md` opens by describing — "the same file
+format was accepted at upload and had no extractor at extraction time" — and **it happened here**,
+predicted by line number before it did. `docs/11-multimodal.md:206-208 'weft-vision — a'` said
+`discover_source_docs` filtering on one pack's module constant would make `.pdf` "silently invisible
+to ingest" the moment a second extractor pack shipped; `weft-pdf` shipped at ledger 2.27 and
+`weft index corpus/mrmr` walked nine PDFs, matched none, handed an empty batch to a text extractor
+and **exited 0 reporting success**. The derivation was built repairing that. The check was not,
+until here.
 
 **Clause (a) — the accept set is the derivation, not a constant. This is the one that fired.**
 Structural, over the AST: no call site anywhere under `packages/` passes a single pack's module
-constant as `discover_source_docs`'s `extensions`. `docs/lessons.md` L5.23 is why it is structural
-rather than textual — a property about the *shape of a call* needs a check that reads calls.
+constant as `discover_source_docs`'s `extensions`. `docs/internal/lessons.md` L5.23 is why it is
+structural rather than textual — a property about the *shape of a call* needs a check that reads
+calls.
 
 **Clause (b) — every extension a live extractor declares is reachable by ingest.** Read from two
 places that can disagree: the registered classes' own `extensions`, walked directly, and
@@ -76,7 +76,7 @@ PACKAGES: Final[Path] = REPO_ROOT / "packages"
 #: so. Using the open call here made `test_ff8_trust_model.py`'s two canary tests fail whenever
 #: this file ran before them and pass whenever it ran alone — a test-order dependency introduced
 #: by a new test, which is the defect ledger task **6.17** exists about, met from a third
-#: direction (`docs/lessons.md` L5.21).
+#: direction (`docs/internal/lessons.md` L5.21).
 #:
 #: **Distribution names, because `allow` is keyed on distributions** — so listing `weft-rag`
 #: here admits the twelve packs it ships, not only `weft_extract`. That is the trust boundary's
@@ -205,12 +205,14 @@ def test_every_extension_a_live_extractor_declares_is_reachable() -> None:
     # Assert
     assert declared, (
         "no registered extractor declares an extension. The comparison below would pass by "
-        "having nothing to compare, which is the vacuous shape `docs/lessons.md` L5.19 names."
+        "having nothing to compare, which is the vacuous shape `docs/internal/lessons.md` L5.19 "
+        "names."
     )
     assert declared <= derived, (
         f"{sorted(declared - derived)} are declared by a live extractor and are not in the set "
         f"ingest accepts. A file with that suffix is walked, matched by nothing, and the run "
-        f"exits 0 having indexed none of it — the accept-then-fail bug `docs/README.md` opens by "
+        f"exits 0 having indexed none of it — the accept-then-fail bug `docs/internal/README.md` "
+        f"opens by"
         f"describing."
     )
 
@@ -218,10 +220,10 @@ def test_every_extension_a_live_extractor_declares_is_reachable() -> None:
 def test_the_ratchet_names_only_real_plugins() -> None:
     """Clause (c) is not held, so the least this file owes is that its record of the gap is true.
 
-    A ratchet naming something that does not exist reads shorter than it is and makes the task
-    that empties it look partly done — the same check `test_ff0_gate_in_the_gate.py` makes about
-    its own waived suites, and the same hole `docs/lessons.md` L6.29 found in that one: what has
-    to be asserted is that the name is *live*, not that a string appears somewhere.
+    A ratchet naming something that does not exist reads shorter than it is and makes the task that
+    empties it look partly done — the same check `test_ff0_gate_in_the_gate.py` makes about its own
+    waived suites, and the same hole `docs/internal/lessons.md` L6.29 found in that one: what has to
+    be asserted is that the name is *live*, not that a string appears somewhere.
     """
     # Arrange — the ratchet's one entry is a `weft-eval` metric, so that pack is what has to be
     # discovered to check it is live. Restricted, for the reason `_EXTRACTOR_PACKS` above gives.
@@ -249,8 +251,8 @@ def test_the_ratchet_names_only_real_plugins() -> None:
 def test_the_check_can_actually_fail() -> None:
     """Clauses (a) and (b), planted through the real readers.
 
-    The tree agrees on both today — clause (a) has since 2.27's repair and clause (b) always —
-    so this is the only place either comparison is seen disagreeing (`docs/lessons.md` L5.19).
+    The tree agrees on both today — clause (a) has since 2.27's repair and clause (b) always — so
+    this is the only place either comparison is seen disagreeing (`docs/internal/lessons.md` L5.19).
     Clause (a)'s plant is the **historical defect itself**, written as it was written.
     """
     # Arrange — the pre-2.27 call, and a derivation that drops a suffix.

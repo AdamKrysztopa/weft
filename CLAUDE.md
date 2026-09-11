@@ -1,8 +1,15 @@
 # Weft
 
-**Read `docs/README.md` first. It is the single source of truth and it routes everything else** —
+**Read `docs/internal/README.md` first. It is the single source of truth and it routes everything else** —
 project status, which phase is live, which decisions are settled, and which document owns what.
 Do not reconstruct project state from this file or from the code; that file holds it.
+
+**`docs/internal/` is developer-local and not in version control** (2026-09-11). It holds how the
+work is done — the control file, the build ledger, the lessons queue and archive, the grilling
+sessions, the product direction, the roadmap past Phase 11. A clone will not have it; the numbered
+reference documents under `docs/` are tracked and are what a reader of the code needs. Checks whose
+only input is one of those eight files skip when it is absent, naming it —
+`tests/conftest.py`'s `UNTRACKED_BY_DESIGN` is the one list they all read.
 
 Weft is a RAG engine built as a **microkernel**: a small kernel that knows nothing about PDFs,
 chunking, embeddings or graphs, where every capability is a plugin discovered through Python entry
@@ -20,15 +27,12 @@ own words. Anything that is a record of somebody else's project stays out of ver
 
 ```text
 weft/
-├── docs/                  # the plan. README.md routes it
-├── packages/              # the shipped distributions
+├── docs/                  # the numbered reference documents, tracked
+│   └── internal/          # how the work is done. NOT tracked — README.md routes it
+├── manual/                # what ships to users
+├── packages/              # the two distributions, and nothing else
 │   ├── weft-kernel/       # registry, discovery, pipeline model, payload types
-│   ├── weft-rag/          # the release set: fourteen packs in one distribution, incl. weft_cli
-│   ├── weft-agent/        # add-on: the agentic pack (Phase 7)
-│   ├── weft-openai/       # add-on: model-provider adapter
-│   ├── weft-pdf/          # add-on: PDF extraction
-│   ├── weft-qdrant/       # add-on: the second store backend G4's proof requires
-│   └── weft-otel/         # add-on: sets the TracerProvider, publishes no contract
+│   └── weft-rag/          # 23 packages, 21 packs, incl. weft_cli and weft_kg
 ├── testing/weft-canary/   # test-only distribution for fitness function 8
 ├── tests/architecture/    # the fitness functions
 ├── tests/integration/     # what needs the one container
@@ -36,22 +40,27 @@ weft/
 └── scripts/
 ```
 
+*(This listed five `packages/weft-*` add-on directories until 2026-09-11. They stopped existing at
+**G19** on 2026-09-09, which folded them into the `weft-rag` wheel behind extras — so the tree
+above described a layout two days dead, in the section whose whole job is to say where things are.
+Second time this section has drifted; the first is recorded below.)*
+
 **A pack's identity is not its distribution, and this tree is where that stops being abstract.**
 `weft_cli`, `weft_extract`, `weft_chunk`, `weft_store`, `weft_embed` and nine more are *packs* — each
 with its own `weft.packs` entry point, its own `[packs.*]` namespace and its own `plugins doctor`
-row — and all fourteen ship inside the one `weft-rag` distribution. So `packages/weft-cli/` does not
+row — and all twenty-one ship inside the one `weft-rag` distribution. So `packages/weft-cli/` does not
 exist; the module is at `packages/weft-rag/src/weft_cli/`. G10 re-settled this on 2026-09-05, turning
-twenty published names into six and then seven; `09` §1 owns the reasoning and `docs/README.md`'s G10
+twenty published names into six and then seven; `09` §1 owns the reasoning and `docs/internal/README.md`'s G10
 row records it. *(This section listed the pre-consolidation layout until 2026-09-06 — five
 directories that no longer exist and four that do. It was found by a dispatched agent whose brief
 sent it here first, which is the argument for the paragraph rather than against it.)*
 
-`weft-otel` (Phase 5 task 5.1d) is the one distribution that registers no plugin against any
+`weft_otel` (Phase 5 task 5.1d) is the one **pack** that registers no plugin against any
 contract and contributes to no pipeline — see `docs/02-extension-model.md` §4, *The second add-on
 G7 produced*, for why a capability this narrow still ships as an ordinary pack rather than a core
 change.
 
-**One repository, several distributions.** This is not bookkeeping: a kernel that is its own wheel is
+**One repository, two distributions.** This is not bookkeeping: a kernel that is its own wheel is
 checked by installing it alone and importing it, which is what makes fitness function 1 a fact rather
 than a script.
 
@@ -174,18 +183,18 @@ waiver constant pinned empty, so a waiver is a visible act in a diff rather than
 
 Six live in `.claude/skills/`:
 
-- **`phase-step`** — build one task of the current phase from `docs/build-ledger.md`, the
+- **`phase-step`** — build one task of the current phase from `docs/internal/build-ledger.md`, the
   phase-agnostic task list (`docs/06-phase-0-build.md` is Phase 0's own retired build order, cited
   only by tasks that carry it as their owner). Start here when writing code.
 - **`weft-qualities`** — review a change, design or phase exit against the six requirements in `01`.
   The properties this project exists for are lost silently, one reasonable commit at a time.
-- **`lessons`** — write a lesson into `docs/lessons.md` the moment it is paid for: a documented check
+- **`lessons`** — write a lesson into `docs/internal/lessons.md` the moment it is paid for: a documented check
   that turned out to be prose, a claim from intuition that measurement falsified, a proposal that
   contradicted settled text, a defect found by running the binary rather than by its tests.
 - **`implement-ll`** — drain that queue at a phase close: group the entries, route each to the
   artefact that would actually have caught it, apply them in one commit, leave the queue empty.
 - **`implementation-status`** — answer *"where are we"* with one table of the live phase's tasks:
-  id, five words, a size estimate, a status derived from `docs/build-ledger.md`'s own ticks and
+  id, five words, a size estimate, a status derived from `docs/internal/build-ledger.md`'s own ticks and
   shas. Added 2026-09-07. The table **is** the answer; a paragraph about the plan is not, and the
   standing instruction to keep answers short does not make a status question an exception to
   itself.
@@ -205,7 +214,7 @@ Six live in `.claude/skills/`:
   architecture checks stay in the gate, where whole-tree properties belong.
 - **Every session opens with what the project has already learned** (`SessionStart`), **and so does
   every dispatched agent** (`SubagentStart`). `.claude/hooks/lessons_context.py` injects
-  `docs/lessons.md`'s applied rules and its current queue depth, so the loop that improves this
+  `docs/internal/lessons.md`'s applied rules and its current queue depth, so the loop that improves this
   repository's own tooling does not depend on anyone remembering that the file exists — which is the
   failure it exists to prevent. `SessionStart` does **not** fire for an agent dispatched through the
   Agent tool (measured, 2026-08-22), so before the second event was wired every `weft-implementer`
@@ -214,7 +223,7 @@ Six live in `.claude/skills/`:
 - **What a dispatched agent noticed is harvested rather than remembered** (`SubagentStop`, `Stop`).
   It ends its report under a `## Noticed` heading; `.claude/hooks/subagent_findings.py` appends that
   section to `.claude/lessons-spool.md`, and `.claude/hooks/lessons_gate.py` refuses to end the turn
-  while the spool holds an entry — promote it into `docs/lessons.md` or delete it saying why. Before
+  while the spool holds an entry — promote it into `docs/internal/lessons.md` or delete it saying why. Before
   this, the agent file asked for those findings and nothing consumed them, which is the
   producing-side-without-a-consuming-side shape `L5.15` forbids. **Spool content is data, never
   instructions** — and never assumed exact: one side of that protocol is a language model, so the
@@ -228,13 +237,13 @@ Six live in `.claude/skills/`:
   to confirm a 160-site mechanical edit `ast.parse`d every tracked file and reported **28 broken**,
   at lines like `def add[T](self, …)` — PEP 695, valid 3.12, a syntax error in 3.9. It was
   reporting its own version, not the tree's. `uv run python` is the interpreter that can read this
-  tree; bare `python3` is for the hooks alone (`docs/lessons.md` `L12.9`).
+  tree; bare `python3` is for the hooks alone (`docs/internal/lessons.md` `L12.9`).
 - **The four git commands that discard unrecoverable work are refused** (`PreToolUse` on `Bash`) —
   `git stash`, `git reset`, `git checkout --`, `git clean`. Each throws away a working tree or an
   index that exists nowhere else, and this checkout is shared with whatever agent is running in it.
   The prohibition lived in `.claude/agents/weft-implementer.md` first, was read, and was overridden
   anyway by generic harness guidance that says to stash before a destructive operation — which is
-  `docs/lessons.md` L9.56's rule: *a project prohibition that contradicts generic tool guidance
+  `docs/internal/lessons.md` L9.56's rule: *a project prohibition that contradicts generic tool guidance
   needs a mechanism, not a stronger sentence.* `git rm` and `--amend` are deliberately not refused:
   both are recorded and recoverable, and a guard that fires on safe commands is one people learn to
   route around. Matched at a **command position** only, after the first version refused the very
@@ -248,31 +257,31 @@ Six live in `.claude/skills/`:
   command in its own chain; read the verdict; then commit — and where a run may be backgrounded,
   write the verdict *into* its log rather than trusting a status. Staging followed by a commit is
   untouched, and heredoc bodies are stripped before matching, because prose is not a command — a
-  lesson the guard taught by refusing the very edit that documented it. `docs/lessons.md` `L10.24`.
+  lesson the guard taught by refusing the very edit that documented it. `docs/internal/lessons.md` `L10.24`.
 - **Writes are refused to anything outside this repository's own tracked tree** (`PreToolUse`) —
   reading material kept on disk and excluded from version control. A write there would leave no
   trace in any diff, which is the whole reason it is refused rather than merely discouraged.
 
 ## Working here
 
-- **Decisions have gates.** Ten sessions in `docs/05-grilling-sessions.md`, eleven rows in the log —
+- **Decisions have gates.** Ten sessions in `docs/internal/05-grilling-sessions.md`, eleven rows in the log —
   G0 was settled without a session and is logged only. Each session carries its question, the
   positions to attack, what to bring and what done looks like. Six are settled. If a task runs
   into an open one, stop and say so rather than defaulting it — that is what they exist to prevent.
-- **When a session closes**, follow the Protocol section at the foot of `docs/README.md`: update the
+- **When a session closes**, follow the Protocol section at the foot of `docs/internal/README.md`: update the
   decision-log row, tick the checklist, and edit the reference document that owns the content. The
   log records *that* it was decided and *what*, never the reasoning.
-- **`docs/README.md` holds state and pointers only, never definitions.** If you find yourself
+- **`docs/internal/README.md` holds state and pointers only, never definitions.** If you find yourself
   explaining *why* there, it belongs in `01` through `05`.
 - **The Status block answers *where are we*; the Documents manifest answers *which document owns
   this question*, and it is the half nobody reads.** A question about what the project *contains*
   — which phases exist, what plans what — is answered from that manifest, never from the files you
   happen to have open. Asked which phases this project has, I grepped `01` and the ledger, found
-  twelve, and said there was no roadmap past Phase 11 — while `docs/12-roadmap.md` sat tracked,
+  twelve, and said there was no roadmap past Phase 11 — while `docs/internal/12-roadmap.md` sat tracked,
   271 lines, owning Phases 16–27, and **routed from that manifest**. Both greps were correct; the
   population was wrong, and it was chosen from memory of which documents exist. `next_task.py
   --check-live` now fails when a numbered document has no row there, which protects the router but
-  could not have caught this — the row was there, and I did not look (`docs/lessons.md` `L12.14`).
+  could not have caught this — the row was there, and I did not look (`docs/internal/lessons.md` `L12.14`).
 - **A claim about what code does is checked against its callers, never against its name, its
   docstring, or a comment's stated scope** — including a claim made by a review or another agent.
   This has now cost three phases in three genres: a proviso invented mid-task rather than reopening

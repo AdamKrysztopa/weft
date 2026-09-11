@@ -702,7 +702,7 @@ than inside a `*_config` field.
 > handed the raw mapping to the sibling's factory, which received a `dict` where its config object
 > belonged and failed later inside its own `run` with `'dict' object has no attribute 'channels'` —
 > a message naming neither the field nor the document that set it. Found by running
-> `weft ask --pipeline corrective-retrieve`; `docs/lessons.md` L8.5.)*
+> `weft ask --pipeline corrective-retrieve`; `docs/internal/lessons.md` L8.5.)*
 
 ### `StageNotConfigurableError`
 
@@ -996,7 +996,7 @@ every one of them and its current value.
 
 ### `UnknownPermissionKeyError`
 
-**What it looks like** — repair, 2026-08-20 (finding 1, `docs/build-ledger.md` 3.3's dated
+**What it looks like** — repair, 2026-08-20 (finding 1, `docs/internal/build-ledger.md` 3.3's dated
 paragraph): `[permissions]` names a key `weft_cli.permission_policy.PermissionPolicy` does not
 have — `overwrite`/`destroy` are the only two — reproduced against a real checkout:
 
@@ -1223,7 +1223,7 @@ type mismatch, not a name failing to resolve against a set of alternatives.
 
 ### `TargetAlreadyExistsError`
 
-**What it looks like** — repair, 2026-08-20 (`docs/build-ledger.md`'s dated paragraph for tasks
+**What it looks like** — repair, 2026-08-20 (`docs/internal/build-ledger.md`'s dated paragraph for tasks
 3.3/3.6/3.7): `weft init` scaffolds `weft.toml`; it does not replace one. Running it a second time
 in a project that already has one refuses outright, naming the path, rather than asking:
 
@@ -1575,7 +1575,7 @@ refuses to read or write a root a different layout produced. Point [packs.blob] 
 this version wrote, or migrate this root's contents to the current layout before reusing it.
 ```
 
-**This is the seventh persistence surface, and the rule behind it is `S11`** (`docs/README.md`'s
+**This is the seventh persistence surface, and the rule behind it is `S11`** (`docs/internal/README.md`'s
 decision log). `ExtModel.__schema_version__` versions the `BlobRef` a node carries and says nothing
 about the layout that reference resolves *through*; every persistence root a pack owns outside the
 node store carries its own version, in the root, checked at open and refused on mismatch. Guessing
@@ -1646,7 +1646,7 @@ Composing several backends into a chain that tries each in turn is built in the 
 document with `--pipeline` and `weft pipeline show` prints the chain on the stage that carries it.
 What it will not do is rescue *this* failure: the directory-readability check above reads the
 formats the **primary** plugin claims, so a chain whose fallback claims the format never gets far
-enough to be tried (`docs/lessons.md` `L8.19`; no task owns that repair). For this command, without
+enough to be tried (`docs/internal/lessons.md` `L8.19`; no task owns that repair). For this command, without
 a document, choosing is the operator's, and it will not do it silently.
 
 ### `UnclaimedFormatError`
@@ -2868,7 +2868,7 @@ which distribution to add to the allow-list.
 TTY to confirm in, or one an interactive caller declined — `weft_cli.confirm.gate`, called from
 `weft_cli.cli.run_command` immediately before any registered `Command` runs. **No first-party
 command is `overwrite`/`destroy`-class, and — as of the 2026-08-20 repair recorded in
-`docs/build-ledger.md`'s dated paragraph for tasks 3.3/3.6/3.7 — none is expected to become one
+`docs/internal/build-ledger.md`'s dated paragraph for tasks 3.3/3.6/3.7 — none is expected to become one
 under this task surface**: `init`, `pipeline derive` and `config set` were briefly `overwrite`,
 found to refuse a first, non-interactive `weft init` in exactly the environment (CI) it most needs
 to work in, and were reclassified `write` with an unconditional refusal-to-clobber in their place
@@ -2896,7 +2896,7 @@ is not caught here.
 
 ### `UnresolvedPluginNameError`
 
-**What it looks like** — repair, 2026-08-20 (finding 2, `docs/build-ledger.md`'s dated paragraph
+**What it looks like** — repair, 2026-08-20 (finding 2, `docs/internal/build-ledger.md`'s dated paragraph
 for tasks 3.2/3.3/3.7): `CommandRefusalError`'s own family member for a genuine name-resolution
 failure — `[services] embed`/`[services] store` or `--extract` names a plugin no *active* pack
 provides, reproduced against a real checkout with `[services] embed` naming a plugin nothing
@@ -3009,7 +3009,7 @@ Exit `1`, "something failed", rather than the `4` a name you can fix earns: noth
 command line is wrong. **Why it is not skipped:** the run history is read precisely to find a
 store the catalogue no longer names, so the record that will not parse may be the only record
 naming it — skipping it would let that store's contents outlive their source with nothing said,
-which is the failure the fan-out exists to prevent (`docs/lessons.md` L5.9). **What to do:** the
+which is the failure the fan-out exists to prevent (`docs/internal/lessons.md` L5.9). **What to do:** the
 message names the file. Repair it if you want the run kept, or delete it; a `runs/` directory
 that does not exist at all is not an error, and neither is an empty one.
 
@@ -3502,7 +3502,7 @@ ledger `11.13` returned agreement, correctly. What it would print is the message
 *vector ceiling* — how many chunks in this corpus hold both endpoints of a question, which is `0`
 by the definition of a bridge. Reading that number off the same `NOT EXISTS` clause that selected
 the bridge would be a comparison whose two sides come from one source, and it could never disagree
-with itself (`docs/lessons.md` `L5.6`). So the ceiling is measured a second time, by
+with itself (`docs/internal/lessons.md` `L5.6`). So the ceiling is measured a second time, by
 `GraphStore.chunks_by_entity`, a different query with a different filter — and this error is what
 happens when the two answers differ. It is the seam that makes the printed number a measurement
 rather than a restatement.

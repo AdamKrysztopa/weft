@@ -4,19 +4,19 @@
 and did not act on... the channel by which the caller finds out what only you saw". That
 was a **producing side with no consuming side** — `phase-step` never said to route it
 anywhere, so a lesson paid for inside a dispatched agent reached the orchestrator's
-context and died there. `docs/lessons.md` L5.15 is the rule that shape breaks, and the
+context and died there. `docs/internal/lessons.md` L5.15 is the rule that shape breaks, and the
 skill that cites L5.15 was the one breaking it.
 
 This hook is the consuming side. It reads the agent's final message, takes everything
 under its `## Noticed` heading, and appends it to `.claude/lessons-spool.md`. The
-dispatching session drains that spool into `docs/lessons.md` — or records that it
+dispatching session drains that spool into `docs/internal/lessons.md` — or records that it
 declined to — and `.claude/hooks/lessons_gate.py` refuses to let the turn end while the
 spool still holds unread entries.
 
 **An exact heading, not a heuristic.** `.claude/hooks/lessons_context.py` tells every
 subagent to use `## Noticed` verbatim, so the harvest is a string match rather than a
 guess about which paragraph was the interesting one. Two shapes travelling in one stream
-need a discriminant (`docs/lessons.md` L5.16); the heading is it.
+need a discriminant (`docs/internal/lessons.md` L5.16); the heading is it.
 
 **This hook writes nothing to stdout, and that is load-bearing rather than tidy.**
 Measured 2026-08-22 with a probe, before any of this was built: emitting
@@ -116,7 +116,8 @@ def append(entry: str, *, agent_type: str, agent_id: str, transcript: str) -> No
             "# Lesson candidates harvested from dispatched agents\n\n"
             "Written by `.claude/hooks/subagent_findings.py` from each agent's own\n"
             "`## Noticed` section. **Drain this file** — promote what is a lesson into\n"
-            "`docs/lessons.md` with the `lessons` skill, and delete what is not, saying why\n"
+            "`docs/internal/lessons.md` with the `lessons` skill, and delete what is not, saying "
+            "why\n"
             "in the commit. `.claude/hooks/lessons_gate.py` blocks the turn from ending\n"
             "while anything is still here.\n",
             encoding="utf-8",

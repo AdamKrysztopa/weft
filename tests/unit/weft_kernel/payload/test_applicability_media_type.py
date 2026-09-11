@@ -4,7 +4,7 @@
 a field on `Node` rather than a namespaced fact. So *"a node whose media type is not text reaches
 the store whole"* — the property `9.2` requires — was not expressible by any `applies_to` a plugin
 could write, even though `9.2`'s own evidence paragraph states the mechanism already exists
-(`docs/lessons.md` `L9.42`).
+(`docs/internal/lessons.md` `L9.42`).
 
 **Why this belongs in the kernel and names no capability.** `MediaType` is a kernel type
 (`weft_kernel.payload.media_type`), and `media_type` is a field the kernel already puts on every

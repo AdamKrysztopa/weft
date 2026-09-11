@@ -24,10 +24,10 @@ what a reader acts on, and it is reachable by anyone with a text editor and no r
   quote V3's own failure clause rather than making a claim.
 
 **The subject is legitimately empty today**, which is exactly when a check proves nothing
-(`docs/lessons.md` L5.19): no shipped document makes a numeric improvement claim about a technique,
-measured rather than assumed. So clause (a) carries a planted self-test, and clause (b)'s waiver is
-non-empty and real — it names the two passages in `manual/` that quote the rule, so the sweep is
-demonstrably finding things rather than matching nothing.
+(`docs/internal/lessons.md` L5.19): no shipped document makes a numeric improvement claim about a
+technique, measured rather than assumed. So clause (a) carries a planted self-test, and clause (b)'s
+waiver is non-empty and real — it names the two passages in `manual/` that quote the rule, so the
+sweep is demonstrably finding things rather than matching nothing.
 
 **Why the sweep is over `manual/` and `README.md` and not over `docs/`.** `08` §1 defines the
 shipped documentation set, and `09` §5's own clause sits under *"Security, licensing,
@@ -53,22 +53,20 @@ _CLAIM_BLOCK: Final[re.Pattern[str]] = re.compile(
     r"^```text\s+id=claim:(?P<technique>\S+)\n(?P<body>.*?)^```\s*$", re.MULTILINE | re.DOTALL
 )
 
-#: Claim-shaped language. Deliberately over-inclusive: a false positive costs one waiver entry
-#: and a false negative costs a published number nobody can reproduce, so the asymmetry decides
-#: the tuning. `docs/lessons.md` L5.28 is why this is not the *only* clause — a substring sweep is
-#: unsound on its own — and why clause (a) exists beside it.
-#:
-#: **The gap between the two halves is `.{0,80}?` over whitespace-collapsed text, and getting
-#: there took two corrections.** It was `[^.\n]{0,80}` first, which cannot cross a `.` — so it
-#: never matched `"improvement... reported against a baseline"`, the exact phrasing both real
-#: passages use, and the sweep matched nothing at all in the entire shipped set while every test
-#: in this file passed. Excluding newlines was the second miss: the manuals wrap at 100 columns,
-#: so a claim and its number routinely sit on different lines, and a detector that cannot cross a
-#: line break has a false negative built into the house style. Both were found by emptying
-#: `CLAIM_PROSE_WAIVED` and watching the check stay green (`docs/lessons.md` L6.29). The sweep
-#: therefore runs over a whitespace-collapsed copy and reports the matched text rather than a line
-#: number — the match is what identifies the claim, and a line number that came from a collapsed
-#: copy would be a lie.
+#: Claim-shaped language. Deliberately over-inclusive: a false positive costs one waiver entry and a
+#: false negative costs a published number nobody can reproduce, so the asymmetry decides the
+#: tuning. `docs/internal/lessons.md` L5.28 is why this is not the *only* clause — a substring sweep
+#: is unsound on its own — and why clause (a) exists beside it. **The gap between the two halves is
+#: `.{0,80}?` over whitespace-collapsed text, and getting there took two corrections.** It was
+#: `[^.\n]{0,80}` first, which cannot cross a `.` — so it never matched
+#: `"improvement... reported against a baseline"`, the exact phrasing both real passages use, and
+#: the sweep matched nothing at all in the entire shipped set while every test in this file passed.
+#: Excluding newlines was the second miss: the manuals wrap at 100 columns, so a claim and its
+#: number routinely sit on different lines, and a detector that cannot cross a line break has a
+#: false negative built into the house style. Both were found by emptying `CLAIM_PROSE_WAIVED` and
+#: watching the check stay green (`docs/internal/lessons.md` L6.29). The sweep therefore runs over a
+#: whitespace-collapsed copy and reports the matched text rather than a line number — the match is
+#: what identifies the claim, and a line number that came from a collapsed copy would be a lie.
 _CLAIM_PROSE: Final[re.Pattern[str]] = re.compile(
     r"\b(?:improves?|improvement|outperforms?|better than|uplift|gain of)\b.{0,80}?"
     r"\b(?:\d+(?:\.\d+)?\s*(?:%|pp|points?)|baseline)\b",
@@ -192,10 +190,10 @@ def test_the_waiver_still_excuses_something() -> None:
     set today, so a waiver that matched nothing would also mean the sweep matches nothing, and
     clause (b) above would be passing vacuously.
     """
-    # Arrange — what has to be true is that the **sweep** fires on the waived passages, not
-    # merely that their text is somewhere in the corpus. The first version of this test asserted
-    # the latter and passed while the regex matched nothing anywhere (`docs/lessons.md` L6.29):
-    # a waiver-liveness check that never runs the check it excuses proves nothing about it.
+    # Arrange — what has to be true is that the **sweep** fires on the waived passages, not merely
+    # that their text is somewhere in the corpus. The first version of this test asserted the latter
+    # and passed while the regex matched nothing anywhere (`docs/internal/lessons.md` L6.29): a
+    # waiver-liveness check that never runs the check it excuses proves nothing about it.
     matched = claim_shaped_prose(_shipped_documents())
 
     # Act
@@ -217,7 +215,7 @@ def test_the_waiver_still_excuses_something() -> None:
 
 def test_the_check_can_actually_fail(tmp_path: Path) -> None:
     """Both clauses, planted through the real readers — the real set is empty, so this is the
-    only place either comparison is seen disagreeing (`docs/lessons.md` L5.19).
+    only place either comparison is seen disagreeing (`docs/internal/lessons.md` L5.19).
     """
     # Arrange — one unbacked claim block, and one bare number in prose.
     document = tmp_path / "planted.md"

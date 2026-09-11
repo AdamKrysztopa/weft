@@ -17,7 +17,7 @@ The warp is the fixed frame on a loom; the weft is every thread through it.
 > what today's release discharges:** `weft-kernel` and `weft-rag` are published for the first time
 > today, 2026-09-11. The four names published 2026-09-05 (`weft-generate`, `weft-embed`,
 > `weft-command`, `weft-llm`) are yanked as of the same day; the code they named ships inside
-> `weft-rag` now. `docs/README.md` carries the phase-by-phase record and the two open gates.
+> `weft-rag` now. `docs/internal/README.md` carries the phase-by-phase record and the two open gates.
 
 ## Try it
 
@@ -89,7 +89,7 @@ own page rather than left to inference.
 
 ## Start here
 
-**[`docs/README.md`](docs/README.md)** is the single source of truth: current phase, settled
+**[`docs/internal/README.md`](docs/internal/README.md)** is the single source of truth: current phase, settled
 decisions, what to do next, and which document owns what. Everything else is reached from there.
 
 | | |
@@ -97,7 +97,7 @@ decisions, what to do next, and which document owns what. Everything else is rea
 | [`docs/01-high-level-plan.md`](docs/01-high-level-plan.md) | The kernel boundary, async colour, the phase script, the fitness functions |
 | [`docs/02-extension-model.md`](docs/02-extension-model.md) | Contracts, the payload model, the store family, discovery and the trust model |
 | [`docs/03-cli.md`](docs/03-cli.md) | The command line as the single driving adapter |
-| [`docs/05-grilling-sessions.md`](docs/05-grilling-sessions.md) | Nineteen decision gates, seventeen settled, two open (`G14`, `G17`) |
+| [`docs/internal/05-grilling-sessions.md`](docs/internal/05-grilling-sessions.md) | Nineteen decision gates, seventeen settled, two open (`G14`, `G17`) |
 
 ## Layout
 
@@ -140,7 +140,7 @@ Every architecture check must be reachable from `ci-checks`; a test asserts it.
 
 ### Driving a phase
 
-The build is sequenced task by task in [`docs/build-ledger.md`](docs/build-ledger.md), and the
+The build is sequenced task by task in [`docs/internal/build-ledger.md`](docs/internal/build-ledger.md), and the
 `phase-step` skill runs one task through **Orient → Red → Green → Verify → Finish**. Its Green phase
 is dispatched to a `weft-implementer` subagent that cannot edit the test it is asked to satisfy —
 so a test written from the settled documents stays a specification rather than becoming a
@@ -163,7 +163,7 @@ Typed into Claude Code:
 The phase boundary is detected rather than remembered: the script flags the phase's last unticked
 task, and `phase-step` → *Close the phase* runs what that boundary owes — the whole-phase
 `weft-qualities` reading and `implement-ll` draining
-[`docs/lessons.md`](docs/lessons.md) to empty, then the Exit criterion in `01` re-checked against
+[`docs/internal/lessons.md`](docs/internal/lessons.md) to empty, then the Exit criterion in `01` re-checked against
 what exists rather than against the ticked boxes. **The queue is drained completely or its entries
 are declined with a reason** — nothing is carried to a second phase close. Each of those skills is
 still typed directly when you want it on its own.

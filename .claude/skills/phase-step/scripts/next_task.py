@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Print the first unticked task in `docs/build-ledger.md`, the task after it, and its gate state.
+"""Print the first unticked task in `docs/internal/build-ledger.md`, the task after it, and its gate
+state.
 
 `phase-step` → *Orient* opens by asking for the first unticked box, the task after it, and whether
 the phase carries a block. Done by hand that is a scan of a 2,400-line file, and it has a trap in
@@ -122,7 +123,7 @@ def parse(ledger: str) -> tuple[list[Task], dict[str, Phase]]:
         # task closed early and every field on that line, the sha among them, went missing.
         # `tests/docs/test_ledger_records_a_sha.py` saw the sha because it parses the whole
         # entry; this parser did not, and the two disagreeing about one field is the defect
-        # (`docs/lessons.md` L10.38).
+        # (`docs/internal/lessons.md` L10.38).
         is_continuation = bool(stripped) and not (
             stripped.startswith(("#", ">", "|"))
             or stripped[:2] in ("- ", "* ")
@@ -176,25 +177,25 @@ STATUS_ROW = re.compile(
     r"\s*(?P<value>.+?)\s*\|\s*$"
 )
 
-#: The phase a string *declares*, by its leading `Phase <n>`. `docs/lessons.md` L8.1: the Status
-#: cell is prose that legitimately mentions other phases, so only the one it opens with is a
+#: The phase a string *declares*, by its leading `Phase <n>`. `docs/internal/lessons.md` L8.1: the
+#: Status cell is prose that legitimately mentions other phases, so only the one it opens with is a
 #: claim about where the project is.
 PHASE_IN_STATUS = re.compile(r"Phase\s+(?P<number>\d+)")
 
-#: `docs/lessons.md` L8.15. The queue's depth was stated by hand in a prose cell and was wrong
-#: in both directions — stale before anyone touched it, and wrong again after arithmetic was
-#: done on it rather than a count. It gets its own row so it can be parsed structurally rather
-#: than grepped out of a sentence, which is the "test of prose" shape this repository already
-#: refuses elsewhere.
+#: `docs/internal/lessons.md` L8.15. The queue's depth was stated by hand in a prose cell and was
+#: wrong in both directions — stale before anyone touched it, and wrong again after arithmetic was
+#: done on it rather than a count. It gets its own row so it can be parsed structurally rather than
+#: grepped out of a sentence, which is the "test of prose" shape this repository already refuses
+#: elsewhere.
 QUEUE_DEPTH_IN_STATUS = re.compile(r"^(?P<count>\d+)\b")
 
-#: The ledger task `docs/README.md`'s Next action row points at — the row that outranks
+#: The ledger task `docs/internal/README.md`'s Next action row points at — the row that outranks
 #: ledger order, so it is what the Status phase must agree with. See `live_checks`.
 #:
-#: **The delimiter class is the whole repair, 2026-09-07 (`docs/lessons.md` L10.7).** This
+#: **The delimiter class is the whole repair, 2026-09-07 (`docs/internal/lessons.md` L10.7).** This
 #: pattern allowed bold (`task **9.14**`) and bare (`task 9.14`) and not backticks, and every
 #: Next action row this project has ever written spells the identifier in backticks — twelve
-#: consecutive revisions of `docs/README.md` checked, twelve no-matches. So the branch
+#: consecutive revisions of `docs/internal/README.md` checked, twelve no-matches. So the branch
 #: `live_checks` calls "the whole question" had never once run against the live document: the
 #: comparison silently fell back to ledger order, which that function's own comment says
 #: "fails on a correct tree". It went unnoticed because falling back agreed by coincidence
@@ -208,7 +209,7 @@ NEXT_ACTION_TASK = re.compile(r"[Tt]ask\s+[*`]{0,2}(?P<identifier>\d+\.\d+)")
 #: repair rather than a task: every phase in the plan was closed, and the check refused the
 #: Status block because it fell back to ledger order and found the first unticked box three
 #: phases behind. A routing target this ledger has always had, that this script could not name.
-#: The carried repair — or **group** of them — a Next action row names. `docs/lessons.md`
+#: The carried repair — or **group** of them — a Next action row names. `docs/internal/lessons.md`
 #: `L12.10`: the singular form matched nothing the day the remaining backlog stopped being a
 #: list and became four groups, so a row reading "Carried repairs `R9.4` and `R9.6` together"
 #: fell through to ledger order and reported the Status block as disagreeing with the ledger.
@@ -230,27 +231,27 @@ NEXT_ACTION_REPAIR_MORE = re.compile(
 )
 
 #: The Status block's **Carried repairs** row must open with its two cardinalities.
-#: `docs/lessons.md` `L12.2`: the Blocked-by row said "three carried repairs are open" about a
-#: section holding nineteen, and the row it replaced was wrong the same way — each author
-#: listing what they happened to be holding. Nobody had ever measured it. A row of its own,
-#: opening with the numbers, is the shape the lessons-queue depth already uses, and that is the
-#: one cardinality in this file that has never been wrong twice.
+#: `docs/internal/lessons.md` `L12.2`: the Blocked-by row said "three carried repairs are open"
+#: about a section holding nineteen, and the row it replaced was wrong the same way — each author
+#: listing what they happened to be holding. Nobody had ever measured it. A row of its own, opening
+#: with the numbers, is the shape the lessons-queue depth already uses, and that is the one
+#: cardinality in this file that has never been wrong twice.
 REPAIR_COUNTS_IN_STATUS = re.compile(r"^(?P<open>\d+)\s+open,\s*(?P<closed>\d+)\s+closed\b")
 
 #: One carried-repair line, ticked or not — `- [ ] **R11.6** …`. `TASK_ID` deliberately does not
 #: match these (its id is `\d+(\.\d+)?`), so they are parsed here and nowhere else.
 REPAIR_LINE = re.compile(r"^- \[([ xX])\]\s+\*\*(?P<identifier>R\d+\.\d+)\*\*", re.MULTILINE)
 
-#: One `### L<id> — <title>` entry in `docs/lessons.md`'s own `## Queue` section — the identical
-#: shape `.claude/hooks/lessons_context.py` counts, so the two cannot disagree about what an
-#: entry is.
+#: One `### L<id> — <title>` entry in `docs/internal/lessons.md`'s own `## Queue` section — the
+#: identical shape `.claude/hooks/lessons_context.py` counts, so the two cannot disagree about what
+#: an entry is.
 QUEUE_ENTRY = re.compile(r"^### (L[\d.]+) — ", re.MULTILINE)
 
 
 def queue_section(lessons: Path) -> str:
-    """The text of `docs/lessons.md`'s own `## Queue` section, and nothing after it.
+    """The text of `docs/internal/lessons.md`'s own `## Queue` section, and nothing after it.
 
-    `docs/lessons.md` L8.15. Bounded at the next `## ` heading exactly the way
+    `docs/internal/lessons.md` L8.15. Bounded at the next `## ` heading exactly the way
     `.claude/hooks/lessons_context.py` bounds it, so the two readers of this file cannot
     disagree about which entries are open. Returns `""` for a file with no Queue heading —
     the caller then counts zero and the assertion says so, rather than this raising.
@@ -268,7 +269,7 @@ def queue_section(lessons: Path) -> str:
 
 
 def status_block(readme: Path) -> dict[str, str]:
-    """Pull `Phase` and `Next action` out of `docs/README.md`'s Status table.
+    """Pull `Phase` and `Next action` out of `docs/internal/README.md`'s Status table.
 
     Ledger order is the default; that table is where the project says otherwise, and right now it
     does — Phase 6's row reorders four tasks around a dependency the ledger's own sequence cannot
@@ -311,14 +312,15 @@ def find_ledger(explicit: str | None) -> Path:
         return Path(explicit)
     here = Path(__file__).resolve()
     for parent in here.parents:
-        candidate = parent / "docs" / "build-ledger.md"
+        candidate = parent / "docs" / "internal" / "build-ledger.md"
         if candidate.is_file():
             return candidate
-    return Path("docs/build-ledger.md")
+    return Path("docs/internal/build-ledger.md")
 
 
 def named_repairs(next_action: str) -> list[str]:
-    """Every carried repair the Next action row names *as its subject* — `docs/lessons.md` L12.10.
+    """Every carried repair the Next action row names *as its subject* — `docs/internal/lessons.md`
+    L12.10.
 
     One id, or a group: "Carried repairs `R9.4` and `R9.6` together", "Carried repair `R9.4`,
     taken together with `R9.6`". The run is consumed from the anchor forward, so an id mentioned
@@ -341,17 +343,18 @@ def named_repairs(next_action: str) -> list[str]:
 def _repair_count_failures(path: Path, status: dict[str, str]) -> list[str]:
     """Does the Status block's stated repair tally equal the ledger's own two counts?
 
-    `docs/lessons.md` `L12.2`. The Blocked-by row said *"three carried repairs are open"* about a
-    section holding **nineteen** — the three that session had touched — and the row it replaced
-    was wrong in the same direction. Each author listed what they were holding; nobody had ever
-    run the count. This is `_queue_depth_failures`'s shape applied to the other cardinality this
-    file states, and that one has never been wrong twice.
+    `docs/internal/lessons.md` `L12.2`. The Blocked-by row said *"three carried repairs are open"*
+    about a section holding **nineteen** — the three that session had touched — and the row it
+    replaced was wrong in the same direction. Each author listed what they were holding; nobody had
+    ever run the count. This is `_queue_depth_failures`'s shape applied to the other cardinality
+    this file states, and that one has never been wrong twice.
     """
     failures: list[str] = []
     if "Carried repairs" not in status:
         failures.append(
             "the Status block has no 'Carried repairs' row — the open and closed counts are "
-            "counts of docs/build-ledger.md, and writing them into prose from memory is what "
+            "counts of docs/internal/build-ledger.md, and writing them into prose from memory is "
+            "what"
             "L12.2 was paid for"
         )
         return failures
@@ -380,13 +383,13 @@ def _repair_count_failures(path: Path, status: dict[str, str]) -> list[str]:
 
 
 def _documents_manifest_failures(path: Path) -> list[str]:
-    """Does `docs/README.md`'s Documents manifest name every numbered document on disk?
+    """Does `docs/internal/README.md`'s Documents manifest name every numbered document on disk?
 
-    `docs/lessons.md` `L12.14`. Asked which phases the project has, I grepped two documents
-    chosen from memory, got a correct answer to the wrong question, and said there was no
-    roadmap past Phase 11 while `docs/12-roadmap.md` sat tracked and **routed from that very
-    manifest**. The manifest was right; I had read the Status block above it all session and
-    never the routing half below.
+    `docs/internal/lessons.md` `L12.14`. Asked which phases the project has, I grepped two documents
+    chosen from memory, got a correct answer to the wrong question, and said there was no roadmap
+    past Phase 11 while `docs/internal/12-roadmap.md` sat tracked and **routed from that very
+    manifest**. The manifest was right; I had read the Status block above it all session and never
+    the routing half below.
 
     This could not have caught that — the row was there. What it protects is the router itself:
     a manifest with a hole in it makes "read the manifest and pick the row" wrong advice, and
@@ -396,12 +399,14 @@ def _documents_manifest_failures(path: Path) -> list[str]:
     try:
         manifest = (docs / "README.md").read_text(encoding="utf-8")
     except OSError:
-        return ["docs/README.md could not be read, so its Documents manifest was not checked"]
+        return [
+            "docs/internal/README.md could not be read, so its Documents manifest was not checked"
+        ]
     on_disk = {candidate.name for candidate in docs.glob("[0-9][0-9]-*.md")}
     missing = sorted(name for name in on_disk if name not in manifest)
     if missing:
         return [
-            "docs/README.md's Documents manifest names no row for "
+            "docs/internal/README.md's Documents manifest names no row for "
             + ", ".join(missing)
             + " — it is the half of that file that answers *which document owns this question*, "
             "and a document absent from it is reachable only by recall (L12.14)"
@@ -442,7 +447,7 @@ def _phase_agreement_failures(tasks: list[Task], task: Task, status: dict[str, s
     failures: list[str] = []
     stated = status.get("Phase", "")
     if stated:
-        # `docs/lessons.md` L8.1, and this is the third defect in this one comparison
+        # `docs/internal/lessons.md` L8.1, and this is the third defect in this one comparison
         # (L6.3, L6.4 are the other two). It read `... not in stated` — containment over
         # the whole free-text cell — so it agreed whenever the *prose* happened to mention
         # the other phase's name. That is not hypothetical: the live Status row says
@@ -452,7 +457,7 @@ def _phase_agreement_failures(tasks: list[Task], task: Task, status: dict[str, s
         # `Phase <n>` it names — against the one the ledger gives, by equality.
         # **Which task the Status phase is compared against is the whole question**, and
         # getting it wrong is why the old check was written loosely enough to pass. Ledger
-        # order is only the default: `docs/README.md`'s own Next action row is documented
+        # order is only the default: `docs/internal/README.md`'s own Next action row is documented
         # as outranking it, and it is doing that right now — Phase 8 runs *before* Phase 7,
         # which G12 still gates. So the first unticked ledger task is the wrong subject; a
         # comparison against it fails on a correct tree, which is how a check earns a
@@ -498,7 +503,7 @@ def _phase_agreement_failures(tasks: list[Task], task: Task, status: dict[str, s
 def _queue_depth_failures(path: Path, status: dict[str, str]) -> list[str]:
     """Does the Status block's stated queue depth equal the count of `lessons.md`'s own Queue?"""
     failures: list[str] = []
-    # `docs/lessons.md` L8.15. The depth is a count of a file, so a human-written number
+    # `docs/internal/lessons.md` L8.15. The depth is a count of a file, so a human-written number
     # is a second source that drifts — it was stale before this session and wrong again
     # after somebody (me) did arithmetic on it instead of counting. Parsed from its own
     # row rather than grepped out of the Next action prose, because a check that hunts a
@@ -506,7 +511,7 @@ def _queue_depth_failures(path: Path, status: dict[str, str]) -> list[str]:
     if "Lessons queue" not in status:
         failures.append(
             "the Status block has no 'Lessons queue' row — the queue's depth is a count of "
-            "docs/lessons.md, and stating it in prose is what L8.15 was paid for"
+            "docs/internal/lessons.md, and stating it in prose is what L8.15 was paid for"
         )
     else:
         declared_depth = QUEUE_DEPTH_IN_STATUS.match(status["Lessons queue"].strip())
@@ -519,7 +524,8 @@ def _queue_depth_failures(path: Path, status: dict[str, str]) -> list[str]:
         elif int(declared_depth.group("count")) != counted:
             failures.append(
                 f"Status says the lessons queue holds {declared_depth.group('count')} and "
-                f"docs/lessons.md's own '## Queue' section holds {counted} — the number is "
+                f"docs/internal/lessons.md's own '## Queue' section holds {counted} — the number "
+                f"is"
                 f"a count of that file, never a figure carried forward (L8.15)"
             )
     return failures
@@ -530,20 +536,21 @@ def live_checks(
 ) -> list[str]:
     """Assertions only the **live** tree can falsify — the half a fixture cannot reach.
 
-    `self_test()` below runs against `SELF_TEST`, a synthetic ledger, and that is the right
-    subject for the parser: it can plant the fenced-shape trap and watch it caught. What a
-    fixture structurally cannot catch is an input the script never reads at all, because the
-    fixture does not have that input either. Both of this script's known defects were exactly
-    that shape (`docs/lessons.md` L6.3, L6.4): the first rewrite computed the next task from
-    `build-ledger.md` alone and never opened `docs/README.md`, so the Status block's own
-    **Next action** row — where the project overrides ledger order — was silently dropped,
-    and a fixture-only self-test reported everything fine.
+    `self_test()` below runs against `SELF_TEST`, a synthetic ledger, and that is the right subject
+    for the parser: it can plant the fenced-shape trap and watch it caught. What a fixture
+    structurally cannot catch is an input the script never reads at all, because the fixture does
+    not have that input either. Both of this script's known defects were exactly that shape
+    (`docs/internal/lessons.md` L6.3, L6.4): the first rewrite computed the next task from
+    `build-ledger.md` alone and never opened `docs/internal/README.md`, so the Status block's own
+    **Next action** row — where the project overrides ledger order — was silently dropped, and a
+    fixture-only self-test reported everything fine.
 
-    So these run against the real `docs/README.md` and the real `docs/build-ledger.md`, two
-    files that can genuinely disagree (`L5.6` — a check whose two sides come from one source
-    cannot fail), and they run on **every invocation** rather than behind a flag someone has
-    to remember, which is `CLAUDE.md`'s own "cross-cutting concerns live at the registration
-    seam" applied to this skill's own tooling. `--check-live` only changes the exit code.
+    So these run against the real `docs/internal/README.md` and the real
+    `docs/internal/build-ledger.md`, two files that can genuinely disagree (`L5.6` — a check whose
+    two sides come from one source cannot fail), and they run on **every invocation** rather than
+    behind a flag someone has to remember, which is `CLAUDE.md`'s own "cross-cutting concerns live
+    at the registration seam" applied to this skill's own tooling. `--check-live` only changes the
+    exit code.
     """
     failures: list[str] = []
 
@@ -655,7 +662,7 @@ def _print_task(path: Path, task: Task, following: Task | None) -> None:
 
 
 def _print_status(status: dict[str, str], task: Task) -> None:
-    """`docs/README.md`'s own position, which outranks ledger order — see `live_checks`."""
+    """`docs/internal/README.md`'s own position, which outranks ledger order — see `live_checks`."""
     if "Next action" in status:
         print("\nthe project's own next action — this outranks ledger order:")
         for chunk in _wrap(status["Next action"]):
@@ -664,7 +671,10 @@ def _print_status(status: dict[str, str], task: Task) -> None:
         if stated and task.phase.split("—")[0].strip() not in stated:
             print(f"  ⚠ Status says {stated!r}; the next task is in {task.phase!r}. One is stale.")
     elif not status:
-        print("\n(no Status block read from docs/README.md — check its Next action row by hand)")
+        print(
+            "\n(no Status block read from docs/internal/README.md — check its Next action row by "
+            "hand)"
+        )
 
 
 def _print_live_checks(problems: list[str]) -> None:
@@ -755,9 +765,9 @@ def _live_check_failures(
 ) -> list[str]:
     """Prove `live_checks` can both fire and stay quiet, against the fixture.
 
-    Added after an adversarial review pointed out that `self_test` covered `parse()` thoroughly
-    and asserted **nothing** about `live_checks` — the function this script gained specifically
-    to catch `docs/lessons.md` L6.3 and L6.4. A regression reintroducing the exact defect it was
+    Added after an adversarial review pointed out that `self_test` covered `parse()` thoroughly and
+    asserted **nothing** about `live_checks` — the function this script gained specifically to catch
+    `docs/internal/lessons.md` L6.3 and L6.4. A regression reintroducing the exact defect it was
     written for would have left `--self-test` printing "ok", which is the false confidence L5.19
     forbids in as many words. Both directions are asserted here, because a check that only ever
     fires and a check that never fires are equally useless.
@@ -767,7 +777,7 @@ def _live_check_failures(
     (the same call with a ⚠ added to the preamble) a real second reading rather than a repeat.
     """
     failures: list[str] = []
-    path = Path("docs/build-ledger.md")
+    path = Path("docs/internal/build-ledger.md")
 
     fired = live_checks(path, tasks, phases, first_unticked, {})
     if not any("no Status block read" in f for f in fired):
@@ -775,9 +785,9 @@ def _live_check_failures(
     if not any("provisional task" in f for f in fired):
         failures.append("live_checks stayed silent about a ⚠ its preamble never explains")
 
-    # The queue-depth clause reads the real `docs/lessons.md`, so the fixture states whatever
-    # that file currently holds — the assertion under test is *agreement*, not a number, and
-    # hard-coding one here would be the second hand-written count `L8.15` is about.
+    # The queue-depth clause reads the real `docs/internal/lessons.md`, so the fixture states
+    # whatever that file currently holds — the assertion under test is *agreement*, not a number,
+    # and hard-coding one here would be the second hand-written count `L8.15` is about.
     live_depth = len(QUEUE_ENTRY.findall(queue_section(path.parent / "lessons.md")))
     #: Same reasoning one row over (`L12.2`): the clause reads the real ledger, so the fixture
     #: states whatever that file currently holds and the assertion under test is agreement.
@@ -806,10 +816,10 @@ def _live_check_failures(
     if not any("stale" in f for f in stale):
         failures.append("live_checks stayed silent about a Status phase that disagrees")
 
-    # `docs/lessons.md` L8.1, planted. The old comparison was `not in stated` — containment over
-    # the whole cell — so a Status row whose *prose* mentioned another phase agreed with it. This
-    # is that exact shape: the cell declares one phase and names a different one in passing, and
-    # the check must read the declaration, not the mention.
+    # `docs/internal/lessons.md` L8.1, planted. The old comparison was `not in stated` — containment
+    # over the whole cell — so a Status row whose *prose* mentioned another phase agreed with it.
+    # This is that exact shape: the cell declares one phase and names a different one in passing,
+    # and the check must read the declaration, not the mention.
     mentioning = {
         **agreeing,
         "Phase": f"**Phase 0 — something else**, which runs before {first_unticked.phase}",
@@ -821,7 +831,8 @@ def _live_check_failures(
             "declaring a different one — L8.1's own defect, reintroduced"
         )
 
-    # `docs/lessons.md` L8.15, planted both ways: a missing row, and a number that disagrees.
+    # `docs/internal/lessons.md` L8.15, planted both ways: a missing row, and a number that
+    # disagrees.
     missing_row = live_checks(
         path,
         tasks,
@@ -866,7 +877,7 @@ def _repair_clause_failures(
     live_states = [m.group(1).strip() for m in REPAIR_LINE.finditer(path.read_text("utf-8"))]
     live_open = sum(1 for state in live_states if not state)
 
-    # `docs/lessons.md` L12.2, planted both ways, exactly as L8.15 is planted above — the
+    # `docs/internal/lessons.md` L12.2, planted both ways, exactly as L8.15 is planted above — the
     # cardinality this file got wrong by sixteen, and the reason it now has a row of its own.
     without_row = {k: v for k, v in agreeing.items() if k != "Carried repairs"}
     no_repair_row = live_checks(path, tasks, explained, first_unticked, without_row)
@@ -883,7 +894,7 @@ def _repair_clause_failures(
             "live_checks stayed silent about an open-repair count that disagrees with the ledger"
         )
 
-    # `docs/lessons.md` L12.10: a Next action naming a *group* must route, and an id merely
+    # `docs/internal/lessons.md` L12.10: a Next action naming a *group* must route, and an id merely
     # mentioned in the cell's prose must not be collected into it.
     group = named_repairs("**Carried repairs `R9.4` and `R9.6` together** — one cause.")
     if group != ["R9.4", "R9.6"]:
@@ -954,18 +965,18 @@ def check_live(path: Path) -> int:
         print(f"FAIL  {problem}")
     if problems:
         return 3
-    # Name the task actually compared against, not the first unticked one. `live_checks` reads
-    # the Status block's own Next action row and compares the phase against *that* task, because
-    # that row outranks ledger order — so a message naming `tasks[index]` describes a comparison
-    # this script did not make. `docs/lessons.md` L8.1 was a comparison that agreed for the wrong
-    # reason; a success line that misreports its own subject is the same defect one layer out,
-    # and it is the line a reader trusts when deciding not to look further.
-    # **And the message says which of the three subjects it actually used.** A Next action may
-    # name a task, a carried repair (which belongs to no phase, so there is no phase comparison
-    # to report), or nothing at all — and printing the task-shaped sentence for all three is the
-    # same defect this comment's own paragraph describes, one case wider. Added 2026-09-10 with
-    # the repair branch, after the first version of it printed "its phase agrees with 9.15 (the
-    # task its own Next action row names)" about a row naming `R11.6` and no task whatever.
+    # Name the task actually compared against, not the first unticked one. `live_checks` reads the
+    # Status block's own Next action row and compares the phase against *that* task, because that
+    # row outranks ledger order — so a message naming `tasks[index]` describes a comparison this
+    # script did not make. `docs/internal/lessons.md` L8.1 was a comparison that agreed for the
+    # wrong reason; a success line that misreports its own subject is the same defect one layer out,
+    # and it is the line a reader trusts when deciding not to look further. **And the message says
+    # which of the three subjects it actually used.** A Next action may name a task, a carried
+    # repair (which belongs to no phase, so there is no phase comparison to report), or nothing at
+    # all — and printing the task-shaped sentence for all three is the same defect this comment's
+    # own paragraph describes, one case wider. Added 2026-09-10 with the repair branch, after the
+    # first version of it printed "its phase agrees with 9.15 (the task its own Next action row
+    # names)" about a row naming `R11.6` and no task whatever.
     next_action = status.get("Next action", "")
     repairs = named_repairs(next_action)
     pointed = NEXT_ACTION_TASK.search(next_action)
@@ -1001,7 +1012,7 @@ def main() -> int:
     parser.add_argument(
         "--check-live",
         action="store_true",
-        help="exit non-zero if the live ledger and docs/README.md disagree (see live_checks)",
+        help="exit non-zero if the live ledger and docs/internal/README.md disagree",
     )
     args = parser.parse_args()
 

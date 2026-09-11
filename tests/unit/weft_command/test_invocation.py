@@ -1,19 +1,20 @@
 """A command's permission class is enforced on the path a library caller uses — ledger task **7.0**.
 
-`docs/05-grilling-sessions.md` → G12, settled 2026-09-06, and `docs/03-cli.md` → *Permissions* →
-*What a permission class means when the caller is never a TTY*. The gate G12 depends on was called
-from exactly one place — inside `weft_cli.cli.run_command`, which takes an `argparse.Namespace` and
-returns a `Rendered`. The typed result task 7.3 requires comes from `Command.run`, and **nothing
-gated `Command.run`**. So the ceiling G12 settled was prose on the exact path Phase 7 is told to
-take: the *control that looks like enforcement and is not* which `02` §2 refuses.
+`docs/internal/05-grilling-sessions.md` → G12, settled 2026-09-06, and `docs/03-cli.md` →
+*Permissions* → *What a permission class means when the caller is never a TTY*. The gate G12 depends
+on was called from exactly one place — inside `weft_cli.cli.run_command`, which takes an
+`argparse.Namespace` and returns a `Rendered`. The typed result task 7.3 requires comes from
+`Command.run`, and **nothing gated `Command.run`**. So the ceiling G12 settled was prose on the
+exact path Phase 7 is told to take: the *control that looks like enforcement and is not* which `02`
+§2 refuses.
 
 **The repair is not "call the gate from a second place".** That reproduces the defect one caller
-later, and `docs/lessons.md` `L8.31` is the general form: placing a concern at *"the one place that
-calls X"* is a bet there will never be a second caller, and the bet's expiry is written down
-nowhere. What this task makes true is that **the invocation seam itself takes the consent decision
-as a required argument**, so a caller that has not made one cannot construct the call at all. That
-is the same shape `CLAUDE.md` already requires of every other cross-cutting concern: attached at the
-seam, never left to a rule an author must remember.
+later, and `docs/internal/lessons.md` `L8.31` is the general form: placing a concern at *"the one
+place that calls X"* is a bet there will never be a second caller, and the bet's expiry is written
+down nowhere. What this task makes true is that **the invocation seam itself takes the consent
+decision as a required argument**, so a caller that has not made one cannot construct the call at
+all. That is the same shape `CLAUDE.md` already requires of every other cross-cutting concern:
+attached at the seam, never left to a rule an author must remember.
 
 **`Consent` is a Protocol rather than a policy object, and that keeps `weft-command` clean.**
 The seam must not learn `weft.toml`, `PermissionPolicy` or what a TTY is — those belong to the
@@ -171,9 +172,9 @@ def test_consent_is_required_and_cannot_be_defaulted() -> None:
 
     Asserted against the signature rather than by calling with the argument missing, because the
     fact being specified is *"a caller that has not decided cannot construct the call"* — a
-    statement about the parameter, not about one traceback. `docs/lessons.md` `L8.24`: a defaulted
-    parameter with one caller is a narrowing wearing a default, and the previous arrangement was
-    safe only because the single caller happened to remember.
+    statement about the parameter, not about one traceback. `docs/internal/lessons.md` `L8.24`: a
+    defaulted parameter with one caller is a narrowing wearing a default, and the previous
+    arrangement was safe only because the single caller happened to remember.
     """
     from weft_command.invocation import invoke
 

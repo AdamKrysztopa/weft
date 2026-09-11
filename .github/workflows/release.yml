@@ -47,7 +47,7 @@ on:
         default: false
 
 jobs:
-  # **The cooling-off gate — `docs/lessons.md` L7.9, and it is here because remembering did not
+  # **The cooling-off gate — `docs/internal/lessons.md` L7.9, and it is here because remembering did not
   # work.** PyPI rate-limits *project creation* and counts **attempts** over a rolling window
   # rather than successes, so a rerun while the window is hot re-saturates it and moves recovery
   # further away (L7.3). That rule was written down twice — in `lessons.md` and in a task brief —
@@ -94,7 +94,7 @@ jobs:
           elapsed=$(( ( $(date -u +%s) - $(date -u -d "$last_failure" +%s) ) / 3600 ))
           echo "Previous failed Release run: $last_failure (${elapsed}h ago)."
           if [ "$elapsed" -lt "$COOLING_HOURS" ]; then
-            echo "::error::Refusing to publish. The previous Release run failed ${elapsed}h ago and PyPI's project-creation limiter counts attempts over a rolling window, so publishing now is more likely to extend the block than to clear it — docs/lessons.md L7.3 and L7.9. Wait until ${COOLING_HOURS}h have passed, or ask PyPI support for a project-creation exception, then re-run. To override deliberately: workflow_dispatch with force=true."
+            echo "::error::Refusing to publish. The previous Release run failed ${elapsed}h ago and PyPI's project-creation limiter counts attempts over a rolling window, so publishing now is more likely to extend the block than to clear it — docs/internal/lessons.md L7.3 and L7.9. Wait until ${COOLING_HOURS}h have passed, or ask PyPI support for a project-creation exception, then re-run. To override deliberately: workflow_dispatch with force=true."
             exit 1
           fi
           echo "Window has been left alone for ${elapsed}h. Proceeding."
@@ -231,7 +231,22 @@ jobs:
           cp corpus/manifest.toml reproduction/corpus-manifest.toml
           tar -czf weft-reproduction-${{ github.ref_name }}.tar.gz -C reproduction .
 
+      # A tag push does not create a Release, and `gh release upload` needs one — v2.4.0's
+      # artefacts failed with `release not found` after both wheels had published. The notes are
+      # the tag's own changelog section, so the two cannot drift.
       - name: Attach them to the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ github.ref_name }}" weft-reproduction-${{ github.ref_name }}.tar.gz
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$TAG" > /dev/null 2>&1; then
+            awk -v v="${TAG#v}" '
+              $0 == "## [" v "]" || index($0, "## [" v "] ") == 1 { f = 1; next }
+              f && /^## \[/ { exit }
+              f
+            ' CHANGELOG.md > notes.md
+            test -s notes.md || { echo "::error::CHANGELOG.md has no section for $TAG"; exit 1; }
+            gh release create "$TAG" --verify-tag --title "$TAG" --notes-file notes.md
+          fi
+          gh release upload "$TAG" "weft-reproduction-$TAG.tar.gz" --clobber

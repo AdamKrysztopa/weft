@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """A test that calls something the tree does not have says so now, not at dispatch.
 
-`docs/lessons.md` L8.35, and it is here rather than in a skill because it recurred **three times in
-one phase** after being written down as prose. Each time the shape was identical: a test written
-against an API nobody had read, dispatched to an implementer with a brief promising a green tree,
-and returned `blocked` with the agent correctly refusing to edit a test.
+`docs/internal/lessons.md` L8.35, and it is here rather than in a skill because it recurred **three
+times in one phase** after being written down as prose. Each time the shape was identical: a test
+written against an API nobody had read, dispatched to an implementer with a brief promising a green
+tree, and returned `blocked` with the agent correctly refusing to edit a test.
 
     Context(tenant_id="t", registry=Registry())   # Context has no `registry`
     registrar.flush()                             # PackRegistrar has `commit`
@@ -126,7 +126,8 @@ def main():
                     "",
                     "An absent module is the red phase and is not reported here. This is the other "
                     "kind: a call written from memory rather than copied from an existing use. "
-                    "Grep for one real call and copy its shape — docs/lessons.md L8.35, which "
+                    "Grep for one real call and copy its shape — docs/internal/lessons.md L8.35, "
+                    "which"
                     "recurred three times in Phase 7 before this hook existed.",
                 ]
             ),

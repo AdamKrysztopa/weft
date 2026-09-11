@@ -1,4 +1,4 @@
-"""The oscillation check can actually see the archive — `docs/lessons-archive.md`.
+"""The oscillation check can actually see the archive — `docs/internal/lessons-archive.md`.
 
 `scripts/lessons_graph.py` is the only mechanism standing between the lessons loop and an on/off
 cycle: `implement-ll` runs it before applying anything, and its answer decides whether a queue entry
@@ -14,8 +14,8 @@ skips it — thirteen entries invisible, with nothing said (`L6.17`). Neither sh
 both showed up as a smaller number that nobody had a reason to distrust.
 
 So this file reads the archive twice, by two different routes that can genuinely disagree
-(`docs/lessons.md` L5.6): once through `parse()`, and once as plain text with the Format example
-removed. A count that used the parser to check the parser could not fail at all.
+(`docs/internal/lessons.md` L5.6): once through `parse()`, and once as plain text with the Format
+example removed. A count that used the parser to check the parser could not fail at all.
 
 `lessons_graph` imports as a bare module because `pyproject.toml`'s `[tool.pytest.ini_options]
 pythonpath` already carries `scripts` — the same route `tests/docs` reaches the corpus-manifest
@@ -29,22 +29,34 @@ import re
 from pathlib import Path
 from typing import Final
 
+import pytest
 from lessons_graph import parse
 
-_REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
-_ARCHIVE: Final[Path] = _REPO_ROOT / "docs" / "lessons-archive.md"
-_QUEUE: Final[Path] = _REPO_ROOT / "docs" / "lessons.md"
+from tests.conftest import untracked_reason
 
-#: A queue entry's own heading — `docs/lessons.md`'s Queue mints ids, and until `L8.21` it was
-#: the one file that minted them and was never read by anything.
+_REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
+_ARCHIVE: Final[Path] = _REPO_ROOT / "docs" / "internal" / "lessons-archive.md"
+_QUEUE: Final[Path] = _REPO_ROOT / "docs" / "internal" / "lessons.md"
+
+#: Both files are untracked by design (`tests.conftest.UNTRACKED_BY_DESIGN`); a clean
+#: checkout has neither, so every test that reads one skips there and runs everywhere else.
+_MISSING_ARCHIVE_OR_QUEUE: Final[str | None] = untracked_reason(
+    "docs/internal/lessons-archive.md"
+) or untracked_reason("docs/internal/lessons.md")
+_requires_archive = pytest.mark.skipif(
+    _MISSING_ARCHIVE_OR_QUEUE is not None, reason=_MISSING_ARCHIVE_OR_QUEUE or ""
+)
+
+#: A queue entry's own heading — `docs/internal/lessons.md`'s Queue mints ids, and until `L8.21` it
+#: was the one file that minted them and was never read by anything.
 _QUEUE_HEADING: Final[re.Pattern[str]] = re.compile(r"^### (L[\d.]+) ", re.MULTILINE)
 
-#: **The archive records an id in two forms and `_BULLET` sees only one.** A drain writes each
-#: entry as a one-line `- **L5.3**` disposition — 66 of those — and a full `### L8.18 — title`
-#: section is written for the ones that earn a narrative — 28 of those, and *no* `L8.x` entry has a
-#: bullet at all. A uniqueness check built on `_BULLET` alone would have run green over a population
-#: that excludes the very block the collision happened in, which is `docs/lessons.md` L6.4 exactly:
-#: read the population, not the declaration. Measured while writing the check, not assumed.
+#: **The archive records an id in two forms and `_BULLET` sees only one.** A drain writes each entry
+#: as a one-line `- **L5.3**` disposition — 66 of those — and a full `### L8.18 — title` section is
+#: written for the ones that earn a narrative — 28 of those, and *no* `L8.x` entry has a bullet at
+#: all. A uniqueness check built on `_BULLET` alone would have run green over a population that
+#: excludes the very block the collision happened in, which is `docs/internal/lessons.md` L6.4
+#: exactly: read the population, not the declaration. Measured while writing the check, not assumed.
 _ENTRY_HEADING: Final[re.Pattern[str]] = re.compile(r"^### (L[\d.]+)", re.MULTILINE)
 
 _BULLET: Final[re.Pattern[str]] = re.compile(r"^- \*\*(L[\d.]+)\*\*", re.MULTILINE)
@@ -72,6 +84,7 @@ def _outside_the_format_example() -> str:
     return "".join(parts[::2])
 
 
+@_requires_archive
 def test_the_parser_sees_every_entry_that_is_written_down() -> None:
     # Arrange
     written = set(_BULLET.findall(_outside_the_format_example()))
@@ -87,6 +100,7 @@ def test_the_parser_sees_every_entry_that_is_written_down() -> None:
     )
 
 
+@_requires_archive
 def test_the_parser_sees_every_edge_that_is_written_down() -> None:
     """The edges are the archive's whole reason to exist, and they are routinely written on an
     entry's *continuation* line — this file's own Format example puts them there.
@@ -105,6 +119,7 @@ def test_the_parser_sees_every_edge_that_is_written_down() -> None:
     )
 
 
+@_requires_archive
 def test_every_edge_names_an_entry_the_archive_holds() -> None:
     """A dangling edge is a reference to a lesson nobody can read — the archive's own third
     reported condition, asserted here rather than only printed by the script.
@@ -120,7 +135,8 @@ def test_every_edge_names_an_entry_the_archive_holds() -> None:
 
 
 def test_the_check_can_tell_a_seen_entry_from_an_unseen_one() -> None:
-    """The floor `docs/lessons.md` L5.19 requires: a comparison whose two sides are equal today
+    """The floor `docs/internal/lessons.md` L5.19 requires: a comparison whose two sides are equal
+    today
     proves nothing unless it is shown to be non-vacuous. Planting an entry inside a fence must
     make the parser miss it — if it did not, the two tests above would pass on any archive.
     """
@@ -142,12 +158,15 @@ def _archived_ids() -> list[str]:
     return _BULLET.findall(text) + _ENTRY_HEADING.findall(text)
 
 
+@_requires_archive
 def test_no_archived_id_is_used_twice() -> None:
-    """`docs/lessons.md` `L8.21` — uniqueness is a property of the record, so it is checked as one.
+    """`docs/internal/lessons.md` `L8.21` — uniqueness is a property of the record, so it is checked
+    as one.
 
     A duplicated id is not *wrong* anywhere: every citation of it resolves to something, which is
     precisely why nothing failed. It is ambiguous everywhere instead, and a reader following
-    `docs/lessons.md L8.18` from a manual gets whichever of the two the file they opened holds.
+    `docs/internal/lessons.md L8.18` from a manual gets whichever of the two the file they opened
+    holds.
     """
     # **Uniqueness is per form, not across forms**, and that is the archive's design rather than a
     # concession: an entry earns a one-line `- **L7.1**` disposition in its drain section *and*, if
@@ -160,13 +179,16 @@ def test_no_archived_id_is_used_twice() -> None:
     ):
         duplicates = sorted({identifier for identifier in ids if ids.count(identifier) > 1})
         assert not duplicates, (
-            f"docs/lessons-archive.md holds these ids more than once as a {form}: {duplicates}. "
+            f"docs/internal/lessons-archive.md holds these ids more than once as a {form}: "
+            f"{duplicates}."
             f"Every citation of one resolves to something, so nothing else in this tree notices."
         )
 
 
+@_requires_archive
 def test_no_queued_id_reuses_an_archived_one() -> None:
-    """`docs/lessons.md` `L8.21` — the check covers every file that mints an id, not only the store.
+    """`docs/internal/lessons.md` `L8.21` — the check covers every file that mints an id, not only
+    the store.
 
     This is the half that actually fired. `L8.18` was written into the queue while the archive
     already held an `L8.18`, and the citation reached three shipped documents before anyone looked;
@@ -176,12 +198,14 @@ def test_no_queued_id_reuses_an_archived_one() -> None:
     queued = set(_QUEUE_HEADING.findall(_QUEUE.read_text(encoding="utf-8")))
     collisions = sorted(archived & queued)
     assert not collisions, (
-        f"docs/lessons.md's Queue mints these ids and docs/lessons-archive.md already holds them: "
+        f"docs/internal/lessons.md's Queue mints these ids and docs/internal/lessons-archive.md "
+        f"already holds them:"
         f"{collisions}. Pick the next free id — the archive is append-only, so a reused one makes "
         f"every existing citation ambiguous rather than wrong."
     )
 
 
+@_requires_archive
 def test_the_uniqueness_checks_can_actually_fail() -> None:
     """Both halves, planted — a check whose subject is legitimately empty passes vacuously."""
     ids = ["L1.1", "L1.2", "L1.2"]
@@ -197,10 +221,10 @@ def test_the_uniqueness_checks_can_actually_fail() -> None:
     )
 
 
-#: Every tree directory that cites a lesson by id. `docs/lessons.md` and the archive are the two
-#: that *mint* ids and are read separately; everything here only ever refers to one.
-#: A disposition written as a table row — the form the 2026-09-05 drain used for 21 entries, and
-#: the form `scripts/lessons_graph.py` cannot read. See `docs/lessons.md` `L8.22`.
+#: Every tree directory that cites a lesson by id. `docs/internal/lessons.md` and the archive are
+#: the two that *mint* ids and are read separately; everything here only ever refers to one. A
+#: disposition written as a table row — the form the 2026-09-05 drain used for 21 entries, and the
+#: form `scripts/lessons_graph.py` cannot read. See `docs/internal/lessons.md` `L8.22`.
 _TABLE_ROW_ENTRY: Final[re.Pattern[str]] = re.compile(r"^\|\s*`(L[\d.]+)`", re.MULTILINE)
 
 _CITING_ROOTS: Final[tuple[str, ...]] = (
@@ -216,7 +240,7 @@ _CITATION: Final[re.Pattern[str]] = re.compile(r"\bL(\d{1,2}\.\d{1,2})\b")
 
 #: Ids this module invents to plant its own failures. Named rather than excluded by filename,
 #: so this file stays inside the population it checks — a check that exempts itself is the
-#: shape `docs/lessons.md` L6.12 refuses one level up.
+#: shape `docs/internal/lessons.md` L6.12 refuses one level up.
 _PLANTED_IDS: Final[frozenset[str]] = frozenset({"L1.1", "L1.2", "L9.99", "L99.9"})
 
 
@@ -238,8 +262,9 @@ def _cited_ids() -> dict[str, list[str]]:
     return cited
 
 
+@_requires_archive
 def test_every_cited_lesson_id_exists() -> None:
-    """`docs/lessons.md` `L8.21` — an id written by hand is unchecked in three ways.
+    """`docs/internal/lessons.md` `L8.21` — an id written by hand is unchecked in three ways.
 
     It can **collide** with one already minted (the two tests above), it can **dangle** — name a
     lesson nothing holds — which is this one, and it can be **mis-aimed**: a live id whose entry
@@ -255,14 +280,17 @@ def test_every_cited_lesson_id_exists() -> None:
         if identifier not in known and identifier not in _PLANTED_IDS
     }
     assert not dangling, (
-        f"these lesson ids are cited and neither docs/lessons-archive.md nor docs/lessons.md's "
+        f"these lesson ids are cited and neither docs/internal/lessons-archive.md nor "
+        f"docs/internal/lessons.md's"
         f"Queue holds them: {dangling}. A citation nobody can follow is the loop's memory failing "
         f"silently, which is the whole thing lessons-archive.md exists to prevent."
     )
 
 
+@_requires_archive
 def test_the_citation_sweep_is_not_vacuous() -> None:
-    # `docs/lessons.md` L5.19. A sweep matching nothing passes identically to one finding nothing.
+    # `docs/internal/lessons.md` L5.19. A sweep matching nothing passes identically to one finding
+    # nothing.
     cited = _cited_ids()
     assert len(cited) > 50, f"only {len(cited)} lesson ids found cited across the tree"
     assert "L6.16" in cited, "the sweep does not see the id whose mis-citation motivated this check"
@@ -275,8 +303,9 @@ def test_the_citation_sweep_is_not_vacuous() -> None:
     )
 
 
+@_requires_archive
 def test_no_drain_records_an_entry_in_a_form_the_parser_cannot_read() -> None:
-    """`docs/lessons.md` `L8.22` — the archive has exactly one entry form, and this is why.
+    """`docs/internal/lessons.md` `L8.22` — the archive has exactly one entry form, and this is why.
 
     `test_the_parser_sees_every_entry_that_is_written_down` above compares `parse()`'s output
     against `_BULLET`, which is a regex for **the same format the parser reads**. Both sides come
@@ -291,7 +320,7 @@ def test_no_drain_records_an_entry_in_a_form_the_parser_cannot_read() -> None:
     """
     rows = sorted(set(_TABLE_ROW_ENTRY.findall(_outside_the_format_example())))
     assert not rows, (
-        f"docs/lessons-archive.md records these entries as table rows: {rows}. "
+        f"docs/internal/lessons-archive.md records these entries as table rows: {rows}. "
         f"scripts/lessons_graph.py reads `- **Lx.y** ...` bullets only, so a row is an entry the "
         f"oscillation check cannot see, and an edge the next drain cannot follow. Use bullets."
     )

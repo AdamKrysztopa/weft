@@ -6,14 +6,14 @@ it, and runs it. **Selection is pipeline selection, never dispatch.**" This modu
 that walk. 2.8 shipped it behind a new, *additive* command, `weft route`, rather than as a
 rewrite of `weft ask` — Phase 0's own documented, tested, retrieve-only contract was left
 untouched deliberately, because rewriting it was a bigger, separate risk than 2.8's own —
-and named the gap explicitly rather than closing it by silence (`docs/build-ledger.md`'s
+and named the gap explicitly rather than closing it by silence (`docs/internal/build-ledger.md`'s
 2.25 note). **Task 3.11 is that gap closed**: `weft route` is retired, and
 `weft_cli.commands.AskCommand` calls `run_routed_ask` below directly, so the question a
 user asks reaches the pipeline the router names with no second command to learn. `weft_cli.
 ask.run_ask` — the direct embed-and-search call this module never touches — survives as
 `weft ask --retrieve-only`, Phase 0's own contract kept reachable for a caller (a script, a
 deterministic baseline measurement) that genuinely wants no router and no model call; see
-`docs/build-ledger.md`'s 3.11 entry for the argument in full.
+`docs/internal/build-ledger.md`'s 3.11 entry for the argument in full.
 
 **Two resolutions, not one.** `route.yaml` (`packages/weft-rag/src/weft_retrieve/
 pipelines/route.yaml`, contributed by `weft-retrieve`'s own `register()`) is resolved and
@@ -46,7 +46,7 @@ could disagree with the one instance the `ServiceRegistry` actually holds.
 
 **`run_named_ask`, task 3.11 — the same walk, minus the router.** `weft ask <question>
 --pipeline <name>` is what a caller who wants a *specific* pipeline uses now that `weft
-route` has been folded into `ask` (`docs/build-ledger.md`'s 3.11 entry has the surface
+route` has been folded into `ask` (`docs/internal/build-ledger.md`'s 3.11 entry has the surface
 argument in full): this function skips `route.yaml` entirely and resolves `pipeline_name`
 straight against `weft_cli.pipeline_catalogue.full_catalogue` — project-local documents
 *and* every installed pack's own contribution, **the same catalogue `run_routed_ask` now
@@ -196,7 +196,7 @@ async def run_routed_ask(
     straight through to `build_services`; `weft_cli.commands.AskCommand.run` passes
     `Dependencies.token_sink`, the sink `weft_cli.cli.main` chose from `--json`/`--quiet`.
     This is `weft ask`'s own default, router-driven path since task **3.11** folded the
-    formerly-separate `weft route` command into it — `docs/build-ledger.md`'s 3.11 entry
+    formerly-separate `weft route` command into it — `docs/internal/build-ledger.md`'s 3.11 entry
     has the surface argument; this function's own resolution behaviour is untouched, Phase
     2's settled work.
 
@@ -306,9 +306,9 @@ class PipelineProducedTheWrongShapeError(WeftError):
     **This replaces three bare `assert isinstance(...)` calls, and the comment on two of them is
     why.** They read `# every shipped routable pipeline ends in a Generator` — an "every X" stated
     over what *this repository ships*, checked against pipeline documents **anyone may write**.
-    `docs/lessons.md` L6.15: an invariant's scope is the inputs that actually reach it, not the
-    ones its comment names. A three-line user pipeline ending in a retriever made it fail with no
-    message at all, which is how it was found (`weft ask --pipeline <name>`, ledger task 6.21's
+    `docs/internal/lessons.md` L6.15: an invariant's scope is the inputs that actually reach it, not
+    the ones its comment names. A three-line user pipeline ending in a retriever made it fail with
+    no message at all, which is how it was found (`weft ask --pipeline <name>`, ledger task 6.21's
     own binary run).
 
     **And `assert` is worse than it looks here**: `python -O` strips it, so on an optimised
@@ -333,8 +333,8 @@ def pipelines_producing(
     **The argument is the *contract*, not the payload the caller wanted.** `Answer` is a payload
     type and nothing is registered under it; `Generator` is the contract that produces one. The
     first draft asked the registry for `Answer`, got an empty list, and printed a refusal with no
-    alternatives at all — an empty answer read as "there are none" when it meant "I asked the
-    wrong question" (`docs/lessons.md` L5.9), and it was caught by running the binary rather than
+    alternatives at all — an empty answer read as "there are none" when it meant "I asked the wrong
+    question" (`docs/internal/lessons.md` L5.9), and it was caught by running the binary rather than
     by any test.
 
     Task **6.32**. Requirement 5's third clause is *"what the valid options are"*, and the
@@ -381,9 +381,9 @@ def _require[T](
     static guarantee the asserts were carrying while making the runtime one survive `python -O`.
 
     One seam for all three call sites rather than a repair at the one that was noticed —
-    `docs/lessons.md` L5.10, and L6.13's *"a repair specified from one failing instance narrows to
-    that instance"*. `tests/architecture/test_ff7_colour_integrity.py`'s sibling check keeps a new
-    bare `assert` from reappearing in shipped code.
+    `docs/internal/lessons.md` L5.10, and L6.13's *"a repair specified from one failing instance
+    narrows to that instance"*. `tests/architecture/test_ff7_colour_integrity.py`'s sibling check
+    keeps a new bare `assert` from reappearing in shipped code.
     """
     if isinstance(value, expected):
         return value

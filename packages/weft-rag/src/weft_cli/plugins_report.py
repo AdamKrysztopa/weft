@@ -249,7 +249,7 @@ def _version_label(distribution: str, versions: Mapping[str, str] | None) -> str
     not started passing it sees no change. A name present is its version. A name **absent from a
     mapping that was supplied** is the one that matters: the caller asked, and the environment
     had nothing recorded for that distribution, which is said out loud rather than left blank
-    (`docs/lessons.md` L5.9).
+    (`docs/internal/lessons.md` L5.9).
     """
     if versions is None:
         return ""

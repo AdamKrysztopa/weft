@@ -1,6 +1,6 @@
 """`cited-answer` — the one `Generator` this task ships. `Stage[Passages, Answer]`.
 
-Task **2.9**, `docs/build-ledger.md`: "an answer carries citations a reader can follow
+Task **2.9**, `docs/internal/build-ledger.md`: "an answer carries citations a reader can follow
 back to a passage — not to a document, and not to a paraphrase." `weft_generate.payload.
 Answer._citations_resolve` already makes the *shape* of that unconstructable to violate;
 this module is what builds an `Answer` in the first place, and what keeps the marker a

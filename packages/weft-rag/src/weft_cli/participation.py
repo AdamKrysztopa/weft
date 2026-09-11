@@ -44,11 +44,11 @@ DEFAULT_INDEX_RUNS_DIR: Final[Path] = Path("runs/index")
 class UnreadableRunRecordError(WeftError):
     """A persisted run record under the runs directory will not parse.
 
-    Raised rather than skipped, deliberately: `stores_in_use` reads the run history precisely
-    to find a store a catalogue no longer names, and a record that will not parse might be the
-    one record naming it. Skipping it would let that store's contents survive their source
-    silently — `docs/lessons.md` L5.9's rule, that an empty answer means "I did not find it"
-    and never "it is not there", applied to a directory sweep instead of a single lookup.
+    Raised rather than skipped, deliberately: `stores_in_use` reads the run history precisely to
+    find a store a catalogue no longer names, and a record that will not parse might be the one
+    record naming it. Skipping it would let that store's contents survive their source silently —
+    `docs/internal/lessons.md` L5.9's rule, that an empty answer means "I did not find it" and never
+    "it is not there", applied to a directory sweep instead of a single lookup.
     """
 
     def __init__(self, message: str, *, path: Path) -> None:
@@ -145,7 +145,7 @@ def stores_in_use(
     `configured` — `[services] store` — is included unconditionally, whether or not it is
     registered: diagnosing an unresolvable `[services] store` is
     `weft_cli.registry_bootstrap.require_plugin`'s job, and repeating that translation here
-    would give the same mistake two different messages (`docs/lessons.md` L5.9).
+    would give the same mistake two different messages (`docs/internal/lessons.md` L5.9).
 
     `project` is the subject — the documents this project itself wrote. Every other name is
     kept only if it is both named by something reachable from `project` — a stage in a project

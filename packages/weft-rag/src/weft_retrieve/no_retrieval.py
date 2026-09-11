@@ -1,6 +1,6 @@
 """`no-retrieval` — the null case on the query path. `Retriever`, contributing nothing.
 
-Task **2.13**, `docs/build-ledger.md`: "the null case is a plugin like any other, and an
+Task **2.13**, `docs/internal/build-ledger.md`: "the null case is a plugin like any other, and an
 empty source list is a *stated property* of it rather than a retrieval failure a consumer
 has to guess at." `docs/10-technique-catalogue.md` §1.1's own row on this technique names
 a defect worth avoiding: implementing the null case faithfully is not enough if its

@@ -2,28 +2,28 @@
 
 Publishes the `RetrievalMetric`/`GenerationMetric` contracts, in `contract.py` — task 4.2's own
 split of task 4.1's single `Metric`/`Sample`, argued in `contract.py`'s own module docstring — and
-ships every one of the 21 metrics `docs/build-ledger.md` task 4.2 owns: 4 IR (`ir_metrics.py`), 11
-traditional generation (`lexical.py`, `qa_metrics.py`, `embedding_metrics.py`) and 6 LLM judges
-(`judges.py`, asking the 6 prompts `prompts.py` registers under `weft_prompts.contract.Prompt`).
-`aggregate.py` (task 4.3) folds many per-sample `Outcome[MetricScore]` observations from any one
-of these into a `MetricAggregate` — exclusion counts, dispersion, and a reported-name check run
-against the name a report key actually publishes, not just a metric's own `metric_name` property;
-see that module's own docstring for the full argument. `run_record.py` (task 4.4) persists a run —
-its resolved pipeline, corpus identity, model versions and active distribution set — as a file, so
-two runs can be diffed after the fact; see that module's own docstring for Q1 and how fitness
-function 8(c) is checked. `offline.py` and `pricing.py` (task 4.7) answer V5: which registered
-metrics run in the gate with no credentials and no network (Q6, settled in `contract.py`'s own
-module docstring), and what one run costs in money, a per-model rate table shipped as data rather
-than a closed key space. `falsify.py` (task 8.8) applies `09` §4.3's own reproduction-tolerance
-derivation to a *difference between two runs*: a baseline's own repeated means span an interval,
-and a difference no larger than that interval's width is indistinguishable from the baseline
-repeating itself — see that module's own docstring for the full argument and for why no
-threshold, multiplier or sigma appears anywhere in it. Neither `aggregate.py`, `run_record.py`,
-`offline.py`, `pricing.py` nor `falsify.py` is a registered capability of its own — nothing under
-this file's `register()` call publishes any of them — because folding observations into a report,
-folding a run's own facts into a record, reading which metrics are gate-safe, pricing a set of
-calls, and judging a difference against a baseline's own spread are not themselves plugin points
-any pack or third party needs to swap.
+ships every one of the 21 metrics `docs/internal/build-ledger.md` task 4.2 owns: 4 IR
+(`ir_metrics.py`), 11 traditional generation (`lexical.py`, `qa_metrics.py`, `embedding_metrics.py`)
+and 6 LLM judges (`judges.py`, asking the 6 prompts `prompts.py` registers under
+`weft_prompts.contract.Prompt`). `aggregate.py` (task 4.3) folds many per-sample
+`Outcome[MetricScore]` observations from any one of these into a `MetricAggregate` — exclusion
+counts, dispersion, and a reported-name check run against the name a report key actually publishes,
+not just a metric's own `metric_name` property; see that module's own docstring for the full
+argument. `run_record.py` (task 4.4) persists a run — its resolved pipeline, corpus identity, model
+versions and active distribution set — as a file, so two runs can be diffed after the fact; see that
+module's own docstring for Q1 and how fitness function 8(c) is checked. `offline.py` and
+`pricing.py` (task 4.7) answer V5: which registered metrics run in the gate with no credentials and
+no network (Q6, settled in `contract.py`'s own module docstring), and what one run costs in money, a
+per-model rate table shipped as data rather than a closed key space. `falsify.py` (task 8.8) applies
+`09` §4.3's own reproduction-tolerance derivation to a *difference between two runs*: a baseline's
+own repeated means span an interval, and a difference no larger than that interval's width is
+indistinguishable from the baseline repeating itself — see that module's own docstring for the full
+argument and for why no threshold, multiplier or sigma appears anywhere in it. Neither
+`aggregate.py`, `run_record.py`, `offline.py`, `pricing.py` nor `falsify.py` is a registered
+capability of its own — nothing under this file's `register()` call publishes any of them — because
+folding observations into a report, folding a run's own facts into a record, reading which metrics
+are gate-safe, pricing a set of calls, and judging a difference against a baseline's own spread are
+not themselves plugin points any pack or third party needs to swap.
 
 **No unregistered category, no dummy, no silent skip.** Every metric this pack ships is
 registered in the one `register()` call below, so there is no second import path a caller
@@ -124,7 +124,7 @@ from weft_prompts.contract import Prompt
 #: The name `OverlapAtThreshold` is registered and selected under — task 4.1's own demonstration.
 OVERLAP_AT_THRESHOLD_NAME = "overlap-at-threshold"
 
-#: The 4 `RetrievalMetric` names — `docs/build-ledger.md` task 4.2.
+#: The 4 `RetrievalMetric` names — `docs/internal/build-ledger.md` task 4.2.
 PRECISION_AT_K_NAME = "precision-at-k"
 RECALL_AT_K_NAME = "recall-at-k"
 MEAN_AVERAGE_PRECISION_NAME = "mean-average-precision"

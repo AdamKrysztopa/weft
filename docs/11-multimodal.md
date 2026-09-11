@@ -214,7 +214,7 @@ on the passport (`packages/weft-kernel/src/weft_kernel/context.py`), `source_id`
 already requires an extractor to assign distinctly. Cascade delete is then
 `delete_prefix(f"{tenant_id}/{source_id}/")` — one call, no ledger, no dedup table. This is forced
 rather than chosen: G4's `delete_source` returns `Removed` **counts** and deliberately never a
-materialised cascade (`packages/weft-rag/src/weft_store/contract.py:150-158 "untouche"`), so a figure pack
+materialised cascade (`packages/weft-rag/src/weft_store/contract.py:121-158 "untouche"`), so a figure pack
 cannot learn URIs after the fact. **Derivable keys are the only design the settled contract admits**,
 and they delete the whole `FigureAssetsRepository` component.
 

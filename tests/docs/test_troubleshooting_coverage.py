@@ -67,7 +67,7 @@ def _first_party_top_level_packages() -> tuple[str, ...]:
 
 
 #: Every first-party distribution's top-level import name — the whole shipped tree
-#: `docs/README.md` → *Where things are* lists as packages, minus `weft-canary`
+#: `docs/internal/README.md` → *Where things are* lists as packages, minus `weft-canary`
 #: (`testing/weft-canary`), which is test-only infrastructure and never reaches a user as a
 #: failure mode. Derived from `packages/*/pyproject.toml` (see
 #: `_first_party_top_level_packages`) rather than a hand-picked list of modules known today

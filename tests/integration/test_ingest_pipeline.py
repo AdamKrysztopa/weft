@@ -97,11 +97,11 @@ async def test_ingest_pipeline_produces_stored_nodes(store: PgVectorStore, tmp_p
     # `weft_store.rehydrate`'s process-global namespace registry. Reading a chunk back then fails
     # with `no 'weft-chunk' is registered for ExtModel`, and this file passed only because some
     # *other* test file had run a real `discover()` first — a test that passes because another
-    # file ran before it is a defect in the test (`docs/lessons.md` L5.21).
+    # file ran before it is a defect in the test (`docs/internal/lessons.md` L5.21).
     #
     # Through `register_from_reports`, not `register_ext_model`: the latter refuses a second call
     # even for the same class, so the fix would work alone and fail in the full suite. That
-    # difference contradicts `rehydrate.py`'s own docstring and is `docs/lessons.md` L6.28.
+    # difference contradicts `rehydrate.py`'s own docstring and is `docs/internal/lessons.md` L6.28.
     register_from_reports(
         [
             PackReport(

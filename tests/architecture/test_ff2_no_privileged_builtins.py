@@ -16,7 +16,7 @@ derive it from a broader check built for a different purpose — and it computes
 four module names from each pack's own `pyproject.toml` rather than retyping them,
 the same reasoning `test_ff9_extension_from_outside.py` gives for reading the
 example pack's identity off its own `pyproject.toml`: a hand-typed second copy is
-the drift `docs/README.md` opens with.
+the drift `docs/internal/README.md` opens with.
 
 **Clause two — no built-in is registered by a path a third party could not use.**
 `01` states this half has to be a runtime check: "the registry's contents must

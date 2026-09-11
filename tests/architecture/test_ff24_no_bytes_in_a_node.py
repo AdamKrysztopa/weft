@@ -3,8 +3,8 @@
 `01` → *Fitness functions this phase turns on* carries the argument; this file is the check, and
 filing it mints the number: 22 went to task 9.0 and 23 to task 9.2, both on 2026-09-06, so 24 is the
 first free one. The plan named a `test_ff22_...` path for this check while 9.0 was already filing a
-different check under that number — `docs/lessons.md` `L9.44` — which is why `01` now writes
-`test_ff<NN>_` until a file exists.
+different check under that number — `docs/internal/lessons.md` `L9.44` — which is why `01` now
+writes `test_ff<NN>_` until a file exists.
 
 **The property, in two clauses, each able to fail alone.**
 
@@ -35,10 +35,10 @@ time.
 `test_ff19_persisted_models_round_trip.py`'s `_customises_writing_without_reading` records what the
 other two cost: `field.metadata` is **empty** for a field annotated through a PEP 695 alias, so a
 check reading it passed on the exact model it was written for and kept passing when the thing it
-looked for was deleted (`docs/lessons.md` `L5.19`, `L8.25`). A source-text sweep has the mirror
-problem — an alias, a `TypeAlias`, or `Annotated[bytes, ...]` behind a name declared in another
-module all read as innocent. The core schema is what pydantic itself will use to validate, so it is
-the only account of a field's type that cannot disagree with the runtime.
+looked for was deleted (`docs/internal/lessons.md` `L5.19`, `L8.25`). A source-text sweep has the
+mirror problem — an alias, a `TypeAlias`, or `Annotated[bytes, ...]` behind a name declared in
+another module all read as innocent. The core schema is what pydantic itself will use to validate,
+so it is the only account of a field's type that cannot disagree with the runtime.
 
 **Clause (b) lives here rather than in a conformance kit, and `01` said otherwise.** `01`'s entry
 placed it *"as a conformance case in `weft_extract`'s kit"*; measured 2026-09-06, no such kit
@@ -90,7 +90,8 @@ _SOURCE_ROOTS: Final[tuple[Path, ...]] = (
 _BYTES_SCHEMA_TYPES: Final[frozenset[str]] = frozenset({"bytes", "bytearray", "memoryview"})
 
 #: Ext models permitted to carry bytes. **Pinned empty.** Widening this is an argument recorded in
-#: `docs/README.md`'s decision log and named here — never a name parked to make a red check green.
+#: `docs/internal/README.md`'s decision log and named here — never a name parked to make a red check
+#: green.
 EXT_MODELS_CARRYING_BYTES: Final[frozenset[str]] = frozenset()
 
 
@@ -311,7 +312,7 @@ def _first_party_extractors() -> tuple[tuple[str, object], ...]:
 
     The registry `weft plugins doctor` builds, never a hand-written list: an extractor added
     tomorrow is covered here without an edit, which is the difference between a check and an
-    inventory (`docs/lessons.md` `L5.14`).
+    inventory (`docs/internal/lessons.md` `L5.14`).
     """
     registry = discover_for_tests()
     return tuple(

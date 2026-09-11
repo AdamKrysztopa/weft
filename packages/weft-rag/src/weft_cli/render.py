@@ -159,7 +159,7 @@ def render_refusal(exc: WeftError, *, as_json: bool = False) -> Rendered:
     """A `WeftError` raised before or during `run()` — a `CommandRefusalError`'s own exit code,
     or `weft_cli.exit_codes.exit_code_for`'s mapping for every other `WeftError`.
 
-    **`as_json`, task 5.2d.** `docs/README.md` decision log, S6/G9: CLI error prose is not
+    **`as_json`, task 5.2d.** `docs/internal/README.md` decision log, S6/G9: CLI error prose is not
     promised, but a structured channel is in its place — the `WeftError` subclass name as
     failure identity, `valid_options` where the error has them, and the human string as a
     `rendered` field (`docs/09-release.md` §3). Before this task every failure printed
@@ -475,7 +475,7 @@ def _reparse_lines(changes: Mapping[str, SourceChange]) -> list[str]:
     A `PIPELINE_CHANGED` line is the one this task exists for: the bytes are identical and the
     pipeline that read them is not, so the corpus now holds this document parsed two ways. The
     line says so plainly rather than implying it, and it does **not** claim anything was cleaned
-    up — nothing was. `docs/lessons.md` `L9.37` owns that half.
+    up — nothing was. `docs/internal/lessons.md` `L9.37` owns that half.
     """
     reportable = {
         SourceChange.CONTENT_CHANGED: "changed on disk, re-parsed",
@@ -528,13 +528,12 @@ def _render_index(result: IndexCommandResult) -> Rendered:
 def _citation_line(citation: Citation) -> str:
     """One citation, for a human — carried repair **R9.2**, first half.
 
-    This rendered `  [marker] uri` alone, and `docs/build-ledger.md`'s R9.2 states what that
-    cost: several nodes cut from one document cite identically, so *which* node answered is
-    unnameable, and a `page` the pipeline worked to resolve
-    (`weft_generate.page.page_for`) never reached anybody. The node id is printed **whole**
-    rather than abbreviated — a truncated digest is not something a reader can look anything up
-    by, which is the entire complaint — on the precedent `_render_reconcile` already sets for
-    `SourceChange` items one screen up.
+    This rendered `  [marker] uri` alone, and `docs/internal/build-ledger.md`'s R9.2 states what
+    that cost: several nodes cut from one document cite identically, so *which* node answered is
+    unnameable, and a `page` the pipeline worked to resolve (`weft_generate.page.page_for`) never
+    reached anybody. The node id is printed **whole** rather than abbreviated — a truncated digest
+    is not something a reader can look anything up by, which is the entire complaint — on the
+    precedent `_render_reconcile` already sets for `SourceChange` items one screen up.
 
     `page` is omitted rather than printed as a placeholder when it is `None`, because `None` is
     a fact here and not a gap: `Citation`'s own docstring says it means the source is not
@@ -620,7 +619,7 @@ def _render_ask(result: AskCommandResult, *, streamed: bool, as_json: bool = Fal
 
 def render_applies_to(applies: Applies) -> str:
     """One `Applies` constraint, rendered the way `Applies` writes itself — carried repair
-    **R9.11** (`docs/lessons.md` `L9.45`).
+    **R9.11** (`docs/internal/lessons.md` `L9.45`).
 
     `Applies.__repr__` was written for the one human audience there is: someone reading
     `weft pipeline show`, e.g. `Applies(Language, code='pl')`. Before this repair,
@@ -814,7 +813,7 @@ def _falsification_line(name: str, judgement: DifferenceJudgement) -> str:
     # be inventing the very measurement this command exists to withhold.
     if difference is None or spread is None:
         return f"  {name}: {judgement.verdict.value} — {judgement.reason}"
-    # Ledger 8.23, `docs/lessons.md` L8.17. A zero-width interval is not a number like the
+    # Ledger 8.23, `docs/internal/lessons.md` L8.17. A zero-width interval is not a number like the
     # others: a genuinely deterministic system and a badly-sampled one record the identical
     # thing, and the mistake runs in the over-confident direction, because every difference
     # then falls outside it. Measured, not supposed — task 8.8's own demonstration scored

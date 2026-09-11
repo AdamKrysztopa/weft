@@ -1,7 +1,7 @@
 """`pdf-layout` recovers a table as its own node — ledger task `9.6`.
 
 `MediaType.TABLE` has existed since Phase 0 and, measured 2026-09-06, no code in `packages/` had
-ever produced one (`docs/README.md`'s `S11` row). This is its first producer.
+ever produced one (`docs/internal/README.md`'s `S11` row). This is its first producer.
 
 **One node, whose media type says so, carrying its grid.** The table node is `derive`d from the
 root the document already produces, so lineage and `sources` are carried and `weft delete` reaps it

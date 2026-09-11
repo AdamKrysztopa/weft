@@ -424,11 +424,11 @@ async def test_run_command_emits_a_structured_envelope_when_the_real_sink_is_jso
 
 async def test_run_command_hands_the_json_sink_down_to_a_successful_render() -> None:
     # Arrange — carried repair **R9.2**, the wire. `run_command` already reads
-    # `isinstance(deps.token_sink, JsonSink)` for `render_refusal`'s `as_json` on the *failure*
-    # path (the test above); the success path never asked, so `docs/03-cli.md` -> *Output*'s
-    # "no parsing of prose" held for a refusal and not for an answer. `docs/lessons.md` L9.79:
-    # where a value's whole job is to travel from configuration to a call, one test must make
-    # that journey, or the wire is untested along its length.
+    # `isinstance(deps.token_sink, JsonSink)` for `render_refusal`'s `as_json` on the *failure* path
+    # (the test above); the success path never asked, so `docs/03-cli.md` -> *Output*'s "no parsing
+    # of prose" held for a refusal and not for an answer. `docs/internal/lessons.md` L9.79: where a
+    # value's whole job is to travel from configuration to a call, one test must make that journey,
+    # or the wire is untested along its length.
     from weft_cli.commands import AskCommandResult
     from weft_cli.output import AskFormat
     from weft_cli.sinks import JsonSink
@@ -517,10 +517,10 @@ async def test_run_command_attributes_an_error_through_the_seam(
 async def test_run_command_does_not_trip_the_blocking_guard(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # Arrange — the failure `docs/build-ledger.md` 3.2 hit and reverted: a `Command` doing real
-    # synchronous filesystem IO (`weft index`'s own shape) must run to completion, not raise
-    # `BlockingCallError`, once `Command.run` goes through the seam again for spans and
-    # attribution (O1's resolution: `guard_blocking_calls=False`).
+    # Arrange — the failure `docs/internal/build-ledger.md` 3.2 hit and reverted: a `Command` doing
+    # real synchronous filesystem IO (`weft index`'s own shape) must run to completion, not raise
+    # `BlockingCallError`, once `Command.run` goes through the seam again for spans and attribution
+    # (O1's resolution: `guard_blocking_calls=False`).
     registry = Registry()
     registry.add(Command, "blocking", _BlockingCommand, distribution="acme-cmd")
     deps = Dependencies(registry=registry, reports=(), services=ServiceSelection())

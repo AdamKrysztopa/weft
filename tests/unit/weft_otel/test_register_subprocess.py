@@ -1,15 +1,15 @@
 """The one place `weft_otel.register`'s real, unmocked effect is demonstrated end to end.
 
-`docs/lessons.md` L5.1 — "an escape hatch was cited before it was verified" — is exactly the
-mistake this file exists not to repeat: `test_register.py` proves `register()`'s *logic*
-against a monkeypatched `set_tracer_provider`, which is the right tool for testing decisions
-but proves nothing about whether a real span really reaches a real exporter. This file spawns
-a fresh interpreter — `opentelemetry.trace.set_tracer_provider` can only succeed once per
-process, so a fresh one is the only way to watch it happen for real without contending with
-`tests/unit/weft_kernel/test_seam_trace_visibility.py`'s own claim on the shared pytest
-session's single provider slot (see `test_register.py`'s own module docstring for the full
-argument). `ConsoleSpanExporter` prints each finished span to stdout, unprompted — this test
-reads that output rather than asserting the mechanism worked from intuition.
+`docs/internal/lessons.md` L5.1 — "an escape hatch was cited before it was verified" — is exactly
+the mistake this file exists not to repeat: `test_register.py` proves `register()`'s *logic* against
+a monkeypatched `set_tracer_provider`, which is the right tool for testing decisions but proves
+nothing about whether a real span really reaches a real exporter. This file spawns a fresh
+interpreter — `opentelemetry.trace.set_tracer_provider` can only succeed once per process, so a
+fresh one is the only way to watch it happen for real without contending with
+`tests/unit/weft_kernel/test_seam_trace_visibility.py`'s own claim on the shared pytest session's
+single provider slot (see `test_register.py`'s own module docstring for the full argument).
+`ConsoleSpanExporter` prints each finished span to stdout, unprompted — this test reads that output
+rather than asserting the mechanism worked from intuition.
 
 The script argv below is a literal, inlined directly rather than built from a module-level
 constant — ruff's `S603` can prove a literal argv carries nothing an environment variable or

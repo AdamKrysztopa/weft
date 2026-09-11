@@ -2,7 +2,7 @@
 
 Mirrors `packages/weft-rag/src/weft_cli/sinks.py`. Task **3.6**: "tokens reach a reader as
 they arrive, through a resolved service." The timing tests below are the point of this
-file — `docs/build-ledger.md` 3.6's own brief warns that a test only checking the
+file — `docs/internal/build-ledger.md` 3.6's own brief warns that a test only checking the
 *finished* text would pass against a sink that buffered everything and flushed at
 `close()`, which is exactly the shape this task exists to refuse. Both timing tests drive
 the real `weft_llm.client.LLMClient.complete` against a fake provider that `await
@@ -216,7 +216,7 @@ async def test_a_role_outside_the_display_set_never_reaches_the_stream(sink_cls:
 
 # ---------------------------------------------------------------------------
 # Task 6.16 — a `--json` consumer tells one line's shape from another.
-# `docs/lessons.md` L5.16; `03` -> Output; `09` section 3 (promised, additively).
+# `docs/internal/lessons.md` L5.16; `03` -> Output; `09` section 3 (promised, additively).
 # ---------------------------------------------------------------------------
 
 

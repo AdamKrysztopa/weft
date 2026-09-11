@@ -50,8 +50,8 @@ def test_aggregate_excludes_failures_and_reports_the_exclusion_count() -> None:
 
 
 def test_a_single_observation_carries_no_stdev_rather_than_a_claimed_zero() -> None:
-    # Arrange — one real score, nothing else. A standard deviation of one observation is not a
-    # real quantity (`docs/build-ledger.md` 4.1's own reasoning for `MetricScore`, honoured here
+    # Arrange — one real score, nothing else. A standard deviation of one observation is not a real
+    # quantity (`docs/internal/build-ledger.md` 4.1's own reasoning for `MetricScore`, honoured here
     # for the aggregate); `0.0` would falsely claim a measured, zero spread.
     outcomes = [_score("precision@3", 0.8)]
 

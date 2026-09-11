@@ -14,7 +14,7 @@ deliberate act. `G19` folded `weft-qdrant` into the `weft-rag` wheel, so every i
 carries it, and the moment a shipped `index-qdrant` named `qdrant` every unrelated project on
 earth acquired a Qdrant participant: `weft index corpus` exited **1** with *"failed: qdrant
 (weft-rag) — ResponseHandlingException"* and the README's own quickstart stopped working
-(`docs/lessons.md` `L11.21`).
+(`docs/internal/lessons.md` `L11.21`).
 
 **So the subject is now the project's own documents.** `project` is what
 `load_pipeline_catalogue` read out of `pipelines/`; `catalogue` is every pipeline there is, and
@@ -23,10 +23,10 @@ project that derives from a shipped rung still counts the stores that rung names
 document nothing in the project derives from names no store this project uses.
 
 **`load_run_records` refuses a file it cannot read rather than skipping it**, and that is the
-property its error test exists for. A run record that will not parse might be the one naming
-the store this deletion has to reach, so skipping it would let derived data survive its source
-silently — `docs/lessons.md` L5.9's rule, that an empty answer means *"I did not find it"* and
-never *"it is not there"*, applied to a directory sweep.
+property its error test exists for. A run record that will not parse might be the one naming the
+store this deletion has to reach, so skipping it would let derived data survive its source silently
+— `docs/internal/lessons.md` L5.9's rule, that an empty answer means *"I did not find it"* and never
+*"it is not there"*, applied to a directory sweep.
 """
 
 from __future__ import annotations
@@ -151,7 +151,7 @@ def test_a_store_only_a_contributed_document_names_stays_out() -> None:
     """**R11.2's whole point.** `index-qdrant` is installed and routable, and this project has
     neither derived from it nor run it. Before the narrowing this put `qdrant` into every
     project's participant set, so `weft delete` and `weft index`'s repair pass both connected
-    to a database the operator never asked for — `docs/lessons.md` `L11.21`.
+    to a database the operator never asked for — `docs/internal/lessons.md` `L11.21`.
     """
     # Arrange
     registry = _registry()

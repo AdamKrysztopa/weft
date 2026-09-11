@@ -1,4 +1,4 @@
-"""Phase 3's exit criterion — task **3.8**, `docs/build-ledger.md`.
+"""Phase 3's exit criterion — task **3.8**, `docs/internal/build-ledger.md`.
 
 `docs/01-high-level-plan.md` -> Phase 3 **Exit**: "a plugin ships a command that appears in
 `weft --help` and in REPL completion without core knowing it exists." This file is that

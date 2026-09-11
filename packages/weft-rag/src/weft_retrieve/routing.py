@@ -1,15 +1,14 @@
 """`query-scorer` and three `RoutingPolicy` implementations — the router, in two contracts.
 
-Task **2.25**, `docs/build-ledger.md`: "query scoring and routing policy are two plugins, so
-a threshold ladder can be replaced by a trained classifier without touching the scorer."
-`docs/10-technique-catalogue.md` §1.1's `query-scorer` + `routing-policy` row names the
-defect this module exists to close: a router that scores seven independent dimensions on a
-span (genuinely good, kept) and then decides via a long hand-written branch cascade over
-constants nobody fit to anything can end up unable to select its own best-named strategy, and
-a decision step wrapped in an overly broad exception catch can silently swap in a different
-routing algorithm on a parse failure nobody sees. Both are the same shape: a decision buried
-inside the same code that took the measurement, so retuning the decision meant editing the
-measurement.
+Task **2.25**, `docs/internal/build-ledger.md`: "query scoring and routing policy are two plugins,
+so a threshold ladder can be replaced by a trained classifier without touching the scorer."
+`docs/10-technique-catalogue.md` §1.1's `query-scorer` + `routing-policy` row names the defect this
+module exists to close: a router that scores seven independent dimensions on a span (genuinely good,
+kept) and then decides via a long hand-written branch cascade over constants nobody fit to anything
+can end up unable to select its own best-named strategy, and a decision step wrapped in an overly
+broad exception catch can silently swap in a different routing algorithm on a parse failure nobody
+sees. Both are the same shape: a decision buried inside the same code that took the measurement, so
+retuning the decision meant editing the measurement.
 
 **Splitting the contract is the fix, not a bigger ladder.** `weft_retrieve.contract.
 QueryScorer` (`Stage[Query, Scorecard]`) measures; `weft_retrieve.contract.RoutingPolicy`

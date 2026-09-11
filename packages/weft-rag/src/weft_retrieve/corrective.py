@@ -2,15 +2,15 @@
 survives grading is thin. `Retriever`, owning its own decision the way `weft_retrieve.
 iterative.IterativeRetrieval` owns its own loop.
 
-Task **2.21b**, `docs/build-ledger.md`'s 2.21 line: "a knowledge action that reaches a second
-retriever is what earns the name `corrective`." `docs/10-technique-catalogue.md` §1.1 states
-the condition this module exists to satisfy, verbatim: "`corrective` is only honest if the
-plugin gains a *distinct knowledge action* — a second `Retriever` resolved by contract, not
-the same index re-queried. If Weft ships that behaviour unchanged, the name is
-`graded-retrieval` and the word `corrective` stays free for a plugin that earns it." `weft_
-retrieve.graded.GradedRetrieval` is that unchanged behaviour; this module is what is built on
-top of it, and `knowledge_action`'s own field below — required, with no default — is what
-makes a same-index `corrective` unconstructable rather than merely undocumented.
+Task **2.21b**, `docs/internal/build-ledger.md`'s 2.21 line: "a knowledge action that reaches a
+second retriever is what earns the name `corrective`." `docs/10-technique-catalogue.md` §1.1 states
+the condition this module exists to satisfy, verbatim: "`corrective` is only honest if the plugin
+gains a *distinct knowledge action* — a second `Retriever` resolved by contract, not the same index
+re-queried. If Weft ships that behaviour unchanged, the name is `graded-retrieval` and the word
+`corrective` stays free for a plugin that earns it." `weft_ retrieve.graded.GradedRetrieval` is that
+unchanged behaviour; this module is what is built on top of it, and `knowledge_action`'s own field
+below — required, with no default — is what makes a same-index `corrective` unconstructable rather
+than merely undocumented.
 
 Shi-Qi Yan, Jia-Chen Gu, Yun Zhu, Zhen-Hua Ling, *Corrective Retrieval Augmented Generation*,
 arXiv:2401.15884, 2024. **A divergence named in `10` §1.1's row is exactly what this module

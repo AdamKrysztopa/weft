@@ -1,6 +1,6 @@
 """The agent's tool catalogue — derived from the registry, never hand-written. Task **7.2a**.
 
-`docs/05-grilling-sessions.md` → G12, settled 2026-09-06: a caller with no TTY cannot reach
+`docs/internal/05-grilling-sessions.md` → G12, settled 2026-09-06: a caller with no TTY cannot reach
 `overwrite` or `destroy`, and its autonomous reach is `read`, `write` and `network` — see
 `REACHABLE_CLASSES`. That is a **ceiling**, and this module makes it mechanical rather than a
 list somebody maintains: `tool_catalogue` filters `weft_command.catalogue.command_entries` by
@@ -33,10 +33,10 @@ from weft_command.contract import Command
 from weft_command.permission import PermissionClass
 from weft_kernel.registry import Registry, unwrap_factory
 
-#: G12's ceiling (`docs/05-grilling-sessions.md` → G12, settled 2026-09-06): nothing but a TTY
-#: counts as consent for `overwrite` or `destroy`, and an agent is never a TTY, so those two
-#: classes are permanently outside `REACHABLE_CLASSES` rather than reachable through some
-#: approval channel this module would have to invent.
+#: G12's ceiling (`docs/internal/05-grilling-sessions.md` → G12, settled 2026-09-06): nothing but a
+#: TTY counts as consent for `overwrite` or `destroy`, and an agent is never a TTY, so those two
+#: classes are permanently outside `REACHABLE_CLASSES` rather than reachable through some approval
+#: channel this module would have to invent.
 REACHABLE_CLASSES: Final[frozenset[PermissionClass]] = frozenset(
     {PermissionClass.READ, PermissionClass.WRITE, PermissionClass.NETWORK}
 )

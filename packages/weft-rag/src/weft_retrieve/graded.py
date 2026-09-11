@@ -1,7 +1,7 @@
 """`graded-retrieval` — grades each retrieved passage against the question, batched and
 capped, and keeps only the ones that clear a configured floor. `Reranker`.
 
-Task **2.21a**, `docs/build-ledger.md`'s 2.21 line: "per-document relevance grading is a
+Task **2.21a**, `docs/internal/build-ledger.md`'s 2.21 line: "per-document relevance grading is a
 reusable post-retrieval filter." `docs/10-technique-catalogue.md` §1.1's own `corrective` row
 states the naming condition this module exists to satisfy without violating: "`corrective` is
 only honest if the plugin gains a *distinct knowledge action* ... If Weft ships that

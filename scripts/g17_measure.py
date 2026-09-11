@@ -1,9 +1,9 @@
-"""G17's whole measurement, in one run — `docs/05-grilling-sessions.md` → G17.
+"""G17's whole measurement, in one run — `docs/internal/05-grilling-sessions.md` → G17.
 
-**Re-run this rather than quoting its output.** That section's own *Bring* says the measurement
-is re-taken rather than carried forward, and the reason is on the record: the first probe this
-question ever had measured drift at the *end of the document*, where the page error is 0 on all
-nine papers, and that reading would have shipped the wrong repair (`docs/lessons.md` `L11.3`).
+**Re-run this rather than quoting its output.** That section's own *Bring* says the measurement is
+re-taken rather than carried forward, and the reason is on the record: the first probe this question
+ever had measured drift at the *end of the document*, where the page error is 0 on all nine papers,
+and that reading would have shipped the wrong repair (`docs/internal/lessons.md` `L11.3`).
 
 Three things are printed, and they answer different questions:
 

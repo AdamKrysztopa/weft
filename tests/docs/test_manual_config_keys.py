@@ -28,8 +28,8 @@ accepted it, which inverts what this test is for: it existed to stop a manual pr
 does not exist, and it had begun refusing keys that do. Found by `weft.toml.example` documenting
 `[services] graph`, the role `weft_kg` declares against its own traversal contract.
 
-This is `docs/lessons.md` `L6.4` aimed at a check rather than at a marker: the accepted set is
-whatever the **live population** of installed packs declares, not what one model states, and
+This is `docs/internal/lessons.md` `L6.4` aimed at a check rather than at a marker: the accepted set
+is whatever the **live population** of installed packs declares, not what one model states, and
 reading the declaration was right until a task made the population bigger than it. The set is now
 read the way the production code reads it — through a real `discover()` pass and
 `role_table_from_reports` — so a pack that adds a role needs no edit here either.
@@ -52,10 +52,10 @@ from weft_kernel.registry import Registry
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 MANUAL_DIR: Final[Path] = REPO_ROOT / "manual"
 CONFIG_EXAMPLE: Final[Path] = REPO_ROOT / "weft.toml.example"
-#: **`03` is the document that defines this vocabulary**, and until carried repair `R9.4` this
-#: check globbed `manual/*.md` and never opened it — so the one document whose word is final on
-#: what `[services]` accepts was the one document not checked against the code. `docs/lessons.md`
-#: `L9.35`.
+#: **`03` is the document that defines this vocabulary**, and until carried repair `R9.4` this check
+#: globbed `manual/*.md` and never opened it — so the one document whose word is final on what
+#: `[services]` accepts was the one document not checked against the code.
+#: `docs/internal/lessons.md` `L9.35`.
 CLI_DOCUMENT: Final[Path] = REPO_ROOT / "docs" / "03-cli.md"
 
 #: `08` §3's named-waiver convention for this check: a `[services]` key a manual names on purpose

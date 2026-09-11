@@ -1,7 +1,7 @@
 """`OverlapAtThreshold` — the one demonstration metric task 4.1 ships.
 
-Not one of the 21 catalogued metrics; `docs/build-ledger.md` task 4.2 owns that suite, "every
-recorded defect fixed at the door rather than inherited." This one exists to make requirement
+Not one of the 21 catalogued metrics; `docs/internal/build-ledger.md` task 4.2 owns that suite,
+"every recorded defect fixed at the door rather than inherited." This one exists to make requirement
 6's second clause real — "the same metric runs twice at two thresholds because its registration
 carries a typed configuration model" — with a computation simple enough that the demonstration is
 about the *contract mechanism*, not about the metric's own merit: no model download, no network

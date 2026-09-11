@@ -81,7 +81,7 @@ def participants_for(
     than raised over: `weft_cli.registry_bootstrap.require_plugin` is what turns an unresolvable
     `[services] store` into a diagnosable refusal, and repeating that translation here would
     give the same mistake two different messages. The callers make that check first — a lesson
-    with a `docs/lessons.md` entry of its own (L5.9).
+    with a `docs/internal/lessons.md` entry of its own (L5.9).
     """
     found: list[Participant] = []
     seen: set[int] = set()

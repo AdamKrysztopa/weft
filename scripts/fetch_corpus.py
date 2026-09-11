@@ -33,7 +33,7 @@ and it survived a green gate because nothing in it ever ran a fetch.
 documents are the copyrighted papers: named and checksummed so a local
 materialisation can be *verified*, never fetched. `verify` therefore reports an
 absent operator document as **missing**, not as an error — that tier is outside
-V1's reproducibility clause by construction, which `docs/build-ledger.md` task
+V1's reproducibility clause by construction, which `docs/internal/build-ledger.md` task
 **2.1** states outright, along with the fact that no waiver of V1 is taken: the
 reproducible tiers cover every claimed format and both languages on their own.
 
@@ -92,7 +92,7 @@ class Tier(StrEnum):
         It lives on the enum because three places need the same answer — the manifest's
         format coverage, the question subset a published baseline is measured over, and the
         baseline run's own `reproducible` flag — and a fact copied into three files is the
-        one `docs/README.md` opens by describing.
+        one `docs/internal/README.md` opens by describing.
         """
         return self is not Tier.OPERATOR
 

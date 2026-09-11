@@ -1,8 +1,8 @@
 """PreToolUse guard: refuse a shell expansion that can print the value of a credential.
 
-**`docs/lessons.md` `L11.31`, and it is the most expensive lesson this repository has bought.**
-Task 11.6 needed to show that a rung ran with *no credential present*. The line written to prove it
-was:
+**`docs/internal/lessons.md` `L11.31`, and it is the most expensive lesson this repository has
+bought.** Task 11.6 needed to show that a rung ran with *no credential present*. The line written to
+prove it was:
 
     echo "OPENAI_API_KEY=${OPENAI_API_KEY:-<unset>}"
 
@@ -74,7 +74,8 @@ REASON = (
     "whenever it is set, and shows the fallback only in the case you were not worried about. "
     "A bare `${VAR}` passed to echo/printf/tee or into a redirect does the same thing.\n"
     "\n"
-    "docs/lessons.md L11.31: the line written to prove no credential was present printed the "
+    "docs/internal/lessons.md L11.31: the line written to prove no credential was present printed "
+    "the"
     "owner's API key into a transcript, and it had to be rotated.\n"
     "\n"
     "Ask about the NAME, never the value:\n"

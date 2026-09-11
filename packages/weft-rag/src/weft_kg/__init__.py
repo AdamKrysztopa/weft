@@ -8,7 +8,7 @@ producing side with no consuming side." `store.py` and `traversal.py` are that c
 (`GraphTraversal`), both over one Postgres schema, both reached through the one `weft.packs = graph
 = "weft_kg:register"` entry point below and nothing else.
 
-**Two plugin names for the two contracts, and two classes behind them — `docs/lessons.md`
+**Two plugin names for the two contracts, and two classes behind them — `docs/internal/lessons.md`
 `L11.23`.** `pgvector-graph` (`NodeStore`) and `pgvector-traversal` (`GraphTraversal`) are
 qualified rather than bare, per `10` §2.1 rule 6: `01`'s family-membership deferral names
 `weft-neo4j` as the sibling this pack is waiting for, so an unqualified `graph` would be the first

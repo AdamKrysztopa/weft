@@ -14,9 +14,9 @@ this test session imported the canary first; find it and stop it from doing so."
 
 **Found at Phase 6's close, and the gate had never shown it.** `pytest tests/docs
 tests/architecture` fails; `pytest tests` passes; the only difference is that `tests/architecture`
-sorts first in the second. Four `tests/docs` modules called the open helper. `docs/lessons.md`
-L5.21 — a test that passes only because another file ran first is a defect in the test — and the
-mirror of it, a test that *fails* only because another file ran first.
+sorts first in the second. Four `tests/docs` modules called the open helper.
+`docs/internal/lessons.md` L5.21 — a test that passes only because another file ran first is a
+defect in the test — and the mirror of it, a test that *fails* only because another file ran first.
 
 **Why the repair is here and not in `weft_cli`.** Two reasons, and the second is the one that
 decides it. `discover_for_reference`'s open posture is right for its own job, so narrowing it would

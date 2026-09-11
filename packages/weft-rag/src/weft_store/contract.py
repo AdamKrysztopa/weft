@@ -100,56 +100,46 @@ from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_kernel.payload import Node, NodeId, Outcome, SourceId, Vector
 from weft_kernel.runner import Stage
 
-#: Fitness function 6's subject for the store family — see the module docstring. Moved
-#: `1.0.0` → `1.1.0` at task 2.5, when `TextSearch` joined, and `1.1.0` → `1.2.0` at task 2.6,
-#: when `MetadataFilter` did: the family grew a capability each time, so the constant fitness
-#: function 6 watches has to move with it, and one number covers every Protocol here. Moved
-#: `1.2.0` → `1.3.0` at task **5.1a**, when `SourceDeletable` joined, and `1.3.0` → `1.4.0` at
-#: task **5.1b**, when `Reconcilable` did — a fifth and a sixth capability, on the identical
-#: footing, each a minor: a capability added without breaking an existing implementation.
-#:
-#: **`1.4.0` → `2.0.0` at task 5.1c — a major, not a minor, and deliberately so.** This move
-#: adds `estimate` to `Reconcilable`, an existing published Protocol, rather than publishing a
-#: new one. `docs/README.md`'s G9 row states the rule this constant now demonstrates: semver is
-#: classified for **two audiences**, and the bump is the maximum of the two — adding a method
-#: is minor for a caller (every existing call site still compiles) and **major for an
-#: implementer** (`PgVectorStore`, `weft_qdrant.store.QdrantStore` and every out-of-tree
-#: `Reconcilable`, whoever wrote it, stop satisfying the Protocol at all until they add the
-#: method). `COMMAND_CONTRACT_VERSION`'s own mis-recorded
-#: 1.1.0, corrected to 2.0.0 in the same session, is the worked example this constant now
-#: repeats honestly the first time, rather than under-recording it as G9's own note warns
-#: against.
-#:
-#: **`2.1.0` → `2.2.0` at task 9.17 — a minor, for the same reason.** `SourceRecord` gains
+#: Fitness function 6's subject for the store family — see the module docstring. Moved `1.0.0` →
+#: `1.1.0` at task 2.5, when `TextSearch` joined, and `1.1.0` → `1.2.0` at task 2.6, when
+#: `MetadataFilter` did: the family grew a capability each time, so the constant fitness function 6
+#: watches has to move with it, and one number covers every Protocol here. Moved `1.2.0` → `1.3.0`
+#: at task **5.1a**, when `SourceDeletable` joined, and `1.3.0` → `1.4.0` at task **5.1b**, when
+#: `Reconcilable` did — a fifth and a sixth capability, on the identical footing, each a minor: a
+#: capability added without breaking an existing implementation. **`1.4.0` → `2.0.0` at task 5.1c —
+#: a major, not a minor, and deliberately so.** This move adds `estimate` to `Reconcilable`, an
+#: existing published Protocol, rather than publishing a new one. `docs/internal/README.md`'s G9 row
+#: states the rule this constant now demonstrates: semver is classified for **two audiences**, and
+#: the bump is the maximum of the two — adding a method is minor for a caller (every existing call
+#: site still compiles) and **major for an implementer** (`PgVectorStore`,
+#: `weft_qdrant.store.QdrantStore` and every out-of-tree `Reconcilable`, whoever wrote it, stop
+#: satisfying the Protocol at all until they add the method). `COMMAND_CONTRACT_VERSION`'s own
+#: mis-recorded 1.1.0, corrected to 2.0.0 in the same session, is the worked example this constant
+#: now repeats honestly the first time, rather than under-recording it as G9's own note warns
+#: against. **`2.1.0` → `2.2.0` at task 9.17 — a minor, for the same reason.** `SourceRecord` gains
 #: `pipeline_identity`, an optional field defaulting to the empty string, so every writer of a
 #: `SourceRecord` keeps satisfying the family untouched and every reader that ignores it is
-#: unaffected. G9's table again: an added optional field on a returned model is minor for the
-#: caller and minor for the implementer.
-#:
-#: **`2.0.0` → `2.1.0` at task 9.3 — a minor.** `Removed` gains `removed`, an optional field
-#: defaulting to an empty mapping, so every participant already returning a `Removed` keeps
-#: satisfying the family untouched. G9's two-audience table classifies this minor for both
-#: sides: minor for a caller (an existing field, `node_count`, is untouched, so nothing that
-#: reads a `Removed` breaks) and minor for an implementer (nothing that already builds a
-#: `Removed` is asked for a new required value).
-#:
-#: **`2.2.0` → `2.3.0` at task 10.24 — a minor, and it was nearly a major.** The family gains
-#: `NodeSupersedable`, a *new* one-member Protocol. Nothing that already satisfies any member
-#: of this family is asked for anything, so it is minor for an implementer and minor for a
-#: caller. `supersede` was first written onto `NodeStore` itself, which by `09`'s table ("Add a
-#: method to a Protocol" — minor for a caller, **major** for an implementer) would have forced
-#: `2.2.0` → `3.0.0` and, through fitness function 6's binding, a major of `weft-rag` itself.
-#: The dispatched implementer declined to make that bump unilaterally and recorded the cascade,
-#: which is what sent the design back to this family's own rule — `SourceDeletable`'s *"a
-#: separate Protocol... exactly the optional-method design this family exists to refuse"*. The
-#: correct shape and the cheap version turn out to be the same answer.
-#:
+#: unaffected. G9's table again: an added optional field on a returned model is minor for the caller
+#: and minor for the implementer. **`2.0.0` → `2.1.0` at task 9.3 — a minor.** `Removed` gains
+#: `removed`, an optional field defaulting to an empty mapping, so every participant already
+#: returning a `Removed` keeps satisfying the family untouched. G9's two-audience table classifies
+#: this minor for both sides: minor for a caller (an existing field, `node_count`, is untouched, so
+#: nothing that reads a `Removed` breaks) and minor for an implementer (nothing that already builds
+#: a `Removed` is asked for a new required value). **`2.2.0` → `2.3.0` at task 10.24 — a minor, and
+#: it was nearly a major.** The family gains `NodeSupersedable`, a *new* one-member Protocol.
+#: Nothing that already satisfies any member of this family is asked for anything, so it is minor
+#: for an implementer and minor for a caller. `supersede` was first written onto `NodeStore` itself,
+#: which by `09`'s table ("Add a method to a Protocol" — minor for a caller, **major** for an
+#: implementer) would have forced `2.2.0` → `3.0.0` and, through fitness function 6's binding, a
+#: major of `weft-rag` itself. The dispatched implementer declined to make that bump unilaterally
+#: and recorded the cascade, which is what sent the design back to this family's own rule —
+#: `SourceDeletable`'s *"a separate Protocol... exactly the optional-method design this family
+#: exists to refuse"*. The correct shape and the cheap version turn out to be the same answer.
 #: **`2.3.0` → `2.4.0` at task 11.9 — a minor, on the identical footing as 9.3 and 9.17.**
-#: `ReconcileReport` gains `abstained`, an optional integer defaulting to `0`. G9's
-#: two-audience table classifies this minor for the caller (every existing field is
-#: untouched, so nothing that reads a report breaks) and minor for the implementer (nothing
-#: that already builds a report is asked for a new value) — the maximum of two minors is a
-#: minor.
+#: `ReconcileReport` gains `abstained`, an optional integer defaulting to `0`. G9's two-audience
+#: table classifies this minor for the caller (every existing field is untouched, so nothing that
+#: reads a report breaks) and minor for the implementer (nothing that already builds a report is
+#: asked for a new value) — the maximum of two minors is a minor.
 STORE_CONTRACT_VERSION = "2.4.0"
 
 #: Versioned separately from `STORE_CONTRACT_VERSION`: a `Filter` is data that
@@ -290,7 +280,7 @@ class Removed(BaseModel):
 
     **`"node"` is the one reserved key.** `node_count` already carries that number, so a
     second spelling of it inside `removed` is the exact two-lists-that-can-drift shape
-    `docs/README.md` opens with, reproduced inside a single model — refused at validation
+    `docs/internal/README.md` opens with, reproduced inside a single model — refused at validation
     rather than left to drift silently.
     """
 

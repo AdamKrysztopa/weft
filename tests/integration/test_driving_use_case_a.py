@@ -14,7 +14,7 @@ parses a file itself (`02` §3 → *One model, two directions*: "the kernel publ
 model and opens no file"). This test plays the part a `weft pipeline` command will play
 once Phase 3 wires one; nothing here reaches `weft_cli.cli` or `argparse`, because task
 1.9 owns the loader and the translation (see `pipeline_catalogue.py`'s own docstring),
-not the command surface — `docs/build-ledger.md` 3.7 owns `pipeline list|show|derive|
+not the command surface — `docs/internal/build-ledger.md` 3.7 owns `pipeline list|show|derive|
 validate|diff`.
 
 **Property 1 — no copy of the parent.** `weft_kernel.pipeline.Pipeline`'s own mutual-

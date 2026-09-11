@@ -201,11 +201,11 @@ def figures_on_two_pages(first: str | None, second: str | None) -> bytes:
     page's figure "the one that lost a predecessor" without changing anything about page two.
 
     **Both pages carry prose, and that is load-bearing rather than decoration.** A page with an
-    image and no text at all is the *scanned page* case `_first_unseen_page` refuses, and an
-    earlier version of this fixture drew the captionless figure alone — which made the document
-    fail for a reason that has nothing to do with ordinals, and very nearly bought a narrowing of
-    that settled rule to make this test pass (`docs/lessons.md` `L9.62`). A real document that
-    loses a caption still has its body text.
+    image and no text at all is the *scanned page* case `_first_unseen_page` refuses, and an earlier
+    version of this fixture drew the captionless figure alone — which made the document fail for a
+    reason that has nothing to do with ordinals, and very nearly bought a narrowing of that settled
+    rule to make this test pass (`docs/internal/lessons.md` `L9.62`). A real document that loses a
+    caption still has its body text.
     """
     pages: list[bytes] = []
     objects: list[bytes] = [b"", b""]

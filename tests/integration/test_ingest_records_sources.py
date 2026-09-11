@@ -7,7 +7,7 @@ existed in the whole tree, inside `weft_qdrant.store` itself — so `weft_source
 real `weft index` and `list_sources()` returned `()`. A `reconcile --mode repair` pass built on
 that deleted every graph node the `kg` pipeline had just written. It was found by running the
 binary, and not by the tests, whose hand-written corpus double populated the method the system did
-not (`docs/lessons.md` L6.14).
+not (`docs/internal/lessons.md` L6.14).
 
 **So this is deliberately an integration test against the real store**, not a unit test with a
 double. A double is what hid the defect for a whole phase: it answered a question the running
@@ -107,7 +107,7 @@ async def test_indexing_records_a_source_for_every_document_it_indexed(
     assert len(recorded) == 2, (
         f"two files were indexed and `list_sources()` returned {len(recorded)}. `02` §1 says "
         f"this method answers *what should exist*, and a reconcile pass built on it deleted a "
-        f"corpus when it answered emptily (`docs/lessons.md` L6.14)."
+        f"corpus when it answered emptily (`docs/internal/lessons.md` L6.14)."
     )
     assert {Path(record.uri).name for record in recorded} == {"fox.txt", "notes.md"}
     assert all(record.status is SourceStatus.ACTIVE for record in recorded)
@@ -225,13 +225,13 @@ async def test_every_store_a_document_names_records_the_sources_it_was_given(
     """Carried repair **R11.4**, and it is ledger 6.24's own defect reintroduced by a document.
 
     `_store_stage_id_of` answers with the **first** stage whose contract is `NodeStore`, and its
-    docstring called that "the one stage" — true of every document in the tree until `11.5`
-    shipped `index-with-graph`, which names two. From that commit on, the second store's
-    `put_source` was never called on any ingest run: `kg_sources` stayed empty after a real
-    `weft index`, `list_sources()` answered `()`, and `reconcile` had nothing to converge — the
-    precise state `docs/lessons.md` L6.14 records a `reconcile --mode repair` pass deleting a
-    corpus from. Measured through the shipped binary on 2026-09-09, on a real corpus, with
-    2,385 tests green.
+    docstring called that "the one stage" — true of every document in the tree until `11.5` shipped
+    `index-with-graph`, which names two. From that commit on, the second store's `put_source` was
+    never called on any ingest run: `kg_sources` stayed empty after a real `weft index`,
+    `list_sources()` answered `()`, and `reconcile` had nothing to converge — the precise state
+    `docs/internal/lessons.md` L6.14 records a `reconcile --mode repair` pass deleting a corpus
+    from. Measured through the shipped binary on 2026-09-09, on a real corpus, with 2,385 tests
+    green.
 
     **An integration test against both real stores, deliberately** — this module's own docstring
     gives the reason and it is the reason again: *"a double is what hid the defect for a whole

@@ -1,9 +1,9 @@
 """A gate run that silently shrank is not a green — ledger task **8.20**.
 
-`docs/lessons-archive.md` `L7.8`. A container brought down mid-task dropped 51 tests out of every
-subsequent run, and every one of those runs reported green. Nothing read pytest's own skip count,
-so a suite that quietly stopped covering a large part of what it covers looked identical to one
-that passed.
+`docs/internal/lessons-archive.md` `L7.8`. A container brought down mid-task dropped 51 tests out of
+every subsequent run, and every one of those runs reported green. Nothing read pytest's own skip
+count, so a suite that quietly stopped covering a large part of what it covers looked identical to
+one that passed.
 
 **No threshold is chosen here, and that is the design.** "More than N skips is suspicious" is a
 number nobody can defend, and `09` §4.4's argument against inventing one applies to a gate as well
@@ -32,57 +32,97 @@ from typing import Final
 
 import pytest
 
+#: The eight files under `/docs/internal/` that `.gitignore` keeps out of version control from
+#: 2026-09-11 — the internal process record. Single-sourced here so every check that treats their
+#: absence as expected rather than as a defect reads one list.
+#:
+#: **Written out rather than derived from the directory, and that is forced.** The obvious
+#: definition — *anything under `docs/internal/`* — can only be evaluated by listing a directory
+#: that a clean checkout does not have, so it would return the empty set precisely where the
+#: allowance is needed and silently stop excusing anything.
+UNTRACKED_BY_DESIGN: Final[frozenset[str]] = frozenset(
+    {
+        "docs/internal/README.md",
+        "docs/internal/build-ledger.md",
+        "docs/internal/lessons.md",
+        "docs/internal/lessons-archive.md",
+        "docs/internal/05-grilling-sessions.md",
+        "docs/internal/12-roadmap.md",
+        "docs/internal/product-direction.md",
+        "docs/internal/ADAM_TODO.md",
+    }
+)
+
+#: The repository root, from which every path in `UNTRACKED_BY_DESIGN` is relative.
+_UNTRACKED_ROOT: Final[Path] = Path(__file__).resolve().parent.parent
+
+
+def untracked_reason(repo_relative: str) -> str | None:
+    """`None` when `repo_relative` is present on disk; otherwise a skip reason naming it.
+
+    Only ever called with a member of `UNTRACKED_BY_DESIGN` — asserted below — so a typo'd path
+    cannot silently turn into "skip everything", which is the one way a conditional skip becomes
+    the unconditional one policy forbids.
+    """
+    assert repo_relative in UNTRACKED_BY_DESIGN, (
+        f"{repo_relative!r} is not one of the eight files this repository keeps untracked by "
+        f"design — see UNTRACKED_BY_DESIGN. A skip reason must name a real member of that set."
+    )
+    if (_UNTRACKED_ROOT / repo_relative).exists():
+        return None
+    return (
+        f"{repo_relative} is untracked by design (owner's decision, 2026-09-11 — see "
+        f".gitignore and tests.conftest.UNTRACKED_BY_DESIGN) and absent from this checkout"
+    )
+
+
 #: The substring a container-dependent skip puts in its own reason — `tests/integration`'s skip
 #: helper reports `WEFT_DATABASE_URL (<dsn>) is unreachable: <driver error>`. Matched loosely on
-#: purpose (`docs/lessons.md` L6.9): the driver's half of that sentence is not ours and changes
-#: between versions, while the first half is written here.
+#: purpose (`docs/internal/lessons.md` L6.9): the driver's half of that sentence is not ours and
+#: changes between versions, while the first half is written here.
 _UNREACHABLE: Final[str] = "is unreachable"
 
-#: Every environment variable whose non-empty value is the operator's claim that a container is
-#: up. **Two, since `docs/lessons.md` `L11.22`** — this was `WEFT_DATABASE_URL` alone, and with
+#: Every environment variable whose non-empty value is the operator's claim that a container is up.
+#: **Two, since `docs/internal/lessons.md` `L11.22`** — this was `WEFT_DATABASE_URL` alone, and with
 #: Qdrant stopped a gate run reported 44 skips against an expected 9 and still exited `0`, because
 #: nothing here made a claim about the second container. The asymmetry was visible in this very
 #: file: `_CONTAINER_TOKENS` below has listed **both** variables since it was written, so the
 #: scheduling half knew about two containers while the shrink guard knew about one.
 _CLAIM_ENVS: Final[tuple[str, ...]] = ("WEFT_DATABASE_URL", "WEFT_QDRANT_URL")
 
-#: The operator's claim about how many tests *should* skip — `docs/lessons.md` `L11.22`, the other
-#: half. The two variables above only catch a container the operator explicitly named, and both
-#: have working defaults, so a laptop that never exports `WEFT_QDRANT_URL` claims nothing about
-#: Qdrant and a stopped container is invisible to them. `CLAUDE.md` has stated the expected count
-#: in **prose** — *"Expected skip count is 9; more means a container is down"* — which is exactly
-#: the shape this repository keeps discovering is not a check.
-#:
-#: **This is not the invented threshold the module docstring refuses**, and the difference is who
-#: chooses the number. *"More than N skips is suspicious"* is a constant nobody can defend. A count
-#: the **operator states**, in the same breath as the DSN, is a claim the run can contradict — the
-#: identical mechanism one variable over.
-#:
-#: **And it is set by `.github/workflows/ci.yml`, not by `pyproject.toml`, because a skip count is
-#: a fact about an *environment*.** The first version of this check pinned `9` in the `test` task;
-#: 9 was a fact about the machine it was measured on, which had Qdrant running. CI — which
-#: provisions Postgres alone, matching what `docker compose up -d` starts — produced **48** and
-#: went red on the first push. The same tree with Qdrant unreachable locally produces **44**. Three
-#: numbers, three environments, and only one of them is declared in a file. So the claim lives
-#: beside the services that determine it, and a local run makes none: nothing here fires unless
-#: someone states a number, and the container half above still speaks whenever a named service is
-#: down. `L11.21`'s rule — every running service is an assumption the local gate is making —
-#: arriving in the check written to answer its sibling.
+#: The operator's claim about how many tests *should* skip — `docs/internal/lessons.md` `L11.22`,
+#: the other half. The two variables above only catch a container the operator explicitly named, and
+#: both have working defaults, so a laptop that never exports `WEFT_QDRANT_URL` claims nothing about
+#: Qdrant and a stopped container is invisible to them. `CLAUDE.md` has stated the expected count in
+#: **prose** — *"Expected skip count is 9; more means a container is down"* — which is exactly the
+#: shape this repository keeps discovering is not a check. **This is not the invented threshold the
+#: module docstring refuses**, and the difference is who chooses the number. *"More than N skips is
+#: suspicious"* is a constant nobody can defend. A count the **operator states**, in the same breath
+#: as the DSN, is a claim the run can contradict — the identical mechanism one variable over. **And
+#: it is set by `.github/workflows/ci.yml`, not by `pyproject.toml`, because a skip count is a fact
+#: about an *environment*.** The first version of this check pinned `9` in the `test` task; 9 was a
+#: fact about the machine it was measured on, which had Qdrant running. CI — which provisions
+#: Postgres alone, matching what `docker compose up -d` starts — produced **48** and went red on the
+#: first push. The same tree with Qdrant unreachable locally produces **44**. Three numbers, three
+#: environments, and only one of them is declared in a file. So the claim lives beside the services
+#: that determine it, and a local run makes none: nothing here fires unless someone states a number,
+#: and the container half above still speaks whenever a named service is down. `L11.21`'s rule —
+#: every running service is an assumption the local gate is making — arriving in the check written
+#: to answer its sibling.
 _EXPECTED_SKIPS_ENV: Final[str] = "WEFT_EXPECTED_SKIPS"
 
 _container_skips: list[str] = []
 
 #: Every skip this run produced, counted where pytest itself counts them — in the per-report hook,
-#: which the controller runs for every worker's reports under `-n auto`.
-#:
-#: **Counted here rather than read off `TerminalReporter.stats`, and that was measured.** The first
-#: version of this check read `stats["skipped"]` inside `pytest_terminal_summary` and set a flag
-#: for `pytest_sessionfinish` to act on. It printed a correct, red "gate shrank" banner and the
-#: process exited **0**: `pytest_sessionfinish` runs *before* `pytest_terminal_summary`, so the
-#: flag was always empty when the exit status was decided. A guard against a silent shrink that
-#: silently could not fail — `docs/lessons.md` `L11.11` happening to the check written to answer
-#: `L11.11`, caught only because `phase-step` → *Finish* item 3 requires planting a disagreeing
-#: case and watching it go red.
+#: which the controller runs for every worker's reports under `-n auto`. **Counted here rather than
+#: read off `TerminalReporter.stats`, and that was measured.** The first version of this check read
+#: `stats["skipped"]` inside `pytest_terminal_summary` and set a flag for `pytest_sessionfinish` to
+#: act on. It printed a correct, red "gate shrank" banner and the process exited **0**:
+#: `pytest_sessionfinish` runs *before* `pytest_terminal_summary`, so the flag was always empty when
+#: the exit status was decided. A guard against a silent shrink that silently could not fail —
+#: `docs/internal/lessons.md` `L11.11` happening to the check written to answer `L11.11`, caught
+#: only because `phase-step` → *Finish* item 3 requires planting a disagreeing case and watching it
+#: go red.
 _skips_seen: list[str] = []
 
 
@@ -147,7 +187,7 @@ def pytest_terminal_summary(terminalreporter: pytest.TerminalReporter) -> None:
                 f"is a fact about an environment, so it lives where that environment is "
                 f"declared: `WEFT_TEST_EXPECTED_SKIPS` in .github/workflows/ci.yml, forwarded "
                 f"by pyproject.toml's `test` task. Move it in the commit that changed it "
-                f"(docs/lessons.md L11.22, L12.1)."
+                f"(docs/internal/lessons.md L11.22, L12.1)."
             )
 
     if not _claimed_containers() or not _container_skips:
@@ -180,9 +220,9 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
 
 
 #: The one container this repository brings up, and the reason `tests/` is not simply handed to
-#: `pytest -n auto`. `docs/lessons-archive.md` `L8.30`: a close-review measurement read `nodes now
-#: stored: 70` and minutes later the table held one row, because a second process in the same
-#: session truncated it — two suites sharing the one Postgres produce a result about neither.
+#: `pytest -n auto`. `docs/internal/lessons-archive.md` `L8.30`: a close-review measurement read
+#: `nodes now stored: 70` and minutes later the table held one row, because a second process in the
+#: same session truncated it — two suites sharing the one Postgres produce a result about neither.
 #: Every test that reaches a container therefore carries one `xdist_group`, so `--dist loadgroup`
 #: puts all of them on a single worker, where they run one after another exactly as they always
 #: have. Everything that touches no container is free to spread across the rest.

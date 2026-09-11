@@ -33,7 +33,7 @@ agent has none of the reasoning that produced this task and will correctly refus
 ```markdown
 ## Task
 <ledger id> — <the ledger's property sentence, copied verbatim>
-Ledger line: docs/build-ledger.md:<lineno>
+Ledger line: docs/internal/build-ledger.md:<lineno>
 
 ## The failing test
 <paths>
@@ -101,7 +101,7 @@ Then read the implementation itself against three questions:
    than the diff.
 
 Then the whole gate, in the foreground, run by you — `uv run poe ci-checks`. The implementer ran the
-test node ids it was given, which is not the same evidence (`docs/lessons.md` L5.12).
+test node ids it was given, which is not the same evidence (`docs/internal/lessons.md` L5.12).
 
 ---
 
@@ -111,7 +111,7 @@ test node ids it was given, which is not the same evidence (`docs/lessons.md` L5
 once need **two worktrees**: the same checkout serialises them whether or not their files overlap,
 because the thing they share is not the files, it is the *test suite*, the one `.venv` and the one
 container. Two agents running `pytest` against the same tree truncate each other's tables and get a
-result about neither — three unrelated red tests, naming nothing (`docs/lessons.md` `L9.61`,
+result about neither — three unrelated red tests, naming nothing (`docs/internal/lessons.md` `L9.61`,
 `L6.22`). `isolation: "worktree"` gives an agent its own checkout; it does **not** give it its own
 container, so anything touching the database is serial whatever the isolation.
 
@@ -126,7 +126,7 @@ one session by the author who had just written the rule down).
 
 ## Constraints can be jointly unsatisfiable, and the author is who cannot see it
 
-`docs/lessons.md` `L8.36`. Task 7.2's brief told the implementer, of one branch, *"do not invent a
+`docs/internal/lessons.md` `L8.36`. Task 7.2's brief told the implementer, of one branch, *"do not invent a
 `StopReason` member for it; use `BUDGET_EXHAUSTED` only for the budget"* — two clauses with no
 value between them that is true, each reasonable alone. It also said *"if you find you need a third
 member to be honest, stop and report"*, which is the tell: **an escape hatch in a brief is a signal

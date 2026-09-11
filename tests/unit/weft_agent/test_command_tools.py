@@ -1,7 +1,7 @@
 """The agent reaches Weft only through the published command surface — ledger task **7.3**.
 
-`docs/03-cli.md` → *Two modes, one implementation*, and `docs/05-grilling-sessions.md` → G12.
-Three properties, and each one is a way the agent could have cheated:
+`docs/03-cli.md` → *Two modes, one implementation*, and `docs/internal/05-grilling-sessions.md` →
+G12. Three properties, and each one is a way the agent could have cheated:
 
 *(a) It goes through `weft_command.invocation.invoke`, so the permission gate applies to it.* Task
 7.0 moved that gate onto the typed path precisely because Phase 7 was about to become its second
@@ -150,8 +150,8 @@ async def test_refusing_consent_covers_the_whole_permission_vocabulary() -> None
 
     Asserted over every `PermissionClass` member rather than over the two that matter today — the
     rule is about the classes `03` names, and a sixth member added later must be a deliberate
-    decision here rather than something that silently becomes reachable. `docs/lessons.md` `L6.4`:
-    read the population, and this is the population being fixed rather than sampled.
+    decision here rather than something that silently becomes reachable. `docs/internal/lessons.md`
+    `L6.4`: read the population, and this is the population being fixed rather than sampled.
     """
     from weft_agent.command_tools import ConsentRefusedError, RefusingConsent
 

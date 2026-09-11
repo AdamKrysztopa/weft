@@ -1,6 +1,6 @@
 """Rerankers — the position after fusion. `llm-rerank` is the one this task ships.
 
-Task **2.7**, `docs/build-ledger.md`: "fusion and reranking are composable plugins a third
+Task **2.7**, `docs/internal/build-ledger.md`: "fusion and reranking are composable plugins a third
 party can retune, not a fixed ladder." `weft_retrieve.fusion`'s module docstring carries the
 evidence for the fusion half; this is the reranking half of the same sentence. A reranking step
 fused into a single monolithic pipeline rather than exposed as its own plugin is how a name

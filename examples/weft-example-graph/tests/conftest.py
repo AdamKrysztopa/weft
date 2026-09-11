@@ -1,6 +1,6 @@
 """This pack's own test setup — no Docker required for `test_extraction.py`/`test_enhancer.py`/
 `test_register.py`; `test_store.py`/`test_retriever.py`/`test_commands.py` skip, with a reason,
-against the same Postgres `docs/build-ledger.md`'s own conformance kit already needs
+against the same Postgres `docs/internal/build-ledger.md`'s own conformance kit already needs
 (`WEFT_DATABASE_URL`, `docker compose up -d` at the repository root).
 """
 

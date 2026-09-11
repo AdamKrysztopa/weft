@@ -44,8 +44,8 @@ a second run unable to change what the first decided.
    be wrong in a way that reads as a finding, and would violate this task's own line.
 
 **A missing cosine is *not known*, never *close enough*.** An alias row with no embedding cannot
-clear the floor. Treating an absent number as passing would make signal 3 fire hardest exactly
-where there is least evidence, which is the inverse of what a gate is for — `docs/lessons.md`
+clear the floor. Treating an absent number as passing would make signal 3 fire hardest exactly where
+there is least evidence, which is the inverse of what a gate is for — `docs/internal/lessons.md`
 L5.9's rule for an empty collection, applied to a missing number.
 
 **The signal this pass leans hardest on has exactly one rung that supplies it — carried repair

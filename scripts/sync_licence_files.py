@@ -6,7 +6,7 @@ own directory, and PEP 639's `license-files` resolves relative to that directory
 are unreachable from a per-distribution build. Symlinking them was measured on 2026-09-09 and is
 worse than useless — the sdist carries a symlinked entry at size 0 and the wheel built from it
 carries no licence at all, while every check in this repository stays green because `is_file()` and
-`read_bytes()` both follow the link (`docs/lessons.md` `L11.8`).
+`read_bytes()` both follow the link (`docs/internal/lessons.md` `L11.8`).
 
 **So the duplication is load-bearing, and this script is what makes it cheap.** Editing the root
 `NOTICE` was a nine-file edit done by hand, whose only feedback was a full `poe ci-checks` run some

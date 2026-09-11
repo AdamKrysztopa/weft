@@ -24,8 +24,8 @@ min_period = 50
 ```
 
 **`model` above is a placeholder, deliberately** — ledger task **8.14**: an operator's real
-`weft.toml` names the exact model string, but this docstring is not that file, and hardcoding
-the same literal a second time here is precisely the copied-pin defect `docs/lessons.md` L8.13
+`weft.toml` names the exact model string, but this docstring is not that file, and hardcoding the
+same literal a second time here is precisely the copied-pin defect `docs/internal/lessons.md` L8.13
 records. Naming the constant that carries the shipped default (`weft_openai.llm.DEFAULT_MODEL`)
 instead means this sample never goes stale on its own.
 
@@ -151,12 +151,12 @@ def llm_section_from_config(document: dict[str, object] | None) -> LLMSection:
         )
     # **The three helpers below validate with pydantic, and a `ValidationError` is not a
     # `WeftError`** — so before this, a mistyped key *inside* `[llm.roles]` escaped
-    # `weft_cli.cli.main`'s handler and reached the operator as a raw traceback ending in a
-    # pydantic documentation URL. The keys of `[llm]` itself were refused by name two lines
-    # above; the keys of the tables under it were not, and the handler's own comment claimed to
-    # cover *"`weft.toml` is ... malformed"* without qualification. Found by running the binary
-    # at task 7.4 (`docs/lessons.md` `L8.39`). `[services]` and `[permissions]` were measured at
-    # the same time and already refuse correctly, so this is the one reader that needed it.
+    # `weft_cli.cli.main`'s handler and reached the operator as a raw traceback ending in a pydantic
+    # documentation URL. The keys of `[llm]` itself were refused by name two lines above; the keys
+    # of the tables under it were not, and the handler's own comment claimed to cover *"`weft.toml`
+    # is ... malformed"* without qualification. Found by running the binary at task 7.4
+    # (`docs/internal/lessons.md` `L8.39`). `[services]` and `[permissions]` were measured at the
+    # same time and already refuse correctly, so this is the one reader that needed it.
     try:
         return LLMSection(
             roles=_roles(llm_table), retry=_retry(llm_table), loop_guard=_loop_guard(llm_table)

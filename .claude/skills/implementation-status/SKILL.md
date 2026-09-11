@@ -1,6 +1,6 @@
 ---
 name: implementation-status
-description: Answer "where are we" in the Weft repository with one table of the live phase's tasks — id, a five-word description, a size estimate and a status derived from docs/build-ledger.md and docs/README.md. Use this whenever anyone asks for status, progress, the state of play, how far along we are, what is left, what is done, what is blocked, what is next, how much work remains, or names a phase and asks how much of it is built — including a bare "status?", "where are we?", "what's left?" or "how's Phase 10 going?". Use it before writing any prose summary of project progress, because the table is the answer and a paragraph about the plan is not.
+description: Answer "where are we" in the Weft repository with one table of the live phase's tasks — id, a five-word description, a size estimate and a status derived from docs/internal/build-ledger.md and docs/internal/README.md. Use this whenever anyone asks for status, progress, the state of play, how far along we are, what is left, what is done, what is blocked, what is next, how much work remains, or names a phase and asks how much of it is built — including a bare "status?", "where are we?", "what's left?" or "how's Phase 10 going?". Use it before writing any prose summary of project progress, because the table is the answer and a paragraph about the plan is not.
 ---
 
 # The implementation status table
@@ -34,7 +34,7 @@ sixteen done" is only visible if the done ones are on screen.
 
 ### id
 
-The ledger task identifier exactly as `docs/build-ledger.md` writes it — `10.3`, `9.14`, `10.16` —
+The ledger task identifier exactly as `docs/internal/build-ledger.md` writes it — `10.3`, `9.14`, `10.16` —
 carrying any `⚠` or `⛔` the line itself carries. Those glyphs are the ledger's own vocabulary
 (`⚠` provisional, an open gate could change the task's shape; `⛔` a block), and dropping them
 turns a hypothesis into a commitment.
@@ -89,20 +89,20 @@ a sha one generation behind `HEAD` by design, so the ticking commit is the one a
 actually `git show`:
 
 ```bash
-git blame -L <line>,<line> --date=short -- docs/build-ledger.md   # line numbers come from the script
+git blame -L <line>,<line> --date=short -- docs/internal/build-ledger.md   # line numbers come from the script
 ```
 
 ## Where the facts come from
 
 Run this first. It prints every task line of a phase with its tick state, its sha, its marks and
-its `makes true` sentence, plus what `docs/README.md` says about the live phase:
+its `makes true` sentence, plus what `docs/internal/README.md` says about the live phase:
 
 ```bash
 python3 .claude/skills/implementation-status/scripts/phase_tasks.py          # the live phase
 python3 .claude/skills/implementation-status/scripts/phase_tasks.py 9        # a named phase
 ```
 
-**Do not grep the ledger for task lines by hand.** `docs/build-ledger.md` → *How to read a task
+**Do not grep the ledger for task lines by hand.** `docs/internal/build-ledger.md` → *How to read a task
 line* contains an unticked example inside a fenced code block, put there deliberately so no worked
 example could drift. `grep '^- \[ \]'` finds that one first, every time, and the table opens with a
 row for the placeholder task `N.M`. The script skips fences and requires a numeric id, which is why
@@ -114,10 +114,10 @@ Then, for the two things the script does not decide:
 python3 .claude/skills/phase-step/scripts/next_task.py     # which task is current
 ```
 
-- **`docs/build-ledger.md` is the authority** on which tasks exist, which boxes are ticked and
+- **`docs/internal/build-ledger.md` is the authority** on which tasks exist, which boxes are ticked and
   which sha each carries. A ticked box is `done`; the sha is that line's own `· sha \`xxxxxxx\` ·`
   field and nothing else.
-- **`docs/README.md`'s Status block** says which phase is live and what is blocked. Its **Next
+- **`docs/internal/README.md`'s Status block** says which phase is live and what is blocked. Its **Next
   action** row **outranks ledger order** — it is the project's own statement of where it is, and
   the first unticked box can be a line deliberately left unticked. This is live today: `next_task.py`
   reports `9.15` as the first unticked box while the Next action row names `10.1`. The script prints
@@ -144,9 +144,9 @@ summary of the table: they can see the table.
 ## Which phase
 
 If the user named a phase, show that phase only. Otherwise show the live phase from
-`docs/README.md`'s Status block — which is what the script defaults to. If they ask about the whole
+`docs/internal/README.md`'s Status block — which is what the script defaults to. If they ask about the whole
 project rather than a phase, still give one phase's table (the live one) and let the second
 sentence carry the cross-phase fact, because a table of every task in eleven phases answers nothing.
 
-Nothing in this skill restates what `docs/build-ledger.md` and `docs/README.md` own. It reads them
+Nothing in this skill restates what `docs/internal/build-ledger.md` and `docs/internal/README.md` own. It reads them
 and shapes what they say into a table; when they disagree with this file, they are right.

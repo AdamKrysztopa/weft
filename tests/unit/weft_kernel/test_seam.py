@@ -631,7 +631,7 @@ def test_a_0x_publisher_promises_no_deprecation_period_and_says_so() -> None:
 
 
 def test_an_unreadable_version_is_reported_rather_than_guessed() -> None:
-    """`docs/lessons.md` L5.9 — the absence is the answer, and it reaches the reader."""
+    """`docs/internal/lessons.md` L5.9 — the absence is the answer, and it reaches the reader."""
 
     # Arrange
     def missing(_: str) -> str:

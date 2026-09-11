@@ -1,9 +1,9 @@
 """Fitness function 21 — the agent is an ordinary pack, on a stranger's terms.
 
-Ledger task **7.1**, `docs/01-high-level-plan.md` → Phase 7, `docs/05-grilling-sessions.md` → G8.
-G8 settled that Weft's agentic front end is a **first-party pack**, not an agentic REPL, because
-`03`'s governing rule keeps logic out of the driving adapter — and that it lands after release so it
-is built against published, versioned contracts rather than moving ones.
+Ledger task **7.1**, `docs/01-high-level-plan.md` → Phase 7, `docs/internal/05-grilling-sessions.md`
+→ G8. G8 settled that Weft's agentic front end is a **first-party pack**, not an agentic REPL,
+because `03`'s governing rule keeps logic out of the driving adapter — and that it lands after
+release so it is built against published, versioned contracts rather than moving ones.
 
 **The claim Phase 7 exists to make is falsifiable, and this is what falsifies it.** `01` → Phase 7's
 words are *"a first-party pack built against nothing but the released API, on the same terms a
@@ -156,8 +156,8 @@ def test_the_kernel_has_never_heard_of_an_agent() -> None:
 
 
 def test_the_check_can_actually_fail() -> None:
-    # `docs/lessons.md` L5.6. Each half planted through the same predicate it guards, so a green
-    # here cannot mean the sweep stopped looking.
+    # `docs/internal/lessons.md` L5.6. Each half planted through the same predicate it guards, so a
+    # green here cannot mean the sweep stopped looking.
     assert not (REPO_ROOT / "packages" / "weft-no-such-pack").is_dir()
 
     from weft_kernel.registry import Registry

@@ -80,7 +80,7 @@ and no example pack anywhere in this tree declaring `overwrite`/`destroy` either
 no-TTY/`--yes` machinery is now exercised only by hand-registered test doubles
 (`tests/unit/weft_cli/test_cli.py::_WipeCommand`, `tests/unit/weft_cli/test_confirm.py`'s own
 direct unit tests) — acceptable, and recorded here rather than left to be noticed by accident,
-the same discipline `docs/build-ledger.md`'s O1–O3 items were carried under.
+the same discipline `docs/internal/build-ledger.md`'s O1–O3 items were carried under.
 """
 
 from __future__ import annotations

@@ -29,7 +29,7 @@ and that is the settled rule rather than this module's own choice: `09` §3 rule
 machine-readable output "Promised, additively — new fields may be added; a consumer ignores what
 it does not recognise", and ledger task `6.16` added `kind` to `ErrorEnvelope` on exactly that
 basis, recording that "`envelope_version` does not move for a new field". `R11.6`'s own filed text
-claimed the opposite and was wrong against both (`docs/lessons.md` `L12.3`).
+claimed the opposite and was wrong against both (`docs/internal/lessons.md` `L12.3`).
 
 **`text` is present whether or not the answer already streamed, and that is a deliberate
 divergence from the prose branch.** `weft_cli.render._render_ask` omits an answer a sink already

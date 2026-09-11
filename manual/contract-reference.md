@@ -967,7 +967,7 @@ a `Revisable` causes `weft_cli.ingest._store_instance_for_revisable` to hand the
 *stage's own instance* to `build_index_services`. That plumbing is G16's, not G15's: G15
 cited G13's `reconcile` precedent, `reconcile` is not a pipeline stage, and this contract,
 `NodeSupersedable` and `adrap` all shipped green over a call that could not resolve
-(`docs/lessons.md` `L10.40`). An ordinary ingest document still gets no ambient store.
+(`docs/internal/lessons.md` `L10.40`). An ordinary ingest document still gets no ambient store.
 
 ### Methods
 

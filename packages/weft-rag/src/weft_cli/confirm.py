@@ -89,14 +89,14 @@ _ASK_CLASSES = (PermissionClass.OVERWRITE, PermissionClass.DESTROY)
 def _article(word: str) -> str:
     """ "a" or "an", by `word`'s own first letter.
 
-    **Repair, 2026-08-20, from a review of task 3.7's `f201e70`.** Both messages below used
-    to hardcode "is a {permission_class.value}-class command" unconditionally, which reads
-    "is a overwrite-class command" — an article-agreement bug in the first message a
-    no-TTY `weft init` ever prints (`docs/build-ledger.md` 3.3's own repair paragraph has the
-    full report). `_ASK_CLASSES` is two values today (`overwrite`, `destroy`) and only the
-    first needs "an", but computing the rule from the word itself, once, here, is what keeps
-    a third value this module has to phrase a sentence about from needing a second place
-    taught it — the identical "fix it once at the source" instinct `weft_kernel.registry.
+    **Repair, 2026-08-20, from a review of task 3.7's `f201e70`.** Both messages below used to
+    hardcode "is a {permission_class.value}-class command" unconditionally, which reads "is a
+    overwrite-class command" — an article-agreement bug in the first message a no-TTY `weft init`
+    ever prints (`docs/internal/build-ledger.md` 3.3's own repair paragraph has the full report).
+    `_ASK_CLASSES` is two values today (`overwrite`, `destroy`) and only the first needs "an", but
+    computing the rule from the word itself, once, here, is what keeps a third value this module has
+    to phrase a sentence about from needing a second place taught it — the identical "fix it once at
+    the source" instinct `weft_kernel.registry.
     _require_declarations_present`'s own generalisation over `destroys` already used.
     """
     return "an" if word[:1].lower() in "aeiou" else "a"

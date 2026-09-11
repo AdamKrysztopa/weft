@@ -194,7 +194,7 @@ async def run_agent(
         # `final_answer` was ruled out above — so this is unreachable. It is a **named refusal
         # rather than an `assert`**: an assert is stripped under `-O`, which would leave the line
         # below dereferencing `None` in exactly the build where nobody is watching
-        # (`docs/lessons.md` `L8.37`).
+        # (`docs/internal/lessons.md` `L8.37`).
         call = action.call
         if call is None:  # pragma: no cover - the validator makes this unreachable
             raise UndecidedActionError(

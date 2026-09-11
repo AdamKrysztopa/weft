@@ -1,6 +1,6 @@
 """`contradiction-check` — the one `Generator` this task ships. `Stage[Passages, Answer]`.
 
-Task **2.22**, `docs/build-ledger.md`: "a query about whether the sources agree is
+Task **2.22**, `docs/internal/build-ledger.md`: "a query about whether the sources agree is
 answerable, and a critic that could not look says so instead of reporting agreement."
 `docs/10-technique-catalogue.md` §1.1 names `rag_consensus` and states what this plugin
 must not repeat: a disagreement detector that reports `has_consensus=True` when the

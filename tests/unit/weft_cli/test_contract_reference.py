@@ -313,7 +313,7 @@ def test_weft_cli_declares_the_formatter_it_shells_out_to() -> None:
     have. Before task 6.7 it was declared nowhere at all and worked only because the *workspace
     root's* dev group happens to carry `ruff` — invisible to every check in this repository
     until the distribution was installed from its own sdist and the code actually run
-    (`docs/lessons.md` L6.24).
+    (`docs/internal/lessons.md` L6.24).
     """
     # Arrange
     # `weft-rag` since 2026-09-05: `weft_cli` ships inside it, so the extra it needs is

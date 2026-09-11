@@ -64,7 +64,7 @@ def _all_members(repo_root: Path, *, publishing_only: bool) -> tuple[Member, ...
 
     Raises `PublishSetUnreadableError` if the member globs match no directory containing a
     `pyproject.toml`, or if `[tool.uv.workspace] members` itself is empty — an empty answer is
-    "I did not find it", never "there is none" (`docs/lessons.md` L5.9).
+    "I did not find it", never "there is none" (`docs/internal/lessons.md` L5.9).
     """
     workspace_manifest = repo_root / "pyproject.toml"
     workspace_config = _load_toml(workspace_manifest)

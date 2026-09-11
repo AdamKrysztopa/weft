@@ -1,7 +1,7 @@
 """SessionStart and SubagentStart — put what this repository has already learned into
 whoever is about to work.
 
-`docs/lessons.md` records how the work goes wrong. A ledger nobody opens is
+`docs/internal/lessons.md` records how the work goes wrong. A ledger nobody opens is
 worse than no ledger, because it looks like a control that is working. So
 nothing here depends on anyone remembering the file exists: this hook runs on
 every session start and prints the applied rules plus the open backlog into the
@@ -24,12 +24,12 @@ worked without a single applied rule in its context. `.claude/agents/weft-implem
 compensated by hand-copying seven constraints into its own body — and nothing kept that
 copy in step with what `implement-ll` applied, so it aged silently from the moment it was
 written. `SubagentStart` fires and *can* inject (proven with a probe before this was
-built, per `docs/lessons.md` L5.1), so the rules now reach a subagent from the same
+built, per `docs/internal/lessons.md` L5.1), so the rules now reach a subagent from the same
 source the main session reads. One file to update, two audiences, no copy to go stale.
 
 **What a subagent is told is deliberately not what the main session is told.** The open
 queue is not injected: a subagent cannot drain it, cannot triage it, and must never write
-to `docs/lessons.md` — that needs reasoning it was not given. What it gets instead is the
+to `docs/internal/lessons.md` — that needs reasoning it was not given. What it gets instead is the
 one instruction that makes its findings recoverable: put them under a `## Noticed`
 heading, which `.claude/hooks/subagent_findings.py` harvests by exact match. A heading a
 machine can find is the difference between a finding that survives the context boundary
@@ -47,7 +47,7 @@ import re
 import sys
 from pathlib import Path
 
-DOCS = Path(__file__).resolve().parents[2] / "docs"
+DOCS = Path(__file__).resolve().parents[2] / "docs" / "internal"
 QUEUE = DOCS / "lessons.md"
 ARCHIVE = DOCS / "lessons-archive.md"
 
@@ -112,7 +112,7 @@ def _session_body(applied: list[str], queued: list[tuple[str, str]]) -> list[str
     if queued:
         lines.append(
             f"**{len(queued)} in the queue**, to be drained at the next phase close by "
-            f"the `implement-ll` skill (`docs/lessons.md`):"
+            f"the `implement-ll` skill (`docs/internal/lessons.md`):"
         )
         lines.append("")
         lines += [f"- {lid} — {title}" for lid, title in queued]
@@ -134,7 +134,7 @@ def _session_body(applied: list[str], queued: list[tuple[str, str]]) -> list[str
 def _subagent_body(applied: list[str]) -> list[str]:
     """What a dispatched agent reads: the same rules, and one instruction about reporting.
 
-    No queue. A subagent cannot triage a backlog and must not write `docs/lessons.md`;
+    No queue. A subagent cannot triage a backlog and must not write `docs/internal/lessons.md`;
     handing it six open entries would be context it can only ignore. The `## Noticed`
     heading is the whole consuming side of this boundary — see the module docstring.
     """
@@ -151,7 +151,7 @@ def _subagent_body(applied: list[str]) -> list[str]:
 
     lines += [
         "",
-        "**You do not write to `docs/lessons.md`.** Writing a lesson needs reasoning you "
+        "**You do not write to `docs/internal/lessons.md`.** Writing a lesson needs reasoning you "
         "were not given, and the session that dispatched you holds it.",
         "",
         f"**What you do instead: end your report with a `{NOTICED_HEADING}` heading** and, "

@@ -9,11 +9,11 @@ Two items on the production-ready checklist, each of which `09` states with the 
 - "An upgrade path exists and was executed once: a store written by release *n* is read by release
   *n+1*. *Fails if this has never been run.*"
 
-**Every mechanism these rest on already existed and every one was unit-tested; none had been run
-end to end against the real store.** That gap is the whole of this task, and it is the gap
-`docs/lessons.md` L6.14 was written about one task ago: `list_sources()` was true of the contract,
-unit-tested against a double, and false of the running system. A promise on a release checklist is
-worth exactly what has been executed of it.
+**Every mechanism these rest on already existed and every one was unit-tested; none had been run end
+to end against the real store.** That gap is the whole of this task, and it is the gap
+`docs/internal/lessons.md` L6.14 was written about one task ago: `list_sources()` was true of the
+contract, unit-tested against a double, and false of the running system. A promise on a release
+checklist is worth exactly what has been executed of it.
 
 **So each scenario is driven through the real objects.** A real `Runner` over a real
 `PgVectorStore`, interrupted from inside the batch generator; a real tombstone written the way a
@@ -22,9 +22,9 @@ version and read back under the next.
 
 **Non-vacuity is the risk here, not failure.** Nothing needed building for this task, so every
 scenario passed on its first run — which is precisely the condition under which a check proves
-nothing (`docs/lessons.md` L5.19). Each test therefore establishes the *precondition* before the
-act: the first batch really is in the store before the interruption, the tombstone really is
-standing before the repair, and the stored payload really is at the older version before it is
+nothing (`docs/internal/lessons.md` L5.19). Each test therefore establishes the *precondition*
+before the act: the first batch really is in the store before the interruption, the tombstone really
+is standing before the repair, and the stored payload really is at the older version before it is
 read.
 
 **The container discipline is this directory's own**, repeated rather than shared so each module
@@ -99,7 +99,7 @@ def _ingest_registry(store: PgVectorStore) -> Registry:
     ExtModel`. That is not a quirk of this file: it is exactly the latent dependency ledger
     task **6.17** names in `tests/integration/test_ingest_pipeline.py`, which passes today only
     because some *other* test file ran a real `discover()` first and populated a process-global
-    registry. A test that depends on file order is a defect in the test (`docs/lessons.md`
+    registry. A test that depends on file order is a defect in the test (`docs/internal/lessons.md`
     L5.21), so this module registers what it needs and depends on nothing having gone before it.
 
     **Through `register_from_reports`, not `register_ext_model`.** `rehydrate.py`'s own module
@@ -108,7 +108,7 @@ def _ingest_registry(store: PgVectorStore) -> Registry:
     discovery". Measured, they differ: `register_ext_model` refuses a second call even for the
     same class, so a suite where another file ran a real `discover()` first fails here with
     `DuplicateRegistrationError`. Only `register_from_reports` skips a namespace its own class
-    already claimed. `docs/lessons.md` L6.28.
+    already claimed. `docs/internal/lessons.md` L6.28.
     """
 
     def store_factory(_config: object) -> PgVectorStore:

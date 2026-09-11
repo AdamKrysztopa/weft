@@ -1,4 +1,4 @@
-"""Walk `docs/lessons-archive.md` and report what a flat reading cannot see.
+"""Walk `docs/internal/lessons-archive.md` and report what a flat reading cannot see.
 
 The archive is a graph because the loop's worst failure is a *sequence*, not an
 entry: a rule is added, a later drain finds it noisy and reverses it, and a
@@ -27,18 +27,18 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-ARCHIVE = Path(__file__).resolve().parents[1] / "docs" / "lessons-archive.md"
-QUEUE = Path(__file__).resolve().parents[1] / "docs" / "lessons.md"
+ARCHIVE = Path(__file__).resolve().parents[1] / "docs" / "internal" / "lessons-archive.md"
+QUEUE = Path(__file__).resolve().parents[1] / "docs" / "internal" / "lessons.md"
 
 _DRAIN = re.compile(r"^## (\d{4}-\d{2}-\d{2}) — (.+)$")
 _ENTRY = re.compile(r"^- \*\*(L[\d.]+)\*\*\s+(.*)$")
 _EDGE = re.compile(r"`(refines|supersedes|moves|recurs|reverses|caused-by) (L[\d.]+)`")
 # The format block inside the prose uses the same shapes; skip the fenced example.
 _FENCE = re.compile(r"^```")
-# `docs/lessons.md`'s own open entries — `### L12.5 — a title`, a level-3 heading, where the
-# archive's drained entries are `- **L12.5** …` bullets (`_ENTRY` above). Two shapes for the
-# same fact because the queue is prose written before a title is settled, one entry per
-# heading, while the archive is a dense list a drain writes all at once.
+# `docs/internal/lessons.md`'s own open entries — `### L12.5 — a title`, a level-3 heading, where
+# the archive's drained entries are `- **L12.5** …` bullets (`_ENTRY` above). Two shapes for the
+# same fact because the queue is prose written before a title is settled, one entry per heading,
+# while the archive is a dense list a drain writes all at once.
 _QUEUE_ENTRY = re.compile(r"^### (L[\d.]+) — (.+)$")
 # Any level-2 heading — used only to find where `## Queue` starts and where it ends: the next
 # `## ` heading, whatever it is named. `_QUEUE_ENTRY`'s three hashes never match this.
@@ -89,13 +89,13 @@ def parse(text: str) -> tuple[dict[str, str], list[tuple[str, str, str]]]:
 
 
 def parse_queue(text: str) -> tuple[dict[str, str], list[tuple[str, str, str]]]:
-    """Return `{id: title}` and a list of `(source, edge, target)` for `docs/lessons.md`'s
-    open **Queue** section alone — carried repair **R9.12** (`docs/lessons.md` `L9.91`).
+    """Return `{id: title}` and a list of `(source, edge, target)` for `docs/internal/lessons.md`'s
+    open **Queue** section alone — carried repair **R9.12** (`docs/internal/lessons.md` `L9.91`).
 
-    Bounded to the text between the `## Queue` heading and the next `## ` heading, whatever
-    it is named. `docs/lessons.md` also carries an *Applied* section and a closing note, both
-    of which mention lesson ids — reading either would report an already-applied rule as an
-    unresolved recurrence, the opposite of what this script is for.
+    Bounded to the text between the `## Queue` heading and the next `## ` heading, whatever it is
+    named. `docs/internal/lessons.md` also carries an *Applied* section and a closing note, both of
+    which mention lesson ids — reading either would report an already-applied rule as an unresolved
+    recurrence, the opposite of what this script is for.
 
     An entry here is a level-3 heading, `### L12.5 — a title`, where the archive's own
     entries are `- **L12.5** …` bullets (`_ENTRY`, read by `parse`). An edge may appear

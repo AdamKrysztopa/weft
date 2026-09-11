@@ -5,23 +5,22 @@ is a threshold or a percentage — each is a property that either holds or does 
 discipline fitness functions 7, 8 and 9 already carry for the identical reason: a number
 nobody can defend gets re-baselined until it means nothing.
 
-**(a) The operator set stays closed.** `02` §3: "the set stays closed until something real
-needs a fifth," and a rule with no mechanism is exactly what this section exists to prevent.
-The ratchet's *pinned* half — `CLOSED_OPERATOR_SET`, four names, and the waiver constant
-below it — is written by hand, the same way `test_ff0_gate_in_the_gate.py`'s
-`ARCHITECTURE_TASKS` is: a ratchet's anchor has to be pinned somewhere, and the test file is
-where every other ratchet in this suite pins its own. What must **not** be hand-typed a
-second time is the *actual* side of the comparison — "the actual operator fields on the
-model" — because a second, disconnected list of the same four strings is precisely the
-two-lists bug `docs/README.md` opens by describing: it is correct today and has no
-mechanism keeping it correct tomorrow. `weft_kernel.pipeline.Pipeline` closes that gap
+**(a) The operator set stays closed.** `02` §3: "the set stays closed until something real needs a
+fifth," and a rule with no mechanism is exactly what this section exists to prevent. The ratchet's
+*pinned* half — `CLOSED_OPERATOR_SET`, four names, and the waiver constant below it — is written by
+hand, the same way `test_ff0_gate_in_the_gate.py`'s `ARCHITECTURE_TASKS` is: a ratchet's anchor has
+to be pinned somewhere, and the test file is where every other ratchet in this suite pins its own.
+What must **not** be hand-typed a second time is the *actual* side of the comparison — "the actual
+operator fields on the model" — because a second, disconnected list of the same four strings is
+precisely the two-lists bug `docs/internal/README.md` opens by describing: it is correct today and
+has no mechanism keeping it correct tomorrow. `weft_kernel.pipeline.Pipeline` closes that gap
 itself: `insert`, `replace`, `remove` and `set` each carry
-`Field(json_schema_extra={PIPELINE_OPERATOR_MARK: True})` in the class body — the one place
-in the tree that *decides* a field is an operator block — and `_marked_operator_fields`
-below reads that mark off `Pipeline.model_fields`, never off a list this file maintains.
-Add a fifth field carrying the mark (a `move` operator, say) and the actual side grows to
-five with no edit here at all; the pinned side stays at four until someone edits
-`OPERATORS_WAIVED_BEYOND_THE_CLOSED_SET` and records why in `docs/README.md`'s decision log.
+`Field(json_schema_extra={PIPELINE_OPERATOR_MARK: True})` in the class body — the one place in the
+tree that *decides* a field is an operator block — and `_marked_operator_fields` below reads that
+mark off `Pipeline.model_fields`, never off a list this file maintains. Add a fifth field carrying
+the mark (a `move` operator, say) and the actual side grows to five with no edit here at all; the
+pinned side stays at four until someone edits `OPERATORS_WAIVED_BEYOND_THE_CLOSED_SET` and records
+why in `docs/internal/README.md`'s decision log.
 
 **(b) Every shipped pipeline resolves.** "A pipeline file is text that rots silently while
 every unit test passes" — `01`'s own words, and the failure mode it names has a concrete
@@ -142,7 +141,7 @@ def test_waiver_list_is_empty() -> None:
         "A field has been waived onto the operator set beyond the closed four. `02` §3: "
         "the set stays closed until something real needs a fifth — if it genuinely does, "
         "this waiver is where that decision is recorded, alongside a dated entry in "
-        "docs/README.md's decision log; it is not a place to park an experiment."
+        "docs/internal/README.md's decision log; it is not a place to park an experiment."
     )
 
 
@@ -171,7 +170,7 @@ def test_pipeline_declares_no_operator_beyond_the_closed_set() -> None:
         f"Pipeline marks {sorted(unexpected)} as an operator field, beyond `02` §3's closed "
         f"four ({sorted(CLOSED_OPERATOR_SET)}). A fifth operator is not a silent extension: "
         f"add it to OPERATORS_WAIVED_BEYOND_THE_CLOSED_SET above, with a dated entry in "
-        f"docs/README.md's decision log explaining why the closed set no longer holds."
+        f"docs/internal/README.md's decision log explaining why the closed set no longer holds."
     )
 
 
@@ -203,7 +202,7 @@ def test_pipeline_declares_no_field_outside_the_closed_classification() -> None:
         f"classification for. If it is not an operator block, add it to "
         f"NON_OPERATOR_FIELDS. If it genuinely is a fifth operator, it needs "
         f"PIPELINE_OPERATOR_MARK, a place in OPERATORS_WAIVED_BEYOND_THE_CLOSED_SET, and a "
-        f"dated entry in docs/README.md's decision log — never a field that is neither."
+        f"dated entry in docs/internal/README.md's decision log — never a field that is neither."
     )
 
 
@@ -657,7 +656,7 @@ def _contributed_resource_names() -> frozenset[str]:
 
 
 def test_every_shipped_pipeline_document_is_contributed_by_its_pack() -> None:
-    """Clause (c) — `docs/lessons.md` `L9.83`, added 2026-09-07 at Phase 9's drain.
+    """Clause (c) — `docs/internal/lessons.md` `L9.83`, added 2026-09-07 at Phase 9's drain.
 
     **Two checks read two different populations, and a document can satisfy one while being
     invisible to the other.** Clause (b) above globs `packages/*/pipelines/*.yaml` off disk;
@@ -689,7 +688,7 @@ def test_every_shipped_pipeline_document_is_contributed_by_its_pack() -> None:
         "nothing can name them:\n  "
         + "\n  ".join(missing)
         + "\n\nAdd `registrar.add_pipeline_resource(<package>, 'pipelines/<file>')` beside the "
-        "pack's other contributions (docs/lessons.md L9.83)."
+        "pack's other contributions (docs/internal/lessons.md L9.83)."
     )
 
 

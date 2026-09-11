@@ -1,13 +1,13 @@
 """The prompts `weft-retrieve`'s own plugins ask. The first registered `Prompt` in this tree.
 
-Task **2.7**, extended by tasks **2.15**, **2.16** and **2.17**. `docs/build-ledger.md`'s 2.10 line
-settles where a prompt lives: "`weft-prompts` declares no `weft.packs` entry point and
-registers nothing … every first-party prompt belongs to the plugin that asks it a question
-(2.9, 2.7, 2.16, 2.17)." So the wording `llm-rerank` sends a model is *this* pack's,
-registered under `weft_prompts.contract.Prompt` through the same public entry point a third
-party's prompt pack uses, and replaceable the same way: an operator who wants different
-wording pins a different name in the reranker's `with:` block, or pins their own class over
-this name in `[plugins]`. Neither is an edit to this file.
+Task **2.7**, extended by tasks **2.15**, **2.16** and **2.17**. `docs/internal/build-ledger.md`'s
+2.10 line settles where a prompt lives: "`weft-prompts` declares no `weft.packs` entry point and
+registers nothing … every first-party prompt belongs to the plugin that asks it a question (2.9,
+2.7, 2.16, 2.17)." So the wording `llm-rerank` sends a model is *this* pack's, registered under
+`weft_prompts.contract.Prompt` through the same public entry point a third party's prompt pack uses,
+and replaceable the same way: an operator who wants different wording pins a different name in the
+reranker's `with:` block, or pins their own class over this name in `[plugins]`. Neither is an edit
+to this file.
 
 **Why the offered passages arrive as one pre-rendered string.** `weft_prompts.template`
 renders `${name}` over `string.Template`, so a field is substituted as its own text and a

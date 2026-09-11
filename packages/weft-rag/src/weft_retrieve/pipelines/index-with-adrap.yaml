@@ -28,7 +28,7 @@ extends: index-text
 # measures incremental joining (adRAP) *below* a full RAPTOR rebuild on two of the three datasets
 # they test it against — joining a tree does not produce a *better* tree than rebuilding one from
 # scratch, and this document does not claim otherwise. What it buys instead is not paying to
-# re-summarise a whole corpus every time one more document arrives: `docs/build-ledger.md`
+# re-summarise a whole corpus every time one more document arrives: `docs/internal/build-ledger.md`
 # ledger task 10.22 measured a full rebuild via `index-with-raptor` at **~61 seconds of ingest for
 # ten PDFs** on this project's own reference corpus — about six seconds per document, paid again,
 # in full, on every single new document under a full-rebuild policy. `adrap` instead touches only

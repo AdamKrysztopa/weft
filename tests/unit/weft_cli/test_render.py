@@ -4,7 +4,7 @@ Mirrors `packages/weft-rag/src/weft_cli/render.py`. Covers the property task 3.2
 built-in commands' human output stays byte-identical to what the retired `handle_*` functions
 in `weft_cli.cli` printed directly, now computed from a `CommandResult` instead of interleaved
 with the logic that produced it. Each test below reproduces the exact literal a pre-3.2 handler
-test asserted (see `docs/build-ledger.md` 3.2's own evidence entry for how this was checked
+test asserted (see `docs/internal/build-ledger.md` 3.2's own evidence entry for how this was checked
 commit-to-commit), plus the generic `Outcome` vocabulary (`NothingToProduce`/`Failed`) and the
 unknown-result fallback a third party's own `Command` would exercise.
 
@@ -1377,7 +1377,7 @@ def test_render_holds_no_first_party_dispatch_table_of_its_own() -> None:
 
         Recursive on purpose, and that recursion is the whole check: the table this test
         exists to forbid was a tuple of `(result type, renderer)` **pairs**, so a one-level
-        scan finds only 2-tuples and passes vacuously — `docs/lessons.md` L5.19's rule, met
+        scan finds only 2-tuples and passes vacuously — `docs/internal/lessons.md` L5.19's rule, met
         by planting the real shape rather than a convenient one.
         """
         if isinstance(value, type):
@@ -1543,7 +1543,7 @@ def test_render_eval_compare_prints_no_delta_for_an_unjudgeable_metric() -> None
 
 
 def test_render_eval_compare_says_when_a_baseline_spread_is_zero_width() -> None:
-    """Ledger **8.23**, `docs/lessons.md` L8.17.
+    """Ledger **8.23**, `docs/internal/lessons.md` L8.17.
 
     A zero-width interval and a badly-sampled one produce an identical record, and the
     mistake runs in the over-confident direction: every later difference falls outside it.
@@ -1656,14 +1656,13 @@ def test_reconcile_says_nothing_about_abstentions_when_there_were_none() -> None
 
 
 def test_pipeline_show_renders_an_applies_to_the_way_applies_writes_itself() -> None:
-    # Arrange — carried repair **R9.11** (`docs/lessons.md` `L9.45`). `Applies.__repr__` was
-    # written for the one human audience there is — someone reading `weft pipeline show` — and
+    # Arrange — carried repair **R9.11** (`docs/internal/lessons.md` `L9.45`). `Applies.__repr__`
+    # was written for the one human audience there is — someone reading `weft pipeline show` — and
     # was rendered nowhere: this renderer printed `dumped["applies_to"]`, the JSON dump, so an
     # operator read `{'fact': 'weft_clean.property:Language', 'constraints': [['code', 'pl']]}`
-    # where the class already knows how to say `Applies(Language, code='pl')`.
-    #
-    # The entry offers two remedies — reach it or delete it. Reaching it is the one that keeps
-    # the work: the dump is a serialisation form, and this is the only place a person reads it.
+    # where the class already knows how to say `Applies(Language, code='pl')`. The entry offers two
+    # remedies — reach it or delete it. Reaching it is the one that keeps the work: the dump is a
+    # serialisation form, and this is the only place a person reads it.
     from weft_kernel.payload import MediaType
     from weft_kernel.payload.applicability import Applies
 

@@ -17,7 +17,7 @@ environment is not asking for a network run**, and the difference matters becaus
 non-deterministic gate teaches: re-run red tests until they are green, which is the habit that lets
 a real regression through. It also makes a dispatched agent's "green" unfalsifiable — a failure it
 did not cause is indistinguishable from one it did, and that cost three separate diagnostic detours
-in one session (`docs/lessons.md` L6.27).
+in one session (`docs/internal/lessons.md` L6.27).
 
 **So the opt-in is explicit and separate from the credential.** `WEFT_LIVE_API_TESTS` says *"I am
 asking for a network run"*; `OPENAI_API_KEY` says *"I could"*. Both are required, and the check
@@ -44,7 +44,7 @@ OPT_IN_VAR: Final[str] = "WEFT_LIVE_API_TESTS"
 
 #: What "reaches a third-party service" looks like in an import. Read off imports rather than off
 #: prose, because a module's docstring discussing OpenAI is not a module calling it
-#: (`docs/lessons.md` L5.23 — a property about code needs a structural check).
+#: (`docs/internal/lessons.md` L5.23 — a property about code needs a structural check).
 _NETWORK_IMPORT: Final[re.Pattern[str]] = re.compile(
     r"^\s*(?:from|import)\s+(weft_openai|openai)\b", re.MULTILINE
 )
@@ -82,7 +82,7 @@ def test_every_module_that_reaches_the_network_requires_the_explicit_opt_in() ->
 
 def test_the_check_can_actually_fail(tmp_path: Path) -> None:
     """Planted through the real matcher — the real tree agrees once this task lands, so this is
-    the only place the comparison is seen disagreeing (`docs/lessons.md` L5.19).
+    the only place the comparison is seen disagreeing (`docs/internal/lessons.md` L5.19).
 
     The pair that matters is a module that *imports* a client versus one that merely *mentions*
     the service in prose: the first must be caught and the second must not, or the check becomes

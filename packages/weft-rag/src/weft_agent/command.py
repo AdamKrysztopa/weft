@@ -1,14 +1,14 @@
 """`weft agent` — the command that drives `weft_agent.loop.run_agent` through the published
 `weft_command.contract.Command` surface. Ledger task **7.4**.
 
-**This is the seam Phase 8's own close review predicted, one phase early.** `docs/lessons.md`
-`L5.15`'s shape — a *consuming* side of `ServiceRegistry` anyone can reach (`ctx.require`) and a
-*producing* side reachable only by editing `weft-cli` — is what made this command impossible to
-write honestly until `weft_cli.cli.run_command` registered the run's `LLM` (and `Prompts`,
-`TokenSink`) by their *published contract types*, not only under its own private `Dependencies`.
-See that module's own docstring for the repair; nothing here depends on `weft_cli` at all, and
-`weft_agent` must not — that pack boundary is task 7.1's own claim and this task does not reopen
-it.
+**This is the seam Phase 8's own close review predicted, one phase early.**
+`docs/internal/lessons.md` `L5.15`'s shape — a *consuming* side of `ServiceRegistry` anyone can
+reach (`ctx.require`) and a *producing* side reachable only by editing `weft-cli` — is what made
+this command impossible to write honestly until `weft_cli.cli.run_command` registered the run's
+`LLM` (and `Prompts`, `TokenSink`) by their *published contract types*, not only under its own
+private `Dependencies`. See that module's own docstring for the repair; nothing here depends on
+`weft_cli` at all, and `weft_agent` must not — that pack boundary is task 7.1's own claim and this
+task does not reopen it.
 
 **`registry = ctx.require(Registry)`, not a name this command resolves itself.** The agent's own
 tool catalogue is built from whatever `Registry` the run assembled (`weft_agent.command_tools.

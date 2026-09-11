@@ -16,22 +16,22 @@ generated grammar already follows. `weft config get` (no `--key`) prints every k
 `weft_cli.config_surface.CONFIG_KEYS` names; `weft config get --key services.embed` prints
 one.
 
-**`weft config set <key> <value>` — both required, both positional**, because neither has a
-default and `argparse_gen`'s ordinary rule gives exactly that shape with no special casing
-needed. `ConfigSetCommand` is **`write`-class, decided (not defaulted) 2026-08-20** during the
-same review that reclassified `weft_cli.commands.InitCommand` and `weft_cli.pipeline_commands.
-PipelineDeriveCommand` — `docs/build-ledger.md`'s dated repair paragraph for tasks 3.3/3.6/3.7
-has the argument in full. It does not fit `overwrite` (ask) on `docs/03-cli.md` → *Permissions*'s
-own terms either: that class exists so a prompt can state "what will be destroyed and how
-much of it", and `weft_cli.confirm.gate` genuinely has nothing to add here beyond restating
-the invocation the terminal already shows — `set_config_text` "preserves every comment and
-every other key untouched", so the entire blast radius is the one key and the one old value
-the caller just named on the command line, unlike `overwrite`'s own worked examples
-("reindex an existing collection", "replace a pipeline file"), each of which discards
-something the invocation itself does not name or bound. Gating a single, self-describing
-key edit behind a TTY prompt would buy nothing a reader does not already have, at the cost of
-breaking `weft config set <key> <value>` in exactly the non-interactive script it is most
-useful in — `weft init`'s own argument, applied here a second time.
+**`weft config set <key> <value>` — both required, both positional**, because neither has a default
+and `argparse_gen`'s ordinary rule gives exactly that shape with no special casing needed.
+`ConfigSetCommand` is **`write`-class, decided (not defaulted) 2026-08-20** during the same review
+that reclassified `weft_cli.commands.InitCommand` and `weft_cli.pipeline_commands.
+PipelineDeriveCommand` — `docs/internal/build-ledger.md`'s dated repair paragraph for tasks
+3.3/3.6/3.7 has the argument in full. It does not fit `overwrite` (ask) on `docs/03-cli.md` →
+*Permissions*'s own terms either: that class exists so a prompt can state "what will be destroyed
+and how much of it", and `weft_cli.confirm.gate` genuinely has nothing to add here beyond restating
+the invocation the terminal already shows — `set_config_text` "preserves every comment and every
+other key untouched", so the entire blast radius is the one key and the one old value the caller
+just named on the command line, unlike `overwrite`'s own worked examples ("reindex an existing
+collection", "replace a pipeline file"), each of which discards something the invocation itself does
+not name or bound. Gating a single, self-describing key edit behind a TTY prompt would buy nothing a
+reader does not already have, at the cost of breaking `weft config set <key> <value>` in exactly the
+non-interactive script it is most useful in — `weft init`'s own argument, applied here a second
+time.
 """
 
 from __future__ import annotations

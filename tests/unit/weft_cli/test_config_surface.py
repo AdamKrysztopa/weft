@@ -191,7 +191,7 @@ def test_set_config_text_never_matches_a_commented_out_key() -> None:
 #: A role a pack declares and `ServiceSelection` has no field for — `blob`, `graph` and
 #: `describe` are all this shape in a real installation. `_INSTALLED` above holds only `embed`
 #: and `store`, which have defaults, so `plugin_for` can never fail against it: the fixture is
-#: symmetric in exactly the dimension the two tests below vary (`docs/lessons.md` `L12.6`).
+#: symmetric in exactly the dimension the two tests below vary (`docs/internal/lessons.md` `L12.6`).
 _WITH_AN_UNSELECTED_ROLE = RoleTable(
     roles={
         "embed": ServiceRole(key="embed", contract=object),

@@ -43,7 +43,7 @@ it to be.** `weft_retrieve`'s `BooleanPlan`/`CorrectiveTrace`/`IterativeRetrieva
 `weft_generate`'s `Agreement`/`RefinementTrace` attach to `QuerySet.ext`/`Candidates.ext`/
 `Answer.ext`, never to `Node.ext`, and only a `Node` is ever handed to a `NodeStore` — see
 `weft_retrieve.__init__`'s and `weft_generate.__init__`'s own module docstrings, and
-`docs/lessons.md` L5.20, for the measurement that found registering them would collide
+`docs/internal/lessons.md` L5.20, for the measurement that found registering them would collide
 (`weft-retrieve`'s three share one namespace; `weft-generate`'s two share another) rather than
 merely being unnecessary. Neither pack's `register()` calls `add_ext_model` as a result, so
 *declared* below is never derived from those five classes at all, on purpose: this file's own

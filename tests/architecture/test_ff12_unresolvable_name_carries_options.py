@@ -1,5 +1,5 @@
 """Fitness function 12 — an unknown name names the alternatives. `01` -> *Fitness
-functions* item 12; `05` -> G11; `docs/build-ledger.md` 2.36, which turns this on.
+functions* item 12; `05` -> G11; `docs/internal/build-ledger.md` 2.36, which turns this on.
 
 "Every error class whose failure mode is an unresolvable name carries those options
 as a **typed field**, not only interpolated into its message, and the check asserts

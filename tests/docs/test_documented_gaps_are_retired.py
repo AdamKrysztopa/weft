@@ -1,8 +1,8 @@
 """A documented gap is retired when the task that closes it ticks — ledger task **8.21**.
 
-`docs/lessons-archive.md` `L7.5`. `manual/pack-author-guide.md` §9.3 carried a paragraph headed
-"Honest gap, not a pattern to copy" for two weeks after ledger task **6.26** closed the gap and
-added a fitness function to keep it closed — so the guide went on telling pack authors that this
+`docs/internal/lessons-archive.md` `L7.5`. `manual/pack-author-guide.md` §9.3 carried a paragraph
+headed "Honest gap, not a pattern to copy" for two weeks after ledger task **6.26** closed the gap
+and added a fitness function to keep it closed — so the guide went on telling pack authors that this
 tree's own examples taught the wrong thing while a check enforced the right one. It was found
 because a later task happened to be editing the paragraph next to it.
 
@@ -15,13 +15,15 @@ not name a task that is ticked.
 **Scope is decided by measurement, not by preference**, and each exclusion below is a population
 this check would be wrong about rather than merely noisy:
 
-- `docs/build-ledger.md` is excluded. Its per-task entries end with the recurring idiom
+- `docs/internal/build-ledger.md` is excluded. Its per-task entries end with the recurring idiom
   *"left to later tasks, named rather than silently covered: ... (3.9); ... (3.10)"* — a dated
   record of what that task's exit state **was**, which is the ledger's whole append-only point. A
   standing-claim check applied to a historical record reports the record as a defect.
-- `docs/lessons-archive.md` is excluded for the same reason one level out: it is what was learned
+- `docs/internal/lessons-archive.md` is excluded for the same reason one level out: it is what was
+learned
   on a date, and an entry saying a thing was open then is correct forever.
-- `docs/README.md` is excluded because its decision log is one table whose rows run to hundreds of
+- `docs/internal/README.md` is excluded because its decision log is one table whose rows run to
+hundreds of
   lines and carry dozens of task ids apiece; its Status block has its own checker in
   `scripts/next_task.py --check-live`, which is where a stale project position is caught.
 
@@ -34,11 +36,11 @@ sentence** — provenance in one, the gap and who owns it in the next — which 
 this task's own commit do. Measured: this check fired twice on prose written to satisfy it.
 
 **The correction convention is honoured rather than fought.** This tree supersedes text in place
-with a `>` blockquote beginning `Corrected` — 29 of them across six documents — and a paragraph
-that says a thing is not yet true, immediately followed by a note saying it now is, has not
-outlived its repair: the correction is right there. So a hit whose following lines carry that
-blockquote is not a failure. This is `docs/lessons.md` L6.4 applied: the marker means what its live
-instances say.
+with a `>` blockquote beginning `Corrected` — 29 of them across six documents — and a paragraph that
+says a thing is not yet true, immediately followed by a note saying it now is, has not outlived its
+repair: the correction is right there. So a hit whose following lines carry that blockquote is not a
+failure. This is `docs/internal/lessons.md` L6.4 applied: the marker means what its live instances
+say.
 """
 
 from __future__ import annotations
@@ -47,7 +49,15 @@ import re
 from pathlib import Path
 from typing import Final
 
+import pytest
+
+from tests.conftest import untracked_reason
+
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
+
+#: The ledger is untracked by design (`tests.conftest.UNTRACKED_BY_DESIGN`).
+_MISSING_LEDGER: Final[str | None] = untracked_reason("docs/internal/build-ledger.md")
+_requires_ledger = pytest.mark.skipif(_MISSING_LEDGER is not None, reason=_MISSING_LEDGER or "")
 
 #: Documents whose prose makes standing claims about the tree. See the module docstring for why
 #: each excluded file is a population this check would be *wrong* about, not merely noisy on.
@@ -94,7 +104,7 @@ _TASK_LINE: Final[re.Pattern[str]] = re.compile(
 #: resolution-failure subclasses. So an id in a sentence that hands the numbering to one of these
 #: documents is not a ledger id — unless the sentence says `ledger` or names the ledger file, which
 #: is how this tree writes it when it means one. Measured: this was a live false positive, and
-#: `docs/lessons.md` L6.4 is the rule it breaks — the marker means what its instances say.
+#: `docs/internal/lessons.md` L6.4 is the rule it breaks — the marker means what its instances say.
 _NUMBERED_DOCUMENT: Final[re.Pattern[str]] = re.compile(r"docs/\d\d-[\w-]+\.md")
 _LEDGER_ANCHOR: Final[re.Pattern[str]] = re.compile(r"ledger|build-ledger", re.IGNORECASE)
 
@@ -130,7 +140,11 @@ def ledger_task_states() -> dict[str, bool]:
     """
     states: dict[str, bool] = {}
     in_fence = False
-    for line in (REPO_ROOT / "docs" / "build-ledger.md").read_text(encoding="utf-8").splitlines():
+    for line in (
+        (REPO_ROOT / "docs" / "internal" / "build-ledger.md")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ):
         if line.startswith("```"):
             in_fence = not in_fence
             continue
@@ -146,7 +160,11 @@ def _documents() -> list[Path]:
     """Every prose document whose sentences make standing claims about this tree."""
     return sorted(
         path
-        for path in [*(REPO_ROOT / "manual").glob("*.md"), *(REPO_ROOT / "docs").glob("*.md")]
+        for path in [
+            *(REPO_ROOT / "manual").glob("*.md"),
+            *(REPO_ROOT / "docs").glob("*.md"),
+            *(REPO_ROOT / "docs" / "internal").glob("*.md"),
+        ]
         if path.name not in _EXCLUDED
     )
 
@@ -155,10 +173,10 @@ def _sentences_with_lines(text: str) -> list[tuple[int, int, str]]:
     """`(first line, last line, sentence)` for every sentence outside fences and table rows.
 
     **Lines are joined into paragraphs before sentences are cut out of them**, and that is not a
-    convenience. These documents wrap at the house width, so a sentence that names a gap on one
-    line routinely names the task that owns it on the next — and a sweep that reads line by line
-    has a false negative built into the house style, which is `docs/lessons.md` L6.16 exactly. Two
-    of this check's own true positives straddle a line break.
+    convenience. These documents wrap at the house width, so a sentence that names a gap on one line
+    routinely names the task that owns it on the next — and a sweep that reads line by line has a
+    false negative built into the house style, which is `docs/internal/lessons.md` L6.16 exactly.
+    Two of this check's own true positives straddle a line break.
 
     Both ends of the passage are carried: a reader is sent to where it **starts**, and the
     correction window is measured from where it **ends**, because this tree's supersede-in-place
@@ -236,9 +254,10 @@ def stale_gap_claims() -> dict[str, str]:
     return stale
 
 
+@_requires_ledger
 def test_the_ledger_parses_into_a_population_worth_comparing_against() -> None:
     # The floor, both halves. An empty map compares nothing; an all-ticked or all-unticked map
-    # means the box was not read (`docs/lessons.md` L5.19).
+    # means the box was not read (`docs/internal/lessons.md` L5.19).
     states = ledger_task_states()
     assert states, "no task lines parsed out of build-ledger.md"
     assert any(states.values()), "no ticked task parsed — the box is not being read"
@@ -249,6 +268,7 @@ def test_the_ledger_parses_into_a_population_worth_comparing_against() -> None:
     assert "N.M" not in states, "the fenced example task line was counted as a real task"
 
 
+@_requires_ledger
 def test_no_document_asserts_a_gap_its_own_task_has_closed() -> None:
     # Arrange / Act
     stale = stale_gap_claims()
@@ -271,6 +291,7 @@ def test_a_correction_in_place_is_not_a_stale_gap() -> None:
     assert not _correction_follows(lines[:1], 1)
 
 
+@_requires_ledger
 def test_the_check_can_actually_fail() -> None:
     # Plant L7.5's own shape and run it through the same predicates the sweep uses.
     planted = "That pack does not exist yet — task 5.4 builds it — so this section adapts a case."
@@ -287,6 +308,7 @@ def test_the_check_can_actually_fail() -> None:
     ]
 
 
+@_requires_ledger
 def test_the_waiver_is_a_visible_act() -> None:
     # The two-way ratchet. A waiver that no longer matches a real sentence is a waiver nobody can
     # see has stopped applying, which is the same invisibility the pinned-empty set exists to end.

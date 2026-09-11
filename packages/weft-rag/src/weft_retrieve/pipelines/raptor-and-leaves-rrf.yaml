@@ -54,7 +54,7 @@ stages:
   # Retune against your own corpus — that is what the mapping is for, and `weft eval` is how you
   # would know whether a change was real rather than felt. Note what it cannot hold still:
   # `weft eval run` always indexes, so two query rungs cannot be compared against one index
-  # (`docs/lessons.md` L10.25); each arm above got its own fresh store, which is why the
+  # (`docs/internal/lessons.md` L10.25); each arm above got its own fresh store, which is why the
   # within-rung spread is the bar a between-rung difference has to clear.
   - id: fuse
     use: reciprocal-rank-fusion

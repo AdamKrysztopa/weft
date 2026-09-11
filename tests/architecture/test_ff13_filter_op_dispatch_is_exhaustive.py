@@ -30,7 +30,7 @@ publishes its own translator over the identical `FilterOp` vocabulary — `_pred
 `_text_predicate`, `_text_set_predicate` and `_extension_predicate` — and every one of them
 had the same shape, undiscovered by the ledger's own list because it names only
 `weft_qdrant.store` and `weft_store.contract`/`fields`, never pgvector's SQL side of the
-identical translation task 2.6 built. `docs/lessons.md` L5.14 records the omission.
+identical translation task 2.6 built. `docs/internal/lessons.md` L5.14 records the omission.
 
 **The mechanism chosen at each site, and why.** `Filter._shape_matches_op`,
 `weft_qdrant.store`'s three functions and `weft_store.pgvector_store`'s four all move to
@@ -41,7 +41,7 @@ ornament: it is what turns "every branch I wrote happens to cover today's member
 operator no branch names is refused, always." `weft_store.fields._ADMITTED[FieldKind.
 EXTENSION]` needed a different fix — not a raise, because `field_for` already raises
 `FilterOpMismatchError` for an operator missing from this table; the defect was that the
-table *widened itself*. `docs/lessons.md` L5.6's shape one level up from a version
+table *widened itself*. `docs/internal/lessons.md` L5.6's shape one level up from a version
 constant: a permitted set computed from the enum it is supposed to gate does not narrow as
 the vocabulary grows, it grows with it. The fix states the nine members by hand.
 

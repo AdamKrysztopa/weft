@@ -1,16 +1,15 @@
 """`iterative-retrieval` — a looping technique that owns its own loop. `Retriever`.
 
-Task **2.20**, `docs/build-ledger.md`: "an evidence-sufficiency loop is expressible, and its
-stopping rule is one named, testable thing rather than four scattered breaks." `.phase2-
-design.md` §4's own catalogue of where the thesis breaks names this module's whole shape
-before a line of it is written: "a resolved pipeline is a finite ordered list … `iterative-
-retrieval` … needs 'do it again, differently, if X'. No control flow is added to the grammar
-… the concession: a looping technique is one plugin that owns its loop and reaches a sibling
-through `StageLookup`." This module is that concession, taken up exactly once — `leaf`
-(a `Retriever`, resolved by name) and `sufficiency` (a `Sufficiency`, resolved by name) are
-both reached through `weft_retrieve.contract.StageLookup`, never imported or constructed
-here, so a document swaps either by editing a string in a `with:` block rather than by
-editing this file.
+Task **2.20**, `docs/internal/build-ledger.md`: "an evidence-sufficiency loop is expressible, and
+its stopping rule is one named, testable thing rather than four scattered breaks." `.phase2-
+design.md` §4's own catalogue of where the thesis breaks names this module's whole shape before a
+line of it is written: "a resolved pipeline is a finite ordered list … `iterative- retrieval` …
+needs 'do it again, differently, if X'. No control flow is added to the grammar … the concession: a
+looping technique is one plugin that owns its loop and reaches a sibling through `StageLookup`."
+This module is that concession, taken up exactly once — `leaf` (a `Retriever`, resolved by name) and
+`sufficiency` (a `Sufficiency`, resolved by name) are both reached through
+`weft_retrieve.contract.StageLookup`, never imported or constructed here, so a document swaps either
+by editing a string in a `with:` block rather than by editing this file.
 
 Peng Qi, Xiaowen Lin, Leo Mehr, Zijian Wang, Christopher D. Manning, *Answering Complex
 Open-domain Questions Through Iterative Query Generation*, EMNLP-IJCNLP 2019,

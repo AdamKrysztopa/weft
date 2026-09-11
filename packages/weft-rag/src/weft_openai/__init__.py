@@ -122,7 +122,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     # `partial`, never a closure: `weft_kernel.registry.unwrap_factory` peels a `partial` and
     # nothing else, so a closure makes the class invisible to every reader that inspects a
     # factory rather than an instance — which cost ledger task 9.4 a pack silently absent from
-    # `weft delete`'s fan-out (`docs/lessons.md` L9.55).
+    # `weft delete`'s fan-out (`docs/internal/lessons.md` L9.55).
     registrar.add(Describer, VISION_NAME, partial(OpenAIVisionDescriber, settings))
 
 

@@ -18,7 +18,7 @@ speaks only to refuse. Fixing one of the two points is not fixing the seam.
 a live
 refusal reads *the configured store 'PgVectorStore'* while `[services] store` accepts `pgvector`.
 Every one of the six other call sites is a test passing a plausible plugin-shaped name by hand, so
-nothing exercised it — `docs/lessons.md` `L9.26`.
+nothing exercised it — `docs/internal/lessons.md` `L9.26`.
 """
 
 import pytest
@@ -32,7 +32,7 @@ from weft_store.contract import NodeStore, TextSearch, VectorSearch
 #: `weft_cli.contract_reference.capability_siblings` which capabilities a role's contract
 #: family publishes, and that walks the publishing pack's own public module — so a stand-in
 #: contract declared inside a test module has no siblings by construction and could not
-#: exercise the mechanism at all. `docs/lessons.md` L6.4: read the live population, not the
+#: exercise the mechanism at all. `docs/internal/lessons.md` L6.4: read the live population, not the
 #: declaration. The role key stays `blobs` — a stranger's name — so nothing here depends on the
 #: role happening to be called `store`.
 class _ReadOnlyBlobs:

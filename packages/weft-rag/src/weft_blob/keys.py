@@ -12,7 +12,7 @@ through the shipped binary and reading `weft_sources`: a real `SourceId` is
 nothing about its shape, and the ingest path assigns it the source's own URI. Interpolating
 that literally into a key puts a leading `/` and every interior separator into a storage
 path, and a source whose id happens to contain `..` walks a write straight out of whatever
-root an operator configured, with nobody attacking anything (`docs/lessons.md` `L9.53`).
+root an operator configured, with nobody attacking anything (`docs/internal/lessons.md` `L9.53`).
 
 Every property the layout was designed for survives the repair unchanged: the key is still
 derived rather than allocated, `blob_key` is still the one function that produces it, and

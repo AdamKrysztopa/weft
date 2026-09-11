@@ -38,7 +38,7 @@ language axis it already has. A locale-keyed message store with one locale is
 a dict with a constant key, so the catalogue, `Context.messages`, `t()` and
 the three error classes they brought (`UnknownMessageError`,
 `DuplicateMessageError`, `MessageFormatError`) are gone, taking this kernel
-from 33 error classes to 30. `docs/05-grilling-sessions.md` → G11 holds the
+from 33 error classes to 30. `docs/internal/05-grilling-sessions.md` → G11 holds the
 session; `docs/02-extension-model.md` §1 owns what replaced it — an English
 literal at the raise site, whose explanation surface is
 `manual/troubleshooting.md`'s coverage ratchet, and whose *quality* is
@@ -108,11 +108,11 @@ class ServiceRole(BaseModel):
     """A pack's declaration, beside the contract it publishes, that `[services].<key>`
     selects an implementation of that contract for one run.
 
-    Ledger task **9.0**, closing the hole `docs/02-extension-model.md` §1 named in its own
-    Phase 0 narrowing: a service is populated into a `ServiceRegistry` by whatever assembles
-    a run, but nothing let a pack *name* which of its contracts is selectable that way, or
-    under what `[services]` key. `ServiceRole` is that declaration — "one constant beside the
-    Protocol" (`docs/build-ledger.md:5026 'exists becaus'`, `:5370`), never a member on the Protocol
+    Ledger task **9.0**, closing the hole `docs/02-extension-model.md` §1 named in its own Phase 0
+    narrowing: a service is populated into a `ServiceRegistry` by whatever assembles a run, but
+    nothing let a pack *name* which of its contracts is selectable that way, or under what
+    `[services]` key. `ServiceRole` is that declaration — "one constant beside the Protocol"
+    (`docs/internal/build-ledger.md:5038 'exists becaus'`, `:5370`), never a member on the Protocol
     itself.
 
     It is a plain constant rather than a `ClassVar` written into the contract's own body,

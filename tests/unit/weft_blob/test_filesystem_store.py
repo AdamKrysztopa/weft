@@ -3,7 +3,7 @@
 Three async methods and no pipeline position. What this file pins beyond the round trip:
 
 **A blob root carries its own layout version, checked at open and refused on mismatch.** `S11`
-(`docs/README.md`) calls the blob root the *seventh persistence surface*: `ExtModel.
+(`docs/internal/README.md`) calls the blob root the *seventh persistence surface*: `ExtModel.
 __schema_version__` versions the `BlobRef` and says nothing about the layout that reference resolves
 *through*. The rule `S11` settles is one per persistence root a pack owns outside the node store —
 carried in the root, checked at open, refused with a named remedy, as a conformance case and never a

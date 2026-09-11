@@ -1,4 +1,4 @@
-"""First-party agentic front end — task **7.1**, `docs/05-grilling-sessions.md` G8.
+"""First-party agentic front end — task **7.1**, `docs/internal/05-grilling-sessions.md` G8.
 
 **A pack, not an agentic REPL.** `docs/03`'s governing rule keeps logic out of the driving
 adapter; G8 settled that the agent lands after release, built against `weft-kernel` and

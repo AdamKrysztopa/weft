@@ -1,4 +1,4 @@
-"""First-party observability pack — closes `docs/lessons.md` L5.1, the second add-on G7
+"""First-party observability pack — closes `docs/internal/lessons.md` L5.1, the second add-on G7
 produced (`docs/02-extension-model.md` §4).
 
 **The gap this pack closes.** `weft_kernel.seam.wrap` has emitted an OpenTelemetry span for
@@ -20,7 +20,7 @@ accepted (`docs/02-extension-model.md` §2's fixed two-parameter shape,
 
 **Why this makes `contributed=0` an honest, permanent fact about this pack rather than a
 defect** — see `tests/architecture/test_ff2_no_privileged_builtins.py`'s own note on the
-floor assertion this pack forced a correction to, and `docs/build-ledger.md` 5.1d for the
+floor assertion this pack forced a correction to, and `docs/internal/build-ledger.md` 5.1d for the
 argument in full: fitness function 2's real protection (the registry holds exactly what
 discovery declared, one-for-one, with no privileged rewrite) does not depend on every
 first-party pack contributing a plugin — only on `weft-otel` never being the exception that

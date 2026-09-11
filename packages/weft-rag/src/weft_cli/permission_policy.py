@@ -20,7 +20,7 @@ disclosure ("a field that reads as... is unverified... and fails silently in the
 direction"). `network`'s own "allow, configurable" is a real, separate knob nothing in this phase
 reads yet — no `network`-class command is built before Phase 5's graph pack — so naming it here
 would be documentation for a feature nothing exercises, the identical `weft-openai`-shaped
-mistake `docs/README.md`'s own correction anecdote (2026-08-10) already names once for this
+mistake `docs/internal/README.md`'s own correction anecdote (2026-08-10) already names once for this
 project. Left to whichever task first ships a `network`-class command.
 
 ```toml
@@ -36,11 +36,11 @@ made them *stricter* than "always confirm" is not a shape this table's own two-m
 needs, and `PermissionAction` stays a closed `StrEnum` — never `Literal[...]`, per CLAUDE.md —
 so a `weft.toml` naming anything else is refused rather than silently coerced.
 
-**Repair, 2026-08-20** (`docs/build-ledger.md` 3.3's own dated paragraph carries the argument
-in full): the unknown-key refusal below used to be a bare `WeftError` computing the valid keys
-and interpolating them into the message only — invisible to fitness function 12's family walk,
-which looks for a typed `valid_options` field, never message text. `UnknownPermissionKeyError`
-now carries it, the identical shape `weft_cli.config_surface.UnknownConfigKeyError` already gives
+**Repair, 2026-08-20** (`docs/internal/build-ledger.md` 3.3's own dated paragraph carries the
+argument in full): the unknown-key refusal below used to be a bare `WeftError` computing the valid
+keys and interpolating them into the message only — invisible to fitness function 12's family walk,
+which looks for a typed `valid_options` field, never message text. `UnknownPermissionKeyError` now
+carries it, the identical shape `weft_cli.config_surface.UnknownConfigKeyError` already gives
 `[services]`'s sibling refusal. The malformed-value check just below it (`"ask" or "allow"`) is
 **not** brought into the family — see that raise site's own comment for why a closed two-member
 `StrEnum`'s value validation is a type mismatch, not a name failing to resolve against a set.

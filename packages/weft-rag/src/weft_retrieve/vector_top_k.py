@@ -1,6 +1,6 @@
 """`vector-top-k` — the single-pass baseline. `Retriever`, one search per query, no model call.
 
-Task **2.14**, `docs/build-ledger.md`: "the single-pass baseline is a plugin whose name
+Task **2.14**, `docs/internal/build-ledger.md`: "the single-pass baseline is a plugin whose name
 states its cost, so an operator choosing what to run in a loop is not misled by the
 registry." `docs/10-technique-catalogue.md` §1.1's own row on this technique names the
 mistake this plugin's name refuses: a "simple" baseline that actually cost a floor of

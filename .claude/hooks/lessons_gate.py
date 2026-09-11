@@ -86,7 +86,7 @@ def main() -> int:
         f"turn has not accounted for:\n{listed}\n\n"
         f"These came from a dispatched agent's own `## Noticed` section — the one channel "
         f"by which what only it saw survives the context boundary. Read the spool, then "
-        f"either write the entry into `docs/lessons.md` with the `lessons` skill, or "
+        f"either write the entry into `docs/internal/lessons.md` with the `lessons` skill, or "
         f"delete it and say in your reply why it is not a lesson. Empty the file either "
         f"way. A finding left in an unread file has been filed, not collected.",
         file=sys.stderr,

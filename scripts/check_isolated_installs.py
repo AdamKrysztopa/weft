@@ -30,7 +30,7 @@ from publish_set import Member, PublishSetUnreadableError, publishing_members
 #: because the distribution declared its own library. They ship inside `weft-rag` now with the
 #: library behind an extra, so importing one from a bare install is *supposed* to fail. Written out
 #: rather than derived: this list is what the check compares the tree against, and a list derived
-#: from the tree could not disagree with it (`docs/lessons.md` `L5.6`).
+#: from the tree could not disagree with it (`docs/internal/lessons.md` `L5.6`).
 EXTRA_BACKED_MODULES: dict[str, str] = {
     "weft_docling": "docling",
     "weft_openai": "openai",
@@ -137,15 +137,14 @@ def _degradation_probe(member: Member, wheelhouse: Path) -> subprocess.Completed
         "silent = sorted(p for p in expected if not (reports[p].reason or '').strip())\n"
         "assert not silent, f'{silent} reported FAILED with no reason — an operator reading "
         "doctor learns nothing'\n"
-        # **Carried repair `R10.6`, and the clause that was missing.** Everything above inspects
-        # the five packs expected to fail. Nothing asserted the converse — that the rest
-        # *registered* — and `docs/lessons.md` `L10.41` is precisely that gap: `weft-openai`
-        # imported cleanly on a clean install and registered **zero** of its three plugins,
-        # because it used Pillow without declaring it. An import that succeeds is not a pack
-        # that registered, and until now this check watched only the import.
-        #
-        # Three categories of legitimate degradation, each named above with its reason; every
-        # pack outside them must be `ACTIVE`. Measured when this was written: 13 of 21.
+        # **Carried repair `R10.6`, and the clause that was missing.** Everything above inspects the
+        # five packs expected to fail. Nothing asserted the converse — that the rest *registered* —
+        # and `docs/internal/lessons.md` `L10.41` is precisely that gap: `weft-openai` imported
+        # cleanly on a clean install and registered **zero** of its three plugins, because it used
+        # Pillow without declaring it. An import that succeeds is not a pack that registered, and
+        # until now this check watched only the import. Three categories of legitimate degradation,
+        # each named above with its reason; every pack outside them must be `ACTIVE`. Measured when
+        # this was written: 13 of 21.
         "degraded = expected | "
         + repr(set(SETTINGS_BACKED_PACKS))
         + " | "

@@ -50,7 +50,7 @@ def test_a_read_class_command_is_never_gated(monkeypatch: pytest.MonkeyPatch) ->
 
 def test_a_write_class_command_is_never_gated(monkeypatch: pytest.MonkeyPatch) -> None:
     # Arrange — repair, 2026-08-20: `init`/`pipeline derive`/`config set` moved from
-    # `overwrite` to `write` (`docs/build-ledger.md`'s dated paragraph for 3.3/3.6/3.7), so
+    # `overwrite` to `write` (`docs/internal/build-ledger.md`'s dated paragraph for 3.3/3.6/3.7), so
     # this is no longer only a hypothetical case `read` alone covered.
     monkeypatch.setattr(confirm, "is_interactive", lambda: False)
     command = _FakeCommand(PermissionClass.WRITE)

@@ -740,9 +740,9 @@ def _store_instance_for_revisable(
     `weft_kernel.context.UnresolvedServiceError` naming what the run does offer, which is
     requirement 5 answered at the seam that already gives it.
 
-    **Found by running the binary, not by a test** (`docs/lessons.md` `L10.40`): `Revisable`,
-    `NodeSupersedable` and `adrap` all shipped green over a `ctx.require(NodeStore)` call that
-    could not resolve on this path.
+    **Found by running the binary, not by a test** (`docs/internal/lessons.md` `L10.40`):
+    `Revisable`, `NodeSupersedable` and `adrap` all shipped green over a `ctx.require(NodeStore)`
+    call that could not resolve on this path.
     """
     if not any(spec.contract is Revisable for spec in specs):
         return None
@@ -927,8 +927,8 @@ class SourceChange(StrEnum):
     Ledger task **9.17**. `SourceRecord` has carried `content_hash` since G4 and `pipeline` since
     task 6.24, and `02` §1 states their purpose — *"`pipeline` is what lets `weft index` say
     'already indexed, by a different pipeline'"*. Measured 2026-09-06, **nothing compared either**:
-    every use in `packages/` was a write, a read-back or a copy (`docs/lessons.md` `L9.37`). This
-    enum is the vocabulary of the comparison that was missing.
+    every use in `packages/` was a write, a read-back or a copy (`docs/internal/lessons.md`
+    `L9.37`). This enum is the vocabulary of the comparison that was missing.
     """
 
     #: No `SourceRecord` exists for this source. The first index of anything, and the state every
@@ -1012,7 +1012,7 @@ async def _record_sources(
     nodes were written and its ledger was not. Measured through the shipped binary on
     2026-09-09 against a real corpus, with 2,385 tests green — the doubles in the unit suite
     answer a question the running system could not, which is this module's own recurring
-    lesson (`docs/lessons.md` L6.14).
+    lesson (`docs/internal/lessons.md` L6.14).
 
     Found the same way `_stored_count` finds the store: by stage ids `_store_stage_ids_of`
     derived from the resolved specs' own `contract`, never by the literal `"store"` id — a

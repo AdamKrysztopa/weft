@@ -1,12 +1,12 @@
 """The `[services]` key space, contributed rather than stated — ledger task **9.0**.
 
 Until this task the `[services]` keys were three fixed fields on
-`weft_cli.services.ServiceSelection`, so a pack publishing a new run-wide service had no way
-to be selected without an edit to `weft-cli` itself — Phase 7's close, finding *(a)*
-(`docs/build-ledger.md:4358-4366 'emits prose'`). `weft_kernel.discovery.ServiceRoleOffer` already
-carries a
-pack's own declaration on its `PackReport`; this module is where every report's declarations
-are gathered into the one table `weft_cli.services` reads instead of stating the set itself.
+`weft_cli.services.ServiceSelection`, so a pack publishing a new run-wide service had no way to be
+selected without an edit to `weft-cli` itself — Phase 7's close, finding *(a)*
+(`docs/internal/build-ledger.md:4370-4366 'emits prose'`). `weft_kernel.discovery.ServiceRoleOffer`
+already carries a pack's own declaration on its `PackReport`; this module is where every report's
+declarations are gathered into the one table `weft_cli.services` reads instead of stating the set
+itself.
 
 **Why this filters on `status` when `contributions_from` (`weft_cli.registry_bootstrap:285`)
 deliberately does not.** That function's own docstring gives the reason it skips the filter:
@@ -66,7 +66,7 @@ def role_table_from_reports(reports: Iterable[PackReport]) -> RoleTable:
     (`ACTIVE`, `PARTIAL`) that nothing referenced and a summary line saying *"every trusted
     report"*, both removed 2026-09-06 at a review of task 9.0 — a constant no code reads is a
     claim about behaviour, and this one contradicted the paragraph directly beneath it
-    (`docs/lessons.md` `L9.51`). Trust is decided upstream, as the paragraph below says.
+    (`docs/internal/lessons.md` `L9.51`). Trust is decided upstream, as the paragraph below says.
 
     `weft_kernel.discovery._read_service_roles`
     reads a pack's `SERVICE_ROLES` at import, before its settings are validated, precisely so

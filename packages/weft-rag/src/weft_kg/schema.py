@@ -5,15 +5,15 @@ it admits, and the proposal built from what a corpus already produced. No contai
 call here — `weft_kg.commands` is the half that reads a file, talks to the store, and prints; this
 module has no dependency capable of either.
 
-**Typed relation rules, not two flat lists — settled with the owner 2026-09-10.** A schema of
-entity types and predicates catches an invented word and admits any arrangement of approved ones,
-and that arrangement is most of what a wrong extraction actually looks like: `Method wrote Person`
-uses nothing an operator did not approve — `method` and `person` are both named, `wrote` is both
-named — and says something impossible. A **rule** is the triple `(source_type, predicate,
-target_type)`, so the arrangement itself is the thing checked. `entity_types` and `predicates`
-below are therefore **derived** from `relations`, never stored beside them as their own fields:
-two lists that can disagree with the rules they describe is exactly the drift `docs/README.md`
-opens by refusing, and a derivation cannot drift from the thing it derives from.
+**Typed relation rules, not two flat lists — settled with the owner 2026-09-10.** A schema of entity
+types and predicates catches an invented word and admits any arrangement of approved ones, and that
+arrangement is most of what a wrong extraction actually looks like: `Method wrote Person` uses
+nothing an operator did not approve — `method` and `person` are both named, `wrote` is both named —
+and says something impossible. A **rule** is the triple `(source_type, predicate,
+target_type)`, so the arrangement itself is the thing checked. `entity_types` and `predicates` below
+are therefore **derived** from `relations`, never stored beside them as their own fields: two lists
+that can disagree with the rules they describe is exactly the drift `docs/internal/README.md` opens
+by refusing, and a derivation cannot drift from the thing it derives from.
 
 **Matching is case- and whitespace-normalised, in one helper both `admits` and `identity` use.**
 A model writes `Person` where the curated schema says `person`; refusing on capitalisation would

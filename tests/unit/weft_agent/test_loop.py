@@ -1,6 +1,6 @@
 """The agent's loop — ledger task **7.2**, and every choice in it is chosen rather than inherited.
 
-`docs/01-high-level-plan.md` → Phase 7, `docs/05-grilling-sessions.md` → G8 and G12. The
+`docs/01-high-level-plan.md` → Phase 7, `docs/internal/05-grilling-sessions.md` → G8 and G12. The
 `agentic-patterns` design pass ran before this task, and what it decided is what these tests assert,
 so the loop's shape is a decision with reasons rather than whatever the first draft happened to do:
 

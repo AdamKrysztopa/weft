@@ -1,8 +1,8 @@
 """The agent reaches Weft only through the published command surface — ledger task **7.3**.
 
-`docs/03-cli.md` → *Two modes, one implementation*, and `docs/05-grilling-sessions.md` → G12.
-See `tests/unit/weft_agent/test_command_tools.py`'s own module docstring for the three properties
-this module makes true; restated here only as pointers to where each lives:
+`docs/03-cli.md` → *Two modes, one implementation*, and `docs/internal/05-grilling-sessions.md` →
+G12. See `tests/unit/weft_agent/test_command_tools.py`'s own module docstring for the three
+properties this module makes true; restated here only as pointers to where each lives:
 
 *(a)* `CommandTool.call` reaches a `Command` only through `weft_command.invocation.invoke` — never
 `instance.run(...)` directly — so the permission gate task 7.0 moved onto that seam applies to the
@@ -41,7 +41,7 @@ from weft_kernel.registry import Registry, unwrap_factory
 #: the two classes nothing but a TTY may answer for, enumerated explicitly (rather than as
 #: "everything but read/write/network") so a sixth `PermissionClass` member is permitted by
 #: default and a reviewer has to notice it was never added here — the population this module
-#: actually decides over, per `docs/lessons.md` `L6.4`.
+#: actually decides over, per `docs/internal/lessons.md` `L6.4`.
 _REFUSED_CLASSES: Final[frozenset[PermissionClass]] = frozenset(
     {PermissionClass.OVERWRITE, PermissionClass.DESTROY}
 )

@@ -79,7 +79,7 @@ already preserves call order into the `**data` dict `BaseModel.__init__`
 builds, which is the same dict a document's loader hands to
 `model_validate`, so there is exactly one code path computing "the order",
 not one per direction. This is what task 1.4 settles from the note 1.1 left
-open in `docs/build-ledger.md`.
+open in `docs/internal/build-ledger.md`.
 
 **`fallback` is data here too.** `02` §1 gives the kernel a fallback combinator
 over any contract, and `11` §4 keeps `fallback:` a per-stage list "tried in
@@ -241,7 +241,7 @@ PIPELINE_OPERATOR_MARK: Final[str] = "pipeline_operator"
 ratchet, and `01` -> *Fitness functions* item 11(a) requires its "actual" side to be
 "derived from the code (the actual operator fields on the model), never a hand-written
 list" — a second tuple of the same four strings, sitting in the test file with no
-structural link back to this class, is exactly the drift `docs/README.md` opens by
+structural link back to this class, is exactly the drift `docs/internal/README.md` opens by
 describing. Each of the four operator fields below carries `Field(...,
 json_schema_extra={PIPELINE_OPERATOR_MARK: True})` for exactly that reason: it is the
 one place in the tree that *decides* a field is an operator block, so the ratchet reads

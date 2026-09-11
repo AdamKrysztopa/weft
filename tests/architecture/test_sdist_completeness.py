@@ -145,7 +145,7 @@ def test_the_check_can_actually_fail(tmp_path: Path) -> None:
     Every real sdist in this tree is complete and always has been, so this is the only place the
     difference is seen being non-empty. Planted through both real readers rather than against
     literal sets, so what is proved is that a missing data file survives the round trip from
-    checkout to archive to comparison (`docs/lessons.md` L5.19).
+    checkout to archive to comparison (`docs/internal/lessons.md` L5.19).
     """
     # Arrange — an archive holding the code and the manifest, and not the pipeline beside them.
     payload = tmp_path / "content"

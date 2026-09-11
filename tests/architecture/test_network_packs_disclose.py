@@ -27,7 +27,7 @@ built-ins were exempt from the discipline the page recommends to everyone.
 own source imports a client for something outside the process — the same structural question
 `tests/architecture/test_the_gate_is_decidable.py` asks of test modules, asked one layer over of
 shipped code, and read from imports rather than from prose because a docstring mentioning OpenAI is
-not a module calling it (`docs/lessons.md` L5.23).
+not a module calling it (`docs/internal/lessons.md` L5.23).
 
 **What this does not check, deliberately.** Whether a disclosure is *true*. `02` §2 is explicit
 that a disclosure is "a disclosure to the operator, never a claim weft checks", and a check that
@@ -161,7 +161,7 @@ def test_the_waiver_is_empty() -> None:
 
 def test_the_check_can_actually_fail(tmp_path: Path) -> None:
     """Planted through both real readers — the tree agrees once this task lands, so this is the
-    only place either is seen disagreeing (`docs/lessons.md` L5.19).
+    only place either is seen disagreeing (`docs/internal/lessons.md` L5.19).
 
     The pair that matters is a module that *imports* a client versus one that merely names it in
     prose: the first owes a disclosure and the second does not, or the check becomes a grep for a

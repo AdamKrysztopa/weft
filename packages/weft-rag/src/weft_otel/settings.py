@@ -21,7 +21,7 @@ tracing. With `CONSOLE` as the default, whichever of those happened to run first
 `pytest tests -q` process silently claimed the provider slot for good, and
 `tests/unit/weft_kernel/test_seam_trace_visibility.py` — which needs to be the one that
 wins — started losing that race, non-deterministically, depending on collection order. That
-is `docs/lessons.md` L5.1's own failure shape one level up: a mechanism that looks like it
+is `docs/internal/lessons.md` L5.1's own failure shape one level up: a mechanism that looks like it
 closes the gap and does not survive being run. `NONE` closes it correctly: installing
 `weft-otel` is necessary but not sufficient, and `[packs.otel] exporter = "console"` (or
 `weft config set packs.otel.exporter console`) is the one additional step — no different

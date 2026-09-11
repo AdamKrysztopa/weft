@@ -1,13 +1,13 @@
 """Fitness function 19 — a model that reaches a persisted artefact can be read back.
 
-`docs/lessons.md` `L8.23`. `weft_kernel.payload.applicability.Applies` had a `PlainSerializer` and
-no validator, and a positional-only `fact`, so `model_dump(mode="json")` worked from the day it was
-written and `model_validate` on its own output could never work. **Nothing failed while records
-were being created**; the failure arrived later, in three commands that merely *read* the directory
-those records live in — `weft index`, `weft reconcile` and `weft delete` all load every run record
-through one shared helper, so a single unreadable JSON file stopped all three in that project with
-no hint which file. It was found by running the binary on a real wheel install at Phase 8's close
-review, not by 2,012 tests.
+`docs/internal/lessons.md` `L8.23`. `weft_kernel.payload.applicability.Applies` had a
+`PlainSerializer` and no validator, and a positional-only `fact`, so `model_dump(mode="json")`
+worked from the day it was written and `model_validate` on its own output could never work.
+**Nothing failed while records were being created**; the failure arrived later, in three commands
+that merely *read* the directory those records live in — `weft index`, `weft reconcile` and
+`weft delete` all load every run record through one shared helper, so a single unreadable JSON file
+stopped all three in that project with no hint which file. It was found by running the binary on a
+real wheel install at Phase 8's close review, not by 2,012 tests.
 
 **The property is one line and it holds for a whole population**: for every model that can reach a
 persisted artefact, `type(m).model_validate(m.model_dump(mode="json")) == m`. That is what
@@ -72,8 +72,8 @@ def _unwrap(annotation: object) -> tuple[object, ...]:
     `MetricAggregate`, which a `RunRecord` persists on every scored run. The population was five
     models when it should have been eight, and the check reported nothing wrong about the three it
     could not see — measured 2026-09-06 while surveying for ledger task `9.12`, whose own line
-    asserts *"FF19 round-trips it"* about a field on one of the missing three (`docs/lessons.md`
-    `L9.59`).
+    asserts *"FF19 round-trips it"* about a field on one of the missing three
+    (`docs/internal/lessons.md` `L9.59`).
 
     This is the third time this file has been blind to something reached through an alias, and the
     module docstring records the first two: `field.metadata` is empty for a field annotated through
@@ -92,9 +92,9 @@ def test_the_population_reaches_through_a_pep_695_alias() -> None:
 
     `MetricAggregate` is what a `RunRecord` persists for every scored metric, and it sat outside
     this check's population entirely because `MetricRunResult` is a `type X = A | B` alias and
-    `get_args` answers `()` for one. The population was five models and read as complete. Naming
-    the members here rather than asserting a count means a regression says *which* model went
-    missing, and a count would drift every time a field is added (`docs/lessons.md` `L9.59`).
+    `get_args` answers `()` for one. The population was five models and read as complete. Naming the
+    members here rather than asserting a count means a regression says *which* model went missing,
+    and a count would drift every time a field is added (`docs/internal/lessons.md` `L9.59`).
     """
     from weft_eval.run_record import RunRecord
 
@@ -170,9 +170,9 @@ def _customises_writing_without_reading(model: type[BaseModel]) -> bool:
     `field.metadata` looking for `...Serializer` / `...Validator`, and for `Applies.fact` that list
     is **empty**: the field's annotation is the PEP 695 alias `_FactRef`, so the `Annotated`
     metadata never reaches there. The check passed on the exact model it was written for, and kept
-    passing when the validator was deleted to test it. `docs/lessons.md` `L5.19` and `L8.25` are the
-    same failure — a check that narrowed to nothing and read as green — so this one is proved
-    against a planted removal rather than reasoned about.
+    passing when the validator was deleted to test it. `docs/internal/lessons.md` `L5.19` and
+    `L8.25` are the same failure — a check that narrowed to nothing and read as green — so this one
+    is proved against a planted removal rather than reasoned about.
     """
     schema = repr(model.__pydantic_core_schema__)
     return "'serialization'" in schema and "function-before" not in schema
@@ -215,8 +215,8 @@ def test_applies_round_trips_for_every_constraint_kind_its_own_fields_can_hold()
     `test_applies_round_trips` above builds `Applies(_Language, code="pl")` — a `fact` plus a
     `constraints` pair — and nothing else, so `media_type` was never dumped and never read back.
     That is **precisely** the shape that failed: a `media_type`-constrained `Applies` did not
-    survive persistence and took three commands down with it (`docs/lessons.md` `L9.43`), under a
-    fitness function whose whole subject is persisted models surviving a round trip.
+    survive persistence and took three commands down with it (`docs/internal/lessons.md` `L9.43`),
+    under a fitness function whose whole subject is persisted models surviving a round trip.
 
     The population is derived from `Applies.model_fields` rather than listed here, so a fourth
     constraint kind added tomorrow is covered without an edit — and asserted below, so this test

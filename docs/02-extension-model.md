@@ -381,7 +381,7 @@ or corrupt by accident.
 > the second pack-owned class sharing a namespace would raise `DuplicateRegistrationError` the
 > moment both are active — which two retrieval or two generation techniques routinely are in one
 > run. `add_ext_model` is therefore for an `ExtModel` that reaches a `Node`, not for every
-> `ExtModel` a pack happens to own; `docs/lessons.md` L5.20 records the measurement. Fitness
+> `ExtModel` a pack happens to own; `docs/internal/lessons.md` L5.20 records the measurement. Fitness
 > function 14 (`01`) is the runtime property that keeps every namespace that *does* reach a `Node`
 > reachable for rehydration, checked against real, installed packs rather than asserted.
 
@@ -747,7 +747,7 @@ class MetadataFilter(Protocol): ...                # marker: supports the whole 
 > every writer populates the nodes they read. **Ledger task 6.24 gave `SourceRecord` a writer** —
 > the ingest path records one for every source it indexes — so a participant asking *what should
 > exist* by source reads it directly, rather than deriving it from `scan`'s own nodes and their
-> lineage as it had to before that task. `docs/lessons.md` L6.14.
+> lineage as it had to before that task. `docs/internal/lessons.md` L6.14.
 > `reconcile` is idempotent, `O(corpus)`, cursored and interruptible — `CancelledError` propagates
 > per G6, so a half-finished pass resumes rather than restarting.
 >
@@ -802,7 +802,7 @@ class MetadataFilter(Protocol): ...                # marker: supports the whole 
 > `reconcile` breaks) and major for an implementer (`PgVectorStore`, `weft_qdrant.store.
 > QdrantStore` and the out-of-tree `examples/weft-example-ingest` all stop satisfying
 > `Reconcilable` at all until they add the method) — the bump is the maximum of the two, per
-> `docs/README.md`'s own G9 row. `ReconcileEstimate` carries `mode`, `pending`, `description`
+> `docs/internal/README.md`'s own G9 row. `ReconcileEstimate` carries `mode`, `pending`, `description`
 > and `model_calls: int = 0`: a bare `str` for `description` rather than a structured
 > breakdown, because `03`'s own worked example output is one pack's own prose about its own
 > outstanding work, and a fixed shape here would force every future `Reconcilable` into one
@@ -857,7 +857,7 @@ class MetadataFilter(Protocol): ...                # marker: supports the whole 
 > > a shipped `index-qdrant` document named `qdrant` every unrelated project acquired a Qdrant
 > > participant: `weft index corpus` exited **1** on a clean machine with *"failed: qdrant
 > > (weft-rag) — ResponseHandlingException"*, and the README's own quickstart stopped working
-> > (`docs/lessons.md` `L11.21`). **The rule reads: the configured `[services] store`, plus every
+> > (`docs/internal/lessons.md` `L11.21`). **The rule reads: the configured `[services] store`, plus every
 > > `NodeStore` named by one of the project's *own* documents or by any ancestor those documents
 > > derive from, plus every `NodeStore` a persisted run record resolved.** A rung an installed pack
 > > contributes and nothing in the project derives from names no store this project uses. The
@@ -929,7 +929,7 @@ class MetadataFilter(Protocol): ...                # marker: supports the whole 
 > cannot be edited by whoever received it.
 >
 > **`node` is the one reserved key.** `node_count` already carries that number, and a second
-> spelling of it inside the same model is the two-lists-that-can-drift failure `docs/README.md`
+> spelling of it inside the same model is the two-lists-that-can-drift failure `docs/internal/README.md`
 > opens with, at arm's length. A participant passing it is refused, and the refusal names
 > `node_count`.
 >
@@ -967,7 +967,7 @@ class MetadataFilter(Protocol): ...                # marker: supports the whole 
 > `{tenant_id}/{source_id}/{ordinal}.{ext}`. A real `SourceId` is an absolute filesystem path —
 > `SourceId` is a `NewType` over `str` and constrains nothing — so the source segment is a digest
 > rather than the id itself. Everything the derivation argued for is unchanged, and the traversal
-> that layout would have permitted is unrepresentable (`docs/lessons.md` `L9.53`).
+> that layout would have permitted is unrepresentable (`docs/internal/lessons.md` `L9.53`).
 
 **Capability is derived, never declared.** At registration the kernel computes which protocols a
 store class satisfies, and that set *is* its capability. Nobody writes a flag, so nobody writes a
@@ -1525,7 +1525,7 @@ stages:
 > Nothing carries *this document's* list onto a `StageSpec` yet: `resolve()` below produces
 > `ResolvedStage.fallback` as data, `weft_cli/ingest.py` builds `weft index`'s four specs by hand
 > with no fallback at all, and the module that would join the two — `weft_cli/compile.py`, turning a
-> resolved document into specs — is tasks 2.4 and 2.8 (`docs/build-ledger.md`). So the example above
+> resolved document into specs — is tasks 2.4 and 2.8 (`docs/internal/build-ledger.md`). So the example above
 > is executed by a caller that hands the runner such a spec, which today means a test or a Python
 > caller; the `weft index` route arrives with that task. Everything below describes the mechanism as
 > built, not a path a document already takes.
@@ -1670,7 +1670,7 @@ build until someone changes a constant in a diff and records why.
 | `remove` | Drop a stage by id |
 | `set` | Override configuration of an existing stage without changing the plugin |
 
-> **Settled in task 1.4 — the serialisation question 1.1 raised and left open.** `docs/build-ledger.md`
+> **Settled in task 1.4 — the serialisation question 1.1 raised and left open.** `docs/internal/build-ledger.md`
 > flagged that four independent model *fields* cannot honour both "operators apply in written order"
 > and the `specific.yaml` shape above: a field's position in a `BaseModel` is fixed once, for every
 > document, so whichever order the four fields were *declared* in would make one of *remove-then-insert*
@@ -1935,7 +1935,7 @@ ambient* threat applied to your data.
 > slot.** The paragraph above says the producing half was built at 5.3a, and that was true; what
 > stayed missing for two more phases is that **no shipped document declared a `slots:` block at
 > all**, so the placing, the id-qualification and the provenance recording had only ever run
-> against documents written under `tmp_path` to make them run. That is `docs/lessons.md` `L5.15`'s
+> against documents written under `tmp_path` to make them run. That is `docs/internal/lessons.md` `L5.15`'s
 > shape arriving from the other side — a consuming half exercised only by its own fixtures — and
 > `L9.12` filed it.
 >
@@ -2159,7 +2159,7 @@ weft index ./docs --pipeline kg
 > > with a flag on it."* So `weft-rag[graph]` would install nothing `weft-rag` does not. **There is
 > > no `graph` extra**: the pack is unconditional, exactly like `agent`, whose own entry in that
 > > file says an empty extra "would be a knob that does nothing". Settled with the owner
-> > 2026-09-09; `docs/lessons.md` `L11.25`. The property the vanished clause was protecting — a
+> > 2026-09-09; `docs/internal/lessons.md` `L11.25`. The property the vanished clause was protecting — a
 > > pack whose library is missing reports `failed` and names it rather than taking the run down —
 > > is unaffected and still proven, by `pdf`, `qdrant`, `docling` and `openai`, which have an
 > > absent case to report.
@@ -2256,7 +2256,7 @@ and it is Phase 5's exit criterion met early, on the hardest example available.
 > A `CONSOLE` default let whichever of those a given `pytest tests -q` process happened to run first
 > claim the provider slot for good, non-deterministically defeating
 > `tests/unit/weft_kernel/test_seam_trace_visibility.py`'s own SDK-configured exporter later in the
-> same process — `docs/lessons.md` L5.1's own shape one level up, caught the same way L5.1 was: by
+> same process — `docs/internal/lessons.md` L5.1's own shape one level up, caught the same way L5.1 was: by
 > running it, not by asserting it worked. `NONE` makes installing `weft-otel` necessary but not
 > sufficient; `weft plugins doctor`'s `tracing:` line — assembled in `weft-cli`, from
 > `opentelemetry.trace.get_tracer_provider()`, pack-agnostically, after discovery has run, since

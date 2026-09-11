@@ -21,7 +21,7 @@ walks entities and relations perfectly well was a three-quarters implementer of 
 fully had. That member moved to an `EntityVectorSearch` Protocol of its own at ledger `11.5`
 (`weft_kg.contract` records it, unwritten, with its trigger), on the same footing
 `weft_store.contract` publishes `VectorSearch` beside `NodeStore` rather than inside it. This class
-is the backend that made the case; `docs/lessons.md` `L11.29`.
+is the backend that made the case; `docs/internal/lessons.md` `L11.29`.
 
 **Holds its own `GraphStore` rather than being one.** The queries it needs — `entity_distances`,
 `node_ids_for_entities` — are already on that class, and reimplementing them here would be two
@@ -68,7 +68,7 @@ class ExampleGraphWalk:
 
         **An id this graph does not hold is absent from the mapping**, never a key with an empty
         tuple: a caller has to be able to tell "no such entity" from "that entity, and nothing
-        mentions it any more". `docs/lessons.md` L5.9.
+        mentions it any more". `docs/internal/lessons.md` L5.9.
         """
         answer: dict[EntityId, tuple[NodeId, ...]] = {}
         for entity_id in entity_ids:

@@ -20,7 +20,7 @@ load-bearing:
   generator can reopen the pixels later. `_carry_forward` below is the same shape and the same
   exclusion `weft_chunk.fixed_size._carry_forward` uses — `SyntheticOrigin` states that a node has
   no real lineage, which is no longer true the moment `derive` gives it a parent, so it is the one
-  namespace this does not copy. This is `docs/lessons.md` `L9.63`.
+  namespace this does not copy. This is `docs/internal/lessons.md` `L9.63`.
 - **A `Describer` that cannot help leaves the figure exactly as it was.** `NothingToProduce` is an
   absence, not an error, and `Failed` is a provider's error about one image, not about the document
   — `weft_vision.contract.Describer`'s own docstring: a describer "has to be able to say so without

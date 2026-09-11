@@ -599,18 +599,16 @@ def test_two_failed_packs_in_one_distribution_are_told_apart_in_the_message() ->
 def test_a_document_naming_an_unavailable_plugin_is_refused_with_the_reason_discovery_gave() -> (
     None
 ):
-    # Arrange — carried repair **R9.5** (`docs/lessons.md` `L9.86`). A pack that cannot provide
-    # a surface declares it `unavailable` at discovery and says why, and `weft plugins doctor`
-    # prints that reason with its remedies: *"weights not found under …: Either point the
-    # 'artifacts_path' pack setting at a directory that already holds them, or fetch them there
-    # with docling's own downloader"*. A run in that same state got none of it — the plugin was
-    # still registered, so a document naming it resolved, ran, and failed with the vendor's own
-    # sentence and no remedy at all.
-    #
-    # **The wide fix, at the seam, and not a string match on a vendor message** — which is what
-    # `L9.80` warns goes stale silently. An `unavailable` surface is a pack-level fact exactly
-    # like a failed pack, so it is refused where a failed pack's plugin already is, by the
-    # attributor carried repair `R11.3` built.
+    # Arrange — carried repair **R9.5** (`docs/internal/lessons.md` `L9.86`). A pack that cannot
+    # provide a surface declares it `unavailable` at discovery and says why, and
+    # `weft plugins doctor` prints that reason with its remedies: *"weights not found under …:
+    # Either point the 'artifacts_path' pack setting at a directory that already holds them, or
+    # fetch them there with docling's own downloader"*. A run in that same state got none of it —
+    # the plugin was still registered, so a document naming it resolved, ran, and failed with the
+    # vendor's own sentence and no remedy at all. **The wide fix, at the seam, and not a string
+    # match on a vendor message** — which is what `L9.80` warns goes stale silently. An
+    # `unavailable` surface is a pack-level fact exactly like a failed pack, so it is refused where
+    # a failed pack's plugin already is, by the attributor carried repair `R11.3` built.
     registry = _registry()
     reports = (
         PackReport(

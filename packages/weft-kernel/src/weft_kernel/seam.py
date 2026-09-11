@@ -43,7 +43,7 @@ The four concerns:
    — is out of scope by construction, not by an exclusion list.
 5. **The NUL-byte sanitiser** — see `_sanitize_control_bytes` below, riding
    the same `Produced` → `Node` / `tuple` / `list` walk `_strip_transient`
-   already performs, immediately after it. `docs/build-ledger.md` → **2.34**
+   already performs, immediately after it. `docs/internal/build-ledger.md` → **2.34**
    settles where this lives, against two alternatives, with evidence:
 
    - **Not in an extractor pack.** Eight sites across `packages/` build a
@@ -129,14 +129,14 @@ three concerns still apply: a span, the blocking-call guard, and, for a bare
 gives `run()`.
 
 **`guard_blocking_calls`, added by `weft-cli` task 3.4 for a caller outside
-`Runner`'s own reach.** `docs/build-ledger.md` 3.2 tried running a
+`Runner`'s own reach.** `docs/internal/build-ledger.md` 3.2 tried running a
 `weft_command.contract.Command` invocation through this function unchanged
 and reverted: `weft index`'s synchronous filesystem walk tripped concern 4,
 which exists because a blocking `Stage` starves an event loop *other stages
 share* — a `Command` is CLI orchestration invoked once per invocation or
 REPL turn, with nothing else scheduled on that loop to starve, so the guard
 was a false positive for it rather than a caught defect. 3.4's own analysis
-(recorded in full in its `docs/build-ledger.md` entry) rejected two other
+(recorded in full in its `docs/internal/build-ledger.md` entry) rejected two other
 shapes for this fact: a second, hand-written span-and-attribution wrapper in
 `weft_cli` (a second implementation of a concern this module already owns,
 free to drift from it) and applying the guard unconditionally (the reverted
@@ -677,7 +677,7 @@ def _sanitize_ext_model(model: ExtModel) -> tuple[ExtModel, int]:
 
     Scoped to a field whose *runtime value* is a `str` — not `tuple[str, ...]`
     or `list[str]`, checked by `isinstance` rather than by the field's
-    annotation. `docs/build-ledger.md` → 2.34 scopes this task to "`Node.content`
+    annotation. `docs/internal/build-ledger.md` → 2.34 scopes this task to "`Node.content`
     and the `str`-typed fields of the `ExtModel`s in `Node.ext`" literally; no
     shipped `ExtModel` as of this task holds a string collection built from
     verbatim extractor text, so widening to collections has no motivating case

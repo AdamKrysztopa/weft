@@ -31,7 +31,8 @@ def test_kernel_is_within_budget() -> None:
 
     assert counted <= BUDGET, (
         f"weft-kernel is {counted} lines, over its {BUDGET}-line budget. This number is "
-        f"changed only by a dated entry in docs/README.md's decision log, and never in the "
+        f"changed only by a dated entry in docs/internal/README.md's decision log, and never in "
+        f"the"
         f"same pull request that grew the kernel. If the kernel needs to be bigger, that is "
         f"a conversation about the kernel boundary, not an edit to this constant."
     )

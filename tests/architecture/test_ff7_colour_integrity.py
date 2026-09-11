@@ -168,7 +168,7 @@ def test_the_walk_can_actually_fail() -> None:
 
     `sites == [_EXPECTED_PATH]` is not vacuous the way an emptiness check would be — an empty
     walk fails it rather than passing it — but the walk is still the input everything rests
-    on, and `docs/lessons.md` L5.19 asks for it to be proved real rather than assumed.
+    on, and `docs/internal/lessons.md` L5.19 asks for it to be proved real rather than assumed.
     """
     # Act
     walked = _repository_python_files()

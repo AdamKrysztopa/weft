@@ -8,7 +8,7 @@ to be a persisted run rather than terminal output. It is one — `eval/baselines
 an index into a clean environment and everything needed to *reproduce* the number was still only in
 this repository. The shipped CLI can do the work — `weft eval run` and `weft eval compare` are both
 on the installed binary — so the gap was never capability. It was that "published with the release"
-described a directory in a git checkout (`docs/lessons.md` **L6.34**).
+described a directory in a git checkout (`docs/internal/lessons.md` **L6.34**).
 
 **Three answers were available and this is the one `09` §5.2's own words pick.** *Inside a
 distribution* would put one corpus's judgements into `weft-eval`, which publishes the metric

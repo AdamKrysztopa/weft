@@ -216,7 +216,7 @@ def contracts_for(
     `use:` can be attributed to the pack that would have supplied it, the same way `weft
     plugins doctor` already can. Required and keyword-only, with no default: a default would
     let a call site abstain silently, which is the exact defect this repair closes
-    (`docs/lessons.md` `L6.21`).
+    (`docs/internal/lessons.md` `L6.21`).
     """
     ancestry = _ancestors_first(pipeline, parents)
     contracts: dict[str, type[object]] = {}
@@ -280,7 +280,7 @@ def _contract_for(
 ) -> type[object]:
     """Which registered contract answers for the bare plugin name `use` — exactly one, or refuse.
 
-    **Carried repair R9.5** (`docs/lessons.md` `L9.86`) checked first, before matches are
+    **Carried repair R9.5** (`docs/internal/lessons.md` `L9.86`) checked first, before matches are
     even computed: a pack may still register `use` — the entry point exists — while
     discovery already declared that exact surface `unavailable`, with its own reason and
     remedy. Left unchecked, such a document resolves, runs, and fails with only the vendor
@@ -370,7 +370,7 @@ def _install_remedy(reports: Sequence[PackReport], *, use: str) -> str | None:
 
     Matched on `PackReport.pack`, this repository's built-in convention of a pack registering
     its one plugin under its own entry-point name (`weft_qdrant`'s `NAME = "qdrant"`
-    registers `"qdrant"`) — the same convention the reproduction in `docs/build-ledger.md`
+    registers `"qdrant"`) — the same convention the reproduction in `docs/internal/build-ledger.md`
     6025's own transcript relies on. A third-party pack whose plugin name differs from its
     entry-point name gets the fallback remedy below instead of a wrong guess.
     """

@@ -22,8 +22,8 @@ KERNEL_ROOT: Final[Path] = REPO_ROOT / "packages" / "weft-kernel"
 def tracked_files() -> frozenset[str]:
     """Every path this repository tracks, as posix strings from `git ls-files`.
 
-    **The derivation, never a directory walk** — `docs/lessons.md` L8.8's scoping half: a walk
-    finds build output, virtualenvs and a stranger's checkout sitting in the tree, and a check
+    **The derivation, never a directory walk** — `docs/internal/lessons.md` L8.8's scoping half: a
+    walk finds build output, virtualenvs and a stranger's checkout sitting in the tree, and a check
     reading those is reporting on something other than this repository.
 
     Shared here because it was written twice, in `test_ff17_citations_resolve.py` and

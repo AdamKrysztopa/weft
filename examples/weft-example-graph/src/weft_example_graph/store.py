@@ -2,7 +2,7 @@
 `SourceDeletable` and `Reconcilable`, all three structurally, the identical path
 `examples/weft-example-ingest/src/weft_example_ingest/store.py` takes for its own six.
 
-**Why Postgres, not a plain dict.** `docs/build-ledger.md` task 5.4/5.5 explicitly permits
+**Why Postgres, not a plain dict.** `docs/internal/build-ledger.md` task 5.4/5.5 explicitly permits
 either — "it needs no real graph database... a graph store over a plain dict... is fine" —
 but a plain dict is *process-lifetime* state (`weft_example_ingest.store.InMemoryNodeStore`'s
 own docstring: "`Lifetime.PROCESS`... an in-memory store has no database behind it"), and
@@ -553,7 +553,7 @@ async def _live_sources(corpus: NodeStore) -> set[str]:
     `weft_sources` is empty after a real `weft index` and `list_sources()` returns `()`. An
     orphan rule resting on it deleted every graph node the `kg` pipeline had just written —
     found by running the binary, not by this pack's tests, which had populated the double by
-    hand (`docs/lessons.md` L6.14, ledger task **6.24**).
+    hand (`docs/internal/lessons.md` L6.14, ledger task **6.24**).
 
     So both are read and unioned: a node's own lineage names the sources it came from and is
     populated by every writer, and `list_sources()` contributes whatever a store that *does*

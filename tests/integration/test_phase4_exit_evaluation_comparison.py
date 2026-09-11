@@ -1,4 +1,5 @@
-"""Phase 4's exit criterion, made a permanent, repeatable check — `docs/build-ledger.md` **4.9**.
+"""Phase 4's exit criterion, made a permanent, repeatable check — `docs/internal/build-ledger.md`
+**4.9**.
 
 `docs/01-high-level-plan.md` → Phase 4 **Exit**: "running one corpus through two derived
 pipelines produces a comparison the tool generates itself." Task 4.9 demonstrated this by hand,
@@ -47,12 +48,12 @@ command's `Outcome`; `_metrics_comparison_lines` inside it is what computes the 
 file asserts on, from the two `MetricRunResult`s `EvalCompareCommand` paired — never a second,
 parallel delta computed here that could drift from what an operator actually reads.
 
-**Made to fail on purpose, run for real, not merely reasoned about — see `docs/build-ledger.md`
-4.9's own updated entry for both transcripts.** Stripping `specific.yaml`'s `set:` operator (so
-it resolves identically to `index`, 4.6's own pre-derivation shape) collapses `stored_count` to
-equal on both sides and every metric's `Δ` to `+0.000`, failing this file's own "at least one
-metric differs" assertion — proving the property depends on the two pipelines genuinely
-differing, not on this file's own fixed numbers.
+**Made to fail on purpose, run for real, not merely reasoned about — see
+`docs/internal/build-ledger.md` 4.9's own updated entry for both transcripts.** Stripping
+`specific.yaml`'s `set:` operator (so it resolves identically to `index`, 4.6's own pre-derivation
+shape) collapses `stored_count` to equal on both sides and every metric's `Δ` to `+0.000`, failing
+this file's own "at least one metric differs" assertion — proving the property depends on the two
+pipelines genuinely differing, not on this file's own fixed numbers.
 """
 
 from __future__ import annotations

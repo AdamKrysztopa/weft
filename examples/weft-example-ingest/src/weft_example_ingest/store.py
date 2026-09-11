@@ -13,7 +13,7 @@ every run started from an empty corpus. Declaring `PROCESS` is what makes "in-me
 **No container, on purpose.** `docs/07-extension-cost.md` §9's own note for the query-path
 example applies here too: a stranger's own test suite must run with nothing behind it but
 this file, and a real store contract is provable without a database standing behind it —
-this is the "ephemeral in-memory store" `docs/build-ledger.md` task 2.6 names as still open
+this is the "ephemeral in-memory store" `docs/internal/build-ledger.md` task 2.6 names as still open
 and unclaimed by any ledger task; this pack is not that store (it lives outside the
 workspace, on purpose — see the module's own `pyproject.toml`), but it is a genuine,
 independently-arrived-at instance of the same shape.

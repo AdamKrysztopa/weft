@@ -1,6 +1,6 @@
 """A command quoted in a shipped pipeline comment is one that runs — ledger task **8.17**.
 
-`docs/lessons-archive.md` `L8.14`. `index-text.yaml`'s own comment told an operator to run
+`docs/internal/lessons-archive.md` `L8.14`. `index-text.yaml`'s own comment told an operator to run
 `weft pipeline derive index-text --set embed.use=openai`. There is no `--set` flag and never has
 been; the comment was hand-repaired and nothing stopped the next one. `docs/08-manuals.md` §3's
 tagged-sample harness is scoped to `manual/`, and a pipeline document carries more operator-facing
@@ -53,7 +53,7 @@ _QUOTED_COMMAND: Final[re.Pattern[str]] = re.compile(r"`(weft(?:\s+[^`]*)?)`")
 
 #: argparse's own words for "this token is not part of my grammar", either of which means the
 #: comment names something that does not exist. Read off the live parser rather than assumed —
-#: `docs/lessons.md` L6.4, read the population and not the declaration.
+#: `docs/internal/lessons.md` L6.4, read the population and not the declaration.
 _VOCABULARY_FAILURES: Final[tuple[str, ...]] = ("unrecognized arguments:", "invalid choice:")
 
 
@@ -63,7 +63,7 @@ def _shipped_pipeline_documents() -> list[Path]:
     Not a repository glob: the subject of this check is what an operator's installation contains,
     and reading it off `weft_retrieve.__file__` is the same fact asked of the same artefact. A
     checkout-relative path would answer for the checkout and be asked in the artefact environment
-    anyway (`docs/lessons.md` L6.25's distinction, applied one file down).
+    anyway (`docs/internal/lessons.md` L6.25's distinction, applied one file down).
     """
     import weft_retrieve
 
@@ -74,8 +74,8 @@ def _comment_blocks(yaml_text: str) -> list[str]:
     """Consecutive comment lines, joined into one string each.
 
     Joined because these documents wrap at the house width and a quoted command routinely straddles
-    a line — `preview-plain.yaml`'s own does. `docs/lessons.md` L6.16: a sweep that cannot cross a
-    line break has a false negative built into the house style.
+    a line — `preview-plain.yaml`'s own does. `docs/internal/lessons.md` L6.16: a sweep that cannot
+    cross a line break has a false negative built into the house style.
     """
     blocks: list[str] = []
     current: list[str] = []
@@ -128,7 +128,8 @@ def vocabulary_failure(command: str, parser: ArgumentParser) -> str | None:
 
 def test_at_least_one_pipeline_document_quotes_a_command() -> None:
     # The floor. A sweep matching nothing passes identically to one finding nothing wrong
-    # (`docs/lessons.md` L5.19), and this one's subject is a directory whose contents could move.
+    # (`docs/internal/lessons.md` L5.19), and this one's subject is a directory whose contents could
+    # move.
     documents = _shipped_pipeline_documents()
     assert documents, "weft_retrieve ships no pipeline documents — the sweep read nothing"
 

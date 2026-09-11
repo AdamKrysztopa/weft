@@ -1,9 +1,9 @@
 """The `Command` contract — published here, never by the kernel and never by `weft-cli`.
 
-Task **3.1**: "a pack registers a command exactly as it registers a retriever, and a command
-that declares no permission class fails to register while its author is standing there"
-(`docs/build-ledger.md`). `docs/03-cli.md` → *Plugin-contributed commands*: "A pack registers
-commands against the `Command` contract exactly as it registers a retriever."
+Task **3.1**: "a pack registers a command exactly as it registers a retriever, and a command that
+declares no permission class fails to register while its author is standing there"
+(`docs/internal/build-ledger.md`). `docs/03-cli.md` → *Plugin-contributed commands*: "A pack
+registers commands against the `Command` contract exactly as it registers a retriever."
 
 **Why this distribution, and not `weft-kernel` or `weft-cli` — an architectural decision this
 task took, which no prior document had settled.**
@@ -115,12 +115,12 @@ at registration means refusing before any instance exists to check, and `hasattr
 the only test available at that point.
 
 **`COMMAND_CONTRACT_VERSION` was recorded as `"1.1.0"` here, and that was a mis-recorded major —
-corrected to `"2.0.0"` at task **5.2a**, per `docs/README.md` → G9's settled two-audience rule
-(`docs/09-release.md` §2.3).** Adding `help` to `required_declarations` is a minor change for a
+corrected to `"2.0.0"` at task **5.2a**, per `docs/internal/README.md` → G9's settled two-audience
+rule (`docs/09-release.md` §2.3).** Adding `help` to `required_declarations` is a minor change for a
 *caller* — nothing that only ever reads a `Command` through this Protocol changes — but a **major**
-change for an *implementer*: every existing `Command` that does not already declare `help` breaks
-at registration, loudly, the instant this contract is depended on at the corrected range. G9's
-table classifies exactly this row ("add a name to `required_declarations`") as `—` / **major** /
+change for an *implementer*: every existing `Command` that does not already declare `help` breaks at
+registration, loudly, the instant this contract is depended on at the corrected range. G9's table
+classifies exactly this row ("add a name to `required_declarations`") as `—` / **major** /
 **major**, and the bump a Protocol change takes is the maximum of the two audiences, never the
 caller's alone. At the time this docstring first recorded `"1.1.0"`, G9 had not yet settled that
 rule, so the bump was chosen from the caller's side only; it is corrected here rather than left

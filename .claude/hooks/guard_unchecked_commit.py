@@ -4,7 +4,7 @@ Two rules, and they are one rule seen twice — `L10.24`'s second instance is li
 `pytest ... | tail -3 && git commit`, which both of them match.
 
 **Three instances in one phase, which is why this is a hook and not a sentence.**
-`docs/lessons.md` `L10.24`:
+`docs/internal/lessons.md` `L10.24`:
 
 1. A `python3 - <<PY` heredoc raising `AssertionError` was followed by an unconditional
    `git commit` on the next line of the same command. The assertion fired, the message went
@@ -37,7 +37,7 @@ Matching is textual and loose, per `CLAUDE.md`: where a machine parses what a mo
 match loosely and fail loudly. A false refusal costs one turn and prints how to split the
 command; a missed one costs a commit nobody reviewed.
 
-**The second rule: `$?` read after a pipeline.** `docs/lessons.md` `L12.16`. Verifying a
+**The second rule: `$?` read after a pipeline.** `docs/internal/lessons.md` `L12.16`. Verifying a
 repair on a shipped wheel, the binary was run as `weft ... 2>&1 | tail -8` and its exit code
 read on the next line as `echo "exit=$?"`, which printed **0** — `tail`'s status — for a
 binary that had exited **1**. It was noticed within the turn only because the message printed
@@ -97,7 +97,7 @@ _COMMIT = re.compile(r"(?:^|[\n;&|]|\|\||&&)\s*git\s+commit\b")
 REASON = """Refused: this command runs a check and a `git commit` together, so the commit can
 happen while the check's verdict is unread.
 
-Three instances of exactly this shape cost Phase 10 real work (`docs/lessons.md` L10.24):
+Three instances of exactly this shape cost Phase 10 real work (`docs/internal/lessons.md` L10.24):
 an assertion whose message went nowhere and a task committed with no ledger entry; a
 `pytest ... | tail -3 && git commit`, where a pipeline's exit status is its LAST command's,
 so `tail` satisfied the `&&` while tests failed; and a gate whose exit code was reported by
@@ -202,7 +202,7 @@ PIPE_REASON = """Refused: this command pipes into a truncator and then reads `$?
 status of the LAST command in the pipeline — `tail`/`head`/`grep` — and not of the thing you
 meant to check.
 
-`docs/lessons.md` L12.16: a shipped binary run as `weft ... 2>&1 | tail -8` followed by
+`docs/internal/lessons.md` L12.16: a shipped binary run as `weft ... 2>&1 | tail -8` followed by
 `echo "exit=$?"` reported 0 for a run that exited 1. L10.24's second instance is the same
 pipeline with a `git commit` on the end.
 

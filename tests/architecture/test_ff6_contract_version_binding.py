@@ -3,7 +3,7 @@ publishing it.
 
 `docs/01-high-level-plan.md` states FF6 in one sentence: "Contracts are versioned. Every
 published contract carries a version, and a check fails on a changed contract whose
-version did not move." Task **5.2a** (`docs/build-ledger.md`) sharpens that: not that the
+version did not move." Task **5.2a** (`docs/internal/build-ledger.md`) sharpens that: not that the
 constant moved, but that its movement *agrees with the version of the distribution
 publishing it* — the mechanical half of G9 (`docs/09-release.md` §2.3): "a contract major
 forces a major of the distribution that publishes it, a contract minor forces at least a
@@ -13,7 +13,7 @@ publishing several is named for whichever one it under-declared: **the distribut
 version must be at least as high as every contract version it publishes**, compared as
 plain `(major, minor, patch)` tuples.
 
-**Two independent sources, on purpose (`docs/lessons.md` L5.6).** L5.6 found
+**Two independent sources, on purpose (`docs/internal/lessons.md` L5.6).** L5.6 found
 `weft_eval/prompts.py` declaring a version by importing the very constant it was supposed
 to check against — a declaration that can never disagree with itself. This check reads
 the contract version by parsing `contract.py` as text (`ast`, never `import`, so a pack's
@@ -25,7 +25,7 @@ spirit of `test_ff9_extension_from_outside.py::test_the_grep_can_actually_fail`.
 
 **Deliberately excludes `*_SCHEMA_VERSION`.** `weft_store.contract.RECONCILE_REPORT_SCHEMA_VERSION`
 matches the naming family but is not a contract in G9's sense: it is the second axis §S5
-of `docs/README.md`'s decision log added — a version carried *in stored data*, read back
+of `docs/internal/README.md`'s decision log added — a version carried *in stored data*, read back
 by a pack that may not be the one installed, never available as a live module constant at
 the read site at all. Binding it to a distribution version the way a contract is bound
 would be meaningless, since the whole reason it exists is that the distribution version

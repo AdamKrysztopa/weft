@@ -16,12 +16,12 @@ installed version *satisfies another distribution's declared specifier*, which i
 this asks only what is there.
 
 **An absent version is reported, not dropped.** `importlib.metadata.version` raises
-`PackageNotFoundError` for a distribution with no `.dist-info` — which is a real state a
-`doctor` run can meet, since a `PackReport` exists for a pack that was refused or failed as
-readily as for one that loaded. The name is omitted from the mapping and
-`weft_cli.plugins_report` renders that omission as *"version not recorded"*, so the fact reaches
-the operator's screen rather than being smoothed into a blank. `docs/lessons.md` L5.9: an empty
-answer means *"I did not find it"*, never *"it is not there"*.
+`PackageNotFoundError` for a distribution with no `.dist-info` — which is a real state a `doctor`
+run can meet, since a `PackReport` exists for a pack that was refused or failed as readily as for
+one that loaded. The name is omitted from the mapping and `weft_cli.plugins_report` renders that
+omission as *"version not recorded"*, so the fact reaches the operator's screen rather than being
+smoothed into a blank. `docs/internal/lessons.md` L5.9: an empty answer means *"I did not find it"*,
+never *"it is not there"*.
 """
 
 from __future__ import annotations

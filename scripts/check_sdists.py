@@ -89,14 +89,14 @@ def _find_archive(out_dir: Path, name: str) -> Path | None:
 
 
 #: The suites that are claims about **the code**, and therefore about the artefacts once the
-#: artefacts are what is installed. `tests/architecture` and `tests/docs` are deliberately not
-#: here: they are claims about *the checkout* — they read `packages/*/pyproject.toml`, walk the
-#: repository and assert about the workspace — so running them in an artefact environment asks
-#: them a question they were not written to answer, and two of them cannot answer it even in
-#: principle (`tests/architecture/test_ff8_trust_model.py` needs `weft-canary` installed, and
-#: `weft-canary` is deliberately never published — task 6.2's opt-out marker). See
-#: `docs/lessons.md` L6.25: a suite that asserts over the repository does not become a stronger
-#: claim by being run against an install, it becomes a wrong one.
+#: artefacts are what is installed. `tests/architecture` and `tests/docs` are deliberately not here:
+#: they are claims about *the checkout* — they read `packages/*/pyproject.toml`, walk the repository
+#: and assert about the workspace — so running them in an artefact environment asks them a question
+#: they were not written to answer, and two of them cannot answer it even in principle
+#: (`tests/architecture/test_ff8_trust_model.py` needs `weft-canary` installed, and `weft-canary` is
+#: deliberately never published — task 6.2's opt-out marker). See `docs/internal/lessons.md` L6.25:
+#: a suite that asserts over the repository does not become a stronger claim by being run against an
+#: install, it becomes a wrong one.
 _SUITES_ABOUT_THE_CODE: tuple[str, ...] = ("tests/unit", "tests/integration")
 
 
@@ -116,7 +116,7 @@ def _run_tests_against_sdists(archives: list[Path], repo_root: Path) -> int:
         # `weft-cli[reference]`'s own extra, installed here for the same reason `pytest` is: the
         # tests exercise the contract-reference generator, which shells out to it. Task 6.7
         # declared it; before that it was reachable only through the workspace's dev group
-        # (`docs/lessons.md` L6.24).
+        # (`docs/internal/lessons.md` L6.24).
         "--with",
         "ruff>=0.16.0",
         # **The capability extras, since G19 (2026-09-09).** Six packs were their own sdists until

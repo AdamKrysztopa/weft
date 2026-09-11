@@ -1,7 +1,7 @@
 """`Removed` reports what a participant removed, by kind — ledger task `9.3`.
 
 `Removed` has carried `node_count` and nothing else since G4
-(`packages/weft-rag/src/weft_store/contract.py:195-209 'class Score'`), and G7 then made the fan-out
+(`packages/weft-rag/src/weft_store/contract.py:185-209 'class Score'`), and G7 then made the fan-out
 reach
 *every* plugin satisfying `SourceDeletable`, not only node stores
 (`docs/02-extension-model.md` → *Extended by G7*). A participant that removes something which is
@@ -17,8 +17,8 @@ nobody has written yet counts something nobody has named. An `Enum` on this cont
 closed key space over third-party data, which is fitness function 4's own subject.
 
 **`node` is the one reserved key, and it is refused loudly.** `node_count` already carries that
-number; a second spelling of it is the two-lists-that-can-drift failure `docs/README.md` opens
-with, reproduced inside a single model. The refusal names `node_count`, so a participant that
+number; a second spelling of it is the two-lists-that-can-drift failure `docs/internal/README.md`
+opens with, reproduced inside a single model. The refusal names `node_count`, so a participant that
 reaches for the key is told where the number lives rather than silently reporting it twice.
 """
 

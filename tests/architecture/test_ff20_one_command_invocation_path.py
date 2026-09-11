@@ -1,11 +1,11 @@
 """Fitness function 20 — a `Command` is run from exactly one place.
 
-Ledger task **7.0**, `docs/lessons.md` `L8.31`, and `docs/05-grilling-sessions.md` → G12. The
-permission gate G12 settled was called from exactly one place — inside `weft_cli.cli.run_command` —
-and that function returns a `Rendered`. The typed result a library caller needs comes from
-`Command.run`, which nothing gated. `weft_cli.confirm`'s own docstring calls itself *"the invocation
-seam"* and argues, correctly for a single caller, that the check belongs there. Phase 7's pack is
-the first second caller, and it would silently have got no gate at all.
+Ledger task **7.0**, `docs/internal/lessons.md` `L8.31`, and `docs/internal/05-grilling-sessions.md`
+→ G12. The permission gate G12 settled was called from exactly one place — inside
+`weft_cli.cli.run_command` — and that function returns a `Rendered`. The typed result a library
+caller needs comes from `Command.run`, which nothing gated. `weft_cli.confirm`'s own docstring calls
+itself *"the invocation seam"* and argues, correctly for a single caller, that the check belongs
+there. Phase 7's pack is the first second caller, and it would silently have got no gate at all.
 
 **The general form is what this check enforces.** Placing a cross-cutting concern at *"the one place
 that calls X"* is a bet that there will never be a second caller, and the bet's expiry date is
@@ -21,7 +21,7 @@ attaches the span, the error attribution and the transient strip. So *"how many 
 command"* is *"how many `wrap` calls declare the `Command` contract"*, and the answer must be one.
 Asking it this way rather than by hunting `.run(` call sites is deliberate: `.run` is an ordinary
 method name that dozens of unrelated objects have, and a textual sweep for it would be noise with a
-waiver list growing under it (`docs/lessons.md` `L8.25`).
+waiver list growing under it (`docs/internal/lessons.md` `L8.25`).
 """
 
 from __future__ import annotations
@@ -34,7 +34,7 @@ REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 
 #: The module that may run a command. **One entry, and it is the seam itself.** A second entry here
 #: is a second invocation path, which is the defect this function exists to refuse — so an addition
-#: is a `docs/05-grilling-sessions.md` conversation, not an edit.
+#: is a `docs/internal/05-grilling-sessions.md` conversation, not an edit.
 INVOCATION_SITES: Final[frozenset[str]] = frozenset({"weft_command/invocation.py"})
 
 
@@ -77,7 +77,8 @@ def command_invocation_sites() -> dict[str, int]:
 
 def test_the_sweep_reads_the_shipped_tree() -> None:
     # The floor. A sweep matching nothing passes identically to one finding nothing wrong
-    # (`docs/lessons.md` L5.19), and this one's subject is a glob over paths that could move.
+    # (`docs/internal/lessons.md` L5.19), and this one's subject is a glob over paths that could
+    # move.
     files = _source_files()
     assert len(files) > 100, (
         f"only {len(files)} source files found — the glob is not reading the tree"
@@ -107,10 +108,10 @@ def test_the_one_site_seals_a_command_once() -> None:
 def test_the_check_can_actually_fail() -> None:
     """Plant a second invocation site and watch the detector find it.
 
-    `docs/lessons.md` `L5.6`: a check whose two sides come from one source cannot fail. Both the
-    positive and the negative shape are planted here, because the discriminator is one keyword —
-    a `wrap` call that does *not* declare `contract="Command"` seals a stage, not a command, and
-    there are many of those.
+    `docs/internal/lessons.md` `L5.6`: a check whose two sides come from one source cannot fail.
+    Both the positive and the negative shape are planted here, because the discriminator is one
+    keyword — a `wrap` call that does *not* declare `contract="Command"` seals a stage, not a
+    command, and there are many of those.
     """
     a_command = ast.parse(
         'wrap(instance.run, distribution=d, contract="Command", plugin=n, stage=s)'

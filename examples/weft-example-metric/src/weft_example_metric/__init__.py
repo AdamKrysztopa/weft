@@ -1,7 +1,7 @@
 """A stranger's evaluation pack — the independence proof, as an artifact.
 
-`docs/build-ledger.md` task 4.1, on `examples/weft-example-chunker`'s own footing: a pack that
-lives *outside* the `weft` repository's workspace, in its own directory with its own
+`docs/internal/build-ledger.md` task 4.1, on `examples/weft-example-chunker`'s own footing: a pack
+that lives *outside* the `weft` repository's workspace, in its own directory with its own
 `pyproject.toml`, installed the same way any third-party pack would be, registering one plugin
 through the same `weft.packs` entry point every first-party pack uses — no shortcut, no private
 import path.

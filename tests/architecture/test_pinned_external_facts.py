@@ -1,8 +1,9 @@
 """A pinned fact about the outside world has one copy and a date — ledger task **8.14**.
 
-`docs/lessons.md` L8.13 is what this file exists to stop recurring. `weft_openai.llm.DEFAULT_MODEL`
-sat at `gpt-4o-mini` two model generations past its currency, and two properties of the tree — not
-the value itself — are what made that invisible and would have made repointing it silently partial:
+`docs/internal/lessons.md` L8.13 is what this file exists to stop recurring.
+`weft_openai.llm.DEFAULT_MODEL` sat at `gpt-4o-mini` two model generations past its currency, and
+two properties of the tree — not the value itself — are what made that invisible and would have made
+repointing it silently partial:
 
 - **The constant had copies.** `tests/integration/test_hypothetical_questions_pipeline.py` and
   `test_raptor_pipeline.py` each hardcoded the literal in a `RoleMapping` handed to the *real*
@@ -63,7 +64,7 @@ LITERAL_COPY_WAIVED: Final[frozenset[str]] = frozenset()
 def _tracked_python_files() -> tuple[Path, ...]:
     """Every tracked `.py` file, from `git ls-files` — never a directory walk.
 
-    `docs/lessons.md` L8.8's scoping half: a walk finds build artefacts, virtualenvs and a
+    `docs/internal/lessons.md` L8.8's scoping half: a walk finds build artefacts, virtualenvs and a
     stranger's checkout sitting in the tree, and a check that reads those is reporting on
     something other than this repository.
     """
@@ -143,7 +144,7 @@ def test_no_tracked_file_copies_the_pinned_model_as_a_literal() -> None:
 
 
 def test_the_copy_sweep_is_not_vacuous() -> None:
-    # `docs/lessons.md` L5.19 and L6.29: a sweep whose subject is legitimately empty passes
+    # `docs/internal/lessons.md` L5.19 and L6.29: a sweep whose subject is legitimately empty passes
     # while matching nothing at all, and the two are indistinguishable from the green. The
     # non-vacuity question is not "is the literal present somewhere" — it is "does the sweep
     # fire on it" — so this plants the exact shape the real check looks for and asserts the

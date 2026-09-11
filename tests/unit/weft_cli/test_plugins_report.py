@@ -348,7 +348,8 @@ def test_render_doctor_names_the_installed_version_of_each_distribution() -> Non
 
 
 def test_render_doctor_says_when_a_version_is_not_recorded() -> None:
-    """`docs/lessons.md` L5.9 — an absent measurement is reported, never rendered as a blank."""
+    """`docs/internal/lessons.md` L5.9 — an absent measurement is reported, never rendered as a
+    blank."""
     # Arrange
     reports = (PackReport(pack="mystery", distribution="weft-mystery", status=PackStatus.ACTIVE),)
 

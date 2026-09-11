@@ -84,7 +84,7 @@ def test_a_malformed_section_refuses_without_a_traceback(
 
 def test_a_well_formed_config_still_runs(tmp_path: Path) -> None:
     # The other direction. A refusal that fired on everything would pass every assertion above,
-    # which is `docs/lessons.md` L5.19 applied to a guard rather than to a sweep.
+    # which is `docs/internal/lessons.md` L5.19 applied to a guard rather than to a sweep.
     (tmp_path / "weft.toml").write_text('[llm.roles]\ngenerate = { provider = "scripted" }\n')
 
     result = _run(tmp_path)

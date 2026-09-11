@@ -83,3 +83,10 @@ build/
 /docs/_external-reading/
 
 /tmp/
+
+# The internal process record — how this project is worked, not what it ships. The build ledger,
+# the lessons queue and its archive, the grilling sessions, the product direction, the roadmap past
+# Phase 11, the control file that holds project state, and the owner's own list. Untracked
+# 2026-09-11 at the owner's decision. The numbered reference documents stay tracked: 650 citations
+# from `packages/` point at them and those pointers ship inside the wheel.
+/docs/internal/

@@ -1,6 +1,6 @@
 """The live half of `weft-openai`'s `LLMProvider`: a real completion, from a real account.
 
-`docs/build-ledger.md` task 2.30 — "the generation pack names no vendor, because a provider
+`docs/internal/build-ledger.md` task 2.30 — "the generation pack names no vendor, because a provider
 adapter is its own pack and the offline default is a deterministic scripted provider." Every
 other test in this tree proves the second half by never needing an account; this file is the
 first half, mirrored on `tests/integration/test_openai_embedder.py`'s own shape — skipped,
@@ -41,8 +41,8 @@ _API_KEY_VAR = "OPENAI_API_KEY"
 #: `OPENAI_API_KEY` says *"I could reach the network"*; this says *"I am asking to"*. A developer
 #: with a key exported for other work should get a deterministic `poe ci-checks`, because a gate
 #: whose green depends on what a live service answered teaches whoever runs it to re-run red tests
-#: until they pass (`docs/lessons.md` L6.27). Repeated in each module that reaches the network
-#: rather than shared, the same way each already repeats its own skip discipline;
+#: until they pass (`docs/internal/lessons.md` L6.27). Repeated in each module that reaches the
+#: network rather than shared, the same way each already repeats its own skip discipline;
 #: `tests/architecture/test_the_gate_is_decidable.py` keeps the copies honest.
 _LIVE_OPT_IN_VAR = "WEFT_LIVE_API_TESTS"
 

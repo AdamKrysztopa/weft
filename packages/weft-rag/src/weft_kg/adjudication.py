@@ -101,7 +101,7 @@ async def first_verdict(
     expensive adjudicator placed last in the chain is only ever reached when nothing cheaper already
     decided — which is what makes a count of how often it ran a number an operator can trust rather
     than a ceiling. An empty chain, or a chain where every member abstains, abstains too: it means
-    *nobody decided*, never *the answer is no* — `docs/lessons.md` L5.9's rule for an empty
+    *nobody decided*, never *the answer is no* — `docs/internal/lessons.md` L5.9's rule for an empty
     collection, applied here to a chain that produced no opinion.
     """
     for adjudicate in adjudicators:
