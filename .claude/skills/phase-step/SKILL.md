@@ -538,6 +538,18 @@ crashes on the exact state its own non-vacuity exercise produces.
    when it is caught; by the time you reach this list the reasoning is gone. This item is the floor,
    not the intended moment.
 
+8. **Say what is next, in one or two sentences, every time.** The person you are working with has a
+   ledger, a router and a status skill and should not have to run any of them to find out where the
+   work now stands. Name the next task's id and what it makes true, and — this is the half that
+   earns the item — **name anything that would stop it**: a decision only they can take, a ⚠ whose
+   shape is unsettled, a dependency the ledger's order does not express. A "what next" that only
+   reads the next box back is `next_task.py` with extra words; what it is for is the sentence the
+   router cannot produce, because it does not know what you just learned building the last one.
+
+   Standing instruction from the project owner, 2026-09-12. It is here rather than in `CLAUDE.md`
+   because the moment it governs is the end of a task, and this is the file that runs then — the
+   routing rule `implement-ll` states and `L5.32` paid for three times.
+
 Then run `weft-qualities` against what you wrote if the step added a contract, a capability or a
 config surface. An elasticity regression is cheaper to catch now than after something depends on it.
 
