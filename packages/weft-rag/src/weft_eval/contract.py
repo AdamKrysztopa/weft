@@ -98,7 +98,7 @@ different, legitimate question — `exact-match` already answers it, honestly, a
 from enum import StrEnum
 from typing import TYPE_CHECKING, ClassVar, Protocol, runtime_checkable
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from weft_kernel.context import Context
 from weft_kernel.payload import Outcome
@@ -154,6 +154,13 @@ class GenerationSample(BaseModel):
     #: treats it as `NothingToProduce` unconditionally, regardless of what `prediction` carries.
     reference: str = ""
     contexts: tuple[str, ...] = ()
+    #: What language this sample is in, as a metric that needs one should ask — task **16.8**.
+    #: `bert_score` took `lang="en"` as a constant, so a Polish answer was scored against an
+    #: English model and the number meant nothing; no amount of `weft.toml` could change it,
+    #: which is what made it a defect rather than a default. `"en"` is still a default, and it
+    #: is here where a reader can see it rather than inside a metric where nothing could reach
+    #: it — every sample built before this task is English by construction.
+    language: str = Field(default="en", min_length=1)
     #: What kind of query produced this sample — task 9.12. Defaulted to `TEXT` because every
     #: question written before this task is one, and stays one with no edit anywhere.
     modality: QueryModality = QueryModality.TEXT

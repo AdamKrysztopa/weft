@@ -582,3 +582,28 @@ async def test_a_rank_metric_sees_retrieval_order_not_the_packers(
         "doc-middle",
         "doc-worst",
     ]
+
+
+# --- Task 16.8 — a question states its own language.
+
+
+def test_a_question_carries_a_language_and_defaults_to_english() -> None:
+    """`eval/questions/*.toml` has stated `language` on every question since the set was
+    written; the JSON loader this path uses had no field for it, so the fact stopped at the
+    file. It is what a language-aware metric reads, and — since task 16.6's canonical form is
+    derived from the model — it is part of the question set's identity.
+    """
+    # Arrange / Act / Assert
+    assert Question(query="q").language == "en"
+    assert Question(query="q", language="pl").language == "pl"
+
+
+def test_the_question_set_digest_moves_when_a_questions_language_does() -> None:
+    """Which is the point of deriving the canonical form rather than listing fields: the same
+    questions scored as Polish are a different measurement from the same questions scored as
+    English, and the digest says so without 16.6 having had to anticipate this field.
+    """
+    # Arrange / Act / Assert
+    assert question_set_digest((Question(id="a", query="q"),)) != question_set_digest(
+        (Question(id="a", query="q", language="pl"),)
+    )

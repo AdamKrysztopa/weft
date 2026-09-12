@@ -1069,6 +1069,42 @@ rung against an empty retrieval, honestly and uselessly. The corpus digest is wh
 after the fact: a run whose numbers are all zero, against a digest no earlier run carries, was
 scored against nothing.
 
+## Text search in a language Postgres does not ship
+
+`[packs.store] text_search_config` names the Postgres configuration both the stored column and
+the query use, and it defaults to `simple`. The setting's own docstring says `simple` is the
+default and not the right answer for an English corpus — `english` is, because with `simple` a
+question about "retrieval" never reaches a passage that says "retrieved".
+
+**For Polish there is nothing else to name, and that is a fact about Postgres rather than about
+Weft.** Measured against the shipped `pgvector/pgvector:pg16` image on 2026-09-12: it installs 28
+text search configurations and `polish` is not one of them. Postgres ships stemmers for the
+languages Snowball covers, and Polish is not among them. So on a stock install `simple` is not a
+compromise between two options — it is the only one.
+
+See what your own database has:
+
+```bash
+$ docker exec weft-postgres-1 psql -U weft -d weft -tAc "select cfgname from pg_ts_config order by 1;"
+arabic armenian basque catalan danish dutch english finnish french german greek hindi hungarian
+indonesian irish italian lithuanian nepali norwegian portuguese romanian russian serbian simple
+spanish swedish tamil turkish yiddish
+```
+
+**What to do.** If the list holds the language you need, name it and re-index — the column is
+generated, so the configuration is a property of the database and existing rows are rebuilt when
+the schema is recreated. If it does not, the honest options are to install a dictionary into
+Postgres and build a configuration from it — an `ispell`/Hunspell Polish dictionary plus
+`CREATE TEXT SEARCH CONFIGURATION` — and only then name it here, or to leave `simple` and know
+what you have: case-folded, whitespace-split matching with no stemming, which finds `Krakowie`
+only when the question says `Krakowie`. Naming a configuration the database has not got is
+refused before the schema is touched, naming what you asked for and what is installed
+(`UnknownTextSearchConfigError`).
+
+**Vector retrieval is unaffected.** This setting governs the *text* arm only; embeddings carry
+whatever the embedder understands, and a hybrid rung's vector half works in any language its
+model does.
+
 ## What this does not protect you from
 
 **A pack runs with your full privileges. Installing one is trusting it.** `[packs] allow` decides

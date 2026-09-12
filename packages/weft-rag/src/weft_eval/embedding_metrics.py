@@ -116,7 +116,14 @@ class BERTScore:
         import bert_score
 
         _, _, f1 = bert_score.score(
-            [payload.prediction], [payload.reference], lang="en", verbose=False
+            [payload.prediction],
+            [payload.reference],
+            # Task **16.8** — the sample's own language, never a constant. `09` §5.2's V1
+            # requires a non-English corpus body and the product brief names Polish, so a
+            # hardcoded `"en"` here made generation scoring wrong for half of what this
+            # project claims to serve, in shipped product.
+            lang=payload.language,
+            verbose=False,
         )
         return Produced(value=MetricScore(metric_name="bertscore", value=float(f1.mean())))
 

@@ -44,7 +44,7 @@ class _FsBlobs:
 
     Takes a `config` argument because every real plugin in this tree does — `HashEmbedder`
     (`packages/weft-rag/src/weft_embed/hash_embedder.py:75 'def __init__(self'`) and `PgVectorStore`
-    (`packages/weft-rag/src/weft_store/pgvector_store.py:605 'def _predic'`) both declare one with a
+    (`packages/weft-rag/src/weft_store/pgvector_store.py:616 'def _predic'`) both declare one with a
     default,
     and every assembler builds a plugin as `registry.entry(...).factory(None)`. A fixture
     without it would make the production call look wrong when it is the fixture that is.

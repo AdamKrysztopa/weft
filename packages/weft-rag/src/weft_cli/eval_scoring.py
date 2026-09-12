@@ -251,6 +251,14 @@ class Question(BaseModel):
     #: before this task keeps loading unchanged; `load_questions` needs no edit beyond this model
     #: accepting the key.
     modality: QueryModality = QueryModality.TEXT
+    #: What language this question and its reference answer are in — task **16.8**.
+    #: `eval/questions/*.toml` has stated it on every question since the set was written, and
+    #: this loader had no field for it, so the fact stopped at the file. Defaulted to `"en"`,
+    #: `modality`'s own reasoning one field over — and, because task 16.6's canonical form is
+    #: derived from this model rather than from a listed tuple, stating it changes the question
+    #: set's identity, which is correct: the same questions scored as Polish are a different
+    #: measurement.
+    language: str = Field(default="en", min_length=1)
     #: This question's own `kind` — task 11.12. An open `str`, never an enum (see `weft_eval.
     #: contract`'s own module docstring), defaulted to `""` so a questions file written before
     #: this task keeps loading unchanged, `modality`'s own reasoning one field over.

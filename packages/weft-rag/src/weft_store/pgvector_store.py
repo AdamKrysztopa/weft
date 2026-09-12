@@ -322,6 +322,16 @@ class PgVectorSettings(BaseModel):
     #: `Node` carries no language to choose per-node stemming by. An English-only corpus is a
     #: different situation and gets `english` here: with `simple`, a question about "retrieval"
     #: never reaches a passage that says "retrieved".
+    #:
+    #: **And for Polish there is nothing else to name — measured, task 16.8.** The shipped
+    #: `pgvector/pgvector:pg16` image installs 28 text search configurations and `polish` is not
+    #: one of them; Postgres ships stemmers for the languages Snowball covers and Polish is not
+    #: among them either. So on a stock install `simple` is not a compromise between two
+    #: options, it is the only option, and a Polish corpus needs a dictionary installed in the
+    #: database before any value here can be better. `SELECT cfgname FROM pg_ts_config;` is what
+    #: an operator runs to see what theirs has; `manual/operations-guide.md` → *Text search in a
+    #: language Postgres does not ship* carries the rest. `UnknownTextSearchConfigError` below is
+    #: what naming an absent one gets, which is the loud half of this already working.
     text_search_config: str = "simple"
 
     #: Whether a question matches on any of its words or all of them. See `TextQueryMode`.

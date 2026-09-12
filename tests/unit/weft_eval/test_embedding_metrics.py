@@ -9,10 +9,14 @@ is an optional extra, not installed here) — its edge case is exactly that: the
 answer `Failed` naming the missing extra rather than raising or silently vanishing.
 """
 
+import sys
+import types
+
 import pytest
 
 from weft_embed.contract import Embedder
 from weft_embed.hash_embedder import HashEmbedder
+from weft_eval import embedding_metrics
 from weft_eval.contract import GenerationSample
 from weft_eval.embedding_metrics import (
     BERT_SCORE_AVAILABLE,
@@ -101,3 +105,91 @@ async def test_bert_score_empty_reference_is_nothing_to_produce_even_when_unavai
 
     # Assert
     assert isinstance(outcome, NothingToProduce)
+
+
+# --- Task 16.8 — Polish is scored as Polish.
+
+
+async def test_bert_score_asks_for_the_language_the_sample_declares(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`12` §3's language axis: `bert_score(lang="en")` was a constant, so a Polish answer was
+    scored against an English model and the number meant nothing. It is not configurable by any
+    amount of `weft.toml`, which is what makes it a defect rather than a default.
+
+    The library is an optional extra and is not installed in the gate, so the call is watched
+    through a stand-in module injected into `sys.modules` — the wire is what is under test
+    (`L9.79`), not the library's arithmetic.
+    """
+    # Arrange
+    asked: dict[str, object] = {}
+
+    class _Result:
+        def mean(self) -> float:
+            return 0.5
+
+    def _score(
+        predictions: list[str], references: list[str], *, lang: str, verbose: bool
+    ) -> tuple[object, object, _Result]:
+        del predictions, references, verbose
+        asked["lang"] = lang
+        return object(), object(), _Result()
+
+    module = types.ModuleType("bert_score")
+    module.score = _score  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "bert_score", module)
+    monkeypatch.setattr(embedding_metrics, "BERT_SCORE_AVAILABLE", True)
+
+    # Act
+    outcome = await BERTScore(NoConfig()).evaluate(
+        GenerationSample(
+            query="jakie są trzy kroki?",
+            prediction="trzy kroki",
+            reference="trzy kroki",
+            language="pl",
+        ),
+        _ctx(),
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert asked["lang"] == "pl", (
+        "the metric asked for a language other than the one the sample declares, so a Polish "
+        "answer is scored against a model for another language"
+    )
+
+
+async def test_a_sample_that_declares_no_language_is_scored_as_english(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The default is `en` and it is on the model where a reader can see it, rather than inside
+    the metric where nothing could change it. Every sample built before this task is English by
+    construction, so this is the compatible reading — and it is still a *default*, which is why
+    `eval/questions/*.toml` states the language on every question explicitly.
+    """
+    # Arrange
+    asked: dict[str, object] = {}
+
+    class _Result:
+        def mean(self) -> float:
+            return 0.5
+
+    def _score(
+        predictions: list[str], references: list[str], *, lang: str, verbose: bool
+    ) -> tuple[object, object, _Result]:
+        del predictions, references, verbose
+        asked["lang"] = lang
+        return object(), object(), _Result()
+
+    module = types.ModuleType("bert_score")
+    module.score = _score  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "bert_score", module)
+    monkeypatch.setattr(embedding_metrics, "BERT_SCORE_AVAILABLE", True)
+
+    # Act
+    await BERTScore(NoConfig()).evaluate(
+        GenerationSample(query="q", prediction="a", reference="a"), _ctx()
+    )
+
+    # Assert
+    assert asked["lang"] == "en"
