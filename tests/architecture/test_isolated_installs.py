@@ -266,8 +266,16 @@ def _pack_names_in_the_tree() -> frozenset[str]:
 
 
 def _pack_of_module(module: str) -> str:
-    """`weft_openai` -> `openai`. The convention every first-party pack follows, asserted by the
-    test above rather than assumed: a module whose pack name is not its suffix would show up as
-    an unknown name instead of silently excusing nothing.
+    """`weft_openai` -> `openai`, `weft_openai_compatible` -> `openai-compatible`.
+
+    The convention every first-party pack follows, asserted by the test above rather than
+    assumed: a module whose pack name is not its suffix would show up as an unknown name
+    instead of silently excusing nothing.
+
+    **The separator half was missing until 2026-09-12, and only a multi-word pack could show
+    it.** A Python module uses underscores and a pack name uses hyphens, so the two coincide
+    for every single-word pack — `openai`, `pdf`, `qdrant`, `docling`, `otel` — and diverge for
+    the first pack whose name has two words. Phase 20a shipped it (`openai-compatible`), and
+    this helper turned a correct entry in `EXTRA_BACKED_MODULES` into an unknown pack name.
     """
-    return module.removeprefix("weft_")
+    return module.removeprefix("weft_").replace("_", "-")

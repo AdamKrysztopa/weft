@@ -2843,7 +2843,8 @@ $ weft eval metrics --name does-not-exist
 'does-not-exist' is not a registered metric. Registered metrics: 'accuracy', 'answer-completeness',
 'answer-correctness', 'answer-relevance', 'bertscore', 'context-recall', 'context-relevance',
 'embedding-similarity', 'exact-match', 'f1-score', 'faithfulness', 'key-terms-precision',
-'mean-average-precision', 'ndcg', 'overlap-at-threshold', 'precision-at-k', 'recall-at-k',
+'mean-average-precision', 'mrr-at-k', 'ndcg', 'overlap-at-threshold', 'precision-at-k',
+'recall-at-k',
 'rouge-1', 'rouge-2', 'rouge-l', 'token-overlap', 'token-recall'.
 $ echo $?
 4

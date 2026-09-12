@@ -34,6 +34,14 @@ from publish_set import Member, PublishSetUnreadableError, publishing_members
 EXTRA_BACKED_MODULES: dict[str, str] = {
     "weft_docling": "docling",
     "weft_openai": "openai",
+    # **The sixth, and it was missing.** `weft_openai_compatible` imports `weft_openai.embedder`
+    # and `weft_openai.llm` at module scope, and both import `openai` at module scope — so it
+    # degrades on a bare install exactly as `weft_openai` does, for the same reason and behind
+    # the same extra. Phase 20a added the pack and not this line, so the converse clause below
+    # reported it as a pack that should have registered and did not, and CI was red on `main`
+    # from 2026-09-12 until it was added. `L8.12`'s shape: a new member owes every list keyed on
+    # the property it joins, and a pack behind an extra joins this one.
+    "weft_openai_compatible": "openai",
     "weft_otel": "otel",
     "weft_pdf": "pdf",
     "weft_qdrant": "qdrant",

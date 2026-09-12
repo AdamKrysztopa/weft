@@ -384,6 +384,25 @@ def _factory_config(config: object) -> object:
 _OVERSAMPLE_FACTOR = 8
 
 
+def _ranked_by_score(hits: Sequence[Scored[Node]]) -> tuple[Scored[Node], ...]:
+    """`hits`, ordered by `Scored.score` descending — task **16.7**, `12` §3's second defect.
+
+    **`Answer.used` stays the right set; only its order is disregarded here, and task 7.5's
+    settlement is untouched.** On the `--query-pipeline` path `hits` comes from
+    `passages_for_scoring(answer)`, i.e. `Answer.used` — the passages the generator actually
+    saw, which is exactly what task 7.5 settled it should be. But `weft_retrieve.repack`'s
+    default method is `reverse` (best hit last, immediately before the question), so `used`'s
+    own tuple order is the *packer's* order, not retrieval's — a rank metric reading it
+    unsorted was scoring the inversion of the ranking retrieval produced. `Scored.score` is a
+    similarity (`weft_cli.ask.run_ask`'s own docstring: pgvector's `1 - cosine distance`), so
+    descending is best-first. On the plain `run_ask` path `hits` already arrives in that order,
+    so this is a no-op there — sorted unconditionally rather than only on the branch that needs
+    it, because one rule stated once is worth more than a branch whose two sides a reader has
+    to compare. `sorted` is stable, so hits already tied on score keep the order they arrived in.
+    """
+    return tuple(sorted(hits, key=lambda hit: hit.score, reverse=True))
+
+
 def _deduplicated_by_document(
     hits: Sequence[Scored[Node]], *, top_k: int
 ) -> tuple[RetrievedPassage, ...]:
@@ -572,7 +591,7 @@ async def score_pipeline(
             RetrievalSample(
                 query=question.query,
                 question_key=question_key,
-                retrieved=_deduplicated_by_document(hits, top_k=top_k),
+                retrieved=_deduplicated_by_document(_ranked_by_score(hits), top_k=top_k),
                 relevant_ids=frozenset(
                     resolved_labels[label] for label in question.relevant_documents
                 ),

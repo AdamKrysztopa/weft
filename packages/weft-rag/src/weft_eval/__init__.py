@@ -2,10 +2,11 @@
 
 Publishes the `RetrievalMetric`/`GenerationMetric` contracts, in `contract.py` — task 4.2's own
 split of task 4.1's single `Metric`/`Sample`, argued in `contract.py`'s own module docstring — and
-ships every one of the 21 metrics `docs/internal/build-ledger.md` task 4.2 owns: 4 IR
-(`ir_metrics.py`), 11 traditional generation (`lexical.py`, `qa_metrics.py`, `embedding_metrics.py`)
-and 6 LLM judges (`judges.py`, asking the 6 prompts `prompts.py` registers under
-`weft_prompts.contract.Prompt`). `aggregate.py` (task 4.3) folds many per-sample
+ships every one of the 21 metrics `docs/internal/build-ledger.md` task 4.2 owns, plus `mrr-at-k`
+(task 16.7, below): 5 IR (`ir_metrics.py`), 11 traditional generation (`lexical.py`,
+`qa_metrics.py`, `embedding_metrics.py`) and 6 LLM judges (`judges.py`, asking the 6 prompts
+`prompts.py` registers under `weft_prompts.contract.Prompt`). `aggregate.py` (task 4.3) folds many
+per-sample
 `Outcome[MetricScore]` observations from any one of these into a `MetricAggregate` — exclusion
 counts, dispersion, and a reported-name check run against the name a report key actually publishes,
 not just a metric's own `metric_name` property; see that module's own docstring for the full
@@ -71,7 +72,7 @@ from weft_eval.falsify import (
     judge_differences,
 )
 from weft_eval.harness import score_retrieval_gate_subset
-from weft_eval.ir_metrics import MeanAveragePrecision, NDCGAtK, PrecisionAtK, RecallAtK
+from weft_eval.ir_metrics import MeanAveragePrecision, MRRAtK, NDCGAtK, PrecisionAtK, RecallAtK
 from weft_eval.judges import (
     AnswerCompleteness,
     AnswerCorrectness,
@@ -132,11 +133,15 @@ from weft_prompts.contract import Prompt
 #: The name `OverlapAtThreshold` is registered and selected under — task 4.1's own demonstration.
 OVERLAP_AT_THRESHOLD_NAME = "overlap-at-threshold"
 
-#: The 4 `RetrievalMetric` names — `docs/internal/build-ledger.md` task 4.2.
+#: The 5 `RetrievalMetric` names — `docs/internal/build-ledger.md` task 4.2, plus `mrr-at-k`
+#: (task 16.7): the registered name is hyphenated like its siblings; the *reported*
+#: `MetricScore.metric_name` is `mrr@5` — the distinction `weft_eval.aggregate`'s own R5
+#: paragraph already draws.
 PRECISION_AT_K_NAME = "precision-at-k"
 RECALL_AT_K_NAME = "recall-at-k"
 MEAN_AVERAGE_PRECISION_NAME = "mean-average-precision"
 NDCG_AT_K_NAME = "ndcg"
+MRR_AT_K_NAME = "mrr-at-k"
 
 #: The 11 traditional `GenerationMetric` names.
 ROUGE_L_NAME = "rouge-l"
@@ -183,6 +188,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(RetrievalMetric, RECALL_AT_K_NAME, RecallAtK)
     registrar.add(RetrievalMetric, MEAN_AVERAGE_PRECISION_NAME, MeanAveragePrecision)
     registrar.add(RetrievalMetric, NDCG_AT_K_NAME, NDCGAtK)
+    registrar.add(RetrievalMetric, MRR_AT_K_NAME, MRRAtK)
 
     registrar.add(GenerationMetric, ROUGE_L_NAME, RougeL)
     registrar.add(GenerationMetric, ROUGE_1_NAME, Rouge1)
@@ -242,6 +248,7 @@ __all__ = [
     "GENERATION_METRIC_CONTRACT_VERSION",
     "KEY_TERMS_PRECISION_NAME",
     "MEAN_AVERAGE_PRECISION_NAME",
+    "MRR_AT_K_NAME",
     "NDCG_AT_K_NAME",
     "OVERLAP_AT_THRESHOLD_NAME",
     "PRECISION_AT_K_NAME",
@@ -281,6 +288,7 @@ __all__ = [
     "MetricRunResult",
     "MetricScore",
     "MismatchedMetricNameError",
+    "MRRAtK",
     "NDCGAtK",
     "NoQueryRung",
     "NoSpread",

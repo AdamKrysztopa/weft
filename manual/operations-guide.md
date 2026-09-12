@@ -894,7 +894,7 @@ package this pack does not carry as a base dependency at all.
 ```bash
 $ weft eval metrics
 runs in the gate (no credentials, no network): accuracy, embedding-similarity, exact-match,
-f1-score, key-terms-precision, mean-average-precision, ndcg, overlap-at-threshold,
+f1-score, key-terms-precision, mean-average-precision, mrr-at-k, ndcg, overlap-at-threshold,
 precision-at-k, recall-at-k, rouge-1, rouge-2, rouge-l, token-overlap, token-recall
 does not run in the gate: answer-completeness, answer-correctness, answer-relevance, bertscore,
 context-recall, context-relevance, faithfulness
@@ -972,7 +972,7 @@ run 3f9c...-1 persisted (corpus -> pipeline 'index'). produced 12, ... wall cloc
 For every question, `weft eval run` retrieves through the resolved pipeline's own
 `Embedder`/`NodeStore` stages — never `[services]`, Q3 still holds — and scores the deterministic,
 gate-safe `RetrievalMetric` subset over the result (`precision-at-k`, `recall-at-k`,
-`mean-average-precision`, `ndcg`; `weft eval metrics` lists the full set live). The result folds
+`mean-average-precision`, `mrr-at-k`, `ndcg`; `weft eval metrics` lists the full set live). The result folds
 into the persisted record's `metrics` field, keyed by what each metric actually computed
 (`precision@5`, not the registered plugin name — the same "the report is keyed by what a metric
 computed" rule task 4.3's aggregation already holds elsewhere). `--questions` is optional:

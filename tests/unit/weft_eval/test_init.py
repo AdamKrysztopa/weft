@@ -26,6 +26,7 @@ from weft_eval import (
     FAITHFULNESS_NAME,
     KEY_TERMS_PRECISION_NAME,
     MEAN_AVERAGE_PRECISION_NAME,
+    MRR_AT_K_NAME,
     NDCG_AT_K_NAME,
     OVERLAP_AT_THRESHOLD_NAME,
     PRECISION_AT_K_NAME,
@@ -71,6 +72,7 @@ _RETRIEVAL_NAMES = frozenset(
         RECALL_AT_K_NAME,
         MEAN_AVERAGE_PRECISION_NAME,
         NDCG_AT_K_NAME,
+        MRR_AT_K_NAME,
         CONTEXT_RECALL_NAME,
         CONTEXT_RELEVANCE_NAME,
     }
@@ -99,8 +101,10 @@ def test_every_one_of_the_21_task_4_2_metrics_registers_under_the_right_contract
     # Arrange / Act
     registry = _registry()
 
-    # Assert — 21 = 15 generation + 6 retrieval, per task 4.2's own inventory.
-    assert len(_GENERATION_NAMES) + len(_RETRIEVAL_NAMES) == 21
+    # Assert — 22 = 15 generation + 7 retrieval. Task 4.2's inventory was 21; task **16.7**
+    # added `mrr@k`, which existed only in the repo-level `eval/metrics.py` and was therefore
+    # unreachable from any shipped pipeline.
+    assert len(_GENERATION_NAMES) + len(_RETRIEVAL_NAMES) == 22
     for name in _GENERATION_NAMES:
         assert registry.entry(GenerationMetric, name).distribution == "weft-eval"
     for name in _RETRIEVAL_NAMES:

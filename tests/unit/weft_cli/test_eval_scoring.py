@@ -16,6 +16,7 @@ from pathlib import Path
 
 import pytest
 
+from weft_cli import eval_scoring as eval_scoring_module
 from weft_cli.eval_scoring import (
     AmbiguousLabelError,
     PipelineNotRetrievableError,
@@ -29,7 +30,10 @@ from weft_cli.eval_scoring import (
 )
 from weft_embed import Embedder
 from weft_eval import Settings, register
+from weft_eval.contract import RetrievalSample
+from weft_eval.harness import SubsetScores
 from weft_eval.run_record import QuestionKey
+from weft_generate.payload import Answer
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackRegistrar
 from weft_kernel.payload import (
@@ -43,6 +47,7 @@ from weft_kernel.payload import (
 )
 from weft_kernel.registry import Registry
 from weft_kernel.resolution import ResolvedPipeline, ResolvedStage
+from weft_retrieve.payload import Passage, Query
 from weft_store import Filter, NodeStore, Scored
 
 
@@ -499,3 +504,81 @@ def test_two_questions_that_differ_only_by_id_are_two_question_sets() -> None:
     assert question_set_digest((Question(id="a", query="q"),)) != question_set_digest(
         (Question(id="b", query="q"),)
     )
+
+
+# --- Task 16.7 — a rank metric scores a ranking the packer did not reverse.
+
+
+async def test_a_rank_metric_sees_retrieval_order_not_the_packers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`12` §3: *"Rank metrics are scored over `repack: reverse`'s deliberately inverted
+    order."* `Answer.used` is the right **set** — task 7.5 settled that, and it is what the
+    generator actually saw — but it is not a ranking once the packer has reversed it. `repack`'s
+    default *is* `reverse` (best hit last, immediately before the question), so every rank
+    metric on the named-rung path scored the inversion of the ranking retrieval produced.
+
+    Fixed where the sample is built, not in the metrics: a metric that had to know about packing
+    order would be a metric that breaks the day a new packer ships.
+    """
+    # Arrange — the rung answers worst-first, exactly as `repack: reverse` leaves it.
+    captured: list[RetrievalSample] = []
+
+    def _passage(source: str, score: float, rank: int) -> Passage:
+        """A real `Passage`, because that is what `passages_for_scoring` hands back — the
+        existing double of this seam rather than one written from the contract (`L11.17`).
+        """
+        node = Node.synthetic(
+            content=source, media_type=MediaType.TEXT, reason="fixture"
+        ).model_copy(
+            update={"lineage": Lineage.derived(parents=(), sources=frozenset({SourceId(source)}))}
+        )
+        return Passage(scored=Scored(value=node, score=score), rank=rank, retrieved_by="fixture")
+
+    async def _reversed_answer(*_args: object, **_kwargs: object) -> Answer:
+        return Answer(
+            text="an answer",
+            origin=Query(text="q"),
+            answered_by="fixture",
+            used=(
+                _passage("doc-worst", 0.1, 2),
+                _passage("doc-middle", 0.5, 1),
+                _passage("doc-best", 0.9, 0),
+            ),
+        )
+
+    async def _capture(_registry: object, samples: Sequence[RetrievalSample], **_kw: object):
+        captured.extend(samples)
+        return SubsetScores(metrics={}, per_question={})
+
+    monkeypatch.setattr(eval_scoring_module, "run_named_ask", _reversed_answer)
+    monkeypatch.setattr(eval_scoring_module, "score_retrieval_gate_subset", _capture)
+
+    # Task 16.1 resolves the named rung once before the question loop, so a test naming a rung
+    # has to get past that call. Stubbed rather than satisfied with a real catalogue and a
+    # registry carrying the whole query side: *that* resolution is
+    # `test_eval_query_rung.py`'s property, asserted there against the real plugins, and this
+    # test is about the order the metrics see. Stubbing `run_named_ask` alone left the earlier
+    # call to refuse `'some-rung'` before anything under test ran.
+    def _resolved_rung(*_args: object, **_kwargs: object) -> ResolvedPipeline:
+        return ResolvedPipeline(name="some-rung")
+
+    monkeypatch.setattr(eval_scoring_module, "resolve_named_pipeline", _resolved_rung)
+
+    # Act
+    await score_pipeline(
+        registry=_registry(),
+        resolved_pipeline=_resolved_pipeline(),
+        questions=(Question(query="q", relevant_documents=("doc-best",)),),
+        top_k=3,
+        ctx=_ctx(),
+        query_pipeline="some-rung",
+        corpus_document_ids=("doc-best", "doc-middle", "doc-worst"),
+    )
+
+    # Assert — best first, which is what `mrr`, `ndcg` and `mean_average_precision` all read.
+    assert [passage.id for passage in captured[0].retrieved] == [
+        "doc-best",
+        "doc-middle",
+        "doc-worst",
+    ]
