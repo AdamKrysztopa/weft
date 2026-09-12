@@ -442,12 +442,20 @@ def _repair_failures(identifier: str) -> list[str]:
     ]
 
 
-def _phase_agreement_failures(tasks: list[Task], task: Task, status: dict[str, str]) -> list[str]:
+def _phase_agreement_failures(
+    tasks: list[Task], task: Task | None, status: dict[str, str]
+) -> list[str]:
     """Does the Status block's declared phase agree with the task it points at?
 
     Extracted from `live_checks` when that function crossed ruff's complexity ceiling — the two
     clauses below and `_queue_depth_failures` are each a whole question, and a function holding
     every question this script asks is one nobody reads before adding the next.
+
+    **`task is None` when every box is ticked** — `L17.6`. There is then no live task to agree
+    with, so the Status block's own *Next action* row is still read (it may point at a task that
+    exists, which is checkable), and the phase-number comparison is skipped rather than crashing.
+    Found by running `--check-live` immediately after the repair that introduced this case, which
+    is the repair's own argument working on itself.
     """
     failures: list[str] = []
     stated = status.get("Phase", "")
@@ -490,7 +498,7 @@ def _phase_agreement_failures(tasks: list[Task], task: Task, status: dict[str, s
             else:
                 subject = named
         declared = PHASE_IN_STATUS.search(stated)
-        wanted = PHASE_IN_STATUS.search(subject.phase)
+        wanted = PHASE_IN_STATUS.search(subject.phase) if subject is not None else None
         if declared is None:
             failures.append(
                 f"the Status block's Phase row names no phase at all: {stated[:80]!r}… — "
