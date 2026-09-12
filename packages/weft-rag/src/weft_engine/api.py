@@ -297,6 +297,32 @@ class Weft:
         """
         return await self._invoke("delete", {"source_id": str(source)}, yes=yes)
 
+    async def run(
+        self,
+        command_name: str,
+        fields: Mapping[str, object] | None = None,
+        *,
+        yes: bool = False,
+    ) -> CommandResult:
+        """Run any registered `Command` by name — the general verb the three below are wrappers of.
+
+        **This is public because requirement 4 says so, and it was private for a while.** A real
+        installation registers 24 `Command`s — `graph show`, `agent`, `eval run`, `pipeline
+        derive` and twenty more — and `weft_cli.cli.run_command` dispatches all of them
+        generically, from this same registry, by name. While `ask`/`index`/`delete` were the only
+        public entries, a pack's contributed command was reachable from the terminal and not from
+        an application: the *built-in* adapter held the general mechanism and the public surface
+        held three special cases, which is the privileged path this phase exists to close, running
+        the other way. `weft-qualities` found it at the phase close; no test did.
+
+        `fields` are projected through the command's own `args_model`, so the names are the ones
+        that command declares — `weft plugins doctor --json` shows them, and the model refuses an
+        unknown one. `yes` answers the permission gate for an `overwrite`/`destroy`-class command
+        exactly as it does for `delete`: reaching a command by string is not a way around a
+        refusal the same command makes by method.
+        """
+        return await self._invoke(command_name, fields or {}, yes=yes)
+
     async def _invoke(
         self, command_name: str, fields: Mapping[str, object], *, yes: bool = False
     ) -> CommandResult:

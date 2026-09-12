@@ -382,3 +382,48 @@ async def test_open_reads_the_config_path_it_is_given(tmp_path: Path) -> None:
 
     # Assert — discovery ran against the real installed set, which is what the CLI gets too.
     assert any(report.pack == "store" for report in reports)
+
+
+async def test_any_registered_command_is_reachable_by_name_not_only_the_three_with_methods() -> (
+    None
+):
+    """Requirement 4, found by `weft-qualities` at the phase close and not by any test.
+
+    Measured: a real `build_dependencies()` registers **24** `Command`s — `graph show`, `agent`,
+    `eval run`, `pipeline derive` and twenty more — and `weft_cli.cli.run_command` dispatches
+    every one of them generically, by name, from the same registry. `Weft` shipped `ask`, `index`
+    and `delete` and kept the generic call private, so a pack's contributed command was reachable
+    from the terminal and not from the library. That is precisely the privileged path this phase
+    exists to close, inverted: the *built-in adapter* had the general mechanism and the public
+    verb had three special cases.
+
+    `ask`/`index`/`delete` stay, because a named method is a better thing to write than a string
+    for the three commands every application uses. They are wrappers over this.
+    """
+    # Arrange — a command no method on `Weft` is named after, which is every pack's case.
+    weft = Weft(_deps(_RecordingCommand, name="graph show"))
+
+    # Act
+    async with weft as w:
+        result = await w.run("graph show", {"question": "which entities bridge?"})
+
+    # Assert
+    assert len(_RecordingCommand.calls) == 1
+    recorded = _RecordingCommand.calls[0]
+    assert isinstance(recorded, _AskArgs)
+    assert recorded.question == "which entities bridge?"
+    assert isinstance(result, _AskResult)
+
+
+async def test_run_asks_consent_for_a_destructive_command_reached_by_name() -> None:
+    """The generic path is gated exactly as the three named ones are — a command reached by
+    string must not be a way around the permission the same command refuses by method."""
+    # Arrange
+    weft = Weft(_deps(_DestructiveCommand, name="graph wipe"))
+
+    # Act / Assert
+    with pytest.raises(CommandRefusalError):
+        async with weft as w:
+            await w.run("graph wipe", {"source_id": "doc-1"})
+
+    assert _DestructiveCommand.calls == []
