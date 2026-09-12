@@ -95,7 +95,7 @@ _ANCHORED_ID: Final[re.Pattern[str]] = re.compile(
 #: One task line at column 0. The `[a-z]?` suffix is mandatory: 5.1a-5.1d, 5.2a-5.2g and 5.3a all
 #: exist, and without it `5.2g` collapses onto `5.2` and the file reports false duplicate ids.
 _TASK_LINE: Final[re.Pattern[str]] = re.compile(
-    r"^- \[(?P<box>[ x])\] \*\*(?P<id>\d{1,2}\.\d{1,2}[a-z]?)(?: ⚠)?\*\*"
+    r"^- \[(?P<box>[ x])\] \*\*(?P<id>\d{1,2}\.\d{1,2}[a-z]?)(?P<mark>[^*]*)\*\*"
 )
 
 #: A numbered design document — `docs/02-extension-model.md`, `docs/11-multimodal.md` and their

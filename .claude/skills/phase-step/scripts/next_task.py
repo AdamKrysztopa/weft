@@ -45,7 +45,12 @@ PROVISIONAL = "⚠"
 FENCE = re.compile(r"^\s*```")
 PHASE_HEADER = re.compile(r"^##\s+(Phase\s+\S+.*)$")
 TASK_START = re.compile(r"^- \[([ xX])\]\s+(.*)$")
-TASK_ID = re.compile(r"^\*\*(?P<id>[0-9]+(?:\.[0-9]+)?)\s*(?P<flag>[^*]*)\*\*\s*(?P<rest>.*)$")
+# `[a-z]?`: the ledger writes lettered sub-tasks (`5.1a`…`5.2g`, `7.2a`). Without it this
+# read thirteen of them as two ids, found on its first run by the cross-parser check in
+# `tests/docs/test_ledger_records_a_sha.py` (`docs/internal/lessons.md` `L13.3`).
+TASK_ID = re.compile(
+    r"^\*\*(?P<id>[0-9]+(?:\.[0-9]+)?[a-z]?)\s*(?P<flag>[^*]*)\*\*\s*(?P<rest>.*)$"
+)
 
 # A joined task line is `property · owner … · turns on … · sha …`. The separator is a middle dot
 # with spaces either side; it never appears inside a field in this ledger.

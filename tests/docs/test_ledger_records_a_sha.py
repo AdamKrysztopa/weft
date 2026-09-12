@@ -16,8 +16,10 @@ which is exactly the state a shape-only check calls green.
 
 from __future__ import annotations
 
+import importlib.util
 import re
 import subprocess
+import sys
 from pathlib import Path
 from typing import Final
 
@@ -34,7 +36,7 @@ _MISSING_LEDGER: Final[str | None] = untracked_reason("docs/internal/build-ledge
 _requires_ledger = pytest.mark.skipif(_MISSING_LEDGER is not None, reason=_MISSING_LEDGER or "")
 
 _TASK_LINE: Final[re.Pattern[str]] = re.compile(
-    r"^- \[(?P<box>[ x])\] \*\*(?P<id>\d{1,2}\.\d{1,2}[a-z]?)(?: ⚠)?\*\*", re.MULTILINE
+    r"^- \[(?P<box>[ x])\] \*\*(?P<id>\d{1,2}\.\d{1,2}[a-z]?)(?P<mark>[^*]*)\*\*", re.MULTILINE
 )
 #: `· sha \\`abc1234\\`` or `· sha —`, wrapped across a line or not.
 _SHA: Final[re.Pattern[str]] = re.compile(r"·\s+sha\s+(?:`(?P<sha>[0-9a-f]{7,40})`|(?P<dash>—))")
@@ -212,3 +214,55 @@ def test_the_check_can_actually_fail() -> None:
         ).returncode
         != 0
     ), "the git probe accepts a sha that names nothing"
+
+
+@_requires_ledger
+def test_this_parser_and_next_task_agree_on_which_tasks_exist() -> None:
+    """Two independent readers of the ledger must see the same tasks — `docs/internal/lessons.md`
+    `L13.3`.
+
+    **The defect this is written from was invisible for exactly the reason it needs a second
+    reader.** `_TASK_LINE` matched `**11.6**` and `**11.7 ⚠**` and nothing else, while the ledger
+    also writes `**11.7 ⚠ D2**`, `**9.15 — not built; \\`9.10\\` said so**` and three more shapes.
+    Eleven of 231 task lines were invisible, four of them ticked with no sha — so
+    `test_every_ticked_box_is_attributable_to_a_commit` reported 220 blocks, zero failures, and
+    passed, over a population that excluded every task that would have failed it. A skip is not a
+    pass, and neither is a parse that silently drops its hardest cases.
+
+    `next_task.py` reads the same file for the `phase-step` skill with a deliberately permissive
+    `[^*]*` mark group. Comparing the two is the check: a regex cannot report what its own pattern
+    excludes, so the only thing that can is a second implementation that was written separately.
+    The same argument `tests/unit/scripts/test_lessons_graph.py` makes about the lessons queue.
+    """
+    # Arrange — import the skill's own reader rather than re-deriving it here, which would make
+    # this a comparison of one function to itself.
+    spec = importlib.util.spec_from_file_location(
+        "next_task", REPO_ROOT / ".claude" / "skills" / "phase-step" / "scripts" / "next_task.py"
+    )
+    assert spec is not None and spec.loader is not None
+    next_task = importlib.util.module_from_spec(spec)
+    # Registered before exec: `next_task.py` defines dataclasses, and their annotations resolve
+    # against `sys.modules[__name__]`, which is absent for a module loaded by path alone.
+    sys.modules[spec.name] = next_task
+    spec.loader.exec_module(next_task)
+
+    # Act
+    theirs: set[str] = set()
+    for line in LEDGER.read_text(encoding="utf-8").splitlines():
+        start = next_task.TASK_START.match(line)
+        if start is None:
+            continue
+        identifier = next_task.TASK_ID.match(start.group(2))
+        if identifier is not None:
+            theirs.add(identifier.group("id"))
+    ours = {identifier for identifier, _ticked, _block in _task_blocks()}
+
+    # Assert
+    assert ours, "this file's parser read no tasks, so the comparison below is vacuous"
+    assert theirs, "next_task.py's parser read no tasks, so the comparison below is vacuous"
+    assert ours == theirs, (
+        f"the two ledger parsers disagree about which tasks exist. Only this file sees: "
+        f"{sorted(ours - theirs)}. Only next_task.py sees: {sorted(theirs - ours)}. One of them "
+        f"is silently dropping task lines, and every check built on it is green over a population "
+        f"it never read."
+    )
