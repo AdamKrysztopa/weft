@@ -566,6 +566,25 @@ def _statements() -> list[tuple[str, Path, dict[str, Any], tuple[RunRecord, ...]
                 ),
             )
         )
+
+    # The 2026-09-12 re-measurement, taken after Phase 16a. Three arms rather than one, so its
+    # statement names its runs under `arms` the way the exit's does rather than at the top level
+    # — and it is the first statement here whose `facts_not_recorded` is empty.
+    after = BASELINE_DIR / "after-16a" / "remeasurement.json"
+    if after.exists():
+        statement = json.loads(after.read_text(encoding="utf-8"))
+        found.append(
+            (
+                "after-16a",
+                after,
+                statement,
+                tuple(
+                    load_run_record(after.parent / f"{run_id}.json")
+                    for arm in statement["arms"].values()
+                    for run_id in arm["runs"]
+                ),
+            )
+        )
     return found
 
 

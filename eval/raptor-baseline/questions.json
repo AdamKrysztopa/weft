@@ -1,0 +1,720 @@
+[
+  {
+    "id": "fetch-001",
+    "query": "According to the Randomized Dependence Coefficient paper, what three steps make up the construction of the RDC statistic?",
+    "relevant_documents": [
+      "arxiv/1304.7717v2.pdf"
+    ],
+    "kind": "methodological",
+    "language": "en"
+  },
+  {
+    "id": "fetch-002",
+    "query": "Why do the authors of the RDC paper argue that it is undesirable to approximate the HGR maximum correlation coefficient exactly on finite datasets, and what does RDC do instead?",
+    "relevant_documents": [
+      "arxiv/1304.7717v2.pdf"
+    ],
+    "kind": "methodological",
+    "language": "en"
+  },
+  {
+    "id": "fetch-003",
+    "query": "In the RDC paper's running-time comparison, how long does RDC take on one million samples, and how does that compare with ACE and Pearson's rho under the same protocol?",
+    "relevant_documents": [
+      "arxiv/1304.7717v2.pdf"
+    ],
+    "kind": "quantitative",
+    "language": "en"
+  },
+  {
+    "id": "fetch-004",
+    "query": "On which association patterns does RDC perform worse in the additive-noise power experiments, and what reasons do the authors give?",
+    "relevant_documents": [
+      "arxiv/1304.7717v2.pdf"
+    ],
+    "kind": "limitation",
+    "language": "en"
+  },
+  {
+    "id": "fetch-005",
+    "query": "How is RDC evaluated for feature selection on real-world data in this paper — what is the selection criterion, what is being minimised, and what constraint is placed on the competing measures?",
+    "relevant_documents": [
+      "arxiv/1304.7717v2.pdf"
+    ],
+    "kind": "methodological",
+    "language": "en"
+  },
+  {
+    "id": "fetch-006",
+    "query": "In N3LARS, what does adding the ℓ1 regularizer do to the time complexity of the feature-selection problem compared with solving the objective without it?",
+    "relevant_documents": [
+      "arxiv/1411.2331v1.pdf"
+    ],
+    "kind": "quantitative",
+    "language": "en"
+  },
+  {
+    "id": "fetch-007",
+    "query": "How many basis functions does the paper use for the Nyström approximation of NHSIC, and what are the resulting complexities of N3LARS with and without map-reduce?",
+    "relevant_documents": [
+      "arxiv/1411.2331v1.pdf"
+    ],
+    "kind": "quantitative",
+    "language": "en"
+  },
+  {
+    "id": "fetch-008",
+    "query": "Which kernel functions does N3LARS use for the input features and for the output, and how does the output kernel differ between regression and classification?",
+    "relevant_documents": [
+      "arxiv/1411.2331v1.pdf"
+    ],
+    "kind": "methodological",
+    "language": "en"
+  },
+  {
+    "id": "fetch-009",
+    "query": "On the large p53 dataset, how did mRMR compare with the simple maximum-relevance baseline MR-NHSIC, and what conclusion did the authors draw from that comparison?",
+    "relevant_documents": [
+      "arxiv/1411.2331v1.pdf"
+    ],
+    "kind": "comparative",
+    "language": "en"
+  },
+  {
+    "id": "fetch-010",
+    "query": "In the TRIM32 gene-expression regression experiment, did the normalized dependence measure used by N3LARS beat plain HSIC, and what redundancy rates were reported for the compared methods?",
+    "relevant_documents": [
+      "arxiv/1411.2331v1.pdf"
+    ],
+    "kind": "limitation",
+    "language": "en"
+  },
+  {
+    "id": "fetch-011",
+    "query": "Why do Gao, Ver Steeg and Galstyan argue that the two assumptions underlying most existing MI-based feature selection methods cannot both hold in practice?",
+    "relevant_documents": [
+      "arxiv/1606.02827v1.pdf"
+    ],
+    "kind": "limitation",
+    "language": "en"
+  },
+  {
+    "id": "fetch-012",
+    "query": "In the Pairwise Q-distribution, how is q(x_ft | x_f<t, y) constructed from lower-order conditionals, and what justification do the authors give for that construction?",
+    "relevant_documents": [
+      "arxiv/1606.02827v1.pdf"
+    ],
+    "kind": "methodological",
+    "language": "en"
+  },
+  {
+    "id": "fetch-013",
+    "query": "In the synthetic tree-model experiment, what mutual information values does the paper report between the label y and the individual features, and how do the top three features under the maximum relevance criterion differ from those VMI_naive selects?",
+    "relevant_documents": [
+      "arxiv/1606.02827v1.pdf"
+    ],
+    "kind": "quantitative",
+    "language": "en"
+  },
+  {
+    "id": "fetch-014",
+    "query": "What computational complexity does the paper claim for VMI_naive and VMI_pairwise, and how does it compare with mRMR and with SPEC_CMI?",
+    "relevant_documents": [
+      "arxiv/1606.02827v1.pdf"
+    ],
+    "kind": "comparative",
+    "language": "en"
+  },
+  {
+    "id": "fetch-015",
+    "query": "What evaluation protocol — cross-validation scheme and classifiers — did the authors use for the real-world dataset comparison, and how was the synthetic experiment set up?",
+    "relevant_documents": [
+      "arxiv/1606.02827v1.pdf"
+    ],
+    "kind": "methodological",
+    "language": "en"
+  },
+  {
+    "id": "fetch-016",
+    "query": "Under what independence assumption does this paper reduce the mutual information between a feature subset and the class label to pairwise terms, and what expression does the reduction yield?",
+    "relevant_documents": [
+      "arxiv/1706.07535v1.pdf"
+    ],
+    "kind": "methodological",
+    "language": "en"
+  },
+  {
+    "id": "fetch-017",
+    "query": "In the Binary Quadratic Problem formulation, what do the diagonal and off-diagonal entries of the matrix Q represent, and how is the Truncated Power method initialised?",
+    "relevant_documents": [
+      "arxiv/1706.07535v1.pdf"
+    ],
+    "kind": "methodological",
+    "language": "en"
+  },
+  {
+    "id": "fetch-018",
+    "query": "What time complexity does the paper report for the SDP approximation, and at what problem size did their SDP implementation fail?",
+    "relevant_documents": [
+      "arxiv/1706.07535v1.pdf"
+    ],
+    "kind": "quantitative",
+    "language": "en"
+  },
+  {
+    "id": "fetch-019",
+    "query": "Which of the global approximation methods gave the best BQP objective values in the synthetic experiments, and what trade-off do the authors draw between TPower and LowRank in their conclusions?",
+    "relevant_documents": [
+      "arxiv/1706.07535v1.pdf"
+    ],
+    "kind": "comparative",
+    "language": "en"
+  },
+  {
+    "id": "fetch-020",
+    "query": "How did the authors handle continuous features when estimating conditional mutual information, and what limitation do they acknowledge about that step?",
+    "relevant_documents": [
+      "arxiv/1706.07535v1.pdf"
+    ],
+    "kind": "limitation",
+    "language": "en"
+  },
+  {
+    "id": "fetch-021",
+    "query": "In this paper's improved mRMR criterion, what is the role of the weighting factor introduced into the max-relevance/min-redundancy evaluation, and at what value of that factor does the improved criterion collapse back to standard mRMR?",
+    "relevant_documents": [
+      "arxiv/1903.01907v1.pdf"
+    ],
+    "kind": "methodological",
+    "language": "en"
+  },
+  {
+    "id": "fetch-022",
+    "query": "How is the classification accuracy J(S) of a candidate feature subset estimated when the SVM validates the subsets, and over which values of the weighting factor is the search run?",
+    "relevant_documents": [
+      "arxiv/1903.01907v1.pdf"
+    ],
+    "kind": "methodological",
+    "language": "en"
+  },
+  {
+    "id": "fetch-023",
+    "query": "On the New England 39-bus case, at which weighting-factor value does the proposed method reach its highest classification accuracy, and how do the accuracy and the subset dimension compare with those obtained by standard mRMR?",
+    "relevant_documents": [
+      "arxiv/1903.01907v1.pdf"
+    ],
+    "kind": "quantitative",
+    "language": "en"
+  },
+  {
+    "id": "fetch-024",
+    "query": "How large is the original feature set constructed for transient stability assessment in this work, what does the group Tz13-Tz33 represent, and why did the authors choose system-level rather than single-machine features?",
+    "relevant_documents": [
+      "arxiv/1903.01907v1.pdf"
+    ],
+    "kind": "definitional",
+    "language": "en"
+  },
+  {
+    "id": "fetch-025",
+    "query": "In the IEEE 50-generator test case, how does the feature subset selected by the proposed method compare with the full original feature set and with the PCA-reduced subset, in dimension and test accuracy?",
+    "relevant_documents": [
+      "arxiv/1903.01907v1.pdf"
+    ],
+    "kind": "comparative",
+    "language": "en"
+  },
+  {
+    "id": "fetch-026",
+    "query": "In the mRMR extension that uses a random forest feature importance score as the relevance measure, why do the authors combine relevance and redundancy with a quotient rather than a difference?",
+    "relevant_documents": [
+      "arxiv/1908.05376v1.pdf"
+    ],
+    "kind": "methodological",
+    "language": "en"
+  },
+  {
+    "id": "fetch-027",
+    "query": "How many sets of empirical performance results does the evaluation design in this paper produce, and which three factors are crossed to reach that number?",
+    "relevant_documents": [
+      "arxiv/1908.05376v1.pdf"
+    ],
+    "kind": "quantitative",
+    "language": "en"
+  },
+  {
+    "id": "fetch-028",
+    "query": "According to the computation-time results on the real datasets, which feature selection methods run quickly and which are slow, and what runtime bound does the paper give for the fastest ones?",
+    "relevant_documents": [
+      "arxiv/1908.05376v1.pdf"
+    ],
+    "kind": "comparative",
+    "language": "en"
+  },
+  {
+    "id": "fetch-029",
+    "query": "On the synthetic data, did both proposed extensions to the mRMR framework prove worthwhile? What does the paper say about the nonlinear RDC redundancy measure in particular?",
+    "relevant_documents": [
+      "arxiv/1908.05376v1.pdf"
+    ],
+    "kind": "limitation",
+    "language": "en"
+  },
+  {
+    "id": "fetch-030",
+    "query": "What did the online randomized experiment measure, and what lift did the deployed cross-sell model produce?",
+    "relevant_documents": [
+      "arxiv/1908.05376v1.pdf"
+    ],
+    "kind": "quantitative",
+    "language": "en"
+  },
+  {
+    "id": "fetch-031",
+    "query": "In VMR_mRMR, what information is preserved as state across iterations, and what does that leave to be computed in each iteration of the mRMR feature selection?",
+    "relevant_documents": [
+      "arxiv/2208.09901v2.pdf"
+    ],
+    "kind": "methodological",
+    "language": "en"
+  },
+  {
+    "id": "fetch-032",
+    "query": "What structure does VMR_mRMR build to obtain the pair frequencies needed for conditional entropy, and why does it not use the contingency tables or histograms that the earlier vertical partitioning approaches build?",
+    "relevant_documents": [
+      "arxiv/2208.09901v2.pdf"
+    ],
+    "kind": "definitional",
+    "language": "en"
+  },
+  {
+    "id": "fetch-033",
+    "query": "What execution times does the paper report for VMR_mRMR against Spark_VIFS on the Leukemia and nci9 datasets, and what range of computational gain does VMR_mRMR reach over that baseline?",
+    "relevant_documents": [
+      "arxiv/2208.09901v2.pdf"
+    ],
+    "kind": "quantitative",
+    "language": "en"
+  },
+  {
+    "id": "fetch-034",
+    "query": "What does the comparison between HMR_mRMR and VMR_mRMR establish about which dataset shape each partitioning strategy suits, and what gain ranges back that claim?",
+    "relevant_documents": [
+      "arxiv/2208.09901v2.pdf"
+    ],
+    "kind": "comparative",
+    "language": "en"
+  },
+  {
+    "id": "fetch-035",
+    "query": "Why is the evaluation of VMR_mRMR restricted to execution time rather than classification quality, and what limited the comparison against Spark_Info-theoretic in particular?",
+    "relevant_documents": [
+      "arxiv/2208.09901v2.pdf"
+    ],
+    "kind": "limitation",
+    "language": "en"
+  },
+  {
+    "id": "fetch-036",
+    "query": "Which penalty functions does the paper's sparsistency result cover, and why does the LASSO fall outside it?",
+    "relevant_documents": [
+      "arxiv/2508.18901v1.pdf"
+    ],
+    "kind": "limitation",
+    "language": "en"
+  },
+  {
+    "id": "fetch-037",
+    "query": "What practical obstacle prevents the knockoff filter from being applied directly to the full feature set, and how does the paper get around it?",
+    "relevant_documents": [
+      "arxiv/2508.18901v1.pdf"
+    ],
+    "kind": "methodological",
+    "language": "en"
+  },
+  {
+    "id": "fetch-038",
+    "query": "On the simplest linear data generating process, what mean squared errors does SmRMR(PC, None) reach as the number of features grows from 100 to 5,000 at fixed sample size, and what happens when the sample size is raised?",
+    "relevant_documents": [
+      "arxiv/2508.18901v1.pdf"
+    ],
+    "kind": "quantitative",
+    "language": "en"
+  },
+  {
+    "id": "fetch-039",
+    "query": "What is SmRMR2, and what does the paper report about its false discovery rate?",
+    "relevant_documents": [
+      "arxiv/2508.18901v1.pdf"
+    ],
+    "kind": "limitation",
+    "language": "en"
+  },
+  {
+    "id": "fetch-040",
+    "query": "How did SmRMR compare with HSIC-LASSO on the real-world benchmark datasets, and what was the trade-off?",
+    "relevant_documents": [
+      "arxiv/2508.18901v1.pdf"
+    ],
+    "kind": "comparative",
+    "language": "en"
+  },
+  {
+    "id": "fetch-041",
+    "query": "In BoMGene, the paper defines mRMR with mutual information but then departs from that definition in the actual implementation. Which relevance and redundancy measures does it use instead, and what reason is given?",
+    "relevant_documents": [
+      "arxiv/2510.00907v1.pdf"
+    ],
+    "kind": "methodological",
+    "language": "en"
+  },
+  {
+    "id": "fetch-042",
+    "query": "What rule does BoMGene use to decide which cross-validation scheme is applied to a given dataset?",
+    "relevant_documents": [
+      "arxiv/2510.00907v1.pdf"
+    ],
+    "kind": "methodological",
+    "language": "en"
+  },
+  {
+    "id": "fetch-043",
+    "query": "What mean training times does the paper report for Boruta-mRMR with GBM and with Random Forest, and how do they compare with the baselines?",
+    "relevant_documents": [
+      "arxiv/2510.00907v1.pdf"
+    ],
+    "kind": "quantitative",
+    "language": "en"
+  },
+  {
+    "id": "fetch-044",
+    "query": "Does the paper report any case where the hybrid method is beaten by a single feature-selection method, and how is that explained?",
+    "relevant_documents": [
+      "arxiv/2510.00907v1.pdf"
+    ],
+    "kind": "limitation",
+    "language": "en"
+  },
+  {
+    "id": "fetch-045",
+    "query": "How do the sizes of the selected feature sets compare across mRMR alone, Boruta alone, and the combined method?",
+    "relevant_documents": [
+      "arxiv/2510.00907v1.pdf"
+    ],
+    "kind": "comparative",
+    "language": "en"
+  },
+  {
+    "id": "fetch-046",
+    "query": "In the TMRMR method, per-time-step F-statistic values must be combined into a single relevance score for each gene. Which aggregation operator did the authors settle on, why were median and geometric mean judged unsuitable, and what happened when they tried the Multilayer Aggregation method?",
+    "relevant_documents": [
+      "arxiv/radovic-2017-bmc.pdf"
+    ],
+    "kind": "methodological",
+    "language": "en"
+  },
+  {
+    "id": "fetch-047",
+    "query": "What problem does the hyperparameter alpha solve in TMRMR, and what value was it given in the experiments — how many of the 12023 genes does that leave in the candidate pool, and why was it not tuned?",
+    "relevant_documents": [
+      "arxiv/radovic-2017-bmc.pdf"
+    ],
+    "kind": "quantitative",
+    "language": "en"
+  },
+  {
+    "id": "fetch-048",
+    "query": "TMRMR-C and TMRMR-M differ in one component. What is that difference, how do their time complexities compare, and which of the two performed better in the experiments?",
+    "relevant_documents": [
+      "arxiv/radovic-2017-bmc.pdf"
+    ],
+    "kind": "comparative",
+    "language": "en"
+  },
+  {
+    "id": "fetch-049",
+    "query": "Why are the gene expression time series z-score normalized before the DTW distance matrix is computed? What weakness of DTW does this address?",
+    "relevant_documents": [
+      "arxiv/radovic-2017-bmc.pdf"
+    ],
+    "kind": "methodological",
+    "language": "en"
+  },
+  {
+    "id": "fetch-050",
+    "query": "How did the authors measure the stability of the selected feature sets, and what values did the most stable and the least stable methods obtain?",
+    "relevant_documents": [
+      "arxiv/radovic-2017-bmc.pdf"
+    ],
+    "kind": "quantitative",
+    "language": "en"
+  },
+  {
+    "id": "fetch-051",
+    "query": "Gao, Ver Steeg and Galstyan and Venkateswara et al. both build their method on the same pair of independence assumptions behind mutual-information feature selection, but they draw opposite conclusions from them. What does each paper do with those assumptions, and does the global optimisation route taken by one of them escape the objection raised by the other?",
+    "relevant_documents": [
+      "arxiv/1606.02827v1.pdf",
+      "arxiv/1706.07535v1.pdf"
+    ],
+    "kind": "cross-document",
+    "language": "en"
+  },
+  {
+    "id": "fetch-052",
+    "query": "Two papers here parallelise minimum-redundancy maximum-relevance selection on a MapReduce-style framework. What does each distribute across workers, what speed-up or complexity does the earlier one claim, and what does the later one say about the kind of dataset for which that style of partitioning is the right choice?",
+    "relevant_documents": [
+      "arxiv/1411.2331v1.pdf",
+      "arxiv/2208.09901v2.pdf"
+    ],
+    "kind": "cross-document",
+    "language": "en"
+  },
+  {
+    "id": "fetch-053",
+    "query": "The classic mRMR criterion subtracts redundancy from relevance. Two papers here identify a problem with that subtraction when the two terms are measured on different scales, but they fix it in opposite ways — one keeps the difference and adds something to it, the other abandons the difference. Describe both fixes.",
+    "relevant_documents": [
+      "arxiv/1903.01907v1.pdf",
+      "arxiv/1908.05376v1.pdf"
+    ],
+    "kind": "cross-document",
+    "language": "en"
+  },
+  {
+    "id": "fetch-054",
+    "query": "Peng et al. defined mRMR with mutual information for both terms, yet several papers in this collection score relevance with the F-statistic instead. Which papers do so, what redundancy measure does each pair with it, and what justification is given for leaving mutual information behind?",
+    "relevant_documents": [
+      "arxiv/1908.05376v1.pdf",
+      "arxiv/2510.00907v1.pdf",
+      "arxiv/radovic-2017-bmc.pdf"
+    ],
+    "kind": "cross-document",
+    "language": "en"
+  },
+  {
+    "id": "operator-019",
+    "query": "In the mRMR algorithm, what are the MID and MIQ objective functions and how do they differ?",
+    "relevant_documents": [
+      "arxiv/radovic-2017-bmc.pdf"
+    ],
+    "kind": "definitional",
+    "language": "en"
+  },
+  {
+    "id": "operator-020",
+    "query": "Why did the authors choose the arithmetic mean rather than the median or a multilayer aggregation of operators to combine F-statistic values across time steps?",
+    "relevant_documents": [
+      "arxiv/radovic-2017-bmc.pdf"
+    ],
+    "kind": "methodological",
+    "language": "en"
+  },
+  {
+    "id": "operator-021",
+    "query": "Why is z-score normalization applied to the gene expression time series before the DTW distance matrix is computed?",
+    "relevant_documents": [
+      "arxiv/radovic-2017-bmc.pdf"
+    ],
+    "kind": "methodological",
+    "language": "en"
+  },
+  {
+    "id": "operator-022",
+    "query": "What does the hyperparameter alpha control in TMRMR, and what value was used in the experiments?",
+    "relevant_documents": [
+      "arxiv/radovic-2017-bmc.pdf"
+    ],
+    "kind": "quantitative",
+    "language": "en"
+  },
+  {
+    "id": "operator-023",
+    "query": "How did TMRMR-C compare with TMRMR-M in the experiments, and was the advantage over the baselines statistically significant?",
+    "relevant_documents": [
+      "arxiv/radovic-2017-bmc.pdf"
+    ],
+    "kind": "comparative",
+    "language": "en"
+  },
+  {
+    "id": "operator-024",
+    "query": "What limitation does a small number of time points impose on the proposed methods, and which of the two variants do the authors recommend in that situation?",
+    "relevant_documents": [
+      "arxiv/radovic-2017-bmc.pdf"
+    ],
+    "kind": "limitation",
+    "language": "en"
+  },
+  {
+    "id": "operator-042",
+    "query": "In the Uber mRMR paper, what is the randomized dependence coefficient (RDC) and what quantity does it actually compute between two variables?",
+    "relevant_documents": [
+      "arxiv/1908.05376v1.pdf"
+    ],
+    "kind": "definitional",
+    "language": "en"
+  },
+  {
+    "id": "operator-043",
+    "query": "Why did the authors use a quotient scheme rather than a difference scheme when they replaced the relevance measure with a random-forest feature importance score?",
+    "relevant_documents": [
+      "arxiv/1908.05376v1.pdf"
+    ],
+    "kind": "methodological",
+    "language": "en"
+  },
+  {
+    "id": "operator-044",
+    "query": "How many features does the synthetic dataset in this study contain, and how do they break down by type?",
+    "relevant_documents": [
+      "arxiv/1908.05376v1.pdf"
+    ],
+    "kind": "quantitative",
+    "language": "en"
+  },
+  {
+    "id": "operator-045",
+    "query": "What lift did the online randomized experiment report for the cross-sell model deployed with FCQ feature selection?",
+    "relevant_documents": [
+      "arxiv/1908.05376v1.pdf"
+    ],
+    "kind": "quantitative",
+    "language": "en"
+  },
+  {
+    "id": "operator-046",
+    "query": "Between FCQ and RFCQ, which one do the authors recommend, and which one did they actually put into production first?",
+    "relevant_documents": [
+      "arxiv/1908.05376v1.pdf"
+    ],
+    "kind": "comparative",
+    "language": "en"
+  },
+  {
+    "id": "operator-047",
+    "query": "Did both proposed mRMR extensions pay off on the synthetic data, and what explanation is given for the weak showing of FCD?",
+    "relevant_documents": [
+      "arxiv/1908.05376v1.pdf"
+    ],
+    "kind": "limitation",
+    "language": "en"
+  },
+  {
+    "id": "unanswerable-001",
+    "query": "Jak dropout i wczesne zatrzymywanie uczenia (early stopping) chronią sieć neuronową przed nadmiernym dopasowaniem, i jaką wartość współczynnika dropout zaleca się w praktyce?",
+    "relevant_documents": [],
+    "kind": "unanswerable",
+    "language": "pl"
+  },
+  {
+    "id": "unanswerable-002",
+    "query": "How is the maximum-relevance minimum-redundancy idea applied to diversifying search-engine result lists, i.e. how are redundant documents demoted in a ranking while relevance to the query is preserved?",
+    "relevant_documents": [],
+    "kind": "unanswerable",
+    "language": "en"
+  },
+  {
+    "id": "unanswerable-003",
+    "query": "Jak zastosować kryterium maksymalnej istotności i minimalnej nadmiarowości do wyboru lokalizacji czujników w sieci monitoringu jakości powietrza, tak by pokrycie obszaru było maksymalne przy minimalnym nakładaniu się pomiarów?",
+    "relevant_documents": [],
+    "kind": "unanswerable",
+    "language": "pl"
+  },
+  {
+    "id": "unanswerable-004",
+    "query": "In Ding and Peng's microarray study, how much did the leave-one-out error drop when random forest classifiers were used on the MRMR-selected genes compared with the baseline gene set?",
+    "relevant_documents": [],
+    "kind": "unanswerable",
+    "language": "en"
+  },
+  {
+    "id": "unanswerable-005",
+    "query": "Which paper proves that the greedy incremental mRMR search is submodular and therefore within a (1 - 1/e) factor of the optimal feature subset, and what is the proof sketch?",
+    "relevant_documents": [],
+    "kind": "unanswerable",
+    "language": "en"
+  },
+  {
+    "id": "unanswerable-006",
+    "query": "Which papers published in 2024 or 2025 have extended Xie et al.'s ImRMR method, and what improvements in classification accuracy do they report?",
+    "relevant_documents": [],
+    "kind": "unanswerable",
+    "language": "en"
+  },
+  {
+    "id": "unanswerable-007",
+    "query": "How does mRMR compare with large-language-model-based feature selection, where an LLM is prompted to pick the relevant non-redundant columns? What do the benchmarks report?",
+    "relevant_documents": [],
+    "kind": "unanswerable",
+    "language": "en"
+  },
+  {
+    "id": "unanswerable-008",
+    "query": "What classification accuracy did ImRMR achieve on the NCI and Lymphoma microarray gene expression datasets?",
+    "relevant_documents": [],
+    "kind": "unanswerable",
+    "language": "en"
+  },
+  {
+    "id": "unanswerable-009",
+    "query": "What top-1 accuracy do the mRMR variants in this corpus achieve on standard image benchmarks such as MNIST or CIFAR-10, and how many pixels or feature maps do they retain?",
+    "relevant_documents": [],
+    "kind": "unanswerable",
+    "language": "en"
+  },
+  {
+    "id": "unanswerable-010",
+    "query": "Several of these papers select genes from expression data for classification. How is the mRMR relevance term adapted when the outcome is a censored survival time rather than a class label — for example, using a Cox proportional-hazards score in place of an F-statistic or mutual information?",
+    "relevant_documents": [],
+    "kind": "unanswerable",
+    "language": "en"
+  },
+  {
+    "id": "unanswerable-011",
+    "query": "Do any of these methods offer a privacy-preserving or differentially private version of mRMR, for the case where the gene expression or customer data cannot leave the institution that holds it?",
+    "relevant_documents": [],
+    "kind": "unanswerable",
+    "language": "en"
+  },
+  {
+    "id": "unanswerable-012",
+    "query": "When the goal is to pick a maximally relevant, minimally redundant subset of training samples rather than of features — instance selection — which criterion do these papers recommend, and how do they measure the redundancy between two samples?",
+    "relevant_documents": [],
+    "kind": "unanswerable",
+    "language": "en"
+  },
+  {
+    "id": "unanswerable-013",
+    "query": "For picking a non-redundant, maximally relevant set of sentences for a text summary, what relevance and redundancy measures do these papers use, and how does their criterion compare with Maximal Marginal Relevance?",
+    "relevant_documents": [],
+    "kind": "unanswerable",
+    "language": "en"
+  },
+  {
+    "id": "unanswerable-014",
+    "query": "On the shared gene expression benchmarks, which achieved the lower false discovery rate — SmRMR (Naylor et al.) or the Boruta–mRMR hybrid of BoMGene?",
+    "relevant_documents": [],
+    "kind": "unanswerable",
+    "language": "en"
+  },
+  {
+    "id": "unanswerable-015",
+    "query": "In the transient stability assessment study on the New England 39-bus system, how did the improved mRMR criterion compare with the Boruta wrapper — which selected fewer features, and which gave the higher classification accuracy?",
+    "relevant_documents": [],
+    "kind": "unanswerable",
+    "language": "en"
+  },
+  {
+    "id": "unanswerable-016",
+    "query": "Which 2026 successor to BoMGene does this collection recommend for gene expression classification, and what accuracy improvement over the Boruta–mRMR hybrid does it report?",
+    "relevant_documents": [],
+    "kind": "unanswerable",
+    "language": "en"
+  },
+  {
+    "id": "unanswerable-017",
+    "query": "What classification accuracy do the mRMR-based selection methods in this corpus reach on the standard image benchmarks — MNIST, CIFAR-10 or ImageNet?",
+    "relevant_documents": [],
+    "kind": "unanswerable",
+    "language": "en"
+  }
+]

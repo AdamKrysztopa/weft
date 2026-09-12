@@ -1,0 +1,16 @@
+name: exit-one
+extends: index-with-raptor
+
+# The one-level arm — `index-with-raptor` with the same two substitutions `exit-leaves` makes,
+# and nothing else. See `exit-leaves.yaml` for why these three documents exist and why they live
+# beside the records rather than in a pack.
+#
+# The summariser is not named here: `raptor` asks for the `index` role, so which model writes a
+# summary is `[llm.roles] index` in the `weft.toml` of whoever runs this — and since task 16.1 a
+# record carries it as `role:index`, which is the fact the 2026-09-07 records could not hold.
+# `replace:`, not `set:` — `set` overrides an existing stage's configuration and its model
+# refuses a `use:` field by name, which is what keeps "change the plugin" and "change its
+# settings" two different operators rather than a convention to remember (`02` §3).
+replace:
+  - {id: extract, use: pdf-text}
+  - {id: embed, use: openai-embeddings}

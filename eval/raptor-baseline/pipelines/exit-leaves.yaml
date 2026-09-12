@@ -1,0 +1,25 @@
+name: exit-leaves
+extends: index-text
+
+# **The leaves arm of the RAPTOR exit measurement — and the first time it exists in the tree.**
+#
+# Phase 10's exit was measured on three documents that lived in a scratch directory and were
+# never committed, so the measurement its fifteen records describe could not be re-taken by
+# anyone, including its author. `eval/raptor-baseline/exit/exit-measurement.json` states what
+# they were — *"each arm replaces the `extract` stage with `pdf-text` and the `embed` stage with
+# `openai-embeddings`, and nothing else"* — and this file is that sentence, executable.
+#
+# **Why it is here rather than in a pack.** These three are not shipped rungs an operator would
+# run; they are the *instrument* of one measurement, and `weft_retrieve`'s own catalogue is for
+# techniques this project publishes. They sit beside the records they produced, which is where a
+# reader who is checking a number will look for them.
+#
+# `pdf-text` and `openai-embeddings` are the only two changes. Every threshold the shipped rung
+# carries is untouched, because what is being measured is the shipped rung against a real
+# embedder — a `hash` embedder builds zero summaries and would measure nothing at all.
+# `replace:`, not `set:` — `set` overrides an existing stage's configuration and its model
+# refuses a `use:` field by name, which is what keeps "change the plugin" and "change its
+# settings" two different operators rather than a convention to remember (`02` §3).
+replace:
+  - {id: extract, use: pdf-text}
+  - {id: embed, use: openai-embeddings}

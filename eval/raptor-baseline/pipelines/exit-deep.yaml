@@ -1,0 +1,11 @@
+name: exit-deep
+extends: index-with-deep-raptor
+
+# The multi-level arm — `index-with-deep-raptor`, which is `index-with-raptor` plus a second
+# `raptor` pass over level 1, with the same two substitutions the other two arms make.
+# `replace:`, not `set:` — `set` overrides an existing stage's configuration and its model
+# refuses a `use:` field by name, which is what keeps "change the plugin" and "change its
+# settings" two different operators rather than a convention to remember (`02` §3).
+replace:
+  - {id: extract, use: pdf-text}
+  - {id: embed, use: openai-embeddings}

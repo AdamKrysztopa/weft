@@ -1,0 +1,141 @@
+{
+  "task": "16a re-measurement",
+  "what_this_is": "The RAPTOR measurement re-taken after Phase 16a, which is the act that phase exists to make meaningful (`12-roadmap.md` §3). Three arms on the ten fetch-tier PDFs, each run given its own fresh store, persisted as `weft eval run` records and held to this statement by `tests/docs/test_raptor_baseline.py`.",
+  "taken_on": "2026-09-12",
+  "why_it_is_not_a_replay": "The 2026-09-07 exit's own question file lived in a scratch directory and was thrown away, so its subject could not be reconstructed — the defect 16.5 and 16.6 were built to end. This set is *derived*: `eval/raptor-baseline/build_questions.py` selects it through `check_questions.reproducible_questions` over the fetch tier, narrowed to PDF-labelled questions, with labels as the manifest's own corpus-relative paths. 83 questions, of which 66 are scoreable for mean_average_precision — which is where the exit's own `n=66` came from, so the two measurements are over the same questions after all, and now provably so: every record carries the question-set digest.",
+  "arms_are": {
+    "leaves": "exit-leaves",
+    "one_level": "exit-one",
+    "multi_level": "exit-deep"
+  },
+  "arms_extend": {
+    "exit-leaves": "index-text",
+    "exit-one": "index-with-raptor",
+    "exit-deep": "index-with-deep-raptor"
+  },
+  "each_arm_replaces": "the `extract` stage with `pdf-text` and the `embed` stage with `openai-embeddings`, and nothing else — so what is measured is the shipped rung, thresholds included, against a real embedder. The three documents are committed at `eval/raptor-baseline/pipelines/`, which the 2026-09-07 exit's were not.",
+  "repetitions_are": "Six for each raptor arm and three for the leaves arm, as the exit's own statement set.",
+  "each_run_has_its_own_store": "Every run truncates `weft_nodes`, `weft_sources` and `weft_node_productions`, asserts the store empty before and non-empty after, and nothing else touches the container while it runs (`L8.30`). Throwaway database `weft_raptor16`, dropped afterwards.",
+  "summariser": "openai:gpt-5.4-mini, via `[llm.roles] index` — recorded on every record as `role:index`, which the 2026-09-07 records could not hold.",
+  "arms": {
+    "exit-deep": {
+      "runs": [
+        "1ff10842-8f96-4528-891a-ce2042942fc3",
+        "3a6ffb72-5507-44f0-8474-0b8419623701",
+        "3d231354-eaf8-4b63-8a84-cf70ad7891e7",
+        "896476ee-f5df-4f72-9550-10c71ed38f03",
+        "e41ba3ec-a240-4adc-ba2a-0212504d989e",
+        "feaf66d9-84fb-4783-b6e9-d2fc0f1737fb"
+      ],
+      "mean": {
+        "mean_average_precision": 0.876894,
+        "mrr@3": 0.888549,
+        "ndcg@3": 0.884455,
+        "precision@3": 0.325567,
+        "recall@3": 0.916568
+      },
+      "spread": {
+        "mean_average_precision": [
+          0.873737,
+          0.883838
+        ],
+        "mrr@3": [
+          0.880117,
+          0.895833
+        ],
+        "ndcg@3": [
+          0.87872,
+          0.890794
+        ],
+        "precision@3": [
+          0.316092,
+          0.333333
+        ],
+        "recall@3": [
+          0.890805,
+          0.932749
+        ]
+      }
+    },
+    "exit-leaves": {
+      "runs": [
+        "5b35442b-2e1c-4c2a-8ece-38f483d67600",
+        "b2b64b98-aa93-4d62-8e57-688327ff4416",
+        "ecbdcbce-e8f0-42ef-acd0-94ba8b637308"
+      ],
+      "mean": {
+        "mean_average_precision": 0.897306,
+        "mrr@3": 0.908436,
+        "ndcg@3": 0.903651,
+        "precision@3": 0.333333,
+        "recall@3": 0.938272
+      },
+      "spread": {
+        "mean_average_precision": [
+          0.896465,
+          0.89899
+        ],
+        "mrr@3": [
+          0.907407,
+          0.910494
+        ],
+        "ndcg@3": [
+          0.902843,
+          0.905267
+        ],
+        "precision@3": [
+          0.333333,
+          0.333333
+        ],
+        "recall@3": [
+          0.938272,
+          0.938272
+        ]
+      }
+    },
+    "exit-one": {
+      "runs": [
+        "663dcb65-8bc3-415f-83d7-f8164a582b9c",
+        "7a65bc17-0623-45e3-b26c-34a6546fd8c8",
+        "924ebb74-5205-4f91-9245-9679930d2df7",
+        "92d415f8-bdc2-4390-9ca6-d1c4e6344589",
+        "bcf3242e-b039-4522-948e-dcd18f587b57",
+        "da116fa9-e393-4324-836c-7ef6d42df816"
+      ],
+      "mean": {
+        "mean_average_precision": 0.878367,
+        "mrr@3": 0.885083,
+        "ndcg@3": 0.882171,
+        "precision@3": 0.326371,
+        "recall@3": 0.911941
+      },
+      "spread": {
+        "mean_average_precision": [
+          0.864478,
+          0.888889
+        ],
+        "mrr@3": [
+          0.869048,
+          0.895833
+        ],
+        "ndcg@3": [
+          0.866047,
+          0.896268
+        ],
+        "precision@3": [
+          0.321429,
+          0.333333
+        ],
+        "recall@3": [
+          0.895833,
+          0.931548
+        ]
+      }
+    }
+  },
+  "what_it_says": "A null result for one-level RAPTOR and a small, reliable *regression* for the multi-level one. Against leaves, one-level's paired interval straddles zero on four of five metrics; multi-level's is entirely below zero on mean_average_precision (-0.023, 95% CI -0.047 to -0.005), mrr@3 and ndcg@3. One-level and multi-level are indistinguishable from each other on every metric. Phase 10 reported a null result and this sharpens it: the deeper variant is not merely no better, it is slightly worse.",
+  "why_the_two_intervals_disagree": "The between-run verdict reports `outside-baseline-spread` on every metric, and it is an artefact: the leaves arm is deterministic, so its three repetitions span zero width and *any* difference falls outside it — which the verdict line says out loud. The paired interval over questions (task 16.9) is the one that answers whether a difference generalises, and it disagrees on four of five metrics. This is the case that task existed for, and it is the reason both are printed rather than one.",
+  "twelve_questions_the_exit_scored_and_this_one_refuses": "`precision@3`, `recall@3`, `ndcg@3` and `mrr@3` report n=54 with 12 excluded, where the 2026-09-07 records report n=66. Task 16.7 is why: a metric named @k that retrieved fewer than k candidates now refuses rather than reporting a number over what it has. So twelve of the exit's own per-question scores were claims its retrieval could not support.",
+  "facts_not_recorded": [],
+  "facts_not_recorded_is": "Empty, and it is the first statement in this tree for which that is true. Every fact `weft eval compare` compares — the corpus digest's basis, the query rung, the distribution versions, the question-set identity and the per-question scores — is carried by all fifteen records. See `tests/docs/test_raptor_baseline.py`, ledger 16.2."
+}
