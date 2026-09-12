@@ -675,7 +675,10 @@ END $$
 #: one — so running it on every provisioning costs nothing once a database is caught up.
 _BACKFILL_NODE_PRODUCTIONS = """
 INSERT INTO weft_node_productions (node_id, production_key, source_id)
-SELECT n.id, md5(array_to_string(ARRAY(SELECT unnest(n.sources) ORDER BY 1), '|')), s
+SELECT n.id,
+       encode(sha256(convert_to(
+           array_to_string(ARRAY(SELECT unnest(n.sources) ORDER BY 1), '|'), 'UTF8')), 'hex'),
+       s
 FROM weft_nodes n, unnest(n.sources) AS s
 WHERE NOT EXISTS (SELECT 1 FROM weft_node_productions p WHERE p.node_id = n.id)
 """
@@ -684,12 +687,17 @@ WHERE NOT EXISTS (SELECT 1 FROM weft_node_productions p WHERE p.node_id = n.id)
 def _production_key(sources: frozenset[SourceId]) -> str:
     """The digest that groups a production's rows in `weft_node_productions`.
 
-    Decision 2 — a digest of the production's own sorted source ids, so writing the same node
-    from the same document set twice contributes one production, computed the same way both
-    times, and idempotent re-indexing does not accumulate a duplicate one. Its own algorithm from
-    `_BACKFILL_NODE_PRODUCTIONS`'s `md5(...)`, because the two never have to agree — a migrated
-    production and a freshly written one distinguish source sets exactly as well as each other
-    without ever needing to share a key.
+    A digest of the production's own sorted source ids, so writing the same node from the same
+    document set twice contributes one production and idempotent re-indexing does not accumulate
+    a duplicate.
+
+    **`_BACKFILL_NODE_PRODUCTIONS` computes the identical digest in SQL, and that agreement is
+    the point.** It was first written with `md5(...)` on the argument that the two never have to
+    match — which is true, because a migrated production and a fresh one taint together whatever
+    they are keyed on. What it cost was a node that had been migrated *and* re-indexed carrying
+    two production rows for one source set, and five lines of docstring explaining why that was
+    harmless. Making them agree is one SQL expression and deletes both (`L8.2`: a justification
+    longer than the repair is the wrong artefact).
     """
     return sha256("|".join(sorted(sources)).encode("utf-8")).hexdigest()
 
