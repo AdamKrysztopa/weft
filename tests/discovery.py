@@ -120,10 +120,53 @@ def register_out_of_tree_examples(registry: Registry) -> None:
             sys.path.remove(str(src_dir))
 
 
+def is_an_example_pack(example_dir: Path) -> bool:
+    """Whether this example registers anything — i.e. whether it is a pack at all.
+
+    **Added at task 24.3, when `examples/` stopped holding only packs.**
+    `examples/weft-example-app` is an *application*: no `weft.packs` entry point, no `src/` tree,
+    no `register()`, and the registry never hears of it, because what it proves is the consumer
+    side of fitness function 9 rather than the extension side. Every caller of
+    `example_pack_dirs` is about packs, and while the population was *every directory with a
+    `pyproject.toml`* the first non-pack made five checks raise `KeyError` or `FileNotFoundError`
+    rather than refuse anything.
+
+    Read from the property the callers are actually about — declaring a `weft.packs` entry point
+    — rather than from a name list, which would be a list to remember to edit.
+    """
+    with (example_dir / "pyproject.toml").open("rb") as handle:
+        project = tomllib.load(handle).get("project", {})
+    return "weft.packs" in project.get("entry-points", {})
+
+
 def example_pack_dirs() -> tuple[Path, ...]:
-    """Every `examples/*` directory carrying a `pyproject.toml`, read from the listing itself."""
+    """Every `examples/*` **pack** directory, read from the listing itself and filtered by
+    `is_an_example_pack` — see its docstring for what stopped being true at task 24.3."""
     examples_root = Path(__file__).resolve().parents[1] / "examples"
-    return tuple(sorted(p for p in examples_root.iterdir() if (p / "pyproject.toml").is_file()))
+    return tuple(
+        sorted(
+            p
+            for p in examples_root.iterdir()
+            if (p / "pyproject.toml").is_file() and is_an_example_pack(p)
+        )
+    )
+
+
+def example_non_pack_dirs() -> tuple[Path, ...]:
+    """Every `examples/*` directory that is *not* a pack.
+
+    Exists so the filter above can be shown to exclude something: a filter that excludes nothing
+    is indistinguishable from no filter, and this one was added precisely because that directory
+    stopped being homogeneous.
+    """
+    examples_root = Path(__file__).resolve().parents[1] / "examples"
+    return tuple(
+        sorted(
+            p
+            for p in examples_root.iterdir()
+            if (p / "pyproject.toml").is_file() and not is_an_example_pack(p)
+        )
+    )
 
 
 def _distribution_name(example_dir: Path) -> str:

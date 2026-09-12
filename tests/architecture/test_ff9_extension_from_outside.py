@@ -85,6 +85,7 @@ from typing import Final
 
 import pytest
 
+from tests.discovery import example_pack_dirs
 from weft_kernel.discovery import PackRegistrar
 
 from .conftest import str_list_at, table_at
@@ -112,14 +113,13 @@ EXAMPLE_MODULE: Final[str] = _EXAMPLE_PROJECT["entry-points"]["weft.packs"][
 ].split(":")[0]  # "weft_example_chunker"
 EXAMPLE_PLUGIN_NAME: Final[str] = "example-chunker"  # docs/06 step 10: "registering one chunker"
 
+
 #: Every out-of-tree example pack under `examples/` — read from the directory listing itself,
 #: the identical pattern `test_ff9c_every_contract_has_a_stranger.py`'s `_EXAMPLE_DIRS` uses,
 #: so a fifth example pack extends clause (b)'s scan below without an edit here. Clause (a)'s
 #: own end-to-end test above stays pinned to `EXAMPLE_DIR` alone — one real pipeline is what
 #: that test proves, and it does not need every pack to prove it once.
-_ALL_EXAMPLE_DIRS: Final[tuple[Path, ...]] = tuple(
-    sorted(p for p in EXAMPLES_ROOT.iterdir() if (p / "pyproject.toml").is_file())
-)
+_ALL_EXAMPLE_DIRS: Final[tuple[Path, ...]] = example_pack_dirs()
 
 
 class _NameCapturingRegistrar:

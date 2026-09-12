@@ -60,6 +60,7 @@ from typing import Final
 
 import pytest
 
+from tests.discovery import example_non_pack_dirs, example_pack_dirs
 from weft_engine.contract_reference import discover_for_reference, published_contracts
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
@@ -107,11 +108,15 @@ FIRST_PARTY_DISTRIBUTIONS: Final[tuple[str, ...]] = tuple(
     sorted(p.name for p in PACKAGES_ROOT.iterdir() if (p / "pyproject.toml").is_file())
 )
 
-#: Every out-of-tree example pack — read from `examples/`'s own directory listing, the
-#: identical pattern applied one level up.
-_EXAMPLE_DIRS: Final[tuple[Path, ...]] = tuple(
-    sorted(p for p in EXAMPLES_ROOT.iterdir() if (p / "pyproject.toml").is_file())
-)
+
+#: Every out-of-tree example **pack** — `tests.discovery` owns the filter, because that listing
+#: has held a non-pack since task 24.3 and five checks read it.
+_EXAMPLE_DIRS: Final[tuple[Path, ...]] = example_pack_dirs()
+
+#: Everything under `examples/` that is *not* a pack. Pinned as a non-empty expectation rather
+#: than discarded: a filter that excludes nothing is a filter nobody can tell is working, and
+#: this one exists precisely because the directory's contents stopped being homogeneous.
+_EXAMPLE_NON_PACKS: Final[tuple[Path, ...]] = example_non_pack_dirs()
 
 #: The probe every throwaway environment runs, once per example pack. `capability_siblings`
 #: is imported from the installed `weft-cli` wheel rather than reimplemented — see the module
@@ -518,3 +523,18 @@ def test_the_grep_can_actually_be_wrong_about_leakage(tmp_path: Path) -> None:
         if p and (p == str(REPO_ROOT) or p.startswith(str(REPO_ROOT) + "/"))
     ]
     assert leaked == [str(REPO_ROOT)]
+
+
+def test_the_pack_filter_excludes_something() -> None:
+    """`_EXAMPLE_DIRS` is filtered, and a filter that excludes nothing asserts nothing.
+
+    `examples/weft-example-app` is the one non-pack today. If it ever becomes a pack, or is
+    removed, this fails and whoever did it decides whether the filter still has a subject —
+    rather than the filter quietly becoming an identity nobody notices.
+    """
+    assert _EXAMPLE_DIRS, "no example pack was found at all — the walk itself broke"
+    assert _EXAMPLE_NON_PACKS, (
+        "every directory under examples/ declares a weft.packs entry point, so the pack filter "
+        "excludes nothing and is indistinguishable from no filter. Either the consumer example "
+        "was removed or it grew an entry point; decide which, here."
+    )

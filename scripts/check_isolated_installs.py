@@ -22,6 +22,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from typing import Final
 
 from publish_set import Member, PublishSetUnreadableError, publishing_members
 
@@ -207,6 +208,90 @@ def _degradation_probe(member: Member, wheelhouse: Path) -> subprocess.Completed
     )
 
 
+EXAMPLE_APP_DIR: Final[Path] = Path(__file__).resolve().parents[1] / "examples" / "weft-example-app"
+
+#: The bridge this script supplies on the application's behalf. It is *here*, in a command
+#: string, rather than in `app.py`, because fitness function 7(a) asserts there is exactly one
+#: `asyncio.run` in this tree and `01` → *Fitness functions* states that as settled text. An
+#: example application that carried its own would be a second one, and adding a waiver for it
+#: would be exactly the proviso `phase-step` refuses in place of reopening the decision. The
+#: shape is also the truer one: the realistic embedding already has a loop.
+_BRIDGE: Final[str] = (
+    "import asyncio, sys; sys.path.insert(0, {directory!r}); import app; asyncio.run(app.main())"
+)
+
+#: What `examples/weft-example-app/app.py` exits when `WEFT_DATABASE_URL` is unset. It is a
+#: distinct code rather than `1` so this script can tell *the wheel does not work* from *this
+#: machine has no Postgres* — the first is a failure, the second is an environment, and a check
+#: that conflated them would be green on a laptop and meaningless in CI, or the reverse.
+NO_DATABASE: Final[int] = 2
+
+
+def _run_example_app(wheelhouse: Path) -> subprocess.CompletedProcess[str]:
+    """Install the two published wheels alone and run an application that extends nothing.
+
+    **The other half of fitness function 9, and the half no example covered until task 24.3.**
+    Every other directory under `examples/` is a pack: it registers a plugin through a
+    `weft.packs` entry point and proves that a capability can be *added* from outside. This
+    proves that Weft can be *consumed* from outside — that somebody who writes no plugin, declares
+    no entry point and is never seen by the registry can install the wheel and drive it. The two
+    are different claims about the same boundary and only one of them was checked.
+
+    It is run from the wheelhouse rather than from the checkout deliberately (`L7.6`): an editable
+    install answers a packaging question differently from a real one, and the packaging question
+    is the whole subject here.
+    """
+    command = [
+        "uv",
+        "run",
+        "--isolated",
+        "--no-project",
+        "--find-links",
+        str(wheelhouse),
+        "--with",
+        "weft-rag",
+        "--with",
+        "weft-kernel",
+        "python",
+        "-c",
+        _BRIDGE.format(directory=str(EXAMPLE_APP_DIR)),
+    ]
+
+    # Fixed argv, no shell, nothing user-controlled.
+    return subprocess.run(command, capture_output=True, text=True, check=False)  # noqa: S603
+
+
+def _report_example_app(wheelhouse: Path) -> list[str]:
+    """Run the example application and say which of its three outcomes happened.
+
+    Extracted rather than inlined into `main`: it is three branches, and `main` was one under
+    ruff's complexity ceiling before this task added them (`implementer-brief.md` check 5 — the
+    choice between extracting and writing `# noqa: C901` is one of them visible in a diff).
+    """
+    app = _run_example_app(wheelhouse)
+    sys.stdout.write(app.stdout)
+    sys.stderr.write(app.stderr)
+    if app.returncode == 0:
+        sys.stdout.write(
+            "weft-example-app: an application that is not a pack installed the published "
+            "wheels and ran to an answer.\n"
+        )
+        return []
+    if app.returncode == NO_DATABASE:
+        sys.stdout.write(
+            "weft-example-app: installed and assembled from the wheels; the answer half needs "
+            "WEFT_DATABASE_URL and this environment has none. Not a failure, and not a pass "
+            "either — say so rather than reporting one of them.\n"
+        )
+        return []
+    sys.stderr.write(
+        "\nweft-example-app does not run against the published wheels. An application that "
+        "extends nothing is the consumer side of fitness function 9, and it is the one a reader "
+        "of the manual actually is.\n"
+    )
+    return ["weft-example-app"]
+
+
 def main() -> int:
     try:
         members = publishing_members()
@@ -286,6 +371,8 @@ def main() -> int:
                     f"down for a capability the operator never asked for.\n"
                 )
                 failures.append(f"{member.name} (degradation)")
+
+        failures.extend(_report_example_app(wheelhouse))
 
     if failures:
         sys.stderr.write(f"\nfailed: {', '.join(sorted(failures))}\n")

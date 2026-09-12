@@ -281,10 +281,19 @@ class Weft:
         """
         return await self._invoke("index", {"path": str(directory)}, yes=yes)
 
-    async def delete(self, source: SourceId | str, *, yes: bool = False) -> CommandResult:
+    async def delete(self, source: SourceId | str | Path, *, yes: bool = False) -> CommandResult:
         """Resolve the `Command` registered as `"delete"` and run it against `source`.
 
         `source_id`, for the reason `index` above states about `path`.
+
+        **`Path` is in the union because a source id usually is one.** `weft index` records the
+        *resolved* path of every file it read, so the natural thing to hand this method is the
+        same `Path` that was handed to `index` — and the first application written against it did
+        exactly that and failed type checking (`examples/weft-example-app/app.py`). Accepting
+        only `str` would make every caller write `str(...)` at a seam where a path is the honest
+        value. Resolving is still the caller's: an unresolved path names a source nothing holds,
+        and the run reports `0 node(s) removed` rather than an error, because deleting what is
+        not there is not a failure.
         """
         return await self._invoke("delete", {"source_id": str(source)}, yes=yes)
 

@@ -1,0 +1,26 @@
+[project]
+name = "weft-example-app"
+version = "0.0.0"
+description = "An application that embeds Weft — not a pack. Proves the wheel is usable by a consumer that extends nothing."
+requires-python = ">=3.12"
+# **The only example under `examples/` that is not a pack, and that is the point.** Every other
+# one registers a plugin through a `weft.packs` entry point and proves fitness function 9: a
+# capability can be added from outside, one package, zero core edits. This proves the other half
+# of the same boundary — that somebody who extends *nothing* can install the published wheel and
+# drive Weft from their own process. It declares no entry point, ships no `src/` tree, and the
+# registry never hears of it.
+#
+# Two dependencies, the two names Weft publishes (G19, 2026-09-09). An application depends on the
+# distribution that ships the verb, exactly as a pack depends on the distribution that publishes
+# the contract it registers against — the same rule `examples/weft-example-command/pyproject.toml`
+# states for `weft-command`, read from the consuming side.
+dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-rag>=2.5.0,<3.0.0"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+# One file, no package. Hatchling needs telling, because there is no `src/<name>` to infer from.
+only-include = ["app.py"]
+sources = ["."]
