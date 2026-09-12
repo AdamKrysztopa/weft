@@ -82,10 +82,12 @@ from weft_cli.config_commands import ConfigGetCommandResult, ConfigSetCommandRes
 from weft_cli.deletion import ParticipantOutcome
 from weft_cli.error_envelope import build_error_envelope
 from weft_cli.eval_commands import (
+    BaselineSelection,
     EvalCompareCommandResult,
     EvalMetricsCommandResult,
     EvalRunCommandResult,
     MetricComparison,
+    QueryRungDifference,
     TraceCommandResult,
 )
 from weft_cli.exit_codes import exit_code_for
@@ -112,7 +114,7 @@ from weft_command import Rendered as Rendered
 from weft_command.contract import CommandResult
 from weft_eval.contract import MetricKind
 from weft_eval.falsify import BaselineSpread, DifferenceJudgement
-from weft_eval.run_record import MetricRunResult
+from weft_eval.run_record import MetricRunResult, NoQueryRung, QueryRung
 from weft_generate.payload import AnswerStance, Citation
 from weft_kernel.discovery import PackRegistrar, PackReport, PackStatus, RendererOffer
 from weft_kernel.errors import WeftError
@@ -865,13 +867,47 @@ def _falsification_lines(
     return lines
 
 
+def _query_rung_side_text(rung: QueryRung | NoQueryRung | None) -> str:
+    """One side of a `QueryRungDifference`, rendered for the `vs` line — task 16.1. Narrower
+    than `_query_rung_text`: an identity or a `NoQueryRung.reason` would make the comparison
+    line unreadable, and the two sides being *named* differently is the whole fact this line
+    exists to report.
+    """
+    if rung is None:
+        return "(not recorded)"
+    if isinstance(rung, NoQueryRung):
+        return "(none named)"
+    return f"'{rung.name}'"
+
+
+def _query_rung_difference_lines(query_rungs: QueryRungDifference | None) -> list[str]:
+    """One line naming both sides' query rung, only when they differ — task 16.1. A comparison
+    does not report a fact that did not move, the same posture the pipeline diff and the
+    metrics comparison already take for anything unchanged.
+    """
+    if query_rungs is None or query_rungs.a == query_rungs.b:
+        return []
+    a_text = _query_rung_side_text(query_rungs.a)
+    b_text = _query_rung_side_text(query_rungs.b)
+    return [f"query rung: {a_text} vs {b_text}"]
+
+
+def _baseline_selection_line(selection: BaselineSelection) -> str:
+    """Which rule chose `--baseline`'s repetitions — task 16.1, printed so a reader of a
+    verdict can tell a rung-matched spread from a pipeline-matched one.
+    """
+    return f"baseline selection: {selection.value}"
+
+
 def _render_eval_compare(result: EvalCompareCommandResult) -> Rendered:
     """`weft eval compare` — reached only once `weft_cli.eval_commands.EvalCompareCommand`
     has already confirmed corpus, model versions and active distributions all agree
     (`IncomparableRunsError` otherwise), so this prints that confirmation, the pipeline diff
     itself (reusing `_pipeline_diff_lines` rather than a second formatter), and — task 4.9 —
     the per-metric comparison the tool generates itself: what the two pipelines *produced*,
-    not only how they resolve.
+    not only how they resolve. Task 16.1 adds one more line — see
+    `_query_rung_difference_lines` — printed only when the two runs' query rungs actually
+    differ; the rung is the subject of the comparison, never a reason to refuse it.
 
     **Task 8.8's own falsification block, printed only when `result.falsification is not
     None`** — a plain `weft eval compare` with no `--baseline` invents no verdict, so it prints
@@ -882,6 +918,7 @@ def _render_eval_compare(result: EvalCompareCommandResult) -> Rendered:
         f"'{result.run_a}' vs '{result.run_b}' — same corpus, model versions and active "
         f"distributions; pipeline is the only fact that may differ:",
         *_pipeline_diff_lines(result.pipeline_diff),
+        *_query_rung_difference_lines(result.query_rungs),
         *_metrics_comparison_lines(result.metrics_comparison),
     ]
     if result.falsification is not None:
@@ -889,6 +926,8 @@ def _render_eval_compare(result: EvalCompareCommandResult) -> Rendered:
         lines.extend(
             _falsification_lines(baseline_pipeline, result.baseline_runs, result.falsification)
         )
+        if result.baseline_selection is not None:
+            lines.append(_baseline_selection_line(result.baseline_selection))
     return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
 
 
@@ -923,18 +962,32 @@ def _grouped_metric_lines(metrics: Mapping[str, MetricRunResult]) -> list[str]:
     return lines
 
 
+def _query_rung_text(rung: QueryRung | NoQueryRung | None) -> str:
+    """`record.query_rung`, rendered — task 16.1. Three states, three readings: a reader must
+    not confuse *not recorded* (every record written before this task) with *this run named
+    none* (`NoQueryRung`, a measurement in its own right — see that class's own docstring).
+    """
+    if rung is None:
+        return "(not recorded)"
+    if isinstance(rung, NoQueryRung):
+        return f"(none named — {rung.reason})"
+    return f"'{rung.name}' ({rung.identity[:12]}…)"
+
+
 def _render_trace(result: TraceCommandResult) -> Rendered:
     """`weft trace` — every fact `weft_eval.run_record.RunRecord` carries, and nothing this
     module invents on top of it (Q2, `weft_cli.eval_commands`'s own module docstring: this is
     what the persisted record holds, never a stage-level replay nothing in this tree persists).
     Task 4.9 widened the record by one field, `metrics`, so this widens by one block to match.
-    Task 9.12 groups that block by `MetricKind` — see `_grouped_metric_lines`.
+    Task 9.12 groups that block by `MetricKind` — see `_grouped_metric_lines`. Task 16.1 widens
+    it by one more line, `query rung` — see `_query_rung_text`.
     """
     record = result.record
     lines = [
         f"run {result.run_id} — recorded {record.recorded_at}",
         f"pipeline: {record.resolved_pipeline.name}",
         f"corpus: '{record.corpus.name}' ({record.corpus.digest[:12]}…)",
+        f"query rung: {_query_rung_text(record.query_rung)}",
         f"model versions: {dict(record.model_versions) or '(none recorded)'}",
         f"active distributions: {', '.join(record.active_distributions) or '(none)'}",
     ]

@@ -740,7 +740,7 @@ class SelectedCapabilityMissingError(PipelineResolutionError, UnresolvedNameErro
     `pgvector` — a remedy nobody could carry out. Every other call site was a test supplying that
     name by hand, which is exactly why none of them could catch it. Repaired at ledger task
     **11.10**: `weft_cli.route_ask._run_pipeline`'s own `check_store_capabilities` call
-    (`weft_cli/route_ask.py:636 'contracts ='`) now takes `store_name` as a parameter fed from
+    (`weft_cli/route_ask.py:617 'contracts ='`) now takes `store_name` as a parameter fed from
     `[services] store` itself, threaded down from each of that module's three call sites, rather
     than deriving one from the instance.
 

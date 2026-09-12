@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
@@ -48,19 +49,20 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from weft_cli.ask import run_ask
 from weft_cli.llm_roles import LLMSection
-from weft_cli.route_ask import run_named_ask
+from weft_cli.route_ask import resolve_named_pipeline, run_named_ask
 from weft_cli.service_roles import RoleTable
 from weft_cli.services import ServiceSelection
 from weft_embed import Embedder
 from weft_eval.aggregate import MetricAggregate
 from weft_eval.contract import QueryModality, RetrievalSample, RetrievedPassage
 from weft_eval.harness import score_retrieval_gate_subset
+from weft_eval.run_record import NoQueryRung, QueryRung, ScoredQueryRung
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackReport
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import Node, Outcome
 from weft_kernel.registry import Registry
-from weft_kernel.resolution import Contribution, ResolvedPipeline, ResolvedStage
+from weft_kernel.resolution import Contribution, ResolvedPipeline, ResolvedStage, pipeline_identity
 from weft_llm.client import NullSink
 from weft_llm.contract import TokenSink
 from weft_retrieve.payload import Passage
@@ -257,6 +259,18 @@ def _deduplicated_by_document(
     return tuple(passages)
 
 
+@dataclass(frozen=True)
+class ScoredRun:
+    """What `score_pipeline` measured, and the query rung it measured it with — task 16.1.
+
+    Two facts rather than one return value, because a record needs both and deriving the
+    second anywhere else would mean resolving the rung a second time.
+    """
+
+    metrics: Mapping[str, Outcome[MetricAggregate]]
+    query_rung: ScoredQueryRung
+
+
 async def score_pipeline(
     *,
     registry: Registry,
@@ -271,9 +285,10 @@ async def score_pipeline(
     roles: RoleTable | None = None,
     sink: TokenSink | None = None,
     contributions: tuple[Contribution, ...] = (),
-) -> Mapping[str, Outcome[MetricAggregate]]:
+) -> ScoredRun:
     """Retrieve for every one of `questions` and score the gate-safe `RetrievalMetric` subset
-    over the result.
+    over the result. Returns a `ScoredRun`: the scores, and the query rung they were scored
+    with.
 
     **`query_pipeline`, ledger task 7.5 — the query rung Phase 8's exit needed measurable.**
     `None` (the default) is exactly today's behaviour, unchanged: `run_ask`, plain vector
@@ -286,6 +301,18 @@ async def score_pipeline(
     this path — `weft_cli.eval_commands.EvalRunCommand.run` already has all five in scope from
     its own `Dependencies`, the identical set `run_named_ask`'s other caller, `AskCommand`,
     already threads through.
+
+    **Task 16.1 — one resolution answers for both the run and the record.** When `query_pipeline`
+    is given, it is resolved exactly once, before the question loop, through
+    `weft_cli.route_ask.resolve_named_pipeline` — the same `resolve_in_catalogue` every
+    per-question `run_named_ask` call below resolves through — and `ScoredRun.query_rung`
+    carries `QueryRung(name=query_pipeline, identity=pipeline_identity(resolved))`. The
+    per-question `run_named_ask` calls are unchanged: they resolve again internally, and
+    `resolve` is pure, so the identity recorded is the identity each question actually ran
+    under, never a second, possibly-divergent resolution's. When `query_pipeline` is `None`,
+    `ScoredRun.query_rung` is a `NoQueryRung` naming what retrieved instead — the ingest
+    pipeline's own `Embedder`/`NodeStore` stages — because that absence is itself a
+    measurement, not a gap: see `weft_eval.run_record.NoQueryRung`'s own docstring.
 
     Raises `PipelineNotRetrievableError` if `resolved_pipeline` (the *ingest* pipeline
     `--questions` was corroborated over) names no `Embedder`/`NodeStore` stage — checked
@@ -303,6 +330,23 @@ async def score_pipeline(
             f"pipeline '{resolved_pipeline.name}' has no stage registered under the "
             f"{missing} contract, so --questions has nothing to retrieve against.",
             pipeline=resolved_pipeline.name,
+        )
+
+    query_rung: ScoredQueryRung
+    if query_pipeline is not None:
+        resolved_rung = resolve_named_pipeline(
+            query_pipeline,
+            registry=registry,
+            reports=reports,
+            contributions=contributions,
+        )
+        query_rung = QueryRung(name=query_pipeline, identity=pipeline_identity(resolved_rung))
+    else:
+        query_rung = NoQueryRung(
+            reason=(
+                "no query rung was named — retrieval ran against the ingest pipeline's own "
+                f"Embedder ('{embed_stage.use}') and NodeStore ('{store_stage.use}') stages"
+            )
         )
 
     samples: list[RetrievalSample] = []
@@ -343,7 +387,8 @@ async def score_pipeline(
             )
         )
 
-    return await score_retrieval_gate_subset(registry, samples, top_k=top_k, ctx=ctx)
+    metrics = await score_retrieval_gate_subset(registry, samples, top_k=top_k, ctx=ctx)
+    return ScoredRun(metrics=metrics, query_rung=query_rung)
 
 
 __all__ = [
@@ -351,6 +396,7 @@ __all__ = [
     "PipelineNotRetrievableError",
     "Question",
     "QuestionsFileError",
+    "ScoredRun",
     "load_questions",
     "passages_for_scoring",
     "score_pipeline",

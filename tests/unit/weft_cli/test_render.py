@@ -38,6 +38,7 @@ from weft_cli.output import AskFormat
 from weft_cli.reconcile import ReconcileEstimateOutcome, ReconcileOutcome
 from weft_cli.render import render_applies_to
 from weft_command.contract import CommandResult
+from weft_eval.run_record import ScoredQueryRung
 from weft_generate.payload import Answer, AnswerStance, Citation
 from weft_kernel.discovery import PackRegistrar, PackReport, PackStatus
 from weft_kernel.errors import WeftError
@@ -809,7 +810,12 @@ def test_render_config_set_names_the_key_the_value_and_the_file() -> None:
     assert rendered.stdout == "set services.embed = openai in weft.toml."
 
 
-def _run_record(*, pipeline_name: str = "index", corpus_digest: str = "a" * 64):
+def _run_record(
+    *,
+    pipeline_name: str = "index",
+    corpus_digest: str = "a" * 64,
+    query_rung: ScoredQueryRung | None = None,
+):
     from weft_eval.run_record import CorpusIdentity, RunRecord
     from weft_kernel.resolution import ResolvedPipeline
 
@@ -817,6 +823,7 @@ def _run_record(*, pipeline_name: str = "index", corpus_digest: str = "a" * 64):
         recorded_at="2026-08-20T00:00:00+00:00",
         resolved_pipeline=ResolvedPipeline(name=pipeline_name),
         corpus=CorpusIdentity(name="corpus", digest=corpus_digest),
+        query_rung=query_rung,
     )
 
 
@@ -974,6 +981,95 @@ def test_render_trace_prints_every_field_the_run_record_carries() -> None:
     assert "model versions: (none recorded)" in rendered.stdout
     assert "active distributions: (none)" in rendered.stdout
     assert "metrics: (none recorded" in rendered.stdout
+    # Task 16.1 — the record under test predates the field, and `weft trace` must say so rather
+    # than print nothing, which is what the phase Exit's third clause asks of every new field.
+    assert "query rung: (not recorded)" in rendered.stdout
+
+
+def test_render_trace_distinguishes_a_named_rung_from_a_run_that_named_none() -> None:
+    """Task **16.1**. Three states reach this renderer and each must read differently — a
+    reader who cannot tell *"nobody recorded it"* from *"this run used plain vector top-k"*
+    cannot tell an old baseline from a deliberate one.
+    """
+    from weft_cli.eval_commands import TraceCommandResult
+    from weft_eval.run_record import NoQueryRung, QueryRung
+
+    # Arrange / Act
+    named = render.render_outcome(
+        Produced(
+            value=TraceCommandResult(
+                run_id="run-1",
+                record=_run_record(
+                    query_rung=QueryRung(name="hybrid-then-generate", identity="cd" * 32)
+                ),
+            )
+        )
+    )
+    none_named = render.render_outcome(
+        Produced(
+            value=TraceCommandResult(
+                run_id="run-2",
+                record=_run_record(query_rung=NoQueryRung(reason="no query rung was named")),
+            )
+        )
+    )
+
+    # Assert
+    assert named.stdout is not None
+    assert none_named.stdout is not None
+    assert "query rung: 'hybrid-then-generate' (cdcdcdcdcdcd…)" in named.stdout
+    assert "hybrid-then-generate" not in none_named.stdout
+    assert "(not recorded)" not in none_named.stdout, (
+        "a run that named no rung reads as though nobody recorded one, which is the conflation "
+        "the three states exist to prevent"
+    )
+    assert "query rung: (none named" in none_named.stdout
+
+
+def test_render_eval_compare_names_two_rungs_as_a_difference() -> None:
+    """Task **16.1**'s second clause: the rung is printed as a configuration difference. A
+    comparison that refused instead would make the one thing being compared uncomparable.
+    """
+    from weft_cli.eval_commands import (
+        BaselineSelection,
+        EvalCompareCommandResult,
+        QueryRungDifference,
+    )
+    from weft_cli.pipeline_diff import PipelineDiff
+    from weft_eval.run_record import QueryRung
+
+    # Arrange
+    result = EvalCompareCommandResult(
+        run_a="run-a",
+        run_b="run-b",
+        corpus_matches=True,
+        model_versions_match=True,
+        active_distributions_match=True,
+        pipeline_diff=PipelineDiff(
+            a_name="base",
+            b_name="base",
+            identical=True,
+            added_stages=(),
+            removed_stages=(),
+            changed_stages=(),
+            var_changes=(),
+            unapplied_operators_changed=False,
+            unplaced_contributions_changed=False,
+        ),
+        metrics_comparison={},
+        query_rungs=QueryRungDifference(
+            a=QueryRung(name="rung-a", identity="ab" * 32),
+            b=QueryRung(name="rung-b", identity="cd" * 32),
+        ),
+        baseline_selection=BaselineSelection.INGEST_AND_QUERY_RUNG,
+    )
+
+    # Act
+    rendered = render.render_outcome(Produced(value=result))
+
+    # Assert
+    assert rendered.stdout is not None
+    assert "query rung: 'rung-a' vs 'rung-b'" in rendered.stdout
 
 
 def test_render_eval_metrics_names_the_gate_safe_and_gate_unsafe_metrics() -> None:

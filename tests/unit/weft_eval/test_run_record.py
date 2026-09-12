@@ -20,7 +20,9 @@ from weft_eval.aggregate import MetricAggregate
 from weft_eval.run_record import (
     CorpusDigestBasis,
     CorpusIdentity,
+    NoQueryRung,
     NotAggregated,
+    QueryRung,
     RunDurations,
     build_run_record,
     corpus_identity,
@@ -322,3 +324,54 @@ def test_a_record_from_a_file_with_no_basis_key_loads_and_reads_absent(tmp_path:
     # Assert
     assert loaded.corpus_digest_basis is None
     assert loaded.corpus == record.corpus
+
+
+# --- Task 16.1 — a record names the query rung it scored, or says which fact it lacks.
+
+
+def test_a_record_built_without_a_query_rung_does_not_claim_one() -> None:
+    """Three states, because two would conflate two different facts.
+
+    `None` is *not recorded* — every record written before task 16.1, which persisted no query
+    pipeline at all. `NoQueryRung` is *this run named none*, which is a measurement: retrieval
+    ran against the ingest pipeline's own stages. A single nullable field would make a 2026-09-07
+    record and a deliberate plain-vector run indistinguishable, and the second is exactly what a
+    baseline is.
+    """
+    # Arrange / Act
+    record = build_run_record(
+        recorded_at="2026-09-12T00:00:00Z",
+        resolved_pipeline=_resolved_pipeline(),
+        corpus=CorpusIdentity(name="c", digest="d"),
+    )
+
+    # Assert
+    assert record.query_rung is None
+
+
+def test_the_two_query_rung_states_are_distinguishable_after_a_round_trip(tmp_path: Path) -> None:
+    # Arrange — one record per state, written and read back through the persisted form.
+    named = build_run_record(
+        recorded_at="2026-09-12T00:00:00Z",
+        resolved_pipeline=_resolved_pipeline(),
+        corpus=CorpusIdentity(name="c", digest="d"),
+        query_rung=QueryRung(name="hybrid-then-generate", identity="ab" * 32),
+    )
+    none_named = build_run_record(
+        recorded_at="2026-09-12T00:00:00Z",
+        resolved_pipeline=_resolved_pipeline(),
+        corpus=CorpusIdentity(name="c", digest="d"),
+        query_rung=NoQueryRung(reason="no query rung was named"),
+    )
+
+    # Act
+    read_named = load_run_record(write_run_record(named, tmp_path / "a.json"))
+    read_none = load_run_record(write_run_record(none_named, tmp_path / "b.json"))
+
+    # Assert — the union resolves to the member it was written as, which is what the two
+    # members not sharing a field name buys (`MetricRunResult`'s own reason to be a union).
+    assert isinstance(read_named.query_rung, QueryRung)
+    assert read_named.query_rung.name == "hybrid-then-generate"
+    assert isinstance(read_none.query_rung, NoQueryRung)
+    assert read_named == named
+    assert read_none == none_named

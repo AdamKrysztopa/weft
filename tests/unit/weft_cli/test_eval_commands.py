@@ -26,6 +26,7 @@ there is nothing to judge, is `tests/unit/weft_eval/test_falsify.py`.
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any, ClassVar, cast
@@ -37,6 +38,7 @@ from weft_chunk import Chunker
 from weft_cli import eval_commands as eval_commands_module
 from weft_cli import ingest as ingest_module
 from weft_cli.eval_commands import (
+    BaselineSelection,
     EmptyCorpusError,
     EvalCompareArgs,
     EvalCompareCommand,
@@ -54,6 +56,7 @@ from weft_cli.eval_commands import (
     TraceCommandResult,
     UnknownRunIdError,
 )
+from weft_cli.eval_scoring import ScoredRun
 from weft_cli.pipeline_catalogue import UnknownPipelineNameError
 from weft_cli.registry_bootstrap import Dependencies
 from weft_cli.services import ServiceSelection
@@ -65,8 +68,11 @@ from weft_eval.offline import MetricNeedsCredentialsError, UnknownMetricNameErro
 from weft_eval.run_record import (
     CorpusDigestBasis,
     CorpusIdentity,
+    NoQueryRung,
     NotAggregated,
+    QueryRung,
     RunRecord,
+    ScoredQueryRung,
     build_run_record,
     write_run_record,
 )
@@ -391,20 +397,23 @@ async def test_eval_run_with_questions_folds_the_scored_metrics_into_the_record(
     questions_path = tmp_path / "questions.json"
     questions_path.write_text('[{"query": "q", "relevant_documents": ["doc-a"]}]')
 
-    async def _fake_score_pipeline(**kwargs: object) -> dict[str, Outcome[MetricAggregate]]:
+    async def _fake_score_pipeline(**kwargs: object) -> ScoredRun:
         del kwargs
-        return {
-            "precision@5": Produced(
-                value=MetricAggregate(
-                    reported_name="precision@5",
-                    mean=0.8,
-                    n=1,
-                    stdev=None,
-                    excluded=0,
-                    nothing_to_produce=0,
+        return ScoredRun(
+            metrics={
+                "precision@5": Produced(
+                    value=MetricAggregate(
+                        reported_name="precision@5",
+                        mean=0.8,
+                        n=1,
+                        stdev=None,
+                        excluded=0,
+                        nothing_to_produce=0,
+                    )
                 )
-            )
-        }
+            },
+            query_rung=NoQueryRung(reason="no query rung was named"),
+        )
 
     monkeypatch.setattr(eval_commands_module, "score_pipeline", _fake_score_pipeline)
     deps = _deps()
@@ -572,6 +581,7 @@ def _write_record(
     metrics: dict[str, Outcome[MetricAggregate]] | None = None,
     digest: str = "a" * 64,
     corpus_digest_basis: CorpusDigestBasis | None = None,
+    query_rung: ScoredQueryRung | None = None,
 ) -> None:
     """`corpus_digest_basis` defaults to `None` because that is what every record already
     committed carries — task 16.0's own constraint. A test wanting a record written *after*
@@ -583,6 +593,7 @@ def _write_record(
         corpus=CorpusIdentity(name=corpus_name, digest=digest),
         metrics=metrics or {},
         corpus_digest_basis=corpus_digest_basis,
+        query_rung=query_rung,
     )
     write_run_record(record, directory / "runs" / f"{run_id}.json")
 
@@ -1199,3 +1210,204 @@ def _corpus_of(outcome: object) -> str:
     result = cast("Any", outcome).value
     digest: str = result.record.corpus.digest
     return digest
+
+
+# --- Task 16.1 — a query rung is a configuration difference, never a repetition.
+
+
+def _rung(name: str) -> QueryRung:
+    """A rung whose identity is derived from its name, so two named rungs never collide and the
+    same name twice never differs. The real identity is `pipeline_identity`'s; what these tests
+    need is only that it distinguishes.
+    """
+    return QueryRung(name=name, identity=hashlib.sha256(name.encode()).hexdigest())
+
+
+async def test_two_runs_differing_only_by_query_rung_compare_rather_than_refuse(
+    tmp_path: Path,
+) -> None:
+    """The rung is the subject of the comparison, so it must not join `_incomparable_reasons`.
+
+    Corpus, model versions and distributions all agree; only the query rung differs. That is a
+    configuration difference `weft eval compare` reports — the opposite of the corpus case, where
+    a difference destroys the comparison.
+    """
+    # Arrange
+    _write_record(
+        tmp_path, "run-a", pipeline_name="base", corpus_name="corpus", query_rung=_rung("rung-a")
+    )
+    _write_record(
+        tmp_path, "run-b", pipeline_name="base", corpus_name="corpus", query_rung=_rung("rung-b")
+    )
+
+    # Act
+    outcome = await EvalCompareCommand().run(EvalCompareArgs(a="run-a", b="run-b"), _ctx(_deps()))
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = outcome.value
+    assert isinstance(result, EvalCompareCommandResult)
+    assert result.query_rungs is not None
+    assert result.query_rungs.a == _rung("rung-a")
+    assert result.query_rungs.b == _rung("rung-b")
+
+
+async def test_a_baseline_does_not_count_a_different_rung_among_its_repetitions(
+    tmp_path: Path,
+) -> None:
+    """The defect, stated as a test. `--baseline` selected every persisted run whose *ingest*
+    pipeline matched, so a run of a different query rung over the same index was folded into the
+    spread the verdict is measured against — noise from a configuration change, read as
+    run-to-run variability. `01:1173-1174` says so in prose and nothing enforced it.
+    """
+    # Arrange — three repetitions of the rung under test, and one of a different rung whose
+    # score is far outside their spread. It must not be selected.
+    for run_id, mean in (("base-1", 0.40), ("base-2", 0.42), ("base-3", 0.41)):
+        _write_record(
+            tmp_path,
+            run_id,
+            pipeline_name="vector-top-k",
+            corpus_name="corpus",
+            metrics={"precision@5": _aggregate("precision@5", mean)},
+            query_rung=_rung("rung-a"),
+        )
+    _write_record(
+        tmp_path,
+        "other-rung",
+        pipeline_name="vector-top-k",
+        corpus_name="corpus",
+        metrics={"precision@5": _aggregate("precision@5", 0.95)},
+        query_rung=_rung("rung-b"),
+    )
+    _write_record(
+        tmp_path,
+        "run-a",
+        pipeline_name="vector-top-k",
+        corpus_name="corpus",
+        metrics={"precision@5": _aggregate("precision@5", 0.41)},
+        query_rung=_rung("rung-a"),
+    )
+    _write_record(
+        tmp_path,
+        "run-b",
+        pipeline_name="hybrid",
+        corpus_name="corpus",
+        metrics={"precision@5": _aggregate("precision@5", 0.57)},
+        query_rung=_rung("rung-a"),
+    )
+
+    # Act
+    outcome = await EvalCompareCommand().run(
+        EvalCompareArgs(a="run-a", b="run-b", baseline="vector-top-k"), _ctx(_deps())
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = outcome.value
+    assert isinstance(result, EvalCompareCommandResult)
+    assert set(result.baseline_runs) == {"base-1", "base-2", "base-3"}, (
+        "a run of a different query rung was counted as a repetition of this one, so its own "
+        "configuration difference is inside the spread the verdict is judged against"
+    )
+    assert result.baseline_selection is BaselineSelection.INGEST_AND_QUERY_RUNG
+
+
+async def test_a_baseline_keys_on_the_ingest_pipeline_alone_when_a_record_names_no_rung(
+    tmp_path: Path,
+) -> None:
+    """Every record written before 16.1 carries no rung at all, and those baselines stay usable.
+
+    The fallback is not silent: the result says which rule selected the repetitions, so a reader
+    of a verdict can tell a rung-matched spread from a pipeline-matched one.
+    """
+    # Arrange — two repetitions that predate the field, and an arm that carries it.
+    for run_id, mean in (("base-1", 0.40), ("base-2", 0.42)):
+        _write_record(
+            tmp_path,
+            run_id,
+            pipeline_name="vector-top-k",
+            corpus_name="corpus",
+            metrics={"precision@5": _aggregate("precision@5", mean)},
+        )
+    _write_record(
+        tmp_path,
+        "run-a",
+        pipeline_name="vector-top-k",
+        corpus_name="corpus",
+        metrics={"precision@5": _aggregate("precision@5", 0.41)},
+        query_rung=_rung("rung-a"),
+    )
+    _write_record(
+        tmp_path,
+        "run-b",
+        pipeline_name="hybrid",
+        corpus_name="corpus",
+        metrics={"precision@5": _aggregate("precision@5", 0.57)},
+        query_rung=_rung("rung-a"),
+    )
+
+    # Act
+    outcome = await EvalCompareCommand().run(
+        EvalCompareArgs(a="run-a", b="run-b", baseline="vector-top-k"), _ctx(_deps())
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = outcome.value
+    assert isinstance(result, EvalCompareCommandResult)
+    assert set(result.baseline_runs) == {"base-1", "base-2"}
+    assert result.baseline_selection is BaselineSelection.INGEST_PIPELINE_ONLY
+
+
+async def test_a_run_that_named_no_rung_is_not_a_repetition_of_one_that_did(
+    tmp_path: Path,
+) -> None:
+    """`NoQueryRung` is a measurement, so it selects like any other rung rather than matching
+    everything — the fallback above is for *absence*, not for a run that deliberately named none.
+    """
+    # Arrange
+    for run_id, mean in (("base-1", 0.40), ("base-2", 0.42)):
+        _write_record(
+            tmp_path,
+            run_id,
+            pipeline_name="vector-top-k",
+            corpus_name="corpus",
+            metrics={"precision@5": _aggregate("precision@5", mean)},
+            query_rung=NoQueryRung(reason="no query rung was named"),
+        )
+    _write_record(
+        tmp_path,
+        "named-a-rung",
+        pipeline_name="vector-top-k",
+        corpus_name="corpus",
+        metrics={"precision@5": _aggregate("precision@5", 0.95)},
+        query_rung=_rung("rung-a"),
+    )
+    _write_record(
+        tmp_path,
+        "run-a",
+        pipeline_name="vector-top-k",
+        corpus_name="corpus",
+        metrics={"precision@5": _aggregate("precision@5", 0.41)},
+        query_rung=NoQueryRung(reason="no query rung was named"),
+    )
+    _write_record(
+        tmp_path,
+        "run-b",
+        pipeline_name="hybrid",
+        corpus_name="corpus",
+        metrics={"precision@5": _aggregate("precision@5", 0.57)},
+        query_rung=NoQueryRung(reason="no query rung was named"),
+    )
+
+    # Act
+    outcome = await EvalCompareCommand().run(
+        EvalCompareArgs(a="run-a", b="run-b", baseline="vector-top-k"), _ctx(_deps())
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = outcome.value
+    assert isinstance(result, EvalCompareCommandResult)
+    assert set(result.baseline_runs) == {"base-1", "base-2"}
+    assert result.baseline_selection is BaselineSelection.INGEST_AND_QUERY_RUNG

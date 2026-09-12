@@ -1170,11 +1170,16 @@ ways** in one run.
   *This clause read `weft eval compare graph-then-generate retrieve-then-generate --baseline
   retrieve-then-generate` until 2026-09-10, when task `11.13` ran it: **no part of that invocation
   is the command** (`L11.43`). `<a>` and `<b>` are **run ids** — `runs/<uuid4>.json` filename stems
-  — and `--baseline` is matched against `RunRecord.resolved_pipeline`, the **ingest** pipeline,
-  because a run record persists no query pipeline at all; `--baseline retrieve-then-generate`
-  refuses at exit `4` naming the pipelines actually run. The clause is discharged by two
-  `weft eval run` invocations differing only in `--query-pipeline`, two more as the baseline's
-  repetitions, and `--baseline` naming the ingest rung all four share. **Measured 2026-09-10**, on
+  — and `--baseline` is matched against `RunRecord.resolved_pipeline`, the **ingest** pipeline;
+  `--baseline retrieve-then-generate` refuses at exit `4` naming the pipelines actually run. The
+  clause is discharged by two `weft eval run` invocations differing only in `--query-pipeline`,
+  two more as the baseline's repetitions, and `--baseline` naming the ingest rung all four share.
+  *(The sentence above read "because a run record persists no query pipeline at all" until
+  **task 16.1** on 2026-09-12, which is when that stopped being true: a record now carries
+  `RunRecord.query_rung` — name and `pipeline_identity` — and `--baseline` keys on the **pair**,
+  so the two repetitions above are repetitions of the rung and not merely of the ingest
+  pipeline. A record written before that task carries no rung, and the selection says which
+  rule it used rather than silently falling back.)* **Measured 2026-09-10**, on
   a twelve-document corpus and questions `weft graph bridges` generated from it:
   `outside-baseline-spread` on every metric, `Δ-1.000` against a baseline spread of `0.000-0.000`,
   the graph rung at `1.000` and the vector baseline at `0.000`. An exit criterion written as a

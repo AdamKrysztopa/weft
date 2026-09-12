@@ -124,6 +124,39 @@ def corpus_identity(name: str, document_ids: Iterable[str]) -> CorpusIdentity:
     return CorpusIdentity(name=name, digest=digest)
 
 
+class QueryRung(BaseModel):
+    """The query pipeline a run scored with — the rung, not the ingest pipeline.
+
+    Both fields, because neither answers alone: a *name* is what an operator typed and two
+    projects can give one name to two documents, while an *identity* is
+    `weft_kernel.resolution.pipeline_identity`'s digest of what that name resolved to and is
+    what a baseline's repetitions are keyed on.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    name: str = Field(min_length=1)
+    identity: str = Field(min_length=1)
+
+
+class NoQueryRung(BaseModel):
+    """This run named no query rung, and `reason` says what retrieved instead.
+
+    A measurement, never an absence — `RunRecord.query_rung` is `None` for a record written
+    before task 16.0's sibling 16.1, and that is a different fact. `NotAggregated` is the
+    precedent one field over: the two members of the union below never share a field name, so
+    the union always resolves unambiguously through JSON.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    reason: str = Field(min_length=1)
+
+
+#: What a run retrieved with, as a `RunRecord` carries it.
+type ScoredQueryRung = QueryRung | NoQueryRung
+
+
 def active_distribution_set(reports: Iterable[PackReport]) -> tuple[str, ...]:
     """Every distribution `reports` marks `PackStatus.ACTIVE`, sorted and deduplicated. See
     the module docstring for why this is fitness function 8(c)'s left-hand side and how its
@@ -215,6 +248,11 @@ class RunRecord(BaseModel):
     #: `durations` one field over — a default must not be mistakable for a value the system
     #: could legitimately have computed.
     corpus_digest_basis: CorpusDigestBasis | None = None
+    #: Task 16.1 — the query rung this run scored with. `None` means *not recorded*: a record
+    #: written before this task persisted no query pipeline at all, so a comparison across that
+    #: boundary cannot tell a rung difference from a missing field. `NoQueryRung` is the
+    #: measurement that no rung was named; the two are not the same claim.
+    query_rung: ScoredQueryRung | None = None
     #: Task 4.9 — see the module docstring's own paragraph. `{}` for a run that scored nothing.
     metrics: Mapping[str, MetricRunResult] = Field(default_factory=dict)
 
@@ -225,6 +263,7 @@ def build_run_record(
     resolved_pipeline: ResolvedPipeline,
     corpus: CorpusIdentity,
     corpus_digest_basis: CorpusDigestBasis | None = None,
+    query_rung: ScoredQueryRung | None = None,
     model_versions: Mapping[str, str] = _NO_MODEL_VERSIONS,
     reports: Iterable[PackReport] = _NO_REPORTS,
     metrics: Mapping[str, Outcome[MetricAggregate]] = _NO_METRICS,
@@ -246,12 +285,17 @@ def build_run_record(
     level up: this function cannot see what `corpus`'s digest was actually computed over, so
     the value is a claim the caller makes about its own `corpus_identity()` call, never a fact
     derived here.
+
+    `query_rung` — task 16.1 — is passed straight through as well, on the identical footing:
+    only the caller that actually ran the questions knows whether a query rung was named, and
+    which one.
     """
     return RunRecord(
         recorded_at=recorded_at,
         resolved_pipeline=resolved_pipeline,
         corpus=corpus,
         corpus_digest_basis=corpus_digest_basis,
+        query_rung=query_rung,
         model_versions=model_versions,
         active_distributions=active_distribution_set(reports),
         durations=durations,

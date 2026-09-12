@@ -164,8 +164,10 @@ async def test_score_pipeline_retrieves_and_scores_against_the_resolved_stages()
     )
 
     # Assert — the one retrieved passage is the one relevant document: precision@1 = 1.0.
-    assert "precision@1" in report
-    outcome = report["precision@1"]
+    # Task 16.1 moved the metrics behind `ScoredRun.metrics`: this function now answers for the
+    # query rung it scored with as well as for the scores, because the record needs both.
+    assert "precision@1" in report.metrics
+    outcome = report.metrics["precision@1"]
     assert isinstance(outcome, Produced)
     assert outcome.value.mean == 1.0
 

@@ -89,7 +89,7 @@ from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_kernel.payload import Produced
 from weft_kernel.pipeline import Pipeline
 from weft_kernel.registry import Registry
-from weft_kernel.resolution import Contribution, resolve
+from weft_kernel.resolution import Contribution, ResolvedPipeline, resolve
 from weft_kernel.runner import PipelineResolutionError, Runner, StageSpec
 from weft_llm.contract import TokenSink
 from weft_retrieve.contract import RoutingPolicy
@@ -402,6 +402,51 @@ def _require[T](
     )
 
 
+def named_pipeline(pipeline_name: str, *, catalogue: Mapping[str, Pipeline]) -> Pipeline:
+    """`pipeline_name` looked up in `catalogue`, or `UnknownPipelineNameError` naming every
+    pipeline the catalogue does hold.
+
+    Lifted out of `run_named_ask` at task **16.1** so `resolve_named_pipeline` refuses the
+    identical way rather than growing a second, divergent "name not found" message — the same
+    "one code path, not two" footing `weft_cli.commands._raise_for_plugin_refusal`'s own
+    docstring already states.
+    """
+    target = catalogue.get(pipeline_name)
+    if target is None:
+        options = tuple(sorted(catalogue))
+        raise UnknownPipelineNameError(
+            f"'{pipeline_name}' is not a pipeline this project knows — checked the "
+            f"project's own '{DEFAULT_PIPELINES_DIR}' directory and every installed pack's "
+            f"own contribution. Known pipelines: {', '.join(options) or '(none)'}.",
+            valid_options=options,
+            pipeline=pipeline_name,
+            remedy=f"use one of: {', '.join(options) or '(none — no pipeline is known yet)'}.",
+        )
+    return target
+
+
+def resolve_named_pipeline(
+    pipeline_name: str,
+    *,
+    registry: Registry,
+    reports: Sequence[PackReport],
+    contributions: tuple[Contribution, ...] = (),
+) -> ResolvedPipeline:
+    """What `run_named_ask` will resolve `pipeline_name` to — `full_catalogue`, the same
+    lookup, the same `resolve_in_catalogue`. Pure: `resolution.py:783 "Pure and det"` is data
+    manipulation over already-parsed structures, so this does no I/O and runs nothing.
+    """
+    catalogue = full_catalogue(reports=reports)
+    target = named_pipeline(pipeline_name, catalogue=catalogue)
+    return resolve_in_catalogue(
+        target,
+        registry=registry,
+        catalogue=catalogue,
+        reports=reports,
+        contributions=contributions,
+    )
+
+
 async def run_named_ask(
     question: str,
     *,
@@ -442,18 +487,7 @@ async def run_named_ask(
     itself, threaded through to `_prepared_runner` the same way.
     """
     catalogue = full_catalogue(reports=reports)
-    target = catalogue.get(pipeline_name)
-    if target is None:
-        options = tuple(sorted(catalogue))
-        raise UnknownPipelineNameError(
-            f"'{pipeline_name}' is not a pipeline this project knows — checked the "
-            f"project's own '{DEFAULT_PIPELINES_DIR}' directory and every installed pack's "
-            f"own contribution. Known pipelines: {', '.join(options) or '(none)'}.",
-            valid_options=options,
-            pipeline=pipeline_name,
-            remedy=f"use one of: {', '.join(options) or '(none — no pipeline is known yet)'}.",
-        )
-
+    target = named_pipeline(pipeline_name, catalogue=catalogue)
     runner, routed_ctx, store, table, selected_services = await _prepared_runner(
         registry=registry,
         catalogue=catalogue,
@@ -564,6 +598,34 @@ def show_only_the_answering_stage(specs: Sequence[StageSpec], *, sink: TokenSink
         narrow(specs[-1].id)
 
 
+def resolve_in_catalogue(
+    pipeline: Pipeline,
+    *,
+    registry: Registry,
+    catalogue: Mapping[str, Pipeline],
+    reports: Sequence[PackReport],
+    contributions: tuple[Contribution, ...] = (),
+) -> ResolvedPipeline:
+    """`pipeline` resolved against `catalogue` — the one composition every run of a named
+    pipeline goes through, and therefore the one an identity may be computed from.
+
+    Lifted out of `_run_pipeline` at task **16.1** rather than copied: a record that named a
+    rung by an identity computed from a *second* resolution would be making a claim about a
+    resolution no question ran under, and two pure functions agreeing today is not the same
+    fact as one function answering both.
+    """
+    contracts = contracts_for(
+        pipeline, registry=registry, parents=catalogue, reports=reports, contributions=contributions
+    )
+    return resolve(
+        pipeline,
+        registry=registry,
+        contracts=contracts,
+        parents=catalogue,
+        contributions=contributions,
+    )
+
+
 async def _run_pipeline(
     pipeline: Pipeline,
     payload: object,
@@ -633,14 +695,11 @@ async def _run_pipeline(
     (`run_routed_ask`, `run_named_ask`), so this costs nothing beyond passing it one call
     further.
     """
-    contracts = contracts_for(
-        pipeline, registry=registry, parents=catalogue, reports=reports, contributions=contributions
-    )
-    resolved = resolve(
+    resolved = resolve_in_catalogue(
         pipeline,
         registry=registry,
-        contracts=contracts,
-        parents=catalogue,
+        catalogue=catalogue,
+        reports=reports,
         contributions=contributions,
     )
     specs = to_specs(resolved, registry=registry, reports=reports)

@@ -183,6 +183,7 @@ import time
 import uuid
 from collections.abc import Mapping
 from datetime import UTC, datetime
+from enum import StrEnum
 from pathlib import Path
 from typing import ClassVar, Final, cast
 
@@ -203,6 +204,7 @@ from weft_eval.run_record import (
     NotAggregated,
     RunDurations,
     RunRecord,
+    ScoredQueryRung,
     build_run_record,
     corpus_identity,
     load_run_record,
@@ -566,6 +568,27 @@ def metrics_comparison_for_kind(
     }
 
 
+class BaselineSelection(StrEnum):
+    """Which rule chose a baseline's repetitions — printed, because a reader of a verdict
+    cannot otherwise tell a rung-matched spread from a pipeline-matched one.
+    """
+
+    INGEST_AND_QUERY_RUNG = "ingest-pipeline-and-query-rung"
+    INGEST_PIPELINE_ONLY = "ingest-pipeline-only"
+
+
+class QueryRungDifference(BaseModel):
+    """The query rung each of two compared runs scored with. A *difference*, never a reason to
+    refuse: the rung is the thing being compared, so it does not join `_incomparable_reasons`
+    the way the corpus does.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    a: ScoredQueryRung | None
+    b: ScoredQueryRung | None
+
+
 class EvalCompareCommandResult(CommandResult):
     """`weft eval compare`'s whole answer, once both runs pass the apples-to-apples check —
     a refusal is raised before this is ever constructed, see `IncomparableRunsError`.
@@ -574,6 +597,11 @@ class EvalCompareCommandResult(CommandResult):
     /`baseline_runs`/`falsification` are task 8.8's own addition — all three default so every
     existing construction site keeps working; `falsification` stays `None` unless `--baseline`
     was given, so "no verdict was asked for" and "a verdict was reached" are never confused.
+    `query_rungs`/`baseline_selection` are task 16.1's own addition, defaulted for the identical
+    reason: `query_rungs` is always constructed by `EvalCompareCommand.run`, but a construction
+    site outside it (a test, a future caller) must not be forced to supply a fact it may not
+    have; `baseline_selection` stays `None` unless `--baseline` was given, the same posture
+    `falsification` already takes.
     """
 
     run_a: str
@@ -586,6 +614,8 @@ class EvalCompareCommandResult(CommandResult):
     baseline_pipeline: str | None = None
     baseline_runs: tuple[str, ...] = ()
     falsification: Mapping[str, DifferenceJudgement] | None = None
+    query_rungs: QueryRungDifference | None = None
+    baseline_selection: BaselineSelection | None = None
 
 
 class TraceCommandResult(CommandResult):
@@ -798,9 +828,10 @@ class EvalRunCommand:
 
         query_started = time.monotonic()
         metrics: Mapping[str, Outcome[MetricAggregate]] = {}
+        query_rung: ScoredQueryRung | None = None
         if run_args.questions is not None:
             questions = load_questions(Path(run_args.questions))
-            metrics = await score_pipeline(
+            scored = await score_pipeline(
                 registry=deps.registry,
                 resolved_pipeline=_resolved,
                 questions=questions,
@@ -814,6 +845,8 @@ class EvalRunCommand:
                 sink=deps.token_sink,
                 contributions=deps.contributions,
             )
+            metrics = scored.metrics
+            query_rung = scored.query_rung
         query_seconds = time.monotonic() - query_started
 
         corpus_name = run_args.corpus_name if run_args.corpus_name is not None else run_args.path
@@ -822,6 +855,7 @@ class EvalRunCommand:
             resolved_pipeline=_resolved,
             corpus=corpus_identity(corpus_name, content_hashes_of(documents)),
             corpus_digest_basis=CorpusDigestBasis.DOCUMENT_BYTES,
+            query_rung=query_rung,
             model_versions=_model_versions(_resolved, roles=deps.llm.roles),
             reports=deps.reports,
             metrics=metrics,
@@ -896,9 +930,10 @@ class EvalRunCommand:
         # own docstring for why that split is what G15's *Remove* face actually needs.
         query_started = time.monotonic()
         metrics: Mapping[str, Outcome[MetricAggregate]] = {}
+        query_rung: ScoredQueryRung | None = None
         if run_args.questions is not None:
             questions = load_questions(Path(run_args.questions))
-            metrics = await score_pipeline(
+            scored = await score_pipeline(
                 registry=deps.registry,
                 resolved_pipeline=resolved_pipeline,
                 questions=questions,
@@ -912,6 +947,8 @@ class EvalRunCommand:
                 sink=deps.token_sink,
                 contributions=deps.contributions,
             )
+            metrics = scored.metrics
+            query_rung = scored.query_rung
         query_seconds = time.monotonic() - query_started
 
         corpus_name = run_args.corpus_name if run_args.corpus_name is not None else run_args.path
@@ -921,6 +958,7 @@ class EvalRunCommand:
             resolved_pipeline=resolved_pipeline,
             corpus=corpus,
             corpus_digest_basis=CorpusDigestBasis.DOCUMENT_BYTES,
+            query_rung=query_rung,
             # Task 4.7's own gap to fill — see the module docstring's paragraph on
             # `_model_versions`. Derived from what actually ran, never from `[services]`.
             model_versions=_model_versions(resolved_pipeline, roles=deps.llm.roles),
@@ -953,24 +991,34 @@ def _falsify_against_baseline(
     record_b: RunRecord,
     *,
     exclude: set[str],
-) -> tuple[tuple[str, ...], Mapping[str, DifferenceJudgement]]:
+) -> tuple[tuple[str, ...], Mapping[str, DifferenceJudgement], BaselineSelection]:
     """`weft eval compare --baseline <pipeline>`'s own work — see the module docstring's own
     task-8.8 paragraph. `exclude` is `{--a, --b}`: a rung is not one of its own baseline's
     repetitions.
+
+    **Task 16.1 — a repetition is keyed on the ingest pipeline *and* the query rung, when both
+    sides know one.** `record_a.query_rung is None`, or any name-matched candidate's
+    `query_rung is None`, means at least one side predates task 16.1 and never recorded a
+    rung at all — falling back to `BaselineSelection.INGEST_PIPELINE_ONLY`, today's behaviour,
+    rather than refusing every baseline taken before this task. Otherwise every name-matched
+    candidate whose own `query_rung` does not equal `record_a.query_rung` is dropped before the
+    spread is computed, `BaselineSelection.INGEST_AND_QUERY_RUNG`: a run of a different query
+    rung over the same index is a configuration difference, not a repetition.
 
     Raises `NoBaselineRunsError` for a pipeline nothing under `DEFAULT_RUNS_DIR` ran,
     `IncomparableRunsError` for a kept repetition that differs from `record_a` by more than
     its pipeline (deliberately not checked — a baseline is a different pipeline from the rung
     by construction), and lets `weft_eval.falsify.baseline_spreads`'s own
-    `TooFewRepetitionsError` propagate unchanged for a baseline run only once.
+    `TooFewRepetitionsError` propagate unchanged for a baseline run only once — including once
+    the query-rung filter above has dropped it below two.
     """
     all_records = all_run_records()
-    repetitions = tuple(
+    named = tuple(
         (run_id, record)
         for run_id, record in all_records
         if record.resolved_pipeline.name == baseline and run_id not in exclude
     )
-    if not repetitions:
+    if not named:
         options = tuple(sorted({record.resolved_pipeline.name for _, record in all_records}))
         raise NoBaselineRunsError(
             f"'{baseline}' names no persisted baseline repetition under '{DEFAULT_RUNS_DIR}' "
@@ -978,6 +1026,15 @@ def _falsify_against_baseline(
             f"{', '.join(options) or '(none)'}.",
             valid_options=options,
             baseline=baseline,
+        )
+
+    if record_a.query_rung is None or any(record.query_rung is None for _, record in named):
+        selection = BaselineSelection.INGEST_PIPELINE_ONLY
+        repetitions = named
+    else:
+        selection = BaselineSelection.INGEST_AND_QUERY_RUNG
+        repetitions = tuple(
+            (run_id, record) for run_id, record in named if record.query_rung == record_a.query_rung
         )
 
     for run_id, repetition in repetitions:
@@ -1000,7 +1057,7 @@ def _falsify_against_baseline(
     spreads = baseline_spreads([record for _, record in repetitions])
     falsification = judge_differences(record_a, record_b, spreads)
     baseline_runs = tuple(sorted(run_id for run_id, _ in repetitions))
-    return baseline_runs, falsification
+    return baseline_runs, falsification, selection
 
 
 class EvalCompareCommand:
@@ -1034,13 +1091,17 @@ class EvalCompareCommand:
             )
 
         diff = diff_resolved(record_a.resolved_pipeline, record_b.resolved_pipeline)
+        # Task 16.1 — the query rung each side scored with, always constructed: it is the
+        # subject of the comparison, never a reason to refuse it, unlike the corpus above.
+        query_rungs = QueryRungDifference(a=record_a.query_rung, b=record_b.query_rung)
 
         baseline_pipeline: str | None = None
         baseline_runs: tuple[str, ...] = ()
         falsification: Mapping[str, DifferenceJudgement] | None = None
+        baseline_selection: BaselineSelection | None = None
         if compare_args.baseline is not None:
             baseline_pipeline = compare_args.baseline
-            baseline_runs, falsification = _falsify_against_baseline(
+            baseline_runs, falsification, baseline_selection = _falsify_against_baseline(
                 compare_args.baseline,
                 compare_args.a,
                 record_a,
@@ -1062,6 +1123,8 @@ class EvalCompareCommand:
                 baseline_pipeline=baseline_pipeline,
                 baseline_runs=baseline_runs,
                 falsification=falsification,
+                query_rungs=query_rungs,
+                baseline_selection=baseline_selection,
             )
         )
 
@@ -1126,6 +1189,7 @@ def register_eval_commands(registrar: PackRegistrar) -> None:
 
 
 __all__ = [
+    "BaselineSelection",
     "DEFAULT_RUNS_DIR",
     "EmptyCorpusError",
     "EvalCompareArgs",
@@ -1140,6 +1204,7 @@ __all__ = [
     "IncomparableRunsError",
     "MetricComparison",
     "NoBaselineRunsError",
+    "QueryRungDifference",
     "TraceArgs",
     "TraceCommand",
     "TraceCommandResult",
