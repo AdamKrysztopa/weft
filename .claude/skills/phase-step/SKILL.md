@@ -346,6 +346,21 @@ extractors claim nothing at all. It was caught by `ruff` on the *adjacent* varia
 dropped — had the walk been one line shorter, a green gate would have shipped a lying message
 (`L12.15`).
 
+**The same rule for a *removal*, and it is the half the type checker cannot cover: grep for what
+depended on the thing you deleted, including what will now pass vacuously.** A deletion has two
+kinds of dependent. The first stops compiling and pyright names it. The second goes on running and
+stops meaning anything, and nothing looks for it. `R9.1` retired `PdfPages.starts` and produced one
+of each within the hour: the conformance kit's corpus lost the **only numeric `ext` field its
+operator matrix had**, so five filter cases (`lt`, `lte`, `gt`, `gt-fractional`, `gte`) went red —
+caught, and a full gate run late, because the sentence saying the field was load-bearing sat ninety
+lines above the line being edited, at the registration rather than at the use. And
+`weft_chunk.payload.ChunkOffset` lost its **only reader** (`weft_generate.page.page_for`) while
+staying attached by both chunkers and registered for rehydration — green everywhere, filed as
+`R17.1`. So: before removing a field, a class or a function, grep its name across the file that
+declares it as well as the files that use it, and ask of each survivor *would this still fail if it
+were wrong?* This is `L5.19`'s shape arriving by **subtraction** — machinery that *became*
+unfireable, which every check looking for machinery born that way is blind to (`L15.3`).
+
 **A mechanical edit is verified by something that did not perform it.** A script reported
 `would annotate: 160 … skipped: 0` and then `already carrying one: 160`, and that was read as
 done — but both numbers are the tool's own regex counting its own output, which is `L5.6`'s
