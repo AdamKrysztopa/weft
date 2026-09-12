@@ -909,7 +909,7 @@ figure in the same run:
   document's text, its table, or the figure's caption, and present only in what the describer
   wrote. **The clause's own wording — *"citing the `IMAGE` node"* — is satisfied in substance and
   is not observable**: `weft_generate.payload.Citation` carries `node_id`, and
-  `packages/weft-rag/src/weft_cli/render.py:520 "if recon"` renders `[marker] uri` alone, so with three nodes from one source the
+  `packages/weft-rag/src/weft_cli/render.py:526 "if recon"` renders `[marker] uri` alone, so with three nodes from one source the
   rendered citation cannot name which answered. Recorded as `lessons.md` `L9.88` rather than
   waved through; it is a renderer gap, not a provenance gap, and Phase 9 did not create it.
 - **`weft delete` takes both counts to zero** — `3 → 0` nodes, `1 → 0` blobs, asserted either

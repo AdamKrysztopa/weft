@@ -477,15 +477,20 @@ def _reparse_lines(changes: Mapping[str, SourceChange]) -> list[str]:
     the two that print worth reading.
 
     A `PIPELINE_CHANGED` line is the one this task exists for: the bytes are identical and the
-    pipeline that read them is not, so the corpus now holds this document parsed two ways. The
-    line says so plainly rather than implying it, and it does **not** claim anything was cleaned
-    up — nothing was. `docs/internal/lessons.md` `L9.37` owns that half.
+    pipeline that read them is not, so this document has now been read two ways.
+
+    **Both lines said the earlier parse was still stored, and from ledger `27.2` that is false.**
+    `9.17` could only report, because removing the stale nodes was a deletion on the ingest path
+    nobody had argued for — `L9.37`'s half, which it deliberately left. `27.2` argued it and
+    built it: a document whose bytes or whose pipeline moved has its previous parse released
+    before the new one runs. So the text says what now happens instead of warning about what
+    used to, and an operator reading *"the earlier parse's nodes are still stored beside the new
+    ones"* against a store where they are not would be worse served than by no line at all.
     """
     reportable = {
-        SourceChange.CONTENT_CHANGED: "changed on disk, re-parsed",
+        SourceChange.CONTENT_CHANGED: "changed on disk — re-parsed, and its earlier parse released",
         SourceChange.PIPELINE_CHANGED: (
-            "unchanged on disk but re-parsed by a different pipeline — the earlier parse's nodes "
-            "are still stored beside the new ones"
+            "unchanged on disk but re-parsed by a different pipeline — its earlier parse released"
         ),
     }
     return [

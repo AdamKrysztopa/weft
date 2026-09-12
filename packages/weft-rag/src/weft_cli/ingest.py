@@ -539,6 +539,7 @@ async def run_index(
         # left, and `_record_sources` below replaces exactly those rows.
         previous = await _recorded_sources(runnable, store_stage_id=store_stage_id)
         changes = changes_against_records(docs, previous, identity=identity)
+        await _release_reparsed_sources(runnable, store_stage_ids=store_stage_ids, changes=changes)
         summary = await runner.run(runnable, batches(), indexing_ctx)
         await _record_sources(
             runnable,
@@ -896,6 +897,73 @@ async def _stored_count(runnable: RunnablePipeline, *, store_stage_id: str | Non
         if count is not None:
             return await count()
     return None
+
+
+async def _release_reparsed_sources(
+    runnable: RunnablePipeline,
+    *,
+    store_stage_ids: Sequence[str],
+    changes: Mapping[SourceId, SourceChange],
+) -> None:
+    """Release what a re-parsed document's previous parse left, before the new one runs —
+    ledger task **27.2**, and `L9.37`'s half of Phase 27's one cause.
+
+    A node id is a content digest, so a document whose bytes or whose pipeline moved produces a
+    wholly new set of ids: `ON CONFLICT (id)` never fires, and without this the two parses sit
+    in the store together, both retrievable, under one `SourceRecord` that records only the
+    later. Measured at Phase 11's exit as 23 nodes becoming 42 over four runs (`L11.46`).
+
+    **Only `CONTENT_CHANGED` and `PIPELINE_CHANGED`.** `NEW` has nothing to release, and
+    `UNCHANGED` must not be touched: `02` §1 makes idempotent re-indexing the point of
+    content-addressed ids, and releasing there would delete and rewrite an entire corpus to
+    arrive back where it started.
+
+    **`delete_source` rather than a new contract method**, which is not a shortcut. `27.1` made
+    it release *this* document's claim on a node and keep the node when another document still
+    produces one — so a re-parsed document that shares a passage with an untouched one narrows
+    it rather than taking it away, which is exactly what this needs and what a
+    delete-by-source would get wrong.
+
+    **Before the run, and this is the opposite of `supersede`'s ordering on purpose.** `02` §1
+    has `supersede` write before it deletes, so an interruption leaves a duplicate `reconcile`
+    can find rather than a hole nothing can. The hazards are not comparable: a superseded node's
+    `BlobRef` points at bytes gone from everywhere, while a document released and not re-indexed
+    is still on disk with no `SourceRecord`, so the next `weft index` over the same directory
+    sees it as `NEW` and rebuilds it. Releasing afterwards would need the set of ids this pass
+    produced, and `RunSummary` carries counts.
+
+    A store with no callable `delete_source` is skipped rather than fatal, the footing
+    `_record_sources` already stands on for `put_source`: refusing the run because one store of
+    several keeps no deletion path would make an optional capability mandatory.
+    """
+    stale = tuple(
+        source
+        for source, change in changes.items()
+        if change in (SourceChange.CONTENT_CHANGED, SourceChange.PIPELINE_CHANGED)
+    )
+    if not stale:
+        return
+    wanted = set(store_stage_ids)
+    for stage in runnable.stages:
+        if stage.id not in wanted:
+            continue
+        delete_source = _delete_source_of(stage.instance)
+        if delete_source is None:
+            continue
+        for source in stale:
+            await delete_source(source)
+
+
+def _delete_source_of(instance: object) -> Callable[[SourceId], Awaitable[object]] | None:
+    """`instance.delete_source`, if it has one and it is callable — the same defensive shape as
+    `_put_source_of`, and on the same contract: `delete_source` **is** published on `NodeStore`,
+    so this is a guard against a stage that only structurally resembles one, never a licence for
+    a store to omit it.
+    """
+    found = getattr(instance, "delete_source", None)
+    if found is None or not callable(found):
+        return None
+    return cast(Callable[[SourceId], Awaitable[object]], found)
 
 
 async def _recorded_sources(
