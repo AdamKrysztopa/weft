@@ -494,6 +494,38 @@ guard is firing on content that is not actually a loop, raising `similarity_thre
 interrupted mid-stream can set `min_text_length` above the longest answer it expects, which turns
 the guard off in practice without removing it from the type.
 
+## Pointing a pack at a different endpoint
+
+Everything above assumes the `openai` pack talks to OpenAI. It does not have to. Any server that
+speaks the same API — a gateway, a proxy, a model you are running yourself — is reachable by
+setting one key:
+
+```toml
+[packs.openai]
+api_key = "${env:OPENAI_API_KEY}"
+base_url = "http://localhost:11434/v1"
+```
+
+That is the whole operation, and it applies to every plugin the pack registers: the embedder, the
+provider that answers a role, and the vision describer all share one account, so they all move
+together — there is no way, with this pack alone, to point the embedder at one server and leave
+the provider on another.
+
+**What this does not do: it does not read `OPENAI_BASE_URL`.** Weft passes `base_url=` explicitly
+on every client it builds — the vendor's own URL when you have set nothing — so the SDK never
+reaches for that variable, and exporting it has no effect and produces no error. The reasoning is
+in `weft_openai.settings.Settings`: an endpoint a project's own configuration did not name is an
+endpoint that configuration cannot be trusted about, and a credential going somewhere the file
+does not mention is worth one explicit argument to prevent. If you want the endpoint to come from
+the environment, name the variable in the file and let the settings loader interpolate it —
+`base_url = "${env:MY_GATEWAY_URL}"` — which keeps the value out of version control and the
+*decision* in it.
+
+**A wrong `base_url` fails at the first call, not at startup.** Nothing here reaches the network,
+so `weft plugins doctor` reports the pack `active` whether or not the address answers; the error
+arrives from the first stage that calls out, naming the model and the endpoint. That entry in
+`manual/troubleshooting.md` is the other half of this page.
+
 ## Tuning the text arm
 
 The pgvector store's lexical search has three decisions in it, and none of them is knowable from

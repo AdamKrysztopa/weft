@@ -30,7 +30,9 @@ catches the drift it exists to catch.
 
 from __future__ import annotations
 
+import importlib
 import re
+from importlib.metadata import entry_points
 from pathlib import Path
 from typing import Final
 
@@ -196,3 +198,91 @@ def test_a_stale_doctor_status_row_would_fail() -> None:
 
     # Assert
     assert planted != expected
+
+
+# --- 4. every pack with a settable endpoint is reachable from the guide ------------------------
+#
+# Phase 20a task **20a.0**. A pack whose `Settings` carries `base_url` can be pointed at any
+# server speaking its protocol, and `weft.toml.example` names the field because carried repair
+# `R9.6` made it (`tests/docs/test_pack_settings_documented.py`). An example file lists a key; it
+# does not say what the key is *for*, and it cannot say what setting it stops doing. That is this
+# section's job, and until 20a.0 the only prose naming `base_url` was
+# `manual/troubleshooting.md`, twice, both times as the cause of a failure — an operator met the
+# knob only after it had already gone wrong for them.
+#
+# **The population is derived from the installed packs, never listed here** — the same derivation
+# `test_pack_settings_documented.py` uses, and for the same reason (`L8.8`): today exactly one
+# pack declares `base_url`, and task `20a.1` adds a second, so a list written here would be a
+# list to remember to edit.
+
+_ENDPOINT_HEADING = "## Pointing a pack at a different endpoint"
+_ENDPOINT_NEXT_HEADING = "## "
+
+
+def _packs_with_a_settable_endpoint() -> set[str]:
+    """Every installed pack whose own `Settings` model declares a `base_url` field."""
+    found: set[str] = set()
+    for entry in entry_points(group="weft.packs"):
+        module = importlib.import_module(entry.value.split(":")[0])
+        settings = getattr(module, "Settings", None)
+        if settings is not None and "base_url" in getattr(settings, "model_fields", {}):
+            found.add(entry.name)
+    return found
+
+
+def test_at_least_one_pack_has_a_settable_endpoint() -> None:
+    # Floor — with no such pack the set equality below compares two empty sets and means nothing.
+    assert _packs_with_a_settable_endpoint(), (
+        "no installed pack's Settings declares `base_url`, so this whole section is vacuous"
+    )
+
+
+def test_the_guide_names_every_pack_whose_endpoint_can_be_set() -> None:
+    # Arrange
+    section = _section(
+        _guide_text(), heading=_ENDPOINT_HEADING, next_heading=_ENDPOINT_NEXT_HEADING
+    )
+    expected = _packs_with_a_settable_endpoint()
+
+    # Act — the `[packs.<name>]` spelling an operator actually types, not the bare pack name,
+    # so a passing mention of the pack somewhere in the prose does not satisfy this.
+    named = {match for match in re.findall(r"\[packs\.([a-z0-9-]+)\]", section)}
+
+    # Assert
+    assert expected <= named, (
+        f"manual/operations-guide.md's endpoint section names {sorted(named)}; these packs "
+        f"declare a `base_url` and are not shown: {sorted(expected - named)}"
+    )
+
+
+def test_the_guide_says_the_vendor_environment_variable_is_not_read() -> None:
+    """What the knob does *not* change, which is the half an example file cannot carry.
+
+    `weft_openai.embedder.build_client` passes `base_url=` on every call — `VENDOR_BASE_URL`
+    when the setting is unset — so the SDK never falls back to reading `OPENAI_BASE_URL`, and an
+    operator who exports it sees no effect and no error. Asserted here rather than trusted
+    because it is exactly the fact a reader would assume the other way round.
+    """
+    # Arrange
+    section = _section(
+        _guide_text(), heading=_ENDPOINT_HEADING, next_heading=_ENDPOINT_NEXT_HEADING
+    )
+
+    # Assert
+    assert "OPENAI_BASE_URL" in section, (
+        "the endpoint section does not name `OPENAI_BASE_URL`, the variable Weft's explicit "
+        "`base_url=` argument makes inert — see `weft_openai.embedder.build_client`"
+    )
+
+
+def test_the_check_can_actually_fail() -> None:
+    # Arrange — a section that shows one pack's block while a second pack declares the field.
+    section = "set `[packs.openai] base_url` to point at your own server"
+    expected = {"openai", "openai-compatible"}
+
+    # Act
+    named = {match for match in re.findall(r"\[packs\.([a-z0-9-]+)\]", section)}
+
+    # Assert
+    assert not expected <= named
+    assert "OPENAI_BASE_URL" not in section
