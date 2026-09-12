@@ -208,6 +208,42 @@ class AmbiguousExtractorError(PipelineResolutionError, UnresolvedNameError):
         self.valid_options = valid_options
 
 
+class CorpusPathNotFoundError(WeftError):
+    """`weft index` was given a path that is not on disk — carried repair `R27.1`.
+
+    **Measured through the shipped binary at Phase 27's Exit, which is the only thing that
+    found it**: an empty directory, a path that does not exist and a path that is a file each
+    answered `produced 0, nothing to produce 1, failed 0. nodes now stored: unknown.` at exit
+    `0`, byte-identical. So a user who mistyped a corpus path was told indexing had succeeded
+    and produced nothing, and a script checking the exit code saw a clean run.
+
+    The cause is one line of `pathlib`: `Path.rglob` yields nothing for a path that is not
+    there, and raises nothing. The walk therefore *could not* tell the three cases apart, and
+    `run_index`'s docstring — correctly — argues that an empty directory is not an error. A
+    claim about one input said nothing about its neighbours, which is `L14.6`.
+
+    **No `valid_options`, deliberately**: fitness function 12's family is for a name drawn from
+    an enumerable set, and there is no set of valid filesystem paths to offer. This is
+    `weft_kernel.discovery.EnvInterpolationError`'s side of that line, named in FF12's own
+    module docstring, so it maps to exit `1` — *something failed* — rather than to exit `4`.
+    """
+
+
+class CorpusPathNotADirectoryError(WeftError):
+    """`weft index` was given a path that exists and is not a directory — `R27.1`'s third input.
+
+    Split from `CorpusPathNotFoundError` rather than folded into one path error, because the
+    two have different remedies and the remedy is the whole value of the message: a path that
+    is not there is a typo, and a path that is a file is a user who meant its directory. A
+    single class would make `--json`'s `error.type` say *path problem* where it can say which
+    one (`09` §3 promises that field for exactly this, and `L12.4` is what it cost to learn).
+
+    Indexing a single file is not refused here because it is wrong to want — it is refused
+    because nothing in this command supports it: `present_suffixes`, `discover_source_docs` and
+    `corpus_documents` all take a directory. Naming the parent is the remedy that works today.
+    """
+
+
 class UnclaimedFormatError(PipelineResolutionError, UnresolvedNameError):
     """A directory holds files, and no installed `Extractor` claims any of their formats.
 
@@ -440,6 +476,7 @@ async def run_index(
     are in scope). Both default to an empty table/selection — a caller naming neither gets
     exactly today's four-service ingest registry, unchanged.
     """
+    _require_corpus_directory(directory)
     if pipeline is not None and extractor is not None:
         raise WeftError(
             "run_index was given both 'pipeline' and 'extractor' — a named pipeline "
@@ -584,6 +621,7 @@ def corpus_documents(
 
     Nothing here runs: resolving a document and reading a directory listing are the whole of it.
     """
+    _require_corpus_directory(directory)
     resolved, specs = _specs_from_document(
         pipeline, registry=registry, reports=reports, contributions=contributions
     )
@@ -859,6 +897,33 @@ def _sole_claimant(
         ),
         remedy=remedy,
     )
+
+
+def _require_corpus_directory(directory: Path) -> None:
+    """Refuse a corpus path that is not a directory, saying which of the two ways it is not.
+
+    **Called from both walkers, and that is the point rather than belt-and-braces.** `weft
+    index` reaches the walk through `run_index`; `weft eval run --reuse-index` reaches it
+    through `corpus_documents` without passing `run_index` at all. A guard at only the first
+    would repair one command and leave its neighbour answering a typo with a clean exit — the
+    shape `L8.24` records costing Phase 8 twice in one phase, once for `llm=` and once for an
+    optional parameter's other call site.
+
+    An empty directory is not an error and does not reach either branch: it is a real
+    directory, `run_index`'s own docstring argues why that is a fact rather than a failure, and
+    `_nothing_found` is what answers it.
+    """
+    if not directory.exists():
+        raise CorpusPathNotFoundError(
+            f"there is no '{directory}' to index. Nothing was read and nothing was stored — "
+            f"check the path, then run 'weft index <directory>' again."
+        )
+    if not directory.is_dir():
+        raise CorpusPathNotADirectoryError(
+            f"'{directory}' is a file, and 'weft index' reads a directory. Index the directory "
+            f"holding it — 'weft index {directory.parent}' — and every file under it whose "
+            f"format an installed extractor claims is read."
+        )
 
 
 def _nothing_found(

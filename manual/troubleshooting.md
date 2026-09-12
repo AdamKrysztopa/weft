@@ -1666,6 +1666,40 @@ could read it, which is the difference between "nothing here" and "nothing here 
 to do:** install a pack claiming one of the formats the message names, then re-run; `weft plugins
 doctor` will show whether a pack you expected registered at all.
 
+### `CorpusPathNotFoundError`
+
+**What it looks like** — the path you named is not on disk:
+
+```text
+$ weft index ./corpuss
+there is no './corpuss' to index. Nothing was read and nothing was stored — check the path, then
+run 'weft index <directory>' again.
+```
+
+**Until 2026-09-12 this was silent**, and that is why the entry is worth reading rather than
+skipping: a mistyped corpus path produced `produced 0, nothing to produce 1, failed 0` at exit `0`
+— byte-identical to an empty directory's answer — so a typo read as a successful run that happened
+to find nothing, and a script checking the exit code saw a clean build. Carried repair `R27.1`.
+
+**What to do:** check the spelling and the working directory. `weft index` takes a path relative to
+where you ran it, so `weft index corpus` from the wrong directory is this error and not a
+configuration problem. Nothing was written, so nothing needs undoing.
+
+### `CorpusPathNotADirectoryError`
+
+**What it looks like** — the path is there, and it is a file:
+
+```text
+$ weft index ./corpus/paper.pdf
+'./corpus/paper.pdf' is a file, and 'weft index' reads a directory. Index the directory holding it
+— 'weft index corpus' — and every file under it whose format an installed extractor claims is read.
+```
+
+**What to do:** name the directory, as the message says. Indexing one file at a time is not
+supported — `weft index` derives which formats to read from what is present under a directory, so
+there is nowhere for a single file to enter. If you want to index one paper and not its neighbours,
+put it in a directory of its own.
+
 ### `PipelineMissingExtractStageError`
 
 **What it looks like** — task 4.0: `--pipeline` named a document with no stage registered under

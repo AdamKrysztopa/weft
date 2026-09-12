@@ -37,8 +37,11 @@ from weft_cli import ingest as ingest_module
 from weft_cli.ingest import (
     INDEX_PACKS,
     AmbiguousExtractorError,
+    CorpusPathNotADirectoryError,
+    CorpusPathNotFoundError,
     PipelineMissingExtractStageError,
     UnclaimedFormatError,
+    corpus_documents,
     index_specs,
     run_index,
 )
@@ -318,6 +321,83 @@ async def test_a_directory_no_installed_extractor_can_read_refuses_rather_than_s
     message = str(excinfo.value)
     assert ".pptx" in message
     assert ".txt" in message
+
+
+async def test_a_corpus_path_that_does_not_exist_refuses_rather_than_reporting_success(
+    tmp_path: Path,
+) -> None:
+    # Arrange — carried repair `R27.1`, measured through the shipped binary at Phase 27's Exit:
+    # a mistyped corpus path answered `produced 0, nothing to produce 1, failed 0` at exit `0`,
+    # byte-identical to an empty directory's answer. `Path.rglob` yields nothing for a path that
+    # is not there and raises nothing, so the walk could not tell the two apart.
+    registry, store = _registry_with_fakes()
+    missing = tmp_path / "corpuss"
+
+    # Act / Assert
+    with pytest.raises(CorpusPathNotFoundError) as excinfo:
+        await run_index(missing, registry=registry, ctx=_ctx())
+
+    message = str(excinfo.value)
+    assert "corpuss" in message
+    assert store.closed is False
+
+
+async def test_a_corpus_path_that_is_a_file_refuses_and_says_so(tmp_path: Path) -> None:
+    # Arrange — the third of `R27.1`'s three inputs, and a different remedy from the second:
+    # the path is there and `weft index` walks directories, so naming its parent is the fix.
+    registry, _ = _registry_with_fakes()
+    one_file = tmp_path / "paper.txt"
+    one_file.write_text("hello weft")
+
+    # Act / Assert
+    with pytest.raises(CorpusPathNotADirectoryError) as excinfo:
+        await run_index(one_file, registry=registry, ctx=_ctx())
+
+    message = str(excinfo.value)
+    assert "paper.txt" in message
+    assert str(tmp_path) in message
+
+
+async def test_the_three_answers_are_distinguishable_from_each_other(tmp_path: Path) -> None:
+    """`R27.1` as one assertion: the property is not that each case says *something*, it is
+    that no two of them say the *same* thing. Three separate tests each asserting a substring
+    would all pass against three identical messages."""
+    # Arrange
+    registry, _ = _registry_with_fakes()
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    missing = tmp_path / "corpuss"
+    a_file = tmp_path / "paper.txt"
+    a_file.write_text("hello weft")
+
+    # Act
+    answers: list[str] = []
+    for path in (missing, a_file):
+        with pytest.raises(WeftError) as excinfo:
+            await run_index(path, registry=registry, ctx=_ctx())
+        answers.append(f"{type(excinfo.value).__name__}: {excinfo.value}")
+    empty_result = await run_index(empty, registry=registry, ctx=_ctx())
+    answers.append(str(empty_result.summary.nothing_to_produce_reasons))
+
+    # Assert
+    assert len(set(answers)) == 3, answers
+
+
+async def test_the_evaluators_own_corpus_walk_refuses_the_same_three_ways(tmp_path: Path) -> None:
+    """`corpus_documents` is the second caller of this walk — `weft eval run --reuse-index`
+    reaches it without going through `run_index` at all — so a guard only at `run_index`'s top
+    would repair one command and leave its neighbour silent. `L8.24` is that shape twice over
+    in one phase, and this is the assertion that stops a third."""
+    # Arrange
+    registry, _ = _registry_with_fakes()
+    a_file = tmp_path / "paper.txt"
+    a_file.write_text("hello weft")
+
+    # Act / Assert
+    with pytest.raises(CorpusPathNotFoundError):
+        corpus_documents(tmp_path / "corpuss", pipeline="index-text", registry=registry, reports=())
+    with pytest.raises(CorpusPathNotADirectoryError):
+        corpus_documents(a_file, pipeline="index-text", registry=registry, reports=())
 
 
 async def test_run_index_on_an_empty_directory_reports_nothing_to_produce(tmp_path: Path) -> None:
