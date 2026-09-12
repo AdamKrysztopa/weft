@@ -141,7 +141,7 @@ A branch with no nameable value is a decision still owed, not a constraint. *Alr
 read once per constrained branch, never once per file.
 
 
-## Before you send: ten checks a brief fails silently
+## Before you send: fourteen checks a brief fails silently
 
 Phase 10 filed **six** entries that are one sentence — *the brief was wrong in a way the dispatcher
 could have checked before sending it*. That density is the finding: none of these is caught by the
@@ -214,3 +214,47 @@ author had not read.** Six became ten, which is the density Phase 10 already cal
     docstring, or a comment's stated scope — *including a claim your own brief makes to justify
     the shape it asks for*. Naming a mechanism as the reason something is safe is exactly the
     sentence to check before sending, because the agent will build on it.
+
+
+11. **Does the brief move a constant? Then grep for every literal pinning it — and re-generate
+    every artefact that embeds it.** `L14.2`. `27.1`'s brief decided
+    `STORE_CONTRACT_VERSION` moves `2.4.0` → `2.5.0` and, in the same breath, forbade the agent
+    from editing `tests/`. Two tests pin that constant as a literal, one of them saying in its own
+    comment that it *"has to be edited by whoever grows the family again"* — so the dispatch could
+    not succeed as written, and the agent did the right thing and blocked. **A third site had no
+    literal to grep for at all**: `manual/contract-reference.md` is *generated*, embeds the same
+    constant three times, and has a test comparing it to its generator, so the full suite was red
+    across two dispatches over a file whose repair is one documented script. The site list for a
+    moved constant is *pinned literals* **and** *generated artefacts*, and the second kind is
+    invisible to the search that finds the first. This is `L8.12`'s rule — putting a class into a
+    marked family is an edit to every site keyed on that marker — for a **constant**, where it is
+    worse, because the sites that pin one are usually tests the agent may not touch. **Land those
+    edits yourself, before sending.**
+
+12. **Does the brief suggest a schema shape? Then it is a claim about the fixtures, not about the
+    schema.** `L14.3`. `27.1`'s second brief offered, as *"the obvious Postgres answer"*, a table
+    foreign-keyed to `weft_nodes` with `ON DELETE CASCADE`. Postgres refuses to `TRUNCATE` a table
+    a foreign key references unless every referencing table is named, and seventeen fixtures
+    truncate `weft_nodes, weft_sources` without it — while the identical cascade is **correct** in
+    `weft_kg`, whose own fixtures already pass `CASCADE`. Two backends in one tree, opposite
+    answers to one suggestion. Copy the constraint style the sibling table already uses, or read
+    the setup and teardown of the tests that will run it, or offer the shape as a question rather
+    than an answer.
+
+13. **Will the brief's own edit move a line something cites?** `L14.4`. Inserting module-level
+    code near the top of a heavily-cited file shifts every line below it, and fitness function 17
+    fails on a `path:line` citation that has drifted past its ±5 window — in a file the agent is
+    forbidden to edit. Grep for citations *into* the file before asking for an insertion, and say
+    where to put it: below the lowest cited line, which costs nothing in Python for names only
+    resolved inside method bodies. **This one was paid twice in one session**, the second time an
+    hour after being written down, by the dispatcher rather than the agent — so it is a check on
+    your own edits too, not only on what you ask for.
+
+14. **If the brief rejects a constraint because it would break N existing fixtures, price both
+    sides.** `L14.5`. That breakage is the constraint *doing its job*. `27.1` dropped a foreign
+    key to spare seventeen fixtures and bought a silent unbounded leak instead — measured after one
+    gate run, **1 node and 1,205 production rows, 1,204 of them naming nodes that no longer
+    existed**. The seventeen were edited in the end anyway, so the cost was paid regardless and the
+    enforcement was the only thing given up. `CLAUDE.md`'s own rule is the one in play: a silent
+    fallback is worse than a failure. Ask what the tree loses the day someone forgets, and how loud
+    it is then.

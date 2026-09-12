@@ -455,7 +455,13 @@ crashes on the exact state its own non-vacuity exercise produces.
    judgement and not as a platform one, and `device: auto` crashed on the machine this project is
    built on (`L9.82`); and the path where a plugin **constructs its own dependency for real**, with
    no injected double — every unit test on both sides of `describe-figure` injected one, so the
-   whole capability shipped dead and silent (`L9.87`). Then ask whether the promised behaviour
+   whole capability shipped dead and silent (`L9.87`); and **the neighbours of a case some
+   docstring deliberately lets pass quietly** — `weft index` answers an empty directory, a path
+   that does not exist and a path that is a file with **one byte-identical line at exit `0`**, so
+   a user who mistypes a corpus path is told indexing succeeded. *"X is not an error"* is a claim
+   about one input, and the code implementing it usually cannot tell X from its neighbours; run
+   the binary on each and diff, which took under a minute (`L14.6`, repair `R27.1`).
+   Then ask whether the promised behaviour
    actually *fired* — a published artefact, a computed value, a rendered field: both halves of a
    seam existing is not either one being reached (`L9.12`, `L9.45`, `L9.67`, `L9.69`), which is
    `L5.15`'s shape and this phase met it five more times.
