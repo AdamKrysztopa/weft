@@ -215,6 +215,24 @@ became false the moment a second field started rendering that sentinel for its o
 such assertions, written three hours apart, ended up mutually unsatisfiable — each set one field
 and left the other at the test helper's default. Assert `"<label>: <value>"`.
 
+**Copying an existing double protects the fields you copied; the field you *add* is one you wrote
+from prose.** `L18.3`, and it is the rule below arriving one step later. Task 24.1's `Answer`
+fixture was copied correctly from `tests/unit/weft_cli/test_commands.py`, which carries
+`citations=()` — then gained a citation, and `Answer._citations_resolve` refuses any citation whose
+`marker` and `node_id` do not both resolve to one passage in `used`. The fixture could not be
+constructed at all; the implementer found it, could not fix it, and blocked after doing the whole
+task. So: construct a copied-and-extended fixture once, standing alone, before writing an assertion
+around it — and grep for a double that already carries the field you are adding rather than
+extending one that does not.
+
+**And when a change starts writing a type down that nothing wrote down before, the population is
+what a real run produces.** `L18.5`: task 24.5 asked a `PackReport` to serialise for the first time
+in its life and four fields across three models held live classes and callables. The test written
+to catch that built one report by hand carrying the one field already known — and passed, while the
+binary still failed on **five of twenty-three** real reports. That is `L12.11` written into the test
+that was fixing an instance of `L12.11`. Where the property is *can this type cross this boundary*,
+read the world: walk what discovery, or the registry, or the catalogue actually returns.
+
 **A double for a seam is copied from an existing double of that seam, never written from the
 contract's prose.** `L11.17`, one step more specific than `L6.14`: a hand-written double
 populates what its author believed the seam returns, and the two doubles of that same seam already
@@ -425,6 +443,17 @@ named exactly by clause (d), and said nothing about that one. **Nineteen such ci
 means nineteen separate judgements about which fragment each sentence meant, and a nineteen-entry
 waiver is where a real violation would hide. So when you move code, grep the documents that discuss
 that file for a bare `:NNN` as well as for its name (`L16.3`).
+
+**And a green fitness function 17 is not a citation being right — the fragment decides that.**
+Clause (d) is satisfied by *any* occurrence of the quoted text within ±5 lines of the cited number,
+and FF17 truncates fragments to eight characters, so a citation quoting a common word is checked by
+nothing in particular. `docs/07-extension-cost.md:210 "while `02` §2 → *The trust model*"` cited `02:513 "supplied"` for a claim about a
+`packs:` block **767 lines away**, green, because that one word happened to occur twice near 513.
+**Measured at Phase 24a's close: 24 of the tree's 55 quoted citations carry a fragment that occurs
+more than once in the file they cite**, which is why this is a sentence and not a check — a clause
+refusing them would arrive failing 24 correct sites, and its waiver would be where a real drift
+hid (`R10.2`'s shape). So when you act on a citation, read the line; and when you write one, quote
+the fragment that carries the sentence's *claim* rather than its subject (`L18.2`).
 
 **A `path:line` an agent reports is a lead, not evidence.** Re-derive it as you land it: three
 agents reading one paragraph on the same day cited it at three different line numbers (`L9.34`), and

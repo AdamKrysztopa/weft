@@ -195,6 +195,18 @@ the work. Run these against the brief, not against the code.
    waiver: there, deriving the resampling indices from the data by hash removed the generator
    entirely and was better than what the brief asked for.)*
 
+   **And an import a brief settles is a claim about the transitive graph, not about the name.**
+   `L18.4`. Task 24.1's brief listed `weft_generate.payload` among the ordinary module-scope
+   imports of a new module that `weft_cli.cli` imports at *its* module scope — and importing it
+   runs `weft_retrieve/__init__.py` and `weft_store/__init__.py`, both real pack-registration
+   modules, so **fitness function 8(b)** went red: `weft --version` must execute no pack code at
+   all. The brief had been careful about exactly this for `run_services` and named the local import;
+   it was not careful about a payload model, because a payload model does not *look* heavy. The
+   examples above are all about **lint** refusing a name; this is the same check against a fitness
+   function, and the property is the graph's rather than the name's. One command answers it before
+   the brief is sent: import the module you are about to mandate and count `sys.modules`, or run
+   FF8(b) alone against a sketch.
+
 2. **Is *Already decided* derived from the contract, or from your own test?** `L10.37`, and it is
    `L5.6`'s rule — a comparison whose two sides come from one source cannot disagree. A brief
    spelled a field `node` where the model calls it `value`; the Red test had the identical error

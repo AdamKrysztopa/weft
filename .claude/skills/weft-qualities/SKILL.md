@@ -108,6 +108,21 @@ shortcut, the public path is exercised only by outsiders, and it rots.
 own three builders *after* the public decorator had registered them, to add span wrapping. A plugin
 using that same public decorator silently got less observability than a built-in.
 
+**Name the population this surface dispatches over, count what it actually reaches, and compare.**
+`L18.6`, and it is the move that found Phase 24a's own requirement-4 failure at that phase's close.
+`weft_engine.api.Weft` shipped `ask`, `index` and `delete`; a real installation registers **24**
+`Command`s, every one of them dispatched generically by `weft_cli.cli.run_command` from the same
+registry. So a pack's contributed command was reachable from the terminal and not from the library
+— the *built-in* adapter holding the general mechanism and the public surface holding three special
+cases, which is this requirement failing in the direction least expected.
+
+**Twelve tests were green over it, structurally.** Each registered its own stand-in under whatever
+name the method it exercised resolves, then asserted that stand-in ran — which is true for a
+dispatcher that knows one name and for one that knows all of them. Supplying the name you then ask
+for is `L5.6`'s one-source shape arriving in the *name* rather than in a value, and no number of
+per-name tests can tell the two apart. The falsifying move is arithmetic: `len(registry.names_for(
+Contract))` against what the surface exposes.
+
 **What identity does this surface key on, and is it actually unique?** A comparison, a
 deduplication or a lookup rests on a field somebody chose as the identity, and that choice is
 invisible while the cardinality is 1. Twelve rows collapsed into one because a mapping was keyed on

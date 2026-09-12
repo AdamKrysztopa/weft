@@ -209,7 +209,9 @@ Six live in `.claude/skills/`:
 
 `.claude/settings.json` is checked in, so hooks and permissions travel with the repository.
 
-- **Python files are formatted and auto-fixed the moment they are written** (`PostToolUse`). This
+- **Python files are formatted and auto-fixed the moment they are written** (`PostToolUse`), by
+  whichever route — `Write`/`Edit` by path, and `Bash` by asking git which `.py` files moved,
+  because a heredoc writes a file too and the matcher used to cover only the first (`L18.1`). This
   changes nothing about what is enforced, only when you find out — a ruff nit surfacing at
   `poe ci-checks` costs a full gate run and arrives after the reasoning is gone. Type checking and the
   architecture checks stay in the gate, where whole-tree properties belong.

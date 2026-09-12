@@ -1,5 +1,16 @@
 """PostToolUse: format and auto-fix a Python file the moment it is written.
 
+**Two writing paths, not one — `docs/internal/lessons.md` `L18.1`.** This hook matched
+`Edit|Write` alone for its whole life, while `CLAUDE.md` → *Automation* opened by saying "Python
+files are formatted and auto-fixed the moment they are written". A file written through a `Bash`
+heredoc — `cat >> x.py <<'EOF'` — is written and was not formatted, and the sentence was false for
+whichever path a session happened to prefer. Task 24.0 wrote four test files that way, staged them
+unformatted, and a dispatched implementer spent part of its one turn proving the resulting diff was
+not its own. So this also answers `Bash`, where it cannot know which files a command touched and
+therefore asks git: every changed or untracked `.py` file under the repository, formatted the same
+way a directly-written one is. A hook's guarantee is scoped to the matchers it declares, and a
+sentence claiming *whenever a file is written* is a claim about every way one can be.
+
 Ruff runs in the canonical gate anyway, so this changes nothing about what is
 enforced — it changes *when* you find out. Without it, a formatting nit or an
 auto-fixable lint surfaces minutes later at `poe ci-checks`, after the reasoning
@@ -42,14 +53,6 @@ def main() -> int:
     except json.JSONDecodeError:
         return 0
 
-    raw = payload.get("tool_input", {}).get("file_path")
-    if not raw or not raw.endswith(".py"):
-        return 0
-
-    target = Path(raw).expanduser().resolve()
-    if not target.is_file() or REPO not in target.parents:
-        return 0
-
     # Resolved rather than looked up per call: a hook that runs whichever `uv`
     # happens to be on PATH is a hook whose behaviour depends on the shell that
     # launched the session. Absent, it simply does nothing and the gate catches it.
@@ -57,16 +60,58 @@ def main() -> int:
     if uv is None:
         return 0
 
-    for arguments in (["format"], ["check", "--fix", "--unfixable", "F401", "--quiet"]):
-        # Fixed argv, no shell, absolute executable, path resolved above.
-        subprocess.run(  # noqa: S603
-            [uv, "run", "ruff", *arguments, str(target)],
-            cwd=REPO,
-            capture_output=True,
-            check=False,
-        )
+    if payload.get("tool_name") == "Bash":
+        targets = _changed_python_files()
+    else:
+        raw = payload.get("tool_input", {}).get("file_path")
+        if not raw or not raw.endswith(".py"):
+            return 0
+        target = Path(raw).expanduser().resolve()
+        targets = [target] if target.is_file() and REPO in target.parents else []
+
+    for target in targets:
+        for arguments in (["format"], ["check", "--fix", "--unfixable", "F401", "--quiet"]):
+            # Fixed argv, no shell, absolute executable, paths resolved above.
+            subprocess.run(  # noqa: S603
+                [uv, "run", "ruff", *arguments, str(target)],
+                cwd=REPO,
+                capture_output=True,
+                check=False,
+            )
 
     return 0
+
+
+def _changed_python_files():
+    """Every changed or untracked `.py` file under the repository, from git.
+
+    A `PostToolUse` on `Bash` is handed a command string, not a file list, and parsing one to
+    guess what it wrote would be wrong the first time somebody used a variable. git already knows
+    what moved, which is both exact and cheap — and it is deliberately the *working tree*, not the
+    index, because the case this exists for is a file written and not yet staged.
+    """
+    git = shutil.which("git")
+    if git is None:
+        return []
+    # Fixed argv, no shell, absolute executable.
+    result = subprocess.run(  # noqa: S603
+        [git, "status", "--porcelain", "--untracked-files=all"],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return []
+    found = []
+    for line in result.stdout.splitlines():
+        name = line[3:].split(" -> ")[-1].strip().strip('"')
+        if not name.endswith(".py"):
+            continue
+        path = (REPO / name).resolve()
+        if path.is_file() and REPO in path.parents:
+            found.append(path)
+    return found
 
 
 if __name__ == "__main__":
