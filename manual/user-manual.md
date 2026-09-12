@@ -597,6 +597,96 @@ added, removed or reworded without this table noticing fails the build before it
 | `weft trace` | `read` | `weft-rag` | print what one persisted run recorded — its resolved pipeline, corpus, model versions and active distribution set |
 <!-- weft-cli:generated:command-table:end -->
 
+## 7. Driving Weft from Python
+
+Everything above this section drives Weft through the CLI or through the kernel's own
+resolution API. This section is the other half `08` §3 has promised since Phase 0 — *"the
+equivalent Python calls for someone driving the kernel without the CLI"* — and it is one
+object with three methods.
+
+**`Weft` is the CLI's sibling, not a layer under it.** `weft_engine.api.Weft` resolves a
+`Command` from the registry by name and runs it through `weft_command.invocation.invoke`, which
+is the same seam `weft ask` goes through and the only one in the tree. That matters to you for a
+concrete reason rather than an architectural one: a command a pack contributes is reachable from
+Python the moment it is reachable from the terminal, with no adapter written for it, because
+there is no second path for one to be missing from.
+
+**Async, with no synchronous wrapper.** Every contract in Weft is `async def`, and the library
+contains exactly one `asyncio.run` — at the CLI's own entry point. Yours is yours: `Weft` never
+starts a loop, never blocks one, and gives you nothing to call from synchronous code. If you
+want a blocking call, `asyncio.run` it yourself, in your own process, where you can see it.
+
+**The `async with` is where the connections go back.** A plugin that holds one — the pgvector
+store's pool, an HTTP client — declares an `aclose`, and `weft_kernel.seam` calls it. You never
+reach for it, and the block exiting is what guarantees it happened, including when your own code
+raised on the way out: a close that fails is attached to your exception as a note rather than
+replacing it, so a cancelled task stays cancelled.
+
+```python id=embed
+import asyncio
+import tempfile
+from pathlib import Path
+
+from weft_engine.api import Weft
+
+# `.resolve()` matters: a source id is the resolved path the indexer recorded, so a
+# `delete` naming the unresolved one removes nothing and says so — `0 node(s) removed`.
+workspace = Path(tempfile.mkdtemp()).resolve()
+corpus = workspace / "corpus"
+corpus.mkdir()
+(corpus / "note.txt").write_text("The registration seam closes what a plugin opened.")
+
+# `weft.toml` names only what this walkthrough changes. The store's `dsn` comes from
+# `WEFT_DATABASE_URL`, the same environment variable `weft index` reads.
+(workspace / "weft.toml").write_text('[llm.roles]\ngenerate = { provider = "scripted" }\n')
+
+
+async def main() -> None:
+    # One session. Whatever it opens is released when the block exits — including the
+    # store's connection pool, which no caller here ever names.
+    async with Weft.open(workspace / "weft.toml") as weft:
+        await weft.index(corpus)
+
+        answer = await weft.ask("what does the seam close?", pipeline="retrieve-then-generate")
+        print(type(answer).__name__, answer.stance.value, len(answer.citations))
+        for citation in answer.citations:
+            print(citation.marker, Path(str(citation.source_id)).name)
+
+        # `delete` is a destroy-class command and there is no terminal to confirm at,
+        # so the caller says so in its own words or the run refuses. The count is printed
+        # rather than assumed: a delete that matched nothing is a successful call that did
+        # nothing, and the only way to tell the two apart is to look.
+        removed = await weft.delete(corpus / "note.txt", yes=True)
+        for outcome in removed.participants:
+            print(outcome.plugin, outcome.node_count)
+
+
+asyncio.run(main())
+```
+
+```text id=embed-out
+Answer answered 1
+1 note.txt
+pgvector 1
+```
+
+**What you get back is the typed value, never a rendering.** `ask` returns
+`weft_generate.payload.Answer` — frozen, with `text`, `stance` and `citations`, each citation
+carrying the marker that appears in the text, the node it rests on and the source it came from.
+`index` and `delete` return the same `CommandResult` subclasses `weft render` renders. Nothing
+here parses a line of output, which is the whole difference from driving the binary as a
+subprocess.
+
+**Permissions are the same table, read once.** `weft.toml`'s `[permissions]` block governs a
+library call exactly as it governs the terminal, and the one difference is what happens when it
+says `ask`: there is nobody to ask. So an `overwrite`- or `destroy`-class command refuses unless
+you passed `yes=True` or `[permissions]` already said `allow` — never silently, and the refusal
+names `yes=True` rather than `--yes`, because that is the thing you can actually pass.
+
+**This section needs the container.** It indexes into a real store and reads back from it, so
+`WEFT_DATABASE_URL` must point at a running Postgres — `docker compose up -d` from the repository
+root, or your own. Every other example on this page runs against nothing at all.
+
 ## Where to go next
 
 - **Never run `weft` before?** [`manual/quickstart.md`](quickstart.md) is the five-minute path from

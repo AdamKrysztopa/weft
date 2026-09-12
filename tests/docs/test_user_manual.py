@@ -23,19 +23,34 @@ document's own walkthrough is drawn from, needs none either.
 
 from __future__ import annotations
 
+import os
 import re
+import socket
 import subprocess
 import sys
 from pathlib import Path
 from typing import Final
+from urllib.parse import urlparse, urlunparse
+
+import pytest
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 MANUAL: Final[Path] = REPO_ROOT / "manual" / "user-manual.md"
 
 #: `08` §3's ratchet, restated for this page per task 1.10: a fenced ` ```python id=... ` block
 #: skipped from execution must be named here explicitly. **Pinned empty** — every runnable block
-#: in this manual executes today; nothing here needs Docker, a network call or a credential.
+#: in this manual executes, and the one that needs a container is *skipped* rather than waived,
+#: which is a different thing and is why it is not in here. See `BLOCKS_NEEDING_THE_CONTAINER`.
 BLOCKS_WAIVED_FROM_EXECUTION: Final[frozenset[str]] = frozenset()
+
+#: Blocks that index into a real store and read back from it — task **24.1**'s `Weft` section.
+#: They are executed like every other block when `WEFT_DATABASE_URL` names a reachable Postgres,
+#: and skipped by name when it does not. A skip is **not** a waiver: a waived block is one this
+#: file has decided never to run, and a skipped one is a block whose environment is absent, which
+#: the operator can fix. Keeping the two lists apart is what stops the second quietly becoming
+#: the first — and the skip is counted in CI's own skip ratchet (`L12.1`), so a block that starts
+#: skipping on a machine that has the container is a number that moves in a diff.
+BLOCKS_NEEDING_THE_CONTAINER: Final[frozenset[str]] = frozenset({"embed"})
 
 _PYTHON_FENCE = re.compile(
     r"^```python(?:\s+id=(?P<id>\S+))?\n(?P<body>.*?)^```\s*$", re.MULTILINE | re.DOTALL
@@ -105,6 +120,27 @@ def test_every_executed_block_has_a_matching_output_block() -> None:
     )
 
 
+def _the_container_is_reachable() -> bool:
+    """Whether `WEFT_DATABASE_URL` names a Postgres that answers — asked, never assumed.
+
+    `L7.8`: a container brought down mid-task silently dropped 51 tests out of every run
+    afterwards, green each time. An environment variable being *set* is not the same fact as a
+    server being *up*, and the difference is exactly the failure mode with no symptom, so this
+    opens a connection rather than reading `os.environ` and hoping.
+    """
+    dsn = os.environ.get("WEFT_DATABASE_URL")
+    if not dsn:
+        return False
+    parsed = urlparse(dsn)
+    if parsed.hostname is None:
+        return False
+    try:
+        with socket.create_connection((parsed.hostname, parsed.port or 5432), timeout=2):
+            return True
+    except OSError:
+        return False
+
+
 def test_python_blocks_print_exactly_what_the_manual_shows(tmp_path: Path) -> None:
     # Arrange
     del tmp_path  # each block builds and cleans up its own tempfile.mkdtemp(); nothing shared
@@ -113,6 +149,7 @@ def test_python_blocks_print_exactly_what_the_manual_shows(tmp_path: Path) -> No
         (block_id, body)
         for block_id, body in _python_blocks(markdown)
         if block_id not in BLOCKS_WAIVED_FROM_EXECUTION
+        and block_id not in BLOCKS_NEEDING_THE_CONTAINER
     ]
     assert executed, "every python block was waived — nothing was actually checked"
     outputs = _text_blocks_by_id(markdown)
@@ -147,3 +184,104 @@ def test_a_retyped_output_block_would_fail() -> None:
 
     # Assert
     assert actual.rstrip("\n") != retyped_by_hand.rstrip("\n")
+
+
+@pytest.mark.skipif(
+    not _the_container_is_reachable(),
+    reason="WEFT_DATABASE_URL names no reachable Postgres; manual/user-manual.md §7 needs one",
+)
+def test_the_container_blocks_print_exactly_what_the_manual_shows() -> None:
+    """§7's `Weft` walkthrough, run against the real store — task **24.1**.
+
+    It is a separate test rather than a branch inside the one above so that the skip is
+    *visible*: a run with no container reports one skipped test naming this page, rather than a
+    green run over a silently smaller population, which is the shape `L7.8` cost 51 tests.
+
+    **It runs against a database of its own, created and dropped here.** The block indexes a
+    note and then asks a question, and a question searches whatever the store holds — so run
+    against the suite's shared database it retrieved three passages instead of one, two of them
+    belonging to other tests, and the comparison failed for a reason that had nothing to do with
+    the manual. That is `L8.30` exactly: a measurement against `compose.yaml` owns its rows or it
+    is measuring somebody else's. The block itself is unchanged and reads `WEFT_DATABASE_URL`
+    like any reader's would; what this test supplies is an empty one.
+    """
+    # Arrange
+    markdown = MANUAL.read_text(encoding="utf-8")
+    blocks = [
+        (block_id, body)
+        for block_id, body in _python_blocks(markdown)
+        if block_id in BLOCKS_NEEDING_THE_CONTAINER
+    ]
+    assert blocks, (
+        f"BLOCKS_NEEDING_THE_CONTAINER names {sorted(BLOCKS_NEEDING_THE_CONTAINER)} and the "
+        f"manual holds none of them — this test would pass by checking nothing."
+    )
+    outputs = _text_blocks_by_id(markdown)
+
+    # Act / Assert
+    dsn, admin, name = _a_database_of_its_own()
+    try:
+        _run_and_compare(blocks, outputs, environment={**os.environ, "WEFT_DATABASE_URL": dsn})
+    finally:
+        _drop_database(admin, name)
+
+
+def _a_database_of_its_own() -> tuple[str, str, str]:
+    """`(dsn, admin_dsn, name)` for a fresh, empty database on the same server.
+
+    Named for the process so two runs on one machine cannot collide, and created through the
+    admin connection `WEFT_DATABASE_URL` already implies rather than through a second piece of
+    configuration nobody would keep true. The name is composed through `psycopg.sql.Identifier`
+    rather than formatted into the statement — `weft_store.pgvector_store`'s own rule for DDL,
+    which cannot take a bound parameter.
+    """
+    import psycopg  # noqa: PLC0415 — only this test needs a driver, and only with a container
+    from psycopg import sql  # noqa: PLC0415
+
+    dsn = os.environ["WEFT_DATABASE_URL"]
+    name = f"weft_doc_{os.getpid()}"
+    admin = urlunparse(urlparse(dsn)._replace(path="/postgres"))
+    with psycopg.connect(admin, autocommit=True) as connection:
+        connection.execute(
+            sql.SQL("DROP DATABASE IF EXISTS {} WITH (FORCE)").format(sql.Identifier(name))
+        )
+        connection.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(name)))
+    return urlunparse(urlparse(dsn)._replace(path=f"/{name}")), admin, name
+
+
+def _drop_database(admin: str, name: str) -> None:
+    import psycopg  # noqa: PLC0415
+    from psycopg import sql  # noqa: PLC0415
+
+    with psycopg.connect(admin, autocommit=True) as connection:
+        connection.execute(
+            sql.SQL("DROP DATABASE IF EXISTS {} WITH (FORCE)").format(sql.Identifier(name))
+        )
+
+
+def _run_and_compare(
+    blocks: list[tuple[str, str]],
+    outputs: dict[str, str],
+    *,
+    environment: dict[str, str],
+) -> None:
+    for block_id, body in blocks:
+        result = subprocess.run(  # noqa: S603 — this repository's own doc, not untrusted input
+            [sys.executable, "-"],
+            input=body,
+            capture_output=True,
+            text=True,
+            timeout=300,
+            check=False,
+            env=environment,
+        )
+        assert result.returncode == 0, (
+            f"manual/user-manual.md block {block_id!r} exited {result.returncode}:\n"
+            f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+        )
+        expected = outputs[f"{block_id}-out"]
+        assert result.stdout.rstrip("\n") == expected.rstrip("\n"), (
+            f"manual/user-manual.md block {block_id!r} printed something other than the "
+            f"'{block_id}-out' block beside it.\nactual:\n{result.stdout}\n"
+            f"expected:\n{expected}"
+        )

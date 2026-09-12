@@ -270,12 +270,23 @@ class Weft:
         return cast("Answer", answer)
 
     async def index(self, directory: Path | str, *, yes: bool = False) -> CommandResult:
-        """Resolve the `Command` registered as `"index"` and run it against `directory`."""
-        return await self._invoke("index", {"directory": str(directory)}, yes=yes)
+        """Resolve the `Command` registered as `"index"` and run it against `directory`.
+
+        The key is `path` because that is what `weft_cli.commands.IndexArgs` calls the field,
+        and `_invoke` projects through the model's own names: a key the model does not declare
+        is dropped, so a plausible-looking `directory` here reaches `IndexArgs(**{})` and the
+        run dies on a missing required field. Found by running the binary at task 24.2 — the
+        unit tests could not see it, because their `Command` doubles declared the names this
+        method was passing rather than the names the shipped commands declare (`L12.11`).
+        """
+        return await self._invoke("index", {"path": str(directory)}, yes=yes)
 
     async def delete(self, source: SourceId | str, *, yes: bool = False) -> CommandResult:
-        """Resolve the `Command` registered as `"delete"` and run it against `source`."""
-        return await self._invoke("delete", {"source": str(source)}, yes=yes)
+        """Resolve the `Command` registered as `"delete"` and run it against `source`.
+
+        `source_id`, for the reason `index` above states about `path`.
+        """
+        return await self._invoke("delete", {"source_id": str(source)}, yes=yes)
 
     async def _invoke(
         self, command_name: str, fields: Mapping[str, object], *, yes: bool = False

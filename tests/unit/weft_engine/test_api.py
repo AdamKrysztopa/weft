@@ -61,9 +61,17 @@ class _AskArgs(BaseModel):
 
 
 class _DeleteArgs(BaseModel):
+    """`source_id`, because that is the field `weft_cli.commands.DeleteArgs` declares.
+
+    It said `source` until task 24.2 ran the binary. `_invoke` projects a caller's fields
+    through the model's own names, so a double naming the field whatever the method happens to
+    pass makes the projection assert nothing — and `Weft.delete` was passing `source`, which
+    every shipped `delete` would have dropped (`L12.11`).
+    """
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    source: str
+    source_id: str
 
 
 class _AskResult(CommandResult):
