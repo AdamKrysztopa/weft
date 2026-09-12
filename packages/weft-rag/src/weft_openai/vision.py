@@ -35,6 +35,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import Failed, NothingToProduce, Outcome, Produced
+from weft_openai.embedder import DEFAULT_ACCOUNT
 from weft_openai.settings import Settings
 
 #: The ceiling `prepared_image` resizes down to. **This provider's cost and limit, not a fact about
@@ -127,10 +128,12 @@ class OpenAIVisionDescriber:
         config: OpenAIVisionConfig | None = None,
         *,
         client: object | None = None,
+        account: str = DEFAULT_ACCOUNT,
     ) -> None:
         self._settings = settings
         self._config = config if config is not None else OpenAIVisionConfig()
         self._client = client
+        self._account = account
 
     async def describe(self, data: bytes, media_type: str, instruction: str) -> Outcome[str]:
         """Bytes in, one description out — or an honest account of why there is none.
@@ -144,10 +147,11 @@ class OpenAIVisionDescriber:
         """
         if not self._settings.api_key.get_secret_value():
             raise MissingApiKeyError(
-                "no OpenAI credential is configured, so the 'openai-vision' describer has nothing "
-                "to authenticate with. Set [packs.openai] api_key in weft.toml (the usual "
-                'spelling is api_key = "${env:OPENAI_API_KEY}"), or remove the stage that '
-                "describes figures from this pipeline."
+                f"no credential is configured for the '{self._account}' account, so the "
+                f"'{self._account}-vision' describer has nothing to authenticate with. Set "
+                f"[packs.{self._account}] api_key in weft.toml (the usual spelling is "
+                'api_key = "${env:OPENAI_API_KEY}"), or remove the stage that describes '
+                "figures from this pipeline."
             )
         prepared = await asyncio.to_thread(prepared_image, data, media_type)
         try:

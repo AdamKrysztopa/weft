@@ -81,6 +81,12 @@ from weft_vision import Describer
 #: the `Embedder` — one name per contract, which fitness function 18 requires.
 VISION_NAME = "openai-vision"
 
+#: This pack's `weft.packs` entry-point name, and therefore the `[packs.<name>]` block an
+#: operator edits. **Passed explicitly into all three plugins** rather than left to their
+#: defaults: task `20.1` registers the same three classes under a second account, and a refusal
+#: that names the wrong block sends an operator to four lines that are already correct — `L8.3`.
+ACCOUNT = "openai"
+
 DISCLOSURE = Disclosure(
     network=("api.openai.com, or whatever [packs.openai] base_url / OPENAI_BASE_URL names",),
     filesystem=(),
@@ -117,13 +123,13 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     docstring on why `model` is a per-call argument rather than constructor
     state — so its factory ignores the second positional argument entirely.
     """
-    registrar.add(Embedder, EMBEDDER_NAME, partial(OpenAIEmbedder, settings))
-    registrar.add(LLMProvider, PROVIDER_NAME, partial(OpenAILLMProvider, settings))
+    registrar.add(Embedder, EMBEDDER_NAME, partial(OpenAIEmbedder, settings, account=ACCOUNT))
+    registrar.add(LLMProvider, PROVIDER_NAME, partial(OpenAILLMProvider, settings, account=ACCOUNT))
     # `partial`, never a closure: `weft_kernel.registry.unwrap_factory` peels a `partial` and
     # nothing else, so a closure makes the class invisible to every reader that inspects a
     # factory rather than an instance — which cost ledger task 9.4 a pack silently absent from
     # `weft delete`'s fan-out (`docs/internal/lessons.md` L9.55).
-    registrar.add(Describer, VISION_NAME, partial(OpenAIVisionDescriber, settings))
+    registrar.add(Describer, VISION_NAME, partial(OpenAIVisionDescriber, settings, account=ACCOUNT))
 
 
 __all__ = [

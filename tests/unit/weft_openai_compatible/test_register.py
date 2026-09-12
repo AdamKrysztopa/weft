@@ -36,9 +36,15 @@ from pydantic import SecretStr
 import weft_openai_compatible
 from weft_cli import registry_bootstrap
 from weft_embed.contract import Embedder
+from weft_kernel.context import Context
+from weft_kernel.errors import WeftError
+from weft_kernel.payload import MediaType, Node
 from weft_kernel.registry import Registry
 from weft_llm.contract import LLMProvider
-from weft_openai.embedder import build_client
+from weft_llm.payload import Conversation, Message, MessageRole
+from weft_openai.embedder import OpenAIEmbedder, build_client
+from weft_openai.llm import DEFAULT_MODEL as DEFAULT_LLM_MODEL
+from weft_openai.llm import OpenAILLMProvider
 from weft_openai.settings import Settings
 from weft_vision import Describer
 
@@ -224,3 +230,75 @@ def test_the_second_accounts_names_do_not_collide_with_the_first(name: str) -> N
     # rather than leaving a reader to work it out from two constants in two files.
     assert name.startswith("openai")
     assert name not in {"openai", "openai-embeddings", "openai-vision"}
+
+
+# --- the remedy names the account that is unconfigured -----------------------------------------
+#
+# Task **20.2**'s Exit clause, and it failed the first time it was run. With
+# `[packs.openai-compatible]` holding no `api_key` and `[packs.openai]` fully configured, the
+# shipped binary said:
+#
+#     no OpenAI credential is configured, so the 'openai' embedder has nothing to authenticate
+#     with. Add `[packs.openai] api_key = "${env:OPENAI_API_KEY}"` to weft.toml
+#
+# — naming a block that was already configured. An operator following that remedy edits the wrong
+# four lines and nothing changes, which is `L8.3`'s rule exactly: a remedy naming the wrong thing
+# is worse than no remedy. Three raise sites composed the block name as a literal, because until
+# `20.1` there was only one account and a literal was true.
+
+
+async def _refusal_message(plugin: Any) -> str:
+    """Whatever `plugin` says when asked to do its job with no credential.
+
+    Each of the three refuses from its own method, so this asks each in the shape its own
+    contract defines rather than through a common base they do not share — the point is the
+    *message*, and a helper that reached for one shared entry point would be testing a seam that
+    does not exist.
+    """
+    ctx = Context(tenant_id="t", run_id="r", trace_id="tr", locale="en")
+    node = Node.synthetic(content="anything", media_type=MediaType.TEXT, reason="test fixture")
+    with pytest.raises(WeftError) as raised:
+        if isinstance(plugin, OpenAIEmbedder):
+            await plugin.run([node], ctx)
+        elif isinstance(plugin, OpenAILLMProvider):
+            await plugin.complete(
+                Conversation(messages=(Message(role=MessageRole.USER, content="hi"),)),
+                model=DEFAULT_LLM_MODEL,
+                ctx=ctx,
+            )
+        else:
+            await plugin.describe(b"\x89PNG", "image/png", "describe this")
+    return str(raised.value)
+
+
+@pytest.mark.parametrize(
+    ("contract", "name"),
+    [
+        (Embedder, "openai-compatible-embeddings"),
+        (LLMProvider, "openai-compatible"),
+        (Describer, "openai-compatible-vision"),
+    ],
+)
+async def test_an_unconfigured_account_names_its_own_block(
+    tmp_path: Path, contract: type[object], name: str
+) -> None:
+    # Arrange — the second account named and left without a credential, the first one complete.
+    config = tmp_path / "weft.toml"
+    config.write_text(
+        "[packs.openai]\n"
+        'api_key = "sk-hosted-account"\n'
+        "\n"
+        "[packs.openai-compatible]\n"
+        f'base_url = "{_LOCAL}"\n',
+        encoding="utf-8",
+    )
+    deps = registry_bootstrap.build_dependencies(config)
+    plugin = deps.registry.entry(contract, name).factory(None)
+
+    # Act
+    message = await _refusal_message(plugin)
+
+    # Assert — the block an operator must edit, and not the one that is already right.
+    assert "[packs.openai-compatible]" in message, message
+    assert "[packs.openai]" not in message.replace("[packs.openai-compatible]", ""), message
+    assert name in message, message

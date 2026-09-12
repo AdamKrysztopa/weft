@@ -85,6 +85,10 @@ if TYPE_CHECKING:
 #: The name this provider is registered and selected under — see `weft_openai.register`.
 NAME = "openai"
 
+#: The `[packs.<name>]` block this provider's settings come from when nobody says otherwise —
+#: `weft_openai.embedder.DEFAULT_ACCOUNT`'s own note says why it is not derived from `NAME`.
+DEFAULT_ACCOUNT = "openai"
+
 #: A small, current chat model. Measured against, not read off a page: every claim this
 #: pack's docstrings make about `openai` is checked by `tests/integration/test_openai_llm.py`
 #: against this exact model.
@@ -258,10 +262,12 @@ class OpenAILLMProvider:
         config: OpenAILLMConfig | None = None,
         *,
         client: ChatClient | None = None,
+        account: str = DEFAULT_ACCOUNT,
     ) -> None:
         self._settings = settings
         self._config = config if config is not None else OpenAILLMConfig()
         self._client = client
+        self._account = account
 
     async def complete(
         self, conv: Conversation, *, model: str, ctx: Context
@@ -347,11 +353,12 @@ class OpenAILLMProvider:
         settings = self._settings
         if not settings.api_key.get_secret_value():
             raise LLMAuthenticationError(
-                "no OpenAI credential is configured, so the 'openai' provider has nothing to "
-                'authenticate with. Add `[packs.openai] api_key = "${env:OPENAI_API_KEY}"` '
-                "to weft.toml — the settings loader interpolates `${env:...}`, so the key stays "
-                "in the environment and out of the file.",
-                provider=NAME,
+                f"no credential is configured for the '{self._account}' account, so the "
+                f"'{self._account}' provider has nothing to authenticate with. Add "
+                f'`[packs.{self._account}] api_key = "${{env:OPENAI_API_KEY}}"` to weft.toml — '
+                "the settings loader interpolates `${env:...}`, so the key stays in the "
+                "environment and out of the file.",
+                provider=self._account,
                 model=model,
             )
         client = await asyncio.to_thread(build_client, settings)

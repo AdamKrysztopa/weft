@@ -53,6 +53,12 @@ from weft_vision import Describer
 #: `weft plugins list` can see at a glance which block configures which row. Three constants
 #: rather than one, for the reason `weft_openai.__init__`'s docstring gives at length: one
 #: constant serving two `registrar.add` calls is ledger task 8.15's defect exactly.
+#: This pack's `weft.packs` entry-point name, and therefore the `[packs.<name>]` block whose
+#: absence the three plugins must name when they refuse. Passed explicitly into each — the
+#: defect `20.2`'s Exit caught was exactly a refusal naming `[packs.openai]` while the block an
+#: operator had to edit was this one.
+ACCOUNT = "openai-compatible"
+
 EMBEDDER_NAME = "openai-compatible-embeddings"
 PROVIDER_NAME = "openai-compatible"
 VISION_NAME = "openai-compatible-vision"
@@ -97,12 +103,13 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     closure makes the class invisible to every reader that inspects a factory rather than an
     instance — which once cost a pack a silent absence from `weft delete`'s fan-out (`L9.55`).
     """
-    registrar.add(Embedder, EMBEDDER_NAME, partial(OpenAIEmbedder, settings))
-    registrar.add(LLMProvider, PROVIDER_NAME, partial(OpenAILLMProvider, settings))
-    registrar.add(Describer, VISION_NAME, partial(OpenAIVisionDescriber, settings))
+    registrar.add(Embedder, EMBEDDER_NAME, partial(OpenAIEmbedder, settings, account=ACCOUNT))
+    registrar.add(LLMProvider, PROVIDER_NAME, partial(OpenAILLMProvider, settings, account=ACCOUNT))
+    registrar.add(Describer, VISION_NAME, partial(OpenAIVisionDescriber, settings, account=ACCOUNT))
 
 
 __all__ = [
+    "ACCOUNT",
     "DISCLOSURE",
     "EMBEDDER_NAME",
     "PROVIDER_NAME",

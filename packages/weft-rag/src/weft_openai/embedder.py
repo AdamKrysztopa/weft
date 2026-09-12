@@ -72,6 +72,12 @@ if TYPE_CHECKING:
 #: The name this embedder is registered and selected under — see `weft_openai.register`.
 NAME = "openai-embeddings"
 
+#: The pack whose `[packs.<name>]` block configures this plugin when nobody says otherwise.
+#: **Not derivable from `NAME`**: a plugin name and a pack name are different identities (this
+#: tree's `weft_kernel.discovery` docstring says where they part), and task `20.1` made that
+#: concrete by registering these same classes under a second account.
+DEFAULT_ACCOUNT = "openai"
+
 #: The default model, and the one every number in this module's docstring was measured
 #: against. Small, current, and 1536 components wide without being asked.
 DEFAULT_MODEL = "text-embedding-3-small"
@@ -218,10 +224,17 @@ class OpenAIEmbedder:
         config: OpenAIEmbedderConfig | None = None,
         *,
         client: EmbeddingsClient | None = None,
+        account: str = DEFAULT_ACCOUNT,
     ) -> None:
         self._settings = settings
         self._config = config if config is not None else OpenAIEmbedderConfig()
         self._client = client
+        #: The `[packs.<name>]` block these settings came out of. Both first-party packs pass it
+        #: explicitly from their own `register()`, so no production path takes the default; it
+        #: exists for the many unit constructions that predate a second account and do not care
+        #: (`L8.24` — a defaulted parameter with one real caller is a narrowing wearing a
+        #: default, and this one has two).
+        self._account = account
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
         del ctx  # no service or locale this stage needs
@@ -282,10 +295,11 @@ class OpenAIEmbedder:
         settings = self._settings
         if not settings.api_key.get_secret_value():
             raise MissingApiKeyError(
-                "no OpenAI credential is configured, so the 'openai' embedder has nothing to "
-                'authenticate with. Add `[packs.openai] api_key = "${env:OPENAI_API_KEY}"` '
-                "to weft.toml — the settings loader interpolates `${env:...}`, so the key stays "
-                "in the environment and out of the file."
+                f"no credential is configured for the '{self._account}' account, so the "
+                f"'{self._account}-embeddings' embedder has nothing to authenticate with. Add "
+                f'`[packs.{self._account}] api_key = "${{env:OPENAI_API_KEY}}"` to weft.toml — '
+                "the settings loader interpolates `${env:...}`, so the key stays in the "
+                "environment and out of the file."
             )
         self._client = await asyncio.to_thread(build_client, settings)
         return self._client
