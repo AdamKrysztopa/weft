@@ -80,11 +80,11 @@ from pydantic import BaseModel, ConfigDict
 
 from weft_cli.argparse_gen import add_model_arguments
 from weft_cli.exit_codes import ExitCode
-from weft_cli.permission_policy import PermissionPolicy
-from weft_cli.registry_bootstrap import Dependencies, build_dependencies
 from weft_cli.sinks import JsonSink, PrintingSink
 from weft_command.contract import Command
 from weft_command.invocation import invoke
+from weft_engine.permission_policy import PermissionPolicy
+from weft_engine.registry_bootstrap import Dependencies, build_dependencies
 from weft_kernel.context import Context
 from weft_kernel.errors import WeftError
 from weft_kernel.registry import Registry, unwrap_factory
@@ -755,11 +755,21 @@ def main() -> None:
     sink = token_sink_for(json=json_flag, quiet=quiet_flag)
     try:
         deps = build_dependencies(strict_pins=strict_pins, token_sink=sink)
+        # Task 6.20 (G13)'s renderer half, moved here from `build_dependencies` at task 24.1:
+        # whatever renderer a pack buffered through `PackRegistrar.add_renderer`, made
+        # reachable for `weft_cli.render._render_result`'s own dispatch. It is this module's
+        # to make because a renderer is terminal output — `weft_engine` assembles Weft and
+        # decides nothing about what a person sees. Local import for the reason
+        # `_register_ext_models` states: `weft_cli.render` imports every built-in command
+        # module at its own scope, and `weft --version` returns above without reaching here.
+        from weft_cli.render import register_renderers_from_reports
+
+        register_renderers_from_reports(deps.reports)
         parser = build_parser(deps.registry)
     except WeftError as exc:
         # Discovery itself failed to build a registry at all, before a single Command is even
         # known to exist — `weft.toml` is not valid TOML, `[packs] allow`/`[plugins]` is
-        # malformed (`weft_cli.registry_bootstrap.build_dependencies`'s own docstring) — or
+        # malformed (`weft_engine.registry_bootstrap.build_dependencies`'s own docstring) — or
         # discovery succeeded but a registered `Command`'s own `args_model` has a field type
         # `weft_cli.argparse_gen` cannot turn into an argument (`UnsupportedArgumentTypeError`,
         # a pack author's bug, never a user's). None of these is a policy refusal any specific

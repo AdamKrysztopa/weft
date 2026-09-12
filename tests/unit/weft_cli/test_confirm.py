@@ -18,8 +18,8 @@ from pydantic import BaseModel, ConfigDict
 
 from weft_cli import confirm
 from weft_cli.exit_codes import ExitCode
-from weft_cli.permission_policy import PermissionPolicy
 from weft_command.permission import PermissionClass
+from weft_engine.permission_policy import PermissionPolicy
 from weft_kernel.context import Context
 
 

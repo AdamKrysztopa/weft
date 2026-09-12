@@ -125,7 +125,7 @@ class _TwiceRegistered(ExtModel):
 def test_register_from_reports_skips_a_class_that_already_claimed_its_namespace() -> None:
     """The idempotent path — what a caller outside full discovery wants.
 
-    `weft_cli.registry_bootstrap` calls this once per discovery, and a process that discovers
+    `weft_engine.registry_bootstrap` calls this once per discovery, and a process that discovers
     twice must not fail on the second.
     """
     # Arrange

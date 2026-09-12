@@ -1,8 +1,8 @@
-"""`weft config get|set` — the `Command` shell around `weft_cli.config_surface`.
+"""`weft config get|set` — the `Command` shell around `weft_engine.config_surface`.
 
 Task **3.7**, `docs/03-cli.md` → *Project context*. This module is deliberately thin: every
 real decision — which keys exist, how origin is computed, how a value is validated, how the
-file is edited — lives in `weft_cli.config_surface`, on the formatting/data split every
+file is edited — lives in `weft_engine.config_surface`, on the formatting/data split every
 command in this package already draws (`weft_cli.commands`'s own module docstring, and
 `weft_cli.pipeline_commands` beside it).
 
@@ -13,7 +13,7 @@ no shape for an *optional* positional, only a required one or a flag, and this m
 not widen that mechanism for one command: `key: str | None = None` therefore becomes
 `--key`, mechanically, the identical rule every other optional field in this codebase's
 generated grammar already follows. `weft config get` (no `--key`) prints every key
-`weft_cli.config_surface.CONFIG_KEYS` names; `weft config get --key services.embed` prints
+`weft_engine.config_surface.CONFIG_KEYS` names; `weft config get --key services.embed` prints
 one.
 
 **`weft config set <key> <value>` — both required, both positional**, because neither has a default
@@ -40,7 +40,9 @@ from typing import ClassVar, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from weft_cli.config_surface import (
+from weft_command.contract import Command, CommandResult
+from weft_command.permission import PermissionClass
+from weft_engine.config_surface import (
     CONFIG_KEYS,
     ConfigEntry,
     config_entry,
@@ -49,9 +51,7 @@ from weft_cli.config_surface import (
     set_config_text,
     validate_set_value,
 )
-from weft_cli.registry_bootstrap import DEFAULT_CONFIG_PATH, Dependencies, document_at
-from weft_command.contract import Command, CommandResult
-from weft_command.permission import PermissionClass
+from weft_engine.registry_bootstrap import DEFAULT_CONFIG_PATH, Dependencies, document_at
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackRegistrar
 from weft_kernel.payload import Outcome, Produced

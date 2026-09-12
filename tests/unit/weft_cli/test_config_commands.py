@@ -1,7 +1,7 @@
 """Unit tests for `weft_cli.config_commands`.
 
 Mirrors `packages/weft-rag/src/weft_cli/config_commands.py`. Runs against a real `weft.toml`
-under `tmp_path` (`monkeypatch.chdir`), never a stubbed `weft_cli.config_surface` — the
+under `tmp_path` (`monkeypatch.chdir`), never a stubbed `weft_engine.config_surface` — the
 property under test is the `Command` wiring around that module's real functions, on
 `test_registry_bootstrap.py`'s own convention for `weft.toml`-reading code. Covers the happy
 path for `get` (every key, one key, `--origin`) and `set` (writing a fresh key and replacing
@@ -23,10 +23,10 @@ from weft_cli.config_commands import (
     ConfigSetCommand,
     ConfigSetCommandResult,
 )
-from weft_cli.config_surface import ConfigOrigin, UnknownConfigKeyError
-from weft_cli.registry_bootstrap import Dependencies
-from weft_cli.service_roles import RoleTable
-from weft_cli.services import ServiceSelection
+from weft_engine.config_surface import ConfigOrigin, UnknownConfigKeyError
+from weft_engine.registry_bootstrap import Dependencies
+from weft_engine.service_roles import RoleTable
+from weft_engine.services import ServiceSelection
 from weft_kernel.context import Context, ServiceRole
 from weft_kernel.payload import Produced
 from weft_kernel.registry import Registry

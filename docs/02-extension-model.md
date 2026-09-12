@@ -371,7 +371,7 @@ or corrupt by accident.
 > the buffer into something `weft_store.rehydrate.rehydrate_ext` can read is
 > `weft_store.rehydrate.register_from_reports`'s job — the generic consumer of every
 > `PackReport.ext_models`, called once by whatever already calls `discover()`
-> (`weft_cli.registry_bootstrap.build_dependencies`), with no pack named at that call site and no
+> (`weft_engine.registry_bootstrap.build_dependencies`), with no pack named at that call site and no
 > edit owed to it by a future pack. `weft_chunk`, `weft_clean`, `weft_enhance`, `weft_pdf` and
 > `weft_index` all call it now, and so does the out-of-tree stranger pack
 > `examples/weft-example-ingest` for its own `WordCount` — the real proof, since that
@@ -1263,7 +1263,7 @@ hope they stay in sync.
 
 > **And `11.11` built the instance, 2026-09-10.** `[packs.graph] schema_file` names a project-local
 > TOML file holding a curated schema; the pack reads it at extraction time and `weft graph activate`
-> writes the setting through `weft_cli.config_surface.set_config_text`, the same text-edit surface
+> writes the setting through `weft_engine.config_surface.set_config_text`, the same text-edit surface
 > `weft config set` uses, so an operator's own comments and ordering survive. It is the first pack
 > setting in this tree that **points at another file** rather than carrying a value, which is what
 > makes the per-project lifetime load-bearing rather than incidental: a path is meaningless outside
@@ -1438,7 +1438,7 @@ allow = ["weft-extract", "weft-chunk", "weft-store", "weft-kg"]
   open-by-default posture reached silently, by typo, with the operator's allow-list never consulted.
   Loud instead: naming `weft.toml`, the `[packs]` key, the shape found and the shape expected. Task
   **1.16** — an audit found both call sites (`weft_kernel.discovery.allow_list_from_config`,
-  `weft_cli.registry_bootstrap.pack_settings_from_config`) collapsing this case into absence, which
+  `weft_engine.registry_bootstrap.pack_settings_from_config`) collapsing this case into absence, which
   is the bug fixed there, not a second posture.
 
 Two things run **always**, opted in or not, and they carry most of the practical weight:
@@ -1942,7 +1942,7 @@ ambient* threat applied to your data.
 > The rule bites on *installation*, not on what someone deliberately asks for at the command line.
 >
 > **Built in Phase 5 task 5.1c.** `weft_cli.commands.IndexArgs.reconcile` is a hardcoded
-> `ReconcileMode.REPAIR` default, read from no config at all — `weft_cli.reconcile_policy`'s
+> `ReconcileMode.REPAIR` default, read from no config at all — `weft_engine.reconcile_policy`'s
 > own `[reconcile] mode` governs `weft reconcile` typed by hand, never `weft index`'s automatic
 > pass, so a project cannot make the automatic pass reach `full` by editing `weft.toml` once.
 > `weft index --reconcile full` is the per-run flag this rule requires; `03` → *Command
@@ -1979,7 +1979,7 @@ ambient* threat applied to your data.
 > mechanism: `weft_kernel.discovery.PackRegistrar.add_contribution(slot, stage)` buffers one,
 > attributed to the calling pack exactly as `add`/`deprecate`/`add_ext_model` already are —
 > `distribution` is filled in by the registrar, never stated by the pack — and `PackReport.
-> contributions` carries the buffer once `register()` commits. `weft_cli.registry_bootstrap.
+> contributions` carries the buffer once `register()` commits. `weft_engine.registry_bootstrap.
 > build_dependencies` is the one assembly point `Contribution`'s own docstring already named as
 > "whatever assembled the `Registry` from every installed pack's own registration": it
 > concatenates every report's own tuple into `Dependencies.contributions`, and all three
@@ -2147,7 +2147,7 @@ blanket refusal rather than tightening a silence, which is the direction `06` re
 >
 > Both read `[plugins]` from the same `weft.toml` that already carries `[packs] allow`, and neither
 > is read by the kernel. In short: the pin is read by the operator-policy loader in weft-cli, never
-> by the kernel — `weft_cli.registry_bootstrap` is that loader, on the identical split *One model,
+> by the kernel — `weft_engine.registry_bootstrap` is that loader, on the identical split *One model,
 > two directions* below already states for the pipeline document itself, extended here to the file
 > the pin lives in.
 >
@@ -2320,7 +2320,7 @@ and it is Phase 5's exit criterion met early, on the hardest example available.
 >
 > **`exporter` defaults to `NONE`, not `CONSOLE`, and that default was corrected by measurement, not
 > chosen twice.** `opentelemetry.trace.set_tracer_provider` succeeds exactly once per process, and
-> this repository's own test suite calls `weft_cli.registry_bootstrap.build_dependencies` — the real,
+> this repository's own test suite calls `weft_engine.registry_bootstrap.build_dependencies` — the real,
 > open-by-default discovery path — from dozens of existing tests with nothing to do with tracing.
 > A `CONSOLE` default let whichever of those a given `pytest tests -q` process happened to run first
 > claim the provider slot for good, non-deterministically defeating

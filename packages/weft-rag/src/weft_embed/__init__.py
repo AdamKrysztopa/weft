@@ -29,7 +29,7 @@ class Settings(BaseModel):
 #: is the operator surface and `disclosure: not disclosed` was what it printed for the one pack
 #: whose *default* needs a sentence: `hash` derives every vector from a content digest, and a
 #: ranking built from it means nothing an operator should trust without being told so. The trade
-#: the default makes is argued at `weft_cli/services.py:27 '`hash` stays the default'`.
+#: the default makes is argued at `weft_engine/services.py:27 '`hash` stays the default'`.
 DISCLOSURE = Disclosure(
     network=(),
     filesystem=(),

@@ -3,7 +3,7 @@
 Mirrors `packages/weft-rag/src/weft_cli/pipeline_catalogue.py`. Task **1.9**:
 `weft-cli` is the only distribution allowed to open a pipeline document — G1 fixes the
 kernel's dependencies at `pydantic` and `opentelemetry-api`, so the YAML parser lives
-here, on the same footing `weft_cli.registry_bootstrap` already established for
+here, on the same footing `weft_engine.registry_bootstrap` already established for
 `weft.toml`'s TOML. Covers the happy path (one document parses into the `Pipeline` the
 kernel already validates, and a directory of documents becomes a `resolve()`-ready
 catalogue keyed by each document's own `name:`), the edge case of two catalogue files

@@ -78,7 +78,7 @@ def participants_for(
     """Every registered plugin whose class satisfies `capability` — see the module docstring.
 
     A name in `store_names` that nothing registered is simply absent from the result rather
-    than raised over: `weft_cli.registry_bootstrap.require_plugin` is what turns an unresolvable
+    than raised over: `weft_engine.registry_bootstrap.require_plugin` is what turns an unresolvable
     `[services] store` into a diagnosable refusal, and repeating that translation here would
     give the same mistake two different messages. The callers make that check first — a lesson
     with a `docs/internal/lessons.md` entry of its own (L5.9).

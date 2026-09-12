@@ -27,7 +27,7 @@ answer since task 8.3**, defaulting to `route` — until then the name was a con
 that made it the one pipeline in the tree nobody could substitute: a pack cannot contribute a
 second document under a name another pack already holds, and a project that ships its own
 `route.yaml` is refused by `full_catalogue` and takes every `weft pipeline` command with it.
-`weft_cli.services.DEFAULT_ROUTER` carries the argument, and the two registered routing
+`weft_engine.services.DEFAULT_ROUTER` carries the argument, and the two registered routing
 policies that were unreachable because of it are the evidence.
 
 `weft_cli.run_services.check_store_capabilities` runs once per resolved pipeline,
@@ -66,7 +66,6 @@ from collections.abc import Mapping, Sequence
 from dataclasses import replace
 
 from weft_cli.compile import contracts_for, to_specs
-from weft_cli.llm_roles import LLMSection
 from weft_cli.pipeline_catalogue import (
     DEFAULT_PIPELINES_DIR,
     UnknownPipelineNameError,
@@ -79,8 +78,9 @@ from weft_cli.run_services import (
     demanded_capabilities,
     selected_role_instances,
 )
-from weft_cli.service_roles import RoleTable
-from weft_cli.services import DEFAULT_ROUTER, ServiceSelection
+from weft_engine.llm_roles import LLMSection
+from weft_engine.service_roles import RoleTable
+from weft_engine.services import DEFAULT_ROUTER, ServiceSelection
 from weft_generate.contract import Generator
 from weft_generate.payload import Answer
 from weft_kernel.context import Context
@@ -97,7 +97,7 @@ from weft_retrieve.payload import Query, QuerySet, Route
 from weft_store import NodeStore
 
 #: `route.yaml`'s own `name:` field, and **the default rather than the law** since ledger task
-#: **8.3**. It was a module constant until then, and `weft_cli.services.DEFAULT_ROUTER` — where
+#: **8.3**. It was a module constant until then, and `weft_engine.services.DEFAULT_ROUTER` — where
 #: it now lives as `[services] route`'s default — carries the argument for the change in full:
 #: a hard-coded router name is the one privileged pipeline in the tree, because no second
 #: document can take the name and no project may declare it either. This alias stays so the
@@ -205,7 +205,7 @@ async def run_routed_ask(
     on the identical footing `weft_cli.pipeline_commands._resolved_or_refuse` and
     `weft_cli.ingest._specs_from_document` already receive it.
 
-    `roles` — ledger task **9.0** — is `weft_cli.registry_bootstrap.Dependencies.roles`,
+    `roles` — ledger task **9.0** — is `weft_engine.registry_bootstrap.Dependencies.roles`,
     threaded straight through to `_prepared_runner`'s own `build_services` call. Defaults to
     `_NO_ROLES` (empty), so `weft_cli.eval_scoring`'s own call — which holds no `Dependencies`
     to read a real one from — keeps registering exactly today's set.
@@ -654,7 +654,7 @@ async def _run_pipeline(
     full argument. Both callers already build the full catalogue for their own lookups, so
     this costs nothing beyond passing it one call further.
 
-    `contributions` — task **5.3a** (`S8`) — is `weft_cli.registry_bootstrap.Dependencies.
+    `contributions` — task **5.3a** (`S8`) — is `weft_engine.registry_bootstrap.Dependencies.
     contributions`, threaded down from `run_routed_ask`/`run_named_ask`, on the identical
     footing `catalogue` already is: one caller assembles it, every `resolve()` call site
     receives it unchanged.

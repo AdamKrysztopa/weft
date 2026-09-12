@@ -71,7 +71,7 @@ directly (`weft_cli.ingest.index_specs`) and never asks the registry to infer it
 collision is specific to the *pipeline-document* path task 4.0 built, which is the one this
 baseline now has to use for V6's resolved pipeline. `hash` is the one `Embedder` registered under
 no other contract, so it is what a *document* can name today; it is also the deterministic,
-no-network, no-credential default this whole project treats as first-class (`weft_cli.services`'s
+no-network, no-credential default this whole project treats as first-class (`weft_engine.services`'s
 own docstring), which makes the published baseline reproducible by a stranger with no vendor
 account at all — a stronger property than the openai-embedded baseline this harness used to take,
 not a weaker one, even though it is not a semantic embedding. `--embedder openai` still works for
@@ -112,7 +112,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from weft_cli.ask import AskResult
 from weft_cli.compile import contracts_for
 from weft_cli.pipeline_catalogue import full_catalogue
-from weft_cli.registry_bootstrap import build_dependencies
+from weft_engine.registry_bootstrap import build_dependencies
 from weft_eval.run_record import RunRecord, build_run_record, corpus_identity
 from weft_kernel.resolution import ResolvedPipeline, resolve
 

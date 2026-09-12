@@ -2,7 +2,7 @@
 
 `docs/03-cli.md` -> *Command surface*: "`weft reconcile` typed by a person defaults to `full`,
 because someone typing that word means it... `weft.toml` sets a personal default and the flag
-always wins." This module is `weft_cli.permission_policy`'s own shape, applied to a third block:
+always wins." This module is `weft_engine.permission_policy`'s own shape, applied to a third block:
 one function reading one already-parsed `dict`, a frozen Pydantic result with a built-in default,
 an unknown key refused by name, and a malformed table refused the identical way `weft_cli.
 registry_bootstrap.pack_settings_from_config` refuses a `[packs]` that is a list instead of a
@@ -52,8 +52,8 @@ class ReconcilePolicy(BaseModel):
 class UnknownReconcileKeyError(WeftError, UnresolvedNameError):
     """`[reconcile]` names a key this module does not read.
 
-    The identical rule `weft_cli.permission_policy.UnknownPermissionKeyError` and
-    `weft_cli.config_surface.UnknownConfigKeyError` already give their own sibling blocks —
+    The identical rule `weft_engine.permission_policy.UnknownPermissionKeyError` and
+    `weft_engine.config_surface.UnknownConfigKeyError` already give their own sibling blocks —
     `docs/03-cli.md` -> *Project context* requires refusal naming the keys the CLI does know,
     never silent acceptance, and fitness function 12 requires that as a typed field a caller
     can read, not only text inside the message.
@@ -94,7 +94,7 @@ def reconcile_policy_from_config(document: dict[str, object] | None) -> Reconcil
     # `ReconcileMode` is a closed, two-member `StrEnum` — `repair`/`full` are not names
     # resolved against a registry, a catalogue, or any set whose membership could ever
     # depend on what is installed; they are the type's own exhaustive literal values. The
-    # identical exclusion `weft_cli.permission_policy`'s own raise site states in full for
+    # identical exclusion `weft_engine.permission_policy`'s own raise site states in full for
     # `PermissionAction` — a type mismatch with a friendlier message, not a name failing to
     # resolve, so this is not brought into `NAME_RESOLUTION_FAMILY` either.
     valid_values = {member.value for member in ReconcileMode}

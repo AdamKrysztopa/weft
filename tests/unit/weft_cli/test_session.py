@@ -80,6 +80,7 @@ def test_cleared_resets_every_field_to_its_default() -> None:
 def test_session_state_rejects_an_unknown_field() -> None:
     # Error case: `extra="forbid"` means an inspectable model cannot silently grow a field
     # nothing here declared — the same discipline every other frozen model in this package
-    # follows (`weft_cli.permission_policy.PermissionPolicy`, `weft_cli.services.ServiceSelection`).
+    # follows (`weft_engine.permission_policy.PermissionPolicy`,
+    # `weft_engine.services.ServiceSelection`).
     with pytest.raises(ValidationError):
         SessionState.model_validate({"active_pipeline": "x", "bogus": True})

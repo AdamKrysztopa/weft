@@ -34,7 +34,7 @@ table an operator may omit entirely (every `weft_llm.loop_guard.LoopGuardConfig`
 defaults to a measured value, per that module's own docstring) or override one key of,
 never a second parser for the same idea.
 
-**Not `[services]`, deliberately.** `weft_cli.services`'s own module docstring already
+**Not `[services]`, deliberately.** `weft_engine.services`'s own module docstring already
 refuses an `llm` key under `[services]` — a role picks a *configuration entry*, not a single
 plugin name, so it earns its own top-level table rather than growing `ServiceSelection` a
 field that means something different from its two siblings.
@@ -54,7 +54,7 @@ what this module returns, and that assembler lands with task 2.8.
 argument in full): the unknown-`[llm]`-key refusal below used to be a bare `WeftError`
 computing `_KNOWN_LLM_KEYS` and interpolating them into the message only — invisible to fitness
 function 12's family walk, which looks for a typed `valid_options` field, never message text.
-`UnknownLLMKeyError` now carries it, the identical shape `weft_cli.config_surface.
+`UnknownLLMKeyError` now carries it, the identical shape `weft_engine.config_surface.
 UnknownConfigKeyError` already gives `config get`/`config set`'s own vocabulary. The three
 malformed-shape checks below it (`[llm.roles]`/`[llm.retry]`/`[llm.loop_guard]` each not being a
 table) stay bare `WeftError` — a type mismatch, not a name failing to resolve against a set of
@@ -71,14 +71,14 @@ from weft_llm.retry import RetryPolicy
 from weft_llm.roles import LLMRoles, RoleMapping, UnmappedLLMRoleError
 
 #: Every key `[llm]` accepts. A key nothing reads is refused rather than ignored, the same
-#: posture `weft_cli.services.service_selection_from_config` takes for `[services]`.
+#: posture `weft_engine.services.service_selection_from_config` takes for `[services]`.
 _KNOWN_LLM_KEYS = ("loop_guard", "retry", "roles")
 
 
 class UnknownLLMKeyError(WeftError, UnresolvedNameError):
     """`[llm]` names a key this module does not read.
 
-    Repair, 2026-08-20: the identical rule `weft_cli.config_surface.UnknownConfigKeyError`
+    Repair, 2026-08-20: the identical rule `weft_engine.config_surface.UnknownConfigKeyError`
     already gives `config get`/`config set`'s own sibling refusal, applied here — `01`
     requirement 5 and fitness function 12 require the valid keys as a typed field a caller can
     read, not only text inside the message a reviewer has to notice.
@@ -121,7 +121,7 @@ class MalformedLLMSectionError(WeftError):
 def _first_problem(exc: ValidationError) -> str:
     """One pydantic error as a sentence an operator can act on, never the whole dump.
 
-    `weft_cli.registry_bootstrap`'s own repair (task 3.2, finding 2) is the precedent: a raw
+    `weft_engine.registry_bootstrap`'s own repair (task 3.2, finding 2) is the precedent: a raw
     multi-line pydantic dump spliced mid-sentence is what that task removed from a refusal, and
     reintroducing one here would undo it.
     """

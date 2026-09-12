@@ -23,7 +23,7 @@ nothing exercised it — `docs/internal/lessons.md` `L9.26`.
 
 import pytest
 
-from weft_cli.service_roles import RoleTable
+from weft_engine.service_roles import RoleTable
 from weft_kernel.context import ServiceRole
 from weft_store.contract import NodeStore, TextSearch, VectorSearch
 

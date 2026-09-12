@@ -12,7 +12,7 @@ along with the rest and quietly stop reporting.
 **One container is still one, and the operator says so in one line.** `[packs.graph] dsn` takes a
 DSN like any other setting, and the fixture below hands it the same `WEFT_DATABASE_URL` a project
 would write as `[packs.graph] dsn = "${env:WEFT_DATABASE_URL}"`. The ledger asked for that offer to
-be *ambient* — extended from the one `weft_cli.registry_bootstrap.pack_settings_from_environment`
+be *ambient* — extended from the one `weft_engine.registry_bootstrap.pack_settings_from_environment`
 already makes to `store` — and that turned out to mean `weft_cli` naming this pack in a hard-coded
 literal, which is the anticipation Phase 11 exists to prove unnecessary. Settled with the owner
 2026-09-09: the pack costs **zero lines outside itself**, and the one line an operator writes is

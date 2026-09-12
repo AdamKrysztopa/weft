@@ -2,7 +2,7 @@
 supplied it — the one place both resolution seams compose that answer, so they cannot drift.
 
 **Carried repair R11.3.** Two callers need the same thing once a plugin name fails to
-resolve: `weft_cli.registry_bootstrap.require_plugin` (the `[services]` path) and
+resolve: `weft_engine.registry_bootstrap.require_plugin` (the `[services]` path) and
 `weft_cli.compile._contract_for` (a pipeline document's own `use:` field). Before this
 module existed, only the first attached a failed pack's own reason — the second printed
 every installed plugin name and nothing about *why* the one asked for was missing, even
@@ -11,15 +11,16 @@ same `PackReport` tuple is how `docs/02-extension-model.md` §2's exit-3-versus-
 exit-4-versus-resolution split stops being one promise, so this is the one place either
 seam is allowed to build it.
 
-**Why a new leaf module rather than folding this into `weft_cli.registry_bootstrap`.**
-`weft_cli.compile` imports only from `weft_kernel` today, and `weft_cli.registry_bootstrap`
-is heavy — it pulls in `weft_cli.llm_roles`, `weft_cli.permission_policy`,
-`weft_cli.service_roles`, `weft_cli.services`, `weft_llm.client` and `weft_llm.contract` at
+**Why a new leaf module rather than folding this into `weft_engine.registry_bootstrap`.**
+`weft_cli.compile` imports only from `weft_kernel` today, and `weft_engine.registry_bootstrap`
+is heavy — it pulls in `weft_engine.llm_roles`, `weft_engine.permission_policy`,
+`weft_engine.service_roles`, `weft_engine.services`, `weft_llm.client` and `weft_llm.contract` at
 its own module scope, none of which a pipeline document's own bridge has ever needed. A
-leaf module both `weft_cli.compile` and `weft_cli.registry_bootstrap` can import, with no
+leaf module both `weft_cli.compile` and `weft_engine.registry_bootstrap` can import, with no
 import running the other way, is what keeps the attribution in one place without adding a
-cycle. It may import `weft_cli.exit_codes` and `weft_kernel.discovery`, and nothing else
-from `weft_cli`.
+cycle. It may import `weft_command.render` for `ExitCode` and `weft_kernel.discovery`, and
+nothing from `weft_cli` at all — which is a stronger statement than the one this paragraph
+made before task 24.1 moved this module here, and is now true of every module in this package.
 """
 
 from __future__ import annotations
@@ -29,7 +30,7 @@ import textwrap
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from weft_cli.exit_codes import ExitCode
+from weft_command.render import ExitCode
 from weft_kernel.discovery import PackReport, PackStatus
 from weft_kernel.seam import Unavailable
 
@@ -78,7 +79,7 @@ def attribute_to_packs(
     valid_options: tuple[str, ...],
 ) -> PluginRefusal:
     """`wanted` and `registered` composed with whatever `reports` can say about why `name`
-    did not resolve — `weft_cli.registry_bootstrap._unresolved`'s own body (repair,
+    did not resolve — `weft_engine.registry_bootstrap._unresolved`'s own body (repair,
     2026-08-20, open item O4), generalised so a pipeline document's own `use:` field can
     call it too, rather than reimplementing the same three branches a second time.
 
@@ -277,7 +278,7 @@ def _diagnostic_detail(silent: Sequence[PackReport]) -> str:
 
 def _compose(*sentences: str) -> str:
     """Join `attribute_to_packs`'s pieces into one message, in the order given — the join
-    `weft_cli.registry_bootstrap`'s own 2026-08-20 repair was about.
+    `weft_engine.registry_bootstrap`'s own 2026-08-20 repair was about.
 
     Every argument is written in its own voice, capitalised and ending in a full stop
     already, so a plain space between two single-line pieces reads as one paragraph. A

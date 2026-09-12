@@ -27,9 +27,7 @@ from typing import Protocol
 import pytest
 import yaml
 
-from weft_cli.llm_roles import LLMSection
 from weft_cli.pipeline_catalogue import ProjectPipelineNameCollisionError, full_catalogue
-from weft_cli.registry_bootstrap import build_dependencies
 from weft_cli.route_ask import (
     NoRouterPipelineError,
     pipelines_producing,
@@ -37,9 +35,11 @@ from weft_cli.route_ask import (
     run_routed_ask,
 )
 from weft_cli.run_services import SelectedCapabilityMissingError
-from weft_cli.services import ServiceSelection
 from weft_embed import Embedder
 from weft_embed.hash_embedder import HashEmbedder
+from weft_engine.llm_roles import LLMSection
+from weft_engine.registry_bootstrap import build_dependencies
+from weft_engine.services import ServiceSelection
 from weft_generate import CitedAnswer, Generator
 from weft_generate.payload import Answer
 from weft_generate.prompts import ANSWER_WITH_CITATIONS_NAME, AnswerWithCitationsPrompt
@@ -112,7 +112,7 @@ def _registry() -> Registry:
     # `nearest-description` genuinely embeds the query and every candidate's summary —
     # even with one candidate — so this needs a real `Embedder`, not a fake with no
     # `run` at all. `hash` is `weft-embed`'s own offline, deterministic, credential-free
-    # built-in — the same default `weft_cli.services.DEFAULT_EMBEDDER` names.
+    # built-in — the same default `weft_engine.services.DEFAULT_EMBEDDER` names.
     registry.add(Embedder, "fake-embed", HashEmbedder, distribution="weft-embed")
     registry.add(Retriever, "no-retrieval", NoRetrieval, distribution="weft-retrieve")
     registry.add(Fuser, "single-list", SingleList, distribution="weft-retrieve")

@@ -1,15 +1,15 @@
-"""Unit tests for `weft_cli.service_roles` and the `[services]` role set it decides.
+"""Unit tests for `weft_engine.service_roles` and the `[services]` role set it decides.
 
-Mirrors `packages/weft-rag/src/weft_cli/service_roles.py`. **Ledger task 9.0, property (i) —
+Mirrors `packages/weft-rag/src/weft_engine/service_roles.py`. **Ledger task 9.0, property (i) —
 role selection**, tested alone: the other two properties (exact-key aliasing by demand, and
 `needs_store` validation over the selected set) have their own files, because the task line
 requires each to be tested without the others standing in for it.
 
 What this file is about is a **key space that no longer lives in `weft-cli`**. Until 9.0 the
 `[services]` keys were three fixed fields on `ServiceSelection`
-(`packages/weft-rag/src/weft_cli/services.py:141 'class Serv'`), so a pack publishing a new run-wide
-service had no way to be selected without an edit to this distribution — requirement 1 failing for
-the next pack, which is what Phase 7's close filed rather than fixed
+(`packages/weft-rag/src/weft_engine/services.py:141 'class Serv'`), so a pack publishing a new
+run-wide service had no way to be selected without an edit to this distribution — requirement 1
+failing for the next pack, which is what Phase 7's close filed rather than fixed
 (`docs/internal/build-ledger.md:4370-4366 'emits prose'`, finding *(a)*). Here the set is
 contributed: a pack declares a `ServiceRole` beside the contract it publishes, discovery carries it
 on the pack's own report, and `weft-cli` reads the set rather than stating it.
@@ -25,13 +25,13 @@ from pathlib import Path
 
 import pytest
 
-from weft_cli.config_surface import config_keys_for
-from weft_cli.service_roles import (
+from weft_engine.config_surface import config_keys_for
+from weft_engine.service_roles import (
     DuplicateServiceRoleError,
     RoleTable,
     role_table_from_reports,
 )
-from weft_cli.services import UnknownServiceKeyError, service_selection_from_config
+from weft_engine.services import UnknownServiceKeyError, service_selection_from_config
 from weft_kernel.context import ServiceRole
 from weft_kernel.discovery import PackReport, PackStatus, ServiceRoleOffer
 
@@ -146,7 +146,7 @@ def test_the_two_roles_whose_names_predate_the_mechanism_arrive_through_it() -> 
     `docs/internal/lessons.md` L6.4: a marker means what its live instances say.
     """
     # Arrange
-    from weft_cli import registry_bootstrap
+    from weft_engine import registry_bootstrap
 
     deps = registry_bootstrap.build_dependencies(Path("/nonexistent/weft.toml"))
 
@@ -189,7 +189,7 @@ def test_a_declared_role_nothing_selected_is_absent_rather_than_guessed() -> Non
     field no shipped pack writes answers emptily rather than usefully. `embed` and `store`
     keep defaults because their names predate the mechanism
     (`docs/internal/build-ledger.md:5056 's ticked'`),
-    and those two defaults live in `weft_cli.services` where they always have.
+    and those two defaults live in `weft_engine.services` where they always have.
 
     `CLAUDE.md`: a silent fallback is worse than a failure — it produces a plausible answer
     against the wrong thing. A stage reaching for the contract gets
@@ -250,7 +250,7 @@ def test_route_is_accepted_as_a_key_while_never_being_a_role() -> None:
 def test_weft_config_offers_a_dotted_key_for_a_role_no_one_here_named() -> None:
     """`weft config get|set`'s vocabulary is the same set, not a second copy of it.
 
-    `weft_cli.config_surface._KEY_FIELDS` was a hand-written closed vocabulary over the same
+    `weft_engine.config_surface._KEY_FIELDS` was a hand-written closed vocabulary over the same
     `[services]` block, and it had already drifted: it listed `services.embed` and
     `services.store` and never `services.route`, which task 8.3 added to `ServiceSelection`
     and wired into `route_ask`. Two key spaces over one block, derived from different

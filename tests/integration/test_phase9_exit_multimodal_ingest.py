@@ -32,8 +32,8 @@ from weft_blob.filesystem_store import FilesystemBlobSettings, FilesystemBlobSto
 from weft_blob.payload import BlobRef
 from weft_cli.deletion import delete_everywhere, participants
 from weft_cli.ingest import run_index
-from weft_cli.service_roles import role_table_from_reports
-from weft_cli.services import ServiceSelection
+from weft_engine.service_roles import role_table_from_reports
+from weft_engine.services import ServiceSelection
 from weft_extract.payload import TableGrid
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackReport, discover

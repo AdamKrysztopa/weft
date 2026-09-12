@@ -57,7 +57,7 @@ from collections.abc import Mapping, Sequence
 from pydantic import BaseModel
 
 from weft_cli.exit_codes import ExitCode
-from weft_cli.pack_attribution import (
+from weft_engine.pack_attribution import (
     attribute_to_packs,
     install_hint,
     unavailable_message,
@@ -156,10 +156,10 @@ class RefusedStagePluginError(WeftError):
     that whole family to `ExitCode.RESOLUTION_FAILED` by `isinstance`, and this is the other
     half of `docs/02-extension-model.md` §2's own split: "A pipeline naming a plugin from a
     `refused` pack exits 3, refused, and names the config key that would permit it" — that
-    promise arriving on the document path for the first time. `weft_cli.registry_bootstrap.
+    promise arriving on the document path for the first time. `weft_engine.registry_bootstrap.
     require_plugin` already gives `[services]` exit 3 for the identical reason
     (`ExitCode.POLICY_REFUSED`); this is that same policy answer reaching a `use:` field,
-    both composed by `weft_cli.pack_attribution.attribute_to_packs` from the same `reports`
+    both composed by `weft_engine.pack_attribution.attribute_to_packs` from the same `reports`
     tuple, so the two messages cannot drift apart.
     """
 

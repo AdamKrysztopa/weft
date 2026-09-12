@@ -23,7 +23,7 @@ calls `weft_kernel.discovery.discover` at all, as the test above does not. This 
 the real mechanism end to end: `discover()` against the real, installed `weft-index` pack,
 whose own `register()` now buffers `weft_index.payload.Representation` through
 `PackRegistrar.add_ext_model`, then `weft_store.rehydrate.register_from_reports` — the
-generic consumer `weft_cli.registry_bootstrap.build_dependencies` calls — with
+generic consumer `weft_engine.registry_bootstrap.build_dependencies` calls — with
 `Representation` named nowhere in that test except to build the node and check what came
 back. `Representation` is the subject rather than `PdfPages` on purpose: before this task
 it had no rehydration path at all, not even a hand-written shim, so its round trip is the
@@ -126,7 +126,7 @@ async def test_ingest_pipeline_produces_stored_nodes(store: PgVectorStore, tmp_p
 
 def _discover_and_wire_ext_models() -> None:
     """The real mechanism, end to end: `discover()`, then the one generic call
-    `weft_cli.registry_bootstrap.build_dependencies` makes right after it — see the module
+    `weft_engine.registry_bootstrap.build_dependencies` makes right after it — see the module
     docstring's own paragraph on the test below.
 
     Imported lazily so this module's own top-level imports stay narrow — nothing else here

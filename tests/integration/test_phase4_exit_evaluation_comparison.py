@@ -76,8 +76,8 @@ from weft_cli.eval_commands import (
     EvalRunCommandResult,
 )
 from weft_cli.pipeline_catalogue import load_pipeline_document
-from weft_cli.registry_bootstrap import Dependencies, build_dependencies
 from weft_cli.render import render_outcome
+from weft_engine.registry_bootstrap import Dependencies, build_dependencies
 from weft_eval.run_record import load_run_record
 from weft_kernel.context import Context
 from weft_kernel.payload import Produced

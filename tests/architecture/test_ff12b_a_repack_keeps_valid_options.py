@@ -5,9 +5,9 @@ file is the check the 2026-08-20 repair (`402a957`) asked for and did not itself
 **Why FF12's structural check, on its own, missed two real Phase 3 defects.** `test_ff12_
 unresolvable_name_carries_options.py` proves every *named* family member carries `valid_options`
 — but membership is opt-in (`issubclass(cls, UnresolvedNameError)`), and a raise site that never
-mixes the marker in is invisible to it. Commit `402a957` found two: `weft_cli.permission_policy`
+mixes the marker in is invisible to it. Commit `402a957` found two: `weft_engine.permission_policy`
 computed the valid `[permissions]` keys and interpolated them straight into a bare `WeftError`'s
-message, never joining the family; `weft_cli.registry_bootstrap.require_plugin` caught
+message, never joining the family; `weft_engine.registry_bootstrap.require_plugin` caught
 `weft_kernel.registry.UnknownPluginError` — which *does* carry `valid_options` — and discarded it
 into `plain=str(exc)` before raising a bare `CommandRefusalError`. Both were repaired by hand.
 This file is the machinery that should have caught the second shape before a human found it.
@@ -20,7 +20,7 @@ function exists to prevent, one layer up.
 
 1. *Rejected, with evidence*: flag any `raise` of a `WeftError` subclass outside the family whose
    message was built from a `sorted(...)`, a comprehension, or a `str.join(...)` call — the shape
-   `weft_cli.permission_policy`'s pre-repair site had. Measured against the real tree (every
+   `weft_engine.permission_policy`'s pre-repair site had. Measured against the real tree (every
    first-party module, the identical import-and-walk this file's own check below performs): **13
    raise sites match the syntactic shape, and 11 of the 13 are not name-resolution failures at
    all** — a closed `StrEnum`'s value check, a contract shape violation, an inert pin, a Pydantic
@@ -307,8 +307,8 @@ _STAND_INS: Final[dict[str, type[object]]] = {
 
 #: Finding 2's own mechanism (module docstring), reconstructed in one function rather than
 #: threaded through two modules and a return value — the shape this file's check can actually
-#: see. `weft_cli.registry_bootstrap.require_plugin`'s pre-repair body, restated with the stand-in
-#: names above rather than copied: catch, discard into `str(exc)`, raise the bare sibling.
+#: see. `weft_engine.registry_bootstrap.require_plugin`'s pre-repair body, restated with the
+#: stand-in names above rather than copied: catch, discard into `str(exc)`, raise the bare sibling.
 _REPACK_VIOLATION_SOURCE: Final[str] = """
 def resolve_or_refuse(registry, name):
     try:

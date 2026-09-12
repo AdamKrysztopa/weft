@@ -553,7 +553,7 @@ async def test_run_index_with_pipeline_runs_a_contribution_placed_in_its_declare
     """Task **5.3a** (`S8`) end to end: a document declares a slot, a pack's own
     `Contribution` names it, and the contributed stage actually runs — never merely
     resolves. `contributions=` reaches `run_index` through `_specs_from_document`'s own
-    `contracts_for`/`resolve` calls, exactly the seam `weft_cli.registry_bootstrap.
+    `contracts_for`/`resolve` calls, exactly the seam `weft_engine.registry_bootstrap.
     Dependencies.contributions` feeds every real caller.
     """
     # Arrange — an `Enhancer` slots in cleanly between `chunk` and `embed`: all three

@@ -1,14 +1,14 @@
 """The `[services]` key space, contributed rather than stated — ledger task **9.0**.
 
 Until this task the `[services]` keys were three fixed fields on
-`weft_cli.services.ServiceSelection`, so a pack publishing a new run-wide service had no way to be
-selected without an edit to `weft-cli` itself — Phase 7's close, finding *(a)*
+`weft_engine.services.ServiceSelection`, so a pack publishing a new run-wide service had no way to
+be selected without an edit to `weft-cli` itself — Phase 7's close, finding *(a)*
 (`docs/internal/build-ledger.md:4370-4366 'emits prose'`). `weft_kernel.discovery.ServiceRoleOffer`
 already carries a pack's own declaration on its `PackReport`; this module is where every report's
-declarations are gathered into the one table `weft_cli.services` reads instead of stating the set
+declarations are gathered into the one table `weft_engine.services` reads instead of stating the set
 itself.
 
-**Why this filters on `status` when `contributions_from` (`weft_cli.registry_bootstrap:285`)
+**Why this filters on `status` when `contributions_from` (`weft_engine.registry_bootstrap:285`)
 deliberately does not.** That function's own docstring gives the reason it skips the filter:
 `PackRegistrar.commit`'s atomicity already guarantees a non-`ACTIVE` report's own
 `contributions` is empty, so a second check here would be redundant with what the kernel
@@ -35,7 +35,7 @@ class DuplicateServiceRoleError(WeftError):
 
     Deliberately a plain `WeftError`, not a member of fitness function 12's
     `UnresolvedNameError` family: nothing here is being looked up and failing to resolve — two
-    claimants are disagreeing about one name, the same distinction `weft_cli.services`'s own
+    claimants are disagreeing about one name, the same distinction `weft_engine.services`'s own
     module docstring draws for its malformed-`[services]`-value check. There is no
     `valid_options` to offer; the fix is renaming one pack's role, not picking from a list.
     """

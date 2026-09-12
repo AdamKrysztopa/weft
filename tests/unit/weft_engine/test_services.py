@@ -1,6 +1,6 @@
-"""Unit tests for `weft_cli.services`.
+"""Unit tests for `weft_engine.services`.
 
-Mirrors `packages/weft-rag/src/weft_cli/services.py`. Covers the happy path
+Mirrors `packages/weft-rag/src/weft_engine/services.py`. Covers the happy path
 (a `[services] embed` naming a plugin is what `weft index` and `weft ask`
 resolve), the default (no block at all, or no `weft.toml` at all, selects the
 deterministic offline embedder), and the error cases: a key nothing reads, a
@@ -13,8 +13,8 @@ true by construction rather than by nobody having written the file yet.
 
 import pytest
 
-from weft_cli.service_roles import RoleTable
-from weft_cli.services import (
+from weft_engine.service_roles import RoleTable
+from weft_engine.services import (
     DEFAULT_EMBEDDER,
     DEFAULT_ROUTER,
     DEFAULT_STORE,
@@ -105,7 +105,7 @@ def test_a_services_value_that_is_not_a_plugin_name_is_refused() -> None:
 
 
 def test_a_services_key_that_is_not_a_table_is_refused_the_way_packs_is() -> None:
-    # Arrange — the same shape `weft_cli.registry_bootstrap.pack_settings_from_config`
+    # Arrange — the same shape `weft_engine.registry_bootstrap.pack_settings_from_config`
     # refuses for `[packs]`: two readers of one file must not disagree about what a
     # malformed block means.
     document: dict[str, object] = {"services": ["embed"]}

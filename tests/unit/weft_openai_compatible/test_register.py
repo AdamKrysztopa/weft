@@ -34,8 +34,8 @@ import pytest
 from pydantic import SecretStr
 
 import weft_openai_compatible
-from weft_cli import registry_bootstrap
 from weft_embed.contract import Embedder
+from weft_engine import registry_bootstrap
 from weft_kernel.context import Context
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import MediaType, Node

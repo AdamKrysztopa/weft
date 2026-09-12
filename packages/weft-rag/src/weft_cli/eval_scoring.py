@@ -50,11 +50,11 @@ from typing import Any, Final, cast
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from weft_cli.ask import run_ask
-from weft_cli.llm_roles import LLMSection
 from weft_cli.route_ask import resolve_named_pipeline, run_named_ask
-from weft_cli.service_roles import RoleTable
-from weft_cli.services import ServiceSelection
 from weft_embed import Embedder
+from weft_engine.llm_roles import LLMSection
+from weft_engine.service_roles import RoleTable
+from weft_engine.services import ServiceSelection
 from weft_eval.aggregate import MetricAggregate
 from weft_eval.contract import QueryModality, RetrievalSample, RetrievedPassage
 from weft_eval.harness import score_retrieval_gate_subset

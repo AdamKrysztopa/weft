@@ -841,7 +841,7 @@ pack's own `register()`. File it against the pack, or pin it out of `[packs] all
 
 Task 1.9: `weft-cli` is the one distribution allowed to open a pipeline document — G1 keeps
 `weft-kernel` at `pydantic` and `opentelemetry-api` only, so the YAML parser lives here, on the
-identical footing `weft_cli.registry_bootstrap` already established for `weft.toml`'s TOML. The first
+identical footing `weft_engine.registry_bootstrap` already established for `weft.toml`'s TOML. The first
 three fire from `weft_cli.pipeline_catalogue`'s own Python API, and **since ledger task 3.7 the
 `weft pipeline` commands open a project-local catalogue directory too**, surfacing them at exit `4`, the same exit `03` reserves for "fix the pipeline". The fourth,
 `ContributedPipelineNameCollisionError`, is reachable today, through `weft ask`'s own routed default
@@ -997,7 +997,7 @@ every one of them and its current value.
 ### `UnknownPermissionKeyError`
 
 **What it looks like** — repair, 2026-08-20 (finding 1, `docs/internal/build-ledger.md` 3.3's dated
-paragraph): `[permissions]` names a key `weft_cli.permission_policy.PermissionPolicy` does not
+paragraph): `[permissions]` names a key `weft_engine.permission_policy.PermissionPolicy` does not
 have — `overwrite`/`destroy` are the only two — reproduced against a real checkout:
 
 ```text
@@ -1024,7 +1024,7 @@ type itself, not a name resolved against a set whose membership could ever diffe
 
 ### `UnknownReconcileKeyError`
 
-**What it looks like** — task 5.1c: `[reconcile]` names a key `weft_cli.reconcile_policy.
+**What it looks like** — task 5.1c: `[reconcile]` names a key `weft_engine.reconcile_policy.
 ReconcilePolicy` does not have — `mode` is the only one — reproduced against a real checkout:
 
 ```text
@@ -1045,7 +1045,7 @@ reconcile_policy`'s own module docstring for what this block governs (`weft reco
 `--mode` default, never `weft index`'s automatic post-index pass, which is hardcoded and reads
 nothing here).
 
-The sibling "must be one of ['full', 'repair']" refusal, in `weft_cli.config_surface.
+The sibling "must be one of ['full', 'repair']" refusal, in `weft_engine.config_surface.
 validate_set_value`'s own `reconcile` branch and in `reconcile_policy_from_config` itself, stays a
 plain `WeftError` and is **not** in FF12's family — the identical reasoning `UnknownPermissionKeyError`
 above states for `PermissionAction`: `ReconcileMode` is a closed, two-member `StrEnum` fixed by the
@@ -1091,7 +1091,7 @@ is why the tuple above is checked against the live one by
 `tests/docs/test_manual_valid_options.py` rather than trusted — which is what caught this page the
 day `blob` was added.
 
-The malformed-value check just below this one in `weft_cli.services.service_selection_from_
+The malformed-value check just below this one in `weft_engine.services.service_selection_from_
 config` (a `[services]` value that is not a non-empty string) stays a plain `WeftError` and is
 **not** in FF12's family — it reports a type mismatch, not a name failing to resolve against an
 enumerable set; whether the name itself resolves is left to the registry lookup a command
@@ -1169,7 +1169,7 @@ for. Until then the pack contributes nothing.
 ### `DuplicateServiceRoleError`
 
 **What it looks like** — ledger task **9.0**: two installed, trusted packs each declared a
-`ServiceRole` under the same `[services]` key, so `weft_cli.service_roles.
+`ServiceRole` under the same `[services]` key, so `weft_engine.service_roles.
 role_table_from_reports` has two claimants for one name and no way to prefer either:
 
 ```text
@@ -1189,7 +1189,7 @@ installed distribution actually registers.
 ### `UnknownLLMKeyError`
 
 **What it looks like** — repair, 2026-08-20 (`docs/01-high-level-plan.md` item 12's own dated
-paragraph): `[llm]` names a key `weft_cli.llm_roles.llm_section_from_config` does not read —
+paragraph): `[llm]` names a key `weft_engine.llm_roles.llm_section_from_config` does not read —
 `loop_guard`/`retry`/`roles` are the only three — reproduced against a real checkout:
 
 ```text
@@ -2330,7 +2330,7 @@ the model explaining, in prose, why it declined the shape asked for.
 
 ---
 
-## Which model answers a role — `weft_cli.llm_roles`
+## Which model answers a role — `weft_engine.llm_roles`
 
 ### `UnmappedLLMRoleError`
 
@@ -2908,7 +2908,7 @@ ci-checks` — they refuse loudly instead.
 
 ---
 
-## Project configuration — `weft_cli.registry_bootstrap`
+## Project configuration — `weft_engine.registry_bootstrap`
 
 ### `ConfigFileError`
 
@@ -2955,13 +2955,13 @@ $ echo $?
 'pgvector' is registered for NodeStore. It is unavailable because no distribution has registered
 that name for this contract. Names registered for NodeStore: none.` — `weft_kernel.registry.
 UnknownPluginError`'s own text, spliced on with a bare space, restating in different words the
-same fact `wanted` already stated. `weft_cli.registry_bootstrap._unresolved` now composes its own
+same fact `wanted` already stated. `weft_engine.registry_bootstrap._unresolved` now composes its own
 "Registered NodeStore names: ..." sentence from `exc.valid_options` instead of quoting `exc`'s
 text — every sentence in a composed refusal is written by the module raising it, never a
 concatenation of two independently-capitalised messages.
 
 Task **3.2** introduced this class as the typed carrier for a refusal every built-in `Command`
-computes before running — `weft_cli.registry_bootstrap.require_active`/`require_plugin`'s own
+computes before running — `weft_engine.registry_bootstrap.require_active`/`require_plugin`'s own
 `(exit code, message)` answer, raised rather than printed-and-returned directly because a
 `Command.run` cannot print (`docs/03-cli.md` → *Two modes, one implementation*). The message and
 exit code are unchanged from before that task: `3` when a distribution that would have provided
@@ -3028,7 +3028,7 @@ honestly cannot rule that distribution out as the source of the missing name. In
 is partial and why. It is named here because a reader meeting it for the first time will read it as
 part of the failure and it is not.
 
-Before this repair, `weft_cli.registry_bootstrap.require_plugin` caught the kernel's own
+Before this repair, `weft_engine.registry_bootstrap.require_plugin` caught the kernel's own
 `weft_kernel.registry.UnknownPluginError` — which already carries `valid_options`, every name
 actually registered for the contract asked — and threw the field away into `plain=str(exc)`
 before `IndexCommand`/`AskCommand` ever raised anything: both always raised the plain
@@ -3049,7 +3049,7 @@ sentence with a bare space: a sentence beginning lowercase right after a full st
 is registered under that name" stated twice in different words. `require_plugin`'s `_unresolved`
 now composes its own sentence from `exc.valid_options` (the same tuple this section's own
 `valid_options` field already carries) instead of quoting `exc`'s text — see
-`weft_cli.registry_bootstrap._unresolved`'s own docstring for the argument in full, and the
+`weft_engine.registry_bootstrap._unresolved`'s own docstring for the argument in full, and the
 `CommandRefusalError` entry above for the same fix's effect on a `silent`-branch message, where a
 raw multi-line Pydantic dump used to be spliced mid-sentence too.
 
@@ -3541,7 +3541,7 @@ dsn = "${env:WEFT_DATABASE_URL}"
 ```
 
 **Why exporting the variable is not enough, when it is enough for the node store.**
-`weft_cli.registry_bootstrap.pack_settings_from_environment` offers `${env:WEFT_DATABASE_URL}` to
+`weft_engine.registry_bootstrap.pack_settings_from_environment` offers `${env:WEFT_DATABASE_URL}` to
 the `store` pack and to nothing else. Extending that offer to the graph pack was written and then
 reverted at ledger task `11.5`: it would mean `weft-cli` naming a specific capability pack in a
 hard-coded literal, which is the anticipation the graph pack exists to prove unnecessary — the

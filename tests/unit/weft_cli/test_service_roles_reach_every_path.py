@@ -26,9 +26,9 @@ from typing import ClassVar
 
 import pytest
 
-from weft_cli.service_roles import RoleTable
-from weft_cli.services import ServiceSelection
 from weft_embed import Embedder
+from weft_engine.service_roles import RoleTable
+from weft_engine.services import ServiceSelection
 from weft_kernel.context import ServiceRole
 from weft_kernel.registry import Registry
 from weft_llm.client import NullSink
@@ -98,8 +98,8 @@ def _table() -> RoleTable:
 async def test_the_query_path_reaches_a_role_no_one_here_named() -> None:
     """`build_services` — the path `weft ask` assembles."""
     # Arrange
-    from weft_cli.llm_roles import LLMSection
     from weft_cli.run_services import build_services
+    from weft_engine.llm_roles import LLMSection
 
     registry = _registry_with_a_blob_plugin()
 
@@ -126,8 +126,8 @@ async def test_the_ingest_path_reaches_a_role_no_one_here_named() -> None:
     would reproduce that shape exactly.
     """
     # Arrange
-    from weft_cli.llm_roles import LLMSection
     from weft_cli.run_services import build_index_services
+    from weft_engine.llm_roles import LLMSection
 
     registry = _registry_with_a_blob_plugin()
 
@@ -154,8 +154,8 @@ async def test_a_role_whose_contract_a_pipeline_stage_already_fills_is_not_also_
     `weft-cli` has heard of — so the exclusion is derived from the stages that actually resolved.
     """
     # Arrange
-    from weft_cli.llm_roles import LLMSection
     from weft_cli.run_services import build_index_services
+    from weft_engine.llm_roles import LLMSection
 
     registry = _registry_with_a_blob_plugin()
 
@@ -186,8 +186,8 @@ async def test_the_command_path_reaches_a_role_no_one_here_named() -> None:
     requirement 1 still fails for the next pack.
     """
     # Arrange
-    from weft_cli.registry_bootstrap import Dependencies
     from weft_cli.run_services import command_path_services
+    from weft_engine.registry_bootstrap import Dependencies
 
     deps = Dependencies(
         registry=_registry_with_a_blob_plugin(),

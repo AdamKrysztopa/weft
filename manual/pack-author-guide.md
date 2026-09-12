@@ -874,7 +874,7 @@ atomicity `add_pipeline_resource`/`add_ext_model`/`deprecate` already give you.
 
 You do not assemble anything yourself, and you do not call `resolve()` yourself. Every installed
 pack's own buffered contributions reach every pipeline command through one path you never touch:
-`weft_cli.registry_bootstrap.build_dependencies` reads `PackReport.contributions` back off
+`weft_engine.registry_bootstrap.build_dependencies` reads `PackReport.contributions` back off
 `discover()`'s own return value, concatenates every report's tuple into `Dependencies.
 contributions`, and every `resolve()` call site in `weft_cli` passes that field straight through as
 `contributions=`. Your one line above is the entire pack-author-facing surface of this mechanism.

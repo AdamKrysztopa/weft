@@ -219,7 +219,7 @@ Two of these carry weight beyond their size:
   > never read from `weft.toml`, so an installed pack or a stale config file cannot move an
   > automatic pass into `full` by any route (`docs/02-extension-model.md` §3 → *Slots*, "Tested
   > by G7", is the rule this reads against). `--mode`'s own default moved from a hardcoded `full`
-  > to `None` — "no flag given" — so `weft_cli.reconcile_policy.ReconcilePolicy` (`[reconcile]
+  > to `None` — "no flag given" — so `weft_engine.reconcile_policy.ReconcilePolicy` (`[reconcile]
   > mode` in `weft.toml`, default `full`, unchanged) can supply a personal default for `weft
   > reconcile` typed bare, with the flag always winning when given (`ReconcileCommand.
   > _effective_mode`). And `Reconcilable` gained `estimate(ctx, mode) -> ReconcileEstimate`
@@ -626,7 +626,7 @@ the CLI's own surface.
 > document used to say — see that section's own corrected blockquote); the per-command leaf form,
 > `weft <name> --help`, is kept as a second, additional assertion of the same mechanism.
 > `repl_completions`, called from inside the same venv against the real, installed
-> `weft_cli.registry_bootstrap.build_dependencies`, includes it; and no file under `packages/`
+> `weft_engine.registry_bootstrap.build_dependencies`, includes it; and no file under `packages/`
 > names its distribution, module or plugin name. Uninstalling the pack and re-running every probe
 > against the identical venv breaks all of them, so the property is shown to depend on the pack
 > being installed, not on the test's own fixed transcript.
@@ -717,7 +717,7 @@ for why in-process enforcement is unavailable and what weft does instead. The cl
 > sure?", honestly less than a document count. Left to whichever later task first ships a real
 > `overwrite`/`destroy` command and needs one — `weft_cli.confirm`'s own module docstring records
 > the reasoning in full. Per-class defaults in `weft.toml` are `[permissions]`
-> (`weft_cli.permission_policy`), and cover only `overwrite`/`destroy` — the two classes anything
+> (`weft_engine.permission_policy`), and cover only `overwrite`/`destroy` — the two classes anything
 > here gates at all — with an unknown key refused, naming `overwrite` and `destroy` as the keys
 > that exist, per *Project context* below.
 
@@ -943,7 +943,7 @@ tell *"fix the environment"* from *"fix the pipeline"*.
 
 > **One exception carries its own code, since task 3.2 (2026-08-19), and it is a stated
 > exception to "one function."** `weft_cli.commands.CommandRefusalError` is what a built-in
-> `Command` raises for the two refusals `weft_cli.registry_bootstrap.require_active`/
+> `Command` raises for the two refusals `weft_engine.registry_bootstrap.require_active`/
 > `require_plugin` already computed — `3` for a distribution `[packs] allow` refuses, `4` for a
 > name that is simply unregistered — and it carries that `ExitCode` as data rather than going
 > through `exit_code_for`. It has to: `Command.run` cannot return an `ExitCode` (only an
@@ -1025,7 +1025,7 @@ checkout with no `weft.toml` at all needs no credential and no network.
 
 **`[services]` holds every role an installed pack declares, plus one key that names a pipeline
 rather than a plugin** (ledger tasks **8.3** and **9.0**). *Until 9.0 it held exactly three, fixed
-as fields on `weft_cli.services.ServiceSelection`, which meant a pack publishing a new run-wide
+as fields on `weft_engine.services.ServiceSelection`, which meant a pack publishing a new run-wide
 service could not be selected without an edit to `weft-rag` — requirement 1 failing for the next
 pack, which is what Phase 7's close filed rather than fixed. A pack now declares a role beside the
 contract it publishes and the key set is read off what is installed; `weft config get` lists them,
@@ -1050,7 +1050,7 @@ named — `run_routed_ask` searches `load_contributed`, not the project's own `p
 which is Phase 2's settled behaviour and was not reopened.
 
 **A name from this block is gated before the command runs, and the gate cannot be a list of
-distributions** — `weft_cli.registry_bootstrap.require_plugin`, a repair for a reviewer finding
+distributions** — `weft_engine.registry_bootstrap.require_plugin`, a repair for a reviewer finding
 against 2.29. Once the plugin name comes from an operator's file, the pack behind it may be
 `weft-openai` or a stranger's, so the check is on the *name*: unresolvable with some pack
 `refused` exits **3** naming `[packs] allow`; unresolvable with a pack `failed` or `partial`
@@ -1063,7 +1063,7 @@ tuple of first-party distribution names could satisfy none of them for a third-p
 (the built-in default, so a `weft.toml` naming neither key behaves exactly as one with no
 `[permissions]` table at all) or `"allow"` (an operator's override, equivalent to always passing
 `--yes` for that class). An unknown key is refused, naming `overwrite` and `destroy` as the keys
-that exist — the identical rule `[services]` states two paragraphs up. `weft_cli.permission_policy`
+that exist — the identical rule `[services]` states two paragraphs up. `weft_engine.permission_policy`
 carries the reasoning for why `read`/`write`/`network` are not keys here yet.
 
 > **`--origin` is a first-class feature, not a nicety.** A configuration system that lets one scalar
@@ -1083,12 +1083,12 @@ carries the reasoning for why `read`/`write`/`network` are not keys here yet.
 
 > **Built in Phase 3 task 3.7 (2026-08-20) — `weft config get|set` reads and writes exactly
 > four dotted keys**, *(five from task 5.1c, and since **9.0** the `services.*` half is derived
-> from the declared role set rather than hand-written: `weft_cli.config_surface._KEY_FIELDS` was a
+> from the declared role set rather than hand-written: `weft_engine.config_surface._KEY_FIELDS` was a
 > second closed vocabulary over the same block and had already drifted — it never grew
 > `services.route` after 8.3, and the test guarding it pinned the expected set as a literal so both
 > sides came from one hand. `config_keys_for(table)` is the one derivation both surfaces read now)*, `services.embed`, `services.store`, `permissions.overwrite`,
 > `permissions.destroy` — the whole of what a command in this repository consults from
-> `weft.toml` today. `weft_cli.config_surface.effective_config` answers `--origin` from the
+> `weft.toml` today. `weft_engine.config_surface.effective_config` answers `--origin` from the
 > **raw parsed document**, never from comparing the merged `ServiceSelection`/
 > `PermissionPolicy` against their own built-in defaults: that comparison is the same sentinel
 > bug reproduced one field at a time — indistinguishable between "explicitly set to
@@ -1114,7 +1114,7 @@ carries the reasoning for why `read`/`write`/`network` are not keys here yet.
 > to — never `weft index`'s own automatic post-index pass, which stays hardcoded to `repair`
 > and reads nothing here on purpose, so a project cannot, by editing this file once, turn every
 > future `weft index` into a `full` run with nobody typing a flag for that particular
-> invocation. `weft_cli.reconcile_policy`'s own module docstring carries the argument in full.
+> invocation. `weft_engine.reconcile_policy`'s own module docstring carries the argument in full.
 
 ## Is the REPL an agent?
 

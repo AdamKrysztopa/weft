@@ -40,9 +40,9 @@ from weft_cli import commands
 from weft_cli.eval_commands import DEFAULT_RUNS_DIR, all_run_records
 from weft_cli.ingest import IndexResult
 from weft_cli.participation import DEFAULT_INDEX_RUNS_DIR, load_run_records
-from weft_cli.registry_bootstrap import Dependencies
-from weft_cli.services import ServiceSelection
 from weft_embed import Embedder
+from weft_engine.registry_bootstrap import Dependencies
+from weft_engine.services import ServiceSelection
 from weft_eval.run_record import CorpusDigestBasis
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackReport, PackStatus

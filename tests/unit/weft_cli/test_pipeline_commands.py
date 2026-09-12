@@ -25,8 +25,8 @@ import weft_retrieve
 from tests.discovery import discover_for_tests, register_out_of_tree_examples
 from weft_cli import pipeline_commands
 from weft_cli.pipeline_catalogue import UnknownPipelineNameError, load_pipeline_catalogue
-from weft_cli.registry_bootstrap import Dependencies
-from weft_cli.services import ServiceSelection
+from weft_engine.registry_bootstrap import Dependencies
+from weft_engine.services import ServiceSelection
 from weft_kernel.context import Context
 from weft_kernel.payload import Produced
 from weft_kernel.pipeline import Pipeline, StageDeclaration

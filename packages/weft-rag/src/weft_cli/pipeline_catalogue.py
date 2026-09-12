@@ -3,7 +3,7 @@
 `docs/02-extension-model.md` §3 → *One model, two directions*: "The kernel publishes the
 model and opens no file... whoever opened the file brought the parser." `weft_kernel.
 pipeline.Pipeline` is that model; this module is that parser, on the exact footing
-`weft_cli.registry_bootstrap` already established for `weft.toml`'s TOML — `yaml.safe_load`
+`weft_engine.registry_bootstrap` already established for `weft.toml`'s TOML — `yaml.safe_load`
 here, `tomllib.load` there, one caller each, neither reachable from `weft-kernel`, which
 G1 fixes at `pydantic` and `opentelemetry-api` and nothing else. Pipelines are YAML;
 operator policy stays TOML — `02` §3 states the split, this module is where it is kept.
@@ -33,7 +33,7 @@ resolved parent and no distributions to name, so it is not one of `weft_kernel.r
 its required set from `WeftError` subclass names. `MalformedPipelineError` below is that
 translation — caught here, at the one seam that calls `Pipeline.model_validate` on text a
 person wrote, and raised as a `WeftError` a caller (Phase 3's `weft pipeline validate`,
-once it exists) can map to exit 4 exactly the way `weft_cli.registry_bootstrap.
+once it exists) can map to exit 4 exactly the way `weft_engine.registry_bootstrap.
 ConfigFileError` already lets `dispatch` map a broken `weft.toml` there today.
 """
 
@@ -53,7 +53,7 @@ from weft_kernel.pipeline import Pipeline
 from weft_kernel.runner import PipelineResolutionError, UnresolvedNameInPipelineResolutionError
 
 #: Task **3.7**: `weft pipeline list|show|derive|validate|diff` need somewhere project-local
-#: documents live, on `weft_cli.registry_bootstrap.DEFAULT_CONFIG_PATH`'s own footing — a
+#: documents live, on `weft_engine.registry_bootstrap.DEFAULT_CONFIG_PATH`'s own footing — a
 #: single, obvious, cwd-relative default rather than a new `weft.toml` key nothing yet reads.
 #: `load_pipeline_catalogue` already tolerates an absent directory (`Path.glob` on one yields
 #: nothing, never an error), so a project with no `pipelines/` directory at all still has a
@@ -64,7 +64,7 @@ DEFAULT_PIPELINES_DIR: Final[Path] = Path("pipelines")
 class PipelineDocumentError(WeftError):
     """A pipeline document's file cannot be read, or its contents are not valid YAML at all.
 
-    Mirrors `weft_cli.registry_bootstrap.ConfigFileError`'s split exactly: an *absent* file
+    Mirrors `weft_engine.registry_bootstrap.ConfigFileError`'s split exactly: an *absent* file
     is not this — `load_pipeline_catalogue` simply finds nothing to glob — this is a file
     that exists but a permissions problem stops it being read, or whose contents are not
     even well-formed YAML (an unterminated flow mapping, a bad indent). Distinct from

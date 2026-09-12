@@ -430,7 +430,7 @@ def test_every_text_search_knob_is_reachable_from_a_configuration_table() -> Non
 
     `.phase2-findings.md` finding 9 item 4: "a knob that exists in the library and not in the
     config model is a knob a third party cannot reach." This is that check, run against the shape
-    `weft_cli.registry_bootstrap.pack_settings_from_config` hands to `register()`.
+    `weft_engine.registry_bootstrap.pack_settings_from_config` hands to `register()`.
     """
     # Arrange
     table = {

@@ -41,11 +41,11 @@ from pydantic import BaseModel, ConfigDict
 
 from weft_cli import cli
 from weft_cli.exit_codes import ExitCode
-from weft_cli.registry_bootstrap import Dependencies
 from weft_cli.render import Rendered
-from weft_cli.services import ServiceSelection
 from weft_command.contract import Command, CommandResult
 from weft_command.permission import PermissionClass
+from weft_engine.registry_bootstrap import Dependencies
+from weft_engine.services import ServiceSelection
 from weft_kernel.context import Context
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import Outcome, Produced
@@ -229,13 +229,21 @@ def _registry_with(*names: str) -> Registry:
 
 
 class _FakeDeps:
-    """A `Dependencies`-shaped stand-in `main`'s own tests patch `build_dependencies` with —
-    only `.registry` is ever read before `run_command` (itself patched below) would need the
-    rest.
+    """A `Dependencies`-shaped stand-in `main`'s own tests patch `build_dependencies` with.
+
+    **`.reports` is here because `main` reads it, and this docstring used to say it did not.**
+    It read *"only `.registry` is ever read before `run_command` (itself patched below) would
+    need the rest"*, which was true until task 24.1 moved
+    `render.register_renderers_from_reports` out of `build_dependencies` and into `main` — six
+    tests then failed with `AttributeError` on a field every real `Dependencies` has always
+    carried. A double narrower than the real thing in the dimension under test is the shape
+    `L12.11` names; the empty tuple is honest here because these tests patch `run_command` and
+    never render anything.
     """
 
     def __init__(self, registry: Registry) -> None:
         self.registry = registry
+        self.reports: tuple[object, ...] = ()
 
 
 def _fake_build_dependencies(*, strict_pins: bool = True, token_sink: object = None) -> _FakeDeps:

@@ -1,8 +1,8 @@
-"""Unit tests for `weft_cli.reconcile_policy`.
+"""Unit tests for `weft_engine.reconcile_policy`.
 
-Mirrors `packages/weft-rag/src/weft_cli/reconcile_policy.py`. Task **5.1c**: "`weft.toml` sets
+Mirrors `packages/weft-rag/src/weft_engine/reconcile_policy.py`. Task **5.1c**: "`weft.toml` sets
 a personal default" for `weft reconcile`'s own bare `--mode` — this file proves the same three
-shapes `weft_cli.permission_policy`'s own test file proves for `[permissions]`: the happy path,
+shapes `weft_engine.permission_policy`'s own test file proves for `[permissions]`: the happy path,
 the default with no block at all, and the two refusals (an unknown key, an illegal value).
 """
 
@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from weft_cli.reconcile_policy import (
+from weft_engine.reconcile_policy import (
     ReconcilePolicy,
     UnknownReconcileKeyError,
     reconcile_policy_from_config,
@@ -71,7 +71,7 @@ def test_a_reconcile_value_that_is_not_repair_or_full_is_refused() -> None:
 
 
 def test_a_reconcile_key_that_is_not_a_table_is_refused_the_way_permissions_is() -> None:
-    # Arrange — the same shape `weft_cli.permission_policy.permission_policy_from_config`
+    # Arrange — the same shape `weft_engine.permission_policy.permission_policy_from_config`
     # refuses for `[permissions]`: two readers of one file must not disagree.
     document: dict[str, object] = {"reconcile": ["full"]}
 

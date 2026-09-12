@@ -58,9 +58,9 @@ from weft_cli.eval_commands import (
 )
 from weft_cli.eval_scoring import ScoredRun
 from weft_cli.pipeline_catalogue import UnknownPipelineNameError
-from weft_cli.registry_bootstrap import Dependencies
-from weft_cli.services import ServiceSelection
 from weft_embed import Embedder
+from weft_engine.registry_bootstrap import Dependencies
+from weft_engine.services import ServiceSelection
 from weft_eval.aggregate import MetricAggregate
 from weft_eval.contract import GenerationMetric
 from weft_eval.falsify import BaselineSpread, TooFewRepetitionsError, Verdict

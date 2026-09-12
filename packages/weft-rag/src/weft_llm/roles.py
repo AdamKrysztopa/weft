@@ -5,14 +5,14 @@ it names a **role**." A role is an open string key an operator invents in `weft.
 nothing in the registry names one, and nothing here decides what a role is *for* — that is a
 technique plugin's own `role: str` configuration field.
 
-**Moved here from `weft_cli.llm_roles` by task 2.10, and the move is forced.** 2.30 built
+**Moved here from `weft_engine.llm_roles` by task 2.10, and the move is forced.** 2.30 built
 these models in the CLI because nothing consumed them yet. The consumer built here is
 `weft_llm.client.LLMClient`, and a service published by `weft-llm` cannot import the CLI that
 assembles it — `.phase2-design.md` §2's one-way chain (`weft-kernel ← weft-store ← weft-llm ←
 weft-prompts ← weft-retrieve ← weft-generate`) puts `weft-cli` downstream of everything. §7's
 own sentence, "each pack builds its own service constructor so a library caller is not forced
 through the CLI", says the same thing from the other side: a library caller needs a role table
-without needing a `weft.toml` parser. `weft_cli.llm_roles` keeps the parse and re-exports these
+without needing a `weft.toml` parser. `weft_engine.llm_roles` keeps the parse and re-exports these
 names, so an operator's one file is still read exactly once.
 """
 

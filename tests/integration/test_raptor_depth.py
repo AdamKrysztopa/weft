@@ -35,7 +35,7 @@ from pydantic import SecretStr
 from weft_cli.compile import contracts_for
 from weft_cli.ingest import run_index
 from weft_cli.pipeline_catalogue import full_catalogue
-from weft_cli.registry_bootstrap import build_dependencies
+from weft_engine.registry_bootstrap import build_dependencies
 from weft_index.payload import RaptorFacts
 from weft_kernel.context import Context
 from weft_kernel.resolution import resolve

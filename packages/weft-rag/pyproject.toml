@@ -180,11 +180,14 @@ weft = "weft_cli.cli:main"
 # row `weft plugins list|doctor` prints, and the key a `[packs.<pack>]` settings block uses — so
 # these twenty-one are what an operator writes in `weft.toml`, never `weft-rag`.
 #
-# Twenty-three packages ship; twenty-one register. `weft_command` and `weft_prompts` deliberately declare
-# no entry point and register nothing: fitness function 2 requires a distribution declaring one
-# to be active *and contributing*, and every first-party prompt belongs to the plugin that asks
-# it a question. They are libraries other packs publish contracts from, which is a real thing to
-# be, and a pack that registers nothing is one fitness function 2 would have to waive.
+# Twenty-five packages ship; twenty-one register. `weft_command`, `weft_prompts` and — since task
+# 24.1 — `weft_engine` deliberately declare no entry point and register nothing: fitness function 2
+# requires a distribution declaring one to be active *and contributing*, and every first-party
+# prompt belongs to the plugin that asks it a question. They are libraries other packs and the CLI
+# build on, which is a real thing to be, and a pack that registers nothing is one fitness
+# function 2 would have to waive. (The two counts above read "twenty-three" until 24.1 and were
+# stale by one before it: `weft_openai_compatible` was added at task 20.1 and the sentence
+# describing the list was not.)
 [project.entry-points."weft.packs"]
 blob = "weft_blob:register"
 chunk = "weft_chunk:register"
@@ -229,7 +232,7 @@ graph = "weft_kg:register"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-# Twenty-three top-level packages in one wheel, listed rather than globbed: a glob would silently
+# Twenty-five top-level packages in one wheel, listed rather than globbed: a glob would silently
 # ship whatever happened to be under `src/`, and what this distribution ships is a decision.
 #
 # **They live under this project's own `src/`, and that placement is load-bearing.** The first
@@ -250,6 +253,7 @@ packages = [
     "src/weft_command",
     "src/weft_docling",
     "src/weft_embed",
+    "src/weft_engine",
     "src/weft_enhance",
     "src/weft_eval",
     "src/weft_extract",

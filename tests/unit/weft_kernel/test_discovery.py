@@ -519,7 +519,7 @@ def test_plugin_pins_from_config_reads_the_plugins_table_and_treats_absence_as_e
 
 
 def test_discover_resolves_a_pinned_collision_and_leaves_both_packs_active() -> None:
-    # Arrange — the registry already carries the pin, the way `weft_cli.registry_bootstrap`
+    # Arrange — the registry already carries the pin, the way `weft_engine.registry_bootstrap`
     # constructs it from `weft.toml` before calling `discover()`.
     registry = Registry(plugin_pins={"_Chunker:shared": "weft-winner"})
 

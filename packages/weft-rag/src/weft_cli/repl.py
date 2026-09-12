@@ -128,10 +128,10 @@ from typing import Final, cast
 
 from weft_cli.cli import COMMAND_NAME_ATTR, run_command
 from weft_cli.exit_codes import ExitCode
-from weft_cli.registry_bootstrap import Dependencies
 from weft_cli.render import Rendered
 from weft_cli.session import SessionState, cleared, with_active_pipeline, with_turn_recorded
 from weft_command.contract import Command
+from weft_engine.registry_bootstrap import Dependencies
 from weft_kernel.registry import Registry, unwrap_factory
 
 PROMPT: Final[str] = "weft> "

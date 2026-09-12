@@ -129,7 +129,7 @@ class SubPluginConfigError(WeftError):
 
     **Deliberately not in fitness function 12's family.** It reports a block that does not
     fit a model, not a name failing to resolve against an enumerable set — the identical line
-    `weft_cli.services` already draws between `UnknownServiceKeyError` and its own
+    `weft_engine.services` already draws between `UnknownServiceKeyError` and its own
     malformed-value check, for the identical reason.
     """
 

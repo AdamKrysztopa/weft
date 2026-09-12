@@ -3,7 +3,7 @@
 `docs/08-manuals.md` §3's rule — a manual is checked, not trusted — applied to the one thing a
 troubleshooting page does that no other document does: it tells an operator what to *edit*. A
 remedy naming a configuration key that does not exist is worse than no remedy, because
-`weft_cli.services.service_selection_from_config` refuses an unknown `[services]` key **by name**
+`weft_engine.services.service_selection_from_config` refuses an unknown `[services]` key **by name**
 — so following the shipped fix for a shipped error lands the operator in a second, unrelated hard
 failure with nothing connecting the two.
 
@@ -21,7 +21,7 @@ prose form, and a `[services]` table inside a fenced block.
 
 **Widened at ledger 11.10, because the model stopped being the whole answer at ledger 9.0.**
 `[services]` has not accepted only `ServiceSelection`'s own fields since `9.0`: any installed pack
-may declare a **role**, and `weft_cli.services.service_selection_from_config` builds its accepted
+may declare a **role**, and `weft_engine.services.service_selection_from_config` builds its accepted
 key set as `set(table.declared) | {"route"}` — the fields *plus* every role every installed pack
 publishes. So a document naming a real, pack-declared key was refused here while `weft.toml`
 accepted it, which inverts what this test is for: it existed to stop a manual promising a key that
@@ -42,9 +42,9 @@ from pathlib import Path
 from typing import Final
 
 from tests.discovery import installed_packs_except_the_canary
-from weft_cli.config_surface import config_keys_for
-from weft_cli.service_roles import RoleTable, role_table_from_reports
-from weft_cli.services import ServiceSelection, accepted_service_keys
+from weft_engine.config_surface import config_keys_for
+from weft_engine.service_roles import RoleTable, role_table_from_reports
+from weft_engine.services import ServiceSelection, accepted_service_keys
 from weft_kernel.context import ServiceRole
 from weft_kernel.discovery import discover
 from weft_kernel.registry import Registry
@@ -173,8 +173,8 @@ def test_a_key_that_does_not_exist_would_be_caught() -> None:
 
 def test_one_derivation_answers_which_services_keys_exist() -> None:
     # Carried repair **R9.4**, and the property its four lessons share: `[services]`'s key
-    # vocabulary had **three** expressions of itself. `weft_cli.services` validated a `weft.toml`
-    # against `set(table.declared) | {"route"}`; `weft_cli.config_surface.config_keys_for` built
+    # vocabulary had **three** expressions of itself. `weft_engine.services` validated a `weft.toml`
+    # against `set(table.declared) | {"route"}`; `weft_engine.config_surface.config_keys_for` built
     # `services.<role>` from `table.declared` and then hand-added `"services.route"` a second
     # time; and this file combined `ServiceSelection.model_fields` with a discovered role set.
     # Three sets that agreed on the day each was written and had no reason to keep agreeing —

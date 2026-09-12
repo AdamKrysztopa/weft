@@ -28,7 +28,7 @@ from collections import defaultdict
 from collections.abc import Mapping
 from typing import Final
 
-from weft_cli.registry_bootstrap import build_dependencies
+from weft_engine.registry_bootstrap import build_dependencies
 from weft_kernel.registry import Registry
 
 #: Names permitted to answer to more than one contract. **Pinned empty**, and it reached empty by

@@ -416,7 +416,7 @@ def register_renderers_from_reports(reports: Iterable[PackReport]) -> None:
     `weft_store.rehydrate.register_from_reports` (task 5.2g): it walks whatever every report
     carries and knows nothing about which pack contributed which renderer, so a future pack
     shipping a new `CommandResult` costs this function nothing to support. Call once, after
-    `discover()` returns — `weft_cli.registry_bootstrap.build_dependencies` is the one caller.
+    `discover()` returns — `weft_engine.registry_bootstrap.build_dependencies` is the one caller.
 
     **Idempotent for a result type already held by the identical renderer callable** — the
     same check `register_from_reports` makes for a namespace and its `ExtModel`, generalised
@@ -1272,7 +1272,7 @@ def _bootstrap_built_in_renderers() -> None:
     """Seed `_renderer_registry` with the built-ins the moment this module is imported.
 
     `weft_cli.commands.register` calling `register_renderers` (through discovery, or through
-    `weft_cli.registry_bootstrap.build_dependencies` calling `register_renderers_from_reports`
+    `weft_engine.registry_bootstrap.build_dependencies` calling `register_renderers_from_reports`
     beside it) is what a *running* `weft` does — but this module is usable stand-alone, and
     most of this module's own tests, plus every caller that pre-dates task 6.20, call
     `render_outcome` directly without ever running discovery first. This runs the identical

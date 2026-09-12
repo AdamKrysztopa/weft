@@ -33,7 +33,7 @@ hand-written table" rule applied to itself.
 with `contributions=deps.contributions`** — task **5.3a** (`S8`), corrected from this
 paragraph's own former claim that the caller `weft_kernel.resolution.Contribution`'s
 docstring describes "does not exist." It does now: `weft_kernel.discovery.PackRegistrar.
-add_contribution` is a pack's own producing side, `weft_cli.registry_bootstrap.
+add_contribution` is a pack's own producing side, `weft_engine.registry_bootstrap.
 build_dependencies` is the one assembly point, and this module is one of three call sites
 that receive the result — see that module's own docstring for the other two
 (`weft_cli.ingest`, `weft_cli.route_ask`). `derive` resolves nothing at all; it scaffolds a
@@ -97,9 +97,9 @@ from weft_cli.pipeline_catalogue import (
     full_catalogue,
 )
 from weft_cli.pipeline_diff import PipelineDiff, diff_resolved
-from weft_cli.registry_bootstrap import Dependencies
 from weft_command.contract import Command, CommandResult
 from weft_command.permission import PermissionClass
+from weft_engine.registry_bootstrap import Dependencies
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackRegistrar
 from weft_kernel.errors import WeftError

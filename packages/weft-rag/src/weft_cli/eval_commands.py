@@ -193,9 +193,9 @@ from weft_cli.eval_scoring import load_questions, score_pipeline
 from weft_cli.ingest import content_hashes_of, corpus_documents, run_index
 from weft_cli.installed_versions import active_distribution_versions
 from weft_cli.pipeline_diff import PipelineDiff, diff_resolved
-from weft_cli.registry_bootstrap import Dependencies
 from weft_command.contract import Command, CommandResult
 from weft_command.permission import PermissionClass
+from weft_engine.registry_bootstrap import Dependencies
 from weft_eval.aggregate import MetricAggregate, PartitionSlice
 from weft_eval.falsify import (
     DifferenceJudgement,

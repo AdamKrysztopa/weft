@@ -55,33 +55,33 @@ def _service_keys() -> tuple[str, ...]:
     """
     from pathlib import Path
 
-    from weft_cli.registry_bootstrap import build_dependencies
+    from weft_engine.registry_bootstrap import build_dependencies
 
     deps = build_dependencies(Path("/nonexistent/weft.toml"))
     return tuple(sorted(set(deps.roles.declared) | {"route"}))
 
 
 def _permission_keys() -> tuple[str, ...]:
-    from weft_cli.permission_policy import PermissionPolicy
+    from weft_engine.permission_policy import PermissionPolicy
 
     return tuple(sorted(PermissionPolicy.model_fields))
 
 
 def _llm_keys() -> tuple[str, ...]:
-    from weft_cli.llm_roles import LLMSection
+    from weft_engine.llm_roles import LLMSection
 
     return tuple(sorted(LLMSection.model_fields))
 
 
 def _reconcile_keys() -> tuple[str, ...]:
-    from weft_cli.reconcile_policy import ReconcilePolicy
+    from weft_engine.reconcile_policy import ReconcilePolicy
 
     return tuple(sorted(ReconcilePolicy.model_fields))
 
 
 def _registered_embedders() -> tuple[str, ...]:
-    from weft_cli.registry_bootstrap import build_dependencies
     from weft_embed import Embedder
+    from weft_engine.registry_bootstrap import build_dependencies
 
     return tuple(sorted(build_dependencies().registry.names_for(Embedder)))
 

@@ -19,7 +19,7 @@ collision it is about to cause.
 
 **Task 2.29 adds `[services]`, and it is the same one file again.** Which
 `Embedder` a run resolves is an operator's choice rather than a constant in
-`weft_cli.ingest` — the argument is `weft_cli.services`', not this module's —
+`weft_cli.ingest` — the argument is `weft_engine.services`', not this module's —
 and it is parsed from the *same* `document_at` call as everything above, so
 the allow-list, the pack settings, the pins and the service selection cannot
 come from two different reads of one file.
@@ -82,7 +82,7 @@ sentences above true for a third-party pack.
 
 **Task 2.30 adds `[llm.roles]`, from the same one-file read again.** Which
 provider and model answer a call made under a role is an operator's choice
-in `weft.toml`, exactly as `[services]` is — see `weft_cli.llm_roles`'s own
+in `weft.toml`, exactly as `[services]` is — see `weft_engine.llm_roles`'s own
 module docstring for why it is its own top-level table rather than a third
 `[services]` field. **Task 2.10 adds `[llm.retry]` beside it**, for the same
 reason and out of the same parse: it built the retry wrapper the block
@@ -91,7 +91,7 @@ needs it is a knob that silently does nothing.
 
 **Task 3.3 adds `[permissions]`, from the same one-file read again.** An
 operator's override of the `overwrite`/`destroy` defaults `weft_cli.confirm`
-enforces at the invocation seam — `weft_cli.permission_policy`'s own module
+enforces at the invocation seam — `weft_engine.permission_policy`'s own module
 docstring carries the shape and why it stops at two keys.
 
 **Task 5.3a (`S8`) adds `Dependencies.contributions` — no file read, no new config surface.**
@@ -111,23 +111,23 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-from weft_cli.exit_codes import ExitCode
-from weft_cli.llm_roles import LLMRoles, LLMSection, llm_section_from_config
-from weft_cli.pack_attribution import PluginRefusal as PluginRefusal
-from weft_cli.pack_attribution import attribute_to_packs
-from weft_cli.permission_policy import PermissionPolicy, permission_policy_from_config
-from weft_cli.service_roles import RoleTable, role_table_from_reports
-from weft_cli.services import ServiceSelection, service_selection_from_config
+from weft_command.render import ExitCode
+from weft_engine.llm_roles import LLMRoles, LLMSection, llm_section_from_config
+from weft_engine.pack_attribution import PluginRefusal as PluginRefusal
+from weft_engine.pack_attribution import attribute_to_packs
+from weft_engine.permission_policy import PermissionPolicy, permission_policy_from_config
+from weft_engine.service_roles import RoleTable, role_table_from_reports
+from weft_engine.services import ServiceSelection, service_selection_from_config
 
 if TYPE_CHECKING:
     # Not a top-level import at runtime — see `_default_reconcile_policy`'s own docstring,
-    # just below, for why: `weft_cli.reconcile_policy` imports `weft_store.ReconcileMode` at
+    # just below, for why: `weft_engine.reconcile_policy` imports `weft_store.ReconcileMode` at
     # its own module scope, and `weft_store` is a pack this module must not put in
     # `sys.modules` for `weft --version` (fitness function 8(b), the identical reasoning
     # `_register_ext_models` below already states for `weft_store`).
     # A type checker still needs the real name for the `Dependencies.reconcile_policy`
     # annotation, which this guard supplies with no runtime cost.
-    from weft_cli.reconcile_policy import ReconcilePolicy
+    from weft_engine.reconcile_policy import ReconcilePolicy
 from weft_kernel.discovery import (
     PackReport,
     PackStatus,
@@ -198,7 +198,7 @@ class Dependencies:
     #: `embed`, read from the raw parsed document rather than compared against a built
     #: `ServiceSelection`: a fact about the *file*, not about the resulting value, because a
     #: `weft.toml` that writes `embed = "hash"` explicitly must read `True` even though the
-    #: effective embedder equals the default (`weft_cli.config_surface`'s own module docstring
+    #: effective embedder equals the default (`weft_engine.config_surface`'s own module docstring
     #: names the identical sentinel-comparison defect this avoids). `False` is the honest answer
     #: for a caller that built `Dependencies` directly and had no file to name anything.
     embed_was_selected: bool = False
@@ -217,7 +217,7 @@ class Dependencies:
     #: `[reconcile]`, task 5.1c — `weft reconcile`'s own personal default for a bare `--mode`,
     #: defaulting to `full` unchanged from that command's pre-5.1c hardcoded default. Never
     #: consulted by `weft index`'s automatic post-index pass, which is hardcoded to `repair`
-    #: regardless — see `weft_cli.reconcile_policy`'s own module docstring for why. The
+    #: regardless — see `weft_engine.reconcile_policy`'s own module docstring for why. The
     #: `default_factory` is `_default_reconcile_policy`, not `ReconcilePolicy` itself — see
     #: that function's own docstring for why the import is lazy.
     reconcile_policy: ReconcilePolicy = field(default_factory=lambda: _default_reconcile_policy())
@@ -270,7 +270,7 @@ def build_dependencies(
     llm = llm_section_from_config(document)
     permissions = permission_policy_from_config(document)
     # Lazy, not a top-level import — see `_default_reconcile_policy`'s own docstring.
-    from weft_cli.reconcile_policy import reconcile_policy_from_config
+    from weft_engine.reconcile_policy import reconcile_policy_from_config
 
     reconcile_policy = reconcile_policy_from_config(document)
     registry = Registry(plugin_pins=pins)
@@ -315,9 +315,9 @@ def contributions_from(reports: tuple[PackReport, ...]) -> tuple[Contribution, .
 
 def _default_reconcile_policy() -> ReconcilePolicy:
     """`Dependencies.reconcile_policy`'s own `default_factory` — a lazy import, not
-    `weft_cli.reconcile_policy.ReconcilePolicy` used directly.
+    `weft_engine.reconcile_policy.ReconcilePolicy` used directly.
 
-    `weft_cli.reconcile_policy` imports `weft_store.ReconcileMode` at its own module scope,
+    `weft_engine.reconcile_policy` imports `weft_store.ReconcileMode` at its own module scope,
     and this module's own top-level imports run for *every* command, `weft --version`
     included — the identical constraint `_register_ext_models`'s own docstring states for
     `weft_store`, and the same fitness function 8(b) this repeats it
@@ -327,7 +327,7 @@ def _default_reconcile_policy() -> ReconcilePolicy:
     A `lambda` wrapping this function costs nothing to construct — only *calling* it imports
     `weft_store`, and nothing calls it during `weft --version`'s own path.
     """
-    from weft_cli.reconcile_policy import ReconcilePolicy
+    from weft_engine.reconcile_policy import ReconcilePolicy
 
     return ReconcilePolicy()
 
@@ -354,19 +354,19 @@ def _register_ext_models(reports: tuple[PackReport, ...]) -> None:
     exactly what fitness function 8(b) refuses (`test_ff8_trust_model.py` caught this once
     already, as a module-level version of this same call) — the identical reasoning this
     function's own predecessor already stated for `weft_chunk`/`weft_store`.
+
+    **The renderer half of task 6.20 (G13) is no longer here, and task 24.1 is why.** This
+    function used to make a second generic-consumer call beside the one above —
+    `weft_cli.render.register_renderers_from_reports`, for whatever renderer a pack buffered
+    through `PackRegistrar.add_renderer`. A renderer is what a *person at a terminal* sees,
+    which is the one thing `weft_engine` is not for, so `weft_cli.cli.main` makes that call
+    itself once `build_dependencies` has returned. Nothing about a `Dependencies` differs
+    either way, and the lazy-import argument above transferred with the call: `weft_cli.cli`
+    is not reached for `weft --version` at all.
     """
     from weft_store.rehydrate import register_from_reports
 
     register_from_reports(reports)
-    # Task 6.20 (G13) — the identical generic-consumer shape, one call further: whatever
-    # renderer any pack's own register() buffered through PackRegistrar.add_renderer, made
-    # reachable for `weft_cli.render._render_result`'s own dispatch. Local import for the
-    # same reason `register_from_reports` is: `weft_cli.render` imports `weft_cli.commands`
-    # (and, through it, every built-in command module) at its own module scope, which would
-    # cost `weft --version` all of that if imported here at this module's own scope.
-    from weft_cli.render import register_renderers_from_reports
-
-    register_renderers_from_reports(reports)
 
 
 def merged_pack_settings(document: dict[str, object] | None) -> dict[str, dict[str, object]]:
@@ -564,7 +564,7 @@ def _unresolved(
     `Registry.entry` still does for every other caller) reads exactly as it always has.
 
     **Repair, carried R11.3.** The three branches this used to compute directly — refused,
-    silently incomplete, nothing amiss — now live in `weft_cli.pack_attribution.
+    silently incomplete, nothing amiss — now live in `weft_engine.pack_attribution.
     attribute_to_packs`, which `weft_cli.compile._contract_for` calls too, so the document
     path stops printing a bare list of every installed name and starts attaching the same
     reason `weft plugins doctor` already holds. This function is left a thin caller: it still
@@ -607,7 +607,7 @@ def document_at(config_path: Path) -> dict[str, object] | None:
     """`config_path` parsed, or `None` if it is absent. One read, so the allow-list and the
     pack settings blocks cannot come from two different parses of the same file.
 
-    **Public since task 3.7**, not `_`-prefixed: `weft_cli.config_surface.effective_config`
+    **Public since task 3.7**, not `_`-prefixed: `weft_engine.config_surface.effective_config`
     is a second, legitimate reader of the same file — it needs the *raw* parsed document to
     tell "a key `weft.toml` sets, to the same value the default would have been anyway" from
     "a key `weft.toml` never mentions at all", which the already-merged `ServiceSelection`/

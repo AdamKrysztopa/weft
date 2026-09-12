@@ -40,7 +40,7 @@ import pytest
 from pydantic import SecretStr
 
 from weft_cli.ingest import run_index
-from weft_cli.registry_bootstrap import build_dependencies
+from weft_engine.registry_bootstrap import build_dependencies
 from weft_kernel.context import Context
 from weft_kg.store import GraphSettings, GraphStore
 from weft_store.contract import SourceStatus

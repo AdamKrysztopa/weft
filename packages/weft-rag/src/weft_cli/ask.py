@@ -40,8 +40,8 @@ from typing import cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from weft_cli.services import DEFAULT_EMBEDDER, DEFAULT_STORE
 from weft_embed import Embedder
+from weft_engine.services import DEFAULT_EMBEDDER, DEFAULT_STORE
 from weft_kernel.context import Context
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import MediaType, Node, Outcome, Produced
@@ -88,7 +88,7 @@ async def run_ask(
     `embedder` is `[services] embed`'s answer — the same name `weft index`
     used, and it has to be: a question embedded by one model and a corpus
     indexed by another are vectors in two unrelated spaces, and comparing them
-    returns a confident ranking of nothing. `weft_cli.services` holds that
+    returns a confident ranking of nothing. `weft_engine.services` holds that
     argument; this is the query half of it.
 
     `store` is `[services] store`'s answer, and the same sentence applies to it

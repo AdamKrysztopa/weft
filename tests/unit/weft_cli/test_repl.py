@@ -18,11 +18,11 @@ from pydantic import BaseModel, ConfigDict
 
 from weft_cli import cli, repl
 from weft_cli.exit_codes import ExitCode
-from weft_cli.registry_bootstrap import Dependencies
 from weft_cli.render import Rendered
-from weft_cli.services import ServiceSelection
 from weft_command.contract import Command, CommandResult
 from weft_command.permission import PermissionClass
+from weft_engine.registry_bootstrap import Dependencies
+from weft_engine.services import ServiceSelection
 from weft_kernel.context import Context
 from weft_kernel.payload import Outcome, Produced
 from weft_kernel.registry import Registry

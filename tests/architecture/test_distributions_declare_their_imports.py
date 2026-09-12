@@ -133,7 +133,7 @@ _EXTRAS_THAT_NAME_NO_PACK: Final[frozenset[str]] = frozenset({"all", "bertscore"
 
 
 def test_every_capability_extra_is_the_name_of_a_pack_in_the_same_distribution() -> None:
-    # Carried repair **R11.3**. `weft_cli.pack_attribution.install_hint` tells an operator
+    # Carried repair **R11.3**. `weft_engine.pack_attribution.install_hint` tells an operator
     # whose pack reported `failed` to run `pip install <distribution>[<pack>]`, and it reads
     # the distribution's own `Provides-Extra` before saying so — so the sentence is never
     # *wrong*. What it can be is silently *absent*: declare the extra as `pdf-support` while

@@ -52,10 +52,10 @@ from check_questions import Question as GroundTruthQuestion
 from pydantic import SecretStr, ValidationError
 
 from weft_cli.eval_scoring import load_questions
-from weft_cli.registry_bootstrap import Dependencies
-from weft_cli.services import ServiceSelection
 from weft_command.contract import CommandResult
 from weft_command.permission import PermissionClass
+from weft_engine.registry_bootstrap import Dependencies
+from weft_engine.services import ServiceSelection
 from weft_kernel.context import Context
 from weft_kernel.payload import MediaType, Node, Outcome, Produced, SourceId
 from weft_kernel.registry import Registry

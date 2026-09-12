@@ -34,7 +34,7 @@ one. `weft_cli.cli` adds it once, immediately after `build_dependencies()` retur
 command runs — `ctx.services.add(Dependencies, deps)` — and every command below reads it back
 with `ctx.require(Dependencies)`. This is not a new mechanism: it is `ServiceRegistry`, already
 generic over any type, used for a fact 3.2 needs and no earlier task did. A third party's own
-command is free to ignore it (and most will, since depending on `weft_cli.registry_bootstrap.
+command is free to ignore it (and most will, since depending on `weft_engine.registry_bootstrap.
 Dependencies` means depending on `weft-cli` itself) or to read `ctx.require(weft_kernel.registry.
 Registry)` directly if all it needs is plugin resolution — nothing here reserves `Dependencies`
 to built-ins; it is simply the shape *these* five commands, all of them already written against
@@ -114,19 +114,19 @@ from weft_cli.reconcile import (
     reconcile_everywhere,
 )
 from weft_cli.reconcile import participants as reconcile_participants
-from weft_cli.registry_bootstrap import (
-    DEFAULT_CONFIG_PATH,
-    Dependencies,
-    PluginRefusal,
-    require_active,
-    require_plugin,
-)
 from weft_cli.route_ask import run_named_ask, run_routed_ask
 from weft_cli.skew import SkewReport, detect_skew
 from weft_cli.tracing_status import describe_tracing
 from weft_command.contract import Command, CommandResult
 from weft_command.permission import PermissionClass
 from weft_embed import Embedder
+from weft_engine.registry_bootstrap import (
+    DEFAULT_CONFIG_PATH,
+    Dependencies,
+    PluginRefusal,
+    require_active,
+    require_plugin,
+)
 from weft_eval.run_record import (
     CorpusDigestBasis,
     build_run_record,
@@ -230,7 +230,7 @@ class UnresolvedPluginNameError(CommandRefusalError, UnresolvedNameError):
     finding 2 of the 2026-08-20 Phase 3 review, repairing tasks 3.2/3.3/3.7 (`docs/build-ledger.
     md`'s dated paragraph carries the argument in full).
 
-    Before this repair, `IndexCommand`/`AskCommand` caught `weft_cli.registry_bootstrap.
+    Before this repair, `IndexCommand`/`AskCommand` caught `weft_engine.registry_bootstrap.
     require_plugin`'s answer and always raised the plain `CommandRefusalError` above, whatever
     the underlying cause — including the branch where `weft_kernel.registry.UnknownPluginError`
     had already computed `valid_options`, every name actually registered for the contract that
@@ -332,7 +332,7 @@ def _register_corpus(ctx: Context, deps: Dependencies) -> None:
     `list_sources`/`scan`/`count`.
 
     A `[services] store` that resolves to nothing registered adds nothing here — no raise, no
-    placeholder. `weft_cli.registry_bootstrap.require_plugin` is what turns an unresolvable
+    placeholder. `weft_engine.registry_bootstrap.require_plugin` is what turns an unresolvable
     `[services] store` into a diagnosable refusal; a participant that then reaches for a corpus
     with none registered gets `UnresolvedServiceError`, naming what it wanted and what is
     available, which is the loud failure, correctly located — a second translation here would
@@ -369,7 +369,7 @@ class IndexArgs(BaseModel):
     "a `Reconcilable` pack creating derived data during an automatic pass *would* breach
     it, so the automatic pass never does; backfill is reached only by a person's per-run
     flag." That is why this field's default is the hardcoded `ReconcileMode.REPAIR` — never
-    read from `weft.toml`'s own `[reconcile]` block (see `weft_cli.reconcile_policy`'s own
+    read from `weft.toml`'s own `[reconcile]` block (see `weft_engine.reconcile_policy`'s own
     module docstring for why that block governs `weft reconcile`'s bare default and nothing
     about this one) — so a project cannot, by editing one file once, turn every future `weft
     index` into a `full` run with nobody typing `--reconcile full` for that particular
@@ -671,7 +671,7 @@ class IndexCommand:
             if active_refusal is not None:
                 # `require_active` never resolves `weft_kernel.registry.UnknownPluginError` —
                 # it checks a fixed distribution list, not a plugin name — so it has no
-                # `valid_options` to lose in the first place; see `weft_cli.registry_bootstrap.
+                # `valid_options` to lose in the first place; see `weft_engine.registry_bootstrap.
                 # require_active`'s own docstring for why it structurally cannot be the gate
                 # `require_plugin` below is.
                 code, message = active_refusal
@@ -1175,7 +1175,7 @@ class ReconcileArgs(BaseModel):
     """`weft reconcile [--mode repair|full] [--dry-run]`.
 
     **`mode`, narrowed at task 5.1c.** `None` means "no flag given" — `ReconcileCommand` then
-    falls back to `weft.toml`'s own `[reconcile] mode` (`weft_cli.reconcile_policy`, default
+    falls back to `weft.toml`'s own `[reconcile] mode` (`weft_engine.reconcile_policy`, default
     `full`), so someone typing bare `weft reconcile` still reaches `full` unless they, or their
     project, said otherwise. The flag always wins over that default when given, per
     `docs/03-cli.md`'s own words. The automatic pass at the end of an index run does not come

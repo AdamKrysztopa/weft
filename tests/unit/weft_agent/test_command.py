@@ -172,7 +172,7 @@ def test_the_command_declares_write_and_not_more() -> None:
 def test_the_ambient_services_reach_every_command_not_only_the_cli_s_own() -> None:
     """The seam repair itself, asserted where a stranger would meet it.
 
-    `run_command` used to register only `weft_cli.registry_bootstrap.Dependencies`, which a pack
+    `run_command` used to register only `weft_engine.registry_bootstrap.Dependencies`, which a pack
     cannot import without depending on the driving adapter. It now registers the run's services by
     their published contract types, so `ctx.require(LLM)` answers for anybody.
 
@@ -187,9 +187,9 @@ def test_the_ambient_services_reach_every_command_not_only_the_cli_s_own() -> No
     survives the code moving and would still fail if the registration were dropped.
     """
     # Arrange
-    from weft_cli.registry_bootstrap import Dependencies
     from weft_cli.run_services import command_path_services
-    from weft_cli.services import ServiceSelection
+    from weft_engine.registry_bootstrap import Dependencies
+    from weft_engine.services import ServiceSelection
     from weft_llm.client import NullSink
     from weft_prompts.contract import Prompts
 

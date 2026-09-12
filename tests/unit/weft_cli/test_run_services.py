@@ -26,7 +26,6 @@ from typing import Protocol, runtime_checkable
 import pytest
 from pydantic import SecretStr
 
-from weft_cli.llm_roles import LLMSection
 from weft_cli.run_services import (
     MalformedNeedsServicesError,
     MalformedNeedsStoreError,
@@ -35,8 +34,9 @@ from weft_cli.run_services import (
     check_store_capabilities,
     demanded_capabilities,
 )
-from weft_cli.services import ServiceSelection
 from weft_embed import Embedder
+from weft_engine.llm_roles import LLMSection
+from weft_engine.services import ServiceSelection
 from weft_kernel.context import Context
 from weft_kernel.payload import Node, Outcome, Produced, Vector
 from weft_kernel.pipeline import Pipeline, StageDeclaration
@@ -369,7 +369,7 @@ async def test_build_services_raises_for_a_service_selection_naming_an_unregiste
     None
 ):
     # Arrange — `[services] store` naming a plugin nothing registered is exactly the
-    # scenario `weft_cli.registry_bootstrap.require_plugin` exists to diagnose before this
+    # scenario `weft_engine.registry_bootstrap.require_plugin` exists to diagnose before this
     # point is ever reached; `build_services` itself raises the registry's own loud refusal.
     registry = _services_registry()
 

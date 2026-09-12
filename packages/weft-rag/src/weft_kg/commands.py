@@ -47,11 +47,11 @@ from typing import ClassVar, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from weft_cli.config_surface import set_config_text
-from weft_cli.registry_bootstrap import DEFAULT_CONFIG_PATH
 from weft_command import ExitCode, Rendered
 from weft_command.contract import CommandResult
 from weft_command.permission import PermissionClass
+from weft_engine.config_surface import set_config_text
+from weft_engine.registry_bootstrap import DEFAULT_CONFIG_PATH
 from weft_kernel.context import Context
 from weft_kernel.payload import Outcome, Produced
 from weft_kg.bridges import (
@@ -286,7 +286,7 @@ class GraphBridgesCommand:
 
 
 def _quote(value: str) -> str:
-    """The identical escaping `weft_cli.config_surface._quote` uses, restated rather than
+    """The identical escaping `weft_engine.config_surface._quote` uses, restated rather than
     imported: that name is private to its own module, and a curated schema's TOML is this pack's
     own artefact to render, not `weft_cli`'s.
     """

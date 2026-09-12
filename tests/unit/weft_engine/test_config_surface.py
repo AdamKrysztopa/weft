@@ -1,6 +1,6 @@
-"""Unit tests for `weft_cli.config_surface`.
+"""Unit tests for `weft_engine.config_surface`.
 
-Mirrors `packages/weft-rag/src/weft_cli/config_surface.py`. Task **3.7**'s own `--origin`
+Mirrors `packages/weft-rag/src/weft_engine/config_surface.py`. Task **3.7**'s own `--origin`
 proof: covers the happy path (no `weft.toml` at all — every key defaults), the edge case a
 sentinel-comparison approach cannot express — a value **explicitly** set to what the default
 would have been anyway, distinguished from a key genuinely absent — and the error cases of
@@ -15,7 +15,7 @@ import tomllib
 
 import pytest
 
-from weft_cli.config_surface import (
+from weft_engine.config_surface import (
     ConfigOrigin,
     UnknownConfigKeyError,
     config_entry,
@@ -24,8 +24,8 @@ from weft_cli.config_surface import (
     set_config_text,
     validate_set_value,
 )
-from weft_cli.service_roles import RoleTable
-from weft_cli.services import UnknownServiceKeyError
+from weft_engine.service_roles import RoleTable
+from weft_engine.services import UnknownServiceKeyError
 from weft_kernel.context import ServiceRole
 from weft_kernel.errors import WeftError
 

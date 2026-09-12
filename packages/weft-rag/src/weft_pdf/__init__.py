@@ -25,7 +25,7 @@ and `ExtModel` is a kernel-owned payload primitive, not a capability, so bufferi
 bare class reference here costs nothing. What actually walks `PackReport.ext_models`
 into `weft_store.rehydrate.ext_models` is `weft_store.rehydrate.register_from_reports`,
 called once, generically, by whatever already calls `discover()` —
-`weft_cli.registry_bootstrap.build_dependencies` today — which is where the two ends of
+`weft_engine.registry_bootstrap.build_dependencies` today — which is where the two ends of
 a real pipeline, the pack that derives the data and the store that must read it back,
 already meet, with no per-pack edit owed to `weft-cli` and no dependency on `weft-pdf`
 gained by it either: `weft-cli` never imports this module, and does not need to.

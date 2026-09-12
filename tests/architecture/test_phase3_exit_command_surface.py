@@ -50,7 +50,7 @@ real one.**
    second, additional assertion of the same underlying mechanism (`build_parser`'s own nested
    subparser for the plugin's name), not the only proof.
 2. **Appears in REPL completion.** Proven by running a probe script, inside the same throwaway
-   environment's own interpreter, that calls the real, installed `weft_cli.registry_bootstrap.
+   environment's own interpreter, that calls the real, installed `weft_engine.registry_bootstrap.
    build_dependencies` and `weft_cli.repl.repl_completions` — the exact function `weft_cli.repl`'s
    own module docstring names as "what a test — 3.8's, or this file's own — can call directly,
    without a pty or a keypress." Not reimplemented: imported from the wheel actually installed.
@@ -144,7 +144,7 @@ if leaked:
     print(",".join(leaked))
     raise SystemExit(0)
 
-from weft_cli.registry_bootstrap import build_dependencies
+from weft_engine.registry_bootstrap import build_dependencies
 from weft_cli.repl import repl_completions
 
 deps = build_dependencies()

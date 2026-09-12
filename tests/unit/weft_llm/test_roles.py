@@ -4,7 +4,7 @@ Mirrors `packages/weft-rag/src/weft_llm/roles.py`. Covers the happy path (a mapp
 resolves to its provider and model), the edge case (an empty table is legitimate) and the
 error case (an unmapped role names itself and every role that *is* mapped).
 
-Task 2.10 moved these models here from `weft_cli.llm_roles`: the `LLM` service that consumes
+Task 2.10 moved these models here from `weft_engine.llm_roles`: the `LLM` service that consumes
 them lives in `weft-llm`, and a service cannot import the CLI that assembles it.
 """
 

@@ -4,7 +4,7 @@ Task **3.3**: "a destructive operation with no TTY fails naming the flag that wo
 and never proceeds silently." `docs/03-cli.md` -> *Permissions*: "Non-interactive means
 non-guessing. With no TTY, an `ask` operation fails with a message naming the flag that would
 permit it. It never proceeds silently." `--yes` permits it for one invocation; per-class defaults
-live in `weft.toml` (`weft_cli.permission_policy`, design question 4).
+live in `weft.toml` (`weft_engine.permission_policy`, design question 4).
 
 **Design question 1 — where the check goes, and why here.** `gate` is called from exactly one
 place, `weft_cli.cli.run_command`, immediately before `instance.run(...)` — the identical seam
@@ -66,8 +66,8 @@ import sys
 from typing import TYPE_CHECKING, cast
 
 from weft_cli.exit_codes import ExitCode
-from weft_cli.permission_policy import PermissionAction, PermissionPolicy
 from weft_command.permission import PermissionClass
+from weft_engine.permission_policy import PermissionAction, PermissionPolicy
 
 if TYPE_CHECKING:
     from pydantic import BaseModel

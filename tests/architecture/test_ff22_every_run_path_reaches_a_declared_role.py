@@ -47,8 +47,8 @@ from typing import Final
 
 import pytest
 
-from weft_cli.service_roles import RoleTable
-from weft_cli.services import ServiceSelection
+from weft_engine.service_roles import RoleTable
+from weft_engine.services import ServiceSelection
 from weft_kernel.context import ServiceRole
 from weft_kernel.registry import Registry
 
@@ -175,9 +175,9 @@ async def test_every_named_assembler_reaches_a_role_no_first_party_pack_declares
     the seam is broken rather than only when a fourth assembler appears.
     """
     # Arrange
-    from weft_cli.llm_roles import LLMSection
-    from weft_cli.registry_bootstrap import Dependencies
     from weft_cli.run_services import build_index_services, build_services, command_path_services
+    from weft_engine.llm_roles import LLMSection
+    from weft_engine.registry_bootstrap import Dependencies
     from weft_llm.client import NullSink
 
     def _registry() -> Registry:

@@ -216,7 +216,7 @@ class MalformedSchemaFileError(WeftError):
     """`load_schema`'s file is missing, is not TOML, or does not validate as a `GraphSchema`.
 
     A curated schema is hand-edited, so a malformed file is the ordinary case here rather than the
-    exotic one `weft_cli.registry_bootstrap.ConfigFileError` treats `weft.toml` as. The message
+    exotic one `weft_engine.registry_bootstrap.ConfigFileError` treats `weft.toml` as. The message
     always names the path, because an operator with more than one curated file needs to know which
     one — see `load_schema`.
     """
@@ -298,7 +298,7 @@ def load_schema(path: Path) -> GraphSchema:
     TOML, or parses but fails `GraphSchema`'s own validation (an unknown `schema_version` among
     them) — is re-raised as `MalformedSchemaFileError` naming `path` and the underlying reason,
     the same "one file, one reader, no bare stdlib traceback out of an operator command" discipline
-    `weft_cli.registry_bootstrap.document_at` already applies to `weft.toml` itself.
+    `weft_engine.registry_bootstrap.document_at` already applies to `weft.toml` itself.
     """
     try:
         with path.open("rb") as handle:

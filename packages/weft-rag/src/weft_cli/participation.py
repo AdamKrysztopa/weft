@@ -144,7 +144,7 @@ def stores_in_use(
 
     `configured` — `[services] store` — is included unconditionally, whether or not it is
     registered: diagnosing an unresolvable `[services] store` is
-    `weft_cli.registry_bootstrap.require_plugin`'s job, and repeating that translation here
+    `weft_engine.registry_bootstrap.require_plugin`'s job, and repeating that translation here
     would give the same mistake two different messages (`docs/internal/lessons.md` L5.9).
 
     `project` is the subject — the documents this project itself wrote. Every other name is

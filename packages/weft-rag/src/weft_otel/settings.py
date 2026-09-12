@@ -14,7 +14,7 @@ earlier draft defaulted to `CONSOLE` — "`uv add weft-otel` and it just works,"
 `docs/02-extension-model.md` §4's graph-pack narrative invites. It was wrong, and measurably
 so rather than merely inconsistent with a preference: `opentelemetry.trace.
 set_tracer_provider` succeeds exactly **once** per process, and this repository's own test
-suite calls `weft_cli.registry_bootstrap.build_dependencies` — the real discovery path,
+suite calls `weft_engine.registry_bootstrap.build_dependencies` — the real discovery path,
 open by default — from dozens of existing tests across `tests/unit/weft_cli/test_cli.py`,
 `test_repl.py` and `test_registry_bootstrap.py`, none of which has anything to do with
 tracing. With `CONSOLE` as the default, whichever of those happened to run first inside one

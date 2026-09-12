@@ -25,7 +25,7 @@ dispatches on:
   lost to a `FAILED`, `PARTIAL` or `ALLOWED_NOT_INSTALLED` report.
 
 Both are computed *before* a pipeline is ever resolved — see
-`weft_cli.registry_bootstrap.require_active` — so `4` is also the fallback for
+`weft_engine.registry_bootstrap.require_active` — so `4` is also the fallback for
 `weft_kernel.registry.UnknownPluginError` and
 `weft_kernel.runner.PipelineResolutionError`, should either occur despite that
 check having passed.
@@ -33,7 +33,6 @@ check having passed.
 
 from typing import Final
 
-from weft_cli.config_surface import UnknownConfigKeyError
 from weft_cli.pipeline_catalogue import (
     ContributedPipelineNameCollisionError,
     DuplicatePipelineNameError,
@@ -42,6 +41,7 @@ from weft_cli.pipeline_catalogue import (
     ProjectPipelineNameCollisionError,
 )
 from weft_command import ExitCode as ExitCode
+from weft_engine.config_surface import UnknownConfigKeyError
 from weft_kernel.errors import WeftError
 from weft_kernel.registry import UnknownPluginError
 from weft_kernel.runner import PipelineResolutionError
@@ -53,7 +53,7 @@ from weft_kernel.runner import PipelineResolutionError
 #: ones and `ProjectPipelineNameCollisionError` beside them — a document that will not even
 #: validate, or two sources naming the same pipeline, "has no resolved parent and no
 #: distributions to name", so filing either under the family "would hand the failure-mode
-#: ratchet one already-documented name to hide behind"; `weft_cli.config_surface.
+#: ratchet one already-documented name to hide behind"; `weft_engine.config_surface.
 #: UnknownConfigKeyError` the identical reasoning one surface over — a key `weft config`
 #: does not read has no pipeline, no stage and no distribution to name either), yet
 #: `docs/03-cli.md` -> *Output* puts every one of them on the exit-4 side of the split: "a
@@ -153,7 +153,7 @@ def exit_code_for(exc: WeftError) -> ExitCode:
     # `weft_cli.compile.RefusedStagePluginError`, carried repair R11.3 — a local import,
     # the identical shape `NoRouterPipelineError`/`UnknownRunIdError` already use below. A
     # module-scope import of `weft_cli.compile` here would be a cycle: `compile` now imports
-    # `weft_cli.pack_attribution`, which imports this module for `ExitCode` itself. By the
+    # `weft_engine.pack_attribution`, which imports this module for `ExitCode` itself. By the
     # time this branch can run, whatever handler raised the error has already imported
     # `weft_cli.compile`, so this import is a `sys.modules` lookup, not a fresh one.
     from weft_cli.compile import RefusedStagePluginError

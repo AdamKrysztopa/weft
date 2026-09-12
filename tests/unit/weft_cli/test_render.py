@@ -781,7 +781,7 @@ def test_render_pipeline_diff_lists_an_added_stage() -> None:
 
 def test_render_config_get_prints_key_equals_value_without_origin_by_default() -> None:
     from weft_cli.config_commands import ConfigGetCommandResult
-    from weft_cli.config_surface import ConfigEntry, ConfigOrigin
+    from weft_engine.config_surface import ConfigEntry, ConfigOrigin
 
     entries = (ConfigEntry(key="services.embed", value="hash", origin=ConfigOrigin.DEFAULT),)
     result = ConfigGetCommandResult(entries=entries, show_origin=False)
@@ -792,7 +792,7 @@ def test_render_config_get_prints_key_equals_value_without_origin_by_default() -
 
 def test_render_config_get_appends_origin_when_asked() -> None:
     from weft_cli.config_commands import ConfigGetCommandResult
-    from weft_cli.config_surface import ConfigEntry, ConfigOrigin
+    from weft_engine.config_surface import ConfigEntry, ConfigOrigin
 
     entries = (ConfigEntry(key="services.embed", value="hash", origin=ConfigOrigin.FILE),)
     result = ConfigGetCommandResult(entries=entries, show_origin=True)

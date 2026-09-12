@@ -41,7 +41,7 @@ def test_settings_refuses_an_unknown_field() -> None:
 def test_the_pack_discloses_what_its_default_embedder_is_not() -> None:
     """Carried repair `R17.2`.
 
-    `hash` is the default embedder (`weft_cli.services.DEFAULT_EMBEDDER`), and it derives every
+    `hash` is the default embedder (`weft_engine.services.DEFAULT_EMBEDDER`), and it derives every
     vector from a SHA-256 digest, so the ranking it produces carries no meaning. Three documents
     say so — `manual/operations-guide.md`, `docs/10-technique-catalogue.md`,
     `manual/user-manual.md` — and **none of them is on the path a first-hour user walks**. The

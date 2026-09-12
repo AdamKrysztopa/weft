@@ -57,11 +57,11 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import Final, cast
 
 from weft_cli.contract_reference import capability_siblings
-from weft_cli.llm_roles import LLMSection
-from weft_cli.registry_bootstrap import Dependencies
-from weft_cli.service_roles import RoleTable
-from weft_cli.services import ServiceSelection
 from weft_embed import Embedder
+from weft_engine.llm_roles import LLMSection
+from weft_engine.registry_bootstrap import Dependencies
+from weft_engine.service_roles import RoleTable
+from weft_engine.services import ServiceSelection
 from weft_kernel.context import ServiceRegistry, UnresolvedServiceError
 from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_kernel.pipeline import Pipeline
@@ -442,7 +442,7 @@ def selected_role_instances(
     the same way `build_services` already builds the store and the embedder — one call to
     the registered factory, no per-role `with:` configuration to pass, since `[services]`
     selects a plugin by name only. A declared role `services` says nothing about is skipped —
-    no default, no guess, per `weft_cli.service_roles`'s own module docstring. An unregistered
+    no default, no guess, per `weft_engine.service_roles`'s own module docstring. An unregistered
     plugin name raises the registry's own `UnknownPluginError`, unchanged and uncaught: an
     operator naming a plugin that does not exist for that role's contract gets the loud,
     diagnosable refusal `weft_kernel.registry` already writes, not a second, worse one
@@ -519,7 +519,7 @@ async def build_services(
     PipelineRouteCatalogue`'s own docstring). `services.store`/`services.embed` are resolved
     the same way `weft_cli.ingest.run_index` and `weft_cli.ask.run_ask` already resolve
     them: `registry.entry(...).factory(None)`, an unregistered name raising the registry's
-    own `UnknownPluginError` naming every option — `weft_cli.registry_bootstrap.
+    own `UnknownPluginError` naming every option — `weft_engine.registry_bootstrap.
     require_plugin` is what turns that into a diagnosable exit code before this point is
     ever reached; this function does not repeat that translation.
 
@@ -714,7 +714,7 @@ class AmbiguousCapabilityError(WeftError):
     ambiguous and not what to change.
 
     Deliberately **not** in fitness function 12's `UnresolvedNameError` family, on
-    `weft_cli.service_roles.DuplicateServiceRoleError`'s footing and for the identical reason:
+    `weft_engine.service_roles.DuplicateServiceRoleError`'s footing and for the identical reason:
     nothing failed to resolve against an enumerable set. Two things resolved and disagree,
     which is a collision rather than a lookup miss, so there is no `valid_options` to offer.
     """

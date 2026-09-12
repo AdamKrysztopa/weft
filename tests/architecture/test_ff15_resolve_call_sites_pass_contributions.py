@@ -117,7 +117,7 @@ def test_every_resolve_call_site_passes_contributions() -> None:
         f"`contributions=`, which means any Contribution an installed pack offers can never "
         f"reach the pipeline resolved there: {offenders}. Pass "
         f"`contributions=deps.contributions` (or thread it from whichever caller already "
-        f"has `Dependencies` in scope) — see `weft_cli.registry_bootstrap.Dependencies."
+        f"has `Dependencies` in scope) — see `weft_engine.registry_bootstrap.Dependencies."
         f"contributions`'s own docstring."
     )
 

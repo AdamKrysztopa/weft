@@ -6,9 +6,9 @@ where that question is answered — `weft_cli.config_commands` is the thin `Comm
 around it, on the same formatting/data split every other command in this package draws.
 
 **The five keys this module reads are the five keys `weft.toml` already has a reader for.**
-`weft_cli.services.ServiceSelection` (`[services] embed`/`store`), `weft_cli.
+`weft_engine.services.ServiceSelection` (`[services] embed`/`store`), `weft_cli.
 permission_policy.PermissionPolicy` (`[permissions] overwrite`/`destroy`) and, since task
-**5.1c**, `weft_cli.reconcile_policy.ReconcilePolicy` (`[reconcile] mode`) are the only
+**5.1c**, `weft_engine.reconcile_policy.ReconcilePolicy` (`[reconcile] mode`) are the only
 project-config blocks any command actually consults today — `[llm]`/`[packs]`/`[plugins]`
 are real, but nothing in `docs/03-cli.md` → *Project context* names them as `config get/set`
 surface, and inventing a dotted key for a block nothing here was asked to expose would be
@@ -25,8 +25,8 @@ whether a value was explicitly set by comparing the *merged* value against a **s
 makes an explicit `--embedding-provider local` indistinguishable from never having passed the
 flag at all — it can never override a config file naming something else, because by the time
 anything asks "was this set?" the sentinel comparison has already thrown the answer away.
-`weft_cli.services.service_selection_from_config` and
-`weft_cli.permission_policy.permission_policy_from_config`
+`weft_engine.services.service_selection_from_config` and
+`weft_engine.permission_policy.permission_policy_from_config`
 both build exactly the merged shape that bug lives in: comparing their *output* — a
 `ServiceSelection`/`PermissionPolicy` instance — against `ServiceSelection()`/
 `PermissionPolicy()`'s own built-in defaults would reproduce the identical defect one field
@@ -46,7 +46,7 @@ carries; adding one purely to preserve comments on every `config set` call is a 
 a feature this task can get more cheaply and more safely another way). This module instead
 performs the smallest textual edit that makes the key say what was asked: find the `[section]`
 header, find or insert the `key = "value"` line directly under it, and leave every other byte
-in the file — including every comment — untouched. `tests/unit/weft_cli/test_config_surface.py`
+in the file — including every comment — untouched. `tests/unit/weft_engine/test_config_surface.py`
 proves the round trip: write with `set_config_text`, re-read with `tomllib.loads`, get the
 value back.
 """
@@ -59,20 +59,22 @@ from typing import Final, cast
 
 from pydantic import BaseModel, ConfigDict
 
-from weft_cli.permission_policy import PermissionAction
-from weft_cli.permission_policy import permission_policy_from_config as _permission_policy
-from weft_cli.service_roles import RoleTable
-from weft_cli.services import accepted_service_keys
-from weft_cli.services import service_selection_from_config as _service_selection
+from weft_engine.permission_policy import PermissionAction
+from weft_engine.permission_policy import permission_policy_from_config as _permission_policy
+from weft_engine.service_roles import RoleTable
+from weft_engine.services import accepted_service_keys
+from weft_engine.services import service_selection_from_config as _service_selection
 from weft_kernel.errors import UnresolvedNameError, WeftError
 
-# `weft_cli.reconcile_policy` and `weft_store.ReconcileMode` are imported lazily, inside the
+# `weft_engine.reconcile_policy` and `weft_store.ReconcileMode` are imported lazily, inside the
 # two functions that actually need them, never at this module's own top level. `weft_cli.
 # exit_codes` imports `UnknownConfigKeyError` from this module at *its* top level, and
 # `exit_codes` is one of `weft_cli.cli`'s own eager imports — reachable for `weft --version`,
 # which must import no pack module at all (fitness function 8(b); `weft_cli.registry_
 # bootstrap._default_reconcile_policy`'s own docstring states the identical constraint for
-# the identical reason, one import hop over).
+# the identical reason, one import hop over). The constraint survived task 24.1
+# unchanged: this module moved out of `weft_cli` and `weft_cli.exit_codes` did not, so the
+# import that makes `weft --version` expensive if it is eager still runs in that direction.
 
 #: Task 3.7's own closed vocabulary, grown by one key at task 5.1c — see the module
 #: docstring for why these five and no others. `(section, field)` per dotted key, read by
@@ -105,7 +107,7 @@ def config_keys_for(table: RoleTable) -> tuple[str, ...]:
 
     Ledger task **9.0**, `docs/internal/README.md`'s own opening rule applied to `config get|set`'s
     vocabulary: `_KEY_FIELDS` above is a second, hand-written key space over the identical
-    `[services]` block `weft_cli.services.service_selection_from_config` already derives
+    `[services]` block `weft_engine.services.service_selection_from_config` already derives
     from installed packs, and it had already drifted — it never grew `services.route`, which
     task 8.3 added. This is the one derivation both `effective_config` and (eventually)
     `config get|set`'s own `--key` grammar read, rather than a second copy hand-maintained
@@ -114,7 +116,7 @@ def config_keys_for(table: RoleTable) -> tuple[str, ...]:
     **Carried repair `R9.4` moved the derivation itself one module over.** This function built
     `services.<role>` from `table.declared` and then added `"services.route"` on a line of its
     own — the same forgettable act `_KEY_FIELDS` had already failed at once, one refactor later.
-    `weft_cli.services.accepted_service_keys` is now the single answer to *which `[services]`
+    `weft_engine.services.accepted_service_keys` is now the single answer to *which `[services]`
     keys exist*, and what is left here is the `services.` prefix and the two blocks that name no
     role at all.
     """
@@ -209,7 +211,7 @@ def section_and_field(key: str, *, table: RoleTable) -> tuple[str, str]:
 def _written_section(document: dict[str, object] | None, section: str) -> dict[str, object]:
     """Every key `[section]` literally sets in `document` — `{}` if the table, or the whole
     document, is absent. Never validated: this exists only to answer "is this key *present*",
-    never "is its value legal" — `weft_cli.services`/`weft_cli.permission_policy` already
+    never "is its value legal" — `weft_engine.services`/`weft_engine.permission_policy` already
     validate the values themselves, and `effective_config` below calls both.
     """
     if document is None:
@@ -235,7 +237,7 @@ def effective_config(
     `document`, never from comparing `selection`/`policy` against their own built-in
     defaults. Sorted by key, so `weft config get`'s own output is stable across runs.
     """
-    from weft_cli.reconcile_policy import reconcile_policy_from_config
+    from weft_engine.reconcile_policy import reconcile_policy_from_config
 
     selection = _service_selection(document, table=table)
     policy = _permission_policy(document)
@@ -322,7 +324,7 @@ def validate_set_value(key: str, value: str, *, table: RoleTable) -> None:
     `WeftError` for a value `weft.toml`'s own loader would refuse at read time anyway.
 
     Deliberately does **not** check that `value` resolves to an installed plugin for
-    `services.*` — `weft_cli.services.service_selection_from_config` does not either, on
+    `services.*` — `weft_engine.services.service_selection_from_config` does not either, on
     purpose: a `weft.toml` may legitimately name a plugin from a pack not installed *yet*
     (`docs/03-cli.md`'s own precedent for `use:`/`fallback:` in a pipeline document, applied
     here), and resolution is deferred to whichever command actually needs it — `weft_cli.
@@ -335,7 +337,7 @@ def validate_set_value(key: str, value: str, *, table: RoleTable) -> None:
     if section == "permissions":
         # Repair, 2026-08-20 (`docs/internal/build-ledger.md` 3.3's dated paragraph): examined for
         # FF12 family membership and excluded, the identical reasoning
-        # `weft_cli.permission_policy`'s own raise site for this exact value now states in full.
+        # `weft_engine.permission_policy`'s own raise site for this exact value now states in full.
         # `PermissionAction` is a closed, two-member `StrEnum` fixed by the type itself, not a name
         # resolved against a registry, catalogue or document whose membership could ever differ — a
         # type mismatch with a friendlier message, not an unresolved name. Not brought into
@@ -344,7 +346,7 @@ def validate_set_value(key: str, value: str, *, table: RoleTable) -> None:
         if value not in valid:
             raise WeftError(
                 f"'{key}' must be one of {sorted(valid)}, not {value!r} — "
-                f"weft_cli.permission_policy.PermissionPolicy's own vocabulary."
+                f"weft_engine.permission_policy.PermissionPolicy's own vocabulary."
             )
         return
     if section == "reconcile":

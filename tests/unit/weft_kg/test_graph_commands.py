@@ -36,9 +36,9 @@ import psycopg
 import pytest
 from pydantic import SecretStr
 
-from weft_cli.registry_bootstrap import Dependencies
-from weft_cli.services import ServiceSelection
 from weft_command.permission import PermissionClass
+from weft_engine.registry_bootstrap import Dependencies
+from weft_engine.services import ServiceSelection
 from weft_kernel.context import Context
 from weft_kernel.payload import MediaType, Node, Produced, SourceId
 from weft_kernel.registry import Registry

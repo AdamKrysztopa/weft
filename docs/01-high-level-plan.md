@@ -851,7 +851,7 @@ expensive architecture is measured before it is built.
 **It runs first, and its first task is not multimodal.** Two of its tasks reach a run-wide service on
 the ingest path — a blob store and a describer — and today every path assembles its services from a
 hand-written list (`weft_cli/run_services.py:345 "for posi"`, `:399`; the command path in `weft_cli.cli`) against
-three fixed keys (`weft_cli/services.py:141 "class Se"`), which is the requirement-1 failure Phase 7's close filed
+three fixed keys (`weft_engine/services.py:141 "class Se"`), which is the requirement-1 failure Phase 7's close filed
 as design question *(a)* and said must not be settled from one instance
 (`docs/internal/build-ledger.md:4364-4360 ". **And "`). Task **9.0** is that repair. It has three consumers — the failing
 instance Phase 7 measured, this phase's two services, and Phase 11's traversal contract on the query
@@ -1604,7 +1604,7 @@ All checks run in CI, before tests.
     > *named* family member carries `valid_options` — but membership is opt-in, and `402a957` found two
     > raise sites doing exactly what this item forbids while staying invisible to it: `weft_cli.
     > permission_policy` interpolated computed valid keys into a bare `WeftError`'s message, and
-    > `weft_cli.registry_bootstrap.require_plugin` caught `weft_kernel.registry.UnknownPluginError` —
+    > `weft_engine.registry_bootstrap.require_plugin` caught `weft_kernel.registry.UnknownPluginError` —
     > which already carries `valid_options` — and discarded it into a string before raising an untyped
     > sibling. Both were repaired by hand; nothing had caught either automatically. `tests/architecture/
     > test_ff12b_a_repack_keeps_valid_options.py` is the second clause this leaves FF12 with: a
@@ -1613,7 +1613,7 @@ All checks run in CI, before tests.
     > silent on the tree today (zero matches across all 130 first-party modules), which is why its own
     > waiver ships pinned empty rather than pre-populated. **A second candidate was built and measured,
     > then rejected**: flagging any raise of a non-family `WeftError` whose message is built from a
-    > `sorted(...)`, a comprehension, or a `.join(...)` call — the shape `weft_cli.permission_policy`'s
+    > `sorted(...)`, a comprehension, or a `.join(...)` call — the shape `weft_engine.permission_policy`'s
     > own pre-repair site had. Run against the real tree, 13 raise sites match that syntactic shape and
     > 11 are not name-resolution failures at all (a closed `StrEnum`'s value check, a contract shape
     > violation, an inert pin, a Pydantic validation report, a type-provision gap, a pipeline cycle, a
@@ -1624,10 +1624,10 @@ All checks run in CI, before tests.
     > re-derive, structurally, the judgement task 2.36's own audit made by reading every site — the
     > same lesson stated above ("doing it by hand at nine sites is why three sites do not"), applied
     > to the checker itself. **The other 2 of the 13 were real, name-resolution refusals with no typed
-    > field, repaired 2026-08-20**: `weft_cli.services.service_selection_from_config`'s unknown-
-    > `[services]`-key refusal now raises `UnknownServiceKeyError`, and `weft_cli.llm_roles.
+    > field, repaired 2026-08-20**: `weft_engine.services.service_selection_from_config`'s unknown-
+    > `[services]`-key refusal now raises `UnknownServiceKeyError`, and `weft_engine.llm_roles.
     > llm_section_from_config`'s unknown-`[llm]`-key refusal now raises `UnknownLLMKeyError`, both
-    > the identical shape `weft_cli.config_surface.UnknownConfigKeyError` already handles correctly
+    > the identical shape `weft_engine.config_surface.UnknownConfigKeyError` already handles correctly
     > for `config get`/`config set`'s own vocabulary. `NAME_RESOLUTION_FAMILY`: 24 -> 26. No kernel
     > line either repair. Reproduced against a real checkout in `manual/troubleshooting.md`'s own
     > entries for both classes.

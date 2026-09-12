@@ -8,7 +8,8 @@ whatever store reads a node back, or `weft_store.rehydrate.rehydrate_ext` raises
 own start: eleven `ExtModel`s existed in the tree and `weft_store.rehydrate.ext_models` held
 exactly one registered namespace, `weft-kernel` — `weft_chunk.payload.ChunkOffset` alone
 survived (that class was itself withdrawn at `R17.1`),
-and only because `weft_cli.registry_bootstrap._ensure_chunk_offset_rehydrates` hand-registered it.
+and only because `weft_engine.registry_bootstrap._ensure_chunk_offset_rehydrates` hand-registered
+it.
 
 **Why a new number rather than a clause of item 5**, whose wording — "every declared capability
 resolves... or the plugin must declare it unavailable and say why" — reads as though it already

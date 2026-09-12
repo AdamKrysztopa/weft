@@ -228,7 +228,7 @@ until something asks it to embed, and then the failure names this exact line.
 chooses the *plugin* and carries no configuration; the model name, the `dimensions` a `-3` model
 will shorten a vector to, and the batch size are the embedder stage's own `with:` configuration,
 and reaching them means naming a document rather than a `[services]` key — ledger task **4.0**
-closed the gap this paragraph used to describe (`weft_cli/services.py`'s own docstring recorded it
+closed the gap this paragraph used to describe (`weft_engine/services.py`'s own docstring recorded it
 as open; `weft_cli.ingest`'s now carries the argument in full). `weft ask --pipeline <name>` has
 resolved a document since ledger tasks 2.4/2.8; `weft index <path> --pipeline <name>` is the
 identical bridge (`weft_cli.compile`), wired into the one command that lacked it:

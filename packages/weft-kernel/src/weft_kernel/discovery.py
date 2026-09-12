@@ -85,7 +85,7 @@ about stores: it is inert data until something that *does* know what a store
 is reads `PackReport.ext_models` back off every report and registers each
 class with the namespace-to-class registry that actually rehydrates one —
 `weft_store.rehydrate.register_from_reports`, called once, generically, by
-whatever already calls `discover()` (`weft_cli.registry_bootstrap.
+whatever already calls `discover()` (`weft_engine.registry_bootstrap.
 build_dependencies`). No pack-specific knowledge sits in that call site: it
 walks whatever `PackReport.ext_models` any report carries, so a future pack
 shipping a new `ExtModel` needs no edit here and no edit in `weft-cli` at all.
@@ -100,7 +100,7 @@ value the kernel already owns (`weft_kernel.resolution` is this same distributio
 not a capability, so this teaches the kernel nothing new either: it stops at "this
 pack offered this contribution," and `PackReport.contributions` is read back off
 every report by whatever assembles a `resolve()` call's own `contributions=` tuple —
-`weft_cli.registry_bootstrap.build_dependencies`, the same caller `Contribution`'s
+`weft_engine.registry_bootstrap.build_dependencies`, the same caller `Contribution`'s
 own docstring names, now real. No pack-specific knowledge sits there either: it
 concatenates whatever `PackReport.contributions` every report carries, so a future
 pack contributing into a slot needs no edit here and no edit in `weft-cli` at all.
@@ -288,7 +288,7 @@ class PackReport(BaseModel):
 
     `contributions` — task 5.3a — is every `weft_kernel.resolution.Contribution` the pack
     buffered through `PackRegistrar.add_contribution`, empty for any pack that offers no
-    slot contribution (most packs). `weft_cli.registry_bootstrap.build_dependencies` is the
+    slot contribution (most packs). `weft_engine.registry_bootstrap.build_dependencies` is the
     one place every report's own tuple is concatenated into the `contributions=` argument
     every `weft_kernel.resolution.resolve` call site now passes — `02` §3 → *Slots*: "a pack
     may... contribute into a slot a pipeline opted into."
@@ -371,7 +371,7 @@ class InertPluginPinError(WeftError):
     parameter is what a diagnostic caller sets `False` to see every
     `PackReport` anyway; `weft_cli.cli.dispatch` does this for `plugins
     list`/`plugins doctor` and no other command, on the same reasoning
-    `weft_cli.registry_bootstrap`'s own module docstring already gives for
+    `weft_engine.registry_bootstrap`'s own module docstring already gives for
     `WEFT_DATABASE_URL`: "a bare crash on every registry-needing command —
     including `plugins doctor`, the one command meant to diagnose exactly
     this — would be worse than" a report.
@@ -969,7 +969,7 @@ def _activate(
     identical terms, for the identical reason: a pack that raises must never look like it
     offered a slot contribution it never actually committed. This function does nothing else
     with it either — assembling every report's own tuple into one `contributions=` argument
-    for `weft_kernel.resolution.resolve` is `weft_cli.registry_bootstrap.build_dependencies`'s
+    for `weft_kernel.resolution.resolve` is `weft_engine.registry_bootstrap.build_dependencies`'s
     job, the one caller `weft_kernel.resolution.Contribution`'s own docstring names.
 
     **Task 6.20** — `registrar.renderers` reaches `PackReport.renderers` on the identical
@@ -1089,7 +1089,7 @@ def _read_service_roles(
     declaration been buffered through `register()`, `[services] store = "qdrant"` would then be
     refused as an *unknown key*, naming the wrong problem entirely, on exactly the machine where
     an operator is trying to configure their way out of it. The pre-9.0 behaviour — the key
-    parses, and the plugin name fails later through `weft_cli.registry_bootstrap.require_plugin`,
+    parses, and the plugin name fails later through `weft_engine.registry_bootstrap.require_plugin`,
     which names the pack and its reason — is the better error, and reading the declaration here
     is what preserves it.
 

@@ -10,7 +10,7 @@ a constant this module states, not configuration a caller supplies.
 
 **Task 4.0 — `--pipeline` closes the gap ledger task 2.29 recorded and no task
 owned.** `[services] embed`/`[services] store` name a *plugin*, never a
-configuration — `weft_cli.services`'s own docstring — so `OpenAIEmbedderConfig
+configuration — `weft_engine.services`'s own docstring — so `OpenAIEmbedderConfig
 .model`/`dimensions`/`batch_size` and every other plugin's own `with:` block
 stayed unreachable from a file for this command, the one gap 2.8 left open
 when it wired `weft_cli.compile` into `weft ask` and not here. `run_index`'s
@@ -43,7 +43,7 @@ embedder ran decides what a stored vector *means*. Storage, from
 `[services] store`, because which store a run uses decides *where the corpus
 is* — and because task 2.6 shipped a second registered `NodeStore` that a
 constant here made unreachable, which is `.phase2-findings.md` finding 9's
-test failed at the last inch. See `weft_cli.services`, which holds both
+test failed at the last inch. See `weft_engine.services`, which holds both
 arguments in full rather than repeating them here.
 
 **The extract stage was the first exception, and it is a repair.** It used to be
@@ -115,12 +115,12 @@ from pydantic import BaseModel
 
 from weft_chunk import Chunker
 from weft_cli.compile import contracts_for, to_specs
-from weft_cli.llm_roles import LLMSection
 from weft_cli.pipeline_catalogue import UnknownPipelineNameError, full_catalogue
 from weft_cli.run_services import build_index_services
-from weft_cli.service_roles import RoleTable
-from weft_cli.services import DEFAULT_EMBEDDER, DEFAULT_STORE, ServiceSelection
 from weft_embed import Embedder
+from weft_engine.llm_roles import LLMSection
+from weft_engine.service_roles import RoleTable
+from weft_engine.services import DEFAULT_EMBEDDER, DEFAULT_STORE, ServiceSelection
 from weft_extract import (
     Extractor,
     SourceDoc,
@@ -162,7 +162,7 @@ from weft_store.contract import SourceRecord
 BUILT_IN_PIPELINE_NAME: Final[str] = "built-in"
 
 #: Chunking: fixed, explicit, and stated once. See the module docstring for why extraction
-#: is chosen at run time, and `weft_cli.services` for why embedding and storage are.
+#: is chosen at run time, and `weft_engine.services` for why embedding and storage are.
 _CHUNK_SPEC = StageSpec(id="chunk", contract=Chunker, name="fixed-size")
 
 #: `run_index`'s own defaults for its new `services`/`roles` parameters (ledger task **9.0**)
@@ -175,7 +175,7 @@ _NO_SELECTION: Final[ServiceSelection] = ServiceSelection()
 _NO_ROLES: Final[RoleTable] = RoleTable()
 
 #: The packs `index_specs` names *itself*, in the order a caller should check them —
-#: `weft_cli.registry_bootstrap.require_active`'s input, and entry-point names rather than
+#: `weft_engine.registry_bootstrap.require_active`'s input, and entry-point names rather than
 #: distribution names since a distribution may ship several. `store` is deliberately not
 #: among them any more: the store is named by `[services] store`, so the pack that
 #: provides it is whichever one registered that name, and a hard-coded tuple can never
@@ -310,7 +310,7 @@ def index_specs(
     """The four-stage ingest pipeline, with three of the four names given by the caller.
 
     `embedder` comes from `[services] embed` and `store` from `[services] store`
-    — `weft_cli.services`, which holds the whole argument for why those two are
+    — `weft_engine.services`, which holds the whole argument for why those two are
     configuration rather than constants, and why their defaults are the offline
     deterministic embedder and the backend `01` makes the floor.
     """
@@ -477,13 +477,13 @@ async def run_index(
     choose, and opening a database connection to report "nothing to index"
     would be work done to say nothing happened.
 
-    `contributions` — task **5.3a** (`S8`) — is `weft_cli.registry_bootstrap.Dependencies.
+    `contributions` — task **5.3a** (`S8`) — is `weft_engine.registry_bootstrap.Dependencies.
     contributions`, passed straight through to `_specs_from_document`'s own `resolve()` call
     when `pipeline` is given; a pack's own contributed stage runs in a named `--pipeline`
     document exactly as an authored one does. The default-path four stages below are Python
     constants with no slot to fill, so this parameter does nothing when `pipeline` is `None`.
 
-    `services`/`roles` — ledger task **9.0** — are `weft_cli.registry_bootstrap.Dependencies.
+    `services`/`roles` — ledger task **9.0** — are `weft_engine.registry_bootstrap.Dependencies.
     services`/`.roles`, threaded straight through to `weft_cli.run_services.
     build_index_services` alongside `filled_by_stages` (every contract the resolved `specs`
     already fill, computed here since this is the one place both `specs` and the role table
@@ -682,7 +682,7 @@ def _specs_from_document(
 
     `contributions` — task **5.3a** (`S8`) — reaches both `contracts_for` and `resolve()`
     below, exactly as `weft_cli.pipeline_commands._resolved_or_refuse` and `weft_cli.
-    route_ask._run_pipeline` already receive it: one caller (`weft_cli.registry_bootstrap.
+    route_ask._run_pipeline` already receive it: one caller (`weft_engine.registry_bootstrap.
     build_dependencies`) assembles it once, and every `resolve()` call site passes it through
     unchanged rather than re-deriving its own tuple.
 

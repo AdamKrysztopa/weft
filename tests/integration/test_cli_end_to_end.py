@@ -1,7 +1,7 @@
 """The Phase 0 step 9 exit test: `weft index` then `weft ask`, against the real container.
 
 `docs/06-phase-0-build.md` step 9 — "Makes true: the product runs end to
-end." This is that end-to-end: `weft_cli.registry_bootstrap.build_dependencies`
+end." This is that end-to-end: `weft_engine.registry_bootstrap.build_dependencies`
 discovers the real, installed packs; `weft_cli.ingest.run_index` indexes a
 small directory of text files into pgvector; `weft_cli.ask.run_ask` retrieves
 the passage that answers a question about that same content, by hash-vector
@@ -29,7 +29,7 @@ from pydantic import SecretStr
 
 from weft_cli.ask import run_ask
 from weft_cli.ingest import run_index
-from weft_cli.registry_bootstrap import build_dependencies
+from weft_engine.registry_bootstrap import build_dependencies
 from weft_kernel.context import Context
 from weft_store.pgvector_store import PgVectorSettings, PgVectorStore
 
@@ -72,7 +72,7 @@ async def test_index_then_ask_retrieves_the_indexed_passage(
 ) -> None:
     del clean_database
     # Arrange — a small directory of source documents, one of them distinctive. WEFT_DATABASE_URL
-    # is set explicitly rather than relied upon from the shell: weft_cli.registry_bootstrap's
+    # is set explicitly rather than relied upon from the shell: weft_engine.registry_bootstrap's
     # `pack_settings_from_environment` only references it (`${env:WEFT_DATABASE_URL}`) when it
     # is present — so this is what makes 'weft-store' resolve to an ACTIVE pack at all.
     monkeypatch.setenv("WEFT_DATABASE_URL", _DSN)

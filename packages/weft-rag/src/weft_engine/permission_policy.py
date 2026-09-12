@@ -1,15 +1,15 @@
 """`[permissions]` — an operator's override of the two classes `docs/03-cli.md` -> *Permissions*
-defaults to `ask`, read from the same `weft.toml` `weft_cli.registry_bootstrap` already parses.
+defaults to `ask`, read from the same `weft.toml` `weft_engine.registry_bootstrap` already parses.
 
 Task **3.3**, design question 4: "Where per-class defaults in `weft.toml` are read, consistent
-with `weft_cli.services`' existing config handling, and what happens to a key the CLI does not
+with `weft_engine.services`' existing config handling, and what happens to a key the CLI does not
 know — `03` -> *Project context* requires refusal naming the keys it does know, never silent
-acceptance." This module is `weft_cli.services.service_selection_from_config`'s own shape, applied
-to a second block: one function reading one already-parsed `dict`, a frozen Pydantic result with a
-built-in default for every field, an unknown key refused by name, and a malformed table refused
-the identical way `weft_cli.registry_bootstrap.pack_settings_from_config` refuses a `[packs]` that
-is a list instead of a table — two readers of one file must not disagree about what a broken block
-means.
+acceptance." This module is `weft_engine.services.service_selection_from_config`'s own shape,
+applied to a second block: one function reading one already-parsed `dict`, a frozen Pydantic
+result with a built-in default for every field, an unknown key refused by name, and a malformed
+table refused the identical way `weft_engine.registry_bootstrap.pack_settings_from_config`
+refuses a `[packs]` that is a list instead of a table — two readers of one file must not disagree
+about what a broken block means.
 
 **Scope, stated rather than silently narrowed.** `docs/03-cli.md`'s own table names five classes;
 only `overwrite` and `destroy` default to `ask`, so those are the only two keys this block
@@ -40,7 +40,7 @@ so a `weft.toml` naming anything else is refused rather than silently coerced.
 argument in full): the unknown-key refusal below used to be a bare `WeftError` computing the valid
 keys and interpolating them into the message only — invisible to fitness function 12's family walk,
 which looks for a typed `valid_options` field, never message text. `UnknownPermissionKeyError` now
-carries it, the identical shape `weft_cli.config_surface.UnknownConfigKeyError` already gives
+carries it, the identical shape `weft_engine.config_surface.UnknownConfigKeyError` already gives
 `[services]`'s sibling refusal. The malformed-value check just below it (`"ask" or "allow"`) is
 **not** brought into the family — see that raise site's own comment for why a closed two-member
 `StrEnum`'s value validation is a type mismatch, not a name failing to resolve against a set.
@@ -79,7 +79,7 @@ class PermissionPolicy(BaseModel):
 class UnknownPermissionKeyError(WeftError, UnresolvedNameError):
     """`[permissions]` names a key this module does not read.
 
-    Repair, 2026-08-20 (finding 1): the identical rule `weft_cli.config_surface.
+    Repair, 2026-08-20 (finding 1): the identical rule `weft_engine.config_surface.
     UnknownConfigKeyError` already gives `[services]`'s sibling refusal, applied here —
     `docs/03-cli.md` -> *Project context* requires refusal naming the keys the CLI does know,
     never silent acceptance, and fitness function 12 requires that as a typed field a caller
@@ -95,9 +95,9 @@ def permission_policy_from_config(document: dict[str, object] | None) -> Permiss
     """`[permissions]` from a parsed `weft.toml`, or every built-in default if it says nothing.
 
     Refuses an unknown key by naming it and the keys that exist — the identical rule
-    `weft_cli.services.service_selection_from_config` applies to `[services]` — and refuses a
+    `weft_engine.services.service_selection_from_config` applies to `[services]` — and refuses a
     `[permissions]` key that is present but not a table, the same way
-    `weft_cli.registry_bootstrap.pack_settings_from_config` refuses a malformed `[packs]`.
+    `weft_engine.registry_bootstrap.pack_settings_from_config` refuses a malformed `[packs]`.
     """
     if document is None or "permissions" not in document:
         return PermissionPolicy()

@@ -42,7 +42,7 @@ The third check is the one that would otherwise rot silently: a pack importing t
 make the *measurement* part of the engine, so a change to how a baseline is scored would change
 what the engine does. The dependency is one-way by design — `eval/` drives `weft` as a
 subprocess and imports the CLI's own result models (`weft_cli.ask.AskResult`) and, since 4.8,
-`weft_eval.run_record`/`weft_kernel.resolution`/`weft_cli.compile`/`weft_cli.registry_bootstrap`
+`weft_eval.run_record`/`weft_kernel.resolution`/`weft_cli.compile`/`weft_engine.registry_bootstrap`
 to build a real `RunRecord` in-process — reading what those modules publish, never the reverse,
 and this is the direction that must never appear.
 """

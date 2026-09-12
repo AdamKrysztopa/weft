@@ -1,7 +1,7 @@
-"""Unit tests for `weft_cli.permission_policy`.
+"""Unit tests for `weft_engine.permission_policy`.
 
-Mirrors `packages/weft-rag/src/weft_cli/permission_policy.py`. Task **3.3**, design question 4:
-"[permissions]" is read the same one-file-one-parse way `weft_cli.services.
+Mirrors `packages/weft-rag/src/weft_engine/permission_policy.py`. Task **3.3**, design question 4:
+"[permissions]" is read the same one-file-one-parse way `weft_engine.services.
 service_selection_from_config` already reads `[services]`, and this file proves the same three
 shapes that module's own test file proves for it — the happy path, the default with no block at
 all, and the two refusals (an unknown key, a value that is not `"ask"`/`"allow"`).
@@ -11,15 +11,15 @@ argument): `test_an_unknown_permissions_key_carries_the_known_keys_as_a_typed_fi
 failing-first test for finding 1 of that review — `permission_policy_from_config`'s unknown-key
 refusal used to raise a bare `WeftError` with the valid keys interpolated only into the message
 string, invisible to fitness function 12's family walk. `UnknownConfigKeyError`
-(`weft_cli/config_surface.py:105-115 's own openi's own opening rule applied to"`) is the same-phase
-precedent this module now matches.
+(`weft_engine/config_surface.py:105-115 's own openi's own opening rule applied to"`) is the
+same-phase precedent this module now matches.
 """
 
 from __future__ import annotations
 
 import pytest
 
-from weft_cli.permission_policy import (
+from weft_engine.permission_policy import (
     PermissionAction,
     PermissionPolicy,
     UnknownPermissionKeyError,
@@ -98,7 +98,7 @@ def test_a_permissions_value_that_is_not_ask_or_allow_is_refused() -> None:
 
 
 def test_a_permissions_key_that_is_not_a_table_is_refused_the_way_services_is() -> None:
-    # Arrange — the same shape `weft_cli.services.service_selection_from_config` refuses for
+    # Arrange — the same shape `weft_engine.services.service_selection_from_config` refuses for
     # `[services]`: two readers of one file must not disagree about what a malformed block means.
     document: dict[str, object] = {"permissions": ["destroy"]}
 

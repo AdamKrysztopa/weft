@@ -45,11 +45,11 @@ from weft_cli import eval_scoring as eval_scoring_module
 from weft_cli import route_ask as route_ask_module
 from weft_cli.eval_commands import EvalRunArgs
 from weft_cli.eval_scoring import Question, score_pipeline
-from weft_cli.llm_roles import LLMSection
 from weft_cli.route_ask import resolve_named_pipeline, run_named_ask
-from weft_cli.services import ServiceSelection
 from weft_embed import Embedder
 from weft_embed.hash_embedder import HashEmbedder
+from weft_engine.llm_roles import LLMSection
+from weft_engine.services import ServiceSelection
 from weft_eval.harness import SubsetScores
 from weft_eval.run_record import NoQueryRung, QueryRung
 from weft_generate import CitedAnswer, Generator

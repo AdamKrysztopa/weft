@@ -63,7 +63,7 @@ class BlobKeyRefusedError(WeftError):
     """A key or prefix is absolute, or contains a `..` segment — plain `WeftError`, not a member
     of the `UnresolvedNameError` family: nothing here is a name failing to resolve against an
     enumerable set of alternatives, the identical distinction
-    `weft_cli.service_roles.DuplicateServiceRoleError`'s own docstring draws for its case. There
+    `weft_engine.service_roles.DuplicateServiceRoleError`'s own docstring draws for its case. There
     is no `valid_options` to offer; the fix is composing a key that is a plain relative path.
     """
 

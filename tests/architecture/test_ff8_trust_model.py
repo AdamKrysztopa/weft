@@ -210,7 +210,7 @@ def test_version_command_executes_no_pack_code(tmp_path: Path) -> None:
     # (ledger task 6.33).
     _assert_canary_installed()
 
-    # Act — cwd=tmp_path: no weft.toml there for weft_cli.registry_bootstrap to read.
+    # Act — cwd=tmp_path: no weft.toml there for weft_engine.registry_bootstrap to read.
     result = subprocess.run(  # noqa: S603 — sys.executable, fixed script, no shell, no user input
         [sys.executable, "-c", _VERSION_PROBE_SCRIPT.format(pack_modules=_PACK_MODULES)],
         cwd=tmp_path,

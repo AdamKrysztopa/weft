@@ -27,7 +27,7 @@ aliases it.
 
 import pytest
 
-from weft_cli.service_roles import RoleTable
+from weft_engine.service_roles import RoleTable
 from weft_kernel.context import ServiceRegistry, ServiceRole, UnresolvedServiceError
 
 

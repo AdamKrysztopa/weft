@@ -30,13 +30,13 @@ from weft_cli.exit_codes import ExitCode
 from weft_cli.ingest import IndexResult
 from weft_cli.reconcile import participants as reconcile_module_participants
 from weft_cli.reconcile import reconcile_everywhere
-from weft_cli.reconcile_policy import ReconcilePolicy
-from weft_cli.registry_bootstrap import Dependencies
-from weft_cli.services import ServiceSelection
 from weft_cli.skew import SkewReport
 from weft_command.contract import Command
 from weft_command.permission import PermissionClass
 from weft_embed import Embedder
+from weft_engine.reconcile_policy import ReconcilePolicy
+from weft_engine.registry_bootstrap import Dependencies
+from weft_engine.services import ServiceSelection
 from weft_generate.payload import Answer, AnswerStance
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackRegistrar, PackReport, PackStatus
@@ -930,7 +930,7 @@ def _reconcilable_deps(*, reconcile_policy: ReconcilePolicy | None = None) -> De
 
 async def test_reconcile_command_falls_back_to_weft_toml_when_the_flag_is_omitted() -> None:
     # Arrange — task 5.1c: the flag is `None`, so `weft.toml`'s own `[reconcile] mode`
-    # decides, exactly as `weft_cli.reconcile_policy`'s own module docstring promises.
+    # decides, exactly as `weft_engine.reconcile_policy`'s own module docstring promises.
     deps = _reconcilable_deps(reconcile_policy=ReconcilePolicy(mode=ReconcileMode.REPAIR))
     args = commands.ReconcileArgs(mode=None, dry_run=False)
 

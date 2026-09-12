@@ -1,6 +1,6 @@
-"""Unit tests for `weft_cli.registry_bootstrap`.
+"""Unit tests for `weft_engine.registry_bootstrap`.
 
-Mirrors `packages/weft-rag/src/weft_cli/registry_bootstrap.py`. Covers
+Mirrors `packages/weft-rag/src/weft_engine/registry_bootstrap.py`. Covers
 `require_active`'s exit-code split (`docs/02-extension-model.md` → *The trust
 model*: refused is policy, 3; genuinely absent or failed is resolution, 4) and
 `build_dependencies` reading `[packs] allow` from an on-disk `weft.toml`, or
@@ -18,10 +18,10 @@ from pathlib import Path
 
 import pytest
 
-from weft_cli import registry_bootstrap
 from weft_cli.exit_codes import ExitCode
-from weft_cli.permission_policy import PermissionAction
-from weft_cli.registry_bootstrap import (
+from weft_engine import registry_bootstrap
+from weft_engine.permission_policy import PermissionAction
+from weft_engine.registry_bootstrap import (
     ConfigFileError,
     allow_list_from_file,
     pack_settings_from_environment,
@@ -610,7 +610,7 @@ def test_build_dependencies_carries_empty_contributions_when_no_pack_offers_one(
 def test_require_plugin_names_the_extra_that_would_supply_a_failed_pack() -> None:
     # Arrange — carried repair **R11.3**. The reason and the exit-code split were already
     # right on this path; what neither path said was the one thing an operator can act on.
-    # Both paths now compose that sentence in `weft_cli.pack_attribution`, so the
+    # Both paths now compose that sentence in `weft_engine.pack_attribution`, so the
     # `[services]` message and a pipeline document's message cannot drift apart — which is
     # the whole reason the repair threaded `reports` into the document seam rather than
     # writing a second attribution beside this one.
@@ -683,7 +683,7 @@ def test_build_dependencies_records_whether_the_file_named_an_embedder(
     """Carried repair `R17.6`, the fact the warning turns on.
 
     The third case is the whole point and is the one a merged model cannot answer.
-    `weft_cli.config_surface`'s own module docstring states it for `--origin`: comparing a built
+    `weft_engine.config_surface`'s own module docstring states it for `--origin`: comparing a built
     `ServiceSelection` against `ServiceSelection()`'s defaults "would reproduce the identical
     defect one field at a time, unable to tell `weft.toml` explicitly names `embed = "hash"`,
     which happens to equal the default, from `weft.toml` says nothing about `embed` at all."

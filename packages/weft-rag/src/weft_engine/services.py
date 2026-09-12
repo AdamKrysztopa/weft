@@ -52,7 +52,7 @@ assembled from something other than what they named.
 argument in full): the unknown-key refusal below used to be a bare `WeftError` computing the
 valid keys and interpolating them into the message only — invisible to fitness function 12's
 family walk, which looks for a typed `valid_options` field, never message text.
-`UnknownServiceKeyError` now carries it, the identical shape `weft_cli.config_surface.
+`UnknownServiceKeyError` now carries it, the identical shape `weft_engine.config_surface.
 UnknownConfigKeyError` already gives `config get`/`config set`'s own vocabulary. The malformed-
 value check just below it (a value that is not the name of a registered plugin at all, checked
 here only for shape) is **not** brought into the family — it reports a type mismatch, not a
@@ -68,7 +68,7 @@ from typing import Final, cast
 
 from pydantic import BaseModel, ConfigDict
 
-from weft_cli.service_roles import RoleTable
+from weft_engine.service_roles import RoleTable
 from weft_kernel.errors import UnresolvedNameError, WeftError
 
 #: `weft-embed`'s deterministic embedder — see the module docstring on why the offline
@@ -101,7 +101,7 @@ DEFAULT_ROUTER_KEY: Final[str] = "route"
 class UnknownServiceKeyError(WeftError, UnresolvedNameError):
     """`[services]` names a key this module does not read.
 
-    Repair, 2026-08-20: the identical rule `weft_cli.config_surface.UnknownConfigKeyError`
+    Repair, 2026-08-20: the identical rule `weft_engine.config_surface.UnknownConfigKeyError`
     already gives `config get`/`config set`'s own sibling refusal, applied here — `01`
     requirement 5 and fitness function 12 require the valid keys as a typed field a caller can
     read, not only text inside the message a reviewer has to notice.
@@ -118,7 +118,7 @@ def accepted_service_keys(table: RoleTable) -> frozenset[str]:
     Carried repair **R9.4**, whose four lessons (`L9.27`, `L9.28`, `L9.52`, `L9.35`) share one
     cause: this vocabulary had three expressions of itself and no reason for them to stay in
     step. `service_selection_from_config` below validated against `set(table.declared) |
-    {"route"}`; `weft_cli.config_surface.config_keys_for` derived `services.<role>` and then
+    {"route"}`; `weft_engine.config_surface.config_keys_for` derived `services.<role>` and then
     hand-added `"services.route"` a second time; and `tests/docs/test_manual_config_keys.py`
     combined `ServiceSelection.model_fields` with a discovered role set. They agreed on the day
     each was written, which is exactly the state in which drift is invisible — and
@@ -178,7 +178,7 @@ class ServiceSelection(BaseModel):
     #: The plugin name selected for every declared role other than `embed`/`store` —
     #: ledger task **9.0**. Keyed by the same `key` a `weft_kernel.context.ServiceRole`
     #: declared; a key with nothing selected for it is simply absent, never guessed
-    #: (`weft_cli.service_roles.RoleTable`'s own module docstring).
+    #: (`weft_engine.service_roles.RoleTable`'s own module docstring).
     roles: Mapping[str, str] = {}
 
     def selection_for(self, key: str) -> str | None:
@@ -186,7 +186,7 @@ class ServiceSelection(BaseModel):
 
         `plugin_for` below is the *resolving* reader — it refuses, because a run that needs a
         role and has none must stop. This one is the *reporting* reader, added by carried repair
-        **R9.4** for `weft_cli.config_surface.effective_config`, which lists every key a run
+        **R9.4** for `weft_engine.config_surface.effective_config`, which lists every key a run
         reads and must be able to say "nothing here" about a role an operator has not selected.
         Two readers, one lookup: the alternative was `effective_config` catching
         `UnknownServiceKeyError` for control flow, which turns a refusal into a branch and makes
@@ -229,19 +229,19 @@ def service_selection_from_config(
     plugin and so is never a role (`docs/03-cli.md:945-950 'is what a built-in'`). Never
     `ServiceSelection.
     model_fields`: that set is closed to `embed`, `store` and `route`, which is exactly the
-    hole ledger task 9.0 closes — `weft_cli.service_roles`'s own module docstring.
+    hole ledger task 9.0 closes — `weft_engine.service_roles`'s own module docstring.
 
     `table` is **required and has no default**, deliberately. A default naming `embed` and
     `store` would put back, one layer down, the closed key space this task exists to delete —
     and it would fail *silently*: a caller that forgot the table would get a plausible key set
     rather than a refusal, which `CLAUDE.md` names as strictly worse than a crash.
-    `weft_cli.registry_bootstrap.build_dependencies` builds the real one from what discovery
+    `weft_engine.registry_bootstrap.build_dependencies` builds the real one from what discovery
     actually found, and every other caller says which set it means.
 
     Refuses an unknown key by naming it *and* the keys that exist, the same
     rule `weft_kernel.pipeline` applies to a pipeline document — `01`
     requirement 5. A `services` key that is present but is not a table is
-    refused exactly as `weft_cli.registry_bootstrap.pack_settings_from_config`
+    refused exactly as `weft_engine.registry_bootstrap.pack_settings_from_config`
     refuses a malformed `[packs]`: two readers of one file must not disagree
     about what a broken block means.
     """
