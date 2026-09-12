@@ -209,6 +209,15 @@ vision = "weft_vision:register"
 agent = "weft_agent:register"
 docling = "weft_docling:register"
 openai = "weft_openai:register"
+
+# **Phase 20a task `20.1`.** A second account for the protocol `weft_openai` already speaks, and
+# the reason it is an entry point rather than a field: a pack receives exactly one `[packs.*]`
+# block, so two accounts is two packs. It ships no implementation — `weft_openai_compatible`
+# re-exports that pack's three adapters and binds its own settings instance — and it needs no
+# extra of its own, because it imports `weft_openai`, whose `openai` extra already governs the
+# library. A pack whose extra is absent reports `failed` at discovery and names what is missing,
+# which is the degradation property G19 accepted; this pack inherits it by construction.
+openai-compatible = "weft_openai_compatible:register"
 otel = "weft_otel:register"
 pdf = "weft_pdf:register"
 qdrant = "weft_qdrant:register"
@@ -249,6 +258,7 @@ packages = [
     "src/weft_kg",
     "src/weft_llm",
     "src/weft_openai",
+    "src/weft_openai_compatible",
     "src/weft_otel",
     "src/weft_pdf",
     "src/weft_prompts",

@@ -1,0 +1,36 @@
+name: index-openai-compatible
+extends: index-text
+
+# **The same swap as `index-openai`, against the second account** — Phase 20a task `20.1`. One
+# `replace:` block, exactly as its sibling, and the only difference is which `[packs.*]` block
+# decides where the embedding request goes.
+#
+# **Why a second rung rather than a note on the first.** A plugin nobody can reach from a shipped
+# document is a plugin an operator discovers by reading source, which fitness function 16 refuses:
+# `openai-compatible-embeddings` exists so embeddings can go somewhere other than the vendor, and
+# a capability whose only route is *write YAML* is the exact distance the ladder exists to close.
+# `index-openai`'s own comment records this happening once already, at ledger task 8.15, where a
+# rename landed and no rung took the new name.
+#
+# **It needs an endpoint as well as a credential, and that is the whole point:**
+#
+#     [packs.openai-compatible]
+#     api_key = "${env:LOCAL_API_KEY}"
+#     base_url = "http://localhost:11434/v1"
+#
+# With `base_url` unset this account points where `index-openai` already points, which is a second
+# account at the vendor — legitimate (two keys, two organisations) and not what the rung is for.
+#
+# **What it buys that `index-openai` cannot: the query side stays where it was.** `[llm.roles]`
+# selects a provider independently of `[services] embed`, so this rung with
+# `generate = { provider = "openai", ... }` is embeddings from a server you run and answers from
+# the vendor — the configuration that was unwritable before this account existed. See
+# `manual/operations-guide.md` → *Pointing a pack at a different endpoint*.
+#
+# **Changing the embedder means reindexing into a fresh collection**, for the reason
+# `index-openai` states: a stored vector is only comparable to a question embedded by the same
+# model, and where the widths differ the store refuses rather than comparing two unrelated spaces.
+
+replace:
+  - id: embed
+    use: openai-compatible-embeddings

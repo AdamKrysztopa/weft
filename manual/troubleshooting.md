@@ -2963,7 +2963,7 @@ before `IndexCommand`/`AskCommand` ever raised anything: both always raised the 
 `CommandRefusalError` above, message-only, whatever the underlying cause. Confirmed
 programmatically, not only by the message text already naming the names: catching this
 exception directly off a real `AskCommand.run()` call with the `weft.toml` above gives
-`exc.valid_options == ("hash", "openai-embeddings")`, a typed field a caller can read, never
+`exc.valid_options == ("hash", "openai-compatible-embeddings", "openai-embeddings")`, a typed field a caller can read, never
 only text inside the message. History: before Phase 3 this path was a plain return value with no
 typed field to lose at all — task 3.2's own `Command`/`Outcome` unification is what turned it into an
 exception and dropped the guarantee in the same motion.
@@ -2971,7 +2971,7 @@ exception and dropped the guarantee in the same motion.
 **A second repair, 2026-08-20 (open item O4, `.phase3-design.md` §4).** The message itself used
 to end `. no 'no-such-embedder' is registered for Embedder. It is unavailable because no
 distribution has registered that name for this contract. Names registered for Embedder:
-'hash', 'openai-embeddings'.` — `weft_kernel.registry.UnknownPluginError`'s own text, spliced onto
+'hash', 'openai-compatible-embeddings', 'openai-embeddings'.` — `weft_kernel.registry.UnknownPluginError`'s own text, spliced onto
 this module's
 sentence with a bare space: a sentence beginning lowercase right after a full stop, and "nothing
 is registered under that name" stated twice in different words. `require_plugin`'s `_unresolved`

@@ -511,6 +511,31 @@ provider that answers a role, and the vision describer all share one account, so
 together — there is no way, with this pack alone, to point the embedder at one server and leave
 the provider on another.
 
+**Which is what the second account is for.** `[packs.openai-compatible]` is a second block holding
+the same fields, configured independently, registering the same three capabilities under their own
+names — `openai-compatible-embeddings`, `openai-compatible` and `openai-compatible-vision`. It is
+named for the protocol rather than for where the server is, because it is true either way:
+
+```toml
+[packs.openai]
+api_key = "${env:OPENAI_API_KEY}"
+
+[packs.openai-compatible]
+api_key = "${env:LOCAL_API_KEY}"
+base_url = "http://localhost:11434/v1"
+
+[services]
+embed = "openai-compatible-embeddings"
+
+[llm.roles]
+generate = { provider = "openai", model = "gpt-5.6-luna" }
+```
+
+Embeddings go to the local server, answers go to the vendor, and neither borrows the other's
+credential. Each block is disclosed separately in `weft plugins doctor` for the same reason: what
+leaves through one account and what leaves through the other may go to different places under
+different agreements, so they are two disclosures rather than one.
+
 **What this does not do: it does not read `OPENAI_BASE_URL`.** Weft passes `base_url=` explicitly
 on every client it builds — the vendor's own URL when you have set nothing — so the SDK never
 reaches for that variable, and exporting it has no effect and produces no error. The reasoning is

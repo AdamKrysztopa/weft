@@ -89,6 +89,24 @@ dsn = "${env:WEFT_DATABASE_URL}"
 #
 # max_retries = 2
 
+# [packs.openai-compatible]
+# A *second* account for the same protocol — Phase 20a task `20.1`. A pack receives exactly
+# one settings block, so `[packs.openai]` configures its embedder, its provider and its
+# describer together and they cannot be pointed at different servers. This block is the
+# second account: same fields, same meanings, independently set. Its plugins are
+# `openai-compatible-embeddings`, `openai-compatible` and `openai-compatible-vision`.
+#
+# The use it exists for — embeddings from a server you run, answers from the vendor. Set
+# `[services] embed` to "openai-compatible-embeddings" and leave `[llm.roles] generate`
+# on `provider = "openai"`; `manual/operations-guide.md` shows the whole file.
+#
+# api_key = "${env:LOCAL_API_KEY}"
+# base_url = "http://localhost:11434/v1"
+# organization = "org-..."
+# project = "proj_..."
+# timeout_seconds = 30.0
+# max_retries = 2
+
 # [packs.qdrant]
 # Optional in the same way and for the same reason — every field has a default, so
 # the pack registers whether or not a Qdrant is running and refuses at first use,

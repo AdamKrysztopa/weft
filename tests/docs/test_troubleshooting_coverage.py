@@ -216,8 +216,8 @@ def test_the_derived_package_list_names_every_distribution_including_the_two_tha
     # 2026-09-09; the count moved because a pack arrived, not because the walk changed, and it
     # is pinned so that a pack arriving is a line in a diff.
     assert "weft_kg" in packages
-    assert len(packages) == 24, (
-        f"expected 24 first-party distributions under packages/, found {sorted(packages)} — "
+    assert len(packages) == 25, (
+        f"expected 25 first-party distributions under packages/, found {sorted(packages)} — "
         f"either a new one shipped (nothing to do here, this walk found it automatically) "
         f"or the walk itself broke."
     )
