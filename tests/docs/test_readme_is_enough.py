@@ -52,9 +52,12 @@ README: Final[Path] = REPO_ROOT / "README.md"
 
 _DSN = os.environ.get("WEFT_DATABASE_URL", "postgresql://weft:weft@localhost:5433/weft")
 
-#: `08` §3's ratchet, one entry, for the reason `test_quickstart.py`'s own carries one: nothing is
-#: on an index until ledger task 6.13, so the install line demonstrates a state that does not
-#: exist yet and cannot be executed without a network call this gate refuses.
+#: `08` §3's ratchet, one entry, for the reason `test_quickstart.py`'s own carries one:
+#: installing resolves against a package index and this gate makes no network call.
+#:
+#: *(Corrected 2026-09-12 with its sibling. Both comments justified the waiver on nothing being
+#: published, which stopped being true at `26.2`; the waiver is still right and its stated
+#: reason was not. `R17.14`, `L17.10`.)*
 BLOCKS_WAIVED_FROM_EXECUTION: Final[frozenset[str]] = frozenset({"install"})
 
 #: The newcomer path's blocks, in the order a reader meets them. Named rather than discovered:

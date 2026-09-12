@@ -1796,7 +1796,7 @@ it lists every contract your installed packs publish, which is the thing worth r
 you have third-party packs installed — and it is piped through the same `ruff format` the gate
 runs so the generated file is byte-identical to a checked-in one.
 
-**What to do:** `uv add 'weft-cli[reference]'`, or `pip install 'weft-cli[reference]'`. It is a
+**What to do:** `uv add 'weft-rag[reference]'`, or `pip install 'weft-rag[reference]'`. It is a
 refusal rather than a fallback on purpose: a hand-rolled line-wrapper would produce a file that
 differs from what `ruff` produces, and the whole value of generating the reference is that there is
 exactly one formatter deciding what it looks like.

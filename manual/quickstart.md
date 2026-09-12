@@ -1,8 +1,15 @@
 # Weft in five minutes
 
 You have a directory of your own text files and five minutes. This is the one path from nothing
-to a real, retrieved answer against them — no concepts, no options, nothing to configure beyond
-where your database is.
+to a working pipeline over them — no concepts, no options, nothing to configure beyond where
+your database is.
+
+**It is a smoke test of the pipeline, not a demonstration of search.** The default embedder,
+`hash`, builds each vector from a SHA-256 digest of the chunk's text: deterministic, free, no
+account, and carrying no meaning, so the order it ranks passages in is arbitrary. That is the
+trade this page makes to run offline in five minutes. `manual/operations-guide.md` →
+*Choosing an embedder* switches it for a real one in a single `weft.toml` line, and that is when
+the results start meaning something.
 
 **What you need:** Python 3.12+, [`uv`](https://docs.astral.sh/uv/), and Docker (for the one
 container Weft's store needs — Postgres with the `pgvector` extension).
@@ -13,21 +20,23 @@ container Weft's store needs — Postgres with the `pgvector` extension).
 uv add weft-rag
 ```
 
-`weft-rag` is the default install: the kernel's twelve packs and the CLI in one wheel — the
-extractor, the chunker, the embedder and the pgvector store among them — so this is the only
-install command; nothing else to add. **The distribution is `weft-rag` and the command is
-`weft`**: `weft` on PyPI is an unrelated project, so what you install and what you run are spelled
-differently.
+`weft-rag` is the default install: twenty-one packs and the CLI in one wheel — the extractor, the
+chunker, the embedder and the pgvector store among them — so this is the only install command;
+nothing else to add. **The distribution is `weft-rag` and the command is `weft`**: `weft` on PyPI
+is an unrelated project, so what you install and what you run are spelled differently.
 
-Four add-ons publish beside it and each is a separate `uv add` because each brings a dependency you
-may not want: `weft-openai` (a credential and the OpenAI SDK), `weft-pdf` (two PDF libraries),
-`weft-qdrant` (a second store backend), `weft-otel` (the OpenTelemetry SDK). None is needed to
-index a directory and ask a question about it.
+Anything needing a library you may not want is an **extra** of that same wheel, never a separate
+install: `weft-rag[openai]` (a credential and the OpenAI SDK), `[pdf]` (two PDF libraries),
+`[qdrant]` (a second store backend), `[otel]` (the OpenTelemetry SDK), `[docling]`, or `[all]`.
+None is needed to index a directory and ask a question about it. There are exactly two things this
+project publishes — `weft-kernel` and `weft-rag` — and a new capability never adds a third.
 
-> `weft-rag` is not on an index yet — Phase 0 has not published a release. Everything after this
-> line runs today against a checkout with `uv pip install -e packages/weft-rag`; once
-> `09-release.md`'s policy ships a version, this line starts working exactly as written and nothing
-> else in this page changes.
+*(This section described four separately published add-on distributions until 2026-09-12, and
+carried a note saying nothing was on an index yet. **G19** folded the add-ons into extras on
+2026-09-09 and the first release went to PyPI on 2026-09-11; this page was not edited with either.
+Neither could have been caught by the check that executes this page, because the install block is
+the one block it does not run and nothing read the prose beside it — `R17.15`,
+`docs/internal/lessons.md` `L17.4`.)*
 
 ## 2. Point it at a database
 
@@ -109,8 +118,11 @@ That needs a real model, named in `weft.toml`'s `[llm.roles]` table (`manual/ope
 covers wiring one), which this five-minute walkthrough deliberately has not asked you to set up
 yet — with nothing configured, routing refuses loudly rather than guessing at a provider.
 `--retrieve-only` is what you see above instead: Phase 0's own contract, still exactly this —
-closest passage first, by vector distance against your indexed content, no LLM call and no
-citation to compose because there is no generated sentence to attach one to. Configure `[llm.roles]`
+nearest passage first by vector distance against your indexed content, no LLM call, and no
+citation to compose because there is no generated sentence to attach one to. **Under the default
+`hash` embedder that distance is over digests, so the two results above are in the order a hash
+happened to produce** — the loom passage is not first because it is a better match, and running
+this against your own files will look equally plausible and mean equally little. Configure `[llm.roles]`
 and drop `--retrieve-only` to get the routed, cited answer this same command produces by default.
 
 ## Something not working?

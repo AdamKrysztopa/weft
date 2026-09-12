@@ -460,7 +460,7 @@ whether or not the producing stage ever ran.
 > describer, the embedder and a vision-capable generator each open the same bytes and none of them
 > receives a copy. **`__transient__` is a guard, never a transport** — it exists so that bytes cannot
 > reach a JSONB column, and under this design that guard is never exercised by a figure, which is the
-> point. G5's row (`README.md:150 "python3 "`) states what transience *is* and never where it is applied, which is
+> point. G5's row (`README.md:163 "python3 "`) states what transience *is* and never where it is applied, which is
 > why this is a narrowing under `09` §6.2 and not a Reopened row; the alternative — moving the strip
 > to the store boundary so a namespace could carry bytes between stages — would have been a kernel
 > change at `seam.py:466 "stage=stage_label,"`, would reinstate the N-strategies-N-copies cost `11` §1.4 measures, and would
@@ -1181,8 +1181,12 @@ Eager discovery is paid for at the registration seam rather than by asking autho
 
 Two things this buys immediately that a hand-wired bootstrap could not do at all:
 
-- `uv add weft-kg` adds a capability. `uv remove weft-kg` removes it. Core is untouched both
-  times.
+- `uv add weft-example-ingest` adds a capability. `uv remove weft-example-ingest` removes it.
+  Core is untouched both times. *(This said `weft-kg` until 2026-09-12. `weft-kg` is a **pack**
+  and ships inside the `weft-rag` wheel — **G19** — so it is not a thing anyone can `uv add`,
+  and an illustration of installability had picked an example that is not installable. The
+  point is unchanged and now has a referent: `examples/weft-example-ingest` is a real
+  distribution outside this tree, which is what makes it the honest example.)*
 - A private, unpublishable, customer-specific pack works exactly like a public one.
 
 **Settled in G3** — entry points execute third-party code at discovery. The posture, the allow-list

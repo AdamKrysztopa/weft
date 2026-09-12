@@ -75,7 +75,8 @@ These came out of grilling sessions G1 and G3–G6. They are not preferences; ea
   the owner as **G19** on 2026-09-09, after `weft-graph` was found to be another project's on PyPI
   (**G18**) and the whole nine-distribution split was re-examined. Every first-party pack's code
   ships inside the `weft-rag` wheel; anything needing an outside library is an **extra** —
-  `pip install weft-rag[pdf]`, `[graph]`, `[docling]`, `[all]` — so the dependency is declinable
+  `pip install weft-rag[pdf]`, `[openai]`, `[qdrant]`, `[otel]`, `[docling]`, `[all]` — so the
+  dependency is declinable
   while the code costs kilobytes. `weft-kernel` stays separate for one reason only: fitness
   function 1 installs it alone and imports it, which is what proves the kernel names no capability.
   **A new capability never adds a third name** — it is a module, an entry point, and an extra if it

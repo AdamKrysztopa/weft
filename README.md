@@ -11,8 +11,10 @@ The warp is the fixed frame on a loom; the weft is every thread through it.
 > Phases 1 through 11, retrieval, generation, the CLI, evaluation, release, the agent pack, the
 > product ladder, multimodal nodes, RAPTOR and the graph pack — are all closed. Indexing, retrieval,
 > generation, evaluation and a graph pack all run end to end, proven from outside this repository.
-> Of the decision log's thirty-three rows, thirty-one are settled; two gates are still open
-> (`G14`, `G17`) and neither blocks anything that ships today. **The one debt every closed phase
+> Every architectural decision this project has taken was argued at a recorded gate, and no gate
+> open today blocks anything that ships. (The log itself is developer-local, so this page states
+> the property and not a count of it — a number here could only ever be right on the day it was
+> written.) **The one debt every closed phase
 > shared — a stranger installing the release from a real package index rather than a checkout — is
 > what today's release discharges:** `weft-kernel` and `weft-rag` are published for the first time
 > today, 2026-09-11. The four names published 2026-09-05 (`weft-generate`, `weft-embed`,
@@ -22,7 +24,16 @@ The warp is the fixed frame on a loom; the weft is every thread through it.
 ## Try it
 
 Weft indexes a directory of documents and answers questions about them. Four commands, and the
-whole thing runs offline — the default embedder is deterministic and needs no account.
+whole thing runs offline, because the default embedder needs no account.
+
+**Read that last clause carefully: the default is a smoke test, not a search engine.** `hash`
+derives each vector from a SHA-256 digest of the chunk's text, so it is deterministic and free
+and carries *no meaning at all* — two passages about the same subject are no closer together
+than two about different ones. What the four commands below prove is that the pipeline runs end
+to end on your machine: extract, chunk, embed, store, retrieve. They prove nothing whatever
+about retrieval quality, and the ranking you get is arbitrary. One line in `weft.toml` —
+`[services] embed = "openai-embeddings"`, or `"openai-compatible-embeddings"` pointed at a
+server you run — switches it for a real one, and then the results mean something.
 
 ```bash id=install
 uv add weft-rag
@@ -46,8 +57,9 @@ export WEFT_DATABASE_URL="postgresql://weft:weft@localhost:5433/weft"
 ```
 
 That variable is the whole configuration. No `weft.toml` is needed for this, and leaving it unset
-does not crash — `weft plugins doctor` reports `weft-store` as `failed` and names the missing
-field.
+does not crash — `weft plugins doctor` reports the `store` pack as `failed` and names the
+missing field. (`store` is the pack; `weft-rag` is the distribution it ships in. The doctor lists
+packs, because a pack is what you configure.)
 
 Give it something to read:
 
@@ -75,8 +87,9 @@ weft ask "what does the weft do" --retrieve-only
 ```
 
 `index` reports what it stored — `produced 1, nothing to produce 0, failed 0. nodes now stored: 2.`
-— and `ask --retrieve-only` returns the passages it matched, ranked, each cited to the file it came
-from. That flag is what keeps this offline: it stops at retrieval. Drop it and Weft asks a language
+— and `ask --retrieve-only` returns the passages it matched, each cited to the file it came from,
+in whatever order the hash distances happened to fall. With a real embedder that order is the
+answer; with `hash` it is only proof that the ranking machinery ran. That flag is what keeps this offline: it stops at retrieval. Drop it and Weft asks a language
 model to write an answer over those passages, which needs a provider mapped to a role in
 `weft.toml` — `weft ask` refuses by name until one is, rather than quietly answering from nothing.
 `manual/user-manual.md` has the two lines that map one.
@@ -97,7 +110,7 @@ decisions, what to do next, and which document owns what. Everything else is rea
 | [`docs/01-high-level-plan.md`](docs/01-high-level-plan.md) | The kernel boundary, async colour, the phase script, the fitness functions |
 | [`docs/02-extension-model.md`](docs/02-extension-model.md) | Contracts, the payload model, the store family, discovery and the trust model |
 | [`docs/03-cli.md`](docs/03-cli.md) | The command line as the single driving adapter |
-| [`docs/internal/05-grilling-sessions.md`](docs/internal/05-grilling-sessions.md) | Nineteen decision gates, seventeen settled, two open (`G14`, `G17`) |
+| [`docs/internal/05-grilling-sessions.md`](docs/internal/05-grilling-sessions.md) | Every gate this project has argued, with the question, the positions attacked, and the outcome |
 
 ## Layout
 

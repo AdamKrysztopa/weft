@@ -44,10 +44,13 @@ _DSN = os.environ.get("WEFT_DATABASE_URL", "postgresql://weft:weft@localhost:543
 
 #: `08` §3's ratchet for clause (a): "a fenced block skipped from the CI run... must be named
 #: here explicitly." One entry, and it is a documented, visible choice rather than a silent
-#: omission: `weft-cli` is not published to any index yet — Phase 0 predates the release Phase 6
-#: ships — so the one line demonstrating that future state cannot run against a real package
-#: index without a network call this gate refuses to make. Every other block in the page is real
-#: and executed below.
+#: omission: **installing resolves against a package index, and this gate makes no network
+#: call.** Every other block in the page is real and executed below.
+#:
+#: *(Until 2026-09-12 this comment gave a different reason — that nothing was published yet.
+#: That stopped being true at ledger task `26.2` on 2026-09-11, when `weft-kernel 0.1.0` and
+#: `weft-rag 2.4.0` went to PyPI, and no test went red, because a ratchet counts a waiver's
+#: entries and nothing reads its reason. `R17.14`, `docs/internal/lessons.md` `L17.10`.)*
 BLOCKS_WAIVED_FROM_EXECUTION: Final[frozenset[str]] = frozenset({"install"})
 
 _FENCE = re.compile(

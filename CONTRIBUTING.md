@@ -1,8 +1,10 @@
 # Contributing to Weft
 
-Weft is pre-alpha: the architecture is settled, the code is not yet written. That makes this a good
-moment to contribute and an unusually opinionated one to contribute to, because most of the design
-questions you might want to open have already been argued out and recorded.
+Weft is published and running: `weft-kernel` and `weft-rag` are on PyPI, and indexing, retrieval,
+generation, evaluation and a graph pack all work end to end. It is an unusually opinionated project
+to contribute to, because most of the design questions you might want to open have already been
+argued out at a recorded gate — which also makes it a cheap one to contribute to, since the
+reasoning behind a shape you disagree with is written down rather than remembered.
 
 **Start with [`docs/internal/README.md`](docs/internal/README.md).** It holds the current phase, the decision log, and
 which document owns what. Nothing here repeats it.
@@ -11,9 +13,11 @@ which document owns what. Nothing here repeats it.
 
 ## Before you write code
 
-**Check whether your change touches an open decision.** There are ten architecture gates in
-[`docs/internal/05-grilling-sessions.md`](docs/internal/05-grilling-sessions.md); six are closed and four are not. Each
-records its question, the positions to attack, what evidence to bring, and what "done" looks like.
+**Check whether your change touches an open decision.** Every architectural decision here was taken
+at a gate, and each gate records its question, the positions to attack, what evidence to bring, and
+what "done" looks like. Most are settled; a few are open, and an open one is where a contribution
+has the most leverage. Ask in an issue which gate your change touches — the log is developer-local,
+so this page cannot carry its state without going stale the next time one closes.
 
 - **Touches a closed gate?** The decision stands. If you think it's wrong, say so in an issue with
   the argument and the evidence — a settled decision found wrong is reopened with a date and a
