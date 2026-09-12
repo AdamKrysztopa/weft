@@ -326,11 +326,12 @@ def misplaced_quotes(
 ) -> tuple[str, ...]:
     """Every quote whose `page` disagrees with where the extractor says that span is.
 
-    `page_at(document_id, offset)` is supplied rather than computed here, and that is the point:
-    the parser pack already owns the rule that turns an offset into a page number
-    (`weft_pdf.PdfPages.page_at`), and a second implementation of it in `eval/` would be a copy
-    free to disagree with the citation a reader is eventually shown. A document with no pages
-    answers `0`.
+    `page_at(document_id, offset)` is supplied rather than computed here, and that is still the
+    point after G17 changed what supplies it. It used to defer to the parser pack's own
+    `PdfPages.page_at`, so that `eval/` held no second copy of a rule a citation is resolved by.
+    G17 retired that rule with the offset table it read — extraction now hands over one node per
+    page and the page is a scalar on it — so what this callable answers from is whatever *joined*
+    string its caller searched, which only the caller knows. A document with no pages answers `0`.
 
     **Every occurrence is considered, not the first.** A table header repeated on the following
     page is one span in two places, and taking `str.index` alone would report the author's correct

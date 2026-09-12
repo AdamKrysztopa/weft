@@ -40,6 +40,7 @@ from weft_kernel.payload import (
     Outcome,
     Produced,
     Property,
+    carry_forward,
 )
 
 _HORIZONTAL_RUN = re.compile(r"[ \t]+")
@@ -82,7 +83,10 @@ class WhitespaceNormalizer:
         del ctx
         if not payload:
             return NothingToProduce(reason="no nodes to normalize")
-        normalized = [node.derive(content=_normalize(node.content)) for node in payload]
+        normalized = [
+            carry_forward(node.derive(content=_normalize(node.content)), parent=node)
+            for node in payload
+        ]
         return Produced(value=normalized)
 
 

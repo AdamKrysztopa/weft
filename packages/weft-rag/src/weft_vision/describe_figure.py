@@ -17,10 +17,10 @@ load-bearing:
   content has no automatic claim to what was attached to its parent's — but `BlobRef` and
   `PageSpan` are facts about *this* figure that describing it does not change, and `11` §2.4's
   *Query time* paragraph requires the retrieved node's `BlobRef` to stay durable so a vision-capable
-  generator can reopen the pixels later. `_carry_forward` below is the same shape and the same
-  exclusion `weft_chunk.fixed_size._carry_forward` uses — `SyntheticOrigin` states that a node has
-  no real lineage, which is no longer true the moment `derive` gives it a parent, so it is the one
-  namespace this does not copy. This is `docs/internal/lessons.md` `L9.63`.
+  generator can reopen the pixels later. `weft_kernel.payload.carry_forward` is the shared function
+  for this — `SyntheticOrigin` states that a node has no real lineage, which is no longer true the
+  moment `derive` gives it a parent, so it is the one namespace it does not copy. This is
+  `docs/internal/lessons.md` `L9.63`.
 - **A `Describer` that cannot help leaves the figure exactly as it was.** `NothingToProduce` is an
   absence, not an error, and `Failed` is a provider's error about one image, not about the document
   — `weft_vision.contract.Describer`'s own docstring: a describer "has to be able to say so without
@@ -62,7 +62,7 @@ from weft_kernel.payload import (
     NothingToProduce,
     Outcome,
     Produced,
-    SyntheticOrigin,
+    carry_forward,
 )
 from weft_vision.contract import Describer
 
@@ -179,25 +179,9 @@ async def _describe_one(node: Node, *, blobs: BlobStore, describer: Describer) -
     described = node.derive(
         content=f"{node.content}{_JOIN}{outcome.value}", media_type=node.media_type
     )
-    described = _carry_forward(described, original=node)
+    described = carry_forward(described, parent=node)
     return _Attempt(
         node=described.with_ext(FigureDescription(description=outcome.value)),
         asked=1,
         described=1,
     )
-
-
-def _carry_forward(described: Node, *, original: Node) -> Node:
-    """`described`, plus every namespace `original.ext` carries except its root-origin marker.
-
-    The same shape and the same exclusion `weft_chunk.fixed_size._carry_forward` uses: `derive`
-    drops `ext` on the assumption that a new piece of content has no automatic claim to what was
-    attached to the node it came from, which is wrong for a fact — `BlobRef`, `PageSpan` — that is
-    still true of this figure after describing it. `SyntheticOrigin` is excluded because it states
-    that a node has no real lineage, and `described` was just given one by `derive`.
-    """
-    for namespace, model in original.ext.items():
-        if namespace == SyntheticOrigin.__namespace__:
-            continue
-        described = described.with_ext(model)
-    return described

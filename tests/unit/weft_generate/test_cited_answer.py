@@ -24,6 +24,7 @@ from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 
 from weft_chunk.payload import ChunkOffset
+from weft_extract.payload import PageSpan
 from weft_generate.cited_answer import NAME, CitedAnswer, CitedAnswerConfig, WhenNoEvidence
 from weft_generate.contract import Generator
 from weft_generate.payload import AnswerStance
@@ -33,7 +34,6 @@ from weft_kernel.payload import ExtModel, MediaType, Node, NodeId, Outcome, Prod
 from weft_kernel.seam import wrap
 from weft_llm.contract import LLM
 from weft_llm.payload import Completion, Rendered
-from weft_pdf import PdfPages
 from weft_retrieve.contract import StageLookup
 from weft_retrieve.payload import Passage, Passages, Query
 from weft_store.contract import NodeStore, Scored, SourceRecord, SourceStatus
@@ -133,17 +133,16 @@ def _passages(*items: Passage) -> Passages:
 
 
 async def test_markers_the_model_wrote_become_citations_with_page_and_uri_resolved() -> None:
-    # Arrange — the cited passage carries the two facts `weft_generate.page.page_for`
-    # needs, and its one source resolves through the store.
+    # Arrange — the cited passage carries the page fact `weft_generate.page.page_for`
+    # reads, and its one source resolves through the store. The `ChunkOffset` beside it is
+    # what every chunk carries and is deliberately not the page (G17).
     node = Node.synthetic(
         content="mRMR reduces redundancy between selected features.",
         media_type=MediaType.TEXT,
         reason="test fixture",
         sources=frozenset({SourceId("doc-1")}),
     )
-    node = node.with_ext(PdfPages(backend="pdf-text", starts=(0, 50))).with_ext(
-        ChunkOffset(start=10)
-    )
+    node = node.with_ext(PageSpan(page=7, ordinal=0)).with_ext(ChunkOffset(start=10))
     cited = Passage(
         scored=Scored(value=node, score=0.9), rank=0, retrieved_by="vector-top-k", label="1"
     )
@@ -178,7 +177,7 @@ async def test_markers_the_model_wrote_become_citations_with_page_and_uri_resolv
     assert citation.node_id == node.id
     assert citation.source_id == "doc-1"
     assert citation.uri == "corpus/mrmr.pdf"
-    assert citation.page == 1
+    assert citation.page == 7
     assert llm.calls == 1
 
 
@@ -293,9 +292,7 @@ async def test_a_citation_for_a_representation_node_resolves_to_its_one_parent()
         reason="test fixture",
         sources=frozenset({SourceId("doc-1")}),
     )
-    parent = parent.with_ext(PdfPages(backend="pdf-text", starts=(0, 50))).with_ext(
-        ChunkOffset(start=10)
-    )
+    parent = parent.with_ext(PageSpan(page=7, ordinal=0)).with_ext(ChunkOffset(start=10))
     question = parent.derive(content="What does mRMR reduce?").with_ext(_ThirdPartyRepresentation())
     cited = Passage(
         scored=Scored(value=question, score=0.9),
@@ -328,7 +325,7 @@ async def test_a_citation_for_a_representation_node_resolves_to_its_one_parent()
     citation = outcome.value.citations[0]
     assert citation.node_id == parent.id
     assert citation.node_id != question.id
-    assert citation.page == 1
+    assert citation.page == 7
     assert citation.source_id == "doc-1"
     assert citation.uri == "corpus/mrmr.pdf"
     # `used` and what the model was shown both carry the real passage, not the question —

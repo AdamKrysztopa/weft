@@ -9,7 +9,8 @@ extends: index-pdf
 #
 # **What you give up, stated rather than implied.** No `TABLE` nodes (`pdf-layout` is the only
 # shipped extractor that finds one) and no `IMAGE` nodes, so no `[services] blob` is needed either.
-# Page boundaries survive: `pdf-text` attaches `PdfPages` exactly as `pdf-layout` does.
+# Page boundaries survive: `pdf-text` attaches `PageSpan` to each page node exactly as
+# `pdf-layout` does.
 #
 # **Why this document exists now.** Like `index-qdrant` beside it, `pdf-text` had no shipped
 # document naming it until 2026-09-09, and could not have had one while `weft-pdf` shipped no

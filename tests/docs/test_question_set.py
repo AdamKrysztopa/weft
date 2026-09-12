@@ -39,6 +39,7 @@ shape.
 
 import tomllib
 import warnings
+from bisect import bisect_right
 from collections.abc import Callable, Mapping, Sequence
 from importlib import metadata
 from pathlib import Path
@@ -61,10 +62,10 @@ from fetch_corpus import Document, Status, Tier, load_manifest, verify_one
 
 from tests.discovery import discover_for_tests
 from weft_extract.contract import Extractor, SourceDoc
+from weft_extract.payload import PageSpan
 from weft_kernel.context import Context
 from weft_kernel.payload import Node, Produced, SourceId
 from weft_kernel.registry import Registry
-from weft_pdf.document import PdfPages
 
 #: Backends that turn bytes into text with no third-party library behind them — nothing to pin,
 #: and saying so here is what keeps `test_the_extraction_step_the_quotes_were_taken_from_is_pinned`
@@ -97,7 +98,11 @@ _CONTEXT: Final[Context] = Context(
 #: fixture, because two of the three tests that need it are `async`, and a module-scoped async
 #: fixture has to be tied to a module-scoped event loop as well: a second thing to keep true for
 #: something that is only "read the papers once".
-_CACHE: dict[str, Node] = {}
+#: How `_extracted` joins a document's page nodes back into the one string a quote is searched
+#: in. It is this file's own convention and nothing else reads it — see `_starts`.
+_PAGE_JOIN: Final[str] = "\n\n"
+
+_CACHE: dict[str, tuple[Node, ...]] = {}
 
 
 class PartialCorpus(UserWarning):
@@ -394,7 +399,7 @@ def test_the_quote_check_can_fail() -> None:
 
 def test_the_page_check_can_fail() -> None:
     # The same self-test for the other half, and the half with more to go wrong: the page check
-    # rests on `PdfPages` surviving onto the root node, on `_page_at`'s fallback for a document
+    # rests on `PageSpan` surviving extraction, on `_page_at`'s fallback for a document
     # with no pages, and on `_occurrences` looking past the first hit. Any of those regressing
     # turns `test_every_quote_is_on_the_page_it_claims` into a check that found nothing to compare
     # and reported that as agreement — replacing `misplaced_quotes`' body with `return ()` left the
@@ -507,7 +512,7 @@ def test_a_field_the_reader_does_not_declare_is_refused() -> None:
 
 async def _extracted(
     documents: Sequence[Document], registry: Registry
-) -> tuple[dict[str, str], dict[str, PdfPages]]:
+) -> tuple[dict[str, str], dict[str, tuple[int, ...]]]:
     """Every document handed in, as the text a pipeline would see it as.
 
     Cached for the module, because reading 25 papers takes about five seconds and three tests need
@@ -516,19 +521,41 @@ async def _extracted(
     """
     if not _CACHE:
         for document in documents:
-            _CACHE[document.id] = await _extract_one(document, registry)
+            _CACHE[document.id] = await _extract_pages(document, registry)
     return (
-        {identifier: node.content for identifier, node in _CACHE.items()},
         {
-            identifier: pages
-            for identifier, node in _CACHE.items()
-            if (pages := node.ext_as(PdfPages)) is not None
+            identifier: _PAGE_JOIN.join(node.content for node in nodes)
+            for identifier, nodes in _CACHE.items()
+        },
+        {
+            identifier: _starts(nodes)
+            for identifier, nodes in _CACHE.items()
+            if any(node.ext_as(PageSpan) is not None for node in nodes)
         },
     )
 
 
-async def _extract_one(document: Document, registry: Registry) -> Node:
-    """The root node one corpus document extracts to, through the backend named for its format.
+def _starts(nodes: Sequence[Node]) -> tuple[int, ...]:
+    """Where each page node's text begins in the joined document `_extracted` builds.
+
+    **G17 is why this is computed here rather than read off a node.** Extraction hands over one
+    node per page and each says only which page it is; the offsets exist only inside this file,
+    which joins the pages back into the one string a quote is searched in. Nothing downstream of
+    extraction holds them, which is the whole of what G17 settled — an offset that outlives the
+    text it indexes is what put 72 of 1024 chunks on the wrong page.
+    """
+    starts: list[int] = []
+    offset = 0
+    for node in nodes:
+        starts.append(offset)
+        offset += len(node.content) + len(_PAGE_JOIN)
+    return tuple(starts)
+
+
+async def _extract_pages(document: Document, registry: Registry) -> tuple[Node, ...]:
+    """The nodes one corpus document extracts to, through the backend named for its format.
+
+    One per page for a PDF since G17; exactly one for a format with no pages at all.
 
     The `isinstance` is against the runtime-checkable `Extractor` Protocol, and it is doing work
     rather than satisfying a type checker: the registry hands back a factory for *some* plugin,
@@ -551,11 +578,11 @@ async def _extract_one(document: Document, registry: Registry) -> Node:
     if not isinstance(outcome, Produced):
         message = f"{document.id}: {name} produced no text — {outcome}"
         raise AssertionError(message)
-    nodes = list(outcome.value)
-    if len(nodes) != 1:
-        message = f"{document.id}: {name} produced {len(nodes)} nodes for one document"
+    nodes = tuple(outcome.value)
+    if not nodes:
+        message = f"{document.id}: {name} produced no nodes for one document"
         raise AssertionError(message)
-    return nodes[0]
+    return nodes
 
 
 def _report(coverage: QuoteCoverage, check: str) -> None:
@@ -575,17 +602,21 @@ def _report(coverage: QuoteCoverage, check: str) -> None:
     warnings.warn(f"{check}: {coverage.describe()}", PartialCorpus, stacklevel=2)
 
 
-def _page_at(pages: Mapping[str, PdfPages]) -> Callable[[str, int], int]:
-    """`page_at` over the whole corpus, answering `0` for a document that has no pages.
+def _page_at(starts: Mapping[str, tuple[int, ...]]) -> Callable[[str, int], int]:
+    """The 1-based page an offset into `_extracted`'s joined text falls on, `0` for a document
+    with no pages at all — a Wikipedia article is one stream of text with no page to name.
 
-    The rule itself is `weft_pdf.PdfPages.page_at` and is not restated — this only decides which
-    document's boundaries to ask, and what to answer for a Wikipedia article, which is one stream
-    of text with no page to name.
+    **This is not a second implementation of a rule a pack owns.** It was, until G17 retired
+    `weft_pdf.PdfPages.page_at` along with the offset table it read: the page is now a scalar
+    fact on the node, and the joined string these offsets index is built by this file and exists
+    nowhere else. There is nothing left to disagree with.
     """
 
     def page_at(document: str, offset: int) -> int:
-        found = pages.get(document)
-        return found.page_at(offset) if found is not None else 0
+        found = starts.get(document)
+        if found is None:
+            return 0
+        return bisect_right(found, offset)
 
     return page_at
 

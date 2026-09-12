@@ -15,16 +15,12 @@ So a fact node that does not carry the page-bearing model **its parent carried**
 no page at all, no matter what its parent knows. That makes the carry the future extractor's
 obligation rather than the payload model's, which is exactly what this file pins down.
 
-**Why the parent's `ChunkOffset` travels with it, and why that is not `G17`'s hazard.**
-`page_for` needs two facts on one node: something with a `start` and something that can turn
-a `start` into a page. `PdfPages.starts` and `ChunkOffset.start` are both offsets into the
-*root's* extracted text (`weft_pdf.document.PdfPages`'s class docstring says so), so
-carrying the pair forward unchanged keeps them in the one coordinate system they were built
-in, and answers "which page is the evidence for this fact on". `G17` is open about what such
-a locator means once a stage **rewrites the content it indexes**; a fact extractor rewrites
-nothing — it reads a chunk and emits a new node beside it — so the two do not meet here.
-Attaching a *fresh* `ChunkOffset` was the alternative and it has no referent: a fact's prose
-is generated, not sliced, so there is no offset of its own to state.
+**Why the parent's page travels with it, and what `G17` changed here.** This paragraph used
+to argue that carrying an *offset pair* forward was safe because a fact extractor rewrites
+nothing. `G17` settled on 2026-09-12 that the pair itself was the defect: the page is now a
+scalar `weft_extract.payload.PageSpan` on the node it describes, so there is one fact to carry
+and no coordinate system for anything downstream to invalidate. The argument the old paragraph
+made is now true by construction rather than by a stage's good behaviour.
 
 **What this file therefore constrains in `11.7`, where the fact payload is fixed.** A fact is
 cited as *itself*, which `weft_generate.representation.citable_nodes` will silently undo for
@@ -33,20 +29,18 @@ such a node as its parent, by design, for `weft_index.payload.Representation`. A
 model naming a field `technique` would therefore make every fact cite the chunk it came from
 and nothing would report it.
 
-**What this proves, and what it does not — measured rather than implied.** The property below is
-a property of the payload model, and it has **no live instance on any shipped ladder today**. A
-real paper indexed from outside this repository with `weft index corpus --pipeline index-pdf`
-stored 70 nodes whose only `ext` namespaces are `weft-chunk` (57) and `weft-extract-table` (13):
-`weft-pdf` is on none of them, because every `weft_clean` cleaner rebuilds its node with
-`Node.derive`. That is carried repair `R9.1`, blocked on `G17`, and it means a fact node derived
-from a chunk of a *text* pipeline inherits no page because its parent has none to give. The carry
-is still the extractor's obligation and this file is still what fixes it; what a reader must not
-take from a green run here is that facts will arrive with pages before `R9.1` lands.
+**What this proved and did not, and what changed.** Until `R9.1` landed this was a property of
+the payload model with **no live instance on any shipped ladder**: a real paper indexed from
+outside this repository stored 70 nodes whose only `ext` namespaces were `weft-chunk` (57) and
+`weft-extract-table` (13), `weft-pdf` on none, because every `weft_clean` cleaner rebuilds its
+node with `Node.derive`. `R9.1` is what makes the cleaners carry forward, and `G17` is what makes
+the fact they carry worth having. A fact node derived from a chunk of a text pipeline now inherits
+its page because its parent has one to give.
 
-The two facts under test are attached by two packs in two stages, which is the shape `L6.14`
+The fact under test is attached by one pack and read by another, which is the shape `L6.14`
 says a hand-written double gets wrong — so the parent chunk here is produced by the **real**
-`FixedSizeChunker` over a root carrying a **real** `PdfPages`, and only the fact node itself
-is built by hand, that being the part actually under proof.
+`FixedSizeChunker` over page nodes shaped the way extraction now hands them over, and only the
+fact node itself is built by hand, that being the part actually under proof.
 """
 
 from collections.abc import Mapping, Sequence
@@ -55,28 +49,34 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
-from weft_chunk.carry import carry_forward
 from weft_chunk.fixed_size import FixedSizeChunker, FixedSizeChunkerConfig
 from weft_chunk.payload import ChunkOffset
+from weft_extract.payload import PageSpan
 from weft_generate.cited_answer import CitedAnswer
 from weft_generate.page import page_for
 from weft_generate.payload import Answer, AnswerStance, Citation
 from weft_generate.prompts import ANSWER_WITH_CITATIONS_NAME, AnswerWithCitationsPrompt
 from weft_kernel.context import Context, ServiceRegistry
-from weft_kernel.payload import MediaType, Node, NodeId, Outcome, Produced, SourceId
+from weft_kernel.payload import (
+    MediaType,
+    Node,
+    NodeId,
+    Outcome,
+    Produced,
+    SourceId,
+    carry_forward,
+)
 from weft_llm.contract import LLM
 from weft_llm.payload import Completion, Rendered
-from weft_pdf import PdfPages
 from weft_retrieve.contract import StageLookup
 from weft_retrieve.payload import Passage, Passages, Query
 from weft_store.contract import NodeStore, Scored, SourceRecord, SourceStatus
 
-#: The document under test: three pages, and long enough that a chunk lands on a page that is
-#: not the first one. A page-1 expectation would be satisfied by a `page_at` that had lost its
-#: offset and answered the beginning of the document, so the assertions below check that the
-#: page they resolve is past the first boundary.
-_ROOT_CONTENT = "".join(f"sentence {n:03d} about feature selection. " for n in range(12))
-_PAGE_STARTS = (0, 100, 220)
+#: The document under test: three pages, each its own node as extraction now hands them over,
+#: and long enough that chunks land on pages that are not the first one. A page-1 expectation
+#: would be satisfied by an implementation that had lost the page and answered the start of the
+#: document, so the assertions below check that the page they resolve is past the first.
+_PAGE_COUNT = 3
 _SOURCE = SourceId("doc-1")
 _STATEMENT = "mRMR selects features that are relevant and mutually non-redundant."
 
@@ -155,40 +155,45 @@ def _ctx(store: _StubStore, llm: _StubLLM) -> Context:
     )
 
 
-def _root() -> Node:
-    """The document as an extractor hands it over: root content, real page boundaries."""
-    root = Node.synthetic(
-        content=_ROOT_CONTENT,
-        media_type=MediaType.TEXT,
-        reason="test fixture standing in for extraction",
-        sources=frozenset({_SOURCE}),
+def _pages() -> tuple[Node, ...]:
+    """The document as an extractor hands it over: one node per page, each saying which."""
+    return tuple(
+        Node.synthetic(
+            content="".join(
+                f"page {number} sentence {n:02d} about feature selection. " for n in range(4)
+            ),
+            media_type=MediaType.TEXT,
+            reason=f"test fixture standing in for extraction, page {number}",
+            sources=frozenset({_SOURCE}),
+            ordinal=number,
+        ).with_ext(PageSpan(page=number, ordinal=0))
+        for number in range(1, _PAGE_COUNT + 1)
     )
-    return root.with_ext(PdfPages(backend="pdf-text", starts=_PAGE_STARTS))
 
 
 async def _chunks() -> tuple[Node, ...]:
     """The parent chunks, produced by the **real** chunker rather than assembled here.
 
-    `ChunkOffset` and the carried `PdfPages` are then this stage's own output, so nothing
-    below depends on a hand-populated pair agreeing with what the pipeline actually builds
+    `ChunkOffset` and the carried `PageSpan` are then this stage's own output, so nothing
+    below depends on a hand-populated fact agreeing with what the pipeline actually builds
     (`L6.14`).
     """
     chunker = FixedSizeChunker(config=FixedSizeChunkerConfig(size=60, overlap=10))
     ctx = Context(tenant_id="tenant-a", run_id="run-1", trace_id="trace-1", locale="en")
-    outcome = await chunker.run((_root(),), ctx)
+    outcome = await chunker.run(_pages(), ctx)
     assert isinstance(outcome, Produced)
     return tuple(outcome.value)
 
 
 async def _evidence() -> Node:
-    """One chunk that sits past the first page boundary — the whole point of the fixture."""
+    """One chunk that sits past the first page — the whole point of the fixture."""
     for chunk in await _chunks():
         if (page := page_for(chunk)) is not None and page > 1:
             return chunk
     raise AssertionError(
-        f"no chunk of the fixture resolved past page 1, so the assertions below would be "
-        f"satisfied by a locator that had lost its offset; page starts are {_PAGE_STARTS} "
-        f"and the root is {len(_ROOT_CONTENT)} characters"
+        "no chunk of the fixture resolved past page 1, so the assertions below would be "
+        f"satisfied by an implementation that had lost the page; the fixture is "
+        f"{_PAGE_COUNT} page nodes"
     )
 
 
@@ -222,11 +227,13 @@ async def test_a_fact_carrying_its_parents_facts_resolves_to_the_page_of_its_evi
     # Assert — the fact answers for itself, and answers the same page its evidence does.
     assert page_for(fact) == page_for(evidence)
     assert fact.content != evidence.content
-    offset = fact.ext[ChunkOffset.__namespace__]
-    locator = fact.ext[PdfPages.__namespace__]
-    assert isinstance(offset, ChunkOffset)
-    assert isinstance(locator, PdfPages)
-    assert page_for(fact) == locator.page_at(offset.start) > 1
+    span = fact.ext[PageSpan.__namespace__]
+    assert isinstance(span, PageSpan)
+    # `> 1` rather than "not None": a page that had degenerated to the start of the document
+    # would satisfy an equality read through the one call on both sides (`L9.28`).
+    assert page_for(fact) == span.page > 1
+    # The chunker's own fact rides alongside and is deliberately not the page.
+    assert isinstance(fact.ext[ChunkOffset.__namespace__], ChunkOffset)
 
 
 async def test_a_fact_that_does_not_carry_its_parents_facts_has_no_page_at_all() -> None:

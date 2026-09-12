@@ -23,7 +23,7 @@ rule, the identical mechanism applied to the one media type that understands a g
 **A row's content is `weft_extract.table_text.row_text`'s own line for it**, never a
 second formatter written here — see that function's docstring for why two renderings of
 one row must never be free to drift. Each child then carries forward what its parent's
-`ext` said (`weft_chunk.carry.carry_forward`, minus `SyntheticOrigin`) and, last, its own
+`ext` said (`weft_kernel.payload.carry_forward`, minus `SyntheticOrigin`) and, last, its own
 one-row `TableGrid` — attached after the carry so it wins over the parent's whole-table
 grid in the same namespace. `spans` and `caption` are deliberately **not** carried into a
 row's own grid: a `CellSpan` describes a merge across the table's whole geometry, which
@@ -41,7 +41,6 @@ from typing import ClassVar
 
 from pydantic import BaseModel, ConfigDict
 
-from weft_chunk.carry import carry_forward
 from weft_extract.payload import TableGrid
 from weft_extract.table_text import row_text
 from weft_kernel.context import Context
@@ -54,6 +53,7 @@ from weft_kernel.payload import (
     Outcome,
     Produced,
     Property,
+    carry_forward,
 )
 
 NAME = "table-rows"

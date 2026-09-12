@@ -235,6 +235,34 @@ class Node(BaseModel):
         return self._replace(embedding=embedding)
 
 
+def carry_forward(child: Node, *, parent: Node) -> Node:
+    """`child`, plus every namespace `parent.ext` carries except its root-origin marker.
+
+    `SyntheticOrigin` is excluded by name: it states that a node has no real lineage, and
+    `child` was just given one — by `Node.derive`, whichever stage called this — so copying
+    it forward would attach a claim about `child` that is false the moment it is read.
+    Every other namespace is copied verbatim, last-write-wins is never a concern here since
+    `child` carries no `ext` of its own yet (`derive` starts it empty); a caller that wants
+    its own fact to win over a carried-forward one — `weft_chunk.table_rows` does, for its
+    row's own `TableGrid` — attaches it with `with_ext` *after* calling this.
+
+    **G17, settled 2026-09-12.** Moved here from `weft_chunk.carry` — with a byte-identical
+    private copy in `weft_vision.describe_figure` whose own docstring cited
+    `weft_chunk.fixed_size._carry_forward`, a function that has not existed since task `9.14`
+    lifted it — because G17 adds a third consumer: every `weft_clean` cleaner rebuilds its
+    node with `Node.derive`, which drops `ext`, and `R9.1` is the property that a `TEXT`
+    node's extraction-time facts survive that. `weft_clean`, `weft_chunk` and `weft_vision`
+    import none of each other, so the only module all three already depend on is the kernel,
+    and the function belongs there on `01`'s own test: it names no capability. It is an
+    operation on `Node.ext` and `SyntheticOrigin`, both of them kernel types.
+    """
+    for namespace, model in parent.ext.items():
+        if namespace == SyntheticOrigin.__namespace__:
+            continue
+        child = child.with_ext(model)
+    return child
+
+
 def _content_digest(
     *, media_type: MediaType, content: str, parent_ids: Sequence[NodeId], ordinal: int
 ) -> NodeId:

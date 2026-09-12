@@ -260,10 +260,20 @@ Out of one page:
 
 | Node | `media_type` | `content` | `ext` |
 |---|---|---|---|
-| root | `TEXT` | the document title | `SyntheticOrigin` (kernel-owned) — `Node.synthetic(sources={source_id})` |
-| N prose nodes | `TEXT` | section text | `PageSpan` (page, reading-order ordinal) — `derive()` from the root |
-| 1 table node | `TABLE` | the **index-form** serialisation | `TableGrid` (rows, headers, spans, caption, page, bbox) + `Atomic` |
-| 1 chart node | `IMAGE` | the caption the document supplied → else the OCR text beneath it → else **`NothingToProduce` for that node** | `PageSpan` + `Atomic` + `BlobRef(uri)` |
+| N page nodes | `TEXT` | one page's text | `SyntheticOrigin` (kernel-owned) + `PageSpan` (page, reading-order ordinal) + `PdfPages` (which backend read it) — `Node.synthetic(sources={source_id}, ordinal=page)` |
+| 1 table node | `TABLE` | the **index-form** serialisation | `TableGrid` (rows, headers, spans, caption, page, bbox) + `Atomic` — `derive()` from **its own page's** node |
+| 1 chart node | `IMAGE` | the caption the document supplied → else the OCR text beneath it → else **`NothingToProduce` for that node** | `PageSpan` + `Atomic` + `BlobRef(uri)` — `derive()` from **its own page's** node |
+
+*(**Amended 2026-09-12 by G17**, and the amendment is the settlement rather than a consequence of
+it. This table used to name a document-level root carrying the title, with N prose nodes `derive`d
+from it — and `weft_pdf` never built that: it built **one** root per document holding every page's
+text joined, with an offset table (`PdfPages.starts`) saying where each page began. Nothing compared
+the two. An offset into text is exactly what a cleaner invalidates, and it did: `72 of 1024` real
+chunks across nine papers carried the wrong page. G17's answer is the shape this table was always
+asking for, taken one step further — the page node **is** the root, so there is no document-level
+node to derive from, no title this pack can read, and no coordinate system left for a rewrite to
+break. `ordinal=page` is load-bearing: `Node.synthetic` digests content, and two pages holding
+identical text would otherwise be one node carrying two contradictory page facts.)*
 
 *(Settled 2026-09-07 at ledger task **10.11**, which is what the five Phase 10 notes in this
 document were waiting for: **a `raptor` summariser reads every member through its `content` and
@@ -319,9 +329,11 @@ holds them; `SourceRecord` records `uri`, `content_hash` and `pipeline`.
 generator can `BlobStore.open(uri)` and put the pixels in the prompt. That is what D1's recommendation
 buys and what neither alternative provides.
 
-**Delete.** `delete_source(sid)` cascades over `lineage.sources` — the table node, the chart node and
-every prose node go together, because all derive from the root. The blobs go with `delete_prefix`.
-Nothing survives its document.
+**Delete.** `delete_source(sid)` works over `lineage.sources` — the page nodes state that source
+directly, the table and chart nodes inherit it from the page node they derive from, so all of them
+go together. The blobs go with `delete_prefix`. Nothing survives its document, with the one
+narrowing **G20** settled: a node another live document is also a source of is *narrowed* rather
+than removed, and `02` §1 owns that rule.
 
 ---
 

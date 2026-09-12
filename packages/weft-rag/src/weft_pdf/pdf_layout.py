@@ -130,11 +130,14 @@ class PdfLayoutExtractorConfig(BaseModel):
       subprocess is blocking work the seam's detector fails a run for, and an
       external binary is a dependency this pack's `pyproject.toml` cannot
       declare.
-    - **page selection.** `PdfPages.starts` is indexed positionally, so a
-      subset would make `page_at` answer *page 3* for what the reader will find
-      on page 41. That needs the page number carried explicitly, which is
-      ledger 2.9's — a knob that silently corrupts a citation is worse than one
-      that is missing.
+    - **page selection**, still absent, but no longer for the reason once recorded here.
+      Before G17, `PdfPages.starts` was indexed positionally, so a subset would have made
+      `page_at` answer *page 3* for what the reader would find on page 41 — the very
+      corruption that argument warned against. G17 (2026-09-12) made the page a scalar fact
+      on each page's own node (`weft_extract.payload.PageSpan`), which is exactly what that
+      argument said page selection would need; a subset knob would not misattribute a
+      citation today. It is still missing because nobody has asked for it, not because
+      adding it is unsafe.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -144,7 +147,6 @@ class PdfLayoutExtractorConfig(BaseModel):
     #: `None` is `pdfplumber`'s own default: the tolerances above are absolute unless a
     #: ratio is given, in which case they scale with font size.
     x_tolerance_ratio: float | None = Field(default=None, gt=0.0)
-    page_separator: str = "\n\n"
     #: An encrypted corpus has no other route: without this the document is only ever
     #: `Failed`, with no configuration that could have made it succeed.
     password: str | None = None
@@ -165,7 +167,7 @@ class PdfLayoutExtractorConfig(BaseModel):
 
 
 class PdfLayoutExtractor:
-    """Groups each page's characters into words with `pdfplumber`, one root `Node` per document.
+    """Groups each page's characters into words with `pdfplumber`, one `Node` per page with text.
 
     Also this pack's one figure producer (ledger `9.7`) — see the module docstring for why
     `run` does more than await `extract_documents` once `read_figures` is in play.
@@ -201,7 +203,6 @@ class PdfLayoutExtractor:
             backend=NAME,
             read_pages=self._read_pages,
             unreadable=(PdfminerException,),
-            separator=self._config.page_separator,
             read_tables=self._read_tables,
             read_figures=self._read_figures,
         )

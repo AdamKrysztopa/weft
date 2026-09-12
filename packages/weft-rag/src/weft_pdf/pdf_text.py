@@ -46,6 +46,7 @@ from pypdf.errors import PyPdfError
 from pypdf.generic import ArrayObject, DictionaryObject, IndirectObject, PdfObject, StreamObject
 
 from weft_extract.contract import SourceDoc
+from weft_extract.payload import PageSpan
 from weft_kernel.context import Context
 from weft_kernel.payload import ExtModel, Node, Outcome
 from weft_pdf.document import EXTENSIONS, PageText, PdfPages, extract_documents
@@ -112,17 +113,19 @@ class PdfTextExtractorConfig(BaseModel):
     - **`layout_mode_debug_path`** writes files from inside a running stage,
       which is precisely the blocking file IO fitness function 7(b) fails a
       run for.
-    - **page selection.** `PdfPages.starts` is indexed positionally, so a
-      subset would make `page_at` answer *page 3* for what the reader will
-      find on page 41. Reaching for it needs the page number carried
-      explicitly, which is ledger 2.9's, and a knob that silently corrupts a
-      citation is worse than one that is missing.
+    - **page selection**, still absent, but no longer for the reason once recorded here.
+      Before G17, `PdfPages.starts` was indexed positionally, so a subset would have made
+      `page_at` answer *page 3* for what the reader would find on page 41 — the very
+      corruption that argument warned against. G17 (2026-09-12) made the page a scalar fact
+      on each page's own node (`weft_extract.payload.PageSpan`), which is exactly what that
+      argument said page selection would need; a subset knob would not misattribute a
+      citation today. It is still missing because nobody has asked for it, not because
+      adding it is unsafe.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     mode: ExtractionMode = ExtractionMode.PLAIN
-    page_separator: str = "\n\n"
     #: An encrypted corpus has no other route: without this the document is only ever
     #: `Failed`, with no configuration that could have made it succeed.
     password: str | None = None
@@ -140,17 +143,18 @@ class PdfTextExtractorConfig(BaseModel):
 
 
 class PdfTextExtractor:
-    """Reads each page's text layer with `pypdf` and builds one root `Node` per document."""
+    """Reads each page's text layer with `pypdf` and builds one `Node` per page with text."""
 
     extensions: tuple[str, ...] = EXTENSIONS
     config_model: type[PdfTextExtractorConfig] = PdfTextExtractorConfig
-    #: The one fact this backend attaches — `extract_documents` puts `PdfPages` on every root it
-    #: builds. Declared for the reason `pdf_layout.PdfLayoutExtractor.provides` states in full:
-    #: a produced fact nothing declares is invisible to `weft_kernel.resolution`'s
-    #: `requires`/`provides` check, and stays invisible until some stage asks for it. This
-    #: backend recovers no tables and no figures, so its tuple is the short one — which is the
-    #: honest difference between the two rungs, not an omission.
-    provides: ClassVar[tuple[type[ExtModel], ...]] = (PdfPages,)
+    #: The two facts this backend attaches — `extract_documents` puts `PdfPages` and
+    #: `PageSpan` on every page node it builds. Declared for the reason
+    #: `pdf_layout.PdfLayoutExtractor.provides` states in full: a produced fact nothing
+    #: declares is invisible to `weft_kernel.resolution`'s `requires`/`provides` check, and
+    #: stays invisible until some stage asks for it. This backend recovers no tables and no
+    #: figures, so its tuple is the short one — which is the honest difference between the
+    #: two rungs, not an omission.
+    provides: ClassVar[tuple[type[ExtModel], ...]] = (PdfPages, PageSpan)
 
     def __init__(self, config: PdfTextExtractorConfig | None = None) -> None:
         self._config = config if config is not None else PdfTextExtractorConfig()
@@ -165,7 +169,6 @@ class PdfTextExtractor:
             backend=NAME,
             read_pages=self._read_pages,
             unreadable=(PyPdfError,),
-            separator=self._config.page_separator,
         )
 
     def _read_pages(self, content: bytes) -> Sequence[PageText]:

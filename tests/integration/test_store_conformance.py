@@ -86,11 +86,18 @@ from weft_store.pgvector_store import PgVectorSettings, PgVectorStore
 _DSN = os.environ.get("WEFT_DATABASE_URL", "postgresql://weft:weft@localhost:5433/weft")
 _QDRANT_URL = os.environ.get("WEFT_QDRANT_URL", "http://localhost:6333")
 
-#: `weft-pdf` ships a real `ExtModel` with a string field and a field of numbers, which is
-#: exactly the pair the operator set needs to be exercised over — and it belongs to a
-#: distribution neither store depends on, so the round trip proves the documented extension
-#: point rather than a store's own type. `docs/02-extension-model.md` names this call as the
-#: one a pack makes so its nodes survive a store; nothing registers it implicitly.
+#: `weft-pdf` ships a real `ExtModel` with a string field, and `weft-extract` one with an
+#: integer field — which is the pair the operator set needs to be exercised over, and both
+#: belong to distributions neither store depends on, so the round trip proves the documented
+#: extension point rather than a store's own type. `docs/02-extension-model.md` names this call
+#: as the one a pack makes so its nodes survive a store; nothing registers it implicitly.
+#:
+#: **The numeric half used to be `PdfPages.starts`, a field of numbers, and G17 retired it.**
+#: `PageSpan.page` replaces it as the field the ordering operators are asked about. What went
+#: with `starts` is the only *array-valued* numeric bound this kit had: no shipped `ExtModel`
+#: carries a sequence of numbers any more, so the ordering cases below now exercise scalar
+#: comparison alone. Recorded rather than lost silently — the day a pack ships a numeric
+#: sequence again, this is the file that owes it a case.
 register_ext_model(PdfPages)
 #: Ledger task 9.5's three, on the identical footing — a store reads `ext` back by namespace, so
 #: a namespace this process never registered rehydrates as nothing at all.
@@ -115,6 +122,7 @@ def _node(
     *,
     sources: frozenset[SourceId],
     pages: PdfPages | None = None,
+    span: PageSpan | None = None,
     embedding: Vector | None = None,
 ) -> Node:
     node = Node.synthetic(
@@ -122,6 +130,8 @@ def _node(
     )
     if pages is not None:
         node = node.with_ext(pages)
+    if span is not None:
+        node = node.with_ext(span)
     return node if embedding is None else node.with_embedding(embedding)
 
 
@@ -138,13 +148,15 @@ def _corpus() -> tuple[Node, ...]:
         _node(
             "alpha",
             sources=frozenset({_SOURCE_A}),
-            pages=PdfPages(backend="pypdf", starts=(0,)),
+            pages=PdfPages(backend="pypdf"),
+            span=PageSpan(page=1, ordinal=0),
             embedding=Vector(values=(1.0, 0.0, 0.0)),
         ),
         _node(
             "beta",
             sources=frozenset({_SOURCE_A, _SOURCE_B}),
-            pages=PdfPages(backend="pdfplumber", starts=(0, 500)),
+            pages=PdfPages(backend="pdfplumber"),
+            span=PageSpan(page=500, ordinal=0),
             embedding=Vector(values=(0.0, 1.0, 0.0)),
         ),
         _node("gamma", sources=frozenset({_SOURCE_B})),
@@ -247,7 +259,7 @@ async def test_a_node_round_trips_through_the_store_with_its_lineage_and_its_ext
     assert len(found) == 1
     assert found[0].content == "beta"
     assert found[0].lineage.sources == frozenset({_SOURCE_A, _SOURCE_B})
-    assert found[0].ext_as(PdfPages) == PdfPages(backend="pdfplumber", starts=(0, 500))
+    assert found[0].ext_as(PdfPages) == PdfPages(backend="pdfplumber")
     assert found[0].embedding is not None
 
 
@@ -771,27 +783,31 @@ _OPERATOR_CASES: tuple[tuple[str, Filter, frozenset[str]], ...] = (
     ),
     (
         "lt",
-        Filter(op=FilterOp.LT, field="ext.weft-pdf.starts", value=1),
-        frozenset({"alpha", "beta"}),
+        Filter(op=FilterOp.LT, field="ext.weft-extract-page.page", value=2),
+        frozenset({"alpha"}),
     ),
     (
         "lte",
-        Filter(op=FilterOp.LTE, field="ext.weft-pdf.starts", value=0),
-        frozenset({"alpha", "beta"}),
+        Filter(op=FilterOp.LTE, field="ext.weft-extract-page.page", value=1),
+        frozenset({"alpha"}),
     ),
-    ("gt", Filter(op=FilterOp.GT, field="ext.weft-pdf.starts", value=100), frozenset({"beta"})),
+    (
+        "gt",
+        Filter(op=FilterOp.GT, field="ext.weft-extract-page.page", value=100),
+        frozenset({"beta"}),
+    ),
     (
         # A fractional bound, which is the case both translators' number handling exists for
         # — `weft_qdrant.store._as_number` casts to `float`, pgvector compares `::numeric` —
         # and the case the AST refused until a reviewer finding against 2.6 was repaired.
         # Every other case here uses an integer bound, which is exactly why nothing caught it.
         "gt-fractional",
-        Filter(op=FilterOp.GT, field="ext.weft-pdf.starts", value=99.5),
+        Filter(op=FilterOp.GT, field="ext.weft-extract-page.page", value=99.5),
         frozenset({"beta"}),
     ),
     (
         "gte",
-        Filter(op=FilterOp.GTE, field="ext.weft-pdf.starts", value=500),
+        Filter(op=FilterOp.GTE, field="ext.weft-extract-page.page", value=500),
         frozenset({"beta"}),
     ),
     (

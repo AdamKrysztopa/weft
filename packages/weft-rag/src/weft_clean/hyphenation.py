@@ -43,6 +43,7 @@ from weft_kernel.payload import (
     Outcome,
     Produced,
     Property,
+    carry_forward,
 )
 
 # A word ending in a hyphen at a line break, continued on the next line —
@@ -89,7 +90,10 @@ class HyphenationRepair:
         del ctx  # no service or locale this stage needs
         if not payload:
             return NothingToProduce(reason="no nodes to repair")
-        repaired = [node.derive(content=_repair(node.content)) for node in payload]
+        repaired = [
+            carry_forward(node.derive(content=_repair(node.content)), parent=node)
+            for node in payload
+        ]
         return Produced(value=repaired)
 
 

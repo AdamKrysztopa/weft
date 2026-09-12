@@ -61,6 +61,7 @@ from weft_kernel.payload import (
     Outcome,
     Produced,
     Property,
+    carry_forward,
 )
 
 #: **The specification, which is what makes this string ours to write:** a line whose entire
@@ -116,7 +117,10 @@ class ArtifactRemover:
         del ctx
         if not payload:
             return NothingToProduce(reason="no nodes to remove artifacts from")
-        cleaned = [node.derive(content=_remove_artifacts(node.content)) for node in payload]
+        cleaned = [
+            carry_forward(node.derive(content=_remove_artifacts(node.content)), parent=node)
+            for node in payload
+        ]
         return Produced(value=cleaned)
 
 

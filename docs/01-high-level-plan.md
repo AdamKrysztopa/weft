@@ -552,7 +552,7 @@ observed elsewhere: an LLM scores dimensions, a deterministic ladder decides.
 > *walk `_strip_transient` already performs, immediately after it — never `weft-extract`, never a*
 > *store. Not `weft-extract`: eight sites across `packages/` build a `Node` from text that came from*
 > *outside the process (`weft_extract/text.py:80 "Node.syn"`, `weft_pdf/document.py:205 "rows: tu"`, `weft_chunk/*
-> *fixed_size.py:117 "destroys"`, `weft_clean/dictionary_spacing.py:108-109 "intact: "`, `weft_clean/hyphenation.py:71-72 "intact: "`,*
+> *fixed_size.py:117 "destroys"`, `weft_clean/dictionary_spacing.py:116-117 "intact: "`, `weft_clean/hyphenation.py:71-72 "intact: "`,*
 > *`weft_clean/whitespace.py:64-65 "intact: "`, `weft_clean/table_linearizer.py:79 "destroys"`, `weft_index/raptor.py:254 "owns ret"`) —*
 > *a smaller-scale reproduction of the same twelve-call-site fragility observed elsewhere. Not a*
 > *store: pgvector's* *`content` column is `TEXT NOT NULL` and refuses a NUL byte; `weft_qdrant/store.py` sends*
@@ -575,6 +575,11 @@ observed elsewhere: an LLM scores dimensions, a deterministic ladder decides.
 > *only; the `ext` walk covers the column-level fact (pgvector's `ext JSONB NOT NULL` refuses a NUL*
 > *byte exactly as `TEXT` does) rather than a currently-populated field, and costs one `isinstance`*
 > *check per field on a namespace that already changed. Exit demonstration:*
+> *(**`starts` is gone as of 2026-09-12, G17** — `PdfPages` now carries `backend: str` alone and*
+> *the page is a scalar `weft_extract.payload.PageSpan`. The finding this note records is*
+> *unaffected and was re-checked: no first-party `ExtModel` carries verbatim extractor text, and*
+> *the field that made the point is simply one field shorter.)*
+>
 > *`tests/integration/test_nul_byte_sanitisation.py` runs this exact document through the ordinary*
 > *`pdf-text` → `fixed-size` → `hash` → `pgvector` pipeline against the live container and asserts*
 > *every stored node's `content` is free of `\x00`; reverting the seam change reproduces the*

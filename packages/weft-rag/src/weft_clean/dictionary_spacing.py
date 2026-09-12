@@ -56,7 +56,15 @@ from pydantic import BaseModel, ConfigDict
 from weft_clean.language import Language
 from weft_clean.property import Verbatim
 from weft_kernel.context import Context
-from weft_kernel.payload import Applies, Node, NothingToProduce, Outcome, Produced, Property
+from weft_kernel.payload import (
+    Applies,
+    Node,
+    NothingToProduce,
+    Outcome,
+    Produced,
+    Property,
+    carry_forward,
+)
 
 #: Ordered longest-first so `przez` is tried before `za`, which is tried
 #: before `z` — a shorter preposition that is also a prefix of a longer one
@@ -117,7 +125,10 @@ class PolishFusedWordFixer:
         del ctx
         if not payload:
             return NothingToProduce(reason="no nodes to fix")
-        fixed = [node.derive(content=_fix_fused_words(node.content)) for node in payload]
+        fixed = [
+            carry_forward(node.derive(content=_fix_fused_words(node.content)), parent=node)
+            for node in payload
+        ]
         return Produced(value=fixed)
 
 

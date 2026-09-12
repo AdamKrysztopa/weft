@@ -3,15 +3,16 @@
 `docs/internal/build-ledger.md`'s **2.9** line names this the second half of the page-attribution
 gap: `Node.derive` deliberately drops `ext` (`weft_kernel.payload.node`, *"Lineage is
 carried; `ext` and `embedding` are not"*), so a chunk built through it carries `ordinal` —
-which window this is — never *where* in the parent's content that window starts. A page
-number is meaningless without one: `weft_pdf.PdfPages.page_at` takes "an offset into this
-node's content", and until this chunk carries that offset there is nothing to hand it.
+which window this is — never *where* in the parent's content that window starts.
 
-Generic on purpose, not shaped for `weft-pdf`. Any pack that attaches document structure
-to a root node — headings, section ids, a table of contents, page boundaries — needs the
-same fact: where a window sits in the content it was cut from. `weft-chunk` does not
-import `weft-pdf` to get it; see `fixed_size.py`'s module docstring for how a fact like
-`PdfPages` still reaches a chunk without that dependency existing.
+**G17, settled 2026-09-12, retired the reader this offset was for.** A page number used to
+be meaningless without one — `weft_pdf.PdfPages.page_at` took "an offset into this node's
+content" and turned it into a page — but G17 made the page a scalar fact read directly off
+the node it describes (`weft_extract.payload.PageSpan`), so a page is no longer resolved
+through this offset at all. `ChunkOffset` itself is unchanged and stays registered: it is
+still where a chunk's content begins in its parent, a fact generic enough that any pack
+attaching document structure to a root node — headings, section ids, a table of contents —
+may yet read it the way page attribution once did.
 """
 
 from pydantic import Field

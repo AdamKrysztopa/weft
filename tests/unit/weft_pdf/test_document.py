@@ -8,19 +8,41 @@ them would test `pypdf` instead. The two backends' own tests then check that
 each library is driven correctly, which is the only thing left for them to get
 wrong.
 
-Covers the happy path (pages joined into one root node carrying its page
-offsets), the two edge cases the fallback chain rests on (an empty document is
-`NothingToProduce`, a page this pack could not see is `Failed`), and the error
-case of a library refusing the bytes outright.
+Covers the happy path (**one root node per page**, each carrying the page it is —
+G17, settled 2026-09-12), the two edge cases the fallback chain rests on (an empty
+document is `NothingToProduce`, a page this pack could not see is `Failed`), and the
+error case of a library refusing the bytes outright.
+
+**The happy-path test varies the page number and the content together**, because a
+fixture whose pages are indistinguishable cannot tell *one node per page* from *one
+node per document*, and that is the entire dimension under test.
 """
 
 from collections.abc import Sequence
+from typing import Final
 
 import pytest
 
 from weft_extract.contract import SourceDoc
-from weft_kernel.payload import Failed, Node, NothingToProduce, Outcome, Produced, SourceId
-from weft_pdf.document import PageReader, PageText, PdfPages, extract_documents
+from weft_extract.payload import BoundingBox, PageSpan
+from weft_kernel.payload import (
+    Failed,
+    MediaType,
+    Node,
+    NothingToProduce,
+    Outcome,
+    Produced,
+    SchemaVersionRefusedError,
+    SourceId,
+)
+from weft_pdf.document import (
+    ExtractedFigure,
+    ExtractedTable,
+    PageReader,
+    PageText,
+    PdfPages,
+    extract_documents,
+)
 
 
 class _RefusedError(Exception):
@@ -47,12 +69,12 @@ def _extract(
         backend="stand-in",
         read_pages=read,
         unreadable=(_RefusedError,),
-        separator="\n\n",
     )
 
 
-def test_pages_become_one_node_carrying_the_offset_each_page_starts_at() -> None:
-    # Arrange
+def test_each_page_becomes_its_own_node_carrying_the_page_it_is() -> None:
+    # Arrange — two pages that differ in both number and text, so neither dimension
+    # can stand in for the other.
     read = _reading(
         PageText(number=1, text="first page", images=0),
         PageText(number=2, text="second page", images=1),
@@ -63,33 +85,64 @@ def test_pages_become_one_node_carrying_the_offset_each_page_starts_at() -> None
 
     # Assert
     assert isinstance(outcome, Produced)
+    first, second = outcome.value
+    assert [node.content for node in outcome.value] == ["first page", "second page"]
+    assert first.ext_as(PageSpan) == PageSpan(page=1, ordinal=0)
+    assert second.ext_as(PageSpan) == PageSpan(page=2, ordinal=0)
+    assert first.lineage.sources == second.lineage.sources == frozenset({SourceId("paper")})
+
+
+def test_a_page_node_still_says_which_backend_read_it() -> None:
+    # Arrange — `PdfPages` keeps `backend` and nothing else: it is the payload's own
+    # answer to which backend won the fallback chain, which `PageSpan` cannot give.
+    read = _reading(PageText(number=1, text="only page", images=0))
+
+    # Act
+    outcome = _extract(read)
+
+    # Assert
+    assert isinstance(outcome, Produced)
     [node] = outcome.value
-    pages = node.ext_as(PdfPages)
-    assert node.content == "first page\n\nsecond page"
-    assert node.lineage.sources == frozenset({SourceId("paper")})
-    assert pages is not None
-    assert pages.backend == "stand-in"
-    assert pages.starts == (0, 12)
+    assert node.ext_as(PdfPages) == PdfPages(backend="stand-in")
 
 
-def test_page_at_answers_the_page_a_content_offset_falls_on() -> None:
-    # Arrange
-    pages = PdfPages(backend="stand-in", starts=(0, 12, 40))
+def test_two_pages_holding_the_same_text_are_two_nodes_not_one() -> None:
+    # Arrange — the page is now a fact *about the node*, so one node cannot hold two
+    # contradictory pages. `Node.synthetic`'s `ordinal` is what keeps their digests apart;
+    # G20's own answer (identical content is one node) is unchanged, because these
+    # nodes are no longer identical.
+    read = _reading(
+        PageText(number=3, text="continued overleaf", images=0),
+        PageText(number=7, text="continued overleaf", images=0),
+    )
 
-    # Act / Assert — the boundary in both directions, and past the end
-    assert pages.page_at(0) == 1
-    assert pages.page_at(11) == 1
-    assert pages.page_at(12) == 2
-    assert pages.page_at(9_000) == 3
+    # Act
+    outcome = _extract(read)
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    third, seventh = outcome.value
+    assert third.id != seventh.id
+    assert third.ext_as(PageSpan) == PageSpan(page=3, ordinal=0)
+    assert seventh.ext_as(PageSpan) == PageSpan(page=7, ordinal=0)
 
 
-def test_page_at_refuses_a_negative_offset() -> None:
-    # Arrange
-    pages = PdfPages(backend="stand-in", starts=(0,))
+def test_a_pdf_pages_stored_before_the_page_became_a_node_upgrades_rather_than_refusing() -> None:
+    # Arrange — what `weft-rag 2.4.0` wrote: a backend and an offset table.
+    stored = {"backend": "pdf-layout", "starts": [0, 1200, 2400]}
 
-    # Act / Assert
-    with pytest.raises(ValueError, match="cannot be negative"):
-        pages.page_at(-1)
+    # Act
+    upgraded = PdfPages.upgrade(stored, "1.0.0")
+
+    # Assert — the offsets are dropped, because there is no longer anything they index into.
+    assert PdfPages.model_validate(dict(upgraded)) == PdfPages(backend="pdf-layout")
+
+
+def test_a_pdf_pages_stored_at_a_version_this_class_never_wrote_still_refuses() -> None:
+    # Arrange / Act / Assert — the upgrade path is for the one shape that existed, not a
+    # licence to guess at any older row.
+    with pytest.raises(SchemaVersionRefusedError, match="weft-pdf"):
+        PdfPages.upgrade({"backend": "pdf-layout"}, None)
 
 
 def test_an_empty_batch_is_nothing_to_produce() -> None:
@@ -167,6 +220,7 @@ def test_an_empty_document_beside_a_full_one_keeps_the_full_one() -> None:
     assert isinstance(outcome, Produced)
     [node] = outcome.value
     assert node.content == "real text"
+    assert node.ext_as(PageSpan) == PageSpan(page=1, ordinal=0)
 
 
 def test_a_batch_in_which_no_document_had_any_text_names_every_one_of_them() -> None:
@@ -205,3 +259,65 @@ def test_one_unreadable_document_fails_the_whole_batch_rather_than_shrinking_it(
     assert "file:///b.pdf" in outcome.reason
     assert "no cross-reference table" in outcome.reason
     assert len(calls) == 2
+
+
+_TWO_PAGES: Final[PageReader] = _reading(
+    PageText(number=1, text="first page", images=0),
+    PageText(number=2, text="second page", images=0),
+)
+
+
+def test_a_table_is_a_child_of_the_page_it_was_found_on() -> None:
+    # Arrange — the table is on page 2, so a parent chosen by "the first text node" or
+    # "the only root" would pass while naming the wrong page.
+    def read_tables(content: bytes) -> Sequence[ExtractedTable]:
+        del content
+        return (
+            ExtractedTable(
+                page=2,
+                headers=("Region", "Revenue"),
+                rows=(("EMEA", "1,204"),),
+                bbox=BoundingBox(x0=0.0, y0=0.0, x1=10.0, y1=10.0),
+            ),
+        )
+
+    # Act
+    outcome = extract_documents(
+        [_doc()],
+        backend="stand-in",
+        read_pages=_TWO_PAGES,
+        unreadable=(_RefusedError,),
+        read_tables=read_tables,
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    pages = [node for node in outcome.value if node.media_type is MediaType.TEXT]
+    tables = [node for node in outcome.value if node.media_type is MediaType.TABLE]
+    second = next(node for node in pages if node.ext_as(PageSpan) == PageSpan(page=2, ordinal=0))
+    assert [table.lineage.parents for table in tables] == [(second.id,)]
+
+
+def test_a_figure_is_owed_against_the_page_it_was_found_on() -> None:
+    # Arrange — same shape for the figure path, which `run` finishes after a blob write.
+    def read_figures(content: bytes) -> Sequence[ExtractedFigure]:
+        del content
+        return (ExtractedFigure(page=2, index_on_page=0, caption="Figure 1. A chart", png=b"png"),)
+
+    # Act
+    outcome = extract_documents(
+        [_doc()],
+        backend="stand-in",
+        read_pages=_TWO_PAGES,
+        unreadable=(_RefusedError,),
+        read_figures=read_figures,
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = outcome.value
+    second = next(
+        node for node in result.nodes if node.ext_as(PageSpan) == PageSpan(page=2, ordinal=0)
+    )
+    [pending] = result.figures
+    assert pending.root.id == second.id

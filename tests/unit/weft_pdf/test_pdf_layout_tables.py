@@ -4,8 +4,9 @@
 ever produced one (`docs/internal/README.md`'s `S11` row). This is its first producer.
 
 **One node, whose media type says so, carrying its grid.** The table node is `derive`d from the
-root the document already produces, so lineage and `sources` are carried and `weft delete` reaps it
-with everything else. Its `content` is the **index-form** serialisation from
+node for the page it was found on — G17, settled 2026-09-12, made that one node per page rather
+than one per document — so lineage and `sources` are carried and `weft delete` reaps it with
+everything else. Its `content` is the **index-form** serialisation from
 `weft_extract.table_text` — the pack that publishes `TableGrid`, not this one — so the day
 `9.13`'s Docling backend produces a grid, the same table renders to the same text and a cell
 containing a pipe cannot break one extractor and not the other. Its `ext` carries the `TableGrid`
@@ -96,8 +97,13 @@ async def test_the_table_nodes_content_is_the_shared_index_serialisation() -> No
     assert table.content == index_text(grid)
 
 
-async def test_the_table_node_is_a_child_of_the_document_root() -> None:
-    """Lineage carried, so `weft delete` of the source reaps the table with everything else."""
+async def test_the_table_node_is_a_child_of_the_page_node_it_was_found_on() -> None:
+    """Lineage carried, so `weft delete` of the source reaps the table with everything else.
+
+    This fixture is one page, so it cannot tell *the page it was found on* from *the only
+    node there is* — `tests/unit/weft_pdf/test_document.py` carries the two-page version,
+    where the choice is observable.
+    """
     # Act
     nodes = await _nodes(ruled_table(_ROWS))
     root = next(n for n in nodes if n.media_type is MediaType.TEXT)
@@ -109,7 +115,7 @@ async def test_the_table_node_is_a_child_of_the_document_root() -> None:
 
 
 async def test_the_documents_text_is_still_produced_beside_the_table() -> None:
-    """A table node replaces nothing. The root is what `PdfPages` and every prose chunk hang off."""
+    """A table node replaces nothing. The page node it hangs off is still produced beside it."""
     # Act
     nodes = await _nodes(ruled_table(_ROWS))
 
@@ -178,7 +184,6 @@ def _through_extract(*tables: ExtractedTable) -> Sequence[Node]:
         backend="stub",
         read_pages=lambda _: (PageText(number=1, text="some prose", images=0),),
         unreadable=(),
-        separator="\n",
         read_tables=lambda _: tables,
     )
     assert isinstance(outcome, Produced), outcome

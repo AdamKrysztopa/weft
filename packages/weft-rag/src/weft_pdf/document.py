@@ -81,14 +81,13 @@ document in the batch produced content, and its reason names every one of
 them.
 """
 
-from bisect import bisect_right
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import overload
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from weft_extract.contract import SourceDoc
-from weft_extract.payload import BoundingBox, TableGrid
+from weft_extract.payload import BoundingBox, PageSpan, TableGrid
 from weft_extract.table_text import index_text
 from weft_kernel.payload import (
     ExtModel,
@@ -126,29 +125,22 @@ class PageText(BaseModel):
 
 
 class PdfPages(ExtModel):
-    """Which backend read a document, and where each of its pages starts in the content.
+    """Which backend read a document — the payload's own answer to which backend won the
+    fallback chain, a fact `weft_extract.payload.PageSpan` cannot give.
 
     `.phase2-findings.md` finding 10: what a parser recovers beyond plain text
     attaches as a declared extension model, never as a widened `Node` and never
-    as `dict[str, object]`. Page boundaries are the first thing a PDF parser
-    knows that plain text does not.
+    as `dict[str, object]`.
 
-    **What this reaches, and how — closed by ledger 2.9, corrected here.** This model is
-    built once, on the **root node** this pack extracts, and `Node.derive` carries lineage
-    but deliberately drops `ext` (`weft_kernel.payload.node`, *"Lineage is carried; `ext`
-    and `embedding` are not"*) — so on its own, this fact would die at the first `derive`
-    call the chunker makes. `weft_chunk.fixed_size._carry_forward` is the fix: it copies
-    every namespace a parent's `ext` carries, this one included, onto each window before
-    the chunker returns it, so a chunk reaching a store carries this same `PdfPages`
-    unchanged. What a chunk adds on top is `weft_chunk.payload.ChunkOffset` — the
-    character offset *this window* starts at within the content `starts` above is
-    indexed into — so `page_at` still answers correctly once the content it is called
-    against is a chunk's, not the root's: `pdf_pages.page_at(chunk_offset.start)`.
-
-    `page_at`'s own docstring still says "this node's content" because that is still
-    literally true: a `PdfPages` carried onto a chunk is unchanged data, indexed against
-    the *root's* content it was built from, and `ChunkOffset.start` is what supplies the
-    matching root-relative offset rather than the chunk's own local one.
+    **G17, settled 2026-09-12: the extractor now emits one node per page, and `starts`
+    retires.** Before this, one node held a whole document's joined text and `starts` was
+    an offset table indexed into it, so a fact this pack attached to the whole document had
+    to travel through `weft_kernel.payload.carry_forward` and then be re-read through an
+    offset a later `Node.derive` cut (a chunk, a table) could invalidate simply by existing.
+    A `TEXT` node is now one page, and the page it describes is a scalar fact attached
+    directly (`weft_extract.payload.PageSpan`) rather than reconstructed from an offset and
+    a locator — there is no offset left for a rewrite to invalidate, and no `page_at` left
+    to call.
 
     Not `__transient__`: a page boundary is a durable fact about the document,
     not a working value. Nodes carrying it survive a round trip through
@@ -159,26 +151,30 @@ class PdfPages(ExtModel):
     """
 
     __namespace__ = "weft-pdf"
-    __schema_version__ = "1.0.0"
+    __schema_version__ = "2.0.0"
 
     backend: str = Field(min_length=1)
-    starts: tuple[int, ...] = Field(min_length=1)
 
-    def page_at(self, offset: int) -> int:
-        """The 1-based page holding the character at `offset` of **this node's** content.
+    @classmethod
+    def upgrade(cls, data: Mapping[str, object], from_version: str | None) -> Mapping[str, object]:
+        """A `weft-rag 2.4.0` corpus — `backend` plus an offset table — reads rather than refuses.
 
-        The reason `starts` is worth carrying at all: an offset into extracted
-        text is meaningless to a reader, and a page number is exactly what they
-        can go and check. `offset` is into the content of the node this model is
-        attached to — the root, and only the root; see the class docstring for
-        why nothing downstream can call this yet. An offset past the end of the
-        content answers the last page rather than raising: this model does not
-        hold the content and so cannot know where it ends, and inventing a bound
-        it cannot verify would be worse than answering the nearest page.
+        Only `"1.0.0"` — the one shape this class ever wrote — upgrades; every other
+        `from_version`, `None` included, still refuses through the base class, because the
+        offsets are the only shape this pack has ever produced and guessing at any other one
+        would be exactly the silent misread `ExtModel.upgrade`'s own docstring forbids.
+        `starts` is dropped rather than migrated: it indexed into a joined document string
+        that no longer exists, so there is nothing left for it to mean.
+
+        What a corpus written before this migrates loses, and does not. On a pipeline that
+        ran any cleaner, the page was already gone before this repair — `Node.derive` drops
+        `ext` and, until `R9.1`, no cleaner put it back — so nothing regresses there. On a
+        no-cleaner pipeline, a page `page_at` used to answer correctly is now simply absent
+        until the corpus is reindexed: an honest `None`, never a wrong number.
         """
-        if offset < 0:
-            raise ValueError(f"a content offset cannot be negative; got {offset}")
-        return bisect_right(self.starts, offset)
+        if from_version == "1.0.0":
+            return {"backend": data["backend"]}
+        return super().upgrade(data, from_version)
 
 
 #: What a backend contributes, and the only thing it contributes: bytes in, pages out.
@@ -284,7 +280,7 @@ class PendingFigure(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    #: The document root this figure is a child of, once `run` calls `root.derive(...)`.
+    #: The page node this figure is a child of, once `run` calls `root.derive(...)`.
     root: Node
     #: `doc.source_id`, carried alongside `root` rather than read back off it: `root.lineage.
     #: sources` is a `frozenset` with no ordering guarantee, and this way `run` never has to
@@ -347,7 +343,6 @@ def extract_documents(
     backend: str,
     read_pages: PageReader,
     unreadable: tuple[type[Exception], ...],
-    separator: str,
     read_tables: TableReader | None = None,
 ) -> Outcome[Sequence[Node]]: ...
 
@@ -359,7 +354,6 @@ def extract_documents(
     backend: str,
     read_pages: PageReader,
     unreadable: tuple[type[Exception], ...],
-    separator: str,
     read_tables: TableReader | None = None,
     read_figures: FigureReader,
 ) -> Outcome[ExtractionResult]: ...
@@ -371,11 +365,10 @@ def extract_documents(
     backend: str,
     read_pages: PageReader,
     unreadable: tuple[type[Exception], ...],
-    separator: str,
     read_tables: TableReader | None = None,
     read_figures: FigureReader | None = None,
 ) -> Outcome[Sequence[Node]] | Outcome[ExtractionResult]:
-    """One root `Node` per source document, under the rules in the module docstring.
+    """One node per page with text, per source document, under the rules in the module docstring.
 
     **Two return shapes, chosen by whether `read_figures` was passed, and that is a fact about
     one specific caller rather than every caller** — the identical footing `read_tables`
@@ -412,7 +405,6 @@ def extract_documents(
             backend=backend,
             read_pages=read_pages,
             unreadable=unreadable,
-            separator=separator,
             read_tables=read_tables,
             read_figures=read_figures,
         )
@@ -438,7 +430,6 @@ def _extract_one(
     backend: str,
     read_pages: PageReader,
     unreadable: tuple[type[Exception], ...],
-    separator: str,
     read_tables: TableReader | None,
     read_figures: FigureReader | None,
 ) -> Failed | tuple[tuple[Node, ...], tuple[PendingFigure, ...], str | None]:
@@ -461,7 +452,6 @@ def _extract_one(
             )
         )
 
-    content, starts = _joined(pages, separator=separator)
     # Unchanged by task 9.7's figure path — `_first_unseen_page`'s own docstring records why it
     # needed no narrowing, and the two that were nearly written instead.
     found = tuple(read_figures(doc.content)) if read_figures is not None else ()
@@ -475,30 +465,74 @@ def _extract_one(
             )
         )
 
-    if not content.strip():
+    page_nodes = _page_nodes(doc, pages, backend=backend)
+    if not page_nodes:
         return (), (), f"'{doc.uri}': {len(pages)} page(s), and no text on any of them"
-
-    root = Node.synthetic(
-        content=content,
-        media_type=MediaType.TEXT,
-        reason=f"extracted from '{doc.uri}' by {backend}",
-        sources=frozenset({doc.source_id}),
-    ).with_ext(PdfPages(backend=backend, starts=starts))
-    nodes = [root]
+    nodes: list[Node] = list(page_nodes.values())
 
     if read_tables is not None:
         for ordinal, table in enumerate(read_tables(doc.content)):
+            root = _root_for_page(page_nodes, table.page, backend=backend, doc=doc, kind="table")
             table_node = _table_node(root, table, ordinal=ordinal)
             if table_node is not None:
                 nodes.append(table_node)
 
     figures: list[PendingFigure] = []
     for figure in found:
+        root = _root_for_page(page_nodes, figure.page, backend=backend, doc=doc, kind="figure")
         pending = _pending_figure(root, doc.source_id, figure)
         if pending is not None:
             figures.append(pending)
 
     return tuple(nodes), tuple(figures), None
+
+
+def _page_nodes(doc: SourceDoc, pages: Sequence[PageText], *, backend: str) -> dict[int, Node]:
+    """One `Node` per page in `pages` whose text is not blank, keyed by page number.
+
+    Split out of `_extract_one` to keep that function's own branching under this tree's
+    complexity budget. `ordinal=page.number` is load-bearing, not cosmetic: `Node.synthetic`
+    digests `(media_type, content, parents, ordinal)`, so two pages holding byte-identical
+    text would otherwise collide onto one node carrying two contradictory page facts —
+    `test_two_pages_holding_the_same_text_are_two_nodes_not_one` is that assertion. A blank
+    page contributes no entry: it has already passed the empty-page-with-images check above,
+    so a blank page here really is empty, not merely unseen.
+    """
+    page_nodes: dict[int, Node] = {}
+    for page in pages:
+        if not page.text.strip():
+            continue
+        page_nodes[page.number] = (
+            Node.synthetic(
+                content=page.text,
+                media_type=MediaType.TEXT,
+                reason=f"extracted from '{doc.uri}' page {page.number} by {backend}",
+                sources=frozenset({doc.source_id}),
+                ordinal=page.number,
+            )
+            .with_ext(PdfPages(backend=backend))
+            .with_ext(PageSpan(page=page.number, ordinal=0))
+        )
+    return page_nodes
+
+
+def _root_for_page(
+    page_nodes: Mapping[int, Node], page: int, *, backend: str, doc: SourceDoc, kind: str
+) -> Node:
+    """The page node a table or figure on `page` should become a child of.
+
+    Raises rather than picking a neighbour when `backend` names a page this document has no
+    text node for: per the module docstring, that is a bug inside one backend, not a read
+    failure, so it reaches the registration seam with its traceback intact instead of
+    becoming a `Failed` that would send a working document to another backend.
+    """
+    root = page_nodes.get(page)
+    if root is None:
+        raise ValueError(
+            f"{backend} reported a {kind} on page {page} of '{doc.uri}', but reported no "
+            "text on that page — a bug in this backend, not a read failure"
+        )
+    return root
 
 
 def _table_node(root: Node, table: ExtractedTable, *, ordinal: int) -> Node | None:
@@ -547,21 +581,3 @@ def _first_unseen_page(pages: Sequence[PageText]) -> PageText | None:
         (page for page in pages if not page.text.strip() and page.images > 0),
         None,
     )
-
-
-def _joined(pages: Sequence[PageText], *, separator: str) -> tuple[str, tuple[int, ...]]:
-    """Every page's text as one string, and the offset each page starts at within it.
-
-    Every page contributes an entry, including one that extracted to nothing —
-    dropping empty pages would shift every later page number by an amount only
-    this function knows, which is precisely the error `PdfPages.page_at` exists
-    to make impossible.
-    """
-    starts: list[int] = []
-    offset = 0
-    for index, page in enumerate(pages):
-        if index:
-            offset += len(separator)
-        starts.append(offset)
-        offset += len(page.text)
-    return separator.join(page.text for page in pages), tuple(starts)

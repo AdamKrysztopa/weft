@@ -18,6 +18,7 @@ from collections.abc import Sequence
 
 from tests.unit.weft_pdf import minimal_pdf
 from weft_extract.contract import Extractor, SourceDoc
+from weft_extract.payload import PageSpan
 from weft_kernel.context import Context
 from weft_kernel.payload import Failed, Node, NothingToProduce, Outcome, Produced, SourceId
 from weft_pdf.document import PageText, PdfPages
@@ -53,8 +54,10 @@ def _doc(content: bytes, uri: str = "file:///paper.pdf") -> SourceDoc:
     return SourceDoc(source_id=SourceId("paper"), uri=uri, content=content)
 
 
-async def test_two_text_pages_become_one_node_whose_offsets_find_each_page() -> None:
-    # Arrange
+async def test_two_text_pages_become_two_nodes_each_saying_which_page_it_is() -> None:
+    # Arrange — G17: the page is a fact about the node, not an offset into a joined
+    # string. The two pages differ in text as well as number, so neither can stand in
+    # for the other.
     extractor = PdfTextExtractor()
     doc = _doc(minimal_pdf.text_pages("mutual information", "feature selection"))
 
@@ -63,13 +66,12 @@ async def test_two_text_pages_become_one_node_whose_offsets_find_each_page() -> 
 
     # Assert
     assert isinstance(outcome, Produced)
-    [node] = outcome.value
-    pages = node.ext_as(PdfPages)
-    assert "mutual information" in node.content
-    assert "feature selection" in node.content
-    assert pages is not None
-    assert pages.backend == "pdf-text"
-    assert pages.page_at(node.content.index("feature selection")) == 2
+    first, second = outcome.value
+    assert "mutual information" in first.content
+    assert "feature selection" in second.content
+    assert first.ext_as(PageSpan) == PageSpan(page=1, ordinal=0)
+    assert second.ext_as(PageSpan) == PageSpan(page=2, ordinal=0)
+    assert second.ext_as(PdfPages) == PdfPages(backend="pdf-text")
 
 
 async def test_the_extraction_mode_reaches_pypdf_rather_than_only_being_declared() -> None:

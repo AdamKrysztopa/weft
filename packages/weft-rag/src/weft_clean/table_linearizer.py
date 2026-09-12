@@ -42,6 +42,7 @@ from weft_kernel.payload import (
     Outcome,
     Produced,
     Property,
+    carry_forward,
 )
 
 #: A run this wide is read as a column boundary rather than an ordinary word
@@ -97,7 +98,10 @@ class TableLinearizer:
         if not payload:
             return NothingToProduce(reason="no nodes to linearize")
         linearized = [
-            node.derive(content=_linearize(node.content, gap_width=self._config.gap_width))
+            carry_forward(
+                node.derive(content=_linearize(node.content, gap_width=self._config.gap_width)),
+                parent=node,
+            )
             for node in payload
         ]
         return Produced(value=linearized)

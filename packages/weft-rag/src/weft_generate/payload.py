@@ -55,12 +55,13 @@ class Citation(BaseModel):
 
     `page` closes the gap this task's own ledger line names: a `node_id` is a content
     digest, and a `uri` alone still leaves a reader searching a whole document for one
-    claim. `weft_generate.page.page_for` resolves it, when it can, from two facts a
-    chunk carries — `weft_chunk.payload.ChunkOffset` (where this passage's content
-    starts in the document it was cut from) and whatever ext model on that same node can
-    turn an offset into a page, `weft_pdf.PdfPages` being the one this build ships.
+    claim. `weft_generate.page.page_for` resolves it, when it can, directly off a fact
+    already attached to the node — `weft_extract.payload.PageSpan` on a prose or figure
+    node, `weft_extract.payload.TableGrid` on a table node — the page is read straight
+    from the node it describes, not reconstructed from an offset into a joined document
+    string (G17, 2026-09-12, retired that indirection along with `PdfPages.starts`).
     `None` is not "page 1" and is not omitted silently: it is what this field says when
-    the source is not paginated, or when nothing in the pipeline attached either fact —
+    the source is not paginated, or when nothing in the pipeline attached a page fact —
     a citation that still resolves to *a passage*, just not to a page of one.
     """
 

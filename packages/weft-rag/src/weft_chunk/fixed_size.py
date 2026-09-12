@@ -30,7 +30,7 @@ existed.
 
 **Every window carries `ChunkOffset`, and every window carries forward what its parent's
 `ext` said — ledger 2.9's page-attribution gap, closed here.** `Node.derive` drops `ext`
-on purpose ("later stages attach their own"); this is that later stage. `weft_chunk.carry.
+on purpose ("later stages attach their own"); this is that later stage. `weft_kernel.payload.
 carry_forward` copies each namespace in the parent's `ext` onto the chunk verbatim, so a
 fact a pack attached to the whole document — `weft_pdf.PdfPages`, a future heading map —
 survives a window cut from that document's content, without this pack importing `weft-pdf`
@@ -40,11 +40,12 @@ forward would attach a claim about the chunk that is false the moment it is read
 offset is applied last, after the copy, so a chunk's own `ChunkOffset` always wins over
 a stale one a multi-level chunker might otherwise carry in from its own parent.
 
-**`carry_forward` moved to `weft_chunk.carry` at ledger task `9.14`**, where it was this
-module's own private `_carry_forward` before `weft_chunk.table_rows.TableRowChunker`
-needed the identical shape for a second caller — a table row derived from its table, not
-a window derived from whatever it is chunking, but the same fact-survives-`derive` problem
-either way. This module now imports it rather than keeping its own copy.
+**`carry_forward` moved to `weft_kernel.payload` at G17, 2026-09-12** — it was `weft_chunk.
+carry.carry_forward` (ledger task `9.14`, where it was this module's own private
+`_carry_forward` before `weft_chunk.table_rows.TableRowChunker` needed the identical shape
+for a second caller) until G17 added a third consumer, `weft_clean`, which shares no
+import with either of the first two — only `weft-kernel`. This module now imports it from
+there rather than from a sibling pack.
 
 **Repair, ledger 2.9: `ChunkOffset.start` now compounds across nested chunking.** Three
 reviewers of the first cut traced the same defect: `_windows` computed `start` as an offset
@@ -64,7 +65,6 @@ from collections.abc import Sequence
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from weft_chunk.carry import carry_forward
 from weft_chunk.payload import ChunkOffset
 from weft_chunk.property import WordBoundaries
 from weft_kernel.context import Context
@@ -76,6 +76,7 @@ from weft_kernel.payload import (
     Outcome,
     Produced,
     Property,
+    carry_forward,
 )
 
 #: `docs/02-extension-model.md` §3's own pipeline example: `{size: 512, overlap: 50}`.

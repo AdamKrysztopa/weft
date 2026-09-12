@@ -51,7 +51,7 @@ The four concerns:
      text.py:80 'Node.syn'`, `weft_pdf/document.py:205 'rows: tu'`,
      `weft_chunk/fixed_size.py:117 'destroys'
      'destroys'`,
-     `weft_clean/dictionary_spacing.py:108-109 'intact: '`,
+     `weft_clean/dictionary_spacing.py:116-117 'intact: '`,
      `weft_clean/hyphenation.py:71-72 'intact: '
      'intact:'`,
      `weft_clean/whitespace.py:64-65 'intact: t'`, `weft_clean/table_linearizer.py:79 'destroys:'`,

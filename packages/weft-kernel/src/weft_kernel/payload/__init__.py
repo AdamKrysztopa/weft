@@ -17,7 +17,7 @@ from weft_kernel.payload.ext import SCHEMA_VERSION_KEY, ExtMap, ExtModel, Schema
 from weft_kernel.payload.ids import NodeId, SourceId
 from weft_kernel.payload.lineage import Lineage
 from weft_kernel.payload.media_type import MediaType
-from weft_kernel.payload.node import Node, SyntheticOrigin
+from weft_kernel.payload.node import Node, SyntheticOrigin, carry_forward
 from weft_kernel.payload.outcome import Failed, NothingToProduce, Outcome, Produced
 from weft_kernel.payload.property import Property
 from weft_kernel.payload.vector import Vector
@@ -40,4 +40,5 @@ __all__ = [
     "SourceId",
     "SyntheticOrigin",
     "Vector",
+    "carry_forward",
 ]

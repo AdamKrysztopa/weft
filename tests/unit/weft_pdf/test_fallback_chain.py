@@ -149,7 +149,7 @@ async def test_a_document_the_first_backend_cannot_read_is_answered_by_the_secon
     assert summary == RunSummary(produced=1)
     assert tracer.names[:2] == ["extract:pdf-text", "extract:pdf-layout"]
     [node] = captured[0]
-    assert node.ext["weft-pdf"] == PdfPages(backend="pdf-layout", starts=(0,))
+    assert node.ext["weft-pdf"] == PdfPages(backend="pdf-layout")
 
 
 async def test_the_same_document_without_the_chain_fails_naming_the_backend(
