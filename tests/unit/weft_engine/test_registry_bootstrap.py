@@ -17,6 +17,7 @@ import re
 from pathlib import Path
 
 import pytest
+from pydantic_core import PydanticSerializationError
 
 from weft_cli.exit_codes import ExitCode
 from weft_engine import registry_bootstrap
@@ -702,3 +703,38 @@ def test_build_dependencies_records_whether_the_file_named_an_embedder(
     # Assert
     assert deps.embed_was_selected is expected
     assert deps.services.embed == ("openai-embeddings" if "openai" in written else "hash")
+
+
+def test_every_pack_report_a_real_discovery_produces_can_be_written_down() -> None:
+    """Ledger task **24.5** — `weft --json plugins list` is a `PackReport` serialised, or nothing.
+
+    **The population is what a real `build_dependencies()` returns, not a fixture**, and that is
+    the whole value of this test. The first version of it built one `PackReport` by hand carrying
+    the one field known to be a problem (`ext_models`, a tuple of live `ExtModel` classes) and
+    passed — while the shipped binary still exited 1 on five of twenty-three real reports, because
+    `RendererOffer.result_type`, `RendererOffer.render` and `ServiceRole.contract` hold live
+    objects too. A double narrower than the real thing in the dimension under test is `L12.11`,
+    and writing it *while fixing an instance of it* is why this one reads the world instead.
+
+    Each of those fields holds a live class or callable deliberately — the render dispatch keys on
+    the type, `ctx.require` resolves against the Protocol, rehydration needs the model — so none
+    of them becomes a string. What leaves is an identity: a `field_serializer` per field, the
+    in-memory value untouched.
+    """
+    # Arrange / Act — discovery against whatever is actually installed in this environment.
+    deps = registry_bootstrap.build_dependencies(Path("no-such-weft.toml"))
+
+    # Assert
+    assert deps.reports, "discovery found no packs at all — this test would check nothing"
+    unserialisable: list[str] = []
+    for report in deps.reports:
+        try:
+            report.model_dump_json()
+        except PydanticSerializationError:
+            unserialisable.append(report.pack or report.distribution)
+    assert not unserialisable, (
+        f"these packs' reports cannot be written down: {sorted(unserialisable)}. A field holding "
+        f"a live class or callable needs a `field_serializer` answering with its identity — see "
+        f"`PackReport.ext_models` for the shape. Until then `weft --json plugins list` exits 1 "
+        f"printing nothing."
+    )

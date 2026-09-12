@@ -789,7 +789,7 @@ def register_selected_roles(
     capability the resolved pipeline actually demands of it.
 
     Ledger task **9.0**, property (ii). `ServiceRegistry` keys by **exact type**
-    (`weft_kernel/context.py:244 'def require'`), so an instance registered under its role's
+    (`weft_kernel/context.py:255 'def require'`), so an instance registered under its role's
     contract
     answers
     no `ctx.require` for anything else it satisfies. Aliasing is what makes a second capability

@@ -42,7 +42,7 @@ from weft_eval.run_record import PerQuestionScores, ScoredQueryRung
 from weft_generate.payload import Answer, AnswerStance, Citation
 from weft_kernel.discovery import PackRegistrar, PackReport, PackStatus
 from weft_kernel.errors import WeftError
-from weft_kernel.payload import Failed, NothingToProduce, Produced
+from weft_kernel.payload import ExtModel, Failed, NothingToProduce, Produced
 from weft_kernel.registry import (
     DisplacedRegistration,
     DuplicateRegistrationError,
@@ -1900,3 +1900,128 @@ def test_render_index_says_nothing_when_the_embedder_was_chosen() -> None:
 
     # Assert
     assert rendered.stderr is None
+
+
+# Task 24.5 — `--json` writes the command's *result*, not prose about it.
+#
+# `03` → *Output* promised "the scripting contract: same events, no parsing of prose" and, until
+# `R17.18` measured it, described an intention rather than a behaviour: `--json` swapped the
+# **sink** and nothing else, so stdout was one JSON stream event followed by lines like
+# `produced 1, nothing to produce 0, failed 0.` It parsed as neither one JSON document nor as
+# newline-delimited JSON. `R17.18` closed by naming Phase 24a as owing the renderer, *"because a
+# typed result a program can consume and a machine-readable result a script can consume are the
+# same question asked at two boundaries"*, and `docs/03-cli.md`:840 carries that sentence.
+#
+# The renderer already existed for result types this module was never written against —
+# `_render_unknown` dumps the model. What was missing is reaching it for the types it *was*
+# written against, which is every type a script actually meets.
+
+
+def test_json_renders_the_result_model_rather_than_the_prose_about_it() -> None:
+    # Arrange
+    result = DeleteCommandResult(
+        source_id="doc-1",
+        participants=(
+            ParticipantOutcome(
+                contract="NodeStore", plugin="pgvector", distribution="weft-store", node_count=7
+            ),
+        ),
+    )
+
+    # Act
+    rendered = render.render_outcome(Produced(value=result), as_json=True)
+
+    # Assert — one JSON document carrying the result's own fields, parseable without a parser
+    # for this command's sentences.
+    assert rendered.stdout is not None
+    assert json.loads(rendered.stdout) == result.model_dump(mode="json")
+
+
+def test_json_keeps_the_exit_code_the_prose_path_computed() -> None:
+    """The half a naive JSON branch loses, and the reason it is not `return Rendered(..., SUCCESS)`.
+
+    `weft delete` and `weft index` compute their own exit code from their own result's fields —
+    a participant that failed is exit 1 whatever the output format. A `--json` branch that
+    returned success because it had a document to print would make a failed delete look clean to
+    exactly the caller least able to notice: a script.
+    """
+    # Arrange — one participant succeeded and one did not.
+    result = DeleteCommandResult(
+        source_id="doc-1",
+        participants=(
+            ParticipantOutcome(
+                contract="NodeStore", plugin="pgvector", distribution="weft-store", node_count=7
+            ),
+            ParticipantOutcome(
+                contract="GraphStore",
+                plugin="graph",
+                distribution="weft-kg",
+                error="RuntimeError: connection refused",
+            ),
+        ),
+    )
+    prose = render.render_outcome(Produced(value=result))
+
+    # Act
+    as_json = render.render_outcome(Produced(value=result), as_json=True)
+
+    # Assert
+    assert prose.exit_code is not ExitCode.SUCCESS, (
+        "the fixture no longer exercises a failing delete, so this test compares two successes "
+        "and would pass against a branch that hard-codes SUCCESS"
+    )
+    assert as_json.exit_code is prose.exit_code
+
+
+def test_the_prose_path_is_untouched_by_the_json_branch() -> None:
+    """Non-vacuity from the other side: `--json` off still renders sentences, not a dump."""
+    # Arrange
+    result = DeleteCommandResult(source_id="doc-1", participants=())
+
+    # Act
+    rendered = render.render_outcome(Produced(value=result))
+
+    # Assert
+    assert rendered.stdout == "nothing installed holds data for 'doc-1'; nothing was deleted."
+
+
+def test_a_result_carrying_pack_reports_serialises_rather_than_taking_the_command_down() -> None:
+    """The defect only the binary found, and the reason a JSON dump is not free.
+
+    `PackReport.ext_models` holds live `ExtModel` **classes** — deliberately, because
+    `weft_store.rehydrate.register_from_reports` reads them back — and nothing had ever asked a
+    `PackReport` to serialise. Task 24.5 did, and pydantic refused the whole document:
+    `PydanticSerializationError: Unable to serialize unknown type: ModelMetaclass`, so
+    `weft --json plugins list` printed one stream event, no result, and exited 1. Worse than the
+    prose it replaced. 2,749 tests were green.
+
+    A `field_serializer` on that field answers with each model's `__namespace__`, which is the
+    identity a reader of the JSON wants; the in-memory value is untouched, because a serializer
+    decides what leaves and never what the field holds.
+    """
+
+    # Arrange — a report carrying an `ExtModel` class, which is what discovery really produces.
+    class _Namespaced(ExtModel):
+        __namespace__ = "weft-test-render"
+        __schema_version__ = "1.0.0"
+
+        label: str
+
+    result = PluginsListCommandResult(
+        reports=(
+            PackReport(
+                pack="test",
+                distribution="weft-test",
+                status=PackStatus.ACTIVE,
+                ext_models=(_Namespaced,),
+            ),
+        )
+    )
+
+    # Act
+    rendered = render.render_outcome(Produced(value=result), as_json=True)
+
+    # Assert
+    assert rendered.stdout is not None
+    document = json.loads(rendered.stdout)
+    assert document["reports"][0]["ext_models"] == ["weft-test-render"]

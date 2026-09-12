@@ -464,6 +464,42 @@ def _lookup_renderer(result: CommandResult) -> Callable[[object], object] | None
 
 
 def _render_result(result: CommandResult, *, streamed: bool, as_json: bool = False) -> Rendered:
+    """One command result, rendered for a person or for a script — task **24.5**.
+
+    **Under `--json` the result *is* the output**, whatever its type. Before this, `as_json`
+    reached only `_render_ask`, so `weft --json index` and `weft --json plugins list` printed one
+    JSON stream event and then prose, and stdout parsed as neither one document nor as
+    newline-delimited JSON. `docs/03-cli.md`:840 owns the sentence that promised otherwise, and
+    `R17.18` is the record of it being false.
+
+    **The exit code still comes from the prose path, and that is the whole subtlety.** `weft
+    delete` and `weft index` compute theirs from their own result's fields — a participant that
+    failed is exit 1 whatever the format — so this renders the human answer to *decide the code*
+    and then replaces the text. A branch that returned `SUCCESS` because it had a document to
+    print would hide a failed run from exactly the caller least able to notice one.
+
+    `_render_unknown` has always done the dump for a result type this module was never written
+    against. What was missing was reaching it for the types it *was* written against, which is
+    every type a script actually meets.
+
+    **`AskCommandResult` is the exception, and it is the one that must be.** `weft ask --json`
+    already writes a *designed* envelope — `weft_cli.answer_envelope`, discriminated by `kind`,
+    carrying `envelope_version`, and carrying `stance` since carried repair `R11.6` so a script
+    can read a refusal without parsing the sentence. That is a promise `09` §3 makes about a wire
+    format; a raw `model_dump_json()` of the result would be a *different*, unversioned document
+    with none of those fields. Replacing one with the other turned seven tests about the
+    envelope's shape red, which is that design defending itself.
+
+    So: a result type with a designed machine-readable rendering keeps it, and the model dump is
+    the floor for every type that has none — which before this task was every type but one.
+    """
+    prose = _render_prose(result, streamed=streamed, as_json=as_json)
+    if not as_json or (isinstance(result, AskCommandResult) and result.answer is not None):
+        return prose
+    return Rendered(stdout=result.model_dump_json(), stderr=prose.stderr, exit_code=prose.exit_code)
+
+
+def _render_prose(result: CommandResult, *, streamed: bool, as_json: bool) -> Rendered:
     # `AskCommandResult` is the one result type `streamed` matters for — call-specific state
     # no registered `(result type, renderer)` pair carries — so it is special-cased ahead of
     # the registered dispatch rather than the dispatch widening every renderer to a parameter

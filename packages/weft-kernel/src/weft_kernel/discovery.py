@@ -130,7 +130,7 @@ from enum import StrEnum
 from importlib import metadata
 from typing import Protocol, cast, get_type_hints
 
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, ValidationError, field_serializer
 
 from weft_kernel.context import ServiceRole
 from weft_kernel.errors import UnresolvedNameError, WeftError
@@ -222,6 +222,26 @@ class RendererOffer(BaseModel):
     distribution: str
     result_type: type[object]
     render: Callable[[object], object]
+
+    @field_serializer("result_type")
+    def _result_type_as_name(self, result_type: type[object]) -> str:
+        """The type's qualified name — ledger task **24.5**, and the same rule as
+        `PackReport.ext_models`: what leaves is an identity, never the live object.
+
+        This field holds a real class because `weft_cli.render`'s dispatch keys on it, and a
+        string could not do that. `weft --json plugins list` asked it to serialise and pydantic
+        refused the whole report, so the command exited 1 printing nothing — which is how a
+        field nobody had ever written down announces itself.
+        """
+        return f"{result_type.__module__}.{result_type.__qualname__}"
+
+    @field_serializer("render")
+    def _render_as_name(self, render: Callable[[object], object]) -> str:
+        """Likewise, for the callable. A function has no wire form; what a reader of the JSON
+        can act on is which one it is, which is what a qualified name says."""
+        module = getattr(render, "__module__", "?")
+        name = getattr(render, "__qualname__", repr(render))
+        return f"{module}.{name}"
 
 
 class ServiceRoleOffer(BaseModel):
@@ -321,6 +341,25 @@ class PackReport(BaseModel):
     deprecations: tuple[Deprecation, ...] = ()
     unavailable: tuple[Unavailable, ...] = ()
     ext_models: tuple[type[ExtModel], ...] = ()
+
+    @field_serializer("ext_models")
+    def _ext_models_as_namespaces(self, models: tuple[type[ExtModel], ...]) -> tuple[str, ...]:
+        """The namespaces, not the classes — ledger task **24.5**.
+
+        This field holds live classes on purpose: `weft_store.rehydrate.register_from_reports`
+        reads them back to teach a store how to rehydrate a pack's own `ext` namespaces, and a
+        string could not do that. What a class cannot do is *serialise*, and until 24.5 nothing
+        ever asked it to — `weft --json plugins list` then did, and pydantic refused the whole
+        report with `PydanticSerializationError: Unable to serialize unknown type:
+        ModelMetaclass`, taking the command down with it. Found by running the binary; the 2,749
+        tests could not see it, because none of them dumps a `PackReport`.
+
+        `__namespace__` is the identity a reader of the JSON wants and the one `02` § *The
+        payload model* says is collision-free by construction. The in-memory value is untouched:
+        a serializer decides what leaves, never what the field holds.
+        """
+        return tuple(model.__namespace__ for model in models)
+
     contributions: tuple[Contribution, ...] = ()
     renderers: tuple[RendererOffer, ...] = ()
     service_roles: tuple[ServiceRoleOffer, ...] = ()

@@ -7,7 +7,7 @@ and still be unreachable, and it can be reachable under one contract and refused
 capability a stage actually demands of it.
 
 **What makes this property necessary at all.** `weft_kernel.context.ServiceRegistry` keys by
-**exact type** (`packages/weft-kernel/src/weft_kernel/context.py:244 'def require'`;
+**exact type** (`packages/weft-kernel/src/weft_kernel/context.py:255 'def require'`;
 `add` at `:155`,
 `resolve` at `:133`), so an instance registered under `NodeStore` answers no `ctx.require` for
 anything else it happens to satisfy. Selecting a role therefore makes its instance reachable

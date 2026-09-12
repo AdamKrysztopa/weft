@@ -70,7 +70,7 @@ import asyncio
 from dataclasses import dataclass, field
 from typing import cast
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 from weft_kernel.errors import UnresolvedNameError, WeftError
 
@@ -137,6 +137,17 @@ class ServiceRole(BaseModel):
 
     key: str = Field(min_length=1)
     contract: type[object]
+
+    @field_serializer("contract")
+    def _contract_as_name(self, contract: type[object]) -> str:
+        """The contract's qualified name — ledger task **24.5**.
+
+        A role names a live Protocol because `ctx.require(...)` resolves against the class
+        itself; what a reader of `weft --json plugins list` can act on is which contract, which
+        is what a qualified name says. Same rule as `PackReport.ext_models` and
+        `RendererOffer.result_type`: what leaves is an identity, never the object.
+        """
+        return f"{contract.__module__}.{contract.__qualname__}"
 
 
 class ServiceRegistry:
