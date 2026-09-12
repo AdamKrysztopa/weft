@@ -63,6 +63,7 @@ from weft_eval.contract import GenerationMetric
 from weft_eval.falsify import BaselineSpread, TooFewRepetitionsError, Verdict
 from weft_eval.offline import MetricNeedsCredentialsError, UnknownMetricNameError
 from weft_eval.run_record import (
+    CorpusDigestBasis,
     CorpusIdentity,
     NotAggregated,
     RunRecord,
@@ -422,6 +423,142 @@ async def test_eval_run_with_questions_folds_the_scored_metrics_into_the_record(
     assert result.record.metrics["precision@5"].value.mean == 0.8
 
 
+# --- Task 16.0 — the corpus digest is over the documents' bytes, not over where they sit.
+
+
+async def _digest_of_a_run(
+    directory: Path, monkeypatch: pytest.MonkeyPatch, *, reuse_index: bool = False
+) -> str:
+    """One `weft eval run` over `directory`, and the digest the record it wrote carries."""
+    monkeypatch.setattr(
+        ingest_module, "full_catalogue", _stub_catalogue({"index": _document("index")})
+    )
+    outcome = await EvalRunCommand().run(
+        EvalRunArgs(
+            path=str(directory),
+            pipeline="index",
+            corpus_name="corpus",
+            reuse_index=reuse_index,
+        ),
+        _ctx(_deps()),
+    )
+    assert isinstance(outcome, Produced)
+    return _corpus_of(outcome)
+
+
+async def test_the_corpus_digest_moves_when_a_documents_bytes_move(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The half an outside reviewer reproduced on 2026-09-12, and the reason this task exists.
+
+    `SourceId` is minted as `str(path.resolve())` (`weft_extract.text.discover_source_docs`),
+    carried verbatim into `IndexResult.document_ids`, and digested as sorted ids and nothing
+    else — so replacing a document's contents at the same path left the corpus digest **exactly
+    as it was**, and two runs over two different corpora compared as though they had measured
+    the same one. That is the failure `09` §4's V3 clause exists to make impossible.
+    """
+    # Arrange
+    corpus = tmp_path / "corpus"
+    corpus.mkdir()
+    (corpus / "one.txt").write_text("hello weft")
+    before = await _digest_of_a_run(corpus, monkeypatch)
+
+    # Act — the same path, different bytes.
+    (corpus / "one.txt").write_text("a completely different document")
+    after = await _digest_of_a_run(corpus, monkeypatch)
+
+    # Assert
+    assert before != after, (
+        "a document's contents changed and the corpus digest did not move, so two runs over "
+        "two different corpora will compare as though they measured the same one"
+    )
+
+
+async def test_the_corpus_digest_does_not_move_when_a_document_is_renamed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The other half of the reproduction: a rename changed the digest, and must not.
+
+    A corpus is the documents it holds. Where a file sits in a filesystem is not a property of
+    the corpus, and a digest that moves with it makes a published baseline irreproducible for
+    anyone who staged the same bytes under another name — which is what `eval/run_baseline.py`'s
+    own module docstring has said since task 4.8 while routing around it.
+    """
+    # Arrange
+    corpus = tmp_path / "corpus"
+    corpus.mkdir()
+    (corpus / "one.txt").write_text("hello weft")
+    before = await _digest_of_a_run(corpus, monkeypatch)
+
+    # Act — the same bytes, a different name.
+    (corpus / "one.txt").rename(corpus / "renamed.txt")
+    after = await _digest_of_a_run(corpus, monkeypatch)
+
+    # Assert
+    assert before == after, (
+        "renaming a document moved the corpus digest, so the record says the corpus changed "
+        "when nothing about its contents did"
+    )
+
+
+async def test_the_same_corpus_staged_in_a_second_directory_has_the_same_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """What V6 asks a published baseline to be: reproducible by a stranger with the same bytes.
+
+    Two stagings of one corpus under two absolute paths. `--corpus-name` carries the label, so
+    the whole `CorpusIdentity` — not merely its digest — is what must agree, because
+    `weft_cli.eval_commands._incomparable_reasons` compares the identity as a whole.
+    """
+    # Arrange
+    for name in ("stage-a", "stage-b"):
+        staged = tmp_path / name
+        staged.mkdir()
+        (staged / "one.txt").write_text("hello weft")
+        (staged / "two.txt").write_text("weft again")
+
+    # Act
+    first = await _digest_of_a_run(tmp_path / "stage-a", monkeypatch)
+    second = await _digest_of_a_run(tmp_path / "stage-b", monkeypatch)
+
+    # Assert
+    assert first == second, (
+        "the same bytes staged in two directories produced two digests, which is exactly the "
+        "claim V6 makes about a published baseline and cannot keep"
+    )
+
+
+@pytest.mark.parametrize("reuse_index", [False, True])
+async def test_a_run_record_says_its_corpus_digest_is_over_document_bytes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, reuse_index: bool
+) -> None:
+    """Both record-writing paths say what their digest is over, or a comparison cannot explain.
+
+    Parametrised over `--reuse-index` deliberately: that path does not go through `run_index` at
+    all — it discovers the documents through `corpus_documents` and builds the identity itself —
+    so it is a second, independent choice of what to digest, and `L8.24` is this repository's
+    record of what happens when one of two such neighbours is repaired and the other is not.
+    """
+    # Arrange
+    corpus = tmp_path / "corpus"
+    corpus.mkdir()
+    (corpus / "one.txt").write_text("hello weft")
+    monkeypatch.setattr(
+        ingest_module, "full_catalogue", _stub_catalogue({"index": _document("index")})
+    )
+
+    # Act
+    outcome = await EvalRunCommand().run(
+        EvalRunArgs(path=str(corpus), pipeline="index", reuse_index=reuse_index),
+        _ctx(_deps()),
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = cast("Any", outcome).value
+    assert result.record.corpus_digest_basis is CorpusDigestBasis.DOCUMENT_BYTES
+
+
 # --- EvalCompareCommand --------------------------------------------------------------------
 
 
@@ -433,12 +570,19 @@ def _write_record(
     corpus_name: str,
     stages: tuple[ResolvedStage, ...] = (),
     metrics: dict[str, Outcome[MetricAggregate]] | None = None,
+    digest: str = "a" * 64,
+    corpus_digest_basis: CorpusDigestBasis | None = None,
 ) -> None:
+    """`corpus_digest_basis` defaults to `None` because that is what every record already
+    committed carries — task 16.0's own constraint. A test wanting a record written *after*
+    that task says so.
+    """
     record = build_run_record(
         recorded_at="2026-08-20T00:00:00+00:00",
         resolved_pipeline=ResolvedPipeline(name=pipeline_name, stages=stages),
-        corpus=CorpusIdentity(name=corpus_name, digest="a" * 64),
+        corpus=CorpusIdentity(name=corpus_name, digest=digest),
         metrics=metrics or {},
+        corpus_digest_basis=corpus_digest_basis,
     )
     write_run_record(record, directory / "runs" / f"{run_id}.json")
 
@@ -547,6 +691,75 @@ async def test_eval_compare_refuses_two_runs_from_a_different_corpus(tmp_path: P
     assert excinfo.value.run_a == "run-a"
     assert excinfo.value.run_b == "run-b"
     assert any("corpus" in reason for reason in excinfo.value.reasons)
+
+
+async def test_eval_compare_says_two_digests_are_not_over_the_same_thing(
+    tmp_path: Path,
+) -> None:
+    """Task **16.0**'s third constraint: the incomparability is explained, never merely reported.
+
+    Every record written before this task carries a digest over document *paths* and is
+    incomparable by digest to every record after it. That is correct and it must not be silent —
+    an operator handed `corpus differs` between a record from last week and one from today would
+    reasonably go looking for a corpus that never changed.
+    """
+    # Arrange — one record from before the change, one from after.
+    _write_record(
+        tmp_path,
+        "run-old",
+        pipeline_name="base",
+        corpus_name="corpus",
+        digest="a" * 64,
+    )
+    _write_record(
+        tmp_path,
+        "run-new",
+        pipeline_name="base",
+        corpus_name="corpus",
+        digest="b" * 64,
+        corpus_digest_basis=CorpusDigestBasis.DOCUMENT_BYTES,
+    )
+    deps = _deps()
+
+    # Act
+    with pytest.raises(IncomparableRunsError) as excinfo:
+        await EvalCompareCommand().run(EvalCompareArgs(a="run-old", b="run-new"), _ctx(deps))
+
+    # Assert — one reason names both bases and says what the unlabelled one was over.
+    explained = [reason for reason in excinfo.value.reasons if "not recorded" in reason]
+    assert len(explained) == 1, (
+        f"no reason explains the two digests' different bases: {excinfo.value.reasons}"
+    )
+    assert CorpusDigestBasis.DOCUMENT_BYTES.value in explained[0]
+    assert "path" in explained[0], (
+        "the message names the two bases without saying what the older one was over, which is "
+        "the fact the operator needs to stop looking for a corpus that never changed"
+    )
+
+
+async def test_eval_compare_says_nothing_about_a_basis_two_older_records_both_lack(
+    tmp_path: Path,
+) -> None:
+    """Two pre-16.0 records are comparable *to each other*, and the new reason must not fire.
+
+    A message that appeared on every comparison would explain nothing — it is the difference
+    between the two bases that carries the information, and the 31 records already committed
+    differ from each other in nothing here.
+    """
+    # Arrange
+    _write_record(tmp_path, "run-a", pipeline_name="base", corpus_name="corpus-a")
+    _write_record(tmp_path, "run-b", pipeline_name="base", corpus_name="corpus-b")
+    deps = _deps()
+
+    # Act
+    with pytest.raises(IncomparableRunsError) as excinfo:
+        await EvalCompareCommand().run(EvalCompareArgs(a="run-a", b="run-b"), _ctx(deps))
+
+    # Assert — the corpus itself differs and is reported; the basis does not and is not.
+    assert any("corpus differs" in reason for reason in excinfo.value.reasons)
+    assert not any("not recorded" in reason for reason in excinfo.value.reasons), (
+        f"the basis reason fired for two records that agree about it: {excinfo.value.reasons}"
+    )
 
 
 # --- TraceCommand ---------------------------------------------------------------------------
@@ -918,11 +1131,13 @@ async def test_reuse_index_scores_against_what_is_already_stored(
     ingest half does not run at all — asserted by a spy, because *not doing something* is the
     kind of claim that passes by accident.
 
-    **The corpus identity still comes from the same derivation.** `corpus_identity` is a digest
-    over the sorted source ids a run discovered on disk, so discovering them without ingesting
-    yields the identical digest — which is exactly what makes two arms comparable rather than
-    merely both present. Reading it out of the store instead would make the record depend on
-    what a *previous* run happened to write.
+    **The corpus identity still comes from the same derivation.** Both paths discover the same
+    documents through one function — `weft_cli.ingest.corpus_documents` — and digest the same
+    thing about them, so discovering them without ingesting yields the identical digest, which
+    is exactly what makes two arms comparable rather than merely both present. Reading it out of
+    the store instead would make the record depend on what a *previous* run happened to write.
+    Since task **16.0** the thing digested is each document's own bytes; before it, the
+    resolved path each one was staged at.
     """
     (tmp_path / "one.txt").write_text("hello weft")
     (tmp_path / "two.txt").write_text("weft again")
@@ -977,9 +1192,10 @@ async def test_reuse_index_refuses_a_directory_with_nothing_to_score(
 
 
 def _corpus_of(outcome: object) -> str:
-    """The corpus digest a completed  recorded — read back off the persisted
-    record rather than off the command's own return value, because the record is what a later
-     will actually read."""
+    """The corpus digest a completed run recorded — read back off the persisted record rather
+    than off the command's own return value, because the record is what a later comparison will
+    actually read.
+    """
     result = cast("Any", outcome).value
     digest: str = result.record.corpus.digest
     return digest

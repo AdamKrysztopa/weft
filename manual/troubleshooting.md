@@ -2699,6 +2699,15 @@ with the identical active distribution set, produced by the identical installed 
 `weft eval run` twice against the *same* `--path`, once per pipeline, is 4.9's own exit
 demonstration and the shape this error exists to hold every other caller to as well.
 
+**One reason this error gives has a different remedy, because no corpus changed.** *"corpus
+digests are not over the same thing (document-bytes vs not recorded)"* means one of the two
+records was written before 2026-09-12, when the digest was over each document's resolved
+filesystem path rather than its bytes. Nothing about the corpus differs and nothing is
+misconfigured; the two digests simply answer different questions and cannot be compared even
+over identical files. **What to do:** re-take the older arm on this version. There is no
+migration — the bytes an old record digested were never written down. `manual/operations-guide.md`
+→ *What the corpus digest is over, and why a record says so* has the reproduction.
+
 ### `UnknownRunIdError`
 
 **What it looks like** — `weft eval compare`/`weft trace` given a run id nothing persisted,

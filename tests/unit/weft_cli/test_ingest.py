@@ -26,6 +26,7 @@ a real `pipelines/` directory — that lookup's own logic is `test_pipeline_cata
 not this file's.
 """
 
+import hashlib
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
@@ -495,6 +496,55 @@ async def test_run_index_with_pipeline_resolves_a_document_and_reaches_its_with_
     assert result.resolved_pipeline is not None
     assert result.resolved_pipeline.name == "custom"
     assert result.document_ids == (str((tmp_path / "one.txt").resolve()),)
+    # Task **16.0**: and a content hash for each of them, in the same order — the entries the
+    # corpus digest is actually over.
+    assert result.content_hashes == (hashlib.sha256(b"hello weft").hexdigest(),)
+
+
+async def test_run_index_hashes_the_bytes_of_every_document_it_discovered(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Task **16.0** — the entries a corpus digest is over, computed where the bytes already are.
+
+    `document_ids` is resolved filesystem paths (`weft_extract.text.discover_source_docs` mints a
+    `SourceId` as `str(path.resolve())`), so digesting *those* made a run record's corpus identity
+    a fact about where a machine put its files: same path with new bytes left the digest
+    unchanged, a rename moved it. The bytes are in scope at the same statement —
+    `SourceDoc.content` — and this very function has hashed them into `SourceRecord.content_hash`
+    since G4 and then dropped them.
+
+    **Two byte-identical documents contribute two entries, not one.** A corpus holding two copies
+    of a file is not the corpus holding one, and G20 (ledger `27.1`) settled that this repository
+    treats that case as real rather than as a mistake to collapse.
+    """
+    # Arrange — sorted-path order is a.txt, b.txt, c.txt, and the first two hold the same bytes.
+    (tmp_path / "a.txt").write_text("hello weft")
+    (tmp_path / "b.txt").write_text("hello weft")
+    (tmp_path / "c.txt").write_text("something else")
+    registry, _ = _registry_with_fakes()
+    document = _document(
+        "custom",
+        StageDeclaration(id="extract", use="text"),
+        StageDeclaration(id="chunk", use="fixed-size"),
+        StageDeclaration(id="embed", use="hash"),
+        StageDeclaration(id="store", use="pgvector"),
+    )
+    monkeypatch.setattr(ingest_module, "full_catalogue", _stub_catalogue({"custom": document}))
+    shared = hashlib.sha256(b"hello weft").hexdigest()
+
+    # Act
+    result = await run_index(tmp_path, registry=registry, ctx=_ctx(), pipeline="custom")
+
+    # Assert
+    assert result.content_hashes == (
+        shared,
+        shared,
+        hashlib.sha256(b"something else").hexdigest(),
+    )
+    assert len(result.content_hashes) == len(result.document_ids), (
+        "the two tuples are read in parallel by every caller that builds a corpus identity, so "
+        "one of them being short is a digest over a corpus that was never indexed"
+    )
 
 
 async def test_run_index_with_pipeline_runs_a_contribution_placed_in_its_declared_slot(

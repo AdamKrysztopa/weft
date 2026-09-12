@@ -787,15 +787,20 @@ name, the corpus identity and digest, the model versions, the active distributio
 task 4.9, the metrics block — and nothing this command computes or infers on top of it:
 
 ```text
-$ weft trace f7ebfc62-33b6-42d8-a8c6-8089687492e8
-run f7ebfc62-33b6-42d8-a8c6-8089687492e8 — recorded 2026-08-20T16:11:03.014604+00:00
-pipeline: index
-corpus: 'corpus' (b217dc7e0bf1…)
+$ weft trace 68280b30-d6a5-4920-9d09-0b402d30395e
+run 68280b30-d6a5-4920-9d09-0b402d30395e — recorded 2026-09-12T16:40:21.065657+00:00
+pipeline: index-text
+corpus: 'corpus' (66d313093adf…)
 model versions: (none recorded)
-active distributions: weft-chunk, weft-cli, weft-embed, weft-eval, weft-extract, weft-generate,
-weft-index, weft-llm, weft-openai, weft-pdf, weft-qdrant, weft-retrieve, weft-store
+active distributions: weft-rag
 metrics: (none recorded — 'weft eval run' was not given --questions)
 ```
+
+**One active distribution is the normal answer, not a stripped-down install.** This transcript
+was taken from an install of both published wheels; **G19** folded every first-party pack into
+`weft-rag`, so the twenty-one packs a full install activates all report that one distribution
+name and the set records it once (`weft_eval.run_record.active_distribution_set`). A list of
+thirteen names here, as this page showed until 2026-09-12, described the pre-G19 tree.
 
 **What it does not do — task 4.6, Q2, a narrowing of what `docs/03-cli.md` first promised, not a
 widening.** `weft trace` does not replay a run stage by stage, does not say which stage took how
@@ -1005,24 +1010,49 @@ retrieval noise. The comparison spanned a store that grew between its arms.
 
 ```bash
 $ weft eval run corpus index-text --yes
-run 98f28e0e-f29a-4ebd-8c1a-67c0b7c26e94 persisted (corpus -> pipeline 'index-text'). produced 1, nothing to produce 0, failed 0. nodes now stored: 3. corpus: 'corpus' (787558a2aee7…). wall clock: 0.07s.
+run 68280b30-d6a5-4920-9d09-0b402d30395e persisted (corpus -> pipeline 'index-text'). produced 1, nothing to produce 0, failed 0. nodes now stored: 3. corpus: 'corpus' (66d313093adf…). wall clock: 0.08s.
 
 $ weft eval run corpus index-text --reuse-index --yes
-run a5626e43-3419-4d94-aa80-e663a55964d5 persisted (corpus -> pipeline 'index-text'). produced 0, nothing to produce 0, failed 0. nodes now stored: unknown. corpus: 'corpus' (787558a2aee7…). wall clock: 0.00s.
+run 4e03560c-fab9-4a14-8f96-4d73acb307ae persisted (corpus -> pipeline 'index-text'). produced 0, nothing to produce 0, failed 0. nodes now stored: unknown. corpus: 'corpus' (66d313093adf…). wall clock: 0.00s.
 ```
 
 Three things in that second line are the repair. `produced 0` and `wall clock: 0.00s` say the
 ingest half did not run — not that it ran quickly. `nodes now stored: unknown` is honesty rather
 than a gap: this run stored nothing, so it has no count of its own to report, and printing the
 store's current size would be reporting somebody else's number. And the corpus digest is
-**identical** — `787558a2aee7…` both times — which is the part that makes the two records
+**identical** — `66d313093adf…` both times — which is the part that makes the two records
 *comparable* rather than merely both present.
 
-That digest is identical by construction, not by luck. `corpus_identity` digests the sorted source
-ids a run discovered **on disk**, and both paths call one function — `weft_cli.ingest.
-corpus_documents` — to discover them. Reading the ids back out of the store instead would make the
-record depend on whatever a previous run happened to write, which is the moving corpus one layer
-down.
+That digest is identical by construction, not by luck. Both paths discover the corpus through one
+function — `weft_cli.ingest.corpus_documents` — and digest one fact about each document it
+returns. Reading the ids back out of the store instead would make the record depend on whatever a
+previous run happened to write, which is the moving corpus one layer down.
+
+### What the corpus digest is over, and why a record says so
+
+**Each document's own bytes — a sha256 per document, sorted, since 2026-09-12.** So the digest
+moves when any document's contents change, and stands still when a document is renamed or the
+whole corpus is staged in a different directory. That is what makes it a fact about *the corpus*
+rather than about the machine, and it is what a published baseline needs in order to be
+reproducible by anyone who has the same files.
+
+**It was over the documents' resolved filesystem paths before that date, which is the opposite
+of both halves**, and every run record written before it carries such a digest. Those records are
+not comparable by digest to anything written since, so a record now names what its own digest is
+over and `weft eval compare` says when the two sides disagree rather than reporting a corpus
+difference an operator would go looking for:
+
+```bash
+$ weft eval compare 214c9582-60b6-49e6-b668-e1057ae056cc 00000000-0000-0000-0000-00000000old0 ; echo "exit=$?"
+'214c9582-60b6-49e6-b668-e1057ae056cc' and '00000000-0000-0000-0000-00000000old0' are not comparable as a change of pipeline alone: corpus digests are not over the same thing (document-bytes vs not recorded) — a record that names no basis was written before ledger task 16.0, when the digest was over each document's resolved path rather than its bytes, so these two digests cannot be compared even over a corpus that never changed. A comparison is only meaningful when the corpus, model versions and active distribution set agree and only the pipeline differs — otherwise a metric delta cannot be attributed to the pipeline change ('09-release.md' §4, V3's own failure clause).
+exit=1
+```
+
+**An older record still loads and still traces.** `weft trace` on one prints everything it holds;
+the only field it cannot answer for is what its digest was over, and *not recorded* is the honest
+answer to that rather than a retro-label. **What to do** when you hit this: re-take the run you
+want to compare against, on this version. There is no migration, because there is nothing in an
+old record to migrate from — the bytes it digested were never written down.
 
 A directory the pipeline cannot read refuses, rather than persisting a record with an empty
 corpus:

@@ -127,7 +127,12 @@ from weft_cli.tracing_status import describe_tracing
 from weft_command.contract import Command, CommandResult
 from weft_command.permission import PermissionClass
 from weft_embed import Embedder
-from weft_eval.run_record import build_run_record, corpus_identity, write_run_record
+from weft_eval.run_record import (
+    CorpusDigestBasis,
+    build_run_record,
+    corpus_identity,
+    write_run_record,
+)
 from weft_extract import Extractor
 from weft_extract.payload import Rendition
 from weft_generate.payload import Answer
@@ -735,7 +740,8 @@ class IndexCommand:
             record = build_run_record(
                 recorded_at=datetime.now(UTC).isoformat(),
                 resolved_pipeline=result.resolved_pipeline,
-                corpus=corpus_identity(index_args.path, result.document_ids),
+                corpus=corpus_identity(index_args.path, result.content_hashes),
+                corpus_digest_basis=CorpusDigestBasis.DOCUMENT_BYTES,
                 reports=deps.reports,
             )
             write_run_record(record, DEFAULT_INDEX_RUNS_DIR / f"{uuid.uuid4()}.json")

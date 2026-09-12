@@ -4,11 +4,13 @@ Mirrors `packages/weft-rag/src/weft_eval/run_record.py`. Covers `build_run_recor
 derivation of `active_distributions` (happy path: only `PackStatus.ACTIVE` reports contribute;
 the edge case of no reports at all), `write_run_record`/`load_run_record`'s round trip,
 `load_run_record`'s refusal of a file that is not a well-formed `RunRecord` (the error case), and
-`corpus_identity`'s content-derived, order-independent digest. Fitness function 8(c)'s own
-equality-with-`plugins doctor` proof lives in `tests/architecture/test_ff8_trust_model.py`, not
-here — this file is the mirroring unit-test path for the module itself.
+`corpus_identity`'s order-independent digest over whatever entries its caller passes. Fitness
+function 8(c)'s own equality-with-`plugins doctor` proof lives in
+`tests/architecture/test_ff8_trust_model.py`, not here — this file is the mirroring unit-test
+path for the module itself.
 """
 
+import json
 from pathlib import Path
 
 import pytest
@@ -16,6 +18,7 @@ from pydantic import ValidationError
 
 from weft_eval.aggregate import MetricAggregate
 from weft_eval.run_record import (
+    CorpusDigestBasis,
     CorpusIdentity,
     NotAggregated,
     RunDurations,
@@ -174,13 +177,15 @@ def test_build_run_record_with_no_metrics_has_an_empty_metrics_mapping() -> None
     assert record.metrics == {}
 
 
-def test_corpus_identity_digest_is_order_independent_and_content_derived() -> None:
+def test_corpus_identity_digest_is_order_independent_and_moves_with_its_entries() -> None:
     # Arrange / Act
     forward = corpus_identity("demo", ["doc-a", "doc-b"])
     reversed_order = corpus_identity("demo", ["doc-b", "doc-a"])
     different = corpus_identity("demo", ["doc-a", "doc-c"])
 
-    # Assert — layout never moves the digest, content always does.
+    # Assert — order never moves the digest, a changed entry always does. What those entries
+    # *are* is the caller's choice and not this function's property: task 16.0 is the caller
+    # choosing bytes over paths, and it needed no change here.
     assert forward.digest == reversed_order.digest
     assert forward.digest != different.digest
 
@@ -244,3 +249,76 @@ def test_a_negative_duration_is_refused() -> None:
     # Arrange & Act & Assert
     with pytest.raises(ValidationError):
         RunDurations(ingest_seconds=-1.0, query_seconds=0.0)
+
+
+# --- Task 16.0 — a record says what its corpus digest is over, or says it does not know.
+
+
+def test_a_record_built_without_a_basis_does_not_claim_one() -> None:
+    """*Not recorded* is what every record written before task 16.0 carries, and it is a fact.
+
+    Until 16.0 the digest was over sorted document **paths** — `weft_extract.text.
+    discover_source_docs` mints a `SourceId` as `str(path.resolve())` and the callers digested
+    exactly those — so a digest from before and a digest from after answer two different
+    questions and are not comparable at all. The records already committed cannot be
+    retro-labelled: they were written by the code that made the mistake. So the only honest
+    value for one is absence, and `weft_cli.eval_commands._incomparable_reasons` is what turns
+    that absence into a sentence an operator reads.
+    """
+    # Arrange / Act
+    record = build_run_record(
+        recorded_at="2026-09-12T00:00:00Z",
+        resolved_pipeline=_resolved_pipeline(),
+        corpus=CorpusIdentity(name="c", digest="d"),
+    )
+
+    # Assert
+    assert record.corpus_digest_basis is None, (
+        "a record built without a stated basis must not claim one. Defaulting to "
+        "DOCUMENT_BYTES would label every pre-16.0 record with the property it lacks."
+    )
+
+
+def test_a_record_naming_its_basis_survives_the_round_trip(tmp_path: Path) -> None:
+    # Arrange
+    record = build_run_record(
+        recorded_at="2026-09-12T00:00:00Z",
+        resolved_pipeline=_resolved_pipeline(),
+        corpus=CorpusIdentity(name="c", digest="d"),
+        corpus_digest_basis=CorpusDigestBasis.DOCUMENT_BYTES,
+    )
+
+    # Act
+    written = write_run_record(record, tmp_path / "r.json")
+
+    # Assert
+    assert load_run_record(written) == record
+    assert load_run_record(written).corpus_digest_basis is CorpusDigestBasis.DOCUMENT_BYTES
+
+
+def test_a_record_from_a_file_with_no_basis_key_loads_and_reads_absent(tmp_path: Path) -> None:
+    """The shape of all 31 records committed under `eval/` — the key is not there at all.
+
+    `RunRecord` has `extra="forbid"` and validates on read, so a **required** field here would
+    stop every one of them loading and take `tests/docs/test_raptor_baseline.py` with it. Task
+    10.22's `durations` set the precedent this follows: a new field defaults to `None`.
+    """
+    # Arrange — a file written by the code that had no such field, reproduced by removing the
+    # key rather than by hand-writing JSON that could drift from the model.
+    record = build_run_record(
+        recorded_at="2026-09-07T00:00:00Z",
+        resolved_pipeline=_resolved_pipeline(),
+        corpus=CorpusIdentity(name="c", digest="d"),
+        corpus_digest_basis=CorpusDigestBasis.DOCUMENT_BYTES,
+    )
+    payload = record.model_dump(mode="json")
+    del payload["corpus_digest_basis"]
+    path = tmp_path / "older.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    # Act
+    loaded = load_run_record(path)
+
+    # Assert
+    assert loaded.corpus_digest_basis is None
+    assert loaded.corpus == record.corpus

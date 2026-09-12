@@ -35,9 +35,9 @@ spelled as a **second positional**, `weft_cli.pipeline_commands.PipelineDeriveAr
 resolution or extraction.** Task 4.0 already built the bridge from a named document to a real
 run (`_specs_from_document`, `PipelineMissingExtractStageError`, every accepted-extension
 derivation); this module's own contribution is two facts `run_index`'s `IndexResult` did not use
-to carry back before this task — `resolved_pipeline` and `document_ids` — added to that
-dataclass rather than re-computed here a second, divergent way. See `weft_cli.ingest.
-IndexResult`'s own docstring for the extension.
+to carry back before this task — `resolved_pipeline` and `document_ids`, joined by
+`content_hashes` at task 16.0 — added to that dataclass rather than re-computed here a
+second, divergent way. See `weft_cli.ingest.IndexResult`'s own docstring for the extension.
 
 **`model_versions` is `{}` today, and that is 4.7's gap, named rather than filled dishonestly.**
 `RunRecord.model_versions`'s own docstring: "taken as given, never derived here... only whoever
@@ -189,7 +189,7 @@ from typing import ClassVar, Final, cast
 from pydantic import BaseModel, ConfigDict, Field
 
 from weft_cli.eval_scoring import load_questions, score_pipeline
-from weft_cli.ingest import corpus_documents, run_index
+from weft_cli.ingest import content_hashes_of, corpus_documents, run_index
 from weft_cli.pipeline_diff import PipelineDiff, diff_resolved
 from weft_cli.registry_bootstrap import Dependencies
 from weft_command.contract import Command, CommandResult
@@ -198,6 +198,7 @@ from weft_eval.aggregate import MetricAggregate, PartitionSlice
 from weft_eval.falsify import DifferenceJudgement, baseline_spreads, judge_differences
 from weft_eval.offline import GateSubset, gate_subset, require_gate_safe
 from weft_eval.run_record import (
+    CorpusDigestBasis,
     MetricRunResult,
     NotAggregated,
     RunDurations,
@@ -262,10 +263,10 @@ class EmptyCorpusError(WeftError):
     silent no-op there (`weft_cli.ingest`'s own module docstring: "An empty directory is not an
     error"). It is refused here instead: a run record with zero documents has an empty,
     content-derived digest indistinguishable from any *other* empty corpus's digest
-    (`weft_eval.run_record.corpus_identity`'s own hash-of-sorted-ids construction), so persisting
-    one would not be a fact worth diffing against later — it would be a record that looks
-    complete and measures nothing, which is the shape CLAUDE.md's "a silent fallback is worse
-    than a failure" rule exists to refuse.
+    (`weft_eval.run_record.corpus_identity`'s own hash-of-sorted-entries construction), so
+    persisting one would not be a fact worth diffing against later — it would be a record
+    that looks complete and measures nothing, which is the shape CLAUDE.md's "a silent
+    fallback is worse than a failure" rule exists to refuse.
     """
 
     def __init__(self, message: str, *, path: str, pipeline: str) -> None:
@@ -713,6 +714,13 @@ def _incomparable_reasons(a: RunRecord, b: RunRecord) -> tuple[str, ...]:
             f"corpus differs ('{a.corpus.name}' {a.corpus.digest[:12]}… vs "
             f"'{b.corpus.name}' {b.corpus.digest[:12]}…)"
         )
+    if a.corpus_digest_basis != b.corpus_digest_basis:
+        reasons.append(
+            f"corpus digests are not over the same thing ({_basis_of(a)} vs {_basis_of(b)}) — a "
+            f"record that names no basis was written before ledger task 16.0, when the digest "
+            f"was over each document's resolved path rather than its bytes, so these two "
+            f"digests cannot be compared even over a corpus that never changed"
+        )
     if a.model_versions != b.model_versions:
         reasons.append(
             f"model versions differ ({dict(a.model_versions)} vs {dict(b.model_versions)})"
@@ -722,6 +730,14 @@ def _incomparable_reasons(a: RunRecord, b: RunRecord) -> tuple[str, ...]:
             f"active distributions differ ({a.active_distributions} vs {b.active_distributions})"
         )
     return tuple(reasons)
+
+
+def _basis_of(record: RunRecord) -> str:
+    """`corpus_digest_basis` as a reader of a run record should see it — *not recorded* rather
+    than `None`, because absence is the honest answer for every record written before 16.0.
+    """
+    basis = record.corpus_digest_basis
+    return basis.value if basis is not None else "not recorded"
 
 
 class EvalRunCommand:
@@ -748,10 +764,11 @@ class EvalRunCommand:
         noise. The comparison spanned a store that grew between its arms.
 
         **The corpus identity comes from the same derivation, deliberately.** `corpus_identity`
-        digests the sorted source ids a run discovered *on disk*, so discovering them without
-        ingesting yields the identical digest and the two arms compare rather than merely both
-        existing. Reading the ids back out of the store instead would make this record depend on
-        what some previous run happened to write, which is the moving corpus one layer down.
+        digests each discovered document's own bytes (task 16.0; before it, the resolved path
+        each one was staged at), so discovering them without ingesting yields the identical
+        digest and the two arms compare rather than merely both existing. Reading the ids back
+        out of the store instead would make this record depend on what some previous run
+        happened to write, which is the moving corpus one layer down.
 
         **The ingest pipeline is still resolved and still recorded.** A query-rung comparison is
         only meaningful against a stated ingest rung — `_incomparable_reasons` reads it — and
@@ -803,7 +820,8 @@ class EvalRunCommand:
         record = build_run_record(
             recorded_at=datetime.now(UTC).isoformat(),
             resolved_pipeline=_resolved,
-            corpus=corpus_identity(corpus_name, document_ids),
+            corpus=corpus_identity(corpus_name, content_hashes_of(documents)),
+            corpus_digest_basis=CorpusDigestBasis.DOCUMENT_BYTES,
             model_versions=_model_versions(_resolved, roles=deps.llm.roles),
             reports=deps.reports,
             metrics=metrics,
@@ -897,11 +915,12 @@ class EvalRunCommand:
         query_seconds = time.monotonic() - query_started
 
         corpus_name = run_args.corpus_name if run_args.corpus_name is not None else run_args.path
-        corpus = corpus_identity(corpus_name, result.document_ids)
+        corpus = corpus_identity(corpus_name, result.content_hashes)
         record = build_run_record(
             recorded_at=datetime.now(UTC).isoformat(),
             resolved_pipeline=resolved_pipeline,
             corpus=corpus,
+            corpus_digest_basis=CorpusDigestBasis.DOCUMENT_BYTES,
             # Task 4.7's own gap to fill — see the module docstring's paragraph on
             # `_model_versions`. Derived from what actually ran, never from `[services]`.
             model_versions=_model_versions(resolved_pipeline, roles=deps.llm.roles),

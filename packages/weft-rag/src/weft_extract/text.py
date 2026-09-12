@@ -90,12 +90,15 @@ class TextExtractor:
 def discover_source_docs(directory: Path, *, extensions: Collection[str]) -> tuple[SourceDoc, ...]:
     """Every file under `directory` whose suffix is in `extensions`, read into a `SourceDoc`.
 
-    Recurses. `source_id` is the file's resolved path — stable across runs
-    from the same checkout, which is what makes re-indexing an unchanged
-    directory produce the same `Node` ids (`docs/02-extension-model.md` →
-    *Identity is a content-addressed digest*). Files are read and returned in
-    sorted-path order, so two runs over the same directory build the same
-    batch in the same order.
+    Recurses. `source_id` is the file's **resolved path**, which is what makes re-indexing an
+    unchanged directory produce the same `Node` ids (`docs/02-extension-model.md` →
+    *Identity is a content-addressed digest*) — and what makes it a fact about this machine's
+    filesystem rather than about the document. It is stable across runs from the same
+    checkout and across nothing wider than that: it moves when a file is renamed and stands
+    still when the bytes under it change. A caller needing an identity a corpus carries with
+    it hashes `SourceDoc.content` instead, as `weft_cli.ingest.content_hashes_of` does for a
+    run record's corpus digest (ledger 16.0). Files are read and returned in sorted-path
+    order, so two runs over the same directory build the same batch in the same order.
 
     **`extensions` is required, and that is a repair.** This used to read
     `EXTENSIONS` — *this* module's constant — which meant a directory walk in

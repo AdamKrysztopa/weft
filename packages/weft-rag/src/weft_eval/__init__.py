@@ -107,6 +107,7 @@ from weft_eval.prompts import (
 )
 from weft_eval.qa_metrics import Accuracy, ExactMatch, F1Score
 from weft_eval.run_record import (
+    CorpusDigestBasis,
     CorpusIdentity,
     MetricRunResult,
     NotAggregated,
@@ -255,6 +256,7 @@ __all__ = [
     "BaselineSpread",
     "ContextRecall",
     "ContextRelevance",
+    "CorpusDigestBasis",
     "CorpusIdentity",
     "DifferenceJudgement",
     "EmbeddingSimilarity",

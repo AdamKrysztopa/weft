@@ -97,7 +97,15 @@ a real store too, which `01` requirement 5 rules out as firmly as a missing entr
 from __future__ import annotations
 
 import hashlib
-from collections.abc import AsyncIterator, Awaitable, Callable, Collection, Mapping, Sequence
+from collections.abc import (
+    AsyncIterator,
+    Awaitable,
+    Callable,
+    Collection,
+    Iterable,
+    Mapping,
+    Sequence,
+)
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -393,14 +401,20 @@ class IndexResult:
     calls `weft_kernel.resolution.resolve`, so there is no `ResolvedPipeline` to hand back —
     exactly the gap task 4.0's own module docstring names as the reason it exists at all.
     `document_ids` is every `SourceDoc.source_id` this run actually discovered on disk — `()`
-    when nothing was found — the same identity `weft_eval.run_record.corpus_identity` digests,
-    so a caller building a run record never re-walks the directory a second time to get it.
+    when nothing was found — what a caller reports an empty corpus by, and no longer what a
+    corpus digest is over: that is `content_hashes` below, and task 16.0's own ledger entry
+    says why.
     """
 
     summary: RunSummary
     stored_count: int | None
     resolved_pipeline: ResolvedPipeline | None = None
     document_ids: tuple[str, ...] = ()
+    #: Task **16.0** — every discovered document's sha256 over its own bytes, in the same order
+    #: as `document_ids`, and the entries a caller hands `weft_eval.run_record.corpus_identity`.
+    #: A digest over `document_ids` was a digest over where a machine put its files: it stood
+    #: still when a document's contents changed, and moved when one was renamed.
+    content_hashes: tuple[str, ...] = ()
     #: What re-indexing changed, per source — ledger task **9.17**. Empty when the store this run
     #: used cannot answer `list_sources`, which is honest rather than a claim that nothing changed:
     #: an absent comparison and an unchanged corpus are different facts and `changes_against_
@@ -591,6 +605,7 @@ async def run_index(
             stored_count=stored_count,
             resolved_pipeline=resolved_pipeline,
             document_ids=tuple(str(doc.source_id) for doc in docs),
+            content_hashes=content_hashes_of(docs),
             source_changes={str(source): change for source, change in changes.items()},
             pipeline_identity=identity,
         )
@@ -631,6 +646,24 @@ def corpus_documents(
     )
     readable = present_suffixes(directory) & accepted
     return resolved, specs, discover_source_docs(directory, extensions=readable)
+
+
+def content_hashes_of(docs: Iterable[SourceDoc]) -> tuple[str, ...]:
+    """Each document's sha256 over its own bytes, in the order given — the entries a run
+    record's corpus digest is over (ledger task **16.0**).
+
+    Not deduplicated: two byte-identical documents are two documents, which G20 (ledger 27.1)
+    settled for the node they produce and is no less true of the corpus they belong to.
+    """
+    return tuple(_content_hash(doc) for doc in docs)
+
+
+def _content_hash(doc: SourceDoc) -> str:
+    """One document's content hash, and this module's only definition of it — read by
+    `SourceRecord.content_hash`, by `changes_against_records`' comparison, and by the corpus
+    digest, three readers that have to agree about what "the same document" means.
+    """
+    return hashlib.sha256(doc.content).hexdigest()
 
 
 def _specs_from_document(
@@ -1112,7 +1145,7 @@ def changes_against_records(
         if record is None:
             found[doc.source_id] = SourceChange.NEW
             continue
-        if record.content_hash != hashlib.sha256(doc.content).hexdigest():
+        if record.content_hash != _content_hash(doc):
             found[doc.source_id] = SourceChange.CONTENT_CHANGED
             continue
         if record.pipeline_identity != identity:
@@ -1182,7 +1215,7 @@ async def _record_sources(
                 SourceRecord(
                     id=doc.source_id,
                     uri=doc.uri,
-                    content_hash=hashlib.sha256(doc.content).hexdigest(),
+                    content_hash=_content_hash(doc),
                     indexed_at=indexed_at,
                     pipeline=name,
                     pipeline_identity=identity,

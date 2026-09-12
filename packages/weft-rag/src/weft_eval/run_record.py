@@ -18,7 +18,8 @@ extension — and no more:**
   the frozen, fully-explicit form a resolved document reduces to, and a run record that re-derived
   its own summary of a pipeline would be the two-lists failure `docs/internal/README.md` opens by
   describing, aimed at pipelines instead of documentation.
-- `corpus` — **which corpus**, `CorpusIdentity`: a name and a content-derived digest, so "a
+- `corpus` — **which corpus**, `CorpusIdentity`: a name and a digest over what the caller
+  identifies each document by — each document's own content hash, since task 16.0 — so "a
   different corpus" (V3's own failure clause, already proven at `eval/run_baseline.py`'s
   `corpus_id()`) is a comparison two runs can make, not a promise two operators have to trust.
 - `model_versions` — **what a role resolved to**, e.g. `{"embed": "openai:text-embedding-3-small"}`.
@@ -63,6 +64,7 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Iterable, Mapping
+from enum import StrEnum
 from pathlib import Path
 from types import MappingProxyType
 from typing import Final
@@ -79,14 +81,28 @@ _NO_REPORTS: Final[tuple[PackReport, ...]] = ()
 _NO_METRICS: Final[Mapping[str, Outcome[MetricAggregate]]] = MappingProxyType({})
 
 
+class CorpusDigestBasis(StrEnum):
+    """What a `CorpusIdentity.digest` was computed over.
+
+    One member, because one basis is writable. A record that names none was written before
+    ledger task 16.0, when every caller digested resolved filesystem paths — and that absence
+    is a fact, not a gap: see `RunRecord.corpus_digest_basis`.
+    """
+
+    DOCUMENT_BYTES = "document-bytes"
+
+
 class CorpusIdentity(BaseModel):
     """Which corpus a run measured, in a form two runs can be compared by.
 
-    `digest` is content-derived, never a path or a label an operator could apply to two
-    different corpora by mistake — `corpus_identity()` below builds it the identical way
-    `eval/run_baseline.py`'s own `corpus_id()` already does for V3's baseline: a sha256 over
-    every document's own identity string, sorted so layout never changes the digest and one
-    document changing always does.
+    `digest` is a sha256 over the identity strings a caller passes, sorted so order never
+    changes it — and **what those strings are is the caller's choice, not a property of this
+    class.** This docstring used to claim the digest was "content-derived, never a path" while
+    every `weft eval run` caller was passing resolved filesystem paths, so the digest stood
+    still when a document's bytes changed and moved when one was renamed; a docstring that
+    states the property wanted rather than the property held is how that survived being
+    written down (`docs/internal/lessons.md` `L17.2`). Which one a record actually holds is
+    `RunRecord.corpus_digest_basis`.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -96,7 +112,8 @@ class CorpusIdentity(BaseModel):
 
 
 def corpus_identity(name: str, document_ids: Iterable[str]) -> CorpusIdentity:
-    """A `CorpusIdentity` for `name` over `document_ids` — order-independent, content-derived.
+    """A `CorpusIdentity` for `name` over `document_ids` — order-independent, and over whatever
+    its caller identifies a document by.
 
     `document_ids` is whatever a caller's own documents are identified by — a `SourceId`, a
     manifest id, a checksum — this module does not care which, only that the same set of
@@ -192,6 +209,12 @@ class RunRecord(BaseModel):
     #: over: a default must not be mistakable for a value the system could legitimately have
     #: computed, and a persisted `0.0` cannot be told from a run that was instant.
     durations: RunDurations | None = None
+    #: Task 16.0 — what `corpus.digest` is over. `None` means *not recorded*, which is what
+    #: every record written before that task carries, and those digests are over each
+    #: document's resolved *path*: not comparable to one written since. Task 10.22's rule for
+    #: `durations` one field over — a default must not be mistakable for a value the system
+    #: could legitimately have computed.
+    corpus_digest_basis: CorpusDigestBasis | None = None
     #: Task 4.9 — see the module docstring's own paragraph. `{}` for a run that scored nothing.
     metrics: Mapping[str, MetricRunResult] = Field(default_factory=dict)
 
@@ -201,6 +224,7 @@ def build_run_record(
     recorded_at: str,
     resolved_pipeline: ResolvedPipeline,
     corpus: CorpusIdentity,
+    corpus_digest_basis: CorpusDigestBasis | None = None,
     model_versions: Mapping[str, str] = _NO_MODEL_VERSIONS,
     reports: Iterable[PackReport] = _NO_REPORTS,
     metrics: Mapping[str, Outcome[MetricAggregate]] = _NO_METRICS,
@@ -217,11 +241,17 @@ def build_run_record(
 
     `durations` is passed straight through, never derived here — this function has no clock of
     its own and inventing one would mean guessing at a fact only the caller observed.
+
+    `corpus_digest_basis` is passed straight through too, and for the identical reason one
+    level up: this function cannot see what `corpus`'s digest was actually computed over, so
+    the value is a claim the caller makes about its own `corpus_identity()` call, never a fact
+    derived here.
     """
     return RunRecord(
         recorded_at=recorded_at,
         resolved_pipeline=resolved_pipeline,
         corpus=corpus,
+        corpus_digest_basis=corpus_digest_basis,
         model_versions=model_versions,
         active_distributions=active_distribution_set(reports),
         durations=durations,

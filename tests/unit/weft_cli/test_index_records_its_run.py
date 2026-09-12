@@ -43,6 +43,7 @@ from weft_cli.participation import DEFAULT_INDEX_RUNS_DIR, load_run_records
 from weft_cli.registry_bootstrap import Dependencies
 from weft_cli.services import ServiceSelection
 from weft_embed import Embedder
+from weft_eval.run_record import CorpusDigestBasis
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackReport, PackStatus
 from weft_kernel.payload import Produced
@@ -120,7 +121,17 @@ def _resolved_naming_the_graph_store() -> ResolvedPipeline:
     )
 
 
-def _patch_run_index(monkeypatch: pytest.MonkeyPatch, *, resolved: ResolvedPipeline | None) -> None:
+def _patch_run_index(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    resolved: ResolvedPipeline | None,
+    document_ids: tuple[str, ...] = ("doc-a",),
+    content_hashes: tuple[str, ...] = ("0" * 64,),
+) -> None:
+    """`content_hashes` is a parameter because task **16.0** made it the corpus digest's own
+    input: a double that always returns the same one cannot show which of the two tuples the
+    caller actually digests.
+    """
     summary = RunSummary(produced=1, nothing_to_produce=0, failed=0)
 
     async def _fake_run_index(*_args: object, **_kwargs: object) -> IndexResult:
@@ -128,7 +139,8 @@ def _patch_run_index(monkeypatch: pytest.MonkeyPatch, *, resolved: ResolvedPipel
             summary=summary,
             stored_count=1,
             resolved_pipeline=resolved,
-            document_ids=("doc-a",),
+            document_ids=document_ids,
+            content_hashes=content_hashes,
         )
 
     monkeypatch.setattr(commands, "run_index", _fake_run_index)
@@ -268,3 +280,77 @@ async def test_index_reports_no_defaulted_embedder_when_the_file_chose_one(
     result = outcome.value
     assert isinstance(result, commands.IndexCommandResult)
     assert result.defaulted_embedder is None
+
+
+# --- Task 16.0 — the third caller that turns a run into a corpus identity.
+
+
+async def _digest_written_by_index(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    *,
+    document_ids: tuple[str, ...],
+    content_hashes: tuple[str, ...],
+) -> str:
+    """The corpus digest `weft index --pipeline` persisted, read back off the file.
+
+    Each call gets its own directory, so the three records below never share a `runs/index/`.
+    """
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    monkeypatch.chdir(tmp_path)
+    _patch_run_index(
+        monkeypatch,
+        resolved=_resolved_naming_the_graph_store(),
+        document_ids=document_ids,
+        content_hashes=content_hashes,
+    )
+    await commands.IndexCommand().run(
+        commands.IndexArgs(path=str(tmp_path), pipeline="index-with-graph"), _ctx(_deps())
+    )
+    records = load_run_records(DEFAULT_INDEX_RUNS_DIR)
+    assert len(records) == 1
+    return records[0].corpus.digest
+
+
+async def test_the_digest_this_command_records_is_over_the_bytes_not_the_paths(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Task **16.0**'s third call site — `weft eval run` has two and this is the other one.
+
+    Stated as two comparisons rather than as a recomputation, so nothing here re-implements the
+    caller's own choice: holding the document ids fixed and moving the hashes must move the
+    digest, and holding the hashes fixed while moving the ids must not. `L8.24` is why this test
+    exists at all — a repair applied to one of two neighbouring call sites and not the other has
+    cost this project a phase twice.
+    """
+    # Arrange / Act
+    baseline = await _digest_written_by_index(
+        monkeypatch, tmp_path / "one", document_ids=("doc-a",), content_hashes=("a" * 64,)
+    )
+    bytes_moved = await _digest_written_by_index(
+        monkeypatch, tmp_path / "two", document_ids=("doc-a",), content_hashes=("b" * 64,)
+    )
+    paths_moved = await _digest_written_by_index(
+        monkeypatch, tmp_path / "three", document_ids=("doc-z",), content_hashes=("a" * 64,)
+    )
+
+    # Assert
+    assert baseline != bytes_moved, "a document's bytes changed and the digest did not move"
+    assert baseline == paths_moved, "a document's id changed and the digest moved with it"
+
+
+async def test_the_record_this_command_writes_says_what_its_digest_is_over(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Arrange
+    monkeypatch.chdir(tmp_path)
+    _patch_run_index(monkeypatch, resolved=_resolved_naming_the_graph_store())
+
+    # Act
+    await commands.IndexCommand().run(
+        commands.IndexArgs(path=str(tmp_path), pipeline="index-with-graph"), _ctx(_deps())
+    )
+
+    # Assert
+    records = load_run_records(DEFAULT_INDEX_RUNS_DIR)
+    assert [record.corpus_digest_basis for record in records] == [CorpusDigestBasis.DOCUMENT_BYTES]
