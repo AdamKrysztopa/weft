@@ -94,7 +94,7 @@ async def store() -> AsyncIterator[PgVectorStore]:
     await instance.count()  # forces schema creation (extension + tables) through public API
     conn = await psycopg.AsyncConnection.connect(_DSN, autocommit=True)
     async with conn.cursor() as cur:
-        await cur.execute("TRUNCATE weft_nodes, weft_sources")
+        await cur.execute("TRUNCATE weft_nodes, weft_sources, weft_node_productions")
     await conn.close()
     yield instance
     await instance.aclose()

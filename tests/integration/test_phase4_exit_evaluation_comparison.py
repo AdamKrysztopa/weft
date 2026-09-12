@@ -133,7 +133,7 @@ async def clean_database() -> AsyncIterator[None]:
     await schema_forcer.aclose()
     conn = await psycopg.AsyncConnection.connect(_DSN, autocommit=True)
     async with conn.cursor() as cur:
-        await cur.execute("TRUNCATE weft_nodes, weft_sources")
+        await cur.execute("TRUNCATE weft_nodes, weft_sources, weft_node_productions")
     await conn.close()
     yield
 

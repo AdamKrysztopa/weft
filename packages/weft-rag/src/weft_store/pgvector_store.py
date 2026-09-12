@@ -631,11 +631,37 @@ def _predicate_or_true(filter: Filter | None, values: dict[str, object]) -> sql.
 #: `_delete_and_narrow` and `supersede`.
 _CREATE_NODE_PRODUCTIONS_TABLE = """
 CREATE TABLE IF NOT EXISTS weft_node_productions (
-    node_id TEXT NOT NULL,
+    node_id TEXT NOT NULL REFERENCES weft_nodes(id) ON DELETE CASCADE,
     production_key TEXT NOT NULL,
     source_id TEXT NOT NULL,
     PRIMARY KEY (node_id, production_key, source_id)
 )
+"""
+
+#: The foreign key above, for a database provisioned between `27.1` and this repair — Postgres
+#: has no `ADD CONSTRAINT IF NOT EXISTS`, so the catalogue is asked instead.
+#:
+#: **It is here to make a forgotten `TRUNCATE` fail rather than leak.** The first version of this
+#: table deliberately had no foreign key, to spare seventeen fixtures that truncate
+#: `weft_nodes, weft_sources` without naming the third table — Postgres refuses to truncate a
+#: table a foreign key still references unless every referencing table is named in the same
+#: statement. Measured after one gate run: **1 node and 1,205 production rows, 1,204 of them
+#: naming nodes that no longer existed.** Sparing the fixtures did not avoid the edit, it only
+#: made the consequence of skipping it silent, and the seventeen were edited in the end anyway.
+#: A refused `TRUNCATE` names the table it is protecting; an unbounded side table names nothing.
+_ADD_NODE_PRODUCTIONS_FK = """
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'weft_node_productions_node_id_fkey'
+    ) THEN
+        DELETE FROM weft_node_productions p
+            WHERE NOT EXISTS (SELECT 1 FROM weft_nodes n WHERE n.id = p.node_id);
+        ALTER TABLE weft_node_productions
+            ADD CONSTRAINT weft_node_productions_node_id_fkey
+            FOREIGN KEY (node_id) REFERENCES weft_nodes(id) ON DELETE CASCADE;
+    END IF;
+END $$
 """
 
 #: Decision 5 — a node already on disk when this feature ships has no recorded production, and
@@ -719,6 +745,7 @@ class PgVectorStore:
             await cur.execute(_ADD_SOURCES_PIPELINE_IDENTITY)
             await cur.execute(_CREATE_NODES_TABLE)
             await cur.execute(_CREATE_NODE_PRODUCTIONS_TABLE)
+            await cur.execute(_ADD_NODE_PRODUCTIONS_FK)
             await cur.execute(_BACKFILL_NODE_PRODUCTIONS)
             await self._provision_text_index(cur)
         self._conn = conn
@@ -879,10 +906,13 @@ class PgVectorStore:
         `source_id` removed from it, because two productions can still overlap in a source
         neither of them alone would justify keeping.
 
-        Delete before narrowing, and clean up `weft_node_productions` for both: a doomed node's
-        production rows have no `ON DELETE CASCADE` to fall through (see
-        `_CREATE_NODE_PRODUCTIONS_TABLE`'s docstring), and a narrowed node's tainted production
-        rows must go or the next deletion of some other source would still see them.
+        Delete before narrowing, and clean up `weft_node_productions` for both. A doomed node's
+        rows would now fall through the foreign key's `ON DELETE CASCADE`; they are still deleted
+        explicitly, because this method is the one place that knows *which* productions a
+        narrowing must drop and splitting that across two mechanisms would leave a reader asking
+        which one ran. A narrowed node's tainted rows have no cascade to fall through at all —
+        the node survives — and must go, or the next deletion of some other source would still
+        see them.
         """
         await cur.execute(
             """

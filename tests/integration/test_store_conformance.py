@@ -165,7 +165,7 @@ async def _pgvector_store() -> PgVectorStore:
     await instance.count()  # provisions the schema through the public API
     conn = await psycopg.AsyncConnection.connect(_DSN, autocommit=True)
     async with conn.cursor() as cur:
-        await cur.execute("TRUNCATE weft_nodes, weft_sources")
+        await cur.execute("TRUNCATE weft_nodes, weft_sources, weft_node_productions")
     await conn.close()
     return instance
 
@@ -468,6 +468,41 @@ async def test_a_node_written_twice_by_one_document_is_one_production_not_two(
 
     # Assert
     assert (removed.node_count, removed.narrowed_count) == (1, 0)
+    assert await store.count() == 0
+
+
+async def test_a_deleted_nodes_productions_do_not_outlive_it(
+    store: ConformanceStore,
+) -> None:
+    """A node's productions die with it, so a recycled id inherits nothing — `27.1`.
+
+    **Asserted through the seam and not by reading a schema** (`L9.39`): a stale production is
+    not invisible, it is a *wrong answer* to the next deletion. If deleting `_SOURCE_A` left its
+    production behind, the identical node re-added under `_SOURCE_B` would inherit it, and
+    deleting `_SOURCE_B` would find a surviving production and narrow a node nothing produces.
+
+    **This passed the first time it was run, and that is worth recording rather than hiding.**
+    It was written to catch 1,204 orphaned production rows measured in the development database
+    after one gate run, on the theory that `delete_source` was leaking. It was not: the deletion
+    path reaps correctly and this test proves it. The orphans came from the seventeen fixtures
+    that truncate `weft_nodes` directly and bypass the application entirely — a different
+    defect with the same symptom, repaired where it lives. `L12.4`: a symptom is evidence of a
+    symptom, and the named cause owes its own measurement.
+    """
+    # Arrange — one node, produced by A, then deleted.
+    node = _node("recycled", sources=frozenset({_SOURCE_A}))
+    await store.add((node,))
+    first = await store.delete_source(_SOURCE_A)
+    assert (first.node_count, first.narrowed_count) == (1, 0)
+    assert await store.count() == 0
+
+    # Act — the same content arrives again, from a different document this time.
+    await store.add((_node("recycled", sources=frozenset({_SOURCE_B})),))
+    second = await store.delete_source(_SOURCE_B)
+
+    # Assert — B was its only producer, so the node goes. A narrowing here would mean A's
+    # production outlived the node it described.
+    assert (second.node_count, second.narrowed_count) == (1, 0)
     assert await store.count() == 0
 
 
