@@ -1008,7 +1008,11 @@ def _query_rung_text(rung: QueryRung | NoQueryRung | None) -> str:
     if rung is None:
         return "(not recorded)"
     if isinstance(rung, NoQueryRung):
-        return f"(none named — {rung.reason})"
+        # The reason is a whole sentence and already opens *"no query rung was named"*, so a
+        # `(none named — …)` wrapper printed it twice: *"(none named — no query rung was named
+        # — retrieval ran against …)"*. Found by running the binary at the phase Exit and by
+        # nothing in 2,724 tests, which is `phase-step` → *Finish* item 4's whole argument.
+        return f"({rung.reason})"
     return f"'{rung.name}' ({rung.identity[:12]}…)"
 
 

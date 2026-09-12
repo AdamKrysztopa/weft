@@ -1041,7 +1041,9 @@ def test_render_trace_distinguishes_a_named_rung_from_a_run_that_named_none() ->
         "a run that named no rung reads as though nobody recorded one, which is the conflation "
         "the three states exist to prevent"
     )
-    assert "query rung: (none named" in none_named.stdout
+    # The reason, whole, with no wrapper repeating its own opening words — the trace line
+    # read "(none named — no query rung was named — …)" until the phase Exit ran the binary.
+    assert "query rung: (no query rung was named" in none_named.stdout
 
 
 def test_render_trace_prints_the_versions_a_record_measured() -> None:
