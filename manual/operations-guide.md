@@ -936,7 +936,7 @@ run 3f9c...-1 persisted (corpus -> pipeline 'index'). produced 12, nothing to pr
 nodes now stored: 12. corpus: 'corpus' (a1b2c3d4e5f6…). wall clock: 1.84s.
 ```
 
-Its persisted record's `model_versions` is also no longer always empty: `weft_cli.eval_commands`
+Its persisted record's `model_versions` names the models the run actually used: `weft_cli.eval_commands`
 derives it from the resolved pipeline's own stages — whichever stage's plugin declares a `model`
 field in its own `config_model` (`weft_openai.embedder.OpenAIEmbedderConfig.model`, say)
 contributes `"<stage>": "<plugin>:<model>"`, generically, never from `[services]` — a named

@@ -5,19 +5,17 @@ quickstart.md) already walks `weft index`/`weft ask` against the one built-in pi
 hardcodes; this page is about what changes at Phase 1 — a pipeline stops being one fixed list and
 becomes a document, one you can derive from another without touching what it derives from.
 
-**Every example below is Python, not the CLI, and that is honest rather than a choice.** There is
-no `weft pipeline derive` command yet — that is Phase 3's CLI surface
-(`docs/internal/build-ledger.md` 3.7) — so today the only way to open a pipeline document and resolve it is
-the same call a future command will make on your behalf: `weft_cli.pipeline_catalogue` to open the
-file, `weft_kernel.resolution.resolve` to derive it. Definitions link to
+**Every example below is Python rather than the CLI, and it is the layer under the commands rather
+than a substitute for them.** `weft pipeline derive`, `validate` and `diff` all exist and §6 lists
+them; what these examples show is the call each one makes on your behalf —
+`weft_cli.pipeline_catalogue` to open a pipeline document, `weft_kernel.resolution.resolve` to
+derive it — which is what you reach for when Weft is inside your own program rather than in front
+of you. Definitions link to
 [`docs/02-extension-model.md`](../docs/02-extension-model.md) §3 rather than restating them; this
 page is the task, not the argument for why it is shaped this way.
 
-> **Corrected, 2026-08-20 (task 3.9).** "There is no `weft pipeline derive` command yet" stopped
-> being true at task 3.7 — every pipeline and config command below now exists. The Python
-> examples that follow are unchanged and still teach the shape a real command calls on your
-> behalf; they are no longer the *only* way to reach it. §6 below is the complete, generated
-> command table.
+The Python examples that follow teach the shape a real command calls on your behalf. They are
+not the only way to reach any of it — §6 below is the complete, generated command table.
 
 ## 1. A pipeline is a document
 

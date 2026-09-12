@@ -212,6 +212,26 @@ layer further out too, aimed at users instead of builders: a module docstring cl
 lied; nobody even checked. That is the failure mode this section exists to make structurally
 unlikely, not to police by discipline.
 
+**A shipped page states what is true; it does not narrate what used to be.** Settled 2026-09-12 by
+carried repair `R17.16`, because the project had never written it down and the house style had leaked
+one layer too far. `CLAUDE.md`, `docs/` and `docs/internal/` all keep dated correction notices in
+place — *"this said X until 2026-09-09"* — and they are right to: their reader is the person deciding
+whether a shape is still the right one, and how a claim moved is evidence they need. `manual/`'s
+reader is trying to do something. Handing them the project's own history in place of an instruction
+spends their attention on a version of Weft they never used and cannot act on, and it makes an
+already large documentation set read as a changelog with examples in it.
+
+So: **correct the sentence, and let the record live where records live.** The ledger entry, the
+lessons archive and `CHANGELOG.md` already hold every one of these, each with more of the argument
+than a parenthetical could carry — nothing is lost by the manual not repeating them.
+
+**The one exception, and it is not an exception to the rule so much as a different thing wearing its
+clothes.** Where the past behaviour is *itself* what the reader needs — `manual/troubleshooting.md`
+telling someone why an error class exists at all, or that a condition used to be silent so they know
+why an older run showed them nothing — the history is the content and it stays. The test is whether
+deleting the sentence would leave the reader unable to diagnose something they might still be
+holding. If it only tells them the page used to say something else, it goes.
+
 **Single ownership among the six.** Exactly the same rule `docs/internal/README.md`'s manifest already applies
 to `01` through `06` — restated here because it is easy to assume user docs are exempt, and they are
 the more tempting place to restate something for a reader's convenience:

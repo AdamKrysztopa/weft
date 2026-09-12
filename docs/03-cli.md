@@ -37,8 +37,11 @@ parsing; it is the same commands with a different renderer and a persistent cont
 that prints has already chosen its renderer, so "the same commands with a different renderer" cannot
 be true of it — the sentence above is only buildable if rendering happens strictly after the command
 returns. State it as the rule it is: **a `Command` returns a typed result and never writes to a
-stream**; `weft_cli` renders that result for a human, `--json` renders the same result for a script,
-and the REPL renders it again with the session's context around it. G8 (2026-08-18) noted the
+stream**; `weft_cli` renders that result for a human and the REPL renders it again with the session's
+context around it. *(This said `--json` renders the same result for a script, and that is the
+promise the tree does not keep — see §*Output*'s note. The property stated here is unaffected: a
+result a renderer receives whole is what makes a second rendering possible at all, and it is why
+the JSON one is a renderer to write rather than a design to reopen.)* G8 (2026-08-18) noted the
 consequence rather than adding to it — the same property is what lets a Phase 7 agentic pack call
 this surface instead of re-parsing its output. See *Is the REPL an agent?* below.
 
@@ -819,8 +822,25 @@ for a no-op, and the pipeline is identical in all three cases. The CLI is also w
 one, which fitness function 7 asserts by path.
 
 `--json` switches to newline-delimited JSON events and disables every decoration, including
-spinners and colour. That is the scripting contract: same events, no parsing of prose. `--quiet`
-suppresses progress but keeps the result.
+spinners and colour. `--quiet` suppresses progress but keeps the result.
+
+> **What `--json` does not do today, stated because this section promised it did.** It swaps the
+> **sink** — the stream of tokens a generating stage emits — and nothing else. The command's
+> *result* is still rendered by the same prose renderer a human gets, so stdout under `--json` is
+> one JSON stream event followed by lines like `produced 1, nothing to produce 0, failed 0. nodes
+> now stored: 1.` or `agent (weft-rag): active (2 contributed)`. It parses as neither one JSON
+> document nor as newline-delimited JSON, and this is true of every command, not a gap in a few:
+> measured 2026-09-12 against the shipped binary for `index`, `plugins list`, `config get` and
+> `pipeline list`. So *"the scripting contract: same events, no parsing of prose"* described an
+> intention rather than a behaviour, and a script written against this page would have broken on
+> its first result.
+>
+> **The design is not what is missing.** A `Command` returns a typed result and never writes to a
+> stream (§*The command surface*), which is exactly the property a JSON renderer needs; what does
+> not exist is the renderer. It is owed by **Phase 24a**, the embeddable Python API, because a
+> typed result a program can consume and a machine-readable result a script can consume are the
+> same question asked at two boundaries, and answering one without the other would leave this
+> sentence false for another phase. Carried repair `R17.18` is the record.
 
 **A generator that refuses says so, on both paths.** A `Generator` may answer that the corpus does
 not support an answer — `weft_generate.payload.AnswerStance.NOT_IN_CORPUS`, which `cited-answer`

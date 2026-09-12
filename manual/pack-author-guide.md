@@ -690,10 +690,9 @@ every first-party distribution; the shape to copy is an example pack's, and that
 subject than a first-party one for a guide a stranger reads — `examples/weft-example-query` is
 written by an author who never touched `packages/`, which is exactly the position you are in.
 
-*(This quoted a first-party add-on's manifest until 2026-09-09. **G19** settled that Weft publishes
-under two names, so the six add-ons became packs inside the `weft-rag` wheel and the file this
-section pointed at stopped existing. Nothing about the specifier changed — a pack you publish still
-declares `weft-rag>=X,<MAJOR+1`, exactly as below.)*
+The example below is an out-of-tree pack, which is the right thing to copy: Weft publishes under
+two names and every first-party pack ships inside the `weft-rag` wheel, so a first-party manifest
+would not show you the dependency a pack of your own actually declares.
 
 ```toml path=examples/weft-example-query/pyproject.toml
 [project]

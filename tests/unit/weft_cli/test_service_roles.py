@@ -16,7 +16,7 @@ on the pack's own report, and `weft-cli` reads the set rather than stating it.
 
 **`route` is deliberately not a role.** It names a *pipeline document* resolved in the
 contributed catalogue, not a plugin resolved in the registry
-(`docs/03-cli.md:925-930 'weft_cli.commands.CommandRefusalError'`), so it
+(`docs/03-cli.md:945-950 'is what a built-in'`), so it
 stays a field of its own. `embed` and `store` are roles whose names predate the mechanism, and
 the tests below assert they came through it rather than being special-cased.
 """
@@ -158,7 +158,7 @@ def test_the_two_roles_whose_names_predate_the_mechanism_arrive_through_it() -> 
     assert "store" in declared
     assert "route" not in declared, (
         "route names a pipeline document, not a plugin, so it is not a role — "
-        "docs/03-cli.md:925 'weft_cli.commands.CommandRefusalError'"
+        "docs/03-cli.md:945 'weft_cli.commands.CommandRefusalError'"
     )
 
 
@@ -230,7 +230,7 @@ def test_an_undeclared_role_key_is_refused_naming_the_declared_set() -> None:
 def test_route_is_accepted_as_a_key_while_never_being_a_role() -> None:
     """The one `[services]` key that names a pipeline rather than a plugin.
 
-    `docs/03-cli.md:925-930 'weft_cli.commands.Comman'`. It shares the block because the question it
+    `docs/03-cli.md:945-950 'is what a built-in'`. It shares the block because the question it
     answers is the same
     one — which of the installed things fills this role for this project — and splitting the
     block by how the lookup happens would put an implementation detail in a user's file.

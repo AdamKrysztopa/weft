@@ -226,7 +226,8 @@ def service_selection_from_config(
 
     The key set this validates against is `accepted_service_keys` above — every role a
     trusted, installed pack declared, plus `route`, which names a pipeline rather than a
-    plugin and so is never a role (`docs/03-cli.md:925-930 'weft_cli.co'`). Never `ServiceSelection.
+    plugin and so is never a role (`docs/03-cli.md:945-950 'is what a built-in'`). Never
+    `ServiceSelection.
     model_fields`: that set is closed to `embed`, `store` and `route`, which is exactly the
     hole ledger task 9.0 closes — `weft_cli.service_roles`'s own module docstring.
 

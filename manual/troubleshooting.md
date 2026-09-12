@@ -1077,13 +1077,6 @@ $ echo $?
 4
 ```
 
-> *(Re-run 2026-09-05 at ledger task 8.3, which added `route` as a third key. **This transcript was
-> stale for the length of that task and nothing caught it** — it is quoted prose rather than an
-> executed sample, so the whole gate stayed green while it named two keys out of three. `docs/
-> lessons.md` L6.19 already says only executed transcripts fail the gate; this is that rule's cost
-> paid once more, and `tests/docs/test_pack_guide_samples.py` is the index that would have found
-> which pages a `[services]` change falsifies, had anyone asked it.)*
-
 Before this repair the class was a bare `WeftError` — the message already named the keys, but only
 inside the string, invisible to fitness function 12's family walk, which looks for a typed
 `valid_options` field. `UnknownConfigKeyError` above is the same-phase precedent this now matches;

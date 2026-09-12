@@ -99,7 +99,7 @@ def test_the_disclosure_names_no_endpoint_the_pack_cannot_reach() -> None:
     # named `OPENAI_BASE_URL` alone and passed against a note that still said the credential
     # comes from "[packs.openai] api_key or OPENAI_API_KEY", which is false by the identical
     # mechanism: `build_client` passes `api_key=` explicitly too, and two shipped pipeline
-    # documents plus `manual/troubleshooting.md:2112 "deliberately does *not* read"` say the pack
+    # documents plus `manual/troubleshooting.md:2105 "deliberately does *not* read"` say the pack
     # does not read `OPENAI_API_KEY` on its own. A check narrower than the defect it was
     # written for is `L17.4`'s shape, and it reproduced here inside the repair for it.
     spelled = f"{network} {DISCLOSURE.note}"
