@@ -197,7 +197,13 @@ from weft_cli.registry_bootstrap import Dependencies
 from weft_command.contract import Command, CommandResult
 from weft_command.permission import PermissionClass
 from weft_eval.aggregate import MetricAggregate, PartitionSlice
-from weft_eval.falsify import DifferenceJudgement, baseline_spreads, judge_differences
+from weft_eval.falsify import (
+    DifferenceJudgement,
+    PairedDifference,
+    baseline_spreads,
+    judge_differences,
+    paired_differences,
+)
 from weft_eval.offline import GateSubset, gate_subset, require_gate_safe
 from weft_eval.run_record import (
     CorpusDigestBasis,
@@ -604,6 +610,14 @@ class EvalCompareCommandResult(CommandResult):
     site outside it (a test, a future caller) must not be forced to supply a fact it may not
     have; `baseline_selection` stays `None` unless `--baseline` was given, the same posture
     `falsification` already takes.
+
+    `paired_differences` is task 16.9's own addition, **beside** `falsification` rather than in
+    place of it — the two answer different questions (does the difference exceed this system's
+    own repetition noise, and does it generalise across the questions) and a reader given one
+    cannot infer the other. Unlike `falsification` it needs no flag to ask for it: it is
+    computed from what `--a`/`--b` already carry, so `EvalCompareCommand.run` always fills it,
+    and `{}` — the plain default, never `None` — is the honest answer for two records that
+    carry no per-question scores to pair (every record written before task 16.4).
     """
 
     run_a: str
@@ -618,6 +632,7 @@ class EvalCompareCommandResult(CommandResult):
     falsification: Mapping[str, DifferenceJudgement] | None = None
     query_rungs: QueryRungDifference | None = None
     baseline_selection: BaselineSelection | None = None
+    paired_differences: Mapping[str, PairedDifference] = {}
 
 
 class TraceCommandResult(CommandResult):
@@ -1162,6 +1177,7 @@ class EvalCompareCommand:
                 falsification=falsification,
                 query_rungs=query_rungs,
                 baseline_selection=baseline_selection,
+                paired_differences=paired_differences(record_a, record_b),
             )
         )
 

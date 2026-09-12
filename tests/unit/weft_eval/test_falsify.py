@@ -33,8 +33,16 @@ from weft_eval.falsify import (
     Verdict,
     baseline_spreads,
     judge_differences,
+    paired_differences,
 )
-from weft_eval.run_record import CorpusIdentity, RunRecord, build_run_record
+from weft_eval.run_record import (
+    CorpusIdentity,
+    NotScored,
+    PerQuestionScores,
+    QuestionKey,
+    RunRecord,
+    build_run_record,
+)
 from weft_kernel.payload import Outcome, Produced
 from weft_kernel.resolution import ResolvedPipeline
 
@@ -208,3 +216,145 @@ def test_a_metric_the_baseline_never_measured_is_unjudgeable_naming_that() -> No
     assert judgement.verdict is Verdict.UNJUDGEABLE
     assert judgement.spread is None
     assert "ndcg@10" in judgement.reason
+
+
+# --- Task 16.9 — a paired difference over questions, beside the between-run spread.
+
+
+def _per_question(**per_question: float | None) -> PerQuestionScores:
+    """One metric's per-question outcomes; `None` means the metric could not score it."""
+    return PerQuestionScores(
+        keyed_by=QuestionKey.QUESTION_ID,
+        scores={
+            key: NotScored(reason="not scored") if value is None else Produced(value=value)
+            for key, value in per_question.items()
+        },
+    )
+
+
+def _with_questions(**metrics: PerQuestionScores) -> RunRecord:
+    return RunRecord(
+        recorded_at="2026-09-12T00:00:00Z",
+        resolved_pipeline=ResolvedPipeline(name="rung"),
+        corpus=CorpusIdentity(name="corpus", digest="a" * 64),
+        question_scores=metrics,
+    )
+
+
+def test_the_paired_difference_is_the_mean_of_the_per_question_differences() -> None:
+    """The second interval, answering the second question. `baseline_spreads` asks *does this
+    difference exceed what the system produces by repeating itself*; this asks *does it
+    generalise across the questions*. A rung that wins hugely on two questions and loses on
+    eight has a positive mean and an interval straddling zero, and only this says so.
+    """
+    # Arrange — b beats a by 0.1 on every question, so the paired mean is exactly 0.1.
+    a = _with_questions(**{"precision@5": _per_question(q1=0.4, q2=0.5, q3=0.6)})
+    b = _with_questions(**{"precision@5": _per_question(q1=0.5, q2=0.6, q3=0.7)})
+
+    # Act
+    paired = paired_differences(a, b)
+
+    # Assert
+    difference = paired["precision@5"]
+    assert difference.n == 3
+    assert difference.mean == pytest.approx(0.1)
+    assert difference.low is not None
+    assert difference.high is not None
+    assert difference.low <= difference.mean <= difference.high
+
+
+def test_a_difference_that_does_not_generalise_has_an_interval_straddling_zero() -> None:
+    """The case the mean alone cannot report, and the reason this is not one number."""
+    # Arrange — one huge win, four small losses. The mean is positive; the questions disagree.
+    a = _with_questions(**{"precision@5": _per_question(q1=0.0, q2=0.8, q3=0.8, q4=0.8, q5=0.8)})
+    b = _with_questions(**{"precision@5": _per_question(q1=1.0, q2=0.7, q3=0.7, q4=0.7, q5=0.7)})
+
+    # Act
+    paired = paired_differences(a, b)
+
+    # Assert
+    difference = paired["precision@5"]
+    assert difference.mean > 0
+    assert difference.low is not None
+    assert difference.high is not None
+    assert difference.low < 0 < difference.high, (
+        "a difference resting on one question reported an interval that excludes zero, which "
+        "is the overclaim this second interval exists to prevent"
+    )
+
+
+def test_only_questions_both_runs_scored_are_paired() -> None:
+    """A question one side could not score is not a zero for that side — V4 again, and the
+    pairing is over what both actually measured.
+    """
+    # Arrange — q3 is unscored on b, q4 exists only on a.
+    a = _with_questions(**{"precision@5": _per_question(q1=0.4, q2=0.5, q3=0.6, q4=0.9)})
+    b = _with_questions(**{"precision@5": _per_question(q1=0.5, q2=0.6, q3=None)})
+
+    # Act
+    paired = paired_differences(a, b)
+
+    # Assert
+    assert paired["precision@5"].n == 2
+
+
+def test_a_metric_only_one_run_scored_is_absent_rather_than_zero() -> None:
+    # Arrange
+    a = _with_questions(**{"precision@5": _per_question(q1=0.4), "recall@5": _per_question(q1=0.2)})
+    b = _with_questions(**{"precision@5": _per_question(q1=0.5)})
+
+    # Act
+    paired = paired_differences(a, b)
+
+    # Assert
+    assert set(paired) == {"precision@5"}
+
+
+def test_a_record_carrying_no_per_question_scores_pairs_nothing() -> None:
+    """Every record written before task 16.4 — and the answer is an empty mapping, which the
+    renderer prints as *not computable* rather than as a difference of zero.
+    """
+    # Arrange
+    older = RunRecord(
+        recorded_at="2026-09-07T00:00:00Z",
+        resolved_pipeline=ResolvedPipeline(name="rung"),
+        corpus=CorpusIdentity(name="corpus", digest="a" * 64),
+    )
+    newer = _with_questions(**{"precision@5": _per_question(q1=0.5)})
+
+    # Act / Assert
+    assert paired_differences(older, newer) == {}
+
+
+def test_the_interval_is_the_same_interval_twice() -> None:
+    """A bootstrap resamples at random, and a verdict that changed between two readings of one
+    pair of records would be unciteable. The generator is seeded from the data, not from a
+    clock.
+    """
+    # Arrange
+    a = _with_questions(**{"precision@5": _per_question(q1=0.4, q2=0.5, q3=0.6)})
+    b = _with_questions(**{"precision@5": _per_question(q1=0.5, q2=0.7, q3=0.6)})
+
+    # Act
+    first = paired_differences(a, b)["precision@5"]
+    second = paired_differences(a, b)["precision@5"]
+
+    # Assert
+    assert (first.low, first.high) == (second.low, second.high)
+
+
+def test_one_paired_question_reports_no_interval_rather_than_a_zero_width_one() -> None:
+    """`BaselineSpread`'s own rule one artefact over: a single observation has no spread to
+    report, and a zero-width interval would read as certainty.
+    """
+    # Arrange
+    a = _with_questions(**{"precision@5": _per_question(q1=0.4)})
+    b = _with_questions(**{"precision@5": _per_question(q1=0.9)})
+
+    # Act
+    difference = paired_differences(a, b)["precision@5"]
+
+    # Assert
+    assert difference.n == 1
+    assert difference.low is None
+    assert difference.high is None

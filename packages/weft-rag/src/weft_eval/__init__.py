@@ -66,10 +66,12 @@ from weft_eval.falsify import (
     BaselineSpread,
     DifferenceJudgement,
     NoSpread,
+    PairedDifference,
     TooFewRepetitionsError,
     Verdict,
     baseline_spreads,
     judge_differences,
+    paired_differences,
 )
 from weft_eval.harness import score_retrieval_gate_subset
 from weft_eval.ir_metrics import MeanAveragePrecision, MRRAtK, NDCGAtK, PrecisionAtK, RecallAtK
@@ -295,6 +297,7 @@ __all__ = [
     "NotAggregated",
     "NotScored",
     "OverlapAtThreshold",
+    "PairedDifference",
     "PartitionSlice",
     "PerQuestionScores",
     "PrecisionAtK",
@@ -331,6 +334,7 @@ __all__ = [
     "gate_subset",
     "judge_differences",
     "load_run_record",
+    "paired_differences",
     "price_calls",
     "register",
     "require_gate_safe",

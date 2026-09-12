@@ -41,6 +41,7 @@ unregistered functions.
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Mapping, Sequence
 from enum import StrEnum
 from types import MappingProxyType
@@ -50,6 +51,11 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from weft_eval.run_record import RunRecord
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import Produced
+
+#: Ledger task 16.9. Enough resamples for a percentile interval to be stable to three
+#: decimals — what `_render_eval_compare`'s own formatting prints — without the bootstrap
+#: itself becoming the slow part of `weft eval compare`.
+_RESAMPLES = 2000
 
 
 class TooFewRepetitionsError(WeftError):
@@ -276,13 +282,139 @@ def judge_differences(
     return MappingProxyType(result)
 
 
+class PairedDifference(BaseModel):
+    """`b` minus `a`, question by question — the second interval, over a different population.
+
+    `BaselineSpread` above is the spread one rung produced by repeating itself, so it answers
+    *is this difference bigger than this system's own noise*. This answers *does it hold across
+    the questions*, and the two can disagree in both directions: a difference inside the
+    baseline spread can be consistent across every question, and one far outside it can rest
+    entirely on two.
+
+    `low`/`high` are `None` for a single paired question, the identical rule `BaselineSpread`
+    already states for a single repetition — one observation has no spread to report, and a
+    zero-width interval reads as certainty.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    metric: str
+    #: The mean of the per-question differences, `b` minus `a`, signed.
+    mean: float
+    #: The 2.5th and 97.5th percentiles of the bootstrap distribution of that mean.
+    low: float | None
+    high: float | None
+    #: How many questions both records scored for this metric.
+    n: int = Field(ge=1)
+
+
+def _percentile(sorted_values: Sequence[float], pct: float) -> float:
+    """The `pct`-th percentile of `sorted_values`, already sorted, linearly interpolated
+    between the two nearest ranks — the same interpolation `numpy.percentile`'s default uses,
+    so the bootstrap interval this feeds is one a reader can cross-check.
+    """
+    index = (pct / 100.0) * (len(sorted_values) - 1)
+    lower = int(index)
+    upper = min(lower + 1, len(sorted_values) - 1)
+    if lower == upper:
+        return sorted_values[lower]
+    fraction = index - lower
+    return sorted_values[lower] + (sorted_values[upper] - sorted_values[lower]) * fraction
+
+
+def _bootstrap_interval(
+    keyed_diffs: Sequence[tuple[str, float]],
+) -> tuple[float | None, float | None]:
+    """The 2.5th/97.5th percentile of the bootstrap distribution of the mean of `keyed_diffs`'
+    own differences — `None`/`None` for a single observation, which has no spread to report.
+
+    **The resampling indices are derived from the data by a hash, and there is no
+    pseudo-random generator here at all.** Two readings of one pair of records have to give one
+    interval — a verdict that changed between two readings of the same two files would be
+    unciteable — and a seeded `random.Random` buys that only as long as CPython's Mersenne
+    stream never changes, which is a promise about an implementation rather than about this
+    function. A counter-mode digest over the data is reproducible by specification, needs no
+    seed to be chosen, and is what `corpus_identity` and the question-set digest already do one
+    artefact over. It also keeps this module free of `random`, which `ruff`'s `S311` refuses in
+    shipped code (a pinned ratchet, `ignore = []`) — the refusal is about cryptographic
+    suitability and does not apply here, but a waiver is a cost and this design does not need
+    one.
+    """
+    if len(keyed_diffs) < 2:
+        return None, None
+
+    values = [diff for _, diff in keyed_diffs]
+    n = len(values)
+    seed_material = "|".join(f"{key}:{diff!r}" for key, diff in sorted(keyed_diffs))
+    indices = _index_stream(seed_material, count=_RESAMPLES * n, modulus=n)
+
+    means = sorted(
+        sum(values[index] for index in indices[start : start + n]) / n
+        for start in range(0, _RESAMPLES * n, n)
+    )
+    return _percentile(means, 2.5), _percentile(means, 97.5)
+
+
+def _index_stream(seed_material: str, *, count: int, modulus: int) -> list[int]:
+    """`count` indices below `modulus`, derived from `seed_material` alone.
+
+    Counter-mode sha256: block `i` is the digest of `seed_material` and `i`, and each of its
+    bytes yields one index. The bias from `byte % modulus` is at most one part in 256 and is
+    irrelevant to a percentile over 2,000 resamples — stated rather than hidden, because an
+    unstated approximation is the kind of thing a later reader has to re-derive.
+    """
+    indices: list[int] = []
+    block = 0
+    while len(indices) < count:
+        digest = hashlib.sha256(f"{seed_material}|{block}".encode()).digest()
+        indices.extend(byte % modulus for byte in digest)
+        block += 1
+    return indices[:count]
+
+
+def paired_differences(a: RunRecord, b: RunRecord) -> Mapping[str, PairedDifference]:
+    """One `PairedDifference` per metric both records scored, keyed as `metrics` is.
+
+    A record whose `question_scores` is `None` — every record written before task 16.4 —
+    pairs nothing: there is no per-question observation to pair, so this returns an empty
+    mapping rather than guessing at one. For each metric name present in both records'
+    `question_scores`, only the question keys present in both are paired, and only where the
+    outcome is `Produced` on **both** sides — `NotScored` is not a zero (`docs/09-release.md`
+    :620, V4). A metric that pairs nothing produces no entry at all.
+    """
+    if a.question_scores is None or b.question_scores is None:
+        return MappingProxyType({})
+
+    names = sorted(set(a.question_scores) & set(b.question_scores))
+    result: dict[str, PairedDifference] = {}
+    for name in names:
+        a_scores = a.question_scores[name].scores
+        b_scores = b.question_scores[name].scores
+        keyed_diffs: list[tuple[str, float]] = []
+        for key in sorted(set(a_scores) & set(b_scores)):
+            a_outcome = a_scores[key]
+            b_outcome = b_scores[key]
+            if isinstance(a_outcome, Produced) and isinstance(b_outcome, Produced):
+                keyed_diffs.append((key, b_outcome.value - a_outcome.value))
+        if not keyed_diffs:
+            continue
+        mean = sum(diff for _, diff in keyed_diffs) / len(keyed_diffs)
+        low, high = _bootstrap_interval(keyed_diffs)
+        result[name] = PairedDifference(
+            metric=name, mean=mean, low=low, high=high, n=len(keyed_diffs)
+        )
+    return MappingProxyType(result)
+
+
 __all__ = [
     "BaselineMeasurement",
     "BaselineSpread",
     "DifferenceJudgement",
     "NoSpread",
+    "PairedDifference",
     "TooFewRepetitionsError",
     "Verdict",
     "baseline_spreads",
     "judge_differences",
+    "paired_differences",
 ]

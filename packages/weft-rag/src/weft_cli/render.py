@@ -113,7 +113,7 @@ from weft_command import ExitCode
 from weft_command import Rendered as Rendered
 from weft_command.contract import CommandResult
 from weft_eval.contract import MetricKind
-from weft_eval.falsify import BaselineSpread, DifferenceJudgement
+from weft_eval.falsify import BaselineSpread, DifferenceJudgement, PairedDifference
 from weft_eval.run_record import (
     MetricRunResult,
     NoQueryRung,
@@ -828,6 +828,31 @@ def _metrics_comparison_lines(comparison: Mapping[str, MetricComparison]) -> lis
     return lines
 
 
+def _paired_difference_line(name: str, difference: PairedDifference) -> str:
+    """One metric's own line under the paired-difference block — task 16.9, `_falsification_
+    line`'s own formatting (a signed difference to three decimals) applied to the second
+    interval rather than the first. A single paired question has no interval to report — the
+    identical rule `_falsification_line` states for a zero-width baseline spread, one
+    granularity over — so that case prints a reason instead of a fabricated bound.
+    """
+    if difference.low is None or difference.high is None:
+        return f"  {name}: {difference.mean:+.3f} (no interval — one question)"
+    return (
+        f"  {name}: {difference.mean:+.3f} (95% CI {difference.low:+.3f} to "
+        f"{difference.high:+.3f}, n={difference.n})"
+    )
+
+
+def _paired_difference_lines(paired: Mapping[str, PairedDifference]) -> list[str]:
+    """`weft eval compare`'s paired-difference block — task 16.9. Printed only when `paired` is
+    non-empty, see `_render_eval_compare`; *beside* the falsification block, never instead of
+    it, since the two answer different questions.
+    """
+    lines = ["paired difference over questions (b − a):"]
+    lines.extend(_paired_difference_line(name, difference) for name, difference in paired.items())
+    return lines
+
+
 def _falsification_line(name: str, judgement: DifferenceJudgement) -> str:
     """One metric's own line under the falsification block — task 8.8. An `UNJUDGEABLE`
     verdict prints its reason instead of numbers it does not have; a decided verdict prints
@@ -919,6 +944,11 @@ def _render_eval_compare(result: EvalCompareCommandResult) -> Rendered:
     None`** — a plain `weft eval compare` with no `--baseline` invents no verdict, so it prints
     nothing beyond what it always has. Exit code stays `ExitCode.SUCCESS` either way: this
     command reports a fact, and an indistinguishable difference is not a failed operation.
+
+    **Task 16.9's own paired-difference block, printed only when `result.paired_differences` is
+    non-empty** — *beside* the falsification block, before it, never instead of it: the two
+    intervals answer different questions (this system's own repetition noise, and whether the
+    difference generalises across the questions), and a reader given one cannot infer the other.
     """
     lines = [
         f"'{result.run_a}' vs '{result.run_b}' — same corpus, model versions and active "
@@ -927,6 +957,8 @@ def _render_eval_compare(result: EvalCompareCommandResult) -> Rendered:
         *_query_rung_difference_lines(result.query_rungs),
         *_metrics_comparison_lines(result.metrics_comparison),
     ]
+    if result.paired_differences:
+        lines.extend(_paired_difference_lines(result.paired_differences))
     if result.falsification is not None:
         baseline_pipeline = result.baseline_pipeline or ""
         lines.extend(

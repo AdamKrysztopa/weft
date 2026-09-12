@@ -587,6 +587,7 @@ def _write_record(
     query_rung: ScoredQueryRung | None = None,
     distribution_versions: dict[str, str] | None = None,
     question_set_digest: str | None = None,
+    question_scores: dict[str, PerQuestionScores] | None = None,
 ) -> None:
     """`corpus_digest_basis` defaults to `None` because that is what every record already
     committed carries — task 16.0's own constraint. A test wanting a record written *after*
@@ -601,6 +602,7 @@ def _write_record(
         query_rung=query_rung,
         distribution_versions=distribution_versions,
         question_set_digest=question_set_digest,
+        question_scores=question_scores,
     )
     write_run_record(record, directory / "runs" / f"{run_id}.json")
 
@@ -1631,3 +1633,81 @@ async def test_eval_compare_does_not_refuse_a_run_that_recorded_no_question_set(
 
     # Assert
     assert isinstance(outcome, Produced)
+
+
+# --- Task 16.9 — the paired difference reaches `weft eval compare`.
+
+
+async def test_eval_compare_reports_a_paired_difference_beside_the_spread_verdict(
+    tmp_path: Path,
+) -> None:
+    """*Beside*, never instead. The two intervals answer two questions — does this difference
+    exceed what the system produces by repeating itself, and does it generalise across the
+    questions — and a reader given one of them cannot infer the other.
+    """
+    # Arrange — a baseline that varies by 0.02, and two arms whose per-question scores differ.
+    for run_id, mean in (("base-1", 0.40), ("base-2", 0.42)):
+        _write_record(
+            tmp_path,
+            run_id,
+            pipeline_name="vector-top-k",
+            corpus_name="corpus",
+            metrics={"precision@5": _aggregate("precision@5", mean)},
+        )
+    _write_record(
+        tmp_path,
+        "run-a",
+        pipeline_name="vector-top-k",
+        corpus_name="corpus",
+        metrics={"precision@5": _aggregate("precision@5", 0.40)},
+        question_scores={
+            "precision@5": PerQuestionScores(
+                keyed_by=QuestionKey.QUESTION_ID,
+                scores={"q1": Produced(value=0.3), "q2": Produced(value=0.5)},
+            )
+        },
+    )
+    _write_record(
+        tmp_path,
+        "run-b",
+        pipeline_name="hybrid",
+        corpus_name="corpus",
+        metrics={"precision@5": _aggregate("precision@5", 0.60)},
+        question_scores={
+            "precision@5": PerQuestionScores(
+                keyed_by=QuestionKey.QUESTION_ID,
+                scores={"q1": Produced(value=0.5), "q2": Produced(value=0.7)},
+            )
+        },
+    )
+
+    # Act
+    outcome = await EvalCompareCommand().run(
+        EvalCompareArgs(a="run-a", b="run-b", baseline="vector-top-k"), _ctx(_deps())
+    )
+
+    # Assert — both are present, and neither replaced the other.
+    assert isinstance(outcome, Produced)
+    result = cast("Any", outcome).value
+    assert result.falsification is not None, "the between-run verdict was dropped"
+    assert result.paired_differences is not None
+    assert result.paired_differences["precision@5"].n == 2
+
+
+async def test_eval_compare_reports_no_paired_difference_for_records_without_questions(
+    tmp_path: Path,
+) -> None:
+    """Two records from before task 16.4 carry means and not observations, so a paired
+    comparison is not computable — and an empty mapping says so where a zero would lie.
+    """
+    # Arrange
+    _write_record(tmp_path, "run-a", pipeline_name="base", corpus_name="corpus")
+    _write_record(tmp_path, "run-b", pipeline_name="other", corpus_name="corpus")
+
+    # Act
+    outcome = await EvalCompareCommand().run(EvalCompareArgs(a="run-a", b="run-b"), _ctx(_deps()))
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = cast("Any", outcome).value
+    assert result.paired_differences == {}
