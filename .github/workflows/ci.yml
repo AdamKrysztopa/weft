@@ -129,7 +129,14 @@ jobs:
           # rather than reasoned: the same suite locally skips 9 with those files present and
           # 27 without them, so every environment gains exactly 18. A clean checkout is what
           # this job is, which is why the number moves here and not in `pyproject.toml`.
-          WEFT_TEST_EXPECTED_SKIPS: "66"
+          #
+          # **66 -> 73 on 2026-09-12**, read from this job rather than guessed at. The drift
+          # predates Phase 16a — every run on `main` from 2026-09-12 12:44 onwards failed on
+          # this guard while the suite itself was green — and 16a's own ~50 new tests skip
+          # none of them here, which is why the number did not move again when they landed.
+          # It is set from the first run after they did, which is the only environment that
+          # can state it: this one.
+          WEFT_TEST_EXPECTED_SKIPS: "73"
 
   # Fast feedback on a pull request, and **not a gate**. The `gate` job above is the canonical
   # full run and this job cannot stand in for it: it runs only the tests the diff can have

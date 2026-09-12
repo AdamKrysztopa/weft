@@ -114,6 +114,25 @@ def _install_and_check(member: Member, wheelhouse: Path) -> subprocess.Completed
     return subprocess.run(command, capture_output=True, text=True, check=False)  # noqa: S603
 
 
+def pack_of(module: str) -> str:
+    """`weft_openai` -> `openai`, `weft_openai_compatible` -> `openai-compatible`.
+
+    **The pack name a module's `weft.packs` entry point declares, and it is not the extra.**
+    `EXTRA_BACKED_MODULES`' value is the *extra* — `weft_openai_compatible` is behind `[openai]`,
+    the same extra `weft_openai` is behind — and the probe below needs the *pack*. Those two
+    strings coincide for every single-word pack and diverge for the first multi-word one, so
+    using the extra as the pack name worked for five entries and silently dropped the sixth:
+    the set deduplicated to `{'openai'}` and `openai-compatible` was never declared, which is
+    what kept CI red after that entry was added (`docs/internal/lessons.md` `L17.19`'s shape, a
+    second time in one day).
+
+    A Python module is underscored and a pack name is hyphenated; that is the whole convention,
+    and `tests/architecture/test_isolated_installs.py` reads it from here rather than keeping a
+    second copy.
+    """
+    return module.removeprefix("weft_").replace("_", "-")
+
+
 def _degradation_probe(member: Member, wheelhouse: Path) -> subprocess.CompletedProcess[str] | None:
     """Install `member` bare and check every extra-backed pack it ships reports `FAILED`.
 
@@ -131,7 +150,7 @@ def _degradation_probe(member: Member, wheelhouse: Path) -> subprocess.Completed
     if not expected:
         return None
 
-    packs = ", ".join(repr(EXTRA_BACKED_MODULES[m]) for m in expected)
+    packs = ", ".join(repr(pack_of(m)) for m in expected)
     probe = (
         "from weft_kernel.discovery import discover, PackStatus\n"
         "from weft_kernel.registry import Registry\n"
