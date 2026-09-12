@@ -214,6 +214,38 @@ async def test_init_command_writes_weft_toml_in_the_current_directory(
     assert result.path == str(tmp_path / "weft.toml")
 
 
+async def test_the_scaffolded_config_says_what_the_default_embedder_is_not(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Carried repair `R17.3`.
+
+    `weft init` writes the file an operator edits, and `# embed = "hash"` sits in it commented
+    out with nothing saying what uncommenting a different value would buy. The template named
+    the *default* twice and the word *semantic* never, so the one surface whose whole job is to
+    show an operator their choices showed the choice and not the reason to make it.
+
+    Asserted on the claim and on placement, not on wording: the file must say that the default
+    carries no meaning, and must name a real alternative — because "this one is bad" without a
+    successor is advice nobody can act on. The alternative is asserted against the registry's own
+    plugin names rather than a literal, so a rename cannot leave this file recommending a plugin
+    that no longer exists.
+    """
+    # Arrange
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(commands, "DEFAULT_CONFIG_PATH", tmp_path / "weft.toml")
+    deps = Dependencies(registry=Registry(), reports=(), services=ServiceSelection())
+
+    # Act
+    await commands.InitCommand().run(commands.NoArgs(), _ctx(deps))
+
+    # Assert
+    written = (tmp_path / "weft.toml").read_text(encoding="utf-8")
+    embed_line = next(line for line in written.splitlines() if 'embed = "hash"' in line)
+    section = written[written.index(embed_line) : written.index(embed_line) + 600]
+    assert "no semantic" in section.lower() or "carries no meaning" in section.lower()
+    assert "openai-embeddings" in section
+
+
 async def test_init_command_refuses_to_overwrite_an_existing_weft_toml(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

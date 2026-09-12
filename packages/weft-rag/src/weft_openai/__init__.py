@@ -66,11 +66,16 @@ from weft_vision import Describer
 
 #: What this pack touches — ledger task **6.31**, `02` §2 → *The trust model*.
 #:
-#: **The address is configuration, so the disclosure names the setting rather than a host.** The
-#: OpenAI SDK reads `OPENAI_BASE_URL` for itself when `base_url` is unset, so what an operator can
-#: actually check is *which knob decides where this goes*, and `network` says that. `02` §2's own
-#: rule is why this is prose and concrete strings rather than a boolean: "a hostname is
-#: information, `network: true` is noise."
+#: **The address is configuration, so the disclosure names the setting rather than a host.**
+#: `[packs.openai] base_url` is the only thing that decides where a request goes — corrected by
+#: `R17.17`, which found the comment below still arguing that the SDK reads `OPENAI_BASE_URL` for
+#: itself when `base_url` is unset. It never is: `weft_openai.embedder.build_client` is the single
+#: construction point for all three plugins this pack registers, and it always passes an explicit
+#: `base_url` (`VENDOR_BASE_URL` when the setting is unset), so the SDK never sees `None` and never
+#: consults the variable. `manual/operations-guide.md` had already documented the true behaviour
+#: while this disclosure asserted the opposite (2026-09-12). `02` §2's own rule is why this is
+#: prose and a concrete string rather than a boolean: "a hostname is information, `network: true`
+#: is noise."
 #:
 #: **And it is informational, never a claim weft checks** — nothing here is verified, enforced or
 #: granted. It exists because the alternative an operator reads is `not disclosed`, which is what
@@ -88,13 +93,15 @@ VISION_NAME = "openai-vision"
 ACCOUNT = "openai"
 
 DISCLOSURE = Disclosure(
-    network=("api.openai.com, or whatever [packs.openai] base_url / OPENAI_BASE_URL names",),
+    network=("api.openai.com, or whatever [packs.openai] base_url names",),
     filesystem=(),
     subprocess=(),
     note=(
         "Sends prompts, text to be embedded, and — since ledger task 9.9 — the image bytes of "
         "any figure a pipeline asks to have described, to an OpenAI-compatible API, using the "
-        "credential in [packs.openai] api_key or OPENAI_API_KEY. Every completion, every "
+        "credential in [packs.openai] api_key, which a project usually spells "
+        "${env:OPENAI_API_KEY} so the secret stays in the environment and the file that "
+        "names it can still be committed. Every completion, every "
         "embedding and every page crop leaves this process. The images are named separately "
         "rather than folded into 'prompts' on purpose: a figure cropped from a document is a "
         "different and more sensitive content class than the text beside it, and an operator "

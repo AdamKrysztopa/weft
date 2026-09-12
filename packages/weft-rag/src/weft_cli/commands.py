@@ -981,6 +981,8 @@ _INIT_TEMPLATE = """\
 
 [services]
 # embed = "hash"
+# hash carries no semantic meaning — it digests content, so ranking with it
+# only proves the pipeline ran. Switch to openai-embeddings for relevance.
 # store = "pgvector"
 
 [permissions]
