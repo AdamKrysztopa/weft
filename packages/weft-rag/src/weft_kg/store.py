@@ -207,6 +207,32 @@ CREATE TABLE IF NOT EXISTS kg_relations (
 )
 """
 
+#: Ledger **27.1** — the production record, over `kg_nodes` on the identical footing
+#: `weft_store.pgvector_store`'s `weft_node_productions` carries: one row per (node, production,
+#: source), where `production_key` groups the rows one `add()` call wrote into the one production
+#: it is. **`ON DELETE CASCADE` here, unlike that module's table, is deliberate rather than an
+#: oversight** — `kg_entity_nodes.node_id` already cascades from `kg_nodes`, and every test that
+#: provisions this schema truncates with `TRUNCATE kg_nodes, kg_sources, kg_entities CASCADE`
+#: (`grep -rn "TRUNCATE kg_" tests/`), so a cascading foreign key here breaks nothing that dispatch
+#: cannot edit and saves `_delete_and_narrow` an explicit cleanup statement for every doomed node.
+_CREATE_NODE_PRODUCTIONS_TABLE = """
+CREATE TABLE IF NOT EXISTS kg_node_productions (
+    node_id TEXT NOT NULL REFERENCES kg_nodes(id) ON DELETE CASCADE,
+    production_key TEXT NOT NULL,
+    source_id TEXT NOT NULL,
+    PRIMARY KEY (node_id, production_key, source_id)
+)
+"""
+
+#: Decision 5, over `kg_nodes` — see `weft_store.pgvector_store._BACKFILL_NODE_PRODUCTIONS`'s
+#: docstring for why this is its own idempotent statement rather than a column default.
+_BACKFILL_NODE_PRODUCTIONS = """
+INSERT INTO kg_node_productions (node_id, production_key, source_id)
+SELECT n.id, md5(array_to_string(ARRAY(SELECT unnest(n.sources) ORDER BY 1), '|')), s
+FROM kg_nodes n, unnest(n.sources) AS s
+WHERE NOT EXISTS (SELECT 1 FROM kg_node_productions p WHERE p.node_id = n.id)
+"""
+
 _CREATE_ALIAS_TRGM_INDEX = (
     "CREATE INDEX IF NOT EXISTS kg_aliases_name_trgm_idx "
     "ON kg_aliases USING gin (name gin_trgm_ops)"
@@ -389,6 +415,8 @@ async def provision_schema(conn: "psycopg.AsyncConnection[dict[str, Any]]") -> N
     await register_vector_async(conn)
     async with conn.cursor() as cur:
         await cur.execute(_CREATE_NODES_TABLE)
+        await cur.execute(_CREATE_NODE_PRODUCTIONS_TABLE)
+        await cur.execute(_BACKFILL_NODE_PRODUCTIONS)
         await cur.execute(_CREATE_SOURCES_TABLE)
         await cur.execute(_CREATE_SCHEMA_TABLE)
         await cur.execute(_CREATE_ENTITIES_TABLE)
@@ -894,6 +922,15 @@ class GraphStore:
             return
         conn = await self._connection()
         rows = [_node_to_row(node) for node in nodes]
+        production_rows = [
+            {
+                "node_id": node.id,
+                "production_key": _production_key(node.lineage.sources),
+                "source_id": source,
+            }
+            for node in nodes
+            for source in node.lineage.sources
+        ]
         async with conn.cursor() as cur:
             await cur.executemany(
                 """
@@ -902,7 +939,9 @@ class GraphStore:
                         %(embedding)s, %(ext)s)
                 ON CONFLICT (id) DO UPDATE SET
                     parents = EXCLUDED.parents,
-                    sources = EXCLUDED.sources,
+                    sources = ARRAY(
+                        SELECT DISTINCT unnest(kg_nodes.sources || EXCLUDED.sources)
+                    ),
                     content = EXCLUDED.content,
                     media_type = EXCLUDED.media_type,
                     embedding = EXCLUDED.embedding,
@@ -910,6 +949,17 @@ class GraphStore:
                 """,
                 rows,
             )
+            if production_rows:
+                # Ledger **27.1** — one production per `add()` call, the identical bookkeeping
+                # `weft_store.pgvector_store.PgVectorStore.add` keeps over its own table.
+                await cur.executemany(
+                    """
+                    INSERT INTO kg_node_productions (node_id, production_key, source_id)
+                    VALUES (%(node_id)s, %(production_key)s, %(source_id)s)
+                    ON CONFLICT (node_id, production_key, source_id) DO NOTHING
+                    """,
+                    production_rows,
+                )
         for node in nodes:
             await self._derive_graph_rows(node)
 
@@ -1056,6 +1106,12 @@ class GraphStore:
         **Counted as a difference across the deletion, not read off the tables afterwards.** An
         entity two sources both mention survives the first of them, and a count taken from the
         table would call it removed.
+
+        **`fact`/`mention` count only the nodes this call actually deletes** — ledger `27.1`. A
+        node the departing source shares with a live document is narrowed, not deleted, and its
+        entity rows are still evidence for that other document, so `_drop_orphaned_entities` must
+        not see it as orphaned. Delete first, then narrow: narrowing first would empty every node
+        this source alone holds, leaving nothing for the delete to find.
         """
         conn = await self._connection()
         async with conn.cursor() as cur:
@@ -1063,25 +1119,46 @@ class GraphStore:
                 "UPDATE kg_sources SET status = %s WHERE id = %s",
                 (SourceStatus.DELETING.value, source_id),
             )
-            await cur.execute(
-                "SELECT count(*) FILTER (WHERE ext ? %(fact)s) AS fact, "
-                "count(*) FILTER (WHERE ext ? %(mention)s) AS mention "
-                "FROM kg_nodes WHERE %(source)s = ANY(sources)",
-                {
-                    "fact": ExtractedFact.__namespace__,
-                    "mention": MentionedEntity.__namespace__,
-                    "source": source_id,
-                },
-            )
-            derived_row = await cur.fetchone()
-            derived = (
-                {kind: cast(int, derived_row[kind]) for kind in ("fact", "mention")}
-                if derived_row is not None
-                else {}
-            )
             before = await _row_census(cur)
-            await cur.execute("DELETE FROM kg_nodes WHERE %s = ANY(sources)", (source_id,))
-            node_count = cur.rowcount
+            doomed, narrowed = await self._doomed_and_narrowed(cur, source_id)
+            deleted_rows: Sequence[Mapping[str, Any]] = ()
+            if doomed:
+                await cur.execute(
+                    "DELETE FROM kg_nodes WHERE id = ANY(%s) RETURNING ext", (doomed,)
+                )
+                deleted_rows = await cur.fetchall()
+            node_count = len(deleted_rows)
+            derived = {
+                "fact": sum(
+                    1
+                    for row in deleted_rows
+                    if ExtractedFact.__namespace__ in cast(dict[str, object], row["ext"])
+                ),
+                "mention": sum(
+                    1
+                    for row in deleted_rows
+                    if MentionedEntity.__namespace__ in cast(dict[str, object], row["ext"])
+                ),
+            }
+            if narrowed:
+                await cur.execute(
+                    "DELETE FROM kg_node_productions WHERE source_id = %s AND node_id = ANY(%s)",
+                    (source_id, narrowed),
+                )
+                await cur.execute(
+                    """
+                    UPDATE kg_nodes n SET sources = sub.arr
+                    FROM (
+                        SELECT node_id, ARRAY_AGG(DISTINCT source_id ORDER BY source_id) AS arr
+                        FROM kg_node_productions
+                        WHERE node_id = ANY(%(narrowed)s)
+                        GROUP BY node_id
+                    ) sub
+                    WHERE n.id = sub.node_id
+                    """,
+                    {"narrowed": narrowed},
+                )
+            narrowed_count = len(narrowed)
             await _drop_orphaned_entities(cur)
             after = await _row_census(cur)
             await cur.execute("DELETE FROM kg_sources WHERE id = %s", (source_id,))
@@ -1089,8 +1166,40 @@ class GraphStore:
         return Removed(
             source_id=source_id,
             node_count=node_count,
+            narrowed_count=narrowed_count,
             removed={kind: count for kind, count in counts.items() if count},
         )
+
+    async def _doomed_and_narrowed(
+        self, cur: "psycopg.AsyncCursor[dict[str, Any]]", source_id: SourceId
+    ) -> tuple[list[str], list[str]]:
+        """Which of `source_id`'s nodes lose every production (doomed) and which merely lose one
+        (narrowed) — ledger **27.1**, read from `kg_node_productions` rather than from
+        `kg_nodes.sources` alone. The classification query is the identical shape
+        `weft_store.pgvector_store.PgVectorStore._delete_and_narrow` runs over its own table;
+        what differs here is everything this store does *with* the answer — `fact`/`mention`
+        counts and orphaned-entity cleanup that module has no reason to know about.
+        """
+        await cur.execute(
+            """
+            WITH tainted AS (
+                SELECT node_id, production_key FROM kg_node_productions
+                WHERE source_id = %(source_id)s
+            ), survivors AS (
+                SELECT DISTINCT p.node_id FROM kg_node_productions p
+                LEFT JOIN tainted t ON t.node_id = p.node_id AND t.production_key = p.production_key
+                WHERE t.production_key IS NULL
+            )
+            SELECT DISTINCT t.node_id, (s.node_id IS NOT NULL) AS has_survivor
+            FROM tainted t
+            LEFT JOIN survivors s ON s.node_id = t.node_id
+            """,
+            {"source_id": source_id},
+        )
+        rows = await cur.fetchall()
+        doomed = [cast(str, row["node_id"]) for row in rows if not row["has_survivor"]]
+        narrowed = [cast(str, row["node_id"]) for row in rows if row["has_survivor"]]
+        return doomed, narrowed
 
     # -- Reconcilable ----------------------------------------------------------------------
 
@@ -1125,8 +1234,29 @@ class GraphStore:
         removed = 0
         for source_id in await self._tombstoned():
             async with conn.cursor() as cur:
-                await cur.execute("DELETE FROM kg_nodes WHERE %s = ANY(sources)", (source_id,))
-                removed += cur.rowcount
+                doomed, narrowed = await self._doomed_and_narrowed(cur, SourceId(source_id))
+                if doomed:
+                    await cur.execute("DELETE FROM kg_nodes WHERE id = ANY(%s)", (doomed,))
+                removed += len(doomed)
+                if narrowed:
+                    await cur.execute(
+                        "DELETE FROM kg_node_productions "
+                        "WHERE source_id = %s AND node_id = ANY(%s)",
+                        (source_id, narrowed),
+                    )
+                    await cur.execute(
+                        """
+                        UPDATE kg_nodes n SET sources = sub.arr
+                        FROM (
+                            SELECT node_id, ARRAY_AGG(DISTINCT source_id ORDER BY source_id) AS arr
+                            FROM kg_node_productions
+                            WHERE node_id = ANY(%(narrowed)s)
+                            GROUP BY node_id
+                        ) sub
+                        WHERE n.id = sub.node_id
+                        """,
+                        {"narrowed": narrowed},
+                    )
                 await _drop_orphaned_entities(cur)
                 await cur.execute("DELETE FROM kg_sources WHERE id = %s", (source_id,))
             examined += 1
@@ -1611,6 +1741,15 @@ class GraphStore:
                 "VALUES (%s, %s, %s) ON CONFLICT DO NOTHING",
                 (source, target, predicate),
             )
+
+
+def _production_key(sources: frozenset[SourceId]) -> str:
+    """The digest that groups a production's rows in `kg_node_productions` — ledger **27.1**,
+    the identical rule `weft_store.pgvector_store._production_key` states for the vector store's
+    own table, restated here rather than imported because it is private to the module that owns
+    the table it groups.
+    """
+    return sha256("|".join(sorted(sources)).encode("utf-8")).hexdigest()
 
 
 def _alias_id_for(name: str) -> AliasId:

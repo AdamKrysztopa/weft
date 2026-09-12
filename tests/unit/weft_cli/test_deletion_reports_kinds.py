@@ -207,3 +207,82 @@ def test_a_failing_participant_reports_no_kinds_rather_than_a_wrong_count() -> N
     assert dict(outcome.removed) == {}
     assert "  broken (weft-broken): failed" in lines
     assert _rendered(outcome).exit_code is ExitCode.OPERATION_FAILED
+
+
+# --- Ledger task 27.1 — a narrowed node is not a removed one, and an operator is told which.
+
+
+class _NarrowingParticipant:
+    """**G20, 2026-09-12.** A store deleting a document that shared content with another one:
+    one node was this document's alone and is gone, one is still held by a live document and
+    was narrowed rather than deleted. Before G20 this participant reported `node_count=0` for
+    a deletion that had in fact taken a node, or `node_count=2` for one that had taken one.
+    """
+
+    def __init__(self, config: object = None) -> None:
+        del config
+
+    async def delete_source(self, source_id: SourceId) -> Removed:
+        return Removed(source_id=source_id, node_count=1, narrowed_count=1)
+
+
+def test_a_participant_that_narrowed_a_shared_node_says_so() -> None:
+    """The operator-facing half of `27.1`: *"`weft delete` reports what it actually removed"*.
+
+    `1 node(s) removed` alone is true and useless — it is the same line a deletion that
+    narrowed nothing prints, so the two cases an operator most needs to tell apart render
+    identically.
+    """
+    # Arrange
+    outcome = ParticipantOutcome(
+        contract="SourceDeletable",
+        plugin="pgvector",
+        distribution="weft-rag",
+        node_count=1,
+        narrowed_count=1,
+    )
+
+    # Act
+    lines = _rendered_lines(outcome)
+
+    # Assert
+    assert "  pgvector (weft-rag): 1 node(s) removed, 1 narrowed" in lines
+
+
+def test_a_participant_that_narrowed_nothing_renders_exactly_as_it_always_did() -> None:
+    """The pin. `narrowed_count` defaults `0`, and a zero is **not** rendered: every
+    participant written before G20 reports one, and a trailing `, 0 narrowed` on every line
+    in the tree would be `L5.9`'s column of zeroes — indistinguishable between *"looked and
+    found none"* and *"does not count that kind"*.
+    """
+    # Arrange
+    outcome = ParticipantOutcome(
+        contract="SourceDeletable", plugin="pgvector", distribution="weft-rag", node_count=6
+    )
+
+    # Act
+    lines = _rendered_lines(outcome)
+
+    # Assert
+    assert "  pgvector (weft-rag): 6 node(s) removed" in lines
+    assert not any("narrowed" in line for line in lines)
+
+
+async def test_the_narrowed_count_survives_the_fan_out_to_the_rendered_line() -> None:
+    """`L9.79`: where a value's whole job is to travel from a store to an operator's screen,
+    one test must follow it along the wire. `_NarrowingParticipant` is a `SourceDeletable`,
+    reached through the real registry and the real fan-out, not a hand-built outcome.
+    """
+    # Arrange
+    registry = Registry()
+    registry.add(SourceDeletable, "narrowing", _NarrowingParticipant, distribution="weft-rag")
+    targets = participants(registry=registry, store_names=frozenset({"narrowing"}))
+
+    # Act
+    outcomes = await delete_everywhere(SourceId("doc-1"), targets=targets)
+
+    # Assert
+    by_plugin = {outcome.plugin: outcome for outcome in outcomes}
+    assert by_plugin["narrowing"].narrowed_count == 1
+    result = DeleteCommandResult(source_id="doc-1", participants=outcomes)
+    assert "1 node(s) removed, 1 narrowed" in (render_outcome(Produced(value=result)).stdout or "")

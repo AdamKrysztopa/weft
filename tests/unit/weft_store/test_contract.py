@@ -338,7 +338,12 @@ def test_the_family_version_moved_when_the_family_grew_a_capability() -> None:
     # participant already building a report keeps satisfying the family untouched and every
     # caller reading one is unaffected. Minor for both of G9's audiences, so the maximum is
     # a minor.
-    assert STORE_CONTRACT_VERSION == "2.4.0"
+    # Task **27.1** moves it to `2.5.0`, a minor on the identical footing again: `Removed` gains
+    # `narrowed_count`, an optional integer defaulting to `0`. G20 settled that a deletion may
+    # now leave a node standing with one document dropped from its `sources`, and a caller told
+    # only `node_count` cannot tell that from a cascade — so the field is additive for everyone
+    # already building a `Removed` and everyone already reading one.
+    assert STORE_CONTRACT_VERSION == "2.5.0"
 
 
 def test_a_report_can_say_a_pair_was_asked_about_and_nobody_decided() -> None:

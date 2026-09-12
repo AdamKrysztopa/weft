@@ -46,7 +46,8 @@ class ParticipantOutcome(BaseModel):
     identical frozen-mapping alias reused from `weft_store.contract` rather than redeclared
     here, so the two never drift apart. It defaults empty, which is what a failed participant
     reports — it removed nothing anyone can name — and is what every participant reported
-    before this task existed.
+    before this task existed. `narrowed_count` (ledger `27.1`) carries `Removed.narrowed_count`
+    across the fan-out unchanged, for the identical reason.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -55,6 +56,7 @@ class ParticipantOutcome(BaseModel):
     plugin: str
     distribution: str
     node_count: int | None = None
+    narrowed_count: int = 0
     error: str | None = None
     removed: RemovedByKind = Field(default_factory=dict, validate_default=True)
 
@@ -117,6 +119,7 @@ async def _ask(target: Participant, source_id: SourceId) -> ParticipantOutcome:
         plugin=target.name,
         distribution=target.distribution,
         node_count=removed.node_count,
+        narrowed_count=removed.narrowed_count,
         removed=removed.removed,
     )
 

@@ -317,6 +317,13 @@ async def test_scan_and_count_see_every_stored_node_whatever_order_a_backend_wal
 
 
 async def test_delete_source_removes_exactly_the_nodes_carrying_it(store: ConformanceStore) -> None:
+    """Unchanged by G20, and that is the point of the position it settled on.
+
+    `beta` carries `_SOURCE_A` and `_SOURCE_B` because `_corpus()` built it that way in **one**
+    construction — one production over two documents, which is what a `Node.combine` summary is.
+    Deleting either document leaves no production, so the node goes, exactly as `02` §1's cascade
+    paragraph has always said. Nothing here moved; the collision cases below are additive.
+    """
     # Arrange
     await store.add(_corpus())
     await store.put_source(
@@ -335,8 +342,133 @@ async def test_delete_source_removes_exactly_the_nodes_carrying_it(store: Confor
     # Assert
     assert removed.source_id == _SOURCE_B
     assert removed.node_count == 2
+    assert removed.narrowed_count == 0
     assert frozenset(node.content for node in (await store.scan()).items) == frozenset({"alpha"})
     assert await store.get_source(_SOURCE_B) is None
+
+
+# --- Ledger task 27.1 — provenance survives a digest collision, and a delete knows the difference.
+#
+# G20, 2026-09-12, reproduced through `weft-rag 2.4.0` installed from PyPI: two byte-identical
+# files at different paths derive one node id — `02` §1 claims that dedup and G20 kept it — and
+# `add` set `sources` to the incoming value alone, so the second document's ingest took the
+# first's nodes and deleting the first reported success having removed nothing.
+
+
+async def test_add_merges_a_nodes_sources_rather_than_replacing_them(
+    store: ConformanceStore,
+) -> None:
+    """The write half. Two documents, the same bytes, one node, and it belongs to both."""
+    # Arrange — the same content reached from two different documents.
+    from_a = _node("shared", sources=frozenset({_SOURCE_A}))
+    from_b = _node("shared", sources=frozenset({_SOURCE_B}))
+    assert from_a.id == from_b.id, "the fixture must exercise the collision, not avoid it"
+
+    # Act
+    await store.add((from_a,))
+    await store.add((from_b,))
+
+    # Assert
+    stored = await store.get((from_a.id,))
+    assert len(stored) == 1
+    assert stored[0].lineage.sources == frozenset({_SOURCE_A, _SOURCE_B})
+    assert await store.count() == 1
+
+
+async def test_a_node_two_documents_each_produced_whole_is_narrowed_not_deleted(
+    store: ConformanceStore,
+) -> None:
+    """The delete half, and the case the test above it sets up.
+
+    Two productions of one document each: deleting `_SOURCE_A` drops its production and leaves
+    `_SOURCE_B`'s, so the node stays and its `sources` is recomputed from what survives. This is
+    the whole difference from the `_corpus()` case above, where one production named both.
+    """
+    # Arrange
+    from_a = _node("shared", sources=frozenset({_SOURCE_A}))
+    from_b = _node("shared", sources=frozenset({_SOURCE_B}))
+    await store.add((from_a,))
+    await store.add((from_b,))
+
+    # Act
+    removed = await store.delete_source(_SOURCE_A)
+
+    # Assert
+    assert (removed.node_count, removed.narrowed_count) == (0, 1)
+    surviving = await store.get((from_a.id,))
+    assert len(surviving) == 1
+    assert surviving[0].lineage.sources == frozenset({_SOURCE_B})
+
+
+async def test_deleting_the_last_document_that_produced_a_node_deletes_it(
+    store: ConformanceStore,
+) -> None:
+    """Narrowing is not a way for content to outlive every document that holds it."""
+    # Arrange
+    from_a = _node("shared", sources=frozenset({_SOURCE_A}))
+    from_b = _node("shared", sources=frozenset({_SOURCE_B}))
+    await store.add((from_a,))
+    await store.add((from_b,))
+
+    # Act
+    first = await store.delete_source(_SOURCE_A)
+    second = await store.delete_source(_SOURCE_B)
+
+    # Assert
+    assert (first.node_count, first.narrowed_count) == (0, 1)
+    assert (second.node_count, second.narrowed_count) == (1, 0)
+    assert await store.count() == 0
+
+
+async def test_a_derived_node_and_a_collided_one_are_told_apart_in_the_same_store(
+    store: ConformanceStore,
+) -> None:
+    """The two readings of a two-member `sources`, side by side, distinguished by one deletion.
+
+    `L12.6`'s shape: a fixture holding one of a thing cannot show that two are distinguishable.
+    Both nodes below end with `sources == {_SOURCE_A, _SOURCE_B}` and the same deletion must do
+    opposite things to them, which is the entire property `27.1` adds and the one a store keying
+    on `sources` alone cannot have.
+    """
+    # Arrange — `derived` is built once naming both; `collided` is written twice naming one each.
+    derived = _node("derived", sources=frozenset({_SOURCE_A, _SOURCE_B}))
+    collided = _node("collided", sources=frozenset({_SOURCE_A}))
+    also_collided = _node("collided", sources=frozenset({_SOURCE_B}))
+    await store.add((derived, collided))
+    await store.add((also_collided,))
+    assert derived.lineage.sources == also_collided.lineage.sources | collided.lineage.sources
+
+    # Act
+    removed = await store.delete_source(_SOURCE_A)
+
+    # Assert
+    assert (removed.node_count, removed.narrowed_count) == (1, 1)
+    surviving = {node.content: node for node in (await store.scan()).items}
+    assert frozenset(surviving) == frozenset({"collided"})
+    assert surviving["collided"].lineage.sources == frozenset({_SOURCE_B})
+
+
+async def test_a_node_written_twice_by_one_document_is_one_production_not_two(
+    store: ConformanceStore,
+) -> None:
+    """Re-indexing is idempotent, and the production record must not make it otherwise.
+
+    `02` §1: *"Re-indexing unchanged content therefore produces the same ids, which is what makes
+    re-index idempotent."* A production keyed on anything but its own source set would accumulate
+    one entry per `add`, and the node would then survive the deletion of the only document that
+    ever produced it — a hole with no symptom until someone counted.
+    """
+    # Arrange
+    node = _node("written twice", sources=frozenset({_SOURCE_A}))
+    await store.add((node,))
+    await store.add((node,))
+
+    # Act
+    removed = await store.delete_source(_SOURCE_A)
+
+    # Assert
+    assert (removed.node_count, removed.narrowed_count) == (1, 0)
+    assert await store.count() == 0
 
 
 # --- Ledger task 10.24 — a superseded node is replaced, never merely deleted.

@@ -519,7 +519,6 @@ deliberately the aggressive reading: a node kept but hidden from retrieval looks
 user and is not deletion at all to a regulator. The honest cost is that the RAPTOR root summary
 descends from every document, so removing any one document removes the top of the tree. The
 mechanism — transactionality, and what `delete` returns — belongs to **G4**.
-
 **Identity is a content-addressed digest** over media type, content, sorted parent ids, and an
 ordinal within the parent. Re-indexing unchanged content therefore produces the same ids, which is
 what makes re-index idempotent and gives dedup and cache reuse for free. The ordinal is there
@@ -529,6 +528,45 @@ silently. The digest excludes the
 embedding (derived from content, and it would bind ids to a model) and the stage configuration (so
 two pipelines producing byte-identical output produce one node, which is what lets evaluation
 compare them).
+
+> **Settled by G20 (2026-09-12): provenance does not enter the digest, and the store merges
+> `sources` rather than replacing them.** The sentence above claims dedup as a benefit of
+> content-addressing and the claim stands — two byte-identical documents in one corpus are **one
+> node**, and retrieval returns that passage once. What did not hold up was the *write*: `add` was
+> an upsert setting `sources` to the incoming value alone, so the second document's ingest took the
+> first's nodes, the first's `weft_sources` row survived owning nothing, and deleting it reported
+> success having removed nothing while its content stayed retrievable. Reproduced through the
+> published wheel on 2026-09-12, inside one tenant, with no second tenant and no attacker. A node's
+> `sources` is therefore the **union** of every document that has produced it, which is the same
+> rule `Lineage` already states for derivation, applied at the one seam that was contradicting it.
+> **The cost is stated rather than hidden**: a node with two sources has no single one to cite, so
+> `Citation.source_id` is `None` for it — the answer the citation layer already gives for a summary,
+> for the same reason, that naming one of several documents misattributes the claim. `05` → G20
+> carries the four positions and the measurement; provenance *in* the digest was the position this
+> one was chosen over, and it would have reversed the dedup sentence above rather than widening it.
+>
+> **The delete half is G20's second question, settled the same day, and the cascade paragraph
+> above stands unchanged.** A node's `sources` having two members means two different things and
+> nothing in `Lineage` separates them: for a digest collision, *two documents independently
+> produced this exact node*, and either alone justifies keeping it; for a `Node.combine` summary,
+> *this node's content depends on both*, which is exactly the cost the cascade paragraph accepts
+> and which `tests/integration/test_raptor_cascade_delete.py` proves. A rule stated over
+> *"`sources` still contains a live document"* cannot tell them apart and silently reverses the
+> second — it was written that way for the length of one commit and withdrawn (`L14.1`).
+>
+> **So the store records how a node was produced.** Each `add` of a node contributes one
+> **production** — the `sources` set that node carried when it arrived. Deleting a document drops
+> every production naming it; the node goes when none survives and is **narrowed** when one does,
+> its `sources` recomputed from what remains. A summary arrives as one production over several
+> documents and is therefore deleted with any of them, exactly as above. A collision arrives as
+> two productions of one document each and is narrowed. `sources` itself is unchanged — still the
+> flattened union, still what every filter and every citation reads — and the production record is
+> a **store** fact beside it, never a payload one: a `Node` carries what its content depends on,
+> and how often a store has been handed that node is the store's business. `delete_source`
+> therefore reports both numbers, because a caller told only *"1 removed"* cannot tell a cascade
+> from a narrowing. **A node written before this release has one production equal to its recorded
+> `sources`**, the only honest reading of a row whose history is gone, so an existing corpus keeps
+> deleting the aggressive way until it is re-indexed.
 
 **Composition is typed and checked at load.** `Stage[In, Out]` means the ingest path is
 `Stage[Seq[Node], Seq[Node]]` throughout while the query path is not: `Retriever` is

@@ -195,16 +195,46 @@ class QdrantStore:
         if not nodes:
             return
         client = await self._connection()
+        # Qdrant has no upsert-merge: an `upsert` replaces the whole payload, so the
+        # union of `sources` has to be read back and computed here rather than left to
+        # the write itself, the way `pgvector`'s `ON CONFLICT ... DO UPDATE` can.
+        point_ids = [str(_point_id(node.id)) for node in nodes]
+        existing = await client.retrieve(
+            self._nodes, ids=point_ids, with_payload=True, with_vectors=False
+        )
+        stored: dict[str, Mapping[str, Any]] = {
+            str(record.id): cast("Mapping[str, Any]", record.payload)
+            for record in existing
+            if record.payload is not None
+        }
+        points: list[models.PointStruct] = []
+        for node, point_id in zip(nodes, point_ids, strict=True):
+            prior_payload = stored.get(point_id)
+            prior_productions = _productions_of(prior_payload) if prior_payload is not None else []
+            incoming = node.lineage.sources
+            productions = (
+                prior_productions
+                if incoming in prior_productions
+                else [*prior_productions, incoming]
+            )
+            sources = frozenset[SourceId]().union(*productions) if productions else incoming
+            points.append(self._point(node, sources=sources, productions=productions))
         await client.upsert(
             self._nodes,
-            points=[self._point(node) for node in nodes],
+            points=points,
             # `wait=True` because the contract says durability is a guarantee rather than a
             # call: `flush()` is documented as idempotent and this store has nothing to
             # flush, so the write has to have landed by the time `add` returns.
             wait=True,
         )
 
-    def _point(self, node: Node) -> models.PointStruct:
+    def _point(
+        self,
+        node: Node,
+        *,
+        sources: frozenset[SourceId] | None = None,
+        productions: Sequence[frozenset[SourceId]] | None = None,
+    ) -> models.PointStruct:
         vector: dict[str, list[float]] = {}
         if node.embedding is not None:
             values = list(node.embedding.values)
@@ -222,6 +252,14 @@ class QdrantStore:
             vector[_VECTOR] = values
         payload = node.model_dump(mode="json")
         payload.pop("embedding", None)  # it is the vector; a second copy could disagree
+        if sources is not None:
+            payload["lineage"]["sources"] = sorted(sources)
+        if productions is not None:
+            # Ledger **27.1** — a top-level payload key, sibling to `lineage` rather than
+            # inside it: `Node` carries no notion of a production (decision 3, "a store fact,
+            # never a payload one"), and `_to_node` below reconstructs a node from exactly the
+            # keys it names, so this key never reaches `Node.model_validate`.
+            payload["productions"] = [sorted(group) for group in productions]
         return models.PointStruct(
             id=str(_point_id(node.id)),
             # The driver types a named-vector map as `dict[str, Vector]`, where `Vector` is
@@ -249,11 +287,14 @@ class QdrantStore:
         return tuple(_to_node(record) for record in records)
 
     async def delete_source(self, source_id: SourceId) -> Removed:
-        """Tombstone, delete by filter, clear — `02`'s idempotent, resumable deletion.
+        """Tombstone, delete-and-narrow by filter, clear — `02`'s idempotent, resumable deletion.
 
-        The count comes from a `count` before the delete rather than from the
-        delete itself, which reports nothing: two calls where Postgres has one, and
-        an honest count rather than a number this store would have had to invent.
+        **Ledger `27.1`.** Qdrant has no `array_remove` and no upsert-merge, so a node this
+        source shares with a live document cannot be narrowed by the delete itself the way
+        `pgvector`'s `cardinality(array_remove(...))` clause is: `_delete_and_narrow` reads
+        every point the filter selects and decides, per point, whether removing `source_id`
+        empties `lineage.sources` (deleted, counted in `node_count`) or leaves it non-empty
+        (narrowed in place, counted in `narrowed_count`).
         """
         client = await self._connection()
         carries = models.Filter(
@@ -263,7 +304,6 @@ class QdrantStore:
                 )
             ]
         )
-        counted = await client.count(self._nodes, count_filter=carries, exact=True)
         existing = await self.get_source(source_id)
         if existing is not None:
             await self.put_source(
@@ -276,15 +316,69 @@ class QdrantStore:
                     status=SourceStatus.DELETING,
                 )
             )
-        await client.delete(
-            self._nodes, points_selector=models.FilterSelector(filter=carries), wait=True
-        )
+        node_count, narrowed_count = await self._delete_and_narrow(client, carries, source_id)
         await client.delete(
             self._sources,
             points_selector=models.PointIdsList(points=[str(_point_id(source_id))]),
             wait=True,
         )
-        return Removed(source_id=source_id, node_count=counted.count)
+        return Removed(source_id=source_id, node_count=node_count, narrowed_count=narrowed_count)
+
+    async def _delete_and_narrow(
+        self, client: AsyncQdrantClient, carries: models.Filter, source_id: SourceId
+    ) -> tuple[int, int]:
+        """Read-modify-write against every point `carries` selects, and the two counts that
+        come out of it — shared by `delete_source` and `reconcile`'s own finishing pass, so
+        the two can never narrow differently for the identical deletion.
+
+        **Ledger `27.1`.** A point is doomed when every production it carries names
+        `source_id` — removing it would leave none. A point is narrowed when at least one
+        production does not — that production survives untouched, and `lineage.sources` is
+        recomputed as the union of the *surviving* productions rather than merely having
+        `source_id` stripped out of it, because two surviving productions can still overlap in
+        a source neither alone would justify keeping. `_productions_of` is what makes a point
+        written before this feature answer honestly: no stored `productions` key reads as one
+        production equal to whatever `lineage.sources` already says (decision 5).
+        """
+        to_delete: list[models.ExtendedPointId] = []
+        narrowed = 0
+        offset: Any = None
+        while True:
+            records, offset = await client.scroll(
+                self._nodes,
+                scroll_filter=carries,
+                limit=_PAGE_SIZE,
+                with_payload=True,
+                offset=offset,
+            )
+            for record in records:
+                payload = cast("Mapping[str, Any]", record.payload or {})
+                surviving = [group for group in _productions_of(payload) if source_id not in group]
+                if surviving:
+                    sources = frozenset[SourceId]().union(*surviving)
+                    await client.set_payload(
+                        self._nodes,
+                        payload={"sources": sorted(sources)},
+                        points=[record.id],
+                        key="lineage",
+                        wait=True,
+                    )
+                    await client.set_payload(
+                        self._nodes,
+                        payload={"productions": [sorted(group) for group in surviving]},
+                        points=[record.id],
+                        wait=True,
+                    )
+                    narrowed += 1
+                else:
+                    to_delete.append(str(record.id))
+            if offset is None:
+                break
+        if to_delete:
+            await client.delete(
+                self._nodes, points_selector=models.PointIdsList(points=to_delete), wait=True
+            )
+        return len(to_delete), narrowed
 
     async def supersede(self, old: NodeId, new: Node) -> None:
         """Replace `old` with `new` — `NodeStore.supersede`, ledger task **10.24**.
@@ -347,17 +441,14 @@ class QdrantStore:
                     )
                 ]
             )
-            counted = await client.count(self._nodes, count_filter=carries, exact=True)
-            await client.delete(
-                self._nodes, points_selector=models.FilterSelector(filter=carries), wait=True
-            )
+            node_count, _ = await self._delete_and_narrow(client, carries, record.id)
             await client.delete(
                 self._sources,
                 points_selector=models.PointIdsList(points=[str(_point_id(record.id))]),
                 wait=True,
             )
             examined += 1
-            removed += counted.count
+            removed += node_count
         return ReconcileReport(
             mode=mode,
             examined=examined,
@@ -651,6 +742,22 @@ def _as_number(value: FilterValue | None) -> float:
 def _as_scalar(value: FilterValue | None) -> str | int | bool:
     """The scalar an identity comparison carries. `Filter` has already refused a tuple."""
     return cast(str | int | bool, value)
+
+
+def _productions_of(payload: Mapping[str, Any]) -> list[frozenset[SourceId]]:
+    """Every production a stored point carries — ledger **27.1**.
+
+    `payload["productions"]` is written by `QdrantStore._point` and read back nowhere but here
+    and `_delete_and_narrow`; a point this store wrote before the feature existed has no such
+    key, and decision 5's answer for a point whose history was never kept applies identically to
+    this backend as it does to `weft_store.pgvector_store`'s migration: one production, equal to
+    whatever `lineage.sources` already says.
+    """
+    raw = payload.get("productions")
+    if raw is None:
+        lineage = cast("Mapping[str, Any]", payload["lineage"])
+        return [frozenset(cast("list[SourceId]", lineage["sources"]))]
+    return [frozenset(cast("list[SourceId]", group)) for group in cast("list[list[str]]", raw)]
 
 
 def _point_id(identifier: str) -> UUID:

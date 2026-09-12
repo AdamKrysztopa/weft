@@ -33,6 +33,26 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ## [Unreleased]
 
+### Fixed
+
+- Two byte-identical documents in one corpus no longer take each other's nodes. Node ids are
+  content digests that exclude the source, so both documents derive one node — that dedup is
+  intended — but `add` replaced the node's `sources` with the incoming document's alone, so the
+  second ingest took the first's nodes and `weft delete` on the first reported success having
+  removed nothing while its content stayed retrievable. The store now records, per node, the set
+  of **productions** that wrote it, and a deletion drops the productions naming the departing
+  document: the node goes when none survives and is **narrowed** when one does. A `Node.combine`
+  summary arrives as one production over several documents and is still deleted with any of them,
+  unchanged. `weft delete` reports both numbers — `0 node(s) removed, 1 narrowed`.
+  **A corpus indexed before this release keeps the old behaviour until it is re-indexed**: every
+  existing node is migrated to one production equal to its recorded `sources`, which is the only
+  honest reading of a row whose history was never kept.
+
+### Changed
+
+- `weft_store.contract.Removed` gains `narrowed_count`, an optional field defaulting `0`;
+  `STORE_CONTRACT_VERSION` moves `2.4.0` → `2.5.0`, a minor.
+
 ## [2.4.0] - 2026-09-11
 
 ### Added

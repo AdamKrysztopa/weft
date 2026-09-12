@@ -85,7 +85,10 @@ name = "weft-rag"
 # **2.3.0 → 2.4.0 at ledger task 11.5** — `weft_kg` gained a `register()`, a new `weft.packs`
 # entry point (`graph`) and two new plugin names. Minor, per the identical G9 rule immediately
 # above: additive for a caller, no Protocol changed.
-version = "2.4.0"
+# **2.4.0 → 2.5.0 at ledger task 27.1** — `STORE_CONTRACT_VERSION` moved a minor
+# (`Removed` gains `narrowed_count`, an optional field defaulting `0`), and fitness
+# function 6 binds a contract minor to at least a distribution minor.
+version = "2.5.0"
 description = "Weft — a RAG engine built as a microkernel. The default install: the kernel's packs, and the weft command."
 requires-python = ">=3.12"
 license = "MIT"

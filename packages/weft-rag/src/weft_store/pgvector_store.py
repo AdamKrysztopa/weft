@@ -83,6 +83,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from enum import StrEnum
 from functools import partial
+from hashlib import sha256
 from typing import Any, cast
 
 import psycopg
@@ -612,6 +613,61 @@ def _predicate_or_true(filter: Filter | None, values: dict[str, object]) -> sql.
     return sql.SQL("TRUE") if filter is None else _predicate(filter, values)
 
 
+#: Ledger task **27.1** — the production record `Removed.narrowed_count`'s docstring describes:
+#: one row per (node, production, source), where `production_key` is what groups several rows
+#: into the *one* production a single `add()` call wrote. `weft_nodes.sources` stays the
+#: flattened union (decision 1); this table is what lets a delete tell "one production over two
+#: documents" (`node_id, production_key, source_id)` sharing a `production_key` — `02` §1's
+#: `Node.combine` summary) apart from "two productions of one document each" (two distinct
+#: `production_key`s over the same `node_id`), which `sources` alone cannot.
+#:
+#: **No foreign key to `weft_nodes`.** Every module under `tests/integration` and
+#: `tests/unit/weft_store` that provisions this schema truncates it with a bare
+#: `TRUNCATE weft_nodes, weft_sources` — no `CASCADE`, and none of those files are this
+#: dispatch's to edit. Postgres refuses to truncate a table a foreign key still references
+#: unless the referencing table is truncated in the same statement or `CASCADE` is given
+#: (verified against `pgvector/pgvector:pg16`), so an `ON DELETE CASCADE` here would break
+#: every one of those fixtures. Cascade is therefore this store's own job — see
+#: `_delete_and_narrow` and `supersede`.
+_CREATE_NODE_PRODUCTIONS_TABLE = """
+CREATE TABLE IF NOT EXISTS weft_node_productions (
+    node_id TEXT NOT NULL,
+    production_key TEXT NOT NULL,
+    source_id TEXT NOT NULL,
+    PRIMARY KEY (node_id, production_key, source_id)
+)
+"""
+
+#: Decision 5 — a node already on disk when this feature ships has no recorded production, and
+#: the only honest reading of a row whose history was never kept is one production equal to its
+#: whole `sources` today. Its own statement rather than a column default, for the identical
+#: reason `_ADD_SOURCES_PIPELINE_IDENTITY` is: `CREATE TABLE IF NOT EXISTS` does nothing to a
+#: database that already has `weft_node_productions`, so a table created empty on one release and
+#: opened again after this one would stay empty forever without this running on every connect.
+#: `WHERE NOT EXISTS` makes it a no-op for a node this store has already recorded a production
+#: for — including a node written after this feature shipped, whose `add()` call already inserted
+#: one — so running it on every provisioning costs nothing once a database is caught up.
+_BACKFILL_NODE_PRODUCTIONS = """
+INSERT INTO weft_node_productions (node_id, production_key, source_id)
+SELECT n.id, md5(array_to_string(ARRAY(SELECT unnest(n.sources) ORDER BY 1), '|')), s
+FROM weft_nodes n, unnest(n.sources) AS s
+WHERE NOT EXISTS (SELECT 1 FROM weft_node_productions p WHERE p.node_id = n.id)
+"""
+
+
+def _production_key(sources: frozenset[SourceId]) -> str:
+    """The digest that groups a production's rows in `weft_node_productions`.
+
+    Decision 2 — a digest of the production's own sorted source ids, so writing the same node
+    from the same document set twice contributes one production, computed the same way both
+    times, and idempotent re-indexing does not accumulate a duplicate one. Its own algorithm from
+    `_BACKFILL_NODE_PRODUCTIONS`'s `md5(...)`, because the two never have to agree — a migrated
+    production and a freshly written one distinguish source sets exactly as well as each other
+    without ever needing to share a key.
+    """
+    return sha256("|".join(sorted(sources)).encode("utf-8")).hexdigest()
+
+
 class PgVectorStore:
     """Every tier of the store family over Postgres, with pgvector for the vector column.
 
@@ -662,6 +718,8 @@ class PgVectorStore:
             await cur.execute(_CREATE_SOURCES_TABLE)
             await cur.execute(_ADD_SOURCES_PIPELINE_IDENTITY)
             await cur.execute(_CREATE_NODES_TABLE)
+            await cur.execute(_CREATE_NODE_PRODUCTIONS_TABLE)
+            await cur.execute(_BACKFILL_NODE_PRODUCTIONS)
             await self._provision_text_index(cur)
         self._conn = conn
         return conn
@@ -742,6 +800,15 @@ class PgVectorStore:
             return
         conn = await self._connection()
         rows = [_node_to_row(node) for node in nodes]
+        production_rows = [
+            {
+                "node_id": node.id,
+                "production_key": _production_key(node.lineage.sources),
+                "source_id": source,
+            }
+            for node in nodes
+            for source in node.lineage.sources
+        ]
         async with conn.cursor() as cur:
             await cur.executemany(
                 """
@@ -750,7 +817,9 @@ class PgVectorStore:
                         %(embedding)s, %(ext)s)
                 ON CONFLICT (id) DO UPDATE SET
                     parents = EXCLUDED.parents,
-                    sources = EXCLUDED.sources,
+                    sources = ARRAY(
+                        SELECT DISTINCT unnest(weft_nodes.sources || EXCLUDED.sources)
+                    ),
                     content = EXCLUDED.content,
                     media_type = EXCLUDED.media_type,
                     embedding = EXCLUDED.embedding,
@@ -758,6 +827,19 @@ class PgVectorStore:
                 """,
                 rows,
             )
+            if production_rows:
+                # One production per `add()` call, over however many documents it names — a
+                # `Node.combine` summary's sources arrive here as one row per source sharing one
+                # `production_key`. `ON CONFLICT DO NOTHING` on the full primary key is what makes
+                # re-adding the same node from the same document set contribute nothing new.
+                await cur.executemany(
+                    """
+                    INSERT INTO weft_node_productions (node_id, production_key, source_id)
+                    VALUES (%(node_id)s, %(production_key)s, %(source_id)s)
+                    ON CONFLICT (node_id, production_key, source_id) DO NOTHING
+                    """,
+                    production_rows,
+                )
 
     async def flush(self) -> None:
         """A true no-op: `add()` writes immediately — see the module docstring."""
@@ -779,10 +861,74 @@ class PgVectorStore:
                 "UPDATE weft_sources SET status = %s WHERE id = %s",
                 (SourceStatus.DELETING.value, source_id),
             )
-            await cur.execute("DELETE FROM weft_nodes WHERE %s = ANY(sources)", (source_id,))
-            node_count = cur.rowcount
+            node_count, narrowed_count = await self._delete_and_narrow(cur, source_id)
             await cur.execute("DELETE FROM weft_sources WHERE id = %s", (source_id,))
-        return Removed(source_id=source_id, node_count=node_count)
+        return Removed(source_id=source_id, node_count=node_count, narrowed_count=narrowed_count)
+
+    async def _delete_and_narrow(
+        self, cur: psycopg.AsyncCursor[dict[str, Any]], source_id: SourceId
+    ) -> tuple[int, int]:
+        """Delete every node `source_id` alone produced, narrow every node it shares — ledger
+        **27.1**, shared by `delete_source` and `reconcile` so an interrupted deletion finishes
+        identically to one that ran straight through.
+
+        A node is *doomed* when every production naming it also names `source_id` — no
+        production would survive its removal. A node is *narrowed* when at least one production
+        does not name `source_id` — that production is untouched evidence the node still exists,
+        and `sources` is recomputed as the union of what remains rather than merely having
+        `source_id` removed from it, because two productions can still overlap in a source
+        neither of them alone would justify keeping.
+
+        Delete before narrowing, and clean up `weft_node_productions` for both: a doomed node's
+        production rows have no `ON DELETE CASCADE` to fall through (see
+        `_CREATE_NODE_PRODUCTIONS_TABLE`'s docstring), and a narrowed node's tainted production
+        rows must go or the next deletion of some other source would still see them.
+        """
+        await cur.execute(
+            """
+            WITH tainted AS (
+                SELECT node_id, production_key FROM weft_node_productions
+                WHERE source_id = %(source_id)s
+            ), survivors AS (
+                SELECT DISTINCT p.node_id FROM weft_node_productions p
+                LEFT JOIN tainted t ON t.node_id = p.node_id AND t.production_key = p.production_key
+                WHERE t.production_key IS NULL
+            )
+            SELECT DISTINCT t.node_id, (s.node_id IS NOT NULL) AS has_survivor
+            FROM tainted t
+            LEFT JOIN survivors s ON s.node_id = t.node_id
+            """,
+            {"source_id": source_id},
+        )
+        rows = await cur.fetchall()
+        doomed = [cast(str, row["node_id"]) for row in rows if not row["has_survivor"]]
+        narrowed = [cast(str, row["node_id"]) for row in rows if row["has_survivor"]]
+        node_count = 0
+        if doomed:
+            await cur.execute("DELETE FROM weft_nodes WHERE id = ANY(%s)", (doomed,))
+            node_count = cur.rowcount
+            await cur.execute(
+                "DELETE FROM weft_node_productions WHERE node_id = ANY(%s)", (doomed,)
+            )
+        if narrowed:
+            await cur.execute(
+                "DELETE FROM weft_node_productions WHERE source_id = %s AND node_id = ANY(%s)",
+                (source_id, narrowed),
+            )
+            await cur.execute(
+                """
+                UPDATE weft_nodes n SET sources = sub.arr
+                FROM (
+                    SELECT node_id, ARRAY_AGG(DISTINCT source_id ORDER BY source_id) AS arr
+                    FROM weft_node_productions
+                    WHERE node_id = ANY(%(narrowed)s)
+                    GROUP BY node_id
+                ) sub
+                WHERE n.id = sub.node_id
+                """,
+                {"narrowed": narrowed},
+            )
+        return node_count, len(narrowed)
 
     async def supersede(self, old: NodeId, new: Node) -> None:
         """Replace `old` with `new` — `NodeStore.supersede`, ledger task **10.24**.
@@ -823,6 +969,11 @@ class PgVectorStore:
         conn = await self._connection()
         async with conn.cursor() as cur:
             await cur.execute("DELETE FROM weft_nodes WHERE id = %s", (old,))
+            # `new`'s own `add()` call above already recorded its one production; `old`'s
+            # productions describe a node this call just deleted and carry nothing `new`
+            # inherits — ledger 27.1's answer for `supersede` is that it replaces `old`'s
+            # productions with `new`'s single one, never a union of the two.
+            await cur.execute("DELETE FROM weft_node_productions WHERE node_id = %s", (old,))
 
     async def reconcile(self, ctx: Context, mode: ReconcileMode) -> ReconcileReport:
         """Finish every deletion that was interrupted — `Reconcilable`, task **5.1b**.
@@ -855,8 +1006,10 @@ class PgVectorStore:
         removed = 0
         for source_id in await self._tombstoned():
             async with conn.cursor() as cur:
-                await cur.execute("DELETE FROM weft_nodes WHERE %s = ANY(sources)", (source_id,))
-                removed += cur.rowcount
+                node_count, _narrowed_count = await self._delete_and_narrow(
+                    cur, SourceId(source_id)
+                )
+                removed += node_count
                 await cur.execute("DELETE FROM weft_sources WHERE id = %s", (source_id,))
             examined += 1
         return ReconcileReport(

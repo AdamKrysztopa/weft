@@ -226,13 +226,17 @@ def _removed_clause(outcome: ParticipantOutcome) -> str:
     trailing word `removed`: `0 node(s), 40 blob(s) removed`. `(s)` rather than a real
     pluraliser is this file's existing convention (`participant(s)`, `node(s)`), so
     `entity(s)` is deliberately not English — inventing a pluraliser here is a second thing
-    to get wrong for no reader-facing benefit.
+    to get wrong for no reader-facing benefit. `narrowed_count` (ledger `27.1`) appends a
+    trailing `, {n} narrowed` only when non-zero, so a line written before G20 is unchanged.
     """
     if outcome.failed:
         return "failed"
     parts = [f"{outcome.node_count} node(s)"]
     parts += [f"{count} {kind}(s)" for kind, count in sorted(outcome.removed.items())]
-    return f"{', '.join(parts)} removed"
+    clause = f"{', '.join(parts)} removed"
+    if outcome.narrowed_count:
+        clause += f", {outcome.narrowed_count} narrowed"
+    return clause
 
 
 def _render_delete(result: DeleteCommandResult) -> Rendered:

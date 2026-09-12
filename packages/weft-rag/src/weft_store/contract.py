@@ -140,7 +140,9 @@ from weft_kernel.runner import Stage
 #: table classifies this minor for the caller (every existing field is untouched, so nothing that
 #: reads a report breaks) and minor for the implementer (nothing that already builds a report is
 #: asked for a new value) — the maximum of two minors is a minor.
-STORE_CONTRACT_VERSION = "2.4.0"
+#: **`2.4.0` → `2.5.0` at task 27.1, the same shape again.** `Removed` gains `narrowed_count`,
+#: an optional integer defaulting to `0` — minor for the caller, minor for the implementer.
+STORE_CONTRACT_VERSION = "2.5.0"
 
 #: Versioned separately from `STORE_CONTRACT_VERSION`: a `Filter` is data that
 #: outlives any one store, serialised into a resolved, stored pipeline. Moved `1.0.0` →
@@ -282,12 +284,20 @@ class Removed(BaseModel):
     second spelling of it inside `removed` is the exact two-lists-that-can-drift shape
     `docs/internal/README.md` opens with, reproduced inside a single model — refused at validation
     rather than left to drift silently.
+
+    **`narrowed_count` (ledger task 27.1) is not a removed node.** Node ids are content
+    digests that exclude the source, so two documents that produce identical content share
+    one node id and that node's `sources` names both. Deleting one of those documents does
+    not delete the node — it removes that document from `sources` and the node survives,
+    still readable by the document that remains. `node_count` keeps meaning **deleted**;
+    `narrowed_count` is the separate count of nodes that lost a source and lived.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     source_id: SourceId
     node_count: int
+    narrowed_count: int = 0
     cursor: Cursor | None = None
     removed: RemovedByKind = Field(default_factory=dict, validate_default=True)
 
