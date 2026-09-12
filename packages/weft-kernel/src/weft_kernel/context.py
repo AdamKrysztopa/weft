@@ -112,7 +112,7 @@ class ServiceRole(BaseModel):
     narrowing: a service is populated into a `ServiceRegistry` by whatever assembles a run, but
     nothing let a pack *name* which of its contracts is selectable that way, or under what
     `[services]` key. `ServiceRole` is that declaration — "one constant beside the Protocol"
-    (`docs/internal/build-ledger.md:5038 'exists becaus'`, `:5370`), never a member on the Protocol
+    (`docs/internal/build-ledger.md:5054 'exists becaus'`, `:5370`), never a member on the Protocol
     itself.
 
     It is a plain constant rather than a `ClassVar` written into the contract's own body,

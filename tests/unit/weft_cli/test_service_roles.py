@@ -63,7 +63,7 @@ def _report(
 def test_a_role_a_stranger_pack_declared_joins_the_selectable_set() -> None:
     """Requirement 1, for the next pack: a run-wide service becomes selectable on install.
 
-    `docs/internal/build-ledger.md:5036-5027 'is the d'` — "`[services].<role>` names one plugin for
+    `docs/internal/build-ledger.md:5052-5027 'is the d'` — "`[services].<role>` names one plugin for
     a role the contract-publishing pack declares selectable". Nothing in this distribution names
     `"blobs"`; it is reachable because a pack said so.
     """
@@ -139,7 +139,7 @@ def test_two_packs_declaring_one_role_key_are_refused_naming_both() -> None:
 def test_the_two_roles_whose_names_predate_the_mechanism_arrive_through_it() -> None:
     """`embed` and `store` are declared, not special-cased.
 
-    `docs/internal/build-ledger.md:5040-5030 's ticked'`: "`embed` and `store` stay as the two roles
+    `docs/internal/build-ledger.md:5056-5030 's ticked'`: "`embed` and `store` stay as the two roles
     whose names predate the mechanism". *Stay as* is the whole point — if `weft-cli` kept naming
     them itself, the mechanism would have one exception and requirement 1 would still fail for the
     pack that needed the exception. Read off real discovery rather than a double, per
@@ -188,7 +188,7 @@ def test_a_declared_role_nothing_selected_is_absent_rather_than_guessed() -> Non
     A role carries no default of its own — `01`'s least-architecture check, and `L6.14`: a
     field no shipped pack writes answers emptily rather than usefully. `embed` and `store`
     keep defaults because their names predate the mechanism
-    (`docs/internal/build-ledger.md:5040 's ticked'`),
+    (`docs/internal/build-ledger.md:5056 's ticked'`),
     and those two defaults live in `weft_cli.services` where they always have.
 
     `CLAUDE.md`: a silent fallback is worse than a failure — it produces a plausible answer
