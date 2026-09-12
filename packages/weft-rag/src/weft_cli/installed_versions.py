@@ -29,6 +29,9 @@ from __future__ import annotations
 from collections.abc import Iterable
 from importlib import metadata
 
+from weft_eval.run_record import active_distribution_set
+from weft_kernel.discovery import PackReport
+
 
 def installed_versions(distributions: Iterable[str]) -> dict[str, str]:
     """`{distribution: version}` for each name that has recorded metadata.
@@ -45,3 +48,19 @@ def installed_versions(distributions: Iterable[str]) -> dict[str, str]:
             continue
 
     return found
+
+
+def active_distribution_versions(reports: Iterable[PackReport]) -> dict[str, str]:
+    """`installed_versions` over exactly the set a run record calls active — task **16.3**.
+
+    Keyed through `weft_eval.run_record.active_distribution_set` itself rather than by
+    re-filtering `reports` here, so a record's versions and its `active_distributions` cannot
+    come to disagree about which distributions a run had. Fitness function 8(c) binds that set
+    to what `plugins doctor` reports; a second, independently-composed set of names to look
+    versions up for would be a second way to disagree with it.
+
+    A name with no recorded metadata is omitted, exactly as `installed_versions` omits it —
+    which is why an empty mapping is a measurement and `None` is the absence of one
+    (`RunRecord.distribution_versions`'s own comment).
+    """
+    return installed_versions(active_distribution_set(reports))

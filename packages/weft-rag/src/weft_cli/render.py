@@ -974,6 +974,18 @@ def _query_rung_text(rung: QueryRung | NoQueryRung | None) -> str:
     return f"'{rung.name}' ({rung.identity[:12]}…)"
 
 
+def _distribution_versions_text(versions: Mapping[str, str] | None) -> str:
+    """`record.distribution_versions`, rendered — task 16.3. Three states as `_query_rung_text`
+    has three: `None` is *not recorded*, `{}` is *measured, and nothing had recorded metadata*,
+    and neither reads as the other.
+    """
+    if versions is None:
+        return "(not recorded)"
+    if not versions:
+        return "(none had recorded metadata)"
+    return ", ".join(f"{name} {version}" for name, version in sorted(versions.items()))
+
+
 def _render_trace(result: TraceCommandResult) -> Rendered:
     """`weft trace` — every fact `weft_eval.run_record.RunRecord` carries, and nothing this
     module invents on top of it (Q2, `weft_cli.eval_commands`'s own module docstring: this is
@@ -990,6 +1002,7 @@ def _render_trace(result: TraceCommandResult) -> Rendered:
         f"query rung: {_query_rung_text(record.query_rung)}",
         f"model versions: {dict(record.model_versions) or '(none recorded)'}",
         f"active distributions: {', '.join(record.active_distributions) or '(none)'}",
+        f"distribution versions: {_distribution_versions_text(record.distribution_versions)}",
     ]
     if record.metrics:
         lines.append("metrics:")

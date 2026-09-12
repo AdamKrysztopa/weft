@@ -63,3 +63,38 @@ def test_asking_for_nothing_returns_nothing_rather_than_reading_the_environment(
 
     # Assert
     assert found == {}
+
+
+# --- Task 16.3 — the versions a run record carries are keyed on the set 8(c) checks.
+
+
+def test_active_distribution_versions_measures_exactly_the_active_set() -> None:
+    """One derivation, so a record's versions and its `active_distributions` cannot disagree.
+
+    Fitness function 8(c) binds `RunRecord.active_distributions` to what `plugins doctor` calls
+    active. A second, independently-composed set of names to look versions up for is a second way
+    to disagree with it — so this reads the set through `weft_eval.run_record.
+    active_distribution_set` itself, and the assertion is that the two key spaces are identical
+    rather than that the versions are any particular number.
+    """
+    # Arrange — one active pack, one refused, and two packs of the same distribution.
+    from weft_cli.installed_versions import active_distribution_versions
+    from weft_eval.run_record import active_distribution_set
+    from weft_kernel.discovery import PackReport, PackStatus
+
+    reports = (
+        PackReport(pack="eval", distribution="weft-rag", status=PackStatus.ACTIVE, contributed=1),
+        PackReport(pack="store", distribution="weft-rag", status=PackStatus.ACTIVE, contributed=1),
+        PackReport(pack="canary", distribution="weft-canary", status=PackStatus.REFUSED),
+        PackReport(pack="kernel", distribution="weft-kernel", status=PackStatus.ACTIVE),
+    )
+
+    # Act
+    versions = active_distribution_versions(reports)
+    active = active_distribution_set(reports)
+
+    # Assert — every name measured is an active one, and no active name is silently skipped
+    # for a reason other than having no recorded metadata.
+    assert set(versions) <= set(active)
+    assert "weft-canary" not in versions, "a refused pack's distribution was measured as active"
+    assert versions["weft-kernel"] == _declared_version("weft-kernel")

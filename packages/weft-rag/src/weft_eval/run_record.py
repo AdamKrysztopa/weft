@@ -32,6 +32,14 @@ extension — and no more:**
   `docs/02-extension-model.md` §2 already states why this is recorded on every run "not as a
   security feature: Phase 4 requires it anyway... `weft eval compare` across two pipelines is
   meaningless if the installed pack set differed between them."
+- `distribution_versions` — **task 16.3's own addition**: what version of each active
+  distribution was installed, so two runs on `weft-rag` 2.4.0 and 2.5.0 do not compare as one
+  environment. Taken as given, exactly like `model_versions` one field over: `weft_cli` owns
+  `installed_versions`/`active_distribution_versions`, and deriving the mapping inside
+  `build_run_record` would put an arrow from this pack into the CLI that calls it. `None` is
+  *not recorded* — every record written before this task; `{}` is *measured, and no active
+  distribution had recorded metadata* — see `RunRecord.distribution_versions`'s own comment for
+  why those are different facts.
 - `metrics` — **task 4.9's own addition, `.phase4-design.md` §7's gap closed.** Every metric this
   run actually scored, keyed by the *name the metric itself computed* (never the registered
   plugin name — the same distinction `weft_eval.aggregate`'s own R5 paragraph already draws), as
@@ -238,6 +246,13 @@ class RunRecord(BaseModel):
     corpus: CorpusIdentity
     model_versions: Mapping[str, str] = Field(default_factory=dict)
     active_distributions: tuple[str, ...] = ()
+    #: Task 16.3 — what version of each active distribution was installed. `None` means *not
+    #: recorded*: a record written before this task named the distributions and never their
+    #: versions, so two such records agree about an environment neither measured. `{}` is the
+    #: different fact that versions *were* measured and no active distribution had recorded
+    #: metadata — `installed_versions` omits such a name, `L5.9` — and an environment of
+    #: editable installs reaches it.
+    distribution_versions: Mapping[str, str] | None = None
     #: Task 10.22. `None` means *not measured*, never `0.0` — task 10.20's rule one module
     #: over: a default must not be mistakable for a value the system could legitimately have
     #: computed, and a persisted `0.0` cannot be told from a run that was instant.
@@ -266,6 +281,7 @@ def build_run_record(
     query_rung: ScoredQueryRung | None = None,
     model_versions: Mapping[str, str] = _NO_MODEL_VERSIONS,
     reports: Iterable[PackReport] = _NO_REPORTS,
+    distribution_versions: Mapping[str, str] | None = None,
     metrics: Mapping[str, Outcome[MetricAggregate]] = _NO_METRICS,
     durations: RunDurations | None = None,
 ) -> RunRecord:
@@ -289,6 +305,13 @@ def build_run_record(
     `query_rung` — task 16.1 — is passed straight through as well, on the identical footing:
     only the caller that actually ran the questions knows whether a query rung was named, and
     which one.
+
+    `distribution_versions` — task 16.3 — is passed straight through too, and unlike
+    `active_distributions` is **not** derived here from `reports`: the reader
+    (`weft_cli.installed_versions.active_distribution_versions`) lives in `weft_cli`, and this
+    module is `weft_eval`, so deriving it here would draw an arrow from the evaluation pack into
+    the CLI. `None` means the caller did not measure versions at all; `{}` means it measured and
+    found none — see `RunRecord.distribution_versions`'s own comment.
     """
     return RunRecord(
         recorded_at=recorded_at,
@@ -298,6 +321,7 @@ def build_run_record(
         query_rung=query_rung,
         model_versions=model_versions,
         active_distributions=active_distribution_set(reports),
+        distribution_versions=distribution_versions,
         durations=durations,
         metrics={name: _as_run_result(outcome) for name, outcome in metrics.items()},
     )

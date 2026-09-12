@@ -96,7 +96,7 @@ from weft_cli.eval_commands import DEFAULT_RUNS_DIR, register_eval_commands
 from weft_cli.exit_codes import ExitCode
 from weft_cli.fanout import Participant
 from weft_cli.ingest import INDEX_PACKS, SourceChange, run_index
-from weft_cli.installed_versions import installed_versions
+from weft_cli.installed_versions import active_distribution_versions, installed_versions
 from weft_cli.output import AskFormat
 from weft_cli.participation import DEFAULT_INDEX_RUNS_DIR, load_run_records, stores_in_use
 from weft_cli.pipeline_catalogue import (
@@ -743,6 +743,7 @@ class IndexCommand:
                 corpus=corpus_identity(index_args.path, result.content_hashes),
                 corpus_digest_basis=CorpusDigestBasis.DOCUMENT_BYTES,
                 reports=deps.reports,
+                distribution_versions=active_distribution_versions(deps.reports),
             )
             write_run_record(record, DEFAULT_INDEX_RUNS_DIR / f"{uuid.uuid4()}.json")
         reconcile_result = await self._auto_reconcile(index_args.reconcile, deps=deps, ctx=ctx)

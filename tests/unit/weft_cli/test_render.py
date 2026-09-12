@@ -815,6 +815,7 @@ def _run_record(
     pipeline_name: str = "index",
     corpus_digest: str = "a" * 64,
     query_rung: ScoredQueryRung | None = None,
+    distribution_versions: dict[str, str] | None = None,
 ):
     from weft_eval.run_record import CorpusIdentity, RunRecord
     from weft_kernel.resolution import ResolvedPipeline
@@ -824,6 +825,7 @@ def _run_record(
         resolved_pipeline=ResolvedPipeline(name=pipeline_name),
         corpus=CorpusIdentity(name="corpus", digest=corpus_digest),
         query_rung=query_rung,
+        distribution_versions=distribution_versions,
     )
 
 
@@ -984,6 +986,8 @@ def test_render_trace_prints_every_field_the_run_record_carries() -> None:
     # Task 16.1 — the record under test predates the field, and `weft trace` must say so rather
     # than print nothing, which is what the phase Exit's third clause asks of every new field.
     assert "query rung: (not recorded)" in rendered.stdout
+    # Task 16.3 — the same three-state honesty one field over.
+    assert "distribution versions: (not recorded)" in rendered.stdout
 
 
 def test_render_trace_distinguishes_a_named_rung_from_a_run_that_named_none() -> None:
@@ -1019,11 +1023,46 @@ def test_render_trace_distinguishes_a_named_rung_from_a_run_that_named_none() ->
     assert none_named.stdout is not None
     assert "query rung: 'hybrid-then-generate' (cdcdcdcdcdcd…)" in named.stdout
     assert "hybrid-then-generate" not in none_named.stdout
-    assert "(not recorded)" not in none_named.stdout, (
+    # Field-qualified, not a bare `"(not recorded)" not in stdout`. That shorter form asserts
+    # something about the *whole* rendering and silently became an assertion about whichever
+    # sibling field the helper left at its own default — task 16.3 added a second field whose
+    # `None` state renders the identical sentinel, and both assertions collided. Caught by the
+    # implementer refusing to edit a test to clear its path (`L17.18`).
+    assert "query rung: (not recorded)" not in none_named.stdout, (
         "a run that named no rung reads as though nobody recorded one, which is the conflation "
         "the three states exist to prevent"
     )
     assert "query rung: (none named" in none_named.stdout
+
+
+def test_render_trace_prints_the_versions_a_record_measured() -> None:
+    """Task **16.3**. A record that measured versions prints them; one that measured and found
+    none prints that it found none, which is not the same line as never having looked.
+    """
+    from weft_cli.eval_commands import TraceCommandResult
+
+    # Arrange / Act
+    measured = render.render_outcome(
+        Produced(
+            value=TraceCommandResult(
+                run_id="run-1",
+                record=_run_record(distribution_versions={"weft-rag": "2.5.0"}),
+            )
+        )
+    )
+    empty = render.render_outcome(
+        Produced(
+            value=TraceCommandResult(run_id="run-2", record=_run_record(distribution_versions={}))
+        )
+    )
+
+    # Assert
+    assert measured.stdout is not None
+    assert empty.stdout is not None
+    assert "distribution versions: weft-rag 2.5.0" in measured.stdout
+    # Field-qualified for the same reason the sibling test above says.
+    assert "distribution versions: (not recorded)" not in empty.stdout
+    assert "distribution versions: (none had recorded metadata)" in empty.stdout
 
 
 def test_render_eval_compare_names_two_rungs_as_a_difference() -> None:

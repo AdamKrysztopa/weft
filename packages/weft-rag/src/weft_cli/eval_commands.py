@@ -191,6 +191,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from weft_cli.eval_scoring import load_questions, score_pipeline
 from weft_cli.ingest import content_hashes_of, corpus_documents, run_index
+from weft_cli.installed_versions import active_distribution_versions
 from weft_cli.pipeline_diff import PipelineDiff, diff_resolved
 from weft_cli.registry_bootstrap import Dependencies
 from weft_command.contract import Command, CommandResult
@@ -759,6 +760,15 @@ def _incomparable_reasons(a: RunRecord, b: RunRecord) -> tuple[str, ...]:
         reasons.append(
             f"active distributions differ ({a.active_distributions} vs {b.active_distributions})"
         )
+    if (
+        a.distribution_versions is not None
+        and b.distribution_versions is not None
+        and a.distribution_versions != b.distribution_versions
+    ):
+        reasons.append(
+            f"distribution versions differ ({dict(a.distribution_versions)} vs "
+            f"{dict(b.distribution_versions)})"
+        )
     return tuple(reasons)
 
 
@@ -858,6 +868,7 @@ class EvalRunCommand:
             query_rung=query_rung,
             model_versions=_model_versions(_resolved, roles=deps.llm.roles),
             reports=deps.reports,
+            distribution_versions=active_distribution_versions(deps.reports),
             metrics=metrics,
             durations=RunDurations(ingest_seconds=0.0, query_seconds=query_seconds),
         )
@@ -963,6 +974,7 @@ class EvalRunCommand:
             # `_model_versions`. Derived from what actually ran, never from `[services]`.
             model_versions=_model_versions(resolved_pipeline, roles=deps.llm.roles),
             reports=deps.reports,
+            distribution_versions=active_distribution_versions(deps.reports),
             metrics=metrics,
             durations=RunDurations(ingest_seconds=wall_clock_seconds, query_seconds=query_seconds),
         )

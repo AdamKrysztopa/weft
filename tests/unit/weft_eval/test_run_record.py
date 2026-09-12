@@ -375,3 +375,65 @@ def test_the_two_query_rung_states_are_distinguishable_after_a_round_trip(tmp_pa
     assert isinstance(read_none.query_rung, NoQueryRung)
     assert read_named == named
     assert read_none == none_named
+
+
+# --- Task 16.3 — a record names the version of every active distribution.
+
+
+def test_a_record_built_without_distribution_versions_does_not_claim_any() -> None:
+    """`None` and `{}` are different answers and both are reachable.
+
+    `None` is *not recorded* — every record written before this task, which named distributions
+    and never their versions. `{}` is *measured, and nothing had recorded metadata*, which is a
+    real state: `installed_versions` omits a name whose `.dist-info` is missing, so an
+    environment of editable installs can legitimately produce an empty mapping. A single falsy
+    field would say the same thing about both.
+    """
+    # Arrange / Act
+    record = build_run_record(
+        recorded_at="2026-09-12T00:00:00Z",
+        resolved_pipeline=_resolved_pipeline(),
+        corpus=CorpusIdentity(name="c", digest="d"),
+    )
+
+    # Assert
+    assert record.distribution_versions is None
+
+
+def test_a_record_carries_distribution_versions_through_a_round_trip(tmp_path: Path) -> None:
+    # Arrange
+    record = build_run_record(
+        recorded_at="2026-09-12T00:00:00Z",
+        resolved_pipeline=_resolved_pipeline(),
+        corpus=CorpusIdentity(name="c", digest="d"),
+        distribution_versions={"weft-rag": "2.5.0", "weft-kernel": "0.1.0"},
+    )
+
+    # Act
+    loaded = load_run_record(write_run_record(record, tmp_path / "r.json"))
+
+    # Assert
+    assert loaded.distribution_versions == {"weft-rag": "2.5.0", "weft-kernel": "0.1.0"}
+    assert loaded == record
+
+
+def test_a_record_that_measured_versions_and_found_none_is_not_a_record_that_did_not_look(
+    tmp_path: Path,
+) -> None:
+    # Arrange
+    measured = build_run_record(
+        recorded_at="2026-09-12T00:00:00Z",
+        resolved_pipeline=_resolved_pipeline(),
+        corpus=CorpusIdentity(name="c", digest="d"),
+        distribution_versions={},
+    )
+
+    # Act
+    loaded = load_run_record(write_run_record(measured, tmp_path / "r.json"))
+
+    # Assert
+    assert loaded.distribution_versions == {}
+    assert loaded.distribution_versions is not None, (
+        "an empty measurement survived the round trip as an absence, so a record that looked "
+        "and found nothing reads as one that never looked — `L5.9` one field over"
+    )

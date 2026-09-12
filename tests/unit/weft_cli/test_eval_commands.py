@@ -582,6 +582,7 @@ def _write_record(
     digest: str = "a" * 64,
     corpus_digest_basis: CorpusDigestBasis | None = None,
     query_rung: ScoredQueryRung | None = None,
+    distribution_versions: dict[str, str] | None = None,
 ) -> None:
     """`corpus_digest_basis` defaults to `None` because that is what every record already
     committed carries — task 16.0's own constraint. A test wanting a record written *after*
@@ -594,6 +595,7 @@ def _write_record(
         metrics=metrics or {},
         corpus_digest_basis=corpus_digest_basis,
         query_rung=query_rung,
+        distribution_versions=distribution_versions,
     )
     write_run_record(record, directory / "runs" / f"{run_id}.json")
 
@@ -1411,3 +1413,100 @@ async def test_a_run_that_named_no_rung_is_not_a_repetition_of_one_that_did(
     assert isinstance(result, EvalCompareCommandResult)
     assert set(result.baseline_runs) == {"base-1", "base-2"}
     assert result.baseline_selection is BaselineSelection.INGEST_AND_QUERY_RUNG
+
+
+# --- Task 16.3 — two runs on two builds of one distribution are not one environment.
+
+
+async def test_eval_compare_refuses_two_runs_whose_distribution_versions_differ(
+    tmp_path: Path,
+) -> None:
+    """The gap `active_distributions` alone leaves open.
+
+    Fitness function 8(c) makes a record name the active distribution *set*, and two runs of the
+    same set compare as the same environment — which is exactly what `2.4.0` and `2.5.0` of
+    `weft-rag` are not. A metric delta between them is attributable to a wheel, and nothing said
+    so.
+    """
+    # Arrange
+    _write_record(
+        tmp_path,
+        "run-a",
+        pipeline_name="base",
+        corpus_name="corpus",
+        distribution_versions={"weft-rag": "2.4.0"},
+    )
+    _write_record(
+        tmp_path,
+        "run-b",
+        pipeline_name="base",
+        corpus_name="corpus",
+        distribution_versions={"weft-rag": "2.5.0"},
+    )
+    deps = _deps()
+
+    # Act / Assert
+    with pytest.raises(IncomparableRunsError) as excinfo:
+        await EvalCompareCommand().run(EvalCompareArgs(a="run-a", b="run-b"), _ctx(deps))
+    named = [reason for reason in excinfo.value.reasons if "2.4.0" in reason and "2.5.0" in reason]
+    assert len(named) == 1, (
+        f"the refusal does not name the two versions that differ: {excinfo.value.reasons}"
+    )
+
+
+async def test_eval_compare_does_not_refuse_a_run_that_recorded_no_versions(
+    tmp_path: Path,
+) -> None:
+    """Every record written before 16.3 names distributions and no versions, and those stay
+    comparable — the same posture the corpus basis and the query rung already take. An absence
+    is not a disagreement.
+    """
+    # Arrange
+    _write_record(tmp_path, "run-a", pipeline_name="base", corpus_name="corpus")
+    _write_record(
+        tmp_path,
+        "run-b",
+        pipeline_name="base",
+        corpus_name="corpus",
+        distribution_versions={"weft-rag": "2.5.0"},
+    )
+    deps = _deps()
+
+    # Act
+    outcome = await EvalCompareCommand().run(EvalCompareArgs(a="run-a", b="run-b"), _ctx(deps))
+
+    # Assert
+    assert isinstance(outcome, Produced), (
+        "a record that recorded no versions was refused as though it disagreed about them"
+    )
+
+
+async def test_an_eval_run_record_names_the_version_of_every_active_distribution(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The wire, along its length (`L9.79`): the versions reach the persisted file.
+
+    Asserted on the *key space* rather than on version strings — the numbers are whatever this
+    environment has installed, and pinning one would make the test a fact about a wheel.
+    """
+    # Arrange
+    (tmp_path / "one.txt").write_text("hello weft")
+    monkeypatch.setattr(
+        ingest_module, "full_catalogue", _stub_catalogue({"index": _document("index")})
+    )
+    reports = (
+        PackReport(pack="eval", distribution="weft-rag", status=PackStatus.ACTIVE, contributed=1),
+    )
+
+    # Act
+    outcome = await EvalRunCommand().run(
+        EvalRunArgs(path=str(tmp_path), pipeline="index"), _ctx(_deps(reports))
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = cast("Any", outcome).value
+    versions = result.record.distribution_versions
+    assert versions is not None, "the record records no versions at all"
+    assert set(versions) <= set(result.record.active_distributions)
+    assert versions.get("weft-rag"), "weft-rag is active in this run and carries no version"
