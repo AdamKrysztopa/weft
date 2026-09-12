@@ -1346,6 +1346,20 @@ but is not is worse than an acknowledged gap, because people build policy on it.
 states the posture instead of simulating a control: a pack runs with your full privileges, and
 installing is trusting.**
 
+**The same sentence is true one level out, where nothing in this repository has yet said it: a
+library has no security boundary; the deployment is it.** `weft_kernel.context.Context` carries a
+`tenant_id` and `weft_kernel.runner` keys its plugin instance cache on it, which is an identifier
+travelling from day one exactly as `01`'s deferral row intends — and it is not an isolation
+mechanism and was never built as one. Every pack in the process shares one interpreter, one set of
+credentials and one store connection. A `tenant_id` never reaches `weft_nodes` at all; the one
+place it reaches storage is the first segment of a blob key, where it separates *paths* and
+enforces nothing, which is why `weft_blob.keys` refuses one containing `/` or `..` rather than
+trusting it. **A second tenant is therefore a second deployment surface — a second `dsn`, or a
+second collection — enforced by Postgres roles or a collection-scoped token, outside Weft and above
+it.** Writing this down is the same act as the paragraph above it: a control that looks like
+enforcement but is not is worse than an acknowledged gap, and an unstated boundary is the version of
+that failure with nothing to point at.
+
 **The posture: open by default, exact pin available.**
 
 ```toml
