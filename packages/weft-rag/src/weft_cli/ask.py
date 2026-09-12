@@ -35,7 +35,7 @@ checked with `isinstance`, not cast, and can legitimately fail.
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Sequence
 from typing import cast
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -46,7 +46,7 @@ from weft_kernel.context import Context
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import MediaType, Node, Outcome, Produced
 from weft_kernel.registry import Registry
-from weft_kernel.seam import wrap
+from weft_kernel.seam import aclose, wrap
 from weft_store import NodeStore, Scored, VectorSearch
 
 
@@ -115,12 +115,13 @@ async def run_ask(
     try:
         outcome: Outcome[Sequence[Node]] = await wrapped_embed([query_node], ctx)
     finally:
-        # The same defensive read `run_index` gives every resolved stage, for the same
-        # reason: an embedder that holds a connection (`weft-openai` holds an HTTP client)
-        # has one thing to give back, and no contract requires it to have one.
-        embedder_aclose = _aclose_of(instance)
-        if embedder_aclose is not None:
-            await embedder_aclose()
+        await aclose(
+            instance,
+            distribution=embedder_entry.distribution,
+            contract="Embedder",
+            plugin=embedder,
+            stage="ask:embed",
+        )
     if not isinstance(outcome, Produced):
         raise EmbeddingFailedError(
             f"the '{embedder}' embedder could not embed the question: {outcome.reason}"
@@ -139,9 +140,12 @@ async def run_ask(
     try:
         return tuple(await instance_store.search_vector(embedded.embedding, top_k))
     finally:
-        aclose = _aclose_of(instance_store)
-        if aclose is not None:
-            await aclose()
+        await aclose(
+            instance_store,
+            distribution=store_entry.distribution,
+            contract="NodeStore",
+            plugin=store,
+        )
 
 
 def render_results(results: Sequence[Scored[Node]]) -> str:
@@ -225,14 +229,3 @@ def render_results_json(question: str, results: Sequence[Scored[Node]], *, top_k
     same string it was in the store — an escaped rendering is a different one.
     """
     return AskResult(question=question, top_k=top_k, hits=hits_for(results)).model_dump_json()
-
-
-def _aclose_of(instance: object) -> Callable[[], Awaitable[None]] | None:
-    """`instance.aclose`, if it has one and it is callable — the same defensive read
-    `weft_kernel.runner`'s own `_flush_of` gives `flush`. Not part of any contract `NodeStore`
-    publishes — a store may or may not have a connection worth closing.
-    """
-    found = getattr(instance, "aclose", None)
-    if found is None or not callable(found):
-        return None
-    return cast(Callable[[], Awaitable[None]], found)

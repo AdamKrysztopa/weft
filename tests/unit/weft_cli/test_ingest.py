@@ -840,3 +840,37 @@ async def test_an_ingest_run_does_not_offer_the_query_path_s_own_services(
     # Assert — both refused, and the refusal names what *is* available (requirement 5).
     assert sorted(refused) == ["lookup", "store"]
     assert "Embedder" in refused["store"]
+
+
+async def test_a_stage_that_fails_to_close_is_reported_against_its_own_pack(
+    tmp_path: Path,
+) -> None:
+    """Task 24.0 — `run_index`'s `finally` closes every resolved stage through the seam.
+
+    A store that cannot release its pool used to raise a bare `RuntimeError` out of a `finally`,
+    naming nothing an operator could act on. The seam attributes it the same way it attributes
+    a failed `run` or a failed `flush`, and the stage label is the resolved `StageSpec.id` —
+    this path *does* have a pipeline position, unlike `weft_cli.ask`'s.
+    """
+    # Arrange
+    (tmp_path / "one.txt").write_text("hello weft")
+    registry, _store = _registry_with_fakes()
+
+    class _StoreThatWillNotClose(_FakeStore):
+        async def aclose(self) -> None:
+            raise RuntimeError("the pool would not drain")
+
+    registry.add(NodeStore, "acme", _StoreThatWillNotClose, distribution="acme-store")
+
+    # Act
+    with pytest.raises(WeftError) as excinfo:
+        await run_index(tmp_path, registry=registry, ctx=_ctx(), store="acme")
+
+    # Assert
+    error = excinfo.value
+    assert (error.pack, error.contract, error.plugin, error.stage) == (
+        "acme-store",
+        "NodeStore",
+        "acme",
+        "store",
+    )

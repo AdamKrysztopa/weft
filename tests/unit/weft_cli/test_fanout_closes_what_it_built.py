@@ -24,12 +24,15 @@ close runs in a `finally`, so a cancelled fan-out still releases what it opened 
 
 from __future__ import annotations
 
+import pytest
+
 from weft_cli.deletion import delete_everywhere
 from weft_cli.deletion import participants as deletion_participants
-from weft_cli.fanout import Participant
+from weft_cli.fanout import Participant, built
 from weft_cli.reconcile import estimate_everywhere, reconcile_everywhere
 from weft_cli.reconcile import participants as reconcile_participants
 from weft_kernel.context import Context
+from weft_kernel.errors import WeftError
 from weft_kernel.payload import SourceId
 from weft_kernel.registry import Registry
 from weft_store import NodeStore, ReconcileEstimate, ReconcileMode, ReconcileReport, Removed
@@ -193,3 +196,42 @@ async def test_a_participant_with_no_aclose_is_asked_for_none() -> None:
 
     # Assert — it ran, it reported, and nothing raised for the method it does not have.
     assert outcomes[0].error is None
+
+
+# Task 24.0 — `built` releases the participant through `weft_kernel.seam.aclose`.
+#
+# The docstring above describes `_aclose_of`, which this module carried in three copies
+# (`ingest`, `ask`, here). It is one function at the seam now, and the visible consequence is
+# the one this file could not previously assert: a participant that *fails* to release its
+# connection is named — pack, contract, plugin — rather than surfacing a bare `RuntimeError`
+# from inside a `finally`. The callers still turn that into one reported participant failure;
+# what changed is that the failure says whose it is.
+
+
+class _StoreThatWillNotClose(_ClosingStore):
+    async def aclose(self) -> None:
+        raise RuntimeError("the pool would not drain")
+
+
+async def test_a_participant_that_fails_to_close_is_named_by_its_own_pack() -> None:
+    # Arrange
+    target = Participant(
+        contract="NodeStore",
+        name="graph",
+        distribution="weft-rag",
+        build=_StoreThatWillNotClose,
+    )
+
+    # Act
+    with pytest.raises(WeftError) as excinfo:
+        async with built(target):
+            pass
+
+    # Assert — no pipeline position on this path, so the seam's registration-time label stands.
+    error = excinfo.value
+    assert (error.pack, error.contract, error.plugin, error.stage) == (
+        "weft-rag",
+        "NodeStore",
+        "graph",
+        "NodeStore:graph",
+    )

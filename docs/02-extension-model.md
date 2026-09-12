@@ -288,6 +288,17 @@ class MyStage:
   swallowed by accident is `except Exception` around an `await`, which is already forbidden by the
   catch-specific-exceptions rule and is worth stating twice. Cleanup belongs in `finally` or a
   context manager, not in a handler that returns `Failed`.
+- **A connection is given back at the seam, not by whoever remembers.** A plugin that holds one
+  may declare `async def aclose(self) -> None`; it is on no contract, read off the instance, and a
+  pack that keeps no socket writes nothing. **Whatever instantiated the plugin closes it, through
+  `weft_kernel.seam.aclose`** — which does the defensive read *and* the call, so a caller never
+  asks whether there is a method. The discovery and the call are one function for the reason the
+  span is not the author's to write: three callers each deciding *is there one?* is three copies
+  free to disagree, and this tree had exactly three. It is the instantiator's rather than the
+  runner's because a `Lifetime.PROCESS` instance outlives any one run — `flush` is per-run and
+  idempotent, `aclose` is terminal. A close gets the same span, blocking-call guard and four-field
+  attribution `run` and `flush` get, so a backend that cannot release its pool names the pack that
+  holds it instead of raising an unattributed error out of a `finally`.
 - **Streaming is a service, not a second contract.** A generator resolves `ctx.require(TokenSink)`
   and emits tokens as it produces them, then returns a decided `Outcome[Answer]`; the CLI provides a
   printing sink and a batch run provides a no-op. One generator contract, and `Outcome` keeps the

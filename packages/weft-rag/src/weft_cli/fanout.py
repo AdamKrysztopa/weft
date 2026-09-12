@@ -47,13 +47,13 @@ in each caller for the reason the paragraph above gives about `participants_for`
 
 from __future__ import annotations
 
-from collections.abc import AsyncGenerator, Awaitable, Callable
+from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from typing import cast
 
 from weft_cli.run_services import class_provides
 from weft_kernel.registry import Registry, unwrap_factory
+from weft_kernel.seam import aclose
 from weft_store import NodeStore
 
 
@@ -108,25 +108,14 @@ def participants_for(
     return tuple(found)
 
 
-def _aclose_of(instance: object) -> Callable[[], Awaitable[None]] | None:
-    """`instance.aclose`, if it has one and it is callable — the defensive read `weft_cli.ingest.
-    _aclose_of` and `weft_cli.ask._aclose_of` already make, for the reason they give.
-
-    **`aclose` is a fact read off the instance, never a contract method.** No store Protocol
-    publishes one and none should start to: a participant that keeps no socket has nothing to
-    close, and requiring the method would be a line every third-party pack has to write in order
-    to be reaped. `PgVectorStore.aclose` is not part of `NodeStore`; it is a fact about that
-    class, and this treats it as one.
-    """
-    found = getattr(instance, "aclose", None)
-    if found is None or not callable(found):
-        return None
-    return cast("Callable[[], Awaitable[None]]", found)
-
-
 @asynccontextmanager
 async def built(target: Participant) -> AsyncGenerator[object]:
     """`target`, built for the length of the block, and closed again on the way out.
+
+    **The close goes through `weft_kernel.seam.aclose`, which reads `aclose` off the instance
+    defensively** — no store Protocol publishes it and none should start to: a participant that
+    keeps no socket has nothing to close, and requiring the method would be a line every
+    third-party pack has to write in order to be reaped.
 
     **The close is inside the block's own `finally`, so a close that fails is the caller's to
     report rather than this helper's to swallow.** Each of the three callers wraps its whole turn
@@ -143,9 +132,12 @@ async def built(target: Participant) -> AsyncGenerator[object]:
     try:
         yield instance
     finally:
-        aclose = _aclose_of(instance)
-        if aclose is not None:
-            await aclose()
+        await aclose(
+            instance,
+            distribution=target.distribution,
+            contract=target.contract,
+            plugin=target.name,
+        )
 
 
 __all__ = ["Participant", "built", "participants_for"]

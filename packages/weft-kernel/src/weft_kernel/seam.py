@@ -729,3 +729,64 @@ def _clean_str(value: str) -> tuple[str, int]:
     if "\x00" not in value:
         return value, 0
     return value.replace("\x00", " "), value.count("\x00")
+
+
+async def aclose(
+    instance: object,
+    *,
+    distribution: str,
+    contract: str,
+    plugin: str,
+    stage: str | None = None,
+) -> None:
+    """Close `instance` if it has an `aclose`, with the same span, guard and attribution
+    `wrap_flush` gives `flush`.
+
+    `aclose` is a fact read off the instance, never a method any contract publishes — an
+    in-memory store and every third-party pack that keeps no socket has nothing to close, and
+    requiring the method would be a line each of them has to write in order to be reaped. So
+    the defensive read and the call are one function rather than two: a caller that still had
+    to ask *is there one?* before calling a separate helper would still be the caller deciding,
+    and three call sites deciding it independently is exactly the copy this replaces.
+
+    This is a function callers reach for, never something the runner does on their behalf:
+    the instantiator owns the lifetime it opened, and a `Lifetime.PROCESS` instance outlives
+    any one run, so closing it is not the runner's to do.
+
+    `stage` is optional, defaulted to `f"{contract}:{plugin}"` exactly as `wrap` defaults it for
+    a caller with no pipeline concept — two of this function's three callers hold no pipeline
+    position at all, unlike `wrap_flush`'s one caller, which always has a resolved `StageSpec.id`.
+
+    No `_strip_transient` and no `_sanitize_control_bytes` — like `flush`, `aclose` returns
+    nothing an `Outcome` could decide.
+    """
+    found = getattr(instance, "aclose", None)
+    if found is None or not callable(found):
+        return
+    close = cast("Callable[[], Awaitable[None]]", found)
+
+    label = stage if stage is not None else f"{contract}:{plugin}"
+    with _tracer.start_as_current_span(f"{label}:aclose", kind=SpanKind.INTERNAL) as span:
+        span.set_attribute("weft.pack", distribution)
+        span.set_attribute("weft.contract", contract)
+        span.set_attribute("weft.plugin", plugin)
+        with blocking.guard(f"{label}:aclose"):
+            try:
+                await close()
+            except WeftError as exc:
+                _attribute(
+                    exc,
+                    distribution=distribution,
+                    contract=contract,
+                    plugin=plugin,
+                    stage=label,
+                )
+                raise
+            except Exception as exc:
+                raise WeftError(
+                    f"'{label}' close failed: {exc}",
+                    pack=distribution,
+                    contract=contract,
+                    plugin=plugin,
+                    stage=label,
+                ) from exc

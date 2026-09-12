@@ -75,10 +75,9 @@ runner keeps one batch in flight per pipeline run."
 
 **Cleanup, defensively.** `weft_kernel.runner.RunnablePipeline.stages` is
 public, and `PgVectorStore.aclose` is not part of any contract `NodeStore`
-publishes — a store may or may not have a connection worth closing. This
-module treats `aclose` exactly the way `weft_kernel.runner`'s own
-`_flush_of` treats `flush`: read defensively off the resolved instance,
-called if present and callable, ignored otherwise. Not a second `flush` —
+publishes — a store may or may not have a connection worth closing.
+`weft_kernel.seam.aclose` makes the call defensively; this module names only
+the stage each resolved instance is being closed for. Not a second `flush` —
 `Runner.run` already called that — only the one thing this store type adds
 that no contract requires and no third-party store need provide.
 
@@ -149,6 +148,7 @@ from weft_kernel.runner import (
     RunSummary,
     StageSpec,
 )
+from weft_kernel.seam import aclose
 from weft_llm.client import NullSink
 from weft_llm.contract import TokenSink
 from weft_store import NodeStore
@@ -389,10 +389,10 @@ class IndexResult:
 
     `stored_count` is `None` when the resolved store stage has no callable
     `count` — `NodeStore.count` is part of the published contract every store
-    implements, so this is `None` only defensively, the same spirit as
-    `aclose` below: a fact this module reads if present, never a method it
-    requires beyond what the contract already does. It is also `None` when
-    nothing was found to index, because no store was ever built.
+    implements, so this is `None` only defensively: a fact this module reads
+    if present, never a method it requires beyond what the contract already
+    does. It is also `None` when nothing was found to index, because no store
+    was ever built.
 
     **`resolved_pipeline`/`document_ids`, task 4.4/4.6.** A run record needs a resolved
     pipeline to persist and the corpus it measured — both facts this function already computes
@@ -611,9 +611,13 @@ async def run_index(
         )
     finally:
         for stage in runnable.stages:
-            aclose = _aclose_of(stage.instance)
-            if aclose is not None:
-                await aclose()
+            await aclose(
+                stage.instance,
+                distribution=stage.distribution,
+                contract=stage.contract_name,
+                plugin=stage.plugin_name,
+                stage=stage.id,
+            )
 
 
 def corpus_documents(
@@ -1223,16 +1227,6 @@ async def _record_sources(
             )
 
 
-def _aclose_of(instance: object) -> Callable[[], Awaitable[None]] | None:
-    """`instance.aclose`, if it has one and it is callable — the module docstring's *"Cleanup,
-    defensively"* note, in code.
-    """
-    found = getattr(instance, "aclose", None)
-    if found is None or not callable(found):
-        return None
-    return cast(Callable[[], Awaitable[None]], found)
-
-
 def _count_of(instance: object) -> Callable[[], Awaitable[int]] | None:
     """`instance.count`, if it has one and it is callable — see `IndexResult`'s docstring."""
     found = getattr(instance, "count", None)
@@ -1243,7 +1237,7 @@ def _count_of(instance: object) -> Callable[[], Awaitable[int]] | None:
 
 def _put_source_of(instance: object) -> Callable[[SourceRecord], Awaitable[None]] | None:
     """`instance.put_source`, if it has one and it is callable — the same defensive shape as
-    `_count_of`/`_aclose_of`. `put_source` **is** on the published `NodeStore` contract, so
+    `_count_of`. `put_source` **is** on the published `NodeStore` contract, so
     `None` here is not an admission the contract is optional; it is the identical spirit
     `_stored_count`'s own docstring already states for `count`.
     """

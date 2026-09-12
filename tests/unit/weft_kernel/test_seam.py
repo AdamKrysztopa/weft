@@ -743,3 +743,202 @@ async def test_a_call_with_no_pipeline_position_and_no_caller_reports_nothing() 
     await wrapped()
 
     assert seen == [""]
+
+
+# `aclose` — task 24.0. The other end of the lifetime `wrap_flush` already owns.
+#
+# `flush` is called mid-run by whatever resolved the pipeline; `aclose` is called by
+# whatever *instantiated* the plugin, which is not always a runner — `weft_cli.ask` builds
+# an embedder and a store by hand, and `weft_cli.fanout` builds one participant per
+# invocation. Before this, each of those three callers carried its own
+# `getattr(instance, "aclose", None)`, so the concern lived in three copies that were free
+# to disagree, which is exactly what `CLAUDE.md` → *cross-cutting concerns live at the
+# registration seam* refuses. The discovery and the call are one function here, not a
+# `wrap_aclose` beside an `aclose_of`: a caller that still had to ask *is there one* would
+# still be the caller deciding, and three copies of that decision is what this replaces.
+
+
+class _ClosesItsConnection:
+    def __init__(self) -> None:
+        self.closes = 0
+
+    async def aclose(self) -> None:
+        self.closes += 1
+
+
+async def test_aclose_closes_an_instance_that_has_one_and_records_a_span(
+    tracer: _RecordingTracer,
+) -> None:
+    # Arrange
+    instance = _ClosesItsConnection()
+
+    # Act
+    await seam.aclose(
+        instance,
+        distribution="weft-store",
+        contract="NodeStore",
+        plugin="pgvector",
+        stage="store",
+    )
+
+    # Assert
+    assert instance.closes == 1
+    [(name, span)] = tracer.spans
+    assert name == "store:aclose"
+    assert span.attributes == {
+        "weft.pack": "weft-store",
+        "weft.contract": "NodeStore",
+        "weft.plugin": "pgvector",
+    }
+
+
+async def test_aclose_labels_the_span_from_contract_and_plugin_when_no_stage_is_given(
+    tracer: _RecordingTracer,
+) -> None:
+    """Two of the three callers hold no pipeline position, so `stage` is optional here.
+
+    `wrap` already settled what a caller with no pipeline concept gets —
+    `f"{contract}:{plugin}"`, the one identifying label available at registration — and
+    `weft_cli.ask` and `weft_cli.fanout` are exactly that caller. `wrap_flush` requires
+    `stage` because its only caller is the runner, which always has a resolved `StageSpec.id`.
+    """
+    # Arrange
+    instance = _ClosesItsConnection()
+
+    # Act
+    await seam.aclose(instance, distribution="weft-kg", contract="NodeStore", plugin="graph")
+
+    # Assert
+    assert instance.closes == 1
+    [(name, _span)] = tracer.spans
+    assert name == "NodeStore:graph:aclose"
+
+
+async def test_aclose_asks_nothing_of_an_instance_that_has_none(
+    tracer: _RecordingTracer,
+) -> None:
+    """`aclose` is a fact read off the instance, never a method any contract publishes.
+
+    An in-memory store and every third-party pack that keeps no socket has nothing to close,
+    and requiring the method would be a line each of them has to write in order to be reaped.
+    The span is asserted absent as well as the call: a span for a close that did not happen is
+    an operator reading a trace as evidence of a connection that was never opened.
+    """
+
+    # Arrange
+    class _KeepsNoConnection:
+        pass
+
+    # Act
+    await seam.aclose(
+        _KeepsNoConnection(), distribution="weft-store", contract="NodeStore", plugin="memory"
+    )
+
+    # Assert
+    assert tracer.spans == []
+
+
+async def test_aclose_ignores_an_attribute_named_aclose_that_is_not_callable(
+    tracer: _RecordingTracer,
+) -> None:
+    """The same treatment `weft_kernel.runner._flush_of` gives a non-callable `flush`.
+
+    An attribute that merely shares the name is an author's typo, and a bare `TypeError`
+    raised from inside a `finally` several frames from that typo is the least readable
+    failure this seam could produce.
+    """
+
+    # Arrange
+    class _HasTheNameOnly:
+        aclose = "not a method"
+
+    # Act
+    await seam.aclose(
+        _HasTheNameOnly(), distribution="acme-store", contract="NodeStore", plugin="acme"
+    )
+
+    # Assert
+    assert tracer.spans == []
+
+
+async def test_aclose_attributes_an_unrelated_exception_and_keeps_its_cause(
+    tracer: _RecordingTracer,
+) -> None:
+    # Arrange
+    failure = RuntimeError("the pool would not drain")
+
+    class _RefusesToClose:
+        async def aclose(self) -> None:
+            raise failure
+
+    # Act / Assert
+    with pytest.raises(WeftError) as excinfo:
+        await seam.aclose(
+            _RefusesToClose(),
+            distribution="weft-store",
+            contract="NodeStore",
+            plugin="pgvector",
+            stage="store",
+        )
+
+    error = excinfo.value
+    assert (error.pack, error.contract, error.plugin, error.stage) == (
+        "weft-store",
+        "NodeStore",
+        "pgvector",
+        "store",
+    )
+    assert error.__cause__ is failure
+
+
+async def test_aclose_fills_in_the_attribution_a_pack_left_none_and_re_raises_its_own_error(
+    tracer: _RecordingTracer,
+) -> None:
+    """A pack that raises its own `WeftError` keeps it — only its `None` fields are filled.
+
+    The same rule `wrap` and `wrap_flush` follow: a pack raising directly has no reason to know
+    its own attribution, and a field it *did* set is left exactly as it was.
+    """
+
+    # Arrange
+    class _RaisesItsOwn:
+        async def aclose(self) -> None:
+            raise WeftError("the graph backend refused to release its session", plugin="graph")
+
+    # Act / Assert
+    with pytest.raises(WeftError) as excinfo:
+        await seam.aclose(
+            _RaisesItsOwn(),
+            distribution="weft-rag",
+            contract="NodeStore",
+            plugin="pgvector",
+            stage="store",
+        )
+
+    error = excinfo.value
+    assert "refused to release its session" in str(error)
+    assert error.plugin == "graph"
+    assert (error.pack, error.contract, error.stage) == ("weft-rag", "NodeStore", "store")
+
+
+async def test_aclose_lets_cancellation_propagate(tracer: _RecordingTracer) -> None:
+    """G6: `CancelledError` is never swallowed, and closing a connection is no exception.
+
+    A cancelled run still releases what it opened *and* still cancels; a seam that rewrote
+    this into a `WeftError` would turn a cancelled task into one that merely raised.
+    """
+
+    # Arrange
+    class _CancelledWhileClosing:
+        async def aclose(self) -> None:
+            raise asyncio.CancelledError
+
+    # Act / Assert
+    with pytest.raises(asyncio.CancelledError):
+        await seam.aclose(
+            _CancelledWhileClosing(),
+            distribution="weft-store",
+            contract="NodeStore",
+            plugin="pgvector",
+            stage="store",
+        )

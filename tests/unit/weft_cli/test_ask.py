@@ -24,6 +24,7 @@ from weft_cli.ask import (
 )
 from weft_embed import Embedder
 from weft_kernel.context import Context
+from weft_kernel.errors import WeftError
 from weft_kernel.payload import Failed, MediaType, Node, Outcome, Produced, Vector
 from weft_kernel.registry import Registry
 from weft_store import Filter, NodeStore, Scored
@@ -252,3 +253,73 @@ def test_render_results_json_of_no_matches_is_an_empty_list_rather_than_a_senten
 
     # Assert
     assert document.hits == ()
+
+
+# Task 24.0 — the closing `run_ask` does is the seam's, not this module's.
+#
+# `weft_cli.ask` used to carry its own `_aclose_of`, a `getattr(instance, "aclose", None)`
+# beside two identical copies in `weft_cli.ingest` and `weft_cli.fanout`. What a reader could
+# not tell from any of the three was whether a backend that *fails* to release its connection
+# is reported against the pack that holds it — and it was not, because a bare `RuntimeError`
+# out of a `finally` names nothing. Through `weft_kernel.seam.aclose` it is, by the same
+# four-field attribution every other plugin call already gets.
+
+
+class _EmbedderThatWillNotClose:
+    """Embeds, then refuses to give its connection back — `weft-openai` holds an HTTP client."""
+
+    def __init__(self, config: object) -> None:
+        del config
+
+    async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        del ctx
+        return Produced(value=[node.with_embedding(Vector(values=(1.0,))) for node in payload])
+
+    async def aclose(self) -> None:
+        raise RuntimeError("the HTTP client would not close")
+
+
+class _StoreThatWillNotClose(_FakeVectorSearchStore):
+    async def aclose(self) -> None:
+        raise RuntimeError("the pool would not drain")
+
+
+async def test_an_embedder_that_fails_to_close_is_reported_against_its_own_pack() -> None:
+    # Arrange
+    registry = Registry()
+    registry.add(Embedder, "model", _EmbedderThatWillNotClose, distribution="acme-embed")
+    registry.add(NodeStore, "pgvector", _FakeVectorSearchStore, distribution="weft-store")
+
+    # Act
+    with pytest.raises(WeftError) as excinfo:
+        await run_ask("what changed?", registry=registry, ctx=_ctx(), top_k=3, embedder="model")
+
+    # Assert — the same label `run_ask` already gives this instance's `run`.
+    error = excinfo.value
+    assert (error.pack, error.contract, error.plugin, error.stage) == (
+        "acme-embed",
+        "Embedder",
+        "model",
+        "ask:embed",
+    )
+
+
+async def test_a_store_that_fails_to_close_is_reported_against_its_own_pack() -> None:
+    # Arrange
+    registry = Registry()
+    registry.add(Embedder, "hash", _FakeEmbedder, distribution="weft-embed")
+    registry.add(NodeStore, "pgvector", _StoreThatWillNotClose, distribution="weft-store")
+
+    # Act
+    with pytest.raises(WeftError) as excinfo:
+        await run_ask("what changed?", registry=registry, ctx=_ctx(), top_k=3)
+
+    # Assert — no pipeline position exists on this path, so the seam's own registration-time
+    # label is what identifies it, exactly as `wrap` does for a caller with no stage.
+    error = excinfo.value
+    assert (error.pack, error.contract, error.plugin, error.stage) == (
+        "weft-store",
+        "NodeStore",
+        "pgvector",
+        "NodeStore:pgvector",
+    )
