@@ -59,6 +59,20 @@ payload model, `02` §2 has discovery and the trust model, and `docs/internal/RE
 which gates are settled. **This applies to *proposing* as much as to building**: before recommending
 where a thing should live, grep the settled documents for a rule about that location.
 
+**And a *count* is the same rule with nothing to grep.** A list at least names its members; a
+cardinality — *"both chunkers"*, *"three distributions"*, *"the five known sites"* — names none, so
+re-stating it elsewhere is not corroboration, because the copies share one source (`L5.6`'s shape
+applied to prose). `R17.1` was filed saying `ChunkOffset` was *"attached by both chunkers"*; one
+grep returns one attach site, and the error had already been copied into two rows of
+`docs/internal/README.md` and from there into the session's opening prompt, so four
+independent-looking statements were one unchecked reading (`L16.2`). The same failure wearing a
+check's clothes: `tests/architecture/test_ff24_no_bytes_in_a_node.py` justified its three subjects
+as *"three distributions and two source roots"*, which **G19 falsified three days earlier** by
+folding every pack into one wheel — a sentence inside a check, about the tree, that the check
+cannot make fail (`L16.1`). So: **re-run the measurement when you act on a count, before you act on
+it, however many places agree** — and when a gate changes the tree's shape, the sentences
+*justifying* a check's subjects are as stale as any assertion.
+
 **3. A list in a document is where to start looking, not a census.** *"The five known sites"* stops
 where its author's reading stopped — task 5.2b was given five and found nine. Grep for the thing
 itself. Read what a check *asserts*, not what its name says it is for, and check a property about
@@ -370,6 +384,17 @@ inside a string. `ruff format` found it in about a minute. So after a bulk edit,
 whole-tree *validity* check before the expensive gate and before reading the tool's summary as a
 result — this is `L11.35`'s neighbour one level coarser: that rule is about **meaning** after a
 bulk edit, and this one is about **validity**, which a machine answers for free (`L12.9`).
+
+**And a citation with no filename is invisible to fitness function 17.** Clauses (a) and (c)
+resolve a path and demand a quoted fragment; `_CITATION` requires a filename to match at all, so a
+*relative* citation — `` `:552-587` ``, a line in a file the sentence already named — is checked by
+nothing and can drift arbitrarily far. `docs/11-multimodal.md` carried `:492-524` for a walk that
+sat at `546` and then `552`; a six-line edit to `seam.py` moved three *quoted* citations, all three
+named exactly by clause (d), and said nothing about that one. **Nineteen such citations exist**
+(measured 2026-09-12), which is why this is a paragraph rather than a fifth clause: refusing them
+means nineteen separate judgements about which fragment each sentence meant, and a nineteen-entry
+waiver is where a real violation would hide. So when you move code, grep the documents that discuss
+that file for a bare `:NNN` as well as for its name (`L16.3`).
 
 **A `path:line` an agent reports is a lead, not evidence.** Re-derive it as you land it: three
 agents reading one paragraph on the same day cited it at three different line numbers (`L9.34`), and

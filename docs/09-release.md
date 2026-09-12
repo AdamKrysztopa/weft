@@ -909,9 +909,17 @@ downstream. What follows names the four adjustments people actually make, and wh
 
 ### 6.1 Add a phase
 
-1. Write it in `01` → *Phases* in the four-line format that section defines, with an exit that can be
-   **demonstrated rather than argued about**. If the exit cannot be demonstrated, the phase is a wish
-   and does not go in.
+1. Write it in **the document that owns phases of its number** — `01` → *Phases* for Phases 0–11,
+   and `docs/internal/12-roadmap.md` for everything after, in that document's own section format —
+   with an exit that can be **demonstrated rather than argued about**. If the exit cannot be
+   demonstrated, the phase is a wish and does not go in.
+
+   *(This said `01` unconditionally until 2026-09-12. `12-roadmap.md`'s own first line has read
+   "`01` plans Phases 0–11 and stops there" since it was written, and `grep -c "Phase 26a\|Phase
+   27" docs/01-high-level-plan.md` returns **0** — so both phases opened before Phase 20a skipped
+   this step, and step 3 was skipped for one of them too. When `12` took over `01`'s role, the
+   protocol routing to `01` was not updated with it: a document handing off its responsibility
+   leaves behind every instruction still pointing at it. `docs/internal/lessons.md` `L16.4`.)*
 2. Decide whether it has a gate. A phase whose shape depends on an undecided question needs one; add it
    to `05` and log it **Open**.
 3. Add its rows to README's *Execution path*, and its gate row to the decision log.
