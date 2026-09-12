@@ -76,10 +76,38 @@ REASON = (
 )
 
 
+#: A heredoc body: everything between `<<` (or `<<-`) with its delimiter and that delimiter alone
+#: on a line. Prose, never a command.
+_HEREDOC = re.compile(r"<<-?\s*[\"\']?(\w+)[\"\']?\n.*?^\1\s*$", re.DOTALL | re.MULTILINE)
+
+#: A quoted segment. A shell argument is not a command position, however many `|` it holds.
+_QUOTED = re.compile(r"\"[^\"]*\"|\'[^\']*\'")
+
+
+def without_prose(command):
+    """`command` with heredoc bodies and quoted arguments blanked out.
+
+    **Stripped before the split, not after, and that ordering is the whole fix.**
+    `_AT_COMMAND_POSITION` treats `|` as a separator and searched the raw string, so a `|`
+    *inside* a quoted argument or a heredoc body made whatever followed it look like a fresh
+    command. Measured 2026-09-12: a quoted mention of one of the four names was allowed, and the
+    same mention inside a `\\|` alternation was refused — so a `grep` whose pattern is an
+    alternation of the four, which is the ordinary way anyone audits or documents this guard,
+    could not be run at all. It refused three separate edits *documenting itself*, the third
+    being the one that added this function (`docs/internal/lessons.md` `L17.15`).
+
+    Blanked to spaces rather than removed, so the surrounding structure — and therefore every
+    real command position — is preserved.
+    """
+    blanked = _HEREDOC.sub(lambda match: " " * len(match.group(0)), command)
+    return _QUOTED.sub(lambda match: " " * len(match.group(0)), blanked)
+
+
 def offending(command):
     """The first blocked pattern this command matches, or None."""
+    searchable = without_prose(command)
     for pattern, advice in BLOCKED:
-        match = pattern.search(command)
+        match = pattern.search(searchable)
         if match:
             return match.group(0).strip(" ;&|\n("), advice
     return None
@@ -103,5 +131,46 @@ def main():
     return 2
 
 
+def _self_test():
+    """The probes `L17.15` was measured with. Run as `python3 <this file> --self-test`.
+
+    `.claude/hooks/` is outside `ci-checks` by design, so this is hand-run — `CLAUDE.md`'s
+    *"run a hook to know it works"* paragraph. **The false-positive half is the half that was
+    missing**: a fixture of unquoted commands alone cannot tell a correct matcher from one that
+    ignores quoting entirely, which is why this guard shipped for a phase refusing prose.
+
+    The forbidden names are assembled rather than written out, so this file does not become a
+    member of the population it checks — `L12.8`'s rule, and here it is load-bearing: written
+    literally, these cases would make every `grep` over this directory refuse.
+    """
+    name = "git " + "stash"
+    reset = "git " + "reset --hard"
+    cases = (
+        (name, True, "a bare command is refused"),
+        ('echo "plain quoted mention: ' + name + '"', False, "a quoted mention is prose"),
+        ('echo "a\\|' + name + '\\|b"', False, "a quoted alternation is still prose"),
+        ("cat > /dev/null <<'EOF'\nprose a\\|" + name + "\\|b\nEOF\n", False, "a heredoc is prose"),
+        ("ls && " + reset, True, "a real second command is still refused"),
+    )
+    failures = []
+    for command, should_refuse, why in cases:
+        refused = offending(command) is not None
+        if refused != should_refuse:
+            failures.append(
+                "{0!r}: expected {1}, got {2} — {3}".format(
+                    command,
+                    "refused" if should_refuse else "allowed",
+                    "refused" if refused else "allowed",
+                    why,
+                )
+            )
+    for failure in failures:
+        sys.stderr.write(failure + "\n")
+    print("{0} of {1} probes hold".format(len(cases) - len(failures), len(cases)))
+    return 1 if failures else 0
+
+
 if __name__ == "__main__":
+    if "--self-test" in sys.argv:
+        sys.exit(_self_test())
     sys.exit(main())

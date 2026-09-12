@@ -223,7 +223,7 @@ class MyStage:
   > inherit `Stage[In, Out]` so the runner can read `In`/`Out` off `__orig_bases__`; had `Stage`
   > declared those three `ClassVar`s, every one of those contracts would have inherited them as
   > *required* `isinstance` members, silently reopening the `hasattr`-with-better-manners defect
-  > `01` §1 condemns — a third-party plugin implementing only `run` would fail a capability check
+  > `01` → *Why rebuild rather than refactor* condemns — a third-party plugin implementing only `run` would fail a capability check
   > for attributes capability never needed. `getattr(instance, name, default)` already supplies the
   > documented defaults whether or not a plugin inherits `Stage` at all, so nothing about
   > correctness depended on the declaration — only the docstring's account of it did, and that

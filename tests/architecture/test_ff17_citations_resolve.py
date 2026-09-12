@@ -542,3 +542,94 @@ def test_the_check_can_actually_fail() -> None:
     assert _without_quotes('TABLE = "table"') == "TABLE = table"
     assert _without_quotes("TABLE = table") in _without_quotes('    TABLE = "table"')
     assert "definitely-not-here" not in _without_quotes('    TABLE = "table"')
+
+
+# --- Clause (e), `docs/internal/lessons.md` `L17.1`: a citation to a *section number*.
+
+#: A `§` citation carries neither a path nor a quoted fragment, so clauses (a) through (d) are
+#: all blind to it — it is a third population, and `L16.3`'s measurement of *19 bare relative
+#: citations* was about **line** citations and did not include it. Four sites cited `09` §4.4 as
+#: the argument that a model download is kept out of the gate; that section argues against
+#: inventing quality thresholds and says nothing about downloads, and `git log -S` found the
+#: argument was never written in `09` in any commit.
+_SECTION_CITATION: Final[re.Pattern[str]] = re.compile(r"`(\d{2})`\s*§\s*(\d+(?:\.\d+)*)")
+
+
+def _numbered_document(number: str) -> Path | None:
+    """`docs/NN-*.md` for `NN`, or `None` when this checkout does not hold one.
+
+    `None` is the normal answer for `12` and `13`: `docs/internal/` is untracked by design, so a
+    clone genuinely does not have them and a citation into one is unresolvable here rather than
+    wrong. `tests/conftest.py`'s `UNTRACKED_BY_DESIGN` is the list every such check reads.
+    """
+    found = sorted(REPO_ROOT.glob(f"docs/{number}-*.md"))
+    return found[0] if found else None
+
+
+def test_every_section_citation_resolves_to_a_heading() -> None:
+    """Clause (e) — a `§n.n` citation names a section the cited document actually has.
+
+    The cheapest half of the three populations `L17.1` named, and the only one that is purely
+    structural: the target's own headings are already parsed for other purposes here, so this
+    costs a regex and a lookup. It says nothing about whether the section *supports* the claim —
+    clause (d) cannot do that either — only that a reader following the citation arrives
+    somewhere.
+
+    **Measured before adopting, per `implement-ll`'s sizing rule: 1,069 citations walked, one
+    failing.** That one was `02` citing section 1 of the high-level plan, which carries no
+    numbered sections at all — every document in this tree with no numbers is cited by heading
+    name instead. Five further citations name the roadmap, which is untracked by design and is
+    skipped rather than failed.
+
+    **The examples above are written so this check cannot match them** — *"section 1 of the
+    high-level plan"* rather than the citation form — which is `L12.8`'s rule: a convention
+    illustrated in a form its own parser matches becomes a phantom member of the population the
+    parser counts.
+    """
+    # Arrange
+    stale: list[str] = []
+
+    # Act
+    for path in _tracked_text_files():
+        text = (REPO_ROOT / path).read_text(encoding="utf-8", errors="replace")
+        for match in _SECTION_CITATION.finditer(text):
+            number, section = match.group(1), match.group(2)
+            target = _numbered_document(number)
+            if target is None:
+                continue
+            headings = target.read_text(encoding="utf-8", errors="replace")
+            if not re.search(rf"^#+\s*{re.escape(section)}[\s.]", headings, re.MULTILINE):
+                stale.append(
+                    f"{path}: cites `{number}` §{section}, and "
+                    f"{target.relative_to(REPO_ROOT)} has no heading numbered {section}"
+                )
+
+    # Assert
+    assert not stale, (
+        "a section citation names a section its document has not got:\n  "
+        + "\n  ".join(sorted(set(stale)))
+        + "\nA `§` citation carries neither a path nor a quoted fragment, so nothing else here "
+        "can see it — cite the heading by name where a document has no numbered sections."
+    )
+
+
+def test_the_section_check_can_actually_fail(tmp_path: Path) -> None:
+    """Non-vacuity: the walk finds citations at all, and the comparison refuses a bad one."""
+    # Arrange — the real population, and a fabricated miss against a real document.
+    found = 0
+    for path in _tracked_text_files():
+        text = (REPO_ROOT / path).read_text(encoding="utf-8", errors="replace")
+        found += len(_SECTION_CITATION.findall(text))
+
+    # Assert
+    assert found > 100, f"the section-citation walk found {found} sites; it is not looking"
+    target = _numbered_document("09")
+    assert target is not None
+    headings = target.read_text(encoding="utf-8", errors="replace")
+    # A section number no document has, built rather than written as a citation — writing it as
+    # one would make this test a member of the population it is checking (`L12.8`).
+    absent = "99.99"
+    assert not re.search(rf"^#+\s*{re.escape(absent)}[\s.]", headings, re.MULTILINE), (
+        f"the release document has a heading numbered {absent}, so this check cannot tell a "
+        f"real miss from a hit"
+    )

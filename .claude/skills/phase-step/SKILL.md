@@ -78,6 +78,22 @@ where its author's reading stopped — task 5.2b was given five and found nine. 
 itself. Read what a check *asserts*, not what its name says it is for, and check a property about
 caller shape structurally rather than textually. → `references/evidence.md`
 
+**A fix-plan or a review document is a hypothesis about the tree, and its per-task clauses are
+the part nothing checks.** `01`-through-`13`'s factual claims are held to `CLAUDE.md`'s evidence
+rule; a plan under `docs/internal/fix-plans/` is held to nothing, and a task line written from one
+inherits its claims verbatim. Phase 16a found **three false in one phase** (`L17.16`): a
+recommended option matching *0 of 25* shipped labels, cited to a line about something else; a
+field described as *"already carried and dropped"* by a loader that reads a different file into a
+different class; and a citation six lines off whose sentence read as a risk to avoid when it
+described what the code already does. All three were found by read-only agents told to falsify the
+premise. **Treat the plan's *recommended* option as the clause most worth attacking** — it is the
+one the phase will build on unexamined.
+
+**And a correction reaches the document that owns the fact, not the files that quote it**
+(`L17.5`). Before you finish correcting one, grep for the sentence's own distinctive words across
+the tree; `tests/docs/test_pack_guide_samples.py`'s map answers the tagged-sample half of this as
+a lookup, and nothing answers the prose half.
+
 **And read the population, not the declaration.** A marker's meaning is what its *live instances*
 say, not what its definition says; an invariant's scope is the inputs that actually reach it, not the
 ones its comment names. Both halves cost something already. `scripts/next_task.py` was written
@@ -193,12 +209,26 @@ control built by transforming the input by a rule that can degenerate to identit
 becomes its own control (`L9.58`). Before comparing, ask where each side came from; for a
 parametrised control, assert the transform actually changed something.
 
+**An assertion over rendered output carries its field's label, never a bare value or sentinel.**
+`L17.18`: `assert "(not recorded)" not in stdout` is an assertion about *every* line, and it
+became false the moment a second field started rendering that sentinel for its own `None`. Two
+such assertions, written three hours apart, ended up mutually unsatisfiable — each set one field
+and left the other at the test helper's default. Assert `"<label>: <value>"`.
+
 **A double for a seam is copied from an existing double of that seam, never written from the
 contract's prose.** `L11.17`, one step more specific than `L6.14`: a hand-written double
 populates what its author believed the seam returns, and the two doubles of that same seam already
 in the tree encode what it actually returns. The implementer caught this one by refusing to edit
 the test, which is the split working — but the cheaper catch is one grep for the existing doubles
 before writing a new one.
+
+**And the cost of not copying it is paid by the implementer, not by you** (`L17.17`, four times
+in Phase 16a). A double the code cannot reach does not merely fail — it becomes a specification,
+and the one party who may not edit it is the one who has to satisfy it. Twice an implementer
+changed *production code* to make an unreachable assertion reachable and said so in its report,
+which is the only reason it was caught. When a blocked return says *"I moved production code to
+make the test reachable"*, that is a finding about the **test**: re-run the fixture against the
+real composition before accepting anything.
 
 **Assert a behavioural property through the seam a caller uses.** Parsing or grepping first-party
 source to check *where* code lives asserts the current arrangement and forbids the refactor that

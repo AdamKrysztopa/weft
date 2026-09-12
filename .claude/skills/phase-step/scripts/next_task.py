@@ -537,7 +537,11 @@ def _queue_depth_failures(path: Path, status: dict[str, str]) -> list[str]:
 
 
 def live_checks(
-    path: Path, tasks: list[Task], phases: dict[str, Phase], task: Task, status: dict[str, str]
+    path: Path,
+    tasks: list[Task],
+    phases: dict[str, Phase],
+    task: Task | None,
+    status: dict[str, str],
 ) -> list[str]:
     """Assertions only the **live** tree can falsify — the half a fixture cannot reach.
 
@@ -582,8 +586,15 @@ def live_checks(
     # L6.4's own defect, made checkable. A mark is only readable when the phase preamble says
     # what happened to the gate behind it; without that, a reader can only guess whether a
     # provisional task is blocked or is carrying a record of a gate that has since closed.
-    provisional = [t.identifier for t in tasks if t.phase == task.phase and t.provisional]
-    if provisional:
+    # `task is None` at a phase close, when every box is ticked — `L17.6`. The mark check is
+    # keyed on the live task's phase and has nothing to key on; every check above it is about
+    # the ledger and the Status block and runs regardless.
+    provisional = (
+        []
+        if task is None
+        else [t.identifier for t in tasks if t.phase == task.phase and t.provisional]
+    )
+    if provisional and task is not None:
         phase = phases.get(task.phase)
         preamble = "\n".join(line for _n, line in (phase.preamble if phase else []))
         if PROVISIONAL not in preamble:
@@ -962,7 +973,22 @@ def check_live(path: Path) -> int:
     tasks, phases = parse(ledger)
     index = next((i for i, t in enumerate(tasks) if not t.checked), None)
     if index is None:
-        print("every box is ticked — nothing live to check against.")
+        # **`L17.6`: this returned 0 by having nothing to check, which is exactly when it is
+        # asked.** `phase-step` -> *Close the phase* runs `--check-live` at a phase close — the
+        # moment every box in the phase has just been ticked — so the one invocation the
+        # instruction exists for was the one guaranteed to be vacuous. The checks that do not
+        # need a live task run anyway; only the ones keyed on it are skipped, and the skip is
+        # said out loud rather than reported as a pass.
+        status = status_block(path.parent / "README.md")
+        problems = live_checks(path, tasks, phases, None, status)
+        for problem in problems:
+            print(f"FAIL  {problem}")
+        if problems:
+            return 1
+        print(
+            "every box is ticked, so the checks keyed on a live task did not run; "
+            "the Status block and the phase marks were checked and hold."
+        )
         return 0
     status = status_block(path.parent / "README.md")
     problems = live_checks(path, tasks, phases, tasks[index], status)

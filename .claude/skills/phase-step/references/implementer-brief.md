@@ -124,6 +124,33 @@ and re-dispatched, or waited out — never silently repaired underneath (`L9.57`
 one session by the author who had just written the rule down).
 
 
+15. **Does the brief add an error class? Then grep for a *sibling's* name, never for the family's.**
+    `L17.19`. Task 16.5 added two classes to `exit_code_for`'s local-import branch. The brief
+    named the site it knew — fitness function 12's `NAME_RESOLUTION_FAMILY` — and there is a
+    **second** hand-written list, `tests/architecture/test_exit_code_tables_are_live.py`'s
+    `_LOCAL_IMPORT_MEMBERS`, mirroring that branch for a different reason: FF12 asks *does this
+    class carry options*, that one asks *does the module import what the list says*. Neither is
+    reachable from the other, and the second cost a full `ci-no-tests` cycle and a blocked
+    dispatch. The sites are keyed on **two markers at once** — the exception family and the
+    exit-code mechanism — so the search term is an existing member's name
+    (`UnknownQuestionKindError` finds both lists in one grep); the family's own name finds one.
+
+16. **A fixture the code cannot reach becomes a specification the agent must satisfy.** `L17.17`,
+    and it recurred four times in one phase. A double written from a contract's prose rather than
+    copied from the existing double of that seam does not merely fail — the one party who may not
+    fix it is the one who has to make it pass, and twice the agent changed *production code* to
+    make an unreachable assertion reachable (a wasted `resolve_in_catalogue` call on every real
+    `weft ask`; a query rung no catalogue held). **An implementer's report saying it moved
+    production code to make a test reachable is a finding about the test**, and the first move is
+    to re-run the fixture against the real composition rather than to accept the workaround.
+
+17. **Does the brief mandate a rendered sentinel a sibling field already uses?** `L17.18`. Two
+    fields whose `None` state both render `(not recorded)` made two assertions — written three
+    hours apart — mutually unsatisfiable, because each set one field and left the other at its
+    helper default. A shared `None` rendering is a design decision and a hostile one for any test
+    that looks for the phrase alone; say in the brief that the assertion carries its field's
+    label.
+
 ## Constraints can be jointly unsatisfiable, and the author is who cannot see it
 
 `docs/internal/lessons.md` `L8.36`. Task 7.2's brief told the implementer, of one branch, *"do not invent a
@@ -155,6 +182,18 @@ the work. Run these against the brief, not against the code.
    pass, so it blocked — correctly, and after doing the whole task. *Usefulness and reachability
    are decided by different files, and the brief's author is reading only the first.* One grep for
    the name across `packages/*/src`, or one look at the lint configuration, answers it.
+
+   **The population is every name a brief settles, not only a private first-party one** —
+   `L17.20`, and the example above reads narrower than the rule. Task 16.9's brief settled the
+   bootstrap's generator as `random.Random`; `ruff`'s `select` carries `S` with `ignore = []`,
+   and `S311` refuses it in shipped code. The brief and the lint ratchet were jointly
+   unsatisfiable, and the agent could satisfy neither without a `pyproject.toml` entry or a
+   `# noqa` — both writes it is forbidden. It named the mechanical dodges it had found, would
+   not ship one, and stopped. **A stdlib module, a third-party import and a private name are one
+   check**: one `ruff check` on a three-line sketch of the mandated code answers it before the
+   brief is sent. *(And when this does bite, the answer is often a third design rather than a
+   waiver: there, deriving the resampling indices from the data by hash removed the generator
+   entirely and was better than what the brief asked for.)*
 
 2. **Is *Already decided* derived from the contract, or from your own test?** `L10.37`, and it is
    `L5.6`'s rule — a comparison whose two sides come from one source cannot disagree. A brief

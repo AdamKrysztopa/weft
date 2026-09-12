@@ -365,6 +365,14 @@ than of a metric.**
   the answer is "the same thing", it is not a staleness check. Its sibling `L11.3`: a one-point
   probe of a step function measures that point — probe a derivation where its answer *changes*.
 
+**Phase 16a added one more, and it is about *time* rather than about a field.** A comparison
+guard that gains a fact does not retroactively hold it constant: every record committed before the
+field existed carries `None`, and two of them "agreeing" is two absences matching rather than two
+measurements agreeing (`L17.3`). The fifteen RAPTOR exit records were read as repetitions of each
+other on five facts none of them carries. **So when a guard learns a fact, ask what the artefacts
+it guards said before it could** — and make the statement declare the absence rather than leaving
+a reader to infer equality from silence, which is what ledger task 16.2 built.
+
 **The falsifying question:** *name the thing this measurement is supposed to distinguish, then find
 the field the instrument actually reads — and construct the case where they differ.* If you cannot
 construct it today, say so; that is the assumption, and it expires. Take the measurement before
