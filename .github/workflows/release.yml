@@ -231,9 +231,11 @@ jobs:
           cp corpus/manifest.toml reproduction/corpus-manifest.toml
           tar -czf weft-reproduction-${{ github.ref_name }}.tar.gz -C reproduction .
 
-      # A tag push does not create a Release, and `gh release upload` needs one — v2.4.0's
-      # artefacts failed with `release not found` after both wheels had published. The notes are
-      # the tag's own changelog section, so the two cannot drift.
+      # `docs/internal/lessons.md` L13.2. A tag push does not create a Release, and
+      # `gh release upload` needs one — v2.4.0's artefacts failed with `release not found` after
+      # both wheels had published, because every earlier run found a Release made by hand. The
+      # notes are the tag's own changelog section, so the two cannot drift. `--clobber` because
+      # the re-run then failed the other way, on an asset attached manually in the meantime.
       - name: Attach them to the release
         env:
           GH_TOKEN: ${{ github.token }}

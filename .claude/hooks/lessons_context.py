@@ -151,6 +151,14 @@ def _subagent_body(applied: list[str]) -> list[str]:
 
     lines += [
         "",
+        "**This working tree is shared, and `git status` is not evidence about your scope.** "
+        "You may be one of several agents running in it at once, and the session that "
+        "dispatched you has its own uncommitted edits. Paths you did not touch will be dirty; "
+        "that is the arrangement, not a defect, and it is not worth a line in your report. "
+        "Your scope is the files your brief names. `docs/internal/lessons.md` `L13.1`: three of "
+        "four agents in one fan-out each spent a finding reporting this, and the fourth had the "
+        "identical view and said nothing.",
+        "",
         "**You do not write to `docs/internal/lessons.md`.** Writing a lesson needs reasoning you "
         "were not given, and the session that dispatched you holds it.",
         "",

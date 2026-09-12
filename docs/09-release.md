@@ -259,6 +259,18 @@ the tag lands; it is cut when the index has the files and a clean environment in
 Phase 6's Exit is that install, performed by a stranger, and it is the last step of this protocol
 rather than a separate ambition.
 
+**And watch it to the *end*, because a release job is the one job that has never been tested.**
+`v2.4.0` published both wheels and then died attaching its artefacts: `gh release upload` needs a
+Release to exist, a tag push creates none, and `v2.1.0`'s had been made **by hand** in the GitHub
+UI before the workflow ran — so every previous execution found one already there and the step had
+never been asked the question it was written to answer. The general rule, and it is not about
+GitHub: **a step that acts on an object it does not create carries a precondition, and if every
+prior run met that precondition by hand, the step is untested no matter how many times it has gone
+green.** A job reachable only by a release is exercised against the state a release actually
+produces, never against the state a person left behind. `docs/internal/lessons.md` `L13.2`;
+repaired in `release.yml`, which now creates the Release from this file's own changelog section
+when it is absent.
+
 ---
 
 ## 2. The version policy, and its boundary with G9
