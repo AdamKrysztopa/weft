@@ -1,7 +1,7 @@
 {
   "task": "10.2",
   "arm": "raptor-baseline",
-  "what_changed": "Every summary now carries `RaptorFacts` \u2014 how many members its cluster held, how many were truncated, and how many characters the model saw against how many the cluster held. Nothing about what is retrieved changes: `ext` is not embedded, the baseline's plain top-k does not filter on it, and `Node.combine` computes the node id before `with_ext` attaches anything. The measurement is here to check that argument, not to replace it.",
+  "what_changed": "Every summary now carries `RaptorFacts` — how many members its cluster held, how many were truncated, and how many characters the model saw against how many the cluster held. Nothing about what is retrieved changes: `ext` is not embedded, the baseline's plain top-k does not filter on it, and `Node.combine` computes the node id before `with_ext` attaches anything. The measurement is here to check that argument, not to replace it.",
   "runs": [
     "623d4188-3ac4-4fd5-83d1-4c779625916f",
     "9d4e5c5c-76a8-42bb-9685-bd5024dc456d",
@@ -28,5 +28,13 @@
     "ndcg@3": 0.006131,
     "precision@3": 0.010101,
     "recall@3": 0.030303
-  }
+  },
+  "facts_not_recorded": [
+    "corpus_digest_basis",
+    "distribution_versions",
+    "query_rung",
+    "question_scores",
+    "question_set_digest"
+  ],
+  "facts_not_recorded_is": "Every fact below is one `weft eval compare` now compares and these records do not carry, because they were written before the task that added it. Their absence is why two of these runs are repetitions of each other only in the facts that were recorded — see tests/docs/test_raptor_baseline.py, ledger task 16.2."
 }

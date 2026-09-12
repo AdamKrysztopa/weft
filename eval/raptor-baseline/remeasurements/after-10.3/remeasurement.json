@@ -1,7 +1,7 @@
 {
   "task": "10.3",
   "arm": "raptor-baseline",
-  "what_changed": "`_cluster_by_similarity` now consumes its input sorted by `Node.id`, so the greedy pass's answer is a function of the node set rather than of the order the run delivered it in \u2014 and each cluster's members are rendered in that same canonical order, which is what makes a summary's own id reproducible.",
+  "what_changed": "`_cluster_by_similarity` now consumes its input sorted by `Node.id`, so the greedy pass's answer is a function of the node set rather than of the order the run delivered it in — and each cluster's members are rendered in that same canonical order, which is what makes a summary's own id reproducible.",
   "runs": [
     "a01b6356-0b58-4cb1-adfb-c9bef46ae8e7",
     "a9ff5c47-be83-44ac-a79d-07fe9bee3b47",
@@ -28,5 +28,13 @@
     "ndcg@3": 0.005592,
     "precision@3": 0.005051,
     "recall@3": 0.015152
-  }
+  },
+  "facts_not_recorded": [
+    "corpus_digest_basis",
+    "distribution_versions",
+    "query_rung",
+    "question_scores",
+    "question_set_digest"
+  ],
+  "facts_not_recorded_is": "Every fact below is one `weft eval compare` now compares and these records do not carry, because they were written before the task that added it. Their absence is why two of these runs are repetitions of each other only in the facts that were recorded — see tests/docs/test_raptor_baseline.py, ledger task 16.2."
 }

@@ -27,7 +27,12 @@
     "embedder": "openai-embeddings:text-embedding-3-small",
     "summariser_role": "index -> openai:gpt-5.4-mini",
     "store": "pgvector",
-    "active_distributions": ["weft-openai", "weft-pdf", "weft-qdrant", "weft-rag"]
+    "active_distributions": [
+      "weft-openai",
+      "weft-pdf",
+      "weft-qdrant",
+      "weft-rag"
+    ]
   },
   "why_depth_three": "At --top-k 10 every metric is at or beside its ceiling by construction: the corpus holds 10 documents, ground truth is named per document, and `weft_cli.eval_scoring` deduplicates a retrieved pool to one entry per document — so retrieving 10 retrieves all of them and recall@10 is 1.0 before any technique runs. Measured, not supposed: three leaves-arm runs at depth 10 scored recall@10 1.0, ndcg@10 0.933169, precision@10 0.107576, mean_average_precision 0.905952, identically. Depth 3 is where this corpus still has headroom.",
   "arms": {
@@ -37,8 +42,16 @@
         "a0282832-28d9-4576-8919-f7925a984fea",
         "88014f37-f2fb-42f1-b110-6a121c7344ba"
       ],
-      "nodes_stored": [902, 902, 902],
-      "summaries": [0, 0, 0],
+      "nodes_stored": [
+        902,
+        902,
+        902
+      ],
+      "summaries": [
+        0,
+        0,
+        0
+      ],
       "spread_width": {
         "mean_average_precision": 0.0,
         "ndcg@3": 0.0,
@@ -58,8 +71,16 @@
         "b94907ef-e6a4-4a20-b625-1dbcdf2ff4ab",
         "10d1156c-6134-4a9c-befe-79081ae38e6e"
       ],
-      "nodes_stored": [1015, 1015, 1015],
-      "summaries": [113, 113, 113],
+      "nodes_stored": [
+        1015,
+        1015,
+        1015
+      ],
+      "summaries": [
+        113,
+        113,
+        113
+      ],
       "spread_width": {
         "mean_average_precision": 0.012626,
         "ndcg@3": 0.017135,
@@ -96,10 +117,22 @@
   "papers_effect_size_bar": 0.02,
   "papers_effect_size_bar_is": "Two points. RAPTOR's own controlled with/without gains are 0.33 to 4.41 points (Tables 1-2) and its clustering ablation 0.8 on one dataset with no variance (Appendix B); the ledger's own 10.0 line fixes two points as the bar an exit must be able to see before it may claim anything either way.",
   "minimum_detectable_effect": {
-    "mean_average_precision": {"effect": 0.012626, "detects_the_papers_bar": true},
-    "ndcg@3": {"effect": 0.017135, "detects_the_papers_bar": true},
-    "precision@3": {"effect": 0.010101, "detects_the_papers_bar": true},
-    "recall@3": {"effect": 0.030303, "detects_the_papers_bar": false}
+    "mean_average_precision": {
+      "effect": 0.012626,
+      "detects_the_papers_bar": true
+    },
+    "ndcg@3": {
+      "effect": 0.017135,
+      "detects_the_papers_bar": true
+    },
+    "precision@3": {
+      "effect": 0.010101,
+      "detects_the_papers_bar": true
+    },
+    "recall@3": {
+      "effect": 0.030303,
+      "detects_the_papers_bar": false
+    }
   },
   "minimum_detectable_effect_is": "The wider of the two arms' own repetition spreads, per metric. V3 derives a tolerance from one baseline repeating itself; two arms is Weft's own extension of that and no paper is cited for it. An effect smaller than either arm's own noise is not one this instrument can see, so the smallest it can see is the larger width. The leaves arm contributes nothing to it: three runs scored identically to six decimal places, which is a claim about those three runs and not proof the arm is deterministic.",
   "what_the_baseline_says": "Judged against the wider spread, the shipped one-level `raptor` moves mean_average_precision by +0.017677 on this corpus, which is outside the 0.012626 this instrument cannot see; and moves ndcg@3 (+0.010579), precision@3 (+0.001684) and recall@3 (-0.002525) by less than their own minimum detectable effects. One measurable improvement, three results indistinguishable from the arms repeating themselves.",
@@ -108,5 +141,13 @@
     "A summary node is attributed to the alphabetically first of its `lineage.sources` (`weft_cli.eval_scoring._document_id_of`). The shipped `raptor` clusters batch-wide, so a summary can span documents, and a cross-document summary is scored as evidence for one of them arbitrarily. This instrument therefore cannot represent a cross-document summary honestly, in either direction. It is a limit of the measurement, not of the plugin, and 10.5 is where the scope it comes from is named.",
     "`model_versions` carries the embedder and not the summariser: the summarising model lives in `[llm.roles]`, which a resolved pipeline never names, so `weft eval compare` would compare two raptor runs summarised by two different models without objecting. The model actually used is recorded under `environment` above by hand for that reason.",
     "The clusterer produced 113 summaries in all three raptor runs from the same 902 chunks — the greedy pass is deterministic given the same embeddings and the same input order. What varies between the runs is the summary text, not the tree shape. 10.3 is where order-independence becomes a property rather than a coincidence of one batching."
-  ]
+  ],
+  "facts_not_recorded": [
+    "corpus_digest_basis",
+    "distribution_versions",
+    "query_rung",
+    "question_scores",
+    "question_set_digest"
+  ],
+  "facts_not_recorded_is": "Every fact below is one `weft eval compare` now compares and these records do not carry, because they were written before the task that added it. Their absence is why two of these runs are repetitions of each other only in the facts that were recorded — see tests/docs/test_raptor_baseline.py, ledger task 16.2."
 }

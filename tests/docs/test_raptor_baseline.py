@@ -36,6 +36,7 @@ carried in the file as the bar this instrument is compared against, never as a p
 """
 
 import json
+from collections.abc import Sequence
 from pathlib import Path
 from statistics import fmean
 from typing import Any, Final
@@ -43,8 +44,15 @@ from typing import Any, Final
 import pytest
 
 from weft_eval.falsify import BaselineSpread, baseline_spreads, judge_differences
-from weft_eval.run_record import RunRecord, load_run_record
+from weft_eval.run_record import (
+    CorpusDigestBasis,
+    CorpusIdentity,
+    NoQueryRung,
+    RunRecord,
+    load_run_record,
+)
 from weft_kernel.payload import Produced
+from weft_kernel.resolution import ResolvedPipeline
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 BASELINE_DIR: Final[Path] = REPO_ROOT / "eval" / "raptor-baseline"
@@ -489,3 +497,130 @@ def test_the_exit_verdicts_are_the_ones_its_own_records_produce(
                 f"{name}/{metric}: stated {exit_statement['verdicts'][name][metric]!r} for a "
                 f"difference of {difference} against a minimum detectable effect of {mde[metric]}"
             )
+
+
+# --- Task 16.2 — what these records actually held constant, said and checked.
+
+#: Every fact `weft_cli.eval_commands._incomparable_reasons` compares that a `RunRecord` can
+#: legitimately not carry. Each was added by a task in Phase 16a; each is `None` on every record
+#: committed before that task, and `None` means *not recorded* rather than *equal*.
+COMPARISON_FACTS: Final[tuple[str, ...]] = (
+    "corpus_digest_basis",
+    "distribution_versions",
+    "query_rung",
+    "question_scores",
+    "question_set_digest",
+)
+
+
+def _absent_facts(records: Sequence[RunRecord]) -> tuple[str, ...]:
+    """Which of `COMPARISON_FACTS` any of `records` does not carry."""
+    return tuple(
+        sorted(fact for fact in COMPARISON_FACTS if any(getattr(r, fact) is None for r in records))
+    )
+
+
+def _statements() -> list[tuple[str, Path, dict[str, Any], tuple[RunRecord, ...]]]:
+    """Every committed statement, with the records it names — the baseline, the exit, and each
+    re-measurement. One list, so a statement added later is covered without an edit here.
+    """
+    found: list[tuple[str, Path, dict[str, Any], tuple[RunRecord, ...]]] = []
+
+    measurement = json.loads(MEASUREMENT.read_text(encoding="utf-8"))
+    found.append(
+        (
+            "measurement.json",
+            MEASUREMENT,
+            measurement,
+            tuple(
+                load_run_record(RUNS_DIR / f"{run_id}.json")
+                for arm in measurement["arms"].values()
+                for run_id in arm["runs"]
+            ),
+        )
+    )
+
+    exit_statement_path = EXIT / "exit-measurement.json"
+    exit_statement = json.loads(exit_statement_path.read_text(encoding="utf-8"))
+    found.append(
+        (
+            "exit/exit-measurement.json",
+            exit_statement_path,
+            exit_statement,
+            tuple(
+                load_run_record(path)
+                for path in sorted(EXIT.glob("*.json"))
+                if path.name != "exit-measurement.json"
+            ),
+        )
+    )
+
+    for directory, statement in _remeasurements():
+        found.append(
+            (
+                directory.name,
+                directory / "remeasurement.json",
+                statement,
+                tuple(
+                    load_run_record(directory / f"{run_id}.json") for run_id in statement["runs"]
+                ),
+            )
+        )
+    return found
+
+
+def test_every_statement_names_the_facts_its_own_records_do_not_carry() -> None:
+    """`L17.3`, turned from a caveat into a check.
+
+    A guard that gains a fact does not retroactively hold it constant. These records were
+    written before Phase 16a, so they carry no query rung, no distribution versions, no
+    question-set identity, no per-question scores and no corpus-digest basis — and two of them
+    "agreeing" on those is two absences matching, not two measurements agreeing. The statement
+    has to say so, and this is the two-sided check that it does: one side is the hand-written
+    JSON, the other is the records themselves, and they disagree the moment a measurement is
+    re-taken on a newer wheel without the statement being rewritten.
+
+    **No record is rewritten.** Backfilling a field into a committed record would be inventing a
+    measurement, which is the temptation `L17.3` is actually about.
+    """
+    # Act / Assert
+    for name, path, statement, statement_records in _statements():
+        assert statement_records, f"{name}: names no records at all"
+        declared = tuple(statement.get("facts_not_recorded", ()))
+        measured = _absent_facts(statement_records)
+        assert declared == measured, (
+            f"{path.relative_to(REPO_ROOT)}: says its records lack {declared or '()'}, and they "
+            f"actually lack {measured or '()'}. A statement that overstates what was held "
+            f"constant is the defect this file exists to catch"
+        )
+
+
+def test_a_statement_that_claimed_a_fact_its_records_lack_would_fail() -> None:
+    """The non-vacuity half, with a name on it. `facts_not_recorded` is empty on a record set
+    that carries everything — so a check that merely asserted the key exists would pass against
+    a statement claiming the records hold facts they do not.
+    """
+    # Arrange — a record carrying every fact, and one carrying none.
+    complete = RunRecord(
+        recorded_at="2026-09-12T00:00:00Z",
+        resolved_pipeline=ResolvedPipeline(name="index"),
+        corpus=CorpusIdentity(name="c", digest="d"),
+        corpus_digest_basis=CorpusDigestBasis.DOCUMENT_BYTES,
+        distribution_versions={"weft-rag": "2.5.0"},
+        query_rung=NoQueryRung(reason="none named"),
+        question_scores={},
+        question_set_digest="f" * 64,
+    )
+    older = RunRecord(
+        recorded_at="2026-09-07T00:00:00Z",
+        resolved_pipeline=ResolvedPipeline(name="index"),
+        corpus=CorpusIdentity(name="c", digest="d"),
+    )
+
+    # Act / Assert
+    assert _absent_facts([complete]) == ()
+    assert _absent_facts([older]) == COMPARISON_FACTS
+    assert _absent_facts([complete, older]) == COMPARISON_FACTS, (
+        "one record missing a fact must make the pair miss it — a comparison is only as "
+        "strong as its weaker side"
+    )

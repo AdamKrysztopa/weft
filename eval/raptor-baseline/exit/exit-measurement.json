@@ -12,8 +12,8 @@
     "exit-one": "index-with-raptor",
     "exit-deep": "index-with-deep-raptor"
   },
-  "each_arm_replaces": "the `extract` stage with `pdf-text` and the `embed` stage with `openai-embeddings`, and nothing else \u2014 so what is measured is the shipped rung, thresholds included, against a real embedder.",
-  "repetitions_are": "Six for each raptor arm and three for the leaves arm. `L10.17` measured a three-repetition width as an estimate with more spread than the thing it estimates \u2014 two triples of one configuration spanned 0.0025 and 0.0215 \u2014 so three is not enough where a model writes the content. The leaves arm keeps three because it has scored identically to six decimal places every time it has been run, which is a claim about those runs and not proof it is deterministic.",
+  "each_arm_replaces": "the `extract` stage with `pdf-text` and the `embed` stage with `openai-embeddings`, and nothing else — so what is measured is the shipped rung, thresholds included, against a real embedder.",
+  "repetitions_are": "Six for each raptor arm and three for the leaves arm. `L10.17` measured a three-repetition width as an estimate with more spread than the thing it estimates — two triples of one configuration spanned 0.0025 and 0.0215 — so three is not enough where a model writes the content. The leaves arm keeps three because it has scored identically to six decimal places every time it has been run, which is a claim about those runs and not proof it is deterministic.",
   "each_run_has_its_own_store": "`weft eval run` always indexes, so no two arms can be compared against one index (`L10.25`). Every run truncates first, asserts the store empty, and asserts it non-empty afterwards (`L8.30`).",
   "arms": {
     "exit-leaves": {
@@ -190,5 +190,13 @@
       "recall@3": "inside"
     }
   },
-  "what_it_says": "A null result, on every metric and every pair. The shipped one-level tree, the multi-level tree and leaves-only retrieval cannot be told apart on this corpus at this instrument's resolution \u2014 every difference is inside the minimum detectable effect, including multi-level against one-level, which is the direct test of whether deeper is better. The three differences against leaves-only are all slightly negative, so what evidence there is points away from the tree helping here rather than towards it; none of it clears the bar. Phase 10's Exit says a null result discharges it if it says so. It says so."
+  "what_it_says": "A null result, on every metric and every pair. The shipped one-level tree, the multi-level tree and leaves-only retrieval cannot be told apart on this corpus at this instrument's resolution — every difference is inside the minimum detectable effect, including multi-level against one-level, which is the direct test of whether deeper is better. The three differences against leaves-only are all slightly negative, so what evidence there is points away from the tree helping here rather than towards it; none of it clears the bar. Phase 10's Exit says a null result discharges it if it says so. It says so.",
+  "facts_not_recorded": [
+    "corpus_digest_basis",
+    "distribution_versions",
+    "query_rung",
+    "question_scores",
+    "question_set_digest"
+  ],
+  "facts_not_recorded_is": "Every fact below is one `weft eval compare` now compares and these records do not carry, because they were written before the task that added it. Their absence is why two of these runs are repetitions of each other only in the facts that were recorded — see tests/docs/test_raptor_baseline.py, ledger task 16.2."
 }
