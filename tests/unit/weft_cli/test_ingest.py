@@ -678,7 +678,7 @@ async def test_pipeline_and_extractor_together_are_refused_rather_than_one_winni
 #
 # `raptor` and `hypothetical-questions` are registered under `weft_index.contract.Expander`,
 # an **ingest-path** contract, and both reach an ambient service through `ctx.require` —
-# `Embedder`, `Prompts` and `LLM` between them. `weft_cli.run_services.build_services` builds
+# `Embedder`, `Prompts` and `LLM` between them. `weft_engine.run_services.build_services` builds
 # those for the query path; `run_index` built none at all, so both plugins failed at run time
 # with *"no service is registered for ... on this run"* and had never run through the CLI in
 # the one place they belong. Found by running the binary at task 8.2, not by any of the 1,929

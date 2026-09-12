@@ -118,6 +118,7 @@ from weft_cli.route_ask import run_named_ask, run_routed_ask
 from weft_cli.skew import SkewReport, detect_skew
 from weft_cli.tracing_status import describe_tracing
 from weft_command.contract import Command, CommandResult
+from weft_command.permission import CommandRefusalError as CommandRefusalError
 from weft_command.permission import PermissionClass
 from weft_embed import Embedder
 from weft_engine.registry_bootstrap import (
@@ -206,23 +207,6 @@ class TargetAlreadyExistsError(WeftError):
     def __init__(self, message: str, *, path: str) -> None:
         super().__init__(message)
         self.path = path
-
-
-class CommandRefusalError(WeftError):
-    """A command refused to run before calling into the library — a policy or resolution
-    decision made from `PackReport`s and the registry alone, never from anything the run
-    itself would have failed on.
-
-    Carries the exact `ExitCode` the retired hand-written handlers used to `return` directly,
-    because `Command.run` cannot return an `ExitCode` — only an `Outcome[CommandResult]` — and
-    the contract must not learn `weft_cli.exit_codes.ExitCode` any more than it already knows
-    `weft_cli` at all. `weft_cli.render.render_outcome` reads `.exit_code` off this exception
-    the same way it reads `weft_cli.exit_codes.exit_code_for` for every other `WeftError`.
-    """
-
-    def __init__(self, message: str, *, exit_code: ExitCode) -> None:
-        super().__init__(message)
-        self.exit_code = exit_code
 
 
 class UnresolvedPluginNameError(CommandRefusalError, UnresolvedNameError):
@@ -722,7 +706,7 @@ class IndexCommand:
             llm=deps.llm,
             sink=deps.token_sink,
             # Ledger task **9.0** — every declared role `[services]` selected reaches this run
-            # exactly as `deps.llm` above already does; see `weft_cli.run_services.
+            # exactly as `deps.llm` above already does; see `weft_engine.run_services.
             # build_index_services`'s own docstring for the exclusion this makes possible.
             services=deps.services,
             roles=deps.roles,

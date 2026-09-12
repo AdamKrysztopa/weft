@@ -195,7 +195,7 @@ def _catch_and_repack_findings(
     """The catch-and-repack shape (module docstring), found in `tree` — a pure function taking a
     parsed module and a name resolver, so a synthetic snippet can drive it directly in a test
     exactly as `members_without_the_typed_field` in the sibling file takes a plain `frozenset`
-    rather than performing its own discovery — `weft_cli.contract_reference.missing_from_walked_
+    rather than performing its own discovery — `weft_engine.contract_reference.missing_from_walked_
     set`'s own precedent, restated there: "the check has something to call that is not the same
     code path it is checking."
 

@@ -126,7 +126,7 @@ def _top_level_first_party_imports(path: Path) -> set[str]:
 #:
 #: - `all` is an aggregate of the capability extras, not a capability of its own.
 #: - `bertscore` and `reference` supply a *library* to code that already ships unconditionally
-#:   (`weft_eval`'s BERTScore metric, `weft_cli.contract_reference`'s formatter). Neither is a
+#:   (`weft_eval`'s BERTScore metric, `weft_engine.contract_reference`'s formatter). Neither is a
 #:   pack whose registration can fail, so neither can ever appear in a `PackReport`, which is
 #:   the only place the install line below is composed from.
 _EXTRAS_THAT_NAME_NO_PACK: Final[frozenset[str]] = frozenset({"all", "bertscore", "reference"})

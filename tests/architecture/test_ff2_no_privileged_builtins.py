@@ -96,7 +96,7 @@ PACKS_THAT_REGISTER_NOTHING_BY_DESIGN: Final[frozenset[str]] = frozenset({"weft-
 #: `register()` never runs at all — `discover()` folds a settings-validation failure into
 #: `FAILED`, contributed=0, before any factory is registered. The connection itself is lazy,
 #: opened on first use (`pgvector_store.py`'s own docstring), so a placeholder is safe here for
-#: the same reason `weft_cli.contract_reference` already relies on one to get `weft-store`
+#: the same reason `weft_engine.contract_reference` already relies on one to get `weft-store`
 #: active without a real database.
 _PLACEHOLDER_STORE_SETTINGS: Final[dict[str, dict[str, object]]] = {
     "store": {"dsn": "postgresql://ff2-placeholder/placeholder"},

@@ -16,7 +16,7 @@ store (`pgvector_store.py`) arrive at step 8.
 
 **Every capability Protocol is re-exported here, not only from `contract`.**
 A capability nothing registers under a name is found by walking this module's
-`__all__` — that is how `weft_cli.contract_reference` picks `VectorSearch` up
+`__all__` — that is how `weft_engine.contract_reference` picks `VectorSearch` up
 beside `NodeStore`, and how a run assembler asks what capabilities this pack's
 family actually contains. One exported from `contract` alone is invisible to
 both, with no test to notice.

@@ -14,7 +14,7 @@ and where to get it.
 **This module names no capability either, and that is not an accident.** It never
 mentions `VectorSearch` or `TextSearch`: a *plugin* names what it needs, in its own
 `needs_store` declaration, and `isinstance` answers whether the store has it. What the
-store *does* advertise is derived the same way `weft_cli.contract_reference` derives it —
+store *does* advertise is derived the same way `weft_engine.contract_reference` derives it —
 every versioned capability Protocol the store contract's own pack exports — so a store
 pack shipping a capability nobody here has heard of is reported correctly by a module
 that has never heard of it either. That is the same property `01` requirement 1 asks of
@@ -56,8 +56,8 @@ import dataclasses
 from collections.abc import Callable, Mapping, Sequence
 from typing import Final, cast
 
-from weft_cli.contract_reference import capability_siblings
 from weft_embed import Embedder
+from weft_engine.contract_reference import capability_siblings
 from weft_engine.llm_roles import LLMSection
 from weft_engine.registry_bootstrap import Dependencies
 from weft_engine.service_roles import RoleTable

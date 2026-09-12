@@ -20,7 +20,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Final
 
-from weft_cli.contract_reference import (
+from weft_engine.contract_reference import (
     discover_for_reference,
     published_contracts,
     render_contract_reference,

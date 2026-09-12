@@ -116,9 +116,9 @@ from pydantic import BaseModel
 from weft_chunk import Chunker
 from weft_cli.compile import contracts_for, to_specs
 from weft_cli.pipeline_catalogue import UnknownPipelineNameError, full_catalogue
-from weft_cli.run_services import build_index_services
 from weft_embed import Embedder
 from weft_engine.llm_roles import LLMSection
+from weft_engine.run_services import build_index_services
 from weft_engine.service_roles import RoleTable
 from weft_engine.services import DEFAULT_EMBEDDER, DEFAULT_STORE, ServiceSelection
 from weft_extract import (
@@ -484,7 +484,7 @@ async def run_index(
     constants with no slot to fill, so this parameter does nothing when `pipeline` is `None`.
 
     `services`/`roles` — ledger task **9.0** — are `weft_engine.registry_bootstrap.Dependencies.
-    services`/`.roles`, threaded straight through to `weft_cli.run_services.
+    services`/`.roles`, threaded straight through to `weft_engine.run_services.
     build_index_services` alongside `filled_by_stages` (every contract the resolved `specs`
     already fill, computed here since this is the one place both `specs` and the role table
     are in scope). Both default to an empty table/selection — a caller naming neither gets
@@ -762,7 +762,7 @@ def _embedder_instance_of(
     Matched by stage `id` rather than by position, so it does not depend on `Runner.resolve`
     preserving the order of `specs`. The third of this module's three "which stage is the X"
     walks, beside `_extractor_name_of` and `_store_stage_id_of`, and the only one that returns
-    an object rather than a name: `weft_cli.run_services.build_index_services` takes the
+    an object rather than a name: `weft_engine.run_services.build_index_services` takes the
     instance precisely so a run has one embedder rather than two that happen to agree — see
     that function's own docstring for why resolving `[services] embed` a second time here
     would be a silent defect on a `--pipeline` run.

@@ -122,7 +122,7 @@ def test_every_named_exclusion_still_names_a_live_command() -> None:
     """The two-way ratchet. An exclusion that no longer matches anything is one nobody can see has
     stopped applying — the same defect a stale waiver has, and the reason both are checked."""
     from weft_agent.tools import EXCLUDED_BY_NAME
-    from weft_cli.contract_reference import discover_for_reference
+    from weft_engine.contract_reference import discover_for_reference
 
     registered = set(discover_for_reference().names_for(Command))
     stale = sorted(name for name in EXCLUDED_BY_NAME if name not in registered)
@@ -155,7 +155,7 @@ def test_the_live_catalogue_holds_the_commands_g12_reaches_and_no_others() -> No
     means. `weft delete` and `weft reconcile` are the tree's only `destroy`-class commands.
     """
     from weft_agent.tools import tool_catalogue
-    from weft_cli.contract_reference import discover_for_reference
+    from weft_engine.contract_reference import discover_for_reference
 
     catalogue = tool_catalogue(discover_for_reference())
 

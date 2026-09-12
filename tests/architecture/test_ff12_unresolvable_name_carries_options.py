@@ -31,7 +31,7 @@ not reach, because there is no alternative *name* to offer — `weft_kernel.disc
 EnvInterpolationError`, say, cannot enumerate "valid" environment variable names,
 and `weft_kernel.registry.DuplicateRegistrationError` reports two names that both
 already resolved, never one that failed to. **`01` claimed 18; the audit below found
-20** — `weft_cli.run_services.StoreCapabilityMissingError` and `weft_prompts.errors.
+20** — `weft_engine.run_services.StoreCapabilityMissingError` and `weft_prompts.errors.
 TemplateVariableError` were the two `01` missed, both already carrying a real
 alternatives collection at their own raise site before this task gave it a field.
 
@@ -108,8 +108,8 @@ NAME_RESOLUTION_FAMILY: Final[frozenset[str]] = frozenset(
         "weft_engine.services.UnknownServiceKeyError",
         "weft_cli.route_ask.UnroutedPipelineNameError",
         "weft_cli.route_ask.NoRouterPipelineError",
-        "weft_cli.run_services.SelectedCapabilityMissingError",
-        "weft_cli.run_services.StoreCapabilityMissingError",
+        "weft_engine.run_services.SelectedCapabilityMissingError",
+        "weft_engine.run_services.StoreCapabilityMissingError",
         "weft_llm.models.UnknownModelError",
         "weft_llm.models.AmbiguousModelError",
         "weft_llm.roles.UnmappedLLMRoleError",

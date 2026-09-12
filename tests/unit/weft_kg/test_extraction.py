@@ -16,7 +16,7 @@ is taken.
 reason, unchanged: `weft_prompts.cascade.execute` is the one path a technique in this tree takes to
 a typed answer, and stubbing it out would leave this plugin's reading of that answer untested
 against the shape the cascade actually returns. The stub sits at `weft_llm.contract.LLM`, exactly
-where `weft_cli.run_services.build_index_services` puts a real client.
+where `weft_engine.run_services.build_index_services` puts a real client.
 
 **Why the cascade rather than `Prompts.render` plus a parser.** `build_index_services` deliberately
 publishes no `StageLookup` on the ingest path — *"an ingest stage able to reach them would be an
@@ -46,7 +46,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from weft_cli.run_services import class_provides
+from weft_engine.run_services import class_provides
 from weft_index.contract import Expander
 from weft_kernel.context import Context, ServiceRegistry
 from weft_kernel.payload import (

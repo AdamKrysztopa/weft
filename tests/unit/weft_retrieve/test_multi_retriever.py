@@ -17,7 +17,7 @@ rather than the query — which is the same documented exception to `10` §2.1 r
 **`needs_store` is not declared, and `weft_retrieve.iterative` is the precedent that settles
 it.** That module's own docstring: a sub-plugin "is resolved by name at `run` time, not at
 registration, so there is no store capability this class itself could state ahead of time."
-Measured rather than assumed — `weft_cli.run_services._chain_of` walks a `StageSpec`'s `use:`
+Measured rather than assumed — `weft_engine.run_services._chain_of` walks a `StageSpec`'s `use:`
 and its `fallback:` names and nothing else, so a plugin named inside a `with:` block is
 invisible to `check_store_capabilities`, exactly as fitness function 16's own docstring says it
 is invisible to reachability. That is a pre-existing property of every looping technique in

@@ -1354,7 +1354,7 @@ async def test_the_refusal_names_a_remedy_that_applies_to_a_pipeline_document() 
     thing they had already done. Exit code 1, and following the message exactly reproduces it
     forever.
 
-    **The tree already knew.** `weft_cli/run_services.py` states *"On a `--pipeline` run
+    **The tree already knew.** `weft_engine/run_services.py` states *"On a `--pipeline` run
     `[services] embed` is deliberately not read"*, and `index-text.yaml` — the document
     `index-with-raptor` extends — carries the real remedy in its *"What `--pipeline` costs you"*
     paragraph: derive the document and `replace:` its `embed` stage. This stage is reachable
@@ -1387,7 +1387,7 @@ async def test_the_refusal_names_a_remedy_that_applies_to_a_pipeline_document() 
     assert isinstance(outcome, Failed)
     assert "[services] embed" not in outcome.reason, (
         "the refusal names `[services] embed`, which a `--pipeline` run deliberately does not "
-        "read (`weft_cli/run_services.py`) — so an operator who follows this message exactly "
+        "read (`weft_engine/run_services.py`) — so an operator who follows this message exactly "
         "gets the identical failure again, with no way to tell their fix from one that could "
         f"never work: {outcome.reason!r}"
     )

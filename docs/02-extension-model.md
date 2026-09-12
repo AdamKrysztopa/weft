@@ -1001,7 +1001,7 @@ class MetadataFilter(Protocol): ...                # marker: supports the whole 
 > `Node`.
 >
 > **It is published from its own pack, and putting it here would have been the mistake.**
-> `weft_cli.contract_reference.capability_siblings` enumerates a contract pack's public module, so a
+> `weft_engine.contract_reference.capability_siblings` enumerates a contract pack's public module, so a
 > `BlobStore` exported from `weft_store` would be advertised as a capability of this family — and
 > `weft plugins doctor` would then report every node store as missing one it was never meant to
 > have. What connects it to this family instead is `SourceDeletable`, satisfied **structurally**
@@ -1061,7 +1061,7 @@ with fusion staying where it belongs, in the retriever.
 > method, only a store satisfying both search protocols.
 
 > **Built in Phase 2 task 2.5 (2026-08-17).** The check is
-> `weft_cli.run_services.check_store_capabilities`, run over the resolved stage list before the run
+> `weft_engine.run_services.check_store_capabilities`, run over the resolved stage list before the run
 > starts, and it refuses with `StoreCapabilityMissingError` naming the stage, the plugin, the
 > missing capability, the store, **what that store does advertise**, and which registered stores
 > provide what is missing. Two properties of it are worth recording here because they are what keep
@@ -2256,7 +2256,7 @@ both narrow store-family Protocols (§1), and neither of them a new concept:
 > could neither merge nor refuse — and states how many such calls it will make before making any
 > of them. That boundary is enforced inside the participant, on the mode it is handed, and
 > checked for every participant by **fitness function 29**: it could not be enforced at the
-> registration seam, because `weft_cli.run_services.command_path_services` has put an `LLM` on
+> registration seam, because `weft_engine.run_services.command_path_services` has put an `LLM` on
 > every command's `Context` since task 7.4 so that a third party's `Command` can reach one.
 
 ```bash

@@ -92,7 +92,7 @@ def test_source_deletable_and_reconcilable_arrive_with_no_extra_add_call() -> No
     # Assert — capability derived, never declared (docs/02-extension-model.md section 1):
     # nothing registers SourceDeletable or Reconcilable directly, and GraphStore satisfies
     # both by having the methods, the identical shape weft-example-ingest demonstrates for
-    # its own "eighth and ninth capability." `_satisfies` is `weft_cli.run_services.
+    # its own "eighth and ninth capability." `_satisfies` is `weft_engine.run_services.
     # class_provides`'s own trick (typed `type[object]`, never the Protocol itself) applied
     # locally, since this pack's own tests must not depend on `weft-cli`.
     assert target is GraphStore

@@ -129,7 +129,7 @@ dependencies = [
 # index-and-ask path ever reaches.
 #
 #   * `bertscore` — `weft_eval.embedding_metrics`' optional judge. A model download.
-#   * `reference` — `weft_cli.contract_reference` pipes generated Markdown through the real
+#   * `reference` — `weft_engine.contract_reference` pipes generated Markdown through the real
 #     `ruff format`, so the checked-in file is byte-identical to what `poe ci-checks`' own `fmt`
 #     step produces. The floor is >=0.16.0, the first release that formats Python code blocks in
 #     Markdown by default, which is the behaviour it relies on. **Declared at task 6.7 and

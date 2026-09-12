@@ -187,7 +187,7 @@ async def test_querysets_ext_is_carried_onto_the_produced_candidates() -> None:
 
 
 async def test_a_store_with_no_vector_search_fails_named_rather_than_crashing() -> None:
-    # Arrange — nothing yet calls `weft_cli.run_services.check_store_capabilities` against
+    # Arrange — nothing yet calls `weft_engine.run_services.check_store_capabilities` against
     # a query pipeline (that module's own docstring says the assembler lands with tasks 2.8
     # and 2.10), so this is today's one line between a misconfigured store and the
     # `AttributeError` mid-batch task 2.5's own repair closed for the fallback chain.

@@ -117,7 +117,7 @@ class Hybrid:
     """Searches the vector and text arms of one store per query. Satisfies `Retriever`.
 
     `needs_store = (VectorSearch, TextSearch)` — **both, regardless of `channels`**, and that
-    is a choice rather than an oversight. `weft_cli.run_services.check_store_capabilities`
+    is a choice rather than an oversight. `weft_engine.run_services.check_store_capabilities`
     reads this declaration before any stage runs, so a document naming `hybrid` against a store
     that cannot do lexical search is refused at assembly, by name, with the capability and the
     stores that provide it. Deriving the requirement from `channels` instead would let

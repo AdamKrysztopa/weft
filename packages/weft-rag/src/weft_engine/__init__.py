@@ -7,13 +7,18 @@ the logic lived: discovery, `weft.toml` parsing, pack settings, service selectio
 the permission policy and the reconcile policy were all modules of `weft_cli`, so the only way to
 assemble Weft was to import the package named for the terminal. `12-roadmap.md` §5b names that
 exactly — *"it is assembled **inside** `weft_cli`, which is the accident this phase corrects"* — and
-this module is the correction: eight modules moved here unchanged, and `weft_cli` became one of
+this module is the correction: ten modules moved here unchanged, and `weft_cli` became one of
 their callers rather than their home.
 
 **What is here and what is not.** Here: everything needed to turn a `weft.toml` and a set of
 installed packs into a `Dependencies` — the registry, the `PackReport`s, the `ServiceSelection`,
 the `RoleTable`, the `LLMSection`, the `PermissionPolicy`, the `ReconcilePolicy` and the token
-sink. Not here: anything that decides what a *person at a terminal* sees or how a process exits.
+sink — and everything needed to turn that into the ambient services a run reaches through
+`ctx.require(...)`: `run_services`, with `contract_reference` beside it because
+`capability_siblings` answers *which capabilities does this contract's family contain* for the
+run assembler as well as for the generated reference, and two implementations of that question
+could disagree. Not here: anything that decides what a *person at a terminal* sees or how a
+process exits.
 `weft_cli.render`, `weft_cli.exit_codes`, `weft_cli.confirm`, `weft_cli.repl` and the `Command`
 implementations stay where they are, and the dividing question is the one `03`:9 asks — *could a
 FastAPI route make this call identically?*

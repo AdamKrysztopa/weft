@@ -1,6 +1,6 @@
-"""Unit tests for `weft_cli.contract_reference`.
+"""Unit tests for `weft_engine.contract_reference`.
 
-Mirrors `packages/weft-rag/src/weft_cli/contract_reference.py`. Covers the happy path
+Mirrors `packages/weft-rag/src/weft_engine/contract_reference.py`. Covers the happy path
 (walking the real, installed first-party contracts, `NodeStore`'s `VectorSearch`
 capability sibling included), the edge case (a rendered method reflects the real
 signature and docstring, never a hand-typed approximation), and the error case
@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, ClassVar, Protocol, runtime_checkable
 import pytest
 
 from weft_chunk.contract import Chunker
-from weft_cli.contract_reference import (
+from weft_engine.contract_reference import (
     ContractNotDescribableError,
     PublishedContract,
     ReferenceFormatterUnavailableError,
@@ -327,7 +327,7 @@ def test_weft_cli_declares_the_formatter_it_shells_out_to() -> None:
 
     # Assert
     assert "reference" in extras, (
-        "`weft_cli.contract_reference` shells out to `ruff`, so the distribution that ships "
+        "`weft_engine.contract_reference` shells out to `ruff`, so the distribution that ships "
         "it must declare it. Add a "
         "`[project.optional-dependencies] reference` extra naming it."
     )

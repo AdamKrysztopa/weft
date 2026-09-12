@@ -103,7 +103,7 @@ def quoted_commands(yaml_text: str) -> list[str]:
 @cache
 def _parser() -> ArgumentParser:
     from weft_cli.cli import build_parser
-    from weft_cli.contract_reference import discover_for_reference
+    from weft_engine.contract_reference import discover_for_reference
 
     return build_parser(discover_for_reference())
 

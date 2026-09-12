@@ -13,8 +13,9 @@ participant that reached a model there would spend on every ingest with nobody h
 `11.9` first built one, registering `LLM`/`Prompts`/`TokenSink` onto the reconcile `Context` only
 under `full`, on CLAUDE.md's own rule that cross-cutting concerns live at the registration seam and
 never in a rule authors must remember. **Running the binary falsified the premise.**
-`weft_cli.run_services.command_path_services` already registers those three on **every** command's
-`Context`, deliberately and since task 7.4, so that a third party's `Command` can reach a model at
+`weft_engine.run_services.command_path_services` already registers those three on **every**
+command's `Context`, deliberately and since task 7.4, so that a third party's `Command` can reach a
+model at
 all — the second registration raised `DuplicateServiceError` and exited 1, and the first one was
 never needed because an `LLM` was reachable from a `repair` pass before `11.9` existed. Narrowing
 that seam would partly reverse 7.4; removing the service from the registry would need a kernel line

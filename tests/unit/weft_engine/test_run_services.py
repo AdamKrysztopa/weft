@@ -1,6 +1,6 @@
-"""Unit tests for `weft_cli.run_services`.
+"""Unit tests for `weft_engine.run_services`.
 
-Mirrors `packages/weft-rag/src/weft_cli/run_services.py`. Task **2.5**: a stage
+Mirrors `packages/weft-rag/src/weft_engine/run_services.py`. Task **2.5**: a stage
 declaring what it needs from the store is checked against the store the run was
 configured with, *before* the run starts. Covers the happy path (a retriever needing
 vector and text search, against a store advertising both, and a stage that declares
@@ -26,7 +26,9 @@ from typing import Protocol, runtime_checkable
 import pytest
 from pydantic import SecretStr
 
-from weft_cli.run_services import (
+from weft_embed import Embedder
+from weft_engine.llm_roles import LLMSection
+from weft_engine.run_services import (
     MalformedNeedsServicesError,
     MalformedNeedsStoreError,
     StoreCapabilityMissingError,
@@ -34,8 +36,6 @@ from weft_cli.run_services import (
     check_store_capabilities,
     demanded_capabilities,
 )
-from weft_embed import Embedder
-from weft_engine.llm_roles import LLMSection
 from weft_engine.services import ServiceSelection
 from weft_kernel.context import Context
 from weft_kernel.payload import Node, Outcome, Produced, Vector

@@ -1,6 +1,6 @@
 """Discovery for tests, with the canary left where it belongs — ledger task **6.33**.
 
-`weft_cli.contract_reference.discover_for_reference()` discovers **open**: no `[packs] allow`, so
+`weft_engine.contract_reference.discover_for_reference()` discovers **open**: no `[packs] allow`, so
 every installed pack is imported. That is correct for what it is — a reference generator describes
 the contracts the packs on *this machine* publish, and an operator running it wants all of them.
 
@@ -46,8 +46,9 @@ ENTRY_POINT_GROUP: Final[str] = "weft.packs"
 
 #: Structurally valid and never dialled — `weft-store`'s `register()` only partial-binds
 #: `PgVectorStore(settings)` and `PgVectorStore.__init__` opens no connection, so discovery runs
-#: here without a container. Spelled out rather than imported from `weft_cli.contract_reference`'s
-#: private constant, the same choice `tests/architecture/test_release_set.py` makes for the same
+#: here without a container. Spelled out rather than imported from
+#: `weft_engine.contract_reference`'s private constant, the same choice
+#: `tests/architecture/test_release_set.py` makes for the same
 #: reason: reaching into another distribution's private name would make a rename there a failure
 #: here.
 _PLACEHOLDER_DSN: Final[str] = "postgresql://tests-discovery/placeholder"

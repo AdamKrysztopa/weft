@@ -8,8 +8,9 @@ it never enter the payload — a `weft_vision.Describer` reads them, a chunker o
 does.
 
 **Published from its own pack, and deliberately not from `weft_store`.**
-`weft_cli.contract_reference.capability_siblings` enumerates a contract pack's public module, so a
-`BlobStore` exported from `weft_store` would be advertised as a store-family capability that no node
+`weft_engine.contract_reference.capability_siblings` enumerates a contract pack's public module, so
+a `BlobStore` exported from `weft_store` would be advertised as a store-family capability that no
+node
 store satisfies — `weft plugins doctor` would then report every node store as missing a capability
 it was never meant to have. `weft_blob` is a pack of its own inside the `weft-rag` distribution, the
 module home `docs/internal/build-ledger.md` task 9.4 leaves to this brief; `11` §3's revision log

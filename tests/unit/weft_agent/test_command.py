@@ -180,15 +180,15 @@ def test_the_ambient_services_reach_every_command_not_only_the_cli_s_own() -> No
     `weft_cli/cli.py`'s own AST looking for a literal `.add(LLM, ...)` call — so it asserted
     *where the registration is written* rather than *that a command can reach the service*, which
     is the property its own docstring names. The moment 9.0 moved that construction into
-    `weft_cli.run_services.command_path_services`, so the three assemblers stop being one list
+    `weft_engine.run_services.command_path_services`, so the three assemblers stop being one list
     written thrice, a green test failed for a change that strictly improved the thing it guards.
     An assertion is a specification including the parts you did not mean (`docs/internal/lessons.md`
     `L9.39`). This version asks the question through the seam a command actually uses, so it
     survives the code moving and would still fail if the registration were dropped.
     """
     # Arrange
-    from weft_cli.run_services import command_path_services
     from weft_engine.registry_bootstrap import Dependencies
+    from weft_engine.run_services import command_path_services
     from weft_engine.services import ServiceSelection
     from weft_llm.client import NullSink
     from weft_prompts.contract import Prompts

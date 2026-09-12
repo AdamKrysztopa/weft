@@ -134,7 +134,7 @@ def test_no_shipped_code_assembles_a_run_outside_a_named_assembler() -> None:
         f"these build a run's ServiceRegistry outside the named assemblers: {stray}. A run "
         f"assembled anywhere else is a path a pack's declared [services] role cannot reach, "
         f"which is the defect Phase 7's close filed as finding (a) and task 9.0 closed. Either "
-        f"route it through weft_cli.run_services, or name it in "
+        f"route it through weft_engine.run_services, or name it in "
         f"ROLE_CARRYING_ASSEMBLERS and make it register the roles too."
     )
 
@@ -175,9 +175,9 @@ async def test_every_named_assembler_reaches_a_role_no_first_party_pack_declares
     the seam is broken rather than only when a fourth assembler appears.
     """
     # Arrange
-    from weft_cli.run_services import build_index_services, build_services, command_path_services
     from weft_engine.llm_roles import LLMSection
     from weft_engine.registry_bootstrap import Dependencies
+    from weft_engine.run_services import build_index_services, build_services, command_path_services
     from weft_llm.client import NullSink
 
     def _registry() -> Registry:
@@ -270,7 +270,7 @@ def test_each_named_assembler_lives_in_one_module(name: str) -> None:
     homes = {path for path, fn in _construction_sites() if fn == name}
 
     # Assert
-    assert homes == {"packages/weft-rag/src/weft_cli/run_services.py"}, (
+    assert homes == {"packages/weft-rag/src/weft_engine/run_services.py"}, (
         f"'{name}' assembles a run from {sorted(homes)}. Every run assembler lives in "
-        f"weft_cli.run_services, so the set of them is readable in one file."
+        f"weft_engine.run_services, so the set of them is readable in one file."
     )

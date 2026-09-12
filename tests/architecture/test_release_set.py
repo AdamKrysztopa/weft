@@ -60,7 +60,7 @@ _PACKAGES = _REPO_ROOT / "packages"
 #: Structurally valid and never dialled. `weft-store`'s `register()` only partial-binds
 #: `PgVectorStore(settings)` and `PgVectorStore.__init__` opens no connection — the connection is
 #: lazy, opened on first use — so discovery can run here without a container. Spelled out rather
-#: than imported from `weft_cli.contract_reference`'s private constant: this file's reason for
+#: than imported from `weft_engine.contract_reference`'s private constant: this file's reason for
 #: needing one is its own, and reaching into another distribution's private name would make a
 #: rename there a failure here.
 _PLACEHOLDER_DSN = "postgresql://release-set-check/placeholder"

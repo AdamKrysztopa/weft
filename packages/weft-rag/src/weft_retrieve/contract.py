@@ -107,7 +107,7 @@ class Retriever(Stage[QuerySet, Candidates], Protocol):
     `[services]` role and reached through `ctx.require(...)`, for a retriever whose need is
     not a store's business at all (a graph traversal, say). Declared the identical shape,
     `needs_services: ClassVar[tuple[type, ...]]`, and read off the factory by the same run
-    assembler before any stage runs — `weft_cli.run_services.demanded_capabilities` builds the
+    assembler before any stage runs — `weft_engine.run_services.demanded_capabilities` builds the
     map, `check_selected_capabilities` checks it. Neither attribute is a member of this
     Protocol: `isinstance(plugin, Retriever)` is unaffected by either one, and no plugin that
     already satisfies this Protocol's `run` method is asked for anything new because one of

@@ -19,7 +19,7 @@ as `weft_retrieve.collapse` does. `needs_services = (GraphTraversal,)` is new at
 what the *run* must have: a capability no store provides and no `[services] store` can supply,
 reached through `ctx.require` and named by a `[services] graph` role. Declaring the traversal
 under `needs_store` would compare it against `pgvector` and refuse every run with a remedy pointing
-at the wrong setting — which is the defect `weft_cli.run_services.SelectedCapabilityMissingError`
+at the wrong setting — which is the defect `weft_engine.run_services.SelectedCapabilityMissingError`
 was written to describe.
 
 **Seeding is capitalisation, not a model — settled with the owner 2026-09-09.** A question's

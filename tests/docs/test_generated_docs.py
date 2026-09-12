@@ -11,7 +11,7 @@ no second copy of a signature."*
 **The floor, before the text diff runs** (`08` §3): "the set of contracts the generator
 walked equals the registry's published-contract set — the same runtime set-equality shape
 fitness functions 2 and 4(b) use... so a generator that emits nothing cannot match a
-committed empty file." `weft_cli.contract_reference.published_contracts` walks each
+committed empty file." `weft_engine.contract_reference.published_contracts` walks each
 *named* registration off a real, freshly-discovered `weft_kernel.registry.Registry`
 (`Registry.contracts()`, added at this task) plus every capability Protocol it finds
 alongside a named one in that pack's own public module — `VectorSearch` beside
@@ -48,15 +48,15 @@ from weft_cli.command_table import (
     render_command_table,
     spliced_manual,
 )
-from weft_cli.contract_reference import (
+from weft_command.contract import Command
+from weft_command.permission import PermissionClass
+from weft_engine.contract_reference import (
     REGENERATE_COMMAND,
     PublishedContract,
     missing_from_walked_set,
     published_contracts,
     render_contract_reference,
 )
-from weft_command.contract import Command
-from weft_command.permission import PermissionClass
 from weft_store.contract import NodeStore, VectorSearch
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]

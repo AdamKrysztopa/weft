@@ -216,7 +216,7 @@ def published_contracts(registry: Registry) -> tuple[PublishedContract, ...]:
     through the document instead of through the code.
 
     Asked of the registered class with `issubclass`, never of an instance, for the reason
-    the module docstring gives and `weft_cli.run_services._providers_of` gives again:
+    the module docstring gives and `weft_engine.run_services._providers_of` gives again:
     building every installed plugin to generate a document would open connections. A
     factory that is not a class, or a capability Protocol `issubclass` cannot answer, is
     left unattributed rather than assumed — this document says who *is* known to satisfy a
@@ -243,7 +243,7 @@ def _distributions_satisfying(
 ) -> frozenset[str]:
     """Every distribution whose class registered under `anchor` also satisfies `sibling`.
 
-    The same question `weft_cli.run_services._providers_of` asks of a store when it names
+    The same question `weft_engine.run_services._providers_of` asks of a store when it names
     where a missing capability can be had, and asked the same way — off the registered
     class, through `weft_kernel.registry.unwrap_factory`, because a pack that binds its own
     settings registers a `functools.partial` and `partial` does not proxy attribute access.
@@ -349,7 +349,7 @@ def capability_siblings(contract: type[object]) -> tuple[type[object], ...]:
     """Every other `@runtime_checkable` `Protocol` with a `.version`, exported from
     `contract`'s own pack's public module — see the module docstring.
 
-    Public since task 2.5, when a second caller arrived: `weft_cli.run_services` asks the
+    Public since task 2.5, when a second caller arrived: `weft_engine.run_services` asks the
     same question of a configured store ("which capabilities does this contract's family
     contain, and which does this instance have?") to name what a store advertises in a
     refusal. Two implementations of *which Protocols are a contract's siblings* could

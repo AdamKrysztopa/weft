@@ -34,11 +34,11 @@ from weft_cli.route_ask import (
     run_named_ask,
     run_routed_ask,
 )
-from weft_cli.run_services import SelectedCapabilityMissingError
 from weft_embed import Embedder
 from weft_embed.hash_embedder import HashEmbedder
 from weft_engine.llm_roles import LLMSection
 from weft_engine.registry_bootstrap import build_dependencies
+from weft_engine.run_services import SelectedCapabilityMissingError
 from weft_engine.services import ServiceSelection
 from weft_generate import CitedAnswer, Generator
 from weft_generate.payload import Answer

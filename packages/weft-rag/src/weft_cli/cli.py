@@ -72,7 +72,6 @@ import asyncio
 import dataclasses
 import os
 import sys
-import uuid
 from importlib import metadata
 from typing import TYPE_CHECKING, cast
 
@@ -83,6 +82,7 @@ from weft_cli.exit_codes import ExitCode
 from weft_cli.sinks import JsonSink, PrintingSink
 from weft_command.contract import Command
 from weft_command.invocation import invoke
+from weft_engine.api import new_context
 from weft_engine.permission_policy import PermissionPolicy
 from weft_engine.registry_bootstrap import Dependencies, build_dependencies
 from weft_kernel.context import Context
@@ -323,7 +323,7 @@ def _add_command_level(
             # `unwrap_factory` answers `object` — a registered factory is ordinarily the
             # plugin class itself, sometimes a `functools.partial` binding pack settings
             # ahead of it (see that function's own docstring) — so `help`/`args_model` are
-            # read the same defensive way `weft_cli.run_services._needs_store_of` reads a
+            # read the same defensive way `weft_engine.run_services._needs_store_of` reads a
             # declaration off an unwrapped factory: `getattr` with a default, then a cast,
             # never a bare attribute access pyright could statically resolve on `object`.
             help_text = cast(str, getattr(factory, "help", ""))
@@ -340,14 +340,11 @@ def _add_command_level(
 
 
 def _context() -> Context:
-    """One `Context` per invocation. Phase 0 has no multi-tenancy surface, so `tenant_id`
-    is a fixed default rather than a flag — see `docs/01-high-level-plan.md` → *The least-
-    architecture check*, "carry a tenant identifier... build no isolation machinery until
-    it is real."
+    """One `Context` per invocation. Now `weft_engine.api.new_context()` itself — task **24.1**
+    made that the one context builder both driving adapters share, rather than two copies that
+    could disagree; this name stays so every call site here is unchanged.
     """
-    return Context(
-        tenant_id="default", run_id=str(uuid.uuid4()), trace_id=str(uuid.uuid4()), locale="en"
-    )
+    return new_context()
 
 
 class _EmissionTrackingSink:
@@ -550,12 +547,12 @@ async def run_command(command_name: str, args: argparse.Namespace, deps: Depende
     # Local imports — see the module docstring's FF8(b) paragraph and the `TYPE_CHECKING`
     # import above: `run_command` is only ever reached for a command that already needed
     # discovery, so this costs nothing beyond a `sys.modules` lookup by the time it runs.
-    # `weft_cli.run_services` pulls in `weft_embed`/`weft_store`/`weft_retrieve`/`weft_llm`/
+    # `weft_engine.run_services` pulls in `weft_embed`/`weft_store`/`weft_retrieve`/`weft_llm`/
     # `weft_prompts` transitively (`build_services`/`build_index_services`'s own imports),
     # exactly what `weft --version` must not execute — the same reasoning this module's other
     # local imports already state for `weft_cli.render`/`weft_cli.commands`.
     from weft_cli.render import render_outcome, render_refusal
-    from weft_cli.run_services import command_path_services
+    from weft_engine.run_services import command_path_services
 
     tracked_sink = _EmissionTrackingSink(deps.token_sink)
     # **Ledger task 9.0.** This run's ambient services — `Dependencies` (with `token_sink` replaced
@@ -565,8 +562,9 @@ async def run_command(command_name: str, args: argparse.Namespace, deps: Depende
     # assemblers could be checked against for the identical gap Phase 7's close found
     # (`docs/internal/build-ledger.md:4370-4366 'emits pros'`): "`run_command` registers four
     # contracts and a pack needing the configured store or embedder... still cannot reach one."
-    # Moved into `weft_cli.run_services.command_path_services` — see that function's own docstring
-    # for each service and why it is there — so the three assemblers are one list written thrice in
+    # Moved into `weft_engine.run_services.command_path_services` — see that function's own
+    # docstring for each service and why it is there — so the three assemblers are one list written
+    # thrice in
     # one module rather than three, one of them inline here where nothing else could see it drift.
     # `Context` is built with `services` already populated rather than the empty default
     # `_context()` gives, since `Context` is frozen and `ctx.services` is not reassignable after

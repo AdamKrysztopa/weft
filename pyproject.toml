@@ -25,7 +25,7 @@ dev = [
     "pytest-xdist>=3.6",
     # >=0.16.0: the first release that formats Python code blocks fenced in Markdown by
     # default (changelog: "Ruff can now format Python code blocks in Markdown files and
-    # will do this by default"). `weft_cli.contract_reference` pipes its generated
+    # will do this by default"). `weft_engine.contract_reference` pipes its generated
     # Markdown through `ruff format` and relies on exactly that behaviour to match what
     # `poe ci-checks`' own `fmt` step does to the checked-in file — an in-range resolution
     # below 0.16 would leave a long signature unwrapped instead.

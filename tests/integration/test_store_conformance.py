@@ -55,7 +55,7 @@ from qdrant_client.http.exceptions import ResponseHandlingException, UnexpectedR
 
 from weft_blob.contract import BlobUri
 from weft_blob.payload import BlobRef
-from weft_cli.run_services import StoreCapabilityMissingError, check_store_capabilities
+from weft_engine.run_services import StoreCapabilityMissingError, check_store_capabilities
 from weft_extract.payload import BoundingBox, PageSpan, TableGrid
 from weft_kernel.context import Context
 from weft_kernel.payload import MediaType, Node, Outcome, Produced, SourceId, Vector

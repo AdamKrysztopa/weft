@@ -1931,7 +1931,7 @@ other.
 
 ---
 
-## Assembling a run — `weft_cli.run_services`
+## Assembling a run — `weft_engine.run_services`
 
 A pipeline resolving is not the same as a pipeline being able to run. A stage may need something
 from the *store* — vector search, text search — that the store you configured does not do, and the
@@ -2934,7 +2934,7 @@ check the file's permissions if the message says it could not be read.
 because `[services] embed`/`[services] store` or `--extract` names a plugin from a distribution
 `[packs] allow` refuses, reproduced against a real checkout with `weft-store` and `weft-openai`
 left off the allow-list. **`--retrieve-only`, since task 3.11**: the default, routed `weft ask`
-resolves `[services] store` inside `weft_cli.run_services.build_services`, which calls
+resolves `[services] store` inside `weft_engine.run_services.build_services`, which calls
 `Registry.entry` directly rather than through `require_plugin` (that module's own docstring:
 "this function does not repeat that translation") — a real, narrower gap this repair found and
 named but did not fix, being a different call site than the one it was scoped to. `--retrieve-
@@ -3121,7 +3121,7 @@ that does not exist at all is not an error, and neither is an empty one.
 
 ---
 
-## Contract reference generation — `weft_cli.contract_reference`
+## Contract reference generation — `weft_engine.contract_reference`
 
 ### `ContractNotDescribableError`
 

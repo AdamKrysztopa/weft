@@ -671,7 +671,7 @@ class RaptorSummarizer:
                         # **`[services] embed` does not apply here, and this message named it
                         # until task 10.18.** This stage is reachable only from a pipeline
                         # document, and a `--pipeline` run deliberately does not read
-                        # `[services]` — `weft_cli.run_services` says so in its own words
+                        # `[services]` — `weft_engine.run_services` says so in its own words
                         # (*"On a `--pipeline` run `[services] embed` is deliberately not
                         # read"*), and `index-text.yaml`'s *"What `--pipeline` costs you"*
                         # paragraph already carried the real remedy. So the old wording sent

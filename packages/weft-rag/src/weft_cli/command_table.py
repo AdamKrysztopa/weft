@@ -11,7 +11,7 @@ This module is that second rendering — the same walk, a Markdown table instead
 `argparse.ArgumentParser` — never a second, hand-typed list a plugin's command could be added to
 without anyone noticing.
 
-**Discovery is reused, not reimplemented.** `weft_cli.contract_reference.discover_for_reference`
+**Discovery is reused, not reimplemented.** `weft_engine.contract_reference.discover_for_reference`
 already builds exactly the registry this needs: open by default (a generated document describes
 what is installed, never a project's `[packs] allow` policy), with just enough `weft-store`
 settings to let that pack's own `register()` validate without ever dialling a socket — see that
@@ -23,7 +23,7 @@ document.
 
 **A registered command's `help` and `permission_class` are read defensively, and a command this
 module cannot describe stops generation rather than being described wrongly** — the same
-discipline `weft_cli.contract_reference.ContractNotDescribableError` holds for a contract. In
+discipline `weft_engine.contract_reference.ContractNotDescribableError` holds for a contract. In
 practice this can never fire: `weft_command.contract.Command.required_declarations` —
 `("permission_class", "help")` — already refuses a plugin's own registration if either is
 missing, before this module ever sees the name. `CommandNotDescribableError` exists anyway,
@@ -81,7 +81,7 @@ def missing_command_names(
 ) -> frozenset[str]:
     """Every command name `registered` (a real `Registry`'s own report) that `walked` lacks.
 
-    `weft_cli.contract_reference.missing_from_walked_set`'s own shape, applied to command names
+    `weft_engine.contract_reference.missing_from_walked_set`'s own shape, applied to command names
     (plain strings, keyed by the registration itself) rather than contract classes (keyed by
     `__qualname__`) — kept as a sibling function rather than generalised over both, because a
     contract and a command name are identified differently and a single parameterised version
@@ -104,7 +104,7 @@ def render_command_table(commands: tuple[PublishedCommand, ...]) -> str:
     plugin author's is unbounded by construction, exactly as `weft_cli.cli._report_unexpected`'s
     own docstring says about exception types.
 
-    Not passed through `ruff format`, unlike `weft_cli.contract_reference.
+    Not passed through `ruff format`, unlike `weft_engine.contract_reference.
     render_contract_reference`: that function's own docstring explains the formatter matters
     because its output embeds fenced Python; a Markdown table has no fenced code for `ruff
     format` to rewrap, so running it here would cost a subprocess for a no-op.

@@ -26,6 +26,9 @@ not a fact this enum carries; see `docs/03-cli.md` → *Permissions* for the tab
 
 from enum import StrEnum
 
+from weft_command.render import ExitCode
+from weft_kernel.errors import WeftError
+
 
 class PermissionClass(StrEnum):
     """The five classes `docs/03-cli.md` → *Permissions* names.
@@ -42,3 +45,28 @@ class PermissionClass(StrEnum):
     OVERWRITE = "overwrite"
     DESTROY = "destroy"
     NETWORK = "network"
+
+
+class CommandRefusalError(WeftError):
+    """A command refused to run before calling into the library — a policy or resolution
+    decision made from `PackReport`s and the registry alone, never from anything the run
+    itself would have failed on.
+
+    Carries the exact `ExitCode` the retired hand-written handlers used to `return` directly,
+    because `Command.run` cannot return one — only an `Outcome[CommandResult]`.
+    `weft_cli.render.render_outcome` reads `.exit_code` off this exception the same way it
+    reads `weft_cli.exit_codes.exit_code_for` for every other `WeftError`.
+
+    **It lives here rather than in `weft_cli.commands`, as of ledger task 24.1**, and the
+    reason is the one G13 already gave for `ExitCode` itself at task 6.20: a refusal about a
+    `permission_class` belongs beside the vocabulary that class is drawn from, and the second
+    driving adapter must be able to raise it without importing the first. `weft_engine`
+    assembles Weft for an application that has no terminal to prompt at, so its own `Consent`
+    refuses an `overwrite`/`destroy` run the caller did not authorise — the same refusal
+    `weft_cli.confirm.gate` makes with no TTY, from a package that must not import `weft_cli`.
+    `weft_cli.commands` re-exports the name, so every site that already caught it still does.
+    """
+
+    def __init__(self, message: str, *, exit_code: ExitCode) -> None:
+        super().__init__(message)
+        self.exit_code = exit_code

@@ -48,7 +48,7 @@ task earlier. The pipeline lands with whichever of those three tasks closes last
 **A retriever never builds its own index** (ledger 2.5): the vector it searches with is
 resolved through the `Embedder` service (`ctx.require(Embedder)`), and the index it
 searches is resolved through the `NodeStore` service (`ctx.require(NodeStore)`), never
-constructed here. `needs_store = (VectorSearch,)` is what `weft_cli.run_services`'s check
+constructed here. `needs_store = (VectorSearch,)` is what `weft_engine.run_services`'s check
 reads before any stage runs — see that module's own docstring — so a store that cannot
 rank by vector similarity is refused by name before this class's `run` is ever called, not
 discovered here as an `AttributeError` mid-batch.
@@ -173,7 +173,7 @@ class VectorTopK:
         adds it under that contract, per `.phase2-design.md` §3) and narrowed to
         `VectorSearch` here with `isinstance`, not assumed. `needs_store` is what makes a
         store lacking that capability *refused before this method is ever reached* once
-        something calls `weft_cli.run_services.check_store_capabilities` — nothing does yet
+        something calls `weft_engine.run_services.check_store_capabilities` — nothing does yet
         (that module's own docstring: "the assembler that will call it lands with"
         tasks 2.8 and 2.10). Until it does, this is the one line standing between a
         misconfigured store and the `AttributeError` mid-batch task 2.5's own repair closed

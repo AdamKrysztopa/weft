@@ -889,7 +889,7 @@ parsing the sentence. The sentence is prose and unpromised (`09` §3); `stance` 
 > which is what it always meant. `weft_cli.commands.RouteCommand` (retired into `AskCommand` at
 > task 3.11, below) — the only built-in that streams today — reads `Dependencies.token_sink` and
 > threads it through `weft_cli.route_ask.run_routed_ask`
-> to `weft_cli.run_services.build_services`, which now takes the sink as a required argument rather
+> to `weft_engine.run_services.build_services`, which now takes the sink as a required argument rather
 > than hardcoding `NullSink()`. **The event vocabulary is three members** — `CHUNK`, `DONE`,
 > `ERROR` — deliberately narrower than a seven-member taxonomy could be; the other four have
 > nothing in this tree that would emit them yet, named as gaps rather than built ahead of need. **An

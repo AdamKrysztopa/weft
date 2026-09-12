@@ -9,7 +9,7 @@ row, and nothing it receives that a third party's pack does not.
 ways.** Fitness function 18 forbids one name under two contracts — `weft_cli.compile._contract_for`
 scans every registered contract for a document's `use:` name and refuses when more than one
 answers, so such a plugin is registered, listed, and placeable by nobody. And `[services] graph`
-resolves through `registry.entry(GraphTraversal, <name>)` (`weft_cli.run_services.
+resolves through `registry.entry(GraphTraversal, <name>)` (`weft_engine.run_services.
 selected_role_instances`), so a registration under `GraphTraversal` is exactly what makes the role
 selectable. Two names it is, and they are qualified rather than bare, per `10` §2.1 rule 6: the
 family-membership deferral in `01` names `weft-neo4j` as the sibling this pack is waiting for, so
@@ -34,7 +34,7 @@ import pytest
 from pydantic import ValidationError
 
 from weft_cli.pipeline_catalogue import load_pipeline_document
-from weft_cli.run_services import class_provides
+from weft_engine.run_services import class_provides
 from weft_enhance.contract import Enhancer
 from weft_index.contract import Expander
 from weft_kernel.discovery import PackRegistrar
@@ -76,7 +76,7 @@ def test_register_adds_the_store_under_node_store() -> None:
 def test_register_adds_the_walk_under_the_traversal_protocol() -> None:
     """The registration `[services] graph = "pgvector-traversal"` resolves through.
 
-    `weft_cli.run_services.selected_role_instances` builds a role with
+    `weft_engine.run_services.selected_role_instances` builds a role with
     `registry.entry(role.contract, services.roles[key]).factory(None)`, so a role is selectable
     only where something registered a name under that role's own contract.
     """
@@ -179,7 +179,7 @@ def test_the_store_satisfies_the_three_contracts_it_registers_and_fans_out_under
     this asks nothing of a database, and a check that stops reporting whenever Postgres is
     stopped is a check that reports on the days it is least needed (`L11.22`).
     """
-    # Assert — through `class_provides`, which is `weft_cli.run_services`' own wrapper around
+    # Assert — through `class_provides`, which is `weft_engine.run_services`' own wrapper around
     # `issubclass` and the function the fan-out actually calls. A bare `issubclass` against a
     # Protocol carrying a non-method `version` is what a type checker refuses, and reaching for
     # the tree's existing helper is what `L11.17` asks for instead of writing a second one.
@@ -335,7 +335,7 @@ def test_register_adds_the_extraction_prompt_under_its_own_name() -> None:
     `manual/contract-reference.md` to avoid one wart would trade a documented limitation for an
     undocumented one. The wart, stated where a reader meets it: a `[plugins]` pin on this name
     changes the listing and does not change what the stage asks, because the ingest path
-    publishes no by-name capability lookup (`weft_cli.run_services.build_index_services`).
+    publishes no by-name capability lookup (`weft_engine.run_services.build_index_services`).
     """
     # Act
     registry = _registered()

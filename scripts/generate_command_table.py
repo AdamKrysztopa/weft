@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Final
 
 from weft_cli.command_table import command_entries, render_command_table, spliced_manual
-from weft_cli.contract_reference import discover_for_reference
+from weft_engine.contract_reference import discover_for_reference
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parent.parent
 MANUAL: Final[Path] = REPO_ROOT / "manual" / "user-manual.md"

@@ -76,7 +76,7 @@ def test_a_selected_instance_answers_under_its_own_roles_contract() -> None:
     declaring pack published — the plain case aliasing is built on top of.
     """
     # Arrange
-    from weft_cli.run_services import register_selected_roles
+    from weft_engine.run_services import register_selected_roles
 
     instance = _FsBlobs()
     registered = ServiceRegistry()
@@ -98,7 +98,7 @@ def test_a_selected_instance_also_answers_under_a_capability_a_stage_demands_of_
     demonstrably has.
     """
     # Arrange
-    from weft_cli.run_services import register_selected_roles
+    from weft_engine.run_services import register_selected_roles
 
     instance = _FsBlobs()
     registered = ServiceRegistry()
@@ -125,7 +125,7 @@ def test_a_capability_the_instance_satisfies_but_nothing_demands_is_not_reachabl
     the honest reply.
     """
     # Arrange
-    from weft_cli.run_services import register_selected_roles
+    from weft_engine.run_services import register_selected_roles
 
     instance = _FsBlobs()
     registered = ServiceRegistry()
@@ -151,7 +151,7 @@ def test_a_capability_two_selected_instances_both_satisfy_is_refused_naming_both
     change. `01` requirement 5: a refusal names what was wanted and what the options are.
     """
     # Arrange
-    from weft_cli.run_services import AmbiguousCapabilityError, register_selected_roles
+    from weft_engine.run_services import AmbiguousCapabilityError, register_selected_roles
 
     registered = ServiceRegistry()
 
@@ -178,7 +178,7 @@ def test_an_unselected_role_registers_nothing_rather_than_a_placeholder() -> Non
     this run does offer, which is the seam where somebody who genuinely needs it comes and asks.
     """
     # Arrange
-    from weft_cli.run_services import register_selected_roles
+    from weft_engine.run_services import register_selected_roles
 
     registered = ServiceRegistry()
 

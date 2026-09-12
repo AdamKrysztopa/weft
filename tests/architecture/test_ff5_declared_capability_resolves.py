@@ -69,7 +69,7 @@ PACKAGES: Final[Path] = REPO_ROOT / "packages"
 
 #: The extractor packs this file needs registered, and **nothing else**.
 #:
-#: `weft_cli.contract_reference.discover_for_reference()` would have been the obvious call and is
+#: `weft_engine.contract_reference.discover_for_reference()` would have been the obvious call and is
 #: the wrong one: it discovers **open**, with no `allow`, so it imports every installed pack —
 #: including `testing/weft-canary`, whose entire purpose is to prove it was *never* imported.
 #: `test_ff2_no_privileged_builtins.py` restricts its own `allow` for exactly this reason and says

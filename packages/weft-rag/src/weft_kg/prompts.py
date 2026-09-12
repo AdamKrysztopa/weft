@@ -43,7 +43,7 @@ relation between two named things, and a prompt that demanded three would get th
 `weft_kg.extraction` enforces the ceiling and counts what it dropped, so an over-delivering model
 is a number an operator can read rather than a silent truncation.
 
-**How this prompt is reached, and the one wart in it.** `weft_cli.run_services.
+**How this prompt is reached, and the one wart in it.** `weft_engine.run_services.
 build_index_services` publishes no `StageLookup` on the ingest path — deliberately, so an ingest
 plugin cannot depend on the query path — so `llm-facts` cannot resolve a `Prompt` by name the way
 `weft_retrieve.rerank` does, and constructs `ExtractFactsPrompt` directly. It is registered

@@ -289,7 +289,7 @@ def llm_service(
     """Build the run's `LLM`. This pack's own constructor, per `.phase2-design.md` §7.
 
     "Each pack builds its own service constructor … so a library caller is not forced through
-    the CLI." `weft_cli.run_services.build_services` calls this one and adds the result to the
+    the CLI." `weft_engine.run_services.build_services` calls this one and adds the result to the
     run's `ServiceRegistry`; an embedding host application calls it directly with a role table
     it built itself.
     """

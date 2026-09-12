@@ -47,7 +47,7 @@ one-way dependency chain into a cycle. They moved to `weft_llm.roles` and are re
 here, so every existing importer is unaffected and an operator's one file is still read
 exactly once, in the same pass that reads the allow-list, the pack settings and `[services]`.
 
-**Nothing here builds the `LLM` service.** `weft_cli.run_services.build_services` does, from
+**Nothing here builds the `LLM` service.** `weft_engine.run_services.build_services` does, from
 what this module returns, and that assembler lands with task 2.8.
 
 **Repair, 2026-08-20** (`docs/01-high-level-plan.md` item 12's own dated paragraph carries the

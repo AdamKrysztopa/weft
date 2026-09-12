@@ -6,14 +6,14 @@ Specified in `docs/07-extension-cost.md` §2 clause (c), and this file is what t
 file's — this is the file it is.
 
 **The left side and the right side are computed from different places and never from each
-other.** The left is `weft_cli.contract_reference.published_contracts(discover_for_reference())`
+other.** The left is `weft_engine.contract_reference.published_contracts(discover_for_reference())`
 — this repository's own registrations, `registry.contracts()` plus derived capability
 siblings, exactly what `manual/contract-reference.md` is generated from. The right is four
 independent throwaway-environment probes, one per out-of-tree example pack
 (`examples/weft-example-chunker`, `-ingest`, `-llm`, `-query`), each installed alone-plus-the-
 first-party-wheels into a venv that has never heard of this repository, reporting which
 contracts it registered a name under and which capability siblings its own registered class
-satisfies — read the same way `weft_cli.contract_reference.capability_siblings` and
+satisfies — read the same way `weft_engine.contract_reference.capability_siblings` and
 `_distributions_satisfying` already ask that question, imported directly rather than
 reimplemented, so a probe's "yes, this class is a `VectorSearch`" cannot come to disagree
 with what the generated manual says. This is what stops the comparison being a check computed
@@ -60,13 +60,13 @@ from typing import Final
 
 import pytest
 
-from weft_cli.contract_reference import discover_for_reference, published_contracts
+from weft_engine.contract_reference import discover_for_reference, published_contracts
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 PACKAGES_ROOT: Final[Path] = REPO_ROOT / "packages"
 EXAMPLES_ROOT: Final[Path] = REPO_ROOT / "examples"
 
-#: The same placeholder DSN `weft_cli.contract_reference.discover_for_reference` uses — never
+#: The same placeholder DSN `weft_engine.contract_reference.discover_for_reference` uses — never
 #: dialled, only structurally valid enough for `PgVectorSettings` to validate at `register()`.
 _PLACEHOLDER_DSN: Final[str] = "postgresql://ff9c-generation/placeholder"
 
@@ -127,7 +127,7 @@ if leaked:
     print(",".join(leaked))
     raise SystemExit(0)
 
-from weft_cli.contract_reference import capability_siblings
+from weft_engine.contract_reference import capability_siblings
 from weft_kernel.discovery import discover
 from weft_kernel.registry import Registry, unwrap_factory
 

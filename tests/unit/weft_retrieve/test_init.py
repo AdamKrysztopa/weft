@@ -66,7 +66,7 @@ def _first_party_imports(package: str) -> set[str]:
 
 
 def test_the_contracts_this_distribution_publishes_are_exported() -> None:
-    # Act / Assert — `weft_cli.contract_reference._capability_siblings` reads `__all__`, and a
+    # Act / Assert — `weft_engine.contract_reference._capability_siblings` reads `__all__`, and a
     # published contract missing from it is silently absent from the generated reference.
     assert "Retriever" in weft_retrieve.__all__
     assert weft_retrieve.Retriever is Retriever

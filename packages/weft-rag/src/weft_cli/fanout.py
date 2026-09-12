@@ -9,7 +9,7 @@ reproduce. One module, one answer, one place to correct.
 **Who is a participant, and why `NodeStore` is filtered rather than collected whole.** Every
 contract in the registry is walked, and a plugin whose registered *class* satisfies the
 capability joins — `issubclass` against the class, never a constructed instance, so nothing is
-built to find out whether it should have been (`weft_cli.run_services.class_provides` is the
+built to find out whether it should have been (`weft_engine.run_services.class_provides` is the
 shared check, public since 5.1a for exactly this reason). The one exception is `NodeStore`,
 narrowed at task 5.1a to the single store `[services] store` names and widened again at task
 **6.18** (G13's first repair, `docs/02-extension-model.md` §1 → *Extended by G13*): the narrowing
@@ -51,7 +51,7 @@ from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 
-from weft_cli.run_services import class_provides
+from weft_engine.run_services import class_provides
 from weft_kernel.registry import Registry, unwrap_factory
 from weft_kernel.seam import aclose
 from weft_store import NodeStore

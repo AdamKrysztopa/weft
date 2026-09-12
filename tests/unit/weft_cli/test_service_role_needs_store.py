@@ -6,8 +6,8 @@ be selected and aliased correctly and a stage's demand can still be validated ag
 instance, refused before aliasing could ever have helped.
 
 **The second enforcement point.** `check_store_capabilities`
-(`packages/weft-rag/src/weft_cli/run_services.py:129 'class MalformedNeed'`) validates every stage's
-`needs_store`
+(`packages/weft-rag/src/weft_engine/run_services.py:129 'class MalformedNeed'`) validates every
+stage's `needs_store`
 against **the one configured store**, and its remedy names only `[services] store`. So a stage
 needing a capability that some *other* selected role provides is refused before assembly, with a
 remedy that points at the wrong key. Aliasing (property ii) cannot help: this check runs first and
@@ -29,7 +29,7 @@ from weft_store.contract import NodeStore, TextSearch, VectorSearch
 
 
 #: The **real** store family, deliberately, rather than stand-ins. `_roles_publishing` asks
-#: `weft_cli.contract_reference.capability_siblings` which capabilities a role's contract
+#: `weft_engine.contract_reference.capability_siblings` which capabilities a role's contract
 #: family publishes, and that walks the publishing pack's own public module — so a stand-in
 #: contract declared inside a test module has no siblings by construction and could not
 #: exercise the mechanism at all. `docs/internal/lessons.md` L6.4: read the live population, not the
@@ -59,7 +59,7 @@ def test_a_demand_is_checked_against_the_instance_its_own_role_resolves() -> Non
     instance* provides it — not because the configured node store happens to.
     """
     # Arrange
-    from weft_cli.run_services import check_selected_capabilities
+    from weft_engine.run_services import check_selected_capabilities
 
     selected = {"blobs": _ReadOnlyBlobs()}
 
@@ -79,7 +79,7 @@ def test_a_demand_nothing_selected_provides_is_refused_naming_the_role_key_to_se
     to change its node store.
     """
     # Arrange
-    from weft_cli.run_services import SelectedCapabilityMissingError, check_selected_capabilities
+    from weft_engine.run_services import SelectedCapabilityMissingError, check_selected_capabilities
 
     selected = {"blobs": _ReadOnlyBlobs()}
 
@@ -107,7 +107,7 @@ def test_the_refusal_names_the_plugin_name_an_operator_configured_not_a_python_c
     them could catch it.
     """
     # Arrange
-    from weft_cli.run_services import SelectedCapabilityMissingError, check_selected_capabilities
+    from weft_engine.run_services import SelectedCapabilityMissingError, check_selected_capabilities
 
     selected = {"blobs": _ReadOnlyBlobs()}
 
@@ -135,7 +135,7 @@ def test_a_demand_for_a_role_nobody_selected_is_refused_naming_that_role() -> No
     swap a plugin they never chose.
     """
     # Arrange
-    from weft_cli.run_services import SelectedCapabilityMissingError, check_selected_capabilities
+    from weft_engine.run_services import SelectedCapabilityMissingError, check_selected_capabilities
 
     # Act / Assert
     with pytest.raises(SelectedCapabilityMissingError) as caught:

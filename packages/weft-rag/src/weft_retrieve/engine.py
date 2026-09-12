@@ -181,7 +181,7 @@ def _validated_sub_config(entry: RegistryEntry, name: str, config: object) -> ob
 def stage_lookup(registry: Registry) -> RegistryStageLookup:
     """Build the run's `StageLookup`. This pack's own constructor — see the module
     docstring, and `.phase2-design.md` §7: "so a library caller is not forced through
-    the CLI." `weft_cli.run_services.build_services` is the one caller that is.
+    the CLI." `weft_engine.run_services.build_services` is the one caller that is.
     """
     return RegistryStageLookup(registry)
 

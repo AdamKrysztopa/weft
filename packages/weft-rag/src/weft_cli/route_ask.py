@@ -30,14 +30,14 @@ second document under a name another pack already holds, and a project that ship
 `weft_engine.services.DEFAULT_ROUTER` carries the argument, and the two registered routing
 policies that were unreachable because of it are the evidence.
 
-`weft_cli.run_services.check_store_capabilities` runs once per resolved pipeline,
-immediately before that pipeline's own `run_once` call — see `weft_cli.run_services`'s
+`weft_engine.run_services.check_store_capabilities` runs once per resolved pipeline,
+immediately before that pipeline's own `run_once` call — see `weft_engine.run_services`'s
 own module docstring for why that check is not inside `build_services` itself.
 `check_selected_capabilities` — ledger task **11.10** — runs immediately after it, in the
 same window: `needs_store` is answered against the one configured `[services] store`, but a
 retriever needing a capability *no store advertises* — a traversal, say — can only be answered
 against the whole selected `[services]` set, and
-had no caller until this task built `weft_cli.run_services.demanded_capabilities`, the map from
+had no caller until this task built `weft_engine.run_services.demanded_capabilities`, the map from
 the resolved `StageSpec` list this check needs. Both checks need the identical two things
 `build_services` already builds and this module used to drop: the `RoleTable` and the raw
 `selected_role_instances` mapping, which `_prepared_runner` now threads out to `_run_pipeline`
@@ -71,14 +71,14 @@ from weft_cli.pipeline_catalogue import (
     UnknownPipelineNameError,
     full_catalogue,
 )
-from weft_cli.run_services import (
+from weft_engine.llm_roles import LLMSection
+from weft_engine.run_services import (
     build_services,
     check_selected_capabilities,
     check_store_capabilities,
     demanded_capabilities,
     selected_role_instances,
 )
-from weft_engine.llm_roles import LLMSection
 from weft_engine.service_roles import RoleTable
 from weft_engine.services import DEFAULT_ROUTER, ServiceSelection
 from weft_generate.contract import Generator
@@ -186,7 +186,7 @@ async def run_routed_ask(
 
     Raises `NoRouterPipelineError` if no installed pack contributed `route.yaml`;
     `UnroutedPipelineNameError` if a `RoutingPolicy` names a pipeline the catalogue does
-    not hold; `weft_cli.run_services.StoreCapabilityMissingError` if either resolved
+    not hold; `weft_engine.run_services.StoreCapabilityMissingError` if either resolved
     pipeline needs a store capability `[services] store` does not provide; any
     `weft_kernel.runner.PipelineResolutionError` a malformed document or a name nothing
     registered raises, from either resolution. Every one of these is a `WeftError` a
@@ -476,7 +476,7 @@ async def run_named_ask(
     _raise_for_plugin_refusal`'s own "one code path, not two" footing: that class's own
     docstring already covers "a bare name a person typed at the command line", which is
     exactly what this is, one caller further than the four `weft pipeline` commands that
-    established it. `weft_cli.run_services.StoreCapabilityMissingError` and any
+    established it. `weft_engine.run_services.StoreCapabilityMissingError` and any
     `weft_kernel.runner.PipelineResolutionError` propagate unchanged, the same set
     `run_routed_ask` documents for its own second resolution.
 
@@ -678,7 +678,7 @@ async def _run_pipeline(
 
     **`store_name`, `table`, `selected`, `names` — ledger task 11.10.** `store_name` is the
     configured `[services] store` plugin name, not `type(store).__name__` — this call used to
-    pass the latter, which is the live defect `weft_cli.run_services.
+    pass the latter, which is the live defect `weft_engine.run_services.
     SelectedCapabilityMissingError`'s own docstring names as `L9.26`: a refusal read *the
     configured store 'PgVectorStore'* while `[services] store` accepts `pgvector`, a remedy
     nobody could carry out. `table` and `selected` are `_prepared_runner`'s own `RoleTable` and

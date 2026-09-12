@@ -40,7 +40,7 @@ for the identical reason: `.phase2-design.md` §3 groups `Prompt` and `LLMProvid
 registered, but not pipeline positions", and a CLI command is invoked once per `weft` invocation
 (or once per REPL turn), never composed into an ingest or query `StageSpec` list. It therefore
 declares no `Stage` base — `weft_kernel.runner.Runner.resolve` has no reason to see it, and
-`weft_cli.contract_reference.capability_siblings`' own `_is_stage_protocol` filter, built for
+`weft_engine.contract_reference.capability_siblings`' own `_is_stage_protocol` filter, built for
 exactly this family of "one method, several unrelated contracts sharing its name", never needs a
 special case for it.
 

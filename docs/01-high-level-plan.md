@@ -850,7 +850,7 @@ expensive architecture is measured before it is built.
 
 **It runs first, and its first task is not multimodal.** Two of its tasks reach a run-wide service on
 the ingest path — a blob store and a describer — and today every path assembles its services from a
-hand-written list (`weft_cli/run_services.py:345 "for posi"`, `:399`; the command path in `weft_cli.cli`) against
+hand-written list (`weft_engine/run_services.py:345 "for posi"`, `:399`; the command path in `weft_cli.cli`) against
 three fixed keys (`weft_engine/services.py:141 "class Se"`), which is the requirement-1 failure Phase 7's close filed
 as design question *(a)* and said must not be settled from one instance
 (`docs/internal/build-ledger.md:4364-4360 ". **And "`). Task **9.0** is that repair. It has three consumers — the failing
@@ -1206,7 +1206,7 @@ second consumer rather than its author — which is the whole point of a check w
       nobody agreed to — and until this check that boundary was a sentence in a docstring. It was
       very nearly a registration seam instead, which would have been the stronger answer; running
       the binary falsified the premise, because
-      `weft_cli.run_services.command_path_services` already puts `LLM`, `Prompts` and `TokenSink`
+      `weft_engine.run_services.command_path_services` already puts `LLM`, `Prompts` and `TokenSink`
       on **every** command's `Context` and has since task 7.4, so a `repair` pass could reach a
       model before `11.9` existed and a second registration merely raised `DuplicateServiceError`.
       Narrowing that seam would partly reverse 7.4; removing a service from a built registry needs
@@ -1574,7 +1574,7 @@ All checks run in CI, before tests.
     > audited all 82 by reading every raise site for whether it already computes and interpolates a
     > concrete, enumerable collection of the names that were valid where the one given was not — the
     > structural line `tests/architecture/test_ff12_unresolvable_name_carries_options.py`'s own module
-    > docstring states — and found **20**: `weft_cli.run_services.StoreCapabilityMissingError` (its
+    > docstring states — and found **20**: `weft_engine.run_services.StoreCapabilityMissingError` (its
     > message already named the store names that *do* provide the missing capability) and
     > `weft_prompts.errors.TemplateVariableError` (one of its two raise sites already named the input
     > model's fields, for the placeholder-not-supplied case) joined the 18 this section originally

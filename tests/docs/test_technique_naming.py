@@ -219,7 +219,7 @@ def registered_names() -> frozenset[str]:
     """Every name any installed pack actually registered, under any contract — plugin and
     prompt alike.
 
-    Built on `weft_cli.contract_reference.discover_for_reference`, the same open-by-default
+    Built on `weft_engine.contract_reference.discover_for_reference`, the same open-by-default
     `Registry` `manual/contract-reference.md`'s own generator populates — reused rather than
     duplicated a third time, and it already settles `weft-store`'s pack settings with a
     placeholder DSN that is validated and never connected to.
