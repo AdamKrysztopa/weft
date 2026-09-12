@@ -566,7 +566,15 @@ observed elsewhere: an LLM scores dimensions, a deterministic ladder decides.
 > *site. NUL becomes a space, never a deletion, following the earlier precedent — and Weft has a live*
 > *reason that precedent only had in principle: `weft_chunk.payload.ChunkOffset` records a character*
 > *offset into a parent's content, so a deletion would silently shift every offset recorded*
-> *downstream. Scope is `Node.content` and every `str`-typed field an `ExtModel` in `Node.ext`*
+> *downstream.*
+> *(**`ChunkOffset` is gone as of 2026-09-12, `R17.1`** — G17 left it with no reader and it was*
+> *withdrawn, so the live reason recorded here is a live reason no longer. The behaviour is*
+> *unchanged and `weft_kernel.seam` now gives the structural form: this seam rewrites a node's*
+> *content after whatever produced it has already described it, and a length-changing edit*
+> *invalidates any description that indexes into that content by position. Nothing in the tree*
+> *records such a position today, which is an argument for preserving length while that is cheap,*
+> *not for spending the invariant.)*
+> *Scope is `Node.content` and every `str`-typed field an `ExtModel` in `Node.ext`*
 > *carries, walked by `model_fields` introspection rather than a maintained list — the same lesson*
 > *about the transient scrub applies unchanged. Measured directly: no first-party `ExtModel`*
 > *shipped as of this task carries verbatim extractor text — `weft_pdf.PdfPages` (`weft_pdf/*

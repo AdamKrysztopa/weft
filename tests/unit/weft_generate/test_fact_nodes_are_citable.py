@@ -50,7 +50,6 @@ import pytest
 from pydantic import ValidationError
 
 from weft_chunk.fixed_size import FixedSizeChunker, FixedSizeChunkerConfig
-from weft_chunk.payload import ChunkOffset
 from weft_extract.payload import PageSpan
 from weft_generate.cited_answer import CitedAnswer
 from weft_generate.page import page_for
@@ -174,9 +173,8 @@ def _pages() -> tuple[Node, ...]:
 async def _chunks() -> tuple[Node, ...]:
     """The parent chunks, produced by the **real** chunker rather than assembled here.
 
-    `ChunkOffset` and the carried `PageSpan` are then this stage's own output, so nothing
-    below depends on a hand-populated fact agreeing with what the pipeline actually builds
-    (`L6.14`).
+    The carried `PageSpan` is then this stage's own output, so nothing below depends on a
+    hand-populated fact agreeing with what the pipeline actually builds (`L6.14`).
     """
     chunker = FixedSizeChunker(config=FixedSizeChunkerConfig(size=60, overlap=10))
     ctx = Context(tenant_id="tenant-a", run_id="run-1", trace_id="trace-1", locale="en")
@@ -232,8 +230,6 @@ async def test_a_fact_carrying_its_parents_facts_resolves_to_the_page_of_its_evi
     # `> 1` rather than "not None": a page that had degenerated to the start of the document
     # would satisfy an equality read through the one call on both sides (`L9.28`).
     assert page_for(fact) == span.page > 1
-    # The chunker's own fact rides alongside and is deliberately not the page.
-    assert isinstance(fact.ext[ChunkOffset.__namespace__], ChunkOffset)
 
 
 async def test_a_fact_that_does_not_carry_its_parents_facts_has_no_page_at_all() -> None:

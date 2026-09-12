@@ -6,7 +6,8 @@ Task **5.2g**. Specified in `docs/01-high-level-plan.md` -> *Fitness functions*,
 whatever store reads a node back, or `weft_store.rehydrate.rehydrate_ext` raises
 `UnknownPluginError` the moment a node carrying that namespace is read. Measured at this task's
 own start: eleven `ExtModel`s existed in the tree and `weft_store.rehydrate.ext_models` held
-exactly one registered namespace, `weft-kernel` — `weft_chunk.payload.ChunkOffset` alone survived,
+exactly one registered namespace, `weft-kernel` — `weft_chunk.payload.ChunkOffset` alone
+survived (that class was itself withdrawn at `R17.1`),
 and only because `weft_cli.registry_bootstrap._ensure_chunk_offset_rehydrates` hand-registered it.
 
 **Why a new number rather than a clause of item 5**, whose wording — "every declared capability

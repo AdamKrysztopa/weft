@@ -26,7 +26,6 @@ from pydantic import ValidationError
 
 from weft_chunk.contract import Chunker
 from weft_chunk.fixed_size import FixedSizeChunker, FixedSizeChunkerConfig
-from weft_chunk.payload import ChunkOffset
 from weft_chunk.property import WordBoundaries
 from weft_kernel import resolution
 from weft_kernel.context import Context
@@ -79,25 +78,6 @@ async def test_run_splits_content_into_overlapping_windows_carrying_lineage() ->
     assert all(chunk.lineage.sources == parent.lineage.sources for chunk in outcome.value)
 
 
-async def test_each_chunk_carries_its_own_character_offset_into_the_parent() -> None:
-    # Arrange — ledger 2.9's first half of the page-attribution gap: a chunk records
-    # `ordinal` (which window this is) but nothing said *where* in the parent's content
-    # the window starts, and a page number cannot be looked up without one.
-    chunker = FixedSizeChunker(config=FixedSizeChunkerConfig(size=4, overlap=1))
-    parent = _node("abcdefgh")
-
-    # Act
-    outcome = await chunker.run([parent], _ctx())
-
-    # Assert — step = size - overlap = 3, so the three windows start at 0, 3, 6.
-    assert isinstance(outcome, Produced)
-    assert [chunk.ext_as(ChunkOffset) for chunk in outcome.value] == [
-        ChunkOffset(start=0),
-        ChunkOffset(start=3),
-        ChunkOffset(start=6),
-    ]
-
-
 async def test_a_chunk_carries_forward_its_parents_document_level_facts() -> None:
     # Arrange — ledger 2.9's second half: `Node.derive` drops `ext` by design, so a fact
     # a pack attached to the whole document (page boundaries, headings) must be
@@ -132,33 +112,32 @@ async def test_a_chunk_does_not_carry_forward_its_parents_synthetic_origin() -> 
     assert all(chunk.ext_as(SyntheticOrigin) is None for chunk in outcome.value)
 
 
-async def test_a_second_chunking_pass_compounds_the_offset_instead_of_overwriting_it() -> None:
-    # Arrange — repair for a defect three reviewers of the first cut traced independently:
-    # a coarse pass (size=10, overlap=0) then a fine pass (size=4, overlap=0) over the coarse
-    # pass's second window is an ordinary two-level chunking technique, and `Chunker`'s
-    # `Stage[Sequence[Node], Sequence[Node]]` shape lets a pipeline compose it. The fine pass's
-    # `ChunkOffset.start` must stay relative to the root `parent`, because that is what
-    # `weft_pdf.PdfPages.starts` — carried forward onto every level — is indexed against.
+async def test_a_second_chunking_pass_still_carries_the_documents_facts_forward() -> None:
+    # Arrange — a coarse pass (size=10, overlap=0) then a fine pass (size=4, overlap=0) over
+    # the coarse pass's second window is an ordinary two-level technique, and `Chunker`'s
+    # `Stage[Sequence[Node], Sequence[Node]]` shape lets a pipeline compose it. Carry-forward
+    # has to survive *every* level or a fact reaches the chunks a retriever returns only when
+    # nobody re-chunked. This replaces the offset-compounding test `R17.1` retired: the fact a
+    # second pass must not lose is now the document's own, not a coordinate into it.
     chunker = FixedSizeChunker(config=FixedSizeChunkerConfig(size=10, overlap=0))
-    parent = _node("0123456789ABCDEFGHIJ")  # 20 chars: two coarse windows, start=0 and start=10
+    parent = _node("0123456789ABCDEFGHIJ").with_ext(_DocumentFact(value="attached to the root"))
 
     # Act — coarse pass, then re-chunk the second coarse window with a finer window.
     coarse = await chunker.run([parent], _ctx())
     assert isinstance(coarse, Produced)
     second_coarse_window = coarse.value[1]
-    assert second_coarse_window.ext_as(ChunkOffset) == ChunkOffset(start=10)
+    assert second_coarse_window.content == "ABCDEFGHIJ"  # the fixture really is two levels deep
 
     fine_chunker = FixedSizeChunker(config=FixedSizeChunkerConfig(size=4, overlap=0))
     fine = await fine_chunker.run([second_coarse_window], _ctx())
 
-    # Assert — local fine-pass offsets (0, 4, 8) added to the coarse window's own start (10),
-    # never a bare local offset that would be indexed against the wrong document.
+    # Assert
     assert isinstance(fine, Produced)
-    assert [chunk.ext_as(ChunkOffset) for chunk in fine.value] == [
-        ChunkOffset(start=10),
-        ChunkOffset(start=14),
-        ChunkOffset(start=18),
-    ]
+    assert [chunk.content for chunk in fine.value] == ["ABCD", "EFGH", "IJ"]
+    assert all(
+        chunk.ext_as(_DocumentFact) == _DocumentFact(value="attached to the root")
+        for chunk in fine.value
+    )
 
 
 async def test_run_answers_nothing_to_produce_when_every_node_is_empty() -> None:

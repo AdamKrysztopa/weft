@@ -932,7 +932,7 @@ for one belongs.
 `registrar.deprecate(surface, reason=...)` (`discovery.py:376-390 ", the on"`) buffers a notice — a plugin name,
 a `"Contract:name"` pair, or your pack itself — attributed to your distribution and committed with
 everything else `register()` buffers. Once committed, `weft_kernel.seam.warn_deprecated`
-(`packages/weft-kernel/src/weft_kernel/seam.py:370-382 "Emit one"`) emits one `DeprecationWarning` per notice,
+(`packages/weft-kernel/src/weft_kernel/seam.py:376-382 "Emit one"`) emits one `DeprecationWarning` per notice,
 automatically, the moment discovery activates your pack — you state the fact once and never write the
 warning by hand, and `weft plugins doctor` surfaces it as a flag beside your pack's ordinary status.
 

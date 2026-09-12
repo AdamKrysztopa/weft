@@ -50,7 +50,6 @@ from pydantic import SecretStr
 
 from weft_chunk import FixedSizeChunker
 from weft_chunk.contract import Chunker
-from weft_chunk.payload import ChunkOffset
 from weft_embed.contract import Embedder
 from weft_extract.contract import Extractor
 from weft_extract.text import discover_source_docs
@@ -269,7 +268,6 @@ async def test_a_broad_query_is_answered_from_a_summary_node_cited_as_itself(
     store: PgVectorStore, api_key: SecretStr, tmp_path: Path
 ) -> None:
     # Arrange — one real paper, extracted, chunked, and trimmed to a bounded slice.
-    _ensure_rehydrates(ChunkOffset)
     _ensure_rehydrates(PdfPages)
     _ensure_rehydrates(Representation)
     assert _PAPER.exists(), "corpus/arxiv/1706.07535v1.pdf must be materialised for this test"

@@ -74,11 +74,17 @@ The four concerns:
      structural here, read off the span's own attributes, rather than four
      keyword arguments an author has to remember to pass at every call site.
 
-   **NUL becomes a space, never a deletion**, because `weft_chunk.payload.ChunkOffset` records a
-   character offset into a parent's content, so deleting a byte would
-   silently shift every offset recorded downstream of the node being
-   cleaned. A space is one character for one character; every offset already
-   recorded against this content stays correct.
+   **NUL becomes a space, never a deletion**, because this seam rewrites a
+   node's content *after* whatever produced it has already described it, and
+   a length-changing edit silently invalidates any description that indexes
+   into that content by position. A space is one character for one
+   character, so every such fact stays correct. **The reason is structural
+   rather than live as of 2026-09-12**: `weft_chunk.payload.ChunkOffset` was
+   the one shipped `ExtModel` recording a character offset, and repair
+   `R17.1` withdrew it once **G17** left it with no reader. Nothing in the
+   tree indexes content by position today — which is an argument for
+   preserving length cheaply while that is true, not for spending the
+   invariant.
 
    **Scope is `Node.content` and the `str`-typed fields of whatever
    `ExtModel`s `Node.ext` carries** — `weft_store/pgvector_store.py`'s

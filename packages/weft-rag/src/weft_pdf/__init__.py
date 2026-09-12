@@ -19,8 +19,8 @@ branch inside one class would satisfy none of that.
 **`PdfPages` reaches rehydration through `register()` itself, with no `weft-store`
 dependency here at all — task 5.2g.** A pack that reads bytes off disk still has no
 structural reason to also carry a database driver, and it no longer needs one:
-`register()` calls `registrar.add_ext_model(PdfPages)`, exactly the shape
-`weft_chunk.__init__` uses for `ChunkOffset` — `PackRegistrar` lives in `weft-kernel`,
+`register()` calls `registrar.add_ext_model(PdfPages)`, the same shape `weft_blob` uses
+for its own `BlobRef` — `PackRegistrar` lives in `weft-kernel`,
 and `ExtModel` is a kernel-owned payload primitive, not a capability, so buffering a
 bare class reference here costs nothing. What actually walks `PackReport.ext_models`
 into `weft_store.rehydrate.ext_models` is `weft_store.rehydrate.register_from_reports`,

@@ -233,9 +233,15 @@ def test_the_waiver_is_empty() -> None:
 def test_the_sweep_finds_the_ext_models_this_tree_actually_ships() -> None:
     """Non-vacuity: a population of zero would satisfy the check above and mean nothing.
 
-    Named across three distributions and two source roots, because they arrive by different
-    mechanisms — a workspace package, an add-on distribution, and an out-of-tree example — and any
-    one of the three could break alone.
+    Named across **both source roots** the sweep walks, because they arrive by different
+    mechanisms — `packages/`, which ships inside the `weft-rag` wheel, and `examples/`, an
+    out-of-tree distribution a stranger could have written — and either root could break alone.
+
+    **This said "three distributions" and named `weft_chunk.payload.ChunkOffset` until
+    `R17.1`.** Neither half survived checking: **G19** folded every first-party pack into one
+    wheel on 2026-09-09, so all three names had been one distribution for three days, and none
+    of them was the out-of-tree example the sentence claimed. `ChunkOffset` was then withdrawn.
+    `weft_example_graph.payload.GraphData` is the name that makes the claim true.
     """
     # Arrange / Act
     found = {f"{model.__module__}.{model.__qualname__}" for model in _every_ext_model()}
@@ -243,7 +249,7 @@ def test_the_sweep_finds_the_ext_models_this_tree_actually_ships() -> None:
     # Assert
     assert {
         "weft_blob.payload.BlobRef",
-        "weft_chunk.payload.ChunkOffset",
+        "weft_example_graph.payload.GraphData",
         "weft_pdf.document.PdfPages",
     } <= found, f"the sweep found {sorted(found)}"
 

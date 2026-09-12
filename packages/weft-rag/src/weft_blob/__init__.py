@@ -6,8 +6,8 @@ Registered through the public entry point, with no shortcut a third party lacks 
 function 2. `register()` and the built-in filesystem store (`filesystem_store.py`) arrive
 together at this task.
 
-**`BlobRef` reaches rehydration through `register()` itself**, exactly the way `weft_chunk`'s
-own `__init__.py` docstring states for `ChunkOffset`: `register()` calls
+**`BlobRef` reaches rehydration through `register()` itself**, exactly the way `weft_pdf`'s
+own `__init__.py` docstring states for `PdfPages`: `register()` calls
 `registrar.add_ext_model(BlobRef)`, the same call it makes for `registrar.add(BlobStore, ...)`.
 `PackRegistrar` and `ExtModel` are both kernel-owned, so this costs the dependency this pack
 would otherwise refuse nothing at all.

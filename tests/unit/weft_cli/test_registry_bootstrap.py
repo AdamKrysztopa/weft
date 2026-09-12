@@ -384,12 +384,12 @@ def test_build_dependencies_survives_its_own_repeated_ext_model_registration(
     within one test run — against the one, process-wide rehydration registry.
 
     Task 5.2g renamed this from `_ensure_chunk_offset_rehydrates`, which used to name
-    `weft_chunk.payload.ChunkOffset` by hand; `_register_ext_models` is generic over every
-    `PackReport.ext_models` `discover()` returns, but the idempotency this test exists to
-    prove is unchanged: a real `weft.toml`-free discovery run registers `ChunkOffset` (and
-    every other pack's own `ExtModel`) through `weft_store.rehydrate.register_from_reports`,
-    and a second call in the same process must not raise merely because those classes are
-    already the registrant. Driven through the public `build_dependencies`, never the
+    `weft-chunk`'s `ChunkOffset` by hand (withdrawn at `R17.1`); `_register_ext_models` is
+    generic over every `PackReport.ext_models` `discover()` returns, and the idempotency this
+    test exists to prove is unchanged: a real `weft.toml`-free discovery run registers every
+    pack's own `ExtModel` through `weft_store.rehydrate.register_from_reports`, and a second
+    call in the same process must not raise merely because those classes are already the
+    registrant. Driven through the public `build_dependencies`, never the
     private helper directly, the same way every other caller in this process reaches it.
     """
     # Arrange
@@ -403,7 +403,7 @@ def test_build_dependencies_survives_its_own_repeated_ext_model_registration(
 def test_build_dependencies_lets_a_genuine_ext_model_namespace_collision_raise(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A second class claiming the `weft-chunk` namespace is refused, not swallowed.
+    """A second class claiming the `weft-extract-page` namespace is refused, not swallowed.
 
     `_ensure_chunk_offset_rehydrates` — the shim task 5.2g deletes — used to wrap
     `register_ext_model` in a blanket `contextlib.suppress(DuplicateRegistrationError)`,
@@ -414,8 +414,12 @@ def test_build_dependencies_lets_a_genuine_ext_model_namespace_collision_raise(
     every genuine collision is refused unconditionally, by design. This stands in a fresh
     rehydration registry already claimed by an impostor and proves the collision now
     surfaces through `build_dependencies`, the public entry point every real caller
-    reaches this through — `weft_chunk`'s own `register()` calling `registrar.
-    add_ext_model(ChunkOffset)` is what puts `ChunkOffset` in the collision's path at all.
+    reaches this through — `weft_extract`'s own `register()` calling `registrar.
+    add_ext_model(PageSpan)` is what puts that namespace in the collision's path at all.
+    **The namespace is `weft-extract-page` rather than `weft-chunk` as of `R17.1`**: this
+    test needs a namespace some installed pack actually claims, and once `ChunkOffset` was
+    withdrawn `weft-chunk` claimed none — an impostor would have registered cleanly and the
+    collision this test is named for would never have happened.
     """
     # Arrange
     import weft_store.rehydrate as rehydrate
@@ -423,16 +427,16 @@ def test_build_dependencies_lets_a_genuine_ext_model_namespace_collision_raise(
     from weft_kernel.registry import DuplicateRegistrationError
 
     class _Impostor(ExtModel):
-        __namespace__ = "weft-chunk"
+        __namespace__ = "weft-extract-page"
         __schema_version__ = "1.0.0"
 
     fresh = Registry()
-    fresh.add(ExtModel, "weft-chunk", _Impostor, distribution="an-impostor-pack")
+    fresh.add(ExtModel, "weft-extract-page", _Impostor, distribution="an-impostor-pack")
     monkeypatch.setattr(rehydrate, "ext_models", fresh)
     absent = tmp_path / "weft.toml"
 
     # Act / Assert
-    with pytest.raises(DuplicateRegistrationError, match="weft-chunk"):
+    with pytest.raises(DuplicateRegistrationError, match="weft-extract-page"):
         registry_bootstrap.build_dependencies(absent)
 
 

@@ -32,8 +32,11 @@ class _Span(ExtModel):
 
 
 class _Offset(ExtModel):
-    """Structurally identical to `weft_chunk.payload.ChunkOffset` — a fact every chunker
-    attaches, which locates nothing on its own and must not be mistaken for a page."""
+    """A fact that locates something inside a node and must not be mistaken for a page.
+
+    It was structurally `weft-chunk`'s `ChunkOffset` until `R17.1` withdrew that; declared
+    here rather than imported, so this test goes on stating the property whether or not any
+    shipped pack happens to record an offset today."""
 
     __namespace__ = "test-offset"
     __schema_version__ = "1.0.0"
@@ -57,9 +60,9 @@ def test_a_node_carrying_a_page_resolves_to_it() -> None:
     assert page == 4
 
 
-def test_a_node_carrying_only_a_chunk_offset_resolves_to_no_page() -> None:
-    # Arrange — the common real case: a chunk from a plain-text source carries
-    # `ChunkOffset` and nothing else, because nothing paginated the document it came from.
+def test_a_node_carrying_only_a_non_page_fact_resolves_to_no_page() -> None:
+    # Arrange — a node whose only ext model locates something, but not a page. `page_for`
+    # must answer `None` rather than reach into whatever single fact it was handed.
     node = _node().with_ext(_Offset(start=15))
 
     # Act / Assert

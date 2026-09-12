@@ -434,6 +434,8 @@ carried no version at all.
 > `weft_retrieve.boolean.BooleanPlan`, `weft_retrieve.iterative.IterativeRetrievalTrace`,
 > `weft_generate.refine.RefinementTrace`, `weft_generate.contradiction.Agreement`, and the stranger
 > pack's own `weft_example_ingest.enhancer.WordCount`.
+> *(**`weft_chunk.payload.ChunkOffset` was withdrawn 2026-09-12, `R17.1`**, once G17 left it with*
+> *no reader. The census above is this task's own, not a standing list of what the tree holds.)*
 
 **Transience is a property of the declaration.** `__transient__ = True` on an ext model means the
 kernel strips that namespace before any `Store` sees the node. A pipeline that instead needed a
@@ -461,7 +463,7 @@ whether or not the producing stage ever ran.
 > point. G5's row (`README.md:150 "python3 "`) states what transience *is* and never where it is applied, which is
 > why this is a narrowing under `09` §6.2 and not a Reopened row; the alternative — moving the strip
 > to the store boundary so a namespace could carry bytes between stages — would have been a kernel
-> change at `seam.py:460 "stage=stage_label,"`, would reinstate the N-strategies-N-copies cost `11` §1.4 measures, and would
+> change at `seam.py:466 "stage=stage_label,"`, would reinstate the N-strategies-N-copies cost `11` §1.4 measures, and would
 > still leave nothing readable at query time. `11` §3 D1 is settled by this block.
 
 **Stages declare what they read and write.** `requires` and `provides` name ext models, and the

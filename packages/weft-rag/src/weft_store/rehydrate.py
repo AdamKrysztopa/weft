@@ -120,9 +120,9 @@ def register_from_reports(reports: Iterable[PackReport]) -> None:
     `registry_bootstrap.build_dependencies` is the one caller today.
 
     **Idempotent for a namespace already claimed by the identical class** — the same
-    check `_ensure_chunk_offset_rehydrates` used to make by hand for `weft_chunk.payload.
-    ChunkOffset` alone, generalised here for every namespace: this function is safe to
-    call more than once in one process (every test in this tree's own suite that calls
+    check `_ensure_chunk_offset_rehydrates` used to make by hand for `weft-chunk`'s
+    `ChunkOffset` alone (withdrawn at `R17.1`), generalised here for every namespace: this
+    function is safe to call more than once in one process (every test in this suite that calls
     `discover()` more than once does), because a namespace `ext_models` already holds
     against the exact same class is not a collision, only a repeat report of the same
     fact. A *different* class claiming a namespace already held raises

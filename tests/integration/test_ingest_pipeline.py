@@ -39,11 +39,9 @@ import pytest
 from pydantic import SecretStr
 
 from weft_chunk import Chunker, FixedSizeChunker
-from weft_chunk.payload import ChunkOffset
 from weft_embed import Embedder, HashEmbedder
 from weft_extract import Extractor, TextExtractor, discover_source_docs
 from weft_kernel.context import Context
-from weft_kernel.discovery import PackReport, PackStatus
 from weft_kernel.payload import MediaType, Node, SourceId
 from weft_kernel.registry import Registry
 from weft_kernel.runner import Runner, StageSpec
@@ -92,26 +90,12 @@ async def test_ingest_pipeline_produces_stored_nodes(store: PgVectorStore, tmp_p
     def store_factory(_config: object) -> PgVectorStore:
         return store
 
-    # `weft-chunk`'s own `ExtModel` — ledger task **6.17**. A hand-built `Registry` runs no pack's
-    # `register()`, so nothing calls `PackRegistrar.add_ext_model` and nothing reaches
-    # `weft_store.rehydrate`'s process-global namespace registry. Reading a chunk back then fails
-    # with `no 'weft-chunk' is registered for ExtModel`, and this file passed only because some
-    # *other* test file had run a real `discover()` first — a test that passes because another
-    # file ran before it is a defect in the test (`docs/internal/lessons.md` L5.21).
-    #
-    # Through `register_from_reports`, not `register_ext_model`: the latter refuses a second call
-    # even for the same class, so the fix would work alone and fail in the full suite. That
-    # difference contradicts `rehydrate.py`'s own docstring and is `docs/internal/lessons.md` L6.28.
-    register_from_reports(
-        [
-            PackReport(
-                pack="chunk",
-                distribution="weft-chunk",
-                status=PackStatus.ACTIVE,
-                ext_models=(ChunkOffset,),
-            )
-        ]
-    )
+    # No `register_from_reports` call any more. `weft-chunk` declared exactly one `ExtModel`,
+    # `ChunkOffset`, and `R17.1` withdrew it once G17 left it with no reader — so this pipeline's
+    # chunks now carry no namespace at all and there is nothing here to make rehydratable. The
+    # obligation ledger 6.17 named is not gone, only currently empty: a hand-built `Registry` runs
+    # no pack's `register()`, so the moment a stage in this fixture attaches an `ExtModel` again,
+    # that class has to be registered here or reading a node back fails (`L5.21`, `L6.28`).
     registry = Registry()
     registry.add(Extractor, "text", TextExtractor, distribution="weft-extract")
     registry.add(Chunker, "fixed-size", FixedSizeChunker, distribution="weft-chunk")
@@ -153,7 +137,6 @@ def _discover_and_wire_ext_models() -> None:
     """
     from weft_kernel.discovery import discover
     from weft_kernel.registry import Registry
-    from weft_store.rehydrate import register_from_reports
 
     registry = Registry()
     reports = discover(

@@ -323,8 +323,8 @@ def _register_ext_models(reports: tuple[PackReport, ...]) -> None:
     """Make every `ExtModel` a report's own pack declared reconstructable by `weft_store.rehydrate`.
 
     Task **5.2g**. Before this task, this function was `_ensure_chunk_offset_rehydrates`,
-    naming `weft_chunk.payload.ChunkOffset` by hand — the one pack whose data happened to
-    survive a round trip through a store, because nothing else had ever been wired at all
+    naming `weft-chunk`'s `ChunkOffset` by hand (withdrawn at `R17.1`) — the one pack whose
+    data happened to survive a round trip through a store, because nothing else was wired at all
     (`PdfPages`, `Language`, `Keywords`, `Representation`, `Agreement`, `RefinementTrace`,
     `BooleanPlan`, `CorrectiveTrace` and `IterativeRetrievalTrace` had no such shim, so a
     node carrying any of their namespaces could not be read back out of a store).

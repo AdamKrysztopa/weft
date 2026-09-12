@@ -7,24 +7,21 @@ with no shortcut a third party lacks — fitness function 2. `register()` and
 the built-in fixed-size chunker (`fixed_size.py`) arrive at
 `docs/06-phase-0-build.md` step 8.
 
-**`ChunkOffset` reaches rehydration through `register()` itself, with no `weft-store`
-dependency here at all — task 5.2g.** `register()` calls `registrar.add_ext_model
-(ChunkOffset)`, exactly the way it calls `registrar.add(Chunker, ...)` for a plugin:
-`PackRegistrar` lives in `weft-kernel`, and `ExtModel` is a kernel-owned payload
-primitive, not a capability, so this costs the dependency this module used to refuse
-nothing at all — fitness function 9(a) still proves a stranger can extend this pack from
-a wheel install carrying `weft-kernel` and `weft-chunk` alone. What actually walks
-`PackReport.ext_models` back into `weft_store.rehydrate.ext_models` is
-`weft_store.rehydrate.register_from_reports`, called once, generically, by whatever
-already calls `discover()` — `weft_cli.registry_bootstrap.build_dependencies` today —
-with no pack named at that call site and no further edit owed to it by a future pack.
+**This pack contributes no `ExtModel`, and that is a withdrawal rather than an absence —
+repair `R17.1`, 2026-09-12.** `weft_chunk.payload.ChunkOffset` was registered here through
+`registrar.add_ext_model` (task 5.2g), and **G17** retired its only reader: a page stopped
+being resolved through an offset and became a scalar fact on the node it describes. A field
+a persisted record carries and nothing renders is deleted (`R9.11`'s rule), so it was. The
+mechanism is untouched and a future ext model reaches rehydration the same way — `register()`
+calls `registrar.add_ext_model(...)`, `weft_store.rehydrate.register_from_reports` walks
+`PackReport.ext_models` generically from whatever already calls `discover()`, and no pack is
+named at that call site.
 """
 
 from pydantic import BaseModel, ConfigDict
 
 from weft_chunk.contract import CHUNKER_CONTRACT_VERSION, Chunker
 from weft_chunk.fixed_size import FixedSizeChunker, FixedSizeChunkerConfig
-from weft_chunk.payload import ChunkOffset
 from weft_chunk.property import WordBoundaries
 from weft_chunk.table_rows import TableRowChunker, TableRowChunkerConfig
 from weft_kernel.discovery import PackRegistrar
@@ -38,18 +35,15 @@ class Settings(BaseModel):
 
 def register(registrar: PackRegistrar, settings: Settings) -> None:
     """Register `FixedSizeChunker` as `"fixed-size"` and `TableRowChunker` as `"table-rows"`
-    for `Chunker`, and `ChunkOffset` as this pack's own `ExtModel` — task 5.2g, see the
-    module docstring, and `weft_chunk.table_rows` for `"table-rows"` — ledger task `9.14`.
+    for `Chunker` — see `weft_chunk.table_rows` for `"table-rows"`, ledger task `9.14`.
     """
     del settings
     registrar.add(Chunker, "fixed-size", FixedSizeChunker)
     registrar.add(Chunker, "table-rows", TableRowChunker)
-    registrar.add_ext_model(ChunkOffset)
 
 
 __all__ = [
     "CHUNKER_CONTRACT_VERSION",
-    "ChunkOffset",
     "Chunker",
     "FixedSizeChunker",
     "FixedSizeChunkerConfig",

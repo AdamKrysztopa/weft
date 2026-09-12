@@ -28,17 +28,15 @@ mechanism was built to validate against. `02` §3's own canonical pipeline
 example (`with: {size: 512, overlap: 50}`) could not resolve until this line
 existed.
 
-**Every window carries `ChunkOffset`, and every window carries forward what its parent's
-`ext` said — ledger 2.9's page-attribution gap, closed here.** `Node.derive` drops `ext`
-on purpose ("later stages attach their own"); this is that later stage. `weft_kernel.payload.
-carry_forward` copies each namespace in the parent's `ext` onto the chunk verbatim, so a
-fact a pack attached to the whole document — `weft_pdf.PdfPages`, a future heading map —
-survives a window cut from that document's content, without this pack importing `weft-pdf`
-or knowing what the fact means. `SyntheticOrigin` is the one namespace excluded: it states
+**Every window carries forward what its parent's `ext` said — ledger 2.9's
+page-attribution gap, closed here.** `Node.derive` drops `ext` on purpose ("later stages
+attach their own"); this is that later stage. `weft_kernel.payload.carry_forward` copies
+each namespace in the parent's `ext` onto the chunk verbatim, so a fact a pack attached to
+the whole document — `weft_extract.payload.PageSpan`, a future heading map — survives a
+window cut from that document's content, without this pack importing `weft-extract` or
+knowing what the fact means. `SyntheticOrigin` is the one namespace excluded: it states
 that *this* node has no real lineage, and a derived chunk always does, so copying it
-forward would attach a claim about the chunk that is false the moment it is read. The
-offset is applied last, after the copy, so a chunk's own `ChunkOffset` always wins over
-a stale one a multi-level chunker might otherwise carry in from its own parent.
+forward would attach a claim about the chunk that is false the moment it is read.
 
 **`carry_forward` moved to `weft_kernel.payload` at G17, 2026-09-12** — it was `weft_chunk.
 carry.carry_forward` (ledger task `9.14`, where it was this module's own private
@@ -47,25 +45,22 @@ for a second caller) until G17 added a third consumer, `weft_clean`, which share
 import with either of the first two — only `weft-kernel`. This module now imports it from
 there rather than from a sibling pack.
 
-**Repair, ledger 2.9: `ChunkOffset.start` now compounds across nested chunking.** Three
-reviewers of the first cut traced the same defect: `_windows` computed `start` as an offset
-into whatever `node` it ran on, so re-chunking an already-chunked node (an ordinary
-two-level technique — coarse pass then fine pass — and one `Chunker`'s declared
-`Stage[Sequence[Node], Sequence[Node]]` shape explicitly permits the runner to compose) threw
-away the parent chunk's own already-nonzero `start` and wrote a bare local offset instead.
-`weft_pdf.PdfPages.starts` is indexed against the **root** document, per its own docstring, so
-a second-level chunk's offset has to be root-relative too, or `page_at` silently answers the
-wrong page rather than the honest `None` this feature exists to avoid. `_windows` now reads
-the node it is chunking for its *own* `ChunkOffset`, if it carries one, and adds the local
-offset to it before writing the new one — a single-level chunk (no parent offset) behaves
-exactly as before, since the addend is `0`.
+**A window no longer records where it starts — repair `R17.1`, 2026-09-12.** This chunker
+attached `weft_chunk.payload.ChunkOffset` to every window, and ledger 2.9's repair made that
+offset compound across nested chunking so it stayed root-relative for `weft_pdf.PdfPages.
+page_at` to resolve. **G17** retired that reader: a page became a scalar fact on the node it
+describes (`weft_extract.payload.PageSpan`), carried forward above like any other, and no
+caller has asked where a window begins since. A field a persisted record carries and nothing
+renders is deleted rather than held for a reader that may arrive (`R9.11`'s rule, `L5.19`),
+so the offset, its ext model and the compounding repair are all gone. A pack that later needs
+a chunk's position in its parent adds it back as its own `ExtModel`, with the reader in the
+same commit.
 """
 
 from collections.abc import Sequence
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from weft_chunk.payload import ChunkOffset
 from weft_chunk.property import WordBoundaries
 from weft_kernel.context import Context
 from weft_kernel.payload import (
@@ -136,27 +131,17 @@ class FixedSizeChunker:
 
 
 def _windows(node: Node, *, size: int, overlap: int) -> list[Node]:
-    """Every fixed-size, overlapping window of `node.content`, each a child of `node`.
-
-    `base_start` is `node`'s own `ChunkOffset.start`, if it carries one — nonzero exactly
-    when `node` is itself already a chunk of something else. Each window's local offset
-    into `node.content` is added to it, not written alone, so a window's final `start`
-    stays relative to the document `node`'s own offset (if any) was relative to, all the
-    way back to the root. See the module docstring's *"Repair, ledger 2.9"* note.
-    """
+    """Every fixed-size, overlapping window of `node.content`, each a child of `node`."""
     text = node.content
     if not text:
         return []
     step = size - overlap
-    base = node.ext_as(ChunkOffset)
-    base_start = base.start if base is not None else 0
     windows: list[Node] = []
     ordinal = 0
     start = 0
     while start < len(text):
         piece = text[start : start + size]
-        chunk = carry_forward(node.derive(content=piece, ordinal=ordinal), parent=node)
-        windows.append(chunk.with_ext(ChunkOffset(start=base_start + start)))
+        windows.append(carry_forward(node.derive(content=piece, ordinal=ordinal), parent=node))
         ordinal += 1
         start += step
     return windows

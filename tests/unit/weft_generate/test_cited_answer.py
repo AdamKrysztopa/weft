@@ -23,7 +23,6 @@ checks, and 2.4's ledger line leaves the obligation with each query-path plugin 
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 
-from weft_chunk.payload import ChunkOffset
 from weft_extract.payload import PageSpan
 from weft_generate.cited_answer import NAME, CitedAnswer, CitedAnswerConfig, WhenNoEvidence
 from weft_generate.contract import Generator
@@ -132,17 +131,32 @@ def _passages(*items: Passage) -> Passages:
     return Passages(origin=asked, passages=items)
 
 
+class _NotAPageFact(ExtModel):
+    """A second namespace on the same node, carrying no `page`.
+
+    `page_for` walks every namespace and returns the first that carries a page, so a node
+    holding exactly one ext model cannot tell "found the page fact" apart from "returned the
+    only thing there was". This is what keeps that assertion non-vacuous; it stood in for
+    `weft-chunk`'s `ChunkOffset` until `R17.1` withdrew it.
+    """
+
+    __namespace__ = "test-fixture-not-a-page"
+    __schema_version__ = "1.0.0"
+
+    detail: str = "carries no page"
+
+
 async def test_markers_the_model_wrote_become_citations_with_page_and_uri_resolved() -> None:
     # Arrange — the cited passage carries the page fact `weft_generate.page.page_for`
-    # reads, and its one source resolves through the store. The `ChunkOffset` beside it is
-    # what every chunk carries and is deliberately not the page (G17).
+    # reads, and its one source resolves through the store. The second namespace beside it
+    # carries no page, so the walk has something to reject (G17).
     node = Node.synthetic(
         content="mRMR reduces redundancy between selected features.",
         media_type=MediaType.TEXT,
         reason="test fixture",
         sources=frozenset({SourceId("doc-1")}),
     )
-    node = node.with_ext(PageSpan(page=7, ordinal=0)).with_ext(ChunkOffset(start=10))
+    node = node.with_ext(PageSpan(page=7, ordinal=0)).with_ext(_NotAPageFact())
     cited = Passage(
         scored=Scored(value=node, score=0.9), rank=0, retrieved_by="vector-top-k", label="1"
     )
@@ -292,7 +306,7 @@ async def test_a_citation_for_a_representation_node_resolves_to_its_one_parent()
         reason="test fixture",
         sources=frozenset({SourceId("doc-1")}),
     )
-    parent = parent.with_ext(PageSpan(page=7, ordinal=0)).with_ext(ChunkOffset(start=10))
+    parent = parent.with_ext(PageSpan(page=7, ordinal=0)).with_ext(_NotAPageFact())
     question = parent.derive(content="What does mRMR reduce?").with_ext(_ThirdPartyRepresentation())
     cited = Passage(
         scored=Scored(value=question, score=0.9),
