@@ -217,6 +217,49 @@ def _as_run_result(outcome: Outcome[MetricAggregate]) -> MetricRunResult:
             return NotAggregated(reason=reason)
 
 
+class NotScored(BaseModel):
+    """One question a metric produced no score for — `reason` says why.
+
+    `weft_eval.aggregate`'s `NotAggregated` one granularity down, and it collapses the same
+    two `Outcome` variants for the same reason: `Failed` and `NothingToProduce` are
+    structurally identical, so persisting them as two members would buy a reader nothing the
+    `reason` text does not already say. What must not collapse is *scored* against *not*,
+    which is `docs/09-release.md`:620's V4 clause — a failed question is an error, never a
+    zero, and a zero here cannot be told from a question the rung genuinely got wrong.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    reason: str
+
+
+#: One question's outcome for one metric. `Produced[float]` (field `value`) and `NotScored`
+#: (field `reason`) share no field name, so this union always resolves unambiguously through
+#: JSON — `MetricRunResult`'s own reason to be a two-member union, one level down.
+type QuestionOutcome = Produced[float] | NotScored
+
+
+class QuestionKey(StrEnum):
+    """What the keys of `PerQuestionScores.scores` are.
+
+    A key of `"fetch-001"` and a key of `"0"` are read differently by anyone pairing two runs,
+    and a `--questions` file with no ids is the normal case. Saying which is what stops a
+    reader treating a position as an identity that survives a second questions file.
+    """
+
+    QUESTION_ID = "question-id"
+    POSITION = "position"
+
+
+class PerQuestionScores(BaseModel):
+    """One metric's outcome for every question it was asked — task **16.4**."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    keyed_by: QuestionKey
+    scores: Mapping[str, QuestionOutcome]
+
+
 class RunDurations(BaseModel):
     """Ledger task 10.22 — how long the two halves of a run took, kept apart on purpose.
 
@@ -270,6 +313,12 @@ class RunRecord(BaseModel):
     query_rung: ScoredQueryRung | None = None
     #: Task 4.9 — see the module docstring's own paragraph. `{}` for a run that scored nothing.
     metrics: Mapping[str, MetricRunResult] = Field(default_factory=dict)
+    #: Task 16.4 — one outcome per question per metric, keyed by metric name exactly as
+    #: `metrics` above is, so a reader pairing an aggregate with its questions never has to
+    #: guess at two vocabularies. `None` means *not recorded*: a record written before this
+    #: task carries the means and not the observations under them, so a paired comparison
+    #: against it is not computable and says so rather than inventing one.
+    question_scores: Mapping[str, PerQuestionScores] | None = None
 
 
 def build_run_record(
@@ -284,6 +333,7 @@ def build_run_record(
     distribution_versions: Mapping[str, str] | None = None,
     metrics: Mapping[str, Outcome[MetricAggregate]] = _NO_METRICS,
     durations: RunDurations | None = None,
+    question_scores: Mapping[str, PerQuestionScores] | None = None,
 ) -> RunRecord:
     """Assemble one `RunRecord`. `active_distributions` is always derived from `reports`
     through `active_distribution_set` — never accepted directly — so there is no second,
@@ -312,6 +362,10 @@ def build_run_record(
     module is `weft_eval`, so deriving it here would draw an arrow from the evaluation pack into
     the CLI. `None` means the caller did not measure versions at all; `{}` means it measured and
     found none — see `RunRecord.distribution_versions`'s own comment.
+
+    `question_scores` — task 16.4 — is passed straight through too, on the identical footing:
+    only the caller that paired samples to outcomes (`weft_cli.eval_scoring.score_pipeline`,
+    through `weft_eval.harness.score_retrieval_gate_subset`) knows what each question scored.
     """
     return RunRecord(
         recorded_at=recorded_at,
@@ -324,6 +378,7 @@ def build_run_record(
         distribution_versions=distribution_versions,
         durations=durations,
         metrics={name: _as_run_result(outcome) for name, outcome in metrics.items()},
+        question_scores=question_scores,
     )
 
 

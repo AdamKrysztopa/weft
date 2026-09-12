@@ -25,6 +25,7 @@ from weft_cli.eval_scoring import (
 )
 from weft_embed import Embedder
 from weft_eval import Settings, register
+from weft_eval.run_record import QuestionKey
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackRegistrar
 from weft_kernel.payload import (
@@ -186,3 +187,112 @@ async def test_score_pipeline_refuses_a_pipeline_with_no_store_stage() -> None:
             ctx=_ctx(),
         )
     assert excinfo.value.pipeline == "index"
+
+
+# --- Task 16.4 — a question has an identity, or its position is named as such.
+
+
+def test_a_question_may_carry_an_id_and_a_file_without_one_still_loads(tmp_path: Path) -> None:
+    """`id` is optional, because every `--questions` file written before this task has none.
+
+    The ledger's own line for this task said the id was *"already carried and dropped"* by this
+    loader. It was not: `eval/questions/*.toml` carries ids and is read by
+    `eval/check_questions.py`'s own, separate `Question` into `eval/run_baseline.py`; this
+    loader reads **JSON** and has `extra="forbid"`, so an `id` key would have been *refused*,
+    not dropped. Two `Question` classes, two loaders, and they never meet (`L17.16`).
+    """
+    # Arrange
+    with_id = tmp_path / "with-id.json"
+    with_id.write_text('[{"id": "fetch-001", "query": "q", "relevant_documents": ["doc-a"]}]')
+    without = tmp_path / "without.json"
+    without.write_text('[{"query": "q", "relevant_documents": ["doc-a"]}]')
+
+    # Act
+    identified = load_questions(with_id)
+    anonymous = load_questions(without)
+
+    # Assert
+    assert identified[0].id == "fetch-001"
+    assert anonymous[0].id is None
+
+
+def test_a_questions_file_repeating_an_id_is_refused_naming_it(tmp_path: Path) -> None:
+    """Two questions under one id would silently collapse into one per-question score, so the
+    file is refused where it is read rather than producing a record short of a question.
+    """
+    # Arrange
+    path = tmp_path / "duplicate.json"
+    path.write_text('[{"id": "fetch-001", "query": "a"}, {"id": "fetch-001", "query": "b"}]')
+
+    # Act / Assert
+    with pytest.raises(QuestionsFileError) as excinfo:
+        load_questions(path)
+    assert "fetch-001" in str(excinfo.value)
+
+
+def test_a_questions_file_that_identifies_some_questions_and_not_others_is_refused(
+    tmp_path: Path,
+) -> None:
+    """Either the file has identities or it has positions. A half-identified file would make
+    `keyed_by` a lie whichever value it took, and the honest answer is to refuse the input
+    rather than to pick a reading for it.
+    """
+    # Arrange
+    path = tmp_path / "mixed.json"
+    path.write_text('[{"id": "fetch-001", "query": "a"}, {"query": "b"}]')
+
+    # Act / Assert
+    with pytest.raises(QuestionsFileError) as excinfo:
+        load_questions(path)
+    assert "id" in str(excinfo.value)
+
+
+async def test_scores_are_keyed_by_question_id_when_the_file_carries_them() -> None:
+    # Arrange
+    questions = (
+        Question(id="fetch-001", query="q", relevant_documents=("doc-a",)),
+        Question(id="fetch-002", query="q2", relevant_documents=("doc-a",)),
+    )
+
+    # Act
+    report = await score_pipeline(
+        registry=_registry(),
+        resolved_pipeline=_resolved_pipeline(),
+        questions=questions,
+        top_k=1,
+        ctx=_ctx(),
+    )
+
+    # Assert
+    scores = report.question_scores
+    assert scores is not None
+    precision = scores["precision@1"]
+    assert precision.keyed_by is QuestionKey.QUESTION_ID
+    assert set(precision.scores) == {"fetch-001", "fetch-002"}
+
+
+async def test_scores_are_keyed_by_position_when_the_file_carries_no_ids() -> None:
+    """And the record says `POSITION`, so nobody reads `"0"` as an identity that survives a
+    second questions file.
+    """
+    # Arrange
+    questions = (
+        Question(query="q", relevant_documents=("doc-a",)),
+        Question(query="q2", relevant_documents=("doc-a",)),
+    )
+
+    # Act
+    report = await score_pipeline(
+        registry=_registry(),
+        resolved_pipeline=_resolved_pipeline(),
+        questions=questions,
+        top_k=1,
+        ctx=_ctx(),
+    )
+
+    # Assert
+    scores = report.question_scores
+    assert scores is not None
+    precision = scores["precision@1"]
+    assert precision.keyed_by is QuestionKey.POSITION
+    assert set(precision.scores) == {"0", "1"}

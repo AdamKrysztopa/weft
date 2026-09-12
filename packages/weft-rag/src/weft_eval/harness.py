@@ -45,11 +45,20 @@ instead of `sample.modality`, folds each partition with `aggregate()` and keeps 
 partitions that produced a mean, on the identical footing. A sample whose `kind` is `""` —
 unclassified — contributes no slice: an unclassified question is not a kind, and a `""` key in
 `by_question_kind` would be a partition nobody could ask for by name.
+
+**The per-question outcomes come out too — task 16.4.** Before this task the `outcomes` list
+built for each metric was folded by `aggregate()` and discarded, so a paired comparison between
+two runs (task 16.9) needed both runs re-run rather than two persisted files read. `SubsetScores`
+carries both the aggregate and the observations under it, keyed identically — `per_question` is
+built from the same `zip(samples, outcomes, strict=True)` pairing `_modality_slices`/`_question_
+kind_slices` already use, keyed by `RetrievalSample.question_key` rather than by position, because
+whether a caller's questions carry an identity is the caller's own fact.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from typing import cast
 
 from pydantic import BaseModel, ValidationError
@@ -63,9 +72,25 @@ from weft_eval.contract import (
     RetrievalSample,
 )
 from weft_eval.offline import gate_subset
+from weft_eval.run_record import NotScored, QuestionOutcome
 from weft_kernel.context import Context
-from weft_kernel.payload import Outcome, Produced
+from weft_kernel.payload import Failed, NothingToProduce, Outcome, Produced
 from weft_kernel.registry import Registry, unwrap_factory
+
+
+@dataclass(frozen=True)
+class SubsetScores:
+    """What every gate-safe `RetrievalMetric` produced — the aggregate, and the observations
+    under it, keyed identically.
+
+    `per_question` is keyed by the same `reported_name` `metrics` is keyed by (what the metric
+    itself computed, never the registered plugin name), and then by `RetrievalSample.
+    question_key`. Two key spaces that had to agree and now cannot disagree, because one loop
+    builds both.
+    """
+
+    metrics: Mapping[str, Outcome[MetricAggregate]]
+    per_question: Mapping[str, Mapping[str, QuestionOutcome]]
 
 
 def _metric_config(config_model: type[BaseModel] | None, *, top_k: int) -> BaseModel | None:
@@ -141,23 +166,49 @@ def _question_kind_slices(
     return slices
 
 
+def _as_question_outcome(outcome: Outcome[MetricScore]) -> QuestionOutcome:
+    """One question's `Outcome[MetricScore]` narrowed to `QuestionOutcome` — task 16.4, the
+    per-sample twin of `weft_eval.run_record._as_run_result` one granularity up.
+    """
+    match outcome:
+        case Produced(value=score):
+            return Produced(value=score.value)
+        case Failed(reason=reason) | NothingToProduce(reason=reason):
+            return NotScored(reason=reason)
+
+
+def _per_question_scores(
+    samples: Sequence[RetrievalSample], outcomes: Sequence[Outcome[MetricScore]]
+) -> Mapping[str, QuestionOutcome]:
+    """`outcomes`, keyed by the `question_key` of the `RetrievalSample` that produced each — the
+    identical `zip(samples, outcomes, strict=True)` pairing `_modality_slices`/`_question_kind_
+    slices` already use, above.
+    """
+    return {
+        sample.question_key: _as_question_outcome(outcome)
+        for sample, outcome in zip(samples, outcomes, strict=True)
+    }
+
+
 async def score_retrieval_gate_subset(
     registry: Registry,
     samples: Sequence[RetrievalSample],
     *,
     top_k: int,
     ctx: Context,
-) -> Mapping[str, Outcome[MetricAggregate]]:
+) -> SubsetScores:
     """Every gate-safe `RetrievalMetric` registered in `registry`, scored over `samples`.
 
-    Returns one `Outcome[MetricAggregate]` per metric, keyed by what the metric computed — see
-    the module docstring. An empty `samples` scores every metric against zero observations,
+    Returns a `SubsetScores` — one `Outcome[MetricAggregate]` per metric, keyed by what the
+    metric computed (see the module docstring), and the per-question observations under each
+    one, keyed identically. An empty `samples` scores every metric against zero observations,
     which `weft_eval.aggregate.aggregate` already answers honestly (`Failed`, "no observations
     to aggregate"); this function invents no special case for it.
     """
     gate_safe_retrieval = registry.names_for(RetrievalMetric) & set(gate_subset(registry).gate_safe)
 
     report: dict[str, Outcome[MetricAggregate]] = {}
+    per_question: dict[str, Mapping[str, QuestionOutcome]] = {}
     for name in sorted(gate_safe_retrieval):
         factory = registry.lookup(RetrievalMetric, name)
         target = unwrap_factory(factory)
@@ -174,7 +225,8 @@ async def score_retrieval_gate_subset(
         )
         key = outcome.value.reported_name if isinstance(outcome, Produced) else name
         report[key] = outcome
-    return report
+        per_question[key] = _per_question_scores(samples, outcomes)
+    return SubsetScores(metrics=report, per_question=per_question)
 
 
-__all__ = ["score_retrieval_gate_subset"]
+__all__ = ["SubsetScores", "score_retrieval_gate_subset"]

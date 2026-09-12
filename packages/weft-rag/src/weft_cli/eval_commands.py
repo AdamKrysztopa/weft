@@ -203,6 +203,7 @@ from weft_eval.run_record import (
     CorpusDigestBasis,
     MetricRunResult,
     NotAggregated,
+    PerQuestionScores,
     RunDurations,
     RunRecord,
     ScoredQueryRung,
@@ -839,6 +840,7 @@ class EvalRunCommand:
         query_started = time.monotonic()
         metrics: Mapping[str, Outcome[MetricAggregate]] = {}
         query_rung: ScoredQueryRung | None = None
+        question_scores: Mapping[str, PerQuestionScores] | None = None
         if run_args.questions is not None:
             questions = load_questions(Path(run_args.questions))
             scored = await score_pipeline(
@@ -857,6 +859,7 @@ class EvalRunCommand:
             )
             metrics = scored.metrics
             query_rung = scored.query_rung
+            question_scores = scored.question_scores
         query_seconds = time.monotonic() - query_started
 
         corpus_name = run_args.corpus_name if run_args.corpus_name is not None else run_args.path
@@ -871,6 +874,7 @@ class EvalRunCommand:
             distribution_versions=active_distribution_versions(deps.reports),
             metrics=metrics,
             durations=RunDurations(ingest_seconds=0.0, query_seconds=query_seconds),
+            question_scores=question_scores,
         )
         run_id = str(uuid.uuid4())
         write_run_record(record, DEFAULT_RUNS_DIR / f"{run_id}.json")
@@ -942,6 +946,7 @@ class EvalRunCommand:
         query_started = time.monotonic()
         metrics: Mapping[str, Outcome[MetricAggregate]] = {}
         query_rung: ScoredQueryRung | None = None
+        question_scores: Mapping[str, PerQuestionScores] | None = None
         if run_args.questions is not None:
             questions = load_questions(Path(run_args.questions))
             scored = await score_pipeline(
@@ -960,6 +965,7 @@ class EvalRunCommand:
             )
             metrics = scored.metrics
             query_rung = scored.query_rung
+            question_scores = scored.question_scores
         query_seconds = time.monotonic() - query_started
 
         corpus_name = run_args.corpus_name if run_args.corpus_name is not None else run_args.path
@@ -977,6 +983,7 @@ class EvalRunCommand:
             distribution_versions=active_distribution_versions(deps.reports),
             metrics=metrics,
             durations=RunDurations(ingest_seconds=wall_clock_seconds, query_seconds=query_seconds),
+            question_scores=question_scores,
         )
         run_id = str(uuid.uuid4())
         write_run_record(record, DEFAULT_RUNS_DIR / f"{run_id}.json")

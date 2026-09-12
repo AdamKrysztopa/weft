@@ -70,7 +70,10 @@ from weft_eval.run_record import (
     CorpusIdentity,
     NoQueryRung,
     NotAggregated,
+    NotScored,
+    PerQuestionScores,
     QueryRung,
+    QuestionKey,
     RunRecord,
     ScoredQueryRung,
     build_run_record,
@@ -1510,3 +1513,77 @@ async def test_an_eval_run_record_names_the_version_of_every_active_distribution
     assert versions is not None, "the record records no versions at all"
     assert set(versions) <= set(result.record.active_distributions)
     assert versions.get("weft-rag"), "weft-rag is active in this run and carries no version"
+
+
+# --- Task 16.4 — the per-question scores reach the persisted file.
+
+
+async def test_a_persisted_record_carries_one_score_per_question_per_metric(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The segment this module owns: what `score_pipeline` measured reaches the *file*.
+
+    `score_pipeline` is stubbed, deliberately and in this file's own established style. The
+    property under test is that `EvalRunCommand` carries the per-question scores through to
+    `build_run_record` and out to disk — not that the scorer computes them, which is
+    `tests/unit/weft_eval/test_harness.py`'s, nor that the keys are ids or positions, which is
+    `tests/unit/weft_cli/test_eval_scoring.py`'s. Driving a real retrieval here needs an
+    `Embedder` that embeds and a `NodeStore` that searches, and this file's fakes are the
+    ingest-only pair — an earlier draft of this test used them and raised
+    `EmbeddingFailedError` on every run, which the implementer caught (`L17.17`'s shape, a
+    third time).
+    """
+    # Arrange
+    (tmp_path / "one.txt").write_text("hello weft")
+    monkeypatch.setattr(
+        ingest_module, "full_catalogue", _stub_catalogue({"index": _document("index")})
+    )
+    questions_path = tmp_path / "questions.json"
+    questions_path.write_text(
+        '[{"id": "q-1", "query": "a", "relevant_documents": ["doc-a"]},'
+        ' {"id": "q-2", "query": "b", "relevant_documents": ["doc-a"]}]'
+    )
+    measured = ScoredRun(
+        metrics={"precision@5": _aggregate("precision@5", 0.5)},
+        query_rung=NoQueryRung(reason="no query rung was named"),
+        question_scores={
+            "precision@5": PerQuestionScores(
+                keyed_by=QuestionKey.QUESTION_ID,
+                scores={
+                    "q-1": Produced(value=1.0),
+                    "q-2": NotScored(reason="no relevant ids to score retrieval against"),
+                },
+            )
+        },
+    )
+
+    async def _fake_score_pipeline(**kwargs: object) -> ScoredRun:
+        del kwargs
+        return measured
+
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _fake_score_pipeline)
+
+    # Act
+    outcome = await EvalRunCommand().run(
+        EvalRunArgs(path=str(tmp_path), pipeline="index", questions=str(questions_path), top_k=1),
+        _ctx(_deps()),
+    )
+
+    # Assert — read back off the file, which is what a later comparison will read.
+    assert isinstance(outcome, Produced)
+    result = cast("Any", outcome).value
+    from weft_eval.run_record import load_run_record
+
+    persisted = load_run_record(tmp_path / "runs" / f"{result.run_id}.json")
+    scores = persisted.question_scores
+    assert scores is not None, "the record carries no per-question scores at all"
+    assert set(scores) == set(persisted.metrics), (
+        "the metric key spaces of `metrics` and `question_scores` differ, so a reader pairing "
+        "an aggregate with its questions has to guess"
+    )
+    per_metric = scores["precision@5"]
+    assert per_metric.keyed_by is QuestionKey.QUESTION_ID
+    assert set(per_metric.scores) == {"q-1", "q-2"}
+    assert isinstance(per_metric.scores["q-2"], NotScored), (
+        "an unscoreable question survived the round trip as a score"
+    )

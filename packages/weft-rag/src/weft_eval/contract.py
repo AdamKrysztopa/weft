@@ -200,6 +200,12 @@ class RetrievalSample(BaseModel):
     #: module docstring's own paragraph). Defaulted to `""` so a sample built before this task is
     #: unchanged, the identical reasoning `modality`'s own default carries above, one field over.
     kind: str = ""
+    #: Task 16.4 — which question this sample came from, as the caller identifies questions.
+    #: Defaulted to `""` so every construction written before this task keeps working, the
+    #: identical reasoning `modality` and `kind` already carry one field over. The harness
+    #: keys its per-question outcomes on this and never on a position of its own: whether a
+    #: questions file has ids is the caller's fact, not the harness's.
+    question_key: str = ""
 
 
 class MetricScore(BaseModel):

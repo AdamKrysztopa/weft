@@ -35,7 +35,7 @@ apart, and the tests at the foot of this file are that gap closed.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 import pytest
@@ -50,6 +50,7 @@ from weft_cli.route_ask import resolve_named_pipeline, run_named_ask
 from weft_cli.services import ServiceSelection
 from weft_embed import Embedder
 from weft_embed.hash_embedder import HashEmbedder
+from weft_eval.harness import SubsetScores
 from weft_eval.run_record import NoQueryRung, QueryRung
 from weft_generate import CitedAnswer, Generator
 from weft_generate.prompts import ANSWER_WITH_CITATIONS_NAME, AnswerWithCitationsPrompt
@@ -108,9 +109,14 @@ class _FakeAnswer(BaseModel):
     used: tuple[object, ...] = ()
 
 
-async def _no_metrics(*_args: object, **_kwargs: object) -> Mapping[str, object]:
-    """`score_retrieval_gate_subset` stubbed out: these tests are about the rung, not the score."""
-    return {}
+async def _no_metrics(*_args: object, **_kwargs: object) -> SubsetScores:
+    """`score_retrieval_gate_subset` stubbed out: these tests are about the rung, not the score.
+
+    It returns the real `SubsetScores`, not a bare mapping — task 16.4 changed that function's
+    return type, and a stub still answering the old shape is a double narrower than the thing
+    it stands in for in exactly the dimension nobody was looking at.
+    """
+    return SubsetScores(metrics={}, per_question={})
 
 
 async def _no_hits(*_args: object, **_kwargs: object) -> Sequence[object]:

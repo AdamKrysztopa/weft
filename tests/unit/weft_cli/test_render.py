@@ -16,7 +16,7 @@ Task **3.11** folds `weft route`'s own retired `RouteCommandResult`/`_render_rou
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Collection
+from collections.abc import Callable, Collection, Mapping
 from typing import cast
 
 import pytest
@@ -38,7 +38,7 @@ from weft_cli.output import AskFormat
 from weft_cli.reconcile import ReconcileEstimateOutcome, ReconcileOutcome
 from weft_cli.render import render_applies_to
 from weft_command.contract import CommandResult
-from weft_eval.run_record import ScoredQueryRung
+from weft_eval.run_record import PerQuestionScores, ScoredQueryRung
 from weft_generate.payload import Answer, AnswerStance, Citation
 from weft_kernel.discovery import PackRegistrar, PackReport, PackStatus
 from weft_kernel.errors import WeftError
@@ -816,6 +816,7 @@ def _run_record(
     corpus_digest: str = "a" * 64,
     query_rung: ScoredQueryRung | None = None,
     distribution_versions: dict[str, str] | None = None,
+    question_scores: Mapping[str, PerQuestionScores] | None = None,
 ):
     from weft_eval.run_record import CorpusIdentity, RunRecord
     from weft_kernel.resolution import ResolvedPipeline
@@ -826,6 +827,7 @@ def _run_record(
         corpus=CorpusIdentity(name="corpus", digest=corpus_digest),
         query_rung=query_rung,
         distribution_versions=distribution_versions,
+        question_scores=question_scores,
     )
 
 
@@ -988,6 +990,9 @@ def test_render_trace_prints_every_field_the_run_record_carries() -> None:
     assert "query rung: (not recorded)" in rendered.stdout
     # Task 16.3 — the same three-state honesty one field over.
     assert "distribution versions: (not recorded)" in rendered.stdout
+    # Task 16.4 — the phase Exit asks a committed record to say "not recorded" for each new
+    # field, and this record predates all of them.
+    assert "question scores: (not recorded)" in rendered.stdout
 
 
 def test_render_trace_distinguishes_a_named_rung_from_a_run_that_named_none() -> None:
@@ -1063,6 +1068,37 @@ def test_render_trace_prints_the_versions_a_record_measured() -> None:
     # Field-qualified for the same reason the sibling test above says.
     assert "distribution versions: (not recorded)" not in empty.stdout
     assert "distribution versions: (none had recorded metadata)" in empty.stdout
+
+
+def test_render_trace_prints_one_line_per_question_per_metric() -> None:
+    """Task **16.4**, and the phase Exit's third clause reads it literally. Grouped by metric,
+    one line per question, and a question the metric could not score says so rather than
+    printing a number it never produced.
+    """
+    from weft_cli.eval_commands import TraceCommandResult
+    from weft_eval.run_record import NotScored, PerQuestionScores, QuestionKey
+
+    # Arrange
+    record = _run_record(
+        question_scores={
+            "precision@5": PerQuestionScores(
+                keyed_by=QuestionKey.QUESTION_ID,
+                scores={
+                    "fetch-001": Produced(value=0.8),
+                    "fetch-002": NotScored(reason="no relevant ids"),
+                },
+            )
+        }
+    )
+
+    # Act
+    rendered = render.render_outcome(Produced(value=TraceCommandResult(run_id="r", record=record)))
+
+    # Assert
+    assert rendered.stdout is not None
+    assert "question scores: (not recorded)" not in rendered.stdout
+    assert "fetch-001: 0.800" in rendered.stdout
+    assert "fetch-002: not scored (no relevant ids)" in rendered.stdout
 
 
 def test_render_eval_compare_names_two_rungs_as_a_difference() -> None:

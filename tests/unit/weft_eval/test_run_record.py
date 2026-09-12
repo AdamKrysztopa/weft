@@ -22,7 +22,10 @@ from weft_eval.run_record import (
     CorpusIdentity,
     NoQueryRung,
     NotAggregated,
+    NotScored,
+    PerQuestionScores,
     QueryRung,
+    QuestionKey,
     RunDurations,
     build_run_record,
     corpus_identity,
@@ -437,3 +440,69 @@ def test_a_record_that_measured_versions_and_found_none_is_not_a_record_that_did
         "an empty measurement survived the round trip as an absence, so a record that looked "
         "and found nothing reads as one that never looked — `L5.9` one field over"
     )
+
+
+# --- Task 16.4 — one score per question per metric, so a pair is computable after the fact.
+
+
+def test_a_record_built_without_question_scores_does_not_claim_any() -> None:
+    # Arrange / Act
+    record = build_run_record(
+        recorded_at="2026-09-12T00:00:00Z",
+        resolved_pipeline=_resolved_pipeline(),
+        corpus=CorpusIdentity(name="c", digest="d"),
+    )
+
+    # Assert
+    assert record.question_scores is None
+
+
+def test_a_failed_question_persists_as_a_failure_and_survives_the_round_trip(
+    tmp_path: Path,
+) -> None:
+    """V4, `docs/09-release.md`:620, at the granularity this task adds: the union's two members
+    share no field name, so `Produced[float]` and `NotScored` never round-trip into each other
+    — `MetricRunResult`'s own reason to be a union, one level down.
+    """
+    # Arrange
+    record = build_run_record(
+        recorded_at="2026-09-12T00:00:00Z",
+        resolved_pipeline=_resolved_pipeline(),
+        corpus=CorpusIdentity(name="c", digest="d"),
+        question_scores={
+            "precision@5": PerQuestionScores(
+                keyed_by=QuestionKey.QUESTION_ID,
+                scores={
+                    "fetch-001": Produced(value=0.8),
+                    "fetch-002": NotScored(reason="no relevant ids to score retrieval against"),
+                },
+            )
+        },
+    )
+
+    # Act
+    loaded = load_run_record(write_run_record(record, tmp_path / "r.json"))
+
+    # Assert
+    assert loaded == record
+    scores = loaded.question_scores
+    assert scores is not None
+    entries = scores["precision@5"].scores
+    assert isinstance(entries["fetch-001"], Produced)
+    assert entries["fetch-001"].value == 0.8
+    assert isinstance(entries["fetch-002"], NotScored), (
+        "an unscoreable question came back as a score, which is the zero V4 forbids"
+    )
+
+
+def test_a_record_says_whether_its_question_keys_are_ids_or_positions() -> None:
+    """A key of `"0"` and a key of `"fetch-001"` are read differently by anyone pairing two
+    runs, and a questions file with no ids is the normal case for `--questions`. Saying which
+    is what stops a reader treating a position as a stable identity across two files.
+    """
+    # Arrange / Act
+    positional = PerQuestionScores(keyed_by=QuestionKey.POSITION, scores={"0": Produced(value=1.0)})
+
+    # Assert
+    assert positional.keyed_by is QuestionKey.POSITION
+    assert set(positional.scores) == {"0"}

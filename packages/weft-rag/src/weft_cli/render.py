@@ -114,7 +114,13 @@ from weft_command import Rendered as Rendered
 from weft_command.contract import CommandResult
 from weft_eval.contract import MetricKind
 from weft_eval.falsify import BaselineSpread, DifferenceJudgement
-from weft_eval.run_record import MetricRunResult, NoQueryRung, QueryRung
+from weft_eval.run_record import (
+    MetricRunResult,
+    NoQueryRung,
+    NotScored,
+    PerQuestionScores,
+    QueryRung,
+)
 from weft_generate.payload import AnswerStance, Citation
 from weft_kernel.discovery import PackRegistrar, PackReport, PackStatus, RendererOffer
 from weft_kernel.errors import WeftError
@@ -986,13 +992,41 @@ def _distribution_versions_text(versions: Mapping[str, str] | None) -> str:
     return ", ".join(f"{name} {version}" for name, version in sorted(versions.items()))
 
 
+def _question_score_line(key: str, outcome: Produced[float] | NotScored) -> str:
+    """One question's own line under a `question scores:` metric block — task 16.4.
+
+    A `Produced[float]` prints to three decimals, the same precision `_metric_result_text`
+    already prints a mean at; a `NotScored` prints its reason rather than a number it never
+    produced — V4's clause at this granularity, the identical rule `_metric_result_text`
+    already carries one level up.
+    """
+    if isinstance(outcome, NotScored):
+        return f"    {key}: not scored ({outcome.reason})"
+    return f"    {key}: {outcome.value:.3f}"
+
+
+def _question_scores_lines(question_scores: Mapping[str, PerQuestionScores] | None) -> list[str]:
+    """`record.question_scores`, rendered — task 16.4. `None` is *not recorded*: every record
+    written before this task carries means and never the observations under them.
+    """
+    if question_scores is None:
+        return ["question scores: (not recorded)"]
+    lines = ["question scores:"]
+    for name in sorted(question_scores):
+        lines.append(f"  {name}:")
+        scores = question_scores[name].scores
+        lines.extend(_question_score_line(key, scores[key]) for key in sorted(scores))
+    return lines
+
+
 def _render_trace(result: TraceCommandResult) -> Rendered:
     """`weft trace` — every fact `weft_eval.run_record.RunRecord` carries, and nothing this
     module invents on top of it (Q2, `weft_cli.eval_commands`'s own module docstring: this is
     what the persisted record holds, never a stage-level replay nothing in this tree persists).
     Task 4.9 widened the record by one field, `metrics`, so this widens by one block to match.
     Task 9.12 groups that block by `MetricKind` — see `_grouped_metric_lines`. Task 16.1 widens
-    it by one more line, `query rung` — see `_query_rung_text`.
+    it by one more line, `query rung` — see `_query_rung_text`. Task 16.4 widens it by one more
+    block, `question scores` — see `_question_scores_lines`.
     """
     record = result.record
     lines = [
@@ -1009,6 +1043,7 @@ def _render_trace(result: TraceCommandResult) -> Rendered:
         lines.extend(_grouped_metric_lines(record.metrics))
     else:
         lines.append("metrics: (none recorded — 'weft eval run' was not given --questions)")
+    lines.extend(_question_scores_lines(record.question_scores))
     return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
 
 

@@ -43,7 +43,8 @@ import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, cast
+from types import MappingProxyType
+from typing import Any, Final, cast
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
@@ -56,7 +57,13 @@ from weft_embed import Embedder
 from weft_eval.aggregate import MetricAggregate
 from weft_eval.contract import QueryModality, RetrievalSample, RetrievedPassage
 from weft_eval.harness import score_retrieval_gate_subset
-from weft_eval.run_record import NoQueryRung, QueryRung, ScoredQueryRung
+from weft_eval.run_record import (
+    NoQueryRung,
+    PerQuestionScores,
+    QueryRung,
+    QuestionKey,
+    ScoredQueryRung,
+)
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackReport
 from weft_kernel.errors import WeftError
@@ -148,6 +155,10 @@ class Question(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
+    #: Task 16.4. Optional because every `--questions` file written before this task has none —
+    #: this is `weft_cli.eval_scoring.Question`, not `eval/check_questions.py`'s own, separate
+    #: `Question`; the two never meet (`L17.16`, and this module's own docstring).
+    id: str | None = None
     query: str = Field(min_length=1)
     relevant_documents: tuple[str, ...] = ()
     #: What kind of query this is — task 9.12. Defaulted to `TEXT` so a questions file written
@@ -186,11 +197,31 @@ def load_questions(path: Path) -> tuple[Question, ...]:
     items = cast("list[object]", parsed)
 
     try:
-        return tuple(Question.model_validate(item) for item in items)
+        questions = tuple(Question.model_validate(item) for item in items)
     except ValidationError as exc:
         raise QuestionsFileError(
             f"'{path}' holds a malformed question: {exc}", path=str(path)
         ) from exc
+
+    ids = [question.id for question in questions if question.id is not None]
+    seen: set[str] = set()
+    for identifier in ids:
+        if identifier in seen:
+            raise QuestionsFileError(
+                f"'{path}' repeats id '{identifier}' — two questions under one id would "
+                "collapse into one per-question score.",
+                path=str(path),
+            )
+        seen.add(identifier)
+
+    if ids and len(ids) != len(questions):
+        raise QuestionsFileError(
+            f"'{path}' names an 'id' for some questions and not others — 'keyed_by' would be a "
+            "lie whichever value it took. Give every question an id, or none at all.",
+            path=str(path),
+        )
+
+    return questions
 
 
 def _stage_for_contract(resolved: ResolvedPipeline, contract_name: str) -> ResolvedStage | None:
@@ -259,16 +290,31 @@ def _deduplicated_by_document(
     return tuple(passages)
 
 
+#: `ScoredRun.question_scores`'s own default — a bare `{}` default infers `dict[Unknown,
+#: Unknown]` under pyright strict, the same reason `weft_eval.run_record` keeps a typed,
+#: shared empty mapping rather than a bare `{}` at every default site.
+_NO_QUESTION_SCORES: Final[Mapping[str, PerQuestionScores]] = MappingProxyType({})
+
+
 @dataclass(frozen=True)
 class ScoredRun:
     """What `score_pipeline` measured, and the query rung it measured it with — task 16.1.
 
-    Two facts rather than one return value, because a record needs both and deriving the
-    second anywhere else would mean resolving the rung a second time.
+    Three facts rather than one return value, because a record needs all three and deriving
+    any of them anywhere else would mean re-deriving what this function already computed once.
+    `question_scores` — task 16.4 — is keyed identically to `metrics`: one `PerQuestionScores`
+    per metric name, built from the same `harness.score_retrieval_gate_subset` call `metrics`
+    already comes from.
     """
 
     metrics: Mapping[str, Outcome[MetricAggregate]]
     query_rung: ScoredQueryRung
+    #: Defaulted to `{}` — every construction site written before this task named only
+    #: `metrics`/`query_rung`, and `{}` is the honest reading for a fake collaborator that
+    #: never scored a real question (`tests/unit/weft_cli/test_eval_commands.py`'s own
+    #: `_fake_score_pipeline`), the same posture `RunRecord.metrics` already takes for a run
+    #: given no `--questions` at all.
+    question_scores: Mapping[str, PerQuestionScores] = _NO_QUESTION_SCORES
 
 
 async def score_pipeline(
@@ -349,8 +395,18 @@ async def score_pipeline(
             )
         )
 
+    # Task 16.4 — the keying is decided once, before the loop: `load_questions` has already
+    # refused a file that names an id for some questions and not others, so "every question
+    # carries an id" is a safe, single check here rather than one made per question.
+    keyed_by = (
+        QuestionKey.QUESTION_ID
+        if questions and all(question.id is not None for question in questions)
+        else QuestionKey.POSITION
+    )
+
     samples: list[RetrievalSample] = []
-    for question in questions:
+    for index, question in enumerate(questions):
+        question_key = question.id if question.id is not None else str(index)
         hits: Sequence[Scored[Node]]
         if query_pipeline is not None:
             answer = await run_named_ask(
@@ -380,6 +436,7 @@ async def score_pipeline(
         samples.append(
             RetrievalSample(
                 query=question.query,
+                question_key=question_key,
                 retrieved=_deduplicated_by_document(hits, top_k=top_k),
                 relevant_ids=frozenset(question.relevant_documents),
                 modality=question.modality,
@@ -387,8 +444,12 @@ async def score_pipeline(
             )
         )
 
-    metrics = await score_retrieval_gate_subset(registry, samples, top_k=top_k, ctx=ctx)
-    return ScoredRun(metrics=metrics, query_rung=query_rung)
+    scores = await score_retrieval_gate_subset(registry, samples, top_k=top_k, ctx=ctx)
+    question_scores = {
+        name: PerQuestionScores(keyed_by=keyed_by, scores=outcomes)
+        for name, outcomes in scores.per_question.items()
+    }
+    return ScoredRun(metrics=scores.metrics, query_rung=query_rung, question_scores=question_scores)
 
 
 __all__ = [
