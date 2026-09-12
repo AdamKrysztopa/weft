@@ -1019,6 +1019,16 @@ def _question_scores_lines(question_scores: Mapping[str, PerQuestionScores] | No
     return lines
 
 
+def _question_set_text(digest: str | None) -> str:
+    """The question set a run was scored with — task **16.6**.
+
+    `(not recorded)` covers two states a reader tells apart from the `metrics:` line right
+    above: a record written before this task, and a run given no `--questions` at all. Both
+    genuinely have no question-set identity to print, and neither is a set this run measured.
+    """
+    return f"{digest[:12]}…" if digest else "(not recorded)"
+
+
 def _render_trace(result: TraceCommandResult) -> Rendered:
     """`weft trace` — every fact `weft_eval.run_record.RunRecord` carries, and nothing this
     module invents on top of it (Q2, `weft_cli.eval_commands`'s own module docstring: this is
@@ -1037,6 +1047,7 @@ def _render_trace(result: TraceCommandResult) -> Rendered:
         f"model versions: {dict(record.model_versions) or '(none recorded)'}",
         f"active distributions: {', '.join(record.active_distributions) or '(none)'}",
         f"distribution versions: {_distribution_versions_text(record.distribution_versions)}",
+        f"question set: {_question_set_text(record.question_set_digest)}",
     ]
     if record.metrics:
         lines.append("metrics:")

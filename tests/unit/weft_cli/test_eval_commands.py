@@ -586,6 +586,7 @@ def _write_record(
     corpus_digest_basis: CorpusDigestBasis | None = None,
     query_rung: ScoredQueryRung | None = None,
     distribution_versions: dict[str, str] | None = None,
+    question_set_digest: str | None = None,
 ) -> None:
     """`corpus_digest_basis` defaults to `None` because that is what every record already
     committed carries — task 16.0's own constraint. A test wanting a record written *after*
@@ -599,6 +600,7 @@ def _write_record(
         corpus_digest_basis=corpus_digest_basis,
         query_rung=query_rung,
         distribution_versions=distribution_versions,
+        question_set_digest=question_set_digest,
     )
     write_run_record(record, directory / "runs" / f"{run_id}.json")
 
@@ -1587,3 +1589,45 @@ async def test_a_persisted_record_carries_one_score_per_question_per_metric(
     assert isinstance(per_metric.scores["q-2"], NotScored), (
         "an unscoreable question survived the round trip as a score"
     )
+
+
+# --- Task 16.6 — two runs scored on two question sets are not a comparison.
+
+
+async def test_eval_compare_refuses_two_runs_scored_on_different_question_sets(
+    tmp_path: Path,
+) -> None:
+    """A metric delta between two rungs scored on two different sets of questions is a fact
+    about the questions, not about the rungs — the same shape as a corpus difference, one
+    artefact over.
+    """
+    # Arrange
+    _write_record(
+        tmp_path, "run-a", pipeline_name="base", corpus_name="corpus", question_set_digest="a" * 64
+    )
+    _write_record(
+        tmp_path, "run-b", pipeline_name="base", corpus_name="corpus", question_set_digest="b" * 64
+    )
+    deps = _deps()
+
+    # Act / Assert
+    with pytest.raises(IncomparableRunsError) as excinfo:
+        await EvalCompareCommand().run(EvalCompareArgs(a="run-a", b="run-b"), _ctx(deps))
+    assert any("question set" in reason for reason in excinfo.value.reasons)
+
+
+async def test_eval_compare_does_not_refuse_a_run_that_recorded_no_question_set(
+    tmp_path: Path,
+) -> None:
+    # Arrange — a record from before 16.6, and one from after.
+    _write_record(tmp_path, "run-a", pipeline_name="base", corpus_name="corpus")
+    _write_record(
+        tmp_path, "run-b", pipeline_name="base", corpus_name="corpus", question_set_digest="b" * 64
+    )
+    deps = _deps()
+
+    # Act
+    outcome = await EvalCompareCommand().run(EvalCompareArgs(a="run-a", b="run-b"), _ctx(deps))
+
+    # Assert
+    assert isinstance(outcome, Produced)

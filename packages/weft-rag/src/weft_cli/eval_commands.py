@@ -762,6 +762,16 @@ def _incomparable_reasons(a: RunRecord, b: RunRecord) -> tuple[str, ...]:
             f"active distributions differ ({a.active_distributions} vs {b.active_distributions})"
         )
     if (
+        a.question_set_digest is not None
+        and b.question_set_digest is not None
+        and a.question_set_digest != b.question_set_digest
+    ):
+        reasons.append(
+            f"question set differs ({a.question_set_digest[:12]}… vs "
+            f"{b.question_set_digest[:12]}…) — a metric delta between two runs scored on two "
+            f"sets of questions is a fact about the questions, not about the pipelines"
+        )
+    if (
         a.distribution_versions is not None
         and b.distribution_versions is not None
         and a.distribution_versions != b.distribution_versions
@@ -841,6 +851,7 @@ class EvalRunCommand:
         metrics: Mapping[str, Outcome[MetricAggregate]] = {}
         query_rung: ScoredQueryRung | None = None
         question_scores: Mapping[str, PerQuestionScores] | None = None
+        question_set: str | None = None
         if run_args.questions is not None:
             questions = load_questions(Path(run_args.questions))
             scored = await score_pipeline(
@@ -861,6 +872,7 @@ class EvalRunCommand:
             metrics = scored.metrics
             query_rung = scored.query_rung
             question_scores = scored.question_scores
+            question_set = scored.question_set or None
         query_seconds = time.monotonic() - query_started
 
         corpus_name = run_args.corpus_name if run_args.corpus_name is not None else run_args.path
@@ -876,6 +888,7 @@ class EvalRunCommand:
             metrics=metrics,
             durations=RunDurations(ingest_seconds=0.0, query_seconds=query_seconds),
             question_scores=question_scores,
+            question_set_digest=question_set,
         )
         run_id = str(uuid.uuid4())
         write_run_record(record, DEFAULT_RUNS_DIR / f"{run_id}.json")
@@ -948,6 +961,7 @@ class EvalRunCommand:
         metrics: Mapping[str, Outcome[MetricAggregate]] = {}
         query_rung: ScoredQueryRung | None = None
         question_scores: Mapping[str, PerQuestionScores] | None = None
+        question_set: str | None = None
         if run_args.questions is not None:
             questions = load_questions(Path(run_args.questions))
             scored = await score_pipeline(
@@ -968,6 +982,7 @@ class EvalRunCommand:
             metrics = scored.metrics
             query_rung = scored.query_rung
             question_scores = scored.question_scores
+            question_set = scored.question_set or None
         query_seconds = time.monotonic() - query_started
 
         corpus_name = run_args.corpus_name if run_args.corpus_name is not None else run_args.path
@@ -986,6 +1001,7 @@ class EvalRunCommand:
             metrics=metrics,
             durations=RunDurations(ingest_seconds=wall_clock_seconds, query_seconds=query_seconds),
             question_scores=question_scores,
+            question_set_digest=question_set,
         )
         run_id = str(uuid.uuid4())
         write_run_record(record, DEFAULT_RUNS_DIR / f"{run_id}.json")

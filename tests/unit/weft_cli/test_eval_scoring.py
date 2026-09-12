@@ -23,6 +23,7 @@ from weft_cli.eval_scoring import (
     QuestionsFileError,
     UnresolvableLabelError,
     load_questions,
+    question_set_digest,
     resolve_labels,
     score_pipeline,
 )
@@ -432,3 +433,69 @@ async def test_a_question_is_scored_against_the_document_its_label_resolved_to()
     outcome = report.metrics["precision@1"]
     assert isinstance(outcome, Produced)
     assert outcome.value.mean == 1.0
+
+
+# --- Task 16.6 — the identity of the question set a run was scored with.
+
+
+def test_the_question_set_digest_is_order_independent() -> None:
+    """*Nothing positional*, so two files holding the same questions in two orders are one
+    question set. A digest over the list as written would make re-ordering a file look like a
+    different measurement.
+    """
+    # Arrange
+    first = Question(id="a", query="one", relevant_documents=("x.txt",))
+    second = Question(id="b", query="two", relevant_documents=("y.txt",))
+
+    # Act / Assert
+    assert question_set_digest((first, second)) == question_set_digest((second, first))
+
+
+def test_the_question_set_digest_moves_when_any_question_does() -> None:
+    """Every field of `Question` is in the canonical form, derived from the model rather than
+    from a hand-listed tuple — so a version that learns a scoring-relevant field produces a new
+    digest, which is the honest answer rather than a gap. Task 16.8 adds `language` and will
+    move this digest for exactly that reason.
+    """
+    # Arrange
+    base = Question(id="a", query="one", relevant_documents=("x.txt",), kind="factual")
+
+    # Act / Assert — one field at a time, each of which changes what was measured.
+    assert question_set_digest((base,)) != question_set_digest(
+        (Question(id="a", query="ONE", relevant_documents=("x.txt",), kind="factual"),)
+    )
+    assert question_set_digest((base,)) != question_set_digest(
+        (Question(id="a", query="one", relevant_documents=("y.txt",), kind="factual"),)
+    )
+    assert question_set_digest((base,)) != question_set_digest(
+        (Question(id="a", query="one", relevant_documents=("x.txt",), kind="numeric"),)
+    )
+
+
+def test_the_question_set_digest_holds_nothing_a_machine_put_there() -> None:
+    """The point of the whole field: the same file staged anywhere digests the same. Since task
+    16.5 a label is a corpus-relative path, so there is no root in a question to leak into this.
+    """
+    # Arrange — questions as they are written in a tree, with no absolute path anywhere.
+    questions = (
+        Question(id="a", query="one", relevant_documents=("arxiv/1304.7717v2.pdf",)),
+        Question(id="b", query="two", relevant_documents=("pl-wiki/kraków.txt",)),
+    )
+
+    # Act
+    digest = question_set_digest(questions)
+
+    # Assert — a digest is hex, and holds no separator a staging root would have contributed.
+    assert len(digest) == 64
+    assert all(character in "0123456789abcdef" for character in digest)
+
+
+def test_two_questions_that_differ_only_by_id_are_two_question_sets() -> None:
+    """An id is part of the identity because it is what per-question scores are keyed on
+    (task 16.4). Two files with the same questions under different ids produce records whose
+    scores cannot be paired, so they are not the same question set.
+    """
+    # Arrange / Act / Assert
+    assert question_set_digest((Question(id="a", query="q"),)) != question_set_digest(
+        (Question(id="b", query="q"),)
+    )

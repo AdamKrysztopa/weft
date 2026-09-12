@@ -817,6 +817,7 @@ def _run_record(
     query_rung: ScoredQueryRung | None = None,
     distribution_versions: dict[str, str] | None = None,
     question_scores: Mapping[str, PerQuestionScores] | None = None,
+    question_set_digest: str | None = None,
 ):
     from weft_eval.run_record import CorpusIdentity, RunRecord
     from weft_kernel.resolution import ResolvedPipeline
@@ -828,6 +829,7 @@ def _run_record(
         query_rung=query_rung,
         distribution_versions=distribution_versions,
         question_scores=question_scores,
+        question_set_digest=question_set_digest,
     )
 
 
@@ -993,6 +995,8 @@ def test_render_trace_prints_every_field_the_run_record_carries() -> None:
     # Task 16.4 — the phase Exit asks a committed record to say "not recorded" for each new
     # field, and this record predates all of them.
     assert "question scores: (not recorded)" in rendered.stdout
+    # Task 16.6.
+    assert "question set: (not recorded)" in rendered.stdout
 
 
 def test_render_trace_distinguishes_a_named_rung_from_a_run_that_named_none() -> None:

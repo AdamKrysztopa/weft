@@ -506,3 +506,35 @@ def test_a_record_says_whether_its_question_keys_are_ids_or_positions() -> None:
     # Assert
     assert positional.keyed_by is QuestionKey.POSITION
     assert set(positional.scores) == {"0"}
+
+
+# --- Task 16.6 — a record names the question set it was scored with.
+
+
+def test_a_record_built_without_a_question_set_digest_does_not_claim_one() -> None:
+    # Arrange / Act
+    record = build_run_record(
+        recorded_at="2026-09-12T00:00:00Z",
+        resolved_pipeline=_resolved_pipeline(),
+        corpus=CorpusIdentity(name="c", digest="d"),
+    )
+
+    # Assert
+    assert record.question_set_digest is None
+
+
+def test_a_question_set_digest_survives_the_round_trip(tmp_path: Path) -> None:
+    # Arrange
+    record = build_run_record(
+        recorded_at="2026-09-12T00:00:00Z",
+        resolved_pipeline=_resolved_pipeline(),
+        corpus=CorpusIdentity(name="c", digest="d"),
+        question_set_digest="f" * 64,
+    )
+
+    # Act
+    loaded = load_run_record(write_run_record(record, tmp_path / "r.json"))
+
+    # Assert
+    assert loaded.question_set_digest == "f" * 64
+    assert loaded == record

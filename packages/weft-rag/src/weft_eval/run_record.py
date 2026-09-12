@@ -313,6 +313,12 @@ class RunRecord(BaseModel):
     query_rung: ScoredQueryRung | None = None
     #: Task 4.9 — see the module docstring's own paragraph. `{}` for a run that scored nothing.
     metrics: Mapping[str, MetricRunResult] = Field(default_factory=dict)
+    #: Task 16.6 — a sha256 over the canonical questions this run was scored with, or `None`
+    #: for a record that predates the field or a run given no `--questions` at all. Built by
+    #: `weft_cli.eval_scoring.question_set_digest`, which lives there because `Question` does:
+    #: this module would have to import the CLI to compute it, the identical arrow
+    #: `distribution_versions` already refuses to draw.
+    question_set_digest: str | None = None
     #: Task 16.4 — one outcome per question per metric, keyed by metric name exactly as
     #: `metrics` above is, so a reader pairing an aggregate with its questions never has to
     #: guess at two vocabularies. `None` means *not recorded*: a record written before this
@@ -334,6 +340,7 @@ def build_run_record(
     metrics: Mapping[str, Outcome[MetricAggregate]] = _NO_METRICS,
     durations: RunDurations | None = None,
     question_scores: Mapping[str, PerQuestionScores] | None = None,
+    question_set_digest: str | None = None,
 ) -> RunRecord:
     """Assemble one `RunRecord`. `active_distributions` is always derived from `reports`
     through `active_distribution_set` — never accepted directly — so there is no second,
@@ -379,6 +386,7 @@ def build_run_record(
         durations=durations,
         metrics={name: _as_run_result(outcome) for name, outcome in metrics.items()},
         question_scores=question_scores,
+        question_set_digest=question_set_digest,
     )
 
 

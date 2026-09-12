@@ -39,6 +39,7 @@ occurrence, so `RetrievalSample.retrieved` never repeats an id — the identical
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
@@ -309,6 +310,33 @@ def load_questions(path: Path) -> tuple[Question, ...]:
     return questions
 
 
+def question_set_digest(questions: Iterable[Question]) -> str:
+    """A sha256 identifying the question set `questions` is — task **16.6**.
+
+    **Canonical, and nothing positional.** Each question is serialised as its own JSON object
+    with sorted keys, the per-question strings are sorted, and the digest is taken over the
+    join — so a file re-ordered is the same question set and a file with one question changed
+    is not. `weft_eval.run_record.corpus_identity` takes the identical shape for the corpus,
+    one artefact over.
+
+    **The canonical form is derived from `Question`, never hand-listed.** Every field the model
+    carries is in it, so a version that learns a scoring-relevant field produces a different
+    digest — which is correct rather than a gap: the same file scored by a version that reads a
+    field the old one ignored *is* a different measurement. Task 16.8 adds `language` and moves
+    this digest for exactly that reason. A hand-listed tuple would have left that field silently
+    outside the identity, which is the failure `L17.16`'s third instance was about.
+
+    **Nothing a machine put there is in it.** Since task 16.5 a `relevant_documents` label is a
+    corpus-relative path, so no staging root reaches this digest and the same file staged in a
+    second directory digests the same — which is the whole property the phase Exit asks for.
+    """
+    canonical = sorted(
+        json.dumps(question.model_dump(mode="json"), sort_keys=True, ensure_ascii=False)
+        for question in questions
+    )
+    return hashlib.sha256("\n".join(canonical).encode("utf-8")).hexdigest()
+
+
 def _stage_for_contract(resolved: ResolvedPipeline, contract_name: str) -> ResolvedStage | None:
     """The one stage in `resolved.stages` registered under `contract_name`, or `None`.
 
@@ -400,6 +428,11 @@ class ScoredRun:
     #: `_fake_score_pipeline`), the same posture `RunRecord.metrics` already takes for a run
     #: given no `--questions` at all.
     question_scores: Mapping[str, PerQuestionScores] = _NO_QUESTION_SCORES
+    #: Task **16.6** — the identity of the question set these scores are over, `""` when no
+    #: questions were scored at all. `""` rather than `None` because a `ScoredRun` that scored
+    #: nothing has no question set, and `RunRecord.question_set_digest` is where the *record's*
+    #: three-state absence lives; two nullable layers would say the same thing twice.
+    question_set: str = ""
 
 
 async def score_pipeline(
@@ -553,7 +586,12 @@ async def score_pipeline(
         name: PerQuestionScores(keyed_by=keyed_by, scores=outcomes)
         for name, outcomes in scores.per_question.items()
     }
-    return ScoredRun(metrics=scores.metrics, query_rung=query_rung, question_scores=question_scores)
+    return ScoredRun(
+        metrics=scores.metrics,
+        query_rung=query_rung,
+        question_scores=question_scores,
+        question_set=question_set_digest(questions),
+    )
 
 
 __all__ = [
