@@ -665,3 +665,40 @@ def test_no_install_line_is_offered_for_a_distribution_nothing_installed_claims(
     assert outcome.exit_code is ExitCode.RESOLUTION_FAILED
     assert "acme-nowhere" in outcome.message
     assert "pip install" not in outcome.message
+
+
+@pytest.mark.parametrize(
+    ("written", "expected"),
+    [
+        ("", False),
+        ('[services]\nstore = "pgvector"\n', False),
+        ('[services]\nembed = "hash"\n', True),
+        ('[services]\nembed = "openai-embeddings"\n', True),
+    ],
+    ids=["no-file-block", "block-without-embed", "embed-written-as-the-default", "embed-chosen"],
+)
+def test_build_dependencies_records_whether_the_file_named_an_embedder(
+    tmp_path: Path, written: str, expected: bool
+) -> None:
+    """Carried repair `R17.6`, the fact the warning turns on.
+
+    The third case is the whole point and is the one a merged model cannot answer.
+    `weft_cli.config_surface`'s own module docstring states it for `--origin`: comparing a built
+    `ServiceSelection` against `ServiceSelection()`'s defaults "would reproduce the identical
+    defect one field at a time, unable to tell `weft.toml` explicitly names `embed = "hash"`,
+    which happens to equal the default, from `weft.toml` says nothing about `embed` at all."
+
+    An operator who wrote `embed = "hash"` has chosen it, and a choice made is not a choice to
+    warn about. So this reads the raw parsed mapping, exactly as `effective_config` does, and the
+    two literal-value cases must disagree even though both produce the same effective embedder.
+    """
+    # Arrange
+    config = tmp_path / "weft.toml"
+    config.write_text(written, encoding="utf-8")
+
+    # Act
+    deps = registry_bootstrap.build_dependencies(config)
+
+    # Assert
+    assert deps.embed_was_selected is expected
+    assert deps.services.embed == ("openai-embeddings" if "openai" in written else "hash")

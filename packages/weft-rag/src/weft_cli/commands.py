@@ -467,6 +467,11 @@ class IndexCommandResult(CommandResult):
     #: can report it without reaching back into `weft_cli.ingest`; empty when the store could not
     #: answer `list_sources`, which is an absent comparison and not a claim that nothing moved.
     source_changes: Mapping[str, SourceChange] = Field(default_factory=dict)
+    #: Carried repair `R17.6` — the embedder this run used, but only when `weft.toml` did not
+    #: name one: the renderer cannot know where a value came from, so that fact travels here
+    #: rather than being re-derived from the file a second time. `None` means the operator chose
+    #: it, in a file, and a warning about a choice already made is one people learn to ignore.
+    defaulted_embedder: str | None = None
 
 
 class AskCommandResult(CommandResult):
@@ -735,12 +740,14 @@ class IndexCommand:
             )
             write_run_record(record, DEFAULT_INDEX_RUNS_DIR / f"{uuid.uuid4()}.json")
         reconcile_result = await self._auto_reconcile(index_args.reconcile, deps=deps, ctx=ctx)
+        defaulted_embedder = None if deps.embed_was_selected else deps.services.embed
         return Produced(
             value=IndexCommandResult(
                 summary=result.summary,
                 stored_count=result.stored_count,
                 reconcile=reconcile_result,
                 source_changes=result.source_changes,
+                defaulted_embedder=defaulted_embedder,
             )
         )
 

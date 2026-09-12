@@ -922,9 +922,16 @@ figure in the same run:
   document's text, its table, or the figure's caption, and present only in what the describer
   wrote. **The clause's own wording — *"citing the `IMAGE` node"* — is satisfied in substance and
   is not observable**: `weft_generate.payload.Citation` carries `node_id`, and
-  `packages/weft-rag/src/weft_cli/render.py:526 "if recon"` renders `[marker] uri` alone, so with three nodes from one source the
-  rendered citation cannot name which answered. Recorded as `lessons.md` `L9.88` rather than
-  waved through; it is a renderer gap, not a provenance gap, and Phase 9 did not create it.
+  `packages/weft-rag/src/weft_cli/render.py:566 "citation.node_id"` printed `[marker] uri` alone at
+  the time, so with three nodes from one source the rendered citation could not name which
+  answered. Recorded as `lessons.md` `L9.88` rather than waved through; it was a renderer gap, not
+  a provenance gap, and Phase 9 did not create it. *(Closed since: carried repair **R9.2** made
+  `_citation_line` print the node id whole — `  [1] file:///… p.4 — <node id>` — so the clause is
+  now observable as well as satisfied. Corrected 2026-09-12: the sentence still described the
+  pre-repair renderer, and its citation carried the fragment `"if recon"`, which matched no line in
+  `_citation_line` at all and drifted onto three `if reconciled` lines one function up. A fragment
+  weak enough to match somewhere else is a citation that cannot fail for the right reason —
+  `L17.1`.)*
 - **`weft delete` takes both counts to zero** — `3 → 0` nodes, `1 → 0` blobs, asserted either
   side, and refused first without `--yes`.
 - **The ambient-service seam reaches every path with no edit to `weft-cli`.** `weft-docling` — a

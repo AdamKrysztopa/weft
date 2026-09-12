@@ -1678,3 +1678,48 @@ def test_pipeline_show_renders_an_applies_to_the_way_applies_writes_itself() -> 
         "a brace means the model dump leaked back into the human rendering, which is the "
         "state this repair was filed about."
     )
+
+
+def test_render_index_names_a_defaulted_embedder_on_stderr_and_leaves_stdout_alone() -> None:
+    """Carried repair `R17.6`.
+
+    The default embedder is `hash`, whose vectors are SHA-256 digests, so a ranking built from
+    it carries no relevance. Three documents said so and none is on the path a first-hour user
+    walks; `weft index` — the command every user runs — named no embedder at all.
+
+    **stderr, not stdout**, and `R9.2` (`render.py`) is the record of what prose on stdout costs
+    under the global `--json`: the summary line is the machine-readable half and a sentence for a
+    human must not join it. This asserts both halves, because a line on the right channel that
+    also corrupted the left one would be a worse defect than the one being repaired.
+    """
+    # Arrange
+    summary = RunSummary(produced=2, nothing_to_produce=0, failed=0)
+    result = IndexCommandResult(summary=summary, stored_count=2, defaulted_embedder="hash")
+
+    # Act
+    rendered = render.render_outcome(Produced(value=result))
+
+    # Assert
+    assert rendered.stdout == "produced 2, nothing to produce 0, failed 0. nodes now stored: 2."
+    assert rendered.stderr is not None
+    assert "hash" in rendered.stderr
+    assert "[services] embed" in rendered.stderr
+    assert rendered.exit_code is ExitCode.SUCCESS
+
+
+def test_render_index_says_nothing_when_the_embedder_was_chosen() -> None:
+    """Carried repair `R17.6`, the half that keeps the line worth reading.
+
+    A warning that fires on a choice the operator already made is one they learn to ignore, and
+    then it is not there when it matters. `defaulted_embedder is None` is the command's way of
+    saying the file named one.
+    """
+    # Arrange
+    summary = RunSummary(produced=2, nothing_to_produce=0, failed=0)
+    result = IndexCommandResult(summary=summary, stored_count=2, defaulted_embedder=None)
+
+    # Act
+    rendered = render.render_outcome(Produced(value=result))
+
+    # Assert
+    assert rendered.stderr is None

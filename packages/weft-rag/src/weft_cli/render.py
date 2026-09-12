@@ -500,6 +500,19 @@ def _reparse_lines(changes: Mapping[str, SourceChange]) -> list[str]:
     ]
 
 
+def _defaulted_embedder_line(embedder: str) -> str:
+    """Carried repair `R17.6`'s own stderr line — printed only when `weft.toml` did not name
+    an embedder. `hash` (the built-in default) hashes chunk text into SHA-256 digests, so a
+    ranking built from it reflects nothing about relevance; the line says that plainly, and
+    names the key an operator would set instead.
+    """
+    return (
+        f"  you did not choose an embedder — this ran with '{embedder}', whose vectors carry "
+        "no semantic meaning, so the ranking says the pipeline ran, not that anything is "
+        "relevant. Set [services] embed in weft.toml to choose one."
+    )
+
+
 def _render_index(result: IndexCommandResult) -> Rendered:
     """`weft index`'s whole answer, plus the automatic post-index reconciliation pass, task
     **5.1c**. `result.reconcile` is rendered through `_render_reconcile` itself — one renderer
@@ -517,11 +530,10 @@ def _render_index(result: IndexCommandResult) -> Rendered:
     reparsed = _reparse_lines(result.source_changes)
     if reparsed:
         stdout += "\n" + "\n".join(reparsed)
-    stderr = (
-        "\n".join(f"  failed: {reason}" for reason in summary.failed_reasons)
-        if summary.failed_reasons
-        else None
-    )
+    stderr_lines = [f"  failed: {reason}" for reason in summary.failed_reasons]
+    if result.defaulted_embedder is not None:
+        stderr_lines.append(_defaulted_embedder_line(result.defaulted_embedder))
+    stderr = "\n".join(stderr_lines) or None
     exit_code = ExitCode.SUCCESS if summary.failed == 0 else ExitCode.OPERATION_FAILED
     if result.reconcile is not None:
         reconciled = _render_reconcile(result.reconcile)

@@ -31,6 +31,7 @@ writes to is `[services] store` — which `stores_in_use` counts unconditionally
 
 from __future__ import annotations
 
+import dataclasses
 from pathlib import Path
 
 import pytest
@@ -217,3 +218,53 @@ async def test_the_repair_pass_after_an_index_reaches_the_store_that_run_named(
     assert isinstance(result, commands.IndexCommandResult)
     assert result.reconcile is not None
     assert [outcome.plugin for outcome in result.reconcile.participants] == ["graph"]
+
+
+async def test_index_carries_the_defaulted_embedder_to_the_renderer(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Carried repair `R17.6` — the wire, along its length.
+
+    `L9.79`: where a value's whole job is to travel from configuration to an output, one test
+    has to watch it travel, or the two ends are checked and the wire between them is not.
+    `build_dependencies` learns the fact from the raw `weft.toml`
+    (`test_registry_bootstrap.py::test_build_dependencies_records_whether_the_file_named_an_embedder`)
+    and the renderer prints from the result (`test_render.py`); this is the segment that joins
+    them, and it is the one no other test covers.
+
+    The name asserted is read off the selection rather than written as a literal: the warning has
+    to name the embedder that actually ran, and a literal here would still pass if the command
+    reported a different one.
+    """
+    # Arrange
+    monkeypatch.chdir(tmp_path)
+    _patch_run_index(monkeypatch, resolved=None)
+    deps = _deps()
+
+    # Act
+    outcome = await commands.IndexCommand().run(commands.IndexArgs(path=str(tmp_path)), _ctx(deps))
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = outcome.value
+    assert isinstance(result, commands.IndexCommandResult)
+    assert result.defaulted_embedder == deps.services.embed
+
+
+async def test_index_reports_no_defaulted_embedder_when_the_file_chose_one(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Carried repair `R17.6`, the negative half — see the sibling above."""
+    # Arrange
+    monkeypatch.chdir(tmp_path)
+    _patch_run_index(monkeypatch, resolved=None)
+    deps = dataclasses.replace(_deps(), embed_was_selected=True)
+
+    # Act
+    outcome = await commands.IndexCommand().run(commands.IndexArgs(path=str(tmp_path)), _ctx(deps))
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = outcome.value
+    assert isinstance(result, commands.IndexCommandResult)
+    assert result.defaulted_embedder is None

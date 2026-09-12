@@ -194,6 +194,14 @@ class Dependencies:
     registry: Registry
     reports: tuple[PackReport, ...]
     services: ServiceSelection
+    #: Carried repair `R17.6` — whether `weft.toml`'s `[services]` table names the literal key
+    #: `embed`, read from the raw parsed document rather than compared against a built
+    #: `ServiceSelection`: a fact about the *file*, not about the resulting value, because a
+    #: `weft.toml` that writes `embed = "hash"` explicitly must read `True` even though the
+    #: effective embedder equals the default (`weft_cli.config_surface`'s own module docstring
+    #: names the identical sentinel-comparison defect this avoids). `False` is the honest answer
+    #: for a caller that built `Dependencies` directly and had no file to name anything.
+    embed_was_selected: bool = False
     #: Ledger task **9.0** — every `[services]` role a trusted, installed pack declared,
     #: gathered from `reports` by `role_table_from_reports`. `default_factory=RoleTable`
     #: (empty), the same reasoning every other field below states for its own default: a
@@ -274,10 +282,15 @@ def build_dependencies(
     roles = role_table_from_reports(reports)
     services = service_selection_from_config(document, table=roles)
     sink = token_sink if token_sink is not None else NullSink()
+    written_services: object = None if document is None else document.get("services")
+    embed_was_selected = isinstance(written_services, dict) and "embed" in cast(
+        "dict[str, object]", written_services
+    )
     return Dependencies(
         registry=registry,
         reports=reports,
         services=services,
+        embed_was_selected=embed_was_selected,
         roles=roles,
         llm=llm,
         permissions=permissions,
