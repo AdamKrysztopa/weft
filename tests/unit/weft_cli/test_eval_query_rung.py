@@ -319,6 +319,7 @@ async def test_a_named_rung_is_recorded_by_name_and_by_an_identity_of_its_own(
         top_k=3,
         ctx=_ctx(),
         query_pipeline="rung-a",
+        corpus_document_ids=("doc-a",),
     )
 
     # Assert
@@ -348,6 +349,7 @@ async def test_naming_no_rung_is_recorded_as_a_measurement_not_as_an_absence(
         questions=(Question(query="why"),),
         top_k=3,
         ctx=_ctx(),
+        corpus_document_ids=("doc-a",),
     )
 
     # Assert

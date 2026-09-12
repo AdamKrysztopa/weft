@@ -101,6 +101,8 @@ NAME_RESOLUTION_FAMILY: Final[frozenset[str]] = frozenset(
         "weft_cli.eval_commands.UnknownRunIdError",
         "weft_cli.eval_commands.NoBaselineRunsError",
         "weft_cli.eval_commands.UnknownQuestionKindError",
+        "weft_cli.eval_scoring.UnresolvableLabelError",
+        "weft_cli.eval_scoring.AmbiguousLabelError",
         "weft_cli.pipeline_catalogue.UnknownPipelineNameError",
         "weft_eval.offline.UnknownMetricNameError",
         "weft_cli.services.UnknownServiceKeyError",

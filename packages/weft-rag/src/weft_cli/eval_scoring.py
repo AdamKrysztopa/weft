@@ -40,9 +40,9 @@ occurrence, so `RetrievalSample.retrieved` never repeats an id — the identical
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePath
 from types import MappingProxyType
 from typing import Any, Final, cast
 
@@ -66,7 +66,7 @@ from weft_eval.run_record import (
 )
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackReport
-from weft_kernel.errors import WeftError
+from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_kernel.payload import Node, Outcome
 from weft_kernel.registry import Registry
 from weft_kernel.resolution import Contribution, ResolvedPipeline, ResolvedStage, pipeline_identity
@@ -97,6 +97,91 @@ class PipelineNotRetrievableError(WeftError):
     def __init__(self, message: str, *, pipeline: str) -> None:
         super().__init__(message)
         self.pipeline = pipeline
+
+
+class UnresolvableLabelError(WeftError, UnresolvedNameError):
+    """A `relevant_documents` label names no document in the corpus that was scored.
+
+    Refused rather than scored, which is this project's own scar: an early RAPTOR run read
+    `0.000` at every cutoff because ground truth named manifest ids and hits are attributed by
+    resolved path, and a `0.000` meaning *the harness is wrong* cannot be told from a `0.000`
+    meaning *the architecture fails* (`docs/internal/build-ledger.md:5528 'an early run read'`).
+    A question whose ground truth names nothing is a broken input, not a hard question.
+    """
+
+    def __init__(self, message: str, *, valid_options: tuple[str, ...], label: str) -> None:
+        super().__init__(message)
+        self.valid_options = valid_options
+        self.label = label
+
+
+class AmbiguousLabelError(WeftError, UnresolvedNameError):
+    """A `relevant_documents` label names more than one document in the corpus.
+
+    `weft_cli.ingest.AmbiguousExtractorError`'s own footing one surface over: a name matching
+    too much is refused rather than resolved by picking, because whichever document the
+    resolution happened to choose would score and the other would count as a miss for a
+    question that named it.
+    """
+
+    def __init__(self, message: str, *, valid_options: tuple[str, ...], label: str) -> None:
+        super().__init__(message)
+        self.valid_options = valid_options
+        self.label = label
+
+
+def _label_matches(label_parts: tuple[str, ...], document_parts: tuple[str, ...]) -> bool:
+    """Whether `label_parts` is a **suffix** of `document_parts`, compared component-wise —
+    task 16.5. Comparing the joined strings instead would let `7717v2.pdf` match a path merely
+    ending in that character sequence, which is the tail of a filename rather than a
+    corpus-relative path; `pathlib` splits both sides on the separator first so a match can
+    only land on a whole path component.
+    """
+    if len(label_parts) > len(document_parts):
+        return False
+    return document_parts[len(document_parts) - len(label_parts) :] == label_parts
+
+
+def resolve_labels(
+    labels: Iterable[str], *, corpus_document_ids: Sequence[str]
+) -> Mapping[str, str]:
+    """Each label, mapped to the corpus document id it names — task **16.5**.
+
+    A label matches a document when the label's path components are a **suffix** of the
+    document's, compared component-wise rather than as a string: `arxiv/1304.7717v2.pdf` names
+    `/anywhere/corpus/arxiv/1304.7717v2.pdf` in every staging, and `7717v2.pdf` names nothing,
+    because it is the tail of a filename rather than a path. A whole resolved path is its own
+    suffix, so a questions file written before this task keeps working.
+
+    Raises `UnresolvableLabelError` for a label matching no document and `AmbiguousLabelError`
+    for one matching several, both naming the label and the documents — never a silent pick and
+    never a miss that reads as a hard question.
+    """
+    valid_options = tuple(sorted(corpus_document_ids))
+    resolved: dict[str, str] = {}
+    for label in labels:
+        label_parts = PurePath(label).parts
+        matches = sorted(
+            document_id
+            for document_id in corpus_document_ids
+            if _label_matches(label_parts, PurePath(document_id).parts)
+        )
+        if not matches:
+            raise UnresolvableLabelError(
+                f"relevant_documents label '{label}' names no document in the scored corpus. "
+                f"Valid options: {', '.join(valid_options)}",
+                valid_options=valid_options,
+                label=label,
+            )
+        if len(matches) > 1:
+            raise AmbiguousLabelError(
+                f"relevant_documents label '{label}' names {len(matches)} documents in the "
+                f"scored corpus: {', '.join(matches)}",
+                valid_options=valid_options,
+                label=label,
+            )
+        resolved[label] = matches[0]
+    return resolved
 
 
 class AnswerCarriesNoUsedPassagesError(WeftError):
@@ -324,6 +409,7 @@ async def score_pipeline(
     questions: tuple[Question, ...],
     top_k: int,
     ctx: Context,
+    corpus_document_ids: Sequence[str],
     query_pipeline: str | None = None,
     reports: Sequence[PackReport] = (),
     llm: LLMSection | None = None,
@@ -367,6 +453,19 @@ async def score_pipeline(
     not narrow just because a second pipeline is now doing the retrieving. An empty
     `questions` tuple still calls through — `weft_eval.harness.score_retrieval_gate_subset`
     already answers that honestly, one place rather than two.
+
+    **`corpus_document_ids`, task 16.5 — resolved here, once, never inside a metric.**
+    `question.relevant_documents` holds labels an author wrote by hand; a hit is attributed to
+    a resolved absolute path (`_document_id_of`). `weft_cli.eval_scoring.resolve_labels` turns
+    every label this run's questions use into the corpus document id it names, in one call
+    *before* the question loop below — the label vocabulary is the same for every question, so
+    resolving per question would raise the same refusal N times and redo the same work N times.
+    Each `RetrievalSample.relevant_ids` is then the frozenset of *resolved document ids*, never
+    of labels, so every metric downstream goes on doing exact set membership on document ids
+    exactly as it does today. This lives here and not inside a metric for `eval/metrics.py`'s
+    own reason, one layer up: `Hit`'s docstring already argues "a metric that had to know about
+    file paths would be a metric that stops working the day the corpus moves" — the identical
+    argument against teaching a metric a path-matching rule instead of a plain set comparison.
     """
     embed_stage = _stage_for_contract(resolved_pipeline, Embedder.__name__)
     store_stage = _stage_for_contract(resolved_pipeline, NodeStore.__name__)
@@ -404,6 +503,9 @@ async def score_pipeline(
         else QuestionKey.POSITION
     )
 
+    all_labels = {label for question in questions for label in question.relevant_documents}
+    resolved_labels = resolve_labels(all_labels, corpus_document_ids=corpus_document_ids)
+
     samples: list[RetrievalSample] = []
     for index, question in enumerate(questions):
         question_key = question.id if question.id is not None else str(index)
@@ -438,7 +540,9 @@ async def score_pipeline(
                 query=question.query,
                 question_key=question_key,
                 retrieved=_deduplicated_by_document(hits, top_k=top_k),
-                relevant_ids=frozenset(question.relevant_documents),
+                relevant_ids=frozenset(
+                    resolved_labels[label] for label in question.relevant_documents
+                ),
                 modality=question.modality,
                 kind=question.kind,
             )
@@ -453,12 +557,15 @@ async def score_pipeline(
 
 
 __all__ = [
+    "AmbiguousLabelError",
     "AnswerCarriesNoUsedPassagesError",
     "PipelineNotRetrievableError",
     "Question",
     "QuestionsFileError",
     "ScoredRun",
+    "UnresolvableLabelError",
     "load_questions",
     "passages_for_scoring",
+    "resolve_labels",
     "score_pipeline",
 ]

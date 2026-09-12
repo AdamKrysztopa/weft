@@ -2708,6 +2708,52 @@ over identical files. **What to do:** re-take the older arm on this version. The
 migration — the bytes an old record digested were never written down. `manual/operations-guide.md`
 → *What the corpus digest is over, and why a record says so* has the reproduction.
 
+### `UnresolvableLabelError`
+
+**What it looks like** — a `--questions` file whose `relevant_documents` label names no document
+in the corpus being scored. Reproduced against a real two-document corpus and a real run:
+
+```text
+$ weft eval run corpus index-text --questions questions.json --yes ; echo $?
+relevant_documents label 'ax-1304.7717v2' names no document in the scored corpus. Valid options: /tmp/t165/corpus/arxiv/1304.7717v2.pdf.txt, /tmp/t165/corpus/other.txt
+4
+```
+
+**A label is a corpus-relative path, and it matches a document when its path components are a
+suffix of that document's.** So `arxiv/1304.7717v2.pdf.txt` names that file wherever the corpus is
+staged, a bare `other.txt` names it when only one document has that name, and a whole resolved
+path is its own suffix and keeps working. What does *not* resolve is an identifier from somewhere
+else — a manifest id like `ax-1304.7717v2`, a title, a DOI — because nothing in the corpus is
+named that.
+
+**Why this refuses rather than scoring zero.** A label that matches nothing would count every hit
+as irrelevant and report `0.000` at every cutoff, and a `0.000` meaning *the ground truth is
+wrong* is indistinguishable in a report from a `0.000` meaning *retrieval failed*. This project
+has made that mistake and recorded it: an early RAPTOR measurement read `0.000` everywhere and was
+not reported as a finding.
+
+**What to do:** rewrite the label as the document's path relative to the corpus directory. The
+message lists every document the run actually scored, so the label you want is in it.
+
+### `AmbiguousLabelError`
+
+**What it looks like** — a label that names more than one document, because two directories hold a
+file of the same name:
+
+```text
+$ weft eval run corpus index-text --questions questions.json --yes ; echo $?
+relevant_documents label 'other.txt' names 2 documents in the scored corpus: /tmp/t165/corpus/b/other.txt, /tmp/t165/corpus/other.txt
+4
+```
+
+**Refused rather than resolved by picking.** Whichever of the two the resolution happened to
+choose would score, and the other would count as a miss for a question that named it — a wrong
+number rather than a missing one. `weft index`'s own `AmbiguousExtractorError` takes the identical
+posture one surface over.
+
+**What to do:** lengthen the label until it names one document — `b/other.txt` rather than
+`other.txt`. The message names both candidates, so the distinguishing prefix is visible in it.
+
 ### `UnknownRunIdError`
 
 **What it looks like** — `weft eval compare`/`weft trace` given a run id nothing persisted,

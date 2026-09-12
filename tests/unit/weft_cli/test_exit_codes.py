@@ -176,3 +176,22 @@ def test_exit_code_for_reads_the_type_not_the_message() -> None:
 
     other = WeftError("this text says resolution failed but is not the family")
     assert exit_code_for(other) is ExitCode.OPERATION_FAILED
+
+
+def test_a_label_that_names_no_document_maps_to_resolution_failed() -> None:
+    # Task 16.5 — a ground-truth label naming nothing in the corpus is "fix what you typed",
+    # the identical exit-4 family as an unknown run id, and it rides a local import for the
+    # same reason: `weft --version` must not pay for `weft_cli.eval_scoring`'s import chain.
+    from weft_cli.eval_scoring import UnresolvableLabelError
+
+    exc = UnresolvableLabelError("no such document", valid_options=(), label="ax-1304.7717v2")
+    assert exit_code_for(exc) is ExitCode.RESOLUTION_FAILED
+
+
+def test_a_label_that_names_two_documents_maps_to_resolution_failed() -> None:
+    # The ambiguous half, `weft_cli.ingest.AmbiguousExtractorError`'s own footing: a name that
+    # matches too much is still a name the operator has to fix.
+    from weft_cli.eval_scoring import AmbiguousLabelError
+
+    exc = AmbiguousLabelError("two documents", valid_options=(), label="notes.txt")
+    assert exit_code_for(exc) is ExitCode.RESOLUTION_FAILED

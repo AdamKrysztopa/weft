@@ -64,6 +64,11 @@ _LOCAL_IMPORT_MEMBERS: Final[tuple[str, ...]] = (
     "NoBaselineRunsError",
     "UnknownQuestionKindError",
     "UnknownMetricNameError",
+    # Task **16.5** — a ground-truth label naming no document, and one naming several. Both
+    # ride this branch for the reason every member above does: a module-scope import of
+    # `weft_cli.eval_scoring` would make `weft --version` pay for that module's import chain.
+    "UnresolvableLabelError",
+    "AmbiguousLabelError",
 )
 
 

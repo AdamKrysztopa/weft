@@ -17,10 +17,13 @@ from pathlib import Path
 import pytest
 
 from weft_cli.eval_scoring import (
+    AmbiguousLabelError,
     PipelineNotRetrievableError,
     Question,
     QuestionsFileError,
+    UnresolvableLabelError,
     load_questions,
+    resolve_labels,
     score_pipeline,
 )
 from weft_embed import Embedder
@@ -162,6 +165,7 @@ async def test_score_pipeline_retrieves_and_scores_against_the_resolved_stages()
         questions=questions,
         top_k=1,
         ctx=_ctx(),
+        corpus_document_ids=("doc-a", "doc-b"),
     )
 
     # Assert — the one retrieved passage is the one relevant document: precision@1 = 1.0.
@@ -185,6 +189,7 @@ async def test_score_pipeline_refuses_a_pipeline_with_no_store_stage() -> None:
             questions=questions,
             top_k=1,
             ctx=_ctx(),
+            corpus_document_ids=("doc-a", "doc-b"),
         )
     assert excinfo.value.pipeline == "index"
 
@@ -261,6 +266,7 @@ async def test_scores_are_keyed_by_question_id_when_the_file_carries_them() -> N
         questions=questions,
         top_k=1,
         ctx=_ctx(),
+        corpus_document_ids=("doc-a", "doc-b"),
     )
 
     # Assert
@@ -288,6 +294,7 @@ async def test_scores_are_keyed_by_position_when_the_file_carries_no_ids() -> No
         questions=questions,
         top_k=1,
         ctx=_ctx(),
+        corpus_document_ids=("doc-a", "doc-b"),
     )
 
     # Assert
@@ -296,3 +303,132 @@ async def test_scores_are_keyed_by_position_when_the_file_carries_no_ids() -> No
     precision = scores["precision@1"]
     assert precision.keyed_by is QuestionKey.POSITION
     assert set(precision.scores) == {"0", "1"}
+
+
+# --- Task 16.5 — a label written in the tree finds its document on any machine.
+
+
+def _corpus() -> tuple[str, ...]:
+    """A staged corpus, as `IndexResult.document_ids` reports it: resolved absolute paths."""
+    return (
+        "/somewhere/corpus/arxiv/1304.7717v2.pdf",
+        "/somewhere/corpus/arxiv/1411.2331v1.pdf",
+        "/somewhere/corpus/pl-wiki/kraków.txt",
+    )
+
+
+def test_a_corpus_relative_label_finds_its_document_wherever_it_is_staged() -> None:
+    """The property, and it is about two machines rather than one.
+
+    Ground truth is written once and read wherever the corpus is staged, so a label cannot
+    carry a root. `eval/metrics.py`'s own `Hit` docstring states the principle this resolves
+    under: *"a metric that had to know about file paths would be a metric that stops working
+    the day the corpus moves"* — so the resolution happens once, here, and every metric goes on
+    comparing document ids exactly.
+    """
+    # Arrange — the same corpus staged under two different roots.
+    here = _corpus()
+    there = tuple(path.replace("/somewhere", "/elsewhere/checkout") for path in here)
+
+    # Act
+    resolved_here = resolve_labels(("arxiv/1304.7717v2.pdf",), corpus_document_ids=here)
+    resolved_there = resolve_labels(("arxiv/1304.7717v2.pdf",), corpus_document_ids=there)
+
+    # Assert — one label, two stagings, and in each it names that staging's own document.
+    assert resolved_here["arxiv/1304.7717v2.pdf"] == here[0]
+    assert resolved_there["arxiv/1304.7717v2.pdf"] == there[0]
+
+
+def test_a_label_matches_only_at_a_path_component_boundary() -> None:
+    """`7717v2.pdf` is not a corpus-relative path, it is the tail of a filename. Matching it
+    would make `.pdf` match every PDF in the corpus, which is the failure mode a suffix rule
+    has and a component-wise one does not.
+    """
+    # Act / Assert
+    with pytest.raises(UnresolvableLabelError):
+        resolve_labels(("7717v2.pdf",), corpus_document_ids=_corpus())
+
+
+def test_a_bare_filename_still_resolves_when_it_names_one_document() -> None:
+    """A filename *is* a corpus-relative path when the corpus is flat, and most are. The rule
+    is about component boundaries, not about requiring a directory.
+    """
+    # Act
+    resolved = resolve_labels(("1411.2331v1.pdf",), corpus_document_ids=_corpus())
+
+    # Assert
+    assert resolved["1411.2331v1.pdf"] == "/somewhere/corpus/arxiv/1411.2331v1.pdf"
+
+
+def test_a_label_naming_no_document_is_refused_rather_than_scored_zero() -> None:
+    """The defect this rule exists for, and the ledger records it as a scar
+    (`docs/internal/build-ledger.md:5528 "an early run read"`): *"an early run read `0.000` at
+    every cutoff and was not reported as a finding — ground truth names a `SourceDoc.source_id`,
+    and bare filenames match nothing."* A `0.000` meaning *the harness is wrong* and a `0.000`
+    meaning *the architecture fails* are indistinguishable in a report.
+    """
+    # Act / Assert
+    with pytest.raises(UnresolvableLabelError) as excinfo:
+        resolve_labels(("ax-1304.7717v2",), corpus_document_ids=_corpus())
+    message = str(excinfo.value)
+    assert "ax-1304.7717v2" in message, "the refusal does not name the label that failed"
+    assert "arxiv/1304.7717v2.pdf" in message, (
+        "`01` requirement 5: a name that does not resolve says what the valid options are"
+    )
+
+
+def test_a_label_matching_two_documents_is_refused_naming_both() -> None:
+    """Ambiguity is silent otherwise: whichever document the resolution happened to pick would
+    score, and the other would count as a miss for a question that named it.
+    """
+    # Arrange — the same filename under two directories, which a staged corpus can hold.
+    corpus = (
+        "/somewhere/corpus/a/notes.txt",
+        "/somewhere/corpus/b/notes.txt",
+    )
+
+    # Act / Assert
+    with pytest.raises(AmbiguousLabelError) as excinfo:
+        resolve_labels(("notes.txt",), corpus_document_ids=corpus)
+    message = str(excinfo.value)
+    assert "a/notes.txt" in message
+    assert "b/notes.txt" in message
+
+
+def test_a_label_that_is_the_whole_resolved_path_still_resolves() -> None:
+    """Every questions file written before this task names absolute paths, because that is
+    what `SourceId` is. They keep working — the rule is a suffix rule and a whole path is its
+    own suffix.
+    """
+    # Act
+    resolved = resolve_labels(
+        ("/somewhere/corpus/pl-wiki/kraków.txt",), corpus_document_ids=_corpus()
+    )
+
+    # Assert
+    assert resolved["/somewhere/corpus/pl-wiki/kraków.txt"] == _corpus()[2]
+
+
+async def test_a_question_is_scored_against_the_document_its_label_resolved_to() -> None:
+    """The wire: the resolution reaches the metric, so a hit on the labelled document counts.
+
+    Before this task the label and the hit id were compared as raw strings — a manifest id
+    against a resolved absolute path — and every question scored `0.000`.
+    """
+    # Arrange
+    questions = (Question(query="q", relevant_documents=("doc-a",)),)
+
+    # Act
+    report = await score_pipeline(
+        registry=_registry(),
+        resolved_pipeline=_resolved_pipeline(),
+        questions=questions,
+        top_k=1,
+        ctx=_ctx(),
+        corpus_document_ids=("doc-a", "doc-b"),
+    )
+
+    # Assert
+    outcome = report.metrics["precision@1"]
+    assert isinstance(outcome, Produced)
+    assert outcome.value.mean == 1.0

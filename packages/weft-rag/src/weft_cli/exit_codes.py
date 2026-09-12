@@ -140,6 +140,13 @@ def exit_code_for(exc: WeftError) -> ExitCode:
     cannot run right now, "something failed" rather than "fix the pipeline", so it is
     deliberately left off this list to fall through to `OPERATION_FAILED` below, the identical
     footing `EmptyCorpusError`/`IncomparableRunsError` already have.
+
+    **`weft_cli.eval_scoring.UnresolvableLabelError`/`AmbiguousLabelError`, task 16.5 — the
+    same family, riding the same import.** A `--questions` file's `relevant_documents` label
+    naming no document, or more than one, in the corpus that was scored is "fix what you
+    typed" exactly as an unknown run id is; `weft_cli.eval_scoring` carries the identical heavy
+    import chain (`weft_embed`/`weft_store`/`weft_retrieve`/`weft_llm`) `weft_cli.eval_commands`
+    already does, so this rides the same local import rather than adding a second one.
     """
     if isinstance(exc, (PipelineResolutionError, *_ALSO_RESOLUTION_FAILED)):
         return ExitCode.RESOLUTION_FAILED
@@ -158,6 +165,7 @@ def exit_code_for(exc: WeftError) -> ExitCode:
         UnknownQuestionKindError,
         UnknownRunIdError,
     )
+    from weft_cli.eval_scoring import AmbiguousLabelError, UnresolvableLabelError
     from weft_cli.route_ask import NoRouterPipelineError
     from weft_eval.offline import UnknownMetricNameError
 
@@ -169,6 +177,8 @@ def exit_code_for(exc: WeftError) -> ExitCode:
             NoBaselineRunsError,
             UnknownQuestionKindError,
             UnknownMetricNameError,
+            UnresolvableLabelError,
+            AmbiguousLabelError,
         ),
     ):
         return ExitCode.RESOLUTION_FAILED
