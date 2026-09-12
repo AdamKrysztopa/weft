@@ -2708,6 +2708,29 @@ over identical files. **What to do:** re-take the older arm on this version. The
 migration — the bytes an old record digested were never written down. `manual/operations-guide.md`
 → *What the corpus digest is over, and why a record says so* has the reproduction.
 
+### `CollidingMetricNameError`
+
+**What it looks like** — two installed metrics compute the same reported name, so `weft eval run
+--questions` refuses rather than scoring:
+
+```text
+two registered metrics both report 'precision@5' — 'precision-at-k' and 'acme-precision'. A run
+record keys both its aggregates and its per-question scores by the name a metric computes, so one
+of the two would silently replace the other. Uninstall one, or have its pack report a name of its
+own.
+```
+
+**Registered name and reported name are different things.** A metric registers under a plugin name
+(`precision-at-k`) and *reports* the name it computed (`precision@5`, which carries its `k`). A run
+record is keyed by the second, because that is what a reader compares across two runs — so two
+plugins that report one name would occupy one entry, and the one scored second would replace the
+first without a word.
+
+**What to do:** the message names both registered plugins. Uninstall the pack you did not mean to
+score with, or ask its author to report a name of its own — a metric that reports a name another
+pack already publishes is claiming that pack's identity, which is `docs/10-technique-catalogue.md`
+§2.1's rule about names one level down.
+
 ### `UnresolvableLabelError`
 
 **What it looks like** — a `--questions` file whose `relevant_documents` label names no document

@@ -74,6 +74,7 @@ from weft_eval.contract import (
 from weft_eval.offline import gate_subset
 from weft_eval.run_record import NotScored, QuestionOutcome
 from weft_kernel.context import Context
+from weft_kernel.errors import WeftError
 from weft_kernel.payload import Failed, NothingToProduce, Outcome, Produced
 from weft_kernel.registry import Registry, unwrap_factory
 
@@ -190,6 +191,21 @@ def _per_question_scores(
     }
 
 
+class CollidingMetricNameError(WeftError):
+    """Two registered metrics compute the same reported name.
+
+    **Found at Phase 16a's close review, and invisible until then because the cardinality was
+    1**: every metric this tree ships reports a distinct name, so the dict assignment below
+    could not collide and nothing checked that it could not. A third-party pack registering a
+    metric that computes `precision@5` beside the built-in is all it takes — and since task
+    16.4 a collision would take a whole per-question score set with it, not only an aggregate.
+
+    `01` requirement 5 applied to a name two things claim rather than to one nothing does: the
+    refusal names the reported name and both registered plugins, because *which* two collided
+    is the only fact an operator can act on.
+    """
+
+
 async def score_retrieval_gate_subset(
     registry: Registry,
     samples: Sequence[RetrievalSample],
@@ -208,6 +224,8 @@ async def score_retrieval_gate_subset(
     gate_safe_retrieval = registry.names_for(RetrievalMetric) & set(gate_subset(registry).gate_safe)
 
     report: dict[str, Outcome[MetricAggregate]] = {}
+    #: Which registered plugin reported each name, so a collision can name both sides.
+    reported_by: dict[str, str] = {}
     per_question: dict[str, Mapping[str, QuestionOutcome]] = {}
     for name in sorted(gate_safe_retrieval):
         factory = registry.lookup(RetrievalMetric, name)
@@ -224,6 +242,14 @@ async def score_retrieval_gate_subset(
             by_question_kind=_question_kind_slices(samples, outcomes),
         )
         key = outcome.value.reported_name if isinstance(outcome, Produced) else name
+        if key in report:
+            raise CollidingMetricNameError(
+                f"two registered metrics both report '{key}' — '{reported_by[key]}' and "
+                f"'{name}'. A run record keys both its aggregates and its per-question scores "
+                f"by the name a metric computes, so one of the two would silently replace the "
+                f"other. Uninstall one, or have its pack report a name of its own."
+            )
+        reported_by[key] = name
         report[key] = outcome
         per_question[key] = _per_question_scores(samples, outcomes)
     return SubsetScores(metrics=report, per_question=per_question)

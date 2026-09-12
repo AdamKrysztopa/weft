@@ -324,7 +324,8 @@ class PgVectorSettings(BaseModel):
     #: never reaches a passage that says "retrieved".
     #:
     #: **And for Polish there is nothing else to name — measured, task 16.8.** The shipped
-    #: `pgvector/pgvector:pg16` image installs 28 text search configurations and `polish` is not
+    #: `pgvector/pgvector:pg16` image installed 28 text search configurations on 2026-09-12 —
+    #: a count about an image, so re-take it rather than cite it — and `polish` is not
     #: one of them; Postgres ships stemmers for the languages Snowball covers and Polish is not
     #: among them either. So on a stock install `simple` is not a compromise between two
     #: options, it is the only option, and a Polish corpus needs a dictionary installed in the

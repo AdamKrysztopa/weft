@@ -11,13 +11,21 @@ produces one `Failed` entry per gate-safe metric, never a silent empty report), 
 gate-unsafe `RetrievalMetric`s (`context-recall`, `context-relevance`) never appear at all.
 """
 
+from typing import ClassVar
+
+import pytest
+from pydantic import BaseModel
+
 from weft_eval import Settings, register
-from weft_eval.contract import RetrievalSample, RetrievedPassage
-from weft_eval.harness import score_retrieval_gate_subset
+from weft_eval.contract import MetricScore, RetrievalMetric, RetrievalSample, RetrievedPassage
+from weft_eval.harness import (
+    CollidingMetricNameError,
+    score_retrieval_gate_subset,
+)
 from weft_eval.run_record import NotScored
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackRegistrar
-from weft_kernel.payload import Failed, Produced
+from weft_kernel.payload import Failed, Outcome, Produced
 from weft_kernel.registry import Registry
 
 
@@ -27,6 +35,20 @@ def _registry() -> Registry:
     register(registrar, Settings())
     registrar.commit()
     return registry
+
+
+class _ShadowPrecision:
+    """A third party's metric that happens to report the name a built-in already reports."""
+
+    config_model: ClassVar[type[BaseModel] | None] = None
+    runs_in_gate: ClassVar[bool] = True
+
+    def __init__(self, config: object = None) -> None:
+        del config
+
+    async def evaluate(self, payload: RetrievalSample, ctx: Context) -> Outcome[MetricScore]:
+        del payload, ctx
+        return Produced(value=MetricScore(metric_name="precision@1", value=1.0))
 
 
 def _ctx() -> Context:
@@ -175,3 +197,34 @@ async def test_every_metric_keys_its_questions_under_the_name_the_aggregate_repo
 
     # Assert
     assert set(report.per_question) == set(report.metrics)
+
+
+# --- Found at Phase 16a's close review: one key space, and nothing refused a collision.
+
+
+async def test_two_metrics_reporting_one_name_are_refused_rather_than_overwriting() -> None:
+    """`metrics` and `question_scores` are both keyed by `reported_name`, and the loop assigned
+    into a dict — so a second metric computing a name the first already reported replaced it,
+    silently, taking a whole question set with it since task 16.4.
+
+    Invisible while the cardinality is 1: every metric this tree ships reports a distinct name.
+    A third-party pack registering something that computes `precision@5` beside the built-in is
+    all it takes, and the requirement is that an unknown or colliding name fails loudly naming
+    what collided (`01` requirement 5).
+    """
+    # Arrange — two registered plugins, one reported name.
+    registry = _registry()
+    registry.add(RetrievalMetric, "shadow-precision", _ShadowPrecision, distribution="acme")
+    sample = RetrievalSample(
+        query="q",
+        question_key="q-1",
+        retrieved=(RetrievedPassage(id="doc-a", text="a"),),
+        relevant_ids=frozenset({"doc-a"}),
+    )
+
+    # Act / Assert
+    with pytest.raises(CollidingMetricNameError) as excinfo:
+        await score_retrieval_gate_subset(registry, [sample], top_k=1, ctx=_ctx())
+    message = str(excinfo.value)
+    assert "precision@1" in message, "the refusal does not name the reported name that collided"
+    assert "shadow-precision" in message, "the refusal does not name the plugin that collided"
