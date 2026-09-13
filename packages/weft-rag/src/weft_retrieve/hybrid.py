@@ -128,6 +128,14 @@ class Hybrid:
     it happens to be holding.**
     """
 
+    #: What this retriever's numbers mean — ledger task **21.1**. Reciprocal-rank fusion does
+    #: not return a similarity at all: it returns a fused *rank* score, which is exactly why it
+    #: can combine a vector arm and a text arm whose own numbers do not commensurate.
+    score_semantics: ClassVar[str] = (
+        "a reciprocal-rank fusion score, not a similarity — it combines the arms' rankings "
+        "rather than their numbers, which is why the arms' own scores are not comparable"
+    )
+
     config_model: ClassVar[type[HybridConfig]] = HybridConfig
     needs_store: ClassVar[tuple[type, ...]] = (VectorSearch, TextSearch)
 

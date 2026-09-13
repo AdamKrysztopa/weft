@@ -152,6 +152,14 @@ class VectorTopK:
     times — does not apply to a plugin that never resolves it at all.
     """
 
+    #: What this retriever's numbers mean — ledger task **21.1**, read defensively by
+    #: `weft_cli.explain`. It passes the store's own similarity through untouched, so the
+    #: sentence is the store's fact restated where a reader of `--explain` will meet it.
+    score_semantics: ClassVar[str] = (
+        "the configured store's own vector similarity, passed through unchanged; higher is "
+        "nearer, and it is unbounded below"
+    )
+
     config_model: ClassVar[type[VectorTopKConfig]] = VectorTopKConfig
     needs_store: ClassVar[tuple[type, ...]] = (VectorSearch,)
     cost_bound: ClassVar[tuple[int, int]] = (0, 0)

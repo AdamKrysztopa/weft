@@ -657,7 +657,11 @@ def _render_ask(result: AskCommandResult, *, streamed: bool, as_json: bool = Fal
         elif not streamed:
             lines.append(result.answer.text)
         lines.extend(_citation_line(citation) for citation in result.answer.citations)
-        return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
+        return Rendered(
+            stdout="\n".join([*lines, *_explain_lines(result)]),
+            stderr=None,
+            exit_code=ExitCode.SUCCESS,
+        )
 
     if result.format is AskFormat.JSON:
         # No empty-result special case on this side — a caller reading structured output
@@ -679,7 +683,29 @@ def _render_ask(result: AskCommandResult, *, streamed: bool, as_json: bool = Fal
         )
 
     lines = [f"{hit.rank}. {hit.content}" for hit in result.hits]
-    return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
+    return Rendered(
+        stdout="\n".join([*lines, *_explain_lines(result)]), stderr=None, exit_code=ExitCode.SUCCESS
+    )
+
+
+def _explain_lines(result: AskCommandResult) -> list[str]:
+    """`--explain`'s block, or nothing at all — ledger task **21.1**.
+
+    Empty unless the flag was passed, so every existing transcript in `manual/` and every test
+    asserting this function's output is byte-identical without it. That matters more than it
+    looks: `03` → *Output*'s *Score display* decision — a reader sees rank order and never the raw
+    number — is unchanged, and this is an opt-in answer to *why*, not a reversal of it.
+
+    The sentences are the producers' own, resolved in `weft_cli.commands` where the registry is;
+    this function knows only how to lay them out.
+    """
+    if not result.explanations and result.score_note is None:
+        return []
+    lines = ["", "score:"]
+    lines.extend(f"  {explanation}" for explanation in result.explanations)
+    if result.score_note is not None:
+        lines.extend(["", f"  {result.score_note}"])
+    return lines
 
 
 def render_applies_to(applies: Applies) -> str:

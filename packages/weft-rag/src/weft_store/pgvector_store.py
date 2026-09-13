@@ -84,7 +84,7 @@ from datetime import datetime
 from enum import StrEnum
 from functools import partial
 from hashlib import sha256
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 
 import psycopg
 from pgvector import Vector as PgVector
@@ -747,6 +747,26 @@ class PgVectorStore:
     Satisfies all four contracts structurally — this class never imports one of
     the Protocols, the same path any third-party store pack takes.
     """
+
+    #: What `search_vector`'s number means — ledger task **21.1**, read off this class by
+    #: `weft_cli.explain.ScoreExplanation.of`. **One per capability, not one per class**, because
+    #: this object satisfies `VectorSearch` and `TextSearch` and they return incommensurable
+    #: numbers; a single attribute would have to describe both, which is the field lying rather
+    #: than the class being awkward.
+    vector_score_semantics: ClassVar[str] = (
+        "cosine similarity, computed as 1 - cosine distance; higher is nearer, and it is "
+        "unbounded below — a hash embedder routinely produces negative values, which rank "
+        "correctly and mean nothing"
+    )
+
+    #: What `search_text`'s number means. `ts_rank_cd` has no fixed range and its scale depends on
+    #: `[packs.store] text_rank_normalization` (ledger `21.0`), which is why the setting is named
+    #: here: the same passage scores differently under a different bitmask, and two runs either
+    #: side of a change to it are not comparable.
+    text_score_semantics: ClassVar[str] = (
+        "Postgres ts_rank_cd cover-density rank under the configured "
+        "text_rank_normalization; higher is a better lexical match, with no fixed range"
+    )
 
     def __init__(self, settings: PgVectorSettings, config: object = None) -> None:
         del config  # nothing at the stage level this store needs — see the module docstring

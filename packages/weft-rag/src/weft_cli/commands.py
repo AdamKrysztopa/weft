@@ -94,6 +94,7 @@ from weft_cli.deletion import ParticipantOutcome, delete_everywhere
 from weft_cli.deletion import participants as deletion_participants
 from weft_cli.eval_commands import DEFAULT_RUNS_DIR, register_eval_commands
 from weft_cli.exit_codes import ExitCode
+from weft_cli.explain import ScoreExplanation, explanations_for, incomparable_note
 from weft_cli.fanout import Participant
 from weft_cli.ingest import INDEX_PACKS, SourceChange, run_index
 from weft_cli.installed_versions import active_distribution_versions, installed_versions
@@ -141,9 +142,10 @@ from weft_kernel.context import Context
 from weft_kernel.discovery import PackRegistrar, PackReport
 from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_kernel.payload import Outcome, Produced, SourceId
-from weft_kernel.registry import DisplacedRegistration
+from weft_kernel.registry import DisplacedRegistration, unwrap_factory
 from weft_kernel.resolution import Contribution
 from weft_kernel.runner import RunSummary
+from weft_retrieve.contract import Retriever
 from weft_store import NodeStore, ReconcileMode
 
 _INDEX_HELP = (
@@ -416,6 +418,14 @@ class AskArgs(BaseModel):
             "against). Mutually exclusive with --retrieve-only."
         ),
     )
+    explain: bool = Field(
+        default=False,
+        description=(
+            "print what each score means and what produced it, and say so when the scores in "
+            "one ranking came from more than one retriever and are therefore on different "
+            "scales. Rank order is what a reader is meant to trust; this is how to check why."
+        ),
+    )
     retrieve_only: bool = Field(
         default=False,
         description=(
@@ -481,6 +491,12 @@ class AskCommandResult(CommandResult):
     top_k: int
     format: AskFormat
     hits: tuple[AskHit, ...] = ()
+    #: Ledger task **21.1**, populated only under `--explain`. One line per *distinct* producer,
+    #: each in that producer's own words — `weft_cli.explain` holds no sentences of its own.
+    explanations: tuple[str, ...] = ()
+    #: The sentence saying these numbers are not comparable, when they came from more than one
+    #: retriever. `None` when they came from one, which is the ordinary case.
+    score_note: str | None = None
 
 
 _RENDER_HELP: Final[str] = (
@@ -862,12 +878,32 @@ class AskCommand:
             embedder=deps.services.embed,
             store=deps.services.store,
         )
+        explanations: tuple[str, ...] = ()
+        if ask_args.explain:
+            # The class, not an instance: `vector_score_semantics` is a `ClassVar`, `run_ask`
+            # closes the instance it built before returning, and building a second store to read
+            # a constant off it would open a connection to answer a documentation question.
+            store_class = unwrap_factory(
+                deps.registry.entry(NodeStore, deps.services.store).factory
+            )
+            explanations = (
+                ScoreExplanation.of(
+                    store_class,
+                    produced_by=deps.services.store,
+                    attribute="vector_score_semantics",
+                ).rendered(),
+            )
         return Produced(
             value=AskCommandResult(
                 question=ask_args.question,
                 top_k=ask_args.top_k,
                 format=ask_args.format,
                 hits=hits_for(results),
+                explanations=explanations,
+                # One store arm produced every number here, so there is nothing incomparable to
+                # report — `incomparable_note` would return `None` for a one-element sequence and
+                # calling it would be asking a question whose answer is structural.
+                score_note=None,
             )
         )
 
@@ -905,6 +941,28 @@ class AskCommand:
                 contributions=deps.contributions,
                 roles=deps.roles,
             )
+        explanations: tuple[str, ...] = ()
+        note: str | None = None
+        if ask_args.explain:
+            # `Passage.retrieved_by` is the one place that records which retriever produced a
+            # passage, and a fan-out — `multi-retriever`, `hybrid` — puts several in one list.
+            produced_by = tuple(passage.retrieved_by for passage in answer.used)
+            # Keyed by **plugin** name, not by label: a fan-out writes `<plugin>:<arm>` and
+            # `hybrid:vector` is not a registered name, so filtering on the whole label built an
+            # empty mapping and every arm reported an absence. `explanations_for` falls back to
+            # the part before the colon, and this is the half that has to put it there.
+            registered = deps.registry.names_for(Retriever)
+            wanted = {label.partition(":")[0] for label in produced_by} | set(produced_by)
+            producers = {
+                name: unwrap_factory(deps.registry.entry(Retriever, name).factory)
+                for name in wanted
+                if name in registered
+            }
+            explanations = tuple(
+                explanation.rendered()
+                for explanation in explanations_for(produced_by, producers=producers)
+            )
+            note = incomparable_note(produced_by)
         return Produced(
             value=AskCommandResult(
                 question=ask_args.question,
@@ -912,6 +970,8 @@ class AskCommand:
                 format=ask_args.format,
                 pipeline_name=pipeline_name,
                 answer=answer,
+                explanations=explanations,
+                score_note=note,
             )
         )
 
