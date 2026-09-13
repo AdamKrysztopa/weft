@@ -590,6 +590,14 @@ fail the admission rule above. A stage takes and returns a *sequence*; the kerne
 batching, so memory is bounded by batch size rather than corpus size while each stage invocation
 stays eager and `Outcome` stays decidable at return.
 
+> **And from ledger task 17.3 an operator can choose that size.** This sentence was true of
+> `weft_kernel.runner.Runner.run` from Phase 0 and false of the only caller that mattered:
+> `weft_cli.ingest.run_index` yielded the whole corpus as one batch, so *batch* meant *one
+> `weft index` invocation* and the bound was the corpus. `--batch-size` is what makes the
+> claim reachable — and it is refused for a pipeline holding a stage that declares
+> `depends_on_batch_membership`, because splitting one of those computes a different thing
+> rather than the same thing in less memory.
+
 > **Narrowed in Phase 0 step 6 (2026-08-16).** `Stage[In, Out]` is written once per *contract*
 > above — "the ingest path is `Stage[Seq[Node], Seq[Node]]` throughout... `Retriever` is
 > `Stage[Query, ...]`" — not once per plugin, and `weft_kernel.runner`'s composition check takes

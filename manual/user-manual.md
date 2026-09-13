@@ -165,6 +165,32 @@ and embeds its own summaries — the order its source paper specifies, and the o
 leaf being embedded twice per ingest. Put it back before `embed` in a derived document and it
 refuses by name rather than silently clustering nothing.
 
+**Re-indexing a corpus costs only what moved, from Phase 17.** `weft index` compares each file's
+bytes and the identity of the pipeline that read them against what it recorded last time, and hands
+the pipeline only the documents that changed. The line it prints says which:
+
+```text
+1200 documents: 0 indexed, 1200 unchanged. nodes now stored: 3600.
+```
+
+Measured on a 1,200-document corpus through `index-with-keywords`: **1.82s** for the first run and
+**0.75s** for a second with nothing moved. The saving is the whole ingest — extraction, chunking,
+every enhancer's model call and every embedding — not a cache.
+
+- **`--reprocess`** does the work anyway. It exists for the one change the pipeline identity cannot
+  see: a hosted model that moved behind a stable name. A different plugin, or the same plugin with
+  a different configured model, already counts as changed and needs no flag.
+- **`--batch-size N`** walks the corpus `N` documents at a time, so peak memory is bounded by the
+  batch rather than by the corpus. It is **refused** for a pipeline holding a stage whose output
+  depends on which other documents shared its batch — `index-with-raptor` is the shipped one, and
+  the refusal names it and points at `index-with-adrap`. Splitting such a pipeline would build one
+  tree per batch instead of one per run, and nothing would tell you.
+
+**An index that was interrupted says so.** A run killed partway leaves the documents it was working
+on marked as still indexing, and the next `weft index` re-does exactly those — reported as *a
+previous index of this document did not finish*. Before this, a killed run left no record at all
+and the half-written documents were indistinguishable from ones nobody had ever indexed.
+
 **Six PDF rungs** — `index-pdf` and its five siblings — differ in what they do with what is not
 text: the tables, the figures and the captions. `index-pdf-learned` is the one behind the `docling`
 extra.
