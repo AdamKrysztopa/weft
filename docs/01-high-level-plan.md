@@ -1947,7 +1947,9 @@ All checks run in CI, before tests.
     reintroduction of the transport `__transient__` never was, with the strip that used to be a
     backstop no longer covering it. **Clause (b) is not where this entry first put it**: it said
     *"as a conformance case in `weft_extract`'s kit"*, and measured 2026-09-06 no such kit exists —
-    the only conformance kit in the tree is the store's, under `tests/`, published nowhere.
+    the only conformance kit in the tree is the store's — which ledger task `26.4` **published**, as
+    `weft_store.conformance`, so the sentence's *"published nowhere"* half stopped being true
+    on 2026-09-13 while its *"the only one"* half did not.
     Inventing a module to hold one case would ship a seam with one user, so the clause is asserted
     in the fitness function beside clause (a). Waiver `EXT_MODELS_CARRYING_BYTES` pinned empty. No
     tuning constant. `tests/architecture/test_ff24_no_bytes_in_a_node.py`.
