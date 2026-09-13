@@ -26,10 +26,12 @@ from __future__ import annotations
 
 import os
 import re
+import socket
 import subprocess
 from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Final
+from urllib.parse import urlparse
 
 import psycopg
 import pytest
@@ -51,7 +53,30 @@ _DSN = os.environ.get("WEFT_DATABASE_URL", "postgresql://weft:weft@localhost:543
 #: That stopped being true at ledger task `26.2` on 2026-09-11, when `weft-kernel 0.1.0` and
 #: `weft-rag 2.4.0` went to PyPI, and no test went red, because a ratchet counts a waiver's
 #: entries and nothing reads its reason. `R17.14`, `docs/internal/lessons.md` `L17.10`.)*
-BLOCKS_WAIVED_FROM_EXECUTION: Final[frozenset[str]] = frozenset({"install"})
+#: *(A second entry from 2026-09-13, ledger `28.6`: `local-install` is `uv add
+#: 'weft-rag[openai]'`, the extra the semantic section needs, and it resolves against an index for
+#: exactly the reason above. It was written **because the binary refused** — the harness runs in a
+#: workspace where `openai` is already installed and could never have seen it; a clean venv with
+#: `weft-rag` alone exits `4` naming `hash` as the only registered Embedder.)*
+BLOCKS_WAIVED_FROM_EXECUTION: Final[frozenset[str]] = frozenset({"install", "local-install"})
+
+#: The environment variable that names a local OpenAI-compatible embeddings server — ledger task
+#: **28.6**, **G21** position 1. Named `WEFT_LIVE_*` on `WEFT_LIVE_API_TESTS`'s own footing: it is
+#: a statement about *this run*, not a configuration key Weft itself reads, and nothing in the
+#: product would recognise it.
+LOCAL_EMBEDDINGS_URL_VAR: Final[str] = "WEFT_LIVE_EMBEDDINGS_URL"
+
+#: The quickstart's semantic section, in document order. Executed **only** when the variable above
+#: names a server — and when it does, a server that does not answer is a **failure**, never a skip,
+#: which is the discipline `ci-checks` already applies to `WEFT_DATABASE_URL`: an operator who set
+#: the variable has claimed a server is there, and a run that then skips proves nothing while
+#: reporting green (`docs/internal/lessons-archive.md` `L7.8`).
+#:
+#: Named rather than discovered, for `REQUIRED_BLOCKS`'s reason one file over: a section deleted
+#: from the page would otherwise stop being checked by having stopped existing.
+BLOCKS_NEEDING_A_LOCAL_EMBEDDINGS_SERVER: Final[frozenset[str]] = frozenset(
+    {"local-config", "local-index", "local-ask"}
+)
 
 _FENCE = re.compile(
     r"^```bash(?:\s+id=(?P<id>\S+))?\n(?P<body>.*?)^```\s*$", re.MULTILINE | re.DOTALL
@@ -64,6 +89,31 @@ def _bash_blocks(markdown: str) -> list[tuple[str, str]]:
         (match.group("id") or f"block-{index}", match.group("body"))
         for index, match in enumerate(_FENCE.finditer(markdown), start=1)
     ]
+
+
+def _local_embeddings_server() -> str | None:
+    """The server this run was told to use, or `None` if the operator named none."""
+    named = os.environ.get(LOCAL_EMBEDDINGS_URL_VAR, "").strip()
+    return named or None
+
+
+def _server_answers(url: str) -> str | None:
+    """`None` when the endpoint accepts a connection, else why it did not.
+
+    A TCP connect rather than an HTTP request: what the blocks below need to know is whether
+    something is listening where the operator said, and an HTTP probe would additionally assert a
+    route and a status this file has no opinion about — the server's own answer to `weft index` is
+    the real check, and it runs seconds later.
+    """
+    parsed = urlparse(url)
+    if parsed.hostname is None:
+        return f"{LOCAL_EMBEDDINGS_URL_VAR}={url!r} is not a URL with a host"
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    try:
+        with socket.create_connection((parsed.hostname, port), timeout=2):
+            return None
+    except OSError as exc:
+        return f"{LOCAL_EMBEDDINGS_URL_VAR}={url!r} named a server that did not answer: {exc}"
 
 
 async def _database_reachable() -> str | None:
@@ -108,10 +158,16 @@ async def test_quickstart_executes_against_a_throwaway_project(
     # Arrange
     del clean_database
     blocks = _bash_blocks(QUICKSTART.read_text(encoding="utf-8"))
+    server = _local_embeddings_server()
+    if server is not None:
+        unreachable = _server_answers(server)
+        if unreachable is not None:
+            pytest.fail(unreachable)
     executed = [
         (block_id, body)
         for block_id, body in blocks
         if block_id not in BLOCKS_WAIVED_FROM_EXECUTION
+        and (server is not None or block_id not in BLOCKS_NEEDING_A_LOCAL_EMBEDDINGS_SERVER)
     ]
     assert executed, "every fenced block was waived — nothing was actually checked"
     env = {**os.environ, "WEFT_DATABASE_URL": _DSN}
@@ -149,6 +205,14 @@ async def test_quickstart_executes_against_a_throwaway_project(
         f"weft ask did not return a ranked result:\n{ask_output}"
     )
     assert "no matching passages found" not in ask_output
+
+    # The lexical step's claim is not prose a model chose — it is that asking for a literal token
+    # returns the passage carrying it, which is the whole difference between the text arm and the
+    # `hash` ranking above it (`R21.5`, and `28.6`'s first half).
+    assert "microkernel" in outputs["lexical"], (
+        f"the lexical step did not return the passage containing the word it was asked "
+        f"for:\n{outputs['lexical']}"
+    )
     # `docs/03-cli.md` -> Output, *Score display*: human output never prints the raw score.
     assert "score=" not in ask_output
 
@@ -163,4 +227,41 @@ async def test_quickstart_executes_against_a_throwaway_project(
     # on.
     assert re.search(r"^store\b[^:]*: active", outputs["doctor"], re.MULTILINE), (
         f"weft plugins doctor did not report the store pack active:\n{outputs['doctor']}"
+    )
+
+
+def test_the_page_still_carries_the_lexical_step() -> None:
+    """`28.6`'s first half: the honest first-hour retrieval step needs no account at all.
+
+    `R21.5` made a store's text arm reachable with no model call, and this is the block that
+    puts it in front of a reader. Named here so deleting it from the page fails, rather than
+    quietly leaving the quickstart's only demonstration of retrieval the one whose ranking is a
+    hash's (`L17.4`'s shape: what a page stops saying is what nothing notices).
+    """
+    # Act
+    present = {block_id for block_id, _ in _bash_blocks(QUICKSTART.read_text(encoding="utf-8"))}
+
+    # Assert
+    assert "lexical" in present, (
+        "`manual/quickstart.md` has no `lexical` block. Until a reader configures a model, the "
+        "text arm is the only retrieval on the page whose order means anything"
+    )
+
+
+def test_the_semantic_section_exists_and_runs_when_a_server_is_named() -> None:
+    """`28.6`'s second half, and the half a green run can hide.
+
+    The section is executed by the test above **only** when `WEFT_LIVE_EMBEDDINGS_URL` names a
+    server, which on a laptop with none means those blocks never run. So this asserts they are
+    still *there*: a deleted section and an absent server are indistinguishable to a harness that
+    only skips, and G21 settled the account-free semantic path on this page existing.
+    """
+    # Act
+    present = {block_id for block_id, _ in _bash_blocks(QUICKSTART.read_text(encoding="utf-8"))}
+
+    # Assert
+    missing = sorted(BLOCKS_NEEDING_A_LOCAL_EMBEDDINGS_SERVER - present)
+    assert not missing, (
+        f"`manual/quickstart.md` is missing {missing}. These are the blocks G21 position 1 owes a "
+        f"first-hour reader — a local server they run, rather than a model Weft downloads"
     )

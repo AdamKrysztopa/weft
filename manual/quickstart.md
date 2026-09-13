@@ -133,6 +133,95 @@ happened to produce** — the loom passage is not first because it is a better m
 this against your own files will look equally plausible and mean equally little. Configure `[llm.roles]`
 and drop `--retrieve-only` to get the routed, cited answer this same command produces by default.
 
+## 5. Make the ranking mean something — first, with no account at all
+
+Everything above is the smoke test. The corpus is indexed and the machinery ran; the *order* is a
+hash's. The cheapest way to get an order that means something needs no account, no model and no
+download — ask the store for the literal words instead of for a direction in space:
+
+```bash id=lexical
+weft ask "microkernel" --pipeline lexical-retrieve --retrieve-only
+```
+
+```text
+1. Weft is a microkernel RAG engine. A small kernel knows nothing about PDFs,
+chunking, embeddings or graphs. Every capability is a plugin discovered
+through Python entry points.
+```
+
+That is the store's **text arm** — a real lexical ranking, `ts_rank_cd` in pgvector by default —
+reached through `lexical-retrieve`, a shipped pipeline that ends at retrieval rather than at a
+generated answer, which is why `--retrieve-only` can run it with nothing configured. It is the
+honest answer to *"can this thing find anything"* on a machine with no model: a question that turns
+on an exact token — a name, an identifier, an error code — is answered correctly, right now, and
+the same question through the default `--retrieve-only` above is answered by a hash.
+
+What it cannot do is find a passage that says the same thing in different words. That is what an
+embedder is for, and the next section is the cheapest honest one.
+
+## 6. Then, with a real embedder — a server you run
+
+**There is no account in this section and nothing is downloaded by Weft.** Point it at an
+OpenAI-compatible embeddings server you are already running — Ollama, LM Studio, vLLM, a gateway —
+and the vectors start carrying meaning.
+
+The client that speaks that protocol is an **extra**, because it pulls in a library you may not
+want; the plugin's code is already in the wheel you installed:
+
+```bash id=local-install
+uv add 'weft-rag[openai]'
+```
+
+Without it `weft index` refuses by name — *"`[services] embed` names
+'openai-compatible-embeddings', and no registered Embedder has that name"* — and lists what is
+registered, which is `hash` alone. That refusal is worth meeting once: it is what every missing
+extra looks like.
+
+Then two keys say where the server is and which model it serves:
+
+```bash id=local-config
+export WEFT_LIVE_EMBEDDINGS_URL="${WEFT_LIVE_EMBEDDINGS_URL:-http://localhost:11434/v1}"
+export WEFT_LIVE_EMBEDDINGS_MODEL="${WEFT_LIVE_EMBEDDINGS_MODEL:-nomic-embed-text}"
+cat > weft.toml <<EOF
+[services]
+embed = "openai-compatible-embeddings"
+
+[packs.openai-compatible]
+base_url = "$WEFT_LIVE_EMBEDDINGS_URL"
+api_key = "a-local-server-ignores-this"
+embedding_model = "$WEFT_LIVE_EMBEDDINGS_MODEL"
+EOF
+```
+
+The model name matters as much as the address: a server you run answers to the names it has, and
+`embedding_model` is read by **both** sides — `weft index` embeds the chunks with it and `weft ask`
+embeds the question with it. They have to be the same model, or the store is comparing two
+unrelated spaces.
+
+**Changing the embedder means indexing again, into an empty store.** A vector written by one model
+means nothing to another, so this is not an upgrade applied in place:
+
+```bash id=local-index
+weft delete --all --yes
+weft index corpus
+```
+
+```bash id=local-ask
+weft ask "how does a loom work" --retrieve-only
+```
+
+```text
+1. A loom holds the warp fixed while the weft runs through it, over and under,
+thread by thread, until the cloth exists.
+```
+
+Now the first result is first because it is *about* the question — the words "how", "does" and
+"work" appear nowhere in it. That is the difference the whole pipeline exists to make, and neither
+the hash embedder nor the text arm could have produced it.
+
+**No stderr line this time.** `weft index` warned you about the default embedder while you had not
+chosen one; you have now, so it says nothing.
+
 ## Something not working?
 
 ```bash id=doctor
