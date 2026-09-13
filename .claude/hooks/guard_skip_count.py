@@ -48,8 +48,24 @@ import sys
 #: so a commit named inside a heredoc or a quoted message is not matched as one.
 _GIT_COMMIT = re.compile(r"(?:^|[;&|]\s*|\n\s*)git\s+commit\b")
 
-#: The one call every untracked-by-design skip in this tree goes through.
-_SKIP_CALL = "untracked_reason("
+#: Every call that can create a **new reason to skip**. Both move `WEFT_TEST_EXPECTED_SKIPS`,
+#: and until 2026-09-13 this held only the first — `docs/internal/lessons.md` `L21.9`.
+#:
+#: **The narrowing above was argued and its premise was wrong.** It read: *"Most skips in this
+#: tree are about a service being absent, and CI provisions those, so they do not move this
+#: number."* CI provisions Postgres and **deliberately provisions no Qdrant**, so a
+#: service-absent skip moves the number whenever the service is one CI does not run — and 44 of
+#: that count already came from exactly that. Phase 21b added eight Qdrant tests behind a
+#: fixture that calls `pytest.skip`, this guard saw nothing, and `main` went red claiming 86
+#: against 94. `L19.2`'s shape: a narrowing outliving the premise it rested on.
+#:
+#: **Sized before widening**, because a guard that fires on correct work is one people learn to
+#: route around: measured 2026-09-13, **13 of the last 60 commits** add a `pytest.skip(` line,
+#: against **32 of the last 40** that add a `registrar.add(` — which is why the plugin-
+#: registration form of this idea was declined in the same drain and this one was not. Each of
+#: those thirteen is a commit creating a new skip *reason*, which is exactly when the question
+#: is worth asking.
+_SKIP_CALLS = ("untracked_reason(", "pytest.skip(")
 
 #: The file that declares the environment `WEFT_TEST_EXPECTED_SKIPS` is a fact about. A count
 #: measured on a developer's machine has no home, because a developer's machine declares
@@ -76,7 +92,14 @@ def _git(args):
 
 
 def adds_a_clean_checkout_skip(diff):
-    """Whether the staged diff **adds** a call to `untracked_reason`.
+    """Whether the staged diff **adds** a call that can create a new reason to skip.
+
+    **Added lines in `tests/` only, and the second half was learned by this guard refusing the
+    commit that widened it.** Matching the token anywhere matched `"pytest.skip("` written as a
+    *literal* in this file's own `_SKIP_CALLS`, and it would equally match the string quoted in a
+    lesson, a changelog entry or a docstring. Only a skip in a test file can move the count, and
+    a guard that fires on prose about itself is one people learn to route around —
+    `guard_history_rewrites.py` states the same reason for refusing four commands and not six.
 
     Added lines only: a diff that moves or re-indents an existing skip changes no count, and
     `-` lines are removals, which move the number the other way and are the *good news* the
@@ -84,10 +107,17 @@ def adds_a_clean_checkout_skip(diff):
     as loudly, and it fails with the number going down, which is legible; adding one fails with
     it going up, which reads as a service that did not come up.
     """
-    return any(
-        line.startswith("+") and not line.startswith("+++") and _SKIP_CALL in line
-        for line in diff.splitlines()
-    )
+    current = ""
+    for line in diff.splitlines():
+        if line.startswith("+++"):
+            # `+++ b/path/to/file.py`, or `+++ /dev/null` for a deletion.
+            current = line[6:] if line.startswith("+++ b/") else ""
+            continue
+        if not current.startswith("tests/"):
+            continue
+        if line.startswith("+") and any(call in line for call in _SKIP_CALLS):
+            return True
+    return False
 
 
 def offends():

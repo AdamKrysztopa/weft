@@ -263,6 +263,24 @@ could catch it** — naming the seam.
 Then one line on requirements that were checked and held, so the reader knows the lens was applied
 rather than skipped.
 
+## Lens: does this check's walk reach the population its sentence claims?
+
+`L21.5`. A check that locates its subject by a **conventional name** is asserting the convention,
+not the property — and every subject that legitimately spells it differently leaves the population
+in silence. `tests/docs/test_pack_settings_documented.py` finds each pack's settings with
+`getattr(module, "Settings", None)`, and **three of twenty-three installed packs bind no such
+name** — `store` (`PgVectorSettings`), `qdrant` (`QdrantSettings`), `otel` (`OtelSettings`). The
+store is the pack with the most settings and the one no operator can avoid configuring, so **six
+fields sat outside a check whose waiver is pinned empty and whose docstring records driving
+thirteen undocumented fields to zero.** It is solved for the population it can see.
+
+**The falsifying question:** *how many subjects should this walk find, and how many did it?* Not
+*did it find any* — `L11.5`'s floors already ask that, and this walk found plenty. Wherever a check
+resolves what it checks by `getattr(x, "<Name>")`, a fixed import path or a filename pattern, assert
+the **size** of what it found against the size of what should be there, and prefer resolving the
+subject the way the *runtime* does: `weft_kernel.discovery` hands each pack a validated settings
+object, which is an authoritative answer that no alias can dodge.
+
 ## Lens: a claim about a path you are not on
 
 Four of Phase 7's findings were one question asked in four places, and none of them could be

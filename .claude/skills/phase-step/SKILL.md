@@ -332,6 +332,14 @@ automatically when it completes"* — and both times an inference was substitute
 the agent was still editing, and the gate that followed was run against a tree mid-write. **No
 process-liveness probe, no file-hash poll, no "it looks done".** Wait.
 
+**And when that run is red *by design*, the steps behind the red have not run.** `L21.8`.
+`ci-no-tests` is a sequence — `fmt, lint, types, arch` — and it aborts at the first failure. A
+test-first dispatch is *always* red at `types`, which is exactly where your own uncommitted edits
+hide: Phase 21b's own `02` rewrite displaced a citation, `arch` never executed, and the brief told
+the agent *"nothing else is red"* — a claim the gate had never made. Run the later steps by hand
+(`uv run pytest tests/architecture -q`) before dispatching onto an expected red, or say in the
+brief which steps were not reached.
+
 **Run `ci-no-tests` before you dispatch, and then keep off the tree until the agent returns.** Both
 halves cost seconds and both were paid for. The brief's *done when* names the gate, which is a
 promise that the gate currently reports on the agent's diff and nothing else — dispatch onto a tree
@@ -474,6 +482,16 @@ agents reading one paragraph on the same day cited it at three different line nu
 fitness function 17 cannot help — it proves a path resolves, never that the line says what the
 sentence claims. A citation repeated from another agent's report inherits none of that agent's
 verification.
+
+**A *green* return carries the same findings a blocked one would, and you read them later.**
+`L21.7`. The rule above — *"I moved production code to make the test reachable" is a finding about
+the **test**"* — is written for a blocked return, the one case you are already reading closely. A
+green return's `## Noticed` is harvested to the spool and read at the end of the turn, by which
+point the gate has passed and a contortion looks like a decision somebody made. Phase 21b's `21.7`
+implementer placed two new SQL builders in the wrong half of a file to keep a frozen citation
+inside its ±5-line window, said so, and was right to; moving them back and re-pointing the citation
+took one line. **So read `## Noticed` before you run the gate, not after** — the gate passing is
+what hides it.
 
 **Read `.claude/lessons-spool.md` before you move on.** The implementer's `## Noticed` section is
 already in it, and it is the only channel by which what only that agent saw survives the context

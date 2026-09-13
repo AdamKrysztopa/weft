@@ -185,7 +185,11 @@ STATUS_ROW = re.compile(
 #: The phase a string *declares*, by its leading `Phase <n>`. `docs/internal/lessons.md` L8.1: the
 #: Status cell is prose that legitimately mentions other phases, so only the one it opens with is a
 #: claim about where the project is.
-PHASE_IN_STATUS = re.compile(r"Phase\s+(?P<number>\d+)")
+#: `\d+[a-z]?`, widened 2026-09-13 with `implementation-status`'s own copy — `L21.2`. With
+#: `\d+` a lettered phase is addressed by its digits, so the live check below compared
+#: "21" against "21" while the Status block said 21b and the ledger heading said 21b, and
+#: agreed for the wrong reason. Two scripts reading one heading must read it the same way.
+PHASE_IN_STATUS = re.compile(r"Phase\s+(?P<number>\d+[a-z]?)")
 
 #: `docs/internal/lessons.md` L8.15. The queue's depth was stated by hand in a prose cell and was
 #: wrong in both directions — stale before anyone touched it, and wrong again after arithmetic was

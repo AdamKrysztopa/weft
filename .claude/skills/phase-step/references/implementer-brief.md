@@ -108,6 +108,36 @@ its own citations the same day, each caught by FF17 naming the correct line.
 citations, **93** exact, **17** inside the window but not on the line. A check arriving red on
 seventeen judgements is one whose waiver is where the real drift hides (`R10.2`).*
 
+**A brief is written against the *surface* the change touches, never against the file list — and
+the tree usually already holds the shape.** `L21.3`, `L21.4` and `L21.6` are one defect at three
+distances, all three inside Phase 21b, and every one cost a dispatch cycle that came back
+**blocked**:
+
+- **An assertion of equality over the container you are widening.** Adding a field to a shared
+  payload is an edit to every assertion that compares that payload by `==`, and those are invisible
+  to a grep for the new name because they predate it. Four in `test_fusion.py` asserted
+  `ranking.ext == payload.ext`, so no implementation of the brief could satisfy them. Grep for
+  `== payload.`, `== <Model>(` and equality against the container itself.
+- **A registration is a whole-tree act.** `registrar.add(...)` is checked by **fitness function 16**
+  (a shipped pipeline must name it), by `tests/docs/test_technique_naming.py` (`10` must document
+  it), and by `10` §2.1's naming rules. A brief that says "change these two files" and forbids a
+  pipeline document has forbidden the only thing that satisfies the gate.
+- **A construction idiom the tree has already settled.** Before writing an assertion of a shape this
+  repository has written before, grep for how it writes it. A closed `StrEnum` field constructed
+  with an invalid string to prove `ValidationError` needs `# type: ignore[arg-type]`, and
+  `tests/unit/weft_retrieve/test_collapse.py:167 "# type: ignore[arg-type]"` and
+  `tests/unit/weft_retrieve/test_repack.py:150 "# type: ignore[arg-type]"` have both carried
+  it for phases — the fragment quoted is the claim, not the subject (`L18.2`).
+
+This is `L11.17` widened from *doubles* to **any construction the tree has already paid for once**.
+The falsifying move is arithmetic rather than judgement: *what does this repository already contain
+that has this shape?* — and the cost of not asking is paid by the one party forbidden to fix it.
+
+*The mechanical form was sized and declined for the registration half: `registrar.add(` appears in
+**32 of the last 40 commits**, so a hook there fires on 80% of correct work and is one people learn
+to route around (`R10.2`). The skip-count half of the same drain measured **13 of 60** and was
+mechanised — see `.claude/hooks/guard_skip_count.py`.*
+
 **On "Already decided".** This is the section that decides whether the dispatch succeeds. Every name
 the test asserts on is already a decision you made; write it down. A brief that says "implement the
 store adapter" and a test that asserts `WeftStoreError("no such collection: …")` will produce a

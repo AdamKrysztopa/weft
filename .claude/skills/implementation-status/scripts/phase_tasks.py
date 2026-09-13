@@ -47,7 +47,14 @@ except ImportError as exc:  # pragma: no cover - a missing sibling skill is a br
 
 BLOCKED = "⛔"
 PROVISIONAL = "⚠"
-PHASE_NUMBER = re.compile(r"^Phase\s+(?P<number>\d+)")
+#: A phase heading's own id. **`\d+[a-z]?`, not `\d+`** — `docs/internal/lessons.md` `L21.9`'s
+#: sibling `L21.2`: a lettered phase addressed by its digits collides with every other phase
+#: sharing that number, and the *first* heading in the file wins. `/implementation-status`
+#: answered about Phase 21a's four ticked tasks while 21b was live and the Status block said
+#: so, and `phase_tasks.py 21b` refused the only correct spelling. Latent since the first split
+#: phase (16a/16b) and unreachable until two phases sharing a number were live in sequence.
+#: An id regex is a schema: widening the id space is a migration for every reader of it.
+PHASE_NUMBER = re.compile(r"^Phase\s+(?P<number>\d+[a-z]?)")
 
 #: A line that says its own task is not scheduled. The ledger writes this in bold at the tail of
 #: the line (`10.14`, `10.15`), and it is a different state from *not started*: nobody will pick
