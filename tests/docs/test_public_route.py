@@ -21,12 +21,15 @@ is the shape §3's floor rule exists for.
 from __future__ import annotations
 
 import re
+import tomllib
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
 from typing import Final
 
 from tests.architecture.conftest import tracked_files
+from tests.docs.test_quickstart import BLOCKS_WAIVED_FROM_EXECUTION as QUICKSTART_WAIVER
+from tests.docs.test_readme_is_enough import BLOCKS_WAIVED_FROM_EXECUTION as README_WAIVER
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 MANUALS_DOC: Final[Path] = REPO_ROOT / "docs" / "08-manuals.md"
@@ -355,4 +358,155 @@ def test_the_readme_and_the_quickstart_agree_block_for_block() -> None:
         f"these blocks differ between `README.md` and `manual/quickstart.md`: {differing}. "
         f"They are the same walkthrough under the same ids; a reader who indexes the README's "
         f"corpus and then reads the quickstart's expected output is comparing two different runs"
+    )
+
+
+#: `28.3`'s ratchet, pinned empty. A claim beside a waived block that this check must not read is
+#: named here with its reason.
+WAIVED_PROSE_ALLOWED_TO_NAME: Final[frozenset[str]] = frozenset()
+
+#: The names this project published before **G19** folded the add-ons into extras on 2026-09-09,
+#: plus the four yanked on 2026-09-05. None is a distribution and none may be installed; they are
+#: listed rather than merely absent from `_published_names()` so the failure says *retired* rather
+#: than *unknown*, which is the difference between a typo and a page that has not been read since
+#: the consolidation.
+RETIRED_DISTRIBUTION_NAMES: Final[frozenset[str]] = frozenset(
+    {
+        "weft-generate",
+        "weft-embed",
+        "weft-command",
+        "weft-llm",
+        "weft-pdf",
+        "weft-openai",
+        "weft-qdrant",
+        "weft-otel",
+        "weft-docling",
+        "weft-agent",
+        "weft-kg",
+        "weft-graph",
+    }
+)
+
+_MANIFESTS: Final[tuple[Path, ...]] = (
+    REPO_ROOT / "packages" / "weft-kernel" / "pyproject.toml",
+    REPO_ROOT / "packages" / "weft-rag" / "pyproject.toml",
+)
+
+_DISTRIBUTION_NAME: Final[re.Pattern[str]] = re.compile(r"\bweft-[a-z][a-z0-9-]*")
+_ATTACHED_EXTRA: Final[re.Pattern[str]] = re.compile(r"weft-rag\[(?P<names>[a-z, ]+)\]")
+_BARE_EXTRA: Final[re.Pattern[str]] = re.compile(r"`\[(?P<name>[a-z][a-z0-9-]*)\]`")
+_INSTALL_VERB: Final[re.Pattern[str]] = re.compile(r"\b(?:uv add|uv pip install|pip install)\b")
+
+
+def _install_instructions(prose: str) -> list[str]:
+    """The paragraphs of `prose` that tell a reader to install something."""
+    return [block for block in re.split(r"\n\s*\n", prose) if _INSTALL_VERB.search(block)]
+
+
+@cache
+def _published_names() -> frozenset[str]:
+    """The `[project] name` of each distribution this repository builds — read, never retyped."""
+    names = {
+        tomllib.loads(path.read_text(encoding="utf-8"))["project"]["name"] for path in _MANIFESTS
+    }
+    assert names, (
+        "no distribution names were read — the prose below would be checked against nothing"
+    )
+    return frozenset(names)
+
+
+@cache
+def _published_extras() -> frozenset[str]:
+    """Every `[project.optional-dependencies]` key across those distributions."""
+    extras: set[str] = set()
+    for path in _MANIFESTS:
+        project = tomllib.loads(path.read_text(encoding="utf-8"))["project"]
+        extras.update(project.get("optional-dependencies", {}))
+    assert extras, (
+        "no extras were read — an `[openai]` in the prose would be checked against nothing"
+    )
+    return frozenset(extras)
+
+
+def _prose_around(page: str, block_id: str) -> str:
+    """The text between the fenced block before `block_id` and the one after it, block excluded.
+
+    This is the span a waiver leaves uncovered: a block that is not executed takes the sentences
+    explaining it out of the gate with it, and the sentences are where the install instructions
+    live (`docs/internal/lessons.md` `L17.4`).
+    """
+    text = (REPO_ROOT / page).read_text(encoding="utf-8")
+    fences = list(_TAGGED_FENCE.finditer(text)) + [
+        match for match in re.finditer(r"^```.*?^```\s*$", text, re.MULTILINE | re.DOTALL)
+    ]
+    target = next(
+        (match for match in _TAGGED_FENCE.finditer(text) if match.group("id") == block_id), None
+    )
+    assert target is not None, f"`{page}` has no block tagged id={block_id}"
+    starts = sorted({match.start() for match in fences})
+    ends = sorted({match.end() for match in fences})
+    previous_end = max((end for end in ends if end <= target.start()), default=0)
+    next_start = min((start for start in starts if start >= target.end()), default=len(text))
+    return text[previous_end : target.start()] + text[target.end() : next_start]
+
+
+def test_the_prose_beside_a_waived_block_names_only_what_exists() -> None:
+    """`28.3`. A waiver is a ratchet on *execution*, and nothing read the claims beside the block.
+
+    Measured 2026-09-12, before `R17.15`: the quickstart's install section instructed four separate
+    `uv add`s for distributions that had been extras of one wheel since **G19**, and said the
+    package was on no index three days after it was published. Every executed block on the page was
+    green throughout. The waiver is still right — this gate makes no network call — and the floor
+    beneath it is that the sentences it takes out of the run still describe the tree.
+
+    **Two populations, deliberately different, and the difference is what a page is allowed to
+    say.** A *distribution* name is read only in a paragraph that tells the reader to install
+    something — `uv add`, `pip install` — because a page may and should name a retired name in
+    order to withdraw it, and `README.md`'s status blockquote does exactly that about the four
+    yanked on 2026-09-05. An *extra* is read wherever it appears beside the block: an extra is
+    never the subject of a withdrawal here, and `[graph]` — which existed for one day — is the
+    instance `L17.5` was written about.
+
+    **What this does not cover**, per `08`'s rule that a floor names its own gap: the prose is read
+    for *names*, never for claims. "Install this first" pointing at the wrong step is not something
+    a pattern can see, and the exit (`28.5`) is where a person reads the page instead.
+    """
+    # Arrange — the waivers themselves, read from the modules that own them rather than retyped.
+    waived = {
+        "README.md": README_WAIVER,
+        "manual/quickstart.md": QUICKSTART_WAIVER,
+    }
+    spans = {
+        (page, block_id): _prose_around(page, block_id)
+        for page, ids in waived.items()
+        for block_id in ids
+        if block_id not in WAIVED_PROSE_ALLOWED_TO_NAME
+    }
+    assert spans, "no waived block on either page — nothing was read, so nothing could fail"
+
+    # Act
+    wrong: list[str] = []
+    for (page, block_id), prose in spans.items():
+        for paragraph in _install_instructions(prose):
+            for name in sorted(set(_DISTRIBUTION_NAME.findall(paragraph))):
+                if name in _published_names():
+                    continue
+                why = "retired" if name in RETIRED_DISTRIBUTION_NAMES else "never published"
+                wrong.append(f"{page} (beside id={block_id}): installs `{name}`, which is {why}")
+        claimed = {
+            extra.strip()
+            for match in _ATTACHED_EXTRA.finditer(prose)
+            for extra in match.group("names").split(",")
+        }
+        if "extra" in prose:
+            claimed.update(match.group("name") for match in _BARE_EXTRA.finditer(prose))
+        for extra in sorted(claimed - _published_extras()):
+            wrong.append(f"{page} (beside id={block_id}): `[{extra}]` is not an extra of weft-rag")
+
+    # Assert
+    assert not wrong, (
+        "prose beside a waived block names something that does not exist:\n  "
+        + "\n  ".join(wrong)
+        + f"\n\nDistributions read from {[str(p.relative_to(REPO_ROOT)) for p in _MANIFESTS]}: "
+        + f"{sorted(_published_names())}; extras: {sorted(_published_extras())}"
     )
