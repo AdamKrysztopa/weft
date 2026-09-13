@@ -504,3 +504,102 @@ async def test_delete_source_removes_every_node_carrying_that_source(
     assert removed.node_count == 1
     assert await store.count() == 1
     assert await store.get_source(SourceId("doc-1")) is None
+
+
+# Task 21.0 — what the text arm does about passage length, and who gets to choose.
+#
+# `12-roadmap.md` §4 is this phase's citation recovery: the numbers that prompted Phase 21a are
+# traceable from nothing Weft cites, and what survived checking is this. `_search_text_sql` called
+# `ts_rank_cd(content_tsv, query)` with no third argument, so Postgres applied its documented
+# default of `0` — no length normalisation — and nothing in `weft.toml` could say otherwise. That
+# is `01` requirement 6 failing in the small: a shipped technique that is not parameterisable.
+#
+# **The default does not move here.** It is pinned to `0`, which is what every existing corpus was
+# ranked with, and `21.2`'s sweep on Weft's own corpus is what would earn a change — `12`'s own
+# standing rule, and the reason this task is parameterisation alone.
+
+
+def _one_alpha_short() -> Node:
+    """Three words, one of them the term. Measured against `pgvector/pgvector:pg16`."""
+    return _node("alpha beta gamma")
+
+
+def _one_alpha_long() -> Node:
+    """Sixty-one words, one of them the term — the same match, sixty times the haystack."""
+    return _node("alpha " + "filler " * 60)
+
+
+async def test_the_default_normalisation_leaves_passage_length_invisible(
+    store: PgVectorStore,
+) -> None:
+    """The defect, stated as the behaviour rather than as the missing argument.
+
+    Measured directly against the container before this test was written: with normalization `0`,
+    `ts_rank_cd` scores both of these **0.1** — a three-word passage and a sixty-one-word passage
+    carrying the same single term are indistinguishable, and which one a reader sees first is
+    decided by the `id` tiebreak. That is what every corpus indexed before this task was ranked
+    with, which is why the default stays here and moves only if `21.2` earns it.
+    """
+    # Arrange
+    short = _one_alpha_short()
+    long = _one_alpha_long()
+    await store.add([short, long])
+
+    # Act
+    results = await store.search_text("alpha", top_k=5)
+
+    # Assert — equal scores, so length contributed nothing.
+    assert {scored.value.id for scored in results} == {short.id, long.id}
+    assert results[0].score == results[1].score
+
+
+async def test_a_length_normalising_setting_reaches_the_query_and_reorders_it() -> None:
+    """The value's whole job is to travel from `[packs.store]` to a `ts_rank_cd` call.
+
+    `L9.79`: where that is a value's only job, one test must read it off the far end, or the wire
+    is untested along its length. Reading it off `PgVectorSettings` would assert that pydantic
+    stores what it is given.
+
+    Normalization `2` is Postgres's *"divides the rank by the document length"*. Against the same
+    two passages it scores the short one `0.0333` and the long one `0.0016` — an order the default
+    cannot produce at all, because the default scores them equal.
+    """
+    # Arrange — a store of its own, because the setting is what is under test.
+    reason = await _database_reachable()
+    if reason is not None:
+        pytest.skip(reason)
+    instance = PgVectorStore(
+        PgVectorSettings(dsn=SecretStr(_DSN), text_rank_normalization=2),
+    )
+    await instance.count()
+    conn = await psycopg.AsyncConnection.connect(_DSN, autocommit=True)
+    async with conn.cursor() as cur:
+        await cur.execute("TRUNCATE weft_nodes, weft_sources, weft_node_productions")
+    await conn.close()
+    short = _one_alpha_short()
+    long = _one_alpha_long()
+
+    # Act
+    try:
+        await instance.add([short, long])
+        results = await instance.search_text("alpha", top_k=5)
+    finally:
+        await instance.aclose()
+
+    # Assert — the shorter passage first, and strictly, which the default could not produce.
+    assert [scored.value.id for scored in results] == [short.id, long.id]
+    assert results[0].score > results[1].score
+
+
+def test_a_normalisation_postgres_does_not_define_is_refused_by_name() -> None:
+    """Postgres documents six bits, so `0..63` is every combination and `64` is not one.
+
+    Refused at settings validation, which is where `weft_kernel.discovery` turns a bad pack
+    settings block into a `failed` `PackReport` naming the pack and the field — the same loud
+    answer `text_search_config` already gets for a configuration name Postgres does not hold.
+    """
+    # Act / Assert
+    with pytest.raises(ValidationError) as excinfo:
+        PgVectorSettings(dsn=SecretStr(_DSN), text_rank_normalization=64)
+
+    assert "text_rank_normalization" in str(excinfo.value)

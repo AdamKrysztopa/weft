@@ -92,7 +92,7 @@ from pgvector.psycopg import register_vector_async
 from psycopg import sql
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
-from pydantic import BaseModel, ConfigDict, SecretStr
+from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackRegistrar
@@ -255,7 +255,11 @@ def _add_tsvector_column_sql(config: str) -> sql.Composed:
 
 
 def _search_text_sql(
-    config: str, mode: TextQueryMode, rank: TextRank, predicate: sql.Composable
+    config: str,
+    mode: TextQueryMode,
+    rank: TextRank,
+    normalization: int,
+    predicate: sql.Composable,
 ) -> sql.Composed:
     """The lexical search, built from the three settings that decide what it means.
 
@@ -286,14 +290,18 @@ def _search_text_sql(
         else sql.SQL("replace({parsed}::text, ' & ', ' | ')::tsquery").format(parsed=parsed)
     )
     ranker = sql.SQL("ts_rank_cd" if rank is TextRank.COVER_DENSITY else "ts_rank")
+    # The third argument is a literal rather than a bound parameter: Postgres takes
+    # `normalization` as an integer constant and the value is already range-checked at settings
+    # validation, so there is nothing here a caller could reach.
+    normalized = sql.Literal(normalization)
     return sql.SQL("""
         WITH asked AS (SELECT {asked} AS query)
-        SELECT weft_nodes.*, {ranker}(content_tsv, asked.query) AS rank
+        SELECT weft_nodes.*, {ranker}(content_tsv, asked.query, {normalized}) AS rank
         FROM weft_nodes, asked
         WHERE content_tsv @@ asked.query AND {predicate}
         ORDER BY rank DESC, id
         LIMIT %(top_k)s
-    """).format(asked=asked, ranker=ranker, predicate=predicate)
+    """).format(asked=asked, ranker=ranker, normalized=normalized, predicate=predicate)
 
 
 class PgVectorSettings(BaseModel):
@@ -340,6 +348,26 @@ class PgVectorSettings(BaseModel):
 
     #: Which ranking function scores a hit. See `TextRank`.
     text_rank: TextRank = TextRank.COVER_DENSITY
+
+    #: What the ranking does about passage length — Postgres's own `normalization` bitmask,
+    #: passed as `ts_rank_cd`/`ts_rank`'s third argument. Ledger task **21.0**.
+    #:
+    #: **`0` is what this store has always applied, and it is pinned here rather than improved.**
+    #: The call was `ts_rank_cd(content_tsv, query)` with no third argument until 21.0, so
+    #: Postgres supplied its documented default of `0` — *"ignores the document length"*. Measured
+    #: against `pgvector/pgvector:pg16`: a three-word passage and a sixty-one-word passage each
+    #: carrying the term once both score `0.1`, so which one a reader sees first is decided by the
+    #: `id` tiebreak. Every corpus indexed before this task was ranked that way, and `12`'s
+    #: standing rule is that a default moves on a measurement over Weft's own corpus — ledger
+    #: `21.2` — and not on a plausible argument. So this task makes the knob exist and turns it
+    #: nowhere.
+    #: **The vocabulary is Postgres's**, not a second one invented here: the six documented bits
+    #: are `1` (divide by `1 + log(length)`), `2` (divide by length), `4` (divide by the mean
+    #: harmonic distance between extents — `ts_rank_cd` only), `8` (divide by the number of unique
+    #: words), `16` (divide by `1 + log(unique words)`) and `32` (`rank / (rank + 1)`, which maps
+    #: any rank into `0..1`). They combine, so `0..63` is every value Postgres defines and `64` is
+    #: not one — which is what the bound refuses, naming the field, at settings validation.
+    text_rank_normalization: int = Field(default=0, ge=0, le=63)
 
 
 class UnknownTextSearchConfigError(WeftError, UnresolvedNameError):
@@ -726,6 +754,7 @@ class PgVectorStore:
         self._text_search_config = settings.text_search_config
         self._text_query_mode = settings.text_query_mode
         self._text_rank = settings.text_rank
+        self._text_rank_normalization = settings.text_rank_normalization
         self._conn: psycopg.AsyncConnection[dict[str, Any]] | None = None
 
     def _search_text_sql(self, predicate: sql.Composable) -> sql.Composed:
@@ -739,7 +768,11 @@ class PgVectorStore:
         disagree about what a word is.
         """
         return _search_text_sql(
-            self._text_search_config, self._text_query_mode, self._text_rank, predicate
+            self._text_search_config,
+            self._text_query_mode,
+            self._text_rank,
+            self._text_rank_normalization,
+            predicate,
         )
 
     async def _connection(self) -> psycopg.AsyncConnection[dict[str, Any]]:
