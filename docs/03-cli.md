@@ -377,8 +377,14 @@ they are visible.
 > network-free measurement, which routed generation cannot offer once a real model is involved
 > — a `weft.toml` naming no `[llm.roles]` maps nothing (`weft_llm.roles.LLMRoles`'s own "no
 > silent default" clause), so the routed default refuses loudly rather than guessing at a
-> provider. `--retrieve-only` and `--pipeline` are mutually exclusive, refused together before
-> either resolves a plugin.
+> provider. `--retrieve-only` and `--pipeline` compose, and refuse together only when
+> the named pipeline ends in a `Generator` — narrowed by `R21.5` on 2026-09-13, because the two
+> flags were never contradictory in general: a pipeline can end in a retrieval stage as easily as
+> in a generating one, and running one of those through to its own last stage is exactly
+> `--retrieve-only`'s "no model call" contract asked of a document the caller named. What the
+> narrowing buys is a store's **lexical** arm: `hybrid` is the only shipped retriever that reaches
+> it, every document naming it ended in a `Generator`, and `lexical-retrieve` plus this pairing is
+> the one route to it that needs no account and no model.
 >
 > **The double-print `weft route` inherited is fixed in the same commit, reusing the shape of
 > an existing repair rather than a second mechanism for the same class of problem.** Task 3.6's

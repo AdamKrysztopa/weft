@@ -1,0 +1,36 @@
+name: lexical-retrieve
+
+# **The one route from the binary to a store's lexical arm that needs no account and no
+# model.** `hybrid-then-generate` reaches the same arm, but its own last stage is a
+# `Generator` — every document naming `hybrid` ended in one before this — so
+# `--retrieve-only`, the flag that calls no model, could never be paired with it.
+# `--retrieve-only` on its own embeds the question and searches the vector arm alone
+# (Phase 0's own contract, hardwired). This document is `retrieve-then-generate` with no
+# `generate` stage at all, and `hybrid` narrowed by `channels: [text]` so the question is
+# never embedded either — the property `--retrieve-only --pipeline lexical-retrieve`
+# exists to have.
+#
+# **`hybrid` still declares `needs_store = (VectorSearch, TextSearch)` regardless of
+# `channels`** — `weft_retrieve.hybrid`'s own docstring argues this, and it is settled: a
+# store advertising only `TextSearch` today may add `VectorSearch` later, and a document
+# narrowed to one arm should not have to widen again to keep working. So a store satisfying
+# only one arm is refused by name at assembly, before any stage runs, never quietly narrowed
+# further to nothing. Both shipped stores satisfy both: `qdrant` gained a real `search_text`
+# at ledger `21.8`.
+#
+# **Not `bm25-*` and not `text-retrieve`.** Which lexical ranking actually runs is the
+# store's own choice — `[packs.store] text_mode` in pgvector, an idf sparse vector in
+# qdrant — so a name claiming a specific algorithm would be a claim this document cannot
+# keep.
+#
+# Run with `weft ask "<question>" --pipeline lexical-retrieve --retrieve-only`.
+vars:
+  route.summary: >-
+    Searches the corpus by the literal words alone, through the store's text arm, with no
+    embedding call and no generated answer. The rung to reach for with no account and no
+    model configured at all.
+  route.cost: "one text search against one store, no embedding call, no model call"
+stages:
+  - {id: retrieve, use: hybrid, with: {top_k: 20, channels: [text]}}
+  - {id: fuse,     use: single-list}
+  - {id: pack,     use: repack, with: {method: reverse, top_n: 8}}

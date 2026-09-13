@@ -453,6 +453,10 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     # becomes of the answer, and the reason `single-list` cannot stay: two arms are two lists.
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/hybrid-then-generate.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/hybrid-normalized-scores.yaml")
+    # Repair R21.5: `hybrid` narrowed to its text arm, ending in `repack` rather than a
+    # `Generator` — the one document `weft ask --retrieve-only --pipeline lexical-retrieve`
+    # can run with no account and no model. See the document's own header.
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/lexical-retrieve.yaml")
 
     # **The ingest rungs — listed below and deliberately not counted here — are contributed from
     # this pack rather than from `weft-index` or `weft-clean` for one reason: a document has to name

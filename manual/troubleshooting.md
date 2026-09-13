@@ -1845,27 +1845,33 @@ Stages: chunk, embed, store.
 
 ### `ConflictingAskModeError`
 
-**What it looks like** — task 3.11: `weft ask` was given both `--retrieve-only` and
-`--pipeline` in the same invocation, two mutually exclusive claims about what the run should
-do — raised by `weft_cli.commands.AskCommand.run`, before either flag resolves a single plugin:
+**What it looks like** — `weft ask --retrieve-only` was given a `--pipeline` whose last stage
+is a `Generator`, so the run would have to call a model to finish. Raised by
+`weft_cli.commands.AskCommand.run`, before either flag resolves a single plugin:
 
 ```text
 $ weft ask "what changed?" --retrieve-only --pipeline retrieve-then-generate
-weft_cli.commands.ConflictingAskModeError: --retrieve-only and --pipeline cannot both be given:
---retrieve-only runs no pipeline at all (embed + vector search only); --pipeline names one to
-run through to a generated answer. Choose one.
+weft_cli.commands.ConflictingAskModeError: --retrieve-only and --pipeline
+'retrieve-then-generate' cannot both be given: 'retrieve-then-generate' ends in a Generator and
+would call a model. Run it without --retrieve-only, or choose a pipeline that already ends in a
+retrieval stage and calls no model: 'lexical-retrieve'.
 $ echo $?
 1
 ```
+
+*(**Narrowed 2026-09-13 by `R21.5`**, and the dated note is the remedy rather than history: until
+then these two flags refused together **always**, which put a store's lexical arm out of reach of
+anyone without a model configured. `--retrieve-only --pipeline lexical-retrieve` is now the
+offline, account-free way to search the text arm, and the message above is what you get only when
+the pipeline you named would have called a model.)*
 
 Exit `1`, not `3` or `4`: neither flag is invalid on its own, and there is no alternative *name*
 to offer (this is not a `NAME_RESOLUTION_FAMILY` member — see `weft_cli.commands`'s own
 docstring for why), so `weft_cli.exit_codes.exit_code_for`'s default is the right answer, on the
 same footing `TargetAlreadyExistsError`/`PipelineAlreadyExistsError` below argue for a certain
-outcome that is not a policy question. **What to do:** drop one of the two flags — `--retrieve-
-only` for the nearest passages with no model call, or `--pipeline <name>` to run a specific
-pipeline through to a generated answer. With neither, `weft ask` routes through the installed
-router by default.
+outcome that is not a policy question. **What to do:** either drop `--retrieve-only` and let the
+named pipeline generate, or name a pipeline that stops at retrieval — the refusal lists the ones
+installed. With neither flag, `weft ask` routes through the installed router by default.
 
 ### `NotVectorSearchableError`
 

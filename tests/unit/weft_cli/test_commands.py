@@ -461,18 +461,6 @@ async def test_ask_command_retrieve_only_ranks_hits_from_run_ask(
     assert result.hits[0].rank == 1
 
 
-async def test_ask_command_refuses_retrieve_only_and_pipeline_together() -> None:
-    # Arrange — task 3.11: two mutually exclusive claims about what this run should do,
-    # refused loudly before either resolves a plugin (CLAUDE.md: "a silent fallback is
-    # worse than a failure").
-    deps = Dependencies(registry=Registry(), reports=(), services=ServiceSelection())
-    args = commands.AskArgs(question="what changed?", retrieve_only=True, pipeline="specific")
-
-    # Act / Assert
-    with pytest.raises(commands.ConflictingAskModeError):
-        await commands.AskCommand().run(args, _ctx(deps))
-
-
 async def test_ask_command_routes_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
     # Arrange — task 3.11: `weft ask` reaches the pipeline the router names with no
     # second command to know about; `RouteCommand`'s own former body, folded in here.

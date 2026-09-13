@@ -317,7 +317,7 @@ class BatchScopedStageError(WeftError):
     Not a name-resolution failure — there is no alternative *name* to offer, only a flag that
     does not compose with this pipeline — so this does not join `PipelineResolutionError` and
     does not join `NAME_RESOLUTION_FAMILY`, on `ConflictingIndexModeError`'s own footing
-    (`weft_cli/commands.py:247 'class ConflictingIndexModeError(WeftError):'`).
+    (`weft_cli/commands.py:255 'class ConflictingIndexModeError(WeftError):'`).
     """
 
 

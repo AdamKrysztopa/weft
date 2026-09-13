@@ -116,7 +116,13 @@ from weft_cli.reconcile import (
     reconcile_everywhere,
 )
 from weft_cli.reconcile import participants as reconcile_participants
-from weft_cli.route_ask import run_named_ask, run_routed_ask
+from weft_cli.route_ask import (
+    named_pipeline,
+    pipelines_producing,
+    run_named_ask,
+    run_named_retrieve,
+    run_routed_ask,
+)
 from weft_cli.skew import SkewReport, detect_skew
 from weft_cli.tracing_status import describe_tracing
 from weft_command.contract import Command, CommandResult
@@ -138,6 +144,7 @@ from weft_eval.run_record import (
 )
 from weft_extract import Extractor
 from weft_extract.payload import Rendition
+from weft_generate.contract import Generator
 from weft_generate.payload import Answer
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackRegistrar, PackReport
@@ -146,7 +153,7 @@ from weft_kernel.payload import Outcome, Produced, SourceId
 from weft_kernel.registry import DisplacedRegistration, unwrap_factory
 from weft_kernel.resolution import Contribution
 from weft_kernel.runner import RunSummary
-from weft_retrieve.contract import Retriever
+from weft_retrieve.contract import ContextPacker, Retriever
 from weft_store import NodeStore, ReconcileMode
 
 _INDEX_HELP = (
@@ -162,8 +169,10 @@ _ASK_HELP = (
     "ask a question. Routes through the installed router by default — a QueryScorer and a "
     "RoutingPolicy discovered from the registry, never a fixed list here — and prints the "
     "generated, cited answer. --pipeline names one directly, skipping the router; "
-    "--retrieve-only runs no pipeline at all and prints the nearest passages instead, with "
-    "no generation and no model call (Phase 0's own contract, kept for scripts)."
+    "--retrieve-only stops at the passages and makes no model call — on its own it runs the "
+    "hardwired vector search (Phase 0's own contract, kept for scripts), and with --pipeline "
+    "it runs that pipeline instead, which is how a retrieval-only document such as "
+    "lexical-retrieve is reached with nothing configured."
 )
 
 _DELETE_HELP = (
@@ -260,17 +269,24 @@ class ConflictingIndexModeError(WeftError):
 
 
 class ConflictingAskModeError(WeftError):
-    """`weft ask` was given both `--retrieve-only` and `--pipeline` — two different,
-    mutually exclusive claims about what this run should do: retrieve the nearest passages
-    with no pipeline running at all, or run one named pipeline through to a generated
-    answer. Neither wins silently over the other — CLAUDE.md: "a silent fallback is worse
-    than a failure" — so this is refused, loudly, before either resolves a single plugin.
+    """`weft ask --retrieve-only --pipeline <name>` was given a pipeline that ends in a
+    `Generator` — repair **R21.5** narrowed this from every `--retrieve-only`/`--pipeline`
+    pairing to exactly this one: `--retrieve-only` no longer refuses a named pipeline on
+    sight, because a pipeline can end in a retrieval stage just as easily as a generating
+    one, and running one through to its own last stage — no router, no model — is
+    `--retrieve-only`'s whole contract asked of a pipeline the caller chose by name rather
+    than the hardwired vector search. What still contradicts `--retrieve-only` is a
+    pipeline whose own last stage *would* call a model — retrieve the nearest passages
+    with no model call at all, or run this particular pipeline through to a generated
+    answer, and the two cannot both be true of one run. Refused, loudly, before either
+    resolves a single plugin — CLAUDE.md: "a silent fallback is worse than a failure."
 
-    Not a name-resolution failure — there is no alternative *name* to offer, only a choice
-    between two flags that are individually valid — so this does not join `NAME_RESOLUTION_
-    FAMILY`; `weft_cli.exit_codes.exit_code_for`'s own default, `OPERATION_FAILED` (`1`), is
-    the code, on the identical footing task 3.7's own `TargetAlreadyExistsError`/
-    `PipelineAlreadyExistsError` argue for a certain answer that is not a policy question.
+    Not a name-resolution failure — an unknown pipeline name is refused separately, by
+    `weft_cli.route_ask.named_pipeline`'s own `UnknownPipelineNameError` — so this does not
+    join `NAME_RESOLUTION_FAMILY`; `weft_cli.exit_codes.exit_code_for`'s own default,
+    `OPERATION_FAILED` (`1`), is the code, on the identical footing task 3.7's own
+    `TargetAlreadyExistsError`/`PipelineAlreadyExistsError` argue for a certain answer that
+    is not a policy question.
     """
 
 
@@ -865,15 +881,60 @@ class AskCommand:
         deps = ctx.require(Dependencies)
 
         if ask_args.retrieve_only and ask_args.pipeline is not None:
-            raise ConflictingAskModeError(
-                "--retrieve-only and --pipeline cannot both be given: --retrieve-only runs "
-                "no pipeline at all (embed + vector search only); --pipeline names one to "
-                "run through to a generated answer. Choose one."
-            )
-
+            return await self._run_retrieve_only_named(ask_args, deps=deps, ctx=ctx)
         if ask_args.retrieve_only:
             return await self._run_retrieve_only(ask_args, deps=deps, ctx=ctx)
         return await self._run_generating(ask_args, deps=deps, ctx=ctx)
+
+    async def _run_retrieve_only_named(
+        self, ask_args: AskArgs, *, deps: Dependencies, ctx: Context
+    ) -> Outcome[CommandResult]:
+        """`--retrieve-only --pipeline <name>` — repair **R21.5**: run the named pipeline
+        through to its own last stage, with no router and no model call, unless that stage
+        is a `Generator`, which is the one shape `--retrieve-only` still refuses.
+
+        Resolution is `weft_cli.route_ask.named_pipeline`'s — an unknown name is refused by
+        that lookup alone, before this method decides anything, so the two commands cannot
+        disagree about what "not found" means for a bare pipeline name (`_raise_for_plugin_
+        refusal`'s own "one code path, not two" footing, one caller further).
+        """
+        pipeline_name = cast(str, ask_args.pipeline)
+        catalogue = full_catalogue(reports=deps.reports)
+        named_pipeline(pipeline_name, catalogue=catalogue)
+        generating = pipelines_producing(Generator, catalogue=catalogue, registry=deps.registry)
+        if pipeline_name in generating:
+            alternatives = pipelines_producing(
+                ContextPacker, catalogue=catalogue, registry=deps.registry
+            )
+            raise ConflictingAskModeError(
+                f"--retrieve-only and --pipeline '{pipeline_name}' cannot both be given: "
+                f"'{pipeline_name}' ends in a Generator and would call a model. Run it "
+                f"without --retrieve-only, or choose a pipeline that already ends in a "
+                f"retrieval stage and calls no model: "
+                f"{', '.join(repr(name) for name in alternatives) or '(none installed)'}."
+            )
+        passages = await run_named_retrieve(
+            ask_args.question,
+            pipeline_name=pipeline_name,
+            registry=deps.registry,
+            reports=deps.reports,
+            ctx=ctx,
+            llm=deps.llm,
+            services=deps.services,
+            sink=deps.token_sink,
+            contributions=deps.contributions,
+            roles=deps.roles,
+        )
+        return Produced(
+            value=AskCommandResult(
+                question=ask_args.question,
+                top_k=ask_args.top_k,
+                format=ask_args.format,
+                pipeline_name=pipeline_name,
+                answer=None,
+                hits=hits_for([passage.scored for passage in passages.passages]),
+            )
+        )
 
     async def _run_retrieve_only(
         self, ask_args: AskArgs, *, deps: Dependencies, ctx: Context

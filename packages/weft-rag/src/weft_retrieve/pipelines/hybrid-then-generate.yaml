@@ -20,9 +20,12 @@ extends: retrieve-then-generate
 # them, and use `weft eval` to know whether a change was real rather than felt.
 #
 # **Needs a store that does both.** `hybrid` declares `needs_store = (VectorSearch,
-# TextSearch)`, checked before any stage runs: `pgvector` satisfies both, `qdrant` deliberately
-# advertises no `TextSearch` (ledger 2.6), and a run against one is refused by name at assembly
-# rather than quietly becoming vector-only.
+# TextSearch)`, checked before any stage runs, and a store satisfying only one is refused by name
+# at assembly rather than quietly becoming single-armed. Both shipped stores satisfy both today —
+# `qdrant` gained a real `search_text` at ledger `21.8`, a named sparse vector with
+# `modifier: idf`, and this comment said it deliberately had none until 2026-09-13 (`R21.5`'s own
+# reading; `R21.4` corrected the same sentence in `manual/operations-guide.md` and reported one
+# surviving instance, which this was the second of).
 vars:
   route.summary: >-
     Searches the corpus two ways at once — by meaning and by the literal words — and fuses the

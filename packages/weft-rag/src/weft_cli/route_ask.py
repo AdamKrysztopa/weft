@@ -93,7 +93,7 @@ from weft_kernel.resolution import Contribution, ResolvedPipeline, resolve
 from weft_kernel.runner import PipelineResolutionError, Runner, StageSpec
 from weft_llm.contract import TokenSink
 from weft_retrieve.contract import RoutingPolicy
-from weft_retrieve.payload import Query, QuerySet, Route
+from weft_retrieve.payload import Passages, Query, QuerySet, Route
 from weft_store import NodeStore
 
 #: `route.yaml`'s own `name:` field, and **the default rather than the law** since ledger task
@@ -522,6 +522,75 @@ async def run_named_ask(
         pipeline=pipeline_name,
         produced_by="`weft ask`",
         alternatives=pipelines_producing(Generator, catalogue=catalogue, registry=registry),
+    )
+
+
+async def run_named_retrieve(
+    question: str,
+    *,
+    pipeline_name: str,
+    registry: Registry,
+    reports: Sequence[PackReport],
+    ctx: Context,
+    llm: LLMSection,
+    services: ServiceSelection,
+    sink: TokenSink,
+    contributions: tuple[Contribution, ...] = (),
+    roles: RoleTable = _NO_ROLES,
+) -> Passages:
+    """`run_named_ask`'s retrieval-only twin — repair **R21.5**.
+
+    Same resolution (`full_catalogue`, `named_pipeline`), the same assembled services
+    (`_prepared_runner`), the same execution (`_run_pipeline`) — the only difference is
+    where it stops: `run_named_ask` requires an `Answer` at the end and this requires
+    `Passages`, through the identical `_require` seam, so a pipeline that ends in a
+    `Generator` is refused by the same message `run_named_ask` already gives a pipeline
+    that ends in a retriever, read the other way round. `weft_cli.commands.AskCommand.run`
+    is expected to have already refused a pipeline ending in a `Generator` by name, before
+    ever calling this — the `_require` refusal here exists for the pipeline that ends
+    in neither, not as this function's primary defence.
+
+    `--retrieve-only --pipeline <name>` is the caller: a named pipeline, run through to
+    whatever it produces, with no router and no `Answer` — this is `weft ask
+    --retrieve-only`'s own "no model call" contract, extended to a caller who wants a
+    *specific* retrieval pipeline rather than the hardwired vector search
+    `weft_cli.ask.run_ask` performs.
+    """
+    catalogue = full_catalogue(reports=reports)
+    target = named_pipeline(pipeline_name, catalogue=catalogue)
+    runner, routed_ctx, store, table, selected_services = await _prepared_runner(
+        registry=registry,
+        catalogue=catalogue,
+        ctx=ctx,
+        llm=llm,
+        services=services,
+        sink=sink,
+        roles=roles,
+    )
+    query = Query(text=question)
+    query_set = QuerySet(origin=query, queries=(query,))
+    result = await _run_pipeline(
+        target,
+        query_set,
+        sink=sink,
+        entry_type=QuerySet,
+        registry=registry,
+        runner=runner,
+        ctx=routed_ctx,
+        store=store,
+        store_name=services.store,
+        table=table,
+        selected=selected_services,
+        names=services.roles,
+        catalogue=catalogue,
+        reports=reports,
+        contributions=contributions,
+    )
+    return _require(
+        result,
+        Passages,
+        pipeline=pipeline_name,
+        produced_by="`weft ask --retrieve-only`",
     )
 
 
