@@ -1117,6 +1117,37 @@ def _delete_source_of(instance: object) -> Callable[[SourceId], Awaitable[object
     return cast(Callable[[SourceId], Awaitable[object]], found)
 
 
+def batch_membership_dependent_stages(runnable: RunnablePipeline) -> tuple[str, ...]:
+    """The plugin names in `runnable` whose output depends on which nodes shared their call.
+
+    Ledger task **17.2**, and the fact `17.3`'s refusal is built on. `Runner.run` puts each batch
+    through the whole stage list independently, so a stage that **clusters** computes a different
+    thing when the batch size changes — and `raptor` is one: it reads no store (G15) and clusters
+    over the payload it was handed, which `01`:1012 records as *batch-wide, not corpus-wide*.
+
+    **Declared, not derived, which is this tree's exception rather than its rule.** Whether an
+    output depends on batch membership is not computable from a class's shape; only the author of
+    the algorithm knows it. So it is read off the constructed instance the way `requires`,
+    `provides` and `lifetime` already are — `weft_kernel.runner`'s own *"conventions a plugin may
+    set, read defensively"* — and never at registration, because what matters is the instance a
+    resolved pipeline actually holds.
+
+    **Silence means no**, unlike `destroys`, where a contract refuses a plugin that states
+    nothing. The population here is every stage anybody has ever written, almost all of them
+    batch-invariant and none able to declare anything retroactively; a safe default that refused
+    them would refuse the whole world to protect one plugin. What `17.3` protects is the shipped
+    ladder, where the stage that needs this is known by name.
+
+    The **plugin** name rather than the stage id, because the refusal has to name something an
+    operator can look up: an id is whatever the document's author called the position.
+    """
+    return tuple(
+        stage.plugin_name
+        for stage in runnable.stages
+        if getattr(stage.instance, "depends_on_batch_membership", False)
+    )
+
+
 async def _recorded_sources(
     runnable: RunnablePipeline, *, store_stage_id: str | None
 ) -> Mapping[SourceId, SourceRecord]:

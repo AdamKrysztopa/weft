@@ -481,6 +481,14 @@ class RaptorSummarizer:
 
     config_model: ClassVar[type[RaptorConfig]] = RaptorConfig
 
+    #: Ledger task **17.1**'s neighbour, **17.2**. This stage clusters over the payload it was
+    #: handed and reads no store (G15), so what shared its call *is* its scope — `01`:1012 records
+    #: the measurement that it clusters batch-wide rather than corpus-wide. `weft index` yields
+    #: one batch today, so "batch" means "one invocation"; chunking that iterator would redefine
+    #: the word and found one tree per chunk. `weft_cli.ingest.batch_membership_dependent_stages`
+    #: reads this, and `run_index` refuses `--batch-size` over a pipeline that carries it.
+    depends_on_batch_membership: ClassVar[bool] = True
+
     def __init__(self, config: RaptorConfig | None = None) -> None:
         self._config = config if config is not None else RaptorConfig()
 
