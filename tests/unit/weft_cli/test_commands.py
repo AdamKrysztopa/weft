@@ -24,6 +24,7 @@ from typing import ClassVar, Protocol, cast, runtime_checkable
 from unittest import mock
 
 import pytest
+from pydantic import ValidationError
 
 from weft_cli import commands
 from weft_cli.exit_codes import ExitCode
@@ -1129,3 +1130,44 @@ async def test_index_command_copies_both_document_counts_onto_its_result(
     assert isinstance(result, commands.IndexCommandResult)
     assert result.documents_discovered == 3
     assert result.documents_indexed == 1
+
+
+async def test_the_batch_size_flag_reaches_run_index(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Ledger task **17.3** — a value whose only job is to travel (`L9.79`).
+
+    Both states asserted: a parameter hardcoded to a number and one correctly wired look
+    identical from the given case alone.
+    """
+    # Arrange
+    deps = Dependencies(registry=Registry(), reports=(), services=ServiceSelection())
+    summary = RunSummary(produced=1, nothing_to_produce=0, failed=0)
+    calls: list[dict[str, object]] = []
+
+    async def _fake_run_index(*_args: object, **kwargs: object) -> IndexResult:
+        calls.append(kwargs)
+        return IndexResult(summary=summary, stored_count=1)
+
+    monkeypatch.setattr(commands, "run_index", _fake_run_index)
+
+    # Act
+    await commands.IndexCommand().run(
+        commands.IndexArgs(path=str(tmp_path), pipeline="custom", batch_size=500), _ctx(deps)
+    )
+    await commands.IndexCommand().run(
+        commands.IndexArgs(path=str(tmp_path), pipeline="custom"), _ctx(deps)
+    )
+
+    # Assert
+    assert calls[0]["batch_size"] == 500
+    assert calls[1]["batch_size"] is None
+
+
+async def test_a_batch_size_below_one_is_refused_at_the_flag(tmp_path: Path) -> None:
+    """Bounded where the flag is declared, so `run_index`'s own `ValueError` is unreachable from
+    the CLI and an operator gets argparse's own message rather than a traceback.
+    """
+    # Act / Assert
+    with pytest.raises(ValidationError):
+        commands.IndexArgs(path=str(tmp_path), batch_size=0)

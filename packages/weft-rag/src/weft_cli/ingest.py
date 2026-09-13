@@ -304,6 +304,23 @@ class PipelineMissingExtractStageError(PipelineResolutionError, UnresolvedNameEr
         self.valid_options = valid_options
 
 
+class BatchScopedStageError(WeftError):
+    """`--batch-size` was given a pipeline containing a stage whose output depends on which
+    other nodes shared its batch — ledger task **17.3**.
+
+    `Runner.run` puts each batch through the whole stage list independently, so a stage that
+    clusters over whatever it is handed — the plugin names `batch_membership_dependent_stages`
+    returns — computes a different tree per batch rather than one tree per run once the corpus
+    is chunked, with no error and no failed exit: retrieval would still return passages, and the
+    corpus would just be quietly worse. Refused instead, before anything is written or deleted.
+
+    Not a name-resolution failure — there is no alternative *name* to offer, only a flag that
+    does not compose with this pipeline — so this does not join `PipelineResolutionError` and
+    does not join `NAME_RESOLUTION_FAMILY`, on `ConflictingIndexModeError`'s own footing
+    (`weft_cli/commands.py:247 'class ConflictingIndexModeError(WeftError):'`).
+    """
+
+
 def index_specs(
     extractor: str, *, embedder: str = DEFAULT_EMBEDDER, store: str = DEFAULT_STORE
 ) -> tuple[StageSpec, ...]:
@@ -438,6 +455,34 @@ class IndexResult:
     documents_indexed: int = 0
 
 
+def _validate_batch_size(batch_size: int | None) -> None:
+    """`run_index`'s own bound on `batch_size` — no corpus makes a value below `1` sensible.
+
+    `ValueError`, not a `WeftError`: this is a caller handing a library function a value no
+    corpus could make sensible, Python's own vocabulary for the case, and unreachable from the
+    CLI — `IndexArgs.batch_size`'s own `gt=0` bounds the flag before it ever reaches here.
+    """
+    if batch_size is not None and batch_size < 1:
+        raise ValueError(f"batch_size must be a positive integer, got {batch_size!r}.")
+
+
+def _refuse_batch_scoped_stages(runnable: RunnablePipeline) -> None:
+    """`BatchScopedStageError`, when `runnable` holds a stage whose output depends on batch
+    membership — see that class and `batch_membership_dependent_stages` for the whole argument.
+    """
+    dependent = batch_membership_dependent_stages(runnable)
+    if not dependent:
+        return
+    names = ", ".join(dependent)
+    raise BatchScopedStageError(
+        f"--batch-size cannot be used with this pipeline: {names} computes its output over "
+        "whichever nodes share its batch, so splitting the corpus would silently build a "
+        "different tree per batch instead of one tree per run. Drop --batch-size, or use the "
+        "'index-with-adrap' rung instead, which joins a later batch into a tree an earlier run "
+        "already built."
+    )
+
+
 async def run_index(
     directory: Path,
     *,
@@ -454,6 +499,7 @@ async def run_index(
     services: ServiceSelection = _NO_SELECTION,
     roles: RoleTable = _NO_ROLES,
     reprocess: bool = False,
+    batch_size: int | None = None,
 ) -> IndexResult:
     """Extract, chunk, embed and store every file under `directory` an extractor claims.
 
@@ -511,7 +557,20 @@ async def run_index(
     hosted model that moved behind a stable name. The report is unaffected either way: a
     document that did not move still reports `UNCHANGED`, because `source_changes` answers
     *what changed*, not *what ran*.
+
+    `batch_size` — ledger task **17.3**. `None`, the default, is today's behaviour exactly: one
+    batch holding the whole corpus, the only shape this function has ever handed `Runner.run`.
+    Given a positive integer, the corpus is walked in that many documents at a time instead, so
+    peak memory is bounded by the batch rather than by the corpus — `02`:590's own claim, true of
+    `Runner.run` since Phase 0 and false of this function until now. A value below `1` raises
+    `ValueError` naming `batch_size`, since no corpus makes such a value sensible; unreachable
+    from the CLI, where `IndexArgs.batch_size` is bounded at the flag. When the resolved pipeline
+    contains a stage whose output depends on which other nodes shared its batch —
+    `batch_membership_dependent_stages` — this is refused with `BatchScopedStageError` instead of
+    silently computing a different tree per batch; the refusal happens before anything is written
+    or deleted.
     """
+    _validate_batch_size(batch_size)
     _require_corpus_directory(directory)
     if pipeline is not None and extractor is not None:
         raise WeftError(
@@ -580,6 +639,10 @@ async def run_index(
 
     runner = Runner(registry)
     runnable = runner.resolve(specs, tenant_id=ctx.tenant_id)
+    # Before anything is written or deleted — `_release_reparsed_sources` and `_record_sources`
+    # are both still ahead, in the `try` block below.
+    if batch_size is not None:
+        _refuse_batch_scoped_stages(runnable)
     # Ledger task **9.0** — every contract a stage in this resolved `specs` already fills is
     # excluded from the ambient role set `build_index_services` would otherwise register; see
     # that function's own docstring for why this is derived from the pipeline rather than a
@@ -637,7 +700,15 @@ async def run_index(
         )
 
         async def batches() -> AsyncIterator[object]:
-            yield work
+            # Ledger task **17.3**. `None` yields `work` once, exactly as this function always
+            # has — including when `work` is empty, which task **17.0**'s fully-unchanged-corpus
+            # behaviour depends on. Otherwise, successive slices of `batch_size` documents, with
+            # a shorter final slice when the length is not an exact multiple.
+            if batch_size is None:
+                yield work
+                return
+            for start in range(0, len(work), batch_size):
+                yield work[start : start + batch_size]
 
         summary = await runner.run(runnable, batches(), indexing_ctx)
         await _record_sources(

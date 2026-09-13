@@ -402,6 +402,17 @@ class IndexArgs(BaseModel):
             "behind a stable name."
         ),
     )
+    batch_size: int | None = Field(
+        default=None,
+        gt=0,
+        description=(
+            "index this many documents at a time instead of the whole corpus in one call, so "
+            "peak memory is bounded by the batch rather than by the corpus (ledger task "
+            "17.3). Refused, before anything runs, for a pipeline containing a stage whose "
+            "output depends on which other nodes shared its batch — such a stage would "
+            "silently compute a different tree per batch."
+        ),
+    )
 
 
 class AskArgs(BaseModel):
@@ -739,6 +750,7 @@ class IndexCommand:
             services=deps.services,
             roles=deps.roles,
             reprocess=index_args.reprocess,
+            batch_size=index_args.batch_size,
         )
         if result.resolved_pipeline is not None:
             # Carried repair R11.2's second half: `stores_in_use`'s run-record source only ever

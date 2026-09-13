@@ -1620,6 +1620,52 @@ answer. **What to do:** drop one of the two flags — `--extract <name>` to narr
 path's own discovery, or `--pipeline <name>` to run a specific document. With neither, `weft index`
 auto-discovers as before.
 
+### `BatchScopedStageError`
+
+**What it looks like** — ledger task 17.3: `weft index --batch-size` was given a pipeline holding a
+stage whose output depends on **which other nodes shared its batch**. Raised by
+`weft_cli.ingest.run_index` before anything is written or deleted, reproduced against the shipped
+wheel:
+
+```text
+$ weft index corpus --pipeline index-with-raptor --batch-size 50
+--batch-size cannot be used with this pipeline: raptor computes its output over whichever nodes
+share its batch, so splitting the corpus would silently build a different tree per batch instead
+of one tree per run. Drop --batch-size, or use the 'index-with-adrap' rung instead, which joins a
+later batch into a tree an earlier run already built.
+$ echo $?
+1
+```
+
+**Why this is refused rather than allowed.** `raptor` reads no store — grilling session **G15**
+settled that reading one is a different contract, `Revisable`, whose registration is `adrap` — so
+it clusters over the payload it was handed and nothing else. `docs/01-high-level-plan.md` records
+the measurement: it clusters **batch-wide, not corpus-wide**. Without `--batch-size` that is one
+batch per `weft index`, so a run builds one tree. With it, the corpus arrives in pieces and each
+piece founds a **separate tree** — and nothing would tell you: the command exits `0`, retrieval
+still returns passages, and the corpus is quietly worse. That is the failure mode this project
+refuses above a crash.
+
+Exit `1`, not `4`: `--batch-size` is valid, the pipeline is valid, and there is no alternative
+*name* to offer — only a combination that does not compose. So it is not a `NAME_RESOLUTION_FAMILY`
+member, on `ConflictingIndexModeError`'s own footing above.
+
+**What to do**, in order of what you probably want:
+
+- **Drop `--batch-size`.** One `weft index` over the whole corpus builds one tree, which is what
+  `index-with-raptor` is for, and Chucri §6.5 measures a full rebuild as the *better* answer.
+- **Use `index-with-adrap`** if the corpus is too large to index in one run, or if documents keep
+  arriving. That rung joins a later batch into a tree an earlier run already built, rather than
+  founding a second one beside it. Its value is operational, never qualitative — the paper's own
+  §6.5 puts it below a full rebuild on two of three datasets.
+- **Keep `--batch-size` and change the pipeline** if what you need is bounded memory and you were
+  not relying on the clustering — `index-text` and every rung without an `Expander` chunk freely.
+
+**If this fired on a pipeline you wrote**, the stage that caused it declared
+`depends_on_batch_membership = True`. That is a plugin author's statement that their output is a
+function of what shared the call; the refusal names every such plugin in the pipeline, so the one
+to look at is in the message.
+
 ### `AmbiguousExtractorError`
 
 **What it looks like** — two extractors claim a format found in the directory, which is the normal
