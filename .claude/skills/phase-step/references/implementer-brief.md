@@ -70,6 +70,44 @@ modules, named only the one test file its author happened to be editing, and the
 may not touch a test — correctly returned green against a suite with eight new failures it had been
 instructed to cause.
 
+**On what an edit reaches, which is not what a brief lists.** The paragraph above covers a
+*signature* change. Phase 17 found two shapes it does not, three times between them, and both are
+one rule: **a brief names the files to write; what an edit inside those files reaches is a separate
+question, and it has to be searched for.**
+
+*A defaulted parameter is not a signature change and has a larger blast radius than one.* Nothing
+breaks, nothing fails to compile, and **every existing caller silently adopts the new behaviour
+with no line of their diff changing.** Task `17.0` added `reprocess=False` to `run_index`; the
+brief named two files from memory, and `run_index` has two callers. The second,
+`weft_cli.eval_commands`, wraps the call in `time.monotonic()` and persists the result as
+`RunDurations.ingest_seconds` — so a second `weft eval run` over one corpus would have recorded an
+ingest that took no time and compared it against a run that did the whole job. Caught by *Verify*'s
+*read the other call sites*, by no test, and it was `L8.24`'s **third** instance at that one pair of
+call sites. So: **grep every caller and say in the brief what each one gets** (`L20.1`).
+
+*A changed output falsifies every assertion and every transcript of it, and only the executed ones
+fail the gate.* Task `17.4` changed what `weft index` prints. Six copies existed: two executed
+checks named themselves, and four — `README.md`, `manual/quickstart.md`, `docs/03-cli.md`, and a
+**third** assertion in the same test file the brief had already edited twice — had to be grepped
+for. The implementer found the last one, returned **blocked** rather than special-casing a renderer
+around a test it may not edit, and was right to. The same phase's version bump had three more:
+`STORE_CONTRACT_VERSION`'s literal is pinned in the store's own ratchet, in `weft_kg`'s control
+assertion, and in a generated manual page.
+
+**And an edit entirely inside the permitted files can still break something only you can fix.**
+`L20.2`. The implementer's prohibitions are scoped to *files*; a line-number citation is a
+dependency on a file's **shape**. Adding two comments near the top of `weft_store/contract.py`
+pushed pinned citations in a skill and a test outside fitness function 17's ±5 window, and every
+file holding one was off-limits to the agent — so its only move was to shrink its own prose until
+the window held, which it did and reported. **Before dispatching an edit near the top of a cited
+file, grep for line-number citations into it**, and either say in the brief that prose must not
+grow there or plan to re-point them yourself. You are not exempt: this session displaced three of
+its own citations the same day, each caught by FF17 naming the correct line.
+
+*Tightening FF17 to demand the fragment be on the exact line was sized and declined: 112 quoted
+citations, **93** exact, **17** inside the window but not on the line. A check arriving red on
+seventeen judgements is one whose waiver is where the real drift hides (`R10.2`).*
+
 **On "Already decided".** This is the section that decides whether the dispatch succeeds. Every name
 the test asserts on is already a decision you made; write it down. A brief that says "implement the
 store adapter" and a test that asserts `WeftStoreError("no such collection: …")` will produce a

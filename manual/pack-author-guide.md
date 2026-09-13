@@ -260,6 +260,37 @@ The rules this obeys, and what enforces each:
 > `enumerate` never lets two siblings collide. Passing distinct ordinals to siblings is the
 > caller's job; nothing else in the kernel can infer what "a sibling" means for your stage.
 
+## One more declaration, and nothing will refuse you for omitting it
+
+`destroys` above is *required*: a contract that publishes a property vocabulary refuses a plugin
+that never states it, so you find out at registration. This next one is the opposite — it defaults
+to *no* in silence, because every stage anybody has ever written is silent about it and none of
+them can be made to declare anything retroactively.
+
+Declare it as a class attribute on your plugin —
+`depends_on_batch_membership: ClassVar[bool] = True` — beside `destroys`. It is read off the
+constructed instance, defensively, exactly as `requires`, `provides` and `lifetime` are, so there
+is no contract to inherit and no registration to change. *(Stated inline rather than as a sample
+block: every fenced sample in this guide quotes a real file byte-for-byte and is checked against
+it, and a one-line illustration is not worth a file to quote.)*
+
+**Set it when your stage's output is a function of *which other nodes shared the call*** — when it
+clusters, deduplicates across the batch, ranks within it, or summarises it as a group. Leave it
+unset when each item is handled on its own, which is almost every stage: a chunker splits each
+document the same way whoever else was in the call, an embedder embeds each node alone.
+
+**Why it matters, and what goes wrong without it.** `weft_kernel.runner.Runner.run` puts each batch
+through the whole stage list independently, so `weft index --batch-size 500` over a corpus of
+five thousand calls your stage ten times with five hundred nodes each. If your output depends on
+batch membership, that is **ten different answers** where the operator asked for one — and nothing
+would say so: the command exits `0` and retrieval still returns passages. Declaring it makes Weft
+refuse the combination by name instead, pointing the operator at a rung that does compose.
+
+The shipped example is `raptor`, which clusters chunks by embedding similarity and reads no store,
+so what it was handed is all it can see. `weft index --pipeline index-with-raptor --batch-size 500`
+is refused; `index-with-adrap` is the rung that joins a later batch into a tree an earlier run
+already built.
+
 ## 5. Proving it runs
 
 **`weft index` and `weft ask` will not run this plugin.** Phase 0 has not built pipelines as
