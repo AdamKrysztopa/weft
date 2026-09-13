@@ -1,0 +1,95 @@
+{
+  "task": "21.2",
+  "what_this_is": "The text-ranking normalisation sweep `12-roadmap.md` requires before any shipped default moves. Three persisted `weft eval run` records under runs/, one per value of `[packs.store] text_rank_normalization`, produced by driving `weft_engine.api.Weft` directly — no subprocess and no parsed stdout, which is the claim `fix-plans/06` made for taking Phase 24a before this one, collected here.",
+  "taken_on": "2026-09-13",
+  "instrument": {
+    "ingest_rung": "index-pdf-text",
+    "query_rung": "hybrid-then-generate",
+    "why_that_query_rung": "`hybrid` is the only shipped retriever that reaches the store's text arm, which is the arm the setting governs. With a vector-only rung the sweep would have produced three plausible numbers having measured nothing (`L10.5`, `L10.6`).",
+    "generation": "scripted provider — the metric read is retrieval; generated text is not scored",
+    "corpus": "corpus/ (the manifest's own 25 documents, verified before the run)",
+    "questions": "eval/raptor-baseline/questions.json — 83 reproducible, corpus-relative labels",
+    "index_built_once": true,
+    "why": "L11.46 — repetitions are repetitions only if the corpus did not move between them"
+  },
+  "arms": {
+    "0": {
+      "run": "d82a9384-5c60-4520-b7f5-7027d3f85b65",
+      "is": "Postgres's default, no length normalisation — what every corpus indexed before 21.0 was ranked with"
+    },
+    "2": {
+      "run": "682c4410-eaff-4238-b956-fb41e60c07e2",
+      "is": "divides the rank by the document length"
+    },
+    "1": {
+      "run": "94165443-5f01-48e6-acb2-6f2f348ef489",
+      "is": "divides by 1 + log(length)"
+    }
+  },
+  "absolute_at_the_default": {
+    "recall@5": 0.3205128205128205,
+    "precision@5": 0.0676923076923077,
+    "ndcg@5": 0.17927625439191297,
+    "mrr@5": 0.1382051282051282,
+    "mean_average_precision": 0.12853535353535353
+  },
+  "paired_differences_against_the_default": {
+    "2": {
+      "mean_average_precision": [
+        -0.0033,
+        -0.039646,
+        0.022727
+      ],
+      "mrr@5": [
+        -0.0033,
+        -0.038487,
+        0.023077
+      ],
+      "ndcg@5": [
+        -0.0027,
+        -0.030988,
+        0.017518
+      ],
+      "precision@5": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "recall@5": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "1": {
+      "mean_average_precision": [
+        -0.002,
+        -0.034848,
+        0.020202
+      ],
+      "mrr@5": [
+        -0.0021,
+        -0.035385,
+        0.03
+      ],
+      "ndcg@5": [
+        -0.0017,
+        -0.026951,
+        0.022403
+      ],
+      "precision@5": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "recall@5": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "what_it_says": "The default stays at 0, and the measurement is what says so rather than the argument. Every order-sensitive metric moved slightly *down* under both normalising values, and every interval straddles zero — so there is no distinguishable effect in either direction, and certainly none justifying a change that would re-rank every existing corpus.",
+  "the_sharp_part": "`precision@5` and `recall@5` are identical to the digit across all three arms, with zero-width intervals. That is **not** a ceiling — `L10.3`'s trap, checked: recall@5 is 0.3205 against a ceiling of 1.0, so there is ample headroom. The top-5 *set* is genuinely unchanged and only the order within it moves. The mechanism is visible in the rung: `hybrid` fuses by reciprocal *rank*, so the text arm's score scale is discarded at fusion and only its ranking survives — normalisation reorders within the text arm without changing which documents survive into the fused top five.",
+  "what_would_change_it": "A rung that uses the text arm's scores directly rather than fusing by rank, or a corpus whose passage lengths vary far more than 25 papers of comparable length do. Both are measurements, not arguments."
+}

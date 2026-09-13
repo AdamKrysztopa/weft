@@ -140,6 +140,13 @@ help = "Fast baseline: format, lint, types, architecture. No unit tests."
 # closes for type checking. And several packs name a test file the same thing (`test_store.py`,
 # `test_retriever.py`), which pytest's default import mode refuses; `--import-mode=importlib`
 # accepts it without renaming 28 files that belong to strangers.
+[tool.poe.tasks.sweep-normalization]
+help = "Run ledger 21.2's text-ranking normalisation sweep over Weft's own corpus"
+# The bridge lives here rather than in the script, so fitness function 7(a) stays true with
+# nothing waived: the tree holds exactly one `asyncio.run`, at the CLI's entry point, and the
+# sweep exposes `async def main()` the way `examples/weft-example-app/app.py` settled at 24.3.
+cmd = """python -c "import asyncio, sys; sys.path.insert(0, 'eval'); import sweep_text_normalization as s; asyncio.run(s.main())" """
+
 [tool.poe.tasks.examples-tests]
 help = "Task 6.23: the out-of-tree example packs' own suites, which the gate reaches."
 cmd = "pytest examples -q --import-mode=importlib"

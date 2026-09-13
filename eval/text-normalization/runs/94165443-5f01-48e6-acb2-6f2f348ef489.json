@@ -1,0 +1,1666 @@
+{
+  "recorded_at": "2026-09-13T09:59:05.553379+00:00",
+  "resolved_pipeline": {
+    "name": "index-pdf-text",
+    "vars": {},
+    "stages": [
+      {
+        "id": "extract",
+        "contract": "Extractor",
+        "contract_version": "1.0.0",
+        "use": "pdf-text",
+        "config": {
+          "mode": "plain",
+          "password": null,
+          "strict": false,
+          "orientations": [
+            0,
+            90,
+            180,
+            270
+          ],
+          "space_width": 200.0,
+          "layout_mode_space_vertically": true,
+          "layout_mode_scale_weight": 1.25,
+          "layout_mode_strip_rotated": true,
+          "layout_mode_font_height_weight": 1.0
+        },
+        "fallback": [],
+        "applies_to": [],
+        "distribution": "weft-rag",
+        "provenance": "index-pdf-text"
+      },
+      {
+        "id": "normalize",
+        "contract": "Cleaner",
+        "contract_version": "1.0.0",
+        "use": "unicode-normalize",
+        "config": {},
+        "fallback": [],
+        "applies_to": [
+          {
+            "fact": null,
+            "constraints": [],
+            "media_type": [
+              "text"
+            ]
+          }
+        ],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      },
+      {
+        "id": "whitespace",
+        "contract": "Cleaner",
+        "contract_version": "1.0.0",
+        "use": "whitespace",
+        "config": {},
+        "fallback": [],
+        "applies_to": [
+          {
+            "fact": null,
+            "constraints": [],
+            "media_type": [
+              "text"
+            ]
+          }
+        ],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      },
+      {
+        "id": "chunk",
+        "contract": "Chunker",
+        "contract_version": "1.0.0",
+        "use": "fixed-size",
+        "config": {
+          "size": 512,
+          "overlap": 50
+        },
+        "fallback": [],
+        "applies_to": [
+          {
+            "fact": null,
+            "constraints": [],
+            "media_type": [
+              "text"
+            ]
+          }
+        ],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      },
+      {
+        "id": "embed",
+        "contract": "Embedder",
+        "contract_version": "1.0.0",
+        "use": "hash",
+        "config": {},
+        "fallback": [],
+        "applies_to": [],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      },
+      {
+        "id": "store",
+        "contract": "NodeStore",
+        "contract_version": "2.5.0",
+        "use": "pgvector",
+        "config": {},
+        "fallback": [],
+        "applies_to": [],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      }
+    ],
+    "unapplied_operators": [],
+    "unplaced_contributions": []
+  },
+  "corpus": {
+    "name": "corpus",
+    "digest": "ec6920bc84d7ea462e5d03257b6b0b365df00c96184ba0123918a4953fc72809"
+  },
+  "model_versions": {},
+  "active_distributions": [
+    "weft-canary",
+    "weft-rag"
+  ],
+  "distribution_versions": {
+    "weft-canary": "0.1.0",
+    "weft-rag": "2.5.0"
+  },
+  "durations": {
+    "ingest_seconds": 0.0,
+    "query_seconds": 17.244785458082333
+  },
+  "corpus_digest_basis": "document-bytes",
+  "query_rung": {
+    "name": "hybrid-then-generate",
+    "identity": "59f5d382261de5323bbccb6f37b38d81"
+  },
+  "metrics": {
+    "mean_average_precision": {
+      "value": {
+        "reported_name": "mean_average_precision",
+        "mean": 0.1265151515151515,
+        "n": 66,
+        "stdev": 0.23573810748891516,
+        "excluded": 0,
+        "nothing_to_produce": 17,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.1265151515151515,
+            "n": 66,
+            "stdev": 0.23573810748891516
+          }
+        },
+        "by_question_kind": {
+          "methodological": {
+            "mean": 0.125,
+            "n": 20,
+            "stdev": 0.16556654463313047
+          },
+          "quantitative": {
+            "mean": 0.1375,
+            "n": 16,
+            "stdev": 0.27233557730613656
+          },
+          "limitation": {
+            "mean": 0.1318181818181818,
+            "n": 11,
+            "stdev": 0.30188799849673326
+          },
+          "comparative": {
+            "mean": 0.0787878787878788,
+            "n": 11,
+            "stdev": 0.13926212476455826
+          },
+          "definitional": {
+            "mean": 0.25,
+            "n": 4,
+            "stdev": 0.5
+          },
+          "cross-document": {
+            "mean": 0.08333333333333333,
+            "n": 4,
+            "stdev": 0.09622504486493762
+          }
+        }
+      }
+    },
+    "mrr@5": {
+      "value": {
+        "reported_name": "mrr@5",
+        "mean": 0.13615384615384615,
+        "n": 65,
+        "stdev": 0.24268051040041333,
+        "excluded": 1,
+        "nothing_to_produce": 17,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.13615384615384615,
+            "n": 65,
+            "stdev": 0.24268051040041333
+          }
+        },
+        "by_question_kind": {
+          "methodological": {
+            "mean": 0.13157894736842105,
+            "n": 19,
+            "stdev": 0.167396064754004
+          },
+          "quantitative": {
+            "mean": 0.1375,
+            "n": 16,
+            "stdev": 0.27233557730613656
+          },
+          "limitation": {
+            "mean": 0.1318181818181818,
+            "n": 11,
+            "stdev": 0.30188799849673326
+          },
+          "comparative": {
+            "mean": 0.0787878787878788,
+            "n": 11,
+            "stdev": 0.13926212476455826
+          },
+          "definitional": {
+            "mean": 0.25,
+            "n": 4,
+            "stdev": 0.5
+          },
+          "cross-document": {
+            "mean": 0.20833333333333331,
+            "n": 4,
+            "stdev": 0.25
+          }
+        }
+      }
+    },
+    "ndcg@5": {
+      "value": {
+        "reported_name": "ndcg@5",
+        "mean": 0.17753552834936748,
+        "n": 65,
+        "stdev": 0.2774440200937017,
+        "excluded": 1,
+        "nothing_to_produce": 17,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.17753552834936748,
+            "n": 65,
+            "stdev": 0.2774440200937017
+          }
+        },
+        "by_question_kind": {
+          "methodological": {
+            "mean": 0.20282294662447525,
+            "n": 19,
+            "stdev": 0.24814822393595715
+          },
+          "quantitative": {
+            "mean": 0.17994597980954907,
+            "n": 16,
+            "stdev": 0.30557084867080897
+          },
+          "limitation": {
+            "mean": 0.16522994230072133,
+            "n": 11,
+            "stdev": 0.3216872891457624
+          },
+          "comparative": {
+            "mean": 0.12607752793041288,
+            "n": 11,
+            "stdev": 0.21790000480168903
+          },
+          "definitional": {
+            "mean": 0.25,
+            "n": 4,
+            "stdev": 0.5
+          },
+          "cross-document": {
+            "mean": 0.1506638768371486,
+            "n": 4,
+            "stdev": 0.17402437843191315
+          }
+        }
+      }
+    },
+    "precision@5": {
+      "value": {
+        "reported_name": "precision@5",
+        "mean": 0.0676923076923077,
+        "n": 65,
+        "stdev": 0.09537375868735512,
+        "excluded": 1,
+        "nothing_to_produce": 17,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.0676923076923077,
+            "n": 65,
+            "stdev": 0.09537375868735512
+          }
+        },
+        "by_question_kind": {
+          "methodological": {
+            "mean": 0.08421052631578947,
+            "n": 19,
+            "stdev": 0.10145145470035762
+          },
+          "quantitative": {
+            "mean": 0.0625,
+            "n": 16,
+            "stdev": 0.09574271077563382
+          },
+          "limitation": {
+            "mean": 0.05454545454545456,
+            "n": 11,
+            "stdev": 0.09341987329938276
+          },
+          "comparative": {
+            "mean": 0.05454545454545456,
+            "n": 11,
+            "stdev": 0.09341987329938276
+          },
+          "definitional": {
+            "mean": 0.05,
+            "n": 4,
+            "stdev": 0.1
+          },
+          "cross-document": {
+            "mean": 0.1,
+            "n": 4,
+            "stdev": 0.11547005383792516
+          }
+        }
+      }
+    },
+    "recall@5": {
+      "value": {
+        "reported_name": "recall@5",
+        "mean": 0.3205128205128205,
+        "n": 65,
+        "stdev": 0.4623945941333664,
+        "excluded": 1,
+        "nothing_to_produce": 17,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.3205128205128205,
+            "n": 65,
+            "stdev": 0.4623945941333664
+          }
+        },
+        "by_question_kind": {
+          "methodological": {
+            "mean": 0.42105263157894735,
+            "n": 19,
+            "stdev": 0.5072572735017881
+          },
+          "quantitative": {
+            "mean": 0.3125,
+            "n": 16,
+            "stdev": 0.47871355387816905
+          },
+          "limitation": {
+            "mean": 0.2727272727272727,
+            "n": 11,
+            "stdev": 0.4670993664969138
+          },
+          "comparative": {
+            "mean": 0.2727272727272727,
+            "n": 11,
+            "stdev": 0.4670993664969138
+          },
+          "definitional": {
+            "mean": 0.25,
+            "n": 4,
+            "stdev": 0.5
+          },
+          "cross-document": {
+            "mean": 0.20833333333333331,
+            "n": 4,
+            "stdev": 0.25
+          }
+        }
+      }
+    }
+  },
+  "question_set_digest": "5b832d763c7c42a38c37603ef7c3367e44688b09fee8542758bc13b836b7d8fb",
+  "question_scores": {
+    "mean_average_precision": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-001": {
+          "value": 0.0
+        },
+        "fetch-002": {
+          "value": 0.5
+        },
+        "fetch-003": {
+          "value": 0.0
+        },
+        "fetch-004": {
+          "value": 0.0
+        },
+        "fetch-005": {
+          "value": 0.0
+        },
+        "fetch-006": {
+          "value": 0.0
+        },
+        "fetch-007": {
+          "value": 0.0
+        },
+        "fetch-008": {
+          "value": 0.0
+        },
+        "fetch-009": {
+          "value": 0.2
+        },
+        "fetch-010": {
+          "value": 0.0
+        },
+        "fetch-011": {
+          "value": 0.0
+        },
+        "fetch-012": {
+          "value": 0.3333333333333333
+        },
+        "fetch-013": {
+          "value": 0.25
+        },
+        "fetch-014": {
+          "value": 0.0
+        },
+        "fetch-015": {
+          "value": 0.0
+        },
+        "fetch-016": {
+          "value": 0.25
+        },
+        "fetch-017": {
+          "value": 0.0
+        },
+        "fetch-018": {
+          "value": 0.0
+        },
+        "fetch-019": {
+          "value": 0.0
+        },
+        "fetch-020": {
+          "value": 0.0
+        },
+        "fetch-021": {
+          "value": 0.25
+        },
+        "fetch-022": {
+          "value": 0.0
+        },
+        "fetch-023": {
+          "value": 1.0
+        },
+        "fetch-024": {
+          "value": 0.0
+        },
+        "fetch-025": {
+          "value": 0.0
+        },
+        "fetch-026": {
+          "value": 0.3333333333333333
+        },
+        "fetch-027": {
+          "value": 0.0
+        },
+        "fetch-028": {
+          "value": 0.0
+        },
+        "fetch-029": {
+          "value": 0.25
+        },
+        "fetch-030": {
+          "value": 0.25
+        },
+        "fetch-031": {
+          "value": 0.3333333333333333
+        },
+        "fetch-032": {
+          "value": 0.0
+        },
+        "fetch-033": {
+          "value": 0.0
+        },
+        "fetch-034": {
+          "value": 0.0
+        },
+        "fetch-035": {
+          "value": 1.0
+        },
+        "fetch-036": {
+          "value": 0.0
+        },
+        "fetch-037": {
+          "value": 0.0
+        },
+        "fetch-038": {
+          "value": 0.5
+        },
+        "fetch-039": {
+          "value": 0.0
+        },
+        "fetch-040": {
+          "value": 0.0
+        },
+        "fetch-041": {
+          "value": 0.0
+        },
+        "fetch-042": {
+          "value": 0.25
+        },
+        "fetch-043": {
+          "value": 0.0
+        },
+        "fetch-044": {
+          "value": 0.0
+        },
+        "fetch-045": {
+          "value": 0.0
+        },
+        "fetch-046": {
+          "value": 0.0
+        },
+        "fetch-047": {
+          "value": 0.0
+        },
+        "fetch-048": {
+          "value": 0.3333333333333333
+        },
+        "fetch-049": {
+          "value": 0.0
+        },
+        "fetch-050": {
+          "value": 0.0
+        },
+        "fetch-051": {
+          "value": 0.0
+        },
+        "fetch-052": {
+          "value": 0.0
+        },
+        "fetch-053": {
+          "value": 0.16666666666666666
+        },
+        "fetch-054": {
+          "value": 0.16666666666666666
+        },
+        "operator-019": {
+          "value": 0.0
+        },
+        "operator-020": {
+          "value": 0.0
+        },
+        "operator-021": {
+          "value": 0.0
+        },
+        "operator-022": {
+          "value": 0.0
+        },
+        "operator-023": {
+          "value": 0.3333333333333333
+        },
+        "operator-024": {
+          "value": 0.2
+        },
+        "operator-042": {
+          "value": 1.0
+        },
+        "operator-043": {
+          "value": 0.25
+        },
+        "operator-044": {
+          "value": 0.2
+        },
+        "operator-045": {
+          "value": 0.0
+        },
+        "operator-046": {
+          "value": 0.0
+        },
+        "operator-047": {
+          "value": 0.0
+        },
+        "unanswerable-001": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-002": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-003": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-004": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-005": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-006": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-007": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-008": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-009": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-010": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-011": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-012": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-013": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-014": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-015": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-016": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-017": {
+          "reason": "no relevant ids to score retrieval against"
+        }
+      }
+    },
+    "mrr@5": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-001": {
+          "value": 0.0
+        },
+        "fetch-002": {
+          "value": 0.5
+        },
+        "fetch-003": {
+          "value": 0.0
+        },
+        "fetch-004": {
+          "value": 0.0
+        },
+        "fetch-005": {
+          "value": 0.0
+        },
+        "fetch-006": {
+          "value": 0.0
+        },
+        "fetch-007": {
+          "value": 0.0
+        },
+        "fetch-008": {
+          "value": 0.0
+        },
+        "fetch-009": {
+          "value": 0.2
+        },
+        "fetch-010": {
+          "value": 0.0
+        },
+        "fetch-011": {
+          "value": 0.0
+        },
+        "fetch-012": {
+          "value": 0.3333333333333333
+        },
+        "fetch-013": {
+          "value": 0.25
+        },
+        "fetch-014": {
+          "value": 0.0
+        },
+        "fetch-015": {
+          "value": 0.0
+        },
+        "fetch-016": {
+          "value": 0.25
+        },
+        "fetch-017": {
+          "reason": "a metric named @5 cannot be computed over 4 candidates — the run retrieved fewer than it claims to score. Lower the metric's k, or raise the retrieval depth the rung packs."
+        },
+        "fetch-018": {
+          "value": 0.0
+        },
+        "fetch-019": {
+          "value": 0.0
+        },
+        "fetch-020": {
+          "value": 0.0
+        },
+        "fetch-021": {
+          "value": 0.25
+        },
+        "fetch-022": {
+          "value": 0.0
+        },
+        "fetch-023": {
+          "value": 1.0
+        },
+        "fetch-024": {
+          "value": 0.0
+        },
+        "fetch-025": {
+          "value": 0.0
+        },
+        "fetch-026": {
+          "value": 0.3333333333333333
+        },
+        "fetch-027": {
+          "value": 0.0
+        },
+        "fetch-028": {
+          "value": 0.0
+        },
+        "fetch-029": {
+          "value": 0.25
+        },
+        "fetch-030": {
+          "value": 0.25
+        },
+        "fetch-031": {
+          "value": 0.3333333333333333
+        },
+        "fetch-032": {
+          "value": 0.0
+        },
+        "fetch-033": {
+          "value": 0.0
+        },
+        "fetch-034": {
+          "value": 0.0
+        },
+        "fetch-035": {
+          "value": 1.0
+        },
+        "fetch-036": {
+          "value": 0.0
+        },
+        "fetch-037": {
+          "value": 0.0
+        },
+        "fetch-038": {
+          "value": 0.5
+        },
+        "fetch-039": {
+          "value": 0.0
+        },
+        "fetch-040": {
+          "value": 0.0
+        },
+        "fetch-041": {
+          "value": 0.0
+        },
+        "fetch-042": {
+          "value": 0.25
+        },
+        "fetch-043": {
+          "value": 0.0
+        },
+        "fetch-044": {
+          "value": 0.0
+        },
+        "fetch-045": {
+          "value": 0.0
+        },
+        "fetch-046": {
+          "value": 0.0
+        },
+        "fetch-047": {
+          "value": 0.0
+        },
+        "fetch-048": {
+          "value": 0.3333333333333333
+        },
+        "fetch-049": {
+          "value": 0.0
+        },
+        "fetch-050": {
+          "value": 0.0
+        },
+        "fetch-051": {
+          "value": 0.0
+        },
+        "fetch-052": {
+          "value": 0.0
+        },
+        "fetch-053": {
+          "value": 0.3333333333333333
+        },
+        "fetch-054": {
+          "value": 0.5
+        },
+        "operator-019": {
+          "value": 0.0
+        },
+        "operator-020": {
+          "value": 0.0
+        },
+        "operator-021": {
+          "value": 0.0
+        },
+        "operator-022": {
+          "value": 0.0
+        },
+        "operator-023": {
+          "value": 0.3333333333333333
+        },
+        "operator-024": {
+          "value": 0.2
+        },
+        "operator-042": {
+          "value": 1.0
+        },
+        "operator-043": {
+          "value": 0.25
+        },
+        "operator-044": {
+          "value": 0.2
+        },
+        "operator-045": {
+          "value": 0.0
+        },
+        "operator-046": {
+          "value": 0.0
+        },
+        "operator-047": {
+          "value": 0.0
+        },
+        "unanswerable-001": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-002": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-003": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-004": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-005": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-006": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-007": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-008": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-009": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-010": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-011": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-012": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-013": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-014": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-015": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-016": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-017": {
+          "reason": "no relevant ids to score retrieval against"
+        }
+      }
+    },
+    "ndcg@5": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-001": {
+          "value": 0.0
+        },
+        "fetch-002": {
+          "value": 0.6309297535714575
+        },
+        "fetch-003": {
+          "value": 0.0
+        },
+        "fetch-004": {
+          "value": 0.0
+        },
+        "fetch-005": {
+          "value": 0.0
+        },
+        "fetch-006": {
+          "value": 0.0
+        },
+        "fetch-007": {
+          "value": 0.0
+        },
+        "fetch-008": {
+          "value": 0.0
+        },
+        "fetch-009": {
+          "value": 0.38685280723454163
+        },
+        "fetch-010": {
+          "value": 0.0
+        },
+        "fetch-011": {
+          "value": 0.0
+        },
+        "fetch-012": {
+          "value": 0.5
+        },
+        "fetch-013": {
+          "value": 0.43067655807339306
+        },
+        "fetch-014": {
+          "value": 0.0
+        },
+        "fetch-015": {
+          "value": 0.0
+        },
+        "fetch-016": {
+          "value": 0.43067655807339306
+        },
+        "fetch-017": {
+          "reason": "a metric named @5 cannot be computed over 4 candidates — the run retrieved fewer than it claims to score. Lower the metric's k, or raise the retrieval depth the rung packs."
+        },
+        "fetch-018": {
+          "value": 0.0
+        },
+        "fetch-019": {
+          "value": 0.0
+        },
+        "fetch-020": {
+          "value": 0.0
+        },
+        "fetch-021": {
+          "value": 0.43067655807339306
+        },
+        "fetch-022": {
+          "value": 0.0
+        },
+        "fetch-023": {
+          "value": 1.0
+        },
+        "fetch-024": {
+          "value": 0.0
+        },
+        "fetch-025": {
+          "value": 0.0
+        },
+        "fetch-026": {
+          "value": 0.5
+        },
+        "fetch-027": {
+          "value": 0.0
+        },
+        "fetch-028": {
+          "value": 0.0
+        },
+        "fetch-029": {
+          "value": 0.43067655807339306
+        },
+        "fetch-030": {
+          "value": 0.43067655807339306
+        },
+        "fetch-031": {
+          "value": 0.5
+        },
+        "fetch-032": {
+          "value": 0.0
+        },
+        "fetch-033": {
+          "value": 0.0
+        },
+        "fetch-034": {
+          "value": 0.0
+        },
+        "fetch-035": {
+          "value": 1.0
+        },
+        "fetch-036": {
+          "value": 0.0
+        },
+        "fetch-037": {
+          "value": 0.0
+        },
+        "fetch-038": {
+          "value": 0.6309297535714575
+        },
+        "fetch-039": {
+          "value": 0.0
+        },
+        "fetch-040": {
+          "value": 0.0
+        },
+        "fetch-041": {
+          "value": 0.0
+        },
+        "fetch-042": {
+          "value": 0.43067655807339306
+        },
+        "fetch-043": {
+          "value": 0.0
+        },
+        "fetch-044": {
+          "value": 0.0
+        },
+        "fetch-045": {
+          "value": 0.0
+        },
+        "fetch-046": {
+          "value": 0.0
+        },
+        "fetch-047": {
+          "value": 0.0
+        },
+        "fetch-048": {
+          "value": 0.5
+        },
+        "fetch-049": {
+          "value": 0.0
+        },
+        "fetch-050": {
+          "value": 0.0
+        },
+        "fetch-051": {
+          "value": 0.0
+        },
+        "fetch-052": {
+          "value": 0.0
+        },
+        "fetch-053": {
+          "value": 0.3065735963827292
+        },
+        "fetch-054": {
+          "value": 0.2960819109658652
+        },
+        "operator-019": {
+          "value": 0.0
+        },
+        "operator-020": {
+          "value": 0.0
+        },
+        "operator-021": {
+          "value": 0.0
+        },
+        "operator-022": {
+          "value": 0.0
+        },
+        "operator-023": {
+          "value": 0.5
+        },
+        "operator-024": {
+          "value": 0.38685280723454163
+        },
+        "operator-042": {
+          "value": 1.0
+        },
+        "operator-043": {
+          "value": 0.43067655807339306
+        },
+        "operator-044": {
+          "value": 0.38685280723454163
+        },
+        "operator-045": {
+          "value": 0.0
+        },
+        "operator-046": {
+          "value": 0.0
+        },
+        "operator-047": {
+          "value": 0.0
+        },
+        "unanswerable-001": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-002": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-003": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-004": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-005": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-006": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-007": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-008": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-009": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-010": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-011": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-012": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-013": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-014": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-015": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-016": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-017": {
+          "reason": "no relevant ids to score retrieval against"
+        }
+      }
+    },
+    "precision@5": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-001": {
+          "value": 0.0
+        },
+        "fetch-002": {
+          "value": 0.2
+        },
+        "fetch-003": {
+          "value": 0.0
+        },
+        "fetch-004": {
+          "value": 0.0
+        },
+        "fetch-005": {
+          "value": 0.0
+        },
+        "fetch-006": {
+          "value": 0.0
+        },
+        "fetch-007": {
+          "value": 0.0
+        },
+        "fetch-008": {
+          "value": 0.0
+        },
+        "fetch-009": {
+          "value": 0.2
+        },
+        "fetch-010": {
+          "value": 0.0
+        },
+        "fetch-011": {
+          "value": 0.0
+        },
+        "fetch-012": {
+          "value": 0.2
+        },
+        "fetch-013": {
+          "value": 0.2
+        },
+        "fetch-014": {
+          "value": 0.0
+        },
+        "fetch-015": {
+          "value": 0.0
+        },
+        "fetch-016": {
+          "value": 0.2
+        },
+        "fetch-017": {
+          "reason": "a metric named @5 cannot be computed over 4 candidates — the run retrieved fewer than it claims to score. Lower the metric's k, or raise the retrieval depth the rung packs."
+        },
+        "fetch-018": {
+          "value": 0.0
+        },
+        "fetch-019": {
+          "value": 0.0
+        },
+        "fetch-020": {
+          "value": 0.0
+        },
+        "fetch-021": {
+          "value": 0.2
+        },
+        "fetch-022": {
+          "value": 0.0
+        },
+        "fetch-023": {
+          "value": 0.2
+        },
+        "fetch-024": {
+          "value": 0.0
+        },
+        "fetch-025": {
+          "value": 0.0
+        },
+        "fetch-026": {
+          "value": 0.2
+        },
+        "fetch-027": {
+          "value": 0.0
+        },
+        "fetch-028": {
+          "value": 0.0
+        },
+        "fetch-029": {
+          "value": 0.2
+        },
+        "fetch-030": {
+          "value": 0.2
+        },
+        "fetch-031": {
+          "value": 0.2
+        },
+        "fetch-032": {
+          "value": 0.0
+        },
+        "fetch-033": {
+          "value": 0.0
+        },
+        "fetch-034": {
+          "value": 0.0
+        },
+        "fetch-035": {
+          "value": 0.2
+        },
+        "fetch-036": {
+          "value": 0.0
+        },
+        "fetch-037": {
+          "value": 0.0
+        },
+        "fetch-038": {
+          "value": 0.2
+        },
+        "fetch-039": {
+          "value": 0.0
+        },
+        "fetch-040": {
+          "value": 0.0
+        },
+        "fetch-041": {
+          "value": 0.0
+        },
+        "fetch-042": {
+          "value": 0.2
+        },
+        "fetch-043": {
+          "value": 0.0
+        },
+        "fetch-044": {
+          "value": 0.0
+        },
+        "fetch-045": {
+          "value": 0.0
+        },
+        "fetch-046": {
+          "value": 0.0
+        },
+        "fetch-047": {
+          "value": 0.0
+        },
+        "fetch-048": {
+          "value": 0.2
+        },
+        "fetch-049": {
+          "value": 0.0
+        },
+        "fetch-050": {
+          "value": 0.0
+        },
+        "fetch-051": {
+          "value": 0.0
+        },
+        "fetch-052": {
+          "value": 0.0
+        },
+        "fetch-053": {
+          "value": 0.2
+        },
+        "fetch-054": {
+          "value": 0.2
+        },
+        "operator-019": {
+          "value": 0.0
+        },
+        "operator-020": {
+          "value": 0.0
+        },
+        "operator-021": {
+          "value": 0.0
+        },
+        "operator-022": {
+          "value": 0.0
+        },
+        "operator-023": {
+          "value": 0.2
+        },
+        "operator-024": {
+          "value": 0.2
+        },
+        "operator-042": {
+          "value": 0.2
+        },
+        "operator-043": {
+          "value": 0.2
+        },
+        "operator-044": {
+          "value": 0.2
+        },
+        "operator-045": {
+          "value": 0.0
+        },
+        "operator-046": {
+          "value": 0.0
+        },
+        "operator-047": {
+          "value": 0.0
+        },
+        "unanswerable-001": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-002": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-003": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-004": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-005": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-006": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-007": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-008": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-009": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-010": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-011": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-012": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-013": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-014": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-015": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-016": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-017": {
+          "reason": "no relevant ids to score retrieval against"
+        }
+      }
+    },
+    "recall@5": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-001": {
+          "value": 0.0
+        },
+        "fetch-002": {
+          "value": 1.0
+        },
+        "fetch-003": {
+          "value": 0.0
+        },
+        "fetch-004": {
+          "value": 0.0
+        },
+        "fetch-005": {
+          "value": 0.0
+        },
+        "fetch-006": {
+          "value": 0.0
+        },
+        "fetch-007": {
+          "value": 0.0
+        },
+        "fetch-008": {
+          "value": 0.0
+        },
+        "fetch-009": {
+          "value": 1.0
+        },
+        "fetch-010": {
+          "value": 0.0
+        },
+        "fetch-011": {
+          "value": 0.0
+        },
+        "fetch-012": {
+          "value": 1.0
+        },
+        "fetch-013": {
+          "value": 1.0
+        },
+        "fetch-014": {
+          "value": 0.0
+        },
+        "fetch-015": {
+          "value": 0.0
+        },
+        "fetch-016": {
+          "value": 1.0
+        },
+        "fetch-017": {
+          "reason": "a metric named @5 cannot be computed over 4 candidates — the run retrieved fewer than it claims to score. Lower the metric's k, or raise the retrieval depth the rung packs."
+        },
+        "fetch-018": {
+          "value": 0.0
+        },
+        "fetch-019": {
+          "value": 0.0
+        },
+        "fetch-020": {
+          "value": 0.0
+        },
+        "fetch-021": {
+          "value": 1.0
+        },
+        "fetch-022": {
+          "value": 0.0
+        },
+        "fetch-023": {
+          "value": 1.0
+        },
+        "fetch-024": {
+          "value": 0.0
+        },
+        "fetch-025": {
+          "value": 0.0
+        },
+        "fetch-026": {
+          "value": 1.0
+        },
+        "fetch-027": {
+          "value": 0.0
+        },
+        "fetch-028": {
+          "value": 0.0
+        },
+        "fetch-029": {
+          "value": 1.0
+        },
+        "fetch-030": {
+          "value": 1.0
+        },
+        "fetch-031": {
+          "value": 1.0
+        },
+        "fetch-032": {
+          "value": 0.0
+        },
+        "fetch-033": {
+          "value": 0.0
+        },
+        "fetch-034": {
+          "value": 0.0
+        },
+        "fetch-035": {
+          "value": 1.0
+        },
+        "fetch-036": {
+          "value": 0.0
+        },
+        "fetch-037": {
+          "value": 0.0
+        },
+        "fetch-038": {
+          "value": 1.0
+        },
+        "fetch-039": {
+          "value": 0.0
+        },
+        "fetch-040": {
+          "value": 0.0
+        },
+        "fetch-041": {
+          "value": 0.0
+        },
+        "fetch-042": {
+          "value": 1.0
+        },
+        "fetch-043": {
+          "value": 0.0
+        },
+        "fetch-044": {
+          "value": 0.0
+        },
+        "fetch-045": {
+          "value": 0.0
+        },
+        "fetch-046": {
+          "value": 0.0
+        },
+        "fetch-047": {
+          "value": 0.0
+        },
+        "fetch-048": {
+          "value": 1.0
+        },
+        "fetch-049": {
+          "value": 0.0
+        },
+        "fetch-050": {
+          "value": 0.0
+        },
+        "fetch-051": {
+          "value": 0.0
+        },
+        "fetch-052": {
+          "value": 0.0
+        },
+        "fetch-053": {
+          "value": 0.5
+        },
+        "fetch-054": {
+          "value": 0.3333333333333333
+        },
+        "operator-019": {
+          "value": 0.0
+        },
+        "operator-020": {
+          "value": 0.0
+        },
+        "operator-021": {
+          "value": 0.0
+        },
+        "operator-022": {
+          "value": 0.0
+        },
+        "operator-023": {
+          "value": 1.0
+        },
+        "operator-024": {
+          "value": 1.0
+        },
+        "operator-042": {
+          "value": 1.0
+        },
+        "operator-043": {
+          "value": 1.0
+        },
+        "operator-044": {
+          "value": 1.0
+        },
+        "operator-045": {
+          "value": 0.0
+        },
+        "operator-046": {
+          "value": 0.0
+        },
+        "operator-047": {
+          "value": 0.0
+        },
+        "unanswerable-001": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-002": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-003": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-004": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-005": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-006": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-007": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-008": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-009": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-010": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-011": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-012": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-013": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-014": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-015": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-016": {
+          "reason": "no relevant ids to score retrieval against"
+        },
+        "unanswerable-017": {
+          "reason": "no relevant ids to score retrieval against"
+        }
+      }
+    }
+  }
+}
