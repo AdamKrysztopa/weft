@@ -147,6 +147,14 @@ help = "Run ledger 21.2's text-ranking normalisation sweep over Weft's own corpu
 # sweep exposes `async def main()` the way `examples/weft-example-app/app.py` settled at 24.3.
 cmd = """python -c "import asyncio, sys; sys.path.insert(0, 'eval'); import sweep_text_normalization as s; asyncio.run(s.main())" """
 
+[tool.poe.tasks.sweep-lexical-fusion]
+help = "Run ledger 21.9's crossed fts/bm25 x rrf/nsf sweep over Weft's own corpus"
+# The same bridge, for the same reason as `sweep-normalization` directly above. Needs
+# `docker compose --profile bm25 up -d` and WEFT_BM25_DATABASE_URL: both lexical arms run on the
+# BM25 server, because running `fts` on the floor's PostgreSQL 16 and `bm25` on 17 would vary the
+# server version alongside the ranking.
+cmd = """python -c "import asyncio, sys; sys.path.insert(0, 'eval'); import sweep_lexical_fusion as s; asyncio.run(s.main())" """
+
 [tool.poe.tasks.examples-tests]
 help = "Task 6.23: the out-of-tree example packs' own suites, which the gate reaches."
 cmd = "pytest examples -q --import-mode=importlib"

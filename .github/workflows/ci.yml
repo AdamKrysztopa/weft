@@ -162,7 +162,16 @@ jobs:
           # pytest tests/unit/weft_store/ -q` reads **92 passed, 4 skipped** against 96 passed with
           # the profile up, so the delta is exactly four. Running them here would mean pulling a
           # 3.86 GB image into every gate for a capability the floor does not carry.
-          WEFT_TEST_EXPECTED_SKIPS: "86"
+          #
+          # **86 -> 94 on 2026-09-13, at Phase 21b task `21.8`, and this one reached `main` red.**
+          # Eight tests gave `weft-qdrant` a `TextSearch` arm and every one of them needs a Qdrant,
+          # which this job does not provision — so all eight skip here and the local gate, run with
+          # the container up, could not see it. **The hook did not fire**: `guard_skip_count.py`
+          # refuses a commit that adds an `untracked_reason(...)` skip without staging this file,
+          # and these skip on a *service* being unreachable, which is the other half of how this
+          # number moves (`docs/internal/lessons.md` `L21.9`). Counted from CI's own message —
+          # claimed 86, produced 94 — which is the only environment that can answer.
+          WEFT_TEST_EXPECTED_SKIPS: "94"
 
   # Fast feedback on a pull request, and **not a gate**. The `gate` job above is the canonical
   # full run and this job cannot stand in for it: it runs only the tests the diff can have
