@@ -611,6 +611,7 @@ added, removed or reworded without this table noticing fails the build before it
 | `weft graph show` | `read` | `weft-rag` | show the corpus's active schema and every schema its facts were extracted under |
 | `weft index` | `write` | `weft-rag` | run an ingest pipeline over a directory. Which formats are accepted is derived from the extractors actually installed, never from a fixed list. --pipeline names a document instead of the built-in four stages, reaching a plugin's own 'with:' configuration (ledger task 4.0). A successful run always ends with an automatic 'repair' reconciliation pass; --reconcile full opts this run into backfill too (ledger task 5.1c). |
 | `weft init` | `write` | `weft-rag` | scaffold weft.toml in the current directory — every key commented out, offline by default |
+| `weft pack new` | `write` | `weft-rag` | scaffold a new pack — the four files `07` §2 calls the canonical pack, ready to `pip install -e .` and appear in `weft plugins doctor` |
 | `weft pipeline derive` | `write` | `weft-rag` | scaffold a new pipeline document with 'extends:' set to an existing one |
 | `weft pipeline diff` | `read` | `weft-rag` | the exact, structural difference between two resolved pipelines |
 | `weft pipeline list` | `read` | `weft-rag` | every pipeline this project can resolve — project-local documents and every installed pack's own contribution |

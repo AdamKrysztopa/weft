@@ -1666,6 +1666,30 @@ member, on `ConflictingIndexModeError`'s own footing above.
 function of what shared the call; the refusal names every such plugin in the pipeline, so the one
 to look at is in the message.
 
+### `PackTargetExistsError`
+
+**What it looks like** — ledger task 26.7: `weft pack new` was pointed at a directory that already
+exists. Raised before any file is written, reproduced against the shipped command:
+
+```text
+$ weft pack new acme-shouty
+'/home/you/src/acme-shouty' already exists, and scaffolding into it would leave a half-written
+pack over whatever is there with nothing saying which files moved. Choose another name, or
+another --into directory, or remove that path yourself.
+$ echo $?
+1
+```
+
+**Why it refuses rather than merging.** `weft pack new` is a `write`-class command: it *creates*.
+`weft init`'s own repair from `overwrite` to `write` is the precedent, and the reasoning is the
+same — a template written over a directory somebody already has leaves a half-pack that is neither
+theirs nor the template's, the result says nothing about which files were replaced, and there is no
+undo. Nothing is written at all when this fires, so the directory is exactly as you left it.
+
+**What to do:** pick another name, pass `--into` a different directory, or remove the path
+yourself. The command will not do it for you, deliberately: a scaffolder that deletes is a
+scaffolder somebody eventually runs in the wrong place.
+
 ### `NotAStoreError`
 
 **What it looks like** — ledger task 26.5: the published store conformance kit was handed an object

@@ -145,6 +145,7 @@ def test_register_wires_every_built_in_with_its_permission_class() -> None:
         "pipeline list",
         "pipeline show",
         "pipeline derive",
+        "pack new",
         "pipeline validate",
         "pipeline diff",
         "config get",

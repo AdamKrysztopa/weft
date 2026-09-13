@@ -99,6 +99,7 @@ from weft_cli.fanout import Participant
 from weft_cli.ingest import INDEX_PACKS, SourceChange, run_index
 from weft_cli.installed_versions import active_distribution_versions, installed_versions
 from weft_cli.output import AskFormat
+from weft_cli.pack_new import PackNewCommand
 from weft_cli.participation import DEFAULT_INDEX_RUNS_DIR, load_run_records, stores_in_use
 from weft_cli.pipeline_catalogue import (
     DEFAULT_PIPELINES_DIR,
@@ -1427,6 +1428,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(Command, "plugins list", PluginsListCommand)
     registrar.add(Command, "plugins doctor", PluginsDoctorCommand)
     registrar.add(Command, "init", InitCommand)
+    registrar.add(Command, "pack new", PackNewCommand)
     registrar.add(Command, "delete", DeleteCommand)
     registrar.add(Command, "reconcile", ReconcileCommand)
     registrar.add(Command, "render", RenderCommand)
