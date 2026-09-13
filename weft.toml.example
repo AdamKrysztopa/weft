@@ -170,10 +170,14 @@ dsn = "${env:WEFT_DATABASE_URL}"
 # embedder `weft index` and `weft ask` resolve, with no package edited and nothing
 # reinstalled — including a plugin from a pack neither of us wrote.
 #
-# The default is `hash`, `weft-embed`'s deterministic embedder: no credential, no
-# network, no model download, and **no semantic understanding whatsoever** — it exists
-# so a clean checkout runs end to end, not so retrieval results can be judged against
-# it. `openai` calls a real model and needs the block above.
+# 'hash' carries no semantic meaning — it digests the text, so a ranking built from
+# it says the pipeline ran and nothing about relevance. Set [services] embed in
+# weft.toml to change it: 'openai-embeddings' for the vendor, or
+# 'openai-compatible-embeddings' pointed at an OpenAI-compatible server you run,
+# which needs no account.
+#
+# No credential, no network and no model download is what that default buys, and it is
+# why a clean checkout runs end to end with nothing configured at all.
 #
 # Changing this means reindexing into an empty store: a stored vector is only comparable
 # to a question embedded by the same model. See manual/operations-guide.md ->

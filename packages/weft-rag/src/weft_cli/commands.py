@@ -670,6 +670,10 @@ class PluginsDoctorCommandResult(CommandResult):
     skew: tuple[SkewReport, ...]
     unreachable_contributions: tuple[Contribution, ...]
     versions: dict[str, str] = {}
+    #: The embedder this project would resolve when nobody has chosen one — task **28.8**.
+    #: `None` when `[services] embed` names one, on `R17.6`'s rule that a choice made is not a
+    #: choice to warn about.
+    defaulted_embedder: str | None = None
 
 
 class IndexCommand:
@@ -1110,6 +1114,7 @@ class PluginsDoctorCommand:
                 skew=detect_skew(),
                 unreachable_contributions=unreachable,
                 versions=installed_versions(report.distribution for report in deps.reports),
+                defaulted_embedder=None if deps.embed_was_selected else deps.services.embed,
             )
         )
 
@@ -1128,8 +1133,12 @@ _INIT_TEMPLATE = """\
 
 [services]
 # embed = "hash"
-# hash carries no semantic meaning — it digests content, so ranking with it
-# only proves the pipeline ran. Switch to openai-embeddings for relevance.
+# 'hash' carries no semantic meaning — it digests the text, so a
+# ranking built from it says the pipeline ran and nothing about
+# relevance. Set [services] embed in weft.toml to change it:
+# 'openai-embeddings' for the vendor, or
+# 'openai-compatible-embeddings' pointed at an OpenAI-compatible
+# server you run, which needs no account.
 # store = "pgvector"
 
 [permissions]

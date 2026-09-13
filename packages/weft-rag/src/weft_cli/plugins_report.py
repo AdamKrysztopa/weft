@@ -87,6 +87,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from weft_cli.skew import SkewReport
+from weft_engine.services import DEFAULT_EMBEDDER_MEANING
 from weft_kernel.discovery import PackReport, PackStatus
 from weft_kernel.registry import DisplacedRegistration
 from weft_kernel.resolution import Contribution
@@ -108,6 +109,7 @@ def render_doctor(
     skew: tuple[SkewReport, ...] = (),
     unreachable_contributions: tuple[Contribution, ...] = (),
     versions: Mapping[str, str] | None = None,
+    defaulted_embedder: str | None = None,
 ) -> str:
     """A fuller block per distribution: status, reason (if any), disclosure, and what it lost.
 
@@ -178,9 +180,23 @@ def render_doctor(
         blocks.append(_unconsulted_pins_block(unconsulted_pins))
     if skew:
         blocks.append(_skew_block(skew))
+    if defaulted_embedder is not None:
+        blocks.append(_defaulted_embedder_block(defaulted_embedder))
     if tracing is not None:
         blocks.append(f"tracing: {tracing}")
     return "\n\n".join(blocks)
+
+
+def _defaulted_embedder_block(embedder: str) -> str:
+    """Task **28.8** — the sentence `weft index` already prints, on the command an operator runs
+    when a result looks wrong rather than when it was produced.
+
+    `None` — the default — prints nothing and leaves every existing caller's output unchanged, on
+    `tracing`'s and `skew`'s own footing. It is passed only when `[services] embed` was **not**
+    chosen: a choice made is not a choice to warn about (`R17.6`'s rule), and a block printed on
+    every run is one an operator learns to scroll past.
+    """
+    return f"embedder: '{embedder}', which nothing chose. {DEFAULT_EMBEDDER_MEANING}"
 
 
 def _sorted(reports: tuple[PackReport, ...]) -> list[PackReport]:

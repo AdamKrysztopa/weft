@@ -75,6 +75,26 @@ from weft_kernel.errors import UnresolvedNameError, WeftError
 #: one is the default rather than merely available.
 DEFAULT_EMBEDDER: Final[str] = "hash"
 
+#: **The one sentence a first hour is told about that default, on every surface that tells it** —
+#: ledger task **28.8**, carrying **G21**'s settled answer (2026-09-12): the account-free semantic
+#: path is *a server the operator runs*, never a model Weft downloads.
+#:
+#: Single-sourced because it had already drifted. `weft index` warned in one wording (`R17.6`),
+#: `weft init` scaffolded a `weft.toml` saying *"Switch to openai-embeddings for relevance"* — the
+#: vendor, which needs an account — `weft.toml.example` said a third thing, and `weft plugins
+#: doctor`, the command somebody runs when a result looks wrong, said nothing at all. Three
+#: wordings of one fact are three things that can go stale separately, which is `02`'s two-lists
+#: argument aimed at prose a person reads.
+#:
+#: Written as a whole sentence rather than a format string: every surface quotes it, none of them
+#: interpolates into it, and a caller that needs to name the embedder says so around it.
+DEFAULT_EMBEDDER_MEANING: Final[str] = (
+    "'hash' carries no semantic meaning — it digests the text, so a ranking built from it says "
+    "the pipeline ran and nothing about relevance. Set [services] embed in weft.toml to change "
+    "it: 'openai-embeddings' for the vendor, or 'openai-compatible-embeddings' pointed at an "
+    "OpenAI-compatible server you run, which needs no account."
+)
+
 #: `weft-store`'s pgvector backend. The default because `01` → *Runtime shape* makes it the
 #: floor — "one container is the floor, and it is pgvector" — not because it is privileged:
 #: it is resolved by name through the same registry every other store is.

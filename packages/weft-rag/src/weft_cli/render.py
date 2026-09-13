@@ -112,6 +112,7 @@ from weft_command import ExitCode
 # already uses for `ExitCode` one module over.
 from weft_command import Rendered as Rendered
 from weft_command.contract import CommandResult
+from weft_engine.services import DEFAULT_EMBEDDER_MEANING
 from weft_eval.contract import MetricKind
 from weft_eval.falsify import BaselineSpread, DifferenceJudgement, PairedDifference
 from weft_eval.run_record import (
@@ -203,6 +204,7 @@ def _render_plugins_doctor(result: PluginsDoctorCommandResult) -> Rendered:
         result.skew,
         result.unreachable_contributions,
         result.versions,
+        result.defaulted_embedder,
     )
     return Rendered(stdout=stdout, stderr=None, exit_code=ExitCode.SUCCESS)
 
@@ -565,14 +567,15 @@ def _reparse_lines(changes: Mapping[str, SourceChange]) -> list[str]:
 
 def _defaulted_embedder_line(embedder: str) -> str:
     """Carried repair `R17.6`'s own stderr line — printed only when `weft.toml` did not name
-    an embedder. `hash` (the built-in default) hashes chunk text into SHA-256 digests, so a
-    ranking built from it reflects nothing about relevance; the line says that plainly, and
-    names the key an operator would set instead.
+    an embedder.
+
+    The sentence itself is `weft_engine.services.DEFAULT_EMBEDDER_MEANING`, shared with
+    `weft plugins doctor`, `weft init`'s scaffolded `weft.toml` and `weft.toml.example`
+    (task **28.8**). What this function adds is the part only this surface knows: that the
+    run which just happened used it, and was not asked to.
     """
     return (
-        f"  you did not choose an embedder — this ran with '{embedder}', whose vectors carry "
-        "no semantic meaning, so the ranking says the pipeline ran, not that anything is "
-        "relevant. Set [services] embed in weft.toml to choose one."
+        f"  you did not choose an embedder — this ran with '{embedder}'. {DEFAULT_EMBEDDER_MEANING}"
     )
 
 
