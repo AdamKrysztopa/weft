@@ -510,3 +510,125 @@ def test_the_prose_beside_a_waived_block_names_only_what_exists() -> None:
         + f"\n\nDistributions read from {[str(p.relative_to(REPO_ROOT)) for p in _MANIFESTS]}: "
         + f"{sorted(_published_names())}; extras: {sorted(_published_extras())}"
     )
+
+
+#: `28.4`'s ratchet, pinned empty. A public page that must carry a link, a count or a task name
+#: this file cannot check is named here with its reason.
+PAGES_WAIVED_FROM_STRUCTURE: Final[frozenset[str]] = frozenset()
+
+#: The nouns of the developer-local record. A number in front of one of these is a fact about a
+#: table no reader of a clone can see, and it is wrong the next time a gate closes: `26.0` fixed
+#: `README.md`'s gate counts on 2026-09-11 and they were false again inside twenty-four hours.
+#: *Phases* are deliberately absent — `manual/contract-reference.md`:922 says a property "went
+#: unreached for two phases", which is history and stays true.
+UNTRACKED_LOG_NOUNS: Final[tuple[str, ...]] = ("gates", "gate", "decision gates", "decisions")
+
+_QUANTIFIED_LOG = re.compile(
+    r"\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|"
+    r"fifteen|sixteen|seventeen|eighteen|nineteen|twenty|twenty-\w+|\d+)[- ]"
+    r"(?:architecture |decision |open |settled )*(?:gates?|decisions)\b",
+    re.IGNORECASE,
+)
+_POE_TASK = re.compile(r"\bpoe (?P<task>[a-z][a-z0-9-]*)")
+
+
+@cache
+def _poe_tasks() -> frozenset[str]:
+    """Every task name in the workspace's `[tool.poe.tasks]` — read, never retyped."""
+    tasks = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))["tool"][
+        "poe"
+    ]["tasks"]
+    assert tasks, "no poe tasks were read, so no page's command could have been checked"
+    return frozenset(tasks)
+
+
+def _structurally_checked_pages() -> list[str]:
+    swept = [page for page in PUBLIC_PAGES if page not in PAGES_WAIVED_FROM_STRUCTURE]
+    assert swept, "every public page was waived — nothing was read"
+    return swept
+
+
+def test_every_link_on_a_public_page_resolves_to_something_tracked() -> None:
+    """`28.4`'s first clause, generalised past `CONTRIBUTING.md` to every public page.
+
+    `03-public-route.md` §5 step 1 runs this by hand at the exit, once. It is the same act and it
+    is mechanical, so it runs every time instead: a link into `docs/internal/` is one way to
+    strand a reader and a link to a file that was renamed is the other, and only the first has a
+    check of its own.
+    """
+    # Arrange
+    tracked = tracked_files()
+
+    # Act
+    broken: list[str] = []
+    for page in _structurally_checked_pages():
+        source = REPO_ROOT / page
+        for target in sorted(_link_targets(page)):
+            resolved = REPO_ROOT / target
+            if target in tracked or (
+                resolved.is_dir() and any(name.startswith(f"{target}/") for name in tracked)
+            ):
+                continue
+            broken.append(f"{source.name}: `{target}`")
+
+    # Assert
+    assert not broken, (
+        "public pages link to paths this repository does not track:\n  "
+        + "\n  ".join(broken)
+        + "\n\nA reader with a clone or a wheel follows these; a rename that missed one is "
+        "indistinguishable, from where they sit, from a page that was never true"
+    )
+
+
+def test_no_public_page_counts_the_rows_of_a_developer_local_log() -> None:
+    """`28.4`'s second clause. A tracked page counting an untracked table is wrong by construction.
+
+    `CONTRIBUTING.md` said "ten architecture gates … six are closed and four are not" against a
+    log of thirty-four rows, and `README.md` carried two counts that `26.0` corrected on
+    2026-09-11 and that were false again within a day. The repair was never better numbers: it is
+    stating the property — *the decisions are recorded, and none open today blocks what ships* —
+    which stays true without anybody maintaining it.
+
+    **Two pages, not twelve, and the narrowing is measured rather than cautious.** Swept across
+    the whole public set this arrives red on two correct sentences: `manual/user-manual.md`:42's
+    "One gate in front of the runner still reads the primary alone" is a branch in the code, and
+    `manual/operations-guide.md`:612's "three decisions in it" are `[packs.store]` settings. Both
+    are ordinary English about something else, and a two-entry waiver is where a real count would
+    hide (`R10.2`'s shape). The defect was on the two pages a stranger and a contributor land on,
+    which is the population this clause keeps.
+    """
+    # Act
+    counted = [
+        f"{page}:{text.count(chr(10), 0, match.start()) + 1} — {match.group(0)!r}"
+        for page in ROUTE_PAGES_OUTSIDE_MANUAL
+        for text in [(REPO_ROOT / page).read_text(encoding="utf-8")]
+        for match in _QUANTIFIED_LOG.finditer(text)
+    ]
+
+    # Assert
+    assert not counted, (
+        "a public page counts something only the developer-local decision log knows:\n  "
+        + "\n  ".join(counted)
+        + "\n\nSay the property instead. A count here is right on the day it is written and "
+        "wrong at the next gate, and nothing on a public page can notice"
+    )
+
+
+def test_every_poe_task_a_public_page_names_exists() -> None:
+    """`28.4`'s third clause: a command a reader is told to run resolves in `pyproject.toml`."""
+    # Act
+    unknown = sorted(
+        {
+            f"{page}: `poe {match.group('task')}`"
+            for page in _structurally_checked_pages()
+            for match in _POE_TASK.finditer((REPO_ROOT / page).read_text(encoding="utf-8"))
+            if match.group("task") not in _poe_tasks()
+        }
+    )
+
+    # Assert
+    assert not unknown, (
+        "public pages name `poe` tasks that do not exist:\n  "
+        + "\n  ".join(unknown)
+        + f"\n\nDeclared in `pyproject.toml` `[tool.poe.tasks]`: {sorted(_poe_tasks())}"
+    )
