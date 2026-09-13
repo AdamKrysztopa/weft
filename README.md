@@ -74,14 +74,14 @@ through Python entry points.
 EOF
 cat > corpus/loom.md <<'EOF'
 A loom holds the warp fixed while the weft runs through it, over and under,
-one pass at a time. The warp is the structure; the weft is what crosses it.
+thread by thread, until the cloth exists.
 EOF
 ```
 
 Index it, and then ask:
 
 ```bash id=index
-weft index corpus --yes
+weft index corpus
 ```
 
 ```bash id=ask

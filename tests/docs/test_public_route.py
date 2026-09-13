@@ -312,3 +312,47 @@ def test_the_readme_says_what_an_id_citation_into_the_untracked_record_is() -> N
         "`README.md` → *Layout* names `docs/internal/` without saying a clone does not have it, "
         "which is the half that stops the citation reading as a broken link"
     )
+
+
+#: `28.2`'s ratchet, pinned empty. A block that must differ between the two pages is named here
+#: with its reason — the two walkthroughs are the same walkthrough, and a divergence nobody chose
+#: is the failure this check exists for.
+BLOCKS_ALLOWED_TO_DIFFER: Final[frozenset[str]] = frozenset()
+
+_TAGGED_FENCE: Final[re.Pattern[str]] = re.compile(
+    r"^```(?P<language>\w+)\s+id=(?P<id>\S+)\n(?P<body>.*?)^```\s*$", re.MULTILINE | re.DOTALL
+)
+
+
+def _tagged_blocks(page: str) -> dict[str, str]:
+    """Every fenced block on `page` carrying an `id=`, by id."""
+    text = (REPO_ROOT / page).read_text(encoding="utf-8")
+    return {match.group("id"): match.group("body") for match in _TAGGED_FENCE.finditer(text)}
+
+
+def test_the_readme_and_the_quickstart_agree_block_for_block() -> None:
+    """`28.2`, and `L17.4`(b): `08` §3 aims a harness at each page and nothing asserted they agree.
+
+    Both pages carry the same walkthrough, both are executed, and both passing says nothing about
+    whether a reader who starts on one and continues on the other is typing one coherent sequence.
+    Two blocks had already drifted — the corpus file the quickstart then quotes back as output,
+    and a `--yes` on one page's `index` and not the other's.
+    """
+    # Arrange
+    readme = _tagged_blocks("README.md")
+    quickstart = _tagged_blocks("manual/quickstart.md")
+    shared = sorted((set(readme) & set(quickstart)) - BLOCKS_ALLOWED_TO_DIFFER)
+    assert shared, (
+        "no block id appears on both `README.md` and `manual/quickstart.md`. The floor `08` §3 "
+        "requires: nothing was compared, so nothing below could have failed"
+    )
+
+    # Act
+    differing = [name for name in shared if readme[name] != quickstart[name]]
+
+    # Assert
+    assert not differing, (
+        f"these blocks differ between `README.md` and `manual/quickstart.md`: {differing}. "
+        f"They are the same walkthrough under the same ids; a reader who indexes the README's "
+        f"corpus and then reads the quickstart's expected output is comparing two different runs"
+    )
