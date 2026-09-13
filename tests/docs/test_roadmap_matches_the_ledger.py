@@ -86,6 +86,53 @@ def _ticks_by_phase() -> dict[str, tuple[int, int]]:
     return {name: (done, still_open) for name, (done, still_open) in found.items()}
 
 
+#: A row whose own text says the phase dissolved into a ledger task rather than becoming a phase —
+#: `19`'s says *"folded into ledger task `9.13`; the phase dissolves"*. Such a row has **no**
+#: `## Phase 19` heading in the ledger, so the comparison below cannot see it at all, and `19` sat
+#: reading `SHOULD` with `9.13` ticked. Found by reading the table out loud one hour after the
+#: check above was written — the same class of defect, one gap over.
+_DISSOLVED: Final[re.Pattern[str]] = re.compile(r"folded into ledger task `(\d+\.\d+)`")
+
+#: A ticked ledger task, by id — `- [x] **9.13**`.
+_TICKED_TASK: Final[re.Pattern[str]] = re.compile(
+    r"^- \[x\] \*\*(\d+[a-z]?\.\d+)\*\*", re.MULTILINE
+)
+
+
+@_requires_both
+def test_a_dissolved_phase_does_not_still_read_should() -> None:
+    """A row that folded into a ledger task is finished when that task is ticked.
+
+    It needs its own test because the one below compares against `## Phase <id>` headings, and a
+    dissolved phase has none — so it is invisible to that comparison rather than passing it. An
+    absence nothing looks for is `L10.33`'s shape, and this is that shape inside a check written
+    to catch a neighbouring one.
+    """
+    # Arrange
+    ledger = _LEDGER.read_text(encoding="utf-8")
+    ticked = {match.group(1) for match in _TICKED_TASK.finditer(ledger)}
+    roadmap = _ROADMAP.read_text(encoding="utf-8").splitlines()
+
+    # Act
+    stale: list[str] = []
+    for line in roadmap:
+        row = _ROW.match(line)
+        dissolved = _DISSOLVED.search(line)
+        if row is None or dissolved is None or row.group(2) == "DONE":
+            continue
+        if dissolved.group(1) in ticked:
+            stale.append(
+                f"{row.group(1)}: says {row.group(2)}, dissolved into {dissolved.group(1)}, ticked"
+            )
+
+    # Assert
+    assert not stale, (
+        "these roadmap rows describe a phase that dissolved into a task that is done:\n  "
+        + "\n  ".join(stale)
+        + "\nA dissolved phase has no ledger heading, so the finished-phase check cannot see it."
+    )
+
+
 @_requires_both
 def test_a_fully_built_phase_reads_done_in_the_roadmap() -> None:
     # Arrange

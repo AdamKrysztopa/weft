@@ -57,6 +57,29 @@ UNTRACKED_BY_DESIGN: Final[frozenset[str]] = frozenset(
 _UNTRACKED_ROOT: Final[Path] = Path(__file__).resolve().parent.parent
 
 
+def _pretending_untracked() -> bool:
+    """Whether to answer as a clean checkout would, however this working tree looks.
+
+    **`WEFT_PRETEND_UNTRACKED=1` exists so the number in CI can be measured before it is pushed.**
+    `WEFT_TEST_EXPECTED_SKIPS` is a fact about an environment (`L12.1`) and CI's environment has
+    none of the eight files `UNTRACKED_BY_DESIGN` names — so a developer's machine, which has all
+    eight, cannot produce that number and a test that skips only there is invisible locally. It
+    went wrong exactly that way on 2026-09-13: five new tests in `tests/docs/
+    test_roadmap_matches_the_ledger.py` skip on a clean checkout and run here, the local gate was
+    green, and CI reported *claimed 73 and produced 77* three minutes after the push.
+
+    So, before pushing a test that reads one of those files:
+
+        WEFT_PRETEND_UNTRACKED=1 uv run poe test
+
+    and read the skip count out of pytest's own summary. It is exact for the docs half and it does
+    not touch the files, which is why it is an environment variable rather than moving them aside —
+    `docs/internal/` is the source of truth for the phase in progress and a suite that renamed it
+    would be one interrupt away from losing it.
+    """
+    return os.environ.get("WEFT_PRETEND_UNTRACKED", "") not in {"", "0"}
+
+
 def untracked_reason(repo_relative: str) -> str | None:
     """`None` when `repo_relative` is present on disk; otherwise a skip reason naming it.
 
@@ -68,7 +91,7 @@ def untracked_reason(repo_relative: str) -> str | None:
         f"{repo_relative!r} is not one of the eight files this repository keeps untracked by "
         f"design — see UNTRACKED_BY_DESIGN. A skip reason must name a real member of that set."
     )
-    if (_UNTRACKED_ROOT / repo_relative).exists():
+    if not _pretending_untracked() and (_UNTRACKED_ROOT / repo_relative).exists():
         return None
     return (
         f"{repo_relative} is untracked by design (owner's decision, 2026-09-11 — see "
