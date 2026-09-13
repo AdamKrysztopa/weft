@@ -1,0 +1,125 @@
+{
+  "task": "21.9",
+  "what_this_is": "The crossed lexical/fusion sweep `12-roadmap.md` requires before either of Phase 21b's two new defaults could move. Four persisted `weft eval run` records under runs/ — `text_mode` in (fts, bm25) by fuser in (reciprocal-rank-fusion, normalized-score-fusion) — produced by driving `weft_engine.api.Weft` directly through `eval/sweep_lexical_fusion.py`. No subprocess and no parsed stdout.",
+  "taken_on": "2026-09-13",
+  "instrument": {
+    "ingest_rung": "index-pdf-text",
+    "query_rungs": {
+      "reciprocal-rank-fusion": "hybrid-then-generate",
+      "normalized-score-fusion": "hybrid-normalized-scores"
+    },
+    "why_those_query_rungs": "`hybrid` is the only shipped retriever that reaches the store's text arm, which is the arm `text_mode` governs. The two documents differ in the fuse stage and in nothing else — `hybrid-normalized-scores` derives from `hybrid-then-generate` and replaces one stage — so the fusion factor is isolated by construction rather than by care.",
+    "generation": "scripted provider — the metric read is retrieval; generated text is not scored",
+    "corpus": "corpus/ (the manifest's own 25 documents)",
+    "questions": "eval/raptor-baseline/questions.json — 83 reproducible, corpus-relative labels",
+    "both_lexical_arms_on_one_server": true,
+    "why": "`text_mode` is decided when the schema is provisioned, so the two lexical arms cannot share a database. They can share a server and they must: the floor container is PostgreSQL 16 and the BM25 one is 17, so splitting them would vary the Postgres version alongside the ranking and then call the difference BM25's. Both databases were created on the BM25 server, which serves either mode.",
+    "index_built_once_per_lexical_arm": true,
+    "index_reuse_note": "Within a lexical arm the second fuser queries what the first one wrote (`L11.46`). Across lexical arms it cannot, for the provisioning reason above."
+  },
+  "arms": {
+    "fts + reciprocal-rank-fusion": {
+      "run": "b0b72f1e-b9d5-4402-9e29-11bdfd51269f",
+      "is": "the shipped pair — what every Weft corpus has retrieved with since Phase 2",
+      "mean_average_precision": 0.1285,
+      "mrr@5": 0.1382,
+      "ndcg@5": 0.1793,
+      "precision@5": 0.0677,
+      "recall@5": 0.3205
+    },
+    "bm25 + reciprocal-rank-fusion": {
+      "run": "f48db5a4-53f9-478e-a17f-68cb42e72d0c",
+      "is": "real BM25 — collection IDF, term saturation, length normalisation — fused by rank",
+      "mean_average_precision": 0.1374,
+      "mrr@5": 0.1472,
+      "ndcg@5": 0.1859,
+      "precision@5": 0.0677,
+      "recall@5": 0.3205
+    },
+    "fts + normalized-score-fusion": {
+      "run": "de8dfb93-1330-448a-a65c-ebbc3b0a737b",
+      "is": "the old text arm, fused by normalised score",
+      "mean_average_precision": 0.4037,
+      "mrr@5": 0.3687,
+      "ndcg@5": 0.3984,
+      "precision@5": 0.1088,
+      "recall@5": 0.5117
+    },
+    "bm25 + normalized-score-fusion": {
+      "run": "03b2d6b8-87e1-40ef-b2c1-e194f148ba7e",
+      "is": "both new capabilities together",
+      "mean_average_precision": 0.7813,
+      "mrr@5": 0.717,
+      "ndcg@5": 0.7332,
+      "precision@5": 0.1773,
+      "recall@5": 0.8333
+    }
+  },
+  "paired_differences_against_the_shipped_pair": {
+    "note": "Query-level paired differences with intervals, against `fts + reciprocal-rank-fusion`. `n` differs per comparison because a pair needs both runs to have scored that question, and an arm that retrieved nothing for a question contributes no pair — so the three comparisons are not over one common question set and their `n`s are not interchangeable.",
+    "fts + normalized-score-fusion": {
+      "ndcg@5": {
+        "mean": 0.2344,
+        "low": 0.1123,
+        "high": 0.3361,
+        "n": 56
+      },
+      "precision@5": {
+        "mean": 0.0429,
+        "low": 0.0143,
+        "high": 0.0714,
+        "n": 56
+      },
+      "recall@5": {
+        "mean": 0.2024,
+        "low": 0.0595,
+        "high": 0.3393,
+        "n": 56
+      }
+    },
+    "bm25 + reciprocal-rank-fusion": {
+      "ndcg@5": {
+        "mean": 0.0066,
+        "low": -0.0287,
+        "high": 0.0454,
+        "n": 65
+      },
+      "precision@5": {
+        "mean": 0.0,
+        "low": 0.0,
+        "high": 0.0,
+        "n": 65
+      },
+      "recall@5": {
+        "mean": 0.0,
+        "low": 0.0,
+        "high": 0.0,
+        "n": 65
+      }
+    },
+    "bm25 + normalized-score-fusion": {
+      "ndcg@5": {
+        "mean": 0.5867,
+        "low": 0.4582,
+        "high": 0.7019,
+        "n": 43
+      },
+      "precision@5": {
+        "mean": 0.1163,
+        "low": 0.0884,
+        "high": 0.1442,
+        "n": 43
+      },
+      "recall@5": {
+        "mean": 0.5543,
+        "low": 0.407,
+        "high": 0.6977,
+        "n": 43
+      }
+    }
+  },
+  "what_it_says": "The two factors interact, and crossing them is the only reason that is visible. Swapping Postgres full-text search for real BM25 **under reciprocal-rank fusion** moves `precision@5` and `recall@5` by exactly nothing — 0.0677 and 0.3205 in both arms, identical to the digit, with zero-width paired intervals. The same swap **under normalized score fusion** moves `recall@5` from 0.5117 to 0.8333. Measured either factor alone, this sweep would have reported that BM25 does nothing, or that the fuser is worth 0.27, and both readings would have been wrong.",
+  "the_sharp_part": "`recall@5 = 0.3205` is the number ledger task `21.2` recorded, to four places, for all three of its arms. That sweep varied the text arm's rank normalisation and moved nothing; this one replaced the entire ranking function — IDF over the collection, term saturation, length normalisation, a different index, a different extension — and under the same fuser it still moves nothing at all. `L19.8` was read as a fact about one setting. It is a fact about `reciprocal-rank-fusion`: it consumes each arm as an ordering, so no change to what an arm *scores* can reach a set-based metric through it. That is the finding, and it is worth more than a default change.",
+  "what_this_does_not_say": "**No default moves on this measurement, and the reason is the dense arm.** These runs use Weft's hash embedder, whose vectors carry no semantic meaning — `weft index` says so on every run. So one of the two fused arms is noise, which is precisely the regime the review warns about from the other side: BRIGHT has RRF at 35.9 against normalised averaging's 31.1 where one arm is systematically much weaker. Here the weak arm is weak in a way `normalized-score-fusion` can *see* and reciprocal rank cannot, because a normalised score says how confident an arm was and a rank position does not. Attributing this gap to score fusion in general would be reading a property of the hash embedder as a property of the fuser. The review is explicit: use the hash embedder for offline operability, and assess dense retrieval separately with the actual intended encoder.",
+  "what_would_change_it": "Re-run this cross with a real semantic embedder configured under `[services] embed`. If `normalized-score-fusion` still beats `reciprocal-rank-fusion` when both arms carry signal, the fusion default has earned a move; if the gap collapses, it was the hash embedder all along and `reciprocal-rank-fusion` stays. The lexical default is a separate question and this sweep cannot answer it under RRF at all — BM25 would have to be compared under a fuser that can see a score, or on a metric that is not set-based."
+}
