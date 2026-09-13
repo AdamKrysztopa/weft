@@ -326,6 +326,71 @@ def _search_text_sql(
     """).format(asked=asked, ranker=ranker, normalized=normalized, predicate=predicate)
 
 
+#: Named once, referenced twice — at `CREATE INDEX` and inside `to_bm25query` — because those two
+#: spellings silently disagreeing is not a syntax error, it is `to_bm25query` raising `index
+#: "<query text>" does not exist` at query time, measured against `pg_textsearch 1.4.0`.
+_BM25_INDEX_NAME = "weft_nodes_content_bm25_idx"
+
+#: `fts`'s `text_score_semantics` sentence — `ts_rank_cd` has no fixed range and its scale
+#: depends on `[packs.store] text_rank_normalization` (ledger `21.0`): the same passage scores
+#: differently under a different bitmask, and two runs either side of a change to it are not
+#: comparable.
+_FTS_TEXT_SCORE_SEMANTICS = (
+    "Postgres ts_rank_cd cover-density rank under the configured "
+    "text_rank_normalization; higher is a better lexical match, with no fixed range"
+)
+
+#: `bm25`'s `text_score_semantics` sentence — an Okapi BM25 score, not `ts_rank_cd`'s, so it says
+#: a different thing and is not comparable to either of the scores above it.
+_BM25_TEXT_SCORE_SEMANTICS = (
+    "Okapi BM25 relevance score, with an IDF over this collection and saturating term "
+    "frequency; higher is a better lexical match, with no fixed range, and it is not "
+    "comparable with this store's own fts-mode cover-density ranking or with a vector "
+    "similarity"
+)
+
+
+def _create_bm25_index_sql(config: str) -> sql.Composed:
+    """The BM25 index, on `content` alone — `pg_textsearch 1.4.0` refuses a multicolumn one
+    outright ("access method \"bm25\" does not support multicolumn indexes", measured 2026-09-13).
+
+    `text_config` is the same `self._text_search_config` `_add_tsvector_column_sql` already
+    stores against, so the two never disagree about what a word is — the module docstring's rule,
+    carried across to a second index rather than re-decided for it.
+    """
+    return sql.SQL(
+        "CREATE INDEX IF NOT EXISTS {name} ON weft_nodes USING bm25 (content) "
+        "WITH (text_config={config})"
+    ).format(name=sql.Identifier(_BM25_INDEX_NAME), config=sql.Literal(config))
+
+
+def _search_bm25_sql(predicate: sql.Composable) -> sql.Composed:
+    """The BM25 search, ranked by `pg_textsearch`'s `<@>` operator over the index it built.
+
+    **`to_bm25query`'s arguments are `(query text, index name)`, in that order — get it backwards
+    and Postgres reports `index "<your query text>" does not exist`, which reads like a missing
+    index rather than a swapped argument.** That is how the order was established (measured
+    2026-09-13), and it is the whole reason this note exists.
+
+    The score is left *negative and ascending* here, exactly as the extension returns it — a
+    three-row probe scored a best match `-1.47`, a weaker one `-0.73`, and a non-match `0`
+    (measured 2026-09-13) — and the CTE, not a repeated call, is what keeps a per-row score
+    computed once rather than once per reference to it. `search_text` is what converts the sign at
+    this store's boundary; a non-match's `0` is excluded here, in the same statement that ranks,
+    so a global top-k is never fetched and then thinned by a filter that runs after it.
+    """
+    return sql.SQL("""
+        WITH scored AS (
+            SELECT weft_nodes.*, content <@> to_bm25query(%(text)s, {index}) AS rank
+            FROM weft_nodes
+        )
+        SELECT * FROM scored
+        WHERE rank < 0 AND {predicate}
+        ORDER BY rank ASC
+        LIMIT %(top_k)s
+    """).format(index=sql.Literal(_BM25_INDEX_NAME), predicate=predicate)
+
+
 class PgVectorSettings(BaseModel):
     """`weft-store`'s pack settings: one connection, and what its text arm means.
 
@@ -801,14 +866,10 @@ class PgVectorStore:
         "correctly and mean nothing"
     )
 
-    #: What `search_text`'s number means. `ts_rank_cd` has no fixed range and its scale depends on
-    #: `[packs.store] text_rank_normalization` (ledger `21.0`), which is why the setting is named
-    #: here: the same passage scores differently under a different bitmask, and two runs either
-    #: side of a change to it are not comparable.
-    text_score_semantics: ClassVar[str] = (
-        "Postgres ts_rank_cd cover-density rank under the configured "
-        "text_rank_normalization; higher is a better lexical match, with no fixed range"
-    )
+    #: What `search_text`'s number means — an *instance* attribute now, per ledger **21.7**: the
+    #: sentence is a property of the configured `text_mode`, not of the class, set in `__init__`
+    #: from `_FTS_TEXT_SCORE_SEMANTICS`/`_BM25_TEXT_SCORE_SEMANTICS` below.
+    text_score_semantics: str
 
     def __init__(self, settings: PgVectorSettings, config: object = None) -> None:
         del config  # nothing at the stage level this store needs — see the module docstring
@@ -818,6 +879,11 @@ class PgVectorStore:
         self._text_rank = settings.text_rank
         self._text_rank_normalization = settings.text_rank_normalization
         self._text_mode = settings.text_mode
+        self.text_score_semantics = (
+            _BM25_TEXT_SCORE_SEMANTICS
+            if self._text_mode is TextMode.BM25
+            else _FTS_TEXT_SCORE_SEMANTICS
+        )
         self._conn: psycopg.AsyncConnection[dict[str, Any]] | None = None
 
     def _search_text_sql(self, predicate: sql.Composable) -> sql.Composed:
@@ -887,6 +953,7 @@ class PgVectorStore:
         # every test in this file that never asked for `bm25`.
         if self._text_mode is TextMode.BM25:
             await self._require_bm25_extension(cur)
+            await cur.execute(_create_bm25_index_sql(self._text_search_config))
         await cur.execute(_add_tsvector_column_sql(self._text_search_config))
         await cur.execute(_CREATE_TSVECTOR_INDEX)
         await cur.execute(_GENERATED_EXPRESSION)
@@ -1344,12 +1411,22 @@ class PgVectorStore:
         """
         conn = await self._connection()
         values: dict[str, object] = {}
-        statement = self._search_text_sql(_predicate_or_true(filter, values))
+        predicate = _predicate_or_true(filter, values)
+        statement = (
+            _search_bm25_sql(predicate)
+            if self._text_mode is TextMode.BM25
+            else self._search_text_sql(predicate)
+        )
         async with conn.cursor() as cur:
             await cur.execute(statement, {**values, "text": text, "top_k": top_k})
             rows = await cur.fetchall()
+        # `pg_textsearch`'s `<@>` is negative-and-ascending — best match `-1.47`, next `-0.73`,
+        # measured 2026-09-13 — while `Scored.score` is higher-is-better everywhere else in this
+        # tree; negating here is where that boundary is crossed, once, rather than at every reader.
+        sign = -1.0 if self._text_mode is TextMode.BM25 else 1.0
         return [
-            Scored(value=_row_to_node(row), score=float(cast(float, row["rank"]))) for row in rows
+            Scored(value=_row_to_node(row), score=sign * float(cast(float, row["rank"])))
+            for row in rows
         ]
 
     async def aclose(self) -> None:

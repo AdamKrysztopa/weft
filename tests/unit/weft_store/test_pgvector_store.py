@@ -31,7 +31,7 @@ write.
 """
 
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -706,3 +706,201 @@ def test_the_bm25_refusal_is_not_in_the_unresolved_name_family() -> None:
     # Arrange / Act / Assert
     assert issubclass(Bm25NotAvailableError, WeftError)
     assert not issubclass(Bm25NotAvailableError, UnresolvedNameError)
+
+
+# --- task 21.7: the bm25 mode actually ranks by BM25 ------------------------------------------
+#
+# **These need a database the floor container is not**, so they skip exactly the way the Qdrant
+# suite already does — `docker compose --profile bm25 up -d`, port 5434. CI runs the floor image
+# and no BM25 service, so these skip there, and `WEFT_TEST_EXPECTED_SKIPS` carries the count. That
+# is the established shape for an opt-in backend in this tree, not a new one.
+
+_BM25_DSN = os.environ.get("WEFT_BM25_DATABASE_URL", "postgresql://weft:weft@localhost:5434/weft")
+
+
+async def _bm25_database_reachable() -> str | None:
+    """`None` when a `pg_textsearch`-carrying database answers, else the reason to skip."""
+    try:
+        conn = await psycopg.AsyncConnection.connect(_BM25_DSN, connect_timeout=2)
+    except psycopg.OperationalError as exc:
+        return f"no BM25 database at {_BM25_DSN} (docker compose --profile bm25 up -d): {exc}"
+    await conn.close()
+    return None
+
+
+@pytest.fixture
+async def bm25_database() -> AsyncIterator[str]:
+    """A never-provisioned database on the BM25 server, dropped again afterwards.
+
+    Its own database for `fresh_database`'s reason one server over: the BM25 index is built at
+    provisioning from `text_search_config`, so a test about what that index *is* cannot share one
+    with a test that already built it under different settings.
+    """
+    reason = await _bm25_database_reachable()
+    if reason is not None:
+        pytest.skip(reason)
+    name = f"weft_bm25_probe_{uuid4().hex[:12]}"
+    admin = await psycopg.AsyncConnection.connect(_BM25_DSN, autocommit=True)
+    async with admin.cursor() as cur:
+        await cur.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(name)))
+    try:
+        yield f"{_BM25_DSN.rsplit('/', 1)[0]}/{name}"
+    finally:
+        async with admin.cursor() as cur:
+            await cur.execute(
+                sql.SQL("DROP DATABASE IF EXISTS {} WITH (FORCE)").format(sql.Identifier(name))
+            )
+        await admin.close()
+
+
+async def _bm25_store(dsn: str, nodes: Sequence[Node]) -> PgVectorStore:
+    """A provisioned `bm25` store holding `nodes`."""
+    store = PgVectorStore(PgVectorSettings(dsn=SecretStr(dsn), text_mode=TextMode.BM25))
+    await store.add(nodes)
+    return store
+
+
+async def test_a_bm25_score_is_higher_is_better_like_every_other_score_in_this_tree(
+    bm25_database: str,
+) -> None:
+    """**The fidelity assertion, and it is measured rather than assumed.**
+
+    `pg_textsearch`'s own operator returns a *negative* score so that ascending order puts the best
+    match first: on a three-row probe on 2026-09-13 the best match scored `-1.47`, the next
+    `-0.73`, and a row matching nothing scored `0`. `Scored.score` means higher-is-better
+    everywhere else in this tree — `weft_retrieve.fusion` sums it, `weft_cli` ranks by it — so the
+    adapter converts at its own boundary. Shipping the native sign would invert every ranking that
+    touched this arm and raise nothing at all.
+    """
+    # Arrange
+    store = await _bm25_store(
+        bm25_database,
+        [
+            _node("the microkernel knows nothing about pdfs chunking embeddings or graphs"),
+            _node("every capability is a plugin discovered through python entry points"),
+            _node("pipelines are data derivable from other pipelines"),
+        ],
+    )
+
+    # Act
+    try:
+        results = await store.search_text("plugin capability", top_k=3)
+    finally:
+        await store.aclose()
+
+    # Assert
+    assert results, "a matching corpus returns matches"
+    assert results[0].value.content.startswith("every capability")
+    scores = [hit.score for hit in results]
+    assert scores == sorted(scores, reverse=True), "descending, like every other ranking here"
+    assert all(score >= 0.0 for score in scores), (
+        "the native operator is negative-and-ascending; an unconverted score would be every one "
+        "of these below zero and the ordering inverted"
+    )
+    assert scores[0] > 0.0, "the best match scores above the floor rather than at it"
+
+
+async def test_bm25_weighs_a_rare_term_above_one_every_document_carries(
+    bm25_database: str,
+) -> None:
+    """**This is the assertion that says BM25 rather than `ts_rank_cd`, and nothing else here
+    does.** Postgres's rankers have no collection statistics at all — its own documentation says
+    so — so a word in every document counts for exactly as much as a word in one. BM25's IDF is
+    the difference: with three documents, a term in all three carries `ln(0.5/3.5 + 1) ≈ 0.13` and
+    a term in one carries `ln(2.5/1.5 + 1) ≈ 0.98`, about seven times the weight.
+
+    Asserted as a **comparison between two queries against one corpus**, never against a literal:
+    the constant depends on the corpus size and the parameters, and pinning it would make this a
+    test of this database's tuning rather than of whether IDF is being applied at all.
+    """
+    # Arrange — 'shared' is in all three; 'sporadic' is in exactly one.
+    store = await _bm25_store(
+        bm25_database,
+        [
+            _node("shared shared sporadic vocabulary"),
+            _node("shared shared shared ordinary vocabulary"),
+            _node("shared shared shared other vocabulary"),
+        ],
+    )
+
+    # Act
+    try:
+        ubiquitous = await store.search_text("shared", top_k=3)
+        rare = await store.search_text("sporadic", top_k=3)
+    finally:
+        await store.aclose()
+
+    # Assert
+    assert ubiquitous and rare
+    assert rare[0].score > ubiquitous[0].score, (
+        "a term one document has must outweigh a term every document has — that is IDF, and it "
+        "is the thing ts_rank_cd has no way to compute"
+    )
+
+
+async def test_bm25_narrows_by_a_filter_rather_than_filtering_a_global_top_k(
+    bm25_database: str,
+) -> None:
+    """The review's own words: *"do not fetch a global lexical top-k and apply tenant filters
+    afterwards."* A post-filter returns fewer than `top_k` results for a reason the caller cannot
+    see, and at a large corpus returns nothing at all while matching rows exist."""
+    # Arrange — the *stronger* lexical match is the one the filter excludes, so a post-filter
+    # over a global top-k and a predicate inside the ranking give different answers here.
+    wanted = _node("plugin capability", sources=frozenset({SourceId("keep")}))
+    louder = _node(
+        "plugin plugin plugin capability capability", sources=frozenset({SourceId("drop")})
+    )
+    store = await _bm25_store(bm25_database, [wanted, louder])
+
+    # Act
+    try:
+        unfiltered = await store.search_text("plugin capability", top_k=5)
+        narrowed = await store.search_text(
+            "plugin capability",
+            top_k=5,
+            filter=Filter(op=FilterOp.CONTAINS, field="lineage.sources", value="keep"),
+        )
+    finally:
+        await store.aclose()
+
+    # Assert
+    assert len(unfiltered) == 2
+    assert unfiltered[0].value.content == louder.content, "unfiltered, the louder one wins"
+    assert [scored.value.content for scored in narrowed] == [wanted.content]
+
+
+async def test_nothing_matching_is_an_empty_ranking_rather_than_a_failure(
+    bm25_database: str,
+) -> None:
+    """`TextSearch`'s own emptiness rule: *"a store whose index holds nothing matching returns an
+    empty sequence; that is the honest answer, and it is a different fact from a store that could
+    not look, which raises."* `21.6`'s refusal is the second case; this is the first."""
+    # Arrange
+    store = await _bm25_store(bm25_database, [_node("pipelines are data")])
+
+    # Act
+    try:
+        results = await store.search_text("xenopsychology", top_k=5)
+    finally:
+        await store.aclose()
+
+    # Assert
+    assert results == []
+
+
+def test_the_store_says_which_ranking_its_text_score_came_from() -> None:
+    """**Task `21.1`'s rule, which `21.7` would otherwise silently break.**
+
+    `weft_cli.explain` prints a score only with its meaning, read off whatever produced it — and
+    the meaning is a fixed sentence naming `ts_rank_cd`. A store switched to `bm25` returning that
+    sentence would be `--explain` stating, in the engine's own voice, a fact about a ranking it did
+    not run. The sentence is a property of the configured mode, not of the class.
+    """
+    # Arrange
+    fts = PgVectorStore(PgVectorSettings(dsn=SecretStr(_DSN)))
+    bm25 = PgVectorStore(PgVectorSettings(dsn=SecretStr(_DSN), text_mode=TextMode.BM25))
+
+    # Assert
+    assert "ts_rank_cd" in fts.text_score_semantics
+    assert "bm25" in bm25.text_score_semantics.lower()
+    assert "ts_rank_cd" not in bm25.text_score_semantics

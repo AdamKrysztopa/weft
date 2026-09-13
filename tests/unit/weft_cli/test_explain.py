@@ -32,8 +32,10 @@ from __future__ import annotations
 
 from typing import ClassVar
 
+from pydantic import SecretStr
+
 from weft_cli.explain import ScoreExplanation, explanations_for, incomparable_note
-from weft_store import PgVectorStore
+from weft_store import PgVectorSettings, PgVectorStore
 
 
 class _DeclaringRetriever:
@@ -88,11 +90,20 @@ def test_the_pgvector_store_declares_one_meaning_per_capability_not_one_per_clas
 
     This is the assertion that would fail if somebody later collapsed them into a single
     `score_semantics`, which is the tempting simplification and the one that makes the field lie.
+
+    **Read off an instance rather than off the class, since task `21.7`.** `text_score_semantics`
+    stopped being a `ClassVar` when `text_mode` made the text arm's ranking configurable: a store
+    in `bm25` mode runs Okapi BM25 and one in `fts` mode runs `ts_rank_cd`, and the class cannot
+    know which. A class-level read here would have to name one of the two rankings for every store
+    ever configured, which is the field lying in the other direction.
     """
+    # Arrange
+    store = PgVectorStore(PgVectorSettings(dsn=SecretStr("postgresql://weft:weft@localhost/weft")))
+
     # Assert
-    assert PgVectorStore.vector_score_semantics != PgVectorStore.text_score_semantics
-    assert "cosine" in PgVectorStore.vector_score_semantics
-    assert "ts_rank" in PgVectorStore.text_score_semantics
+    assert store.vector_score_semantics != store.text_score_semantics
+    assert "cosine" in store.vector_score_semantics
+    assert "ts_rank" in store.text_score_semantics
 
 
 def test_scores_from_one_producer_carry_no_incomparability_note() -> None:
@@ -144,12 +155,12 @@ def test_the_caller_names_which_capability_it_invoked() -> None:
     """A producer satisfying two capabilities has two meanings, and only the caller knows which
     arm it just used — so the attribute is a parameter rather than a guess from the object."""
     # Arrange / Act
-    text = ScoreExplanation.of(
-        PgVectorStore, produced_by="pgvector", attribute="text_score_semantics"
-    )
-    vector = ScoreExplanation.of(
-        PgVectorStore, produced_by="pgvector", attribute="vector_score_semantics"
-    )
+    # An instance, not the class: `text_score_semantics` is a fact about the configured store
+    # since `21.7`, and `weft_cli.commands` already hands `explanations_for` the resolved plugin
+    # rather than its type.
+    store = PgVectorStore(PgVectorSettings(dsn=SecretStr("postgresql://weft:weft@localhost/weft")))
+    text = ScoreExplanation.of(store, produced_by="pgvector", attribute="text_score_semantics")
+    vector = ScoreExplanation.of(store, produced_by="pgvector", attribute="vector_score_semantics")
 
     # Assert
     assert text.semantics != vector.semantics

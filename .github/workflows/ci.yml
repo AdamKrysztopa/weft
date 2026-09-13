@@ -152,7 +152,17 @@ jobs:
           # `test_settled_gates_are_not_cited_as_open.py` reads the decision log, and
           # `test_roadmap_matches_the_ledger.py` gained the section check from L19.5 and L19.6 — so local
           # reads 37 against the 33 that set 78.
-          WEFT_TEST_EXPECTED_SKIPS: "82"
+          #
+          # **82 -> 86 on 2026-09-13, at Phase 21b task `21.7`, and this one is not about untracked
+          # files at all.** BM25 needs `timescale/pg_textsearch`, which needs PostgreSQL 17 or 18;
+          # the floor image this job runs is `pg16` and there is deliberately no BM25 service here,
+          # exactly as there is deliberately no Qdrant one — an opt-in backend's tests skip in CI,
+          # which is the shape Qdrant set and 44 of this number already come from. Measured rather
+          # than reasoned: `WEFT_BM25_DATABASE_URL=postgresql://weft:weft@localhost:5499/weft uv run
+          # pytest tests/unit/weft_store/ -q` reads **92 passed, 4 skipped** against 96 passed with
+          # the profile up, so the delta is exactly four. Running them here would mean pulling a
+          # 3.86 GB image into every gate for a capability the floor does not carry.
+          WEFT_TEST_EXPECTED_SKIPS: "86"
 
   # Fast feedback on a pull request, and **not a gate**. The `gate` job above is the canonical
   # full run and this job cannot stand in for it: it runs only the tests the diff can have
