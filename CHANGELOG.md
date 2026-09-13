@@ -33,12 +33,81 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ## [Unreleased]
 
+## [2.6.0] - 2026-09-13
+
+**`weft-kernel` moves `0.1.0` → `0.2.0` with this release** — purely additive (`carry_forward` on
+the payload package, `aclose` at the seam), nothing removed, which under **G9** is a minor for a
+caller and for an implementer alike.
+
+**There is no 2.5.0 on the index and there never will be.** `weft-rag`'s version moved twice
+between releases while nothing was cut, so `2.6.0` is the first published release since `2.4.0`
+and carries everything below. A version number on PyPI is not reusable and a skipped one is not
+recoverable; it is recorded here rather than quietly renumbered.
+
+### Added
+
+- **An embeddable Python API.** `from weft_engine.api import Weft` — `async with Weft.open(config)
+  as weft: await weft.run("ask", {"question": ...})`. One verb over the same `Command` registry the
+  CLI drives, so **every** installed command is reachable from Python, including one a pack you
+  wrote contributed. It is not a second code path: the CLI and the library assemble the same
+  services and run the same invocation seam. `manual/user-manual.md` carries the Python half.
+- **A store conformance kit you can import.** `weft_store.conformance` — hand it your own
+  `NodeStore` and it runs the checks your store's capabilities can actually answer, and **names
+  the ones it left out** rather than silently passing a smaller store. 28 checks across four
+  capability tiers: `NodeStore`, `VectorSearch`, `TextSearch` and `MetadataFilter`. Previously
+  this kit existed and only this repository could run it.
+- **`weft pack new`** scaffolds a pack — entry point, settings namespace, a registered plugin and
+  a test — so starting one is an artefact you re-run rather than a page you follow.
+- **An in-memory store**, so writing and testing a plugin needs no container at all. It satisfies
+  `NodeStore`, `VectorSearch` and `MetadataFilter`, and deliberately not `TextSearch`; the
+  conformance kit tells you so by name instead of skipping quietly.
+- **Real BM25, in both stores.** `pgvector` gains `[packs.store] text_mode`: `fts` (the default,
+  Postgres `ts_rank_cd` cover-density ranking) or `bm25`, Okapi BM25 via the `pg_textsearch`
+  extension — `docker compose --profile bm25 up -d` brings up an image carrying it. `qdrant` now
+  satisfies `TextSearch` at all, ranking by BM25 over a named sparse vector with the IDF computed
+  across your collection by Qdrant itself. **`TextSearch` stops being a contract only Postgres can
+  meet**, which is the property that made it worth publishing.
+- **A second fuser.** `normalized-score-fusion` min-max normalises each arm's own scores and sums
+  them, beside the default `reciprocal-rank-fusion`, with the pipeline `hybrid-normalized-scores`
+  selecting it. A node an arm never returned contributes **nothing** from that arm — absence, not
+  a fabricated zero. **Neither is the default and this release does not move one**: see *What did
+  not change*, below.
+- **Each arm's own scores survive fusion.** A fused `Ranking` carries `FusionEvidence` — per arm,
+  the label, and each node's score and rank as that arm reported them — so a fused result can be
+  explained rather than guessed at.
+- **Incremental ingestion.** `weft index` skips a document whose content has not changed, and says
+  how many it skipped; `--reprocess` forces the work anyway. `--batch-size` bounds memory by
+  processing the corpus in chunks, and a pipeline holding a stage whose output depends on which
+  other documents were in the call is **refused by name** rather than silently redefined. An index
+  killed halfway now leaves a record saying so instead of no trace at all.
+- **`weft ask --explain`** prints what a score means in the words of whatever produced it, and
+  `[packs.store] text_rank_normalization` makes Postgres's passage-length handling an operator's
+  choice rather than a constant.
+- **Evaluation you can compare.** A `RunRecord` now names the query pipeline it scored, the
+  version of every active distribution, and **one score per question per metric** — so
+  `weft eval compare` reports a paired difference over questions with an interval, beside the
+  spread between runs, and refuses two runs that are not comparable. Polish is scored as Polish.
+- **Provider reach.** `base_url` is documented and a second `[llm.accounts]` entry is
+  representable, so local embeddings with a hosted chat model stops being one endpoint pretending
+  to be two.
+
+### Changed
+
+- `weft index` counts **documents**, in documents, and says so. It previously printed a number
+  whose unit a reader had to infer.
+- `--json` writes the command's typed result rather than prose about it.
+- `weft_store.contract.Removed` gains `narrowed_count`, optional, defaulting `0`.
+  `STORE_CONTRACT_VERSION` moves `2.4.0` → `2.6.0`.
+- A pack's resource closing happens at the seam, so no caller reaches for a `getattr` to find out
+  whether a plugin has a `close`.
+
 ### Deprecated
 
 - **The `keybert` enhancer is renamed to `term-frequency-keywords`.** The old name still works and
   still resolves to the same plugin; selecting it now prints a deprecation notice naming the new
   one. Change `use: keybert` to `use: term-frequency-keywords` in any pipeline document of your
-  own — nothing else about the stage moves, and its `top_n` means what it meant.
+  own — nothing else about the stage moves, and its `top_n` means what it meant. **Removed in
+  `weft-rag` 3.0.0.**
 
   **Why.** It ranks tokens by frequency against a fixed stoplist. KeyBERT ranks n-grams by cosine
   similarity to a transformer embedding of the document, which is a different technique and a
@@ -50,11 +119,11 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   node's most frequent tokens as namespaced extension data. **Nothing in Weft retrieves through
   it** — the terms are stored beside the node and the text index is built from the node's content,
   which already contains every one of them. It is metadata for a reader or for a consumer you
-  write, not a retrieval feature.
+  write.
 
 ### Fixed
 
-- Two byte-identical documents in one corpus no longer take each other's nodes. Node ids are
+- **Two byte-identical documents in one corpus no longer take each other's nodes.** Node ids are
   content digests that exclude the source, so both documents derive one node — that dedup is
   intended — but `add` replaced the node's `sources` with the incoming document's alone, so the
   second ingest took the first's nodes and `weft delete` on the first reported success having
@@ -66,11 +135,32 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   **A corpus indexed before this release keeps the old behaviour until it is re-indexed**: every
   existing node is migrated to one production equal to its recorded `sources`, which is the only
   honest reading of a row whose history was never kept.
+- **A mistyped corpus path stops reading as a successful run.** `weft index` told an empty
+  directory, a path that does not exist and a path that is a file apart — all three previously
+  printed `nothing to produce` and exited `0`.
+- **A page number is a fact about a node**, not a character offset into text a cleaner is about to
+  rewrite. Measured against 1024 real chunks, **72 of them (7.0%)** carried the wrong page; the
+  coordinate system is retired rather than tracked. A stored node written before this release is
+  **loudly unreadable** rather than quietly wrong.
+- **The pages a stranger reads first stop overstating what the default does.** The README and the quickstart
+  now say that the default embedder is a smoke test whose ranking carries no meaning, `weft index`
+  says when the embedder was a default rather than a choice, and `weft plugins doctor` discloses
+  what that default is and is not. The operations guide stops telling you `qdrant` has no text
+  search, which stopped being true in this release.
 
-### Changed
+### What did not change, and why it is here
 
-- `weft_store.contract.Removed` gains `narrowed_count`, an optional field defaulting `0`;
-  `STORE_CONTRACT_VERSION` moves `2.4.0` → `2.5.0`, a minor.
+**No retrieval default moved.** Both of this release's new retrieval capabilities won their arm of
+a crossed measurement over this project's own corpus, and neither became the default. Under
+`reciprocal-rank-fusion`, swapping Postgres full-text search for real BM25 moves `precision@5` and
+`recall@5` by **exactly nothing** — identical to four decimal places, with zero-width paired
+intervals — because rank fusion reads each arm as an ordering and discards what it scored. Under
+`normalized-score-fusion` the same swap moves `recall@5` from `0.5117` to `0.8333`. The two factors
+interact, and the reason neither default moves is that the dense arm in those runs was Weft's hash
+embedder, whose vectors carry no meaning: score fusion's advantage may be its ability to *see* that
+one arm is noise rather than any general property of score fusion. Re-run it with a real encoder
+configured under `[services] embed` and the answer is yours to act on. `weft eval compare
+hybrid-normalized-scores hybrid-then-generate` is the command.
 
 ## [2.4.0] - 2026-09-11
 

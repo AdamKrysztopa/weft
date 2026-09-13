@@ -116,7 +116,7 @@ readme = "README.md"
 #     Declared explicitly rather than left to arrive through `weft-kernel`.
 #   * `packaging` — `weft_cli.skew` parses PEP 508 requirements and version specifiers.
 dependencies = [
-    "weft-kernel>=0.1.0,<1.0.0",
+    "weft-kernel>=0.2.0,<1.0.0",
     "ftfy>=6.2",
     "rouge-score>=0.1",
     "psycopg[binary]>=3.2",
