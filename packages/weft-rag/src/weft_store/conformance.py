@@ -79,6 +79,7 @@ from weft_store.contract import (
     SourceRecord,
     SourceStatus,
     SupersedeNarrowsSourcesError,
+    TextSearch,
     VectorSearch,
 )
 from weft_store.fields import FilterOpMismatchError, UnaddressableFieldError
@@ -143,6 +144,8 @@ class NotAStoreError(WeftError):
 #: typed `NodeStore` needs nothing more.
 _CAPABILITY_OF: Final[Mapping[str, tuple[str, str]]] = {
     "SearchableStore": ("VectorSearch", "search_vector"),
+    "TextSearchableStore": ("TextSearch", "search_text"),
+    "FilterableTextStore": ("TextSearch", "search_text"),
     "FilterableSearchableStore": ("MetadataFilter", "matching"),
     "FilterableStore": ("MetadataFilter", "matching"),
     "SupersedableStore": ("NodeSupersedable", "supersede"),
@@ -260,6 +263,30 @@ def _require(condition: bool, message: str) -> None:
 @runtime_checkable
 class SearchableStore(NodeStore, VectorSearch, Protocol):
     """A store that holds nodes and ranks them by vector similarity."""
+
+
+@runtime_checkable
+class TextSearchableStore(NodeStore, TextSearch, Protocol):
+    """A store that holds nodes and ranks them by lexical match on their own text.
+
+    **Published at `R21.3`, and late.** The kit shipped 25 checks covering three of the store
+    contract family's four capability tiers and **none** for `search_text`, so a third party
+    writing a store could prove three quarters of it. That was defensible while `TextSearch` had
+    one implementation — a check for a capability only one backend satisfies has nothing to hold
+    it to, which is `02` §1's own *a contract with one implementation is a guess* — and ledger task
+    `21.8` made it two.
+    """
+
+
+@runtime_checkable
+class FilterableTextStore(NodeStore, MetadataFilter, TextSearch, Protocol):
+    """A store that ranks by lexical match **and** narrows by a `Filter`.
+
+    Its own protocol for `FilterableSearchableStore`'s stated reason, one capability over: the
+    selector derives what a check needs from this annotation, so a check that passes a `Filter`
+    while typed `TextSearchableStore` would be offered to a store that cannot evaluate one and
+    refused at run time.
+    """
 
 
 @runtime_checkable
@@ -1112,6 +1139,102 @@ async def check_search_vector_ranks_by_cosine_similarity_on_either_backend(
         'the store did not satisfy: [scored.value.content for scored in ranked] == ["beta", "a...',
     )
     _require(abs(ranked[0].score - 1.0) < 1e-3, f"an exact match must score 1.0: {ranked[0].score}")
+
+
+async def check_search_text_finds_the_node_that_carries_the_words(
+    store: TextSearchableStore,
+) -> None:
+    """`TextSearch` promises a *ranked* result, and this is the floor of that promise.
+
+    **What this deliberately does not check, stated rather than left to be discovered.** The
+    shared corpus is `alpha`, `beta`, `gamma` — no two nodes carry a term in common — so nothing
+    here can compare two matching nodes and therefore nothing here checks *ordering*, which is the
+    property a sign error in an adapter breaks. Weft's own backends cover that in their unit
+    suites, and widening this corpus is not free: it is the shared subject of every filter check,
+    and `docs/internal/lessons.md` `L15.3` records a field being removed from it taking five of
+    them red. A kit check that pretended otherwise would be worse than one that says so.
+    """
+    # Arrange
+    await store.add(conformance_corpus())
+    _require(
+        callable(getattr(store, "search_text", None)),
+        'the store did not satisfy: callable(getattr(store, "search_text", None))',
+    )
+
+    # Act
+    ranked = await store.search_text("beta", top_k=3)
+
+    # Assert
+    _require(
+        [scored.value.content for scored in ranked] == ["beta"],
+        f"a lexical search for a word one node carries must return that node: "
+        f"{[scored.value.content for scored in ranked]}",
+    )
+
+
+async def check_search_text_answers_nothing_matching_with_an_empty_ranking(
+    store: TextSearchableStore,
+) -> None:
+    """`TextSearch`'s own emptiness rule, in its own words: *"a store whose index holds nothing
+    matching returns an empty sequence; that is the honest answer to 'what matches these words',
+    and it is a different fact from a store that could not look, which raises."*
+
+    The failure this refuses is the one with no symptom — a backend that answers an unmatched query
+    with every node it holds, at whatever score its operator gives a non-match, looks like a
+    working text arm until somebody reads the results.
+    """
+    # Arrange
+    await store.add(conformance_corpus())
+
+    # Act
+    ranked = await store.search_text("nonesuch-lexeme-no-corpus-carries", top_k=3)
+
+    # Assert
+    _require(
+        list(ranked) == [],
+        f"nothing matching is an empty ranking, not a ranking of everything: "
+        f"{[scored.value.content for scored in ranked]}",
+    )
+
+
+async def check_search_text_narrows_by_a_filter_rather_than_ignoring_it(
+    store: FilterableTextStore,
+) -> None:
+    """A `Filter` reaches *inside* the lexical ranking, never around it.
+
+    `MetadataFilter`'s own promise is that a store which can evaluate a filter honours one on
+    whichever search capabilities it has — so a store with both owes this. The failure it refuses
+    is the one the review this repair came from names outright: *"do not fetch a global lexical
+    top-k and apply tenant filters afterwards."* Post-filtering returns fewer than `top_k` for a
+    reason the caller cannot see, and on a large corpus returns nothing at all while matching rows
+    exist.
+    """
+    # Arrange
+    await store.add(conformance_corpus())
+
+    # Act — `beta` carries both sources; the filter keeps the one it does not have.
+    excluded = await store.search_text(
+        "beta",
+        top_k=3,
+        filter=Filter(op=FilterOp.CONTAINS, field="lineage.sources", value=_SOURCE_B),
+    )
+    kept = await store.search_text(
+        "gamma",
+        top_k=3,
+        filter=Filter(op=FilterOp.CONTAINS, field="lineage.sources", value=_SOURCE_A),
+    )
+
+    # Assert
+    _require(
+        [scored.value.content for scored in excluded] == ["beta"],
+        f"a filter the match satisfies must keep it: "
+        f"{[scored.value.content for scored in excluded]}",
+    )
+    _require(
+        list(kept) == [],
+        f"a filter the match does not satisfy must drop it, not return it anyway: "
+        f"{[scored.value.content for scored in kept]}",
+    )
 
 
 async def check_every_operator_means_the_same_thing_to_both_backends(

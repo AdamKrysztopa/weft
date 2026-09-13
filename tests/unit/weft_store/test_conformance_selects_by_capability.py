@@ -192,3 +192,83 @@ def test_something_that_is_not_a_store_is_refused_rather_than_offered_nothing() 
     with pytest.raises(NotAStoreError) as caught:
         checks_for(_NotAStore())
     assert "NodeStore" in str(caught.value)
+
+
+# --- R21.3: the fourth capability tier gets published checks ----------------------------------
+#
+# **Measured at Phase 21b's close, by `weft-qualities`' requirement-4 lens run against the phase.**
+# The kit published 25 checks: `search_vector` 8, `matching` 18, `supersede` 16, `reconcile` 14,
+# `estimate` 16 — and **`search_text` zero**. So a third party writing a store got published
+# verification for three of the store contract family's four capability tiers, while Weft's own two
+# backends were verified by `tests/`, which ships in no distribution. That is the built-in path
+# richer than the public one, which is the shape requirement 4 exists to catch.
+#
+# **It was defensible until Phase 21b and is not now.** A kit check for a capability with one
+# implementation has nothing to hold it to — `02` §1's own *a contract with one implementation is a
+# guess* — and task `21.8` made it two. The argument that justified the absence is the argument
+# that removes it.
+
+
+class _TextSearchableOnly(_NodeStoreOnly):
+    """A store with the base contract and `search_text` — the shape `pgvector` and `qdrant` share
+    and `MemoryStore` does not."""
+
+    async def search_text(self, text: str, top_k: int, filter: object = None) -> Sequence[object]:
+        del text, top_k, filter
+        return ()
+
+
+def test_a_store_with_a_text_arm_is_offered_the_text_checks() -> None:
+    # Arrange
+    from weft_store.conformance import checks_for
+
+    # Act
+    offered = {check.__name__ for check in checks_for(_TextSearchableOnly())}
+
+    # Assert
+    text_checks = {name for name in offered if "search_text" in name}
+    assert text_checks, (
+        "a store advertising TextSearch is offered no check for it — the fourth capability tier "
+        "is published and unverified, which is R21.3"
+    )
+
+
+def test_a_store_without_a_text_arm_is_told_what_it_was_not_asked() -> None:
+    """The half that makes the filter honest: nothing is skipped silently, so an author whose
+    store has no text arm learns which checks they did not answer and why."""
+    # Arrange
+    from weft_store.conformance import unsupported_checks
+
+    # Act
+    reported = {check.__name__: needed for check, needed in unsupported_checks(_NodeStoreOnly())}
+
+    # Assert
+    text_checks = {name: needed for name, needed in reported.items() if "search_text" in name}
+    assert text_checks, "a store with no text arm is told nothing about the checks it skipped"
+    assert set(text_checks.values()) == {"TextSearch"}, (
+        f"the capability reported for a text check must be TextSearch: {text_checks}"
+    )
+
+
+def test_gaining_a_text_arm_moves_those_checks_from_unsupported_to_offered() -> None:
+    """The property the whole selector exists for, asserted on the tier this repair adds — and
+    asserted as a *move* rather than as two independent counts, so a check that appeared in
+    neither list would fail here."""
+    # Arrange
+    from weft_store.conformance import checks_for, unsupported_checks
+
+    def _names(store: object) -> tuple[frozenset[str], frozenset[str]]:
+        return (
+            frozenset(c.__name__ for c in checks_for(store)),
+            frozenset(c.__name__ for c, _ in unsupported_checks(store)),
+        )
+
+    # Act
+    base_offered, base_missing = _names(_NodeStoreOnly())
+    text_offered, text_missing = _names(_TextSearchableOnly())
+
+    # Assert
+    gained = text_offered - base_offered
+    assert gained, "adding search_text offered no new check"
+    assert gained <= base_missing, "a check that was gained was never reported as missing"
+    assert gained & text_missing == frozenset(), "a check is offered and reported missing at once"
