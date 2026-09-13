@@ -42,6 +42,42 @@ these six documents own is the *task* — what a reader is trying to do and in w
 fact itself. That is why the column is **Covers**, not **Owns**: an "Owns" column invites exactly the
 restatement §3's *Single ownership* rule forbids.
 
+### The public route
+
+**The table above says what each document covers; it never said what a stranger reads second.**
+Six documents with six audiences is a set, and a reader arriving with nothing has to be told where
+to go next — which the pages did do, by sending them to `docs/internal/README.md`, a file
+`.gitignore` keeps out of every clone and every wheel. The route is that hand-off written down
+where the set is owned, so a page that stops naming its successor fails `ci-checks` rather than
+stranding somebody. Four steps, and the reader's own question is what names each:
+
+| Step | Page | Hands to |
+|---|---|---|
+| 1. Arrive — *what is this, and does it run on my machine* | [`README.md`](../README.md) | [`manual/quickstart.md`](../manual/quickstart.md) |
+| 2. Run — *install it, index my files, get an answer back* | [`manual/quickstart.md`](../manual/quickstart.md) | [`manual/user-manual.md`](../manual/user-manual.md) |
+| 3. Configure — *point it at my database, my embedder, my model* | [`manual/user-manual.md`](../manual/user-manual.md) | [`manual/pack-author-guide.md`](../manual/pack-author-guide.md) |
+| 4. Extend — *make it do something it does not do* | [`manual/pack-author-guide.md`](../manual/pack-author-guide.md) | — |
+
+**Every page on it is tracked**, which is the property the route exists to hold and the one that
+was false: `tests/docs/test_public_route.py` reads this table rather than restating it, so the
+route is specified here and checked there. The four steps are also the shape of the phase's exit
+(`09` §5.2's last documentation item, extended past the first page) — a person walks them from a
+clean clone with no `docs/internal/`, and a step that has to be read around is the finding.
+
+**Two pages carry the route and are not in `manual/`.** They were owned by nothing until this
+table, which is exactly how one of them reached 2026-09 announcing that the code was not yet
+written. The *Covers* rule above applies unchanged:
+
+| Page | Audience | Covers |
+|---|---|---|
+| [`README.md`](../README.md) | A stranger arriving, who has not decided to install anything yet | What Weft is, the one honest claim about what the default install proves, and the four commands that prove it — then the hand-off to the quickstart. Not concepts, not configuration |
+| [`CONTRIBUTING.md`](../CONTRIBUTING.md) | Someone about to open a pull request | How the work is done here: which rules came out of a gate and are therefore not re-argued in review, how to find whether a change touches an open decision, the gate commands, and the originality rule. Not the decision log itself, which is developer-local — the page says how to ask, never what the current answer is |
+
+**Neither page joins the shipped set**, and the distinction is not bookkeeping: the six documents
+above are `manual/`, shipped inside the wheel and reachable from an installed copy, while these two
+are the repository's own front matter. What they share with the set is the checking rule — §3 —
+and that is why they have a row here rather than a paragraph somewhere.
+
 **Only two of the six get a numbered build step, and that is deliberate, not an oversight.** Per
 decision **D4**, `06-phase-0-build.md` gains a step 11 covering the quickstart and the single-contract
 section of the pack author guide — the two documents whose content is what Phase 0's own exit
