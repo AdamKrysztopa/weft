@@ -56,13 +56,15 @@ assertions are, not *which* apply.
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
-from typing import Protocol, runtime_checkable
+from typing import Final, Protocol, cast, runtime_checkable
 
 from weft_blob.contract import BlobUri
 from weft_blob.payload import BlobRef
 from weft_extract.payload import BoundingBox, PageSpan, TableGrid
 from weft_kernel.context import Context
+from weft_kernel.errors import WeftError
 from weft_kernel.payload import ExtModel, MediaType, Node, SourceId, Vector
 from weft_kernel.registry import DuplicateRegistrationError
 from weft_store.contract import (
@@ -89,6 +91,9 @@ __all__ = [
     "SearchableStore",
     "SupersedableStore",
     "ConformanceFact",
+    "NotAStoreError",
+    "checks_for",
+    "unsupported_checks",
     "conformance_corpus",
     "register_conformance_ext_models",
 ]
@@ -116,6 +121,113 @@ class ConformanceFact(ExtModel):
     __schema_version__ = "1.0.0"
 
     backend: str
+
+
+class NotAStoreError(WeftError):
+    """What was handed to the kit does not satisfy `NodeStore`, so it is not a smaller store.
+
+    **The distinction this class exists for.** A store without `NodeSupersedable` is a *smaller*
+    store and gets fewer checks; that is the whole point of `checks_for`. A thing without
+    `NodeStore` is not a store at all, and answering it with an empty list would be `01`'s *an
+    empty answer is not a fact about the world* — it would read as *you passed everything I have*
+    rather than *you handed me the wrong object*.
+    """
+
+
+#: The optional capability each check needs beyond `NodeStore`, derived from the protocol its own
+#: `store` parameter is annotated with — so the selector and the checks cannot disagree about what
+#: a check requires. `L5.6`: two sides of a comparison that come from one source cannot disagree,
+#: and here that is the property wanted rather than the defect, because the annotation **is** the
+#: requirement. A check typed against a composed protocol needs that protocol's extra member; one
+#: typed `NodeStore` needs nothing more.
+_CAPABILITY_OF: Final[Mapping[str, tuple[str, str]]] = {
+    "SearchableStore": ("VectorSearch", "search_vector"),
+    "FilterableStore": ("MetadataFilter", "matching"),
+    "SupersedableStore": ("NodeSupersedable", "supersede"),
+    "ReconcilableStore": ("Reconcilable", "reconcile"),
+}
+
+#: Every method `NodeStore` publishes. A thing missing any of them is refused rather than filtered.
+_NODE_STORE_MEMBERS: Final[tuple[str, ...]] = (
+    "add",
+    "count",
+    "delete_source",
+    "flush",
+    "get",
+    "get_source",
+    "list_sources",
+    "put_source",
+    "run",
+    "scan",
+)
+
+
+def _published_checks() -> tuple[Callable[..., Awaitable[None]], ...]:
+    """Every `check_*` this module publishes, in a stable order.
+
+    Read off the module rather than from a hand-kept list, so a check added here is offered without
+    anybody remembering to register it — the producing-side-without-a-consuming-side shape `L5.15`
+    names, refused by construction.
+    """
+    found: list[Callable[..., Awaitable[None]]] = []
+    for name, value in sorted(globals().items()):
+        if name.startswith("check_") and callable(value):
+            found.append(cast("Callable[..., Awaitable[None]]", value))
+    return tuple(found)
+
+
+def _capability_needed(check: Callable[..., Awaitable[None]]) -> tuple[str, str] | None:
+    """`(protocol name, the method that proves it)` a check needs beyond `NodeStore`, or `None`."""
+    annotation = check.__annotations__.get("store")
+    name = getattr(annotation, "__name__", str(annotation))
+    return _CAPABILITY_OF.get(name)
+
+
+def _require_a_store(store: object) -> None:
+    missing = [m for m in _NODE_STORE_MEMBERS if not callable(getattr(store, m, None))]
+    if missing:
+        raise NotAStoreError(
+            f"{type(store).__name__} does not satisfy NodeStore — it is missing "
+            f"{', '.join(missing)}. Every check in this kit needs the base contract, so this is "
+            "not a store with fewer capabilities; it is not a store. `weft_store.contract."
+            "NodeStore` names the members it must have."
+        )
+
+
+def checks_for(store: object) -> tuple[Callable[..., Awaitable[None]], ...]:
+    """The published checks `store` can answer, in a stable order.
+
+    A store is offered a check when it satisfies the capability that check's own `store` parameter
+    is annotated with — capability derived from the methods the object actually has, never
+    declared, which is `02` → *Capability is derived, never declared* applied to the kit itself.
+
+    Raises `NotAStoreError` when `store` does not satisfy `NodeStore`. Use `unsupported_checks` to
+    see what was left out and why; **nothing is skipped silently**, because a kit that quietly ran
+    fewer checks would mean less the smaller the store is, and the author would never learn which
+    half they had proved.
+    """
+    _require_a_store(store)
+    return tuple(
+        check
+        for check in _published_checks()
+        if (needed := _capability_needed(check)) is None
+        or callable(getattr(store, needed[1], None))
+    )
+
+
+def unsupported_checks(store: object) -> tuple[tuple[Callable[..., Awaitable[None]], str], ...]:
+    """`(check, the capability it needs)` for every published check `store` cannot answer.
+
+    The companion to `checks_for`, and the reason that one may filter at all: a caller reports
+    these rather than discovering later that a green run proved less than they thought.
+    """
+    _require_a_store(store)
+    return tuple(
+        (check, needed[0])
+        for check in _published_checks()
+        if (needed := _capability_needed(check)) is not None
+        and not callable(getattr(store, needed[1], None))
+    )
 
 
 def register_conformance_ext_models() -> None:

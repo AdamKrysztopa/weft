@@ -1666,6 +1666,35 @@ member, on `ConflictingIndexModeError`'s own footing above.
 function of what shared the call; the refusal names every such plugin in the pipeline, so the one
 to look at is in the message.
 
+### `NotAStoreError`
+
+**What it looks like** — ledger task 26.5: the published store conformance kit was handed an object
+that does not satisfy `NodeStore`. Raised by `weft_store.conformance.checks_for` and
+`unsupported_checks` before any check runs, reproduced against the shipped module:
+
+```text
+>>> from weft_store.conformance import checks_for
+>>> checks_for(object())
+NotAStoreError: object does not satisfy NodeStore — it is missing add, count, delete_source,
+flush, get, get_source, list_sources, put_source, run, scan. Every check in this kit needs the
+base contract, so this is not a store with fewer capabilities; it is not a store.
+`weft_store.contract.NodeStore` names the members it must have.
+```
+
+**Why this is a refusal and not an empty result**, which is the distinction the whole selector
+rests on. A store without `NodeSupersedable` is a **smaller** store: `checks_for` offers it fewer
+checks and `unsupported_checks` names the ones it left out with the capability each needs, so a
+pack author always knows which half of the contract a green run proved. A store without `NodeStore`
+is not smaller — it is not a store, and answering it with an empty list would be
+`docs/01-high-level-plan.md`'s *an empty answer is not a fact about the world*: it would read as
+*you passed everything I have* rather than *you handed me the wrong object*.
+
+**What to do:** the message lists exactly the members that are missing. `NodeStore` is a Protocol,
+so there is nothing to inherit and nothing to register — implement those methods with the
+signatures `weft_store.contract.NodeStore` declares, and the object satisfies it. Capability is
+derived from the methods present, never declared, so no flag is needed for the optional ones
+either: add `supersede` and the supersede checks are offered on the next call.
+
 ### `AmbiguousExtractorError`
 
 **What it looks like** — two extractors claim a format found in the directory, which is the normal
