@@ -388,6 +388,22 @@ other on five facts none of them carries. **So when a guard learns a fact, ask w
 it guards said before it could** — and make the statement declare the absence rather than leaving
 a reader to infer equality from silence, which is what ledger task 16.2 built.
 
+**Reaching the varied field is not seeing it, and that is two questions where this lens has been
+asking one.** `L19.8`. Task `21.2`'s sweep was designed against this lens explicitly and its own
+docstring records the reasoning — `hybrid` is the only shipped retriever that reaches the store's
+text arm, *"which is the half that makes the instrument able to see the thing being varied"*. The
+reasoning was right and the conclusion was still wrong. The field really was **read**: every arm
+ran `ts_rank_cd` under a different normalisation. Then `weft_retrieve.fusion` fused the two arms
+by **reciprocal rank**, which discards the text arm's score *scale* before anything downstream
+sees it, and `precision@5` and `recall@5` came back identical to the digit across all three arms
+with zero-width intervals.
+
+So ask both halves: **is the varied value read on the path under test, and does its effect survive
+to the metric?** Any stage that consumes a score as an *ordering* — rank fusion above all, and
+this tree ships one — is an information-destroying step, and a measurement whose signal passes
+through one is measuring what survived it. The remedy is usually a rung that uses the value
+directly: `hybrid.py`'s `channels: [text]` is a one-line config change that nobody ran.
+
 **The falsifying question:** *name the thing this measurement is supposed to distinguish, then find
 the field the instrument actually reads — and construct the case where they differ.* If you cannot
 construct it today, say so; that is the assumption, and it expires. Take the measurement before
@@ -396,8 +412,11 @@ arguing from it, and **re-take it before arguing from it a second time**.
 ## What this is not
 
 - **Not a style review.** Ruff and Pyright run in `ci-checks` and are better at it.
-- **Not an architecture gate.** If the change runs into an *open* decision (G2, G7, G8, G9 in
-  `docs/internal/05-grilling-sessions.md`), stop and name the gate. Defaulting an open decision in a code
+- **Not an architecture gate.** If the change runs into an *open* decision, stop and name the
+  gate. **Which gates are open is read from `docs/internal/README.md`'s decision log, never from
+  here** — this clause named G2, G7, G8 and G9, and all four had settled by 2026-08-21 while the
+  sentence went on calling them open for twenty-three days (`L19.2`). A pointer cannot go stale
+  the way a list does. Defaulting an open decision in a code
   review is precisely what the gates exist to prevent.
 - **Not a veto.** These requirements have costs, recorded in `docs/01` alongside them. A change that
   fails one may still be right; what is not acceptable is failing one without noticing.

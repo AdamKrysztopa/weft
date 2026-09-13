@@ -102,6 +102,20 @@ against ⚠'s definition and every live ⚠ meant something the definition did n
 a Generator` is checked against documents *anyone* may write — a three-line user pipeline made it
 fail with no message at all. Before you rely on what a thing means, enumerate what it currently is.
 
+**And two ways of enumerating that lie to you, both paid for at Phase 21a's close.**
+*"Who writes this?"* answered by `grep` has a blind spot **the size of every default**:
+`SourceStatus.ACTIVE` has no production writer anywhere — a grep across `packages/` returns test
+files only — and it is written on every single ingest, by the field default at
+`packages/weft-rag/src/weft_store/contract.py:235 "status: SourceStatus = SourceStatus.ACTIVE"`,
+because the one constructor passes no `status=` at all. So a writer audit over an enum reads the
+constructor sites for **absence** as well as searching for the member's name (`L19.3`). And
+*"which fields does this model have?"* answered by reading the class body stops at the first block
+that is not a field: `PackReport` has fourteen and a `@field_serializer` sits three from the end,
+so a top-down reading yields eleven and a dispatched agent reported exactly that. `type(model).
+model_fields` is one call, is exact, and does not care what interrupts the body — any claim of the
+form *"this model carries N fields"* obtained by reading is a claim obtained by scrolling
+(`L19.4`).
+
 **An id's type is not its alphabet, and a cited mechanism's existence is not its capability.**
 Two ways a fact about the tree gets assumed rather than read. `SourceId` is a `NewType` over `str`
 and says nothing about what characters a real one holds — a blob-key layout was designed around
@@ -648,6 +662,24 @@ first; a boundary skipped is a boundary skipped silently.
    exit criterion written as a command line is a claim about a CLI surface, and this project checks
    worked transcripts in `manual/` and checks these not at all. Run it, then correct the document
    in place.
+
+4c. **A task id cited in a closing note has a ledger line, or the note says it does not.**
+   `L19.9`: `fix-plans/06-adoption-surface.md` drafted `20b.0` and `20b.1` with owners, sizes and
+   evidence, neither was ever entered in `build-ledger.md`, and **Phase 21a's own closing note
+   then cited both as tasks that "still own" a repair still in the tree**. A fix plan is a
+   hypothesis and its drafted task lines are a producing side with no consuming side — nothing
+   moves a drafted line into the ledger and nothing notices that it was not moved, so a task can
+   be written, argued, sized and cited as live while being scheduled by nobody. When a close note
+   names a task id, grep the ledger for a `- [ ] **<id>**` line; if there is none, enter it or say
+   in the note that it was declined and why.
+
+   *Declined as machinery in this drain, with the sizing, because both mechanical forms arrive
+   red on correct work: a check that every drafted fix-plan task exists in the ledger walks 14 and
+   fails **9**, and six of those nine are a plan legitimately drafting a phase nobody has opened;
+   a check that every task id cited in ledger prose has a ledger line fails **8** after the
+   decimals are filtered out, most of them renumbered rather than missing. `R10.2`'s
+   four-to-one answer, a third time — the moment is known and the population is not clean, which
+   is what a skill clause is for and a fitness function is not.*
 
 5. **`python3 .claude/skills/phase-step/scripts/next_task.py --check-live` is green**, before
    and after you edit the Status block. A stale Status block does its most damage exactly here,

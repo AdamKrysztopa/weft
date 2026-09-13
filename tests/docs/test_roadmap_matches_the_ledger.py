@@ -215,3 +215,108 @@ def test_the_ledger_walk_finds_the_phases_it_is_supposed_to() -> None:
     # Assert
     assert len(ticks) >= 10, f"only {len(ticks)} phases were found in the ledger — the walk broke"
     assert any(done > 0 for done, _ in ticks.values()), "no phase has a ticked task"
+
+
+#: An argument section for one phase: `## 5d · Phase 17 — …`. The separator is a middle dot and
+#: the id follows the word *Phase*, which is the spelling every section in that document uses.
+_SECTION: Final[re.Pattern[str]] = re.compile(r"^## \S+ · Phase ([0-9]+[a-z]?) ", re.MULTILINE)
+
+#: **A row that dissolved is not a phase and owes no section.** Phase 19's work folded into
+#: ledger task `9.13` and the row says so, pointing at the task rather than at a section — which
+#: is a pointer to where the decision lives, which is all §1 asks of a row. One entry, named, so
+#: a second is a visible act in a diff.
+DISSOLVED_ROWS: Final[tuple[str, ...]] = ("19",)
+
+
+def _rows_owing_a_section(roadmap: str) -> list[str]:
+    """Every §1 row that should point at an argument section and does not.
+
+    `WON'T` rows are excluded because §6 is where their argument lives: that table gives each one
+    the trigger that fires it, and `12` §1's rule for a `WON'T` is *a trigger*, not a section.
+    Everything else — `MUST`, `SHOULD`, `COULD`, and `DONE` — is a phase somebody either built or
+    is about to, and for those the section is the decision the row points at.
+
+    Two things exclude a `WON'T`, and only one of them is this filter. `_ROW`'s verdict class is
+    `[A-Z' ]+`, which cannot match the lowercase in `WON'T yet`, so those rows never reach here
+    at all; the `startswith` below is what catches a bare `**WON'T**`, which the class *does*
+    match. Stated because a filter that looks load-bearing and is not is how a check quietly
+    stops having a subject.
+    """
+    sections = set(_SECTION.findall(roadmap))
+    return sorted(
+        phase
+        for phase, verdict in _verdicts(roadmap)
+        if not verdict.startswith("WON'T") and phase not in DISSOLVED_ROWS and phase not in sections
+    )
+
+
+def _verdicts(roadmap: str) -> list[tuple[str, str]]:
+    """`(phase, verdict)` per §1 row. Line by line, because `_ROW` is deliberately unanchored to
+    `MULTILINE` and `.*` must not be allowed to reach across a row boundary."""
+    return [
+        (match.group(1), match.group(2))
+        for line in roadmap.splitlines()
+        if (match := _ROW.match(line))
+    ]
+
+
+@_requires_both
+def test_every_live_row_points_at_a_section_arguing_it() -> None:
+    """`docs/internal/lessons.md` `L19.5` and `L19.6`.
+
+    **A MoSCoW row is a pointer to an argument, never the argument.** `12` §1:42 already rules
+    that *"a `WON'T` with no trigger is a defect in the verdict, not a decision"*; the same holds
+    of a `SHOULD` with no section, and nothing was checking it.
+
+    **Measured 2026-09-13, at Phase 21a's close: three live rows had none** — 17, 26b and 16b.
+    All three carried a verdict, a size and a dependency, and 16b had been routed as the next
+    phase but one by a status block reading its row as settled work. Its entire specification was
+    one table cell of fourteen words, three of whose four nouns occur exactly once in this whole
+    repository — in the row that names them — and whose disambiguator cites a label defined
+    nowhere in the tree.
+
+    **Writing the three sections changed the plan**, which is the argument for this check rather
+    than for a reminder: 16b's verdict became `WON'T yet` with a trigger, 26b's inherited refusal
+    was withdrawn because every reason it rested on had expired at a gate, and 17 took a decision
+    about corpus-scoped stages that nobody had been asked for. A row is a pointer, and when the
+    argument is finally written it does not always agree with the pointer.
+
+    Measured 2026-09-13: the row walk sees **9** live rows, `DISSOLVED_ROWS` waives **1**, so it
+    checks **8** and fails **0**. Before the three sections were written it would have failed
+    **3** — 17, 26b and 16b.
+    """
+    # Arrange
+    roadmap = _ROADMAP.read_text(encoding="utf-8")
+
+    # Act
+    unargued = _rows_owing_a_section(roadmap)
+
+    # Assert
+    assert not unargued, (
+        "a live roadmap row with no section arguing it is a plan nobody has taken — `12` §1: a "
+        "row is a pointer to a decision (docs/internal/lessons.md L19.5, L19.6): "
+        + ", ".join(unargued)
+    )
+
+
+@_requires_both
+def test_the_section_walk_is_not_vacuous() -> None:
+    """The subject is real on both sides, which is the half a green assertion cannot show.
+
+    A regex that stopped matching would make `_rows_owing_a_section` return `[]` and the check
+    above would pass for the worst possible reason. So: the row walk finds the live rows, the
+    section walk finds the sections, and a planted row with no section is reported.
+    """
+    # Arrange
+    roadmap = _ROADMAP.read_text(encoding="utf-8")
+
+    # Assert — both walks see a real population.
+    assert len(_SECTION.findall(roadmap)) >= 8, "the section walk found almost nothing"
+    live = [p for p, v in _verdicts(roadmap) if not v.startswith("WON'T")]
+    assert len(live) >= 6, f"the row walk found {len(live)} live rows, which is too few"
+
+    # Act — a row that exists with no section for it, the shape all three real ones took.
+    planted = roadmap + "\n| **98z** | Invented. | LOW | **SHOULD** | nothing |\n"
+
+    # Assert
+    assert "98z" in _rows_owing_a_section(planted)

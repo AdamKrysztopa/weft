@@ -668,8 +668,11 @@ class MetadataFilter(Protocol): ...                # marker: supports the whole 
 > **`TextSearch` is published**, exactly as the block above specifies, and `PgVectorStore` satisfies
 > it over a generated `tsvector` column. `STORE_CONTRACT_VERSION` moves `1.0.0` → `1.1.0`: the
 > family grew a capability, so fitness function 6's subject for it moves too. That is a mechanical
-> record of a changed surface and nothing more — **G9 is Open** and owns what a version number
-> *means*, so nothing here should be read as a compatibility policy.
+> record of a changed surface and nothing more — G9 owns what a version number *means*, so nothing
+> here should be read as a compatibility policy. *(This read **"G9 is Open"** until 2026-09-13. G9
+> settled 2026-08-21: per-contract semver, bound to the distribution version that is its
+> enforceable shadow. The caveat above still holds — this line records a surface change and not a
+> policy — but the gate it deferred to is closed, and `09` §2.3 is where the policy now lives.)*
 >
 > **`MetadataFilter` is still not published, and the reason is a measurement rather than a
 > schedule.** As written above it is a bare marker — `class MetadataFilter(Protocol): ...` — and a

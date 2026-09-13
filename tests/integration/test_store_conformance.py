@@ -29,8 +29,14 @@ store**; it does not settle whether the assertions themselves ship, and neither
 `.phase2-design.md` nor any ledger task does. Publishing them would mean deciding what a
 `weft_store.conformance` module may depend on — `weft_pdf`'s `ExtModel`, `weft_cli`'s run
 assembler and `weft_retrieve`'s payload types are all imported below and none of them may
-become a `weft-store` dependency — and what its own version means while **G9 is Open**.
-That is a design decision, and it is left as one.
+become a `weft-store` dependency. That is a design decision, and it is left as one.
+
+**A third reason stood here and expired.** It read *"and what its own version means while G9 is
+Open"* — and **G9 settled 2026-08-21**, four days after this docstring was written, with
+per-contract semver bound to the distribution version. So that question has an answer and is no
+longer a reason for anything; the two reasons above are the whole refusal. It stood for eight
+phases, and `12-roadmap.md` inherited the refusal *by reference* in the meantime, which is how an
+expired premise becomes load-bearing in a second document (`docs/internal/lessons.md` `L19.2`).
 
 **Against the real containers, skipped with a reason when they are absent** —
 `docs/06-phase-0-build.md` step 8's discipline, applied per backend rather than

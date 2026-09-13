@@ -13,10 +13,22 @@ points at `06`.
 
 ---
 
-## 0. What this document deliberately does not decide
+## 0. What this document deliberately did not decide, and what has since been decided
 
-**G9 is open, and this document depends on it in five places.** Not one — five. Each is stated below as a
-question in §2.3 and nowhere else; no section of this document answers any of them:
+> **Corrected 2026-09-13.** This section read *"G9 is open, and this document depends on it in five
+> places"* and *"G2, G7 and G8 are open"* for twenty-three days after the last of those gates
+> settled. **§2.3 was updated when G9 settled and this section was not** — which is the whole shape
+> of `docs/internal/lessons.md` `L19.2`: at a settlement the gate's row moves and the document that
+> owns the *content* is edited, while every sentence that **deferred** to the gate keeps deferring.
+> Those sentences do not look stale; they look like careful practice, which is what they were on the
+> day they were written. `tests/docs/test_settled_gates_are_not_cited_as_open.py` is what now walks
+> them. The section is kept rather than deleted, because the discipline it describes is the reason
+> §2.3 could be filled in cleanly later — what changed is the tense.
+
+**G9 was open when this document was written, and it depended on it in five places.** Not one —
+five. Each was stated below as a question in §2.3 and nowhere else; no section of this document
+answered any of them. **G9 settled 2026-08-21, and §2.3 now carries all five answers** beneath the
+table that posed them:
 
 | # | The dependency | Where `05` → G9 already claims it |
 |---|---|---|
@@ -26,17 +38,22 @@ question in §2.3 and nowhere else; no section of this document answers any of t
 | 4 | **Which published surfaces carry a compatibility promise at all** — the payload model, the store capability protocols, the filter AST, `Disclosure`, the `Command` permission `ClassVar`, `[packs] allow` | G9 *Bring* enumerates exactly these, which is the proof they are G9's and not this document's |
 | 5 | What a **version bound** on an intra-repository dependency means — floor, compatible range, or exact pin | G9 *Positions to attack*: semver / single library version / capability negotiation |
 
-That the dependency is structurally safe is a separate point and still true: G9 is already Phase 5's
-gate, so it is settled before Phase 6 can begin. Safety is not licence — a section that assumed an
-answer would settle G9 by implication rather than by argument, which is what §2.3 exists to prevent.
+That the dependency was structurally safe is a separate point and was always true: G9 was Phase 5's
+gate, so it settled before Phase 6 could begin. Safety is not licence — a section that assumed an
+answer would have settled G9 by implication rather than by argument, which is what §2.3 exists to
+prevent, and it is why the answers arrived as a session's output rather than as this document's
+guess.
 
 Fitness function 10 clause (b) is the only place where this document states anything adjacent to G9, and
 it states the weakest claim available: that a bound **exists**. `01` → *Fitness functions* item 10 argues why that is implied by all three of G9's positions and
 chooses none of them.
 
-**G2, G7 and G8 are open and this document assumes nothing about them**, with one visible dependency: if
-G8 settles as anything other than "shell", the REPL's surface changes and §3's table of candidate
-public surfaces gains rows. Recorded here so it is not discovered at release time.
+**G2, G7 and G8 were open and this document assumed nothing about them**, with one visible
+dependency: if G8 had settled as anything other than "shell", the REPL's surface would change and
+§3's table of candidate public surfaces would gain rows. Recorded here so it was not discovered at
+release time — and it was not. **All three have since settled** (G2 2026-08-16, G8 2026-08-18 — *no,
+and never: the agent is a pack*, so the REPL's surface did not move and §3 gained no rows; G7
+2026-08-21).
 
 **A new gate was proposed here, and this document did not settle that one either: G10.** `05` → G10
 is the session; it ran on 2026-08-22 and the decision log records it **Settled**. §1, §2.2 and §3

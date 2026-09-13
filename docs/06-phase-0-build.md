@@ -24,7 +24,7 @@ disagree, they are wrong and this one is out of date.
 > made reversible, and that reasoning is what made the gate cheap to close. The outcome lives in
 > `02` §3.
 
-Read this before the work list. Phase 0 has to do things that G2 owns and G2 is open, so the rule for
+Read this before the work list. Phase 0 had to do things that G2 owns while G2 was open (**G2 settled 2026-08-16**; this document is Phase 0's own retired build order and is read as history), so the rule for
 each is the same: **make the minimal choice that is reversible, and record that it is not an answer.**
 
 **1. Where the embedding happens.** G4 settled that stores take a vector and never embed — a store

@@ -144,7 +144,15 @@ jobs:
           # `WEFT_PRETEND_UNTRACKED=1 uv run poe test` answers as a clean checkout would, without
           # moving `docs/internal/` aside — see `tests/conftest._pretending_untracked`. Locally
           # that reads 33 against an ordinary 9; this environment adds 45 of its own.
-          WEFT_TEST_EXPECTED_SKIPS: "78"
+          # **78 -> 82 on 2026-09-13**, measured before the push with the command above, and it
+          # is now a hook that says to: `.claude/hooks/guard_skip_count.py` refuses a commit that
+          # adds an `untracked_reason(...)` skip without staging this file
+          # (`docs/internal/lessons.md` L19.1, which is L11.22 and L12.1 for the third time).
+          # Phase 21a's close added four such tests across two files —
+          # `test_settled_gates_are_not_cited_as_open.py` reads the decision log, and
+          # `test_roadmap_matches_the_ledger.py` gained the section check from L19.5 and L19.6 — so local
+          # reads 37 against the 33 that set 78.
+          WEFT_TEST_EXPECTED_SKIPS: "82"
 
   # Fast feedback on a pull request, and **not a gate**. The `gate` job above is the canonical
   # full run and this job cannot stand in for it: it runs only the tests the diff can have
