@@ -21,6 +21,7 @@ unsanitised external input.
 import subprocess
 import sys
 import tempfile
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Final
 
@@ -91,6 +92,7 @@ def _install_and_check(member: Member, wheelhouse: Path) -> subprocess.Completed
     here rather than counted as the same check.
     """
     bare = [module for module in member.modules if module not in EXTRA_BACKED_MODULES]
+    bare += [m for m in PUBLISHED_SUBMODULES.get(member.name, ()) if m.split(".")[0] in bare]
     if not member.modules:
         probe = "print('no module to import — ships no code')"
     else:
@@ -132,6 +134,27 @@ def pack_of(module: str) -> str:
     second copy.
     """
     return module.removeprefix("weft_").replace("_", "-")
+
+
+#: Submodules a *caller outside this repository* imports by name, which importing the package root
+#: does not reach — so they need their own probe here or nothing checks them on a bare install.
+#:
+#: **`docs/internal/lessons.md` `L21.1`, and it cost this twice.** Task `26.4` published
+#: `weft_store.conformance`, whose corpus attached `weft_pdf`'s `PdfPages`. A pack's `__init__` is
+#: where `register()` lives, so it imports every plugin the pack registers and therefore every
+#: driver those need — `weft_pdf` reaches `pdfplumber`, behind `[pdf]`. Neither `from weft_pdf
+#: import PdfPages` nor `from weft_pdf.document import PdfPages` survives a plain install, because
+#: importing a submodule executes the package. Nothing in this repository could have caught it:
+#: every test runs with `[all]`, and fitness function 1 installs the *kernel* alone rather than
+#: `weft-rag`.
+#:
+#: The first fix was wrong too, which is why the rule is mechanical now rather than remembered: a
+#: probe that tried both spellings in one interpreter reported the second as fine, because the
+#: failed package import had left a partial `weft_pdf` in `sys.modules` and the next attempt sailed
+#: past it. This script gets it right for free — one fresh environment and one fresh interpreter.
+PUBLISHED_SUBMODULES: Final[Mapping[str, tuple[str, ...]]] = {
+    "weft-rag": ("weft_store.conformance", "weft_store.memory"),
+}
 
 
 def _degradation_probe(member: Member, wheelhouse: Path) -> subprocess.CompletedProcess[str] | None:
