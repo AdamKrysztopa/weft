@@ -1455,6 +1455,35 @@ the collection belongs to a different corpus and the `collection` name is what t
 You will only meet this if `[services] store` names `qdrant`; the settings under
 `[packs.qdrant]` configure the pack, and that key is what selects it.
 
+### `Bm25NotAvailableError`
+
+**What it looks like** — `[packs.store] text_mode` asks for `bm25` on a database that has no
+`pg_textsearch`:
+
+```text
+Bm25NotAvailableError: [packs.store] text_mode asks for 'bm25', but this database has no
+'pg_textsearch' extension available to install — real BM25 needs timescale/pg_textsearch, which
+needs PostgreSQL 17 or 18. Three ways out: run `docker compose --profile bm25 up -d` for a
+supported self-hosted PostgreSQL 17/18 carrying timescale/pg_textsearch (port 5434); or set
+text_mode back to 'fts' for Postgres's own ts_rank_cd ranking on this database as it is. The
+qdrant store is the third route and serves its lexical arm from its own index rather than from a
+Postgres extension — check `weft plugins doctor` for whether the installed one advertises
+TextSearch before moving a corpus to it.
+```
+
+Raised on the store's first use, before any schema is touched. **Why it refuses rather than falling
+back:** `fts` and `bm25` are different rankings, not two spellings of one. Postgres's `ts_rank_cd`
+has no IDF over your collection and no term saturation, so serving it under a `bm25` label would
+give you numbers that are not BM25 and no way to tell — the failure this project refuses on
+principle, because it does not crash, it answers plausibly.
+
+**What to do:** the floor container (`pgvector/pgvector:pg16`) cannot serve BM25 and is not meant
+to. `docker compose --profile bm25 up -d` starts a second Postgres on **port 5434** carrying both
+pgvector and `timescale/pg_textsearch`; point `dsn` at it. It is a separate service rather than an
+upgrade to the floor because its image is 3.86 GB against the floor's 640 MB — `compose.yaml`
+carries the whole argument. If you do not want that, `text_mode = "fts"` is the honest default and
+is what every Weft corpus ran on before this setting existed.
+
 ### `UnknownTextSearchConfigError`
 
 **What it looks like** — `[packs.store] text_search_config` names something this database has

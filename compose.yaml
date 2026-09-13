@@ -74,6 +74,50 @@ services:
       timeout: 3s
       retries: 20
 
+
+  # **Real BM25, and it is not the floor.** `TextSearch` has never promised BM25 — the floor
+  # store ranks `content_tsv` with `ts_rank_cd`, which has no IDF over the collection and no term
+  # saturation. `timescale/pg_textsearch` is the permissive-licensed extension that does
+  # (PostgreSQL licence, v1.4.0, 18 August 2026), and it needs PostgreSQL 17 or 18. The floor is
+  # `pg16`.
+  #
+  # **So this is a second service behind a profile, on `qdrant`'s own precedent above, and for
+  # the same reason: it exists to be a capability an operator opts into, not one they carry.**
+  # `docker compose up -d` still means what this file's opening line says it means. Starting this
+  # one takes `--profile bm25` and is therefore a thing you did on purpose.
+  #
+  # The measured cost of not doing it this way: `timescale/timescaledb-ha:pg17` is **3.86 GB**
+  # against the floor image's **640 MB**, and it carries a TimescaleDB Community Edition surface
+  # (TSL-licensed) that Weft does not use. Moving the floor to it would put that in front of every
+  # developer for a capability most of them have not asked for — against `01` → *Runtime shape*
+  # and against this project's own offline-clean-checkout pitch.
+  #
+  # Verified on 2026-09-13 by running it: this image reports `pg_textsearch 1.4.0` and
+  # `vector 0.8.6` — the same pgvector the floor runs — and `CREATE EXTENSION` succeeds for both.
+  # The leaner `timescale/timescaledb:latest-pg17` was checked and carries `vector 0.8.1` with
+  # **no** `pg_textsearch`; no dedicated `pg_textsearch` image is published. A count and a version
+  # about an image, so re-take them rather than cite them.
+  #
+  # Port 5434: 5432 belongs to whatever Postgres a developer already runs and 5433 is the floor,
+  # for the reason `.env.example` gives for both.
+  postgres-bm25:
+    image: timescale/timescaledb-ha:pg17
+    profiles: ["bm25"]
+    environment:
+      POSTGRES_USER: weft
+      POSTGRES_PASSWORD: weft
+      POSTGRES_DB: weft
+    ports:
+      - "5434:5432"
+    volumes:
+      - weft-postgres-bm25-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U weft -d weft"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
 volumes:
   weft-postgres-data:
   weft-qdrant-data:
+  weft-postgres-bm25-data:

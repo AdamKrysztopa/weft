@@ -41,6 +41,7 @@ from psycopg import sql
 from pydantic import SecretStr, ValidationError
 
 from weft_kernel.context import Context
+from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_kernel.payload import MediaType, Node, SourceId, Vector
 from weft_kernel.registry import Registry
 from weft_kernel.runner import Runner, StageSpec
@@ -53,8 +54,10 @@ from weft_store.contract import (
     VectorSearch,
 )
 from weft_store.pgvector_store import (
+    Bm25NotAvailableError,
     PgVectorSettings,
     PgVectorStore,
+    TextMode,
     TextQueryMode,
     TextRank,
     TextSearchConfigMismatchError,
@@ -603,3 +606,103 @@ def test_a_normalisation_postgres_does_not_define_is_refused_by_name() -> None:
         PgVectorSettings(dsn=SecretStr(_DSN), text_rank_normalization=64)
 
     assert "text_rank_normalization" in str(excinfo.value)
+
+
+# --- task 21.6: BM25 is a mode a user selects ------------------------------------------------
+#
+# `12-roadmap.md` §5g. `TextSearch.search_text` promises *ranked text search* and has never
+# promised BM25: `content_tsv` is ranked by `ts_rank_cd`, which has no IDF over the collection,
+# no term saturation and — since `21.0` measured it — whatever length normalisation the operator
+# selects. Real BM25 needs `timescale/pg_textsearch`, which needs PostgreSQL 17 or 18, which the
+# floor container is not. So the capability is **selectable** and its absence is **loud**.
+#
+# **The refusal is the deliverable, and the floor container is what tests it.** Every other test
+# in this file runs against `pgvector/pgvector:pg16`, which has no `pg_textsearch` — so the
+# unhappy path is the one that runs everywhere, and the happy path needs
+# `docker compose --profile bm25 up -d`. That is the right way round: an operator who has not
+# opted in is the common case, and what they must never get is a text arm that quietly stopped
+# being what they asked for.
+
+
+def test_the_shipped_default_text_mode_is_postgres_full_text_search() -> None:
+    """**The default does not move in this phase.** `21.9` is the measurement that would justify
+    moving it, and until then an operator who configures nothing gets exactly what they got
+    before this task existed."""
+    # Arrange / Act
+    settings = PgVectorSettings(dsn=SecretStr(_DSN))
+
+    # Assert
+    assert settings.text_mode is TextMode.FTS
+
+
+def test_text_mode_is_an_enum_so_a_misspelling_is_refused_where_it_is_typed() -> None:
+    """`Enum` over `Literal`, per this project's own rule, and the refusal lands in `weft.toml`
+    rather than at the first query."""
+    # Arrange / Act / Assert
+    with pytest.raises(ValidationError) as excinfo:
+        PgVectorSettings(dsn=SecretStr(_DSN), text_mode="bm-25")  # type: ignore[arg-type]
+
+    assert "text_mode" in str(excinfo.value)
+
+
+async def test_selecting_bm25_where_the_extension_is_absent_refuses_naming_it(
+    fresh_database: str,
+) -> None:
+    """The failure this task exists to prevent is the silent one.
+
+    Without this, a `text_mode = "bm25"` against the floor container has three plausible wrong
+    behaviours and every one of them is worse than a crash: fall back to `ts_rank_cd` and report
+    BM25 numbers that are not BM25, return nothing and look like an empty corpus, or fail with
+    Postgres's own `operator does not exist: text <@> ...`, which names neither the setting nor
+    the fix. `01` requirement 5: say what was wanted, why it is unavailable, and what the options
+    are.
+    """
+    # Arrange — the floor image, which ships pgvector and no pg_textsearch.
+    store = PgVectorStore(PgVectorSettings(dsn=SecretStr(fresh_database), text_mode=TextMode.BM25))
+
+    # Act
+    with pytest.raises(Bm25NotAvailableError) as caught:
+        await store.count()
+
+    # Assert — the extension, and each of the three ways out.
+    message = str(caught.value)
+    assert "pg_textsearch" in message
+    assert "bm25" in message
+    assert "fts" in message, "the deliberate full-text alternative is named, not implied"
+    assert "qdrant" in message.lower(), "the second store is one of the three routes"
+
+
+async def test_the_default_mode_never_probes_for_an_extension_it_does_not_need(
+    fresh_database: str,
+) -> None:
+    """An operator who did not ask for BM25 must not be told about it.
+
+    This is the other half of the refusal above and the half that would rot silently: a probe
+    written unconditionally would make every `fts` store pay a query it has no use for, and — far
+    worse — a probe that *raised* unconditionally would make the floor container unusable. The
+    assertion is that provisioning completes, which it cannot do if the check is misplaced.
+    """
+    # Arrange
+    store = PgVectorStore(PgVectorSettings(dsn=SecretStr(fresh_database)))
+
+    # Act
+    count = await store.count()
+
+    # Assert
+    assert count == 0
+    await store.aclose()
+
+
+def test_the_bm25_refusal_is_not_in_the_unresolved_name_family() -> None:
+    """**Measured against `test_ff12_unresolvable_name_carries_options.py`'s own family, and this
+    is a decision rather than an omission.** Every member of that family carries `valid_options`
+    naming what the operator could have typed instead. Here `bm25` *is* a valid value of
+    `text_mode` — it is the database that cannot serve it — so `valid_options` would have to
+    name the very thing that was just asked for. The three alternatives this refusal does name
+    are **deployment** choices, not values of this setting, and a plain `WeftError` reaches
+    `OPERATION_FAILED` through `exit_code_for`'s default branch: *"something failed"*, which is
+    the footing `TextSearchConfigMismatchError` already stands on.
+    """
+    # Arrange / Act / Assert
+    assert issubclass(Bm25NotAvailableError, WeftError)
+    assert not issubclass(Bm25NotAvailableError, UnresolvedNameError)

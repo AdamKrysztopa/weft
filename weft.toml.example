@@ -51,9 +51,26 @@ dsn = "${env:WEFT_DATABASE_URL}"
 #
 # `text_rank` is `cover-density` (how close the matched words fall to each
 # other) or `frequency` (how often they occur, weighted).
+#
+# `text_rank_normalization` is Postgres's own ranking `normalization` bitmask —
+# what the ranking does about passage length. `0`, the default, is no length
+# normalisation at all: a thousand-word passage matching the same terms as a
+# fifty-word one ranks identically. Weft measured its own corpus at task `21.2`
+# and every arm tied, so the default did not move; `manual/operations-guide.md`
+# carries the bit meanings.
+#
+# `text_mode` chooses what the text arm *is*. `fts` (the default) is everything
+# above: a generated `tsvector` ranked by Postgres. `bm25` is real BM25 — IDF
+# over the collection, term saturation, length normalisation — and needs the
+# `timescale/pg_textsearch` extension, which needs PostgreSQL 17 or 18. The
+# floor container is `pg16` and has neither, so asking for `bm25` there is
+# refused by name rather than quietly served as `fts`. `docker compose
+# --profile bm25 up -d` starts a database that can, on port 5434.
 # text_search_config = "simple"
 # text_query_mode = "any"
 # text_rank = "cover-density"
+# text_rank_normalization = 0
+# text_mode = "fts"
 
 # [packs.openai]
 # Optional — every field here has a default, so this whole block can be absent and
