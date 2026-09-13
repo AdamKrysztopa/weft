@@ -1063,7 +1063,7 @@ or vendor pricing page — except where marked **unconfirmed**.
 | **Qwen3-VL-Embedding (2B / 8B)** | **Apache-2.0**, base also Apache-2.0 | self-hosted multimodal embedder recommendation | **Configure it to emit 1024 or 1536 dims** so pgvector's index ceiling never arises |
 | **ColModernVBERT** | **MIT** — architecture, weights *and* training code (verified) | the only licence-clean late-interaction model, if D5 is ever reversed | 250M params. Its card claims only *"matches models nearly 10× larger"*; the "within 0.6 nDCG@5 of ColPali" margin an earlier draft quoted is **unverifiable** and is dropped |
 | **pgvector 0.8.6** | PostgreSQL licence | the floor | `vector` index ≤2,000 dims; `halfvec` ≤4,000 |
-| **`timescale/pg_textsearch`** | PostgreSQL licence | real BM25 in the floor container (rank 4) | Current **1.4.0-dev**. *(An earlier draft said "v1.0, April 2026" and did not name the org; the version claim is withdrawn and the org is named because a reader will search for it)* |
+| **`timescale/pg_textsearch`** | PostgreSQL licence | real BM25 in the floor container (rank 4) | **v1.4.0, released 18 August 2026**, supporting **PostgreSQL 17 and 18**; BM25 with Block-Max WAND. *Production ready* is the project's own claim, not an independent certification. **It does not run on the floor container as pinned** — `compose.yaml` is `pgvector/pgvector:pg16`. *(An earlier draft said "v1.0, April 2026" and did not name the org; that version claim was withdrawn, and this one is read from the release on 2026-09-13)* |
 | **sqlglot 30.17.0** | MIT, no required dependencies | parked, for a future SQL guardrail | Version verified; release date **unconfirmed**. A transpiler, not a validator |
 | **DuckDB / pandas** | MIT / BSD-3 | program-of-thought over one retrieved table | In-process |
 | **pytrec_eval / ranx** | MIT / MIT | retrieval metrics — **do not hand-roll nDCG** | Both **synchronous** (pytrec_eval is a C extension), so a metric plugin wraps them in `asyncio.to_thread` and FF7(b) must be able to tell that from an accident |
@@ -1098,7 +1098,7 @@ or vendor pricing page — except where marked **unconfirmed**.
 | **ColQwen2.5 / ColPali base weights** | MIT adapters over Qwen Research / Google Gemma Terms | **Verify per checkpoint.** Not uniformly clean |
 | **VectorChord** (`pg18-v1.1.1`) | **dual AGPLv3 / Elastic License v2** | The only Postgres-native MaxSim. `weft-store` links nothing — a server-side extension reached over SQL — so the obligation lands on whoever runs the database. **An operator decision, documented in plain words, never an innocuous optional extra** |
 | **ParadeDB `pg_search`** | AGPL-3.0 or commercial | Prefer `timescale/pg_textsearch` (PostgreSQL licence) for rank 4 |
-| **VectorChord-BM25** | **not confirmed** | Check before depending |
+| **VectorChord-BM25** | **dual AGPLv3 OR Elastic License v2** — its own `LICENSE`, read 2026-09-13 | **Not the permissive alternative it was hoped to be**, so it does not displace `timescale/pg_textsearch` for rank 4 and must not be substituted on a permissive-licence premise. **A different project from VectorChord above**, which is vector search. Its recommended `pg_tokenizer.rs` is separately Apache-2.0; that does not change this row. *(Read "not confirmed" until `R19.14`, while `12` §6 said "now confirmed" — a licence recorded two ways in two documents, repaired here because this section owns the fact)* |
 | **MMLongBench-Doc** | data **CC BY-NC 4.0** (code Apache-2.0) | **Refuse the data on NC grounds only.** BY-NC permits derivatives, so the derivative-subset objection is void. Borrow the design: **22.5%** unanswerable, evidence-source labelling, format-dependent scoring |
 | **OmniDocBench** data | research-only (code Apache-2.0) | Refuse the data; the metric family (TEDS, edit distance) is the part Weft needs |
 
@@ -1191,7 +1191,9 @@ written into `docs/` as fact without being re-sourced first.
 18. Venue attributions: ViDoRe V3 "ACL 2026" and MUVERA "NeurIPS 2024" — neither appears on the arXiv
     abstract page. Cite by arXiv id only.
 19. Cohere Embed 4 pricing (secondary sources only).
-20. sqlglot's release date; VectorChord-BM25's licence; "Marker 2" as a version name — Datalab's table
-    row is *"Marker — balanced (GPU)"*.
+20. sqlglot's release date; "Marker 2" as a version name — Datalab's table
+    row is *"Marker — balanced (GPU)"*. *(VectorChord-BM25's licence stood on this list until
+    2026-09-13. It is confirmed dual AGPLv3 / Elastic License v2 in §7 above, read from the
+    project's own `LICENSE`, and it leaves this list rather than staying on it marked.)*
 
 ---
