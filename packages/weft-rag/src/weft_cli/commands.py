@@ -119,6 +119,7 @@ from weft_cli.reconcile import participants as reconcile_participants
 from weft_cli.route_ask import (
     named_pipeline,
     pipelines_producing,
+    resolve_named_pipeline,
     run_named_ask,
     run_named_retrieve,
     run_routed_ask,
@@ -905,8 +906,7 @@ class AskCommand:
         pipeline_name = cast(str, ask_args.pipeline)
         catalogue = full_catalogue(reports=deps.reports)
         named_pipeline(pipeline_name, catalogue=catalogue)
-        generating = pipelines_producing(Generator, catalogue=catalogue, registry=deps.registry)
-        if pipeline_name in generating:
+        if self._generates(pipeline_name, deps=deps):
             alternatives = pipelines_producing(
                 ContextPacker, catalogue=catalogue, registry=deps.registry
             )
@@ -939,6 +939,31 @@ class AskCommand:
                 hits=hits_for([passage.scored for passage in passages.passages]),
             )
         )
+
+    @staticmethod
+    def _generates(pipeline_name: str, *, deps: Dependencies) -> bool:
+        """Whether the named pipeline's **resolved** last stage is a `Generator`.
+
+        Resolved, not as written. `pipelines_producing` reads `Pipeline.stages`, and a document
+        spelled `extends:` plus `replace:` carries none of its own — so every derived generating
+        rung was invisible to it, and `--retrieve-only --pipeline rewrite-then-retrieve` reached
+        the runner. With `[llm.roles]` configured that is a query rewrite **and** a generated
+        answer, two model calls, under the one flag whose whole promise is that it makes none.
+        Found at Phase 28's close by asking this check's own walk how many documents it reaches.
+
+        `resolve_named_pipeline` is pure — no I/O, nothing run — so this stays a decision taken
+        before any plugin is constructed, which is what `ConflictingAskModeError` promises.
+        """
+        resolved = resolve_named_pipeline(
+            pipeline_name,
+            registry=deps.registry,
+            reports=deps.reports,
+            contributions=deps.contributions,
+        )
+        if not resolved.stages:
+            return False
+        last = resolved.stages[-1].use
+        return last in deps.registry.names_for(Generator)
 
     async def _run_retrieve_only(
         self, ask_args: AskArgs, *, deps: Dependencies, ctx: Context

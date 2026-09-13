@@ -226,3 +226,30 @@ def test_the_shipped_lexical_document_searches_the_text_arm_alone() -> None:
         "the document must narrow `hybrid` to the text arm: both arms would embed the question, "
         "which is the model-free property this document exists to have"
     )
+
+
+async def test_a_derived_pipeline_that_generates_is_refused_like_any_other() -> None:
+    """The population question, asked of the refusal's own walk — `L21.5`, `L19.8`.
+
+    `pipelines_producing` reads `pipeline.stages`, and a document written as `extends:` plus
+    `replace:` **has none of its own** — so every derived generating rung slipped past the check
+    that exists to stop a model being called under `--retrieve-only`. `rewrite-then-retrieve`
+    extends `retrieve-then-generate` and ends in `cited-answer`; run against a project with
+    `[llm.roles]` configured it would have rewritten the query *and generated an answer*, both
+    model calls, before the shape check refused what came back.
+
+    Measured from the shipped binary at Phase 28's close: exit 1, *"no `[llm.roles]` entry maps
+    role 'generate'"* — the right refusal only because nothing was configured.
+    """
+    # Arrange
+    deps = build_dependencies(config_path=Path("weft.toml.does-not-exist"))
+    args = commands.AskArgs(
+        question="what does the weft do",
+        retrieve_only=True,
+        pipeline="rewrite-then-retrieve",
+    )
+
+    # Act / Assert
+    with pytest.raises(commands.ConflictingAskModeError) as refusal:
+        await commands.AskCommand().run(args, _ctx(deps))
+    assert "rewrite-then-retrieve" in str(refusal.value)
