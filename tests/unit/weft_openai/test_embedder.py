@@ -375,3 +375,67 @@ def test_config_refuses_an_unknown_field() -> None:
     # Act / Assert — a knob this pack does not have must not read as one it silently ignores.
     with pytest.raises(ValidationError):
         OpenAIEmbedderConfig.model_validate({"temperature": 0.5})
+
+
+async def test_the_account_s_own_setting_supplies_the_model_when_no_stage_names_one() -> None:
+    """Repair **R22.1**: which embedding model the *query* side sends is configurable.
+
+    `[services] embed = "openai-compatible-embeddings"` builds this class through
+    `partial(OpenAIEmbedder, settings)` with **no stage config at all** — `weft ask` embeds a
+    question through the service, never through a pipeline document — so before this setting the
+    query side always sent `text-embedding-3-small`, whatever the ingest side had been told to
+    use. Against a local server that is not a model name that exists, which is most of them:
+    Ollama serves `nomic-embed-text`, and G21 settled the account-free semantic path on *a server
+    the operator runs*.
+    """
+    # Arrange
+    client = _Client()
+    embedder = OpenAIEmbedder(
+        Settings(api_key=SecretStr("sk-test"), embedding_model="nomic-embed-text"), client=client
+    )
+
+    # Act
+    outcome = await embedder.run([_node("hello")], _ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    (call,) = client.embeddings.calls
+    assert call.model == "nomic-embed-text"
+
+
+async def test_a_stage_that_names_a_model_still_wins_over_the_account_s_setting() -> None:
+    """Precedence, stated where both surfaces exist: a document is more specific than an account.
+
+    `[packs.*] embedding_model` is *"what this account serves when nobody says otherwise"*; a
+    stage's own `with: {model: ...}` is one run of one document saying otherwise.
+    """
+    # Arrange
+    client = _Client()
+    embedder = OpenAIEmbedder(
+        Settings(api_key=SecretStr("sk-test"), embedding_model="nomic-embed-text"),
+        OpenAIEmbedderConfig(model="text-embedding-3-large"),
+        client=client,
+    )
+
+    # Act
+    outcome = await embedder.run([_node("hello")], _ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    (call,) = client.embeddings.calls
+    assert call.model == "text-embedding-3-large"
+
+
+async def test_with_neither_surface_naming_one_the_vendor_default_is_still_sent() -> None:
+    """The third case, which is every existing caller: no setting, no stage config."""
+    # Arrange
+    client = _Client()
+    embedder = OpenAIEmbedder(_settings(), client=client)
+
+    # Act
+    outcome = await embedder.run([_node("hello")], _ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    (call,) = client.embeddings.calls
+    assert call.model == "text-embedding-3-small"

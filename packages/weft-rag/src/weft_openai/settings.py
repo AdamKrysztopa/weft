@@ -46,6 +46,16 @@ class Settings(BaseModel):
     base_url: str | None = None
     organization: str | None = None
     project: str | None = None
+    #: Which embedding model this account serves when no stage says otherwise — repair
+    #: **R22.1**. `[services] embed` builds `OpenAIEmbedder` through a `partial` with **no
+    #: stage config at all**, because `weft ask` embeds a question through the service and
+    #: never through a pipeline document, so before this the query side always sent
+    #: `weft_openai.embedder.DEFAULT_MODEL` whatever the ingest side had been configured to
+    #: use. Against a server the operator runs — **G21**'s settled answer for the
+    #: account-free semantic path — that is a model name which usually does not exist.
+    #: `None` keeps the vendor default; a stage's own `with: {model: ...}` still wins, being
+    #: one run of one document rather than what the account serves.
+    embedding_model: str | None = Field(default=None, min_length=1)
     #: Seconds. Unset leaves the SDK's own default in force — which is *not* the same as
     #: passing it `None`, a value it honours as "no timeout at all". See `build_client`.
     timeout_seconds: float | None = Field(default=None, gt=0.0)

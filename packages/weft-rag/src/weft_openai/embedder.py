@@ -256,6 +256,23 @@ class OpenAIEmbedder:
         if self._client is not None:
             await self._client.close()
 
+    @property
+    def _model(self) -> str:
+        """Which model this instance asks for — repair **R22.1**, two surfaces, one rule.
+
+        A stage that named a model in its own `with:` block wins, because that is one run of
+        one document being specific. Otherwise the account's `[packs.*] embedding_model`
+        decides, which is the only surface `weft ask` can reach: `[services] embed` builds
+        this class with no stage config, so a query embedded for a local server had no way to
+        name the model that server actually serves. `model_fields_set` is what distinguishes
+        *named* from *defaulted* — comparing against `DEFAULT_MODEL` instead would make a
+        document that deliberately names the vendor default indistinguishable from one that
+        names nothing.
+        """
+        if "model" in self._config.model_fields_set:
+            return self._config.model
+        return self._settings.embedding_model or DEFAULT_MODEL
+
     async def _embed(self, client: EmbeddingsClient, texts: Sequence[str]) -> list[Vector]:
         """One request, and its vectors back in the order the texts went out.
 
@@ -266,15 +283,15 @@ class OpenAIEmbedder:
         confidently and wrongly, with nothing to see in a log.
         """
         config = self._config
+        model = self._model
         dimensions: int | Omit = config.dimensions if config.dimensions is not None else omit
         try:
             batch = await client.embeddings.create(
-                input=list(texts), model=config.model, dimensions=dimensions
+                input=list(texts), model=model, dimensions=dimensions
             )
         except APIError as exc:
             raise EmbeddingRequestFailedError(
-                f"the embeddings API refused a batch of {len(texts)} for model "
-                f"'{config.model}': {exc}",
+                f"the embeddings API refused a batch of {len(texts)} for model '{model}': {exc}",
                 transient=isinstance(exc, _TRANSIENT),
             ) from exc
         by_index = {item.index: item for item in batch.data}

@@ -602,6 +602,26 @@ the environment, name the variable in the file and let the settings loader inter
 `base_url = "${env:MY_GATEWAY_URL}"` — which keeps the value out of version control and the
 *decision* in it.
 
+**Name the model your server actually serves.** A server you run answers to the names it has —
+`nomic-embed-text` under Ollama, whatever you loaded under LM Studio or vLLM — and not to the
+vendor's catalogue, so pointing `base_url` at it is half the job:
+
+```toml
+[packs.openai-compatible]
+api_key = "${env:LOCAL_API_KEY}"
+base_url = "http://localhost:11434/v1"
+embedding_model = "nomic-embed-text"
+```
+
+`embedding_model` is the account's answer for *"which model, when nobody says otherwise"*, and
+**both sides of a corpus read it**: `weft index` embeds the chunks and `weft ask` embeds the
+question, and a stored vector is only comparable to a question embedded by the same model. It is
+also the only surface the query side has — `weft ask` builds its embedder from `[services] embed`,
+never from a pipeline document, so a stage's `with: {model = "..."}` reaches the ingest run and
+nothing else. A stage that does name one still wins for that stage, being one run of one document
+rather than what the account serves. (Added 2026-09-13 by `R22.1`: before it, a local server had
+to answer to `text-embedding-3-small` or the query side could not reach it at all.)
+
 **A wrong `base_url` fails at the first call, not at startup.** Nothing here reaches the network,
 so `weft plugins doctor` reports the pack `active` whether or not the address answers; the error
 arrives from the first stage that calls out, naming the model and the endpoint. That entry in

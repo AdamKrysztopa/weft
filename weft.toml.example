@@ -105,6 +105,14 @@ dsn = "${env:WEFT_DATABASE_URL}"
 # see. Zero turns that off for an operator who wants the failure immediately.
 #
 # max_retries = 2
+#
+# Which embedding model this account serves when no pipeline stage names one. Unset means
+# the vendor's `text-embedding-3-small`. This is the only surface the *query* side can
+# reach: `weft ask` embeds a question through `[services] embed`, never through a pipeline
+# document, so without this an index built against one model was queried against another
+# (`R22.1`). A stage's own `with: {model = "..."}` still wins.
+#
+# embedding_model = "text-embedding-3-small"
 
 # [packs.openai-compatible]
 # A *second* account for the same protocol — Phase 20a task `20.1`. A pack receives exactly
@@ -123,6 +131,15 @@ dsn = "${env:WEFT_DATABASE_URL}"
 # project = "proj_..."
 # timeout_seconds = 30.0
 # max_retries = 2
+#
+# **Set this one for a local server.** A model name is what an OpenAI-compatible server
+# routes on, and a server you run serves the names it has — `nomic-embed-text` under
+# Ollama, whatever you loaded under LM Studio or vLLM — not the vendor's catalogue. Both
+# sides of a corpus read it: `weft index` embeds the chunks and `weft ask` embeds the
+# question, and they have to be the same model or the store is comparing two unrelated
+# spaces (`R22.1`).
+#
+# embedding_model = "nomic-embed-text"
 
 # [packs.qdrant]
 # Optional in the same way and for the same reason — every field has a default, so
