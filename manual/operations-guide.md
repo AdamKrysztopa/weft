@@ -335,13 +335,25 @@ two engines of genuinely different shapes rather than fitted to one — see the 
 between backends* note below for what that difference costs you.
 
 **Capabilities differ between backends, and a run that needs a missing one is refused before it
-starts.** `pgvector` provides vector search, lexical text search and metadata filtering; `qdrant`
-provides vector search and metadata filtering, and deliberately not text search — its text matching
-is a filter predicate rather than a scored ranking, and a store that returned an invented score
-would be worse than one that says no. A pipeline whose retriever needs `TextSearch` fails with
-`StoreCapabilityMissingError` at run assembly, naming the capability, what your store does
-advertise, and which registered stores provide the rest. `manual/contract-reference.md` lists which
-distribution satisfies which capability, derived from the code rather than typed by hand.
+starts.** `pgvector` and `qdrant` both provide vector search, lexical text search and metadata
+filtering; the in-memory store provides vector search and metadata filtering and no text search at
+all. A pipeline whose retriever needs `TextSearch` fails with `StoreCapabilityMissingError` at run
+assembly, naming the capability, what your store does advertise, and which registered stores
+provide the rest.
+
+**What differs between the two real backends is now the lexical ranking, not whether there is
+one.** `qdrant` offers one: Okapi BM25, with the IDF computed over your collection by Qdrant's own
+sparse-vector modifier. `pgvector` offers two, chosen by `[packs.store] text_mode` — `fts`, the
+default, which is Postgres `ts_rank_cd` cover-density ranking under your configured
+`text_rank_normalization`, and `bm25`, which is Okapi BM25 and needs the `pg_textsearch` extension
+the `bm25` compose profile brings up. **None of the three numbers is comparable with either of the
+others**, which is why each store *declares* what its text score means — `text_score_semantics`,
+beside the `vector_score_semantics` `weft ask --retrieve-only --explain` already prints — rather
+than leaving you to assume. Choosing a backend on the strength of its lexical ranking
+is a measurement over your own corpus, and `weft eval compare` is what takes it — this project's
+own crossed sweep found the swap from `fts` to `bm25` moving `precision@5` and `recall@5` by
+exactly nothing under the default fuser, because reciprocal-rank fusion reads each arm as an
+ordering and discards what it scored.
 
 ## Wiring the graph pack
 
