@@ -1,0 +1,49 @@
+name: hybrid-normalized-scores
+extends: hybrid-then-generate
+
+# **The same two arms, fused by their numbers instead of by their order — and it exists because
+# Weft measured that the difference is invisible from where it was standing.** Ledger task `21.2`
+# swept the text arm's rank normalisation across three settings and returned `precision@5` and
+# `recall@5` **identical to the digit**, with intervals of zero width. Not a ceiling: `recall@5`
+# sat at `0.3205`, with room in both directions. The cause was one stage down. `hybrid` hands
+# `fuse` two rankings with every `Scored[Node]` intact, and `reciprocal-rank-fusion` reads only
+# where each node sat, so a change to *what the text arm scored* cannot reach the metric at all
+# (`docs/internal/lessons.md` `L19.8`). This document is the other arm of that comparison.
+#
+# **What changes, and it is one line.** `normalized-score-fusion` min-max normalises each arm's own
+# scores into `0.0`–`1.0`, then sums the normalised contributions. Two nodes that swap rank between
+# the arms are indistinguishable under reciprocal rank — identical sums — and separable here,
+# because losing an arm by a hundredth and losing it by nine tenths stop being the same fact.
+#
+# **What it does not claim.** This is not `tm2c2`. Bruch, Gai and Ingber's formulation normalises
+# over the candidate *union* and assumes both arms can score that union, which needs a
+# score-by-ID completion path neither `VectorSearch` nor `TextSearch` promises. Here a node an arm
+# never returned contributes **nothing** from that arm — absence, not a fabricated zero, because a
+# document below an arm's cutoff may have a substantial score the arm simply did not report.
+# `10` §2.1 rule 4: the name describes the arithmetic, and the arithmetic is what runs.
+#
+# **No `weights:` block, and that is the finding rather than an omission** — the argument
+# `broad-and-refined-rrf` makes in its own words. `hybrid-then-generate` writes
+# `{"hybrid:vector": 1.0, "hybrid:text": 0.8}` and says in the same breath that they are not a
+# measured optimum; carrying them across would be worse than leaving them out, because under
+# min-max they scale a different quantity and would arrive looking inherited rather than guessed.
+# Nothing has been measured, so nothing is written.
+#
+# **Neither fuser is the default and this document does not make one.** `hybrid-then-generate`
+# still fuses by reciprocal rank. Which of the two wins on a real corpus is a question with an
+# answer, and `weft eval compare hybrid-normalized-scores hybrid-then-generate` is how to get it —
+# on your own corpus, because the published comparisons disagree by domain: Bruch et al. have
+# normalised score fusion ahead of default RRF by `0.023`–`0.032` nDCG@1000, while on BRIGHT with a
+# strong dense arm RRF reaches `35.9` against normalised averaging's `31.1`. Score fusion is most
+# vulnerable exactly where one arm is much weaker than the other.
+vars:
+  route.summary: >-
+    Searches the corpus by meaning and by the literal words, then fuses the two rankings by their
+    normalised scores rather than by rank position. The rung to reach for when one arm is
+    confident and the other is nearly indifferent, and you want that gap to count.
+  route.cost: >-
+    one embedding call, then two searches per query against one store, and one model call
+
+replace:
+  - id: fuse
+    use: normalized-score-fusion

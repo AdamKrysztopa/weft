@@ -130,6 +130,7 @@ to match from `plan.producer` instead, and `run` fails loudly, naming the mismat
 the same "unknown name fails loudly" rule applied to provenance instead of a plugin name.
 """
 
+import math
 from collections.abc import Mapping
 from enum import StrEnum
 from typing import ClassVar
@@ -426,6 +427,138 @@ class ReciprocalRankFusion:
         contributors = tuple(dict.fromkeys(contributor_label(ranked) for ranked in payload.lists))
         evidence = FusionEvidence(
             fuser=RRF_NAME, arms=tuple(_arm_evidence(ranked) for ranked in payload.lists)
+        )
+        return Produced(
+            value=Ranking(
+                origin=payload.origin,
+                hits=hits,
+                contributors=contributors,
+                ext={**payload.ext, FusionEvidence.__namespace__: evidence},
+            )
+        )
+
+
+#: The name this fuser is registered and selectable under — see `weft_retrieve.register`.
+NORMALIZED_SCORE_FUSION_NAME = "normalized-score-fusion"
+
+
+class NormalizedScoreFusionConfig(BaseModel):
+    """`NormalizedScoreFusion`'s `with:` config. Every field has a default, per this pack's own
+    rule. No `k`: that constant belongs to reciprocal rank's damping, which this technique does
+    not use — a knob that means nothing here is worse than one omitted.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    #: Per-contributor weight, keyed on `contributor_label` — the identical spelling
+    #: `ReciprocalRankFusionConfig.weights` uses, so the two fusers share one vocabulary of
+    #: keys: an unweighted contributor still fuses, at the implicit weight of `1.0`.
+    weights: Mapping[str, float] = Field(default_factory=dict)
+    #: Truncate the fused ranking to its top entries, or keep all of them — the identical
+    #: field `ReciprocalRankFusionConfig.top_k` carries, for the identical reason.
+    top_k: int | None = None
+
+
+class NormalizedScoreFusion:
+    """Merges k ranked lists by min-max normalizing each arm's own raw scores to `[0, 1]`,
+    weighting per contributor, and summing per node across the arms that returned it. Satisfies
+    `weft_retrieve.contract.Fuser` structurally.
+
+    **Reads scores, not just order** — `weft_retrieve.contract.Fuser`'s companion,
+    `ReciprocalRankFusion`, sums `1 / (k + rank)` and is blind to how much an arm's best hit
+    beat its worst; this fuser reads the gap. `12-roadmap.md` §5g and the module this class's
+    own test file documents state the measured reason: a normalisation sweep that reciprocal
+    rank consumed as an ordering moved nothing, because the value it varied was never read.
+
+    **What this deliberately does not do.** The min-max score-fusion technique this diverges
+    from normalizes over the *candidate union* — every arm's opinion on every document any arm
+    returned — which needs a score for a document an arm never scored, i.e. a completion step
+    neither `TextSearch` nor `VectorSearch` promises here. This fuser normalizes each arm over
+    only what that arm actually returned, and a node an arm did not return contributes nothing
+    from that arm, never a fabricated `0.0`. `10` §2.1 rule 4.
+
+    `cost_bound = (0, 0)`: pure computation over what already arrived, exactly like
+    `ReciprocalRankFusion`. `run` resolves no service and calls no model.
+    """
+
+    config_model: ClassVar[type[NormalizedScoreFusionConfig]] = NormalizedScoreFusionConfig
+    cost_bound: ClassVar[tuple[int, int]] = (0, 0)
+
+    def __init__(self, config: NormalizedScoreFusionConfig | None = None) -> None:
+        self._config = config if config is not None else NormalizedScoreFusionConfig()
+
+    async def run(self, payload: Candidates, ctx: Context) -> Outcome[Ranking]:
+        """Every hit in every list, min-max normalized within its own arm, weighted, summed
+        once per arm it appears in, ordered by the total, truncated to `top_k`.
+
+        **The emptiness rule** — no lists at all fuses to an empty `Ranking`, the identical
+        case `ReciprocalRankFusion.run` handles, for the identical reason: `no-retrieval`'s own
+        legitimate output must never become `NothingToProduce` and stop the pipeline.
+
+        **Non-finite scores are refused** rather than propagated: a `nan` compares false
+        against every other score, so it would poison the arm's own `min`/`max` and then be
+        sorted wherever the comparison happened to leave it, silently.
+        """
+        del ctx
+        if not payload.lists:
+            evidence = FusionEvidence(fuser=NORMALIZED_SCORE_FUSION_NAME, arms=())
+            return Produced(
+                value=Ranking(
+                    origin=payload.origin,
+                    ext={**payload.ext, FusionEvidence.__namespace__: evidence},
+                )
+            )
+
+        scores: dict[NodeId, float] = {}
+        best_rank: dict[NodeId, int] = {}
+        best_passage: dict[NodeId, Passage] = {}
+        best_label: dict[NodeId, str] = {}
+        for ranked in payload.lists:
+            if not ranked.hits:
+                continue
+            label = contributor_label(ranked)
+            raw_scores = tuple(passage.score for passage in ranked.hits)
+            if not all(math.isfinite(value) for value in raw_scores):
+                return Failed(
+                    reason=(
+                        f"'{NORMALIZED_SCORE_FUSION_NAME}' normalizes each arm's scores by "
+                        f"their own min and max, and arm '{label}' reported a non-finite "
+                        f"score. Fix the retriever behind '{label}' to report a real number "
+                        f"for every hit before this stage, or route it through a fuser that "
+                        f"does not read scores, such as 'reciprocal-rank-fusion'."
+                    )
+                )
+            lo, hi = min(raw_scores), max(raw_scores)
+            weight = self._config.weights.get(label, 1.0)
+            for rank, passage in enumerate(ranked.hits):
+                # Zero range: every hit in this arm is simultaneously its best and its worst.
+                # 1.0 says the arm ranked them equally; 0.0 would silently erase the arm's
+                # whole contribution to the fused score.
+                normalized = 1.0 if hi == lo else (passage.score - lo) / (hi - lo)
+                node_id = passage.node.id
+                scores[node_id] = scores.get(node_id, 0.0) + normalized * weight
+                if node_id not in best_rank or rank < best_rank[node_id]:
+                    best_rank[node_id] = rank
+                    best_passage[node_id] = passage
+                    best_label[node_id] = label
+
+        ordered = sorted(scores, key=lambda node_id: -scores[node_id])
+        if self._config.top_k is not None:
+            ordered = ordered[: self._config.top_k]
+        hits = tuple(
+            Passage(
+                scored=Scored(value=best_passage[node_id].node, score=scores[node_id]),
+                rank=rank,
+                retrieved_by=best_label[node_id],
+            )
+            for rank, node_id in enumerate(ordered)
+        )
+        # The *distinct* labels that fed the fusion, order-preserved on first appearance —
+        # see the module docstring's own paragraph on why this is not one entry per list.
+        contributors = tuple(dict.fromkeys(contributor_label(ranked) for ranked in payload.lists))
+        evidence = FusionEvidence(
+            fuser=NORMALIZED_SCORE_FUSION_NAME,
+            arms=tuple(_arm_evidence(ranked) for ranked in payload.lists),
         )
         return Produced(
             value=Ranking(

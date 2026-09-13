@@ -123,6 +123,7 @@ from weft_retrieve.corrective import NAME as CORRECTIVE_NAME
 from weft_retrieve.corrective import Corrective, CorrectiveConfig, CorrectiveTrace
 from weft_retrieve.fusion import (
     BOOLEAN_COMBINE_NAME,
+    NORMALIZED_SCORE_FUSION_NAME,
     RRF_NAME,
     ArmEvidence,
     ArmHit,
@@ -130,6 +131,8 @@ from weft_retrieve.fusion import (
     BooleanCombineConfig,
     EmptyConjunction,
     FusionEvidence,
+    NormalizedScoreFusion,
+    NormalizedScoreFusionConfig,
     ReciprocalRankFusion,
     ReciprocalRankFusionConfig,
     SingleList,
@@ -373,6 +376,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(Retriever, CORRECTIVE_NAME, Corrective)
     registrar.add(Fuser, SINGLE_LIST_NAME, SingleList)
     registrar.add(Fuser, RRF_NAME, ReciprocalRankFusion)
+    registrar.add(Fuser, NORMALIZED_SCORE_FUSION_NAME, NormalizedScoreFusion)
     registrar.add(Fuser, BOOLEAN_COMBINE_NAME, BooleanCombine)
     registrar.add(Reranker, LLM_RERANK_NAME, LlmRerank)
     registrar.add(Reranker, GRADED_RETRIEVAL_NAME, GradedRetrieval)
@@ -448,6 +452,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     # rung whose delta changes *what is searched* rather than how the question is asked or what
     # becomes of the answer, and the reason `single-list` cannot stay: two arms are two lists.
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/hybrid-then-generate.yaml")
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/hybrid-normalized-scores.yaml")
 
     # **The ingest rungs — listed below and deliberately not counted here — are contributed from
     # this pack rather than from `weft-index` or `weft-clean` for one reason: a document has to name
@@ -527,6 +532,7 @@ __all__ = [
     "MULTI_RETRIEVER_NAME",
     "NEAREST_DESCRIPTION_NAME",
     "NO_RETRIEVAL_NAME",
+    "NORMALIZED_SCORE_FUSION_NAME",
     "PASSAGE_RELEVANCE_NAME",
     "POSTQFRAP_NAME",
     "QUERY_SCORER_NAME",
@@ -610,6 +616,8 @@ __all__ = [
     "NearestDescription",
     "NearestDescriptionConfig",
     "NoRetrieval",
+    "NormalizedScoreFusion",
+    "NormalizedScoreFusionConfig",
     "Passage",
     "PassageGrade",
     "PassageGradeRequest",
