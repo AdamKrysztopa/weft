@@ -126,7 +126,7 @@ async def test_an_embedding_of_the_wrong_width_is_refused_naming_both(
     assert "vector_size" in message
 
 
-async def test_the_registered_plugin_advertises_three_capabilities_and_not_text_search() -> None:
+async def test_the_registered_plugin_advertises_all_four_capabilities() -> None:
     # Arrange — registered exactly the way the pack registers it, `functools.partial` and
     # all, because that is the object a run assembler's capability check sees.
     registry = Registry()
@@ -138,12 +138,17 @@ async def test_the_registered_plugin_advertises_three_capabilities_and_not_text_
     # Act
     instance = entry.factory(None)
 
-    # Assert — derived, never declared: nothing in this pack writes a capability down, and
-    # the absent fourth tier is what makes a `needs_store` refusal demonstrable.
+    # Assert — derived, never declared: nothing in this pack writes a capability down.
+    #
+    # **This asserted `not isinstance(instance, TextSearch)` until ledger 21.8**, and the sentence
+    # under it said the absent fourth tier was what made a `needs_store` refusal demonstrable.
+    # `weft_store.memory.MemoryStore` carries that now — `NodeStore` and `VectorSearch` and
+    # nothing else — and `docs/02-extension-model.md` §1 records which premises of the refusal
+    # expired and which one merely moved.
     assert isinstance(instance, NodeStore)
     assert isinstance(instance, VectorSearch)
     assert isinstance(instance, MetadataFilter)
-    assert not isinstance(instance, TextSearch)
+    assert isinstance(instance, TextSearch)
 
 
 def test_a_filter_tree_translates_into_one_qdrant_filter() -> None:
@@ -207,3 +212,191 @@ async def test_driving_the_store_through_the_registration_seam_makes_no_blocking
     # Assert
     assert isinstance(outcome, Produced)
     assert [stored.id for stored in outcome.value] == [node.id]
+
+
+# --- task 21.8: the second backend satisfies TextSearch ---------------------------------------
+#
+# **`02` §1: "a contract with one implementation is a guess."** `TextSearch` has had exactly one
+# since task 2.5, and `01`'s own over-fitting guard names the pair it is proven on — *"pgvector and
+# Qdrant, which have genuinely different shapes, and a store that only Postgres can satisfy fails
+# that test just as loudly."* This is where that stops being an aspiration for the text arm.
+#
+# **Nothing here downloads a model.** The lexical encoding is statistical: an analyzer that folds
+# case and splits on word boundaries, document-side BM25 term weights computed by this adapter, and
+# collection IDF applied by Qdrant's own `modifier: idf`. `02`'s *stores never embed* holds — a
+# store that reached for a transformer to satisfy `TextSearch` would be the coupling that rule
+# exists to forbid.
+
+
+async def test_the_store_advertises_text_search_at_all(store: QdrantStore) -> None:
+    """**The headline, and it is one `isinstance`.** Capability is derived, never declared: a
+    retriever asking for a text channel gets this store or is refused by name, and until this task
+    every such refusal named Qdrant."""
+    # Assert
+    assert isinstance(store, TextSearch)
+
+
+async def test_search_text_ranks_by_lexical_match_with_higher_meaning_better(
+    store: QdrantStore,
+) -> None:
+    """`Scored.score` means the same thing in both stores or it means nothing — the conformance
+    kit compares two backends' rankings."""
+    # Arrange
+    await store.add(
+        [
+            _node("the microkernel knows nothing about pdfs chunking embeddings or graphs"),
+            _node("every capability is a plugin discovered through python entry points"),
+            _node("pipelines are data derivable from other pipelines"),
+        ]
+    )
+
+    # Act
+    results = await store.search_text("plugin capability", top_k=3)
+
+    # Assert
+    assert results, "a matching corpus returns matches"
+    assert results[0].value.content.startswith("every capability")
+    scores = [hit.score for hit in results]
+    assert scores == sorted(scores, reverse=True)
+    assert all(score > 0.0 for score in scores)
+
+
+async def test_qdrant_weighs_a_rare_term_above_one_every_document_carries(
+    store: QdrantStore,
+) -> None:
+    """**The same assertion `pgvector`'s BM25 arm carries, against the other backend.**
+
+    It is the one that says *BM25* rather than *some lexical ranking*: the weight of a term has to
+    depend on how many documents hold it. Here that comes from Qdrant's `modifier: idf` applied to
+    the sparse dot product, not from anything this adapter computes — which is the point, because
+    a collection statistic is the one thing a per-document encoder cannot know.
+    """
+    # Arrange — 'shared' is in all three; 'sporadic' is in exactly one.
+    await store.add(
+        [
+            _node("shared shared sporadic vocabulary"),
+            _node("shared shared shared ordinary vocabulary"),
+            _node("shared shared shared other vocabulary"),
+        ]
+    )
+
+    # Act
+    ubiquitous = await store.search_text("shared", top_k=3)
+    rare = await store.search_text("sporadic", top_k=3)
+
+    # Assert
+    assert ubiquitous and rare
+    assert rare[0].score > ubiquitous[0].score
+
+
+async def test_search_text_narrows_by_a_filter_the_server_evaluates(store: QdrantStore) -> None:
+    """The review's own words: *"do not fetch a global lexical top-k and apply tenant filters
+    afterwards."* The stronger match is the excluded one, so a post-filter and a server-side
+    filter give different answers here."""
+    # Arrange
+    wanted = _node("plugin capability", sources=frozenset({SourceId("keep")}))
+    louder = _node(
+        "plugin plugin plugin capability capability", sources=frozenset({SourceId("drop")})
+    )
+    await store.add([wanted, louder])
+
+    # Act
+    unfiltered = await store.search_text("plugin capability", top_k=5)
+    narrowed = await store.search_text(
+        "plugin capability",
+        top_k=5,
+        filter=Filter(op=FilterOp.CONTAINS, field="lineage.sources", value="keep"),
+    )
+
+    # Assert
+    assert len(unfiltered) == 2
+    assert unfiltered[0].value.content == louder.content, "unfiltered, the louder one wins"
+    assert [scored.value.content for scored in narrowed] == [wanted.content]
+
+
+async def test_nothing_matching_is_an_empty_ranking_rather_than_a_failure(
+    store: QdrantStore,
+) -> None:
+    """`TextSearch`'s own emptiness rule, which both backends owe identically."""
+    # Arrange
+    await store.add([_node("pipelines are data")])
+
+    # Act
+    results = await store.search_text("xenopsychology", top_k=5)
+
+    # Assert
+    assert results == []
+
+
+async def test_the_analyzer_keeps_a_polish_word_whole(store: QdrantStore) -> None:
+    """**The corpus this project is built against is bilingual, and this is where an ASCII-only
+    analyzer would fail silently.** `09` §4's V1 body is not English; `pgvector`'s text arm uses
+    Postgres's `simple` configuration precisely because it folds case and splits on word boundaries
+    and stems nothing, which is the one behaviour that is equally honest in both languages. A
+    tokenizer splitting on `[a-z]+` would cut `zażółć` into three fragments matching nothing a
+    reader wrote, and would raise nothing at all.
+    """
+    # Arrange
+    await store.add([_node("zażółć gęślą jaźń"), _node("entirely unrelated content")])
+
+    # Act
+    results = await store.search_text("gęślą", top_k=2)
+
+    # Assert
+    assert len(results) == 1
+    assert results[0].value.content == "zażółć gęślą jaźń"
+
+
+async def test_the_average_document_length_is_a_disclosed_approximation_that_reaches_the_score(
+    store: QdrantStore,
+) -> None:
+    """**The equivalence trap, named so it is not rediscovered.**
+
+    Qdrant's own BM25 defaults `avg_doc_len` to **256**, and that is an *encoding* parameter — not
+    the mean length of anybody's corpus. Collection IDF updates as documents arrive; document-side
+    length weights do **not**, because they were computed when each point was written. So the value
+    is either measured against the real corpus or explicitly disclosed, and this project discloses
+    it: a setting, with its approximation stated where an operator reads it.
+
+    Asserted by `L9.79`'s rule — a value whose whole job is to travel from `[packs.qdrant]` to a
+    weight must be read off the far end, or the wire is untested along its length.
+    """
+    # Arrange — two stores over one corpus, differing only in the declared mean length.
+    short_mean = QdrantSettings(
+        url=_URL,
+        collection=f"weft_probe_{uuid4().hex[:12]}",
+        vector_size=2,
+        bm25_avg_doc_len=4.0,
+    )
+    other = QdrantStore(short_mean)
+    corpus = [_node("alpha beta gamma delta epsilon zeta eta theta"), _node("alpha")]
+    await store.add(corpus)
+    await other.add(corpus)
+
+    # Act
+    try:
+        default_mean = await store.search_text("alpha", top_k=2)
+        declared = await other.search_text("alpha", top_k=2)
+    finally:
+        await other.aclose()
+        client = AsyncQdrantClient(url=_URL)
+        for name in (short_mean.collection, f"{short_mean.collection}__sources"):
+            if await client.collection_exists(name):
+                await client.delete_collection(name)
+        await client.close()
+
+    # Assert — the long document is penalised harder when the declared mean is short.
+    assert len(default_mean) == 2 and len(declared) == 2
+    long_under_default = next(h.score for h in default_mean if h.value.content.startswith("alpha "))
+    long_under_declared = next(h.score for h in declared if h.value.content.startswith("alpha "))
+    assert long_under_declared < long_under_default, (
+        "b-weighted length normalisation must actually read the configured mean"
+    )
+
+
+async def test_the_store_says_what_its_text_score_means(store: QdrantStore) -> None:
+    """Task `21.1`'s rule reaching the second backend: a number is shown only with its meaning,
+    and the meaning comes from whatever produced it."""
+    # Assert
+    assert "bm25" in store.text_score_semantics.lower()
+    assert store.text_score_semantics != store.vector_score_semantics

@@ -110,6 +110,7 @@ from weft_store.conformance import (
     register_conformance_ext_models,
 )
 from weft_store.contract import Filter, MetadataFilter, NodeStore, TextSearch, VectorSearch
+from weft_store.memory import MemoryStore
 from weft_store.pgvector_store import PgVectorSettings, PgVectorStore
 
 _DSN = os.environ.get("WEFT_DATABASE_URL", "postgresql://weft:weft@localhost:5433/weft")
@@ -362,6 +363,23 @@ class _HybridRetriever:
         return Produced(value=Candidates(origin=payload.origin))
 
 
+def _capabilities_of(store: object) -> frozenset[str]:
+    """Which published search capabilities a store satisfies, by `isinstance` and nothing else.
+
+    The whole mechanism in one function: no store writes a capability down, so this cannot read a
+    declaration even if one existed.
+    """
+    return frozenset(
+        name
+        for name, protocol in (
+            ("VectorSearch", VectorSearch),
+            ("TextSearch", TextSearch),
+            ("MetadataFilter", MetadataFilter),
+        )
+        if isinstance(store, protocol)
+    )
+
+
 async def test_the_two_backends_advertise_different_capabilities_and_nobody_declared_them() -> None:
     # Arrange
     reason = await _postgres_unreachable()
@@ -396,16 +414,33 @@ async def test_the_two_backends_advertise_different_capabilities_and_nobody_decl
         await pg.aclose()
         await qdrant.aclose()
 
-    # Assert — the asymmetry is the point: Qdrant's text matching is a filter predicate, not
-    # a scored ranking, so it satisfies three tiers and not the fourth.
+    # Assert — **both backends now satisfy all three, and that is the change ledger `21.8` made.**
+    # This asserted `qdrant_capabilities == {"VectorSearch", "MetadataFilter"}` until 2026-09-13,
+    # on the premise that Qdrant's text matching was a filter predicate rather than a scored
+    # ranking. A named sparse vector with `modifier: idf` is a scored ranking, and Qdrant's own —
+    # `docs/02-extension-model.md` §1 carries the withdrawal and says which premises expired.
+    #
+    # What this test still asserts is the mechanism rather than the asymmetry: **nobody declared
+    # any of these**. Both sets are computed by `isinstance` against the published Protocols, and
+    # the store that now carries the asymmetry is `MemoryStore` one test below.
     assert pg_capabilities == frozenset({"VectorSearch", "TextSearch", "MetadataFilter"})
-    assert qdrant_capabilities == frozenset({"VectorSearch", "MetadataFilter"})
+    assert qdrant_capabilities == frozenset({"VectorSearch", "TextSearch", "MetadataFilter"})
+    assert frozenset(_capabilities_of(MemoryStore())) == frozenset({"VectorSearch"}), (
+        "a capability refusal needs a shipped store that lacks one, and since 21.8 this is it"
+    )
 
 
-async def test_a_hybrid_run_against_qdrant_is_refused_before_any_stage_runs() -> None:
-    # Arrange — a real `QdrantStore`, never connected: the refusal happens at run assembly,
-    # before any stage runs, which is exactly before anything would have opened a connection.
-    qdrant = QdrantStore(_qdrant_settings())
+async def test_a_hybrid_run_without_text_search_is_refused_before_any_stage_runs() -> None:
+    """**This named `qdrant` until ledger `21.8` gave it a text arm.**
+
+    The subject moved to `MemoryStore`, which satisfies `NodeStore` and `VectorSearch` and nothing
+    else. `01` → *Runtime shape* is explicit that the in-memory store *"exists, and is not a
+    backend"*, so this is a weaker demonstration than the one it replaces — `02` §1 records that
+    as the price of the withdrawal rather than pretending it was an equal trade.
+    """
+    # Arrange — a real store, never connected: the refusal happens at run assembly, before any
+    # stage runs, which is exactly before anything would have opened a connection.
+    without_text = MemoryStore()
     registry = Registry()
     registry.add(Retriever, "hybrid", _HybridRetriever, distribution="weft-retrieve")
     registry.add(
@@ -414,9 +449,7 @@ async def test_a_hybrid_run_against_qdrant_is_refused_before_any_stage_runs() ->
         partial(PgVectorStore, PgVectorSettings(dsn=SecretStr(_DSN))),
         distribution="weft-store",
     )
-    registry.add(
-        NodeStore, "qdrant", partial(QdrantStore, QdrantSettings()), distribution="weft-qdrant"
-    )
+    registry.add(NodeStore, "memory", MemoryStore, distribution="weft-rag")
     specs: Sequence[StageSpec] = (StageSpec(id="retrieve", contract=Retriever, name="hybrid"),)
 
     # Act / Assert — named, with where to get what is missing, and no degradation offered.
@@ -424,9 +457,9 @@ async def test_a_hybrid_run_against_qdrant_is_refused_before_any_stage_runs() ->
         check_store_capabilities(
             specs,
             registry=registry,
-            store=qdrant,
+            store=without_text,
             store_contract=NodeStore,
-            store_name="qdrant",
+            store_name="memory",
         )
     message = str(raised.value)
     assert "TextSearch" in message

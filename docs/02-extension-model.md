@@ -715,13 +715,35 @@ class MetadataFilter(Protocol): ...                # marker: supports the whole 
 > `STORE_CONTRACT_VERSION` moves `1.1.0` → `1.2.0` because the family grew a capability. **G9 is
 > Open** and owns what a version number means.
 >
-> **`weft-qdrant` deliberately does not satisfy `TextSearch`, and the asymmetry is the point.**
-> Qdrant's text matching is a filter predicate, not a scored ranking, and `search_text` returns
-> `Scored[Node]`; a shim returning a constant score, or an index this pack maintained beside the
-> collection, would be the second copy of the corpus task 2.5 exists to forbid. So a `hybrid`
-> retriever configured against Qdrant is refused by name, and the promise this section makes
-> — *"failure names the store, the missing capability and the backends that provide it"* — is
-> demonstrable against a real backend rather than against a mock.
+> **`weft-qdrant` satisfied three tiers and not `TextSearch`, and that refusal is withdrawn —
+> settled by the owner 2026-09-13, at ledger task `21.8`.** It read: *"Qdrant's text matching is a
+> filter predicate, not a scored ranking, and `search_text` returns `Scored[Node]`; a shim
+> returning a constant score, or an index this pack maintained beside the collection, would be the
+> second copy of the corpus task 2.5 exists to forbid."* **Two of those three premises have
+> expired and the third moved house.**
+>
+> *A filter predicate, not a scored ranking* — no longer true, and measured rather than read: on
+> the server version this repository already pins, a collection created with
+> `sparse_vectors: {lexical: {modifier: idf}}` accepts points and answers a sparse query with
+> **collection IDF applied by the server**, returning positive, descending scores. That is a
+> ranking, and it is Qdrant's own.
+>
+> *A second copy of the corpus* — does not apply. A named sparse vector rides **the same point** as
+> the dense one and is written by the same `add()`, so there is no separate index for a write to
+> leave stale. What task 2.5 forbids is a *retriever* keeping its own index beside the store; this
+> is the store keeping its own.
+>
+> *Demonstrable against a real backend rather than a mock* — this one was real, and it is what the
+> withdrawal costs. It falls to `weft_store.memory.MemoryStore`, which satisfies `NodeStore` and
+> `VectorSearch` and nothing else, so `check_store_capabilities` still refuses a `hybrid` document
+> by name against a shipped store. `01` → *Runtime shape* is explicit that the in-memory store
+> "exists, and is not a backend", so this is a weaker demonstration than the one it replaces and is
+> recorded as such rather than as an equal trade.
+>
+> **`STORE_CONTRACT_VERSION` does not move.** A store gaining a capability is not the family
+> gaining one: `TextSearch` has been published since task 2.5 and nothing about it changes here.
+> This is `docs/internal/lessons.md` `L19.2`'s shape — a refusal outliving the premise it rested
+> on — and the second time this project has found one, after Phase 26b's conformance kit.
 >
 > **Three narrowings to *"the closed operator vocabulary"*, each forced by two engines having to
 > agree**, published in `weft_store.fields` so one parse and one operator table feed both

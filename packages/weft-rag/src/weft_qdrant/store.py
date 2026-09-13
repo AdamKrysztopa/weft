@@ -8,16 +8,24 @@ can satisfy fails that test just as loudly." G4 retired the zero-container targe
 on the same reasoning — two backends that are obviously different are safer than
 two that are subtly alike.
 
-**Three tiers, deliberately not four.** `NodeStore`, `VectorSearch` and
-`MetadataFilter`; **no `TextSearch`**, and that is a decision rather than an
-omission. Qdrant's text matching is a filter predicate — does this payload
-contain this substring — and `TextSearch.search_text` returns `Scored[Node]`, a
-*ranking*. There is no honest score to put in it. A shim that returned a constant
-score, or a BM25 index this pack maintained beside the collection, would be the
-thing task 2.5 exists to forbid: a retriever's own second copy of the corpus,
-stale from the first write. So a `hybrid` retriever configured against this store
-is refused by name, before any stage runs, and told that `pgvector` provides what
-is missing. Two backends with identical capability sets would leave that promise
+**Four tiers, since ledger task 21.8.** `NodeStore`, `VectorSearch`,
+`MetadataFilter` and `TextSearch`.
+
+*This module said "three tiers, deliberately not four" until 2026-09-13, and the
+refusal rested on a premise that has expired.* It read: "Qdrant's text matching is
+a filter predicate — does this payload contain this substring — and
+`TextSearch.search_text` returns `Scored[Node]`, a *ranking*. There is no honest
+score to put in it." A **named sparse vector** is a scored ranking, and it is one
+this server already serves: measured on the pinned `v1.12.4`, a collection created
+with `sparse_vectors: {lexical: {modifier: idf}}` answers a sparse query with
+collection IDF applied and returns positive, descending scores. The second half of
+the refusal does not apply either — the sparse vector rides **the same point** as
+the dense one, written by the same `add()`, so there is no second copy of the
+corpus for a write to leave stale, which is the thing task 2.5 actually forbids.
+What the refusal *did* buy — a `needs_store` refusal demonstrable against a real
+backend rather than a mock — now falls to `weft_store.memory.MemoryStore`, which
+satisfies `NodeStore` and `VectorSearch` and nothing else. `docs/02-extension-model.md`
+§1 carries the withdrawal. Two backends with identical capability sets would leave that promise
 with nothing to demonstrate.
 
 **What is genuinely different, and therefore what the contract had to survive.**
@@ -61,7 +69,7 @@ the missing fourth tier cannot be faked.
 import asyncio
 from collections.abc import Mapping, Sequence
 from functools import partial
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from qdrant_client import AsyncQdrantClient, models
@@ -69,6 +77,7 @@ from qdrant_client import AsyncQdrantClient, models
 from weft_kernel.context import Context
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import Node, NodeId, Outcome, Produced, SourceId, Vector
+from weft_qdrant.lexical import analyze, document_weights, query_weights
 from weft_qdrant.settings import QdrantSettings
 from weft_store.contract import (
     Cursor,
@@ -99,6 +108,10 @@ _PAGE_SIZE = 100
 #: embedding is an ordinary node.
 _VECTOR = "content"
 
+#: The name of the sparse lexical vector — named for the same reason `_VECTOR` is, and so a
+#: point with no analysable content (see `_point`) can carry an empty one rather than none.
+_LEXICAL = "lexical"
+
 #: The namespace every point id is derived under. A fixed, arbitrary URL, so the same node
 #: lands on the same point in every deployment and a re-index overwrites rather than
 #: duplicates — `uuid5` is a digest, not a random id, which is the whole reason to use it.
@@ -118,12 +131,31 @@ class VectorWidthMismatchError(WeftError):
 
 
 class QdrantStore:
-    """A `NodeStore`, `VectorSearch` and `MetadataFilter` over a Qdrant deployment.
+    """Every tier of the store family over a Qdrant deployment, since ledger task 21.8.
 
-    Satisfies those three structurally — this class never imports one of the
-    Protocols, the same path any third-party store pack takes. It does not satisfy
-    `TextSearch`, and the module docstring says why that is a decision.
+    Satisfies all four structurally — this class never imports one of the
+    Protocols, the same path any third-party store pack takes.
     """
+
+    #: What `search_vector`'s number means — ledger task **21.1**, read off this class by
+    #: `weft_cli.explain.ScoreExplanation.of`. One per capability, not one per class: this
+    #: object satisfies `VectorSearch` and `TextSearch` and they return incommensurable
+    #: numbers, matching the register `PgVectorStore`'s own pair of these uses.
+    vector_score_semantics: ClassVar[str] = (
+        "cosine similarity, computed by the server; higher is nearer, and it is unbounded "
+        "below — a hash embedder routinely produces negative values, which rank correctly "
+        "and mean nothing"
+    )
+
+    #: What `search_text`'s number means. A `ClassVar` rather than an instance attribute,
+    #: unlike `PgVectorStore`'s: this store has no `text_mode` setting to vary it by, since
+    #: `weft_qdrant.lexical`'s BM25 is the only lexical ranking this backend offers.
+    text_score_semantics: ClassVar[str] = (
+        "Okapi BM25 relevance score, with an IDF over this collection applied by Qdrant's "
+        "own sparse-vector modifier and saturating term frequency computed by this store; "
+        "higher is a better lexical match, with no fixed range, and it is not comparable "
+        "with this store's own cosine similarity"
+    )
 
     def __init__(self, settings: QdrantSettings, config: object = None) -> None:
         del config  # nothing at the stage level this store needs — as with pgvector
@@ -176,6 +208,13 @@ class QdrantStore:
                         # metric chosen per deployment would make that comparison meaningless.
                         distance=models.Distance.COSINE,
                     )
+                },
+                sparse_vectors_config={
+                    # `modifier=IDF` is the load-bearing part: it is what applies collection
+                    # inverse document frequency at query time, over a sparse dot product that
+                    # would otherwise be plain term-frequency matching wearing BM25's name.
+                    # Measured working on the pinned `v1.12.4`.
+                    _LEXICAL: models.SparseVectorParams(modifier=models.Modifier.IDF)
                 },
             )
         if not await client.collection_exists(self._sources):
@@ -235,7 +274,7 @@ class QdrantStore:
         sources: frozenset[SourceId] | None = None,
         productions: Sequence[frozenset[SourceId]] | None = None,
     ) -> models.PointStruct:
-        vector: dict[str, list[float]] = {}
+        vector: dict[str, list[float] | models.SparseVector] = {}
         if node.embedding is not None:
             values = list(node.embedding.values)
             if len(values) != self._settings.vector_size:
@@ -250,6 +289,14 @@ class QdrantStore:
                     pack="weft-qdrant",
                 )
             vector[_VECTOR] = values
+        tokens = analyze(node.content)
+        weights = document_weights(tokens, avg_doc_len=self._settings.bm25_avg_doc_len)
+        # An empty sparse vector, not a missing entry: `node.content` analysing to no tokens is
+        # a legitimate node here, and `SparseVector` has no notion of "absent" the way a named
+        # dense vector does.
+        vector[_LEXICAL] = models.SparseVector(
+            indices=list(weights.keys()), values=list(weights.values())
+        )
         payload = node.model_dump(mode="json")
         payload.pop("embedding", None)  # it is the vector; a second copy could disagree
         if sources is not None:
@@ -573,6 +620,42 @@ class QdrantStore:
             with_payload=True,
             with_vectors=True,
         )
+        return [
+            Scored(value=_to_node(point), score=point.score or 0.0) for point in answered.points
+        ]
+
+    async def search_text(
+        self, text: str, top_k: int, filter: Filter | None = None
+    ) -> Sequence[Scored[Node]]:
+        """Rank stored nodes by BM25 over the sparse `_LEXICAL` vector — `TextSearch`, task 21.8.
+
+        Term frequency and length normalisation are `weft_qdrant.lexical.query_weights`' own
+        arithmetic; the collection's inverse document frequency is applied by the server, from
+        the `modifier=IDF` the collection was created with. `filter` narrows what may be
+        ranked at the server, exactly as `search_vector` does — passed through to the same
+        `to_qdrant_filter`, so a stronger match outside the filter can never win the way it
+        would if the filter were applied to an already-decided top-k.
+
+        No match, including a query that analyses to no tokens at all, is an empty sequence —
+        `TextSearch`'s own emptiness rule — and a query with nothing to ask requires no round
+        trip to find that out.
+        """
+        weights = query_weights(analyze(text))
+        if not weights:
+            return []
+        client = await self._connection()
+        query = models.SparseVector(indices=list(weights.keys()), values=list(weights.values()))
+        answered = await client.query_points(
+            self._nodes,
+            query=query,
+            using=_LEXICAL,
+            query_filter=to_qdrant_filter(filter) if filter is not None else None,
+            limit=top_k,
+            with_payload=True,
+            with_vectors=True,
+        )
+        # Positive and descending, straight from the server — the other backend's
+        # sign-crossing problem is `pg_textsearch`'s `<@>` alone, not this store's.
         return [
             Scored(value=_to_node(point), score=point.score or 0.0) for point in answered.points
         ]

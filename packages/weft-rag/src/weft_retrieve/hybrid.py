@@ -121,8 +121,9 @@ class Hybrid:
     reads this declaration before any stage runs, so a document naming `hybrid` against a store
     that cannot do lexical search is refused at assembly, by name, with the capability and the
     stores that provide it. Deriving the requirement from `channels` instead would let
-    `channels: [vector]` resolve happily against `qdrant` — which deliberately advertises no
-    `TextSearch` (ledger 2.6) — and then the day somebody restored the text arm they would meet
+    `channels: [vector]` resolve happily against a store with no `TextSearch` — `MemoryStore`,
+    since `qdrant` gained one at ledger 21.8 — and then the day somebody restored the text arm
+    they would meet
     the refusal, having changed one word in a `with:` block. **What a plugin declares it needs
     is what it will call under its own configuration surface, not under the one configuration
     it happens to be holding.**

@@ -12,8 +12,8 @@ asking." Registering it inside `weft-store` would leave the contract satisfied
 only inside the package that publishes it, which is the guess ledger task 2.6
 exists to remove.
 
-**Three tiers, deliberately not four.** See `weft_qdrant.store` for why there is
-no `TextSearch` here and why a shim to add one would be worse than the refusal.
+**Four tiers, since ledger task 21.8.** See `weft_qdrant.store` for the refusal
+that stood here until 2026-09-13, and for the measurement that withdrew it.
 
 **Registered through the same public `weft.packs` entry point a third party
 uses**, with nothing extra for being first-party — fitness function 2.

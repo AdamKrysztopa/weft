@@ -52,3 +52,11 @@ class QdrantSettings(BaseModel):
     #: an operator's number. Unset leaves the driver's default in force, which is not the
     #: same as passing `None` — that would mean no timeout at all.
     timeout_seconds: int | None = Field(default=None, gt=0)
+
+    #: **A disclosed approximation, ledger `21.8`.** `256.0` is Qdrant's own BM25 default,
+    #: not the mean length of anybody's corpus — this store has no way to measure the real
+    #: one, because collection IDF updates as documents arrive while a document's own
+    #: length-normalisation weight is computed once, when its point is written, and never
+    #: revisited. Leaving this at the default is a choice, the same as setting it: either
+    #: way an operator has seen the number rather than inherited it silently.
+    bm25_avg_doc_len: float = Field(default=256.0, gt=0)
