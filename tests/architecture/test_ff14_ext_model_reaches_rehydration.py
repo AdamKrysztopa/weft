@@ -41,12 +41,14 @@ attribute redirects every call made through it, including the ones `register_fro
 makes indirectly.
 
 **Not every `ExtModel` a pack owns belongs behind `add_ext_model`, and this suite does not expect
-it to be.** `weft_retrieve`'s `BooleanPlan`/`CorrectiveTrace`/`IterativeRetrievalTrace` and
-`weft_generate`'s `Agreement`/`RefinementTrace` attach to `QuerySet.ext`/`Candidates.ext`/
-`Answer.ext`, never to `Node.ext`, and only a `Node` is ever handed to a `NodeStore` — see
+it to be.** `weft_retrieve`'s `BooleanPlan`/`CorrectiveTrace`/`IterativeRetrievalTrace`/
+`FusionEvidence` and `weft_generate`'s `Agreement`/`RefinementTrace` attach to
+`QuerySet.ext`/`Candidates.ext`/`Ranking.ext`/`Answer.ext`, never to `Node.ext`, and only a
+`Node` is ever handed to a `NodeStore` — see
 `weft_retrieve.__init__`'s and `weft_generate.__init__`'s own module docstrings, and
 `docs/internal/lessons.md` L5.20, for the measurement that found registering them would collide
-(`weft-retrieve`'s three share one namespace; `weft-generate`'s two share another) rather than
+(three of `weft-retrieve`'s four share one namespace — `FusionEvidence` owns
+`weft-retrieve-fusion` for that reason; `weft-generate`'s two share another) rather than
 merely being unnecessary. Neither pack's `register()` calls `add_ext_model` as a result, so
 *declared* below is never derived from those five classes at all, on purpose: this file's own
 two-source comparison would otherwise have to explain away a collision that is correct

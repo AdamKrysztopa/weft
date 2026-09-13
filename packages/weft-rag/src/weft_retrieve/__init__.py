@@ -124,13 +124,17 @@ from weft_retrieve.corrective import Corrective, CorrectiveConfig, CorrectiveTra
 from weft_retrieve.fusion import (
     BOOLEAN_COMBINE_NAME,
     RRF_NAME,
+    ArmEvidence,
+    ArmHit,
     BooleanCombine,
     BooleanCombineConfig,
     EmptyConjunction,
+    FusionEvidence,
     ReciprocalRankFusion,
     ReciprocalRankFusionConfig,
     SingleList,
     contributor_label,
+    fusion_evidence,
 )
 from weft_retrieve.fusion import NAME as SINGLE_LIST_NAME
 from weft_retrieve.graded import NAME as GRADED_RETRIEVAL_NAME
@@ -339,16 +343,23 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     `relevance-grade`, `boolean-parse`, `sufficiency-check` or `route-query` in `[plugins]`
     exactly as they would pin a retriever.
 
-    **`BooleanPlan`, `CorrectiveTrace` and `IterativeRetrievalTrace` are deliberately not
-    passed to `registrar.add_ext_model` — task 5.2g's own finding, not an oversight.**
-    They attach to `QuerySet.ext`/`Candidates.ext`, never to `Node.ext`, and only a `Node`
+    **`BooleanPlan`, `CorrectiveTrace`, `IterativeRetrievalTrace` and `FusionEvidence` are
+    deliberately not passed to `registrar.add_ext_model` — task 5.2g's own finding, not an
+    oversight.**
+    They attach to `QuerySet.ext`/`Candidates.ext`/`Ranking.ext`, never to `Node.ext`, and
+    only a `Node`
     is ever handed to a `NodeStore` — `weft_store.rehydrate.rehydrate_ext` reconstructs a
     *node's* `ext` map and is never called with a query-path payload's. Registering all
     three would not merely be pointless, it would break every real run the moment two of
-    them are active together: all three declare `__namespace__ = "weft-retrieve"` (one
-    namespace, three carriers, none of them a `Node`), so `weft_store.rehydrate.
+    them are active together: the **first three** declare `__namespace__ = "weft-retrieve"`
+    (one namespace, three carriers, none of them a `Node`), so `weft_store.rehydrate.
     ext_models` — one class per namespace, globally, by design — would raise
-    `DuplicateRegistrationError` on the second registration. `docs/internal/lessons.md` L5.20
+    `DuplicateRegistrationError` on the second registration. `FusionEvidence` (task 21.4) is
+    the fourth and owns `weft-retrieve-fusion` precisely so it does **not** join that
+    collision: both fusers end `Ranking(..., ext={**payload.ext, ...})`, so filing it under
+    the shared name would have evicted a `CorrectiveTrace` put on the `Candidates` one stage
+    earlier. It is unregistered for the first reason alone — it never reaches a `Node`.
+    `docs/internal/lessons.md` L5.20
     records this as the reason `weft_kernel.discovery.PackRegistrar.add_ext_model` is for
     an `ExtModel` that reaches a `Node`, not for every `ExtModel` a pack happens to own.
     """
@@ -534,6 +545,8 @@ __all__ = [
     "VECTOR_TOP_K_NAME",
     "Always",
     "AlwaysConfig",
+    "ArmEvidence",
+    "ArmHit",
     "Assessment",
     "BoolExpr",
     "BoolOp",
@@ -565,6 +578,7 @@ __all__ = [
     "DimensionScore",
     "EmptyConjunction",
     "ExpansionKind",
+    "FusionEvidence",
     "Fuser",
     "Grade",
     "GradedPassages",
@@ -658,6 +672,7 @@ __all__ = [
     "TurnRole",
     "VectorTopK",
     "contributor_label",
+    "fusion_evidence",
     "register",
     "stop_reason",
 ]

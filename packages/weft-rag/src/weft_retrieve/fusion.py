@@ -143,6 +143,94 @@ from weft_retrieve.boolean import BooleanPlan, BoolExpr, BoolOp, leaves
 from weft_retrieve.payload import Candidates, Passage, RankedList, Ranking
 from weft_store.contract import Scored
 
+
+class ArmHit(BaseModel):
+    """One node, as one arm reported it — its own score and its own rank, neither recomputed
+    nor normalised against any other arm's scale.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    node_id: NodeId
+    score: float
+    rank: int = Field(ge=0)
+
+
+class ArmEvidence(BaseModel):
+    """One `RankedList`'s own hits, kept beside the `Ranking` a fuser produced from it.
+
+    `score_for` and `rank_for` answer `None` for a node this arm never returned — see the
+    module-level `fusion_evidence`'s own paragraph and the test module's docstring on why that
+    is `None` and never `0.0`: an arm's cutoff is a boundary on what it measured, not a floor on
+    what a document is worth.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    label: str = Field(min_length=1)
+    hits: tuple[ArmHit, ...] = ()
+
+    def score_for(self, node_id: NodeId) -> float | None:
+        for hit in self.hits:
+            if hit.node_id == node_id:
+                return hit.score
+        return None
+
+    def rank_for(self, node_id: NodeId) -> int | None:
+        for hit in self.hits:
+            if hit.node_id == node_id:
+                return hit.rank
+        return None
+
+
+class FusionEvidence(ExtModel):
+    """Every arm a fuser consumed, attached to the `Ranking` it produced — under its own
+    sub-namespace, never `weft-retrieve`, per the module docstring's own paragraph on `ext`
+    crossing the arity reduction: `BooleanPlan`, `CorrectiveTrace` and `IterativeRetrievalTrace`
+    already own that name, and one namespace holds one model.
+    """
+
+    __namespace__ = "weft-retrieve-fusion"
+    __schema_version__ = "1.0.0"
+
+    fuser: str = Field(min_length=1)
+    arms: tuple[ArmEvidence, ...] = ()
+
+    def arm(self, label: str) -> ArmEvidence | None:
+        for candidate in self.arms:
+            if candidate.label == label:
+                return candidate
+        return None
+
+
+def _arm_evidence(ranked: RankedList) -> ArmEvidence:
+    """`ranked.hits`, in their own order, as that arm's own `ArmHit`s — no recomputation."""
+    return ArmEvidence(
+        label=contributor_label(ranked),
+        hits=tuple(
+            ArmHit(node_id=passage.node.id, score=passage.score, rank=passage.rank)
+            for passage in ranked.hits
+        ),
+    )
+
+
+def fusion_evidence(ranking: Ranking) -> FusionEvidence | None:
+    """`ranking.ext`'s own `FusionEvidence`, or `None` when no fuser recorded any.
+
+    Raises `TypeError` if the namespace holds some other type — the same shape
+    `weft_kernel.payload.node.Node.ext_as` uses for the identical fact one type over.
+    """
+    value = ranking.ext.get(FusionEvidence.__namespace__)
+    if value is None:
+        return None
+    if not isinstance(value, FusionEvidence):
+        raise TypeError(
+            f"namespace '{FusionEvidence.__namespace__}' holds {type(value).__name__}, "
+            f"not {FusionEvidence.__name__}"
+        )
+    return value
+
+
 #: The name this fuser is registered and selectable under — see `weft_retrieve.register`.
 NAME = "single-list"
 
@@ -203,7 +291,13 @@ class SingleList:
         """
         del ctx
         if not payload.lists:
-            return Produced(value=Ranking(origin=payload.origin, ext=payload.ext))
+            evidence = FusionEvidence(fuser=NAME, arms=())
+            return Produced(
+                value=Ranking(
+                    origin=payload.origin,
+                    ext={**payload.ext, FusionEvidence.__namespace__: evidence},
+                )
+            )
         # Unpacked rather than indexed: `payload.lists` is a `tuple[RankedList, ...]`, and a
         # type checker reading `lists[0]` after a `len(...)` comparison cannot see that the
         # empty case already returned. The unpacking says the same thing in a shape it can.
@@ -218,12 +312,13 @@ class SingleList:
                     f"stage, or retrieve one list."
                 )
             )
+        evidence = FusionEvidence(fuser=NAME, arms=(_arm_evidence(only),))
         return Produced(
             value=Ranking(
                 origin=payload.origin,
                 hits=only.hits,
                 contributors=(contributor_label(only),),
-                ext=payload.ext,
+                ext={**payload.ext, FusionEvidence.__namespace__: evidence},
             )
         )
 
@@ -292,7 +387,13 @@ class ReciprocalRankFusion:
         """
         del ctx
         if not payload.lists:
-            return Produced(value=Ranking(origin=payload.origin, ext=payload.ext))
+            evidence = FusionEvidence(fuser=RRF_NAME, arms=())
+            return Produced(
+                value=Ranking(
+                    origin=payload.origin,
+                    ext={**payload.ext, FusionEvidence.__namespace__: evidence},
+                )
+            )
 
         scores: dict[NodeId, float] = {}
         best_rank: dict[NodeId, int] = {}
@@ -323,9 +424,15 @@ class ReciprocalRankFusion:
         # The *distinct* labels that fed the fusion, order-preserved on first appearance —
         # see the module docstring's own paragraph on why this is not one entry per list.
         contributors = tuple(dict.fromkeys(contributor_label(ranked) for ranked in payload.lists))
+        evidence = FusionEvidence(
+            fuser=RRF_NAME, arms=tuple(_arm_evidence(ranked) for ranked in payload.lists)
+        )
         return Produced(
             value=Ranking(
-                origin=payload.origin, hits=hits, contributors=contributors, ext=payload.ext
+                origin=payload.origin,
+                hits=hits,
+                contributors=contributors,
+                ext={**payload.ext, FusionEvidence.__namespace__: evidence},
             )
         )
 

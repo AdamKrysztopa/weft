@@ -91,7 +91,9 @@ async def test_one_list_is_unwrapped_into_a_ranking_that_names_what_fed_it() -> 
     assert ranking.origin == asked
     assert ranking.hits == hits
     assert ranking.contributors == ("vector-top-k:vector",)
-    assert ranking.ext == payload.ext
+    # Survival, not identity: a fuser adds its own `FusionEvidence` (task 21.4), so equality here
+    # would assert that no fuser may ever record anything — which is not what `_Note` is for.
+    assert all(ranking.ext.get(ns) == model for ns, model in payload.ext.items())
 
 
 async def test_no_lists_at_all_fuses_to_an_empty_ranking_rather_than_stopping_the_pipeline() -> (
@@ -108,7 +110,10 @@ async def test_no_lists_at_all_fuses_to_an_empty_ranking_rather_than_stopping_th
 
     # Assert
     assert isinstance(outcome, Produced)
-    assert outcome.value == Ranking(origin=asked, hits=(), contributors=())
+    assert isinstance(outcome.value, Ranking)
+    assert outcome.value.origin == asked
+    assert outcome.value.hits == ()
+    assert outcome.value.contributors == ()
 
 
 async def test_two_lists_are_refused_by_name_rather_than_silently_reduced() -> None:
@@ -310,7 +315,10 @@ async def test_reciprocal_rank_fusion_no_lists_fuses_to_an_empty_ranking() -> No
 
     # Assert
     assert isinstance(outcome, Produced)
-    assert outcome.value == Ranking(origin=asked, hits=(), contributors=())
+    assert isinstance(outcome.value, Ranking)
+    assert outcome.value.origin == asked
+    assert outcome.value.hits == ()
+    assert outcome.value.contributors == ()
 
 
 def test_reciprocal_rank_fusion_k_must_be_at_least_one() -> None:
@@ -349,7 +357,7 @@ async def test_reciprocal_rank_fusion_carries_ext_across_the_arity_reduction() -
 
     # Assert
     assert isinstance(outcome, Produced)
-    assert outcome.value.ext == payload.ext
+    assert all(outcome.value.ext.get(ns) == model for ns, model in payload.ext.items())
 
 
 async def test_driving_reciprocal_rank_fusion_through_the_seam_produces_a_ranking() -> None:
