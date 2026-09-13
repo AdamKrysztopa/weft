@@ -77,6 +77,7 @@ from weft_retrieve.contract import Retriever
 from weft_retrieve.payload import Candidates, QuerySet
 from weft_store.conformance import (
     OPERATOR_CASES,
+    FilterableSearchableStore,
     FilterableStore,
     ReconcilableStore,
     SearchableStore,
@@ -331,7 +332,7 @@ async def test_a_parent_id_nothing_derives_from_selects_nothing_rather_than_ever
 
 
 async def test_a_filter_reaches_vector_search_rather_than_being_ignored(
-    store: SearchableStore,
+    store: FilterableSearchableStore,
 ) -> None:
     await check_a_filter_reaches_vector_search_rather_than_being_ignored(store)
 

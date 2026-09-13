@@ -86,6 +86,7 @@ from weft_store.rehydrate import register_ext_model
 
 __all__ = [
     "OPERATOR_CASES",
+    "FilterableSearchableStore",
     "FilterableStore",
     "ReconcilableStore",
     "SearchableStore",
@@ -142,6 +143,7 @@ class NotAStoreError(WeftError):
 #: typed `NodeStore` needs nothing more.
 _CAPABILITY_OF: Final[Mapping[str, tuple[str, str]]] = {
     "SearchableStore": ("VectorSearch", "search_vector"),
+    "FilterableSearchableStore": ("MetadataFilter", "matching"),
     "FilterableStore": ("MetadataFilter", "matching"),
     "SupersedableStore": ("NodeSupersedable", "supersede"),
     "ReconcilableStore": ("Reconcilable", "reconcile"),
@@ -263,6 +265,19 @@ class SearchableStore(NodeStore, VectorSearch, Protocol):
 @runtime_checkable
 class FilterableStore(NodeStore, MetadataFilter, Protocol):
     """A store that holds nodes and answers a `Filter` over them."""
+
+
+@runtime_checkable
+class FilterableSearchableStore(NodeStore, MetadataFilter, VectorSearch, Protocol):
+    """A store that ranks by vector similarity **and** narrows by a `Filter`.
+
+    Its own protocol because one check needs both and neither `SearchableStore` nor
+    `FilterableStore` says so. That mattered the moment a store with vectors and no filters
+    existed: `checks_for` derives what a check needs from this annotation, so a check typed
+    `SearchableStore` while passing a `Filter` was offered to `weft_store.memory.MemoryStore`
+    and refused at run time — the selector being exactly as right as the annotation is.
+    Found by task `26.6`, which is what `01` → *Runtime shape* says the in-memory store is for.
+    """
 
 
 @runtime_checkable
@@ -1191,7 +1206,7 @@ async def check_a_parent_id_nothing_derives_from_selects_nothing_rather_than_eve
 
 
 async def check_a_filter_reaches_vector_search_rather_than_being_ignored(
-    store: SearchableStore,
+    store: FilterableSearchableStore,
 ) -> None:
     # Arrange
     await store.add(conformance_corpus())
