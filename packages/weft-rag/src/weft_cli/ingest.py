@@ -415,15 +415,27 @@ class IndexResult:
     #: A digest over `document_ids` was a digest over where a machine put its files: it stood
     #: still when a document's contents changed, and moved when one was renamed.
     content_hashes: tuple[str, ...] = ()
-    #: What re-indexing changed, per source — ledger task **9.17**. Empty when the store this run
-    #: used cannot answer `list_sources`, which is honest rather than a claim that nothing changed:
-    #: an absent comparison and an unchanged corpus are different facts and `changes_against_
-    #: records` is what keeps them apart. The renderer reports only the sources that moved.
+    #: What re-indexing changed, per source — ledger task **9.17**. One entry per document this
+    #: run discovered; empty only when it discovered none. The renderer reports only the sources
+    #: that moved.
+    #:
+    #: *(This said "empty when the store this run used cannot answer `list_sources`" until task
+    #: 17.4 measured it. That store's absent comparison reaches `changes_against_records` as an
+    #: empty record mapping, which reports every source `NEW` — so the honest answer is there and
+    #: it is not an empty dict. The distinction the old sentence was drawing is real and is kept:
+    #: an absent comparison and an unchanged corpus are different facts, and `NEW` versus
+    #: `UNCHANGED` is what keeps them apart. Task 17.0 now acts on that difference, so it is load
+    #: bearing rather than descriptive — a store that cannot say what it holds gets a full
+    #: re-index, never a silent skip.)*
     source_changes: Mapping[str, SourceChange] = field(
         default_factory=lambda: cast("Mapping[str, SourceChange]", {})
     )
     #: The identity this run's pipeline ran under, so a caller can print or persist it.
     pipeline_identity: str = ""
+    #: Ledger task **17.4**. How many of `document_ids` were actually handed to the runner —
+    #: `len(work)` below, not `len(docs)`: task **17.0** skips a document whose `SourceChange` is
+    #: `UNCHANGED`, and that gap is the whole fact `weft index`'s own line exists to print.
+    documents_indexed: int = 0
 
 
 async def run_index(
@@ -631,6 +643,7 @@ async def run_index(
             content_hashes=content_hashes_of(docs),
             source_changes={str(source): change for source, change in changes.items()},
             pipeline_identity=identity,
+            documents_indexed=len(work),
         )
     finally:
         for stage in runnable.stages:

@@ -54,31 +54,86 @@ from weft_retrieve.payload import Query
 from weft_store import ReconcileEstimate, ReconcileMode, ReconcileReport
 
 
-def test_render_index_success_matches_the_retired_handler_s_line() -> None:
-    # Arrange — `handle_index`'s own line, byte for byte.
-    summary = RunSummary(produced=2, nothing_to_produce=1, failed=0)
-    result = IndexCommandResult(summary=summary, stored_count=2)
+def test_render_index_counts_documents_and_says_that_is_what_it_counted() -> None:
+    """Ledger task **17.4**, carried repair **R19.3**.
+
+    This line read `produced 2, nothing to produce 1, failed 0` for eleven phases, and
+    `RunSummary.produced` counts **batches**: `run_index` yielded exactly one, so the number
+    could only ever be `0` or `1` while every operator read it as a document count. The `2` in
+    the old version of this test came from a hand-built `RunSummary` that no real run could
+    produce, which is why nothing ever noticed.
+
+    Task `17.0` is what made it urgent rather than merely wrong. A run that skips every unchanged
+    document now yields an empty batch, so a re-index of a current corpus printed
+    `produced 0, nothing to produce 1` — **byte-identical to an empty directory** except for a
+    number describing the store rather than the run. `R27.1` spent a whole repair teaching this
+    command to tell an empty directory from a missing path; this is the same class of confusion
+    arriving from the other side.
+
+    So the line counts documents, in documents, and says so. Batch outcomes are not a fact an
+    operator can act on and no longer appear on the happy path; a failure still does, in its own
+    sentence and its own unit.
+    """
+    # Arrange — two documents discovered, one of them already current.
+    summary = RunSummary(produced=1, nothing_to_produce=0, failed=0)
+    result = IndexCommandResult(
+        summary=summary, stored_count=2, documents_discovered=2, documents_indexed=1
+    )
 
     # Act
     rendered = render.render_outcome(Produced(value=result))
 
     # Assert
-    assert rendered.stdout == "produced 2, nothing to produce 1, failed 0. nodes now stored: 2."
+    assert rendered.stdout == "2 documents: 1 indexed, 1 unchanged. nodes now stored: 2."
     assert rendered.stderr is None
     assert rendered.exit_code is ExitCode.SUCCESS
 
 
-def test_render_index_with_failures_prints_reasons_to_stderr_and_exits_1() -> None:
+def test_render_index_distinguishes_a_current_corpus_from_an_empty_directory() -> None:
+    """The two states `17.0` made indistinguishable, told apart by the thing they differ in.
+
+    Both produce zero work. One has documents and nothing to do; the other has no documents. The
+    old line said `produced 0, nothing to produce 1` for both, differing only in `nodes now
+    stored`, which reports the store's total and not this run — so against an empty store the two
+    were the same bytes.
+    """
+    # Arrange
+    summary = RunSummary(produced=0, nothing_to_produce=1, failed=0)
+    current = IndexCommandResult(
+        summary=summary, stored_count=2, documents_discovered=2, documents_indexed=0
+    )
+    empty = IndexCommandResult(
+        summary=summary, stored_count=2, documents_discovered=0, documents_indexed=0
+    )
+
+    # Act
+    current_line = render.render_outcome(Produced(value=current)).stdout
+    empty_line = render.render_outcome(Produced(value=empty)).stdout
+
+    # Assert
+    assert current_line == "2 documents: 0 indexed, 2 unchanged. nodes now stored: 2."
+    assert empty_line == "0 documents: 0 indexed, 0 unchanged. nodes now stored: 2."
+    assert current_line != empty_line
+
+
+def test_render_index_with_failures_reports_them_in_their_own_unit_and_exits_1() -> None:
+    """A failure is a batch outcome and is printed as one, never folded into the document line.
+
+    Mixing the two units is the defect `R19.3` names; repairing it by relabelling one number and
+    leaving another in the same sentence would reproduce it a sentence later.
+    """
     # Arrange
     summary = RunSummary(produced=1, nothing_to_produce=0, failed=1, failed_reasons=("bad file",))
-    result = IndexCommandResult(summary=summary, stored_count=None)
+    result = IndexCommandResult(
+        summary=summary, stored_count=None, documents_discovered=1, documents_indexed=1
+    )
 
     # Act
     rendered = render.render_outcome(Produced(value=result))
 
     # Assert
-    assert (
-        rendered.stdout == "produced 1, nothing to produce 0, failed 1. nodes now stored: unknown."
+    assert rendered.stdout == (
+        "1 documents: 1 indexed, 0 unchanged. nodes now stored: unknown.\n1 batch failed."
     )
     assert rendered.stderr == "  failed: bad file"
     assert rendered.exit_code is ExitCode.OPERATION_FAILED
@@ -1868,16 +1923,27 @@ def test_render_index_names_a_defaulted_embedder_on_stderr_and_leaves_stdout_alo
     under the global `--json`: the summary line is the machine-readable half and a sentence for a
     human must not join it. This asserts both halves, because a line on the right channel that
     also corrupted the left one would be a worse defect than the one being repaired.
+
+    *(The stdout half read `produced 2, nothing to produce 0, failed 0.` until task **17.4**
+    counted documents instead of batches. This test was the third assertion of that line and the
+    one the task's own Red phase missed — found by the implementer, which may not edit a test and
+    correctly returned blocked rather than special-casing the renderer around it.)*
     """
     # Arrange
     summary = RunSummary(produced=2, nothing_to_produce=0, failed=0)
-    result = IndexCommandResult(summary=summary, stored_count=2, defaulted_embedder="hash")
+    result = IndexCommandResult(
+        summary=summary,
+        stored_count=2,
+        defaulted_embedder="hash",
+        documents_discovered=2,
+        documents_indexed=2,
+    )
 
     # Act
     rendered = render.render_outcome(Produced(value=result))
 
     # Assert
-    assert rendered.stdout == "produced 2, nothing to produce 0, failed 0. nodes now stored: 2."
+    assert rendered.stdout == "2 documents: 2 indexed, 0 unchanged. nodes now stored: 2."
     assert rendered.stderr is not None
     assert "hash" in rendered.stderr
     assert "[services] embed" in rendered.stderr

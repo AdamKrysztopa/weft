@@ -271,3 +271,33 @@ async def test_a_store_that_cannot_compare_skips_nothing(tmp_path: Path) -> None
     # Assert
     assert chunker.calls == [1, 1]
     assert second.source_changes == {str(_source_id(tmp_path, "one.txt")): SourceChange.NEW}
+
+
+async def test_the_result_carries_how_many_documents_actually_ran(tmp_path: Path) -> None:
+    """Ledger task **17.4** — the wire, not the sentence.
+
+    `weft_cli.render._render_index` cannot compute how many documents a run indexed, and it
+    cannot derive it either: `document_ids` is what was *discovered*, and the difference between
+    that and what ran is the whole fact the line exists to print. `docs/internal/lessons.md`
+    `L9.79`: where a value's only job is to travel from one layer to another, a test has to watch
+    it arrive, or a renderer reading a zero looks exactly like a renderer reading nothing.
+
+    Asserted across three states, because a field hardcoded to `len(docs)` and a field correctly
+    derived are indistinguishable from the all-new case alone.
+    """
+    # Arrange
+    (tmp_path / "one.txt").write_text("hello weft")
+    (tmp_path / "two.txt").write_text("second document")
+    store = _RecordingStore(None)
+    registry = _registry(store)
+
+    # Act — everything new, then nothing changed, then one document edited.
+    first = await run_index(tmp_path, registry=registry, ctx=_ctx(), extractor="text")
+    unchanged = await run_index(tmp_path, registry=registry, ctx=_ctx(), extractor="text")
+    (tmp_path / "two.txt").write_text("second document, edited")
+    partial = await run_index(tmp_path, registry=registry, ctx=_ctx(), extractor="text")
+
+    # Assert
+    assert (len(first.document_ids), first.documents_indexed) == (2, 2)
+    assert (len(unchanged.document_ids), unchanged.documents_indexed) == (2, 0)
+    assert (len(partial.document_ids), partial.documents_indexed) == (2, 1)

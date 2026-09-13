@@ -96,7 +96,15 @@ Weft extracts each file, splits it into chunks, embeds every chunk and stores it
 reports what happened:
 
 ```text
-produced 1, nothing to produce 0, failed 0. nodes now stored: 2.
+2 documents: 2 indexed, 0 unchanged. nodes now stored: 2.
+```
+
+Run it again and the second number moves rather than the line staying the same: Weft compares each
+file's bytes and the pipeline that read them against what it recorded last time, and does the work
+only for what moved.
+
+```text
+2 documents: 0 indexed, 2 unchanged. nodes now stored: 2.
 ```
 
 ```bash id=ask

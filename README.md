@@ -86,7 +86,7 @@ weft index corpus --yes
 weft ask "what does the weft do" --retrieve-only
 ```
 
-`index` reports what it stored — `produced 1, nothing to produce 0, failed 0. nodes now stored: 2.`
+`index` reports what it stored — `2 documents: 2 indexed, 0 unchanged. nodes now stored: 2.`
 — and `ask --retrieve-only` returns the passages it matched, each cited to the file it came from,
 in whatever order the hash distances happened to fall. With a real embedder that order is the
 answer; with `hash` it is only proof that the ranking machinery ran. That flag is what keeps this offline: it stops at retrieval. Drop it and Weft asks a language

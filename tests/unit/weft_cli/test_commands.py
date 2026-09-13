@@ -1093,3 +1093,39 @@ async def test_the_reprocess_flag_reaches_run_index(
     # Assert
     assert calls[0]["reprocess"] is True
     assert calls[1]["reprocess"] is False
+
+
+async def test_index_command_copies_both_document_counts_onto_its_result(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Ledger task **17.4** — the second half of the wire `run_index` starts.
+
+    `IndexResult` carries the counts and `IndexCommandResult` is what the renderer sees, so the
+    copy is its own opportunity to be wrong. Asserted with two different numbers, because a copy
+    and a hardcoded pair agree whenever the pair happens to be equal.
+    """
+    # Arrange
+    deps = Dependencies(registry=Registry(), reports=(), services=ServiceSelection())
+    summary = RunSummary(produced=1, nothing_to_produce=0, failed=0)
+
+    async def _fake_run_index(*_args: object, **_kwargs: object) -> IndexResult:
+        return IndexResult(
+            summary=summary,
+            stored_count=4,
+            document_ids=("a", "b", "c"),
+            documents_indexed=1,
+        )
+
+    monkeypatch.setattr(commands, "run_index", _fake_run_index)
+
+    # Act
+    outcome = await commands.IndexCommand().run(
+        commands.IndexArgs(path=str(tmp_path), pipeline="custom"), _ctx(deps)
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = outcome.value
+    assert isinstance(result, commands.IndexCommandResult)
+    assert result.documents_discovered == 3
+    assert result.documents_indexed == 1

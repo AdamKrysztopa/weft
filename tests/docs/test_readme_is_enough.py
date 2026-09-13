@@ -180,7 +180,7 @@ async def test_the_readme_path_runs_and_answers(clean_database: None, tmp_path: 
 
     # Assert — structure, never the words a retriever happened to return (`08` §3).
     assert re.search(
-        r"^produced \d+, nothing to produce \d+, failed 0\. nodes now stored: \d+\.$",
+        r"^\d+ documents: \d+ indexed, \d+ unchanged\. nodes now stored: \d+\.$",
         outputs["index"],
         re.MULTILINE,
     ), f"`weft index` did not print the structure the README shows:\n{outputs['index']}"

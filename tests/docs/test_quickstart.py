@@ -139,7 +139,7 @@ async def test_quickstart_executes_against_a_throwaway_project(
     # is deterministic retrieval rather than model prose, but these still key on shape, not on
     # the exact words this fixture's corpus happens to contain.
     assert re.search(
-        r"^produced \d+, nothing to produce \d+, failed 0\. nodes now stored: \d+\.$",
+        r"^\d+ documents: \d+ indexed, \d+ unchanged\. nodes now stored: \d+\.$",
         outputs["index"],
         re.MULTILINE,
     ), f"weft index did not print the structure the quickstart asserts:\n{outputs['index']}"

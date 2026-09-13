@@ -827,8 +827,8 @@ spinners and colour. `--quiet` suppresses progress but keeps the result.
 > **What `--json` does not do today, stated because this section promised it did.** It swaps the
 > **sink** — the stream of tokens a generating stage emits — and nothing else. The command's
 > *result* is still rendered by the same prose renderer a human gets, so stdout under `--json` is
-> one JSON stream event followed by lines like `produced 1, nothing to produce 0, failed 0. nodes
-> now stored: 1.` or `agent (weft-rag): active (2 contributed)`. It parses as neither one JSON
+> one JSON stream event followed by lines like `2 documents: 2 indexed, 0 unchanged. nodes now
+> stored: 2.` or `agent (weft-rag): active (2 contributed)`. It parses as neither one JSON
 > document nor as newline-delimited JSON, and this is true of every command, not a gap in a few:
 > measured 2026-09-12 against the shipped binary for `index`, `plugins list`, `config get` and
 > `pipeline list`. So *"the scripting contract: same events, no parsing of prose"* described an

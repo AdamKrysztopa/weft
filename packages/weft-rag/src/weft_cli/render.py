@@ -567,13 +567,17 @@ def _render_index(result: IndexCommandResult) -> Rendered:
     """
     summary = result.summary
     stored = "unknown" if result.stored_count is None else str(result.stored_count)
+    discovered = result.documents_discovered
+    indexed = result.documents_indexed
     stdout = (
-        f"produced {summary.produced}, nothing to produce {summary.nothing_to_produce}, "
-        f"failed {summary.failed}. nodes now stored: {stored}."
+        f"{discovered} documents: {indexed} indexed, {discovered - indexed} unchanged. "
+        f"nodes now stored: {stored}."
     )
     reparsed = _reparse_lines(result.source_changes)
     if reparsed:
         stdout += "\n" + "\n".join(reparsed)
+    if summary.failed:
+        stdout += f"\n{summary.failed} batch failed."
     stderr_lines = [f"  failed: {reason}" for reason in summary.failed_reasons]
     if result.defaulted_embedder is not None:
         stderr_lines.append(_defaulted_embedder_line(result.defaulted_embedder))

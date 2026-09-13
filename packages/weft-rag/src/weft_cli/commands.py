@@ -479,6 +479,10 @@ class IndexCommandResult(CommandResult):
     #: rather than being re-derived from the file a second time. `None` means the operator chose
     #: it, in a file, and a warning about a choice already made is one people learn to ignore.
     defaulted_embedder: str | None = None
+    #: Ledger task **17.4** — copied from `weft_cli.ingest.IndexResult`, so the renderer can
+    #: print what this run counts without importing that dataclass.
+    documents_discovered: int = 0
+    documents_indexed: int = 0
 
 
 class AskCommandResult(CommandResult):
@@ -764,6 +768,8 @@ class IndexCommand:
                 reconcile=reconcile_result,
                 source_changes=result.source_changes,
                 defaulted_embedder=defaulted_embedder,
+                documents_discovered=len(result.document_ids),
+                documents_indexed=result.documents_indexed,
             )
         )
 
