@@ -36,7 +36,7 @@ not this document's:
 | 1 | `pyproject.toml` | Name, `requires-python`, dependencies — the kernel **and the pack that publishes the contract** — and one entry point in the `weft.packs` group (`02` §2) |
 | 2 | `src/<pkg>/__init__.py` | The pack's `Settings` model and its `register(registry, settings)` (`02` §2 → *Pack settings*) |
 | 3 | `src/<pkg>/<impl>.py` | The contract implementation and its `with:` configuration model (`02` §1) |
-| 4 | `tests/test_<impl>.py` | The pack's own tests, against the conformance kit and the ephemeral in-memory store |
+| 4 | `tests/test_<impl>.py` | The pack's own tests, against the conformance kit (`weft_store.conformance`) and the ephemeral in-memory store (`weft_store.memory.MemoryStore`) — **both published at Phase 26b**, which is what makes this row a path a reader can take rather than a promise. `weft pack new` writes this file, and the other three |
 
 Contracts are published by packs, not by the kernel (`02` §1 → *Who publishes a contract*), so file 1
 depends on `weft-chunk` or `weft-store` the way it would depend on any third-party protocol. That is
