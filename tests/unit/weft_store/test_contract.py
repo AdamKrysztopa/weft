@@ -343,7 +343,14 @@ def test_the_family_version_moved_when_the_family_grew_a_capability() -> None:
     # now leave a node standing with one document dropped from its `sources`, and a caller told
     # only `node_count` cannot tell that from a cascade — so the field is additive for everyone
     # already building a `Removed` and everyone already reading one.
-    assert STORE_CONTRACT_VERSION == "2.5.0"
+    # Task **17.1** moves it to `2.6.0`, a minor and the first of these to move an *enum* rather
+    # than a field: `SourceStatus` gains `INDEXING`, written before a run and cleared after it,
+    # so an index killed halfway says so instead of leaving the documents it had written with no
+    # record at all. Minor for a caller — a reader that only knew two members meets a third, and
+    # G9's table makes an added member of a returned enum minor rather than major because nothing
+    # a caller already handles stops being returned. Minor for an implementer too: no Protocol
+    # grew a method, and `SourceRecord.status` already existed with a default.
+    assert STORE_CONTRACT_VERSION == "2.6.0"
 
 
 def test_a_report_can_say_a_pair_was_asked_about_and_nobody_decided() -> None:

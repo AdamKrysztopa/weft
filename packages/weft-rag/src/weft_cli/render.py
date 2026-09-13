@@ -518,7 +518,15 @@ def _reparse_lines(changes: Mapping[str, SourceChange]) -> list[str]:
 
     **Only what moved.** A corpus of a thousand unchanged files must not print a thousand lines
     saying so; `UNCHANGED` and `NEW` are the ordinary cases and stay silent, which is what makes
-    the two that print worth reading.
+    the ones that print worth reading.
+
+    **And `INCOMPLETE` is summarised rather than listed, which is that rule meeting a member it
+    did not anticipate — task 17.1.** The other two are facts about *that document*: somebody
+    edited it, or a pipeline was pointed at it, and they arrive a handful at a time. `INCOMPLETE`
+    is a fact about **one interrupted run** and arrives in bulk by construction — a `kill -9` on a
+    3,000-document index leaves every one of them `INDEXING`, and the next run printed 3,000
+    identical lines. Measured through the shipped wheel, which is the only place it could have
+    been seen. One such document still names itself, because at that size the id *is* the fact.
 
     A `PIPELINE_CHANGED` line is the one this task exists for: the bytes are identical and the
     pipeline that read them is not, so this document has now been read two ways.
@@ -536,12 +544,23 @@ def _reparse_lines(changes: Mapping[str, SourceChange]) -> list[str]:
         SourceChange.PIPELINE_CHANGED: (
             "unchanged on disk but re-parsed by a different pipeline — its earlier parse released"
         ),
+        SourceChange.INCOMPLETE: "a previous index of this document did not finish — indexed again",
     }
-    return [
+    lines = [
         f"  {source}: {reportable[change]}"
         for source, change in sorted(changes.items())
-        if change in reportable
+        if change in reportable and change is not SourceChange.INCOMPLETE
     ]
+    incomplete = sorted(
+        source for source, change in changes.items() if change is SourceChange.INCOMPLETE
+    )
+    if len(incomplete) == 1:
+        lines.append(f"  {incomplete[0]}: {reportable[SourceChange.INCOMPLETE]}")
+    elif incomplete:
+        lines.append(
+            f"  {len(incomplete)} documents: a previous index did not finish — indexed again"
+        )
+    return lines
 
 
 def _defaulted_embedder_line(embedder: str) -> str:

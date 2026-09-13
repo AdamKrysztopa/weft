@@ -152,7 +152,7 @@ from weft_kernel.seam import aclose
 from weft_llm.client import NullSink
 from weft_llm.contract import TokenSink
 from weft_store import NodeStore
-from weft_store.contract import SourceRecord
+from weft_store.contract import SourceRecord, SourceStatus
 
 #: What `SourceRecord.pipeline` records for the built-in four-stage path — `06` step 9's
 #: hardcoded pipeline, which resolves no `ResolvedPipeline` and so has no name to read.
@@ -621,6 +621,19 @@ async def run_index(
             else tuple(
                 doc for doc in docs if changes.get(doc.source_id) is not SourceChange.UNCHANGED
             )
+        )
+        # Ledger task **17.1** — marked before the run so a crash mid-`runner.run` leaves these
+        # documents' records saying `INDEXING` rather than the previous run's stale `ACTIVE` or
+        # no record at all. Narrowed to `work`, not `docs`: an `UNCHANGED` document's own record
+        # is still accurate and this write must not overwrite it with a status the run below
+        # never touches it under.
+        await _record_sources(
+            runnable,
+            store_stage_ids=store_stage_ids,
+            docs=work,
+            pipeline=pipeline,
+            identity=identity,
+            status=SourceStatus.INDEXING,
         )
 
         async def batches() -> AsyncIterator[object]:
@@ -1149,6 +1162,13 @@ class SourceChange(StrEnum):
     #: The bytes are identical and the pipeline that read them is not: a different parser, or the
     #: same parser and a different model. 9.17's own case, and the one that was invisible.
     PIPELINE_CHANGED = "pipeline-changed"
+    #: The record this source's last run left is not `SourceStatus.ACTIVE` — ledger task **17.1**.
+    #: `_record_sources` now writes `SourceStatus.INDEXING` before a run and `ACTIVE` after, so a
+    #: run killed between the two leaves the record in that state (or, for a source mid-deletion,
+    #: `DELETING`). Neither status can say what the store currently holds for this source, so a
+    #: match on `content_hash` or `pipeline_identity` against it is not evidence of anything —
+    #: this is reported ahead of both comparisons, never instead of one that ran.
+    INCOMPLETE = "incomplete"
 
 
 def changes_against_records(
@@ -1162,6 +1182,15 @@ def changes_against_records(
     Pure and synchronous: the caller fetches the records, this decides what they mean. Keyed on
     the docs this run actually saw, so a source elsewhere in the corpus is not reported — `weft
     index` reports on what it indexed.
+
+    **A record whose `status` is not `SourceStatus.ACTIVE` reports `INCOMPLETE`, checked first —
+    ledger task 17.1.** `_record_sources` now writes `SourceStatus.INDEXING` before a run and
+    `ACTIVE` after, so a run killed midway leaves the interrupted document's record in that state
+    (or `DELETING`, for a source mid-deletion). An interrupted document's bytes and pipeline
+    identity very often still match that stale record — that is exactly what makes it dangerous:
+    a match against a comparison nobody finished is not evidence the store holds anything
+    complete, so this check runs before `content_hash` and before `pipeline_identity` can even be
+    asked.
 
     **An empty `pipeline_identity` on a stored record reports `PIPELINE_CHANGED`, not
     `UNCHANGED`.** Every record written before task 9.17 has one, and it is the *absence of
@@ -1185,6 +1214,9 @@ def changes_against_records(
         if record is None:
             found[doc.source_id] = SourceChange.NEW
             continue
+        if record.status is not SourceStatus.ACTIVE:
+            found[doc.source_id] = SourceChange.INCOMPLETE
+            continue
         if record.content_hash != _content_hash(doc):
             found[doc.source_id] = SourceChange.CONTENT_CHANGED
             continue
@@ -1202,10 +1234,22 @@ async def _record_sources(
     docs: Sequence[SourceDoc],
     pipeline: str | None,
     identity: str = "",
+    status: SourceStatus = SourceStatus.ACTIVE,
 ) -> None:
     """One `SourceRecord` per `SourceDoc` this run indexed, in **every** store it was written
     to — ledger task **6.24**'s repair of the defect `02` §1 documents, widened by carried
     repair **R11.4**.
+
+    **`status`, ledger task 17.1 — `delete_source`'s own tombstone shape, applied to the other
+    direction.** `run_index` calls this function twice: once for `work` (the documents this run
+    is *about* to process) with `status=SourceStatus.INDEXING`, before `runner.run`, and once
+    more for the full `docs` list at its default, `SourceStatus.ACTIVE`, after `runner.run`
+    returns. A run killed between the two calls therefore leaves the interrupted documents'
+    records saying `INDEXING` rather than either lying `ACTIVE` (the previous run's stale record)
+    or not existing at all — the two states `changes_against_records` could not tell apart from
+    a document nobody had ever touched. Nothing here catches what `runner.run` raises: the
+    pre-run write already happened, and that write *is* the mechanism, not a value this function
+    reacts to failing.
 
     6.24's own finding: nothing on the ingest path ever called `put_source`, so
     `list_sources()` answered `()` after a real `weft index` and a `reconcile --mode repair`
@@ -1259,6 +1303,7 @@ async def _record_sources(
                     indexed_at=indexed_at,
                     pipeline=name,
                     pipeline_identity=identity,
+                    status=status,
                 )
             )
 

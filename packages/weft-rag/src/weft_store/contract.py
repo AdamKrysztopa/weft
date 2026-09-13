@@ -142,7 +142,8 @@ from weft_kernel.runner import Stage
 #: asked for a new value) — the maximum of two minors is a minor.
 #: **`2.4.0` → `2.5.0` at task 27.1, the same shape again.** `Removed` gains `narrowed_count`,
 #: an optional integer defaulting to `0` — minor for the caller, minor for the implementer.
-STORE_CONTRACT_VERSION = "2.5.0"
+#: **`2.5.0` → `2.6.0` at task 17.1** — `SourceStatus` gains `INDEXING`, minor for both audiences.
+STORE_CONTRACT_VERSION = "2.6.0"
 
 #: Versioned separately from `STORE_CONTRACT_VERSION`: a `Filter` is data that
 #: outlives any one store, serialised into a resolved, stored pipeline. Moved `1.0.0` →
@@ -200,6 +201,8 @@ class SourceStatus(StrEnum):
 
     ACTIVE = "active"
     DELETING = "deleting"
+    #: Written before a run by `_record_sources`, then rewritten `ACTIVE` after — task **17.1**.
+    INDEXING = "indexing"
 
 
 class SourceRecord(BaseModel):
