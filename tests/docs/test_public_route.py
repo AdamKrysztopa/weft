@@ -53,7 +53,6 @@ PUBLIC_PAGES: Final[tuple[str, ...]] = (
 ROUTE_PAGES_OUTSIDE_MANUAL: Final[tuple[str, ...]] = ("README.md", "CONTRIBUTING.md")
 
 _SECTION_1: Final[re.Pattern[str]] = re.compile(r"^## 1\. .*?(?=^## )", re.MULTILINE | re.DOTALL)
-_ROW: Final[re.Pattern[str]] = re.compile(r"^\|(?P<cells>.+)\|\s*$", re.MULTILINE)
 _PATH_CELL: Final[re.Pattern[str]] = re.compile(r"`(?P<path>[A-Za-z0-9_./-]+\.md)`")
 
 #: The cell a last step carries where a hand-off would go. Spelled once, here.
@@ -195,4 +194,121 @@ def test_the_two_pages_outside_manual_have_a_row_in_section_one() -> None:
         f"`docs/08-manuals.md` §1 gives no row to {missing}. `09` §5.2 promises a newcomer can "
         f"install, index and ask from `README.md` alone and `08` §1 owns which document covers "
         f"which task — a page promised by one document and owned by none is how both went stale"
+    )
+
+
+#: `28.1`'s ratchet, pinned empty. A public page that must link into the untracked record is named
+#: here with its reason, so the exception is a line in a diff rather than a silent sweep result.
+PAGES_ALLOWED_TO_ROUTE_INTERNAL: Final[frozenset[str]] = frozenset()
+
+#: A markdown link whose target is under `docs/internal/`, from any depth. **Link syntax, never the
+#: bare string** — `tests/docs/test_phase_document_routing.py`:12-19's distinction, and the one this
+#: whole check turns on: "`docs/internal/lessons.md` `L8.5`" beside a fact is a citation, the form
+#: `CLAUDE.md` asks a docstring to use and 250 source files already use, and the id is the datum.
+#: Telling a reader to *go* somewhere they do not have is the defect.
+_INTERNAL_LINK: Final[re.Pattern[str]] = re.compile(
+    r"\]\((?:\.\./)*(?P<target>docs/internal/\S*?)\)"
+)
+
+#: Whitespace inside the parentheses is deliberate: `manual/user-manual.md`:722 and
+#: `manual/quickstart.md`:143 both wrap a link across two lines, and a pattern that missed
+#: them would report a hand-off as absent that a reader can follow.
+_MARKDOWN_LINK: Final[re.Pattern[str]] = re.compile(r"\]\(\s*(?P<target>[^)\s]+)\s*\)")
+
+
+def _link_targets(page: str) -> set[str]:
+    """Every markdown link on `page`, resolved to a repository-relative posix path.
+
+    Anchors, fragments and absolute URLs are dropped: what a hand-off needs is the file.
+    """
+    source = REPO_ROOT / page
+    resolved: set[str] = set()
+    for match in _MARKDOWN_LINK.finditer(source.read_text(encoding="utf-8")):
+        target = match.group("target").split("#", 1)[0]
+        if not target or "://" in target or target.startswith("mailto:"):
+            continue
+        candidate = (source.parent / target).resolve()
+        try:
+            resolved.add(candidate.relative_to(REPO_ROOT).as_posix())
+        except ValueError:
+            continue
+    return resolved
+
+
+def test_no_public_page_routes_a_reader_into_the_untracked_record() -> None:
+    """`28.1`. The finding the third outside review opened this phase with, and the only reader
+    that could have made it — every check in this tree that reads these pages executes a block or
+    compares an id, and none follows a link.
+
+    `docs/internal/` is untracked by design (`tests/conftest.py`'s `UNTRACKED_BY_DESIGN`), so a
+    link into it is a dead link on the front page of the project for every clone and every wheel.
+    """
+    # Arrange
+    swept = [page for page in PUBLIC_PAGES if page not in PAGES_ALLOWED_TO_ROUTE_INTERNAL]
+    assert swept, "every public page was waived — nothing was actually swept"
+
+    # Act
+    routing = [
+        f"{page}:{text.count(chr(10), 0, match.start()) + 1} → {match.group('target')}"
+        for page in swept
+        for text in [(REPO_ROOT / page).read_text(encoding="utf-8")]
+        for match in _INTERNAL_LINK.finditer(text)
+    ]
+
+    # Assert
+    assert not routing, (
+        "public pages link into `docs/internal/`, which no clone and no wheel has:\n  "
+        + "\n  ".join(routing)
+        + "\n\nCite the id if the reason matters — `docs/internal/lessons.md` `L8.5` beside a "
+        "fact is what `CLAUDE.md` asks for and this check does not read. What it refuses is a "
+        "link, which tells a stranger to go and open a file they do not have"
+    )
+
+
+def test_each_route_page_links_to_the_page_it_hands_to() -> None:
+    """The hand-off is a property of the *page*, not of the table that plans it.
+
+    `08` §1 can say step 2 hands to the user manual and the quickstart can end without mentioning
+    it; the reader stops there either way.
+    """
+    # Act
+    stranded = [
+        f"`{step.page}` does not link to `{step.hands_to}`"
+        for step in route()
+        if step.hands_to is not None and step.hands_to not in _link_targets(step.page)
+    ]
+
+    # Assert
+    assert not stranded, (
+        "the route breaks on the page rather than in the table:\n  "
+        + "\n  ".join(stranded)
+        + "\n\n`docs/08-manuals.md` §1 names each step's successor; the page has to name it too, "
+        "or the reader arrives at the end of a page with nowhere to go"
+    )
+
+
+def test_the_readme_says_what_an_id_citation_into_the_untracked_record_is() -> None:
+    """`28.1`'s last clause. Stripping the citations was option (c) and was not taken — 34 tracked
+    non-Python files and 250 Python files carry the form — so the page owes a reader one sentence
+    saying what those ids are and that a clone will not have the files they name.
+
+    Presence, never wording: the section names the directory and says a clone does not have it.
+    """
+    # Arrange
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    layout = re.search(r"^## Layout$.*?(?=^## )", readme, re.MULTILINE | re.DOTALL)
+    assert layout is not None, "`README.md` has no *Layout* section to carry the sentence"
+
+    # Act
+    section = layout.group(0)
+
+    # Assert
+    assert "docs/internal/" in section, (
+        "`README.md` → *Layout* does not name `docs/internal/`. A reader meeting "
+        "`docs/internal/lessons.md L8.5` in a docstring has no way to learn that the id is the "
+        "datum and the file is developer-local"
+    )
+    assert any(word in section for word in ("clone", "checkout", "wheel")), (
+        "`README.md` → *Layout* names `docs/internal/` without saying a clone does not have it, "
+        "which is the half that stops the citation reading as a broken link"
     )

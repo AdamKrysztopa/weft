@@ -6,8 +6,15 @@ to contribute to, because most of the design questions you might want to open ha
 argued out at a recorded gate — which also makes it a cheap one to contribute to, since the
 reasoning behind a shape you disagree with is written down rather than remembered.
 
-**Start with [`docs/internal/README.md`](docs/internal/README.md).** It holds the current phase, the decision log, and
-which document owns what. Nothing here repeats it.
+**Start with [`docs/01-high-level-plan.md`](docs/01-high-level-plan.md).** It holds the kernel
+boundary, the phase script and the fitness functions — the constraints a change is judged against.
+[`docs/02-extension-model.md`](docs/02-extension-model.md) is the other one you will need: the
+contracts, discovery, and the trust model. Both are tracked, so your clone has them.
+
+**What your clone does not have is the process record.** The build ledger, the decision log and the
+lessons queue live under `docs/internal/`, which `.gitignore` keeps out of version control — so
+this page cannot tell you which phase is live or which gate is open, and it does not try. Ask in an
+issue; the answer is one sentence and it is current, which a page here could not be.
 
 ---
 

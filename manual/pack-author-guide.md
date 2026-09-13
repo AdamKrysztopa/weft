@@ -372,8 +372,10 @@ Two things you may optionally ship, and one you must:
 
 ## 8. Open gates you may hit
 
-A pointer to [`docs/internal/05-grilling-sessions.md`](../docs/internal/05-grilling-sessions.md), never a summary of
-it — when a gate closes, that document changes and this list does too.
+Each gate below was argued in full and the argument is developer-local, in
+`docs/internal/05-grilling-sessions.md` — not in your clone. What this table owes you is therefore
+not a summary of the reasoning but the part that reaches a pack author: the ruling, and what it
+means for code you are about to write. When a gate closes, this list changes.
 
 | Gate | Status | What it means for you |
 |---|---|---|

@@ -9,9 +9,10 @@ version, tracked in its own `pyproject.toml`. This file does not repeat those nu
 hand-copied list of them is exactly the two-lists bug `docs/internal/README.md` opens with, aimed at version
 digits instead of prose — it records what changed, and why, for someone using the software.
 
-**Architecture decisions are not changelog entries.** They live in the decision log in
-[`docs/internal/README.md`](docs/internal/README.md), which records what was decided, when, and where the reasoning is
-written down.
+**Architecture decisions are not changelog entries.** They live in a decision log that is
+developer-local — `docs/internal/README.md`, which `.gitignore` keeps out of this repository — and
+what a release actually did to the software is what this file records. Where a decision changed
+something you can see from outside, the entry below says so in its own words.
 
 **First release: 2026-09-11, tag `v2.4.0`.** `weft-rag` and `weft-kernel` are the two names this
 project publishes (**G19**, 2026-09-09 — a new capability never adds a third; `docs/internal/README.md`'s

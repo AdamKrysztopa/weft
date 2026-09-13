@@ -19,7 +19,9 @@ The warp is the fixed frame on a loom; the weft is every thread through it.
 > what today's release discharges:** `weft-kernel` and `weft-rag` are published for the first time
 > today, 2026-09-11. The four names published 2026-09-05 (`weft-generate`, `weft-embed`,
 > `weft-command`, `weft-llm`) are yanked as of the same day; the code they named ships inside
-> `weft-rag` now. `docs/internal/README.md` carries the phase-by-phase record and the two open gates.
+> `weft-rag` now. The phase-by-phase record, the decision log and the lessons queue are
+> developer-local and not in this repository — see *Layout* for what that means when a
+> docstring cites one of them by id.
 
 ## Try it
 
@@ -102,15 +104,21 @@ own page rather than left to inference.
 
 ## Start here
 
-**[`docs/internal/README.md`](docs/internal/README.md)** is the single source of truth: current phase, settled
-decisions, what to do next, and which document owns what. Everything else is reached from there.
+**[`manual/quickstart.md`](manual/quickstart.md) is the next page**: the four commands above with
+the database wired up, the failure paths, and what each line of output actually means. After it the
+route runs on — day-to-day configuration in [`manual/user-manual.md`](manual/user-manual.md), then
+writing a pack of your own in [`manual/pack-author-guide.md`](manual/pack-author-guide.md).
+`docs/08-manuals.md` §1 owns that order, and a check holds each page to naming the one after it, so
+a hand-off that stops being true fails the build rather than stranding a reader.
+
+Why it is shaped the way it is — for anyone reading the code rather than running it:
 
 | | |
 |---|---|
 | [`docs/01-high-level-plan.md`](docs/01-high-level-plan.md) | The kernel boundary, async colour, the phase script, the fitness functions |
 | [`docs/02-extension-model.md`](docs/02-extension-model.md) | Contracts, the payload model, the store family, discovery and the trust model |
 | [`docs/03-cli.md`](docs/03-cli.md) | The command line as the single driving adapter |
-| [`docs/internal/05-grilling-sessions.md`](docs/internal/05-grilling-sessions.md) | Every gate this project has argued, with the question, the positions attacked, and the outcome |
+| [`docs/08-manuals.md`](docs/08-manuals.md) | The shipped documentation set, the public route, and the check that keeps each page honest |
 
 ## Layout
 
@@ -140,6 +148,14 @@ at once — and the sixth, `agent`, needs no extra because it imports nothing ou
 `weft-openai`, `weft-pdf`, `weft-qdrant`, `weft-otel`, `weft-docling`, `weft-agent` and `weft-kg`
 are not distributions and are not published; the code they name ships inside `weft-rag`.
 
+**One directory in the tree above is not in the tree you cloned.** `docs/internal/` holds how the
+work is done — the build ledger, the decision log, the lessons queue — and `.gitignore` keeps it
+out of version control, so no clone and no wheel has it. Docstrings and documents here still cite
+it, in the form `` `docs/internal/lessons.md` `L8.5` ``: **the id is the datum**, a stable name for
+the reason a guard exists, and the sentence beside it carries the fact. Nothing you need in order
+to use, run or extend Weft is behind one of those ids; where the reasoning itself is load-bearing
+it lives in `docs/01` through `docs/13`, which are tracked.
+
 ## Development
 
 ```bash
@@ -153,8 +169,8 @@ Every architecture check must be reachable from `ci-checks`; a test asserts it.
 
 ### Driving a phase
 
-The build is sequenced task by task in [`docs/internal/build-ledger.md`](docs/internal/build-ledger.md), and the
-`phase-step` skill runs one task through **Orient → Red → Green → Verify → Finish**. Its Green phase
+The build is sequenced task by task in `docs/internal/build-ledger.md` — developer-local, so a
+clone does not have it — and the `phase-step` skill runs one task through **Orient → Red → Green → Verify → Finish**. Its Green phase
 is dispatched to a `weft-implementer` subagent that cannot edit the test it is asked to satisfy —
 so a test written from the settled documents stays a specification rather than becoming a
 description of whatever got built. `.claude/skills/phase-step/` owns the detail.
@@ -176,7 +192,7 @@ Typed into Claude Code:
 The phase boundary is detected rather than remembered: the script flags the phase's last unticked
 task, and `phase-step` → *Close the phase* runs what that boundary owes — the whole-phase
 `weft-qualities` reading and `implement-ll` draining
-[`docs/internal/lessons.md`](docs/internal/lessons.md) to empty, then the Exit criterion in `01` re-checked against
+`docs/internal/lessons.md` to empty, then the Exit criterion in `01` re-checked against
 what exists rather than against the ticked boxes. **The queue is drained completely or its entries
 are declined with a reason** — nothing is carried to a second phase close. Each of those skills is
 still typed directly when you want it on its own.
