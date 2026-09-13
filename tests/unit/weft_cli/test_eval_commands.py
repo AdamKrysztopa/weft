@@ -1711,3 +1711,57 @@ async def test_eval_compare_reports_no_paired_difference_for_records_without_que
     assert isinstance(outcome, Produced)
     result = cast("Any", outcome).value
     assert result.paired_differences == {}
+
+
+async def test_eval_run_always_does_the_ingest_work_it_then_reports_the_duration_of(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Ledger task **17.0**, found by reading this call site rather than by any test.
+
+    `17.0` makes `run_index` skip a document whose bytes and pipeline have not moved, and the
+    skip is the **default**. That is right for `weft index`, whose job is to make the index
+    current, and wrong here: this command wraps `run_index` in `time.monotonic()` and persists
+    the result as `RunDurations.ingest_seconds`. A second `weft eval run` over the same corpus
+    and the same store would skip every document and record an ingest that took no time — a
+    measurement of nothing, written into a run record as a measurement, and then compared
+    against a first run that did the whole job.
+
+    `--reuse-index` is already the deliberate way to say *do not ingest*, and it says so in the
+    record. An implicit skip produces the same absence of work with the record still claiming
+    a real ingest, which is the difference between a stated limitation and a silent one.
+
+    So this call passes `reprocess=True` explicitly. `docs/internal/lessons.md` `L8.24` is the
+    rule — `weft index` and `weft eval run` call one function and a concern passed by hand at
+    each site is one an author has to remember — and this is that rule's third instance at this
+    exact pair of call sites, after `llm`/`sink` at Phase 8's close and `services`/`roles` at
+    task 9.0.
+    """
+    # Arrange
+    (tmp_path / "one.txt").write_text("hello weft")
+    monkeypatch.setattr(
+        ingest_module, "full_catalogue", _stub_catalogue({"index": _document("index")})
+    )
+    captured: list[dict[str, object]] = []
+
+    async def _spy(path: Path, **kwargs: Any) -> object:
+        # `ingest_module.run_index` rather than the name bound in `eval_commands`: the latter is
+        # a re-export and reading it is `reportPrivateImportUsage`. The patch below still has to
+        # name the module that *calls* it, which is why both spellings appear here. `Any` on the
+        # forwarded kwargs because a spy that passes them straight through cannot narrow them
+        # and `object` makes every one of the fourteen an error.
+        captured.append(dict(kwargs))
+        return await ingest_module.run_index(path, **kwargs)
+
+    monkeypatch.setattr(eval_commands_module, "run_index", _spy)
+
+    # Act
+    outcome = await EvalRunCommand().run(
+        EvalRunArgs(path=str(tmp_path), pipeline="index"), _ctx(_deps())
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert captured[0]["reprocess"] is True, (
+        "weft eval run measures the ingest it wraps, so it must do the work every time — a "
+        "skipped re-index would be recorded as an ingest_seconds a comparison could act on"
+    )

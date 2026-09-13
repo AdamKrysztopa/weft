@@ -952,6 +952,15 @@ class EvalRunCommand:
             # silent narrowing repeats one field over.
             services=deps.services,
             roles=deps.roles,
+            # Ledger task **17.0**, and `L8.24`'s third instance at this exact pair of call
+            # sites after `llm`/`sink` and `services`/`roles` above. `run_index` skips a
+            # document whose bytes and pipeline have not moved, which is right for `weft index`
+            # and wrong for a command that wraps the call in `time.monotonic()` and persists the
+            # result as `RunDurations.ingest_seconds`: a second run over the same corpus would
+            # record an ingest that took no time, then be compared against one that did the
+            # whole job. `--reuse-index` is how a caller says *do not ingest*, and it says so in
+            # the record; an implicit skip says nothing.
+            reprocess=True,
         )
         wall_clock_seconds = time.monotonic() - started
         if not result.document_ids:

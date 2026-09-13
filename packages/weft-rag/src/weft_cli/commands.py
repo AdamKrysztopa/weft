@@ -394,6 +394,14 @@ class IndexArgs(BaseModel):
             "whose own default that file may change."
         ),
     )
+    reprocess: bool = Field(
+        default=False,
+        description=(
+            "do the work again for documents that did not move — the escape hatch for a "
+            "change the pipeline identity cannot see, such as a hosted model that changed "
+            "behind a stable name."
+        ),
+    )
 
 
 class AskArgs(BaseModel):
@@ -726,6 +734,7 @@ class IndexCommand:
             # build_index_services`'s own docstring for the exclusion this makes possible.
             services=deps.services,
             roles=deps.roles,
+            reprocess=index_args.reprocess,
         )
         if result.resolved_pipeline is not None:
             # Carried repair R11.2's second half: `stores_in_use`'s run-record source only ever

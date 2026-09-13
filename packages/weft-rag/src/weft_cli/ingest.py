@@ -441,6 +441,7 @@ async def run_index(
     sink: TokenSink | None = None,
     services: ServiceSelection = _NO_SELECTION,
     roles: RoleTable = _NO_ROLES,
+    reprocess: bool = False,
 ) -> IndexResult:
     """Extract, chunk, embed and store every file under `directory` an extractor claims.
 
@@ -489,6 +490,15 @@ async def run_index(
     already fill, computed here since this is the one place both `specs` and the role table
     are in scope). Both default to an empty table/selection — a caller naming neither gets
     exactly today's four-service ingest registry, unchanged.
+
+    `reprocess` — ledger task **17.0**. A document whose `SourceChange` comes back `UNCHANGED`
+    is skipped by default: the bytes and the pipeline identity both match the last recorded
+    run, so re-extracting, re-chunking, re-enhancing and re-embedding it would only rewrite
+    rows the store already deduplicates by content digest. `True` hands every discovered
+    document to the runner anyway, for the one change `pipeline_identity` cannot see — a
+    hosted model that moved behind a stable name. The report is unaffected either way: a
+    document that did not move still reports `UNCHANGED`, because `source_changes` answers
+    *what changed*, not *what ran*.
     """
     _require_corpus_directory(directory)
     if pipeline is not None and extractor is not None:
@@ -577,9 +587,6 @@ async def run_index(
         ),
     )
 
-    async def batches() -> AsyncIterator[object]:
-        yield docs
-
     try:
         identity = (
             pipeline_identity(resolved_pipeline)
@@ -591,6 +598,22 @@ async def run_index(
         previous = await _recorded_sources(runnable, store_stage_id=store_stage_id)
         changes = changes_against_records(docs, previous, identity=identity)
         await _release_reparsed_sources(runnable, store_stage_ids=store_stage_ids, changes=changes)
+        # Ledger task **17.0** — a document whose change is `UNCHANGED` owes this run no work:
+        # the store dedupes by content digest, so re-running it would only re-pay extraction,
+        # chunking, every enhancer's LLM call and embedding to rewrite rows already right.
+        # `reprocess` overrides this for the one change `pipeline_identity` cannot see. The
+        # report below stays over `docs` in full — this filtering is only what the runner sees.
+        work = (
+            docs
+            if reprocess
+            else tuple(
+                doc for doc in docs if changes.get(doc.source_id) is not SourceChange.UNCHANGED
+            )
+        )
+
+        async def batches() -> AsyncIterator[object]:
+            yield work
+
         summary = await runner.run(runnable, batches(), indexing_ctx)
         await _record_sources(
             runnable,

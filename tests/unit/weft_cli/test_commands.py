@@ -1059,3 +1059,37 @@ async def test_index_command_reconcile_full_flag_opts_this_run_into_backfill(
     assert result.reconcile.mode is ReconcileMode.FULL
     assert result.reconcile.estimates[0].estimate is not None
     assert result.reconcile.estimates[0].estimate.model_calls == 2
+
+
+async def test_the_reprocess_flag_reaches_run_index(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Ledger task **17.0** — `--reprocess` is a value whose whole job is to travel.
+
+    `docs/internal/lessons.md` `L9.79`: where a value's only job is to get from an operator's
+    flag to a call, one test has to capture that call's arguments or the wire is untested along
+    its length. Both states are asserted, because a parameter hardcoded to `True` and a parameter
+    correctly wired look identical from the `True` case alone.
+    """
+    # Arrange
+    deps = Dependencies(registry=Registry(), reports=(), services=ServiceSelection())
+    summary = RunSummary(produced=1, nothing_to_produce=0, failed=0)
+    calls: list[dict[str, object]] = []
+
+    async def _fake_run_index(*_args: object, **kwargs: object) -> IndexResult:
+        calls.append(kwargs)
+        return IndexResult(summary=summary, stored_count=1)
+
+    monkeypatch.setattr(commands, "run_index", _fake_run_index)
+
+    # Act — the flag given, and the flag omitted.
+    await commands.IndexCommand().run(
+        commands.IndexArgs(path=str(tmp_path), pipeline="custom", reprocess=True), _ctx(deps)
+    )
+    await commands.IndexCommand().run(
+        commands.IndexArgs(path=str(tmp_path), pipeline="custom"), _ctx(deps)
+    )
+
+    # Assert
+    assert calls[0]["reprocess"] is True
+    assert calls[1]["reprocess"] is False
