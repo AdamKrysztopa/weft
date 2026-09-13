@@ -1,0 +1,5 @@
+name: index-word
+extends: index-text
+replace:
+  - id: chunk
+    use: example-chunker

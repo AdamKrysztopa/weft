@@ -293,10 +293,40 @@ already built.
 
 ## 5. Proving it runs
 
-**`weft index` and `weft ask` will not run this plugin.** Phase 0 has not built pipelines as
-configuration yet — `weft index` composes one fixed list of four stages, and nothing you install
-changes which chunker, embedder or store it names. **One stage is the exception, and if you are
-writing an *extractor* it is the one that matters:** `weft index` derives what file formats it
+**Name it in a pipeline document, and `weft index` runs it.** A document is a file, it can live in
+your own project rather than in a pack, and `weft index --pipeline <name>` resolves the name
+against every document Weft can see — the ones packs contribute and the ones in a `pipelines/`
+directory beside your `weft.toml`. So proving a stranger's chunker runs is two files and one
+command:
+
+```yaml path=examples/weft-example-chunker/pipelines/index-word.yaml
+name: index-word
+extends: index-text
+replace:
+  - id: chunk
+    use: example-chunker
+```
+
+```bash
+weft index corpus --pipeline index-word --reprocess
+```
+
+`extends` means *"`index-text`, with this one change"* — you are not restating the extractor, the
+normalisation, the embedder or the store, and a later release changing any of them changes yours
+too. `replace` swaps which plugin sits at the `chunk` id; `--reprocess` is what makes Weft read
+documents it has already indexed, since nothing about them changed on disk except the pipeline
+that will read them. Run against the quickstart's own two-file corpus, that prints
+`2 documents: 2 indexed` and a node count in the dozens rather than in single figures — one node
+per word, which is what this chunker does and what makes it obvious it ran.
+
+*(**Corrected 2026-09-13**, carried repair `R19.4`. This section said "`weft index` and `weft ask`
+will not run this plugin — Phase 0 has not built pipelines as configuration yet", and closed by
+saying Phase 1 would change that. Phase 1 closed on 2026-08-17 and the sentence stayed, so the page
+that exists to prove a stranger's plugin works told its reader it could not be run. Found by
+walking this route from a clean clone at Phase 28's exit.)*
+
+**One stage needs no document at all, and if you are writing an *extractor* it is the one that
+matters:** `weft index` derives what file formats it
 accepts, and which extractor runs, from the `extensions` every registered `Extractor` declares
 (`weft_extract.accept.claimed_extensions`). Install an extractor pack claiming `.epub` and
 `weft index` reads `.epub` with no edit anywhere; if two installed extractors claim the same
@@ -321,8 +351,8 @@ expensive, CPU-bound `_split` step offloads it with `asyncio.to_thread`, the sam
 first-party pack in this repository uses, so the detector never fires on the one call that is
 supposed to block a worker thread instead of the loop.
 
-Phase 1 is what turns "name your plugin in a pipeline" into something `weft index`/`weft ask`
-themselves can be pointed at, from a file rather than a Python script you write yourself.
+The `Runner`-and-`StageSpec` route above is still the one a *test* takes, because a test wants
+the seam without a database or a corpus. The pipeline document is the one a *user* takes.
 
 ## 6. Testing it
 
