@@ -56,6 +56,11 @@ _ROW: Final[re.Pattern[str]] = re.compile(
     r"^\| \*\*([0-9]+[a-z]?)\*\* \|.*\| \*\*([A-Z' ]+)\*\* \|"
 )
 
+#: A §1 row's **id alone**, whatever its verdict says. `_ROW` above keys on a verdict spelled
+#: `[A-Z' ]+` and therefore cannot see `WON'T yet` — right where a verdict is judged, wrong where
+#: the question is whether the table has a row at all (`L22.1`).
+_ROW_ID: Final[re.Pattern[str]] = re.compile(r"^\| \*\*([0-9]+[a-z]?)\*\* \|", re.MULTILINE)
+
 
 def _ticks_by_phase() -> dict[str, tuple[int, int]]:
     """`{phase id: (ticked, open)}`, skipping fenced blocks the way every reader of this file must.
@@ -320,3 +325,42 @@ def test_the_section_walk_is_not_vacuous() -> None:
 
     # Assert
     assert "98z" in _rows_owing_a_section(planted)
+
+
+@_requires_both
+def test_every_section_arguing_a_phase_has_a_row_in_the_table() -> None:
+    """The inverse of the check above — `docs/internal/lessons.md` `L22.1`.
+
+    **`L19.5` made a live row point at an argument, and nothing asserted the other direction.**
+    Phase 28 was specified in full on 2026-09-12 — five tasks, three reserved ids, an exit and four
+    named checks — cited by a settled gate's own decision-log row and by the ledger's `R17.x`
+    grouping, with every blocking repair closed. It had **no §1 row**, which is the table the next
+    phase is chosen from, so `next_task.py`, the Status block and that session's own *what next*
+    answer were all blind to it, and `README.md` said *"Nothing is building"* on a day it was
+    unblocked and written. Found by an outside reviewer who could not read this directory at all.
+
+    A pointer with no target and a target with no pointer are two defects; a check for one reads as
+    coverage of both. Walks 13 sections today and fails 0.
+    """
+    # Arrange
+    roadmap = _ROADMAP.read_text(encoding="utf-8")
+
+    # Act — every row id, not `_verdicts`: that walk keys on a verdict spelled `[A-Z' ]+` and so
+    # cannot see `WON'T yet`, which is deliberate where a verdict is being judged and wrong here,
+    # where the question is only whether the table has a row at all. Measured: `16b` is exactly
+    # that row, and reading it through `_verdicts` would have reported this check green while the
+    # defect it was written for sat one row away.
+    sections = set(_SECTION.findall(roadmap))
+    rows = set(_ROW_ID.findall(roadmap))
+
+    # Assert
+    assert len(sections) >= 8, (
+        "the section walk found almost nothing, so an empty result below would mean the parser "
+        "moved rather than that every argument is scheduled"
+    )
+    unscheduled = sorted(sections - rows)
+    assert not unscheduled, (
+        f"these phases have an argument section in `12` and no §1 row: {unscheduled}. §1 is the "
+        f"table the next phase is chosen from, so an argument with no row is a phase nothing can "
+        f"schedule — however completely it is specified, and however many documents cite it"
+    )

@@ -108,6 +108,17 @@ its own citations the same day, each caught by FF17 naming the correct line.
 citations, **93** exact, **17** inside the window but not on the line. A check arriving red on
 seventeen judgements is one whose waiver is where the real drift hides (`R10.2`).*
 
+**And when the insertion point *is* before a cited line, say in the brief that placement is yours
+to satisfy.** `L22.4`, which is `L21.7` a phase later and the first time an agent could not have
+complied any other way. The `R21.5` implementer returned **green** and put a new public function at
+the end of `route_ask.py`, after a private helper, rather than beside its twin — deliberately, to
+keep a `test_service_role_needs_store.py` citation — a line of `route_ask.py` that its insertion
+would have moved — inside FF17's window, in a file it may not edit. It said so in `## Noticed`, which is the only reason it was caught; moving
+the function back cost four re-points across three files, all of them the dispatcher's to make.
+So the clause above has two halves, not one: grep for citations into the target file **and** name
+who re-points them. An agent forbidden to edit `tests/` and required to keep `ci-no-tests` green
+has no third option, and the one it takes is a placement nobody chose.
+
 **A brief is written against the *surface* the change touches, never against the file list — and
 the tree usually already holds the shape.** `L21.3`, `L21.4` and `L21.6` are one defect at three
 distances, all three inside Phase 21b, and every one cost a dispatch cycle that came back

@@ -73,6 +73,21 @@ cannot make fail (`L16.1`). So: **re-run the measurement when you act on a count
 it, however many places agree** — and when a gate changes the tree's shape, the sentences
 *justifying* a check's subjects are as stale as any assertion.
 
+**Two places this keeps landing that are not documents, and one sweep shape that lies.** `L22.2`
+and `L22.5`, both paid for in Phase 28. *(a)* **A repair entry is not a document and nothing routes
+it through the rule above.** `R21.5` was filed saying *"of the 39 shipped pipeline documents not
+one is text-only"* — 39 is the file count of one directory; the tree ships 48, the binary offers
+47, and `weft_kg` contributes the rest. **A population is what the *system* enumerates, not the
+directory the question started in**: take it from the binary or the registry, and where the claim
+does not need a cardinality, do not state one. *(b)* **"Exactly one surviving instance" is a claim
+about a fact, and a grep can only see a phrasing.** `R21.4` swept `docs/`, `manual/`, `README.md`
+and `packages/` for a sentence it was correcting and reported one instance left; the same false
+claim sat in `hybrid-then-generate.yaml`, inside those roots, saying it in different words — and it
+was propagated into a *new* file before anyone noticed, because the neighbouring document was
+copied. So a sweep supporting "one left" searches for the **subject** (`qdrant`, `TextSearch`) and
+reads the hits, never for the sentence being corrected. A cardinality of one looks too small to be
+worth checking, which is exactly why it is not.
+
 **3. A list in a document is where to start looking, not a census.** *"The five known sites"* stops
 where its author's reading stopped — task 5.2b was given five and found nine. Grep for the thing
 itself. Read what a check *asserts*, not what its name says it is for, and check a property about

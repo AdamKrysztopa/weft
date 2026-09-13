@@ -245,3 +245,37 @@ def test_the_walk_reaches_the_files_it_is_supposed_to() -> None:
     assert len(files) >= 200, f"only {len(files)} files were walked — the roots moved"
     assert {".md", ".py"} <= suffixes, f"the walk found only {sorted(suffixes)}"
     assert not any("internal" in path.parts for path in files), "the untracked tree was walked"
+
+
+#: Every row of the decision log's own table, by id — `| **G22** | …`. Both families, because an
+#: `S` row is chosen the same way a `G` row is and collides the same way.
+_LOG_ROW: Final[re.Pattern[str]] = re.compile(r"^\| \*\*([GS]\d{1,2})\*\*", re.MULTILINE)
+
+
+@_requires_log
+def test_no_two_decision_log_rows_carry_one_id() -> None:
+    """`docs/internal/lessons.md` `L22.3` — an id is claimed by the register, not by recollection.
+
+    A new gate was numbered `G22` on 2026-09-13 because `G21` was the last one anybody remembered;
+    `G22` was already taken by the pgvector dimension question, and what caught it was **taking the
+    count** rather than trusting the memory. Two rows under one id is not a cosmetic collision: the
+    log is what `phase-step`, the Status block and every *is this settled?* question resolve
+    against, and a duplicated id makes two decisions answer to one name.
+
+    Walks 37 rows today and fails 0. A ratchet, not a repair — the collision it was written from was
+    fixed the day it was found, and this is what stops the next one lasting longer than a session.
+    """
+    # Act
+    ids = _LOG_ROW.findall(_LOG.read_text(encoding="utf-8"))
+
+    # Assert
+    assert len(ids) > 20, (
+        f"only {len(ids)} decision-log rows parsed — the table's shape has moved and this check is "
+        f"reading something else, which is the vacuous pass `08` §3's floor rule refuses"
+    )
+    duplicated = sorted({identifier for identifier in ids if ids.count(identifier) > 1})
+    assert not duplicated, (
+        f"these decision ids are carried by more than one row: {duplicated}. An id is claimed by "
+        f"this table, never by the last one anybody remembered — count the column before choosing "
+        f"the next one"
+    )
