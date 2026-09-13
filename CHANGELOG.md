@@ -33,6 +33,25 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ## [Unreleased]
 
+### Deprecated
+
+- **The `keybert` enhancer is renamed to `term-frequency-keywords`.** The old name still works and
+  still resolves to the same plugin; selecting it now prints a deprecation notice naming the new
+  one. Change `use: keybert` to `use: term-frequency-keywords` in any pipeline document of your
+  own — nothing else about the stage moves, and its `top_n` means what it meant.
+
+  **Why.** It ranks tokens by frequency against a fixed stoplist. KeyBERT ranks n-grams by cosine
+  similarity to a transformer embedding of the document, which is a different technique and a
+  better one; naming this after it claimed an outcome the code does not produce. The tell is in
+  its own output — indexing ordinary prose stored `["microkernel", "every", "capability",
+  "plugin", "pipeline"]`, and `"every"` is in that list because the ranking is counting.
+
+  **What it does, stated plainly, because the old name was doing the explaining:** it attaches a
+  node's most frequent tokens as namespaced extension data. **Nothing in Weft retrieves through
+  it** — the terms are stored beside the node and the text index is built from the node's content,
+  which already contains every one of them. It is metadata for a reader or for a consumer you
+  write, not a retrieval feature.
+
 ### Fixed
 
 - Two byte-identical documents in one corpus no longer take each other's nodes. Node ids are

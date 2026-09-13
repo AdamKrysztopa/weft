@@ -93,15 +93,25 @@ def missing_changelog_entries(
 # --- the floor: today's real state, and proof the comparison is not vacuous ----------------
 
 
-def test_today_the_installed_tree_marks_nothing_deprecated() -> None:
-    # Documents the measured fact `docs/09-release.md` §3's block quote is written against —
-    # if this ever fails, a real first-party surface has been marked deprecated, which is
-    # exactly the moment `test_every_real_deprecation_has_a_changelog_entry` below stops being
-    # vacuous and starts actually being asked something.
-    assert _real_deprecations() == frozenset(), (
-        "a real, installed pack now marks something deprecated — good, but this pins the "
-        "measured fact 09 §3 is written against; update this assertion and its neighbouring "
-        "prose once CHANGELOG.md carries the corresponding entry."
+def test_the_installed_tree_marks_exactly_what_it_has_retired() -> None:
+    """**This asserted `== frozenset()` until 2026-09-13, and it was right to.**
+
+    It was written to pin a measured fact — nothing first-party had ever been marked — and to
+    fail the day that stopped being true, because that is the day
+    `test_every_real_deprecation_has_a_changelog_entry` above stops being vacuous and starts
+    being asked something. It fired exactly once, at ledger task `21.10`, when `weft-enhance`
+    retired `keybert` for `term-frequency-keywords` (`R19.15`).
+
+    **So it is pinned rather than deleted.** An equality against a named set keeps doing the job
+    the empty one did: a second deprecation arriving without a `CHANGELOG.md` entry, or a
+    deprecation quietly disappearing, both fail here. Widening it to a `>=` or dropping it would
+    retire the check on the day it first had a subject.
+    """
+    assert _real_deprecations() == frozenset({"keybert"}), (
+        "the set of retired first-party surfaces moved. If something was retired, add its "
+        "CHANGELOG.md entry and name it here; if `keybert` stopped being marked, either the "
+        "rename was reverted or the old name was removed outright, and 09 §2.2's 'never "
+        "silently' is what decides whether that was allowed."
     )
 
 

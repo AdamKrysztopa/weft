@@ -201,14 +201,44 @@ def _named_in_a_use_position(pipelines: Iterable[Pipeline]) -> frozenset[str]:
     return frozenset(used)
 
 
+def _deprecated_names(reports: Sequence[PackReport]) -> frozenset[str]:
+    """Every plugin name a pack has itself marked deprecated.
+
+    **Derived from the packs, never listed here** — `L8.8`'s rule, and the reason this is not a
+    waiver: a pack states the fact once through `PackRegistrar.deprecate` and this reads it back,
+    so a name retired tomorrow is exempt without an edit to this file and a name *un*-retired
+    stops being exempt the same way.
+    """
+    return frozenset(
+        deprecation.surface for report in reports for deprecation in report.deprecations
+    )
+
+
 def _unreachable(
-    positions: frozenset[tuple[str, str]], used: frozenset[str]
+    positions: frozenset[tuple[str, str]],
+    used: frozenset[str],
+    deprecated: frozenset[str] = frozenset(),
 ) -> frozenset[tuple[str, str]]:
-    """The check itself, factored out so the failure self-test drives the identical code."""
+    """The check itself, factored out so the failure self-test drives the identical code.
+
+    **A deprecated name is exempt, and that is this check's own purpose rather than an exception
+    to it.** What it exists to catch is stated in its own docstring: the distance between *"the
+    engine can express this"* and *"a user can run this"*, which is one YAML file. A name its pack
+    has marked deprecated is one no user should be **discovering** — shipping a rung that named it
+    would be advertising the thing the project is retiring, and the operator who already has it in
+    a `weft.toml` reaches it through the deprecation warning, not through the ladder.
+
+    Added at ledger task `21.10`, which produced this tree's **first** real deprecation:
+    `weft-rag` retired `keybert` for `term-frequency-keywords` (`R19.15`), and measured on
+    2026-09-13 `discover()` returns exactly one `Deprecation` across all twenty-three installed
+    packs. So this clause has one live subject and is not a hole being opened for a population.
+    """
     return frozenset(
         pair
         for pair in positions
-        if pair[1] not in used and pair not in POSITIONS_WAIVED_FROM_THE_LADDER
+        if pair[1] not in used
+        and pair[1] not in deprecated
+        and pair not in POSITIONS_WAIVED_FROM_THE_LADDER
     )
 
 
@@ -278,7 +308,11 @@ def test_every_pipeline_position_the_ladder_ships_is_reachable() -> None:
     contributed = load_contributed(reports)
 
     # Act
-    unreachable = _unreachable(positions, _named_in_a_use_position(contributed.values()))
+    unreachable = _unreachable(
+        positions,
+        _named_in_a_use_position(contributed.values()),
+        _deprecated_names(reports),
+    )
 
     # Assert
     assert not unreachable, (
@@ -306,6 +340,38 @@ def test_the_check_can_actually_fail() -> None:
     assert unreachable == {("Fuser", "never-placed")}
 
 
+def test_a_deprecated_name_is_exempt_and_a_live_one_beside_it_is_not() -> None:
+    """The exemption added at `21.10`, asserted **against a live name in the same call** so it
+    cannot be satisfied by the sweep having stopped looking.
+
+    A clause that excluded everything would pass a test that only checked the exempt case. Here
+    one name is marked and one is not, and the unmarked one must still be reported.
+    """
+    # Arrange — one retired name and one that was simply never placed.
+    positions = frozenset({("Enhancer", "retired-name"), ("Fuser", "never-placed")})
+
+    # Act
+    unreachable = _unreachable(positions, frozenset(), frozenset({"retired-name"}))
+
+    # Assert
+    assert unreachable == {("Fuser", "never-placed")}
+
+
+def test_the_tree_actually_marks_the_name_this_exemption_is_for() -> None:
+    """Non-vacuity for the exemption's own subject: it is derived from the packs, so a pack that
+    stopped marking `keybert` would silently make the clause cover nothing — and FF16 would then
+    fail on `keybert` rather than passing wrongly, which is the right direction, but this says so
+    out loud rather than leaving it to be discovered."""
+    # Arrange / Act
+    deprecated = _deprecated_names(_reports())
+
+    # Assert
+    assert "keybert" in deprecated, (
+        "weft-enhance no longer marks 'keybert' deprecated — either the rename was reverted, or "
+        "the retired name was removed outright, and this clause's only subject went with it"
+    )
+
+
 def test_the_waiver_is_live_rather_than_decorative() -> None:
     """The waived pairs are pairs the sweep *fires on* — not pairs it never reaches.
 
@@ -321,8 +387,14 @@ def test_the_waiver_is_live_rather_than_decorative() -> None:
     positions = _positions_shipped_by(registry, _distributions_shipping_a_pipeline(reports))
     used = _named_in_a_use_position(load_contributed(reports).values())
 
-    # Act — the identical computation with the waiver emptied.
-    fires_on = frozenset(pair for pair in positions if pair[1] not in used)
+    # Act — the identical computation with the **waiver** emptied. The deprecated-name clause
+    # stays applied, because it is not a waiver: it is derived from what the packs themselves
+    # marked (`_deprecated_names`), so emptying it here would ask this test to report a name the
+    # check is right to be silent about, and the waiver's own liveness is what is under test.
+    deprecated = _deprecated_names(reports)
+    fires_on = frozenset(
+        pair for pair in positions if pair[1] not in used and pair[1] not in deprecated
+    )
 
     # Assert
     assert fires_on == POSITIONS_WAIVED_FROM_THE_LADDER, (
