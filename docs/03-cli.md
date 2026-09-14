@@ -667,6 +667,14 @@ the CLI's own surface.
 > `required_declarations` is untouched, and a pack registering no renderer still works because the
 > structured dump is the floor. `ExitCode` moved with `Rendered`, because a renderer that cannot say
 > the run failed is a renderer a built-in could not have used.
+>
+> **A renderer is for a person; `--json` is the result model's dump — carried repair `R18.3`,
+> settled with the owner 2026-09-14.** `--json` bypasses a registered renderer and dumps the
+> `CommandResult` model, so a pack's own rendering never reaches a script. That is the contract
+> rather than a gap: a pack that wants a particular wire format shapes its result model, and the
+> dump of that model is its machine-readable output, promised additively by `09` §3. A second,
+> pack-written JSON path through `add_renderer` would be another format to keep stable, and would
+> need a kernel-facing surface to carry it.
 
 ## Permissions
 
